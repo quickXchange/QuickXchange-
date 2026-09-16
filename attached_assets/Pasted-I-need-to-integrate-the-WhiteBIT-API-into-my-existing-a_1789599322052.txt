@@ -1,0 +1,39 @@
+I need to integrate the WhiteBIT API into my existing application.
+Please first inspect my existing project structure and database before changing anything.
+I need a secure WhiteBIT deposit system with the following functionality:
+Store WHITEBIT_API_KEY, WHITEBIT_API_SECRET, and WHITEBIT_WEBHOOK_SECRET only in Replit Secrets/environment variables. Never expose them to frontend code or commit them to GitHub.
+Implement WhiteBIT API authentication according to the current WhiteBIT API documentation.
+Implement deposit address creation using: POST /api/v4/main-account/create-new-address
+When a logged-in user requests a deposit address, create/retrieve the appropriate WhiteBIT deposit address and associate it with that user in our database.
+Create a secure webhook endpoint: POST /api/webhooks/whitebit
+Implement WhiteBIT webhook signature verification using the official WhiteBIT webhook signing method. Reject invalid signatures.
+Handle these WhiteBIT events:
+deposit.accepted
+deposit.updated
+deposit.processed
+Store every deposit and its WhiteBIT transaction hash/event ID in our database.
+Make the deposit processing idempotent. A webhook must never be able to credit the same deposit twice.
+Do not credit a user's internal balance merely because a webhook was received. Verify the event/status according to WhiteBIT's documented deposit-processing flow.
+Implement deposit history reconciliation using: POST /api/v4/main-account/history
+Implement balance retrieval using: POST /api/v4/main-account/balance
+Add the required WhiteBIT webhook domain verification endpoint according to the current WhiteBIT documentation.
+Add proper logging and error handling, but NEVER log API secrets, webhook secrets, or other sensitive credentials.
+Add database tables/models for:
+users
+deposit addresses
+deposits
+transactions/balance ledger
+Connect deposits to the correct authenticated user.
+Update the existing user dashboard so users can see:
+deposit address
+deposit amount
+currency/network
+pending/confirmed/processed status
+confirmations when available
+transaction hash
+deposit history
+current internal balance
+Do not break any existing functionality. Before making changes, inspect the existing architecture and use the project's current framework, database, authentication system, and coding conventions.
+After implementation, test the webhook verification, duplicate webhook handling, invalid signatures, deposit status transitions, and database balance updates.
+Use WhiteBIT's current official API and webhook documentation rather than guessing any API fields or authentication/signature formats.
+Do not ask me to paste my API secret into the source code. Use Replit Secrets.
