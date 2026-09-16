@@ -16,6 +16,7 @@ import {
   clerkProxyMiddleware,
   getClerkProxyHost,
 } from "./middlewares/clerkProxyMiddleware";
+import { whitebitPublicRouter } from "./routes/whitebit";
 
 const app: Express = express();
 app.set("trust proxy", trustedProxyHops());
@@ -49,6 +50,7 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(cookieParser());
+app.use(whitebitPublicRouter);
 
 app.use(
   clerkMiddleware((req) => ({

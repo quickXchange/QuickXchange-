@@ -824,6 +824,41 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /account/deposits/address:
+    post:
+      operationId: createCustomerDepositAddress
+      tags: [deposits]
+      summary: Get or provision the signed-in customer's WhiteBIT deposit address
+      security: [{ CustomerSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WhitebitDepositAddressInput" }
+      responses:
+        "200": { description: Existing address, content: { application/json: { schema: { $ref: "#/components/schemas/WhitebitDepositAddress" } } } }
+        "201": { description: Newly provisioned address, content: { application/json: { schema: { $ref: "#/components/schemas/WhitebitDepositAddress" } } } }
+        "401": { description: Customer authentication is required, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /account/deposits:
+    get:
+      operationId: getCustomerDeposits
+      tags: [deposits]
+      summary: List deposits credited or awaiting confirmation for the signed-in customer
+      security: [{ CustomerSession: [] }]
+      responses:
+        "200":
+          description: Deposit history
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/WhitebitDeposit" } } } }
+  /account/balances:
+    get:
+      operationId: getCustomerBalances
+      tags: [deposits]
+      summary: Get internal balances derived from the immutable ledger
+      security: [{ CustomerSession: [] }]
+      responses:
+        "200":
+          description: Internal balances
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/WhitebitBalance" } } } }
   /account/orders/claim:
     post:
       operationId: claimCustomerOrder
@@ -920,6 +955,79 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /admin/whitebit/reconcile:
+    post:
+      operationId: reconcileWhitebitDeposits
+      tags: [admin]
+      summary: Reconcile recent WhiteBIT deposit history
+      security: [{ OperatorSession: [] }]
+      x-required-role: owner
+      responses:
+        "200":
+          description: Reconciliation result
+          content: { application/json: { schema: { $ref: "#/components/schemas/WhitebitReconciliationResult" } } }
+        "401": { description: Operator authentication is required }
+        "403": { description: Owner role is required }
+        "503": { description: WhiteBIT credentials are not configured }
+  /admin/whitebit/balance:
+    get:
+      operationId: getWhitebitMainBalance
+      tags: [admin]
+      summary: Retrieve WhiteBIT main-account balance for operations health checks
+      security: [{ OperatorSession: [] }]
+      x-required-role: owner
+      responses:
+        "200":
+          description: Provider main-account balance; never a customer balance
+          content: { application/json: { schema: { type: object, additionalProperties: { type: string } } } }
+        "401": { description: Operator authentication is required }
+        "403": { description: Owner role is required }
+        "503": { description: WhiteBIT credentials are not configured }
+  /admin/whitebit/recover-address:
+    post:
+      operationId: recoverWhitebitDepositAddress
+      tags: [admin]
+      summary: Attach an operator-confirmed address after an ambiguous provider call
+      security: [{ OwnerSession: [] }]
+      x-required-role: owner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WhitebitAddressRecoveryInput" }
+      responses:
+        "200": { description: Recovered address, content: { application/json: { schema: { $ref: "#/components/schemas/WhitebitDepositAddress" } } } }
+        "400": { description: Invalid recovery input }
+        "409": { description: Address is not unresolved }
+        "403": { description: Owner role is required }
+  /whiteBIT-verification:
+    get:
+      operationId: getWhitebitVerification
+      servers:
+        - url: /
+      responses:
+        "200":
+          description: WhiteBIT domain verification key
+          content:
+            application/json:
+              schema: { type: array, items: { type: string } }
+        "404": { description: Verification is not configured }
+  /webhooks/whitebit:
+    post:
+      operationId: receiveWhitebitWebhook
+      tags: [webhooks]
+      summary: Receive a signed WhiteBIT deposit webhook
+      description: Public root verification is GET /whiteBIT-verification; this webhook is mounted under the API server's /api prefix.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WhitebitWebhookEnvelope" }
+      responses:
+        "200": { description: Accepted and durably recorded }
+        "400": { description: Invalid envelope }
+        "401": { description: Invalid signature or API key }
+        "409": { description: Non-increasing nonce }
   /admin/summary:
     get:
       operationId: getAdminSummary
@@ -5970,3 +6078,68 @@ components:
             ageMs: { type: [number, "null"] }
             stale: { type: boolean }
             lastFailureAt: { type: [string, "null"] }
+    WhitebitDepositAddressInput:
+      type: object
+      required: [ticker]
+      properties:
+        ticker: { type: string, minLength: 1, maxLength: 32 }
+        network: { type: [string, "null"], maxLength: 64 }
+    WhitebitDepositAddress:
+      type: object
+      required: [id, ticker, network, address, memo, status]
+      properties:
+        id: { type: string, format: uuid }
+        ticker: { type: string }
+        network: { type: [string, "null"] }
+        address: { type: [string, "null"] }
+        memo: { type: [string, "null"] }
+        status: { type: string, enum: [ready, pending, provisioning, unresolved, failed, error] }
+    WhitebitDeposit:
+      type: object
+      required: [id, ticker, amount, fee, status, address, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        ticker: { type: string }
+        network: { type: [string, "null"] }
+        address: { type: string }
+        memo: { type: [string, "null"] }
+        amount: { type: string }
+        fee: { type: string }
+        status: { type: string, enum: [accepted, updated, processed, unknown] }
+        providerStatus: { type: [integer, "null"] }
+        transactionHash: { type: [string, "null"] }
+        confirmationsActual: { type: [integer, "null"] }
+        confirmationsRequired: { type: [integer, "null"] }
+        createdAt: { type: string, format: date-time }
+    WhitebitBalance:
+      type: object
+      required: [ticker, balance]
+      properties:
+        ticker: { type: string }
+        balance: { type: string }
+    WhitebitReconciliationResult:
+      type: object
+      required: [pages, records, credited]
+      properties:
+        pages: { type: integer }
+        records: { type: integer }
+        credited: { type: integer }
+    WhitebitAddressRecoveryInput:
+      type: object
+      required: [id, address]
+      properties:
+        id: { type: string, format: uuid }
+        address: { type: string, minLength: 1 }
+        memo: { type: [string, "null"] }
+    WhitebitWebhookEnvelope:
+      type: object
+      required: [method, params, id]
+      properties:
+        method: { type: string }
+        id: { type: string }
+        params:
+          type: object
+          required: [nonce]
+          additionalProperties: true
+          properties:
+            nonce: { type: integer }

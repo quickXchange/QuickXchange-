@@ -3578,6 +3578,61 @@ export const GetCustomerOrdersResponse = zod.object({
 
 
 /**
+ * @summary Get or provision the signed-in customer's WhiteBIT deposit address
+ */
+export const createCustomerDepositAddressBodyTickerMax = 32;
+
+export const createCustomerDepositAddressBodyNetworkMax = 64;
+
+
+
+export const CreateCustomerDepositAddressBody = zod.object({
+  "ticker": zod.string().min(1).max(createCustomerDepositAddressBodyTickerMax),
+  "network": zod.string().max(createCustomerDepositAddressBodyNetworkMax).nullish()
+})
+
+export const CreateCustomerDepositAddressResponse = zod.object({
+  "id": zod.string().uuid(),
+  "ticker": zod.string(),
+  "network": zod.string().nullable(),
+  "address": zod.string().nullable(),
+  "memo": zod.string().nullable(),
+  "status": zod.enum(['ready', 'pending', 'provisioning', 'unresolved', 'failed', 'error'])
+})
+
+
+/**
+ * @summary List deposits credited or awaiting confirmation for the signed-in customer
+ */
+export const GetCustomerDepositsResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "ticker": zod.string(),
+  "network": zod.string().nullish(),
+  "address": zod.string(),
+  "memo": zod.string().nullish(),
+  "amount": zod.string(),
+  "fee": zod.string(),
+  "status": zod.enum(['accepted', 'updated', 'processed', 'unknown']),
+  "providerStatus": zod.number().int().nullish(),
+  "transactionHash": zod.string().nullish(),
+  "confirmationsActual": zod.number().int().nullish(),
+  "confirmationsRequired": zod.number().int().nullish(),
+  "createdAt": zod.coerce.date()
+})
+export const GetCustomerDepositsResponse = zod.array(GetCustomerDepositsResponseItem)
+
+
+/**
+ * @summary Get internal balances derived from the immutable ledger
+ */
+export const GetCustomerBalancesResponseItem = zod.object({
+  "ticker": zod.string(),
+  "balance": zod.string()
+})
+export const GetCustomerBalancesResponse = zod.array(GetCustomerBalancesResponseItem)
+
+
+/**
  * @summary Add an eligible anonymous order using its private reference
  */
 export const claimCustomerOrderBodyOrderIdMax = 100;
@@ -3672,6 +3727,63 @@ export const UpdateCustomerOrderNotificationsResponse = zod.object({
   "orderId": zod.string(),
   "statusNotificationsEnabled": zod.boolean()
 })
+
+
+/**
+ * @summary Reconcile recent WhiteBIT deposit history
+ */
+export const ReconcileWhitebitDepositsResponse = zod.object({
+  "pages": zod.number().int(),
+  "records": zod.number().int(),
+  "credited": zod.number().int()
+})
+
+
+/**
+ * @summary Retrieve WhiteBIT main-account balance for operations health checks
+ */
+export const GetWhitebitMainBalanceResponse = zod.record(zod.string(), zod.string())
+
+
+/**
+ * @summary Attach an operator-confirmed address after an ambiguous provider call
+ */
+
+
+
+export const RecoverWhitebitDepositAddressBody = zod.object({
+  "id": zod.string().uuid(),
+  "address": zod.string().min(1),
+  "memo": zod.string().nullish()
+})
+
+export const RecoverWhitebitDepositAddressResponse = zod.object({
+  "id": zod.string().uuid(),
+  "ticker": zod.string(),
+  "network": zod.string().nullable(),
+  "address": zod.string().nullable(),
+  "memo": zod.string().nullable(),
+  "status": zod.enum(['ready', 'pending', 'provisioning', 'unresolved', 'failed', 'error'])
+})
+
+
+export const GetWhitebitVerificationResponseItem = zod.string()
+export const GetWhitebitVerificationResponse = zod.array(GetWhitebitVerificationResponseItem)
+
+
+/**
+ * Public root verification is GET /whiteBIT-verification; this webhook is mounted under the API server's /api prefix.
+ * @summary Receive a signed WhiteBIT deposit webhook
+ */
+export const ReceiveWhitebitWebhookBody = zod.object({
+  "method": zod.string(),
+  "id": zod.string(),
+  "params": zod.object({
+  "nonce": zod.number().int()
+})
+})
+
+export const ReceiveWhitebitWebhookResponse = zod.unknown()
 
 
 /**

@@ -4,7 +4,7 @@ import { Link, useLocation } from 'wouter';
 import { useUser, useClerk } from '@clerk/react';
 import {
   Menu, X, LayoutDashboard, History, Settings, LogOut,
-  ChevronDown, ExternalLink, Network, ArrowRightLeft, Sun, Moon, UserRound, ShieldCheck
+  ChevronDown, ExternalLink, Network, ArrowRightLeft, Sun, Moon, UserRound, ShieldCheck, WalletCards
 } from 'lucide-react';
 import { getGetOperatorsQueryKey, useGetOperators } from '@workspace/api-client-react';
 import { cn, basePath } from '@/components/shared-app-ui';
@@ -205,6 +205,7 @@ function CustomerSidebar({
   
   const navItems = [
     { href: '/account', icon: LayoutDashboard, label: t('customerPortal.dashboard'), exact: true },
+    { href: '/account/deposits', icon: WalletCards, label: 'Deposits', exact: true },
     { href: '/account/orders', icon: History, label: t('customerPortal.myOrders'), exact: false },
     { href: '/', icon: ArrowRightLeft, label: t('customerPortal.newExchange'), exact: true },
     { href: '/account/affiliate', icon: Network, label: t('customerPortal.affiliates'), exact: false },

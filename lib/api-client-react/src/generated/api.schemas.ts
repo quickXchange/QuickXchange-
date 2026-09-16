@@ -4440,6 +4440,105 @@ export interface QuickexDiagnostics {
   instrumentCache: QuickexDiagnosticsInstrumentCache;
 }
 
+export interface WhitebitDepositAddressInput {
+  /**
+     * @minLength 1
+     * @maxLength 32
+     */
+  ticker: string;
+  /**
+     * @maxLength 64
+     * @nullable
+     */
+  network?: string | null;
+}
+
+export type WhitebitDepositAddressStatus = typeof WhitebitDepositAddressStatus[keyof typeof WhitebitDepositAddressStatus];
+
+
+export const WhitebitDepositAddressStatus = {
+  ready: 'ready',
+  pending: 'pending',
+  provisioning: 'provisioning',
+  unresolved: 'unresolved',
+  failed: 'failed',
+  error: 'error',
+} as const;
+
+export interface WhitebitDepositAddress {
+  id: string;
+  ticker: string;
+  /** @nullable */
+  network: string | null;
+  /** @nullable */
+  address: string | null;
+  /** @nullable */
+  memo: string | null;
+  status: WhitebitDepositAddressStatus;
+}
+
+export type WhitebitDepositStatus = typeof WhitebitDepositStatus[keyof typeof WhitebitDepositStatus];
+
+
+export const WhitebitDepositStatus = {
+  accepted: 'accepted',
+  updated: 'updated',
+  processed: 'processed',
+  unknown: 'unknown',
+} as const;
+
+export interface WhitebitDeposit {
+  id: string;
+  ticker: string;
+  /** @nullable */
+  network?: string | null;
+  address: string;
+  /** @nullable */
+  memo?: string | null;
+  amount: string;
+  fee: string;
+  status: WhitebitDepositStatus;
+  /** @nullable */
+  providerStatus?: number | null;
+  /** @nullable */
+  transactionHash?: string | null;
+  /** @nullable */
+  confirmationsActual?: number | null;
+  /** @nullable */
+  confirmationsRequired?: number | null;
+  createdAt: string;
+}
+
+export interface WhitebitBalance {
+  ticker: string;
+  balance: string;
+}
+
+export interface WhitebitReconciliationResult {
+  pages: number;
+  records: number;
+  credited: number;
+}
+
+export interface WhitebitAddressRecoveryInput {
+  id: string;
+  /** @minLength 1 */
+  address: string;
+  /** @nullable */
+  memo?: string | null;
+}
+
+export type WhitebitWebhookEnvelopeParams = {
+  nonce: number;
+  [key: string]: unknown;
+ };
+
+export interface WhitebitWebhookEnvelope {
+  method: string;
+  id: string;
+  params: WhitebitWebhookEnvelopeParams;
+}
+
 export type PageParameter = number;
 
 export type PageSizeParameter = number;
@@ -4591,6 +4690,8 @@ page?: number;
  */
 pageSize?: number;
 };
+
+export type GetWhitebitMainBalance200 = {[key: string]: string};
 
 export type GetAdminSummaryParams = {
 product: GetAdminSummaryProduct;

@@ -44,6 +44,7 @@ export * from "./site-content";
 export * from "./website-branding";
 export * from "./blog";
 export * from "./newsletter";
+export * from "./whitebit-deposits";
 
 export const ordersTable = pgTable("exchange_orders", {
     id: text("id").primaryKey(),

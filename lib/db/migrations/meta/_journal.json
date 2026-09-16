@@ -491,6 +491,13 @@
       "when": 1789482612000,
       "tag": "0071_remove_legacy_provider",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1789482613000,
+      "tag": "0072_whitebit_customer_deposits",
+      "breakpoints": true
     }
   ]
 }

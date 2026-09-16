@@ -106,6 +106,7 @@ import type {
   GetOrdersParams,
   GetPublicOrderStatusParams,
   GetQuickexOrderStatusParams,
+  GetWhitebitMainBalance200,
   HealthStatus,
   ImageUpload,
   ImageUploadInput,
@@ -194,7 +195,14 @@ import type {
   UnsubscribeNewsletterParams,
   WebsiteBranding,
   WebsiteBrandingSaveInput,
-  WebsiteBrandingUpload
+  WebsiteBrandingUpload,
+  WhitebitAddressRecoveryInput,
+  WhitebitBalance,
+  WhitebitDeposit,
+  WhitebitDepositAddress,
+  WhitebitDepositAddressInput,
+  WhitebitReconciliationResult,
+  WhitebitWebhookEnvelope
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -2193,6 +2201,231 @@ export function useGetCustomerOrders<TData = Awaited<ReturnType<typeof getCustom
 
 
 
+export const getCreateCustomerDepositAddressUrl = () => {
+
+
+
+
+  return `/api/account/deposits/address`
+}
+
+/**
+ * @summary Get or provision the signed-in customer's WhiteBIT deposit address
+ */
+export const createCustomerDepositAddress = async (whitebitDepositAddressInput: WhitebitDepositAddressInput, options?: Parameters<typeof customFetch>[1]): Promise<WhitebitDepositAddress> => {
+
+  return customFetch<WhitebitDepositAddress>(getCreateCustomerDepositAddressUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(whitebitDepositAddressInput)
+  }
+);}
+
+
+
+
+
+export const getCreateCustomerDepositAddressMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCustomerDepositAddress>>, TError,{data: BodyType<WhitebitDepositAddressInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCustomerDepositAddress>>, TError,{data: BodyType<WhitebitDepositAddressInput>}, TContext> => {
+
+const mutationKey = ['createCustomerDepositAddress'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCustomerDepositAddress>>, {data: BodyType<WhitebitDepositAddressInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCustomerDepositAddress(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCustomerDepositAddressMutationResult = NonNullable<Awaited<ReturnType<typeof createCustomerDepositAddress>>>
+    export type CreateCustomerDepositAddressMutationBody = BodyType<WhitebitDepositAddressInput>
+    export type CreateCustomerDepositAddressMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Get or provision the signed-in customer's WhiteBIT deposit address
+ */
+export const useCreateCustomerDepositAddress = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCustomerDepositAddress>>, TError,{data: BodyType<WhitebitDepositAddressInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCustomerDepositAddress>>,
+        TError,
+        {data: BodyType<WhitebitDepositAddressInput>},
+        TContext
+      > => {
+      return useMutation(getCreateCustomerDepositAddressMutationOptions(options));
+    }
+
+export const getGetCustomerDepositsUrl = () => {
+
+
+
+
+  return `/api/account/deposits`
+}
+
+/**
+ * @summary List deposits credited or awaiting confirmation for the signed-in customer
+ */
+export const getCustomerDeposits = async ( options?: Parameters<typeof customFetch>[1]): Promise<WhitebitDeposit[]> => {
+
+  return customFetch<WhitebitDeposit[]>(getGetCustomerDepositsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCustomerDepositsQueryKey = () => {
+    return [
+    `/api/account/deposits`
+    ] as const;
+    }
+
+
+export const getGetCustomerDepositsQueryOptions = <TData = Awaited<ReturnType<typeof getCustomerDeposits>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCustomerDeposits>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCustomerDepositsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCustomerDeposits>>> = ({ signal }) => getCustomerDeposits({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCustomerDeposits>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCustomerDepositsQueryResult = NonNullable<Awaited<ReturnType<typeof getCustomerDeposits>>>
+export type GetCustomerDepositsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List deposits credited or awaiting confirmation for the signed-in customer
+ */
+
+export function useGetCustomerDeposits<TData = Awaited<ReturnType<typeof getCustomerDeposits>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCustomerDeposits>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCustomerDepositsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetCustomerBalancesUrl = () => {
+
+
+
+
+  return `/api/account/balances`
+}
+
+/**
+ * @summary Get internal balances derived from the immutable ledger
+ */
+export const getCustomerBalances = async ( options?: Parameters<typeof customFetch>[1]): Promise<WhitebitBalance[]> => {
+
+  return customFetch<WhitebitBalance[]>(getGetCustomerBalancesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCustomerBalancesQueryKey = () => {
+    return [
+    `/api/account/balances`
+    ] as const;
+    }
+
+
+export const getGetCustomerBalancesQueryOptions = <TData = Awaited<ReturnType<typeof getCustomerBalances>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCustomerBalances>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCustomerBalancesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCustomerBalances>>> = ({ signal }) => getCustomerBalances({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCustomerBalances>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCustomerBalancesQueryResult = NonNullable<Awaited<ReturnType<typeof getCustomerBalances>>>
+export type GetCustomerBalancesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get internal balances derived from the immutable ledger
+ */
+
+export function useGetCustomerBalances<TData = Awaited<ReturnType<typeof getCustomerBalances>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCustomerBalances>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCustomerBalancesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getClaimCustomerOrderUrl = () => {
 
 
@@ -2411,6 +2644,368 @@ export const useUpdateCustomerOrderNotifications = <TError = ErrorType<ApiError>
         TContext
       > => {
       return useMutation(getUpdateCustomerOrderNotificationsMutationOptions(options));
+    }
+
+export const getReconcileWhitebitDepositsUrl = () => {
+
+
+
+
+  return `/api/admin/whitebit/reconcile`
+}
+
+/**
+ * @summary Reconcile recent WhiteBIT deposit history
+ */
+export const reconcileWhitebitDeposits = async ( options?: Parameters<typeof customFetch>[1]): Promise<WhitebitReconciliationResult> => {
+
+  return customFetch<WhitebitReconciliationResult>(getReconcileWhitebitDepositsUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getReconcileWhitebitDepositsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reconcileWhitebitDeposits>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reconcileWhitebitDeposits>>, TError,void, TContext> => {
+
+const mutationKey = ['reconcileWhitebitDeposits'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reconcileWhitebitDeposits>>, void> = () => {
+
+
+          return  reconcileWhitebitDeposits(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReconcileWhitebitDepositsMutationResult = NonNullable<Awaited<ReturnType<typeof reconcileWhitebitDeposits>>>
+
+    export type ReconcileWhitebitDepositsMutationError = ErrorType<void>
+
+    /**
+ * @summary Reconcile recent WhiteBIT deposit history
+ */
+export const useReconcileWhitebitDeposits = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reconcileWhitebitDeposits>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reconcileWhitebitDeposits>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getReconcileWhitebitDepositsMutationOptions(options));
+    }
+
+export const getGetWhitebitMainBalanceUrl = () => {
+
+
+
+
+  return `/api/admin/whitebit/balance`
+}
+
+/**
+ * @summary Retrieve WhiteBIT main-account balance for operations health checks
+ */
+export const getWhitebitMainBalance = async ( options?: Parameters<typeof customFetch>[1]): Promise<GetWhitebitMainBalance200> => {
+
+  return customFetch<GetWhitebitMainBalance200>(getGetWhitebitMainBalanceUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWhitebitMainBalanceQueryKey = () => {
+    return [
+    `/api/admin/whitebit/balance`
+    ] as const;
+    }
+
+
+export const getGetWhitebitMainBalanceQueryOptions = <TData = Awaited<ReturnType<typeof getWhitebitMainBalance>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWhitebitMainBalance>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWhitebitMainBalanceQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWhitebitMainBalance>>> = ({ signal }) => getWhitebitMainBalance({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWhitebitMainBalance>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWhitebitMainBalanceQueryResult = NonNullable<Awaited<ReturnType<typeof getWhitebitMainBalance>>>
+export type GetWhitebitMainBalanceQueryError = ErrorType<void>
+
+
+/**
+ * @summary Retrieve WhiteBIT main-account balance for operations health checks
+ */
+
+export function useGetWhitebitMainBalance<TData = Awaited<ReturnType<typeof getWhitebitMainBalance>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWhitebitMainBalance>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWhitebitMainBalanceQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRecoverWhitebitDepositAddressUrl = () => {
+
+
+
+
+  return `/api/admin/whitebit/recover-address`
+}
+
+/**
+ * @summary Attach an operator-confirmed address after an ambiguous provider call
+ */
+export const recoverWhitebitDepositAddress = async (whitebitAddressRecoveryInput: WhitebitAddressRecoveryInput, options?: Parameters<typeof customFetch>[1]): Promise<WhitebitDepositAddress> => {
+
+  return customFetch<WhitebitDepositAddress>(getRecoverWhitebitDepositAddressUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(whitebitAddressRecoveryInput)
+  }
+);}
+
+
+
+
+
+export const getRecoverWhitebitDepositAddressMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recoverWhitebitDepositAddress>>, TError,{data: BodyType<WhitebitAddressRecoveryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recoverWhitebitDepositAddress>>, TError,{data: BodyType<WhitebitAddressRecoveryInput>}, TContext> => {
+
+const mutationKey = ['recoverWhitebitDepositAddress'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recoverWhitebitDepositAddress>>, {data: BodyType<WhitebitAddressRecoveryInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  recoverWhitebitDepositAddress(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecoverWhitebitDepositAddressMutationResult = NonNullable<Awaited<ReturnType<typeof recoverWhitebitDepositAddress>>>
+    export type RecoverWhitebitDepositAddressMutationBody = BodyType<WhitebitAddressRecoveryInput>
+    export type RecoverWhitebitDepositAddressMutationError = ErrorType<void>
+
+    /**
+ * @summary Attach an operator-confirmed address after an ambiguous provider call
+ */
+export const useRecoverWhitebitDepositAddress = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recoverWhitebitDepositAddress>>, TError,{data: BodyType<WhitebitAddressRecoveryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recoverWhitebitDepositAddress>>,
+        TError,
+        {data: BodyType<WhitebitAddressRecoveryInput>},
+        TContext
+      > => {
+      return useMutation(getRecoverWhitebitDepositAddressMutationOptions(options));
+    }
+
+export const getGetWhitebitVerificationUrl = () => {
+
+
+
+
+  return `/api/whiteBIT-verification`
+}
+
+export const getWhitebitVerification = async ( options?: Parameters<typeof customFetch>[1]): Promise<string[]> => {
+
+  return customFetch<string[]>(getGetWhitebitVerificationUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWhitebitVerificationQueryKey = () => {
+    return [
+    `/api/whiteBIT-verification`
+    ] as const;
+    }
+
+
+export const getGetWhitebitVerificationQueryOptions = <TData = Awaited<ReturnType<typeof getWhitebitVerification>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWhitebitVerification>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWhitebitVerificationQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWhitebitVerification>>> = ({ signal }) => getWhitebitVerification({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWhitebitVerification>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWhitebitVerificationQueryResult = NonNullable<Awaited<ReturnType<typeof getWhitebitVerification>>>
+export type GetWhitebitVerificationQueryError = ErrorType<void>
+
+
+
+export function useGetWhitebitVerification<TData = Awaited<ReturnType<typeof getWhitebitVerification>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWhitebitVerification>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWhitebitVerificationQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getReceiveWhitebitWebhookUrl = () => {
+
+
+
+
+  return `/api/webhooks/whitebit`
+}
+
+/**
+ * Public root verification is GET /whiteBIT-verification; this webhook is mounted under the API server's /api prefix.
+ * @summary Receive a signed WhiteBIT deposit webhook
+ */
+export const receiveWhitebitWebhook = async (whitebitWebhookEnvelope: WhitebitWebhookEnvelope, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getReceiveWhitebitWebhookUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(whitebitWebhookEnvelope)
+  }
+);}
+
+
+
+
+
+export const getReceiveWhitebitWebhookMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof receiveWhitebitWebhook>>, TError,{data: BodyType<WhitebitWebhookEnvelope>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof receiveWhitebitWebhook>>, TError,{data: BodyType<WhitebitWebhookEnvelope>}, TContext> => {
+
+const mutationKey = ['receiveWhitebitWebhook'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof receiveWhitebitWebhook>>, {data: BodyType<WhitebitWebhookEnvelope>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  receiveWhitebitWebhook(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReceiveWhitebitWebhookMutationResult = NonNullable<Awaited<ReturnType<typeof receiveWhitebitWebhook>>>
+    export type ReceiveWhitebitWebhookMutationBody = BodyType<WhitebitWebhookEnvelope>
+    export type ReceiveWhitebitWebhookMutationError = ErrorType<void>
+
+    /**
+ * @summary Receive a signed WhiteBIT deposit webhook
+ */
+export const useReceiveWhitebitWebhook = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof receiveWhitebitWebhook>>, TError,{data: BodyType<WhitebitWebhookEnvelope>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof receiveWhitebitWebhook>>,
+        TError,
+        {data: BodyType<WhitebitWebhookEnvelope>},
+        TContext
+      > => {
+      return useMutation(getReceiveWhitebitWebhookMutationOptions(options));
     }
 
 export const getGetAdminSummaryUrl = (params: GetAdminSummaryParams,) => {

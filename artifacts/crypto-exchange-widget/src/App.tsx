@@ -111,6 +111,7 @@ import { AdminPermissionsProvider, useAdminPermissions } from '@/lib/admin-permi
 const AccountPage = lazy(() => import('./pages/account').then(module => ({ default: module.AccountPage })));
 const AccountOrdersPage = lazy(() => import('./pages/account').then(module => ({ default: module.AccountOrdersPage })));
 const AccountSettingsPage = lazy(() => import('./pages/account').then(module => ({ default: module.AccountSettingsPage })));
+const AccountDepositsPage = lazy(() => import('./pages/account-deposits').then(module => ({ default: module.AccountDepositsPage })));
 const AccountOrderDetailPage = lazy(() => import('./pages/account').then(module => ({ default: module.AccountOrderDetailPage })));
 const CustomerSignInPage = lazy(() => import('./pages/account').then(module => ({ default: module.CustomerSignInPage })));
 const CustomerSignUpPage = lazy(() => import('./pages/account').then(module => ({ default: module.CustomerSignUpPage })));
@@ -2462,6 +2463,7 @@ function ClerkProviderWithRoutes() {
             <Route path="/order/:id" component={OrderConfirmationPage} />
             <Route path="/status" component={StatusPage} />
             <Route path="/account/affiliate" component={AffiliateDashboardPage} />
+            <Route path="/account/deposits" component={AccountDepositsPage} />
             <Route path="/account/orders" component={AccountOrdersPage} />
             <Route path="/account/orders/:id" component={AccountOrderDetailPage} />
             <Route path="/account/settings" component={AccountSettingsPage} />
