@@ -1,0 +1,131 @@
+I want you to make the entire website fully responsive and production-ready on all screen sizes and devices.
+Do NOT only fix the homepage. Audit and optimize every page, every section, every component, the exchange widget, forms, modals, dropdowns, navigation, footer, and all user flows.
+Responsive breakpoints
+Make the design work perfectly across:
+Large desktop: 1440px+
+Desktop: 1200–1439px
+Laptop: 1024–1199px
+Tablet: 768–1023px
+Mobile: 480–767px
+Small mobile: 320–479px
+Do not rely only on fixed widths.
+Desktop
+Use a clean responsive max-width container.
+Keep content properly centered.
+Prevent sections from becoming excessively wide.
+Maintain balanced spacing and typography.
+The hero should keep the text and exchange widget properly aligned.
+The exchange widget should remain compact and never stretch unnecessarily.
+Tablet
+Adjust columns, spacing, font sizes, and widget dimensions appropriately.
+If a two-column layout becomes too cramped, switch to a single-column layout naturally.
+Make sure nothing overlaps or gets cut off.
+Mobile
+Design mobile intentionally rather than simply shrinking the desktop version.
+Single-column layouts where appropriate.
+Exchange widget should fit perfectly within the screen.
+No horizontal scrolling.
+No content should overflow the viewport.
+Buttons should be easy to tap.
+Inputs should be comfortable to use.
+Text should remain readable without zooming.
+Navigation should become a clean mobile menu.
+Footer should stack vertically.
+Cards and sections should resize naturally.
+Images and icons should scale correctly.
+Maintain comfortable padding on both sides.
+Exchange widget
+The exchange widget is the most important component.
+Make sure it works perfectly on every screen size:
+Correct width
+Correct height
+Proper internal spacing
+Inputs never overflow
+Token selectors remain accessible
+Send/Receive sections remain aligned
+Middle swap button stays perfectly centered
+Animated connection line remains correctly positioned
+Dropdowns/modals fit within the viewport
+Error and success states remain responsive
+Long token names and large numbers don't break the layout
+Typography
+Create responsive typography.
+Do not allow:
+Headlines to overflow
+Text to become too large on mobile
+Buttons to wrap unexpectedly
+Navigation text to overlap
+Use responsive font sizing where appropriate.
+Spacing
+Audit all margins and padding at each breakpoint.
+Avoid excessive empty space on mobile and cramped spacing on desktop.
+Header
+Make the header fully responsive:
+Desktop:
+Full navigation
+Proper spacing
+CTA
+Mobile:
+Logo
+Main CTA if appropriate
+Hamburger menu
+Mobile navigation drawer
+No overlapping elements
+Footer
+Make the footer responsive as well.
+Desktop:
+Multi-column layout
+Tablet:
+Adjust columns naturally
+Mobile:
+Stack sections vertically
+Proper spacing
+Social icons and links remain accessible
+No horizontal overflow
+Important: test EVERY page
+Go through the entire application and check every route/page individually.
+For each page check:
+320px
+375px
+390px
+430px
+768px
+1024px
+1280px
+1440px+
+Look specifically for:
+Horizontal scrolling
+Overflow
+Elements touching screen edges
+Overlapping elements
+Broken grids
+Incorrect heights
+Fixed-width components
+Text overflow
+Images overflowing
+Modals going outside the viewport
+Dropdowns being cut off
+Buttons becoming too small
+Inconsistent spacing
+Footer/layout problems
+Implementation rules
+Use responsive CSS/layout techniques instead of adding lots of device-specific hacks.
+Prefer:
+CSS Grid
+Flexbox
+max-width
+width: 100%
+min()
+max()
+clamp()
+Responsive breakpoints
+Fluid spacing
+Responsive typography
+Avoid unnecessary hardcoded pixel widths and excessive media-query overrides.
+Also check for existing CSS rules that are causing desktop styles to leak into mobile.
+VERY IMPORTANT
+Do not change the existing business logic, exchange functionality, API integrations, calculations, wallet functionality, validation, or transaction flow.
+This is a responsive UI/UX optimization only.
+
+After making the changes, thoroughly test the entire site at all major breakpoints and fix every visual/layout issue you find.
+The final result should feel like a professionally designed responsive fintech/crypto product on desktop, tablet, and mobile, not a desktop website that was simply squeezed onto a phone.

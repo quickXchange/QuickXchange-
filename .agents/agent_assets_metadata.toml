@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "88Irw54mLw7U47PrHxzF1"
+uri = "file://screenshots/crypto-exchange-widget-final.jpg"
+type = "image"
+title = "Crypto Exchange Widget — Final Preview"
+description = "Verified desktop light-theme preview after the responsive selector and visual-stability cleanup."
+logical_id = "82b8248a-409c-4df5-9d31-9a0496132d3c"
+content_hash = "sha256:73a41139ccacc225b4c08fa5cd59cc46b62a165736d6d1feacdeea8f2943b209"
+size = 121827
+mtime_ms = 1788279462952
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/82b8248a-409c-4df5-9d31-9a0496132d3c/cc207d85-618d-426e-983b-bbbe7afd5536"
+storage_version_token = "1788279476397828"
+content_type = "image/jpeg"

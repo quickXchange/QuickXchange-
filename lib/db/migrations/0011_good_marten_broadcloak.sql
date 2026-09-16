@@ -1,0 +1,1 @@
+ALTER TABLE "customer_status_notification_events" ADD COLUMN IF NOT EXISTS "claim_token" text;

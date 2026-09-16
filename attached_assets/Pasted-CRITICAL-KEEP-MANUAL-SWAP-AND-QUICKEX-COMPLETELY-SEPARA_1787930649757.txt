@@ -1,0 +1,122 @@
+CRITICAL: KEEP MANUAL SWAP AND QUICKEX COMPLETELY SEPARATE for convert function.
+
+I already have an existing exchange/swap function in the application called swap(manual desk).
+The existing swap functionality was built manually and is currently working.
+DO NOT MODIFY THE EXISTING SWAP
+The existing manual swap function must remain completely independent from Quickex.
+DO NOT:
+replace the existing swap function
+rewrite the existing swap logic
+connect Quickex to the existing swap function
+make the existing swap function depend on Quickex
+change existing swap calculations
+change existing swap API endpoints
+change existing swap database logic
+change existing swap statuses
+change existing swap UI
+change existing swap business rules
+import the Quickex service into the existing swap module
+If the existing swap function currently works, assume it must remain exactly as it is.
+QUICKEX MUST BE A SEPARATE CONVERSION SYSTEM
+I want Quickex to power a separate widget called:
+Quickex Convert
+This widget is independent from the existing manual swap.
+The architecture should be:
+EXISTING APPLICATION Manual Swap | +---- Existing manual swap logic | +---- Existing database/business logic | +---- NO QUICKEX Quickex Convert Widget | +---- Quickex frontend widget | +---- Our backend Quickex service | +---- Quickex API 
+There must be no dependency from Manual Swap → Quickex.
+There must be no dependency from Quickex → Manual Swap.
+They are two separate systems.
+QUICKEX WIDGET
+The Quickex widget should have its own:
+frontend component
+backend API routes
+Quickex service
+Quickex authentication
+Quickex API requests
+quote/rate handling
+pair handling
+address validation
+order creation
+order tracking
+status handling
+error handling
+Use names that make the separation obvious, for example:
+QuickexConvertWidget quickexService quickexRoutes quickexOrders quickexQuote quickexStatus 
+Do not name these simply swap, because swap already belongs to the existing manual system.
+SEPARATE FRONTEND API ROUTES
+If the current application has routes such as:
+/api/swap/... 
+DO NOT modify them.
+Create separate Quickex routes such as:
+/api/quickex/... 
+Use the exact route structure that best fits the existing project, but keep the namespace separate.
+For example:
+/api/quickex/instruments /api/quickex/pairs /api/quickex/rate /api/quickex/validate-address /api/quickex/create-order /api/quickex/order/:id 
+These are examples only. Match the actual Quickex API capabilities and the existing project's architecture.
+DATABASE SEPARATION
+Do not modify existing manual swap records or statuses to accommodate Quickex.
+Create separate Quickex order records/tables or clearly separated fields/models.
+For example:
+ManualSwap - existing system - unchanged QuickexOrder - quickexOrderId - sourceCurrency - sourceNetwork - sourceAmount - destinationCurrency - destinationNetwork - destinationAmount - destinationAddress - depositAddress - quickexStatus - internalQuickexStatus - createdAt - updatedAt 
+Use the project's existing database conventions, but keep the data logically separated.
+QUICKEX CONVERT WIDGET BEHAVIOR
+The Quickex widget should work independently:
+User opens Quickex Convert.
+Widget loads Quickex-supported currencies/networks.
+User selects FROM.
+User selects TO.
+User enters amount.
+Widget requests a Quickex quote.
+Widget displays the Quickex result.
+User enters destination address.
+Backend validates the address through Quickex.
+User confirms.
+Backend creates the Quickex order.
+Widget displays the Quickex deposit address.
+Widget tracks the Quickex order.
+Widget displays the current Quickex status.
+Widget finishes when the Quickex order is completed/refunded/failed/etc.
+At no point should this process call the existing manual swap function.
+IMPORTANT NAMING RULE
+Because swap already exists, do not create generic functions such as:
+swap() createSwap() getSwapRate() executeSwap() swapStatus() 
+for Quickex.
+Use explicit Quickex names:
+getQuickexRate() createQuickexOrder() getQuickexOrder() getQuickexStatus() validateQuickexAddress() getQuickexPairs() getQuickexInstruments()
+
+This prevents accidental coupling between the two systems.
+REGRESSION PROTECTION
+Before making changes, inspect the existing manual swap implementation.
+Identify:
+its files
+functions
+routes
+database tables/models
+frontend components
+API calls
+business logic
+Then treat those parts as protected.
+After implementing Quickex, verify that the existing manual swap still works exactly as before.
+Run tests for BOTH systems:
+Manual Swap
+Existing swap works.
+Existing routes work.
+Existing calculations work.
+Existing database behavior works.
+No Quickex dependency exists.
+Quickex Convert
+Quickex credentials load correctly.
+Authentication works.
+Pairs work.
+Rates work.
+Address validation works.
+Order creation works.
+Order status works.
+Errors work.
+Database persistence works.
+FINAL REQUIREMENT
+Before changing any existing swap code, STOP and explain exactly why the change is necessary.
+My requirement is:
+Manual Swap = existing independent system.
+Quickex Convert = completely new independent system.
+They must coexist in the same application without interfering with each other.

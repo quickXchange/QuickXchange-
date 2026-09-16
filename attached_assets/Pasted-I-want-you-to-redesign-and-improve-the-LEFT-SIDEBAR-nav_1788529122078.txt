@@ -1,0 +1,114 @@
+I want you to redesign and improve the LEFT SIDEBAR navigation of my crypto exchange admin dashboard.
+
+Use the attached screenshot as the visual reference for the current design.
+
+IMPORTANT: Do NOT redesign the main dashboard/content area. Focus primarily on the left sidebar.
+
+Current problems:
+- Sidebar feels too narrow and cramped.
+- Navigation items are not visually balanced.
+- There is an unnecessary visible scrollbar inside the sidebar.
+- "WORKSPACE", "OPERATIONS", "AFFILIATES", and "OPERATIONS DESK" sections don't have enough visual hierarchy.
+- The spacing between navigation items is inconsistent.
+- The sidebar bottom area feels disconnected from the main navigation.
+- The logo/header area could be cleaner.
+- Active navigation state should look more polished and premium.
+- The sidebar should feel like a professional fintech/crypto trading platform.
+
+Redesign requirements:
+
+1. SIDEBAR
+- Keep a fixed left sidebar around 220–240px wide on desktop.
+- Use the same dark theme as the existing dashboard.
+- Add subtle borders/dividers rather than heavy lines.
+- Make the sidebar vertically organized and spacious.
+- Remove the visible internal scrollbar. If the navigation becomes longer than the viewport, use a clean scrollbar that is hidden until scrolling.
+- Keep the sidebar height at 100vh.
+
+2. LOGO AREA
+- Create a clean logo/header section at the top.
+- Align the QuickChange logo and text properly.
+- Give it comfortable padding.
+- Make sure it doesn't feel squeezed against the edge.
+
+3. NAVIGATION
+Organize the menu like this:
+
+WORKSPACE
+  Overview
+
+OPERATIONS
+  Orders
+  Reviews
+  Customers
+
+AFFILIATES
+  Affiliates
+
+OPERATIONS DESK
+  Operator Workspace
+  Back to Exchange
+
+- Use consistent icon sizes (around 16–18px).
+- Icons should align perfectly on the same vertical axis.
+- Text should have consistent font size and weight.
+- Give each menu item approximately 40–44px height.
+- Use 10–12px horizontal padding.
+- Add subtle spacing between navigation groups.
+
+4. ACTIVE ITEM
+For the selected page:
+- Use a subtle blue/purple gradient or blue background.
+- Add a soft glow, but keep it professional.
+- Rounded corners around 8px.
+- Make the icon and text brighter.
+- Do NOT use an overly bright neon effect.
+
+5. SECTION LABELS
+- Use small uppercase labels.
+- Font size around 9–10px.
+- Letter spacing around 0.08–0.12em.
+- Muted gray/blue color.
+- Add enough top/bottom spacing so sections are clearly separated.
+
+6. BADGES
+For "Orders", keep the notification/count badge on the far right.
+- Make it small and subtle.
+- Align it vertically with the text.
+- Use a blue/gray circular badge rather than something visually heavy.
+
+7. BOTTOM AREA
+Create a clean bottom section separated from the navigation:
+- Operator Workspace
+- Back to Exchange
+
+Keep this section pinned toward the bottom of the sidebar.
+Add a subtle top border/divider.
+Make "Back to Exchange" look like a secondary action rather than another normal navigation item.
+
+8. RESPONSIVE BEHAVIOR
+- Desktop: full 220–240px sidebar.
+- Tablet: reduce to around 72px and show icons with tooltips.
+- Mobile: convert the sidebar into a slide-out drawer.
+- Do not allow the sidebar to overlap or cover dashboard content.
+
+9. DESIGN STYLE
+The overall visual language should match a premium crypto/fintech admin product:
+- Dark navy/black background
+- Subtle blue/purple accents
+- Clean typography
+- Minimal borders
+- Soft hover states
+- Consistent spacing
+- No excessive gradients or glowing effects
+- Professional rather than flashy
+
+10. CODE QUALITY
+- Do not duplicate navigation markup.
+- Create reusable Sidebar/NavItem/NavSection components if the project structure allows it.
+- Use the existing icon library already installed in the project.
+- Preserve all existing navigation routes and functionality.
+- Do not break authentication, routing, or dashboard functionality.
+- Only change the visual/layout implementation where necessary.
+
+After implementing it, check the sidebar at 1440px, 1280px, 1024px, tablet, and mobile widths and make sure the layout remains clean.

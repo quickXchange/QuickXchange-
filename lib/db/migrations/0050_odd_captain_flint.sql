@@ -1,0 +1,1 @@
+ALTER TABLE "site_content_revisions" DROP CONSTRAINT "site_content_page_key_check";

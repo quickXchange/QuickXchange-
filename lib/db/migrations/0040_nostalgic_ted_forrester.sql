@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS "affiliate_accounts_public_code_uidx" ON "affiliate_accounts" USING btree (right(upper("code"), 8));

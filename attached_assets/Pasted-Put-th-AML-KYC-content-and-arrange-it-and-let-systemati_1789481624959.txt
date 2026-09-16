@@ -1,0 +1,93 @@
+Put th AML/KYC content and arrange it and let systematic then instead of exist one " 
+
+IDENTITY VERIFICATION AND ANTI-MONEY LAUNDERING (AML) POLICY
+﻿
+﻿
+﻿
+This Identity Verification and Anti-Money Laundering Policy (hereinafter referred to as the “AML Policy”) is aimed at preventing illegal financial activities, enhancing the security of the financial environment for all users, and strictly complying with anti-money laundering (AML) and terrorist financing laws.
+﻿
+﻿
+﻿
+1. Objectives of the Policy
+﻿
+﻿
+﻿
+1.1. The main objective of the AML Policy is to ensure transparency, security and integrity of transactions, as well as compliance with international and domestic regulations aimed at preventing illegal money turnover and combating criminal activity.
+﻿
+﻿
+﻿
+1.2. The Policy covers the processes of identity verification, verification of sources of funds, identification of suspicious transactions and interaction with law enforcement agencies in case of violations.
+﻿
+﻿
+﻿
+2. Identity Verification
+﻿
+﻿
+﻿
+﻿
+2.1. All users are required to undergo the identity verification procedure to access the Platform services. This requirement ensures a high level of security and prevents fraudulent activities.
+﻿
+﻿
+﻿
+2.2. When registering and using the services, users are required to provide the following documents:
+﻿
+• Passport (main page or front side).
+• Passport (second page or back side).
+• Document confirming the residential address (e.g. bank statement, utility bill, registration in the passport).
+﻿
+﻿
+﻿
+2.3. If necessary, the Contractor reserves the right to request additional documents confirming the user's identity or additional documents for a specific transaction.
+﻿
+﻿
+﻿
+2.4. In the event of suspicious transactions or an increased level of AML risk, the Contractor may request a photo or video with a document confirming the user's identity, as well as other evidence of the legality of the source of funds.
+﻿
+﻿
+﻿
+3. Verification of Sources of Funds and Suspension of Transactions
+﻿
+﻿
+﻿
+3.1. The Contractor uses a transaction control system to identify suspicious transactions. If a transaction raises suspicion, the Contractor has the right to temporarily suspend the transaction for up to 14 days to verify the sources of funds.
+﻿
+﻿
+﻿
+3.2. The check includes:
+﻿
+• Transaction assessment using a specialized AML service (for example, web.amlbot.com) to determine risks and identify illegal funds.
+• Requesting a screenshot or video from the user's personal account of the crypto wallet.
+• Analysis of sources of funds using available data, partner systems and requests from law enforcement agencies.
+﻿
+﻿
+﻿
+3.3. In cases where the risk of a transaction exceeds the acceptable level, the Contractor has the right to:
+• Freeze funds for up to 14 days.
+• Return funds to the details from which they were sent, or to other details after passing the check by the Platform's security service.
+﻿
+﻿
+﻿
+﻿
+4. User Responsibility and Cooperation
+﻿
+4.1. By accepting the terms of use of the Platform, the user confirms the legality of the origin of the funds and undertakes to provide the Contractor with complete, accurate and up-to-date data on their source of funds, if required for verification.
+﻿
+﻿
+﻿
+4.2. Users undertake to fully cooperate with the Contractor in providing information necessary to comply with the requirements of the AML policy.
+﻿
+﻿
+﻿
+4.3. Failure to provide information on the origin of funds or providing false information may result in the freezing of the user's funds. In such cases, the Contractor may cooperate with law enforcement agencies to return frozen funds to their rightful owners.
+﻿
+﻿
+﻿
+5. Measures to Prevent Violations
+﻿
+﻿
+﻿
+5.1. The Contractor makes every effort to prevent abuse and uses advanced algorithms to track and block suspicious transactions.
+﻿
+﻿
+﻿
+5.2. In rare cases, if the user cannot adequately confirm the source of funds or has connections with persons suspected of criminal activity, the Contractor may request additional measures to verify the identity and sources of funds.

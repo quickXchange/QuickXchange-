@@ -1,0 +1,2 @@
+ALTER TABLE "exchange_provider_sync_states" ADD COLUMN "consecutive_failures" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "exchange_provider_sync_states" ADD COLUMN "next_attempt_at" timestamp with time zone;

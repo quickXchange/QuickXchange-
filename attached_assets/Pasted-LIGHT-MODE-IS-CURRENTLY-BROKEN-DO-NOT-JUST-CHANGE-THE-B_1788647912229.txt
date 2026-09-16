@@ -1,0 +1,181 @@
+LIGHT MODE IS CURRENTLY BROKEN. DO NOT JUST CHANGE THE BACKGROUND.
+
+I want you to FIX THE ENTIRE ADMIN PANEL LIGHT THEME based on the current screenshot.
+
+IMPORTANT:
+Do NOT change any functionality, business logic, API calls, data, routes, buttons/actions, or component behavior.
+This is a PURE UI/THEME/CSS FIX.
+
+The current problem is that when Light Mode is enabled, many components still look like they belong to the dark theme. They have poor contrast, washed-out text, dark/translucent backgrounds, ugly borders, and inconsistent colors.
+
+Perform a COMPLETE LIGHT-MODE UI AUDIT across the ENTIRE admin dashboard.
+
+SPECIFICALLY FIX:
+
+1. SIDEBAR
+- The sidebar must have a clean solid light background.
+- All navigation text must have strong readable contrast.
+- Icons must be clearly visible.
+- Active navigation item must look intentional and polished.
+- Remove any dark-mode backgrounds, gradients, transparency, or shadows that remain in Light Mode.
+- Separators/borders should be subtle and visible.
+
+2. TOP HEADER
+- Fix all header buttons and controls.
+- Light mode buttons must NOT use dark navy/black backgrounds unless intentionally part of the design.
+- Icons must have proper contrast.
+- Dropdowns, profile controls, notifications, theme toggle, etc. must all look native to the light theme.
+
+3. SWAP / CONVERT TOGGLE
+The "Swap / Convert" segmented control shown in the screenshot looks wrong in Light Mode.
+Redesign it specifically for Light Mode:
+- clean white/light surface
+- subtle border
+- selected tab clearly highlighted
+- unselected tab readable
+- no dark translucent appearance
+- proper hover/focus states
+
+4. TIME RANGE CONTROL
+The "1D / 7D / 30D / 90D / Custom" control also looks like a dark-theme component.
+Fix it completely for Light Mode:
+- light surface
+- clear border
+- readable text
+- selected 7D state clearly visible
+- consistent spacing
+- subtle hover state
+- no dark background
+
+5. CARDS
+Every dashboard card must be properly themed for Light Mode:
+- clean white/light background
+- readable headings
+- readable secondary text
+- subtle border
+- subtle shadow
+- no dark-mode colors
+- no low-opacity text
+
+6. QUICK ACTIONS
+The Quick Actions section currently contains very faint/washed-out icons and text.
+Fix:
+- icon containers
+- icons
+- labels
+- arrows
+- borders
+- hover states
+Everything must be clearly readable in Light Mode.
+
+7. STATUS / METRIC CARDS
+Fix all:
+- numbers
+- labels
+- status indicators
+- icons
+- badges
+- progress indicators
+- success/warning/error states
+
+Make sure nothing becomes nearly invisible against the light background.
+
+8. TYPOGRAPHY / CONTRAST
+Audit ALL text colors in Light Mode.
+
+Do not use extremely light gray text for important content.
+
+Use a clear hierarchy:
+- Primary text: very dark
+- Secondary text: medium gray
+- Tertiary/muted text: darker muted gray, still readable
+- Disabled text: appropriately muted
+
+9. BORDERS / DIVIDERS
+Replace dark-theme borders with subtle light-theme borders.
+Avoid extremely faint borders that disappear completely.
+
+10. INPUTS / DROPDOWNS / SELECTS
+Audit every input, dropdown, select, tooltip, menu, modal, popover, and form element.
+Everything must have:
+- light background
+- readable text
+- visible border
+- correct placeholder color
+- correct hover/focus state
+
+11. TABLES / LISTS
+If there are tables or lists anywhere in the admin panel:
+- light background
+- readable headers
+- readable rows
+- proper hover state
+- proper borders
+- no dark-theme row backgrounds
+
+12. EMPTY / LOADING / ERROR STATES
+Make sure these are also correctly themed for Light Mode.
+
+13. THEME ARCHITECTURE
+DO NOT fix this by adding random one-off CSS overrides everywhere.
+
+Find the existing theme system/design tokens/CSS variables and properly separate:
+- light theme colors
+- dark theme colors
+
+For example, use semantic variables such as:
+
+--background
+--foreground
+--card
+--card-foreground
+--muted
+--muted-foreground
+--border
+--input
+--primary
+--primary-foreground
+--secondary
+--secondary-foreground
+--accent
+--accent-foreground
+
+Then make sure EVERY component uses semantic theme variables instead of hardcoded dark colors.
+
+SEARCH THE ENTIRE CODEBASE for:
+- hardcoded dark backgrounds
+- hardcoded white/gray text
+- rgba() colors
+- opacity values
+- dark borders
+- dark shadows
+- gradients
+- Tailwind dark: classes incorrectly affecting light mode
+- inline styles containing colors
+- components that don't use the global theme variables
+
+Do NOT assume the visible dashboard is the only affected area.
+Audit the entire admin panel.
+
+VERY IMPORTANT:
+Do not change the existing visual identity unnecessarily.
+Keep the existing blue/cyan brand accent and overall design language.
+The goal is:
+
+DARK MODE = polished dark dashboard
+LIGHT MODE = polished light dashboard
+
+They should feel like the SAME DESIGN SYSTEM, not two unrelated UIs.
+
+After making the changes:
+1. Search the codebase for remaining hardcoded dark-theme colors.
+2. Check every admin page, not only the Overview page.
+3. Check sidebar + header + cards + controls + modals + dropdowns + forms.
+4. Verify hover/focus/active/disabled states in both themes.
+5. Do a final visual consistency pass.
+
+Do not tell me that you changed the theme.
+Actually inspect and fix the components and theme tokens.
+
+Do not stop after changing 2-3 components.
+I want a COMPLETE LIGHT-MODE AUDIT.

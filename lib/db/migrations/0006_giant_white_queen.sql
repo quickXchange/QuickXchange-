@@ -1,0 +1,3 @@
+-- Metadata-only reconciliation for operational order-directory indexes.
+-- The indexes are intentionally not created by the transactional migrator:
+-- on a populated database they must be built online before this schema metadata is published.

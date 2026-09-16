@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" />
+    <title>Quick Xchange</title>
+    <meta name="description" content="Quick Xchange provides secure crypto conversion and assisted currency swaps." />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:title" content="Quick Xchange" />
+    <meta property="og:description" content="Secure crypto conversion and assisted currency swaps." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Quick Xchange" />
+    <meta name="twitter:description" content="Secure crypto conversion and assisted currency swaps." />
+    <link rel="icon" type="image/png" href="%BASE_URL%brand/quickxchange-mark.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@700;800&family=Outfit:wght@400;500;600;700&family=Spline+Sans+Mono:wght@500;600&display=swap" />
+    <script>
+      (function() {
+        var savedTheme = null;
+        try {
+          var migrationKey = 'qx-preview-parity-v1';
+          if (localStorage.getItem(migrationKey) !== 'complete') {
+            localStorage.removeItem('qx-theme');
+            localStorage.removeItem('qx-locale');
+            localStorage.setItem(migrationKey, 'complete');
+          }
+          savedTheme = localStorage.getItem('qx-theme');
+        } catch (e) {}
+        var isDark = savedTheme
+          ? savedTheme === 'dark'
+          : window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.classList.toggle('dark', isDark);
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

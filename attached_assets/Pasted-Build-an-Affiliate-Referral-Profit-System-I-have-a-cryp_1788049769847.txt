@@ -1,0 +1,412 @@
+Build an Affiliate / Referral Profit System
+I have a crypto exchange application similar to Changelly.
+My application has two transaction types:
+Convert — powered by the Quickex API.
+Swap — built and processed internally by my own exchange system.
+I want you to build a complete Affiliate / Referral Program for registered users.
+1. Affiliate Program Logic
+Every registered user should automatically have a unique referral/affiliate code and referral link.
+Example:
+https://myexchange.com/?ref=USER123
+When User A refers User B, User B becomes associated with User A.
+The affiliate owner should earn a percentage of the referred user's eligible transaction volume.
+The default commission should be configurable from the admin panel.
+For example:
+0.003 = 0.3%
+0.004 = 0.4%
+0.005 = 0.5%
+IMPORTANT:
+Store the commission internally as a decimal/rate and make the admin panel clearly show the percentage.
+For example:
+0.003 → 0.3%
+Do NOT hard-code the commission rate.
+2. Commission Configuration
+Create an Affiliate Settings section in the Admin Panel.
+Admin should be able to configure:
+Default affiliate commission rate
+Whether the affiliate program is enabled/disabled
+Minimum transaction volume required before commission is generated
+Minimum payout amount
+Affiliate cookie/session duration
+Whether commissions apply to Convert transactions
+Whether commissions apply to Swap transactions
+Maximum commission per transaction, if desired
+The commission rate must be editable without changing source code.
+Example:
+Admin enters:
+0.003
+The system calculates:
+affiliate_commission = eligible_volume × 0.003
+If admin changes it to:
+0.004
+all NEW eligible transactions should use 0.004.
+Do not retroactively change commissions that have already been recorded.
+3. Referral Tracking
+When a visitor opens the website using:
+?ref=ABC123
+store the referral information.
+Use a secure cookie/session mechanism so the referral can survive navigation and registration.
+When the visitor registers, permanently associate the new user with the referring affiliate.
+Database should contain something similar to:
+users.id
+users.affiliate_code
+users.referred_by_user_id
+users.created_at
+Prevent obvious self-referrals.
+A user must not be able to refer themselves.
+Do not allow users to change their referrer after registration.
+4. Affiliate Dashboard for Users
+Create a new Affiliate section in the user dashboard.
+Show:
+Affiliate Link
+Example:
+https://myexchange.com/?ref=ABC123
+Add a Copy Link button.
+Referral Statistics
+Show:
+Total referrals
+Active referrals
+Total referred volume
+Total earned commission
+Pending commission
+Available commission
+Paid commission
+Example:
+My Referrals 25
+Referred Volume $125,430.50
+Total Earned $376.29
+Pending $100.50
+Available $275.79
+Paid $0.00
+Referral List
+Show a table:
+ReferralRegistration DateVolumeCommissionStatusUser #12342026-08-01$2,500$7.50ActiveUser #56782026-08-05$1,000$3.00Active 
+Do not expose sensitive information about referred users.
+5. Transaction Commission Calculation
+The affiliate system must integrate with BOTH transaction systems.
+Convert
+When a Convert transaction is completed successfully through the Quickex API:
+Identify the user who performed the transaction.
+Check whether that user has a referrer.
+Determine the eligible transaction volume according to the configured rules.
+Calculate the affiliate commission.
+Create an immutable affiliate commission record.
+Example:
+Transaction volume:
+$1,000
+Affiliate rate:
+0.003
+Commission:
+$3
+Only create the commission after the transaction reaches the configured successful/completed status.
+Do NOT pay commission for:
+failed transactions
+cancelled transactions
+expired transactions
+pending transactions
+transactions that are reversed/refunded
+Use the actual completed transaction status from the Quickex integration.
+Swap
+When an internally processed Swap transaction is successfully completed:
+Identify the user.
+Check whether the user has a referrer.
+Calculate the eligible volume.
+Calculate the affiliate commission.
+Record the commission.
+The affiliate system must not depend on Quickex for Swap transactions.
+6. VERY IMPORTANT: Define "Volume"
+Do not simply assume that any numeric amount in the transaction database is USD volume.
+Create a consistent eligible_volume_usd value for each completed transaction.
+For example:
+If a user swaps:
+1 BTC → USDT
+and the transaction's USD-equivalent completed volume is:
+$60,000
+then:
+$60,000 × 0.003 = $180
+affiliate commission.
+Use the existing exchange pricing/conversion data where available.
+If the system cannot reliably determine USD-equivalent volume, do NOT silently calculate an incorrect commission. Instead, flag the transaction for admin review or use the configured base-volume calculation.
+Document exactly which field is being used as eligible volume.
+7. Affiliate Commission Ledger
+Create a proper affiliate commission ledger.
+Do NOT calculate historical earnings dynamically only from transaction records.
+Create immutable commission records.
+Suggested database structure:
+affiliate_accounts
+id
+user_id
+affiliate_code
+status
+created_at
+updated_at
+affiliate_commissions
+id
+affiliate_user_id
+referred_user_id
+transaction_id
+transaction_type (convert / swap)
+transaction_volume
+volume_currency
+eligible_volume_usd
+commission_rate
+commission_amount
+commission_currency
+status (pending, available, paid, reversed)
+created_at
+updated_at
+affiliate_payouts
+id
+affiliate_user_id
+amount
+currency
+payout_method
+status
+requested_at
+processed_at
+processed_by
+Store the commission rate used at the time the commission was created.
+This is important because changing the admin commission rate later must NOT change historical commissions.
+8. Prevent Duplicate Commissions
+This is extremely important.
+The same transaction must NEVER generate affiliate commission twice.
+Create a unique constraint/index based on the transaction ID and affiliate commission relationship.
+For example:
+unique(transaction_id, affiliate_user_id)
+The commission creation process must be idempotent.
+If a webhook from Quickex is received multiple times, it must not create duplicate commissions.
+The same applies to internal Swap transactions.
+9. Transaction Status Handling
+Affiliate commissions should only be created when a transaction is definitively completed.
+For example:
+pending → completed
+should generate the commission.
+But:
+pending → failed
+should generate nothing.
+If a completed transaction is later reversed/refunded, create a corresponding reversal ledger entry rather than deleting the original commission.
+Never delete financial/affiliate ledger records.
+10. Admin Affiliate Dashboard
+Create a dedicated:
+Admin → Affiliate Program
+section.
+Show:
+Overview
+Total affiliates
+Total referrals
+Total referred volume
+Total commissions
+Pending commissions
+Available commissions
+Paid commissions
+Reversed commissions
+Commission Settings
+Admin can change:
+Commission rate
+Program enabled/disabled
+Convert enabled/disabled
+Swap enabled/disabled
+Minimum payout
+Minimum eligible volume
+Maximum commission
+Affiliate Management
+Admin should be able to search users by:
+User ID
+Email
+Affiliate code
+Show:
+Affiliate
+Referral count
+Referred volume
+Total earned
+Pending
+Available
+Paid
+Status
+Affiliate Details
+When admin opens an affiliate:
+Show all referred users and all commission transactions.
+Example:
+DateReferralTransactionTypeVolumeRateCommissionStatusAug 20User #123TX123Swap$1,0000.3%$3AvailableAug 21User #456TX456Convert$5,0000.3%$15Pending 
+Admin should be able to filter by:
+Date
+Convert / Swap
+Commission status
+Affiliate
+Referral
+11. Payout System
+Build the system so affiliates can eventually request payouts.
+User should see:
+Available Balance: $125.50
+Minimum Payout: $50
+Button:
+Request Payout
+If balance is below the minimum payout, disable the button and explain why.
+Create payout statuses:
+Requested
+Approved
+Processing
+Paid
+Rejected
+Admin should have a payout management page.
+For now, DO NOT automatically send cryptocurrency unless there is already a secure payout/wallet system in the application.
+Build the accounting and payout-request infrastructure so an actual payment processor/wallet can be connected later.
+12. Security
+Treat affiliate commissions as financial/accounting data.
+Implement:
+Server-side commission calculation
+Never trust commission values sent by frontend
+Authentication/authorization on all affiliate endpoints
+Admin-only settings
+Admin-only payout processing
+Input validation
+Rate validation
+Protection against self-referrals
+Protection against duplicate commissions
+Audit logging for admin changes
+Audit logging for payout actions
+Do not allow a user to modify:
+their affiliate balance
+commission amount
+referral relationship
+transaction volume
+commission status
+from the frontend.
+13. Admin Audit Log
+Whenever an administrator changes affiliate settings, record:
+admin user ID
+old value
+new value
+setting name
+timestamp
+Example:
+Commission rate changed from 0.003 to 0.004
+Also log payout actions and manual commission adjustments.
+14. API / Backend
+Create clean backend services/endpoints for:
+User
+Get affiliate dashboard
+Get affiliate link
+Get referrals
+Get commission history
+Get affiliate balance
+Request payout
+Admin
+Get affiliate statistics
+Get affiliates
+Get affiliate details
+Get commission history
+Get payout requests
+Update affiliate settings
+Approve/reject/process payouts
+Keep all financial calculations server-side.
+15. Frontend
+Add an Affiliate menu item to the registered user's dashboard.
+Suggested UI:
+Affiliate Program
+Earn from every successful transaction made by your referrals.
+Your referral link:
+https://myexchange.com/?ref=ABC123
+[ Copy Link ]
+Stats:
+Referrals
+Referred Volume
+Total Earnings
+Available Balance
+Then:
+My Referrals
+and
+Commission History
+Make the UI consistent with the existing exchange design.
+Add responsive mobile support.
+16. Database / Migration
+Before changing the database:
+Inspect the existing database schema.
+Identify the existing users table.
+Identify Convert transaction tables.
+Identify Swap transaction tables.
+Identify transaction status fields.
+Identify how USD/equivalent values are currently calculated.
+Identify existing wallet/balance tables.
+Do NOT create duplicate tables or duplicate user/account systems if equivalent structures already exist.
+Create proper migrations.
+Do not destroy existing production data.
+17. Integration With Existing Code
+Before implementation, inspect the entire existing codebase.
+Do not rewrite the existing Convert or Swap systems unnecessarily.
+Integrate the affiliate system into the existing successful-transaction flow.
+For Quickex:
+Inspect how Quickex API responses/webhooks are currently processed.
+Identify the authoritative transaction status.
+Add affiliate commission generation at the correct point after successful completion.
+For Swap:
+Inspect the existing swap completion flow.
+Add affiliate commission generation after successful completion.
+Use a reusable service such as:
+AffiliateCommissionService
+with functionality similar to:
+processCompletedTransaction(transaction)
+The service should determine:
+transaction type
+user
+referrer
+eligible volume
+current commission configuration
+commission amount
+ledger entry
+18. Financial Precision
+Do NOT use JavaScript floating-point arithmetic for financial calculations.
+Use the existing database decimal/numeric types or a reliable arbitrary-precision decimal library.
+Example:
+0.003
+must not produce floating-point rounding errors.
+Store monetary amounts with appropriate precision.
+19. Testing
+Create automated tests for at least:
+New user receives affiliate code.
+Referral link correctly tracks visitor.
+Referral is associated after registration.
+Self-referral is prevented.
+Completed Convert generates commission.
+Completed Swap generates commission.
+Failed Convert generates no commission.
+Failed Swap generates no commission.
+Pending transaction generates no commission.
+Duplicate Quickex webhook does not create duplicate commission.
+Duplicate Swap completion does not create duplicate commission.
+Changing commission rate affects only future transactions.
+Historical commission keeps the original rate.
+Reversed transaction creates reversal.
+Affiliate cannot modify their own balance.
+Admin can change commission rate.
+Admin changes are audit logged.
+Payout below minimum is rejected.
+Valid payout request is created.
+Unauthorized users cannot access admin affiliate endpoints.
+20. Deliverables
+Implement the complete feature, including:
+Database migrations
+Backend models
+Affiliate/referral service
+Convert integration
+Swap integration
+User Affiliate Dashboard
+Admin Affiliate Dashboard
+Commission settings
+Commission ledger
+Payout request system
+Admin payout management
+Audit logs
+API endpoints
+Validation
+Security
+Automated tests
+Before coding, first inspect my existing project and explain:
+Which existing files/components you will modify.
+Which database tables already exist and can be reused.
+Where Convert transactions become completed.
+Where Swap transactions become completed.
+How you will determine USD-equivalent transaction volume.
+What new database tables/migrations are required.
+Then implement the feature without breaking existing Convert, Swap, authentication, wallet, or transaction functionality.
+After implementation, run the existing test suite and the new affiliate tests, fix any errors, and provide a concise summary of all files changed and how the affiliate calculation works.

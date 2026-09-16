@@ -1,0 +1,258 @@
+Please audit and fix the entire QuickXchange exchange/convert widget shown in the current app.
+
+IMPORTANT:
+• Do NOT rebuild the application from scratch.
+• Do NOT change the existing business logic, API integrations, exchange calculations, wallet functionality, or form submission behavior.
+• Keep the current visual identity: dark crypto-exchange theme, blue/purple neon accents, rounded cards, and modern premium appearance.
+• Focus on correcting the UI/UX, responsive behavior, spacing, alignment, sizing, overflow, and mobile presentation.
+• First inspect the existing component structure and CSS/Tailwind styles before making changes.
+• Make the fixes directly in the existing codebase.
+• Test the page at mobile widths around 320px, 360px, 375px, 390px, 414px and desktop widths.
+
+SPECIFIC PROBLEMS TO FIX:
+
+1. MOBILE RESPONSIVE LAYOUT
+The exchange card currently feels too wide and cramped on mobile.
+
+Fix:
+• Make the entire exchange interface fit perfectly inside the viewport with NO horizontal scrolling.
+• Use responsive width rules such as width: 100%, max-width, and appropriate horizontal padding.
+• Ensure all cards, inputs, tabs, buttons, labels and text stay within the viewport.
+• Do not allow any element to overflow the right side of the screen.
+• Check both portrait and desktop layouts.
+
+2. EXCHANGE CARD CONTAINER
+Improve the main Convert/Swap container.
+
+Requirements:
+• Maintain a clean centered layout.
+• On mobile, use approximately 16px horizontal page padding.
+• Give the main card appropriate internal padding.
+• Avoid excessive nested borders that make the interface visually cluttered.
+• Keep the card's rounded corners consistent.
+• Make the card height adapt naturally to its content instead of creating unnecessary empty space.
+
+3. CONVERT / SWAP TABS
+The Convert and Swap tabs need better proportions and alignment.
+
+Requirements:
+• Both tabs should have equal width.
+• Text should be perfectly vertically and horizontally centered.
+• The active state should be visually obvious but subtle.
+• The tab container should remain fully inside the card on small screens.
+• Make sure the tab border/radius doesn't get clipped.
+
+4. "CONVERT · AUTOMATIC" BADGE
+Improve the badge/chip below the tabs.
+
+Requirements:
+• Align it naturally with the content below.
+• Keep the lightning icon and text vertically aligned.
+• Do not allow the badge to overflow.
+• On very narrow screens, make the typography slightly smaller if necessary.
+
+5. "BACK TO QUOTE"
+Fix the back navigation.
+
+Requirements:
+• Align the arrow icon and "BACK TO QUOTE" text perfectly.
+• Give it consistent spacing from the automatic-conversion badge and the quote summary.
+• Make it an obvious clickable element.
+• Add a subtle hover/tap state.
+• Ensure the touch target is at least approximately 44px high.
+
+6. QUOTE SUMMARY
+The "YOU SEND" / "YOU RECEIVE" section needs better responsive behavior.
+
+Requirements:
+• Keep the left amount and right amount clearly separated.
+• The arrow between them should remain centered.
+• On mobile, prevent long currency amounts from overflowing.
+• Currency amount and token symbol should remain readable.
+• If the amount becomes too long, use responsive font sizing or controlled wrapping rather than breaking the layout.
+• Make the POL icon/token badge align correctly with the POL amount.
+• Labels should have consistent typography and spacing.
+
+7. DESTINATION ADDRESS INPUT
+This is one of the most important fixes.
+
+Requirements:
+• Make the destination address input completely responsive.
+• Label must align with the input.
+• Input height should be consistent with the rest of the form.
+• Placeholder "Your POL address" should never be clipped.
+• The input should have sufficient left/right padding for the icon if an icon is used.
+• Long wallet addresses entered by users must not break the page.
+• Use overflow handling appropriately.
+• Make the focus state polished with the existing blue/purple glow.
+• Ensure the input is accessible and has a proper label.
+
+8. MEMO / TAG SECTION
+Fix the spacing and visual hierarchy between:
+"MEMO OR TAG (OPTIONAL)"
+and
+"Memo / Tag (Optional)"
+
+Requirements:
+• The label should have consistent spacing from the destination address field.
+• The memo input should not appear visually disconnected from its label.
+• Make capitalization consistent.
+• If Memo/Tag is genuinely optional, make that visually clear without making the text confusing.
+• If the selected asset/network does not require a memo/tag, consider keeping this section collapsed/hidden according to the existing application logic rather than showing unnecessary UI.
+• Do NOT change the underlying business logic.
+
+9. REFUND WALLET ACCORDION
+The Refund Wallet section needs better spacing and alignment.
+
+Requirements:
+• Icon, "REFUND WALLET", "OPTIONAL", description and chevron must align correctly.
+• The chevron should remain inside the card on mobile.
+• The description should wrap naturally on small screens.
+• Do not let the accordion content push outside the viewport.
+• Make the entire header a comfortable touch target.
+• Preserve the current expand/collapse functionality.
+
+10. EMAIL ADDRESS FIELD
+Improve the email input.
+
+Requirements:
+• Match the height, border radius and visual style of the destination address input.
+• Align the email icon and placeholder correctly.
+• Ensure "hello@example.com" does not become clipped on smaller devices.
+• Use proper HTML input type="email".
+• Maintain accessible label/placeholder behavior.
+• Keep the existing validation logic.
+
+11. START EXCHANGE BUTTON
+The button is visually important and should be improved.
+
+Requirements:
+• Make it full width within the form container.
+• Keep equal left/right margins with the other form elements.
+• Make its height consistent and comfortable for mobile touch.
+• Keep the existing purple gradient/neon style.
+• Add polished hover, active, focus and disabled states.
+• Ensure text remains centered.
+• Prevent the button from overflowing the card.
+
+12. SPACING SYSTEM
+Clean up inconsistent vertical spacing throughout the widget.
+
+Use a consistent spacing system rather than arbitrary margins.
+
+Pay particular attention to the vertical spacing between:
+• Tabs → automatic badge
+• Badge → Back to Quote
+• Back to Quote → quote summary
+• Quote summary → destination address
+• Destination address → memo
+• Memo → refund wallet
+• Refund wallet → email
+• Email → Start Exchange button
+
+The current form feels vertically inconsistent. Make it look like one professionally designed product.
+
+13. TYPOGRAPHY
+Create a consistent typography hierarchy.
+
+Requirements:
+• Section labels should use the same font size/weight.
+• Primary values should be prominent.
+• Secondary descriptions should be smaller and lower contrast.
+• Optional labels should not compete with primary labels.
+• Avoid excessive use of uppercase text where it hurts readability.
+• Make sure text doesn't become clipped on mobile.
+
+14. ICONS
+Audit all icons.
+
+Requirements:
+• Icons should have consistent dimensions.
+• Align icons vertically with their associated text.
+• Don't let icons shift the text unexpectedly.
+• Use the existing icon library if one is already installed rather than introducing unnecessary dependencies.
+
+15. OVERFLOW / FLOATING ELEMENTS
+The screenshot shows an element partially cut off at the right edge of the screen.
+
+Audit the entire page for:
+• fixed elements
+• floating buttons
+• chat buttons
+• menus
+• decorative elements
+• pseudo-elements
+• absolute-positioned elements
+
+Make sure nothing unintentionally extends outside the viewport.
+
+If the partially visible green floating button is an intentional widget, reposition it so it has a safe margin from the right and bottom edges and does not overlap the exchange form.
+
+16. DECORATIVE BACKGROUND
+Keep the dark futuristic crypto background, but make sure decorative background effects never cause horizontal overflow.
+
+Use:
+overflow-x: hidden;
+only at an appropriate page/container level, while still fixing the actual source of overflow.
+
+Do NOT simply hide overflow as a shortcut if an element is incorrectly sized.
+
+17. DESKTOP RESPONSIVENESS
+Do not optimize only for mobile.
+
+At desktop widths:
+• Keep the exchange widget centered.
+• Prevent it from becoming excessively wide.
+• Maintain a premium amount of whitespace.
+• Preserve the dark/glowing visual design.
+• Keep the form visually balanced.
+
+18. ACCESSIBILITY
+Improve accessibility without changing functionality.
+
+Requirements:
+• Proper labels for inputs.
+• Keyboard focus states.
+• Sufficient contrast.
+• Buttons should be actual buttons.
+• Inputs should have appropriate autocomplete/input types where applicable.
+• Touch targets should generally be at least 44px.
+• Don't rely solely on color to communicate state.
+
+19. VISUAL CONSISTENCY
+The following should look like they belong to the same design system:
+• destination address input
+• memo input
+• refund wallet accordion
+• email input
+• primary button
+• quote summary
+• tabs
+
+Use consistent:
+• border radius
+• border thickness
+• shadows/glows
+• internal padding
+• typography
+• spacing
+• focus states
+
+20. IMPORTANT: REMOVE DEBUG/ANNOTATION ELEMENTS
+The orange arrows visible in the reference screenshot are annotations showing problem areas, NOT part of the website design.
+
+Make sure there are no equivalent debug/annotation elements in the actual UI.
+
+FINAL STEP:
+After implementing the changes:
+1. Run the application.
+2. Test the exchange widget at 320px, 360px, 375px, 390px, 414px and desktop widths.
+3. Check for horizontal scrolling.
+4. Check every input and button.
+5. Check the Convert/Swap interaction.
+6. Check the Refund Wallet accordion.
+7. Check focus/hover/active states.
+8. Make sure no existing functionality was broken.
+9. Review the result against the supplied screenshot and polish any remaining visual inconsistencies.
+
+Do not stop after making one CSS adjustment. Perform a complete UI audit of this component and fix all related responsive/design issues you find.

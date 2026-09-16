@@ -1,0 +1,64 @@
+--- artifacts/crypto-exchange-widget/src/App.tsx
++++ artifacts/crypto-exchange-widget/src/App.tsx
+@@ -1680,30 +1680,6 @@
+     };
+   }, [mobileActionsOpen, mobileProfileOpen]);
+ 
+-  if (authLoading) {
+-    return (
+-      <div className="flex items-center justify-center min-h-[100dvh] bg-background">
+-        <LoadingBlock />
+-      </div>
+-    );
+-  }
+-
+-  if (authError || !adminAuth || (requiredPermission && (Array.isArray(requiredPermission)
+-    ? !requiredPermission.some(can)
+-    : !can(requiredPermission)))) {
+-    const firstPermitted = permittedNavGroups[0]?.items[0]?.href || '/';
+-    return (
+-      <div className="flex flex-col items-center justify-center min-h-[100dvh] p-8 text-center bg-background">
+-         <ShieldCheck size={64} className="text-muted-foreground mb-6 opacity-30" />
+-         <h2 className="text-2xl font-bold tracking-tight mb-2">Access Restricted</h2>
+-         <p className="text-muted-foreground mb-8 max-w-[320px]">You don't have permission to view this section of the operations console.</p>
+-         <Link href={firstPermitted} className="bg-primary text-primary-foreground px-6 py-3 rounded-lg font-bold shadow-sm hover:opacity-90 transition-opacity">
+-           Return to Dashboard
+-         </Link>
+-      </div>
+-    );
+-  }
+-
+   useLayoutEffect(() => {
+     if (!mobileProfileOpen) {
+       setMobileProfileStyle(undefined);
+@@ -1747,6 +1723,30 @@
+     };
+   }, [mobileProfileOpen]);
+ 
++  if (authLoading) {
++    return (
++      <div className="flex items-center justify-center min-h-[100dvh] bg-background">
++        <LoadingBlock />
++      </div>
++    );
++  }
++
++  if (authError || !adminAuth || (requiredPermission && (Array.isArray(requiredPermission)
++    ? !requiredPermission.some(can)
++    : !can(requiredPermission)))) {
++    const firstPermitted = permittedNavGroups[0]?.items[0]?.href || '/';
++    return (
++      <div className="flex flex-col items-center justify-center min-h-[100dvh] p-8 text-center bg-background">
++         <ShieldCheck size={64} className="text-muted-foreground mb-6 opacity-30" />
++         <h2 className="text-2xl font-bold tracking-tight mb-2">Access Restricted</h2>
++         <p className="text-muted-foreground mb-8 max-w-[320px]">You don't have permission to view this section of the operations console.</p>
++         <Link href={firstPermitted} className="bg-primary text-primary-foreground px-6 py-3 rounded-lg font-bold shadow-sm hover:opacity-90 transition-opacity">
++           Return to Dashboard
++         </Link>
++      </div>
++    );
++  }
++
+   return <div className="admin-shell admin-redesign noise">
+     <aside className="admin-sidebar" aria-label={t('adminShell.operations')}>
+       <div className="sidebar-brand">

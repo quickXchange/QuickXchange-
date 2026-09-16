@@ -1,0 +1,284 @@
+I want you to redesign the entire frontend professionally. Do NOT rebuild or break the existing exchange functionality. Keep all existing functionality and integrations working exactly as they do now.
+DESIGN GOAL
+Create a premium, trustworthy, modern crypto-fintech experience. The design should feel like a serious established crypto exchange—not a generic crypto template.
+Use Changelly and other leading crypto-fintech products as inspiration for the level of polish, but do not copy their branding, layout, or design.
+The website should communicate:
+Trust
+Security
+Simplicity
+Professionalism
+Speed
+Modern technology
+Think: premium fintech + modern Web3, with excellent spacing, typography, animations, responsiveness, and UX.
+1. HEADER
+Create a polished responsive header.
+Desktop:
+Professional logo area
+Navigation links
+Exchange
+Buy Crypto
+Sell Crypto
+How It Works
+FAQ
+Support
+Clear primary CTA such as "Exchange Now"
+Optional language/currency selector
+Optional theme toggle if appropriate
+Clean spacing and alignment
+Mobile:
+Compact logo
+Exchange CTA
+Hamburger menu
+Smooth mobile navigation drawer
+Header should remain visually clean and not overloaded.
+2. HERO SECTION
+Create a strong homepage hero around the existing exchange widget.
+Headline should communicate the core value proposition clearly, for example:
+"Swap Crypto. Simple. Fast. Secure."
+Supporting text should explain the service in one short sentence.
+Place my existing exchange widget prominently in the hero.
+The widget should feel like the central product—not an embedded third-party component.
+Add subtle trust indicators around the widget, such as:
+Non-custodial / custody model (ONLY if this is actually true in the existing product)
+Secure transactions
+Competitive rates
+Fast processing
+Supported cryptocurrencies
+Do not make claims that aren't supported by the existing product.
+3. EXCHANGE WIDGET REDESIGN
+This is the most important component.
+Keep ALL existing functionality and logic.
+Only redesign the UI/UX.
+Make the widget look like a premium financial application.
+Requirements:
+Excellent card design
+Clear "You Send" and "You Receive" sections
+Token selectors
+Token icons
+Amount inputs
+Swap direction button
+Rate information
+Network/chain information where applicable
+Fees displayed clearly
+Minimum/maximum limits where applicable
+Wallet address input
+Transaction status
+Loading states
+Error states
+Success states
+Confirmation state
+Use strong visual hierarchy.
+The user should understand the exchange flow immediately without reading instructions.
+Add micro-interactions:
+Hover states
+Focus states
+Smooth token selection
+Swap animation
+Button loading state
+Success animation
+Subtle transitions
+Do NOT add unnecessary animations that make the exchange feel slow.
+4. TRUST / SOCIAL PROOF SECTION
+Create a professional section below the hero.
+Potential elements:
+Number of supported assets
+Number of transactions
+Countries supported
+Security information
+Partner/integration logos if they already exist in the project
+Only display real data already available in the application. Do not invent statistics.
+5. HOW IT WORKS
+Create a clean 3-step or 4-step explanation:
+Choose assets
+Enter amount
+Enter receiving wallet
+Complete the exchange
+Use attractive icons/illustrations and concise explanations.
+Make this section extremely easy for a first-time crypto user to understand.
+6. FEATURES
+Create a premium feature grid.
+Possible features:
+Fast swaps
+Competitive rates
+Multiple networks
+Wide asset support
+Secure transactions
+Non-custodial architecture (only if applicable)
+Use consistent icons and elegant cards.
+7. SUPPORTED CRYPTO / NETWORKS
+Create a visually attractive supported-assets section using the actual assets already supported by the application.
+Do not hardcode fake coins.
+Use the existing asset/token data.
+Allow users to easily understand which assets and networks are supported.
+8. FAQ
+Create a professional FAQ section with expandable accordion items.
+Questions should cover actual functionality of the platform, such as:
+How does the exchange work?
+How long does an exchange take?
+
+What fees are charged?
+What happens if I send the wrong asset/network?
+Which cryptocurrencies are supported?
+Is an account required?
+How do I track my transaction?
+Only include answers that accurately reflect the actual application.
+9. FOOTER
+Create a premium multi-column footer.
+Include:
+Product:
+Exchange
+Buy Crypto
+Sell Crypto
+Supported Assets
+Rates
+Company:
+About
+Contact
+Careers (only if applicable)
+Resources:
+FAQ
+Help Center
+API / Developers (only if applicable)
+Status
+Legal:
+Terms
+Privacy Policy
+Risk Disclosure
+Cookie Policy
+Compliance information where applicable
+Social links:
+Only use existing official social accounts.
+Include:
+Logo
+Short company description
+Copyright
+Appropriate legal/risk disclaimer
+The footer should look substantial and trustworthy, not like a basic website footer.
+10. VISUAL DESIGN SYSTEM
+Create a consistent design system throughout the entire website.
+Typography:
+Use a modern professional font such as Inter, Geist, or another excellent fintech UI font.
+Strong hierarchy.
+Excellent readability.
+Spacing:
+Generous whitespace.
+Consistent 4/8px spacing system.
+Avoid cramped sections.
+Colors:
+Use a sophisticated fintech palette.
+Neutral/dark foundation with one distinctive brand accent is preferred.
+Avoid excessive gradients.
+Avoid the generic "purple crypto website" look.
+Cards:
+Subtle borders
+Soft shadows where appropriate
+Moderate border radius
+Clear hierarchy
+Buttons:
+Strong primary CTA
+Clear secondary buttons
+Proper hover/focus/disabled states
+Icons:
+Use one consistent icon library/style.
+Do not mix random icon styles.
+11. RESPONSIVE DESIGN
+The entire website must be excellent on:
+Large desktop
+Laptop
+Tablet
+iPhone
+Android phones
+Do not simply shrink the desktop layout.
+Design mobile layouts intentionally.
+The exchange widget must be extremely easy to use with one hand on mobile.
+12. STATES
+Audit every important component and make sure it has proper states:
+Default
+Hover
+Focus
+Active
+Disabled
+Loading
+Error
+Success
+Empty
+Especially the exchange widget.
+13. ACCESSIBILITY
+Implement:
+Proper semantic HTML
+Keyboard navigation
+Visible focus states
+Accessible labels
+Good color contrast
+Appropriate ARIA attributes
+Screen-reader-friendly form controls
+14. PERFORMANCE
+Do not sacrifice performance for visual effects.
+Avoid:
+Huge unnecessary images
+Heavy animation libraries unless already needed
+Excessive JavaScript
+Layout shifts
+Slow-loading assets
+Animations should be subtle and purposeful.
+15. IMPORTANT — DO NOT BREAK THE EXISTING APP
+Before changing anything:
+Inspect the entire existing project.
+Understand the current architecture.
+Identify the exchange widget and all connected functionality.
+Identify existing API calls, state management, components, and routes.
+Preserve all business logic.
+Preserve all API integrations.
+Preserve wallet/address functionality.
+Preserve transaction processing.
+Preserve existing validation.
+Preserve existing error handling.
+Separate presentation/UI from business logic wherever possible.
+If a component already contains working functionality, refactor carefully rather than replacing it with mock functionality.
+16. NO FAKE CONTENT
+Do not invent:
+Transaction numbers
+User counts
+Security certifications
+Partnerships
+Supported coins
+Fees
+Processing times
+Reviews
+Company claims
+Use actual data from the existing application.
+If something is missing, create a visually appropriate placeholder structure but clearly mark it for me rather than fabricating information.
+17. FINAL PRODUCT QUALITY
+The final result should look like a startup that has raised significant funding and hired a professional product/design team.
+It should NOT look like:
+A generic Tailwind template
+A basic crypto landing page
+An AI-generated website
+A dashboard template
+A copy of Changelly
+Prioritize:
+Exchange widget UX
+Trust
+Visual hierarchy
+Typography
+Spacing
+Responsive behavior
+Conversion to exchange
+Professional polish
+EXECUTION
+First inspect the existing codebase and identify the current pages/components.
+Then create a concise UI/UX implementation plan.
+Then implement the redesign.
+
+Do not stop after designing only the homepage. Audit and redesign the header, footer, homepage, exchange widget, forms, modals, dropdowns, transaction states, error states, success states, and all other user-facing components so the entire product feels like one coherent premium platform.
+After implementation, test the application thoroughly and fix:
+Broken layouts
+Console errors
+Mobile issues
+Overflow
+Incorrect spacing
+Broken interactions
+Accessibility problems
+Existing functionality regressions
+The final result should be production-quality.
+Note : apply all information above and if some content i don't have you can skip it but apply what exist

@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Crypto Exchange Widget"
+description = "A branded crypto exchange widget with manual fiat orders, crypto-to-crypto conversion, on-ramp and off-ramp integrations, XML feeds, and an admin CRM for operations."
+version = "1.0.0"
+id = "artifacts/crypto-exchange-widget"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19375
+
+[services.development]
+run = "pnpm --filter @workspace/crypto-exchange-widget run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/crypto-exchange-widget", "run", "build" ]
+
+[services.production.run]
+args = [ "node", "artifacts/crypto-exchange-widget/server.mjs" ]
+
+[services.production.run.env]
+NODE_ENV = "production"
+
+[services.env]
+PORT = "19375"
+BASE_PATH = "/"

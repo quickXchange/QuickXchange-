@@ -1,0 +1,1 @@
+ALTER TABLE "exchange_orders" ADD COLUMN IF NOT EXISTS "deposit_memo" text DEFAULT '' NOT NULL;

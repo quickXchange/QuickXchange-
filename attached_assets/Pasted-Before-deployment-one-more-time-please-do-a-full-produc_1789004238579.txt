@@ -1,0 +1,46 @@
+Before deployment one more time , please do a full production-readiness cleanup and optimization.
+Tasks:
+Review the entire codebase and understand how the application works.
+Remove anything that is unnecessary, unused, duplicated, obsolete, or unrelated to the production application.
+Remove unused dependencies, packages, imports, components, routes, assets, test/demo files, temporary files, and dead code where they are genuinely not needed.
+Do NOT remove anything that is required for the application to function.
+Refactor messy or duplicated code where it improves maintainability without changing the application’s behavior.
+Optimize the application for speed and production performance: 
+Reduce unnecessary database queries
+Reduce unnecessary API calls
+Optimize frontend rendering
+Optimize large assets and unnecessary network requests
+Avoid unnecessary background processes
+Improve caching where appropriate
+Remove performance bottlenecks
+Check for security issues and obvious production risks: 
+Exposed secrets/API keys
+Hardcoded credentials
+Unsafe environment variables
+Debug/development settings
+Insecure endpoints
+Unnecessary permissions
+Make sure all secrets and configuration use environment variables.
+Make sure production configuration is clearly separated from development configuration.
+Check the database setup, migrations, connection handling, and error handling.
+Check that the application starts reliably on a fresh server.
+Make the startup/build process as simple and fast as reasonably possible.
+Make sure there are no Replit-specific dependencies or assumptions that will prevent the application from running on my own server, unless they are explicitly required.
+Do not change the application's intended functionality, UI, business logic, or user experience unless necessary to fix a bug or production issue.
+Do not rewrite the entire application unnecessarily. Make targeted, safe improvements.
+After cleanup, run the appropriate build, tests, type checks, and lint checks and fix any errors you introduce.
+Verify that the final project can be deployed to a standard production server.
+IMPORTANT:
+First inspect the project and create a concise list of what you plan to remove/change.
+Then perform the cleanup.
+Do not blindly delete files just because they look unused; verify their purpose first.
+Preserve all functionality.
+Keep the final code clean, minimal, fast, maintainable, and production-ready.
+At the end, give me:
+What you removed
+What you optimized
+What dependencies you removed
+Any security issues you fixed
+Any remaining issues or things I need to configure on the server
+The exact commands/environment variables needed to deploy and start the application in production
+A final production deployment checklist

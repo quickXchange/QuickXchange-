@@ -1,0 +1,2 @@
+ALTER TABLE "exchange_provider_sync_states" ADD COLUMN IF NOT EXISTS "cursor_created_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "exchange_provider_sync_states" ADD COLUMN IF NOT EXISTS "cursor_order_id" text;

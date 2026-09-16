@@ -1,0 +1,423 @@
+.mockup-container {
+  container-type: inline-size;
+  perspective: 1200px;
+}
+
+.mockup-card {
+  width: 100%;
+  max-width: 440px;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 24px 56px -20px rgba(0, 0, 0, 0.15);
+  margin: 0 auto;
+  position: relative;
+  transform-style: preserve-3d;
+}
+
+.dark .mockup-card {
+  box-shadow: 0 24px 56px -20px rgba(0, 0, 0, 0.5);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.mockup-header {
+  padding: 20px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+}
+
+.mockup-tabs {
+  display: flex;
+  background: hsl(var(--muted));
+  border-radius: 999px;
+  padding: 4px;
+  gap: 2px;
+}
+
+.mockup-tab {
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 999px;
+  color: hsl(var(--muted-foreground));
+}
+
+.mockup-tab.active {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.mockup-body {
+  padding: 24px;
+  position: relative;
+  height: 480px;
+}
+
+.mockup-step {
+  position: absolute;
+  inset: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(10px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.mockup-step.active {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.mockup-field {
+  background: hsl(var(--muted) / 0.5);
+  border: 1px solid hsl(var(--border));
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mockup-field-label {
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.mockup-field-value {
+  font-size: 20px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.mockup-asset {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: hsl(var(--background));
+  padding: 6px 12px 6px 6px;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--border));
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.mockup-asset-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.mockup-btn {
+  margin-top: auto;
+  width: 100%;
+  padding: 16px;
+  border-radius: 12px;
+  font-weight: 700;
+  text-align: center;
+  font-size: 16px;
+}
+
+.mockup-btn-primary {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.mockup-skeleton-text {
+  height: 12px;
+  background: hsl(var(--muted));
+  border-radius: 4px;
+  width: 100%;
+}
+.mockup-skeleton-text.short { width: 60%; }
+.mockup-skeleton-text.medium { width: 80%; }
+
+.hiw-flow-section {
+  --hiw-flow-a: 34, 211, 238;
+  --hiw-flow-b: 59, 130, 246;
+}
+
+.hiw-flow-section--convert {
+  --hiw-flow-a: 59, 130, 246;
+  --hiw-flow-b: 139, 92, 246;
+}
+
+.hiw-flow-section .mockup-card {
+  border-color: rgba(var(--hiw-flow-a), 0.32);
+  box-shadow:
+    0 22px 52px -24px rgba(var(--hiw-flow-b), 0.5),
+    0 0 22px -15px rgba(var(--hiw-flow-a), 0.46),
+    inset 0 0 26px -21px rgba(var(--hiw-flow-a), 0.32);
+  transition:
+    border-color 250ms ease,
+    box-shadow 250ms ease;
+}
+
+.hiw-flow-section .mockup-card:hover {
+  border-color: rgba(var(--hiw-flow-a), 0.56);
+  box-shadow:
+    0 26px 60px -22px rgba(var(--hiw-flow-b), 0.66),
+    0 0 28px -13px rgba(var(--hiw-flow-a), 0.6),
+    inset 0 0 30px -19px rgba(var(--hiw-flow-a), 0.42);
+}
+
+.hiw-flow-section > div > div:first-child:is(.inline-flex) {
+  border: 1px solid rgba(var(--hiw-flow-a), 0.34);
+  box-shadow:
+    0 0 16px -8px rgba(var(--hiw-flow-a), 0.48),
+    inset 0 0 12px -9px rgba(var(--hiw-flow-b), 0.3);
+}
+
+.hiw-flow-section .button-primary {
+  box-shadow:
+    0 10px 28px -14px rgba(var(--hiw-flow-b), 0.62),
+    0 0 18px -10px rgba(var(--hiw-flow-a), 0.54);
+  transition:
+    box-shadow 250ms ease,
+    filter 250ms ease;
+}
+
+.hiw-flow-section .button-primary:hover {
+  box-shadow:
+    0 14px 34px -12px rgba(var(--hiw-flow-b), 0.76),
+    0 0 24px -8px rgba(var(--hiw-flow-a), 0.68);
+}
+
+.hiw-comparison-card {
+  --hiw-comparison-a: 34, 211, 238;
+  --hiw-comparison-b: 59, 130, 246;
+  border-color: rgba(var(--hiw-comparison-a), 0.28);
+  box-shadow:
+    0 12px 32px -24px rgba(var(--hiw-comparison-b), 0.46),
+    inset 0 0 22px -19px rgba(var(--hiw-comparison-a), 0.3);
+  transition:
+    border-color 250ms ease,
+    box-shadow 250ms ease;
+}
+
+.hiw-comparison-card--convert {
+  --hiw-comparison-a: 59, 130, 246;
+  --hiw-comparison-b: 139, 92, 246;
+}
+
+.hiw-comparison-card:hover {
+  border-color: rgba(var(--hiw-comparison-a), 0.5);
+  box-shadow:
+    0 16px 38px -20px rgba(var(--hiw-comparison-b), 0.6),
+    0 0 20px -13px rgba(var(--hiw-comparison-a), 0.52),
+    inset 0 0 26px -17px rgba(var(--hiw-comparison-a), 0.38);
+}
+
+.hiw-comparison-card svg {
+  filter: drop-shadow(0 0 5px rgba(var(--hiw-comparison-a), 0.52));
+}
+
+.dark .hiw-flow-section .mockup-card {
+  border-color: rgba(var(--hiw-flow-a), 0.5);
+  box-shadow:
+    0 28px 64px -24px rgba(var(--hiw-flow-b), 0.72),
+    0 0 30px -13px rgba(var(--hiw-flow-a), 0.66),
+    inset 0 0 34px -21px rgba(var(--hiw-flow-a), 0.48);
+}
+
+.dark .hiw-flow-section .mockup-card:hover {
+  border-color: rgba(var(--hiw-flow-a), 0.72);
+  box-shadow:
+    0 30px 70px -21px rgba(var(--hiw-flow-b), 0.86),
+    0 0 36px -10px rgba(var(--hiw-flow-a), 0.78),
+    inset 0 0 38px -18px rgba(var(--hiw-flow-a), 0.58);
+}
+
+.dark .hiw-flow-section > div > div:first-child:is(.inline-flex) {
+  border-color: rgba(var(--hiw-flow-a), 0.56);
+  box-shadow:
+    0 0 20px -6px rgba(var(--hiw-flow-a), 0.68),
+    inset 0 0 16px -7px rgba(var(--hiw-flow-b), 0.42);
+}
+
+.dark .hiw-comparison-card {
+  border-color: rgba(var(--hiw-comparison-a), 0.46);
+  box-shadow:
+    0 18px 44px -21px rgba(var(--hiw-comparison-b), 0.68),
+    0 0 24px -14px rgba(var(--hiw-comparison-a), 0.6),
+    inset 0 0 30px -18px rgba(var(--hiw-comparison-a), 0.44);
+}
+
+.dark .hiw-comparison-card:hover {
+  border-color: rgba(var(--hiw-comparison-a), 0.68);
+  box-shadow:
+    0 22px 50px -18px rgba(var(--hiw-comparison-b), 0.8),
+    0 0 30px -11px rgba(var(--hiw-comparison-a), 0.72),
+    inset 0 0 34px -16px rgba(var(--hiw-comparison-a), 0.54);
+}
+
+.hiw-step-card {
+  --hiw-glow-a: 34, 211, 238;
+  --hiw-glow-b: 59, 130, 246;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  border-color: rgba(var(--hiw-glow-a), 0.28);
+  box-shadow:
+    0 10px 30px -20px rgba(var(--hiw-glow-b), 0.42),
+    inset 0 0 22px -18px rgba(var(--hiw-glow-a), 0.3);
+  transition:
+    border-color 250ms ease,
+    box-shadow 250ms ease;
+}
+
+.hiw-steps-grid {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-auto-rows: 1fr;
+  align-items: stretch;
+  gap: 2rem !important;
+  width: 100%;
+  min-width: 0;
+  isolation: isolate;
+}
+
+.hiw-steps-grid > .hiw-step-card {
+  position: relative;
+  inset: auto;
+  margin: 0;
+  transform: none;
+}
+
+.hiw-step-card--two {
+  --hiw-glow-a: 59, 130, 246;
+  --hiw-glow-b: 139, 92, 246;
+}
+
+.hiw-step-card--three {
+  --hiw-glow-a: 139, 92, 246;
+  --hiw-glow-b: 34, 211, 238;
+}
+
+.hiw-step-card:hover {
+  border-color: rgba(var(--hiw-glow-a), 0.48);
+  box-shadow:
+    0 14px 38px -18px rgba(var(--hiw-glow-b), 0.58),
+    0 0 20px -12px rgba(var(--hiw-glow-a), 0.48),
+    inset 0 0 26px -17px rgba(var(--hiw-glow-a), 0.38);
+}
+
+.hiw-step-indicator {
+  border: 1px solid rgba(var(--hiw-glow-a), 0.35);
+  box-shadow:
+    0 0 18px -8px rgba(var(--hiw-glow-a), 0.55),
+    inset 0 0 14px -8px rgba(var(--hiw-glow-b), 0.32);
+  transition:
+    border-color 250ms ease,
+    box-shadow 250ms ease;
+}
+
+.hiw-step-indicator svg {
+  filter: drop-shadow(0 0 5px rgba(var(--hiw-glow-a), 0.48));
+  transition: filter 250ms ease;
+}
+
+.hiw-step-card:hover .hiw-step-indicator {
+  border-color: rgba(var(--hiw-glow-a), 0.58);
+  box-shadow:
+    0 0 24px -6px rgba(var(--hiw-glow-a), 0.68),
+    inset 0 0 18px -7px rgba(var(--hiw-glow-b), 0.42);
+}
+
+.hiw-step-card:hover .hiw-step-indicator svg {
+  filter: drop-shadow(0 0 7px rgba(var(--hiw-glow-a), 0.65));
+}
+
+.hiw-steps-connector {
+  border: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    rgba(34, 211, 238, 0.5),
+    rgba(59, 130, 246, 0.58),
+    rgba(139, 92, 246, 0.5)
+  );
+  box-shadow:
+    0 0 10px -3px rgba(34, 211, 238, 0.46),
+    0 0 12px -3px rgba(139, 92, 246, 0.4);
+}
+
+@media (max-width: 1023px) {
+  .hiw-steps-connector {
+    display: none !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hiw-steps-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+.dark .hiw-step-card {
+  border-color: rgba(var(--hiw-glow-a), 0.44);
+  box-shadow:
+    0 16px 42px -20px rgba(var(--hiw-glow-b), 0.65),
+    0 0 22px -14px rgba(var(--hiw-glow-a), 0.58),
+    inset 0 0 28px -20px rgba(var(--hiw-glow-a), 0.5);
+}
+
+.dark .hiw-step-card:hover {
+  border-color: rgba(var(--hiw-glow-a), 0.7);
+  box-shadow:
+    0 18px 48px -18px rgba(var(--hiw-glow-b), 0.82),
+    0 0 28px -12px rgba(var(--hiw-glow-a), 0.72),
+    inset 0 0 32px -18px rgba(var(--hiw-glow-a), 0.58);
+}
+
+.dark .hiw-step-indicator {
+  border-color: rgba(var(--hiw-glow-a), 0.58);
+  box-shadow:
+    0 0 24px -7px rgba(var(--hiw-glow-a), 0.8),
+    inset 0 0 18px -8px rgba(var(--hiw-glow-b), 0.48);
+}
+
+.dark .hiw-step-indicator svg {
+  filter: drop-shadow(0 0 7px rgba(var(--hiw-glow-a), 0.72));
+}
+
+.dark .hiw-steps-connector {
+  background: linear-gradient(
+    90deg,
+    rgba(34, 211, 238, 0.78),
+    rgba(59, 130, 246, 0.86),
+    rgba(139, 92, 246, 0.78)
+  );
+  box-shadow:
+    0 0 14px -2px rgba(34, 211, 238, 0.7),
+    0 0 16px -2px rgba(139, 92, 246, 0.62);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mockup-step {
+    transition: none;
+  }
+
+  .hiw-step-card,
+  .hiw-flow-section .mockup-card,
+  .hiw-flow-section .button-primary,
+  .hiw-comparison-card,
+  .hiw-step-indicator,
+  .hiw-step-indicator svg {
+    transition: none;
+  }
+}

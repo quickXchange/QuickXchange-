@@ -1,0 +1,88 @@
+Here's the full brief as plain text to copy:
+
+---
+
+Full Design Overhaul — Crypto Swap/Convert Platform
+
+Context
+This is a crypto exchange widget site (Swap + Convert functions), similar in category to Changelly, ChangeNOW, and Binance Convert. The current design looks unfinished, generic, and uses a low-quality default font. I want a complete visual redesign across every page — not just the widget — to feel like a premium fintech product: the kind of polish you see from Stripe, Binance, and Changelly.
+
+Do not change any functionality, logic, API calls, or data flow. This is a visual/UX pass only.
+
+1. Brand Colors — Extract, Don't Guess
+Two logo files are already in the project (or fetch them from):
+- https://quickxchange.net/clients-assets/quickchange/logo-dark.svg
+- https://quickxchange.net/clients-assets/quickchange/logo-light.svg
+
+Open these SVGs directly and read the exact fill / stop-color hex values used inside them. Build the entire palette from those extracted values:
+- Primary = the dominant brand color from the logo
+- Secondary/Accent = the second color in the logo (used for CTAs, active states, highlights, gradients)
+- Neutrals = a custom gray scale (9–10 steps, not default Tailwind/Bootstrap grays) tuned to sit well next to the primary color — cool-toned grays if the brand color is blue/purple, warm-neutral grays if it leans teal/green
+- Semantic colors: success (green), error (red), warning (amber), info — chosen so they don't visually clash with the primary brand hue
+- Dark mode palette: build a true dark theme (near-black backgrounds like #0A0B0D–#111318, not just gray-800), with the brand color used sparingly as an accent, not a background
+
+Do not default to generic "crypto blue" (#3B82F6/#6366F1) unless that's genuinely what the logo contains. If the logo colors turn out weak/desaturated for UI use, keep the hue but adjust saturation/lightness to create usable UI tints (50–900 scale) for buttons, borders, backgrounds.
+
+2. Typography — No Default/System Fonts
+Replace whatever default font Replit scaffolded with a professional font pairing. Use:
+- Primary (UI + headings): Inter (variable font) or Satoshi — both are what Stripe/Linear/Binance-tier products use
+- Numeric/data display (exchange rates, amounts, balances): use Inter with font-variant-numeric: tabular-nums so numbers don't jitter when they update live — this detail alone makes it feel "real" rather than templated
+- Optional accent font for large marketing headlines only (homepage hero): Space Grotesk or General Sans for a bit of character — never on functional UI
+
+Type scale (use a proper modular scale, not ad hoc sizes):
+- Display: 48–64px / weight 600–700 / tight letter-spacing (-0.02em)
+- H1: 36px, H2: 28px, H3: 20px, Body: 15–16px, Small/meta: 13px
+- Line height: 1.5 for body, 1.1–1.2 for headings
+- Font weights: stick to 400/500/600/700 only — don't mix in 300 or 800 randomly
+
+3. The Swap/Convert Widget (Core Component)
+This is the most important surface — it should feel like a single polished "card," not a form:
+- Container: rounded-2xl (16–20px radius), soft elevated shadow (not a harsh box-shadow — something like 0 8px 30px rgba(0,0,0,0.08) in light mode, subtle 1px border + glow in dark mode), max-width ~440–480px, generous internal padding (24–32px)
+- Tab switcher (Swap / Convert): pill-style segmented control with a sliding active-state background (animated with a smooth 150–200ms transition), not plain underlined tabs
+- Currency input rows: large, clear amount input (24–28px font), currency selector as a rounded pill button with coin icon + ticker + chevron, right-aligned balance/estimated value in muted gray below
+- Currency picker dropdown/modal: searchable list, coin icons, network badges (e.g. "USDT · TRC20" as a small tag), hover/active states with subtle background tint using the brand color at low opacity
+- Swap-direction button (the ↕ arrow between the two inputs): circular, sits on top of the divider line with a subtle shadow so it looks "clickable," rotates 180° on click with a spring animation
+- Rate/fee display: small expandable row showing exchange rate, network fee, estimated time — collapsed by default, chevron to expand, monospace/tabular numbers
+- Primary CTA button: full-width, brand-color gradient or solid fill, 48–52px height, rounded-xl, weight 600 label, subtle hover lift (translateY -1px + shadow increase), disabled state clearly grayed out
+- Loading/rate-updating state: skeleton shimmer or a subtle pulsing dot next to the rate — never a jarring layout shift when numbers update
+
+4. Layout, Spacing & Grid
+- Use an 8px spacing scale throughout (8/16/24/32/48/64) — no arbitrary padding values
+- Consistent max-width containers (e.g. 1200–1280px) with responsive gutters (16px mobile, 24px tablet, 32px+ desktop)
+- Section spacing: generous vertical rhythm between homepage sections (80–120px desktop, 48–64px mobile) — cramped spacing is the #1 thing that makes sites look unfinished
+- Cards/panels: consistent border-radius across the entire site (pick one scale, e.g. 12/16/20px, and reuse it everywhere — buttons, cards, inputs, modals)
+
+5. Responsiveness
+- Mobile-first breakpoints: 375px, 640px, 768px, 1024px, 1280px+
+- Widget: on mobile, full-width with 16px side margins, sticky CTA button if the card is tall
+- Navigation: collapse to a clean hamburger/drawer on mobile (not a squished horizontal nav) with the logo remaining crisp
+- Tables/lists (transaction history, how-it-works steps): convert to stacked cards on mobile, never horizontal-scroll a table
+- Test and ensure no horizontal overflow at any breakpoint, and touch targets are minimum 44x44px
+
+6. Motion & Micro-interactions
+Subtle, fast, purposeful — never decorative for its own sake:
+- Button hover: 120–150ms ease-out transform/opacity
+- Tab switch: 200ms slide
+- Dropdown/modal open: 150ms fade + slight scale (0.97 → 1)
+- Number updates (rates): animate the digit change or fade, don't just snap
+- Page transitions: simple fade, no heavy scroll-jacking animations
+
+7. Apply Site-Wide (Every Page)
+Redesign consistently across: Home, Swap/Convert widget, How It Works, About, Affiliates, Contact Us, AML/KYC, Privacy, Terms, Login/Sign Up. Every page must share:
+- Same header/footer, same button styles, same card styles, same type scale, same color usage
+- Footer: clean multi-column layout, social icons using consistent stroke-width outline icons (Lucide or Phosphor icon set — not mismatched icon styles)
+- Forms (Login/Sign Up/Contact): floating or top-aligned labels, clear focus states using the brand accent color as a 2px ring, inline validation messaging (not just red borders)
+
+8. Reference Feel (for tone, not to copy)
+- Stripe: spacing discipline, restrained color use, crisp typography
+- Binance Convert widget: information density done cleanly, tabular numeric alignment
+- Changelly/ChangeNOW: the specific swap-card pattern and currency-picker UX
+Aim for "quiet confidence" — sharp, minimal, no unnecessary gradients or drop shadows, color used intentionally (mostly neutral UI + brand color reserved for actions/emphasis only).
+9. Deliverable Checklist
+- Global design tokens file (colors, spacing, radius, shadows, type scale) extracted from the logo and applied via CSS variables/Tailwind config — not hardcoded per component
+- Swap widget redesigned per spec above
+- Convert widget matches Swap widget visual language exactly
+- Dark mode fully implemented (if the site has one) using the true-dark palette above
+- All pages audited for consistent spacing, radius, and font usage
+- Fully responsive from 375px to 1440px+, no overflow, no cramped mobile layouts
+- Favicon/logo crisp at all sizes, no default Replit branding left anywhere

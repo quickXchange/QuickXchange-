@@ -1,0 +1,287 @@
+/*
+ * Universal LogoAvatar contract.
+ * Replaces previous bespoke flag/payment wrappers with a shared primitive.
+ */
+.logo-avatar {
+  box-sizing: border-box !important;
+  position: relative;
+  display: inline-grid !important;
+  place-items: center;
+  flex-shrink: 0 !important;
+  aspect-ratio: 1 / 1 !important;
+  overflow: hidden !important;
+  border: 1px solid hsl(var(--border) / 0.72) !important;
+  border-radius: 50% !important;
+  background-color: hsl(var(--background) / 0.94) !important;
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.08) !important;
+  vertical-align: middle;
+  isolation: isolate;
+}
+
+/* Size variants */
+.logo-avatar-sm { --qx-avatar-size: 24px; }
+.logo-avatar-md { --qx-avatar-size: 32px; }
+.logo-avatar-lg { --qx-avatar-size: 40px; }
+.logo-avatar-badge { --qx-avatar-size: 14px; }
+
+.logo-avatar:not(.logo-avatar-responsive) {
+  width: var(--qx-avatar-size, 32px) !important;
+  height: var(--qx-avatar-size, 32px) !important;
+  min-width: var(--qx-avatar-size, 32px) !important;
+  min-height: var(--qx-avatar-size, 32px) !important;
+  max-width: var(--qx-avatar-size, 32px) !important;
+  max-height: var(--qx-avatar-size, 32px) !important;
+}
+
+.logo-avatar.logo-avatar-responsive {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+html.dark .logo-avatar {
+  border-color: hsl(247 78% 68% / 0.36) !important;
+  background-color: hsl(225 34% 13% / 0.94) !important;
+  box-shadow: 0 1px 3px hsl(230 70% 3% / 0.34) !important;
+}
+
+/* Full-bleed coin and flag artwork keeps the same circular edge contract. */
+.logo-avatar-fiat,
+.logo-avatar-crypto {
+  background-color: hsl(var(--muted) / 0.42) !important;
+}
+
+.logo-avatar > .logo-avatar-img,
+.logo-avatar > .logo-avatar-fallback > svg {
+  position: relative;
+  z-index: 2;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  object-position: center !important;
+  transform: scale(var(--qx-logo-scale, 1));
+  transform-origin: center;
+  image-rendering: auto;
+}
+
+/* High-contrast brand-aware surface for uploaded payment/bank logos */
+.logo-avatar-payment,
+.logo-avatar-bank {
+  background-color: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+html.dark .logo-avatar-payment,
+html.dark .logo-avatar-bank {
+  background-color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Fit Profiles */
+.logo-avatar-fit-cover > .logo-avatar-img {
+  object-fit: cover !important;
+  border-radius: 50% !important;
+}
+
+.logo-avatar-fit-contain > .logo-avatar-img {
+  padding: 2.5% !important;
+  object-fit: contain !important;
+}
+
+.logo-avatar-fit-icon > .logo-avatar-img,
+.logo-avatar-fit-icon > .logo-avatar-fallback > svg {
+  padding: 4% !important;
+  object-fit: contain !important;
+  border-radius: 50% !important;
+}
+
+.logo-avatar-fit-wordmark > .logo-avatar-img {
+  padding: 5% !important;
+  object-fit: contain !important;
+}
+
+.logo-avatar-fit-tall > .logo-avatar-img {
+  padding: 5% !important;
+  object-fit: contain !important;
+}
+
+.logo-avatar-fit-badge > .logo-avatar-img {
+  padding: 0 !important;
+  object-fit: contain !important;
+}
+
+.logo-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  color: hsl(var(--foreground));
+  font-family: var(--font-sans);
+  font-size: 0.44em;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+/* Type specific fallback text sizes */
+.logo-avatar-fiat .logo-avatar-fallback {
+  color: hsl(var(--primary));
+  font-family: var(--font-mono);
+  font-size: 0.35em;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.logo-avatar-payment .logo-avatar-fallback,
+.logo-avatar-bank .logo-avatar-fallback {
+  color: #1a1a1a;
+  font-size: 0.58em;
+  font-weight: 850;
+}
+
+.logo-avatar-crypto .logo-avatar-fallback {
+  color: hsl(var(--foreground));
+}
+
+/* Shared payment stack geometry. Contexts may choose the outer size; the
+ * responsive LogoAvatar always fills the resulting square. */
+.payment-method-logo-stack {
+  position: relative !important;
+  display: inline-grid !important;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  place-items: center;
+  aspect-ratio: 1 / 1 !important;
+  overflow: visible !important;
+  isolation: isolate;
+  background: transparent !important;
+}
+
+.payment-method-logo-stack-badged > .fiat-currency-flag,
+.crypto-logo + .fiat-currency-flag,
+.network-logo + .fiat-currency-flag {
+  --qx-avatar-size: 16px;
+  position: absolute !important;
+  right: -2px;
+  bottom: -2px;
+  z-index: 30 !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+  box-shadow: 0 0 0 2px hsl(var(--card)) !important;
+}
+
+/* Context sizing stays declarative here instead of overriding image geometry
+ * in page stylesheets. */
+.qx-overlay-card.qx-standalone .settlement-payment-avatar > .fiat-currency-flag {
+  --qx-avatar-size: 18px;
+}
+
+.exchange-asset-menu .settlement-payment-avatar > .fiat-currency-flag {
+  --qx-avatar-size: 15px;
+}
+
+.terminal-option-logo .payment-method-logo-stack > .fiat-currency-flag,
+.exchange-asset-menu.terminal-menu .terminal-option-logo .payment-method-logo-stack > .fiat-currency-flag {
+  --qx-avatar-size: 24px;
+}
+
+.public-shell .exchange-card.swap-widget-flow .swap-payment-method-icon > .fiat-currency-flag,
+.public-shell .exchange-card.swap-widget-flow .swap-payment-method-icon > .payment-method-logo-stack > .fiat-currency-flag {
+  --qx-avatar-size: 19px;
+}
+
+:is(.admin-shell.admin-redesign, .order-drawer, .admin-order-drawer)
+  .admin-payment-logo-stack > .fiat-currency-flag-admin {
+  --qx-avatar-size: 20px;
+}
+
+/* Network artwork may sit beside a text code; circularize the artwork only. */
+.crypto-network-badge > .network-logo-badge {
+  box-sizing: border-box !important;
+  display: block !important;
+  width: 14px !important;
+  height: 14px !important;
+  min-width: 14px !important;
+  min-height: 14px !important;
+  aspect-ratio: 1 / 1 !important;
+}
+
+/* Admin overrides for compact displays */
+.admin-shell.admin-redesign .admin-orders-page .order-route-logo-frame {
+  box-sizing: border-box !important;
+  display: inline-grid !important;
+  place-items: center;
+  aspect-ratio: 1 / 1 !important;
+  overflow: hidden !important;
+  background: transparent !important;
+}
+
+.admin-shell.admin-redesign .admin-orders-page .order-route-logo-frame {
+  --qx-order-route-logo-size: 44px;
+  width: var(--qx-order-route-logo-size) !important;
+  height: var(--qx-order-route-logo-size) !important;
+  min-width: var(--qx-order-route-logo-size) !important;
+  min-height: var(--qx-order-route-logo-size) !important;
+  max-width: var(--qx-order-route-logo-size) !important;
+  max-height: var(--qx-order-route-logo-size) !important;
+  flex: 0 0 var(--qx-order-route-logo-size) !important;
+}
+
+@media (max-width: 1199px) {
+  .admin-shell.admin-redesign .admin-orders-page .order-route-logo-frame {
+    --qx-order-route-logo-size: 42px;
+  }
+}
+
+@media (max-width: 767px) {
+  .admin-shell.admin-redesign .admin-orders-page .order-route-logo-frame {
+    --qx-order-route-logo-size: 40px;
+  }
+}
+
+.admin-shell.admin-redesign .admin-orders-page .order-route-logo-frame > .logo-avatar,
+.admin-shell.admin-redesign .admin-orders-page .order-route-logo-frame > .payment-method-logo-stack {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 100% !important;
+  min-height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  flex: 0 0 100% !important;
+}
+
+/*
+ * Platform-wide logo container contract for aliases.
+ */
+:is(
+  .order-route-logo-frame,
+  .terminal-option-logo,
+  .ticker-crypto-logo,
+  .payment-ticker-logo,
+  .revenue-asset-logo,
+  .catalog-editor-logo-preview,
+  .customer-volume-logo,
+  .customer-country-flag
+) {
+  box-sizing: border-box !important;
+  display: inline-grid !important;
+  place-items: center;
+  flex-shrink: 0 !important;
+  aspect-ratio: 1 / 1 !important;
+  overflow: hidden !important;
+  border-radius: 50% !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}

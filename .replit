@@ -1,0 +1,71 @@
+modules = ["nodejs-24", "python-base-3.13", "postgresql-16"]
+
+[deployment]
+router = "application"
+deploymentTarget = "autoscale"
+
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "api-tests"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "api-typecheck"
+
+[[workflows.workflow]]
+name = "api-tests"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run test:api"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "api-typecheck"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm run typecheck:libs && pnpm --filter @workspace/api-server run typecheck"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[agent]
+stack = "PNPM_WORKSPACE"
+expertMode = true
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
+
+[nix]
+channel = "stable-25_05"
+packages = ["alsa-lib", "at-spi2-atk", "at-spi2-core", "atk", "dbus", "freetype", "glib", "gumbo", "harfbuzz", "jbig2dec", "libgbm", "libjpeg_turbo", "libxkbcommon", "mesa", "mupdf", "nspr", "nss", "openjpeg", "swig", "xcbuild", "xorg.libX11", "xorg.libXcomposite", "xorg.libXdamage", "xorg.libXext", "xorg.libXfixes", "xorg.libXrandr", "xorg.libxcb", "gtk4", "pango", "gdk-pixbuf", "cairo", "vulkan-loader", "graphene", "icu", "libxml2", "sqlite", "libxslt", "lcms2", "libevent", "libopus", "gst_all_1.gstreamer", "gst_all_1.gst-plugins-base", "gst_all_1.gst-plugins-good", "gst_all_1.gst-plugins-bad", "flite", "libwebp", "libavif", "libepoxy", "libjpeg", "wayland", "libmanette", "enchant", "libsecret", "libglvnd", "x264"]
+
+[userenv]
+
+[userenv.shared]
+OPERATOR_EMAILS = "Quickchange1001@gmail.com"
+QUICKEX_CREDENTIAL_SOURCE = "environment"
+OBJECT_STORAGE_BACKEND = "replit"
+VITE_BRANDFETCH_CLIENT_ID = "1idKIR6TdnydMpjVjX_"
+PUBLIC_APP_URL = "https://quickchange.exchange"
+
+[userenv.production]
+USE_DATABASE_OWNER = "true"
+
+[objectStorage]
+defaultBucketID = "replit-objstore-77d8e649-ef02-4a1f-8c20-21e842be9461"

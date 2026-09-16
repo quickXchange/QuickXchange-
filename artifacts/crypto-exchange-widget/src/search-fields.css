@@ -1,0 +1,145 @@
+/* Shared search-field contract.
+ * Page layouts own width and placement; this file owns the single visible
+ * surface, icon gutter, input reset, and focus treatment. */
+.site-search-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 0 !important;
+  gap: 0 !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 12px !important;
+  background: hsl(var(--input)) !important;
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.03) !important;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.site-search-field:hover {
+  border-color: hsl(var(--muted-foreground) / 0.42) !important;
+  background: hsl(var(--background)) !important;
+}
+
+.site-search-field:focus-within {
+  border-color: hsl(var(--primary) / 0.72) !important;
+  background: hsl(var(--background)) !important;
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.12) !important;
+}
+
+.site-search-field > svg:first-of-type {
+  position: absolute !important;
+  inset-inline-start: 14px !important;
+  inset-inline-end: auto !important;
+  top: 50% !important;
+  z-index: 1;
+  width: 17px;
+  height: 17px;
+  margin: 0 !important;
+  color: hsl(var(--muted-foreground)) !important;
+  opacity: 0.78;
+  pointer-events: none;
+  transform: translateY(-50%) !important;
+  transition:
+    color 160ms ease,
+    opacity 160ms ease;
+}
+
+.site-search-field:focus-within > svg:first-of-type {
+  color: hsl(var(--primary)) !important;
+  opacity: 1;
+}
+
+.site-search-field > input {
+  appearance: none;
+  flex: 1 1 auto;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 42px !important;
+  min-height: 42px !important;
+  padding-block: 0 !important;
+  padding-inline-start: 42px !important;
+  padding-inline-end: 14px !important;
+  border: 0 !important;
+  border-radius: inherit !important;
+  outline: 0 !important;
+  background: transparent !important;
+  color: hsl(var(--foreground)) !important;
+  box-shadow: none !important;
+  font: inherit;
+  line-height: 1.2;
+}
+
+.site-search-field > input::-webkit-search-cancel-button {
+  cursor: pointer;
+  opacity: 0.56;
+}
+
+.site-search-field > input::placeholder {
+  color: hsl(var(--muted-foreground) / 0.72) !important;
+  opacity: 1;
+}
+
+.site-search-field > input:focus,
+.site-search-field > input:focus-visible {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+.site-search-field:has(> .convert-search-cancel) > input {
+  padding-inline-end: 4px !important;
+}
+
+.site-search-field > .convert-search-cancel {
+  position: relative;
+  z-index: 1;
+  margin-inline-end: 5px;
+}
+
+.site-search-field--compact {
+  min-height: 40px;
+  border-radius: 10px !important;
+}
+
+.site-search-field--compact > input {
+  height: 38px !important;
+  min-height: 38px !important;
+}
+
+.asset-combobox-search.site-search-field {
+  width: auto;
+}
+
+.site-search-field--command {
+  margin: 10px;
+  width: calc(100% - 20px);
+  border-bottom: 1px solid hsl(var(--border)) !important;
+}
+
+@media (max-width: 640px) {
+  .site-search-field {
+    min-height: 46px;
+  }
+
+  .site-search-field > input {
+    height: 44px !important;
+    min-height: 44px !important;
+    font-size: 16px;
+  }
+
+  .site-search-field--compact {
+    min-height: 42px;
+  }
+
+  .site-search-field--compact > input {
+    height: 40px !important;
+    min-height: 40px !important;
+  }
+}

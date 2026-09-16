@@ -1,0 +1,31 @@
+I want to refine the landing page and exchange widget animations.
+Landing page background
+I want the colors inside the landing page to feel alive and move subtly instead of being completely static.
+Add a smooth, slow-moving color/light effect in the background.
+The movement should feel premium and elegant, like flowing light or soft gradients.
+Keep it subtle and professional—NOT flashy or distracting.
+The animation should be continuous and seamless.
+It should not affect readability or interfere with the exchange widget.
+Make sure it performs well on both desktop and mobile.
+Exchange widget — middle section
+Fix the up/down swap button in the exact middle between the "You Send" and "You Receive" sections.
+The button must be perfectly centered horizontally.
+It should visually overlap/connect the two input sections cleanly.
+Make sure there is no incorrect vertical spacing or misalignment.
+The button should remain correctly positioned on different screen sizes.
+Add a smooth rotation/flip animation when the user switches the exchange direction.
+Make the button feel interactive with a subtle hover and press animation.
+Add a moving connection line
+Add a subtle animated line connecting the "You Send" section to the "You Receive" section.
+The line should:
+Visually connect the two sections.
+Have a subtle moving/glowing effect that travels along the line.
+Be elegant and minimal.
+Make the exchange flow feel like the assets are moving from one side to the other.
+Animate continuously but slowly.
+Not distract from the amount inputs or buttons.
+Work correctly on mobile as well.
+Important
+Do not change or break any existing exchange functionality, API logic, calculations, validation, wallet/address logic, or transaction flow.
+Only improve the visual design, positioning, and animations.
+Before implementing, inspect the current layout so the new animation and middle button integrate naturally with the existing design rather than adding a separate-looking effect.

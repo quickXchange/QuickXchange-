@@ -1,0 +1,22 @@
+Here is the updated prompt for Replit that ensures all coin logos, colors, and ticker symbols are dynamically fetched and rendered alongside the layout and button overhaul.
+Replit Prompt to Copy & Paste
+Task: Redesign and refactor the "Needs Attention" and "Recent Orders (Convert)" admin panel sections. Make all cryptocurrency logos, symbols, and brand colors dynamic, and modernize the UI with proper typography, responsive tables, and styled buttons.
+
+1. Dynamic Crypto Icons & Branding
+Dynamic Logo Rendering: Do not hardcode coin icons. Use a dynamic cryptocurrency icon library or API (e.g., cryptocurrency-icons, @coinbase/cryptoicons-cdn, or standard URL endpoints like [https://assets.coincap.io/assets/icons/](https://assets.coincap.io/assets/icons/){symbol}@2x.png or [https://sp-ao.shortpixel.ai/client/q_glossy,ret_img/https://cryptoicons.org/api/icon/](https://sp-ao.shortpixel.ai/client/q_glossy,ret_img/https://cryptoicons.org/api/icon/){symbol}/200).
+Fallback Handling: Provide a styled fallback circle displaying the coin's ticker symbol (e.g., a neutral badge with USDT, BNB, ETH, TRX, etc.) if a coin logo image fails to load.
+Dynamic Pair Badges: Format trade pairs dynamically as {FROM_COIN} → {TO_COIN} with matching dynamic icons side-by-side.
+2. UI & Component Overhaul
+Typography & Fields:
+Modernize fonts (use Inter, Plus Jakarta Sans, or System UI font stack).
+Clean up alignment for form inputs, table headers, and data fields. Ensure crisp text contrast against the dark background theme.
+Status Badges & Buttons:
+Modernize action buttons (e.g., "VIEW ORDER") with subtle borders, hover effects, and rounded corners (rounded-lg / 8px).
+Style status badges dynamically based on state:
+Needs Attention / Pending: Amber/Yellow soft pill background.
+Completed / Success: Green soft pill background.
+Failed / Rejected: Red soft pill background.
+Table Spacing: Increase cell padding and vertical spacing between rows to eliminate visual clutter. Border each section cleanly with modern dark-mode cards.
+3. Mobile Responsiveness
+Wrap tables in a container with overflow-x-auto to allow smooth horizontal scrolling on tablet devices.
+For screen widths < 768px (mobile), automatically collapse table rows into clean, vertically stacked Card Components showing the dynamic pair, status badge, amount, date, and action button cleanly.

@@ -1,0 +1,91 @@
+- [OpenAPI integer compatibility](openapi-zod-runtime.md) — verify generated integer validators against the installed Zod runtime after schema changes.
+- [OpenAPI query timestamps](openapi-query-timestamps.md) — date-time query parameters can generate server-only Date validators; keep HTTP query contracts string-based and validate calendar semantics.
+- [Quickex V2 signing](quickex-signing.md) — signed health checks must omit query parameters even though Quickex docs show pagination examples.
+- [Quickex egress restrictions](quickex-egress-restrictions.md) — public V2 endpoints can block server egress while remaining healthy elsewhere; fail closed rather than proxying financial quotes.
+- [Quickex instrument mapping](quickex-instrument-mapping.md) — use catalog network titles; rate responses embed reduced instrument objects.
+- [Quickex order payload](quickex-order-payload.md) — omit `markup` on order create unless `referrerId` is sent; create returns a UUID id while the order list shows a numeric one.
+- [Drizzle migration paths](drizzle-migration-paths.md) — keep `out` package-relative so later migration generations can load prior snapshots.
+- [Drizzle post-merge idempotency](drizzle-post-merge-idempotency.md) — new-table migrations must tolerate schema reconciliation running before migration history.
+- [Order-directory indexing](order-directory-indexing.md) — add large-table order indexes through a safe online path, not a regular transactional migration.
+- [Clerk verified-email authorization testing](clerk-verified-email-testing.md) — programmatic sign-in still needs a server-visible verified email for role linking.
+- [Exact Clerk test aliases](clerk-test-aliases.md) — browser-test stubs must alias exact JS exports so Clerk theme CSS subpaths still resolve normally.
+- [Clerk test email domains](clerk-test-email-domains.md) — programmatic Clerk test users may reject reserved test-only domains; use a unique accepted domain when matching operator email.
+- [Customer notification outboxes](customer-notification-outboxes.md) — use monotonic status versions for events and claim tokens to fence reclaimable delivery work.
+- [Manual desk estimate boundaries](manual-desk-estimate-boundaries.md) — quantize in target atomic units and fail closed when the number contract cannot round-trip a value.
+- [Manual desk pricing audit snapshots](manual-desk-pricing-audit.md) — signed manual quotes must preserve exact rule terms and true per-leg market provenance.
+- [Instant quote integrity](instant-quote-integrity.md) — submissions must consume the displayed signed quote; availability requires signed order capability.
+- [1Forge compact quote fields](oneforge-compact-quotes.md) — live quote payloads may use single-letter keys even when examples show long field names.
+- [Provider-sync write fencing](provider-sync-write-fencing.md) — renewal alone is insufficient; reconciliation writes must atomically prove the current unexpired lease token.
+- [Mutable configuration test fixtures](mutable-pricing-test-fixtures.md) — tests must tolerate operator-edited seed rows and populate only fields the current schema requires.
+- [Admin pricing previews](admin-pricing-previews.md) — pricing calculations may ignore funding availability only on operator-protected preview routes; public quotes must remain fail-closed.
+- [Optional exact path overrides](manual-pricing-global-fallback.md) — existing Swap pricing remains the fallback; direct and reciprocal exact rates are optional higher-priority overrides.
+- [Playwright query route mocks](playwright-query-route-mocks.md) — route mocks must account for query strings when endpoint contracts add required query parameters.
+- [Order detail round-trips](order-detail-roundtrips.md) — editable operational fields must survive detail response validation or unrelated saves can silently clear them.
+- [Provider-create idempotency](provider-create-idempotency.md) — claim full requests durably before irreversible provider calls; never reconcile by similarity.
+- [Quickex address preflight](quickex-address-preflight.md) — documented validation routes may return isolated 403s; signed order creation remains the authoritative address gate.
+- [Convert tracking capabilities](convert-tracking-capabilities.md) — random QX UUID IDs support paste-only tracking; short Manual IDs still require signed tokens.
+- [Convert directory compatibility](convert-directory-compatibility.md) — normalize legacy Quickex JSON amounts and nullable metadata at the admin API boundary.
+- [Direct manual status jumps](direct-manual-status-jumps.md) — forward jumps record crossed milestone times once and emit only the selected final customer status.
+- [Provider idempotency ordering](provider-idempotency-ordering.md) — replay durable requests before checking live provider capability; gate only new side effects.
+- [Regional batch fencing](regional-batch-fencing.md) — reviewed regional mutations must recheck current membership inside each write transaction.
+- [Visual overhaul class contracts](visual-overhaul-class-contracts.md) — audit rendered class contracts and real responsive widths before replacing a shared stylesheet.
+- [Dual crypto route availability](dual-crypto-route-availability.md) — enabled mapped networks may support manual Swap and provider Convert simultaneously; catalog-only remains non-executable.
+- [QuickEx runtime proof fencing](quickex-runtime-proof-fencing.md) — refresh remote credential proof at startup and fence irreversible creates against proof invalidation or rotation.
+- [Affiliate accounting integrity](affiliate-accounting-integrity.md) — freeze attribution and terms at completion; keep reversals and provider refreshes durable and provider-wide.
+- [Append-only affiliate test cleanup](append-only-affiliate-test-cleanup.md) — ledger integration tests need the privileged test pool for narrowly scoped trigger-safe fixture removal.
+- [Authenticated public bundle boundaries](authenticated-public-bundles.md) — keep route screens lazy even when a shared auth runtime must remain eager for signed-in public UI.
+- [Viewport combobox overlays](viewport-combobox-overlays.md) — keep widget-anchored selectors and document bottom sheets on separate class/cascade and viewport contracts.
+- [Admin-driven settlement identities](admin-settlement-identities.md) — render fiat currency and payment-method identities separately from live Admin option data.
+- [Public image verification](public-image-verification.md) — fully decode private uploads before publication; metadata and magic bytes do not prove a safe image.
+- [Orval record constraint gaps](orval-record-constraints.md) — verify generated Zod for OpenAPI record limits and strictness; preserve explicit boundary parsers through codegen.
+- [Edge-safe background blur](edge-safe-background-blur.md) — avoid box overscan for cover images; duplicate filter edges so blur cannot fade or shift focal framing.
+- [Layered mobile CSS overrides](layered-mobile-css-overrides.md) — important declarations inside cascade layers can defeat later unlayered fixes; change the layered source rule.
+- [Payment field ticket compatibility](payment-field-ticket-compatibility.md) — signed settlement snapshots must accept every field type allowed by the public payment-field contract.
+- [In-widget order uncertainty](in-widget-order-uncertainty.md) — unresolved creates must retain their idempotency identity and block resets or mode changes until safely recovered.
+- [Instant widget mode switching](instant-widget-mode-switching.md) — keep heavy mode trees mounted and precomposited; switch only lightweight layer state and defer nonvisual work.
+- [Swap and Convert visual boundaries](swap-convert-visual-parity.md) — share the public shell, but keep each mode’s intentionally distinct Step 2 layout isolated.
+- [Amount-independent route rates](amount-independent-route-rates.md) — pre-amount Swap rates apply percentage markup but exclude fixed fees, which remain amount-dependent quote fees.
+- [Mobile widget scroll boundaries](mobile-widget-scroll-boundaries.md) — closed fixed-height widgets must chain vertical touch gestures to the page; only open selector lists should contain scrolling.
+- [Compact selector overlays](compact-selector-overlays.md) — phone and tablet Search cards size to content; only the results list grows and scrolls.
+- [Coinbase ticker coverage](coinbase-ticker-coverage.md) — discover supported USD products from Coinbase’s live catalog and render unsupported assets without fallback prices.
+- [Customer suspension boundaries](customer-suspension-boundaries.md) — guard every authenticated side-effect path, including routes that intentionally support anonymous users.
+- [Clerk email verification proof](clerk-email-verification-proof.md) — never replace mailbox proof with an administrative verified flag when backend initiation is unavailable.
+- [Wildcard pricing previews](wildcard-pricing-previews.md) — preserve Any sides when loading a rule; require a concrete route side before requesting a market quote.
+- [Catalog redesign parity](catalog-redesign-parity.md) — visual-only catalog redesigns must inventory existing per-tab utilities and e2e contracts before unifying their presentation.
+- [Crypto identity fallback](crypto-identity-fallback.md) — known asset symbols recover to centralized official logos; neutral fallback is reserved for genuinely unknown assets.
+- [Vite cache cleanup](vite-cache-cleanup.md) — restart running Vite workflows after deleting optimization caches or lazy routes can retain an inconsistent React graph.
+- [Workspace cache triage](workspace-cache-triage.md) — preserve caches that prevent expensive downloads or optimization; purge only inactive, safely rebuildable caches.
+- [Customer dashboard summaries](customer-dashboard-summaries.md) — scope paginated counts honestly and group exact amounts by asset; never coerce or combine currencies.
+- [Stranded browser-test processes](stranded-browser-tests.md) — after browser-heavy validation, check for orphaned Playwright Chromium trees before diagnosing app slowness.
+- [Shared customer-area design](customer-area-design-system.md) — customer routes share one shell, theme, typography, and card language; never solve visual drift with route-only cosmetic layers.
+- [Stale TypeScript language servers](stale-typescript-language-servers.md) — prolonged editor slowness can come from an aged tsserver tree even when app load, disk, and browser processes are healthy.
+- [Artifact preview verification](artifact-preview-verification.md) — verify data-dependent UI through the routed artifact preview, not the raw Vite port.
+- [Customer order detail projection](customer-order-detail-projection.md) — premium detail UIs must project only customer-safe fields that actually exist; never infer missing operational data.
+- [Global flag geometry](global-flag-geometry.md) — keep country flags under the last-loaded shared square-wrapper contract; legacy context rules can otherwise reshape them.
+- [Mobile swipe tables](mobile-swipe-tables.md) — preserve real tables on phones; the entire table scrolls horizontally with no frozen columns.
+- [Shared Admin search isolation](admin-search-isolation.md) — shared search geometry must stay isolated from generic Admin input and mobile toolbar sizing rules.
+- [Admin order network labels](admin-convert-network-labels.md) — Convert and Swap crypto rows show concise route codes such as BEP20, not combined network titles.
+- [Stable exchange shell](stable-exchange-shell.md) — Swap and Convert share one fixed breakpoint footprint; longer steps scroll inside without resizing it.
+- [Affiliate referral code compatibility](affiliate-referral-codes.md) — show compact codes without invalidating previously shared referral URLs or weakening immutable attribution.
+- [Tablet hero track balance](tablet-hero-track-balance.md) — cap fixed-widget tablet columns proportionally and stack dense right-rail groups when portrait widths make two-across content unreadable.
+- [Navigation surface boundaries](navigation-surface-boundaries.md) — public, Admin, and widget hamburgers own distinct menus; apply requested presentation changes only to named surfaces.
+- [Theme-safe brand logos](theme-safe-brand-logos.md) — payment and crypto logos keep official colors in every theme; theme only their surrounding surfaces.
+- [Clerk environment operator relinking](clerk-environment-operator-relinking.md) — verified email may atomically replace a stale Clerk ID when operator data crosses isolated environments.
+- [Order confirmation presentation](order-confirmation-presentation.md) — keep deposit confirmation compact and mobile-first without weakening payment data or action contracts.
+- [Admin portal theme surfaces](admin-portal-theme-surfaces.md) — body-portaled Admin menus need explicit Light/Dark contracts and mobile selectors that beat legacy `:is()` specificity.
+- [Stale API build drift](stale-api-build-drift.md) — authorization schema errors can come from an old running server bundle after workspace code changes; compare current source before migrating.
+- [Admin order summary precision](admin-order-summary-precision.md) — abbreviate extreme amounts only in compact summaries; preserve exact decimals in details and clipboard actions.
+- [Operator catalog deletion persistence](operator-catalog-deletion-persistence.md) — initialize catalogs through one-time migrations; request paths must never recreate deleted Admin rows.
+- [Public trust claims](public-trust-claims.md) — public financial pages must use verified business facts; never invent contacts, social links, program terms, or compliance capabilities.
+- [Authenticated live previews](authenticated-live-previews.md) — parent-fetch protected draft media and keep preview covered until read-only state is acknowledged.
+- [Clerk TOTP ownership](clerk-totp-ownership.md) — Clerk owns authenticator secrets and challenges; Admin access requires trusted enrollment and second-factor proof.
+- [Automated editorial safety](automated-editorial-safety.md) — previews stay read-only, generated articles require review, and scheduled runs claim durable timezone slots.
+- [Blog category query boundaries](blog-category-query-boundaries.md) — subscribe to URL search state explicitly and never compare free-form slugs directly to UUID columns.
+- [Versioned footer snapshot compatibility](versioned-footer-snapshot-compatibility.md) — new footer fields must remain optional at public snapshot boundaries so historical publications still parse.
+- [Signed object upload headers](signed-object-upload-headers.md) — let Node fetch calculate Content-Length for signed byte uploads; manually setting it can be rejected before transfer.
+- [Asset-network wallet identity](asset-network-wallet-identity.md) — receiving wallets are selected by immutable asset-network row ID; sharing derives only from its exact configured network code.
+- [Automatic catalog ordering](automatic-catalog-ordering.md) — operator-managed entities use enabled/active-first alphabetical order, never manual numeric order or silent fixed list caps.
+- [Admin permission boundaries](admin-permission-boundaries.md) — Admin APIs are deny-by-default; Owner-only sensitive actions cannot be delegated or restored through overrides.
+- [Provider support metadata](provider-support-metadata.md) — provider-only orders keep operational support data in a fenced sidecar with explicit result tags and safe projections.
+- [Resend sender domain verification](resend-sender-domain.md) — Contact Form delivery stays fail-closed until quickxchange.net is verified in the connected Resend account.
+- [Newsletter delivery integrity](newsletter-delivery-integrity.md) — publish enqueue is atomic, unsubscribe is terminal, and Read More links are parser-checked.

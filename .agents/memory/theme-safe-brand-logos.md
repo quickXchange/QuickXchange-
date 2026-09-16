@@ -1,0 +1,10 @@
+---
+name: Theme-safe brand logos
+description: Preserve official logo artwork inside the platform-wide circular container contract.
+---
+
+Payment-method, bank, crypto, network, and fiat logo containers must be perfectly circular with a subtle one-pixel boundary and restrained theme-safe surface treatment. Crypto coins and fiat flags fill the circle with cover fitting; payment and bank artwork targets a 90–95% internal content box with centered contain fitting. Payment and bank artwork uses a neutral white circular backing in both themes so transparent dark wordmarks stay readable without recoloring. Never invert, grayscale, tint, recolor, or stretch artwork. Resolve sources in this order: Admin-uploaded URL, official stored/bundled asset, Brandfetch, then a circular initial/symbol fallback.
+
+**Why:** The user explicitly chose one consistent circular avatar language and edge treatment across the platform while requiring authentic artwork and uploaded catalog branding to remain authoritative. Brandfetch Logo API also redirects command-line probes to its documentation as automated-traffic protection even when browser hotlinking works.
+
+**How to apply:** Make artwork geometry changes through the shared avatar renderer, not page-specific image selectors; context wrappers may choose among shared sizes. Let intrinsic aspect ratio choose icon, wordmark, or tall fit. Apply curated optical scales by recognized brand, including Admin-uploaded sources, only after visual verification shows the scale preserves meaningful artwork; unknown uploads retain unscaled contain fitting. Keep currency badges smaller and attached at bottom-right. Leave source files and intrinsic artwork backgrounds unchanged. Treat Brandfetch as browser-hotlink-only: verify it through a rendered image with positive natural dimensions, use explicit domain/crypto routes with fallback/404, and never infer failure from a shell redirect alone.

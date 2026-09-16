@@ -1,0 +1,27 @@
+.convert-summary-asset {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.convert-summary-asset .crypto-identity-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.convert-summary-asset .crypto-identity-primary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.convert-summary-asset .crypto-identity-primary strong {
+  font-size: 16px;
+  line-height: 1.2;
+}
+.convert-summary-asset .crypto-identity-name {
+  font-size: 13px;
+  color: hsl(var(--muted-foreground));
+  line-height: 1.2;
+}

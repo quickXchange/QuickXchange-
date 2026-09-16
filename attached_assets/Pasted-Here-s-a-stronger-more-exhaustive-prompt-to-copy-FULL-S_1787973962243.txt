@@ -1,0 +1,134 @@
+Here's a stronger, more exhaustive prompt to copy:
+
+---
+
+FULL SITE DESIGN OVERHAUL — Complete Pass, Every Page, Every Element
+
+The design has improved, but it is still inconsistent. I need you to now do a complete, exhaustive design pass across the entire application — every page, every screen, every state, every field, every component. Nothing gets skipped. Do not stop at the pages you already touched.
+
+Functionality, logic, API calls, routes, and data flow must remain untouched. This is purely visual and UX.
+
+---
+
+PART 1 — Build a Real Design System First (do this before touching pages)
+
+Do not style pages one by one with hardcoded values. Create a single source of truth:
+
+- Design tokens file (CSS variables / Tailwind config) containing: full color scale, spacing scale, border-radius scale, shadow scale, typography scale, transition timings, z-index scale
+- Color scale: build 50→900 tints for the brand primary color extracted from the logo, plus a custom neutral gray scale, plus semantic colors (success/error/warning/info)
+- Spacing scale: strict 4/8px system (4, 8, 12, 16, 24, 32, 40, 48, 64, 80, 96, 120) — no arbitrary values anywhere in the codebase
+- Radius scale: pick one system (e.g. 8 / 12 / 16 / 20 / full) and use it everywhere — no page should have a different radius than another
+- Shadow scale: 4 levels (xs, sm, md, lg) — soft and diffused, never harsh black shadows
+- Then refactor every existing component to consume these tokens. If a component has a hardcoded hex, px value, or font size, replace it.
+
+Shared components to standardize and reuse everywhere (do not let pages define their own versions):
+Button (primary/secondary/ghost/danger + sizes + loading + disabled states), Input, Select/Dropdown, Textarea, Checkbox, Radio, Toggle, Card, Modal, Badge/Tag, Table, Tabs, Tooltip, Alert/Banner, Pagination, Breadcrumb, Avatar, Skeleton loader, Empty state, Stepper/Progress.
+
+---
+
+PART 2 — Every Page Must Be Redesigned
+
+Go through all of these and bring each to the same standard:
+
+Public/Marketing: Landing/Home, How It Works, About, Affiliates, Contact Us, FAQ, AML/KYC Policy, Privacy Policy, Terms & Conditions, 404 page, error pages
+Auth: Login, Sign Up, Forgot Password, Reset Password, Email Verification, 2FA/OTP screens
+Core Product: Swap widget, Convert widget, Currency selection, Order creation flow (all steps), Order details page, Order status/tracking, Order history/list, Transaction receipt/confirmation
+Account: Dashboard/Overview, Profile settings, Security settings, KYC/verification flow, Notifications, Referral/Affiliate dashboard, Payment methods
+
+If a page exists in the app that isn't on this list, redesign it too.
+
+---
+
+PART 3 — Landing Page (Highest Priority — this is the first impression)
+
+Rebuild the landing page to look like a serious fintech product, not a template:
+
+- Hero: bold headline (48–64px desktop, tight letter-spacing -0.02em), clear one-line subheadline in muted gray, the swap widget prominently placed (side-by-side on desktop, stacked on mobile), strong primary CTA. Generous padding: 96–120px top/bottom on desktop, 56–72px mobile. Optional subtle background treatment (soft gradient mesh or fine grid pattern at very low opacity) — tasteful, never loud.
+- Trust bar: partner/collaborator logos in a clean evenly-spaced row, grayscale by default with subtle color on hover, consistent heights (don't let logos be different sizes)
+- Stats strip: key numbers (exchanges completed, avg processing time, supported coins, uptime) in large tabular-numeric type with muted labels underneath
+- How It Works: 3–4 step cards with numbered badges, icons, consistent card heights, connecting line or arrows between steps on desktop
+- Features/Why Use Us: clean card grid (3 columns desktop → 2 tablet → 1 mobile), each with icon in a tinted rounded square, bold title, 2-line description. Equal card heights.
+
+- Supported currencies: horizontal marquee or clean grid of coin icons with tickers
+- Testimonials/Reviews: card carousel or grid with avatar, name, rating stars, short quote — consistent card sizing
+- FAQ accordion: smooth expand/collapse animation, clear chevron indicator, generous row padding
+- Final CTA section: full-width band with contrasting background, centered headline + button
+- Footer: multi-column, clear section headings, consistent link spacing, social icons from ONE icon set at matching stroke width, payment method logos aligned, legal line at bottom
+
+Section rhythm: 96–120px vertical spacing between every landing section on desktop, 56–72px on mobile. This alone transforms how expensive the site looks.
+
+---
+
+PART 4 — Every Form Field, Everywhere
+
+Every input across the entire site must be identical in style:
+- Height 44–48px, radius matching the system, 12–16px internal horizontal padding
+- Clear label above (13–14px, weight 500, muted)
+- Placeholder in a lighter gray, clearly distinguishable from entered text
+- Focus state: 2px brand-color ring with subtle glow, smooth 150ms transition — never the browser default outline
+- Error state: red border + red helper text below with a small icon, never just a red border with no explanation
+- Success/valid state: subtle green check indicator
+- Disabled state: muted background, reduced opacity, not-allowed cursor
+- Helper/hint text below fields in 13px muted gray
+- Select dropdowns, date pickers, and search inputs must match this exact style — no native browser styling anywhere
+- Amount/crypto inputs: larger font (24–28px), tabular-nums, with the currency pill selector inline on the right
+
+---
+
+PART 5 — Order Pages & All Order States
+
+- Order list/history: clean table on desktop (proper row height ~56px, zebra or hover highlight, sortable headers) that converts to stacked cards on mobile
+- Order detail: two-column with sticky summary sidebar, clear section cards for details/currency/payment method/overview/customer info
+- Status badges: pill-shaped, color-coded with matching tinted background (pending=amber, processing=blue, completed=green, failed=red, expired=gray), consistent everywhere they appear
+- Order progress stepper: visual step indicator showing where the order is in the flow, completed steps checked, current step highlighted, upcoming steps muted
+- Copy-to-clipboard buttons on addresses/transaction IDs with a "Copied!" confirmation toast
+- QR code display for deposit addresses, properly sized and framed
+- Countdown timers styled clearly (tabular numbers, not jumping width)
+
+---
+
+PART 6 — Every State Must Be Designed (this is what separates pro from amateur)
+
+For every page and component, design these states — do not leave any unstyled:
+- Loading: skeleton screens matching the shape of real content (never a bare spinner on a blank page)
+- Empty: illustration or icon + helpful message + action button (e.g. "No orders yet — Start your first swap")
+- Error: clear message, what went wrong, and a retry action
+- Success: confirmation with a clear next step
+- Hover / active / focus / disabled on every clickable element
+- Toasts/notifications: consistent position, style, auto-dismiss, with success/error/info variants
+
+---
+
+PART 7 — Consistency Enforcement (audit at the end)
+
+After redesigning, go back through the whole app and verify:
+
+- One font family across everything — no page using a different font or a fallback
+- One border-radius system — no page with sharper or rounder corners than another
+- One button style set — no page with a differently-styled button
+- One card style — same padding, radius, shadow, border everywhere
+- All icons from ONE library (Lucide or Phosphor), same stroke width, same size scale
+- All spacing pulled from the scale — search the codebase for stray values and fix them
+- Every page's header and footer identical
+- Dark mode (if present) fully working on every single page and component — no white flashes, no unreadable text, no forgotten elements
+
+---
+
+PART 8 — Responsive: Every Page, Every Breakpoint
+
+Test at 375px, 414px, 768px, 1024px, 1280px, 1440px, 1920px:
+- Zero horizontal overflow anywhere
+- Touch targets minimum 44×44px on mobile
+- Text never smaller than 14px on mobile body copy
+- Tables become cards, multi-column becomes single column, nav becomes a clean drawer
+- Modals become full-screen or bottom sheets on mobile
+- Sticky elements don't cover content or CTAs on small screens
+
+---
+
+Overall Standard
+
+Every screen should look like it was designed by the same person on the same day. Sharp, modern, generous with whitespace, restrained with color — brand color reserved for actions and emphasis only, everything else neutral. Benchmark quality: Stripe for spacing and typography discipline, Binance for data density done cleanly, Changelly/ChangeNOW for the exchange flow patterns.
+
+If any page, field, state, or component doesn't meet this standard after your pass, it isn't finished. Go back and fix it.
+

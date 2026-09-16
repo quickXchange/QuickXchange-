@@ -1,0 +1,496 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1787578660610,
+      "tag": "0000_quickex_network_orders",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787579013215,
+      "tag": "0001_public_order_deposit_memo",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787579702868,
+      "tag": "0002_unresolved_legacy_network_safety",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787581823705,
+      "tag": "0003_ambitious_molly_hayes",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787598004063,
+      "tag": "0004_chief_phantom_reporter",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787605109110,
+      "tag": "0005_huge_nick_fury",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787606897141,
+      "tag": "0006_giant_white_queen",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787610540966,
+      "tag": "0007_silent_epoch",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787610963194,
+      "tag": "0008_simple_ted_forrester",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787612503054,
+      "tag": "0009_useful_synch",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1787612877661,
+      "tag": "0010_daily_miracleman",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1787613273456,
+      "tag": "0011_good_marten_broadcloak",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1787615320309,
+      "tag": "0012_damp_songbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1787618420712,
+      "tag": "0013_loose_giant_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1787690431017,
+      "tag": "0014_powerful_wildside",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1787691335157,
+      "tag": "0015_rich_the_hood",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1787701885334,
+      "tag": "0016_dynamic_fiat_currencies",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1787703000000,
+      "tag": "0017_manual_desk_pricing_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1787704000000,
+      "tag": "0018_payment_methods_settlement_v2",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1787705000000,
+      "tag": "0019_manual_crypto_catalog_settlement",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1787844000000,
+      "tag": "0020_manual_crypto_deposit_invariants",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1787845000000,
+      "tag": "0021_order_operations_workspace",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1787846000000,
+      "tag": "0022_order_audit_append_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1787847000000,
+      "tag": "0023_quickex_owned_orders",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1787848000000,
+      "tag": "0024_quickex_order_aggregate",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1787933000000,
+      "tag": "0025_quickex_backfill_customer_identity",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1787934000000,
+      "tag": "0026_quickex_customer_ownership",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1787935000000,
+      "tag": "0027_quickex_backfill_customer_ownership",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1787948827415,
+      "tag": "0028_manual_desk_full_activation",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1787949685927,
+      "tag": "0029_manual_desk_disable_unsupported_trx",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1787964029267,
+      "tag": "0030_global_payment_catalog_capabilities",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1788040628625,
+      "tag": "0031_stormy_mulholland_black",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1788051666788,
+      "tag": "0032_affiliate_profit_system",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1788052166882,
+      "tag": "0033_affiliate_append_only_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1788052446361,
+      "tag": "0034_quickex_reconciliation_cooldown",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1788053136559,
+      "tag": "0035_affiliate_initial_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1788053736559,
+      "tag": "0036_landing_background_studio",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1788054336559,
+      "tag": "0037_landing_background_placements",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1788054936559,
+      "tag": "0038_customer_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1788612000000,
+      "tag": "0039_affiliate_usdt_payouts",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1788818030302,
+      "tag": "0040_nostalgic_ted_forrester",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1788820030872,
+      "tag": "0041_kind_rumiko_fujikawa",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1788820267356,
+      "tag": "0042_tearful_domino",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1788821000000,
+      "tag": "0043_fiat_currency_manual_rates",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1788822000000,
+      "tag": "0044_exact_manual_path_rates",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1788823000000,
+      "tag": "0045_monero_crypto_catalog",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1789176707411,
+      "tag": "0046_mighty_wrecker",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1789305514409,
+      "tag": "0047_fancy_grim_reaper",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1789306469316,
+      "tag": "0048_smart_layla_miller",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1789307000000,
+      "tag": "0049_seed_site_publication_defaults",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1789336226369,
+      "tag": "0050_odd_captain_flint",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1789337612598,
+      "tag": "0051_bent_talon",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1789341286320,
+      "tag": "0052_new_cerebro",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1789378041629,
+      "tag": "0053_vengeful_black_cat",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1789379000000,
+      "tag": "0054_quickxchange_blog",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1789380000000,
+      "tag": "0055_blog_author_settings_categories",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1789381000000,
+      "tag": "0056_blog_automation_lease",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1789382000000,
+      "tag": "0057_blog_automation_slots",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1789469700000,
+      "tag": "0058_blog_featured_reading_time",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1789482600000,
+      "tag": "0059_footer_social_media",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1789482601000,
+      "tag": "0060_social_icon_appearance",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1789482602000,
+      "tag": "0061_nullable_social_icon",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1789482603000,
+      "tag": "0062_remove_manual_display_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1789482604000,
+      "tag": "0063_team_members_permissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1789482605000,
+      "tag": "0064_legacy_operator_eligibility",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1789482606000,
+      "tag": "0065_order_support_tools",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1789482607000,
+      "tag": "0066_order_support_metadata",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1789482610000,
+      "tag": "0069_newsletter",
+      "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1789482611000,
+      "tag": "0070_newsletter_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1789482612000,
+      "tag": "0071_remove_legacy_provider",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+Here's the follow-up prompt to copy:
+
+---
+
+Design Refinement Pass — Spacing & Order Page
+
+ Two things need fixing:
+
+1. Padding/Spacing Audit (Site-Wide)
+Several areas feel cramped and interrupt the flow instead of feeling premium. Go through every screen and increase breathing room:
+- Increase internal padding on all cards, panels, and containers — nothing should feel like content is touching its edges
+- Increase gap between sections/blocks so the eye isn't jumping between crowded elements
+- Increase spacing between form fields, list items, and rows — tight stacking reads as unfinished
+- Where two elements currently sit right next to each other with no visual separation, add either spacing or a subtle divider
+- Rule of thumb: if in doubt, add more space, not less — premium fintech products (Stripe, Binance) are generous with whitespace, not dense
+
+2. Redesign the Order Page
+The order page needs the same professional treatment as the swap widget — right now its shape/layout feels off. Rework it into a clean two-column layout (stacking to one column on mobile):
+
+- Order Details Sidebar: turn into a distinct card — rounded corners matching the rest of the site, clear label/value rows (label muted gray, value bold/dark), generous vertical spacing between each row, a subtle divider before the total/summary line, sticky on desktop so it stays visible while scrolling
+- Currency & Payment Methods section: redesign as selectable cards/tiles instead of a plain list — icon + name, clear selected state (border + subtle brand-color background tint), consistent sizing and spacing in a clean grid, not cramped inline items
+- Overview section: give it clear visual hierarchy — a heading, then organized key info (amount, rate, status, timestamps) in a clean grid or stacked rows with consistent label/value styling, not a wall of text
+- Customer/Customers section: same card treatment — consistent padding, clear typography hierarchy (name/primary info bold, secondary info muted), proper spacing between customer entries if it's a list, avatar or icon aligned consistently
+
+Overall goal for the order page: it should feel like one cohesive, well-structured page — not a form dump. Use the same shadows, radius, spacing scale, and type scale established in the last design pass so it matches the rest of the site exactly.

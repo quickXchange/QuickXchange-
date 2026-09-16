@@ -1,0 +1,3 @@
+-- Metadata-only reconciliation for the customer order-history index.
+-- The index is intentionally not created by the transactional migrator:
+-- on a populated database it must be built online before this schema metadata is published.
