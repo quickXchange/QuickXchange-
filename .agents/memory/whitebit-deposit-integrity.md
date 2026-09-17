@@ -15,6 +15,12 @@ Manual Swap funding addresses use an order-scoped claim, not the customer deposi
 
 **How to apply:** Serialize order identity with a PostgreSQL advisory transaction lock, atomically move the unique claim from `claiming` to `calling`, let only that updater call WhiteBIT, and update the claim plus all order funding snapshots in one transaction.
 
+When WhiteBIT is enabled and credentials are present, temporary capability-catalog unavailability must reserve WhiteBIT ownership and leave the order unresolved rather than silently choosing a manual address. Only a confirmed unsupported route may use the normal manual path.
+
+**Why:** WhiteBIT capability parsing can fail because of unrelated provider catalog inconsistencies. Treating that uncertainty as “provider disabled” exposes a manual wallet even though the operator selected WhiteBIT for the supported route.
+
+**How to apply:** Distinguish explicit disablement, missing credentials, confirmed route mismatch, and capability uncertainty before creating the order. Any rejection after WhiteBIT selection remains WhiteBIT-owned and recoverable.
+
 WhiteBIT’s public asset catalog can mark an asset deposit-enabled while omitting its deposit-network list. Exclude only that asset; continue to reject malformed populated lists and require an exact advertised asset/network match.
 
 **Why:** Invalidating the entire catalog for one internally inconsistent asset disables every healthy route, while inferring networks from unrelated fields could authorize an unsupported address request.

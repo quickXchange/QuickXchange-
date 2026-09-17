@@ -176,10 +176,11 @@ export async function provisionSwapFundingAddress(input: {
   } catch (error) {
     const definitive = error instanceof ApiError && error.code === "WHITEBIT_PROVIDER_DEFINITIVE";
     await finalizeClaimAndOrder(input.orderId, calling.id, {
-      status: definitive ? "failed" : "unresolved",
-      providerError: definitive ? "WhiteBIT rejected the address request." : "Provider outcome is unknown; operator recovery is required.",
+      status: "unresolved",
+      providerError: definitive
+        ? "WhiteBIT rejected the unique address request. Verify create-new-address access for this API key and recover the order address."
+        : "Provider outcome is unknown; operator recovery is required.",
     });
-     if (definitive) return { source: "manual" as const, address: input.manualAddress, memo: input.manualMemo, unresolved: false };
     return { source: "whitebit" as const, address: null, memo: null, unresolved: true };
   }
   const parsedAddress = parseWhitebitAddressResponse(result);
@@ -292,20 +293,12 @@ async function finalizeSwapFundingFromClaimTx(tx: WhitebitTransaction, orderId: 
     const current = (order.fundingDetailsSnapshot ?? (order.settlementSnapshot as Record<string, unknown> | null)?.funding ?? {}) as Record<string, unknown>;
     const settlement = { ...((order.settlementSnapshot ?? {}) as Record<string, unknown>) };
     let funding: Record<string, unknown>;
-    let status: "ready_whitebit" | "ready_manual" | "unresolved";
-    let source: "whitebit" | "manual";
+    let status: "ready_whitebit" | "unresolved";
+    let source: "whitebit";
     if (claim.status === "ready" && claim.address) {
       funding = { ...current, address: claim.address, memo: claim.memo ?? "", source: "whitebit", status: "ready" };
       status = "ready_whitebit";
       source = "whitebit";
-    } else if (claim.status === "failed") {
-      const fallbackAddress = typeof current.manualFallbackAddress === "string" ? current.manualFallbackAddress : "";
-      const fallbackMemo = typeof current.manualFallbackMemo === "string" ? current.manualFallbackMemo : "";
-      funding = { ...current, address: fallbackAddress, memo: fallbackMemo, source: "manual", status: "ready" };
-      delete funding.manualFallbackAddress;
-      delete funding.manualFallbackMemo;
-      status = "ready_manual";
-      source = "manual";
     } else {
       funding = { ...current, address: "", memo: "", source: "whitebit", status: "unresolved" };
       status = "unresolved";

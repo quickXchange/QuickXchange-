@@ -103,6 +103,21 @@ export function matchWhitebitCapability(
   };
 }
 
+export function shouldReserveWhitebitOrderFunding(
+  status: {
+    enabled: boolean;
+    explicitDisabled: boolean;
+    credentialsReady: boolean;
+    state: string;
+  },
+  capability: unknown,
+): boolean {
+  if (capability) return true;
+  return !status.explicitDisabled &&
+    status.credentialsReady &&
+    status.state === "unavailable";
+}
+
 export async function whitebitSwapStatus() {
   const storedCredentials = await getWhitebitCredentialStorageState();
   const credentialsReady = storedCredentials.status === "available" ||

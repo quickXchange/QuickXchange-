@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import test from "node:test";
 import { assetIdentity, classifyWhitebitHttpStatus, historyRecords, isCreditEligible, parseWhitebitAddressResponse, verifyWhitebitSignature } from "../src/routes/whitebit";
-import { matchWhitebitCapability, parseWhitebitAssets } from "../src/lib/whitebit-capabilities";
+import { matchWhitebitCapability, parseWhitebitAssets, shouldReserveWhitebitOrderFunding } from "../src/lib/whitebit-capabilities";
 
 const secret = "unit-test-webhook-secret";
 const raw = Buffer.from(JSON.stringify({
@@ -89,7 +89,16 @@ test("WhiteBIT capability parser requires strict keyed assets and exact deposit 
   assert.equal(parseWhitebitAssets({ USDT: { can_deposit: true, networks: { deposits: ["TRC20"] }, confirmations: [] } }), null);
 });
 
-test("WhiteBIT HTTP classification only permits certainly rejected 4xx responses to fall back", () => {
+test("enabled WhiteBIT keeps order funding ownership while capabilities are temporarily unavailable", () => {
+  const unavailable = { enabled: false, explicitDisabled: false, credentialsReady: true, state: "unavailable" };
+  assert.equal(shouldReserveWhitebitOrderFunding(unavailable, null), true);
+  assert.equal(shouldReserveWhitebitOrderFunding({ ...unavailable, explicitDisabled: true, state: "disabled" }, null), false);
+  assert.equal(shouldReserveWhitebitOrderFunding({ ...unavailable, credentialsReady: false, state: "not_configured" }, null), false);
+  assert.equal(shouldReserveWhitebitOrderFunding({ ...unavailable, enabled: true, state: "ready" }, { providerTicker: "USDT" }), true);
+  assert.equal(shouldReserveWhitebitOrderFunding({ ...unavailable, enabled: true, state: "ready" }, null), false);
+});
+
+test("WhiteBIT HTTP classification distinguishes definitive and ambiguous provider outcomes", () => {
   for (const status of [408, 409, 429, 500, 502, 503, 504]) {
     assert.equal(classifyWhitebitHttpStatus(status), "ambiguous");
   }

@@ -222,8 +222,11 @@ import {
   testWhitebitSignedConnection,
   verifyWhitebitAddressCreationPermission,
 } from "./whitebit";
-import { whitebitSwapStatus } from "../lib/whitebit-capabilities";
-import { isWhitebitSwapEnabled } from "../lib/whitebit-capabilities";
+import {
+  isWhitebitSwapEnabled,
+  shouldReserveWhitebitOrderFunding,
+  whitebitSwapStatus,
+} from "../lib/whitebit-capabilities";
 import {
   activateWhitebitCredentials,
   getWhitebitCredentialStorageState,
@@ -2073,13 +2076,18 @@ async function createOrderFromInput(
   const createdAt = new Date();
   const sourceSnapshot = quote.settlementSnapshot?.source;
   const manualFunding = quote.settlementSnapshot?.funding;
-  const whitebitCandidate = sourceSnapshot?.kind === "crypto-network" && manualFunding
-    ? await isWhitebitSwapEnabled(
-      sourceSnapshot.assetCode,
-      sourceSnapshot.networkCode ?? quote.fromNetwork,
-    )
+  const whitebitStatus = sourceSnapshot?.kind === "crypto-network" && manualFunding
+    ? await whitebitSwapStatus()
     : null;
-  const providerFundingCandidate = Boolean(whitebitCandidate);
+  const whitebitCandidate = whitebitStatus?.enabled && sourceSnapshot?.kind === "crypto-network"
+    ? await isWhitebitSwapEnabled(
+        sourceSnapshot.assetCode,
+        sourceSnapshot.networkCode ?? quote.fromNetwork,
+      )
+    : null;
+  const providerFundingCandidate = whitebitStatus
+    ? shouldReserveWhitebitOrderFunding(whitebitStatus, whitebitCandidate)
+    : false;
   const id = `O${randomInt(0, 1_000_000_000).toString().padStart(9, "0")}`;
   const intent = {
     id, type: "manual", status: "awaiting funds",

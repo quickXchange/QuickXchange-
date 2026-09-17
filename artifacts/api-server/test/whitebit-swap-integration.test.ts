@@ -276,12 +276,19 @@ test("idempotent replay returns one immutable final address", async () => {
   assert.equal(providerCalls, calls);
 });
 
-test("definitive provider rejection finalizes manual", async () => {
+test("definitive provider rejection remains WhiteBIT-owned and never exposes manual", async () => {
   const saved = globalThis.fetch;
   globalThis.fetch = async (input, init) => String(input).endsWith("/api/v4/main-account/create-new-address")
     ? new Response(JSON.stringify({ error: "rejected" }), { status: 403 }) : saved(input, init);
   const result = await provisionTest({ orderId: `${orderId}-reject`, assetCode: "BTC", networkCode: "BITCOIN", manualAddress: "manual", manualMemo: "", chosenWhitebit: true });
-  assert.equal(result.source, "manual");
+  assert.equal(result.source, "whitebit");
+  assert.equal(result.address, null);
+  assert.equal(result.unresolved, true);
+  const [rejectedOrder] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, `${orderId}-reject`));
+  assert.equal(rejectedOrder.fundingProviderSource, "whitebit");
+  assert.equal(rejectedOrder.fundingStatus, "unresolved");
+  assert.equal(rejectedOrder.depositAddress, "");
   globalThis.fetch = saved;
 });
 
