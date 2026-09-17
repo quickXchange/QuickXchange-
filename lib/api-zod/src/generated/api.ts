@@ -6643,6 +6643,55 @@ export const GetWhitebitProviderStatusResponse = zod.object({
 
 
 /**
+ * @summary Get safe WhiteBIT credential status
+ */
+export const GetWhitebitCredentialsResponse = zod.object({
+  "provider": zod.enum(['whitebit']),
+  "configured": zod.boolean(),
+  "credentialSource": zod.enum(['stored', 'environment', 'none', 'unavailable']),
+  "canManage": zod.boolean(),
+  "updatedAt": zod.coerce.date().nullish()
+})
+
+
+/**
+ * @summary Validate and store encrypted WhiteBIT credentials
+ */
+export const updateWhitebitCredentialsBodyApiKeyMin = 8;
+export const updateWhitebitCredentialsBodyApiKeyMax = 1000;
+
+export const updateWhitebitCredentialsBodySecretKeyMin = 8;
+export const updateWhitebitCredentialsBodySecretKeyMax = 1000;
+
+
+
+export const UpdateWhitebitCredentialsBody = zod.object({
+  "apiKey": zod.string().min(updateWhitebitCredentialsBodyApiKeyMin).max(updateWhitebitCredentialsBodyApiKeyMax),
+  "secretKey": zod.string().min(updateWhitebitCredentialsBodySecretKeyMin).max(updateWhitebitCredentialsBodySecretKeyMax)
+})
+
+export const UpdateWhitebitCredentialsResponse = zod.object({
+  "provider": zod.enum(['whitebit']),
+  "configured": zod.boolean(),
+  "credentialSource": zod.enum(['stored', 'environment', 'none', 'unavailable']),
+  "canManage": zod.boolean(),
+  "updatedAt": zod.coerce.date().nullish()
+})
+
+
+/**
+ * @summary Test the configured WhiteBIT signed API connection
+ */
+export const TestWhitebitCredentialsResponse = zod.object({
+  "ok": zod.boolean(),
+  "provider": zod.enum(['whitebit']),
+  "signedApiReachable": zod.boolean(),
+  "checkedAt": zod.coerce.date(),
+  "message": zod.string()
+})
+
+
+/**
  * @summary Enable or disable WhiteBIT Swap address allocation
  */
 export const UpdateWhitebitProviderStatusBody = zod.object({

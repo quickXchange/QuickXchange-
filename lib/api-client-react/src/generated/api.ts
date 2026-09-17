@@ -199,10 +199,13 @@ import type {
   WebsiteBrandingUpload,
   WhitebitAddressRecoveryInput,
   WhitebitBalance,
+  WhitebitCredentialInput,
+  WhitebitCredentialStatus,
   WhitebitDeposit,
   WhitebitDepositAddress,
   WhitebitDepositAddressInput,
   WhitebitProviderStatus,
+  WhitebitProviderTest,
   WhitebitReconciliationResult,
   WhitebitWebhookEnvelope
 } from './api.schemas';
@@ -6626,12 +6629,231 @@ export function useGetWhitebitProviderStatus<TData = Awaited<ReturnType<typeof g
 
 
 
+export const getGetWhitebitCredentialsUrl = () => {
+
+
+
+
+  return `/api/admin/providers/whitebit/credentials`
+}
+
+/**
+ * @summary Get safe WhiteBIT credential status
+ */
+export const getWhitebitCredentials = async ( options?: Parameters<typeof customFetch>[1]): Promise<WhitebitCredentialStatus> => {
+
+  return customFetch<WhitebitCredentialStatus>(getGetWhitebitCredentialsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWhitebitCredentialsQueryKey = () => {
+    return [
+    `/api/admin/providers/whitebit/credentials`
+    ] as const;
+    }
+
+
+export const getGetWhitebitCredentialsQueryOptions = <TData = Awaited<ReturnType<typeof getWhitebitCredentials>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWhitebitCredentials>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWhitebitCredentialsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWhitebitCredentials>>> = ({ signal }) => getWhitebitCredentials({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWhitebitCredentials>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWhitebitCredentialsQueryResult = NonNullable<Awaited<ReturnType<typeof getWhitebitCredentials>>>
+export type GetWhitebitCredentialsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get safe WhiteBIT credential status
+ */
+
+export function useGetWhitebitCredentials<TData = Awaited<ReturnType<typeof getWhitebitCredentials>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWhitebitCredentials>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWhitebitCredentialsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateWhitebitCredentialsUrl = () => {
+
+
+
+
+  return `/api/admin/providers/whitebit/credentials`
+}
+
+/**
+ * @summary Validate and store encrypted WhiteBIT credentials
+ */
+export const updateWhitebitCredentials = async (whitebitCredentialInput: WhitebitCredentialInput, options?: Parameters<typeof customFetch>[1]): Promise<WhitebitCredentialStatus> => {
+
+  return customFetch<WhitebitCredentialStatus>(getUpdateWhitebitCredentialsUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(whitebitCredentialInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateWhitebitCredentialsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWhitebitCredentials>>, TError,{data: BodyType<WhitebitCredentialInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateWhitebitCredentials>>, TError,{data: BodyType<WhitebitCredentialInput>}, TContext> => {
+
+const mutationKey = ['updateWhitebitCredentials'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateWhitebitCredentials>>, {data: BodyType<WhitebitCredentialInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateWhitebitCredentials(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateWhitebitCredentialsMutationResult = NonNullable<Awaited<ReturnType<typeof updateWhitebitCredentials>>>
+    export type UpdateWhitebitCredentialsMutationBody = BodyType<WhitebitCredentialInput>
+    export type UpdateWhitebitCredentialsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Validate and store encrypted WhiteBIT credentials
+ */
+export const useUpdateWhitebitCredentials = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWhitebitCredentials>>, TError,{data: BodyType<WhitebitCredentialInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateWhitebitCredentials>>,
+        TError,
+        {data: BodyType<WhitebitCredentialInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateWhitebitCredentialsMutationOptions(options));
+    }
+
+export const getTestWhitebitCredentialsUrl = () => {
+
+
+
+
+  return `/api/admin/providers/whitebit/credentials/test`
+}
+
+/**
+ * @summary Test the configured WhiteBIT signed API connection
+ */
+export const testWhitebitCredentials = async ( options?: Parameters<typeof customFetch>[1]): Promise<WhitebitProviderTest> => {
+
+  return customFetch<WhitebitProviderTest>(getTestWhitebitCredentialsUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getTestWhitebitCredentialsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testWhitebitCredentials>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof testWhitebitCredentials>>, TError,void, TContext> => {
+
+const mutationKey = ['testWhitebitCredentials'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof testWhitebitCredentials>>, void> = () => {
+
+
+          return  testWhitebitCredentials(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TestWhitebitCredentialsMutationResult = NonNullable<Awaited<ReturnType<typeof testWhitebitCredentials>>>
+
+    export type TestWhitebitCredentialsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Test the configured WhiteBIT signed API connection
+ */
+export const useTestWhitebitCredentials = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testWhitebitCredentials>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof testWhitebitCredentials>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getTestWhitebitCredentialsMutationOptions(options));
+    }
+
 export const getUpdateWhitebitProviderStatusUrl = () => {
 
 
 
 
-  return `/api/admin/providers/whitebit`
+  return `/api/admin/providers/whitebit/credentials/test`
 }
 
 /**

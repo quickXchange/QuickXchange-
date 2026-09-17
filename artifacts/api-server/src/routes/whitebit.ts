@@ -19,6 +19,7 @@ import { requireCustomer } from "../lib/customer-auth";
 import { ApiError } from "../lib/api-error";
 import { requireOwner } from "../lib/operator-auth";
 import { isWhitebitSwapEnabled } from "../lib/whitebit-capabilities";
+import { getWhitebitCredentialStorageState, type WhitebitCredentials } from "../lib/provider-credentials";
 
 const api = "https://whitebit.com";
 let orderAddressTableAvailable: boolean | undefined;
@@ -37,15 +38,20 @@ async function hasOrderAddressTable() {
   return orderAddressTableAvailable;
 }
 
-function credentials(): { key: string; secret: string } {
+async function credentials(override?: WhitebitCredentials): Promise<{ key: string; secret: string }> {
+  if (override) return { key: override.apiKey, secret: override.secretKey };
+  const stored = await getWhitebitCredentialStorageState();
+  if (stored.status === "available") {
+    return { key: stored.credentials.apiKey, secret: stored.credentials.secretKey };
+  }
   const key = process.env.WHITEBIT_API_KEY;
   const secret = process.env.WHITEBIT_API_SECRET;
   if (!key || !secret) throw new ApiError("WHITEBIT_NOT_CONFIGURED", "WhiteBIT is not configured.", 503);
   return { key, secret };
 }
 
-async function whitebitPost<T>(path: string, params: Record<string, unknown>): Promise<T> {
-  const { key, secret } = credentials();
+async function whitebitPost<T>(path: string, params: Record<string, unknown>, override?: WhitebitCredentials): Promise<T> {
+  const { key, secret } = await credentials(override);
   const nonceResult = await db.execute<{ last_nonce: string }>(sql`
     INSERT INTO whitebit_api_nonce (id, last_nonce)
     VALUES (1, GREATEST(floor(extract(epoch from clock_timestamp()) * 1000)::numeric, 1))
@@ -75,6 +81,24 @@ async function whitebitPost<T>(path: string, params: Record<string, unknown>): P
   const value: unknown = await response.json();
   if (!value || typeof value !== "object") throw new ApiError("WHITEBIT_INVALID_RESPONSE", "WhiteBIT returned an invalid response.", 502);
   return value as T;
+}
+
+export async function testWhitebitSignedConnection(candidate?: WhitebitCredentials) {
+  await whitebitPost("/api/v4/main-account/balance", {}, candidate);
+  return {
+    ok: true,
+    provider: "whitebit" as const,
+    signedApiReachable: true,
+    checkedAt: new Date().toISOString(),
+    message: "WhiteBIT accepted the signed API credentials.",
+  };
+}
+
+export async function verifyWhitebitAddressCreationPermission() {
+  await whitebitPost("/api/v4/main-account/create-new-address", {
+    ticker: "BTC",
+    network: "BTC",
+  });
 }
 
 export function classifyWhitebitHttpStatus(status: number): "definitive" | "ambiguous" {

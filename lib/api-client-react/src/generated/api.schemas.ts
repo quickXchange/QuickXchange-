@@ -3597,6 +3597,60 @@ export interface WhitebitProviderStatus {
   error?: string;
 }
 
+export interface WhitebitCredentialInput {
+  /**
+     * @minLength 8
+     * @maxLength 1000
+     */
+  apiKey: string;
+  /**
+     * @minLength 8
+     * @maxLength 1000
+     */
+  secretKey: string;
+}
+
+export type WhitebitCredentialStatusProvider = typeof WhitebitCredentialStatusProvider[keyof typeof WhitebitCredentialStatusProvider];
+
+
+export const WhitebitCredentialStatusProvider = {
+  whitebit: 'whitebit',
+} as const;
+
+export type WhitebitCredentialStatusCredentialSource = typeof WhitebitCredentialStatusCredentialSource[keyof typeof WhitebitCredentialStatusCredentialSource];
+
+
+export const WhitebitCredentialStatusCredentialSource = {
+  stored: 'stored',
+  environment: 'environment',
+  none: 'none',
+  unavailable: 'unavailable',
+} as const;
+
+export interface WhitebitCredentialStatus {
+  provider: WhitebitCredentialStatusProvider;
+  configured: boolean;
+  credentialSource: WhitebitCredentialStatusCredentialSource;
+  canManage: boolean;
+  /** @nullable */
+  updatedAt?: string | null;
+}
+
+export type WhitebitProviderTestProvider = typeof WhitebitProviderTestProvider[keyof typeof WhitebitProviderTestProvider];
+
+
+export const WhitebitProviderTestProvider = {
+  whitebit: 'whitebit',
+} as const;
+
+export interface WhitebitProviderTest {
+  ok: boolean;
+  provider: WhitebitProviderTestProvider;
+  signedApiReachable: boolean;
+  checkedAt: string;
+  message: string;
+}
+
 export interface QuickexCredentialInput {
   /**
      * @minLength 8

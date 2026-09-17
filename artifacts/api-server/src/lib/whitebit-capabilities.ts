@@ -5,6 +5,7 @@ import {
   db,
   whitebitProviderSettingsTable,
 } from "@workspace/db";
+import { getWhitebitCredentialStorageState } from "./provider-credentials";
 
 export type WhitebitAssetCapability = {
   ticker: string;
@@ -103,7 +104,9 @@ export function matchWhitebitCapability(
 }
 
 export async function whitebitSwapStatus() {
-  const credentialsReady = Boolean(process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET);
+  const storedCredentials = await getWhitebitCredentialStorageState();
+  const credentialsReady = storedCredentials.status === "available" ||
+    Boolean(process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET);
   let setting: typeof whitebitProviderSettingsTable.$inferSelect | undefined;
   try {
     [setting] = await db.select().from(whitebitProviderSettingsTable)

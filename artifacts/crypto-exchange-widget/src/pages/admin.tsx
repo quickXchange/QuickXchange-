@@ -45,7 +45,8 @@ import {
   useCreateFiatCurrencyPaymentMethod, useUpdateFiatCurrencyPaymentMethod, useDeleteFiatCurrencyPaymentMethod,
   useGetOneForgeProviderStatus, getGetOneForgeProviderStatusQueryKey,
   useGetWhitebitProviderStatus, getGetWhitebitProviderStatusQueryKey,
-  useUpdateWhitebitProviderStatus,
+  useUpdateWhitebitProviderStatus, useGetWhitebitCredentials, getGetWhitebitCredentialsQueryKey,
+  useUpdateWhitebitCredentials, useTestWhitebitCredentials,
   useListManualDeskPricingRules, getListManualDeskPricingRulesQueryKey,
   useCreateManualDeskPricingRule, useUpdateManualDeskPricingRule,
   usePreviewManualDeskPricingRule, usePreviewManualDeskQuote, useDeleteManualDeskPricingRule,
@@ -976,6 +977,15 @@ function AdminIntegrations() {
   const statusQuery = useGetQuickexCredentials({ query: { queryKey } });
   const updateProvider = useUpdateQuickexCredentials();
   const connectionTest = useTestQuickexCredentials();
+  const whitebitStatusQuery = useGetWhitebitProviderStatus({
+    query: { queryKey: getGetWhitebitProviderStatusQueryKey() },
+  });
+  const whitebitCredentialsQuery = useGetWhitebitCredentials({
+    query: { queryKey: getGetWhitebitCredentialsQueryKey() },
+  });
+  const updateWhitebit = useUpdateWhitebitCredentials();
+  const testWhitebit = useTestWhitebitCredentials();
+  const toggleWhitebit = useUpdateWhitebitProviderStatus();
 
   const [publicKey, setPublicKey] = useState('');
   const [secretKey, setSecretKey] = useState('');
@@ -984,6 +994,10 @@ function AdminIntegrations() {
   const [configurationOpen, setConfigurationOpen] = useState(false);
   const [updateNotice, setUpdateNotice] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
   const [testNotice, setTestNotice] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
+  const [whitebitApiKey, setWhitebitApiKey] = useState('');
+  const [whitebitSecretKey, setWhitebitSecretKey] = useState('');
+  const [whitebitConfigurationOpen, setWhitebitConfigurationOpen] = useState(false);
+  const [whitebitNotice, setWhitebitNotice] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
 
   const status = statusQuery.data;
   const pinIsValid = /^\d{4,8}$/.test(pin);
@@ -1040,22 +1054,63 @@ function AdminIntegrations() {
   const remotelyAuth = status?.remotelyAuthenticated || false;
   const blocked = status?.blockedByProviderPolicy || false;
 
-  const connectedCount = isConfigured ? 1 : 0;
+  const whitebitStatus = whitebitStatusQuery.data;
+  const whitebitCredentials = whitebitCredentialsQuery.data;
+  const connectedCount = (isConfigured ? 1 : 0) + (whitebitCredentials?.configured ? 1 : 0);
   const isHealthy = isConfigured && remotelyAuth && reachability === 'reachable' && !blocked;
-  const healthyCount = isHealthy ? 1 : 0;
+  const whitebitHealthy = Boolean(whitebitStatus?.enabled && whitebitStatus.state === 'ready');
+  const healthyCount = (isHealthy ? 1 : 0) + (whitebitHealthy ? 1 : 0);
   const isFailed = Boolean(status && isConfigured && (reachability === 'unreachable' || blocked));
-  const failedCount = isFailed ? 1 : 0;
+  const whitebitFailed = Boolean(whitebitStatus && !whitebitStatus.explicitDisabled && whitebitStatus.state === 'unavailable');
+  const failedCount = (isFailed ? 1 : 0) + (whitebitFailed ? 1 : 0);
   const isWarning = isConfigured && !isHealthy && !isFailed;
-  const warningCount = isWarning ? 1 : 0;
-  const overviewValue = (value: number) => statusQuery.isLoading ? '—' : value;
+  const whitebitWarning = Boolean(whitebitCredentials?.configured && !whitebitHealthy && !whitebitFailed);
+  const warningCount = (isWarning ? 1 : 0) + (whitebitWarning ? 1 : 0);
+  const overviewValue = (value: number) => statusQuery.isLoading || whitebitCredentialsQuery.isLoading ? '—' : value;
   const refreshIntegration = () => {
     void statusQuery.refetch();
+    void whitebitStatusQuery.refetch();
+    void whitebitCredentialsQuery.refetch();
     void queryClient.invalidateQueries({ queryKey: getGetQuickexConfigQueryKey() });
   };
   const scrollToLogs = () => {
     document.getElementById('api-activity-section')?.scrollIntoView({ behavior: 'smooth' });
   };
   const openConfiguration = () => setConfigurationOpen(true);
+  const refreshWhitebit = () => {
+    void queryClient.invalidateQueries({ queryKey: getGetWhitebitCredentialsQueryKey() });
+    void queryClient.invalidateQueries({ queryKey: getGetWhitebitProviderStatusQueryKey() });
+  };
+  const handleWhitebitUpdate = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!whitebitApiKey.trim() || !whitebitSecretKey.trim()) return;
+    setWhitebitNotice(null);
+    updateWhitebit.mutate({ data: { apiKey: whitebitApiKey.trim(), secretKey: whitebitSecretKey.trim() } }, {
+      onSuccess: () => {
+        setWhitebitApiKey('');
+        setWhitebitSecretKey('');
+        setWhitebitConfigurationOpen(false);
+        refreshWhitebit();
+        setWhitebitNotice({ kind: 'success', text: 'WhiteBIT credentials were validated and stored securely. The API remains off until address creation permission is verified.' });
+      },
+      onError: (error) => setWhitebitNotice({ kind: 'error', text: apiErrorText(error, 'WhiteBIT rejected the credentials.') }),
+    });
+  };
+  const handleWhitebitTest = () => {
+    setWhitebitNotice(null);
+    testWhitebit.mutate(undefined, {
+      onSuccess: (data) => setWhitebitNotice({ kind: data.ok ? 'success' : 'error', text: data.message }),
+      onError: (error) => setWhitebitNotice({ kind: 'error', text: apiErrorText(error, 'WhiteBIT signed API test failed.') }),
+    });
+  };
+  const handleWhitebitToggle = () => {
+    if (!whitebitStatus) return;
+    setWhitebitNotice(null);
+    toggleWhitebit.mutate({ data: { enabled: !whitebitStatus.enabled } }, {
+      onSuccess: () => refreshWhitebit(),
+      onError: (error) => setWhitebitNotice({ kind: 'error', text: apiErrorText(error, 'WhiteBIT could not be enabled. Signed address creation permission is required.') }),
+    });
+  };
 
   return (
     <AdminShell
@@ -1251,6 +1306,92 @@ function AdminIntegrations() {
                 </div>
               </div>
 
+              <div className="panel integration-provider-card p-0 overflow-hidden border-border bg-card shadow-md" data-testid="whitebit-api-integration-card">
+                <div className="integration-provider-header p-5 border-b border-border/50 bg-muted/20 flex flex-wrap justify-between items-center gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="integration-provider-mark w-12 h-12 rounded-xl bg-background border border-border flex items-center justify-center shadow-sm shrink-0">
+                      <Network className="text-primary" size={24} />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-base flex items-center gap-2">
+                        WhiteBIT
+                        {whitebitStatus?.enabled && <BadgeCheck size={14} className="text-primary shrink-0" />}
+                      </h3>
+                      <p className="text-[10px] text-muted-foreground font-mono mt-1 uppercase tracking-wider">Swap automated crypto deposit addresses only</p>
+                    </div>
+                  </div>
+                  <StatusPill status={whitebitStatus?.enabled ? 'verified' : whitebitCredentials?.configured ? 'verification required' : 'not configured'} />
+                </div>
+
+                {whitebitStatusQuery.isLoading || whitebitCredentialsQuery.isLoading ? (
+                  <div className="p-5"><LoadingBlock rows={3} /></div>
+                ) : whitebitStatusQuery.isError || whitebitCredentialsQuery.isError ? (
+                  <div className="p-5"><ErrorState message="Could not load WhiteBIT integration status." retry={refreshWhitebit} /></div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border/50">
+                      <div className="integration-provider-fact bg-card p-5">
+                        <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-2">Auth source</div>
+                        <div className="text-xs font-mono">{whitebitCredentials?.credentialSource === 'stored' ? 'Encrypted DB' : whitebitCredentials?.credentialSource === 'environment' ? 'Environment secrets' : 'Unconfigured'}</div>
+                      </div>
+                      <div className="integration-provider-fact bg-card p-5">
+                        <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-2">API key</div>
+                        <div className={cn("integration-status-value text-xs font-mono flex items-center gap-1", whitebitCredentials?.configured ? "tone-success" : "tone-error")}>
+                          {whitebitCredentials?.configured ? <><Check size={12}/> Present</> : <><X size={12}/> Missing</>}
+                        </div>
+                      </div>
+                      <div className="integration-provider-fact bg-card p-5">
+                        <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-2">Secret key</div>
+                        <div className={cn("integration-status-value text-xs font-mono flex items-center gap-1", whitebitCredentials?.configured ? "tone-success" : "tone-error")}>
+                          {whitebitCredentials?.configured ? <><Check size={12}/> Present</> : <><X size={12}/> Missing</>}
+                        </div>
+                      </div>
+                      <div className="integration-provider-fact bg-card p-5">
+                        <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-2">API status</div>
+                        <div className={cn("integration-status-value text-xs font-mono flex items-center gap-1", whitebitStatus?.enabled ? "tone-success" : "tone-warning")}>
+                          {whitebitStatus?.enabled ? <><Check size={12}/> On</> : <><Pause size={12}/> Off</>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="integration-provider-health p-5 border-t border-border/50 bg-muted/10">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8">
+                        <div className="integration-health-item flex flex-col gap-1">
+                          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Capability catalog</span>
+                          <span className="integration-health-value tone-info font-mono text-xs">{whitebitStatus?.matchedRouteCount ?? 0} matching Admin routes</span>
+                        </div>
+                        <div className="integration-health-item flex flex-col gap-1">
+                          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Address creation permission</span>
+                          <span className={cn("integration-health-value font-mono text-xs", whitebitStatus?.enabled ? "tone-success" : "tone-warning")}>
+                            {whitebitStatus?.enabled ? 'Verified' : 'Required before enabling'}
+                          </span>
+                        </div>
+                      </div>
+                      {whitebitStatus?.error && <div className="mt-4 p-3 bg-card border border-border/50 rounded-xl font-mono text-xs break-words">{whitebitStatus.error}</div>}
+                    </div>
+                    <div className="bg-card p-5 flex flex-wrap items-center justify-between gap-3 border-t border-border/50">
+                      <div className="text-xs text-muted-foreground">Convert remains Quickex-only. WhiteBIT is used only for eligible Swap deposit addresses.</div>
+                      <div className="flex flex-wrap gap-2">
+                        {canTestCredentials && <button type="button" onClick={handleWhitebitTest} disabled={testWhitebit.isPending || !whitebitCredentials?.configured} className="button button-secondary h-9 px-4 text-xs font-bold uppercase tracking-wider">
+                          {testWhitebit.isPending ? <Loader2 size={14} className="animate-spin mr-2" /> : <Activity size={14} className="mr-2" />} Test
+                        </button>}
+                        {(canConfigureCredentials || canCreateCredentials) && <button type="button" onClick={() => setWhitebitConfigurationOpen(true)} className="button button-secondary h-9 px-4 text-xs font-bold uppercase tracking-wider">
+                          <Key size={14} className="mr-2" /> Configure
+                        </button>}
+                        {canConfigureCredentials && <button type="button" onClick={handleWhitebitToggle} disabled={toggleWhitebit.isPending || !whitebitCredentials?.configured} className="button button-primary h-9 px-4 text-xs font-bold uppercase tracking-wider" data-testid="button-toggle-whitebit-integration">
+                          {toggleWhitebit.isPending ? <Loader2 size={14} className="animate-spin mr-2" /> : <Power size={14} className="mr-2" />} {whitebitStatus?.enabled ? 'Turn off' : 'Turn on'}
+                        </button>}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {whitebitNotice && (
+                <InlineNotice kind={whitebitNotice.kind} onDismiss={() => setWhitebitNotice(null)}>
+                  {whitebitNotice.text}
+                </InlineNotice>
+              )}
+
               {testNotice && (
                 <div className="animate-in fade-in slide-in-from-top-2">
                   <InlineNotice kind={testNotice.kind} onDismiss={() => setTestNotice(null)}>
@@ -1440,6 +1581,32 @@ function AdminIntegrations() {
                     </InlineNotice>
                   )}
                 </div>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={whitebitConfigurationOpen && (canConfigureCredentials || canCreateCredentials)} onOpenChange={setWhitebitConfigurationOpen}>
+              <DialogContent className="max-w-xl overflow-y-auto p-0">
+                <DialogHeader className="border-b border-border bg-muted/20 px-6 py-5 pr-14">
+                  <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary"><Key size={20} /></div>
+                  <DialogTitle>{whitebitCredentials?.configured ? 'Update WhiteBIT credentials' : 'Connect WhiteBIT'}</DialogTitle>
+                  <DialogDescription>Credentials are validated with a signed request, encrypted at rest, and never returned to the browser.</DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleWhitebitUpdate} className="admin-form grid gap-5 p-6">
+                  <div>
+                    <label htmlFor="whitebit-api-key" className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">API key</label>
+                    <input id="whitebit-api-key" type="password" autoComplete="off" value={whitebitApiKey} onChange={(event) => setWhitebitApiKey(event.target.value)} className="h-10 w-full rounded-xl border border-border bg-background px-3 font-mono text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" />
+                  </div>
+                  <div>
+                    <label htmlFor="whitebit-secret-key" className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Secret key</label>
+                    <input id="whitebit-secret-key" type="password" autoComplete="new-password" value={whitebitSecretKey} onChange={(event) => setWhitebitSecretKey(event.target.value)} className="h-10 w-full rounded-xl border border-border bg-background px-3 font-mono text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" />
+                  </div>
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-xs leading-relaxed text-muted-foreground">
+                    Saving credentials does not turn WhiteBIT on. Enabling requires a successful signed address-creation permission check.
+                  </div>
+                  <button type="submit" disabled={updateWhitebit.isPending || whitebitApiKey.trim().length < 8 || whitebitSecretKey.trim().length < 8} className="button button-primary h-10 w-full text-xs font-bold uppercase tracking-wider">
+                    {updateWhitebit.isPending ? <><Loader2 size={14} className="animate-spin mr-2" /> Validating</> : 'Validate and save securely'}
+                  </button>
+                </form>
               </DialogContent>
             </Dialog>
 

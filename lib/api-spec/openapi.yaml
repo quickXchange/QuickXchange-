@@ -1859,6 +1859,49 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/WhitebitProviderStatus" }
+  /admin/providers/whitebit/credentials:
+    get:
+      operationId: getWhitebitCredentials
+      tags: [admin]
+      summary: Get safe WhiteBIT credential status
+      security:
+        - OperatorSession: []
+      responses:
+        "200":
+          description: Safe credential status without secret values
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WhitebitCredentialStatus" }
+    put:
+      operationId: updateWhitebitCredentials
+      tags: [admin]
+      summary: Validate and store encrypted WhiteBIT credentials
+      security:
+        - OwnerSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WhitebitCredentialInput" }
+      responses:
+        "200":
+          description: Safe credential status without secret values
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WhitebitCredentialStatus" }
+  /admin/providers/whitebit/credentials/test:
+    post:
+      operationId: testWhitebitCredentials
+      tags: [admin]
+      summary: Test the configured WhiteBIT signed API connection
+      security:
+        - OwnerSession: []
+      responses:
+        "200":
+          description: WhiteBIT signed connection test result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WhitebitProviderTest" }
     patch:
       operationId: updateWhitebitProviderStatus
       tags: [admin]
@@ -5555,6 +5598,30 @@ components:
         matchedRouteCount: { type: integer, minimum: 0 }
         webhookReady: { type: boolean }
         error: { type: string }
+    WhitebitCredentialInput:
+      type: object
+      required: [apiKey, secretKey]
+      properties:
+        apiKey: { type: string, minLength: 8, maxLength: 1000 }
+        secretKey: { type: string, minLength: 8, maxLength: 1000 }
+    WhitebitCredentialStatus:
+      type: object
+      required: [provider, configured, credentialSource, canManage]
+      properties:
+        provider: { type: string, enum: [whitebit] }
+        configured: { type: boolean }
+        credentialSource: { type: string, enum: [stored, environment, none, unavailable] }
+        canManage: { type: boolean }
+        updatedAt: { type: [string, "null"], format: date-time }
+    WhitebitProviderTest:
+      type: object
+      required: [ok, provider, signedApiReachable, checkedAt, message]
+      properties:
+        ok: { type: boolean }
+        provider: { type: string, enum: [whitebit] }
+        signedApiReachable: { type: boolean }
+        checkedAt: { type: string, format: date-time }
+        message: { type: string }
     QuickexCredentialInput:
       type: object
       required: [publicKey, secretKey]

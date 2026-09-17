@@ -31,6 +31,10 @@ import {
   GetExchangeRoutePricingResponse,
   GetFiatCurrenciesResponse,
   GetOneForgeProviderStatusResponse,
+  GetWhitebitCredentialsResponse,
+  UpdateWhitebitCredentialsBody,
+  UpdateWhitebitCredentialsResponse,
+  TestWhitebitCredentialsResponse,
   GetOrdersQueryParams,
   GetOrdersResponse,
   GetOrderParams,
@@ -211,8 +215,16 @@ import {
 import { initializeAffiliateForOrder, processPendingAffiliateCompletions } from "../lib/affiliate-accounting";
 import { reconcilePendingQuickexOrders } from "../lib/quickex-order-service";
 import { finalizeSwapFundingFromClaim, provisionSwapFundingAddress } from "./whitebit";
+import {
+  testWhitebitSignedConnection,
+  verifyWhitebitAddressCreationPermission,
+} from "./whitebit";
 import { whitebitSwapStatus } from "../lib/whitebit-capabilities";
 import { isWhitebitSwapEnabled } from "../lib/whitebit-capabilities";
+import {
+  activateWhitebitCredentials,
+  getWhitebitCredentialStorageState,
+} from "../lib/provider-credentials";
 
 import { whitebitProviderSettingsTable } from "@workspace/db";
 import { ALLOWED_LOGO_CONTENT_TYPES, createLogoUpload, deleteStoredLogo, getVerifiedStoredLogo, StoredImageInvalidError, StoredObjectNotFoundError, verifyStoredCatalogImage, verifyStoredLogo } from "../lib/object-storage";
@@ -4023,10 +4035,67 @@ router.get("/admin/providers/whitebit", async (_req, res, next) => {
   }
 });
 
+router.get("/admin/providers/whitebit/credentials", async (_req, res, next) => {
+  try {
+    const stored = await getWhitebitCredentialStorageState();
+    const environment = Boolean(process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET);
+    res.json(GetWhitebitCredentialsResponse.parse({
+      provider: "whitebit",
+      configured: stored.status === "available" || environment,
+      credentialSource: stored.status === "available"
+        ? "stored"
+        : stored.status === "unavailable"
+          ? "unavailable"
+          : environment ? "environment" : "none",
+      canManage: res.locals.operator?.role === "owner",
+      updatedAt: stored.status === "available" || stored.status === "unavailable"
+        ? stored.updatedAt.toISOString()
+        : null,
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.put("/admin/providers/whitebit/credentials", requireOwner, async (req, res, next) => {
+  try {
+    const parsed = UpdateWhitebitCredentialsBody.safeParse(req.body);
+    if (!parsed.success) throw new ApiError("VALIDATION_ERROR", parsed.error.message, 400);
+    await testWhitebitSignedConnection(parsed.data);
+    const actor = res.locals.operator;
+    const saved = await activateWhitebitCredentials(parsed.data, {
+      actorClerkUserId: getOperatorActorUserId(req),
+      operatorId: actor.id,
+      operatorEmail: actor.email,
+      requestId: req.get("x-request-id") ?? null,
+    });
+    res.json(UpdateWhitebitCredentialsResponse.parse({
+      provider: "whitebit",
+      configured: true,
+      credentialSource: "stored",
+      canManage: true,
+      updatedAt: saved.updatedAt.toISOString(),
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/admin/providers/whitebit/credentials/test", requireOwner, async (_req, res, next) => {
+  try {
+    res.json(TestWhitebitCredentialsResponse.parse(await testWhitebitSignedConnection()));
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.patch("/admin/providers/whitebit", requireOwner, async (req, res, next) => {
   try {
     if (typeof req.body?.enabled !== "boolean") {
       throw new ApiError("VALIDATION_ERROR", "enabled must be a boolean.", 400);
+    }
+    if (req.body.enabled && process.env.NODE_ENV !== "test") {
+      await verifyWhitebitAddressCreationPermission();
     }
     const disabled = !req.body.enabled;
     const operatorId = getOperatorActorUserId(req);

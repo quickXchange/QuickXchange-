@@ -13,6 +13,7 @@ import {
 } from "@workspace/db";
 
 const QUICKEX_PROVIDER = "quickex";
+const WHITEBIT_PROVIDER = "whitebit";
 const ENCRYPTION_VERSION = 1;
 const ENCRYPTION_ALGORITHM = "aes-256-gcm";
 const KEY_SALT = "rook-provider-credentials";
@@ -21,6 +22,11 @@ export const QUICKEX_VERIFICATION_VERSION = 1;
 
 export type QuickexCredentials = {
   publicKey: string;
+  secretKey: string;
+};
+
+export type WhitebitCredentials = {
+  apiKey: string;
   secretKey: string;
 };
 
@@ -245,6 +251,34 @@ Promise<QuickexCredentialStorageState> {
       updatedAt: row.updatedAt,
     };
   }
+}
+
+export async function getWhitebitCredentialStorageState() {
+  const [row] = await db.select().from(providerIntegrationsTable)
+    .where(eq(providerIntegrationsTable.provider, WHITEBIT_PROVIDER)).limit(1);
+  if (!row) return { status: "absent" as const };
+  try {
+    const stored = decryptProviderCredentials(WHITEBIT_PROVIDER, row);
+    return {
+      status: "available" as const,
+      credentials: { apiKey: stored.publicKey, secretKey: stored.secretKey },
+      updatedAt: row.updatedAt,
+      lastTestedAt: row.lastTestedAt,
+    };
+  } catch {
+    return { status: "unavailable" as const, updatedAt: row.updatedAt };
+  }
+}
+
+export async function activateWhitebitCredentials(
+  credentials: WhitebitCredentials,
+  audit: QuickexCredentialAudit,
+) {
+  return activateProviderCredentials(
+    WHITEBIT_PROVIDER,
+    { publicKey: credentials.apiKey, secretKey: credentials.secretKey },
+    audit,
+  );
 }
 
 export async function activateQuickexCredentials(
