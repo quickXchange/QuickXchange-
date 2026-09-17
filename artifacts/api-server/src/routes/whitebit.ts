@@ -241,12 +241,26 @@ export async function provisionSwapFundingAddress(input: {
     const usedFallback = await fallback("WhiteBIT response did not contain an address.");
     return { source: "whitebit" as const, address: usedFallback ? input.manualAddress : null, memo: usedFallback ? input.manualMemo : null, unresolved: !usedFallback };
   }
-   const saved = await finalizeClaimAndOrder(input.orderId, calling.id, {
-     address: parsedAddress.address,
-     memo: parsedAddress.memo,
-     status: "ready",
-     providerError: null,
-   });
+   let saved: Awaited<ReturnType<typeof finalizeClaimAndOrder>>;
+   try {
+     saved = await finalizeClaimAndOrder(input.orderId, calling.id, {
+       address: parsedAddress.address,
+       memo: parsedAddress.memo,
+       status: "ready",
+       providerError: null,
+     });
+   } catch (error) {
+     const reused = error instanceof ApiError && error.code === "WHITEBIT_ORDER_ADDRESS_REUSED";
+     const usedFallback = await fallback(reused
+       ? "WhiteBIT returned an address already assigned to another order."
+       : "WhiteBIT address could not be assigned durably.");
+     return {
+       source: "whitebit" as const,
+       address: usedFallback ? input.manualAddress : null,
+       memo: usedFallback ? input.manualMemo : null,
+       unresolved: !usedFallback,
+     };
+   }
    if (!saved?.address) {
      await fallback("WhiteBIT address finalization was unavailable.");
      return { source: "whitebit" as const, address: input.manualFallbackUsable ? input.manualAddress : null, memo: input.manualFallbackUsable ? input.manualMemo : null, unresolved: !input.manualFallbackUsable };
@@ -422,6 +436,25 @@ async function finalizeClaimAndOrder(
   },
 ) {
   return db.transaction(async (tx) => {
+    if (patch.status === "ready" && patch.address?.trim()) {
+      const normalizedAddress = patch.address.trim();
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"whitebit-order-address:" + normalizedAddress}))`);
+      const [assigned] = await tx.select({ id: whitebitOrderAddressesTable.id })
+        .from(whitebitOrderAddressesTable)
+        .where(and(
+          eq(whitebitOrderAddressesTable.address, normalizedAddress),
+          eq(whitebitOrderAddressesTable.status, "ready"),
+          sql`${whitebitOrderAddressesTable.id} <> ${claimId}`,
+        ))
+        .limit(1);
+      if (assigned) {
+        throw new ApiError(
+          "WHITEBIT_ORDER_ADDRESS_REUSED",
+          "WhiteBIT returned an address already assigned to another Swap order.",
+          409,
+        );
+      }
+    }
     await tx.update(whitebitOrderAddressesTable).set({
       ...patch,
       updatedAt: new Date(),

@@ -191,7 +191,22 @@ export function OrderConfirmationPage() {
     warning?: unknown;
     instructions?: unknown;
     requiredConfirmations?: unknown;
+    addressSource?: unknown;
   } | undefined;
+  const fundingAddressSource = typeof fundingDetails?.addressSource === 'string'
+    ? fundingDetails.addressSource
+    : order.fundingSource === 'whitebit'
+      ? 'live_api'
+      : order.fundingSource === 'manual'
+        ? 'manual_only'
+        : undefined;
+  const fundingAddressSourceLabel = fundingAddressSource === 'live_api'
+    ? 'Unique API address'
+    : fundingAddressSource === 'manual_fallback'
+      ? 'Manual fallback address'
+      : fundingAddressSource === 'manual_only'
+        ? 'Manual address'
+        : null;
   
   const hasPaymentInstructions = Boolean(
     order.depositAddress ||
@@ -390,6 +405,11 @@ export function OrderConfirmationPage() {
                    settlementOptionId={order.sourceSettlementOptionId}
                    size="md"
                  />
+                  {fundingAddressSourceLabel && (
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-white/70">
+                      {fundingAddressSourceLabel}
+                    </span>
+                  )}
                </div>
 
                <div className="space-y-0 relative z-10">
@@ -445,18 +465,16 @@ export function OrderConfirmationPage() {
                  {order.depositAddress && (
                    <>
                      <div className="oc-deposit-amount-row" data-testid="text-deposit-amount">
-                         {depositActionable && (
-                           <div className="oc-qr shadow-sm">
-                             <QRCodeSVG
-                               value={order.depositAddress}
-                               size={80}
-                               bgColor={"#ffffff"}
-                               fgColor={"#000000"}
-                               level={"M"}
-                               includeMargin={false}
-                             />
-                           </div>
-                         )}
+                         <div className="oc-qr shadow-sm">
+                           <QRCodeSVG
+                             value={order.depositAddress}
+                             size={80}
+                             bgColor={"#ffffff"}
+                             fgColor={"#000000"}
+                             level={"M"}
+                             includeMargin={false}
+                           />
+                         </div>
 
                         <div className="min-w-0">
                           <span className="oc-label">Send Exactly</span>

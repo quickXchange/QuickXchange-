@@ -9,17 +9,17 @@ Credit eligibility requires a stable WhiteBIT transaction or unique ID. When bot
 
 **How to apply:** Normalize provider tickers separately from the base asset/network request contract, lock every stable alias in deterministic order, credit once per immutable deposit row, and reconcile each address from offset zero to its high-water identity without requesting beyond the provider’s 10,000-record window.
 
-Manual Swap funding addresses use an order-scoped claim, not the customer deposit balance path. Persist the chosen funding source before the provider call, grant call ownership through a database claim-token compare-and-set, and never reveal the manual fallback after WhiteBIT was selected. Fresh in-flight claims remain provisioning; only claims older than the provider timeout become unresolved and eligible for explicit operator recovery.
+Manual Swap funding addresses use an order-scoped claim, not the customer deposit balance path. Persist the chosen funding source before the provider call, grant call ownership through a database claim-token compare-and-set, and freeze either the generated address or the exact snapshotted fallback as the order’s permanent assignment.
 
 **Why:** Process-local locks do not protect autoscaled instances. A replay racing an irreversible address request can otherwise trigger a second call, expose a fallback address, or mark the order unresolved while a successful provider response is still in flight.
 
-**How to apply:** Serialize order identity with a PostgreSQL advisory transaction lock, atomically move the unique claim from `claiming` to `calling`, let only that updater call WhiteBIT, and update the claim plus all order funding snapshots in one transaction.
+**How to apply:** Serialize order identity with a PostgreSQL advisory transaction lock, atomically move the unique claim from `claiming` to `calling`, let only that updater call WhiteBIT, and update the claim plus all order funding snapshots in one transaction. Before accepting a generated address, lock its normalized identity and reject reuse by another order; that order receives its immutable fallback instead.
 
-When WhiteBIT is enabled and credentials are present, temporary capability-catalog unavailability must reserve WhiteBIT ownership and leave the order unresolved rather than silently choosing a manual address. Only a confirmed unsupported route may use the normal manual path.
+When WhiteBIT is selected, provider unavailability or generation failure uses the exact fallback snapshotted into that order. Once exposed, neither a later provider recovery nor another generated address may replace it.
 
 **Why:** WhiteBIT capability parsing can fail because of unrelated provider catalog inconsistencies. Treating that uncertainty as “provider disabled” exposes a manual wallet even though the operator selected WhiteBIT for the supported route.
 
-**How to apply:** Distinguish explicit disablement, missing credentials, confirmed route mismatch, and capability uncertainty before creating the order. Any rejection after WhiteBIT selection remains WhiteBIT-owned and recoverable.
+**How to apply:** Distinguish explicit disablement, missing credentials, confirmed route mismatch, and capability uncertainty for audit detail, but keep order creation available when a valid exact-row fallback exists. Record WhiteBIT as the selected provider and `manual_fallback` as the address source.
 
 WhiteBIT’s public asset catalog can mark an asset deposit-enabled while omitting its deposit-network list. Exclude only that asset; continue to reject malformed populated lists and require an exact advertised asset/network match.
 

@@ -33,7 +33,7 @@ const suffix = randomUUID();
 const originalFetch = globalThis.fetch;
 const orderId = `O${randomUUID().replaceAll("-", "").slice(0, 9)}`;
 const customerId = `swap-customer-${suffix}`;
-const orderAddress = `swap-order-address-${suffix}`;
+let orderAddress = `swap-order-address-${suffix}`;
 const ownerClerkUserId = `whitebit-owner-${suffix}`;
 const ownerEmail = `whitebit-owner-${suffix}@example.test`;
 let providerCalls = 0;
@@ -68,6 +68,7 @@ async function migrateTestTables() {
 }
 
 async function mockAssets(network = "BITCOIN") {
+  orderAddress = `swap-order-address-${randomUUID()}`;
   globalThis.fetch = async (input, init) => {
     const url = String(input);
     if (url.endsWith("/api/v4/public/assets")) {
@@ -290,6 +291,24 @@ test("idempotent replay returns one immutable final address", async () => {
   const second = await provisionTest({ orderId: `${orderId}-replay`, assetCode: "BTC", networkCode: "BITCOIN", manualAddress: "different-manual", manualMemo: "", chosenWhitebit: true });
   assert.equal(first.address, second.address);
   assert.equal(providerCalls, calls);
+});
+
+test("a provider address already assigned to another order uses fallback", async () => {
+  await mockAssets();
+  const first = await provisionTest({
+    orderId: `${orderId}-unique-first`, assetCode: "BTC", networkCode: "BITCOIN",
+    manualAddress: "first-fallback", manualMemo: "", chosenWhitebit: true,
+  });
+  assert.equal(first.address, orderAddress);
+  const second = await provisionTest({
+    orderId: `${orderId}-unique-second`, assetCode: "BTC", networkCode: "BITCOIN",
+    manualAddress: "second-fallback", manualMemo: "", chosenWhitebit: true,
+  });
+  assert.equal(second.address, "second-fallback");
+  const [secondOrder] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, `${orderId}-unique-second`));
+  assert.equal(secondOrder.depositAddress, "second-fallback");
+  assert.equal((secondOrder.fundingDetailsSnapshot as { addressSource?: string }).addressSource, "manual_fallback");
 });
 
 test("definitive provider rejection remains WhiteBIT-owned and uses the exact manual fallback", async () => {
