@@ -7316,14 +7316,10 @@ function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose:
   );
 
   const hasValidWallet = Boolean(selectedReceivingDraft?.walletAddress.trim());
-  const hasValidMemo = Boolean(selectedReceivingDraft?.memo.trim());
-  const needsMemo = Boolean(selectedReceivingNetwork?.requiresMemo);
-
-  const manualIsValid = hasValidWallet && (!needsMemo || hasValidMemo);
-  const whitebitFallbackIsValid = !hasValidWallet || (!needsMemo || hasValidMemo);
+  const manualIsValid = hasValidWallet;
 
   const receivingCanEnable = Boolean(
-    (isApiProvider && !selectedProviderUnavailable && whitebitFallbackIsValid) || (isManual && manualIsValid)
+    (isApiProvider && !selectedProviderUnavailable) || (isManual && manualIsValid)
   );
 
   const updateReceivingDraft = (updates: Partial<ReceivingWalletDraft>) => {
@@ -7333,12 +7329,10 @@ function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose:
       const isNextApiProvider = next.depositProvider !== 'manual' && next.depositProvider !== 'none';
       const isNextManual = next.depositProvider === 'manual';
       const nextHasValidWallet = Boolean(next.walletAddress.trim());
-      const nextHasValidMemo = Boolean(next.memo.trim());
-      const nextManualIsValid = nextHasValidWallet && (!needsMemo || nextHasValidMemo);
-      const nextWhitebitFallbackIsValid = !nextHasValidWallet || (!needsMemo || nextHasValidMemo);
+      const nextManualIsValid = nextHasValidWallet;
 
       const nextProviderAvailable = providerOptions.some(option => option.id === next.depositProvider);
-      const canEnable = (isNextApiProvider && nextProviderAvailable && nextWhitebitFallbackIsValid) || (isNextManual && nextManualIsValid);
+      const canEnable = (isNextApiProvider && nextProviderAvailable) || (isNextManual && nextManualIsValid);
       return {
         ...current,
         [selectedReceivingNetwork.id]: { ...next, enabled: canEnable ? next.enabled : false },
@@ -7495,8 +7489,8 @@ function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose:
                   <input data-testid="receiving-wallet-address" value={selectedReceivingDraft?.walletAddress || ''} onChange={e => updateReceivingDraft({ walletAddress: e.target.value })} placeholder="Master receiving address" />
                 </label>
                 <label>
-                  <span className="field-label">{isApiProvider ? 'Fallback Memo / Tag' : 'Memo / Tag'} {selectedReceivingNetwork?.requiresMemo && <small>Required for this network</small>}</span>
-                  <input data-testid="receiving-wallet-memo" value={selectedReceivingDraft?.memo || ''} onChange={e => updateReceivingDraft({ memo: e.target.value })} placeholder={selectedReceivingNetwork?.requiresMemo ? 'Required memo or tag' : 'Optional memo or tag'} />
+                  <span className="field-label">{isApiProvider ? 'Fallback Memo / Tag' : 'Memo / Tag'}</span>
+                  <input data-testid="receiving-wallet-memo" value={selectedReceivingDraft?.memo || ''} onChange={e => updateReceivingDraft({ memo: e.target.value })} placeholder="Optional memo or tag" />
                 </label>
                 <div className="network-toggle-group catalog-editor-toggles">
                   <label>
@@ -7521,7 +7515,7 @@ function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose:
                   </p>
                 ) : (
                   !receivingCanEnable && <p className="field-hint text-muted-foreground mt-1.5 text-[13px]">
-                    Customer deposits require a wallet address{selectedReceivingNetwork?.requiresMemo ? ' and memo or tag' : ''}.
+                    Customer deposits require a wallet address.
                   </p>
                 )}
                 {selectedReceivingDraft?.walletAddress.trim() && (

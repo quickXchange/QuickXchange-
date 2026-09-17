@@ -3353,19 +3353,10 @@ function validateCryptoDepositConfiguration(
   );
   if (!enabled) return;
   const address = patched("sharedDepositAddress", current?.sharedDepositAddress ?? "");
-  const requiresMemo = patched("requiresMemo", current?.requiresMemo ?? false);
-  const memo = patched("sharedDepositMemo", current?.sharedDepositMemo ?? "");
   if (typeof address !== "string" || !address.trim()) {
     throw new ApiError(
       "CRYPTO_DEPOSIT_ADDRESS_REQUIRED",
       "A shared deposit address is required before customer deposits can be enabled.",
-      422,
-    );
-  }
-  if (requiresMemo && (typeof memo !== "string" || !memo.trim())) {
-    throw new ApiError(
-      "CRYPTO_DEPOSIT_MEMO_REQUIRED",
-      "A shared memo or tag is required for this network before customer deposits can be enabled.",
       422,
     );
   }
@@ -3433,9 +3424,8 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
           .where(eq(cryptoAssetNetworksTable.networkCode, selected.networkCode))
           .for("update")
         : [selected];
-      const effectiveEnabled = input.depositProvider === "none" ? false : input.enabled;
       const fallbackAddress = input.walletAddress.trim() || selected.sharedDepositAddress;
-      const fallbackMemo = input.memo?.trim() || selected.sharedDepositMemo || "";
+      const fallbackMemo = input.memo?.trim() || "";
       for (const network of affected) {
         const nextProvider = network.id === selected.id ? input.depositProvider : network.depositProvider;
         const nextEnabled = nextProvider === "none" ? false : input.enabled;
@@ -3445,17 +3435,6 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
             "A shared deposit address is required before customer deposits can be enabled.",
             422,
           );
-        }
-        if (nextEnabled && nextProvider === "manual" && network.requiresMemo && !fallbackMemo) {
-          throw new ApiError(
-            "CRYPTO_DEPOSIT_MEMO_REQUIRED",
-            "A shared memo or tag is required for this network before customer deposits can be enabled.",
-            422,
-          );
-        }
-        if (nextEnabled && nextProvider === "whitebit" &&
-            fallbackAddress.trim() && network.requiresMemo && !fallbackMemo) {
-          throw new ApiError("CRYPTO_DEPOSIT_MEMO_REQUIRED", "A memo or tag is required for the manual WhiteBIT fallback.", 422);
         }
       }
       for (const network of affected) {

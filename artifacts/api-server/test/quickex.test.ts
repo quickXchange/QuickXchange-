@@ -2827,12 +2827,12 @@ test("manual lifecycle enforces transitions and concurrency and writes an operat
     }, "PATCH", headers);
     assert.equal(missingAddress.status, 422);
     assert.equal(missingAddress.body.code, "CRYPTO_DEPOSIT_ADDRESS_REQUIRED");
-    const missingMemo = await apiJson(api.url, `/admin/crypto-networks/${networkId}`, {
+    const optionalMemo = await apiJson(api.url, `/admin/crypto-networks/${networkId}`, {
       customerDepositsEnabled: true, requiresMemo: true,
       sharedDepositAddress: "shared-address", sharedDepositMemo: null,
     }, "PATCH", headers);
-    assert.equal(missingMemo.status, 422);
-    assert.equal(missingMemo.body.code, "CRYPTO_DEPOSIT_MEMO_REQUIRED");
+    assert.equal(optionalMemo.status, 200);
+    assert.equal(optionalMemo.body.sharedDepositMemo, null);
     const configured = await apiJson(api.url, `/admin/crypto-networks/${networkId}`, {
       customerDepositsEnabled: true, requiresMemo: true,
       sharedDepositAddress: "shared-address", sharedDepositMemo: "shared-memo",
@@ -2841,8 +2841,8 @@ test("manual lifecycle enforces transitions and concurrency and writes an operat
     const clearedMemo = await apiJson(api.url, `/admin/crypto-networks/${networkId}`, {
       sharedDepositMemo: null,
     }, "PATCH", headers);
-    assert.equal(clearedMemo.status, 422);
-    assert.equal(clearedMemo.body.code, "CRYPTO_DEPOSIT_MEMO_REQUIRED");
+    assert.equal(clearedMemo.status, 200);
+    assert.equal(clearedMemo.body.sharedDepositMemo, null);
     const clearedAddress = await apiJson(api.url, `/admin/crypto-networks/${networkId}`, {
       sharedDepositAddress: "",
     }, "PATCH", headers);
@@ -2863,7 +2863,7 @@ test("manual lifecycle enforces transitions and concurrency and writes an operat
   }
 });
 
-test("owner receiving-wallet updates use exact asset-network rows and atomically validate shared memo requirements", async () => {
+test("owner receiving-wallet updates use exact asset-network rows and keep shared memo optional", async () => {
   const {
     cryptoAssetNetworksTable,
     cryptoAssetsTable,
@@ -2959,20 +2959,15 @@ test("owner receiving-wallet updates use exact asset-network rows and atomically
 
     await db.update(cryptoAssetNetworksTable).set({ sharedDepositMemo: null })
       .where(inArray(cryptoAssetNetworksTable.id, [networkAId, networkBId]));
-    const beforeAtomicFailure = await db.select().from(cryptoAssetNetworksTable)
-      .where(inArray(cryptoAssetNetworksTable.id, [networkAId, networkBId]));
-    const missingMemo = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
+    const optionalMemo = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
       networkId: networkAId, walletAddress: "should-not-commit", memo: null,
       enabled: true, useForAllAssetsOnNetwork: true, depositProvider: "manual",
     }, "PUT", headers);
-    assert.equal(missingMemo.status, 422);
-    assert.equal(missingMemo.body.code, "CRYPTO_DEPOSIT_MEMO_REQUIRED");
-    const afterAtomicFailure = await db.select().from(cryptoAssetNetworksTable)
+    assert.equal(optionalMemo.status, 200);
+    const afterOptionalMemoSave = await db.select().from(cryptoAssetNetworksTable)
       .where(inArray(cryptoAssetNetworksTable.id, [networkAId, networkBId]));
-    assert.deepEqual(
-      afterAtomicFailure.map(row => [row.id, row.sharedDepositAddress, row.sharedDepositMemo]),
-      beforeAtomicFailure.map(row => [row.id, row.sharedDepositAddress, row.sharedDepositMemo]),
-    );
+    assert.ok(afterOptionalMemoSave.every(row => row.sharedDepositAddress === "should-not-commit"));
+    assert.ok(afterOptionalMemoSave.every(row => row.sharedDepositMemo === null));
   } finally {
     await api.close();
     await db.delete(cryptoAssetNetworksTable)

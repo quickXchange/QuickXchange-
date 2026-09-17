@@ -11,6 +11,12 @@ Deposit-provider policy is also owned by that exact row, but it is never shared 
 
 **How to apply:** Admin saves, Swap quote funding, and order revalidation must preserve the selected asset-network row identity. The Admin editor may hydrate address/memo fields from another asset only by exact network code, then save through the selected row; never infer a chain from labels or symbols. Keep provider claims fenced and Convert provider-address driven.
 
+Receiving-wallet memo/tag values are optional Admin metadata even when a network advertises memo support. Address validity and memo presence are separate; an empty submitted memo explicitly clears the saved value and must not block saving or enabling a wallet.
+
+**Why:** Some fallback wallets do not require a destination tag even on networks that support tags, and coupling memo validation to network metadata prevents operators from saving a valid fallback address.
+
+**How to apply:** Show and persist a memo only when entered. Keep network `requiresMemo` metadata for provider/customer transaction contexts that genuinely require it, but do not use it to validate Admin fallback-wallet configuration.
+
 Provider Policy options come from connected, enabled API integrations that have a registered deposit-address adapter. Integration credentials alone never make a rate, Convert, or unrelated provider selectable for Swap deposits.
 
 **Why:** Deposit-address APIs are provider-specific and carry irreversible idempotency and reconciliation requirements. Listing a connected integration without an implemented adapter would save a policy that cannot safely generate or attribute an address.
