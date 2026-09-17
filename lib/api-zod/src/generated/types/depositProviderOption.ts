@@ -5,10 +5,13 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { DepositProviderOptionId } from './depositProviderOptionId';
 
 export interface DepositProviderOption {
-  id: DepositProviderOptionId;
+  /**
+     * @minLength 1
+     * @maxLength 64
+     */
+  id: string;
   label: string;
   implemented: boolean;
 }

@@ -119,7 +119,6 @@ import {
   quickexOrdersTable,
   orderSupportMetadataTable,
   whitebitOrderAddressesTable,
-  whitebitNetworkMappingsTable,
 } from "@workspace/db";
 import { ApiError } from "../lib/api-error";
 import { createCryptoAssetLogoUpload, createCryptoNetworkLogoUpload, createFiatCurrencyFlagUpload, deleteStoredCatalogImage } from "../lib/object-storage";
@@ -133,7 +132,7 @@ import {
 } from "../lib/operator-auth";
 import type { PermissionKey } from "../lib/permissions";
 import { recordAdminMutationActivity } from "../lib/admin-policy";
-import { listDepositProviderOptions } from "../lib/deposit-provider-registry";
+import { listConnectedDepositProviderOptions } from "../lib/deposit-provider-registry";
 import { TERMINAL_ORDER_STATUSES } from "../lib/order-status";
 import {
   getCustomerActorUserId,
@@ -3423,14 +3422,13 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
           404,
         );
       }
-      if (input.depositProvider === "whitebit") {
-        const [mapping] = await tx.select({ id: whitebitNetworkMappingsTable.id })
-          .from(whitebitNetworkMappingsTable)
-          .where(eq(whitebitNetworkMappingsTable.assetNetworkId, selected.id))
-          .limit(1);
-        if (!mapping) {
-          throw new ApiError("CRYPTO_DEPOSIT_PROVIDER_UNAVAILABLE", "WhiteBIT is not mapped for the selected asset network.", 422);
-        }
+      const availableProviders = await listConnectedDepositProviderOptions();
+      if (!availableProviders.some((provider) => provider.id === input.depositProvider)) {
+        throw new ApiError(
+          "CRYPTO_DEPOSIT_PROVIDER_UNAVAILABLE",
+          "The selected deposit provider is not connected and enabled in API Integrations.",
+          422,
+        );
       }
       const affected = input.useForAllAssetsOnNetwork
         ? await tx
@@ -3506,8 +3504,12 @@ router.get("/admin/crypto-networks", requireOperator, async (_req, res, next) =>
     res.json(rows.map(outputCryptoNetwork));
   } catch (e) { next(e); }
 });
-router.get("/admin/deposit-providers", requireOperator, (_req, res) => {
-  res.json(listDepositProviderOptions());
+router.get("/admin/deposit-providers", requireOperator, async (_req, res, next) => {
+  try {
+    res.json(await listConnectedDepositProviderOptions());
+  } catch (error) {
+    next(error);
+  }
 });
 router.post("/admin/crypto-networks", requireOperator, async (req, res, next) => {
   try { const input = cryptoInput(req.body, true); validateCryptoDepositConfiguration(input); const row = await db.transaction(async (tx) => { await verifyCatalogPath(tx, input.logoObjectPath, "crypto-network-logos"); const [created] = await tx.insert(cryptoAssetNetworksTable).values({ ...input, enabled: input.enabled ?? true, customerDepositsEnabled: input.customerDepositsEnabled ?? false, requiresMemo: input.requiresMemo ?? false, requiredConfirmations: input.requiredConfirmations ?? 0, sharedDepositAddress: input.sharedDepositAddress ?? "" } as never).returning(); return created; }); res.status(201).json(outputCryptoNetwork(row)); } catch (e) { next(isUniqueViolation(e) ? new ApiError("CRYPTO_NETWORK_EXISTS", "Crypto network already exists.", 409) : e); }

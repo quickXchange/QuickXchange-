@@ -4786,7 +4786,7 @@ components:
       type: object
       required: [id, label, implemented]
       properties:
-        id: { type: string, enum: [whitebit, manual, none] }
+        id: { type: string, minLength: 1, maxLength: 64 }
         label: { type: string }
         implemented: { type: boolean }
     ApiError:
@@ -5309,7 +5309,7 @@ components:
         networkId: { type: string, minLength: 1, maxLength: 80 }
         walletAddress: { type: string, maxLength: 500 }
         memo: { type: [string, "null"], maxLength: 500 }
-        depositProvider: { type: string, enum: [whitebit, manual, none], default: manual }
+        depositProvider: { type: string, minLength: 1, maxLength: 64, default: manual }
         enabled: { type: boolean }
         useForAllAssetsOnNetwork: { type: boolean }
     CryptoNetwork:

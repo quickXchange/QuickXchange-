@@ -2909,12 +2909,15 @@ test("owner receiving-wallet updates use exact asset-network rows and atomically
     assert.equal(mismatched.status, 404);
     assert.equal(mismatched.body.code, "CRYPTO_ASSET_NETWORK_NOT_FOUND");
 
-    const unmappedWhitebit = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
+    const connectedWhitebit = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
       networkId: networkAId, walletAddress: "fallback-address", memo: "fallback-memo",
       enabled: true, useForAllAssetsOnNetwork: false, depositProvider: "whitebit",
     }, "PUT", headers);
-    assert.equal(unmappedWhitebit.status, 422);
-    assert.equal(unmappedWhitebit.body.code, "CRYPTO_DEPOSIT_PROVIDER_UNAVAILABLE");
+    assert.equal(connectedWhitebit.status, 200);
+    assert.equal(
+      (connectedWhitebit.body as Array<{ id: string; depositProvider: string }>).find(row => row.id === networkAId)?.depositProvider,
+      "whitebit",
+    );
 
     const exact = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
       networkId: networkAId, walletAddress: "exact-address", memo: "exact-memo",

@@ -7210,7 +7210,7 @@ type ReceivingWalletDraft = {
   memo: string;
   enabled: boolean;
   share: boolean;
-  depositProvider: 'whitebit' | 'manual' | 'none';
+  depositProvider: string;
 };
 
 function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose: () => void }) {
@@ -7262,9 +7262,7 @@ function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose:
             memo: network.sharedDepositMemo || '',
             enabled: network.customerDepositsEnabled ?? false,
             share: false,
-            depositProvider: network.depositProvider === 'whitebit' || network.depositProvider === 'none'
-              ? network.depositProvider
-              : 'manual',
+            depositProvider: network.depositProvider || 'manual',
           };
         }
       });
@@ -7282,13 +7280,21 @@ function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose:
       memo: selectedReceivingNetwork.sharedDepositMemo || '',
       enabled: selectedReceivingNetwork.customerDepositsEnabled ?? false,
       share: false,
-      depositProvider: selectedReceivingNetwork.depositProvider === 'whitebit' || selectedReceivingNetwork.depositProvider === 'none'
-        ? selectedReceivingNetwork.depositProvider
-        : 'manual',
+      depositProvider: selectedReceivingNetwork.depositProvider || 'manual',
     }
     : null;
-  const isWhitebit = selectedReceivingDraft?.depositProvider === 'whitebit';
+  const isApiProvider = Boolean(
+    selectedReceivingDraft &&
+    selectedReceivingDraft.depositProvider !== 'manual' &&
+    selectedReceivingDraft.depositProvider !== 'none',
+  );
   const isManual = selectedReceivingDraft?.depositProvider === 'manual';
+  const selectedProviderOption = providerOptions.find(option => option.id === selectedReceivingDraft?.depositProvider);
+  const selectedProviderUnavailable = Boolean(
+    selectedReceivingDraft &&
+    isApiProvider &&
+    !selectedProviderOption,
+  );
 
   const hasValidWallet = Boolean(selectedReceivingDraft?.walletAddress.trim());
   const hasValidMemo = Boolean(selectedReceivingDraft?.memo.trim());
@@ -7298,21 +7304,22 @@ function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose:
   const whitebitFallbackIsValid = !hasValidWallet || (!needsMemo || hasValidMemo);
 
   const receivingCanEnable = Boolean(
-    (isWhitebit && whitebitFallbackIsValid) || (isManual && manualIsValid)
+    (isApiProvider && !selectedProviderUnavailable && whitebitFallbackIsValid) || (isManual && manualIsValid)
   );
 
   const updateReceivingDraft = (updates: Partial<ReceivingWalletDraft>) => {
     if (!selectedReceivingNetwork || !selectedReceivingDraft) return;
     setReceivingDrafts(current => {
       const next = { ...selectedReceivingDraft, ...updates };
-      const isNextWhitebit = next.depositProvider === 'whitebit';
+      const isNextApiProvider = next.depositProvider !== 'manual' && next.depositProvider !== 'none';
       const isNextManual = next.depositProvider === 'manual';
       const nextHasValidWallet = Boolean(next.walletAddress.trim());
       const nextHasValidMemo = Boolean(next.memo.trim());
       const nextManualIsValid = nextHasValidWallet && (!needsMemo || nextHasValidMemo);
       const nextWhitebitFallbackIsValid = !nextHasValidWallet || (!needsMemo || nextHasValidMemo);
 
-      const canEnable = (isNextWhitebit && nextWhitebitFallbackIsValid) || (isNextManual && nextManualIsValid);
+      const nextProviderAvailable = providerOptions.some(option => option.id === next.depositProvider);
+      const canEnable = (isNextApiProvider && nextProviderAvailable && nextWhitebitFallbackIsValid) || (isNextManual && nextManualIsValid);
       return {
         ...current,
         [selectedReceivingNetwork.id]: { ...next, enabled: canEnable ? next.enabled : false },
@@ -7435,18 +7442,28 @@ function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose:
                 </label>
                 <label>
                   <span className="field-label">Provider Policy</span>
-                  <select data-testid="receiving-wallet-provider" value={selectedReceivingDraft?.depositProvider || 'none'} onChange={e => updateReceivingDraft({ depositProvider: e.target.value as any })}>
-                    {providerOptions.map((opt: any) => (
+                  <select
+                    data-testid="receiving-wallet-provider"
+                    value={selectedReceivingDraft?.depositProvider || 'manual'}
+                    disabled={providerOptionsQuery.isLoading}
+                    onChange={e => updateReceivingDraft({ depositProvider: e.target.value })}
+                  >
+                    {selectedProviderUnavailable && selectedReceivingDraft && (
+                      <option value={selectedReceivingDraft.depositProvider} disabled>
+                        {selectedReceivingDraft.depositProvider} (not connected)
+                      </option>
+                    )}
+                    {providerOptions.map(opt => (
                       <option key={opt.id} value={opt.id} disabled={!opt.implemented}>{opt.label}</option>
                     ))}
                   </select>
                 </label>
                 <label>
-                  <span className="field-label">{isWhitebit ? 'Fallback Wallet Address' : 'Wallet Address'}</span>
+                  <span className="field-label">{isApiProvider ? 'Fallback Wallet Address' : 'Wallet Address'}</span>
                   <input data-testid="receiving-wallet-address" value={selectedReceivingDraft?.walletAddress || ''} onChange={e => updateReceivingDraft({ walletAddress: e.target.value })} placeholder="Master receiving address" />
                 </label>
                 <label>
-                  <span className="field-label">{isWhitebit ? 'Fallback Memo / Tag' : 'Memo / Tag'} {selectedReceivingNetwork?.requiresMemo && <small>Required for this network</small>}</span>
+                  <span className="field-label">{isApiProvider ? 'Fallback Memo / Tag' : 'Memo / Tag'} {selectedReceivingNetwork?.requiresMemo && <small>Required for this network</small>}</span>
                   <input data-testid="receiving-wallet-memo" value={selectedReceivingDraft?.memo || ''} onChange={e => updateReceivingDraft({ memo: e.target.value })} placeholder={selectedReceivingNetwork?.requiresMemo ? 'Required memo or tag' : 'Optional memo or tag'} />
                 </label>
                 <div className="network-toggle-group catalog-editor-toggles">
@@ -7459,10 +7476,12 @@ function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose:
                     <span className="field-label !mb-0 font-bold">Use this address for all assets on the same network</span>
                   </label>
                 </div>
-                {selectedReceivingDraft?.depositProvider === 'whitebit' ? (
+                {isApiProvider ? (
                   <p className="field-hint text-muted-foreground mt-1.5 text-[13px]">
-                    API addresses generate instantly. If generation fails, it uses the fallback address (if provided).
-                    {!receivingCanEnable && " The fallback is currently invalid."}
+                    {selectedProviderUnavailable
+                      ? 'This assigned provider is not currently connected and enabled in API Integrations.'
+                      : `${selectedProviderOption?.label || 'The selected provider'} generates the deposit address through its API. If generation fails, the exact wallet above is used as fallback.`}
+                    {!selectedProviderUnavailable && !receivingCanEnable && " The fallback is currently invalid."}
                   </p>
                 ) : selectedReceivingDraft?.depositProvider === 'none' ? (
                   <p className="field-hint text-muted-foreground mt-1.5 text-[13px]">

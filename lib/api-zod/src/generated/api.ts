@@ -5991,12 +5991,15 @@ export const saveCryptoAssetReceivingWalletBodyWalletAddressMax = 500;
 export const saveCryptoAssetReceivingWalletBodyMemoMax = 500;
 
 export const saveCryptoAssetReceivingWalletBodyDepositProviderDefault = `manual`;
+export const saveCryptoAssetReceivingWalletBodyDepositProviderMax = 64;
+
+
 
 export const SaveCryptoAssetReceivingWalletBody = zod.object({
   "networkId": zod.string().min(1).max(saveCryptoAssetReceivingWalletBodyNetworkIdMax),
   "walletAddress": zod.string().max(saveCryptoAssetReceivingWalletBodyWalletAddressMax),
   "memo": zod.string().max(saveCryptoAssetReceivingWalletBodyMemoMax).nullish(),
-  "depositProvider": zod.enum(['whitebit', 'manual', 'none']).default(saveCryptoAssetReceivingWalletBodyDepositProviderDefault),
+  "depositProvider": zod.string().min(1).max(saveCryptoAssetReceivingWalletBodyDepositProviderMax).default(saveCryptoAssetReceivingWalletBodyDepositProviderDefault),
   "enabled": zod.boolean(),
   "useForAllAssetsOnNetwork": zod.boolean()
 })
@@ -6281,8 +6284,12 @@ export const CreateCryptoNetworkResponse = zod.object({
 }))
 
 
+export const getDepositProviderOptionsResponseIdMax = 64;
+
+
+
 export const GetDepositProviderOptionsResponseItem = zod.object({
-  "id": zod.enum(['whitebit', 'manual', 'none']),
+  "id": zod.string().min(1).max(getDepositProviderOptionsResponseIdMax),
   "label": zod.string(),
   "implemented": zod.boolean()
 })

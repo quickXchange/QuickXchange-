@@ -1,5 +1,6 @@
 import { asc, desc, eq, sql } from "drizzle-orm";
 import { cryptoAssetNetworksTable, cryptoAssetsTable, db } from "@workspace/db";
+import { isRegisteredDepositProvider } from "./deposit-provider-registry";
 
 export type ManualCryptoOption = {
   id: string;
@@ -136,7 +137,9 @@ export async function findManualCryptoNetworkByIdForAsset(
 
 export function canAcceptManualCryptoDeposit(network: typeof cryptoAssetNetworksTable.$inferSelect) {
   if (!network.enabled || !network.customerDepositsEnabled || network.depositProvider === "none") return false;
-  if (network.depositProvider === "whitebit") return true;
-  return Boolean(network.sharedDepositAddress.trim()) &&
-    (!network.requiresMemo || Boolean(network.sharedDepositMemo?.trim()));
+  if (network.depositProvider === "manual") {
+    return Boolean(network.sharedDepositAddress.trim()) &&
+      (!network.requiresMemo || Boolean(network.sharedDepositMemo?.trim()));
+  }
+  return isRegisteredDepositProvider(network.depositProvider);
 }

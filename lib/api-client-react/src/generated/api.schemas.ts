@@ -2164,17 +2164,12 @@ export interface CustomerOrderNotificationPreference {
   statusNotificationsEnabled: boolean;
 }
 
-export type DepositProviderOptionId = typeof DepositProviderOptionId[keyof typeof DepositProviderOptionId];
-
-
-export const DepositProviderOptionId = {
-  whitebit: 'whitebit',
-  manual: 'manual',
-  none: 'none',
-} as const;
-
 export interface DepositProviderOption {
-  id: DepositProviderOptionId;
+  /**
+     * @minLength 1
+     * @maxLength 64
+     */
+  id: string;
   label: string;
   implemented: boolean;
 }
@@ -3016,15 +3011,6 @@ export interface CryptoNetworkUpdate {
   sharedDepositMemo?: string | null;
 }
 
-export type CryptoAssetReceivingWalletInputDepositProvider = typeof CryptoAssetReceivingWalletInputDepositProvider[keyof typeof CryptoAssetReceivingWalletInputDepositProvider];
-
-
-export const CryptoAssetReceivingWalletInputDepositProvider = {
-  whitebit: 'whitebit',
-  manual: 'manual',
-  none: 'none',
-} as const;
-
 export interface CryptoAssetReceivingWalletInput {
   /**
      * @minLength 1
@@ -3038,7 +3024,11 @@ export interface CryptoAssetReceivingWalletInput {
      * @nullable
      */
   memo?: string | null;
-  depositProvider?: CryptoAssetReceivingWalletInputDepositProvider;
+  /**
+     * @minLength 1
+     * @maxLength 64
+     */
+  depositProvider?: string;
   enabled: boolean;
   useForAllAssetsOnNetwork: boolean;
 }
