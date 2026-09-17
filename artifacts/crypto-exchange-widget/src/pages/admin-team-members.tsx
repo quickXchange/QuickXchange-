@@ -504,14 +504,14 @@ function EditMemberDialog({ member, open, onOpenChange, roles, auth }: { member:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[calc(100dvh-32px)] max-w-2xl flex-col gap-0 overflow-hidden sm:max-h-[calc(100dvh-48px)]">
+        <DialogHeader className="shrink-0 pb-4 pr-6">
           <DialogTitle>Edit Member Permissions</DialogTitle>
           <DialogDescription>Modify {member.name}'s assigned role and overrides.</DialogDescription>
         </DialogHeader>
         
-        <form onSubmit={onSubmit} className="space-y-6 py-2">
-          <div className="space-y-2">
+        <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="shrink-0 space-y-2 pb-4">
             <Label>Assigned Role</Label>
             <Controller
               control={form.control}
@@ -523,7 +523,7 @@ function EditMemberDialog({ member, open, onOpenChange, roles, auth }: { member:
                   form.setValue('permissionDenies', []);
                 }}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="team-member-role-select-content">
                     <SelectItem value="none">No specific role</SelectItem>
                     {roles.map(r => (
                       <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
@@ -534,9 +534,9 @@ function EditMemberDialog({ member, open, onOpenChange, roles, auth }: { member:
             />
           </div>
           
-          <div className="space-y-4">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
             <Label>Permission Overrides</Label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto overscroll-contain pr-1 md:grid-cols-2">
               {Object.entries(sections).map(([sectionName, entries]) => (
                 <div key={sectionName} className="border border-border rounded-lg p-3">
                   <h4 className="font-semibold capitalize text-xs text-muted-foreground mb-3 tracking-wider">{sectionName}</h4>
@@ -606,7 +606,7 @@ function EditMemberDialog({ member, open, onOpenChange, roles, auth }: { member:
             </div>
           </div>
           
-          <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t border-border mt-4">
+          <DialogFooter className="mt-4 shrink-0 border-t border-border bg-card pt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={updateMember.isPending}>Cancel</Button>
             <Button type="submit" disabled={updateMember.isPending}>
               {updateMember.isPending ? 'Saving...' : 'Save Permissions'}
