@@ -3390,6 +3390,25 @@ router.post("/admin/crypto-assets", requireOperator, async (req, res, next) => {
 });
 router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, next) => {
   try {
+    const rawEdits = (
+      req.body && typeof req.body === "object" && Array.isArray((req.body as { edits?: unknown }).edits)
+        ? (req.body as { edits: unknown[] }).edits
+        : []
+    );
+    const attemptsProviderAssignment = rawEdits.some(edit =>
+      edit && typeof edit === "object" &&
+      Array.isArray((edit as { networks?: unknown }).networks) &&
+      (edit as { networks: unknown[] }).networks.some(network =>
+        network && typeof network === "object" && Object.hasOwn(network, "depositProvider")
+      )
+    );
+    if (attemptsProviderAssignment) {
+      throw new ApiError(
+        "CRYPTO_BULK_PROVIDER_FORBIDDEN",
+        "Bulk Edit cannot assign or change API providers. Manage WhiteBIT through API Integrations and use Bulk Edit only for manual fallback settings.",
+        400,
+      );
+    }
     const input = ApplyCryptoAssetsBulkEditBody.parse(req.body);
     const assetIds = input.edits.map(edit => edit.assetId);
     if (new Set(assetIds).size !== assetIds.length) {
@@ -3400,12 +3419,6 @@ router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, ne
     if (new Set(networkIds).size !== networkIds.length) {
       throw new ApiError("VALIDATION_ERROR", "Duplicate crypto network IDs are not allowed.", 400);
     }
-    const shouldCheckProviderAvailability = networkEdits.some(network =>
-      network.depositProvider !== undefined || network.customerDepositsEnabled === true
-    );
-    const availableProviders = shouldCheckProviderAvailability
-      ? await listConnectedDepositProviderOptions()
-      : [];
     const result = await db.transaction(async (tx) => {
       const assets = await tx.select().from(cryptoAssetsTable)
         .where(inArray(cryptoAssetsTable.id, assetIds))
@@ -3423,26 +3436,6 @@ router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, ne
       }
       const assetById = new Map(assets.map(asset => [asset.id, asset]));
       const networkById = new Map(networks.map(network => [network.id, network]));
-      const whitebitMappings = networkIds.length === 0
-        ? []
-        : await tx.select().from(whitebitNetworkMappingsTable)
-          .where(and(
-            inArray(whitebitNetworkMappingsTable.assetNetworkId, networkIds),
-            eq(whitebitNetworkMappingsTable.canDeposit, true),
-          ));
-      const depositCapableWhitebitNetworkIds = new Set(
-        whitebitMappings.map(mapping => mapping.assetNetworkId),
-      );
-      const whitebitNetworkMappingById = new Map(
-        whitebitMappings.map(mapping => [mapping.assetNetworkId, mapping]),
-      );
-      const whitebitAssetMappings = assetIds.length === 0
-        ? []
-        : await tx.select().from(whitebitAssetMappingsTable)
-          .where(inArray(whitebitAssetMappingsTable.assetId, assetIds));
-      const whitebitAssetMappingById = new Map(
-        whitebitAssetMappings.map(mapping => [mapping.assetId, mapping]),
-      );
       for (const edit of input.edits) {
         if (!assetById.has(edit.assetId)) {
           throw new ApiError("CRYPTO_ASSET_NOT_FOUND", "One or more crypto assets were not found.", 404);
@@ -3456,28 +3449,26 @@ router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, ne
               404,
             );
           }
+          const editsWhitebitManagedFields = Object.keys(networkEdit).some(key =>
+            !["networkId", "sharedDepositAddress", "sharedDepositMemo", "requiresMemo"].includes(key)
+          );
+          if (network.depositProvider === "whitebit" && editsWhitebitManagedFields) {
+            throw new ApiError(
+              "CRYPTO_BULK_WHITEBIT_MANAGED",
+              "Bulk Edit cannot change WhiteBIT-managed network settings. Use it only for manual fallback address and memo fields.",
+              422,
+            );
+          }
           const editsDepositConfiguration = [
             "customerDepositsEnabled",
-            "depositProvider",
             "sharedDepositAddress",
           ].some(key => Object.hasOwn(networkEdit, key));
           if (editsDepositConfiguration) {
-            const effectiveProvider = networkEdit.depositProvider ?? network.depositProvider;
+            const effectiveProvider = network.depositProvider;
             const effectiveDepositsEnabled =
               networkEdit.customerDepositsEnabled ?? network.customerDepositsEnabled;
             const effectiveAddress =
               networkEdit.sharedDepositAddress ?? network.sharedDepositAddress;
-            if (
-              (networkEdit.depositProvider !== undefined ||
-                networkEdit.customerDepositsEnabled === true) &&
-              !availableProviders.some(option => option.id === effectiveProvider)
-            ) {
-              throw new ApiError(
-                "CRYPTO_DEPOSIT_PROVIDER_UNAVAILABLE",
-                "The selected deposit provider is not connected and enabled in API Integrations.",
-                422,
-              );
-            }
             if (effectiveProvider === "none" && effectiveDepositsEnabled) {
               throw new ApiError(
                 "CRYPTO_DEPOSIT_PROVIDER_DISABLED",
@@ -3495,30 +3486,6 @@ router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, ne
                 "A shared deposit address is required before manual customer deposits can be enabled.",
                 422,
               );
-            }
-            if (
-              effectiveProvider === "whitebit" &&
-              (
-                networkEdit.depositProvider === "whitebit" ||
-                networkEdit.customerDepositsEnabled === true
-              )
-            ) {
-              const asset = assetById.get(edit.assetId)!;
-              const assetMapping = whitebitAssetMappingById.get(edit.assetId);
-              const networkMapping = whitebitNetworkMappingById.get(network.id);
-              const mappedIdentityMatchesRuntime =
-                assetMapping?.normalizedTicker === asset.code.trim().toUpperCase() &&
-                networkMapping?.normalizedNetwork === network.networkCode.trim().toUpperCase();
-              if (
-                !depositCapableWhitebitNetworkIds.has(network.id) ||
-                !mappedIdentityMatchesRuntime
-              ) {
-                throw new ApiError(
-                  "CRYPTO_DEPOSIT_PROVIDER_INCOMPATIBLE",
-                  "WhiteBIT deposits are not available for one or more selected asset networks.",
-                  422,
-                );
-              }
             }
           }
         }
@@ -3538,7 +3505,6 @@ router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, ne
           for (const key of [
             "enabled",
             "customerDepositsEnabled",
-            "depositProvider",
             "lifecycle",
             "regions",
             "decimals",

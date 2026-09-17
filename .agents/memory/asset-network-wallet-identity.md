@@ -29,6 +29,12 @@ Manual fallback address or memo edits on an already configured WhiteBIT route re
 
 **How to apply:** Preserve provider and deposit state for address-only edits. Runtime provisioning decides whether to use WhiteBIT or the saved manual fallback and must never clear the stored fallback on provider failure.
 
+Crypto Assets Bulk Edit is manual-purpose only: it cannot assign or switch API providers and cannot change WhiteBIT-managed network fields. WhiteBIT provider configuration remains in API Integrations and its dedicated management flows.
+
+**Why:** Mixing provider configuration into generic catalog bulk actions can bypass provider-specific capability and lifecycle controls.
+
+**How to apply:** Reject provider fields at the raw bulk API boundary. On an existing WhiteBIT route, allow only manual fallback address, fallback memo, and memo-requirement maintenance.
+
 Provider Policy options come from connected, enabled API integrations that have a registered deposit-address adapter. Integration credentials alone never make a rate, Convert, or unrelated provider selectable for Swap deposits.
 
 **Why:** Deposit-address APIs are provider-specific and carry irreversible idempotency and reconciliation requirements. Listing a connected integration without an implemented adapter would save a policy that cannot safely generate or attribute an address.

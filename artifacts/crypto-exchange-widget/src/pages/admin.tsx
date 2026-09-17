@@ -5536,7 +5536,6 @@ function AdminCurrencies() {
   const methodsQuery = useGetPaymentMethods({ query: { queryKey: getGetPaymentMethodsQueryKey() } });
   const assetsQuery = useGetCryptoAssets({ query: { queryKey: getGetCryptoAssetsQueryKey() } });
   const networksQuery = useGetCryptoNetworks({ query: { queryKey: getGetCryptoNetworksQueryKey() } });
-  const providerOptionsQuery = useGetDepositProviderOptions({ query: { queryKey: getGetDepositProviderOptionsQueryKey() } });
   const healthQuery = useGetOneForgeProviderStatus({ query: { queryKey: getGetOneForgeProviderStatusQueryKey(), refetchInterval: 30000 } });
   const health = healthQuery.data;
   const permissionForTab = (section: typeof tab) =>
@@ -6279,9 +6278,6 @@ function AdminCurrencies() {
           selectedAssetIds={Array.from(catalogSelected.assets)}
           assets={assetsQuery.data}
           networks={networksQuery.data}
-          providers={providerOptionsQuery.data || []}
-          providersLoading={providerOptionsQuery.isLoading}
-          providersError={providerOptionsQuery.isError}
           onSuccess={() => {
             setCatalogSelected(prev => ({ ...prev, assets: new Set() }));
             setBulkEditAssetsOpen(false);

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useApplyCryptoAssetsBulkEdit } from '@workspace/api-client-react';
-import type { CryptoAsset, CryptoNetwork, DepositProviderOption, CryptoAssetsBulkEditInput } from '@workspace/api-client-react';
+import type { CryptoAsset, CryptoNetwork, CryptoAssetsBulkEditInput } from '@workspace/api-client-react';
 import { Loader2, CircleAlert, CheckCircle } from 'lucide-react';
 import { queryClient, apiErrorText } from '../App';
 import { 
@@ -16,9 +16,6 @@ interface Props {
   selectedAssetIds: string[];
   assets: CryptoAsset[];
   networks: CryptoNetwork[];
-  providers: DepositProviderOption[];
-  providersLoading?: boolean;
-  providersError?: boolean;
   onSuccess: () => void;
 }
 
@@ -28,9 +25,6 @@ export function AdminCryptoAssetsBulkEditDialog({
   selectedAssetIds,
   assets,
   networks,
-  providers,
-  providersLoading = false,
-  providersError = false,
   onSuccess,
 }: Props) {
   const applyMutation = useApplyCryptoAssetsBulkEdit();
@@ -55,9 +49,6 @@ export function AdminCryptoAssetsBulkEditDialog({
 
   const [applyNetCustomerDeposits, setApplyNetCustomerDeposits] = useState(false);
   const [netCustomerDeposits, setNetCustomerDeposits] = useState(true);
-
-  const [applyNetProvider, setApplyNetProvider] = useState(false);
-  const [netProvider, setNetProvider] = useState('');
 
   const [applyNetLifecycle, setApplyNetLifecycle] = useState(false);
   const [netLifecycle, setNetLifecycle] = useState<'active' | 'restricted' | 'deprecated'>('active');
@@ -112,10 +103,10 @@ export function AdminCryptoAssetsBulkEditDialog({
   };
 
   const anySettingApplied = applyAssetEnabled || applyAssetLifecycle || applyAssetPrecision ||
-    applyNetEnabled || applyNetCustomerDeposits || applyNetProvider || applyNetLifecycle ||
+    applyNetEnabled || applyNetCustomerDeposits || applyNetLifecycle ||
     applyNetRegions || applyNetPrecision || applyNetRequiresMemo || applyNetSharedAddress || applyNetSharedMemo;
 
-  const anyNetworkSettingApplied = applyNetEnabled || applyNetCustomerDeposits || applyNetProvider || applyNetLifecycle ||
+  const anyNetworkSettingApplied = applyNetEnabled || applyNetCustomerDeposits || applyNetLifecycle ||
     applyNetRegions || applyNetPrecision || applyNetRequiresMemo || applyNetSharedAddress || applyNetSharedMemo;
 
   const selectedTargetAssets = assets.filter(a => selectedAssetIds.includes(a.id));
@@ -123,8 +114,7 @@ export function AdminCryptoAssetsBulkEditDialog({
   // Validation
   const isValid = anySettingApplied
     && selectedAssetIds.length > 0
-    && (!anyNetworkSettingApplied || selectedNetworkIds.size > 0)
-    && (!applyNetProvider || (!providersLoading && !providersError && Boolean(netProvider)));
+    && (!anyNetworkSettingApplied || selectedNetworkIds.size > 0);
 
   const getPayload = (): CryptoAssetsBulkEditInput => {
     const edits = selectedAssetIds.map(assetId => {
@@ -139,7 +129,6 @@ export function AdminCryptoAssetsBulkEditDialog({
           const netEdit: any = { networkId: n.id };
           if (applyNetEnabled) netEdit.enabled = netEnabled;
           if (applyNetCustomerDeposits) netEdit.customerDepositsEnabled = netCustomerDeposits;
-          if (applyNetProvider) netEdit.depositProvider = netProvider;
           if (applyNetLifecycle) netEdit.lifecycle = netLifecycle;
           if (applyNetRegions) netEdit.regions = netRegions.split(',').map(s => s.trim()).filter(Boolean);
           if (applyNetPrecision) netEdit.decimals = netPrecision;
@@ -303,24 +292,6 @@ export function AdminCryptoAssetsBulkEditDialog({
                       <option value="true">ON (Allowed)</option>
                       <option value="false">OFF (Paused)</option>
                     </select>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input type="checkbox" className="rounded border-slate-600 w-4 h-4 bg-transparent" checked={applyNetProvider} onChange={e => setApplyNetProvider(e.target.checked)} />
-                      <span className="text-sm font-semibold">Apply this change: Provider Policy</span>
-                    </label>
-                    <select aria-label="Provider Policy" className="border border-border bg-background rounded-md text-sm px-3 py-2 disabled:opacity-50" disabled={!applyNetProvider} value={netProvider} onChange={e => setNetProvider(e.target.value)}>
-                      <option value="" disabled>
-                        {providersLoading ? 'Loading providers…' : providersError ? 'Providers unavailable' : 'Select Provider'}
-                      </option>
-                      {providers.map(p => (
-                        <option key={p.id} value={p.id} disabled={!p.implemented}>{p.label}{p.implemented ? '' : ' (Unavailable)'}</option>
-                      ))}
-                    </select>
-                    {applyNetProvider && providersError && (
-                      <p className="text-xs text-destructive">Provider options could not be loaded. Retry before applying this setting.</p>
-                    )}
                   </div>
 
                   <div className="flex flex-col gap-2">
@@ -490,9 +461,6 @@ export function AdminCryptoAssetsBulkEditDialog({
                     )}
                     {applyNetCustomerDeposits && (
                       <tr><td className="px-4 py-3 font-medium">Customer Deposits</td><td className="px-4 py-3">{netCustomerDeposits ? 'Allowed' : 'Paused'}</td></tr>
-                    )}
-                    {applyNetProvider && (
-                      <tr><td className="px-4 py-3 font-medium">Deposit Provider</td><td className="px-4 py-3">{providers.find(p => p.id === netProvider)?.label || netProvider}</td></tr>
                     )}
                     {applyNetLifecycle && (
                       <tr><td className="px-4 py-3 font-medium">Network Lifecycle</td><td className="px-4 py-3 capitalize">{netLifecycle}</td></tr>

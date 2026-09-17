@@ -12,11 +12,6 @@ export interface CryptoAssetBulkNetworkEdit {
   networkId: string;
   enabled?: boolean;
   customerDepositsEnabled?: boolean;
-  /**
-     * @minLength 1
-     * @maxLength 64
-     */
-  depositProvider?: string;
   lifecycle?: CryptoAssetBulkNetworkEditLifecycle;
   /**
      * @maxItems 20

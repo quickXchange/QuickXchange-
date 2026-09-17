@@ -3036,8 +3036,6 @@ test("owner crypto asset bulk edits are atomic and preserve omitted network sett
     cryptoAssetsTable,
     db,
     operatorsTable,
-    whitebitAssetMappingsTable,
-    whitebitNetworkMappingsTable,
   } = await import("@workspace/db");
   const operatorAuth = await import("../src/lib/operator-auth");
   const suffix = randomUUID();
@@ -3136,64 +3134,32 @@ test("owner crypto asset bulk edits are atomic and preserve omitted network sett
       .where(eq(cryptoAssetNetworksTable.id, networkBId));
     assert.equal(networkAfterInvalidDeposit.customerDepositsEnabled, false);
 
-    const disabledProviderWithDeposits = await apiJson(api.url, "/admin/crypto-assets/bulk/apply", {
+    const providerAssignmentRejected = await apiJson(api.url, "/admin/crypto-assets/bulk/apply", {
       edits: [{
         assetId: assetAId,
         networks: [{
           networkId: networkAId,
-          depositProvider: "none",
-          customerDepositsEnabled: true,
+          depositProvider: "whitebit",
         }],
       }],
     }, "POST", headers);
-    assert.equal(disabledProviderWithDeposits.status, 422);
-    assert.equal(disabledProviderWithDeposits.body.code, "CRYPTO_DEPOSIT_PROVIDER_DISABLED");
-
-    const incompatibleWhitebit = await apiJson(api.url, "/admin/crypto-assets/bulk/apply", {
-      edits: [{
-        assetId: assetAId,
-        networks: [{ networkId: networkAId, depositProvider: "whitebit" }],
-      }],
-    }, "POST", headers);
-    assert.equal(incompatibleWhitebit.status, 422);
-    assert.equal(incompatibleWhitebit.body.code, "CRYPTO_DEPOSIT_PROVIDER_INCOMPATIBLE");
-
-    const [bulkAssetA] = await db.select().from(cryptoAssetsTable)
-      .where(eq(cryptoAssetsTable.id, assetAId));
-    const [bulkNetworkA] = await db.select().from(cryptoAssetNetworksTable)
+    assert.equal(providerAssignmentRejected.status, 400);
+    const [networkAfterRejectedProvider] = await db.select().from(cryptoAssetNetworksTable)
       .where(eq(cryptoAssetNetworksTable.id, networkAId));
-    await db.insert(whitebitAssetMappingsTable).values({
-      id: `bulk-whitebit-asset-${suffix}`,
-      assetId: assetAId,
-      providerTicker: bulkAssetA.code,
-      normalizedTicker: bulkAssetA.code.toUpperCase(),
-      providerName: bulkAssetA.name,
-      precision: bulkAssetA.decimals,
-    });
-    await db.insert(whitebitNetworkMappingsTable).values({
-      id: `bulk-whitebit-${suffix}`,
-      assetNetworkId: networkAId,
-      providerNetwork: bulkNetworkA.networkCode,
-      normalizedNetwork: bulkNetworkA.networkCode.toUpperCase(),
-      canDeposit: true,
-      canWithdraw: false,
-    });
-    const compatibleWhitebit = await apiJson(api.url, "/admin/crypto-assets/bulk/apply", {
-      edits: [{
-        assetId: assetAId,
-        networks: [{ networkId: networkAId, depositProvider: "whitebit" }],
-      }],
-    }, "POST", headers);
-    assert.equal(compatibleWhitebit.status, 200);
-    const [networkAfterWhitebit] = await db.select().from(cryptoAssetNetworksTable)
-      .where(eq(cryptoAssetNetworksTable.id, networkAId));
-    assert.equal(networkAfterWhitebit.depositProvider, "whitebit");
+    assert.equal(networkAfterRejectedProvider.depositProvider, "manual");
 
     await db.update(cryptoAssetNetworksTable)
-      .set({ customerDepositsEnabled: true })
+      .set({ depositProvider: "whitebit", customerDepositsEnabled: true })
       .where(eq(cryptoAssetNetworksTable.id, networkAId));
-    await db.delete(whitebitNetworkMappingsTable)
-      .where(eq(whitebitNetworkMappingsTable.assetNetworkId, networkAId));
+    const whitebitManagedEdit = await apiJson(api.url, "/admin/crypto-assets/bulk/apply", {
+      edits: [{
+        assetId: assetAId,
+        networks: [{ networkId: networkAId, lifecycle: "restricted" }],
+      }],
+    }, "POST", headers);
+    assert.equal(whitebitManagedEdit.status, 422);
+    assert.equal(whitebitManagedEdit.body.code, "CRYPTO_BULK_WHITEBIT_MANAGED");
+
     const degradedWhitebitFallback = await apiJson(api.url, "/admin/crypto-assets/bulk/apply", {
       edits: [{
         assetId: assetAId,
@@ -3219,7 +3185,7 @@ test("owner crypto asset bulk edits are atomic and preserve omitted network sett
       edits: [{
         assetId: assetAId,
         enabled: false,
-        networks: [{ networkId: networkAId, lifecycle: "restricted" }],
+        networks: [{ networkId: networkAId, requiresMemo: true }],
       }],
     }, "POST", headers);
     assert.equal(invalidOutputRollback.status, 400);
@@ -3228,7 +3194,7 @@ test("owner crypto asset bulk edits are atomic and preserve omitted network sett
     const [networkAfterInvalidOutput] = await db.select().from(cryptoAssetNetworksTable)
       .where(eq(cryptoAssetNetworksTable.id, networkAId));
     assert.equal(assetAfterInvalidOutput.enabled, true);
-    assert.equal(networkAfterInvalidOutput.lifecycle, "active");
+    assert.equal(networkAfterInvalidOutput.requiresMemo, false);
   } finally {
     await api.close();
     await db.delete(cryptoAssetNetworksTable)

@@ -5929,8 +5929,6 @@ export const applyCryptoAssetsBulkEditBodyEditsItemDecimalsMax = 30;
 export const applyCryptoAssetsBulkEditBodyEditsItemDecimalsMultipleOf = 1;
 
 export const applyCryptoAssetsBulkEditBodyEditsItemNetworksItemNetworkIdRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,80}$');
-export const applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDepositProviderMax = 64;
-
 export const applyCryptoAssetsBulkEditBodyEditsItemNetworksItemRegionsItemMax = 32;
 
 export const applyCryptoAssetsBulkEditBodyEditsItemNetworksItemRegionsMax = 20;
@@ -5958,7 +5956,6 @@ export const ApplyCryptoAssetsBulkEditBody = zod.object({
   "networkId": zod.string().regex(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemNetworkIdRegExp),
   "enabled": zod.boolean().optional(),
   "customerDepositsEnabled": zod.boolean().optional(),
-  "depositProvider": zod.string().min(1).max(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDepositProviderMax).optional(),
   "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).optional(),
   "regions": zod.array(zod.string().max(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemRegionsItemMax)).max(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemRegionsMax).optional(),
   "decimals": zod.number().min(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDecimalsMin).max(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDecimalsMax).multipleOf(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDecimalsMultipleOf).optional(),
