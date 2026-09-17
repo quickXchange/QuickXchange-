@@ -240,6 +240,34 @@ test("supported exact route allocates WhiteBIT after durable order claim", async
   assert.equal(providerCalls, 1);
 });
 
+test("webhook authentication falls back to the configured WhiteBIT API credentials", async () => {
+  const dedicatedKey = process.env.WHITEBIT_WEBHOOK_API_KEY;
+  const dedicatedSecret = process.env.WHITEBIT_WEBHOOK_SECRET;
+  delete process.env.WHITEBIT_WEBHOOK_API_KEY;
+  delete process.env.WHITEBIT_WEBHOOK_SECRET;
+  try {
+    const body = JSON.stringify({});
+    const payload = Buffer.from(body).toString("base64");
+    const signature = createHmac("sha512", process.env.WHITEBIT_API_SECRET!)
+      .update(payload)
+      .digest("hex");
+    const response = await fetch(`${baseUrl}/api/webhooks/whitebit`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-txc-apikey": process.env.WHITEBIT_API_KEY!,
+        "x-txc-payload": payload,
+        "x-txc-signature": signature,
+      },
+      body,
+    });
+    assert.equal(response.status, 400);
+  } finally {
+    process.env.WHITEBIT_WEBHOOK_API_KEY = dedicatedKey;
+    process.env.WHITEBIT_WEBHOOK_SECRET = dedicatedSecret;
+  }
+});
+
 test("capability loss after provider selection uses the exact manual fallback without provider call", async () => {
   const parsed = parseWhitebitAssets({ BTC: { can_deposit: true, networks: { deposits: ["BITCOIN"] } } });
   assert.ok(parsed);

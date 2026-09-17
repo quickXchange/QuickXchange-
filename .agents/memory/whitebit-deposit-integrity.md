@@ -32,3 +32,9 @@ WhiteBIT's per-order `create-new-address` endpoint requires provider-granted per
 **Why:** A reusable account address cannot safely identify concurrent or late order deposits. WhiteBIT documents unique-address access as unavailable by default, so a valid API key alone does not prove an order route can generate one.
 
 **How to apply:** Keep an exact manual fallback for each selected WhiteBIT route, record definitive rejection as unavailable when no fallback was snapshotted, and show that state explicitly to the customer instead of leaving an empty deposit panel.
+
+WhiteBIT webhook authentication may use dedicated webhook credentials when configured, otherwise it uses the same API key and HMAC secret as signed WhiteBIT API requests. The public ownership-verification key is separate and must never be treated as an HMAC secret.
+
+**Why:** WhiteBIT sends `x-txc-apikey`, payload, and signature headers compatible with the account API credentials, while ownership verification exposes a public key through a separate root endpoint. Requiring duplicate webhook-only secrets can silently disable valid callbacks.
+
+**How to apply:** Prefer explicit webhook key/secret overrides, fall back to the configured WhiteBIT API key/secret, keep `/whiteBIT-verification` at the service root, and reject unsigned or malformed webhook requests before processing deposits.
