@@ -19,7 +19,7 @@ try {
     packages: "bundle",
     external: ["sharp"],
   });
-  const child = spawn(process.execPath, ["--test", outfile], {
+  const child = spawn(process.execPath, ["--test", "--test-concurrency=1", outfile], {
     stdio: "inherit",
     env: { ...process.env, NODE_PATH: `${process.cwd()}/node_modules${process.env.NODE_PATH ? `:${process.env.NODE_PATH}` : ""}` },
   });

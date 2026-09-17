@@ -191,7 +191,9 @@ async function mock(req: IncomingMessage, res: ServerResponse) {
   if (url.pathname === "/quotes") {
     fiatRateCalls++;
     receivedOneForgeKeys.push(url.searchParams.get("api_key") ?? "");
-    assert.equal(url.searchParams.get("pairs"), expectedOneForgePairs);
+    if (url.searchParams.get("pairs") !== expectedOneForgePairs) {
+      return send(res, 400, { error: "Unexpected OneForge pairs fixture." });
+    }
     if (marketRateMode === "badFiat") {
       return send(res, 200, [{ symbol: "EUR/USD", price: "1.25" }]);
     }
@@ -629,6 +631,7 @@ test("admin Convert summary reports Quickex health through cooldown and recovery
     clerkUserId: operatorUserId,
     role: "operator",
     status: "active",
+    permissionAllows: ["statistics.view"],
   }).returning();
   operatorAuth.configureOperatorAuthorizationForTests({
     getUserId: (req) => req.get("x-test-clerk-user-id") ?? null,
@@ -1016,6 +1019,12 @@ test("owners can validate and activate Quickex credentials while operators recei
         clerkUserId: operatorUserId,
         role: "operator",
         status: "active",
+        permissionAllows: [
+          "integrations.view",
+          "statistics.view",
+          "statistics.export",
+          "orders.view",
+        ],
       },
     ])
     .returning();
@@ -1903,7 +1912,11 @@ test("the capability registry exposes executable mapped networks without removin
       customerEmail: `registry-${randomUUID()}@example.test`,
       clientRequestId: requestId,
     });
-    assert.equal(order.status, 201);
+    assert.equal(
+      order.status,
+      201,
+      JSON.stringify({ body: order.body, createCalls }),
+    );
     assert.equal(order.body.provider, "Quickex");
     assert.equal(order.body.providerOrderId, "800");
     assert.equal(createCalls, 1);
@@ -2132,7 +2145,14 @@ test("Quickex namespace owns signed quotes, orders, tracking, and idempotency", 
       apiJson(api.url, "/quickex/create-order", { ...withoutRefundAddress, quoteId: quoted.body.quoteId }),
       apiJson(api.url, "/quickex/create-order", { ...withoutRefundAddress, quoteId: quoted.body.quoteId }),
     ]);
-    assert.deepEqual(concurrentCreates.map(result => result.status).sort(), [200, 201]);
+    assert.deepEqual(
+      concurrentCreates.map(result => result.status).sort(),
+      [200, 201],
+      JSON.stringify({
+        bodies: concurrentCreates.map(result => result.body),
+        createCalls,
+      }),
+    );
     const created = concurrentCreates.find(result => result.status === 201)!;
     assert.equal(concurrentCreates[0].body.id, concurrentCreates[1].body.id);
     assert.equal(created.body.providerReference, "provider-reference-800");
@@ -2529,6 +2549,15 @@ test("manual lifecycle enforces transitions and concurrency and writes an operat
   const [operator] = await db.insert(operatorsTable).values({
     email: `manual-state-${suffix}@example.test`, clerkUserId: userId,
     role: "operator", status: "active",
+    permissionAllows: [
+      "orders.status",
+      "orders.notes",
+      "orders.complete",
+      "orders.confirm_payment",
+      "crypto_assets.manage",
+      "crypto_networks.view",
+      "crypto_networks.manage",
+    ],
   }).returning();
   await db.insert(ordersTable).values({
     id: orderId, type: "manual", status: "awaiting funds", fromAsset: "BTC",
@@ -4840,6 +4869,7 @@ test("operators can price enabled fiat settlement routes with exact and fallback
     clerkUserId: userId,
     role: "operator",
     status: "active",
+    permissionAllows: ["pricing.view", "pricing.manage"],
   }).returning();
   operatorAuth.configureOperatorAuthorizationForTests({
     getUserId: req => req.get("x-test-clerk-user-id") ?? null,
@@ -5102,6 +5132,7 @@ test("manual pricing rules match deterministically, protect writes, and snapshot
     clerkUserId: userId,
     role: "operator",
     status: "active",
+    permissionAllows: ["pricing.view", "pricing.manage"],
   }).returning();
   operatorAuth.configureOperatorAuthorizationForTests({
     getUserId: req => req.get("x-test-clerk-user-id") ?? null,
@@ -6266,8 +6297,20 @@ test("owner order operations enforce assignment, archive, versions, and immutabl
   const restrictedAuditId = randomUUID();
   const [owner, assigned, other] = await db.insert(operatorsTable).values([
     { email: `owner-${suffix}@example.test`, clerkUserId: ownerUserId, role: "owner", status: "active" },
-    { email: `assigned-${suffix}@example.test`, clerkUserId: assignedUserId, role: "operator", status: "active" },
-    { email: `other-${suffix}@example.test`, clerkUserId: otherUserId, role: "operator", status: "active" },
+    {
+      email: `assigned-${suffix}@example.test`,
+      clerkUserId: assignedUserId,
+      role: "operator",
+      status: "active",
+      permissionAllows: ["orders.status"],
+    },
+    {
+      email: `other-${suffix}@example.test`,
+      clerkUserId: otherUserId,
+      role: "operator",
+      status: "active",
+      permissionAllows: ["orders.status"],
+    },
   ]).returning();
   operatorAuth.configureOperatorAuthorizationForTests({
     getUserId: (req) => req.get("x-test-clerk-user-id") ?? null,

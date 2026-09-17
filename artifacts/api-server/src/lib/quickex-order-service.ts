@@ -166,6 +166,9 @@ function output(row: typeof quickexOrdersTable.$inferSelect, includeInstructions
   return {
     id: row.legacyOrderId, type: "instant", status: row.status, recordVersion: row.recordVersion,
     assignedOperatorId: null, archivedAt: null, archivedBy: null,
+    supportStatus: "open", sendingStatus: "pending", receivingStatus: "pending",
+    sentAmountOverride: null, receiveAmountOverride: null, exchangeRateOverride: null,
+    networkFeeAmount: null, transactionHash: null, paymentReference: null,
     fromAsset: route.fromAsset, fromNetwork: route.fromNetwork, toAsset: route.toAsset, toNetwork: route.toNetwork,
     amount: amounts.amount, receiveAmount: amounts.receiveAmount, customerEmail: row.customerEmail,
     customerName: row.customerName, customerRegistered: Boolean(row.customerClerkUserId),
