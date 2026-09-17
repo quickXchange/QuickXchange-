@@ -22952,6 +22952,10 @@ html:not(.dark) .qx-mobile-base-links .qx-mobile-item.owner-access:is(:hover, :f
   .admin-list-bulk-toolbar {
     margin-top: 0;
   }
+  .team-members-bulk-toolbar {
+    width: calc(100% - 48px);
+    margin: 16px 24px 14px;
+  }
   .bulk-actions-context,
   .bulk-actions-notice {
     display: block;

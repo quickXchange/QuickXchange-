@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  MoreHorizontal, Plus, ShieldCheck, UserRound, Ban, Check, Trash2, Edit2, Play
+  MoreHorizontal, Plus, ShieldCheck, UserRound, Ban, Check, Trash2, Edit2, Play, Power, Pencil
 } from 'lucide-react';
 import {
   useListTeamMembers,
   useInviteTeamMember,
   useUpdateTeamMember,
+  useApproveOperator,
   useSuspendTeamMember,
   useReactivateTeamMember,
   useRemoveTeamMember,
@@ -28,11 +29,106 @@ export function MembersList({ auth }: { auth: AdminAuthorization }) {
   const { data: members, isLoading, error } = useListTeamMembers();
   const { data: roles } = useListTeamRoles();
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(() => new Set());
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
+  const [bulkRoleOpen, setBulkRoleOpen] = useState(false);
+  const [bulkRoleId, setBulkRoleId] = useState('none');
+  const [bulkPending, setBulkPending] = useState(false);
+  const [bulkNotice, setBulkNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+  const queryClient = useQueryClient();
+  const reactivate = useReactivateTeamMember();
+  const approve = useApproveOperator();
+  const suspend = useSuspendTeamMember();
+  const remove = useRemoveTeamMember();
+  const update = useUpdateTeamMember();
 
   const canInvite = auth.owner;
 
+  useEffect(() => {
+    setSelectedMemberIds(new Set());
+  }, [page, pageSize]);
+
   if (isLoading) return <LoadingBlock />;
   if (error || !members) return <ErrorState message="Could not load members" />;
+
+  const selectableMembers = members.filter(member => member.role !== 'owner' && member.id !== auth.member.id && member.status !== 'removed');
+  const pageCount = Math.max(1, Math.ceil(members.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const visibleMembers = members.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const selectableVisibleMembers = visibleMembers.filter(member => selectableMembers.some(candidate => candidate.id === member.id));
+  const selectedMembers = selectableVisibleMembers.filter(member => selectedMemberIds.has(member.id));
+  const allVisibleSelected = selectableVisibleMembers.length > 0 && selectedMembers.length === selectableVisibleMembers.length;
+  const someVisibleSelected = selectedMembers.length > 0;
+
+  const refreshMembers = async () => {
+    await queryClient.invalidateQueries({ queryKey: getListTeamMembersQueryKey() });
+    setSelectedMemberIds(new Set());
+  };
+
+  const runBulkAction = async (action: 'enable' | 'disable' | 'delete') => {
+    const targets = selectedMembers.filter(member =>
+      action === 'enable' ? member.status === 'suspended' || member.status === 'invited'
+        : action === 'disable' ? member.status === 'active'
+          : true,
+    );
+    if (!targets.length || bulkPending) return;
+    if (action === 'delete' && !confirm(`Remove ${targets.length} selected team member${targets.length === 1 ? '' : 's'}?`)) return;
+    setBulkPending(true);
+    setBulkNotice(null);
+    let succeeded = 0;
+    let failed = 0;
+    for (const member of targets) {
+      try {
+        if (action === 'enable') {
+          if (member.status === 'invited') await approve.mutateAsync({ id: member.id });
+          else await reactivate.mutateAsync({ id: member.id });
+        } else if (action === 'disable') {
+          await suspend.mutateAsync({ id: member.id });
+        } else {
+          await remove.mutateAsync({ id: member.id });
+        }
+        succeeded += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+    await refreshMembers();
+    setBulkNotice(failed
+      ? { kind: 'error', text: `${succeeded} updated; ${failed} could not be updated.` }
+      : { kind: 'success', text: `${succeeded} team member${succeeded === 1 ? '' : 's'} updated.` });
+    setBulkPending(false);
+  };
+
+  const applyBulkRole = async () => {
+    if (!selectedMembers.length || bulkPending) return;
+    setBulkPending(true);
+    setBulkNotice(null);
+    let succeeded = 0;
+    let failed = 0;
+    for (const member of selectedMembers) {
+      try {
+        await update.mutateAsync({
+          id: member.id,
+          data: {
+            customRoleId: bulkRoleId === 'none' ? null : bulkRoleId,
+            permissionAllows: [],
+            permissionDenies: [],
+            expectedAuthVersion: member.authVersion,
+          },
+        });
+        succeeded += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+    await refreshMembers();
+    setBulkRoleOpen(false);
+    setBulkNotice(failed
+      ? { kind: 'error', text: `${succeeded} roles assigned; ${failed} could not be updated.` }
+      : { kind: 'success', text: `Role assigned to ${succeeded} team member${succeeded === 1 ? '' : 's'}.` });
+    setBulkPending(false);
+  };
 
   return (
     <div className="panel p-0 flex flex-col">
@@ -44,10 +140,36 @@ export function MembersList({ auth }: { auth: AdminAuthorization }) {
           </Button>
         )}
       </div>
+      {someVisibleSelected && (
+        <div className="bulk-actions-toolbar visible admin-list-bulk-toolbar team-members-bulk-toolbar" data-testid="team-members-bulk-actions">
+          <div className="bulk-actions-inner">
+            <span className="bulk-actions-count" data-testid="team-members-bulk-count"><Check size={14} /> {selectedMembers.length} selected</span>
+            <div className="bulk-actions-divider" />
+            <button type="button" onClick={() => runBulkAction('enable')} disabled={bulkPending || !selectedMembers.some(member => member.status === 'suspended' || member.status === 'invited')}><Power size={14} /> Enable</button>
+            <div className="bulk-actions-divider" />
+            <button type="button" onClick={() => runBulkAction('disable')} disabled={bulkPending || !selectedMembers.some(member => member.status === 'active')}><Power size={14} /> Disable</button>
+            <div className="bulk-actions-divider" />
+            <button type="button" onClick={() => { setBulkRoleId('none'); setBulkRoleOpen(true); }} disabled={bulkPending}><Pencil size={14} /> Edit</button>
+            <div className="bulk-actions-divider" />
+            <button type="button" className="bulk-actions-delete" onClick={() => runBulkAction('delete')} disabled={bulkPending}><Trash2 size={14} /> Delete</button>
+          </div>
+        </div>
+      )}
+      {bulkNotice && <div className={`bulk-actions-notice mt-3 ${bulkNotice.kind === 'error' ? 'text-red-500' : 'text-emerald-500'}`}>{bulkNotice.text}</div>}
       <div className="table-wrap">
         <table className="admin-table w-full text-left text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/20">
+              <th className="px-3 py-3 w-10 text-center">
+                <input
+                  type="checkbox"
+                  ref={element => { if (element) element.indeterminate = someVisibleSelected && !allVisibleSelected; }}
+                  checked={allVisibleSelected}
+                  onChange={() => setSelectedMemberIds(allVisibleSelected ? new Set() : new Set(selectableVisibleMembers.map(member => member.id)))}
+                  aria-label="Select all team members on this page"
+                  data-testid="checkbox-select-all-team-members"
+                />
+              </th>
               <th className="px-6 py-3 font-medium text-muted-foreground w-1/3">Operator</th>
               <th className="px-6 py-3 font-medium text-muted-foreground">Status</th>
               <th className="px-6 py-3 font-medium text-muted-foreground">Role</th>
@@ -55,12 +177,16 @@ export function MembersList({ auth }: { auth: AdminAuthorization }) {
             </tr>
           </thead>
           <tbody>
-            {members.map(member => (
-              <MemberRow key={member.id} member={member} auth={auth} roles={roles || []} />
+            {visibleMembers.map(member => (
+              <MemberRow key={member.id} member={member} auth={auth} roles={roles || []} selected={selectedMemberIds.has(member.id)} onToggleSelected={() => setSelectedMemberIds(current => {
+                const next = new Set(current);
+                next.has(member.id) ? next.delete(member.id) : next.add(member.id);
+                return next;
+              })} />
             ))}
-            {members.length === 0 && (
+            {visibleMembers.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-6 py-8 text-center text-muted-foreground">
+                <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
                   No team members found.
                 </td>
               </tr>
@@ -68,8 +194,41 @@ export function MembersList({ auth }: { auth: AdminAuthorization }) {
           </tbody>
         </table>
       </div>
+      {members.length > 0 && <div className="pricing-pagination">
+        <span className="pricing-pagination-range">{(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, members.length)} of {members.length}</span>
+        <div className="pricing-pagination-controls">
+          <label className="pricing-page-size"><span>Per page</span><select value={pageSize} onChange={event => { setPageSize(Number(event.target.value)); setPage(1); }} aria-label="Team members per page">{[15, 25, 50, 100].map(value => <option key={value} value={value}>{value} per page</option>)}</select></label>
+          <div className="pricing-page-navigation">
+            <button type="button" onClick={() => setPage(value => Math.max(1, value - 1))} disabled={currentPage === 1} aria-label="Previous team members page">‹</button>
+            {Array.from({ length: pageCount }, (_, index) => index + 1).map(value => <button type="button" key={value} className={cn(value === currentPage && 'active')} onClick={() => setPage(value)}>{value}</button>)}
+            <button type="button" onClick={() => setPage(value => Math.min(pageCount, value + 1))} disabled={currentPage === pageCount} aria-label="Next team members page">›</button>
+          </div>
+        </div>
+      </div>}
       
       {inviteOpen && <InviteMemberDialog open={inviteOpen} onOpenChange={setInviteOpen} roles={roles || []} />}
+      <Dialog open={bulkRoleOpen} onOpenChange={setBulkRoleOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign role</DialogTitle>
+            <DialogDescription>Assign one role to {selectedMembers.length} selected team member{selectedMembers.length === 1 ? '' : 's'}. Existing permission overrides will be cleared.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label>Assigned Role</Label>
+            <Select value={bulkRoleId} onValueChange={setBulkRoleId}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No specific role</SelectItem>
+                {(roles || []).map(role => <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setBulkRoleOpen(false)} disabled={bulkPending}>Cancel</Button>
+            <Button type="button" onClick={applyBulkRole} disabled={bulkPending}>{bulkPending ? 'Assigning...' : 'Assign role'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -147,7 +306,7 @@ function InviteMemberDialog({ open, onOpenChange, roles }: { open: boolean, onOp
   );
 }
 
-function MemberRow({ member, auth, roles }: { member: TeamMember; auth: AdminAuthorization; roles: TeamRole[] }) {
+function MemberRow({ member, auth, roles, selected, onToggleSelected }: { member: TeamMember; auth: AdminAuthorization; roles: TeamRole[]; selected: boolean; onToggleSelected: () => void }) {
   const queryClient = useQueryClient();
   const suspend = useSuspendTeamMember();
   const reactivate = useReactivateTeamMember();
@@ -183,6 +342,9 @@ function MemberRow({ member, auth, roles }: { member: TeamMember; auth: AdminAut
   return (
     <>
       <tr className="border-b border-border/50 hover:bg-muted/10 transition-colors">
+        <td className="px-3 py-3 text-center">
+          <input type="checkbox" checked={selected} onChange={onToggleSelected} disabled={isOwnerUser || member.id === auth.member.id || member.status === 'removed'} aria-label={`Select ${member.name}`} />
+        </td>
         <td className="px-6 py-3">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
