@@ -72,7 +72,7 @@ function isManualCryptoRouteEligible(
     network.enabled &&
     asset.lifecycle !== "deprecated" &&
     network.lifecycle !== "deprecated" &&
-    network.executionMode === "manual";
+    (network.executionMode === "manual" || network.executionMode === "api");
 }
 
 /** Public catalog deliberately never includes the shared receiving address. */
@@ -135,7 +135,8 @@ export async function findManualCryptoNetworkByIdForAsset(
 }
 
 export function canAcceptManualCryptoDeposit(network: typeof cryptoAssetNetworksTable.$inferSelect) {
-  return network.enabled && network.customerDepositsEnabled &&
-    Boolean(network.sharedDepositAddress.trim()) &&
+  if (!network.enabled || !network.customerDepositsEnabled || network.depositProvider === "none") return false;
+  if (network.depositProvider === "whitebit") return true;
+  return Boolean(network.sharedDepositAddress.trim()) &&
     (!network.requiresMemo || Boolean(network.sharedDepositMemo?.trim()));
 }

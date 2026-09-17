@@ -1313,4 +1313,36 @@ Object.assign(en.account, {
   securityDescription: 'Manage your account security and authenticator verification with Clerk.',
 });
 
+Object.assign(en.adminCatalog, {
+  syncWithWhitebit: 'Sync with WhiteBIT',
+  whitebitAssets: 'WhiteBIT Assets',
+  alreadyInQuickXchange: 'Already in QuickXchange',
+  newAssets: 'New Assets',
+  syncPreviewLoading: 'Loading preview...',
+  syncPreviewError: 'Failed to load preview.',
+  importSelected: 'Import Selected',
+  importing: 'Importing...',
+  noMissingAssets: 'No new assets found on WhiteBIT.',
+  selectAllMissing: 'Select all visible on page',
+  depositEnabled: 'Deposit',
+  withdrawEnabled: 'Withdraw',
+  requiresMemo: 'Requires Memo',
+  confirmations: '{{count}} Confirmations',
+  importSuccess: 'Successfully imported {{imported}} assets. Skipped {{skipped}}.',
+  importSummary: 'Import Summary',
+  importFailed: 'The selected assets could not be imported. Review the connection and try again.',
+  providerTicker: 'Ticker',
+  networkName: 'Network',
+  assetName: 'Name',
+  closeSyncDialog: 'Close sync dialog',
+  searchMissingAssets: 'Search assets...',
+  syncWhitebitDescription: 'Select missing assets to import into the catalog.',
+  selectAsset: 'Select {{asset}}',
+  assetDecimals: '{{count}} decimals',
+  noNetworks: 'No networks',
+  selectedCount: '{{count}} selected',
+  noneSelected: 'None selected',
+  '100_per_page': '100 per page',
+});
+
 export default en;

@@ -23,6 +23,10 @@ const clerkUserId = `whitebit-clerk-${suffix}`;
 const address = `whitebit-address-${suffix}`;
 const ticker = "BTC";
 const network = "BITCOIN";
+const catalogManualTicker = `WM${suffix.replaceAll("-", "").slice(0, 8)}`.toUpperCase();
+const catalogImportedTicker = `WN${suffix.replaceAll("-", "").slice(0, 8)}`.toUpperCase();
+const catalogManualAssetId = `catalog-manual-${suffix}`;
+const catalogImportedAssetId = `whitebit-${catalogImportedTicker.toLowerCase()}`;
 let server: ReturnType<typeof app.listen>;
 const app = express();
 app.use(express.json({ verify: (req, _res, buffer) => {
@@ -52,8 +56,12 @@ async function ensureWhitebitSchema(): Promise<void> {
   const migration0073 = await readFile(resolve(
     process.cwd(), "../../lib/db/migrations/0073_whitebit_swap_order_addresses.sql",
   ), "utf8");
+  const migration0074 = await readFile(resolve(
+    process.cwd(), "../../lib/db/migrations/0074_whitebit_asset_catalog_mappings.sql",
+  ), "utf8");
   await pool.query(migration0072);
   await pool.query(migration0073);
+  await pool.query(migration0074);
   return;
   /*
   const result = await pool.query<{ present: string | null }>(
@@ -218,6 +226,7 @@ after(async () => {
   await pool.query("DELETE FROM whitebit_deposit_addresses WHERE customer_id = $1", [customerId]);
   await pool.query("DELETE FROM customer_profiles WHERE customer_id = $1", [customerId]);
   await pool.query("DELETE FROM exchange_customers WHERE id = $1", [customerId]);
+  await pool.query("DELETE FROM crypto_assets WHERE id = ANY($1)", [[catalogManualAssetId, catalogImportedAssetId]]);
   await pool.query("DELETE FROM desk_operators WHERE clerk_user_id = ANY($1)", [[`operator-${suffix}`, `owner-${suffix}`]]);
   if (priorProviderSetting) {
     await database.db.update(database.whitebitProviderSettingsTable).set({
@@ -232,6 +241,141 @@ after(async () => {
   }
   await database.pool.end();
   await pool.end();
+});
+
+test("WhiteBIT catalog preview and selected import preserve manual assets and create disabled provider mappings", async () => {
+  await database.db.insert(database.cryptoAssetsTable).values({
+    id: catalogManualAssetId,
+    code: catalogManualTicker,
+    name: "Operator configured asset",
+    decimals: 4,
+    lifecycle: "restricted",
+    enabled: true,
+  });
+  const [pricingBefore] = await database.db.select({
+    count: sql<number>`count(*)::int`,
+  }).from(database.manualDeskPricingRulesTable);
+  const savedFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    if (String(input).endsWith("/api/v4/public/assets")) {
+      return new Response(JSON.stringify({
+        USD: {
+          name: "United States Dollar",
+          can_deposit: true,
+          can_withdraw: true,
+          providers: { deposits: ["SWIFT"] },
+          networks: { deposits: ["USD"], withdraws: ["USD"], default: "USD" },
+        },
+        [catalogManualTicker]: {
+          name: "Provider must not overwrite this",
+          currency_precision: 8,
+          can_deposit: true,
+          can_withdraw: true,
+          networks: { deposits: ["NATIVE"], withdraws: ["NATIVE"], default: "NATIVE" },
+        },
+        [catalogImportedTicker]: {
+          name: "Imported WhiteBIT asset",
+          currency_precision: 6,
+          can_deposit: true,
+          can_withdraw: true,
+          is_memo: true,
+          memo: { deposit: true, withdraw: false },
+          confirmations: { TRC20: 20, ERC20: 64 },
+          limits: {
+            deposit: { TRC20: { min: "5" } },
+            withdraw: { TRC20: { min: "10" }, ERC20: { min: "15" } },
+          },
+          networks: {
+            deposits: ["TRC20"],
+            withdraws: ["TRC20", "ERC20"],
+            default: "TRC20",
+          },
+        },
+      }), { status: 200 });
+    }
+    return savedFetch(input, init);
+  };
+  try {
+    const unauthorizedPreview = await fetch(`${baseUrl}/api/admin/whitebit/assets/preview`);
+    assert.equal(unauthorizedPreview.status, 401);
+
+    const previewResponse = await fetch(`${baseUrl}/api/admin/whitebit/assets/preview`, {
+      headers: { "x-test-operator": `operator-${suffix}` },
+    });
+    assert.equal(previewResponse.status, 200);
+    const preview = await previewResponse.json() as {
+      total: number;
+      alreadyExisting: number;
+      missing: number;
+      assets: Array<{ normalizedTicker: string }>;
+    };
+    assert.equal(preview.total, 2);
+    assert.equal(preview.alreadyExisting, 1);
+    assert.equal(preview.missing, 1);
+    assert.deepEqual(preview.assets.map((asset) => asset.normalizedTicker), [catalogImportedTicker]);
+
+    const forbiddenImport = await fetch(`${baseUrl}/api/admin/whitebit/assets/import`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-test-operator": `operator-${suffix}` },
+      body: JSON.stringify({ providerTickers: [catalogImportedTicker] }),
+    });
+    assert.equal(forbiddenImport.status, 403);
+
+    const importResponse = await fetch(`${baseUrl}/api/admin/whitebit/assets/import`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-test-operator": `owner-${suffix}` },
+      body: JSON.stringify({ providerTickers: [catalogImportedTicker] }),
+    });
+    assert.equal(importResponse.status, 201);
+    assert.deepEqual(await importResponse.json(), { imported: [catalogImportedTicker], skipped: [] });
+
+    const [manualAsset] = await database.db.select().from(database.cryptoAssetsTable)
+      .where(eq(database.cryptoAssetsTable.id, catalogManualAssetId));
+    assert.equal(manualAsset.name, "Operator configured asset");
+    assert.equal(manualAsset.decimals, 4);
+    assert.equal(manualAsset.lifecycle, "restricted");
+    assert.equal(manualAsset.enabled, true);
+
+    const [importedAsset] = await database.db.select().from(database.cryptoAssetsTable)
+      .where(eq(database.cryptoAssetsTable.id, catalogImportedAssetId));
+    assert.equal(importedAsset.name, "Imported WhiteBIT asset");
+    assert.equal(importedAsset.enabled, false);
+    const importedNetworks = await database.db.select().from(database.cryptoAssetNetworksTable)
+      .where(eq(database.cryptoAssetNetworksTable.assetId, catalogImportedAssetId));
+    assert.deepEqual(importedNetworks.map((row) => row.networkCode).sort(), ["ERC20", "TRC20"]);
+    assert.ok(importedNetworks.every((row) =>
+      row.enabled === false &&
+      row.customerDepositsEnabled === false &&
+      row.executionMode === "api" &&
+      row.sharedDepositAddress === ""
+    ));
+
+    const [assetMapping] = await database.db.select().from(database.whitebitAssetMappingsTable)
+      .where(eq(database.whitebitAssetMappingsTable.assetId, catalogImportedAssetId));
+    assert.equal(assetMapping.providerTicker, catalogImportedTicker);
+    const networkMappings = await database.db.select().from(database.whitebitNetworkMappingsTable)
+      .where(sql`${database.whitebitNetworkMappingsTable.assetNetworkId} IN (
+        SELECT id FROM crypto_asset_networks WHERE asset_id = ${catalogImportedAssetId}
+      )`);
+    assert.deepEqual(
+      networkMappings.map((row) => [row.providerNetwork, row.canDeposit, row.canWithdraw]).sort(),
+      [["ERC20", false, true], ["TRC20", true, true]],
+    );
+
+    const replayResponse = await fetch(`${baseUrl}/api/admin/whitebit/assets/import`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-test-operator": `owner-${suffix}` },
+      body: JSON.stringify({ providerTickers: [catalogImportedTicker] }),
+    });
+    assert.equal(replayResponse.status, 201);
+    assert.deepEqual(await replayResponse.json(), { imported: [], skipped: [catalogImportedTicker] });
+    const [pricingAfter] = await database.db.select({
+      count: sql<number>`count(*)::int`,
+    }).from(database.manualDeskPricingRulesTable);
+    assert.equal(pricingAfter.count, pricingBefore.count);
+  } finally {
+    globalThis.fetch = savedFetch;
+  }
 });
 
 test("webhook transitions are idempotent and only terminal statuses credit once", async () => {

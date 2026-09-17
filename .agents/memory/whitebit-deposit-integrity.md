@@ -26,3 +26,9 @@ WhiteBIT’s public asset catalog can mark an asset deposit-enabled while omitti
 **Why:** Invalidating the entire catalog for one internally inconsistent asset disables every healthy route, while inferring networks from unrelated fields could authorize an unsupported address request.
 
 **How to apply:** Treat a missing deposit-network list as no executable capability for that asset, but fail the catalog closed when a provided list has the wrong type or invalid entries.
+
+WhiteBIT's per-order `create-new-address` endpoint requires provider-granted permission and can reject a specific asset/network even when signed balance access and a generic permission probe succeed. Never replace a rejected unique address with WhiteBIT's reusable account deposit address.
+
+**Why:** A reusable account address cannot safely identify concurrent or late order deposits. WhiteBIT documents unique-address access as unavailable by default, so a valid API key alone does not prove an order route can generate one.
+
+**How to apply:** Keep an exact manual fallback for each selected WhiteBIT route, record definitive rejection as unavailable when no fallback was snapshotted, and show that state explicitly to the customer instead of leaving an empty deposit panel.

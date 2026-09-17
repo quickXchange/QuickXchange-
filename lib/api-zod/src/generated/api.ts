@@ -1104,7 +1104,8 @@ export const CreateExchangeOrderResponse = zod.object({
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
   "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
-  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderSource": zod.string().optional(),
+  "fundingAddressSource": zod.enum(['live_api', 'manual_fallback', 'manual_only', 'unavailable']).optional(),
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(createExchangeOrderResponseCustomerSafeNoteMax).optional(),
@@ -1361,7 +1362,8 @@ export const GetOrdersResponse = zod.object({
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
   "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
-  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderSource": zod.string().optional(),
+  "fundingAddressSource": zod.enum(['live_api', 'manual_fallback', 'manual_only', 'unavailable']).optional(),
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(getOrdersResponseItemsItemCustomerSafeNoteMax).optional(),
@@ -1604,7 +1606,8 @@ export const CreateOrderResponse = zod.object({
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
   "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
-  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderSource": zod.string().optional(),
+  "fundingAddressSource": zod.enum(['live_api', 'manual_fallback', 'manual_only', 'unavailable']).optional(),
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(createOrderResponseCustomerSafeNoteMax).optional(),
@@ -1824,7 +1827,8 @@ export const BulkUpdateOrderStatusResponse = zod.object({
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
   "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
-  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderSource": zod.string().optional(),
+  "fundingAddressSource": zod.enum(['live_api', 'manual_fallback', 'manual_only', 'unavailable']).optional(),
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(bulkUpdateOrderStatusResponseResultsItemOrderCustomerSafeNoteMax).optional(),
@@ -2050,7 +2054,8 @@ export const BulkArchiveOrdersResponse = zod.object({
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
   "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
-  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderSource": zod.string().optional(),
+  "fundingAddressSource": zod.enum(['live_api', 'manual_fallback', 'manual_only', 'unavailable']).optional(),
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(bulkArchiveOrdersResponseResultsItemOrderCustomerSafeNoteMax).optional(),
@@ -2318,7 +2323,8 @@ export const GetOrderResponse = zod.object({
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
   "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
-  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderSource": zod.string().optional(),
+  "fundingAddressSource": zod.enum(['live_api', 'manual_fallback', 'manual_only', 'unavailable']).optional(),
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(getOrderResponseCustomerSafeNoteMax).optional(),
@@ -2543,7 +2549,8 @@ export const UpdateOrderResponse = zod.object({
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
   "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
-  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderSource": zod.string().optional(),
+  "fundingAddressSource": zod.enum(['live_api', 'manual_fallback', 'manual_only', 'unavailable']).optional(),
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(updateOrderResponseCustomerSafeNoteMax).optional(),
@@ -2757,7 +2764,8 @@ export const AssignOrderResponse = zod.object({
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
   "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
-  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderSource": zod.string().optional(),
+  "fundingAddressSource": zod.enum(['live_api', 'manual_fallback', 'manual_only', 'unavailable']).optional(),
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(assignOrderResponseCustomerSafeNoteMax).optional(),
@@ -2990,7 +2998,8 @@ export const UpdateOrderSupportToolsResponse = zod.object({
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
   "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
-  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderSource": zod.string().optional(),
+  "fundingAddressSource": zod.enum(['live_api', 'manual_fallback', 'manual_only', 'unavailable']).optional(),
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(updateOrderSupportToolsResponseCustomerSafeNoteMax).optional(),
@@ -3202,7 +3211,8 @@ export const ArchiveOrderResponse = zod.object({
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
   "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
-  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderSource": zod.string().optional(),
+  "fundingAddressSource": zod.enum(['live_api', 'manual_fallback', 'manual_only', 'unavailable']).optional(),
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(archiveOrderResponseCustomerSafeNoteMax).optional(),
@@ -3414,7 +3424,8 @@ export const RestoreOrderResponse = zod.object({
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
   "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
-  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderSource": zod.string().optional(),
+  "fundingAddressSource": zod.enum(['live_api', 'manual_fallback', 'manual_only', 'unavailable']).optional(),
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(restoreOrderResponseCustomerSafeNoteMax).optional(),
@@ -3779,6 +3790,54 @@ export const ReconcileWhitebitDepositsResponse = zod.object({
  * @summary Retrieve WhiteBIT main-account balance for operations health checks
  */
 export const GetWhitebitMainBalanceResponse = zod.record(zod.string(), zod.string())
+
+
+/**
+ * @summary Preview missing crypto assets from the live WhiteBIT catalog
+ */
+export const PreviewWhitebitAssetImportResponse = zod.object({
+  "total": zod.number().int(),
+  "alreadyExisting": zod.number().int(),
+  "missing": zod.number().int(),
+  "assets": zod.array(zod.object({
+  "providerTicker": zod.string(),
+  "normalizedTicker": zod.string(),
+  "name": zod.string(),
+  "precision": zod.number().int(),
+  "canDeposit": zod.boolean().optional(),
+  "canWithdraw": zod.boolean().optional(),
+  "defaultNetwork": zod.string().nullish(),
+  "networks": zod.array(zod.object({
+  "providerNetwork": zod.string(),
+  "canDeposit": zod.boolean(),
+  "canWithdraw": zod.boolean(),
+  "confirmations": zod.number().int().nullish(),
+  "requiresMemo": zod.boolean().optional()
+}))
+}))
+})
+
+
+/**
+ * @summary Import selected missing assets from the live WhiteBIT catalog
+ */
+export const importWhitebitAssetsBodyProviderTickersItemMin = 2;
+export const importWhitebitAssetsBodyProviderTickersItemMax = 16;
+
+
+export const importWhitebitAssetsBodyProviderTickersItemRegExp = new RegExp('^[A-Z0-9]{2,16}$');
+export const importWhitebitAssetsBodyProviderTickersMax = 128;
+
+
+
+export const ImportWhitebitAssetsBody = zod.object({
+  "providerTickers": zod.array(zod.string().min(importWhitebitAssetsBodyProviderTickersItemMin).max(importWhitebitAssetsBodyProviderTickersItemMax).regex(importWhitebitAssetsBodyProviderTickersItemRegExp)).min(1).max(importWhitebitAssetsBodyProviderTickersMax)
+})
+
+export const ImportWhitebitAssetsResponse = zod.object({
+  "imported": zod.array(zod.string()),
+  "skipped": zod.array(zod.string())
+})
 
 
 /**
@@ -5931,12 +5990,13 @@ export const saveCryptoAssetReceivingWalletBodyWalletAddressMax = 500;
 
 export const saveCryptoAssetReceivingWalletBodyMemoMax = 500;
 
-
+export const saveCryptoAssetReceivingWalletBodyDepositProviderDefault = `manual`;
 
 export const SaveCryptoAssetReceivingWalletBody = zod.object({
   "networkId": zod.string().min(1).max(saveCryptoAssetReceivingWalletBodyNetworkIdMax),
   "walletAddress": zod.string().max(saveCryptoAssetReceivingWalletBodyWalletAddressMax),
   "memo": zod.string().max(saveCryptoAssetReceivingWalletBodyMemoMax).nullish(),
+  "depositProvider": zod.enum(['whitebit', 'manual', 'none']).default(saveCryptoAssetReceivingWalletBodyDepositProviderDefault),
   "enabled": zod.boolean(),
   "useForAllAssetsOnNetwork": zod.boolean()
 })
@@ -5981,7 +6041,7 @@ export const saveCryptoAssetReceivingWalletResponseOneSharedDepositAddressMax = 
 
 export const saveCryptoAssetReceivingWalletResponseOneSharedDepositMemoMax = 500;
 
-
+export const saveCryptoAssetReceivingWalletResponseTwoDepositProviderDefault = `manual`;
 
 export const SaveCryptoAssetReceivingWalletResponseItem = zod.object({
   "logoObjectPath": zod.string().regex(saveCryptoAssetReceivingWalletResponseOneLogoObjectPathRegExp).nullish(),
@@ -6005,6 +6065,7 @@ export const SaveCryptoAssetReceivingWalletResponseItem = zod.object({
   "sharedDepositAddress": zod.string().max(saveCryptoAssetReceivingWalletResponseOneSharedDepositAddressMax).optional(),
   "sharedDepositMemo": zod.string().max(saveCryptoAssetReceivingWalletResponseOneSharedDepositMemoMax).nullish()
 }).and(zod.object({
+  "depositProvider": zod.string().default(saveCryptoAssetReceivingWalletResponseTwoDepositProviderDefault),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "logoUrl": zod.string().optional()
@@ -6052,7 +6113,7 @@ export const getCryptoNetworksResponseOneSharedDepositAddressMax = 500;
 
 export const getCryptoNetworksResponseOneSharedDepositMemoMax = 500;
 
-
+export const getCryptoNetworksResponseTwoDepositProviderDefault = `manual`;
 
 export const GetCryptoNetworksResponseItem = zod.object({
   "logoObjectPath": zod.string().regex(getCryptoNetworksResponseOneLogoObjectPathRegExp).nullish(),
@@ -6076,6 +6137,7 @@ export const GetCryptoNetworksResponseItem = zod.object({
   "sharedDepositAddress": zod.string().max(getCryptoNetworksResponseOneSharedDepositAddressMax).optional(),
   "sharedDepositMemo": zod.string().max(getCryptoNetworksResponseOneSharedDepositMemoMax).nullish()
 }).and(zod.object({
+  "depositProvider": zod.string().default(getCryptoNetworksResponseTwoDepositProviderDefault),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "logoUrl": zod.string().optional()
@@ -6188,7 +6250,7 @@ export const createCryptoNetworkResponseOneSharedDepositAddressMax = 500;
 
 export const createCryptoNetworkResponseOneSharedDepositMemoMax = 500;
 
-
+export const createCryptoNetworkResponseTwoDepositProviderDefault = `manual`;
 
 export const CreateCryptoNetworkResponse = zod.object({
   "logoObjectPath": zod.string().regex(createCryptoNetworkResponseOneLogoObjectPathRegExp).nullish(),
@@ -6212,10 +6274,19 @@ export const CreateCryptoNetworkResponse = zod.object({
   "sharedDepositAddress": zod.string().max(createCryptoNetworkResponseOneSharedDepositAddressMax).optional(),
   "sharedDepositMemo": zod.string().max(createCryptoNetworkResponseOneSharedDepositMemoMax).nullish()
 }).and(zod.object({
+  "depositProvider": zod.string().default(createCryptoNetworkResponseTwoDepositProviderDefault),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "logoUrl": zod.string().optional()
 }))
+
+
+export const GetDepositProviderOptionsResponseItem = zod.object({
+  "id": zod.enum(['whitebit', 'manual', 'none']),
+  "label": zod.string(),
+  "implemented": zod.boolean()
+})
+export const GetDepositProviderOptionsResponse = zod.array(GetDepositProviderOptionsResponseItem)
 
 
 export const updateCryptoNetworkPathIdRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,80}$');
@@ -6319,7 +6390,7 @@ export const updateCryptoNetworkResponseOneSharedDepositAddressMax = 500;
 
 export const updateCryptoNetworkResponseOneSharedDepositMemoMax = 500;
 
-
+export const updateCryptoNetworkResponseTwoDepositProviderDefault = `manual`;
 
 export const UpdateCryptoNetworkResponse = zod.object({
   "logoObjectPath": zod.string().regex(updateCryptoNetworkResponseOneLogoObjectPathRegExp).nullish(),
@@ -6343,6 +6414,7 @@ export const UpdateCryptoNetworkResponse = zod.object({
   "sharedDepositAddress": zod.string().max(updateCryptoNetworkResponseOneSharedDepositAddressMax).optional(),
   "sharedDepositMemo": zod.string().max(updateCryptoNetworkResponseOneSharedDepositMemoMax).nullish()
 }).and(zod.object({
+  "depositProvider": zod.string().default(updateCryptoNetworkResponseTwoDepositProviderDefault),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "logoUrl": zod.string().optional()
@@ -6975,7 +7047,8 @@ export const ReconcileOrderResponse = zod.object({
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
   "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
-  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderSource": zod.string().optional(),
+  "fundingAddressSource": zod.enum(['live_api', 'manual_fallback', 'manual_only', 'unavailable']).optional(),
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(reconcileOrderResponseOrderCustomerSafeNoteMax).optional(),
@@ -7825,7 +7898,8 @@ export const CreateQuickexOrderResponse = zod.object({
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
   "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
-  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderSource": zod.string().optional(),
+  "fundingAddressSource": zod.enum(['live_api', 'manual_fallback', 'manual_only', 'unavailable']).optional(),
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(createQuickexOrderResponseCustomerSafeNoteMax).optional(),

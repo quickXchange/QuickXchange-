@@ -95,7 +95,8 @@ export function OrderConfirmationPage() {
      refetchInterval: (query: any) => {
        const currentOrder = query.state.data;
        if (!currentOrder) return false;
-       return /complete|paid|refund|expire|fail|cancel/i.test(currentOrder.status) ? false : 15000;
+       if (/complete|paid|refund|expire|fail|cancel/i.test(currentOrder.status)) return false;
+       return currentOrder.fundingStatus === 'provisioning' ? 2000 : 15000;
      },
   } });
 
@@ -182,6 +183,9 @@ export function OrderConfirmationPage() {
   const uncertain = /unknown|held|verification|review/.test(status) || order.outcomeUnknown;
   const completed = /complete|paid/.test(status) || mss === 'completed';
   const depositActionable = Boolean(order.depositAddress) && !halted && !uncertain && !completed;
+  const fundingStatus = order.fundingStatus?.toLowerCase();
+  const addressPending = isManual && !order.depositAddress && fundingStatus === 'provisioning';
+  const addressUnavailable = isManual && !order.depositAddress && fundingStatus === 'unresolved';
   
   const fundingDetails = order.fundingDetails as {
     warning?: unknown;
@@ -193,6 +197,8 @@ export function OrderConfirmationPage() {
     order.depositAddress ||
     order.depositMemo ||
     order.customerSafeNote ||
+    addressPending ||
+    addressUnavailable ||
     fundingDetails?.warning ||
     fundingDetails?.instructions ||
     fundingDetails?.requiredConfirmations
@@ -392,6 +398,49 @@ export function OrderConfirmationPage() {
                      <p className="text-sm text-white whitespace-pre-wrap leading-relaxed">{order.customerSafeNote}</p>
                    </div>
                  )}
+
+                  {addressPending && (
+                    <div
+                      className="rounded-xl border border-primary/20 bg-primary/10 p-5"
+                      data-testid="order-confirmation-address-pending"
+                    >
+                      <div className="flex items-start gap-3">
+                        <Loader2 size={20} className="mt-0.5 shrink-0 animate-spin text-primary" />
+                        <div>
+                          <strong className="block text-sm text-white">Generating your deposit address</strong>
+                          <p className="mt-1 text-sm leading-relaxed text-white/70">
+                            Keep this page open. Your address will appear here automatically.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {addressUnavailable && (
+                    <div
+                      className="rounded-xl border border-destructive/30 bg-destructive/10 p-5"
+                      data-testid="order-confirmation-address-unavailable"
+                    >
+                      <div className="flex items-start gap-3">
+                        <CircleAlert size={20} className="mt-0.5 shrink-0 text-destructive" />
+                        <div>
+                          <strong className="block text-sm text-white">Deposit address unavailable</strong>
+                          <p className="mt-1 text-sm leading-relaxed text-white/70">
+                            Do not send funds for this order. Contact support and provide order ID {order.id}.
+                          </p>
+                          <button
+                            type="button"
+                            className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-white"
+                            onClick={() => activeStatusQuery.refetch()}
+                            disabled={activeStatusQuery.isFetching}
+                          >
+                            <RefreshCw size={15} className={activeStatusQuery.isFetching ? 'animate-spin' : ''} />
+                            Check again
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                  {order.depositAddress && (
                    <>

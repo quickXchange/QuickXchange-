@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import test from "node:test";
 import { assetIdentity, classifyWhitebitHttpStatus, historyRecords, isCreditEligible, parseWhitebitAddressResponse, verifyWhitebitSignature } from "../src/routes/whitebit";
-import { matchWhitebitCapability, parseWhitebitAssets, shouldReserveWhitebitOrderFunding } from "../src/lib/whitebit-capabilities";
+import { matchWhitebitCapability, parseWhitebitAssets, parseWhitebitCatalogAssets, shouldReserveWhitebitOrderFunding } from "../src/lib/whitebit-capabilities";
+import { listDepositProviderOptions } from "../src/lib/deposit-provider-registry";
 
 const secret = "unit-test-webhook-secret";
 const raw = Buffer.from(JSON.stringify({
@@ -89,6 +90,27 @@ test("WhiteBIT capability parser requires strict keyed assets and exact deposit 
   assert.equal(parseWhitebitAssets({ USDT: { can_deposit: true, networks: { deposits: ["TRC20"] }, confirmations: [] } }), null);
 });
 
+test("WhiteBIT catalog parser uses live withdraws/default and preserves memo and limits", () => {
+  const [asset] = parseWhitebitCatalogAssets({
+    USD: { providers: { fiat: true }, networks: { deposits: ["SEPA"], withdraws: ["SEPA"] } },
+    USDT: {
+      name: "Tether", precision: 6, can_deposit: true, can_withdraw: true, is_memo: true,
+      memo: { deposit: "memo", withdraw: "tag" },
+      limits: { deposit: { TRC20: { min: "1", max: "100" } }, withdraw: { TRC20: { min: "2" } } },
+      networks: { deposits: ["TRC20"], withdraws: ["ERC20", "TRC20"], default: "TRC20" },
+    },
+  });
+  assert.equal(asset.normalizedTicker, "USDT");
+  assert.equal(asset.defaultNetwork, "TRC20");
+  assert.deepEqual(asset.networks.map((network) => network.providerNetwork), ["TRC20", "ERC20"]);
+  assert.equal(asset.networks[0]?.canDeposit, true);
+  assert.equal(asset.networks[0]?.canWithdraw, true);
+  assert.equal(asset.networks[0]?.requiresMemo, true);
+  assert.deepEqual((asset.networks[0]?.metadata as { limits: unknown }).limits, {
+    deposit: { min: "1", max: "100" }, withdraw: { min: "2" },
+  });
+});
+
 test("enabled WhiteBIT keeps order funding ownership while capabilities are temporarily unavailable", () => {
   const unavailable = { enabled: false, explicitDisabled: false, credentialsReady: true, state: "unavailable" };
   assert.equal(shouldReserveWhitebitOrderFunding(unavailable, null), true);
@@ -105,4 +127,12 @@ test("WhiteBIT HTTP classification distinguishes definitive and ambiguous provid
   for (const status of [400, 401, 403, 404, 422]) {
     assert.equal(classifyWhitebitHttpStatus(status), "definitive");
   }
+});
+
+test("deposit provider registry exposes only selectable adapters and fallback policies", () => {
+  assert.deepEqual(listDepositProviderOptions(), [
+    { id: "whitebit", label: "WhiteBIT", implemented: true },
+    { id: "manual", label: "Manual Only", implemented: true },
+    { id: "none", label: "None", implemented: true },
+  ]);
 });

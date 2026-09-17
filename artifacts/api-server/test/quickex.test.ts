@@ -2837,6 +2837,11 @@ test("manual lifecycle enforces transitions and concurrency and writes an operat
     }, "PATCH", headers);
     assert.equal(clearedAddress.status, 422);
     assert.equal(clearedAddress.body.code, "CRYPTO_DEPOSIT_ADDRESS_REQUIRED");
+    const providerBypass = await apiJson(api.url, `/admin/crypto-networks/${networkId}`, {
+      depositProvider: "none",
+    }, "PATCH", headers);
+    assert.equal(providerBypass.status, 400);
+    assert.equal(providerBypass.body.code, "VALIDATION_ERROR");
   } finally {
     await api.close();
     await deleteOrderAuditLogsForMaintenance(orderId);
@@ -2904,16 +2909,23 @@ test("owner receiving-wallet updates use exact asset-network rows and atomically
     assert.equal(mismatched.status, 404);
     assert.equal(mismatched.body.code, "CRYPTO_ASSET_NETWORK_NOT_FOUND");
 
+    const unmappedWhitebit = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
+      networkId: networkAId, walletAddress: "fallback-address", memo: "fallback-memo",
+      enabled: true, useForAllAssetsOnNetwork: false, depositProvider: "whitebit",
+    }, "PUT", headers);
+    assert.equal(unmappedWhitebit.status, 422);
+    assert.equal(unmappedWhitebit.body.code, "CRYPTO_DEPOSIT_PROVIDER_UNAVAILABLE");
+
     const exact = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
       networkId: networkAId, walletAddress: "exact-address", memo: "exact-memo",
-      enabled: true, useForAllAssetsOnNetwork: false,
+      enabled: true, useForAllAssetsOnNetwork: false, depositProvider: "manual",
     }, "PUT", headers);
     assert.equal(exact.status, 200);
     assert.deepEqual(exact.body.map((row: { id: string }) => row.id), [networkAId]);
 
     const shared = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
       networkId: networkAId, walletAddress: "shared-address", memo: "shared-memo",
-      enabled: true, useForAllAssetsOnNetwork: true,
+      enabled: true, useForAllAssetsOnNetwork: true, depositProvider: "none",
     }, "PUT", headers);
     assert.equal(shared.status, 200);
     assert.deepEqual(
@@ -2924,12 +2936,20 @@ test("owner receiving-wallet updates use exact asset-network rows and atomically
       .where(eq(cryptoAssetNetworksTable.id, differentNetworkId));
     assert.equal(differentAfterShared.sharedDepositAddress, "untouched-address");
     assert.equal(differentAfterShared.customerDepositsEnabled, false);
+    const sharedRows = await db.select().from(cryptoAssetNetworksTable)
+      .where(inArray(cryptoAssetNetworksTable.id, [networkAId, networkBId]));
+    assert.equal(sharedRows.find(row => row.id === networkAId)?.depositProvider, "none");
+    assert.equal(sharedRows.find(row => row.id === networkAId)?.customerDepositsEnabled, false);
+    assert.equal(sharedRows.find(row => row.id === networkBId)?.depositProvider, "manual");
+    assert.equal(sharedRows.find(row => row.id === networkBId)?.sharedDepositAddress, "shared-address");
 
+    await db.update(cryptoAssetNetworksTable).set({ sharedDepositMemo: null })
+      .where(inArray(cryptoAssetNetworksTable.id, [networkAId, networkBId]));
     const beforeAtomicFailure = await db.select().from(cryptoAssetNetworksTable)
       .where(inArray(cryptoAssetNetworksTable.id, [networkAId, networkBId]));
     const missingMemo = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
       networkId: networkAId, walletAddress: "should-not-commit", memo: null,
-      enabled: true, useForAllAssetsOnNetwork: true,
+      enabled: true, useForAllAssetsOnNetwork: true, depositProvider: "manual",
     }, "PUT", headers);
     assert.equal(missingMemo.status, 422);
     assert.equal(missingMemo.body.code, "CRYPTO_DEPOSIT_MEMO_REQUIRED");

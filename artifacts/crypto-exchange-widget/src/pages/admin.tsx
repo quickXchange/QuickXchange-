@@ -54,6 +54,7 @@ import {
   exportManualDeskRevenueCsv,
   useGetCryptoAssets, getGetCryptoAssetsQueryKey, useCreateCryptoAsset, useUpdateCryptoAsset, useDeleteCryptoAsset, useRequestCryptoAssetLogoUpload, useDeleteCryptoAssetLogoUpload,
   useGetCryptoNetworks, getGetCryptoNetworksQueryKey, useCreateCryptoNetwork, useUpdateCryptoNetwork, useDeleteCryptoNetwork, useRequestCryptoNetworkLogoUpload, useDeleteCryptoNetworkLogoUpload, useSaveCryptoAssetReceivingWallet,
+  useGetDepositProviderOptions, getGetDepositProviderOptionsQueryKey,
   useRequestFiatCurrencyFlagUpload, useDeleteFiatCurrencyFlagUpload,
   useGetOrder, getGetOrderQueryKey, useAssignOrder, useArchiveOrder, useRestoreOrder,
   useGetOrderAuditLog, getGetOrderAuditLogQueryKey,
@@ -84,6 +85,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useIsMobile } from '@/hooks/use-mobile';
 import { AdminShell, ago, apiErrorData, apiErrorText, basePath, cn, ErrorState, exactDateTime, FiatCurrencyFlag, formatExactUsd, guestCustomerLabel, InlineNotice, isFiatCurrencyCode, isGreaterThanExact, LoadingBlock, money, number, PaymentMethodCopy, PaymentMethodLogo, providerLabel, queryClient, sameSettlementOptionId, SettlementOptionCombobox, shortId, StatusPill } from '../App';
 import { AdminSearch } from '../components/admin-search';
+import { AdminWhitebitAssetSyncDialog } from '../components/admin-whitebit-asset-sync-dialog';
 import { OrderSupportToolsSection } from '../components/admin-order-support-tools';
 import { CatalogImageUploadField } from '../components/catalog-image-upload-field';
 import { useAdminPermissions } from '../lib/admin-permissions';
@@ -4535,10 +4537,27 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   const receiveMethod = targetOption?.kind === 'fiat-payment-method' ? targetOption.title : targetOption?.networkTitle || targetOption?.routeNetwork || order.payoutMethod || order.toNetwork || 'Route unavailable';
   const orderAddress = order.destinationAddress || order.depositAddress || order.refundAddress || (typeof recordOf(order.fundingDetails).address === 'string' ? String(recordOf(order.fundingDetails).address) : '');
 
-  const orderInfoRows = [
+  const providerDisplay = order.fundingProviderSource === 'whitebit'
+    ? 'WhiteBIT'
+    : order.fundingProviderSource === 'manual'
+      ? 'Manual Only'
+      : order.fundingProviderSource === 'none'
+        ? 'None'
+        : order.fundingProviderSource || '—';
+  const addressSourceMap: Record<string, string> = {
+    live_api: 'LIVE API',
+    manual_fallback: 'MANUAL FALLBACK',
+    manual_only: 'MANUAL ONLY',
+    unavailable: 'UNAVAILABLE'
+  };
+  const addressSourceDisplay = order.fundingAddressSource ? (addressSourceMap[order.fundingAddressSource] || order.fundingAddressSource) : '—';
+
+  const orderInfoRows: Array<[string, string, string?]> = [
     ['User', order.customerName || order.customerEmail || 'Guest'],
     ['Order ID', order.id],
     ['Sending Address', order.depositAddress || '—'],
+    ['Selected Provider', providerDisplay, 'order-funding-provider'],
+    ['Address Source', addressSourceDisplay, 'order-funding-source'],
     ['Created At', exactDateTime(order.createdAt)],
     ['Rate', order.finalRate ? `1 ${order.fromAsset} = ${number(order.finalRate)} ${order.toAsset}` : 'Not available'],
   ];
@@ -4712,11 +4731,11 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
                 <button type="button" onClick={copyOrderInfoAll} className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"><Copy size={12} /> Copy All</button>
              </div>
              <div className="quickx-order-card border rounded-xl p-1 shadow-sm">
-                {orderInfoRows.map(([lbl, val], idx) => (
+                {orderInfoRows.map(([lbl, val, testId], idx) => (
                   <div key={lbl} className={cn("flex items-center justify-between p-3", idx !== orderInfoRows.length - 1 && "border-b border-border/50")}>
                      <span className="quickx-field-label text-xs text-muted-foreground">{lbl}</span>
                      <div className="flex items-center gap-2">
-                       <span className="quickx-important-value text-xs font-bold truncate max-w-[200px]" title={val}>{val}</span>
+                       <span className="quickx-important-value text-xs font-bold truncate max-w-[200px]" title={val} data-testid={testId}>{val}</span>
                         <button type="button" onClick={() => copyValue(val)} className="text-muted-foreground hover:text-foreground" title={`Copy ${lbl}`}><Copy size={12} /></button>
                      </div>
                   </div>
@@ -5501,7 +5520,7 @@ function CurrencyDrawer({ currency, onClose }: { currency?: FiatCurrency; onClos
 
 function AdminCurrencies() {
   const { t } = useI18n();
-  const { can } = useAdminPermissions();
+  const { can, isOwner } = useAdminPermissions();
   const initialCreate = new URLSearchParams(window.location.search).get('create');
   const initialTab = (new URLSearchParams(window.location.search).get('tab') || 'currencies') as 'currencies' | 'methods' | 'assets' | 'networks';
   const [tab, setTab] = useState<'currencies' | 'methods' | 'assets' | 'networks'>(['currencies', 'methods', 'assets', 'networks'].includes(initialTab) ? initialTab : 'currencies');
@@ -5509,6 +5528,7 @@ function AdminCurrencies() {
   const [drawerMethod, setDrawerMethod] = useState<any | 'new' | null>(initialCreate === 'method' ? 'new' : null);
   const [drawerAsset, setDrawerAsset] = useState<CryptoAsset | 'new' | null>(initialCreate === 'asset' ? 'new' : null);
   const [drawerNetwork, setDrawerNetwork] = useState<CryptoNetwork | 'new' | null>(initialCreate === 'network' ? 'new' : null);
+  const [syncWhitebitOpen, setSyncWhitebitOpen] = useState(false);
 
   const currenciesQuery = useGetFiatCurrencies({ query: { queryKey: getGetFiatCurrenciesQueryKey() } });
   const methodsQuery = useGetPaymentMethods({ query: { queryKey: getGetPaymentMethodsQueryKey() } });
@@ -5967,6 +5987,12 @@ function AdminCurrencies() {
     >
       <div className="currencies-redesign">
         <div className="admin-page-actions catalog-page-actions">
+           {isOwner && tab === 'assets' && (
+             <button className="button button-outline mr-2" onClick={() => setSyncWhitebitOpen(true)}>
+               <RefreshCw size={15} className="mr-2" />
+               {t('adminCatalog.syncWithWhitebit')}
+             </button>
+           )}
            {canManageCurrent && <button className="button button-primary" onClick={handleAdd} data-testid={tab === 'currencies' ? 'button-add-currency' : tab === 'methods' ? 'button-add-method' : tab === 'assets' ? 'button-add-crypto-asset' : 'button-add-crypto-network'}>
             {tab === 'currencies' ? <Banknote size={15} /> : tab === 'methods' ? <CreditCard size={15} /> : tab === 'assets' ? <Zap size={15} /> : <Network size={15} />}
              {getAddActionLabel()}
@@ -6202,6 +6228,7 @@ function AdminCurrencies() {
                 <option value={15}>{t('adminCatalog.15_per_page')}</option>
                 <option value={25}>{t('adminCatalog.25_per_page')}</option>
                 <option value={50}>{t('adminCatalog.50_per_page')}</option>
+                <option value={100}>{t('adminCatalog.100_per_page')}</option>
               </select>
             </div>
           </div>
@@ -6232,6 +6259,10 @@ function AdminCurrencies() {
           onClose={() => setDrawerNetwork(null)}
         />
       )}
+      <AdminWhitebitAssetSyncDialog
+        open={syncWhitebitOpen}
+        onOpenChange={setSyncWhitebitOpen}
+      />
     </AdminShell>
   );
 }
@@ -7179,6 +7210,7 @@ type ReceivingWalletDraft = {
   memo: string;
   enabled: boolean;
   share: boolean;
+  depositProvider: 'whitebit' | 'manual' | 'none';
 };
 
 function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose: () => void }) {
@@ -7193,6 +7225,9 @@ function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose:
   const deleteAssetNetworkLogo = useDeleteCryptoNetworkLogoUpload();
   const assetNetworksQuery = useGetCryptoNetworks({ query: { queryKey: getGetCryptoNetworksQueryKey() } });
   const isNew = asset === 'new';
+
+  const providerOptionsQuery = useGetDepositProviderOptions({ query: { queryKey: getGetDepositProviderOptionsQueryKey() } });
+  const providerOptions = providerOptionsQuery.data || [];
 
   const [form, setForm] = useState({
     id: isNew ? '' : (asset?.id || ''),
@@ -7227,6 +7262,9 @@ function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose:
             memo: network.sharedDepositMemo || '',
             enabled: network.customerDepositsEnabled ?? false,
             share: false,
+            depositProvider: network.depositProvider === 'whitebit' || network.depositProvider === 'none'
+              ? network.depositProvider
+              : 'manual',
           };
         }
       });
@@ -7244,17 +7282,37 @@ function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose:
       memo: selectedReceivingNetwork.sharedDepositMemo || '',
       enabled: selectedReceivingNetwork.customerDepositsEnabled ?? false,
       share: false,
+      depositProvider: selectedReceivingNetwork.depositProvider === 'whitebit' || selectedReceivingNetwork.depositProvider === 'none'
+        ? selectedReceivingNetwork.depositProvider
+        : 'manual',
     }
     : null;
+  const isWhitebit = selectedReceivingDraft?.depositProvider === 'whitebit';
+  const isManual = selectedReceivingDraft?.depositProvider === 'manual';
+
+  const hasValidWallet = Boolean(selectedReceivingDraft?.walletAddress.trim());
+  const hasValidMemo = Boolean(selectedReceivingDraft?.memo.trim());
+  const needsMemo = Boolean(selectedReceivingNetwork?.requiresMemo);
+
+  const manualIsValid = hasValidWallet && (!needsMemo || hasValidMemo);
+  const whitebitFallbackIsValid = !hasValidWallet || (!needsMemo || hasValidMemo);
+
   const receivingCanEnable = Boolean(
-    selectedReceivingDraft?.walletAddress.trim()
-      && (!selectedReceivingNetwork?.requiresMemo || selectedReceivingDraft.memo.trim()),
+    (isWhitebit && whitebitFallbackIsValid) || (isManual && manualIsValid)
   );
+
   const updateReceivingDraft = (updates: Partial<ReceivingWalletDraft>) => {
     if (!selectedReceivingNetwork || !selectedReceivingDraft) return;
     setReceivingDrafts(current => {
       const next = { ...selectedReceivingDraft, ...updates };
-      const canEnable = Boolean(next.walletAddress.trim() && (!selectedReceivingNetwork.requiresMemo || next.memo.trim()));
+      const isNextWhitebit = next.depositProvider === 'whitebit';
+      const isNextManual = next.depositProvider === 'manual';
+      const nextHasValidWallet = Boolean(next.walletAddress.trim());
+      const nextHasValidMemo = Boolean(next.memo.trim());
+      const nextManualIsValid = nextHasValidWallet && (!needsMemo || nextHasValidMemo);
+      const nextWhitebitFallbackIsValid = !nextHasValidWallet || (!needsMemo || nextHasValidMemo);
+
+      const canEnable = (isNextWhitebit && nextWhitebitFallbackIsValid) || (isNextManual && nextManualIsValid);
       return {
         ...current,
         [selectedReceivingNetwork.id]: { ...next, enabled: canEnable ? next.enabled : false },
@@ -7294,6 +7352,7 @@ function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose:
               memo: selectedReceivingDraft.memo.trim() || null,
               enabled: Boolean(selectedReceivingDraft.enabled && receivingCanEnable),
               useForAllAssetsOnNetwork: selectedReceivingDraft.share,
+              depositProvider: selectedReceivingDraft.depositProvider,
             },
           });
         }
@@ -7375,16 +7434,24 @@ function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose:
                   </select>
                 </label>
                 <label>
-                  <span className="field-label">Wallet Address</span>
+                  <span className="field-label">Provider Policy</span>
+                  <select data-testid="receiving-wallet-provider" value={selectedReceivingDraft?.depositProvider || 'none'} onChange={e => updateReceivingDraft({ depositProvider: e.target.value as any })}>
+                    {providerOptions.map((opt: any) => (
+                      <option key={opt.id} value={opt.id} disabled={!opt.implemented}>{opt.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span className="field-label">{isWhitebit ? 'Fallback Wallet Address' : 'Wallet Address'}</span>
                   <input data-testid="receiving-wallet-address" value={selectedReceivingDraft?.walletAddress || ''} onChange={e => updateReceivingDraft({ walletAddress: e.target.value })} placeholder="Master receiving address" />
                 </label>
                 <label>
-                  <span className="field-label">Memo / Tag {selectedReceivingNetwork?.requiresMemo && <small>Required for this network</small>}</span>
+                  <span className="field-label">{isWhitebit ? 'Fallback Memo / Tag' : 'Memo / Tag'} {selectedReceivingNetwork?.requiresMemo && <small>Required for this network</small>}</span>
                   <input data-testid="receiving-wallet-memo" value={selectedReceivingDraft?.memo || ''} onChange={e => updateReceivingDraft({ memo: e.target.value })} placeholder={selectedReceivingNetwork?.requiresMemo ? 'Required memo or tag' : 'Optional memo or tag'} />
                 </label>
                 <div className="network-toggle-group catalog-editor-toggles">
                   <label>
-                    <input data-testid="receiving-wallet-enabled" type="checkbox" className="w-auto h-auto" checked={Boolean(selectedReceivingDraft?.enabled && receivingCanEnable)} disabled={!receivingCanEnable} onChange={e => updateReceivingDraft({ enabled: e.target.checked })} />
+                    <input data-testid="receiving-wallet-enabled" type="checkbox" className="w-auto h-auto" checked={Boolean(selectedReceivingDraft?.enabled && receivingCanEnable && selectedReceivingDraft?.depositProvider !== 'none')} disabled={!receivingCanEnable || selectedReceivingDraft?.depositProvider === 'none'} onChange={e => updateReceivingDraft({ enabled: e.target.checked })} />
                     <span className="field-label !mb-0 font-bold">Enable customer deposits</span>
                   </label>
                   <label>
@@ -7392,7 +7459,20 @@ function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose:
                     <span className="field-label !mb-0 font-bold">Use this address for all assets on the same network</span>
                   </label>
                 </div>
-                {!receivingCanEnable && <p className="field-hint">Customer deposits require a wallet address{selectedReceivingNetwork?.requiresMemo ? ' and memo or tag' : ''}.</p>}
+                {selectedReceivingDraft?.depositProvider === 'whitebit' ? (
+                  <p className="field-hint text-muted-foreground mt-1.5 text-[13px]">
+                    API addresses generate instantly. If generation fails, it uses the fallback address (if provided).
+                    {!receivingCanEnable && " The fallback is currently invalid."}
+                  </p>
+                ) : selectedReceivingDraft?.depositProvider === 'none' ? (
+                  <p className="field-hint text-muted-foreground mt-1.5 text-[13px]">
+                    Deposits are disabled. The address above remains editable for future use.
+                  </p>
+                ) : (
+                  !receivingCanEnable && <p className="field-hint text-muted-foreground mt-1.5 text-[13px]">
+                    Customer deposits require a wallet address{selectedReceivingNetwork?.requiresMemo ? ' and memo or tag' : ''}.
+                  </p>
+                )}
                 {selectedReceivingDraft?.walletAddress.trim() && (
                   <div className="receiving-wallet-qr" data-testid="receiving-wallet-qr" aria-label="Receiving wallet QR preview">
                     <QRCodeSVG value={selectedReceivingDraft.walletAddress.trim()} size={168} />

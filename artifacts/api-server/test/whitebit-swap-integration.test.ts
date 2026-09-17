@@ -58,8 +58,12 @@ app.use((error: unknown, _request: express.Request, response: express.Response, 
 async function migrateTestTables() {
   const baseMigration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0072_whitebit_customer_deposits.sql"), "utf8");
   const migration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0073_whitebit_swap_order_addresses.sql"), "utf8");
+  const catalogMigration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0074_whitebit_asset_catalog_mappings.sql"), "utf8");
+  const providerMigration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0075_crypto_network_deposit_provider.sql"), "utf8");
   await pool.query(baseMigration);
   await pool.query(migration);
+  await pool.query(catalogMigration);
+  await pool.query(providerMigration);
   await pool.query(migration);
 }
 
@@ -80,7 +84,12 @@ async function mockAssets(network = "BITCOIN") {
   resetWhitebitCapabilityCacheForTests();
 }
 
-async function insertProvisioningOrder(id = orderId) {
+async function insertProvisioningOrder(
+  id = orderId,
+  fallbackAddress = "manual-wallet",
+  fallbackMemo = "",
+  requiresMemo = false,
+) {
   await database.db.insert(database.ordersTable).values({
     id, type: "manual", status: "awaiting funds", fromAsset: "BTC", fromNetwork: "BITCOIN",
     toAsset: "EUR", toNetwork: "SEPA", amount: "1", receiveAmount: "100",
@@ -90,7 +99,8 @@ async function insertProvisioningOrder(id = orderId) {
     depositAddress: "", depositMemo: "",
     fundingDetailsSnapshot: {
       source: "whitebit", status: "provisioning", address: "", memo: "",
-      manualFallbackAddress: "manual-wallet", manualFallbackMemo: "",
+      manualFallbackAddress: fallbackAddress, manualFallbackMemo: fallbackMemo,
+      requiresMemo,
     },
     settlementSnapshot: { funding: { source: "whitebit", status: "provisioning", address: "", memo: "" } },
     providerState: "whitebit_provisioning", quoteId: "", clientRequestId: `${id}-request`,
@@ -98,7 +108,12 @@ async function insertProvisioningOrder(id = orderId) {
 }
 
 async function provisionTest(input: Parameters<typeof provisionSwapFundingAddress>[0]) {
-  await insertProvisioningOrder(input.orderId);
+  await insertProvisioningOrder(
+    input.orderId,
+    input.manualAddress,
+    input.manualMemo,
+    input.manualFallbackUsable === false && Boolean(input.manualAddress.trim()),
+  );
   return provisionSwapFundingAddress(input);
 }
 
@@ -224,7 +239,7 @@ test("supported exact route allocates WhiteBIT after durable order claim", async
   assert.equal(providerCalls, 1);
 });
 
-test("capability loss after provider selection creates unresolved claim and order without provider call", async () => {
+test("capability loss after provider selection uses the exact manual fallback without provider call", async () => {
   const parsed = parseWhitebitAssets({ BTC: { can_deposit: true, networks: { deposits: ["BITCOIN"] } } });
   assert.ok(parsed);
   assert.equal(matchWhitebitCapability({ fetchedAt: Date.now(), assets: parsed }, "BTC", "ERC20"), null);
@@ -241,14 +256,15 @@ test("capability loss after provider selection creates unresolved claim and orde
     orderId: unresolvedOrderId, assetCode: "BTC", networkCode: "ERC20",
     manualAddress: "manual-wallet", manualMemo: "", chosenWhitebit: true,
   });
-  assert.equal(result.unresolved, true);
+  assert.equal(result.unresolved, false);
+  assert.equal(result.address, "manual-wallet");
   assert.equal(providerCalls, before);
-  const [claim] = await database.db.select().from(database.whitebitOrderAddressesTable)
-    .where(eq(database.whitebitOrderAddressesTable.orderId, unresolvedOrderId));
-  assert.equal(claim?.status, "unresolved");
   const [order] = await database.db.select().from(database.ordersTable)
     .where(eq(database.ordersTable.id, unresolvedOrderId));
-  assert.equal(order?.fundingStatus, "unresolved");
+  assert.equal(order?.fundingStatus, "ready_manual");
+  assert.equal(order?.depositAddress, "manual-wallet");
+  assert.equal((order?.fundingDetailsSnapshot as { addressSource?: string }).addressSource, "manual_fallback");
+  assert.equal(((order?.settlementSnapshot as { funding?: { addressSource?: string } }).funding)?.addressSource, "manual_fallback");
 });
 
 test("concurrent identical order requests make one provider call and never expose transient manual", async () => {
@@ -276,23 +292,27 @@ test("idempotent replay returns one immutable final address", async () => {
   assert.equal(providerCalls, calls);
 });
 
-test("definitive provider rejection remains WhiteBIT-owned and never exposes manual", async () => {
+test("definitive provider rejection remains WhiteBIT-owned and uses the exact manual fallback", async () => {
+  await mockAssets();
   const saved = globalThis.fetch;
   globalThis.fetch = async (input, init) => String(input).endsWith("/api/v4/main-account/create-new-address")
     ? new Response(JSON.stringify({ error: "rejected" }), { status: 403 }) : saved(input, init);
   const result = await provisionTest({ orderId: `${orderId}-reject`, assetCode: "BTC", networkCode: "BITCOIN", manualAddress: "manual", manualMemo: "", chosenWhitebit: true });
   assert.equal(result.source, "whitebit");
-  assert.equal(result.address, null);
-  assert.equal(result.unresolved, true);
+  assert.equal(result.address, "manual");
+  assert.equal(result.unresolved, false);
   const [rejectedOrder] = await database.db.select().from(database.ordersTable)
     .where(eq(database.ordersTable.id, `${orderId}-reject`));
   assert.equal(rejectedOrder.fundingProviderSource, "whitebit");
-  assert.equal(rejectedOrder.fundingStatus, "unresolved");
-  assert.equal(rejectedOrder.depositAddress, "");
+  assert.equal(rejectedOrder.fundingStatus, "ready_manual");
+  assert.equal(rejectedOrder.depositAddress, "manual");
+  assert.equal((rejectedOrder.fundingDetailsSnapshot as { addressSource?: string }).addressSource, "manual_fallback");
+  assert.equal(((rejectedOrder.settlementSnapshot as { funding?: { addressSource?: string } }).funding)?.addressSource, "manual_fallback");
   globalThis.fetch = saved;
 });
 
-test("timeout/network/5xx/malformed success finalize unresolved and never retry or expose manual", async () => {
+test("timeout falls back atomically and replay never recalls the provider", async () => {
+  await mockAssets();
   const saved = globalThis.fetch;
   let calls = 0;
   globalThis.fetch = async (input, init) => {
@@ -300,25 +320,71 @@ test("timeout/network/5xx/malformed success finalize unresolved and never retry 
     return saved(input, init);
   };
   const result = await provisionTest({ orderId: `${orderId}-timeout`, assetCode: "BTC", networkCode: "BITCOIN", manualAddress: "manual", manualMemo: "", chosenWhitebit: true });
-  assert.equal(result.unresolved, true);
+  assert.equal(result.unresolved, false);
+  assert.equal(result.address, "manual");
   const replay = await provisionTest({ orderId: `${orderId}-timeout`, assetCode: "BTC", networkCode: "BITCOIN", manualAddress: "manual", manualMemo: "", chosenWhitebit: true });
   assert.equal(replay.unresolved, false);
   assert.equal(replay.address, null);
   assert.equal(calls, 1);
+  const [fallbackOrder] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, `${orderId}-timeout`));
+  assert.equal(fallbackOrder.fundingStatus, "ready_manual");
+  assert.equal(fallbackOrder.depositAddress, "manual");
+  assert.equal((fallbackOrder.fundingDetailsSnapshot as { status?: string }).status, "manual_fallback");
   globalThis.fetch = saved;
 });
 
-test("toggle racing provisioning prevents not-yet-started call and cannot change finalized source", async () => {
+test("malformed provider response uses fallback, while an unusable required-memo fallback stays unavailable", async () => {
+  await mockAssets();
+  const saved = globalThis.fetch;
+  globalThis.fetch = async (input, init) => String(input).endsWith("/api/v4/main-account/create-new-address")
+    ? new Response(JSON.stringify({ account: {} }), { status: 200 })
+    : saved(input, init);
+  const malformedId = `${orderId}-malformed`;
+  const malformed = await provisionTest({
+    orderId: malformedId, assetCode: "BTC", networkCode: "BITCOIN",
+    manualAddress: "exact-fallback", manualMemo: "", manualFallbackUsable: true,
+    chosenWhitebit: true,
+  });
+  assert.equal(malformed.unresolved, false);
+  assert.equal(malformed.address, "exact-fallback");
+
+  const noMemoId = `${orderId}-required-memo`;
+  await insertProvisioningOrder(noMemoId);
+  await database.db.update(database.ordersTable).set({
+    fundingDetailsSnapshot: {
+      source: "whitebit", status: "provisioning", address: "", memo: "",
+      manualFallbackAddress: "memo-required-wallet", manualFallbackMemo: "",
+      requiresMemo: true,
+    },
+  }).where(eq(database.ordersTable.id, noMemoId));
+  const unavailable = await provisionSwapFundingAddress({
+    orderId: noMemoId, assetCode: "BTC", networkCode: "BITCOIN",
+    manualAddress: "memo-required-wallet", manualMemo: "",
+    manualFallbackUsable: false, chosenWhitebit: true,
+  });
+  assert.equal(unavailable.unresolved, true);
+  assert.equal(unavailable.address, null);
+  const [unavailableOrder] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, noMemoId));
+  assert.equal(unavailableOrder.fundingStatus, "unresolved");
+  assert.equal((unavailableOrder.fundingDetailsSnapshot as { addressSource?: string }).addressSource, "unavailable");
+  globalThis.fetch = saved;
+});
+
+test("disabled provider uses fallback without a provider call", async () => {
   const toggleOrderId = `${orderId}-toggle`;
   providerCalls = 0;
   await database.db.update(database.whitebitProviderSettingsTable)
     .set({ disabled: true })
     .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
   const result = await provisionTest({ orderId: toggleOrderId, assetCode: "BTC", networkCode: "BITCOIN", manualAddress: "manual", manualMemo: "", chosenWhitebit: true });
-  assert.equal(result.unresolved, true);
+  assert.equal(result.unresolved, false);
+  assert.equal(result.address, "manual");
   assert.equal(providerCalls, 0);
   const [order] = await database.db.select().from(database.ordersTable).where(eq(database.ordersTable.id, toggleOrderId));
-  assert.equal(order?.fundingStatus, "unresolved");
+  assert.equal(order?.fundingStatus, "ready_manual");
+  assert.equal(order?.providerState, "whitebit_fallback");
   await database.db.update(database.whitebitProviderSettingsTable)
     .set({ disabled: false })
     .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
@@ -350,7 +416,7 @@ test("owner recovery atomically updates all order snapshots", async () => {
   assert.equal((order?.settlementSnapshot as { funding?: { address?: string } })?.funding?.address, "recovered");
 });
 
-test("stale calling replay resolves the claim atomically and owner recovery restores every snapshot", async () => {
+test("stale calling replay resolves to fallback atomically and cannot later switch customer deposit addresses", async () => {
   const staleOrderId = `${orderId}-stale-calling`;
   await insertProvisioningOrder(staleOrderId);
   const [claim] = await database.db.insert(database.whitebitOrderAddressesTable).values({
@@ -364,25 +430,25 @@ test("stale calling replay resolves the claim atomically and owner recovery rest
   const [unresolvedOrder] = await database.db.select().from(database.ordersTable)
     .where(eq(database.ordersTable.id, staleOrderId));
   assert.equal(unresolvedClaim.status, "unresolved");
-  assert.equal(unresolvedOrder.fundingStatus, "unresolved");
-  assert.equal(unresolvedOrder.depositAddress, "");
-  assert.equal((unresolvedOrder.fundingDetailsSnapshot as { status?: string }).status, "unresolved");
-  assert.equal(((unresolvedOrder.settlementSnapshot as { funding?: { status?: string } }).funding)?.status, "unresolved");
+  assert.equal(unresolvedOrder.fundingStatus, "ready_manual");
+  assert.equal(unresolvedOrder.depositAddress, "manual-wallet");
+  assert.equal((unresolvedOrder.fundingDetailsSnapshot as { status?: string }).status, "manual_fallback");
+  assert.equal(((unresolvedOrder.settlementSnapshot as { funding?: { status?: string } }).funding)?.status, "manual_fallback");
   const response = await fetch(`${baseUrl}/api/admin/whitebit/recover-order-address`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-test-operator": ownerClerkUserId },
     body: JSON.stringify({ id: claim.id, address: "stale-recovered", memo: "STALE-TAG" }),
   });
-  assert.equal(response.status, 200, await response.text());
+  assert.equal(response.status, 409, await response.text());
   const [readyClaim] = await database.db.select().from(database.whitebitOrderAddressesTable)
     .where(eq(database.whitebitOrderAddressesTable.id, claim.id));
   const [readyOrder] = await database.db.select().from(database.ordersTable)
     .where(eq(database.ordersTable.id, staleOrderId));
-  assert.equal(readyClaim.status, "ready");
-  assert.equal(readyOrder.fundingStatus, "ready_whitebit");
-  assert.equal(readyOrder.depositAddress, "stale-recovered");
-  assert.equal((readyOrder.fundingDetailsSnapshot as { address?: string }).address, "stale-recovered");
-  assert.equal(((readyOrder.settlementSnapshot as { funding?: { address?: string } }).funding)?.address, "stale-recovered");
+  assert.equal(readyClaim.status, "unresolved");
+  assert.equal(readyOrder.fundingStatus, "ready_manual");
+  assert.equal(readyOrder.depositAddress, "manual-wallet");
+  assert.equal((readyOrder.fundingDetailsSnapshot as { address?: string }).address, "manual-wallet");
+  assert.equal(((readyOrder.settlementSnapshot as { funding?: { address?: string } }).funding)?.address, "manual-wallet");
 });
 
 test("recovery finalizer rolls back claim and order together on failure", async () => {

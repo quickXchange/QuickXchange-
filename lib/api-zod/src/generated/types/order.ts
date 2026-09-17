@@ -6,8 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ExactDecimal } from './exactDecimal';
+import type { OrderFundingAddressSource } from './orderFundingAddressSource';
 import type { OrderFundingDetails } from './orderFundingDetails';
-import type { OrderFundingProviderSource } from './orderFundingProviderSource';
 import type { OrderFundingStatus } from './orderFundingStatus';
 import type { OrderPricingSnapshot } from './orderPricingSnapshot';
 import type { OrderReceivingStatus } from './orderReceivingStatus';
@@ -63,7 +63,8 @@ export interface Order {
   depositAddress?: string;
   depositMemo?: string;
   fundingStatus?: OrderFundingStatus;
-  fundingProviderSource?: OrderFundingProviderSource;
+  fundingProviderSource?: string;
+  fundingAddressSource?: OrderFundingAddressSource;
   /** @nullable */
   fundingProviderError?: string | null;
   manualSettlementState?: string;

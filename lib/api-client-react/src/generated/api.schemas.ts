@@ -1316,12 +1316,14 @@ export const OrderFundingStatus = {
   unresolved: 'unresolved',
 } as const;
 
-export type OrderFundingProviderSource = typeof OrderFundingProviderSource[keyof typeof OrderFundingProviderSource];
+export type OrderFundingAddressSource = typeof OrderFundingAddressSource[keyof typeof OrderFundingAddressSource];
 
 
-export const OrderFundingProviderSource = {
-  whitebit: 'whitebit',
-  manual: 'manual',
+export const OrderFundingAddressSource = {
+  live_api: 'live_api',
+  manual_fallback: 'manual_fallback',
+  manual_only: 'manual_only',
+  unavailable: 'unavailable',
 } as const;
 
 export type OrderPricingSnapshotPolicyVersion = typeof OrderPricingSnapshotPolicyVersion[keyof typeof OrderPricingSnapshotPolicyVersion];
@@ -1569,7 +1571,8 @@ export interface Order {
   depositAddress?: string;
   depositMemo?: string;
   fundingStatus?: OrderFundingStatus;
-  fundingProviderSource?: OrderFundingProviderSource;
+  fundingProviderSource?: string;
+  fundingAddressSource?: OrderFundingAddressSource;
   /** @nullable */
   fundingProviderError?: string | null;
   manualSettlementState?: string;
@@ -2159,6 +2162,21 @@ export interface OrderReconciliationAttemptList {
 export interface CustomerOrderNotificationPreference {
   orderId: string;
   statusNotificationsEnabled: boolean;
+}
+
+export type DepositProviderOptionId = typeof DepositProviderOptionId[keyof typeof DepositProviderOptionId];
+
+
+export const DepositProviderOptionId = {
+  whitebit: 'whitebit',
+  manual: 'manual',
+  none: 'none',
+} as const;
+
+export interface DepositProviderOption {
+  id: DepositProviderOptionId;
+  label: string;
+  implemented: boolean;
 }
 
 export interface ApiError {
@@ -2998,6 +3016,15 @@ export interface CryptoNetworkUpdate {
   sharedDepositMemo?: string | null;
 }
 
+export type CryptoAssetReceivingWalletInputDepositProvider = typeof CryptoAssetReceivingWalletInputDepositProvider[keyof typeof CryptoAssetReceivingWalletInputDepositProvider];
+
+
+export const CryptoAssetReceivingWalletInputDepositProvider = {
+  whitebit: 'whitebit',
+  manual: 'manual',
+  none: 'none',
+} as const;
+
 export interface CryptoAssetReceivingWalletInput {
   /**
      * @minLength 1
@@ -3011,11 +3038,13 @@ export interface CryptoAssetReceivingWalletInput {
      * @nullable
      */
   memo?: string | null;
+  depositProvider?: CryptoAssetReceivingWalletInputDepositProvider;
   enabled: boolean;
   useForAllAssetsOnNetwork: boolean;
 }
 
 export type CryptoNetwork = CryptoNetworkInput & {
+  depositProvider: string;
   createdAt: string;
   updatedAt: string;
   readonly logoUrl?: string;
@@ -4654,6 +4683,39 @@ export interface QuickexDiagnostics {
   instrumentCache: QuickexDiagnosticsInstrumentCache;
 }
 
+export interface WhitebitAssetImportNetwork {
+  providerNetwork: string;
+  canDeposit: boolean;
+  canWithdraw: boolean;
+  /** @nullable */
+  confirmations?: number | null;
+  requiresMemo?: boolean;
+}
+
+export interface WhitebitAssetImportCandidate {
+  providerTicker: string;
+  normalizedTicker: string;
+  name: string;
+  precision: number;
+  canDeposit?: boolean;
+  canWithdraw?: boolean;
+  /** @nullable */
+  defaultNetwork?: string | null;
+  networks: WhitebitAssetImportNetwork[];
+}
+
+export interface WhitebitAssetImportPreview {
+  total: number;
+  alreadyExisting: number;
+  missing: number;
+  assets: WhitebitAssetImportCandidate[];
+}
+
+export interface WhitebitAssetImportResult {
+  imported: string[];
+  skipped: string[];
+}
+
 export interface WhitebitDepositAddressInput {
   /**
      * @minLength 1
@@ -4906,6 +4968,17 @@ pageSize?: number;
 };
 
 export type GetWhitebitMainBalance200 = {[key: string]: string};
+
+export type ImportWhitebitAssetsBody = {
+  /**
+     * @minItems 1
+     * @maxItems 128
+     * @items.minLength 2
+     * @items.maxLength 16
+     * @items.pattern ^[A-Z0-9]{2,16}$
+     */
+  providerTickers: string[];
+};
 
 export type GetAdminSummaryParams = {
 product: GetAdminSummaryProduct;

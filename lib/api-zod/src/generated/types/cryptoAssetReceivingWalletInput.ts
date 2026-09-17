@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { CryptoAssetReceivingWalletInputDepositProvider } from './cryptoAssetReceivingWalletInputDepositProvider';
 
 export interface CryptoAssetReceivingWalletInput {
   /**
@@ -19,6 +20,7 @@ export interface CryptoAssetReceivingWalletInput {
      * @nullable
      */
   memo?: string | null;
+  depositProvider?: CryptoAssetReceivingWalletInputDepositProvider;
   enabled: boolean;
   useForAllAssetsOnNetwork: boolean;
 }

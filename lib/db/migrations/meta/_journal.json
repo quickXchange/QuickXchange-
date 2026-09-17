@@ -505,6 +505,20 @@
       "when": 1789605230293,
       "tag": "0073_whitebit_swap_order_addresses",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1789665220834,
+      "tag": "0074_whitebit_asset_catalog_mappings",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1789665224000,
+      "tag": "0075_crypto_network_deposit_provider",
+      "breakpoints": true
     }
   ]
 }

@@ -76,6 +76,7 @@ import type {
   CustomerPage,
   CustomerPasswordReset,
   CustomerReferralPage,
+  DepositProviderOption,
   ExchangeConfig,
   ExchangeOrderInput,
   ExchangeRoutePricing,
@@ -110,6 +111,7 @@ import type {
   HealthStatus,
   ImageUpload,
   ImageUploadInput,
+  ImportWhitebitAssetsBody,
   LandingBackground,
   LandingBackgroundPublishInput,
   LandingBackgroundUpload,
@@ -200,6 +202,8 @@ import type {
   WebsiteBrandingSaveInput,
   WebsiteBrandingUpload,
   WhitebitAddressRecoveryInput,
+  WhitebitAssetImportPreview,
+  WhitebitAssetImportResult,
   WhitebitBalance,
   WhitebitCredentialInput,
   WhitebitCredentialStatus,
@@ -2800,6 +2804,154 @@ export function useGetWhitebitMainBalance<TData = Awaited<ReturnType<typeof getW
 
 
 
+
+export const getPreviewWhitebitAssetImportUrl = () => {
+
+
+
+
+  return `/api/admin/whitebit/assets/preview`
+}
+
+/**
+ * @summary Preview missing crypto assets from the live WhiteBIT catalog
+ */
+export const previewWhitebitAssetImport = async ( options?: Parameters<typeof customFetch>[1]): Promise<WhitebitAssetImportPreview> => {
+
+  return customFetch<WhitebitAssetImportPreview>(getPreviewWhitebitAssetImportUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getPreviewWhitebitAssetImportQueryKey = () => {
+    return [
+    `/api/admin/whitebit/assets/preview`
+    ] as const;
+    }
+
+
+export const getPreviewWhitebitAssetImportQueryOptions = <TData = Awaited<ReturnType<typeof previewWhitebitAssetImport>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof previewWhitebitAssetImport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getPreviewWhitebitAssetImportQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof previewWhitebitAssetImport>>> = ({ signal }) => previewWhitebitAssetImport({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof previewWhitebitAssetImport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type PreviewWhitebitAssetImportQueryResult = NonNullable<Awaited<ReturnType<typeof previewWhitebitAssetImport>>>
+export type PreviewWhitebitAssetImportQueryError = ErrorType<void>
+
+
+/**
+ * @summary Preview missing crypto assets from the live WhiteBIT catalog
+ */
+
+export function usePreviewWhitebitAssetImport<TData = Awaited<ReturnType<typeof previewWhitebitAssetImport>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof previewWhitebitAssetImport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getPreviewWhitebitAssetImportQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getImportWhitebitAssetsUrl = () => {
+
+
+
+
+  return `/api/admin/whitebit/assets/import`
+}
+
+/**
+ * @summary Import selected missing assets from the live WhiteBIT catalog
+ */
+export const importWhitebitAssets = async (importWhitebitAssetsBody: ImportWhitebitAssetsBody, options?: Parameters<typeof customFetch>[1]): Promise<WhitebitAssetImportResult> => {
+
+  return customFetch<WhitebitAssetImportResult>(getImportWhitebitAssetsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(importWhitebitAssetsBody)
+  }
+);}
+
+
+
+
+
+export const getImportWhitebitAssetsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importWhitebitAssets>>, TError,{data: BodyType<ImportWhitebitAssetsBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof importWhitebitAssets>>, TError,{data: BodyType<ImportWhitebitAssetsBody>}, TContext> => {
+
+const mutationKey = ['importWhitebitAssets'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importWhitebitAssets>>, {data: BodyType<ImportWhitebitAssetsBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  importWhitebitAssets(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImportWhitebitAssetsMutationResult = NonNullable<Awaited<ReturnType<typeof importWhitebitAssets>>>
+    export type ImportWhitebitAssetsMutationBody = BodyType<ImportWhitebitAssetsBody>
+    export type ImportWhitebitAssetsMutationError = ErrorType<void>
+
+    /**
+ * @summary Import selected missing assets from the live WhiteBIT catalog
+ */
+export const useImportWhitebitAssets = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importWhitebitAssets>>, TError,{data: BodyType<ImportWhitebitAssetsBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof importWhitebitAssets>>,
+        TError,
+        {data: BodyType<ImportWhitebitAssetsBody>},
+        TContext
+      > => {
+      return useMutation(getImportWhitebitAssetsMutationOptions(options));
+    }
 
 export const getRecoverWhitebitDepositAddressUrl = () => {
 
@@ -6131,6 +6283,77 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getCreateCryptoNetworkMutationOptions(options));
     }
+
+export const getGetDepositProviderOptionsUrl = () => {
+
+
+
+
+  return `/api/admin/deposit-providers`
+}
+
+export const getDepositProviderOptions = async ( options?: Parameters<typeof customFetch>[1]): Promise<DepositProviderOption[]> => {
+
+  return customFetch<DepositProviderOption[]>(getGetDepositProviderOptionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDepositProviderOptionsQueryKey = () => {
+    return [
+    `/api/admin/deposit-providers`
+    ] as const;
+    }
+
+
+export const getGetDepositProviderOptionsQueryOptions = <TData = Awaited<ReturnType<typeof getDepositProviderOptions>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDepositProviderOptions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDepositProviderOptionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDepositProviderOptions>>> = ({ signal }) => getDepositProviderOptions({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDepositProviderOptions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDepositProviderOptionsQueryResult = NonNullable<Awaited<ReturnType<typeof getDepositProviderOptions>>>
+export type GetDepositProviderOptionsQueryError = ErrorType<unknown>
+
+
+
+export function useGetDepositProviderOptions<TData = Awaited<ReturnType<typeof getDepositProviderOptions>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDepositProviderOptions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDepositProviderOptionsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getUpdateCryptoNetworkUrl = (id: string,) => {
 

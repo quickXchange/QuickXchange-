@@ -6,10 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type OrderFundingProviderSource = typeof OrderFundingProviderSource[keyof typeof OrderFundingProviderSource];
+export type DepositProviderOptionId = typeof DepositProviderOptionId[keyof typeof DepositProviderOptionId];
 
 
-export const OrderFundingProviderSource = {
+export const DepositProviderOptionId = {
   whitebit: 'whitebit',
   manual: 'manual',
+  none: 'none',
 } as const;

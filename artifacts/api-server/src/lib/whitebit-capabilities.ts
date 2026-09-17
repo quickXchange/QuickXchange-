@@ -19,6 +19,96 @@ export type WhitebitCapabilitySnapshot = {
   assets: WhitebitAssetCapability[];
 };
 
+export type WhitebitCatalogNetwork = {
+  providerNetwork: string;
+  canDeposit: boolean;
+  canWithdraw: boolean;
+  confirmations: number | null;
+  requiresMemo: boolean;
+  metadata: Record<string, unknown>;
+};
+
+export type WhitebitCatalogAsset = {
+  providerTicker: string;
+  normalizedTicker: string;
+  name: string;
+  precision: number;
+  canDeposit: boolean;
+  canWithdraw: boolean;
+  defaultNetwork: string | null;
+  metadata: Record<string, unknown>;
+  networks: WhitebitCatalogNetwork[];
+};
+
+const catalogNetworkLimit = 128;
+function jsonSafe(value: unknown, depth = 0): unknown {
+  if (depth > 3 || value === null || typeof value === "string" || typeof value === "boolean" || typeof value === "number") return value;
+  if (Array.isArray(value)) return value.slice(0, 32).map((item) => jsonSafe(item, depth + 1));
+  if (typeof value === "object") return Object.fromEntries(Object.entries(value as Record<string, unknown>).slice(0, 32).map(([k, v]) => [k, jsonSafe(v, depth + 1)]));
+  return undefined;
+}
+
+/**
+ * Parse the complete public catalog without changing the strict capability
+ * parser above. Invalid entries are ignored (fiat and malformed provider
+ * rows must never make order funding permissive).
+ */
+export function parseWhitebitCatalogAssets(value: unknown): WhitebitCatalogAsset[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  const result: WhitebitCatalogAsset[] = [];
+  for (const [rawTicker, rawValue] of Object.entries(value)) {
+    if (!rawValue || typeof rawValue !== "object" || Array.isArray(rawValue)) continue;
+    const row = rawValue as Record<string, unknown>;
+    // WhiteBIT fiat rows have a providers object. A network-only fiat row is
+    // also excluded by its well-known settlement network names.
+    if (row.providers && typeof row.providers === "object") continue;
+    const ticker = rawTicker.trim().toUpperCase();
+    if (!/^[A-Z0-9]{2,16}$/.test(ticker) || /^(USD|EUR|GBP|PLN|UAH|TRY|RUB|CHF|CAD|AUD|JPY)$/.test(ticker)) continue;
+    const precisionRaw = row.precision ?? row.decimals ?? row.currency_precision;
+    const precision = Number.isInteger(precisionRaw) ? Number(precisionRaw) : 8;
+    if (precision < 0 || precision > 30) continue;
+    const networksRaw = row.networks;
+    if (!networksRaw || typeof networksRaw !== "object" || Array.isArray(networksRaw)) continue;
+    const networks = networksRaw as Record<string, unknown>;
+    const deposits = Array.isArray(networks.deposits) ? networks.deposits : [];
+    const withdrawals = Array.isArray(networks.withdraws) ? networks.withdraws : [];
+    const names = [...new Set([...deposits, ...withdrawals].filter((n): n is string => typeof n === "string" && !!n.trim()).map((n) => n.trim().toUpperCase()).filter((n) => n.length <= 32))].slice(0, catalogNetworkLimit);
+    if (!names.length) continue;
+    const confirmations = row.confirmations && typeof row.confirmations === "object" && !Array.isArray(row.confirmations)
+      ? row.confirmations as Record<string, unknown> : {};
+    const depositSet = new Set(deposits.filter((n): n is string => typeof n === "string").map((n) => n.trim().toUpperCase()));
+    const withdrawalSet = new Set(withdrawals.filter((n): n is string => typeof n === "string").map((n) => n.trim().toUpperCase()));
+    const memo = row.memo && typeof row.memo === "object" ? row.memo as Record<string, unknown> : {};
+    const isMemo = row.is_memo === true;
+    const limits = row.limits && typeof row.limits === "object" ? row.limits as Record<string, unknown> : {};
+    const depositLimits = limits.deposit && typeof limits.deposit === "object" ? limits.deposit as Record<string, unknown> : {};
+    const withdrawLimits = limits.withdraw && typeof limits.withdraw === "object" ? limits.withdraw as Record<string, unknown> : {};
+    result.push({
+      providerTicker: rawTicker.trim(),
+      normalizedTicker: ticker,
+      name: typeof row.name === "string" && row.name.trim() ? row.name.trim().slice(0, 100) : ticker,
+      precision,
+      canDeposit: row.can_deposit === true,
+      canWithdraw: row.can_withdraw === true,
+      defaultNetwork: typeof networks.default === "string" ? networks.default.trim().toUpperCase() : null,
+      metadata: { providerTicker: rawTicker.trim(), can_deposit: row.can_deposit === true, can_withdraw: row.can_withdraw === true },
+      networks: names.map((network) => {
+        const rawConfirmation = confirmations[network];
+        const bounded = {
+          default: network === (typeof networks.default === "string" ? networks.default.trim().toUpperCase() : ""),
+          memo: { deposit: memo.deposit ?? null, withdraw: memo.withdraw ?? null, is_memo: isMemo },
+          limits: { deposit: jsonSafe(depositLimits[network]), withdraw: jsonSafe(withdrawLimits[network]) },
+        };
+        return { providerNetwork: network, canDeposit: depositSet.has(network), canWithdraw: withdrawalSet.has(network),
+          confirmations: Number.isInteger(rawConfirmation) && Number(rawConfirmation) >= 0 && Number(rawConfirmation) <= 10_000
+            ? Number(rawConfirmation) : null,
+          requiresMemo: isMemo || Boolean(memo.deposit) || Boolean(memo.withdraw), metadata: bounded };
+      }),
+    });
+  }
+  return result;
+}
+
 const CAPABILITY_TTL_MS = 60_000;
 let cached: WhitebitCapabilitySnapshot | null = null;
 let refresh: Promise<WhitebitCapabilitySnapshot> | null = null;

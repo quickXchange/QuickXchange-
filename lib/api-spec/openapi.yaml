@@ -983,6 +983,41 @@ paths:
         "401": { description: Operator authentication is required }
         "403": { description: Owner role is required }
         "503": { description: WhiteBIT credentials are not configured }
+  /admin/whitebit/assets/preview:
+    get:
+      operationId: previewWhitebitAssetImport
+      tags: [admin]
+      summary: Preview missing crypto assets from the live WhiteBIT catalog
+      security: [{ OperatorSession: [] }]
+      x-required-role: operator
+      responses:
+        "200":
+          description: Catalog import preview
+          content: { application/json: { schema: { $ref: "#/components/schemas/WhitebitAssetImportPreview" } } }
+        "401": { description: Operator authentication is required }
+        "502": { description: WhiteBIT catalog is unavailable }
+  /admin/whitebit/assets/import:
+    post:
+      operationId: importWhitebitAssets
+      tags: [admin]
+      summary: Import selected missing assets from the live WhiteBIT catalog
+      security: [{ OwnerSession: [] }]
+      x-required-role: owner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [providerTickers]
+              properties:
+                providerTickers: { type: array, minItems: 1, maxItems: 128, items: { type: string, minLength: 2, maxLength: 16, pattern: '^[A-Z0-9]{2,16}$' } }
+      responses:
+        "201":
+          description: Imported and skipped provider tickers
+          content: { application/json: { schema: { $ref: "#/components/schemas/WhitebitAssetImportResult" } } }
+        "403": { description: Owner role is required }
+        "502": { description: WhiteBIT catalog is unavailable }
   /admin/whitebit/recover-address:
     post:
       operationId: recoverWhitebitDepositAddress
@@ -1746,6 +1781,19 @@ paths:
         "201":
           description: Created network
           content: { application/json: { schema: { $ref: "#/components/schemas/CryptoNetwork" } } }
+  /admin/deposit-providers:
+    get:
+      operationId: getDepositProviderOptions
+      tags: [admin]
+      security: [{ OperatorSession: [] }]
+      responses:
+        "200":
+          description: Registered deposit address providers
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DepositProviderOption" }
   /admin/crypto-networks/{id}:
     patch:
       operationId: updateCryptoNetwork
@@ -4239,7 +4287,8 @@ components:
         depositAddress: { type: string }
         depositMemo: { type: string }
         fundingStatus: { type: string, enum: [provisioning, ready_whitebit, ready_manual, unresolved] }
-        fundingProviderSource: { type: string, enum: [whitebit, manual] }
+        fundingProviderSource: { type: string }
+        fundingAddressSource: { type: string, enum: [live_api, manual_fallback, manual_only, unavailable] }
         fundingProviderError: { type: ["string", "null"] }
         manualSettlementState: { type: string }
         customerSafeNote: { type: string, maxLength: 2000 }
@@ -4733,6 +4782,13 @@ components:
       properties:
         orderId: { type: string }
         statusNotificationsEnabled: { type: boolean }
+    DepositProviderOption:
+      type: object
+      required: [id, label, implemented]
+      properties:
+        id: { type: string, enum: [whitebit, manual, none] }
+        label: { type: string }
+        implemented: { type: boolean }
     ApiError:
       type: object
       required: [error, code, retryable, outcomeUnknown]
@@ -5253,14 +5309,16 @@ components:
         networkId: { type: string, minLength: 1, maxLength: 80 }
         walletAddress: { type: string, maxLength: 500 }
         memo: { type: [string, "null"], maxLength: 500 }
+        depositProvider: { type: string, enum: [whitebit, manual, none], default: manual }
         enabled: { type: boolean }
         useForAllAssetsOnNetwork: { type: boolean }
     CryptoNetwork:
       allOf:
         - $ref: "#/components/schemas/CryptoNetworkInput"
         - type: object
-          required: [createdAt, updatedAt]
+          required: [depositProvider, createdAt, updatedAt]
           properties:
+            depositProvider: { type: string, default: manual }
             createdAt: { type: string, format: date-time }
             updatedAt: { type: string, format: date-time }
             logoUrl: { type: string, readOnly: true }
@@ -6271,6 +6329,41 @@ components:
             ageMs: { type: [number, "null"] }
             stale: { type: boolean }
             lastFailureAt: { type: [string, "null"] }
+    WhitebitAssetImportNetwork:
+      type: object
+      required: [providerNetwork, canDeposit, canWithdraw]
+      properties:
+        providerNetwork: { type: string }
+        canDeposit: { type: boolean }
+        canWithdraw: { type: boolean }
+        confirmations: { type: [integer, "null"] }
+        requiresMemo: { type: boolean }
+    WhitebitAssetImportCandidate:
+      type: object
+      required: [providerTicker, normalizedTicker, name, precision, networks]
+      properties:
+        providerTicker: { type: string }
+        normalizedTicker: { type: string }
+        name: { type: string }
+        precision: { type: integer }
+        canDeposit: { type: boolean }
+        canWithdraw: { type: boolean }
+        defaultNetwork: { type: [string, "null"] }
+        networks: { type: array, items: { $ref: "#/components/schemas/WhitebitAssetImportNetwork" } }
+    WhitebitAssetImportPreview:
+      type: object
+      required: [total, alreadyExisting, missing, assets]
+      properties:
+        total: { type: integer }
+        alreadyExisting: { type: integer }
+        missing: { type: integer }
+        assets: { type: array, items: { $ref: "#/components/schemas/WhitebitAssetImportCandidate" } }
+    WhitebitAssetImportResult:
+      type: object
+      required: [imported, skipped]
+      properties:
+        imported: { type: array, items: { type: string } }
+        skipped: { type: array, items: { type: string } }
     WhitebitDepositAddressInput:
       type: object
       required: [ticker]

@@ -53,6 +53,9 @@ export const cryptoAssetNetworksTable = pgTable(
     networkFamily: text("network_family").notNull().default("native"),
     decimals: integer("decimals").notNull(),
     executionMode: text("execution_mode").notNull().default("manual"),
+    /** Address provisioning policy. Kept separate from executionMode for
+     * backwards-compatible catalog/manual route semantics. */
+    depositProvider: text("deposit_provider").notNull().default("manual"),
     lifecycle: text("lifecycle").notNull().default("active"),
     regions: jsonb("regions").$type<string[]>().notNull().default([]),
     enabled: boolean("enabled").notNull().default(true),
@@ -76,6 +79,44 @@ export const cryptoAssetNetworksTable = pgTable(
       table.assetId,
       table.networkCode,
     ),
+  ],
+);
+
+/** Immutable provider identity for catalog imports.  Keeping this separate
+ * from the operator-owned route tables means a later sync can never replace
+ * an operator's asset or pricing configuration. */
+export const whitebitAssetMappingsTable = pgTable(
+  "whitebit_asset_mappings",
+  {
+    id: text("id").primaryKey(),
+    assetId: text("asset_id").notNull().references(() => cryptoAssetsTable.id, { onDelete: "cascade" }),
+    providerTicker: text("provider_ticker").notNull(),
+    normalizedTicker: text("normalized_ticker").notNull(),
+    providerName: text("provider_name").notNull(),
+    precision: integer("precision").notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("whitebit_asset_mappings_asset_uidx").on(table.assetId),
+    uniqueIndex("whitebit_asset_mappings_ticker_uidx").on(table.normalizedTicker),
+  ],
+);
+
+export const whitebitNetworkMappingsTable = pgTable(
+  "whitebit_network_mappings",
+  {
+    id: text("id").primaryKey(),
+    assetNetworkId: text("asset_network_id").notNull().references(() => cryptoAssetNetworksTable.id, { onDelete: "cascade" }),
+    providerNetwork: text("provider_network").notNull(),
+    normalizedNetwork: text("normalized_network").notNull(),
+    canDeposit: boolean("can_deposit").notNull().default(false),
+    canWithdraw: boolean("can_withdraw").notNull().default(false),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("whitebit_network_mappings_route_uidx").on(table.assetNetworkId),
   ],
 );
 

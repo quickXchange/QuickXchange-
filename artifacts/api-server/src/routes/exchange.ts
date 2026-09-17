@@ -119,6 +119,7 @@ import {
   quickexOrdersTable,
   orderSupportMetadataTable,
   whitebitOrderAddressesTable,
+  whitebitNetworkMappingsTable,
 } from "@workspace/db";
 import { ApiError } from "../lib/api-error";
 import { createCryptoAssetLogoUpload, createCryptoNetworkLogoUpload, createFiatCurrencyFlagUpload, deleteStoredCatalogImage } from "../lib/object-storage";
@@ -132,6 +133,7 @@ import {
 } from "../lib/operator-auth";
 import type { PermissionKey } from "../lib/permissions";
 import { recordAdminMutationActivity } from "../lib/admin-policy";
+import { listDepositProviderOptions } from "../lib/deposit-provider-registry";
 import { TERMINAL_ORDER_STATUSES } from "../lib/order-status";
 import {
   getCustomerActorUserId,
@@ -223,8 +225,6 @@ import {
   verifyWhitebitAddressCreationPermission,
 } from "./whitebit";
 import {
-  isWhitebitSwapEnabled,
-  shouldReserveWhitebitOrderFunding,
   whitebitSwapStatus,
 } from "../lib/whitebit-capabilities";
 import {
@@ -346,6 +346,11 @@ function outputOrder(row: typeof ordersTable.$inferSelect) {
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     trackingToken: signOrderTrackingToken(row.id),
+    fundingAddressSource: row.fundingStatus === "ready_whitebit"
+      ? "live_api"
+      : row.fundingStatus === "ready_manual"
+        ? (row.providerState === "whitebit_fallback" ? "manual_fallback" : "manual_only")
+        : "unavailable",
   };
   // JSONB is untrusted persisted data: validate it before exposing it on the
   // operator order representation rather than treating a historical blob as
@@ -409,6 +414,12 @@ function outputCustomerOrder(
     customerSafeNote: row.type === "manual" ? row.customerSafeNote || undefined : undefined,
      fundingStatus: row.type === "manual" ? row.fundingStatus : undefined,
      fundingSource: row.type === "manual" ? row.fundingProviderSource : undefined,
+     fundingAddressSource: row.type === "manual"
+       ? row.fundingStatus === "ready_whitebit" ? "live_api"
+         : row.fundingStatus === "ready_manual"
+           ? (row.providerState === "whitebit_fallback" ? "manual_fallback" : "manual_only")
+           : "unavailable"
+       : undefined,
      fundingError: row.type === "manual" && row.fundingStatus === "unresolved"
        ? "Deposit address provisioning is pending operator recovery."
        : undefined,
@@ -827,6 +838,7 @@ async function buildQuoteTicket(
         return {
           address: source.network.sharedDepositAddress,
           memo: source.network.sharedDepositMemo ?? "",
+          depositProvider: source.network.depositProvider,
           requiresMemo: source.network.requiresMemo,
           requiredConfirmations: source.network.requiredConfirmations,
           confirmationGuidance: source.network.confirmationGuidance ?? "",
@@ -2076,18 +2088,42 @@ async function createOrderFromInput(
   const createdAt = new Date();
   const sourceSnapshot = quote.settlementSnapshot?.source;
   const manualFunding = quote.settlementSnapshot?.funding;
-  const whitebitStatus = sourceSnapshot?.kind === "crypto-network" && manualFunding
-    ? await whitebitSwapStatus()
-    : null;
-  const whitebitCandidate = whitebitStatus?.enabled && sourceSnapshot?.kind === "crypto-network"
-    ? await isWhitebitSwapEnabled(
-        sourceSnapshot.assetCode,
-        sourceSnapshot.networkCode ?? quote.fromNetwork,
-      )
-    : null;
-  const providerFundingCandidate = whitebitStatus
-    ? shouldReserveWhitebitOrderFunding(whitebitStatus, whitebitCandidate)
-    : false;
+  const selectedDepositProvider = (manualFunding as (typeof manualFunding & { depositProvider?: string }) | undefined)?.depositProvider ?? "manual";
+  // Selection is authoritative: availability checks belong inside the
+  // idempotent adapter, where they can be recorded and safely fallback.
+  const providerFundingCandidate = selectedDepositProvider === "whitebit";
+  const providerUnavailable = selectedDepositProvider === "none";
+  const initialFunding = providerFundingCandidate
+    ? {
+        ...manualFunding,
+        address: "",
+        memo: "",
+        manualFallbackAddress: manualFunding?.address ?? "",
+        manualFallbackMemo: manualFunding?.memo ?? "",
+        source: "whitebit",
+        selectedProvider: "whitebit",
+        addressSource: "unavailable",
+        status: "provisioning",
+      }
+    : providerUnavailable
+      ? {
+          ...manualFunding,
+          address: "",
+          memo: "",
+          source: "none",
+          selectedProvider: "none",
+          addressSource: "unavailable",
+          status: "unavailable",
+        }
+      : manualFunding
+        ? {
+            ...manualFunding,
+            source: "manual",
+            selectedProvider: "manual",
+            addressSource: "manual_only",
+            status: "ready",
+          }
+        : undefined;
   const id = `O${randomInt(0, 1_000_000_000).toString().padStart(9, "0")}`;
   const intent = {
     id, type: "manual", status: "awaiting funds",
@@ -2101,8 +2137,8 @@ async function createOrderFromInput(
     destinationAddress: input.destinationAddress ?? "",
     destinationMemo: input.destinationMemo ?? "",
     refundAddress: input.refundAddress ?? "", refundMemo: input.refundMemo ?? "",
-    depositAddress: providerFundingCandidate ? "" : (manualFunding?.address ?? ""),
-    depositMemo: providerFundingCandidate ? "" : (manualFunding?.memo ?? ""),
+    depositAddress: providerFundingCandidate || providerUnavailable ? "" : (manualFunding?.address ?? ""),
+    depositMemo: providerFundingCandidate || providerUnavailable ? "" : (manualFunding?.memo ?? ""),
     paymentMethod: input.paymentMethod ?? "", payoutMethod: input.payoutMethod ?? "",
     pricingRuleId: quote.pricingRuleId,
     pricingRuleVersion: quote.pricingRuleVersion,
@@ -2115,28 +2151,18 @@ async function createOrderFromInput(
     pricingSnapshot: quote.pricingSnapshot,
     sourceSettlementOptionId: quote.sourceSettlementOptionId,
     targetSettlementOptionId: quote.targetSettlementOptionId,
-    settlementSnapshot: providerFundingCandidate && quote.settlementSnapshot
-      ? { ...quote.settlementSnapshot, funding: { ...manualFunding, address: "", memo: "", source: "whitebit", status: "provisioning" } }
+    settlementSnapshot: initialFunding && quote.settlementSnapshot
+      ? { ...quote.settlementSnapshot, funding: initialFunding }
       : quote.settlementSnapshot,
     settlementDetails,
-    fundingDetailsSnapshot: providerFundingCandidate
-      ? {
-          ...manualFunding,
-          address: "",
-          memo: "",
-          manualFallbackAddress: manualFunding?.address ?? "",
-          manualFallbackMemo: manualFunding?.memo ?? "",
-          source: "whitebit",
-          status: "provisioning",
-        }
-      : quote.settlementSnapshot?.funding,
+    fundingDetailsSnapshot: initialFunding,
     customerDetailsSnapshot: {
       destinationAddress: input.destinationAddress ?? "",
       destinationMemo: input.destinationMemo ?? "",
       settlementDetails: settlementDetails ?? {},
     },
-    fundingStatus: providerFundingCandidate ? "provisioning" : "ready_manual",
-    fundingProviderSource: providerFundingCandidate ? "whitebit" : "manual",
+    fundingStatus: providerFundingCandidate ? "provisioning" : providerUnavailable ? "unresolved" : "ready_manual",
+    fundingProviderSource: selectedDepositProvider === "none" ? "none" : providerFundingCandidate ? "whitebit" : "manual",
     fundingProviderError: null,
     provider: quote.provider, note: input.note ?? "",
     rateMode: "",
@@ -2212,6 +2238,8 @@ async function createOrderFromInput(
       networkCode: sourceSnapshot.networkCode ?? quote.fromNetwork,
       manualAddress: manualFunding.address,
       manualMemo: manualFunding.memo,
+      manualFallbackUsable: Boolean(manualFunding.address?.trim()) &&
+        (!manualFunding.requiresMemo || Boolean(manualFunding.memo?.trim())),
       chosenWhitebit: true,
       expectedClaimToken: orderClaim?.claimToken ?? undefined,
     });
@@ -3395,6 +3423,15 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
           404,
         );
       }
+      if (input.depositProvider === "whitebit") {
+        const [mapping] = await tx.select({ id: whitebitNetworkMappingsTable.id })
+          .from(whitebitNetworkMappingsTable)
+          .where(eq(whitebitNetworkMappingsTable.assetNetworkId, selected.id))
+          .limit(1);
+        if (!mapping) {
+          throw new ApiError("CRYPTO_DEPOSIT_PROVIDER_UNAVAILABLE", "WhiteBIT is not mapped for the selected asset network.", 422);
+        }
+      }
       const affected = input.useForAllAssetsOnNetwork
         ? await tx
           .select()
@@ -3402,33 +3439,44 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
           .where(eq(cryptoAssetNetworksTable.networkCode, selected.networkCode))
           .for("update")
         : [selected];
-      if (input.enabled) {
-        if (!input.walletAddress.trim()) {
+      const effectiveEnabled = input.depositProvider === "none" ? false : input.enabled;
+      const fallbackAddress = input.walletAddress.trim() || selected.sharedDepositAddress;
+      const fallbackMemo = input.memo?.trim() || selected.sharedDepositMemo || "";
+      for (const network of affected) {
+        const nextProvider = network.id === selected.id ? input.depositProvider : network.depositProvider;
+        const nextEnabled = nextProvider === "none" ? false : input.enabled;
+        if (nextEnabled && nextProvider === "manual" && !fallbackAddress.trim()) {
           throw new ApiError(
             "CRYPTO_DEPOSIT_ADDRESS_REQUIRED",
             "A shared deposit address is required before customer deposits can be enabled.",
             422,
           );
         }
-        if (affected.some(row => row.requiresMemo) && !input.memo?.trim()) {
+        if (nextEnabled && nextProvider === "manual" && network.requiresMemo && !fallbackMemo) {
           throw new ApiError(
             "CRYPTO_DEPOSIT_MEMO_REQUIRED",
             "A shared memo or tag is required for this network before customer deposits can be enabled.",
             422,
           );
         }
+        if (nextEnabled && nextProvider === "whitebit" &&
+            fallbackAddress.trim() && network.requiresMemo && !fallbackMemo) {
+          throw new ApiError("CRYPTO_DEPOSIT_MEMO_REQUIRED", "A memo or tag is required for the manual WhiteBIT fallback.", 422);
+        }
       }
-      const updated = await tx
-        .update(cryptoAssetNetworksTable)
-        .set({
-          sharedDepositAddress: input.walletAddress,
-          sharedDepositMemo: input.memo ?? null,
-          customerDepositsEnabled: input.enabled,
-        })
+      for (const network of affected) {
+        const nextProvider = network.id === selected.id ? input.depositProvider : network.depositProvider;
+        await tx.update(cryptoAssetNetworksTable).set({
+          sharedDepositAddress: fallbackAddress,
+          sharedDepositMemo: fallbackMemo || null,
+          customerDepositsEnabled: nextProvider === "none" ? false : input.enabled,
+          ...(network.id === selected.id ? { depositProvider: input.depositProvider } : {}),
+        }).where(eq(cryptoAssetNetworksTable.id, network.id));
+      }
+      const updated = await tx.select().from(cryptoAssetNetworksTable)
         .where(input.useForAllAssetsOnNetwork
           ? eq(cryptoAssetNetworksTable.networkCode, selected.networkCode)
-          : eq(cryptoAssetNetworksTable.id, selected.id))
-        .returning();
+          : eq(cryptoAssetNetworksTable.id, selected.id));
       req.log.info(
         {
           assetId,
@@ -3457,6 +3505,9 @@ router.get("/admin/crypto-networks", requireOperator, async (_req, res, next) =>
     );
     res.json(rows.map(outputCryptoNetwork));
   } catch (e) { next(e); }
+});
+router.get("/admin/deposit-providers", requireOperator, (_req, res) => {
+  res.json(listDepositProviderOptions());
 });
 router.post("/admin/crypto-networks", requireOperator, async (req, res, next) => {
   try { const input = cryptoInput(req.body, true); validateCryptoDepositConfiguration(input); const row = await db.transaction(async (tx) => { await verifyCatalogPath(tx, input.logoObjectPath, "crypto-network-logos"); const [created] = await tx.insert(cryptoAssetNetworksTable).values({ ...input, enabled: input.enabled ?? true, customerDepositsEnabled: input.customerDepositsEnabled ?? false, requiresMemo: input.requiresMemo ?? false, requiredConfirmations: input.requiredConfirmations ?? 0, sharedDepositAddress: input.sharedDepositAddress ?? "" } as never).returning(); return created; }); res.status(201).json(outputCryptoNetwork(row)); } catch (e) { next(isUniqueViolation(e) ? new ApiError("CRYPTO_NETWORK_EXISTS", "Crypto network already exists.", 409) : e); }

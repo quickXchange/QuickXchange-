@@ -8,6 +8,7 @@
 import type { CryptoNetworkInput } from './cryptoNetworkInput';
 
 export type CryptoNetwork = CryptoNetworkInput & {
+  depositProvider: string;
   createdAt: Date;
   updatedAt: Date;
   readonly logoUrl?: string;

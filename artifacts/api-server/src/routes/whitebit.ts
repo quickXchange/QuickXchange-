@@ -14,11 +14,15 @@ import {
   whitebitWebhookDeliveriesTable,
   ordersTable,
   whitebitProviderSettingsTable,
+  cryptoAssetsTable,
+  cryptoAssetNetworksTable,
+  whitebitAssetMappingsTable,
+  whitebitNetworkMappingsTable,
 } from "@workspace/db";
 import { requireCustomer } from "../lib/customer-auth";
 import { ApiError } from "../lib/api-error";
-import { requireOwner } from "../lib/operator-auth";
-import { isWhitebitSwapEnabled } from "../lib/whitebit-capabilities";
+import { requireOperator, requireOwner } from "../lib/operator-auth";
+import { isWhitebitSwapEnabled, parseWhitebitCatalogAssets } from "../lib/whitebit-capabilities";
 import { getWhitebitCredentialStorageState, type WhitebitCredentials } from "../lib/provider-credentials";
 
 const api = "https://whitebit.com";
@@ -117,16 +121,58 @@ export async function provisionSwapFundingAddress(input: {
   networkCode: string;
   manualAddress: string;
   manualMemo: string;
+  manualFallbackUsable?: boolean;
   chosenWhitebit: boolean;
   expectedClaimToken?: string;
 }) {
+  const fallback = async (reason: string) => {
+    const usable = input.manualFallbackUsable ?? Boolean(input.manualAddress.trim());
+    await db.transaction(async (tx) => {
+        const [order] = await tx.select().from(ordersTable).where(eq(ordersTable.id, input.orderId)).limit(1);
+        if (!order) return;
+        const current = (order.fundingDetailsSnapshot ?? (order.settlementSnapshot as Record<string, unknown> | null)?.funding ?? {}) as Record<string, unknown>;
+        const funding = {
+          ...current,
+          address: usable ? input.manualAddress : "",
+          memo: usable ? input.manualMemo : "",
+          source: "whitebit",
+          selectedProvider: "whitebit",
+          addressSource: usable ? "manual_fallback" : "unavailable",
+          status: usable ? "manual_fallback" : "unavailable",
+          manualFallbackAddress: input.manualAddress,
+          manualFallbackMemo: input.manualMemo,
+        };
+        const settlement = { ...((order.settlementSnapshot ?? {}) as Record<string, unknown>), funding };
+        await tx.update(whitebitOrderAddressesTable).set({
+          status: "unresolved",
+          providerError: reason,
+          updatedAt: new Date(),
+        }).where(and(
+          eq(whitebitOrderAddressesTable.orderId, input.orderId),
+          sql`${whitebitOrderAddressesTable.status} IN ('claiming', 'calling')`,
+        ));
+        await tx.update(ordersTable).set({
+          depositAddress: usable ? input.manualAddress : "",
+          depositMemo: usable ? input.manualMemo : "",
+          fundingStatus: usable ? "ready_manual" : "unresolved",
+          fundingProviderError: reason,
+          providerState: usable ? "whitebit_fallback" : "whitebit_address_unresolved",
+          outcomeUnknown: false,
+          fundingProviderSource: "whitebit",
+          settlementSnapshot: settlement,
+          fundingDetailsSnapshot: funding,
+          updatedAt: new Date(),
+        }).where(and(eq(ordersTable.id, input.orderId), sql`${ordersTable.fundingStatus} IN ('provisioning', 'unresolved')`));
+      });
+    return usable;
+  };
   if (!input.chosenWhitebit) {
     return { source: "manual" as const, address: input.manualAddress, memo: input.manualMemo, unresolved: false };
   }
   const capability = await isWhitebitSwapEnabled(input.assetCode, input.networkCode);
   if (!capability || !(await hasOrderAddressTable())) {
-    await finalizeUnresolvedSwapFunding(input.orderId, capability?.providerTicker ?? input.assetCode, capability?.providerNetwork ?? input.networkCode, "WhiteBIT capability or address storage is unavailable.");
-    return { source: "whitebit" as const, address: null, memo: null, unresolved: true };
+    const usedFallback = await fallback("WhiteBIT capability or address storage is unavailable.");
+    return { source: "whitebit" as const, address: usedFallback ? input.manualAddress : null, memo: usedFallback ? input.manualMemo : null, unresolved: !usedFallback };
   }
   const claimed = await db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
@@ -145,14 +191,14 @@ export async function provisionSwapFundingAddress(input: {
     return { claim, row, disabled: false };
   });
    if (claimed.disabled) {
-     await finalizeUnresolvedSwapFunding(input.orderId, capability.providerTicker, capability.providerNetwork, "WhiteBIT is disabled or not configured.");
-     return { source: "whitebit" as const, address: null, memo: null, unresolved: true };
+      const usedFallback = await fallback("WhiteBIT is disabled or not configured.");
+      return { source: "whitebit" as const, address: usedFallback ? input.manualAddress : null, memo: usedFallback ? input.manualMemo : null, unresolved: !usedFallback };
    }
   const claim = claimed.claim;
   const row = claimed.row;
     if (!row) {
-      await finalizeUnresolvedSwapFunding(input.orderId, capability.providerTicker, capability.providerNetwork, "WhiteBIT address claim could not be created.");
-      return { source: "whitebit" as const, address: null, memo: null, unresolved: true };
+      const usedFallback = await fallback("WhiteBIT address claim could not be created.");
+      return { source: "whitebit" as const, address: usedFallback ? input.manualAddress : null, memo: usedFallback ? input.manualMemo : null, unresolved: !usedFallback };
     }
   if (row.status === "ready" && row.address) {
     return { source: "whitebit" as const, address: row.address, memo: row.memo ?? "", unresolved: false, confirmations: capability.requiredConfirmations };
@@ -181,7 +227,10 @@ export async function provisionSwapFundingAddress(input: {
         ? "WhiteBIT rejected the unique address request. Verify create-new-address access for this API key and recover the order address."
         : "Provider outcome is unknown; operator recovery is required.",
     });
-    return { source: "whitebit" as const, address: null, memo: null, unresolved: true };
+    const usedFallback = await fallback(definitive
+      ? "WhiteBIT rejected the unique address request."
+      : "WhiteBIT provider outcome is unknown; manual fallback selected.");
+    return { source: "whitebit" as const, address: usedFallback ? input.manualAddress : null, memo: usedFallback ? input.manualMemo : null, unresolved: !usedFallback };
   }
   const parsedAddress = parseWhitebitAddressResponse(result);
    if (!parsedAddress?.address) {
@@ -189,7 +238,8 @@ export async function provisionSwapFundingAddress(input: {
       status: "unresolved",
       providerError: "WhiteBIT response did not contain an address.",
     });
-    return { source: "whitebit" as const, address: null, memo: null, unresolved: true };
+    const usedFallback = await fallback("WhiteBIT response did not contain an address.");
+    return { source: "whitebit" as const, address: usedFallback ? input.manualAddress : null, memo: usedFallback ? input.manualMemo : null, unresolved: !usedFallback };
   }
    const saved = await finalizeClaimAndOrder(input.orderId, calling.id, {
      address: parsedAddress.address,
@@ -197,7 +247,10 @@ export async function provisionSwapFundingAddress(input: {
      status: "ready",
      providerError: null,
    });
-   if (!saved?.address) return { source: "whitebit" as const, address: null, memo: null, unresolved: true };
+   if (!saved?.address) {
+     await fallback("WhiteBIT address finalization was unavailable.");
+     return { source: "whitebit" as const, address: input.manualFallbackUsable ? input.manualAddress : null, memo: input.manualFallbackUsable ? input.manualMemo : null, unresolved: !input.manualFallbackUsable };
+   }
    return { source: "whitebit" as const, address: saved.address, memo: saved.memo ?? "", unresolved: false, confirmations: capability.requiredConfirmations };
 }
 
@@ -260,6 +313,7 @@ async function finalizeSwapFundingFromClaimTx(tx: WhitebitTransaction, orderId: 
     if (!order || order.type !== "manual" ||
       !["provisioning", "unresolved"].includes(order.fundingStatus) ||
       (order.fundingStatus === "unresolved" && order.fundingProviderSource !== "whitebit")) return order;
+    if (order.providerState === "whitebit_fallback" && order.fundingStatus === "ready_manual") return order;
     let [claim] = await tx.select().from(whitebitOrderAddressesTable)
       .where(eq(whitebitOrderAddressesTable.orderId, orderId)).limit(1);
     if (!claim && order.fundingProviderSource === "whitebit") {
@@ -293,15 +347,45 @@ async function finalizeSwapFundingFromClaimTx(tx: WhitebitTransaction, orderId: 
     const current = (order.fundingDetailsSnapshot ?? (order.settlementSnapshot as Record<string, unknown> | null)?.funding ?? {}) as Record<string, unknown>;
     const settlement = { ...((order.settlementSnapshot ?? {}) as Record<string, unknown>) };
     let funding: Record<string, unknown>;
-    let status: "ready_whitebit" | "unresolved";
+    let status: "ready_whitebit" | "ready_manual" | "unresolved";
     let source: "whitebit";
     if (claim.status === "ready" && claim.address) {
-      funding = { ...current, address: claim.address, memo: claim.memo ?? "", source: "whitebit", status: "ready" };
+      funding = {
+        ...current,
+        address: claim.address,
+        memo: claim.memo ?? "",
+        source: "whitebit",
+        selectedProvider: "whitebit",
+        addressSource: "live_api",
+        status: "ready",
+      };
       status = "ready_whitebit";
       source = "whitebit";
     } else {
-      funding = { ...current, address: "", memo: "", source: "whitebit", status: "unresolved" };
-      status = "unresolved";
+      const fallbackAddress = String(current.manualFallbackAddress ?? "");
+      const fallbackMemo = String(current.manualFallbackMemo ?? "");
+      const fallbackUsable = Boolean(fallbackAddress.trim()) &&
+        (!Boolean(current.requiresMemo) || Boolean(fallbackMemo.trim()));
+      funding = fallbackUsable
+        ? {
+            ...current,
+            address: fallbackAddress,
+            memo: fallbackMemo,
+            source: "whitebit",
+            selectedProvider: "whitebit",
+            addressSource: "manual_fallback",
+            status: "manual_fallback",
+          }
+        : {
+            ...current,
+            address: "",
+            memo: "",
+            source: "whitebit",
+            selectedProvider: "whitebit",
+            addressSource: "unavailable",
+            status: "unavailable",
+          };
+      status = fallbackUsable ? "ready_manual" : "unresolved";
       source = "whitebit";
     }
     settlement.funding = funding;
@@ -310,11 +394,11 @@ async function finalizeSwapFundingFromClaimTx(tx: WhitebitTransaction, orderId: 
       depositMemo: String(funding.memo ?? ""),
       fundingStatus: status,
       fundingProviderSource: source,
-      fundingProviderError: status === "unresolved" ? "WhiteBIT address provisioning requires operator recovery." : null,
+      fundingProviderError: status === "unresolved" ? "WhiteBIT address provisioning requires operator recovery." : claim.providerError,
       settlementSnapshot: settlement,
       fundingDetailsSnapshot: funding,
-      outcomeUnknown: status === "unresolved",
-      providerState: status === "unresolved" ? "whitebit_address_unresolved" : source,
+      outcomeUnknown: false,
+      providerState: status === "ready_manual" ? "whitebit_fallback" : status === "unresolved" ? "whitebit_address_unresolved" : source,
       updatedAt: new Date(),
     }).where(and(
       eq(ordersTable.id, orderId),
@@ -611,6 +695,78 @@ router.get("/account/balances", async (req, res): Promise<void> => {
 export default router;
 
 export const whitebitOperatorRouter: IRouter = Router();
+
+async function fetchWhitebitCatalog() {
+  const response = await fetch(`${api}/api/v4/public/assets`, { signal: AbortSignal.timeout(10_000) });
+  if (!response.ok) throw new ApiError("WHITEBIT_CATALOG_UNAVAILABLE", "WhiteBIT asset catalog is unavailable.", 502);
+  const catalog = parseWhitebitCatalogAssets(await response.json());
+  if (!catalog.length) throw new ApiError("WHITEBIT_CATALOG_INVALID", "WhiteBIT returned an invalid asset catalog.", 502);
+  return catalog;
+}
+
+whitebitOperatorRouter.get("/admin/whitebit/assets/preview", requireOperator, async (_req, res): Promise<void> => {
+  const catalog = await fetchWhitebitCatalog();
+  const existing = await db.select({ code: cryptoAssetsTable.code }).from(cryptoAssetsTable);
+  const mapped = await db.select({ ticker: whitebitAssetMappingsTable.normalizedTicker, providerTicker: whitebitAssetMappingsTable.providerTicker }).from(whitebitAssetMappingsTable);
+  const existingTickers = new Set([
+    ...existing.map((row) => row.code.trim().toUpperCase()),
+    ...mapped.flatMap((row) => [row.ticker.trim().toUpperCase(), row.providerTicker.trim().toUpperCase()]),
+  ]);
+  const missing = catalog.filter((asset) => !existingTickers.has(asset.normalizedTicker));
+  res.json({ total: catalog.length, alreadyExisting: catalog.length - missing.length, missing: missing.length, assets: missing });
+});
+
+whitebitOperatorRouter.post("/admin/whitebit/assets/import", requireOwner, async (req, res): Promise<void> => {
+  const selected: unknown[] = Array.isArray(req.body?.providerTickers) ? req.body.providerTickers : [];
+  if (!selected.length || selected.length > 128 || selected.some((x: unknown) => typeof x !== "string" || !/^[A-Z0-9]{2,16}$/.test(x))) {
+    throw new ApiError("VALIDATION_ERROR", "providerTickers must be 1–128 uppercase alphanumeric tickers.", 400);
+  }
+  const wanted = new Set((selected as string[]).map((ticker) => ticker.trim().toUpperCase()));
+  const catalog = (await fetchWhitebitCatalog()).filter((asset) => wanted.has(asset.normalizedTicker));
+  const catalogTickers = new Set(catalog.map((asset) => asset.normalizedTicker));
+  const imported: string[] = [];
+  const skipped: string[] = [...wanted].filter((ticker) => !catalogTickers.has(ticker));
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-asset-catalog-import'))`);
+    for (const asset of catalog) {
+      const existing = await tx.select({ id: cryptoAssetsTable.id, code: cryptoAssetsTable.code }).from(cryptoAssetsTable);
+      const mappings = await tx.select({ normalizedTicker: whitebitAssetMappingsTable.normalizedTicker, providerTicker: whitebitAssetMappingsTable.providerTicker }).from(whitebitAssetMappingsTable);
+      if (existing.some((row) => row.code.trim().toUpperCase() === asset.normalizedTicker) ||
+          mappings.some((row) => row.normalizedTicker.trim().toUpperCase() === asset.normalizedTicker || row.providerTicker.trim().toUpperCase() === asset.providerTicker.trim().toUpperCase())) { skipped.push(asset.normalizedTicker); continue; }
+      const base = `whitebit-${asset.normalizedTicker.toLowerCase()}`.replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 64);
+      const assetId = base || `whitebit-asset-${crypto.randomBytes(5).toString("hex")}`;
+      const [created] = await tx.insert(cryptoAssetsTable)
+        .values({ id: assetId, code: asset.normalizedTicker, name: asset.name, decimals: asset.precision, lifecycle: "active", enabled: false })
+        .onConflictDoNothing()
+        .returning({ id: cryptoAssetsTable.id });
+      if (!created) {
+        skipped.push(asset.normalizedTicker);
+        continue;
+      }
+      await tx.insert(whitebitAssetMappingsTable).values({
+        id: `${assetId}-mapping`, assetId, providerTicker: asset.providerTicker, normalizedTicker: asset.normalizedTicker,
+        providerName: asset.name, precision: asset.precision, metadata: asset.metadata,
+      });
+      for (const network of asset.networks) {
+        const networkId = `${assetId}-${network.providerNetwork.toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, Math.max(1, 81 - assetId.length - 1))}`;
+        await tx.insert(cryptoAssetNetworksTable).values({
+          id: networkId, assetId, networkCode: network.providerNetwork, networkName: network.providerNetwork,
+          decimals: asset.precision, executionMode: "api", lifecycle: "active", enabled: false,
+          depositProvider: "whitebit",
+          customerDepositsEnabled: false, requiresMemo: network.requiresMemo, requiredConfirmations: network.confirmations ?? 0,
+          sharedDepositAddress: "", sharedDepositMemo: null,
+        });
+        await tx.insert(whitebitNetworkMappingsTable).values({
+          id: `${networkId}-mapping`, assetNetworkId: networkId, providerNetwork: network.providerNetwork,
+          normalizedNetwork: network.providerNetwork.toUpperCase(), canDeposit: network.canDeposit, canWithdraw: network.canWithdraw,
+          metadata: network.metadata,
+        });
+      }
+      imported.push(asset.normalizedTicker);
+    }
+  });
+  res.status(201).json({ imported, skipped });
+});
 whitebitOperatorRouter.post("/admin/whitebit/reconcile", requireOwner, async (_req, res): Promise<void> => {
   const limit = 500;
   const maxPages = 100;
@@ -756,6 +912,20 @@ whitebitOperatorRouter.post("/admin/whitebit/recover-order-address", requireOwne
   const memo = typeof req.body?.memo === "string" ? req.body.memo : null;
   if (!id || !address) throw new ApiError("VALIDATION_ERROR", "Order address recovery requires the record id and confirmed provider address.", 400);
   const row = await db.transaction(async (tx) => {
+    const [existing] = await tx.select().from(whitebitOrderAddressesTable)
+      .where(eq(whitebitOrderAddressesTable.id, id)).limit(1);
+    if (!existing) throw new ApiError("WHITEBIT_ADDRESS_RECOVERY_INVALID", "Only an unresolved order address can be recovered.", 409);
+    const [order] = await tx.select({
+      fundingStatus: ordersTable.fundingStatus,
+      providerState: ordersTable.providerState,
+    }).from(ordersTable).where(eq(ordersTable.id, existing.orderId)).limit(1);
+    if (order?.fundingStatus === "ready_manual" && order.providerState === "whitebit_fallback") {
+      throw new ApiError(
+        "WHITEBIT_ORDER_ALREADY_FALLBACK",
+        "This order already exposed its manual fallback address and cannot switch deposit addresses.",
+        409,
+      );
+    }
     const [updated] = await tx.update(whitebitOrderAddressesTable).set({
       address, memo, status: "ready", providerError: null, updatedAt: new Date(),
     }).where(and(eq(whitebitOrderAddressesTable.id, id), eq(whitebitOrderAddressesTable.status, "unresolved"))).returning();
