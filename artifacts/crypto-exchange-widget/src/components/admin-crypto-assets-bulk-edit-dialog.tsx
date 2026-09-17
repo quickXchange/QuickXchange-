@@ -368,6 +368,9 @@ export function AdminCryptoAssetsBulkEditDialog({
                       <span className="text-sm font-semibold">Apply this change: Fallback Wallet Address</span>
                     </label>
                     <input aria-label="Fallback Wallet Address" type="text" placeholder="Shared wallet address" className="border border-border bg-background rounded-md text-sm px-3 py-2 disabled:opacity-50 w-full" disabled={!applyNetSharedAddress} value={netSharedAddress} onChange={e => setNetSharedAddress(e.target.value)} />
+                    <p className="text-[11px] text-muted-foreground">
+                      Kept as the final fallback when WhiteBIT cannot generate a deposit address.
+                    </p>
                   </div>
 
                   <div className="flex flex-col gap-2 md:col-span-2">

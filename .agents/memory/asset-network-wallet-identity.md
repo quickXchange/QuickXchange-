@@ -23,6 +23,12 @@ Bulk catalog edits must identify every affected asset-network row explicitly and
 
 **How to apply:** Expand compatible network selections to existing immutable row IDs, validate effective provider/deposit state before any write, and commit all requested changes in one transaction. WhiteBIT targets require the same mapped asset/network identity and live provider availability used by provisioning.
 
+Manual fallback address or memo edits on an already configured WhiteBIT route remain available during provider or capability outages. Strict WhiteBIT checks apply when assigning the provider or enabling deposits, not when maintaining fallback data.
+
+**Why:** The manual address is the final recovery path when provider address generation fails; requiring the provider to be healthy before saving that recovery data makes outages harder to resolve.
+
+**How to apply:** Preserve provider and deposit state for address-only edits. Runtime provisioning decides whether to use WhiteBIT or the saved manual fallback and must never clear the stored fallback on provider failure.
+
 Provider Policy options come from connected, enabled API integrations that have a registered deposit-address adapter. Integration credentials alone never make a rate, Convert, or unrelated provider selectable for Swap deposits.
 
 **Why:** Deposit-address APIs are provider-specific and carry irreversible idempotency and reconciliation requirements. Listing a connected integration without an implemented adapter would save a policy that cannot safely generate or attribute an address.

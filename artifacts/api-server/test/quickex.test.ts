@@ -3190,6 +3190,29 @@ test("owner crypto asset bulk edits are atomic and preserve omitted network sett
     assert.equal(networkAfterWhitebit.depositProvider, "whitebit");
 
     await db.update(cryptoAssetNetworksTable)
+      .set({ customerDepositsEnabled: true })
+      .where(eq(cryptoAssetNetworksTable.id, networkAId));
+    await db.delete(whitebitNetworkMappingsTable)
+      .where(eq(whitebitNetworkMappingsTable.assetNetworkId, networkAId));
+    const degradedWhitebitFallback = await apiJson(api.url, "/admin/crypto-assets/bulk/apply", {
+      edits: [{
+        assetId: assetAId,
+        networks: [{
+          networkId: networkAId,
+          sharedDepositAddress: "bulk-manual-fallback",
+          sharedDepositMemo: "bulk-manual-memo",
+        }],
+      }],
+    }, "POST", headers);
+    assert.equal(degradedWhitebitFallback.status, 200, JSON.stringify(degradedWhitebitFallback.body));
+    const [networkAfterFallback] = await db.select().from(cryptoAssetNetworksTable)
+      .where(eq(cryptoAssetNetworksTable.id, networkAId));
+    assert.equal(networkAfterFallback.depositProvider, "whitebit");
+    assert.equal(networkAfterFallback.customerDepositsEnabled, true);
+    assert.equal(networkAfterFallback.sharedDepositAddress, "bulk-manual-fallback");
+    assert.equal(networkAfterFallback.sharedDepositMemo, "bulk-manual-memo");
+
+    await db.update(cryptoAssetNetworksTable)
       .set({ sharedDepositMemo: "x".repeat(600) })
       .where(eq(cryptoAssetNetworksTable.id, networkAId));
     const invalidOutputRollback = await apiJson(api.url, "/admin/crypto-assets/bulk/apply", {

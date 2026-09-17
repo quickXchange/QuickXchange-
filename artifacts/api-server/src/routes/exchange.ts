@@ -3498,7 +3498,10 @@ router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, ne
             }
             if (
               effectiveProvider === "whitebit" &&
-              (effectiveDepositsEnabled || networkEdit.depositProvider === "whitebit")
+              (
+                networkEdit.depositProvider === "whitebit" ||
+                networkEdit.customerDepositsEnabled === true
+              )
             ) {
               const asset = assetById.get(edit.assetId)!;
               const assetMapping = whitebitAssetMappingById.get(edit.assetId);
