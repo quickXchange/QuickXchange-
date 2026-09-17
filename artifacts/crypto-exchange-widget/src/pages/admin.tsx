@@ -5630,8 +5630,17 @@ function AdminCurrencies() {
   const activeQuery = tab === 'currencies' ? currenciesQuery : tab === 'methods' ? methodsQuery : tab === 'assets' ? assetsQuery : networksQuery;
 
   const selectedCatalogIds = catalogSelected[tab];
+  const selectedCatalogIdsOnPage = paginatedData
+    .filter((item: any) => selectedCatalogIds.has(item.id))
+    .map((item: any) => item.id);
   const allVisibleCatalogSelected = paginatedData.length > 0
-    && paginatedData.every((item: any) => selectedCatalogIds.has(item.id));
+    && selectedCatalogIdsOnPage.length === paginatedData.length;
+
+  useEffect(() => {
+    setCatalogSelected(current => current[tab].size === 0
+      ? current
+      : { ...current, [tab]: new Set() });
+  }, [tab, search, filterRegion, filterStatus, filterLifecycle, page, pageSize]);
 
   const toggleCatalogItem = (section: typeof tab, id: string, checked: boolean) => {
     setCatalogSelected(current => {
@@ -5652,7 +5661,7 @@ function AdminCurrencies() {
   };
 
   const runCatalogAction = async (action: 'enable' | 'disable' | 'delete') => {
-    const ids = Array.from(selectedCatalogIds);
+    const ids = selectedCatalogIdsOnPage;
     if (!ids.length || catalogActionPending) return;
     if (action === 'delete' && !window.confirm(`Delete ${ids.length} selected ${tab === 'methods' ? 'payment methods' : tab}? This cannot be undone.`)) return;
 
@@ -6104,10 +6113,10 @@ function AdminCurrencies() {
             </button>
           </div>
 
-          {canManageCurrent && (selectedCatalogIds.size > 0 || catalogActionNotice) && (
+          {canManageCurrent && (selectedCatalogIdsOnPage.length > 0 || catalogActionNotice) && (
             <div className="catalog-bulk-actions flex items-center gap-4 p-4 border-b border-border bg-muted/40" data-testid={`catalog-bulk-actions-${tab}`}>
-              {selectedCatalogIds.size > 0 && <>
-                <span className="text-foreground text-sm"><strong>{selectedCatalogIds.size}</strong> {t('adminCatalog.selected')}</span>
+              {selectedCatalogIdsOnPage.length > 0 && <>
+                <span className="text-foreground text-sm"><strong>{selectedCatalogIdsOnPage.length}</strong> {t('adminCatalog.selected')}</span>
                 <div className="flex gap-2">
                   <button className="button button-secondary text-foreground" disabled={catalogActionPending} onClick={() => runCatalogAction('enable')}>{t('adminCatalog.active')}</button>
                   <button className="button button-secondary text-foreground" disabled={catalogActionPending} onClick={() => runCatalogAction('disable')}>{t('adminCatalog.disabled')}</button>
@@ -6910,11 +6919,12 @@ function AdminManualPricing() {
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const visibleRules = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const filteredIds = filtered.map(rule => rule.id);
-  const allFilteredSelected = filteredIds.length > 0 && filteredIds.every(id => selectedRuleIds.includes(id));
-  const someFilteredSelected = filteredIds.some(id => selectedRuleIds.includes(id));
+  const visibleRuleIds = visibleRules.map(rule => rule.id);
+  const allVisibleRulesSelected = visibleRuleIds.length > 0 && visibleRuleIds.every(id => selectedRuleIds.includes(id));
+  const someVisibleRulesSelected = visibleRuleIds.some(id => selectedRuleIds.includes(id));
 
   useEffect(() => setPage(1), [search, status]);
+  useEffect(() => setSelectedRuleIds([]), [search, status, page, pageSize]);
 
   useEffect(() => {
     if (!successMsg) return;
@@ -6932,7 +6942,7 @@ function AdminManualPricing() {
     });
   }, [pricingRules]);
 
-  const selectedRules = pricingRules.filter(r => selectedRuleIds.includes(r.id));
+  const selectedRules = visibleRules.filter(r => selectedRuleIds.includes(r.id));
   const anyReadOnlySelected = selectedRules.some(r => r.readOnly);
 
   const handleBulkActionSuccess = (data: ManualDeskPricingRulesBulkResponse, actionName: string) => {
@@ -7078,9 +7088,9 @@ function AdminManualPricing() {
           <select value={status} onChange={event => setStatus(event.target.value)} aria-label={t('adminPricing.filter_by_status')} data-testid="select-filter-pricing-status"><option value="all">{t('adminPricing.all_statuses')}</option><option value="true">{t('adminPricing.enabled')}</option><option value="false">{t('adminPricing.disabled')}</option></select>
           <button className="button button-primary pricing-add-rule" onClick={() => setDrawer('new')} data-testid="button-add-pricing-rule"><TrendingUp size={15} /> {t('adminPricing.add_pricing_rule')}</button>
         </div>
-         <div className={cn("bulk-actions-toolbar", selectedRuleIds.length > 0 && "visible")} data-testid="bulk-actions-toolbar">
+         <div className={cn("bulk-actions-toolbar", selectedRules.length > 0 && "visible")} data-testid="bulk-actions-toolbar">
            <div className="bulk-actions-inner">
-             <span className="bulk-actions-count" data-testid="bulk-actions-count"><Check size={14} /> {selectedRuleIds.length} selected</span>
+             <span className="bulk-actions-count" data-testid="bulk-actions-count"><Check size={14} /> {selectedRules.length} selected</span>
              <div className="bulk-actions-divider" />
              <button type="button" onClick={() => handleBulkToggle('enable')} disabled={anyReadOnlySelected || bulkAction.isPending} data-testid="button-bulk-enable" aria-label="Bulk enable"><Power size={14} /> Enable</button>
              <div className="bulk-actions-divider" />
@@ -7103,7 +7113,7 @@ function AdminManualPricing() {
               }
             }}>
               <table className="data-table pricing-table" data-testid="table-pricing-rules"><thead><tr>
-                <th className="pricing-select-column"><input type="checkbox" ref={el => { if (el) el.indeterminate = someFilteredSelected && !allFilteredSelected; }} checked={allFilteredSelected} onChange={() => { if (allFilteredSelected) setSelectedRuleIds(c => c.filter(id => !filteredIds.includes(id))); else setSelectedRuleIds(c => [...new Set([...c, ...filteredIds])]); }} aria-label="Select all filtered pricing rules" data-testid="checkbox-select-visible-pricing" /></th>
+                <th className="pricing-select-column"><input type="checkbox" ref={el => { if (el) el.indeterminate = someVisibleRulesSelected && !allVisibleRulesSelected; }} checked={allVisibleRulesSelected} onChange={() => { if (allVisibleRulesSelected) setSelectedRuleIds(c => c.filter(id => !visibleRuleIds.includes(id))); else setSelectedRuleIds(c => [...new Set([...c, ...visibleRuleIds])]); }} aria-label="Select all pricing rules on this page" data-testid="checkbox-select-visible-pricing" /></th>
                 <th>{t('adminPricing.rule')}</th><th>{t('adminPricing.route_2')}</th><th>{t('adminPricing.commission')}</th><th>{t('adminPricing.priority')}</th><th>{t('adminPricing.specificity')}</th><th>{t('adminPricing.status')}</th><th>{t('adminPricing.actions')}</th><th>{t('adminPricing.test')}</th>
               </tr></thead><tbody>{visibleRules.map(rule => {
                 const option = optionForRule(rule);
