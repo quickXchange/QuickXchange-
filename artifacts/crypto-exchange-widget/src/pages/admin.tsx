@@ -6895,6 +6895,7 @@ function AdminManualPricing() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
   const [selectedRuleIds, setSelectedRuleIds] = useState<string[]>([]);
   const [testRule, setTestRule] = useState<ManualDeskPricingRule | null>(null);
   const [error, setError] = useState('');
@@ -6906,7 +6907,6 @@ function AdminManualPricing() {
   const pricingRules = rules.data?.items || [];
   const diagnostics = rules.data?.diagnostics;
   const filtered = pricingRules.filter(rule => (status === 'all' || String(rule.enabled) === status) && (!search.trim() || `${rule.name} ${pricingSelectorLabel(rule, settlementOptions)}`.toLowerCase().includes(search.trim().toLowerCase())));
-  const pageSize = 10;
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const visibleRules = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -7121,7 +7121,32 @@ function AdminManualPricing() {
               })}</tbody></table>
             </div>
           </div>
-          <div className="pricing-pagination"><span>{t('adminPricing.showing')}{(currentPage - 1) * pageSize + 1} {t('adminPricing.to')}{Math.min(currentPage * pageSize, filtered.length)} {t('adminPricing.of')}{filtered.length} {t('adminPricing.rules')}</span><div><button onClick={() => setPage(value => Math.max(1, value - 1))} disabled={currentPage === 1} aria-label={t('adminPricing.previous_pricing_rules_page')} data-testid="button-pricing-page-prev">‹</button>{Array.from({ length: pageCount }, (_, index) => index + 1).map(value => <button key={value} className={cn(value === currentPage && 'active')} onClick={() => setPage(value)} data-testid={`button-pricing-page-${value}`}>{value}</button>)}<button onClick={() => setPage(value => Math.min(pageCount, value + 1))} disabled={currentPage === pageCount} aria-label={t('adminPricing.next_pricing_rules_page')} data-testid="button-pricing-page-next">›</button></div></div>
+          <div className="pricing-pagination">
+            <span className="pricing-pagination-range" data-testid="pricing-pagination-range">
+              {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filtered.length)} of {filtered.length}
+            </span>
+            <div className="pricing-pagination-controls">
+              <label className="pricing-page-size">
+                <span>Per page</span>
+                <select
+                  value={pageSize}
+                  onChange={event => {
+                    setPageSize(Number(event.target.value));
+                    setPage(1);
+                  }}
+                  aria-label="Pricing rules per page"
+                  data-testid="select-pricing-page-size"
+                >
+                  {[15, 25, 50, 100].map(value => <option key={value} value={value}>{value} per page</option>)}
+                </select>
+              </label>
+              <div className="pricing-page-navigation">
+                <button onClick={() => setPage(value => Math.max(1, value - 1))} disabled={currentPage === 1} aria-label={t('adminPricing.previous_pricing_rules_page')} data-testid="button-pricing-page-prev">‹</button>
+                {Array.from({ length: pageCount }, (_, index) => index + 1).map(value => <button key={value} className={cn(value === currentPage && 'active')} onClick={() => setPage(value)} data-testid={`button-pricing-page-${value}`}>{value}</button>)}
+                <button onClick={() => setPage(value => Math.min(pageCount, value + 1))} disabled={currentPage === pageCount} aria-label={t('adminPricing.next_pricing_rules_page')} data-testid="button-pricing-page-next">›</button>
+              </div>
+            </div>
+          </div>
         </>}
       </div>
     </div>
