@@ -20115,13 +20115,6 @@ html:not(.dark) .public-shell .exchange-card.swap-widget-flow .swap-contained-se
   height: 40px !important;
 }
 
-.public-shell .exchange-card.swap-widget-step-2 .swap-step2-party-icon .swap-route-network-badge {
-  right: -7px;
-  bottom: -3px;
-  max-width: 66px;
-  font-size: 8px;
-}
-
 .public-shell .exchange-card.swap-widget-step-2 .swap-step2-party > strong {
   width: 100%;
   overflow: hidden;
@@ -20149,6 +20142,12 @@ html:not(.dark) .public-shell .exchange-card.swap-widget-flow .swap-contained-se
   line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.public-shell .exchange-card.swap-widget-step-2 .crypto-network-badge.swap-step2-party-badge {
+  position: static;
+  justify-content: center;
+  margin-inline: auto;
 }
 
 .public-shell .exchange-card.swap-widget-step-2 .swap-step2-party-badge .fiat-currency-flag {
@@ -21143,14 +21142,24 @@ html:not(.dark) .public-shell .exchange-card.swap-widget-step-2 .swap-step2-fiel
 }
 .oc-summary-asset .crypto-identity {
   max-width: 100%;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
   margin-bottom: 8px;
+}
+.oc-summary-asset .crypto-identity-copy {
+  align-items: center;
+  text-align: center;
 }
 .oc-summary-asset .crypto-identity-name {
   display: none;
 }
 .oc-summary-asset .crypto-identity-primary {
   min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
 }
 .oc-summary-asset .crypto-identity-primary strong {
   flex: 0 0 auto;

@@ -822,21 +822,12 @@ function SwapRouteRecapIcon({
       option.kind === 'fiat-payment-method' && 'swap-payment-method-icon',
     )}>
       {option.kind === 'crypto-network' ? (
-        <>
-          <CryptoLogo
-            symbol={option.assetCode}
-            logoUrl={option.logoUrl}
-            logoFallbackUrls={cryptoLogoFallbackUrls(option.assetCode, officialCryptoBySymbol)}
-            size="lg"
-          />
-          <span className="swap-route-network-badge">
-            <CryptoNetworkBadge
-              network={settlementRouteName(option)}
-              assetSymbol={option.assetCode}
-              networkLogoUrl={(option as SettlementOption & { networkLogoUrl?: string | null }).networkLogoUrl}
-            />
-          </span>
-        </>
+        <CryptoLogo
+          symbol={option.assetCode}
+          logoUrl={option.logoUrl}
+          logoFallbackUrls={cryptoLogoFallbackUrls(option.assetCode, officialCryptoBySymbol)}
+          size="lg"
+        />
       ) : (
         <>
           <PaymentMethodLogo
@@ -1590,9 +1581,16 @@ export function ManualSwapWidget({
                         <SwapRouteRecapIcon option={fromOption} officialCryptoBySymbol={officialCryptoBySymbol} />
                       </span>
                       <strong>{fromOption.kind === 'crypto-network' ? fromOption.assetCode : fromOption.title}</strong>
-                      <span className="swap-step2-party-badge">
-                        {fromOption.kind === 'crypto-network' ? settlementRouteName(fromOption) : fromOption.assetCode}
-                      </span>
+                      {fromOption.kind === 'crypto-network' ? (
+                        <CryptoNetworkBadge
+                          className="swap-step2-party-badge"
+                          network={settlementRouteName(fromOption)}
+                          assetSymbol={fromOption.assetCode}
+                          networkLogoUrl={(fromOption as SettlementOption & { networkLogoUrl?: string | null }).networkLogoUrl}
+                        />
+                      ) : (
+                        <span className="swap-step2-party-badge">{fromOption.assetCode}</span>
+                      )}
                     </div>
                   )}
 
@@ -1606,14 +1604,19 @@ export function ManualSwapWidget({
                         <SwapRouteRecapIcon option={toOption} officialCryptoBySymbol={officialCryptoBySymbol} />
                       </span>
                       <strong>{toOption.kind === 'crypto-network' ? toOption.assetCode : toOption.title}</strong>
-                      <span className="swap-step2-party-badge">
-                        {toOption.kind === 'crypto-network' ? settlementRouteName(toOption) : (
-                          <>
-                            <FiatCurrencyFlag code={toOption.assetCode} flagUrl={(toOption as SettlementOption & { flagUrl?: string | null }).flagUrl} size="sm" />
-                            {toOption.assetCode}
-                          </>
-                        )}
-                      </span>
+                      {toOption.kind === 'crypto-network' ? (
+                        <CryptoNetworkBadge
+                          className="swap-step2-party-badge"
+                          network={settlementRouteName(toOption)}
+                          assetSymbol={toOption.assetCode}
+                          networkLogoUrl={(toOption as SettlementOption & { networkLogoUrl?: string | null }).networkLogoUrl}
+                        />
+                      ) : (
+                        <span className="swap-step2-party-badge">
+                          <FiatCurrencyFlag code={toOption.assetCode} flagUrl={(toOption as SettlementOption & { flagUrl?: string | null }).flagUrl} size="sm" />
+                          {toOption.assetCode}
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
