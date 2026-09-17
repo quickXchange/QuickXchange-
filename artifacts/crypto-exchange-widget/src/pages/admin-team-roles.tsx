@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  MoreHorizontal, Plus, Trash2, Edit2, Shield
+  MoreHorizontal, Plus, Trash2, Edit2, Shield, Check, Pencil
 } from 'lucide-react';
 import {
   useListTeamRoles,
@@ -24,11 +24,59 @@ import { useForm, Controller } from 'react-hook-form';
 export function RolesList({ auth }: { auth: AdminAuthorization }) {
   const { data: roles, isLoading, error } = useListTeamRoles();
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingRole, setEditingRole] = useState<TeamRole | null>(null);
+  const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(() => new Set());
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
+  const queryClient = useQueryClient();
+  const deleteRole = useDeleteTeamRole();
 
   const canCreate = auth.owner;
 
+  useEffect(() => {
+    setSelectedRoleIds(new Set());
+  }, [page, pageSize]);
+
   if (isLoading) return <LoadingBlock />;
   if (error || !roles) return <ErrorState message="Could not load roles" />;
+
+  const pageCount = Math.max(1, Math.ceil(roles.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const visibleRoles = roles.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const selectedRoles = visibleRoles.filter(role => selectedRoleIds.has(role.id));
+  const allVisibleSelected = visibleRoles.length > 0 && selectedRoles.length === visibleRoles.length;
+  const someVisibleSelected = selectedRoles.length > 0;
+  const selectedRoleInUse = selectedRoles.some(role => role.usageCount > 0);
+  const visiblePageItems = (() => {
+    if (pageCount <= 7) return Array.from({ length: pageCount }, (_, index) => index + 1);
+    const pages = new Set([1, pageCount, currentPage - 1, currentPage, currentPage + 1]);
+    const ordered = Array.from(pages).filter(value => value >= 1 && value <= pageCount).sort((a, b) => a - b);
+    const items: Array<number | string> = [];
+    ordered.forEach((value, index) => {
+      if (index > 0 && value - ordered[index - 1] > 1) items.push(`ellipsis-${value}`);
+      items.push(value);
+    });
+    return items;
+  })();
+
+  const handleBulkDelete = async () => {
+    if (!selectedRoles.length || selectedRoleInUse) return;
+    if (!confirm(`Delete ${selectedRoles.length} selected role${selectedRoles.length === 1 ? '' : 's'}?`)) return;
+    let failed = 0;
+    for (const role of selectedRoles) {
+      try {
+        await deleteRole.mutateAsync({ id: role.id });
+      } catch {
+        failed += 1;
+      }
+    }
+    setSelectedRoleIds(new Set());
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: getListTeamRolesQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: getListTeamMembersQueryKey() }),
+    ]);
+    if (failed) alert(`${failed} selected role${failed === 1 ? '' : 's'} could not be deleted.`);
+  };
 
   return (
     <div className="panel p-0 flex flex-col">
@@ -40,10 +88,30 @@ export function RolesList({ auth }: { auth: AdminAuthorization }) {
           </Button>
         )}
       </div>
+      {someVisibleSelected && <div className="bulk-actions-toolbar visible admin-list-bulk-toolbar team-members-bulk-toolbar" data-testid="team-roles-bulk-actions">
+        <div className="bulk-actions-inner">
+          <span className="bulk-actions-count" data-testid="team-roles-bulk-count"><Check size={14} /> {selectedRoles.length} selected</span>
+          <div className="bulk-actions-divider" />
+          <button type="button" onClick={() => setEditingRole(selectedRoles[0])} disabled={deleteRole.isPending || selectedRoles.length !== 1}><Pencil size={14} /> Edit</button>
+          <div className="bulk-actions-divider" />
+          <button type="button" className="bulk-actions-delete" onClick={handleBulkDelete} disabled={deleteRole.isPending || selectedRoleInUse} title={selectedRoleInUse ? 'Roles assigned to members cannot be deleted.' : undefined}><Trash2 size={14} /> Delete</button>
+        </div>
+      </div>}
       <div className="table-wrap">
         <table className="admin-table w-full text-left text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/20">
+              <th className="px-3 py-3 w-10 text-center">
+                <input
+                  type="checkbox"
+                  ref={element => { if (element) element.indeterminate = someVisibleSelected && !allVisibleSelected; }}
+                  checked={allVisibleSelected}
+                  onChange={() => setSelectedRoleIds(allVisibleSelected ? new Set() : new Set(visibleRoles.map(role => role.id)))}
+                  disabled={!auth.owner}
+                  aria-label="Select all roles on this page"
+                  data-testid="checkbox-select-all-team-roles"
+                />
+              </th>
               <th className="px-6 py-3 font-medium text-muted-foreground w-1/3">Role Name</th>
               <th className="px-6 py-3 font-medium text-muted-foreground">Permissions</th>
               <th className="px-6 py-3 font-medium text-muted-foreground">Usage</th>
@@ -51,12 +119,16 @@ export function RolesList({ auth }: { auth: AdminAuthorization }) {
             </tr>
           </thead>
           <tbody>
-            {roles.map(role => (
-              <RoleRow key={role.id} role={role} auth={auth} />
+            {visibleRoles.map(role => (
+              <RoleRow key={role.id} role={role} auth={auth} selected={selectedRoleIds.has(role.id)} onToggleSelected={() => setSelectedRoleIds(current => {
+                const next = new Set(current);
+                next.has(role.id) ? next.delete(role.id) : next.add(role.id);
+                return next;
+              })} />
             ))}
-            {roles.length === 0 && (
+            {visibleRoles.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-6 py-8 text-center text-muted-foreground">
+                <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
                   No roles defined.
                 </td>
               </tr>
@@ -64,13 +136,27 @@ export function RolesList({ auth }: { auth: AdminAuthorization }) {
           </tbody>
         </table>
       </div>
+      {roles.length > 0 && <div className="pricing-pagination team-roles-pagination">
+        <span className="pricing-pagination-range">{(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, roles.length)} of {roles.length}</span>
+        <div className="pricing-pagination-controls">
+          <div className="pricing-page-navigation">
+            <button type="button" onClick={() => setPage(value => Math.max(1, value - 1))} disabled={currentPage === 1} aria-label="Previous roles page">‹</button>
+            {visiblePageItems.map(item => typeof item === 'number'
+              ? <button type="button" key={item} className={cn(item === currentPage && 'active')} onClick={() => setPage(item)}>{item}</button>
+              : <span key={item} className="pricing-pagination-ellipsis" aria-hidden="true">…</span>)}
+            <button type="button" onClick={() => setPage(value => Math.min(pageCount, value + 1))} disabled={currentPage === pageCount} aria-label="Next roles page">›</button>
+          </div>
+          <label className="pricing-page-size"><span>Per page</span><select value={pageSize} onChange={event => { setPageSize(Number(event.target.value)); setPage(1); }} aria-label="Roles per page">{[15, 25, 50, 100].map(value => <option key={value} value={value}>{value} per page</option>)}</select></label>
+        </div>
+      </div>}
       
       {createOpen && <RoleFormDialog open={createOpen} onOpenChange={setCreateOpen} auth={auth} mode="create" />}
+      {editingRole && <RoleFormDialog open={Boolean(editingRole)} onOpenChange={open => { if (!open) setEditingRole(null); }} auth={auth} role={editingRole} mode="edit" />}
     </div>
   );
 }
 
-function RoleRow({ role, auth }: { role: TeamRole; auth: AdminAuthorization }) {
+function RoleRow({ role, auth, selected, onToggleSelected }: { role: TeamRole; auth: AdminAuthorization; selected: boolean; onToggleSelected: () => void }) {
   const queryClient = useQueryClient();
   const deleteRole = useDeleteTeamRole();
   const [editOpen, setEditOpen] = useState(false);
@@ -97,7 +183,10 @@ function RoleRow({ role, auth }: { role: TeamRole; auth: AdminAuthorization }) {
 
   return (
     <>
-      <tr className="border-b border-border/50 hover:bg-muted/10 transition-colors">
+      <tr className={cn("border-b border-border/50 hover:bg-muted/10 transition-colors", selected && "bg-primary/5 hover:bg-primary/10")}>
+        <td className="px-3 py-3 text-center">
+          <input type="checkbox" checked={selected} onChange={onToggleSelected} disabled={!auth.owner} aria-label={`Select ${role.name}`} />
+        </td>
         <td className="px-6 py-3">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
