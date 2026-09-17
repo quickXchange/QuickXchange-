@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { publishedSiteContentStub } from '../artifacts/crypto-exchange-widget/test/site-content-stub';
 
 const accountId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const payoutId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
@@ -78,6 +79,17 @@ async function mockAffiliateApis(page: Page, dashboardOverrides: Partial<typeof 
       status = 204;
       body = null;
     }
+    else if (path === '/api/site-content') body = publishedSiteContentStub;
+    else if (path === '/api/site-navigation') body = [];
+    else if (path === '/api/admin/authorization') body = {
+      member: { id: 'operator-e2e', email: 'operator@example.test', role: 'owner', status: 'active' },
+      owner: true,
+      effectivePermissions: [],
+      catalog: [],
+    };
+    else if (path === '/api/admin/operators') body = [
+      { id: 'operator-e2e', email: 'operator@example.test', role: 'owner', status: 'active' },
+    ];
     else if (path === '/api/account/affiliate/attribution') body = { status: 'no_referral' };
     else if (path === '/api/account/affiliate') body = { ...dashboard, ...dashboardOverrides };
     else if (path === '/api/admin/summary') {
@@ -101,13 +113,24 @@ async function mockAffiliateApis(page: Page, dashboardOverrides: Partial<typeof 
         recentActivity: [],
         valuation: { observedAt: createdAt, status: 'complete', valuedOrders: 0, totalOrders: 0, unavailableCurrencies: [] },
         operationalHealth: {
-          providerFreshness: { state: 'healthy', syncing: false },
-          catalog: { stale: false, ageMs: null },
+          providerFreshness: { state: 'healthy', syncing: false, lastSucceededAt: createdAt },
+          quickexReconciliation: {
+            state: 'healthy',
+            consecutiveFailures: 0,
+            freshnessMs: 1000,
+            lastStartedAt: createdAt,
+            lastSucceededAt: createdAt,
+            lastFailedAt: null,
+            nextRetryAt: null,
+          },
+          catalog: { stale: false, ageMs: null, lastFailureAt: null },
           unresolvedOrders: 0,
           notificationsPending: 0,
           notificationsFailed: 0,
           oldestPendingNotificationAt: null,
         },
+        owner: true,
+        effectivePermissions: [],
       };
     }
     else if (path === '/api/account/affiliate/commissions') body = [commission];
@@ -319,6 +342,8 @@ test('signed-in customers see exact, privacy-safe affiliate history and submit o
 });
 
 test('operators navigate affiliate directory, ledger, and mocked payout transitions', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockAffiliateApis(page);
   const transitionRequests: unknown[] = [];
   await page.route(`**/api/admin/affiliate/payouts/${payoutId}`, async (route) => {
     const transition = route.request().postDataJSON();
@@ -329,7 +354,7 @@ test('operators navigate affiliate directory, ledger, and mocked payout transiti
 
   await page.goto('/admin/affiliates');
   await expect(page.getByTestId('stat-affiliates')).toHaveText('2');
-  await expect(page.locator('.admin-sidebar')).toHaveCount(0);
+  await expect(page.locator('.admin-sidebar')).toBeHidden();
   await page.getByTestId('button-admin-mobile-menu').click();
   await expect(page.getByTestId('link-mobile-admin-affiliates')).toBeVisible();
   await expect(page.getByTestId('link-mobile-admin-payouts')).toBeVisible();
@@ -373,6 +398,7 @@ test('operators navigate affiliate directory, ledger, and mocked payout transiti
 });
 
 test('operators submit valuation and settings forms to mocked affiliate APIs', async ({ page }) => {
+  await mockAffiliateApis(page);
   let settingsRequest: unknown;
   let valuationRequest: unknown;
   await page.route('**/api/admin/affiliate/settings', async (route) => {
@@ -389,7 +415,7 @@ test('operators submit valuation and settings forms to mocked affiliate APIs', a
   });
 
   await page.goto('/admin/affiliate-settings');
-  await page.getByTestId('button-theme-dark').click();
+  await page.getByRole('button', { name: 'Dark', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Valuation Review Queue' })).toBeVisible();
   const queueSearch = page.getByTestId('input-queue-search');
   await expect(queueSearch).toHaveAttribute('type', 'search');

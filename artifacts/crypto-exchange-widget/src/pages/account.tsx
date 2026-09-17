@@ -1039,6 +1039,9 @@ function CustomerOrderView({ order }: { order: CustomerOrder }) {
 
   return (
     <div className="customer-order-detail-page w-full" data-testid="customer-order-detail">
+      <div className="mb-4">
+        <StatusPill status={order.status} customerFacing />
+      </div>
       <div className="mb-8">
         <OrderProgress stages={stages} />
       </div>

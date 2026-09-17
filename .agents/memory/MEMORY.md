@@ -91,3 +91,4 @@
 - [Newsletter delivery integrity](newsletter-delivery-integrity.md) — publish enqueue is atomic, unsubscribe is terminal, and Read More links are parser-checked.
 - [WhiteBIT deposit integrity](whitebit-deposit-integrity.md) — alias all stable provider IDs, freeze credited economics, and reconcile within the provider’s bounded history window.
 - [Shared DB test isolation](shared-db-test-isolation.md) — privileged integration tests use development storage; never drop or truncate public tables.
+- [Provider lifecycle test isolation](provider-lifecycle-test-isolation.md) — expire every cache layer and restore disabled provider settings around lifecycle tests.

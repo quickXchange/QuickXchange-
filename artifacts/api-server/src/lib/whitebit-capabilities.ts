@@ -32,6 +32,10 @@ export function parseWhitebitAssets(value: unknown): WhitebitAssetCapability[] |
     const networks = asset.networks;
     if (!networks || typeof networks !== "object" || Array.isArray(networks)) return null;
     const deposits = (networks as Record<string, unknown>).deposits;
+    // WhiteBIT can temporarily report can_deposit=true with no deposit
+    // networks. Exclude that asset rather than invalidating every healthy
+    // capability; malformed populated network lists still fail closed.
+    if (deposits === undefined) continue;
     if (!Array.isArray(deposits) || deposits.some((network) => typeof network !== "string" || !network.trim())) return null;
     const confirmationsRaw = asset.confirmations;
     if (confirmationsRaw !== undefined && (!confirmationsRaw || typeof confirmationsRaw !== "object" || Array.isArray(confirmationsRaw))) return null;

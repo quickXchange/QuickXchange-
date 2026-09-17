@@ -101,6 +101,7 @@ async function seedOperator(role: "owner" | "operator", userId: string) {
     clerkUserId: userId,
     role,
     status: "active",
+    permissionAllows: role === "operator" ? ["site_settings.view"] : [],
   }).returning();
   operatorIds.add(operator.id);
   return operator;
@@ -161,7 +162,7 @@ test("byte validation fully decodes bounded PNG, JPEG, and WebP payloads", async
 
 test("payment-method logo validation accepts safe SVG and rejects active or mismatched content", async () => {
   const safeSvg = Buffer.from(
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><style>.mark{fill:#2563eb}</style><circle class="mark" cx="16" cy="16" r="15"/></svg>',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle fill="#2563eb" cx="16" cy="16" r="15"/></svg>',
   );
   await validatePaymentMethodLogoImage("image/svg+xml", safeSvg);
   await validatePaymentMethodLogoImage("image/png", validPng);

@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
+import { publishedSiteContentStub } from '../artifacts/crypto-exchange-widget/test/site-content-stub';
 
 type Role = 'owner' | 'operator';
 type Placement = { x: number; y: number; zoom: number; opacity: number; blur: number };
@@ -165,8 +166,21 @@ test('landing artwork stays editable while the live exchange remains clean', asy
       return json(route, live, 201);
     }
     if (path === '/api/exchange/config') return json(route, exchangeConfig);
+    if (path === '/api/site-content') return json(route, publishedSiteContentStub);
+    if (path === '/api/site-navigation') return json(route, []);
+    if (path === '/api/admin/authorization') return json(route, {
+      member: { id: 'landing-owner-e2e', email: 'owner@example.test', role: 'owner', status: 'active' },
+      owner: true,
+      effectivePermissions: [],
+      catalog: [],
+    });
     if (path === '/api/quickex/config') return json(route, quickexConfig);
-    if (path === '/api/admin/summary') return json(route, { operationalHealth: {}, recentActivity: [] });
+    if (path === '/api/admin/summary') return json(route, {
+      operationalHealth: {},
+      recentActivity: [],
+      owner: true,
+      effectivePermissions: [],
+    });
     if (path === '/api/customer/orders') return json(route, { items: [], total: 0, page: 1, pageSize: 10 });
     return json(route, {});
   });

@@ -611,7 +611,7 @@
   justify-content: center;
   color: hsl(var(--muted-foreground));
   transition: all 0.2s ease;
-  background: hsl(var(--card));
+  background: rgb(10 21 38);
   border: 1px solid hsl(var(--border));
 }
 
@@ -642,7 +642,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  background: hsl(var(--card));
+  background: rgb(10 21 38) !important;
   padding: 6px 12px 6px 6px;
   border-radius: 99px;
   border: 1px solid hsl(var(--border));
@@ -11649,7 +11649,7 @@
   align-items: center;
 }
 
-.admin-search-field input.admin-search-input {
+.admin-shell.admin-redesign .admin-search-field input.admin-search-input {
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
@@ -11661,7 +11661,7 @@
   border: 1px solid rgb(81 103 132 / 0.42);
   border-radius: 12px;
   outline: none;
-  background: hsl(var(--card));
+  background: rgb(10 21 38) !important;
   box-shadow: none;
   color: hsl(var(--foreground));
   font-family: inherit;
@@ -11673,13 +11673,13 @@
   appearance: none;
 }
 
-.admin-search-field input.admin-search-input::placeholder {
+.admin-shell.admin-redesign .admin-search-field input.admin-search-input::placeholder {
   color: hsl(var(--muted-foreground));
   opacity: 1;
 }
 
-.admin-search-field input.admin-search-input:focus,
-.admin-search-field[data-focused="true"] input.admin-search-input {
+.admin-shell.admin-redesign .admin-search-field input.admin-search-input:focus,
+.admin-shell.admin-redesign .admin-search-field[data-focused="true"] input.admin-search-input {
   border-color: #087bff;
   outline: none;
   background: hsl(var(--muted));
@@ -14093,8 +14093,8 @@
   }
 
   .admin-shell.admin-redesign .admin-orders-page .redesigned-orders-table :is(th, td).selection-column {
-    position: sticky;
-    left: 0;
+    position: static;
+    left: auto;
     z-index: 5;
     display: table-cell;
     width: 42px;
@@ -14110,13 +14110,13 @@
   }
 
   .admin-shell.admin-redesign .admin-orders-page .redesigned-orders-table :is(th:nth-child(2), td.order-exchange-cell:nth-child(2)) {
-    position: sticky;
-    left: 42px;
+    position: static;
+    left: auto;
     z-index: 4;
     width: 136px;
     min-width: 136px;
     background: hsl(var(--card));
-    box-shadow: 8px 0 12px -12px rgb(15 23 42 / 0.7);
+    box-shadow: none;
   }
 
   .admin-shell.admin-redesign .admin-orders-page .redesigned-orders-table thead th:nth-child(2) {

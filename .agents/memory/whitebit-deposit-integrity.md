@@ -14,3 +14,9 @@ Manual Swap funding addresses use an order-scoped claim, not the customer deposi
 **Why:** Process-local locks do not protect autoscaled instances. A replay racing an irreversible address request can otherwise trigger a second call, expose a fallback address, or mark the order unresolved while a successful provider response is still in flight.
 
 **How to apply:** Serialize order identity with a PostgreSQL advisory transaction lock, atomically move the unique claim from `claiming` to `calling`, let only that updater call WhiteBIT, and update the claim plus all order funding snapshots in one transaction.
+
+WhiteBIT’s public asset catalog can mark an asset deposit-enabled while omitting its deposit-network list. Exclude only that asset; continue to reject malformed populated lists and require an exact advertised asset/network match.
+
+**Why:** Invalidating the entire catalog for one internally inconsistent asset disables every healthy route, while inferring networks from unrelated fields could authorize an unsupported address request.
+
+**How to apply:** Treat a missing deposit-network list as no executable capability for that asset, but fail the catalog closed when a provided list has the wrong type or invalid entries.

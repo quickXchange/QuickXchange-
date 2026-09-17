@@ -151,6 +151,12 @@ before(async (t) => {
   });
   const [operator] = await database.db.insert(database.operatorsTable).values({
     clerkUserId: operatorUser, email: `${operatorUser}@example.test`, role: "operator", status: "active",
+    permissionAllows: [
+      "site_settings.view",
+      "site_settings.manage",
+      "social_media.view",
+      "social_media.manage",
+    ],
   }).returning();
   const [owner] = await database.db.insert(database.operatorsTable).values({
     clerkUserId: ownerUser, email: `${ownerUser}@example.test`, role: "owner", status: "active",

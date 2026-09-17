@@ -44,6 +44,20 @@ test('owners can validate and integrate Quickex without exposing saved credentia
       }),
     });
   });
+  await page.route('**/api/admin/providers/whitebit**', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      provider: 'whitebit',
+      enabled: false,
+      explicitDisabled: true,
+      credentialsReady: false,
+      state: 'disabled',
+      lastCapabilitySyncAt: null,
+      matchedRouteCount: 0,
+      webhookReady: false,
+    }),
+  }));
 
   await page.route('**/api/quickex/admin/credentials/test', async (route) => {
     diagnosticsRuns += 1;
@@ -133,6 +147,23 @@ test('provider summary stays unknown when integration status cannot be loaded', 
 });
 
 test('provider health treats a missing legacy API key as not required when signing keys are active', async ({ page }) => {
+  await page.route('**/api/admin/operators**', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify([
+      { id: 'operator-e2e', email: 'operator@example.test', role: 'owner', status: 'active' },
+    ]),
+  }));
+  await page.route('**/api/admin/authorization', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      member: { id: 'operator-e2e', email: 'operator@example.test', role: 'owner', status: 'active' },
+      owner: true,
+      effectivePermissions: [],
+      catalog: [],
+    }),
+  }));
   await page.route(/\/api\/admin\/summary(?:\?|$)/, async (route) => {
     await route.fulfill({
       status: 200,
@@ -163,8 +194,21 @@ test('provider health treats a missing legacy API key as not required when signi
           unavailableCurrencies: [],
         },
         operationalHealth: {
-          providerFreshness: { state: 'healthy', syncing: false },
-          catalog: { stale: false },
+          providerFreshness: {
+            state: 'healthy',
+            syncing: false,
+            lastSucceededAt: '2025-06-30T12:00:00.000Z',
+          },
+          quickexReconciliation: {
+            state: 'healthy',
+            consecutiveFailures: 0,
+            freshnessMs: 1000,
+            lastStartedAt: '2025-06-30T12:00:00.000Z',
+            lastSucceededAt: '2025-06-30T12:00:00.000Z',
+            lastFailedAt: null,
+            nextRetryAt: null,
+          },
+          catalog: { stale: false, ageMs: null, lastFailureAt: null },
           unresolvedOrders: 0,
           notificationsPending: 0,
           notificationsFailed: 0,
@@ -211,7 +255,7 @@ test('provider health treats a missing legacy API key as not required when signi
   await expect(page.getByRole('heading', { name: 'Providers' })).toBeVisible();
   await expect(page.getByText('Legacy API Key')).toBeVisible();
   await expect(page.getByText('Not required', { exact: true })).toBeVisible();
-  await expect(page.getByText('Missing', { exact: true })).toHaveCount(0);
+  await expect(page.locator('.providers-panel').first().getByText('Missing', { exact: true })).toHaveCount(0);
   await expect(page.getByTestId('warning-provider-reconciliation')).toContainText('2 consecutive failures');
   await expect(page.getByTestId('warning-provider-reconciliation')).toContainText('affiliate completion or reversal credits may be delayed');
 });

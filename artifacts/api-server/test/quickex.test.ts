@@ -2091,6 +2091,7 @@ async function instantQuote(url: string, rateMode: "FLOATING" | "FIXED" = "FLOAT
 test("Quickex namespace owns signed quotes, orders, tracking, and idempotency", async () => {
   reset();
   const api = await startApi();
+  const { resetQuickexOrderSnapshotForTests } = await import("../src/lib/quickex-order-service");
   const { cryptoAssetNetworksTable, db, providerSyncStatesTable, quickexOrdersTable, ordersTable } = await import("@workspace/db");
   const originals = await db.select().from(cryptoAssetNetworksTable)
     .where(inArray(cryptoAssetNetworksTable.id, ["btc-bitcoin", "usdt-trc20"]));
@@ -2204,6 +2205,10 @@ test("Quickex namespace owns signed quotes, orders, tracking, and idempotency", 
     const pendingStatusBody = await pendingStatus.json() as Record<string, unknown>;
     assertDecimalEqual(pendingStatusBody.receiveAmount, "99.5");
     assert.equal(pendingStatusBody.providerPaidAmount ?? null, null);
+    await db.update(providerSyncStatesTable).set({
+      nextAttemptAt: new Date(Date.now() - 1),
+    }).where(eq(providerSyncStatesTable.provider, "quickex-order-reconciliation"));
+    resetQuickexOrderSnapshotForTests();
 
     providerOrders = [order({
       orderId: 800,

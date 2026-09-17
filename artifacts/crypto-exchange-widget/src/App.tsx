@@ -1585,6 +1585,26 @@ export function AdminShell({ children, title, eyebrow, action, subtitle, titleIc
   const adminHeaderRef = useRef<HTMLElement>(null);
   const [mobileProfileStyle, setMobileProfileStyle] = useState<CSSProperties>();
 
+  useEffect(() => {
+    const updateScrollHint = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      let owner: HTMLElement | null = target;
+      while (owner) {
+        const hint = owner.previousElementSibling;
+        if (hint instanceof HTMLElement && hint.classList.contains('swipeable-scroll-hint')) {
+          const hidden = target.scrollLeft > 10;
+          hint.style.opacity = hidden ? '0' : '1';
+          hint.style.pointerEvents = hidden ? 'none' : 'auto';
+          return;
+        }
+        owner = owner.parentElement;
+      }
+    };
+    document.addEventListener('scroll', updateScrollHint, true);
+    return () => document.removeEventListener('scroll', updateScrollHint, true);
+  }, []);
+
   const isDark = useAppTheme();
   const toggleTheme = (nextIsDark: boolean) => {
     setAppTheme(nextIsDark);

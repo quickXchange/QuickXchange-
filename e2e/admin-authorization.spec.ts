@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 
 const adminSummary = {
+  owner: true,
+  effectivePermissions: [],
   product: 'swap',
   from: '2026-08-29T00:00:00.000Z',
   to: '2026-08-29T23:59:59.999Z',
@@ -57,6 +59,16 @@ test('an authenticated approved operator reaches the admin desk', async ({ page 
       contentType: 'application/json',
       body: JSON.stringify(adminSummary),
     }));
+  await page.route('**/api/admin/authorization', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      member: { id: 'operator-e2e', email: 'operator@example.test', role: 'owner', status: 'active' },
+      owner: true,
+      effectivePermissions: [],
+      catalog: [],
+    }),
+  }));
   await page.route(/\/api\/orders(?:\?|$)/, (route) =>
     route.fulfill({
       status: 200,
@@ -90,6 +102,16 @@ test('an authenticated approved operator reaches the admin desk', async ({ page 
 });
 
 test('a genuine operator denial is presented as access denied', async ({ page }) => {
+  await page.route('**/api/admin/operators**', (route) => route.fulfill({
+    status: 403,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      error: 'Operator access is denied.',
+      code: 'OPERATOR_ACCESS_DENIED',
+      retryable: false,
+      outcomeUnknown: false,
+    }),
+  }));
   await page.route(/\/api\/admin\/summary(?:\?|$)/, (route) =>
     route.fulfill({
       status: 403,
@@ -104,13 +126,25 @@ test('a genuine operator denial is presented as access denied', async ({ page })
 
   await page.goto('/admin');
 
-  await expect(page.getByTestId('operator-access-denied')).toBeVisible();
-  await expect(page.getByText('This account is not an approved operator.')).toBeVisible();
+  await expect(page).toHaveURL('/');
+  await expect(page.getByTestId('operator-access-denied')).toHaveCount(0);
   await expect(page.getByTestId('operator-access-unavailable')).toHaveCount(0);
 });
 
 test('authorization backend failures are not presented as operator denials', async ({ page }) => {
   let available = false;
+  await page.route('**/api/admin/operators**', (route) => route.fulfill({
+    status: available ? 200 : 503,
+    contentType: 'application/json',
+    body: JSON.stringify(available
+      ? [{ id: 'operator-e2e', email: 'operator@example.test', role: 'owner', status: 'active' }]
+      : {
+          error: 'Operator authorization is temporarily unavailable.',
+          code: 'OPERATOR_AUTH_UNAVAILABLE',
+          retryable: true,
+          outcomeUnknown: false,
+        }),
+  }));
   await page.route(/\/api\/admin\/summary(?:\?|$)/, (route) =>
     route.fulfill({
       status: available ? 200 : 503,
@@ -149,10 +183,10 @@ test('authorization backend failures are not presented as operator denials', asy
 
   await page.goto('/admin');
 
-  const unavailable = page.getByTestId('operator-access-unavailable');
+  const unavailable = page.getByTestId('owner-access-unavailable');
   await expect(unavailable).toBeVisible();
   await expect(unavailable).toContainText('Your account has not been denied.');
-  await expect(page.getByTestId('operator-access-denied')).toHaveCount(0);
+  await expect(page.getByTestId('owner-access-unavailable')).toHaveCount(1);
 
   available = true;
   await unavailable.getByRole('button', { name: 'Try again' }).click();

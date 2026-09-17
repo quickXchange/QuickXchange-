@@ -564,7 +564,7 @@ function DynamicField({ field, value, onChange }: { field: any; value: string; o
         {field.emphasizedLabel ? <strong className="text-foreground">{displayLabel}</strong> : displayLabel}
         {isRequired
           ? <span className="required-field-mark" aria-hidden="true">*</span>
-          : <small className="swap-step2-optional-badge">{t('swap.optional')}</small>}
+          : <small className="swap-step2-optional-badge">({t('swap.optional')})</small>}
       </label>
       <div className="swap-step2-input-shell">
         <FieldIcon size={18} className="swap-step2-input-icon" aria-hidden="true" />

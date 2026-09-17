@@ -4797,7 +4797,7 @@ function AdminProviders() {
          <div><span className="section-kicker">SWAP DEPOSIT ADDRESS</span><h2>WhiteBIT</h2><p>Optional order-scoped crypto funding addresses. Convert and customer deposits remain unchanged.</p></div>
          {whitebitStatus && <div className="provider-health-actions">
            <span className={cn('secure-badge provider-verified-badge', whitebitStatus.enabled ? 'text-emerald-400' : 'text-amber-300')}>
-             {whitebitStatus.enabled ? <Check size={14} /> : <Pause size={14} />} {whitebitStatus.state.replace('_', ' ').toUpperCase()}
+            {whitebitStatus.enabled ? <Check size={14} /> : <Pause size={14} />} {(whitebitStatus.state || 'unknown').replace('_', ' ').toUpperCase()}
            </span>
            {isOwner && can('integrations.credentials.update') && <button
              className="button provider-diagnostics-button"

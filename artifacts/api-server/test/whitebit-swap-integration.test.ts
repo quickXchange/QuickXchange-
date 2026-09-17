@@ -228,6 +228,10 @@ test("capability loss after provider selection creates unresolved claim and orde
   const parsed = parseWhitebitAssets({ BTC: { can_deposit: true, networks: { deposits: ["BITCOIN"] } } });
   assert.ok(parsed);
   assert.equal(matchWhitebitCapability({ fetchedAt: Date.now(), assets: parsed }, "BTC", "ERC20"), null);
+  assert.deepEqual(parseWhitebitAssets({
+    BTC: { can_deposit: true, networks: { deposits: ["BITCOIN"] } },
+    INJ: { can_deposit: true, networks: {}, confirmations: { INJECTIVE: 1000 } },
+  })?.map((asset) => asset.ticker), ["BTC"]);
   const status = await whitebitSwapStatus();
   assert.equal(status.enabled, true);
   assert.equal(parseWhitebitAssets({ BTC: { can_deposit: true, networks: { deposits: "BITCOIN" } } }), null);

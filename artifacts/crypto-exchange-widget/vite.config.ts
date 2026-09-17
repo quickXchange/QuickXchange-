@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 
 import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
+import { publishedSiteContentStub } from './test/site-content-stub';
 
 const rawPort = process.env.PORT;
 const port = rawPort ? Number(rawPort) : 5173;
@@ -17,6 +18,37 @@ const basePath = process.env.BASE_PATH || '/';
 export default defineConfig(async ({ mode }) => ({
   base: basePath,
   plugins: [
+    ...(mode === 'e2e'
+      ? [{
+          name: 'e2e-shared-api-defaults',
+          configureServer(server) {
+            server.middlewares.use((req, res, next) => {
+              const requestPath = req.url?.split('?')[0];
+              const body = requestPath === '/api/site-content'
+                ? publishedSiteContentStub
+                : requestPath === '/api/site-navigation'
+                  ? []
+                  : requestPath === '/api/admin/authorization'
+                    ? {
+                        member: {
+                          id: 'operator-e2e',
+                          email: 'operator@example.test',
+                          role: 'owner',
+                          status: 'active',
+                        },
+                        owner: true,
+                        effectivePermissions: [],
+                        catalog: [],
+                      }
+                    : undefined;
+              if (body === undefined) return next();
+              res.statusCode = 200;
+              res.setHeader('content-type', 'application/json');
+              res.end(JSON.stringify(body));
+            });
+          },
+        }]
+      : []),
     react(),
     tailwindcss({ optimize: mode === 'production' }),
     ...(mode !== 'production' ? [runtimeErrorOverlay()] : []),

@@ -148,6 +148,9 @@ before(async () => {
   priorProviderSetting = (await database.db.select().from(database.whitebitProviderSettingsTable)
     .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit")).limit(1))[0] ?? null;
   await ensureWhitebitSchema();
+  await database.db.insert(database.whitebitProviderSettingsTable)
+    .values({ provider: "whitebit", disabled: false })
+    .onConflictDoUpdate({ target: database.whitebitProviderSettingsTable.provider, set: { disabled: false } });
   await database.db.insert(database.customersTable).values({
     id: customerId, name: "WhiteBIT Test", email: `${suffix}@example.test`,
   });

@@ -32,6 +32,11 @@ type QuickexOrderSnapshot = Awaited<ReturnType<typeof listQuickexOrders>>;
 let providerSnapshotCache: { expiresAt: number; rows: QuickexOrderSnapshot } | undefined;
 let providerSnapshotInFlight: Promise<QuickexOrderSnapshot | null> | undefined;
 
+export function resetQuickexOrderSnapshotForTests() {
+  providerSnapshotCache = undefined;
+  providerSnapshotInFlight = undefined;
+}
+
 export async function getQuickexReconciliationHealth(now = new Date(Date.now())) {
   const [row] = await db.select({
     lastStartedAt: providerSyncStatesTable.lastStartedAt,

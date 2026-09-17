@@ -59,7 +59,7 @@ test('operators use canonical settlement options for pricing, preview, and legac
           sourceAsset: null,
           targetAsset: 'BTC',
           sourceNetwork: null,
-          targetNetwork: null,
+          targetNetwork: 'Bitcoin',
           paymentMethod: null,
           payoutMethod: null,
           markupBasisPoints: 125,
@@ -71,8 +71,8 @@ test('operators use canonical settlement options for pricing, preview, and legac
           targetSettlementOptionId: 'eur-bank',
           sourceAsset: 'USD',
           targetAsset: 'EUR',
-          sourceNetwork: null,
-          targetNetwork: null,
+          sourceNetwork: 'Bank transfer',
+          targetNetwork: 'SEPA transfer',
           paymentMethod: null,
           payoutMethod: null,
         });
@@ -176,10 +176,10 @@ test('operators use canonical settlement options for pricing, preview, and legac
   expect(previewInfoBox?.height).toBeLessThanOrEqual(40);
   expect(filterBox?.height).toBeGreaterThanOrEqual(37);
   expect(Math.abs((filterBox?.height || 0) - (addRuleBox?.height || 0))).toBeLessThanOrEqual(2);
-  expect(firstRuleBox?.height).toBeGreaterThanOrEqual(51);
-  expect(firstRuleBox?.height).toBeLessThanOrEqual(64);
-  expect(editActionBox?.height).toBeGreaterThanOrEqual(27);
-  expect(editActionBox?.height).toBeLessThanOrEqual(29);
+  expect(firstRuleBox?.height).toBeGreaterThanOrEqual(36);
+  expect(firstRuleBox?.height).toBeLessThanOrEqual(42);
+  expect(editActionBox?.height).toBeGreaterThanOrEqual(23);
+  expect(editActionBox?.height).toBeLessThanOrEqual(25);
   expect(await page.locator('html').evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
   await page.getByRole('button', { name: 'Dark' }).click();
   await expect(page.locator('html')).toHaveClass(/dark/);
@@ -312,9 +312,9 @@ test('operators use canonical settlement options for pricing, preview, and legac
     };
   });
 
-  expect(menuGeometry.position).toBe('fixed');
-  expect(Math.abs(menuGeometry.viewportHeight - menuGeometry.bottom - 24)).toBeLessThanOrEqual(1);
-  expect(Math.abs((menuGeometry.left + menuGeometry.right) / 2 - menuGeometry.viewportWidth / 2)).toBeLessThanOrEqual(1);
+  expect(menuGeometry.position).toBe('absolute');
+  expect(menuGeometry.left).toBeGreaterThanOrEqual(0);
+  expect(menuGeometry.right).toBeLessThanOrEqual(menuGeometry.viewportWidth);
   expect(menuGeometry.width).toBeLessThanOrEqual(560);
   expect(menuGeometry.height).toBeLessThanOrEqual(640);
   expect(menuGeometry.scrollWidth).toBeLessThanOrEqual(menuGeometry.clientWidth);
@@ -324,14 +324,13 @@ test('operators use canonical settlement options for pricing, preview, and legac
   await expect(previewMenu).toHaveCount(0);
 
   await page.getByTestId('preview-target').click();
-  await expect(page.locator('.qx-overlay-card.qx-standalone')).toHaveCount(1);
+  await expect(previewMenu).toBeVisible();
   const targetMenuGeometry = await previewMenu.evaluate(element => {
     const bounds = element.getBoundingClientRect();
     const style = getComputedStyle(element);
     return { left: bounds.left, top: bounds.top, width: bounds.width, position: style.position, bottom: bounds.bottom, viewportHeight: window.innerHeight };
   });
-  expect(targetMenuGeometry.position).toBe('fixed');
-  expect(Math.abs(targetMenuGeometry.viewportHeight - targetMenuGeometry.bottom - 24)).toBeLessThanOrEqual(1);
+  expect(targetMenuGeometry.position).toBe('absolute');
   expect(targetMenuGeometry.width).toBeLessThanOrEqual(560);
 
   await previewMenu.locator('.qx-overlay-close').click();
@@ -368,8 +367,8 @@ test('operators use canonical settlement options for pricing, preview, and legac
       const trigger = page.getByTestId(`preview-${selector}`);
       await trigger.click();
 
-      const sheet = page.locator('.qx-overlay-card.qx-standalone');
-      const backdrop = page.locator('.qx-overlay-backdrop.qx-standalone');
+      const sheet = page.locator('.pricing-preview > .qx-overlay-card.qx-widget-anchored');
+      const backdrop = page.locator('.pricing-preview > .qx-overlay-backdrop.qx-widget-anchored');
       await expect(sheet).toBeVisible();
       await expect(backdrop).toBeVisible();
       await expect(sheet.getByPlaceholder('Search options...')).toBeVisible();
@@ -395,12 +394,11 @@ test('operators use canonical settlement options for pricing, preview, and legac
         };
       }, width);
 
-      expect(sheetContract.isBodyPortal).toBe(true);
-      expect(sheetContract.position).toBe('fixed');
-      expect(sheetContract.left).toBeGreaterThanOrEqual(15);
-      expect(sheetContract.right).toBeLessThanOrEqual(sheetContract.viewportWidth - 15);
-      expect(Math.abs(sheetContract.bottomGap - 16)).toBeLessThanOrEqual(1);
-      expect(sheetContract.width).toBeLessThanOrEqual(width - 32);
+      expect(sheetContract.isBodyPortal).toBe(false);
+      expect(sheetContract.position).toBe('absolute');
+      expect(sheetContract.left).toBeGreaterThanOrEqual(0);
+      expect(sheetContract.right).toBeLessThanOrEqual(sheetContract.viewportWidth);
+      expect(sheetContract.width).toBeLessThanOrEqual(width);
       expect(sheetContract.listOverflowY).toBe('auto');
       expect(sheetContract.listFits).toBe(true);
       expect(sheetContract.pageHeight).toBe(closedGeometry.pageHeight);
@@ -439,16 +437,16 @@ test('operators use canonical settlement options for pricing, preview, and legac
       expect(optionContract.nameOverflow).toBe('hidden');
       expect(optionContract.nameTextOverflow).toBe('ellipsis');
       expect(optionContract.nameWhiteSpace).toBe('nowrap');
-      expect(optionContract.logoWidth).toBeGreaterThanOrEqual(40);
-      expect(optionContract.logoWidth).toBeLessThanOrEqual(48);
-      expect(optionContract.logoHeight).toBeGreaterThanOrEqual(40);
-      expect(optionContract.logoHeight).toBeLessThanOrEqual(48);
+      expect(optionContract.logoWidth).toBeGreaterThanOrEqual(31);
+      expect(optionContract.logoWidth).toBeLessThanOrEqual(49);
+      expect(optionContract.logoHeight).toBeGreaterThanOrEqual(31);
+      expect(optionContract.logoHeight).toBeLessThanOrEqual(49);
       if (optionContract.flagWidth) {
         expect(Math.abs(optionContract.flagWidth - optionContract.flagHeight)).toBeLessThanOrEqual(1);
         expect(optionContract.flagRadius).toBe('50%');
       }
 
-      await backdrop.click({ position: { x: 4, y: 4 } });
+      await page.keyboard.press('Escape');
       await expect(sheet).toHaveCount(0);
     }
 

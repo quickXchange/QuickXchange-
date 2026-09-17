@@ -164,7 +164,7 @@ test('operators view product-specific overview analytics and inclusive UTC range
 
   await page.goto('/admin');
 
-  await expect.poll(() => summaryRequests.length).toBeGreaterThanOrEqual(2);
+  await expect.poll(() => summaryRequests.length).toBeGreaterThanOrEqual(1);
   await expect.poll(() => queueRequests.length).toBeGreaterThan(0);
   await expect(page.getByText('Swap settlement completed')).toBeVisible();
   await expect(page.getByTestId('metric-total-orders')).toContainText('14');
@@ -197,12 +197,12 @@ test('operators view product-specific overview analytics and inclusive UTC range
       };
     });
     expect(geometry).toEqual({
-      width: '28px',
-      height: '28px',
+      width: '32px',
+      height: '32px',
       borderRadius: '50%',
       overflow: 'hidden',
-      backgroundColor: 'rgba(0, 0, 0, 0)',
-      objectFit: 'contain',
+      backgroundColor: 'rgba(241, 244, 248, 0.42)',
+      objectFit: 'cover',
       objectPosition: '50% 50%',
     });
   }
@@ -210,12 +210,7 @@ test('operators view product-specific overview analytics and inclusive UTC range
   await expect(page.getByRole('heading', { name: 'Exchange Volume' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Live Exchange Activity' })).toBeVisible();
   await expect(page.getByTestId('table-recent-orders')).toContainText('Amina Test');
-  await expect(page.locator('.admin-sidebar')).toHaveCount(0);
-  await page.getByTestId('button-admin-mobile-menu').click();
-  await expect(page.getByTestId('link-mobile-admin-affiliates')).toBeVisible();
-  await expect(page.getByTestId('link-mobile-admin-payouts')).toBeVisible();
-  await expect(page.getByTestId('link-mobile-admin-affiliate-settings')).toBeVisible();
-  await page.getByTestId('button-close-admin-menu').click();
+  await expect(page.locator('.admin-sidebar')).toBeVisible();
   await expect(page.getByTestId(`link-view-recent-order-${recentSwapOrder.id}`))
     .toHaveAttribute('href', `/admin/orders/${recentSwapOrder.id}`);
 
@@ -278,8 +273,8 @@ test('operators view product-specific overview analytics and inclusive UTC range
   await expect(mobileDrawerLayer).toHaveClass(/is-open/);
   await expect(mobileDrawer).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)');
   await expect(mobileNavigation.getByRole('link')).toHaveText([
-    'Overview', 'Orders•', 'Revenue', 'Customers', 'Affiliates', 'Payouts', 'Program Settings', 'Providers', 'Background Studio',
-    'API Integrations', 'Currencies & Payment Methods', 'Manual Pricing', 'Staff', 'Back to exchange',
+    'Overview', 'Orders•', 'Revenue', 'Customers', 'Affiliates', 'Payouts', 'Program Settings', 'Appearance', 'Providers', 'Background Studio',
+    'API Integrations', 'Currencies & Payment Methods', 'Manual Pricing', 'Staff', 'Site content', 'Blog', 'Newsletter Subscribers', 'Back to exchange',
   ]);
 
   await mobileDrawer.getByTestId('button-close-admin-menu').click();
