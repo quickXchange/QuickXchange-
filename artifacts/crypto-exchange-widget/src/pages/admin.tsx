@@ -3934,22 +3934,27 @@ function AdminOrders() {
         )}
       </div>
 
-      {selectedOrders.length > 0 && <div className="bulk-actions-bar" data-testid="bulk-actions-bar">
-        <div data-testid="bulk-selected-count"><strong>{selectedOrders.length}</strong><span>{selectedOrders.length === 1 ? t('adminOrders.order_selected') : t('adminOrders.orders_selected')}</span></div>
-        <div className="bulk-actions-controls">
-          {can('orders.status') && (
-            <button type="button" className="button button-secondary" onClick={() => { setBulkStatus(''); setBulkDialog('status'); }} disabled={type === 'instant' || archiveView === 'archived' || commonStatuses.length === 0} title={type === 'instant' ? t('adminOrders.convert_statuses_provider_synchronized') : commonStatuses.length === 0 ? t('adminOrders.selected_orders_no_shared_later_status') : undefined} data-testid="button-bulk-status"><RefreshCw size={15} /> {t('adminOrders.change_status_2')}</button>
-          )}
-          {can(PermissionKey.ordersarchive) && (
-            archiveView === 'active'
-              ? <button type="button" className="button button-danger" onClick={() => setBulkDialog('archive')} data-testid="button-bulk-delete"><Archive size={15} /> {t('adminOrders.delete_selected')}</button>
-              : <button type="button" className="button button-primary" onClick={() => setBulkDialog('restore')} data-testid="button-bulk-restore"><ArchiveRestore size={15} /> {t('adminOrders.restore_selected_2')}</button>
-          )}
-          <button type="button" className="bulk-clear-selection" onClick={() => setSelectedIds(new Set())} data-testid="button-clear-selection">{t('adminOrders.clear_selection')}</button>
+      {selectedOrders.length > 0 && <>
+        <div className="bulk-actions-toolbar visible admin-list-bulk-toolbar" data-testid="bulk-actions-bar">
+          <div className="bulk-actions-inner">
+            <span className="bulk-actions-count" data-testid="bulk-selected-count"><Check size={14} /> {selectedOrders.length} {selectedOrders.length === 1 ? t('adminOrders.order_selected') : t('adminOrders.orders_selected')}</span>
+            {can('orders.status') && <>
+              <div className="bulk-actions-divider" />
+              <button type="button" onClick={() => { setBulkStatus(''); setBulkDialog('status'); }} disabled={type === 'instant' || archiveView === 'archived' || commonStatuses.length === 0} title={type === 'instant' ? t('adminOrders.convert_statuses_provider_synchronized') : commonStatuses.length === 0 ? t('adminOrders.selected_orders_no_shared_later_status') : undefined} data-testid="button-bulk-status"><RefreshCw size={14} /> {t('adminOrders.change_status_2')}</button>
+            </>}
+            {can(PermissionKey.ordersarchive) && <>
+              <div className="bulk-actions-divider" />
+              {archiveView === 'active'
+                ? <button type="button" className="bulk-actions-delete" onClick={() => setBulkDialog('archive')} data-testid="button-bulk-delete"><Trash2 size={14} /> {t('adminOrders.delete_selected')}</button>
+                : <button type="button" onClick={() => setBulkDialog('restore')} data-testid="button-bulk-restore"><ArchiveRestore size={14} /> {t('adminOrders.restore_selected_2')}</button>}
+            </>}
+            <div className="bulk-actions-divider" />
+            <button type="button" onClick={() => setSelectedIds(new Set())} data-testid="button-clear-selection"><X size={14} /> {t('adminOrders.clear_selection')}</button>
+          </div>
         </div>
-        {type === 'instant' && <small>{t('adminOrders.convert_statuses_are_synchronized_from_the_provider')}</small>}
-        {type === 'manual' && commonStatuses.length === 0 && <small>{t('adminOrders.the_selected_swap_orders_do_not_share')}</small>}
-      </div>}
+        {type === 'instant' && <small className="bulk-actions-context">{t('adminOrders.convert_statuses_are_synchronized_from_the_provider')}</small>}
+        {type === 'manual' && commonStatuses.length === 0 && <small className="bulk-actions-context">{t('adminOrders.the_selected_swap_orders_do_not_share')}</small>}
+      </>}
 
       {orders.isError ? <ErrorState message={t('adminOrders.load_order_queue_error')} retry={() => orders.refetch()} /> :
         <RedesignedOrderTable orders={visibleOrders} options={settlementOptions} type={type} loading={orders.isLoading} onSelectOrder={openOrder} selectedIds={selectedIds} onToggleOrder={toggleOrder} onToggleAll={toggleAll} archived={archiveView === 'archived'} canArchive={can(PermissionKey.ordersarchive)} canEditStatus={can('orders.status')} onChangeArchive={changeOrderArchive} />}
@@ -6114,17 +6119,20 @@ function AdminCurrencies() {
           </div>
 
           {canManageCurrent && (selectedCatalogIdsOnPage.length > 0 || catalogActionNotice) && (
-            <div className="catalog-bulk-actions flex items-center gap-4 p-4 border-b border-border bg-muted/40" data-testid={`catalog-bulk-actions-${tab}`}>
-              {selectedCatalogIdsOnPage.length > 0 && <>
-                <span className="text-foreground text-sm"><strong>{selectedCatalogIdsOnPage.length}</strong> {t('adminCatalog.selected')}</span>
-                <div className="flex gap-2">
-                  <button className="button button-secondary text-foreground" disabled={catalogActionPending} onClick={() => runCatalogAction('enable')}>{t('adminCatalog.active')}</button>
-                  <button className="button button-secondary text-foreground" disabled={catalogActionPending} onClick={() => runCatalogAction('disable')}>{t('adminCatalog.disabled')}</button>
-                  <button className="button button-secondary text-destructive" disabled={catalogActionPending} onClick={() => runCatalogAction('delete')}>{t('adminCatalog.delete')}</button>
+            <>
+              {selectedCatalogIdsOnPage.length > 0 && <div className="bulk-actions-toolbar visible admin-list-bulk-toolbar" data-testid={`catalog-bulk-actions-${tab}`}>
+                <div className="bulk-actions-inner">
+                  <span className="bulk-actions-count"><Check size={14} /> {selectedCatalogIdsOnPage.length} {t('adminCatalog.selected')}</span>
+                  <div className="bulk-actions-divider" />
+                  <button type="button" disabled={catalogActionPending} onClick={() => runCatalogAction('enable')}><Power size={14} /> {t('adminCatalog.active')}</button>
+                  <div className="bulk-actions-divider" />
+                  <button type="button" disabled={catalogActionPending} onClick={() => runCatalogAction('disable')}><Power size={14} /> {t('adminCatalog.disabled')}</button>
+                  <div className="bulk-actions-divider" />
+                  <button type="button" className="bulk-actions-delete" disabled={catalogActionPending} onClick={() => runCatalogAction('delete')}><Trash2 size={14} /> {t('adminCatalog.delete')}</button>
                 </div>
-              </>}
-              {catalogActionNotice && <div className={`text-sm ml-auto ${catalogActionNotice.kind === 'error' ? 'text-red-500' : 'text-emerald-500'}`}>{catalogActionNotice.text}</div>}
-            </div>
+              </div>}
+              {catalogActionNotice && <div className={`bulk-actions-notice text-sm ${catalogActionNotice.kind === 'error' ? 'text-red-500' : 'text-emerald-500'}`}>{catalogActionNotice.text}</div>}
+            </>
           )}
           <div className="w-full relative group">
             <div className="swipeable-scroll-hint" aria-hidden="true" />

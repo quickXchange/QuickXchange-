@@ -22890,22 +22890,26 @@ html:not(.dark) .qx-mobile-base-links .qx-mobile-item.owner-access:is(:hover, :f
     width: max-content;
     min-width: 100%;
     padding: 9px 12px;
-    background: hsl(var(--primary) / 0.055);
-    border: 1px solid hsl(var(--primary) / 0.2);
+    background:
+      radial-gradient(circle at 15% 0%, rgb(23 189 255 / 0.16), transparent 38%),
+      linear-gradient(100deg, rgb(16 45 94 / 0.98), rgb(39 25 91 / 0.98));
+    border: 1px solid rgb(101 151 255 / 0.32);
     border-radius: var(--radius-lg);
-    color: hsl(var(--foreground));
+    box-shadow: 0 8px 24px rgb(30 66 180 / 0.18), inset 0 1px rgb(255 255 255 / 0.06);
+    color: white;
     font-size: 13px;
     font-weight: 650;
   }
   .dark .bulk-actions-inner {
-    background: hsl(var(--primary) / 0.08);
-    border-color: hsl(var(--primary) / 0.28);
+    border-color: rgb(115 159 255 / 0.38);
+    box-shadow: 0 9px 28px rgb(2 8 28 / 0.42), 0 0 20px rgb(67 82 255 / 0.1), inset 0 1px rgb(255 255 255 / 0.07);
   }
   .bulk-actions-count {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    color: hsl(var(--primary));
+    color: rgb(86 226 255);
+    text-shadow: 0 0 12px rgb(45 205 255 / 0.28);
     white-space: nowrap;
     font-weight: 800;
   }
@@ -22913,7 +22917,7 @@ html:not(.dark) .qx-mobile-base-links .qx-mobile-item.owner-access:is(:hover, :f
     width: 1px;
     height: 18px;
     flex: 0 0 1px;
-    background: hsl(var(--border));
+    background: rgb(151 180 232 / 0.3);
     margin: 0 2px;
   }
   .bulk-actions-inner button {
@@ -22923,21 +22927,38 @@ html:not(.dark) .qx-mobile-base-links .qx-mobile-item.owner-access:is(:hover, :f
     padding: 6px 9px;
     border-radius: var(--radius-md);
     background: transparent;
-    color: hsl(var(--foreground));
+    color: white;
     border: 1px solid transparent;
     transition: background 150ms ease, color 150ms ease;
     white-space: nowrap;
     cursor: pointer;
   }
   .bulk-actions-inner button:hover:not(:disabled) {
-    background: hsl(var(--muted)/0.8);
+    background: rgb(255 255 255 / 0.1);
   }
   .bulk-actions-inner button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
   .bulk-actions-inner .bulk-actions-delete {
-    color: hsl(var(--destructive));
+    color: rgb(255 120 90);
+    text-shadow: 0 0 12px rgb(255 91 61 / 0.3);
+  }
+  .bulk-actions-inner .bulk-actions-delete:hover:not(:disabled) {
+    color: rgb(255 154 112);
+    background: rgb(255 86 54 / 0.12);
+    box-shadow: 0 0 14px rgb(255 76 45 / 0.12);
+  }
+  .admin-list-bulk-toolbar {
+    margin-top: 0;
+  }
+  .bulk-actions-context,
+  .bulk-actions-notice {
+    display: block;
+    margin: -6px 12px 12px;
+    color: hsl(var(--muted-foreground));
+    font-size: 11px;
+    line-height: 1.4;
   }
 
   /* Bulk Form Adjustments */
