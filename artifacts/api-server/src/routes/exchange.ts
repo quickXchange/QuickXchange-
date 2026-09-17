@@ -73,6 +73,8 @@ import {
   UpdateManualDeskPricingRuleBody,
   UpdateManualDeskPricingRuleParams,
   UpdateManualDeskPricingRuleResponse,
+  BulkManualDeskPricingRulesBody,
+  BulkManualDeskPricingRulesResponse,
   GetPaymentMethodsResponse,
   CreatePaymentMethodBody,
   CreatePaymentMethodResponse,
@@ -185,6 +187,7 @@ import {
   normalizeManualPricingSelectors,
   outputManualPricingRule,
   updateManualPricingRule,
+  bulkUpdateManualPricingRules,
 } from "../lib/manual-desk-pricing";
 import {
   listEnabledFiatCurrencies,
@@ -3122,6 +3125,72 @@ router.post("/admin/manual-desk-pricing-rules", async (req, res, next) => {
     res.status(201).json(
       CreateManualDeskPricingRuleResponse.parse(outputManualPricingRule(created)),
     );
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/admin/manual-desk-pricing-rules/bulk", async (req, res, next) => {
+  try {
+    const input = BulkManualDeskPricingRulesBody.parse(req.body);
+    const options = [
+      ...await listPublicManualCryptoSettlementOptions(),
+      ...await listPublicFiatSettlementOptions(),
+    ];
+    let patch = input.patch;
+    if (input.action === "edit" && patch) {
+      const sourceId = patch.sourceSettlementOptionId === undefined
+        ? undefined : patch.sourceSettlementOptionId;
+      const targetId = patch.targetSettlementOptionId === undefined
+        ? undefined : patch.targetSettlementOptionId;
+      const source = sourceId ? options.find((option) => option.id.toUpperCase() === sourceId.toUpperCase()) : undefined;
+      const target = targetId ? options.find((option) => option.id.toUpperCase() === targetId.toUpperCase()) : undefined;
+      if (sourceId !== undefined || targetId !== undefined) {
+        if ((sourceId && !source) || (targetId && !target) ||
+            (source && source.direction !== "send" && source.direction !== "both") ||
+            (target && target.direction !== "receive" && target.direction !== "both") ||
+            (source && target && source.id === target.id)) {
+          throw new ApiError("SETTLEMENT_OPTION_INVALID", "The selected settlement route is unavailable.", 422);
+        }
+        patch = {
+          ...patch,
+          ...(sourceId !== undefined ? {
+            sourceAsset: source?.assetCode ?? null,
+            sourceNetwork: source?.routeNetwork ?? null,
+            sourceSettlementOptionId: source?.id ?? null,
+          } : {}),
+          ...(targetId !== undefined ? {
+            targetAsset: target?.assetCode ?? null,
+            targetNetwork: target?.routeNetwork ?? null,
+            targetSettlementOptionId: target?.id ?? null,
+          } : {}),
+        };
+      }
+      await validateExactPricingRuleOptions(patch);
+    }
+    const rows = await bulkUpdateManualPricingRules(
+      input.items,
+      input.action,
+      patch,
+      new Set(options.map((option) => option.id.toUpperCase())),
+    );
+    const coverage = evaluateManualPricingCoverage(rows, options);
+    const missingByRuleId = new Map(
+      coverage.orphanRules.map((rule) => [rule.ruleId, rule.missingSettlementOptionIds]),
+    );
+    res.json(BulkManualDeskPricingRulesResponse.parse({
+      items: rows.map((row) => ({
+        ...outputManualPricingRule(row),
+        missingSettlementOptionIds: missingByRuleId.get(row.id) ?? [],
+      })),
+      diagnostics: {
+        hasEnabledAnyToAnyFallback: coverage.hasEnabledAnyToAnyFallback,
+        orphanRules: coverage.orphanRules,
+        uncoveredRoutes: coverage.uncoveredRoutes,
+      },
+      action: input.action,
+      affectedIds: input.items.map((item) => item.id),
+    }));
   } catch (error) {
     next(error);
   }

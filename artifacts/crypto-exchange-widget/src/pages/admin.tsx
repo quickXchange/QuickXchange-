@@ -49,7 +49,7 @@ import {
   useUpdateWhitebitCredentials, useTestWhitebitCredentials,
   useListManualDeskPricingRules, getListManualDeskPricingRulesQueryKey,
   useCreateManualDeskPricingRule, useUpdateManualDeskPricingRule,
-  usePreviewManualDeskPricingRule, usePreviewManualDeskQuote, useDeleteManualDeskPricingRule,
+  usePreviewManualDeskPricingRule, usePreviewManualDeskQuote, useDeleteManualDeskPricingRule, useBulkManualDeskPricingRules,
   useGetManualDeskRevenue, getGetManualDeskRevenueQueryKey,
   exportManualDeskRevenueCsv,
   useGetCryptoAssets, getGetCryptoAssetsQueryKey, useCreateCryptoAsset, useUpdateCryptoAsset, useDeleteCryptoAsset, useRequestCryptoAssetLogoUpload, useDeleteCryptoAssetLogoUpload,
@@ -76,7 +76,7 @@ import {
   useGetAffiliateValuationReview, getGetAffiliateValuationReviewQueryKey,
   useReviewAffiliateValuation
 } from '@workspace/api-client-react';
-import type { Asset, Customer, Order, PublicOrderStatus, ApiError, QuickexRateMode, CustomerOrder, FiatCurrency, OneForgeProviderStatus, WhitebitProviderStatus, ManualDeskPricingRule, ManualDeskPricingRuleInput, SettlementOption, PaymentMethod, PaymentMethodFieldDefinition, CryptoAsset, CryptoNetwork, OrderBulkMutationResponse, OrderBulkStatusInputManualSettlementState, AffiliateAccount, AffiliateSettings, AffiliatePayout, AffiliateOverview, AffiliateAccountPage, AffiliateCommission, AffiliateAccountDetail, AffiliateValuationReview, AffiliateReferral, AffiliateDashboard } from '@workspace/api-client-react';
+import type { Asset, Customer, Order, PublicOrderStatus, ApiError, QuickexRateMode, CustomerOrder, FiatCurrency, OneForgeProviderStatus, WhitebitProviderStatus, ManualDeskPricingRule, ManualDeskPricingRuleInput, SettlementOption, PaymentMethod, PaymentMethodFieldDefinition, CryptoAsset, CryptoNetwork, OrderBulkMutationResponse, OrderBulkStatusInputManualSettlementState, AffiliateAccount, AffiliateSettings, AffiliatePayout, AffiliateOverview, AffiliateAccountPage, AffiliateCommission, AffiliateAccountDetail, AffiliateValuationReview, AffiliateReferral, AffiliateDashboard, ManualDeskPricingRulesBulkResponse, ManualDeskPricingRulesBulkPatch } from '@workspace/api-client-react';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { CryptoIdentity, CryptoLogo, CryptoNetworkBadge, cryptoLogoFallbackUrls } from '@/components/crypto-identity';
@@ -6648,6 +6648,240 @@ function PricingPreview({ testRule }: { testRule?: ManualDeskPricingRule | null 
   </div>;
 }
 
+function BulkPricingRuleDrawer({
+  rules,
+  allOptions,
+  onClose,
+  onSuccess,
+}: {
+  rules: ManualDeskPricingRule[];
+  allOptions: SettlementOption[];
+  onClose: () => void;
+  onSuccess: (data: ManualDeskPricingRulesBulkResponse, action: string) => void;
+}) {
+  const bulkAction = useBulkManualDeskPricingRules();
+
+  const [form, setForm] = useState({
+    markupPercent: '', applyMarkup: false,
+    exactRate: '', applyExactRate: false,
+    fixedFee: '', applyFixedFee: false,
+    minAmount: '', applyMinAmount: false,
+    maxAmount: '', applyMaxAmount: false,
+    expectedSettlementMinutes: '', applyTime: false,
+    operatorInstructions: '', applyOpInst: false,
+    customerInstructions: '', applyCustInst: false,
+    priority: '', applyPriority: false,
+    sourceSettlementOptionId: '', applySource: false,
+    targetSettlementOptionId: '', applyTarget: false,
+  });
+
+  const [error, setError] = useState('');
+  const set = <K extends keyof typeof form>(key: K, value: typeof form[K]) => setForm(c => ({ ...c, [key]: value }));
+  const toggleApply = (key: keyof typeof form) => setForm(c => ({ ...c, [key]: !(c[key] as boolean) }));
+
+  const fromOptions = allOptions.filter(o => o.direction === 'send' || o.direction === 'both');
+  const toOptions = allOptions.filter(o => o.direction === 'receive' || o.direction === 'both');
+
+  const save = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    const patch: ManualDeskPricingRulesBulkPatch = {};
+    if (form.applyMarkup) {
+      const markupText = form.markupPercent.trim();
+      if (!/^\d+(?:\.\d{1,2})?$/.test(markupText)) {
+        setError('Markup must be a nonnegative percentage with at most two decimal places.'); return;
+      }
+      const markupBasisPoints = Number(markupText) * 100;
+      if (!Number.isInteger(markupBasisPoints) || markupBasisPoints > 10000) {
+        setError('Markup must be between 0% and 100%, in increments of 0.01%.'); return;
+      }
+      patch.markupBasisPoints = markupBasisPoints;
+    }
+
+    const validateDecimal = (val: string, name: string, positive = false) => {
+      const t = val.trim();
+      if (t && (!/^(0|[1-9]\d*)(?:\.\d+)?$/.test(t) || (positive && /^0(?:\.0*)?$/.test(t)))) {
+         throw new Error(`${name} must be a valid ${positive ? 'positive' : 'nonnegative'} number or left blank to clear.`);
+      }
+      return t || null;
+    };
+
+    try {
+      if (form.applyExactRate) patch.exactRate = validateDecimal(form.exactRate, 'Exact Rate', true);
+      if (form.applyFixedFee) patch.fixedFee = validateDecimal(form.fixedFee, 'Fixed Fee');
+      if (form.applyMinAmount) patch.minAmount = validateDecimal(form.minAmount, 'Min Amount');
+      if (form.applyMaxAmount) patch.maxAmount = validateDecimal(form.maxAmount, 'Max Amount');
+
+      if (patch.minAmount && patch.maxAmount && isGreaterThanExact(patch.minAmount, patch.maxAmount)) {
+         throw new Error('Min Amount cannot be greater than Max Amount.');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      return;
+    }
+
+    if (form.applyPriority) {
+       const p = Number(form.priority);
+       if (!Number.isInteger(p) || p < -1000000 || p > 1000000) {
+          setError('Priority must be an integer between -1000000 and 1000000.'); return;
+       }
+       patch.priority = p;
+    }
+
+    if (form.applyTime) {
+       const tStr = form.expectedSettlementMinutes.trim();
+       if (tStr) {
+          const m = parseInt(tStr, 10);
+          if (!Number.isInteger(m) || m < 1 || m > 10080) {
+             setError('Settlement Minutes must be an integer between 1 and 10080, or left blank to clear.'); return;
+          }
+          patch.expectedSettlementMinutes = m;
+       } else {
+          patch.expectedSettlementMinutes = null;
+       }
+    }
+
+    if (form.applyOpInst) patch.operatorInstructions = form.operatorInstructions.trim() || null;
+    if (form.applyCustInst) patch.customerInstructions = form.customerInstructions.trim() || null;
+    if (form.applySource) patch.sourceSettlementOptionId = form.sourceSettlementOptionId || null;
+    if (form.applyTarget) patch.targetSettlementOptionId = form.targetSettlementOptionId || null;
+
+    bulkAction.mutate({
+      data: {
+        action: 'edit',
+        items: rules.map(r => ({ id: r.id, version: r.version })),
+        patch
+      }
+    }, {
+      onSuccess: (data) => onSuccess(data, 'edit'),
+      onError: (err) => {
+        const code = apiErrorData(err)?.code;
+        if (code?.includes('CONFLICT')) {
+           setError('Some rules changed in another session or conflict with existing routes. Refresh and try again.');
+        } else {
+           setError(apiErrorText(err, 'Could not bulk edit rules.'));
+        }
+      }
+    });
+  };
+
+  const hasAnyApply = Object.entries(form).some(([k, v]) => k.startsWith('apply') && v);
+
+  return createPortal(<div className="drawer-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+    <aside className="order-drawer pricing-drawer bulk-drawer" role="dialog" aria-modal="true" aria-label="Bulk edit rules" data-testid="bulk-pricing-rule-drawer">
+       <div className="drawer-head pricing-rule-drawer-head">
+          <div className="pricing-rule-drawer-title">
+             <span className="pricing-rule-drawer-icon"><TrendingUp size={18}/></span>
+             <div><span className="section-kicker">Bulk Action</span><h2>Edit {rules.length} Rules</h2></div>
+          </div>
+          <button type="button" className="pricing-rule-drawer-close" onClick={onClose} aria-label="Close bulk edit drawer" data-testid="button-close-bulk-drawer"><X size={17}/></button>
+       </div>
+       <form className="admin-form admin-form-card drawer-edit pricing-rule-form-card" onSubmit={save}>
+          {error && <InlineNotice kind="error">{error}</InlineNotice>}
+          <InlineNotice kind="info">
+            <p>Only fields with their checkbox selected will be applied to the {rules.length} rules.</p>
+            <p className="text-xs opacity-80 mt-1">Leaving a field empty and checking its box will clear it (for optional fields like Fixed Fee).</p>
+          </InlineNotice>
+
+          <div className="admin-form-grid pricing-form-grid pricing-option-grid bulk-form-grid">
+             <label className="pricing-rule-field">
+                <span className="field-label flex items-center gap-2"><input type="checkbox" checked={form.applySource} onChange={() => toggleApply('applySource')} data-testid="apply-source"/> Source Option</span>
+                <div className={cn(!form.applySource && "pointer-events-none opacity-50")}>
+                  <SettlementOptionCombobox value={form.sourceSettlementOptionId} options={fromOptions} onChange={id => { set('sourceSettlementOptionId', id); set('applySource', true); }} label="Source Option" testId="bulk-select-source" allowAny matchMenuWidth terminalPresentation searchAppearance="admin" />
+                </div>
+                <small className="text-muted-foreground mt-1 text-xs">Route specificity is derived from selected route fields.</small>
+             </label>
+             <label className="pricing-rule-field">
+                <span className="field-label flex items-center gap-2"><input type="checkbox" checked={form.applyTarget} onChange={() => toggleApply('applyTarget')} data-testid="apply-target"/> Target Option</span>
+                <div className={cn(!form.applyTarget && "pointer-events-none opacity-50")}>
+                  <SettlementOptionCombobox value={form.targetSettlementOptionId} options={toOptions} onChange={id => { set('targetSettlementOptionId', id); set('applyTarget', true); }} label="Target Option" testId="bulk-select-target" allowAny matchMenuWidth terminalPresentation searchAppearance="admin" />
+                </div>
+                <small className="text-muted-foreground mt-1 text-xs">Any means applies to all options.</small>
+             </label>
+          </div>
+
+          <div className="admin-form-grid pricing-form-grid bulk-form-grid">
+             <label className="pricing-rule-field">
+                <span className="field-label flex items-center gap-2"><input type="checkbox" checked={form.applyMarkup} onChange={() => toggleApply('applyMarkup')} data-testid="apply-markup"/> Markup %</span>
+                <input inputMode="decimal" required={form.applyMarkup} value={form.markupPercent} onChange={e => { set('markupPercent', e.target.value); set('applyMarkup', true); }} disabled={!form.applyMarkup} data-testid="input-bulk-markup" />
+             </label>
+             <label className="pricing-rule-field">
+                <span className="field-label flex items-center gap-2"><input type="checkbox" checked={form.applyExactRate} onChange={() => toggleApply('applyExactRate')} data-testid="apply-exact-rate"/> Exact Rate</span>
+                <input inputMode="decimal" value={form.exactRate} onChange={e => { set('exactRate', e.target.value); set('applyExactRate', true); }} disabled={!form.applyExactRate} data-testid="input-bulk-exact-rate" placeholder="Leave blank to clear" />
+             </label>
+             <label className="pricing-rule-field">
+                <span className="field-label flex items-center gap-2"><input type="checkbox" checked={form.applyFixedFee} onChange={() => toggleApply('applyFixedFee')} data-testid="apply-fixed-fee"/> Fixed Fee</span>
+                <input inputMode="decimal" value={form.fixedFee} onChange={e => { set('fixedFee', e.target.value); set('applyFixedFee', true); }} disabled={!form.applyFixedFee} data-testid="input-bulk-fixed-fee" placeholder="Leave blank to clear" />
+             </label>
+          </div>
+
+          <div className="admin-form-grid pricing-form-grid bulk-form-grid">
+             <label className="pricing-rule-field">
+                <span className="field-label flex items-center gap-2"><input type="checkbox" checked={form.applyMinAmount} onChange={() => toggleApply('applyMinAmount')} data-testid="apply-min"/> Min Amount</span>
+                <input inputMode="decimal" value={form.minAmount} onChange={e => { set('minAmount', e.target.value); set('applyMinAmount', true); }} disabled={!form.applyMinAmount} data-testid="input-bulk-min" placeholder="Leave blank to clear" />
+             </label>
+             <label className="pricing-rule-field">
+                <span className="field-label flex items-center gap-2"><input type="checkbox" checked={form.applyMaxAmount} onChange={() => toggleApply('applyMaxAmount')} data-testid="apply-max"/> Max Amount</span>
+                <input inputMode="decimal" value={form.maxAmount} onChange={e => { set('maxAmount', e.target.value); set('applyMaxAmount', true); }} disabled={!form.applyMaxAmount} data-testid="input-bulk-max" placeholder="Leave blank to clear" />
+             </label>
+          </div>
+
+          <div className="admin-form-grid pricing-form-grid bulk-form-grid">
+             <label className="pricing-rule-field">
+                <span className="field-label flex items-center gap-2"><input type="checkbox" checked={form.applyTime} onChange={() => toggleApply('applyTime')} data-testid="apply-time"/> Settlement Mins</span>
+                <input type="number" value={form.expectedSettlementMinutes} onChange={e => { set('expectedSettlementMinutes', e.target.value); set('applyTime', true); }} disabled={!form.applyTime} data-testid="input-bulk-time" placeholder="Leave blank to clear" />
+             </label>
+             <label className="pricing-rule-field">
+                <span className="field-label flex items-center gap-2"><input type="checkbox" checked={form.applyPriority} onChange={() => toggleApply('applyPriority')} data-testid="apply-priority"/> Priority</span>
+                <input type="number" required={form.applyPriority} value={form.priority} onChange={e => { set('priority', e.target.value); set('applyPriority', true); }} disabled={!form.applyPriority} data-testid="input-bulk-priority" />
+             </label>
+          </div>
+
+          <label className="admin-form-field admin-form-field-full pricing-rule-field pricing-rule-field-full">
+             <span className="field-label flex items-center gap-2"><input type="checkbox" checked={form.applyOpInst} onChange={() => toggleApply('applyOpInst')} data-testid="apply-op-inst"/> Operator Instructions</span>
+             <textarea value={form.operatorInstructions} onChange={e => { set('operatorInstructions', e.target.value); set('applyOpInst', true); }} disabled={!form.applyOpInst} data-testid="input-bulk-op-inst" placeholder="Leave blank to clear" />
+          </label>
+
+          <label className="admin-form-field admin-form-field-full pricing-rule-field pricing-rule-field-full">
+             <span className="field-label flex items-center gap-2"><input type="checkbox" checked={form.applyCustInst} onChange={() => toggleApply('applyCustInst')} data-testid="apply-cust-inst"/> Customer Instructions</span>
+             <textarea value={form.customerInstructions} onChange={e => { set('customerInstructions', e.target.value); set('applyCustInst', true); }} disabled={!form.applyCustInst} data-testid="input-bulk-cust-inst" placeholder="Leave blank to clear" />
+          </label>
+
+          <div className="pricing-rule-actions mt-4">
+              <button type="button" className="pricing-rule-cancel" onClick={onClose} aria-label="Cancel bulk edit" data-testid="button-cancel-bulk-pricing">Cancel</button>
+             <button type="submit" className="pricing-rule-save" disabled={bulkAction.isPending || !hasAnyApply} data-testid="button-save-bulk-pricing">
+                {bulkAction.isPending ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                {bulkAction.isPending ? 'Saving...' : 'Apply Changes'}
+             </button>
+          </div>
+       </form>
+    </aside>
+  </div>, document.body);
+}
+
+function BulkDeleteModal({ rules, onClose, onConfirm, pending, error }: { rules: ManualDeskPricingRule[], onClose: () => void, onConfirm: () => void, pending: boolean, error: string }) {
+  return createPortal(<div className="drawer-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="admin-modal bulk-delete-modal" role="dialog" aria-modal="true" aria-label="Confirm bulk delete" data-testid="modal-bulk-delete">
+      <div className="admin-modal-head">
+        <h2>Delete {rules.length} selected pricing rules?</h2>
+        <button type="button" onClick={onClose} aria-label="Close bulk delete modal" data-testid="button-close-bulk-delete" className="hover:text-destructive transition-colors"><X size={17}/></button>
+      </div>
+      <div className="admin-modal-body p-6">
+        {error && <InlineNotice kind="error">{error}</InlineNotice>}
+        <p className="mb-6 text-muted-foreground">This action cannot be undone.</p>
+        <div className="admin-modal-actions flex justify-end gap-3">
+            <button type="button" className="button button-secondary" onClick={onClose} disabled={pending} aria-label="Cancel bulk delete" data-testid="button-cancel-bulk-delete">Cancel</button>
+           <button type="button" className="button button-danger flex items-center gap-2" onClick={onConfirm} disabled={pending} data-testid="button-confirm-bulk-delete">
+             {pending ? <Loader2 className="animate-spin" size={15}/> : <Trash2 size={15}/>}
+             Delete
+           </button>
+        </div>
+      </div>
+    </div>
+  </div>, document.body);
+}
+
 function AdminManualPricing() {
   const { t, formatNumber } = useI18n();
   const queryClient = useQueryClient();
@@ -6656,6 +6890,7 @@ function AdminManualPricing() {
   const oneForge = useGetOneForgeProviderStatus({ query: { queryKey: getGetOneForgeProviderStatusQueryKey(), refetchInterval: 30000 } });
   const update = useUpdateManualDeskPricingRule();
   const remove = useDeleteManualDeskPricingRule();
+  const bulkAction = useBulkManualDeskPricingRules();
   const [drawer, setDrawer] = useState<ManualDeskPricingRule | 'new' | null>(null);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
@@ -6663,6 +6898,10 @@ function AdminManualPricing() {
   const [selectedRuleIds, setSelectedRuleIds] = useState<string[]>([]);
   const [testRule, setTestRule] = useState<ManualDeskPricingRule | null>(null);
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  const [bulkEditDrawerOpen, setBulkEditDrawerOpen] = useState(false);
+  const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
+
   const settlementOptions = config.data?.manualSettlementOptions || [];
   const pricingRules = rules.data?.items || [];
   const diagnostics = rules.data?.diagnostics;
@@ -6671,9 +6910,83 @@ function AdminManualPricing() {
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const visibleRules = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const visibleIds = visibleRules.map(rule => rule.id);
-  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedRuleIds.includes(id));
+  const filteredIds = filtered.map(rule => rule.id);
+  const allFilteredSelected = filteredIds.length > 0 && filteredIds.every(id => selectedRuleIds.includes(id));
+  const someFilteredSelected = filteredIds.some(id => selectedRuleIds.includes(id));
+
   useEffect(() => setPage(1), [search, status]);
+
+  useEffect(() => {
+    if (!successMsg) return;
+    const timer = setTimeout(() => setSuccessMsg(''), 4000);
+    return () => clearTimeout(timer);
+  }, [successMsg]);
+
+  useEffect(() => {
+    // Prune selected IDs if they no longer exist in the catalog (e.g. after deletion)
+    if (!pricingRules.length) return;
+    const existingIds = new Set(pricingRules.map(r => r.id));
+    setSelectedRuleIds(current => {
+      const valid = current.filter(id => existingIds.has(id));
+      return valid.length === current.length ? current : valid;
+    });
+  }, [pricingRules]);
+
+  const selectedRules = pricingRules.filter(r => selectedRuleIds.includes(r.id));
+  const anyReadOnlySelected = selectedRules.some(r => r.readOnly);
+
+  const handleBulkActionSuccess = (data: ManualDeskPricingRulesBulkResponse, actionName: string) => {
+    queryClient.setQueryData(getListManualDeskPricingRulesQueryKey(), {
+      items: data.items,
+      diagnostics: data.diagnostics
+    });
+    setSelectedRuleIds([]);
+    setBulkEditDrawerOpen(false);
+    setBulkDeleteModalOpen(false);
+    setSuccessMsg(`Successfully applied ${actionName} to ${data.affectedIds.length} rule${data.affectedIds.length !== 1 ? 's' : ''}.`);
+  };
+
+  const handleBulkToggle = (action: 'enable' | 'disable') => {
+    if (anyReadOnlySelected) {
+      setError(`Cannot bulk ${action} because selection includes read-only legacy rules. Please deselect them.`);
+      return;
+    }
+    setError('');
+    setSuccessMsg('');
+    bulkAction.mutate({
+      data: {
+        action,
+        items: selectedRules.map(r => ({ id: r.id, version: r.version }))
+      }
+    }, {
+      onSuccess: (data) => handleBulkActionSuccess(data, action),
+      onError: (err) => {
+        const code = apiErrorData(err)?.code;
+        if (code?.includes('CONFLICT')) {
+           setError('Some rules changed in another session or conflict with existing routes. Refresh and try again.');
+        } else {
+           setError(apiErrorText(err, `Could not ${action} rules.`));
+        }
+      }
+    });
+  };
+
+  const handleBulkDelete = () => {
+    setError('');
+    setSuccessMsg('');
+    bulkAction.mutate({
+      data: {
+        action: 'delete',
+        items: selectedRules.map(r => ({ id: r.id, version: r.version }))
+      }
+    }, {
+      onSuccess: (data) => handleBulkActionSuccess(data, 'delete'),
+      onError: (err) => {
+        setError(apiErrorText(err, `Could not delete rules.`));
+      }
+    });
+  };
+
   const optionForRule = (rule: ManualDeskPricingRule) => settlementOptions.find(option =>
     sameSettlementOptionId(option.id, rule.targetSettlementOptionId || '')
   ) || settlementOptions.find(option =>
@@ -6746,7 +7059,9 @@ function AdminManualPricing() {
   };
   return <AdminShell eyebrow={t('adminPricing.operations_pricing')} title={t('adminPricing.swap_pricing')} requiredPermission="pricing.view">
     <div className="admin-welcome"><p className="admin-subtitle">{t('adminPricing.deterministic_route_pricing_with_the_most_specific')}</p><div className="system-state"><span className={cn('live-dot', oneForge.data?.state !== 'healthy' && 'offline-dot')} /> {t('adminPricing.1forge')}{oneForge.isLoading ? t('adminPricing.checking') : oneForge.data?.state || 'unavailable'}{oneForge.data?.fetchedAt ? ` · ${ago(oneForge.data.fetchedAt)}` : ''}</div></div>
+
     {error && <InlineNotice kind="error" onDismiss={() => setError('')}>{error}</InlineNotice>}
+    {successMsg && <InlineNotice kind="success" onDismiss={() => setSuccessMsg('')}>{successMsg}</InlineNotice>}
     <PricingPreview testRule={testRule} />
     <div className="pricing-layout">
       <div className="panel pricing-rules-panel">
@@ -6763,6 +7078,19 @@ function AdminManualPricing() {
           <select value={status} onChange={event => setStatus(event.target.value)} aria-label={t('adminPricing.filter_by_status')} data-testid="select-filter-pricing-status"><option value="all">{t('adminPricing.all_statuses')}</option><option value="true">{t('adminPricing.enabled')}</option><option value="false">{t('adminPricing.disabled')}</option></select>
           <button className="button button-primary pricing-add-rule" onClick={() => setDrawer('new')} data-testid="button-add-pricing-rule"><TrendingUp size={15} /> {t('adminPricing.add_pricing_rule')}</button>
         </div>
+         <div className={cn("bulk-actions-toolbar", selectedRuleIds.length > 0 && "visible")} data-testid="bulk-actions-toolbar">
+           <div className="bulk-actions-inner">
+             <span className="bulk-actions-count" data-testid="bulk-actions-count"><Check size={14} /> {selectedRuleIds.length} selected</span>
+             <div className="bulk-actions-divider" />
+             <button type="button" onClick={() => handleBulkToggle('enable')} disabled={anyReadOnlySelected || bulkAction.isPending} data-testid="button-bulk-enable" aria-label="Bulk enable"><Power size={14} /> Enable</button>
+             <div className="bulk-actions-divider" />
+             <button type="button" onClick={() => handleBulkToggle('disable')} disabled={anyReadOnlySelected || bulkAction.isPending} data-testid="button-bulk-disable" aria-label="Bulk disable"><Power size={14} /> Disable</button>
+             <div className="bulk-actions-divider" />
+             <button type="button" onClick={() => setBulkEditDrawerOpen(true)} disabled={anyReadOnlySelected || bulkAction.isPending} data-testid="button-bulk-edit" aria-label="Bulk edit"><Pencil size={14} /> Edit</button>
+             <div className="bulk-actions-divider" />
+             <button type="button" onClick={() => setBulkDeleteModalOpen(true)} disabled={bulkAction.isPending} data-testid="button-bulk-delete" className="bulk-actions-delete" aria-label="Bulk delete"><Trash2 size={14} /> Delete</button>
+           </div>
+         </div>
         {rules.isLoading ? <LoadingBlock rows={5} /> : rules.isError ? <ErrorState message={t('adminPricing.load_pricing_rules_error')} retry={() => rules.refetch()} /> : !filtered.length ? <div className="table-empty"><TrendingUp size={20} /><strong>{t('adminPricing.no_matching_pricing_rules')}</strong><span>{t('adminPricing.adjust_filters_or_add_a_full_replacement')}</span></div> : <>
           <div className="w-full relative group">
             <div className="swipeable-scroll-hint" aria-hidden="true" />
@@ -6775,7 +7103,7 @@ function AdminManualPricing() {
               }
             }}>
               <table className="data-table pricing-table" data-testid="table-pricing-rules"><thead><tr>
-                <th className="pricing-select-column"><input type="checkbox" checked={allVisibleSelected} onChange={() => setSelectedRuleIds(current => allVisibleSelected ? current.filter(id => !visibleIds.includes(id)) : [...new Set([...current, ...visibleIds])])} aria-label={t('adminPricing.select_all_visible_pricing_rules')} data-testid="checkbox-select-visible-pricing" /></th>
+                <th className="pricing-select-column"><input type="checkbox" ref={el => { if (el) el.indeterminate = someFilteredSelected && !allFilteredSelected; }} checked={allFilteredSelected} onChange={() => { if (allFilteredSelected) setSelectedRuleIds(c => c.filter(id => !filteredIds.includes(id))); else setSelectedRuleIds(c => [...new Set([...c, ...filteredIds])]); }} aria-label="Select all filtered pricing rules" data-testid="checkbox-select-visible-pricing" /></th>
                 <th>{t('adminPricing.rule')}</th><th>{t('adminPricing.route_2')}</th><th>{t('adminPricing.commission')}</th><th>{t('adminPricing.priority')}</th><th>{t('adminPricing.specificity')}</th><th>{t('adminPricing.status')}</th><th>{t('adminPricing.actions')}</th><th>{t('adminPricing.test')}</th>
               </tr></thead><tbody>{visibleRules.map(rule => {
                 const option = optionForRule(rule);
@@ -6798,6 +7126,8 @@ function AdminManualPricing() {
       </div>
     </div>
     {drawer && <PricingRuleDrawer rule={drawer === 'new' ? undefined : drawer} rules={pricingRules} onClose={() => setDrawer(null)} />}
+    {bulkEditDrawerOpen && <BulkPricingRuleDrawer rules={selectedRules} allOptions={settlementOptions} onClose={() => setBulkEditDrawerOpen(false)} onSuccess={handleBulkActionSuccess} />}
+    {bulkDeleteModalOpen && <BulkDeleteModal rules={selectedRules} onClose={() => setBulkDeleteModalOpen(false)} onConfirm={handleBulkDelete} pending={bulkAction.isPending} error={error} />}
   </AdminShell>;
 }
 

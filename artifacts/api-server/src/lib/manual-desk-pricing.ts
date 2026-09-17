@@ -1,4 +1,4 @@
-import { and, desc, eq, ne, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import {
   db,
   manualDeskPricingRulesTable,
@@ -444,4 +444,136 @@ export async function updateManualPricingRule(
     "The pricing rule changed. Reload it before trying again.",
     409,
   );
+}
+
+export type ManualPricingBulkAction = "enable" | "disable" | "delete" | "edit";
+export type ManualPricingBulkItem = { id: string; version: number };
+export type ManualPricingBulkPatch = Partial<Pick<ManualPricingWrite,
+  "markupBasisPoints" | "priority" | "sourceSettlementOptionId" |
+  "targetSettlementOptionId" | "exactRate" | "fixedFee" | "minAmount" |
+  "maxAmount" | "expectedSettlementMinutes" | "operatorInstructions" |
+  "customerInstructions" | "sourceAsset" | "targetAsset" | "sourceNetwork" |
+  "targetNetwork">>;
+
+function rowAsWrite(row: ManualDeskPricingRule): ManualPricingWrite {
+  return {
+    name: row.name,
+    sourceAsset: row.sourceAsset,
+    targetAsset: row.targetAsset,
+    sourceNetwork: row.sourceNetwork,
+    targetNetwork: row.targetNetwork,
+    paymentMethod: row.paymentMethod,
+    payoutMethod: row.payoutMethod,
+    sourceSettlementOptionId: row.sourceSettlementOptionId,
+    targetSettlementOptionId: row.targetSettlementOptionId,
+    markupBasisPoints: row.markupBasisPoints,
+    fixedFee: row.fixedFee,
+    exactRate: row.exactRate,
+    minAmount: row.minAmount,
+    maxAmount: row.maxAmount,
+    operatorInstructions: row.operatorInstructions,
+    customerInstructions: row.customerInstructions,
+    expectedSettlementMinutes: row.expectedSettlementMinutes,
+    priority: row.priority,
+    enabled: row.enabled,
+  };
+}
+
+function isLegacyReadOnly(row: ManualDeskPricingRule): boolean {
+  return !row.sourceSettlementOptionId && !row.targetSettlementOptionId &&
+    MANUAL_PRICING_SELECTOR_KEYS
+      .filter((key) => key !== "sourceSettlementOptionId" && key !== "targetSettlementOptionId")
+      .some((key) => normalized(row[key]) !== null);
+}
+
+export async function bulkUpdateManualPricingRules(
+  items: readonly ManualPricingBulkItem[],
+  action: ManualPricingBulkAction,
+  patch: ManualPricingBulkPatch | undefined,
+  settlementOptionIds?: ReadonlySet<string>,
+) {
+  if (new Set(items.map((item) => item.id)).size !== items.length) {
+    throw new ApiError("VALIDATION_ERROR", "Selected pricing rule IDs must be unique.", 400);
+  }
+  if (action === "edit" && (!patch || Object.keys(patch).length === 0)) {
+    throw new ApiError("VALIDATION_ERROR", "Bulk edit requires at least one field.", 400);
+  }
+  try {
+    return await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(350035)`);
+      const rows = await tx.select().from(manualDeskPricingRulesTable);
+      const selected = items.map((item) => rows.find((row) => row.id === item.id));
+      if (selected.some((row) => !row)) {
+        throw new ApiError("MANUAL_PRICING_RULE_NOT_FOUND", "Pricing rule not found.", 404);
+      }
+      const current = selected as ManualDeskPricingRule[];
+      for (const row of current) {
+        const expected = items.find((item) => item.id === row.id)!.version;
+        if (row.version !== expected) {
+          throw new ApiError("MANUAL_PRICING_RULE_VERSION_CONFLICT",
+            "One or more pricing rules changed. Reload them before trying again.", 409);
+        }
+        if (action !== "delete" && isLegacyReadOnly(row)) {
+          throw new ApiError("MANUAL_PRICING_RULE_READ_ONLY",
+            "Legacy pricing rules cannot be changed.", 409);
+        }
+        if (settlementOptionIds && [row.sourceSettlementOptionId, row.targetSettlementOptionId]
+          .some((id) => id !== null && !settlementOptionIds.has(id.toUpperCase()))) {
+          throw new ApiError("SETTLEMENT_OPTION_INVALID",
+            "A selected pricing rule references an unavailable settlement option.", 422);
+        }
+      }
+      if (action === "delete") {
+        await tx.delete(manualDeskPricingRulesTable)
+          .where(inArray(manualDeskPricingRulesTable.id, current.map((row) => row.id)));
+      } else {
+        const finalRows = rows.map((row) => {
+          const index = current.findIndex((selectedRow) => selectedRow.id === row.id);
+          if (index < 0) return row;
+          const values = action === "edit" ? { ...rowAsWrite(row), ...patch } : rowAsWrite(row);
+          if (action === "enable") values.enabled = true;
+          if (action === "disable") values.enabled = false;
+          const normalizedValues = normalizedWrite(values);
+          return { ...row, ...normalizedValues, version: row.version + 1, updatedAt: new Date() };
+        });
+        // Only selected rows are being changed. Do not re-litigate legacy
+        // ambiguities among untouched rows in the shared catalog.
+        for (const row of finalRows.filter((candidate) =>
+          current.some((selectedRow) => selectedRow.id === candidate.id))) {
+          const candidate = rowAsWrite(row);
+          const others = finalRows.filter((other) => other.id !== row.id);
+          const conflict = others.find((other) => {
+            const otherWrite = rowAsWrite(other);
+            return other.priority === row.priority &&
+              settlementOptionSpecificity(otherWrite) === settlementOptionSpecificity(candidate) &&
+              manualPricingSpecificity(otherWrite) === manualPricingSpecificity(candidate) &&
+              overlap(otherWrite, candidate);
+          });
+          if (conflict) {
+            throw new ApiError("MANUAL_PRICING_RULE_CONFLICT",
+              "A rule with the same priority and overlapping selectors would make matching ambiguous.", 409);
+          }
+        }
+        for (const row of current) {
+          const finalRow = finalRows.find((candidate) => candidate.id === row.id)!;
+          await tx.update(manualDeskPricingRulesTable).set({
+            ...rowAsWrite(finalRow),
+            version: finalRow.version,
+            updatedAt: finalRow.updatedAt,
+          }).where(and(
+            eq(manualDeskPricingRulesTable.id, row.id),
+            eq(manualDeskPricingRulesTable.version, row.version),
+          ));
+        }
+      }
+      return tx.select().from(manualDeskPricingRulesTable)
+        .orderBy(desc(manualDeskPricingRulesTable.priority),
+          manualDeskPricingRulesTable.createdAt, manualDeskPricingRulesTable.id);
+    });
+  } catch (error) {
+    if ((error as { code?: string }).code === "23505") {
+      throw new ApiError("MANUAL_PRICING_RULE_CONFLICT", "An equivalent pricing rule already exists.", 409);
+    }
+    throw error;
+  }
 }

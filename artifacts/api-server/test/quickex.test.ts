@@ -2293,6 +2293,173 @@ test("Quickex namespace owns signed quotes, orders, tracking, and idempotency", 
   }
 });
 
+test("manual pricing bulk actions are classified and atomic", async () => {
+  const { classifyAdminRoute } = await import("../src/lib/admin-policy");
+  assert.deepEqual(
+    classifyAdminRoute("POST", "/admin/manual-desk-pricing-rules/bulk"),
+    { permission: "pricing.manage", ownerOnly: false },
+  );
+  const { db, manualDeskPricingRulesTable, operatorsTable } = await import("@workspace/db");
+  const operatorAuth = await import("../src/lib/operator-auth");
+  const suffix = randomUUID();
+  const userId = `user_bulk_pricing_${suffix}`;
+  const [operator] = await db.insert(operatorsTable).values({
+    email: `bulk-pricing-${suffix}@example.test`,
+    clerkUserId: userId,
+    role: "operator",
+    status: "active",
+    permissionAllows: ["pricing.view", "pricing.manage"],
+  }).returning();
+  operatorAuth.configureOperatorAuthorizationForTests({
+    getUserId: req => req.get("x-test-clerk-user-id") ?? null,
+    getVerifiedEmail: () => null,
+  });
+  const api = await startApi();
+  const headers = { "x-test-clerk-user-id": userId };
+  const ids = [randomUUID(), randomUUID()];
+  try {
+    const config = await (await fetch(`${api.url}/exchange/config`)).json() as {
+      settlementOptions: Array<{
+        id: string; assetCode: string; routeNetwork: string;
+        direction: "send" | "receive" | "both";
+      }>;
+    };
+    const sources = config.settlementOptions.filter(option =>
+      option.direction === "send" || option.direction === "both");
+    const source = sources[0];
+    const target = config.settlementOptions.find(option =>
+      (option.direction === "receive" || option.direction === "both") &&
+      option.id !== source?.id);
+    const alternateSource = sources.find(option =>
+      option.id !== source?.id && option.id !== target?.id);
+    assert.ok(source && alternateSource && target);
+    const existingPriorities = new Set(
+      (await db.select({ priority: manualDeskPricingRulesTable.priority })
+        .from(manualDeskPricingRulesTable)).map(row => row.priority),
+    );
+    let priority = 900000;
+    while (existingPriorities.has(priority) || existingPriorities.has(priority + 1)) {
+      priority -= 2;
+    }
+    const editPriority = priority - 2;
+    const baseRule = {
+      sourceAsset: source.assetCode,
+      targetAsset: target.assetCode,
+      sourceNetwork: source.routeNetwork,
+      targetNetwork: target.routeNetwork,
+      paymentMethod: null,
+      payoutMethod: null,
+      sourceSettlementOptionId: source.id,
+      targetSettlementOptionId: target.id,
+      markupBasisPoints: 100,
+      fixedFee: null,
+      exactRate: "1.1",
+      minAmount: null,
+      maxAmount: null,
+      operatorInstructions: null,
+      customerInstructions: null,
+      expectedSettlementMinutes: null,
+      priority,
+      enabled: false,
+      version: 1,
+    };
+    await db.insert(manualDeskPricingRulesTable).values([
+      { id: ids[0], ...baseRule, name: `Bulk one ${suffix}` },
+      {
+        id: ids[1],
+        ...baseRule,
+        name: `Bulk two ${suffix}`,
+        sourceAsset: `ALT-${suffix.slice(0, 8)}`,
+        sourceNetwork: `ALT-${suffix.slice(0, 8)}`,
+        sourceSettlementOptionId: alternateSource.id,
+        priority: priority + 1,
+      },
+    ]);
+
+    const bulk = (body: Record<string, unknown>) =>
+      apiJson(api.url, "/admin/manual-desk-pricing-rules/bulk", body, "POST", headers);
+    let response = await bulk({
+      action: "enable",
+      items: ids.map(id => ({ id, version: 1 })),
+    });
+    assert.equal(response.status, 200, JSON.stringify(response.body));
+    assert.equal(response.body.action, "enable");
+    assert.deepEqual(response.body.affectedIds, ids);
+    assert.equal((response.body.items as Array<Record<string, unknown>>)
+      .filter(item => ids.includes(String(item.id))).every(item => item.enabled === true), true);
+
+    response = await bulk({
+      action: "disable",
+      items: ids.map(id => ({ id, version: 2 })),
+    });
+    assert.equal(response.status, 200);
+
+    // One stale version rejects the entire action, leaving both rows disabled.
+    response = await bulk({
+      action: "enable",
+      items: [{ id: ids[0], version: 2 }, { id: ids[1], version: 3 }],
+    });
+    assert.equal(response.status, 409);
+    const afterStale = await db.select().from(manualDeskPricingRulesTable)
+      .where(inArray(manualDeskPricingRulesTable.id, ids));
+    assert.deepEqual(afterStale.map(row => [row.id, row.enabled, row.version]), [
+      [ids[0], false, 3], [ids[1], false, 3],
+    ]);
+
+    response = await bulk({
+      action: "edit",
+      items: ids.map(id => ({ id, version: 3 })),
+      patch: { priority: editPriority, fixedFee: null },
+    });
+    assert.equal(response.status, 200);
+    const edited = await db.select().from(manualDeskPricingRulesTable)
+      .where(eq(manualDeskPricingRulesTable.id, ids[0]));
+    assert.equal(edited[0]?.priority, editPriority);
+    assert.equal(edited[0]?.version, 4);
+
+    // Invalid common bounds roll back without changing the successful edit.
+    response = await bulk({
+      action: "edit",
+      items: ids.map(id => ({ id, version: 4 })),
+      patch: { minAmount: "10", maxAmount: "1" },
+    });
+    assert.equal(response.status, 400);
+    const afterInvalid = await db.select().from(manualDeskPricingRulesTable)
+      .where(eq(manualDeskPricingRulesTable.id, ids[0]));
+    assert.equal(afterInvalid[0]?.priority, editPriority);
+    assert.equal(afterInvalid[0]?.version, 4);
+
+    // Changing the second source onto the first creates a final-set overlap;
+    // neither selected row is changed.
+    response = await bulk({
+      action: "edit",
+      items: ids.map(id => ({ id, version: 4 })),
+      patch: { sourceSettlementOptionId: source.id },
+    });
+    assert.equal(response.status, 409);
+    const afterConflict = await db.select().from(manualDeskPricingRulesTable)
+      .where(inArray(manualDeskPricingRulesTable.id, ids));
+    assert.deepEqual(afterConflict.sort((left, right) => left.id.localeCompare(right.id))
+      .map(row => [row.id, row.sourceSettlementOptionId, row.version]).sort((left, right) =>
+        String(left[0]).localeCompare(String(right[0]))), [
+      [ids[0], source.id, 4], [ids[1], alternateSource.id, 4],
+    ].sort((left, right) => String(left[0]).localeCompare(String(right[0]))));
+
+    response = await bulk({
+      action: "delete",
+      items: ids.map(id => ({ id, version: 4 })),
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(response.body.affectedIds, ids);
+    assert.equal((response.body.items as Array<unknown>).some(item =>
+      ids.includes(String((item as { id: string }).id))), false);
+  } finally {
+    await db.delete(manualDeskPricingRulesTable).where(inArray(manualDeskPricingRulesTable.id, ids));
+    await db.delete(operatorsTable).where(eq(operatorsTable.id, operator.id));
+    await api.close();
+  }
+});
+
 test("manual crypto catalog and signed funding snapshots are independent of Quickex", async () => {
   const { cryptoAssetNetworksTable, db, manualDeskPricingRulesTable } = await import("@workspace/db");
   const [original] = await db.select().from(cryptoAssetNetworksTable)

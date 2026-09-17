@@ -90,6 +90,7 @@ const POLICY_MATCHERS: readonly PolicyMatcher[] = [
 
   { method: "GET", pattern: /^\/admin\/manual-desk-pricing-rules$/, policy: P("pricing.view") },
   { method: "POST", pattern: /^\/admin\/manual-desk-pricing-rules$/, policy: P("pricing.manage") },
+  { method: "POST", pattern: /^\/admin\/manual-desk-pricing-rules\/bulk$/, policy: P("pricing.manage") },
   { method: "PATCH", pattern: /^\/admin\/manual-desk-pricing-rules\/[^/]+$/, policy: P("pricing.manage") },
   { method: "DELETE", pattern: /^\/admin\/manual-desk-pricing-rules\/[^/]+$/, policy: P("pricing.manage") },
   { method: "POST", pattern: /^\/admin\/manual-desk-pricing-rules\/(preview|quote-preview)$/, policy: P("pricing.view") },

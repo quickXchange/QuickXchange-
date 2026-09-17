@@ -123,6 +123,8 @@ import type {
   ManualDeskPricingRuleCatalog,
   ManualDeskPricingRuleInput,
   ManualDeskPricingRuleUpdate,
+  ManualDeskPricingRulesBulkInput,
+  ManualDeskPricingRulesBulkResponse,
   ManualDeskRevenueReport,
   NewsletterAnnouncement,
   NewsletterAnnouncementInput,
@@ -5192,6 +5194,77 @@ export const useCreateManualDeskPricingRule = <TError = ErrorType<ApiError>,
         TContext
       > => {
       return useMutation(getCreateManualDeskPricingRuleMutationOptions(options));
+    }
+
+export const getBulkManualDeskPricingRulesUrl = () => {
+
+
+
+
+  return `/api/admin/manual-desk-pricing-rules/bulk`
+}
+
+/**
+ * @summary Apply one atomic action to multiple manual desk pricing rules
+ */
+export const bulkManualDeskPricingRules = async (manualDeskPricingRulesBulkInput: ManualDeskPricingRulesBulkInput, options?: Parameters<typeof customFetch>[1]): Promise<ManualDeskPricingRulesBulkResponse> => {
+
+  return customFetch<ManualDeskPricingRulesBulkResponse>(getBulkManualDeskPricingRulesUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(manualDeskPricingRulesBulkInput)
+  }
+);}
+
+
+
+
+
+export const getBulkManualDeskPricingRulesMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkManualDeskPricingRules>>, TError,{data: BodyType<ManualDeskPricingRulesBulkInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof bulkManualDeskPricingRules>>, TError,{data: BodyType<ManualDeskPricingRulesBulkInput>}, TContext> => {
+
+const mutationKey = ['bulkManualDeskPricingRules'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bulkManualDeskPricingRules>>, {data: BodyType<ManualDeskPricingRulesBulkInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  bulkManualDeskPricingRules(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BulkManualDeskPricingRulesMutationResult = NonNullable<Awaited<ReturnType<typeof bulkManualDeskPricingRules>>>
+    export type BulkManualDeskPricingRulesMutationBody = BodyType<ManualDeskPricingRulesBulkInput>
+    export type BulkManualDeskPricingRulesMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Apply one atomic action to multiple manual desk pricing rules
+ */
+export const useBulkManualDeskPricingRules = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkManualDeskPricingRules>>, TError,{data: BodyType<ManualDeskPricingRulesBulkInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof bulkManualDeskPricingRules>>,
+        TError,
+        {data: BodyType<ManualDeskPricingRulesBulkInput>},
+        TContext
+      > => {
+      return useMutation(getBulkManualDeskPricingRulesMutationOptions(options));
     }
 
 export const getRequestCryptoAssetLogoUploadUrl = () => {

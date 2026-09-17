@@ -1816,6 +1816,85 @@ export type ManualDeskPricingRuleUpdate = ManualDeskPricingRuleInput & {
   version: number;
 };
 
+export interface ManualDeskPricingRulesBulkPatch {
+  /**
+     * @minimum 0
+     * @maximum 10000
+     */
+  markupBasisPoints?: number;
+  /**
+     * @minimum -1000000
+     * @maximum 1000000
+     */
+  priority?: number;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     * @nullable
+     */
+  sourceSettlementOptionId?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     * @nullable
+     */
+  targetSettlementOptionId?: string | null;
+  exactRate?: PositiveExactDecimal | null;
+  fixedFee?: ExactDecimal | null;
+  minAmount?: ExactDecimal | null;
+  maxAmount?: ExactDecimal | null;
+  /**
+     * @minimum 1
+     * @maximum 10080
+     * @nullable
+     */
+  expectedSettlementMinutes?: number | null;
+  /**
+     * @maxLength 5000
+     * @nullable
+     */
+  operatorInstructions?: string | null;
+  /**
+     * @maxLength 5000
+     * @nullable
+     */
+  customerInstructions?: string | null;
+}
+
+export type ManualDeskPricingRulesBulkInputItemsItem = {
+  /** @pattern ^[0-9a-fA-F-]{36}$ */
+  id: string;
+  /** @minimum 1 */
+  version: number;
+};
+
+export type ManualDeskPricingRulesBulkInputAction = typeof ManualDeskPricingRulesBulkInputAction[keyof typeof ManualDeskPricingRulesBulkInputAction];
+
+
+export const ManualDeskPricingRulesBulkInputAction = {
+  enable: 'enable',
+  disable: 'disable',
+  delete: 'delete',
+  edit: 'edit',
+} as const;
+
+export interface ManualDeskPricingRulesBulkInput {
+  /** @minItems 1 */
+  items: ManualDeskPricingRulesBulkInputItemsItem[];
+  action: ManualDeskPricingRulesBulkInputAction;
+  patch?: ManualDeskPricingRulesBulkPatch;
+}
+
+export type ManualDeskPricingRulesBulkResponseAction = typeof ManualDeskPricingRulesBulkResponseAction[keyof typeof ManualDeskPricingRulesBulkResponseAction];
+
+
+export const ManualDeskPricingRulesBulkResponseAction = {
+  enable: 'enable',
+  disable: 'disable',
+  delete: 'delete',
+  edit: 'edit',
+} as const;
+
 export type ManualDeskPricingRule = ManualDeskPricingRuleInput & {
   id: string;
   /** @minimum 1 */
@@ -1844,6 +1923,13 @@ export interface ManualPricingCoverageDiagnostics {
   hasEnabledAnyToAnyFallback: boolean;
   orphanRules: ManualPricingOrphanRule[];
   uncoveredRoutes: ManualPricingCoveragePair[];
+}
+
+export interface ManualDeskPricingRulesBulkResponse {
+  items: ManualDeskPricingRule[];
+  diagnostics: ManualPricingCoverageDiagnostics;
+  action: ManualDeskPricingRulesBulkResponseAction;
+  affectedIds: string[];
 }
 
 export interface ManualDeskPricingRuleCatalog {
