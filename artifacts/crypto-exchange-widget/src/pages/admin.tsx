@@ -7213,6 +7213,36 @@ type ReceivingWalletDraft = {
   depositProvider: string;
 };
 
+function persistedReceivingWalletDraft(
+  network: CryptoNetwork,
+  catalog: CryptoNetwork[],
+): ReceivingWalletDraft {
+  const matchingSavedNetworks = catalog.filter(candidate =>
+    candidate.networkCode === network.networkCode &&
+    Boolean(candidate.sharedDepositAddress?.trim())
+  );
+  const selectedSavedNetwork = matchingSavedNetworks.find(candidate => candidate.id === network.id);
+  const addressFrequency = new Map<string, number>();
+  matchingSavedNetworks.forEach(candidate => {
+    const identity = `${candidate.sharedDepositAddress?.trim() || ''}\0${candidate.sharedDepositMemo?.trim() || ''}`;
+    addressFrequency.set(identity, (addressFrequency.get(identity) || 0) + 1);
+  });
+  const sharedSavedNetwork = [...matchingSavedNetworks].sort((left, right) => {
+    const leftIdentity = `${left.sharedDepositAddress?.trim() || ''}\0${left.sharedDepositMemo?.trim() || ''}`;
+    const rightIdentity = `${right.sharedDepositAddress?.trim() || ''}\0${right.sharedDepositMemo?.trim() || ''}`;
+    return (addressFrequency.get(rightIdentity) || 0) - (addressFrequency.get(leftIdentity) || 0);
+  })[0];
+  const savedWallet = selectedSavedNetwork || sharedSavedNetwork;
+
+  return {
+    walletAddress: savedWallet?.sharedDepositAddress || '',
+    memo: savedWallet?.sharedDepositMemo || '',
+    enabled: network.customerDepositsEnabled ?? false,
+    share: false,
+    depositProvider: network.depositProvider || 'manual',
+  };
+}
+
 function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose: () => void }) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
@@ -7244,6 +7274,7 @@ function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose:
     () => (isNew ? [] : (assetNetworksQuery.data || []).filter((network: CryptoNetwork) => network.assetId === asset?.id)),
     [assetNetworksQuery.data, isNew, asset === 'new' ? undefined : asset?.id],
   );
+  const allAssetNetworks = assetNetworksQuery.data || [];
   const [receivingNetworkId, setReceivingNetworkId] = useState('');
   const [receivingDrafts, setReceivingDrafts] = useState<Record<string, ReceivingWalletDraft>>({});
 
@@ -7257,13 +7288,7 @@ function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose:
       const next = { ...current };
       assetNetworks.forEach(network => {
         if (!next[network.id]) {
-          next[network.id] = {
-            walletAddress: network.sharedDepositAddress || '',
-            memo: network.sharedDepositMemo || '',
-            enabled: network.customerDepositsEnabled ?? false,
-            share: false,
-            depositProvider: network.depositProvider || 'manual',
-          };
+          next[network.id] = persistedReceivingWalletDraft(network, allAssetNetworks);
         }
       });
       return next;
@@ -7275,13 +7300,7 @@ function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose:
 
   const selectedReceivingNetwork = assetNetworks.find(network => network.id === receivingNetworkId);
   const selectedReceivingDraft = selectedReceivingNetwork
-    ? receivingDrafts[selectedReceivingNetwork.id] || {
-      walletAddress: selectedReceivingNetwork.sharedDepositAddress || '',
-      memo: selectedReceivingNetwork.sharedDepositMemo || '',
-      enabled: selectedReceivingNetwork.customerDepositsEnabled ?? false,
-      share: false,
-      depositProvider: selectedReceivingNetwork.depositProvider || 'manual',
-    }
+    ? receivingDrafts[selectedReceivingNetwork.id] || persistedReceivingWalletDraft(selectedReceivingNetwork, allAssetNetworks)
     : null;
   const isApiProvider = Boolean(
     selectedReceivingDraft &&
@@ -7325,6 +7344,19 @@ function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose:
         [selectedReceivingNetwork.id]: { ...next, enabled: canEnable ? next.enabled : false },
       };
     });
+  };
+
+  const selectReceivingNetwork = (networkId: string) => {
+    const network = assetNetworks.find(candidate => candidate.id === networkId);
+    if (!network) {
+      setReceivingNetworkId(networkId);
+      return;
+    }
+    setReceivingDrafts(current => ({
+      ...current,
+      [network.id]: persistedReceivingWalletDraft(network, allAssetNetworks),
+    }));
+    setReceivingNetworkId(network.id);
   };
 
   const save = async (e: React.FormEvent) => {
@@ -7436,7 +7468,7 @@ function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose:
               <>
                 <label>
                   <span className="field-label">Network</span>
-                  <select data-testid="receiving-wallet-network" value={receivingNetworkId} onChange={e => setReceivingNetworkId(e.target.value)}>
+                  <select data-testid="receiving-wallet-network" value={receivingNetworkId} onChange={e => selectReceivingNetwork(e.target.value)}>
                     {assetNetworks.map(network => <option key={network.id} value={network.id}>{network.networkName} ({network.networkCode})</option>)}
                   </select>
                 </label>

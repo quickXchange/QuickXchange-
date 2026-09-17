@@ -9,7 +9,7 @@ Deposit-provider policy is also owned by that exact row, but it is never shared 
 
 **Why:** Assets can support multiple chains, and multiple assets can use one chain. Display labels and symbols are not stable or unique enough to select a customer deposit destination. Switching an address after showing it to a customer can strand funds.
 
-**How to apply:** Admin wallet/provider mutations, Swap quote funding, and order revalidation must preserve the selected asset-network identity. Keep provider claims fenced, snapshot the exact fallback before the call, and never search another row for a wallet. Convert remains provider-address driven and must not consume these configured Swap wallets.
+**How to apply:** Admin saves, Swap quote funding, and order revalidation must preserve the selected asset-network row identity. The Admin editor may hydrate address/memo fields from another asset only by exact network code, then save through the selected row; never infer a chain from labels or symbols. Keep provider claims fenced and Convert provider-address driven.
 
 Provider Policy options come from connected, enabled API integrations that have a registered deposit-address adapter. Integration credentials alone never make a rate, Convert, or unrelated provider selectable for Swap deposits.
 
