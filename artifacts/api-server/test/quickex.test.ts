@@ -2501,6 +2501,7 @@ test("manual crypto catalog and signed funding snapshots are independent of Quic
     }));
     await db.update(cryptoAssetNetworksTable).set({
       customerDepositsEnabled: true,
+      depositProvider: "manual",
       sharedDepositAddress: "immutable-btc-deposit",
       sharedDepositMemo: "immutable-memo",
       requiredConfirmations: 3,
@@ -2522,7 +2523,17 @@ test("manual crypto catalog and signed funding snapshots are independent of Quic
     assert.equal(quoted.status, 200);
     const ticket = JSON.parse(Buffer.from(String(quoted.body.quoteId).split(".")[0], "base64url").toString()) as any;
     assert.equal(ticket.settlementSnapshot.funding.address, "immutable-btc-deposit");
+    assert.equal(ticket.settlementSnapshot.funding.depositProvider, "manual");
     assert.equal(ticket.settlementSnapshot.funding.requiredConfirmations, 3);
+    const unchangedFundingOrder = await apiJson(api.url, "/orders", {
+      ...quoteInput,
+      quoteId: quoted.body.quoteId,
+      settlementDetails: settlementDetailsFixture(quoted.body.requiredSettlementFields),
+      refundAddress: "1BoatSLRHtKNngkdXEeobR76b53LETtpyT",
+      customerEmail: "unchanged-funding@example.test",
+      clientRequestId: randomUUID(),
+    });
+    assert.equal(unchangedFundingOrder.status, 201);
     await db.update(cryptoAssetNetworksTable).set({ sharedDepositAddress: "changed-later" })
       .where(eq(cryptoAssetNetworksTable.id, "btc-bitcoin"));
     const immutable = JSON.parse(Buffer.from(String(quoted.body.quoteId).split(".")[0], "base64url").toString()) as any;

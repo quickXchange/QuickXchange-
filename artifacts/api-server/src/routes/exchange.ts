@@ -634,6 +634,19 @@ function settlementFieldsForRoute(
   return [...source, ...target];
 }
 
+function cryptoFundingSnapshot(network: typeof cryptoAssetNetworksTable.$inferSelect) {
+  return {
+    address: network.sharedDepositAddress,
+    memo: network.sharedDepositMemo ?? "",
+    depositProvider: network.depositProvider,
+    requiresMemo: network.requiresMemo,
+    requiredConfirmations: network.requiredConfirmations,
+    confirmationGuidance: network.confirmationGuidance ?? "",
+    instructions: network.depositInstructions ?? "",
+    warning: network.depositWarning ?? "",
+  };
+}
+
 async function normalizeExchangeRoute(input: ParsedQuoteInput): Promise<NormalizedRoute> {
   if (input.type !== "manual") {
     throw new ApiError("MANUAL_SWAP_REQUIRED", "Only Manual desk swaps are available.", 422);
@@ -834,16 +847,7 @@ async function buildQuoteTicket(
           if (skipFundingAvailability) return undefined;
           throw new ApiError("DESK_CRYPTO_DEPOSIT_UNAVAILABLE", "Customer deposits are not enabled for this crypto network.", 422);
         }
-        return {
-          address: source.network.sharedDepositAddress,
-          memo: source.network.sharedDepositMemo ?? "",
-          depositProvider: source.network.depositProvider,
-          requiresMemo: source.network.requiresMemo,
-          requiredConfirmations: source.network.requiredConfirmations,
-          confirmationGuidance: source.network.confirmationGuidance ?? "",
-          instructions: source.network.depositInstructions ?? "",
-          warning: source.network.depositWarning ?? "",
-        };
+        return cryptoFundingSnapshot(source.network);
       })() : undefined,
     } : undefined,
     minAmount: effectiveMinAmount,
@@ -977,15 +981,7 @@ async function revalidateManualDeskQuoteRoute(quote: QuoteTicket): Promise<void>
       if (!network || !canAcceptManualCryptoDeposit(network.network)) {
         throw new ApiError("DESK_CRYPTO_DEPOSIT_UNAVAILABLE", "Customer deposits are not enabled for this crypto network.", 422);
       }
-      const currentFunding = {
-        address: network.network.sharedDepositAddress,
-        memo: network.network.sharedDepositMemo ?? "",
-        requiresMemo: network.network.requiresMemo,
-        requiredConfirmations: network.network.requiredConfirmations,
-        confirmationGuidance: network.network.confirmationGuidance ?? "",
-        instructions: network.network.depositInstructions ?? "",
-        warning: network.network.depositWarning ?? "",
-      };
+      const currentFunding = cryptoFundingSnapshot(network.network);
       if (JSON.stringify(currentFunding) !== JSON.stringify(snapshot.funding)) {
         throw new ApiError("SETTLEMENT_OPTION_CHANGED", "The signed funding instructions changed after this quote was issued.", 409);
       }

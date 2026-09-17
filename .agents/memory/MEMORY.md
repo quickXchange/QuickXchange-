@@ -93,3 +93,4 @@
 - [Shared DB test isolation](shared-db-test-isolation.md) — privileged integration tests use development storage; never drop or truncate public tables.
 - [Provider lifecycle test isolation](provider-lifecycle-test-isolation.md) — expire every cache layer and restore disabled provider settings around lifecycle tests.
 - [Bulk pricing conflict scope](bulk-pricing-conflict-scope.md) — validate changed pricing rules against the full catalog without making unrelated legacy conflicts block every bulk action.
+- [Signed settlement snapshot parity](signed-settlement-snapshot-parity.md) — quote creation and order revalidation must use one canonical funding projection.
