@@ -60,6 +60,17 @@ export function MembersList({ auth }: { auth: AdminAuthorization }) {
   const selectedMembers = selectableVisibleMembers.filter(member => selectedMemberIds.has(member.id));
   const allVisibleSelected = selectableVisibleMembers.length > 0 && selectedMembers.length === selectableVisibleMembers.length;
   const someVisibleSelected = selectedMembers.length > 0;
+  const visiblePageItems = (() => {
+    if (pageCount <= 7) return Array.from({ length: pageCount }, (_, index) => index + 1);
+    const pages = new Set([1, pageCount, currentPage - 1, currentPage, currentPage + 1]);
+    const ordered = Array.from(pages).filter(value => value >= 1 && value <= pageCount).sort((a, b) => a - b);
+    const items: Array<number | string> = [];
+    ordered.forEach((value, index) => {
+      if (index > 0 && value - ordered[index - 1] > 1) items.push(`ellipsis-${value}`);
+      items.push(value);
+    });
+    return items;
+  })();
 
   const refreshMembers = async () => {
     await queryClient.invalidateQueries({ queryKey: getListTeamMembersQueryKey() });
@@ -194,15 +205,22 @@ export function MembersList({ auth }: { auth: AdminAuthorization }) {
           </tbody>
         </table>
       </div>
-      {members.length > 0 && <div className="pricing-pagination">
+      {members.length > 0 && <div className="pricing-pagination team-members-pagination" data-testid="team-members-pagination">
         <span className="pricing-pagination-range">{(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, members.length)} of {members.length}</span>
         <div className="pricing-pagination-controls">
-          <label className="pricing-page-size"><span>Per page</span><select value={pageSize} onChange={event => { setPageSize(Number(event.target.value)); setPage(1); }} aria-label="Team members per page">{[15, 25, 50, 100].map(value => <option key={value} value={value}>{value} per page</option>)}</select></label>
           <div className="pricing-page-navigation">
             <button type="button" onClick={() => setPage(value => Math.max(1, value - 1))} disabled={currentPage === 1} aria-label="Previous team members page">‹</button>
-            {Array.from({ length: pageCount }, (_, index) => index + 1).map(value => <button type="button" key={value} className={cn(value === currentPage && 'active')} onClick={() => setPage(value)}>{value}</button>)}
+            {visiblePageItems.map(item => typeof item === 'number'
+              ? <button type="button" key={item} className={cn(item === currentPage && 'active')} onClick={() => setPage(item)}>{item}</button>
+              : <span key={item} className="pricing-pagination-ellipsis" aria-hidden="true">…</span>)}
             <button type="button" onClick={() => setPage(value => Math.min(pageCount, value + 1))} disabled={currentPage === pageCount} aria-label="Next team members page">›</button>
           </div>
+          <label className="pricing-page-size team-members-page-size">
+            <span>Per page</span>
+            <select value={pageSize} onChange={event => { setPageSize(Number(event.target.value)); setPage(1); }} aria-label="Team members per page" data-testid="select-team-members-page-size">
+              {[15, 25, 50, 100].map(value => <option key={value} value={value}>{value} per page</option>)}
+            </select>
+          </label>
         </div>
       </div>}
       
