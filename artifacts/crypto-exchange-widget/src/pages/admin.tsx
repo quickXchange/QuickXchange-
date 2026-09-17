@@ -86,6 +86,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { AdminShell, ago, apiErrorData, apiErrorText, basePath, cn, ErrorState, exactDateTime, FiatCurrencyFlag, formatExactUsd, guestCustomerLabel, InlineNotice, isFiatCurrencyCode, isGreaterThanExact, LoadingBlock, money, number, PaymentMethodCopy, PaymentMethodLogo, providerLabel, queryClient, sameSettlementOptionId, SettlementOptionCombobox, shortId, StatusPill } from '../App';
 import { AdminSearch } from '../components/admin-search';
 import { AdminWhitebitAssetSyncDialog } from '../components/admin-whitebit-asset-sync-dialog';
+import { AdminCryptoAssetsBulkEditDialog } from '../components/admin-crypto-assets-bulk-edit-dialog';
 import { OrderSupportToolsSection } from '../components/admin-order-support-tools';
 import { CatalogImageUploadField } from '../components/catalog-image-upload-field';
 import { useAdminPermissions } from '../lib/admin-permissions';
@@ -5529,11 +5530,13 @@ function AdminCurrencies() {
   const [drawerAsset, setDrawerAsset] = useState<CryptoAsset | 'new' | null>(initialCreate === 'asset' ? 'new' : null);
   const [drawerNetwork, setDrawerNetwork] = useState<CryptoNetwork | 'new' | null>(initialCreate === 'network' ? 'new' : null);
   const [syncWhitebitOpen, setSyncWhitebitOpen] = useState(false);
+  const [bulkEditAssetsOpen, setBulkEditAssetsOpen] = useState(false);
 
   const currenciesQuery = useGetFiatCurrencies({ query: { queryKey: getGetFiatCurrenciesQueryKey() } });
   const methodsQuery = useGetPaymentMethods({ query: { queryKey: getGetPaymentMethodsQueryKey() } });
   const assetsQuery = useGetCryptoAssets({ query: { queryKey: getGetCryptoAssetsQueryKey() } });
   const networksQuery = useGetCryptoNetworks({ query: { queryKey: getGetCryptoNetworksQueryKey() } });
+  const providerOptionsQuery = useGetDepositProviderOptions({ query: { queryKey: getGetDepositProviderOptionsQueryKey() } });
   const healthQuery = useGetOneForgeProviderStatus({ query: { queryKey: getGetOneForgeProviderStatusQueryKey(), refetchInterval: 30000 } });
   const health = healthQuery.data;
   const permissionForTab = (section: typeof tab) =>
@@ -6154,6 +6157,12 @@ function AdminCurrencies() {
                   <div className="bulk-actions-divider" />
                   <button type="button" disabled={catalogActionPending} onClick={() => runCatalogAction('disable')}><Power size={14} /> {t('adminCatalog.disabled')}</button>
                   <div className="bulk-actions-divider" />
+                  {isOwner && tab === 'assets' && (
+                    <>
+                      <button type="button" disabled={catalogActionPending} onClick={() => setBulkEditAssetsOpen(true)}><Pencil size={14} /> {t('adminCatalog.edit') || 'Edit'}</button>
+                      <div className="bulk-actions-divider" />
+                    </>
+                  )}
                   <button type="button" className="bulk-actions-delete" disabled={catalogActionPending} onClick={() => runCatalogAction('delete')}><Trash2 size={14} /> {t('adminCatalog.delete')}</button>
                 </div>
               </div>}
@@ -6263,6 +6272,22 @@ function AdminCurrencies() {
         open={syncWhitebitOpen}
         onOpenChange={setSyncWhitebitOpen}
       />
+      {bulkEditAssetsOpen && assetsQuery.data && networksQuery.data && (
+        <AdminCryptoAssetsBulkEditDialog
+          open={bulkEditAssetsOpen}
+          onOpenChange={setBulkEditAssetsOpen}
+          selectedAssetIds={Array.from(catalogSelected.assets)}
+          assets={assetsQuery.data}
+          networks={networksQuery.data}
+          providers={providerOptionsQuery.data || []}
+          providersLoading={providerOptionsQuery.isLoading}
+          providersError={providerOptionsQuery.isError}
+          onSuccess={() => {
+            setCatalogSelected(prev => ({ ...prev, assets: new Set() }));
+            setBulkEditAssetsOpen(false);
+          }}
+        />
+      )}
     </AdminShell>
   );
 }
@@ -6958,12 +6983,12 @@ function AdminManualPricing() {
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const visibleRules = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const visibleRuleIds = visibleRules.map(rule => rule.id);
-  const allVisibleRulesSelected = visibleRuleIds.length > 0 && visibleRuleIds.every(id => selectedRuleIds.includes(id));
-  const someVisibleRulesSelected = visibleRuleIds.some(id => selectedRuleIds.includes(id));
+  const filteredRuleIds = filtered.map(rule => rule.id);
+  const allFilteredRulesSelected = filteredRuleIds.length > 0 && filteredRuleIds.every(id => selectedRuleIds.includes(id));
+  const someFilteredRulesSelected = filteredRuleIds.some(id => selectedRuleIds.includes(id));
 
   useEffect(() => setPage(1), [search, status]);
-  useEffect(() => setSelectedRuleIds([]), [search, status, page, pageSize]);
+  useEffect(() => setSelectedRuleIds([]), [search, status, pageSize]);
 
   useEffect(() => {
     if (!successMsg) return;
@@ -6981,18 +7006,29 @@ function AdminManualPricing() {
     });
   }, [pricingRules]);
 
-  const selectedRules = visibleRules.filter(r => selectedRuleIds.includes(r.id));
+  const selectedRules = filtered.filter(r => selectedRuleIds.includes(r.id));
   const anyReadOnlySelected = selectedRules.some(r => r.readOnly);
 
   const handleBulkActionSuccess = (data: ManualDeskPricingRulesBulkResponse, actionName: string) => {
+    const selectedRuleNames = new Map(selectedRules.map(rule => [rule.id, rule.name]));
     queryClient.setQueryData(getListManualDeskPricingRulesQueryKey(), {
       items: data.items,
       diagnostics: data.diagnostics
     });
+    queryClient.invalidateQueries({ queryKey: getListManualDeskPricingRulesQueryKey() });
     setSelectedRuleIds([]);
     setBulkEditDrawerOpen(false);
     setBulkDeleteModalOpen(false);
-    setSuccessMsg(`Successfully applied ${actionName} to ${data.affectedIds.length} rule${data.affectedIds.length !== 1 ? 's' : ''}.`);
+    const updatedCount = data.updatedIds.length;
+    const skippedCount = data.skipped.length;
+    const skippedDetails = data.skipped
+      .map(item => `${selectedRuleNames.get(item.id) || item.id}: ${item.reason}`)
+      .join('; ');
+    setSuccessMsg(
+      `${updatedCount} rule${updatedCount === 1 ? '' : 's'} updated successfully. ` +
+      `${skippedCount} rule${skippedCount === 1 ? '' : 's'} skipped.` +
+      (skippedDetails ? ` ${skippedDetails}` : ''),
+    );
   };
 
   const handleBulkToggle = (action: 'enable' | 'disable') => {
@@ -7135,7 +7171,7 @@ function AdminManualPricing() {
              <div className="bulk-actions-divider" />
              <button type="button" onClick={() => handleBulkToggle('disable')} disabled={anyReadOnlySelected || bulkAction.isPending} data-testid="button-bulk-disable" aria-label="Bulk disable"><Power size={14} /> Disable</button>
              <div className="bulk-actions-divider" />
-             <button type="button" onClick={() => setBulkEditDrawerOpen(true)} disabled={anyReadOnlySelected || bulkAction.isPending} data-testid="button-bulk-edit" aria-label="Bulk edit"><Pencil size={14} /> Edit</button>
+             <button type="button" onClick={() => setBulkEditDrawerOpen(true)} disabled={bulkAction.isPending} data-testid="button-bulk-edit" aria-label="Bulk edit"><Pencil size={14} /> Edit</button>
              <div className="bulk-actions-divider" />
              <button type="button" onClick={() => setBulkDeleteModalOpen(true)} disabled={bulkAction.isPending} data-testid="button-bulk-delete" className="bulk-actions-delete" aria-label="Bulk delete"><Trash2 size={14} /> Delete</button>
            </div>
@@ -7152,7 +7188,7 @@ function AdminManualPricing() {
               }
             }}>
               <table className="data-table pricing-table" data-testid="table-pricing-rules"><thead><tr>
-                <th className="pricing-select-column"><input type="checkbox" ref={el => { if (el) el.indeterminate = someVisibleRulesSelected && !allVisibleRulesSelected; }} checked={allVisibleRulesSelected} onChange={() => { if (allVisibleRulesSelected) setSelectedRuleIds(c => c.filter(id => !visibleRuleIds.includes(id))); else setSelectedRuleIds(c => [...new Set([...c, ...visibleRuleIds])]); }} aria-label="Select all pricing rules on this page" data-testid="checkbox-select-visible-pricing" /></th>
+                <th className="pricing-select-column"><input type="checkbox" ref={el => { if (el) el.indeterminate = someFilteredRulesSelected && !allFilteredRulesSelected; }} checked={allFilteredRulesSelected} onChange={() => { if (allFilteredRulesSelected) setSelectedRuleIds(c => c.filter(id => !filteredRuleIds.includes(id))); else setSelectedRuleIds(c => [...new Set([...c, ...filteredRuleIds])]); }} aria-label="Select all filtered pricing rules" data-testid="checkbox-select-visible-pricing" /></th>
                 <th>{t('adminPricing.rule')}</th><th>{t('adminPricing.route_2')}</th><th>{t('adminPricing.commission')}</th><th>{t('adminPricing.priority')}</th><th>{t('adminPricing.specificity')}</th><th>{t('adminPricing.status')}</th><th>{t('adminPricing.actions')}</th><th>{t('adminPricing.test')}</th>
               </tr></thead><tbody>{visibleRules.map(rule => {
                 const option = optionForRule(rule);

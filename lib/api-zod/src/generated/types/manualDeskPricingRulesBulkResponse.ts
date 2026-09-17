@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ManualDeskPricingRule } from './manualDeskPricingRule';
+import type { ManualDeskPricingRuleBulkSkip } from './manualDeskPricingRuleBulkSkip';
 import type { ManualDeskPricingRulesBulkResponseAction } from './manualDeskPricingRulesBulkResponseAction';
 import type { ManualPricingCoverageDiagnostics } from './manualPricingCoverageDiagnostics';
 
@@ -13,5 +14,8 @@ export interface ManualDeskPricingRulesBulkResponse {
   items: ManualDeskPricingRule[];
   diagnostics: ManualPricingCoverageDiagnostics;
   action: ManualDeskPricingRulesBulkResponseAction;
+  /** Backward-compatible alias for updatedIds. */
   affectedIds: string[];
+  updatedIds: string[];
+  skipped: ManualDeskPricingRuleBulkSkip[];
 }

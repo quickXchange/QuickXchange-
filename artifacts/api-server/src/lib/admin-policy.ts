@@ -96,6 +96,7 @@ const POLICY_MATCHERS: readonly PolicyMatcher[] = [
   { method: "POST", pattern: /^\/admin\/manual-desk-pricing-rules\/(preview|quote-preview)$/, policy: P("pricing.view") },
   { method: "GET", pattern: /^\/admin\/crypto-assets$/, policy: P("crypto_assets.view") },
   { method: "POST", pattern: /^\/admin\/crypto-assets$/, policy: P("crypto_assets.manage") },
+  { method: "POST", pattern: /^\/admin\/crypto-assets\/bulk\/apply$/, policy: P("receiving_wallets.manage", true) },
   { method: "PATCH", pattern: /^\/admin\/crypto-assets\/[^/]+$/, policy: P("crypto_assets.manage") },
   { method: "DELETE", pattern: /^\/admin\/crypto-assets\/[^/]+$/, policy: P("crypto_assets.manage") },
   { method: "POST", pattern: /^\/admin\/crypto-assets\/logo-upload$/, policy: P("crypto_assets.manage") },

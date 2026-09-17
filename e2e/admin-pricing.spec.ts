@@ -24,6 +24,108 @@ const config = {
   feePercent: 0.6,
 };
 
+test('Select All bulk fee editing submits every filtered rule and reports partial results', async ({ page }) => {
+  const rules = Array.from({ length: 20 }, (_, index) => ({
+    id: `00000000-0000-4000-8000-${String(index + 201).padStart(12, '0')}`,
+    name: `Bulk rule ${index + 1}`,
+    sourceAsset: null,
+    targetAsset: null,
+    sourceNetwork: null,
+    targetNetwork: null,
+    paymentMethod: null,
+    payoutMethod: null,
+    sourceSettlementOptionId: 'usd-bank',
+    targetSettlementOptionId: 'eur-bank',
+    markupBasisPoints: 75 + index,
+    fixedFee: '0.10',
+    exactRate: '1.1',
+    minAmount: '1',
+    maxAmount: '1000',
+    operatorInstructions: 'Keep this instruction',
+    customerInstructions: 'Keep this customer note',
+    expectedSettlementMinutes: 10,
+    priority: 100 + index,
+    enabled: true,
+    version: 1,
+    specificity: 2,
+    missingSettlementOptionIds: [],
+    readOnly: index === 19,
+    legacyAmbiguous: index === 19,
+    createdAt: now,
+    updatedAt: now,
+  }));
+  let listRequests = 0;
+  let bulkInput: any;
+  await page.route('**/api/exchange/config', route => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify(config),
+  }));
+  await page.route('**/api/admin/providers/oneforge', route => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify({ provider: '1Forge', configured: true, state: 'healthy', fetchedAt: now, ageMs: 3000, rates: [] }),
+  }));
+  await page.route('**/api/admin/manual-desk-pricing-rules/bulk', async route => {
+    bulkInput = route.request().postDataJSON();
+    const updatedIds = rules.slice(0, 19).map(rule => rule.id);
+    const skipped = [{
+      id: rules[19].id,
+      code: 'MANUAL_PRICING_RULE_READ_ONLY',
+      reason: 'Legacy pricing rules cannot be changed.',
+      currentVersion: 1,
+    }];
+    return route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: rules.map((rule, index) => index < 19
+          ? { ...rule, markupBasisPoints: 250, version: 2, updatedAt: now }
+          : rule),
+        diagnostics: { hasEnabledAnyToAnyFallback: false, orphanRules: [], uncoveredRoutes: [] },
+        action: 'edit',
+        affectedIds: updatedIds,
+        updatedIds,
+        skipped,
+      }),
+    });
+  });
+  await page.route('**/api/admin/manual-desk-pricing-rules', async route => {
+    listRequests += 1;
+    return route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: rules,
+        diagnostics: { hasEnabledAnyToAnyFallback: false, orphanRules: [], uncoveredRoutes: [] },
+      }),
+    });
+  });
+
+  await page.goto('/admin/pricing');
+  await expect(page.getByTestId('pricing-rule-00000000-0000-4000-8000-000000000201')).toBeVisible();
+  await page.getByTestId('checkbox-select-visible-pricing').check();
+  await expect(page.getByTestId('bulk-actions-count')).toContainText('20 selected');
+  await page.getByTestId('button-bulk-edit').click();
+  await expect(page.getByTestId('bulk-pricing-rule-drawer')).toContainText('Edit 20 Rules');
+
+  await page.getByTestId('apply-markup').check();
+  await page.getByTestId('input-bulk-markup').fill('2.50');
+  await page.getByTestId('button-save-bulk-pricing').click();
+
+  await expect.poll(() => bulkInput).toBeTruthy();
+  expect(bulkInput.action).toBe('edit');
+  expect(bulkInput.items).toHaveLength(20);
+  expect(bulkInput.items).toEqual(rules.map(rule => ({ id: rule.id, version: 1 })));
+  expect(bulkInput.patch).toEqual({ markupBasisPoints: 250 });
+  expect(bulkInput.patch).not.toHaveProperty('exactRate');
+  expect(bulkInput.patch).not.toHaveProperty('fixedFee');
+  expect(bulkInput.patch).not.toHaveProperty('minAmount');
+  expect(bulkInput.patch).not.toHaveProperty('maxAmount');
+  expect(bulkInput.patch).not.toHaveProperty('priority');
+  expect(bulkInput.patch).not.toHaveProperty('sourceSettlementOptionId');
+  expect(bulkInput.patch).not.toHaveProperty('targetSettlementOptionId');
+  await expect(page.getByText('19 rules updated successfully. 1 rule skipped.')).toBeVisible();
+  await expect(page.getByText(/Bulk rule 20: Legacy pricing rules cannot be changed\./)).toBeVisible();
+  await expect.poll(() => listRequests).toBeGreaterThan(1);
+});
+
 test('operators use canonical settlement options for pricing, preview, and legacy read-only rules', async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 900 });
   let rules: any[] = [{

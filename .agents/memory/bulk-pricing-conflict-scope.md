@@ -1,10 +1,10 @@
 ---
 name: Bulk pricing conflict scope
-description: How atomic bulk pricing mutations handle conflicts in catalogs that may already contain unrelated legacy ambiguity.
+description: How bulk pricing mutations isolate stale or conflicting rules without re-litigating unrelated legacy ambiguity.
 ---
 
-For an atomic bulk pricing mutation, validate each selected rule's final form against the complete final catalog, but do not revalidate pairs made only of untouched rows.
+Bulk pricing edits update every safe selected rule and report stale, read-only, missing, or genuinely conflicting rules individually. Changes that do not affect matching, such as fees, must not trigger route-overlap validation.
 
-**Why:** Operator-managed catalogs can contain pre-existing legacy ambiguity. Revalidating every untouched pair makes an unrelated old conflict block enable, disable, edit, or delete for otherwise valid selected rules.
+**Why:** Operator-managed catalogs can contain pre-existing legacy ambiguity, and one stale rule should not block commission changes for the rest of a large selection.
 
-**How to apply:** Build the final catalog in the transaction, then run conflict checks with each changed rule as the candidate against all final rows. Keep optimistic versions and all other validation all-or-none.
+**How to apply:** Hold the pricing advisory lock, validate and compare versions per rule, and use guarded writes whose affected-row result is checked. Only selector/priority changes run ambiguity checks; return updated IDs and structured skips.

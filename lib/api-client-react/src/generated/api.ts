@@ -63,6 +63,8 @@ import type {
   CryptoAssetInput,
   CryptoAssetReceivingWalletInput,
   CryptoAssetUpdate,
+  CryptoAssetsBulkEditInput,
+  CryptoAssetsBulkEditResponse,
   CryptoNetwork,
   CryptoNetworkInput,
   CryptoNetworkUpdate,
@@ -5357,7 +5359,7 @@ export const getBulkManualDeskPricingRulesUrl = () => {
 }
 
 /**
- * @summary Apply one atomic action to multiple manual desk pricing rules
+ * @summary Apply one action to multiple manual desk pricing rules
  */
 export const bulkManualDeskPricingRules = async (manualDeskPricingRulesBulkInput: ManualDeskPricingRulesBulkInput, options?: Parameters<typeof customFetch>[1]): Promise<ManualDeskPricingRulesBulkResponse> => {
 
@@ -5406,7 +5408,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type BulkManualDeskPricingRulesMutationError = ErrorType<ApiError>
 
     /**
- * @summary Apply one atomic action to multiple manual desk pricing rules
+ * @summary Apply one action to multiple manual desk pricing rules
  */
 export const useBulkManualDeskPricingRules = <TError = ErrorType<ApiError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkManualDeskPricingRules>>, TError,{data: BodyType<ManualDeskPricingRulesBulkInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -5943,6 +5945,77 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getCreateCryptoAssetMutationOptions(options));
+    }
+
+export const getApplyCryptoAssetsBulkEditUrl = () => {
+
+
+
+
+  return `/api/admin/crypto-assets/bulk/apply`
+}
+
+/**
+ * @summary Atomically apply explicit edits to crypto assets and their exact network rows
+ */
+export const applyCryptoAssetsBulkEdit = async (cryptoAssetsBulkEditInput: CryptoAssetsBulkEditInput, options?: Parameters<typeof customFetch>[1]): Promise<CryptoAssetsBulkEditResponse> => {
+
+  return customFetch<CryptoAssetsBulkEditResponse>(getApplyCryptoAssetsBulkEditUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(cryptoAssetsBulkEditInput)
+  }
+);}
+
+
+
+
+
+export const getApplyCryptoAssetsBulkEditMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof applyCryptoAssetsBulkEdit>>, TError,{data: BodyType<CryptoAssetsBulkEditInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof applyCryptoAssetsBulkEdit>>, TError,{data: BodyType<CryptoAssetsBulkEditInput>}, TContext> => {
+
+const mutationKey = ['applyCryptoAssetsBulkEdit'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof applyCryptoAssetsBulkEdit>>, {data: BodyType<CryptoAssetsBulkEditInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  applyCryptoAssetsBulkEdit(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApplyCryptoAssetsBulkEditMutationResult = NonNullable<Awaited<ReturnType<typeof applyCryptoAssetsBulkEdit>>>
+    export type ApplyCryptoAssetsBulkEditMutationBody = BodyType<CryptoAssetsBulkEditInput>
+    export type ApplyCryptoAssetsBulkEditMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Atomically apply explicit edits to crypto assets and their exact network rows
+ */
+export const useApplyCryptoAssetsBulkEdit = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof applyCryptoAssetsBulkEdit>>, TError,{data: BodyType<CryptoAssetsBulkEditInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof applyCryptoAssetsBulkEdit>>,
+        TError,
+        {data: BodyType<CryptoAssetsBulkEditInput>},
+        TContext
+      > => {
+      return useMutation(getApplyCryptoAssetsBulkEditMutationOptions(options));
     }
 
 export const getUpdateCryptoAssetUrl = (id: string,) => {

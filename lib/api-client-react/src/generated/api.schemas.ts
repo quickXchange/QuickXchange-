@@ -1928,11 +1928,33 @@ export interface ManualPricingCoverageDiagnostics {
   uncoveredRoutes: ManualPricingCoveragePair[];
 }
 
+export type ManualDeskPricingRuleBulkSkipCode = typeof ManualDeskPricingRuleBulkSkipCode[keyof typeof ManualDeskPricingRuleBulkSkipCode];
+
+
+export const ManualDeskPricingRuleBulkSkipCode = {
+  MANUAL_PRICING_RULE_NOT_FOUND: 'MANUAL_PRICING_RULE_NOT_FOUND',
+  MANUAL_PRICING_RULE_VERSION_CONFLICT: 'MANUAL_PRICING_RULE_VERSION_CONFLICT',
+  MANUAL_PRICING_RULE_READ_ONLY: 'MANUAL_PRICING_RULE_READ_ONLY',
+  SETTLEMENT_OPTION_INVALID: 'SETTLEMENT_OPTION_INVALID',
+  MANUAL_PRICING_RULE_CONFLICT: 'MANUAL_PRICING_RULE_CONFLICT',
+} as const;
+
+export interface ManualDeskPricingRuleBulkSkip {
+  id: string;
+  code: ManualDeskPricingRuleBulkSkipCode;
+  reason: string;
+  /** @minimum 1 */
+  currentVersion?: number;
+}
+
 export interface ManualDeskPricingRulesBulkResponse {
   items: ManualDeskPricingRule[];
   diagnostics: ManualPricingCoverageDiagnostics;
   action: ManualDeskPricingRulesBulkResponseAction;
+  /** Backward-compatible alias for updatedIds. */
   affectedIds: string[];
+  updatedIds: string[];
+  skipped: ManualDeskPricingRuleBulkSkip[];
 }
 
 export interface ManualDeskPricingRuleCatalog {
@@ -2825,6 +2847,77 @@ export interface CryptoAssetUpdate {
   enabled?: boolean;
 }
 
+export type CryptoAssetBulkNetworkEditLifecycle = typeof CryptoAssetBulkNetworkEditLifecycle[keyof typeof CryptoAssetBulkNetworkEditLifecycle];
+
+
+export const CryptoAssetBulkNetworkEditLifecycle = {
+  active: 'active',
+  restricted: 'restricted',
+  deprecated: 'deprecated',
+} as const;
+
+export interface CryptoAssetBulkNetworkEdit {
+  /** @pattern ^[a-z0-9][a-z0-9-]{0,80}$ */
+  networkId: string;
+  enabled?: boolean;
+  customerDepositsEnabled?: boolean;
+  /**
+     * @minLength 1
+     * @maxLength 64
+     */
+  depositProvider?: string;
+  lifecycle?: CryptoAssetBulkNetworkEditLifecycle;
+  /**
+     * @maxItems 20
+     * @items.maxLength 32
+     */
+  regions?: string[];
+  /**
+     * @minimum 0
+     * @maximum 30
+     */
+  decimals?: number;
+  requiresMemo?: boolean;
+  /** @maxLength 500 */
+  sharedDepositAddress?: string;
+  /**
+     * @maxLength 500
+     * @nullable
+     */
+  sharedDepositMemo?: string | null;
+}
+
+export type CryptoAssetBulkEditLifecycle = typeof CryptoAssetBulkEditLifecycle[keyof typeof CryptoAssetBulkEditLifecycle];
+
+
+export const CryptoAssetBulkEditLifecycle = {
+  active: 'active',
+  restricted: 'restricted',
+  deprecated: 'deprecated',
+} as const;
+
+export interface CryptoAssetBulkEdit {
+  /** @pattern ^[a-z0-9][a-z0-9-]{0,63}$ */
+  assetId: string;
+  enabled?: boolean;
+  lifecycle?: CryptoAssetBulkEditLifecycle;
+  /**
+     * @minimum 0
+     * @maximum 30
+     */
+  decimals?: number;
+  /** @minItems 1 */
+  networks?: CryptoAssetBulkNetworkEdit[];
+}
+
+export interface CryptoAssetsBulkEditInput {
+  /**
+     * @minItems 1
+     * @maxItems 500
+     */
+  edits: CryptoAssetBulkEdit[];
+}
+
 export type CryptoAsset = CryptoAssetInput & {
   createdAt: string;
   updatedAt: string;
@@ -2921,6 +3014,18 @@ export interface CryptoNetworkInput {
      * @nullable
      */
   sharedDepositMemo?: string | null;
+}
+
+export type CryptoNetwork = CryptoNetworkInput & {
+  depositProvider: string;
+  createdAt: string;
+  updatedAt: string;
+  readonly logoUrl?: string;
+};
+
+export interface CryptoAssetsBulkEditResponse {
+  assets: CryptoAsset[];
+  networks: CryptoNetwork[];
 }
 
 export type CryptoNetworkUpdateExecutionMode = typeof CryptoNetworkUpdateExecutionMode[keyof typeof CryptoNetworkUpdateExecutionMode];
@@ -3032,13 +3137,6 @@ export interface CryptoAssetReceivingWalletInput {
   enabled: boolean;
   useForAllAssetsOnNetwork: boolean;
 }
-
-export type CryptoNetwork = CryptoNetworkInput & {
-  depositProvider: string;
-  createdAt: string;
-  updatedAt: string;
-  readonly logoUrl?: string;
-};
 
 export type PaymentMethodInputFamily = typeof PaymentMethodInputFamily[keyof typeof PaymentMethodInputFamily];
 

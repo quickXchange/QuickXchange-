@@ -455,6 +455,20 @@ export type ManualPricingBulkPatch = Partial<Pick<ManualPricingWrite,
   "customerInstructions" | "sourceAsset" | "targetAsset" | "sourceNetwork" |
   "targetNetwork">>;
 
+export type ManualPricingBulkSkipCode =
+  | "MANUAL_PRICING_RULE_NOT_FOUND"
+  | "MANUAL_PRICING_RULE_VERSION_CONFLICT"
+  | "MANUAL_PRICING_RULE_READ_ONLY"
+  | "SETTLEMENT_OPTION_INVALID"
+  | "MANUAL_PRICING_RULE_CONFLICT";
+
+export type ManualPricingBulkSkip = {
+  id: string;
+  code: ManualPricingBulkSkipCode;
+  reason: string;
+  currentVersion?: number;
+};
+
 function rowAsWrite(row: ManualDeskPricingRule): ManualPricingWrite {
   return {
     name: row.name,
@@ -502,73 +516,124 @@ export async function bulkUpdateManualPricingRules(
     return await db.transaction(async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(350035)`);
       const rows = await tx.select().from(manualDeskPricingRulesTable);
-      const selected = items.map((item) => rows.find((row) => row.id === item.id));
-      if (selected.some((row) => !row)) {
-        throw new ApiError("MANUAL_PRICING_RULE_NOT_FOUND", "Pricing rule not found.", 404);
-      }
-      const current = selected as ManualDeskPricingRule[];
-      for (const row of current) {
-        const expected = items.find((item) => item.id === row.id)!.version;
-        if (row.version !== expected) {
-          throw new ApiError("MANUAL_PRICING_RULE_VERSION_CONFLICT",
-            "One or more pricing rules changed. Reload them before trying again.", 409);
+      const skipped: ManualPricingBulkSkip[] = [];
+      const updatedIds: string[] = [];
+      const selected = items.map((item) => ({
+        item,
+        row: rows.find((candidate) => candidate.id === item.id),
+      }));
+      const eligible: Array<{ item: ManualPricingBulkItem; row: ManualDeskPricingRule }> = [];
+      for (const { item, row } of selected) {
+        if (!row) {
+          skipped.push({
+            id: item.id,
+            code: "MANUAL_PRICING_RULE_NOT_FOUND",
+            reason: "Pricing rule not found.",
+          });
+          continue;
+        }
+        if (row.version !== item.version) {
+          skipped.push({
+            id: row.id,
+            code: "MANUAL_PRICING_RULE_VERSION_CONFLICT",
+            reason: "The pricing rule changed after it was opened.",
+            currentVersion: row.version,
+          });
+          continue;
         }
         if (action !== "delete" && isLegacyReadOnly(row)) {
-          throw new ApiError("MANUAL_PRICING_RULE_READ_ONLY",
-            "Legacy pricing rules cannot be changed.", 409);
+          skipped.push({
+            id: row.id,
+            code: "MANUAL_PRICING_RULE_READ_ONLY",
+            reason: "Legacy pricing rules cannot be changed.",
+            currentVersion: row.version,
+          });
+          continue;
         }
         if (settlementOptionIds && [row.sourceSettlementOptionId, row.targetSettlementOptionId]
           .some((id) => id !== null && !settlementOptionIds.has(id.toUpperCase()))) {
-          throw new ApiError("SETTLEMENT_OPTION_INVALID",
-            "A selected pricing rule references an unavailable settlement option.", 422);
+          skipped.push({
+            id: row.id,
+            code: "SETTLEMENT_OPTION_INVALID",
+            reason: "The pricing rule references an unavailable settlement option.",
+            currentVersion: row.version,
+          });
+          continue;
         }
+        eligible.push({ item, row });
       }
       if (action === "delete") {
-        await tx.delete(manualDeskPricingRulesTable)
-          .where(inArray(manualDeskPricingRulesTable.id, current.map((row) => row.id)));
+        if (eligible.length > 0) {
+          await tx.delete(manualDeskPricingRulesTable)
+            .where(inArray(manualDeskPricingRulesTable.id, eligible.map(({ row }) => row.id)));
+        }
+        updatedIds.push(...eligible.map(({ row }) => row.id));
       } else {
-        const finalRows = rows.map((row) => {
-          const index = current.findIndex((selectedRow) => selectedRow.id === row.id);
-          if (index < 0) return row;
-          const values = action === "edit" ? { ...rowAsWrite(row), ...patch } : rowAsWrite(row);
+        const finalRows = new Map(rows.map((row) => [row.id, row]));
+        for (const { row } of eligible) {
+          const combined = normalizedWrite({ ...rowAsWrite(row), ...patch });
+          const values: Partial<ManualPricingWrite> = action === "edit"
+            ? Object.fromEntries(Object.keys(patch ?? {}).map((key) => [
+              key,
+              combined[key as keyof ManualPricingWrite],
+            ]))
+            : combined;
           if (action === "enable") values.enabled = true;
           if (action === "disable") values.enabled = false;
-          const normalizedValues = normalizedWrite(values);
-          return { ...row, ...normalizedValues, version: row.version + 1, updatedAt: new Date() };
-        });
-        // Only selected rows are being changed. Do not re-litigate legacy
-        // ambiguities among untouched rows in the shared catalog.
-        for (const row of finalRows.filter((candidate) =>
-          current.some((selectedRow) => selectedRow.id === candidate.id))) {
-          const candidate = rowAsWrite(row);
-          const others = finalRows.filter((other) => other.id !== row.id);
-          const conflict = others.find((other) => {
-            const otherWrite = rowAsWrite(other);
-            return other.priority === row.priority &&
-              settlementOptionSpecificity(otherWrite) === settlementOptionSpecificity(candidate) &&
-              manualPricingSpecificity(otherWrite) === manualPricingSpecificity(candidate) &&
-              overlap(otherWrite, candidate);
-          });
-          if (conflict) {
-            throw new ApiError("MANUAL_PRICING_RULE_CONFLICT",
-              "A rule with the same priority and overlapping selectors would make matching ambiguous.", 409);
+          const proposed = { ...row, ...values, version: row.version + 1, updatedAt: new Date() };
+          const ambiguityChanged = action === "edit" && Object.keys(patch ?? {}).some((key) =>
+            key === "priority" || key === "sourceSettlementOptionId" ||
+            key === "targetSettlementOptionId" || key === "sourceAsset" ||
+            key === "targetAsset" || key === "sourceNetwork" || key === "targetNetwork");
+          if (ambiguityChanged) {
+            const conflict = [...finalRows.values()].find((other) => {
+              if (other.id === row.id) return false;
+              const otherWrite = rowAsWrite(other);
+              const candidate = rowAsWrite(proposed);
+              return other.priority === proposed.priority &&
+                settlementOptionSpecificity(otherWrite) === settlementOptionSpecificity(candidate) &&
+                manualPricingSpecificity(otherWrite) === manualPricingSpecificity(candidate) &&
+                overlap(otherWrite, candidate);
+            });
+            if (conflict) {
+              skipped.push({
+                id: row.id,
+                code: "MANUAL_PRICING_RULE_CONFLICT",
+                reason: "A rule with the same priority and overlapping selectors would make matching ambiguous.",
+                currentVersion: row.version,
+              });
+              continue;
+            }
           }
-        }
-        for (const row of current) {
-          const finalRow = finalRows.find((candidate) => candidate.id === row.id)!;
-          await tx.update(manualDeskPricingRulesTable).set({
-            ...rowAsWrite(finalRow),
-            version: finalRow.version,
-            updatedAt: finalRow.updatedAt,
+          const persisted = await tx.update(manualDeskPricingRulesTable).set({
+            ...rowAsWrite(proposed),
+            version: proposed.version,
+            updatedAt: proposed.updatedAt,
           }).where(and(
             eq(manualDeskPricingRulesTable.id, row.id),
             eq(manualDeskPricingRulesTable.version, row.version),
-          ));
+          )).returning({ id: manualDeskPricingRulesTable.id });
+          if (persisted.length === 0) {
+            const [latest] = await tx.select({ version: manualDeskPricingRulesTable.version })
+              .from(manualDeskPricingRulesTable)
+              .where(eq(manualDeskPricingRulesTable.id, row.id))
+              .limit(1);
+            skipped.push({
+              id: row.id,
+              code: "MANUAL_PRICING_RULE_VERSION_CONFLICT",
+              reason: "The pricing rule changed while the bulk update was being applied.",
+              currentVersion: latest?.version,
+            });
+            continue;
+          }
+          finalRows.set(row.id, proposed);
+          updatedIds.push(row.id);
         }
       }
-      return tx.select().from(manualDeskPricingRulesTable)
+      const refreshed = await tx.select().from(manualDeskPricingRulesTable)
         .orderBy(desc(manualDeskPricingRulesTable.priority),
           manualDeskPricingRulesTable.createdAt, manualDeskPricingRulesTable.id);
+      return { rows: refreshed, updatedIds, skipped };
     });
   } catch (error) {
     if ((error as { code?: string }).code === "23505") {

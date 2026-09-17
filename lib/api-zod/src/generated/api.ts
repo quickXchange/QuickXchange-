@@ -5628,7 +5628,7 @@ export const CreateManualDeskPricingRuleResponse = zod.object({
 
 
 /**
- * @summary Apply one atomic action to multiple manual desk pricing rules
+ * @summary Apply one action to multiple manual desk pricing rules
  */
 export const bulkManualDeskPricingRulesBodyItemsItemIdRegExp = new RegExp('^[0-9a-fA-F-]{36}$');
 export const bulkManualDeskPricingRulesBodyItemsItemVersionMultipleOf = 1;
@@ -5724,6 +5724,8 @@ export const bulkManualDeskPricingRulesResponseItemsItemTwoSpecificityMax = 8;
 export const bulkManualDeskPricingRulesResponseItemsItemTwoSpecificityMultipleOf = 1;
 
 
+export const bulkManualDeskPricingRulesResponseSkippedItemCurrentVersionMultipleOf = 1;
+
 
 
 export const BulkManualDeskPricingRulesResponse = zod.object({
@@ -5770,7 +5772,14 @@ export const BulkManualDeskPricingRulesResponse = zod.object({
 }))
 }),
   "action": zod.enum(['enable', 'disable', 'delete', 'edit']),
-  "affectedIds": zod.array(zod.string())
+  "affectedIds": zod.array(zod.string()).describe('Backward-compatible alias for updatedIds.'),
+  "updatedIds": zod.array(zod.string()),
+  "skipped": zod.array(zod.object({
+  "id": zod.string(),
+  "code": zod.enum(['MANUAL_PRICING_RULE_NOT_FOUND', 'MANUAL_PRICING_RULE_VERSION_CONFLICT', 'MANUAL_PRICING_RULE_READ_ONLY', 'SETTLEMENT_OPTION_INVALID', 'MANUAL_PRICING_RULE_CONFLICT']),
+  "reason": zod.string(),
+  "currentVersion": zod.number().min(1).multipleOf(bulkManualDeskPricingRulesResponseSkippedItemCurrentVersionMultipleOf).optional()
+}))
 })
 
 
@@ -5909,6 +5918,152 @@ export const CreateCryptoAssetResponse = zod.object({
   "updatedAt": zod.coerce.date(),
   "logoUrl": zod.string().optional()
 }))
+
+
+/**
+ * @summary Atomically apply explicit edits to crypto assets and their exact network rows
+ */
+export const applyCryptoAssetsBulkEditBodyEditsItemAssetIdRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,63}$');
+export const applyCryptoAssetsBulkEditBodyEditsItemDecimalsMin = 0;
+export const applyCryptoAssetsBulkEditBodyEditsItemDecimalsMax = 30;
+export const applyCryptoAssetsBulkEditBodyEditsItemDecimalsMultipleOf = 1;
+
+export const applyCryptoAssetsBulkEditBodyEditsItemNetworksItemNetworkIdRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,80}$');
+export const applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDepositProviderMax = 64;
+
+export const applyCryptoAssetsBulkEditBodyEditsItemNetworksItemRegionsItemMax = 32;
+
+export const applyCryptoAssetsBulkEditBodyEditsItemNetworksItemRegionsMax = 20;
+
+export const applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDecimalsMin = 0;
+export const applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDecimalsMax = 30;
+export const applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDecimalsMultipleOf = 1;
+
+export const applyCryptoAssetsBulkEditBodyEditsItemNetworksItemSharedDepositAddressMax = 500;
+
+export const applyCryptoAssetsBulkEditBodyEditsItemNetworksItemSharedDepositMemoMax = 500;
+
+
+export const applyCryptoAssetsBulkEditBodyEditsMax = 500;
+
+
+
+export const ApplyCryptoAssetsBulkEditBody = zod.object({
+  "edits": zod.array(zod.object({
+  "assetId": zod.string().regex(applyCryptoAssetsBulkEditBodyEditsItemAssetIdRegExp),
+  "enabled": zod.boolean().optional(),
+  "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).optional(),
+  "decimals": zod.number().min(applyCryptoAssetsBulkEditBodyEditsItemDecimalsMin).max(applyCryptoAssetsBulkEditBodyEditsItemDecimalsMax).multipleOf(applyCryptoAssetsBulkEditBodyEditsItemDecimalsMultipleOf).optional(),
+  "networks": zod.array(zod.object({
+  "networkId": zod.string().regex(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemNetworkIdRegExp),
+  "enabled": zod.boolean().optional(),
+  "customerDepositsEnabled": zod.boolean().optional(),
+  "depositProvider": zod.string().min(1).max(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDepositProviderMax).optional(),
+  "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).optional(),
+  "regions": zod.array(zod.string().max(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemRegionsItemMax)).max(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemRegionsMax).optional(),
+  "decimals": zod.number().min(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDecimalsMin).max(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDecimalsMax).multipleOf(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDecimalsMultipleOf).optional(),
+  "requiresMemo": zod.boolean().optional(),
+  "sharedDepositAddress": zod.string().max(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemSharedDepositAddressMax).optional(),
+  "sharedDepositMemo": zod.string().max(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemSharedDepositMemoMax).nullish()
+})).min(1).optional()
+})).min(1).max(applyCryptoAssetsBulkEditBodyEditsMax)
+})
+
+export const applyCryptoAssetsBulkEditResponseAssetsItemOneLogoObjectPathRegExp = new RegExp('^/objects/crypto-asset-logos/[0-9a-f-]{36}$');
+export const applyCryptoAssetsBulkEditResponseAssetsItemOneIdRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,63}$');
+export const applyCryptoAssetsBulkEditResponseAssetsItemOneCodeRegExp = new RegExp('^[A-Za-z0-9]{2,16}$');
+export const applyCryptoAssetsBulkEditResponseAssetsItemOneNameMax = 100;
+
+export const applyCryptoAssetsBulkEditResponseAssetsItemOneDecimalsMin = 0;
+export const applyCryptoAssetsBulkEditResponseAssetsItemOneDecimalsMax = 30;
+export const applyCryptoAssetsBulkEditResponseAssetsItemOneDecimalsMultipleOf = 1;
+
+export const applyCryptoAssetsBulkEditResponseAssetsItemOneLifecycleDefault = `active`;
+export const applyCryptoAssetsBulkEditResponseAssetsItemOneEnabledDefault = true;
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneLogoObjectPathRegExp = new RegExp('^/objects/crypto-network-logos/[0-9a-f-]{36}$');
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneIdRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,80}$');
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneAssetIdRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,63}$');
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneNetworkCodeMax = 32;
+
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneNetworkNameMax = 100;
+
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneNetworkFamilyDefault = `native`;
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneNetworkFamilyMax = 64;
+
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneDecimalsMin = 0;
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneDecimalsMax = 30;
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneDecimalsMultipleOf = 1;
+
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneExecutionModeDefault = `manual`;
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneLifecycleDefault = `active`;
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneRegionsItemMax = 32;
+
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneRegionsMax = 20;
+
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneEnabledDefault = true;
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneCustomerDepositsEnabledDefault = false;
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneRequiresMemoDefault = false;
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneRequiredConfirmationsDefault = 0;
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneRequiredConfirmationsMin = 0;
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneRequiredConfirmationsMax = 10000;
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneRequiredConfirmationsMultipleOf = 1;
+
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneConfirmationGuidanceMax = 1000;
+
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneExplorerUrlTemplateMax = 1000;
+
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneDepositInstructionsMax = 2000;
+
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneDepositWarningMax = 2000;
+
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneSharedDepositAddressMax = 500;
+
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneSharedDepositMemoMax = 500;
+
+export const applyCryptoAssetsBulkEditResponseNetworksItemTwoDepositProviderDefault = `manual`;
+
+export const ApplyCryptoAssetsBulkEditResponse = zod.object({
+  "assets": zod.array(zod.object({
+  "logoObjectPath": zod.string().regex(applyCryptoAssetsBulkEditResponseAssetsItemOneLogoObjectPathRegExp).nullish(),
+  "id": zod.string().regex(applyCryptoAssetsBulkEditResponseAssetsItemOneIdRegExp),
+  "code": zod.string().regex(applyCryptoAssetsBulkEditResponseAssetsItemOneCodeRegExp),
+  "name": zod.string().min(1).max(applyCryptoAssetsBulkEditResponseAssetsItemOneNameMax),
+  "decimals": zod.number().min(applyCryptoAssetsBulkEditResponseAssetsItemOneDecimalsMin).max(applyCryptoAssetsBulkEditResponseAssetsItemOneDecimalsMax).multipleOf(applyCryptoAssetsBulkEditResponseAssetsItemOneDecimalsMultipleOf),
+  "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).default(applyCryptoAssetsBulkEditResponseAssetsItemOneLifecycleDefault),
+  "enabled": zod.boolean().default(applyCryptoAssetsBulkEditResponseAssetsItemOneEnabledDefault)
+}).and(zod.object({
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "logoUrl": zod.string().optional()
+}))),
+  "networks": zod.array(zod.object({
+  "logoObjectPath": zod.string().regex(applyCryptoAssetsBulkEditResponseNetworksItemOneLogoObjectPathRegExp).nullish(),
+  "id": zod.string().regex(applyCryptoAssetsBulkEditResponseNetworksItemOneIdRegExp),
+  "assetId": zod.string().regex(applyCryptoAssetsBulkEditResponseNetworksItemOneAssetIdRegExp),
+  "networkCode": zod.string().min(1).max(applyCryptoAssetsBulkEditResponseNetworksItemOneNetworkCodeMax),
+  "networkName": zod.string().min(1).max(applyCryptoAssetsBulkEditResponseNetworksItemOneNetworkNameMax),
+  "networkFamily": zod.string().min(1).max(applyCryptoAssetsBulkEditResponseNetworksItemOneNetworkFamilyMax).default(applyCryptoAssetsBulkEditResponseNetworksItemOneNetworkFamilyDefault),
+  "decimals": zod.number().min(applyCryptoAssetsBulkEditResponseNetworksItemOneDecimalsMin).max(applyCryptoAssetsBulkEditResponseNetworksItemOneDecimalsMax).multipleOf(applyCryptoAssetsBulkEditResponseNetworksItemOneDecimalsMultipleOf),
+  "executionMode": zod.enum(['catalog', 'manual', 'api']).default(applyCryptoAssetsBulkEditResponseNetworksItemOneExecutionModeDefault),
+  "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).default(applyCryptoAssetsBulkEditResponseNetworksItemOneLifecycleDefault),
+  "regions": zod.array(zod.string().max(applyCryptoAssetsBulkEditResponseNetworksItemOneRegionsItemMax)).max(applyCryptoAssetsBulkEditResponseNetworksItemOneRegionsMax).optional(),
+  "enabled": zod.boolean().default(applyCryptoAssetsBulkEditResponseNetworksItemOneEnabledDefault),
+  "customerDepositsEnabled": zod.boolean().default(applyCryptoAssetsBulkEditResponseNetworksItemOneCustomerDepositsEnabledDefault),
+  "requiresMemo": zod.boolean().default(applyCryptoAssetsBulkEditResponseNetworksItemOneRequiresMemoDefault),
+  "requiredConfirmations": zod.number().min(applyCryptoAssetsBulkEditResponseNetworksItemOneRequiredConfirmationsMin).max(applyCryptoAssetsBulkEditResponseNetworksItemOneRequiredConfirmationsMax).multipleOf(applyCryptoAssetsBulkEditResponseNetworksItemOneRequiredConfirmationsMultipleOf).default(applyCryptoAssetsBulkEditResponseNetworksItemOneRequiredConfirmationsDefault),
+  "confirmationGuidance": zod.string().max(applyCryptoAssetsBulkEditResponseNetworksItemOneConfirmationGuidanceMax).nullish(),
+  "explorerUrlTemplate": zod.string().max(applyCryptoAssetsBulkEditResponseNetworksItemOneExplorerUrlTemplateMax).nullish(),
+  "depositInstructions": zod.string().max(applyCryptoAssetsBulkEditResponseNetworksItemOneDepositInstructionsMax).nullish(),
+  "depositWarning": zod.string().max(applyCryptoAssetsBulkEditResponseNetworksItemOneDepositWarningMax).nullish(),
+  "sharedDepositAddress": zod.string().max(applyCryptoAssetsBulkEditResponseNetworksItemOneSharedDepositAddressMax).optional(),
+  "sharedDepositMemo": zod.string().max(applyCryptoAssetsBulkEditResponseNetworksItemOneSharedDepositMemoMax).nullish()
+}).and(zod.object({
+  "depositProvider": zod.string().default(applyCryptoAssetsBulkEditResponseNetworksItemTwoDepositProviderDefault),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "logoUrl": zod.string().optional()
+})))
+})
 
 
 export const updateCryptoAssetPathIdRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,63}$');

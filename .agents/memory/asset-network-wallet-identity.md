@@ -17,6 +17,12 @@ Receiving-wallet memo/tag values are optional Admin metadata even when a network
 
 **How to apply:** Show and persist a memo only when entered. Keep network `requiresMemo` metadata for provider/customer transaction contexts that genuinely require it, but do not use it to validate Admin fallback-wallet configuration.
 
+Bulk catalog edits must identify every affected asset-network row explicitly and update only fields whose Apply control was selected. Confirmation must freeze and display the exact request; omitted provider, address, memo, and deposit fields are never inferred or rewritten.
+
+**Why:** Broad object spreading or client-side batches can silently replace sensitive routing configuration, partially apply changes, or confirm more assets than the atomic request actually contains.
+
+**How to apply:** Expand compatible network selections to existing immutable row IDs, validate effective provider/deposit state before any write, and commit all requested changes in one transaction. WhiteBIT targets require the same mapped asset/network identity and live provider availability used by provisioning.
+
 Provider Policy options come from connected, enabled API integrations that have a registered deposit-address adapter. Integration credentials alone never make a rate, Convert, or unrelated provider selectable for Swap deposits.
 
 **Why:** Deposit-address APIs are provider-specific and carry irreversible idempotency and reconciliation requirements. Listing a connected integration without an implemented adapter would save a policy that cannot safely generate or attribute an address.

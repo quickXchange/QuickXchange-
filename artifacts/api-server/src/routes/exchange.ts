@@ -1,6 +1,6 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { Router, type IRouter, type Request } from "express";
-import { and, asc, count, desc, eq, gte, ilike, isNull, lte, notInArray, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, inArray, isNull, lte, notInArray, or, sql } from "drizzle-orm";
 import {
   CreateExchangeOrderBody,
   CreateExchangeOrderResponse,
@@ -96,6 +96,8 @@ import {
   PreviewBulkFiatCurrencyPaymentMethodsResponse,
   ApplyBulkFiatCurrencyPaymentMethodsBody,
   ApplyBulkFiatCurrencyPaymentMethodsResponse,
+  ApplyCryptoAssetsBulkEditBody,
+  ApplyCryptoAssetsBulkEditResponse,
   SaveCryptoAssetReceivingWalletBody,
   SaveCryptoAssetReceivingWalletParams,
   UpdateOrderSupportToolsParams,
@@ -116,6 +118,8 @@ import {
   fiatCurrencyPaymentMethodsTable,
   cryptoAssetsTable,
   cryptoAssetNetworksTable,
+  whitebitAssetMappingsTable,
+  whitebitNetworkMappingsTable,
   quickexOrdersTable,
   orderSupportMetadataTable,
   whitebitOrderAddressesTable,
@@ -3199,18 +3203,18 @@ router.post("/admin/manual-desk-pricing-rules/bulk", async (req, res, next) => {
       }
       await validateExactPricingRuleOptions(patch);
     }
-    const rows = await bulkUpdateManualPricingRules(
+    const result = await bulkUpdateManualPricingRules(
       input.items,
       input.action,
       patch,
       new Set(options.map((option) => option.id.toUpperCase())),
     );
-    const coverage = evaluateManualPricingCoverage(rows, options);
+    const coverage = evaluateManualPricingCoverage(result.rows, options);
     const missingByRuleId = new Map(
       coverage.orphanRules.map((rule) => [rule.ruleId, rule.missingSettlementOptionIds]),
     );
     res.json(BulkManualDeskPricingRulesResponse.parse({
-      items: rows.map((row) => ({
+      items: result.rows.map((row) => ({
         ...outputManualPricingRule(row),
         missingSettlementOptionIds: missingByRuleId.get(row.id) ?? [],
       })),
@@ -3220,7 +3224,9 @@ router.post("/admin/manual-desk-pricing-rules/bulk", async (req, res, next) => {
         uncoveredRoutes: coverage.uncoveredRoutes,
       },
       action: input.action,
-      affectedIds: input.items.map((item) => item.id),
+      affectedIds: result.updatedIds,
+      updatedIds: result.updatedIds,
+      skipped: result.skipped,
     }));
   } catch (error) {
     next(error);
@@ -3381,6 +3387,188 @@ router.get("/admin/crypto-assets", requireOperator, async (_req, res, next) => {
 });
 router.post("/admin/crypto-assets", requireOperator, async (req, res, next) => {
   try { const input = cryptoInput(req.body, false); const row = await db.transaction(async (tx) => { await verifyCatalogPath(tx, input.logoObjectPath, "crypto-asset-logos"); const [created] = await tx.insert(cryptoAssetsTable).values({ ...input, code: String(input.code).toUpperCase(), enabled: input.enabled ?? true } as never).returning(); return created; }); res.status(201).json(outputCryptoAsset(row)); } catch (e) { next(isUniqueViolation(e) ? new ApiError("CRYPTO_ASSET_EXISTS", "Crypto asset already exists.", 409) : e); }
+});
+router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, next) => {
+  try {
+    const input = ApplyCryptoAssetsBulkEditBody.parse(req.body);
+    const assetIds = input.edits.map(edit => edit.assetId);
+    if (new Set(assetIds).size !== assetIds.length) {
+      throw new ApiError("VALIDATION_ERROR", "Duplicate crypto asset IDs are not allowed.", 400);
+    }
+    const networkEdits = input.edits.flatMap(edit => (edit.networks ?? []).map(network => ({ ...network, assetId: edit.assetId })));
+    const networkIds = networkEdits.map(network => network.networkId);
+    if (new Set(networkIds).size !== networkIds.length) {
+      throw new ApiError("VALIDATION_ERROR", "Duplicate crypto network IDs are not allowed.", 400);
+    }
+    const shouldCheckProviderAvailability = networkEdits.some(network =>
+      network.depositProvider !== undefined || network.customerDepositsEnabled === true
+    );
+    const availableProviders = shouldCheckProviderAvailability
+      ? await listConnectedDepositProviderOptions()
+      : [];
+    const result = await db.transaction(async (tx) => {
+      const assets = await tx.select().from(cryptoAssetsTable)
+        .where(inArray(cryptoAssetsTable.id, assetIds))
+        .for("update");
+      if (assets.length !== assetIds.length) {
+        throw new ApiError("CRYPTO_ASSET_NOT_FOUND", "One or more crypto assets were not found.", 404);
+      }
+      const networks = networkIds.length === 0
+        ? []
+        : await tx.select().from(cryptoAssetNetworksTable)
+          .where(inArray(cryptoAssetNetworksTable.id, networkIds))
+          .for("update");
+      if (networks.length !== networkIds.length) {
+        throw new ApiError("CRYPTO_ASSET_NETWORK_NOT_FOUND", "One or more crypto network rows were not found.", 404);
+      }
+      const assetById = new Map(assets.map(asset => [asset.id, asset]));
+      const networkById = new Map(networks.map(network => [network.id, network]));
+      const whitebitMappings = networkIds.length === 0
+        ? []
+        : await tx.select().from(whitebitNetworkMappingsTable)
+          .where(and(
+            inArray(whitebitNetworkMappingsTable.assetNetworkId, networkIds),
+            eq(whitebitNetworkMappingsTable.canDeposit, true),
+          ));
+      const depositCapableWhitebitNetworkIds = new Set(
+        whitebitMappings.map(mapping => mapping.assetNetworkId),
+      );
+      const whitebitNetworkMappingById = new Map(
+        whitebitMappings.map(mapping => [mapping.assetNetworkId, mapping]),
+      );
+      const whitebitAssetMappings = assetIds.length === 0
+        ? []
+        : await tx.select().from(whitebitAssetMappingsTable)
+          .where(inArray(whitebitAssetMappingsTable.assetId, assetIds));
+      const whitebitAssetMappingById = new Map(
+        whitebitAssetMappings.map(mapping => [mapping.assetId, mapping]),
+      );
+      for (const edit of input.edits) {
+        if (!assetById.has(edit.assetId)) {
+          throw new ApiError("CRYPTO_ASSET_NOT_FOUND", "One or more crypto assets were not found.", 404);
+        }
+        for (const networkEdit of edit.networks ?? []) {
+          const network = networkById.get(networkEdit.networkId);
+          if (!network || network.assetId !== edit.assetId) {
+            throw new ApiError(
+              "CRYPTO_ASSET_NETWORK_NOT_FOUND",
+              "Each crypto network row must belong to its submitted asset.",
+              404,
+            );
+          }
+          const editsDepositConfiguration = [
+            "customerDepositsEnabled",
+            "depositProvider",
+            "sharedDepositAddress",
+          ].some(key => Object.hasOwn(networkEdit, key));
+          if (editsDepositConfiguration) {
+            const effectiveProvider = networkEdit.depositProvider ?? network.depositProvider;
+            const effectiveDepositsEnabled =
+              networkEdit.customerDepositsEnabled ?? network.customerDepositsEnabled;
+            const effectiveAddress =
+              networkEdit.sharedDepositAddress ?? network.sharedDepositAddress;
+            if (
+              (networkEdit.depositProvider !== undefined ||
+                networkEdit.customerDepositsEnabled === true) &&
+              !availableProviders.some(option => option.id === effectiveProvider)
+            ) {
+              throw new ApiError(
+                "CRYPTO_DEPOSIT_PROVIDER_UNAVAILABLE",
+                "The selected deposit provider is not connected and enabled in API Integrations.",
+                422,
+              );
+            }
+            if (effectiveProvider === "none" && effectiveDepositsEnabled) {
+              throw new ApiError(
+                "CRYPTO_DEPOSIT_PROVIDER_DISABLED",
+                "Customer deposits must be disabled when Provider Policy is None.",
+                422,
+              );
+            }
+            if (
+              effectiveProvider === "manual" &&
+              effectiveDepositsEnabled &&
+              !effectiveAddress.trim()
+            ) {
+              throw new ApiError(
+                "CRYPTO_DEPOSIT_ADDRESS_REQUIRED",
+                "A shared deposit address is required before manual customer deposits can be enabled.",
+                422,
+              );
+            }
+            if (
+              effectiveProvider === "whitebit" &&
+              (effectiveDepositsEnabled || networkEdit.depositProvider === "whitebit")
+            ) {
+              const asset = assetById.get(edit.assetId)!;
+              const assetMapping = whitebitAssetMappingById.get(edit.assetId);
+              const networkMapping = whitebitNetworkMappingById.get(network.id);
+              const mappedIdentityMatchesRuntime =
+                assetMapping?.normalizedTicker === asset.code.trim().toUpperCase() &&
+                networkMapping?.normalizedNetwork === network.networkCode.trim().toUpperCase();
+              if (
+                !depositCapableWhitebitNetworkIds.has(network.id) ||
+                !mappedIdentityMatchesRuntime
+              ) {
+                throw new ApiError(
+                  "CRYPTO_DEPOSIT_PROVIDER_INCOMPATIBLE",
+                  "WhiteBIT deposits are not available for one or more selected asset networks.",
+                  422,
+                );
+              }
+            }
+          }
+        }
+      }
+      for (const edit of input.edits) {
+        const assetChanges: JsonRecord = {};
+        for (const key of ["enabled", "lifecycle", "decimals"] as const) {
+          if (edit[key] !== undefined) assetChanges[key] = edit[key];
+        }
+        if (Object.keys(assetChanges).length > 0) {
+          await tx.update(cryptoAssetsTable)
+            .set(assetChanges as never)
+            .where(eq(cryptoAssetsTable.id, edit.assetId));
+        }
+        for (const networkEdit of edit.networks ?? []) {
+          const networkChanges: JsonRecord = {};
+          for (const key of [
+            "enabled",
+            "customerDepositsEnabled",
+            "depositProvider",
+            "lifecycle",
+            "regions",
+            "decimals",
+            "requiresMemo",
+            "sharedDepositAddress",
+            "sharedDepositMemo",
+          ] as const) {
+            if (networkEdit[key] !== undefined) networkChanges[key] = networkEdit[key];
+          }
+          if (Object.keys(networkChanges).length > 0) {
+            await tx.update(cryptoAssetNetworksTable)
+              .set(networkChanges as never)
+              .where(eq(cryptoAssetNetworksTable.id, networkEdit.networkId));
+          }
+        }
+      }
+      const updatedAssets = await tx.select().from(cryptoAssetsTable)
+        .where(inArray(cryptoAssetsTable.id, assetIds));
+      const updatedNetworks = networkIds.length === 0
+        ? []
+        : await tx.select().from(cryptoAssetNetworksTable)
+          .where(inArray(cryptoAssetNetworksTable.id, networkIds));
+      req.log.info(
+        { assetCount: updatedAssets.length, networkCount: updatedNetworks.length },
+        "Applied crypto asset bulk edit",
+      );
+      return ApplyCryptoAssetsBulkEditResponse.parse({
+        assets: updatedAssets.map(outputCryptoAsset),
+        networks: updatedNetworks.map(outputCryptoNetwork),
+      });
+    });
+    res.json(result);
+  } catch (e) { next(e); }
 });
 router.patch("/admin/crypto-assets/:id", requireOperator, async (req, res, next) => {
   try { const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id; const input = cryptoInput(req.body, false, true); const row = await db.transaction(async (tx) => { await verifyCatalogPath(tx, input.logoObjectPath, "crypto-asset-logos"); const [updated] = await tx.update(cryptoAssetsTable).set(input as never).where(eq(cryptoAssetsTable.id, id)).returning(); return updated; }); if (!row) throw new ApiError("CRYPTO_ASSET_NOT_FOUND", "Crypto asset not found.", 404); res.json(outputCryptoAsset(row)); } catch (e) { next(e); }

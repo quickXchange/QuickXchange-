@@ -2293,7 +2293,7 @@ test("Quickex namespace owns signed quotes, orders, tracking, and idempotency", 
   }
 });
 
-test("manual pricing bulk actions are classified and atomic", async () => {
+test("manual pricing bulk actions update safe rules and report skipped conflicts", async () => {
   const { classifyAdminRoute } = await import("../src/lib/admin-policy");
   assert.deepEqual(
     classifyAdminRoute("POST", "/admin/manual-desk-pricing-rules/bulk"),
@@ -2317,6 +2317,7 @@ test("manual pricing bulk actions are classified and atomic", async () => {
   const api = await startApi();
   const headers = { "x-test-clerk-user-id": userId };
   const ids = [randomUUID(), randomUUID()];
+    let scaleIds: string[] = [];
   try {
     const config = await (await fetch(`${api.url}/exchange/config`)).json() as {
       settlementOptions: Array<{
@@ -2375,6 +2376,48 @@ test("manual pricing bulk actions are classified and atomic", async () => {
         priority: priority + 1,
       },
     ]);
+    scaleIds = Array.from({ length: 20 }, () => randomUUID());
+    await db.insert(manualDeskPricingRulesTable).values(scaleIds.map((id, index) => ({
+      id,
+      ...baseRule,
+      name: `Bulk scale ${index} ${suffix}`,
+      sourceAsset: `SCALE-${index}-${suffix.slice(0, 8)}`,
+      sourceNetwork: `SCALE-${index}-${suffix.slice(0, 8)}`,
+      markupBasisPoints: 200 + index,
+      priority: priority - 100 - index,
+    })));
+    const beforeScale = await db.select().from(manualDeskPricingRulesTable)
+      .where(inArray(manualDeskPricingRulesTable.id, scaleIds));
+    await db.update(manualDeskPricingRulesTable)
+      .set({ version: 2 })
+      .where(eq(manualDeskPricingRulesTable.id, scaleIds[0]));
+    const scaleResponse = await apiJson(api.url, "/admin/manual-desk-pricing-rules/bulk", {
+      action: "edit",
+      items: scaleIds.map(id => ({ id, version: 1 })),
+      patch: { markupBasisPoints: 777 },
+    }, "POST", headers);
+    assert.equal(scaleResponse.status, 200, JSON.stringify(scaleResponse.body));
+    assert.equal(scaleResponse.body.updatedIds.length, 19);
+    assert.equal(scaleResponse.body.skipped.length, 1);
+    assert.equal(scaleResponse.body.skipped[0].id, scaleIds[0]);
+    const afterScale = await db.select().from(manualDeskPricingRulesTable)
+      .where(inArray(manualDeskPricingRulesTable.id, scaleIds));
+    for (const after of afterScale) {
+      const before = beforeScale.find(row => row.id === after.id)!;
+      if (after.id === scaleIds[0]) {
+        assert.equal(after.version, 2);
+        assert.equal(after.markupBasisPoints, before.markupBasisPoints);
+      } else {
+        assert.equal(after.version, 2);
+        assert.equal(after.markupBasisPoints, 777);
+      }
+      assert.equal(after.exactRate, before.exactRate);
+      assert.equal(after.priority, before.priority);
+      assert.equal(after.sourceAsset, before.sourceAsset);
+      assert.equal(after.targetAsset, before.targetAsset);
+      assert.equal(after.minAmount, before.minAmount);
+      assert.equal(after.maxAmount, before.maxAmount);
+    }
 
     const bulk = (body: Record<string, unknown>) =>
       apiJson(api.url, "/admin/manual-desk-pricing-rules/bulk", body, "POST", headers);
@@ -2394,21 +2437,28 @@ test("manual pricing bulk actions are classified and atomic", async () => {
     });
     assert.equal(response.status, 200);
 
-    // One stale version rejects the entire action, leaving both rows disabled.
+    // A stale version is skipped while the current-version item still updates.
     response = await bulk({
       action: "enable",
       items: [{ id: ids[0], version: 2 }, { id: ids[1], version: 3 }],
     });
-    assert.equal(response.status, 409);
+    assert.equal(response.status, 200);
+    assert.deepEqual(response.body.updatedIds, [ids[1]]);
+    assert.equal(response.body.skipped[0].id, ids[0]);
+    assert.equal(response.body.skipped[0].code, "MANUAL_PRICING_RULE_VERSION_CONFLICT");
     const afterStale = await db.select().from(manualDeskPricingRulesTable)
       .where(inArray(manualDeskPricingRulesTable.id, ids));
-    assert.deepEqual(afterStale.map(row => [row.id, row.enabled, row.version]), [
-      [ids[0], false, 3], [ids[1], false, 3],
-    ]);
+    assert.deepEqual(
+      afterStale.map(row => [row.id, row.enabled, row.version])
+        .sort((left, right) => String(left[0]).localeCompare(String(right[0]))),
+      [
+        [ids[0], false, 3], [ids[1], true, 4],
+      ].sort((left, right) => String(left[0]).localeCompare(String(right[0]))),
+    );
 
     response = await bulk({
       action: "edit",
-      items: ids.map(id => ({ id, version: 3 })),
+      items: [{ id: ids[0], version: 3 }, { id: ids[1], version: 4 }],
       patch: { priority: editPriority, fixedFee: null },
     });
     assert.equal(response.status, 200);
@@ -2420,7 +2470,7 @@ test("manual pricing bulk actions are classified and atomic", async () => {
     // Invalid common bounds roll back without changing the successful edit.
     response = await bulk({
       action: "edit",
-      items: ids.map(id => ({ id, version: 4 })),
+      items: [{ id: ids[0], version: 4 }, { id: ids[1], version: 5 }],
       patch: { minAmount: "10", maxAmount: "1" },
     });
     assert.equal(response.status, 400);
@@ -2429,32 +2479,35 @@ test("manual pricing bulk actions are classified and atomic", async () => {
     assert.equal(afterInvalid[0]?.priority, editPriority);
     assert.equal(afterInvalid[0]?.version, 4);
 
-    // Changing the second source onto the first creates a final-set overlap;
-    // neither selected row is changed.
+    // Changing the second source onto the first creates an overlap; only the
+    // affected candidate is skipped.
     response = await bulk({
       action: "edit",
-      items: ids.map(id => ({ id, version: 4 })),
+      items: [{ id: ids[0], version: 4 }, { id: ids[1], version: 5 }],
       patch: { sourceSettlementOptionId: source.id },
     });
-    assert.equal(response.status, 409);
+    assert.equal(response.status, 200);
+    assert.deepEqual(response.body.updatedIds, [ids[0]]);
+    assert.equal(response.body.skipped[0].id, ids[1]);
+    assert.equal(response.body.skipped[0].code, "MANUAL_PRICING_RULE_CONFLICT");
     const afterConflict = await db.select().from(manualDeskPricingRulesTable)
       .where(inArray(manualDeskPricingRulesTable.id, ids));
     assert.deepEqual(afterConflict.sort((left, right) => left.id.localeCompare(right.id))
       .map(row => [row.id, row.sourceSettlementOptionId, row.version]).sort((left, right) =>
         String(left[0]).localeCompare(String(right[0]))), [
-      [ids[0], source.id, 4], [ids[1], alternateSource.id, 4],
+      [ids[0], source.id, 5], [ids[1], alternateSource.id, 5],
     ].sort((left, right) => String(left[0]).localeCompare(String(right[0]))));
 
     response = await bulk({
       action: "delete",
-      items: ids.map(id => ({ id, version: 4 })),
+      items: ids.map(id => ({ id, version: 5 })),
     });
     assert.equal(response.status, 200);
     assert.deepEqual(response.body.affectedIds, ids);
     assert.equal((response.body.items as Array<unknown>).some(item =>
       ids.includes(String((item as { id: string }).id))), false);
   } finally {
-    await db.delete(manualDeskPricingRulesTable).where(inArray(manualDeskPricingRulesTable.id, ids));
+    await db.delete(manualDeskPricingRulesTable).where(inArray(manualDeskPricingRulesTable.id, [...ids, ...scaleIds]));
     await db.delete(operatorsTable).where(eq(operatorsTable.id, operator.id));
     await api.close();
   }
@@ -2973,6 +3026,192 @@ test("owner receiving-wallet updates use exact asset-network rows and keep share
     await db.delete(cryptoAssetNetworksTable)
       .where(inArray(cryptoAssetNetworksTable.id, [networkAId, networkBId, differentNetworkId]));
     await db.delete(cryptoAssetsTable).where(inArray(cryptoAssetsTable.id, [assetAId, assetBId]));
+    await db.delete(operatorsTable).where(eq(operatorsTable.id, operator.id));
+  }
+});
+
+test("owner crypto asset bulk edits are atomic and preserve omitted network settings", async () => {
+  const {
+    cryptoAssetNetworksTable,
+    cryptoAssetsTable,
+    db,
+    operatorsTable,
+    whitebitAssetMappingsTable,
+    whitebitNetworkMappingsTable,
+  } = await import("@workspace/db");
+  const operatorAuth = await import("../src/lib/operator-auth");
+  const suffix = randomUUID();
+  const userId = `bulk-owner-${suffix}`;
+  const assetAId = `bulk-asset-a-${suffix}`;
+  const assetBId = `bulk-asset-b-${suffix}`;
+  const networkAId = `bulk-network-a-${suffix}`;
+  const networkBId = `bulk-network-b-${suffix}`;
+  const [operator] = await db.insert(operatorsTable).values({
+    email: `bulk-owner-${suffix}@example.test`,
+    clerkUserId: userId,
+    role: "owner",
+    status: "active",
+  }).returning();
+  await db.insert(cryptoAssetsTable).values([
+    { id: assetAId, code: `BA${suffix.slice(0, 6)}`, name: "Bulk Asset A", decimals: 6 },
+    { id: assetBId, code: `BB${suffix.slice(0, 6)}`, name: "Bulk Asset B", decimals: 8 },
+  ]);
+  await db.insert(cryptoAssetNetworksTable).values([
+    {
+      id: networkAId, assetId: assetAId, networkCode: `BULK-A-${suffix.slice(0, 8)}`,
+      networkName: "Bulk A", decimals: 6, enabled: true,
+      sharedDepositAddress: "preserve-address", sharedDepositMemo: "preserve-memo",
+      depositProvider: "manual",
+    },
+    {
+      id: networkBId, assetId: assetBId, networkCode: `BULK-B-${suffix.slice(0, 8)}`,
+      networkName: "Bulk B", decimals: 8, enabled: true,
+      sharedDepositAddress: "", sharedDepositMemo: "asset-b-memo",
+      depositProvider: "manual",
+    },
+  ]);
+  operatorAuth.configureOperatorAuthorizationForTests({
+    getUserId: req => req.get("x-test-clerk-user-id") ?? null,
+    getVerifiedEmail: () => null,
+  });
+  const api = await startApi();
+  const headers = { "x-test-clerk-user-id": userId };
+  try {
+    const preserved = await apiJson(api.url, "/admin/crypto-assets/bulk/apply", {
+      edits: [{
+        assetId: assetAId,
+        lifecycle: "restricted",
+        networks: [{
+          networkId: networkAId,
+          enabled: false,
+        }],
+      }],
+    }, "POST", headers);
+    assert.equal(preserved.status, 200);
+    const [afterPreserved] = await db.select().from(cryptoAssetNetworksTable)
+      .where(eq(cryptoAssetNetworksTable.id, networkAId));
+    assert.equal(afterPreserved.enabled, false);
+    assert.equal(afterPreserved.sharedDepositAddress, "preserve-address");
+    assert.equal(afterPreserved.sharedDepositMemo, "preserve-memo");
+    assert.equal(afterPreserved.depositProvider, "manual");
+    const [assetAfterPreserved] = await db.select().from(cryptoAssetsTable)
+      .where(eq(cryptoAssetsTable.id, assetAId));
+    assert.equal(assetAfterPreserved.lifecycle, "restricted");
+
+    const clearedMemo = await apiJson(api.url, "/admin/crypto-assets/bulk/apply", {
+      edits: [{
+        assetId: assetAId,
+        networks: [{ networkId: networkAId, sharedDepositMemo: null }],
+      }],
+    }, "POST", headers);
+    assert.equal(clearedMemo.status, 200);
+    const [afterClearedMemo] = await db.select().from(cryptoAssetNetworksTable)
+      .where(eq(cryptoAssetNetworksTable.id, networkAId));
+    assert.equal(afterClearedMemo.sharedDepositMemo, null);
+
+    const crossAsset = await apiJson(api.url, "/admin/crypto-assets/bulk/apply", {
+      edits: [{
+        assetId: assetAId,
+        enabled: false,
+        networks: [{ networkId: networkBId, enabled: false }],
+      }],
+    }, "POST", headers);
+    assert.equal(crossAsset.status, 404);
+    const [assetAfterCrossAsset] = await db.select().from(cryptoAssetsTable)
+      .where(eq(cryptoAssetsTable.id, assetAId));
+    assert.equal(assetAfterCrossAsset.enabled, true);
+    const [networkAfterCrossAsset] = await db.select().from(cryptoAssetNetworksTable)
+      .where(eq(cryptoAssetNetworksTable.id, networkBId));
+    assert.equal(networkAfterCrossAsset.enabled, true);
+
+    const invalidDeposit = await apiJson(api.url, "/admin/crypto-assets/bulk/apply", {
+      edits: [{
+        assetId: assetBId,
+        networks: [{ networkId: networkBId, customerDepositsEnabled: true }],
+      }],
+    }, "POST", headers);
+    assert.equal(invalidDeposit.status, 422);
+    assert.equal(invalidDeposit.body.code, "CRYPTO_DEPOSIT_ADDRESS_REQUIRED");
+    const [networkAfterInvalidDeposit] = await db.select().from(cryptoAssetNetworksTable)
+      .where(eq(cryptoAssetNetworksTable.id, networkBId));
+    assert.equal(networkAfterInvalidDeposit.customerDepositsEnabled, false);
+
+    const disabledProviderWithDeposits = await apiJson(api.url, "/admin/crypto-assets/bulk/apply", {
+      edits: [{
+        assetId: assetAId,
+        networks: [{
+          networkId: networkAId,
+          depositProvider: "none",
+          customerDepositsEnabled: true,
+        }],
+      }],
+    }, "POST", headers);
+    assert.equal(disabledProviderWithDeposits.status, 422);
+    assert.equal(disabledProviderWithDeposits.body.code, "CRYPTO_DEPOSIT_PROVIDER_DISABLED");
+
+    const incompatibleWhitebit = await apiJson(api.url, "/admin/crypto-assets/bulk/apply", {
+      edits: [{
+        assetId: assetAId,
+        networks: [{ networkId: networkAId, depositProvider: "whitebit" }],
+      }],
+    }, "POST", headers);
+    assert.equal(incompatibleWhitebit.status, 422);
+    assert.equal(incompatibleWhitebit.body.code, "CRYPTO_DEPOSIT_PROVIDER_INCOMPATIBLE");
+
+    const [bulkAssetA] = await db.select().from(cryptoAssetsTable)
+      .where(eq(cryptoAssetsTable.id, assetAId));
+    const [bulkNetworkA] = await db.select().from(cryptoAssetNetworksTable)
+      .where(eq(cryptoAssetNetworksTable.id, networkAId));
+    await db.insert(whitebitAssetMappingsTable).values({
+      id: `bulk-whitebit-asset-${suffix}`,
+      assetId: assetAId,
+      providerTicker: bulkAssetA.code,
+      normalizedTicker: bulkAssetA.code.toUpperCase(),
+      providerName: bulkAssetA.name,
+      precision: bulkAssetA.decimals,
+    });
+    await db.insert(whitebitNetworkMappingsTable).values({
+      id: `bulk-whitebit-${suffix}`,
+      assetNetworkId: networkAId,
+      providerNetwork: bulkNetworkA.networkCode,
+      normalizedNetwork: bulkNetworkA.networkCode.toUpperCase(),
+      canDeposit: true,
+      canWithdraw: false,
+    });
+    const compatibleWhitebit = await apiJson(api.url, "/admin/crypto-assets/bulk/apply", {
+      edits: [{
+        assetId: assetAId,
+        networks: [{ networkId: networkAId, depositProvider: "whitebit" }],
+      }],
+    }, "POST", headers);
+    assert.equal(compatibleWhitebit.status, 200);
+    const [networkAfterWhitebit] = await db.select().from(cryptoAssetNetworksTable)
+      .where(eq(cryptoAssetNetworksTable.id, networkAId));
+    assert.equal(networkAfterWhitebit.depositProvider, "whitebit");
+
+    await db.update(cryptoAssetNetworksTable)
+      .set({ sharedDepositMemo: "x".repeat(600) })
+      .where(eq(cryptoAssetNetworksTable.id, networkAId));
+    const invalidOutputRollback = await apiJson(api.url, "/admin/crypto-assets/bulk/apply", {
+      edits: [{
+        assetId: assetAId,
+        enabled: false,
+        networks: [{ networkId: networkAId, lifecycle: "restricted" }],
+      }],
+    }, "POST", headers);
+    assert.equal(invalidOutputRollback.status, 400);
+    const [assetAfterInvalidOutput] = await db.select().from(cryptoAssetsTable)
+      .where(eq(cryptoAssetsTable.id, assetAId));
+    const [networkAfterInvalidOutput] = await db.select().from(cryptoAssetNetworksTable)
+      .where(eq(cryptoAssetNetworksTable.id, networkAId));
+    assert.equal(assetAfterInvalidOutput.enabled, true);
+    assert.equal(networkAfterInvalidOutput.lifecycle, "active");
+  } finally {
+    await api.close();
+    await db.delete(cryptoAssetNetworksTable)
+      .where(inArray(cryptoAssetNetworksTable.id, [networkAId, networkBId]));
+    await db.delete(cryptoAssetsTable)
+      .where(inArray(cryptoAssetsTable.id, [assetAId, assetBId]));
     await db.delete(operatorsTable).where(eq(operatorsTable.id, operator.id));
   }
 });

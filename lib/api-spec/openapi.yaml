@@ -1627,7 +1627,7 @@ paths:
     post:
       operationId: bulkManualDeskPricingRules
       tags: [admin]
-      summary: Apply one atomic action to multiple manual desk pricing rules
+      summary: Apply one action to multiple manual desk pricing rules
       security:
         - OperatorSession: []
       requestBody:
@@ -1637,15 +1637,12 @@ paths:
             schema: { $ref: "#/components/schemas/ManualDeskPricingRulesBulkInput" }
       responses:
         "200":
-          description: Refreshed pricing rule catalog and applied action
+          description: Refreshed pricing rule catalog and per-rule action results
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ManualDeskPricingRulesBulkResponse" }
         "400":
           description: Invalid bulk action
-          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
-        "409":
-          description: Version or ambiguity conflict
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
   /admin/crypto-assets/logo-upload:
     post:
@@ -1709,6 +1706,32 @@ paths:
         "201":
           description: Created asset
           content: { application/json: { schema: { $ref: "#/components/schemas/CryptoAsset" } } }
+  /admin/crypto-assets/bulk/apply:
+    post:
+      operationId: applyCryptoAssetsBulkEdit
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      summary: Atomically apply explicit edits to crypto assets and their exact network rows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CryptoAssetsBulkEditInput" }
+      responses:
+        "200":
+          description: Updated crypto assets and network rows
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CryptoAssetsBulkEditResponse" }
+        "400":
+          description: Invalid bulk edit input
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: Asset or network row was not found
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "422":
+          description: Bulk edit would create invalid deposit configuration
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
   /admin/crypto-assets/{id}:
     patch:
       operationId: updateCryptoAsset
@@ -4545,7 +4568,7 @@ components:
     ManualDeskPricingRulesBulkResponse:
       type: object
       additionalProperties: false
-      required: [items, diagnostics, action, affectedIds]
+      required: [items, diagnostics, action, affectedIds, updatedIds, skipped]
       properties:
         items:
           type: array
@@ -4555,6 +4578,24 @@ components:
         affectedIds:
           type: array
           items: { type: string }
+          description: Backward-compatible alias for updatedIds.
+        updatedIds:
+          type: array
+          items: { type: string }
+        skipped:
+          type: array
+          items: { $ref: "#/components/schemas/ManualDeskPricingRuleBulkSkip" }
+    ManualDeskPricingRuleBulkSkip:
+      type: object
+      additionalProperties: false
+      required: [id, code, reason]
+      properties:
+        id: { type: string }
+        code:
+          type: string
+          enum: [MANUAL_PRICING_RULE_NOT_FOUND, MANUAL_PRICING_RULE_VERSION_CONFLICT, MANUAL_PRICING_RULE_READ_ONLY, SETTLEMENT_OPTION_INVALID, MANUAL_PRICING_RULE_CONFLICT]
+        reason: { type: string }
+        currentVersion: { type: number, minimum: 1, multipleOf: 1 }
     ManualDeskPricingRule:
       allOf:
         - $ref: "#/components/schemas/ManualDeskPricingRuleInput"
@@ -5238,6 +5279,60 @@ components:
         decimals: { type: number, minimum: 0, maximum: 30, multipleOf: 1 }
         lifecycle: { type: string, enum: [active, restricted, deprecated] }
         enabled: { type: boolean }
+    CryptoAssetBulkNetworkEdit:
+      type: object
+      additionalProperties: false
+      required: [networkId]
+      properties:
+        networkId: { type: string, pattern: '^[a-z0-9][a-z0-9-]{0,80}$' }
+        enabled: { type: boolean }
+        customerDepositsEnabled: { type: boolean }
+        depositProvider: { type: string, minLength: 1, maxLength: 64 }
+        lifecycle: { type: string, enum: [active, restricted, deprecated] }
+        regions:
+          type: array
+          maxItems: 20
+          items: { type: string, maxLength: 32 }
+        decimals: { type: number, minimum: 0, maximum: 30, multipleOf: 1 }
+        requiresMemo: { type: boolean }
+        sharedDepositAddress: { type: string, maxLength: 500 }
+        sharedDepositMemo: { type: [string, "null"], maxLength: 500 }
+      minProperties: 2
+    CryptoAssetBulkEdit:
+      type: object
+      additionalProperties: false
+      required: [assetId]
+      properties:
+        assetId: { type: string, pattern: '^[a-z0-9][a-z0-9-]{0,63}$' }
+        enabled: { type: boolean }
+        lifecycle: { type: string, enum: [active, restricted, deprecated] }
+        decimals: { type: number, minimum: 0, maximum: 30, multipleOf: 1 }
+        networks:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/CryptoAssetBulkNetworkEdit" }
+      minProperties: 2
+    CryptoAssetsBulkEditInput:
+      type: object
+      additionalProperties: false
+      required: [edits]
+      properties:
+        edits:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items: { $ref: "#/components/schemas/CryptoAssetBulkEdit" }
+    CryptoAssetsBulkEditResponse:
+      type: object
+      additionalProperties: false
+      required: [assets, networks]
+      properties:
+        assets:
+          type: array
+          items: { $ref: "#/components/schemas/CryptoAsset" }
+        networks:
+          type: array
+          items: { $ref: "#/components/schemas/CryptoNetwork" }
     CryptoAsset:
       allOf:
         - $ref: "#/components/schemas/CryptoAssetInput"
