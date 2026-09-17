@@ -25,3 +25,26 @@ test("every statically declared Admin route has a deny-by-default policy", async
   }
   assert.deepEqual(missing, [], `Unclassified Admin routes:\n${missing.join("\n")}`);
 });
+
+test("WhiteBIT integration routes use the intended permission boundaries", () => {
+  assert.deepEqual(
+    classifyAdminRoute("GET", "/admin/providers/whitebit"),
+    { permission: "integrations.view", ownerOnly: false },
+  );
+  assert.deepEqual(
+    classifyAdminRoute("GET", "/admin/providers/whitebit/credentials"),
+    { permission: "integrations.view", ownerOnly: false },
+  );
+  assert.deepEqual(
+    classifyAdminRoute("PUT", "/admin/providers/whitebit/credentials"),
+    { permission: "integrations.credentials.update", ownerOnly: true },
+  );
+  assert.deepEqual(
+    classifyAdminRoute("POST", "/admin/providers/whitebit/credentials/test"),
+    { permission: "integrations.credentials.test", ownerOnly: true },
+  );
+  assert.deepEqual(
+    classifyAdminRoute("PATCH", "/admin/providers/whitebit"),
+    { permission: "integrations.credentials.update", ownerOnly: true },
+  );
+});
