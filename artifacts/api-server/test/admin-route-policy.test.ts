@@ -48,3 +48,10 @@ test("WhiteBIT integration routes use the intended permission boundaries", () =>
     { permission: "integrations.credentials.update", ownerOnly: true },
   );
 });
+
+test("deposit provider options use the receiving-wallet Owner boundary", () => {
+  assert.deepEqual(
+    classifyAdminRoute("GET", "/admin/deposit-providers"),
+    { permission: "receiving_wallets.manage", ownerOnly: true },
+  );
+});
