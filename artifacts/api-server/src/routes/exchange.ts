@@ -112,6 +112,7 @@ import {
   cryptoAssetNetworksTable,
   quickexOrdersTable,
   orderSupportMetadataTable,
+  whitebitOrderAddressesTable,
 } from "@workspace/db";
 import { ApiError } from "../lib/api-error";
 import { createCryptoAssetLogoUpload, createCryptoNetworkLogoUpload, createFiatCurrencyFlagUpload, deleteStoredCatalogImage } from "../lib/object-storage";
@@ -209,6 +210,11 @@ import {
 } from "../lib/manual-wallet-validation";
 import { initializeAffiliateForOrder, processPendingAffiliateCompletions } from "../lib/affiliate-accounting";
 import { reconcilePendingQuickexOrders } from "../lib/quickex-order-service";
+import { finalizeSwapFundingFromClaim, provisionSwapFundingAddress } from "./whitebit";
+import { whitebitSwapStatus } from "../lib/whitebit-capabilities";
+import { isWhitebitSwapEnabled } from "../lib/whitebit-capabilities";
+
+import { whitebitProviderSettingsTable } from "@workspace/db";
 import { ALLOWED_LOGO_CONTENT_TYPES, createLogoUpload, deleteStoredLogo, getVerifiedStoredLogo, StoredImageInvalidError, StoredObjectNotFoundError, verifyStoredCatalogImage, verifyStoredLogo } from "../lib/object-storage";
 
 const router: IRouter = Router();
@@ -383,9 +389,17 @@ function outputCustomerOrder(
     statusNotificationsEnabled: row.statusNotificationsEnabled,
     manualSettlementState: row.type === "manual" ? row.manualSettlementState : undefined,
     customerSafeNote: row.type === "manual" ? row.customerSafeNote || undefined : undefined,
-    depositAddress: row.type === "manual" ? row.depositAddress || undefined : undefined,
-    depositMemo: row.type === "manual" ? row.depositMemo || undefined : undefined,
-    fundingDetails: row.type === "manual" ? row.fundingDetailsSnapshot ?? undefined : undefined,
+     fundingStatus: row.type === "manual" ? row.fundingStatus : undefined,
+     fundingSource: row.type === "manual" ? row.fundingProviderSource : undefined,
+     fundingError: row.type === "manual" && row.fundingStatus === "unresolved"
+       ? "Deposit address provisioning is pending operator recovery."
+       : undefined,
+     depositAddress: row.type === "manual" && ["ready_whitebit", "ready_manual"].includes(row.fundingStatus)
+       ? row.depositAddress || undefined : undefined,
+     depositMemo: row.type === "manual" && ["ready_whitebit", "ready_manual"].includes(row.fundingStatus)
+       ? row.depositMemo || undefined : undefined,
+     fundingDetails: row.type === "manual" && ["ready_whitebit", "ready_manual"].includes(row.fundingStatus)
+       ? row.fundingDetailsSnapshot ?? undefined : undefined,
     settlementDetails: row.type === "manual" ? row.settlementDetails ?? undefined : undefined,
     trackingToken: signOrderTrackingToken(row.id),
     createdAt: row.createdAt.toISOString(),
@@ -418,6 +432,15 @@ function assertIdempotentOrderMatches(
   },
   matchQuoteId = true,
 ) {
+  const canonicalJson = (value: unknown): string => {
+    if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+    if (value && typeof value === "object") {
+      return `{${Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`).join(",")}}`;
+    }
+    return JSON.stringify(value);
+  };
   if (
     (matchQuoteId && row.quoteId !== input.quoteId) ||
     row.type !== input.type ||
@@ -435,11 +458,11 @@ function assertIdempotentOrderMatches(
     row.paymentMethod !== (input.paymentMethod ?? "") ||
     row.payoutMethod !== (input.payoutMethod ?? "") ||
     row.note !== (input.note ?? "") ||
-    row.rateMode !== "" ||
+     row.rateMode !== (input.rateMode ?? "") ||
     (row.sourceSettlementOptionId ?? undefined) !== input.sourceSettlementOptionId ||
     (row.targetSettlementOptionId ?? undefined) !== input.targetSettlementOptionId ||
-    JSON.stringify(row.settlementDetails ?? undefined) !==
-      JSON.stringify(input.settlementDetails ?? undefined)
+     canonicalJson(row.settlementDetails ?? undefined) !==
+       canonicalJson(input.settlementDetails ?? undefined)
   ) {
     throw new ApiError(
       "IDEMPOTENCY_CONFLICT",
@@ -1645,11 +1668,17 @@ router.get("/orders/:id/status", async (req, res, next) => {
         targetSettlementOptionId: row.targetSettlementOptionId || undefined,
         amount: row.amount,
         receiveAmount: row.receiveAmount,
-        depositAddress: canViewDeposit ? (row.depositAddress || undefined) : undefined,
-        depositMemo: canViewDeposit ? row.depositMemo || undefined : undefined,
+         depositAddress: canViewDeposit && ["ready_whitebit", "ready_manual"].includes(row.fundingStatus)
+           ? (row.depositAddress || undefined) : undefined,
+         depositMemo: canViewDeposit && ["ready_whitebit", "ready_manual"].includes(row.fundingStatus)
+           ? row.depositMemo || undefined : undefined,
         manualSettlementState: row.type === "manual" ? row.manualSettlementState : undefined,
         customerSafeNote: row.type === "manual" ? row.customerSafeNote || undefined : undefined,
-        fundingDetails: canViewDeposit && row.type === "manual"
+        fundingStatus: row.type === "manual" ? row.fundingStatus : undefined,
+        fundingSource: row.type === "manual" ? row.fundingProviderSource : undefined,
+        fundingError: row.type === "manual" && row.fundingStatus === "unresolved"
+          ? "Deposit address provisioning is pending operator recovery." : undefined,
+         fundingDetails: canViewDeposit && row.type === "manual" && ["ready_whitebit", "ready_manual"].includes(row.fundingStatus)
           ? row.fundingDetailsSnapshot ?? undefined : undefined,
         settlementDetails: canViewDeposit && row.type === "manual"
           ? row.settlementDetails ?? undefined : undefined,
@@ -1934,8 +1963,11 @@ async function existingOrderResult(
   matchQuoteId: boolean,
 ): Promise<OrderResult> {
   assertIdempotentOrderMatches(row, input, matchQuoteId);
+  if (row.type === "manual" && row.fundingStatus === "provisioning") {
+    row = (await finalizeSwapFundingFromClaim(row.id)) ?? row;
+  }
   return {
-    status: row.status === "creating" || row.outcomeUnknown ? 202 : 200,
+    status: row.status === "creating" || row.outcomeUnknown || row.fundingStatus === "provisioning" ? 202 : 200,
     body: outputOrder(row),
   };
 }
@@ -2024,6 +2056,15 @@ async function createOrderFromInput(
   await validateManualOrderDetails(input, quote.v === 2);
 
   const createdAt = new Date();
+  const sourceSnapshot = quote.settlementSnapshot?.source;
+  const manualFunding = quote.settlementSnapshot?.funding;
+  const whitebitCandidate = sourceSnapshot?.kind === "crypto-network" && manualFunding
+    ? await isWhitebitSwapEnabled(
+      sourceSnapshot.assetCode,
+      sourceSnapshot.networkCode ?? quote.fromNetwork,
+    )
+    : null;
+  const providerFundingCandidate = Boolean(whitebitCandidate);
   const id = `O${randomInt(0, 1_000_000_000).toString().padStart(9, "0")}`;
   const intent = {
     id, type: "manual", status: "awaiting funds",
@@ -2037,8 +2078,8 @@ async function createOrderFromInput(
     destinationAddress: input.destinationAddress ?? "",
     destinationMemo: input.destinationMemo ?? "",
     refundAddress: input.refundAddress ?? "", refundMemo: input.refundMemo ?? "",
-    depositAddress: quote.settlementSnapshot?.funding?.address ?? "",
-    depositMemo: quote.settlementSnapshot?.funding?.memo ?? "",
+    depositAddress: providerFundingCandidate ? "" : (manualFunding?.address ?? ""),
+    depositMemo: providerFundingCandidate ? "" : (manualFunding?.memo ?? ""),
     paymentMethod: input.paymentMethod ?? "", payoutMethod: input.payoutMethod ?? "",
     pricingRuleId: quote.pricingRuleId,
     pricingRuleVersion: quote.pricingRuleVersion,
@@ -2051,14 +2092,29 @@ async function createOrderFromInput(
     pricingSnapshot: quote.pricingSnapshot,
     sourceSettlementOptionId: quote.sourceSettlementOptionId,
     targetSettlementOptionId: quote.targetSettlementOptionId,
-    settlementSnapshot: quote.settlementSnapshot,
+    settlementSnapshot: providerFundingCandidate && quote.settlementSnapshot
+      ? { ...quote.settlementSnapshot, funding: { ...manualFunding, address: "", memo: "", source: "whitebit", status: "provisioning" } }
+      : quote.settlementSnapshot,
     settlementDetails,
-    fundingDetailsSnapshot: quote.settlementSnapshot?.funding,
+    fundingDetailsSnapshot: providerFundingCandidate
+      ? {
+          ...manualFunding,
+          address: "",
+          memo: "",
+          manualFallbackAddress: manualFunding?.address ?? "",
+          manualFallbackMemo: manualFunding?.memo ?? "",
+          source: "whitebit",
+          status: "provisioning",
+        }
+      : quote.settlementSnapshot?.funding,
     customerDetailsSnapshot: {
       destinationAddress: input.destinationAddress ?? "",
       destinationMemo: input.destinationMemo ?? "",
       settlementDetails: settlementDetails ?? {},
     },
+    fundingStatus: providerFundingCandidate ? "provisioning" : "ready_manual",
+    fundingProviderSource: providerFundingCandidate ? "whitebit" : "manual",
+    fundingProviderError: null,
     provider: quote.provider, note: input.note ?? "",
     rateMode: "",
     providerState: "",
@@ -2070,6 +2126,10 @@ async function createOrderFromInput(
     outcomeUnknown: false, createdAt,
   };
   const inserted = await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.clientRequestId}))`);
+    const [existing] = await tx.select().from(ordersTable)
+      .where(eq(ordersTable.clientRequestId, input.clientRequestId)).limit(1);
+    if (existing) return undefined;
     const [created] = await tx
       .insert(ordersTable)
       .values(intent)
@@ -2100,6 +2160,15 @@ async function createOrderFromInput(
       nextVersion: created.recordVersion,
       details: { type: created.type },
     });
+    if (providerFundingCandidate && sourceSnapshot?.kind === "crypto-network" && manualFunding) {
+      await tx.insert(whitebitOrderAddressesTable).values({
+        orderId: created.id,
+        ticker: sourceSnapshot.assetCode.trim().toUpperCase(),
+        providerTicker: sourceSnapshot.assetCode.trim().toUpperCase(),
+        network: (sourceSnapshot.networkCode ?? quote.fromNetwork).trim().toUpperCase(),
+        status: "claiming",
+      }).onConflictDoNothing({ target: whitebitOrderAddressesTable.orderId });
+    }
     return created;
   });
   if (!inserted) {
@@ -2109,7 +2178,28 @@ async function createOrderFromInput(
     return existingOrderResult(existing, input, matchQuoteId);
   }
 
-  return { status: 201, body: outputOrder(inserted) };
+  let finalOrder = inserted;
+  if (providerFundingCandidate && sourceSnapshot?.kind === "crypto-network" && manualFunding) {
+    const [orderClaim] = await db.select({ claimToken: whitebitOrderAddressesTable.claimToken })
+      .from(whitebitOrderAddressesTable)
+      .where(eq(whitebitOrderAddressesTable.orderId, inserted.id)).limit(1);
+    const provisioned = await provisionSwapFundingAddress({
+      orderId: inserted.id,
+      assetCode: sourceSnapshot.assetCode,
+      networkCode: sourceSnapshot.networkCode ?? quote.fromNetwork,
+      manualAddress: manualFunding.address,
+      manualMemo: manualFunding.memo,
+      chosenWhitebit: true,
+      expectedClaimToken: orderClaim?.claimToken ?? undefined,
+    });
+    // The provider helper owns the claim transition. Finalization below is
+    // the single DB-only projection update used by replays/recovery too.
+    void provisioned;
+    const updated = await finalizeSwapFundingFromClaim(inserted.id);
+    if (updated) finalOrder = updated;
+    return { status: provisioned.unresolved ? 202 : 201, body: outputOrder(finalOrder) };
+  }
+  return { status: 201, body: outputOrder(finalOrder) };
 
 }
 
@@ -3920,6 +4010,48 @@ router.get("/admin/providers/oneforge", async (_req, res, next) => {
         await refreshManualDeskRateProviderStatus(),
       ),
     );
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/admin/providers/whitebit", async (_req, res, next) => {
+  try {
+    res.json(await whitebitSwapStatus());
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch("/admin/providers/whitebit", requireOwner, async (req, res, next) => {
+  try {
+    if (typeof req.body?.enabled !== "boolean") {
+      throw new ApiError("VALIDATION_ERROR", "enabled must be a boolean.", 400);
+    }
+    const disabled = !req.body.enabled;
+    const operatorId = getOperatorActorUserId(req);
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
+      const [current] = await tx.select({ version: whitebitProviderSettingsTable.version })
+        .from(whitebitProviderSettingsTable)
+        .where(eq(whitebitProviderSettingsTable.provider, "whitebit")).limit(1);
+      await tx.insert(whitebitProviderSettingsTable).values({
+        provider: "whitebit",
+        disabled,
+        version: (current?.version ?? 0) + 1,
+        updatedByOperatorId: operatorId,
+        updatedAt: new Date(),
+      }).onConflictDoUpdate({
+        target: whitebitProviderSettingsTable.provider,
+        set: {
+          disabled,
+          version: sql`${whitebitProviderSettingsTable.version} + 1`,
+          updatedByOperatorId: operatorId,
+          updatedAt: new Date(),
+        },
+      });
+    });
+    res.json(await whitebitSwapStatus());
   } catch (error) {
     next(error);
   }

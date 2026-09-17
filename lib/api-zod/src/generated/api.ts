@@ -1103,6 +1103,9 @@ export const CreateExchangeOrderResponse = zod.object({
   "refundMemo": zod.string().optional(),
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
+  "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
+  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(createExchangeOrderResponseCustomerSafeNoteMax).optional(),
   "incomingTransactionReference": zod.string().max(createExchangeOrderResponseIncomingTransactionReferenceMax).optional(),
@@ -1357,6 +1360,9 @@ export const GetOrdersResponse = zod.object({
   "refundMemo": zod.string().optional(),
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
+  "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
+  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(getOrdersResponseItemsItemCustomerSafeNoteMax).optional(),
   "incomingTransactionReference": zod.string().max(getOrdersResponseItemsItemIncomingTransactionReferenceMax).optional(),
@@ -1597,6 +1603,9 @@ export const CreateOrderResponse = zod.object({
   "refundMemo": zod.string().optional(),
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
+  "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
+  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(createOrderResponseCustomerSafeNoteMax).optional(),
   "incomingTransactionReference": zod.string().max(createOrderResponseIncomingTransactionReferenceMax).optional(),
@@ -1814,6 +1823,9 @@ export const BulkUpdateOrderStatusResponse = zod.object({
   "refundMemo": zod.string().optional(),
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
+  "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
+  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(bulkUpdateOrderStatusResponseResultsItemOrderCustomerSafeNoteMax).optional(),
   "incomingTransactionReference": zod.string().max(bulkUpdateOrderStatusResponseResultsItemOrderIncomingTransactionReferenceMax).optional(),
@@ -2037,6 +2049,9 @@ export const BulkArchiveOrdersResponse = zod.object({
   "refundMemo": zod.string().optional(),
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
+  "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
+  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(bulkArchiveOrdersResponseResultsItemOrderCustomerSafeNoteMax).optional(),
   "incomingTransactionReference": zod.string().max(bulkArchiveOrdersResponseResultsItemOrderIncomingTransactionReferenceMax).optional(),
@@ -2203,6 +2218,9 @@ export const GetPublicOrderStatusResponse = zod.object({
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(getPublicOrderStatusResponseCustomerSafeNoteMax).optional(),
   "fundingDetails": zod.record(zod.string(), zod.unknown()).optional(),
+  "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
+  "fundingSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingError": zod.string().optional(),
   "settlementDetails": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).optional()
 })
 
@@ -2299,6 +2317,9 @@ export const GetOrderResponse = zod.object({
   "refundMemo": zod.string().optional(),
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
+  "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
+  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(getOrderResponseCustomerSafeNoteMax).optional(),
   "incomingTransactionReference": zod.string().max(getOrderResponseIncomingTransactionReferenceMax).optional(),
@@ -2521,6 +2542,9 @@ export const UpdateOrderResponse = zod.object({
   "refundMemo": zod.string().optional(),
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
+  "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
+  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(updateOrderResponseCustomerSafeNoteMax).optional(),
   "incomingTransactionReference": zod.string().max(updateOrderResponseIncomingTransactionReferenceMax).optional(),
@@ -2732,6 +2756,9 @@ export const AssignOrderResponse = zod.object({
   "refundMemo": zod.string().optional(),
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
+  "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
+  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(assignOrderResponseCustomerSafeNoteMax).optional(),
   "incomingTransactionReference": zod.string().max(assignOrderResponseIncomingTransactionReferenceMax).optional(),
@@ -2962,6 +2989,9 @@ export const UpdateOrderSupportToolsResponse = zod.object({
   "refundMemo": zod.string().optional(),
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
+  "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
+  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(updateOrderSupportToolsResponseCustomerSafeNoteMax).optional(),
   "incomingTransactionReference": zod.string().max(updateOrderSupportToolsResponseIncomingTransactionReferenceMax).optional(),
@@ -3171,6 +3201,9 @@ export const ArchiveOrderResponse = zod.object({
   "refundMemo": zod.string().optional(),
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
+  "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
+  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(archiveOrderResponseCustomerSafeNoteMax).optional(),
   "incomingTransactionReference": zod.string().max(archiveOrderResponseIncomingTransactionReferenceMax).optional(),
@@ -3380,6 +3413,9 @@ export const RestoreOrderResponse = zod.object({
   "refundMemo": zod.string().optional(),
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
+  "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
+  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(restoreOrderResponseCustomerSafeNoteMax).optional(),
   "incomingTransactionReference": zod.string().max(restoreOrderResponseIncomingTransactionReferenceMax).optional(),
@@ -6587,6 +6623,50 @@ export const GetOneForgeProviderStatusResponse = zod.object({
 
 
 /**
+ * @summary Get safe WhiteBIT Swap address provider status
+ */
+export const getWhitebitProviderStatusResponseMatchedRouteCountMin = 0;
+
+
+
+export const GetWhitebitProviderStatusResponse = zod.object({
+  "provider": zod.enum(['whitebit']),
+  "enabled": zod.boolean(),
+  "explicitDisabled": zod.boolean(),
+  "credentialsReady": zod.boolean(),
+  "state": zod.enum(['disabled', 'not_configured', 'ready', 'unavailable']),
+  "lastCapabilitySyncAt": zod.coerce.date().nullable(),
+  "matchedRouteCount": zod.number().int().min(getWhitebitProviderStatusResponseMatchedRouteCountMin),
+  "webhookReady": zod.boolean(),
+  "error": zod.string().optional()
+})
+
+
+/**
+ * @summary Enable or disable WhiteBIT Swap address allocation
+ */
+export const UpdateWhitebitProviderStatusBody = zod.object({
+  "enabled": zod.boolean()
+})
+
+export const updateWhitebitProviderStatusResponseMatchedRouteCountMin = 0;
+
+
+
+export const UpdateWhitebitProviderStatusResponse = zod.object({
+  "provider": zod.enum(['whitebit']),
+  "enabled": zod.boolean(),
+  "explicitDisabled": zod.boolean(),
+  "credentialsReady": zod.boolean(),
+  "state": zod.enum(['disabled', 'not_configured', 'ready', 'unavailable']),
+  "lastCapabilitySyncAt": zod.coerce.date().nullable(),
+  "matchedRouteCount": zod.number().int().min(updateWhitebitProviderStatusResponseMatchedRouteCountMin),
+  "webhookReady": zod.boolean(),
+  "error": zod.string().optional()
+})
+
+
+/**
  * @summary Export orders as XML
  */
 export const GetOrdersXmlResponse = zod.unknown()
@@ -6698,6 +6778,9 @@ export const ReconcileOrderResponse = zod.object({
   "refundMemo": zod.string().optional(),
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
+  "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
+  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(reconcileOrderResponseOrderCustomerSafeNoteMax).optional(),
   "incomingTransactionReference": zod.string().max(reconcileOrderResponseOrderIncomingTransactionReferenceMax).optional(),
@@ -7545,6 +7628,9 @@ export const CreateQuickexOrderResponse = zod.object({
   "refundMemo": zod.string().optional(),
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
+  "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
+  "fundingProviderSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(createQuickexOrderResponseCustomerSafeNoteMax).optional(),
   "incomingTransactionReference": zod.string().max(createQuickexOrderResponseIncomingTransactionReferenceMax).optional(),
@@ -7725,6 +7811,9 @@ export const GetQuickexOrderStatusResponse = zod.object({
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(getQuickexOrderStatusResponseCustomerSafeNoteMax).optional(),
   "fundingDetails": zod.record(zod.string(), zod.unknown()).optional(),
+  "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
+  "fundingSource": zod.enum(['whitebit', 'manual']).optional(),
+  "fundingError": zod.string().optional(),
   "settlementDetails": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).optional()
 })
 

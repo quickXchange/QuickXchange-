@@ -7,6 +7,8 @@
  */
 import type { ExactDecimal } from './exactDecimal';
 import type { OrderFundingDetails } from './orderFundingDetails';
+import type { OrderFundingProviderSource } from './orderFundingProviderSource';
+import type { OrderFundingStatus } from './orderFundingStatus';
 import type { OrderPricingSnapshot } from './orderPricingSnapshot';
 import type { OrderReceivingStatus } from './orderReceivingStatus';
 import type { OrderSendingStatus } from './orderSendingStatus';
@@ -60,6 +62,10 @@ export interface Order {
   refundMemo?: string;
   depositAddress?: string;
   depositMemo?: string;
+  fundingStatus?: OrderFundingStatus;
+  fundingProviderSource?: OrderFundingProviderSource;
+  /** @nullable */
+  fundingProviderError?: string | null;
   manualSettlementState?: string;
   /** @maxLength 2000 */
   customerSafeNote?: string;

@@ -498,6 +498,13 @@
       "when": 1789482613000,
       "tag": "0072_whitebit_customer_deposits",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1789605230293,
+      "tag": "0073_whitebit_swap_order_addresses",
+      "breakpoints": true
     }
   ]
 }

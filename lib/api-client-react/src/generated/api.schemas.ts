@@ -1306,6 +1306,24 @@ export const OrderReceivingStatus = {
   confirmed: 'confirmed',
 } as const;
 
+export type OrderFundingStatus = typeof OrderFundingStatus[keyof typeof OrderFundingStatus];
+
+
+export const OrderFundingStatus = {
+  provisioning: 'provisioning',
+  ready_whitebit: 'ready_whitebit',
+  ready_manual: 'ready_manual',
+  unresolved: 'unresolved',
+} as const;
+
+export type OrderFundingProviderSource = typeof OrderFundingProviderSource[keyof typeof OrderFundingProviderSource];
+
+
+export const OrderFundingProviderSource = {
+  whitebit: 'whitebit',
+  manual: 'manual',
+} as const;
+
 export type OrderPricingSnapshotPolicyVersion = typeof OrderPricingSnapshotPolicyVersion[keyof typeof OrderPricingSnapshotPolicyVersion];
 
 
@@ -1550,6 +1568,10 @@ export interface Order {
   refundMemo?: string;
   depositAddress?: string;
   depositMemo?: string;
+  fundingStatus?: OrderFundingStatus;
+  fundingProviderSource?: OrderFundingProviderSource;
+  /** @nullable */
+  fundingProviderError?: string | null;
   manualSettlementState?: string;
   /** @maxLength 2000 */
   customerSafeNote?: string;
@@ -1897,6 +1919,24 @@ export interface OrderPage {
 
 export type PublicOrderStatusFundingDetails = { [key: string]: unknown };
 
+export type PublicOrderStatusFundingStatus = typeof PublicOrderStatusFundingStatus[keyof typeof PublicOrderStatusFundingStatus];
+
+
+export const PublicOrderStatusFundingStatus = {
+  provisioning: 'provisioning',
+  ready_whitebit: 'ready_whitebit',
+  ready_manual: 'ready_manual',
+  unresolved: 'unresolved',
+} as const;
+
+export type PublicOrderStatusFundingSource = typeof PublicOrderStatusFundingSource[keyof typeof PublicOrderStatusFundingSource];
+
+
+export const PublicOrderStatusFundingSource = {
+  whitebit: 'whitebit',
+  manual: 'manual',
+} as const;
+
 export type PublicOrderStatusSettlementDetails = {[key: string]: string | number | null};
 
 export interface PublicOrderStatus {
@@ -1922,6 +1962,9 @@ export interface PublicOrderStatus {
   /** @maxLength 2000 */
   customerSafeNote?: string;
   fundingDetails?: PublicOrderStatusFundingDetails;
+  fundingStatus?: PublicOrderStatusFundingStatus;
+  fundingSource?: PublicOrderStatusFundingSource;
+  fundingError?: string;
   settlementDetails?: PublicOrderStatusSettlementDetails;
 }
 
@@ -3523,6 +3566,37 @@ export interface OneForgeProviderStatus {
   rates: OneForgeRate[];
 }
 
+export type WhitebitProviderStatusProvider = typeof WhitebitProviderStatusProvider[keyof typeof WhitebitProviderStatusProvider];
+
+
+export const WhitebitProviderStatusProvider = {
+  whitebit: 'whitebit',
+} as const;
+
+export type WhitebitProviderStatusState = typeof WhitebitProviderStatusState[keyof typeof WhitebitProviderStatusState];
+
+
+export const WhitebitProviderStatusState = {
+  disabled: 'disabled',
+  not_configured: 'not_configured',
+  ready: 'ready',
+  unavailable: 'unavailable',
+} as const;
+
+export interface WhitebitProviderStatus {
+  provider: WhitebitProviderStatusProvider;
+  enabled: boolean;
+  explicitDisabled: boolean;
+  credentialsReady: boolean;
+  state: WhitebitProviderStatusState;
+  /** @nullable */
+  lastCapabilitySyncAt: string | null;
+  /** @minimum 0 */
+  matchedRouteCount: number;
+  webhookReady: boolean;
+  error?: string;
+}
+
 export interface QuickexCredentialInput {
   /**
      * @minLength 8
@@ -4775,6 +4849,10 @@ page?: number;
  * @maximum 100
  */
 pageSize?: number;
+};
+
+export type UpdateWhitebitProviderStatusBody = {
+  enabled: boolean;
 };
 
 export type ListAdminActivityParams = {

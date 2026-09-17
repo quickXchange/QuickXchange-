@@ -8,6 +8,8 @@
 import type { ExactDecimal } from './exactDecimal';
 import type { ProviderFreshness } from './providerFreshness';
 import type { PublicOrderStatusFundingDetails } from './publicOrderStatusFundingDetails';
+import type { PublicOrderStatusFundingSource } from './publicOrderStatusFundingSource';
+import type { PublicOrderStatusFundingStatus } from './publicOrderStatusFundingStatus';
 import type { PublicOrderStatusSettlementDetails } from './publicOrderStatusSettlementDetails';
 import type { QuickexRateMode } from './quickexRateMode';
 
@@ -34,5 +36,8 @@ export interface PublicOrderStatus {
   /** @maxLength 2000 */
   customerSafeNote?: string;
   fundingDetails?: PublicOrderStatusFundingDetails;
+  fundingStatus?: PublicOrderStatusFundingStatus;
+  fundingSource?: PublicOrderStatusFundingSource;
+  fundingError?: string;
   settlementDetails?: PublicOrderStatusSettlementDetails;
 }

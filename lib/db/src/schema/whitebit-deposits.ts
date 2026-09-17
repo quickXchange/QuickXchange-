@@ -1,5 +1,6 @@
 import { createInsertSchema } from "drizzle-zod";
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -10,7 +11,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { customersTable } from "./index";
+import { customersTable, ordersTable } from "./index";
 
 export const whitebitDepositAddressesTable = pgTable(
   "whitebit_deposit_addresses",
@@ -34,9 +35,45 @@ export const whitebitDepositAddressesTable = pgTable(
   ],
 );
 
+/**
+ * Swap orders use one provider address per order. This is intentionally
+ * separate from whitebit_deposit_addresses, whose customer+ticker+network
+ * uniqueness is correct for the account-deposit product but not for an
+ * anonymous manual Swap.
+ */
+export const whitebitOrderAddressesTable = pgTable(
+  "whitebit_order_addresses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orderId: text("order_id").notNull().references(() => ordersTable.id, { onDelete: "restrict" }),
+    ticker: text("ticker").notNull(),
+    providerTicker: text("provider_ticker").notNull(),
+    network: text("network").notNull(),
+    address: text("address"),
+    memo: text("memo"),
+    status: text("status").notNull().default("claiming"),
+    claimToken: uuid("claim_token").defaultRandom(),
+    providerError: text("provider_error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("whitebit_order_address_order_uidx").on(table.orderId),
+    index("whitebit_order_address_lookup_idx").on(table.address, table.memo, table.ticker, table.network),
+  ],
+);
+
 export const whitebitApiNonceTable = pgTable("whitebit_api_nonce", {
   id: integer("id").primaryKey(),
   lastNonce: numeric("last_nonce").notNull(),
+});
+
+export const whitebitProviderSettingsTable = pgTable("whitebit_provider_settings", {
+  provider: text("provider").primaryKey().default("whitebit"),
+  disabled: boolean("disabled").notNull().default(true),
+  version: integer("version").notNull().default(1),
+  updatedByOperatorId: text("updated_by_operator_id"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const whitebitHistoryCheckpointsTable = pgTable("whitebit_history_checkpoints", {
@@ -45,6 +82,13 @@ export const whitebitHistoryCheckpointsTable = pgTable("whitebit_history_checkpo
   highWaterIdentity: text("high_water_identity"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [uniqueIndex("whitebit_history_checkpoint_address_uidx").on(table.addressId)]);
+
+export const whitebitOrderHistoryCheckpointsTable = pgTable("whitebit_order_history_checkpoints", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orderAddressId: uuid("order_address_id").notNull().references(() => whitebitOrderAddressesTable.id, { onDelete: "cascade" }),
+  highWaterIdentity: text("high_water_identity"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [uniqueIndex("whitebit_order_history_checkpoint_address_uidx").on(table.orderAddressId)]);
 
 export const whitebitWebhookDeliveriesTable = pgTable(
   "whitebit_webhook_deliveries",
@@ -69,6 +113,8 @@ export const whitebitDepositsTable = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     customerId: text("customer_id").references(() => customersTable.id, { onDelete: "set null" }),
     addressId: uuid("address_id").references(() => whitebitDepositAddressesTable.id, { onDelete: "set null" }),
+    orderAddressId: uuid("order_address_id").references(() => whitebitOrderAddressesTable.id, { onDelete: "set null" }),
+    orderId: text("order_id").references(() => ordersTable.id, { onDelete: "set null" }),
     ticker: text("ticker").notNull(),
     providerTicker: text("provider_ticker").notNull(),
     network: text("network"),
@@ -123,5 +169,6 @@ export const insertWhitebitDepositAddressSchema = createInsertSchema(whitebitDep
 export const insertWhitebitDepositSchema = createInsertSchema(whitebitDepositsTable);
 export const insertWhitebitLedgerEntrySchema = createInsertSchema(whitebitLedgerEntriesTable);
 export type WhitebitDepositAddress = typeof whitebitDepositAddressesTable.$inferSelect;
+export type WhitebitOrderAddress = typeof whitebitOrderAddressesTable.$inferSelect;
 export type WhitebitDeposit = typeof whitebitDepositsTable.$inferSelect;
 export type WhitebitLedgerEntry = typeof whitebitLedgerEntriesTable.$inferSelect;

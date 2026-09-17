@@ -57,7 +57,7 @@ ALTER TABLE whitebit_deposits ADD COLUMN IF NOT EXISTS superseded_by uuid;
 ALTER TABLE whitebit_deposits ADD COLUMN IF NOT EXISTS payload_digest text;
 ALTER TABLE whitebit_deposits ADD COLUMN IF NOT EXISTS conflict text;
 ALTER TABLE whitebit_webhook_deliveries ADD COLUMN IF NOT EXISTS payload_digest text;
-UPDATE whitebit_webhook_deliveries SET payload_digest = encode(digest(convert_to(payload::text, 'UTF8'), 'sha256'), 'hex') WHERE payload_digest IS NULL;
+UPDATE whitebit_webhook_deliveries SET payload_digest = encode(public.digest(convert_to(payload::text, 'UTF8'), 'sha256'), 'hex') WHERE payload_digest IS NULL;
 ALTER TABLE whitebit_webhook_deliveries ALTER COLUMN payload_digest SET NOT NULL;
 DO $$
 BEGIN

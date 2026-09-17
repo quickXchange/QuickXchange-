@@ -1846,6 +1846,40 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OneForgeProviderStatus"
+  /admin/providers/whitebit:
+    get:
+      operationId: getWhitebitProviderStatus
+      tags: [admin]
+      summary: Get safe WhiteBIT Swap address provider status
+      security:
+        - OperatorSession: []
+      responses:
+        "200":
+          description: Safe WhiteBIT status without credentials
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WhitebitProviderStatus" }
+    patch:
+      operationId: updateWhitebitProviderStatus
+      tags: [admin]
+      summary: Enable or disable WhiteBIT Swap address allocation
+      security:
+        - OwnerSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: { type: boolean }
+      responses:
+        "200":
+          description: Updated WhiteBIT status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WhitebitProviderStatus" }
   /admin/orders.xml:
     get:
       operationId: getOrdersXml
@@ -4137,6 +4171,9 @@ components:
         refundMemo: { type: string }
         depositAddress: { type: string }
         depositMemo: { type: string }
+        fundingStatus: { type: string, enum: [provisioning, ready_whitebit, ready_manual, unresolved] }
+        fundingProviderSource: { type: string, enum: [whitebit, manual] }
+        fundingProviderError: { type: ["string", "null"] }
         manualSettlementState: { type: string }
         customerSafeNote: { type: string, maxLength: 2000 }
         incomingTransactionReference: { type: string, maxLength: 500 }
@@ -4476,6 +4513,9 @@ components:
         manualSettlementState: { type: string }
         customerSafeNote: { type: string, maxLength: 2000 }
         fundingDetails: { type: object, additionalProperties: true }
+        fundingStatus: { type: string, enum: [provisioning, ready_whitebit, ready_manual, unresolved] }
+        fundingSource: { type: string, enum: [whitebit, manual] }
+        fundingError: { type: string }
         settlementDetails: { type: object, additionalProperties: { type: [string, number, "null"] } }
     CustomerOrder:
       type: object
@@ -5502,6 +5542,19 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/OneForgeRate"
+    WhitebitProviderStatus:
+      type: object
+      required: [provider, enabled, explicitDisabled, credentialsReady, state, lastCapabilitySyncAt, matchedRouteCount, webhookReady]
+      properties:
+        provider: { type: string, enum: [whitebit] }
+        enabled: { type: boolean }
+        explicitDisabled: { type: boolean }
+        credentialsReady: { type: boolean }
+        state: { type: string, enum: [disabled, not_configured, ready, unavailable] }
+        lastCapabilitySyncAt: { type: [string, "null"], format: date-time }
+        matchedRouteCount: { type: integer, minimum: 0 }
+        webhookReady: { type: boolean }
+        error: { type: string }
     QuickexCredentialInput:
       type: object
       required: [publicKey, secretKey]

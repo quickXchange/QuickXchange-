@@ -56,6 +56,7 @@ const POLICY_MATCHERS: readonly PolicyMatcher[] = [
   { method: "GET", pattern: /^\/admin\/manual-desk-revenue$/, policy: P("statistics.view") },
   { method: "GET", pattern: /^\/admin\/manual-desk-revenue\.csv$/, policy: P("statistics.export") },
   { method: "GET", pattern: /^\/admin\/providers\/[^/]+$/, policy: P("integrations.view") },
+  { method: "PATCH", pattern: /^\/admin\/providers\/whitebit$/, policy: P("integrations.credentials.update", true) },
   { method: "GET", pattern: /^\/admin\/orders\.xml$/, policy: P("orders.export") },
   { method: "POST", pattern: /^\/admin\/orders\/[^/]+\/reconcile$/, policy: P("orders.status") },
   { method: "GET", pattern: /^\/admin\/orders\/[^/]+\/reconciliation-attempts$/, policy: P("orders.details") },

@@ -90,3 +90,4 @@
 - [Resend sender domain verification](resend-sender-domain.md) — Contact Form delivery stays fail-closed until quickxchange.net is verified in the connected Resend account.
 - [Newsletter delivery integrity](newsletter-delivery-integrity.md) — publish enqueue is atomic, unsubscribe is terminal, and Read More links are parser-checked.
 - [WhiteBIT deposit integrity](whitebit-deposit-integrity.md) — alias all stable provider IDs, freeze credited economics, and reconcile within the provider’s bounded history window.
+- [Shared DB test isolation](shared-db-test-isolation.md) — privileged integration tests use development storage; never drop or truncate public tables.

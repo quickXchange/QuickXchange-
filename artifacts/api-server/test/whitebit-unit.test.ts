@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import test from "node:test";
-import { assetIdentity, historyRecords, isCreditEligible, parseWhitebitAddressResponse, verifyWhitebitSignature } from "../src/routes/whitebit";
+import { assetIdentity, classifyWhitebitHttpStatus, historyRecords, isCreditEligible, parseWhitebitAddressResponse, verifyWhitebitSignature } from "../src/routes/whitebit";
+import { matchWhitebitCapability, parseWhitebitAssets } from "../src/lib/whitebit-capabilities";
 
 const secret = "unit-test-webhook-secret";
 const raw = Buffer.from(JSON.stringify({
@@ -64,4 +65,35 @@ test("WhiteBIT array history pages preserve full 500-record pages without a tota
   const second = [{ uniqueId: "prepended-new-record" }];
   assert.equal(historyRecords(first).length, 500);
   assert.equal(historyRecords(second)[0]?.uniqueId, "prepended-new-record");
+});
+
+test("WhiteBIT capability parser requires strict keyed assets and exact deposit networks", () => {
+  const parsed = parseWhitebitAssets({
+    USDT: {
+      can_deposit: true,
+      networks: { deposits: ["TRC20"], withdraws: ["TRC20"], default: "TRC20" },
+      confirmations: { TRC20: 19 },
+    },
+    BTC: {
+      can_deposit: false,
+      networks: { deposits: ["BTC"], withdraws: ["BTC"], default: "BTC" },
+    },
+  });
+  assert.ok(parsed);
+  assert.deepEqual(matchWhitebitCapability({ fetchedAt: Date.now(), assets: parsed! }, "usdt", "trc20"), {
+    providerTicker: "USDT",
+    providerNetwork: "TRC20",
+    requiredConfirmations: 19,
+  });
+  assert.equal(matchWhitebitCapability({ fetchedAt: Date.now(), assets: parsed! }, "USDT", "ERC20"), null);
+  assert.equal(parseWhitebitAssets({ USDT: { can_deposit: true, networks: { deposits: ["TRC20"] }, confirmations: [] } }), null);
+});
+
+test("WhiteBIT HTTP classification only permits certainly rejected 4xx responses to fall back", () => {
+  for (const status of [408, 409, 429, 500, 502, 503, 504]) {
+    assert.equal(classifyWhitebitHttpStatus(status), "ambiguous");
+  }
+  for (const status of [400, 401, 403, 404, 422]) {
+    assert.equal(classifyWhitebitHttpStatus(status), "definitive");
+  }
 });

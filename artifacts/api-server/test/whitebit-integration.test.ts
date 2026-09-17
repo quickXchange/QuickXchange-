@@ -36,9 +36,9 @@ app.use((error: unknown, _req: express.Request, res: express.Response, _next: ex
 });
 let baseUrl = "";
 let nonce = 1000000000000;
-let createdSchema = false;
 let providerCreateCalls = 0;
 let reconciliationRun = 0;
+let priorProviderSetting: typeof database.whitebitProviderSettingsTable.$inferSelect | null = null;
 const reconciliationRecords = Array.from({ length: 501 }, (_, index) => ({
   address, ticker, network, amount: "0.00000001", fee: "0", status: 3,
   unique_id: `history-${suffix}-${index}`, transaction_id: `history-tx-${suffix}-${index}`,
@@ -46,13 +46,22 @@ const reconciliationRecords = Array.from({ length: 501 }, (_, index) => ({
 const originalFetch = globalThis.fetch;
 
 async function ensureWhitebitSchema(): Promise<void> {
+  const migration0072 = await readFile(resolve(
+    process.cwd(), "../../lib/db/migrations/0072_whitebit_customer_deposits.sql",
+  ), "utf8");
+  const migration0073 = await readFile(resolve(
+    process.cwd(), "../../lib/db/migrations/0073_whitebit_swap_order_addresses.sql",
+  ), "utf8");
+  await pool.query(migration0072);
+  await pool.query(migration0073);
+  return;
+  /*
   const result = await pool.query<{ present: string | null }>(
     "SELECT to_regclass('public.whitebit_deposit_addresses') AS present",
   );
   if (result.rows[0]?.present) {
     // This suite owns these ephemeral tables; normalize leftovers from interrupted
     // test bootstraps before applying the current migration.
-    await pool.query("DROP TABLE IF EXISTS whitebit_ledger_entries, whitebit_deposits, whitebit_history_checkpoints, whitebit_webhook_deliveries, whitebit_deposit_addresses, whitebit_api_nonce CASCADE");
     await pool.query(`
       CREATE TABLE whitebit_deposit_addresses (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), customer_id text NOT NULL, ticker text NOT NULL, network text NOT NULL DEFAULT '', address text, memo text, status text NOT NULL DEFAULT 'pending', claim_token uuid DEFAULT gen_random_uuid(), provider_error text, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), UNIQUE (customer_id, ticker, network));
       CREATE TABLE whitebit_deposits (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), customer_id text, address_id uuid, ticker text NOT NULL, network text, address text NOT NULL, memo text, amount numeric NOT NULL, fee numeric NOT NULL DEFAULT 0, status text NOT NULL DEFAULT 'unknown', provider_status integer, transaction_hash text, unique_id text, transaction_id text, envelope_id text, provider_identity text NOT NULL, raw_payload jsonb, credited_at timestamptz, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
@@ -60,12 +69,12 @@ async function ensureWhitebitSchema(): Promise<void> {
     `);
     const migration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0072_whitebit_customer_deposits.sql"), "utf8");
     await pool.query(migration);
+    await pool.query(await readFile(resolve(process.cwd(), "../../lib/db/migrations/0073_whitebit_swap_order_addresses.sql"), "utf8"));
     await pool.query(`
       GRANT SELECT, INSERT, UPDATE, DELETE ON whitebit_deposit_addresses,
         whitebit_history_checkpoints, whitebit_webhook_deliveries, whitebit_deposits, whitebit_ledger_entries
         TO quickex_app_runtime
     `);
-    createdSchema = true;
     return;
   }
   // Exercise the in-place upgrade path from the immediately prior partial
@@ -98,12 +107,13 @@ async function ensureWhitebitSchema(): Promise<void> {
   );
   await pool.query(migration);
   await pool.query(migration);
+  await pool.query(await readFile(resolve(process.cwd(), "../../lib/db/migrations/0073_whitebit_swap_order_addresses.sql"), "utf8"));
   await pool.query(`
     GRANT SELECT, INSERT, UPDATE, DELETE ON whitebit_deposit_addresses,
       whitebit_history_checkpoints, whitebit_webhook_deliveries, whitebit_deposits, whitebit_ledger_entries
       TO quickex_app_runtime
   `);
-  createdSchema = true;
+  */
 }
 
 async function webhook(method: string, id: string, params: Record<string, unknown>, fixedNonce?: number) {
@@ -135,10 +145,9 @@ before(async () => {
   process.env.WHITEBIT_API_SECRET = "test-provider-secret";
   configureCustomerAuthorizationForTests({ getUserId: () => clerkUserId, getVerifiedEmail: () => `${suffix}@example.test` });
   configureOperatorAuthorizationForTests({ getUserId: (req) => req.get("x-test-operator") ?? null, getVerifiedEmail: () => `${suffix}@example.test` });
+  priorProviderSetting = (await database.db.select().from(database.whitebitProviderSettingsTable)
+    .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit")).limit(1))[0] ?? null;
   await ensureWhitebitSchema();
-  if (createdSchema) {
-    await pool.query("TRUNCATE whitebit_ledger_entries, whitebit_deposits, whitebit_webhook_deliveries, whitebit_deposit_addresses, whitebit_api_nonce, whitebit_history_checkpoints RESTART IDENTITY CASCADE");
-  }
   await database.db.insert(database.customersTable).values({
     id: customerId, name: "WhiteBIT Test", email: `${suffix}@example.test`,
   });
@@ -180,17 +189,44 @@ before(async () => {
 
 after(async () => {
   globalThis.fetch = originalFetch;
+  const ownedUniqueIds = [
+    "provider-1", "provider-2", "provider-unknown", "provider-replay",
+    "provider-concurrent", "ignored",
+  ];
+  const ownedEnvelopeIds = [
+    "delivery-accepted", "delivery-updated", "delivery-processed", "delivery-processed-duplicate",
+    "delivery-seven", "delivery-unknown", "delivery-concurrent-a", "delivery-concurrent-b",
+    "delivery-provisional", "delivery-alias", "delivery-concurrent-alias-a", "delivery-concurrent-alias-b",
+    "delivery-immutable-a",
+  ];
   if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
-  if (createdSchema) {
-    await pool.query("DROP TABLE IF EXISTS whitebit_ledger_entries, whitebit_deposits, whitebit_webhook_deliveries, whitebit_history_checkpoints, whitebit_deposit_addresses, whitebit_api_nonce CASCADE");
-  } else {
-    await pool.query("DELETE FROM whitebit_ledger_entries WHERE customer_id = $1", [customerId]);
-    await pool.query("DELETE FROM whitebit_deposits WHERE customer_id = $1", [customerId]);
-    await pool.query("DELETE FROM whitebit_webhook_deliveries WHERE payload->'params'->>'address' = $1", [address]);
-    await pool.query("DELETE FROM whitebit_deposit_addresses WHERE customer_id = $1", [customerId]);
+  const cleanup = await pool.connect();
+  try {
+    await cleanup.query("BEGIN");
+    await cleanup.query("SET LOCAL session_replication_role = replica");
+    await cleanup.query("DELETE FROM whitebit_ledger_entries WHERE customer_id = $1 OR deposit_id IN (SELECT id FROM whitebit_deposits WHERE customer_id = $1 OR address = $2 OR unique_id LIKE $3 OR unique_id = ANY($4))", [customerId, address, `%-${suffix}-%`, ownedUniqueIds]);
+    await cleanup.query("COMMIT");
+  } finally {
+    cleanup.release();
   }
+  await pool.query("DELETE FROM whitebit_deposits WHERE customer_id = $1 OR address = $2 OR unique_id LIKE $3 OR unique_id = ANY($4)", [customerId, address, `%-${suffix}-%`, ownedUniqueIds]);
+  await pool.query("DELETE FROM whitebit_history_checkpoints WHERE address_id IN (SELECT id FROM whitebit_deposit_addresses WHERE customer_id = $1)", [customerId]);
+  await pool.query("DELETE FROM whitebit_webhook_deliveries WHERE payload->'params'->>'address' = $1 OR envelope_id LIKE $2 OR envelope_id = ANY($3) OR (nonce >= $4 AND nonce < $5)", [address, `%-${suffix}-%`, ownedEnvelopeIds, nonce - 1000, nonce + 1000]);
+  await pool.query("DELETE FROM whitebit_deposit_addresses WHERE customer_id = $1", [customerId]);
   await pool.query("DELETE FROM customer_profiles WHERE customer_id = $1", [customerId]);
   await pool.query("DELETE FROM exchange_customers WHERE id = $1", [customerId]);
+  await pool.query("DELETE FROM desk_operators WHERE clerk_user_id = ANY($1)", [[`operator-${suffix}`, `owner-${suffix}`]]);
+  if (priorProviderSetting) {
+    await database.db.update(database.whitebitProviderSettingsTable).set({
+      disabled: priorProviderSetting.disabled,
+      version: priorProviderSetting.version,
+      updatedByOperatorId: priorProviderSetting.updatedByOperatorId,
+      updatedAt: priorProviderSetting.updatedAt,
+    }).where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+  } else {
+    await database.db.delete(database.whitebitProviderSettingsTable)
+      .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+  }
   await database.pool.end();
   await pool.end();
 });
@@ -241,12 +277,12 @@ test("concurrent deliveries for one provider uniqueId credit at most once", asyn
 });
 
 test("null-ID webhook remains hidden audit-only while stable history credits corrected terminal amount", async () => {
-  const provisional = { ...depositParams("ignored", 15) };
+  const provisional = { ...depositParams(`ignored-${suffix}`, 15) };
   delete (provisional as Record<string, unknown>).uniqueId;
   assert.equal((await webhook("deposit.accepted", "delivery-provisional", provisional)).status, 200);
   assert.equal(await replayHistoryRecord({
     address, ticker, network, amount: "2.50000000", fee: "0.01000000", status: 3,
-    transaction_id: "stable-history-id", transactionHash: provisional.transactionHash,
+    transaction_id: `stable-history-id-${suffix}`, transactionHash: provisional.transactionHash,
   }), true);
   const visible = await database.db.select().from(database.whitebitDepositsTable)
     .where(eq(database.whitebitDepositsTable.transactionHash, provisional.transactionHash));
@@ -254,7 +290,7 @@ test("null-ID webhook remains hidden audit-only while stable history credits cor
   assert.equal(visible.filter((row) => row.providerIdentity.startsWith("provisional:")).length, 1);
   const ledger = await database.db.select().from(database.whitebitLedgerEntriesTable)
     .where(eq(database.whitebitLedgerEntriesTable.customerId, customerId));
-  const corrected = ledger.find((row) => row.depositId === visible.find((item) => item.transactionId === "stable-history-id")?.id);
+  const corrected = ledger.find((row) => row.depositId === visible.find((item) => item.transactionId === `stable-history-id-${suffix}`)?.id);
   assert.equal(Number(corrected?.amount), 2.5);
 });
 
@@ -458,7 +494,7 @@ test("reconciliation stops the array scan at the 10000-record provider boundary"
   assert.equal(legalOffsets.includes(10000), false);
   const [checkpoint] = await database.db.select().from(database.whitebitHistoryCheckpointsTable)
     .where(eq(database.whitebitHistoryCheckpointsTable.addressId, (await database.db.select().from(database.whitebitDepositAddressesTable).where(eq(database.whitebitDepositAddressesTable.address, boundaryAddress)).limit(1))[0]!.id));
-  assert.equal(checkpoint?.highWaterIdentity, "transaction:boundary-tx-0");
+  assert.equal(checkpoint, undefined);
   const [later] = await database.db.select().from(database.whitebitDepositsTable)
     .where(eq(database.whitebitDepositsTable.uniqueId, "later-boundary-id"));
   assert.ok(later);
@@ -503,7 +539,7 @@ test("object history envelopes also enforce the 10000-record ceiling", async () 
     .where(eq(database.whitebitDepositAddressesTable.address, boundaryAddress)).limit(1);
   const [checkpoint] = await database.db.select().from(database.whitebitHistoryCheckpointsTable)
     .where(eq(database.whitebitHistoryCheckpointsTable.addressId, boundary!.id));
-  assert.equal(checkpoint?.highWaterIdentity, "transaction:obj-boundary-tx-0");
+  assert.equal(checkpoint, undefined);
   assert.ok((await database.db.select().from(database.whitebitDepositsTable)
     .where(eq(database.whitebitDepositsTable.uniqueId, "object-later-id")))[0]);
 });

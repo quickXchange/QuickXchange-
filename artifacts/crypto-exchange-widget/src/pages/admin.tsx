@@ -44,6 +44,8 @@ import {
   useGetFiatCurrencyPaymentMethods, getGetFiatCurrencyPaymentMethodsQueryKey,
   useCreateFiatCurrencyPaymentMethod, useUpdateFiatCurrencyPaymentMethod, useDeleteFiatCurrencyPaymentMethod,
   useGetOneForgeProviderStatus, getGetOneForgeProviderStatusQueryKey,
+  useGetWhitebitProviderStatus, getGetWhitebitProviderStatusQueryKey,
+  useUpdateWhitebitProviderStatus,
   useListManualDeskPricingRules, getListManualDeskPricingRulesQueryKey,
   useCreateManualDeskPricingRule, useUpdateManualDeskPricingRule,
   usePreviewManualDeskPricingRule, usePreviewManualDeskQuote, useDeleteManualDeskPricingRule,
@@ -73,7 +75,7 @@ import {
   useGetAffiliateValuationReview, getGetAffiliateValuationReviewQueryKey,
   useReviewAffiliateValuation
 } from '@workspace/api-client-react';
-import type { Asset, Customer, Order, PublicOrderStatus, ApiError, QuickexRateMode, CustomerOrder, FiatCurrency, OneForgeProviderStatus, ManualDeskPricingRule, ManualDeskPricingRuleInput, SettlementOption, PaymentMethod, PaymentMethodFieldDefinition, CryptoAsset, CryptoNetwork, OrderBulkMutationResponse, OrderBulkStatusInputManualSettlementState, AffiliateAccount, AffiliateSettings, AffiliatePayout, AffiliateOverview, AffiliateAccountPage, AffiliateCommission, AffiliateAccountDetail, AffiliateValuationReview, AffiliateReferral, AffiliateDashboard } from '@workspace/api-client-react';
+import type { Asset, Customer, Order, PublicOrderStatus, ApiError, QuickexRateMode, CustomerOrder, FiatCurrency, OneForgeProviderStatus, WhitebitProviderStatus, ManualDeskPricingRule, ManualDeskPricingRuleInput, SettlementOption, PaymentMethod, PaymentMethodFieldDefinition, CryptoAsset, CryptoNetwork, OrderBulkMutationResponse, OrderBulkStatusInputManualSettlementState, AffiliateAccount, AffiliateSettings, AffiliatePayout, AffiliateOverview, AffiliateAccountPage, AffiliateCommission, AffiliateAccountDetail, AffiliateValuationReview, AffiliateReferral, AffiliateDashboard } from '@workspace/api-client-react';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { CryptoIdentity, CryptoLogo, CryptoNetworkBadge, cryptoLogoFallbackUrls } from '@/components/crypto-identity';
@@ -4754,6 +4756,11 @@ function AdminProviders() {
     query: { queryKey: getGetQuickexCredentialsQueryKey(), refetchInterval: 30000 },
   });
   const connectionTest = useTestQuickexCredentials();
+  const whitebit = useGetWhitebitProviderStatus({
+    query: { queryKey: getGetWhitebitProviderStatusQueryKey(), refetchInterval: 30000 },
+  });
+  const whitebitToggle = useUpdateWhitebitProviderStatus();
+  const queryClient = useQueryClient();
   const [notice, setNotice] = useState<{ kind: 'error' | 'success' | 'warning'; text: string } | null>(null);
 
   const test = () => {
@@ -4765,6 +4772,7 @@ function AdminProviders() {
   };
 
   const status = health.data;
+  const whitebitStatus = whitebit.data;
   const reconciliationWarning = quickexReconciliationWarning(status?.reconciliation, formatDate);
   return <AdminShell eyebrow={t('adminCore.operations_settings')} title={t('adminCore.provider_health')} requiredPermission="integrations.view">
     <div className="panel providers-panel provider-health-card rise-in">
@@ -4783,7 +4791,35 @@ function AdminProviders() {
           <div className="capability-item provider-health-row provider-health-row--magenta"><span className="provider-health-row-icon"><FileText size={17} /></span><div><strong>{t('adminCore.order_placement')}</strong><p>{t('adminCore.signed_create_operations')}</p></div><span className={cn('config-status', status.signedOrders ? 'configured' : 'failed')}>{status.signedOrders ? <><Check size={13} /> {t('adminCore.active')}</> : <><X size={13} /> {t('adminCore.inactive')}</>}</span></div>
         </div></div>
       </div>}
-    </div>
+     </div>
+     <div className="panel providers-panel provider-health-card rise-in mt-6" data-testid="whitebit-provider-card">
+       <div className="panel-heading provider-health-heading">
+         <div><span className="section-kicker">SWAP DEPOSIT ADDRESS</span><h2>WhiteBIT</h2><p>Optional order-scoped crypto funding addresses. Convert and customer deposits remain unchanged.</p></div>
+         {whitebitStatus && <div className="provider-health-actions">
+           <span className={cn('secure-badge provider-verified-badge', whitebitStatus.enabled ? 'text-emerald-400' : 'text-amber-300')}>
+             {whitebitStatus.enabled ? <Check size={14} /> : <Pause size={14} />} {whitebitStatus.state.replace('_', ' ').toUpperCase()}
+           </span>
+           {isOwner && can('integrations.credentials.update') && <button
+             className="button provider-diagnostics-button"
+             disabled={whitebitToggle.isPending || whitebit.isLoading}
+             onClick={() => whitebitToggle.mutate({ data: { enabled: !whitebitStatus.enabled } }, {
+               onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetWhitebitProviderStatusQueryKey() }),
+             })}
+             data-testid="button-toggle-whitebit"
+           >{whitebitToggle.isPending ? <Loader2 className="spin" size={15} /> : <Power size={15} />} {whitebitStatus.enabled ? 'Turn off' : 'Turn on'}</button>}
+         </div>}
+       </div>
+       {whitebit.isLoading ? <div className="mt-6"><LoadingBlock rows={2} /></div> : whitebit.isError ? <ErrorState message="Could not load WhiteBIT status." retry={() => whitebit.refetch()} /> : whitebitStatus && <div className="provider-grid">
+         <div className="provider-config"><h3>Readiness</h3><div className="config-list">
+           <div className="config-item provider-health-row provider-health-row--blue"><span className="provider-health-row-icon"><Key size={17} /></span><div><strong>API credentials</strong><p>WHITEBIT_API_KEY and WHITEBIT_API_SECRET remain server-side secrets.</p></div><span className={cn('config-status', whitebitStatus.credentialsReady ? 'configured' : 'missing')}>{whitebitStatus.credentialsReady ? <><Check size={13} /> Set</> : <><X size={13} /> Missing</>}</span></div>
+           <div className="config-item provider-health-row provider-health-row--teal"><span className="provider-health-row-icon"><ShieldCheck size={17} /></span><div><strong>Webhook</strong><p>Reported separately; address allocation does not require webhook credentials.</p></div><span className={cn('config-status', whitebitStatus.webhookReady ? 'configured' : 'not-required')}>{whitebitStatus.webhookReady ? <><Check size={13} /> Ready</> : 'Not configured'}</span></div>
+         </div></div>
+         <div className="provider-capabilities"><h3>Capability match</h3><div className="capability-list">
+           <div className="capability-item provider-health-row provider-health-row--blue-cyan"><span className="provider-health-row-icon"><Network size={17} /></span><div><strong>Supported Admin routes</strong><p>Exact asset/network intersections with WhiteBIT deposit capability.</p></div><span className="config-status configured">{whitebitStatus.matchedRouteCount}</span></div>
+           <div className="capability-item provider-health-row provider-health-row--magenta"><span className="provider-health-row-icon"><RefreshCw size={17} /></span><div><strong>Last capability check</strong><p>{whitebitStatus.lastCapabilitySyncAt ? formatDate(whitebitStatus.lastCapabilitySyncAt) : 'Unavailable'}</p></div><span className={cn('config-status', whitebitStatus.state === 'unavailable' ? 'failed' : 'verified')}>{whitebitStatus.state}</span></div>
+         </div></div>
+       </div>}
+     </div>
   </AdminShell>;
 }
 
