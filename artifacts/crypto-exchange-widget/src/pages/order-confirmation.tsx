@@ -52,7 +52,7 @@ function MemoCopyBox({ text, label, actionable = true }: { text: string; label: 
 
   return (
     <div className="mt-4">
-      <span className="oc-label text-white/90" style={{ textTransform: 'none', letterSpacing: 'normal' }}>{label}</span>
+      <span className="oc-label">{label}</span>
       <div className="oc-address-box mt-2">
         <code>{text}</code>
         {actionable && (
@@ -248,7 +248,7 @@ export function OrderConfirmationPage() {
       <main className="order-confirmation-main">
         <div className="oc-container animate-in fade-in slide-in-from-bottom-8 duration-700">
           
-          <div className="oc-topbar">
+          <div className="oc-topbar oc-card oc-header-card">
             <div className="oc-intro">
               <div className={cn(
                 "oc-status-icon",
@@ -270,18 +270,20 @@ export function OrderConfirmationPage() {
               </div>
             </div>
 
-            <div className="oc-card oc-order-card">
+            <div className="oc-order-card">
               <div className="oc-order-id-group">
                  <span className="oc-label">Order ID</span>
-                 <code className="oc-order-id" data-testid="text-order-id">{order.id}</code>
-                 <button
-                   className={cn("oc-copy-btn", orderIdCopied && "copied")}
-                   onClick={copyOrderId}
-                   aria-label="Copy Order ID"
-                   data-testid="button-copy-header-order-id"
-                 >
-                   {orderIdCopied ? <Check size={14} /> : <Copy size={14} />}
-                 </button>
+                 <div className="oc-order-id-row">
+                   <code className="oc-order-id" data-testid="text-order-id">{order.id}</code>
+                   <button
+                     className={cn("oc-copy-btn", orderIdCopied && "copied")}
+                     onClick={copyOrderId}
+                     aria-label="Copy Order ID"
+                     data-testid="button-copy-header-order-id"
+                   >
+                     {orderIdCopied ? <Check size={14} /> : <Copy size={14} />}
+                   </button>
+                 </div>
               </div>
               <div className={cn(
                 "oc-status-badge",
@@ -345,21 +347,21 @@ export function OrderConfirmationPage() {
                      assetCode={order.fromAsset}
                      routeLabel={order.fromNetwork}
                      settlementOptionId={order.sourceSettlementOptionId}
-                     size="md"
+                     size="lg"
                    />
                    <div className="oc-amount">
                      <span className="oc-amount-value">{formatAmount(order.amount)}</span>
                      <span className="oc-amount-unit">{order.fromAsset}</span>
                    </div>
                 </div>
-                <div className="oc-summary-arrow"><ArrowRight size={20} /></div>
+                <div className="oc-summary-arrow"><ArrowRight size={24} /></div>
                 <div className="oc-summary-asset">
                    <span className="oc-label">You Receive</span>
                    <OrderSettlementIdentity
                      assetCode={order.toAsset}
                      routeLabel={order.toNetwork}
                      settlementOptionId={order.targetSettlementOptionId}
-                     size="md"
+                     size="lg"
                    />
                    <div className="oc-amount">
                      <span className="oc-amount-value">{isManual ? '≈ ' : ''}{formatAmount(order.receiveAmount)}</span>
@@ -399,17 +401,19 @@ export function OrderConfirmationPage() {
                 <div className="oc-card oc-deposit-card" data-testid="order-confirmation-payment-card">
                <div className="oc-deposit-header">
                  <span className="oc-label">Deposit Instructions</span>
-                 <OrderSettlementIdentity
-                   assetCode={order.fromAsset}
-                   routeLabel={order.fromNetwork}
-                   settlementOptionId={order.sourceSettlementOptionId}
-                   size="md"
-                 />
-                  {fundingAddressSourceLabel && (
-                    <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-white/70">
-                      {fundingAddressSourceLabel}
-                    </span>
-                  )}
+                 <div className="flex items-center gap-3">
+                   <OrderSettlementIdentity
+                     assetCode={order.fromAsset}
+                     routeLabel={order.fromNetwork}
+                     settlementOptionId={order.sourceSettlementOptionId}
+                     size="lg"
+                   />
+                    {fundingAddressSourceLabel && (
+                      <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-white/70">
+                        {fundingAddressSourceLabel}
+                      </span>
+                    )}
+                 </div>
                </div>
 
                <div className="space-y-0 relative z-10">
@@ -468,7 +472,7 @@ export function OrderConfirmationPage() {
                          <div className="oc-qr shadow-sm">
                            <QRCodeSVG
                              value={order.depositAddress}
-                             size={80}
+                             size={96}
                              bgColor={"#ffffff"}
                              fgColor={"#000000"}
                              level={"M"}
