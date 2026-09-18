@@ -946,6 +946,48 @@ export interface ExchangeConfig {
   manualPricingMessage?: string;
 }
 
+export type PopularExchangePairSideKind = typeof PopularExchangePairSideKind[keyof typeof PopularExchangePairSideKind];
+
+
+export const PopularExchangePairSideKind = {
+  'crypto-network': 'crypto-network',
+  'fiat-payment-method': 'fiat-payment-method',
+} as const;
+
+export interface PopularExchangePairSide {
+  settlementOptionId: string;
+  asset: string;
+  network: string;
+  label: string;
+  kind?: PopularExchangePairSideKind;
+  logoUrl?: string;
+  networkLogoUrl?: string;
+  paymentMethodId?: string;
+}
+
+export type PopularExchangePairMode = typeof PopularExchangePairMode[keyof typeof PopularExchangePairMode];
+
+
+export const PopularExchangePairMode = {
+  convert: 'convert',
+  swap: 'swap',
+} as const;
+
+export interface PopularExchangePair {
+  mode: PopularExchangePairMode;
+  source: PopularExchangePairSide;
+  target: PopularExchangePairSide;
+  /** @minimum 0 */
+  orderCount: number;
+  fallback: boolean;
+}
+
+export interface PopularExchangePairs {
+  convert: PopularExchangePair[];
+  swap: PopularExchangePair[];
+  generatedAt: string;
+}
+
 export interface ExchangeRoutePricing {
   sourceSettlementOptionId: string;
   targetSettlementOptionId: string;
@@ -5227,12 +5269,12 @@ export type GetQuickexPairsParams = {
  * @minLength 1
  * @maxLength 32
  */
-fromAsset: string;
+fromAsset?: string;
 /**
  * @minLength 1
  * @maxLength 80
  */
-fromNetwork: string;
+fromNetwork?: string;
 };
 
 export type GetQuickexOrderStatusParams = {

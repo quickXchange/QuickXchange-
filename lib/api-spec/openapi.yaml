@@ -50,6 +50,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ExchangeConfig"
+  /exchange/popular-pairs:
+    get:
+      operationId: getPopularExchangePairs
+      tags: [exchange]
+      summary: Get cached popular Convert and Swap routes
+      responses:
+        "200":
+          description: Ranked currently available routes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PopularExchangePairs"
   /exchange/route-pricing:
     get:
       operationId: getExchangeRoutePricing
@@ -2433,15 +2445,15 @@ paths:
     get:
       operationId: getQuickexPairs
       tags: [quickex]
-      summary: Get active Quickex destinations for one source instrument
+      summary: Get active Convert routes, optionally filtered by source instrument
       parameters:
         - name: fromAsset
           in: query
-          required: true
+          required: false
           schema: { type: string, minLength: 1, maxLength: 32 }
         - name: fromNetwork
           in: query
-          required: true
+          required: false
           schema: { type: string, minLength: 1, maxLength: 80 }
       responses:
         "200":
@@ -4025,6 +4037,45 @@ components:
         manualPricingMessage:
           type: string
           description: Current public explanation; feePercent is retained only for legacy clients.
+    PopularExchangePairSide:
+      type: object
+      additionalProperties: false
+      required: [settlementOptionId, asset, network, label]
+      properties:
+        settlementOptionId: { type: string }
+        asset: { type: string }
+        network: { type: string }
+        label: { type: string }
+        kind:
+          type: string
+          enum: [crypto-network, fiat-payment-method]
+        logoUrl: { type: string }
+        networkLogoUrl: { type: string }
+        paymentMethodId: { type: string }
+    PopularExchangePair:
+      type: object
+      additionalProperties: false
+      required: [mode, source, target, orderCount, fallback]
+      properties:
+        mode:
+          type: string
+          enum: [convert, swap]
+        source: { $ref: "#/components/schemas/PopularExchangePairSide" }
+        target: { $ref: "#/components/schemas/PopularExchangePairSide" }
+        orderCount: { type: integer, minimum: 0 }
+        fallback: { type: boolean }
+    PopularExchangePairs:
+      type: object
+      additionalProperties: false
+      required: [convert, swap, generatedAt]
+      properties:
+        convert:
+          type: array
+          items: { $ref: "#/components/schemas/PopularExchangePair" }
+        swap:
+          type: array
+          items: { $ref: "#/components/schemas/PopularExchangePair" }
+        generatedAt: { type: string, format: date-time }
     ExchangeRoutePricing:
       type: object
       additionalProperties: false

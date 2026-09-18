@@ -27,6 +27,7 @@ import {
   GetCustomersQueryParams,
   GetCustomersResponse,
   GetExchangeConfigResponse,
+  GetPopularExchangePairsResponse,
   GetExchangeRoutePricingQueryParams,
   GetExchangeRoutePricingResponse,
   GetFiatCurrenciesResponse,
@@ -165,6 +166,10 @@ import {
   buildProviderQuoteTicket,
   listPublicProviderSettlementOptions,
 } from "../lib/provider-capabilities";
+import {
+  getPopularExchangePairs,
+  invalidatePopularExchangePairsCache,
+} from "../lib/popular-exchange-pairs";
 import {
   createQuickexConvertOrder,
   getQuickexReconciliationHealth,
@@ -1138,26 +1143,33 @@ async function validateExactPricingRuleOptions(input: {
 
 router.get("/exchange/config", async (_req, res, next) => {
   try {
-    const fiatCurrencies = await listEnabledFiatCurrencies();
+    const [
+      fiatCurrencies,
+      manualCryptoOptions,
+      manualFiatOptions,
+      pricingRules,
+      instantOptions,
+    ] = await Promise.all([
+      listEnabledFiatCurrencies(),
+      listPublicManualCryptoSettlementOptions(),
+      listPublicFiatSettlementOptions(),
+      db.select().from(manualDeskPricingRulesTable)
+        .where(eq(manualDeskPricingRulesTable.enabled, true)),
+      listPublicProviderSettlementOptions({
+        cacheOnly: process.env.NODE_ENV !== "test",
+      }),
+    ]);
     const fiatAssets = fiatCurrencies.map((currency) => ({ id: currency.id, code: currency.code, name: currency.name, kind: "fiat", network: currency.network, requiresMemo: false, precision: currency.precision }));
-    const manualCryptoOptions = await listPublicManualCryptoSettlementOptions();
-    const manualFiatOptions = await listPublicFiatSettlementOptions();
-    const pricingRules = await db.select().from(manualDeskPricingRulesTable);
     const coverage = evaluateManualPricingCoverage(
       pricingRules,
       [...manualCryptoOptions, ...manualFiatOptions],
     );
     // Swap is backed by the local manual catalog and must remain responsive
     // even while the independent Quickex/Convert provider is timing out.
-    const instantOptions = await listPublicProviderSettlementOptions({
-      cacheOnly: process.env.NODE_ENV !== "test",
-    });
     const manualAssets = manualCryptoOptions.map((option) => ({ id: option.networkSlug, code: option.assetCode, name: option.title, kind: "crypto", network: option.routeNetwork, requiresMemo: option.requiresMemo, precision: 8 }));
     res.setHeader(
       "cache-control",
-      instantOptions.length
-        ? "public, max-age=30, s-maxage=60, stale-while-revalidate=300"
-        : "no-store",
+      "public, max-age=30, s-maxage=60, stale-while-revalidate=300",
     );
     res.json(GetExchangeConfigResponse.parse({
       assets: [...manualAssets, ...fiatAssets].sort((a, b) => (a.code + "\0" + a.network + "\0" + a.id).localeCompare(b.code + "\0" + b.network + "\0" + b.id)),
@@ -1177,6 +1189,15 @@ router.get("/exchange/config", async (_req, res, next) => {
       manualPricingMessage: "Manual desk fees vary by route and payment or payout method and are included in each quote.",
     }));
   } catch (error) { next(error); }
+});
+
+router.get("/exchange/popular-pairs", async (_req, res, next) => {
+  try {
+    res.setHeader("cache-control", "public, max-age=60, s-maxage=300, stale-while-revalidate=900");
+    res.json(GetPopularExchangePairsResponse.parse(await getPopularExchangePairs()));
+  } catch (error) {
+    next(error);
+  }
 });
 
 router.get("/exchange/route-pricing", async (req, res, next) => {
@@ -3413,6 +3434,15 @@ router.get("/admin/crypto-assets", requireOperator, async (_req, res, next) => {
     res.json(rows.map(outputCryptoAsset));
   } catch (e) { next(e); }
 });
+router.use(["/admin/crypto-assets", "/admin/crypto-networks"], (req, res, next) => {
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+    res.once("finish", () => {
+      if (res.statusCode < 400) invalidatePopularExchangePairsCache();
+    });
+  }
+  next();
+});
+
 router.post("/admin/crypto-assets/reconcile-customer-deposits", requireOwner, async (req, res, next) => {
   try {
     const result = ReconcileCryptoCustomerDepositsResponse.parse(

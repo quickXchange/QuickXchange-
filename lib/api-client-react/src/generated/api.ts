@@ -167,6 +167,7 @@ import type {
   PaymentMethodLogoUpload,
   PaymentMethodLogoUploadInput,
   PaymentMethodUpdate,
+  PopularExchangePairs,
   PublicOrderStatus,
   PublicSiteContent,
   PublicSiteContentRevision,
@@ -393,6 +394,83 @@ export function useGetExchangeConfig<TData = Awaited<ReturnType<typeof getExchan
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetExchangeConfigQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPopularExchangePairsUrl = () => {
+
+
+
+
+  return `/api/exchange/popular-pairs`
+}
+
+/**
+ * @summary Get cached popular Convert and Swap routes
+ */
+export const getPopularExchangePairs = async ( options?: Parameters<typeof customFetch>[1]): Promise<PopularExchangePairs> => {
+
+  return customFetch<PopularExchangePairs>(getGetPopularExchangePairsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPopularExchangePairsQueryKey = () => {
+    return [
+    `/api/exchange/popular-pairs`
+    ] as const;
+    }
+
+
+export const getGetPopularExchangePairsQueryOptions = <TData = Awaited<ReturnType<typeof getPopularExchangePairs>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPopularExchangePairs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPopularExchangePairsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPopularExchangePairs>>> = ({ signal }) => getPopularExchangePairs({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPopularExchangePairs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPopularExchangePairsQueryResult = NonNullable<Awaited<ReturnType<typeof getPopularExchangePairs>>>
+export type GetPopularExchangePairsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get cached popular Convert and Swap routes
+ */
+
+export function useGetPopularExchangePairs<TData = Awaited<ReturnType<typeof getPopularExchangePairs>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPopularExchangePairs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPopularExchangePairsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -9061,7 +9139,7 @@ export function useGetQuickexConfig<TData = Awaited<ReturnType<typeof getQuickex
 
 
 
-export const getGetQuickexPairsUrl = (params: GetQuickexPairsParams,) => {
+export const getGetQuickexPairsUrl = (params?: GetQuickexPairsParams,) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -9077,9 +9155,9 @@ export const getGetQuickexPairsUrl = (params: GetQuickexPairsParams,) => {
 }
 
 /**
- * @summary Get active Quickex destinations for one source instrument
+ * @summary Get active Convert routes, optionally filtered by source instrument
  */
-export const getQuickexPairs = async (params: GetQuickexPairsParams, options?: Parameters<typeof customFetch>[1]): Promise<QuickexPair[]> => {
+export const getQuickexPairs = async (params?: GetQuickexPairsParams, options?: Parameters<typeof customFetch>[1]): Promise<QuickexPair[]> => {
 
   return customFetch<QuickexPair[]>(getGetQuickexPairsUrl(params),
   {
@@ -9101,7 +9179,7 @@ export const getGetQuickexPairsQueryKey = (params?: GetQuickexPairsParams,) => {
     }
 
 
-export const getGetQuickexPairsQueryOptions = <TData = Awaited<ReturnType<typeof getQuickexPairs>>, TError = ErrorType<unknown>>(params: GetQuickexPairsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getQuickexPairs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetQuickexPairsQueryOptions = <TData = Awaited<ReturnType<typeof getQuickexPairs>>, TError = ErrorType<unknown>>(params?: GetQuickexPairsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getQuickexPairs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -9124,11 +9202,11 @@ export type GetQuickexPairsQueryError = ErrorType<unknown>
 
 
 /**
- * @summary Get active Quickex destinations for one source instrument
+ * @summary Get active Convert routes, optionally filtered by source instrument
  */
 
 export function useGetQuickexPairs<TData = Awaited<ReturnType<typeof getQuickexPairs>>, TError = ErrorType<unknown>>(
- params: GetQuickexPairsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getQuickexPairs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: GetQuickexPairsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getQuickexPairs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 

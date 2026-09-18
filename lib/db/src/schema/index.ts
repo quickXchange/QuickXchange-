@@ -126,6 +126,7 @@ export const ordersTable = pgTable("exchange_orders", {
     errorCode: text("error_code").notNull().default(""),
     errorMessage: text("error_message").notNull().default(""),
     outcomeUnknown: boolean("outcome_unknown").notNull().default(false),
+    isTest: boolean("is_test").notNull().default(false),
     providerClaimedDepositAmount: numeric("provider_claimed_deposit_amount"),
     providerExpectedReceiveAmount: numeric("provider_expected_receive_amount"),
     providerPaidAmount: numeric("provider_paid_amount"),

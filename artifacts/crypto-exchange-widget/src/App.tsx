@@ -78,6 +78,7 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import NotFound from '@/pages/not-found';
 import { PUBLIC_PAGE_REGISTRY } from '@/lib/public-page-registry';
 import { ExchangeModeSwitcher, FiatCurrencyFlag, PaymentMethodLogo } from '@/components/exchange-surface';
+import { ExchangeInformationCard } from '@/components/exchange-information-card';
 import { PublicShell } from '@/components/public-shell';
 import { SideDrawer } from '@/components/side-drawer';
 import { AdminHeader } from '@/components/admin-header';
@@ -1033,6 +1034,33 @@ function LandingSections({ getMode }: { getMode: () => 'swap' | 'convert' }) {
   );
 }
 
+function DeferredLandingSections({ getMode }: { getMode: () => 'swap' | 'convert' }) {
+  const [visible, setVisible] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (visible) return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel || typeof IntersectionObserver === 'undefined') {
+      const timer = window.setTimeout(() => setVisible(true), 1200);
+      return () => window.clearTimeout(timer);
+    }
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry?.isIntersecting) return;
+      setVisible(true);
+      observer.disconnect();
+    }, { rootMargin: '800px 0px' });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [visible]);
+
+  return (
+    <div ref={sentinelRef}>
+      {visible ? <LandingSections getMode={getMode} /> : null}
+    </div>
+  );
+}
+
 function ExchangePage() {
   return <ConfiguredExchangePage pageKey="home" />;
 }
@@ -1053,6 +1081,9 @@ function ConfiguredExchangePage({ pageKey }: { pageKey: SitePageKey }) {
   const publishedContent = preview.active && preview.pageKey === pageKey
     ? preview.content
     : published.data?.pages.find((page) => page.pageKey === pageKey)?.content;
+  const exchangeInformationContent = preview.active && preview.pageKey === 'widget-exchange-information'
+    ? preview.content
+    : published.data?.pages.find((page) => page.pageKey === 'widget-exchange-information')?.content;
 
   const contentTitle = typeof publishedContent?.headline === 'string' ? publishedContent.headline
     : typeof publishedContent?.title === 'string' ? publishedContent.title : undefined;
@@ -1153,6 +1184,7 @@ function ConfiguredExchangePage({ pageKey }: { pageKey: SitePageKey }) {
                 onModeChange={setActiveMode}
                 initialMode={pageKey === 'convert' ? 'convert' : 'swap'}
               />
+              <ExchangeInformationCard content={exchangeInformationContent} />
             </section>
           </main>
 
@@ -1187,7 +1219,7 @@ function ConfiguredExchangePage({ pageKey }: { pageKey: SitePageKey }) {
             <LiveMarketSection />
           </Suspense>
         )}
-        <LandingSections getMode={getActiveMode} />
+        <DeferredLandingSections getMode={getActiveMode} />
       </PublicShell>
     </LiveLandingBackground>
   );

@@ -1,6 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useLocation } from 'wouter';
-import { useGetQuickexConfig, type QuickexPair, type QuickexInstrument } from '@workspace/api-client-react';
+import {
+  getGetQuickexPairsQueryKey,
+  useGetQuickexConfig,
+  useGetQuickexPairs,
+  type QuickexPair,
+  type QuickexInstrument,
+} from '@workspace/api-client-react';
 import { useCryptoMarket, type CoinGeckoMarket } from '@/hooks/use-crypto-market';
 import { PublicShell } from '@/components/public-shell';
 import { CryptoLogo, normalizeCryptoSymbol } from '@/components/crypto-identity';
@@ -47,6 +53,9 @@ function PairCardRow({ pair, marketData, onConvert }: { pair: DeduplicatedPair; 
         </div>
         <div className="flex flex-col min-w-0">
           <span className="font-bold text-foreground text-sm tracking-tight truncate">{pair.sourceSymbol} / {pair.destSymbol}</span>
+          <span className="max-w-[150px] truncate text-[10px] font-semibold uppercase tracking-wide text-primary/80">
+            {pair.apiRoute.fromNetwork} → {pair.apiRoute.toNetwork}
+          </span>
           <span className="max-w-[150px] truncate text-[11px] font-semibold text-muted-foreground">
             {marketData.rate !== null
               ? `1 ${pair.sourceSymbol} ≈ ${formatRate(marketData.rate)} ${pair.destSymbol}`
@@ -85,7 +94,7 @@ function CategoryCard({
   icon: any;
   pairs: DeduplicatedPair[]; 
   marketDataMap: Map<string, PairMarketData>;
-  onConvert: (source: string, dest: string) => void;
+  onConvert: (pair: DeduplicatedPair) => void;
 }) {
   const [page, setPage] = useState(0);
   const pageSize = 3;
@@ -143,7 +152,7 @@ function CategoryCard({
               key={pair.id} 
               pair={pair} 
               marketData={marketDataMap.get(pair.id) || { rate: null, change24h: null, absChange: 0 }}
-              onConvert={() => onConvert(pair.sourceSymbol, pair.destSymbol)}
+              onConvert={() => onConvert(pair)}
             />
           ))
         )}
@@ -155,6 +164,15 @@ function CategoryCard({
 export function CryptoPairsPage() {
   const [, setLocation] = useLocation();
   const config = useGetQuickexConfig();
+  const routes = useGetQuickexPairs(undefined, {
+    query: {
+      queryKey: getGetQuickexPairsQueryKey(),
+      staleTime: 30_000,
+      gcTime: 10 * 60_000,
+      refetchOnWindowFocus: true,
+      retry: 2,
+    },
+  });
   const { data: markets } = useCryptoMarket(100);
   
   const [sourceFilter, setSourceFilter] = useState<string>('ALL');
@@ -181,7 +199,7 @@ export function CryptoPairsPage() {
   }, []);
 
   const { pairs: allPairs, marketDataMap, sourceOptions, destOptions, topCategories } = useMemo(() => {
-    if (!config.data?.pairs || !config.data?.instruments) {
+    if (!routes.data || !config.data?.instruments) {
       return { 
         pairs: [], 
         marketDataMap: new Map<string, PairMarketData>(),
@@ -199,16 +217,19 @@ export function CryptoPairsPage() {
       }
     }
 
-    // Deduplicate pairs by symbol -> symbol
+    // Preserve each exact directed network route. Different networks for the
+    // same symbols are distinct Convert routes and must remain selectable.
     const pairMap = new Map<string, DeduplicatedPair>();
-    for (const pair of config.data.pairs) {
+    for (const pair of routes.data) {
       const srcSymbol = pair.fromAsset.trim().toUpperCase();
       const destSymbol = pair.toAsset.trim().toUpperCase();
       
-      // Conceptually skip self-pairs if any exist
-      if (srcSymbol === destSymbol) continue;
-      
-      const id = `${srcSymbol}-${destSymbol}`;
+      const id = [
+        srcSymbol,
+        pair.fromNetwork.trim().toUpperCase(),
+        destSymbol,
+        pair.toNetwork.trim().toUpperCase(),
+      ].join('-');
       if (!pairMap.has(id)) {
         const srcKey = `${srcSymbol}-${pair.fromNetwork.trim().toUpperCase()}`;
         const destKey = `${destSymbol}-${pair.toNetwork.trim().toUpperCase()}`;
@@ -306,12 +327,14 @@ export function CryptoPairsPage() {
         trending: trending.slice(0, 20)
       }
     };
-  }, [config.data, markets]);
+  }, [config.data?.instruments, markets, routes.data]);
 
-  const handleConvert = (source: string, dest: string) => {
+  const handleConvert = (pair: DeduplicatedPair) => {
     requestMarketConvertSelection({
-      symbol: source,
-      destinationSymbol: dest
+      symbol: pair.sourceSymbol,
+      sourceNetwork: pair.apiRoute.fromNetwork,
+      destinationSymbol: pair.destSymbol,
+      destinationNetwork: pair.apiRoute.toNetwork,
     }, setLocation);
   };
 
@@ -357,13 +380,13 @@ export function CryptoPairsPage() {
           </p>
         </div>
 
-        {config.isLoading ? (
+        {config.isLoading || routes.isLoading ? (
           <div className="mb-12 grid grid-cols-1 md:grid-cols-3 gap-6">
             <Skeleton className="h-[340px] rounded-2xl" />
             <Skeleton className="h-[340px] rounded-2xl" />
             <Skeleton className="h-[340px] rounded-2xl" />
           </div>
-        ) : config.isError ? (
+        ) : config.isError || routes.isError ? (
           <div className="mb-12">
             <ErrorState message="Unable to load pairs. Please try again later." />
           </div>
@@ -480,7 +503,7 @@ export function CryptoPairsPage() {
                           const rate = marketData?.rate ?? null;
                           const change = marketData?.change24h ?? null;
                           const isPositive = change !== null && change >= 0;
-                          const openConvert = () => handleConvert(pair.sourceSymbol, pair.destSymbol);
+                          const openConvert = () => handleConvert(pair);
 
                           return (
                             <tr

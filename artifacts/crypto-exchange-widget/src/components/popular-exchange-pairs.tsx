@@ -1,198 +1,360 @@
-import { useEffect, useMemo } from 'react';
-import { ArrowRight, Zap, TrendingUp, RefreshCw } from 'lucide-react';
-import { getGetQuickexConfigQueryKey, useGetQuickexConfig } from '@workspace/api-client-react';
-import { requestMarketConvertSelection } from '@/lib/market-convert-selection';
+import {
+  memo,
+  useEffect,
+  useRef,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
+import { ArrowRight, Landmark, Zap } from 'lucide-react';
+import {
+  getGetPopularExchangePairsQueryKey,
+  useGetPopularExchangePairs,
+} from '@workspace/api-client-react';
+import type { PopularExchangePair } from '@workspace/api-client-react';
+import {
+  requestMarketConvertSelection,
+  requestMarketSwapSelection,
+} from '@/lib/market-convert-selection';
 import { CryptoLogo } from '@/components/crypto-identity';
+import { PaymentMethodLogo } from '@/components/exchange-surface';
 
-const DESIRED_PAIRS = [
-  { source: 'BTC', dest: 'ETH' },
-  { source: 'BTC', dest: 'XMR' },
-  { source: 'BTC', dest: 'USDC' },
-  { source: 'USDT', dest: 'XMR' },
-  { source: 'USDT', dest: 'ETH' },
-  { source: 'TRX', dest: 'XMR' },
-];
-
-type PopularPair = {
-  fromAsset: string;
-  toAsset: string;
-  unavailable: boolean;
-  checking?: boolean;
-};
-
-const POPULAR_PAIR_CACHE_KEY = 'qx-popular-pairs-v1';
-const POPULAR_PAIR_CACHE_TTL_MS = 30 * 60 * 1000;
-
-function readCachedPairs(): PopularPair[] | null {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(POPULAR_PAIR_CACHE_KEY) ?? '') as {
-      savedAt?: number;
-      pairs?: PopularPair[];
-    };
-    if (
-      typeof parsed.savedAt !== 'number'
-      || Date.now() - parsed.savedAt > POPULAR_PAIR_CACHE_TTL_MS
-      || !Array.isArray(parsed.pairs)
-    ) return null;
-    return parsed.pairs;
-  } catch {
-    return null;
+function PairIdentity({
+  side,
+  back,
+  mode,
+}: {
+  side: PopularExchangePair['source'];
+  back?: boolean;
+  mode: PopularExchangePair['mode'];
+}) {
+  const classes = `ring-[3px] ring-card ${back ? 'z-0' : 'z-10'} relative shadow-sm`;
+  if (side.kind === 'fiat-payment-method') {
+    return mode === 'swap' ? (
+      <PaymentMethodLogo
+        name={side.label || side.asset}
+        logoUrl={side.logoUrl}
+        priority={false}
+        preferBrandIcon
+        className={`${classes} popular-swap-pair-payment-logo`}
+      />
+    ) : side.logoUrl ? (
+      <span className={`${classes} flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white`}>
+        <img src={side.logoUrl} alt="" loading="lazy" decoding="async" className="h-full w-full object-contain p-1.5" />
+      </span>
+    ) : (
+      <span className={`${classes} flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary`}>
+        <Landmark size={18} aria-hidden="true" />
+      </span>
+    );
   }
+  return (
+    <CryptoLogo
+      symbol={side.asset}
+      logoUrl={side.logoUrl}
+      size={mode === 'swap' ? 'lg' : 'md'}
+      preferSymbolLogo={!side.logoUrl}
+      className={`${classes} ${mode === 'swap' ? 'popular-swap-pair-crypto-logo' : ''}`}
+    />
+  );
 }
 
-export function PopularExchangePairs() {
-  const cachedPairs = useMemo(readCachedPairs, []);
-  const { data: config, isFetching, isError } = useGetQuickexConfig({
-    query: {
-      queryKey: getGetQuickexConfigQueryKey(),
-      staleTime: 5 * 60 * 1000,
-      gcTime: 30 * 60 * 1000,
-      refetchOnWindowFocus: false,
-    },
-  });
-
-  const availablePairs = useMemo<PopularPair[]>(() => {
-    if (!config?.pairs) {
-      return (cachedPairs ?? DESIRED_PAIRS.map(({ source, dest }) => ({
-        fromAsset: source,
-        toAsset: dest,
-        unavailable: false,
-      }))).map((pair) => ({ ...pair, checking: true }));
+function PopularPairCard({ pair, duplicate }: {
+  pair: PopularExchangePair;
+  duplicate?: boolean;
+}) {
+  const sourceLabel = pair.source.label || pair.source.asset;
+  const targetLabel = pair.target.label || pair.target.asset;
+  const handleClick = () => {
+    if (pair.mode === 'convert') {
+      requestMarketConvertSelection({
+        symbol: pair.source.asset,
+        sourceNetwork: pair.source.network,
+        destinationSymbol: pair.target.asset,
+        destinationNetwork: pair.target.network,
+      });
+      return;
     }
-
-    return DESIRED_PAIRS.map(desired => {
-      const match = config.pairs.find(p => 
-        p.fromAsset.trim().toUpperCase() === desired.source &&
-        p.toAsset.trim().toUpperCase() === desired.dest
-      );
-      if (match) return { fromAsset: match.fromAsset, toAsset: match.toAsset, unavailable: false };
-      if (desired.source === 'TRX' && desired.dest === 'XMR') {
-        return { fromAsset: desired.source, toAsset: desired.dest, unavailable: true };
-      }
-      return null;
-    }).filter(Boolean) as PopularPair[];
-  }, [cachedPairs, config?.pairs]);
-
-  useEffect(() => {
-    if (!config?.pairs || availablePairs.length === 0) return;
-    try {
-      localStorage.setItem(POPULAR_PAIR_CACHE_KEY, JSON.stringify({
-        savedAt: Date.now(),
-        pairs: availablePairs,
-      }));
-    } catch {
-      // Browser storage is optional; the cards still render immediately.
-    }
-  }, [availablePairs, config?.pairs]);
-
-  const viewAllPairs = () => {
-    requestMarketConvertSelection({
-      openSelector: 'source'
+    requestMarketSwapSelection({
+      sourceSettlementOptionId: pair.source.settlementOptionId,
+      targetSettlementOptionId: pair.target.settlementOptionId,
     });
   };
 
-  if (isError && !cachedPairs) {
-    return (
-      <section className="mx-auto w-full max-w-[1440px] px-4 py-12 text-center md:px-8" data-testid="popular-pairs-section">
-         <div className="bg-card border border-border/50 rounded-2xl p-8 max-w-2xl mx-auto flex flex-col items-center gap-3">
-            <RefreshCw className="text-muted-foreground" size={24} />
-            <h3 className="font-bold text-lg text-foreground">Exchange routes unavailable</h3>
-            <p className="text-muted-foreground text-sm">We couldn't load the popular exchange pairs at this time.</p>
-         </div>
-      </section>
-    );
-  }
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      tabIndex={duplicate ? -1 : undefined}
+      aria-hidden={duplicate || undefined}
+      aria-label={`${pair.mode === 'convert' ? 'Convert' : 'Swap'} ${sourceLabel} to ${targetLabel}`}
+      className="popular-pair-marquee-card group relative shrink-0 overflow-hidden rounded-[20px] border border-[#258cff]/30 bg-card p-5 text-left shadow-[inset_0_0_24px_rgba(19,221,244,0.10),inset_0_0_42px_rgba(122,44,255,0.06),0_0_0_1px_rgba(37,140,255,0.04)] transition-[border-color,box-shadow] duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background hover:border-[#13ddf4]/55 hover:shadow-[inset_0_0_34px_rgba(19,221,244,0.18),inset_0_0_56px_rgba(122,44,255,0.12),0_8px_28px_rgba(37,140,255,0.14)] active:border-[#13ddf4]/60 dark:border-[#438cff]/35 dark:bg-[#0b1424] dark:shadow-[inset_0_0_30px_rgba(19,221,244,0.12),inset_0_0_52px_rgba(122,44,255,0.12),0_0_0_1px_rgba(67,140,255,0.06)] dark:hover:border-[#13ddf4]/60 dark:hover:shadow-[inset_0_0_40px_rgba(19,221,244,0.22),inset_0_0_68px_rgba(122,44,255,0.20),0_10px_30px_rgba(20,90,210,0.18)] md:p-6"
+      data-testid={duplicate ? undefined : `popular-${pair.mode}-pair-${pair.source.settlementOptionId}-${pair.target.settlementOptionId}`}
+    >
+      <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(19,221,244,0.16),transparent_42%),radial-gradient(circle_at_100%_100%,rgba(122,44,255,0.13),transparent_44%)] opacity-70 transition-opacity duration-500 group-hover:opacity-100 dark:opacity-90" />
+      <span className="relative z-10 mb-5 flex items-center justify-between">
+        <span className="flex min-w-0 items-center gap-3.5">
+          <span className="flex items-center -space-x-2.5">
+            <PairIdentity side={pair.source} mode={pair.mode} />
+            <PairIdentity side={pair.target} mode={pair.mode} back />
+          </span>
+          <span className="flex min-w-0 flex-col">
+            <strong className="truncate text-lg font-bold leading-tight tracking-tight text-foreground">
+              {sourceLabel}/{targetLabel}
+            </strong>
+            <span className="mt-1 truncate text-xs font-medium text-muted-foreground">
+              {pair.source.network}{pair.target.kind === 'crypto-network' ? ` → ${pair.target.network}` : ''}
+            </span>
+          </span>
+        </span>
+      </span>
+      <span className="relative z-10 flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl border border-[#258cff]/25 bg-[#158cff]/10 py-2.5 font-bold text-primary shadow-[inset_0_0_18px_rgba(19,221,244,0.14),inset_0_0_28px_rgba(122,44,255,0.08)] transition-all duration-300 group-hover:border-[#13ddf4]/45 group-hover:bg-[#158cff]/15 group-hover:shadow-[inset_0_0_24px_rgba(19,221,244,0.22),inset_0_0_38px_rgba(122,44,255,0.16)] dark:bg-[#087bff]/12">
+        <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#13ddf4]/10 via-[#258cff]/8 to-[#7a2cff]/10 opacity-80 transition-opacity group-hover:opacity-100" />
+        <Zap size={16} className="relative z-10" />
+        <span className="relative z-10">{pair.mode === 'convert' ? 'Convert' : 'Swap'}</span>
+      </span>
+    </button>
+  );
+}
 
-  if (availablePairs.length === 0) {
-    return (
-      <section className="mx-auto w-full max-w-[1440px] px-4 py-12 text-center md:px-8" data-testid="popular-pairs-section">
-         <div className="bg-card border border-border/50 rounded-2xl p-8 max-w-2xl mx-auto flex flex-col items-center gap-3">
-            <TrendingUp className="text-muted-foreground" size={24} />
-            <h3 className="font-bold text-lg text-foreground">Market Routes</h3>
-            <p className="text-muted-foreground text-sm">These popular pairs are not currently available. Use the exchange widget to find active routes.</p>
-         </div>
-      </section>
+function PairRow({
+  title,
+  pairs,
+  direction,
+  loading,
+}: {
+  title: string;
+  pairs: PopularExchangePair[];
+  direction: 'left' | 'right';
+  loading: boolean;
+}) {
+  const marqueeRef = useRef<HTMLDivElement>(null);
+  const resumeTimerRef = useRef<number | null>(null);
+  const clearClickSuppressionTimerRef = useRef<number | null>(null);
+  const suppressClickRef = useRef(false);
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    startTime: number;
+    sequenceWidth: number;
+    duration: number;
+    horizontal: boolean;
+  } | null>(null);
+  const skeletons = Array.from({ length: 6 }, (_, index) => index);
+  const getAnimationState = () => {
+    const track = marqueeRef.current?.querySelector<HTMLElement>('.popular-pairs-track');
+    const sequence = track?.querySelector<HTMLElement>('.popular-pairs-sequence');
+    const animation = track?.getAnimations()[0];
+    const duration = Number(animation?.effect?.getTiming().duration);
+    const sequenceWidth = sequence?.getBoundingClientRect().width ?? 0;
+    if (
+      !animation ||
+      typeof animation.currentTime !== 'number' ||
+      !Number.isFinite(duration) ||
+      duration <= 0 ||
+      sequenceWidth <= 0
+    ) return null;
+    return { animation, duration, sequenceWidth };
+  };
+  const normalizedTime = (time: number, duration: number) =>
+    ((time % duration) + duration) % duration;
+  const clearResumeTimer = () => {
+    if (resumeTimerRef.current !== null) {
+      window.clearTimeout(resumeTimerRef.current);
+      resumeTimerRef.current = null;
+    }
+  };
+  const scheduleResume = () => {
+    clearResumeTimer();
+    resumeTimerRef.current = window.setTimeout(() => {
+      getAnimationState()?.animation.play();
+      resumeTimerRef.current = null;
+    }, 2500);
+  };
+
+  useEffect(() => {
+    const marquee = marqueeRef.current;
+    const handleWheel = (event: WheelEvent) => {
+      if (Math.abs(event.deltaX) < 1 || Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
+      const state = getAnimationState();
+      if (!state) return;
+      event.preventDefault();
+      clearResumeTimer();
+      state.animation.pause();
+      const directionMultiplier = direction === 'left' ? 1 : -1;
+      state.animation.currentTime = normalizedTime(
+        (state.animation.currentTime as number) +
+          directionMultiplier * (event.deltaX / state.sequenceWidth) * state.duration,
+        state.duration,
+      );
+      scheduleResume();
+    };
+    marquee?.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      marquee?.removeEventListener('wheel', handleWheel);
+      clearResumeTimer();
+      if (clearClickSuppressionTimerRef.current !== null) {
+        window.clearTimeout(clearClickSuppressionTimerRef.current);
+      }
+    };
+  }, [direction]);
+
+  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    const state = getAnimationState();
+    if (!state) return;
+    clearResumeTimer();
+    state.animation.pause();
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startTime: state.animation.currentTime as number,
+      sequenceWidth: state.sequenceWidth,
+      duration: state.duration,
+      horizontal: false,
+    };
+  };
+
+  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const deltaX = event.clientX - drag.startX;
+    const deltaY = event.clientY - drag.startY;
+    if (!drag.horizontal) {
+      if (Math.abs(deltaY) > 8 && Math.abs(deltaY) > Math.abs(deltaX)) {
+        dragRef.current = null;
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+        scheduleResume();
+        return;
+      }
+      if (Math.abs(deltaX) < 8 || Math.abs(deltaX) <= Math.abs(deltaY)) return;
+      drag.horizontal = true;
+      suppressClickRef.current = true;
+      event.currentTarget.dataset.dragging = 'true';
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
+    if (event.cancelable) event.preventDefault();
+    const state = getAnimationState();
+    if (!state) return;
+    const directionMultiplier = direction === 'left' ? -1 : 1;
+    state.animation.currentTime = normalizedTime(
+      drag.startTime + directionMultiplier * (deltaX / drag.sequenceWidth) * drag.duration,
+      drag.duration,
     );
-  }
+  };
+
+  const handlePointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    dragRef.current = null;
+    delete event.currentTarget.dataset.dragging;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    scheduleResume();
+    if (clearClickSuppressionTimerRef.current !== null) {
+      window.clearTimeout(clearClickSuppressionTimerRef.current);
+    }
+    clearClickSuppressionTimerRef.current = window.setTimeout(() => {
+      suppressClickRef.current = false;
+      clearClickSuppressionTimerRef.current = null;
+    }, 400);
+  };
+
+  const renderSequence = (duplicate = false) => (
+    <div className="popular-pairs-sequence" aria-hidden={duplicate || undefined}>
+      {loading
+        ? skeletons.map(index => (
+          <div key={index} className="popular-pair-marquee-card shrink-0 rounded-[20px] border border-border/60 bg-card p-5 md:p-6">
+            <div className="mb-5 flex items-center gap-3.5">
+              <div className="h-10 w-16 rounded-full skeleton" />
+              <div className="h-5 w-28 rounded skeleton" />
+            </div>
+            <div className="h-10 w-full rounded-xl skeleton" />
+          </div>
+        ))
+        : pairs.map(pair => (
+          <PopularPairCard
+            key={`${pair.source.settlementOptionId}-${pair.target.settlementOptionId}`}
+            pair={pair}
+            duplicate={duplicate}
+          />
+        ))}
+    </div>
+  );
 
   return (
-    <section className="relative z-10 mx-auto w-full max-w-[1440px] px-4 py-12 md:px-8" data-testid="popular-pairs-section">
-      <div className="flex flex-col items-center text-center mb-10">
-        <h2 className="text-3xl md:text-4xl font-marketing font-extrabold tracking-tight mb-2 text-foreground">
+    <div className="popular-pairs-row">
+      <h3 className="mb-4 px-4 text-xl font-extrabold tracking-tight text-foreground md:px-8 md:text-2xl">{title}</h3>
+      <div
+        ref={marqueeRef}
+        className="popular-pairs-marquee"
+        data-direction={direction}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerEnd}
+        onPointerCancel={handlePointerEnd}
+        onLostPointerCapture={handlePointerEnd}
+        onClickCapture={event => {
+          if (!suppressClickRef.current) return;
+          event.preventDefault();
+          event.stopPropagation();
+          suppressClickRef.current = false;
+        }}
+        onDragStart={event => event.preventDefault()}
+      >
+        <div className="popular-pairs-track">
+          {renderSequence()}
+          {renderSequence(true)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export const PopularExchangePairs = memo(function PopularExchangePairs() {
+  const popularPairs = useGetPopularExchangePairs({
+    query: {
+      queryKey: getGetPopularExchangePairsQueryKey(),
+      staleTime: 5 * 60_000,
+      gcTime: 30 * 60_000,
+      refetchOnWindowFocus: false,
+      retry: 2,
+    },
+  });
+  const loading = !popularPairs.data && !popularPairs.isError;
+  const convert = popularPairs.data?.convert ?? [];
+  const swap = popularPairs.data?.swap ?? [];
+
+  return (
+    <section id="popular-pairs" className="relative z-10 w-full py-12" data-testid="popular-pairs-section">
+      <div className="mx-auto mb-10 flex max-w-[1440px] flex-col items-center px-4 text-center md:px-8">
+        <h2 className="mb-2 text-3xl font-extrabold tracking-tight text-foreground md:text-4xl">
           Popular Exchange Pairs
         </h2>
-        <p className="text-muted-foreground font-medium text-lg max-w-2xl">
-          Choose an active route and continue directly in the QuickXchange widget.
+        <p className="max-w-2xl text-lg font-medium text-muted-foreground">
+          Choose a popular active route and continue directly in the QuickXchange widget.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
-        {availablePairs.map((pair) => {
-          return (
-            <button
-              type="button"
-              key={`${pair.fromAsset}-${pair.toAsset}`}
-              onClick={pair.unavailable || pair.checking ? undefined : () => requestMarketConvertSelection({
-                symbol: pair.fromAsset,
-                destinationSymbol: pair.toAsset,
-              })}
-              disabled={pair.unavailable || pair.checking}
-              aria-label={pair.unavailable
-                ? `${pair.fromAsset} to ${pair.toAsset} is currently unavailable`
-                : pair.checking
-                  ? `Checking ${pair.fromAsset} to ${pair.toAsset} availability`
-                : `Convert ${pair.fromAsset} to ${pair.toAsset}`}
-              className={`group relative overflow-hidden rounded-[20px] border border-[#258cff]/30 bg-card p-5 text-left shadow-[inset_0_0_24px_rgba(19,221,244,0.10),inset_0_0_42px_rgba(122,44,255,0.06),0_0_0_1px_rgba(37,140,255,0.04)] transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:border-[#438cff]/35 dark:bg-[#0b1424] dark:shadow-[inset_0_0_30px_rgba(19,221,244,0.12),inset_0_0_52px_rgba(122,44,255,0.12),0_0_0_1px_rgba(67,140,255,0.06)] md:p-6 ${pair.unavailable || pair.checking ? 'cursor-wait opacity-75' : 'hover:-translate-y-0.5 hover:border-[#13ddf4]/55 hover:shadow-[inset_0_0_34px_rgba(19,221,244,0.18),inset_0_0_56px_rgba(122,44,255,0.12),0_8px_28px_rgba(37,140,255,0.14)] active:border-[#13ddf4]/60 active:shadow-[inset_0_0_38px_rgba(19,221,244,0.20),inset_0_0_60px_rgba(122,44,255,0.14)] dark:hover:border-[#13ddf4]/60 dark:hover:shadow-[inset_0_0_40px_rgba(19,221,244,0.22),inset_0_0_68px_rgba(122,44,255,0.20),0_10px_30px_rgba(20,90,210,0.18)]'}`}
-              data-testid={`popular-pair-${pair.fromAsset}-${pair.toAsset}`}
-            >
-              <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(19,221,244,0.16),transparent_42%),radial-gradient(circle_at_100%_100%,rgba(122,44,255,0.13),transparent_44%)] opacity-70 transition-opacity duration-500 group-hover:opacity-100 dark:opacity-90" />
-
-              <div className="flex items-center justify-between mb-5 relative z-10">
-                <div className="flex items-center gap-3.5">
-                  <div className="flex items-center -space-x-2.5">
-                    <CryptoLogo 
-                      symbol={pair.fromAsset} 
-                      size="md" 
-                      className="ring-[3px] ring-card z-10 relative shadow-sm"
-                    />
-                    <CryptoLogo 
-                      symbol={pair.toAsset} 
-                      size="md" 
-                      className="ring-[3px] ring-card z-0 relative shadow-sm"
-                    />
-                  </div>
-                  <div className="flex min-w-0 flex-col">
-                    <span className="font-bold text-foreground tracking-tight text-lg leading-tight truncate">
-                      {pair.fromAsset}/{pair.toAsset}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <span
-                className="relative z-10 flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl border border-[#258cff]/25 bg-[#158cff]/10 py-2.5 font-bold text-primary shadow-[inset_0_0_18px_rgba(19,221,244,0.14),inset_0_0_28px_rgba(122,44,255,0.08)] transition-all duration-300 group-hover:border-[#13ddf4]/45 group-hover:bg-[#158cff]/15 group-hover:shadow-[inset_0_0_24px_rgba(19,221,244,0.22),inset_0_0_38px_rgba(122,44,255,0.16)] dark:bg-[#087bff]/12 dark:shadow-[inset_0_0_22px_rgba(19,221,244,0.18),inset_0_0_34px_rgba(122,44,255,0.14)]"
-                data-testid={`btn-exchange-${pair.fromAsset}-${pair.toAsset}`}
-              >
-                <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#13ddf4]/10 via-[#258cff]/8 to-[#7a2cff]/10 opacity-80 transition-opacity group-hover:opacity-100" />
-                 {pair.unavailable || pair.checking ? <RefreshCw size={16} className={`relative z-10 ${pair.checking && isFetching ? 'animate-spin' : ''}`} /> : <Zap size={16} className="relative z-10" />}
-                 <span className="relative z-10">{pair.checking ? 'Checking' : pair.unavailable ? 'Unavailable' : 'Convert'}</span>
-              </span>
-            </button>
-          );
-        })}
+      <div className="space-y-8">
+        <PairRow title="Popular Convert Pairs" pairs={convert} direction="left" loading={loading} />
+        <PairRow title="Popular Swap Pairs" pairs={swap} direction="right" loading={loading} />
       </div>
 
-      <div className="mt-8 text-center relative z-10">
+      <div className="relative z-10 mt-8 text-center">
         <button
           type="button"
-          onClick={viewAllPairs}
-          className="group inline-flex items-center justify-center gap-2 text-sm font-bold text-muted-foreground hover:text-primary transition-colors duration-200"
+          onClick={() => requestMarketConvertSelection({ openSelector: 'source' })}
+          className="group inline-flex items-center justify-center gap-2 text-sm font-bold text-muted-foreground transition-colors duration-200 hover:text-primary"
           data-testid="btn-view-all-pairs"
         >
           View all pairs
-          <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+          <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
         </button>
       </div>
     </section>
   );
-}
+});

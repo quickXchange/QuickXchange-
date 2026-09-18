@@ -526,6 +526,20 @@
       "when": 1789689110807,
       "tag": "0076_new_the_twelve",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1789736201969,
+      "tag": "0077_salty_jackpot",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1789738158758,
+      "tag": "0078_seed_widget_exchange_information",
+      "breakpoints": true
     }
   ]
 }

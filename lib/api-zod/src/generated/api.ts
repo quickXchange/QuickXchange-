@@ -255,6 +255,70 @@ export const GetExchangeConfigResponse = zod.object({
 
 
 /**
+ * @summary Get cached popular Convert and Swap routes
+ */
+export const getPopularExchangePairsResponseConvertItemOrderCountMin = 0;
+
+export const getPopularExchangePairsResponseSwapItemOrderCountMin = 0;
+
+
+
+export const GetPopularExchangePairsResponse = zod.object({
+  "convert": zod.array(zod.object({
+  "mode": zod.enum(['convert', 'swap']),
+  "source": zod.object({
+  "settlementOptionId": zod.string(),
+  "asset": zod.string(),
+  "network": zod.string(),
+  "label": zod.string(),
+  "kind": zod.enum(['crypto-network', 'fiat-payment-method']).optional(),
+  "logoUrl": zod.string().optional(),
+  "networkLogoUrl": zod.string().optional(),
+  "paymentMethodId": zod.string().optional()
+}),
+  "target": zod.object({
+  "settlementOptionId": zod.string(),
+  "asset": zod.string(),
+  "network": zod.string(),
+  "label": zod.string(),
+  "kind": zod.enum(['crypto-network', 'fiat-payment-method']).optional(),
+  "logoUrl": zod.string().optional(),
+  "networkLogoUrl": zod.string().optional(),
+  "paymentMethodId": zod.string().optional()
+}),
+  "orderCount": zod.number().int().min(getPopularExchangePairsResponseConvertItemOrderCountMin),
+  "fallback": zod.boolean()
+})),
+  "swap": zod.array(zod.object({
+  "mode": zod.enum(['convert', 'swap']),
+  "source": zod.object({
+  "settlementOptionId": zod.string(),
+  "asset": zod.string(),
+  "network": zod.string(),
+  "label": zod.string(),
+  "kind": zod.enum(['crypto-network', 'fiat-payment-method']).optional(),
+  "logoUrl": zod.string().optional(),
+  "networkLogoUrl": zod.string().optional(),
+  "paymentMethodId": zod.string().optional()
+}),
+  "target": zod.object({
+  "settlementOptionId": zod.string(),
+  "asset": zod.string(),
+  "network": zod.string(),
+  "label": zod.string(),
+  "kind": zod.enum(['crypto-network', 'fiat-payment-method']).optional(),
+  "logoUrl": zod.string().optional(),
+  "networkLogoUrl": zod.string().optional(),
+  "paymentMethodId": zod.string().optional()
+}),
+  "orderCount": zod.number().int().min(getPopularExchangePairsResponseSwapItemOrderCountMin),
+  "fallback": zod.boolean()
+})),
+  "generatedAt": zod.coerce.date()
+})
+
+
+/**
  * @summary Get current pricing and effective limits for a selected manual route
  */
 export const getExchangeRoutePricingQuerySourceSettlementOptionIdMax = 200;
@@ -8027,7 +8091,7 @@ export const GetQuickexConfigResponse = zod.object({
 
 
 /**
- * @summary Get active Quickex destinations for one source instrument
+ * @summary Get active Convert routes, optionally filtered by source instrument
  */
 export const getQuickexPairsQueryFromAssetMax = 32;
 
@@ -8036,8 +8100,8 @@ export const getQuickexPairsQueryFromNetworkMax = 80;
 
 
 export const GetQuickexPairsQueryParams = zod.object({
-  "fromAsset": zod.coerce.string().min(1).max(getQuickexPairsQueryFromAssetMax),
-  "fromNetwork": zod.coerce.string().min(1).max(getQuickexPairsQueryFromNetworkMax)
+  "fromAsset": zod.coerce.string().min(1).max(getQuickexPairsQueryFromAssetMax).optional(),
+  "fromNetwork": zod.coerce.string().min(1).max(getQuickexPairsQueryFromNetworkMax).optional()
 })
 
 export const GetQuickexPairsResponseItem = zod.object({

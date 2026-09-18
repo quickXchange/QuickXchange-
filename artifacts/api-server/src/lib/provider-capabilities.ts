@@ -5,7 +5,6 @@ import {
   getQuickexCredentialStatus,
   getCachedQuickexInstruments,
   getQuickexInstruments,
-  getQuickexPairs,
   getQuickexQuote,
   type QuickexInstrument,
   type QuickexRateMode,
@@ -58,6 +57,13 @@ export type ProviderCapability = {
   regions: string[];
   logoObjectPath?: string | null;
   networkLogoObjectPath?: string | null;
+};
+
+export type ExecutableQuickexRoute = {
+  fromAsset: string;
+  fromNetwork: string;
+  toAsset: string;
+  toNetwork: string;
 };
 
 async function quickexIsConfigured() {
@@ -213,29 +219,38 @@ export async function getQuickexPublicCapabilityConfig() {
 }
 
 export async function getQuickexPublicPairs(input: {
-  fromAsset: string;
-  fromNetwork: string;
+  fromAsset?: string;
+  fromNetwork?: string;
 }) {
+  if (Boolean(input.fromAsset) !== Boolean(input.fromNetwork)) {
+    throw new ApiError(
+      "VALIDATION_ERROR",
+      "Both source asset and source network are required when filtering Convert routes.",
+      400,
+    );
+  }
   const capabilities = await listExecutableProviderCapabilities();
-  const allowed = new Set(capabilities.map((item) =>
-    capabilityKey(item.assetCode, item.networkCode)
-  ));
-  const sourceKey = capabilityKey(input.fromAsset, input.fromNetwork);
-  if (!allowed.has(sourceKey)) {
+  const sourceKey = input.fromAsset && input.fromNetwork
+    ? capabilityKey(input.fromAsset, input.fromNetwork)
+    : undefined;
+  if (sourceKey && !capabilities.some(item =>
+    capabilityKey(item.assetCode, item.networkCode) === sourceKey
+  )) {
     throw new ApiError("PROVIDER_ROUTE_UNAVAILABLE", "This instant exchange route is unavailable.", 422);
   }
-  return (await getQuickexPairs({
-    fromCurrency: input.fromAsset,
-    fromNetwork: input.fromNetwork,
-  })).filter((pair) =>
-    capabilityKey(pair.instrumentFromCurrencyTitle, pair.instrumentFromNetworkTitle) === sourceKey &&
-    allowed.has(capabilityKey(pair.instrumentToCurrencyTitle, pair.instrumentToNetworkTitle))
-  ).map((pair) => ({
-    fromAsset: pair.instrumentFromCurrencyTitle,
-    fromNetwork: pair.instrumentFromNetworkTitle,
-    toAsset: pair.instrumentToCurrencyTitle,
-    toNetwork: pair.instrumentToNetworkTitle,
-  }));
+  return capabilities.flatMap(source => {
+    if (sourceKey && capabilityKey(source.assetCode, source.networkCode) !== sourceKey) return [];
+    return capabilities.flatMap((target): ExecutableQuickexRoute[] =>
+      capabilityKey(source.assetCode, source.networkCode) ===
+        capabilityKey(target.assetCode, target.networkCode)
+        ? []
+        : [{
+          fromAsset: source.assetCode,
+          fromNetwork: source.networkCode,
+          toAsset: target.assetCode,
+          toNetwork: target.networkCode,
+        }]);
+  });
 }
 
 export async function assertExecutableQuickexRoute(input: InstantRouteInput) {
@@ -246,7 +261,12 @@ export async function assertExecutableQuickexRoute(input: InstantRouteInput) {
   );
   const source = find(input.fromAsset, input.fromNetwork);
   const target = find(input.toAsset, input.toNetwork);
-  if (!source || !target) {
+  if (
+    !source ||
+    !target ||
+    capabilityKey(source.assetCode, source.networkCode) ===
+      capabilityKey(target.assetCode, target.networkCode)
+  ) {
     throw new ApiError("PROVIDER_ROUTE_UNAVAILABLE", "This instant exchange route is unavailable.", 422);
   }
   if (

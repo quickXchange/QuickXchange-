@@ -19,6 +19,7 @@ type CryptoIdentityProps = {
 };
 
 const clean = (value?: string | null) => value?.trim() || '';
+const EMPTY_LOGO_FALLBACK_URLS: string[] = [];
 
 /**
  * Produces an asset key, not a network key. It deliberately selects the first
@@ -114,7 +115,7 @@ const dedupeUrls = (urls: Array<string | null | undefined>) =>
 export function resolveCryptoLogoSources({
   symbol,
   logoUrl,
-  logoFallbackUrls = [],
+  logoFallbackUrls = EMPTY_LOGO_FALLBACK_URLS,
   catalog = [],
 }: {
   symbol: string;

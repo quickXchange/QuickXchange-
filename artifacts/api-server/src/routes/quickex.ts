@@ -17,6 +17,7 @@ import {
 import { ApiError } from "../lib/api-error";
 import { signQuoteTicket } from "../lib/quote-ticket";
 import { activateQuickexCredentials } from "../lib/provider-credentials";
+import { invalidatePopularExchangePairsCache } from "../lib/popular-exchange-pairs";
 import { getOperatorActorUserId, requireOperator, requireOwner } from "../lib/operator-auth";
 import { createQuickexConvertOrder, getQuickexOrderStatus, getQuickexReconciliationHealth, outputQuickexOrder } from "../lib/quickex-order-service";
 import { getCustomerActorUserId, getCustomerVerifiedEmail, requireActiveCustomerIdentity } from "../lib/customer-auth";
@@ -52,7 +53,7 @@ router.get("/pairs", async (req, res): Promise<void> => {
   const parsed = GetQuickexPairsQueryParams.safeParse(req.query);
   if (!parsed.success) return invalid(res, parsed);
   const pairs = GetQuickexPairsResponse.parse(await getQuickexPublicPairs(parsed.data));
-  res.setHeader("cache-control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
+  res.setHeader("cache-control", "public, max-age=15, s-maxage=30, stale-while-revalidate=30");
   res.json(pairs);
 });
 router.post("/quote", async (req, res): Promise<void> => {
@@ -163,6 +164,7 @@ router.put("/admin/credentials", requireOwner, async (req, res): Promise<void> =
   }
   await activateQuickexCredentials(parsed.data, { actorClerkUserId: getOperatorActorUserId(req)!, operatorId: actor.id, operatorEmail: actor.email, requestId: req.get("x-request-id") ?? null }, verification);
   acceptQuickexRuntimeVerification(verification);
+  invalidatePopularExchangePairsCache();
   res.json(UpdateQuickexCredentialsResponse.parse(await getOperatorQuickexStatus(true)));
 });
 router.get("/admin/diagnostics", requireOperator, async (req, res): Promise<void> => {

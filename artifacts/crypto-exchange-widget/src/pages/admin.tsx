@@ -6333,10 +6333,50 @@ function AdminCurrencies() {
 
 const pricingOptionLabel = (option: SettlementOption | undefined, fallback: string) => {
   if (!option) return fallback;
+  if (option.routeNetwork === '__ALL_NETWORKS__') return `${option.assetCode} — All Networks`;
   const detail = option.kind === 'crypto-network'
     ? option.networkTitle || option.title || option.routeNetwork
     : option.title || option.routeNetwork;
-  return `${option.assetCode} · ${detail}`;
+  return `${option.assetCode} — ${detail}`;
+};
+const ALL_NETWORKS_PRICING_SELECTOR = '__ALL_NETWORKS__';
+const ASSET_ALL_NETWORKS_OPTION_PREFIX = '__asset_all_networks__:';
+const assetAllNetworksOptionId = (assetCode: string) =>
+  `${ASSET_ALL_NETWORKS_OPTION_PREFIX}${assetCode.trim().toUpperCase()}`;
+const isAssetAllNetworksOption = (option: SettlementOption | undefined) =>
+  option?.routeNetwork === ALL_NETWORKS_PRICING_SELECTOR &&
+  option.id.startsWith(ASSET_ALL_NETWORKS_OPTION_PREFIX);
+const withAssetAllNetworksOptions = (options: SettlementOption[]) => {
+  const cryptoByAsset = new Map<string, SettlementOption[]>();
+  for (const option of options) {
+    if (option.kind !== 'crypto-network') continue;
+    const assetCode = option.assetCode.trim().toUpperCase();
+    cryptoByAsset.set(assetCode, [...(cryptoByAsset.get(assetCode) ?? []), option]);
+  }
+  const wildcards = [...cryptoByAsset.entries()].map(([assetCode, assetOptions]) => {
+    const representative = assetOptions[0]!;
+    const canSend = assetOptions.some(option => option.direction === 'send' || option.direction === 'both');
+    const canReceive = assetOptions.some(option => option.direction === 'receive' || option.direction === 'both');
+    return {
+      ...representative,
+      id: assetAllNetworksOptionId(assetCode),
+      assetCode,
+      title: 'All Networks',
+      networkTitle: 'All Networks',
+      networkSlug: 'all-networks',
+      routeNetwork: ALL_NETWORKS_PRICING_SELECTOR,
+      direction: canSend && canReceive ? 'both' : canSend ? 'send' : 'receive',
+    } satisfies SettlementOption;
+  });
+  return [...options, ...wildcards];
+};
+const pricingRuleSelectionId = (rule: ManualDeskPricingRule | undefined, side: 'source' | 'target') => {
+  if (!rule) return '';
+  const optionId = side === 'source' ? rule.sourceSettlementOptionId : rule.targetSettlementOptionId;
+  if (optionId) return optionId;
+  const asset = side === 'source' ? rule.sourceAsset : rule.targetAsset;
+  const network = side === 'source' ? rule.sourceNetwork : rule.targetNetwork;
+  return asset && network === ALL_NETWORKS_PRICING_SELECTOR ? assetAllNetworksOptionId(asset) : '';
 };
 const normalizedPricingRoutePart = (value: string | null | undefined) =>
   value?.trim().toLowerCase().replace(/[^a-z0-9]+/g, '') || '';
@@ -6379,6 +6419,19 @@ const resolvePricingRuleOption = (
     .sort((a, b) => b.score - a.score)[0]?.option;
 };
 const pricingSelectorLabel = (rule: ManualDeskPricingRule, settlementOptions: SettlementOption[] = []) => {
+  const sourceAssetWildcard = rule.sourceAsset && rule.sourceNetwork === ALL_NETWORKS_PRICING_SELECTOR;
+  const targetAssetWildcard = rule.targetAsset && rule.targetNetwork === ALL_NETWORKS_PRICING_SELECTOR;
+  if (sourceAssetWildcard || targetAssetWildcard) {
+    const source = sourceAssetWildcard ? `${rule.sourceAsset} — All Networks`
+      : rule.sourceSettlementOptionId
+        ? pricingOptionLabel(settlementOptions.find(option => sameSettlementOptionId(option.id, rule.sourceSettlementOptionId!)), rule.sourceAsset || 'Unavailable option')
+        : 'Any source';
+    const target = targetAssetWildcard ? `${rule.targetAsset} — All Networks`
+      : rule.targetSettlementOptionId
+        ? pricingOptionLabel(settlementOptions.find(option => sameSettlementOptionId(option.id, rule.targetSettlementOptionId!)), rule.targetAsset || 'Unavailable option')
+        : 'Any target';
+    return `${source} → ${target}`;
+  }
   if (rule.sourceSettlementOptionId || rule.targetSettlementOptionId) {
     const source = rule.sourceSettlementOptionId
       ? settlementOptions.find(option => sameSettlementOptionId(option.id, rule.sourceSettlementOptionId))
@@ -6529,8 +6582,8 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
 
   const [form, setForm] = useState({
     name: rule?.name || '',
-    sourceSettlementOptionId: rule?.sourceSettlementOptionId || '',
-    targetSettlementOptionId: rule?.targetSettlementOptionId || '',
+    sourceSettlementOptionId: pricingRuleSelectionId(rule, 'source'),
+    targetSettlementOptionId: pricingRuleSelectionId(rule, 'target'),
     markupPercent: String((rule?.markupBasisPoints ?? 60) / 100),
     adjustmentDirection: rule?.adjustmentDirection || 'MARKUP',
     exactRate: rule?.exactRate || '',
@@ -6580,8 +6633,9 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
   const set = (key: keyof typeof form, value: string | boolean) => setForm(current => ({ ...current, [key]: value }));
 
   const allOptions = config.data?.manualSettlementOptions || [];
-  const fromOptions = allOptions.filter(o => o.direction === 'send' || o.direction === 'both');
-  const toOptions = allOptions.filter(o => o.direction === 'receive' || o.direction === 'both');
+  const pricingOptions = useMemo(() => withAssetAllNetworksOptions(allOptions), [allOptions]);
+  const fromOptions = pricingOptions.filter(o => o.direction === 'send' || o.direction === 'both');
+  const toOptions = pricingOptions.filter(o => o.direction === 'receive' || o.direction === 'both');
   const projectedSourceOption = fromOptions.find(o => sameSettlementOptionId(o.id, form.sourceSettlementOptionId));
   const projectedTargetOption = toOptions.find(o => sameSettlementOptionId(o.id, form.targetSettlementOptionId));
   const projectedRule: PricingCoverageRule = {
@@ -6589,12 +6643,12 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
     name: form.name,
     sourceAsset: projectedSourceOption?.assetCode ?? null,
     targetAsset: projectedTargetOption?.assetCode ?? null,
-    sourceNetwork: null,
-    targetNetwork: null,
+    sourceNetwork: isAssetAllNetworksOption(projectedSourceOption) ? ALL_NETWORKS_PRICING_SELECTOR : projectedSourceOption?.routeNetwork ?? null,
+    targetNetwork: isAssetAllNetworksOption(projectedTargetOption) ? ALL_NETWORKS_PRICING_SELECTOR : projectedTargetOption?.routeNetwork ?? null,
     paymentMethod: null,
     payoutMethod: null,
-    sourceSettlementOptionId: projectedSourceOption?.id ?? null,
-    targetSettlementOptionId: projectedTargetOption?.id ?? null,
+    sourceSettlementOptionId: isAssetAllNetworksOption(projectedSourceOption) ? null : projectedSourceOption?.id ?? null,
+    targetSettlementOptionId: isAssetAllNetworksOption(projectedTargetOption) ? null : projectedTargetOption?.id ?? null,
     markupBasisPoints: 0,
     exactRate: form.exactRate.trim() || null,
     fixedFee: null,
@@ -6677,7 +6731,8 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
       name: form.name.trim(),
       sourceAsset: selectedSource?.assetCode ?? null, targetAsset: selectedTarget?.assetCode ?? null,
       sourceNetwork: selectedSource?.routeNetwork ?? null, targetNetwork: selectedTarget?.routeNetwork ?? null, paymentMethod: null, payoutMethod: null,
-      sourceSettlementOptionId: selectedSource?.id ?? null, targetSettlementOptionId: selectedTarget?.id ?? null,
+      sourceSettlementOptionId: isAssetAllNetworksOption(selectedSource) ? null : selectedSource?.id ?? null,
+      targetSettlementOptionId: isAssetAllNetworksOption(selectedTarget) ? null : selectedTarget?.id ?? null,
       markupBasisPoints,
       adjustmentDirection: form.adjustmentDirection as 'MARKUP' | 'GIVE_MORE',
       exactRate: form.exactRate.trim() || null,
@@ -8029,7 +8084,10 @@ const pricingRuleMatches = (
   context: Partial<Record<(typeof pricingCoverageSelectorKeys)[number], string>>,
 ) => pricingCoverageSelectorKeys.every(key => {
   const selector = normalizedPricingSelector(rule[key]);
-  return selector === null || selector === normalizedPricingSelector(context[key]);
+  return selector === null ||
+    ((key === 'sourceNetwork' || key === 'targetNetwork') &&
+      selector === normalizedPricingSelector(ALL_NETWORKS_PRICING_SELECTOR)) ||
+    selector === normalizedPricingSelector(context[key]);
 });
 function withAdminResponsiveLayout(Page: () => React.ReactElement) {
   return function ResponsiveAdminRoute() {

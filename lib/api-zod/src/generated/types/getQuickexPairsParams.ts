@@ -11,10 +11,10 @@ export type GetQuickexPairsParams = {
  * @minLength 1
  * @maxLength 32
  */
-fromAsset: string;
+fromAsset?: string;
 /**
  * @minLength 1
  * @maxLength 80
  */
-fromNetwork: string;
+fromNetwork?: string;
 };

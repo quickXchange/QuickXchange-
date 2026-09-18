@@ -49,7 +49,9 @@ import bbvaLogoUrl from '../../../../attached_assets/bbva-logo-png_seeklogo-4744
 import { useSitePreview } from '@/components/site-preview-context';
 import {
   MARKET_CONVERT_SELECTION_EVENT,
+  MARKET_SWAP_SELECTION_EVENT,
   type MarketConvertSelection,
+  type MarketSwapSelection,
 } from '@/lib/market-convert-selection';
 
 export { FiatCurrencyFlag, isFiatCurrencyCode } from '@/components/fiat-flag';
@@ -674,6 +676,7 @@ export function PaymentMethodLogo({
   badgeVariant = 'badge',
   className,
   priority = true,
+  preferBrandIcon = false,
 }: {
   name: string;
   logoUrl?: string | null;
@@ -682,6 +685,7 @@ export function PaymentMethodLogo({
   badgeVariant?: 'badge' | 'admin';
   className?: string;
   priority?: boolean;
+  preferBrandIcon?: boolean;
 }) {
   const normalized = name.toLowerCase();
   const visualProfile = PAYMENT_METHOD_VISUAL_PROFILES.find(([pattern]) => pattern.test(name))?.[1];
@@ -726,8 +730,12 @@ export function PaymentMethodLogo({
       ? `${basePath}/payment-methods/ziraat-bank-logo.jpg`
       : null;
   const sourceKey = brand === 'sepa' || brand === 'ziraat'
-    ? [logoUrl, bundledUrl, brandfetchUrl, fallbackRemoteUrl].filter(Boolean).join('\0')
-    : [logoUrl, officialLogoUrl, brandfetchUrl, fallbackRemoteUrl].filter(Boolean).join('\0');
+    ? (preferBrandIcon
+      ? [brandfetchUrl, bundledUrl, logoUrl, fallbackRemoteUrl]
+      : [logoUrl, bundledUrl, brandfetchUrl, fallbackRemoteUrl]).filter(Boolean).join('\0')
+    : (preferBrandIcon
+      ? [brandfetchUrl, officialLogoUrl, logoUrl, fallbackRemoteUrl]
+      : [logoUrl, officialLogoUrl, brandfetchUrl, fallbackRemoteUrl]).filter(Boolean).join('\0');
   const imageSources = useMemo(() => Array.from(new Set(sourceKey.split('\0').filter(Boolean))), [sourceKey]);
   const logoType = /\b(?:bank|bbva|n26|bunq|commerzbank|caixabank|ziraat|zirrat|icard|bnp|ing)\b/iu.test(name)
     ? 'bank'
@@ -905,6 +913,14 @@ export function ManualSwapWidget({
 
   const [fromId, setFromId] = useState('');
   const [toId, setToId] = useState('');
+  const [marketSwapRequest, setMarketSwapRequest] = useState<MarketSwapSelection | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sourceSettlementOptionId = params.get('sourceOption');
+    const targetSettlementOptionId = params.get('targetOption');
+    return sourceSettlementOptionId && targetSettlementOptionId
+      ? { sourceSettlementOptionId, targetSettlementOptionId }
+      : null;
+  });
   const [amount, setAmount] = useState('');
   const [fromSelectorOpen, setFromSelectorOpen] = useState(false);
   const [toSelectorOpen, setToSelectorOpen] = useState(false);
@@ -990,6 +1006,25 @@ export function ManualSwapWidget({
   const allOptions = useMemo(() => getUniqueSettlementOptions(config.data), [config.data]);
 
   const availableManualRoutes = config.data?.manualRouteAvailability?.routes || [];
+  useEffect(() => {
+    const handleMarketSwapSelection = (event: Event) => {
+      setMarketSwapRequest((event as CustomEvent<MarketSwapSelection>).detail);
+    };
+    window.addEventListener(MARKET_SWAP_SELECTION_EVENT, handleMarketSwapSelection);
+    return () => window.removeEventListener(MARKET_SWAP_SELECTION_EVENT, handleMarketSwapSelection);
+  }, []);
+  useEffect(() => {
+    if (!marketSwapRequest || !config.data) return;
+    const available = availableManualRoutes.some(route =>
+      route.sourceSettlementOptionId === marketSwapRequest.sourceSettlementOptionId &&
+      route.targetSettlementOptionId === marketSwapRequest.targetSettlementOptionId
+    );
+    if (available) {
+      setFromId(marketSwapRequest.sourceSettlementOptionId);
+      setToId(marketSwapRequest.targetSettlementOptionId);
+    }
+    setMarketSwapRequest(null);
+  }, [availableManualRoutes, config.data, marketSwapRequest]);
   const availableSourceIds = useMemo(
     () => new Set(availableManualRoutes.map(route => route.sourceSettlementOptionId)),
     [availableManualRoutes],
@@ -1991,6 +2026,11 @@ export function ExchangeModeSwitcher({ onModeChange, initialMode = 'swap' }: { o
     window.addEventListener(MARKET_CONVERT_SELECTION_EVENT, handleMarketSelection);
     return () => window.removeEventListener(MARKET_CONVERT_SELECTION_EVENT, handleMarketSelection);
   }, [selectConvert]);
+  useEffect(() => {
+    const handleMarketSwapSelection = () => selectSwap();
+    window.addEventListener(MARKET_SWAP_SELECTION_EVENT, handleMarketSwapSelection);
+    return () => window.removeEventListener(MARKET_SWAP_SELECTION_EVENT, handleMarketSwapSelection);
+  }, [selectSwap]);
 
   useEffect(() => {
     viewportRef.current?.closest('.exchange-wrapper')?.setAttribute('data-exchange-mode', initialMode);

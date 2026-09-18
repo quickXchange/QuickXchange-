@@ -64,8 +64,13 @@ import { LivePreviewFrame } from '../components/live-preview-frame';
 import { PRIVACY_NOTICE_SECTIONS, TERMS_NOTICE_SECTIONS } from '../lib/legal-page-content';
 import { useAdminPermissions } from '../lib/admin-permissions';
 
-export const SITE_PAGE_KEYS = EDITABLE_PUBLIC_PAGES.map(p => p.key as SitePageKey);
-const PAGE_LABELS = Object.fromEntries(EDITABLE_PUBLIC_PAGES.map(p => [p.key, p.label])) as Record<SitePageKey, string>;
+const WIDGET_EXCHANGE_INFORMATION_KEY = 'widget-exchange-information' as SitePageKey;
+const SITE_CONTENT_EDITOR_SECTIONS = [
+  ...EDITABLE_PUBLIC_PAGES,
+  { key: WIDGET_EXCHANGE_INFORMATION_KEY, label: 'Widget Exchange Information' },
+];
+export const SITE_PAGE_KEYS = SITE_CONTENT_EDITOR_SECTIONS.map(p => p.key as SitePageKey);
+const PAGE_LABELS = Object.fromEntries(SITE_CONTENT_EDITOR_SECTIONS.map(p => [p.key, p.label])) as Record<SitePageKey, string>;
 
 type Notice = { kind: 'success' | 'error'; text: string };
 
@@ -332,6 +337,7 @@ function DraftEditor() {
   }, [json]);
   const pageDefinition = EDITABLE_PUBLIC_PAGES.find((page) => page.key === pageKey);
   const pageDefaults = pageDefinition as { defaultHeader?: boolean; defaultFooter?: boolean } | undefined;
+  const isWidgetExchangeInformation = pageKey === WIDGET_EXCHANGE_INFORMATION_KEY;
   const heroObjectPath = typeof parsedContent.heroImage?.objectPath === 'string' ? parsedContent.heroImage.objectPath : '';
 
   useEffect(() => {
@@ -486,6 +492,54 @@ function DraftEditor() {
               <textarea className="min-h-[620px] w-full rounded-xl border border-border bg-background p-4 font-mono text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" value={json} onChange={(event) => setEditedJson(event.target.value)} aria-label={`${PAGE_LABELS[pageKey]} draft JSON`} data-testid="input-site-content-json" spellCheck={false} />
             ) : (
               <div className="space-y-6 max-h-[620px] overflow-y-auto pr-2 pb-4">
+                {isWidgetExchangeInformation ? (
+                  <div className="space-y-4" data-testid="widget-exchange-information-editor">
+                    <div className="rounded-xl border border-border bg-muted/10 p-4">
+                      <h3 className="font-bold text-sm">Widget Exchange Information</h3>
+                      <p className="mt-1 text-xs text-muted-foreground">This single card appears directly below the public Swap/Convert widget.</p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 p-3 text-sm font-semibold">
+                        <input type="checkbox" checked={parsedContent.visible !== false} onChange={(e) => updateField('visible', e.target.checked)} data-testid="input-widget-info-visible" />
+                        Show card
+                      </label>
+                      <label className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 p-3 text-sm font-semibold">
+                        <input type="checkbox" checked={parsedContent.showIcon !== false} onChange={(e) => updateField('showIcon', e.target.checked)} data-testid="input-widget-info-icon" />
+                        Show icon
+                      </label>
+                      <label className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 p-3 text-sm font-semibold">
+                        <input type="checkbox" checked={parsedContent.glow !== false} onChange={(e) => updateField('glow', e.target.checked)} data-testid="input-widget-info-glow" />
+                        Glow
+                      </label>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="widget-info-title">Optional title</label>
+                      <input id="widget-info-title" className="admin-input" placeholder="Exchange Information" value={typeof parsedContent.title === 'string' ? parsedContent.title : ''} onChange={(e) => updateField('title', e.target.value)} data-testid="input-widget-info-title" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="widget-info-text">Information text</label>
+                      <textarea id="widget-info-text" className="admin-input min-h-48 resize-y" value={typeof parsedContent.text === 'string' ? parsedContent.text : ''} onChange={(e) => updateField('text', e.target.value)} data-testid="input-widget-info-text" />
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="widget-info-size">Text size</label>
+                        <select id="widget-info-size" className="admin-input" value={typeof parsedContent.textSize === 'string' ? parsedContent.textSize : 'small'} onChange={(e) => updateField('textSize', e.target.value)} data-testid="input-widget-info-size">
+                          <option value="small">Small</option>
+                          <option value="medium">Medium</option>
+                          <option value="large">Large</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="widget-info-alignment">Text alignment</label>
+                        <select id="widget-info-alignment" className="admin-input" value={typeof parsedContent.textAlign === 'string' ? parsedContent.textAlign : 'left'} onChange={(e) => updateField('textAlign', e.target.value)} data-testid="input-widget-info-alignment">
+                          <option value="left">Left</option>
+                          <option value="center">Center</option>
+                          <option value="right">Right</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
                 <div className="space-y-4">
                   <label className="flex items-center gap-2 text-sm font-semibold p-3 border border-border rounded-lg bg-muted/30">
                      <input type="checkbox" checked={parsedContent.visibility?.enabled ?? true} onChange={(e) => updateField('visibility', { ...parsedContent.visibility, enabled: e.target.checked })} data-testid="input-page-visible" />
@@ -746,6 +800,7 @@ function DraftEditor() {
                     ))}
                   </div>
                 </div>
+                )}
               </div>
             )}
 

@@ -1,4 +1,4 @@
-import { asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ne, sql } from "drizzle-orm";
 import {
   db,
   fiatCurrenciesTable,
@@ -289,7 +289,14 @@ export async function listPublicFiatSettlementOptions() {
   }).from(fiatCurrencyPaymentMethodsTable)
     .innerJoin(fiatCurrenciesTable, eq(fiatCurrencyPaymentMethodsTable.fiatCurrencyId, fiatCurrenciesTable.id))
     .innerJoin(paymentMethodsTable, eq(fiatCurrencyPaymentMethodsTable.paymentMethodId, paymentMethodsTable.id))
-    .where(eq(fiatCurrencyPaymentMethodsTable.enabled, true))
+    .where(and(
+      eq(fiatCurrencyPaymentMethodsTable.enabled, true),
+      eq(fiatCurrenciesTable.enabled, true),
+      ne(fiatCurrenciesTable.lifecycle, "deprecated"),
+      eq(paymentMethodsTable.enabled, true),
+      ne(paymentMethodsTable.lifecycle, "deprecated"),
+      eq(paymentMethodsTable.executionMode, "manual"),
+    ))
     .orderBy(
       desc(fiatCurrencyPaymentMethodsTable.enabled),
       sql`case ${paymentMethodsTable.lifecycle} when 'active' then 0 when 'restricted' then 1 else 2 end`,
@@ -297,17 +304,8 @@ export async function listPublicFiatSettlementOptions() {
       asc(fiatCurrencyPaymentMethodsTable.paymentMethodId),
       asc(fiatCurrencyPaymentMethodsTable.id),
     );
-  return rows.filter(({ currency, method }) =>
-    currency.enabled &&
-    currency.lifecycle !== "deprecated" &&
-    method.enabled &&
-    method.lifecycle !== "deprecated"
-  ).flatMap(
+  return rows.flatMap(
     ({ attachment, currency, method }) => {
-      if (
-        method.executionMode === "catalog" ||
-        method.executionMode === "api"
-      ) return [];
       const send = attachment.canSend ?? method.canSend;
       const receive = attachment.canReceive ?? method.canReceive;
       if (!send && !receive) return [];

@@ -1,0 +1,1 @@
+ALTER TABLE "exchange_orders" ADD COLUMN "is_test" boolean DEFAULT false NOT NULL;

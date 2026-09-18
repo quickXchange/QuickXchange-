@@ -16,6 +16,7 @@ import { useSitePreview } from './site-preview-context';
 import { BrandLogo } from '@/components/brand-logo';
 import { DesktopMegaMenu, NAVIGATION_DATA } from '@/components/mega-menu';
 import type { NavGroup } from '@/components/mega-menu';
+import { TelegramSupportButton } from '@/components/telegram-support-button';
 
 const COMPANY_FOOTER_LINKS = [
   ['Home', '/'],
@@ -672,7 +673,7 @@ export function PublicShell({ children }: { children: ReactNode }) {
       {children}
     </main>
     <div className="w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 pb-4 sm:pb-6 mt-16 sm:mt-24">
-      <footer className="qx-premium-footer">
+      <footer className="qx-premium-footer" data-public-footer>
         <div className="qx-premium-footer-bg">
           <div className="qx-premium-footer-glow" />
           <svg className="qx-premium-footer-globe" viewBox="0 0 800 400" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -740,6 +741,7 @@ export function PublicShell({ children }: { children: ReactNode }) {
         </div>
       </footer>
     </div>
+    <TelegramSupportButton />
   </div>;
 }
 

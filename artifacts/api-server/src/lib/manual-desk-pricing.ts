@@ -29,6 +29,7 @@ const TARGET_PRICING_SELECTOR_KEYS = [
 export type ManualPricingSelector = typeof MANUAL_PRICING_SELECTOR_KEYS[number];
 export type ManualPricingContext =
   Partial<Record<ManualPricingSelector, string | null | undefined>>;
+export const ALL_NETWORKS_PRICING_SELECTOR = "__ALL_NETWORKS__";
 
 function normalized(value: string | null | undefined): string | null {
   const result = value?.trim().toUpperCase();
@@ -65,10 +66,18 @@ function effectiveManualPricingSelectors(rule: ManualPricingContext) {
   // on the opposite side means a real wildcard. Ignore stale legacy fields
   // which older partial-wildcard writes may have retained on that Any side.
   if (!hasSourceOption && hasTargetOption) {
-    for (const key of SOURCE_PRICING_SELECTOR_KEYS) selectors[key] = null;
+    if (selectors.sourceNetwork !== ALL_NETWORKS_PRICING_SELECTOR || selectors.sourceAsset === null) {
+      for (const key of SOURCE_PRICING_SELECTOR_KEYS) selectors[key] = null;
+    } else {
+      selectors.paymentMethod = null;
+    }
   }
   if (hasSourceOption && !hasTargetOption) {
-    for (const key of TARGET_PRICING_SELECTOR_KEYS) selectors[key] = null;
+    if (selectors.targetNetwork !== ALL_NETWORKS_PRICING_SELECTOR || selectors.targetAsset === null) {
+      for (const key of TARGET_PRICING_SELECTOR_KEYS) selectors[key] = null;
+    } else {
+      selectors.payoutMethod = null;
+    }
   }
   return selectors;
 }
@@ -76,7 +85,9 @@ function effectiveManualPricingSelectors(rule: ManualPricingContext) {
 export function manualPricingSpecificity(rule: ManualPricingContext): number {
   const selectors = effectiveManualPricingSelectors(rule);
   return MANUAL_PRICING_SELECTOR_KEYS.reduce(
-    (total, key) => total + (selectors[key] === null ? 0 : 1),
+    (total, key) => total + (
+      selectors[key] === null || selectors[key] === ALL_NETWORKS_PRICING_SELECTOR ? 0 : 1
+    ),
     0,
   );
 }
@@ -87,11 +98,29 @@ function settlementOptionSpecificity(rule: ManualPricingContext): number {
 }
 
 export function outputManualPricingRule(rule: ManualDeskPricingRule) {
+  const sourceAssetWildcard = normalized(rule.sourceAsset) !== null &&
+    normalized(rule.sourceNetwork) === ALL_NETWORKS_PRICING_SELECTOR &&
+    normalized(rule.paymentMethod) === null;
+  const targetAssetWildcard = normalized(rule.targetAsset) !== null &&
+    normalized(rule.targetNetwork) === ALL_NETWORKS_PRICING_SELECTOR &&
+    normalized(rule.payoutMethod) === null;
   const legacyAmbiguous = !rule.sourceSettlementOptionId &&
     !rule.targetSettlementOptionId &&
     MANUAL_PRICING_SELECTOR_KEYS
       .filter((key) => key !== "sourceSettlementOptionId" && key !== "targetSettlementOptionId")
-      .some((key) => normalized(rule[key]) !== null);
+      .some((key) => normalized(rule[key]) !== null) &&
+    !(
+      (sourceAssetWildcard || (
+        normalized(rule.sourceAsset) === null &&
+        normalized(rule.sourceNetwork) === null &&
+        normalized(rule.paymentMethod) === null
+      )) &&
+      (targetAssetWildcard || (
+        normalized(rule.targetAsset) === null &&
+        normalized(rule.targetNetwork) === null &&
+        normalized(rule.payoutMethod) === null
+      ))
+    );
   return {
     ...rule,
     fixedFee: rule.fixedFee ?? null,
@@ -112,7 +141,10 @@ export function matchesManualPricingRule(
   const normalizedContext = normalizeManualPricingSelectors(context);
   return MANUAL_PRICING_SELECTOR_KEYS.every((key) => {
     const selector = selectors[key];
-    return selector === null || selector === normalizedContext[key];
+    return selector === null ||
+      ((key === "sourceNetwork" || key === "targetNetwork") &&
+        selector === ALL_NETWORKS_PRICING_SELECTOR) ||
+      selector === normalizedContext[key];
   });
 }
 
@@ -137,16 +169,7 @@ export async function matchManualDeskPricingRule(
   const rules = await db.select().from(manualDeskPricingRulesTable)
     .where(eq(manualDeskPricingRulesTable.enabled, true))
     .orderBy(desc(manualDeskPricingRulesTable.priority), manualDeskPricingRulesTable.id);
-  // An exact path is an override, but it is not the only kind of executable
-  // manual rule. Keep the old selector/provider-backed pricing behavior as
-  // the fallback when no exact path applies.
-  const exactRules = rules.filter((rule) => rule.exactRate !== null);
-  const selected = selectManualPricingRule(exactRules, context);
-  if (selected) return { ...selected, exactRateSource: "direct" };
-  // A configured path also makes its exact reciprocal available. Keep this
-  // entirely decimal/integer based and prefer a directly configured reverse
-  // path (the lookup above) over this synthesized result.
-  const reverse = selectManualPricingRule(exactRules, {
+  const reverseContext = {
     ...context,
     sourceAsset: context.targetAsset,
     targetAsset: context.sourceAsset,
@@ -156,16 +179,33 @@ export async function matchManualDeskPricingRule(
     payoutMethod: context.paymentMethod,
     sourceSettlementOptionId: context.targetSettlementOptionId,
     targetSettlementOptionId: context.sourceSettlementOptionId,
-  });
-  if (reverse) {
-    const exactRate = reciprocalExactRate(String(reverse.exactRate));
-    return { ...reverse, exactRate, exactRateSource: "reciprocal" };
+  };
+  const candidates = [
+    ...rules.filter((rule) => matchesManualPricingRule(rule, context))
+      .map((rule) => ({ rule, source: "direct" as const })),
+    ...rules.filter((rule) => rule.exactRate !== null && matchesManualPricingRule(rule, reverseContext))
+      .map((rule) => ({ rule, source: "reciprocal" as const })),
+  ].sort((left, right) =>
+    settlementOptionSpecificity(right.rule) - settlementOptionSpecificity(left.rule) ||
+    manualPricingSpecificity(right.rule) - manualPricingSpecificity(left.rule) ||
+    Number(right.rule.exactRate !== null) - Number(left.rule.exactRate !== null) ||
+    Number(left.source === "reciprocal") - Number(right.source === "reciprocal") ||
+    right.rule.priority - left.rule.priority ||
+    left.rule.id.localeCompare(right.rule.id));
+  const selected = candidates[0];
+  if (selected?.source === "direct") {
+    return {
+      ...selected.rule,
+      ...(selected.rule.exactRate !== null ? { exactRateSource: "direct" as const } : {}),
+    };
   }
-  const fallback = selectManualPricingRule(
-    rules.filter((rule) => rule.exactRate === null),
-    context,
-  );
-  if (fallback) return fallback;
+  if (selected?.source === "reciprocal") {
+    return {
+      ...selected.rule,
+      exactRate: reciprocalExactRate(String(selected.rule.exactRate)),
+      exactRateSource: "reciprocal",
+    };
+  }
   throw new ApiError(
     "MANUAL_PRICING_RULE_NOT_FOUND",
     "No manual desk pricing rule is available for this route.",
@@ -333,20 +373,24 @@ function normalizedWrite(input: ManualPricingWrite) {
   }
   const sourceOptionId = normalized(input.sourceSettlementOptionId);
   const targetOptionId = normalized(input.targetSettlementOptionId);
-  const hasLegacySelector = MANUAL_PRICING_SELECTOR_KEYS
-    .filter((key) => key !== "sourceSettlementOptionId" && key !== "targetSettlementOptionId")
-    .some((key) => normalized(input[key]) !== null);
-  if (sourceOptionId === null && targetOptionId === null && hasLegacySelector) {
+  const sourceAsset = normalized(input.sourceAsset);
+  const targetAsset = normalized(input.targetAsset);
+  const sourceNetwork = normalized(input.sourceNetwork);
+  const targetNetwork = normalized(input.targetNetwork);
+  const validSourceAssetWildcard = sourceOptionId === null &&
+    sourceAsset !== null && sourceNetwork === ALL_NETWORKS_PRICING_SELECTOR &&
+    normalized(input.paymentMethod) === null;
+  const validTargetAssetWildcard = targetOptionId === null &&
+    targetAsset !== null && targetNetwork === ALL_NETWORKS_PRICING_SELECTOR &&
+    normalized(input.payoutMethod) === null;
+  const invalidUnboundSource = sourceOptionId === null && targetOptionId === null && !validSourceAssetWildcard &&
+    [sourceAsset, sourceNetwork, normalized(input.paymentMethod)].some((value) => value !== null);
+  const invalidUnboundTarget = targetOptionId === null && sourceOptionId === null && !validTargetAssetWildcard &&
+    [targetAsset, targetNetwork, normalized(input.payoutMethod)].some((value) => value !== null);
+  if (invalidUnboundSource || invalidUnboundTarget) {
     throw new ApiError(
       "SETTLEMENT_OPTION_INVALID",
-      "A rule without settlement options must use Any on both sides and cannot include legacy selectors.",
-      400,
-    );
-  }
-  if (exactRate !== null && (sourceOptionId === null || targetOptionId === null)) {
-    throw new ApiError(
-      "SETTLEMENT_OPTION_REQUIRED",
-      "An exact path rate requires both source and target settlement option IDs.",
+      "A rule side without a settlement option must use Any or an Asset — All Networks selector.",
       400,
     );
   }
@@ -359,10 +403,18 @@ function normalizedWrite(input: ManualPricingWrite) {
   }
   const selectors = normalizeManualPricingSelectors(input);
   if (sourceOptionId === null && targetOptionId !== null) {
-    for (const key of SOURCE_PRICING_SELECTOR_KEYS) selectors[key] = null;
+    if (validSourceAssetWildcard) {
+      selectors.paymentMethod = null;
+    } else {
+      for (const key of SOURCE_PRICING_SELECTOR_KEYS) selectors[key] = null;
+    }
   }
   if (sourceOptionId !== null && targetOptionId === null) {
-    for (const key of TARGET_PRICING_SELECTOR_KEYS) selectors[key] = null;
+    if (validTargetAssetWildcard) {
+      selectors.payoutMethod = null;
+    } else {
+      for (const key of TARGET_PRICING_SELECTOR_KEYS) selectors[key] = null;
+    }
   }
   return {
     ...input,
@@ -382,7 +434,10 @@ function overlap(left: ManualPricingContext, right: ManualPricingContext): boole
   return MANUAL_PRICING_SELECTOR_KEYS.every((key) => {
     const a = leftSelectors[key];
     const b = rightSelectors[key];
-    return a === null || b === null || a === b;
+    return a === null || b === null ||
+      ((key === "sourceNetwork" || key === "targetNetwork") &&
+        (a === ALL_NETWORKS_PRICING_SELECTOR || b === ALL_NETWORKS_PRICING_SELECTOR)) ||
+      a === b;
   });
 }
 
@@ -497,8 +552,7 @@ export async function upsertManualPricingRules(inputs: ManualPricingWrite[]) {
     await tx.execute(sql`select pg_advisory_xact_lock(350035)`);
     const candidates = inputs.map(normalizedWrite);
     const routeKey = (rule: ManualPricingContext & { priority: number }) => [
-      normalized(rule.sourceSettlementOptionId) ?? "*",
-      normalized(rule.targetSettlementOptionId) ?? "*",
+      ...MANUAL_PRICING_SELECTOR_KEYS.map((key) => normalized(rule[key]) ?? "*"),
       rule.priority,
     ].join("\0");
     const submittedKeys = candidates.map(routeKey);
@@ -601,10 +655,7 @@ function rowAsWrite(row: ManualDeskPricingRule): ManualPricingWrite {
 }
 
 function isLegacyReadOnly(row: ManualDeskPricingRule): boolean {
-  return !row.sourceSettlementOptionId && !row.targetSettlementOptionId &&
-    MANUAL_PRICING_SELECTOR_KEYS
-      .filter((key) => key !== "sourceSettlementOptionId" && key !== "targetSettlementOptionId")
-      .some((key) => normalized(row[key]) !== null);
+  return outputManualPricingRule(row).legacyAmbiguous;
 }
 
 export async function bulkUpdateManualPricingRules(
@@ -691,10 +742,18 @@ export async function bulkUpdateManualPricingRules(
               ? canonicalPatch.targetSettlementOptionId
               : row.targetSettlementOptionId;
           if (!resultingSourceOptionId) {
-            for (const key of SOURCE_PRICING_SELECTOR_KEYS) canonicalPatch[key] = null;
+            const sourceNetwork = normalized(canonicalPatch.sourceNetwork ?? row.sourceNetwork);
+            const sourceAsset = normalized(canonicalPatch.sourceAsset ?? row.sourceAsset);
+            if (sourceNetwork !== ALL_NETWORKS_PRICING_SELECTOR || sourceAsset === null) {
+              for (const key of SOURCE_PRICING_SELECTOR_KEYS) canonicalPatch[key] = null;
+            }
           }
           if (!resultingTargetOptionId) {
-            for (const key of TARGET_PRICING_SELECTOR_KEYS) canonicalPatch[key] = null;
+            const targetNetwork = normalized(canonicalPatch.targetNetwork ?? row.targetNetwork);
+            const targetAsset = normalized(canonicalPatch.targetAsset ?? row.targetAsset);
+            if (targetNetwork !== ALL_NETWORKS_PRICING_SELECTOR || targetAsset === null) {
+              for (const key of TARGET_PRICING_SELECTOR_KEYS) canonicalPatch[key] = null;
+            }
           }
           const combined = normalizedWrite({ ...rowAsWrite(row), ...canonicalPatch });
           const changedKeys = new Set(Object.keys(canonicalPatch));

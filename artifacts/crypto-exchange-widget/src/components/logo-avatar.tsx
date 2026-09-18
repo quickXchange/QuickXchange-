@@ -101,7 +101,7 @@ export function LogoAvatar({
         <img
           src={currentSource!}
           alt={alt}
-          loading={priority || type === 'crypto' ? 'eager' : 'lazy'}
+          loading={priority ? 'eager' : 'lazy'}
           fetchPriority={priority ? 'high' : 'auto'}
           decoding="async"
           referrerPolicy="no-referrer"

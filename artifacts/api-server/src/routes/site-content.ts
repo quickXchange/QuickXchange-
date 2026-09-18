@@ -311,6 +311,34 @@ function validatePageContent(content: Record<string, unknown>): void {
   }
 }
 
+function validateWidgetExchangeInformation(pageKey: string, content: Record<string, unknown>): void {
+  if (pageKey !== "widget-exchange-information") return;
+  const allowedKeys = new Set(["visible", "showIcon", "glow", "title", "text", "textSize", "textAlign"]);
+  if (Object.keys(content).some((key) => !allowedKeys.has(key))) {
+    throw new ApiError("SITE_CONTENT_INVALID", "Widget Exchange Information contains unsupported settings.", 400);
+  }
+  if (
+    (content.visible !== undefined && typeof content.visible !== "boolean") ||
+    (content.showIcon !== undefined && typeof content.showIcon !== "boolean") ||
+    (content.glow !== undefined && typeof content.glow !== "boolean") ||
+    (content.title !== undefined && typeof content.title !== "string") ||
+    (content.text !== undefined && typeof content.text !== "string") ||
+    (content.textSize !== undefined && !["small", "medium", "large"].includes(String(content.textSize))) ||
+    (content.textAlign !== undefined && !["left", "center", "right"].includes(String(content.textAlign)))
+  ) {
+    throw new ApiError("SITE_CONTENT_INVALID", "Widget Exchange Information settings are invalid.", 400);
+  }
+  if (typeof content.title === "string" && content.title.length > 120) {
+    throw new ApiError("SITE_CONTENT_INVALID", "The Widget Exchange Information title must be 120 characters or fewer.", 400);
+  }
+  if (typeof content.text === "string" && content.text.length > 4_000) {
+    throw new ApiError("SITE_CONTENT_INVALID", "The Widget Exchange Information text must be 4,000 characters or fewer.", 400);
+  }
+  if (content.visible !== false && (typeof content.text !== "string" || !content.text.trim())) {
+    throw new ApiError("SITE_CONTENT_INVALID", "Visible Widget Exchange Information requires text.", 400);
+  }
+}
+
 async function verifyPageMedia(content: Record<string, unknown>): Promise<void> {
   for (const path of pageMediaPaths(content)) {
     try {
@@ -345,7 +373,7 @@ router.get("/site-content", async (_req, res): Promise<void> => {
     .filter((item) => item.enabled && !item.removedAt && isSafeSiteLink(item.href))
     .sort((a, b) => a.group.localeCompare(b.group) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
   const branding = GetWebsiteBrandingResponse.parse(publicWebsiteBranding(brandingRow));
-  res.setHeader("cache-control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
+  res.setHeader("cache-control", "public, max-age=0, must-revalidate");
   res.json(GetPublishedSiteContentResponse.parse({ pages: latestPages, navigation, partnerLogos, socialTrust, branding }));
 });
 
@@ -412,6 +440,7 @@ router.get("/site-content/:pageKey", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Published page not found" });
     return;
   }
+  res.setHeader("cache-control", "public, max-age=0, must-revalidate");
   res.json(GetPublishedSitePageResponse.parse(row));
 });
 
@@ -708,6 +737,7 @@ router.post("/admin/website-branding/reset", requireOwner, async (_req, res): Pr
 
 async function saveDraft(pageKey: string, content: Record<string, unknown>, actorId: string) {
   validatePageContent(content);
+  validateWidgetExchangeInformation(pageKey, content);
   await verifyPageMedia(content);
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(2026083152)`);
@@ -758,6 +788,7 @@ router.post("/admin/site-content/:pageKey", requireOwner, async (req, res): Prom
       return existingPublished ? { row: existingPublished, created: false } : undefined;
     }
     validatePageContent(draft.content);
+    validateWidgetExchangeInformation(pageKey, draft.content);
     await verifyPageMedia(draft.content);
     if (
       existingPublished &&

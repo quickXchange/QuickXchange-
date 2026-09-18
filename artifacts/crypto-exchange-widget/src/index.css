@@ -3,6 +3,105 @@
 @import '@clerk/themes/shadcn.css';
 @import 'tw-animate-css';
 
+@keyframes popular-pairs-scroll-left {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+
+@keyframes popular-pairs-scroll-right {
+  from { transform: translate3d(-50%, 0, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+
+.popular-pairs-marquee {
+  width: 100%;
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent, black 4%, black 96%, transparent);
+  cursor: grab;
+  touch-action: pan-y pinch-zoom;
+  user-select: none;
+}
+
+.popular-pairs-marquee[data-dragging="true"] {
+  cursor: grabbing;
+}
+
+.popular-pairs-track {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  animation: popular-pairs-scroll-left 48s linear infinite;
+}
+
+.popular-pairs-marquee[data-direction="right"] .popular-pairs-track {
+  animation-name: popular-pairs-scroll-right;
+}
+
+.popular-pairs-sequence {
+  display: flex;
+  gap: 1rem;
+  padding-right: 1rem;
+}
+
+.popular-pair-marquee-card {
+  width: clamp(17rem, 29vw, 26rem);
+  min-height: 9.25rem;
+}
+
+/* Popular Swap Pairs owns a denser logo treatment without changing shared,
+   Convert, widget, or Admin logo geometry. */
+.popular-swap-pair-payment-logo {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  border-radius: 9999px !important;
+}
+
+.popular-swap-pair-payment-logo > .payment-method-logo,
+.popular-swap-pair-crypto-logo {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  max-width: 40px !important;
+  max-height: 40px !important;
+  border-radius: 50% !important;
+}
+
+.popular-swap-pair-payment-logo > .payment-method-logo > .logo-avatar-img {
+  padding: 0 !important;
+  object-fit: contain !important;
+}
+
+@media (max-width: 640px) {
+  .popular-pairs-marquee {
+    mask-image: linear-gradient(to right, transparent, black 2.5%, black 97.5%, transparent);
+  }
+
+  .popular-pair-marquee-card {
+    width: min(78vw, 19rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popular-pairs-marquee {
+    overflow-x: auto;
+    mask-image: none;
+    scrollbar-width: thin;
+  }
+
+  .popular-pairs-track {
+    animation: none;
+    transform: none;
+    will-change: auto;
+  }
+
+  .popular-pairs-track > .popular-pairs-sequence[aria-hidden="true"] {
+    display: none;
+  }
+}
+
 /* Theme-aware service explainers embedded in sanitized Blog article HTML. */
 @layer components {
   .qx-service-visual {
@@ -19661,6 +19760,31 @@ html:not(.dark) .frontend-drawer-nav .qx-menu-row.owner-access.active {
     max-width: 3rem !important;
     max-height: 3rem !important;
     flex-basis: 3rem !important;
+  }
+
+  /* Order Created → Conversion Summary: show payment artwork without a card surface. */
+  .order-confirmation-main .oc-summary-card .order-settlement-payment-logo {
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .order-confirmation-main .oc-summary-card .order-settlement-payment-logo > .payment-method-logo {
+    padding: 0 !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .order-confirmation-main .oc-summary-card .order-settlement-payment-logo > .payment-method-logo > .logo-avatar-img {
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    background: transparent !important;
+    box-shadow: none !important;
   }
 }
 

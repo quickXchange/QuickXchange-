@@ -6,6 +6,8 @@ import { db, pool, manualDeskPricingRulesTable } from "@workspace/db";
 import { getManualDeskEstimate } from "../src/lib/manual-desk-rates";
 import {
   bulkUpdateManualPricingRules,
+  createManualPricingRule,
+  ALL_NETWORKS_PRICING_SELECTOR,
   matchManualDeskPricingRule,
   reciprocalExactRate,
   selectManualPricingRule,
@@ -154,6 +156,102 @@ test("one Any Source rule covers every enabled Swap crypto network and exact rou
       source.id === specificSource.id ? specific.id : wildcard.id,
       `${source.assetCode}/${source.routeNetwork} must follow exact > wildcard priority`,
     );
+  }
+});
+
+test("asset all-networks pricing matches current and future networks with exact network precedence", () => {
+  const rules = [
+    {
+      id: "global", priority: 999, enabled: true, exactRate: null,
+      sourceAsset: null, targetAsset: null, sourceNetwork: null, targetNetwork: null,
+      sourceSettlementOptionId: null, targetSettlementOptionId: null,
+    },
+    {
+      id: "usdt-all-networks", priority: 0, enabled: true, exactRate: "0.95",
+      sourceAsset: null, sourceNetwork: null, sourceSettlementOptionId: null,
+      targetAsset: "USDT", targetNetwork: ALL_NETWORKS_PRICING_SELECTOR,
+      targetSettlementOptionId: null,
+    },
+    {
+      id: "usdt-trc20", priority: 0, enabled: true, exactRate: null,
+      sourceAsset: null, sourceNetwork: null, sourceSettlementOptionId: null,
+      targetAsset: "USDT", targetNetwork: "TRC20",
+      targetSettlementOptionId: "usdt-trc20",
+    },
+  ];
+  const context = (asset: string, network: string, optionId: string) => ({
+    sourceAsset: "EUR",
+    sourceNetwork: "SEPA",
+    sourceSettlementOptionId: "eur-sepa",
+    targetAsset: asset,
+    targetNetwork: network,
+    targetSettlementOptionId: optionId,
+  });
+  assert.equal(selectManualPricingRule(rules, context("USDT", "TRC20", "usdt-trc20"))?.id, "usdt-trc20");
+  assert.equal(selectManualPricingRule(rules, context("USDT", "BEP20", "usdt-bep20"))?.id, "usdt-all-networks");
+  assert.equal(selectManualPricingRule(rules, context("USDT", "FUTURE-NETWORK", "usdt-future"))?.id, "usdt-all-networks");
+  assert.equal(selectManualPricingRule(rules, context("USDC", "ERC20", "usdc-erc20"))?.id, "global");
+});
+
+test("asset all-networks exact pricing persists as one rule and matches every target network", async () => {
+  const suffix = randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase();
+  const asset = `T${suffix}`;
+  const ids: string[] = [];
+  try {
+    const wildcard = await createManualPricingRule({
+      name: `Any to ${asset} all networks`,
+      sourceAsset: null,
+      sourceNetwork: null,
+      sourceSettlementOptionId: null,
+      targetAsset: asset,
+      targetNetwork: ALL_NETWORKS_PRICING_SELECTOR,
+      targetSettlementOptionId: null,
+      markupBasisPoints: 500,
+      exactRate: "0.95",
+      priority: 987654,
+      enabled: true,
+    });
+    ids.push(wildcard.id);
+    const specific = await createManualPricingRule({
+      name: `Any to ${asset} TRC20`,
+      sourceAsset: null,
+      sourceNetwork: null,
+      sourceSettlementOptionId: null,
+      targetAsset: asset,
+      targetNetwork: "TRC20",
+      targetSettlementOptionId: `test-${asset}-TRC20`,
+      markupBasisPoints: 700,
+      exactRate: null,
+      priority: 0,
+      enabled: true,
+    });
+    ids.push(specific.id);
+    for (const network of ["TRC20", "BEP20", "ERC20", "FUTURE"]) {
+      const matched = await matchManualDeskPricingRule({
+        sourceAsset: "EUR",
+        sourceNetwork: "SEPA",
+        sourceSettlementOptionId: "test-eur-sepa",
+        targetAsset: asset,
+        targetNetwork: network,
+        targetSettlementOptionId: `test-${asset}-${network}`,
+      });
+      assert.equal(matched.id, network === "TRC20" ? specific.id : wildcard.id);
+      assert.equal(matched.markupBasisPoints, network === "TRC20" ? 700 : 500);
+      if (network !== "TRC20") {
+        assert.equal(matched.exactRate, "0.950000000000000000000000000000000000");
+      }
+    }
+    const rows = await db.select().from(manualDeskPricingRulesTable)
+      .where(eq(manualDeskPricingRulesTable.id, wildcard.id));
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0]?.targetAsset, asset);
+    assert.equal(rows[0]?.targetNetwork, ALL_NETWORKS_PRICING_SELECTOR);
+    assert.equal(rows[0]?.targetSettlementOptionId, null);
+  } finally {
+    if (ids.length) {
+      await db.delete(manualDeskPricingRulesTable)
+        .where(inArray(manualDeskPricingRulesTable.id, ids));
+    }
   }
 });
 
