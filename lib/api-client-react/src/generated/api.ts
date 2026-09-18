@@ -137,6 +137,7 @@ import type {
   ManualDeskPricingRulesCreateBatch,
   ManualDeskPricingRulesCreateBatchResult,
   ManualDeskRevenueReport,
+  MarkOrderPaidInput,
   NewsletterAnnouncement,
   NewsletterAnnouncementInput,
   NewsletterSubscribeInput,
@@ -1924,6 +1925,78 @@ export const useUpdateOrder = <TError = ErrorType<ApiError>,
         TContext
       > => {
       return useMutation(getUpdateOrderMutationOptions(options));
+    }
+
+export const getMarkOrderPaidUrl = (id: string,) => {
+
+
+
+
+  return `/api/orders/${id}/mark-paid`
+}
+
+/**
+ * @summary Let the order owner report that payment was sent
+ */
+export const markOrderPaid = async (id: string,
+    markOrderPaidInput?: MarkOrderPaidInput, options?: Parameters<typeof customFetch>[1]): Promise<CustomerOrder> => {
+
+  return customFetch<CustomerOrder>(getMarkOrderPaidUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(markOrderPaidInput)
+  }
+);}
+
+
+
+
+
+export const getMarkOrderPaidMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markOrderPaid>>, TError,{id: string;data?: BodyType<MarkOrderPaidInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markOrderPaid>>, TError,{id: string;data?: BodyType<MarkOrderPaidInput>}, TContext> => {
+
+const mutationKey = ['markOrderPaid'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markOrderPaid>>, {id: string;data?: BodyType<MarkOrderPaidInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  markOrderPaid(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkOrderPaidMutationResult = NonNullable<Awaited<ReturnType<typeof markOrderPaid>>>
+    export type MarkOrderPaidMutationBody = BodyType<MarkOrderPaidInput> | undefined
+    export type MarkOrderPaidMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Let the order owner report that payment was sent
+ */
+export const useMarkOrderPaid = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markOrderPaid>>, TError,{id: string;data?: BodyType<MarkOrderPaidInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markOrderPaid>>,
+        TError,
+        {id: string;data?: BodyType<MarkOrderPaidInput>},
+        TContext
+      > => {
+      return useMutation(getMarkOrderPaidMutationOptions(options));
     }
 
 export const getAssignOrderUrl = (id: string,) => {

@@ -1101,6 +1101,20 @@ export const createExchangeOrderResponseAmountRegExp = new RegExp('^-?(?:0|[1-9]
 export const createExchangeOrderResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createExchangeOrderResponseCustomerSafeNoteMax = 2000;
 
+export const createExchangeOrderResponsePaymentDetailsNameMax = 500;
+
+export const createExchangeOrderResponsePaymentDetailsIbanMax = 500;
+
+export const createExchangeOrderResponsePaymentDetailsBankNameMax = 500;
+
+export const createExchangeOrderResponsePaymentDetailsBicSwiftMax = 500;
+
+export const createExchangeOrderResponsePaymentDetailsPaymentReferenceMax = 500;
+
+export const createExchangeOrderResponsePaymentDetailsAmountMax = 120;
+
+export const createExchangeOrderResponsePaymentDetailsCustomInstructionsMax = 2000;
+
 export const createExchangeOrderResponseIncomingTransactionReferenceMax = 500;
 
 export const createExchangeOrderResponseOutgoingTransactionReferenceMax = 500;
@@ -1178,6 +1192,17 @@ export const CreateExchangeOrderResponse = zod.object({
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(createExchangeOrderResponseCustomerSafeNoteMax).optional(),
+  "paymentDetails": zod.object({
+  "name": zod.string().max(createExchangeOrderResponsePaymentDetailsNameMax).optional(),
+  "iban": zod.string().max(createExchangeOrderResponsePaymentDetailsIbanMax).optional(),
+  "bankName": zod.string().max(createExchangeOrderResponsePaymentDetailsBankNameMax).optional(),
+  "bicSwift": zod.string().max(createExchangeOrderResponsePaymentDetailsBicSwiftMax).optional(),
+  "paymentReference": zod.string().max(createExchangeOrderResponsePaymentDetailsPaymentReferenceMax).optional(),
+  "amount": zod.string().max(createExchangeOrderResponsePaymentDetailsAmountMax).optional(),
+  "customInstructions": zod.string().max(createExchangeOrderResponsePaymentDetailsCustomInstructionsMax).optional()
+}).optional(),
+  "paymentDetailsApplicable": zod.boolean().optional(),
+  "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(createExchangeOrderResponseIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(createExchangeOrderResponseOutgoingTransactionReferenceMax).optional(),
   "fundingDetails": zod.record(zod.string(), zod.unknown()).optional(),
@@ -1356,6 +1381,20 @@ export const getOrdersResponseItemsItemAmountRegExp = new RegExp('^-?(?:0|[1-9][
 export const getOrdersResponseItemsItemReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getOrdersResponseItemsItemCustomerSafeNoteMax = 2000;
 
+export const getOrdersResponseItemsItemPaymentDetailsNameMax = 500;
+
+export const getOrdersResponseItemsItemPaymentDetailsIbanMax = 500;
+
+export const getOrdersResponseItemsItemPaymentDetailsBankNameMax = 500;
+
+export const getOrdersResponseItemsItemPaymentDetailsBicSwiftMax = 500;
+
+export const getOrdersResponseItemsItemPaymentDetailsPaymentReferenceMax = 500;
+
+export const getOrdersResponseItemsItemPaymentDetailsAmountMax = 120;
+
+export const getOrdersResponseItemsItemPaymentDetailsCustomInstructionsMax = 2000;
+
 export const getOrdersResponseItemsItemIncomingTransactionReferenceMax = 500;
 
 export const getOrdersResponseItemsItemOutgoingTransactionReferenceMax = 500;
@@ -1442,6 +1481,17 @@ export const GetOrdersResponse = zod.object({
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(getOrdersResponseItemsItemCustomerSafeNoteMax).optional(),
+  "paymentDetails": zod.object({
+  "name": zod.string().max(getOrdersResponseItemsItemPaymentDetailsNameMax).optional(),
+  "iban": zod.string().max(getOrdersResponseItemsItemPaymentDetailsIbanMax).optional(),
+  "bankName": zod.string().max(getOrdersResponseItemsItemPaymentDetailsBankNameMax).optional(),
+  "bicSwift": zod.string().max(getOrdersResponseItemsItemPaymentDetailsBicSwiftMax).optional(),
+  "paymentReference": zod.string().max(getOrdersResponseItemsItemPaymentDetailsPaymentReferenceMax).optional(),
+  "amount": zod.string().max(getOrdersResponseItemsItemPaymentDetailsAmountMax).optional(),
+  "customInstructions": zod.string().max(getOrdersResponseItemsItemPaymentDetailsCustomInstructionsMax).optional()
+}).optional(),
+  "paymentDetailsApplicable": zod.boolean().optional(),
+  "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(getOrdersResponseItemsItemIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(getOrdersResponseItemsItemOutgoingTransactionReferenceMax).optional(),
   "fundingDetails": zod.record(zod.string(), zod.unknown()).optional(),
@@ -1619,6 +1669,20 @@ export const createOrderResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(
 export const createOrderResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createOrderResponseCustomerSafeNoteMax = 2000;
 
+export const createOrderResponsePaymentDetailsNameMax = 500;
+
+export const createOrderResponsePaymentDetailsIbanMax = 500;
+
+export const createOrderResponsePaymentDetailsBankNameMax = 500;
+
+export const createOrderResponsePaymentDetailsBicSwiftMax = 500;
+
+export const createOrderResponsePaymentDetailsPaymentReferenceMax = 500;
+
+export const createOrderResponsePaymentDetailsAmountMax = 120;
+
+export const createOrderResponsePaymentDetailsCustomInstructionsMax = 2000;
+
 export const createOrderResponseIncomingTransactionReferenceMax = 500;
 
 export const createOrderResponseOutgoingTransactionReferenceMax = 500;
@@ -1696,6 +1760,17 @@ export const CreateOrderResponse = zod.object({
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(createOrderResponseCustomerSafeNoteMax).optional(),
+  "paymentDetails": zod.object({
+  "name": zod.string().max(createOrderResponsePaymentDetailsNameMax).optional(),
+  "iban": zod.string().max(createOrderResponsePaymentDetailsIbanMax).optional(),
+  "bankName": zod.string().max(createOrderResponsePaymentDetailsBankNameMax).optional(),
+  "bicSwift": zod.string().max(createOrderResponsePaymentDetailsBicSwiftMax).optional(),
+  "paymentReference": zod.string().max(createOrderResponsePaymentDetailsPaymentReferenceMax).optional(),
+  "amount": zod.string().max(createOrderResponsePaymentDetailsAmountMax).optional(),
+  "customInstructions": zod.string().max(createOrderResponsePaymentDetailsCustomInstructionsMax).optional()
+}).optional(),
+  "paymentDetailsApplicable": zod.boolean().optional(),
+  "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(createOrderResponseIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(createOrderResponseOutgoingTransactionReferenceMax).optional(),
   "fundingDetails": zod.record(zod.string(), zod.unknown()).optional(),
@@ -1842,6 +1917,20 @@ export const bulkUpdateOrderStatusResponseResultsItemOrderAmountRegExp = new Reg
 export const bulkUpdateOrderStatusResponseResultsItemOrderReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const bulkUpdateOrderStatusResponseResultsItemOrderCustomerSafeNoteMax = 2000;
 
+export const bulkUpdateOrderStatusResponseResultsItemOrderPaymentDetailsNameMax = 500;
+
+export const bulkUpdateOrderStatusResponseResultsItemOrderPaymentDetailsIbanMax = 500;
+
+export const bulkUpdateOrderStatusResponseResultsItemOrderPaymentDetailsBankNameMax = 500;
+
+export const bulkUpdateOrderStatusResponseResultsItemOrderPaymentDetailsBicSwiftMax = 500;
+
+export const bulkUpdateOrderStatusResponseResultsItemOrderPaymentDetailsPaymentReferenceMax = 500;
+
+export const bulkUpdateOrderStatusResponseResultsItemOrderPaymentDetailsAmountMax = 120;
+
+export const bulkUpdateOrderStatusResponseResultsItemOrderPaymentDetailsCustomInstructionsMax = 2000;
+
 export const bulkUpdateOrderStatusResponseResultsItemOrderIncomingTransactionReferenceMax = 500;
 
 export const bulkUpdateOrderStatusResponseResultsItemOrderOutgoingTransactionReferenceMax = 500;
@@ -1923,6 +2012,17 @@ export const BulkUpdateOrderStatusResponse = zod.object({
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(bulkUpdateOrderStatusResponseResultsItemOrderCustomerSafeNoteMax).optional(),
+  "paymentDetails": zod.object({
+  "name": zod.string().max(bulkUpdateOrderStatusResponseResultsItemOrderPaymentDetailsNameMax).optional(),
+  "iban": zod.string().max(bulkUpdateOrderStatusResponseResultsItemOrderPaymentDetailsIbanMax).optional(),
+  "bankName": zod.string().max(bulkUpdateOrderStatusResponseResultsItemOrderPaymentDetailsBankNameMax).optional(),
+  "bicSwift": zod.string().max(bulkUpdateOrderStatusResponseResultsItemOrderPaymentDetailsBicSwiftMax).optional(),
+  "paymentReference": zod.string().max(bulkUpdateOrderStatusResponseResultsItemOrderPaymentDetailsPaymentReferenceMax).optional(),
+  "amount": zod.string().max(bulkUpdateOrderStatusResponseResultsItemOrderPaymentDetailsAmountMax).optional(),
+  "customInstructions": zod.string().max(bulkUpdateOrderStatusResponseResultsItemOrderPaymentDetailsCustomInstructionsMax).optional()
+}).optional(),
+  "paymentDetailsApplicable": zod.boolean().optional(),
+  "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(bulkUpdateOrderStatusResponseResultsItemOrderIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(bulkUpdateOrderStatusResponseResultsItemOrderOutgoingTransactionReferenceMax).optional(),
   "fundingDetails": zod.record(zod.string(), zod.unknown()).optional(),
@@ -2075,6 +2175,20 @@ export const bulkArchiveOrdersResponseResultsItemOrderAmountRegExp = new RegExp(
 export const bulkArchiveOrdersResponseResultsItemOrderReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const bulkArchiveOrdersResponseResultsItemOrderCustomerSafeNoteMax = 2000;
 
+export const bulkArchiveOrdersResponseResultsItemOrderPaymentDetailsNameMax = 500;
+
+export const bulkArchiveOrdersResponseResultsItemOrderPaymentDetailsIbanMax = 500;
+
+export const bulkArchiveOrdersResponseResultsItemOrderPaymentDetailsBankNameMax = 500;
+
+export const bulkArchiveOrdersResponseResultsItemOrderPaymentDetailsBicSwiftMax = 500;
+
+export const bulkArchiveOrdersResponseResultsItemOrderPaymentDetailsPaymentReferenceMax = 500;
+
+export const bulkArchiveOrdersResponseResultsItemOrderPaymentDetailsAmountMax = 120;
+
+export const bulkArchiveOrdersResponseResultsItemOrderPaymentDetailsCustomInstructionsMax = 2000;
+
 export const bulkArchiveOrdersResponseResultsItemOrderIncomingTransactionReferenceMax = 500;
 
 export const bulkArchiveOrdersResponseResultsItemOrderOutgoingTransactionReferenceMax = 500;
@@ -2156,6 +2270,17 @@ export const BulkArchiveOrdersResponse = zod.object({
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(bulkArchiveOrdersResponseResultsItemOrderCustomerSafeNoteMax).optional(),
+  "paymentDetails": zod.object({
+  "name": zod.string().max(bulkArchiveOrdersResponseResultsItemOrderPaymentDetailsNameMax).optional(),
+  "iban": zod.string().max(bulkArchiveOrdersResponseResultsItemOrderPaymentDetailsIbanMax).optional(),
+  "bankName": zod.string().max(bulkArchiveOrdersResponseResultsItemOrderPaymentDetailsBankNameMax).optional(),
+  "bicSwift": zod.string().max(bulkArchiveOrdersResponseResultsItemOrderPaymentDetailsBicSwiftMax).optional(),
+  "paymentReference": zod.string().max(bulkArchiveOrdersResponseResultsItemOrderPaymentDetailsPaymentReferenceMax).optional(),
+  "amount": zod.string().max(bulkArchiveOrdersResponseResultsItemOrderPaymentDetailsAmountMax).optional(),
+  "customInstructions": zod.string().max(bulkArchiveOrdersResponseResultsItemOrderPaymentDetailsCustomInstructionsMax).optional()
+}).optional(),
+  "paymentDetailsApplicable": zod.boolean().optional(),
+  "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(bulkArchiveOrdersResponseResultsItemOrderIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(bulkArchiveOrdersResponseResultsItemOrderOutgoingTransactionReferenceMax).optional(),
   "fundingDetails": zod.record(zod.string(), zod.unknown()).optional(),
@@ -2307,6 +2432,20 @@ export const permanentlyDeleteOrdersResponseResultsItemOrderAmountRegExp = new R
 export const permanentlyDeleteOrdersResponseResultsItemOrderReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const permanentlyDeleteOrdersResponseResultsItemOrderCustomerSafeNoteMax = 2000;
 
+export const permanentlyDeleteOrdersResponseResultsItemOrderPaymentDetailsNameMax = 500;
+
+export const permanentlyDeleteOrdersResponseResultsItemOrderPaymentDetailsIbanMax = 500;
+
+export const permanentlyDeleteOrdersResponseResultsItemOrderPaymentDetailsBankNameMax = 500;
+
+export const permanentlyDeleteOrdersResponseResultsItemOrderPaymentDetailsBicSwiftMax = 500;
+
+export const permanentlyDeleteOrdersResponseResultsItemOrderPaymentDetailsPaymentReferenceMax = 500;
+
+export const permanentlyDeleteOrdersResponseResultsItemOrderPaymentDetailsAmountMax = 120;
+
+export const permanentlyDeleteOrdersResponseResultsItemOrderPaymentDetailsCustomInstructionsMax = 2000;
+
 export const permanentlyDeleteOrdersResponseResultsItemOrderIncomingTransactionReferenceMax = 500;
 
 export const permanentlyDeleteOrdersResponseResultsItemOrderOutgoingTransactionReferenceMax = 500;
@@ -2388,6 +2527,17 @@ export const PermanentlyDeleteOrdersResponse = zod.object({
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(permanentlyDeleteOrdersResponseResultsItemOrderCustomerSafeNoteMax).optional(),
+  "paymentDetails": zod.object({
+  "name": zod.string().max(permanentlyDeleteOrdersResponseResultsItemOrderPaymentDetailsNameMax).optional(),
+  "iban": zod.string().max(permanentlyDeleteOrdersResponseResultsItemOrderPaymentDetailsIbanMax).optional(),
+  "bankName": zod.string().max(permanentlyDeleteOrdersResponseResultsItemOrderPaymentDetailsBankNameMax).optional(),
+  "bicSwift": zod.string().max(permanentlyDeleteOrdersResponseResultsItemOrderPaymentDetailsBicSwiftMax).optional(),
+  "paymentReference": zod.string().max(permanentlyDeleteOrdersResponseResultsItemOrderPaymentDetailsPaymentReferenceMax).optional(),
+  "amount": zod.string().max(permanentlyDeleteOrdersResponseResultsItemOrderPaymentDetailsAmountMax).optional(),
+  "customInstructions": zod.string().max(permanentlyDeleteOrdersResponseResultsItemOrderPaymentDetailsCustomInstructionsMax).optional()
+}).optional(),
+  "paymentDetailsApplicable": zod.boolean().optional(),
+  "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(permanentlyDeleteOrdersResponseResultsItemOrderIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(permanentlyDeleteOrdersResponseResultsItemOrderOutgoingTransactionReferenceMax).optional(),
   "fundingDetails": zod.record(zod.string(), zod.unknown()).optional(),
@@ -2528,6 +2678,20 @@ export const getPublicOrderStatusResponseAmountRegExp = new RegExp('^-?(?:0|[1-9
 export const getPublicOrderStatusResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getPublicOrderStatusResponseCustomerSafeNoteMax = 2000;
 
+export const getPublicOrderStatusResponsePaymentDetailsNameMax = 500;
+
+export const getPublicOrderStatusResponsePaymentDetailsIbanMax = 500;
+
+export const getPublicOrderStatusResponsePaymentDetailsBankNameMax = 500;
+
+export const getPublicOrderStatusResponsePaymentDetailsBicSwiftMax = 500;
+
+export const getPublicOrderStatusResponsePaymentDetailsPaymentReferenceMax = 500;
+
+export const getPublicOrderStatusResponsePaymentDetailsAmountMax = 120;
+
+export const getPublicOrderStatusResponsePaymentDetailsCustomInstructionsMax = 2000;
+
 
 
 export const GetPublicOrderStatusResponse = zod.object({
@@ -2562,7 +2726,18 @@ export const GetPublicOrderStatusResponse = zod.object({
   "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
   "fundingSource": zod.enum(['whitebit', 'manual']).optional(),
   "fundingError": zod.string().optional(),
-  "settlementDetails": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).optional()
+  "settlementDetails": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).optional(),
+  "paymentDetails": zod.object({
+  "name": zod.string().max(getPublicOrderStatusResponsePaymentDetailsNameMax).optional(),
+  "iban": zod.string().max(getPublicOrderStatusResponsePaymentDetailsIbanMax).optional(),
+  "bankName": zod.string().max(getPublicOrderStatusResponsePaymentDetailsBankNameMax).optional(),
+  "bicSwift": zod.string().max(getPublicOrderStatusResponsePaymentDetailsBicSwiftMax).optional(),
+  "paymentReference": zod.string().max(getPublicOrderStatusResponsePaymentDetailsPaymentReferenceMax).optional(),
+  "amount": zod.string().max(getPublicOrderStatusResponsePaymentDetailsAmountMax).optional(),
+  "customInstructions": zod.string().max(getPublicOrderStatusResponsePaymentDetailsCustomInstructionsMax).optional()
+}).optional(),
+  "paymentDetailsApplicable": zod.boolean().optional(),
+  "customerMarkedPaidAt": zod.string().nullish()
 })
 
 
@@ -2587,6 +2762,20 @@ export const getOrderResponsePaymentReferenceMax = 500;
 export const getOrderResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getOrderResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getOrderResponseCustomerSafeNoteMax = 2000;
+
+export const getOrderResponsePaymentDetailsNameMax = 500;
+
+export const getOrderResponsePaymentDetailsIbanMax = 500;
+
+export const getOrderResponsePaymentDetailsBankNameMax = 500;
+
+export const getOrderResponsePaymentDetailsBicSwiftMax = 500;
+
+export const getOrderResponsePaymentDetailsPaymentReferenceMax = 500;
+
+export const getOrderResponsePaymentDetailsAmountMax = 120;
+
+export const getOrderResponsePaymentDetailsCustomInstructionsMax = 2000;
 
 export const getOrderResponseIncomingTransactionReferenceMax = 500;
 
@@ -2665,6 +2854,17 @@ export const GetOrderResponse = zod.object({
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(getOrderResponseCustomerSafeNoteMax).optional(),
+  "paymentDetails": zod.object({
+  "name": zod.string().max(getOrderResponsePaymentDetailsNameMax).optional(),
+  "iban": zod.string().max(getOrderResponsePaymentDetailsIbanMax).optional(),
+  "bankName": zod.string().max(getOrderResponsePaymentDetailsBankNameMax).optional(),
+  "bicSwift": zod.string().max(getOrderResponsePaymentDetailsBicSwiftMax).optional(),
+  "paymentReference": zod.string().max(getOrderResponsePaymentDetailsPaymentReferenceMax).optional(),
+  "amount": zod.string().max(getOrderResponsePaymentDetailsAmountMax).optional(),
+  "customInstructions": zod.string().max(getOrderResponsePaymentDetailsCustomInstructionsMax).optional()
+}).optional(),
+  "paymentDetailsApplicable": zod.boolean().optional(),
+  "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(getOrderResponseIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(getOrderResponseOutgoingTransactionReferenceMax).optional(),
   "fundingDetails": zod.record(zod.string(), zod.unknown()).optional(),
@@ -2792,6 +2992,20 @@ export const updateOrderBodyOutgoingTransactionReferenceMax = 500;
 
 export const updateOrderBodyCustomerSafeNoteMax = 2000;
 
+export const updateOrderBodyPaymentDetailsOneNameMax = 500;
+
+export const updateOrderBodyPaymentDetailsOneIbanMax = 500;
+
+export const updateOrderBodyPaymentDetailsOneBankNameMax = 500;
+
+export const updateOrderBodyPaymentDetailsOneBicSwiftMax = 500;
+
+export const updateOrderBodyPaymentDetailsOnePaymentReferenceMax = 500;
+
+export const updateOrderBodyPaymentDetailsOneAmountMax = 120;
+
+export const updateOrderBodyPaymentDetailsOneCustomInstructionsMax = 2000;
+
 
 
 export const UpdateOrderBody = zod.object({
@@ -2802,7 +3016,16 @@ export const UpdateOrderBody = zod.object({
   "manualSettlementState": zod.enum(['awaiting_funds', 'funds_confirmed', 'payout_processing', 'payout_sent', 'completed', 'cancelled', 'failed']).optional(),
   "incomingTransactionReference": zod.string().max(updateOrderBodyIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(updateOrderBodyOutgoingTransactionReferenceMax).optional(),
-  "customerSafeNote": zod.string().max(updateOrderBodyCustomerSafeNoteMax).optional()
+  "customerSafeNote": zod.string().max(updateOrderBodyCustomerSafeNoteMax).optional(),
+  "paymentDetails": zod.union([zod.object({
+  "name": zod.string().max(updateOrderBodyPaymentDetailsOneNameMax).optional(),
+  "iban": zod.string().max(updateOrderBodyPaymentDetailsOneIbanMax).optional(),
+  "bankName": zod.string().max(updateOrderBodyPaymentDetailsOneBankNameMax).optional(),
+  "bicSwift": zod.string().max(updateOrderBodyPaymentDetailsOneBicSwiftMax).optional(),
+  "paymentReference": zod.string().max(updateOrderBodyPaymentDetailsOnePaymentReferenceMax).optional(),
+  "amount": zod.string().max(updateOrderBodyPaymentDetailsOneAmountMax).optional(),
+  "customInstructions": zod.string().max(updateOrderBodyPaymentDetailsOneCustomInstructionsMax).optional()
+}),zod.null()]).optional()
 })
 
 export const updateOrderResponseRecordVersionMin = 0;
@@ -2819,6 +3042,20 @@ export const updateOrderResponsePaymentReferenceMax = 500;
 export const updateOrderResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const updateOrderResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const updateOrderResponseCustomerSafeNoteMax = 2000;
+
+export const updateOrderResponsePaymentDetailsNameMax = 500;
+
+export const updateOrderResponsePaymentDetailsIbanMax = 500;
+
+export const updateOrderResponsePaymentDetailsBankNameMax = 500;
+
+export const updateOrderResponsePaymentDetailsBicSwiftMax = 500;
+
+export const updateOrderResponsePaymentDetailsPaymentReferenceMax = 500;
+
+export const updateOrderResponsePaymentDetailsAmountMax = 120;
+
+export const updateOrderResponsePaymentDetailsCustomInstructionsMax = 2000;
 
 export const updateOrderResponseIncomingTransactionReferenceMax = 500;
 
@@ -2897,6 +3134,17 @@ export const UpdateOrderResponse = zod.object({
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(updateOrderResponseCustomerSafeNoteMax).optional(),
+  "paymentDetails": zod.object({
+  "name": zod.string().max(updateOrderResponsePaymentDetailsNameMax).optional(),
+  "iban": zod.string().max(updateOrderResponsePaymentDetailsIbanMax).optional(),
+  "bankName": zod.string().max(updateOrderResponsePaymentDetailsBankNameMax).optional(),
+  "bicSwift": zod.string().max(updateOrderResponsePaymentDetailsBicSwiftMax).optional(),
+  "paymentReference": zod.string().max(updateOrderResponsePaymentDetailsPaymentReferenceMax).optional(),
+  "amount": zod.string().max(updateOrderResponsePaymentDetailsAmountMax).optional(),
+  "customInstructions": zod.string().max(updateOrderResponsePaymentDetailsCustomInstructionsMax).optional()
+}).optional(),
+  "paymentDetailsApplicable": zod.boolean().optional(),
+  "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(updateOrderResponseIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(updateOrderResponseOutgoingTransactionReferenceMax).optional(),
   "fundingDetails": zod.record(zod.string(), zod.unknown()).optional(),
@@ -3009,6 +3257,80 @@ export const UpdateOrderResponse = zod.object({
 
 
 /**
+ * @summary Let the order owner report that payment was sent
+ */
+export const MarkOrderPaidParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const markOrderPaidBodyTrackingTokenMin = 16;
+export const markOrderPaidBodyTrackingTokenMax = 2048;
+
+
+
+export const MarkOrderPaidBody = zod.object({
+  "trackingToken": zod.string().min(markOrderPaidBodyTrackingTokenMin).max(markOrderPaidBodyTrackingTokenMax).optional()
+})
+
+export const markOrderPaidResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const markOrderPaidResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const markOrderPaidResponseCustomerSafeNoteMax = 2000;
+
+export const markOrderPaidResponsePaymentDetailsNameMax = 500;
+
+export const markOrderPaidResponsePaymentDetailsIbanMax = 500;
+
+export const markOrderPaidResponsePaymentDetailsBankNameMax = 500;
+
+export const markOrderPaidResponsePaymentDetailsBicSwiftMax = 500;
+
+export const markOrderPaidResponsePaymentDetailsPaymentReferenceMax = 500;
+
+export const markOrderPaidResponsePaymentDetailsAmountMax = 120;
+
+export const markOrderPaidResponsePaymentDetailsCustomInstructionsMax = 2000;
+
+
+
+export const MarkOrderPaidResponse = zod.object({
+  "id": zod.string(),
+  "type": zod.string(),
+  "status": zod.string(),
+  "fromAsset": zod.string(),
+  "fromNetwork": zod.string().optional(),
+  "sourceSettlementOptionId": zod.string().optional(),
+  "toAsset": zod.string(),
+  "toNetwork": zod.string().optional(),
+  "targetSettlementOptionId": zod.string().optional(),
+  "amount": zod.string().regex(markOrderPaidResponseAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "receiveAmount": zod.string().regex(markOrderPaidResponseReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "refundAddress": zod.string().optional(),
+  "refundMemo": zod.string().optional(),
+  "rateMode": zod.enum(['FLOATING', 'FIXED']).optional(),
+  "outcomeUnknown": zod.boolean(),
+  "refreshUnavailable": zod.boolean(),
+  "statusNotificationsEnabled": zod.boolean(),
+  "trackingToken": zod.string(),
+  "createdAt": zod.string(),
+  "manualSettlementState": zod.string().optional(),
+  "customerSafeNote": zod.string().max(markOrderPaidResponseCustomerSafeNoteMax).optional(),
+  "fundingDetails": zod.record(zod.string(), zod.unknown()).optional(),
+  "settlementDetails": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).optional(),
+  "paymentDetails": zod.object({
+  "name": zod.string().max(markOrderPaidResponsePaymentDetailsNameMax).optional(),
+  "iban": zod.string().max(markOrderPaidResponsePaymentDetailsIbanMax).optional(),
+  "bankName": zod.string().max(markOrderPaidResponsePaymentDetailsBankNameMax).optional(),
+  "bicSwift": zod.string().max(markOrderPaidResponsePaymentDetailsBicSwiftMax).optional(),
+  "paymentReference": zod.string().max(markOrderPaidResponsePaymentDetailsPaymentReferenceMax).optional(),
+  "amount": zod.string().max(markOrderPaidResponsePaymentDetailsAmountMax).optional(),
+  "customInstructions": zod.string().max(markOrderPaidResponsePaymentDetailsCustomInstructionsMax).optional()
+}).optional(),
+  "paymentDetailsApplicable": zod.boolean().optional(),
+  "customerMarkedPaidAt": zod.string().nullish()
+})
+
+
+/**
  * @summary Assign, reassign, or unassign an order
  */
 export const AssignOrderParams = zod.object({
@@ -3040,6 +3362,20 @@ export const assignOrderResponsePaymentReferenceMax = 500;
 export const assignOrderResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const assignOrderResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const assignOrderResponseCustomerSafeNoteMax = 2000;
+
+export const assignOrderResponsePaymentDetailsNameMax = 500;
+
+export const assignOrderResponsePaymentDetailsIbanMax = 500;
+
+export const assignOrderResponsePaymentDetailsBankNameMax = 500;
+
+export const assignOrderResponsePaymentDetailsBicSwiftMax = 500;
+
+export const assignOrderResponsePaymentDetailsPaymentReferenceMax = 500;
+
+export const assignOrderResponsePaymentDetailsAmountMax = 120;
+
+export const assignOrderResponsePaymentDetailsCustomInstructionsMax = 2000;
 
 export const assignOrderResponseIncomingTransactionReferenceMax = 500;
 
@@ -3118,6 +3454,17 @@ export const AssignOrderResponse = zod.object({
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(assignOrderResponseCustomerSafeNoteMax).optional(),
+  "paymentDetails": zod.object({
+  "name": zod.string().max(assignOrderResponsePaymentDetailsNameMax).optional(),
+  "iban": zod.string().max(assignOrderResponsePaymentDetailsIbanMax).optional(),
+  "bankName": zod.string().max(assignOrderResponsePaymentDetailsBankNameMax).optional(),
+  "bicSwift": zod.string().max(assignOrderResponsePaymentDetailsBicSwiftMax).optional(),
+  "paymentReference": zod.string().max(assignOrderResponsePaymentDetailsPaymentReferenceMax).optional(),
+  "amount": zod.string().max(assignOrderResponsePaymentDetailsAmountMax).optional(),
+  "customInstructions": zod.string().max(assignOrderResponsePaymentDetailsCustomInstructionsMax).optional()
+}).optional(),
+  "paymentDetailsApplicable": zod.boolean().optional(),
+  "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(assignOrderResponseIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(assignOrderResponseOutgoingTransactionReferenceMax).optional(),
   "fundingDetails": zod.record(zod.string(), zod.unknown()).optional(),
@@ -3281,6 +3628,20 @@ export const updateOrderSupportToolsResponseAmountRegExp = new RegExp('^-?(?:0|[
 export const updateOrderSupportToolsResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const updateOrderSupportToolsResponseCustomerSafeNoteMax = 2000;
 
+export const updateOrderSupportToolsResponsePaymentDetailsNameMax = 500;
+
+export const updateOrderSupportToolsResponsePaymentDetailsIbanMax = 500;
+
+export const updateOrderSupportToolsResponsePaymentDetailsBankNameMax = 500;
+
+export const updateOrderSupportToolsResponsePaymentDetailsBicSwiftMax = 500;
+
+export const updateOrderSupportToolsResponsePaymentDetailsPaymentReferenceMax = 500;
+
+export const updateOrderSupportToolsResponsePaymentDetailsAmountMax = 120;
+
+export const updateOrderSupportToolsResponsePaymentDetailsCustomInstructionsMax = 2000;
+
 export const updateOrderSupportToolsResponseIncomingTransactionReferenceMax = 500;
 
 export const updateOrderSupportToolsResponseOutgoingTransactionReferenceMax = 500;
@@ -3358,6 +3719,17 @@ export const UpdateOrderSupportToolsResponse = zod.object({
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(updateOrderSupportToolsResponseCustomerSafeNoteMax).optional(),
+  "paymentDetails": zod.object({
+  "name": zod.string().max(updateOrderSupportToolsResponsePaymentDetailsNameMax).optional(),
+  "iban": zod.string().max(updateOrderSupportToolsResponsePaymentDetailsIbanMax).optional(),
+  "bankName": zod.string().max(updateOrderSupportToolsResponsePaymentDetailsBankNameMax).optional(),
+  "bicSwift": zod.string().max(updateOrderSupportToolsResponsePaymentDetailsBicSwiftMax).optional(),
+  "paymentReference": zod.string().max(updateOrderSupportToolsResponsePaymentDetailsPaymentReferenceMax).optional(),
+  "amount": zod.string().max(updateOrderSupportToolsResponsePaymentDetailsAmountMax).optional(),
+  "customInstructions": zod.string().max(updateOrderSupportToolsResponsePaymentDetailsCustomInstructionsMax).optional()
+}).optional(),
+  "paymentDetailsApplicable": zod.boolean().optional(),
+  "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(updateOrderSupportToolsResponseIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(updateOrderSupportToolsResponseOutgoingTransactionReferenceMax).optional(),
   "fundingDetails": zod.record(zod.string(), zod.unknown()).optional(),
@@ -3500,6 +3872,20 @@ export const archiveOrderResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)
 export const archiveOrderResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const archiveOrderResponseCustomerSafeNoteMax = 2000;
 
+export const archiveOrderResponsePaymentDetailsNameMax = 500;
+
+export const archiveOrderResponsePaymentDetailsIbanMax = 500;
+
+export const archiveOrderResponsePaymentDetailsBankNameMax = 500;
+
+export const archiveOrderResponsePaymentDetailsBicSwiftMax = 500;
+
+export const archiveOrderResponsePaymentDetailsPaymentReferenceMax = 500;
+
+export const archiveOrderResponsePaymentDetailsAmountMax = 120;
+
+export const archiveOrderResponsePaymentDetailsCustomInstructionsMax = 2000;
+
 export const archiveOrderResponseIncomingTransactionReferenceMax = 500;
 
 export const archiveOrderResponseOutgoingTransactionReferenceMax = 500;
@@ -3577,6 +3963,17 @@ export const ArchiveOrderResponse = zod.object({
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(archiveOrderResponseCustomerSafeNoteMax).optional(),
+  "paymentDetails": zod.object({
+  "name": zod.string().max(archiveOrderResponsePaymentDetailsNameMax).optional(),
+  "iban": zod.string().max(archiveOrderResponsePaymentDetailsIbanMax).optional(),
+  "bankName": zod.string().max(archiveOrderResponsePaymentDetailsBankNameMax).optional(),
+  "bicSwift": zod.string().max(archiveOrderResponsePaymentDetailsBicSwiftMax).optional(),
+  "paymentReference": zod.string().max(archiveOrderResponsePaymentDetailsPaymentReferenceMax).optional(),
+  "amount": zod.string().max(archiveOrderResponsePaymentDetailsAmountMax).optional(),
+  "customInstructions": zod.string().max(archiveOrderResponsePaymentDetailsCustomInstructionsMax).optional()
+}).optional(),
+  "paymentDetailsApplicable": zod.boolean().optional(),
+  "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(archiveOrderResponseIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(archiveOrderResponseOutgoingTransactionReferenceMax).optional(),
   "fundingDetails": zod.record(zod.string(), zod.unknown()).optional(),
@@ -3719,6 +4116,20 @@ export const restoreOrderResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)
 export const restoreOrderResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const restoreOrderResponseCustomerSafeNoteMax = 2000;
 
+export const restoreOrderResponsePaymentDetailsNameMax = 500;
+
+export const restoreOrderResponsePaymentDetailsIbanMax = 500;
+
+export const restoreOrderResponsePaymentDetailsBankNameMax = 500;
+
+export const restoreOrderResponsePaymentDetailsBicSwiftMax = 500;
+
+export const restoreOrderResponsePaymentDetailsPaymentReferenceMax = 500;
+
+export const restoreOrderResponsePaymentDetailsAmountMax = 120;
+
+export const restoreOrderResponsePaymentDetailsCustomInstructionsMax = 2000;
+
 export const restoreOrderResponseIncomingTransactionReferenceMax = 500;
 
 export const restoreOrderResponseOutgoingTransactionReferenceMax = 500;
@@ -3796,6 +4207,17 @@ export const RestoreOrderResponse = zod.object({
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(restoreOrderResponseCustomerSafeNoteMax).optional(),
+  "paymentDetails": zod.object({
+  "name": zod.string().max(restoreOrderResponsePaymentDetailsNameMax).optional(),
+  "iban": zod.string().max(restoreOrderResponsePaymentDetailsIbanMax).optional(),
+  "bankName": zod.string().max(restoreOrderResponsePaymentDetailsBankNameMax).optional(),
+  "bicSwift": zod.string().max(restoreOrderResponsePaymentDetailsBicSwiftMax).optional(),
+  "paymentReference": zod.string().max(restoreOrderResponsePaymentDetailsPaymentReferenceMax).optional(),
+  "amount": zod.string().max(restoreOrderResponsePaymentDetailsAmountMax).optional(),
+  "customInstructions": zod.string().max(restoreOrderResponsePaymentDetailsCustomInstructionsMax).optional()
+}).optional(),
+  "paymentDetailsApplicable": zod.boolean().optional(),
+  "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(restoreOrderResponseIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(restoreOrderResponseOutgoingTransactionReferenceMax).optional(),
   "fundingDetails": zod.record(zod.string(), zod.unknown()).optional(),
@@ -3949,6 +4371,20 @@ export const getCustomerOrdersResponseItemsItemAmountRegExp = new RegExp('^-?(?:
 export const getCustomerOrdersResponseItemsItemReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getCustomerOrdersResponseItemsItemCustomerSafeNoteMax = 2000;
 
+export const getCustomerOrdersResponseItemsItemPaymentDetailsNameMax = 500;
+
+export const getCustomerOrdersResponseItemsItemPaymentDetailsIbanMax = 500;
+
+export const getCustomerOrdersResponseItemsItemPaymentDetailsBankNameMax = 500;
+
+export const getCustomerOrdersResponseItemsItemPaymentDetailsBicSwiftMax = 500;
+
+export const getCustomerOrdersResponseItemsItemPaymentDetailsPaymentReferenceMax = 500;
+
+export const getCustomerOrdersResponseItemsItemPaymentDetailsAmountMax = 120;
+
+export const getCustomerOrdersResponseItemsItemPaymentDetailsCustomInstructionsMax = 2000;
+
 export const getCustomerOrdersResponseTotalMin = 0;
 export const getCustomerOrdersResponseTotalMultipleOf = 1;
 
@@ -3983,7 +4419,18 @@ export const GetCustomerOrdersResponse = zod.object({
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(getCustomerOrdersResponseItemsItemCustomerSafeNoteMax).optional(),
   "fundingDetails": zod.record(zod.string(), zod.unknown()).optional(),
-  "settlementDetails": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).optional()
+  "settlementDetails": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).optional(),
+  "paymentDetails": zod.object({
+  "name": zod.string().max(getCustomerOrdersResponseItemsItemPaymentDetailsNameMax).optional(),
+  "iban": zod.string().max(getCustomerOrdersResponseItemsItemPaymentDetailsIbanMax).optional(),
+  "bankName": zod.string().max(getCustomerOrdersResponseItemsItemPaymentDetailsBankNameMax).optional(),
+  "bicSwift": zod.string().max(getCustomerOrdersResponseItemsItemPaymentDetailsBicSwiftMax).optional(),
+  "paymentReference": zod.string().max(getCustomerOrdersResponseItemsItemPaymentDetailsPaymentReferenceMax).optional(),
+  "amount": zod.string().max(getCustomerOrdersResponseItemsItemPaymentDetailsAmountMax).optional(),
+  "customInstructions": zod.string().max(getCustomerOrdersResponseItemsItemPaymentDetailsCustomInstructionsMax).optional()
+}).optional(),
+  "paymentDetailsApplicable": zod.boolean().optional(),
+  "customerMarkedPaidAt": zod.string().nullish()
 })),
   "total": zod.number().min(getCustomerOrdersResponseTotalMin).multipleOf(getCustomerOrdersResponseTotalMultipleOf),
   "page": zod.number().min(1).multipleOf(getCustomerOrdersResponsePageMultipleOf),
@@ -4068,6 +4515,20 @@ export const claimCustomerOrderResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][
 export const claimCustomerOrderResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const claimCustomerOrderResponseCustomerSafeNoteMax = 2000;
 
+export const claimCustomerOrderResponsePaymentDetailsNameMax = 500;
+
+export const claimCustomerOrderResponsePaymentDetailsIbanMax = 500;
+
+export const claimCustomerOrderResponsePaymentDetailsBankNameMax = 500;
+
+export const claimCustomerOrderResponsePaymentDetailsBicSwiftMax = 500;
+
+export const claimCustomerOrderResponsePaymentDetailsPaymentReferenceMax = 500;
+
+export const claimCustomerOrderResponsePaymentDetailsAmountMax = 120;
+
+export const claimCustomerOrderResponsePaymentDetailsCustomInstructionsMax = 2000;
+
 
 
 export const ClaimCustomerOrderResponse = zod.object({
@@ -4093,7 +4554,18 @@ export const ClaimCustomerOrderResponse = zod.object({
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(claimCustomerOrderResponseCustomerSafeNoteMax).optional(),
   "fundingDetails": zod.record(zod.string(), zod.unknown()).optional(),
-  "settlementDetails": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).optional()
+  "settlementDetails": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).optional(),
+  "paymentDetails": zod.object({
+  "name": zod.string().max(claimCustomerOrderResponsePaymentDetailsNameMax).optional(),
+  "iban": zod.string().max(claimCustomerOrderResponsePaymentDetailsIbanMax).optional(),
+  "bankName": zod.string().max(claimCustomerOrderResponsePaymentDetailsBankNameMax).optional(),
+  "bicSwift": zod.string().max(claimCustomerOrderResponsePaymentDetailsBicSwiftMax).optional(),
+  "paymentReference": zod.string().max(claimCustomerOrderResponsePaymentDetailsPaymentReferenceMax).optional(),
+  "amount": zod.string().max(claimCustomerOrderResponsePaymentDetailsAmountMax).optional(),
+  "customInstructions": zod.string().max(claimCustomerOrderResponsePaymentDetailsCustomInstructionsMax).optional()
+}).optional(),
+  "paymentDetailsApplicable": zod.boolean().optional(),
+  "customerMarkedPaidAt": zod.string().nullish()
 })
 
 
@@ -4107,6 +4579,20 @@ export const GetCustomerOrderParams = zod.object({
 export const getCustomerOrderResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getCustomerOrderResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getCustomerOrderResponseCustomerSafeNoteMax = 2000;
+
+export const getCustomerOrderResponsePaymentDetailsNameMax = 500;
+
+export const getCustomerOrderResponsePaymentDetailsIbanMax = 500;
+
+export const getCustomerOrderResponsePaymentDetailsBankNameMax = 500;
+
+export const getCustomerOrderResponsePaymentDetailsBicSwiftMax = 500;
+
+export const getCustomerOrderResponsePaymentDetailsPaymentReferenceMax = 500;
+
+export const getCustomerOrderResponsePaymentDetailsAmountMax = 120;
+
+export const getCustomerOrderResponsePaymentDetailsCustomInstructionsMax = 2000;
 
 
 
@@ -4133,7 +4619,18 @@ export const GetCustomerOrderResponse = zod.object({
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(getCustomerOrderResponseCustomerSafeNoteMax).optional(),
   "fundingDetails": zod.record(zod.string(), zod.unknown()).optional(),
-  "settlementDetails": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).optional()
+  "settlementDetails": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).optional(),
+  "paymentDetails": zod.object({
+  "name": zod.string().max(getCustomerOrderResponsePaymentDetailsNameMax).optional(),
+  "iban": zod.string().max(getCustomerOrderResponsePaymentDetailsIbanMax).optional(),
+  "bankName": zod.string().max(getCustomerOrderResponsePaymentDetailsBankNameMax).optional(),
+  "bicSwift": zod.string().max(getCustomerOrderResponsePaymentDetailsBicSwiftMax).optional(),
+  "paymentReference": zod.string().max(getCustomerOrderResponsePaymentDetailsPaymentReferenceMax).optional(),
+  "amount": zod.string().max(getCustomerOrderResponsePaymentDetailsAmountMax).optional(),
+  "customInstructions": zod.string().max(getCustomerOrderResponsePaymentDetailsCustomInstructionsMax).optional()
+}).optional(),
+  "paymentDetailsApplicable": zod.boolean().optional(),
+  "customerMarkedPaidAt": zod.string().nullish()
 })
 
 
@@ -7695,6 +8192,20 @@ export const reconcileOrderResponseOrderAmountRegExp = new RegExp('^-?(?:0|[1-9]
 export const reconcileOrderResponseOrderReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const reconcileOrderResponseOrderCustomerSafeNoteMax = 2000;
 
+export const reconcileOrderResponseOrderPaymentDetailsNameMax = 500;
+
+export const reconcileOrderResponseOrderPaymentDetailsIbanMax = 500;
+
+export const reconcileOrderResponseOrderPaymentDetailsBankNameMax = 500;
+
+export const reconcileOrderResponseOrderPaymentDetailsBicSwiftMax = 500;
+
+export const reconcileOrderResponseOrderPaymentDetailsPaymentReferenceMax = 500;
+
+export const reconcileOrderResponseOrderPaymentDetailsAmountMax = 120;
+
+export const reconcileOrderResponseOrderPaymentDetailsCustomInstructionsMax = 2000;
+
 export const reconcileOrderResponseOrderIncomingTransactionReferenceMax = 500;
 
 export const reconcileOrderResponseOrderOutgoingTransactionReferenceMax = 500;
@@ -7775,6 +8286,17 @@ export const ReconcileOrderResponse = zod.object({
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(reconcileOrderResponseOrderCustomerSafeNoteMax).optional(),
+  "paymentDetails": zod.object({
+  "name": zod.string().max(reconcileOrderResponseOrderPaymentDetailsNameMax).optional(),
+  "iban": zod.string().max(reconcileOrderResponseOrderPaymentDetailsIbanMax).optional(),
+  "bankName": zod.string().max(reconcileOrderResponseOrderPaymentDetailsBankNameMax).optional(),
+  "bicSwift": zod.string().max(reconcileOrderResponseOrderPaymentDetailsBicSwiftMax).optional(),
+  "paymentReference": zod.string().max(reconcileOrderResponseOrderPaymentDetailsPaymentReferenceMax).optional(),
+  "amount": zod.string().max(reconcileOrderResponseOrderPaymentDetailsAmountMax).optional(),
+  "customInstructions": zod.string().max(reconcileOrderResponseOrderPaymentDetailsCustomInstructionsMax).optional()
+}).optional(),
+  "paymentDetailsApplicable": zod.boolean().optional(),
+  "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(reconcileOrderResponseOrderIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(reconcileOrderResponseOrderOutgoingTransactionReferenceMax).optional(),
   "fundingDetails": zod.record(zod.string(), zod.unknown()).optional(),
@@ -8578,6 +9100,20 @@ export const createQuickexOrderResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][
 export const createQuickexOrderResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createQuickexOrderResponseCustomerSafeNoteMax = 2000;
 
+export const createQuickexOrderResponsePaymentDetailsNameMax = 500;
+
+export const createQuickexOrderResponsePaymentDetailsIbanMax = 500;
+
+export const createQuickexOrderResponsePaymentDetailsBankNameMax = 500;
+
+export const createQuickexOrderResponsePaymentDetailsBicSwiftMax = 500;
+
+export const createQuickexOrderResponsePaymentDetailsPaymentReferenceMax = 500;
+
+export const createQuickexOrderResponsePaymentDetailsAmountMax = 120;
+
+export const createQuickexOrderResponsePaymentDetailsCustomInstructionsMax = 2000;
+
 export const createQuickexOrderResponseIncomingTransactionReferenceMax = 500;
 
 export const createQuickexOrderResponseOutgoingTransactionReferenceMax = 500;
@@ -8655,6 +9191,17 @@ export const CreateQuickexOrderResponse = zod.object({
   "fundingProviderError": zod.string().nullish(),
   "manualSettlementState": zod.string().optional(),
   "customerSafeNote": zod.string().max(createQuickexOrderResponseCustomerSafeNoteMax).optional(),
+  "paymentDetails": zod.object({
+  "name": zod.string().max(createQuickexOrderResponsePaymentDetailsNameMax).optional(),
+  "iban": zod.string().max(createQuickexOrderResponsePaymentDetailsIbanMax).optional(),
+  "bankName": zod.string().max(createQuickexOrderResponsePaymentDetailsBankNameMax).optional(),
+  "bicSwift": zod.string().max(createQuickexOrderResponsePaymentDetailsBicSwiftMax).optional(),
+  "paymentReference": zod.string().max(createQuickexOrderResponsePaymentDetailsPaymentReferenceMax).optional(),
+  "amount": zod.string().max(createQuickexOrderResponsePaymentDetailsAmountMax).optional(),
+  "customInstructions": zod.string().max(createQuickexOrderResponsePaymentDetailsCustomInstructionsMax).optional()
+}).optional(),
+  "paymentDetailsApplicable": zod.boolean().optional(),
+  "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(createQuickexOrderResponseIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(createQuickexOrderResponseOutgoingTransactionReferenceMax).optional(),
   "fundingDetails": zod.record(zod.string(), zod.unknown()).optional(),
@@ -8809,6 +9356,20 @@ export const getQuickexOrderStatusResponseAmountRegExp = new RegExp('^-?(?:0|[1-
 export const getQuickexOrderStatusResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getQuickexOrderStatusResponseCustomerSafeNoteMax = 2000;
 
+export const getQuickexOrderStatusResponsePaymentDetailsNameMax = 500;
+
+export const getQuickexOrderStatusResponsePaymentDetailsIbanMax = 500;
+
+export const getQuickexOrderStatusResponsePaymentDetailsBankNameMax = 500;
+
+export const getQuickexOrderStatusResponsePaymentDetailsBicSwiftMax = 500;
+
+export const getQuickexOrderStatusResponsePaymentDetailsPaymentReferenceMax = 500;
+
+export const getQuickexOrderStatusResponsePaymentDetailsAmountMax = 120;
+
+export const getQuickexOrderStatusResponsePaymentDetailsCustomInstructionsMax = 2000;
+
 
 
 export const GetQuickexOrderStatusResponse = zod.object({
@@ -8843,7 +9404,18 @@ export const GetQuickexOrderStatusResponse = zod.object({
   "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
   "fundingSource": zod.enum(['whitebit', 'manual']).optional(),
   "fundingError": zod.string().optional(),
-  "settlementDetails": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).optional()
+  "settlementDetails": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).optional(),
+  "paymentDetails": zod.object({
+  "name": zod.string().max(getQuickexOrderStatusResponsePaymentDetailsNameMax).optional(),
+  "iban": zod.string().max(getQuickexOrderStatusResponsePaymentDetailsIbanMax).optional(),
+  "bankName": zod.string().max(getQuickexOrderStatusResponsePaymentDetailsBankNameMax).optional(),
+  "bicSwift": zod.string().max(getQuickexOrderStatusResponsePaymentDetailsBicSwiftMax).optional(),
+  "paymentReference": zod.string().max(getQuickexOrderStatusResponsePaymentDetailsPaymentReferenceMax).optional(),
+  "amount": zod.string().max(getQuickexOrderStatusResponsePaymentDetailsAmountMax).optional(),
+  "customInstructions": zod.string().max(getQuickexOrderStatusResponsePaymentDetailsCustomInstructionsMax).optional()
+}).optional(),
+  "paymentDetailsApplicable": zod.boolean().optional(),
+  "customerMarkedPaidAt": zod.string().nullish()
 })
 
 

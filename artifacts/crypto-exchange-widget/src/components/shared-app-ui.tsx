@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react';
-import { Check, CircleAlert, RefreshCw, ShieldCheck, X } from 'lucide-react';
-import type { ApiError } from '@workspace/api-client-react';
+import { useState, type ReactNode } from 'react';
+import { Check, CircleAlert, RefreshCw, ShieldCheck, X, Copy } from 'lucide-react';
+import type { ApiError, OrderPaymentDetails } from '@workspace/api-client-react';
 import { useI18n } from '@/i18n';
 
 export const SUPPORT_TELEGRAM = 'https://t.me/Quick_change_support';
@@ -15,6 +15,87 @@ export const getPublicObjectUrl = (path: string | null | undefined) => {
 };
 
 export const cn = (...classes: Array<string | false | undefined>) => classes.filter(Boolean).join(' ');
+
+/** Customer-safe payment instructions. Keep this allowlist in one place so
+ * internal order fields never accidentally become public payment details. */
+export function PaymentDetailsCard({
+  paymentDetails,
+  paymentDetailsApplicable,
+  customerMarkedPaidAt,
+  onMarkPaid,
+  markPaidPending = false,
+  showPayNow = true,
+  supportHref = SUPPORT_TELEGRAM,
+}: {
+  paymentDetails?: OrderPaymentDetails | null;
+  paymentDetailsApplicable?: boolean;
+  customerMarkedPaidAt?: string | null;
+  onMarkPaid?: () => void;
+  markPaidPending?: boolean;
+  showPayNow?: boolean;
+  supportHref?: string;
+}) {
+  const [revealed, setRevealed] = useState(Boolean(paymentDetails));
+  const [copied, setCopied] = useState<string | null>(null);
+  if (!paymentDetailsApplicable) return null;
+  const values: Array<[keyof OrderPaymentDetails, string]> = [
+    ['name', 'Name'], ['iban', 'IBAN'], ['bankName', 'Bank Name'],
+    ['bicSwift', 'BIC / SWIFT'], ['paymentReference', 'Payment Description / Reference'],
+    ['amount', 'Amount'], ['customInstructions', 'Custom Instructions / Note'],
+  ];
+  const available = values.filter(([key]) => {
+    const value = paymentDetails?.[key];
+    return typeof value === 'string' && value.trim();
+  });
+  const copyValue = (key: string, value: string) => {
+    void navigator.clipboard.writeText(value).catch(() => undefined);
+    setCopied(key);
+    window.setTimeout(() => setCopied(current => current === key ? null : current), 1800);
+  };
+  return (
+    <section className="customer-card mb-6 p-5" data-testid="payment-details-card">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-bold">Payment Details / Payment Instructions</h2>
+          {customerMarkedPaidAt && <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400" data-testid="text-customer-marked-paid">Marked as paid</p>}
+        </div>
+        {showPayNow && !revealed && (
+          <button type="button" className="button button-primary" onClick={() => setRevealed(true)} data-testid="button-pay-now">Pay Now</button>
+        )}
+      </div>
+      {!revealed ? null : paymentDetails && available.length > 0 ? (
+        <>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2" data-testid="payment-instructions-fields">
+            {available.map(([key, label]) => {
+              const value = String(paymentDetails[key]);
+              return (
+                <div key={key} className="rounded-xl border border-border bg-muted/20 p-3">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
+                  <div className="mt-1 flex items-start justify-between gap-2">
+                    <span className={cn('whitespace-pre-wrap break-words text-sm', key !== 'customInstructions' && 'font-mono')}>{value}</span>
+                    <button type="button" className="shrink-0 text-muted-foreground hover:text-foreground" onClick={() => copyValue(String(key), value)} aria-label={`Copy ${label}`} data-testid={`button-copy-payment-${key}`}>
+                      {copied === key ? <Check size={15} /> : <Copy size={15} />}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {onMarkPaid && !customerMarkedPaidAt && (
+            <button type="button" className="button button-primary mt-4" onClick={onMarkPaid} disabled={markPaidPending} data-testid="button-mark-paid">
+              {markPaidPending ? 'Marking as Paid…' : 'Mark as Paid'}
+            </button>
+          )}
+        </>
+      ) : (
+        <div className="mt-4 rounded-xl border border-warning/25 bg-warning/10 p-4" data-testid="payment-details-support-prompt">
+          <p className="text-sm">Contact support to get payment details</p>
+          <a className="button button-secondary mt-3 inline-flex" href={supportHref} target="_blank" rel="noreferrer" data-testid="button-contact-support">Contact Support</a>
+        </div>
+      )}
+    </section>
+  );
+}
 
 export const number = (value?: number | string, digits?: number) => {
   if (value === undefined) return '—';

@@ -716,6 +716,27 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /orders/{id}/mark-paid:
+    post:
+      operationId: markOrderPaid
+      tags: [orders]
+      summary: Let the order owner report that payment was sent
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MarkOrderPaidInput" }
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Updated customer-safe order
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomerOrder" }
   /orders/{id}/assignment:
     post:
       operationId: assignOrder
@@ -4343,6 +4364,7 @@ components:
         rateMode: { $ref: "#/components/schemas/QuickexRateMode" }
     OrderUpdate:
       type: object
+      additionalProperties: false
       properties:
         recordVersion: { type: number, minimum: 0, multipleOf: 1 }
         status: { type: string }
@@ -4354,6 +4376,26 @@ components:
         incomingTransactionReference: { type: string, maxLength: 500 }
         outgoingTransactionReference: { type: string, maxLength: 500 }
         customerSafeNote: { type: string, maxLength: 2000 }
+        paymentDetails:
+          oneOf:
+            - $ref: "#/components/schemas/OrderPaymentDetails"
+            - type: "null"
+    OrderPaymentDetails:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, maxLength: 500 }
+        iban: { type: string, maxLength: 500 }
+        bankName: { type: string, maxLength: 500 }
+        bicSwift: { type: string, maxLength: 500 }
+        paymentReference: { type: string, maxLength: 500 }
+        amount: { type: string, maxLength: 120 }
+        customInstructions: { type: string, maxLength: 2000 }
+    MarkOrderPaidInput:
+      type: object
+      additionalProperties: false
+      properties:
+        trackingToken: { type: string, minLength: 16, maxLength: 2048 }
     OrderVersionInput:
       type: object
       required: [recordVersion]
@@ -4501,6 +4543,9 @@ components:
         fundingProviderError: { type: ["string", "null"] }
         manualSettlementState: { type: string }
         customerSafeNote: { type: string, maxLength: 2000 }
+        paymentDetails: { $ref: "#/components/schemas/OrderPaymentDetails" }
+        paymentDetailsApplicable: { type: boolean }
+        customerMarkedPaidAt: { type: ["string", "null"] }
         incomingTransactionReference: { type: string, maxLength: 500 }
         outgoingTransactionReference: { type: string, maxLength: 500 }
         fundingDetails:
@@ -4975,6 +5020,9 @@ components:
         fundingSource: { type: string, enum: [whitebit, manual] }
         fundingError: { type: string }
         settlementDetails: { type: object, additionalProperties: { type: [string, number, "null"] } }
+        paymentDetails: { $ref: "#/components/schemas/OrderPaymentDetails" }
+        paymentDetailsApplicable: { type: boolean }
+        customerMarkedPaidAt: { type: ["string", "null"] }
     CustomerOrder:
       type: object
       required: [id, type, status, fromAsset, toAsset, amount, receiveAmount, outcomeUnknown, refreshUnavailable, statusNotificationsEnabled, trackingToken, createdAt]
@@ -5002,6 +5050,9 @@ components:
         customerSafeNote: { type: string, maxLength: 2000 }
         fundingDetails: { type: object, additionalProperties: true }
         settlementDetails: { type: object, additionalProperties: { type: [string, number, "null"] } }
+        paymentDetails: { $ref: "#/components/schemas/OrderPaymentDetails" }
+        paymentDetailsApplicable: { type: boolean }
+        customerMarkedPaidAt: { type: ["string", "null"] }
     CustomerOrderPage:
       type: object
       required: [items, total, page, pageSize, refreshUnavailable, providerFreshness]

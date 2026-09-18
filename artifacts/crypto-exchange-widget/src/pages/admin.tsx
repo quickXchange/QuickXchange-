@@ -4375,6 +4375,11 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   const [notice, setNotice] = useState<{ kind: 'error' | 'success' | 'warning'; text: string } | null>(null);
   const [reconciliationNotice, setReconciliationNotice] = useState<{ kind: 'error' | 'success' | 'warning'; text: string } | null>(null);
   const [copyInfoCopied, setCopyInfoCopied] = useState(false);
+  const [paymentDetailsDraft, setPaymentDetailsDraft] = useState({
+    name: '', iban: '', bankName: '', bicSwift: '', paymentReference: '', amount: '', customInstructions: '',
+  });
+  const [paymentDetailsEditing, setPaymentDetailsEditing] = useState(false);
+  const [paymentDetailsDirty, setPaymentDetailsDirty] = useState(false);
 
   const order = orderQuery.data;
   const settlementOptions = order?.type === 'manual'
@@ -4405,6 +4410,14 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
     if (!order) return;
     setManualState(order.manualSettlementState || 'awaiting_funds');
     setAssigneeId(order.assignedOperatorId || '');
+    const details = order.paymentDetails || {};
+    setPaymentDetailsDraft({
+      name: details.name || '', iban: details.iban || '', bankName: details.bankName || '',
+      bicSwift: details.bicSwift || '', paymentReference: details.paymentReference || '',
+      amount: details.amount || '', customInstructions: details.customInstructions || '',
+    });
+    setPaymentDetailsEditing(false);
+    setPaymentDetailsDirty(false);
   }, [order?.id, order?.recordVersion]);
 
   useEffect(() => {
@@ -4423,23 +4436,23 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   const [showSettings, setShowSettings] = useState(false);
 
   const handleBack = useCallback(() => {
-    if (supportToolsDirty) {
-      if (!window.confirm("You have unsaved changes in Support Tools. Discard them?")) return;
+    if (supportToolsDirty || paymentDetailsDirty) {
+      if (!window.confirm("You have unsaved order changes. Discard them?")) return;
     }
     setSupportToolsDirty(false);
     setShowSettings(false);
-  }, [supportToolsDirty]);
+  }, [supportToolsDirty, paymentDetailsDirty]);
 
   const hasSettingsAccess = can(PermissionKey.orderssupport_tools) || can(PermissionKey.ordersarchive);
 
   const handleClose = useCallback(() => {
-    if (supportToolsDirty) {
-      if (!window.confirm("You have unsaved changes in Support Tools. Discard them?")) {
+    if (supportToolsDirty || paymentDetailsDirty) {
+      if (!window.confirm("You have unsaved order changes. Discard them?")) {
         return;
       }
     }
     onClose();
-  }, [onClose, supportToolsDirty]);
+  }, [onClose, supportToolsDirty, paymentDetailsDirty]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -4450,14 +4463,14 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   }, [handleClose]);
 
   useEffect(() => {
-    if (!supportToolsDirty) return;
+    if (!supportToolsDirty && !paymentDetailsDirty) return;
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = '';
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [supportToolsDirty]);
+  }, [supportToolsDirty, paymentDetailsDirty]);
 
   const refresh = async () => {
     await Promise.all([
@@ -4481,6 +4494,40 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
       onSuccess: async (updated) => {
         if (!order.assignedOperatorId && updated.assignedOperatorId) setSelfClaimedOperatorId(updated.assignedOperatorId);
         setNotice({ kind: 'success', text: t('adminOrders.order_changes_saved') });
+        await refresh();
+      },
+      onError: failed,
+    });
+  };
+
+  const savePaymentDetails = () => {
+    if (!order) return;
+    const hasValue = Object.values(paymentDetailsDraft).some(value => value.trim());
+    updateOrder.mutate({
+      id,
+      data: { recordVersion: order.recordVersion, paymentDetails: hasValue ? paymentDetailsDraft : null },
+    }, {
+      onSuccess: async () => {
+        setPaymentDetailsEditing(false);
+        setPaymentDetailsDirty(false);
+        setNotice({ kind: 'success', text: 'Payment details saved.' });
+        await refresh();
+      },
+      onError: failed,
+    });
+  };
+
+  const clearPaymentDetails = () => {
+    if (!order || !window.confirm('Clear all saved payment details for this order?')) return;
+    updateOrder.mutate({
+      id,
+      data: { recordVersion: order.recordVersion, paymentDetails: null },
+    }, {
+      onSuccess: async () => {
+        setPaymentDetailsDraft({ name: '', iban: '', bankName: '', bicSwift: '', paymentReference: '', amount: '', customInstructions: '' });
+        setPaymentDetailsEditing(false);
+        setPaymentDetailsDirty(false);
+        setNotice({ kind: 'success', text: 'Payment details cleared.' });
         await refresh();
       },
       onError: failed,
@@ -4800,6 +4847,56 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
 
           {/* Remaining existing fields */}
           <div className="space-y-6 pt-4 border-t border-border">
+              {order.paymentDetailsApplicable && (
+                <div className="quickx-order-card border rounded-xl p-4 shadow-sm space-y-4" data-testid="admin-payment-details">
+                  <div className="flex items-center justify-between gap-3">
+                    <h4 className="quickx-section-label text-xs font-bold uppercase tracking-wider text-muted-foreground">Payment Details / Payment Instructions</h4>
+                    {can(PermissionKey.ordersdetails) && !paymentDetailsEditing && (
+                      <button type="button" className="button button-secondary px-3 py-1.5 text-xs" onClick={() => setPaymentDetailsEditing(true)} data-testid="button-edit-payment-details">Edit</button>
+                    )}
+                  </div>
+                  {order.customerMarkedPaidAt && (
+                    <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400" data-testid="admin-customer-marked-paid">Customer marked paid: {exactDateTime(order.customerMarkedPaidAt)}</p>
+                  )}
+                  {can(PermissionKey.ordersdetails) && paymentDetailsEditing ? (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {([
+                        ['name', 'Name'], ['iban', 'IBAN'], ['bankName', 'Bank Name'], ['bicSwift', 'BIC / SWIFT'],
+                        ['paymentReference', 'Payment Description / Reference'], ['amount', 'Amount'],
+                      ] as const).map(([key, label]) => (
+                        <label key={key} className="space-y-1 text-xs font-semibold text-muted-foreground">
+                          <span>{label}</span>
+                          <input value={paymentDetailsDraft[key]} onChange={event => {
+                            setPaymentDetailsDraft(previous => ({ ...previous, [key]: event.target.value }));
+                            setPaymentDetailsDirty(true);
+                          }} className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground" data-testid={`input-payment-details-${key}`} />
+                        </label>
+                      ))}
+                      <label className="space-y-1 text-xs font-semibold text-muted-foreground sm:col-span-2">
+                        <span>Custom Instructions / Note</span>
+                        <textarea value={paymentDetailsDraft.customInstructions} onChange={event => {
+                          setPaymentDetailsDraft(previous => ({ ...previous, customInstructions: event.target.value }));
+                          setPaymentDetailsDirty(true);
+                        }} rows={3} className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground" data-testid="input-payment-details-custom-instructions" />
+                      </label>
+                      <div className="flex flex-wrap gap-2 sm:col-span-2">
+                        <button type="button" className="button button-primary px-4 py-2 text-xs" onClick={savePaymentDetails} disabled={updateOrder.isPending} data-testid="button-save-payment-details">Save</button>
+                        <button type="button" className="button button-secondary px-4 py-2 text-xs" onClick={clearPaymentDetails} disabled={updateOrder.isPending} data-testid="button-clear-payment-details">Clear</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 text-sm">
+                      {Object.entries(paymentDetailsDraft).some(([, value]) => value.trim()) ? (
+                        Object.entries(paymentDetailsDraft).filter(([, value]) => value.trim()).map(([key, value]) => (
+                          <div key={key} className="flex justify-between gap-3 border-b border-border/50 py-2 last:border-0">
+                            <span className="text-muted-foreground">{humanKey(key)}</span><span className="whitespace-pre-wrap text-right font-medium">{value}</span>
+                          </div>
+                        ))
+                      ) : <span className="text-muted-foreground">No payment details configured.</span>}
+                    </div>
+                  )}
+                </div>
+              )}
              {/* Payment details not yet shown */}
              {paymentDetailRows.length > 0 && (
                <div>

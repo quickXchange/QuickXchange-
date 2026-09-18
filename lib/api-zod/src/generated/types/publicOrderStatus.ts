@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ExactDecimal } from './exactDecimal';
+import type { OrderPaymentDetails } from './orderPaymentDetails';
 import type { ProviderFreshness } from './providerFreshness';
 import type { PublicOrderStatusFundingDetails } from './publicOrderStatusFundingDetails';
 import type { PublicOrderStatusFundingSource } from './publicOrderStatusFundingSource';
@@ -42,4 +43,8 @@ export interface PublicOrderStatus {
   fundingSource?: PublicOrderStatusFundingSource;
   fundingError?: string;
   settlementDetails?: PublicOrderStatusSettlementDetails;
+  paymentDetails?: OrderPaymentDetails;
+  paymentDetailsApplicable?: boolean;
+  /** @nullable */
+  customerMarkedPaidAt?: string | null;
 }

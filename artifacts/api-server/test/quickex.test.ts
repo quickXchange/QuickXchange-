@@ -2736,10 +2736,12 @@ test("manual crypto catalog and signed funding snapshots are independent of Quic
   }
 });
 
-test("manual crypto target requires destination wallet and memo", async () => {
+test("fiat-to-crypto requires a destination wallet but not settlement fields or a memo", async () => {
   reset();
   const api = await startApi();
   let ruleId: string | undefined;
+  let orderId = "";
+  const customerEmail = `manual-target-${randomUUID()}@example.test`;
   try {
     const config = await (await fetch(`${api.url}/exchange/config`)).json() as any;
     const source = config.manualSettlementOptions.find((option: any) =>
@@ -2760,13 +2762,13 @@ test("manual crypto target requires destination wallet and memo", async () => {
       sourceSettlementOptionId: source.id, targetSettlementOptionId: target.id,
     });
     assert.equal(quote.status, 200);
-    const details = settlementDetailsFixture(quote.body.requiredSettlementFields);
+    assert.deepEqual(quote.body.requiredSettlementFields, []);
     const order = {
       type: "manual", fromAsset: source.assetCode, fromNetwork: source.routeNetwork,
       toAsset: target.assetCode, toNetwork: target.routeNetwork, amount: 100,
       sourceSettlementOptionId: source.id, targetSettlementOptionId: target.id,
-      quoteId: quote.body.quoteId, settlementDetails: details,
-      customerEmail: "manual-target@example.test", clientRequestId: randomUUID(),
+      quoteId: quote.body.quoteId,
+      customerEmail, clientRequestId: randomUUID(),
     };
     const missingWallet = await apiJson(api.url, "/orders", order);
     assert.equal(missingWallet.body.code, "MANUAL_DESTINATION_ADDRESS_REQUIRED");
@@ -2779,8 +2781,9 @@ test("manual crypto target requires destination wallet and memo", async () => {
       destinationAddress: "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh",
       clientRequestId: randomUUID(),
     });
-    assert.equal(validAddressMissingMemo.status, 400);
-    assert.equal(validAddressMissingMemo.body.code, "MANUAL_DESTINATION_MEMO_REQUIRED");
+    assert.equal(validAddressMissingMemo.status, 201, JSON.stringify(validAddressMissingMemo.body));
+    assert.equal(validAddressMissingMemo.body.paymentDetailsApplicable, true);
+    orderId = String(validAddressMissingMemo.body.id);
     const invalidMemo = await apiJson(api.url, "/orders", {
       ...order,
       destinationAddress: "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh",
@@ -2790,8 +2793,11 @@ test("manual crypto target requires destination wallet and memo", async () => {
     assert.equal(invalidMemo.status, 400);
     assert.equal(invalidMemo.body.code, "MANUAL_DESTINATION_MEMO_INVALID");
   } finally {
+    const { customersTable, db, ordersTable } = await import("@workspace/db");
+    if (orderId) await db.delete(ordersTable).where(eq(ordersTable.id, orderId));
+    await db.delete(customersTable).where(eq(customersTable.email, customerEmail));
     if (ruleId) {
-      const { db, manualDeskPricingRulesTable } = await import("@workspace/db");
+      const { manualDeskPricingRulesTable } = await import("@workspace/db");
       await db.delete(manualDeskPricingRulesTable).where(eq(manualDeskPricingRulesTable.id, ruleId));
     }
     await api.close();
@@ -4972,19 +4978,7 @@ test("low-rate manual tickets persist a non-exponent canonical final rate", asyn
       ...route,
     });
     assert.equal(quote.status, 200);
-    assert.deepEqual(
-      quote.body.requiredSettlementFields.slice(0, 5).map((field: any) => ({
-        key: field.key,
-        required: field.required,
-      })),
-      [
-        { key: "source_name", required: true },
-        { key: "source_bank_detail", required: true },
-        { key: "source_bank_name", required: true },
-        { key: "source_payment_description", required: false },
-        { key: "source_telegram_or_whatsapp", required: false },
-      ],
-    );
+    assert.deepEqual(quote.body.requiredSettlementFields, []);
     const signed = JSON.parse(
       Buffer.from(String(quote.body.quoteId).split(".")[0], "base64url").toString("utf8"),
     ) as { pricingSnapshot: { amounts: { finalRate: string } } };
@@ -4994,10 +4988,9 @@ test("low-rate manual tickets persist a non-exponent canonical final rate", asyn
       type: "manual", fromAsset: "USD", fromNetwork: "Bank transfer",
       toAsset: "BTC", toNetwork: "Bitcoin", amount: 100,
       quoteId: quote.body.quoteId, customerEmail: email,
-      clientRequestId: requestIdForTest(937),
+      clientRequestId: randomUUID(),
       paymentMethod: "bank transfer", payoutMethod: "wallet",
       destinationAddress: "1BoatSLRHtKNngkdXEeobR76b53LETtpyT",
-      settlementDetails: settlementDetailsFixture(quote.body.requiredSettlementFields),
       ...route,
     });
     assert.equal(order.status, 201);

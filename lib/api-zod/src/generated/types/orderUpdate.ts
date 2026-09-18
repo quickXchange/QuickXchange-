@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { OrderPaymentDetails } from './orderPaymentDetails';
 import type { OrderUpdateManualSettlementState } from './orderUpdateManualSettlementState';
 
 export interface OrderUpdate {
@@ -20,4 +21,5 @@ export interface OrderUpdate {
   outgoingTransactionReference?: string;
   /** @maxLength 2000 */
   customerSafeNote?: string;
+  paymentDetails?: OrderPaymentDetails | null;
 }

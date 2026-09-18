@@ -8,6 +8,7 @@
 import type { CustomerOrderFundingDetails } from './customerOrderFundingDetails';
 import type { CustomerOrderSettlementDetails } from './customerOrderSettlementDetails';
 import type { ExactDecimal } from './exactDecimal';
+import type { OrderPaymentDetails } from './orderPaymentDetails';
 import type { QuickexRateMode } from './quickexRateMode';
 
 export interface CustomerOrder {
@@ -35,4 +36,8 @@ export interface CustomerOrder {
   customerSafeNote?: string;
   fundingDetails?: CustomerOrderFundingDetails;
   settlementDetails?: CustomerOrderSettlementDetails;
+  paymentDetails?: OrderPaymentDetails;
+  paymentDetailsApplicable?: boolean;
+  /** @nullable */
+  customerMarkedPaidAt?: string | null;
 }

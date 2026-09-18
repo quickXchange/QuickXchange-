@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useParams, useSearch, Link } from "wouter";
 import { 
   useGetPublicOrderStatus, 
   useGetQuickexOrderStatus, 
   getGetPublicOrderStatusQueryKey, 
   getGetQuickexOrderStatusQueryKey 
+  , useMarkOrderPaid
 } from "@workspace/api-client-react";
 import type { ApiError } from "@workspace/api-client-react";
 import { PublicShell } from "@/components/public-shell";
@@ -12,7 +14,7 @@ import {
   CircleAlert, RefreshCw, Loader2, Copy, Network, Check, ArrowRight, ShieldCheck
 } from "lucide-react";
 import { useI18n } from "@/i18n";
-import { cn } from "@/components/shared-app-ui";
+import { cn, PaymentDetailsCard, SUPPORT_TELEGRAM } from "@/components/shared-app-ui";
 import { OrderSettlementIdentity } from "@/components/order-settlement-identity";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -74,6 +76,8 @@ export function OrderConfirmationPage() {
   const isQuickex = provider === "quickex";
   
   const { t, formatNumber } = useI18n();
+  const queryClient = useQueryClient();
+  const markPaidMutation = useMarkOrderPaid();
   const [orderIdCopied, setOrderIdCopied] = useState(false);
   const formatAmount = (value?: number | string) => {
     const parsed = Number(value);
@@ -117,6 +121,13 @@ export function OrderConfirmationPage() {
   const lookupErrorMessage = notFound ? t('orderStatus.notFound') : t('orderStatus.refreshFailed');
 
   const order = activeStatusQuery.data?.id === id ? activeStatusQuery.data : undefined;
+  const markPaid = () => {
+    markPaidMutation.mutate({ id, data: trackingToken ? { trackingToken } : undefined }, {
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: getGetPublicOrderStatusQueryKey(id, trackingParams) });
+      },
+    });
+  };
 
   useEffect(() => {
     document.title = order
@@ -397,6 +408,16 @@ export function OrderConfirmationPage() {
             </div>
 
             <div className="oc-deposit-column">
+               {!isQuickex && order.paymentDetailsApplicable && (
+                 <PaymentDetailsCard
+                   paymentDetails={order.paymentDetails}
+                   paymentDetailsApplicable={order.paymentDetailsApplicable}
+                   customerMarkedPaidAt={order.customerMarkedPaidAt}
+                   onMarkPaid={markPaid}
+                   markPaidPending={markPaidMutation.isPending}
+                   supportHref={SUPPORT_TELEGRAM}
+                 />
+               )}
               {hasPaymentInstructions && (
                 <div className="oc-card oc-deposit-card" data-testid="order-confirmation-payment-card">
                <div className="oc-deposit-header">

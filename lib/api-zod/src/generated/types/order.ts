@@ -9,6 +9,7 @@ import type { ExactDecimal } from './exactDecimal';
 import type { OrderFundingAddressSource } from './orderFundingAddressSource';
 import type { OrderFundingDetails } from './orderFundingDetails';
 import type { OrderFundingStatus } from './orderFundingStatus';
+import type { OrderPaymentDetails } from './orderPaymentDetails';
 import type { OrderPricingSnapshot } from './orderPricingSnapshot';
 import type { OrderReceivingStatus } from './orderReceivingStatus';
 import type { OrderSendingStatus } from './orderSendingStatus';
@@ -70,6 +71,10 @@ export interface Order {
   manualSettlementState?: string;
   /** @maxLength 2000 */
   customerSafeNote?: string;
+  paymentDetails?: OrderPaymentDetails;
+  paymentDetailsApplicable?: boolean;
+  /** @nullable */
+  customerMarkedPaidAt?: string | null;
   /** @maxLength 500 */
   incomingTransactionReference?: string;
   /** @maxLength 500 */

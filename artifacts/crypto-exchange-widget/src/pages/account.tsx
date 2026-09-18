@@ -9,6 +9,7 @@ import {
   useGetCustomerOrder, getGetCustomerOrderQueryKey,
   useClaimCustomerOrder,
   useUpdateCustomerOrderNotifications,
+  useMarkOrderPaid,
   useGetAffiliateDashboard, getGetAffiliateDashboardQueryKey,
   useBindAffiliateReferrer,
   captureAffiliateReferral,
@@ -20,7 +21,7 @@ import { useI18n } from '../i18n/provider';
 import { CustomerShell, CustomerPageHeader, ThemeToggle } from '@/components/customer/CustomerShell';
 import { CustomerStatCard } from '@/components/customer/CustomerStatCard';
 import { LanguageSelector } from '@/components/language-selector';
-import { basePath, cn, ErrorState, InlineNotice, LoadingBlock, number, publicApiErrorText, StatusPill } from '@/components/shared-app-ui';
+import { basePath, cn, ErrorState, InlineNotice, LoadingBlock, number, publicApiErrorText, StatusPill, PaymentDetailsCard, SUPPORT_TELEGRAM } from '@/components/shared-app-ui';
 import { PublicShell } from '@/components/public-shell';
 import { ExchangeModeSwitcher } from '@/components/exchange-surface';
 
@@ -1042,8 +1043,10 @@ function CustomerOrderNotificationControl({ order }: { order: CustomerOrder }) {
 
 function CustomerOrderView({ order }: { order: CustomerOrder }) {
   const { t, formatDate } = useI18n();
+  const queryClient = useQueryClient();
   const statusGroup = customerStatusGroup(order.status);
   const isFailed = statusGroup === 'failed';
+  const markPaidMutation = useMarkOrderPaid();
   const normalizedStatus = order.status.trim().toLowerCase();
   const currentStage = statusGroup === 'completed'
     ? 3
@@ -1195,6 +1198,22 @@ function CustomerOrderView({ order }: { order: CustomerOrder }) {
         </div>
       )}
 
+      {order.paymentDetailsApplicable && (
+        <PaymentDetailsCard
+          paymentDetails={order.paymentDetails}
+          paymentDetailsApplicable={order.paymentDetailsApplicable}
+          customerMarkedPaidAt={order.customerMarkedPaidAt}
+          onMarkPaid={() => markPaidMutation.mutate({ id: order.id }, {
+            onSuccess: () => {
+              void queryClient.invalidateQueries({ queryKey: getGetCustomerOrderQueryKey(order.id) });
+              void queryClient.invalidateQueries({ queryKey: getGetCustomerOrdersQueryKey() });
+            },
+          })}
+          markPaidPending={markPaidMutation.isPending}
+          supportHref={SUPPORT_TELEGRAM}
+        />
+      )}
+
       <CustomerOrderNotificationControl order={order} />
     </div>
   );
@@ -1214,7 +1233,18 @@ export function AccountOrderDetailPage() {
     }
   }, [isLoaded, isSignedIn, setLocation]);
 
-  const order = useGetCustomerOrder(id, { query: { queryKey: getGetCustomerOrderQueryKey(id), enabled: isLoaded && isSignedIn && !!id } });
+  const order = useGetCustomerOrder(id, {
+    query: {
+      queryKey: getGetCustomerOrderQueryKey(id),
+      enabled: isLoaded && isSignedIn && !!id,
+      refetchInterval: (query: any) => {
+        const current = query.state.data;
+        if (!current?.paymentDetailsApplicable) return false;
+        if (/complete|paid|fail|cancel|refund|expire/i.test(current.status || '')) return false;
+        return 12000;
+      },
+    },
+  });
 
   if (!isLoaded || !isSignedIn) return null;
 

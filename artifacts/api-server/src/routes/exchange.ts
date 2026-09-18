@@ -109,6 +109,8 @@ import {
   UpdateOrderSupportToolsResponse,
   PermanentlyDeleteOrdersBody,
   PermanentlyDeleteOrdersResponse,
+  MarkOrderPaidBody,
+  MarkOrderPaidResponse,
 } from "@workspace/api-zod";
 import {
   customerStatusNotificationEventsTable,
@@ -371,6 +373,11 @@ function outputOrder(row: typeof ordersTable.$inferSelect) {
       : row.fundingStatus === "ready_manual"
         ? (row.providerState === "whitebit_fallback" ? "manual_fallback" : "manual_only")
         : "unavailable",
+    paymentDetails: isApplicablePaymentDetailsOrder(row)
+      ? row.paymentDetails ?? undefined
+      : undefined,
+    paymentDetailsApplicable: isApplicablePaymentDetailsOrder(row),
+    customerMarkedPaidAt: row.customerMarkedPaidAt?.toISOString() ?? null,
   };
   // JSONB is untrusted persisted data: validate it before exposing it on the
   // operator order representation rather than treating a historical blob as
@@ -385,6 +392,16 @@ function outputOrder(row: typeof ordersTable.$inferSelect) {
     };
   }
   return result;
+}
+
+function isApplicablePaymentDetailsOrder(row: typeof ordersTable.$inferSelect): boolean {
+  const snapshot = row.settlementSnapshot as {
+    source?: { kind?: string };
+    target?: { kind?: string };
+  } | null;
+  return row.type === "manual" &&
+    snapshot?.source?.kind === "fiat-payment-method" &&
+    snapshot?.target?.kind === "crypto-network";
 }
 
 function outputSupportMetadata(row: typeof orderSupportMetadataTable.$inferSelect) {
@@ -451,7 +468,10 @@ function outputCustomerOrder(
        ? row.depositMemo || undefined : undefined,
      fundingDetails: row.type === "manual" && ["ready_whitebit", "ready_manual"].includes(row.fundingStatus)
        ? row.fundingDetailsSnapshot ?? undefined : undefined,
-    settlementDetails: row.type === "manual" ? row.settlementDetails ?? undefined : undefined,
+     settlementDetails: row.type === "manual" ? row.settlementDetails ?? undefined : undefined,
+     paymentDetails: isApplicablePaymentDetailsOrder(row) ? row.paymentDetails ?? undefined : undefined,
+     paymentDetailsApplicable: isApplicablePaymentDetailsOrder(row),
+     customerMarkedPaidAt: row.customerMarkedPaidAt?.toISOString() ?? null,
     trackingToken: signOrderTrackingToken(row.id),
     createdAt: row.createdAt.toISOString(),
   };
@@ -859,10 +879,13 @@ async function buildQuoteTicket(
         customerInstructions: rule.customerInstructions ?? null,
         expectedSettlementMinutes: rule.expectedSettlementMinutes ?? null,
       },
-      requiredFields: settlementFieldsForRoute(
-        sourceOption.kind === "fiat-payment-method" ? sourceOption.fields as never : undefined,
-        targetOption.kind === "fiat-payment-method" ? targetOption.fields as never : undefined,
-      ) as never,
+      requiredFields: sourceOption.kind === "fiat-payment-method" &&
+        targetOption.kind === "crypto-network"
+        ? []
+        : settlementFieldsForRoute(
+            sourceOption.kind === "fiat-payment-method" ? sourceOption.fields as never : undefined,
+            targetOption.kind === "fiat-payment-method" ? targetOption.fields as never : undefined,
+          ) as never,
       funding: sourceOption.kind === "crypto-network" ? await (async () => {
         const source = await findManualCryptoNetworkByIdForAsset(
           sourceOption!.networkSlug,
@@ -1026,10 +1049,13 @@ async function revalidateManualDeskQuoteRoute(quote: QuoteTicket): Promise<void>
     } else if (snapshot.funding !== undefined) {
       throw new ApiError("SETTLEMENT_OPTION_CHANGED", "The signed funding instructions no longer match this route.", 409);
     }
-    const currentFields = settlementFieldsForRoute(
-      source!.kind === "fiat-payment-method" ? source!.fields as never : undefined,
-      target!.kind === "fiat-payment-method" ? target!.fields as never : undefined,
-    );
+    const currentFields = source!.kind === "fiat-payment-method" &&
+      target!.kind === "crypto-network"
+      ? []
+      : settlementFieldsForRoute(
+          source!.kind === "fiat-payment-method" ? source!.fields as never : undefined,
+          target!.kind === "fiat-payment-method" ? target!.fields as never : undefined,
+        );
     if (JSON.stringify(currentFields) !== JSON.stringify(snapshot.requiredFields)) {
       throw new ApiError("SETTLEMENT_OPTION_CHANGED", "The required settlement details changed after this quote was issued.", 409);
     }
@@ -1954,8 +1980,12 @@ router.get("/orders/:id/status", async (req, res, next) => {
           ? "Deposit address provisioning is pending operator recovery." : undefined,
          fundingDetails: canViewDeposit && row.type === "manual" && ["ready_whitebit", "ready_manual"].includes(row.fundingStatus)
           ? row.fundingDetailsSnapshot ?? undefined : undefined,
-        settlementDetails: canViewDeposit && row.type === "manual"
+          settlementDetails: canViewDeposit && row.type === "manual"
           ? row.settlementDetails ?? undefined : undefined,
+         paymentDetails: canViewDeposit && isApplicablePaymentDetailsOrder(row)
+           ? row.paymentDetails ?? undefined : undefined,
+         paymentDetailsApplicable: isApplicablePaymentDetailsOrder(row),
+         customerMarkedPaidAt: row.customerMarkedPaidAt?.toISOString() ?? null,
         rateMode: orderRateMode(row),
         outcomeUnknown: row.outcomeUnknown,
         refreshUnavailable: false,
@@ -2256,7 +2286,7 @@ async function validateManualOrderDetails(input: {
   destinationMemo?: string;
   refundAddress?: string | null;
   refundMemo?: string | null;
-}, requiresStableSettlement: boolean) {
+}, requiresStableSettlement: boolean, fiatToCrypto: boolean) {
   // Legacy v1 manual tickets predate crypto settlement options and did not
   // collect payout wallet details. Keep those already-issued/direct flows
   // readable while requiring them for the explicit v2 crypto route.
@@ -2269,12 +2299,13 @@ async function validateManualOrderDetails(input: {
     if (!isSyntacticallyValidManualWalletAddress(target.network, input.destinationAddress)) {
       throw new ApiError("MANUAL_DESTINATION_ADDRESS_INVALID", "The destination wallet address is not valid for the selected network.", 400);
     }
-    if (target.network.requiresMemo && !input.destinationMemo?.trim()) {
+    if (target.network.requiresMemo && !fiatToCrypto && !input.destinationMemo?.trim()) {
       throw new ApiError("MANUAL_DESTINATION_MEMO_REQUIRED", "A destination memo is required for this crypto network.", 400);
     }
     if (
       target.network.requiresMemo &&
-      !isSyntacticallyValidManualWalletMemo(target.network, input.destinationMemo!)
+      input.destinationMemo?.trim() &&
+      !isSyntacticallyValidManualWalletMemo(target.network, input.destinationMemo)
     ) {
       throw new ApiError("MANUAL_DESTINATION_MEMO_INVALID", "The destination memo is not valid for the selected network.", 400);
     }
@@ -2322,13 +2353,15 @@ async function createOrderFromInput(
     );
   }
   await revalidateManualDeskQuoteRoute(quote);
-  const settlementDetails = quote.v === 2
+  const fiatToCrypto = quote.settlementSnapshot?.source?.kind === "fiat-payment-method" &&
+    quote.settlementSnapshot?.target?.kind === "crypto-network";
+  const settlementDetails = quote.v === 2 && !fiatToCrypto
     ? validateSettlementDetails(
         quote.settlementSnapshot?.requiredFields ?? [],
         input.settlementDetails,
       )
     : undefined;
-  await validateManualOrderDetails(input, quote.v === 2);
+  await validateManualOrderDetails(input, quote.v === 2, fiatToCrypto);
 
   const createdAt = new Date();
   const sourceSnapshot = quote.settlementSnapshot?.source;
@@ -2609,7 +2642,10 @@ function parseManualOrderPatch(value: unknown) {
   for (const [key, max] of [["incomingTransactionReference", 500], ["outgoingTransactionReference", 500], ["customerSafeNote", 2000]] as const) {
     if (body[key] !== undefined && (typeof body[key] !== "string" || body[key].length > max)) throw new ApiError("VALIDATION_ERROR", `Invalid ${key}.`, 400);
   }
-  return body as { manualSettlementState?: string; incomingTransactionReference?: string; outgoingTransactionReference?: string; customerSafeNote?: string };
+  return body as {
+    manualSettlementState?: string; incomingTransactionReference?: string; outgoingTransactionReference?: string;
+    customerSafeNote?: string; paymentDetails?: Record<string, string> | null;
+  };
 }
 
 function orderStatusPermission(status: string): PermissionKey {
@@ -2642,6 +2678,7 @@ function requireOrderPatchPermissions(
     incomingTransactionReference?: string;
     outgoingTransactionReference?: string;
     customerSafeNote?: string;
+    paymentDetails?: Record<string, string> | null;
   },
 ): PermissionKey[] {
   const required = new Set<PermissionKey>();
@@ -2659,6 +2696,7 @@ function requireOrderPatchPermissions(
     manualInput.incomingTransactionReference !== undefined ||
     manualInput.outgoingTransactionReference !== undefined;
   if (operationalChanged) required.add("orders.status");
+  if (manualInput.paymentDetails !== undefined) required.add("orders.details");
   if (!required.size && operator.role !== "owner") {
     throw new ApiError(
       "PERMISSION_ACCESS_DENIED",
@@ -2906,6 +2944,57 @@ router.post("/orders/bulk/status", requireOperator, async (req, res, next) => {
   }
 });
 
+router.post("/orders/:id/mark-paid", async (req, res, next) => {
+  try {
+    const params = UpdateOrderParams.parse(req.params);
+    const input = MarkOrderPaidBody.parse(req.body ?? {});
+    const customerId = getCustomerActorUserId(req);
+    const updated = await db.transaction(async (tx) => {
+      const [existing] = await tx.select().from(ordersTable)
+        .where(eq(ordersTable.id, params.id))
+        .limit(1)
+        .for("update");
+      if (!existing) throw new ApiError("ORDER_NOT_FOUND", "Order not found.", 404);
+      const tokenValid = verifyOrderTrackingToken(input.trackingToken, existing.id);
+      if (!tokenValid && (!customerId || existing.customerClerkUserId !== customerId)) {
+        throw new ApiError("ORDER_ACCESS_DENIED", "Order access is required.", 403);
+      }
+      if (!isApplicablePaymentDetailsOrder(existing)) {
+        throw new ApiError("PAYMENT_DETAILS_NOT_APPLICABLE", "Payment details are not available for this order.", 409);
+      }
+      if (existing.customerMarkedPaidAt) return existing;
+      if (!existing.paymentDetails) {
+        throw new ApiError("PAYMENT_DETAILS_NOT_APPLICABLE", "Payment details are not available for this order.", 409);
+      }
+      const [marked] = await tx.update(ordersTable).set({
+        customerMarkedPaidAt: new Date(),
+        recordVersion: sql`${ordersTable.recordVersion} + 1`,
+      }).where(and(
+        eq(ordersTable.id, existing.id),
+        eq(ordersTable.recordVersion, existing.recordVersion),
+        isNull(ordersTable.customerMarkedPaidAt),
+      )).returning();
+      if (!marked) {
+        throw new ApiError("ORDER_UPDATE_CONFLICT", "The order changed concurrently. Try again.", 409);
+      }
+      await tx.insert(orderAuditLogsTable).values({
+        orderId: existing.id,
+        action: "order.customer_marked_paid",
+        actorType: "customer",
+        actorId: customerId ?? null,
+        requestId: req.id == null ? null : String(req.id),
+        previousVersion: existing.recordVersion,
+        nextVersion: marked.recordVersion,
+        details: { changedFields: ["customerMarkedPaidAt"] },
+      });
+      return marked;
+    });
+    res.json(MarkOrderPaidResponse.parse(outputCustomerOrder(updated, false)));
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.patch("/orders/:id", requireOperator, async (req, res, next) => {
   try {
     const params = UpdateOrderParams.parse(req.params);
@@ -2999,6 +3088,14 @@ router.patch("/orders/:id", requireOperator, async (req, res, next) => {
         409,
       );
     }
+    if (input.paymentDetails !== undefined) {
+      if (!isApplicablePaymentDetailsOrder(existing)) {
+        throw new ApiError("PAYMENT_DETAILS_NOT_APPLICABLE", "Payment details are only valid for manual fiat-to-crypto orders.", 409);
+      }
+      if (input.recordVersion === undefined) {
+        throw new ApiError("ORDER_UPDATE_CONFLICT", "recordVersion is required for payment detail updates.", 409);
+      }
+    }
     if (manualInput.manualSettlementState !== undefined) {
       if (existing.type !== "manual") {
         throw new ApiError("MANUAL_SETTLEMENT_NOT_APPLICABLE", "Manual settlement updates are only valid for manual orders.", 409);
@@ -3029,6 +3126,9 @@ router.patch("/orders/:id", requireOperator, async (req, res, next) => {
       ...(manualInput.incomingTransactionReference !== undefined ? { incomingTransactionReference: manualInput.incomingTransactionReference } : {}),
       ...(manualInput.outgoingTransactionReference !== undefined ? { outgoingTransactionReference: manualInput.outgoingTransactionReference } : {}),
       ...(manualInput.customerSafeNote !== undefined ? { customerSafeNote: manualInput.customerSafeNote } : {}),
+      ...(input.paymentDetails !== undefined
+        ? { paymentDetails: Object.keys(input.paymentDetails ?? {}).length ? input.paymentDetails : null }
+        : {}),
     };
     const row = await updateOrderAndQueueStatusNotification(
       existing,
@@ -3043,6 +3143,12 @@ router.patch("/orders/:id", requireOperator, async (req, res, next) => {
           operatorClaimedUnassignedOrder: operatorClaimsUnassignedOrder,
           ...(stateChanged
             ? manualTransitionDetails(existing.manualSettlementState, state)
+            : {}),
+          ...(input.paymentDetails !== undefined
+            ? {
+                paymentDetailsChanged: true,
+                paymentDetailsCleared: Object.keys(input.paymentDetails ?? {}).length === 0,
+              }
             : {}),
         },
       },

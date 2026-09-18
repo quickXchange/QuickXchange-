@@ -1310,6 +1310,23 @@ export const OrderUpdateManualSettlementState = {
   failed: 'failed',
 } as const;
 
+export interface OrderPaymentDetails {
+  /** @maxLength 500 */
+  name?: string;
+  /** @maxLength 500 */
+  iban?: string;
+  /** @maxLength 500 */
+  bankName?: string;
+  /** @maxLength 500 */
+  bicSwift?: string;
+  /** @maxLength 500 */
+  paymentReference?: string;
+  /** @maxLength 120 */
+  amount?: string;
+  /** @maxLength 2000 */
+  customInstructions?: string;
+}
+
 export interface OrderUpdate {
   /** @minimum 0 */
   recordVersion?: number;
@@ -1323,6 +1340,15 @@ export interface OrderUpdate {
   outgoingTransactionReference?: string;
   /** @maxLength 2000 */
   customerSafeNote?: string;
+  paymentDetails?: OrderPaymentDetails | null;
+}
+
+export interface MarkOrderPaidInput {
+  /**
+     * @minLength 16
+     * @maxLength 2048
+     */
+  trackingToken?: string;
 }
 
 export interface OrderVersionInput {
@@ -1699,6 +1725,10 @@ export interface Order {
   manualSettlementState?: string;
   /** @maxLength 2000 */
   customerSafeNote?: string;
+  paymentDetails?: OrderPaymentDetails;
+  paymentDetailsApplicable?: boolean;
+  /** @nullable */
+  customerMarkedPaidAt?: string | null;
   /** @maxLength 500 */
   incomingTransactionReference?: string;
   /** @maxLength 500 */
@@ -2315,6 +2345,10 @@ export interface PublicOrderStatus {
   fundingSource?: PublicOrderStatusFundingSource;
   fundingError?: string;
   settlementDetails?: PublicOrderStatusSettlementDetails;
+  paymentDetails?: OrderPaymentDetails;
+  paymentDetailsApplicable?: boolean;
+  /** @nullable */
+  customerMarkedPaidAt?: string | null;
 }
 
 export type CustomerOrderFundingDetails = { [key: string]: unknown };
@@ -2346,6 +2380,10 @@ export interface CustomerOrder {
   customerSafeNote?: string;
   fundingDetails?: CustomerOrderFundingDetails;
   settlementDetails?: CustomerOrderSettlementDetails;
+  paymentDetails?: OrderPaymentDetails;
+  paymentDetailsApplicable?: boolean;
+  /** @nullable */
+  customerMarkedPaidAt?: string | null;
 }
 
 export interface CustomerOrderPage {

@@ -95,6 +95,8 @@ export const ordersTable = pgTable("exchange_orders", {
     targetSettlementOptionId: text("target_settlement_option_id"),
     settlementSnapshot: jsonb("settlement_snapshot"),
     settlementDetails: jsonb("settlement_details"),
+    paymentDetails: jsonb("payment_details"),
+    customerMarkedPaidAt: timestamp("customer_marked_paid_at", { withTimezone: true }),
     manualSettlementState: text("manual_settlement_state").notNull().default("not_required"),
     manualSettlementStateUpdatedAt: timestamp("manual_settlement_state_updated_at", {
       withTimezone: true,

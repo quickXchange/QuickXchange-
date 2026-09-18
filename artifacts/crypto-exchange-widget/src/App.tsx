@@ -21,7 +21,7 @@ import {
   getGetOrdersQueryKey, getGetOrdersXmlQueryKey, getGetOrderReconciliationAttemptsQueryKey, getGetPublicOrderStatusQueryKey, getGetQuickexOrderStatusQueryKey, getHealthCheckQueryKey, getGetQuickexCredentialsQueryKey, getGetQuickexConfigQueryKey,
   useCreateOrder, useCreateExchangeQuote, useGetAdminSummary, useGetCustomers,
   useGetExchangeRoutePricing,
-  useGetExchangeConfig, useGetQuickexConfig, useGetOrders, useGetPublicOrderStatus, useGetQuickexOrderStatus, getOrdersXml, useHealthCheck, useUpdateOrder,
+  useGetExchangeConfig, useGetQuickexConfig, useGetOrders, useGetPublicOrderStatus, useGetQuickexOrderStatus, getOrdersXml, useHealthCheck, useUpdateOrder, useMarkOrderPaid,
   useGetQuickexCredentials, useTestQuickexCredentials, useUpdateQuickexCredentials,
   useGetOperators, getGetOperatorsQueryKey,
   useCreateOperatorInvitation,
@@ -85,7 +85,7 @@ import { AdminHeader } from '@/components/admin-header';
 export { PublicShell } from '@/components/public-shell';
 import {
   apiErrorData, basePath, cn, ErrorState, InlineNotice, LoadingBlock, neutralText,
-  number, publicApiErrorText, shortId, StatusPill,
+  number, PaymentDetailsCard, publicApiErrorText, shortId, StatusPill, SUPPORT_TELEGRAM,
 } from '@/components/shared-app-ui';
 export {
   FiatCurrencyFlag, isFiatCurrencyCode, PaymentMethodCopy, PaymentMethodLogo, sameSettlementOptionId,
@@ -1237,6 +1237,8 @@ function StatusPage() {
   const [search, setSearch] = useState(initial);
   const [submitted, setSubmitted] = useState(initial);
   const [trackingToken, setTrackingToken] = useState(initialTrackingToken);
+  const queryClient = useQueryClient();
+  const markPaidMutation = useMarkOrderPaid();
   const validCapabilityId = /^(?:O[0-9]{9}|QX-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$/.test(submitted);
   const isQuickexOrder = submitted.startsWith('QX-');
   const trackingParams = trackingToken ? { trackingToken } : undefined;
@@ -1279,6 +1281,19 @@ function StatusPage() {
     ? t('errors.orderNotFound')
     : t('orderStatus.refreshFailed');
   const visibleOrder = activeStatusQuery.data?.id === submitted ? activeStatusQuery.data : undefined;
+  const markPaid = () => {
+    if (!submitted || isQuickexOrder) return;
+    markPaidMutation.mutate({
+      id: submitted,
+      data: trackingToken ? { trackingToken } : undefined,
+    }, {
+      onSuccess: () => {
+        void queryClient.invalidateQueries({
+          queryKey: getGetPublicOrderStatusQueryKey(submitted, trackingParams),
+        });
+      },
+    });
+  };
 
   return (
     <PublicShell>
@@ -1333,7 +1348,14 @@ function StatusPage() {
             <div className="lookup-card track-order-state-card"><div className="lookup-card-inner flex justify-center py-12"><Loader2 size={32} className="animate-spin text-primary" /></div></div>
           )}
 
-          {visibleOrder && <OrderStatusCard order={visibleOrder} refreshWarning={activeStatusQuery.isError} />}
+          {visibleOrder && (
+            <OrderStatusCard
+              order={visibleOrder}
+              refreshWarning={activeStatusQuery.isError}
+              onMarkPaid={!isQuickexOrder ? markPaid : undefined}
+              markPaidPending={markPaidMutation.isPending}
+            />
+          )}
 
           {!submitted && (
             <div className="help-card">
@@ -1353,7 +1375,17 @@ function StatusPage() {
   );
 }
 
-function OrderStatusCard({ order, refreshWarning = false }: { order: PublicOrderStatus; refreshWarning?: boolean }) {
+function OrderStatusCard({
+  order,
+  refreshWarning = false,
+  onMarkPaid,
+  markPaidPending = false,
+}: {
+  order: PublicOrderStatus;
+  refreshWarning?: boolean;
+  onMarkPaid?: () => void;
+  markPaidPending?: boolean;
+}) {
   const { t } = useI18n();
   const isManual = order.type === 'manual' || Boolean(order.manualSettlementState);
   const mss = (order.manualSettlementState || 'awaiting_funds').toLowerCase();
@@ -1468,6 +1500,17 @@ function OrderStatusCard({ order, refreshWarning = false }: { order: PublicOrder
               </div>
             </div>
           </div>
+        )}
+
+        {order.paymentDetailsApplicable && (
+          <PaymentDetailsCard
+            paymentDetails={order.paymentDetails}
+            paymentDetailsApplicable={order.paymentDetailsApplicable}
+            customerMarkedPaidAt={order.customerMarkedPaidAt}
+            onMarkPaid={onMarkPaid}
+            markPaidPending={markPaidPending}
+            supportHref={SUPPORT_TELEGRAM}
+          />
         )}
 
         {(order.depositAddress || order.depositMemo) && (
