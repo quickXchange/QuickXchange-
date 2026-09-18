@@ -1732,6 +1732,18 @@ paths:
         "422":
           description: Bulk edit would create invalid deposit configuration
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+  /admin/crypto-assets/reconcile-customer-deposits:
+    post:
+      operationId: reconcileCryptoCustomerDeposits
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      summary: Enable customer deposits only for networks with a usable saved wallet or working provider route
+      responses:
+        "200":
+          description: Reconciliation summary
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CryptoCustomerDepositReconciliation" }
   /admin/crypto-assets/{id}:
     patch:
       operationId: updateCryptoAsset
@@ -5335,6 +5347,14 @@ components:
         networks:
           type: array
           items: { $ref: "#/components/schemas/CryptoNetwork" }
+    CryptoCustomerDepositReconciliation:
+      type: object
+      additionalProperties: false
+      required: [enabled, remainedDisabled, changed]
+      properties:
+        enabled: { type: integer, minimum: 0 }
+        remainedDisabled: { type: integer, minimum: 0 }
+        changed: { type: integer, minimum: 0 }
     CryptoAsset:
       allOf:
         - $ref: "#/components/schemas/CryptoAssetInput"

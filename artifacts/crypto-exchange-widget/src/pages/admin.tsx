@@ -53,7 +53,7 @@ import {
   useGetManualDeskRevenue, getGetManualDeskRevenueQueryKey,
   exportManualDeskRevenueCsv,
   useGetCryptoAssets, getGetCryptoAssetsQueryKey, useCreateCryptoAsset, useUpdateCryptoAsset, useDeleteCryptoAsset, useRequestCryptoAssetLogoUpload, useDeleteCryptoAssetLogoUpload,
-  useGetCryptoNetworks, getGetCryptoNetworksQueryKey, useCreateCryptoNetwork, useUpdateCryptoNetwork, useDeleteCryptoNetwork, useRequestCryptoNetworkLogoUpload, useDeleteCryptoNetworkLogoUpload, useSaveCryptoAssetReceivingWallet,
+  useGetCryptoNetworks, getGetCryptoNetworksQueryKey, useCreateCryptoNetwork, useUpdateCryptoNetwork, useDeleteCryptoNetwork, useRequestCryptoNetworkLogoUpload, useDeleteCryptoNetworkLogoUpload, useSaveCryptoAssetReceivingWallet, useReconcileCryptoCustomerDeposits,
   useGetDepositProviderOptions, getGetDepositProviderOptionsQueryKey,
   useRequestFiatCurrencyFlagUpload, useDeleteFiatCurrencyFlagUpload,
   useGetOrder, getGetOrderQueryKey, useAssignOrder, useArchiveOrder, useRestoreOrder,
@@ -5566,6 +5566,8 @@ function AdminCurrencies() {
   const deleteCatalogNetworkLogo = useDeleteCryptoNetworkLogoUpload();
   const deleteCatalogMethodLogo = useDeletePaymentMethodLogoUpload();
   const deleteCatalogCurrencyFlag = useDeleteFiatCurrencyFlagUpload();
+  const reconcileCustomerDeposits = useReconcileCryptoCustomerDeposits();
+  const depositReconciliationStarted = useRef(false);
 
   const [catalogSelected, setCatalogSelected] = useState<Record<'currencies' | 'methods' | 'assets' | 'networks', Set<string>>>({
     currencies: new Set(),
@@ -5575,6 +5577,42 @@ function AdminCurrencies() {
   });
   const [catalogActionPending, setCatalogActionPending] = useState(false);
   const [catalogActionNotice, setCatalogActionNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    if (
+      tab !== 'assets' ||
+      !isOwner ||
+      depositReconciliationStarted.current ||
+      assetsQuery.isLoading ||
+      networksQuery.isLoading
+    ) return;
+    depositReconciliationStarted.current = true;
+    void reconcileCustomerDeposits.mutateAsync()
+      .then(async result => {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: getGetCryptoAssetsQueryKey() }),
+          queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
+          queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
+        ]);
+        setCatalogActionNotice({
+          kind: 'success',
+          text: `${result.enabled} enabled / ${result.remainedDisabled} remained disabled.`,
+        });
+      })
+      .catch(error => {
+        setCatalogActionNotice({
+          kind: 'error',
+          text: apiErrorText(error, 'Failed to refresh customer deposit availability.'),
+        });
+      });
+  }, [
+    tab,
+    isOwner,
+    assetsQuery.isLoading,
+    networksQuery.isLoading,
+    queryClient,
+    reconcileCustomerDeposits,
+  ]);
 
   const handleTabChange = (newTab: 'currencies' | 'methods' | 'assets' | 'networks') => {
     setTab(newTab);
@@ -6259,6 +6297,10 @@ function AdminCurrencies() {
         <AssetDrawer
           asset={drawerAsset}
           onClose={() => setDrawerAsset(null)}
+          onWalletReconciled={(enabled, remainedDisabled) => setCatalogActionNotice({
+            kind: 'success',
+            text: `${enabled} enabled / ${remainedDisabled} remained disabled.`,
+          })}
         />
       )}
       {can('crypto_networks.manage') && drawerNetwork && (
@@ -7281,7 +7323,15 @@ function persistedReceivingWalletDraft(
   };
 }
 
-function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose: () => void }) {
+function AssetDrawer({
+  asset,
+  onClose,
+  onWalletReconciled,
+}: {
+  asset?: CryptoAsset | 'new';
+  onClose: () => void;
+  onWalletReconciled?: (enabled: number, remainedDisabled: number) => void;
+}) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const createAsset = useCreateCryptoAsset();
@@ -7415,7 +7465,7 @@ function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose:
         const previousPath = (asset as any)?.logoObjectPath as string | undefined;
         if (previousPath && previousPath !== logoObjectPath) void deleteAssetLogo.mutateAsync({ id: previousPath.split('/').pop()! }).catch(() => undefined);
         if (selectedReceivingNetwork && selectedReceivingDraft) {
-          await saveReceivingWallet.mutateAsync({
+          const updatedNetworks = await saveReceivingWallet.mutateAsync({
             id: asset.id,
             data: {
               networkId: selectedReceivingNetwork.id,
@@ -7426,9 +7476,16 @@ function AssetDrawer({ asset, onClose }: { asset?: CryptoAsset | 'new'; onClose:
               depositProvider: selectedReceivingDraft.depositProvider,
             },
           });
+          onWalletReconciled?.(
+            updatedNetworks.filter(network => network.customerDepositsEnabled).length,
+            updatedNetworks.filter(network => !network.customerDepositsEnabled).length,
+          );
         }
-        queryClient.invalidateQueries({ queryKey: getGetCryptoAssetsQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: getGetCryptoAssetsQueryKey() }),
+          queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
+          queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
+        ]);
         onClose();
       } catch (err) {
         setError(apiErrorText(err, selectedReceivingNetwork ? 'Failed to save the receiving wallet.' : t('adminCatalog.failed_to_update_asset')));

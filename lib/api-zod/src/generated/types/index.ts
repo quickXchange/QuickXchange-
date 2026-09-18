@@ -109,6 +109,7 @@ export * from './cryptoAssetsBulkEditInput';
 export * from './cryptoAssetsBulkEditResponse';
 export * from './cryptoAssetUpdate';
 export * from './cryptoAssetUpdateLifecycle';
+export * from './cryptoCustomerDepositReconciliation';
 export * from './cryptoNetwork';
 export * from './cryptoNetworkInput';
 export * from './cryptoNetworkInputExecutionMode';

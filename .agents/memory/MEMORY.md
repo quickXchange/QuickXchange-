@@ -97,3 +97,4 @@
 - [Pricing adjustment directions](pricing-adjustment-directions.md) — model markup and customer benefit explicitly; never represent customer benefit as an ambiguous negative fee.
 - [Settlement-option pricing wildcards](settlement-option-pricing-wildcards.md) — a missing option ID is authoritative Any; exact two-option routes override wildcard routes.
 - [Provider-neutral network bulk edits](provider-neutral-network-bulk-edits.md) — Bulk Edit applies network settings regardless of provider; provider assignment stays in API Integrations.
+- [Automatic customer deposit eligibility](automatic-customer-deposit-eligibility.md) — enable deposit routes only from validated saved wallets or fresh exact provider capability.

@@ -65,6 +65,7 @@ import type {
   CryptoAssetUpdate,
   CryptoAssetsBulkEditInput,
   CryptoAssetsBulkEditResponse,
+  CryptoCustomerDepositReconciliation,
   CryptoNetwork,
   CryptoNetworkInput,
   CryptoNetworkUpdate,
@@ -6016,6 +6017,77 @@ export const useApplyCryptoAssetsBulkEdit = <TError = ErrorType<ApiError>,
         TContext
       > => {
       return useMutation(getApplyCryptoAssetsBulkEditMutationOptions(options));
+    }
+
+export const getReconcileCryptoCustomerDepositsUrl = () => {
+
+
+
+
+  return `/api/admin/crypto-assets/reconcile-customer-deposits`
+}
+
+/**
+ * @summary Enable customer deposits only for networks with a usable saved wallet or working provider route
+ */
+export const reconcileCryptoCustomerDeposits = async ( options?: Parameters<typeof customFetch>[1]): Promise<CryptoCustomerDepositReconciliation> => {
+
+  return customFetch<CryptoCustomerDepositReconciliation>(getReconcileCryptoCustomerDepositsUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getReconcileCryptoCustomerDepositsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reconcileCryptoCustomerDeposits>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reconcileCryptoCustomerDeposits>>, TError,void, TContext> => {
+
+const mutationKey = ['reconcileCryptoCustomerDeposits'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reconcileCryptoCustomerDeposits>>, void> = () => {
+
+
+          return  reconcileCryptoCustomerDeposits(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReconcileCryptoCustomerDepositsMutationResult = NonNullable<Awaited<ReturnType<typeof reconcileCryptoCustomerDeposits>>>
+
+    export type ReconcileCryptoCustomerDepositsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Enable customer deposits only for networks with a usable saved wallet or working provider route
+ */
+export const useReconcileCryptoCustomerDeposits = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reconcileCryptoCustomerDeposits>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reconcileCryptoCustomerDeposits>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getReconcileCryptoCustomerDepositsMutationOptions(options));
     }
 
 export const getUpdateCryptoAssetUrl = (id: string,) => {

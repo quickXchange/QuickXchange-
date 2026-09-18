@@ -3051,6 +3051,15 @@ export interface CryptoAssetsBulkEditResponse {
   networks: CryptoNetwork[];
 }
 
+export interface CryptoCustomerDepositReconciliation {
+  /** @minimum 0 */
+  enabled: number;
+  /** @minimum 0 */
+  remainedDisabled: number;
+  /** @minimum 0 */
+  changed: number;
+}
+
 export type CryptoNetworkUpdateExecutionMode = typeof CryptoNetworkUpdateExecutionMode[keyof typeof CryptoNetworkUpdateExecutionMode];
 
 

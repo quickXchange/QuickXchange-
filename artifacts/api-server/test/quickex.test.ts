@@ -3040,11 +3040,11 @@ test("owner receiving-wallet updates use exact asset-network rows and keep share
   await db.insert(cryptoAssetNetworksTable).values([
     {
       id: networkAId, assetId: assetAId, networkCode: sharedCode,
-      networkName: "Shared A", decimals: 6,
+      networkName: "Bitcoin Shared A", decimals: 6,
     },
     {
       id: networkBId, assetId: assetBId, networkCode: sharedCode,
-      networkName: "Shared B", decimals: 6, requiresMemo: true,
+      networkName: "Bitcoin Shared B", decimals: 6, requiresMemo: true,
     },
     {
       id: differentNetworkId, assetId: assetAId, networkCode: differentCode,
@@ -3078,11 +3078,12 @@ test("owner receiving-wallet updates use exact asset-network rows and keep share
     );
 
     const exact = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
-      networkId: networkAId, walletAddress: "exact-address", memo: "exact-memo",
-      enabled: true, useForAllAssetsOnNetwork: false, depositProvider: "manual",
+      networkId: networkAId, walletAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", memo: "exact-memo",
+      enabled: false, useForAllAssetsOnNetwork: false, depositProvider: "manual",
     }, "PUT", headers);
     assert.equal(exact.status, 200);
     assert.deepEqual(exact.body.map((row: { id: string }) => row.id), [networkAId]);
+    assert.equal(exact.body[0]?.customerDepositsEnabled, true);
 
     const shared = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
       networkId: networkAId, walletAddress: "shared-address", memo: "shared-memo",

@@ -100,6 +100,7 @@ import {
   ApplyCryptoAssetsBulkEditResponse,
   SaveCryptoAssetReceivingWalletBody,
   SaveCryptoAssetReceivingWalletParams,
+  ReconcileCryptoCustomerDepositsResponse,
   UpdateOrderSupportToolsParams,
   UpdateOrderSupportToolsBody,
   UpdateOrderSupportToolsResponse,
@@ -125,6 +126,11 @@ import {
   whitebitOrderAddressesTable,
 } from "@workspace/db";
 import { ApiError } from "../lib/api-error";
+import {
+  createCustomerDepositEligibilityContext,
+  isCustomerDepositEligible,
+  reconcileCryptoCustomerDepositEligibility,
+} from "../lib/customer-deposit-eligibility";
 import { createCryptoAssetLogoUpload, createCryptoNetworkLogoUpload, createFiatCurrencyFlagUpload, deleteStoredCatalogImage } from "../lib/object-storage";
 import { logger } from "../lib/logger";
 import {
@@ -3389,6 +3395,17 @@ router.get("/admin/crypto-assets", requireOperator, async (_req, res, next) => {
     res.json(rows.map(outputCryptoAsset));
   } catch (e) { next(e); }
 });
+router.post("/admin/crypto-assets/reconcile-customer-deposits", requireOwner, async (req, res, next) => {
+  try {
+    const result = ReconcileCryptoCustomerDepositsResponse.parse(
+      await reconcileCryptoCustomerDepositEligibility(),
+    );
+    req.log.info(result, "Reconciled crypto customer deposit availability");
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
 router.post("/admin/crypto-assets", requireOperator, async (req, res, next) => {
   try { const input = cryptoInput(req.body, false); const row = await db.transaction(async (tx) => { await verifyCatalogPath(tx, input.logoObjectPath, "crypto-asset-logos"); const [created] = await tx.insert(cryptoAssetsTable).values({ ...input, code: String(input.code).toUpperCase(), enabled: input.enabled ?? true } as never).returning(); return created; }); res.status(201).json(outputCryptoAsset(row)); } catch (e) { next(isUniqueViolation(e) ? new ApiError("CRYPTO_ASSET_EXISTS", "Crypto asset already exists.", 409) : e); }
 });
@@ -3543,6 +3560,12 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
   try {
     const { id: assetId } = SaveCryptoAssetReceivingWalletParams.parse(req.params);
     const input = SaveCryptoAssetReceivingWalletBody.parse(req.body);
+    const eligibilityContext = await createCustomerDepositEligibilityContext();
+    const [asset] = await db.select({ code: cryptoAssetsTable.code })
+      .from(cryptoAssetsTable)
+      .where(eq(cryptoAssetsTable.id, assetId))
+      .limit(1);
+    if (!asset) throw new ApiError("CRYPTO_ASSET_NOT_FOUND", "Crypto asset not found.", 404);
     const rows = await db.transaction(async (tx) => {
       const [selected] = await tx
         .select()
@@ -3575,25 +3598,31 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
           .where(eq(cryptoAssetNetworksTable.networkCode, selected.networkCode))
           .for("update")
         : [selected];
+      const affectedAssets = await tx.select({
+        id: cryptoAssetsTable.id,
+        code: cryptoAssetsTable.code,
+      }).from(cryptoAssetsTable)
+        .where(inArray(cryptoAssetsTable.id, [...new Set(affected.map(network => network.assetId))]));
+      const assetCodeById = new Map(affectedAssets.map(candidate => [candidate.id, candidate.code]));
       const fallbackAddress = input.walletAddress.trim() || selected.sharedDepositAddress;
       const fallbackMemo = input.memo?.trim() || "";
       for (const network of affected) {
         const nextProvider = network.id === selected.id ? input.depositProvider : network.depositProvider;
-        const nextEnabled = nextProvider === "none" ? false : input.enabled;
-        if (nextEnabled && nextProvider === "manual" && !fallbackAddress.trim()) {
-          throw new ApiError(
-            "CRYPTO_DEPOSIT_ADDRESS_REQUIRED",
-            "A shared deposit address is required before customer deposits can be enabled.",
-            422,
-          );
-        }
-      }
-      for (const network of affected) {
-        const nextProvider = network.id === selected.id ? input.depositProvider : network.depositProvider;
+        const nextNetwork = {
+          ...network,
+          depositProvider: nextProvider,
+          sharedDepositAddress: fallbackAddress,
+          sharedDepositMemo: fallbackMemo || null,
+        };
+        const nextEnabled = isCustomerDepositEligible(
+          assetCodeById.get(network.assetId) ?? asset.code,
+          nextNetwork,
+          eligibilityContext,
+        );
         await tx.update(cryptoAssetNetworksTable).set({
           sharedDepositAddress: fallbackAddress,
           sharedDepositMemo: fallbackMemo || null,
-          customerDepositsEnabled: nextProvider === "none" ? false : input.enabled,
+          customerDepositsEnabled: nextEnabled,
           ...(network.id === selected.id ? { depositProvider: input.depositProvider } : {}),
         }).where(eq(cryptoAssetNetworksTable.id, network.id));
       }

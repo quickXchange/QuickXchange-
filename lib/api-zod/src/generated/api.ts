@@ -6094,6 +6094,24 @@ export const ApplyCryptoAssetsBulkEditResponse = zod.object({
 })
 
 
+/**
+ * @summary Enable customer deposits only for networks with a usable saved wallet or working provider route
+ */
+export const reconcileCryptoCustomerDepositsResponseEnabledMin = 0;
+
+export const reconcileCryptoCustomerDepositsResponseRemainedDisabledMin = 0;
+
+export const reconcileCryptoCustomerDepositsResponseChangedMin = 0;
+
+
+
+export const ReconcileCryptoCustomerDepositsResponse = zod.object({
+  "enabled": zod.number().int().min(reconcileCryptoCustomerDepositsResponseEnabledMin),
+  "remainedDisabled": zod.number().int().min(reconcileCryptoCustomerDepositsResponseRemainedDisabledMin),
+  "changed": zod.number().int().min(reconcileCryptoCustomerDepositsResponseChangedMin)
+})
+
+
 export const updateCryptoAssetPathIdRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,63}$');
 
 
