@@ -2383,11 +2383,45 @@ test("manual pricing bulk actions update safe rules and report skipped conflicts
       }, "PATCH", headers,
     );
     assert.equal(staleEdit.status, 409);
+    await db.update(manualDeskPricingRulesTable).set({
+      paymentMethod: "STALE-SOURCE-METHOD",
+      payoutMethod: "STALE-TARGET-METHOD",
+    }).where(eq(manualDeskPricingRulesTable.id, createdViaApi.body.id));
+    const anySourceViaBulk = await apiJson(
+      api.url, "/admin/manual-desk-pricing-rules/bulk", {
+        action: "edit",
+        items: [{ id: createdViaApi.body.id, version: 2 }],
+        patch: { sourceSettlementOptionId: null, exactRate: null },
+      }, "POST", headers,
+    );
+    assert.equal(anySourceViaBulk.status, 200, JSON.stringify(anySourceViaBulk.body));
+    let canonicalBulkRow = (await db.select().from(manualDeskPricingRulesTable)
+      .where(eq(manualDeskPricingRulesTable.id, createdViaApi.body.id)))[0];
+    assert.equal(canonicalBulkRow?.sourceSettlementOptionId, null);
+    assert.equal(canonicalBulkRow?.sourceAsset, null);
+    assert.equal(canonicalBulkRow?.sourceNetwork, null);
+    assert.equal(canonicalBulkRow?.paymentMethod, null);
+    assert.equal(canonicalBulkRow?.payoutMethod, "STALE-TARGET-METHOD");
+
+    const anyTargetViaBulk = await apiJson(
+      api.url, "/admin/manual-desk-pricing-rules/bulk", {
+        action: "edit",
+        items: [{ id: createdViaApi.body.id, version: 3 }],
+        patch: { targetSettlementOptionId: null },
+      }, "POST", headers,
+    );
+    assert.equal(anyTargetViaBulk.status, 200, JSON.stringify(anyTargetViaBulk.body));
+    canonicalBulkRow = (await db.select().from(manualDeskPricingRulesTable)
+      .where(eq(manualDeskPricingRulesTable.id, createdViaApi.body.id)))[0];
+    assert.equal(canonicalBulkRow?.targetSettlementOptionId, null);
+    assert.equal(canonicalBulkRow?.targetAsset, null);
+    assert.equal(canonicalBulkRow?.targetNetwork, null);
+    assert.equal(canonicalBulkRow?.payoutMethod, null);
     const persistedEdit = (await db.select().from(manualDeskPricingRulesTable)
       .where(eq(manualDeskPricingRulesTable.id, createdViaApi.body.id)))[0];
     assert.equal(persistedEdit?.adjustmentDirection, "GIVE_MORE");
     assert.equal(persistedEdit?.markupBasisPoints, 325);
-    assert.equal(persistedEdit?.version, 2);
+    assert.equal(persistedEdit?.version, 4);
     const existingPriorities = new Set(
       (await db.select({ priority: manualDeskPricingRulesTable.priority })
         .from(manualDeskPricingRulesTable)).map(row => row.priority),
@@ -5537,9 +5571,11 @@ test("operators can price enabled fiat settlement routes with exact and fallback
       "/admin/manual-desk-pricing-rules",
       {
         name: "Any source to exact USD payout",
-        sourceAsset: null,
+        // Simulate an older Admin payload retaining the source which happened
+        // to be selected before the operator changed that side to Any.
+        sourceAsset: alternateSource.assetCode,
         targetAsset: target.assetCode,
-        sourceNetwork: null,
+        sourceNetwork: alternateSource.routeNetwork,
         targetNetwork: null,
         sourceSettlementOptionId: null,
         targetSettlementOptionId: target.id,
@@ -5553,6 +5589,8 @@ test("operators can price enabled fiat settlement routes with exact and fallback
     );
     assert.equal(wildcard.status, 201);
     ruleIds.push(String(wildcard.body.id));
+    assert.equal(wildcard.body.sourceAsset, null);
+    assert.equal(wildcard.body.sourceNetwork, null);
     assert.equal(wildcard.body.sourceSettlementOptionId, null);
     assert.equal(wildcard.body.targetSettlementOptionId, target.id);
 

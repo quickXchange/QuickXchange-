@@ -16,6 +16,16 @@ export const MANUAL_PRICING_SELECTOR_KEYS = [
   "sourceSettlementOptionId",
   "targetSettlementOptionId",
 ] as const;
+const SOURCE_PRICING_SELECTOR_KEYS = [
+  "sourceAsset",
+  "sourceNetwork",
+  "paymentMethod",
+] as const;
+const TARGET_PRICING_SELECTOR_KEYS = [
+  "targetAsset",
+  "targetNetwork",
+  "payoutMethod",
+] as const;
 export type ManualPricingSelector = typeof MANUAL_PRICING_SELECTOR_KEYS[number];
 export type ManualPricingContext =
   Partial<Record<ManualPricingSelector, string | null | undefined>>;
@@ -47,9 +57,26 @@ export function normalizeManualPricingSelectors<T extends ManualPricingContext>(
   ) as Record<ManualPricingSelector, string | null>;
 }
 
+function effectiveManualPricingSelectors(rule: ManualPricingContext) {
+  const selectors = normalizeManualPricingSelectors(rule);
+  const hasSourceOption = selectors.sourceSettlementOptionId !== null;
+  const hasTargetOption = selectors.targetSettlementOptionId !== null;
+  // Once either side uses immutable settlement-option identity, a missing ID
+  // on the opposite side means a real wildcard. Ignore stale legacy fields
+  // which older partial-wildcard writes may have retained on that Any side.
+  if (!hasSourceOption && hasTargetOption) {
+    for (const key of SOURCE_PRICING_SELECTOR_KEYS) selectors[key] = null;
+  }
+  if (hasSourceOption && !hasTargetOption) {
+    for (const key of TARGET_PRICING_SELECTOR_KEYS) selectors[key] = null;
+  }
+  return selectors;
+}
+
 export function manualPricingSpecificity(rule: ManualPricingContext): number {
+  const selectors = effectiveManualPricingSelectors(rule);
   return MANUAL_PRICING_SELECTOR_KEYS.reduce(
-    (total, key) => total + (normalized(rule[key]) === null ? 0 : 1),
+    (total, key) => total + (selectors[key] === null ? 0 : 1),
     0,
   );
 }
@@ -81,9 +108,10 @@ export function matchesManualPricingRule(
   rule: ManualPricingContext,
   context: ManualPricingContext,
 ): boolean {
+  const selectors = effectiveManualPricingSelectors(rule);
   const normalizedContext = normalizeManualPricingSelectors(context);
   return MANUAL_PRICING_SELECTOR_KEYS.every((key) => {
-    const selector = normalized(rule[key]);
+    const selector = selectors[key];
     return selector === null || selector === normalizedContext[key];
   });
 }
@@ -329,9 +357,16 @@ function normalizedWrite(input: ManualPricingWrite) {
       400,
     );
   }
+  const selectors = normalizeManualPricingSelectors(input);
+  if (sourceOptionId === null && targetOptionId !== null) {
+    for (const key of SOURCE_PRICING_SELECTOR_KEYS) selectors[key] = null;
+  }
+  if (sourceOptionId !== null && targetOptionId === null) {
+    for (const key of TARGET_PRICING_SELECTOR_KEYS) selectors[key] = null;
+  }
   return {
     ...input,
-    ...normalizeManualPricingSelectors(input),
+    ...selectors,
     sourceSettlementOptionId: input.sourceSettlementOptionId?.trim() || null,
     targetSettlementOptionId: input.targetSettlementOptionId?.trim() || null,
     name,
@@ -342,9 +377,11 @@ function normalizedWrite(input: ManualPricingWrite) {
 }
 
 function overlap(left: ManualPricingContext, right: ManualPricingContext): boolean {
+  const leftSelectors = effectiveManualPricingSelectors(left);
+  const rightSelectors = effectiveManualPricingSelectors(right);
   return MANUAL_PRICING_SELECTOR_KEYS.every((key) => {
-    const a = normalized(left[key]);
-    const b = normalized(right[key]);
+    const a = leftSelectors[key];
+    const b = rightSelectors[key];
     return a === null || b === null || a === b;
   });
 }
@@ -578,9 +615,34 @@ export async function bulkUpdateManualPricingRules(
       } else {
         const finalRows = new Map(rows.map((row) => [row.id, row]));
         for (const { row } of eligible) {
-          const combined = normalizedWrite({ ...rowAsWrite(row), ...patch });
+          const canonicalPatch: ManualPricingBulkPatch & {
+            paymentMethod?: string | null;
+            payoutMethod?: string | null;
+          } = { ...patch };
+          const resultingSourceOptionId =
+            Object.prototype.hasOwnProperty.call(canonicalPatch, "sourceSettlementOptionId")
+              ? canonicalPatch.sourceSettlementOptionId
+              : row.sourceSettlementOptionId;
+          const resultingTargetOptionId =
+            Object.prototype.hasOwnProperty.call(canonicalPatch, "targetSettlementOptionId")
+              ? canonicalPatch.targetSettlementOptionId
+              : row.targetSettlementOptionId;
+          if (!resultingSourceOptionId) {
+            for (const key of SOURCE_PRICING_SELECTOR_KEYS) canonicalPatch[key] = null;
+          }
+          if (!resultingTargetOptionId) {
+            for (const key of TARGET_PRICING_SELECTOR_KEYS) canonicalPatch[key] = null;
+          }
+          const combined = normalizedWrite({ ...rowAsWrite(row), ...canonicalPatch });
+          const changedKeys = new Set(Object.keys(canonicalPatch));
+          if (changedKeys.has("sourceSettlementOptionId")) {
+            SOURCE_PRICING_SELECTOR_KEYS.forEach((key) => changedKeys.add(key));
+          }
+          if (changedKeys.has("targetSettlementOptionId")) {
+            TARGET_PRICING_SELECTOR_KEYS.forEach((key) => changedKeys.add(key));
+          }
           const values: Partial<ManualPricingWrite> = action === "edit"
-            ? Object.fromEntries(Object.keys(patch ?? {}).map((key) => [
+            ? Object.fromEntries([...changedKeys].map((key) => [
               key,
               combined[key as keyof ManualPricingWrite],
             ]))

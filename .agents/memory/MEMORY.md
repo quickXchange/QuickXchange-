@@ -95,3 +95,4 @@
 - [Bulk pricing conflict scope](bulk-pricing-conflict-scope.md) — validate changed pricing rules against the full catalog without making unrelated legacy conflicts block every bulk action.
 - [Signed settlement snapshot parity](signed-settlement-snapshot-parity.md) — quote creation and order revalidation must use one canonical funding projection.
 - [Pricing adjustment directions](pricing-adjustment-directions.md) — model markup and customer benefit explicitly; never represent customer benefit as an ambiguous negative fee.
+- [Settlement-option pricing wildcards](settlement-option-pricing-wildcards.md) — a missing option ID is authoritative Any; exact two-option routes override wildcard routes.
