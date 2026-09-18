@@ -153,7 +153,7 @@ export function FaqPage() {
     <PublicShell>
       <SEO title="FAQ - Frequently Asked Questions" description="Find quick answers about Swap, Convert, payments, crypto transfers, orders, and security." />
 
-      <div className="relative py-24 lg:py-32 overflow-hidden flex flex-col items-center justify-center text-center px-6">
+      <div className="relative py-24 lg:py-32 overflow-hidden flex flex-col items-center justify-center text-center px-3 sm:px-6">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-[var(--qx-gradient)] opacity-[0.08] dark:opacity-[0.15] blur-[120px] rounded-full pointer-events-none" />
         
         <div className="flex flex-col items-center faq-hero-glow">
@@ -167,7 +167,7 @@ export function FaqPage() {
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-6 lg:px-8 pb-32 faq-content-glow w-full">
+      <div className="max-w-3xl mx-auto px-3 sm:px-6 lg:px-8 pb-32 faq-content-glow w-full">
         <div className="faq-accordion-root">
           {FAQ_DATA.map((item, i) => (
             <AccordionItem

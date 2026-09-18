@@ -27,7 +27,7 @@ export function MarketRatesPage() {
 
   return (
     <PublicShell>
-      <div className="w-full max-w-[1440px] mx-auto px-4 md:px-8 py-12 md:py-16">
+      <div className="w-full max-w-[1440px] mx-auto px-3 sm:px-4 md:px-8 py-12 md:py-16">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
           <div className="flex flex-col gap-3">
             <h1 className="text-4xl md:text-5xl font-marketing font-extrabold tracking-tight">Market Rates</h1>

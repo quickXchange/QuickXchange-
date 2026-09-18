@@ -663,8 +663,17 @@ html:not(.dark) .oc-btn-secondary:hover {
 }
 
 @media (max-width: 640px) {
+  .order-confirmation-main {
+    padding: 16px 6px;
+  }
   .oc-container {
-    padding: 24px 16px;
+    padding: 16px 8px;
+  }
+  .oc-card, .oc-summary-card, .oc-deposit-card, .oc-progress-card {
+    padding: 16px 12px;
+  }
+  .oc-deposit-amount-row {
+    padding: 16px 12px;
   }
   .oc-topbar {
     flex-direction: column;

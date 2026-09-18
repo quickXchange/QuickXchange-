@@ -365,7 +365,7 @@ export function CryptoPairsPage() {
 
   return (
     <PublicShell>
-      <div className="w-full max-w-[1440px] mx-auto px-4 md:px-8 py-12 md:py-16" data-testid="crypto-pairs-page">
+      <div className="w-full max-w-[1440px] mx-auto px-3 sm:px-4 md:px-8 py-12 md:py-16" data-testid="crypto-pairs-page">
         
         {/* Hero */}
         <div className="flex flex-col items-center text-center mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">

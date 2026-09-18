@@ -352,7 +352,7 @@ export function HowItWorksPage() {
       <div className="w-full bg-background min-h-screen pb-24">
         
         {/* Hero Section */}
-        <section className="pt-16 pb-10 px-6 relative overflow-hidden">
+        <section className="pt-16 pb-10 px-3 sm:px-6 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
           <div className="max-w-4xl mx-auto text-center relative z-10">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-6 tracking-tight text-foreground">
@@ -365,7 +365,7 @@ export function HowItWorksPage() {
         </section>
 
         {/* Detailed Demos & Comparison */}
-        <section className="py-16 px-6 max-w-6xl mx-auto">
+        <section className="py-16 px-3 sm:px-6 max-w-6xl mx-auto">
           {/* Swap Section */}
           <div className="hiw-flow-section hiw-flow-section--swap grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center mb-24">
             <div className="order-2 lg:order-1">
@@ -449,7 +449,7 @@ export function HowItWorksPage() {
         </section>
 
         {/* Unified 3 Steps */}
-        <section className="py-16 px-6 max-w-6xl mx-auto">
+        <section className="py-16 px-3 sm:px-6 max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-2xl md:text-3xl font-bold">Three Simple Steps</h2>
           </div>

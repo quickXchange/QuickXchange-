@@ -287,7 +287,7 @@ function PairRow({
 
   return (
     <div className="popular-pairs-row">
-      <h3 className="mb-4 px-4 text-xl font-extrabold tracking-tight text-foreground md:px-8 md:text-2xl">{title}</h3>
+      <h3 className="mb-4 px-3 sm:px-4 text-xl font-extrabold tracking-tight text-foreground md:px-8 md:text-2xl">{title}</h3>
       <div
         ref={marqueeRef}
         className="popular-pairs-marquee"
@@ -330,7 +330,7 @@ export const PopularExchangePairs = memo(function PopularExchangePairs() {
 
   return (
     <section id="popular-pairs" className="relative z-10 w-full py-12" data-testid="popular-pairs-section">
-      <div className="mx-auto mb-10 flex max-w-[1440px] flex-col items-center px-4 text-center md:px-8">
+      <div className="mx-auto mb-10 flex max-w-[1440px] flex-col items-center px-3 sm:px-4 text-center md:px-8">
         <h2 className="mb-2 text-3xl font-extrabold tracking-tight text-foreground md:text-4xl">
           Popular Exchange Pairs
         </h2>

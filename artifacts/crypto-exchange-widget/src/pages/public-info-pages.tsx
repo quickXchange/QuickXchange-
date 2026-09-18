@@ -39,7 +39,7 @@ function HeroSection({ title, subtitle, imagePath, imageAlt, aboutGlow = false, 
         : `${basePath}/api/storage/objects/site-page-media/${imagePath.split('/').pop()}`)
     : '';
   return (
-    <div className={cn("relative py-24 lg:py-32 overflow-hidden flex flex-col items-center justify-center text-center px-6", imagePath ? "lg:flex-row lg:text-left lg:justify-between max-w-6xl mx-auto gap-12" : "", aboutGlow && "about-hero-glow", contactGlow && "contact-hero-glow", affiliateGlow && "affiliate-hero-glow", privacyGlow && "privacy-hero-glow", termsGlow && "terms-hero-glow", amlGlow && "aml-hero-glow")}>
+    <div className={cn("relative py-24 lg:py-32 overflow-hidden flex flex-col items-center justify-center text-center px-3 sm:px-6", imagePath ? "lg:flex-row lg:text-left lg:justify-between max-w-6xl mx-auto gap-12" : "", aboutGlow && "about-hero-glow", contactGlow && "contact-hero-glow", affiliateGlow && "affiliate-hero-glow", privacyGlow && "privacy-hero-glow", termsGlow && "terms-hero-glow", amlGlow && "aml-hero-glow")}>
       {!imagePath && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-[var(--qx-gradient)] opacity-[0.08] dark:opacity-[0.15] blur-[120px] rounded-full pointer-events-none" />}
       <div className={cn("flex flex-col items-center", imagePath ? "lg:items-start lg:w-1/2" : "")}>
         <span className={cn("text-primary font-bold tracking-[0.2em] uppercase text-xs mb-6 inline-block", aboutGlow && "about-brand-glow", contactGlow && "contact-brand-glow", affiliateGlow && "affiliate-brand-glow", privacyGlow && "privacy-brand-glow", termsGlow && "terms-brand-glow", amlGlow && "aml-brand-glow")}>QuickXchange</span>
@@ -75,7 +75,7 @@ function ContentCard({ title, children, className }: { title: string; children: 
 
 function PageContainer({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("max-w-4xl mx-auto px-6 lg:px-8 pb-32 space-y-12", className)}>
+    <div className={cn("max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 pb-32 space-y-12", className)}>
       {children}
     </div>
   );
@@ -312,7 +312,7 @@ export function ContactUsPage() {
     <PublicShell>
       <SEO title={seoTitle} description={seoDesc} />
       <ManagedContent content={content} preserveChildren>
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-16 lg:py-24 space-y-24">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-16 lg:py-24 space-y-24">
           <div className="grid lg:grid-cols-2 gap-16 lg:gap-24 items-start">
             {/* Left Column: Heading, Cards, Social */}
             <div className="flex flex-col gap-12">

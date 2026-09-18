@@ -105,7 +105,7 @@ function PartnerLogoSlider({ logos }: { logos: PartnerLogo[] }) {
     </li>
   ));
   return (
-    <section className="partner-slider mx-auto w-full max-w-7xl px-6 py-12 md:px-8" aria-labelledby="public-partner-slider-title">
+    <section className="partner-slider mx-auto w-full max-w-7xl px-3 sm:px-6 py-12 md:px-8" aria-labelledby="public-partner-slider-title">
       <div className="mb-6 flex items-center justify-center gap-3">
         <h2 id="public-partner-slider-title" className="text-center text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Trusted partners</h2>
         <button
@@ -672,7 +672,7 @@ export function PublicShell({ children }: { children: ReactNode }) {
     <main className="flex-1">
       {children}
     </main>
-    <div className="w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 pb-4 sm:pb-6 mt-16 sm:mt-24">
+    <div className="w-full max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-8 pb-4 sm:pb-6 mt-16 sm:mt-24">
       <footer className="qx-premium-footer" data-public-footer>
         <div className="qx-premium-footer-bg">
           <div className="qx-premium-footer-glow" />

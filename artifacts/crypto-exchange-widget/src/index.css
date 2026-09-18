@@ -22730,3 +22730,28 @@ html:not(.dark) .frontend-menu-drawer .qx-mobile-trigger[aria-expanded="true"] {
     }
   }
 }
+
+/* --- PHONE WIDTH OPTIMIZATIONS (<=640px) --- */
+@media (max-width: 640px) {
+  .public-shell .public-header,
+  .public-shell .exchange-wrapper,
+  .public-shell .public-main,
+  .public-shell .status-main,
+  .public-shell .public-landing-page > section,
+  .public-shell .public-landing-page > .ticker-banner {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding-inline: 10px !important;
+    box-sizing: border-box !important;
+  }
+
+  .public-shell .exchange-wrapper-wide {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-inline: 0 !important;
+  }
+
+  .exchange-card {
+    padding: 16px !important;
+  }
+}
