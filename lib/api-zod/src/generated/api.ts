@@ -1115,6 +1115,14 @@ export const createExchangeOrderResponsePaymentDetailsAmountMax = 120;
 
 export const createExchangeOrderResponsePaymentDetailsCustomInstructionsMax = 2000;
 
+export const createExchangeOrderResponseSourcePaymentMethodIdMax = 200;
+
+export const createExchangeOrderResponseSourcePaymentMethodPaymentMethodIdMax = 200;
+
+export const createExchangeOrderResponseSourcePaymentMethodNameMax = 200;
+
+export const createExchangeOrderResponseSourcePaymentMethodLogoUrlMax = 2048;
+
 export const createExchangeOrderResponseIncomingTransactionReferenceMax = 500;
 
 export const createExchangeOrderResponseOutgoingTransactionReferenceMax = 500;
@@ -1202,6 +1210,12 @@ export const CreateExchangeOrderResponse = zod.object({
   "customInstructions": zod.string().max(createExchangeOrderResponsePaymentDetailsCustomInstructionsMax).optional()
 }).optional(),
   "paymentDetailsApplicable": zod.boolean().optional(),
+  "sourcePaymentMethod": zod.object({
+  "id": zod.string().min(1).max(createExchangeOrderResponseSourcePaymentMethodIdMax),
+  "paymentMethodId": zod.string().min(1).max(createExchangeOrderResponseSourcePaymentMethodPaymentMethodIdMax).optional(),
+  "name": zod.string().min(1).max(createExchangeOrderResponseSourcePaymentMethodNameMax),
+  "logoUrl": zod.string().min(1).max(createExchangeOrderResponseSourcePaymentMethodLogoUrlMax).optional()
+}).optional(),
   "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(createExchangeOrderResponseIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(createExchangeOrderResponseOutgoingTransactionReferenceMax).optional(),
@@ -1395,6 +1409,14 @@ export const getOrdersResponseItemsItemPaymentDetailsAmountMax = 120;
 
 export const getOrdersResponseItemsItemPaymentDetailsCustomInstructionsMax = 2000;
 
+export const getOrdersResponseItemsItemSourcePaymentMethodIdMax = 200;
+
+export const getOrdersResponseItemsItemSourcePaymentMethodPaymentMethodIdMax = 200;
+
+export const getOrdersResponseItemsItemSourcePaymentMethodNameMax = 200;
+
+export const getOrdersResponseItemsItemSourcePaymentMethodLogoUrlMax = 2048;
+
 export const getOrdersResponseItemsItemIncomingTransactionReferenceMax = 500;
 
 export const getOrdersResponseItemsItemOutgoingTransactionReferenceMax = 500;
@@ -1491,6 +1513,12 @@ export const GetOrdersResponse = zod.object({
   "customInstructions": zod.string().max(getOrdersResponseItemsItemPaymentDetailsCustomInstructionsMax).optional()
 }).optional(),
   "paymentDetailsApplicable": zod.boolean().optional(),
+  "sourcePaymentMethod": zod.object({
+  "id": zod.string().min(1).max(getOrdersResponseItemsItemSourcePaymentMethodIdMax),
+  "paymentMethodId": zod.string().min(1).max(getOrdersResponseItemsItemSourcePaymentMethodPaymentMethodIdMax).optional(),
+  "name": zod.string().min(1).max(getOrdersResponseItemsItemSourcePaymentMethodNameMax),
+  "logoUrl": zod.string().min(1).max(getOrdersResponseItemsItemSourcePaymentMethodLogoUrlMax).optional()
+}).optional(),
   "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(getOrdersResponseItemsItemIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(getOrdersResponseItemsItemOutgoingTransactionReferenceMax).optional(),
@@ -1683,6 +1711,14 @@ export const createOrderResponsePaymentDetailsAmountMax = 120;
 
 export const createOrderResponsePaymentDetailsCustomInstructionsMax = 2000;
 
+export const createOrderResponseSourcePaymentMethodIdMax = 200;
+
+export const createOrderResponseSourcePaymentMethodPaymentMethodIdMax = 200;
+
+export const createOrderResponseSourcePaymentMethodNameMax = 200;
+
+export const createOrderResponseSourcePaymentMethodLogoUrlMax = 2048;
+
 export const createOrderResponseIncomingTransactionReferenceMax = 500;
 
 export const createOrderResponseOutgoingTransactionReferenceMax = 500;
@@ -1770,6 +1806,12 @@ export const CreateOrderResponse = zod.object({
   "customInstructions": zod.string().max(createOrderResponsePaymentDetailsCustomInstructionsMax).optional()
 }).optional(),
   "paymentDetailsApplicable": zod.boolean().optional(),
+  "sourcePaymentMethod": zod.object({
+  "id": zod.string().min(1).max(createOrderResponseSourcePaymentMethodIdMax),
+  "paymentMethodId": zod.string().min(1).max(createOrderResponseSourcePaymentMethodPaymentMethodIdMax).optional(),
+  "name": zod.string().min(1).max(createOrderResponseSourcePaymentMethodNameMax),
+  "logoUrl": zod.string().min(1).max(createOrderResponseSourcePaymentMethodLogoUrlMax).optional()
+}).optional(),
   "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(createOrderResponseIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(createOrderResponseOutgoingTransactionReferenceMax).optional(),
@@ -1931,6 +1973,14 @@ export const bulkUpdateOrderStatusResponseResultsItemOrderPaymentDetailsAmountMa
 
 export const bulkUpdateOrderStatusResponseResultsItemOrderPaymentDetailsCustomInstructionsMax = 2000;
 
+export const bulkUpdateOrderStatusResponseResultsItemOrderSourcePaymentMethodIdMax = 200;
+
+export const bulkUpdateOrderStatusResponseResultsItemOrderSourcePaymentMethodPaymentMethodIdMax = 200;
+
+export const bulkUpdateOrderStatusResponseResultsItemOrderSourcePaymentMethodNameMax = 200;
+
+export const bulkUpdateOrderStatusResponseResultsItemOrderSourcePaymentMethodLogoUrlMax = 2048;
+
 export const bulkUpdateOrderStatusResponseResultsItemOrderIncomingTransactionReferenceMax = 500;
 
 export const bulkUpdateOrderStatusResponseResultsItemOrderOutgoingTransactionReferenceMax = 500;
@@ -2022,6 +2072,12 @@ export const BulkUpdateOrderStatusResponse = zod.object({
   "customInstructions": zod.string().max(bulkUpdateOrderStatusResponseResultsItemOrderPaymentDetailsCustomInstructionsMax).optional()
 }).optional(),
   "paymentDetailsApplicable": zod.boolean().optional(),
+  "sourcePaymentMethod": zod.object({
+  "id": zod.string().min(1).max(bulkUpdateOrderStatusResponseResultsItemOrderSourcePaymentMethodIdMax),
+  "paymentMethodId": zod.string().min(1).max(bulkUpdateOrderStatusResponseResultsItemOrderSourcePaymentMethodPaymentMethodIdMax).optional(),
+  "name": zod.string().min(1).max(bulkUpdateOrderStatusResponseResultsItemOrderSourcePaymentMethodNameMax),
+  "logoUrl": zod.string().min(1).max(bulkUpdateOrderStatusResponseResultsItemOrderSourcePaymentMethodLogoUrlMax).optional()
+}).optional(),
   "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(bulkUpdateOrderStatusResponseResultsItemOrderIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(bulkUpdateOrderStatusResponseResultsItemOrderOutgoingTransactionReferenceMax).optional(),
@@ -2189,6 +2245,14 @@ export const bulkArchiveOrdersResponseResultsItemOrderPaymentDetailsAmountMax = 
 
 export const bulkArchiveOrdersResponseResultsItemOrderPaymentDetailsCustomInstructionsMax = 2000;
 
+export const bulkArchiveOrdersResponseResultsItemOrderSourcePaymentMethodIdMax = 200;
+
+export const bulkArchiveOrdersResponseResultsItemOrderSourcePaymentMethodPaymentMethodIdMax = 200;
+
+export const bulkArchiveOrdersResponseResultsItemOrderSourcePaymentMethodNameMax = 200;
+
+export const bulkArchiveOrdersResponseResultsItemOrderSourcePaymentMethodLogoUrlMax = 2048;
+
 export const bulkArchiveOrdersResponseResultsItemOrderIncomingTransactionReferenceMax = 500;
 
 export const bulkArchiveOrdersResponseResultsItemOrderOutgoingTransactionReferenceMax = 500;
@@ -2280,6 +2344,12 @@ export const BulkArchiveOrdersResponse = zod.object({
   "customInstructions": zod.string().max(bulkArchiveOrdersResponseResultsItemOrderPaymentDetailsCustomInstructionsMax).optional()
 }).optional(),
   "paymentDetailsApplicable": zod.boolean().optional(),
+  "sourcePaymentMethod": zod.object({
+  "id": zod.string().min(1).max(bulkArchiveOrdersResponseResultsItemOrderSourcePaymentMethodIdMax),
+  "paymentMethodId": zod.string().min(1).max(bulkArchiveOrdersResponseResultsItemOrderSourcePaymentMethodPaymentMethodIdMax).optional(),
+  "name": zod.string().min(1).max(bulkArchiveOrdersResponseResultsItemOrderSourcePaymentMethodNameMax),
+  "logoUrl": zod.string().min(1).max(bulkArchiveOrdersResponseResultsItemOrderSourcePaymentMethodLogoUrlMax).optional()
+}).optional(),
   "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(bulkArchiveOrdersResponseResultsItemOrderIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(bulkArchiveOrdersResponseResultsItemOrderOutgoingTransactionReferenceMax).optional(),
@@ -2446,6 +2516,14 @@ export const permanentlyDeleteOrdersResponseResultsItemOrderPaymentDetailsAmount
 
 export const permanentlyDeleteOrdersResponseResultsItemOrderPaymentDetailsCustomInstructionsMax = 2000;
 
+export const permanentlyDeleteOrdersResponseResultsItemOrderSourcePaymentMethodIdMax = 200;
+
+export const permanentlyDeleteOrdersResponseResultsItemOrderSourcePaymentMethodPaymentMethodIdMax = 200;
+
+export const permanentlyDeleteOrdersResponseResultsItemOrderSourcePaymentMethodNameMax = 200;
+
+export const permanentlyDeleteOrdersResponseResultsItemOrderSourcePaymentMethodLogoUrlMax = 2048;
+
 export const permanentlyDeleteOrdersResponseResultsItemOrderIncomingTransactionReferenceMax = 500;
 
 export const permanentlyDeleteOrdersResponseResultsItemOrderOutgoingTransactionReferenceMax = 500;
@@ -2537,6 +2615,12 @@ export const PermanentlyDeleteOrdersResponse = zod.object({
   "customInstructions": zod.string().max(permanentlyDeleteOrdersResponseResultsItemOrderPaymentDetailsCustomInstructionsMax).optional()
 }).optional(),
   "paymentDetailsApplicable": zod.boolean().optional(),
+  "sourcePaymentMethod": zod.object({
+  "id": zod.string().min(1).max(permanentlyDeleteOrdersResponseResultsItemOrderSourcePaymentMethodIdMax),
+  "paymentMethodId": zod.string().min(1).max(permanentlyDeleteOrdersResponseResultsItemOrderSourcePaymentMethodPaymentMethodIdMax).optional(),
+  "name": zod.string().min(1).max(permanentlyDeleteOrdersResponseResultsItemOrderSourcePaymentMethodNameMax),
+  "logoUrl": zod.string().min(1).max(permanentlyDeleteOrdersResponseResultsItemOrderSourcePaymentMethodLogoUrlMax).optional()
+}).optional(),
   "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(permanentlyDeleteOrdersResponseResultsItemOrderIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(permanentlyDeleteOrdersResponseResultsItemOrderOutgoingTransactionReferenceMax).optional(),
@@ -2692,6 +2776,14 @@ export const getPublicOrderStatusResponsePaymentDetailsAmountMax = 120;
 
 export const getPublicOrderStatusResponsePaymentDetailsCustomInstructionsMax = 2000;
 
+export const getPublicOrderStatusResponseSourcePaymentMethodIdMax = 200;
+
+export const getPublicOrderStatusResponseSourcePaymentMethodPaymentMethodIdMax = 200;
+
+export const getPublicOrderStatusResponseSourcePaymentMethodNameMax = 200;
+
+export const getPublicOrderStatusResponseSourcePaymentMethodLogoUrlMax = 2048;
+
 
 
 export const GetPublicOrderStatusResponse = zod.object({
@@ -2737,6 +2829,12 @@ export const GetPublicOrderStatusResponse = zod.object({
   "customInstructions": zod.string().max(getPublicOrderStatusResponsePaymentDetailsCustomInstructionsMax).optional()
 }).optional(),
   "paymentDetailsApplicable": zod.boolean().optional(),
+  "sourcePaymentMethod": zod.object({
+  "id": zod.string().min(1).max(getPublicOrderStatusResponseSourcePaymentMethodIdMax),
+  "paymentMethodId": zod.string().min(1).max(getPublicOrderStatusResponseSourcePaymentMethodPaymentMethodIdMax).optional(),
+  "name": zod.string().min(1).max(getPublicOrderStatusResponseSourcePaymentMethodNameMax),
+  "logoUrl": zod.string().min(1).max(getPublicOrderStatusResponseSourcePaymentMethodLogoUrlMax).optional()
+}).optional(),
   "customerMarkedPaidAt": zod.string().nullish()
 })
 
@@ -2776,6 +2874,14 @@ export const getOrderResponsePaymentDetailsPaymentReferenceMax = 500;
 export const getOrderResponsePaymentDetailsAmountMax = 120;
 
 export const getOrderResponsePaymentDetailsCustomInstructionsMax = 2000;
+
+export const getOrderResponseSourcePaymentMethodIdMax = 200;
+
+export const getOrderResponseSourcePaymentMethodPaymentMethodIdMax = 200;
+
+export const getOrderResponseSourcePaymentMethodNameMax = 200;
+
+export const getOrderResponseSourcePaymentMethodLogoUrlMax = 2048;
 
 export const getOrderResponseIncomingTransactionReferenceMax = 500;
 
@@ -2864,6 +2970,12 @@ export const GetOrderResponse = zod.object({
   "customInstructions": zod.string().max(getOrderResponsePaymentDetailsCustomInstructionsMax).optional()
 }).optional(),
   "paymentDetailsApplicable": zod.boolean().optional(),
+  "sourcePaymentMethod": zod.object({
+  "id": zod.string().min(1).max(getOrderResponseSourcePaymentMethodIdMax),
+  "paymentMethodId": zod.string().min(1).max(getOrderResponseSourcePaymentMethodPaymentMethodIdMax).optional(),
+  "name": zod.string().min(1).max(getOrderResponseSourcePaymentMethodNameMax),
+  "logoUrl": zod.string().min(1).max(getOrderResponseSourcePaymentMethodLogoUrlMax).optional()
+}).optional(),
   "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(getOrderResponseIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(getOrderResponseOutgoingTransactionReferenceMax).optional(),
@@ -3057,6 +3169,14 @@ export const updateOrderResponsePaymentDetailsAmountMax = 120;
 
 export const updateOrderResponsePaymentDetailsCustomInstructionsMax = 2000;
 
+export const updateOrderResponseSourcePaymentMethodIdMax = 200;
+
+export const updateOrderResponseSourcePaymentMethodPaymentMethodIdMax = 200;
+
+export const updateOrderResponseSourcePaymentMethodNameMax = 200;
+
+export const updateOrderResponseSourcePaymentMethodLogoUrlMax = 2048;
+
 export const updateOrderResponseIncomingTransactionReferenceMax = 500;
 
 export const updateOrderResponseOutgoingTransactionReferenceMax = 500;
@@ -3144,6 +3264,12 @@ export const UpdateOrderResponse = zod.object({
   "customInstructions": zod.string().max(updateOrderResponsePaymentDetailsCustomInstructionsMax).optional()
 }).optional(),
   "paymentDetailsApplicable": zod.boolean().optional(),
+  "sourcePaymentMethod": zod.object({
+  "id": zod.string().min(1).max(updateOrderResponseSourcePaymentMethodIdMax),
+  "paymentMethodId": zod.string().min(1).max(updateOrderResponseSourcePaymentMethodPaymentMethodIdMax).optional(),
+  "name": zod.string().min(1).max(updateOrderResponseSourcePaymentMethodNameMax),
+  "logoUrl": zod.string().min(1).max(updateOrderResponseSourcePaymentMethodLogoUrlMax).optional()
+}).optional(),
   "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(updateOrderResponseIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(updateOrderResponseOutgoingTransactionReferenceMax).optional(),
@@ -3290,6 +3416,14 @@ export const markOrderPaidResponsePaymentDetailsAmountMax = 120;
 
 export const markOrderPaidResponsePaymentDetailsCustomInstructionsMax = 2000;
 
+export const markOrderPaidResponseSourcePaymentMethodIdMax = 200;
+
+export const markOrderPaidResponseSourcePaymentMethodPaymentMethodIdMax = 200;
+
+export const markOrderPaidResponseSourcePaymentMethodNameMax = 200;
+
+export const markOrderPaidResponseSourcePaymentMethodLogoUrlMax = 2048;
+
 
 
 export const MarkOrderPaidResponse = zod.object({
@@ -3326,6 +3460,12 @@ export const MarkOrderPaidResponse = zod.object({
   "customInstructions": zod.string().max(markOrderPaidResponsePaymentDetailsCustomInstructionsMax).optional()
 }).optional(),
   "paymentDetailsApplicable": zod.boolean().optional(),
+  "sourcePaymentMethod": zod.object({
+  "id": zod.string().min(1).max(markOrderPaidResponseSourcePaymentMethodIdMax),
+  "paymentMethodId": zod.string().min(1).max(markOrderPaidResponseSourcePaymentMethodPaymentMethodIdMax).optional(),
+  "name": zod.string().min(1).max(markOrderPaidResponseSourcePaymentMethodNameMax),
+  "logoUrl": zod.string().min(1).max(markOrderPaidResponseSourcePaymentMethodLogoUrlMax).optional()
+}).optional(),
   "customerMarkedPaidAt": zod.string().nullish()
 })
 
@@ -3376,6 +3516,14 @@ export const assignOrderResponsePaymentDetailsPaymentReferenceMax = 500;
 export const assignOrderResponsePaymentDetailsAmountMax = 120;
 
 export const assignOrderResponsePaymentDetailsCustomInstructionsMax = 2000;
+
+export const assignOrderResponseSourcePaymentMethodIdMax = 200;
+
+export const assignOrderResponseSourcePaymentMethodPaymentMethodIdMax = 200;
+
+export const assignOrderResponseSourcePaymentMethodNameMax = 200;
+
+export const assignOrderResponseSourcePaymentMethodLogoUrlMax = 2048;
 
 export const assignOrderResponseIncomingTransactionReferenceMax = 500;
 
@@ -3464,6 +3612,12 @@ export const AssignOrderResponse = zod.object({
   "customInstructions": zod.string().max(assignOrderResponsePaymentDetailsCustomInstructionsMax).optional()
 }).optional(),
   "paymentDetailsApplicable": zod.boolean().optional(),
+  "sourcePaymentMethod": zod.object({
+  "id": zod.string().min(1).max(assignOrderResponseSourcePaymentMethodIdMax),
+  "paymentMethodId": zod.string().min(1).max(assignOrderResponseSourcePaymentMethodPaymentMethodIdMax).optional(),
+  "name": zod.string().min(1).max(assignOrderResponseSourcePaymentMethodNameMax),
+  "logoUrl": zod.string().min(1).max(assignOrderResponseSourcePaymentMethodLogoUrlMax).optional()
+}).optional(),
   "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(assignOrderResponseIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(assignOrderResponseOutgoingTransactionReferenceMax).optional(),
@@ -3642,6 +3796,14 @@ export const updateOrderSupportToolsResponsePaymentDetailsAmountMax = 120;
 
 export const updateOrderSupportToolsResponsePaymentDetailsCustomInstructionsMax = 2000;
 
+export const updateOrderSupportToolsResponseSourcePaymentMethodIdMax = 200;
+
+export const updateOrderSupportToolsResponseSourcePaymentMethodPaymentMethodIdMax = 200;
+
+export const updateOrderSupportToolsResponseSourcePaymentMethodNameMax = 200;
+
+export const updateOrderSupportToolsResponseSourcePaymentMethodLogoUrlMax = 2048;
+
 export const updateOrderSupportToolsResponseIncomingTransactionReferenceMax = 500;
 
 export const updateOrderSupportToolsResponseOutgoingTransactionReferenceMax = 500;
@@ -3729,6 +3891,12 @@ export const UpdateOrderSupportToolsResponse = zod.object({
   "customInstructions": zod.string().max(updateOrderSupportToolsResponsePaymentDetailsCustomInstructionsMax).optional()
 }).optional(),
   "paymentDetailsApplicable": zod.boolean().optional(),
+  "sourcePaymentMethod": zod.object({
+  "id": zod.string().min(1).max(updateOrderSupportToolsResponseSourcePaymentMethodIdMax),
+  "paymentMethodId": zod.string().min(1).max(updateOrderSupportToolsResponseSourcePaymentMethodPaymentMethodIdMax).optional(),
+  "name": zod.string().min(1).max(updateOrderSupportToolsResponseSourcePaymentMethodNameMax),
+  "logoUrl": zod.string().min(1).max(updateOrderSupportToolsResponseSourcePaymentMethodLogoUrlMax).optional()
+}).optional(),
   "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(updateOrderSupportToolsResponseIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(updateOrderSupportToolsResponseOutgoingTransactionReferenceMax).optional(),
@@ -3886,6 +4054,14 @@ export const archiveOrderResponsePaymentDetailsAmountMax = 120;
 
 export const archiveOrderResponsePaymentDetailsCustomInstructionsMax = 2000;
 
+export const archiveOrderResponseSourcePaymentMethodIdMax = 200;
+
+export const archiveOrderResponseSourcePaymentMethodPaymentMethodIdMax = 200;
+
+export const archiveOrderResponseSourcePaymentMethodNameMax = 200;
+
+export const archiveOrderResponseSourcePaymentMethodLogoUrlMax = 2048;
+
 export const archiveOrderResponseIncomingTransactionReferenceMax = 500;
 
 export const archiveOrderResponseOutgoingTransactionReferenceMax = 500;
@@ -3973,6 +4149,12 @@ export const ArchiveOrderResponse = zod.object({
   "customInstructions": zod.string().max(archiveOrderResponsePaymentDetailsCustomInstructionsMax).optional()
 }).optional(),
   "paymentDetailsApplicable": zod.boolean().optional(),
+  "sourcePaymentMethod": zod.object({
+  "id": zod.string().min(1).max(archiveOrderResponseSourcePaymentMethodIdMax),
+  "paymentMethodId": zod.string().min(1).max(archiveOrderResponseSourcePaymentMethodPaymentMethodIdMax).optional(),
+  "name": zod.string().min(1).max(archiveOrderResponseSourcePaymentMethodNameMax),
+  "logoUrl": zod.string().min(1).max(archiveOrderResponseSourcePaymentMethodLogoUrlMax).optional()
+}).optional(),
   "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(archiveOrderResponseIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(archiveOrderResponseOutgoingTransactionReferenceMax).optional(),
@@ -4130,6 +4312,14 @@ export const restoreOrderResponsePaymentDetailsAmountMax = 120;
 
 export const restoreOrderResponsePaymentDetailsCustomInstructionsMax = 2000;
 
+export const restoreOrderResponseSourcePaymentMethodIdMax = 200;
+
+export const restoreOrderResponseSourcePaymentMethodPaymentMethodIdMax = 200;
+
+export const restoreOrderResponseSourcePaymentMethodNameMax = 200;
+
+export const restoreOrderResponseSourcePaymentMethodLogoUrlMax = 2048;
+
 export const restoreOrderResponseIncomingTransactionReferenceMax = 500;
 
 export const restoreOrderResponseOutgoingTransactionReferenceMax = 500;
@@ -4217,6 +4407,12 @@ export const RestoreOrderResponse = zod.object({
   "customInstructions": zod.string().max(restoreOrderResponsePaymentDetailsCustomInstructionsMax).optional()
 }).optional(),
   "paymentDetailsApplicable": zod.boolean().optional(),
+  "sourcePaymentMethod": zod.object({
+  "id": zod.string().min(1).max(restoreOrderResponseSourcePaymentMethodIdMax),
+  "paymentMethodId": zod.string().min(1).max(restoreOrderResponseSourcePaymentMethodPaymentMethodIdMax).optional(),
+  "name": zod.string().min(1).max(restoreOrderResponseSourcePaymentMethodNameMax),
+  "logoUrl": zod.string().min(1).max(restoreOrderResponseSourcePaymentMethodLogoUrlMax).optional()
+}).optional(),
   "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(restoreOrderResponseIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(restoreOrderResponseOutgoingTransactionReferenceMax).optional(),
@@ -4385,6 +4581,14 @@ export const getCustomerOrdersResponseItemsItemPaymentDetailsAmountMax = 120;
 
 export const getCustomerOrdersResponseItemsItemPaymentDetailsCustomInstructionsMax = 2000;
 
+export const getCustomerOrdersResponseItemsItemSourcePaymentMethodIdMax = 200;
+
+export const getCustomerOrdersResponseItemsItemSourcePaymentMethodPaymentMethodIdMax = 200;
+
+export const getCustomerOrdersResponseItemsItemSourcePaymentMethodNameMax = 200;
+
+export const getCustomerOrdersResponseItemsItemSourcePaymentMethodLogoUrlMax = 2048;
+
 export const getCustomerOrdersResponseTotalMin = 0;
 export const getCustomerOrdersResponseTotalMultipleOf = 1;
 
@@ -4430,6 +4634,12 @@ export const GetCustomerOrdersResponse = zod.object({
   "customInstructions": zod.string().max(getCustomerOrdersResponseItemsItemPaymentDetailsCustomInstructionsMax).optional()
 }).optional(),
   "paymentDetailsApplicable": zod.boolean().optional(),
+  "sourcePaymentMethod": zod.object({
+  "id": zod.string().min(1).max(getCustomerOrdersResponseItemsItemSourcePaymentMethodIdMax),
+  "paymentMethodId": zod.string().min(1).max(getCustomerOrdersResponseItemsItemSourcePaymentMethodPaymentMethodIdMax).optional(),
+  "name": zod.string().min(1).max(getCustomerOrdersResponseItemsItemSourcePaymentMethodNameMax),
+  "logoUrl": zod.string().min(1).max(getCustomerOrdersResponseItemsItemSourcePaymentMethodLogoUrlMax).optional()
+}).optional(),
   "customerMarkedPaidAt": zod.string().nullish()
 })),
   "total": zod.number().min(getCustomerOrdersResponseTotalMin).multipleOf(getCustomerOrdersResponseTotalMultipleOf),
@@ -4529,6 +4739,14 @@ export const claimCustomerOrderResponsePaymentDetailsAmountMax = 120;
 
 export const claimCustomerOrderResponsePaymentDetailsCustomInstructionsMax = 2000;
 
+export const claimCustomerOrderResponseSourcePaymentMethodIdMax = 200;
+
+export const claimCustomerOrderResponseSourcePaymentMethodPaymentMethodIdMax = 200;
+
+export const claimCustomerOrderResponseSourcePaymentMethodNameMax = 200;
+
+export const claimCustomerOrderResponseSourcePaymentMethodLogoUrlMax = 2048;
+
 
 
 export const ClaimCustomerOrderResponse = zod.object({
@@ -4565,6 +4783,12 @@ export const ClaimCustomerOrderResponse = zod.object({
   "customInstructions": zod.string().max(claimCustomerOrderResponsePaymentDetailsCustomInstructionsMax).optional()
 }).optional(),
   "paymentDetailsApplicable": zod.boolean().optional(),
+  "sourcePaymentMethod": zod.object({
+  "id": zod.string().min(1).max(claimCustomerOrderResponseSourcePaymentMethodIdMax),
+  "paymentMethodId": zod.string().min(1).max(claimCustomerOrderResponseSourcePaymentMethodPaymentMethodIdMax).optional(),
+  "name": zod.string().min(1).max(claimCustomerOrderResponseSourcePaymentMethodNameMax),
+  "logoUrl": zod.string().min(1).max(claimCustomerOrderResponseSourcePaymentMethodLogoUrlMax).optional()
+}).optional(),
   "customerMarkedPaidAt": zod.string().nullish()
 })
 
@@ -4593,6 +4817,14 @@ export const getCustomerOrderResponsePaymentDetailsPaymentReferenceMax = 500;
 export const getCustomerOrderResponsePaymentDetailsAmountMax = 120;
 
 export const getCustomerOrderResponsePaymentDetailsCustomInstructionsMax = 2000;
+
+export const getCustomerOrderResponseSourcePaymentMethodIdMax = 200;
+
+export const getCustomerOrderResponseSourcePaymentMethodPaymentMethodIdMax = 200;
+
+export const getCustomerOrderResponseSourcePaymentMethodNameMax = 200;
+
+export const getCustomerOrderResponseSourcePaymentMethodLogoUrlMax = 2048;
 
 
 
@@ -4630,6 +4862,12 @@ export const GetCustomerOrderResponse = zod.object({
   "customInstructions": zod.string().max(getCustomerOrderResponsePaymentDetailsCustomInstructionsMax).optional()
 }).optional(),
   "paymentDetailsApplicable": zod.boolean().optional(),
+  "sourcePaymentMethod": zod.object({
+  "id": zod.string().min(1).max(getCustomerOrderResponseSourcePaymentMethodIdMax),
+  "paymentMethodId": zod.string().min(1).max(getCustomerOrderResponseSourcePaymentMethodPaymentMethodIdMax).optional(),
+  "name": zod.string().min(1).max(getCustomerOrderResponseSourcePaymentMethodNameMax),
+  "logoUrl": zod.string().min(1).max(getCustomerOrderResponseSourcePaymentMethodLogoUrlMax).optional()
+}).optional(),
   "customerMarkedPaidAt": zod.string().nullish()
 })
 
@@ -8206,6 +8444,14 @@ export const reconcileOrderResponseOrderPaymentDetailsAmountMax = 120;
 
 export const reconcileOrderResponseOrderPaymentDetailsCustomInstructionsMax = 2000;
 
+export const reconcileOrderResponseOrderSourcePaymentMethodIdMax = 200;
+
+export const reconcileOrderResponseOrderSourcePaymentMethodPaymentMethodIdMax = 200;
+
+export const reconcileOrderResponseOrderSourcePaymentMethodNameMax = 200;
+
+export const reconcileOrderResponseOrderSourcePaymentMethodLogoUrlMax = 2048;
+
 export const reconcileOrderResponseOrderIncomingTransactionReferenceMax = 500;
 
 export const reconcileOrderResponseOrderOutgoingTransactionReferenceMax = 500;
@@ -8296,6 +8542,12 @@ export const ReconcileOrderResponse = zod.object({
   "customInstructions": zod.string().max(reconcileOrderResponseOrderPaymentDetailsCustomInstructionsMax).optional()
 }).optional(),
   "paymentDetailsApplicable": zod.boolean().optional(),
+  "sourcePaymentMethod": zod.object({
+  "id": zod.string().min(1).max(reconcileOrderResponseOrderSourcePaymentMethodIdMax),
+  "paymentMethodId": zod.string().min(1).max(reconcileOrderResponseOrderSourcePaymentMethodPaymentMethodIdMax).optional(),
+  "name": zod.string().min(1).max(reconcileOrderResponseOrderSourcePaymentMethodNameMax),
+  "logoUrl": zod.string().min(1).max(reconcileOrderResponseOrderSourcePaymentMethodLogoUrlMax).optional()
+}).optional(),
   "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(reconcileOrderResponseOrderIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(reconcileOrderResponseOrderOutgoingTransactionReferenceMax).optional(),
@@ -9114,6 +9366,14 @@ export const createQuickexOrderResponsePaymentDetailsAmountMax = 120;
 
 export const createQuickexOrderResponsePaymentDetailsCustomInstructionsMax = 2000;
 
+export const createQuickexOrderResponseSourcePaymentMethodIdMax = 200;
+
+export const createQuickexOrderResponseSourcePaymentMethodPaymentMethodIdMax = 200;
+
+export const createQuickexOrderResponseSourcePaymentMethodNameMax = 200;
+
+export const createQuickexOrderResponseSourcePaymentMethodLogoUrlMax = 2048;
+
 export const createQuickexOrderResponseIncomingTransactionReferenceMax = 500;
 
 export const createQuickexOrderResponseOutgoingTransactionReferenceMax = 500;
@@ -9201,6 +9461,12 @@ export const CreateQuickexOrderResponse = zod.object({
   "customInstructions": zod.string().max(createQuickexOrderResponsePaymentDetailsCustomInstructionsMax).optional()
 }).optional(),
   "paymentDetailsApplicable": zod.boolean().optional(),
+  "sourcePaymentMethod": zod.object({
+  "id": zod.string().min(1).max(createQuickexOrderResponseSourcePaymentMethodIdMax),
+  "paymentMethodId": zod.string().min(1).max(createQuickexOrderResponseSourcePaymentMethodPaymentMethodIdMax).optional(),
+  "name": zod.string().min(1).max(createQuickexOrderResponseSourcePaymentMethodNameMax),
+  "logoUrl": zod.string().min(1).max(createQuickexOrderResponseSourcePaymentMethodLogoUrlMax).optional()
+}).optional(),
   "customerMarkedPaidAt": zod.string().nullish(),
   "incomingTransactionReference": zod.string().max(createQuickexOrderResponseIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(createQuickexOrderResponseOutgoingTransactionReferenceMax).optional(),
@@ -9370,6 +9636,14 @@ export const getQuickexOrderStatusResponsePaymentDetailsAmountMax = 120;
 
 export const getQuickexOrderStatusResponsePaymentDetailsCustomInstructionsMax = 2000;
 
+export const getQuickexOrderStatusResponseSourcePaymentMethodIdMax = 200;
+
+export const getQuickexOrderStatusResponseSourcePaymentMethodPaymentMethodIdMax = 200;
+
+export const getQuickexOrderStatusResponseSourcePaymentMethodNameMax = 200;
+
+export const getQuickexOrderStatusResponseSourcePaymentMethodLogoUrlMax = 2048;
+
 
 
 export const GetQuickexOrderStatusResponse = zod.object({
@@ -9415,6 +9689,12 @@ export const GetQuickexOrderStatusResponse = zod.object({
   "customInstructions": zod.string().max(getQuickexOrderStatusResponsePaymentDetailsCustomInstructionsMax).optional()
 }).optional(),
   "paymentDetailsApplicable": zod.boolean().optional(),
+  "sourcePaymentMethod": zod.object({
+  "id": zod.string().min(1).max(getQuickexOrderStatusResponseSourcePaymentMethodIdMax),
+  "paymentMethodId": zod.string().min(1).max(getQuickexOrderStatusResponseSourcePaymentMethodPaymentMethodIdMax).optional(),
+  "name": zod.string().min(1).max(getQuickexOrderStatusResponseSourcePaymentMethodNameMax),
+  "logoUrl": zod.string().min(1).max(getQuickexOrderStatusResponseSourcePaymentMethodLogoUrlMax).optional()
+}).optional(),
   "customerMarkedPaidAt": zod.string().nullish()
 })
 
@@ -10170,6 +10450,30 @@ export const getPublishedSiteContentResponseBrandingLogoHeightMultipleOf = 1;
 export const getPublishedSiteContentResponseBrandingLogoMaxWidthMax = 4096;
 export const getPublishedSiteContentResponseBrandingLogoMaxWidthMultipleOf = 1;
 
+export const getPublishedSiteContentResponseBrandingDesktopLogoWidthMin = 40;
+export const getPublishedSiteContentResponseBrandingDesktopLogoWidthMax = 320;
+export const getPublishedSiteContentResponseBrandingDesktopLogoWidthMultipleOf = 1;
+
+export const getPublishedSiteContentResponseBrandingDesktopLogoMaxHeightMin = 16;
+export const getPublishedSiteContentResponseBrandingDesktopLogoMaxHeightMax = 44;
+export const getPublishedSiteContentResponseBrandingDesktopLogoMaxHeightMultipleOf = 1;
+
+export const getPublishedSiteContentResponseBrandingTabletLogoWidthMin = 40;
+export const getPublishedSiteContentResponseBrandingTabletLogoWidthMax = 280;
+export const getPublishedSiteContentResponseBrandingTabletLogoWidthMultipleOf = 1;
+
+export const getPublishedSiteContentResponseBrandingTabletLogoMaxHeightMin = 16;
+export const getPublishedSiteContentResponseBrandingTabletLogoMaxHeightMax = 44;
+export const getPublishedSiteContentResponseBrandingTabletLogoMaxHeightMultipleOf = 1;
+
+export const getPublishedSiteContentResponseBrandingMobileLogoWidthMin = 32;
+export const getPublishedSiteContentResponseBrandingMobileLogoWidthMax = 220;
+export const getPublishedSiteContentResponseBrandingMobileLogoWidthMultipleOf = 1;
+
+export const getPublishedSiteContentResponseBrandingMobileLogoMaxHeightMin = 16;
+export const getPublishedSiteContentResponseBrandingMobileLogoMaxHeightMax = 44;
+export const getPublishedSiteContentResponseBrandingMobileLogoMaxHeightMultipleOf = 1;
+
 
 
 export const GetPublishedSiteContentResponse = zod.object({
@@ -10236,6 +10540,12 @@ export const GetPublishedSiteContentResponse = zod.object({
   "logoWidth": zod.number().min(1).max(getPublishedSiteContentResponseBrandingLogoWidthMax).multipleOf(getPublishedSiteContentResponseBrandingLogoWidthMultipleOf),
   "logoHeight": zod.number().min(1).max(getPublishedSiteContentResponseBrandingLogoHeightMax).multipleOf(getPublishedSiteContentResponseBrandingLogoHeightMultipleOf),
   "logoMaxWidth": zod.number().min(1).max(getPublishedSiteContentResponseBrandingLogoMaxWidthMax).multipleOf(getPublishedSiteContentResponseBrandingLogoMaxWidthMultipleOf),
+  "desktopLogoWidth": zod.number().min(getPublishedSiteContentResponseBrandingDesktopLogoWidthMin).max(getPublishedSiteContentResponseBrandingDesktopLogoWidthMax).multipleOf(getPublishedSiteContentResponseBrandingDesktopLogoWidthMultipleOf),
+  "desktopLogoMaxHeight": zod.number().min(getPublishedSiteContentResponseBrandingDesktopLogoMaxHeightMin).max(getPublishedSiteContentResponseBrandingDesktopLogoMaxHeightMax).multipleOf(getPublishedSiteContentResponseBrandingDesktopLogoMaxHeightMultipleOf),
+  "tabletLogoWidth": zod.number().min(getPublishedSiteContentResponseBrandingTabletLogoWidthMin).max(getPublishedSiteContentResponseBrandingTabletLogoWidthMax).multipleOf(getPublishedSiteContentResponseBrandingTabletLogoWidthMultipleOf),
+  "tabletLogoMaxHeight": zod.number().min(getPublishedSiteContentResponseBrandingTabletLogoMaxHeightMin).max(getPublishedSiteContentResponseBrandingTabletLogoMaxHeightMax).multipleOf(getPublishedSiteContentResponseBrandingTabletLogoMaxHeightMultipleOf),
+  "mobileLogoWidth": zod.number().min(getPublishedSiteContentResponseBrandingMobileLogoWidthMin).max(getPublishedSiteContentResponseBrandingMobileLogoWidthMax).multipleOf(getPublishedSiteContentResponseBrandingMobileLogoWidthMultipleOf),
+  "mobileLogoMaxHeight": zod.number().min(getPublishedSiteContentResponseBrandingMobileLogoMaxHeightMin).max(getPublishedSiteContentResponseBrandingMobileLogoMaxHeightMax).multipleOf(getPublishedSiteContentResponseBrandingMobileLogoMaxHeightMultipleOf),
   "alignment": zod.enum(['left', 'center', 'right'])
 })
 })
@@ -10255,6 +10565,30 @@ export const getWebsiteBrandingResponseLogoHeightMultipleOf = 1;
 export const getWebsiteBrandingResponseLogoMaxWidthMax = 4096;
 export const getWebsiteBrandingResponseLogoMaxWidthMultipleOf = 1;
 
+export const getWebsiteBrandingResponseDesktopLogoWidthMin = 40;
+export const getWebsiteBrandingResponseDesktopLogoWidthMax = 320;
+export const getWebsiteBrandingResponseDesktopLogoWidthMultipleOf = 1;
+
+export const getWebsiteBrandingResponseDesktopLogoMaxHeightMin = 16;
+export const getWebsiteBrandingResponseDesktopLogoMaxHeightMax = 44;
+export const getWebsiteBrandingResponseDesktopLogoMaxHeightMultipleOf = 1;
+
+export const getWebsiteBrandingResponseTabletLogoWidthMin = 40;
+export const getWebsiteBrandingResponseTabletLogoWidthMax = 280;
+export const getWebsiteBrandingResponseTabletLogoWidthMultipleOf = 1;
+
+export const getWebsiteBrandingResponseTabletLogoMaxHeightMin = 16;
+export const getWebsiteBrandingResponseTabletLogoMaxHeightMax = 44;
+export const getWebsiteBrandingResponseTabletLogoMaxHeightMultipleOf = 1;
+
+export const getWebsiteBrandingResponseMobileLogoWidthMin = 32;
+export const getWebsiteBrandingResponseMobileLogoWidthMax = 220;
+export const getWebsiteBrandingResponseMobileLogoWidthMultipleOf = 1;
+
+export const getWebsiteBrandingResponseMobileLogoMaxHeightMin = 16;
+export const getWebsiteBrandingResponseMobileLogoMaxHeightMax = 44;
+export const getWebsiteBrandingResponseMobileLogoMaxHeightMultipleOf = 1;
+
 
 
 export const GetWebsiteBrandingResponse = zod.object({
@@ -10265,6 +10599,12 @@ export const GetWebsiteBrandingResponse = zod.object({
   "logoWidth": zod.number().min(1).max(getWebsiteBrandingResponseLogoWidthMax).multipleOf(getWebsiteBrandingResponseLogoWidthMultipleOf),
   "logoHeight": zod.number().min(1).max(getWebsiteBrandingResponseLogoHeightMax).multipleOf(getWebsiteBrandingResponseLogoHeightMultipleOf),
   "logoMaxWidth": zod.number().min(1).max(getWebsiteBrandingResponseLogoMaxWidthMax).multipleOf(getWebsiteBrandingResponseLogoMaxWidthMultipleOf),
+  "desktopLogoWidth": zod.number().min(getWebsiteBrandingResponseDesktopLogoWidthMin).max(getWebsiteBrandingResponseDesktopLogoWidthMax).multipleOf(getWebsiteBrandingResponseDesktopLogoWidthMultipleOf),
+  "desktopLogoMaxHeight": zod.number().min(getWebsiteBrandingResponseDesktopLogoMaxHeightMin).max(getWebsiteBrandingResponseDesktopLogoMaxHeightMax).multipleOf(getWebsiteBrandingResponseDesktopLogoMaxHeightMultipleOf),
+  "tabletLogoWidth": zod.number().min(getWebsiteBrandingResponseTabletLogoWidthMin).max(getWebsiteBrandingResponseTabletLogoWidthMax).multipleOf(getWebsiteBrandingResponseTabletLogoWidthMultipleOf),
+  "tabletLogoMaxHeight": zod.number().min(getWebsiteBrandingResponseTabletLogoMaxHeightMin).max(getWebsiteBrandingResponseTabletLogoMaxHeightMax).multipleOf(getWebsiteBrandingResponseTabletLogoMaxHeightMultipleOf),
+  "mobileLogoWidth": zod.number().min(getWebsiteBrandingResponseMobileLogoWidthMin).max(getWebsiteBrandingResponseMobileLogoWidthMax).multipleOf(getWebsiteBrandingResponseMobileLogoWidthMultipleOf),
+  "mobileLogoMaxHeight": zod.number().min(getWebsiteBrandingResponseMobileLogoMaxHeightMin).max(getWebsiteBrandingResponseMobileLogoMaxHeightMax).multipleOf(getWebsiteBrandingResponseMobileLogoMaxHeightMultipleOf),
   "alignment": zod.enum(['left', 'center', 'right'])
 })
 
@@ -12054,6 +12394,30 @@ export const getAdminWebsiteBrandingResponseOneLogoHeightMultipleOf = 1;
 export const getAdminWebsiteBrandingResponseOneLogoMaxWidthMax = 4096;
 export const getAdminWebsiteBrandingResponseOneLogoMaxWidthMultipleOf = 1;
 
+export const getAdminWebsiteBrandingResponseOneDesktopLogoWidthMin = 40;
+export const getAdminWebsiteBrandingResponseOneDesktopLogoWidthMax = 320;
+export const getAdminWebsiteBrandingResponseOneDesktopLogoWidthMultipleOf = 1;
+
+export const getAdminWebsiteBrandingResponseOneDesktopLogoMaxHeightMin = 16;
+export const getAdminWebsiteBrandingResponseOneDesktopLogoMaxHeightMax = 44;
+export const getAdminWebsiteBrandingResponseOneDesktopLogoMaxHeightMultipleOf = 1;
+
+export const getAdminWebsiteBrandingResponseOneTabletLogoWidthMin = 40;
+export const getAdminWebsiteBrandingResponseOneTabletLogoWidthMax = 280;
+export const getAdminWebsiteBrandingResponseOneTabletLogoWidthMultipleOf = 1;
+
+export const getAdminWebsiteBrandingResponseOneTabletLogoMaxHeightMin = 16;
+export const getAdminWebsiteBrandingResponseOneTabletLogoMaxHeightMax = 44;
+export const getAdminWebsiteBrandingResponseOneTabletLogoMaxHeightMultipleOf = 1;
+
+export const getAdminWebsiteBrandingResponseOneMobileLogoWidthMin = 32;
+export const getAdminWebsiteBrandingResponseOneMobileLogoWidthMax = 220;
+export const getAdminWebsiteBrandingResponseOneMobileLogoWidthMultipleOf = 1;
+
+export const getAdminWebsiteBrandingResponseOneMobileLogoMaxHeightMin = 16;
+export const getAdminWebsiteBrandingResponseOneMobileLogoMaxHeightMax = 44;
+export const getAdminWebsiteBrandingResponseOneMobileLogoMaxHeightMultipleOf = 1;
+
 
 
 export const GetAdminWebsiteBrandingResponse = zod.object({
@@ -12064,6 +12428,12 @@ export const GetAdminWebsiteBrandingResponse = zod.object({
   "logoWidth": zod.number().min(1).max(getAdminWebsiteBrandingResponseOneLogoWidthMax).multipleOf(getAdminWebsiteBrandingResponseOneLogoWidthMultipleOf),
   "logoHeight": zod.number().min(1).max(getAdminWebsiteBrandingResponseOneLogoHeightMax).multipleOf(getAdminWebsiteBrandingResponseOneLogoHeightMultipleOf),
   "logoMaxWidth": zod.number().min(1).max(getAdminWebsiteBrandingResponseOneLogoMaxWidthMax).multipleOf(getAdminWebsiteBrandingResponseOneLogoMaxWidthMultipleOf),
+  "desktopLogoWidth": zod.number().min(getAdminWebsiteBrandingResponseOneDesktopLogoWidthMin).max(getAdminWebsiteBrandingResponseOneDesktopLogoWidthMax).multipleOf(getAdminWebsiteBrandingResponseOneDesktopLogoWidthMultipleOf),
+  "desktopLogoMaxHeight": zod.number().min(getAdminWebsiteBrandingResponseOneDesktopLogoMaxHeightMin).max(getAdminWebsiteBrandingResponseOneDesktopLogoMaxHeightMax).multipleOf(getAdminWebsiteBrandingResponseOneDesktopLogoMaxHeightMultipleOf),
+  "tabletLogoWidth": zod.number().min(getAdminWebsiteBrandingResponseOneTabletLogoWidthMin).max(getAdminWebsiteBrandingResponseOneTabletLogoWidthMax).multipleOf(getAdminWebsiteBrandingResponseOneTabletLogoWidthMultipleOf),
+  "tabletLogoMaxHeight": zod.number().min(getAdminWebsiteBrandingResponseOneTabletLogoMaxHeightMin).max(getAdminWebsiteBrandingResponseOneTabletLogoMaxHeightMax).multipleOf(getAdminWebsiteBrandingResponseOneTabletLogoMaxHeightMultipleOf),
+  "mobileLogoWidth": zod.number().min(getAdminWebsiteBrandingResponseOneMobileLogoWidthMin).max(getAdminWebsiteBrandingResponseOneMobileLogoWidthMax).multipleOf(getAdminWebsiteBrandingResponseOneMobileLogoWidthMultipleOf),
+  "mobileLogoMaxHeight": zod.number().min(getAdminWebsiteBrandingResponseOneMobileLogoMaxHeightMin).max(getAdminWebsiteBrandingResponseOneMobileLogoMaxHeightMax).multipleOf(getAdminWebsiteBrandingResponseOneMobileLogoMaxHeightMultipleOf),
   "alignment": zod.enum(['left', 'center', 'right'])
 }).and(zod.object({
   "custom": zod.boolean(),
@@ -12088,6 +12458,30 @@ export const saveAdminWebsiteBrandingBodyLogoHeightMultipleOf = 1;
 export const saveAdminWebsiteBrandingBodyLogoMaxWidthMax = 4096;
 export const saveAdminWebsiteBrandingBodyLogoMaxWidthMultipleOf = 1;
 
+export const saveAdminWebsiteBrandingBodyDesktopLogoWidthMin = 40;
+export const saveAdminWebsiteBrandingBodyDesktopLogoWidthMax = 320;
+export const saveAdminWebsiteBrandingBodyDesktopLogoWidthMultipleOf = 1;
+
+export const saveAdminWebsiteBrandingBodyDesktopLogoMaxHeightMin = 16;
+export const saveAdminWebsiteBrandingBodyDesktopLogoMaxHeightMax = 44;
+export const saveAdminWebsiteBrandingBodyDesktopLogoMaxHeightMultipleOf = 1;
+
+export const saveAdminWebsiteBrandingBodyTabletLogoWidthMin = 40;
+export const saveAdminWebsiteBrandingBodyTabletLogoWidthMax = 280;
+export const saveAdminWebsiteBrandingBodyTabletLogoWidthMultipleOf = 1;
+
+export const saveAdminWebsiteBrandingBodyTabletLogoMaxHeightMin = 16;
+export const saveAdminWebsiteBrandingBodyTabletLogoMaxHeightMax = 44;
+export const saveAdminWebsiteBrandingBodyTabletLogoMaxHeightMultipleOf = 1;
+
+export const saveAdminWebsiteBrandingBodyMobileLogoWidthMin = 32;
+export const saveAdminWebsiteBrandingBodyMobileLogoWidthMax = 220;
+export const saveAdminWebsiteBrandingBodyMobileLogoWidthMultipleOf = 1;
+
+export const saveAdminWebsiteBrandingBodyMobileLogoMaxHeightMin = 16;
+export const saveAdminWebsiteBrandingBodyMobileLogoMaxHeightMax = 44;
+export const saveAdminWebsiteBrandingBodyMobileLogoMaxHeightMultipleOf = 1;
+
 
 
 export const SaveAdminWebsiteBrandingBody = zod.object({
@@ -12098,6 +12492,12 @@ export const SaveAdminWebsiteBrandingBody = zod.object({
   "logoWidth": zod.number().min(1).max(saveAdminWebsiteBrandingBodyLogoWidthMax).multipleOf(saveAdminWebsiteBrandingBodyLogoWidthMultipleOf),
   "logoHeight": zod.number().min(1).max(saveAdminWebsiteBrandingBodyLogoHeightMax).multipleOf(saveAdminWebsiteBrandingBodyLogoHeightMultipleOf),
   "logoMaxWidth": zod.number().min(1).max(saveAdminWebsiteBrandingBodyLogoMaxWidthMax).multipleOf(saveAdminWebsiteBrandingBodyLogoMaxWidthMultipleOf),
+  "desktopLogoWidth": zod.number().min(saveAdminWebsiteBrandingBodyDesktopLogoWidthMin).max(saveAdminWebsiteBrandingBodyDesktopLogoWidthMax).multipleOf(saveAdminWebsiteBrandingBodyDesktopLogoWidthMultipleOf),
+  "desktopLogoMaxHeight": zod.number().min(saveAdminWebsiteBrandingBodyDesktopLogoMaxHeightMin).max(saveAdminWebsiteBrandingBodyDesktopLogoMaxHeightMax).multipleOf(saveAdminWebsiteBrandingBodyDesktopLogoMaxHeightMultipleOf),
+  "tabletLogoWidth": zod.number().min(saveAdminWebsiteBrandingBodyTabletLogoWidthMin).max(saveAdminWebsiteBrandingBodyTabletLogoWidthMax).multipleOf(saveAdminWebsiteBrandingBodyTabletLogoWidthMultipleOf),
+  "tabletLogoMaxHeight": zod.number().min(saveAdminWebsiteBrandingBodyTabletLogoMaxHeightMin).max(saveAdminWebsiteBrandingBodyTabletLogoMaxHeightMax).multipleOf(saveAdminWebsiteBrandingBodyTabletLogoMaxHeightMultipleOf),
+  "mobileLogoWidth": zod.number().min(saveAdminWebsiteBrandingBodyMobileLogoWidthMin).max(saveAdminWebsiteBrandingBodyMobileLogoWidthMax).multipleOf(saveAdminWebsiteBrandingBodyMobileLogoWidthMultipleOf),
+  "mobileLogoMaxHeight": zod.number().min(saveAdminWebsiteBrandingBodyMobileLogoMaxHeightMin).max(saveAdminWebsiteBrandingBodyMobileLogoMaxHeightMax).multipleOf(saveAdminWebsiteBrandingBodyMobileLogoMaxHeightMultipleOf),
   "alignment": zod.enum(['left', 'center', 'right'])
 })
 
@@ -12112,6 +12512,30 @@ export const saveAdminWebsiteBrandingResponseOneLogoHeightMultipleOf = 1;
 export const saveAdminWebsiteBrandingResponseOneLogoMaxWidthMax = 4096;
 export const saveAdminWebsiteBrandingResponseOneLogoMaxWidthMultipleOf = 1;
 
+export const saveAdminWebsiteBrandingResponseOneDesktopLogoWidthMin = 40;
+export const saveAdminWebsiteBrandingResponseOneDesktopLogoWidthMax = 320;
+export const saveAdminWebsiteBrandingResponseOneDesktopLogoWidthMultipleOf = 1;
+
+export const saveAdminWebsiteBrandingResponseOneDesktopLogoMaxHeightMin = 16;
+export const saveAdminWebsiteBrandingResponseOneDesktopLogoMaxHeightMax = 44;
+export const saveAdminWebsiteBrandingResponseOneDesktopLogoMaxHeightMultipleOf = 1;
+
+export const saveAdminWebsiteBrandingResponseOneTabletLogoWidthMin = 40;
+export const saveAdminWebsiteBrandingResponseOneTabletLogoWidthMax = 280;
+export const saveAdminWebsiteBrandingResponseOneTabletLogoWidthMultipleOf = 1;
+
+export const saveAdminWebsiteBrandingResponseOneTabletLogoMaxHeightMin = 16;
+export const saveAdminWebsiteBrandingResponseOneTabletLogoMaxHeightMax = 44;
+export const saveAdminWebsiteBrandingResponseOneTabletLogoMaxHeightMultipleOf = 1;
+
+export const saveAdminWebsiteBrandingResponseOneMobileLogoWidthMin = 32;
+export const saveAdminWebsiteBrandingResponseOneMobileLogoWidthMax = 220;
+export const saveAdminWebsiteBrandingResponseOneMobileLogoWidthMultipleOf = 1;
+
+export const saveAdminWebsiteBrandingResponseOneMobileLogoMaxHeightMin = 16;
+export const saveAdminWebsiteBrandingResponseOneMobileLogoMaxHeightMax = 44;
+export const saveAdminWebsiteBrandingResponseOneMobileLogoMaxHeightMultipleOf = 1;
+
 
 
 export const SaveAdminWebsiteBrandingResponse = zod.object({
@@ -12122,6 +12546,12 @@ export const SaveAdminWebsiteBrandingResponse = zod.object({
   "logoWidth": zod.number().min(1).max(saveAdminWebsiteBrandingResponseOneLogoWidthMax).multipleOf(saveAdminWebsiteBrandingResponseOneLogoWidthMultipleOf),
   "logoHeight": zod.number().min(1).max(saveAdminWebsiteBrandingResponseOneLogoHeightMax).multipleOf(saveAdminWebsiteBrandingResponseOneLogoHeightMultipleOf),
   "logoMaxWidth": zod.number().min(1).max(saveAdminWebsiteBrandingResponseOneLogoMaxWidthMax).multipleOf(saveAdminWebsiteBrandingResponseOneLogoMaxWidthMultipleOf),
+  "desktopLogoWidth": zod.number().min(saveAdminWebsiteBrandingResponseOneDesktopLogoWidthMin).max(saveAdminWebsiteBrandingResponseOneDesktopLogoWidthMax).multipleOf(saveAdminWebsiteBrandingResponseOneDesktopLogoWidthMultipleOf),
+  "desktopLogoMaxHeight": zod.number().min(saveAdminWebsiteBrandingResponseOneDesktopLogoMaxHeightMin).max(saveAdminWebsiteBrandingResponseOneDesktopLogoMaxHeightMax).multipleOf(saveAdminWebsiteBrandingResponseOneDesktopLogoMaxHeightMultipleOf),
+  "tabletLogoWidth": zod.number().min(saveAdminWebsiteBrandingResponseOneTabletLogoWidthMin).max(saveAdminWebsiteBrandingResponseOneTabletLogoWidthMax).multipleOf(saveAdminWebsiteBrandingResponseOneTabletLogoWidthMultipleOf),
+  "tabletLogoMaxHeight": zod.number().min(saveAdminWebsiteBrandingResponseOneTabletLogoMaxHeightMin).max(saveAdminWebsiteBrandingResponseOneTabletLogoMaxHeightMax).multipleOf(saveAdminWebsiteBrandingResponseOneTabletLogoMaxHeightMultipleOf),
+  "mobileLogoWidth": zod.number().min(saveAdminWebsiteBrandingResponseOneMobileLogoWidthMin).max(saveAdminWebsiteBrandingResponseOneMobileLogoWidthMax).multipleOf(saveAdminWebsiteBrandingResponseOneMobileLogoWidthMultipleOf),
+  "mobileLogoMaxHeight": zod.number().min(saveAdminWebsiteBrandingResponseOneMobileLogoMaxHeightMin).max(saveAdminWebsiteBrandingResponseOneMobileLogoMaxHeightMax).multipleOf(saveAdminWebsiteBrandingResponseOneMobileLogoMaxHeightMultipleOf),
   "alignment": zod.enum(['left', 'center', 'right'])
 }).and(zod.object({
   "custom": zod.boolean(),
@@ -12144,6 +12574,30 @@ export const resetAdminWebsiteBrandingResponseLogoHeightMultipleOf = 1;
 export const resetAdminWebsiteBrandingResponseLogoMaxWidthMax = 4096;
 export const resetAdminWebsiteBrandingResponseLogoMaxWidthMultipleOf = 1;
 
+export const resetAdminWebsiteBrandingResponseDesktopLogoWidthMin = 40;
+export const resetAdminWebsiteBrandingResponseDesktopLogoWidthMax = 320;
+export const resetAdminWebsiteBrandingResponseDesktopLogoWidthMultipleOf = 1;
+
+export const resetAdminWebsiteBrandingResponseDesktopLogoMaxHeightMin = 16;
+export const resetAdminWebsiteBrandingResponseDesktopLogoMaxHeightMax = 44;
+export const resetAdminWebsiteBrandingResponseDesktopLogoMaxHeightMultipleOf = 1;
+
+export const resetAdminWebsiteBrandingResponseTabletLogoWidthMin = 40;
+export const resetAdminWebsiteBrandingResponseTabletLogoWidthMax = 280;
+export const resetAdminWebsiteBrandingResponseTabletLogoWidthMultipleOf = 1;
+
+export const resetAdminWebsiteBrandingResponseTabletLogoMaxHeightMin = 16;
+export const resetAdminWebsiteBrandingResponseTabletLogoMaxHeightMax = 44;
+export const resetAdminWebsiteBrandingResponseTabletLogoMaxHeightMultipleOf = 1;
+
+export const resetAdminWebsiteBrandingResponseMobileLogoWidthMin = 32;
+export const resetAdminWebsiteBrandingResponseMobileLogoWidthMax = 220;
+export const resetAdminWebsiteBrandingResponseMobileLogoWidthMultipleOf = 1;
+
+export const resetAdminWebsiteBrandingResponseMobileLogoMaxHeightMin = 16;
+export const resetAdminWebsiteBrandingResponseMobileLogoMaxHeightMax = 44;
+export const resetAdminWebsiteBrandingResponseMobileLogoMaxHeightMultipleOf = 1;
+
 
 
 export const ResetAdminWebsiteBrandingResponse = zod.object({
@@ -12154,6 +12608,12 @@ export const ResetAdminWebsiteBrandingResponse = zod.object({
   "logoWidth": zod.number().min(1).max(resetAdminWebsiteBrandingResponseLogoWidthMax).multipleOf(resetAdminWebsiteBrandingResponseLogoWidthMultipleOf),
   "logoHeight": zod.number().min(1).max(resetAdminWebsiteBrandingResponseLogoHeightMax).multipleOf(resetAdminWebsiteBrandingResponseLogoHeightMultipleOf),
   "logoMaxWidth": zod.number().min(1).max(resetAdminWebsiteBrandingResponseLogoMaxWidthMax).multipleOf(resetAdminWebsiteBrandingResponseLogoMaxWidthMultipleOf),
+  "desktopLogoWidth": zod.number().min(resetAdminWebsiteBrandingResponseDesktopLogoWidthMin).max(resetAdminWebsiteBrandingResponseDesktopLogoWidthMax).multipleOf(resetAdminWebsiteBrandingResponseDesktopLogoWidthMultipleOf),
+  "desktopLogoMaxHeight": zod.number().min(resetAdminWebsiteBrandingResponseDesktopLogoMaxHeightMin).max(resetAdminWebsiteBrandingResponseDesktopLogoMaxHeightMax).multipleOf(resetAdminWebsiteBrandingResponseDesktopLogoMaxHeightMultipleOf),
+  "tabletLogoWidth": zod.number().min(resetAdminWebsiteBrandingResponseTabletLogoWidthMin).max(resetAdminWebsiteBrandingResponseTabletLogoWidthMax).multipleOf(resetAdminWebsiteBrandingResponseTabletLogoWidthMultipleOf),
+  "tabletLogoMaxHeight": zod.number().min(resetAdminWebsiteBrandingResponseTabletLogoMaxHeightMin).max(resetAdminWebsiteBrandingResponseTabletLogoMaxHeightMax).multipleOf(resetAdminWebsiteBrandingResponseTabletLogoMaxHeightMultipleOf),
+  "mobileLogoWidth": zod.number().min(resetAdminWebsiteBrandingResponseMobileLogoWidthMin).max(resetAdminWebsiteBrandingResponseMobileLogoWidthMax).multipleOf(resetAdminWebsiteBrandingResponseMobileLogoWidthMultipleOf),
+  "mobileLogoMaxHeight": zod.number().min(resetAdminWebsiteBrandingResponseMobileLogoMaxHeightMin).max(resetAdminWebsiteBrandingResponseMobileLogoMaxHeightMax).multipleOf(resetAdminWebsiteBrandingResponseMobileLogoMaxHeightMultipleOf),
   "alignment": zod.enum(['left', 'center', 'right'])
 })
 

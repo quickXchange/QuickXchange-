@@ -108,3 +108,4 @@
 - [Telegram shared identity](telegram-shared-identity.md) — link through website Clerk only; freeze ownership before create and atomically claim before storing Telegram capabilities.
 - [Official RSS CDN resolution](official-rss-cdn-resolution.md) — hardcoded publisher feeds may require runtime CDN resolution; direct validated-IP pinning can fail on managed egress.
 - [Fiat-to-crypto payment instructions](fiat-to-crypto-payment-instructions.md) — keep order-owned bank instructions token-gated; customer “paid” is a report, never operator settlement confirmation.
+- [Payment method identity snapshots](payment-method-identity-snapshots.md) — preserve the selected rail’s identity on the order, but exclude presentation metadata from executable quote-term equality.

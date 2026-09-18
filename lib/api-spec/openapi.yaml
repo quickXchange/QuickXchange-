@@ -4391,6 +4391,15 @@ components:
         paymentReference: { type: string, maxLength: 500 }
         amount: { type: string, maxLength: 120 }
         customInstructions: { type: string, maxLength: 2000 }
+    SourcePaymentMethod:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 200 }
+        paymentMethodId: { type: string, minLength: 1, maxLength: 200 }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        logoUrl: { type: string, minLength: 1, maxLength: 2048 }
     MarkOrderPaidInput:
       type: object
       additionalProperties: false
@@ -4545,6 +4554,7 @@ components:
         customerSafeNote: { type: string, maxLength: 2000 }
         paymentDetails: { $ref: "#/components/schemas/OrderPaymentDetails" }
         paymentDetailsApplicable: { type: boolean }
+        sourcePaymentMethod: { $ref: "#/components/schemas/SourcePaymentMethod" }
         customerMarkedPaidAt: { type: ["string", "null"] }
         incomingTransactionReference: { type: string, maxLength: 500 }
         outgoingTransactionReference: { type: string, maxLength: 500 }
@@ -5022,6 +5032,7 @@ components:
         settlementDetails: { type: object, additionalProperties: { type: [string, number, "null"] } }
         paymentDetails: { $ref: "#/components/schemas/OrderPaymentDetails" }
         paymentDetailsApplicable: { type: boolean }
+        sourcePaymentMethod: { $ref: "#/components/schemas/SourcePaymentMethod" }
         customerMarkedPaidAt: { type: ["string", "null"] }
     CustomerOrder:
       type: object
@@ -5052,6 +5063,7 @@ components:
         settlementDetails: { type: object, additionalProperties: { type: [string, number, "null"] } }
         paymentDetails: { $ref: "#/components/schemas/OrderPaymentDetails" }
         paymentDetailsApplicable: { type: boolean }
+        sourcePaymentMethod: { $ref: "#/components/schemas/SourcePaymentMethod" }
         customerMarkedPaidAt: { type: ["string", "null"] }
     CustomerOrderPage:
       type: object
@@ -6475,7 +6487,7 @@ components:
         branding: { $ref: "#/components/schemas/WebsiteBranding" }
     WebsiteBranding:
       type: object
-      required: [lightLogoPath, darkLogoPath, mobileLogoPath, faviconPath, logoWidth, logoHeight, logoMaxWidth, alignment]
+      required: [lightLogoPath, darkLogoPath, mobileLogoPath, faviconPath, logoWidth, logoHeight, logoMaxWidth, desktopLogoWidth, desktopLogoMaxHeight, tabletLogoWidth, tabletLogoMaxHeight, mobileLogoWidth, mobileLogoMaxHeight, alignment]
       properties:
         lightLogoPath: { type: string, minLength: 1 }
         darkLogoPath: { type: string, minLength: 1 }
@@ -6484,6 +6496,12 @@ components:
         logoWidth: { type: number, multipleOf: 1, minimum: 1, maximum: 4096 }
         logoHeight: { type: number, multipleOf: 1, minimum: 1, maximum: 4096 }
         logoMaxWidth: { type: number, multipleOf: 1, minimum: 1, maximum: 4096 }
+        desktopLogoWidth: { type: number, multipleOf: 1, minimum: 40, maximum: 320 }
+        desktopLogoMaxHeight: { type: number, multipleOf: 1, minimum: 16, maximum: 44 }
+        tabletLogoWidth: { type: number, multipleOf: 1, minimum: 40, maximum: 280 }
+        tabletLogoMaxHeight: { type: number, multipleOf: 1, minimum: 16, maximum: 44 }
+        mobileLogoWidth: { type: number, multipleOf: 1, minimum: 32, maximum: 220 }
+        mobileLogoMaxHeight: { type: number, multipleOf: 1, minimum: 16, maximum: 44 }
         alignment: { type: string, enum: [left, center, right] }
     AdminWebsiteBranding:
       allOf:
@@ -6496,7 +6514,7 @@ components:
             updatedAt: { type: [string, "null"], format: date-time }
     WebsiteBrandingSaveInput:
       type: object
-      required: [lightLogoPath, darkLogoPath, mobileLogoPath, faviconPath, logoWidth, logoHeight, logoMaxWidth, alignment]
+      required: [lightLogoPath, darkLogoPath, mobileLogoPath, faviconPath, logoWidth, logoHeight, logoMaxWidth, desktopLogoWidth, desktopLogoMaxHeight, tabletLogoWidth, tabletLogoMaxHeight, mobileLogoWidth, mobileLogoMaxHeight, alignment]
       properties:
         lightLogoPath: { type: [string, "null"], pattern: '^/objects/website-branding/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
         darkLogoPath: { type: [string, "null"], pattern: '^/objects/website-branding/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
@@ -6505,6 +6523,12 @@ components:
         logoWidth: { type: number, multipleOf: 1, minimum: 1, maximum: 4096 }
         logoHeight: { type: number, multipleOf: 1, minimum: 1, maximum: 4096 }
         logoMaxWidth: { type: number, multipleOf: 1, minimum: 1, maximum: 4096 }
+        desktopLogoWidth: { type: number, multipleOf: 1, minimum: 40, maximum: 320 }
+        desktopLogoMaxHeight: { type: number, multipleOf: 1, minimum: 16, maximum: 44 }
+        tabletLogoWidth: { type: number, multipleOf: 1, minimum: 40, maximum: 280 }
+        tabletLogoMaxHeight: { type: number, multipleOf: 1, minimum: 16, maximum: 44 }
+        mobileLogoWidth: { type: number, multipleOf: 1, minimum: 32, maximum: 220 }
+        mobileLogoMaxHeight: { type: number, multipleOf: 1, minimum: 16, maximum: 44 }
         alignment: { type: string, enum: [left, center, right] }
     WebsiteBrandingUpload:
       type: object

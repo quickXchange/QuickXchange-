@@ -429,6 +429,7 @@ export * from './socialTrustItemInputGroup';
 export * from './socialTrustItemUpdate';
 export * from './socialTrustItemUpdateGroup';
 export * from './socialTrustTitlesInput';
+export * from './sourcePaymentMethod';
 export * from './teamMember';
 export * from './teamMemberInvite';
 export * from './teamMemberRole';

@@ -1202,6 +1202,7 @@ function CustomerOrderView({ order }: { order: CustomerOrder }) {
         <PaymentDetailsCard
           paymentDetails={order.paymentDetails}
           paymentDetailsApplicable={order.paymentDetailsApplicable}
+          sourcePaymentMethod={order.sourcePaymentMethod}
           customerMarkedPaidAt={order.customerMarkedPaidAt}
           onMarkPaid={() => markPaidMutation.mutate({ id: order.id }, {
             onSuccess: () => {

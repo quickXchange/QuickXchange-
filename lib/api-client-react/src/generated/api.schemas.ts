@@ -1343,6 +1343,29 @@ export interface OrderUpdate {
   paymentDetails?: OrderPaymentDetails | null;
 }
 
+export interface SourcePaymentMethod {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  id: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  paymentMethodId?: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  name: string;
+  /**
+     * @minLength 1
+     * @maxLength 2048
+     */
+  logoUrl?: string;
+}
+
 export interface MarkOrderPaidInput {
   /**
      * @minLength 16
@@ -1727,6 +1750,7 @@ export interface Order {
   customerSafeNote?: string;
   paymentDetails?: OrderPaymentDetails;
   paymentDetailsApplicable?: boolean;
+  sourcePaymentMethod?: SourcePaymentMethod;
   /** @nullable */
   customerMarkedPaidAt?: string | null;
   /** @maxLength 500 */
@@ -2347,6 +2371,7 @@ export interface PublicOrderStatus {
   settlementDetails?: PublicOrderStatusSettlementDetails;
   paymentDetails?: OrderPaymentDetails;
   paymentDetailsApplicable?: boolean;
+  sourcePaymentMethod?: SourcePaymentMethod;
   /** @nullable */
   customerMarkedPaidAt?: string | null;
 }
@@ -2382,6 +2407,7 @@ export interface CustomerOrder {
   settlementDetails?: CustomerOrderSettlementDetails;
   paymentDetails?: OrderPaymentDetails;
   paymentDetailsApplicable?: boolean;
+  sourcePaymentMethod?: SourcePaymentMethod;
   /** @nullable */
   customerMarkedPaidAt?: string | null;
 }
@@ -4682,6 +4708,36 @@ export interface WebsiteBranding {
      * @maximum 4096
      */
   logoMaxWidth: number;
+  /**
+     * @minimum 40
+     * @maximum 320
+     */
+  desktopLogoWidth: number;
+  /**
+     * @minimum 16
+     * @maximum 44
+     */
+  desktopLogoMaxHeight: number;
+  /**
+     * @minimum 40
+     * @maximum 280
+     */
+  tabletLogoWidth: number;
+  /**
+     * @minimum 16
+     * @maximum 44
+     */
+  tabletLogoMaxHeight: number;
+  /**
+     * @minimum 32
+     * @maximum 220
+     */
+  mobileLogoWidth: number;
+  /**
+     * @minimum 16
+     * @maximum 44
+     */
+  mobileLogoMaxHeight: number;
   alignment: WebsiteBrandingAlignment;
 }
 
@@ -4746,6 +4802,36 @@ export interface WebsiteBrandingSaveInput {
      * @maximum 4096
      */
   logoMaxWidth: number;
+  /**
+     * @minimum 40
+     * @maximum 320
+     */
+  desktopLogoWidth: number;
+  /**
+     * @minimum 16
+     * @maximum 44
+     */
+  desktopLogoMaxHeight: number;
+  /**
+     * @minimum 40
+     * @maximum 280
+     */
+  tabletLogoWidth: number;
+  /**
+     * @minimum 16
+     * @maximum 44
+     */
+  tabletLogoMaxHeight: number;
+  /**
+     * @minimum 32
+     * @maximum 220
+     */
+  mobileLogoWidth: number;
+  /**
+     * @minimum 16
+     * @maximum 44
+     */
+  mobileLogoMaxHeight: number;
   alignment: WebsiteBrandingSaveInputAlignment;
 }
 

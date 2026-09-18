@@ -1506,6 +1506,7 @@ function OrderStatusCard({
           <PaymentDetailsCard
             paymentDetails={order.paymentDetails}
             paymentDetailsApplicable={order.paymentDetailsApplicable}
+            sourcePaymentMethod={order.sourcePaymentMethod}
             customerMarkedPaidAt={order.customerMarkedPaidAt}
             onMarkPaid={onMarkPaid}
             markPaidPending={markPaidPending}

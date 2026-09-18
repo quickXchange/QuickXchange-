@@ -23007,3 +23007,56 @@ html:not(.dark) .frontend-menu-drawer .qx-mobile-trigger[aria-expanded="true"] {
     animation: none;
   }
 }
+
+/* Admin-controlled public header logo geometry. Keep this at the true end of
+   the stylesheet so legacy header rules cannot replace persisted values. */
+@media (min-width: 901px) {
+  .public-shell .public-header > .brand.brand-logo-surface {
+    flex: 0 1 var(--qx-logo-desktop-width) !important;
+    min-width: 0;
+    max-width: min(var(--qx-logo-desktop-width), 28vw) !important;
+  }
+
+  .public-shell .public-header .brand-logo-surface .brand-reference-logo {
+    width: var(--qx-logo-desktop-width) !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: var(--qx-logo-desktop-max-height) !important;
+    object-fit: contain;
+    object-position: left center;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 900px) {
+  .public-shell .public-header > .brand.brand-logo-surface {
+    flex: 0 1 var(--qx-logo-tablet-width) !important;
+    min-width: 0;
+    max-width: min(var(--qx-logo-tablet-width), calc(100vw - 132px)) !important;
+  }
+
+  .public-shell .public-header .brand-logo-surface .brand-reference-logo {
+    width: var(--qx-logo-tablet-width) !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: var(--qx-logo-tablet-max-height) !important;
+    object-fit: contain;
+    object-position: left center;
+  }
+}
+
+@media (max-width: 640px) {
+  .public-shell .public-header > .brand.brand-logo-surface {
+    flex: 0 1 var(--qx-logo-mobile-width) !important;
+    min-width: 0;
+    max-width: min(var(--qx-logo-mobile-width), calc(100vw - 132px)) !important;
+  }
+
+  .public-shell .public-header .brand-logo-surface .brand-reference-logo {
+    width: var(--qx-logo-mobile-width) !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: var(--qx-logo-mobile-max-height) !important;
+    object-fit: contain;
+    object-position: left center;
+  }
+}

@@ -10,6 +10,7 @@ import type { CustomerOrderSettlementDetails } from './customerOrderSettlementDe
 import type { ExactDecimal } from './exactDecimal';
 import type { OrderPaymentDetails } from './orderPaymentDetails';
 import type { QuickexRateMode } from './quickexRateMode';
+import type { SourcePaymentMethod } from './sourcePaymentMethod';
 
 export interface CustomerOrder {
   id: string;
@@ -38,6 +39,7 @@ export interface CustomerOrder {
   settlementDetails?: CustomerOrderSettlementDetails;
   paymentDetails?: OrderPaymentDetails;
   paymentDetailsApplicable?: boolean;
+  sourcePaymentMethod?: SourcePaymentMethod;
   /** @nullable */
   customerMarkedPaidAt?: string | null;
 }

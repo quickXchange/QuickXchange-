@@ -19,6 +19,12 @@ export const publishedSiteContentStub = {
     logoWidth: 240,
     logoHeight: 64,
     logoMaxWidth: 240,
+    desktopLogoWidth: 138,
+    desktopLogoMaxHeight: 30,
+    tabletLogoWidth: 130,
+    tabletLogoMaxHeight: 28,
+    mobileLogoWidth: 116,
+    mobileLogoMaxHeight: 28,
     alignment: "left",
   },
 };

@@ -1,6 +1,8 @@
+import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { PaymentMethodLogo } from '@/components/payment-method-logo';
 import { useState, type ReactNode } from 'react';
 import { Check, CircleAlert, RefreshCw, ShieldCheck, X, Copy } from 'lucide-react';
-import type { ApiError, OrderPaymentDetails } from '@workspace/api-client-react';
+import type { ApiError, OrderPaymentDetails, SourcePaymentMethod } from '@workspace/api-client-react';
 import { useI18n } from '@/i18n';
 
 export const SUPPORT_TELEGRAM = 'https://t.me/Quick_change_support';
@@ -21,6 +23,7 @@ export const cn = (...classes: Array<string | false | undefined>) => classes.fil
 export function PaymentDetailsCard({
   paymentDetails,
   paymentDetailsApplicable,
+  sourcePaymentMethod,
   customerMarkedPaidAt,
   onMarkPaid,
   markPaidPending = false,
@@ -29,15 +32,18 @@ export function PaymentDetailsCard({
 }: {
   paymentDetails?: OrderPaymentDetails | null;
   paymentDetailsApplicable?: boolean;
+  sourcePaymentMethod?: SourcePaymentMethod | null;
   customerMarkedPaidAt?: string | null;
   onMarkPaid?: () => void;
   markPaidPending?: boolean;
   showPayNow?: boolean;
   supportHref?: string;
 }) {
-  const [revealed, setRevealed] = useState(Boolean(paymentDetails));
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+
   if (!paymentDetailsApplicable) return null;
+
   const values: Array<[keyof OrderPaymentDetails, string]> = [
     ['name', 'Name'], ['iban', 'IBAN'], ['bankName', 'Bank Name'],
     ['bicSwift', 'BIC / SWIFT'], ['paymentReference', 'Payment Description / Reference'],
@@ -59,40 +65,117 @@ export function PaymentDetailsCard({
           <h2 className="text-base font-bold">Payment Details / Payment Instructions</h2>
           {customerMarkedPaidAt && <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400" data-testid="text-customer-marked-paid">Marked as paid</p>}
         </div>
-        {showPayNow && !revealed && (
-          <button type="button" className="button button-primary" onClick={() => setRevealed(true)} data-testid="button-pay-now">Pay Now</button>
-        )}
-      </div>
-      {!revealed ? null : paymentDetails && available.length > 0 ? (
-        <>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2" data-testid="payment-instructions-fields">
-            {available.map(([key, label]) => {
-              const value = String(paymentDetails[key]);
-              return (
-                <div key={key} className="rounded-xl border border-border bg-muted/20 p-3">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
-                  <div className="mt-1 flex items-start justify-between gap-2">
-                    <span className={cn('whitespace-pre-wrap break-words text-sm', key !== 'customInstructions' && 'font-mono')}>{value}</span>
-                    <button type="button" className="shrink-0 text-muted-foreground hover:text-foreground" onClick={() => copyValue(String(key), value)} aria-label={`Copy ${label}`} data-testid={`button-copy-payment-${key}`}>
-                      {copied === key ? <Check size={15} /> : <Copy size={15} />}
-                    </button>
+
+        {showPayNow && (
+          <DialogPrimitive.Root open={isModalOpen} onOpenChange={setIsModalOpen}>
+            <DialogPrimitive.Trigger asChild>
+              {customerMarkedPaidAt ? (
+                <button type="button" className="button button-secondary" data-testid="button-view-payment-details">View Details</button>
+              ) : (
+                <button type="button" className="button button-primary" data-testid="button-pay-now">Pay Now</button>
+              )}
+            </DialogPrimitive.Trigger>
+            <DialogPrimitive.Portal>
+              <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 motion-reduce:animate-none" />
+              <DialogPrimitive.Content
+                className="fixed left-[50%] top-[50%] z-50 w-[94vw] max-w-md translate-x-[-50%] translate-y-[-50%] p-0 rounded-[24px] border border-border bg-card shadow-2xl overflow-hidden focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] motion-reduce:animate-none"
+                data-testid="modal-payment-instructions"
+              >
+                <div className="relative p-6 sm:p-8">
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 bg-gradient-to-b from-primary/10 via-primary/5 to-transparent blur-2xl pointer-events-none rounded-full" />
+
+                  <div className="flex flex-col items-center mb-6 relative z-10">
+                    <div className="relative flex items-center justify-center w-20 h-20 mb-4">
+                      <div className="absolute inset-0 rounded-full border-[3px] border-transparent border-t-primary/80 border-r-primary/40 animate-[spin_3s_linear_infinite] motion-reduce:animate-none" />
+                      <div className="absolute inset-1 rounded-full border-[3px] border-transparent border-b-blue-400/60 border-l-blue-400/30 animate-[spin_4s_linear_infinite_reverse] motion-reduce:animate-none" />
+                      <div className="w-14 h-14 bg-background rounded-full shadow-sm flex items-center justify-center overflow-hidden border border-border p-1">
+                        {sourcePaymentMethod ? (
+                          <PaymentMethodLogo
+                            name={sourcePaymentMethod.name}
+                            logoUrl={sourcePaymentMethod.logoUrl}
+                            priority
+                            className="w-full h-full"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-muted rounded-full flex items-center justify-center text-muted-foreground text-xl font-bold">?</div>
+                        )}
+                      </div>
+                    </div>
+                    <DialogPrimitive.Title className="text-xl font-bold tracking-tight text-center text-foreground">
+                      {sourcePaymentMethod?.name || 'Payment Details'}
+                    </DialogPrimitive.Title>
+                    <DialogPrimitive.Description className="text-muted-foreground text-sm mt-1 text-center font-medium">
+                      Send money to this account
+                    </DialogPrimitive.Description>
+                  </div>
+
+                  <div className="relative z-10 max-h-[50vh] overflow-y-auto px-1 -mx-1">
+                    {paymentDetails && available.length > 0 ? (
+                      <div className="grid gap-3" data-testid="payment-instructions-fields">
+                        {available.map(([key, label]) => {
+                          const value = String(paymentDetails[key]);
+                          return (
+                            <div key={key} className="rounded-xl border border-border bg-muted/20 p-3 sm:px-4 sm:py-3.5">
+                              <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
+                              <div className="mt-1.5 flex items-start justify-between gap-3">
+                                <span className={cn('whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground', key !== 'customInstructions' && 'font-mono font-medium tracking-tight')}>{value}</span>
+                                <button type="button" className="shrink-0 text-muted-foreground hover:text-foreground transition-colors p-1" onClick={() => copyValue(String(key), value)} aria-label={`Copy ${label}`} data-testid={`button-copy-payment-${key}`}>
+                                  {copied === key ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-warning/25 bg-warning/10 p-5 text-center" data-testid="payment-details-support-prompt">
+                        <p className="text-sm font-medium text-warning-foreground mb-4">Contact support to get details</p>
+                        <a className="button button-secondary w-full" href={supportHref} target="_blank" rel="noreferrer" data-testid="button-contact-support">Contact Support</a>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-8 flex flex-col sm:flex-row-reverse gap-3 relative z-10">
+                    {onMarkPaid && !customerMarkedPaidAt ? (
+                      <button
+                        type="button"
+                        className="button button-primary flex-1 h-12 rounded-xl text-sm font-semibold flex items-center justify-center"
+                        onClick={onMarkPaid}
+                        disabled={markPaidPending || available.length === 0}
+                        title={available.length === 0 ? 'Payment details are not available yet.' : undefined}
+                        data-testid="button-mark-paid"
+                      >
+                        {markPaidPending ? (
+                          <RefreshCw size={18} className="animate-spin mr-2" />
+                        ) : (
+                          <Check size={18} className="mr-2" strokeWidth={3} />
+                        )}
+                        {markPaidPending ? 'Marking as Paid…' : 'Mark as Paid'}
+                      </button>
+                    ) : customerMarkedPaidAt ? (
+                      <div className="flex-1 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-sm">
+                        <Check size={18} className="mr-2" strokeWidth={3} />
+                        Marked as Paid
+                      </div>
+                    ) : null}
+
+                    <DialogPrimitive.Close asChild>
+                      <button
+                        type="button"
+                        className="button button-secondary flex-1 h-12 rounded-xl text-sm font-semibold"
+                        disabled={markPaidPending}
+                        data-testid="button-cancel-payment-modal"
+                      >
+                        Cancel
+                      </button>
+                    </DialogPrimitive.Close>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-          {onMarkPaid && !customerMarkedPaidAt && (
-            <button type="button" className="button button-primary mt-4" onClick={onMarkPaid} disabled={markPaidPending} data-testid="button-mark-paid">
-              {markPaidPending ? 'Marking as Paid…' : 'Mark as Paid'}
-            </button>
-          )}
-        </>
-      ) : (
-        <div className="mt-4 rounded-xl border border-warning/25 bg-warning/10 p-4" data-testid="payment-details-support-prompt">
-          <p className="text-sm">Contact support to get payment details</p>
-          <a className="button button-secondary mt-3 inline-flex" href={supportHref} target="_blank" rel="noreferrer" data-testid="button-contact-support">Contact Support</a>
-        </div>
-      )}
+              </DialogPrimitive.Content>
+            </DialogPrimitive.Portal>
+          </DialogPrimitive.Root>
+        )}
+      </div>
     </section>
   );
 }

@@ -130,6 +130,12 @@ const DEFAULT_WEBSITE_BRANDING = {
   logoWidth: 180,
   logoHeight: 44,
   logoMaxWidth: 240,
+  desktopLogoWidth: 138,
+  desktopLogoMaxHeight: 30,
+  tabletLogoWidth: 130,
+  tabletLogoMaxHeight: 28,
+  mobileLogoWidth: 116,
+  mobileLogoMaxHeight: 28,
   alignment: "left" as const,
 };
 
@@ -149,6 +155,12 @@ function publicWebsiteBranding(row: Awaited<ReturnType<typeof currentWebsiteBran
       logoWidth: row.logoWidth,
       logoHeight: row.logoHeight,
       logoMaxWidth: row.logoMaxWidth,
+      desktopLogoWidth: row.desktopLogoWidth,
+      desktopLogoMaxHeight: row.desktopLogoMaxHeight,
+      tabletLogoWidth: row.tabletLogoWidth,
+      tabletLogoMaxHeight: row.tabletLogoMaxHeight,
+      mobileLogoWidth: row.mobileLogoWidth,
+      mobileLogoMaxHeight: row.mobileLogoMaxHeight,
       alignment: row.alignment as "left" | "center" | "right",
     }
     : DEFAULT_WEBSITE_BRANDING;
@@ -678,6 +690,12 @@ router.put("/admin/website-branding", requireOwner, async (req, res): Promise<vo
         logoWidth: input.logoWidth,
         logoHeight: input.logoHeight,
         logoMaxWidth: input.logoMaxWidth,
+        desktopLogoWidth: input.desktopLogoWidth,
+        desktopLogoMaxHeight: input.desktopLogoMaxHeight,
+        tabletLogoWidth: input.tabletLogoWidth,
+        tabletLogoMaxHeight: input.tabletLogoMaxHeight,
+        mobileLogoWidth: input.mobileLogoWidth,
+        mobileLogoMaxHeight: input.mobileLogoMaxHeight,
         alignment: input.alignment,
         updatedBy: res.locals.operator.id,
         updatedAt: new Date(),

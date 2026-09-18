@@ -3,6 +3,7 @@ import { basePath, cn } from '@/components/shared-app-ui';
 import { useAppTheme } from '@/theme';
 import { useGetPublishedSiteContent, getGetPublishedSiteContentQueryKey } from '@workspace/api-client-react';
 import { useSitePreview } from './site-preview-context';
+import type { CSSProperties } from 'react';
 
 export function BrandLogo({
   inverse = false,
@@ -40,12 +41,19 @@ export function BrandLogo({
   const mobileLogo = getSource(branding?.mobileLogoPath, '');
   
   const alignmentClass = branding?.alignment === 'center' ? 'mx-auto' : branding?.alignment === 'right' ? 'ml-auto' : '';
+  const responsiveSizeStyle = {
+    '--qx-logo-desktop-width': `${branding?.desktopLogoWidth ?? 138}px`,
+    '--qx-logo-desktop-max-height': `${branding?.desktopLogoMaxHeight ?? 30}px`,
+    '--qx-logo-tablet-width': `${branding?.tabletLogoWidth ?? 130}px`,
+    '--qx-logo-tablet-max-height': `${branding?.tabletLogoMaxHeight ?? 28}px`,
+    '--qx-logo-mobile-width': `${branding?.mobileLogoWidth ?? 116}px`,
+    '--qx-logo-mobile-max-height': `${branding?.mobileLogoMaxHeight ?? 28}px`,
+  } as CSSProperties;
 
   const commonImgProps = {
     alt: "QuickXchange",
     width: branding?.logoWidth || 900,
     height: branding?.logoHeight || 288,
-    style: { maxWidth: branding?.logoMaxWidth ? `${branding.logoMaxWidth}px` : '100%' },
     decoding: "async" as const,
   };
 
@@ -55,6 +63,7 @@ export function BrandLogo({
       className={cn('brand', 'brand-logo-surface', inverse && 'brand-inverse', alignmentClass, className)}
       onClick={onNavigate}
       data-testid={testId}
+      style={responsiveSizeStyle}
     >
       {mobileLogo ? (
         <>

@@ -17,6 +17,7 @@ import type { OrderSettlementDetails } from './orderSettlementDetails';
 import type { OrderSettlementSnapshot } from './orderSettlementSnapshot';
 import type { OrderSupportStatus } from './orderSupportStatus';
 import type { QuickexRateMode } from './quickexRateMode';
+import type { SourcePaymentMethod } from './sourcePaymentMethod';
 
 export interface Order {
   id: string;
@@ -73,6 +74,7 @@ export interface Order {
   customerSafeNote?: string;
   paymentDetails?: OrderPaymentDetails;
   paymentDetailsApplicable?: boolean;
+  sourcePaymentMethod?: SourcePaymentMethod;
   /** @nullable */
   customerMarkedPaidAt?: string | null;
   /** @maxLength 500 */

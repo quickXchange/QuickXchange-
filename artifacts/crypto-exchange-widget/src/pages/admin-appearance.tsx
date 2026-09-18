@@ -19,7 +19,7 @@ import {
   basePath,
   cn
 } from '../App';
-import { Check, Image as ImageIcon, Upload, Loader2, RotateCcw, Save, Trash2, Smartphone, Monitor } from 'lucide-react';
+import { Image as ImageIcon, Upload, Loader2, RotateCcw, Save, Smartphone, Monitor, Tablet } from 'lucide-react';
 import { useI18n } from '../i18n/provider';
 
 type UploadStatus = { status: 'idle' | 'uploading' | 'done' | 'error', message?: string };
@@ -29,6 +29,15 @@ const ALIGNMENTS = [
   { value: 'center', label: 'Center', testId: 'align-center' },
   { value: 'right', label: 'Right', testId: 'align-right' },
 ] as const;
+
+const RESPONSIVE_LOGO_DEFAULTS = {
+  desktopLogoWidth: 138,
+  desktopLogoMaxHeight: 30,
+  tabletLogoWidth: 130,
+  tabletLogoMaxHeight: 28,
+  mobileLogoWidth: 116,
+  mobileLogoMaxHeight: 28,
+};
 
 export function AdminAppearancePage() {
   const { t } = useI18n();
@@ -51,6 +60,7 @@ export function AdminAppearancePage() {
     logoWidth: 900,
     logoHeight: 288,
     logoMaxWidth: 200,
+    ...RESPONSIVE_LOGO_DEFAULTS,
     alignment: 'left' as WebsiteBrandingSaveInputAlignment,
   });
 
@@ -68,6 +78,12 @@ export function AdminAppearancePage() {
         logoWidth: branding.logoWidth,
         logoHeight: branding.logoHeight,
         logoMaxWidth: branding.logoMaxWidth,
+        desktopLogoWidth: branding.desktopLogoWidth,
+        desktopLogoMaxHeight: branding.desktopLogoMaxHeight,
+        tabletLogoWidth: branding.tabletLogoWidth,
+        tabletLogoMaxHeight: branding.tabletLogoMaxHeight,
+        mobileLogoWidth: branding.mobileLogoWidth,
+        mobileLogoMaxHeight: branding.mobileLogoMaxHeight,
         alignment: branding.alignment as WebsiteBrandingSaveInputAlignment,
       });
       setLocalPreviews({});
@@ -90,6 +106,12 @@ export function AdminAppearancePage() {
     draft.logoWidth !== branding.logoWidth ||
     draft.logoHeight !== branding.logoHeight ||
     draft.logoMaxWidth !== branding.logoMaxWidth ||
+    draft.desktopLogoWidth !== branding.desktopLogoWidth ||
+    draft.desktopLogoMaxHeight !== branding.desktopLogoMaxHeight ||
+    draft.tabletLogoWidth !== branding.tabletLogoWidth ||
+    draft.tabletLogoMaxHeight !== branding.tabletLogoMaxHeight ||
+    draft.mobileLogoWidth !== branding.mobileLogoWidth ||
+    draft.mobileLogoMaxHeight !== branding.mobileLogoMaxHeight ||
     draft.alignment !== branding.alignment
   );
 
@@ -182,6 +204,92 @@ export function AdminAppearancePage() {
       return next;
     });
     setDraft((current) => ({ ...current, [key]: null }));
+  };
+
+  const logoPreviewSource = (key: 'lightLogoPath' | 'darkLogoPath' | 'mobileLogoPath') => {
+    const local = localPreviews[key];
+    const path = draft[key] || (key === 'darkLogoPath'
+      ? '/brand/quickxchange-header-dark.png'
+      : '/brand/quickxchange-header-light.png');
+    const src = local || (path.startsWith('/objects/') ? `/api/storage${path}` : path);
+    return src.startsWith('/') ? `${basePath}${src}` : src;
+  };
+
+  const SizeControl = ({
+    field,
+    label,
+    min,
+    max,
+  }: {
+    field: keyof typeof RESPONSIVE_LOGO_DEFAULTS;
+    label: string;
+    min: number;
+    max: number;
+  }) => (
+    <div className="admin-form-field">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <label htmlFor={`branding-${field}`} className="text-xs font-bold text-foreground">{label}</label>
+        <div className="flex items-center gap-1">
+          <input
+            id={`branding-${field}-number`}
+            type="number"
+            min={min}
+            max={max}
+            value={draft[field]}
+            onChange={(event) => {
+              const value = Math.min(max, Math.max(min, Number(event.target.value) || min));
+              setDraft(current => ({ ...current, [field]: value }));
+            }}
+            className="h-8 w-20 rounded-lg border border-border bg-input px-2 text-right text-xs font-mono outline-none focus:border-primary"
+            data-testid={`input-${field}`}
+          />
+          <span className="text-xs text-muted-foreground">px</span>
+        </div>
+      </div>
+      <input
+        id={`branding-${field}`}
+        type="range"
+        min={min}
+        max={max}
+        value={draft[field]}
+        onChange={(event) => setDraft(current => ({ ...current, [field]: Number(event.target.value) }))}
+        className="w-full accent-primary"
+        data-testid={`slider-${field}`}
+      />
+    </div>
+  );
+
+  const LogoPreview = ({
+    label,
+    icon: Icon,
+    width,
+    maxHeight,
+    useMobileAsset = false,
+  }: {
+    label: string;
+    icon: typeof Monitor;
+    width: number;
+    maxHeight: number;
+    useMobileAsset?: boolean;
+  }) => {
+    const lightSrc = logoPreviewSource(useMobileAsset && draft.mobileLogoPath ? 'mobileLogoPath' : 'lightLogoPath');
+    const darkSrc = logoPreviewSource(useMobileAsset && draft.mobileLogoPath ? 'mobileLogoPath' : 'darkLogoPath');
+    const imageStyle = { width: `${width}px`, maxWidth: '100%', height: 'auto', maxHeight: `${maxHeight}px`, objectFit: 'contain' as const };
+    return (
+      <div className="overflow-hidden rounded-xl border border-border" data-testid={`preview-${label.toLowerCase()}`}>
+        <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-3 py-2 text-xs font-bold">
+          <Icon size={14} /> {label} <span className="ml-auto font-mono text-muted-foreground">{width}px × {maxHeight}px max</span>
+        </div>
+        <div className="grid grid-cols-2">
+          <div className="flex h-20 items-center overflow-hidden bg-white px-3">
+            <img src={lightSrc} alt={`${label} light logo preview`} style={imageStyle} />
+          </div>
+          <div className="flex h-20 items-center overflow-hidden bg-slate-950 px-3">
+            <img src={darkSrc} alt={`${label} dark logo preview`} style={imageStyle} />
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const ImageUploader = ({ 
@@ -371,6 +479,20 @@ export function AdminAppearancePage() {
                 </div>
               </div>
 
+              <div className="admin-form-card panel p-6">
+                <div className="panel-heading mb-5">
+                  <div>
+                    <h3 className="font-mono text-lg font-bold">Live Header Logo Preview</h3>
+                    <p className="mt-1 text-xs text-muted-foreground">Updates immediately. Light and dark header surfaces are shown side by side.</p>
+                  </div>
+                </div>
+                <div className="grid gap-4">
+                  <LogoPreview label="Desktop" icon={Monitor} width={draft.desktopLogoWidth} maxHeight={draft.desktopLogoMaxHeight} />
+                  <LogoPreview label="Tablet" icon={Tablet} width={draft.tabletLogoWidth} maxHeight={draft.tabletLogoMaxHeight} />
+                  <LogoPreview label="Mobile" icon={Smartphone} width={draft.mobileLogoWidth} maxHeight={draft.mobileLogoMaxHeight} useMobileAsset />
+                </div>
+              </div>
+
             </div>
 
             {/* Right Column */}
@@ -386,6 +508,40 @@ export function AdminAppearancePage() {
                 </div>
 
                 <div className="flex flex-col gap-5">
+                  <div className="rounded-xl border border-border bg-muted/15 p-4">
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <div>
+                        <h4 className="text-sm font-bold text-foreground">Responsive Logo Size</h4>
+                        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">Width sets the preferred size. Max height prevents the logo from increasing the header height. Aspect ratio is always preserved.</p>
+                      </div>
+                    </div>
+                    <div className="space-y-5">
+                      <div className="space-y-3 border-b border-border/60 pb-5">
+                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground"><Monitor size={14} /> Desktop / Laptop</div>
+                        <SizeControl field="desktopLogoWidth" label="Logo Width" min={40} max={320} />
+                        <SizeControl field="desktopLogoMaxHeight" label="Logo Max Height" min={16} max={44} />
+                      </div>
+                      <div className="space-y-3 border-b border-border/60 pb-5">
+                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground"><Tablet size={14} /> Tablet / iPad</div>
+                        <SizeControl field="tabletLogoWidth" label="Logo Width" min={40} max={280} />
+                        <SizeControl field="tabletLogoMaxHeight" label="Logo Max Height" min={16} max={44} />
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground"><Smartphone size={14} /> Mobile</div>
+                        <SizeControl field="mobileLogoWidth" label="Logo Width" min={32} max={220} />
+                        <SizeControl field="mobileLogoMaxHeight" label="Logo Max Height" min={16} max={44} />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="button button-secondary mt-5 w-full"
+                      onClick={() => setDraft(current => ({ ...current, ...RESPONSIVE_LOGO_DEFAULTS }))}
+                      data-testid="button-reset-logo-sizes"
+                    >
+                      <RotateCcw size={14} className="mr-2" /> Reset Logo Sizes
+                    </button>
+                  </div>
+
                   <div className="admin-form-field">
                     <label className="text-sm font-bold text-foreground mb-2 block">Alignment</label>
                     <div className="flex gap-2 p-1 bg-muted/50 rounded-xl border border-border">
@@ -409,7 +565,7 @@ export function AdminAppearancePage() {
                   </div>
 
                   <div className="admin-form-field">
-                    <label className="text-sm font-bold text-foreground mb-2 block">Intrinsic Width (px)</label>
+                    <label className="text-sm font-bold text-foreground mb-2 block">Source Width (px)</label>
                     <input 
                       type="number" 
                       min="1" 
@@ -421,7 +577,7 @@ export function AdminAppearancePage() {
                   </div>
 
                   <div className="admin-form-field">
-                    <label className="text-sm font-bold text-foreground mb-2 block">Intrinsic Height (px)</label>
+                    <label className="text-sm font-bold text-foreground mb-2 block">Source Height (px)</label>
                     <input 
                       type="number" 
                       min="1" 
@@ -433,7 +589,7 @@ export function AdminAppearancePage() {
                   </div>
 
                   <div className="admin-form-field">
-                    <label className="text-sm font-bold text-foreground mb-2 block">Display Max Width (px)</label>
+                    <label className="text-sm font-bold text-foreground mb-2 block">Legacy Display Max Width (px)</label>
                     <input 
                       type="number" 
                       min="1" 

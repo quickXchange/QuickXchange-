@@ -121,6 +121,8 @@ type SettlementOptionSnapshot = {
   assetCode: string;
   kind: "fiat-payment-method" | "crypto-network";
   title: string;
+  paymentMethodId?: string;
+  logoUrl?: string;
   minAmount?: string | null;
   maxAmount?: string | null;
   networkId?: string;
@@ -140,6 +142,10 @@ function validSettlementSnapshot(snapshot: unknown): snapshot is NonNullable<Quo
     ["fiat-payment-method", "crypto-network"].includes(
       (option as Record<string, string>).kind,
     ) &&
+    ["paymentMethodId", "logoUrl"].every((key) => {
+      const entry = (option as Record<string, unknown>)[key];
+      return entry === undefined || typeof entry === "string";
+    }) &&
     ["minAmount", "maxAmount"].every((key) => {
       const amount = (option as Record<string, unknown>)[key];
       return amount === undefined || amount === null || typeof amount === "string";

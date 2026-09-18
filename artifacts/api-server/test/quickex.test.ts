@@ -2783,7 +2783,44 @@ test("fiat-to-crypto requires a destination wallet but not settlement fields or 
     });
     assert.equal(validAddressMissingMemo.status, 201, JSON.stringify(validAddressMissingMemo.body));
     assert.equal(validAddressMissingMemo.body.paymentDetailsApplicable, true);
+    assert.deepEqual(validAddressMissingMemo.body.sourcePaymentMethod, {
+      id: source.id,
+      name: source.title,
+      paymentMethodId: source.paymentMethodId,
+      ...(source.logoUrl ? { logoUrl: source.logoUrl } : {}),
+    });
     orderId = String(validAddressMissingMemo.body.id);
+    const { db, ordersTable } = await import("@workspace/db");
+    await db.update(ordersTable).set({ paymentDetails: {} })
+      .where(eq(ordersTable.id, orderId));
+    const emptyDetailsMarkPaid = await apiJson(api.url, `/orders/${encodeURIComponent(orderId)}/mark-paid`, {
+      trackingToken: validAddressMissingMemo.body.trackingToken,
+    });
+    assert.equal(emptyDetailsMarkPaid.status, 409);
+    assert.equal(emptyDetailsMarkPaid.body.code, "PAYMENT_DETAILS_NOT_APPLICABLE");
+    await db.update(ordersTable).set({
+      paymentDetails: {
+        name: "QuickXchange Settlement",
+        iban: "DE89370400440532013000",
+        paymentReference: orderId,
+      },
+    }).where(eq(ordersTable.id, orderId));
+    const tracked = await (await fetch(
+      `${api.url}/orders/${encodeURIComponent(orderId)}/status?trackingToken=${encodeURIComponent(String(validAddressMissingMemo.body.trackingToken))}`,
+    )).json() as any;
+    assert.equal(tracked.paymentDetails.iban, "DE89370400440532013000");
+    assert.equal(tracked.sourcePaymentMethod.id, source.id);
+    const markedPaid = await apiJson(api.url, `/orders/${encodeURIComponent(orderId)}/mark-paid`, {
+      trackingToken: validAddressMissingMemo.body.trackingToken,
+    });
+    assert.equal(markedPaid.status, 200, JSON.stringify(markedPaid.body));
+    assert.ok(markedPaid.body.customerMarkedPaidAt);
+    const [persistedPaid] = await db.select({
+      customerMarkedPaidAt: ordersTable.customerMarkedPaidAt,
+      manualSettlementState: ordersTable.manualSettlementState,
+    }).from(ordersTable).where(eq(ordersTable.id, orderId)).limit(1);
+    assert.ok(persistedPaid.customerMarkedPaidAt);
+    assert.equal(persistedPaid.manualSettlementState, "awaiting_funds");
     const invalidMemo = await apiJson(api.url, "/orders", {
       ...order,
       destinationAddress: "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh",

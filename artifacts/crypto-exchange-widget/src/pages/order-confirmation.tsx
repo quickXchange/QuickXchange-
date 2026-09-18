@@ -412,6 +412,7 @@ export function OrderConfirmationPage() {
                  <PaymentDetailsCard
                    paymentDetails={order.paymentDetails}
                    paymentDetailsApplicable={order.paymentDetailsApplicable}
+                   sourcePaymentMethod={order.sourcePaymentMethod}
                    customerMarkedPaidAt={order.customerMarkedPaidAt}
                    onMarkPaid={markPaid}
                    markPaidPending={markPaidMutation.isPending}

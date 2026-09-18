@@ -13,6 +13,7 @@ import type { PublicOrderStatusFundingSource } from './publicOrderStatusFundingS
 import type { PublicOrderStatusFundingStatus } from './publicOrderStatusFundingStatus';
 import type { PublicOrderStatusSettlementDetails } from './publicOrderStatusSettlementDetails';
 import type { QuickexRateMode } from './quickexRateMode';
+import type { SourcePaymentMethod } from './sourcePaymentMethod';
 
 export interface PublicOrderStatus {
   id: string;
@@ -45,6 +46,7 @@ export interface PublicOrderStatus {
   settlementDetails?: PublicOrderStatusSettlementDetails;
   paymentDetails?: OrderPaymentDetails;
   paymentDetailsApplicable?: boolean;
+  sourcePaymentMethod?: SourcePaymentMethod;
   /** @nullable */
   customerMarkedPaidAt?: string | null;
 }

@@ -51,6 +51,12 @@ test("site content contract accepts the registered pages and future slug-safe pa
       logoWidth: 180,
       logoHeight: 44,
       logoMaxWidth: 240,
+      desktopLogoWidth: 138,
+      desktopLogoMaxHeight: 30,
+      tabletLogoWidth: 130,
+      tabletLogoMaxHeight: 28,
+      mobileLogoWidth: 116,
+      mobileLogoMaxHeight: 28,
       alignment: "left",
     },
   };
@@ -71,6 +77,12 @@ test("website branding contract constrains namespaced uploads and dimensions", (
     logoWidth: 180,
     logoHeight: 44,
     logoMaxWidth: 240,
+    desktopLogoWidth: 138,
+    desktopLogoMaxHeight: 30,
+    tabletLogoWidth: 130,
+    tabletLogoMaxHeight: 28,
+    mobileLogoWidth: 116,
+    mobileLogoMaxHeight: 28,
     alignment: "left" as const,
   };
   assert.deepEqual(GetWebsiteBrandingResponse.parse(settings), settings);
@@ -80,6 +92,7 @@ test("website branding contract constrains namespaced uploads and dimensions", (
   }
   assert.throws(() => SaveAdminWebsiteBrandingBody.parse({ ...settings, lightLogoPath: "/objects/partner-logos/11111111-1111-4111-8111-111111111111" }));
   assert.throws(() => SaveAdminWebsiteBrandingBody.parse({ ...settings, logoWidth: 0 }));
+  assert.throws(() => SaveAdminWebsiteBrandingBody.parse({ ...settings, mobileLogoWidth: 221 }));
   assert.throws(() => RequestWebsiteBrandingUploadBody.parse({ contentType: "text/html" }));
 });
 

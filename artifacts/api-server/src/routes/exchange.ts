@@ -340,6 +340,37 @@ function orderRateMode(_row: typeof ordersTable.$inferSelect): undefined {
   return undefined;
 }
 
+function outputSourcePaymentMethod(row: typeof ordersTable.$inferSelect) {
+  if (!isApplicablePaymentDetailsOrder(row)) return undefined;
+  const source = (row.settlementSnapshot as {
+    source?: {
+      id?: unknown;
+      kind?: unknown;
+      title?: unknown;
+      paymentMethodId?: unknown;
+      logoUrl?: unknown;
+    };
+  } | null)?.source;
+  if (!source || source.kind !== "fiat-payment-method") return undefined;
+  const id = typeof source.id === "string" && source.id
+    ? source.id
+    : row.sourceSettlementOptionId;
+  const name = typeof source.title === "string" && source.title
+    ? source.title
+    : row.fromNetwork;
+  if (!id || !name) return undefined;
+  return {
+    id,
+    name,
+    paymentMethodId: typeof source.paymentMethodId === "string" && source.paymentMethodId
+      ? source.paymentMethodId
+      : undefined,
+    logoUrl: typeof source.logoUrl === "string" && source.logoUrl
+      ? source.logoUrl
+      : undefined,
+  };
+}
+
 function outputOrder(row: typeof ordersTable.$inferSelect) {
   const {
     customerClerkUserId: _customerClerkUserId,
@@ -377,6 +408,7 @@ function outputOrder(row: typeof ordersTable.$inferSelect) {
       ? row.paymentDetails ?? undefined
       : undefined,
     paymentDetailsApplicable: isApplicablePaymentDetailsOrder(row),
+    sourcePaymentMethod: outputSourcePaymentMethod(row),
     customerMarkedPaidAt: row.customerMarkedPaidAt?.toISOString() ?? null,
   };
   // JSONB is untrusted persisted data: validate it before exposing it on the
@@ -402,6 +434,20 @@ function isApplicablePaymentDetailsOrder(row: typeof ordersTable.$inferSelect): 
   return row.type === "manual" &&
     snapshot?.source?.kind === "fiat-payment-method" &&
     snapshot?.target?.kind === "crypto-network";
+}
+
+function hasCustomerPaymentDetails(details: unknown): boolean {
+  if (!details || typeof details !== "object" || Array.isArray(details)) return false;
+  const value = details as Record<string, unknown>;
+  return [
+    "name",
+    "iban",
+    "bankName",
+    "bicSwift",
+    "paymentReference",
+    "amount",
+    "customInstructions",
+  ].some((key) => typeof value[key] === "string" && value[key].trim().length > 0);
 }
 
 function outputSupportMetadata(row: typeof orderSupportMetadataTable.$inferSelect) {
@@ -471,6 +517,7 @@ function outputCustomerOrder(
      settlementDetails: row.type === "manual" ? row.settlementDetails ?? undefined : undefined,
      paymentDetails: isApplicablePaymentDetailsOrder(row) ? row.paymentDetails ?? undefined : undefined,
      paymentDetailsApplicable: isApplicablePaymentDetailsOrder(row),
+      sourcePaymentMethod: outputSourcePaymentMethod(row),
      customerMarkedPaidAt: row.customerMarkedPaidAt?.toISOString() ?? null,
     trackingToken: signOrderTrackingToken(row.id),
     createdAt: row.createdAt.toISOString(),
@@ -848,6 +895,8 @@ async function buildQuoteTicket(
         id: sourceOption.id, assetId: sourceOption.assetId,
         assetCode: sourceOption.assetCode, kind: sourceOption.kind, title: sourceOption.title,
         ...(sourceOption.kind === "fiat-payment-method" ? {
+          paymentMethodId: sourceOption.paymentMethodId,
+          logoUrl: sourceOption.logoUrl,
           minAmount: sourceOption.minAmount ?? null,
           maxAmount: sourceOption.maxAmount ?? null,
           instructions: sourceOption.sendInstructions ?? "",
@@ -862,6 +911,8 @@ async function buildQuoteTicket(
         id: targetOption.id, assetId: targetOption.assetId,
         assetCode: targetOption.assetCode, kind: targetOption.kind, title: targetOption.title,
         ...(targetOption.kind === "fiat-payment-method" ? {
+          paymentMethodId: targetOption.paymentMethodId,
+          logoUrl: targetOption.logoUrl,
           minAmount: targetOption.minAmount ?? null,
           maxAmount: targetOption.maxAmount ?? null,
           instructions: targetOption.receiveInstructions ?? "",
@@ -1019,7 +1070,13 @@ async function revalidateManualDeskQuoteRoute(quote: QuoteTicket): Promise<void>
           warning: option.depositWarning,
         } : {}),
       };
-      return option.id === id && JSON.stringify(current) === JSON.stringify(signed);
+      const {
+        paymentMethodId: _paymentMethodId,
+        logoUrl: _logoUrl,
+        ...signedSettlementTerms
+      } = signed;
+      return option.id === id &&
+        JSON.stringify(current) === JSON.stringify(signedSettlementTerms);
     };
     if (
       !source || !target ||
@@ -1985,6 +2042,7 @@ router.get("/orders/:id/status", async (req, res, next) => {
          paymentDetails: canViewDeposit && isApplicablePaymentDetailsOrder(row)
            ? row.paymentDetails ?? undefined : undefined,
          paymentDetailsApplicable: isApplicablePaymentDetailsOrder(row),
+         sourcePaymentMethod: outputSourcePaymentMethod(row),
          customerMarkedPaidAt: row.customerMarkedPaidAt?.toISOString() ?? null,
         rateMode: orderRateMode(row),
         outcomeUnknown: row.outcomeUnknown,
@@ -2963,7 +3021,7 @@ router.post("/orders/:id/mark-paid", async (req, res, next) => {
         throw new ApiError("PAYMENT_DETAILS_NOT_APPLICABLE", "Payment details are not available for this order.", 409);
       }
       if (existing.customerMarkedPaidAt) return existing;
-      if (!existing.paymentDetails) {
+      if (!hasCustomerPaymentDetails(existing.paymentDetails)) {
         throw new ApiError("PAYMENT_DETAILS_NOT_APPLICABLE", "Payment details are not available for this order.", 409);
       }
       const [marked] = await tx.update(ordersTable).set({

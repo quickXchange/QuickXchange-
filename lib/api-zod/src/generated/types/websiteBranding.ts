@@ -31,5 +31,35 @@ export interface WebsiteBranding {
      * @maximum 4096
      */
   logoMaxWidth: number;
+  /**
+     * @minimum 40
+     * @maximum 320
+     */
+  desktopLogoWidth: number;
+  /**
+     * @minimum 16
+     * @maximum 44
+     */
+  desktopLogoMaxHeight: number;
+  /**
+     * @minimum 40
+     * @maximum 280
+     */
+  tabletLogoWidth: number;
+  /**
+     * @minimum 16
+     * @maximum 44
+     */
+  tabletLogoMaxHeight: number;
+  /**
+     * @minimum 32
+     * @maximum 220
+     */
+  mobileLogoWidth: number;
+  /**
+     * @minimum 16
+     * @maximum 44
+     */
+  mobileLogoMaxHeight: number;
   alignment: WebsiteBrandingAlignment;
 }

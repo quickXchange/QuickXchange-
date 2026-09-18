@@ -575,6 +575,13 @@
       "when": 1789765000000,
       "tag": "0083_order_payment_details",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1789766000000,
+      "tag": "0084_responsive_logo_sizes",
+      "breakpoints": true
     }
   ]
 }
