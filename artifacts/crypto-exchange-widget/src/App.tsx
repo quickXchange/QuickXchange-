@@ -100,6 +100,7 @@ import type { OfficialCryptoBySymbol } from '@/components/crypto-identity';
 import { OrderSettlementIdentity } from '@/components/order-settlement-identity';
 import { LiveLandingBackground } from '@/components/landing-background';
 import { PopularExchangePairs } from '@/components/popular-exchange-pairs';
+import { TelegramBotPromo } from '@/components/telegram-bot-promo';
 import { BrandLogo } from '@/components/brand-logo';
 import { LanguageSelector } from '@/components/language-selector';
 import { I18nProvider, useI18n } from '@/i18n';
@@ -1214,6 +1215,7 @@ function ConfiguredExchangePage({ pageKey }: { pageKey: SitePageKey }) {
             </section>
           )}
         </div>
+        {pageKey === 'home' && <TelegramBotPromo />}
         {pageKey === 'home' && <PopularExchangePairs />}
         {(pageKey === 'home' || (pageKey === 'convert' && hasRequestedMarketAsset)) && (
           <Suspense fallback={null}>

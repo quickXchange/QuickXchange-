@@ -108,6 +108,8 @@ export function buildCreatePayload(
         toNetwork: quote.toNetwork,
       }
     : {};
+  const refundAddress = typeof data.refundAddress === "string" ? data.refundAddress.trim() : "";
+  const refundMemo = typeof data.refundMemo === "string" ? data.refundMemo.trim() : "";
   return {
     type: mode === "convert" ? "instant" : "manual",
     ...route,
@@ -117,8 +119,7 @@ export function buildCreatePayload(
     customerName: data.customerName,
     destinationAddress: data.destinationAddress,
     destinationMemo: data.destinationMemo,
-    refundAddress: data.refundAddress,
-    refundMemo: data.refundMemo,
+    ...(refundAddress ? { refundAddress, ...(refundMemo ? { refundMemo } : {}) } : {}),
     ...(mode === "swap"
       ? {
           sourceSettlementOptionId: source.id,

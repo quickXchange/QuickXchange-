@@ -2151,9 +2151,18 @@ test("Quickex namespace owns signed quotes, orders, tracking, and idempotency", 
     assert.equal((await apiJson(api.url, "/quickex/create-order", {
       ...input, quoteId: quoted.body.quoteId, destinationAddress: "",
     })).status, 400);
-    assert.equal((await apiJson(api.url, "/quickex/create-order", {
-      ...input, quoteId: quoted.body.quoteId, refundAddress: "",
-    })).status, 400);
+    for (const [index, absentRefundValue] of [null, "", " \t"] .entries()) {
+      const absentRefundRequestId = requestIdForTest(52 + index);
+      const absentRefund = await apiJson(api.url, "/quickex/create-order", {
+        ...input, clientRequestId: absentRefundRequestId, quoteId: quoted.body.quoteId,
+        refundAddress: absentRefundValue, refundMemo: absentRefundValue,
+      });
+      assert.ok([200, 201].includes(absentRefund.status));
+      assert.equal("refundAddress" in (createPayloads.at(-1) ?? {}), false);
+      assert.equal("refundAddressMemo" in (createPayloads.at(-1) ?? {}), false);
+      await db.delete(quickexOrdersTable).where(eq(quickexOrdersTable.clientRequestId, absentRefundRequestId));
+    }
+    createCalls = 0;
     assert.equal((await apiJson(api.url, "/quickex/create-order", {
       ...input, quoteId: quoted.body.quoteId, clientRequestId: "",
     })).status, 400);

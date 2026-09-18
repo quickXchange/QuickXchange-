@@ -1052,6 +1052,10 @@ export const createExchangeOrderBodyToAssetMin = 2;
 export const createExchangeOrderBodyAmountExclusiveMin = 0;
 
 export const createExchangeOrderBodyCustomerEmailRegExp = new RegExp('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$');
+export const createExchangeOrderBodyRefundAddressMax = 512;
+
+export const createExchangeOrderBodyRefundMemoMax = 256;
+
 export const createExchangeOrderBodyQuoteIdMin = 16;
 export const createExchangeOrderBodyQuoteIdMax = 16384;
 
@@ -1068,9 +1072,9 @@ export const CreateExchangeOrderBody = zod.object({
   "customerEmail": zod.string().regex(createExchangeOrderBodyCustomerEmailRegExp).optional().describe('Required for anonymous orders. Signed-in orders use the verified email from the authenticated customer account.'),
   "customerName": zod.string().optional(),
   "destinationAddress": zod.string().optional(),
-  "refundAddress": zod.string().optional(),
+  "refundAddress": zod.string().max(createExchangeOrderBodyRefundAddressMax).nullish(),
   "destinationMemo": zod.string().optional(),
-  "refundMemo": zod.string().optional(),
+  "refundMemo": zod.string().max(createExchangeOrderBodyRefundMemoMax).nullish(),
   "quoteId": zod.string().min(createExchangeOrderBodyQuoteIdMin).max(createExchangeOrderBodyQuoteIdMax).describe('Signed customer-approved quote capability required for both Manual Swap and Quickex Convert.'),
   "clientRequestId": zod.string().regex(createExchangeOrderBodyClientRequestIdRegExp),
   "paymentMethod": zod.string().optional(),
@@ -1566,6 +1570,10 @@ export const GetOrdersResponse = zod.object({
 export const createOrderBodyAmountExclusiveMin = 0;
 
 export const createOrderBodyCustomerEmailRegExp = new RegExp('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$');
+export const createOrderBodyRefundAddressMax = 512;
+
+export const createOrderBodyRefundMemoMax = 256;
+
 export const createOrderBodyQuoteIdMin = 16;
 
 export const createOrderBodyClientRequestIdRegExp = new RegExp('^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$');
@@ -1581,9 +1589,9 @@ export const CreateOrderBody = zod.object({
   "customerEmail": zod.string().regex(createOrderBodyCustomerEmailRegExp).optional().describe('Required for anonymous orders. Signed-in orders use the verified email from the authenticated customer account.'),
   "customerName": zod.string().optional(),
   "destinationAddress": zod.string().optional(),
-  "refundAddress": zod.string().optional(),
+  "refundAddress": zod.string().max(createOrderBodyRefundAddressMax).nullish(),
   "destinationMemo": zod.string().optional(),
-  "refundMemo": zod.string().optional(),
+  "refundMemo": zod.string().max(createOrderBodyRefundMemoMax).nullish(),
   "quoteId": zod.string().min(createOrderBodyQuoteIdMin),
   "clientRequestId": zod.string().regex(createOrderBodyClientRequestIdRegExp),
   "paymentMethod": zod.string().optional(),
@@ -8548,8 +8556,8 @@ export const CreateQuickexOrderBody = zod.object({
   "customerName": zod.string().max(createQuickexOrderBodyCustomerNameMax).optional(),
   "destinationAddress": zod.string().min(1).max(createQuickexOrderBodyDestinationAddressMax),
   "destinationMemo": zod.string().max(createQuickexOrderBodyDestinationMemoMax).optional(),
-  "refundAddress": zod.string().min(1).max(createQuickexOrderBodyRefundAddressMax).optional(),
-  "refundMemo": zod.string().max(createQuickexOrderBodyRefundMemoMax).optional(),
+  "refundAddress": zod.string().max(createQuickexOrderBodyRefundAddressMax).nullish(),
+  "refundMemo": zod.string().max(createQuickexOrderBodyRefundMemoMax).nullish(),
   "quoteId": zod.string().min(createQuickexOrderBodyQuoteIdMin).max(createQuickexOrderBodyQuoteIdMax),
   "clientRequestId": zod.string().regex(createQuickexOrderBodyClientRequestIdRegExp),
   "rateMode": zod.enum(['FLOATING', 'FIXED']).optional()

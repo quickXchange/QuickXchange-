@@ -67,13 +67,13 @@ async function migrateTestTables() {
   await pool.query(migration);
 }
 
-async function mockAssets(network = "BITCOIN") {
+async function mockAssets(network = "BITCOIN", asset = "BTC") {
   orderAddress = `swap-order-address-${randomUUID()}`;
   globalThis.fetch = async (input, init) => {
     const url = String(input);
     if (url.endsWith("/api/v4/public/assets")) {
       return new Response(JSON.stringify({
-        BTC: { can_deposit: true, networks: { deposits: [network] }, confirmations: { [network]: 3 } },
+        [asset]: { can_deposit: true, networks: { deposits: [network] }, confirmations: { [network]: 3 } },
       }), { status: 200 });
     }
     if (url.endsWith("/api/v4/main-account/create-new-address")) {
@@ -1043,4 +1043,84 @@ test("actual signed exchange order replay allocates one WhiteBIT address", async
     body: JSON.stringify({ ...request, refundAddress: "1BitcoinEaterAddressDontSendf59kuE" }),
   });
   assert.equal(mismatchResponse.status, 409, await mismatchResponse.text());
+});
+
+test("Manual USDT TRC20 to EUR accepts every absent refund representation", async () => {
+  await mockAssets("TRC20", "USDT");
+  const networkId = "usdt-trc20";
+  const [originalNetwork] = await database.db.select().from(database.cryptoAssetNetworksTable)
+    .where(eq(database.cryptoAssetNetworksTable.id, networkId)).limit(1);
+  if (!originalNetwork) throw new Error("Test catalog lacks USDT/TRC20.");
+  const ruleName = `Refund absence ${suffix}`;
+  const createdOrderIds: string[] = [];
+  try {
+    await database.db.update(database.cryptoAssetNetworksTable).set({
+      enabled: true, executionMode: "manual", customerDepositsEnabled: true,
+      depositProvider: "manual", sharedDepositAddress: `T${"1".repeat(33)}`, sharedDepositMemo: "",
+      requiresMemo: false,
+    }).where(eq(database.cryptoAssetNetworksTable.id, networkId));
+    await database.db.insert(database.manualDeskPricingRulesTable).values({
+      name: ruleName, sourceAsset: "USDT", targetAsset: "EUR",
+      sourceNetwork: "TRC20", targetNetwork: "SEPA", markupBasisPoints: 0,
+      exactRate: "1", fixedFee: "0", enabled: true, priority: 100,
+    });
+    const config = await (await fetch(`${baseUrl}/api/exchange/config`)).json() as {
+      manualSettlementOptions: Array<{ id: string; kind: string; assetCode: string; routeNetwork: string; direction: string }>;
+    };
+    const source = config.manualSettlementOptions.find((item) =>
+      item.id === `crypto:${networkId}` && item.assetCode === "USDT" && item.routeNetwork.toUpperCase() === "TRC20" &&
+      ["send", "both"].includes(item.direction));
+    const target = config.manualSettlementOptions.find((item) =>
+      item.kind === "fiat-payment-method" && item.assetCode === "EUR" && item.routeNetwork.toUpperCase() === "SEPA" &&
+      ["receive", "both"].includes(item.direction));
+    if (!source || !target) throw new Error("Test catalog lacks USDT/TRC20 to EUR/SEPA settlement options.");
+    for (const [index, refundValue] of [undefined, "", null].entries()) {
+      const quoteResponse = await fetch(`${baseUrl}/api/exchange/quote`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          type: "manual", fromAsset: "USDT", fromNetwork: "TRC20", toAsset: "EUR", toNetwork: "SEPA",
+          amount: 10, sourceSettlementOptionId: source.id, targetSettlementOptionId: target.id,
+        }),
+      });
+      const quoteText = await quoteResponse.text();
+      assert.equal(quoteResponse.status, 200, quoteText);
+      const quote = JSON.parse(quoteText) as Record<string, unknown>;
+      const settlementDetails = Object.fromEntries(((quote.requiredSettlementFields ?? []) as Array<{ key: string; type?: string }>).map((field) => [
+        field.key, field.type === "email" ? `${suffix}-${index}@example.test` : "Refund absence test",
+      ]));
+      const request: Record<string, unknown> = {
+        type: "manual", fromAsset: "USDT", fromNetwork: "TRC20", toAsset: "EUR", toNetwork: "SEPA",
+        amount: 10, quoteId: quote.quoteId, clientRequestId: randomUUID(),
+        customerEmail: `${suffix}-${index}@example.test`, customerName: "Refund absence test",
+        sourceSettlementOptionId: source.id, targetSettlementOptionId: target.id, settlementDetails,
+      };
+      if (refundValue !== undefined) {
+        request.refundAddress = refundValue;
+        request.refundMemo = refundValue;
+      }
+      const response = await fetch(`${baseUrl}/api/exchange/orders`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(request),
+      });
+      const responseText = await response.text();
+      assert.ok([201, 202].includes(response.status), responseText);
+      const body = JSON.parse(responseText) as { id: string };
+      createdOrderIds.push(body.id);
+      const [stored] = await database.db.select({
+        refundAddress: database.ordersTable.refundAddress, refundMemo: database.ordersTable.refundMemo,
+      }).from(database.ordersTable).where(eq(database.ordersTable.id, body.id)).limit(1);
+      assert.deepEqual(stored, { refundAddress: "", refundMemo: "" });
+    }
+  } finally {
+    for (const id of createdOrderIds) {
+      await database.db.delete(database.ordersTable).where(eq(database.ordersTable.id, id));
+    }
+    await database.db.delete(database.manualDeskPricingRulesTable)
+      .where(eq(database.manualDeskPricingRulesTable.name, ruleName));
+    await database.db.update(database.cryptoAssetNetworksTable).set({
+      enabled: originalNetwork.enabled, executionMode: originalNetwork.executionMode,
+      customerDepositsEnabled: originalNetwork.customerDepositsEnabled,
+      depositProvider: originalNetwork.depositProvider, sharedDepositAddress: originalNetwork.sharedDepositAddress,
+      sharedDepositMemo: originalNetwork.sharedDepositMemo, requiresMemo: originalNetwork.requiresMemo,
+    }).where(eq(database.cryptoAssetNetworksTable.id, networkId));
+  }
 });

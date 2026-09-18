@@ -24,9 +24,11 @@ export interface OrderInput {
   customerEmail?: string;
   customerName?: string;
   destinationAddress?: string;
-  refundAddress?: string;
+  /** @maxLength 512 */
+  refundAddress?: string | null;
   destinationMemo?: string;
-  refundMemo?: string;
+  /** @maxLength 256 */
+  refundMemo?: string | null;
   /** @minLength 16 */
   quoteId: string;
   /** @pattern ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$ */

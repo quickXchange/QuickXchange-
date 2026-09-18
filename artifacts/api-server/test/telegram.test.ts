@@ -7,6 +7,16 @@ import { DepositInstructionsPending, menu, shouldApplyUpdate, reconciliationClai
 import { localeOf, t } from "../src/lib/telegram-localization";
 import { consumeTelegramLinkChallenge, createTelegramLinkChallenge, hashTelegramLinkToken, TelegramLinkChallengeError, TelegramLinkConflictError } from "../src/lib/telegram-link";
 import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualTargets, nextRequiredField, shouldAskDestination, shouldAskRefund } from "../src/lib/telegram-wizard";
+import { normalizeRefundFields } from "../src/lib/manual-wallet-validation";
+
+test("refund fields normalize all absence forms and trim supplied values", () => {
+  assert.deepEqual(normalizeRefundFields({}), { refundAddress: undefined, refundMemo: undefined });
+  assert.deepEqual(normalizeRefundFields({ refundAddress: null, refundMemo: null }), { refundAddress: undefined, refundMemo: undefined });
+  assert.deepEqual(normalizeRefundFields({ refundAddress: "", refundMemo: "" }), { refundAddress: undefined, refundMemo: undefined });
+  assert.deepEqual(normalizeRefundFields({ refundAddress: " \t", refundMemo: " memo " }), { refundAddress: undefined, refundMemo: undefined });
+  assert.deepEqual(normalizeRefundFields({ refundMemo: " memo " }), { refundAddress: undefined, refundMemo: undefined });
+  assert.deepEqual(normalizeRefundFields({ refundAddress: "  Tabc  ", refundMemo: " 123 " }), { refundAddress: "Tabc", refundMemo: "123" });
+});
 
 test("Telegram webhook secret uses exact constant-time-length semantics", () => {
   process.env.TELEGRAM_WEBHOOK_SECRET = "secret";
@@ -141,6 +151,19 @@ test("Telegram wizard builds exact route bodies from persisted selections", () =
   assert.equal(withRefund.refundMemo, "optional-tag");
   assert.equal(shouldAskDestination("swap", source), false);
   assert.equal(shouldAskDestination("swap", target), true);
+});
+
+test("Telegram Convert omits absent refund fields for USDT TRC20 to fiat", () => {
+  const source = { id: "send-usdt-trc20", assetCode: "USDT", routeNetwork: "TRC20", kind: "crypto-network" };
+  const target = { id: "receive-eur", assetCode: "EUR", routeNetwork: "SEPA", kind: "fiat-payment-method" };
+  for (const value of [null, "", " \t"]) {
+    const body = buildCreatePayload("convert", source, target, {
+      amount: 10, email: "convert@example.test", quote: { quoteId: "quoted" },
+      clientRequestId: randomUUID(), destinationAddress: "iban", refundAddress: value, refundMemo: value,
+    });
+    assert.equal("refundAddress" in body, false);
+    assert.equal("refundMemo" in body, false);
+  }
 });
 
 test("Telegram wizard honors conditional and optional fields", () => {

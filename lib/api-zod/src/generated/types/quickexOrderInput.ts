@@ -34,13 +34,10 @@ export interface QuickexOrderInput {
   destinationAddress: string;
   /** @maxLength 256 */
   destinationMemo?: string;
-  /**
-     * @minLength 1
-     * @maxLength 512
-     */
-  refundAddress?: string;
+  /** @maxLength 512 */
+  refundAddress?: string | null;
   /** @maxLength 256 */
-  refundMemo?: string;
+  refundMemo?: string | null;
   /**
      * @minLength 16
      * @maxLength 16384

@@ -390,10 +390,7 @@ export function QuickexConvertWidget({
     try {
       const destination = await validateAddress.mutateAsync({ data: { asset: to.currencyTitle, network: to.networkTitle, address: destinationAddress.trim(), memo: destinationMemo.trim() || undefined } });
       const trimmedRefundAddress = refundAddress.trim();
-      const refund = trimmedRefundAddress
-        ? await validateAddress.mutateAsync({ data: { asset: from.currencyTitle, network: from.networkTitle, address: trimmedRefundAddress, memo: refundMemo.trim() || undefined } })
-        : null;
-       if (!destination.valid || (refund && !refund.valid)) throw new Error(t('convert.checkWallets'));
+      if (!destination.valid) throw new Error(t('convert.checkWallets'));
       if (new Date(quote.expiresAt).getTime() <= Date.now()) {
          throw new Error(t('convert.quoteExpiredChecking'));
       }
@@ -775,7 +772,7 @@ export function QuickexConvertWidget({
                 {/* Refund Address */}
                 <div className="order-detail-field order-detail-field--refund flex flex-col gap-1.5">
                   <label htmlFor="convert-refund" className="text-[13px] font-semibold text-muted-foreground">
-                    {t('convert.refundAddress')} · {from?.currencyTitle} / {from?.networkTitle} <small className="font-normal">({t('convert.optional')})</small>
+                    {t('convert.refundAddress')} <small className="font-normal">({t('convert.optional')})</small>
                   </label>
                   <div className="relative">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">

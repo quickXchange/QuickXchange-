@@ -789,6 +789,110 @@ test('requires crypto refund details for a crypto-to-fiat Swap and surfaces inva
   await expect(page.getByText(orderId, { exact: false })).toBeVisible();
 });
 
+test('submits a USDT TRC20 to EUR payment method Swap without refund details', async ({ page }) => {
+  const orderId = 'O246813579';
+  let submittedOrder: Record<string, unknown> | undefined;
+  const createdOrder = {
+    id: orderId,
+    type: 'manual',
+    status: 'awaiting funds',
+    manualSettlementState: 'awaiting_funds',
+    fromAsset: 'USDT',
+    fromNetwork: 'TRC20',
+    toAsset: 'EUR',
+    toNetwork: 'SEPA transfer',
+    amount: 10,
+    receiveAmount: 9.94,
+    provider: 'Manual desk',
+    outcomeUnknown: false,
+    refreshUnavailable: false,
+    trackingToken: 'tracking-token-usdt-eur',
+    createdAt: new Date().toISOString(),
+  };
+
+  await page.route('**/api/exchange/config', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(exchangeConfig),
+  }));
+  await page.route('**/api/exchange/quote', async route => {
+    const body = route.request().postDataJSON() as Record<string, unknown>;
+    expect(body).toMatchObject({
+      type: 'manual',
+      fromAsset: 'USDT',
+      fromNetwork: 'TRC20',
+      toAsset: 'EUR',
+      toNetwork: 'SEPA transfer',
+      sourceSettlementOptionId: 'usdt-trc20',
+      targetSettlementOptionId: 'eur-fiat',
+    });
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        quoteId: 'manual-usdt-eur-quote',
+        type: 'manual',
+        provider: 'Manual desk',
+        fromAsset: 'USDT',
+        fromNetwork: 'TRC20',
+        toAsset: 'EUR',
+        toNetwork: 'SEPA transfer',
+        amount: body.amount,
+        receiveAmount: 9.94,
+        rate: 0.994,
+        fee: 0.06,
+        sourceSettlementOptionId: 'usdt-trc20',
+        targetSettlementOptionId: 'eur-fiat',
+        expiresAt: new Date(Date.now() + 120_000).toISOString(),
+      }),
+    });
+  });
+  await page.route(/\/api\/orders(?:\?|$)/, async route => {
+    submittedOrder = route.request().postDataJSON() as Record<string, unknown>;
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify(createdOrder),
+    });
+  });
+  await page.route(`**/api/orders/${orderId}/status*`, route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(createdOrder),
+  }));
+
+  await page.goto('/');
+  await chooseAsset(page, 'select-from-asset', 'usdt-trc20', 'usdt');
+  await chooseAsset(page, 'select-to-asset', 'eur-fiat', 'eur');
+  await page.getByTestId('input-amount').fill('10');
+  await expect(page.getByTestId('input-receive-amount')).toHaveValue('9.94');
+  await page.getByTestId('button-swap-continue').click();
+
+  await expect(page.getByTestId('input-refund-address')).toBeVisible();
+  await expect(page.getByText('Refund Address (Optional)', { exact: true })).toBeVisible();
+  const customerEmail = page.getByTestId('input-customer-email');
+  if (await customerEmail.isEnabled()) {
+    await customerEmail.fill('usdt-eur@example.test');
+  }
+  await page.locator('#swap-terms').check();
+  await page.getByTestId('swap-button-submit').click();
+
+  await expect.poll(() => submittedOrder).toMatchObject({
+    type: 'manual',
+    fromAsset: 'USDT',
+    fromNetwork: 'TRC20',
+    toAsset: 'EUR',
+    toNetwork: 'SEPA transfer',
+  });
+  expect(submittedOrder).not.toHaveProperty('refundAddress');
+  expect(submittedOrder).not.toHaveProperty('refundMemo');
+  await expect(page.getByText(/invalid.*refund|refund.*invalid/i)).toHaveCount(0);
+  await expect(page).toHaveURL(new RegExp(
+    `/order/${orderId}\\?provider=manual&trackingToken=${createdOrder.trackingToken}$`,
+  ));
+  await expect(page.getByTestId('heading-order-created')).toBeVisible();
+});
+
 test('uses dedicated Quickex Convert routes and submits both wallet directions', async ({
   page,
 }) => {

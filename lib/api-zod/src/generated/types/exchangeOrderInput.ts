@@ -28,9 +28,11 @@ export interface ExchangeOrderInput {
   customerEmail?: string;
   customerName?: string;
   destinationAddress?: string;
-  refundAddress?: string;
+  /** @maxLength 512 */
+  refundAddress?: string | null;
   destinationMemo?: string;
-  refundMemo?: string;
+  /** @maxLength 256 */
+  refundMemo?: string | null;
   /**
      * Signed customer-approved quote capability required for both Manual Swap and Quickex Convert.
      * @minLength 16

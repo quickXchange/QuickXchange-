@@ -235,6 +235,7 @@ import {
 import {
   isSyntacticallyValidManualWalletAddress,
   isSyntacticallyValidManualWalletMemo,
+  normalizeRefundFields,
 } from "../lib/manual-wallet-validation";
 import { initializeAffiliateForOrder, processPendingAffiliateCompletions } from "../lib/affiliate-accounting";
 import { reconcilePendingQuickexOrders } from "../lib/quickex-order-service";
@@ -469,8 +470,8 @@ function assertIdempotentOrderMatches(
     customerName?: string;
     destinationAddress?: string;
     destinationMemo?: string;
-    refundAddress?: string;
-    refundMemo?: string;
+    refundAddress?: string | null;
+    refundMemo?: string | null;
     paymentMethod?: string;
     payoutMethod?: string;
     note?: string;
@@ -2253,8 +2254,8 @@ async function validateManualOrderDetails(input: {
   toNetwork: string;
   destinationAddress?: string;
   destinationMemo?: string;
-  refundAddress?: string;
-  refundMemo?: string;
+  refundAddress?: string | null;
+  refundMemo?: string | null;
 }, requiresStableSettlement: boolean) {
   // Legacy v1 manual tickets predate crypto settlement options and did not
   // collect payout wallet details. Keep those already-issued/direct flows
@@ -2500,7 +2501,10 @@ async function createOrderFromInput(
 
 router.post("/exchange/orders", async (req, res, next) => {
   try {
-    const rawInput = CreateExchangeOrderBody.parse(req.body);
+    const rawInput = {
+      ...CreateExchangeOrderBody.parse(req.body),
+      ...normalizeRefundFields(req.body),
+    };
     await ensureSeed();
     const resolvedIdentity = await resolveCustomerOrderIdentity(req, rawInput);
     if (resolvedIdentity.customerClerkUserId) {
@@ -2562,7 +2566,10 @@ router.post("/exchange/orders", async (req, res, next) => {
 
 router.post("/orders", async (req, res, next) => {
   try {
-    const parsed = CreateOrderBody.parse(req.body);
+    const parsed = {
+      ...CreateOrderBody.parse(req.body),
+      ...normalizeRefundFields(req.body),
+    };
     const resolvedIdentity = await resolveCustomerOrderIdentity(
       req,
       parsed,

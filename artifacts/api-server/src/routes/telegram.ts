@@ -413,21 +413,12 @@ async function handleText(chatId: string, locale: TelegramLocale, text: string) 
     const address = text.trim();
     if (address) {
       const needsMemo = (session.data.source as SettlementOption).requiresMemo;
-      if (session.data.mode === "convert" && !needsMemo) {
-        const response = await fetch(`${baseUrl()}/api/quickex/validate-address`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ asset: (session.data.source as SettlementOption).assetCode, network: (session.data.source as SettlementOption).routeNetwork, address }) });
-        if (!response.ok) { await sendTelegramMessage(chatId, t(locale, "refundInvalid")); return; }
-      }
       await saveSession(chatId, needsMemo ? "refundMemo" : "email", { ...session.data, refundAddress: address });
       await sendTelegramMessage(chatId, needsMemo ? t(locale, "memo") : t(locale, "email"));
     }
     return;
   }
   if (session?.state === "refundMemo") {
-    if (session.data.mode === "convert") {
-      const source = session.data.source as SettlementOption;
-      const response = await fetch(`${baseUrl()}/api/quickex/validate-address`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ asset: source.assetCode, network: source.routeNetwork, address: session.data.refundAddress, memo: text.trim() }) });
-      if (!response.ok) { await sendTelegramMessage(chatId, t(locale, "refundInvalid")); return; }
-    }
     await saveSession(chatId, "email", { ...session.data, refundMemo: text.trim() });
     await sendTelegramMessage(chatId, t(locale, "email"));
     return;
@@ -658,6 +649,23 @@ export default router;
 
 export async function setupTelegramCommands() {
   if (!telegramEnabled()) return false;
+  await telegramCall("setMyName", { name: "QuickXchange" });
+  await telegramCall("setMyShortDescription", {
+    short_description: [
+      "💱 Crypto Exchange",
+      "🔗 Website: https://quickchange.exchange/",
+      "💬 Support: @Quick_change_support",
+    ].join("\n"),
+  });
+  await telegramCall("setMyDescription", {
+    description: [
+      "QuickXchange",
+      "",
+      "💱 Crypto Exchange",
+      "🔗 Website: https://quickchange.exchange/",
+      "💬 Support: @Quick_change_support",
+    ].join("\n"),
+  });
   await telegramCall("setMyCommands", { commands: [
     { command: "start", description: "Start QuickXchange" },
     { command: "exchange", description: "Start an exchange" },

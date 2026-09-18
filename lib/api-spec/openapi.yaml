@@ -4255,9 +4255,9 @@ components:
           description: Required for anonymous orders. Signed-in orders use the verified email from the authenticated customer account.
         customerName: { type: string }
         destinationAddress: { type: string }
-        refundAddress: { type: string }
+        refundAddress: { type: string, maxLength: 512, nullable: true }
         destinationMemo: { type: string }
-        refundMemo: { type: string }
+        refundMemo: { type: string, maxLength: 256, nullable: true }
         quoteId: { type: string, minLength: 16 }
         clientRequestId:
           type: string
@@ -4288,9 +4288,9 @@ components:
           description: Required for anonymous orders. Signed-in orders use the verified email from the authenticated customer account.
         customerName: { type: string }
         destinationAddress: { type: string }
-        refundAddress: { type: string }
+        refundAddress: { type: string, maxLength: 512, nullable: true }
         destinationMemo: { type: string }
-        refundMemo: { type: string }
+        refundMemo: { type: string, maxLength: 256, nullable: true }
         quoteId:
           type: string
           minLength: 16
@@ -4334,8 +4334,8 @@ components:
         customerName: { type: string, maxLength: 200 }
         destinationAddress: { type: string, minLength: 1, maxLength: 512 }
         destinationMemo: { type: string, maxLength: 256 }
-        refundAddress: { type: string, minLength: 1, maxLength: 512 }
-        refundMemo: { type: string, maxLength: 256 }
+        refundAddress: { type: string, maxLength: 512, nullable: true }
+        refundMemo: { type: string, maxLength: 256, nullable: true }
         quoteId: { type: string, minLength: 16, maxLength: 16384 }
         clientRequestId:
           type: string

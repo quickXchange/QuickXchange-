@@ -9,11 +9,12 @@ import {
 import { verifyQuoteTicket } from "./quote-ticket";
 import { signOrderTrackingToken, verifyOrderTrackingToken } from "./order-access";
 import { assertExecutableQuickexRoute } from "./provider-capabilities";
+import { normalizeRefundFields } from "./manual-wallet-validation";
 
 type CreateInput = {
   fromAsset: string; fromNetwork: string; toAsset: string; toNetwork: string;
   amount: number; rateMode?: QuickexRateMode; destinationAddress?: string;
-  destinationMemo?: string; refundAddress?: string; refundMemo?: string;
+  destinationMemo?: string; refundAddress?: string | null; refundMemo?: string | null;
   customerEmail?: string; customerName?: string; clientRequestId: string; quoteId: string;
   sourceSettlementOptionId?: string; targetSettlementOptionId?: string;
   customerClerkUserId?: string;
@@ -195,6 +196,8 @@ function output(row: typeof quickexOrdersTable.$inferSelect, includeInstructions
 }
 
 export async function createQuickexConvertOrder(input: CreateInput) {
+  const refund = normalizeRefundFields(input);
+  input = { ...input, ...refund, refundAddress: refund.refundAddress, refundMemo: refund.refundMemo };
   const [existing] = await db.select().from(quickexOrdersTable)
     .where(eq(quickexOrdersTable.clientRequestId, input.clientRequestId)).limit(1);
   if (existing) {
@@ -261,7 +264,7 @@ export async function createQuickexConvertOrder(input: CreateInput) {
   ];
   if (input.refundAddress) {
     addressValidations.push(
-      validateQuickexAddress({ currencyTitle: input.fromAsset, networkTitle: input.fromNetwork, address: input.refundAddress, memo: input.refundMemo }),
+      validateQuickexAddress({ currencyTitle: input.fromAsset, networkTitle: input.fromNetwork, address: input.refundAddress, memo: input.refundMemo ?? undefined }),
     );
   }
   await Promise.all(addressValidations);
@@ -295,7 +298,7 @@ export async function createQuickexConvertOrder(input: CreateInput) {
     const result = await createQuickexOrder({
       fromCurrency: input.fromAsset, fromNetwork: input.fromNetwork, toCurrency: input.toAsset, toNetwork: input.toNetwork,
       amount: input.amount, destinationAddress: input.destinationAddress, destinationMemo: input.destinationMemo,
-      refundAddress: input.refundAddress, refundMemo: input.refundAddress ? input.refundMemo : undefined, email: input.customerEmail, rateMode, quote: ticket.quickexQuote,
+      refundAddress: input.refundAddress ?? undefined, refundMemo: input.refundAddress ? input.refundMemo ?? undefined : undefined, email: input.customerEmail, rateMode, quote: ticket.quickexQuote,
     });
     const [row] = await db.update(quickexOrdersTable).set({
       providerOrderId: result.order.providerOrderId ?? "",
