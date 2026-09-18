@@ -2057,6 +2057,53 @@ test("bulk order status and archive mutations are bounded, fenced, authorized, a
     archiveAudits.map((entry) => entry.action),
     ["order.archived", "order.restored"],
   );
+
+  const permanentDeleteTarget = await seedOrder({ status: "cancelled" });
+  const activeDeleteTarget = await seedOrder({ status: "cancelled" });
+  await database.db.update(database.ordersTable).set({
+    archivedAt: new Date(),
+    archivedBy: owner.id,
+  }).where(eq(database.ordersTable.id, permanentDeleteTarget.id));
+
+  const operatorDelete = await request("/orders/bulk/delete", {
+    method: "POST",
+    body: JSON.stringify({
+      items: [{ id: permanentDeleteTarget.id, recordVersion: permanentDeleteTarget.recordVersion }],
+    }),
+  }, assigneeUserId);
+  assert.equal(operatorDelete.status, 403);
+  assert.equal(operatorDelete.body?.code, "OWNER_ACCESS_REQUIRED");
+
+  const deleteResult = await request("/orders/bulk/delete", {
+    method: "POST",
+    body: JSON.stringify({
+      items: [
+        { id: permanentDeleteTarget.id, recordVersion: permanentDeleteTarget.recordVersion },
+        { id: activeDeleteTarget.id, recordVersion: activeDeleteTarget.recordVersion },
+      ],
+    }),
+  }, ownerUserId);
+  assert.equal(deleteResult.status, 200, JSON.stringify(deleteResult.body));
+  const deleteOutcomes = deleteResult.body?.results as Array<Record<string, unknown>>;
+  assert.equal(deleteOutcomes[0]?.success, true);
+  assert.equal(deleteOutcomes[1]?.success, false);
+  assert.equal(deleteOutcomes[1]?.code, "ORDER_NOT_ARCHIVED");
+
+  const [deletedOrder] = await database.db.select({ id: database.ordersTable.id })
+    .from(database.ordersTable)
+    .where(eq(database.ordersTable.id, permanentDeleteTarget.id));
+  assert.equal(deletedOrder, undefined);
+  const [preservedActiveOrder] = await database.db.select({ id: database.ordersTable.id })
+    .from(database.ordersTable)
+    .where(eq(database.ordersTable.id, activeDeleteTarget.id));
+  assert.equal(preservedActiveOrder?.id, activeDeleteTarget.id);
+  const deletionAudits = await database.db.select()
+    .from(database.orderAuditLogsTable)
+    .where(eq(database.orderAuditLogsTable.orderId, permanentDeleteTarget.id));
+  assert.equal(
+    deletionAudits.filter((entry) => entry.action === "order.permanently_deleted").length,
+    1,
+  );
 });
 
 test("expired notification claims are fenced from overwriting the current worker", async () => {

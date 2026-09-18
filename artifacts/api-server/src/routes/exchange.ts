@@ -1,6 +1,6 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { Router, type IRouter, type Request } from "express";
-import { and, asc, count, desc, eq, gte, ilike, inArray, isNull, lte, ne, notInArray, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, ne, notInArray, or, sql } from "drizzle-orm";
 import {
   CreateExchangeOrderBody,
   CreateExchangeOrderResponse,
@@ -107,6 +107,8 @@ import {
   UpdateOrderSupportToolsParams,
   UpdateOrderSupportToolsBody,
   UpdateOrderSupportToolsResponse,
+  PermanentlyDeleteOrdersBody,
+  PermanentlyDeleteOrdersResponse,
 } from "@workspace/api-zod";
 import {
   customerStatusNotificationEventsTable,
@@ -1755,6 +1757,93 @@ router.post("/orders/bulk/archive", requireOwner, async (req, res, next) => {
       }
     }
     res.json(BulkArchiveOrdersResponse.parse({ results }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/orders/bulk/delete", requireOwner, async (req, res, next) => {
+  try {
+    const input = PermanentlyDeleteOrdersBody.parse(req.body);
+    assertUniqueBulkOrderIds(input.items);
+    const actor = res.locals.operator as OperatorAuthorization;
+    const results = [];
+
+    for (const item of input.items) {
+      try {
+        if (await isProviderManagedOrder(item.id)) {
+          throw new ApiError(
+            "PROVIDER_ORDER_READ_ONLY",
+            "Provider-managed orders are read-only in the Manual operations workspace.",
+            409,
+          );
+        }
+
+        await db.transaction(async (tx) => {
+          const [existing] = await tx.select().from(ordersTable)
+            .where(eq(ordersTable.id, item.id))
+            .limit(1)
+            .for("update");
+          if (!existing) throw new ApiError("ORDER_NOT_FOUND", "Order not found.", 404);
+          if (existing.recordVersion !== item.recordVersion) {
+            throw new ApiError(
+              "ORDER_UPDATE_CONFLICT",
+              "The order changed concurrently. Reload it before deleting.",
+              409,
+            );
+          }
+          if (!existing.archivedAt) {
+            throw new ApiError(
+              "ORDER_NOT_ARCHIVED",
+              "Only archived orders can be permanently deleted.",
+              409,
+            );
+          }
+
+          const [protectedDepositAddress] = await tx.select({ id: whitebitOrderAddressesTable.id })
+            .from(whitebitOrderAddressesTable)
+            .where(eq(whitebitOrderAddressesTable.orderId, item.id))
+            .limit(1);
+          if (protectedDepositAddress) {
+            throw new ApiError(
+              "ORDER_HAS_PROTECTED_DEPOSIT_RECORDS",
+              "This archived order has protected deposit records and cannot be permanently deleted.",
+              409,
+            );
+          }
+          await tx.delete(orderSupportMetadataTable)
+            .where(eq(orderSupportMetadataTable.orderId, item.id));
+          await tx.insert(orderAuditLogsTable).values({
+            orderId: item.id,
+            action: "order.permanently_deleted",
+            actorType: "operator",
+            actorId: actor.id,
+            requestId: req.id == null ? null : String(req.id),
+            previousVersion: existing.recordVersion,
+            nextVersion: existing.recordVersion,
+            details: { archivedAt: existing.archivedAt.toISOString(), archivedBy: existing.archivedBy },
+          });
+          const deleted = await tx.delete(ordersTable).where(and(
+            eq(ordersTable.id, item.id),
+            eq(ordersTable.recordVersion, item.recordVersion),
+            isNotNull(ordersTable.archivedAt),
+          )).returning({ id: ordersTable.id });
+          if (!deleted.length) {
+            throw new ApiError(
+              "ORDER_UPDATE_CONFLICT",
+              "The order changed concurrently. Reload it before deleting.",
+              409,
+            );
+          }
+        });
+        results.push({ id: item.id, success: true });
+      } catch (error) {
+        if (!(error instanceof ApiError)) throw error;
+        results.push(bulkMutationFailure(item.id, error));
+      }
+    }
+
+    res.json(PermanentlyDeleteOrdersResponse.parse({ results }));
   } catch (error) {
     next(error);
   }

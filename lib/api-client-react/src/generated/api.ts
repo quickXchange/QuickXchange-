@@ -151,6 +151,7 @@ import type {
   OrderAssignmentInput,
   OrderAuditEvent,
   OrderBulkArchiveInput,
+  OrderBulkDeleteInput,
   OrderBulkMutationResponse,
   OrderBulkStatusInput,
   OrderInput,
@@ -1610,6 +1611,77 @@ export const useBulkArchiveOrders = <TError = ErrorType<ApiError>,
         TContext
       > => {
       return useMutation(getBulkArchiveOrdersMutationOptions(options));
+    }
+
+export const getPermanentlyDeleteOrdersUrl = () => {
+
+
+
+
+  return `/api/orders/bulk/delete`
+}
+
+/**
+ * @summary Permanently delete selected archived orders
+ */
+export const permanentlyDeleteOrders = async (orderBulkDeleteInput: OrderBulkDeleteInput, options?: Parameters<typeof customFetch>[1]): Promise<OrderBulkMutationResponse> => {
+
+  return customFetch<OrderBulkMutationResponse>(getPermanentlyDeleteOrdersUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(orderBulkDeleteInput)
+  }
+);}
+
+
+
+
+
+export const getPermanentlyDeleteOrdersMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof permanentlyDeleteOrders>>, TError,{data: BodyType<OrderBulkDeleteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof permanentlyDeleteOrders>>, TError,{data: BodyType<OrderBulkDeleteInput>}, TContext> => {
+
+const mutationKey = ['permanentlyDeleteOrders'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof permanentlyDeleteOrders>>, {data: BodyType<OrderBulkDeleteInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  permanentlyDeleteOrders(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PermanentlyDeleteOrdersMutationResult = NonNullable<Awaited<ReturnType<typeof permanentlyDeleteOrders>>>
+    export type PermanentlyDeleteOrdersMutationBody = BodyType<OrderBulkDeleteInput>
+    export type PermanentlyDeleteOrdersMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Permanently delete selected archived orders
+ */
+export const usePermanentlyDeleteOrders = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof permanentlyDeleteOrders>>, TError,{data: BodyType<OrderBulkDeleteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof permanentlyDeleteOrders>>,
+        TError,
+        {data: BodyType<OrderBulkDeleteInput>},
+        TContext
+      > => {
+      return useMutation(getPermanentlyDeleteOrdersMutationOptions(options));
     }
 
 export const getGetPublicOrderStatusUrl = (id: string,

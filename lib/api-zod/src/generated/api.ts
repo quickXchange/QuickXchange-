@@ -2266,6 +2266,238 @@ export const BulkArchiveOrdersResponse = zod.object({
 
 
 /**
+ * @summary Permanently delete selected archived orders
+ */
+export const permanentlyDeleteOrdersBodyItemsItemIdMax = 200;
+
+export const permanentlyDeleteOrdersBodyItemsItemRecordVersionMin = 0;
+export const permanentlyDeleteOrdersBodyItemsItemRecordVersionMultipleOf = 1;
+
+export const permanentlyDeleteOrdersBodyItemsMax = 100;
+
+
+
+export const PermanentlyDeleteOrdersBody = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().min(1).max(permanentlyDeleteOrdersBodyItemsItemIdMax),
+  "recordVersion": zod.number().min(permanentlyDeleteOrdersBodyItemsItemRecordVersionMin).multipleOf(permanentlyDeleteOrdersBodyItemsItemRecordVersionMultipleOf)
+})).min(1).max(permanentlyDeleteOrdersBodyItemsMax)
+})
+
+export const permanentlyDeleteOrdersResponseResultsItemOrderRecordVersionMin = 0;
+export const permanentlyDeleteOrdersResponseResultsItemOrderRecordVersionMultipleOf = 1;
+
+export const permanentlyDeleteOrdersResponseResultsItemOrderSentAmountOverrideOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const permanentlyDeleteOrdersResponseResultsItemOrderReceiveAmountOverrideOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const permanentlyDeleteOrdersResponseResultsItemOrderExchangeRateOverrideOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const permanentlyDeleteOrdersResponseResultsItemOrderNetworkFeeAmountOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const permanentlyDeleteOrdersResponseResultsItemOrderTransactionHashMax = 500;
+
+export const permanentlyDeleteOrdersResponseResultsItemOrderPaymentReferenceMax = 500;
+
+export const permanentlyDeleteOrdersResponseResultsItemOrderAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const permanentlyDeleteOrdersResponseResultsItemOrderReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const permanentlyDeleteOrdersResponseResultsItemOrderCustomerSafeNoteMax = 2000;
+
+export const permanentlyDeleteOrdersResponseResultsItemOrderIncomingTransactionReferenceMax = 500;
+
+export const permanentlyDeleteOrdersResponseResultsItemOrderOutgoingTransactionReferenceMax = 500;
+
+export const permanentlyDeleteOrdersResponseResultsItemOrderProviderClaimedDepositAmountOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const permanentlyDeleteOrdersResponseResultsItemOrderProviderExpectedReceiveAmountOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const permanentlyDeleteOrdersResponseResultsItemOrderProviderPaidAmountOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const permanentlyDeleteOrdersResponseResultsItemOrderPricingRuleVersionMultipleOf = 1;
+
+export const permanentlyDeleteOrdersResponseResultsItemOrderGrossMarketAmountOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const permanentlyDeleteOrdersResponseResultsItemOrderPercentageCommissionOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const permanentlyDeleteOrdersResponseResultsItemOrderFixedCommissionOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const permanentlyDeleteOrdersResponseResultsItemOrderTotalCommissionOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const permanentlyDeleteOrdersResponseResultsItemOrderFinalRateOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneRuleVersionMultipleOf = 1;
+
+export const permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMin = 0;
+export const permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMax = 10000;
+export const permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMultipleOf = 1;
+
+export const permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneRuleAdjustmentDirectionDefault = `MARKUP`;
+export const permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneRuleExactRateOneRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneRuleFixedFeeOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneReferenceSourceUnitsPerUsdRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+
+export const permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneReferenceTargetUnitsPerUsdRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+
+export const permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneTargetPrecisionMin = 0;
+export const permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneTargetPrecisionMax = 8;
+export const permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneTargetPrecisionMultipleOf = 1;
+
+export const permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneAmountsGrossMarketAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneAmountsPercentageCommissionRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneAmountsFixedCommissionRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneAmountsTotalFeeRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneAmountsReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneAmountsFinalRateRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+
+
+export const PermanentlyDeleteOrdersResponse = zod.object({
+  "results": zod.array(zod.object({
+  "id": zod.string(),
+  "success": zod.boolean(),
+  "order": zod.object({
+  "id": zod.string(),
+  "type": zod.string(),
+  "status": zod.string(),
+  "recordVersion": zod.number().min(permanentlyDeleteOrdersResponseResultsItemOrderRecordVersionMin).multipleOf(permanentlyDeleteOrdersResponseResultsItemOrderRecordVersionMultipleOf),
+  "assignedOperatorId": zod.string().nullable(),
+  "supportStatus": zod.enum(['open', 'in_progress', 'done', 'cancelled']),
+  "sendingStatus": zod.enum(['pending', 'sent', 'failed', 'confirmed']),
+  "receivingStatus": zod.enum(['pending', 'sent', 'failed', 'confirmed']),
+  "sentAmountOverride": zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderSentAmountOverrideOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.').nullable(),
+  "receiveAmountOverride": zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderReceiveAmountOverrideOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.').nullable(),
+  "exchangeRateOverride": zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderExchangeRateOverrideOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.').nullable(),
+  "networkFeeAmount": zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderNetworkFeeAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.').nullable(),
+  "transactionHash": zod.string().max(permanentlyDeleteOrdersResponseResultsItemOrderTransactionHashMax).nullable(),
+  "paymentReference": zod.string().max(permanentlyDeleteOrdersResponseResultsItemOrderPaymentReferenceMax).nullable(),
+  "archivedAt": zod.string().nullish(),
+  "archivedBy": zod.string().nullish(),
+  "fromAsset": zod.string(),
+  "fromNetwork": zod.string().optional(),
+  "toAsset": zod.string(),
+  "toNetwork": zod.string().optional(),
+  "amount": zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "receiveAmount": zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "customerEmail": zod.string(),
+  "customerName": zod.string().optional(),
+  "customerRegistered": zod.boolean().describe('True when the order is owned by a registered customer account.'),
+  "destinationAddress": zod.string().optional(),
+  "destinationMemo": zod.string().optional(),
+  "refundAddress": zod.string().optional(),
+  "refundMemo": zod.string().optional(),
+  "depositAddress": zod.string().optional(),
+  "depositMemo": zod.string().optional(),
+  "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
+  "fundingProviderSource": zod.string().optional(),
+  "fundingAddressSource": zod.enum(['live_api', 'manual_fallback', 'manual_only', 'unavailable']).optional(),
+  "fundingProviderError": zod.string().nullish(),
+  "manualSettlementState": zod.string().optional(),
+  "customerSafeNote": zod.string().max(permanentlyDeleteOrdersResponseResultsItemOrderCustomerSafeNoteMax).optional(),
+  "incomingTransactionReference": zod.string().max(permanentlyDeleteOrdersResponseResultsItemOrderIncomingTransactionReferenceMax).optional(),
+  "outgoingTransactionReference": zod.string().max(permanentlyDeleteOrdersResponseResultsItemOrderOutgoingTransactionReferenceMax).optional(),
+  "fundingDetails": zod.record(zod.string(), zod.unknown()).optional(),
+  "paymentMethod": zod.string().optional(),
+  "payoutMethod": zod.string().optional(),
+  "provider": zod.string(),
+  "note": zod.string().optional(),
+  "providerReference": zod.string().optional(),
+  "providerOrderId": zod.string().optional(),
+  "providerState": zod.string().optional(),
+  "rateMode": zod.enum(['FLOATING', 'FIXED']).optional(),
+  "quoteId": zod.string().optional(),
+  "clientRequestId": zod.string().optional(),
+  "errorCode": zod.string().optional(),
+  "errorMessage": zod.string().optional(),
+  "outcomeUnknown": zod.boolean(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string(),
+  "trackingToken": zod.string(),
+  "providerClaimedDepositAmount": zod.union([zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderProviderClaimedDepositAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
+  "providerExpectedReceiveAmount": zod.union([zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderProviderExpectedReceiveAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
+  "providerPaidAmount": zod.union([zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderProviderPaidAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
+  "providerCreatedAt": zod.string().nullable(),
+  "providerUpdatedAt": zod.string().nullable(),
+  "providerCompleted": zod.boolean().nullable(),
+  "pricingRuleId": zod.string().nullish(),
+  "pricingRuleVersion": zod.number().min(1).multipleOf(permanentlyDeleteOrdersResponseResultsItemOrderPricingRuleVersionMultipleOf).nullish(),
+  "pricingRuleName": zod.string().optional(),
+  "grossMarketAmount": zod.union([zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderGrossMarketAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]).optional(),
+  "percentageCommission": zod.union([zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderPercentageCommissionOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]).optional(),
+  "fixedCommission": zod.union([zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderFixedCommissionOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]).optional(),
+  "totalCommission": zod.union([zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderTotalCommissionOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]).optional(),
+  "finalRate": zod.union([zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderFinalRateOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]).optional(),
+  "pricingSnapshot": zod.union([zod.object({
+  "policyVersion": zod.enum(['manual-desk-pricing-v1']),
+  "rule": zod.object({
+  "id": zod.string(),
+  "version": zod.number().min(1).multipleOf(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneRuleVersionMultipleOf),
+  "name": zod.string(),
+  "selectors": zod.object({
+  "sourceAsset": zod.string().nullable(),
+  "sourceCryptoAssetId": zod.string().nullish(),
+  "targetAsset": zod.string().nullable(),
+  "targetCryptoAssetId": zod.string().nullish(),
+  "sourceNetwork": zod.string().nullable(),
+  "targetNetwork": zod.string().nullable(),
+  "paymentMethod": zod.string().nullable(),
+  "payoutMethod": zod.string().nullable(),
+  "sourceSettlementOptionId": zod.string().nullish(),
+  "targetSettlementOptionId": zod.string().nullish()
+}),
+  "markupBasisPoints": zod.number().min(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMin).max(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneRuleAdjustmentDirectionDefault),
+  "exactRate": zod.union([zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneRuleExactRateOneRegExp).describe('An exact positive base-10 decimal value.'),zod.null()]).optional().describe('Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically.'),
+  "effectiveRateSource": zod.enum(['direct', 'reciprocal']).optional().describe('Whether the effective exact path was directly configured or synthesized as the reciprocal.'),
+  "configuredSelectors": zod.record(zod.string(), zod.string().nullable()).optional().describe('Original configured rule selectors, retained separately when a reciprocal path is synthesized.'),
+  "fixedFee": zod.union([zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneRuleFixedFeeOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()])
+}),
+  "context": zod.object({
+  "sourceAsset": zod.string(),
+  "sourceCryptoAssetId": zod.string().nullish(),
+  "targetAsset": zod.string(),
+  "targetCryptoAssetId": zod.string().nullish(),
+  "sourceNetwork": zod.string(),
+  "targetNetwork": zod.string(),
+  "paymentMethod": zod.string(),
+  "payoutMethod": zod.string()
+}),
+  "reference": zod.object({
+  "source": zod.object({
+  "currency": zod.string(),
+  "unitsPerUsd": zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneReferenceSourceUnitsPerUsdRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "provider": zod.enum(['1Forge', 'manual', 'Coinbase', 'USD identity', 'test adapter']),
+  "source": zod.string().min(1),
+  "observedAt": zod.coerce.date(),
+  "timestampKind": zod.enum(['upstreamObservedAt', 'fetchedAt'])
+}),
+  "target": zod.object({
+  "currency": zod.string(),
+  "unitsPerUsd": zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneReferenceTargetUnitsPerUsdRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "provider": zod.enum(['1Forge', 'manual', 'Coinbase', 'USD identity', 'test adapter']),
+  "source": zod.string().min(1),
+  "observedAt": zod.coerce.date(),
+  "timestampKind": zod.enum(['upstreamObservedAt', 'fetchedAt'])
+}),
+  "executionProvider": zod.enum(['Manual desk'])
+}),
+  "targetPrecision": zod.number().min(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneTargetPrecisionMin).max(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneTargetPrecisionMax).multipleOf(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneTargetPrecisionMultipleOf),
+  "rounding": zod.object({
+  "grossMarketAmount": zod.enum(['truncate']),
+  "percentageCommission": zod.enum(['ceil', 'floor']),
+  "fixedCommission": zod.enum(['ceil']),
+  "finalRate": zod.enum(['truncate']).describe('Final receive\/input rate is truncated, never rounded up.'),
+  "finalRateScale": zod.literal(30).describe('Final rate uses exactly 30 base-10 fractional calculation places before canonical trailing-zero removal.')
+}),
+  "amounts": zod.object({
+  "grossMarketAmount": zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneAmountsGrossMarketAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "percentageCommission": zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneAmountsPercentageCommissionRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "fixedCommission": zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneAmountsFixedCommissionRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "totalFee": zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneAmountsTotalFeeRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "receiveAmount": zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneAmountsReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "finalRate": zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneAmountsFinalRateRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.')
+})
+}),zod.null()]).optional(),
+  "sourceSettlementOptionId": zod.string().nullish(),
+  "targetSettlementOptionId": zod.string().nullish(),
+  "settlementSnapshot": zod.record(zod.string(), zod.unknown()).nullish(),
+  "settlementDetails": zod.record(zod.string(), zod.unknown()).nullish()
+}).optional(),
+  "code": zod.string().optional(),
+  "error": zod.string().optional(),
+  "retryable": zod.boolean().optional(),
+  "outcomeUnknown": zod.boolean().optional()
+}))
+})
+
+
+/**
  * @summary Get one customer-safe order status by capability ID
  */
 export const getPublicOrderStatusPathIdRegExp = new RegExp('^(?:O[0-9]{9}|QX-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$');

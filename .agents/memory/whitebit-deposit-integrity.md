@@ -38,3 +38,9 @@ WhiteBIT webhook authentication may use dedicated webhook credentials when confi
 **Why:** WhiteBIT sends `x-txc-apikey`, payload, and signature headers compatible with the account API credentials, while ownership verification exposes a public key through a separate root endpoint. Requiring duplicate webhook-only secrets can silently disable valid callbacks.
 
 **How to apply:** Prefer explicit webhook key/secret overrides, fall back to the configured WhiteBIT API key/secret, keep `/whiteBIT-verification` at the service root, and reject unsigned or malformed webhook requests before processing deposits.
+
+Archived-order deletion must preserve protected WhiteBIT deposit and address records. Refuse permanent deletion when an order still owns those records rather than granting broad delete rights or silently removing financial provenance.
+
+**Why:** The runtime database role intentionally cannot delete protected WhiteBIT address rows, and those rows anchor provider reconciliation history that must outlive ordinary Admin cleanup.
+
+**How to apply:** Lock and re-check the archived order inside the deletion transaction, probe for protected provider dependencies, return an explicit per-order conflict when present, and delete only ordinary order-owned sidecars before removing the order.

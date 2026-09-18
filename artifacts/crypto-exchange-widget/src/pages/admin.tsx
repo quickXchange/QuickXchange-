@@ -58,7 +58,7 @@ import {
   useRequestFiatCurrencyFlagUpload, useDeleteFiatCurrencyFlagUpload,
   useGetOrder, getGetOrderQueryKey, useAssignOrder, useArchiveOrder, useRestoreOrder,
   useGetOrderAuditLog, getGetOrderAuditLogQueryKey,
-  useBulkUpdateOrderStatus, useBulkArchiveOrders,
+  useBulkUpdateOrderStatus, useBulkArchiveOrders, usePermanentlyDeleteOrders,
   useCaptureAffiliateReferral, getCaptureAffiliateReferralQueryKey,
   useGetAffiliateDashboard, getGetAffiliateDashboardQueryKey,
   useGetAffiliateCommissions, getGetAffiliateCommissionsQueryKey,
@@ -3244,6 +3244,7 @@ function RowMenu({
   canEditStatus,
   onSelectOrder,
   onChangeArchive,
+  onDeletePermanently,
   variant = 'desktop',
 }: {
   order: Order;
@@ -3252,10 +3253,11 @@ function RowMenu({
   canEditStatus: boolean;
   onSelectOrder: (id: string) => void;
   onChangeArchive: (id: string, version: number, archived: boolean) => void;
+  onDeletePermanently: (id: string, version: number) => void;
   variant?: 'desktop' | 'mobile';
 }) {
   const { t } = useI18n();
-  const archiveAction = archived ? 'Restore' : 'Delete';
+  const archiveAction = archived ? 'Restore' : 'Archive';
   const testIdPrefix = variant === 'mobile' ? 'row-menu-mobile' : 'row-menu';
   return (
     <DropdownMenuPrimitive.Root>
@@ -3265,7 +3267,7 @@ function RowMenu({
         </button>
       </DropdownMenuPrimitive.Trigger>
       <DropdownMenuPrimitive.Portal>
-        <DropdownMenuPrimitive.Content align="end" sideOffset={4} className="admin-order-actions-menu z-50 w-36 bg-card border border-border rounded-lg shadow-lg flex flex-col py-1 animate-in fade-in zoom-in-95 duration-100" onClick={(e) => e.stopPropagation()}>
+          <DropdownMenuPrimitive.Content align="end" sideOffset={4} className="admin-order-actions-menu z-50 w-44 bg-card border border-border rounded-lg shadow-lg flex flex-col py-1 animate-in fade-in zoom-in-95 duration-100" onClick={(e) => e.stopPropagation()}>
           <DropdownMenuPrimitive.Item className="px-3 py-1.5 text-[13px] hover:bg-muted focus:bg-muted transition-colors font-medium w-full text-left cursor-pointer outline-none" onClick={() => onSelectOrder(order.id)} data-testid={`${testIdPrefix}-view-${order.id}`}>{t('adminOrders.view_order')}</DropdownMenuPrimitive.Item>
           {canEditStatus && <DropdownMenuPrimitive.Item className="px-3 py-1.5 text-[13px] hover:bg-muted focus:bg-muted transition-colors font-medium w-full text-left cursor-pointer outline-none" onClick={() => onSelectOrder(order.id)} data-testid={`${testIdPrefix}-status-${order.id}`}>{t('adminOrders.edit_status')}</DropdownMenuPrimitive.Item>}
           {canEditStatus && <DropdownMenuPrimitive.Item className="px-3 py-1.5 text-[13px] hover:bg-muted focus:bg-muted transition-colors font-medium w-full text-left cursor-pointer outline-none" onClick={() => onSelectOrder(order.id)} data-testid={`${testIdPrefix}-edit-${order.id}`}>{t('adminOrders.edit_order')}</DropdownMenuPrimitive.Item>}
@@ -3275,9 +3277,16 @@ function RowMenu({
               archived ? 'text-primary hover:bg-primary/10 focus:bg-primary/10' : 'text-destructive hover:bg-destructive/10 focus:bg-destructive/10'
             )}
             onClick={() => onChangeArchive(order.id, order.recordVersion, !archived)}
-            data-testid={`${testIdPrefix}-${archived ? 'restore' : 'delete'}-${order.id}`}
+            data-testid={`${testIdPrefix}-${archived ? 'restore' : 'archive'}-${order.id}`}
           >
             {archiveAction}
+          </DropdownMenuPrimitive.Item>}
+          {canArchive && archived && <DropdownMenuPrimitive.Item
+            className="px-3 py-1.5 text-[13px] transition-colors font-bold w-full text-left outline-none cursor-pointer text-destructive hover:bg-destructive/10 focus:bg-destructive/10"
+            onClick={() => onDeletePermanently(order.id, order.recordVersion)}
+            data-testid={`${testIdPrefix}-delete-permanently-${order.id}`}
+          >
+            Delete Permanently
           </DropdownMenuPrimitive.Item>}
         </DropdownMenuPrimitive.Content>
       </DropdownMenuPrimitive.Portal>
@@ -3288,7 +3297,7 @@ function RowMenu({
 function RedesignedOrderTable({
   orders, options, type, loading, emptyLabel = 'No orders match these filters.',
   onSelectOrder, selectedIds, onToggleOrder, onToggleAll,
-  archived, canArchive, canEditStatus, onChangeArchive,
+  archived, canArchive, canEditStatus, onChangeArchive, onDeletePermanently,
 }: {
   orders: Order[];
   options: SettlementOption[];
@@ -3303,6 +3312,7 @@ function RedesignedOrderTable({
   canArchive: boolean;
   canEditStatus: boolean;
   onChangeArchive: (id: string, version: number, archived: boolean) => void;
+  onDeletePermanently: (id: string, version: number) => void;
 }) {
   const { t } = useI18n();
   if (loading && !orders.length) return <LoadingBlock rows={6} />;
@@ -3365,7 +3375,7 @@ function RedesignedOrderTable({
               <td className="order-id-action-cell" data-label="Order / Actions" onClick={(e) => e.stopPropagation()}>
                 <div className="order-id-actions">
                   <span className="order-id-inline" title={order.id} data-testid={`text-table-order-id-${order.id}`}>{shortId(order.id)}</span>
-                  <RowMenu order={order} archived={archived} canArchive={canArchive} canEditStatus={canEditStatus} onSelectOrder={onSelectOrder} onChangeArchive={onChangeArchive} />
+                  <RowMenu order={order} archived={archived} canArchive={canArchive} canEditStatus={canEditStatus} onSelectOrder={onSelectOrder} onChangeArchive={onChangeArchive} onDeletePermanently={onDeletePermanently} />
                 </div>
               </td>
             </tr>
@@ -3570,7 +3580,7 @@ function commonBulkStatuses(orders: Order[]): OrderBulkStatusInputManualSettleme
 }
 
 function BulkOrderDialog({ kind, count, statuses, selectedStatus, pending, onStatusChange, onCancel, onConfirm }: {
-  kind: 'status' | 'archive' | 'restore';
+  kind: 'status' | 'archive' | 'restore' | 'delete';
   count: number;
   statuses: OrderBulkStatusInputManualSettlementState[];
   selectedStatus: OrderBulkStatusInputManualSettlementState | '';
@@ -3612,9 +3622,11 @@ function BulkOrderDialog({ kind, count, statuses, selectedStatus, pending, onSta
 
   return createPortal(<div className="bulk-dialog-backdrop" onClick={(event) => event.target === event.currentTarget && !pending && onCancel()}>
     <section ref={dialogRef} className="bulk-dialog" role="alertdialog" aria-modal="true" aria-labelledby="bulk-dialog-title" aria-describedby="bulk-dialog-description" onKeyDown={handleDialogKeyDown}>
-      <div className="bulk-dialog-icon">{kind === 'archive' ? <Archive size={21} /> : kind === 'restore' ? <ArchiveRestore size={21} /> : <RefreshCw size={21} />}</div>
-      <h2 id="bulk-dialog-title">{kind === 'archive' ? t('adminOrders.archive_selected_orders') : kind === 'restore' ? t('adminOrders.restore_selected_orders') : t('adminOrders.change_selected_order_status')}</h2>
-      <p id="bulk-dialog-description">{kind === 'archive'
+      <div className={cn("bulk-dialog-icon", kind === 'delete' && "text-destructive")}>{kind === 'delete' ? <Trash2 size={21} /> : kind === 'archive' ? <Archive size={21} /> : kind === 'restore' ? <ArchiveRestore size={21} /> : <RefreshCw size={21} />}</div>
+      <h2 id="bulk-dialog-title">{kind === 'delete' ? `Permanently delete ${count} archived orders?` : kind === 'archive' ? t('adminOrders.archive_selected_orders') : kind === 'restore' ? t('adminOrders.restore_selected_orders') : t('adminOrders.change_selected_order_status')}</h2>
+      <p id="bulk-dialog-description">{kind === 'delete'
+        ? 'This action cannot be undone.'
+        : kind === 'archive'
         ? `${count} selected ${count === 1 ? t('adminOrders.order') : t('adminOrders.orders')} will move to Archived Orders. Nothing is permanently deleted, and an owner can restore them later.`
         : kind === 'restore'
           ? `${count} selected ${count === 1 ? t('adminOrders.order') : t('adminOrders.orders')} will return to Active Orders and become available for operational updates.`
@@ -3622,7 +3634,7 @@ function BulkOrderDialog({ kind, count, statuses, selectedStatus, pending, onSta
       {kind === 'status' && <label><span className="field-label">{t('adminOrders.new_status')}</span><select value={selectedStatus} onChange={(event) => onStatusChange(event.target.value as OrderBulkStatusInputManualSettlementState)} data-testid="select-bulk-status"><option value="">{t('adminOrders.choose_a_status')}</option>{statuses.map((status) => <option value={status} key={status}>{manualStatusLabels[status]}</option>)}</select></label>}
       <div className="bulk-dialog-actions">
         <button type="button" className="button button-secondary" onClick={onCancel} disabled={pending}>{t('adminOrders.cancel')}</button>
-        <button type="button" className={cn('button', kind === 'archive' ? 'button-danger' : 'button-primary')} onClick={onConfirm} disabled={pending || (kind === 'status' && !selectedStatus)} data-testid={kind === 'archive' ? 'button-confirm-bulk-archive' : kind === 'restore' ? 'button-confirm-bulk-restore' : 'button-confirm-bulk-status'}>{pending ? <Loader2 className="spin" size={15} /> : kind === 'archive' ? <Archive size={15} /> : kind === 'restore' ? <ArchiveRestore size={15} /> : <Check size={15} />}{pending ? t('adminOrders.applying') : kind === 'archive' ? t('adminOrders.archive_selected') : kind === 'restore' ? t('adminOrders.restore_selected') : t('adminOrders.change_status')}</button>
+        <button type="button" className={cn('button', kind === 'delete' ? 'button-danger' : 'button-primary')} onClick={onConfirm} disabled={pending || (kind === 'status' && !selectedStatus)} data-testid={kind === 'delete' ? 'button-confirm-permanent-delete' : kind === 'archive' ? 'button-confirm-bulk-archive' : kind === 'restore' ? 'button-confirm-bulk-restore' : 'button-confirm-bulk-status'}>{pending ? <Loader2 className="spin" size={15} /> : kind === 'delete' ? <Trash2 size={15} /> : kind === 'archive' ? <Archive size={15} /> : kind === 'restore' ? <ArchiveRestore size={15} /> : <Check size={15} />}{pending ? t('adminOrders.applying') : kind === 'delete' ? 'Delete Permanently' : kind === 'archive' ? t('adminOrders.archive_selected') : kind === 'restore' ? t('adminOrders.restore_selected') : t('adminOrders.change_status')}</button>
       </div>
     </section>
   </div>, document.body);
@@ -3663,8 +3675,9 @@ function AdminOrders() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  const [bulkDialog, setBulkDialog] = useState<'status' | 'archive' | 'restore' | null>(null);
+  const [bulkDialog, setBulkDialog] = useState<'status' | 'archive' | 'restore' | 'delete' | null>(null);
   const [rowArchiveDialog, setRowArchiveDialog] = useState<{ id: string; recordVersion: number; archived: boolean } | null>(null);
+  const [rowDeleteDialog, setRowDeleteDialog] = useState<{ id: string; recordVersion: number } | null>(null);
   const [bulkStatus, setBulkStatus] = useState<OrderBulkStatusInputManualSettlementState | ''>('');
   const [bulkNotice, setBulkNotice] = useState<{ kind: 'success' | 'error' | 'warning'; text: string } | null>(null);
 
@@ -3718,6 +3731,7 @@ function AdminOrders() {
   const operators = useGetOperators({ query: { queryKey: getGetOperatorsQueryKey(), retry: false } });
   const bulkStatusMutation = useBulkUpdateOrderStatus();
   const bulkArchiveMutation = useBulkArchiveOrders();
+  const permanentDeleteMutation = usePermanentlyDeleteOrders();
   const visibleOrders = orders.data?.items || [];
   const selectedOrders = visibleOrders.filter((order) => selectedIds.has(order.id));
   const commonStatuses = commonBulkStatuses(selectedOrders).filter(opt => {
@@ -3853,9 +3867,38 @@ function AdminOrders() {
     });
   };
 
+  const applyPermanentDelete = (items: Array<{ id: string; recordVersion: number }> = selectedOrders) => {
+    if (!items.length || archiveView !== 'archived') return;
+    permanentDeleteMutation.mutate({ data: {
+      items: items.map((order) => ({ id: order.id, recordVersion: order.recordVersion })),
+    } }, {
+      onSuccess: async (response) => {
+        summarizeBulkResult(response, 'permanently deleted');
+        const deletedIds = new Set(response.results.filter((result) => result.success).map((result) => result.id));
+        currentQueryClient.setQueryData(getGetOrdersQueryKey(params), (current: typeof orders.data) => current ? {
+          ...current,
+          items: current.items.filter((order) => !deletedIds.has(order.id)),
+          total: Math.max(0, current.total - deletedIds.size),
+        } : current);
+        setSelectedIds(new Set());
+        setBulkDialog(null);
+        setRowDeleteDialog(null);
+        await refreshAfterBulk();
+      },
+      onError: (error) => {
+        setRowDeleteDialog(null);
+        setBulkNotice({ kind: 'error', text: apiErrorText(error, 'The archived orders could not be permanently deleted.') });
+      },
+    });
+  };
+
   const changeOrderArchive = (id: string, recordVersion: number, archived: boolean) => {
     if (!can(PermissionKey.ordersarchive)) return;
     setRowArchiveDialog({ id, recordVersion, archived });
+  };
+  const requestPermanentDelete = (id: string, recordVersion: number) => {
+    if (archiveView !== 'archived' || !can(PermissionKey.ordersarchive)) return;
+    setRowDeleteDialog({ id, recordVersion });
   };
 
   const handleExport = async () => {
@@ -3948,8 +3991,11 @@ function AdminOrders() {
             {can(PermissionKey.ordersarchive) && <>
               <div className="bulk-actions-divider" />
               {archiveView === 'active'
-                ? <button type="button" className="bulk-actions-delete" onClick={() => setBulkDialog('archive')} data-testid="button-bulk-delete"><Trash2 size={14} /> {t('adminOrders.delete_selected')}</button>
-                : <button type="button" onClick={() => setBulkDialog('restore')} data-testid="button-bulk-restore"><ArchiveRestore size={14} /> {t('adminOrders.restore_selected_2')}</button>}
+                ? <button type="button" onClick={() => setBulkDialog('archive')} data-testid="button-bulk-archive"><Archive size={14} /> Archive Selected</button>
+                : <>
+                    <button type="button" onClick={() => setBulkDialog('restore')} data-testid="button-bulk-restore"><ArchiveRestore size={14} /> Restore Selected</button>
+                    <button type="button" className="bulk-actions-delete" onClick={() => setBulkDialog('delete')} data-testid="button-bulk-delete"><Trash2 size={14} /> Delete Selected</button>
+                  </>}
             </>}
             <div className="bulk-actions-divider" />
             <button type="button" onClick={() => setSelectedIds(new Set())} data-testid="button-clear-selection"><X size={14} /> {t('adminOrders.clear_selection')}</button>
@@ -3960,7 +4006,7 @@ function AdminOrders() {
       </>}
 
       {orders.isError ? <ErrorState message={t('adminOrders.load_order_queue_error')} retry={() => orders.refetch()} /> :
-        <RedesignedOrderTable orders={visibleOrders} options={settlementOptions} type={type} loading={orders.isLoading} onSelectOrder={openOrder} selectedIds={selectedIds} onToggleOrder={toggleOrder} onToggleAll={toggleAll} archived={archiveView === 'archived'} canArchive={can(PermissionKey.ordersarchive)} canEditStatus={can('orders.status')} onChangeArchive={changeOrderArchive} />}
+        <RedesignedOrderTable orders={visibleOrders} options={settlementOptions} type={type} loading={orders.isLoading} onSelectOrder={openOrder} selectedIds={selectedIds} onToggleOrder={toggleOrder} onToggleAll={toggleAll} archived={archiveView === 'archived'} canArchive={can(PermissionKey.ordersarchive)} canEditStatus={can('orders.status')} onChangeArchive={changeOrderArchive} onDeletePermanently={requestPermanentDelete} />}
 
       <div className="panel-footer flex justify-between items-center bg-muted/10 p-4 border-t border-border">
         <div className="flex items-center gap-3">
@@ -3982,8 +4028,9 @@ function AdminOrders() {
         </div>
       </div>
     </div>
-    {bulkDialog && <BulkOrderDialog kind={bulkDialog} count={selectedOrders.length} statuses={commonStatuses} selectedStatus={bulkStatus} pending={bulkStatusMutation.isPending || bulkArchiveMutation.isPending} onStatusChange={setBulkStatus} onCancel={() => setBulkDialog(null)} onConfirm={bulkDialog === 'status' ? applyBulkStatus : () => applyBulkArchive(bulkDialog === 'archive')} />}
+    {bulkDialog && <BulkOrderDialog kind={bulkDialog} count={selectedOrders.length} statuses={commonStatuses} selectedStatus={bulkStatus} pending={bulkStatusMutation.isPending || bulkArchiveMutation.isPending || permanentDeleteMutation.isPending} onStatusChange={setBulkStatus} onCancel={() => setBulkDialog(null)} onConfirm={bulkDialog === 'status' ? applyBulkStatus : bulkDialog === 'delete' ? () => applyPermanentDelete() : () => applyBulkArchive(bulkDialog === 'archive')} />}
     {rowArchiveDialog && <BulkOrderDialog kind={rowArchiveDialog.archived ? 'archive' : 'restore'} count={1} statuses={[]} selectedStatus="" pending={bulkArchiveMutation.isPending} onStatusChange={() => {}} onCancel={() => setRowArchiveDialog(null)} onConfirm={applySingleArchive} />}
+    {rowDeleteDialog && <BulkOrderDialog kind="delete" count={1} statuses={[]} selectedStatus="" pending={permanentDeleteMutation.isPending} onStatusChange={() => {}} onCancel={() => setRowDeleteDialog(null)} onConfirm={() => applyPermanentDelete([rowDeleteDialog])} />}
     </div>
     {id && <OrderDrawer id={id} onClose={closeOrder} />}
   </AdminShell>;

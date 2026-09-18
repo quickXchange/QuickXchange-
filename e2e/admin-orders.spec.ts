@@ -86,6 +86,8 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
   const orderRequests: URL[] = [];
   let bulkStatusPayload: Record<string, unknown> | undefined;
   let bulkArchivePayload: Record<string, unknown> | undefined;
+  let bulkDeletePayload: Record<string, unknown> | undefined;
+  const permanentlyDeletedOrderIds = new Set<string>();
   let manualStatusPayload: Record<string, unknown> | undefined;
   let manualDetailOrder = { ...manualOrder, assignedOperatorId: 'operator-1', archivedAt: null, archivedBy: null };
   const reconciliationAttempts = [
@@ -155,20 +157,21 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
         : undefined;
     const secondPage = url.searchParams.get('page') === '2';
     const requestedType = url.searchParams.get('type');
-    const items = detailOrder
+    const availableItems = detailOrder
       ? [detailOrder]
       : filtered
         ? [quickexOrder]
       : requestedType === 'manual'
         ? [manualOrder, secondManualOrder]
         : [quickexOrder];
+    const items = availableItems.filter((order) => !permanentlyDeletedOrderIds.has(order.id));
 
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         items,
-        total: detailOrder || filtered ? 1 : 12,
+        total: detailOrder || filtered ? items.length : 12 - permanentlyDeletedOrderIds.size,
         page: Number(url.searchParams.get('page') ?? 1),
         pageSize: Number(url.searchParams.get('pageSize') ?? 25),
         refreshUnavailable: filtered,
@@ -236,6 +239,18 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
               { id: manualOrder.id, success: true, order: { ...manualOrder, archivedAt: '2025-06-13T10:00:00.000Z', recordVersion: 1 } },
               { id: secondManualOrder.id, success: false, code: 'ORDER_VERSION_CONFLICT', error: 'The order changed.', retryable: true },
             ],
+      }),
+    });
+  });
+  await page.route('**/api/orders/bulk/delete', async (route) => {
+    bulkDeletePayload = route.request().postDataJSON();
+    const items = (bulkDeletePayload?.items ?? []) as Array<{ id: string }>;
+    items.forEach((item) => permanentlyDeletedOrderIds.add(item.id));
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        results: items.map((item) => ({ id: item.id, success: true })),
       }),
     });
   });
@@ -316,7 +331,8 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
   await quickexOrderSelection.check();
   await expect(page.getByTestId('bulk-selected-count')).toHaveText('1order selected');
   await expect(page.getByTestId('button-bulk-status')).toBeDisabled();
-  await expect(page.getByTestId('button-bulk-delete')).toBeVisible();
+  await expect(page.getByTestId('button-bulk-archive')).toBeVisible();
+  await expect(page.getByTestId('button-bulk-delete')).toHaveCount(0);
   await expect(page.getByTestId('bulk-actions-bar')).toContainText('synchronized from the provider');
   await page.getByTestId('button-clear-selection').click();
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -328,7 +344,7 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
   await expect(page.getByTestId(`row-menu-view-${quickexOrder.id}`)).toBeVisible();
   await expect(page.getByTestId(`row-menu-status-${quickexOrder.id}`)).toBeVisible();
   await expect(page.getByTestId(`row-menu-edit-${quickexOrder.id}`)).toBeVisible();
-  await page.getByTestId(`row-menu-delete-${quickexOrder.id}`).click();
+  await page.getByTestId(`row-menu-archive-${quickexOrder.id}`).click();
   await expect(page.getByRole('alertdialog')).toContainText('Nothing is permanently deleted');
   await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel' }).click();
 
@@ -542,6 +558,14 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
   await page.getByTestId('tab-orders-archived').click();
   await expect.poll(() => orderRequests.some((url) => url.searchParams.get('archived') === 'archived')).toBe(true);
   await page.getByTestId('checkbox-select-all-orders').check();
+  await expect(page.getByTestId('bulk-actions-bar')).toContainText('Restore Selected');
+  await expect(page.getByTestId('bulk-actions-bar')).toContainText('Delete Selected');
+  await expect(page.getByTestId('bulk-actions-bar')).toContainText('Clear Selection');
+  await page.getByTestId('button-bulk-delete').click();
+  await expect(page.getByRole('alertdialog')).toContainText('Permanently delete 2 archived orders?');
+  await expect(page.getByRole('alertdialog')).toContainText('This action cannot be undone.');
+  await expect(page.getByTestId('button-confirm-permanent-delete')).toHaveText('Delete Permanently');
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel' }).click();
   await page.getByTestId('button-bulk-restore').click();
   await expect(page.getByRole('alertdialog')).toContainText('return to Active Orders');
   await page.getByTestId('button-confirm-bulk-restore').click();
@@ -553,6 +577,22 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
     ],
   });
   await expect(page.getByTestId('notice-bulk-result')).toContainText('2 restored successfully');
+  await page.getByTestId('checkbox-select-all-orders').check();
+  await page.getByTestId(`row-menu-trigger-${manualOrder.id}`).click();
+  await expect(page.getByTestId(`row-menu-restore-${manualOrder.id}`)).toBeVisible();
+  await expect(page.getByTestId(`row-menu-delete-permanently-${manualOrder.id}`)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.getByTestId('button-bulk-delete').click();
+  await page.getByTestId('button-confirm-permanent-delete').click();
+  await expect.poll(() => bulkDeletePayload).toMatchObject({
+    items: [
+      { id: manualOrder.id, recordVersion: 0 },
+      { id: secondManualOrder.id, recordVersion: 0 },
+    ],
+  });
+  await expect(page.getByTestId('empty-orders')).toBeVisible();
+  await expect(page.getByTestId('bulk-actions-bar')).toHaveCount(0);
+  await expect(page.locator('.panel-footer')).toContainText('Showing0 of10 orders');
   await page.getByTestId('button-admin-mobile-profile').click();
   await page.getByTestId('button-mobile-theme-dark').click();
   await expect(page.locator('html')).toHaveClass(/dark/);

@@ -270,6 +270,7 @@ export * from './orderAssignmentInput';
 export * from './orderAuditEvent';
 export * from './orderAuditEventDetails';
 export * from './orderBulkArchiveInput';
+export * from './orderBulkDeleteInput';
 export * from './orderBulkMutationItem';
 export * from './orderBulkMutationOutcome';
 export * from './orderBulkMutationResponse';

@@ -175,6 +175,7 @@ const POLICY_MATCHERS: readonly PolicyMatcher[] = [
   { method: "PATCH", pattern: /^\/orders\/[^/]+\/support-tools$/, policy: P("orders.support_tools") },
   { method: "POST", pattern: /^\/orders\/[^/]+\/assignment$/, policy: P("orders.assign", true) },
   { method: "POST", pattern: /^\/orders\/bulk\/archive$/, policy: P("orders.archive", true) },
+  { method: "POST", pattern: /^\/orders\/bulk\/delete$/, policy: P("orders.archive", true) },
   { method: "POST", pattern: /^\/orders\/[^/]+\/(archive|restore)$/, policy: P("orders.archive", true) },
 ];
 

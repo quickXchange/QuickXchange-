@@ -1318,6 +1318,14 @@ export interface OrderBulkArchiveInput {
   archived: boolean;
 }
 
+export interface OrderBulkDeleteInput {
+  /**
+     * @minItems 1
+     * @maxItems 100
+     */
+  items: OrderBulkMutationItem[];
+}
+
 export type OrderSupportStatus = typeof OrderSupportStatus[keyof typeof OrderSupportStatus];
 
 

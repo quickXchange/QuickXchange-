@@ -2,7 +2,19 @@ import { useEffect, useRef, useState, useMemo } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { useUser } from '@clerk/react';
 import { ArrowRight, ChevronDown, CircleUserRound, Gauge, Globe2, Handshake, House, Menu, Moon, Search, ShieldCheck, Sun, X, Link2, Pause, Play, Mail, Clock3 } from 'lucide-react';
-import { SiTelegram } from 'react-icons/si';
+import {
+  SiDiscord,
+  SiFacebook,
+  SiGithub,
+  SiInstagram,
+  SiReddit,
+  SiTelegram,
+  SiTiktok,
+  SiWhatsapp,
+  SiX,
+  SiYoutube,
+} from 'react-icons/si';
+import { FaLinkedinIn } from 'react-icons/fa6';
 import { Link, useLocation } from 'wouter';
 import { useGetOperators, getGetOperatorsQueryKey, useGetPublishedSiteContent, getGetPublishedSiteContentQueryKey } from '@workspace/api-client-react';
 import type { PartnerLogo, SiteNavLink, SocialTrustConfig, SocialTrustItem } from '@workspace/api-client-react';
@@ -167,22 +179,34 @@ function footerSocialAppearance(socialTrust?: SocialTrustConfig): CSSProperties 
     const value = appearance?.[key];
     return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
   };
-  const radius = appearance?.radiusMode === 'square' ? '0' : appearance?.radiusMode === 'rounded' ? '0.55rem' : '999px';
   return {
-    '--qx-social-icon-size': `${number('iconSize', 16, 8, 48)}px`,
-    '--qx-social-logo-size': `${number('logoSize', 72, 20, 100)}%`,
-    '--qx-social-circle-size': `${number('circleSize', 36, 24, 80)}px`,
     '--qx-social-border-width': `${number('borderThickness', 1, 0, 8)}px`,
-    '--qx-social-radius': radius,
-    '--qx-social-background': color('backgroundColor', 'hsl(var(--background) / 0.52)'),
-    '--qx-social-border': color('borderColor', 'hsl(var(--border) / 0.65)'),
     '--qx-social-glow': color('glowColor', 'hsl(var(--primary))'),
-    '--qx-social-glow-intensity': `${number('glowIntensity', 0, 0, 100) / 100}`,
+    '--qx-social-glow-intensity': `${number('glowIntensity', 18, 0, 100) / 100}`,
     '--qx-social-opacity': `${number('iconOpacity', 100, 0, 100) / 100}`,
   } as CSSProperties;
 }
 
+function footerSocialPlatformIcon(item: RenderableSocialItem) {
+  const identity = `${item.name} ${item.href}`.toLocaleLowerCase();
+  const Icon = identity.includes('instagram') ? SiInstagram
+    : identity.includes('twitter') || identity.includes('x.com') || /\bx\b/.test(item.name.toLocaleLowerCase()) ? SiX
+    : identity.includes('facebook') || identity.includes('fb.com') ? SiFacebook
+    : identity.includes('linkedin') ? FaLinkedinIn
+    : identity.includes('youtube') || identity.includes('youtu.be') ? SiYoutube
+    : identity.includes('tiktok') ? SiTiktok
+    : identity.includes('telegram') || identity.includes('t.me') ? SiTelegram
+    : identity.includes('whatsapp') || identity.includes('wa.me') ? SiWhatsapp
+    : identity.includes('discord') ? SiDiscord
+    : identity.includes('reddit') ? SiReddit
+    : identity.includes('github') ? SiGithub
+    : null;
+  return Icon ? <Icon className="qx-footer-social-svg" aria-hidden="true" /> : null;
+}
+
 function FooterSocialIcon({ item, preview }: { item: RenderableSocialItem; preview: ReturnType<typeof useSitePreview> }) {
+  const platformIcon = footerSocialPlatformIcon(item);
+  if (platformIcon) return platformIcon;
   const objectPath = item.objectPath || '';
   const src = objectPath
     ? preview.assetUrls?.[objectPath]
@@ -210,7 +234,7 @@ function FooterSocialLinksDataDriven({ socialTrust, socialItems, trustItems, pre
   const appearanceStyle = footerSocialAppearance(socialTrust);
   return (
     <div className="flex flex-col gap-4" aria-label="Social connections">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="qx-footer-social-links">
         {allSocialItems.map((item) => (
           <a key={item.id} href={item.href} target="_blank" rel="noreferrer noopener" aria-label={item.name} data-testid={`link-published-social-${item.id}`} className="qx-footer-social-link" style={appearanceStyle}>
             <FooterSocialIcon item={item} preview={preview} />
