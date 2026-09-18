@@ -22670,6 +22670,63 @@ html:not(.dark) .qx-mobile-base-links .qx-mobile-item.owner-access:is(:hover, :f
     0 0 20px rgb(122 44 255 / 12%);
 }
 
+/* Public side drawer follows the active Light Mode palette. The base drawer
+   intentionally remains dark for Dark Mode. */
+html:not(.dark) .frontend-menu-drawer {
+  color: hsl(var(--foreground));
+  border-right-color: hsl(var(--border));
+  background:
+    radial-gradient(circle at 0 0, hsl(var(--primary) / .08), transparent 38%),
+    linear-gradient(155deg, hsl(var(--background)), hsl(var(--card)));
+  box-shadow:
+    24px 0 60px hsl(220 35% 35% / .18),
+    4px 0 18px hsl(var(--primary) / .08);
+}
+
+html:not(.dark) .frontend-drawer-header {
+  border-bottom-color: hsl(var(--border));
+}
+
+html:not(.dark) .frontend-drawer-close {
+  border-color: hsl(var(--primary) / .3);
+  color: hsl(var(--foreground));
+  background: hsl(var(--background) / .88);
+}
+
+html:not(.dark) .frontend-drawer-close:is(:hover, :focus-visible) {
+  border-color: hsl(var(--primary) / .58);
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / .08);
+}
+
+html:not(.dark) .frontend-menu-drawer-backdrop {
+  background: hsl(220 28% 18% / .34);
+}
+
+html:not(.dark) .frontend-menu-drawer .qx-mobile-group {
+  border-color: hsl(var(--border));
+  background: hsl(var(--card) / .86);
+}
+
+html:not(.dark) .frontend-menu-drawer .qx-mobile-trigger,
+html:not(.dark) .frontend-menu-drawer .qx-mobile-item-title {
+  color: hsl(var(--foreground));
+}
+
+html:not(.dark) .frontend-menu-drawer .qx-mobile-item-description,
+html:not(.dark) .frontend-menu-drawer .qx-mobile-trigger-icon,
+html:not(.dark) .frontend-menu-drawer .qx-mobile-item-arrow,
+html:not(.dark) .frontend-menu-drawer .qx-mobile-item-icon {
+  color: hsl(var(--muted-foreground));
+}
+
+html:not(.dark) .frontend-menu-drawer .qx-mobile-item:not(.is-disabled):is(:hover, :focus-visible),
+html:not(.dark) .frontend-menu-drawer .qx-mobile-trigger:is(:hover, :focus-visible),
+html:not(.dark) .frontend-menu-drawer .qx-mobile-trigger[aria-expanded="true"] {
+  color: hsl(var(--foreground));
+  background: hsl(var(--primary) / .07);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .qx-mega-trigger,
   .qx-mega-panel,
