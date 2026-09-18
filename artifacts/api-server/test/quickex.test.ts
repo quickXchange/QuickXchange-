@@ -2741,6 +2741,7 @@ test("fiat-to-crypto requires a destination wallet but not settlement fields or 
   const api = await startApi();
   let ruleId: string | undefined;
   let orderId = "";
+  let cancelledOrderId = "";
   const customerEmail = `manual-target-${randomUUID()}@example.test`;
   try {
     const config = await (await fetch(`${api.url}/exchange/config`)).json() as any;
@@ -2821,6 +2822,47 @@ test("fiat-to-crypto requires a destination wallet but not settlement fields or 
     }).from(ordersTable).where(eq(ordersTable.id, orderId)).limit(1);
     assert.ok(persistedPaid.customerMarkedPaidAt);
     assert.equal(persistedPaid.manualSettlementState, "awaiting_funds");
+    const cancelPaidOrder = await apiJson(api.url, `/orders/${encodeURIComponent(orderId)}/cancel`, {
+      trackingToken: validAddressMissingMemo.body.trackingToken,
+    });
+    assert.equal(cancelPaidOrder.status, 409);
+    assert.equal(cancelPaidOrder.body.code, "ORDER_ALREADY_MARKED_PAID");
+    const cancellable = await apiJson(api.url, "/orders", {
+      ...order,
+      destinationAddress: "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh",
+      clientRequestId: randomUUID(),
+    });
+    assert.equal(cancellable.status, 201, JSON.stringify(cancellable.body));
+    cancelledOrderId = String(cancellable.body.id);
+    const wrongOrderToken = await apiJson(api.url, `/orders/${encodeURIComponent(cancelledOrderId)}/cancel`, {
+      trackingToken: validAddressMissingMemo.body.trackingToken,
+    });
+    assert.equal(wrongOrderToken.status, 403);
+    const cancelled = await apiJson(api.url, `/orders/${encodeURIComponent(cancelledOrderId)}/cancel`, {
+      trackingToken: cancellable.body.trackingToken,
+    });
+    assert.equal(cancelled.status, 200, JSON.stringify(cancelled.body));
+    assert.equal(cancelled.body.status, "cancelled");
+    assert.equal(cancelled.body.manualSettlementState, "cancelled");
+    assert.equal(cancelled.body.customerMarkedPaidAt, null);
+    const cancelledTracked = await (await fetch(
+      `${api.url}/orders/${encodeURIComponent(cancelledOrderId)}/status?trackingToken=${encodeURIComponent(String(cancellable.body.trackingToken))}`,
+    )).json() as any;
+    assert.equal(cancelledTracked.status, "cancelled");
+    assert.equal(cancelledTracked.manualSettlementState, "cancelled");
+    const markCancelledPaid = await apiJson(api.url, `/orders/${encodeURIComponent(cancelledOrderId)}/mark-paid`, {
+      trackingToken: cancellable.body.trackingToken,
+    });
+    assert.equal(markCancelledPaid.status, 409);
+    assert.equal(markCancelledPaid.body.code, "ORDER_CANCELLED");
+    const [persistedCancelled] = await db.select({
+      status: ordersTable.status,
+      manualSettlementState: ordersTable.manualSettlementState,
+      manualSettlementCancelledAt: ordersTable.manualSettlementCancelledAt,
+    }).from(ordersTable).where(eq(ordersTable.id, cancelledOrderId)).limit(1);
+    assert.equal(persistedCancelled.status, "cancelled");
+    assert.equal(persistedCancelled.manualSettlementState, "cancelled");
+    assert.ok(persistedCancelled.manualSettlementCancelledAt);
     const invalidMemo = await apiJson(api.url, "/orders", {
       ...order,
       destinationAddress: "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh",
@@ -2831,6 +2873,7 @@ test("fiat-to-crypto requires a destination wallet but not settlement fields or 
     assert.equal(invalidMemo.body.code, "MANUAL_DESTINATION_MEMO_INVALID");
   } finally {
     const { customersTable, db, ordersTable } = await import("@workspace/db");
+    if (cancelledOrderId) await db.delete(ordersTable).where(eq(ordersTable.id, cancelledOrderId));
     if (orderId) await db.delete(ordersTable).where(eq(ordersTable.id, orderId));
     await db.delete(customersTable).where(eq(customersTable.email, customerEmail));
     if (ruleId) {

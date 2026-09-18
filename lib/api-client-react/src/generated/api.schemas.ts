@@ -1374,6 +1374,14 @@ export interface MarkOrderPaidInput {
   trackingToken?: string;
 }
 
+export interface CancelCustomerOrderInput {
+  /**
+     * @minLength 16
+     * @maxLength 2048
+     */
+  trackingToken?: string;
+}
+
 export interface OrderVersionInput {
   /** @minimum 0 */
   recordVersion: number;

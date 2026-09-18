@@ -10,6 +10,7 @@ import {
   useClaimCustomerOrder,
   useUpdateCustomerOrderNotifications,
   useMarkOrderPaid,
+  useCancelCustomerOrder,
   useGetAffiliateDashboard, getGetAffiliateDashboardQueryKey,
   useBindAffiliateReferrer,
   captureAffiliateReferral,
@@ -21,7 +22,7 @@ import { useI18n } from '../i18n/provider';
 import { CustomerShell, CustomerPageHeader, ThemeToggle } from '@/components/customer/CustomerShell';
 import { CustomerStatCard } from '@/components/customer/CustomerStatCard';
 import { LanguageSelector } from '@/components/language-selector';
-import { basePath, cn, ErrorState, InlineNotice, LoadingBlock, number, publicApiErrorText, StatusPill, PaymentDetailsCard, SUPPORT_TELEGRAM } from '@/components/shared-app-ui';
+import { basePath, CancelOrderAction, cn, ErrorState, InlineNotice, LoadingBlock, number, publicApiErrorText, StatusPill, PaymentDetailsCard, SUPPORT_TELEGRAM } from '@/components/shared-app-ui';
 import { PublicShell } from '@/components/public-shell';
 import { ExchangeModeSwitcher } from '@/components/exchange-surface';
 
@@ -1047,7 +1048,13 @@ function CustomerOrderView({ order }: { order: CustomerOrder }) {
   const statusGroup = customerStatusGroup(order.status);
   const isFailed = statusGroup === 'failed';
   const markPaidMutation = useMarkOrderPaid();
+  const cancelOrderMutation = useCancelCustomerOrder();
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const normalizedStatus = order.status.trim().toLowerCase();
+  const canCustomerCancel = order.type === 'manual' &&
+    order.manualSettlementState === 'awaiting_funds' &&
+    !order.customerMarkedPaidAt &&
+    statusGroup === 'pending';
   const currentStage = statusGroup === 'completed'
     ? 3
     : statusGroup === 'processing'
@@ -1204,6 +1211,7 @@ function CustomerOrderView({ order }: { order: CustomerOrder }) {
           paymentDetailsApplicable={order.paymentDetailsApplicable}
           sourcePaymentMethod={order.sourcePaymentMethod}
           customerMarkedPaidAt={order.customerMarkedPaidAt}
+           actionsDisabled={normalizedStatus === 'cancelled'}
           onMarkPaid={() => markPaidMutation.mutate({ id: order.id }, {
             onSuccess: () => {
               void queryClient.invalidateQueries({ queryKey: getGetCustomerOrderQueryKey(order.id) });
@@ -1213,6 +1221,28 @@ function CustomerOrderView({ order }: { order: CustomerOrder }) {
           markPaidPending={markPaidMutation.isPending}
           supportHref={SUPPORT_TELEGRAM}
         />
+      )}
+
+      {canCustomerCancel && (
+        <section className="mb-6 border-t border-destructive/15 pt-5">
+          <CancelOrderAction
+            onConfirm={() => {
+              setCancelError(null);
+              cancelOrderMutation.mutate({ id: order.id }, {
+                onSuccess: (updated) => {
+                  queryClient.setQueryData(getGetCustomerOrderQueryKey(order.id), updated);
+                  void queryClient.invalidateQueries({ queryKey: getGetCustomerOrdersQueryKey() });
+                },
+                onError: (error) => {
+                  setCancelError(publicApiErrorText(error, 'This order can no longer be cancelled.'));
+                },
+              });
+            }}
+            pending={cancelOrderMutation.isPending}
+            errorMessage={cancelError}
+            triggerClassName="w-full sm:w-auto"
+          />
+        </section>
       )}
 
       <CustomerOrderNotificationControl order={order} />

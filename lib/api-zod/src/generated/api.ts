@@ -3471,6 +3471,94 @@ export const MarkOrderPaidResponse = zod.object({
 
 
 /**
+ * @summary Let the order owner cancel an unpaid manual Swap order
+ */
+export const CancelCustomerOrderParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const cancelCustomerOrderBodyTrackingTokenMin = 16;
+export const cancelCustomerOrderBodyTrackingTokenMax = 2048;
+
+
+
+export const CancelCustomerOrderBody = zod.object({
+  "trackingToken": zod.string().min(cancelCustomerOrderBodyTrackingTokenMin).max(cancelCustomerOrderBodyTrackingTokenMax).optional()
+})
+
+export const cancelCustomerOrderResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const cancelCustomerOrderResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const cancelCustomerOrderResponseCustomerSafeNoteMax = 2000;
+
+export const cancelCustomerOrderResponsePaymentDetailsNameMax = 500;
+
+export const cancelCustomerOrderResponsePaymentDetailsIbanMax = 500;
+
+export const cancelCustomerOrderResponsePaymentDetailsBankNameMax = 500;
+
+export const cancelCustomerOrderResponsePaymentDetailsBicSwiftMax = 500;
+
+export const cancelCustomerOrderResponsePaymentDetailsPaymentReferenceMax = 500;
+
+export const cancelCustomerOrderResponsePaymentDetailsAmountMax = 120;
+
+export const cancelCustomerOrderResponsePaymentDetailsCustomInstructionsMax = 2000;
+
+export const cancelCustomerOrderResponseSourcePaymentMethodIdMax = 200;
+
+export const cancelCustomerOrderResponseSourcePaymentMethodPaymentMethodIdMax = 200;
+
+export const cancelCustomerOrderResponseSourcePaymentMethodNameMax = 200;
+
+export const cancelCustomerOrderResponseSourcePaymentMethodLogoUrlMax = 2048;
+
+
+
+export const CancelCustomerOrderResponse = zod.object({
+  "id": zod.string(),
+  "type": zod.string(),
+  "status": zod.string(),
+  "fromAsset": zod.string(),
+  "fromNetwork": zod.string().optional(),
+  "sourceSettlementOptionId": zod.string().optional(),
+  "toAsset": zod.string(),
+  "toNetwork": zod.string().optional(),
+  "targetSettlementOptionId": zod.string().optional(),
+  "amount": zod.string().regex(cancelCustomerOrderResponseAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "receiveAmount": zod.string().regex(cancelCustomerOrderResponseReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "refundAddress": zod.string().optional(),
+  "refundMemo": zod.string().optional(),
+  "rateMode": zod.enum(['FLOATING', 'FIXED']).optional(),
+  "outcomeUnknown": zod.boolean(),
+  "refreshUnavailable": zod.boolean(),
+  "statusNotificationsEnabled": zod.boolean(),
+  "trackingToken": zod.string(),
+  "createdAt": zod.string(),
+  "manualSettlementState": zod.string().optional(),
+  "customerSafeNote": zod.string().max(cancelCustomerOrderResponseCustomerSafeNoteMax).optional(),
+  "fundingDetails": zod.record(zod.string(), zod.unknown()).optional(),
+  "settlementDetails": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).optional(),
+  "paymentDetails": zod.object({
+  "name": zod.string().max(cancelCustomerOrderResponsePaymentDetailsNameMax).optional(),
+  "iban": zod.string().max(cancelCustomerOrderResponsePaymentDetailsIbanMax).optional(),
+  "bankName": zod.string().max(cancelCustomerOrderResponsePaymentDetailsBankNameMax).optional(),
+  "bicSwift": zod.string().max(cancelCustomerOrderResponsePaymentDetailsBicSwiftMax).optional(),
+  "paymentReference": zod.string().max(cancelCustomerOrderResponsePaymentDetailsPaymentReferenceMax).optional(),
+  "amount": zod.string().max(cancelCustomerOrderResponsePaymentDetailsAmountMax).optional(),
+  "customInstructions": zod.string().max(cancelCustomerOrderResponsePaymentDetailsCustomInstructionsMax).optional()
+}).optional(),
+  "paymentDetailsApplicable": zod.boolean().optional(),
+  "sourcePaymentMethod": zod.object({
+  "id": zod.string().min(1).max(cancelCustomerOrderResponseSourcePaymentMethodIdMax),
+  "paymentMethodId": zod.string().min(1).max(cancelCustomerOrderResponseSourcePaymentMethodPaymentMethodIdMax).optional(),
+  "name": zod.string().min(1).max(cancelCustomerOrderResponseSourcePaymentMethodNameMax),
+  "logoUrl": zod.string().min(1).max(cancelCustomerOrderResponseSourcePaymentMethodLogoUrlMax).optional()
+}).optional(),
+  "customerMarkedPaidAt": zod.string().nullish()
+})
+
+
+/**
  * @summary Assign, reassign, or unassign an order
  */
 export const AssignOrderParams = zod.object({

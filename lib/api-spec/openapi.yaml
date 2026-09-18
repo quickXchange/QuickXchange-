@@ -737,6 +737,27 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/CustomerOrder" }
+  /orders/{id}/cancel:
+    post:
+      operationId: cancelCustomerOrder
+      tags: [orders]
+      summary: Let the order owner cancel an unpaid manual Swap order
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CancelCustomerOrderInput" }
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Cancelled customer-safe order
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomerOrder" }
   /orders/{id}/assignment:
     post:
       operationId: assignOrder
@@ -4401,6 +4422,11 @@ components:
         name: { type: string, minLength: 1, maxLength: 200 }
         logoUrl: { type: string, minLength: 1, maxLength: 2048 }
     MarkOrderPaidInput:
+      type: object
+      additionalProperties: false
+      properties:
+        trackingToken: { type: string, minLength: 16, maxLength: 2048 }
+    CancelCustomerOrderInput:
       type: object
       additionalProperties: false
       properties:

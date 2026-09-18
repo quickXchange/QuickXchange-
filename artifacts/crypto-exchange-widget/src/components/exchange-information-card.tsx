@@ -39,7 +39,7 @@ export function ExchangeInformationCard({ content }: { content?: Record<string, 
   return (
     <aside
       className={cn(
-        'exchange-information-card relative mx-auto mt-4 w-full max-w-[560px] overflow-hidden rounded-2xl p-px',
+        'exchange-information-card relative mx-auto mt-4 h-auto w-full max-w-none overflow-hidden rounded-2xl p-px',
         glow && 'shadow-[0_10px_32px_rgba(37,140,255,0.12),0_0_24px_rgba(124,58,237,0.12)]',
       )}
       aria-label={config.title || 'Exchange information'}
@@ -49,27 +49,31 @@ export function ExchangeInformationCard({ content }: { content?: Record<string, 
         'absolute inset-0 bg-gradient-to-r from-cyan-400/65 via-blue-500/70 to-violet-500/65',
         !glow && 'opacity-45',
       )} aria-hidden="true" />
-      <div className="relative rounded-[calc(1rem-1px)] bg-card/95 px-4 py-3.5 text-card-foreground shadow-[inset_0_0_24px_rgba(34,211,238,0.06)] backdrop-blur-sm sm:px-5 sm:py-4">
+      <div className="relative h-auto rounded-[calc(1rem-1px)] bg-card/95 px-5 py-5 text-card-foreground shadow-[inset_0_0_24px_rgba(34,211,238,0.06)] backdrop-blur-sm sm:px-6 sm:py-5">
         <div className={cn(
-          'flex gap-3',
-          textAlign === 'center' && 'justify-center text-center',
-          textAlign === 'right' && 'justify-end text-right',
+          'flex min-w-0 items-center gap-3',
+          textAlign === 'center' && 'justify-center',
+          textAlign === 'right' && 'justify-end',
         )}>
           {showIcon && (
-            <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-cyan-400/15 via-blue-500/15 to-violet-500/15 text-primary ring-1 ring-primary/15">
+            <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-cyan-400/15 via-blue-500/15 to-violet-500/15 text-primary ring-1 ring-primary/15">
               <ShieldCheck size={17} aria-hidden="true" />
             </span>
           )}
-          <div className="min-w-0">
-            {config.title && <h2 className="mb-1 text-sm font-bold tracking-tight text-foreground sm:text-[15px]">{config.title}</h2>}
-            <p className={cn(
-              'whitespace-pre-wrap leading-relaxed text-muted-foreground',
-              config.textSize === 'medium' ? 'text-sm sm:text-[15px]' : config.textSize === 'large' ? 'text-[15px] sm:text-base' : 'text-xs sm:text-[13px]',
-            )}>
-              {config.text}
-            </p>
-          </div>
+          {config.title && (
+            <h2 className="min-w-0 text-balance text-sm font-bold tracking-tight text-foreground sm:text-[15px]">
+              {config.title}
+            </h2>
+          )}
         </div>
+        <p className={cn(
+          'mt-3 min-w-0 whitespace-normal break-words leading-[1.7] text-muted-foreground',
+          textAlign === 'center' && 'text-center',
+          textAlign === 'right' && 'text-right',
+          config.textSize === 'medium' ? 'text-sm sm:text-[15px]' : config.textSize === 'large' ? 'text-[15px] sm:text-base' : 'text-xs sm:text-[13px]',
+        )}>
+          {config.text}
+        </p>
       </div>
     </aside>
   );

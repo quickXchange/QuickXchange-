@@ -111,6 +111,8 @@ import {
   PermanentlyDeleteOrdersResponse,
   MarkOrderPaidBody,
   MarkOrderPaidResponse,
+  CancelCustomerOrderBody,
+  CancelCustomerOrderResponse,
 } from "@workspace/api-zod";
 import {
   customerStatusNotificationEventsTable,
@@ -3020,6 +3022,12 @@ router.post("/orders/:id/mark-paid", async (req, res, next) => {
       if (!isApplicablePaymentDetailsOrder(existing)) {
         throw new ApiError("PAYMENT_DETAILS_NOT_APPLICABLE", "Payment details are not available for this order.", 409);
       }
+      if (
+        existing.manualSettlementState === "cancelled" ||
+        existing.status.trim().toLowerCase() === "cancelled"
+      ) {
+        throw new ApiError("ORDER_CANCELLED", "A cancelled order cannot be marked as paid.", 409);
+      }
       if (existing.customerMarkedPaidAt) return existing;
       if (!hasCustomerPaymentDetails(existing.paymentDetails)) {
         throw new ApiError("PAYMENT_DETAILS_NOT_APPLICABLE", "Payment details are not available for this order.", 409);
@@ -3048,6 +3056,85 @@ router.post("/orders/:id/mark-paid", async (req, res, next) => {
       return marked;
     });
     res.json(MarkOrderPaidResponse.parse(outputCustomerOrder(updated, false)));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/orders/:id/cancel", async (req, res, next) => {
+  try {
+    const params = UpdateOrderParams.parse(req.params);
+    const input = CancelCustomerOrderBody.parse(req.body ?? {});
+    const customerId = getCustomerActorUserId(req);
+    const [existing] = await db.select().from(ordersTable)
+      .where(eq(ordersTable.id, params.id)).limit(1);
+    if (!existing) throw new ApiError("ORDER_NOT_FOUND", "Order not found.", 404);
+    const tokenValid = verifyOrderTrackingToken(input.trackingToken, existing.id);
+    if (!tokenValid && (!customerId || existing.customerClerkUserId !== customerId)) {
+      throw new ApiError("ORDER_ACCESS_DENIED", "Order access is required.", 403);
+    }
+    if (existing.manualSettlementState === "cancelled" && existing.status === "cancelled") {
+      res.json(CancelCustomerOrderResponse.parse(outputCustomerOrder(existing, false)));
+      return;
+    }
+    if (existing.type !== "manual" || existing.manualSettlementState === "not_required") {
+      throw new ApiError(
+        "CUSTOMER_CANCELLATION_NOT_APPLICABLE",
+        "This order cannot be cancelled by the customer.",
+        409,
+      );
+    }
+    if (existing.archivedAt) {
+      throw new ApiError("ORDER_ARCHIVED", "This archived order cannot be cancelled.", 409);
+    }
+    if (existing.customerMarkedPaidAt) {
+      throw new ApiError(
+        "ORDER_ALREADY_MARKED_PAID",
+        "This order was already marked as paid and cannot be cancelled.",
+        409,
+      );
+    }
+    const normalizedStatus = existing.status.trim().toLowerCase();
+    if (
+      existing.manualSettlementState !== "awaiting_funds" ||
+      /process|complete|paid|funds confirmed|payout|cancel|fail|refund|expire/.test(normalizedStatus)
+    ) {
+      throw new ApiError(
+        "ORDER_CANCELLATION_NOT_ALLOWED",
+        "Only unpaid orders awaiting funds can be cancelled.",
+        409,
+      );
+    }
+    const now = new Date();
+    const updated = await updateOrderAndQueueStatusNotification(existing, {
+      manualSettlementState: "cancelled",
+      manualSettlementStateUpdatedAt: now,
+      status: manualStatus("cancelled"),
+      ...manualMilestoneUpdates(existing, "cancelled", now),
+    }, and(
+      eq(ordersTable.type, "manual"),
+      eq(ordersTable.manualSettlementState, "awaiting_funds"),
+      isNull(ordersTable.customerMarkedPaidAt),
+      isNull(ordersTable.archivedAt),
+    ), {
+      action: "order.customer_cancelled",
+      actorType: "customer",
+      actorId: customerId ?? null,
+      requestId: req.id == null ? null : String(req.id),
+      details: {
+        previousManualSettlementState: existing.manualSettlementState,
+        nextManualSettlementState: "cancelled",
+        source: tokenValid ? "tracking_token" : "customer_account",
+      },
+    });
+    if (!updated) {
+      throw new ApiError(
+        "ORDER_UPDATE_CONFLICT",
+        "The order changed and can no longer be cancelled. Reload and try again.",
+        409,
+      );
+    }
+    res.json(CancelCustomerOrderResponse.parse(outputCustomerOrder(updated, false)));
   } catch (error) {
     next(error);
   }

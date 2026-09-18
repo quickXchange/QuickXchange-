@@ -1508,6 +1508,7 @@ function OrderStatusCard({
             paymentDetailsApplicable={order.paymentDetailsApplicable}
             sourcePaymentMethod={order.sourcePaymentMethod}
             customerMarkedPaidAt={order.customerMarkedPaidAt}
+            actionsDisabled={/cancel|fail|refund|expire|complete/i.test(order.status)}
             onMarkPaid={onMarkPaid}
             markPaidPending={markPaidPending}
             supportHref={SUPPORT_TELEGRAM}

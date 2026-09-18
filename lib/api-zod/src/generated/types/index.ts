@@ -91,6 +91,7 @@ export * from './blogCategory';
 export * from './blogCategoryInput';
 export * from './blogCitation';
 export * from './blogCitationInput';
+export * from './cancelCustomerOrderInput';
 export * from './catalogImageUpload';
 export * from './catalogImageUploadInput';
 export * from './catalogImageUploadInputContentType';

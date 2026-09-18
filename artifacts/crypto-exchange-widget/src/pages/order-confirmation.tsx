@@ -6,7 +6,7 @@ import {
   useGetQuickexOrderStatus, 
   getGetPublicOrderStatusQueryKey, 
   getGetQuickexOrderStatusQueryKey 
-  , useMarkOrderPaid
+  , useMarkOrderPaid, useCancelCustomerOrder
 } from "@workspace/api-client-react";
 import type { ApiError } from "@workspace/api-client-react";
 import { PublicShell } from "@/components/public-shell";
@@ -14,7 +14,7 @@ import {
   CircleAlert, RefreshCw, Loader2, Copy, Network, Check, ArrowRight, ShieldCheck
 } from "lucide-react";
 import { useI18n } from "@/i18n";
-import { cn, PaymentDetailsCard, SUPPORT_TELEGRAM } from "@/components/shared-app-ui";
+import { CancelOrderAction, cn, PaymentDetailsCard, publicApiErrorText, SUPPORT_TELEGRAM } from "@/components/shared-app-ui";
 import { OrderSettlementIdentity } from "@/components/order-settlement-identity";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -78,6 +78,8 @@ export function OrderConfirmationPage() {
   const { t, formatNumber } = useI18n();
   const queryClient = useQueryClient();
   const markPaidMutation = useMarkOrderPaid();
+  const cancelOrderMutation = useCancelCustomerOrder();
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const [orderIdCopied, setOrderIdCopied] = useState(false);
   const formatAmount = (value?: number | string) => {
     const parsed = Number(value);
@@ -125,6 +127,20 @@ export function OrderConfirmationPage() {
     markPaidMutation.mutate({ id, data: trackingToken ? { trackingToken } : undefined }, {
       onSuccess: () => {
         void queryClient.invalidateQueries({ queryKey: getGetPublicOrderStatusQueryKey(id, trackingParams) });
+      },
+    });
+  };
+  const cancelOrder = () => {
+    setCancelError(null);
+    cancelOrderMutation.mutate({
+      id,
+      data: trackingToken ? { trackingToken } : undefined,
+    }, {
+      onSuccess: (updated) => {
+        queryClient.setQueryData(getGetPublicOrderStatusQueryKey(id, trackingParams), updated);
+      },
+      onError: (error) => {
+        setCancelError(publicApiErrorText(error, 'This order can no longer be cancelled.'));
       },
     });
   };
@@ -193,6 +209,8 @@ export function OrderConfirmationPage() {
   const halted = /refund|expire|fail|cancel/.test(status) || mss === 'cancelled' || mss === 'failed';
   const uncertain = /unknown|held|verification|review/.test(status) || order.outcomeUnknown;
   const completed = /complete|paid/.test(status) || mss === 'completed';
+  const canCustomerCancel = !isQuickex && isManual && mss === 'awaiting_funds' &&
+    !order.customerMarkedPaidAt && !halted && !uncertain && !completed && !/process|paid/.test(status);
   const depositActionable = Boolean(order.depositAddress) && !halted && !uncertain && !completed;
   const fundingStatus = order.fundingStatus?.toLowerCase();
   const addressPending = isManual && !order.depositAddress && fundingStatus === 'provisioning';
@@ -414,6 +432,7 @@ export function OrderConfirmationPage() {
                    paymentDetailsApplicable={order.paymentDetailsApplicable}
                    sourcePaymentMethod={order.sourcePaymentMethod}
                    customerMarkedPaidAt={order.customerMarkedPaidAt}
+                   actionsDisabled={halted}
                    onMarkPaid={markPaid}
                    markPaidPending={markPaidMutation.isPending}
                    supportHref={SUPPORT_TELEGRAM}
@@ -587,6 +606,16 @@ export function OrderConfirmationPage() {
                 START ANOTHER CONVERSION
               </Link>
             </div>
+             {canCustomerCancel && (
+               <div className="mt-4 border-t border-destructive/15 pt-4">
+                 <CancelOrderAction
+                   onConfirm={cancelOrder}
+                   pending={cancelOrderMutation.isPending}
+                   errorMessage={cancelError}
+                   triggerClassName="w-full sm:w-auto"
+                 />
+               </div>
+             )}
           </div>
 
         </div>
