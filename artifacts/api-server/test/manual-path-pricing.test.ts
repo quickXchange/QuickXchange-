@@ -486,6 +486,61 @@ test("database matcher prefers direct paths and synthesizes reciprocal paths", a
   }
 });
 
+test("database matcher never lets a reverse exact rate override a route-specific direct rule", async () => {
+  const suffix = randomUUID();
+  const eurOption = `test:eur:${suffix}`;
+  const btcOption = `test:btc:${suffix}`;
+  const ids: string[] = [];
+
+  try {
+    const [direct, reverseExact] = await db.insert(manualDeskPricingRulesTable).values([
+      {
+        name: `Any to EUR percentage ${suffix}`,
+        targetAsset: "EUR",
+        targetNetwork: "SEPA",
+        targetSettlementOptionId: eurOption,
+        markupBasisPoints: 500,
+        exactRate: null,
+        priority: 0,
+        enabled: true,
+      },
+      {
+        name: `EUR to BTC exact ${suffix}`,
+        sourceAsset: "EUR",
+        targetAsset: "BTC",
+        sourceNetwork: "SEPA",
+        targetNetwork: "BITCOIN",
+        sourceSettlementOptionId: eurOption,
+        targetSettlementOptionId: btcOption,
+        markupBasisPoints: 0,
+        exactRate: "0.95",
+        priority: 100,
+        enabled: true,
+      },
+    ]).returning({ id: manualDeskPricingRulesTable.id });
+    ids.push(direct!.id, reverseExact!.id);
+
+    const matched = await matchManualDeskPricingRule({
+      sourceAsset: "BTC",
+      targetAsset: "EUR",
+      sourceNetwork: "BITCOIN",
+      targetNetwork: "SEPA",
+      sourceSettlementOptionId: btcOption,
+      targetSettlementOptionId: eurOption,
+    });
+
+    assert.equal(matched.id, direct!.id);
+    assert.equal(matched.exactRate, null);
+    assert.equal(matched.markupBasisPoints, 500);
+    assert.equal(matched.exactRateSource, undefined);
+  } finally {
+    if (ids.length) {
+      await db.delete(manualDeskPricingRulesTable)
+        .where(inArray(manualDeskPricingRulesTable.id, ids));
+    }
+  }
+});
+
 test("database matcher falls back to legacy selector/provider pricing", async () => {
   const suffix = randomUUID();
   const sourceOption = `test:legacy-source:${suffix}`;

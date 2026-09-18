@@ -7062,12 +7062,15 @@ function PricingPreview({ testRule }: { testRule?: ManualDeskPricingRule | null 
     <div className={cn('pricing-preview-info', result && 'has-result')} data-testid={result ? 'pricing-preview-result' : 'pricing-preview-info'}>
       <span className="pricing-preview-info-icon"><Info size={16} /></span>
       {result ? <div className="pricing-preview-result-grid">
+        <span>Matched Rule<strong>{result.pricingRuleName}</strong></span>
+        <span>Base Rate<strong>{number(result.baseRate, 8)}</strong></span>
+        <span>Percentage<strong>{result.adjustmentDirection === 'GIVE_MORE' ? '+' : '−'}{number(result.markupBasisPoints / 100, 2)}%</strong></span>
+        <span>Final Rate<strong>{number(result.finalRate, 8)}</strong></span>
         <span>{t('adminPricing.gross')}<strong>{number(result.grossMarketAmount)} {result.toAsset}</strong></span>
          <span>{testRule?.adjustmentDirection === 'GIVE_MORE' ? 'Customer bonus' : t('adminPricing.commission')}<strong>{number(result.percentageCommission || 0)} {result.toAsset}</strong></span>
         <span>{t('adminPricing.fixed_fee')}<strong>{number(result.fixedCommission || 0)} {result.toAsset}</strong></span>
         <span>{t('adminPricing.total_fee')}<strong>{number(result.totalFee)} {result.toAsset}</strong></span>
         <span>{t('adminPricing.receive')}<strong>{number(result.receiveAmount)} {result.toAsset}</strong></span>
-        <span>{t('adminPricing.rate')}<strong>{number(result.rate, 8)}</strong></span>
       </div> : <div><strong>{loadedRuleNeedsConcreteRoute ? t('adminPricing.rule_loaded') : t('adminPricing.live_preview_2')}</strong><p>{loadedRuleNeedsConcreteRoute ? t('adminPricing.choose_a_concrete_option_for_each_any') : t('adminPricing.this_will_calculate_the_price_using_the')}</p></div>}
       {match.data && <StatusPill status={`Matched · ${match.data.name}`} />}
       {!match.data && testRule && <StatusPill status={`Loaded · ${testRule.name}`} />}

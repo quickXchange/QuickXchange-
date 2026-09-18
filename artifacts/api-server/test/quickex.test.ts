@@ -5807,17 +5807,14 @@ test("manual pricing rules match deterministically, protect writes, and snapshot
       targetSettlementOptionId: pricingTarget.id,
     });
     assert.equal(directMatch.exactRateSource, "direct");
-    const reciprocalMatch = await matchManualDeskPricingRule({
-      sourceAsset: pricingTarget.assetCode,
-      targetAsset: pricingSource.assetCode,
-      sourceNetwork: pricingTarget.routeNetwork,
-      targetNetwork: pricingSource.routeNetwork,
-      paymentMethod: routeRule.payoutMethod,
-      payoutMethod: routeRule.paymentMethod,
-      sourceSettlementOptionId: pricingTarget.id,
-      targetSettlementOptionId: pricingSource.id,
+    const administrativeMatch = await matchManualDeskPricingRule({
+      sourceAsset: pricingSource.assetCode,
+      targetAsset: pricingTarget.assetCode,
+      sourceNetwork: pricingSource.routeNetwork,
+      targetNetwork: pricingTarget.routeNetwork,
+      sourceSettlementOptionId: pricingSource.id,
+      targetSettlementOptionId: pricingTarget.id,
     });
-    assert.equal(reciprocalMatch.exactRateSource, "reciprocal");
     const administrativeQuote = await apiJson(
       api.url,
       "/admin/manual-desk-pricing-rules/quote-preview",
@@ -5831,6 +5828,17 @@ test("manual pricing rules match deterministically, protect writes, and snapshot
       headers,
     );
     assert.equal(administrativeQuote.status, 200);
+    assert.equal(administrativeQuote.body.pricingRuleId, administrativeMatch.id);
+    assert.equal(administrativeQuote.body.pricingRuleName, administrativeMatch.name);
+    assert.equal(
+      administrativeQuote.body.baseRate,
+      administrativeMatch.exactRate == null
+        ? administrativeQuote.body.grossMarketAmount / 100
+        : Number(administrativeMatch.exactRate),
+    );
+    assert.equal(administrativeQuote.body.markupBasisPoints, administrativeMatch.markupBasisPoints);
+    assert.equal(administrativeQuote.body.adjustmentDirection, administrativeMatch.adjustmentDirection);
+    assert.equal(administrativeQuote.body.finalRate, administrativeQuote.body.rate);
 
     // More selectors win even with a lower priority.
     const [broadRow] = await db.insert(manualDeskPricingRulesTable).values({

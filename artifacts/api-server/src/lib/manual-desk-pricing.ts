@@ -244,32 +244,29 @@ export async function matchManualDeskPricingRule(
     sourceSettlementOptionId: resolvedContext.targetSettlementOptionId,
     targetSettlementOptionId: resolvedContext.sourceSettlementOptionId,
   };
-  const candidates = [
-      ...rules.filter((rule) => matchesManualPricingRule(rule, resolvedContext))
-      .map((rule) => ({ rule, source: "direct" as const })),
-    ...rules.filter((rule) => rule.exactRate !== null && matchesManualPricingRule(rule, reverseContext))
-      .map((rule) => ({ rule, source: "reciprocal" as const })),
-  ].sort((left, right) =>
-    settlementOptionSpecificity(right.rule) - settlementOptionSpecificity(left.rule) ||
-    manualPricingSpecificity(right.rule) - manualPricingSpecificity(left.rule) ||
-    Number(right.rule.exactRate !== null) - Number(left.rule.exactRate !== null) ||
-    Number(left.source === "reciprocal") - Number(right.source === "reciprocal") ||
-    right.rule.priority - left.rule.priority ||
-    left.rule.id.localeCompare(right.rule.id));
-  const selected = candidates[0];
-  if (selected?.source === "direct") {
+  const direct = selectManualPricingRule(rules, resolvedContext);
+  const directIsRouteSpecific = Boolean(
+    direct &&
+    (settlementOptionSpecificity(direct) > 0 || manualPricingSpecificity(direct) > 0),
+  );
+  if (direct && directIsRouteSpecific) {
     return {
-      ...selected.rule,
-      ...(selected.rule.exactRate !== null ? { exactRateSource: "direct" as const } : {}),
+      ...direct,
+      ...(direct.exactRate !== null ? { exactRateSource: "direct" as const } : {}),
     };
   }
-  if (selected?.source === "reciprocal") {
+  const reciprocal = selectManualPricingRule(
+    rules.filter((rule) => rule.exactRate !== null),
+    reverseContext,
+  );
+  if (reciprocal) {
     return {
-      ...selected.rule,
-      exactRate: reciprocalExactRate(String(selected.rule.exactRate)),
+      ...reciprocal,
+      exactRate: reciprocalExactRate(String(reciprocal.exactRate)),
       exactRateSource: "reciprocal",
     };
   }
+  if (direct) return direct;
   throw new ApiError(
     "MANUAL_PRICING_RULE_NOT_FOUND",
     "No manual desk pricing rule is available for this route.",

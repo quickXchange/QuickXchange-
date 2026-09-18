@@ -215,6 +215,7 @@ export * from './listBlogArticlesParams';
 export * from './listContactSubmissionsParams';
 export * from './manualDeskPricingPreviewInput';
 export * from './manualDeskPricingQuotePreview';
+export * from './manualDeskPricingQuotePreviewAdjustmentDirection';
 export * from './manualDeskPricingQuotePreviewInput';
 export * from './manualDeskPricingRule';
 export * from './manualDeskPricingRuleBulkSkip';

@@ -4832,7 +4832,7 @@ components:
         targetSettlementOptionId: { type: ["string", "null"] }
     ManualDeskPricingQuotePreview:
       type: object
-      required: [fromAsset, toAsset, grossMarketAmount, percentageCommission, fixedCommission, totalFee, receiveAmount, rate, pricingRuleName, pricingRuleId]
+      required: [fromAsset, toAsset, grossMarketAmount, percentageCommission, fixedCommission, totalFee, receiveAmount, rate, baseRate, markupBasisPoints, adjustmentDirection, finalRate, pricingRuleName, pricingRuleId]
       properties:
         fromAsset: { type: string }
         toAsset: { type: string }
@@ -4842,6 +4842,10 @@ components:
         totalFee: { type: number }
         receiveAmount: { type: number }
         rate: { type: number }
+        baseRate: { type: number, exclusiveMinimum: 0 }
+        markupBasisPoints: { type: number, minimum: 0, maximum: 10000, multipleOf: 1 }
+        adjustmentDirection: { type: string, enum: [MARKUP, GIVE_MORE] }
+        finalRate: { type: number, exclusiveMinimum: 0 }
         pricingRuleName: { type: string }
         pricingRuleId: { type: string }
     OrderPage:

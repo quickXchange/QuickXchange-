@@ -2137,6 +2137,14 @@ export interface ManualDeskPricingQuotePreviewInput {
   targetSettlementOptionId: string | null;
 }
 
+export type ManualDeskPricingQuotePreviewAdjustmentDirection = typeof ManualDeskPricingQuotePreviewAdjustmentDirection[keyof typeof ManualDeskPricingQuotePreviewAdjustmentDirection];
+
+
+export const ManualDeskPricingQuotePreviewAdjustmentDirection = {
+  MARKUP: 'MARKUP',
+  GIVE_MORE: 'GIVE_MORE',
+} as const;
+
 export interface ManualDeskPricingQuotePreview {
   fromAsset: string;
   toAsset: string;
@@ -2146,6 +2154,16 @@ export interface ManualDeskPricingQuotePreview {
   totalFee: number;
   receiveAmount: number;
   rate: number;
+  /** @exclusiveMinimum 0 */
+  baseRate: number;
+  /**
+     * @minimum 0
+     * @maximum 10000
+     */
+  markupBasisPoints: number;
+  adjustmentDirection: ManualDeskPricingQuotePreviewAdjustmentDirection;
+  /** @exclusiveMinimum 0 */
+  finalRate: number;
   pricingRuleName: string;
   pricingRuleId: string;
 }

@@ -1344,10 +1344,20 @@ router.post("/admin/manual-desk-pricing-rules/quote-preview", requireOperator, a
       fixedFee: rule.fixedFee,
       exactRate: rule.exactRate,
     });
+    const baseRate = rule.exactRate != null
+      ? Number(rule.exactRate)
+      : estimate.grossMarketAmount / amount;
+    if (!Number.isFinite(baseRate) || baseRate <= 0) {
+      throw new ApiError("MANUAL_DESK_RATE_UNAVAILABLE", "Pricing is unavailable for this route.", 422);
+    }
     res.json(PreviewManualDeskQuoteResponse.parse({
       fromAsset: sourceCode,
       toAsset: targetCode,
       ...estimate,
+      baseRate,
+      markupBasisPoints: rule.markupBasisPoints,
+      adjustmentDirection: rule.adjustmentDirection,
+      finalRate: estimate.rate,
       pricingRuleName: rule.name,
       pricingRuleId: rule.id,
     }));

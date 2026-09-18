@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ManualDeskPricingQuotePreviewAdjustmentDirection } from './manualDeskPricingQuotePreviewAdjustmentDirection';
 
 export interface ManualDeskPricingQuotePreview {
   fromAsset: string;
@@ -15,6 +16,16 @@ export interface ManualDeskPricingQuotePreview {
   totalFee: number;
   receiveAmount: number;
   rate: number;
+  /** @exclusiveMinimum 0 */
+  baseRate: number;
+  /**
+     * @minimum 0
+     * @maximum 10000
+     */
+  markupBasisPoints: number;
+  adjustmentDirection: ManualDeskPricingQuotePreviewAdjustmentDirection;
+  /** @exclusiveMinimum 0 */
+  finalRate: number;
   pricingRuleName: string;
   pricingRuleId: string;
 }

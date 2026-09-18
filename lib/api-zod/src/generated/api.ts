@@ -7082,6 +7082,16 @@ export const PreviewManualDeskQuoteBody = zod.object({
   "targetSettlementOptionId": zod.string().nullable()
 })
 
+export const previewManualDeskQuoteResponseBaseRateExclusiveMin = 0;
+
+export const previewManualDeskQuoteResponseMarkupBasisPointsMin = 0;
+export const previewManualDeskQuoteResponseMarkupBasisPointsMax = 10000;
+export const previewManualDeskQuoteResponseMarkupBasisPointsMultipleOf = 1;
+
+export const previewManualDeskQuoteResponseFinalRateExclusiveMin = 0;
+
+
+
 export const PreviewManualDeskQuoteResponse = zod.object({
   "fromAsset": zod.string(),
   "toAsset": zod.string(),
@@ -7091,6 +7101,10 @@ export const PreviewManualDeskQuoteResponse = zod.object({
   "totalFee": zod.number(),
   "receiveAmount": zod.number(),
   "rate": zod.number(),
+  "baseRate": zod.number().gt(previewManualDeskQuoteResponseBaseRateExclusiveMin),
+  "markupBasisPoints": zod.number().min(previewManualDeskQuoteResponseMarkupBasisPointsMin).max(previewManualDeskQuoteResponseMarkupBasisPointsMax).multipleOf(previewManualDeskQuoteResponseMarkupBasisPointsMultipleOf),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']),
+  "finalRate": zod.number().gt(previewManualDeskQuoteResponseFinalRateExclusiveMin),
   "pricingRuleName": zod.string(),
   "pricingRuleId": zod.string()
 })
