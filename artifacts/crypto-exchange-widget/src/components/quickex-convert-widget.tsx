@@ -131,8 +131,10 @@ export function QuickexConvertWidget({
       staleTime: 300000,
       gcTime: 1800000,
       enabled: dataEnabled,
-      refetchOnWindowFocus: false,
-      retry: false,
+      refetchOnWindowFocus: true,
+      retry: 3,
+      retryDelay: attempt => Math.min(1000 * 2 ** attempt, 8000),
+      refetchInterval: (query: any) => query.state.status === 'error' ? 15000 : false,
     },
   });
   const quoteMutation = useCreateQuickexQuote();
