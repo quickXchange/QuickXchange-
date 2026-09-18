@@ -3,7 +3,7 @@ import { basePath } from '@/components/shared-app-ui';
 
 export function TelegramBotPromo() {
   return (
-    <section className="relative mx-auto mb-16 mt-8 w-[calc(100%-2rem)] max-w-[1440px] overflow-hidden rounded-[2.5rem] border border-blue-200/50 bg-gradient-to-br from-blue-50/80 via-white to-purple-50/80 p-8 shadow-2xl dark:border-blue-500/20 dark:from-[#080d19] dark:via-[#0a1128] dark:to-[#110e26] md:p-16 lg:p-20">
+    <section className="qx-telegram-promo relative mx-auto mb-16 mt-8 w-[calc(100%-2rem)] max-w-[1440px] overflow-hidden rounded-[2.5rem] border border-blue-200/50 bg-gradient-to-br from-blue-50/80 via-white to-purple-50/80 p-8 shadow-2xl dark:border-blue-500/20 dark:from-[#080d19] dark:via-[#0a1128] dark:to-[#110e26] md:p-16 lg:p-20">
       {/* Decorative luminous background depth */}
       <div className="pointer-events-none absolute -left-40 top-0 h-[500px] w-[500px] rounded-full bg-blue-400/20 blur-[100px] dark:bg-blue-600/10" />
       <div className="pointer-events-none absolute -bottom-40 -right-40 h-[600px] w-[600px] rounded-full bg-purple-400/20 blur-[120px] dark:bg-purple-600/10" />
@@ -62,8 +62,10 @@ export function TelegramBotPromo() {
 
         {/* Right Phone Mockup */}
         <div className="relative mx-auto w-full max-w-[360px] lg:ml-auto">
+          <div className="qx-telegram-phone-edge pointer-events-none absolute -inset-[3px] z-[5] rounded-[2.7rem] sm:rounded-[3.2rem]" />
+
           {/* Phone Body */}
-          <div className="relative z-10 flex h-[640px] w-full flex-col overflow-hidden rounded-[2.5rem] border-[8px] border-slate-800 bg-white shadow-[0_24px_80px_rgba(59,130,246,0.15)] ring-1 ring-black/5 dark:border-slate-900 dark:bg-[#020617] dark:shadow-[0_24px_80px_rgba(0,0,0,0.6)] dark:ring-white/10 sm:h-[680px] sm:rounded-[3rem]">
+          <div className="qx-telegram-phone relative z-10 flex h-[640px] w-full flex-col overflow-hidden rounded-[2.5rem] border-[8px] border-slate-800 bg-white ring-1 ring-cyan-300/60 dark:border-slate-900 dark:bg-[#020617] dark:ring-cyan-400/35 sm:h-[680px] sm:rounded-[3rem]">
             
             {/* Dynamic Island / Notch */}
             <div className="absolute left-1/2 top-0 z-50 h-6 w-32 -translate-x-1/2 rounded-b-2xl bg-slate-800 dark:bg-slate-900" />
@@ -147,7 +149,7 @@ export function TelegramBotPromo() {
           </div>
           
           {/* Subtle phone shadow/glow */}
-          <div className="absolute -inset-4 z-0 rounded-[3.5rem] bg-gradient-to-b from-blue-500/20 to-purple-600/20 blur-2xl dark:from-blue-500/10 dark:to-purple-600/10" />
+          <div className="qx-telegram-phone-glow pointer-events-none absolute -inset-8 z-0 rounded-[4rem] bg-gradient-to-b from-cyan-400/30 via-blue-500/30 to-purple-600/35 blur-3xl dark:from-cyan-400/25 dark:via-blue-500/30 dark:to-purple-500/40" />
         </div>
       </div>
     </section>
