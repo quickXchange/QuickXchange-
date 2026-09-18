@@ -72,8 +72,12 @@ export function TelegramBotPromo() {
             <div className="relative flex items-center justify-between border-b border-black/5 bg-[#54a9eb] px-4 pb-3 pt-10 dark:border-white/5 dark:bg-[#1e293b]/90 dark:backdrop-blur-md">
               <div className="flex items-center gap-3">
                 <ArrowRight size={20} className="rotate-180 text-white" />
-                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white p-0.5 shadow-sm dark:bg-white/10 dark:p-1 dark:shadow-none">
-                  <img src={`${basePath}/brand/quickxchange-mark.png`} alt="QuickXchange" className="h-full w-full object-contain" />
+                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full shadow-sm">
+                  <img
+                    src={`${basePath}/brand/quickxchange-telegram-bot-logo.jpg`}
+                    alt="QuickXchange"
+                    className="h-full w-full object-cover"
+                  />
                 </div>
                 <div className="flex flex-col">
                   <span className="text-[15px] font-bold leading-tight text-white">QuickXchangeBot</span>
