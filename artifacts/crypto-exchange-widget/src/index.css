@@ -952,6 +952,74 @@
     }
   }
 
+  @keyframes pay-modal-entrance-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0); }
+    25% { box-shadow: 0 0 45px 15px rgba(139, 92, 246, 0.25), 0 0 65px 25px rgba(6, 182, 212, 0.15); }
+    100% { box-shadow: 0 0 25px 2px rgba(59, 130, 246, 0.12), 0 12px 40px -12px rgba(139, 92, 246, 0.12); }
+  }
+
+  @keyframes pay-modal-entrance-pulse-dark {
+    0% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0); }
+    25% { box-shadow: 0 0 45px 15px rgba(139, 92, 246, 0.35), 0 0 65px 25px rgba(6, 182, 212, 0.25); }
+    100% { box-shadow: 0 0 25px 2px rgba(59, 130, 246, 0.18), 0 12px 40px -12px rgba(139, 92, 246, 0.18); }
+  }
+
+  @keyframes pay-modal-border-flow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  .pay-modal-premium {
+    position: relative;
+    background: hsl(var(--card));
+    background-clip: padding-box !important;
+    border: 1px solid transparent !important;
+  }
+
+  .pay-modal-premium::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: linear-gradient(120deg, rgba(6, 182, 212, 0.5), rgba(59, 130, 246, 0.5), rgba(139, 92, 246, 0.5), rgba(6, 182, 212, 0.5));
+    background-size: 200% 200%;
+    animation: pay-modal-border-flow 5s linear infinite;
+    z-index: -1;
+  }
+
+  .pay-modal-premium::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    animation: pay-modal-entrance-pulse 2.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    z-index: -2;
+    pointer-events: none;
+  }
+
+  .dark .pay-modal-premium::before {
+    background: linear-gradient(120deg, rgba(6, 182, 212, 0.7), rgba(59, 130, 246, 0.7), rgba(139, 92, 246, 0.7), rgba(6, 182, 212, 0.7));
+    background-size: 200% 200%;
+  }
+
+  .dark .pay-modal-premium::after {
+    animation: pay-modal-entrance-pulse-dark 2.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pay-modal-premium::before {
+      animation: none;
+      background-position: 50% 50%;
+    }
+
+    .pay-modal-premium::after,
+    .dark .pay-modal-premium::after {
+      animation: none;
+      box-shadow: 0 0 24px 2px rgba(59, 130, 246, 0.14);
+    }
+  }
+
   /* Convert widget redesign */
   .convert-asset-combobox .convert-asset-menu {
     width: 100%;

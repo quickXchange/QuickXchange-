@@ -148,99 +148,104 @@ export function PaymentDetailsCard({
               )}
             </DialogPrimitive.Trigger>
             <DialogPrimitive.Portal>
-              <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 motion-reduce:animate-none" />
+              <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 motion-reduce:animate-none" />
               <DialogPrimitive.Content
-                className="fixed left-[50%] top-[50%] z-50 w-[94vw] max-w-md translate-x-[-50%] translate-y-[-50%] p-0 rounded-[24px] border border-border bg-card shadow-2xl overflow-hidden focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] motion-reduce:animate-none"
+                className="pay-modal-premium fixed left-[50%] top-[50%] z-50 w-[94vw] max-w-md translate-x-[-50%] translate-y-[-50%] p-0 rounded-[24px] focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] motion-reduce:animate-none"
                 data-testid="modal-payment-instructions"
               >
-                <div className="relative p-6 sm:p-8">
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 bg-gradient-to-b from-primary/10 via-primary/5 to-transparent blur-2xl pointer-events-none rounded-full" />
+                <div className="relative w-full h-full rounded-[24px] overflow-hidden flex flex-col">
+                  <div className="relative p-6 sm:p-8">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 bg-gradient-to-b from-cyan-500/15 via-blue-500/5 to-transparent blur-2xl pointer-events-none rounded-full" />
 
-                  <div className="flex flex-col items-center mb-6 relative z-10">
-                    <div className="relative flex items-center justify-center w-20 h-20 mb-4">
-                      <div className="absolute inset-0 rounded-full border-[3px] border-transparent border-t-primary/80 border-r-primary/40 animate-[spin_3s_linear_infinite] motion-reduce:animate-none" />
-                      <div className="absolute inset-1 rounded-full border-[3px] border-transparent border-b-blue-400/60 border-l-blue-400/30 animate-[spin_4s_linear_infinite_reverse] motion-reduce:animate-none" />
-                      <div className="w-14 h-14 bg-background rounded-full shadow-sm flex items-center justify-center overflow-hidden border border-border p-1">
-                        {sourcePaymentMethod ? (
-                          <PaymentMethodLogo
-                            name={sourcePaymentMethod.name}
-                            logoUrl={sourcePaymentMethod.logoUrl}
-                            priority
-                            className="w-full h-full"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-muted rounded-full flex items-center justify-center text-muted-foreground text-xl font-bold">?</div>
-                        )}
+                    <div className="flex flex-col items-center mb-6 relative z-10">
+                      <div className="relative flex items-center justify-center w-20 h-20 mb-4">
+                        <div className="absolute inset-0 rounded-full border-[3px] border-transparent border-t-cyan-400/80 border-r-blue-500/50 animate-[spin_3s_linear_infinite] motion-reduce:animate-none" />
+                        <div className="absolute inset-1 rounded-full border-[3px] border-transparent border-b-blue-400/60 border-l-purple-400/40 animate-[spin_4s_linear_infinite_reverse] motion-reduce:animate-none" />
+                        <div className="w-14 h-14 bg-background rounded-full shadow-sm flex items-center justify-center overflow-hidden border border-border p-1 relative z-10">
+                          {sourcePaymentMethod ? (
+                            <PaymentMethodLogo
+                              name={sourcePaymentMethod.name}
+                              logoUrl={sourcePaymentMethod.logoUrl}
+                              priority
+                              className="w-full h-full"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-muted rounded-full flex items-center justify-center text-muted-foreground text-xl font-bold">?</div>
+                          )}
+                        </div>
                       </div>
+                      <DialogPrimitive.Title className="text-xl font-bold tracking-tight text-center text-foreground">
+                        {sourcePaymentMethod?.name || 'Payment Details'}
+                      </DialogPrimitive.Title>
+                      <DialogPrimitive.Description className="text-muted-foreground text-sm mt-1 text-center font-medium">
+                        Send money to this account
+                      </DialogPrimitive.Description>
                     </div>
-                    <DialogPrimitive.Title className="text-xl font-bold tracking-tight text-center text-foreground">
-                      {sourcePaymentMethod?.name || 'Payment Details'}
-                    </DialogPrimitive.Title>
-                    <DialogPrimitive.Description className="text-muted-foreground text-sm mt-1 text-center font-medium">
-                      Send money to this account
-                    </DialogPrimitive.Description>
-                  </div>
 
-                  <div className="relative z-10 max-h-[50vh] overflow-y-auto px-1 -mx-1">
-                    {paymentDetails && available.length > 0 ? (
-                      <div className="grid gap-3" data-testid="payment-instructions-fields">
-                        {available.map(([key, label]) => {
-                          const value = String(paymentDetails[key]);
-                          return (
-                            <div key={key} className="rounded-xl border border-border bg-muted/20 p-3 sm:px-4 sm:py-3.5">
-                              <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
-                              <div className="mt-1.5 flex items-start justify-between gap-3">
-                                <span className={cn('whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground', key !== 'customInstructions' && 'font-mono font-medium tracking-tight')}>{value}</span>
-                                <button type="button" className="shrink-0 text-muted-foreground hover:text-foreground transition-colors p-1" onClick={() => copyValue(String(key), value)} aria-label={`Copy ${label}`} data-testid={`button-copy-payment-${key}`}>
-                                  {copied === key ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
-                                </button>
+                    <div className="relative z-10 max-h-[50vh] overflow-y-auto px-1 -mx-1">
+                      {paymentDetails && available.length > 0 ? (
+                        <div className="grid gap-3" data-testid="payment-instructions-fields">
+                          {available.map(([key, label]) => {
+                            const value = String(paymentDetails[key]);
+                            return (
+                              <div key={key} className="group rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/30 p-3 sm:px-4 sm:py-3.5 transition-all duration-300 hover:border-cyan-400/50 dark:hover:border-cyan-500/40 hover:bg-cyan-50/30 dark:hover:bg-cyan-900/10 hover:shadow-[0_4px_16px_-6px_rgba(6,182,212,0.15)]">
+                                <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 transition-colors group-hover:text-cyan-600 dark:group-hover:text-cyan-400">{label}</span>
+                                <div className="mt-1.5 flex items-start justify-between gap-3">
+                                  <span className={cn('whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-900 dark:text-slate-100', key !== 'customInstructions' && 'font-mono font-medium tracking-tight')}>{value}</span>
+                                  <button type="button" className="shrink-0 rounded-md p-1 text-slate-400 transition-colors hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/70 dark:text-slate-500 dark:hover:text-cyan-400" onClick={() => copyValue(String(key), value)} aria-label={`Copy ${label}`} data-testid={`button-copy-payment-${key}`}>
+                                    {copied === key ? <Check size={16} className="text-cyan-500" /> : <Copy size={16} />}
+                                  </button>
+                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="rounded-xl border border-warning/25 bg-warning/10 p-5 text-center" data-testid="payment-details-support-prompt">
-                        <p className="text-sm font-medium text-warning-foreground mb-4">Contact support to get details</p>
-                        <a className="button button-secondary w-full" href={supportHref} target="_blank" rel="noreferrer" data-testid="button-contact-support">Contact Support</a>
-                      </div>
-                    )}
-                  </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-5 text-center transition-colors hover:border-cyan-500/30 hover:bg-cyan-500/10" data-testid="payment-details-support-prompt">
+                          <p className="text-sm font-medium text-cyan-800 dark:text-cyan-200 mb-4">Contact support to get details</p>
+                          <a className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-cyan-200 bg-white px-4 text-sm font-semibold text-cyan-700 shadow-sm transition-colors hover:bg-cyan-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-card dark:border-cyan-800/60 dark:bg-slate-900 dark:text-cyan-300 dark:hover:bg-cyan-950" href={supportHref} target="_blank" rel="noreferrer" data-testid="button-contact-support">Contact Support</a>
+                        </div>
+                      )}
+                    </div>
 
-                  <div className="mt-8 flex flex-col sm:flex-row-reverse gap-3 relative z-10">
-                    {onMarkPaid && !customerMarkedPaidAt ? (
-                      <button
-                        type="button"
-                        className="button button-primary flex-1 h-12 rounded-xl text-sm font-semibold flex items-center justify-center"
-                        onClick={onMarkPaid}
-                        disabled={actionsDisabled || markPaidPending || available.length === 0}
-                        title={available.length === 0 ? 'Payment details are not available yet.' : undefined}
-                        data-testid="button-mark-paid"
-                      >
-                        {markPaidPending ? (
-                          <RefreshCw size={18} className="animate-spin mr-2" />
-                        ) : (
+                    <div className="mt-8 flex flex-col sm:flex-row-reverse gap-3 relative z-10">
+                      {onMarkPaid && !customerMarkedPaidAt ? (
+                        <button
+                          type="button"
+                          className="group relative flex h-12 flex-1 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(59,130,246,0.4)] transition-all hover:from-cyan-400 hover:via-blue-400 hover:to-purple-400 hover:shadow-[0_6px_24px_-6px_rgba(59,130,246,0.6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80 focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:cursor-not-allowed disabled:opacity-50"
+                          onClick={onMarkPaid}
+                          disabled={actionsDisabled || markPaidPending || available.length === 0}
+                          title={available.length === 0 ? 'Payment details are not available yet.' : undefined}
+                          data-testid="button-mark-paid"
+                        >
+                          <div className="absolute inset-0 bg-white/20 translate-y-[100%] group-hover:translate-y-0 transition-transform duration-300 ease-out" />
+                          <span className="relative z-10 flex items-center justify-center">
+                            {markPaidPending ? (
+                            <RefreshCw size={18} className="mr-2 animate-spin motion-reduce:animate-none" />
+                            ) : (
+                              <Check size={18} className="mr-2" strokeWidth={3} />
+                            )}
+                            {markPaidPending ? 'Marking as Paid…' : 'Mark as Paid'}
+                          </span>
+                        </button>
+                      ) : customerMarkedPaidAt ? (
+                        <div className="flex-1 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-700 dark:text-cyan-400 flex items-center justify-center font-bold text-sm transition-all">
                           <Check size={18} className="mr-2" strokeWidth={3} />
-                        )}
-                        {markPaidPending ? 'Marking as Paid…' : 'Mark as Paid'}
-                      </button>
-                    ) : customerMarkedPaidAt ? (
-                      <div className="flex-1 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-sm">
-                        <Check size={18} className="mr-2" strokeWidth={3} />
-                        Marked as Paid
-                      </div>
-                    ) : null}
+                          Marked as Paid
+                        </div>
+                      ) : null}
 
-                    <DialogPrimitive.Close asChild>
-                      <button
-                        type="button"
-                        className="button button-secondary flex-1 h-12 rounded-xl text-sm font-semibold"
-                        disabled={markPaidPending}
-                        data-testid="button-cancel-payment-modal"
-                      >
-                        Cancel
-                      </button>
-                    </DialogPrimitive.Close>
+                      <DialogPrimitive.Close asChild>
+                        <button
+                          type="button"
+                          className="h-12 flex-1 rounded-xl border border-transparent bg-slate-100 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-card dark:border-slate-700/50 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                          disabled={markPaidPending}
+                          data-testid="button-cancel-payment-modal"
+                        >
+                          Cancel
+                        </button>
+                      </DialogPrimitive.Close>
+                    </div>
                   </div>
                 </div>
               </DialogPrimitive.Content>
