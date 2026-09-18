@@ -7922,6 +7922,49 @@ canvas {
   }
 }
 
+/*
+ * Admin Pricing Rules table only. Keep the identity easier to scan without
+ * changing the compact column geometry shared by the rest of Admin.
+ */
+.admin-shell .pricing-table tbody td {
+  padding-top: 18px;
+  padding-bottom: 18px;
+}
+
+.admin-shell .pricing-table .pricing-rule-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+}
+
+.admin-shell .pricing-table .pricing-rule-identity > .admin-payment-logo-stack,
+.admin-shell .pricing-table .pricing-rule-identity > .admin-payment-logo-stack > .payment-method-logo {
+  box-sizing: border-box;
+  width: 52px !important;
+  height: 52px !important;
+  min-width: 52px !important;
+  min-height: 52px !important;
+  max-width: 52px !important;
+  max-height: 52px !important;
+  flex: 0 0 52px !important;
+  aspect-ratio: 1 / 1;
+  border-radius: 50% !important;
+}
+
+.admin-shell .pricing-table .pricing-rule-identity > .admin-payment-logo-stack > .payment-method-logo {
+  display: grid;
+  place-items: center;
+  overflow: hidden !important;
+}
+
+.admin-shell .pricing-table .pricing-rule-identity > .admin-payment-logo-stack > .payment-method-logo > .logo-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 50%;
+}
+
 /* About: restrained QuickXchange lighting without changing layout geometry. */
 .about-hero-glow::after,
 .about-content-glow::before {
@@ -22754,4 +22797,64 @@ html:not(.dark) .frontend-menu-drawer .qx-mobile-trigger[aria-expanded="true"] {
   .exchange-card {
     padding: 16px !important;
   }
+}
+
+/*
+ * Popular Swap Pairs payment avatars. Source images can include square
+ * canvases, so clip both the avatar surface and bitmap without changing the
+ * existing 40px stack or overlap geometry.
+ */
+.popular-pair-marquee-card .popular-swap-pair-payment-logo {
+  box-sizing: border-box;
+  display: inline-grid;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  max-width: 40px !important;
+  max-height: 40px !important;
+  flex: 0 0 40px !important;
+  place-items: center;
+  aspect-ratio: 1 / 1;
+  border-radius: 50% !important;
+  background: transparent !important;
+}
+
+.popular-pair-marquee-card .popular-swap-pair-payment-logo > .payment-method-logo {
+  box-sizing: border-box;
+  display: grid;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  max-width: 40px !important;
+  max-height: 40px !important;
+  place-items: center;
+  aspect-ratio: 1 / 1;
+  overflow: hidden !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  clip-path: circle(50%);
+}
+
+.popular-pair-marquee-card .popular-swap-pair-payment-logo > .payment-method-logo > .logo-avatar-img {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  clip-path: circle(50%);
+}
+
+.popular-pair-marquee-card .popular-swap-pair-payment-logo > .payment-method-logo > :is(svg, .logo-avatar-fallback) {
+  display: grid;
+  place-items: center;
+  margin: auto;
 }
