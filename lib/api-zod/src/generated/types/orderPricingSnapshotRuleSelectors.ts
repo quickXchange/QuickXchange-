@@ -10,7 +10,11 @@ export type OrderPricingSnapshotRuleSelectors = {
   /** @nullable */
   sourceAsset: string | null;
   /** @nullable */
+  sourceCryptoAssetId?: string | null;
+  /** @nullable */
   targetAsset: string | null;
+  /** @nullable */
+  targetCryptoAssetId?: string | null;
   /** @nullable */
   sourceNetwork: string | null;
   /** @nullable */

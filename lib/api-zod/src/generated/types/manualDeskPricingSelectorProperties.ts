@@ -15,10 +15,22 @@ export interface ManualDeskPricingSelectorProperties {
   sourceAsset?: string | null;
   /**
      * @minLength 1
+     * @maxLength 200
+     * @nullable
+     */
+  sourceCryptoAssetId?: string | null;
+  /**
+     * @minLength 1
      * @maxLength 30
      * @nullable
      */
   targetAsset?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     * @nullable
+     */
+  targetCryptoAssetId?: string | null;
   /**
      * @minLength 1
      * @maxLength 100

@@ -1907,13 +1907,13 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/QuoteInput" }
+            schema: { $ref: "#/components/schemas/ManualDeskPricingQuotePreviewInput" }
       responses:
         "200":
           description: Administrative quote preview
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Quote" }
+              schema: { $ref: "#/components/schemas/ManualDeskPricingQuotePreview" }
   /admin/manual-desk-pricing-rules/{id}:
     patch:
       operationId: updateManualDeskPricingRule
@@ -4516,7 +4516,9 @@ components:
               required: [sourceAsset, targetAsset, sourceNetwork, targetNetwork, paymentMethod, payoutMethod]
               properties:
                 sourceAsset: { type: [string, "null"] }
+                sourceCryptoAssetId: { type: [string, "null"] }
                 targetAsset: { type: [string, "null"] }
+                targetCryptoAssetId: { type: [string, "null"] }
                 sourceNetwork: { type: [string, "null"] }
                 targetNetwork: { type: [string, "null"] }
                 paymentMethod: { type: [string, "null"] }
@@ -4548,7 +4550,9 @@ components:
           required: [sourceAsset, targetAsset, sourceNetwork, targetNetwork, paymentMethod, payoutMethod]
           properties:
             sourceAsset: { type: string }
+            sourceCryptoAssetId: { type: [string, "null"] }
             targetAsset: { type: string }
+            targetCryptoAssetId: { type: [string, "null"] }
             sourceNetwork: { type: string }
             targetNetwork: { type: string }
             paymentMethod: { type: string }
@@ -4593,7 +4597,9 @@ components:
       type: object
       properties:
         sourceAsset: { type: ["string", "null"], minLength: 1, maxLength: 30 }
+        sourceCryptoAssetId: { type: ["string", "null"], minLength: 1, maxLength: 200 }
         targetAsset: { type: ["string", "null"], minLength: 1, maxLength: 30 }
+        targetCryptoAssetId: { type: ["string", "null"], minLength: 1, maxLength: 200 }
         sourceNetwork: { type: ["string", "null"], minLength: 1, maxLength: 100 }
         targetNetwork: { type: ["string", "null"], minLength: 1, maxLength: 100 }
         paymentMethod: { type: ["string", "null"], minLength: 1, maxLength: 100 }
@@ -4665,6 +4671,8 @@ components:
         markupBasisPoints: { type: number, minimum: 0, maximum: 10000, multipleOf: 1 }
         adjustmentDirection: { type: string, enum: [MARKUP, GIVE_MORE] }
         priority: { type: number, minimum: -1000000, maximum: 1000000, multipleOf: 1 }
+        sourceCryptoAssetId: { type: ["string", "null"], minLength: 1, maxLength: 200 }
+        targetCryptoAssetId: { type: ["string", "null"], minLength: 1, maxLength: 200 }
         sourceSettlementOptionId: { type: ["string", "null"], minLength: 1, maxLength: 200 }
         targetSettlementOptionId: { type: ["string", "null"], minLength: 1, maxLength: 200 }
         exactRate:
@@ -4801,16 +4809,41 @@ components:
           description: Customer-safe message to display when no configured manual route is available.
     ManualDeskPricingPreviewInput:
       type: object
-      required: [sourceAsset, targetAsset, sourceNetwork, targetNetwork]
+      required: []
       properties:
-        sourceAsset: { type: string, minLength: 1, maxLength: 30 }
-        targetAsset: { type: string, minLength: 1, maxLength: 30 }
-        sourceNetwork: { type: string, minLength: 1, maxLength: 100 }
-        targetNetwork: { type: string, minLength: 1, maxLength: 100 }
+        sourceAsset: { type: [string, "null"], minLength: 1, maxLength: 30 }
+        sourceCryptoAssetId: { type: [string, "null"], minLength: 1, maxLength: 200 }
+        targetAsset: { type: [string, "null"], minLength: 1, maxLength: 30 }
+        targetCryptoAssetId: { type: [string, "null"], minLength: 1, maxLength: 200 }
+        sourceNetwork: { type: [string, "null"], minLength: 1, maxLength: 100 }
+        targetNetwork: { type: [string, "null"], minLength: 1, maxLength: 100 }
         paymentMethod: { type: string, maxLength: 100 }
         payoutMethod: { type: string, maxLength: 100 }
         sourceSettlementOptionId: { type: string, maxLength: 200 }
         targetSettlementOptionId: { type: string, maxLength: 200 }
+    ManualDeskPricingQuotePreviewInput:
+      type: object
+      required: [amount, sourceCryptoAssetId, targetCryptoAssetId, sourceSettlementOptionId, targetSettlementOptionId]
+      properties:
+        amount: { $ref: "#/components/schemas/PositiveExactDecimal" }
+        sourceCryptoAssetId: { type: ["string", "null"] }
+        targetCryptoAssetId: { type: ["string", "null"] }
+        sourceSettlementOptionId: { type: ["string", "null"] }
+        targetSettlementOptionId: { type: ["string", "null"] }
+    ManualDeskPricingQuotePreview:
+      type: object
+      required: [fromAsset, toAsset, grossMarketAmount, percentageCommission, fixedCommission, totalFee, receiveAmount, rate, pricingRuleName, pricingRuleId]
+      properties:
+        fromAsset: { type: string }
+        toAsset: { type: string }
+        grossMarketAmount: { type: number }
+        percentageCommission: { type: number }
+        fixedCommission: { type: number }
+        totalFee: { type: number }
+        receiveAmount: { type: number }
+        rate: { type: number }
+        pricingRuleName: { type: string }
+        pricingRuleId: { type: string }
     OrderPage:
       type: object
       required: [items, total, page, pageSize, refreshUnavailable, providerFreshness]

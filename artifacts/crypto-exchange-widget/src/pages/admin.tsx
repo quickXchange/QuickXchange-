@@ -77,7 +77,7 @@ import {
   useGetAffiliateValuationReview, getGetAffiliateValuationReviewQueryKey,
   useReviewAffiliateValuation
 } from '@workspace/api-client-react';
-import type { Asset, Customer, Order, PublicOrderStatus, ApiError, QuickexRateMode, CustomerOrder, FiatCurrency, OneForgeProviderStatus, WhitebitProviderStatus, ManualDeskPricingRule, ManualDeskPricingRuleInput, SettlementOption, PaymentMethod, PaymentMethodFieldDefinition, CryptoAsset, CryptoNetwork, OrderBulkMutationResponse, OrderBulkStatusInputManualSettlementState, AffiliateAccount, AffiliateSettings, AffiliatePayout, AffiliateOverview, AffiliateAccountPage, AffiliateCommission, AffiliateAccountDetail, AffiliateValuationReview, AffiliateReferral, AffiliateDashboard, ManualDeskPricingRulesBulkResponse, ManualDeskPricingRulesBulkPatch } from '@workspace/api-client-react';
+import type { Asset, Customer, Order, PublicOrderStatus, ApiError, QuickexRateMode, CustomerOrder, FiatCurrency, OneForgeProviderStatus, WhitebitProviderStatus, ManualDeskPricingRule, ManualDeskPricingRuleInput, ManualDeskPricingQuotePreviewInput, SettlementOption, PaymentMethod, PaymentMethodFieldDefinition, CryptoAsset, CryptoNetwork, OrderBulkMutationResponse, OrderBulkStatusInputManualSettlementState, AffiliateAccount, AffiliateSettings, AffiliatePayout, AffiliateOverview, AffiliateAccountPage, AffiliateCommission, AffiliateAccountDetail, AffiliateValuationReview, AffiliateReferral, AffiliateDashboard, ManualDeskPricingRulesBulkResponse, ManualDeskPricingRulesBulkPatch } from '@workspace/api-client-react';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { CryptoIdentity, CryptoLogo, CryptoNetworkBadge, cryptoLogoFallbackUrls } from '@/components/crypto-identity';
@@ -6333,50 +6333,46 @@ function AdminCurrencies() {
 
 const pricingOptionLabel = (option: SettlementOption | undefined, fallback: string) => {
   if (!option) return fallback;
-  if (option.routeNetwork === '__ALL_NETWORKS__') return `${option.assetCode} — All Networks`;
+  if (option.id.startsWith(ASSET_PRICING_OPTION_PREFIX)) return option.assetCode;
   const detail = option.kind === 'crypto-network'
     ? option.networkTitle || option.title || option.routeNetwork
     : option.title || option.routeNetwork;
   return `${option.assetCode} — ${detail}`;
 };
 const ALL_NETWORKS_PRICING_SELECTOR = '__ALL_NETWORKS__';
-const ASSET_ALL_NETWORKS_OPTION_PREFIX = '__asset_all_networks__:';
-const assetAllNetworksOptionId = (assetCode: string) =>
-  `${ASSET_ALL_NETWORKS_OPTION_PREFIX}${assetCode.trim().toUpperCase()}`;
-const isAssetAllNetworksOption = (option: SettlementOption | undefined) =>
-  option?.routeNetwork === ALL_NETWORKS_PRICING_SELECTOR &&
-  option.id.startsWith(ASSET_ALL_NETWORKS_OPTION_PREFIX);
-const withAssetAllNetworksOptions = (options: SettlementOption[]) => {
+const ASSET_PRICING_OPTION_PREFIX = '__asset_pricing__:';
+const assetPricingOptionId = (assetId: string) => `${ASSET_PRICING_OPTION_PREFIX}${assetId}`;
+const isAssetPricingOption = (option: SettlementOption | undefined) =>
+  Boolean(option?.id.startsWith(ASSET_PRICING_OPTION_PREFIX));
+const withAssetPricingOptions = (options: SettlementOption[]) => {
   const cryptoByAsset = new Map<string, SettlementOption[]>();
   for (const option of options) {
-    if (option.kind !== 'crypto-network') continue;
-    const assetCode = option.assetCode.trim().toUpperCase();
-    cryptoByAsset.set(assetCode, [...(cryptoByAsset.get(assetCode) ?? []), option]);
+    if (option.kind !== 'crypto-network' || !option.assetId) continue;
+    cryptoByAsset.set(option.assetId, [...(cryptoByAsset.get(option.assetId) ?? []), option]);
   }
-  const wildcards = [...cryptoByAsset.entries()].map(([assetCode, assetOptions]) => {
+  const assets = [...cryptoByAsset.entries()].map(([assetId, assetOptions]) => {
     const representative = assetOptions[0]!;
     const canSend = assetOptions.some(option => option.direction === 'send' || option.direction === 'both');
     const canReceive = assetOptions.some(option => option.direction === 'receive' || option.direction === 'both');
     return {
       ...representative,
-      id: assetAllNetworksOptionId(assetCode),
-      assetCode,
-      title: 'All Networks',
-      networkTitle: 'All Networks',
-      networkSlug: 'all-networks',
-      routeNetwork: ALL_NETWORKS_PRICING_SELECTOR,
+      id: assetPricingOptionId(assetId),
+      assetId,
+      title: representative.assetCode,
+      networkTitle: '',
+      networkSlug: '',
+      routeNetwork: '',
       direction: canSend && canReceive ? 'both' : canSend ? 'send' : 'receive',
     } satisfies SettlementOption;
   });
-  return [...options, ...wildcards];
+  return [...options.filter(option => option.kind !== 'crypto-network'), ...assets];
 };
 const pricingRuleSelectionId = (rule: ManualDeskPricingRule | undefined, side: 'source' | 'target') => {
   if (!rule) return '';
   const optionId = side === 'source' ? rule.sourceSettlementOptionId : rule.targetSettlementOptionId;
   if (optionId) return optionId;
-  const asset = side === 'source' ? rule.sourceAsset : rule.targetAsset;
-  const network = side === 'source' ? rule.sourceNetwork : rule.targetNetwork;
-  return asset && network === ALL_NETWORKS_PRICING_SELECTOR ? assetAllNetworksOptionId(asset) : '';
+  const assetId = side === 'source' ? rule.sourceCryptoAssetId : rule.targetCryptoAssetId;
+  return assetId ? assetPricingOptionId(assetId) : '';
 };
 const normalizedPricingRoutePart = (value: string | null | undefined) =>
   value?.trim().toLowerCase().replace(/[^a-z0-9]+/g, '') || '';
@@ -6391,6 +6387,11 @@ const resolvePricingRuleOption = (
     : undefined;
   if (optionById) return optionById;
 
+  const cryptoAssetId = side === 'source' ? rule.sourceCryptoAssetId : rule.targetCryptoAssetId;
+  if (cryptoAssetId) {
+    const byAssetId = options.find(option => isAssetPricingOption(option) && option.assetId === cryptoAssetId);
+    if (byAssetId) return byAssetId;
+  }
   const asset = normalizedPricingRoutePart(side === 'source' ? rule.sourceAsset : rule.targetAsset);
   const network = normalizedPricingRoutePart(side === 'source' ? rule.sourceNetwork : rule.targetNetwork);
   const method = normalizedPricingRoutePart(side === 'source' ? rule.paymentMethod : rule.payoutMethod);
@@ -6407,7 +6408,8 @@ const resolvePricingRuleOption = (
         option.routeNetwork,
       ].map(normalizedPricingRoutePart).filter(Boolean);
       if (asset && optionAsset !== asset) return { option, score: -1 };
-      const networkMatches = !network || optionRouteParts.some(part => part === network || part.includes(network) || network.includes(part));
+       const networkMatches = !network || network === normalizedPricingRoutePart(ALL_NETWORKS_PRICING_SELECTOR)
+         || isAssetPricingOption(option) || optionRouteParts.some(part => part === network || part.includes(network) || network.includes(part));
       const methodMatches = !method || optionRouteParts.some(part => part === method || part.includes(method) || method.includes(part));
       if (!networkMatches || !methodMatches) return { option, score: -1 };
       return {
@@ -6419,14 +6421,23 @@ const resolvePricingRuleOption = (
     .sort((a, b) => b.score - a.score)[0]?.option;
 };
 const pricingSelectorLabel = (rule: ManualDeskPricingRule, settlementOptions: SettlementOption[] = []) => {
+  if (rule.sourceCryptoAssetId || rule.targetCryptoAssetId) {
+    const source = rule.sourceCryptoAssetId
+      ? settlementOptions.find(option => option.assetId === rule.sourceCryptoAssetId)?.assetCode || rule.sourceAsset || 'Unavailable asset'
+      : rule.sourceSettlementOptionId ? pricingOptionLabel(settlementOptions.find(option => sameSettlementOptionId(option.id, rule.sourceSettlementOptionId)), rule.sourceAsset || 'Unavailable option') : 'Any source';
+    const target = rule.targetCryptoAssetId
+      ? settlementOptions.find(option => option.assetId === rule.targetCryptoAssetId)?.assetCode || rule.targetAsset || 'Unavailable asset'
+      : rule.targetSettlementOptionId ? pricingOptionLabel(settlementOptions.find(option => sameSettlementOptionId(option.id, rule.targetSettlementOptionId)), rule.targetAsset || 'Unavailable option') : 'Any target';
+    return `${source} → ${target}`;
+  }
   const sourceAssetWildcard = rule.sourceAsset && rule.sourceNetwork === ALL_NETWORKS_PRICING_SELECTOR;
   const targetAssetWildcard = rule.targetAsset && rule.targetNetwork === ALL_NETWORKS_PRICING_SELECTOR;
   if (sourceAssetWildcard || targetAssetWildcard) {
-    const source = sourceAssetWildcard ? `${rule.sourceAsset} — All Networks`
+    const source = sourceAssetWildcard ? `${rule.sourceAsset}`
       : rule.sourceSettlementOptionId
         ? pricingOptionLabel(settlementOptions.find(option => sameSettlementOptionId(option.id, rule.sourceSettlementOptionId!)), rule.sourceAsset || 'Unavailable option')
         : 'Any source';
-    const target = targetAssetWildcard ? `${rule.targetAsset} — All Networks`
+    const target = targetAssetWildcard ? `${rule.targetAsset}`
       : rule.targetSettlementOptionId
         ? pricingOptionLabel(settlementOptions.find(option => sameSettlementOptionId(option.id, rule.targetSettlementOptionId!)), rule.targetAsset || 'Unavailable option')
         : 'Any target';
@@ -6450,6 +6461,8 @@ const pricingRuleInput = (rule: ManualDeskPricingRule, enabled = rule.enabled): 
   name: rule.name,
   sourceAsset: rule.sourceAsset,
   targetAsset: rule.targetAsset,
+  sourceCryptoAssetId: rule.sourceCryptoAssetId,
+  targetCryptoAssetId: rule.targetCryptoAssetId,
   sourceNetwork: rule.sourceNetwork,
   targetNetwork: rule.targetNetwork,
   paymentMethod: rule.paymentMethod,
@@ -6472,6 +6485,7 @@ const pricingRuleInput = (rule: ManualDeskPricingRule, enabled = rule.enabled): 
 const pricingCoverageSelectorKeys = [
   'sourceAsset', 'targetAsset', 'sourceNetwork', 'targetNetwork',
   'paymentMethod', 'payoutMethod', 'sourceSettlementOptionId', 'targetSettlementOptionId',
+  'sourceCryptoAssetId', 'targetCryptoAssetId',
 ] as const;
 const canonicalPricingRuleInput = (
   rule: ManualDeskPricingRule,
@@ -6493,6 +6507,8 @@ const canonicalPricingRuleInput = (
   }
   return {
     ...input,
+    sourceCryptoAssetId: input.sourceCryptoAssetId,
+    targetCryptoAssetId: input.targetCryptoAssetId,
     sourceAsset: sourceOption?.assetCode ?? input.sourceAsset,
     targetAsset: targetOption?.assetCode ?? input.targetAsset,
     sourceSettlementOptionId: sourceOption?.id ?? input.sourceSettlementOptionId,
@@ -6633,22 +6649,34 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
   const set = (key: keyof typeof form, value: string | boolean) => setForm(current => ({ ...current, [key]: value }));
 
   const allOptions = config.data?.manualSettlementOptions || [];
-  const pricingOptions = useMemo(() => withAssetAllNetworksOptions(allOptions), [allOptions]);
+  const pricingOptions = useMemo(() => withAssetPricingOptions(allOptions), [allOptions]);
   const fromOptions = pricingOptions.filter(o => o.direction === 'send' || o.direction === 'both');
   const toOptions = pricingOptions.filter(o => o.direction === 'receive' || o.direction === 'both');
   const projectedSourceOption = fromOptions.find(o => sameSettlementOptionId(o.id, form.sourceSettlementOptionId));
   const projectedTargetOption = toOptions.find(o => sameSettlementOptionId(o.id, form.targetSettlementOptionId));
+  useEffect(() => {
+    if (!rule) return;
+    const source = resolvePricingRuleOption(rule, fromOptions, 'source');
+    const target = resolvePricingRuleOption(rule, toOptions, 'target');
+    setForm(current => ({
+      ...current,
+      sourceSettlementOptionId: source?.id || '',
+      targetSettlementOptionId: target?.id || '',
+    }));
+  }, [rule, fromOptions, toOptions]);
   const projectedRule: PricingCoverageRule = {
     id: rule?.id || '__new__',
     name: form.name,
-    sourceAsset: projectedSourceOption?.assetCode ?? null,
-    targetAsset: projectedTargetOption?.assetCode ?? null,
-    sourceNetwork: isAssetAllNetworksOption(projectedSourceOption) ? ALL_NETWORKS_PRICING_SELECTOR : projectedSourceOption?.routeNetwork ?? null,
-    targetNetwork: isAssetAllNetworksOption(projectedTargetOption) ? ALL_NETWORKS_PRICING_SELECTOR : projectedTargetOption?.routeNetwork ?? null,
+    sourceAsset: isAssetPricingOption(projectedSourceOption) ? null : projectedSourceOption?.assetCode ?? null,
+    targetAsset: isAssetPricingOption(projectedTargetOption) ? null : projectedTargetOption?.assetCode ?? null,
+    sourceNetwork: isAssetPricingOption(projectedSourceOption) ? null : projectedSourceOption?.routeNetwork ?? null,
+    targetNetwork: isAssetPricingOption(projectedTargetOption) ? null : projectedTargetOption?.routeNetwork ?? null,
     paymentMethod: null,
     payoutMethod: null,
-    sourceSettlementOptionId: isAssetAllNetworksOption(projectedSourceOption) ? null : projectedSourceOption?.id ?? null,
-    targetSettlementOptionId: isAssetAllNetworksOption(projectedTargetOption) ? null : projectedTargetOption?.id ?? null,
+    sourceSettlementOptionId: isAssetPricingOption(projectedSourceOption) ? null : projectedSourceOption?.id ?? null,
+    targetSettlementOptionId: isAssetPricingOption(projectedTargetOption) ? null : projectedTargetOption?.id ?? null,
+    sourceCryptoAssetId: isAssetPricingOption(projectedSourceOption) ? projectedSourceOption?.assetId ?? null : null,
+    targetCryptoAssetId: isAssetPricingOption(projectedTargetOption) ? projectedTargetOption?.assetId ?? null : null,
     markupBasisPoints: 0,
     exactRate: form.exactRate.trim() || null,
     fixedFee: null,
@@ -6729,10 +6757,16 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
       selectedTarget: SettlementOption | undefined,
     ): ManualDeskPricingRuleInput => ({
       name: form.name.trim(),
-      sourceAsset: selectedSource?.assetCode ?? null, targetAsset: selectedTarget?.assetCode ?? null,
-      sourceNetwork: selectedSource?.routeNetwork ?? null, targetNetwork: selectedTarget?.routeNetwork ?? null, paymentMethod: null, payoutMethod: null,
-      sourceSettlementOptionId: isAssetAllNetworksOption(selectedSource) ? null : selectedSource?.id ?? null,
-      targetSettlementOptionId: isAssetAllNetworksOption(selectedTarget) ? null : selectedTarget?.id ?? null,
+       sourceAsset: isAssetPricingOption(selectedSource) ? null : selectedSource?.assetCode ?? null,
+       targetAsset: isAssetPricingOption(selectedTarget) ? null : selectedTarget?.assetCode ?? null,
+       sourceNetwork: isAssetPricingOption(selectedSource) ? null : selectedSource?.routeNetwork ?? null,
+       targetNetwork: isAssetPricingOption(selectedTarget) ? null : selectedTarget?.routeNetwork ?? null,
+       paymentMethod: isAssetPricingOption(selectedSource) || isAssetPricingOption(selectedTarget) ? null : null,
+       payoutMethod: null,
+       sourceCryptoAssetId: isAssetPricingOption(selectedSource) ? selectedSource?.assetId ?? null : null,
+       targetCryptoAssetId: isAssetPricingOption(selectedTarget) ? selectedTarget?.assetId ?? null : null,
+       sourceSettlementOptionId: isAssetPricingOption(selectedSource) ? null : selectedSource?.id ?? null,
+       targetSettlementOptionId: isAssetPricingOption(selectedTarget) ? null : selectedTarget?.id ?? null,
       markupBasisPoints,
       adjustmentDirection: form.adjustmentDirection as 'MARKUP' | 'GIVE_MORE',
       exactRate: form.exactRate.trim() || null,
@@ -6815,7 +6849,7 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
         </div>
 
         <div className="admin-form-grid pricing-form-grid">
-          <label className="pricing-rule-field"><span className="field-label">Exact path rate <small>base conversion rate</small></span><input inputMode="decimal" value={form.exactRate} onChange={event => set('exactRate', event.target.value)} placeholder="Example: 1 EUR = 4 XMR → 4" disabled={rule?.readOnly} data-testid="input-pricing-exact-rate" />{form.exactRate && <small className="text-muted-foreground">Selected path: 1 {projectedSourceOption?.assetCode || 'source'} = {form.exactRate} {projectedTargetOption?.assetCode || 'target'} · Reverse: 1 {projectedTargetOption?.assetCode || 'target'} = {reciprocalRate(form.exactRate)} {projectedSourceOption?.assetCode || 'source'}</small>}<small className="text-muted-foreground">Requires both settlement options; this is the base conversion rate before fees.</small></label>
+        <label className="pricing-rule-field"><span className="field-label">Exact path rate <small>base conversion rate</small></span><input inputMode="decimal" value={form.exactRate} onChange={event => set('exactRate', event.target.value)} placeholder="Example: 1 EUR = 4 XMR → 4" disabled={rule?.readOnly} data-testid="input-pricing-exact-rate" />{form.exactRate && <small className="text-muted-foreground">Selected path: 1 {projectedSourceOption?.assetCode || 'source'} = {form.exactRate} {projectedTargetOption?.assetCode || 'target'} · Reverse: 1 {projectedTargetOption?.assetCode || 'target'} = {reciprocalRate(form.exactRate)} {projectedSourceOption?.assetCode || 'source'}</small>}<small className="text-muted-foreground">The rate applies to all enabled networks for selected crypto assets.</small></label>
           <label className="pricing-rule-field"><span className="field-label">Direction</span><select value={form.adjustmentDirection} onChange={event => set('adjustmentDirection', event.target.value)} disabled={rule?.readOnly} data-testid="select-pricing-direction"><option value="MARKUP">Markup (less for customer)</option><option value="GIVE_MORE">Give more (customer bonus)</option></select></label>
           <label className="pricing-rule-field"><span className="field-label">Percentage</span><input inputMode="decimal" required value={form.markupPercent} onChange={event => set('markupPercent', event.target.value)} disabled={rule?.readOnly} data-testid="input-pricing-markup" /></label>
           <label className="pricing-rule-field"><span className="field-label">{t('adminPricing.fixed_fee')}<small>{t('adminPricing.target_asset')}</small></span><input inputMode="decimal" value={form.fixedFee} onChange={event => set('fixedFee', event.target.value)} placeholder="0.00" disabled={rule?.readOnly} data-testid="input-pricing-fixed-fee" /></label>
@@ -6850,7 +6884,7 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
 function PricingPreview({ testRule }: { testRule?: ManualDeskPricingRule | null }) {
   const { t } = useI18n();
   const config = useGetExchangeConfig({ query: { queryKey: getGetExchangeConfigQueryKey() } });
-  const allOptions = useMemo(() => config.data?.manualSettlementOptions || [], [config.data?.manualSettlementOptions]);
+  const allOptions = useMemo(() => withAssetPricingOptions(config.data?.manualSettlementOptions || []), [config.data?.manualSettlementOptions]);
   const fromOptions = useMemo(() => allOptions.filter(o => o.direction === 'send' || o.direction === 'both'), [allOptions]);
   const toOptions = useMemo(() => allOptions.filter(o => o.direction === 'receive' || o.direction === 'both'), [allOptions]);
   const preferredSourceId = fromOptions.find(option => option.assetCode.toUpperCase() === 'TRX')?.id || fromOptions[0]?.id || '';
@@ -6902,12 +6936,24 @@ function PricingPreview({ testRule }: { testRule?: ManualDeskPricingRule | null 
     if (!sourceOpt || !targetOpt) return;
 
     const context = {
-       sourceAsset: sourceOpt.assetCode, targetAsset: targetOpt.assetCode,
-       sourceNetwork: sourceOpt.routeNetwork, targetNetwork: targetOpt.routeNetwork,
-       sourceSettlementOptionId: sourceOpt.id, targetSettlementOptionId: targetOpt.id
+      sourceAsset: isAssetPricingOption(sourceOpt) ? null : sourceOpt.assetCode,
+      targetAsset: isAssetPricingOption(targetOpt) ? null : targetOpt.assetCode,
+      sourceNetwork: isAssetPricingOption(sourceOpt) ? null : sourceOpt.routeNetwork,
+      targetNetwork: isAssetPricingOption(targetOpt) ? null : targetOpt.routeNetwork,
+      sourceCryptoAssetId: isAssetPricingOption(sourceOpt) ? sourceOpt.assetId : null,
+      targetCryptoAssetId: isAssetPricingOption(targetOpt) ? targetOpt.assetId : null,
+      sourceSettlementOptionId: isAssetPricingOption(sourceOpt) ? undefined : sourceOpt.id,
+      targetSettlementOptionId: isAssetPricingOption(targetOpt) ? undefined : targetOpt.id,
     };
     match.mutate({ data: context });
-    quote.mutate({ data: { type: 'manual', fromAsset: sourceOpt.assetCode, fromNetwork: sourceOpt.routeNetwork, toAsset: targetOpt.assetCode, toNetwork: targetOpt.routeNetwork, amount: 1000, sourceSettlementOptionId: sourceOpt.id, targetSettlementOptionId: targetOpt.id } });
+    const quoteInput: ManualDeskPricingQuotePreviewInput = {
+      amount: '1000',
+      sourceCryptoAssetId: isAssetPricingOption(sourceOpt) ? sourceOpt.assetId : null,
+      targetCryptoAssetId: isAssetPricingOption(targetOpt) ? targetOpt.assetId : null,
+      sourceSettlementOptionId: isAssetPricingOption(sourceOpt) ? null : sourceOpt.id,
+      targetSettlementOptionId: isAssetPricingOption(targetOpt) ? null : targetOpt.id,
+    };
+    quote.mutate({ data: quoteInput });
   };
   const result = quote.data;
 
@@ -6935,7 +6981,7 @@ function PricingPreview({ testRule }: { testRule?: ManualDeskPricingRule | null 
         <span>{t('adminPricing.gross')}<strong>{number(result.grossMarketAmount)} {result.toAsset}</strong></span>
          <span>{testRule?.adjustmentDirection === 'GIVE_MORE' ? 'Customer bonus' : t('adminPricing.commission')}<strong>{number(result.percentageCommission || 0)} {result.toAsset}</strong></span>
         <span>{t('adminPricing.fixed_fee')}<strong>{number(result.fixedCommission || 0)} {result.toAsset}</strong></span>
-        <span>{t('adminPricing.total_fee')}<strong>{number(result.totalFee ?? result.fee)} {result.toAsset}</strong></span>
+        <span>{t('adminPricing.total_fee')}<strong>{number(result.totalFee)} {result.toAsset}</strong></span>
         <span>{t('adminPricing.receive')}<strong>{number(result.receiveAmount)} {result.toAsset}</strong></span>
         <span>{t('adminPricing.rate')}<strong>{number(result.rate, 8)}</strong></span>
       </div> : <div><strong>{loadedRuleNeedsConcreteRoute ? t('adminPricing.rule_loaded') : t('adminPricing.live_preview_2')}</strong><p>{loadedRuleNeedsConcreteRoute ? t('adminPricing.choose_a_concrete_option_for_each_any') : t('adminPricing.this_will_calculate_the_price_using_the')}</p></div>}
@@ -6976,8 +7022,9 @@ function BulkPricingRuleDrawer({
   const set = <K extends keyof typeof form>(key: K, value: typeof form[K]) => setForm(c => ({ ...c, [key]: value }));
   const toggleApply = (key: keyof typeof form) => setForm(c => ({ ...c, [key]: !(c[key] as boolean) }));
 
-  const fromOptions = allOptions.filter(o => o.direction === 'send' || o.direction === 'both');
-  const toOptions = allOptions.filter(o => o.direction === 'receive' || o.direction === 'both');
+  const pricingOptions = useMemo(() => withAssetPricingOptions(allOptions), [allOptions]);
+  const fromOptions = pricingOptions.filter(o => o.direction === 'send' || o.direction === 'both');
+  const toOptions = pricingOptions.filter(o => o.direction === 'receive' || o.direction === 'both');
 
   const save = (e: React.FormEvent) => {
     e.preventDefault();
@@ -7042,8 +7089,26 @@ function BulkPricingRuleDrawer({
 
     if (form.applyOpInst) patch.operatorInstructions = form.operatorInstructions.trim() || null;
     if (form.applyCustInst) patch.customerInstructions = form.customerInstructions.trim() || null;
-    if (form.applySource) patch.sourceSettlementOptionId = form.sourceSettlementOptionId || null;
-    if (form.applyTarget) patch.targetSettlementOptionId = form.targetSettlementOptionId || null;
+    if (form.applySource) {
+      const option = fromOptions.find(o => o.id === form.sourceSettlementOptionId);
+      if (isAssetPricingOption(option)) {
+        patch.sourceCryptoAssetId = option!.assetId;
+        patch.sourceSettlementOptionId = null;
+      } else {
+        patch.sourceCryptoAssetId = null;
+        patch.sourceSettlementOptionId = form.sourceSettlementOptionId || null;
+      }
+    }
+    if (form.applyTarget) {
+      const option = toOptions.find(o => o.id === form.targetSettlementOptionId);
+      if (isAssetPricingOption(option)) {
+        patch.targetCryptoAssetId = option!.assetId;
+        patch.targetSettlementOptionId = null;
+      } else {
+        patch.targetCryptoAssetId = null;
+        patch.targetSettlementOptionId = form.targetSettlementOptionId || null;
+      }
+    }
 
     bulkAction.mutate({
       data: {
@@ -8051,8 +8116,10 @@ const evaluateProjectedPricingCoverage = (
       ) continue;
       const context = {
         sourceAsset: source.assetCode,
+        sourceCryptoAssetId: source.assetId,
         sourceNetwork: source.routeNetwork,
         targetAsset: target.assetCode,
+        targetCryptoAssetId: target.assetId,
         targetNetwork: target.routeNetwork,
         sourceSettlementOptionId: source.id,
         targetSettlementOptionId: target.id,

@@ -58,7 +58,9 @@ export type QuoteTicket = {
       name: string;
       selectors: {
         sourceAsset: string | null;
+        sourceCryptoAssetId?: string | null;
         targetAsset: string | null;
+        targetCryptoAssetId?: string | null;
         sourceNetwork: string | null;
         targetNetwork: string | null;
         paymentMethod: string | null;
@@ -75,7 +77,9 @@ export type QuoteTicket = {
     };
     context: {
       sourceAsset: string;
+      sourceCryptoAssetId?: string | null;
       targetAsset: string;
+      targetCryptoAssetId?: string | null;
       sourceNetwork: string;
       targetNetwork: string;
       paymentMethod: string;
@@ -426,18 +430,32 @@ export function verifyQuoteTicket(
       !validReference(snapshot.reference.source, snapshot.context.sourceAsset, canonicalDecimal, snapshot.reference.mode) ||
       !validReference(snapshot.reference.target, snapshot.context.targetAsset, canonicalDecimal, snapshot.reference.mode) ||
       Object.values(snapshot.amounts).some(value => !canonicalDecimal(value)) ||
-      ["sourceAsset", "targetAsset", "sourceNetwork", "targetNetwork", "paymentMethod", "payoutMethod"]
+      ["sourceAsset", "targetAsset", "sourceNetwork", "targetNetwork", "paymentMethod", "payoutMethod",
+        "sourceCryptoAssetId", "targetCryptoAssetId"]
         .some(key => {
           const value = snapshot.rule.selectors[key as keyof typeof snapshot.rule.selectors];
-          return value !== null && typeof value !== "string";
+          return value !== undefined && value !== null && typeof value !== "string";
         }) ||
-      Object.values(snapshot.context).some(value => typeof value !== "string") ||
+      ["sourceAsset", "targetAsset", "sourceNetwork", "targetNetwork", "paymentMethod", "payoutMethod"]
+        .some(key => typeof snapshot.context[key as keyof typeof snapshot.context] !== "string") ||
+      ["sourceCryptoAssetId", "targetCryptoAssetId"]
+        .some(key => {
+          const value = snapshot.context[key as keyof typeof snapshot.context];
+          return value !== undefined && value !== null && typeof value !== "string";
+        }) ||
       ["sourceAsset", "targetAsset", "sourceNetwork", "targetNetwork", "paymentMethod", "payoutMethod"]
         .some(key => {
           const selector = snapshot.rule.selectors[key as keyof typeof snapshot.rule.selectors];
           const context = snapshot.context[key as keyof typeof snapshot.context];
           return selector !== null &&
             normalize(selector) !== normalize(String(context));
+        }) ||
+      ["sourceCryptoAssetId", "targetCryptoAssetId"]
+        .some(key => {
+          const selector = snapshot.rule.selectors[key as keyof typeof snapshot.rule.selectors];
+          const context = snapshot.context[key as keyof typeof snapshot.context];
+          return selector !== undefined && selector !== null &&
+            normalize(selector) !== normalize(typeof context === "string" ? context : undefined);
         }) ||
       snapshot.context.sourceAsset !== ticket.fromAsset ||
       snapshot.context.targetAsset !== ticket.toAsset ||

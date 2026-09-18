@@ -125,6 +125,8 @@ import type {
   ListBlogArticlesParams,
   ListContactSubmissionsParams,
   ManualDeskPricingPreviewInput,
+  ManualDeskPricingQuotePreview,
+  ManualDeskPricingQuotePreviewInput,
   ManualDeskPricingRule,
   ManualDeskPricingRuleCatalog,
   ManualDeskPricingRuleInput,
@@ -6866,14 +6868,14 @@ export const getPreviewManualDeskQuoteUrl = () => {
 /**
  * @summary Calculate a manual quote for pricing administration without requiring an enabled deposit route
  */
-export const previewManualDeskQuote = async (quoteInput: QuoteInput, options?: Parameters<typeof customFetch>[1]): Promise<Quote> => {
+export const previewManualDeskQuote = async (manualDeskPricingQuotePreviewInput: ManualDeskPricingQuotePreviewInput, options?: Parameters<typeof customFetch>[1]): Promise<ManualDeskPricingQuotePreview> => {
 
-  return customFetch<Quote>(getPreviewManualDeskQuoteUrl(),
+  return customFetch<ManualDeskPricingQuotePreview>(getPreviewManualDeskQuoteUrl(),
   {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(quoteInput)
+    body: JSON.stringify(manualDeskPricingQuotePreviewInput)
   }
 );}
 
@@ -6882,8 +6884,8 @@ export const previewManualDeskQuote = async (quoteInput: QuoteInput, options?: P
 
 
 export const getPreviewManualDeskQuoteMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewManualDeskQuote>>, TError,{data: BodyType<QuoteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof previewManualDeskQuote>>, TError,{data: BodyType<QuoteInput>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewManualDeskQuote>>, TError,{data: BodyType<ManualDeskPricingQuotePreviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewManualDeskQuote>>, TError,{data: BodyType<ManualDeskPricingQuotePreviewInput>}, TContext> => {
 
 const mutationKey = ['previewManualDeskQuote'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -6895,7 +6897,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewManualDeskQuote>>, {data: BodyType<QuoteInput>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewManualDeskQuote>>, {data: BodyType<ManualDeskPricingQuotePreviewInput>}> = (props) => {
           const {data} = props ?? {};
 
           return  previewManualDeskQuote(data,requestOptions)
@@ -6909,18 +6911,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type PreviewManualDeskQuoteMutationResult = NonNullable<Awaited<ReturnType<typeof previewManualDeskQuote>>>
-    export type PreviewManualDeskQuoteMutationBody = BodyType<QuoteInput>
+    export type PreviewManualDeskQuoteMutationBody = BodyType<ManualDeskPricingQuotePreviewInput>
     export type PreviewManualDeskQuoteMutationError = ErrorType<unknown>
 
     /**
  * @summary Calculate a manual quote for pricing administration without requiring an enabled deposit route
  */
 export const usePreviewManualDeskQuote = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewManualDeskQuote>>, TError,{data: BodyType<QuoteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewManualDeskQuote>>, TError,{data: BodyType<ManualDeskPricingQuotePreviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof previewManualDeskQuote>>,
         TError,
-        {data: BodyType<QuoteInput>},
+        {data: BodyType<ManualDeskPricingQuotePreviewInput>},
         TContext
       > => {
       return useMutation(getPreviewManualDeskQuoteMutationOptions(options));

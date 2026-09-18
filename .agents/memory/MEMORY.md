@@ -101,5 +101,5 @@
 - [Popular-pair ranking boundaries](landing-shortcut-loading.md) — rank products separately from valid orders, intersect live routes, and serve stale cached results during refresh.
 - [Unified Convert route resolution](convert-route-resolution.md) — every Convert surface derives exact directed routes from executable asset-network capabilities; live quotes remain authoritative.
 - [Published Site Content freshness](published-site-content-freshness.md) — public revision endpoints must revalidate on every load so Admin publishing is immediately visible.
-- [Asset all-networks pricing](asset-all-networks-pricing.md) — persist one explicit asset wildcard; concrete networks outrank it, and null option IDs alone still mean broad Any.
+- [Asset all-networks pricing](asset-all-networks-pricing.md) — persist immutable crypto asset IDs; concrete network routes outrank asset rules, which outrank broad Any.
 - [Touch carousel verification](touch-carousel-verification.md) — test touch-action with genuine touch events; a mouse drag at mobile width does not validate native scrolling.

@@ -8,7 +8,11 @@
 
 export type OrderPricingSnapshotContext = {
   sourceAsset: string;
+  /** @nullable */
+  sourceCryptoAssetId?: string | null;
   targetAsset: string;
+  /** @nullable */
+  targetCryptoAssetId?: string | null;
   sourceNetwork: string;
   targetNetwork: string;
   paymentMethod: string;

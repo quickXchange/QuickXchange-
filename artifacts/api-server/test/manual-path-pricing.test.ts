@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test, { after } from "node:test";
 import { eq, inArray } from "drizzle-orm";
-import { db, pool, manualDeskPricingRulesTable } from "@workspace/db";
+import {
+  cryptoAssetNetworksTable,
+  cryptoAssetsTable,
+  db,
+  manualDeskPricingRulesTable,
+  pool,
+} from "@workspace/db";
 import { getManualDeskEstimate } from "../src/lib/manual-desk-rates";
 import {
   bulkUpdateManualPricingRules,
@@ -30,6 +36,88 @@ test("exact path rate scales target atomic units once", async () => {
   });
   assert.equal(quote.exact.grossMarketAmount, "4");
   assert.equal(quote.grossMarketAmount, 4);
+});
+
+test("asset selectors match every network and outrank Any", () => {
+  const assetRule = {
+    id: "asset", priority: 0, sourceCryptoAssetId: "btc", targetCryptoAssetId: "usd",
+    sourceAsset: null, targetAsset: null, sourceNetwork: null, targetNetwork: null,
+    paymentMethod: null, payoutMethod: null, sourceSettlementOptionId: null,
+    targetSettlementOptionId: null,
+  };
+  const anyRule = {
+    ...assetRule, id: "any", sourceCryptoAssetId: null, targetCryptoAssetId: null,
+  };
+  const selected = selectManualPricingRule([anyRule, assetRule], {
+    sourceCryptoAssetId: "btc", targetCryptoAssetId: "usd",
+    sourceNetwork: "TRC20", targetNetwork: "SEPA",
+  });
+  assert.equal(selected?.id, "asset");
+});
+
+test("persisted asset pricing applies one exact rate and commission across every network", async () => {
+  const suffix = randomUUID().replaceAll("-", "").slice(0, 12).toLowerCase();
+  const assetId = `test-asset-${suffix}`;
+  const assetCode = `T${suffix.toUpperCase()}`;
+  const networkIds = [`${assetId}-one`, `${assetId}-two`];
+  let ruleId: string | undefined;
+  try {
+    await db.insert(cryptoAssetsTable).values({
+      id: assetId,
+      code: assetCode,
+      name: `Test asset ${suffix}`,
+      decimals: 8,
+    });
+    await db.insert(cryptoAssetNetworksTable).values(networkIds.map((id, index) => ({
+      id,
+      assetId,
+      networkCode: `TEST${index + 1}`,
+      networkName: `Test Network ${index + 1}`,
+      decimals: 8,
+    })));
+    const rule = await createManualPricingRule({
+      name: `Any to ${assetCode}`,
+      targetCryptoAssetId: assetId,
+      markupBasisPoints: 200,
+      exactRate: "0.95",
+      priority: 987655,
+      enabled: true,
+    });
+    ruleId = rule.id;
+    assert.equal(rule.targetCryptoAssetId, assetId);
+    assert.equal(rule.targetAsset, null);
+    assert.equal(rule.targetNetwork, null);
+    assert.equal(rule.targetSettlementOptionId, null);
+
+    for (const networkId of networkIds) {
+      const matched = await matchManualDeskPricingRule({
+        sourceAsset: "EUR",
+        sourceNetwork: "SEPA",
+        sourceSettlementOptionId: "test-eur-sepa",
+        targetAsset: assetCode,
+        targetNetwork: networkId.endsWith("-one") ? "TEST1" : "TEST2",
+        targetSettlementOptionId: `crypto:${networkId}`,
+      });
+      assert.equal(matched.id, rule.id);
+      const quote = await getManualDeskEstimate({
+        sourceCurrency: "EUR",
+        targetCurrency: assetCode,
+        targetPrecision: 8,
+        amount: 1000,
+        exactRate: matched.exactRate,
+        markupBasisPoints: matched.markupBasisPoints,
+      });
+      assert.equal(quote.exact.grossMarketAmount, "950");
+      assert.equal(quote.exact.percentageCommission, "19");
+      assert.equal(quote.exact.receiveAmount, "931");
+    }
+  } finally {
+    if (ruleId) {
+      await db.delete(manualDeskPricingRulesTable)
+        .where(eq(manualDeskPricingRulesTable.id, ruleId));
+    }
+    await db.delete(cryptoAssetsTable).where(eq(cryptoAssetsTable.id, assetId));
+  }
 });
 
 test("give-more direction increases the market rate with floor adjustment rounding", async () => {

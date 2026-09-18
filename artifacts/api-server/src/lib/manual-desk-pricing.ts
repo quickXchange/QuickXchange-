@@ -1,6 +1,8 @@
-import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
 import {
   db,
+  cryptoAssetNetworksTable,
+  cryptoAssetsTable,
   manualDeskPricingRulesTable,
   type ManualDeskPricingRule,
 } from "@workspace/db";
@@ -8,7 +10,9 @@ import { ApiError } from "./api-error";
 
 export const MANUAL_PRICING_SELECTOR_KEYS = [
   "sourceAsset",
+  "sourceCryptoAssetId",
   "targetAsset",
+  "targetCryptoAssetId",
   "sourceNetwork",
   "targetNetwork",
   "paymentMethod",
@@ -18,11 +22,13 @@ export const MANUAL_PRICING_SELECTOR_KEYS = [
 ] as const;
 const SOURCE_PRICING_SELECTOR_KEYS = [
   "sourceAsset",
+  "sourceCryptoAssetId",
   "sourceNetwork",
   "paymentMethod",
 ] as const;
 const TARGET_PRICING_SELECTOR_KEYS = [
   "targetAsset",
+  "targetCryptoAssetId",
   "targetNetwork",
   "payoutMethod",
 ] as const;
@@ -66,14 +72,22 @@ function effectiveManualPricingSelectors(rule: ManualPricingContext) {
   // on the opposite side means a real wildcard. Ignore stale legacy fields
   // which older partial-wildcard writes may have retained on that Any side.
   if (!hasSourceOption && hasTargetOption) {
-    if (selectors.sourceNetwork !== ALL_NETWORKS_PRICING_SELECTOR || selectors.sourceAsset === null) {
+    if (selectors.sourceCryptoAssetId !== null) {
+      selectors.sourceAsset = null;
+      selectors.sourceNetwork = null;
+      selectors.paymentMethod = null;
+    } else if (selectors.sourceNetwork !== ALL_NETWORKS_PRICING_SELECTOR || selectors.sourceAsset === null) {
       for (const key of SOURCE_PRICING_SELECTOR_KEYS) selectors[key] = null;
     } else {
       selectors.paymentMethod = null;
     }
   }
   if (hasSourceOption && !hasTargetOption) {
-    if (selectors.targetNetwork !== ALL_NETWORKS_PRICING_SELECTOR || selectors.targetAsset === null) {
+    if (selectors.targetCryptoAssetId !== null) {
+      selectors.targetAsset = null;
+      selectors.targetNetwork = null;
+      selectors.payoutMethod = null;
+    } else if (selectors.targetNetwork !== ALL_NETWORKS_PRICING_SELECTOR || selectors.targetAsset === null) {
       for (const key of TARGET_PRICING_SELECTOR_KEYS) selectors[key] = null;
     } else {
       selectors.payoutMethod = null;
@@ -106,6 +120,8 @@ export function outputManualPricingRule(rule: ManualDeskPricingRule) {
     normalized(rule.payoutMethod) === null;
   const legacyAmbiguous = !rule.sourceSettlementOptionId &&
     !rule.targetSettlementOptionId &&
+    !rule.sourceCryptoAssetId &&
+    !rule.targetCryptoAssetId &&
     MANUAL_PRICING_SELECTOR_KEYS
       .filter((key) => key !== "sourceSettlementOptionId" && key !== "targetSettlementOptionId")
       .some((key) => normalized(rule[key]) !== null) &&
@@ -141,6 +157,7 @@ export function matchesManualPricingRule(
   const normalizedContext = normalizeManualPricingSelectors(context);
   return MANUAL_PRICING_SELECTOR_KEYS.every((key) => {
     const selector = selectors[key];
+    // Asset identity is resolved from the selected network before matching.
     return selector === null ||
       ((key === "sourceNetwork" || key === "targetNetwork") &&
         selector === ALL_NETWORKS_PRICING_SELECTOR) ||
@@ -166,22 +183,69 @@ export function selectManualPricingRule<T extends ManualPricingContext & {
 export async function matchManualDeskPricingRule(
   context: ManualPricingContext,
 ): Promise<ManualDeskPricingRule & { exactRateSource?: "direct" | "reciprocal" }> {
+  // Customer routes stay network-specific, while matching also carries the
+  // immutable parent asset identity for asset-level rules.
+  const resolvedContext = { ...context };
+  const sourceNetworkId = context.sourceSettlementOptionId?.startsWith("crypto:")
+    ? context.sourceSettlementOptionId.slice("crypto:".length) : null;
+  const networkRows = await db.select({ assetId: cryptoAssetNetworksTable.assetId })
+    .from(cryptoAssetNetworksTable)
+    .innerJoin(cryptoAssetsTable, eq(cryptoAssetsTable.id, cryptoAssetNetworksTable.assetId))
+    .where(and(
+      sourceNetworkId
+        ? eq(cryptoAssetNetworksTable.id, sourceNetworkId)
+        : or(
+          eq(cryptoAssetNetworksTable.networkCode, String(context.sourceNetwork ?? "")),
+          eq(cryptoAssetNetworksTable.networkName, String(context.sourceNetwork ?? "")),
+        ),
+      eq(cryptoAssetsTable.code, String(context.sourceAsset ?? "")),
+      eq(cryptoAssetNetworksTable.enabled, true),
+      ne(cryptoAssetNetworksTable.lifecycle, "deprecated"),
+      eq(cryptoAssetsTable.enabled, true),
+      ne(cryptoAssetsTable.lifecycle, "deprecated"),
+    )).limit(2);
+  if (networkRows.length === 1 && resolvedContext.sourceCryptoAssetId == null) {
+    resolvedContext.sourceCryptoAssetId = String(networkRows[0].assetId);
+  }
+  const targetNetworkId = context.targetSettlementOptionId?.startsWith("crypto:")
+    ? context.targetSettlementOptionId.slice("crypto:".length) : null;
+  const targetRows = await db.select({ assetId: cryptoAssetNetworksTable.assetId })
+    .from(cryptoAssetNetworksTable)
+    .innerJoin(cryptoAssetsTable, eq(cryptoAssetsTable.id, cryptoAssetNetworksTable.assetId))
+    .where(and(
+      targetNetworkId
+        ? eq(cryptoAssetNetworksTable.id, targetNetworkId)
+        : or(
+          eq(cryptoAssetNetworksTable.networkCode, String(context.targetNetwork ?? "")),
+          eq(cryptoAssetNetworksTable.networkName, String(context.targetNetwork ?? "")),
+        ),
+      eq(cryptoAssetsTable.code, String(context.targetAsset ?? "")),
+      eq(cryptoAssetNetworksTable.enabled, true),
+      ne(cryptoAssetNetworksTable.lifecycle, "deprecated"),
+      eq(cryptoAssetsTable.enabled, true),
+      ne(cryptoAssetsTable.lifecycle, "deprecated"),
+    )).limit(2);
+  if (targetRows.length === 1 && resolvedContext.targetCryptoAssetId == null) {
+    resolvedContext.targetCryptoAssetId = targetRows[0].assetId;
+  }
   const rules = await db.select().from(manualDeskPricingRulesTable)
     .where(eq(manualDeskPricingRulesTable.enabled, true))
     .orderBy(desc(manualDeskPricingRulesTable.priority), manualDeskPricingRulesTable.id);
   const reverseContext = {
-    ...context,
-    sourceAsset: context.targetAsset,
-    targetAsset: context.sourceAsset,
-    sourceNetwork: context.targetNetwork,
-    targetNetwork: context.sourceNetwork,
-    paymentMethod: context.payoutMethod,
-    payoutMethod: context.paymentMethod,
-    sourceSettlementOptionId: context.targetSettlementOptionId,
-    targetSettlementOptionId: context.sourceSettlementOptionId,
+    ...resolvedContext,
+    sourceAsset: resolvedContext.targetAsset,
+    sourceCryptoAssetId: resolvedContext.targetCryptoAssetId,
+    targetAsset: resolvedContext.sourceAsset,
+    targetCryptoAssetId: resolvedContext.sourceCryptoAssetId,
+    sourceNetwork: resolvedContext.targetNetwork,
+    targetNetwork: resolvedContext.sourceNetwork,
+    paymentMethod: resolvedContext.payoutMethod,
+    payoutMethod: resolvedContext.paymentMethod,
+    sourceSettlementOptionId: resolvedContext.targetSettlementOptionId,
+    targetSettlementOptionId: resolvedContext.sourceSettlementOptionId,
   };
   const candidates = [
-    ...rules.filter((rule) => matchesManualPricingRule(rule, context))
+      ...rules.filter((rule) => matchesManualPricingRule(rule, resolvedContext))
       .map((rule) => ({ rule, source: "direct" as const })),
     ...rules.filter((rule) => rule.exactRate !== null && matchesManualPricingRule(rule, reverseContext))
       .map((rule) => ({ rule, source: "reciprocal" as const })),
@@ -215,6 +279,7 @@ export async function matchManualDeskPricingRule(
 
 export type ManualPricingSettlementOption = {
   id: string;
+  assetId?: string | null;
   assetCode: string;
   routeNetwork: string;
   kind: "fiat-payment-method" | "crypto-network";
@@ -279,8 +344,10 @@ export function evaluateManualPricingCoverage<
         },
         context: {
           sourceAsset: source.assetCode,
+          sourceCryptoAssetId: source.assetId,
           sourceNetwork: source.routeNetwork,
           targetAsset: target.assetCode,
+          targetCryptoAssetId: target.assetId,
           targetNetwork: target.routeNetwork,
           sourceSettlementOptionId: source.id,
           targetSettlementOptionId: target.id,
@@ -295,7 +362,9 @@ export function evaluateManualPricingCoverage<
       selectManualPricingRule(eligibleRules, {
         ...context,
         sourceAsset: context.targetAsset,
+        sourceCryptoAssetId: context.targetCryptoAssetId,
         targetAsset: context.sourceAsset,
+        targetCryptoAssetId: context.sourceCryptoAssetId,
         sourceNetwork: context.targetNetwork,
         targetNetwork: context.sourceNetwork,
         sourceSettlementOptionId: context.targetSettlementOptionId,
@@ -316,7 +385,9 @@ export function evaluateManualPricingCoverage<
 export type ManualPricingWrite = {
   name: string;
   sourceAsset?: string | null;
+  sourceCryptoAssetId?: string | null;
   targetAsset?: string | null;
+  targetCryptoAssetId?: string | null;
   sourceNetwork?: string | null;
   targetNetwork?: string | null;
   paymentMethod?: string | null;
@@ -374,19 +445,23 @@ function normalizedWrite(input: ManualPricingWrite) {
   const sourceOptionId = normalized(input.sourceSettlementOptionId);
   const targetOptionId = normalized(input.targetSettlementOptionId);
   const sourceAsset = normalized(input.sourceAsset);
+  const sourceCryptoAssetId = input.sourceCryptoAssetId?.trim() || null;
   const targetAsset = normalized(input.targetAsset);
+  const targetCryptoAssetId = input.targetCryptoAssetId?.trim() || null;
   const sourceNetwork = normalized(input.sourceNetwork);
   const targetNetwork = normalized(input.targetNetwork);
   const validSourceAssetWildcard = sourceOptionId === null &&
+    sourceCryptoAssetId === null &&
     sourceAsset !== null && sourceNetwork === ALL_NETWORKS_PRICING_SELECTOR &&
     normalized(input.paymentMethod) === null;
   const validTargetAssetWildcard = targetOptionId === null &&
+    targetCryptoAssetId === null &&
     targetAsset !== null && targetNetwork === ALL_NETWORKS_PRICING_SELECTOR &&
     normalized(input.payoutMethod) === null;
-  const invalidUnboundSource = sourceOptionId === null && targetOptionId === null && !validSourceAssetWildcard &&
-    [sourceAsset, sourceNetwork, normalized(input.paymentMethod)].some((value) => value !== null);
-  const invalidUnboundTarget = targetOptionId === null && sourceOptionId === null && !validTargetAssetWildcard &&
-    [targetAsset, targetNetwork, normalized(input.payoutMethod)].some((value) => value !== null);
+  const invalidUnboundSource = sourceOptionId === null && targetOptionId === null && sourceCryptoAssetId === null && !validSourceAssetWildcard &&
+    [sourceAsset, sourceCryptoAssetId, sourceNetwork, normalized(input.paymentMethod)].some((value) => value !== null);
+  const invalidUnboundTarget = targetOptionId === null && sourceOptionId === null && targetCryptoAssetId === null && !validTargetAssetWildcard &&
+    [targetAsset, targetCryptoAssetId, targetNetwork, normalized(input.payoutMethod)].some((value) => value !== null);
   if (invalidUnboundSource || invalidUnboundTarget) {
     throw new ApiError(
       "SETTLEMENT_OPTION_INVALID",
@@ -401,16 +476,36 @@ function normalizedWrite(input: ManualPricingWrite) {
       400,
     );
   }
+  if (sourceCryptoAssetId !== null && (
+    sourceOptionId !== null || sourceAsset !== null || sourceNetwork !== null ||
+    normalized(input.paymentMethod) !== null
+  )) {
+    throw new ApiError("SETTLEMENT_OPTION_INVALID", "An asset-level source selector cannot include network or settlement selectors.", 400);
+  }
+  if (targetCryptoAssetId !== null && (
+    targetOptionId !== null || targetAsset !== null || targetNetwork !== null ||
+    normalized(input.payoutMethod) !== null
+  )) {
+    throw new ApiError("SETTLEMENT_OPTION_INVALID", "An asset-level target selector cannot include network or settlement selectors.", 400);
+  }
   const selectors = normalizeManualPricingSelectors(input);
   if (sourceOptionId === null && targetOptionId !== null) {
-    if (validSourceAssetWildcard) {
+    if (sourceCryptoAssetId !== null) {
+      selectors.sourceAsset = null;
+      selectors.sourceNetwork = null;
+      selectors.paymentMethod = null;
+    } else if (validSourceAssetWildcard) {
       selectors.paymentMethod = null;
     } else {
       for (const key of SOURCE_PRICING_SELECTOR_KEYS) selectors[key] = null;
     }
   }
   if (sourceOptionId !== null && targetOptionId === null) {
-    if (validTargetAssetWildcard) {
+    if (targetCryptoAssetId !== null) {
+      selectors.targetAsset = null;
+      selectors.targetNetwork = null;
+      selectors.payoutMethod = null;
+    } else if (validTargetAssetWildcard) {
       selectors.payoutMethod = null;
     } else {
       for (const key of TARGET_PRICING_SELECTOR_KEYS) selectors[key] = null;
@@ -421,6 +516,8 @@ function normalizedWrite(input: ManualPricingWrite) {
     ...selectors,
     sourceSettlementOptionId: input.sourceSettlementOptionId?.trim() || null,
     targetSettlementOptionId: input.targetSettlementOptionId?.trim() || null,
+    sourceCryptoAssetId,
+    targetCryptoAssetId,
     name,
     fixedFee,
     adjustmentDirection,
@@ -613,7 +710,7 @@ export type ManualPricingBulkPatch = Partial<Pick<ManualPricingWrite,
   "targetSettlementOptionId" | "exactRate" | "fixedFee" | "minAmount" |
   "maxAmount" | "expectedSettlementMinutes" | "operatorInstructions" |
   "customerInstructions" | "sourceAsset" | "targetAsset" | "sourceNetwork" |
-  "targetNetwork">>;
+  "targetNetwork" | "sourceCryptoAssetId" | "targetCryptoAssetId">>;
 
 export type ManualPricingBulkSkipCode =
   | "MANUAL_PRICING_RULE_NOT_FOUND"
@@ -633,7 +730,9 @@ function rowAsWrite(row: ManualDeskPricingRule): ManualPricingWrite {
   return {
     name: row.name,
     sourceAsset: row.sourceAsset,
+    sourceCryptoAssetId: row.sourceCryptoAssetId,
     targetAsset: row.targetAsset,
+    targetCryptoAssetId: row.targetCryptoAssetId,
     sourceNetwork: row.sourceNetwork,
     targetNetwork: row.targetNetwork,
     paymentMethod: row.paymentMethod,

@@ -10,23 +10,39 @@ export interface ManualDeskPricingPreviewInput {
   /**
      * @minLength 1
      * @maxLength 30
+     * @nullable
      */
-  sourceAsset: string;
+  sourceAsset?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     * @nullable
+     */
+  sourceCryptoAssetId?: string | null;
   /**
      * @minLength 1
      * @maxLength 30
+     * @nullable
      */
-  targetAsset: string;
+  targetAsset?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     * @nullable
+     */
+  targetCryptoAssetId?: string | null;
   /**
      * @minLength 1
      * @maxLength 100
+     * @nullable
      */
-  sourceNetwork: string;
+  sourceNetwork?: string | null;
   /**
      * @minLength 1
      * @maxLength 100
+     * @nullable
      */
-  targetNetwork: string;
+  targetNetwork?: string | null;
   /** @maxLength 100 */
   paymentMethod?: string;
   /** @maxLength 100 */

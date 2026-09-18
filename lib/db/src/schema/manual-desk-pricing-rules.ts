@@ -9,12 +9,15 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { cryptoAssetsTable } from "./crypto-assets";
 
 export const manualDeskPricingRulesTable = pgTable("manual_desk_pricing_rules", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   sourceAsset: text("source_asset"),
   targetAsset: text("target_asset"),
+  sourceCryptoAssetId: text("source_crypto_asset_id").references(() => cryptoAssetsTable.id, { onDelete: "restrict" }),
+  targetCryptoAssetId: text("target_crypto_asset_id").references(() => cryptoAssetsTable.id, { onDelete: "restrict" }),
   sourceNetwork: text("source_network"),
   targetNetwork: text("target_network"),
   paymentMethod: text("payment_method"),

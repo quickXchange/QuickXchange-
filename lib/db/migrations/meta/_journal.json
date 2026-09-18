@@ -540,6 +540,13 @@
       "when": 1789738158758,
       "tag": "0078_seed_widget_exchange_information",
       "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1789738158759,
+      "tag": "0079_manual_desk_pricing_crypto_asset_ids",
+      "breakpoints": true
     }
   ]
 }

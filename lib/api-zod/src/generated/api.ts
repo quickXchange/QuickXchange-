@@ -1215,7 +1215,9 @@ export const CreateExchangeOrderResponse = zod.object({
   "name": zod.string(),
   "selectors": zod.object({
   "sourceAsset": zod.string().nullable(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string().nullable(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string().nullable(),
   "targetNetwork": zod.string().nullable(),
   "paymentMethod": zod.string().nullable(),
@@ -1232,7 +1234,9 @@ export const CreateExchangeOrderResponse = zod.object({
 }),
   "context": zod.object({
   "sourceAsset": zod.string(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string(),
   "targetNetwork": zod.string(),
   "paymentMethod": zod.string(),
@@ -1475,7 +1479,9 @@ export const GetOrdersResponse = zod.object({
   "name": zod.string(),
   "selectors": zod.object({
   "sourceAsset": zod.string().nullable(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string().nullable(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string().nullable(),
   "targetNetwork": zod.string().nullable(),
   "paymentMethod": zod.string().nullable(),
@@ -1492,7 +1498,9 @@ export const GetOrdersResponse = zod.object({
 }),
   "context": zod.object({
   "sourceAsset": zod.string(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string(),
   "targetNetwork": zod.string(),
   "paymentMethod": zod.string(),
@@ -1721,7 +1729,9 @@ export const CreateOrderResponse = zod.object({
   "name": zod.string(),
   "selectors": zod.object({
   "sourceAsset": zod.string().nullable(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string().nullable(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string().nullable(),
   "targetNetwork": zod.string().nullable(),
   "paymentMethod": zod.string().nullable(),
@@ -1738,7 +1748,9 @@ export const CreateOrderResponse = zod.object({
 }),
   "context": zod.object({
   "sourceAsset": zod.string(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string(),
   "targetNetwork": zod.string(),
   "paymentMethod": zod.string(),
@@ -1944,7 +1956,9 @@ export const BulkUpdateOrderStatusResponse = zod.object({
   "name": zod.string(),
   "selectors": zod.object({
   "sourceAsset": zod.string().nullable(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string().nullable(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string().nullable(),
   "targetNetwork": zod.string().nullable(),
   "paymentMethod": zod.string().nullable(),
@@ -1961,7 +1975,9 @@ export const BulkUpdateOrderStatusResponse = zod.object({
 }),
   "context": zod.object({
   "sourceAsset": zod.string(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string(),
   "targetNetwork": zod.string(),
   "paymentMethod": zod.string(),
@@ -2173,7 +2189,9 @@ export const BulkArchiveOrdersResponse = zod.object({
   "name": zod.string(),
   "selectors": zod.object({
   "sourceAsset": zod.string().nullable(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string().nullable(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string().nullable(),
   "targetNetwork": zod.string().nullable(),
   "paymentMethod": zod.string().nullable(),
@@ -2190,7 +2208,9 @@ export const BulkArchiveOrdersResponse = zod.object({
 }),
   "context": zod.object({
   "sourceAsset": zod.string(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string(),
   "targetNetwork": zod.string(),
   "paymentMethod": zod.string(),
@@ -2444,7 +2464,9 @@ export const GetOrderResponse = zod.object({
   "name": zod.string(),
   "selectors": zod.object({
   "sourceAsset": zod.string().nullable(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string().nullable(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string().nullable(),
   "targetNetwork": zod.string().nullable(),
   "paymentMethod": zod.string().nullable(),
@@ -2461,7 +2483,9 @@ export const GetOrderResponse = zod.object({
 }),
   "context": zod.object({
   "sourceAsset": zod.string(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string(),
   "targetNetwork": zod.string(),
   "paymentMethod": zod.string(),
@@ -2672,7 +2696,9 @@ export const UpdateOrderResponse = zod.object({
   "name": zod.string(),
   "selectors": zod.object({
   "sourceAsset": zod.string().nullable(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string().nullable(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string().nullable(),
   "targetNetwork": zod.string().nullable(),
   "paymentMethod": zod.string().nullable(),
@@ -2689,7 +2715,9 @@ export const UpdateOrderResponse = zod.object({
 }),
   "context": zod.object({
   "sourceAsset": zod.string(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string(),
   "targetNetwork": zod.string(),
   "paymentMethod": zod.string(),
@@ -2889,7 +2917,9 @@ export const AssignOrderResponse = zod.object({
   "name": zod.string(),
   "selectors": zod.object({
   "sourceAsset": zod.string().nullable(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string().nullable(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string().nullable(),
   "targetNetwork": zod.string().nullable(),
   "paymentMethod": zod.string().nullable(),
@@ -2906,7 +2936,9 @@ export const AssignOrderResponse = zod.object({
 }),
   "context": zod.object({
   "sourceAsset": zod.string(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string(),
   "targetNetwork": zod.string(),
   "paymentMethod": zod.string(),
@@ -3125,7 +3157,9 @@ export const UpdateOrderSupportToolsResponse = zod.object({
   "name": zod.string(),
   "selectors": zod.object({
   "sourceAsset": zod.string().nullable(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string().nullable(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string().nullable(),
   "targetNetwork": zod.string().nullable(),
   "paymentMethod": zod.string().nullable(),
@@ -3142,7 +3176,9 @@ export const UpdateOrderSupportToolsResponse = zod.object({
 }),
   "context": zod.object({
   "sourceAsset": zod.string(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string(),
   "targetNetwork": zod.string(),
   "paymentMethod": zod.string(),
@@ -3340,7 +3376,9 @@ export const ArchiveOrderResponse = zod.object({
   "name": zod.string(),
   "selectors": zod.object({
   "sourceAsset": zod.string().nullable(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string().nullable(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string().nullable(),
   "targetNetwork": zod.string().nullable(),
   "paymentMethod": zod.string().nullable(),
@@ -3357,7 +3395,9 @@ export const ArchiveOrderResponse = zod.object({
 }),
   "context": zod.object({
   "sourceAsset": zod.string(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string(),
   "targetNetwork": zod.string(),
   "paymentMethod": zod.string(),
@@ -3555,7 +3595,9 @@ export const RestoreOrderResponse = zod.object({
   "name": zod.string(),
   "selectors": zod.object({
   "sourceAsset": zod.string().nullable(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string().nullable(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string().nullable(),
   "targetNetwork": zod.string().nullable(),
   "paymentMethod": zod.string().nullable(),
@@ -3572,7 +3614,9 @@ export const RestoreOrderResponse = zod.object({
 }),
   "context": zod.object({
   "sourceAsset": zod.string(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string(),
   "targetNetwork": zod.string(),
   "paymentMethod": zod.string(),
@@ -5480,7 +5524,11 @@ export const DeleteFiatCurrencyPaymentMethodResponse = zod.void()
  */
 export const listManualDeskPricingRulesResponseItemsItemOneOneSourceAssetMax = 30;
 
+export const listManualDeskPricingRulesResponseItemsItemOneOneSourceCryptoAssetIdMax = 200;
+
 export const listManualDeskPricingRulesResponseItemsItemOneOneTargetAssetMax = 30;
+
+export const listManualDeskPricingRulesResponseItemsItemOneOneTargetCryptoAssetIdMax = 200;
 
 export const listManualDeskPricingRulesResponseItemsItemOneOneSourceNetworkMax = 100;
 
@@ -5528,7 +5576,9 @@ export const listManualDeskPricingRulesResponseItemsItemTwoSpecificityMultipleOf
 export const ListManualDeskPricingRulesResponse = zod.object({
   "items": zod.array(zod.object({
   "sourceAsset": zod.string().min(1).max(listManualDeskPricingRulesResponseItemsItemOneOneSourceAssetMax).nullish(),
+  "sourceCryptoAssetId": zod.string().min(1).max(listManualDeskPricingRulesResponseItemsItemOneOneSourceCryptoAssetIdMax).nullish(),
   "targetAsset": zod.string().min(1).max(listManualDeskPricingRulesResponseItemsItemOneOneTargetAssetMax).nullish(),
+  "targetCryptoAssetId": zod.string().min(1).max(listManualDeskPricingRulesResponseItemsItemOneOneTargetCryptoAssetIdMax).nullish(),
   "sourceNetwork": zod.string().min(1).max(listManualDeskPricingRulesResponseItemsItemOneOneSourceNetworkMax).nullish(),
   "targetNetwork": zod.string().min(1).max(listManualDeskPricingRulesResponseItemsItemOneOneTargetNetworkMax).nullish(),
   "paymentMethod": zod.string().min(1).max(listManualDeskPricingRulesResponseItemsItemOneOnePaymentMethodMax).nullish(),
@@ -5577,7 +5627,11 @@ export const ListManualDeskPricingRulesResponse = zod.object({
  */
 export const createManualDeskPricingRuleBodyOneSourceAssetMax = 30;
 
+export const createManualDeskPricingRuleBodyOneSourceCryptoAssetIdMax = 200;
+
 export const createManualDeskPricingRuleBodyOneTargetAssetMax = 30;
+
+export const createManualDeskPricingRuleBodyOneTargetCryptoAssetIdMax = 200;
 
 export const createManualDeskPricingRuleBodyOneSourceNetworkMax = 100;
 
@@ -5617,7 +5671,9 @@ export const createManualDeskPricingRuleBodyTwoExpectedSettlementMinutesMultiple
 
 export const CreateManualDeskPricingRuleBody = zod.object({
   "sourceAsset": zod.string().min(1).max(createManualDeskPricingRuleBodyOneSourceAssetMax).nullish(),
+  "sourceCryptoAssetId": zod.string().min(1).max(createManualDeskPricingRuleBodyOneSourceCryptoAssetIdMax).nullish(),
   "targetAsset": zod.string().min(1).max(createManualDeskPricingRuleBodyOneTargetAssetMax).nullish(),
+  "targetCryptoAssetId": zod.string().min(1).max(createManualDeskPricingRuleBodyOneTargetCryptoAssetIdMax).nullish(),
   "sourceNetwork": zod.string().min(1).max(createManualDeskPricingRuleBodyOneSourceNetworkMax).nullish(),
   "targetNetwork": zod.string().min(1).max(createManualDeskPricingRuleBodyOneTargetNetworkMax).nullish(),
   "paymentMethod": zod.string().min(1).max(createManualDeskPricingRuleBodyOnePaymentMethodMax).nullish(),
@@ -5641,7 +5697,11 @@ export const CreateManualDeskPricingRuleBody = zod.object({
 
 export const createManualDeskPricingRuleResponseOneOneSourceAssetMax = 30;
 
+export const createManualDeskPricingRuleResponseOneOneSourceCryptoAssetIdMax = 200;
+
 export const createManualDeskPricingRuleResponseOneOneTargetAssetMax = 30;
+
+export const createManualDeskPricingRuleResponseOneOneTargetCryptoAssetIdMax = 200;
 
 export const createManualDeskPricingRuleResponseOneOneSourceNetworkMax = 100;
 
@@ -5687,7 +5747,9 @@ export const createManualDeskPricingRuleResponseTwoSpecificityMultipleOf = 1;
 
 export const CreateManualDeskPricingRuleResponse = zod.object({
   "sourceAsset": zod.string().min(1).max(createManualDeskPricingRuleResponseOneOneSourceAssetMax).nullish(),
+  "sourceCryptoAssetId": zod.string().min(1).max(createManualDeskPricingRuleResponseOneOneSourceCryptoAssetIdMax).nullish(),
   "targetAsset": zod.string().min(1).max(createManualDeskPricingRuleResponseOneOneTargetAssetMax).nullish(),
+  "targetCryptoAssetId": zod.string().min(1).max(createManualDeskPricingRuleResponseOneOneTargetCryptoAssetIdMax).nullish(),
   "sourceNetwork": zod.string().min(1).max(createManualDeskPricingRuleResponseOneOneSourceNetworkMax).nullish(),
   "targetNetwork": zod.string().min(1).max(createManualDeskPricingRuleResponseOneOneTargetNetworkMax).nullish(),
   "paymentMethod": zod.string().min(1).max(createManualDeskPricingRuleResponseOneOnePaymentMethodMax).nullish(),
@@ -5734,6 +5796,10 @@ export const bulkManualDeskPricingRulesBodyPatchPriorityMin = -1000000;
 export const bulkManualDeskPricingRulesBodyPatchPriorityMax = 1000000;
 export const bulkManualDeskPricingRulesBodyPatchPriorityMultipleOf = 1;
 
+export const bulkManualDeskPricingRulesBodyPatchSourceCryptoAssetIdMax = 200;
+
+export const bulkManualDeskPricingRulesBodyPatchTargetCryptoAssetIdMax = 200;
+
 export const bulkManualDeskPricingRulesBodyPatchSourceSettlementOptionIdMax = 200;
 
 export const bulkManualDeskPricingRulesBodyPatchTargetSettlementOptionIdMax = 200;
@@ -5761,6 +5827,8 @@ export const BulkManualDeskPricingRulesBody = zod.object({
   "markupBasisPoints": zod.number().min(bulkManualDeskPricingRulesBodyPatchMarkupBasisPointsMin).max(bulkManualDeskPricingRulesBodyPatchMarkupBasisPointsMax).multipleOf(bulkManualDeskPricingRulesBodyPatchMarkupBasisPointsMultipleOf).optional(),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).optional(),
   "priority": zod.number().min(bulkManualDeskPricingRulesBodyPatchPriorityMin).max(bulkManualDeskPricingRulesBodyPatchPriorityMax).multipleOf(bulkManualDeskPricingRulesBodyPatchPriorityMultipleOf).optional(),
+  "sourceCryptoAssetId": zod.string().min(1).max(bulkManualDeskPricingRulesBodyPatchSourceCryptoAssetIdMax).nullish(),
+  "targetCryptoAssetId": zod.string().min(1).max(bulkManualDeskPricingRulesBodyPatchTargetCryptoAssetIdMax).nullish(),
   "sourceSettlementOptionId": zod.string().min(1).max(bulkManualDeskPricingRulesBodyPatchSourceSettlementOptionIdMax).nullish(),
   "targetSettlementOptionId": zod.string().min(1).max(bulkManualDeskPricingRulesBodyPatchTargetSettlementOptionIdMax).nullish(),
   "exactRate": zod.union([zod.string().regex(bulkManualDeskPricingRulesBodyPatchExactRateOneRegExp).describe('An exact positive base-10 decimal value.'),zod.null()]).optional(),
@@ -5775,7 +5843,11 @@ export const BulkManualDeskPricingRulesBody = zod.object({
 
 export const bulkManualDeskPricingRulesResponseItemsItemOneOneSourceAssetMax = 30;
 
+export const bulkManualDeskPricingRulesResponseItemsItemOneOneSourceCryptoAssetIdMax = 200;
+
 export const bulkManualDeskPricingRulesResponseItemsItemOneOneTargetAssetMax = 30;
+
+export const bulkManualDeskPricingRulesResponseItemsItemOneOneTargetCryptoAssetIdMax = 200;
 
 export const bulkManualDeskPricingRulesResponseItemsItemOneOneSourceNetworkMax = 100;
 
@@ -5825,7 +5897,9 @@ export const bulkManualDeskPricingRulesResponseSkippedItemCurrentVersionMultiple
 export const BulkManualDeskPricingRulesResponse = zod.object({
   "items": zod.array(zod.object({
   "sourceAsset": zod.string().min(1).max(bulkManualDeskPricingRulesResponseItemsItemOneOneSourceAssetMax).nullish(),
+  "sourceCryptoAssetId": zod.string().min(1).max(bulkManualDeskPricingRulesResponseItemsItemOneOneSourceCryptoAssetIdMax).nullish(),
   "targetAsset": zod.string().min(1).max(bulkManualDeskPricingRulesResponseItemsItemOneOneTargetAssetMax).nullish(),
+  "targetCryptoAssetId": zod.string().min(1).max(bulkManualDeskPricingRulesResponseItemsItemOneOneTargetCryptoAssetIdMax).nullish(),
   "sourceNetwork": zod.string().min(1).max(bulkManualDeskPricingRulesResponseItemsItemOneOneSourceNetworkMax).nullish(),
   "targetNetwork": zod.string().min(1).max(bulkManualDeskPricingRulesResponseItemsItemOneOneTargetNetworkMax).nullish(),
   "paymentMethod": zod.string().min(1).max(bulkManualDeskPricingRulesResponseItemsItemOneOnePaymentMethodMax).nullish(),
@@ -5883,7 +5957,11 @@ export const BulkManualDeskPricingRulesResponse = zod.object({
  */
 export const bulkCreateManualDeskPricingRulesBodyRulesItemOneSourceAssetMax = 30;
 
+export const bulkCreateManualDeskPricingRulesBodyRulesItemOneSourceCryptoAssetIdMax = 200;
+
 export const bulkCreateManualDeskPricingRulesBodyRulesItemOneTargetAssetMax = 30;
+
+export const bulkCreateManualDeskPricingRulesBodyRulesItemOneTargetCryptoAssetIdMax = 200;
 
 export const bulkCreateManualDeskPricingRulesBodyRulesItemOneSourceNetworkMax = 100;
 
@@ -5926,7 +6004,9 @@ export const bulkCreateManualDeskPricingRulesBodyRulesMax = 200;
 export const BulkCreateManualDeskPricingRulesBody = zod.object({
   "rules": zod.array(zod.object({
   "sourceAsset": zod.string().min(1).max(bulkCreateManualDeskPricingRulesBodyRulesItemOneSourceAssetMax).nullish(),
+  "sourceCryptoAssetId": zod.string().min(1).max(bulkCreateManualDeskPricingRulesBodyRulesItemOneSourceCryptoAssetIdMax).nullish(),
   "targetAsset": zod.string().min(1).max(bulkCreateManualDeskPricingRulesBodyRulesItemOneTargetAssetMax).nullish(),
+  "targetCryptoAssetId": zod.string().min(1).max(bulkCreateManualDeskPricingRulesBodyRulesItemOneTargetCryptoAssetIdMax).nullish(),
   "sourceNetwork": zod.string().min(1).max(bulkCreateManualDeskPricingRulesBodyRulesItemOneSourceNetworkMax).nullish(),
   "targetNetwork": zod.string().min(1).max(bulkCreateManualDeskPricingRulesBodyRulesItemOneTargetNetworkMax).nullish(),
   "paymentMethod": zod.string().min(1).max(bulkCreateManualDeskPricingRulesBodyRulesItemOnePaymentMethodMax).nullish(),
@@ -5951,7 +6031,11 @@ export const BulkCreateManualDeskPricingRulesBody = zod.object({
 
 export const bulkCreateManualDeskPricingRulesResponseItemsItemOneOneSourceAssetMax = 30;
 
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneOneSourceCryptoAssetIdMax = 200;
+
 export const bulkCreateManualDeskPricingRulesResponseItemsItemOneOneTargetAssetMax = 30;
+
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneOneTargetCryptoAssetIdMax = 200;
 
 export const bulkCreateManualDeskPricingRulesResponseItemsItemOneOneSourceNetworkMax = 100;
 
@@ -5998,7 +6082,9 @@ export const bulkCreateManualDeskPricingRulesResponseItemsItemTwoSpecificityMult
 export const BulkCreateManualDeskPricingRulesResponse = zod.object({
   "items": zod.array(zod.object({
   "sourceAsset": zod.string().min(1).max(bulkCreateManualDeskPricingRulesResponseItemsItemOneOneSourceAssetMax).nullish(),
+  "sourceCryptoAssetId": zod.string().min(1).max(bulkCreateManualDeskPricingRulesResponseItemsItemOneOneSourceCryptoAssetIdMax).nullish(),
   "targetAsset": zod.string().min(1).max(bulkCreateManualDeskPricingRulesResponseItemsItemOneOneTargetAssetMax).nullish(),
+  "targetCryptoAssetId": zod.string().min(1).max(bulkCreateManualDeskPricingRulesResponseItemsItemOneOneTargetCryptoAssetIdMax).nullish(),
   "sourceNetwork": zod.string().min(1).max(bulkCreateManualDeskPricingRulesResponseItemsItemOneOneSourceNetworkMax).nullish(),
   "targetNetwork": zod.string().min(1).max(bulkCreateManualDeskPricingRulesResponseItemsItemOneOneTargetNetworkMax).nullish(),
   "paymentMethod": zod.string().min(1).max(bulkCreateManualDeskPricingRulesResponseItemsItemOneOnePaymentMethodMax).nullish(),
@@ -6863,7 +6949,11 @@ export const DeleteCryptoNetworkResponse = zod.void()
  */
 export const previewManualDeskPricingRuleBodySourceAssetMax = 30;
 
+export const previewManualDeskPricingRuleBodySourceCryptoAssetIdMax = 200;
+
 export const previewManualDeskPricingRuleBodyTargetAssetMax = 30;
+
+export const previewManualDeskPricingRuleBodyTargetCryptoAssetIdMax = 200;
 
 export const previewManualDeskPricingRuleBodySourceNetworkMax = 100;
 
@@ -6880,10 +6970,12 @@ export const previewManualDeskPricingRuleBodyTargetSettlementOptionIdMax = 200;
 
 
 export const PreviewManualDeskPricingRuleBody = zod.object({
-  "sourceAsset": zod.string().min(1).max(previewManualDeskPricingRuleBodySourceAssetMax),
-  "targetAsset": zod.string().min(1).max(previewManualDeskPricingRuleBodyTargetAssetMax),
-  "sourceNetwork": zod.string().min(1).max(previewManualDeskPricingRuleBodySourceNetworkMax),
-  "targetNetwork": zod.string().min(1).max(previewManualDeskPricingRuleBodyTargetNetworkMax),
+  "sourceAsset": zod.string().min(1).max(previewManualDeskPricingRuleBodySourceAssetMax).nullish(),
+  "sourceCryptoAssetId": zod.string().min(1).max(previewManualDeskPricingRuleBodySourceCryptoAssetIdMax).nullish(),
+  "targetAsset": zod.string().min(1).max(previewManualDeskPricingRuleBodyTargetAssetMax).nullish(),
+  "targetCryptoAssetId": zod.string().min(1).max(previewManualDeskPricingRuleBodyTargetCryptoAssetIdMax).nullish(),
+  "sourceNetwork": zod.string().min(1).max(previewManualDeskPricingRuleBodySourceNetworkMax).nullish(),
+  "targetNetwork": zod.string().min(1).max(previewManualDeskPricingRuleBodyTargetNetworkMax).nullish(),
   "paymentMethod": zod.string().max(previewManualDeskPricingRuleBodyPaymentMethodMax).optional(),
   "payoutMethod": zod.string().max(previewManualDeskPricingRuleBodyPayoutMethodMax).optional(),
   "sourceSettlementOptionId": zod.string().max(previewManualDeskPricingRuleBodySourceSettlementOptionIdMax).optional(),
@@ -6892,7 +6984,11 @@ export const PreviewManualDeskPricingRuleBody = zod.object({
 
 export const previewManualDeskPricingRuleResponseOneOneSourceAssetMax = 30;
 
+export const previewManualDeskPricingRuleResponseOneOneSourceCryptoAssetIdMax = 200;
+
 export const previewManualDeskPricingRuleResponseOneOneTargetAssetMax = 30;
+
+export const previewManualDeskPricingRuleResponseOneOneTargetCryptoAssetIdMax = 200;
 
 export const previewManualDeskPricingRuleResponseOneOneSourceNetworkMax = 100;
 
@@ -6938,7 +7034,9 @@ export const previewManualDeskPricingRuleResponseTwoSpecificityMultipleOf = 1;
 
 export const PreviewManualDeskPricingRuleResponse = zod.object({
   "sourceAsset": zod.string().min(1).max(previewManualDeskPricingRuleResponseOneOneSourceAssetMax).nullish(),
+  "sourceCryptoAssetId": zod.string().min(1).max(previewManualDeskPricingRuleResponseOneOneSourceCryptoAssetIdMax).nullish(),
   "targetAsset": zod.string().min(1).max(previewManualDeskPricingRuleResponseOneOneTargetAssetMax).nullish(),
+  "targetCryptoAssetId": zod.string().min(1).max(previewManualDeskPricingRuleResponseOneOneTargetCryptoAssetIdMax).nullish(),
   "sourceNetwork": zod.string().min(1).max(previewManualDeskPricingRuleResponseOneOneSourceNetworkMax).nullish(),
   "targetNetwork": zod.string().min(1).max(previewManualDeskPricingRuleResponseOneOneTargetNetworkMax).nullish(),
   "paymentMethod": zod.string().min(1).max(previewManualDeskPricingRuleResponseOneOnePaymentMethodMax).nullish(),
@@ -6973,111 +7071,28 @@ export const PreviewManualDeskPricingRuleResponse = zod.object({
 /**
  * @summary Calculate a manual quote for pricing administration without requiring an enabled deposit route
  */
-export const previewManualDeskQuoteBodyFromAssetMin = 2;
-
-
-export const previewManualDeskQuoteBodyToAssetMin = 2;
-
-
-export const previewManualDeskQuoteBodyAmountExclusiveMin = 0;
-
-export const previewManualDeskQuoteBodyPaymentMethodMax = 100;
-
-export const previewManualDeskQuoteBodyPayoutMethodMax = 100;
-
-export const previewManualDeskQuoteBodySourceSettlementOptionIdMax = 200;
-
-export const previewManualDeskQuoteBodyTargetSettlementOptionIdMax = 200;
-
+export const previewManualDeskQuoteBodyAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 
 
 export const PreviewManualDeskQuoteBody = zod.object({
-  "type": zod.enum(['instant', 'manual']),
-  "fromAsset": zod.string().min(previewManualDeskQuoteBodyFromAssetMin),
-  "fromNetwork": zod.string().min(1),
-  "toAsset": zod.string().min(previewManualDeskQuoteBodyToAssetMin),
-  "toNetwork": zod.string().min(1),
-  "amount": zod.number().gt(previewManualDeskQuoteBodyAmountExclusiveMin),
-  "rateMode": zod.enum(['FLOATING', 'FIXED']).optional(),
-  "paymentMethod": zod.string().max(previewManualDeskQuoteBodyPaymentMethodMax).optional(),
-  "payoutMethod": zod.string().max(previewManualDeskQuoteBodyPayoutMethodMax).optional(),
-  "sourceSettlementOptionId": zod.string().min(1).max(previewManualDeskQuoteBodySourceSettlementOptionIdMax).optional(),
-  "targetSettlementOptionId": zod.string().min(1).max(previewManualDeskQuoteBodyTargetSettlementOptionIdMax).optional()
+  "amount": zod.string().regex(previewManualDeskQuoteBodyAmountRegExp).describe('An exact positive base-10 decimal value.'),
+  "sourceCryptoAssetId": zod.string().nullable(),
+  "targetCryptoAssetId": zod.string().nullable(),
+  "sourceSettlementOptionId": zod.string().nullable(),
+  "targetSettlementOptionId": zod.string().nullable()
 })
 
-export const previewManualDeskQuoteResponsePricingRuleVersionMultipleOf = 1;
-
-export const previewManualDeskQuoteResponseRequiredSettlementFieldsItemKeyRegExp = new RegExp('^[a-z][a-z0-9_]{0,63}$');
-export const previewManualDeskQuoteResponseRequiredSettlementFieldsItemLabelMax = 100;
-
-export const previewManualDeskQuoteResponseRequiredSettlementFieldsItemHelpMax = 500;
-
-export const previewManualDeskQuoteResponseRequiredSettlementFieldsItemOptionsItemValueMax = 200;
-
-export const previewManualDeskQuoteResponseRequiredSettlementFieldsItemOptionsItemLabelMax = 200;
-
-export const previewManualDeskQuoteResponseRequiredSettlementFieldsItemOptionsMax = 100;
-
-export const previewManualDeskQuoteResponseRequiredSettlementFieldsItemPatternMax = 500;
-
-export const previewManualDeskQuoteResponseRequiredSettlementFieldsItemRequiredWhenFieldKeyRegExp = new RegExp('^[a-z][a-z0-9_]{0,63}$');
-export const previewManualDeskQuoteResponseRequiredSettlementFieldsItemRequiredWhenEqualsOneMax = 200;
-
-export const previewManualDeskQuoteResponseRequiredSettlementFieldsItemRequiredWhenEqualsTwoItemMax = 200;
-
-export const previewManualDeskQuoteResponseRequiredSettlementFieldsItemRequiredWhenEqualsTwoMax = 50;
-
-export const previewManualDeskQuoteResponseExpectedSettlementMinutesMultipleOf = 1;
-
-
-
 export const PreviewManualDeskQuoteResponse = zod.object({
-  "quoteId": zod.string(),
-  "type": zod.enum(['instant', 'manual']),
   "fromAsset": zod.string(),
-  "fromNetwork": zod.string(),
   "toAsset": zod.string(),
-  "toNetwork": zod.string(),
-  "amount": zod.number(),
+  "grossMarketAmount": zod.number(),
+  "percentageCommission": zod.number(),
+  "fixedCommission": zod.number(),
+  "totalFee": zod.number(),
   "receiveAmount": zod.number(),
   "rate": zod.number(),
-  "fee": zod.number(),
-  "minAmount": zod.number().optional(),
-  "maxAmount": zod.number().optional(),
-  "expiresAt": zod.string(),
-  "provider": zod.string(),
-  "rateMode": zod.enum(['FLOATING', 'FIXED']).optional(),
-  "grossMarketAmount": zod.number().optional(),
-  "percentageCommission": zod.number().optional(),
-  "fixedCommission": zod.number().optional(),
-  "totalFee": zod.number().optional(),
-  "pricingRuleId": zod.string().optional(),
-  "pricingRuleVersion": zod.number().min(1).multipleOf(previewManualDeskQuoteResponsePricingRuleVersionMultipleOf).optional(),
-  "pricingRuleName": zod.string().optional(),
-  "sourceSettlementOptionId": zod.string().optional(),
-  "targetSettlementOptionId": zod.string().optional(),
-  "requiredSettlementFields": zod.array(zod.object({
-  "key": zod.string().regex(previewManualDeskQuoteResponseRequiredSettlementFieldsItemKeyRegExp),
-  "type": zod.enum(['short-text', 'long-text', 'integer', 'numeric', 'decimal', 'account-iban', 'account-number', 'account-name', 'bank-code', 'routing-number', 'country-code', 'postal-address', 'phone', 'email', 'date', 'select', 'wallet-address', 'memo-tag', 'private-image', 'text', 'number', 'textarea']),
-  "direction": zod.enum(['send', 'receive', 'both']).optional(),
-  "emphasizedLabel": zod.boolean().optional(),
-  "label": zod.string().min(1).max(previewManualDeskQuoteResponseRequiredSettlementFieldsItemLabelMax),
-  "help": zod.string().max(previewManualDeskQuoteResponseRequiredSettlementFieldsItemHelpMax).optional(),
-  "options": zod.array(zod.object({
-  "value": zod.string().max(previewManualDeskQuoteResponseRequiredSettlementFieldsItemOptionsItemValueMax),
-  "label": zod.string().max(previewManualDeskQuoteResponseRequiredSettlementFieldsItemOptionsItemLabelMax)
-})).max(previewManualDeskQuoteResponseRequiredSettlementFieldsItemOptionsMax).optional(),
-  "required": zod.boolean().optional(),
-  "min": zod.number().optional(),
-  "max": zod.number().optional(),
-  "pattern": zod.string().max(previewManualDeskQuoteResponseRequiredSettlementFieldsItemPatternMax).optional(),
-  "requiredWhen": zod.object({
-  "fieldKey": zod.string().regex(previewManualDeskQuoteResponseRequiredSettlementFieldsItemRequiredWhenFieldKeyRegExp),
-  "equals": zod.union([zod.string().max(previewManualDeskQuoteResponseRequiredSettlementFieldsItemRequiredWhenEqualsOneMax),zod.array(zod.string().max(previewManualDeskQuoteResponseRequiredSettlementFieldsItemRequiredWhenEqualsTwoItemMax)).min(1).max(previewManualDeskQuoteResponseRequiredSettlementFieldsItemRequiredWhenEqualsTwoMax)])
-}).optional()
-})).optional(),
-  "customerInstructions": zod.string().optional(),
-  "expectedSettlementMinutes": zod.number().min(1).multipleOf(previewManualDeskQuoteResponseExpectedSettlementMinutesMultipleOf).optional()
+  "pricingRuleName": zod.string(),
+  "pricingRuleId": zod.string()
 })
 
 
@@ -7093,7 +7108,11 @@ export const UpdateManualDeskPricingRuleParams = zod.object({
 
 export const updateManualDeskPricingRuleBodyOneOneSourceAssetMax = 30;
 
+export const updateManualDeskPricingRuleBodyOneOneSourceCryptoAssetIdMax = 200;
+
 export const updateManualDeskPricingRuleBodyOneOneTargetAssetMax = 30;
+
+export const updateManualDeskPricingRuleBodyOneOneTargetCryptoAssetIdMax = 200;
 
 export const updateManualDeskPricingRuleBodyOneOneSourceNetworkMax = 100;
 
@@ -7135,7 +7154,9 @@ export const updateManualDeskPricingRuleBodyTwoVersionMultipleOf = 1;
 
 export const UpdateManualDeskPricingRuleBody = zod.object({
   "sourceAsset": zod.string().min(1).max(updateManualDeskPricingRuleBodyOneOneSourceAssetMax).nullish(),
+  "sourceCryptoAssetId": zod.string().min(1).max(updateManualDeskPricingRuleBodyOneOneSourceCryptoAssetIdMax).nullish(),
   "targetAsset": zod.string().min(1).max(updateManualDeskPricingRuleBodyOneOneTargetAssetMax).nullish(),
+  "targetCryptoAssetId": zod.string().min(1).max(updateManualDeskPricingRuleBodyOneOneTargetCryptoAssetIdMax).nullish(),
   "sourceNetwork": zod.string().min(1).max(updateManualDeskPricingRuleBodyOneOneSourceNetworkMax).nullish(),
   "targetNetwork": zod.string().min(1).max(updateManualDeskPricingRuleBodyOneOneTargetNetworkMax).nullish(),
   "paymentMethod": zod.string().min(1).max(updateManualDeskPricingRuleBodyOneOnePaymentMethodMax).nullish(),
@@ -7161,7 +7182,11 @@ export const UpdateManualDeskPricingRuleBody = zod.object({
 
 export const updateManualDeskPricingRuleResponseOneOneSourceAssetMax = 30;
 
+export const updateManualDeskPricingRuleResponseOneOneSourceCryptoAssetIdMax = 200;
+
 export const updateManualDeskPricingRuleResponseOneOneTargetAssetMax = 30;
+
+export const updateManualDeskPricingRuleResponseOneOneTargetCryptoAssetIdMax = 200;
 
 export const updateManualDeskPricingRuleResponseOneOneSourceNetworkMax = 100;
 
@@ -7207,7 +7232,9 @@ export const updateManualDeskPricingRuleResponseTwoSpecificityMultipleOf = 1;
 
 export const UpdateManualDeskPricingRuleResponse = zod.object({
   "sourceAsset": zod.string().min(1).max(updateManualDeskPricingRuleResponseOneOneSourceAssetMax).nullish(),
+  "sourceCryptoAssetId": zod.string().min(1).max(updateManualDeskPricingRuleResponseOneOneSourceCryptoAssetIdMax).nullish(),
   "targetAsset": zod.string().min(1).max(updateManualDeskPricingRuleResponseOneOneTargetAssetMax).nullish(),
+  "targetCryptoAssetId": zod.string().min(1).max(updateManualDeskPricingRuleResponseOneOneTargetCryptoAssetIdMax).nullish(),
   "sourceNetwork": zod.string().min(1).max(updateManualDeskPricingRuleResponseOneOneSourceNetworkMax).nullish(),
   "targetNetwork": zod.string().min(1).max(updateManualDeskPricingRuleResponseOneOneTargetNetworkMax).nullish(),
   "paymentMethod": zod.string().min(1).max(updateManualDeskPricingRuleResponseOneOnePaymentMethodMax).nullish(),
@@ -7527,7 +7554,9 @@ export const ReconcileOrderResponse = zod.object({
   "name": zod.string(),
   "selectors": zod.object({
   "sourceAsset": zod.string().nullable(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string().nullable(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string().nullable(),
   "targetNetwork": zod.string().nullable(),
   "paymentMethod": zod.string().nullable(),
@@ -7544,7 +7573,9 @@ export const ReconcileOrderResponse = zod.object({
 }),
   "context": zod.object({
   "sourceAsset": zod.string(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string(),
   "targetNetwork": zod.string(),
   "paymentMethod": zod.string(),
@@ -8403,7 +8434,9 @@ export const CreateQuickexOrderResponse = zod.object({
   "name": zod.string(),
   "selectors": zod.object({
   "sourceAsset": zod.string().nullable(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string().nullable(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string().nullable(),
   "targetNetwork": zod.string().nullable(),
   "paymentMethod": zod.string().nullable(),
@@ -8420,7 +8453,9 @@ export const CreateQuickexOrderResponse = zod.object({
 }),
   "context": zod.object({
   "sourceAsset": zod.string(),
+  "sourceCryptoAssetId": zod.string().nullish(),
   "targetAsset": zod.string(),
+  "targetCryptoAssetId": zod.string().nullish(),
   "sourceNetwork": zod.string(),
   "targetNetwork": zod.string(),
   "paymentMethod": zod.string(),

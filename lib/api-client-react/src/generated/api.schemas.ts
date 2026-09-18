@@ -1476,7 +1476,11 @@ export type OrderPricingSnapshotRuleSelectors = {
   /** @nullable */
   sourceAsset: string | null;
   /** @nullable */
+  sourceCryptoAssetId?: string | null;
+  /** @nullable */
   targetAsset: string | null;
+  /** @nullable */
+  targetCryptoAssetId?: string | null;
   /** @nullable */
   sourceNetwork: string | null;
   /** @nullable */
@@ -1519,7 +1523,11 @@ export type OrderPricingSnapshotRule = {
 
 export type OrderPricingSnapshotContext = {
   sourceAsset: string;
+  /** @nullable */
+  sourceCryptoAssetId?: string | null;
   targetAsset: string;
+  /** @nullable */
+  targetCryptoAssetId?: string | null;
   sourceNetwork: string;
   targetNetwork: string;
   paymentMethod: string;
@@ -1784,10 +1792,22 @@ export interface ManualDeskPricingSelectorProperties {
   sourceAsset?: string | null;
   /**
      * @minLength 1
+     * @maxLength 200
+     * @nullable
+     */
+  sourceCryptoAssetId?: string | null;
+  /**
+     * @minLength 1
      * @maxLength 30
      * @nullable
      */
   targetAsset?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     * @nullable
+     */
+  targetCryptoAssetId?: string | null;
   /**
      * @minLength 1
      * @maxLength 100
@@ -1936,6 +1956,18 @@ export interface ManualDeskPricingRulesBulkPatch {
      * @maxLength 200
      * @nullable
      */
+  sourceCryptoAssetId?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     * @nullable
+     */
+  targetCryptoAssetId?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     * @nullable
+     */
   sourceSettlementOptionId?: string | null;
   /**
      * @minLength 1
@@ -2050,23 +2082,39 @@ export interface ManualDeskPricingPreviewInput {
   /**
      * @minLength 1
      * @maxLength 30
+     * @nullable
      */
-  sourceAsset: string;
+  sourceAsset?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     * @nullable
+     */
+  sourceCryptoAssetId?: string | null;
   /**
      * @minLength 1
      * @maxLength 30
+     * @nullable
      */
-  targetAsset: string;
+  targetAsset?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     * @nullable
+     */
+  targetCryptoAssetId?: string | null;
   /**
      * @minLength 1
      * @maxLength 100
+     * @nullable
      */
-  sourceNetwork: string;
+  sourceNetwork?: string | null;
   /**
      * @minLength 1
      * @maxLength 100
+     * @nullable
      */
-  targetNetwork: string;
+  targetNetwork?: string | null;
   /** @maxLength 100 */
   paymentMethod?: string;
   /** @maxLength 100 */
@@ -2075,6 +2123,31 @@ export interface ManualDeskPricingPreviewInput {
   sourceSettlementOptionId?: string;
   /** @maxLength 200 */
   targetSettlementOptionId?: string;
+}
+
+export interface ManualDeskPricingQuotePreviewInput {
+  amount: PositiveExactDecimal;
+  /** @nullable */
+  sourceCryptoAssetId: string | null;
+  /** @nullable */
+  targetCryptoAssetId: string | null;
+  /** @nullable */
+  sourceSettlementOptionId: string | null;
+  /** @nullable */
+  targetSettlementOptionId: string | null;
+}
+
+export interface ManualDeskPricingQuotePreview {
+  fromAsset: string;
+  toAsset: string;
+  grossMarketAmount: number;
+  percentageCommission: number;
+  fixedCommission: number;
+  totalFee: number;
+  receiveAmount: number;
+  rate: number;
+  pricingRuleName: string;
+  pricingRuleId: string;
 }
 
 export type ProviderFreshnessState = typeof ProviderFreshnessState[keyof typeof ProviderFreshnessState];

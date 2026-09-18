@@ -26,6 +26,18 @@ export interface ManualDeskPricingRulesBulkPatch {
      * @maxLength 200
      * @nullable
      */
+  sourceCryptoAssetId?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     * @nullable
+     */
+  targetCryptoAssetId?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     * @nullable
+     */
   sourceSettlementOptionId?: string | null;
   /**
      * @minLength 1

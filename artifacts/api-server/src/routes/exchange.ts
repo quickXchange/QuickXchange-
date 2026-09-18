@@ -1,6 +1,6 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { Router, type IRouter, type Request } from "express";
-import { and, asc, count, desc, eq, gte, ilike, inArray, isNull, lte, notInArray, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, inArray, isNull, lte, ne, notInArray, or, sql } from "drizzle-orm";
 import {
   CreateExchangeOrderBody,
   CreateExchangeOrderResponse,
@@ -884,7 +884,13 @@ async function buildQuoteTicket(
         selectors: normalizeManualPricingSelectors({
           ...rule,
           sourceAsset: route.fromAsset,
+          sourceCryptoAssetId: sourceOption?.kind === "crypto-network"
+            ? sourceOption.assetId
+            : rule.sourceCryptoAssetId,
           targetAsset: route.toAsset,
+          targetCryptoAssetId: targetOption?.kind === "crypto-network"
+            ? targetOption.assetId
+            : rule.targetCryptoAssetId,
           sourceNetwork: route.fromNetwork,
           targetNetwork: route.toNetwork,
           sourceSettlementOptionId: sourceOption?.id,
@@ -901,7 +907,13 @@ async function buildQuoteTicket(
       },
       context: {
         sourceAsset: route.fromAsset,
+        sourceCryptoAssetId: sourceOption?.kind === "crypto-network"
+          ? sourceOption.assetId
+          : rule.sourceCryptoAssetId,
         targetAsset: route.toAsset,
+        targetCryptoAssetId: targetOption?.kind === "crypto-network"
+          ? targetOption.assetId
+          : rule.targetCryptoAssetId,
         sourceNetwork: route.fromNetwork,
         targetNetwork: route.toNetwork,
         paymentMethod: normalizeManualPricingSelectors(input).paymentMethod ?? "",
@@ -1088,10 +1100,32 @@ async function validateExactPricingRuleOptions(input: {
   targetSettlementOptionId?: string | null;
   sourceAsset?: string | null;
   targetAsset?: string | null;
+  sourceCryptoAssetId?: string | null;
+  targetCryptoAssetId?: string | null;
   sourceNetwork?: string | null;
   targetNetwork?: string | null;
   exactRate?: string | null;
 }) {
+  const assetIds = [input.sourceCryptoAssetId, input.targetCryptoAssetId]
+    .map((id) => id?.trim()).filter((id): id is string => Boolean(id));
+  if (assetIds.length) {
+    const assets = await db.select({ id: cryptoAssetsTable.id })
+      .from(cryptoAssetsTable)
+      .where(and(
+        inArray(cryptoAssetsTable.id, assetIds),
+        eq(cryptoAssetsTable.enabled, true),
+        ne(cryptoAssetsTable.lifecycle, "deprecated"),
+      ));
+    if (assets.length !== new Set(assetIds.map((id) => id.toLowerCase())).size) {
+      throw new ApiError("SETTLEMENT_OPTION_INVALID", "Pricing rules must reference enabled, non-deprecated crypto assets.", 400);
+    }
+    if (input.sourceCryptoAssetId && (
+      input.sourceSettlementOptionId || input.sourceAsset || input.sourceNetwork
+    )) throw new ApiError("SETTLEMENT_OPTION_INVALID", "Asset-level source selectors cannot include network or settlement selectors.", 400);
+    if (input.targetCryptoAssetId && (
+      input.targetSettlementOptionId || input.targetAsset || input.targetNetwork
+    )) throw new ApiError("SETTLEMENT_OPTION_INVALID", "Asset-level target selectors cannot include network or settlement selectors.", 400);
+  }
   const sourceId = input.sourceSettlementOptionId?.trim();
   const targetId = input.targetSettlementOptionId?.trim();
   if (!sourceId && !targetId) return;
@@ -1234,15 +1268,88 @@ router.post("/exchange/quote", async (req, res, next) => {
 router.post("/admin/manual-desk-pricing-rules/quote-preview", requireOperator, async (req, res, next) => {
   try {
     const input = PreviewManualDeskQuoteBody.parse(req.body);
-    const ticket = await buildQuoteTicket(input, undefined, true);
+    const options = [
+      ...await listPublicFiatSettlementOptions(),
+      ...await listPublicManualCryptoSettlementOptions(),
+    ];
+    const sourceOption = input.sourceSettlementOptionId
+      ? options.find((option) => option.id === input.sourceSettlementOptionId)
+      : undefined;
+    const targetOption = input.targetSettlementOptionId
+      ? options.find((option) => option.id === input.targetSettlementOptionId)
+      : undefined;
+    const sourceAsset = input.sourceCryptoAssetId
+      ? (await db.select().from(cryptoAssetsTable).where(and(
+        eq(cryptoAssetsTable.id, input.sourceCryptoAssetId),
+        eq(cryptoAssetsTable.enabled, true),
+        ne(cryptoAssetsTable.lifecycle, "deprecated"),
+      )).limit(1))[0]
+      : undefined;
+    const targetAsset = input.targetCryptoAssetId
+      ? (await db.select().from(cryptoAssetsTable).where(and(
+        eq(cryptoAssetsTable.id, input.targetCryptoAssetId),
+        eq(cryptoAssetsTable.enabled, true),
+        ne(cryptoAssetsTable.lifecycle, "deprecated"),
+      )).limit(1))[0]
+      : undefined;
+    if (Boolean(input.sourceCryptoAssetId) === Boolean(input.sourceSettlementOptionId) ||
+        Boolean(input.targetCryptoAssetId) === Boolean(input.targetSettlementOptionId) ||
+        (input.sourceCryptoAssetId && !sourceAsset) || (input.targetCryptoAssetId && !targetAsset) ||
+        (input.sourceSettlementOptionId && (!sourceOption || sourceOption.kind !== "fiat-payment-method")) ||
+        (input.targetSettlementOptionId && (!targetOption || targetOption.kind !== "fiat-payment-method"))) {
+      throw new ApiError("SETTLEMENT_OPTION_INVALID", "Choose exactly one valid crypto asset or fiat settlement option on each side.", 400);
+    }
+    if (sourceOption && sourceOption.direction !== "send" && sourceOption.direction !== "both") {
+      throw new ApiError("SETTLEMENT_OPTION_INVALID", "The source settlement option cannot send.", 400);
+    }
+    if (targetOption && targetOption.direction !== "receive" && targetOption.direction !== "both") {
+      throw new ApiError("SETTLEMENT_OPTION_INVALID", "The target settlement option cannot receive.", 400);
+    }
+    if (sourceAsset && targetAsset) {
+      throw new ApiError("SETTLEMENT_OPTION_INVALID", "At least one quote side must use a fiat settlement option.", 400);
+    }
+    const sourceCode = sourceAsset?.code ?? sourceOption!.assetCode;
+    const targetCode = targetAsset?.code ?? targetOption!.assetCode;
+    const context = {
+      sourceAsset: sourceCode,
+      targetAsset: targetCode,
+      sourceNetwork: sourceOption?.routeNetwork ?? null,
+      targetNetwork: targetOption?.routeNetwork ?? null,
+      sourceCryptoAssetId: sourceAsset?.id ?? null,
+      targetCryptoAssetId: targetAsset?.id ?? null,
+      sourceSettlementOptionId: sourceOption?.id ?? null,
+      targetSettlementOptionId: targetOption?.id ?? null,
+    };
+    const rule = await matchManualDeskPricingRule(context);
+    const targetPrecision = targetAsset
+      ? Math.min(targetAsset.decimals, MAX_MANUAL_DESK_TARGET_PRECISION)
+      : await (async () => {
+        const currency = await db.select({ precision: fiatCurrenciesTable.precision })
+          .from(fiatCurrenciesTable)
+          .where(eq(fiatCurrenciesTable.code, targetCode)).limit(1);
+        return Math.min(currency[0]?.precision ?? 2, MAX_MANUAL_DESK_TARGET_PRECISION);
+      })();
+    const amount = Number(input.amount);
+    if (rule.minAmount != null && amount < Number(rule.minAmount) ||
+        rule.maxAmount != null && amount > Number(rule.maxAmount)) {
+      throw new ApiError("AMOUNT_OUT_OF_RANGE", "The amount is outside this pricing rule's limits.", 422);
+    }
+    const estimate = await getManualDeskEstimate({
+      sourceCurrency: sourceCode,
+      targetCurrency: targetCode,
+      targetPrecision,
+      amount,
+      markupBasisPoints: rule.markupBasisPoints,
+      adjustmentDirection: rule.adjustmentDirection as "MARKUP" | "GIVE_MORE",
+      fixedFee: rule.fixedFee,
+      exactRate: rule.exactRate,
+    });
     res.json(PreviewManualDeskQuoteResponse.parse({
-      ...ticket,
-      requiredSettlementFields: ticket.settlementSnapshot?.requiredFields,
-      customerInstructions: ticket.settlementSnapshot?.route.customerInstructions ?? undefined,
-      expectedSettlementMinutes:
-        ticket.settlementSnapshot?.route.expectedSettlementMinutes ?? undefined,
-      quoteId: signQuoteTicket(ticket),
-      expiresAt: new Date(ticket.expiresAt).toISOString(),
+      fromAsset: sourceCode,
+      toAsset: targetCode,
+      ...estimate,
+      pricingRuleName: rule.name,
+      pricingRuleId: rule.id,
     }));
   } catch (error) {
     next(error);
