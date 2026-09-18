@@ -61,7 +61,7 @@ export function TelegramBotPromo() {
         </div>
 
         {/* Right Phone Mockup */}
-        <div className="relative mx-auto w-full max-w-[360px] lg:ml-auto">
+        <div className="qx-telegram-phone-shell relative mx-auto w-full max-w-[360px] lg:ml-auto">
           <div className="qx-telegram-phone-edge pointer-events-none absolute -inset-[3px] z-[5] rounded-[2.7rem] sm:rounded-[3.2rem]" />
 
           {/* Phone Body */}

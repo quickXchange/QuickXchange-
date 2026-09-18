@@ -22972,10 +22972,32 @@ html:not(.dark) .frontend-menu-drawer .qx-mobile-trigger[aria-expanded="true"] {
       0 0 32px rgba(124, 58, 237, 0.11);
   }
 
+  .qx-telegram-phone-shell {
+    box-sizing: border-box;
+    width: calc(100% - 8px);
+    padding: 3px;
+    overflow: clip;
+    border-radius: 2.7rem;
+    filter:
+      drop-shadow(0 0 12px rgba(59, 130, 246, 0.3))
+      drop-shadow(0 0 18px rgba(124, 58, 237, 0.22));
+  }
+
   .qx-telegram-phone-edge {
-    box-shadow:
-      0 0 18px rgba(59, 130, 246, 0.34),
-      0 0 34px rgba(124, 58, 237, 0.26);
+    inset: 0;
+    border-radius: 2.7rem;
+    box-shadow: none;
+  }
+
+  .qx-telegram-phone {
+    border-radius: 2.5rem;
+  }
+
+  .qx-telegram-phone-glow {
+    inset: 0;
+    border-radius: 2.7rem;
+    opacity: 0.58;
+    filter: blur(18px);
   }
 }
 
