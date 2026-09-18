@@ -110,6 +110,7 @@ import type {
   GetOrdersParams,
   GetPublicOrderStatusParams,
   GetQuickexOrderStatusParams,
+  GetQuickexPairsParams,
   GetWhitebitMainBalance200,
   HealthStatus,
   ImageUpload,
@@ -175,6 +176,7 @@ import type {
   QuickexCredentialInput,
   QuickexDiagnostics,
   QuickexOrderInput,
+  QuickexPair,
   QuickexProviderStatus,
   QuickexProviderTest,
   Quote,
@@ -9047,6 +9049,90 @@ export function useGetQuickexConfig<TData = Awaited<ReturnType<typeof getQuickex
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetQuickexConfigQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetQuickexPairsUrl = (params: GetQuickexPairsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/quickex/pairs?${stringifiedParams}` : `/api/quickex/pairs`
+}
+
+/**
+ * @summary Get active Quickex destinations for one source instrument
+ */
+export const getQuickexPairs = async (params: GetQuickexPairsParams, options?: Parameters<typeof customFetch>[1]): Promise<QuickexPair[]> => {
+
+  return customFetch<QuickexPair[]>(getGetQuickexPairsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetQuickexPairsQueryKey = (params?: GetQuickexPairsParams,) => {
+    return [
+    `/api/quickex/pairs`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetQuickexPairsQueryOptions = <TData = Awaited<ReturnType<typeof getQuickexPairs>>, TError = ErrorType<unknown>>(params: GetQuickexPairsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getQuickexPairs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetQuickexPairsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getQuickexPairs>>> = ({ signal }) => getQuickexPairs(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getQuickexPairs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetQuickexPairsQueryResult = NonNullable<Awaited<ReturnType<typeof getQuickexPairs>>>
+export type GetQuickexPairsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get active Quickex destinations for one source instrument
+ */
+
+export function useGetQuickexPairs<TData = Awaited<ReturnType<typeof getQuickexPairs>>, TError = ErrorType<unknown>>(
+ params: GetQuickexPairsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getQuickexPairs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetQuickexPairsQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

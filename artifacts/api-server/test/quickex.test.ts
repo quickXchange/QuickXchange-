@@ -1480,10 +1480,14 @@ test("Convert aborts before provider creation when runtime proof changes in flig
   assert.equal(createCalls, 0);
 });
 
-test("read rate limits retry once while create rate limits never retry", async () => {
+test("rate-limited reads and creates never amplify the provider cooldown", async () => {
   reset("rateRead");
-  await quickex.getQuickexQuote({ fromCurrency: "BTC", fromNetwork: "Bitcoin", toCurrency: "USDT", toNetwork: "TRC20", amount: 1 });
-  assert.equal(quoteCalls, 2);
+  await expectCode(
+    () => quickex.getQuickexQuote({ fromCurrency: "BTC", fromNetwork: "Bitcoin", toCurrency: "USDT", toNetwork: "TRC20", amount: 1 }),
+    "QUICKEX_RATE_LIMITED",
+    { retryable: true },
+  );
+  assert.equal(quoteCalls, 1);
   reset("rateCreate");
   await expectCode(() => quickex.createQuickexOrder(input()), "QUICKEX_RATE_LIMITED", { retryable: true });
   assert.equal(createCalls, 1);
@@ -1967,15 +1971,25 @@ test("the capability registry exposes executable mapped networks without removin
       instantSettlementOptions: unknown[];
       providers: string[];
     };
-    assert.deepEqual(noPairs.instantSettlementOptions, []);
-    assert.deepEqual(noPairs.providers, ["Manual desk"]);
+    assert.ok(noPairs.instantSettlementOptions.length > 0);
+    assert.ok(noPairs.providers.includes("Quickex"));
     const unavailableConfigResponse = await fetch(`${api.url}/quickex/config`);
-    const unavailableConfig = await unavailableConfigResponse.json() as { code: string };
-    assert.equal(unavailableConfigResponse.status, 503);
-    assert.equal(unavailableConfig.code, "QUICKEX_PROVIDER_UNAVAILABLE");
+    const unavailableConfig = await unavailableConfigResponse.json() as {
+      instruments: unknown[];
+      pairs: unknown[];
+    };
+    assert.equal(unavailableConfigResponse.status, 200);
+    assert.ok(unavailableConfig.instruments.length > 0);
+    assert.deepEqual(unavailableConfig.pairs, []);
+    const unavailablePairsResponse = await fetch(
+      `${api.url}/quickex/pairs?fromAsset=BTC&fromNetwork=Bitcoin`,
+    );
+    const unavailablePairs = await unavailablePairsResponse.json() as { code: string };
+    assert.equal(unavailablePairsResponse.status, 503);
+    assert.equal(unavailablePairs.code, "QUICKEX_PROVIDER_UNAVAILABLE");
     const pairRejected = await apiJson(api.url, "/exchange/quote", quoteInput);
-    assert.equal(pairRejected.status, 422);
-    assert.equal(pairRejected.body.code, "PROVIDER_ROUTE_UNAVAILABLE");
+    assert.equal(pairRejected.status, 200);
+    assert.equal(pairRejected.body.provider, "Quickex");
   } finally {
     await db.delete(quickexOrdersTable).where(eq(quickexOrdersTable.clientRequestId, requestId));
     await db.delete(cryptoAssetsTable).where(eq(cryptoAssetsTable.id, unmappedAssetId));
@@ -2008,7 +2022,11 @@ test("provider-only Quickex instruments remain available without entering the ma
       item.currencyTitle === providerOnlyInstrument.currencyTitle &&
       item.networkTitle === providerOnlyInstrument.networkTitle
     ));
-    assert.ok(quickexConfig.pairs.some(pair =>
+    assert.deepEqual(quickexConfig.pairs, []);
+    const quickexPairs = await (await fetch(
+      `${api.url}/quickex/pairs?fromAsset=${encodeURIComponent(providerOnlyInstrument.currencyTitle)}&fromNetwork=${encodeURIComponent(providerOnlyInstrument.networkTitle)}`,
+    )).json() as Array<{ fromAsset: string; fromNetwork: string; toAsset: string; toNetwork: string }>;
+    assert.ok(quickexPairs.some(pair =>
       pair.fromAsset === providerOnlyInstrument.currencyTitle &&
       pair.fromNetwork === providerOnlyInstrument.networkTitle &&
       pair.toAsset === "BTC" &&
@@ -2111,13 +2129,17 @@ test("Quickex namespace owns signed quotes, orders, tracking, and idempotency", 
     const exchangeConfig = await (await fetch(`${api.url}/exchange/config`)).json() as {
       instantSettlementOptions: unknown[];
     };
-    assert.equal(exchangeConfig.instantSettlementOptions.length, 2);
+    assert.ok(exchangeConfig.instantSettlementOptions.length >= 2);
     assert.equal((await apiJson(api.url, "/exchange/quote", input)).status, 200);
 
     const config = await (await fetch(`${api.url}/quickex/config`)).json() as {
       pairs: Array<Record<string, string>>;
     };
-    assert.deepEqual(config.pairs, [{
+    assert.deepEqual(config.pairs, []);
+    const sourcePairs = await (await fetch(
+      `${api.url}/quickex/pairs?fromAsset=BTC&fromNetwork=Bitcoin`,
+    )).json() as Array<Record<string, string>>;
+    assert.deepEqual(sourcePairs, [{
       fromAsset: "BTC", fromNetwork: "Bitcoin", toAsset: "USDT", toNetwork: "TRC20",
     }]);
     const quoted = await instantQuote(api.url);

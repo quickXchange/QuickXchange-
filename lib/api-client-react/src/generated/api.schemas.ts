@@ -4210,13 +4210,6 @@ export const QuickexConfigProvider = {
   Quickex: 'Quickex',
 } as const;
 
-export type QuickexConfigPairsItem = {
-  fromAsset: string;
-  fromNetwork: string;
-  toAsset: string;
-  toNetwork: string;
-};
-
 export interface QuickexInstrument {
   currencyTitle: string;
   networkTitle: string;
@@ -4230,11 +4223,18 @@ export interface QuickexInstrument {
   requiresMemo: boolean;
 }
 
+export interface QuickexPair {
+  fromAsset: string;
+  fromNetwork: string;
+  toAsset: string;
+  toNetwork: string;
+}
+
 export interface QuickexConfig {
   provider: QuickexConfigProvider;
   signedOrders: boolean;
   instruments: QuickexInstrument[];
-  pairs: QuickexConfigPairsItem[];
+  pairs: QuickexPair[];
 }
 
 /**
@@ -5220,6 +5220,19 @@ permissionKey?: string;
  * @maximum 100
  */
 limit?: number;
+};
+
+export type GetQuickexPairsParams = {
+/**
+ * @minLength 1
+ * @maxLength 32
+ */
+fromAsset: string;
+/**
+ * @minLength 1
+ * @maxLength 80
+ */
+fromNetwork: string;
 };
 
 export type GetQuickexOrderStatusParams = {

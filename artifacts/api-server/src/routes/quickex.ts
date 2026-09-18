@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import {
   CreateQuickexOrderBody, CreateQuickexOrderResponse, CreateQuickexQuoteBody,
   CreateQuickexQuoteResponse, GetQuickexConfigResponse, GetQuickexCredentialsResponse,
+  GetQuickexPairsQueryParams, GetQuickexPairsResponse,
   GetQuickexDiagnosticsResponse, GetQuickexOrderStatusParams, GetQuickexOrderStatusResponse,
   TestQuickexCredentialsResponse,
   UpdateQuickexCredentialsBody, UpdateQuickexCredentialsResponse, ValidateQuickexAddressBody,
@@ -23,6 +24,7 @@ import { initializeAffiliateForOrder } from "../lib/affiliate-accounting";
 import {
   buildProviderQuoteTicket,
   getQuickexPublicCapabilityConfig,
+  getQuickexPublicPairs,
   listExecutableProviderCapabilities,
 } from "../lib/provider-capabilities";
 
@@ -45,6 +47,13 @@ router.get("/config", async (_req, res): Promise<void> => {
   const config = GetQuickexConfigResponse.parse(await getQuickexPublicCapabilityConfig());
   res.setHeader("cache-control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
   res.json(config);
+});
+router.get("/pairs", async (req, res): Promise<void> => {
+  const parsed = GetQuickexPairsQueryParams.safeParse(req.query);
+  if (!parsed.success) return invalid(res, parsed);
+  const pairs = GetQuickexPairsResponse.parse(await getQuickexPublicPairs(parsed.data));
+  res.setHeader("cache-control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
+  res.json(pairs);
 });
 router.post("/quote", async (req, res): Promise<void> => {
   const parsed = CreateQuickexQuoteBody.safeParse(req.body);

@@ -8027,6 +8027,29 @@ export const GetQuickexConfigResponse = zod.object({
 
 
 /**
+ * @summary Get active Quickex destinations for one source instrument
+ */
+export const getQuickexPairsQueryFromAssetMax = 32;
+
+export const getQuickexPairsQueryFromNetworkMax = 80;
+
+
+
+export const GetQuickexPairsQueryParams = zod.object({
+  "fromAsset": zod.coerce.string().min(1).max(getQuickexPairsQueryFromAssetMax),
+  "fromNetwork": zod.coerce.string().min(1).max(getQuickexPairsQueryFromNetworkMax)
+})
+
+export const GetQuickexPairsResponseItem = zod.object({
+  "fromAsset": zod.string(),
+  "fromNetwork": zod.string(),
+  "toAsset": zod.string(),
+  "toNetwork": zod.string()
+})
+export const GetQuickexPairsResponse = zod.array(GetQuickexPairsResponseItem)
+
+
+/**
  * @summary Create a Quickex Convert quote
  */
 export const createQuickexQuoteBodyFromAssetMin = 2;

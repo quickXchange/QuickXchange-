@@ -6,9 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type QuickexConfigPairsItem = {
+export interface QuickexPair {
   fromAsset: string;
   fromNetwork: string;
   toAsset: string;
   toNetwork: string;
-};
+}

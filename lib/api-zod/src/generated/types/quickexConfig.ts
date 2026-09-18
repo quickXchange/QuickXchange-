@@ -5,13 +5,13 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { QuickexConfigPairsItem } from './quickexConfigPairsItem';
 import type { QuickexConfigProvider } from './quickexConfigProvider';
 import type { QuickexInstrument } from './quickexInstrument';
+import type { QuickexPair } from './quickexPair';
 
 export interface QuickexConfig {
   provider: QuickexConfigProvider;
   signedOrders: boolean;
   instruments: QuickexInstrument[];
-  pairs: QuickexConfigPairsItem[];
+  pairs: QuickexPair[];
 }

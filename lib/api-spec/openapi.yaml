@@ -2429,6 +2429,28 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/QuickexConfig" }
+  /quickex/pairs:
+    get:
+      operationId: getQuickexPairs
+      tags: [quickex]
+      summary: Get active Quickex destinations for one source instrument
+      parameters:
+        - name: fromAsset
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 32 }
+        - name: fromNetwork
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 80 }
+      responses:
+        "200":
+          description: Active directed pairs for the selected source
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/QuickexPair" }
   /quickex/quote:
     post:
       operationId: createQuickexQuote
@@ -6147,14 +6169,15 @@ components:
           items: { $ref: "#/components/schemas/QuickexInstrument" }
         pairs:
           type: array
-          items:
-            type: object
-            required: [fromAsset, fromNetwork, toAsset, toNetwork]
-            properties:
-              fromAsset: { type: string }
-              fromNetwork: { type: string }
-              toAsset: { type: string }
-              toNetwork: { type: string }
+          items: { $ref: "#/components/schemas/QuickexPair" }
+    QuickexPair:
+      type: object
+      required: [fromAsset, fromNetwork, toAsset, toNetwork]
+      properties:
+        fromAsset: { type: string }
+        fromNetwork: { type: string }
+        toAsset: { type: string }
+        toNetwork: { type: string }
     QuickexInstrument:
       type: object
       required: [currencyTitle, networkTitle, slug, instrumentType, fullName, currencyFriendlyTitle, precisionDecimals, requiresMemo]

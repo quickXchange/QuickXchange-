@@ -6,9 +6,11 @@ import {
 import { ArrowDownUp, ArrowRight, Loader2, ShieldCheck, Zap, Mail, Menu, TrendingUp, Wallet, AlertCircle, ChevronLeft } from 'lucide-react';
 import {
   getGetQuickexConfigQueryKey,
+  getGetQuickexPairsQueryKey,
   useCreateQuickexOrder,
   useCreateQuickexQuote,
   useGetQuickexConfig,
+  useGetQuickexPairs,
   useValidateQuickexAddress,
 } from '@workspace/api-client-react';
 import type { ApiError, QuickexInstrument, QuickexRateMode } from '@workspace/api-client-react';
@@ -172,7 +174,6 @@ export function QuickexConvertWidget({
   const stepFocusPendingRef = useRef(false);
 
   const instruments = config.data?.instruments || [];
-  const pairs = config.data?.pairs || [];
   const cryptoInstruments = useMemo(
     () => instruments.filter(item =>
       item.instrumentType.toLowerCase() === 'crypto'
@@ -183,40 +184,70 @@ export function QuickexConvertWidget({
   );
   const instrumentKey = (currencyTitle: string, networkTitle: string) =>
     `${currencyTitle.trim().toUpperCase()}\0${networkTitle.trim().toUpperCase()}`;
-  const supportedPairKeys = useMemo(
-    () => new Set(pairs.map(pair =>
-      `${instrumentKey(pair.fromAsset, pair.fromNetwork)}=>${instrumentKey(pair.toAsset, pair.toNetwork)}`
-    )),
-    [pairs],
-  );
   const fromOptions = useMemo(() => {
     if (!config.data) return [];
-    const cryptoKeys = new Set(cryptoInstruments.map(item =>
-      instrumentKey(item.currencyTitle, item.networkTitle)
-    ));
-    const sourceKeys = new Set(pairs
-      .filter(pair => cryptoKeys.has(instrumentKey(pair.toAsset, pair.toNetwork)))
-      .map(pair => instrumentKey(pair.fromAsset, pair.fromNetwork)));
-    return cryptoInstruments.filter(item =>
-      sourceKeys.has(instrumentKey(item.currencyTitle, item.networkTitle))
-    );
-  }, [config.data, cryptoInstruments, pairs]);
+    return cryptoInstruments;
+  }, [config.data, cryptoInstruments]);
   const from = fromOptions.find(item => item.slug === fromSlug);
+  const sourcePairs = useGetQuickexPairs(
+    {
+      fromAsset: from?.currencyTitle ?? '',
+      fromNetwork: from?.networkTitle ?? '',
+    },
+    {
+      query: {
+        queryKey: getGetQuickexPairsQueryKey({
+          fromAsset: from?.currencyTitle ?? '',
+          fromNetwork: from?.networkTitle ?? '',
+        }),
+        enabled: dataEnabled && Boolean(from),
+        staleTime: 300000,
+        gcTime: 1800000,
+        retry: false,
+      },
+    },
+  );
+  const pairs = sourcePairs.data || [];
   const pairOptions = useMemo(() => {
     if (!from || !config.data) return [];
     const sourceKey = instrumentKey(from.currencyTitle, from.networkTitle);
+    if (sourcePairs.isError) {
+      return cryptoInstruments.filter(item =>
+        instrumentKey(item.currencyTitle, item.networkTitle) !== sourceKey
+      );
+    }
     const targetKeys = new Set(pairs
       .filter(pair => instrumentKey(pair.fromAsset, pair.fromNetwork) === sourceKey)
       .map(pair => instrumentKey(pair.toAsset, pair.toNetwork)));
     return cryptoInstruments.filter(item =>
       targetKeys.has(instrumentKey(item.currencyTitle, item.networkTitle))
     );
-  }, [config.data, from, cryptoInstruments, pairs]);
+  }, [config.data, from, cryptoInstruments, pairs, sourcePairs.isError]);
   const to = pairOptions.find(item => item.slug === toSlug);
+  const reversePairs = useGetQuickexPairs(
+    {
+      fromAsset: to?.currencyTitle ?? '',
+      fromNetwork: to?.networkTitle ?? '',
+    },
+    {
+      query: {
+        queryKey: getGetQuickexPairsQueryKey({
+          fromAsset: to?.currencyTitle ?? '',
+          fromNetwork: to?.networkTitle ?? '',
+        }),
+        enabled: dataEnabled && Boolean(to),
+        staleTime: 300000,
+        gcTime: 1800000,
+        retry: false,
+      },
+    },
+  );
   const reverseSelection = useMemo(() => {
     if (!from || !to) return null;
-    const reversePairKey = `${instrumentKey(to.currencyTitle, to.networkTitle)}=>${instrumentKey(from.currencyTitle, from.networkTitle)}`;
-    if (!supportedPairKeys.has(reversePairKey)) return null;
+    const reverseAvailable = reversePairs.isError || (reversePairs.data || []).some(pair =>
+      instrumentKey(pair.toAsset, pair.toNetwork) === instrumentKey(from.currencyTitle, from.networkTitle)
+    );
+    if (!reverseAvailable) return null;
     const reverseFrom = fromOptions.find(item =>
       instrumentKey(item.currencyTitle, item.networkTitle) === instrumentKey(to.currencyTitle, to.networkTitle)
     );
@@ -224,8 +255,13 @@ export function QuickexConvertWidget({
       instrumentKey(item.currencyTitle, item.networkTitle) === instrumentKey(from.currencyTitle, from.networkTitle)
     );
     return reverseFrom && reverseTo ? { fromSlug: reverseFrom.slug, toSlug: reverseTo.slug } : null;
-  }, [cryptoInstruments, from, fromOptions, supportedPairKeys, to]);
-  const noReceiveRoutes = Boolean(from && !config.isFetching && pairOptions.length === 0);
+  }, [cryptoInstruments, from, fromOptions, reversePairs.data, reversePairs.isError, to]);
+  const noReceiveRoutes = Boolean(
+    from &&
+    !sourcePairs.isFetching &&
+    !sourcePairs.isError &&
+    pairOptions.length === 0
+  );
   const configPending = !config.data && !config.isError;
   useEffect(() => {
     const handleMarketSelection = (event: Event) => {
@@ -280,13 +316,13 @@ export function QuickexConvertWidget({
   }, [fromOptions, fromSlug, searchString, urlAssetInitialized]);
 
   useEffect(() => {
-    if (!marketRequest || !fromOptions.length || !config.data?.pairs) return;
+    if (!marketRequest || !fromOptions.length || sourcePairs.isFetching) return;
 
     const reqSource = marketRequest.symbol?.trim().toUpperCase();
     const reqDest = marketRequest.destinationSymbol?.trim().toUpperCase();
 
     if (reqSource && reqDest) {
-      const pair = config.data.pairs.find(p =>
+      const pair = pairs.find(p =>
         p.fromAsset.trim().toUpperCase() === reqSource &&
         p.toAsset.trim().toUpperCase() === reqDest
       );
@@ -313,7 +349,12 @@ export function QuickexConvertWidget({
         }
       } else {
         const sourceInst = fromOptions.find(item => item.currencyTitle.trim().toUpperCase() === reqSource);
-        if (sourceInst) setFromSlug(sourceInst.slug);
+        const targetInst = cryptoInstruments.find(item => item.currencyTitle.trim().toUpperCase() === reqDest);
+        if (sourceInst && fromSlug !== sourceInst.slug) {
+          setFromSlug(sourceInst.slug);
+          return;
+        }
+        if (targetInst && toSlug !== targetInst.slug) setToSlug(targetInst.slug);
       }
     } else if (reqSource) {
       const sourceInst = fromOptions.find(item => item.currencyTitle.trim().toUpperCase() === reqSource);
@@ -324,26 +365,21 @@ export function QuickexConvertWidget({
     if (marketRequest.openSelector === 'destination') setToSelectorOpen(true);
 
     setMarketRequest(null);
-  }, [config.data?.pairs, fromOptions, fromSlug, marketRequest, pairOptions, toSlug]);
+  }, [cryptoInstruments, fromOptions, fromSlug, marketRequest, pairOptions, pairs, sourcePairs.isFetching, toSlug]);
   useEffect(() => {
     if (marketRequest) return;
     if (!pairOptions.length || pairOptions.some(item => item.slug === toSlug)) return;
-    const reversibleTarget = from
-      ? pairOptions.find(item => supportedPairKeys.has(
-          `${instrumentKey(item.currencyTitle, item.networkTitle)}=>${instrumentKey(from.currencyTitle, from.networkTitle)}`
-        ))
-      : undefined;
-    setToSlug(reversibleTarget?.slug || pairOptions[0].slug);
-  }, [from, marketRequest, pairOptions, supportedPairKeys, toSlug]);
+    setToSlug(pairOptions[0].slug);
+  }, [marketRequest, pairOptions, toSlug]);
   useEffect(() => {
     if (!from || pairOptions.length > 0) {
       emptyRouteRefreshRef.current = '';
       return;
     }
-    if (config.isFetching || emptyRouteRefreshRef.current === from.slug) return;
+    if (sourcePairs.isFetching || emptyRouteRefreshRef.current === from.slug) return;
     emptyRouteRefreshRef.current = from.slug;
-    void config.refetch();
-  }, [config, from, pairOptions.length]);
+    void sourcePairs.refetch();
+  }, [from, pairOptions.length, sourcePairs]);
 
   useEffect(() => {
     const requestVersion = ++quoteRequestVersionRef.current;
@@ -493,7 +529,7 @@ export function QuickexConvertWidget({
     (!configPending && (
       !config.data?.signedOrders ||
       fromOptions.length === 0 ||
-      pairs.length === 0
+      (sourcePairs.isSuccess && pairs.length === 0)
     ))
   ) {
     return (
@@ -514,7 +550,7 @@ export function QuickexConvertWidget({
            <strong>{t('convert.unavailableTitle')}</strong>
            <p className="mt-1">{t('convert.unavailableDescription')}</p>
             <div className="mt-4 flex flex-wrap justify-center gap-3">
-             <button type="button" onClick={() => config.refetch()} className="button button-secondary" data-testid="button-retry-convert">{t('common.retry')}</button>
+              <button type="button" onClick={() => { void config.refetch(); void sourcePairs.refetch(); }} className="button button-secondary" data-testid="button-retry-convert">{t('common.retry')}</button>
              <button type="button" onClick={onSwap} className="button button-primary" data-testid="button-use-swap">{t('convert.useSwap')}</button>
             </div>
           </div>

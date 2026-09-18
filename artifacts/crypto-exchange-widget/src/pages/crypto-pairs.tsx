@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useLocation } from 'wouter';
-import { useGetQuickexConfig, type QuickexConfigPairsItem, type QuickexInstrument } from '@workspace/api-client-react';
+import { useGetQuickexConfig, type QuickexPair, type QuickexInstrument } from '@workspace/api-client-react';
 import { useCryptoMarket, type CoinGeckoMarket } from '@/hooks/use-crypto-market';
 import { PublicShell } from '@/components/public-shell';
 import { CryptoLogo, normalizeCryptoSymbol } from '@/components/crypto-identity';
@@ -18,7 +18,7 @@ type DeduplicatedPair = {
   destSymbol: string;
   sourceInstrument: QuickexInstrument;
   destInstrument: QuickexInstrument;
-  apiRoute: QuickexConfigPairsItem;
+  apiRoute: QuickexPair;
 };
 
 type PairMarketData = {

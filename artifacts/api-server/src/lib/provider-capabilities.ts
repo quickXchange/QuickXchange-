@@ -4,7 +4,6 @@ import { ApiError } from "./api-error";
 import {
   getQuickexCredentialStatus,
   getCachedQuickexInstruments,
-  getCachedQuickexPairs,
   getQuickexInstruments,
   getQuickexPairs,
   getQuickexQuote,
@@ -70,18 +69,13 @@ export async function listExecutableProviderCapabilities(
   options: { cacheOnly?: boolean } = {},
 ): Promise<ProviderCapability[]> {
   let instruments: QuickexInstrument[];
-  let pairs;
   try {
     if (!await quickexIsConfigured()) return [];
     if (options.cacheOnly) {
       instruments = getCachedQuickexInstruments() ?? [];
-      pairs = getCachedQuickexPairs() ?? [];
-      if (!instruments.length || !pairs.length) return [];
+      if (!instruments.length) return [];
     } else {
-      [instruments, pairs] = await Promise.all([
-        getQuickexInstruments(),
-        getQuickexPairs(),
-      ]);
+      instruments = await getQuickexInstruments();
     }
   } catch {
     return [];
@@ -155,27 +149,7 @@ export async function listExecutableProviderCapabilities(
   const unambiguousCandidates = candidates.filter(candidate =>
     candidateCounts.get(capabilityKey(candidate.assetCode, candidate.networkCode)) === 1
   );
-  const candidateKeys = new Set(unambiguousCandidates.map((item) =>
-    capabilityKey(item.assetCode, item.networkCode)
-  ));
-  const executableKeys = new Set<string>();
-  for (const pair of pairs) {
-    const sourceKey = capabilityKey(
-      pair.instrumentFromCurrencyTitle,
-      pair.instrumentFromNetworkTitle,
-    );
-    const targetKey = capabilityKey(
-      pair.instrumentToCurrencyTitle,
-      pair.instrumentToNetworkTitle,
-    );
-    if (candidateKeys.has(sourceKey) && candidateKeys.has(targetKey)) {
-      executableKeys.add(sourceKey);
-      executableKeys.add(targetKey);
-    }
-  }
-  return unambiguousCandidates.filter((item) =>
-    executableKeys.has(capabilityKey(item.assetCode, item.networkCode))
-  );
+  return unambiguousCandidates;
 }
 
 export async function listPublicProviderSettlementOptions(
@@ -219,10 +193,7 @@ export async function getQuickexPublicCapabilityConfig() {
   // Public Convert configuration must not turn a transient catalog failure
   // into a valid-looking empty result that the client caches for five minutes.
   // Warm both catalogs here so transport failures remain explicit 5xx errors.
-  const [instruments, pairs] = await Promise.all([
-    getQuickexInstruments(),
-    getQuickexPairs(),
-  ]);
+  const instruments = await getQuickexInstruments();
   const capabilities = await listExecutableProviderCapabilities({ cacheOnly: true });
   if (!capabilities.length) {
     return { provider: "Quickex" as const, instruments: [], pairs: [], signedOrders: false };
@@ -233,21 +204,38 @@ export async function getQuickexPublicCapabilityConfig() {
   const publicInstruments = instruments.filter((item) =>
     allowed.has(`${item.currencyTitle.toUpperCase()}\0${item.networkTitle.toUpperCase()}`)
   );
-  const publicPairs = pairs.filter((pair) =>
-    allowed.has(`${pair.instrumentFromCurrencyTitle.toUpperCase()}\0${pair.instrumentFromNetworkTitle.toUpperCase()}`) &&
-    allowed.has(`${pair.instrumentToCurrencyTitle.toUpperCase()}\0${pair.instrumentToNetworkTitle.toUpperCase()}`)
+  return {
+    provider: "Quickex" as const,
+    instruments: publicInstruments,
+    pairs: [],
+    signedOrders: true,
+  };
+}
+
+export async function getQuickexPublicPairs(input: {
+  fromAsset: string;
+  fromNetwork: string;
+}) {
+  const capabilities = await listExecutableProviderCapabilities();
+  const allowed = new Set(capabilities.map((item) =>
+    capabilityKey(item.assetCode, item.networkCode)
+  ));
+  const sourceKey = capabilityKey(input.fromAsset, input.fromNetwork);
+  if (!allowed.has(sourceKey)) {
+    throw new ApiError("PROVIDER_ROUTE_UNAVAILABLE", "This instant exchange route is unavailable.", 422);
+  }
+  return (await getQuickexPairs({
+    fromCurrency: input.fromAsset,
+    fromNetwork: input.fromNetwork,
+  })).filter((pair) =>
+    capabilityKey(pair.instrumentFromCurrencyTitle, pair.instrumentFromNetworkTitle) === sourceKey &&
+    allowed.has(capabilityKey(pair.instrumentToCurrencyTitle, pair.instrumentToNetworkTitle))
   ).map((pair) => ({
     fromAsset: pair.instrumentFromCurrencyTitle,
     fromNetwork: pair.instrumentFromNetworkTitle,
     toAsset: pair.instrumentToCurrencyTitle,
     toNetwork: pair.instrumentToNetworkTitle,
   }));
-  return {
-    provider: "Quickex" as const,
-    instruments: publicInstruments,
-    pairs: publicPairs,
-    signedOrders: true,
-  };
 }
 
 export async function assertExecutableQuickexRoute(input: InstantRouteInput) {
@@ -261,18 +249,11 @@ export async function assertExecutableQuickexRoute(input: InstantRouteInput) {
   if (!source || !target) {
     throw new ApiError("PROVIDER_ROUTE_UNAVAILABLE", "This instant exchange route is unavailable.", 422);
   }
-  const pairs = await getQuickexPairs();
   if (
     (input.sourceSettlementOptionId &&
       input.sourceSettlementOptionId !== `api:${source.providerId}:${source.networkId}`) ||
     (input.targetSettlementOptionId &&
-      input.targetSettlementOptionId !== `api:${target.providerId}:${target.networkId}`) ||
-    !pairs.some((pair) =>
-      pair.instrumentFromCurrencyTitle.toUpperCase() === source.assetCode.toUpperCase() &&
-      pair.instrumentFromNetworkTitle.toUpperCase() === source.networkCode.toUpperCase() &&
-      pair.instrumentToCurrencyTitle.toUpperCase() === target.assetCode.toUpperCase() &&
-      pair.instrumentToNetworkTitle.toUpperCase() === target.networkCode.toUpperCase()
-    )
+      input.targetSettlementOptionId !== `api:${target.providerId}:${target.networkId}`)
   ) {
     throw new ApiError("PROVIDER_ROUTE_UNAVAILABLE", "This instant exchange route is unavailable.", 422);
   }
