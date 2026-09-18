@@ -7987,13 +7987,17 @@ html:not(.dark) .admin-shell.admin-redesign .currencies-redesign .catalog-table 
 }
 
 .pricing-multi-select {
-  display: grid;
-  gap: 8px;
+  position: relative;
+  display: block;
+  min-width: 0;
 }
 
 .pricing-multi-trigger {
   display: flex;
+  width: 100%;
+  height: 45px;
   min-height: 45px;
+  max-height: 45px;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -8012,15 +8016,28 @@ html:not(.dark) .admin-shell.admin-redesign .currencies-redesign .catalog-table 
 }
 
 .pricing-multi-panel {
-  display: grid;
+  position: fixed;
+  z-index: 1200;
+  display: flex;
+  max-height: min(360px, calc(100dvh - 96px));
+  min-height: 0;
+  flex-direction: column;
   gap: 9px;
   padding: 10px;
+  overflow: hidden;
   border: 1px solid rgba(70, 120, 255, .22);
   border-radius: 13px;
-  background: hsl(var(--muted) / .5);
+  background: hsl(var(--popover) / .98);
+  box-shadow:
+    0 22px 56px -24px rgb(5 17 42 / .72),
+    0 0 26px -16px rgb(22 139 255 / .72);
+  backdrop-filter: blur(18px);
+  transform-origin: top center;
+  animation: pricing-multi-popover-in 150ms ease-out;
 }
 
 .pricing-multi-panel > input {
+  flex: 0 0 39px;
   width: 100%;
   height: 39px;
   padding: 0 11px;
@@ -8033,6 +8050,7 @@ html:not(.dark) .admin-shell.admin-redesign .currencies-redesign .catalog-table 
 
 .pricing-multi-tools {
   display: flex;
+  flex: 0 0 auto;
   flex-wrap: wrap;
   align-items: center;
   gap: 7px;
@@ -8056,9 +8074,12 @@ html:not(.dark) .admin-shell.admin-redesign .currencies-redesign .catalog-table 
 
 .pricing-multi-options {
   display: grid;
-  max-height: 210px;
+  min-height: 0;
+  flex: 1 1 auto;
   overflow-y: auto;
   overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid hsl(var(--border));
   border-radius: 10px;
   background: hsl(var(--card));
@@ -8081,6 +8102,29 @@ html:not(.dark) .admin-shell.admin-redesign .currencies-redesign .catalog-table 
 .pricing-multi-options input { flex: 0 0 auto; accent-color: #168bff; }
 .pricing-multi-options span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pricing-multi-options small { padding: 14px; color: hsl(var(--muted-foreground)); }
+
+@keyframes pricing-multi-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.dark .pricing-multi-panel {
+  border-color: rgb(76 134 255 / .28);
+  background: hsl(var(--popover) / .97);
+  box-shadow:
+    0 24px 60px -22px rgb(0 5 20 / .9),
+    0 0 30px -16px rgb(19 221 244 / .46);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pricing-multi-panel { animation: none; }
+}
 
 .pricing-drawer .pricing-rule-field .field-label small {
   color: hsl(var(--muted-foreground));
@@ -8501,7 +8545,9 @@ html:not(.dark) .admin-shell.admin-redesign .currencies-redesign .catalog-table 
 @media (max-width: 640px) {
   .pricing-select-mode button { padding-inline: 6px; }
   .pricing-multi-tools strong { width: 100%; margin-left: 0; }
-  .pricing-multi-options { max-height: 180px; }
+  .pricing-multi-panel {
+    max-height: min(320px, calc(100dvh - 88px));
+  }
   .exchange-asset-menu.admin-search-menu {
     max-width: calc(100vw - 24px) !important;
     border-radius: 15px;

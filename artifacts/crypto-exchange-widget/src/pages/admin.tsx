@@ -1,6 +1,6 @@
 import { useI18n } from '../i18n/provider';
 import { lazy, Suspense, useEffect, useMemo, useState, useRef, useCallback } from 'react';
-import type { ComponentProps, KeyboardEvent as ReactKeyboardEvent } from 'react';
+import type { ComponentProps, CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
 import { createPortal } from 'react-dom';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
@@ -6529,25 +6529,85 @@ function PricingOptionMultiSelect({
   label: string;
   testId: string;
 }) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [panelStyle, setPanelStyle] = useState<CSSProperties>({});
   const normalizedQuery = query.trim().toLowerCase();
   const sorted = useMemo(() => [...options].sort((left, right) =>
     pricingOptionLabel(left, left.title).localeCompare(pricingOptionLabel(right, right.title))
   ), [options]);
-  const filtered = sorted.filter(option => [
+  const filtered = useMemo(() => sorted.filter(option => [
     option.assetCode,
     option.title,
     option.networkTitle,
     option.routeNetwork,
-  ].filter(Boolean).join(' ').toLowerCase().includes(normalizedQuery));
+  ].filter(Boolean).join(' ').toLowerCase().includes(normalizedQuery)), [normalizedQuery, sorted]);
+  const filteredIds = useMemo(() => filtered.map(option => option.id), [filtered]);
+  const filteredIdSet = useMemo(() => new Set(filteredIds), [filteredIds]);
   const selected = new Set(values);
   const toggle = (id: string) => onChange(
     selected.has(id) ? values.filter(value => value !== id) : [...values, id],
   );
+  const selectAllVisible = () => onChange(filteredIds);
+  const clearAllVisible = () => onChange(
+    normalizedQuery
+      ? values.filter(value => !filteredIdSet.has(value))
+      : [],
+  );
+  const updatePanelPosition = useCallback(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
+    const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+    const margin = 12;
+    const gap = 8;
+    const availableBelow = viewportHeight - rect.bottom - gap - margin;
+    const availableAbove = rect.top - gap - margin;
+    const openAbove = availableBelow < 240 && availableAbove > availableBelow;
+    const width = Math.min(Math.max(rect.width, 280), viewportWidth - margin * 2);
+    const left = Math.min(
+      Math.max(margin, rect.left),
+      Math.max(margin, viewportWidth - width - margin),
+    );
+    const maxHeight = Math.max(180, Math.min(360, openAbove ? availableAbove : availableBelow));
+    setPanelStyle(openAbove
+      ? { left, bottom: viewportHeight - rect.top + gap, width, maxHeight }
+      : { left, top: rect.bottom + gap, width, maxHeight });
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    updatePanelPosition();
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!rootRef.current?.contains(target) && !panelRef.current?.contains(target)) setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    document.addEventListener('pointerdown', closeOnOutsidePointer);
+    document.addEventListener('keydown', closeOnEscape);
+    window.addEventListener('resize', updatePanelPosition);
+    window.addEventListener('scroll', updatePanelPosition, true);
+    window.visualViewport?.addEventListener('resize', updatePanelPosition);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsidePointer);
+      document.removeEventListener('keydown', closeOnEscape);
+      window.removeEventListener('resize', updatePanelPosition);
+      window.removeEventListener('scroll', updatePanelPosition, true);
+      window.visualViewport?.removeEventListener('resize', updatePanelPosition);
+    };
+  }, [open, updatePanelPosition]);
   return (
-    <div className="pricing-multi-select" data-testid={testId}>
+    <div ref={rootRef} className="pricing-multi-select" data-testid={testId}>
       <button
+        ref={triggerRef}
         type="button"
         className="pricing-multi-trigger"
         aria-expanded={open}
@@ -6556,18 +6616,19 @@ function PricingOptionMultiSelect({
         <span>{values.length ? `${values.length} selected` : `Select ${label.toLowerCase()}`}</span>
         <span aria-hidden="true">{open ? '−' : '+'}</span>
       </button>
-      {open && (
-        <div className="pricing-multi-panel">
+      {open && createPortal(
+        <div ref={panelRef} className="pricing-multi-panel" style={panelStyle}>
           <input
             type="search"
             value={query}
             onChange={event => setQuery(event.target.value)}
             placeholder={`Search ${label.toLowerCase()}`}
             aria-label={`Search ${label}`}
+            autoFocus
           />
           <div className="pricing-multi-tools">
-            <button type="button" onClick={() => onChange(sorted.map(option => option.id))}>Select All</button>
-            <button type="button" onClick={() => onChange([])}>Clear All</button>
+            <button type="button" onClick={selectAllVisible} disabled={!filteredIds.length}>Select All</button>
+            <button type="button" onClick={clearAllVisible}>Clear All</button>
             <strong>{values.length} selected</strong>
           </div>
           <div className="pricing-multi-options">
@@ -6583,7 +6644,8 @@ function PricingOptionMultiSelect({
             ))}
             {!filtered.length && <small>No options match your search.</small>}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
@@ -6795,11 +6857,33 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
       updateRule.mutate({ id: rule.id, data: { ...payload, version: rule.version } }, { onSuccess: success, onError: failure });
       return;
     }
-    const bulkRules = sourceMode === 'multiple'
-      ? selectedSourceOptions.map(selectedSource => payloadFor(selectedSource, targetOpt))
-      : targetMode === 'multiple'
-        ? selectedTargetOptions.map(selectedTarget => payloadFor(sourceOpt, selectedTarget))
-        : [];
+    const expandedPairs = sourceMode === 'multiple' || targetMode === 'multiple'
+      ? selectedSourceOptions.flatMap(selectedSource =>
+          selectedTargetOptions
+            .filter(selectedTarget =>
+              selectedSource?.id !== selectedTarget?.id
+              && !(isAssetPricingOption(selectedSource) && isAssetPricingOption(selectedTarget)),
+            )
+            .map(selectedTarget => [selectedSource, selectedTarget] as const),
+        )
+      : [];
+    const bulkRules = Array.from(new Map(
+      expandedPairs.map(([selectedSource, selectedTarget]) => {
+        const candidate = payloadFor(selectedSource, selectedTarget);
+        const routeKey = JSON.stringify([
+          candidate.sourceCryptoAssetId,
+          candidate.targetCryptoAssetId,
+          candidate.sourceSettlementOptionId,
+          candidate.targetSettlementOptionId,
+          candidate.priority,
+        ]);
+        return [routeKey, candidate] as const;
+      }),
+    ).values());
+    if ((sourceMode === 'multiple' || targetMode === 'multiple') && !bulkRules.length) {
+      setError('The selected source and target options do not contain any valid pricing routes.');
+      return;
+    }
     if (bulkRules.length) {
       if (!window.confirm(`Create ${bulkRules.length} pricing rules?`)) return;
       bulkCreateRules.mutate({ data: { rules: bulkRules } }, { onSuccess: success, onError: failure });
@@ -6836,12 +6920,12 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
         <label className="admin-form-field admin-form-field-full pricing-rule-field pricing-rule-field-full"><span className="field-label">{t('adminPricing.rule_name')}</span><input required maxLength={200} value={form.name} onChange={event => set('name', event.target.value)} disabled={rule?.readOnly} data-testid="input-pricing-name" /></label>
 
         <div className="admin-form-grid pricing-form-grid pricing-option-grid">
-            <div className="pricing-rule-field"><span className="field-label">{t('adminPricing.source_option')}{!rule && <span className="pricing-select-mode"><button type="button" className={sourceMode === 'single' ? 'active' : ''} onClick={() => setSourceMode('single')}>Single</button><button type="button" className={sourceMode === 'multiple' ? 'active' : ''} onClick={() => { setSourceMode('multiple'); setTargetMode('single'); }}>Multiple</button></span>}</span>
+            <div className="pricing-rule-field"><span className="field-label">{t('adminPricing.source_option')}{!rule && <span className="pricing-select-mode"><button type="button" className={sourceMode === 'single' ? 'active' : ''} onClick={() => setSourceMode('single')}>Single</button><button type="button" className={sourceMode === 'multiple' ? 'active' : ''} onClick={() => setSourceMode('multiple')}>Multiple</button></span>}</span>
                {sourceMode === 'multiple' && !rule
                  ? <PricingOptionMultiSelect values={sourceSelections} options={fromOptions} onChange={setSourceSelections} label="Source Options" testId="select-pricing-sources" />
                  : <SettlementOptionCombobox value={form.sourceSettlementOptionId} options={fromOptions} onChange={id => set('sourceSettlementOptionId', id)} label={t('adminPricing.source_option')} testId="select-pricing-source" allowAny matchMenuWidth terminalPresentation searchPlaceholder="Search currencies or payment methods" searchAppearance="admin" mobileContainedMenu />}
             </div>
-            <div className="pricing-rule-field"><span className="field-label">{t('adminPricing.target_option')}{!rule && <span className="pricing-select-mode"><button type="button" className={targetMode === 'single' ? 'active' : ''} onClick={() => setTargetMode('single')}>Single</button><button type="button" className={targetMode === 'multiple' ? 'active' : ''} onClick={() => { setTargetMode('multiple'); setSourceMode('single'); }}>Multiple</button></span>}</span>
+            <div className="pricing-rule-field"><span className="field-label">{t('adminPricing.target_option')}{!rule && <span className="pricing-select-mode"><button type="button" className={targetMode === 'single' ? 'active' : ''} onClick={() => setTargetMode('single')}>Single</button><button type="button" className={targetMode === 'multiple' ? 'active' : ''} onClick={() => setTargetMode('multiple')}>Multiple</button></span>}</span>
                {targetMode === 'multiple' && !rule
                  ? <PricingOptionMultiSelect values={targetSelections} options={toOptions} onChange={setTargetSelections} label="Target Options" testId="select-pricing-targets" />
                  : <SettlementOptionCombobox value={form.targetSettlementOptionId} options={toOptions} onChange={id => set('targetSettlementOptionId', id)} label={t('adminPricing.target_option')} testId="select-pricing-target" allowAny matchMenuWidth terminalPresentation searchPlaceholder="Search currencies or payment methods" searchAppearance="admin" mobileContainedMenu />}
