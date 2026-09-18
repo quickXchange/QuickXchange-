@@ -3251,8 +3251,11 @@ test("owner crypto asset bulk edits are atomic and preserve omitted network sett
         networks: [{ networkId: networkAId, lifecycle: "restricted" }],
       }],
     }, "POST", headers);
-    assert.equal(whitebitManagedEdit.status, 422);
-    assert.equal(whitebitManagedEdit.body.code, "CRYPTO_BULK_WHITEBIT_MANAGED");
+    assert.equal(whitebitManagedEdit.status, 200, JSON.stringify(whitebitManagedEdit.body));
+    const [networkAfterWhitebitManagedEdit] = await db.select().from(cryptoAssetNetworksTable)
+      .where(eq(cryptoAssetNetworksTable.id, networkAId));
+    assert.equal(networkAfterWhitebitManagedEdit.depositProvider, "whitebit");
+    assert.equal(networkAfterWhitebitManagedEdit.lifecycle, "restricted");
 
     const degradedWhitebitFallback = await apiJson(api.url, "/admin/crypto-assets/bulk/apply", {
       edits: [{

@@ -3453,16 +3453,6 @@ router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, ne
               404,
             );
           }
-          const editsWhitebitManagedFields = Object.keys(networkEdit).some(key =>
-            !["networkId", "sharedDepositAddress", "sharedDepositMemo", "requiresMemo"].includes(key)
-          );
-          if (network.depositProvider === "whitebit" && editsWhitebitManagedFields) {
-            throw new ApiError(
-              "CRYPTO_BULK_WHITEBIT_MANAGED",
-              "Bulk Edit cannot change WhiteBIT-managed network settings. Use it only for manual fallback address and memo fields.",
-              422,
-            );
-          }
           const editsDepositConfiguration = [
             "customerDepositsEnabled",
             "sharedDepositAddress",
