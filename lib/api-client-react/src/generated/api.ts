@@ -130,6 +130,8 @@ import type {
   ManualDeskPricingRuleUpdate,
   ManualDeskPricingRulesBulkInput,
   ManualDeskPricingRulesBulkResponse,
+  ManualDeskPricingRulesCreateBatch,
+  ManualDeskPricingRulesCreateBatchResult,
   ManualDeskRevenueReport,
   NewsletterAnnouncement,
   NewsletterAnnouncementInput,
@@ -5420,6 +5422,77 @@ export const useBulkManualDeskPricingRules = <TError = ErrorType<ApiError>,
         TContext
       > => {
       return useMutation(getBulkManualDeskPricingRulesMutationOptions(options));
+    }
+
+export const getBulkCreateManualDeskPricingRulesUrl = () => {
+
+
+
+
+  return `/api/admin/manual-desk-pricing-rules/bulk-create`
+}
+
+/**
+ * @summary Atomically create or update pricing rules for multiple routes
+ */
+export const bulkCreateManualDeskPricingRules = async (manualDeskPricingRulesCreateBatch: ManualDeskPricingRulesCreateBatch, options?: Parameters<typeof customFetch>[1]): Promise<ManualDeskPricingRulesCreateBatchResult> => {
+
+  return customFetch<ManualDeskPricingRulesCreateBatchResult>(getBulkCreateManualDeskPricingRulesUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(manualDeskPricingRulesCreateBatch)
+  }
+);}
+
+
+
+
+
+export const getBulkCreateManualDeskPricingRulesMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkCreateManualDeskPricingRules>>, TError,{data: BodyType<ManualDeskPricingRulesCreateBatch>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof bulkCreateManualDeskPricingRules>>, TError,{data: BodyType<ManualDeskPricingRulesCreateBatch>}, TContext> => {
+
+const mutationKey = ['bulkCreateManualDeskPricingRules'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bulkCreateManualDeskPricingRules>>, {data: BodyType<ManualDeskPricingRulesCreateBatch>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  bulkCreateManualDeskPricingRules(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BulkCreateManualDeskPricingRulesMutationResult = NonNullable<Awaited<ReturnType<typeof bulkCreateManualDeskPricingRules>>>
+    export type BulkCreateManualDeskPricingRulesMutationBody = BodyType<ManualDeskPricingRulesCreateBatch>
+    export type BulkCreateManualDeskPricingRulesMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Atomically create or update pricing rules for multiple routes
+ */
+export const useBulkCreateManualDeskPricingRules = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkCreateManualDeskPricingRules>>, TError,{data: BodyType<ManualDeskPricingRulesCreateBatch>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof bulkCreateManualDeskPricingRules>>,
+        TError,
+        {data: BodyType<ManualDeskPricingRulesCreateBatch>},
+        TContext
+      > => {
+      return useMutation(getBulkCreateManualDeskPricingRulesMutationOptions(options));
     }
 
 export const getRequestCryptoAssetLogoUploadUrl = () => {

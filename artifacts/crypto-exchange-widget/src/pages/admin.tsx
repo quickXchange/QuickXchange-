@@ -48,7 +48,7 @@ import {
   useUpdateWhitebitProviderStatus, useGetWhitebitCredentials, getGetWhitebitCredentialsQueryKey,
   useUpdateWhitebitCredentials, useTestWhitebitCredentials,
   useListManualDeskPricingRules, getListManualDeskPricingRulesQueryKey,
-  useCreateManualDeskPricingRule, useUpdateManualDeskPricingRule,
+  useCreateManualDeskPricingRule, useUpdateManualDeskPricingRule, useBulkCreateManualDeskPricingRules,
   usePreviewManualDeskPricingRule, usePreviewManualDeskQuote, useDeleteManualDeskPricingRule, useBulkManualDeskPricingRules,
   useGetManualDeskRevenue, getGetManualDeskRevenueQueryKey,
   exportManualDeskRevenueCsv,
@@ -6447,6 +6447,79 @@ const canonicalPricingRuleInput = (
   };
 };
 
+function PricingOptionMultiSelect({
+  values,
+  options,
+  onChange,
+  label,
+  testId,
+}: {
+  values: string[];
+  options: SettlementOption[];
+  onChange: (values: string[]) => void;
+  label: string;
+  testId: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const normalizedQuery = query.trim().toLowerCase();
+  const sorted = useMemo(() => [...options].sort((left, right) =>
+    pricingOptionLabel(left, left.title).localeCompare(pricingOptionLabel(right, right.title))
+  ), [options]);
+  const filtered = sorted.filter(option => [
+    option.assetCode,
+    option.title,
+    option.networkTitle,
+    option.routeNetwork,
+  ].filter(Boolean).join(' ').toLowerCase().includes(normalizedQuery));
+  const selected = new Set(values);
+  const toggle = (id: string) => onChange(
+    selected.has(id) ? values.filter(value => value !== id) : [...values, id],
+  );
+  return (
+    <div className="pricing-multi-select" data-testid={testId}>
+      <button
+        type="button"
+        className="pricing-multi-trigger"
+        aria-expanded={open}
+        onClick={() => setOpen(current => !current)}
+      >
+        <span>{values.length ? `${values.length} selected` : `Select ${label.toLowerCase()}`}</span>
+        <span aria-hidden="true">{open ? '−' : '+'}</span>
+      </button>
+      {open && (
+        <div className="pricing-multi-panel">
+          <input
+            type="search"
+            value={query}
+            onChange={event => setQuery(event.target.value)}
+            placeholder={`Search ${label.toLowerCase()}`}
+            aria-label={`Search ${label}`}
+          />
+          <div className="pricing-multi-tools">
+            <button type="button" onClick={() => onChange(sorted.map(option => option.id))}>Select All</button>
+            <button type="button" onClick={() => onChange([])}>Clear All</button>
+            <strong>{values.length} selected</strong>
+          </div>
+          <div className="pricing-multi-options">
+            {filtered.map(option => (
+              <label key={option.id}>
+                <input
+                  type="checkbox"
+                  checked={selected.has(option.id)}
+                  onChange={() => toggle(option.id)}
+                />
+                <span>{pricingOptionLabel(option, option.title)}</span>
+              </label>
+            ))}
+            {!filtered.length && <small>No options match your search.</small>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingRule; rules: ManualDeskPricingRule[]; onClose: () => void }) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
@@ -6471,6 +6544,10 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
     enabled: rule?.enabled ?? true,
   });
   const [error, setError] = useState('');
+  const [sourceMode, setSourceMode] = useState<'single' | 'multiple'>('single');
+  const [targetMode, setTargetMode] = useState<'single' | 'multiple'>('single');
+  const [sourceSelections, setSourceSelections] = useState<string[]>([]);
+  const [targetSelections, setTargetSelections] = useState<string[]>([]);
   const reciprocalRate = (value: string) => {
     const match = /^(0|[1-9]\d*)(?:\.(\d+))?$/.exec(value.trim());
     if (!match || /^0(?:\.0*)?$/.test(value.trim())) return '';
@@ -6497,8 +6574,9 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
   }, []);
 
   const createRule = useCreateManualDeskPricingRule();
+  const bulkCreateRules = useBulkCreateManualDeskPricingRules();
   const updateRule = useUpdateManualDeskPricingRule();
-  const pending = createRule.isPending || updateRule.isPending;
+  const pending = createRule.isPending || bulkCreateRules.isPending || updateRule.isPending;
   const set = (key: keyof typeof form, value: string | boolean) => setForm(current => ({ ...current, [key]: value }));
 
   const allOptions = config.data?.manualSettlementOptions || [];
@@ -6542,6 +6620,27 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
     setError('');
     const sourceOpt = fromOptions.find(o => sameSettlementOptionId(o.id, form.sourceSettlementOptionId));
     const targetOpt = toOptions.find(o => sameSettlementOptionId(o.id, form.targetSettlementOptionId));
+    const selectedSourceOptions = sourceMode === 'multiple'
+      ? sourceSelections.map(id => fromOptions.find(option => sameSettlementOptionId(option.id, id))).filter(Boolean) as SettlementOption[]
+      : [sourceOpt];
+    const selectedTargetOptions = targetMode === 'multiple'
+      ? targetSelections.map(id => toOptions.find(option => sameSettlementOptionId(option.id, id))).filter(Boolean) as SettlementOption[]
+      : [targetOpt];
+    if (!rule && sourceMode === 'multiple' && !selectedSourceOptions.length) {
+      setError('Select at least one source option.');
+      return;
+    }
+    if (!rule && targetMode === 'multiple' && !selectedTargetOptions.length) {
+      setError('Select at least one target option.');
+      return;
+    }
+    if (
+      selectedSourceOptions.length !== (sourceMode === 'multiple' ? sourceSelections.length : 1) ||
+      selectedTargetOptions.length !== (targetMode === 'multiple' ? targetSelections.length : 1)
+    ) {
+      setError('One or more selected options are no longer available. Refresh the page and choose current options.');
+      return;
+    }
     if (form.sourceSettlementOptionId && !sourceOpt) {
       setError('The selected source option is no longer available. Refresh the page and choose a current option.');
       return;
@@ -6551,6 +6650,13 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
       return;
     }
     if (sourceOpt && targetOpt && sourceOpt.id === targetOpt.id) {
+      setError('Source and target options must be different.');
+      return;
+    }
+    if (
+      (targetOpt && selectedSourceOptions.some(option => option?.id === targetOpt.id)) ||
+      (sourceOpt && selectedTargetOptions.some(option => option?.id === sourceOpt.id))
+    ) {
       setError('Source and target options must be different.');
       return;
     }
@@ -6564,11 +6670,14 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
        setError('Percentage must be between 0% and 100%, in increments of 0.01%.');
       return;
     }
-    const payload: ManualDeskPricingRuleInput = {
+    const payloadFor = (
+      selectedSource: SettlementOption | undefined,
+      selectedTarget: SettlementOption | undefined,
+    ): ManualDeskPricingRuleInput => ({
       name: form.name.trim(),
-      sourceAsset: sourceOpt?.assetCode ?? null, targetAsset: targetOpt?.assetCode ?? null,
-      sourceNetwork: sourceOpt?.routeNetwork ?? null, targetNetwork: targetOpt?.routeNetwork ?? null, paymentMethod: null, payoutMethod: null,
-      sourceSettlementOptionId: sourceOpt?.id ?? null, targetSettlementOptionId: targetOpt?.id ?? null,
+      sourceAsset: selectedSource?.assetCode ?? null, targetAsset: selectedTarget?.assetCode ?? null,
+      sourceNetwork: selectedSource?.routeNetwork ?? null, targetNetwork: selectedTarget?.routeNetwork ?? null, paymentMethod: null, payoutMethod: null,
+      sourceSettlementOptionId: selectedSource?.id ?? null, targetSettlementOptionId: selectedTarget?.id ?? null,
       markupBasisPoints,
       adjustmentDirection: form.adjustmentDirection as 'MARKUP' | 'GIVE_MORE',
       exactRate: form.exactRate.trim() || null,
@@ -6580,7 +6689,8 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
       customerInstructions: form.customerInstructions.trim() || null,
       priority: Number(form.priority),
       enabled: form.enabled,
-    };
+    });
+    const payload = payloadFor(sourceOpt, targetOpt);
     const success = () => { queryClient.invalidateQueries({ queryKey: getListManualDeskPricingRulesQueryKey() }); onClose(); };
     const failure = (err: unknown) => {
       const code = apiErrorData(err)?.code;
@@ -6592,8 +6702,21 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
             : apiErrorText(err, t('adminPricing.could_not_save_this_pricing_rule')),
       );
     };
-    if (rule && !rule.readOnly) updateRule.mutate({ id: rule.id, data: { ...payload, version: rule.version } }, { onSuccess: success, onError: failure });
-    else createRule.mutate({ data: payload }, { onSuccess: success, onError: failure });
+    if (rule && !rule.readOnly) {
+      updateRule.mutate({ id: rule.id, data: { ...payload, version: rule.version } }, { onSuccess: success, onError: failure });
+      return;
+    }
+    const bulkRules = sourceMode === 'multiple'
+      ? selectedSourceOptions.map(selectedSource => payloadFor(selectedSource, targetOpt))
+      : targetMode === 'multiple'
+        ? selectedTargetOptions.map(selectedTarget => payloadFor(sourceOpt, selectedTarget))
+        : [];
+    if (bulkRules.length) {
+      if (!window.confirm(`Create ${bulkRules.length} pricing rules?`)) return;
+      bulkCreateRules.mutate({ data: { rules: bulkRules } }, { onSuccess: success, onError: failure });
+    } else {
+      createRule.mutate({ data: payload }, { onSuccess: success, onError: failure });
+    }
   };
 
   return createPortal(<div className="drawer-backdrop" onClick={event => event.target === event.currentTarget && onClose()}>
@@ -6624,12 +6747,16 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
         <label className="admin-form-field admin-form-field-full pricing-rule-field pricing-rule-field-full"><span className="field-label">{t('adminPricing.rule_name')}</span><input required maxLength={200} value={form.name} onChange={event => set('name', event.target.value)} disabled={rule?.readOnly} data-testid="input-pricing-name" /></label>
 
         <div className="admin-form-grid pricing-form-grid pricing-option-grid">
-           <label className="pricing-rule-field"><span className="field-label">{t('adminPricing.source_option')}</span>
-              <SettlementOptionCombobox value={form.sourceSettlementOptionId} options={fromOptions} onChange={id => set('sourceSettlementOptionId', id)} label={t('adminPricing.source_option')} testId="select-pricing-source" allowAny matchMenuWidth terminalPresentation searchPlaceholder="Search currencies or payment methods" searchAppearance="admin" mobileContainedMenu />
-           </label>
-           <label className="pricing-rule-field"><span className="field-label">{t('adminPricing.target_option')}</span>
-              <SettlementOptionCombobox value={form.targetSettlementOptionId} options={toOptions} onChange={id => set('targetSettlementOptionId', id)} label={t('adminPricing.target_option')} testId="select-pricing-target" allowAny matchMenuWidth terminalPresentation searchPlaceholder="Search currencies or payment methods" searchAppearance="admin" mobileContainedMenu />
-           </label>
+            <div className="pricing-rule-field"><span className="field-label">{t('adminPricing.source_option')}{!rule && <span className="pricing-select-mode"><button type="button" className={sourceMode === 'single' ? 'active' : ''} onClick={() => setSourceMode('single')}>Single</button><button type="button" className={sourceMode === 'multiple' ? 'active' : ''} onClick={() => { setSourceMode('multiple'); setTargetMode('single'); }}>Multiple</button></span>}</span>
+               {sourceMode === 'multiple' && !rule
+                 ? <PricingOptionMultiSelect values={sourceSelections} options={fromOptions} onChange={setSourceSelections} label="Source Options" testId="select-pricing-sources" />
+                 : <SettlementOptionCombobox value={form.sourceSettlementOptionId} options={fromOptions} onChange={id => set('sourceSettlementOptionId', id)} label={t('adminPricing.source_option')} testId="select-pricing-source" allowAny matchMenuWidth terminalPresentation searchPlaceholder="Search currencies or payment methods" searchAppearance="admin" mobileContainedMenu />}
+            </div>
+            <div className="pricing-rule-field"><span className="field-label">{t('adminPricing.target_option')}{!rule && <span className="pricing-select-mode"><button type="button" className={targetMode === 'single' ? 'active' : ''} onClick={() => setTargetMode('single')}>Single</button><button type="button" className={targetMode === 'multiple' ? 'active' : ''} onClick={() => { setTargetMode('multiple'); setSourceMode('single'); }}>Multiple</button></span>}</span>
+               {targetMode === 'multiple' && !rule
+                 ? <PricingOptionMultiSelect values={targetSelections} options={toOptions} onChange={setTargetSelections} label="Target Options" testId="select-pricing-targets" />
+                 : <SettlementOptionCombobox value={form.targetSettlementOptionId} options={toOptions} onChange={id => set('targetSettlementOptionId', id)} label={t('adminPricing.target_option')} testId="select-pricing-target" allowAny matchMenuWidth terminalPresentation searchPlaceholder="Search currencies or payment methods" searchAppearance="admin" mobileContainedMenu />}
+            </div>
         </div>
 
         <div className="admin-form-grid pricing-form-grid">
@@ -6658,7 +6785,7 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
 
         <div className="pricing-rule-actions">
           <button type="button" className="pricing-rule-cancel" onClick={onClose}>{t('adminPricing.cancel')}</button>
-          {!rule?.readOnly && <button className="pricing-rule-save" disabled={pending || !form.name.trim()} data-testid="button-save-pricing-rule">{pending ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}{pending ? t('adminPricing.saving') : t('adminPricing.save_pricing_rule')}</button>}
+          {!rule?.readOnly && <button className="pricing-rule-save" disabled={pending || !form.name.trim()} data-testid="button-save-pricing-rule">{pending ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}{pending ? t('adminPricing.saving') : sourceMode === 'multiple' || targetMode === 'multiple' ? 'Create Rules' : t('adminPricing.save_pricing_rule')}</button>}
         </div>
       </form>
     </aside>

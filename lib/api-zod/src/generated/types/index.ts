@@ -226,6 +226,8 @@ export * from './manualDeskPricingRulesBulkPatch';
 export * from './manualDeskPricingRulesBulkPatchAdjustmentDirection';
 export * from './manualDeskPricingRulesBulkResponse';
 export * from './manualDeskPricingRulesBulkResponseAction';
+export * from './manualDeskPricingRulesCreateBatch';
+export * from './manualDeskPricingRulesCreateBatchResult';
 export * from './manualDeskPricingRuleUpdate';
 export * from './manualDeskPricingSelectorProperties';
 export * from './manualDeskRevenueBucket';

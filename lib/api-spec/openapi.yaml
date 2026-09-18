@@ -1644,6 +1644,24 @@ paths:
         "400":
           description: Invalid bulk action
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+  /admin/manual-desk-pricing-rules/bulk-create:
+    post:
+      operationId: bulkCreateManualDeskPricingRules
+      tags: [admin]
+      summary: Atomically create or update pricing rules for multiple routes
+      security:
+        - OperatorSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ManualDeskPricingRulesCreateBatch" }
+      responses:
+        "200":
+          description: Created and updated pricing rules
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ManualDeskPricingRulesCreateBatchResult" }
   /admin/crypto-assets/logo-upload:
     post:
       operationId: requestCryptoAssetLogoUpload
@@ -4543,6 +4561,30 @@ components:
           required: [version]
           properties:
             version: { type: number, minimum: 1, multipleOf: 1 }
+    ManualDeskPricingRulesCreateBatch:
+      type: object
+      additionalProperties: false
+      required: [rules]
+      properties:
+        rules:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items: { $ref: "#/components/schemas/ManualDeskPricingRuleInput" }
+    ManualDeskPricingRulesCreateBatchResult:
+      type: object
+      additionalProperties: false
+      required: [items, createdIds, updatedIds]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ManualDeskPricingRule" }
+        createdIds:
+          type: array
+          items: { type: string }
+        updatedIds:
+          type: array
+          items: { type: string }
     ManualDeskPricingRulesBulkPatch:
       type: object
       additionalProperties: false

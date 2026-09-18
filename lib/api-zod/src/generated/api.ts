@@ -5814,6 +5814,161 @@ export const BulkManualDeskPricingRulesResponse = zod.object({
 })
 
 
+/**
+ * @summary Atomically create or update pricing rules for multiple routes
+ */
+export const bulkCreateManualDeskPricingRulesBodyRulesItemOneSourceAssetMax = 30;
+
+export const bulkCreateManualDeskPricingRulesBodyRulesItemOneTargetAssetMax = 30;
+
+export const bulkCreateManualDeskPricingRulesBodyRulesItemOneSourceNetworkMax = 100;
+
+export const bulkCreateManualDeskPricingRulesBodyRulesItemOneTargetNetworkMax = 100;
+
+export const bulkCreateManualDeskPricingRulesBodyRulesItemOnePaymentMethodMax = 100;
+
+export const bulkCreateManualDeskPricingRulesBodyRulesItemOnePayoutMethodMax = 100;
+
+export const bulkCreateManualDeskPricingRulesBodyRulesItemOneSourceSettlementOptionIdMax = 200;
+
+export const bulkCreateManualDeskPricingRulesBodyRulesItemOneTargetSettlementOptionIdMax = 200;
+
+export const bulkCreateManualDeskPricingRulesBodyRulesItemTwoNameMax = 200;
+
+export const bulkCreateManualDeskPricingRulesBodyRulesItemTwoMarkupBasisPointsMin = 0;
+export const bulkCreateManualDeskPricingRulesBodyRulesItemTwoMarkupBasisPointsMax = 10000;
+export const bulkCreateManualDeskPricingRulesBodyRulesItemTwoMarkupBasisPointsMultipleOf = 1;
+
+export const bulkCreateManualDeskPricingRulesBodyRulesItemTwoAdjustmentDirectionDefault = `MARKUP`;
+export const bulkCreateManualDeskPricingRulesBodyRulesItemTwoExactRateOneRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const bulkCreateManualDeskPricingRulesBodyRulesItemTwoFixedFeeOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const bulkCreateManualDeskPricingRulesBodyRulesItemTwoPriorityMin = -1000000;
+export const bulkCreateManualDeskPricingRulesBodyRulesItemTwoPriorityMax = 1000000;
+export const bulkCreateManualDeskPricingRulesBodyRulesItemTwoPriorityMultipleOf = 1;
+
+export const bulkCreateManualDeskPricingRulesBodyRulesItemTwoMinAmountOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const bulkCreateManualDeskPricingRulesBodyRulesItemTwoMaxAmountOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const bulkCreateManualDeskPricingRulesBodyRulesItemTwoOperatorInstructionsMax = 5000;
+
+export const bulkCreateManualDeskPricingRulesBodyRulesItemTwoCustomerInstructionsMax = 5000;
+
+export const bulkCreateManualDeskPricingRulesBodyRulesItemTwoExpectedSettlementMinutesMax = 10080;
+export const bulkCreateManualDeskPricingRulesBodyRulesItemTwoExpectedSettlementMinutesMultipleOf = 1;
+
+export const bulkCreateManualDeskPricingRulesBodyRulesMax = 200;
+
+
+
+export const BulkCreateManualDeskPricingRulesBody = zod.object({
+  "rules": zod.array(zod.object({
+  "sourceAsset": zod.string().min(1).max(bulkCreateManualDeskPricingRulesBodyRulesItemOneSourceAssetMax).nullish(),
+  "targetAsset": zod.string().min(1).max(bulkCreateManualDeskPricingRulesBodyRulesItemOneTargetAssetMax).nullish(),
+  "sourceNetwork": zod.string().min(1).max(bulkCreateManualDeskPricingRulesBodyRulesItemOneSourceNetworkMax).nullish(),
+  "targetNetwork": zod.string().min(1).max(bulkCreateManualDeskPricingRulesBodyRulesItemOneTargetNetworkMax).nullish(),
+  "paymentMethod": zod.string().min(1).max(bulkCreateManualDeskPricingRulesBodyRulesItemOnePaymentMethodMax).nullish(),
+  "payoutMethod": zod.string().min(1).max(bulkCreateManualDeskPricingRulesBodyRulesItemOnePayoutMethodMax).nullish(),
+  "sourceSettlementOptionId": zod.string().min(1).max(bulkCreateManualDeskPricingRulesBodyRulesItemOneSourceSettlementOptionIdMax).nullish(),
+  "targetSettlementOptionId": zod.string().min(1).max(bulkCreateManualDeskPricingRulesBodyRulesItemOneTargetSettlementOptionIdMax).nullish()
+}).and(zod.object({
+  "name": zod.string().min(1).max(bulkCreateManualDeskPricingRulesBodyRulesItemTwoNameMax),
+  "markupBasisPoints": zod.number().min(bulkCreateManualDeskPricingRulesBodyRulesItemTwoMarkupBasisPointsMin).max(bulkCreateManualDeskPricingRulesBodyRulesItemTwoMarkupBasisPointsMax).multipleOf(bulkCreateManualDeskPricingRulesBodyRulesItemTwoMarkupBasisPointsMultipleOf),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(bulkCreateManualDeskPricingRulesBodyRulesItemTwoAdjustmentDirectionDefault),
+  "exactRate": zod.union([zod.string().regex(bulkCreateManualDeskPricingRulesBodyRulesItemTwoExactRateOneRegExp).describe('An exact positive base-10 decimal value.'),zod.null()]).optional().describe('Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically.'),
+  "fixedFee": zod.union([zod.string().regex(bulkCreateManualDeskPricingRulesBodyRulesItemTwoFixedFeeOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]).optional(),
+  "priority": zod.number().min(bulkCreateManualDeskPricingRulesBodyRulesItemTwoPriorityMin).max(bulkCreateManualDeskPricingRulesBodyRulesItemTwoPriorityMax).multipleOf(bulkCreateManualDeskPricingRulesBodyRulesItemTwoPriorityMultipleOf),
+  "enabled": zod.boolean(),
+  "minAmount": zod.union([zod.string().regex(bulkCreateManualDeskPricingRulesBodyRulesItemTwoMinAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]).optional(),
+  "maxAmount": zod.union([zod.string().regex(bulkCreateManualDeskPricingRulesBodyRulesItemTwoMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]).optional(),
+  "operatorInstructions": zod.string().max(bulkCreateManualDeskPricingRulesBodyRulesItemTwoOperatorInstructionsMax).nullish(),
+  "customerInstructions": zod.string().max(bulkCreateManualDeskPricingRulesBodyRulesItemTwoCustomerInstructionsMax).nullish(),
+  "expectedSettlementMinutes": zod.number().min(1).max(bulkCreateManualDeskPricingRulesBodyRulesItemTwoExpectedSettlementMinutesMax).multipleOf(bulkCreateManualDeskPricingRulesBodyRulesItemTwoExpectedSettlementMinutesMultipleOf).nullish()
+}))).min(1).max(bulkCreateManualDeskPricingRulesBodyRulesMax)
+})
+
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneOneSourceAssetMax = 30;
+
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneOneTargetAssetMax = 30;
+
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneOneSourceNetworkMax = 100;
+
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneOneTargetNetworkMax = 100;
+
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneOnePaymentMethodMax = 100;
+
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneOnePayoutMethodMax = 100;
+
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneOneSourceSettlementOptionIdMax = 200;
+
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneOneTargetSettlementOptionIdMax = 200;
+
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoNameMax = 200;
+
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMin = 0;
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMax = 10000;
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMultipleOf = 1;
+
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoAdjustmentDirectionDefault = `MARKUP`;
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoExactRateOneRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoFixedFeeOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoPriorityMin = -1000000;
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoPriorityMax = 1000000;
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoPriorityMultipleOf = 1;
+
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoMinAmountOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoMaxAmountOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoOperatorInstructionsMax = 5000;
+
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoCustomerInstructionsMax = 5000;
+
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoExpectedSettlementMinutesMax = 10080;
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoExpectedSettlementMinutesMultipleOf = 1;
+
+export const bulkCreateManualDeskPricingRulesResponseItemsItemTwoVersionMultipleOf = 1;
+
+export const bulkCreateManualDeskPricingRulesResponseItemsItemTwoSpecificityMin = 0;
+export const bulkCreateManualDeskPricingRulesResponseItemsItemTwoSpecificityMax = 8;
+export const bulkCreateManualDeskPricingRulesResponseItemsItemTwoSpecificityMultipleOf = 1;
+
+
+
+export const BulkCreateManualDeskPricingRulesResponse = zod.object({
+  "items": zod.array(zod.object({
+  "sourceAsset": zod.string().min(1).max(bulkCreateManualDeskPricingRulesResponseItemsItemOneOneSourceAssetMax).nullish(),
+  "targetAsset": zod.string().min(1).max(bulkCreateManualDeskPricingRulesResponseItemsItemOneOneTargetAssetMax).nullish(),
+  "sourceNetwork": zod.string().min(1).max(bulkCreateManualDeskPricingRulesResponseItemsItemOneOneSourceNetworkMax).nullish(),
+  "targetNetwork": zod.string().min(1).max(bulkCreateManualDeskPricingRulesResponseItemsItemOneOneTargetNetworkMax).nullish(),
+  "paymentMethod": zod.string().min(1).max(bulkCreateManualDeskPricingRulesResponseItemsItemOneOnePaymentMethodMax).nullish(),
+  "payoutMethod": zod.string().min(1).max(bulkCreateManualDeskPricingRulesResponseItemsItemOneOnePayoutMethodMax).nullish(),
+  "sourceSettlementOptionId": zod.string().min(1).max(bulkCreateManualDeskPricingRulesResponseItemsItemOneOneSourceSettlementOptionIdMax).nullish(),
+  "targetSettlementOptionId": zod.string().min(1).max(bulkCreateManualDeskPricingRulesResponseItemsItemOneOneTargetSettlementOptionIdMax).nullish()
+}).and(zod.object({
+  "name": zod.string().min(1).max(bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoNameMax),
+  "markupBasisPoints": zod.number().min(bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMin).max(bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMax).multipleOf(bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMultipleOf),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoAdjustmentDirectionDefault),
+  "exactRate": zod.union([zod.string().regex(bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoExactRateOneRegExp).describe('An exact positive base-10 decimal value.'),zod.null()]).optional().describe('Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically.'),
+  "fixedFee": zod.union([zod.string().regex(bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoFixedFeeOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]).optional(),
+  "priority": zod.number().min(bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoPriorityMin).max(bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoPriorityMax).multipleOf(bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoPriorityMultipleOf),
+  "enabled": zod.boolean(),
+  "minAmount": zod.union([zod.string().regex(bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoMinAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]).optional(),
+  "maxAmount": zod.union([zod.string().regex(bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]).optional(),
+  "operatorInstructions": zod.string().max(bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoOperatorInstructionsMax).nullish(),
+  "customerInstructions": zod.string().max(bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoCustomerInstructionsMax).nullish(),
+  "expectedSettlementMinutes": zod.number().min(1).max(bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoExpectedSettlementMinutesMax).multipleOf(bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoExpectedSettlementMinutesMultipleOf).nullish()
+})).and(zod.object({
+  "id": zod.string(),
+  "version": zod.number().min(1).multipleOf(bulkCreateManualDeskPricingRulesResponseItemsItemTwoVersionMultipleOf),
+  "specificity": zod.number().min(bulkCreateManualDeskPricingRulesResponseItemsItemTwoSpecificityMin).max(bulkCreateManualDeskPricingRulesResponseItemsItemTwoSpecificityMax).multipleOf(bulkCreateManualDeskPricingRulesResponseItemsItemTwoSpecificityMultipleOf),
+  "legacyAmbiguous": zod.boolean().optional(),
+  "readOnly": zod.boolean().optional(),
+  "missingSettlementOptionIds": zod.array(zod.string()).describe('Settlement option selectors which no longer exist in the current public manual catalog.'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+}))),
+  "createdIds": zod.array(zod.string()),
+  "updatedIds": zod.array(zod.string())
+})
+
+
 export const RequestCryptoAssetLogoUploadBody = zod.object({
   "contentType": zod.enum(['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'])
 })

@@ -489,6 +489,69 @@ export async function updateManualPricingRule(
   );
 }
 
+export async function upsertManualPricingRules(inputs: ManualPricingWrite[]) {
+  if (!inputs.length || inputs.length > 200) {
+    throw new ApiError("VALIDATION_ERROR", "Bulk pricing creation requires between 1 and 200 rules.", 400);
+  }
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(350035)`);
+    const candidates = inputs.map(normalizedWrite);
+    const routeKey = (rule: ManualPricingContext & { priority: number }) => [
+      normalized(rule.sourceSettlementOptionId) ?? "*",
+      normalized(rule.targetSettlementOptionId) ?? "*",
+      rule.priority,
+    ].join("\0");
+    const submittedKeys = candidates.map(routeKey);
+    if (new Set(submittedKeys).size !== submittedKeys.length) {
+      throw new ApiError("VALIDATION_ERROR", "Bulk pricing rules must use distinct source and target routes.", 400);
+    }
+    const existing = await tx.select().from(manualDeskPricingRulesTable);
+    const existingByKey = new Map(existing.map(row => [routeKey(row), row]));
+    const matchedIds = new Set(
+      candidates.map(candidate => existingByKey.get(routeKey(candidate))?.id).filter(Boolean) as string[],
+    );
+    const finalRows = [
+      ...existing.filter(row => !matchedIds.has(row.id)),
+      ...candidates,
+    ];
+    for (let index = 0; index < finalRows.length; index++) {
+      const candidate = finalRows[index]!;
+      const conflict = finalRows.some((row, otherIndex) =>
+        otherIndex !== index &&
+        row.priority === candidate.priority &&
+        settlementOptionSpecificity(row) === settlementOptionSpecificity(candidate) &&
+        manualPricingSpecificity(row) === manualPricingSpecificity(candidate) &&
+        overlap(row, candidate)
+      );
+      if (conflict) {
+        throw new ApiError(
+          "MANUAL_PRICING_RULE_CONFLICT",
+          "A rule with the same priority and overlapping selectors would make matching ambiguous.",
+          409,
+        );
+      }
+    }
+    const createdIds: string[] = [];
+    const updatedIds: string[] = [];
+    for (const candidate of candidates) {
+      const current = existingByKey.get(routeKey(candidate));
+      if (current) {
+        const [updated] = await tx.update(manualDeskPricingRulesTable).set({
+          ...candidate,
+          version: current.version + 1,
+          updatedAt: new Date(),
+        }).where(eq(manualDeskPricingRulesTable.id, current.id)).returning();
+        if (updated) updatedIds.push(updated.id);
+      } else {
+        const [created] = await tx.insert(manualDeskPricingRulesTable).values(candidate).returning();
+        if (created) createdIds.push(created.id);
+      }
+    }
+    const rows = await tx.select().from(manualDeskPricingRulesTable);
+    return { rows, createdIds, updatedIds };
+  });
+}
+
 export type ManualPricingBulkAction = "enable" | "disable" | "delete" | "edit";
 export type ManualPricingBulkItem = { id: string; version: number };
 export type ManualPricingBulkPatch = Partial<Pick<ManualPricingWrite,

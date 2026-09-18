@@ -75,6 +75,8 @@ import {
   UpdateManualDeskPricingRuleResponse,
   BulkManualDeskPricingRulesBody,
   BulkManualDeskPricingRulesResponse,
+  BulkCreateManualDeskPricingRulesBody,
+  BulkCreateManualDeskPricingRulesResponse,
   GetPaymentMethodsResponse,
   CreatePaymentMethodBody,
   CreatePaymentMethodResponse,
@@ -193,6 +195,7 @@ import {
 } from "../lib/order-history";
 import {
   createManualPricingRule,
+  upsertManualPricingRules,
   evaluateManualPricingCoverage,
   matchManualDeskPricingRule,
   normalizeManualPricingSelectors,
@@ -3237,6 +3240,21 @@ router.post("/admin/manual-desk-pricing-rules/bulk", async (req, res, next) => {
       affectedIds: result.updatedIds,
       updatedIds: result.updatedIds,
       skipped: result.skipped,
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/admin/manual-desk-pricing-rules/bulk-create", async (req, res, next) => {
+  try {
+    const input = BulkCreateManualDeskPricingRulesBody.parse(req.body);
+    await Promise.all(input.rules.map(rule => validateExactPricingRuleOptions(rule)));
+    const result = await upsertManualPricingRules(input.rules);
+    res.json(BulkCreateManualDeskPricingRulesResponse.parse({
+      items: result.rows.map(outputManualPricingRule),
+      createdIds: result.createdIds,
+      updatedIds: result.updatedIds,
     }));
   } catch (error) {
     next(error);

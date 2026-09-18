@@ -1838,6 +1838,37 @@ export type ManualDeskPricingRuleUpdate = ManualDeskPricingRuleInput & {
   version: number;
 };
 
+export interface ManualDeskPricingRulesCreateBatch {
+  /**
+     * @minItems 1
+     * @maxItems 200
+     */
+  rules: ManualDeskPricingRuleInput[];
+}
+
+export type ManualDeskPricingRule = ManualDeskPricingRuleInput & {
+  id: string;
+  /** @minimum 1 */
+  version: number;
+  /**
+     * @minimum 0
+     * @maximum 8
+     */
+  specificity: number;
+  readonly legacyAmbiguous?: boolean;
+  readonly readOnly?: boolean;
+  /** Settlement option selectors which no longer exist in the current public manual catalog. */
+  readonly missingSettlementOptionIds: readonly string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export interface ManualDeskPricingRulesCreateBatchResult {
+  items: ManualDeskPricingRule[];
+  createdIds: string[];
+  updatedIds: string[];
+}
+
 export type ManualDeskPricingRulesBulkPatchAdjustmentDirection = typeof ManualDeskPricingRulesBulkPatchAdjustmentDirection[keyof typeof ManualDeskPricingRulesBulkPatchAdjustmentDirection];
 
 
@@ -1925,23 +1956,6 @@ export const ManualDeskPricingRulesBulkResponseAction = {
   delete: 'delete',
   edit: 'edit',
 } as const;
-
-export type ManualDeskPricingRule = ManualDeskPricingRuleInput & {
-  id: string;
-  /** @minimum 1 */
-  version: number;
-  /**
-     * @minimum 0
-     * @maximum 8
-     */
-  specificity: number;
-  readonly legacyAmbiguous?: boolean;
-  readonly readOnly?: boolean;
-  /** Settlement option selectors which no longer exist in the current public manual catalog. */
-  readonly missingSettlementOptionIds: readonly string[];
-  createdAt: string;
-  updatedAt: string;
-};
 
 export interface ManualPricingOrphanRule {
   ruleId: string;
