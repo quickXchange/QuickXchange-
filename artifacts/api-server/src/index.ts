@@ -6,6 +6,7 @@ import { startExchangeStatusNotificationWorker } from "./routes/exchange";
 import { validateObjectStorageConfiguration } from "./lib/object-storage";
 import { startBlogScheduler } from "./routes/blog";
 import { startNewsletterWorker } from "./lib/newsletter";
+import { setupTelegramCommands, startTelegramNotificationWorker } from "./routes/telegram";
 
 const rawPort = process.env["PORT"];
 
@@ -57,6 +58,8 @@ async function start() {
   const stopBlogScheduler = startBlogScheduler();
   const stopNotificationWorker = startExchangeStatusNotificationWorker();
   const stopNewsletterWorker = startNewsletterWorker();
+  const stopTelegramWorker = startTelegramNotificationWorker();
+  void setupTelegramCommands().catch((error) => logger.warn({ err: error }, "Telegram command setup failed"));
   let verificationTimer: ReturnType<typeof setTimeout> | undefined;
   const verifyQuickex = async (): Promise<boolean> => {
     try {
@@ -103,6 +106,7 @@ async function start() {
   });
   server.on("close", stopBlogScheduler);
   server.on("close", stopNewsletterWorker);
+  server.on("close", stopTelegramWorker);
 
   let shuttingDown = false;
   const shutdown = (signal: NodeJS.Signals) => {

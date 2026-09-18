@@ -547,6 +547,13 @@
       "when": 1789738158759,
       "tag": "0079_manual_desk_pricing_crypto_asset_ids",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1789738158760,
+      "tag": "0080_telegram_bot",
+      "breakpoints": true
     }
   ]
 }

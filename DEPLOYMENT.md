@@ -77,6 +77,28 @@ restricted runtime role created by the migrations.
 - `OPERATOR_EMAILS`: optional legacy owner bootstrap list.
 - `CUSTOMER_NOTIFICATION_FROM_EMAIL`: optional verified sender override.
 - `CUSTOMER_NOTIFICATION_POLL_INTERVAL_MS`: optional outbox poll interval.
+- `TELEGRAM_BOT_TOKEN`: optional BotFather token. When absent, the Telegram
+  webhook and notification worker remain disabled and existing API startup is
+  unaffected.
+- `TELEGRAM_WEBHOOK_SECRET`: required alongside `TELEGRAM_BOT_TOKEN`; the
+  exact secret expected in Telegram's `X-Telegram-Bot-Api-Secret-Token` header.
+- `TELEGRAM_WEBSITE_URL`: optional Website button URL shown by the bot.
+- `TELEGRAM_SUPPORT_URL`: optional support URL shown by the bot.
+- `PUBLIC_SITE_URL`: fallback Website URL when `TELEGRAM_WEBSITE_URL` is absent.
+- `TELEGRAM_MINI_APP_URL`: reserved optional Mini App button URL for a future
+  Telegram Mini App rollout.
+
+After publishing the API over HTTPS, register the webhook with Telegram using
+the configured secret (keep the token and secret out of source control):
+
+```sh
+curl -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
+  -d "url=https://YOUR_API_HOST/api/telegram/webhook" \
+  -d "secret_token=$TELEGRAM_WEBHOOK_SECRET"
+```
+
+The endpoint returns `404` while the bot is disabled, so existing deployments
+can roll out this code before Telegram configuration is complete.
 - `QUICKEX_BASE_URL`, `QUICKEX_READ_TIMEOUT_MS`,
   `QUICKEX_CREATE_TIMEOUT_MS`, `ONEFORGE_BASE_URL`,
   `COINBASE_USD_RATES_URL`, and `LOG_LEVEL`: optional operational overrides.

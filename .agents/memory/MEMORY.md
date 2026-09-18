@@ -103,3 +103,4 @@
 - [Published Site Content freshness](published-site-content-freshness.md) — public revision endpoints must revalidate on every load so Admin publishing is immediately visible.
 - [Asset all-networks pricing](asset-all-networks-pricing.md) — persist immutable crypto asset IDs; concrete network routes outrank asset rules, which outrank broad Any.
 - [Touch carousel verification](touch-carousel-verification.md) — test touch-action with genuine touch events; a mouse drag at mobile width does not validate native scrolling.
+- [Telegram financial order delivery](telegram-financial-order-delivery.md) — fence chat updates and keep order creation, reconciliation, and deposit delivery durable.

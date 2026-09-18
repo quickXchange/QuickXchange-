@@ -14,12 +14,14 @@ import blogRouter from "./blog";
 import { adminPolicy } from "../lib/admin-policy";
 import teamMembersRouter from "./team-members";
 import whitebitRouter, { whitebitOperatorRouter, whitebitWebhookRouter } from "./whitebit";
+import telegramRouter from "./telegram";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(whitebitRouter);
 router.use(whitebitWebhookRouter);
+router.use(telegramRouter);
 // All top-level Admin APIs are operator-only by default. Individual owner
 // routes retain their existing requireOwner middleware.
 router.use("/admin", requireOperator);
