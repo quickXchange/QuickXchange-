@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { useUser } from '@clerk/react';
-import { ArrowRight, ChevronDown, CircleUserRound, Gauge, Globe2, Handshake, House, Menu, Moon, Search, ShieldCheck, Sun, X, Link2, Pause, Play } from 'lucide-react';
+import { ArrowRight, ChevronDown, CircleUserRound, Gauge, Globe2, Handshake, House, Menu, Moon, Search, ShieldCheck, Sun, X, Link2, Pause, Play, Mail, Clock3 } from 'lucide-react';
+import { SiTelegram } from 'react-icons/si';
 import { Link, useLocation } from 'wouter';
 import { useGetOperators, getGetOperatorsQueryKey, useGetPublishedSiteContent, getGetPublishedSiteContentQueryKey } from '@workspace/api-client-react';
 import type { PartnerLogo, SiteNavLink, SocialTrustConfig, SocialTrustItem } from '@workspace/api-client-react';
 import { LanguageSelector } from '@/components/language-selector';
 import { useI18n } from '@/i18n';
 import { PUBLIC_PAGE_REGISTRY } from '../lib/public-page-registry';
-import { basePath, cn } from '@/components/shared-app-ui';
+import { basePath, cn, SUPPORT_TELEGRAM, SUPPORT_EMAIL, SUPPORT_HOURS } from '@/components/shared-app-ui';
 import { SideDrawer } from '@/components/side-drawer';
 import { setAppTheme, useAppTheme } from '@/theme';
 import { useSitePreview } from './site-preview-context';
@@ -18,26 +19,23 @@ import type { NavGroup } from '@/components/mega-menu';
 
 const COMPANY_FOOTER_LINKS = [
   ['Home', '/'],
-  ['How It Works', '/how-it-works'],
   ['About Us', '/about'],
+  ['How It Works', '/how-it-works'],
   ['Affiliate Program', '/affiliates'],
-  ['Contact Us', '/contact'],
-  ['Privacy Policy', '/privacy'],
-  ['Terms & Conditions', '/terms'],
-  ['AML / KYC', '/aml-kyc'],
 ] as const;
 
-const SUPPORT_FOOTER_LINKS = [
-  ['Contact', '/contact'],
-  ['Track Order', '/status'],
+const INFORMATION_FOOTER_LINKS = [
+  ['User Agreement', '/terms'],
+  ['AML / KYC Policy', '/aml-kyc'],
   ['FAQ', '/faq'],
-  ['Help Center', '/faq'],
+  ['Contacts', '/contact'],
+  ['Privacy Policy', '/privacy'],
 ] as const;
 
 const EXCHANGE_FOOTER_LINKS = [
   ['Swap', '/swap'],
   ['Convert', '/convert'],
-  ['Buy / Sell', '/'],
+  ['Track Order', '/status'],
   ['Exchange Rates', '/market-rates'],
   ['Supported Assets', '/crypto-pairs'],
 ] as const;
@@ -151,7 +149,6 @@ const LEGACY_SOCIAL_FIELDS = [
   ['instagramUrl', 'Instagram'],
   ['xUrl', 'X'],
   ['facebookUrl', 'Facebook'],
-  ['telegramUrl', 'Telegram'],
 ] as const;
 
 function initialsForSocialName(name: string) {
@@ -278,24 +275,6 @@ function automaticNameOrder(left: { name: string; href?: string; id: string; ena
     || left.name.localeCompare(right.name)
     || (left.href ?? '').localeCompare(right.href ?? '')
     || left.id.localeCompare(right.id);
-}
-
-function FooterSupportLinks({ links, telegramUrl }: { links: SiteNavLink[]; telegramUrl?: string | null }) {
-  return <>
-    {links[0] && <ConfiguredLink link={links[0]} placement="footer" />}
-    {telegramUrl && (
-      <a
-        href={telegramUrl}
-        target="_blank"
-        rel="noreferrer noopener"
-        className="public-footer-link"
-        data-testid="link-published-footer-support-telegram"
-      >
-        Support / Telegram
-      </a>
-    )}
-    {links.slice(1).map((link) => <ConfiguredLink key={link.id} link={link} placement="footer" />)}
-  </>;
 }
 
 function hiddenManagedPageHrefs(pages: Array<{ pageKey: string; content: Record<string, unknown> }> = []): Set<string> {
@@ -646,7 +625,7 @@ export function PublicShell({ children }: { children: ReactNode }) {
     } satisfies SiteNavLink];
   });
   const companyFooterLinks = resolveFooterLinks(COMPANY_FOOTER_LINKS);
-  const supportFooterLinks = resolveFooterLinks(SUPPORT_FOOTER_LINKS);
+  const informationFooterLinks = resolveFooterLinks(INFORMATION_FOOTER_LINKS);
   const exchangeFooterLinks = resolveFooterLinks(EXCHANGE_FOOTER_LINKS);
 
   const socialTrust = preview.active && preview.socialTrust ? preview.socialTrust : published.data?.socialTrust;
@@ -654,12 +633,38 @@ export function PublicShell({ children }: { children: ReactNode }) {
     .filter((logo) => logo.enabled)
     .sort(automaticNameOrder);
 
-  const socialItems = (socialTrust?.items ?? []).filter(i => i.enabled && i.group === 'social').sort(automaticNameOrder);
+  const socialItems = (socialTrust?.items ?? [])
+    .filter(i => i.enabled && i.group === 'social' && normalizeFooterLabel(i.name) !== 'telegram')
+    .sort(automaticNameOrder);
   const trustItems = (socialTrust?.items ?? []).filter(i => i.enabled && i.group === 'trust').sort(automaticNameOrder);
-  const telegramSupportUrl = socialItems.find((item) => normalizeFooterLabel(item.name) === 'telegram')?.href
-    ?? socialTrust?.telegramUrl;
+  const telegramSupportUrl = (socialTrust?.items ?? []).find((item) =>
+    item.enabled && normalizeFooterLabel(item.name) === 'telegram')?.href
+    ?? socialTrust?.telegramUrl
+    ?? SUPPORT_TELEGRAM;
 
-  const hasSocial = Boolean(socialItems.length || socialTrust?.instagramUrl || socialTrust?.xUrl || socialTrust?.facebookUrl || socialTrust?.telegramUrl || trustItems.length);
+  const hasSocial = Boolean(socialItems.length || socialTrust?.instagramUrl || socialTrust?.xUrl || socialTrust?.facebookUrl || trustItems.length);
+
+  const footerNavigationGroups = [
+    { title: 'Company', links: companyFooterLinks, type: 'links' },
+    { title: 'Exchange', links: exchangeFooterLinks, type: 'links' },
+    { title: 'Information', links: informationFooterLinks, type: 'links' },
+    { title: 'Contacts', type: 'custom', content: (
+      <>
+        <span className="public-footer-link flex items-center gap-2 cursor-default select-none" data-testid="text-footer-working-hours">
+          <Clock3 size={15} />
+          {SUPPORT_HOURS}
+        </span>
+        <a href={telegramSupportUrl} target="_blank" rel="noreferrer noopener" className="public-footer-link hover:text-primary transition-colors flex items-center gap-2" data-testid="link-published-footer-support-telegram">
+          <SiTelegram size={14} className="opacity-80" />
+          Telegram Support
+        </a>
+        <a href={`mailto:${SUPPORT_EMAIL}`} className="public-footer-link hover:text-primary transition-colors flex items-center gap-2" data-testid="link-published-footer-support-email">
+          <Mail size={15} />
+          Support Email
+        </a>
+      </>
+    ) }
+  ];
 
   return <div className="min-h-[100dvh] noise public-shell flex flex-col">
     <PublicHeader />
@@ -683,18 +688,18 @@ export function PublicShell({ children }: { children: ReactNode }) {
         </div>
 
         <div className="qx-premium-footer-inner">
-          <div className="hidden md:grid grid-cols-4 lg:grid-cols-12 gap-8 mb-12">
-            <div className="col-span-4 lg:col-span-4 flex flex-col items-start gap-6">
+          <div className="grid grid-cols-1 gap-x-8 gap-y-10 mb-10 sm:grid-cols-2 sm:mb-12 lg:grid-cols-12">
+            <div className="flex flex-col items-start gap-5 sm:col-span-2 lg:col-span-4 lg:gap-6">
               <BrandLogo />
               <p className="qx-footer-tagline">Your Crypto Exchange Partner</p>
               <p className="text-sm text-muted-foreground leading-relaxed max-w-sm">
                 Fast. Secure. Global. Exchange, convert and move your crypto with confidence.
               </p>
-               {hasSocial && (
+              {hasSocial && (
                 <div className="mt-2">
-                   <FooterSocialLinksDataDriven
-                     socialTrust={socialTrust as SocialTrustConfig | undefined}
-                     socialItems={socialItems}
+                  <FooterSocialLinksDataDriven
+                    socialTrust={socialTrust as SocialTrustConfig | undefined}
+                    socialItems={socialItems}
                     trustItems={trustItems}
                     preview={preview}
                   />
@@ -702,76 +707,16 @@ export function PublicShell({ children }: { children: ReactNode }) {
               )}
             </div>
 
-            <div className="col-span-1 lg:col-span-2 flex flex-col gap-4 lg:col-start-7">
-              <strong className="text-foreground text-xs font-bold tracking-widest uppercase">Company</strong>
-              <nav className="flex flex-col gap-2.5 text-sm text-muted-foreground" aria-label="Company navigation">
-                <ConfiguredLinks links={companyFooterLinks} placement="footer" />
-              </nav>
-            </div>
-
-            <div className="col-span-1 lg:col-span-2 flex flex-col gap-4">
-              <strong className="text-foreground text-xs font-bold tracking-widest uppercase">Support</strong>
-               <nav className="flex flex-col gap-2.5 text-sm text-muted-foreground" aria-label="Support navigation">
-                 <FooterSupportLinks links={supportFooterLinks} telegramUrl={telegramSupportUrl} />
-              </nav>
-            </div>
-
-            <div className="col-span-2 lg:col-span-2 flex flex-col gap-4">
-              <strong className="text-foreground text-xs font-bold tracking-widest uppercase">Exchange</strong>
-              <nav className="flex flex-col gap-2.5 text-sm text-muted-foreground" aria-label="Exchange navigation">
-                <ConfiguredLinks links={exchangeFooterLinks} placement="footer" />
-              </nav>
-            </div>
-          </div>
-
-          <div className="md:hidden flex flex-col mb-8 gap-6">
-            <div className="flex flex-col gap-5">
-              <BrandLogo />
-              <p className="qx-footer-tagline">Your Crypto Exchange Partner</p>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Fast. Secure. Global. Exchange, convert and move your crypto with confidence.
-              </p>
-               {hasSocial && (
-                <div className="mt-2">
-                   <FooterSocialLinksDataDriven
-                     socialTrust={socialTrust as SocialTrustConfig | undefined}
-                     socialItems={socialItems}
-                    trustItems={trustItems}
-                    preview={preview}
-                  />
+            {footerNavigationGroups.map((group) => (
+              <section key={group.title} className="flex flex-col gap-4 lg:col-span-2">
+                <h2 className="text-foreground text-xs font-bold tracking-widest uppercase">{group.title}</h2>
+                <div className="flex flex-col gap-2.5 text-sm text-muted-foreground" aria-label={`${group.title} footer links`}>
+                  {group.type === 'links'
+                    ? <nav className="contents" aria-label={`${group.title} navigation`}><ConfiguredLinks links={group.links!} placement="footer" /></nav>
+                    : group.content}
                 </div>
-              )}
-            </div>
-
-            <div className="flex flex-col border-y border-border/10 divide-y divide-border/10 mt-2">
-               <details className="qx-footer-mobile-group group" name="qx-footer-nav">
-                  <summary className="qx-footer-mobile-summary flex items-center justify-between py-4 text-xs font-bold uppercase tracking-widest text-foreground cursor-pointer list-none outline-none">
-                    Company
-                    <ChevronDown size={16} className="text-muted-foreground transition-transform group-open:-rotate-180" />
-                  </summary>
-                  <div className="flex flex-col gap-3 pb-4 text-sm text-muted-foreground">
-                    <ConfiguredLinks links={companyFooterLinks} placement="footer" />
-                  </div>
-               </details>
-               <details className="qx-footer-mobile-group group" name="qx-footer-nav">
-                  <summary className="qx-footer-mobile-summary flex items-center justify-between py-4 text-xs font-bold uppercase tracking-widest text-foreground cursor-pointer list-none outline-none">
-                    Support
-                    <ChevronDown size={16} className="text-muted-foreground transition-transform group-open:-rotate-180" />
-                  </summary>
-                  <div className="flex flex-col gap-3 pb-4 text-sm text-muted-foreground">
-                     <FooterSupportLinks links={supportFooterLinks} telegramUrl={telegramSupportUrl} />
-                  </div>
-               </details>
-               <details className="qx-footer-mobile-group group" name="qx-footer-nav">
-                  <summary className="qx-footer-mobile-summary flex items-center justify-between py-4 text-xs font-bold uppercase tracking-widest text-foreground cursor-pointer list-none outline-none">
-                    Exchange
-                    <ChevronDown size={16} className="text-muted-foreground transition-transform group-open:-rotate-180" />
-                  </summary>
-                  <div className="flex flex-col gap-3 pb-4 text-sm text-muted-foreground">
-                    <ConfiguredLinks links={exchangeFooterLinks} placement="footer" />
-                  </div>
-               </details>
-            </div>
+              </section>
+            ))}
           </div>
 
           <div className="qx-premium-footer-divider"></div>
@@ -787,7 +732,7 @@ export function PublicShell({ children }: { children: ReactNode }) {
             <div className="qx-footer-bottom-actions">
               <div className="qx-footer-security">
                 <ShieldCheck size={15} className="text-primary" aria-hidden="true" />
-                <span>Secure <span aria-hidden="true">&bull;</span> Global <span aria-hidden="true">&bull;</span> 24/7 Support</span>
+                <span>Secure <span aria-hidden="true">&bull;</span> Global</span>
               </div>
               <LanguageSelector className="qx-footer-language" />
             </div>

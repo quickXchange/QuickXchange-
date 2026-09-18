@@ -1,7 +1,7 @@
 import { useLayoutEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { PublicShell } from '../components/public-shell';
-import { basePath, cn, InlineNotice } from '../components/shared-app-ui';
+import { basePath, cn, InlineNotice, SUPPORT_TELEGRAM, SUPPORT_EMAIL } from '../components/shared-app-ui';
 import { useCreateContactSubmission, useGetPublishedSiteContent, getGetPublishedSiteContentQueryKey, useSubscribeNewsletter } from '@workspace/api-client-react';
 import NotFound from './not-found';
 import { Loader2, ShieldCheck, Search, BookOpen, HelpCircle, ArrowRight, Mail } from 'lucide-react';
@@ -359,7 +359,7 @@ export function ContactUsPage() {
 
               <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-8">
                 <a
-                  href="https://t.me/Quick_change_support"
+                  href={SUPPORT_TELEGRAM}
                   target="_blank"
                   rel="noreferrer"
                   className="group inline-flex min-h-11 items-center gap-3 text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-4 focus-visible:ring-offset-background"
@@ -370,10 +370,10 @@ export function ContactUsPage() {
                     aria-hidden="true"
                     className="h-6 w-6 shrink-0 text-[#229ED9] transition duration-200 group-hover:drop-shadow-[0_0_8px_rgba(34,158,217,0.75)] group-active:drop-shadow-[0_0_10px_rgba(124,58,237,0.75)]"
                   />
-                  <span className="font-semibold">@Quick_change_support</span>
+                  <span className="font-semibold">{SUPPORT_TELEGRAM.replace('https://t.me/', '@')}</span>
                 </a>
                 <a
-                  href="mailto:support@quickxchange.net"
+                  href={`mailto:${SUPPORT_EMAIL}`}
                   className="group inline-flex min-h-11 items-center gap-3 text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-4 focus-visible:ring-offset-background"
                   aria-label="Email QuickXchange support"
                   data-testid="link-contact-email"
@@ -382,7 +382,7 @@ export function ContactUsPage() {
                     aria-hidden="true"
                     className="h-6 w-6 shrink-0 text-primary transition duration-200 group-hover:drop-shadow-[0_0_8px_rgba(6,182,212,0.75)] group-active:drop-shadow-[0_0_10px_rgba(124,58,237,0.75)]"
                   />
-                  <span className="font-semibold">support@quickxchange.net</span>
+                  <span className="font-semibold">{SUPPORT_EMAIL}</span>
                 </a>
               </div>
             </div>
