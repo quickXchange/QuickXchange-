@@ -24,6 +24,8 @@ tags:
     description: Admin blog editorial and automation operations
   - name: quickex
     description: Quickex Convert provider operations
+  - name: telegram
+    description: Shared Telegram customer account linking
 paths:
   /healthz:
     get:
@@ -3555,6 +3557,30 @@ paths:
       responses:
         "201": { description: Queued announcement, content: { application/json: { schema: { $ref: "#/components/schemas/NewsletterAnnouncement" } } } }
 
+  /telegram/connect/status:
+    get:
+      operationId: getTelegramLinkStatus
+      tags: [telegram]
+      summary: Validate a one-time Telegram account-link challenge
+      parameters:
+        - { name: token, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 256 } }
+      responses:
+        "200": { description: Valid challenge, content: { application/json: { schema: { $ref: "#/components/schemas/TelegramLinkChallenge" } } } }
+        "404": { description: Invalid challenge, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /telegram/connect:
+    post:
+      operationId: consumeTelegramLinkChallenge
+      tags: [telegram]
+      summary: Consume a one-time challenge and link the signed-in customer
+      security: [{ CustomerSession: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/TelegramLinkInput" } } }
+      responses:
+        "200": { description: Linked Telegram account, content: { application/json: { schema: { $ref: "#/components/schemas/TelegramLink" } } } }
+        "401": { description: Customer authentication is required, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Invalid challenge, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
 components:
   parameters:
     Page:
@@ -3622,6 +3648,27 @@ components:
       name: __session
       description: Clerk owner session. The authenticated user must match the single active owner account in the server-side operator registry.
   schemas:
+    TelegramLinkInput:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string, minLength: 1, maxLength: 256 }
+    TelegramLinkChallenge:
+      type: object
+      required: [entity, valid, intent, expiresAt]
+      properties:
+        entity: { type: string, enum: [telegram_link_challenge] }
+        valid: { type: boolean }
+        intent: { type: string, enum: [signin, signup] }
+        expiresAt: { type: string, format: date-time }
+    TelegramLink:
+      type: object
+      required: [entity, linked, intent, chatId]
+      properties:
+        entity: { type: string, enum: [telegram_link] }
+        linked: { type: boolean }
+        intent: { type: string, enum: [signin, signup] }
+        chatId: { type: string }
     BlogCategory:
       type: object
       required: [id, name, slug, description, enabled, createdAt, updatedAt]

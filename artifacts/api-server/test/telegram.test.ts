@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import test from "node:test";
-import { DepositInstructionsPending, shouldApplyUpdate, reconciliationClaimEligible, reconciliationWinnerTransition, telegramAdvisoryChatKey, telegramCreateRetryDecision, telegramCreationDeliveryDecision, telegramCreationOutboxPayload, telegramCreateState, telegramDepositInstruction, telegramInboxDisposition, telegramNextChatCursor, telegramOutboxFailureDisposition, telegramPrivateUpdate, telegramRequiresDeposit, telegramSecretMatches, telegramUpdateIdValid, telegramWebhookDisposition } from "../src/routes/telegram";
+import { eq, inArray } from "drizzle-orm";
+import { db, telegramAccountLinkChallengesTable, telegramChatsTable } from "@workspace/db";
+import { DepositInstructionsPending, menu, shouldApplyUpdate, reconciliationClaimEligible, reconciliationWinnerTransition, telegramAdvisoryChatKey, telegramCreateRetryDecision, telegramCreationDeliveryDecision, telegramCreationOutboxPayload, telegramCreateState, telegramDepositInstruction, telegramInboxDisposition, telegramNextChatCursor, telegramOutboxFailureDisposition, telegramPrivateUpdate, telegramRequiresDeposit, telegramSecretMatches, telegramUpdateIdValid, telegramWebhookDisposition } from "../src/routes/telegram";
 import { localeOf, t } from "../src/lib/telegram-localization";
+import { consumeTelegramLinkChallenge, createTelegramLinkChallenge, hashTelegramLinkToken, TelegramLinkChallengeError, TelegramLinkConflictError } from "../src/lib/telegram-link";
 import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualTargets, nextRequiredField, shouldAskDestination, shouldAskRefund } from "../src/lib/telegram-wizard";
 
 test("Telegram webhook secret uses exact constant-time-length semantics", () => {
@@ -28,6 +32,88 @@ test("Telegram locale stays supported with safe English fallback", () => {
   assert.equal(localeOf("ar-EG"), "ar");
   assert.equal(localeOf("xx"), "en");
   assert.match(t("ar", "welcome"), /QuickXchange/);
+});
+
+test("Telegram main menu keeps the requested two-column signed-out and signed-in layouts", () => {
+  process.env.TELEGRAM_WEBSITE_URL = "https://quickxchange.example";
+  const signedOut = menu("en", false);
+  assert.deepEqual(signedOut.map(row => row.map(button => button.text)), [
+    ["⚡ Exchange", "📦 Track Order"],
+    ["📋 My Orders", "👤 Sign In"],
+    ["📝 Sign Up", "🌐 Language"],
+    ["💬 Support", "🌍 Website"],
+  ]);
+  assert.deepEqual(signedOut.map(row => row.map(button => button.callback_data ?? "url")), [
+    ["exchange", "track"],
+    ["orders", "signin"],
+    ["signup", "language"],
+    ["support", "url"],
+  ]);
+
+  const signedIn = menu("en", true);
+  assert.deepEqual(signedIn.map(row => row.map(button => button.text)), [
+    ["⚡ Exchange", "📦 Track Order"],
+    ["📋 My Orders", "👤 My Account"],
+    ["🚪 Sign Out", "🌐 Language"],
+    ["💬 Support", "🌍 Website"],
+  ]);
+  assert.deepEqual(signedIn.map(row => row.map(button => button.callback_data ?? "url")), [
+    ["exchange", "track"],
+    ["orders", "account"],
+    ["signout", "language"],
+    ["support", "url"],
+  ]);
+  delete process.env.TELEGRAM_WEBSITE_URL;
+});
+
+test("Telegram account links are one-time, expiring, and one-to-one", async () => {
+  const suffix = randomUUID();
+  const chatIds = [`tg-a-${suffix}`, `tg-b-${suffix}`];
+  const clerkA = `clerk-a-${suffix}`;
+  const clerkB = `clerk-b-${suffix}`;
+  await db.insert(telegramChatsTable).values(chatIds.map((chatId, index) => ({
+    chatId,
+    userId: `user-${index}-${suffix}`,
+  })));
+
+  try {
+    const token = await createTelegramLinkChallenge(chatIds[0], `user-0-${suffix}`, "signin");
+    const linked = await consumeTelegramLinkChallenge(token, undefined, clerkA);
+    assert.equal(linked.chatId, chatIds[0]);
+    await assert.rejects(
+      () => consumeTelegramLinkChallenge(token, undefined, clerkA),
+      TelegramLinkChallengeError,
+    );
+
+    const expiredToken = await createTelegramLinkChallenge(chatIds[1], `user-1-${suffix}`, "signup");
+    await db.update(telegramAccountLinkChallengesTable)
+      .set({ expiresAt: new Date(Date.now() - 1_000) })
+      .where(eq(telegramAccountLinkChallengesTable.tokenHash, hashTelegramLinkToken(expiredToken)));
+    await assert.rejects(
+      () => consumeTelegramLinkChallenge(expiredToken, undefined, clerkB),
+      TelegramLinkChallengeError,
+    );
+
+    const duplicateAccountToken = await createTelegramLinkChallenge(chatIds[1], `user-1-${suffix}`, "signin");
+    await assert.rejects(
+      () => consumeTelegramLinkChallenge(duplicateAccountToken, undefined, clerkA),
+      TelegramLinkConflictError,
+    );
+    const [unconsumed] = await db.select({ consumedAt: telegramAccountLinkChallengesTable.consumedAt })
+      .from(telegramAccountLinkChallengesTable)
+      .where(eq(telegramAccountLinkChallengesTable.tokenHash, hashTelegramLinkToken(duplicateAccountToken)))
+      .limit(1);
+    assert.equal(unconsumed?.consumedAt, null);
+
+    const duplicateChatToken = await createTelegramLinkChallenge(chatIds[0], `user-0-${suffix}`, "signup");
+    await assert.rejects(
+      () => consumeTelegramLinkChallenge(duplicateChatToken, undefined, clerkB),
+      TelegramLinkConflictError,
+    );
+  } finally {
+    await db.delete(telegramAccountLinkChallengesTable).where(inArray(telegramAccountLinkChallengesTable.chatId, chatIds));
+    await db.delete(telegramChatsTable).where(inArray(telegramChatsTable.chatId, chatIds));
+  }
 });
 
 test("Telegram wizard builds exact route bodies from persisted selections", () => {

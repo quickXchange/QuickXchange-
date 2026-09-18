@@ -1,5 +1,5 @@
 import { and, desc, eq } from "drizzle-orm";
-import { db, quickexOrdersTable } from "@workspace/db";
+import { db, ordersTable, quickexOrdersTable } from "@workspace/db";
 import { signOrderTrackingToken } from "./order-access";
 
 type Route = {
@@ -216,6 +216,19 @@ export async function mergeCustomerOrderHistory(
       String(b.id).localeCompare(String(a.id)));
   const offset = (page - 1) * pageSize;
   return { items: items.slice(offset, offset + pageSize), total: items.length };
+}
+
+/** Customer-safe, provider-independent history for non-HTTP consumers. */
+export async function getCustomerOrderHistory(customerClerkUserId: string, limit = 10) {
+  const [manual, provider] = await Promise.all([
+    db.select({ id: ordersTable.id, status: ordersTable.status, createdAt: ordersTable.createdAt, type: ordersTable.type })
+      .from(ordersTable).where(and(eq(ordersTable.customerClerkUserId, customerClerkUserId), eq(ordersTable.type, "manual"))),
+    db.select({ id: quickexOrdersTable.legacyOrderId, status: quickexOrdersTable.status, createdAt: quickexOrdersTable.createdAt })
+      .from(quickexOrdersTable).where(eq(quickexOrdersTable.customerClerkUserId, customerClerkUserId)),
+  ]);
+  return [...manual, ...provider.map(row => ({ ...row, type: "convert" }))]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id.localeCompare(a.id))
+    .slice(0, limit);
 }
 
 export async function findProviderManagedCustomerOrder(id: string, customerClerkUserId: string) {

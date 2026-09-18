@@ -5,6 +5,58 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface TelegramLinkInput {
+  /**
+     * @minLength 1
+     * @maxLength 256
+     */
+  token: string;
+}
+
+export type TelegramLinkChallengeEntity = typeof TelegramLinkChallengeEntity[keyof typeof TelegramLinkChallengeEntity];
+
+
+export const TelegramLinkChallengeEntity = {
+  telegram_link_challenge: 'telegram_link_challenge',
+} as const;
+
+export type TelegramLinkChallengeIntent = typeof TelegramLinkChallengeIntent[keyof typeof TelegramLinkChallengeIntent];
+
+
+export const TelegramLinkChallengeIntent = {
+  signin: 'signin',
+  signup: 'signup',
+} as const;
+
+export interface TelegramLinkChallenge {
+  entity: TelegramLinkChallengeEntity;
+  valid: boolean;
+  intent: TelegramLinkChallengeIntent;
+  expiresAt: string;
+}
+
+export type TelegramLinkEntity = typeof TelegramLinkEntity[keyof typeof TelegramLinkEntity];
+
+
+export const TelegramLinkEntity = {
+  telegram_link: 'telegram_link',
+} as const;
+
+export type TelegramLinkIntent = typeof TelegramLinkIntent[keyof typeof TelegramLinkIntent];
+
+
+export const TelegramLinkIntent = {
+  signin: 'signin',
+  signup: 'signup',
+} as const;
+
+export interface TelegramLink {
+  entity: TelegramLinkEntity;
+  linked: boolean;
+  intent: TelegramLinkIntent;
+  chatId: string;
+}
+
 export interface BlogCategory {
   id: string;
   name: string;
@@ -5610,5 +5662,13 @@ limit?: number;
 };
 
 export type UnsubscribeNewsletterParams = {
+token: string;
+};
+
+export type GetTelegramLinkStatusParams = {
+/**
+ * @minLength 1
+ * @maxLength 256
+ */
 token: string;
 };

@@ -116,6 +116,7 @@ const AccountDepositsPage = lazy(() => import('./pages/account-deposits').then(m
 const AccountOrderDetailPage = lazy(() => import('./pages/account').then(module => ({ default: module.AccountOrderDetailPage })));
 const CustomerSignInPage = lazy(() => import('./pages/account').then(module => ({ default: module.CustomerSignInPage })));
 const CustomerSignUpPage = lazy(() => import('./pages/account').then(module => ({ default: module.CustomerSignUpPage })));
+const TelegramConnectPage = lazy(() => import('./pages/telegram-connect').then(module => ({ default: module.TelegramConnectPage })));
 const AffiliateDashboardPage = lazy(() => import('./pages/affiliate').then(module => ({ default: module.AffiliateDashboardPage })));
 const AdminAffiliatesOverviewPage = lazy(() => import('./pages/affiliate').then(module => ({ default: module.AdminAffiliatesOverviewPage })));
 const AdminAffiliateDetailPage = lazy(() => import('./pages/affiliate').then(module => ({ default: module.AdminAffiliateDetailPage })));
@@ -2520,6 +2521,7 @@ function ClerkProviderWithRoutes() {
             <Route path="/account/orders/:id" component={AccountOrderDetailPage} />
             <Route path="/account/settings" component={AccountSettingsPage} />
             <Route path="/account" component={AccountPage} />
+            <Route path="/telegram/connect" component={TelegramConnectPage} />
             <Route path="/sign-in/*?" component={CustomerSignInPage} />
             <Route path="/sign-up/*?" component={CustomerSignUpPage} />
             <Route path="/admin" component={AdminOverviewRoute} />

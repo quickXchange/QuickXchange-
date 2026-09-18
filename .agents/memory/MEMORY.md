@@ -105,3 +105,4 @@
 - [Touch carousel verification](touch-carousel-verification.md) — test touch-action with genuine touch events; a mouse drag at mobile width does not validate native scrolling.
 - [Telegram financial order delivery](telegram-financial-order-delivery.md) — fence chat updates and keep order creation, reconciliation, and deposit delivery durable.
 - [Optional refund destinations](optional-refund-destinations.md) — omission must never block an order; validate supplied crypto refunds against the sending network.
+- [Telegram shared identity](telegram-shared-identity.md) — link through website Clerk only; freeze ownership before create and atomically claim before storing Telegram capabilities.

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { SignIn, SignUp, UserProfile, useUser } from '@clerk/react';
 import {
@@ -74,12 +74,36 @@ function exactTotalsByAsset(
   }, {});
 }
 
+function validatedCustomerRedirect(): string | undefined {
+  const raw = new URLSearchParams(window.location.search).get('redirect_url');
+  if (!raw) return undefined;
+  try {
+    const target = new URL(raw, window.location.origin);
+    const expectedPath = `${basePath}/telegram/connect`.replace(/\/+/g, '/');
+    const accountPath = `${basePath}/account`.replace(/\/+/g, '/');
+    const isTelegramConnect = target.pathname === expectedPath && Boolean(target.searchParams.get('token'));
+    const isCustomerAccount = target.pathname === accountPath || target.pathname.startsWith(`${accountPath}/`);
+    if (
+      target.origin !== window.location.origin ||
+      target.hash ||
+      (!isTelegramConnect && !isCustomerAccount)
+    ) return undefined;
+    return `${target.pathname}${target.search}`;
+  } catch {
+    return undefined;
+  }
+}
+
 export function CustomerSignInPage() {
+  const customerRedirect = useMemo(validatedCustomerRedirect, []);
+  const signUpUrl = customerRedirect
+    ? `${basePath}/sign-up?redirect_url=${encodeURIComponent(customerRedirect)}`
+    : `${basePath}/sign-up`;
   return (
     <PublicShell>
       <main className="public-main sign-in-page flex min-w-0 justify-center overflow-x-hidden px-4 py-10 sm:px-6 sm:py-20 rise-in">
         <div className="flex w-full min-w-0 flex-col items-center gap-4 [&_.cl-cardBox]:max-w-full [&_.cl-card]:max-w-full [&_.cl-rootBox]:max-w-full">
-          <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} />
+          <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={signUpUrl} forceRedirectUrl={customerRedirect} fallbackRedirectUrl={customerRedirect} />
           <AuthAffiliateCodeForm />
         </div>
       </main>
@@ -88,11 +112,15 @@ export function CustomerSignInPage() {
 }
 
 export function CustomerSignUpPage() {
+  const customerRedirect = useMemo(validatedCustomerRedirect, []);
+  const signInUrl = customerRedirect
+    ? `${basePath}/sign-in?redirect_url=${encodeURIComponent(customerRedirect)}`
+    : `${basePath}/sign-in`;
   return (
     <PublicShell>
       <main className="public-main sign-in-page sign-up-page flex min-w-0 justify-center overflow-x-hidden px-4 py-10 sm:px-6 sm:py-20 rise-in">
         <div className="flex w-full min-w-0 flex-col items-center gap-4 [&_.cl-cardBox]:max-w-full [&_.cl-card]:max-w-full [&_.cl-rootBox]:max-w-full">
-          <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
+          <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={signInUrl} forceRedirectUrl={customerRedirect} fallbackRedirectUrl={customerRedirect} />
           <AuthAffiliateCodeForm />
         </div>
       </main>
@@ -1181,7 +1209,8 @@ export function AccountOrderDetailPage() {
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
-      setLocation('/sign-in');
+      const returnTo = `${window.location.pathname}${window.location.search}`;
+      setLocation(`/sign-in?redirect_url=${encodeURIComponent(returnTo)}`);
     }
   }, [isLoaded, isSignedIn, setLocation]);
 

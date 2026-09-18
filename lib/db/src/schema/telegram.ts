@@ -15,10 +15,27 @@ export const telegramChatsTable = pgTable("telegram_chats", {
   userId: text("user_id").notNull(),
   username: text("username"),
   firstName: text("first_name"),
+  clerkCustomerUserId: text("clerk_customer_user_id"),
   locale: text("locale").notNull().default("en"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+  uniqueIndex("telegram_chats_clerk_customer_user_uidx").on(table.clerkCustomerUserId),
+]);
+
+/** One-time browser account-link challenges. Raw tokens are never persisted. */
+export const telegramAccountLinkChallengesTable = pgTable("telegram_account_link_challenges", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tokenHash: text("token_hash").notNull().unique(),
+  chatId: text("chat_id").notNull().references(() => telegramChatsTable.chatId, { onDelete: "cascade" }),
+  telegramUserId: text("telegram_user_id").notNull(),
+  intent: text("intent").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  consumedAt: timestamp("consumed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("telegram_account_link_challenges_active_idx").on(table.chatId, table.expiresAt),
+]);
 
 export const telegramWizardSessionsTable = pgTable("telegram_wizard_sessions", {
   chatId: text("chat_id").primaryKey().references(() => telegramChatsTable.chatId, { onDelete: "cascade" }),

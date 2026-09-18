@@ -12560,3 +12560,41 @@ export const PublishNewsletterAnnouncementResponse = zod.object({
   "description": zod.string(),
   "readMorePath": zod.string()
 })
+
+
+/**
+ * @summary Validate a one-time Telegram account-link challenge
+ */
+export const getTelegramLinkStatusQueryTokenMax = 256;
+
+
+
+export const GetTelegramLinkStatusQueryParams = zod.object({
+  "token": zod.coerce.string().min(1).max(getTelegramLinkStatusQueryTokenMax)
+})
+
+export const GetTelegramLinkStatusResponse = zod.object({
+  "entity": zod.enum(['telegram_link_challenge']),
+  "valid": zod.boolean(),
+  "intent": zod.enum(['signin', 'signup']),
+  "expiresAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Consume a one-time challenge and link the signed-in customer
+ */
+export const consumeTelegramLinkChallengeBodyTokenMax = 256;
+
+
+
+export const ConsumeTelegramLinkChallengeBody = zod.object({
+  "token": zod.string().min(1).max(consumeTelegramLinkChallengeBodyTokenMax)
+})
+
+export const ConsumeTelegramLinkChallengeResponse = zod.object({
+  "entity": zod.enum(['telegram_link']),
+  "linked": zod.boolean(),
+  "intent": zod.enum(['signin', 'signup']),
+  "chatId": zod.string()
+})

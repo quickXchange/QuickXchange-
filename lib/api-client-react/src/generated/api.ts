@@ -111,6 +111,7 @@ import type {
   GetPublicOrderStatusParams,
   GetQuickexOrderStatusParams,
   GetQuickexPairsParams,
+  GetTelegramLinkStatusParams,
   GetWhitebitMainBalance200,
   HealthStatus,
   ImageUpload,
@@ -207,6 +208,9 @@ import type {
   TeamMemberUpdate,
   TeamRole,
   TeamRoleInput,
+  TelegramLink,
+  TelegramLinkChallenge,
+  TelegramLinkInput,
   UnsubscribeNewsletterParams,
   UpdateWhitebitProviderStatusBody,
   WebsiteBranding,
@@ -16398,4 +16402,159 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getPublishNewsletterAnnouncementMutationOptions(options));
+    }
+
+export const getGetTelegramLinkStatusUrl = (params: GetTelegramLinkStatusParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/telegram/connect/status?${stringifiedParams}` : `/api/telegram/connect/status`
+}
+
+/**
+ * @summary Validate a one-time Telegram account-link challenge
+ */
+export const getTelegramLinkStatus = async (params: GetTelegramLinkStatusParams, options?: Parameters<typeof customFetch>[1]): Promise<TelegramLinkChallenge> => {
+
+  return customFetch<TelegramLinkChallenge>(getGetTelegramLinkStatusUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTelegramLinkStatusQueryKey = (params?: GetTelegramLinkStatusParams,) => {
+    return [
+    `/api/telegram/connect/status`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetTelegramLinkStatusQueryOptions = <TData = Awaited<ReturnType<typeof getTelegramLinkStatus>>, TError = ErrorType<ApiError>>(params: GetTelegramLinkStatusParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTelegramLinkStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTelegramLinkStatusQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTelegramLinkStatus>>> = ({ signal }) => getTelegramLinkStatus(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTelegramLinkStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTelegramLinkStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getTelegramLinkStatus>>>
+export type GetTelegramLinkStatusQueryError = ErrorType<ApiError>
+
+
+/**
+ * @summary Validate a one-time Telegram account-link challenge
+ */
+
+export function useGetTelegramLinkStatus<TData = Awaited<ReturnType<typeof getTelegramLinkStatus>>, TError = ErrorType<ApiError>>(
+ params: GetTelegramLinkStatusParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTelegramLinkStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTelegramLinkStatusQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getConsumeTelegramLinkChallengeUrl = () => {
+
+
+
+
+  return `/api/telegram/connect`
+}
+
+/**
+ * @summary Consume a one-time challenge and link the signed-in customer
+ */
+export const consumeTelegramLinkChallenge = async (telegramLinkInput: TelegramLinkInput, options?: Parameters<typeof customFetch>[1]): Promise<TelegramLink> => {
+
+  return customFetch<TelegramLink>(getConsumeTelegramLinkChallengeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(telegramLinkInput)
+  }
+);}
+
+
+
+
+
+export const getConsumeTelegramLinkChallengeMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof consumeTelegramLinkChallenge>>, TError,{data: BodyType<TelegramLinkInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof consumeTelegramLinkChallenge>>, TError,{data: BodyType<TelegramLinkInput>}, TContext> => {
+
+const mutationKey = ['consumeTelegramLinkChallenge'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof consumeTelegramLinkChallenge>>, {data: BodyType<TelegramLinkInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  consumeTelegramLinkChallenge(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConsumeTelegramLinkChallengeMutationResult = NonNullable<Awaited<ReturnType<typeof consumeTelegramLinkChallenge>>>
+    export type ConsumeTelegramLinkChallengeMutationBody = BodyType<TelegramLinkInput>
+    export type ConsumeTelegramLinkChallengeMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Consume a one-time challenge and link the signed-in customer
+ */
+export const useConsumeTelegramLinkChallenge = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof consumeTelegramLinkChallenge>>, TError,{data: BodyType<TelegramLinkInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof consumeTelegramLinkChallenge>>,
+        TError,
+        {data: BodyType<TelegramLinkInput>},
+        TContext
+      > => {
+      return useMutation(getConsumeTelegramLinkChallengeMutationOptions(options));
     }

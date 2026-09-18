@@ -7,6 +7,9 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { signOrderTrackingToken } from "../lib/order-access";
 import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualTargets, nextRequiredField, requiredFieldActive, shouldAskDestination, shouldAskRefund, type TelegramRouteOption } from "../lib/telegram-wizard";
+import { createTelegramLinkChallenge } from "../lib/telegram-link";
+import { getCustomerVerifiedEmail, requireActiveCustomerIdentity } from "../lib/customer-auth";
+import { getCustomerOrderHistory } from "../lib/order-history";
 
 const router: IRouter = Router();
 const website = () => process.env.TELEGRAM_WEBSITE_URL?.trim() || process.env.PUBLIC_SITE_URL?.trim();
@@ -107,11 +110,15 @@ type Update = {
   callback_query?: { id?: string; data?: string; message?: { chat?: { id?: number | string; type?: string } }; from?: { id?: number; language_code?: string; first_name?: string; username?: string } };
 };
 type TelegramFrom = { id?: number; language_code?: string; first_name?: string; username?: string };
-const menu = (locale: TelegramLocale): TelegramButton[][] => [
-  [{ text: t(locale, "exchange"), callback_data: "exchange" }, { text: t(locale, "track"), callback_data: "track" }],
-  [{ text: t(locale, "orders"), callback_data: "orders" }, { text: t(locale, "language"), callback_data: "language" }],
-  [{ text: t(locale, "support"), callback_data: "support" }, ...(website() ? [{ text: t(locale, "website"), url: website()! }] : [])],
-  ...(process.env.TELEGRAM_MINI_APP_URL ? [[{ text: "QuickXchange Mini App", web_app: { url: process.env.TELEGRAM_MINI_APP_URL } }]] : []),
+export const menu = (locale: TelegramLocale, linked = false): TelegramButton[][] => [
+  [{ text: `⚡ ${t(locale, "exchange")}`, callback_data: "exchange" }, { text: `📦 ${t(locale, "track")}`, callback_data: "track" }],
+  [{ text: `📋 ${t(locale, "orders")}`, callback_data: "orders" }, { text: linked ? "👤 My Account" : "👤 Sign In", callback_data: linked ? "account" : "signin" }],
+  linked
+    ? [{ text: "🚪 Sign Out", callback_data: "signout" }, { text: `🌐 ${t(locale, "language")}`, callback_data: "language" }]
+    : [{ text: "📝 Sign Up", callback_data: "signup" }, { text: `🌐 ${t(locale, "language")}`, callback_data: "language" }],
+  [{ text: `💬 ${t(locale, "support")}`, callback_data: "support" }, website()
+    ? { text: `🌍 ${t(locale, "website")}`, url: website()! }
+    : { text: `🌍 ${t(locale, "website")} unavailable`, callback_data: "website_unavailable" }],
 ];
 async function chatFor(chatId: string, from: TelegramFrom | undefined) {
   const locale = localeOf(from?.language_code);
@@ -130,7 +137,21 @@ async function getSession(chatId: string) {
   return row;
 }
 async function mainMenu(chatId: string, locale: TelegramLocale) {
-     await sendTelegramMessage(chatId, `${t(locale, "welcome")}\n\n${t(locale, "choose")}`, menu(locale));
+     const [chat] = await db.select({ linked: telegramChatsTable.clerkCustomerUserId }).from(telegramChatsTable).where(eq(telegramChatsTable.chatId, chatId)).limit(1);
+     await sendTelegramMessage(chatId, `${t(locale, "welcome")}\n\n${t(locale, "choose")}`, menu(locale, Boolean(chat?.linked)));
+}
+async function sendBrowserLink(chatId: string, locale: TelegramLocale, intent: "signin" | "signup") {
+  const chat = await db.select({ userId: telegramChatsTable.userId }).from(telegramChatsTable).where(eq(telegramChatsTable.chatId, chatId)).limit(1);
+  const token = await createTelegramLinkChallenge(chatId, String(chat[0]?.userId ?? chatId), intent);
+  const target = website();
+  if (!target) {
+    await sendTelegramMessage(chatId, "Website account linking is temporarily unavailable.");
+    return;
+  }
+  const url = `${target.replace(/\/+$/, "")}/telegram/connect?token=${encodeURIComponent(token)}&intent=${intent}`;
+  await sendTelegramMessage(chatId, intent === "signup"
+    ? "Open the website to create your customer account and link Telegram."
+    : "Open the website to sign in and link Telegram.", [[{ text: intent === "signup" ? "📝 Sign Up on website" : "🔐 Sign In on website", url }]]);
 }
 type SettlementOption = TelegramRouteOption & { title: string; direction: string; executionMode?: string; fields?: Array<{ key: string; label: string; type: string; options?: Array<{ value: string; label: string }>; required?: boolean; requiredWhen?: { fieldKey: string; equals: string | string[] }; min?: number; max?: number; pattern?: string }> };
 async function exchangeOptions(chatId: string, locale: TelegramLocale, mode: "swap" | "convert") {
@@ -144,8 +165,8 @@ async function exchangeOptions(chatId: string, locale: TelegramLocale, mode: "sw
   const manualRoutes = (config as { manualRouteAvailability?: { routes?: Array<{ sourceSettlementOptionId: string; targetSettlementOptionId: string }> } }).manualRouteAvailability?.routes ?? [];
   await saveSession(chatId, "source", { mode, options, allOptions, manualRoutes, clientRequestId: randomUUID() });
   await sendTelegramMessage(chatId, t(locale, "send"), [
-    ...options.slice(0, 8).map((option, index) => [{ text: `${option.assetCode} · ${option.title}`, callback_data: `src:${index}` }]),
-    ...(options.length > 8 ? [[{ text: "Next ›", callback_data: "srcpage:1" }]] : []),
+    ...options.slice(0, 8).map((option, index) => [{ text: `🪙 ${option.assetCode} · ${option.title}`, callback_data: `src:${index}` }]),
+    ...(options.length > 8 ? [[{ text: "➡️ Next", callback_data: "srcpage:1" }]] : []),
   ]);
 }
 async function chooseTarget(chatId: string, locale: TelegramLocale, sourceIndex: number, page = 0) {
@@ -169,8 +190,8 @@ async function chooseTarget(chatId: string, locale: TelegramLocale, sourceIndex:
   await saveSession(chatId, "target", { ...session?.data, source, targets });
   const start = page * 8;
   await sendTelegramMessage(chatId, t(locale, "receive"), [
-    ...targets.slice(start, start + 8).map((option, index) => [{ text: `${option.assetCode} · ${option.title}`, callback_data: `tgt:${index + start}` }]),
-    ...(start + 8 < targets.length ? [[{ text: "Next ›", callback_data: `tgtpage:${page + 1}` }]] : []),
+    ...targets.slice(start, start + 8).map((option, index) => [{ text: `🪙 ${option.assetCode} · ${option.title}`, callback_data: `tgt:${index + start}` }]),
+    ...(start + 8 < targets.length ? [[{ text: "➡️ Next", callback_data: `tgtpage:${page + 1}` }]] : []),
   ]);
 }
 async function askField(chatId: string, field: Record<string, unknown>, fieldIndex = 0, locale: TelegramLocale = "en", page = 0) {
@@ -178,11 +199,11 @@ async function askField(chatId: string, field: Record<string, unknown>, fieldInd
   const options = field.options as Array<{ value: string; label: string }> | undefined;
   const start = page * 20;
   const keyboard: TelegramButton[][] = options?.length
-    ? options.slice(start, start + 20).map((option, index) => [{ text: option.label, callback_data: `fieldopt:${fieldIndex}:${index + start}` }])
+    ? options.slice(start, start + 20).map((option, index) => [{ text: `🔹 ${option.label}`, callback_data: `fieldopt:${fieldIndex}:${index + start}` }])
     : [];
-  if (start > 0) keyboard.push([{ text: "‹", callback_data: `fieldpage:${fieldIndex}:${page - 1}` }]);
-  if (options && start + 20 < options.length) keyboard.push([{ text: "›", callback_data: `fieldpage:${fieldIndex}:${page + 1}` }]);
-  if (field.required === false) keyboard.push([{ text: t(locale, "skip"), callback_data: `fieldskip:${fieldIndex}` }]);
+  if (start > 0) keyboard.push([{ text: "⬅️ Back", callback_data: `fieldpage:${fieldIndex}:${page - 1}` }]);
+  if (options && start + 20 < options.length) keyboard.push([{ text: "➡️ Next", callback_data: `fieldpage:${fieldIndex}:${page + 1}` }]);
+  if (field.required === false) keyboard.push([{ text: `⏭️ ${t(locale, "skip")}`, callback_data: `fieldskip:${fieldIndex}` }]);
   await sendTelegramMessage(chatId, label, keyboard.length ? keyboard : undefined);
 }
 function validFieldValue(field: Record<string, unknown>, value: string) {
@@ -202,9 +223,20 @@ function refundPrompt(source: SettlementOption, locale: TelegramLocale) {
   return `${t(locale, "optionalRefund")} (${source.assetCode} / ${network})`;
 }
 function refundKeyboard(locale: TelegramLocale): TelegramButton[][] {
-  return [[{ text: t(locale, "skip"), callback_data: "skip:refund" }]];
+  return [[{ text: `⏭️ ${t(locale, "skip")}`, callback_data: "skip:refund" }]];
 }
 async function sendOrders(chatId: string, locale: TelegramLocale) {
+  const [linked] = await db.select({ customerClerkUserId: telegramChatsTable.clerkCustomerUserId })
+    .from(telegramChatsTable).where(eq(telegramChatsTable.chatId, chatId)).limit(1);
+  if (linked?.customerClerkUserId) {
+    const email = await getCustomerVerifiedEmail(linked.customerClerkUserId);
+    await requireActiveCustomerIdentity(linked.customerClerkUserId, email);
+    const owned = await getCustomerOrderHistory(linked.customerClerkUserId, 10);
+    if (!owned.length) { await sendTelegramMessage(chatId, t(locale, "noOrders")); return; }
+    const buttons = owned.map(item => [{ text: `🔎 ${item.id}`, url: website() ? `${website()!.replace(/\/+$/, "")}/account/orders/${encodeURIComponent(item.id)}` : undefined, callback_data: website() ? undefined : "website_unavailable" }]);
+    await sendTelegramMessage(chatId, owned.map(item => `• <code>${html(item.id)}</code> — ${html(item.status)}`).join("\n"), buttons);
+    return;
+  }
   const links = await db.select().from(telegramOrderLinksTable).where(eq(telegramOrderLinksTable.chatId, chatId)).orderBy(telegramOrderLinksTable.createdAt).limit(10);
   if (!links.length) { await sendTelegramMessage(chatId, t(locale, "noOrders")); return; }
   const lines: string[] = [];
@@ -217,7 +249,7 @@ async function sendOrders(chatId: string, locale: TelegramLocale) {
     lines.push(response.ok
       ? `• <code>${html(item.orderId)}</code> — ${html(result.status)}\n  Refund Address: ${html(typeof result.refundAddress === "string" && result.refundAddress.trim() ? result.refundAddress : "Not provided")}${typeof result.refundMemo === "string" && result.refundMemo.trim() ? `\n  ${t(locale, "memo")}: ${html(result.refundMemo)}` : ""}`
       : `• <code>${html(item.orderId)}</code> — unavailable`);
-    buttons.push([{ text: `Track ${item.orderId}`, callback_data: `order:${index}` }]);
+    buttons.push([{ text: `🔎 Track ${item.orderId}`, callback_data: `order:${index}` }]);
   }
   await sendTelegramMessage(chatId, lines.join("\n"), buttons);
 }
@@ -232,8 +264,51 @@ async function sendDepositInstructions(chatId: string, orderId: string, orderKin
   const memo = deposit.memo ? `\n${html(t("en", "memo"))}: <code>${html(deposit.memo)}</code>` : "";
   await sendTelegramPhoto(chatId, deposit.address, `${t("en", "deposit")}: \n<code>${html(deposit.address)}</code>${memo}`);
 }
-async function persistCreatedOrder(chatId: string, orderId: string, trackingToken: string, orderKind: string, result: Record<string, unknown>, requiresDeposit: boolean) {
+type TelegramDbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function claimTelegramOrderOwnership(
+  tx: TelegramDbTransaction,
+  orderId: string,
+  orderKind: string,
+  clerkCustomerUserId: string | undefined,
+) {
+  if (!clerkCustomerUserId) return;
+  if (orderKind === "convert") {
+    const [claimed] = await tx.update(quickexOrdersTable)
+      .set({ customerClerkUserId: clerkCustomerUserId })
+      .where(and(eq(quickexOrdersTable.legacyOrderId, orderId), isNull(quickexOrdersTable.customerClerkUserId)))
+      .returning({ customerClerkUserId: quickexOrdersTable.customerClerkUserId });
+    if (claimed) return;
+    const [existing] = await tx.select({ customerClerkUserId: quickexOrdersTable.customerClerkUserId })
+      .from(quickexOrdersTable).where(eq(quickexOrdersTable.legacyOrderId, orderId)).limit(1);
+    if (existing?.customerClerkUserId !== clerkCustomerUserId) {
+      throw new Error("Telegram order ownership conflict.");
+    }
+    return;
+  }
+  const [claimed] = await tx.update(ordersTable)
+    .set({ customerClerkUserId: clerkCustomerUserId, customerOwnershipSource: "telegram_link" })
+    .where(and(eq(ordersTable.id, orderId), isNull(ordersTable.customerClerkUserId)))
+    .returning({ customerClerkUserId: ordersTable.customerClerkUserId });
+  if (claimed) return;
+  const [existing] = await tx.select({ customerClerkUserId: ordersTable.customerClerkUserId })
+    .from(ordersTable).where(eq(ordersTable.id, orderId)).limit(1);
+  if (existing?.customerClerkUserId !== clerkCustomerUserId) {
+    throw new Error("Telegram order ownership conflict.");
+  }
+}
+
+async function persistCreatedOrder(
+  chatId: string,
+  orderId: string,
+  trackingToken: string,
+  orderKind: string,
+  result: Record<string, unknown>,
+  requiresDeposit: boolean,
+  clerkCustomerUserId?: string,
+) {
   await db.transaction(async (tx) => {
+    await claimTelegramOrderOwnership(tx, orderId, orderKind, clerkCustomerUserId);
     await tx.insert(telegramOrderLinksTable).values({ chatId, orderId, trackingToken, orderKind }).onConflictDoNothing();
     await tx.insert(telegramNotificationOutboxTable).values({
       chatId, orderId, statusVersion: Number(result.statusVersion ?? result.recordVersion ?? 0), eventKind: "status",
@@ -362,7 +437,7 @@ async function handleText(chatId: string, locale: TelegramLocale, text: string) 
     await saveSession(chatId, "review", { ...session.data, email: text.trim() });
     const source = session.data.source as SettlementOption;
     const target = session.data.target as SettlementOption;
-    await sendTelegramMessage(chatId, `${t(locale, "review")}\n${html(session.data.amount)} ${html(source.assetCode)} (${html(source.routeNetwork)}) → ${html(target.assetCode)} (${html(target.routeNetwork)})\n${session.data.destinationAddress ? `${t(locale, "destination")} ${html(session.data.destinationAddress)}\n` : ""}${t(locale, "email")} ${html(text.trim())}`, [[{ text: t(locale, "confirm"), callback_data: "confirm" }], [{ text: t(locale, "cancel"), callback_data: "cancel" }]]);
+    await sendTelegramMessage(chatId, `${t(locale, "review")}\n${html(session.data.amount)} ${html(source.assetCode)} (${html(source.routeNetwork)}) → ${html(target.assetCode)} (${html(target.routeNetwork)})\n${session.data.destinationAddress ? `${t(locale, "destination")} ${html(session.data.destinationAddress)}\n` : ""}${t(locale, "email")} ${html(text.trim())}`, [[{ text: `✅ ${t(locale, "confirm")}`, callback_data: "confirm" }], [{ text: `❌ ${t(locale, "cancel")}`, callback_data: "cancel" }]]);
     return;
   }
   if (session?.state === "track") {
@@ -396,12 +471,12 @@ async function callback(chatId: string, locale: TelegramLocale, data: string) {
     await mainMenu(chatId, next); return;
   }
   if (data === "language") { await sendTelegramMessage(chatId, t(locale, "language"), languageButtons()); return; }
-  if (data === "exchange") { await sendTelegramMessage(chatId, t(locale, "choose"), [[{ text: t(locale, "swap"), callback_data: "mode:swap" }, { text: t(locale, "convert"), callback_data: "mode:convert" }]]); return; }
+  if (data === "exchange") { await sendTelegramMessage(chatId, t(locale, "choose"), [[{ text: `🔄 ${t(locale, "swap")}`, callback_data: "mode:swap" }, { text: `⚡ ${t(locale, "convert")}`, callback_data: "mode:convert" }]]); return; }
   if (data.startsWith("mode:")) { await exchangeOptions(chatId, locale, data.slice(5) as "swap" | "convert"); return; }
   if (data.startsWith("src:")) { const session = await getSession(chatId); await chooseTarget(chatId, locale, Number(data.slice(4))); return; }
-  if (data.startsWith("srcpage:")) { const session = await getSession(chatId); const options = (session?.data.options as SettlementOption[] | undefined) ?? []; const page = Number(data.slice(8)); await sendTelegramMessage(chatId, t(locale, "send"), options.slice(page * 8, page * 8 + 8).map((option, index) => [{ text: `${option.assetCode} · ${option.title}`, callback_data: `src:${index + page * 8}` }])); return; }
+  if (data.startsWith("srcpage:")) { const session = await getSession(chatId); const options = (session?.data.options as SettlementOption[] | undefined) ?? []; const page = Number(data.slice(8)); const start = page * 8; const rows = options.slice(start, start + 8).map((option, index) => [{ text: `🪙 ${option.assetCode} · ${option.title}`, callback_data: `src:${index + start}` }]); if (start > 0) rows.push([{ text: "⬅️ Back", callback_data: `srcpage:${page - 1}` }]); if (start + 8 < options.length) rows.push([{ text: "➡️ Next", callback_data: `srcpage:${page + 1}` }]); await sendTelegramMessage(chatId, t(locale, "send"), rows); return; }
   if (data.startsWith("tgt:")) { const session = await getSession(chatId); const targets = (session?.data.targets as SettlementOption[] | undefined) ?? []; const target = targets[Number(data.slice(4))]; await saveSession(chatId, "amount", { ...session?.data, target, type: session?.data.mode }); await sendTelegramMessage(chatId, t(locale, "askAmount")); return; }
-  if (data.startsWith("tgtpage:")) { const session = await getSession(chatId); const targets = (session?.data.targets as SettlementOption[] | undefined) ?? []; const page = Number(data.slice(8)); await sendTelegramMessage(chatId, t(locale, "receive"), targets.slice(page * 8, page * 8 + 8).map((option, index) => [{ text: `${option.assetCode} · ${option.title}`, callback_data: `tgt:${index + page * 8}` }])); return; }
+  if (data.startsWith("tgtpage:")) { const session = await getSession(chatId); const targets = (session?.data.targets as SettlementOption[] | undefined) ?? []; const page = Number(data.slice(8)); const start = page * 8; const rows = targets.slice(start, start + 8).map((option, index) => [{ text: `🪙 ${option.assetCode} · ${option.title}`, callback_data: `tgt:${index + start}` }]); if (start > 0) rows.push([{ text: "⬅️ Back", callback_data: `tgtpage:${page - 1}` }]); if (start + 8 < targets.length) rows.push([{ text: "➡️ Next", callback_data: `tgtpage:${page + 1}` }]); await sendTelegramMessage(chatId, t(locale, "receive"), rows); return; }
   if (data.startsWith("fieldopt:")) {
     const session = await getSession(chatId);
     if (!session || session.state !== "field") return;
@@ -439,7 +514,7 @@ async function callback(chatId: string, locale: TelegramLocale, data: string) {
     const values = (session.data.values as Record<string, unknown>) ?? {};
     const next = nextRequiredField(fields as Array<{ required?: boolean; requiredWhen?: { fieldKey: string; equals: string | string[] } }>, index + 1, values);
     if (next >= 0) { await saveSession(chatId, "field", { ...session.data, fieldIndex: next }); await askField(chatId, fields[next], next); }
-    else { const needs = shouldAskDestination(session.data.mode === "convert" ? "convert" : "swap", session.data.target as SettlementOption); await saveSession(chatId, needs ? "destination" : "email", session.data); await sendTelegramMessage(chatId, needs ? t(locale, "destination") : t(locale, "email")); }
+    else { const needs = shouldAskDestination(session.data.mode === "convert" ? "convert" : "swap", session.data.target as SettlementOption); const needsRefund = shouldAskRefund(session.data.source as SettlementOption); const state = needs ? "destination" : needsRefund ? "refundAddress" : "email"; await saveSession(chatId, state, session.data); await sendTelegramMessage(chatId, needs ? t(locale, "destination") : needsRefund ? refundPrompt(session.data.source as SettlementOption, locale) : t(locale, "email"), !needs && needsRefund ? refundKeyboard(locale) : undefined); }
     return;
   }
   if (data === "skip:refund") {
@@ -451,8 +526,26 @@ async function callback(chatId: string, locale: TelegramLocale, data: string) {
   }
   if (data === "track") { await saveSession(chatId, "track", {}); await sendTelegramMessage(chatId, t(locale, "tracking")); return; }
   if (data === "support") { await sendTelegramMessage(chatId, `${t(locale, "supportText")}${process.env.TELEGRAM_SUPPORT_URL ? `\n${process.env.TELEGRAM_SUPPORT_URL}` : ""}`); return; }
+  if (data === "website_unavailable") { await sendTelegramMessage(chatId, "The website is temporarily unavailable."); return; }
   if (data === "orders") {
     await sendOrders(chatId, locale); return;
+  }
+  if (data === "signin" || data === "signup") {
+    await sendBrowserLink(chatId, locale, data);
+    return;
+  }
+  if (data === "account") {
+    const target = website();
+    await sendTelegramMessage(chatId, "Your Telegram account is linked.", [[target
+      ? { text: "👤 My Account", url: `${target.replace(/\/+$/, "")}/account` }
+      : { text: "👤 My Account unavailable", callback_data: "website_unavailable" }]]);
+    return;
+  }
+  if (data === "signout") {
+    await db.update(telegramChatsTable).set({ clerkCustomerUserId: null, updatedAt: new Date() }).where(eq(telegramChatsTable.chatId, chatId));
+    await sendTelegramMessage(chatId, "You have been signed out of Telegram.");
+    await mainMenu(chatId, locale);
+    return;
   }
   if (data.startsWith("order:")) {
     const index = Number(data.slice(6));
@@ -474,7 +567,14 @@ async function callback(chatId: string, locale: TelegramLocale, data: string) {
     if (!session || session.state !== "review") { await sendTelegramMessage(chatId, t(locale, "expired")); return; }
     const body = (session.data.frozenCreateBody as ReturnType<typeof buildCreatePayload> | undefined)
       ?? buildCreatePayload(session.data.mode === "convert" ? "convert" : "swap", session.data.source as SettlementOption, session.data.target as SettlementOption, session.data);
-    await saveSession(chatId, telegramCreateState(session.state), { ...session.data, frozenCreateBody: body });
+    const [linkedChat] = await db.select({ clerkCustomerUserId: telegramChatsTable.clerkCustomerUserId })
+      .from(telegramChatsTable).where(eq(telegramChatsTable.chatId, chatId)).limit(1);
+    const linkedCustomerClerkUserId = linkedChat?.clerkCustomerUserId ?? undefined;
+    await saveSession(chatId, telegramCreateState(session.state), {
+      ...session.data,
+      frozenCreateBody: body,
+      linkedCustomerClerkUserId,
+    });
     const response = await fetch(`${baseUrl()}${body.type === "instant" ? "/api/quickex/create-order" : "/api/exchange/orders"}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     const result = await response.json() as Record<string, unknown>;
     if (!response.ok) {
@@ -482,13 +582,21 @@ async function callback(chatId: string, locale: TelegramLocale, data: string) {
         await saveSession(chatId, "review", session.data);
         await sendTelegramMessage(chatId, `QuickXchange could not create the order: ${html(result.error ?? "please check the details and try again")}\nYour review is still saved; you may retry safely.`);
       } else {
-        await sendTelegramMessage(chatId, `QuickXchange could not confirm whether the order was created: ${html(result.error ?? "provider timeout")}\nPlease do not start over. Retry only when reconciliation confirms no order exists.`, [[{ text: t(locale, "retry"), callback_data: "retry:create" }]]);
+        await sendTelegramMessage(chatId, `QuickXchange could not confirm whether the order was created: ${html(result.error ?? "provider timeout")}\nPlease do not start over. Retry only when reconciliation confirms no order exists.`, [[{ text: `🔁 ${t(locale, "retry")}`, callback_data: "retry:create" }]]);
       }
       return;
     }
     const orderId = String(result.id), trackingToken = String(result.trackingToken ?? "");
     const orderKind = body.type === "instant" ? "convert" : "swap";
-    await persistCreatedOrder(chatId, orderId, trackingToken, orderKind, result, telegramRequiresDeposit(orderKind, (session.data.source as SettlementOption)?.kind));
+    await persistCreatedOrder(
+      chatId,
+      orderId,
+      trackingToken,
+      orderKind,
+      result,
+      telegramRequiresDeposit(orderKind, (session.data.source as SettlementOption)?.kind),
+      linkedCustomerClerkUserId,
+    );
     await saveSession(chatId, "idle", {});
     return;
   }
@@ -612,7 +720,15 @@ export function startTelegramNotificationWorker(): () => void {
           const result = await response.json() as Record<string, unknown>;
           if (response.ok) {
             const orderId = String(result.id), orderKind = frozen.type === "instant" ? "convert" : "swap";
-            await persistCreatedOrder(session.chatId, orderId, String(result.trackingToken ?? signOrderTrackingToken(orderId)), orderKind, result, telegramRequiresDeposit(orderKind, (session.data.source as SettlementOption)?.kind));
+            await persistCreatedOrder(
+              session.chatId,
+              orderId,
+              String(result.trackingToken ?? signOrderTrackingToken(orderId)),
+              orderKind,
+              result,
+              telegramRequiresDeposit(orderKind, (session.data.source as SettlementOption)?.kind),
+              typeof session.data.linkedCustomerClerkUserId === "string" ? session.data.linkedCustomerClerkUserId : undefined,
+            );
             await db.update(telegramWizardSessionsTable).set({ state: "idle", data: {}, reconciliationClaimToken: null, reconciliationClaimExpiresAt: null, updatedAt: new Date() }).where(and(eq(telegramWizardSessionsTable.chatId, session.chatId), eq(telegramWizardSessionsTable.state, "reconciling"), eq(telegramWizardSessionsTable.reconciliationClaimToken, claimToken)));
             continue;
           }
@@ -639,6 +755,12 @@ export function startTelegramNotificationWorker(): () => void {
       const [winner] = await db.transaction(async (tx) => {
         const [transitioned] = await tx.update(telegramWizardSessionsTable).set({ state: "idle", data: {}, reconciliationClaimToken: null, reconciliationClaimExpiresAt: null, updatedAt: new Date() }).where(and(eq(telegramWizardSessionsTable.chatId, session.chatId), eq(telegramWizardSessionsTable.state, "reconciling"), eq(telegramWizardSessionsTable.reconciliationClaimToken, claimToken))).returning();
         if (!transitioned) return [];
+        await claimTelegramOrderOwnership(
+          tx,
+          found.id,
+          found.orderKind,
+          typeof session.data.linkedCustomerClerkUserId === "string" ? session.data.linkedCustomerClerkUserId : undefined,
+        );
         await tx.insert(telegramOrderLinksTable).values({ chatId: session.chatId, orderId: found.id, trackingToken: recoveredToken, orderKind: found.orderKind }).onConflictDoNothing();
         await tx.insert(telegramNotificationOutboxTable).values({ chatId: session.chatId, orderId: found.id, statusVersion: found.statusVersion, payload: { status: found.status, amount: amounts?.amount ?? found.amount, receiveAmount: amounts?.receiveAmount ?? found.receiveAmount }, deliveryStatus: "delivered", deliveredAt: new Date() }).onConflictDoNothing();
         await tx.insert(telegramNotificationOutboxTable).values({ chatId: session.chatId, orderId: found.id, statusVersion: found.statusVersion, eventKind: "order_created", payload: { eventKind: "order_created", orderId: found.id, orderKind: found.orderKind, trackingToken: recoveredToken, requiresDeposit: telegramRequiresDeposit(found.orderKind, (session.data.source as SettlementOption)?.kind), status: found.status, statusVersion: found.statusVersion, amount: amounts?.amount ?? found.amount, receiveAmount: amounts?.receiveAmount ?? found.receiveAmount, depositAddress: recoveredStatus.depositAddress, depositMemo: recoveredStatus.depositMemo }, deliveryStatus: "pending" }).onConflictDoNothing();

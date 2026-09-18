@@ -554,6 +554,13 @@
       "when": 1789738158760,
       "tag": "0080_telegram_bot",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1789760078328,
+      "tag": "0081_complete_pretty_boy",
+      "breakpoints": true
     }
   ]
 }
