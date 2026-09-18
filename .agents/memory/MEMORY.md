@@ -106,3 +106,4 @@
 - [Telegram financial order delivery](telegram-financial-order-delivery.md) — fence chat updates and keep order creation, reconciliation, and deposit delivery durable.
 - [Optional refund destinations](optional-refund-destinations.md) — omission must never block an order; validate supplied crypto refunds against the sending network.
 - [Telegram shared identity](telegram-shared-identity.md) — link through website Clerk only; freeze ownership before create and atomically claim before storing Telegram capabilities.
+- [Official RSS CDN resolution](official-rss-cdn-resolution.md) — hardcoded publisher feeds may require runtime CDN resolution; direct validated-IP pinning can fail on managed egress.

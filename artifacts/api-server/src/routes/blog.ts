@@ -90,6 +90,18 @@ import { sanitizeBlogHtml } from "../lib/blog-html";
 import { generateCover } from "../lib/blog-cover-system";
 import { enqueueNewsletterCampaignTx } from "../lib/newsletter";
 import { newsletterPublicationDedupeKey } from "../lib/newsletter-utils";
+import { enqueueTelegramNewsTx } from "../lib/telegram-news";
+import {
+  generatedArticleReviewPolicy,
+  readableSource,
+  sortDiscoveredCandidates,
+  sourceIdentity,
+  sourceIdentityFingerprint,
+  officialPublisherForHost,
+  validateOfficialItemUrl,
+  hasLikelyFeedCopy,
+  sourceItems,
+} from "../lib/blog-pipeline";
 
 const router: IRouter = Router();
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -136,6 +148,18 @@ function safeCanonical(value: string | null | undefined): string | null {
   try { parsed = new URL(value); } catch { throw new ApiError("BLOG_CANONICAL_INVALID", "Canonical URL must be absolute HTTPS.", 400); }
   if (parsed.protocol !== "https:") throw new ApiError("BLOG_CANONICAL_INVALID", "Canonical URL must be absolute HTTPS.", 400);
   return parsed.toString();
+}
+
+function quickXchangeCanonical(slug: string): string | null {
+  const base = process.env.PUBLIC_APP_URL?.trim();
+  if (!base) return null;
+  try {
+    const url = new URL(base);
+    if (url.protocol !== "https:") return null;
+    return `${url.toString().replace(/\/$/, "")}/blog/${encodeURIComponent(slug)}`;
+  } catch {
+    return null;
+  }
 }
 
 export function bodyIsSafe(body: unknown, format: "blocks" | "html"): string | Record<string, unknown> | Array<Record<string, unknown>> {
@@ -332,7 +356,10 @@ async function listArticles(input: { page?: unknown; pageSize?: unknown; search?
 async function getSettings() {
   const [row] = await db.select().from(blogAutomationSettingsTable)
     .where(eq(blogAutomationSettingsTable.id, "global")).limit(1);
-  return row ?? {
+  if (row) {
+    return row;
+  }
+  return {
     id: "global", enabled: false, reviewFirst: true, publishAutomatically: false,
     scheduleAutomatically: false, requireTwoSources: true, freshnessWindowMinutes: 240,
     maxCandidatesPerRun: 20, cadenceUnit: "day", articlesPerPeriod: 1, scheduleTimes: [],
@@ -341,6 +368,30 @@ async function getSettings() {
     seoGeneration: true, seoIndex: true, seoFollow: true, settings: {}, updatedBy: "system",
     updatedAt: new Date(), checkInProgressUntil: null, leaseId: null,
   };
+}
+
+/** Called only by a real automation run, never by preview or settings reads. */
+async function ensureIngestionBaseline(settings: Awaited<ReturnType<typeof getSettings>>) {
+  if (typeof settings.settings?.newsIngestionStartedAt === "string") return settings;
+  const startedAt = new Date().toISOString();
+  const [updated] = await db.update(blogAutomationSettingsTable).set({
+    settings: sql`jsonb_set(COALESCE(${blogAutomationSettingsTable.settings}, '{}'::jsonb), '{newsIngestionStartedAt}', to_jsonb(${startedAt}::text))`,
+    updatedAt: new Date(),
+  }).where(and(
+    eq(blogAutomationSettingsTable.id, "global"),
+    sql`NOT (COALESCE(${blogAutomationSettingsTable.settings}, '{}'::jsonb) ? 'newsIngestionStartedAt')`,
+  )).returning();
+  if (updated) return updated;
+  const [current] = await db.select().from(blogAutomationSettingsTable)
+    .where(eq(blogAutomationSettingsTable.id, "global")).limit(1);
+  if (current) return current;
+  await db.insert(blogAutomationSettingsTable).values({
+    id: "global", updatedBy: "system",
+    settings: { ...(settings.settings ?? {}), newsIngestionStartedAt: startedAt },
+  }).onConflictDoNothing();
+  const [created] = await db.select().from(blogAutomationSettingsTable)
+    .where(eq(blogAutomationSettingsTable.id, "global")).limit(1);
+  return created ?? settings;
 }
 
 const NON_GLOBAL_V4_CIDRS = [
@@ -398,6 +449,11 @@ export async function fetchSafeSourceResource(
   options: RequestInit,
   allowedHost?: string,
   resolveAddresses: (host: string) => Promise<PublicAddress[]> = (host) => lookup(host, { all: true }),
+  requestTransport: (
+    input: string,
+    init: RequestInit & { dispatcher?: unknown },
+  ) => Promise<globalThis.Response> = (input, init) => fetch(input, init),
+  useSystemResolution = false,
 ): Promise<globalThis.Response> {
   let current = raw;
   const visited = new Set<string>();
@@ -408,23 +464,48 @@ export async function fetchSafeSourceResource(
     }
     if (visited.has(checked.url)) throw new Error("source_redirect_loop");
     visited.add(checked.url);
-    const pinned = checked.addresses[0];
-    const dispatcher = new Agent({
-      keepAliveTimeout: 1,
-      keepAliveMaxTimeout: 1,
-      connect: {
-        lookup: ((hostname: string, _lookupOptions: unknown, callback: (error: Error | null, address?: string, family?: number) => void) => {
-          if (hostname.toLowerCase() !== checked.host) {
-            callback(new Error("source_lookup_host_mismatch"));
-            return;
-          }
-          callback(null, pinned.address, pinned.family);
-        }) as never,
-      },
-    });
-    const response = await fetch(checked.url, {
-      ...options, redirect: "manual", dispatcher: dispatcher as unknown as never,
-    } as RequestInit & { dispatcher: unknown });
+    let response: globalThis.Response | undefined;
+    if (useSystemResolution) {
+      // The two built-in publisher hosts are hardcoded and validated above.
+      // Let the runtime choose their reachable CDN address; direct IP pinning
+      // is not portable across managed egress networks.
+      response = await requestTransport(checked.url, { ...options, redirect: "manual" });
+    } else {
+      for (const pinned of checked.addresses) {
+        const dispatcher = new Agent({
+          keepAliveTimeout: 1,
+          keepAliveMaxTimeout: 1,
+          connect: {
+            lookup: ((hostname: string, _lookupOptions: unknown, callback: (error: Error | null, address?: string, family?: number) => void) => {
+              if (hostname.toLowerCase() !== checked.host) {
+                callback(new Error("source_lookup_host_mismatch"));
+                return;
+              }
+              callback(null, pinned.address, pinned.family);
+            }) as never,
+          },
+        });
+        try {
+          response = await requestTransport(checked.url, {
+            ...options, redirect: "manual", dispatcher: dispatcher as unknown as never,
+          });
+          break;
+        } catch {
+          // A validated address can still be unreachable. Try the next
+          // validated address, but never re-resolve during this hop.
+        } finally {
+          await dispatcher.close().catch(() => undefined);
+        }
+      }
+    }
+    if (!response) {
+      throw new ApiError(
+        "BLOG_SOURCE_FETCH_FAILED",
+        "Source could not be fetched from its validated public addresses.",
+        502,
+        true,
+      );
+    }
     if (!REDIRECT_CODES.has(response.status)) return response;
     if (hop === 3) throw new Error("source_redirect_limit");
     const location = response.headers.get("location");
@@ -434,25 +515,22 @@ export async function fetchSafeSourceResource(
   throw new Error("source_redirect_limit");
 }
 
-function sourceItems(parsed: Record<string, any>): Array<{ title: string; url: string; publishedAt?: Date }> {
-  const channel = parsed.rss?.channel ?? parsed.feed ?? {};
-  const values = channel.item ?? channel.entry ?? [];
-  const items = Array.isArray(values) ? values : [values];
-  return items.flatMap((item) => {
-    const title = typeof item.title === "string" ? item.title : item.title?.["#text"];
-    const linkValue = typeof item.link === "string" ? item.link : item.link?.["@_href"] ?? item.link?.["#text"];
-    if (!title || !linkValue) return [];
-    const published = item.pubDate ?? item.published ?? item.updated;
-    const date = published ? new Date(published) : undefined;
-    return [{ title: title.trim(), url: String(linkValue), publishedAt: date && !Number.isNaN(date.getTime()) ? date : undefined }];
-  });
+function isOfficialNewsSource(source: { allowedHost: string }): boolean {
+  return source.allowedHost === "www.coindesk.com" || source.allowedHost === "cointelegraph.com";
 }
 
 async function fetchSource(source: typeof blogAutomationSourcesTable.$inferSelect) {
   if (source.sourceType === "coinmarketcap" && !process.env.COINMARKETCAP_API_KEY) return [];
   const checked = await assertSafeSourceUrl(source.url);
   if (checked.host !== source.allowedHost) throw new ApiError("BLOG_SOURCE_HOST_CHANGED", "Source host no longer matches its allowlist.", 400);
-  const response = await fetchSafeSourceResource(checked.url, { signal: AbortSignal.timeout(10_000), headers: { accept: "application/rss+xml, application/atom+xml, text/xml" } }, source.allowedHost);
+  const response = await fetchSafeSourceResource(
+    checked.url,
+    { signal: AbortSignal.timeout(10_000), headers: { accept: "application/rss+xml, application/atom+xml, text/xml" } },
+    source.allowedHost,
+    undefined,
+    undefined,
+    isOfficialNewsSource(source),
+  );
   if (!response.ok) throw new Error(`Source returned HTTP ${response.status}`);
   const contentType = (response.headers.get("content-type") ?? "").toLowerCase();
   if (source.sourceType !== "coinmarketcap" && !/(rss|atom|xml)/.test(contentType)) {
@@ -463,14 +541,6 @@ async function fetchSource(source: typeof blogAutomationSourcesTable.$inferSelec
   const body = await response.text();
   if (body.length > 2_000_000) throw new Error("Source feed is too large");
   return sourceItems(parser.parse(body));
-}
-
-function readableSource(text: string): string {
-  return text.replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&(?:nbsp|amp|lt|gt|quot);/gi, " ")
-    .replace(/\s+/g, " ").trim().slice(0, 80_000);
 }
 
 async function fetchVerifiedSource(url: string, allowedHost: string): Promise<{ url: string; title: string; text: string }> {
@@ -521,21 +591,34 @@ function openAiClient(): OpenAI {
   return new OpenAI({ apiKey, baseURL, timeout: 45_000, maxRetries: 2 });
 }
 
-export async function generateOriginalArticle(topic: string, sources: Array<{ url: string; title: string; text: string }>, settings: Awaited<ReturnType<typeof getSettings>>, internalLinkCandidates: Array<{ slug: string; title: string }> = []): Promise<GeneratedBlogArticle> {
+export async function generateOriginalArticle(
+  topic: string,
+  sources: Array<{ url: string; title: string; text: string }>,
+  settings: Awaited<ReturnType<typeof getSettings>>,
+  internalLinkCandidates: Array<{ slug: string; title: string }> = [],
+  qualityAttempt = 0,
+): Promise<GeneratedBlogArticle> {
   const client = openAiClient();
+  const officialMetadataOnly = sources.length > 0 && sources.every((source) => {
+    try {
+      return ["www.coindesk.com", "cointelegraph.com"].includes(new URL(source.url).hostname);
+    } catch {
+      return false;
+    }
+  });
   const schema = {
     type: "object",
     additionalProperties: false,
-    required: ["title", "excerpt", "bodyHtml", "category", "tags", "citations", "internalLinks"],
+    required: ["title", "excerpt", "bodyHtml", "category", "tags", "seoTitle", "seoDescription", "citations", "internalLinks"],
     properties: {
       title: { type: "string", minLength: 10, maxLength: 180 },
       excerpt: { type: "string", minLength: 30, maxLength: 500 },
       bodyHtml: { type: "string", minLength: 100 },
       category: { type: "string", minLength: 1, maxLength: 120 },
       tags: { type: "array", items: { type: "string", minLength: 1, maxLength: 80 }, maxItems: 12 },
-      seoTitle: { type: "string", maxLength: 180 },
-      seoDescription: { type: "string", maxLength: 320 },
-      citations: { type: "array", minItems: 1, items: { type: "object", additionalProperties: false, required: ["sourceUrl", "claim"], properties: {
+      seoTitle: { type: ["string", "null"], maxLength: 180 },
+      seoDescription: { type: ["string", "null"], maxLength: 320 },
+      citations: { type: "array", minItems: 1, items: { type: "object", additionalProperties: false, required: ["sourceUrl", "sourceTitle", "publisher", "claim", "sourcePublishedAt"], properties: {
         sourceUrl: { type: "string" }, sourceTitle: { type: "string" }, publisher: { type: "string" },
         claim: { type: "string", minLength: 10 }, sourcePublishedAt: { type: ["string", "null"] },
       } } },
@@ -550,8 +633,8 @@ export async function generateOriginalArticle(topic: string, sources: Array<{ ur
     max_completion_tokens: 8192,
     response_format: { type: "json_schema", json_schema: { name: "quickxchange_blog_article", strict: true, schema } },
     messages: [
-        { role: "system", content: `You are a fact-bound financial editor. Write an original article in ${settings.language}. Use only facts explicitly supported by the supplied sources. Never infer prices, percentages, dates, or market claims. If a fact is not supported, omit it. Do not copy source wording. Return only the requested JSON. Body HTML may use p, h2, h3, ul, ol, li, strong, em, and a tags; no scripts, styles, iframes, or inline event handlers. Every material factual claim must have a citation to an exact supplied source URL. Internal links must use only the supplied published article slugs.` },
-        { role: "user", content: `Topic: ${topic}\nMinimum body text length: ${settings.minimumArticleLength} characters.\nAllowed categories: ${(settings.categories as string[]).join(", ") || "Crypto News, Guides, Exchange, Bitcoin, Ethereum, Stablecoins, Security, Market Insights, QuickXchange Updates"}\nKeywords to use only when supported: ${(settings.keywords as string[]).join(", ")}\nPublished articles available for internal links: ${JSON.stringify(internalLinkCandidates)}\n${promptSources}` },
+        { role: "system", content: `You are a fact-bound financial editor. Write an original article in ${settings.language}. Use only facts explicitly supported by the supplied sources. Never infer prices, percentages, dates, or market claims. If a fact is not supported, omit it. Do not copy source wording. Return only the requested JSON. Body HTML may use p, h2, h3, ul, ol, li, strong, em, and a tags; no scripts, styles, iframes, or inline event handlers. Every material factual claim must have a citation to an exact supplied source URL. Internal links must use only the supplied published article slugs.${officialMetadataOnly ? " This is an official publisher feed-metadata brief: use only the supplied headline and short feed summary, write a concise original QuickXchange news brief (120-900 readable characters), explicitly attribute the reporting to the named publisher, never say QuickXchange reported or investigated it, and do not add context or claims not present in the metadata." : ""}` },
+        { role: "user", content: `Topic: ${topic}\nMinimum body text length: ${settings.minimumArticleLength} characters.\nAllowed categories: ${(settings.categories as string[]).join(", ") || "Crypto News, Guides, Exchange, Bitcoin, Ethereum, Stablecoins, Security, Market Insights, QuickXchange Updates"}\nKeywords to use only when supported: ${(settings.keywords as string[]).join(", ")}\nPublished articles available for internal links: ${JSON.stringify(internalLinkCandidates)}\n${qualityAttempt > 0 ? `Rewrite attempt ${qualityAttempt + 1}: the previous draft contained a verbatim source phrase. Preserve only supported facts but use substantially different sentence structure and wording.\n` : ""}${promptSources}` },
     ],
   });
   const content = response.choices[0]?.message?.content;
@@ -559,18 +642,69 @@ export async function generateOriginalArticle(topic: string, sources: Array<{ ur
   let generated: GeneratedBlogArticle;
   try { generated = JSON.parse(content.replace(/^```json\s*|\s*```$/g, "").trim()) as GeneratedBlogArticle; } catch { throw new Error("ai_generation_invalid_json"); }
   if (!generated.title || !generated.excerpt || !generated.bodyHtml || !Array.isArray(generated.citations)) throw new Error("ai_generation_invalid_shape");
-  generated.bodyHtml = bodyIsSafe(generated.bodyHtml, "html") as string;
-  const bodyTextLength = readableSource(generated.bodyHtml).length;
-  if (bodyTextLength < settings.minimumArticleLength) throw new Error("quality_article_too_short");
-  const allowed = new Set(sources.map((source) => source.url));
-  if (!generated.citations.length || generated.citations.some((citation) => !allowed.has(citation.sourceUrl) || !citation.claim?.trim())) {
+   generated.bodyHtml = bodyIsSafe(generated.bodyHtml, "html") as string;
+   const publisherNames = officialMetadataOnly
+     ? [...new Set(sources.map((source) => new URL(source.url).hostname === "www.coindesk.com" ? "CoinDesk" : "Cointelegraph"))]
+     : [];
+   if (officialMetadataOnly && !publisherNames.some((publisher) => readableSource(generated.bodyHtml).includes(publisher))) {
+     generated.bodyHtml = `<p>According to ${publisherNames.join(" and ")} official feed metadata:</p>${generated.bodyHtml}`;
+   }
+   const bodyTextLength = readableSource(generated.bodyHtml).length;
+   if (officialMetadataOnly) {
+     if (bodyTextLength < 120 || bodyTextLength > 900) throw new Error("quality_official_brief_length_invalid");
+    } else if (bodyTextLength < settings.minimumArticleLength) {
+     throw new Error("quality_article_too_short");
+   }
+   if (officialMetadataOnly) {
+     generated.citations = sources.map((source) => {
+       const publisher = officialPublisherForHost(new URL(source.url).hostname);
+       if (!publisher) throw new Error("ai_generation_unverified_citation");
+       return {
+         sourceUrl: source.url,
+         sourceTitle: source.title,
+         publisher,
+         claim: `QuickXchange summary based on ${publisher}'s official feed metadata.`,
+         sourcePublishedAt: null,
+       };
+     });
+   }
+   const sourceByUrl = new Map(sources.map((source) => [source.url, source]));
+   if (!generated.citations.length || generated.citations.some((citation) => {
+     const source = sourceByUrl.get(citation.sourceUrl);
+     if (!source || !citation.claim?.trim()) return true;
+     const publisher = officialPublisherForHost(new URL(source.url).hostname);
+     if (publisher && citation.publisher !== publisher) return true;
+     return publisher !== null && hasLikelyFeedCopy(citation.claim, source.text.split("\n").slice(1).join("\n"));
+   })) {
     throw new Error("ai_generation_unverified_citation");
   }
+   if (officialMetadataOnly && hasLikelyFeedCopy(readableSource(generated.bodyHtml), sources.map((source) => source.text.split("\n").slice(1).join("\n")).join(" "))) {
+     throw new Error("quality_official_brief_copies_feed_summary");
+   }
   const internalSlugs = new Set(internalLinkCandidates.map((article) => article.slug));
   if ((generated.internalLinks ?? []).some((link) => !internalSlugs.has(link.slug) || !link.anchor?.trim())) {
     throw new Error("ai_generation_unverified_internal_link");
   }
   return generated;
+}
+
+async function generateOriginalArticleWithQualityRetries(
+  topic: string,
+  sources: Array<{ url: string; title: string; text: string }>,
+  settings: Awaited<ReturnType<typeof getSettings>>,
+  internalLinkCandidates: Array<{ slug: string; title: string }>,
+): Promise<GeneratedBlogArticle> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await generateOriginalArticle(topic, sources, settings, internalLinkCandidates, attempt);
+    } catch (error) {
+      lastError = error;
+      const reason = error instanceof Error ? error.message : "";
+      if (!reason.startsWith("quality_official_brief_")) throw error;
+    }
+  }
+  throw lastError;
 }
 
 function imagePromptPart(value: string, maxLength: number): string {
@@ -689,7 +823,7 @@ export async function attachFeaturedImage(
   return article;
 }
 
-async function saveGeneratedArticle(article: GeneratedBlogArticle, actor: string, settings: Awaited<ReturnType<typeof getSettings>>, sourceCitations: GeneratedBlogArticle["citations"], reservation?: { candidateId: string; topicFingerprint: string }) {
+async function saveGeneratedArticle(article: GeneratedBlogArticle, actor: string, settings: Awaited<ReturnType<typeof getSettings>>, sourceCitations: GeneratedBlogArticle["citations"], sourceKey?: string, reservation?: { candidateId: string; topicFingerprint: string }, sourceMetadata?: { sourcePublishedAt?: Date; sourcePublisher?: string; historicalBackfill?: boolean }) {
   const [category] = await db.select().from(blogCategoriesTable).where(eq(blogCategoriesTable.normalizedSlug, normalizeSlug(article.category))).limit(1);
   if (!category) throw new Error("ai_generation_category_not_found");
   const slug = normalizeSlug(article.title);
@@ -705,17 +839,24 @@ async function saveGeneratedArticle(article: GeneratedBlogArticle, actor: string
       categoryId: category.id, authorId: actor, authorName: "QuickXchange Editorial",
       // We do not have a deterministic sentence-to-source entailment checker;
       // generated copy is therefore never auto-published.
-      status: "draft",
+       status: generatedArticleReviewPolicy().status,
       title: article.title.trim(), slug, normalizedSlug: slug, excerpt: article.excerpt.trim(), body: `${article.bodyHtml}${internalHtml}`,
       bodyFormat: "html", publishedAt: null,
       seoTitle: settings.seoGeneration ? article.seoTitle?.trim() || article.title.trim() : null,
       seoDescription: settings.seoGeneration ? article.seoDescription?.trim() || article.excerpt.trim() : null,
+       canonicalUrl: quickXchangeCanonical(slug),
+       sourceKey: sourceKey ?? null,
       featuredImagePath: article.featuredImagePath ?? null,
       featuredImageAlt: article.featuredImageAlt ?? null,
       indexPage: settings.seoIndex, followLinks: settings.seoFollow,
       generationMetadata: {
          model: process.env.AI_INTEGRATIONS_OPENAI_MODEL ?? "gpt-5.4-mini", original: true,
         autoPublicationBlocked: "claim_support_verification_not_robust",
+         ...(sourceMetadata ? {
+           sourcePublishedAt: sourceMetadata.sourcePublishedAt?.toISOString() ?? null,
+           sourcePublisher: sourceMetadata.sourcePublisher ?? "",
+           historicalBackfill: sourceMetadata.historicalBackfill === true,
+         } : {}),
          featuredImage: article.imageGeneration ?? {
             model: "quickxchange-template-system", outcome: settings.featuredImageGeneration ? "failed" : "disabled",
            ...(settings.featuredImageGeneration ? { reason: "image_generation_not_attempted" } : {}),
@@ -725,13 +866,35 @@ async function saveGeneratedArticle(article: GeneratedBlogArticle, actor: string
     }).returning();
     await replaceArticleRelations(tx, row.id, { tagNames: article.tags, citations: sourceCitations }, actor, true);
     if (reservation) {
-      await tx.update(blogDuplicateTopicFingerprintsTable).set({ articleId: row.id })
+       await tx.update(blogDuplicateTopicFingerprintsTable).set({ articleId: row.id })
         .where(and(eq(blogDuplicateTopicFingerprintsTable.candidateId, reservation.candidateId), eq(blogDuplicateTopicFingerprintsTable.fingerprint, reservation.topicFingerprint)));
       await tx.update(blogAutomationCandidatesTable).set({ status: "generated", generatedArticleId: row.id, quality: { passed: true, bodyLength: readableSource(article.bodyHtml).length } })
         .where(eq(blogAutomationCandidatesTable.id, reservation.candidateId));
     }
-    return row;
+     return row;
   });
+}
+
+async function enqueueTelegramForPublishedTx(tx: any, article: typeof blogArticlesTable.$inferSelect): Promise<void> {
+  if (article.generationMetadata?.historicalBackfill === true) return;
+  const [citation] = await tx.select({
+    sourceUrl: blogArticleCitationsTable.sourceUrl,
+    publisher: blogArticleCitationsTable.publisher,
+  }).from(blogArticleCitationsTable)
+    .where(eq(blogArticleCitationsTable.articleId, article.id))
+    .orderBy(asc(blogArticleCitationsTable.id)).limit(1);
+  await enqueueTelegramNewsTx(tx, {
+    id: article.id,
+    title: article.title,
+    excerpt: article.excerpt,
+    slug: article.slug,
+    sourceUrl: citation?.sourceUrl,
+    sourcePublisher: citation?.publisher,
+  });
+}
+
+function shouldNotifyPublished(article: typeof blogArticlesTable.$inferSelect): boolean {
+  return article.generationMetadata?.historicalBackfill !== true;
 }
 
 export async function reconcileScheduledArticles(now = new Date()): Promise<number> {
@@ -743,6 +906,7 @@ export async function reconcileScheduledArticles(now = new Date()): Promise<numb
         dedupeKey: newsletterPublicationDedupeKey(published.id, published.publishedAt ?? now),
         title: published.title, description: published.excerpt, readMorePath: `/blog/${published.slug}`,
       });
+       if (published) await enqueueTelegramForPublishedTx(tx, published);
     });
   }
   return rows.length;
@@ -762,7 +926,7 @@ async function previewBlogAutomation(settings: Awaited<ReturnType<typeof getSett
     };
   }
   const sources = await db.select().from(blogAutomationSourcesTable).where(eq(blogAutomationSourcesTable.enabled, true));
-  const discovered: Array<{ source: typeof sources[number]; item: { title: string; url: string; publishedAt?: Date } }> = [];
+   const discovered: Array<{ source: typeof sources[number]; item: { title: string; url: string; guid?: string; summary?: string; publishedAt?: Date } }> = [];
   const sourceErrors: string[] = [];
   for (const source of sources.slice(0, settings.maxCandidatesPerRun)) {
     try {
@@ -771,6 +935,7 @@ async function previewBlogAutomation(settings: Awaited<ReturnType<typeof getSett
       sourceErrors.push(error instanceof Error ? error.message : "fetch_failed");
     }
   }
+  const orderedDiscovered = sortDiscoveredCandidates(discovered);
   const grouped = new Map<string, typeof discovered>();
   for (const candidate of discovered) {
     const topic = normalizedTopic(candidate.item.title);
@@ -780,7 +945,7 @@ async function previewBlogAutomation(settings: Awaited<ReturnType<typeof getSett
     .from(blogArticlesTable).where(eq(blogArticlesTable.status, "published")).orderBy(desc(blogArticlesTable.publishedAt)).limit(20);
   const candidates: Array<Record<string, unknown>> = [];
   let accepted = 0;
-  for (const candidate of discovered.slice(0, settings.maxCandidatesPerRun)) {
+  for (const candidate of orderedDiscovered.slice(0, settings.maxCandidatesPerRun)) {
     const topic = normalizedTopic(candidate.item.title);
     if (!topic) continue;
     const [existing] = await db.select({ id: blogDuplicateTopicFingerprintsTable.id })
@@ -795,16 +960,23 @@ async function previewBlogAutomation(settings: Awaited<ReturnType<typeof getSett
         if (seenSources.has(item.source.id)) continue;
         seenSources.add(item.source.id);
         try {
-          const verified = await fetchVerifiedSource(item.item.url, item.source.allowedHost);
-          verifiedSources.push({ ...verified, title: item.item.title });
-        } catch { /* report only the conservative aggregate below */ }
+           if (isOfficialNewsSource(item.source)) {
+             verifiedSources.push({
+               url: item.item.url, title: item.item.title,
+               text: `${item.item.title}\n${item.item.summary ?? "No feed summary was provided."}`,
+             });
+           } else {
+             const verified = await fetchVerifiedSource(item.item.url, item.source.allowedHost);
+             verifiedSources.push({ ...verified, title: item.item.title });
+           }
+         } catch { /* report only the conservative aggregate below */ }
         if (verifiedSources.length >= 4) break;
       }
-      if (settings.requireTwoSources && verifiedSources.length < 2) reason = "source_verification_insufficient";
+      if (settings.requireTwoSources && !isOfficialNewsSource(candidate.source) && verifiedSources.length < 2) reason = "source_verification_insufficient";
       else if (!settings.requireTwoSources && verifiedSources.length < 1) reason = "source_verification_unavailable";
       if (!reason) {
         try {
-          const generated = await generateOriginalArticle(topic, verifiedSources, settings, internalLinkCandidates);
+          const generated = await generateOriginalArticleWithQualityRetries(topic, verifiedSources, settings, internalLinkCandidates);
           candidates.push({ topic, status: "generated", title: generated.title, slug: normalizeSlug(generated.title), tags: generated.tags, citations: generated.citations.length });
           accepted += 1;
           continue;
@@ -824,8 +996,9 @@ async function previewBlogAutomation(settings: Awaited<ReturnType<typeof getSett
 }
 
 export async function runBlogAutomation({ dryRun, trigger, actorId, occurrenceKey }: { dryRun: boolean; trigger: "manual" | "preview" | "scheduled"; actorId?: string; occurrenceKey?: string }) {
-  const settings = await getSettings();
-  if (dryRun) return previewBlogAutomation(settings, actorId);
+  const loadedSettings = await getSettings();
+  if (dryRun) return previewBlogAutomation(loadedSettings, actorId);
+  const settings = await ensureIngestionBaseline(loadedSettings);
   const runId = randomUUID();
   const [run] = await db.insert(blogAutomationRunsTable).values({
     id: runId, trigger, dryRun, status: settings.enabled ? "running" : "skipped", createdBy: actorId,
@@ -875,7 +1048,7 @@ export async function runBlogAutomation({ dryRun, trigger, actorId, occurrenceKe
   };
   try {
     const sources = await db.select().from(blogAutomationSourcesTable).where(eq(blogAutomationSourcesTable.enabled, true));
-    const discovered: Array<{ source: typeof sources[number]; item: { title: string; url: string; publishedAt?: Date } }> = [];
+     const discovered: Array<{ source: typeof sources[number]; item: { title: string; url: string; guid?: string; summary?: string; publishedAt?: Date } }> = [];
     for (const source of sources.slice(0, settings.maxCandidatesPerRun)) {
       try {
         for (const item of await fetchSource(source)) discovered.push({ source, item });
@@ -900,12 +1073,30 @@ export async function runBlogAutomation({ dryRun, trigger, actorId, occurrenceKe
       sql`${blogArticlesTable.generationMetadata}->>'original' = 'true'`,
     ));
     let generatedThisPeriod = Number(periodCount?.total ?? 0);
-    for (const candidate of discovered.slice(0, settings.maxCandidatesPerRun)) {
+    const orderedDiscovered = sortDiscoveredCandidates(discovered);
+    for (const candidate of orderedDiscovered.slice(0, settings.maxCandidatesPerRun)) {
       await assertLease();
       const topic = normalizedTopic(candidate.item.title);
       if (!topic) continue;
+      const officialUrl = isOfficialNewsSource(candidate.source)
+        ? validateOfficialItemUrl(candidate.item.url, candidate.source.allowedHost) : candidate.item.url;
+      if (!officialUrl) {
+        await db.insert(blogAuditLogsTable).values({
+          action: "automation.item_skipped", actorId, runId: run.id,
+          details: { sourceId: candidate.source.id, url: candidate.item.url, reason: "official_url_not_allowlisted" },
+        });
+        skipped += 1;
+        continue;
+      }
+       const immutableSourceIdentity = sourceIdentity(candidate.source, candidate.item);
+       const immutableSourceKey = sourceIdentityFingerprint(immutableSourceIdentity);
+      const [existingSource] = await db.select({ id: blogArticlesTable.id })
+        .from(blogArticlesTable).where(eq(blogArticlesTable.sourceKey, immutableSourceKey)).limit(1);
+      const dedupeFingerprint = isOfficialNewsSource(candidate.source)
+        ? immutableSourceKey
+        : fingerprint(topic);
       const existingRows = await db.select({ id: blogDuplicateTopicFingerprintsTable.id, articleId: blogDuplicateTopicFingerprintsTable.articleId, createdAt: blogDuplicateTopicFingerprintsTable.createdAt })
-        .from(blogDuplicateTopicFingerprintsTable).where(eq(blogDuplicateTopicFingerprintsTable.fingerprint, fingerprint(topic))).limit(1);
+        .from(blogDuplicateTopicFingerprintsTable).where(eq(blogDuplicateTopicFingerprintsTable.fingerprint, dedupeFingerprint)).limit(1);
       let existing: { id: string; articleId: string | null; createdAt: Date } | undefined = existingRows[0];
       if (existing && !existing.articleId && existing.createdAt < new Date(Date.now() - 5 * 60_000)) {
         await db.delete(blogDuplicateTopicFingerprintsTable).where(eq(blogDuplicateTopicFingerprintsTable.id, existing.id));
@@ -913,30 +1104,30 @@ export async function runBlogAutomation({ dryRun, trigger, actorId, occurrenceKe
       }
       const sourceCount = new Set((grouped.get(topic) ?? []).map((item) => item.source.id)).size;
       const configuredTopics = (settings.topics as string[]).map(normalizedTopic).filter(Boolean);
-      let reason: string | null = existing ? "duplicate_topic" :
+      let reason: string | null = existingSource ? "duplicate_source" : existing ? "duplicate_topic" :
         (configuredTopics.length && !configuredTopics.some((configured) => topic.includes(configured)) ? "topic_not_allowed" : null);
       if (!reason && generatedThisPeriod >= settings.articlesPerPeriod) reason = "article_period_limit";
       let generatedArticleId: string | undefined;
       let verification: Record<string, unknown> = { sourceCount };
       let quality: Record<string, unknown> = { passed: false };
       let candidateStatus: "generated" | "skipped" = "skipped";
-      if (!reason && settings.requireTwoSources && sourceCount < 2) reason = "cross_source_verification_insufficient";
-      if (!reason && candidate.item.publishedAt && /price|market|rate|percent|surge|crash|rally/i.test(topic) &&
+      if (!reason && settings.requireTwoSources && !isOfficialNewsSource(candidate.source) && sourceCount < 2) reason = "cross_source_verification_insufficient";
+      if (!reason && !isOfficialNewsSource(candidate.source) && candidate.item.publishedAt && /price|market|rate|percent|surge|crash|rally/i.test(topic) &&
           Date.now() - candidate.item.publishedAt.getTime() > settings.freshnessWindowMinutes * 60_000) {
         reason = "stale_price_sensitive_source";
       }
       const [candidateRow] = await db.insert(blogAutomationCandidatesTable).values({
-        runId: run.id, sourceId: candidate.source.id, sourceUrl: candidate.item.url,
+        runId: run.id, sourceId: candidate.source.id, sourceUrl: officialUrl,
         sourceTitle: candidate.item.title, topic, normalizedTopic: topic,
-        status: reason ? "skipped" : "discovered", skipReason: reason, sourcePublishedAt: candidate.item.publishedAt,
+       status: reason ? "skipped" : "discovered", skipReason: reason, sourcePublishedAt: candidate.item.publishedAt,
         verification: { sourceCount }, quality: { passed: false },
       }).returning();
-      if (reason) {
+       if (reason) {
         skipped += 1;
         continue;
       }
       const [reservation] = await db.insert(blogDuplicateTopicFingerprintsTable).values({
-        fingerprint: fingerprint(topic), normalizedTopic: topic, candidateId: candidateRow.id,
+        fingerprint: dedupeFingerprint, normalizedTopic: topic, candidateId: candidateRow.id,
       }).onConflictDoNothing().returning({ id: blogDuplicateTopicFingerprintsTable.id });
       if (!reservation) {
         await db.update(blogAutomationCandidatesTable).set({ status: "skipped", skipReason: "duplicate_topic" })
@@ -950,26 +1141,41 @@ export async function runBlogAutomation({ dryRun, trigger, actorId, occurrenceKe
         for (const item of grouped.get(topic) ?? []) {
           if (seenSources.has(item.source.id)) continue;
           seenSources.add(item.source.id);
-          try {
-            const verified = await fetchVerifiedSource(item.item.url, item.source.allowedHost);
-            verifiedSources.push({ ...verified, title: item.item.title });
-          } catch { /* an unverified source cannot support generated copy */ }
+          if (isOfficialNewsSource(item.source)) {
+            const itemUrl = validateOfficialItemUrl(item.item.url, item.source.allowedHost);
+            if (!itemUrl) continue;
+            verifiedSources.push({
+               url: itemUrl, title: item.item.title,
+              text: `${item.item.title}\n${item.item.summary ?? "No feed summary was provided."}`,
+            });
+          } else {
+            try {
+              const verified = await fetchVerifiedSource(item.item.url, item.source.allowedHost);
+              verifiedSources.push({ ...verified, title: item.item.title });
+            } catch { /* an unverified source cannot support generated copy */ }
+          }
           if (verifiedSources.length >= 4) break;
         }
         verification = { sourceCount, verifiedSourceCount: verifiedSources.length, sourceUrls: verifiedSources.map((source) => source.url) };
-        if (settings.requireTwoSources && verifiedSources.length < 2) reason = "source_verification_insufficient";
+        if (settings.requireTwoSources && !isOfficialNewsSource(candidate.source) && verifiedSources.length < 2) reason = "source_verification_insufficient";
         else if (!settings.requireTwoSources && verifiedSources.length < 1) reason = "source_verification_unavailable";
       }
       let generated: GeneratedBlogArticle | undefined;
       if (!reason) {
         try {
-          generated = await generateOriginalArticle(topic, verifiedSources, settings, internalLinkCandidates);
+          generated = await generateOriginalArticleWithQualityRetries(topic, verifiedSources, settings, internalLinkCandidates);
           quality = { passed: true, bodyLength: readableSource(generated.bodyHtml).length };
           generated = await attachFeaturedImage(topic, generated, settings);
           candidateStatus = "generated";
-          const saved = await saveGeneratedArticle(generated, actorId ?? "system", settings, generated.citations, {
-            candidateId: candidateRow.id, topicFingerprint: fingerprint(topic),
-          });
+           const cutoff = new Date(String(settings.settings?.newsIngestionStartedAt ?? 0));
+           const publisher = String(candidate.source.config?.publisher ?? officialPublisherForHost(candidate.source.allowedHost) ?? "");
+           const saved = await saveGeneratedArticle(generated, actorId ?? "system", settings, generated.citations, immutableSourceKey, {
+              candidateId: candidateRow.id, topicFingerprint: dedupeFingerprint,
+           }, {
+             sourcePublishedAt: candidate.item.publishedAt,
+             sourcePublisher: publisher,
+             historicalBackfill: Boolean(candidate.item.publishedAt && !Number.isNaN(cutoff.getTime()) && candidate.item.publishedAt < cutoff),
+           });
           generatedArticleId = saved.id;
           accepted += 1;
           generatedThisPeriod += 1;
@@ -1124,11 +1330,12 @@ router.post("/admin/blog/articles", requireOperator, async (req, res) => {
       createdBy: actor, updatedBy: actor, createdAt: now, updatedAt: now,
     }).returning();
     await replaceArticleRelations(tx, created.id, input, actor, true);
-    if (created.status === "published") {
+    if (created.status === "published" && shouldNotifyPublished(created)) {
       await enqueueNewsletterCampaignTx(tx, {
         dedupeKey: newsletterPublicationDedupeKey(created.id, created.publishedAt ?? now),
         title: created.title, description: created.excerpt, readMorePath: `/blog/${created.slug}`,
       });
+       await enqueueTelegramForPublishedTx(tx, created);
     }
     return created;
   });
@@ -1167,11 +1374,12 @@ router.patch("/admin/blog/articles/:id", requireOperator, async (req, res) => {
     }).where(and(eq(blogArticlesTable.id, id), eq(blogArticlesTable.updatedAt, expectedUpdatedAt))).returning();
     if (!updated) throw new ApiError("BLOG_STALE_WRITE", "Article changed since it was loaded. Reload before saving.", 409);
     await replaceArticleRelations(tx, id, input, res.locals.operator.id, true);
-    if (nextStatus === "published" && existing.status !== "published") {
+    if (nextStatus === "published" && existing.status !== "published" && shouldNotifyPublished(updated)) {
       await enqueueNewsletterCampaignTx(tx, {
          dedupeKey: newsletterPublicationDedupeKey(updated.id, updated.publishedAt ?? now),
         title: updated.title, description: updated.excerpt, readMorePath: `/blog/${updated.slug}`,
       });
+       await enqueueTelegramForPublishedTx(tx, updated);
     }
     return updated;
   });
@@ -1208,11 +1416,12 @@ async function mutateArticle(id: string, res: Response, status: string, schedule
     if (current && !updated) {
       throw new ApiError("BLOG_PUBLISH_CONFLICT", "Article changed while it was being published. Reload and try again.", 409);
     }
-    if (updated && status === "published" && current?.status !== "published") {
+    if (updated && status === "published" && current?.status !== "published" && shouldNotifyPublished(updated)) {
       await enqueueNewsletterCampaignTx(tx, {
         dedupeKey: newsletterPublicationDedupeKey(updated.id, updated.publishedAt ?? new Date()),
         title: updated.title, description: updated.excerpt, readMorePath: `/blog/${updated.slug}`,
       });
+       await enqueueTelegramForPublishedTx(tx, updated);
     }
     return updated;
   });

@@ -46,6 +46,7 @@ export * from "./blog";
 export * from "./newsletter";
 export * from "./whitebit-deposits";
 export * from "./telegram";
+export * from "./telegram-news";
 
 export const ordersTable = pgTable("exchange_orders", {
     id: text("id").primaryKey(),

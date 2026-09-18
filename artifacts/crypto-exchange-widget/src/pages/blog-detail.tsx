@@ -3,7 +3,7 @@ import { useRoute, Link } from 'wouter';
 import { useGetBlogArticle, getGetBlogArticleQueryKey, useListBlogCategories, getListBlogCategoriesQueryKey } from '@workspace/api-client-react';
 import { PublicShell } from '@/components/public-shell';
 import { ErrorState, LoadingBlock, basePath, getPublicObjectUrl } from '@/components/shared-app-ui';
-import { ChevronLeft, ChevronRight, Calendar, User, ExternalLink, Share2, Link as LinkIcon, Twitter, Linkedin, Facebook, Check, Newspaper } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, User, ExternalLink, Share2, Link as LinkIcon, Twitter, Linkedin, Facebook, Check, ShieldCheck, ArrowUpRight, Clock } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { BlogImageFrame } from '@/components/blog-ui';
 
@@ -38,24 +38,24 @@ function ShareControls({ title, url }: { title: string, url: string }) {
   ];
 
   return (
-    <div className="flex flex-wrap items-center gap-2 md:gap-3 p-4 bg-muted/20 rounded-2xl border border-border/40">
-      <span className="text-xs font-bold tracking-widest uppercase text-muted-foreground ml-2 mr-3">Share</span>
+    <div className="flex flex-wrap items-center gap-2 pt-6 mt-6 border-t border-border lg:border-t-0 lg:mt-0 lg:pt-0">
+      <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground mr-2">Share</span>
       {typeof navigator !== 'undefined' && 'share' in navigator && (
-        <button onClick={handleNativeShare} className="p-3 rounded-full bg-card border border-border hover:border-primary/50 hover:bg-primary/5 text-muted-foreground hover:text-primary transition-all shadow-sm hover:shadow-md" aria-label="Share">
-          <Share2 size={16} />
+        <button onClick={handleNativeShare} className="w-8 h-8 flex items-center justify-center bg-card border border-border hover:border-primary text-muted-foreground hover:text-primary transition-colors" aria-label="Share">
+          <Share2 size={14} />
         </button>
       )}
-      <button onClick={handleCopy} className="p-3 rounded-full bg-card border border-border hover:border-primary/50 hover:bg-primary/5 text-muted-foreground hover:text-primary transition-all shadow-sm hover:shadow-md relative" aria-label="Copy link">
-        {copied ? <Check size={16} className="text-primary" /> : <LinkIcon size={16} />}
+      <button onClick={handleCopy} className="w-8 h-8 flex items-center justify-center bg-card border border-border hover:border-primary text-muted-foreground hover:text-primary transition-colors relative" aria-label="Copy link">
+        {copied ? <Check size={14} className="text-primary" /> : <LinkIcon size={14} />}
         {copied && (
-          <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-foreground text-background text-[10px] font-bold px-3 py-1.5 rounded-full shadow-xl whitespace-nowrap animate-in fade-in zoom-in slide-in-from-bottom-2">
-            Link copied!
+          <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-foreground text-background text-[10px] font-bold px-2 py-1 shadow-xl whitespace-nowrap">
+            Copied
           </span>
         )}
       </button>
       {shareLinks.map((link) => (
-        <a key={link.label} href={link.href} target="_blank" rel="noopener noreferrer" className="p-3 rounded-full bg-card border border-border hover:border-primary/50 hover:bg-primary/5 text-muted-foreground hover:text-primary transition-all shadow-sm hover:shadow-md" aria-label={`Share on ${link.label}`}>
-          <link.icon size={16} />
+        <a key={link.label} href={link.href} target="_blank" rel="noopener noreferrer" className="w-8 h-8 flex items-center justify-center bg-card border border-border hover:border-primary text-muted-foreground hover:text-primary transition-colors" aria-label={`Share on ${link.label}`}>
+          <link.icon size={14} />
         </a>
       ))}
     </div>
@@ -87,7 +87,7 @@ export function BlogDetailPage() {
     if (!data || !slug) return;
 
     const previousTitle = document.title;
-    const title = data.seoTitle?.trim() || `${data.title} | QuickXchange Blog`;
+    const title = data.seoTitle?.trim() || `${data.title} | QuickXchange Intelligence`;
     const description = data.seoDescription?.trim() || data.excerpt;
     const canonical = data.canonicalUrl?.trim() || `${window.location.origin}${basePath}/blog/${slug}`;
     const imagePath = data.socialImagePath || data.featuredImagePath;
@@ -188,7 +188,7 @@ export function BlogDetailPage() {
     if (!data) return null;
     if (data.bodyFormat === 'html' && typeof data.body === 'string') {
       const sanitizedHTML = DOMPurify.sanitize(data.body);
-      return <div className="prose dark:prose-invert prose-lg max-w-none md:prose-xl prose-headings:font-marketing prose-headings:font-extrabold prose-a:text-primary hover:prose-a:text-primary/80 prose-img:rounded-3xl prose-img:border prose-img:border-border/30 prose-hr:border-border/50" dangerouslySetInnerHTML={{ __html: sanitizedHTML }} />;
+      return <div className="prose dark:prose-invert prose-lg max-w-none md:prose-xl prose-headings:font-marketing prose-headings:font-extrabold prose-h2:border-b prose-h2:border-border/50 prose-h2:pb-2 prose-a:text-primary hover:prose-a:text-primary/80 prose-img:border prose-img:border-border/50 prose-hr:border-border/50" dangerouslySetInnerHTML={{ __html: sanitizedHTML }} />;
     }
     return <div className="prose dark:prose-invert prose-lg max-w-none md:prose-xl whitespace-pre-wrap">{typeof data.body === 'string' ? data.body : JSON.stringify(data.body)}</div>;
   };
@@ -198,113 +198,110 @@ export function BlogDetailPage() {
 
   return (
     <PublicShell>
-      <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 py-12 md:px-8 lg:py-16">
+      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 py-12 md:px-8 lg:py-16">
         {article.isLoading ? (
           <LoadingBlock rows={12} />
         ) : article.isError || !data ? (
           <div className="py-20">
-            <ErrorState message="Article not found or has been removed." />
+            <ErrorState message="Intelligence briefing not found or has been removed." />
             <div className="mt-8 flex justify-center">
-              <Link href="/blog" className="px-8 py-4 rounded-full bg-foreground text-background font-bold text-sm tracking-wide">
-                Return to Insights
+              <Link href="/blog" className="px-8 py-3 bg-foreground text-background font-bold text-xs tracking-widest uppercase hover:bg-primary transition-colors">
+                Return to Intelligence
               </Link>
             </div>
           </div>
         ) : (
-          <article className="pb-16">
-
+          <article className="pb-16 max-w-4xl mx-auto">
             {/* Breadcrumbs */}
-            <nav aria-label="Breadcrumb" className="mb-10 flex items-center text-[11px] font-bold uppercase tracking-widest text-muted-foreground whitespace-nowrap overflow-x-auto scrollbar-hide">
-              <Link href="/blog" className="hover:text-primary transition-colors">Insights</Link>
-              <ChevronRight size={12} className="mx-3 opacity-50" />
+            <nav aria-label="Breadcrumb" className="mb-8 flex items-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground whitespace-nowrap overflow-x-auto scrollbar-hide">
+              <Link href="/blog" className="hover:text-foreground transition-colors">Intelligence</Link>
+              <ChevronRight size={12} className="mx-2 opacity-50" />
               {data.category && (
                 <>
-                  <Link href={`/blog?category=${encodeURIComponent(data.category.slug)}`} className="hover:text-primary transition-colors">{data.category.name}</Link>
-                  <ChevronRight size={12} className="mx-3 opacity-50" />
+                  <Link href={`/blog?category=${encodeURIComponent(data.category.slug)}`} className="hover:text-foreground transition-colors">{data.category.name}</Link>
+                  <ChevronRight size={12} className="mx-2 opacity-50" />
                 </>
               )}
               <span className="text-foreground max-w-[200px] truncate">{data.title}</span>
             </nav>
 
-            <header className="mb-12">
-              <div className="flex flex-col gap-y-4 mb-8">
-                {data.category && (
-                  <div>
-                    <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-bold tracking-widest uppercase border border-primary/20">
-                      {data.category.name}
-                    </span>
-                  </div>
-                )}
+            <header className="mb-10">
+              {data.category && (
+                <span className="inline-block mb-4 text-primary text-[11px] font-bold tracking-widest uppercase">
+                  {data.category.name}
+                </span>
+              )}
 
-                <h1 className="text-4xl md:text-5xl lg:text-[4rem] font-marketing font-extrabold tracking-tight text-foreground leading-[1.1]">
-                  {data.title}
-                </h1>
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-marketing font-extrabold tracking-tight text-foreground leading-[1.05] mb-6">
+                {data.title}
+              </h1>
 
-                <p className="text-xl md:text-2xl text-muted-foreground leading-relaxed font-medium mt-4">
-                  {data.excerpt}
-                </p>
+              <p className="text-xl md:text-2xl text-muted-foreground leading-snug font-medium mb-8 border-l-2 border-primary pl-4">
+                {data.excerpt}
+              </p>
 
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-3 mt-6 border-t border-border/50 pt-6 text-sm font-medium text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <User size={16} className="opacity-70" />
-                    <span className="font-bold text-foreground">{data.authorName || 'QuickXchange Editorial'}</span>
+              <div className="flex flex-wrap items-center justify-between gap-6 py-4 border-y border-border">
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                  <div className="flex items-center gap-1.5 text-foreground">
+                    <User size={14} className="opacity-50" /> {data.authorName || 'Editorial'}
                   </div>
                   {data.publishedAt && (
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                      <time className="flex items-center gap-2" dateTime={String(data.publishedAt)}>
-                        <Calendar size={16} className="opacity-70" />
+                      <time className="flex items-center gap-1.5" dateTime={String(data.publishedAt)}>
+                        <Calendar size={14} className="opacity-50" />
                         {new Date(data.publishedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                       </time>
                       {data.updatedAt && data.updatedAt !== data.publishedAt && (
-                        <span className="text-xs opacity-70 italic">
+                        <span className="text-[9px] opacity-70 italic">
                           (Updated {new Date(data.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })})
                         </span>
                       )}
                     </div>
                   )}
-                  <div className="flex items-center gap-2 ml-auto">
-                    <span>{data.readingTimeMinutes} min read</span>
+                  <div className="flex items-center gap-1.5">
+                    <Clock size={14} className="opacity-50" /> {data.readingTimeMinutes} min read
                   </div>
+                </div>
+
+                <div className="hidden lg:block">
+                  <ShareControls title={data.title} url={typeof window !== 'undefined' ? window.location.href : ''} />
                 </div>
               </div>
             </header>
 
             {data.featuredImagePath && (
-              <div className="aspect-[16/9] w-full rounded-[2.5rem] mb-16 shadow-2xl shadow-black/10">
+              <div className="aspect-[21/9] w-full mb-12 border border-border/50 bg-muted">
                 <BlogImageFrame
                   src={getPublicObjectUrl(data.featuredImagePath)}
                   alt={data.featuredImageAlt || data.title}
-                  className="w-full h-full rounded-[2.5rem]"
+                  className="w-full h-full"
                 />
               </div>
             )}
 
-            <div className="flex flex-col lg:flex-row gap-12 lg:gap-16 items-start">
-
-              {/* Sticky Sidebar for desktop share */}
-              <aside className="hidden lg:flex flex-col gap-6 sticky top-24 w-16 shrink-0">
-                <div className="h-px w-full bg-border/50 mb-2"></div>
+            <div className="relative">
+              {/* Sticky Sidebar Share - alternative location for wide screens */}
+              <aside className="hidden xl:flex flex-col gap-3 sticky top-24 w-12 shrink-0 absolute -left-20">
+                <div className="h-4 w-px bg-border mx-auto mb-2" />
                 <button onClick={() => {
                   navigator.clipboard.writeText(window.location.href);
-                }} className="p-3 rounded-full bg-card border border-border hover:border-primary/50 text-muted-foreground hover:text-primary transition-all" aria-label="Copy link">
-                  <LinkIcon size={18} />
+                }} className="w-8 h-8 flex items-center justify-center bg-card border border-border hover:border-primary text-muted-foreground hover:text-primary transition-colors mx-auto" aria-label="Copy link">
+                  <LinkIcon size={14} />
                 </button>
-                <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(data.title)}&url=${encodeURIComponent(window.location.href)}`} target="_blank" rel="noopener noreferrer" className="p-3 rounded-full bg-card border border-border hover:border-primary/50 text-muted-foreground hover:text-primary transition-all">
-                  <Twitter size={18} />
+                <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(data.title)}&url=${encodeURIComponent(window.location.href)}`} target="_blank" rel="noopener noreferrer" className="w-8 h-8 flex items-center justify-center bg-card border border-border hover:border-primary text-muted-foreground hover:text-primary transition-colors mx-auto">
+                  <Twitter size={14} />
                 </a>
-                <a href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`} target="_blank" rel="noopener noreferrer" className="p-3 rounded-full bg-card border border-border hover:border-primary/50 text-muted-foreground hover:text-primary transition-all">
-                  <Linkedin size={18} />
+                <a href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`} target="_blank" rel="noopener noreferrer" className="w-8 h-8 flex items-center justify-center bg-card border border-border hover:border-primary text-muted-foreground hover:text-primary transition-colors mx-auto">
+                  <Linkedin size={14} />
                 </a>
               </aside>
 
               <div className="flex-1 min-w-0">
-                <div className="relative">
-                  {renderBody()}
-                </div>
+                {renderBody()}
 
                 {/* Tags */}
                 {data.tags.length > 0 && (
-                  <div className="mt-16 pt-8 border-t border-border/50 flex flex-wrap gap-2">
+                  <div className="mt-12 pt-8 border-t border-border flex flex-wrap gap-2">
                     {data.tags.map((tag, index) => {
                       const name = textField(tag.name);
                       const tagSlug = textField(tag.slug);
@@ -312,7 +309,7 @@ export function BlogDetailPage() {
                         <Link
                           key={tagSlug || `${name}-${index}`}
                           href={`/blog?tag=${encodeURIComponent(tagSlug || name)}`}
-                          className="px-4 py-2 rounded-full bg-muted/40 hover:bg-primary/10 text-muted-foreground hover:text-primary text-xs font-bold uppercase tracking-widest transition-colors border border-transparent hover:border-primary/20"
+                          className="px-3 py-1.5 bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground text-[10px] font-bold uppercase tracking-widest transition-colors border border-border"
                         >
                           {name}
                         </Link>
@@ -322,47 +319,51 @@ export function BlogDetailPage() {
                 )}
 
                 {/* Mobile share block */}
-                <div className="mt-12 lg:hidden">
+                <div className="mt-8 lg:hidden">
                   <ShareControls title={data.title} url={typeof window !== 'undefined' ? window.location.href : ''} />
                 </div>
 
                 {/* Sources */}
                 {data.citations.length > 0 && (
-                  <section className="mt-16 bg-muted/20 rounded-3xl p-8 border border-border/40" aria-labelledby="article-sources-heading">
-                    <h2 id="article-sources-heading" className="text-xs font-bold tracking-widest uppercase text-muted-foreground mb-6">Editorial Sources</h2>
-                    <ol className="space-y-5">
-                      {data.citations.map((citation, index) => {
-                        const url = textField(citation.sourceUrl);
-                        const sourceTitle = textField(citation.sourceTitle) || textField(citation.publisher) || `Source ${index + 1}`;
-                        const publisher = textField(citation.publisher);
-                        const claim = textField(citation.claim);
-                        return url ? (
-                          <li key={`${url}-${index}`} className="pl-4 border-l-2 border-primary/20 text-sm">
-                            <a href={url} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex items-center gap-1.5 font-bold text-foreground hover:text-primary transition-colors">
-                              {sourceTitle} <ExternalLink size={13} aria-hidden="true" className="opacity-70" />
-                            </a>
-                            {publisher && publisher !== sourceTitle ? <span className="ml-2 text-muted-foreground">— {publisher}</span> : null}
-                            {claim ? <p className="mt-2 text-muted-foreground italic">&ldquo;{claim}&rdquo;</p> : null}
-                          </li>
-                        ) : null;
-                      })}
-                    </ol>
+                  <section className="mt-16 border-t border-border pt-10" aria-labelledby="sources-heading">
+                    <div className="bg-muted/30 border border-border p-6 md:p-8">
+                      <h2 id="sources-heading" className="text-sm font-bold tracking-widest uppercase text-foreground mb-6 flex items-center gap-2">
+                        <ShieldCheck size={16} className="text-primary" /> Source Transparency
+                      </h2>
+                      <ol className="space-y-4 text-sm">
+                        {data.citations.map((citation, index) => {
+                          const url = textField(citation.sourceUrl);
+                          const sourceTitle = textField(citation.sourceTitle) || textField(citation.publisher) || `Source ${index + 1}`;
+                          const publisher = textField(citation.publisher);
+                          const claim = textField(citation.claim);
+                          return url ? (
+                            <li key={`${url}-${index}`} className="pl-4 border-l-2 border-border/50 hover:border-primary transition-colors">
+                              <a href={url} target="_blank" rel="noopener noreferrer nofollow" className="font-bold text-foreground hover:text-primary transition-colors flex items-center gap-1.5 w-fit">
+                                {sourceTitle} <ExternalLink size={12} className="opacity-50" />
+                              </a>
+                              {publisher && publisher !== sourceTitle ? <span className="block mt-1 text-xs text-muted-foreground uppercase tracking-wider">{publisher}</span> : null}
+                              {claim ? <p className="mt-2 text-muted-foreground italic">&ldquo;{claim}&rdquo;</p> : null}
+                            </li>
+                          ) : null;
+                        })}
+                      </ol>
+                    </div>
                   </section>
                 )}
 
                 {/* Prev/Next Navigation */}
                 {(prevArticle || nextArticle) && (
-                  <nav className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-border/50 pt-16">
+                  <nav className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-border pt-10">
                     {prevArticle ? (
-                      <Link href={`/blog/${prevArticle.slug}`} className="group flex flex-col items-start p-6 rounded-[2rem] border border-border/40 bg-card hover:border-primary/40 hover:bg-primary/5 transition-all text-left">
-                        <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground mb-3 group-hover:text-primary transition-colors flex items-center gap-1"><ChevronLeft size={12}/> Previous</span>
+                      <Link href={`/blog/${prevArticle.slug}`} className="group flex flex-col items-start p-6 border border-border bg-card hover:border-primary transition-colors text-left">
+                        <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground mb-3 flex items-center gap-1 group-hover:text-primary transition-colors"><ChevronLeft size={12}/> Previous Brief</span>
                         <span className="font-marketing font-bold text-foreground line-clamp-2 text-lg group-hover:text-primary transition-colors">{prevArticle.title}</span>
                       </Link>
                     ) : <div></div>}
 
                     {nextArticle && (
-                      <Link href={`/blog/${nextArticle.slug}`} className="group flex flex-col items-end p-6 rounded-[2rem] border border-border/40 bg-card hover:border-primary/40 hover:bg-primary/5 transition-all text-right">
-                        <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground mb-3 group-hover:text-primary transition-colors flex items-center gap-1">Next <ChevronRight size={12}/></span>
+                      <Link href={`/blog/${nextArticle.slug}`} className="group flex flex-col items-end p-6 border border-border bg-card hover:border-primary transition-colors text-right">
+                        <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground mb-3 flex items-center gap-1 group-hover:text-primary transition-colors">Next Brief <ChevronRight size={12}/></span>
                         <span className="font-marketing font-bold text-foreground line-clamp-2 text-lg group-hover:text-primary transition-colors">{nextArticle.title}</span>
                       </Link>
                     )}
@@ -372,33 +373,39 @@ export function BlogDetailPage() {
             </div>
 
             {/* CTA */}
-            <div className="mt-24 text-center bg-gradient-to-br from-primary/10 to-purple-500/10 border border-primary/20 rounded-[3rem] p-10 md:p-16 relative overflow-hidden">
-              <div className="absolute inset-0 bg-background/40 backdrop-blur-sm pointer-events-none" />
-              <div className="relative z-10 max-w-2xl mx-auto">
-                <Newspaper size={40} className="mx-auto text-primary mb-6 opacity-80" />
-                <h3 className="text-3xl md:text-4xl font-marketing font-extrabold text-foreground mb-6">Stay ahead of the market.</h3>
-                <p className="text-lg text-muted-foreground mb-10">
-                  Experience seamless crypto conversion with real-time market rates and deep liquidity for your business.
+            <div className="mt-16 pt-16 border-t border-border">
+              <div className="bg-card border border-border p-8 md:p-12 text-center max-w-4xl mx-auto flex flex-col items-center">
+                <h3 className="text-2xl md:text-3xl font-marketing font-extrabold text-foreground mb-4 uppercase tracking-tight">Execute with Confidence</h3>
+                <p className="text-muted-foreground mb-8 max-w-xl">
+                  Leverage our deep liquidity pools and real-time market rates for your institutional trading needs.
                 </p>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                  <Link href="/convert" className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 rounded-full bg-foreground text-background font-bold tracking-wide hover:scale-105 transition-transform shadow-xl">
-                    Open Convert Desk
-                  </Link>
-                </div>
+                <Link href="/convert" className="inline-flex items-center justify-center px-8 py-3 bg-foreground text-background font-bold text-xs tracking-widest uppercase hover:bg-primary transition-colors">
+                  Open Convert Desk
+                </Link>
+              </div>
+
+              <div className="grid md:grid-cols-3 gap-6 mt-8 max-w-5xl mx-auto mb-12">
+                <Link href="/swap" className="p-6 bg-muted/20 border border-border hover:border-primary transition-colors text-left group">
+                  <h4 className="font-bold text-sm uppercase tracking-wider text-foreground mb-2 group-hover:text-primary transition-colors flex justify-between items-center">
+                    Manual Swap <ArrowUpRight size={14} className="opacity-50" />
+                  </h4>
+                  <p className="text-xs text-muted-foreground leading-relaxed">Exchange large volumes safely through our OTC desk.</p>
+                </Link>
+                <Link href="/crypto-pairs" className="p-6 bg-muted/20 border border-border hover:border-primary transition-colors text-left group">
+                  <h4 className="font-bold text-sm uppercase tracking-wider text-foreground mb-2 group-hover:text-primary transition-colors flex justify-between items-center">
+                    Supported Markets <ArrowUpRight size={14} className="opacity-50" />
+                  </h4>
+                  <p className="text-xs text-muted-foreground leading-relaxed">View our supported assets and settlement options.</p>
+                </Link>
+                <Link href="/faq" className="p-6 bg-muted/20 border border-border hover:border-primary transition-colors text-left group">
+                  <h4 className="font-bold text-sm uppercase tracking-wider text-foreground mb-2 group-hover:text-primary transition-colors flex justify-between items-center">
+                    Platform FAQ <ArrowUpRight size={14} className="opacity-50" />
+                  </h4>
+                  <p className="text-xs text-muted-foreground leading-relaxed">Answers to common operational questions.</p>
+                </Link>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
-              <Link href="/swap" className="flex items-center justify-center p-5 rounded-[1.5rem] bg-card border border-border/40 hover:border-primary/50 hover:bg-muted/50 transition-colors text-sm font-bold text-center">
-                Manual Swap
-              </Link>
-              <Link href="/crypto-pairs" className="flex items-center justify-center p-5 rounded-[1.5rem] bg-card border border-border/40 hover:border-primary/50 hover:bg-muted/50 transition-colors text-sm font-bold text-center">
-                Supported Markets
-              </Link>
-              <Link href="/faq" className="flex items-center justify-center p-5 rounded-[1.5rem] bg-card border border-border/40 hover:border-primary/50 hover:bg-muted/50 transition-colors text-sm font-bold text-center">
-                Platform FAQ
-              </Link>
-            </div>
           </article>
         )}
       </div>

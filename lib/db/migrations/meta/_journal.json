@@ -561,6 +561,13 @@
       "when": 1789760078328,
       "tag": "0081_complete_pretty_boy",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1789764000000,
+      "tag": "0082_blog_news_pipeline",
+      "breakpoints": true
     }
   ]
 }

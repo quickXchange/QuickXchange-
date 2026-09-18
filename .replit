@@ -65,6 +65,7 @@ VITE_BRANDFETCH_CLIENT_ID = "1idKIR6TdnydMpjVjX_"
 PUBLIC_APP_URL = "https://quickchange.exchange"
 TELEGRAM_SUPPORT_URL = "https://t.me/Quick_change_support"
 TELEGRAM_WEBSITE_URL = "https://quickchange.exchange"
+TELEGRAM_NEWS_CHANNEL_ID = "@quick_X_change"
 
 [userenv.production]
 USE_DATABASE_OWNER = "true"
