@@ -104,3 +104,4 @@
 - [Asset all-networks pricing](asset-all-networks-pricing.md) — persist immutable crypto asset IDs; concrete network routes outrank asset rules, which outrank broad Any.
 - [Touch carousel verification](touch-carousel-verification.md) — test touch-action with genuine touch events; a mouse drag at mobile width does not validate native scrolling.
 - [Telegram financial order delivery](telegram-financial-order-delivery.md) — fence chat updates and keep order creation, reconciliation, and deposit delivery durable.
+- [Optional refund destinations](optional-refund-destinations.md) — omission must never block an order; validate supplied crypto refunds against the sending network.

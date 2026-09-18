@@ -104,6 +104,7 @@ function operatorRecord(row: typeof quickexOrdersTable.$inferSelect) {
 function customerRecord(row: typeof quickexOrdersTable.$inferSelect) {
   const route = row.route as Route;
   const amounts = row.amounts as Amounts;
+  const addresses = row.addresses as Addresses;
   return {
     id: row.legacyOrderId,
     type: "instant",
@@ -117,6 +118,8 @@ function customerRecord(row: typeof quickexOrdersTable.$inferSelect) {
     rateMode: route.rateMode,
     outcomeUnknown: row.outcomeUnknown,
     refreshUnavailable: false,
+    refundAddress: addresses.refundAddress || undefined,
+    refundMemo: addresses.refundMemo || undefined,
     statusNotificationsEnabled: false,
     trackingToken: signOrderTrackingToken(row.legacyOrderId),
     createdAt: row.createdAt.toISOString(),

@@ -27,6 +27,8 @@ export interface PublicOrderStatus {
   receiveAmount: ExactDecimal;
   depositAddress?: string;
   depositMemo?: string;
+  refundAddress?: string;
+  refundMemo?: string;
   rateMode?: QuickexRateMode;
   outcomeUnknown: boolean;
   refreshUnavailable: boolean;

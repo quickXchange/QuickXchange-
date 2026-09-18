@@ -427,6 +427,8 @@ function outputCustomerOrder(
     receiveAmount: row.receiveAmount,
     rateMode: orderRateMode(row),
     outcomeUnknown: row.outcomeUnknown,
+    refundAddress: row.refundAddress || undefined,
+    refundMemo: row.refundMemo || undefined,
     refreshUnavailable: row.type === "manual" ? false : refreshUnavailable,
     statusNotificationsEnabled: row.statusNotificationsEnabled,
     manualSettlementState: row.type === "manual" ? row.manualSettlementState : undefined,
@@ -1941,6 +1943,8 @@ router.get("/orders/:id/status", async (req, res, next) => {
            ? (row.depositAddress || undefined) : undefined,
          depositMemo: canViewDeposit && ["ready_whitebit", "ready_manual"].includes(row.fundingStatus)
            ? row.depositMemo || undefined : undefined,
+         refundAddress: canViewDeposit ? row.refundAddress || undefined : undefined,
+         refundMemo: canViewDeposit ? row.refundMemo || undefined : undefined,
         manualSettlementState: row.type === "manual" ? row.manualSettlementState : undefined,
         customerSafeNote: row.type === "manual" ? row.customerSafeNote || undefined : undefined,
         fundingStatus: row.type === "manual" ? row.fundingStatus : undefined,
@@ -2276,20 +2280,21 @@ async function validateManualOrderDetails(input: {
   }
   const source = await findManualCryptoNetwork(input.fromAsset, input.fromNetwork);
   if (source) {
-    if (!input.refundAddress?.trim()) {
-      throw new ApiError("MANUAL_REFUND_ADDRESS_REQUIRED", "A refund wallet address is required for this crypto network.", 400);
+    const refundAddress = input.refundAddress?.trim() ?? "";
+    const refundMemo = input.refundMemo?.trim() ?? "";
+    if (refundMemo && !refundAddress) {
+      throw new ApiError("MANUAL_REFUND_MEMO_WITHOUT_ADDRESS", "A refund memo requires a refund address.", 400);
     }
-    if (!isSyntacticallyValidManualWalletAddress(source.network, input.refundAddress)) {
-      throw new ApiError("MANUAL_REFUND_ADDRESS_INVALID", "The refund wallet address is not valid for the selected network.", 400);
-    }
-    if (source.network.requiresMemo && !input.refundMemo?.trim()) {
-      throw new ApiError("MANUAL_REFUND_MEMO_REQUIRED", "A refund memo is required for this crypto network.", 400);
-    }
-    if (
-      source.network.requiresMemo &&
-      !isSyntacticallyValidManualWalletMemo(source.network, input.refundMemo!)
-    ) {
-      throw new ApiError("MANUAL_REFUND_MEMO_INVALID", "The refund memo is not valid for the selected network.", 400);
+    if (refundAddress) {
+      if (!isSyntacticallyValidManualWalletAddress(source.network, refundAddress)) {
+        throw new ApiError("MANUAL_REFUND_ADDRESS_INVALID", "The refund wallet address is not valid for the selected network.", 400);
+      }
+      if (source.network.requiresMemo && !refundMemo) {
+        throw new ApiError("MANUAL_REFUND_MEMO_REQUIRED", "A refund memo is required for this crypto network.", 400);
+      }
+      if (source.network.requiresMemo && !isSyntacticallyValidManualWalletMemo(source.network, refundMemo)) {
+        throw new ApiError("MANUAL_REFUND_MEMO_INVALID", "The refund memo is not valid for the selected network.", 400);
+      }
     }
   }
 }

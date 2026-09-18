@@ -38,7 +38,10 @@ export function shouldAskDestination(mode: "swap" | "convert", target: TelegramR
   return mode === "convert" || target.kind === "crypto-network";
 }
 export function shouldAskRefund(source: TelegramRouteOption) {
-  return source.kind === "crypto-network";
+  // Refund is an optional step for every exchange route. Crypto routes add
+  // network-aware validation in the handler; fiat routes persist free-form
+  // destinations through the manual order contract.
+  return true;
 }
 
 export function filterManualTargets(

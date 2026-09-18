@@ -4538,11 +4538,12 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
     ];
     const hiddenLabels = new Set(['incoming tx ref', 'incoming transaction reference', 'outgoing tx ref', 'outgoing transaction reference', 'customer safe note', 'internal note', 'note', 'order id', 'provider order id']);
     const validRows = rawRows.filter((row): row is [string, string] =>
-      Boolean(row[1])
+      (row[0] === 'Refund address' || Boolean(row[1]))
       && !hiddenLabels.has(row[0].trim().toLowerCase())
       && !isHiddenPaymentMetadataLabel(row[0]));
     const seen = new Set<string>();
-    return validRows.filter(([k, v]) => { const key = `${k.toLowerCase()}:${v}`; if (seen.has(key)) return false; seen.add(key); return true; });
+    return validRows.filter(([k, v]) => { const key = `${k.toLowerCase()}:${v}`; if (seen.has(key)) return false; seen.add(key); return true; })
+      .map(([label, value]) => [label, label === 'Refund address' && !value?.trim() ? 'Not provided' : value] as [string, string]);
   };
   const detailRows = getUniqueDetailRows();
   const paymentDetailRows = detailRows
@@ -4623,7 +4624,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
       ['Receive method / network', receiveMethod],
       ['Receive estimated arrival', 'Not available'],
       ...(order.destinationAddress ? [['Destination address', order.destinationAddress] as [string, string]] : []),
-      ...paymentDetailRows,
+      ...paymentDetailRows.filter(([label, value]) => !(label === 'Refund address' && value === 'Not provided')),
     ];
     const text = rows
       .filter((row, index) => rows.findIndex(([label, value]) => label === row[0] && value === row[1]) === index)
@@ -4812,7 +4813,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
                          <span className="quickx-field-label text-xs text-muted-foreground">{lbl}</span>
                          <div className="flex items-center gap-2">
                             <span className={cn("text-xs font-bold truncate max-w-[200px]", /bank name|payment description/i.test(lbl) ? "quickx-important-value" : "text-foreground")} title={val}>{val}</span>
-                            <button type="button" onClick={() => copyValue(val)} className="text-muted-foreground hover:text-foreground"><Copy size={12} /></button>
+                             {!(lbl === 'Refund address' && val === 'Not provided') && <button type="button" onClick={() => copyValue(val)} className="text-muted-foreground hover:text-foreground"><Copy size={12} /></button>}
                          </div>
                       </div>
                     ))}

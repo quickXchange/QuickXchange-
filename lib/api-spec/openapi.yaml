@@ -4914,6 +4914,8 @@ components:
         receiveAmount: { $ref: "#/components/schemas/ExactDecimal" }
         depositAddress: { type: string }
         depositMemo: { type: string }
+        refundAddress: { type: string }
+        refundMemo: { type: string }
         rateMode: { $ref: "#/components/schemas/QuickexRateMode" }
         outcomeUnknown: { type: boolean }
         refreshUnavailable: { type: boolean }
@@ -4941,6 +4943,8 @@ components:
         targetSettlementOptionId: { type: string }
         amount: { $ref: "#/components/schemas/ExactDecimal" }
         receiveAmount: { $ref: "#/components/schemas/ExactDecimal" }
+        refundAddress: { type: string }
+        refundMemo: { type: string }
         rateMode: { $ref: "#/components/schemas/QuickexRateMode" }
         outcomeUnknown: { type: boolean }
         refreshUnavailable: { type: boolean }

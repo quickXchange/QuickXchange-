@@ -2789,7 +2789,7 @@ test("manual crypto target requires destination wallet and memo", async () => {
   }
 });
 
-test("manual crypto-to-fiat source requires a valid refund wallet and network memo", async () => {
+test("manual crypto-to-fiat source accepts no refund and validates a supplied wallet and network memo", async () => {
   reset();
   const {
     cryptoAssetNetworksTable,
@@ -2802,7 +2802,7 @@ test("manual crypto-to-fiat source requires a valid refund wallet and network me
   assert.ok(original);
   const api = await startApi();
   const customerEmail = `manual-revolut-${randomUUID()}@example.test`;
-  let createdOrderId: string | undefined;
+  const createdOrderIds: string[] = [];
   let ruleId: string | undefined;
   try {
     await db.update(cryptoAssetNetworksTable).set({
@@ -2840,9 +2840,14 @@ test("manual crypto-to-fiat source requires a valid refund wallet and network me
       customerEmail: "manual-source@example.test",
       clientRequestId: randomUUID(),
     };
-    const missingWallet = await apiJson(api.url, "/orders", order);
-    assert.equal(missingWallet.status, 400);
-    assert.equal(missingWallet.body.code, "MANUAL_REFUND_ADDRESS_REQUIRED");
+    const withoutRefund = await apiJson(api.url, "/orders", {
+      ...order,
+      customerEmail,
+      clientRequestId: randomUUID(),
+    });
+    assert.equal(withoutRefund.status, 201, JSON.stringify(withoutRefund.body));
+    createdOrderIds.push(String(withoutRefund.body.id));
+    assert.equal(withoutRefund.body.refundAddress, "");
     const missingMemo = await apiJson(api.url, "/orders", {
       ...order,
       refundAddress: "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh",
@@ -2867,11 +2872,11 @@ test("manual crypto-to-fiat source requires a valid refund wallet and network me
       clientRequestId: randomUUID(),
     });
     assert.equal(validRevolutOrder.status, 201, JSON.stringify(validRevolutOrder.body));
-    createdOrderId = String(validRevolutOrder.body.id);
+    createdOrderIds.push(String(validRevolutOrder.body.id));
     assert.equal(validRevolutOrder.body.targetSettlementOptionId, target.id);
   } finally {
-    if (createdOrderId) {
-      await db.delete(ordersTable).where(eq(ordersTable.id, createdOrderId));
+    if (createdOrderIds.length) {
+      await db.delete(ordersTable).where(inArray(ordersTable.id, createdOrderIds));
     }
     await db.delete(customersTable).where(eq(customersTable.email, customerEmail));
     if (ruleId) await db.delete((await import("@workspace/db")).manualDeskPricingRulesTable)

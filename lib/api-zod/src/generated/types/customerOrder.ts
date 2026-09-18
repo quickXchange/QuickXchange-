@@ -22,6 +22,8 @@ export interface CustomerOrder {
   targetSettlementOptionId?: string;
   amount: ExactDecimal;
   receiveAmount: ExactDecimal;
+  refundAddress?: string;
+  refundMemo?: string;
   rateMode?: QuickexRateMode;
   outcomeUnknown: boolean;
   refreshUnavailable: boolean;

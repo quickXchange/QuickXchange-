@@ -40,6 +40,19 @@ test("Telegram wizard builds exact route bodies from persisted selections", () =
   const body = buildCreatePayload("swap", source, target, { amount: 100, email: "a@b.test", quote: { quoteId: "quoted" }, clientRequestId: "id", values: {} });
   assert.equal(body.fromAsset, "EUR");
   assert.equal(body.targetSettlementOptionId, "receive-usdt");
+  assert.equal(body.refundAddress, undefined);
+  assert.equal(body.refundMemo, undefined);
+  const withRefund = buildCreatePayload("swap", source, target, {
+    amount: 100,
+    email: "a@b.test",
+    quote: { quoteId: "quoted" },
+    clientRequestId: "id-2",
+    refundAddress: "fiat-refund-destination",
+    refundMemo: "optional-tag",
+    values: {},
+  });
+  assert.equal(withRefund.refundAddress, "fiat-refund-destination");
+  assert.equal(withRefund.refundMemo, "optional-tag");
   assert.equal(shouldAskDestination("swap", source), false);
   assert.equal(shouldAskDestination("swap", target), true);
 });
@@ -70,7 +83,7 @@ test("Telegram completion and validation decisions follow route kind", () => {
   assert.equal(shouldAskDestination("swap", crypto), true);
   assert.equal(shouldAskDestination("convert", fiat), true);
   assert.equal(shouldAskRefund(crypto), true);
-  assert.equal(shouldAskRefund(fiat), false);
+  assert.equal(shouldAskRefund(fiat), true);
 });
 
 test("Telegram financial actions require private chat and durable lease disposition", () => {
