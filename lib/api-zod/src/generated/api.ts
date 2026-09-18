@@ -1053,6 +1053,7 @@ export const createExchangeOrderResponsePricingSnapshotOneRuleMarkupBasisPointsM
 export const createExchangeOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMax = 10000;
 export const createExchangeOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf = 1;
 
+export const createExchangeOrderResponsePricingSnapshotOneRuleAdjustmentDirectionDefault = `MARKUP`;
 export const createExchangeOrderResponsePricingSnapshotOneRuleExactRateOneRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createExchangeOrderResponsePricingSnapshotOneRuleFixedFeeOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createExchangeOrderResponsePricingSnapshotOneReferenceSourceUnitsPerUsdRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -1159,6 +1160,7 @@ export const CreateExchangeOrderResponse = zod.object({
   "targetSettlementOptionId": zod.string().nullish()
 }),
   "markupBasisPoints": zod.number().min(createExchangeOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMin).max(createExchangeOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(createExchangeOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(createExchangeOrderResponsePricingSnapshotOneRuleAdjustmentDirectionDefault),
   "exactRate": zod.union([zod.string().regex(createExchangeOrderResponsePricingSnapshotOneRuleExactRateOneRegExp).describe('An exact positive base-10 decimal value.'),zod.null()]).optional().describe('Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically.'),
   "effectiveRateSource": zod.enum(['direct', 'reciprocal']).optional().describe('Whether the effective exact path was directly configured or synthesized as the reciprocal.'),
   "configuredSelectors": zod.record(zod.string(), zod.string().nullable()).optional().describe('Original configured rule selectors, retained separately when a reciprocal path is synthesized.'),
@@ -1194,7 +1196,7 @@ export const CreateExchangeOrderResponse = zod.object({
   "targetPrecision": zod.number().min(createExchangeOrderResponsePricingSnapshotOneTargetPrecisionMin).max(createExchangeOrderResponsePricingSnapshotOneTargetPrecisionMax).multipleOf(createExchangeOrderResponsePricingSnapshotOneTargetPrecisionMultipleOf),
   "rounding": zod.object({
   "grossMarketAmount": zod.enum(['truncate']),
-  "percentageCommission": zod.enum(['ceil']),
+  "percentageCommission": zod.enum(['ceil', 'floor']),
   "fixedCommission": zod.enum(['ceil']),
   "finalRate": zod.enum(['truncate']).describe('Final receive\/input rate is truncated, never rounded up.'),
   "finalRateScale": zod.literal(30).describe('Final rate uses exactly 30 base-10 fractional calculation places before canonical trailing-zero removal.')
@@ -1302,6 +1304,7 @@ export const getOrdersResponseItemsItemPricingSnapshotOneRuleMarkupBasisPointsMi
 export const getOrdersResponseItemsItemPricingSnapshotOneRuleMarkupBasisPointsMax = 10000;
 export const getOrdersResponseItemsItemPricingSnapshotOneRuleMarkupBasisPointsMultipleOf = 1;
 
+export const getOrdersResponseItemsItemPricingSnapshotOneRuleAdjustmentDirectionDefault = `MARKUP`;
 export const getOrdersResponseItemsItemPricingSnapshotOneRuleExactRateOneRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getOrdersResponseItemsItemPricingSnapshotOneRuleFixedFeeOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getOrdersResponseItemsItemPricingSnapshotOneReferenceSourceUnitsPerUsdRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -1417,6 +1420,7 @@ export const GetOrdersResponse = zod.object({
   "targetSettlementOptionId": zod.string().nullish()
 }),
   "markupBasisPoints": zod.number().min(getOrdersResponseItemsItemPricingSnapshotOneRuleMarkupBasisPointsMin).max(getOrdersResponseItemsItemPricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(getOrdersResponseItemsItemPricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(getOrdersResponseItemsItemPricingSnapshotOneRuleAdjustmentDirectionDefault),
   "exactRate": zod.union([zod.string().regex(getOrdersResponseItemsItemPricingSnapshotOneRuleExactRateOneRegExp).describe('An exact positive base-10 decimal value.'),zod.null()]).optional().describe('Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically.'),
   "effectiveRateSource": zod.enum(['direct', 'reciprocal']).optional().describe('Whether the effective exact path was directly configured or synthesized as the reciprocal.'),
   "configuredSelectors": zod.record(zod.string(), zod.string().nullable()).optional().describe('Original configured rule selectors, retained separately when a reciprocal path is synthesized.'),
@@ -1452,7 +1456,7 @@ export const GetOrdersResponse = zod.object({
   "targetPrecision": zod.number().min(getOrdersResponseItemsItemPricingSnapshotOneTargetPrecisionMin).max(getOrdersResponseItemsItemPricingSnapshotOneTargetPrecisionMax).multipleOf(getOrdersResponseItemsItemPricingSnapshotOneTargetPrecisionMultipleOf),
   "rounding": zod.object({
   "grossMarketAmount": zod.enum(['truncate']),
-  "percentageCommission": zod.enum(['ceil']),
+  "percentageCommission": zod.enum(['ceil', 'floor']),
   "fixedCommission": zod.enum(['ceil']),
   "finalRate": zod.enum(['truncate']).describe('Final receive\/input rate is truncated, never rounded up.'),
   "finalRateScale": zod.literal(30).describe('Final rate uses exactly 30 base-10 fractional calculation places before canonical trailing-zero removal.')
@@ -1555,6 +1559,7 @@ export const createOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMin = 0;
 export const createOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMax = 10000;
 export const createOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf = 1;
 
+export const createOrderResponsePricingSnapshotOneRuleAdjustmentDirectionDefault = `MARKUP`;
 export const createOrderResponsePricingSnapshotOneRuleExactRateOneRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createOrderResponsePricingSnapshotOneRuleFixedFeeOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createOrderResponsePricingSnapshotOneReferenceSourceUnitsPerUsdRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -1661,6 +1666,7 @@ export const CreateOrderResponse = zod.object({
   "targetSettlementOptionId": zod.string().nullish()
 }),
   "markupBasisPoints": zod.number().min(createOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMin).max(createOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(createOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(createOrderResponsePricingSnapshotOneRuleAdjustmentDirectionDefault),
   "exactRate": zod.union([zod.string().regex(createOrderResponsePricingSnapshotOneRuleExactRateOneRegExp).describe('An exact positive base-10 decimal value.'),zod.null()]).optional().describe('Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically.'),
   "effectiveRateSource": zod.enum(['direct', 'reciprocal']).optional().describe('Whether the effective exact path was directly configured or synthesized as the reciprocal.'),
   "configuredSelectors": zod.record(zod.string(), zod.string().nullable()).optional().describe('Original configured rule selectors, retained separately when a reciprocal path is synthesized.'),
@@ -1696,7 +1702,7 @@ export const CreateOrderResponse = zod.object({
   "targetPrecision": zod.number().min(createOrderResponsePricingSnapshotOneTargetPrecisionMin).max(createOrderResponsePricingSnapshotOneTargetPrecisionMax).multipleOf(createOrderResponsePricingSnapshotOneTargetPrecisionMultipleOf),
   "rounding": zod.object({
   "grossMarketAmount": zod.enum(['truncate']),
-  "percentageCommission": zod.enum(['ceil']),
+  "percentageCommission": zod.enum(['ceil', 'floor']),
   "fixedCommission": zod.enum(['ceil']),
   "finalRate": zod.enum(['truncate']).describe('Final receive\/input rate is truncated, never rounded up.'),
   "finalRateScale": zod.literal(30).describe('Final rate uses exactly 30 base-10 fractional calculation places before canonical trailing-zero removal.')
@@ -1772,6 +1778,7 @@ export const bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneRule
 export const bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMax = 10000;
 export const bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMultipleOf = 1;
 
+export const bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneRuleAdjustmentDirectionDefault = `MARKUP`;
 export const bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneRuleExactRateOneRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneRuleFixedFeeOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneReferenceSourceUnitsPerUsdRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -1882,6 +1889,7 @@ export const BulkUpdateOrderStatusResponse = zod.object({
   "targetSettlementOptionId": zod.string().nullish()
 }),
   "markupBasisPoints": zod.number().min(bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMin).max(bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneRuleAdjustmentDirectionDefault),
   "exactRate": zod.union([zod.string().regex(bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneRuleExactRateOneRegExp).describe('An exact positive base-10 decimal value.'),zod.null()]).optional().describe('Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically.'),
   "effectiveRateSource": zod.enum(['direct', 'reciprocal']).optional().describe('Whether the effective exact path was directly configured or synthesized as the reciprocal.'),
   "configuredSelectors": zod.record(zod.string(), zod.string().nullable()).optional().describe('Original configured rule selectors, retained separately when a reciprocal path is synthesized.'),
@@ -1917,7 +1925,7 @@ export const BulkUpdateOrderStatusResponse = zod.object({
   "targetPrecision": zod.number().min(bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneTargetPrecisionMin).max(bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneTargetPrecisionMax).multipleOf(bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneTargetPrecisionMultipleOf),
   "rounding": zod.object({
   "grossMarketAmount": zod.enum(['truncate']),
-  "percentageCommission": zod.enum(['ceil']),
+  "percentageCommission": zod.enum(['ceil', 'floor']),
   "fixedCommission": zod.enum(['ceil']),
   "finalRate": zod.enum(['truncate']).describe('Final receive\/input rate is truncated, never rounded up.'),
   "finalRateScale": zod.literal(30).describe('Final rate uses exactly 30 base-10 fractional calculation places before canonical trailing-zero removal.')
@@ -1999,6 +2007,7 @@ export const bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneRuleMark
 export const bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMax = 10000;
 export const bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMultipleOf = 1;
 
+export const bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneRuleAdjustmentDirectionDefault = `MARKUP`;
 export const bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneRuleExactRateOneRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneRuleFixedFeeOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneReferenceSourceUnitsPerUsdRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -2109,6 +2118,7 @@ export const BulkArchiveOrdersResponse = zod.object({
   "targetSettlementOptionId": zod.string().nullish()
 }),
   "markupBasisPoints": zod.number().min(bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMin).max(bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneRuleAdjustmentDirectionDefault),
   "exactRate": zod.union([zod.string().regex(bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneRuleExactRateOneRegExp).describe('An exact positive base-10 decimal value.'),zod.null()]).optional().describe('Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically.'),
   "effectiveRateSource": zod.enum(['direct', 'reciprocal']).optional().describe('Whether the effective exact path was directly configured or synthesized as the reciprocal.'),
   "configuredSelectors": zod.record(zod.string(), zod.string().nullable()).optional().describe('Original configured rule selectors, retained separately when a reciprocal path is synthesized.'),
@@ -2144,7 +2154,7 @@ export const BulkArchiveOrdersResponse = zod.object({
   "targetPrecision": zod.number().min(bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneTargetPrecisionMin).max(bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneTargetPrecisionMax).multipleOf(bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneTargetPrecisionMultipleOf),
   "rounding": zod.object({
   "grossMarketAmount": zod.enum(['truncate']),
-  "percentageCommission": zod.enum(['ceil']),
+  "percentageCommission": zod.enum(['ceil', 'floor']),
   "fixedCommission": zod.enum(['ceil']),
   "finalRate": zod.enum(['truncate']).describe('Final receive\/input rate is truncated, never rounded up.'),
   "finalRateScale": zod.literal(30).describe('Final rate uses exactly 30 base-10 fractional calculation places before canonical trailing-zero removal.')
@@ -2272,6 +2282,7 @@ export const getOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMin = 0;
 export const getOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMax = 10000;
 export const getOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf = 1;
 
+export const getOrderResponsePricingSnapshotOneRuleAdjustmentDirectionDefault = `MARKUP`;
 export const getOrderResponsePricingSnapshotOneRuleExactRateOneRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getOrderResponsePricingSnapshotOneRuleFixedFeeOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getOrderResponsePricingSnapshotOneReferenceSourceUnitsPerUsdRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -2378,6 +2389,7 @@ export const GetOrderResponse = zod.object({
   "targetSettlementOptionId": zod.string().nullish()
 }),
   "markupBasisPoints": zod.number().min(getOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMin).max(getOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(getOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(getOrderResponsePricingSnapshotOneRuleAdjustmentDirectionDefault),
   "exactRate": zod.union([zod.string().regex(getOrderResponsePricingSnapshotOneRuleExactRateOneRegExp).describe('An exact positive base-10 decimal value.'),zod.null()]).optional().describe('Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically.'),
   "effectiveRateSource": zod.enum(['direct', 'reciprocal']).optional().describe('Whether the effective exact path was directly configured or synthesized as the reciprocal.'),
   "configuredSelectors": zod.record(zod.string(), zod.string().nullable()).optional().describe('Original configured rule selectors, retained separately when a reciprocal path is synthesized.'),
@@ -2413,7 +2425,7 @@ export const GetOrderResponse = zod.object({
   "targetPrecision": zod.number().min(getOrderResponsePricingSnapshotOneTargetPrecisionMin).max(getOrderResponsePricingSnapshotOneTargetPrecisionMax).multipleOf(getOrderResponsePricingSnapshotOneTargetPrecisionMultipleOf),
   "rounding": zod.object({
   "grossMarketAmount": zod.enum(['truncate']),
-  "percentageCommission": zod.enum(['ceil']),
+  "percentageCommission": zod.enum(['ceil', 'floor']),
   "fixedCommission": zod.enum(['ceil']),
   "finalRate": zod.enum(['truncate']).describe('Final receive\/input rate is truncated, never rounded up.'),
   "finalRateScale": zod.literal(30).describe('Final rate uses exactly 30 base-10 fractional calculation places before canonical trailing-zero removal.')
@@ -2498,6 +2510,7 @@ export const updateOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMin = 0;
 export const updateOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMax = 10000;
 export const updateOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf = 1;
 
+export const updateOrderResponsePricingSnapshotOneRuleAdjustmentDirectionDefault = `MARKUP`;
 export const updateOrderResponsePricingSnapshotOneRuleExactRateOneRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const updateOrderResponsePricingSnapshotOneRuleFixedFeeOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const updateOrderResponsePricingSnapshotOneReferenceSourceUnitsPerUsdRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -2604,6 +2617,7 @@ export const UpdateOrderResponse = zod.object({
   "targetSettlementOptionId": zod.string().nullish()
 }),
   "markupBasisPoints": zod.number().min(updateOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMin).max(updateOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(updateOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(updateOrderResponsePricingSnapshotOneRuleAdjustmentDirectionDefault),
   "exactRate": zod.union([zod.string().regex(updateOrderResponsePricingSnapshotOneRuleExactRateOneRegExp).describe('An exact positive base-10 decimal value.'),zod.null()]).optional().describe('Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically.'),
   "effectiveRateSource": zod.enum(['direct', 'reciprocal']).optional().describe('Whether the effective exact path was directly configured or synthesized as the reciprocal.'),
   "configuredSelectors": zod.record(zod.string(), zod.string().nullable()).optional().describe('Original configured rule selectors, retained separately when a reciprocal path is synthesized.'),
@@ -2639,7 +2653,7 @@ export const UpdateOrderResponse = zod.object({
   "targetPrecision": zod.number().min(updateOrderResponsePricingSnapshotOneTargetPrecisionMin).max(updateOrderResponsePricingSnapshotOneTargetPrecisionMax).multipleOf(updateOrderResponsePricingSnapshotOneTargetPrecisionMultipleOf),
   "rounding": zod.object({
   "grossMarketAmount": zod.enum(['truncate']),
-  "percentageCommission": zod.enum(['ceil']),
+  "percentageCommission": zod.enum(['ceil', 'floor']),
   "fixedCommission": zod.enum(['ceil']),
   "finalRate": zod.enum(['truncate']).describe('Final receive\/input rate is truncated, never rounded up.'),
   "finalRateScale": zod.literal(30).describe('Final rate uses exactly 30 base-10 fractional calculation places before canonical trailing-zero removal.')
@@ -2713,6 +2727,7 @@ export const assignOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMin = 0;
 export const assignOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMax = 10000;
 export const assignOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf = 1;
 
+export const assignOrderResponsePricingSnapshotOneRuleAdjustmentDirectionDefault = `MARKUP`;
 export const assignOrderResponsePricingSnapshotOneRuleExactRateOneRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const assignOrderResponsePricingSnapshotOneRuleFixedFeeOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const assignOrderResponsePricingSnapshotOneReferenceSourceUnitsPerUsdRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -2819,6 +2834,7 @@ export const AssignOrderResponse = zod.object({
   "targetSettlementOptionId": zod.string().nullish()
 }),
   "markupBasisPoints": zod.number().min(assignOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMin).max(assignOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(assignOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(assignOrderResponsePricingSnapshotOneRuleAdjustmentDirectionDefault),
   "exactRate": zod.union([zod.string().regex(assignOrderResponsePricingSnapshotOneRuleExactRateOneRegExp).describe('An exact positive base-10 decimal value.'),zod.null()]).optional().describe('Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically.'),
   "effectiveRateSource": zod.enum(['direct', 'reciprocal']).optional().describe('Whether the effective exact path was directly configured or synthesized as the reciprocal.'),
   "configuredSelectors": zod.record(zod.string(), zod.string().nullable()).optional().describe('Original configured rule selectors, retained separately when a reciprocal path is synthesized.'),
@@ -2854,7 +2870,7 @@ export const AssignOrderResponse = zod.object({
   "targetPrecision": zod.number().min(assignOrderResponsePricingSnapshotOneTargetPrecisionMin).max(assignOrderResponsePricingSnapshotOneTargetPrecisionMax).multipleOf(assignOrderResponsePricingSnapshotOneTargetPrecisionMultipleOf),
   "rounding": zod.object({
   "grossMarketAmount": zod.enum(['truncate']),
-  "percentageCommission": zod.enum(['ceil']),
+  "percentageCommission": zod.enum(['ceil', 'floor']),
   "fixedCommission": zod.enum(['ceil']),
   "finalRate": zod.enum(['truncate']).describe('Final receive\/input rate is truncated, never rounded up.'),
   "finalRateScale": zod.literal(30).describe('Final rate uses exactly 30 base-10 fractional calculation places before canonical trailing-zero removal.')
@@ -2947,6 +2963,7 @@ export const updateOrderSupportToolsResponsePricingSnapshotOneRuleMarkupBasisPoi
 export const updateOrderSupportToolsResponsePricingSnapshotOneRuleMarkupBasisPointsMax = 10000;
 export const updateOrderSupportToolsResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf = 1;
 
+export const updateOrderSupportToolsResponsePricingSnapshotOneRuleAdjustmentDirectionDefault = `MARKUP`;
 export const updateOrderSupportToolsResponsePricingSnapshotOneRuleExactRateOneRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const updateOrderSupportToolsResponsePricingSnapshotOneRuleFixedFeeOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const updateOrderSupportToolsResponsePricingSnapshotOneReferenceSourceUnitsPerUsdRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -3053,6 +3070,7 @@ export const UpdateOrderSupportToolsResponse = zod.object({
   "targetSettlementOptionId": zod.string().nullish()
 }),
   "markupBasisPoints": zod.number().min(updateOrderSupportToolsResponsePricingSnapshotOneRuleMarkupBasisPointsMin).max(updateOrderSupportToolsResponsePricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(updateOrderSupportToolsResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(updateOrderSupportToolsResponsePricingSnapshotOneRuleAdjustmentDirectionDefault),
   "exactRate": zod.union([zod.string().regex(updateOrderSupportToolsResponsePricingSnapshotOneRuleExactRateOneRegExp).describe('An exact positive base-10 decimal value.'),zod.null()]).optional().describe('Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically.'),
   "effectiveRateSource": zod.enum(['direct', 'reciprocal']).optional().describe('Whether the effective exact path was directly configured or synthesized as the reciprocal.'),
   "configuredSelectors": zod.record(zod.string(), zod.string().nullable()).optional().describe('Original configured rule selectors, retained separately when a reciprocal path is synthesized.'),
@@ -3088,7 +3106,7 @@ export const UpdateOrderSupportToolsResponse = zod.object({
   "targetPrecision": zod.number().min(updateOrderSupportToolsResponsePricingSnapshotOneTargetPrecisionMin).max(updateOrderSupportToolsResponsePricingSnapshotOneTargetPrecisionMax).multipleOf(updateOrderSupportToolsResponsePricingSnapshotOneTargetPrecisionMultipleOf),
   "rounding": zod.object({
   "grossMarketAmount": zod.enum(['truncate']),
-  "percentageCommission": zod.enum(['ceil']),
+  "percentageCommission": zod.enum(['ceil', 'floor']),
   "fixedCommission": zod.enum(['ceil']),
   "finalRate": zod.enum(['truncate']).describe('Final receive\/input rate is truncated, never rounded up.'),
   "finalRateScale": zod.literal(30).describe('Final rate uses exactly 30 base-10 fractional calculation places before canonical trailing-zero removal.')
@@ -3160,6 +3178,7 @@ export const archiveOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMin = 0;
 export const archiveOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMax = 10000;
 export const archiveOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf = 1;
 
+export const archiveOrderResponsePricingSnapshotOneRuleAdjustmentDirectionDefault = `MARKUP`;
 export const archiveOrderResponsePricingSnapshotOneRuleExactRateOneRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const archiveOrderResponsePricingSnapshotOneRuleFixedFeeOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const archiveOrderResponsePricingSnapshotOneReferenceSourceUnitsPerUsdRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -3266,6 +3285,7 @@ export const ArchiveOrderResponse = zod.object({
   "targetSettlementOptionId": zod.string().nullish()
 }),
   "markupBasisPoints": zod.number().min(archiveOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMin).max(archiveOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(archiveOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(archiveOrderResponsePricingSnapshotOneRuleAdjustmentDirectionDefault),
   "exactRate": zod.union([zod.string().regex(archiveOrderResponsePricingSnapshotOneRuleExactRateOneRegExp).describe('An exact positive base-10 decimal value.'),zod.null()]).optional().describe('Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically.'),
   "effectiveRateSource": zod.enum(['direct', 'reciprocal']).optional().describe('Whether the effective exact path was directly configured or synthesized as the reciprocal.'),
   "configuredSelectors": zod.record(zod.string(), zod.string().nullable()).optional().describe('Original configured rule selectors, retained separately when a reciprocal path is synthesized.'),
@@ -3301,7 +3321,7 @@ export const ArchiveOrderResponse = zod.object({
   "targetPrecision": zod.number().min(archiveOrderResponsePricingSnapshotOneTargetPrecisionMin).max(archiveOrderResponsePricingSnapshotOneTargetPrecisionMax).multipleOf(archiveOrderResponsePricingSnapshotOneTargetPrecisionMultipleOf),
   "rounding": zod.object({
   "grossMarketAmount": zod.enum(['truncate']),
-  "percentageCommission": zod.enum(['ceil']),
+  "percentageCommission": zod.enum(['ceil', 'floor']),
   "fixedCommission": zod.enum(['ceil']),
   "finalRate": zod.enum(['truncate']).describe('Final receive\/input rate is truncated, never rounded up.'),
   "finalRateScale": zod.literal(30).describe('Final rate uses exactly 30 base-10 fractional calculation places before canonical trailing-zero removal.')
@@ -3373,6 +3393,7 @@ export const restoreOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMin = 0;
 export const restoreOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMax = 10000;
 export const restoreOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf = 1;
 
+export const restoreOrderResponsePricingSnapshotOneRuleAdjustmentDirectionDefault = `MARKUP`;
 export const restoreOrderResponsePricingSnapshotOneRuleExactRateOneRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const restoreOrderResponsePricingSnapshotOneRuleFixedFeeOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const restoreOrderResponsePricingSnapshotOneReferenceSourceUnitsPerUsdRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -3479,6 +3500,7 @@ export const RestoreOrderResponse = zod.object({
   "targetSettlementOptionId": zod.string().nullish()
 }),
   "markupBasisPoints": zod.number().min(restoreOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMin).max(restoreOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(restoreOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(restoreOrderResponsePricingSnapshotOneRuleAdjustmentDirectionDefault),
   "exactRate": zod.union([zod.string().regex(restoreOrderResponsePricingSnapshotOneRuleExactRateOneRegExp).describe('An exact positive base-10 decimal value.'),zod.null()]).optional().describe('Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically.'),
   "effectiveRateSource": zod.enum(['direct', 'reciprocal']).optional().describe('Whether the effective exact path was directly configured or synthesized as the reciprocal.'),
   "configuredSelectors": zod.record(zod.string(), zod.string().nullable()).optional().describe('Original configured rule selectors, retained separately when a reciprocal path is synthesized.'),
@@ -3514,7 +3536,7 @@ export const RestoreOrderResponse = zod.object({
   "targetPrecision": zod.number().min(restoreOrderResponsePricingSnapshotOneTargetPrecisionMin).max(restoreOrderResponsePricingSnapshotOneTargetPrecisionMax).multipleOf(restoreOrderResponsePricingSnapshotOneTargetPrecisionMultipleOf),
   "rounding": zod.object({
   "grossMarketAmount": zod.enum(['truncate']),
-  "percentageCommission": zod.enum(['ceil']),
+  "percentageCommission": zod.enum(['ceil', 'floor']),
   "fixedCommission": zod.enum(['ceil']),
   "finalRate": zod.enum(['truncate']).describe('Final receive\/input rate is truncated, never rounded up.'),
   "finalRateScale": zod.literal(30).describe('Final rate uses exactly 30 base-10 fractional calculation places before canonical trailing-zero removal.')
@@ -5414,6 +5436,7 @@ export const listManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsM
 export const listManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMax = 10000;
 export const listManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMultipleOf = 1;
 
+export const listManualDeskPricingRulesResponseItemsItemOneTwoAdjustmentDirectionDefault = `MARKUP`;
 export const listManualDeskPricingRulesResponseItemsItemOneTwoExactRateOneRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const listManualDeskPricingRulesResponseItemsItemOneTwoFixedFeeOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const listManualDeskPricingRulesResponseItemsItemOneTwoPriorityMin = -1000000;
@@ -5451,6 +5474,7 @@ export const ListManualDeskPricingRulesResponse = zod.object({
 }).and(zod.object({
   "name": zod.string().min(1).max(listManualDeskPricingRulesResponseItemsItemOneTwoNameMax),
   "markupBasisPoints": zod.number().min(listManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMin).max(listManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMax).multipleOf(listManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMultipleOf),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(listManualDeskPricingRulesResponseItemsItemOneTwoAdjustmentDirectionDefault),
   "exactRate": zod.union([zod.string().regex(listManualDeskPricingRulesResponseItemsItemOneTwoExactRateOneRegExp).describe('An exact positive base-10 decimal value.'),zod.null()]).optional().describe('Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically.'),
   "fixedFee": zod.union([zod.string().regex(listManualDeskPricingRulesResponseItemsItemOneTwoFixedFeeOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]).optional(),
   "priority": zod.number().min(listManualDeskPricingRulesResponseItemsItemOneTwoPriorityMin).max(listManualDeskPricingRulesResponseItemsItemOneTwoPriorityMax).multipleOf(listManualDeskPricingRulesResponseItemsItemOneTwoPriorityMultipleOf),
@@ -5509,6 +5533,7 @@ export const createManualDeskPricingRuleBodyTwoMarkupBasisPointsMin = 0;
 export const createManualDeskPricingRuleBodyTwoMarkupBasisPointsMax = 10000;
 export const createManualDeskPricingRuleBodyTwoMarkupBasisPointsMultipleOf = 1;
 
+export const createManualDeskPricingRuleBodyTwoAdjustmentDirectionDefault = `MARKUP`;
 export const createManualDeskPricingRuleBodyTwoExactRateOneRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createManualDeskPricingRuleBodyTwoFixedFeeOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createManualDeskPricingRuleBodyTwoPriorityMin = -1000000;
@@ -5538,6 +5563,7 @@ export const CreateManualDeskPricingRuleBody = zod.object({
 }).and(zod.object({
   "name": zod.string().min(1).max(createManualDeskPricingRuleBodyTwoNameMax),
   "markupBasisPoints": zod.number().min(createManualDeskPricingRuleBodyTwoMarkupBasisPointsMin).max(createManualDeskPricingRuleBodyTwoMarkupBasisPointsMax).multipleOf(createManualDeskPricingRuleBodyTwoMarkupBasisPointsMultipleOf),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(createManualDeskPricingRuleBodyTwoAdjustmentDirectionDefault),
   "exactRate": zod.union([zod.string().regex(createManualDeskPricingRuleBodyTwoExactRateOneRegExp).describe('An exact positive base-10 decimal value.'),zod.null()]).optional().describe('Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically.'),
   "fixedFee": zod.union([zod.string().regex(createManualDeskPricingRuleBodyTwoFixedFeeOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]).optional(),
   "priority": zod.number().min(createManualDeskPricingRuleBodyTwoPriorityMin).max(createManualDeskPricingRuleBodyTwoPriorityMax).multipleOf(createManualDeskPricingRuleBodyTwoPriorityMultipleOf),
@@ -5571,6 +5597,7 @@ export const createManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMin = 0;
 export const createManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMax = 10000;
 export const createManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMultipleOf = 1;
 
+export const createManualDeskPricingRuleResponseOneTwoAdjustmentDirectionDefault = `MARKUP`;
 export const createManualDeskPricingRuleResponseOneTwoExactRateOneRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createManualDeskPricingRuleResponseOneTwoFixedFeeOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createManualDeskPricingRuleResponseOneTwoPriorityMin = -1000000;
@@ -5606,6 +5633,7 @@ export const CreateManualDeskPricingRuleResponse = zod.object({
 }).and(zod.object({
   "name": zod.string().min(1).max(createManualDeskPricingRuleResponseOneTwoNameMax),
   "markupBasisPoints": zod.number().min(createManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMin).max(createManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMax).multipleOf(createManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMultipleOf),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(createManualDeskPricingRuleResponseOneTwoAdjustmentDirectionDefault),
   "exactRate": zod.union([zod.string().regex(createManualDeskPricingRuleResponseOneTwoExactRateOneRegExp).describe('An exact positive base-10 decimal value.'),zod.null()]).optional().describe('Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically.'),
   "fixedFee": zod.union([zod.string().regex(createManualDeskPricingRuleResponseOneTwoFixedFeeOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]).optional(),
   "priority": zod.number().min(createManualDeskPricingRuleResponseOneTwoPriorityMin).max(createManualDeskPricingRuleResponseOneTwoPriorityMax).multipleOf(createManualDeskPricingRuleResponseOneTwoPriorityMultipleOf),
@@ -5667,6 +5695,7 @@ export const BulkManualDeskPricingRulesBody = zod.object({
   "action": zod.enum(['enable', 'disable', 'delete', 'edit']),
   "patch": zod.object({
   "markupBasisPoints": zod.number().min(bulkManualDeskPricingRulesBodyPatchMarkupBasisPointsMin).max(bulkManualDeskPricingRulesBodyPatchMarkupBasisPointsMax).multipleOf(bulkManualDeskPricingRulesBodyPatchMarkupBasisPointsMultipleOf).optional(),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).optional(),
   "priority": zod.number().min(bulkManualDeskPricingRulesBodyPatchPriorityMin).max(bulkManualDeskPricingRulesBodyPatchPriorityMax).multipleOf(bulkManualDeskPricingRulesBodyPatchPriorityMultipleOf).optional(),
   "sourceSettlementOptionId": zod.string().min(1).max(bulkManualDeskPricingRulesBodyPatchSourceSettlementOptionIdMax).nullish(),
   "targetSettlementOptionId": zod.string().min(1).max(bulkManualDeskPricingRulesBodyPatchTargetSettlementOptionIdMax).nullish(),
@@ -5702,6 +5731,7 @@ export const bulkManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsM
 export const bulkManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMax = 10000;
 export const bulkManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMultipleOf = 1;
 
+export const bulkManualDeskPricingRulesResponseItemsItemOneTwoAdjustmentDirectionDefault = `MARKUP`;
 export const bulkManualDeskPricingRulesResponseItemsItemOneTwoExactRateOneRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const bulkManualDeskPricingRulesResponseItemsItemOneTwoFixedFeeOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const bulkManualDeskPricingRulesResponseItemsItemOneTwoPriorityMin = -1000000;
@@ -5741,6 +5771,7 @@ export const BulkManualDeskPricingRulesResponse = zod.object({
 }).and(zod.object({
   "name": zod.string().min(1).max(bulkManualDeskPricingRulesResponseItemsItemOneTwoNameMax),
   "markupBasisPoints": zod.number().min(bulkManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMin).max(bulkManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMax).multipleOf(bulkManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMultipleOf),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(bulkManualDeskPricingRulesResponseItemsItemOneTwoAdjustmentDirectionDefault),
   "exactRate": zod.union([zod.string().regex(bulkManualDeskPricingRulesResponseItemsItemOneTwoExactRateOneRegExp).describe('An exact positive base-10 decimal value.'),zod.null()]).optional().describe('Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically.'),
   "fixedFee": zod.union([zod.string().regex(bulkManualDeskPricingRulesResponseItemsItemOneTwoFixedFeeOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]).optional(),
   "priority": zod.number().min(bulkManualDeskPricingRulesResponseItemsItemOneTwoPriorityMin).max(bulkManualDeskPricingRulesResponseItemsItemOneTwoPriorityMax).multipleOf(bulkManualDeskPricingRulesResponseItemsItemOneTwoPriorityMultipleOf),
@@ -6644,6 +6675,7 @@ export const previewManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMin = 0;
 export const previewManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMax = 10000;
 export const previewManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMultipleOf = 1;
 
+export const previewManualDeskPricingRuleResponseOneTwoAdjustmentDirectionDefault = `MARKUP`;
 export const previewManualDeskPricingRuleResponseOneTwoExactRateOneRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const previewManualDeskPricingRuleResponseOneTwoFixedFeeOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const previewManualDeskPricingRuleResponseOneTwoPriorityMin = -1000000;
@@ -6679,6 +6711,7 @@ export const PreviewManualDeskPricingRuleResponse = zod.object({
 }).and(zod.object({
   "name": zod.string().min(1).max(previewManualDeskPricingRuleResponseOneTwoNameMax),
   "markupBasisPoints": zod.number().min(previewManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMin).max(previewManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMax).multipleOf(previewManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMultipleOf),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(previewManualDeskPricingRuleResponseOneTwoAdjustmentDirectionDefault),
   "exactRate": zod.union([zod.string().regex(previewManualDeskPricingRuleResponseOneTwoExactRateOneRegExp).describe('An exact positive base-10 decimal value.'),zod.null()]).optional().describe('Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically.'),
   "fixedFee": zod.union([zod.string().regex(previewManualDeskPricingRuleResponseOneTwoFixedFeeOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]).optional(),
   "priority": zod.number().min(previewManualDeskPricingRuleResponseOneTwoPriorityMin).max(previewManualDeskPricingRuleResponseOneTwoPriorityMax).multipleOf(previewManualDeskPricingRuleResponseOneTwoPriorityMultipleOf),
@@ -6843,6 +6876,7 @@ export const updateManualDeskPricingRuleBodyOneTwoMarkupBasisPointsMin = 0;
 export const updateManualDeskPricingRuleBodyOneTwoMarkupBasisPointsMax = 10000;
 export const updateManualDeskPricingRuleBodyOneTwoMarkupBasisPointsMultipleOf = 1;
 
+export const updateManualDeskPricingRuleBodyOneTwoAdjustmentDirectionDefault = `MARKUP`;
 export const updateManualDeskPricingRuleBodyOneTwoExactRateOneRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const updateManualDeskPricingRuleBodyOneTwoFixedFeeOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const updateManualDeskPricingRuleBodyOneTwoPriorityMin = -1000000;
@@ -6874,6 +6908,7 @@ export const UpdateManualDeskPricingRuleBody = zod.object({
 }).and(zod.object({
   "name": zod.string().min(1).max(updateManualDeskPricingRuleBodyOneTwoNameMax),
   "markupBasisPoints": zod.number().min(updateManualDeskPricingRuleBodyOneTwoMarkupBasisPointsMin).max(updateManualDeskPricingRuleBodyOneTwoMarkupBasisPointsMax).multipleOf(updateManualDeskPricingRuleBodyOneTwoMarkupBasisPointsMultipleOf),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(updateManualDeskPricingRuleBodyOneTwoAdjustmentDirectionDefault),
   "exactRate": zod.union([zod.string().regex(updateManualDeskPricingRuleBodyOneTwoExactRateOneRegExp).describe('An exact positive base-10 decimal value.'),zod.null()]).optional().describe('Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically.'),
   "fixedFee": zod.union([zod.string().regex(updateManualDeskPricingRuleBodyOneTwoFixedFeeOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]).optional(),
   "priority": zod.number().min(updateManualDeskPricingRuleBodyOneTwoPriorityMin).max(updateManualDeskPricingRuleBodyOneTwoPriorityMax).multipleOf(updateManualDeskPricingRuleBodyOneTwoPriorityMultipleOf),
@@ -6909,6 +6944,7 @@ export const updateManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMin = 0;
 export const updateManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMax = 10000;
 export const updateManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMultipleOf = 1;
 
+export const updateManualDeskPricingRuleResponseOneTwoAdjustmentDirectionDefault = `MARKUP`;
 export const updateManualDeskPricingRuleResponseOneTwoExactRateOneRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const updateManualDeskPricingRuleResponseOneTwoFixedFeeOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const updateManualDeskPricingRuleResponseOneTwoPriorityMin = -1000000;
@@ -6944,6 +6980,7 @@ export const UpdateManualDeskPricingRuleResponse = zod.object({
 }).and(zod.object({
   "name": zod.string().min(1).max(updateManualDeskPricingRuleResponseOneTwoNameMax),
   "markupBasisPoints": zod.number().min(updateManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMin).max(updateManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMax).multipleOf(updateManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMultipleOf),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(updateManualDeskPricingRuleResponseOneTwoAdjustmentDirectionDefault),
   "exactRate": zod.union([zod.string().regex(updateManualDeskPricingRuleResponseOneTwoExactRateOneRegExp).describe('An exact positive base-10 decimal value.'),zod.null()]).optional().describe('Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically.'),
   "fixedFee": zod.union([zod.string().regex(updateManualDeskPricingRuleResponseOneTwoFixedFeeOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]).optional(),
   "priority": zod.number().min(updateManualDeskPricingRuleResponseOneTwoPriorityMin).max(updateManualDeskPricingRuleResponseOneTwoPriorityMax).multipleOf(updateManualDeskPricingRuleResponseOneTwoPriorityMultipleOf),
@@ -7152,6 +7189,7 @@ export const reconcileOrderResponseOrderPricingSnapshotOneRuleMarkupBasisPointsM
 export const reconcileOrderResponseOrderPricingSnapshotOneRuleMarkupBasisPointsMax = 10000;
 export const reconcileOrderResponseOrderPricingSnapshotOneRuleMarkupBasisPointsMultipleOf = 1;
 
+export const reconcileOrderResponseOrderPricingSnapshotOneRuleAdjustmentDirectionDefault = `MARKUP`;
 export const reconcileOrderResponseOrderPricingSnapshotOneRuleExactRateOneRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const reconcileOrderResponseOrderPricingSnapshotOneRuleFixedFeeOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const reconcileOrderResponseOrderPricingSnapshotOneReferenceSourceUnitsPerUsdRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -7261,6 +7299,7 @@ export const ReconcileOrderResponse = zod.object({
   "targetSettlementOptionId": zod.string().nullish()
 }),
   "markupBasisPoints": zod.number().min(reconcileOrderResponseOrderPricingSnapshotOneRuleMarkupBasisPointsMin).max(reconcileOrderResponseOrderPricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(reconcileOrderResponseOrderPricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(reconcileOrderResponseOrderPricingSnapshotOneRuleAdjustmentDirectionDefault),
   "exactRate": zod.union([zod.string().regex(reconcileOrderResponseOrderPricingSnapshotOneRuleExactRateOneRegExp).describe('An exact positive base-10 decimal value.'),zod.null()]).optional().describe('Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically.'),
   "effectiveRateSource": zod.enum(['direct', 'reciprocal']).optional().describe('Whether the effective exact path was directly configured or synthesized as the reciprocal.'),
   "configuredSelectors": zod.record(zod.string(), zod.string().nullable()).optional().describe('Original configured rule selectors, retained separately when a reciprocal path is synthesized.'),
@@ -7296,7 +7335,7 @@ export const ReconcileOrderResponse = zod.object({
   "targetPrecision": zod.number().min(reconcileOrderResponseOrderPricingSnapshotOneTargetPrecisionMin).max(reconcileOrderResponseOrderPricingSnapshotOneTargetPrecisionMax).multipleOf(reconcileOrderResponseOrderPricingSnapshotOneTargetPrecisionMultipleOf),
   "rounding": zod.object({
   "grossMarketAmount": zod.enum(['truncate']),
-  "percentageCommission": zod.enum(['ceil']),
+  "percentageCommission": zod.enum(['ceil', 'floor']),
   "fixedCommission": zod.enum(['ceil']),
   "finalRate": zod.enum(['truncate']).describe('Final receive\/input rate is truncated, never rounded up.'),
   "finalRateScale": zod.literal(30).describe('Final rate uses exactly 30 base-10 fractional calculation places before canonical trailing-zero removal.')
@@ -8006,6 +8045,7 @@ export const createQuickexOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMi
 export const createQuickexOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMax = 10000;
 export const createQuickexOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf = 1;
 
+export const createQuickexOrderResponsePricingSnapshotOneRuleAdjustmentDirectionDefault = `MARKUP`;
 export const createQuickexOrderResponsePricingSnapshotOneRuleExactRateOneRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createQuickexOrderResponsePricingSnapshotOneRuleFixedFeeOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createQuickexOrderResponsePricingSnapshotOneReferenceSourceUnitsPerUsdRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -8112,6 +8152,7 @@ export const CreateQuickexOrderResponse = zod.object({
   "targetSettlementOptionId": zod.string().nullish()
 }),
   "markupBasisPoints": zod.number().min(createQuickexOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMin).max(createQuickexOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(createQuickexOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
+  "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(createQuickexOrderResponsePricingSnapshotOneRuleAdjustmentDirectionDefault),
   "exactRate": zod.union([zod.string().regex(createQuickexOrderResponsePricingSnapshotOneRuleExactRateOneRegExp).describe('An exact positive base-10 decimal value.'),zod.null()]).optional().describe('Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically.'),
   "effectiveRateSource": zod.enum(['direct', 'reciprocal']).optional().describe('Whether the effective exact path was directly configured or synthesized as the reciprocal.'),
   "configuredSelectors": zod.record(zod.string(), zod.string().nullable()).optional().describe('Original configured rule selectors, retained separately when a reciprocal path is synthesized.'),
@@ -8147,7 +8188,7 @@ export const CreateQuickexOrderResponse = zod.object({
   "targetPrecision": zod.number().min(createQuickexOrderResponsePricingSnapshotOneTargetPrecisionMin).max(createQuickexOrderResponsePricingSnapshotOneTargetPrecisionMax).multipleOf(createQuickexOrderResponsePricingSnapshotOneTargetPrecisionMultipleOf),
   "rounding": zod.object({
   "grossMarketAmount": zod.enum(['truncate']),
-  "percentageCommission": zod.enum(['ceil']),
+  "percentageCommission": zod.enum(['ceil', 'floor']),
   "fixedCommission": zod.enum(['ceil']),
   "finalRate": zod.enum(['truncate']).describe('Final receive\/input rate is truncated, never rounded up.'),
   "finalRateScale": zod.literal(30).describe('Final rate uses exactly 30 base-10 fractional calculation places before canonical trailing-zero removal.')

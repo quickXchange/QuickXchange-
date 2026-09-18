@@ -67,6 +67,7 @@ export type QuoteTicket = {
         targetSettlementOptionId?: string | null;
       };
       markupBasisPoints: number;
+      adjustmentDirection: "MARKUP" | "GIVE_MORE";
       exactRate?: string | null;
       effectiveRateSource?: "direct" | "reciprocal";
       configuredSelectors?: Record<string, string | null>;
@@ -89,7 +90,7 @@ export type QuoteTicket = {
     targetPrecision: number;
     rounding: {
       grossMarketAmount: "truncate";
-      percentageCommission: "ceil";
+      percentageCommission: "ceil" | "floor";
       fixedCommission: "ceil";
       finalRate: "truncate";
       finalRateScale: 30;
@@ -252,6 +253,7 @@ function financiallyConsistent(
   snapshot: NonNullable<QuoteTicket["pricingSnapshot"]>,
   canonical: (value: unknown) => boolean,
 ) {
+  const adjustmentDirection = snapshot.rule.adjustmentDirection ?? "MARKUP";
   const amount = dec(String(ticket.amount));
   const source = dec(snapshot.reference.source.unitsPerUsd);
   const target = dec(snapshot.reference.target.unitsPerUsd);
@@ -261,12 +263,18 @@ function financiallyConsistent(
   const scale = 10n ** BigInt(precision);
   const gross = (amount.c * target.c * (10n ** BigInt(source.s)) * scale) /
     (source.c * (10n ** BigInt(amount.s + target.s)));
-  const percentage = (gross * BigInt(snapshot.rule.markupBasisPoints) + 9_999n) / 10_000n;
+  const percentage = adjustmentDirection === "GIVE_MORE"
+    ? (gross * BigInt(snapshot.rule.markupBasisPoints)) / 10_000n
+    : (gross * BigInt(snapshot.rule.markupBasisPoints) + 9_999n) / 10_000n;
   const fixedAtomic = (fixed.c * scale + (10n ** BigInt(fixed.s)) - 1n) /
     (10n ** BigInt(fixed.s));
-  const total = percentage + fixedAtomic;
-  if (gross <= total) return false;
-  const receive = gross - total;
+  const total = adjustmentDirection === "GIVE_MORE"
+    ? fixedAtomic
+    : percentage + fixedAtomic;
+  const receive = adjustmentDirection === "GIVE_MORE"
+    ? gross + percentage - fixedAtomic
+    : gross - total;
+  if (receive <= 0n) return false;
   const finalRateAtomic =
     (receive * (10n ** BigInt(amount.s + snapshot.rounding.finalRateScale))) /
     ((10n ** BigInt(precision)) * amount.c);
@@ -402,12 +410,15 @@ export function verifyQuoteTicket(
       !Number.isInteger(snapshot.rule.markupBasisPoints) ||
       snapshot.rule.markupBasisPoints < 0 ||
       snapshot.rule.markupBasisPoints > 10_000 ||
+      (snapshot.rule.adjustmentDirection !== undefined &&
+        !["MARKUP", "GIVE_MORE"].includes(snapshot.rule.adjustmentDirection)) ||
       (snapshot.rule.fixedFee !== null && !canonicalDecimal(snapshot.rule.fixedFee)) ||
       !Number.isInteger(snapshot.targetPrecision) ||
       snapshot.targetPrecision < 0 ||
       snapshot.targetPrecision > 8 ||
       snapshot.rounding.grossMarketAmount !== "truncate" ||
-      snapshot.rounding.percentageCommission !== "ceil" ||
+      snapshot.rounding.percentageCommission !==
+        ((snapshot.rule.adjustmentDirection ?? "MARKUP") === "GIVE_MORE" ? "floor" : "ceil") ||
       snapshot.rounding.fixedCommission !== "ceil" ||
       snapshot.rounding.finalRate !== "truncate" ||
       snapshot.rounding.finalRateScale !== 30 ||

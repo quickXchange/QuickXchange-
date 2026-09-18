@@ -519,6 +519,13 @@
       "when": 1789665224000,
       "tag": "0075_crypto_network_deposit_provider",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1789689110807,
+      "tag": "0076_new_the_twelve",
+      "breakpoints": true
     }
   ]
 }

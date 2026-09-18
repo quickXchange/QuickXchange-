@@ -27,6 +27,7 @@ export const manualDeskPricingRulesTable = pgTable("manual_desk_pricing_rules", 
   customerInstructions: text("customer_instructions"),
   expectedSettlementMinutes: integer("expected_settlement_minutes"),
   markupBasisPoints: integer("markup_basis_points").notNull(),
+  adjustmentDirection: text("adjustment_direction").notNull().default("MARKUP"),
   fixedFee: numeric("fixed_fee", { precision: 38, scale: 18 }),
   /** Optional exact base rate, expressed as target units per source unit. */
   exactRate: numeric("exact_rate", { precision: 78, scale: 36 }),

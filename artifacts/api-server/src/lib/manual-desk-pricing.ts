@@ -256,6 +256,7 @@ export type ManualPricingWrite = {
   sourceSettlementOptionId?: string | null;
   targetSettlementOptionId?: string | null;
   markupBasisPoints: number;
+  adjustmentDirection?: "MARKUP" | "GIVE_MORE";
   fixedFee?: string | null;
   exactRate?: string | null;
   minAmount?: string | null;
@@ -280,6 +281,10 @@ function normalizedWrite(input: ManualPricingWrite) {
     Number(fixedFee) < 0
   )) {
     throw new ApiError("VALIDATION_ERROR", "Fixed fee must be a non-negative exact decimal.", 400);
+  }
+  const adjustmentDirection = input.adjustmentDirection ?? "MARKUP";
+  if (adjustmentDirection !== "MARKUP" && adjustmentDirection !== "GIVE_MORE") {
+    throw new ApiError("VALIDATION_ERROR", "Adjustment direction must be MARKUP or GIVE_MORE.", 400);
   }
   const exactDecimal = /^(?:0|[1-9][0-9]{0,19})(?:\.[0-9]{1,18})?$/;
   const exactRate = input.exactRate == null ? null : input.exactRate;
@@ -331,6 +336,7 @@ function normalizedWrite(input: ManualPricingWrite) {
     targetSettlementOptionId: input.targetSettlementOptionId?.trim() || null,
     name,
     fixedFee,
+    adjustmentDirection,
     exactRate,
   };
 }
@@ -449,7 +455,7 @@ export async function updateManualPricingRule(
 export type ManualPricingBulkAction = "enable" | "disable" | "delete" | "edit";
 export type ManualPricingBulkItem = { id: string; version: number };
 export type ManualPricingBulkPatch = Partial<Pick<ManualPricingWrite,
-  "markupBasisPoints" | "priority" | "sourceSettlementOptionId" |
+  "markupBasisPoints" | "adjustmentDirection" | "priority" | "sourceSettlementOptionId" |
   "targetSettlementOptionId" | "exactRate" | "fixedFee" | "minAmount" |
   "maxAmount" | "expectedSettlementMinutes" | "operatorInstructions" |
   "customerInstructions" | "sourceAsset" | "targetAsset" | "sourceNetwork" |
@@ -481,6 +487,7 @@ function rowAsWrite(row: ManualDeskPricingRule): ManualPricingWrite {
     sourceSettlementOptionId: row.sourceSettlementOptionId,
     targetSettlementOptionId: row.targetSettlementOptionId,
     markupBasisPoints: row.markupBasisPoints,
+    adjustmentDirection: row.adjustmentDirection as "MARKUP" | "GIVE_MORE",
     fixedFee: row.fixedFee,
     exactRate: row.exactRate,
     minAmount: row.minAmount,

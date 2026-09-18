@@ -70,6 +70,30 @@ test("aggregates immutable snapshot decimals without floating-point loss", () =>
   assert.equal(report.normalizedTotals[0]?.historicalExpectedFeeRevenue, "0.1000001");
 });
 
+test("reports give-more customer bonuses as negative expected fee revenue", () => {
+  const base = order();
+  const report = aggregateManualDeskRevenue([
+    order({
+      pricingSnapshot: {
+        ...base.pricingSnapshot,
+        rule: {
+          ...base.pricingSnapshot.rule,
+          adjustmentDirection: "GIVE_MORE",
+        },
+        amounts: {
+          grossMarketAmount: "0.86",
+          percentageCommission: "0.0172",
+          fixedCommission: "0.01",
+          totalFee: "0.01",
+        },
+      },
+    }),
+  ], "route", new Date("2026-08-01T00:00:00.000Z"), new Date("2026-09-01T00:00:00.000Z"), "USD");
+
+  assert.equal(report.totals[0]?.expectedFeeRevenue, "-0.0072");
+  assert.equal(report.normalizedTotals[0]?.historicalExpectedFeeRevenue, "-0.0072");
+});
+
 test("keeps rule versions separate and preserves CSV filters and exact strings", () => {
   const report = aggregateManualDeskRevenue([
     order(),

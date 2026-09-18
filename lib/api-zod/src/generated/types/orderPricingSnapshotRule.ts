@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ExactDecimal } from './exactDecimal';
+import type { OrderPricingSnapshotRuleAdjustmentDirection } from './orderPricingSnapshotRuleAdjustmentDirection';
 import type { OrderPricingSnapshotRuleConfiguredSelectors } from './orderPricingSnapshotRuleConfiguredSelectors';
 import type { OrderPricingSnapshotRuleEffectiveRateSource } from './orderPricingSnapshotRuleEffectiveRateSource';
 import type { OrderPricingSnapshotRuleSelectors } from './orderPricingSnapshotRuleSelectors';
@@ -22,6 +23,7 @@ export type OrderPricingSnapshotRule = {
      * @maximum 10000
      */
   markupBasisPoints: number;
+  adjustmentDirection: OrderPricingSnapshotRuleAdjustmentDirection;
   /** Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically. */
   exactRate?: PositiveExactDecimal | null;
   /** Whether the effective exact path was directly configured or synthesized as the reciprocal. */

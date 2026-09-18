@@ -11,4 +11,5 @@ export type OrderPricingSnapshotRoundingPercentageCommission = typeof OrderPrici
 
 export const OrderPricingSnapshotRoundingPercentageCommission = {
   ceil: 'ceil',
+  floor: 'floor',
 } as const;

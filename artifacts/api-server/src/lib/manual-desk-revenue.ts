@@ -10,7 +10,12 @@ export interface RevenueOrder {
   toAsset: string;
   toNetwork: string;
   pricingSnapshot: {
-    rule: { id: string; version: number; name: string };
+    rule: {
+      id: string;
+      version: number;
+      name: string;
+      adjustmentDirection?: "MARKUP" | "GIVE_MORE";
+    };
     context: {
       sourceAsset: string;
       sourceNetwork: string;
@@ -21,7 +26,12 @@ export interface RevenueOrder {
       source: { currency: string; unitsPerUsd: string };
       target: { currency: string; unitsPerUsd: string };
     };
-    amounts: { grossMarketAmount: string; totalFee: string };
+    amounts: {
+      grossMarketAmount: string;
+      totalFee: string;
+      percentageCommission?: string;
+      fixedCommission?: string;
+    };
   };
 }
 
@@ -52,6 +62,19 @@ function addDecimals(left: string, right: string): string {
   const whole = scale ? digits.slice(0, -scale) : digits;
   const fraction = scale ? digits.slice(-scale).replace(/0+$/, "") : "";
   return `${negative ? "-" : ""}${whole}${fraction ? `.${fraction}` : ""}`;
+}
+
+function negateDecimal(value: string): string {
+  return /^0(?:\.0+)?$/.test(value) ? "0" : value.startsWith("-") ? value.slice(1) : `-${value}`;
+}
+
+function expectedFeeRevenue(order: RevenueOrder): string {
+  if (order.pricingSnapshot.rule.adjustmentDirection !== "GIVE_MORE") {
+    return order.pricingSnapshot.amounts.totalFee;
+  }
+  const fixed = order.pricingSnapshot.amounts.fixedCommission ?? "0";
+  const bonus = order.pricingSnapshot.amounts.percentageCommission ?? "0";
+  return addDecimals(fixed, negateDecimal(bonus));
 }
 
 interface Rational {
@@ -161,6 +184,7 @@ export function aggregateManualDeskRevenue(
   }>();
 
   for (const order of orders) {
+    const feeRevenue = expectedFeeRevenue(order);
     const status = revenueStatus(order.status);
     const targetAsset = order.pricingSnapshot.context.targetAsset;
     const totalKey = `${status}\u0000${targetAsset}`;
@@ -174,7 +198,7 @@ export function aggregateManualDeskRevenue(
     );
     total.expectedFeeRevenue = addDecimals(
       total.expectedFeeRevenue,
-      order.pricingSnapshot.amounts.totalFee,
+      feeRevenue,
     );
     totals.set(totalKey, total);
 
@@ -186,7 +210,7 @@ export function aggregateManualDeskRevenue(
       targetUnitsPerUsd,
     );
     const normalizedFee = multiplyDivide(
-      order.pricingSnapshot.amounts.totalFee,
+      feeRevenue,
       reportUnitsPerUsd,
       targetUnitsPerUsd,
     );
@@ -220,7 +244,7 @@ export function aggregateManualDeskRevenue(
     );
     group.expectedFeeRevenue = addDecimals(
       group.expectedFeeRevenue,
-      order.pricingSnapshot.amounts.totalFee,
+      feeRevenue,
     );
     group.normalizedGrossCustomerVolume = addRationals(
       group.normalizedGrossCustomerVolume,

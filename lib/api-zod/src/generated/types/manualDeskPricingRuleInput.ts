@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ExactDecimal } from './exactDecimal';
+import type { ManualDeskPricingRuleInputAdjustmentDirection } from './manualDeskPricingRuleInputAdjustmentDirection';
 import type { ManualDeskPricingSelectorProperties } from './manualDeskPricingSelectorProperties';
 import type { PositiveExactDecimal } from './positiveExactDecimal';
 
@@ -20,6 +21,7 @@ export type ManualDeskPricingRuleInput = ManualDeskPricingSelectorProperties & (
      * @maximum 10000
      */
   markupBasisPoints: number;
+  adjustmentDirection?: ManualDeskPricingRuleInputAdjustmentDirection;
   /** Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically. */
   exactRate?: PositiveExactDecimal | null;
   fixedFee?: ExactDecimal | null;

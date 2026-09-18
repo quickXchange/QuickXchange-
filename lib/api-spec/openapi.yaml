@@ -4402,7 +4402,7 @@ components:
         rule:
           type: object
           additionalProperties: false
-          required: [id, version, name, selectors, markupBasisPoints, fixedFee]
+          required: [id, version, name, selectors, markupBasisPoints, adjustmentDirection, fixedFee]
           properties:
             id: { type: string }
             version: { type: number, minimum: 1, multipleOf: 1 }
@@ -4421,6 +4421,7 @@ components:
                 sourceSettlementOptionId: { type: [string, "null"] }
                 targetSettlementOptionId: { type: [string, "null"] }
             markupBasisPoints: { type: number, minimum: 0, maximum: 10000, multipleOf: 1 }
+            adjustmentDirection: { type: string, enum: [MARKUP, GIVE_MORE], default: MARKUP }
             exactRate:
               oneOf:
                 - $ref: "#/components/schemas/PositiveExactDecimal"
@@ -4464,7 +4465,7 @@ components:
           required: [grossMarketAmount, percentageCommission, fixedCommission, finalRate, finalRateScale]
           properties:
             grossMarketAmount: { type: string, enum: [truncate] }
-            percentageCommission: { type: string, enum: [ceil] }
+            percentageCommission: { type: string, enum: [ceil, floor] }
             fixedCommission: { type: string, enum: [ceil] }
             finalRate:
               type: string
@@ -4504,6 +4505,7 @@ components:
           properties:
             name: { type: string, minLength: 1, maxLength: 200 }
             markupBasisPoints: { type: number, minimum: 0, maximum: 10000, multipleOf: 1 }
+            adjustmentDirection: { type: string, enum: [MARKUP, GIVE_MORE], default: MARKUP }
             exactRate:
               oneOf:
                 - $ref: "#/components/schemas/PositiveExactDecimal"
@@ -4534,6 +4536,7 @@ components:
       additionalProperties: false
       properties:
         markupBasisPoints: { type: number, minimum: 0, maximum: 10000, multipleOf: 1 }
+        adjustmentDirection: { type: string, enum: [MARKUP, GIVE_MORE] }
         priority: { type: number, minimum: -1000000, maximum: 1000000, multipleOf: 1 }
         sourceSettlementOptionId: { type: ["string", "null"], minLength: 1, maxLength: 200 }
         targetSettlementOptionId: { type: ["string", "null"], minLength: 1, maxLength: 200 }

@@ -6362,6 +6362,7 @@ const pricingRuleInput = (rule: ManualDeskPricingRule, enabled = rule.enabled): 
   sourceSettlementOptionId: rule.sourceSettlementOptionId,
   targetSettlementOptionId: rule.targetSettlementOptionId,
   markupBasisPoints: rule.markupBasisPoints,
+  adjustmentDirection: rule.adjustmentDirection || 'MARKUP',
   exactRate: rule.exactRate ?? null,
   fixedFee: rule.fixedFee,
   priority: rule.priority,
@@ -6416,6 +6417,7 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
     sourceSettlementOptionId: rule?.sourceSettlementOptionId || '',
     targetSettlementOptionId: rule?.targetSettlementOptionId || '',
     markupPercent: String((rule?.markupBasisPoints ?? 60) / 100),
+    adjustmentDirection: rule?.adjustmentDirection || 'MARKUP',
     exactRate: rule?.exactRate || '',
     fixedFee: rule?.fixedFee || '',
     minAmount: rule?.minAmount || '',
@@ -6512,12 +6514,12 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
     }
     const markupText = form.markupPercent.trim();
     if (!/^\d+(?:\.\d{1,2})?$/.test(markupText)) {
-      setError('Markup must be a nonnegative percentage with at most two decimal places.');
+       setError('Percentage must be nonnegative with at most two decimal places.');
       return;
     }
     const markupBasisPoints = Number(markupText) * 100;
     if (!Number.isInteger(markupBasisPoints) || markupBasisPoints > 10000) {
-      setError('Markup must be between 0% and 100%, in increments of 0.01%.');
+       setError('Percentage must be between 0% and 100%, in increments of 0.01%.');
       return;
     }
     const payload: ManualDeskPricingRuleInput = {
@@ -6526,6 +6528,7 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
       sourceNetwork: sourceOpt?.routeNetwork ?? null, targetNetwork: targetOpt?.routeNetwork ?? null, paymentMethod: null, payoutMethod: null,
       sourceSettlementOptionId: sourceOpt?.id ?? null, targetSettlementOptionId: targetOpt?.id ?? null,
       markupBasisPoints,
+      adjustmentDirection: form.adjustmentDirection as 'MARKUP' | 'GIVE_MORE',
       exactRate: form.exactRate.trim() || null,
       fixedFee: form.fixedFee.trim() || null,
       minAmount: form.minAmount.trim() || null,
@@ -6589,7 +6592,8 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
 
         <div className="admin-form-grid pricing-form-grid">
           <label className="pricing-rule-field"><span className="field-label">Exact path rate <small>base conversion rate</small></span><input inputMode="decimal" value={form.exactRate} onChange={event => set('exactRate', event.target.value)} placeholder="Example: 1 EUR = 4 XMR → 4" disabled={rule?.readOnly} data-testid="input-pricing-exact-rate" />{form.exactRate && <small className="text-muted-foreground">Selected path: 1 {projectedSourceOption?.assetCode || 'source'} = {form.exactRate} {projectedTargetOption?.assetCode || 'target'} · Reverse: 1 {projectedTargetOption?.assetCode || 'target'} = {reciprocalRate(form.exactRate)} {projectedSourceOption?.assetCode || 'source'}</small>}<small className="text-muted-foreground">Requires both settlement options; this is the base conversion rate before fees.</small></label>
-          <label className="pricing-rule-field"><span className="field-label">{t('adminPricing.markup')}</span><input inputMode="decimal" required value={form.markupPercent} onChange={event => set('markupPercent', event.target.value)} disabled={rule?.readOnly} data-testid="input-pricing-markup" /></label>
+          <label className="pricing-rule-field"><span className="field-label">Direction</span><select value={form.adjustmentDirection} onChange={event => set('adjustmentDirection', event.target.value)} disabled={rule?.readOnly} data-testid="select-pricing-direction"><option value="MARKUP">Markup (less for customer)</option><option value="GIVE_MORE">Give more (customer bonus)</option></select></label>
+          <label className="pricing-rule-field"><span className="field-label">Percentage</span><input inputMode="decimal" required value={form.markupPercent} onChange={event => set('markupPercent', event.target.value)} disabled={rule?.readOnly} data-testid="input-pricing-markup" /></label>
           <label className="pricing-rule-field"><span className="field-label">{t('adminPricing.fixed_fee')}<small>{t('adminPricing.target_asset')}</small></span><input inputMode="decimal" value={form.fixedFee} onChange={event => set('fixedFee', event.target.value)} placeholder="0.00" disabled={rule?.readOnly} data-testid="input-pricing-fixed-fee" /></label>
         </div>
 
@@ -6705,7 +6709,7 @@ function PricingPreview({ testRule }: { testRule?: ManualDeskPricingRule | null 
       <span className="pricing-preview-info-icon"><Info size={16} /></span>
       {result ? <div className="pricing-preview-result-grid">
         <span>{t('adminPricing.gross')}<strong>{number(result.grossMarketAmount)} {result.toAsset}</strong></span>
-        <span>{t('adminPricing.commission')}<strong>{number(result.percentageCommission || 0)} {result.toAsset}</strong></span>
+         <span>{testRule?.adjustmentDirection === 'GIVE_MORE' ? 'Customer bonus' : t('adminPricing.commission')}<strong>{number(result.percentageCommission || 0)} {result.toAsset}</strong></span>
         <span>{t('adminPricing.fixed_fee')}<strong>{number(result.fixedCommission || 0)} {result.toAsset}</strong></span>
         <span>{t('adminPricing.total_fee')}<strong>{number(result.totalFee ?? result.fee)} {result.toAsset}</strong></span>
         <span>{t('adminPricing.receive')}<strong>{number(result.receiveAmount)} {result.toAsset}</strong></span>
@@ -6731,7 +6735,7 @@ function BulkPricingRuleDrawer({
   const bulkAction = useBulkManualDeskPricingRules();
 
   const [form, setForm] = useState({
-    markupPercent: '', applyMarkup: false,
+    markupPercent: '', adjustmentDirection: 'MARKUP', applyMarkup: false,
     exactRate: '', applyExactRate: false,
     fixedFee: '', applyFixedFee: false,
     minAmount: '', applyMinAmount: false,
@@ -6759,13 +6763,14 @@ function BulkPricingRuleDrawer({
     if (form.applyMarkup) {
       const markupText = form.markupPercent.trim();
       if (!/^\d+(?:\.\d{1,2})?$/.test(markupText)) {
-        setError('Markup must be a nonnegative percentage with at most two decimal places.'); return;
+        setError('Percentage must be nonnegative with at most two decimal places.'); return;
       }
       const markupBasisPoints = Number(markupText) * 100;
       if (!Number.isInteger(markupBasisPoints) || markupBasisPoints > 10000) {
-        setError('Markup must be between 0% and 100%, in increments of 0.01%.'); return;
+        setError('Percentage must be between 0% and 100%, in increments of 0.01%.'); return;
       }
       patch.markupBasisPoints = markupBasisPoints;
+      patch.adjustmentDirection = form.adjustmentDirection as 'MARKUP' | 'GIVE_MORE';
     }
 
     const validateDecimal = (val: string, name: string, positive = false) => {
@@ -6872,8 +6877,9 @@ function BulkPricingRuleDrawer({
 
           <div className="admin-form-grid pricing-form-grid bulk-form-grid">
              <label className="pricing-rule-field">
-                <span className="field-label flex items-center gap-2"><input type="checkbox" checked={form.applyMarkup} onChange={() => toggleApply('applyMarkup')} data-testid="apply-markup"/> Markup %</span>
+                 <span className="field-label flex items-center gap-2"><input type="checkbox" checked={form.applyMarkup} onChange={() => toggleApply('applyMarkup')} data-testid="apply-markup"/> Percentage + Direction</span>
                 <input inputMode="decimal" required={form.applyMarkup} value={form.markupPercent} onChange={e => { set('markupPercent', e.target.value); set('applyMarkup', true); }} disabled={!form.applyMarkup} data-testid="input-bulk-markup" />
+                 <select value={form.adjustmentDirection} onChange={e => { set('adjustmentDirection', e.target.value); set('applyMarkup', true); }} disabled={!form.applyMarkup}><option value="MARKUP">Markup</option><option value="GIVE_MORE">Give more</option></select>
              </label>
              <label className="pricing-rule-field">
                 <span className="field-label flex items-center gap-2"><input type="checkbox" checked={form.applyExactRate} onChange={() => toggleApply('applyExactRate')} data-testid="apply-exact-rate"/> Exact Rate</span>
@@ -7192,7 +7198,7 @@ function AdminManualPricing() {
                   <td className="pricing-select-column"><input type="checkbox" checked={selectedRuleIds.includes(rule.id)} onChange={() => setSelectedRuleIds(current => current.includes(rule.id) ? current.filter(id => id !== rule.id) : [...current, rule.id])} aria-label={t('adminPricing.select_rule_named', { name: rule.name })} data-testid={`checkbox-pricing-${rule.id}`} /></td>
                   <td><div className="pricing-rule-identity"><AdminPaymentLogo name={option?.title || option?.networkTitle || rule.name} currencyCode={option?.assetCode} logoUrl={option?.logoUrl} />{option?.kind === 'fiat-payment-method' ? <PaymentMethodCopy methodName={option.title || option.networkTitle || rule.name} currencyCode={option.assetCode} /> : <span><strong>{compactRuleLabel(rule)}</strong><small>{rule.name}</small></span>}</div>{rule.missingSettlementOptionIds.length > 0 && <small className="pricing-orphan-warning" data-testid={`pricing-orphan-${rule.id}`}>{t('adminPricing.missing_option')}{rule.missingSettlementOptionIds.join(', ')}</small>}</td>
                   <td className="pricing-selector"><div className="pricing-route"><span className="pricing-route-icon"><ArrowRight size={14} /></span><span>{pricingSelectorLabel(rule, settlementOptions)}</span></div></td>
-                  <td><strong className="pricing-commission">{(rule.markupBasisPoints / 100).toFixed(2)}%</strong><small>+ {formatFixedFee(rule.fixedFee, option?.assetCode)}</small></td>
+                  <td><strong className="pricing-commission">{rule.adjustmentDirection === 'GIVE_MORE' ? 'Give more ' : 'Markup '}{(rule.markupBasisPoints / 100).toFixed(2)}%</strong><small>Fixed fee: {formatFixedFee(rule.fixedFee, option?.assetCode)}</small></td>
                   <td className="pricing-number font-mono">{rule.priority}</td>
                   <td><span className="secure-badge pricing-specificity">{rule.specificity} / 8</span></td>
                   <td><StatusPill status={rule.enabled ? 'Enabled' : 'Disabled'} /></td>

@@ -27,6 +27,22 @@ test("exact path rate scales target atomic units once", async () => {
   assert.equal(quote.grossMarketAmount, 4);
 });
 
+test("give-more direction increases the market rate with floor adjustment rounding", async () => {
+  const quote = await getManualDeskEstimate({
+    sourceCurrency: "USDT",
+    targetCurrency: "EUR",
+    targetPrecision: 4,
+    amount: 1,
+    exactRate: "0.86",
+    markupBasisPoints: 200,
+    adjustmentDirection: "GIVE_MORE",
+  });
+  assert.equal(quote.exact.grossMarketAmount, "0.86");
+  assert.equal(quote.exact.percentageCommission, "0.0172");
+  assert.equal(quote.exact.receiveAmount, "0.8772");
+  assert.equal(quote.rate, 0.8772);
+});
+
 test("exact reciprocal uses canonical decimal integer arithmetic", () => {
   assert.equal(reciprocalExactRate("4"), "0.25");
   assert.equal(reciprocalExactRate("0.125"), "8");

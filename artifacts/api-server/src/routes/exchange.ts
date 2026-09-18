@@ -573,6 +573,7 @@ async function getManualRoutePricing(
     sourceCurrency: route.fromAsset,
     targetCurrency: route.toAsset,
     markupBasisPoints: rule.markupBasisPoints,
+    adjustmentDirection: rule.adjustmentDirection as "MARKUP" | "GIVE_MORE",
     exactRate: rule.exactRate,
   });
   return {
@@ -776,6 +777,7 @@ async function buildQuoteTicket(
     targetPrecision: route.targetPrecision,
     amount: input.amount,
     markupBasisPoints: rule.markupBasisPoints,
+    adjustmentDirection: rule.adjustmentDirection as "MARKUP" | "GIVE_MORE",
     fixedFee: rule.fixedFee,
     exactRate: rule.exactRate,
   });
@@ -878,6 +880,7 @@ async function buildQuoteTicket(
         }),
         configuredSelectors: normalizeManualPricingSelectors(rule),
         markupBasisPoints: rule.markupBasisPoints,
+        adjustmentDirection: rule.adjustmentDirection as "MARKUP" | "GIVE_MORE",
         fixedFee: rule.fixedFee ?? null,
         exactRate: rule.exactRate ?? null,
         effectiveRateSource: rule.exactRateSource,
@@ -899,7 +902,7 @@ async function buildQuoteTicket(
       targetPrecision: route.targetPrecision,
       rounding: {
         grossMarketAmount: "truncate",
-        percentageCommission: "ceil",
+        percentageCommission: rule.adjustmentDirection === "GIVE_MORE" ? "floor" : "ceil",
         fixedCommission: "ceil",
         finalRate: "truncate",
         finalRateScale: 30,
@@ -1030,6 +1033,7 @@ async function revalidateManualDeskQuoteRoute(quote: QuoteTicket): Promise<void>
       rule.version !== signedRule.version ||
       rule.name !== signedRule.name ||
       rule.markupBasisPoints !== signedRule.markupBasisPoints ||
+      rule.adjustmentDirection !== (signedRule.adjustmentDirection ?? "MARKUP") ||
       (rule.fixedFee ?? null) !== signedRule.fixedFee ||
       (rule.exactRate ?? null) !== (signedRule.exactRate ?? null) ||
       (rule.exactRateSource ?? "direct") !== (signedRule.effectiveRateSource ?? "direct") ||

@@ -1,0 +1,2 @@
+ALTER TABLE "manual_desk_pricing_rules" ADD COLUMN "adjustment_direction" text DEFAULT 'MARKUP' NOT NULL;--> statement-breakpoint
+ALTER TABLE "manual_desk_pricing_rules" ADD CONSTRAINT "manual_desk_pricing_rules_adjustment_direction_check" CHECK ("adjustment_direction" IN ('MARKUP', 'GIVE_MORE'));

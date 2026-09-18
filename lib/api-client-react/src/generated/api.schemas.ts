@@ -1333,6 +1333,14 @@ export const OrderPricingSnapshotPolicyVersion = {
   'manual-desk-pricing-v1': 'manual-desk-pricing-v1',
 } as const;
 
+export type OrderPricingSnapshotRuleAdjustmentDirection = typeof OrderPricingSnapshotRuleAdjustmentDirection[keyof typeof OrderPricingSnapshotRuleAdjustmentDirection];
+
+
+export const OrderPricingSnapshotRuleAdjustmentDirection = {
+  MARKUP: 'MARKUP',
+  GIVE_MORE: 'GIVE_MORE',
+} as const;
+
 /**
  * Whether the effective exact path was directly configured or synthesized as the reciprocal.
  */
@@ -1392,6 +1400,7 @@ export type OrderPricingSnapshotRoundingPercentageCommission = typeof OrderPrici
 
 export const OrderPricingSnapshotRoundingPercentageCommission = {
   ceil: 'ceil',
+  floor: 'floor',
 } as const;
 
 export type OrderPricingSnapshotRoundingFixedCommission = typeof OrderPricingSnapshotRoundingFixedCommission[keyof typeof OrderPricingSnapshotRoundingFixedCommission];
@@ -1456,6 +1465,7 @@ export type OrderPricingSnapshotRule = {
      * @maximum 10000
      */
   markupBasisPoints: number;
+  adjustmentDirection: OrderPricingSnapshotRuleAdjustmentDirection;
   /** Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically. */
   exactRate?: PositiveExactDecimal | null;
   /** Whether the effective exact path was directly configured or synthesized as the reciprocal. */
@@ -1774,6 +1784,14 @@ export interface ManualDeskPricingSelectorProperties {
   targetSettlementOptionId?: string | null;
 }
 
+export type ManualDeskPricingRuleInputAdjustmentDirection = typeof ManualDeskPricingRuleInputAdjustmentDirection[keyof typeof ManualDeskPricingRuleInputAdjustmentDirection];
+
+
+export const ManualDeskPricingRuleInputAdjustmentDirection = {
+  MARKUP: 'MARKUP',
+  GIVE_MORE: 'GIVE_MORE',
+} as const;
+
 export type ManualDeskPricingRuleInput = ManualDeskPricingSelectorProperties & ({
   /**
      * @minLength 1
@@ -1785,6 +1803,7 @@ export type ManualDeskPricingRuleInput = ManualDeskPricingSelectorProperties & (
      * @maximum 10000
      */
   markupBasisPoints: number;
+  adjustmentDirection?: ManualDeskPricingRuleInputAdjustmentDirection;
   /** Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically. */
   exactRate?: PositiveExactDecimal | null;
   fixedFee?: ExactDecimal | null;
@@ -1819,12 +1838,21 @@ export type ManualDeskPricingRuleUpdate = ManualDeskPricingRuleInput & {
   version: number;
 };
 
+export type ManualDeskPricingRulesBulkPatchAdjustmentDirection = typeof ManualDeskPricingRulesBulkPatchAdjustmentDirection[keyof typeof ManualDeskPricingRulesBulkPatchAdjustmentDirection];
+
+
+export const ManualDeskPricingRulesBulkPatchAdjustmentDirection = {
+  MARKUP: 'MARKUP',
+  GIVE_MORE: 'GIVE_MORE',
+} as const;
+
 export interface ManualDeskPricingRulesBulkPatch {
   /**
      * @minimum 0
      * @maximum 10000
      */
   markupBasisPoints?: number;
+  adjustmentDirection?: ManualDeskPricingRulesBulkPatchAdjustmentDirection;
   /**
      * @minimum -1000000
      * @maximum 1000000

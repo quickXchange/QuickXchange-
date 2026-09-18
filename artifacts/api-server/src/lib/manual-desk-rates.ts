@@ -508,20 +508,24 @@ export async function getManualDeskReferenceRate(input: {
   sourceCurrency: string;
   targetCurrency: string;
   markupBasisPoints?: number;
+  adjustmentDirection?: "MARKUP" | "GIVE_MORE";
   exactRate?: string | null;
 }) {
   const markupBasisPoints = input.markupBasisPoints ?? 60;
+  const adjustmentDirection = input.adjustmentDirection ?? "MARKUP";
   if (
     !Number.isInteger(markupBasisPoints) ||
     markupBasisPoints < 0 ||
-    markupBasisPoints >= 10_000
+    (adjustmentDirection === "MARKUP" && markupBasisPoints >= 10_000)
   ) unavailable();
 
   if (input.exactRate != null) {
     const parsed = parsePositiveDecimal(input.exactRate);
     if (!parsed) unavailable();
-    const adjustedCoefficient =
-      parsed.coefficient * BigInt(10_000 - markupBasisPoints);
+    const multiplier = adjustmentDirection === "GIVE_MORE"
+      ? BigInt(10_000 + markupBasisPoints)
+      : BigInt(10_000 - markupBasisPoints);
+    const adjustedCoefficient = parsed.coefficient * multiplier;
     const adjusted = {
       coefficient: adjustedCoefficient,
       scale: parsed.scale + 4,
@@ -544,7 +548,7 @@ export async function getManualDeskReferenceRate(input: {
   const numerator =
     targetUnitsPerUsd.coefficient *
     (10n ** BigInt(sourceUnitsPerUsd.scale)) *
-    BigInt(10_000 - markupBasisPoints) *
+    BigInt(adjustmentDirection === "GIVE_MORE" ? 10_000 + markupBasisPoints : 10_000 - markupBasisPoints) *
     (10n ** BigInt(scale));
   const denominator =
     sourceUnitsPerUsd.coefficient *
@@ -569,6 +573,7 @@ export async function getManualDeskEstimate(input: {
   targetPrecision: number;
   amount: number;
   markupBasisPoints?: number;
+  adjustmentDirection?: "MARKUP" | "GIVE_MORE";
   fixedFee?: string | null;
   exactRate?: string | null;
 }) {
@@ -638,8 +643,9 @@ export async function getManualDeskEstimate(input: {
   const markupBasisPoints = input.markupBasisPoints ?? 60;
   if (!Number.isInteger(markupBasisPoints) ||
       markupBasisPoints < 0 || markupBasisPoints > 10_000) unavailable();
-  const percentageFeeAtomicUnits =
-    (grossAtomicUnits * BigInt(markupBasisPoints) + 9_999n) / 10_000n;
+  const percentageFeeAtomicUnits = input.adjustmentDirection === "GIVE_MORE"
+    ? (grossAtomicUnits * BigInt(markupBasisPoints)) / 10_000n
+    : (grossAtomicUnits * BigInt(markupBasisPoints) + 9_999n) / 10_000n;
   const parsedFixedFee = input.fixedFee == null
     ? { coefficient: 0n, scale: 0 }
     : parsePositiveDecimal(input.fixedFee) ??
@@ -649,9 +655,13 @@ export async function getManualDeskEstimate(input: {
   const fixedDenominator = 10n ** BigInt(parsedFixedFee.scale);
   const fixedFeeAtomicUnits =
     (fixedNumerator + fixedDenominator - 1n) / fixedDenominator;
-  const feeAtomicUnits = percentageFeeAtomicUnits + fixedFeeAtomicUnits;
-  const receiveAtomicUnits = grossAtomicUnits - feeAtomicUnits;
-  if (grossAtomicUnits <= 0n || feeAtomicUnits < 0n || receiveAtomicUnits <= 0n) {
+  const feeAtomicUnits = input.adjustmentDirection === "GIVE_MORE"
+    ? fixedFeeAtomicUnits
+    : percentageFeeAtomicUnits + fixedFeeAtomicUnits;
+  const receiveAtomicUnits = input.adjustmentDirection === "GIVE_MORE"
+    ? grossAtomicUnits + percentageFeeAtomicUnits - fixedFeeAtomicUnits
+    : grossAtomicUnits - feeAtomicUnits;
+  if (grossAtomicUnits <= 0n || receiveAtomicUnits <= 0n) {
     throw new ApiError(
       "MANUAL_DESK_FEE_EXCEEDS_AMOUNT",
       "The pricing fees are greater than the gross market amount.",

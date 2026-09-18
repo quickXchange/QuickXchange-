@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ExactDecimal } from './exactDecimal';
+import type { ManualDeskPricingRulesBulkPatchAdjustmentDirection } from './manualDeskPricingRulesBulkPatchAdjustmentDirection';
 import type { PositiveExactDecimal } from './positiveExactDecimal';
 
 export interface ManualDeskPricingRulesBulkPatch {
@@ -14,6 +15,7 @@ export interface ManualDeskPricingRulesBulkPatch {
      * @maximum 10000
      */
   markupBasisPoints?: number;
+  adjustmentDirection?: ManualDeskPricingRulesBulkPatchAdjustmentDirection;
   /**
      * @minimum -1000000
      * @maximum 1000000

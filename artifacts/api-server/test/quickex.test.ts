@@ -2317,6 +2317,7 @@ test("manual pricing bulk actions update safe rules and report skipped conflicts
   const api = await startApi();
   const headers = { "x-test-clerk-user-id": userId };
   const ids = [randomUUID(), randomUUID()];
+  const apiCreatedIds: string[] = [];
     let scaleIds: string[] = [];
   try {
     const config = await (await fetch(`${api.url}/exchange/config`)).json() as {
@@ -2334,6 +2335,59 @@ test("manual pricing bulk actions update safe rules and report skipped conflicts
     const alternateSource = sources.find(option =>
       option.id !== source?.id && option.id !== target?.id);
     assert.ok(source && alternateSource && target);
+    const apiRulePayload = {
+      name: `API direction ${suffix}`,
+      sourceAsset: source.assetCode,
+      targetAsset: target.assetCode,
+      sourceNetwork: source.routeNetwork,
+      targetNetwork: target.routeNetwork,
+      sourceSettlementOptionId: source.id,
+      targetSettlementOptionId: target.id,
+      markupBasisPoints: 275,
+      adjustmentDirection: "GIVE_MORE",
+      exactRate: "1.1",
+      fixedFee: null,
+      priority: -900000,
+      enabled: false,
+    };
+    const createdViaApi = await apiJson(
+      api.url, "/admin/manual-desk-pricing-rules", apiRulePayload, "POST", headers,
+    );
+    assert.equal(createdViaApi.status, 201, JSON.stringify(createdViaApi.body));
+    apiCreatedIds.push(String(createdViaApi.body.id));
+    assert.equal(createdViaApi.body.adjustmentDirection, "GIVE_MORE");
+    assert.equal(createdViaApi.body.markupBasisPoints, 275);
+    assert.equal(createdViaApi.body.version, 1);
+    const createdRow = (await db.select().from(manualDeskPricingRulesTable)
+      .where(eq(manualDeskPricingRulesTable.id, createdViaApi.body.id)))[0];
+    assert.equal(createdRow?.adjustmentDirection, "GIVE_MORE");
+    assert.equal(createdRow?.markupBasisPoints, 275);
+    const editedViaApi = await apiJson(
+      api.url, `/admin/manual-desk-pricing-rules/${createdViaApi.body.id}`, {
+        ...apiRulePayload,
+        adjustmentDirection: "GIVE_MORE",
+        markupBasisPoints: 325,
+        version: 1,
+      }, "PATCH", headers,
+    );
+    assert.equal(editedViaApi.status, 200, JSON.stringify(editedViaApi.body));
+    assert.equal(editedViaApi.body.adjustmentDirection, "GIVE_MORE");
+    assert.equal(editedViaApi.body.markupBasisPoints, 325);
+    assert.equal(editedViaApi.body.version, 2);
+    const staleEdit = await apiJson(
+      api.url, `/admin/manual-desk-pricing-rules/${createdViaApi.body.id}`, {
+        ...apiRulePayload,
+        adjustmentDirection: "MARKUP",
+        markupBasisPoints: 400,
+        version: 1,
+      }, "PATCH", headers,
+    );
+    assert.equal(staleEdit.status, 409);
+    const persistedEdit = (await db.select().from(manualDeskPricingRulesTable)
+      .where(eq(manualDeskPricingRulesTable.id, createdViaApi.body.id)))[0];
+    assert.equal(persistedEdit?.adjustmentDirection, "GIVE_MORE");
+    assert.equal(persistedEdit?.markupBasisPoints, 325);
+    assert.equal(persistedEdit?.version, 2);
     const existingPriorities = new Set(
       (await db.select({ priority: manualDeskPricingRulesTable.priority })
         .from(manualDeskPricingRulesTable)).map(row => row.priority),
@@ -2459,13 +2513,18 @@ test("manual pricing bulk actions update safe rules and report skipped conflicts
     response = await bulk({
       action: "edit",
       items: [{ id: ids[0], version: 3 }, { id: ids[1], version: 4 }],
-      patch: { priority: editPriority, fixedFee: null },
+      patch: {
+        priority: editPriority, fixedFee: null,
+        adjustmentDirection: "GIVE_MORE", markupBasisPoints: 650,
+      },
     });
     assert.equal(response.status, 200);
     const edited = await db.select().from(manualDeskPricingRulesTable)
       .where(eq(manualDeskPricingRulesTable.id, ids[0]));
     assert.equal(edited[0]?.priority, editPriority);
     assert.equal(edited[0]?.version, 4);
+    assert.equal(edited[0]?.adjustmentDirection, "GIVE_MORE");
+    assert.equal(edited[0]?.markupBasisPoints, 650);
 
     // Invalid common bounds roll back without changing the successful edit.
     response = await bulk({
@@ -2507,7 +2566,8 @@ test("manual pricing bulk actions update safe rules and report skipped conflicts
     assert.equal((response.body.items as Array<unknown>).some(item =>
       ids.includes(String((item as { id: string }).id))), false);
   } finally {
-    await db.delete(manualDeskPricingRulesTable).where(inArray(manualDeskPricingRulesTable.id, [...ids, ...scaleIds]));
+    await db.delete(manualDeskPricingRulesTable)
+      .where(inArray(manualDeskPricingRulesTable.id, [...ids, ...scaleIds, ...apiCreatedIds]));
     await db.delete(operatorsTable).where(eq(operatorsTable.id, operator.id));
     await api.close();
   }
@@ -5798,6 +5858,46 @@ test("manual pricing rules match deterministically, protect writes, and snapshot
     const signedPayload = JSON.parse(
       Buffer.from(String(quote.body.quoteId).split(".")[0], "base64url").toString("utf8"),
     ) as Record<string, any>;
+    const ticketExpected = {
+      type: "manual" as const,
+      fromAsset: "USD",
+      fromNetwork: "Bank transfer",
+      toAsset: "EUR",
+      toNetwork: "SEPA",
+      amount: 100,
+      paymentMethod: "bank transfer",
+      payoutMethod: "wallet",
+      sourceSettlementOptionId: pricingRoute.sourceSettlementOptionId,
+      targetSettlementOptionId: pricingRoute.targetSettlementOptionId,
+    };
+    const contradictoryRounding = {
+      ...signedPayload,
+      pricingSnapshot: {
+        ...signedPayload.pricingSnapshot,
+        rule: { ...signedPayload.pricingSnapshot.rule, adjustmentDirection: "GIVE_MORE" },
+        rounding: { ...signedPayload.pricingSnapshot.rounding, percentageCommission: "ceil" },
+      },
+    };
+    assert.throws(
+      () => tickets.verifyQuoteTicket(
+        tickets.signQuoteTicket(contradictoryRounding), ticketExpected,
+      ),
+      { code: "QUOTE_INVALID" },
+    );
+    const legacySnapshot = {
+      ...signedPayload,
+      pricingSnapshot: {
+        ...signedPayload.pricingSnapshot,
+        rule: Object.fromEntries(
+          Object.entries(signedPayload.pricingSnapshot.rule)
+            .filter(([key]) => key !== "adjustmentDirection"),
+        ),
+      },
+    };
+    const verifiedLegacy = tickets.verifyQuoteTicket(
+      tickets.signQuoteTicket(legacySnapshot), ticketExpected,
+    );
+    assert.equal(verifiedLegacy.pricingSnapshot?.rule.adjustmentDirection, undefined);
     const contradictory = {
       ...signedPayload,
       pricingSnapshot: {
