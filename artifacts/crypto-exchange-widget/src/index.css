@@ -23087,16 +23087,37 @@ html:not(.dark) .live-landing-background-root .public-shell .public-header {
   opacity: 0.88;
 }
 
+.qx-telegram-phone-shell {
+  --qx-telegram-phone-radius: 3rem;
+  --qx-telegram-phone-edge-width: 3px;
+  isolation: isolate;
+  border-radius: calc(var(--qx-telegram-phone-radius) + var(--qx-telegram-phone-edge-width));
+}
+
 .qx-telegram-phone-edge {
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: inherit;
+  padding: var(--qx-telegram-phone-edge-width);
+  clip-path: inset(0 round calc(var(--qx-telegram-phone-radius) + var(--qx-telegram-phone-edge-width)));
   background: linear-gradient(135deg, rgba(34, 211, 238, 0.9), rgba(59, 130, 246, 0.85), rgba(139, 92, 246, 0.95));
   background-size: 240% 240%;
   animation: qx-telegram-glow-flow 7s ease-in-out infinite;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
   box-shadow:
     0 0 22px rgba(59, 130, 246, 0.42),
     0 0 42px rgba(124, 58, 237, 0.3);
 }
 
 .qx-telegram-phone {
+  border-radius: var(--qx-telegram-phone-radius);
   box-shadow:
     0 28px 70px rgba(37, 99, 235, 0.24),
     0 0 30px rgba(124, 58, 237, 0.2),
@@ -23104,6 +23125,9 @@ html:not(.dark) .live-landing-background-root .public-shell .public-header {
 }
 
 .qx-telegram-phone-glow {
+  overflow: hidden;
+  border-radius: calc(var(--qx-telegram-phone-radius) + 1rem);
+  clip-path: inset(0 round calc(var(--qx-telegram-phone-radius) + 1rem));
   opacity: 0.72;
 }
 
@@ -23133,11 +23157,12 @@ html:not(.dark) .live-landing-background-root .public-shell .public-header {
   }
 
   .qx-telegram-phone-shell {
+    --qx-telegram-phone-radius: 2.5rem;
     box-sizing: border-box;
     width: calc(100% - 8px);
     padding: 3px;
-    overflow: clip;
-    border-radius: 2.7rem;
+    overflow: visible;
+    border-radius: calc(var(--qx-telegram-phone-radius) + var(--qx-telegram-phone-edge-width));
     filter:
       drop-shadow(0 0 12px rgba(59, 130, 246, 0.3))
       drop-shadow(0 0 18px rgba(124, 58, 237, 0.22));
@@ -23145,17 +23170,18 @@ html:not(.dark) .live-landing-background-root .public-shell .public-header {
 
   .qx-telegram-phone-edge {
     inset: 0;
-    border-radius: 2.7rem;
+    border-radius: inherit;
     box-shadow: none;
   }
 
   .qx-telegram-phone {
-    border-radius: 2.5rem;
+    border-radius: var(--qx-telegram-phone-radius);
   }
 
   .qx-telegram-phone-glow {
     inset: 0;
-    border-radius: 2.7rem;
+    border-radius: inherit;
+    clip-path: inset(0 round calc(var(--qx-telegram-phone-radius) + var(--qx-telegram-phone-edge-width)));
     opacity: 0.58;
     filter: blur(18px);
   }
