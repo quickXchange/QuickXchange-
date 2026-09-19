@@ -98,3 +98,17 @@ mtime_ms = 1789834025721
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/3a00c532-de59-4916-ba2d-bae849940a2c/c1c751fc-2d28-41ee-8615-ca3450762a2b"
 storage_version_token = "1789834067218436"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "KGUwzm8eRiMqG8KuO770y"
+uri = "file://exports/quickxchange-workspace-config-current.zip"
+type = "unspecified"
+title = "Download QuickXchange configuration ZIP"
+description = "Download and unzip on your Mac. It contains the exact existing quickxchange-workspace-config-current.json file unchanged. JSON SHA-256: 8323ec3bf8225509e09bb2a6468acda6e7943c47ec719e1e92af6c01e15bc39c"
+logical_id = "eddaa423-df09-442a-a545-7d56227758ff"
+content_hash = "sha256:1d836d9a2c3139d0febbbdfec5d4158867d209ef0194097eaabb67eb0d27bdba"
+size = 276709
+mtime_ms = 1789834305230
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/eddaa423-df09-442a-a545-7d56227758ff/d9fe15c8-fcb5-40a5-bca9-16dc2736de1b"
+storage_version_token = "1789834309792685"
+content_type = "application/octet-stream"
