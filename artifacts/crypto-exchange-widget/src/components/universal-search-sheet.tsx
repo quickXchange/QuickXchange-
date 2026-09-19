@@ -160,7 +160,7 @@ export function UniversalSearchSheet<TOption>({
               <button
                 key={category.id}
                 type="button"
-                className={`qx-overlay-chip ${activeCategory === category.id ? 'active' : ''}`}
+                className="qx-overlay-chip active border-t-[color:var(--widget-brand-blue)] border-r-[color:var(--widget-brand-blue)] border-b-[color:var(--widget-brand-blue)] border-l-[color:var(--widget-brand-blue)] text-center"
                 aria-pressed={activeCategory === category.id}
                 onClick={() => onCategoryChange?.(category.id)}
                 data-testid={category.testSuffix ? `filter-${testIdBase}-${category.testSuffix}` : undefined}
