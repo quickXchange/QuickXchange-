@@ -38,10 +38,10 @@ const COMPANY_FOOTER_LINKS = [
 ] as const;
 
 const INFORMATION_FOOTER_LINKS = [
-  ['User Agreement', '/terms'],
+  ['Terms and Conditions', '/terms'],
   ['AML / KYC Policy', '/aml-kyc'],
   ['FAQ', '/faq'],
-  ['Contacts', '/contact'],
+  ['Contact Us', '/contact'],
   ['Privacy Policy', '/privacy'],
 ] as const;
 
@@ -759,7 +759,6 @@ export function PublicShell({ children }: { children: ReactNode }) {
                 <ShieldCheck size={15} className="text-primary" aria-hidden="true" />
                 <span>Secure <span aria-hidden="true">&bull;</span> Global</span>
               </div>
-              <LanguageSelector className="qx-footer-language" />
             </div>
           </div>
         </div>

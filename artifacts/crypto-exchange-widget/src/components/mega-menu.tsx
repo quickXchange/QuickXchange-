@@ -2,8 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import { cn } from '@/components/shared-app-ui';
 import {
-  ArrowRight, ArrowRightLeft, ShoppingCart, Banknote, Coins, Star,
-  Users, Info, HelpCircle, Handshake, Code2, CreditCard,
+  ArrowRight, ArrowRightLeft, Coins, Info, HelpCircle, ShieldCheck,
   Clock, MessageCircle, Newspaper,
   ChevronDown
 } from 'lucide-react';
@@ -26,29 +25,12 @@ export type NavGroup = {
 
 export const NAVIGATION_DATA: NavGroup[] = [
   {
-    title: 'Personal',
+    title: 'Explore',
     items: [
-      { label: 'Buy Crypto', href: '/buy', icon: ShoppingCart, description: 'Purchase with fiat easily', disabled: true },
-      { label: 'Sell Crypto', href: '/sell', icon: Banknote, description: 'Cash out to your bank', disabled: true },
       { label: 'Coins', href: '/market-rates', icon: Coins, description: 'Explore live crypto markets' },
-      { label: 'Pairs', href: '/crypto-pairs', icon: ArrowRightLeft, description: 'Browse supported Convert routes' },
-      { label: 'Reviews', href: '/reviews', icon: Star, description: 'Customer experiences', disabled: true },
-    ]
-  },
-  {
-    title: 'Business',
-    items: [
-      { label: 'Affiliate Program', href: '/affiliates', icon: Users, description: 'Earn by referring others' },
-      { label: 'Crypto Exchange API', href: '/crypto-exchange-api', icon: Code2, description: 'Connect exchange services to your product', disabled: true },
-      { label: 'Payment Gateway', href: '/payment-gateway', icon: CreditCard, description: 'Accept digital asset payments', disabled: true },
-    ]
-  },
-  {
-    title: 'Company',
-    items: [
+      { label: 'Crypto Pairs', href: '/crypto-pairs', icon: ArrowRightLeft, description: 'Browse supported Convert routes' },
       { label: 'About Us', href: '/about', icon: Info, description: 'Our mission and team' },
       { label: 'How It Works', href: '/how-it-works', icon: HelpCircle, description: 'Platform mechanics' },
-      { label: 'Our Partners', href: '/partners', icon: Handshake, description: 'Our trusted network', disabled: true },
     ]
   },
   {
@@ -56,6 +38,7 @@ export const NAVIGATION_DATA: NavGroup[] = [
     items: [
       { label: 'FAQ', href: '/faq', icon: MessageCircle, description: 'Common questions answered' },
       { label: 'Track an Order', href: '/status', icon: Clock, description: 'Track your exchange' },
+      { label: 'AML / KYC', href: '/aml-kyc', icon: ShieldCheck, description: 'Compliance and verification policy' },
       { label: 'Contact Support', href: '/contact', icon: HelpCircle, description: '24/7 customer service' },
     ]
   },
