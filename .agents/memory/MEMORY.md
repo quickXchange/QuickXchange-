@@ -113,3 +113,4 @@
 - [Tracking URL token compatibility](tracking-url-token-compatibility.md) — emit `trackingToken` canonically, accept legacy `token`, and persist searched order IDs in the URL for refresh-safe tracking.
 - [Simplified settlement field editors](simplified-settlement-field-editors.md) — preserve saved keys and hidden metadata; generate keys only for genuinely new directional rows.
 - [Telegram search callback stability](telegram-search-callback-stability.md) — filtered option buttons must keep canonical indexes so stale messages cannot select a different route.
+- [Live Admin order directories](live-admin-order-directories.md) — operator financial queues must bypass HTTP caches and refetch across mounts and reconnects.

@@ -1459,6 +1459,11 @@ router.post("/admin/manual-desk-pricing-rules/quote-preview", requireOperator, a
 
 router.get("/orders", requireOperator, async (req, res, next) => {
   try {
+    // Operator order queues are live financial views. Do not let a browser,
+    // proxy, or conditional ETag response hide orders created by another
+    // surface such as Telegram between polling requests.
+    res.setHeader("cache-control", "private, no-store, max-age=0");
+    res.setHeader("pragma", "no-cache");
     const query = GetOrdersQueryParams.parse(req.query);
     if (
       query.createdFrom &&

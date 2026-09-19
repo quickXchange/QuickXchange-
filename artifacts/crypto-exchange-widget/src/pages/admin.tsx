@@ -2447,14 +2447,20 @@ function AdminOverview() {
     query: {
       queryKey: getGetOrdersQueryKey(pendingParams),
       refetchInterval: 15_000,
+      refetchIntervalInBackground: true,
+      refetchOnMount: 'always',
       refetchOnWindowFocus: true,
+      refetchOnReconnect: 'always',
     },
   });
   const recentOrders = useGetOrders(recentParams, {
     query: {
       queryKey: getGetOrdersQueryKey(recentParams),
       refetchInterval: 15_000,
+      refetchIntervalInBackground: true,
+      refetchOnMount: 'always',
       refetchOnWindowFocus: true,
+      refetchOnReconnect: 'always',
     },
   });
 
@@ -3726,7 +3732,9 @@ function AdminOrders() {
       queryKey: getGetOrdersQueryKey(params),
       refetchInterval: 3_000,
       refetchIntervalInBackground: true,
+      refetchOnMount: 'always',
       refetchOnWindowFocus: true,
+      refetchOnReconnect: 'always',
     },
   });
   const operators = useGetOperators({ query: { queryKey: getGetOperatorsQueryKey(), retry: false } });
