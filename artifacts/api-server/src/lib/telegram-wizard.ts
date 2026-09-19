@@ -51,10 +51,10 @@ export function filterManualSourceOptions<T extends TelegramRouteOption & {
   routes: Array<{ sourceSettlementOptionId: string }>,
 ): T[] {
   const availableSourceIds = new Set(routes.map(route => route.sourceSettlementOptionId));
-  return options.filter(option => {
-    if (option.kind === "crypto-network" && option.lifecycle === "active") return true;
-    return ["send", "both"].includes(option.direction) && availableSourceIds.has(option.id);
-  });
+  return options.filter(option =>
+    ["send", "both"].includes(option.direction) &&
+    availableSourceIds.has(option.id),
+  );
 }
 
 export function telegramFieldSkipIndex(data: string): number | undefined {

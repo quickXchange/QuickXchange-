@@ -192,7 +192,7 @@ test("Telegram route filtering preserves receive-only options without cross-prod
   assert.deepEqual(filterConvertTargets([source, receiveOnly, unrelated], [{ fromAsset: "BTC", fromNetwork: "BTC", toAsset: "USDT", toNetwork: "TRC20" }], source).map(x => x.id), ["r"]);
 });
 
-test("Telegram Swap sources match the main widget across active networks and priced payment methods", () => {
+test("Telegram Swap sources match executable website routes", () => {
   const options = [
     { id: "usdt-trc20", assetCode: "USDT", routeNetwork: "TRC20", kind: "crypto-network", lifecycle: "active", direction: "send" },
     { id: "usdt-bep20", assetCode: "USDT", routeNetwork: "BEP20", kind: "crypto-network", lifecycle: "active", direction: "receive" },
@@ -206,7 +206,7 @@ test("Telegram Swap sources match the main widget across active networks and pri
   ];
   assert.deepEqual(
     filterManualSourceOptions(options, routes).map(option => option.id),
-    ["usdt-trc20", "usdt-bep20", "eur-sepa"],
+    ["usdt-trc20", "eur-sepa"],
   );
 });
 

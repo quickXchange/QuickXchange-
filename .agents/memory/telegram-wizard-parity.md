@@ -3,11 +3,11 @@ name: Telegram wizard parity
 description: Source-option and callback rules that keep Telegram aligned with the main exchange widget.
 ---
 
-Telegram Swap source eligibility must match the main widget: expose every active crypto network, while non-crypto sending methods still require a configured executable source route. Keep receive targets restricted to exact directed routes.
+Telegram Swap source eligibility must match the main widget: every source, including crypto networks, must be send-capable and present in the configured executable route set. Keep receive targets restricted to exact directed routes.
 
-**Why:** Filtering every source through pricing-route coverage reduced multi-network assets such as USDT to one network even though the main widget intentionally exposes all active crypto sources.
+**Why:** Exposing active but receive-only crypto networks let users select them under “You Send,” then fail with “exchange routes are temporarily unavailable” because no directed target existed.
 
-**How to apply:** Share or regression-test equivalent source predicates across both surfaces. Do not broaden target filtering; it remains the execution gate after a source is selected.
+**How to apply:** Share or regression-test equivalent source predicates across both surfaces. Admin pricing and route availability remain authoritative; do not use lifecycle alone as proof that a source can execute.
 
 Telegram callback payloads must be parsed by their delimiter/shape rather than hard-coded substring offsets.
 
