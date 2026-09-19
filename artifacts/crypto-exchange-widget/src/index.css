@@ -22933,6 +22933,29 @@ html:not(.dark) .frontend-menu-drawer .qx-mobile-trigger[aria-expanded="true"] {
   }
 }
 
+/* Keep the landing navigation on the same color field as the hero wave. */
+html:not(.dark) .live-landing-background-root .public-shell .public-header {
+  background:
+    radial-gradient(ellipse at 14% 20%, rgb(34 211 238 / 20%), transparent 36%),
+    radial-gradient(ellipse at 84% 42%, rgb(59 130 246 / 20%), transparent 38%),
+    linear-gradient(145deg, rgb(235 251 255 / 97%), rgb(235 240 255 / 97%) 54%, rgb(244 236 255 / 97%)) !important;
+  border-color: rgb(59 130 246 / 18%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 60%),
+    0 12px 28px -22px rgb(37 99 235 / 55%);
+}
+
+.dark .live-landing-background-root .public-shell .public-header {
+  background:
+    radial-gradient(ellipse at 14% 20%, rgb(34 211 238 / 17%), transparent 36%),
+    radial-gradient(ellipse at 84% 42%, rgb(59 130 246 / 18%), transparent 38%),
+    linear-gradient(145deg, rgb(6 23 40 / 98%), rgb(10 18 45 / 98%) 54%, rgb(25 13 48 / 98%)) !important;
+  border-color: rgb(96 165 250 / 20%);
+  box-shadow:
+    inset 0 1px 0 rgb(103 232 249 / 7%),
+    0 14px 30px -22px rgb(37 99 235 / 55%);
+}
+
 /*
  * Popular Swap Pairs payment avatars. Source images can include square
  * canvases, so clip both the avatar surface and bitmap without changing the
