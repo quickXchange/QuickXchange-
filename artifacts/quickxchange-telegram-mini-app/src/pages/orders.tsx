@@ -1,17 +1,25 @@
 import { useState } from 'react';
 import { useAuthHeaders } from '@/lib/auth';
-import { useListTelegramMiniAppOrders, getListTelegramMiniAppOrdersQueryKey } from '@workspace/api-client-react';
+import {
+  useListTelegramMiniAppOrders, getListTelegramMiniAppOrdersQueryKey,
+  useGetExchangeConfig, getGetExchangeConfigQueryKey,
+} from '@workspace/api-client-react';
 import { Link } from 'wouter';
 import { format } from 'date-fns';
-import { History, Search, ArrowRight, Filter } from 'lucide-react';
+import { Search, Filter } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { useHapticFeedback } from '@/lib/hooks';
+import { MiniAppLogo } from '@/components/mini-app-logo';
+import { resolveOrderVisual } from '@/lib/logo-catalog';
 
 export default function Orders() {
   const headers = useAuthHeaders();
   const haptic = useHapticFeedback();
   const [searchQuery, setSearchQuery] = useState('');
+  const { data: exchangeConfig } = useGetExchangeConfig({
+    query: { queryKey: getGetExchangeConfigQueryKey(), staleTime: 60_000 },
+  });
 
   const { data: ordersData, isLoading } = useListTelegramMiniAppOrders({
     query: {
@@ -87,16 +95,16 @@ export default function Orders() {
       ) : filteredOrders.length > 0 ? (
         <div className="space-y-3 pb-6">
           {filteredOrders.map((order: any) => {
-            const getLogoUrl = (url?: string) => url?.startsWith('/objects/') ? `/api/storage${url}` : url;
-            const fromLogo = getLogoUrl(order.logos?.sourceLogoUrl || order.logos?.fromAssetLogoUrl);
-            const toLogo = getLogoUrl(order.logos?.targetLogoUrl || order.logos?.toAssetLogoUrl);
+            const sourceVisual = resolveOrderVisual(exchangeConfig?.settlementOptions, order, 'source');
+            const targetVisual = resolveOrderVisual(exchangeConfig?.settlementOptions, order, 'target');
 
             return (
             <Link key={order.id} href={`/orders/${order.id}`} onClick={() => haptic.selection()}>
               <div className="premium-card p-4 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-all group">
                 <div className="flex items-center space-x-3.5 min-w-0">
-                  <div className="w-[42px] h-[42px] rounded-2xl bg-accent/10 flex items-center justify-center text-accent shrink-0 group-hover:bg-accent/20 transition-colors">
-                    {fromLogo ? <img src={fromLogo} alt="" className="w-5 h-5 rounded-full object-contain" /> : <History className="w-[18px] h-[18px]" />}
+                  <div className="flex -space-x-2 shrink-0">
+                    <MiniAppLogo {...sourceVisual} alt={order.fromAsset} size="medium" className="z-10" />
+                    <MiniAppLogo {...targetVisual} alt={order.toAsset} size="medium" />
                   </div>
                   <div className="flex flex-col min-w-0">
                     <div className="text-[10px] text-muted-foreground font-mono mb-0.5">#{order.id.slice(0, 8)}</div>

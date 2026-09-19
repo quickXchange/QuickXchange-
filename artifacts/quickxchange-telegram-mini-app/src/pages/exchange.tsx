@@ -13,9 +13,10 @@ import {
 import { useAuthHeaders } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowDownUp, CheckCircle2, AlertCircle, ChevronDown, Wallet, Loader2, X, Search } from 'lucide-react';
+import { ArrowDownUp, CheckCircle2, AlertCircle, ChevronDown, Loader2, X, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useHapticFeedback } from '@/lib/hooks';
+import { MiniAppLogo } from '@/components/mini-app-logo';
 
 export default function Exchange() {
   const [, setLocation] = useLocation();
@@ -58,7 +59,7 @@ export default function Exchange() {
 
   // Data hooks
   const { data: config, isLoading: isConfigLoading } = useGetExchangeConfig({
-    query: { queryKey: getGetExchangeConfigQueryKey(), staleTime: 60000, enabled: mode === 'swap' }
+    query: { queryKey: getGetExchangeConfigQueryKey(), staleTime: 60000 }
   });
 
   const { data: quickexConfig, isLoading: isQuickexConfigLoading } = useGetQuickexConfig({
@@ -74,6 +75,8 @@ export default function Exchange() {
         assetCode: o.assetCode,
         routeNetwork: o.routeNetwork,
         logoUrl: o.logoUrl,
+        networkLogoUrl: o.networkLogoUrl,
+        flagUrl: o.flagUrl,
         kind: o.kind,
         executionMode: o.executionMode,
         original: o
@@ -87,12 +90,19 @@ export default function Exchange() {
         const key = `${inst.currencyTitle.trim().toUpperCase()}\0${inst.networkTitle.trim().toUpperCase()}`;
         if (seen.has(key)) return;
         seen.add(key);
+        const configured = config?.settlementOptions?.find(option =>
+          option.kind === 'crypto-network' &&
+          option.assetCode.trim().toUpperCase() === inst.currencyTitle.trim().toUpperCase() &&
+          option.routeNetwork.trim().toUpperCase() === inst.networkTitle.trim().toUpperCase()
+        );
         list.push({
           id: inst.slug,
           title: inst.fullName || inst.currencyFriendlyTitle || inst.currencyTitle,
           assetCode: inst.currencyTitle,
           routeNetwork: inst.networkTitle,
-          logoUrl: inst.currencyLogoLink && !inst.currencyLogoLink.endsWith('/generic.svg') ? inst.currencyLogoLink : undefined,
+          logoUrl: configured?.logoUrl || (inst.currencyLogoLink && !inst.currencyLogoLink.endsWith('/generic.svg') ? inst.currencyLogoLink : undefined),
+          networkLogoUrl: configured?.networkLogoUrl,
+          flagUrl: configured?.flagUrl,
           kind: 'crypto-network',
           executionMode: 'api',
           original: inst
@@ -119,6 +129,8 @@ export default function Exchange() {
           assetCode: o.assetCode,
           routeNetwork: o.routeNetwork,
           logoUrl: o.logoUrl,
+          networkLogoUrl: o.networkLogoUrl,
+          flagUrl: o.flagUrl,
           kind: o.kind,
           executionMode: o.executionMode,
           original: o
@@ -133,12 +145,19 @@ export default function Exchange() {
         if (seen.has(key)) return;
         seen.add(key);
         if (inst.slug === sourceId) return; // exclude identical instrument
+        const configured = config?.settlementOptions?.find(option =>
+          option.kind === 'crypto-network' &&
+          option.assetCode.trim().toUpperCase() === inst.currencyTitle.trim().toUpperCase() &&
+          option.routeNetwork.trim().toUpperCase() === inst.networkTitle.trim().toUpperCase()
+        );
         list.push({
           id: inst.slug,
           title: inst.fullName || inst.currencyFriendlyTitle || inst.currencyTitle,
           assetCode: inst.currencyTitle,
           routeNetwork: inst.networkTitle,
-          logoUrl: inst.currencyLogoLink && !inst.currencyLogoLink.endsWith('/generic.svg') ? inst.currencyLogoLink : undefined,
+          logoUrl: configured?.logoUrl || (inst.currencyLogoLink && !inst.currencyLogoLink.endsWith('/generic.svg') ? inst.currencyLogoLink : undefined),
+          networkLogoUrl: configured?.networkLogoUrl,
+          flagUrl: configured?.flagUrl,
           kind: 'crypto-network',
           executionMode: 'api',
           original: inst
@@ -263,11 +282,6 @@ export default function Exchange() {
     }
     return undefined;
   }, [mode, step, sourceId, targetId, parsedAmount, sourceOpt, targetOpt]);
-
-  const getLogoUrl = (url?: string) => {
-    if (!url) return undefined;
-    return url.startsWith('/objects/') ? `/api/storage${url}` : url;
-  };
 
   const handleContinue = async () => {
     if (step === 1) {
@@ -529,11 +543,14 @@ export default function Exchange() {
                 onClick={() => setShowSourceSelector(true)}
                 className="flex items-center space-x-2 bg-secondary/10 hover:bg-secondary/20 border border-secondary/20 transition-all px-3.5 py-2 rounded-2xl shrink-0 active:scale-95"
               >
-                {getLogoUrl(sourceOpt?.logoUrl) ? (
-                  <img src={getLogoUrl(sourceOpt?.logoUrl)} alt="" className="w-[26px] h-[26px] rounded-full object-contain" />
-                ) : (
-                  <div className="w-[26px] h-[26px] rounded-full bg-secondary/30" />
-                )}
+                <MiniAppLogo
+                  src={sourceOpt?.logoUrl}
+                  badgeSrc={sourceOpt?.kind === 'crypto-network' ? sourceOpt?.networkLogoUrl : sourceOpt?.flagUrl}
+                  badgeVariant={sourceOpt?.kind === 'crypto-network' ? 'network' : 'flag'}
+                  fallback={sourceOpt?.assetCode}
+                  alt={sourceOpt?.title}
+                  size="normal"
+                />
                 <span className="font-bold text-[15px]">{sourceOpt?.assetCode || 'Select'}</span>
                 <ChevronDown className="w-4 h-4 text-secondary/70 stroke-[3px]" />
               </button>
@@ -567,11 +584,14 @@ export default function Exchange() {
                 onClick={() => setShowTargetSelector(true)}
                 className="flex items-center space-x-2 bg-primary/10 hover:bg-primary/20 border border-primary/20 transition-all px-3.5 py-2 rounded-2xl shrink-0 active:scale-95"
               >
-                {getLogoUrl(targetOpt?.logoUrl) ? (
-                  <img src={getLogoUrl(targetOpt?.logoUrl)} alt="" className="w-[26px] h-[26px] rounded-full object-contain" />
-                ) : (
-                  <div className="w-[26px] h-[26px] rounded-full bg-primary/30" />
-                )}
+                <MiniAppLogo
+                  src={targetOpt?.logoUrl}
+                  badgeSrc={targetOpt?.kind === 'crypto-network' ? targetOpt?.networkLogoUrl : targetOpt?.flagUrl}
+                  badgeVariant={targetOpt?.kind === 'crypto-network' ? 'network' : 'flag'}
+                  fallback={targetOpt?.assetCode}
+                  alt={targetOpt?.title}
+                  size="normal"
+                />
                 <span className="font-bold text-[15px]">{targetOpt?.assetCode || 'Select'}</span>
                 <ChevronDown className="w-4 h-4 text-primary/70 stroke-[3px]" />
               </button>
@@ -593,7 +613,15 @@ export default function Exchange() {
         <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
           <div className="premium-card p-5 space-y-5 animated-gradient-bg">
             <h3 className="font-bold text-lg flex items-center tracking-tight text-white drop-shadow-md">
-              <Wallet className="w-[18px] h-[18px] mr-2 text-white" />
+              <MiniAppLogo
+                src={targetOpt?.logoUrl}
+                badgeSrc={targetOpt?.kind === 'crypto-network' ? targetOpt?.networkLogoUrl : targetOpt?.flagUrl}
+                badgeVariant={targetOpt?.kind === 'crypto-network' ? 'network' : 'flag'}
+                fallback={targetOpt?.assetCode}
+                alt={targetOpt?.title}
+                size="small"
+                className="mr-2"
+              />
               Receiving Details
             </h3>
 
@@ -711,11 +739,17 @@ export default function Exchange() {
           <div className="premium-card p-5 space-y-4">
             <div className="flex justify-between items-center py-3 border-b border-border/50">
               <span className="text-[14px] font-semibold text-muted-foreground">You Send</span>
-              <span className="font-bold text-[16px]">{amount} {sourceOpt?.assetCode}</span>
+              <span className="flex items-center gap-2 font-bold text-[16px]">
+                <MiniAppLogo src={sourceOpt?.logoUrl} badgeSrc={sourceOpt?.kind === 'crypto-network' ? sourceOpt?.networkLogoUrl : sourceOpt?.flagUrl} badgeVariant={sourceOpt?.kind === 'crypto-network' ? 'network' : 'flag'} fallback={sourceOpt?.assetCode} size="small" />
+                {amount} {sourceOpt?.assetCode}
+              </span>
             </div>
             <div className="flex justify-between items-center py-3 border-b border-border/50">
               <span className="text-[14px] font-semibold text-muted-foreground">You Receive</span>
-              <span className="font-bold text-[16px] text-primary">{quoteData?.receiveAmount} {targetOpt?.assetCode}</span>
+              <span className="flex items-center gap-2 font-bold text-[16px] text-primary">
+                <MiniAppLogo src={targetOpt?.logoUrl} badgeSrc={targetOpt?.kind === 'crypto-network' ? targetOpt?.networkLogoUrl : targetOpt?.flagUrl} badgeVariant={targetOpt?.kind === 'crypto-network' ? 'network' : 'flag'} fallback={targetOpt?.assetCode} size="small" />
+                {quoteData?.receiveAmount} {targetOpt?.assetCode}
+              </span>
             </div>
             {targetOpt?.kind === 'crypto-network' && (
               <div className="flex justify-between items-center py-3 border-b border-border/50">
@@ -828,9 +862,14 @@ export default function Exchange() {
                   className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-white/5 active:bg-white/10 transition-colors group border border-transparent"
                 >
                   <div className="flex items-center space-x-4">
-                    {getLogoUrl(o.logoUrl) ? (
-                      <img src={getLogoUrl(o.logoUrl)} alt="" className="w-10 h-10 rounded-full object-contain bg-white/10 p-1" />
-                    ) : <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center font-bold text-muted-foreground text-xs">{o.assetCode.slice(0, 2)}</div>}
+                    <MiniAppLogo
+                      src={o.logoUrl}
+                      badgeSrc={o.kind === 'crypto-network' ? o.networkLogoUrl : o.flagUrl}
+                      badgeVariant={o.kind === 'crypto-network' ? 'network' : 'flag'}
+                      fallback={o.assetCode}
+                      alt={o.title}
+                      size="medium"
+                    />
                     <div className="flex flex-col items-start text-left">
                       <span className="font-bold text-[16px] group-hover:text-primary transition-colors">{o.title}</span>
                       <span className="text-[12px] font-medium text-muted-foreground/80 mt-0.5">

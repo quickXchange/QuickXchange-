@@ -3,6 +3,7 @@ import { useRoute, useLocation } from 'wouter';
 import {
   useGetTelegramMiniAppOrder, getGetTelegramMiniAppOrderQueryKey,
   useGetPublicOrderStatus, getGetPublicOrderStatusQueryKey,
+  useGetExchangeConfig, getGetExchangeConfigQueryKey,
   useMarkOrderPaid,
   useCancelCustomerOrder
 } from '@workspace/api-client-react';
@@ -11,12 +12,14 @@ import { Button } from '@/components/ui/button';
 import { useBackButton, useHapticFeedback } from '@/lib/hooks';
 import {
   ChevronLeft, RefreshCcw, Check, Copy, ArrowDown, ExternalLink,
-  AlertCircle, Loader2, CheckCircle2, XCircle, Wallet, Clock3
+  AlertCircle, Loader2, CheckCircle2, XCircle, Clock3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { QRCodeSVG } from 'qrcode.react';
+import { MiniAppLogo } from '@/components/mini-app-logo';
+import { resolveOrderVisual } from '@/lib/logo-catalog';
 
 export default function OrderDetail() {
   const [, params] = useRoute('/orders/:id');
@@ -25,6 +28,9 @@ export default function OrderDetail() {
   const headers = useAuthHeaders();
   const haptic = useHapticFeedback();
   const queryClient = useQueryClient();
+  const { data: exchangeConfig } = useGetExchangeConfig({
+    query: { queryKey: getGetExchangeConfigQueryKey(), staleTime: 60_000 },
+  });
 
   const orderId = params?.id || '';
 
@@ -155,16 +161,9 @@ export default function OrderDetail() {
 
   const showPaymentActions = isPending && !targetStatus?.customerMarkedPaidAt && !isFailed && targetStatus?.paymentDetailsApplicable;
 
-  const getLogoUrl = (url?: string) => {
-    if (!url) return undefined;
-    return url.startsWith('/objects/') ? `/api/storage${url}` : url;
-  };
-
-  const logos = (targetStatus as any).logos;
   const sourcePaymentMethod = (targetStatus as any).sourcePaymentMethod;
-
-  const fromLogo = getLogoUrl(sourcePaymentMethod?.logoUrl || logos?.from || logos?.sourceLogoUrl || logos?.fromAssetLogoUrl);
-  const toLogo = getLogoUrl(logos?.to || logos?.targetLogoUrl || logos?.toAssetLogoUrl);
+  const sourceVisual = resolveOrderVisual(exchangeConfig?.settlementOptions, targetStatus, 'source');
+  const targetVisual = resolveOrderVisual(exchangeConfig?.settlementOptions, targetStatus, 'target');
   const sourceIdentity = sourcePaymentMethod?.name || targetStatus.fromNetwork || targetStatus.fromAsset;
   const isCryptoDeposit = Boolean(targetStatus.depositAddress);
   const parsedSendAmount = Number(targetStatus.amount);
@@ -330,13 +329,7 @@ export default function OrderDetail() {
           <div className="relative">
             <div className="flex items-center justify-between bg-secondary/[0.06] rounded-t-xl p-3.5 border border-border/50 border-b-0">
               <div className="flex items-center gap-3 overflow-hidden mr-3">
-                <div className="w-10 h-10 shrink-0 rounded-full bg-background border border-border/60 p-1 shadow-sm">
-                  {fromLogo ? (
-                    <img src={fromLogo} alt="" className="w-full h-full rounded-full object-contain" />
-                  ) : (
-                    <div className="w-full h-full rounded-full bg-secondary/20 flex items-center justify-center text-secondary font-bold text-[10px] uppercase">{targetStatus.fromAsset?.slice(0, 3)}</div>
-                  )}
-                </div>
+                <MiniAppLogo {...sourceVisual} alt={targetStatus.fromAsset} size="medium" />
                 <div className="flex flex-col justify-center min-w-0">
                   <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.16em] leading-none mb-1.5">You Send</div>
                   <div className="font-bold text-[17px] leading-none truncate">{targetStatus.amount} {targetStatus.fromAsset}</div>
@@ -349,13 +342,7 @@ export default function OrderDetail() {
 
             <div className="flex items-center justify-between bg-gradient-to-br from-primary/[0.08] to-accent/[0.07] rounded-b-xl p-3.5 border border-border/50">
               <div className="flex items-center gap-3 overflow-hidden mr-3">
-                <div className="w-10 h-10 shrink-0 rounded-full bg-background border border-primary/20 p-1 shadow-sm">
-                   {toLogo ? (
-                     <img src={toLogo} alt="" className="w-full h-full rounded-full object-contain" />
-                   ) : (
-                     <div className="w-full h-full rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-[10px] uppercase">{targetStatus.toAsset?.slice(0, 3)}</div>
-                   )}
-                </div>
+                <MiniAppLogo {...targetVisual} alt={targetStatus.toAsset} size="medium" />
                 <div className="flex flex-col justify-center min-w-0">
                   <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.16em] leading-none mb-1.5">You Receive</div>
                   <div className="font-bold text-[17px] leading-none text-primary truncate">{targetStatus.receiveAmount} {targetStatus.toAsset}</div>
@@ -398,9 +385,7 @@ export default function OrderDetail() {
             <div className="relative bg-card/95 backdrop-blur-xl rounded-2xl h-full p-4 space-y-4">
 
               <div className="flex items-center gap-3 border-b border-white/5 pb-3">
-                <div className="w-8 h-8 rounded-full bg-secondary/10 flex items-center justify-center shrink-0">
-                  {fromLogo ? <img src={fromLogo} alt="" className="w-5 h-5 rounded-full object-contain" /> : <Wallet className="w-4 h-4 text-secondary" />}
-                </div>
+                <MiniAppLogo {...sourceVisual} alt={targetStatus.fromAsset} size="normal" />
                 <div>
                   <h3 className="font-bold text-[15px] tracking-tight">{isCryptoDeposit ? 'Crypto Deposit Details' : 'Payment Details'}</h3>
                   <p className="text-[11px] text-muted-foreground leading-tight">
