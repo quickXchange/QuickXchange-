@@ -20,3 +20,9 @@ The Admin drawer is phone-only below 768px. From 768px upward, Admin uses a pers
 **Why:** Treating iPad widths as mobile or compact tablet widths hid required navigation labels and made the main Admin navigation depend on an overlay.
 
 **How to apply:** Build the sidebar from the same route data and active-route helper as the phone drawer. Override the complete legacy collapse contract—sidebar width, logo wrapper, link width, label truncation, overflow, and hamburger visibility—and verify iPad portrait/landscape plus laptop widths.
+
+An Owner who receives the trusted `ADMIN_MFA_REQUIRED` response must still see the customer-menu link to Admin so they can reach the authenticator enrollment screen.
+
+**Why:** Hiding Admin for every non-success response creates a dead end: MFA is required to access Admin, but the missing link prevents the Owner from reaching the MFA setup route.
+
+**How to apply:** Show the cross-surface Admin entry for successful Owner authorization and the specific MFA-required response only; keep it hidden for ordinary unauthorized or unavailable responses.

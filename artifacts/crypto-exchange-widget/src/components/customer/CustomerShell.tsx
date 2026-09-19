@@ -202,6 +202,15 @@ function CustomerSidebar({
       staleTime: 30_000,
     },
   });
+  const ownerAccessErrorCode = (
+    ownerAccess.error &&
+    typeof ownerAccess.error === 'object' &&
+    'data' in ownerAccess.error &&
+    ownerAccess.error.data &&
+    typeof ownerAccess.error.data === 'object' &&
+    'code' in ownerAccess.error.data
+  ) ? ownerAccess.error.data.code : null;
+  const canOpenAdmin = ownerAccess.isSuccess || ownerAccessErrorCode === 'ADMIN_MFA_REQUIRED';
   
   const navItems = [
     { href: '/account', icon: LayoutDashboard, label: t('customerPortal.dashboard'), exact: true },
@@ -210,7 +219,7 @@ function CustomerSidebar({
     { href: '/', icon: ArrowRightLeft, label: t('customerPortal.newExchange'), exact: true },
     { href: '/account/affiliate', icon: Network, label: t('customerPortal.affiliates'), exact: false },
     { href: '/account/settings', icon: Settings, label: t('customerPortal.account'), exact: true },
-    ...(ownerAccess.isSuccess
+    ...(canOpenAdmin
       ? [{ href: '/admin', icon: ShieldCheck, label: 'Admin Panel', exact: false, ownerAdmin: true }]
       : []),
   ];
