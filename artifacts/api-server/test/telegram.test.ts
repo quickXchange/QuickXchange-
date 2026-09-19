@@ -3,10 +3,10 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { eq, inArray } from "drizzle-orm";
 import { db, telegramAccountLinkChallengesTable, telegramChatsTable } from "@workspace/db";
-import { DepositInstructionsPending, menu, shouldApplyUpdate, reconciliationClaimEligible, reconciliationWinnerTransition, telegramAdvisoryChatKey, telegramCreateRetryDecision, telegramCreationDeliveryDecision, telegramCreationOutboxPayload, telegramCreateState, telegramDepositInstruction, telegramInboxDisposition, telegramNextChatCursor, telegramOutboxFailureDisposition, telegramPrivateUpdate, telegramRequiresDeposit, telegramSecretMatches, telegramUpdateIdValid, telegramWebhookDisposition } from "../src/routes/telegram";
+import { DepositInstructionsPending, menu, shouldApplyUpdate, reconciliationClaimEligible, reconciliationWinnerTransition, telegramAdvisoryChatKey, telegramCreateRetryDecision, telegramCreationDeliveryDecision, telegramCreationOutboxPayload, telegramCreateState, telegramDepositInstruction, telegramInboxDisposition, telegramManualOrderKinds, telegramNextChatCursor, telegramOutboxFailureDisposition, telegramPrivateUpdate, telegramRequiresDeposit, telegramSecretMatches, telegramUpdateIdValid, telegramWebhookDisposition } from "../src/routes/telegram";
 import { localeOf, t } from "../src/lib/telegram-localization";
 import { consumeTelegramLinkChallenge, createTelegramLinkChallenge, hashTelegramLinkToken, TelegramLinkChallengeError, TelegramLinkConflictError } from "../src/lib/telegram-link";
-import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualTargets, nextRequiredField, shouldAskDestination, shouldAskRefund } from "../src/lib/telegram-wizard";
+import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, shouldAskDestination, shouldAskRefund } from "../src/lib/telegram-wizard";
 import { normalizeRefundFields } from "../src/lib/manual-wallet-validation";
 
 test("refund fields normalize all absence forms and trim supplied values", () => {
@@ -185,6 +185,24 @@ test("Telegram route filtering preserves receive-only options without cross-prod
   assert.deepEqual(filterConvertTargets([source, receiveOnly, unrelated], [{ fromAsset: "BTC", fromNetwork: "BTC", toAsset: "USDT", toNetwork: "TRC20" }], source).map(x => x.id), ["r"]);
 });
 
+test("Telegram option search covers currency, symbol, payment method, crypto, and network names", () => {
+  const options = [
+    { id: "fiat-eur-sepa", assetCode: "EUR", assetName: "Euro", routeNetwork: "SEPA", title: "Paysera", paymentMethodId: "paysera", kind: "fiat-payment-method" },
+    { id: "crypto-usdt-trc20", assetCode: "USDT", assetName: "Tether", routeNetwork: "TRC20", networkTitle: "Tron", title: "USDT Tron", kind: "crypto-network" },
+  ];
+  assert.deepEqual(filterTelegramRouteOptions(options, "euro").map(option => option.id), ["fiat-eur-sepa"]);
+  assert.deepEqual(filterTelegramRouteOptions(options, "EUR paysera").map(option => option.id), ["fiat-eur-sepa"]);
+  assert.deepEqual(filterTelegramRouteOptions(options, "tether tron").map(option => option.id), ["crypto-usdt-trc20"]);
+  assert.deepEqual(filterTelegramRouteOptions(options, "trc20").map(option => option.id), ["crypto-usdt-trc20"]);
+  assert.deepEqual(filterTelegramRouteOptions(options, "missing"), []);
+});
+
+test("Telegram receive-side amount convergence stays finite and fee-aware", () => {
+  assert.equal(nextSourceAmountForReceiveTarget(100, 195, 200), 102.564102564);
+  assert.equal(nextSourceAmountForReceiveTarget(100, 0, 200), undefined);
+  assert.equal(nextSourceAmountForReceiveTarget(Number.NaN, 195, 200), undefined);
+});
+
 test("Telegram completion and validation decisions follow route kind", () => {
   const fiat = { id: "eur", assetCode: "EUR", routeNetwork: "SEPA", kind: "fiat" };
   const crypto = { id: "btc", assetCode: "BTC", routeNetwork: "BTC", kind: "crypto-network" };
@@ -206,6 +224,7 @@ test("Telegram financial actions require private chat and durable lease disposit
 });
 
 test("Telegram reconciliation cursor and customer-safe deposit projection are stable", () => {
+  assert.deepEqual(telegramManualOrderKinds, ["manual", "swap"]);
   assert.equal(telegramNextChatCursor("chat-25", 25, 25), "chat-25");
   assert.equal(telegramNextChatCursor("chat-25", 25, 4), undefined);
   assert.deepEqual(telegramDepositInstruction({ depositAddress: "addr", depositMemo: "tag", adminSecret: "never-send" }), { address: "addr", memo: "tag" });

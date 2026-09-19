@@ -1599,6 +1599,27 @@ test("Convert creation enforces required provider memos before submission", asyn
 
 test("expanded settlement fields filter by direction and validate modern types fail-closed", async () => {
   const methods = await import("../src/lib/payment-methods");
+  assert.deepEqual(methods.assignAutomaticFieldDefinitionKeys([
+    { key: "legacy_account", type: "account-number", label: "Bank Account", direction: "send" },
+    { key: "__auto__receive_1", type: "account-number", label: "Bank Account", direction: "receive" },
+    { type: "email", label: "Émail", direction: "receive" },
+    { type: "short-text", label: "123 reference", direction: "send" },
+  ]), [
+    { key: "legacy_account", type: "account-number", label: "Bank Account", direction: "send" },
+    { key: "bank_account", type: "account-number", label: "Bank Account", direction: "receive" },
+    { key: "email", type: "email", label: "Émail", direction: "receive" },
+    { key: "field_123_reference", type: "short-text", label: "123 reference", direction: "send" },
+  ]);
+  assert.deepEqual(methods.assignAutomaticFieldDefinitionKeys([
+    { key: "", type: "short-text", label: "Payment Reference" },
+    { key: "", type: "short-text", label: "Payment Reference" },
+  ]).map(field => field.key), ["payment_reference", "payment_reference_2"]);
+  const malformedFieldBody = { fieldDefinitions: [null] };
+  assert.equal(
+    methods.assignAutomaticPaymentMethodFieldKeys(malformedFieldBody),
+    malformedFieldBody,
+  );
+
   const schema = methods.validateSafeFieldDefinitions([
     { key: "iban", type: "account-iban", label: "IBAN", direction: "receive", required: true },
     { key: "count", type: "integer", label: "Count", direction: "send", min: 1, max: 4 },
@@ -2994,7 +3015,7 @@ test("manual lifecycle enforces transitions and concurrency and writes an operat
   const operatorAuth = await import("../src/lib/operator-auth");
   const suffix = randomUUID();
   const userId = `user_manual_state_${suffix}`;
-  const orderId = `manual-state-${suffix}`;
+  const orderId = `O${(Number.parseInt(suffix.replaceAll("-", "").slice(0, 12), 16) % 1_000_000_000).toString().padStart(9, "0")}`;
   const legacyOrderId = `legacy-manual-state-${suffix}`;
   const assetId = `asset-${suffix}`;
   const networkId = `network-${suffix}`;
@@ -3050,6 +3071,12 @@ test("manual lifecycle enforces transitions and concurrency and writes an operat
     assert.equal(valid.body.manualSettlementState, "completed");
     assert.ok(valid.body.manualSettlementFundedAt);
     assert.ok(valid.body.manualSettlementPaidAt);
+    const publicStatus = await fetch(`${api.url}/orders/${encodeURIComponent(orderId)}/status`);
+    assert.equal(publicStatus.status, 200);
+    const publicOrder = await publicStatus.json() as { id?: string; status?: string; manualSettlementState?: string };
+    assert.equal(publicOrder.id, orderId);
+    assert.equal(publicOrder.status, "completed");
+    assert.equal(publicOrder.manualSettlementState, "completed");
     const stale = await apiJson(api.url, `/orders/${orderId}`, {
       recordVersion: 0, manualSettlementState: "payout_processing",
     }, "PATCH", headers);

@@ -75,6 +75,32 @@
   transform: translateY(0);
 }
 
+.telegram-mockup-step {
+  animation: telegram-mockup-cycle 12s ease-in-out infinite;
+}
+
+.telegram-mockup-step--2 { animation-delay: 2s; }
+.telegram-mockup-step--3 { animation-delay: 4s; }
+.telegram-mockup-step--4 { animation-delay: 6s; }
+.telegram-mockup-step--5 { animation-delay: 8s; }
+.telegram-mockup-step--6 { animation-delay: 10s; }
+
+@keyframes telegram-mockup-cycle {
+  0%,
+  15% {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+
+  16.667%,
+  100% {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(10px);
+  }
+}
+
 .mockup-field {
   background: hsl(var(--muted) / 0.5);
   border: 1px solid hsl(var(--border));
@@ -152,6 +178,11 @@
 .hiw-flow-section--convert {
   --hiw-flow-a: 59, 130, 246;
   --hiw-flow-b: 139, 92, 246;
+}
+
+.hiw-flow-section--telegram {
+  --hiw-flow-a: 139, 92, 246;
+  --hiw-flow-b: 34, 211, 238;
 }
 
 .hiw-flow-section .mockup-card {
@@ -410,6 +441,16 @@
 @media (prefers-reduced-motion: reduce) {
   .mockup-step {
     transition: none;
+  }
+
+  .telegram-mockup-step {
+    animation: none;
+  }
+
+  .telegram-mockup-step--1 {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
   }
 
   .hiw-step-card,

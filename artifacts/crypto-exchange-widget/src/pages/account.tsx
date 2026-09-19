@@ -558,7 +558,13 @@ export function AccountOrdersPage() {
     }
   }, [isLoaded, isSignedIn, setLocation]);
 
-  const orders = useGetCustomerOrders({ page, pageSize }, { query: { queryKey: getGetCustomerOrdersQueryKey({ page, pageSize }), enabled: isLoaded && isSignedIn } });
+  const orders = useGetCustomerOrders({ page, pageSize }, { query: {
+    queryKey: getGetCustomerOrdersQueryKey({ page, pageSize }),
+    enabled: isLoaded && isSignedIn,
+    refetchInterval: 3000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: 'always',
+  } });
 
   if (!isLoaded || !isSignedIn) return <PublicShell><main className="public-main"><LoadingBlock rows={6} /></main></PublicShell>;
 
@@ -1211,7 +1217,7 @@ function CustomerOrderView({ order }: { order: CustomerOrder }) {
           paymentDetailsApplicable={order.paymentDetailsApplicable}
           sourcePaymentMethod={order.sourcePaymentMethod}
           customerMarkedPaidAt={order.customerMarkedPaidAt}
-           actionsDisabled={normalizedStatus === 'cancelled'}
+          actionsDisabled={/complete|paid|fail|cancel|refund|expire/.test(normalizedStatus)}
           onMarkPaid={() => markPaidMutation.mutate({ id: order.id }, {
             onSuccess: () => {
               void queryClient.invalidateQueries({ queryKey: getGetCustomerOrderQueryKey(order.id) });
@@ -1268,11 +1274,13 @@ export function AccountOrderDetailPage() {
     query: {
       queryKey: getGetCustomerOrderQueryKey(id),
       enabled: isLoaded && isSignedIn && !!id,
+      refetchIntervalInBackground: true,
+      refetchOnWindowFocus: 'always',
       refetchInterval: (query: any) => {
         const current = query.state.data;
-        if (!current?.paymentDetailsApplicable) return false;
+        if (!current) return 3000;
         if (/complete|paid|fail|cancel|refund|expire/i.test(current.status || '')) return false;
-        return 12000;
+        return 3000;
       },
     },
   });

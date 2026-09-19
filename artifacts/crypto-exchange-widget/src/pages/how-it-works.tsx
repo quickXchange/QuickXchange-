@@ -1,8 +1,8 @@
 import { useEffect, useState, memo } from 'react';
 import { PublicShell } from '@/components/public-shell';
-import { ArrowRight, RefreshCw, ShieldCheck, Zap, HandCoins, Activity, CheckCircle2, ChevronRight, Menu, Wallet, QrCode, Check } from 'lucide-react';
+import { ArrowRight, RefreshCw, ShieldCheck, Zap, HandCoins, Activity, CheckCircle2, ChevronRight, Menu, Wallet, QrCode, Check, Send, Paperclip, Mic } from 'lucide-react';
 import { Link } from 'wouter';
-import { cn, basePath } from '@/components/shared-app-ui';
+import { cn, basePath, TELEGRAM_BOT_URL } from '@/components/shared-app-ui';
 import './how-it-works.css';
 
 const MOCKUP_STEP_DURATION = 2000;
@@ -330,6 +330,143 @@ const ConvertMockup = memo(function ConvertMockup() {
   );
 });
 
+const TelegramMockup = memo(function TelegramMockup() {
+  return (
+    <div className="mockup-container">
+      <div className="mockup-card" data-testid="telegram-mockup">
+
+        {/* Phone Header */}
+        <div className="relative flex items-center justify-between border-b border-border bg-[#54a9eb] px-4 py-3 dark:border-white/5 dark:bg-[#1e293b]/90 dark:backdrop-blur-md">
+          <div className="flex items-center gap-3">
+            <ArrowRight size={18} className="rotate-180 text-white" />
+            <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-white flex items-center justify-center shadow-sm">
+              <Send size={18} className="text-[#54a9eb] dark:text-[#1e293b]" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[14px] font-bold leading-tight text-white">QuickXchangeBot</span>
+              <span className="text-[12px] leading-tight text-blue-100 dark:text-blue-300/80">bot</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Chat Body */}
+        <div className="mockup-body !p-0 bg-[#e3ebe8] dark:bg-[#0f172a] relative overflow-hidden flex flex-col">
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.03] dark:opacity-[0.02]"
+            style={{
+              backgroundImage: 'radial-gradient(circle at center, currentColor 1px, transparent 1px)',
+              backgroundSize: '24px 24px',
+              color: 'black'
+            }}
+          />
+          <div
+            className="pointer-events-none absolute inset-0 hidden opacity-[0.02] dark:block"
+            style={{
+              backgroundImage: 'radial-gradient(circle at center, currentColor 1px, transparent 1px)',
+              backgroundSize: '24px 24px',
+              color: 'white'
+            }}
+          />
+
+          <div className="flex-1 p-4 relative">
+            {/* Step 1: Start */}
+            <div className="mockup-step telegram-mockup-step telegram-mockup-step--1 !inset-4">
+              <div className="bg-white dark:bg-[#1e293b] p-3 rounded-2xl rounded-tl-sm text-[13px] text-slate-800 dark:text-white shadow-sm w-[85%]">
+                Welcome to QuickXchange. Press Start to open the bot menu.
+              </div>
+              <div className="mt-auto grid grid-cols-1 pb-2">
+                <div className="bg-[#c5d0db] dark:bg-[#334155] rounded-xl py-2 px-3 text-center text-[13px] font-bold text-slate-800 dark:text-white shadow-sm">Start</div>
+              </div>
+            </div>
+
+            {/* Step 2: Exchange options */}
+            <div className="mockup-step telegram-mockup-step telegram-mockup-step--2 !inset-4">
+              <div className="bg-[#eef2ff] dark:bg-[#3b82f6]/20 p-3 rounded-2xl rounded-tr-sm text-[13px] text-slate-800 dark:text-white shadow-sm ml-auto w-fit">
+                Exchange
+              </div>
+              <div className="bg-white dark:bg-[#1e293b] p-3 rounded-2xl rounded-tl-sm text-[13px] text-slate-800 dark:text-white shadow-sm w-[85%] mt-2">
+                Choose what you send and receive.
+              </div>
+              <div className="mt-auto grid grid-cols-2 gap-2 pb-2">
+                <div className="bg-[#c5d0db] dark:bg-[#334155] rounded-xl py-2 px-3 text-center text-[12px] font-bold text-slate-800 dark:text-white shadow-sm">You Send · BTC</div>
+                <div className="bg-[#c5d0db] dark:bg-[#334155] rounded-xl py-2 px-3 text-center text-[12px] font-bold text-slate-800 dark:text-white shadow-sm">You Receive · EUR</div>
+              </div>
+            </div>
+
+            {/* Step 3: Details */}
+            <div className="mockup-step telegram-mockup-step telegram-mockup-step--3 !inset-4">
+              <div className="bg-white dark:bg-[#1e293b] p-3 rounded-2xl rounded-tl-sm text-[13px] text-slate-800 dark:text-white shadow-sm w-[85%]">
+                Enter the amount and required order details.
+              </div>
+              <div className="bg-[#eef2ff] dark:bg-[#3b82f6]/20 p-3 rounded-2xl rounded-tr-sm text-[13px] text-slate-800 dark:text-white shadow-sm ml-auto w-fit mt-2">
+                0.25 BTC
+              </div>
+              <div className="mt-auto bg-white/50 dark:bg-black/20 rounded-xl p-3 border border-black/5 dark:border-white/5 text-[12px] text-center text-slate-500 dark:text-slate-400 mb-2">
+                Receiving details saved
+              </div>
+            </div>
+
+            {/* Step 4: Review */}
+            <div className="mockup-step telegram-mockup-step telegram-mockup-step--4 !inset-4">
+              <div className="bg-white dark:bg-[#1e293b] p-3 rounded-2xl rounded-tl-sm text-[13px] text-slate-800 dark:text-white shadow-sm w-[85%]">
+                Review your order before confirming.
+              </div>
+              <div className="rounded-xl border border-black/5 bg-white/80 p-3 text-[12px] text-slate-700 shadow-sm dark:border-white/5 dark:bg-[#1e293b] dark:text-slate-200">
+                <div className="flex justify-between gap-4"><span>Send</span><strong>0.25 BTC</strong></div>
+                <div className="mt-2 flex justify-between gap-4"><span>Receive</span><strong>≈ 16,420.50 EUR</strong></div>
+                <div className="mt-2 flex justify-between gap-4"><span>Rate</span><strong>Live rate</strong></div>
+              </div>
+              <div className="mt-auto grid grid-cols-1 pb-2">
+                <div className="bg-[#c5d0db] dark:bg-[#334155] rounded-xl py-2 px-3 text-center text-[13px] font-bold text-slate-800 dark:text-white shadow-sm">Place Order</div>
+              </div>
+            </div>
+
+            {/* Step 5: Pay */}
+            <div className="mockup-step telegram-mockup-step telegram-mockup-step--5 !inset-4">
+              <div className="bg-white dark:bg-[#1e293b] p-3 rounded-2xl rounded-tl-sm text-[13px] text-slate-800 dark:text-white shadow-sm w-[85%]">
+                Order created. Open Pay Now and follow the payment instructions.
+              </div>
+              <div className="mt-auto grid grid-cols-2 gap-2 pb-2">
+                <div className="bg-[#c5d0db] dark:bg-[#334155] rounded-xl py-2 px-3 text-center text-[13px] font-bold text-slate-800 dark:text-white shadow-sm">Pay Now</div>
+                <div className="bg-[#c5d0db] dark:bg-[#334155] rounded-xl py-2 px-3 text-center text-[13px] font-bold text-slate-800 dark:text-white shadow-sm">Mark as Paid</div>
+              </div>
+            </div>
+
+            {/* Step 6: Track */}
+            <div className="mockup-step telegram-mockup-step telegram-mockup-step--6 !inset-4">
+              <div className="bg-white dark:bg-[#1e293b] p-3 rounded-2xl rounded-tl-sm text-[13px] text-slate-800 dark:text-white shadow-sm w-[85%]">
+                Track the same live order status in Telegram.
+              </div>
+              <div className="rounded-xl border border-black/5 bg-white/80 p-3 text-[12px] text-slate-700 shadow-sm dark:border-white/5 dark:bg-[#1e293b] dark:text-slate-200">
+                <div>Awaiting Funds</div>
+                <div className="my-1 text-primary">↓</div>
+                <div>Deposit Received</div>
+                <div className="my-1 text-primary">↓</div>
+                <div>Processing</div>
+                <div className="my-1 text-primary">↓</div>
+                <div className="font-bold text-emerald-600 dark:text-emerald-400">Completed</div>
+              </div>
+              <div className="mt-auto grid grid-cols-2 gap-2 pb-2">
+                <div className="bg-[#c5d0db] dark:bg-[#334155] rounded-xl py-2 px-3 text-center text-[13px] font-bold text-slate-800 dark:text-white shadow-sm">Track Order</div>
+                <div className="bg-[#c5d0db] dark:bg-[#334155] rounded-xl py-2 px-3 text-center text-[13px] font-bold text-slate-800 dark:text-white shadow-sm">My Orders</div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Input Area */}
+          <div className="flex items-center gap-3 border-t border-black/5 bg-[#f1f5f9] px-4 py-3 dark:border-white/5 dark:bg-[#1e293b] shrink-0">
+            <Paperclip size={20} className="text-slate-500 dark:text-slate-400" />
+            <div className="flex-1 text-[14px] text-slate-500 dark:text-slate-400">Message</div>
+            <Mic size={20} className="text-slate-500 dark:text-slate-400" />
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+});
+
 export function HowItWorksPage() {
   useEffect(() => {
     const previousTitle = document.title;
@@ -408,6 +545,83 @@ export function HowItWorksPage() {
             </div>
           </div>
           
+          {/* Telegram Bot Section */}
+          <div id="telegram-bot" className="hiw-flow-section hiw-flow-section--telegram scroll-mt-24 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center mb-24">
+            <div className="order-2 lg:order-1">
+              <TelegramMockup />
+            </div>
+            <div className="order-1 lg:order-2 space-y-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-bold tracking-wide uppercase">
+                <Send size={16} /> Telegram Bot
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold" data-testid="text-telegram-how-it-works-title">
+                Exchange with QuickXchange on Telegram
+              </h2>
+              <p className="text-lg text-muted-foreground leading-relaxed" data-testid="text-telegram-how-it-works-subtitle">
+                Swap, track and manage your orders directly from Telegram.
+              </p>
+
+              <ol className="space-y-4 py-4" data-testid="list-telegram-how-it-works-steps">
+                {[
+                  {
+                    title: 'Open QuickXchange Bot',
+                    description: 'Open the official QuickXchange Telegram Bot and press Start.',
+                  },
+                  {
+                    title: 'Choose Exchange',
+                    description: 'Tap Exchange, then select your You Send and You Receive options.',
+                  },
+                  {
+                    title: 'Enter the Details',
+                    description: 'Enter the amount and required order information.',
+                  },
+                  {
+                    title: 'Place Order',
+                    description: 'Review the exchange rate and order details, then confirm the order.',
+                  },
+                  {
+                    title: 'Pay & Confirm',
+                    description: 'Open Pay Now, follow the payment instructions and use Mark as Paid after sending the payment when applicable.',
+                  },
+                  {
+                    title: 'Track Your Order',
+                    description: 'Use Track Order or My Orders to follow the same live order status: Awaiting Funds → Deposit Received → Processing → Completed',
+                  },
+                ].map((item, index) => (
+                  <li key={item.title} className="flex items-start gap-4" data-testid={`item-telegram-step-${index + 1}`}>
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold border border-primary/20">
+                      {index + 1}
+                    </div>
+                    <div className="min-w-0 pt-0.5">
+                      <h3 className="font-bold text-foreground">{item.title}</h3>
+                      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{item.description}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+
+              <div className="bg-muted/40 border border-border p-4 rounded-2xl flex items-start gap-3 mt-4">
+                <div className="mt-0.5 text-primary"><Send size={18} /></div>
+                <div className="text-sm text-muted-foreground" data-testid="text-telegram-support-note">
+                  <strong className="text-foreground block mb-1">Support in Telegram</strong>
+                  Access Support directly from the bot whenever you need help with an exchange or order.
+                </div>
+              </div>
+
+              <div className="pt-4">
+                <a
+                  data-testid="link-telegram-bot-cta"
+                  href={TELEGRAM_BOT_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="button button-primary rounded-full h-14 px-8 font-bold text-[16px] inline-flex items-center gap-2"
+                >
+                  Open Telegram Bot <ArrowRight size={18} />
+                </a>
+              </div>
+            </div>
+          </div>
+
           {/* Compact Comparison */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-24">
             <div className="hiw-comparison-card hiw-comparison-card--swap bg-muted/30 border border-border p-8 rounded-3xl">
@@ -445,6 +659,7 @@ export function HowItWorksPage() {
                 </li>
               </ul>
             </div>
+
           </div>
         </section>
 

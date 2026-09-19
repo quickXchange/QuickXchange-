@@ -6,6 +6,61 @@ export type TelegramRouteOption = {
   requiresMemo?: boolean;
 };
 
+export type TelegramSearchableRouteOption = TelegramRouteOption & {
+  title?: string;
+  assetName?: string;
+  networkTitle?: string;
+  paymentMethodId?: string;
+};
+
+export function filterTelegramRouteOptions<T extends TelegramSearchableRouteOption>(
+  options: T[],
+  query: string,
+): T[] {
+  const terms = query
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase()
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!terms.length) return options;
+  return options.filter(option => {
+    const searchable = [
+      option.assetCode,
+      option.assetName,
+      option.title,
+      option.routeNetwork,
+      option.networkTitle,
+      option.paymentMethodId,
+    ]
+      .filter((value): value is string => typeof value === "string")
+      .join(" ")
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLocaleLowerCase();
+    return terms.every(term => searchable.includes(term));
+  });
+}
+
+export function nextSourceAmountForReceiveTarget(
+  sourceAmount: number,
+  quotedReceiveAmount: number,
+  requestedReceiveAmount: number,
+): number | undefined {
+  if (
+    !Number.isFinite(sourceAmount) ||
+    !Number.isFinite(quotedReceiveAmount) ||
+    !Number.isFinite(requestedReceiveAmount) ||
+    sourceAmount <= 0 ||
+    quotedReceiveAmount <= 0 ||
+    requestedReceiveAmount <= 0
+  ) return undefined;
+  const next = sourceAmount * requestedReceiveAmount / quotedReceiveAmount;
+  if (!Number.isFinite(next) || next <= 0) return undefined;
+  return Number(next.toPrecision(12));
+}
+
 export function routeFields(source: TelegramRouteOption, target: TelegramRouteOption) {
   return {
     fromAsset: source.assetCode,

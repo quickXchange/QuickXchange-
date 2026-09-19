@@ -91,7 +91,8 @@ export function OrderConfirmationPage() {
   const manualStatusQuery = useGetPublicOrderStatus(id, trackingParams, { query: {
     queryKey: getGetPublicOrderStatusQueryKey(id, trackingParams),
     enabled: !isQuickex && !!id,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: 'always',
+    refetchIntervalInBackground: true,
     retry: (failureCount: number, error: unknown) => {
       const status = error && typeof error === 'object' && 'status' in error
         ? (error as { status?: number }).status
@@ -100,20 +101,21 @@ export function OrderConfirmationPage() {
     },
      refetchInterval: (query: any) => {
        const currentOrder = query.state.data;
-       if (!currentOrder) return false;
+       if (!currentOrder) return 3000;
        if (/complete|paid|refund|expire|fail|cancel/i.test(currentOrder.status)) return false;
-       return currentOrder.fundingStatus === 'provisioning' ? 2000 : 15000;
+       return currentOrder.fundingStatus === 'provisioning' ? 2000 : 3000;
      },
   } });
 
   const quickexStatusQuery = useGetQuickexOrderStatus(id, trackingParams, { query: {
     queryKey: getGetQuickexOrderStatusQueryKey(id, trackingParams),
     enabled: isQuickex && !!id,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: 'always',
+    refetchIntervalInBackground: true,
     refetchInterval: (query: any) => {
       const order = query.state.data;
-      if (!order) return false;
-      return /complete|paid|refund|expire|fail|cancel/i.test(order.status) ? false : 15000;
+      if (!order) return 3000;
+      return /complete|paid|refund|expire|fail|cancel/i.test(order.status) ? false : 3000;
     },
   } });
 
@@ -432,7 +434,7 @@ export function OrderConfirmationPage() {
                    paymentDetailsApplicable={order.paymentDetailsApplicable}
                    sourcePaymentMethod={order.sourcePaymentMethod}
                    customerMarkedPaidAt={order.customerMarkedPaidAt}
-                   actionsDisabled={halted}
+                    actionsDisabled={halted || completed}
                    onMarkPaid={markPaid}
                    markPaidPending={markPaidMutation.isPending}
                    supportHref={SUPPORT_TELEGRAM}
@@ -586,7 +588,7 @@ export function OrderConfirmationPage() {
           </div>
 
           <div className="oc-actions">
-            <Link href={`/status?order=${encodeURIComponent(order.id)}${trackingToken ? `&token=${encodeURIComponent(trackingToken)}` : ''}`} className="oc-btn oc-btn-primary" data-testid="button-track-this-order">
+            <Link href={`/status?order=${encodeURIComponent(order.id)}${trackingToken ? `&trackingToken=${encodeURIComponent(trackingToken)}` : ''}`} className="oc-btn oc-btn-primary" data-testid="button-track-this-order">
               TRACK THIS ORDER
               <ArrowRight size={18} />
             </Link>

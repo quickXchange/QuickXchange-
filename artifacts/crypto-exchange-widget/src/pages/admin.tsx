@@ -3724,7 +3724,8 @@ function AdminOrders() {
   const orders = useGetOrders(params, {
     query: {
       queryKey: getGetOrdersQueryKey(params),
-      refetchInterval: 10_000,
+      refetchInterval: 3_000,
+      refetchIntervalInBackground: true,
       refetchOnWindowFocus: true,
     },
   });
@@ -4359,9 +4360,19 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   const { t } = useI18n();
   const { can } = useAdminPermissions();
   const currentQueryClient = useQueryClient();
-  const orderQuery = useGetOrder(id, { query: { queryKey: getGetOrderQueryKey(id) } });
+  const orderQuery = useGetOrder(id, { query: {
+    queryKey: getGetOrderQueryKey(id),
+    refetchInterval: 3_000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: 'always',
+  } });
   const exchangeConfig = useGetExchangeConfig({ query: { queryKey: getGetExchangeConfigQueryKey() } });
-  const history = useGetOrderAuditLog(id, { query: { queryKey: getGetOrderAuditLogQueryKey(id) } });
+  const history = useGetOrderAuditLog(id, { query: {
+    queryKey: getGetOrderAuditLogQueryKey(id),
+    refetchInterval: 3_000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: 'always',
+  } });
   const operators = useGetOperators({ query: { queryKey: getGetOperatorsQueryKey(), retry: false } });
   const updateOrder = useUpdateOrder();
   const assignment = useAssignOrder();
@@ -5160,6 +5171,173 @@ function AdminProviders() {
   </AdminShell>;
 }
 
+const sendPresets = [
+  { label: "Name", type: "account-name" },
+  { label: "IBAN", type: "account-iban" },
+  { label: "Bank Account", type: "account-number" },
+  { label: "Payment Reference", type: "short-text" },
+  { label: "Description", type: "long-text" },
+  { label: "Email", type: "email" },
+  { label: "Telegram", type: "short-text" },
+  { label: "WhatsApp", type: "phone" },
+  { label: "Custom Field", type: "short-text" },
+];
+
+const receivePresets = [
+  { label: "Name", type: "account-name" },
+  { label: "IBAN", type: "account-iban" },
+  { label: "Bank Account", type: "account-number" },
+  { label: "BIC / SWIFT", type: "bank-code" },
+  { label: "Email", type: "email" },
+  { label: "Telegram", type: "short-text" },
+  { label: "WhatsApp", type: "phone" },
+  { label: "Custom Field", type: "short-text" },
+];
+
+function PaymentMethodDynamicFields({ fields, setFields }: { fields: PaymentMethodFieldDefinition[], setFields: React.Dispatch<React.SetStateAction<PaymentMethodFieldDefinition[]>> }) {
+  const sendFields = fields.filter(f => !f.direction || f.direction === "send" || f.direction === "both");
+  const receiveFields = fields.filter(f => !f.direction || f.direction === "receive" || f.direction === "both");
+
+  const genEditorKey = (dir: string) => `__auto__${dir}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+  const updateField = (originalField: PaymentMethodFieldDefinition, contextDir: "send" | "receive", updates: Partial<PaymentMethodFieldDefinition>) => {
+    setFields(current => {
+      const isBoth = !originalField.direction || originalField.direction === "both";
+      const idx = current.findIndex(f => f.key === originalField.key);
+      if (idx === -1) return current;
+
+      if (isBoth) {
+        const otherDir = contextDir === "send" ? "receive" : "send";
+        const newF = [...current];
+        newF[idx] = { ...newF[idx], direction: otherDir };
+        newF.push({
+          ...originalField,
+          ...updates,
+          key: genEditorKey(contextDir),
+          direction: contextDir
+        });
+        return newF;
+      } else {
+        const newF = [...current];
+        newF[idx] = { ...newF[idx], ...updates };
+        return newF;
+      }
+    });
+  };
+
+  const removeField = (originalField: PaymentMethodFieldDefinition, contextDir: "send" | "receive") => {
+    setFields(current => {
+      const isBoth = !originalField.direction || originalField.direction === "both";
+      if (isBoth) {
+        const otherDir = contextDir === "send" ? "receive" : "send";
+        return current.map(f => f.key === originalField.key ? { ...f, direction: otherDir } : f);
+      } else {
+        return current.filter(f => f.key !== originalField.key);
+      }
+    });
+  };
+
+  const addField = (preset: { label: string, type: string }, contextDir: "send" | "receive") => {
+    setFields(current => [
+      ...current,
+      {
+        key: genEditorKey(contextDir),
+        type: preset.type as any,
+        direction: contextDir,
+        label: preset.label,
+        required: true
+      }
+    ]);
+  };
+
+  const renderSection = (title: string, description: string, contextDir: "send" | "receive", currentFields: PaymentMethodFieldDefinition[], presets: { label: string, type: string }[]) => (
+    <section className={cn("payment-method-field-section", `payment-method-field-section--${contextDir}`)} data-testid={`section-${contextDir}-fields`}>
+      <div className="payment-method-field-section-head">
+        <div>
+          <h3>{title}</h3>
+          <p>{description}</p>
+        </div>
+        <DropdownMenuPrimitive.Root>
+          <DropdownMenuPrimitive.Trigger asChild>
+            <button type="button" className="payment-method-add-field" data-testid={`button-add-field-${contextDir}`}>
+              + Add Field
+            </button>
+          </DropdownMenuPrimitive.Trigger>
+          <DropdownMenuPrimitive.Portal>
+            <DropdownMenuPrimitive.Content className="admin-blog-actions-menu z-[9999]" sideOffset={4} align="end">
+              {presets.map(p => (
+                <DropdownMenuPrimitive.Item key={p.label} className="admin-blog-actions-item" onSelect={() => addField(p, contextDir)} data-testid={`menu-add-${contextDir}-${p.label.replace(/\s+/g, "-").toLowerCase()}`}>
+                  {p.label}
+                </DropdownMenuPrimitive.Item>
+              ))}
+            </DropdownMenuPrimitive.Content>
+          </DropdownMenuPrimitive.Portal>
+        </DropdownMenuPrimitive.Root>
+      </div>
+
+      <div className="payment-method-field-list">
+        {currentFields.map((field) => (
+          <div key={field.key} className="payment-method-field-row" data-testid={`row-${contextDir}-${field.key}`}>
+            <label className="payment-method-field-label">
+              <span>Field Name / Label</span>
+              <input
+                value={field.label}
+                onChange={e => updateField(field, contextDir, { label: e.target.value })}
+                className="payment-method-field-name-input"
+                placeholder="Field Name"
+                data-testid={`input-label-${contextDir}-${field.key}`}
+              />
+            </label>
+            <label className="payment-method-required-toggle" data-testid={`label-req-${contextDir}-${field.key}`}>
+              <input
+                type="checkbox"
+                checked={field.required !== false}
+                onChange={e => updateField(field, contextDir, { required: e.target.checked })}
+                data-testid={`input-req-${contextDir}-${field.key}`}
+              />
+              <span>Required <strong>{field.required !== false ? "ON" : "OFF"}</strong></span>
+            </label>
+            <button
+              type="button"
+              className="payment-method-remove-field"
+              onClick={() => removeField(field, contextDir)}
+              data-testid={`button-rem-${contextDir}-${field.key}`}
+              aria-label="Remove field"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        ))}
+        {currentFields.length === 0 && (
+          <div className="payment-method-field-empty">
+            <span>No required information configured.</span>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+
+  return (
+    <div className="payment-method-fields">
+      {renderSection(
+        "YOU SEND — Required Information",
+        "This controls what information must be requested from the customer when this Payment Method is selected in You Send.",
+        "send",
+        sendFields,
+        sendPresets
+      )}
+      {renderSection(
+        "YOU RECEIVE — Required Information",
+        "This controls what information must be requested from the customer when this Payment Method is selected in You Receive.",
+        "receive",
+        receiveFields,
+        receivePresets
+      )}
+    </div>
+  );
+}
+
+
 function PaymentMethodDrawer({ method, onClose }: { method?: any; onClose: () => void }) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
@@ -5316,101 +5494,7 @@ function PaymentMethodDrawer({ method, onClose }: { method?: any; onClose: () =>
             <label><input type="checkbox" checked={form.requiresProviderConfiguration} onChange={e => setForm(f => ({...f, requiresProviderConfiguration: e.target.checked}))} /> {t('adminCatalog.requires_api_mapping')}</label>
           </div>
 
-          <div className="admin-form-section mt-6 pt-6 border-t border-border">
-            <div className="flex justify-between items-center mb-4">
-              <span className="field-label !mb-0">{t('adminCatalog.dynamic_fields')}</span>
-              <button type="button" className="text-xs text-link" onClick={() => setFields([...fields, { key: `field_${fields.length}`, type: 'text', label: t('adminCatalog.new_field'), required: true }])} data-testid="button-pm-add-field">{t('adminCatalog.add_field')}</button>
-            </div>
-            <InlineNotice kind="info">{t('adminCatalog.do_not_request_passwords_seeds_or_credentials')}</InlineNotice>
-            {fields.length > 0 && <InlineNotice kind="warning">{t('adminCatalog.changing_field_keys_may_break_existing_orders')}</InlineNotice>}
-            <div className="space-y-4 mt-4">
-              {fields.map((field, i) => (
-                <div key={i} className="admin-form-section admin-form-card p-4 border border-border rounded-lg bg-muted/30">
-                  <div className="flex justify-between mb-2">
-                    <span className="text-xs font-bold font-mono">{t('adminCatalog.field')}{i + 1}</span>
-                    <button type="button" className="text-destructive text-xs hover:underline" onClick={() => setFields(fields.filter((_, idx) => idx !== i))} data-testid={`button-pm-del-field-${i}`}>{t('adminCatalog.remove')}</button>
-                  </div>
-                  <div className="admin-form-grid grid grid-cols-2 gap-3">
-                    <label><span className="text-[10px] text-muted-foreground uppercase font-bold">{t('adminCatalog.key')}</span><input value={field.key} onChange={e => { const newF = [...fields]; newF[i].key = e.target.value; setFields(newF); }} className="text-xs p-1" data-testid={`input-pm-fkey-${i}`} /></label>
-                    <label><span className="text-[10px] text-muted-foreground uppercase font-bold">{t('adminCatalog.label')}</span><input value={field.label} onChange={e => { const newF = [...fields]; newF[i].label = e.target.value; setFields(newF); }} className="text-xs p-1" data-testid={`input-pm-flabel-${i}`} /></label>
-                    <label><span className="text-[10px] text-muted-foreground uppercase font-bold">{t('adminCatalog.type')}</span>
-                      <select value={field.type} onChange={e => { const newF = [...fields]; newF[i].type = e.target.value as any; setFields(newF); }} className="text-xs p-1">
-                        <optgroup label={t('adminCatalog.modern_types')}>
-                          <option value="short-text">{t('adminCatalog.short_text')}</option><option value="long-text">{t('adminCatalog.long_text')}</option>
-                          <option value="integer">{t('adminCatalog.integer')}</option><option value="numeric">{t('adminCatalog.numeric')}</option><option value="decimal">{t('adminCatalog.decimal')}</option>
-                          <option value="account-iban">{t('adminCatalog.account_iban')}</option><option value="phone">{t('adminCatalog.phone')}</option>
-                          <option value="email">{t('adminCatalog.email')}</option><option value="date">{t('adminCatalog.date')}</option><option value="select">{t('adminCatalog.select')}</option>
-                          <option value="wallet-address">{t('adminCatalog.wallet_address')}</option><option value="memo-tag">{t('adminCatalog.memo_tag')}</option>
-                          <option value="private-image">{t('adminCatalog.private_image')}</option>
-                          <option value="account-number">{t('adminCatalog.account_number')}</option>
-                          <option value="account-name">{t('adminCatalog.account_name')}</option>
-                          <option value="bank-code">{t('adminCatalog.bank_code')}</option>
-                          <option value="routing-number">{t('adminCatalog.routing_number')}</option>
-                          <option value="country-code">{t('adminCatalog.country_code')}</option>
-                          <option value="postal-address">{t('adminCatalog.postal_address')}</option>
-                        </optgroup>
-                        <optgroup label={t('adminCatalog.legacy_types')}>
-                          <option value="text">{t('adminCatalog.text_legacy')}</option><option value="number">{t('adminCatalog.number_legacy')}</option><option value="textarea">{t('adminCatalog.textarea_legacy')}</option>
-                        </optgroup>
-                      </select>
-                    </label>
-                    <label><span className="text-[10px] text-muted-foreground uppercase font-bold">{t('adminCatalog.direction')}</span>
-                      <select value={field.direction || 'both'} onChange={e => { const newF = [...fields]; newF[i].direction = e.target.value as any; setFields(newF); }} className="text-xs p-1">
-                        <option value="both">{t('adminCatalog.both')}</option>
-                        <option value="send">{t('adminCatalog.send')}</option>
-                        <option value="receive">{t('adminCatalog.receive')}</option>
-                      </select>
-                    </label>
-                    <label><span className="text-[10px] text-muted-foreground uppercase font-bold">{t('adminCatalog.help_text')}</span><input value={field.help || ''} onChange={e => { const newF = [...fields]; newF[i].help = e.target.value; setFields(newF); }} className="text-xs p-1" /></label>
-                    <div className="flex flex-col gap-2 mt-2 col-span-2 p-2 border border-border/50 rounded bg-background/50">
-                      <span className="text-[10px] text-muted-foreground uppercase font-bold">{t('adminCatalog.conditional_rendering_requiredwhen')}</span>
-                      <div className="admin-form-grid grid grid-cols-2 gap-3">
-                        <label><span className="text-[10px] text-muted-foreground">{t('adminCatalog.target_field_key')}</span><input value={field.requiredWhen?.fieldKey || ''} onChange={e => { const newF = [...fields]; const val = e.target.value; if (!val) { delete newF[i].requiredWhen; } else { newF[i].requiredWhen = { fieldKey: val, equals: newF[i].requiredWhen?.equals || '' }; } setFields(newF); }} className="text-xs p-1" placeholder={t('adminCatalog.e_g_account_type')} /></label>
-                        <label><span className="text-[10px] text-muted-foreground">{t('adminCatalog.equals_value_s')}<small>{t('adminCatalog.comma_separated')}</small></span><input value={Array.isArray(field.requiredWhen?.equals) ? field.requiredWhen?.equals.join(',') : (field.requiredWhen?.equals || '')} onChange={e => { const newF = [...fields]; if (newF[i].requiredWhen) { const val = e.target.value; newF[i].requiredWhen.equals = val.includes(',') ? val.split(',').map(s=>s.trim()) : val; } setFields(newF); }} className="text-xs p-1" placeholder={t('adminCatalog.e_g_business')} /></label>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4 mt-4 col-span-2">
-                      <label className="flex items-center gap-2 text-xs font-bold"><input type="checkbox" checked={field.required} onChange={e => { const newF = [...fields]; newF[i].required = e.target.checked; setFields(newF); }} /> {t('adminCatalog.required')}</label>
-                      <label className="flex items-center gap-2 text-xs font-bold"><input type="checkbox" checked={field.emphasizedLabel} onChange={e => { const newF = [...fields]; newF[i].emphasizedLabel = e.target.checked; setFields(newF); }} /> {t('adminCatalog.emphasized_label')}</label>
-                    </div>
-                  </div>
-
-                  {['text', 'textarea', 'short-text', 'long-text', 'account-iban', 'wallet-address', 'memo-tag', 'email', 'phone', 'account-number', 'account-name', 'bank-code', 'routing-number', 'country-code', 'postal-address'].includes(field.type) && (
-                    <div className="admin-form-grid grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-border/50">
-                       <label><span className="text-[10px] text-muted-foreground uppercase font-bold">{t('adminCatalog.min_length')}</span><input type="number" value={field.min ?? ''} onChange={e => { const newF = [...fields]; newF[i].min = e.target.value ? Number(e.target.value) : undefined; setFields(newF); }} className="text-xs p-1" /></label>
-                       <label><span className="text-[10px] text-muted-foreground uppercase font-bold">{t('adminCatalog.max_length')}</span><input type="number" value={field.max ?? ''} onChange={e => { const newF = [...fields]; newF[i].max = e.target.value ? Number(e.target.value) : undefined; setFields(newF); }} className="text-xs p-1" /></label>
-                       {field.type === 'text' && <label className="col-span-2"><span className="text-[10px] text-muted-foreground uppercase font-bold">{t('adminCatalog.regex_pattern')}</span><input value={field.pattern || ''} onChange={e => { const newF = [...fields]; newF[i].pattern = e.target.value; setFields(newF); }} className="text-xs p-1 w-full" /></label>}
-                    </div>
-                  )}
-
-                  {['number', 'integer', 'numeric', 'decimal'].includes(field.type) && (
-                    <div className="admin-form-grid grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-border/50">
-                       <label><span className="text-[10px] text-muted-foreground uppercase font-bold">{t('adminCatalog.min_value')}</span><input type="number" value={field.min ?? ''} onChange={e => { const newF = [...fields]; newF[i].min = e.target.value ? Number(e.target.value) : undefined; setFields(newF); }} className="text-xs p-1" /></label>
-                       <label><span className="text-[10px] text-muted-foreground uppercase font-bold">{t('adminCatalog.max_value')}</span><input type="number" value={field.max ?? ''} onChange={e => { const newF = [...fields]; newF[i].max = e.target.value ? Number(e.target.value) : undefined; setFields(newF); }} className="text-xs p-1" /></label>
-                    </div>
-                  )}
-
-                  {field.type === 'select' && (
-                    <div className="mt-3 pt-3 border-t border-border/50">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-[10px] text-muted-foreground uppercase font-bold">{t('adminCatalog.options')}</span>
-                        <button type="button" className="text-xs text-link" onClick={() => { const newF = [...fields]; newF[i].options = [...(newF[i].options || []), { label: t('adminCatalog.new_option'), value: 'new' }]; setFields(newF); }}>{t('adminCatalog.add_option')}</button>
-                      </div>
-                      <div className="space-y-2">
-                        {(field.options || []).map((opt: any, optIdx: number) => (
-                          <div key={optIdx} className="flex gap-2 items-center">
-                            <input value={opt.label} onChange={e => { const newF = [...fields]; newF[i].options![optIdx].label = e.target.value; setFields(newF); }} placeholder={t('adminCatalog.label')} className="text-xs p-1 flex-1" />
-                            <input value={opt.value} onChange={e => { const newF = [...fields]; newF[i].options![optIdx].value = e.target.value; setFields(newF); }} placeholder={t('adminCatalog.value')} className="text-xs p-1 flex-1" />
-                            <button type="button" className="text-destructive text-xs" onClick={() => { const newF = [...fields]; newF[i].options = newF[i].options!.filter((_: any, idx: number) => idx !== optIdx); setFields(newF); }}><X size={14} /></button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+          <PaymentMethodDynamicFields fields={fields} setFields={setFields} />
 
           <button type="submit" disabled={isPending || !form.id || !form.name} className="catalog-editor-primary" data-testid="button-save-pm">
             {isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}{isPending ? t('adminCatalog.saving') : t('adminCatalog.save_payment_method')}

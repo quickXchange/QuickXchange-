@@ -6,6 +6,7 @@ import type { ApiError, OrderPaymentDetails, SourcePaymentMethod } from '@worksp
 import { useI18n } from '@/i18n';
 
 export const SUPPORT_TELEGRAM = 'https://t.me/Quick_change_support';
+export const TELEGRAM_BOT_URL = 'https://t.me/QuickXchangeNetBot';
 export const SUPPORT_EMAIL = 'support@quickxchange.net';
 export const SUPPORT_HOURS = '24/7 Support';
 export const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -141,7 +142,7 @@ export function PaymentDetailsCard({
         {showPayNow && (
           <DialogPrimitive.Root open={isModalOpen} onOpenChange={setIsModalOpen}>
             <DialogPrimitive.Trigger asChild>
-              {customerMarkedPaidAt ? (
+              {customerMarkedPaidAt || actionsDisabled ? (
                 <button type="button" className="button button-secondary" data-testid="button-view-payment-details">View Details</button>
               ) : (
                 <button type="button" className="button button-primary" disabled={actionsDisabled} data-testid="button-pay-now">Pay Now</button>
@@ -209,7 +210,7 @@ export function PaymentDetailsCard({
                     </div>
 
                     <div className="mt-8 flex flex-col sm:flex-row-reverse gap-3 relative z-10">
-                      {onMarkPaid && !customerMarkedPaidAt ? (
+                      {onMarkPaid && !customerMarkedPaidAt && !actionsDisabled ? (
                         <button
                           type="button"
                           className="group relative flex h-12 flex-1 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(59,130,246,0.4)] transition-all hover:from-cyan-400 hover:via-blue-400 hover:to-purple-400 hover:shadow-[0_6px_24px_-6px_rgba(59,130,246,0.6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80 focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:cursor-not-allowed disabled:opacity-50"
@@ -322,12 +323,20 @@ export function StatusPill({ status, customerFacing = false }: { status?: string
   const rawTone = normalized.includes('complete') || normalized.includes('paid') || normalized.includes('configured') || normalized.includes('active') || normalized.includes('healthy') ? 'success'
     : normalized.includes('fail') || normalized.includes('cancel') || normalized.includes('missing') || normalized.includes('expire') || normalized.includes('disabled') || normalized.includes('unavailable') ? 'error'
       : normalized.includes('process') || normalized.includes('review') || normalized.includes('exchang') || normalized.includes('payout') || normalized.includes('refund') || normalized.includes('hold') || normalized.includes('deposit received') || normalized.includes('stale') ? 'warning' : 'info';
-  const customerLabel = normalized.includes('fail') || normalized.includes('expire') || normalized.includes('cancel') || normalized.includes('refund') ? 'Failed'
-    : normalized.includes('complete') || normalized.includes('finish') || normalized.includes('paid') ? 'Completed'
-      : normalized.includes('deposit received') || normalized.includes('process') || normalized.includes('exchang') || normalized.includes('send') || normalized.includes('payout') ? 'Processing'
-        : normalized.includes('review') || normalized.includes('confirm') || normalized.includes('hold') || normalized.includes('verif') || normalized.includes('manual-review') ? 'Operator Reviewing'
-          : normalized.includes('pending') || normalized.includes('created') || normalized.includes('new') || normalized.includes('await') || normalized.includes('deposit') ? 'Pending' : (status || 'Pending');
-  const customerTone = customerLabel === 'Completed' ? 'success' : customerLabel === 'Failed' ? 'error' : customerLabel === 'Processing' || customerLabel === 'Operator Reviewing' ? 'warning' : 'info';
+  const customerLabel = normalized.includes('cancel') ? 'Cancelled'
+    : normalized.includes('refund') ? 'Refunded'
+      : normalized.includes('expire') ? 'Expired'
+        : normalized.includes('fail') ? 'Failed'
+          : normalized.includes('complete') || normalized.includes('finish') || normalized.includes('paid') ? 'Completed'
+            : normalized.includes('funds confirmed') || normalized.includes('deposit received') ? 'Deposit Received'
+              : normalized.includes('process') || normalized.includes('exchang') || normalized.includes('send') || normalized.includes('payout') ? 'Processing'
+                : normalized.includes('review') || normalized.includes('confirm') || normalized.includes('hold') || normalized.includes('verif') || normalized.includes('manual-review') ? 'Operator Reviewing'
+                  : normalized.includes('awaiting funds') ? 'Awaiting Funds'
+                    : normalized.includes('pending') || normalized.includes('created') || normalized.includes('new') || normalized.includes('await') || normalized.includes('deposit') ? 'Pending' : (status || 'Pending');
+  const customerTone = customerLabel === 'Completed' ? 'success'
+    : ['Cancelled', 'Refunded', 'Expired', 'Failed'].includes(customerLabel) ? 'error'
+      : customerLabel === 'Processing' || customerLabel === 'Operator Reviewing' || customerLabel === 'Deposit Received' ? 'warning'
+        : 'info';
   const tone = customerFacing ? customerTone : rawTone;
   return <span data-testid={`status-${normalized}`} className={`badge badge-${tone}`}>{customerFacing ? customerLabel : (status || 'Pending')}</span>;
 }

@@ -110,3 +110,6 @@
 - [Fiat-to-crypto payment instructions](fiat-to-crypto-payment-instructions.md) — keep order-owned bank instructions token-gated; customer “paid” is a report, never operator settlement confirmation.
 - [Payment method identity snapshots](payment-method-identity-snapshots.md) — preserve the selected rail’s identity on the order, but exclude presentation metadata from executable quote-term equality.
 - [Customer cancellation boundary](customer-cancellation-boundary.md) — customer cancellation is stricter than Admin lifecycle control: manual Swap, awaiting funds, genuinely unpaid and pending only.
+- [Tracking URL token compatibility](tracking-url-token-compatibility.md) — emit `trackingToken` canonically, accept legacy `token`, and persist searched order IDs in the URL for refresh-safe tracking.
+- [Simplified settlement field editors](simplified-settlement-field-editors.md) — preserve saved keys and hidden metadata; generate keys only for genuinely new directional rows.
+- [Telegram search callback stability](telegram-search-callback-stability.md) — filtered option buttons must keep canonical indexes so stale messages cannot select a different route.

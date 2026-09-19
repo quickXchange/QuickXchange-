@@ -110,6 +110,68 @@ function containsForbiddenSecretMaterial(value: string): boolean {
     words.every((word) => /^[a-z]{2,16}$/i.test(word));
 }
 
+type PaymentMethodFieldDefinitionWithOptionalKey =
+  Omit<PaymentMethodFieldDefinition, "key"> & { key?: string | null };
+
+function automaticFieldKeyBase(label: unknown): string {
+  const normalized = (typeof label === "string" ? label : "field")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  const startsWithLetter = /^[a-z]/.test(normalized)
+    ? normalized
+    : `field_${normalized}`;
+  return (startsWithLetter || "field").slice(0, 64).replace(/_+$/g, "") || "field";
+}
+
+export function assignAutomaticFieldDefinitionKeys(
+  definitions: PaymentMethodFieldDefinitionWithOptionalKey[],
+): PaymentMethodFieldDefinition[] {
+  const usedKeys = new Set(
+    definitions
+      .map(field => typeof field.key === "string" ? field.key : "")
+      .filter(key => Boolean(key) && !key.startsWith("__auto__")),
+  );
+
+  return definitions.map(field => {
+    if (
+      typeof field.key === "string" &&
+      field.key.length > 0 &&
+      !field.key.startsWith("__auto__")
+    ) {
+      return field as PaymentMethodFieldDefinition;
+    }
+
+    const base = automaticFieldKeyBase(field.label);
+    let key = base;
+    let suffix = 2;
+    while (usedKeys.has(key)) {
+      const suffixText = `_${suffix}`;
+      key = `${base.slice(0, 64 - suffixText.length).replace(/_+$/g, "")}${suffixText}`;
+      suffix += 1;
+    }
+    usedKeys.add(key);
+    return { ...field, key } as PaymentMethodFieldDefinition;
+  });
+}
+
+export function assignAutomaticPaymentMethodFieldKeys(body: unknown): unknown {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return body;
+  const record = body as Record<string, unknown>;
+  if (!Array.isArray(record.fieldDefinitions)) return body;
+  if (record.fieldDefinitions.some(
+    field => !field || typeof field !== "object" || Array.isArray(field),
+  )) return body;
+  return {
+    ...record,
+    fieldDefinitions: assignAutomaticFieldDefinitionKeys(
+      record.fieldDefinitions as PaymentMethodFieldDefinitionWithOptionalKey[],
+    ),
+  };
+}
+
 export function validateSafeFieldDefinitions(
   definitions: PaymentMethodFieldDefinition[],
 ): PaymentMethodFieldDefinition[] {

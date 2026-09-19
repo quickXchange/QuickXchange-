@@ -224,6 +224,7 @@ import {
   type RevenueOrder,
 } from "../lib/manual-desk-revenue";
 import {
+  assignAutomaticPaymentMethodFieldKeys,
   listPublicFiatSettlementOptions,
   validateSafeFieldDefinitions,
   validateSettlementDetails,
@@ -4372,7 +4373,7 @@ router.get("/admin/payment-methods", async (_req, res, next) => {
 
 router.post("/admin/payment-methods", async (req, res, next) => {
   try {
-    const input = CreatePaymentMethodBody.parse(req.body);
+    const input = CreatePaymentMethodBody.parse(assignAutomaticPaymentMethodFieldKeys(req.body));
     validateSafeFieldDefinitions(input.fieldDefinitions);
     if (input.logoObjectPath !== null && input.logoObjectPath !== undefined) {
       if (!/^\/objects\/payment-method-logos\/[0-9a-f-]+$/.test(input.logoObjectPath)) {
@@ -4401,7 +4402,7 @@ router.post("/admin/payment-methods", async (req, res, next) => {
 router.patch("/admin/payment-methods/:id", async (req, res, next) => {
   try {
     const { id } = UpdatePaymentMethodParams.parse(req.params);
-    const input = UpdatePaymentMethodBody.parse(req.body);
+    const input = UpdatePaymentMethodBody.parse(assignAutomaticPaymentMethodFieldKeys(req.body));
     if (input.fieldDefinitions) validateSafeFieldDefinitions(input.fieldDefinitions);
     if (input.logoObjectPath !== null && input.logoObjectPath !== undefined) {
       if (!/^\/objects\/payment-method-logos\/[0-9a-f-]+$/.test(input.logoObjectPath)) {

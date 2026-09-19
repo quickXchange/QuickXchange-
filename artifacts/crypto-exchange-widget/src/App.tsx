@@ -1231,9 +1231,10 @@ function ConfiguredExchangePage({ pageKey }: { pageKey: SitePageKey }) {
 
 function StatusPage() {
   const { t } = useI18n();
+  const [, setLocation] = useLocation();
   const query = new URLSearchParams(window.location.search);
   const initial = query.get('order') || '';
-  const initialTrackingToken = query.get('token') || '';
+  const initialTrackingToken = query.get('trackingToken') || query.get('token') || '';
   const [search, setSearch] = useState(initial);
   const [submitted, setSubmitted] = useState(initial);
   const [trackingToken, setTrackingToken] = useState(initialTrackingToken);
@@ -1241,12 +1242,14 @@ function StatusPage() {
   const markPaidMutation = useMarkOrderPaid();
   const validCapabilityId = /^(?:O[0-9]{9}|QX-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$/.test(submitted);
   const isQuickexOrder = submitted.startsWith('QX-');
+  const quickexTrackingTokenMissing = validCapabilityId && isQuickexOrder && !trackingToken;
   const trackingParams = trackingToken ? { trackingToken } : undefined;
 
   const statusQuery = useGetPublicOrderStatus(validCapabilityId ? submitted : '', trackingParams, { query: {
     queryKey: getGetPublicOrderStatusQueryKey(validCapabilityId ? submitted : '', trackingParams),
     enabled: validCapabilityId && !isQuickexOrder,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: 'always',
+    refetchIntervalInBackground: true,
     retry: (failureCount: number, error: unknown) => {
       const status = error && typeof error === 'object' && 'status' in error
         ? (error as { status?: number }).status
@@ -1257,20 +1260,21 @@ function StatusPage() {
     // deposit / exchange / payout progress live.
     refetchInterval: (query: any) => {
       const order = query.state.data;
-      if (!order) return false;
-      return /complete|paid|refund|expire|fail|cancel/i.test(order.status) ? false : 15000;
+      if (!order) return 3000;
+      return /complete|paid|refund|expire|fail|cancel/i.test(order.status) ? false : 3000;
     },
   } });
 
   const quickexTrackingParams = { trackingToken };
   const quickexStatusQuery = useGetQuickexOrderStatus(isQuickexOrder ? submitted : '', quickexTrackingParams, { query: {
     queryKey: getGetQuickexOrderStatusQueryKey(isQuickexOrder ? submitted : '', quickexTrackingParams),
-    enabled: validCapabilityId && isQuickexOrder,
-    refetchOnWindowFocus: false,
+    enabled: validCapabilityId && isQuickexOrder && Boolean(trackingToken),
+    refetchOnWindowFocus: 'always',
+    refetchIntervalInBackground: true,
     refetchInterval: (query: any) => {
       const order = query.state.data;
-      if (!order) return false;
-      return /complete|paid|refund|expire|fail|cancel/i.test(order.status) ? false : 15000;
+      if (!order) return 3000;
+      return /complete|paid|refund|expire|fail|cancel/i.test(order.status) ? false : 3000;
     },
   } });
 
@@ -1311,7 +1315,15 @@ function StatusPage() {
             <div className="lookup-card-inner">
               <h2>Track your order</h2>
               <p>Enter your Order ID below.</p>
-              <form className="lookup-form" onSubmit={(event) => { event.preventDefault(); if (search.trim() !== submitted) setTrackingToken(''); setSubmitted(search.trim()); }}>
+              <form className="lookup-form" onSubmit={(event) => {
+                event.preventDefault();
+                const nextOrderId = search.trim();
+                if (!nextOrderId) return;
+                const keepTrackingToken = nextOrderId === submitted ? trackingToken : '';
+                if (!keepTrackingToken) setTrackingToken('');
+                setSubmitted(nextOrderId);
+                setLocation(`/status?order=${encodeURIComponent(nextOrderId)}${keepTrackingToken ? `&trackingToken=${encodeURIComponent(keepTrackingToken)}` : ''}`);
+              }}>
                 <div className="input-icon">
                   <Search size={20} aria-hidden="true" />
                   <input
@@ -1340,11 +1352,19 @@ function StatusPage() {
             </div>
           )}
 
+          {quickexTrackingTokenMissing && (
+            <div className="lookup-card track-order-state-card result-empty" data-testid="missing-tracking-token-result">
+              <CircleAlert size={24} />
+              <strong>Tracking link required</strong>
+              <p>Open the tracking link from your order confirmation to view this order.</p>
+            </div>
+          )}
+
           {activeStatusQuery.isError && validCapabilityId && !visibleOrder && (notFound
             ? <div className="lookup-card track-order-state-card result-empty" data-testid="empty-order-result"><Search size={24} /><strong>Order not found</strong><p>Check your Order ID and try again.</p></div>
             : <div className="lookup-card track-order-state-card"><div className="lookup-card-inner"><ErrorState message={lookupErrorMessage} retry={() => activeStatusQuery.refetch()} /></div></div>)}
 
-          {!visibleOrder && activeStatusQuery.isFetching && validCapabilityId && (
+          {!visibleOrder && activeStatusQuery.isFetching && validCapabilityId && !quickexTrackingTokenMissing && (
             <div className="lookup-card track-order-state-card"><div className="lookup-card-inner flex justify-center py-12"><Loader2 size={32} className="animate-spin text-primary" /></div></div>
           )}
 
@@ -1397,7 +1417,7 @@ function OrderStatusCard({
   const depositActionable = Boolean(order.depositAddress) && !halted && !uncertain && !completed;
 
   const timeline = isManual
-    ? [t('orderStatus.awaitingFunds'), t('orderStatus.fundsConfirmed'), t('orderStatus.payoutProcessing'), t('orderStatus.payoutSent'), t('orderStatus.completed')]
+    ? [t('orderStatus.awaitingFunds'), t('orderStatus.depositReceived'), t('orderStatus.payoutProcessing'), t('orderStatus.payoutSent'), t('orderStatus.completed')]
     : [t('orderStatus.orderCreated'), t('orderStatus.depositReceived'), t('orderStatus.exchanging'), t('orderStatus.sendingPayout'), t('orderStatus.complete')];
 
   const current = isManual

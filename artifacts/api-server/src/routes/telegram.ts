@@ -1,17 +1,18 @@
 import { Router, type IRouter, type Request } from "express";
-import { and, eq, gt, gte, isNull, lte, or, sql } from "drizzle-orm";
+import { and, eq, gt, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { db, ordersTable, quickexOrdersTable, telegramChatsTable, telegramNotificationOutboxTable, telegramOrderLinksTable, telegramProcessedUpdatesTable, telegramWizardSessionsTable } from "@workspace/db";
 import { sendTelegramMessage, sendTelegramPhoto, telegramCall, telegramEnabled, type TelegramButton } from "../lib/telegram-api";
 import { languageButtons, localeOf, t, type TelegramLocale } from "../lib/telegram-localization";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { signOrderTrackingToken } from "../lib/order-access";
-import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualTargets, nextRequiredField, requiredFieldActive, shouldAskDestination, shouldAskRefund, type TelegramRouteOption } from "../lib/telegram-wizard";
+import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, requiredFieldActive, shouldAskDestination, shouldAskRefund, type TelegramRouteOption } from "../lib/telegram-wizard";
 import { createTelegramLinkChallenge } from "../lib/telegram-link";
 import { getCustomerVerifiedEmail, requireActiveCustomerIdentity } from "../lib/customer-auth";
 import { getCustomerOrderHistory } from "../lib/order-history";
 
 const router: IRouter = Router();
+export const telegramManualOrderKinds = ["manual", "swap"] as const;
 const website = () => process.env.TELEGRAM_WEBSITE_URL?.trim() || process.env.PUBLIC_SITE_URL?.trim();
 const html = (value: unknown) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 const baseUrl = () => `http://127.0.0.1:${process.env.PORT ?? "8080"}`;
@@ -153,46 +154,163 @@ async function sendBrowserLink(chatId: string, locale: TelegramLocale, intent: "
     ? "Open the website to create your customer account and link Telegram."
     : "Open the website to sign in and link Telegram.", [[{ text: intent === "signup" ? "📝 Sign Up on website" : "🔐 Sign In on website", url }]]);
 }
-type SettlementOption = TelegramRouteOption & { title: string; direction: string; executionMode?: string; fields?: Array<{ key: string; label: string; type: string; options?: Array<{ value: string; label: string }>; required?: boolean; requiredWhen?: { fieldKey: string; equals: string | string[] }; min?: number; max?: number; pattern?: string }> };
+type SettlementOption = TelegramRouteOption & {
+  assetId?: string;
+  assetName?: string;
+  title: string;
+  direction: string;
+  executionMode?: string;
+  networkTitle?: string;
+  paymentMethodId?: string;
+  minAmount?: string;
+  maxAmount?: string;
+  fields?: Array<{ key: string; label: string; type: string; options?: Array<{ value: string; label: string }>; required?: boolean; requiredWhen?: { fieldKey: string; equals: string | string[] }; min?: number; max?: number; pattern?: string }>;
+};
+type ConvertPair = { fromAsset: string; fromNetwork: string; toAsset: string; toNetwork: string };
+type RoutePricing = {
+  rate: number;
+  minAmount?: number;
+  maxAmount?: number;
+};
+const TELEGRAM_OPTION_PAGE_SIZE = 8;
+
+function optionLabel(option: SettlementOption) {
+  return option.kind === "crypto-network"
+    ? `${option.assetCode} · ${option.networkTitle || option.routeNetwork}`
+    : `${option.assetCode} · ${option.title}`;
+}
+
+function optionPrompt(side: "source" | "target", query = "") {
+  const heading = side === "source"
+    ? "👇 Which currency or payment method do you send?"
+    : "👇 Which currency or payment method do you receive?";
+  const search = "Tap a button below or type a name to search.";
+  return query
+    ? `${heading}\n\n${search}\n\n🔎 Results for: <b>${html(query)}</b>`
+    : `${heading}\n\n${search}`;
+}
+
+function optionRows(
+  matches: SettlementOption[],
+  allOptions: SettlementOption[],
+  callbackPrefix: "src" | "tgt",
+  page: number,
+): TelegramButton[][] {
+  const requestedPage = Number.isSafeInteger(page) && page >= 0 ? page : 0;
+  const lastPage = Math.max(0, Math.ceil(matches.length / TELEGRAM_OPTION_PAGE_SIZE) - 1);
+  const safePage = Math.min(requestedPage, lastPage);
+  const start = safePage * TELEGRAM_OPTION_PAGE_SIZE;
+  const rows: TelegramButton[][] = matches
+    .slice(start, start + TELEGRAM_OPTION_PAGE_SIZE)
+    .map(option => [{
+      text: optionLabel(option),
+      callback_data: `${callbackPrefix}:${allOptions.findIndex(candidate => candidate.id === option.id)}`,
+    }]);
+  const navigation: TelegramButton[] = [];
+  if (start > 0) navigation.push({
+    text: "⬅️ Back",
+    callback_data: `${callbackPrefix}page:${safePage - 1}`,
+  });
+  if (start + TELEGRAM_OPTION_PAGE_SIZE < matches.length) navigation.push({
+    text: "Next ➡️",
+    callback_data: `${callbackPrefix}page:${safePage + 1}`,
+  });
+  if (navigation.length) rows.push(navigation);
+  return rows;
+}
+
+async function showSourceOptions(
+  chatId: string,
+  sessionData: Record<string, unknown>,
+  page = 0,
+) {
+  const options = (sessionData.options as SettlementOption[] | undefined) ?? [];
+  const query = String(sessionData.sourceQuery ?? "");
+  const matches = filterTelegramRouteOptions(options, query);
+  const rows = optionRows(matches, options, "src", page);
+  rows.push([{ text: "❌ Cancel Exchange", callback_data: "cancel" }]);
+  await sendTelegramMessage(
+    chatId,
+    matches.length ? optionPrompt("source", query) : `${optionPrompt("source", query)}\n\nNo available options match your search.`,
+    rows,
+  );
+}
+
+async function showTargetOptions(
+  chatId: string,
+  sessionData: Record<string, unknown>,
+  page = 0,
+) {
+  const targets = (sessionData.targets as SettlementOption[] | undefined) ?? [];
+  const query = String(sessionData.targetQuery ?? "");
+  const matches = filterTelegramRouteOptions(targets, query);
+  const rows = optionRows(matches, targets, "tgt", page);
+  rows.push([{ text: "❌ Cancel Exchange", callback_data: "cancel" }]);
+  await sendTelegramMessage(
+    chatId,
+    matches.length ? optionPrompt("target", query) : `${optionPrompt("target", query)}\n\nNo available options match your search.`,
+    rows,
+  );
+}
+
 async function exchangeOptions(chatId: string, locale: TelegramLocale, mode: "swap" | "convert") {
   const response = await fetch(`${baseUrl()}/api/exchange/config`);
   if (!response.ok) { await sendTelegramMessage(chatId, t(locale, "unavailable")); return; }
-  const config = await response.json() as { settlementOptions?: SettlementOption[] };
-  const allOptions = config.settlementOptions ?? [];
-  const options = allOptions.filter(option => mode === "convert"
-    ? option.executionMode === "api" && ["send", "both"].includes(option.direction)
-    : option.executionMode !== "api" && ["send", "both"].includes(option.direction));
-  const manualRoutes = (config as { manualRouteAvailability?: { routes?: Array<{ sourceSettlementOptionId: string; targetSettlementOptionId: string }> } }).manualRouteAvailability?.routes ?? [];
-  await saveSession(chatId, "source", { mode, options, allOptions, manualRoutes, clientRequestId: randomUUID() });
-  await sendTelegramMessage(chatId, t(locale, "send"), [
-    ...options.slice(0, 8).map((option, index) => [{ text: `🪙 ${option.assetCode} · ${option.title}`, callback_data: `src:${index}` }]),
-    ...(options.length > 8 ? [[{ text: "➡️ Next", callback_data: "srcpage:1" }]] : []),
-  ]);
+  const config = await response.json() as {
+    assets?: Array<{ id: string; name: string }>;
+    settlementOptions?: SettlementOption[];
+    manualRouteAvailability?: { routes?: Array<{ sourceSettlementOptionId: string; targetSettlementOptionId: string }> };
+  };
+  const assetNames = new Map((config.assets ?? []).map(asset => [asset.id, asset.name]));
+  const currencyNames = new Intl.DisplayNames(["en"], { type: "currency" });
+  const allOptions = (config.settlementOptions ?? []).map(option => ({
+    ...option,
+    assetName: option.kind === "fiat-payment-method"
+      ? currencyNames.of(option.assetCode)
+      : option.assetId ? assetNames.get(option.assetId) : undefined,
+  }));
+  const manualRoutes = config.manualRouteAvailability?.routes ?? [];
+  let convertPairs: ConvertPair[] = [];
+  if (mode === "convert") {
+    const pairsResponse = await fetch(`${baseUrl()}/api/quickex/pairs`);
+    convertPairs = pairsResponse.ok ? await pairsResponse.json() as ConvertPair[] : [];
+  }
+  const manualSourceIds = new Set(manualRoutes.map(route => route.sourceSettlementOptionId));
+  const convertSourceIds = new Set(convertPairs.map(pair => `${pair.fromAsset}\0${pair.fromNetwork}`));
+  const options = allOptions.filter(option => {
+    if (!["send", "both"].includes(option.direction)) return false;
+    return mode === "convert"
+      ? option.executionMode === "api" && convertSourceIds.has(`${option.assetCode}\0${option.routeNetwork}`)
+      : option.executionMode !== "api" && manualSourceIds.has(option.id);
+  });
+  if (!options.length) { await sendTelegramMessage(chatId, t(locale, "unavailable")); return; }
+  const data = { mode, options, allOptions, manualRoutes, convertPairs, sourceQuery: "", clientRequestId: randomUUID() };
+  await saveSession(chatId, "source", data);
+  await showSourceOptions(chatId, data);
 }
-async function chooseTarget(chatId: string, locale: TelegramLocale, sourceIndex: number, page = 0) {
+async function chooseTarget(chatId: string, locale: TelegramLocale, source: SettlementOption) {
   const session = await getSession(chatId);
   if (session?.state === "processing") {
     await sendTelegramMessage(chatId, t(locale, "processing"));
     return;
   }
-  const options = (session?.data.options as SettlementOption[] | undefined) ?? [];
-  const allOptions = (session?.data.allOptions as SettlementOption[] | undefined) ?? options;
-  const source = options[sourceIndex];
-  if (!source) return;
+  if (session?.state !== "source") return;
+  const allOptions = (session.data.allOptions as SettlementOption[] | undefined) ?? [];
   let targets: SettlementOption[];
-  if (session?.data.mode === "convert") {
-    const response = await fetch(`${baseUrl()}/api/quickex/pairs?fromAsset=${encodeURIComponent(source.assetCode)}&fromNetwork=${encodeURIComponent(source.routeNetwork)}`);
-    const pairs = response.ok ? await response.json() as Array<{ fromAsset: string; fromNetwork: string; toAsset: string; toNetwork: string }> : [];
-    targets = filterConvertTargets(allOptions, pairs, source) as SettlementOption[];
+  if (session.data.mode === "convert") {
+    targets = filterConvertTargets(
+      allOptions,
+      (session.data.convertPairs as ConvertPair[] | undefined) ?? [],
+      source,
+    ) as SettlementOption[];
   } else {
-    targets = filterManualTargets(allOptions, (session?.data.manualRoutes as Array<{ sourceSettlementOptionId: string; targetSettlementOptionId: string }>) ?? [], source.id) as SettlementOption[];
+    targets = filterManualTargets(allOptions, (session.data.manualRoutes as Array<{ sourceSettlementOptionId: string; targetSettlementOptionId: string }> | undefined) ?? [], source.id) as SettlementOption[];
   }
-  await saveSession(chatId, "target", { ...session?.data, source, targets });
-  const start = page * 8;
-  await sendTelegramMessage(chatId, t(locale, "receive"), [
-    ...targets.slice(start, start + 8).map((option, index) => [{ text: `🪙 ${option.assetCode} · ${option.title}`, callback_data: `tgt:${index + start}` }]),
-    ...(start + 8 < targets.length ? [[{ text: "➡️ Next", callback_data: `tgtpage:${page + 1}` }]] : []),
-  ]);
+  if (!targets.length) { await sendTelegramMessage(chatId, t(locale, "unavailable")); return; }
+  const data = { ...session.data, source, targets, targetQuery: "" };
+  await saveSession(chatId, "target", data);
+  await sendTelegramMessage(chatId, `✅ You Send: <b>${html(optionLabel(source))}</b>`);
+  await showTargetOptions(chatId, data);
 }
 async function askField(chatId: string, field: Record<string, unknown>, fieldIndex = 0, locale: TelegramLocale = "en", page = 0) {
   const label = String(field.label ?? field.key ?? "Required detail");
@@ -225,6 +343,118 @@ function refundPrompt(source: SettlementOption, locale: TelegramLocale) {
 function refundKeyboard(locale: TelegramLocale): TelegramButton[][] {
   return [[{ text: `⏭️ ${t(locale, "skip")}`, callback_data: "skip:refund" }]];
 }
+
+function displayNumber(value: unknown) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return "Not configured";
+  return new Intl.NumberFormat("en-US", { maximumSignificantDigits: 10 }).format(numeric);
+}
+
+async function selectTarget(chatId: string, locale: TelegramLocale, target: SettlementOption) {
+  const session = await getSession(chatId);
+  if (!session || session.state !== "target") return;
+  const source = session.data.source as SettlementOption | undefined;
+  if (!source) return;
+
+  let routePricing: RoutePricing | undefined;
+  if (session.data.mode !== "convert") {
+    const response = await fetch(
+      `${baseUrl()}/api/exchange/route-pricing?sourceSettlementOptionId=${encodeURIComponent(source.id)}&targetSettlementOptionId=${encodeURIComponent(target.id)}`,
+    );
+    const result = await response.json() as RoutePricing & { error?: string };
+    if (!response.ok) {
+      await sendTelegramMessage(chatId, `QuickXchange could not load this route: ${html(result.error ?? "route unavailable")}`);
+      return;
+    }
+    routePricing = result;
+  }
+
+  const min = routePricing?.minAmount ?? source.minAmount;
+  const max = routePricing?.maxAmount ?? source.maxAmount;
+  const rateText = routePricing
+    ? `1 ${html(source.assetCode)} = ${html(displayNumber(routePricing.rate))} ${html(target.assetCode)}`
+    : "Live rate confirmed after amount entry";
+  const limitsText = `${min == null ? "No minimum" : `${html(displayNumber(min))} ${html(source.assetCode)}`} / ${max == null ? "No maximum" : `${html(displayNumber(max))} ${html(source.assetCode)}`}`;
+  const data = { ...session.data, target, routePricing };
+  await saveSession(chatId, "amountSide", data);
+  await sendTelegramMessage(chatId, `✅ You Receive: <b>${html(optionLabel(target))}</b>`);
+  await sendTelegramMessage(
+    chatId,
+    [
+      `📤 You Send: <b>${html(optionLabel(source))}</b>`,
+      `📥 You Receive: <b>${html(optionLabel(target))}</b>`,
+      `📈 Exchange Rate: <b>${rateText}</b>`,
+      `📊 Min / Max: <b>${limitsText}</b>`,
+      "",
+      "👇 Choose which side you want to use to enter the exchange amount",
+    ].join("\n"),
+    [
+      [
+        { text: source.assetCode, callback_data: "amountside:source" },
+        { text: target.assetCode, callback_data: "amountside:target" },
+      ],
+      [{ text: "❌ Cancel Exchange", callback_data: "cancel" }],
+    ],
+  );
+}
+
+async function requestTelegramQuote(
+  mode: "swap" | "convert",
+  source: SettlementOption,
+  target: SettlementOption,
+  amount: number,
+) {
+  const type = mode === "convert" ? "instant" : "manual";
+  const response = await fetch(`${baseUrl()}${type === "instant" ? "/api/quickex/quote" : "/api/exchange/quote"}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(buildQuotePayload(mode, source, target, amount)),
+  });
+  return {
+    ok: response.ok,
+    result: await response.json() as Record<string, unknown>,
+  };
+}
+
+async function quoteTelegramEnteredAmount(
+  sessionData: Record<string, unknown>,
+  enteredAmount: number,
+) {
+  const source = sessionData.source as SettlementOption;
+  const target = sessionData.target as SettlementOption;
+  const mode = sessionData.mode === "convert" ? "convert" : "swap";
+  if (sessionData.amountSide !== "target") {
+    const quoted = await requestTelegramQuote(mode, source, target, enteredAmount);
+    return { ...quoted, amount: enteredAmount };
+  }
+
+  const previewRate = Number((sessionData.routePricing as RoutePricing | undefined)?.rate);
+  let sourceAmount = Number.isFinite(previewRate) && previewRate > 0
+    ? enteredAmount / previewRate
+    : 1;
+  let latest: Awaited<ReturnType<typeof requestTelegramQuote>> | undefined;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    latest = await requestTelegramQuote(mode, source, target, sourceAmount);
+    if (!latest.ok) return { ...latest, amount: sourceAmount };
+    const quotedReceiveAmount = Number(latest.result.receiveAmount);
+    if (!Number.isFinite(quotedReceiveAmount) || quotedReceiveAmount <= 0) {
+      return { ok: false, result: { error: "The route returned an invalid receive amount." }, amount: sourceAmount };
+    }
+    const tolerance = Math.max(1e-8, enteredAmount * 0.0001);
+    if (Math.abs(quotedReceiveAmount - enteredAmount) <= tolerance) {
+      return { ...latest, amount: Number(latest.result.amount ?? sourceAmount) };
+    }
+    const next = nextSourceAmountForReceiveTarget(sourceAmount, quotedReceiveAmount, enteredAmount);
+    if (!next || next === sourceAmount) break;
+    sourceAmount = next;
+  }
+  return {
+    ok: false,
+    result: { error: "The live quote could not match the requested receive amount. Please try again." },
+    amount: sourceAmount,
+  };
+}
+
 async function sendOrders(chatId: string, locale: TelegramLocale) {
   const [linked] = await db.select({ customerClerkUserId: telegramChatsTable.clerkCustomerUserId })
     .from(telegramChatsTable).where(eq(telegramChatsTable.chatId, chatId)).limit(1);
@@ -331,28 +561,40 @@ async function handleText(chatId: string, locale: TelegramLocale, text: string) 
   if (command === "/support") { await callback(chatId, locale, "support"); return; }
   if (command === "/language") { await sendTelegramMessage(chatId, t(locale, "language"), languageButtons()); return; }
   const session = await getSession(chatId);
+  if (session?.state === "source") {
+    const data = { ...session.data, sourceQuery: text.trim() };
+    await saveSession(chatId, "source", data);
+    await showSourceOptions(chatId, data);
+    return;
+  }
+  if (session?.state === "target") {
+    const data = { ...session.data, targetQuery: text.trim() };
+    await saveSession(chatId, "target", data);
+    await showTargetOptions(chatId, data);
+    return;
+  }
   if (session?.state === "amount") {
-    const amount = Number(text.trim());
-    if (!Number.isFinite(amount) || amount <= 0) {
-      await sendTelegramMessage(chatId, t(locale, "askAmount"));
+    const enteredAmount = Number(text.trim());
+    if (!Number.isFinite(enteredAmount) || enteredAmount <= 0) {
+      const selected = session.data.amountSide === "target"
+        ? session.data.target as SettlementOption
+        : session.data.source as SettlementOption;
+      await sendTelegramMessage(chatId, `Enter a valid positive amount in ${html(selected.assetCode)}.`);
       return;
     }
+    const quoted = await quoteTelegramEnteredAmount(session.data, enteredAmount);
+    const result = quoted.result;
+    if (!quoted.ok) { await sendTelegramMessage(chatId, `QuickXchange could not quote this route: ${html(result.error ?? "route unavailable")}`); return; }
+    const amount = quoted.amount;
     const source = session.data.source as SettlementOption;
     const target = session.data.target as SettlementOption;
     const mode = session.data.mode === "convert" ? "convert" : "swap";
-    const type = mode === "convert" ? "instant" : "manual";
-    const response = await fetch(`${baseUrl()}${type === "instant" ? "/api/quickex/quote" : "/api/exchange/quote"}`, {
-      method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify(buildQuotePayload(mode, source, target, amount)),
-    });
-    const result = await response.json() as Record<string, unknown>;
-    if (!response.ok) { await sendTelegramMessage(chatId, `QuickXchange could not quote this route: ${html(result.error ?? "route unavailable")}`); return; }
     const fields = (result.requiredSettlementFields as Array<Record<string, unknown>> | undefined) ?? [];
     const firstField = nextRequiredField(fields as Array<{ required?: boolean; requiredWhen?: { fieldKey: string; equals: string | string[] } }>, 0, {});
     const needsDestination = shouldAskDestination(mode, target);
     const sourceNeedsRefund = shouldAskRefund(source);
     const initialState = firstField >= 0 ? "field" : needsDestination ? "destination" : sourceNeedsRefund ? "refundAddress" : "email";
-    await saveSession(chatId, initialState, { ...session.data, amount, quote: result, fieldIndex: firstField, fields, values: {} });
+    await saveSession(chatId, initialState, { ...session.data, amount, enteredAmount, quote: result, fieldIndex: firstField, fields, values: {} });
     if (firstField >= 0) await askField(chatId, fields[firstField], firstField, locale);
     else await sendTelegramMessage(chatId, needsDestination ? t(locale, "destination") : sourceNeedsRefund ? refundPrompt(source, locale) : t(locale, "email"), sourceNeedsRefund && !needsDestination ? refundKeyboard(locale) : undefined);
     return;
@@ -464,10 +706,43 @@ async function callback(chatId: string, locale: TelegramLocale, data: string) {
   if (data === "language") { await sendTelegramMessage(chatId, t(locale, "language"), languageButtons()); return; }
   if (data === "exchange") { await sendTelegramMessage(chatId, t(locale, "choose"), [[{ text: `🔄 ${t(locale, "swap")}`, callback_data: "mode:swap" }, { text: `⚡ ${t(locale, "convert")}`, callback_data: "mode:convert" }]]); return; }
   if (data.startsWith("mode:")) { await exchangeOptions(chatId, locale, data.slice(5) as "swap" | "convert"); return; }
-  if (data.startsWith("src:")) { const session = await getSession(chatId); await chooseTarget(chatId, locale, Number(data.slice(4))); return; }
-  if (data.startsWith("srcpage:")) { const session = await getSession(chatId); const options = (session?.data.options as SettlementOption[] | undefined) ?? []; const page = Number(data.slice(8)); const start = page * 8; const rows = options.slice(start, start + 8).map((option, index) => [{ text: `🪙 ${option.assetCode} · ${option.title}`, callback_data: `src:${index + start}` }]); if (start > 0) rows.push([{ text: "⬅️ Back", callback_data: `srcpage:${page - 1}` }]); if (start + 8 < options.length) rows.push([{ text: "➡️ Next", callback_data: `srcpage:${page + 1}` }]); await sendTelegramMessage(chatId, t(locale, "send"), rows); return; }
-  if (data.startsWith("tgt:")) { const session = await getSession(chatId); const targets = (session?.data.targets as SettlementOption[] | undefined) ?? []; const target = targets[Number(data.slice(4))]; await saveSession(chatId, "amount", { ...session?.data, target, type: session?.data.mode }); await sendTelegramMessage(chatId, t(locale, "askAmount")); return; }
-  if (data.startsWith("tgtpage:")) { const session = await getSession(chatId); const targets = (session?.data.targets as SettlementOption[] | undefined) ?? []; const page = Number(data.slice(8)); const start = page * 8; const rows = targets.slice(start, start + 8).map((option, index) => [{ text: `🪙 ${option.assetCode} · ${option.title}`, callback_data: `tgt:${index + start}` }]); if (start > 0) rows.push([{ text: "⬅️ Back", callback_data: `tgtpage:${page - 1}` }]); if (start + 8 < targets.length) rows.push([{ text: "➡️ Next", callback_data: `tgtpage:${page + 1}` }]); await sendTelegramMessage(chatId, t(locale, "receive"), rows); return; }
+  if (data.startsWith("src:")) {
+    const session = await getSession(chatId);
+    if (!session || session.state !== "source") return;
+    const options = (session.data.options as SettlementOption[] | undefined) ?? [];
+    const source = options[Number(data.slice(4))];
+    if (source) await chooseTarget(chatId, locale, source);
+    return;
+  }
+  if (data.startsWith("srcpage:")) {
+    const session = await getSession(chatId);
+    if (session?.state === "source") await showSourceOptions(chatId, session.data, Number(data.slice(8)));
+    return;
+  }
+  if (data.startsWith("tgt:")) {
+    const session = await getSession(chatId);
+    if (!session || session.state !== "target") return;
+    const targets = (session.data.targets as SettlementOption[] | undefined) ?? [];
+    const target = targets[Number(data.slice(4))];
+    if (target) await selectTarget(chatId, locale, target);
+    return;
+  }
+  if (data.startsWith("tgtpage:")) {
+    const session = await getSession(chatId);
+    if (session?.state === "target") await showTargetOptions(chatId, session.data, Number(data.slice(8)));
+    return;
+  }
+  if (data.startsWith("amountside:")) {
+    const session = await getSession(chatId);
+    if (!session || session.state !== "amountSide") return;
+    const amountSide = data.slice(11) === "target" ? "target" : "source";
+    const selected = amountSide === "target"
+      ? session.data.target as SettlementOption
+      : session.data.source as SettlementOption;
+    await saveSession(chatId, "amount", { ...session.data, amountSide, type: session.data.mode });
+    await sendTelegramMessage(chatId, `👇 Enter the exchange amount in <b>${html(selected.assetCode)}</b>.`);
+    return;
+  }
   if (data.startsWith("fieldopt:")) {
     const session = await getSession(chatId);
     if (!session || session.state !== "field") return;
@@ -779,27 +1054,61 @@ export function startTelegramNotificationWorker(): () => void {
       }
       if (processing.length < 25) break;
     }
-    for (let offset = 0; ; offset += 100) {
-      const links = await db.select().from(telegramOrderLinksTable).orderBy(telegramOrderLinksTable.createdAt).limit(100).offset(offset);
-      if (!links.length) break;
-      for (const link of links) {
-       try {
-      const [order] = link.orderKind === "convert"
-        ? await db.select({ id: quickexOrdersTable.legacyOrderId, status: quickexOrdersTable.status, statusVersion: quickexOrdersTable.recordVersion, amount: quickexOrdersTable.amounts, receiveAmount: quickexOrdersTable.amounts }).from(quickexOrdersTable).where(eq(quickexOrdersTable.legacyOrderId, link.orderId)).limit(1)
-        : await db.select({ id: ordersTable.id, status: ordersTable.status, statusVersion: ordersTable.statusVersion, amount: ordersTable.amount, receiveAmount: ordersTable.receiveAmount }).from(ordersTable).where(eq(ordersTable.id, link.orderId)).limit(1);
-      if (!order) continue;
-      const quickexAmounts = link.orderKind === "convert" && order.amount && typeof order.amount === "object"
-        ? order.amount as { amount?: string; receiveAmount?: string }
-        : undefined;
+    const missingManualNotifications = await db.select({
+      chatId: telegramOrderLinksTable.chatId,
+      orderId: ordersTable.id,
+      status: ordersTable.status,
+      statusVersion: ordersTable.statusVersion,
+      amount: ordersTable.amount,
+      receiveAmount: ordersTable.receiveAmount,
+    }).from(telegramOrderLinksTable)
+      .innerJoin(ordersTable, and(
+        inArray(telegramOrderLinksTable.orderKind, telegramManualOrderKinds),
+        eq(telegramOrderLinksTable.orderId, ordersTable.id),
+      ))
+      .leftJoin(telegramNotificationOutboxTable, and(
+        eq(telegramNotificationOutboxTable.chatId, telegramOrderLinksTable.chatId),
+        eq(telegramNotificationOutboxTable.orderId, ordersTable.id),
+        eq(telegramNotificationOutboxTable.statusVersion, ordersTable.statusVersion),
+        eq(telegramNotificationOutboxTable.eventKind, "status"),
+      ))
+      .where(isNull(telegramNotificationOutboxTable.id))
+      .limit(100);
+    const missingConvertNotifications = await db.select({
+      chatId: telegramOrderLinksTable.chatId,
+      orderId: quickexOrdersTable.legacyOrderId,
+      status: quickexOrdersTable.status,
+      statusVersion: quickexOrdersTable.recordVersion,
+      amounts: quickexOrdersTable.amounts,
+    }).from(telegramOrderLinksTable)
+      .innerJoin(quickexOrdersTable, and(
+        eq(telegramOrderLinksTable.orderKind, "convert"),
+        eq(telegramOrderLinksTable.orderId, quickexOrdersTable.legacyOrderId),
+      ))
+      .leftJoin(telegramNotificationOutboxTable, and(
+        eq(telegramNotificationOutboxTable.chatId, telegramOrderLinksTable.chatId),
+        eq(telegramNotificationOutboxTable.orderId, quickexOrdersTable.legacyOrderId),
+        eq(telegramNotificationOutboxTable.statusVersion, quickexOrdersTable.recordVersion),
+        eq(telegramNotificationOutboxTable.eventKind, "status"),
+      ))
+      .where(isNull(telegramNotificationOutboxTable.id))
+      .limit(100);
+    for (const order of missingManualNotifications) {
       await db.insert(telegramNotificationOutboxTable).values({
-        chatId: link.chatId,
-        orderId: order.id,
+        chatId: order.chatId,
+        orderId: order.orderId,
         statusVersion: order.statusVersion,
-        payload: { status: order.status, amount: quickexAmounts?.amount ?? order.amount, receiveAmount: quickexAmounts?.receiveAmount ?? order.receiveAmount },
+        payload: { status: order.status, amount: order.amount, receiveAmount: order.receiveAmount },
       }).onConflictDoNothing();
-       } catch { /* One malformed provider row must not stop the cursor. */ }
-      }
-      if (links.length < 100) break;
+    }
+    for (const order of missingConvertNotifications) {
+      const amounts = order.amounts as { amount?: string; receiveAmount?: string };
+      await db.insert(telegramNotificationOutboxTable).values({
+        chatId: order.chatId,
+        orderId: order.orderId,
+        statusVersion: order.statusVersion,
+        payload: { status: order.status, amount: amounts.amount, receiveAmount: amounts.receiveAmount },
+      }).onConflictDoNothing();
     }
     const now = new Date();
     const pending = await db.select().from(telegramNotificationOutboxTable)
@@ -854,7 +1163,7 @@ export function startTelegramNotificationWorker(): () => void {
     }
   };
   void run().catch(() => { telegramWorkerRunning = false; });
-  telegramWorker = setInterval(() => void run().catch(() => { telegramWorkerRunning = false; }), 30_000);
+  telegramWorker = setInterval(() => void run().catch(() => { telegramWorkerRunning = false; }), 5_000);
   telegramWorker.unref();
   return () => { if (telegramWorker) clearInterval(telegramWorker); telegramWorker = undefined; };
 }
