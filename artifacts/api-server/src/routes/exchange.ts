@@ -4928,6 +4928,15 @@ router.patch("/admin/providers/whitebit", requireOwner, async (req, res, next) =
         },
       });
     });
+    const depositEligibility = await reconcileCryptoCustomerDepositEligibility();
+    invalidatePopularExchangePairsCache();
+    logger.info(
+      {
+        enabled: req.body.enabled,
+        depositEligibility,
+      },
+      "WhiteBIT setting updated and customer deposit eligibility reconciled",
+    );
     res.json(await whitebitSwapStatus());
   } catch (error) {
     next(error);

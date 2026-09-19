@@ -8,6 +8,7 @@ import { startBlogScheduler } from "./routes/blog";
 import { startNewsletterWorker } from "./lib/newsletter";
 import { setupTelegramCommands, startTelegramNotificationWorker } from "./routes/telegram";
 import { startTelegramNewsWorker } from "./lib/telegram-news";
+import { reconcileCryptoCustomerDepositEligibility } from "./lib/customer-deposit-eligibility";
 
 const rawPort = process.env["PORT"];
 
@@ -56,6 +57,15 @@ function validateRuntimeConfig(): void {
 async function start() {
   validateRuntimeConfig();
   await validateObjectStorageConfiguration();
+  try {
+    const depositEligibility = await reconcileCryptoCustomerDepositEligibility();
+    logger.info({ depositEligibility }, "Customer deposit eligibility reconciled at startup");
+  } catch (error) {
+    logger.warn(
+      { err: error },
+      "Customer deposit eligibility startup reconciliation failed closed",
+    );
+  }
   const stopBlogScheduler = startBlogScheduler();
   const stopNotificationWorker = startExchangeStatusNotificationWorker();
   const stopNewsletterWorker = startNewsletterWorker();
