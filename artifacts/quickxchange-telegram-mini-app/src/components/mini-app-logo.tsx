@@ -55,24 +55,33 @@ export function MiniAppLogo({
 
   return (
     <span className={cn(
-      'relative inline-flex shrink-0 items-center justify-center rounded-full border border-primary/10',
-      'bg-primary/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_0_14px_-10px_hsl(var(--primary))]',
-      'dark:bg-white/[0.055] dark:border-white/10',
+      'relative inline-flex shrink-0 items-center justify-center rounded-full',
       classes.container,
       className,
     )}>
-      {currentSrc ? (
-        <img
-          src={currentSrc}
-          alt={alt}
-          className={cn('block object-contain object-center', classes.image)}
-          onError={() => setSourceIndex(index => index + 1)}
-        />
-      ) : (
-        <span className={cn('font-bold uppercase tracking-tight text-primary', classes.text)}>
-          {(fallback || '?').slice(0, 4)}
-        </span>
-      )}
+      <span className={cn(
+        'flex h-full w-full items-center justify-center overflow-hidden rounded-full border border-primary/10',
+        'bg-primary/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_0_14px_-10px_hsl(var(--primary))]',
+        'dark:border-white/10 dark:bg-white/[0.055]',
+      )}>
+        {currentSrc ? (
+          <img
+            src={currentSrc}
+            alt={alt}
+            className={cn(
+              'block rounded-full object-center',
+              variant === 'payment'
+                ? 'h-full w-full object-cover'
+                : cn('object-contain', classes.image),
+            )}
+            onError={() => setSourceIndex(index => index + 1)}
+          />
+        ) : (
+          <span className={cn('font-bold uppercase tracking-tight text-primary', classes.text)}>
+            {(fallback || '?').slice(0, 4)}
+          </span>
+        )}
+      </span>
       {normalizedBadge && !badgeFailed && (
         <span className={cn(
           'absolute overflow-hidden rounded-full border-2 border-background bg-background shadow-sm flex items-center justify-center',
