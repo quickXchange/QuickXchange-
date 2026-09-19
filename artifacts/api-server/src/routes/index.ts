@@ -16,6 +16,7 @@ import teamMembersRouter from "./team-members";
 import whitebitRouter, { whitebitOperatorRouter, whitebitWebhookRouter } from "./whitebit";
 import telegramRouter from "./telegram";
 import telegramConnectRouter from "./telegram-connect";
+import { apiBuildInfo } from "../lib/build-info";
 
 const router: IRouter = Router();
 
@@ -27,6 +28,10 @@ router.use(telegramConnectRouter);
 // All top-level Admin APIs are operator-only by default. Individual owner
 // routes retain their existing requireOwner middleware.
 router.use("/admin", requireOperator);
+router.get("/admin/build-info", (_req, res) => {
+  res.setHeader("cache-control", "no-store");
+  res.json(apiBuildInfo);
+});
 router.use("/admin/whitebit", requireOwner);
 router.use(whitebitOperatorRouter);
 // Authenticate first, then enforce the centralized granular policy before any

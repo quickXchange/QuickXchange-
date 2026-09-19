@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
@@ -10,9 +11,27 @@ globalThis.require = createRequire(import.meta.url);
 
 const artifactDir = path.dirname(fileURLToPath(import.meta.url));
 
+function sourceCommit() {
+  const configured = process.env.APP_COMMIT || process.env.REPLIT_GIT_COMMIT || process.env.GIT_COMMIT;
+  if (configured?.trim()) return configured.trim();
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: path.resolve(artifactDir, "../.."),
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return "unknown";
+  }
+}
+
 async function buildAll() {
   const distDir = path.resolve(artifactDir, "dist");
   await rm(distDir, { recursive: true, force: true });
+  const commit = sourceCommit();
+  const deployedAt = process.env.DEPLOYED_AT?.trim() || new Date().toISOString();
+  const buildId = process.env.APP_BUILD_ID?.trim()
+    || `${commit.slice(0, 12)}-${deployedAt.replace(/\D/g, "").slice(0, 14)}`;
 
   await esbuild({
     entryPoints: [path.resolve(artifactDir, "src/index.ts")],
@@ -102,6 +121,13 @@ async function buildAll() {
       "electron",
     ],
     sourcemap: "linked",
+    define: {
+      __API_BUILD_METADATA__: JSON.stringify({
+        buildId,
+        commit,
+        deployedAt,
+      }),
+    },
     plugins: [
       // pino relies on workers to handle logging, instead of externalizing it we use a plugin to handle it
       esbuildPluginPino({ transports: ["pino-pretty"] })

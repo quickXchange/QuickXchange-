@@ -88,6 +88,20 @@ import { AdminSearch } from '../components/admin-search';
 import { AdminWhitebitAssetSyncDialog } from '../components/admin-whitebit-asset-sync-dialog';
 import { AdminCryptoAssetsBulkEditDialog } from '../components/admin-crypto-assets-bulk-edit-dialog';
 import { OrderSupportToolsSection } from '../components/admin-order-support-tools';
+
+type AppBuildInfo = {
+  buildId: string;
+  commit: string;
+  deployedAt: string;
+  environment: string;
+};
+
+const frontendBuildInfo: AppBuildInfo = {
+  buildId: import.meta.env.APP_BUILD_ID || 'development',
+  commit: import.meta.env.APP_COMMIT || 'unknown',
+  deployedAt: import.meta.env.DEPLOYED_AT || 'development',
+  environment: import.meta.env.MODE,
+};
 import { CatalogImageUploadField } from '../components/catalog-image-upload-field';
 import { useAdminPermissions } from '../lib/admin-permissions';
 import { PermissionKey } from '@workspace/api-client-react';
@@ -2409,12 +2423,36 @@ function quickexReconciliationWarning(reconciliation: {
 
 function AdminOverview() {
   const { t, formatDate } = useI18n();
+  const { isOwner } = useAdminPermissions();
+  const [apiBuildInfo, setApiBuildInfo] = useState<AppBuildInfo | null>(null);
+  const [buildInfoError, setBuildInfoError] = useState(false);
   const [product, setProduct] = useState<'swap' | 'convert'>('swap');
   const [datePreset, setDatePreset] = useState<DatePreset>('7d');
 
   const todayStr = useMemo(() => dateInputValue(new Date()), []);
   const [customFrom, setCustomFrom] = useState(dateInputValue(new Date(Date.now() - 29 * 24 * 60 * 60 * 1000)));
   const [customTo, setCustomTo] = useState(todayStr);
+
+  useEffect(() => {
+    if (!isOwner) return;
+    const controller = new AbortController();
+    setBuildInfoError(false);
+    fetch(`${basePath}/api/admin/build-info`, {
+      credentials: 'same-origin',
+      signal: controller.signal,
+      headers: { accept: 'application/json' },
+    })
+      .then(async response => {
+        if (!response.ok) throw new Error(`Build information request failed (${response.status})`);
+        return response.json() as Promise<AppBuildInfo>;
+      })
+      .then(setApiBuildInfo)
+      .catch(error => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setBuildInfoError(true);
+      });
+    return () => controller.abort();
+  }, [isOwner]);
 
   const { from, to } = useMemo(() => getUtcBounds(datePreset, customFrom, customTo), [datePreset, customFrom, customTo]);
 
@@ -2684,6 +2722,39 @@ function AdminOverview() {
                 </small>
               </div>
             </div>
+            {isOwner && (
+              <div className="mt-3 rounded-xl border border-border bg-muted/20 p-4" data-testid="overview-build-identity">
+                <div className="mb-3 flex items-center gap-2">
+                  <Database size={16} className="text-primary" aria-hidden="true" />
+                  <strong className="text-sm text-foreground">System / Deployment diagnostics</strong>
+                </div>
+                <div className="grid gap-3 text-xs sm:grid-cols-2">
+                  {[
+                    ['Frontend', frontendBuildInfo],
+                    ['API', apiBuildInfo],
+                  ].map(([label, info]) => {
+                    const build = info as AppBuildInfo | null;
+                    return (
+                      <div key={label as string} className="min-w-0 rounded-lg border border-border bg-background/70 p-3">
+                        <span className="font-bold uppercase tracking-wider text-muted-foreground">{label as string}</span>
+                        {build ? (
+                          <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1">
+                            <dt>Build</dt><dd className="truncate font-mono" data-testid={`build-identity-${String(label).toLowerCase()}-id`}>{build.buildId}</dd>
+                            <dt>Commit</dt><dd className="truncate font-mono" data-testid={`build-identity-${String(label).toLowerCase()}-commit`}>{build.commit}</dd>
+                            <dt>Built</dt><dd className="truncate font-mono">{build.deployedAt}</dd>
+                            <dt>Environment</dt><dd className="truncate font-mono">{build.environment}</dd>
+                          </dl>
+                        ) : (
+                          <small className="mt-2 block text-muted-foreground">
+                            {buildInfoError ? 'Build information unavailable' : 'Loading build information…'}
+                          </small>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </section>
 
           {/* Metrics Grid */}

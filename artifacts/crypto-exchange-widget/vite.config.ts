@@ -1,4 +1,5 @@
 import path from 'path';
+import { execFileSync } from 'node:child_process';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
@@ -15,8 +16,33 @@ if (!Number.isFinite(port) || port <= 0) {
 
 const basePath = process.env.BASE_PATH || '/';
 
-export default defineConfig(async ({ mode }) => ({
+function sourceCommit() {
+  const configured = process.env.APP_COMMIT || process.env.REPLIT_GIT_COMMIT || process.env.GIT_COMMIT;
+  if (configured?.trim()) return configured.trim();
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: path.resolve(import.meta.dirname, '../..'),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return 'unknown';
+  }
+}
+
+export default defineConfig(async ({ mode }) => {
+  const commit = sourceCommit();
+  const deployedAt = process.env.DEPLOYED_AT?.trim() || new Date().toISOString();
+  const buildId = process.env.APP_BUILD_ID?.trim()
+    || `${commit.slice(0, 12)}-${deployedAt.replace(/\D/g, '').slice(0, 14)}`;
+
+  return {
   base: basePath,
+  define: {
+    'import.meta.env.APP_BUILD_ID': JSON.stringify(buildId),
+    'import.meta.env.APP_COMMIT': JSON.stringify(commit),
+    'import.meta.env.DEPLOYED_AT': JSON.stringify(deployedAt),
+  },
   plugins: [
     ...(mode === 'e2e'
       ? [{
@@ -142,4 +168,5 @@ export default defineConfig(async ({ mode }) => ({
     host: '0.0.0.0',
     allowedHosts: true,
   },
-}));
+  };
+});
