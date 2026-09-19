@@ -115,4 +115,5 @@
 - [Telegram search callback stability](telegram-search-callback-stability.md) — filtered option buttons must keep canonical indexes so stale messages cannot select a different route.
 - [Telegram wizard parity](telegram-wizard-parity.md) — match main-widget Swap source eligibility and parse callback payloads structurally, not by fragile offsets.
 - [Telegram production data boundary](telegram-production-data-boundary.md) — live bot orders belong to production; Replit preview Admin reads a separate development database.
+- [Telegram refund omission](telegram-refund-omission.md) — Telegram never collects, displays, or submits refund destinations, including from legacy saved sessions.
 - [Live Admin order directories](live-admin-order-directories.md) — operator financial queues must bypass HTTP caches and refetch across mounts and reconnects.

@@ -6,7 +6,7 @@ import { db, telegramAccountLinkChallengesTable, telegramChatsTable } from "@wor
 import { DepositInstructionsPending, menu, shouldApplyUpdate, reconciliationClaimEligible, reconciliationWinnerTransition, telegramAdvisoryChatKey, telegramCreateRetryDecision, telegramCreationDeliveryDecision, telegramCreationOutboxPayload, telegramCreateState, telegramDepositInstruction, telegramInboxDisposition, telegramManualOrderKinds, telegramNextChatCursor, telegramOutboxFailureDisposition, telegramPrivateUpdate, telegramRequiresDeposit, telegramSecretMatches, telegramUpdateIdValid, telegramWebhookDisposition } from "../src/routes/telegram";
 import { localeOf, t } from "../src/lib/telegram-localization";
 import { consumeTelegramLinkChallenge, createTelegramLinkChallenge, hashTelegramLinkToken, TelegramLinkChallengeError, TelegramLinkConflictError } from "../src/lib/telegram-link";
-import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, shouldAskDestination, shouldAskRefund, telegramFieldSkipIndex } from "../src/lib/telegram-wizard";
+import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, shouldAskDestination, telegramFieldSkipIndex, withoutTelegramRefundFields } from "../src/lib/telegram-wizard";
 import { normalizeRefundFields } from "../src/lib/manual-wallet-validation";
 
 test("refund fields normalize all absence forms and trim supplied values", () => {
@@ -138,7 +138,7 @@ test("Telegram wizard builds exact route bodies from persisted selections", () =
   assert.equal(body.targetSettlementOptionId, "receive-usdt");
   assert.equal(body.refundAddress, undefined);
   assert.equal(body.refundMemo, undefined);
-  const withRefund = buildCreatePayload("swap", source, target, {
+  const withLegacyRefund = buildCreatePayload("swap", source, target, {
     amount: 100,
     email: "a@b.test",
     quote: { quoteId: "quoted" },
@@ -147,8 +147,15 @@ test("Telegram wizard builds exact route bodies from persisted selections", () =
     refundMemo: "optional-tag",
     values: {},
   });
-  assert.equal(withRefund.refundAddress, "fiat-refund-destination");
-  assert.equal(withRefund.refundMemo, "optional-tag");
+  assert.equal("refundAddress" in withLegacyRefund, false);
+  assert.equal("refundMemo" in withLegacyRefund, false);
+  assert.deepEqual(withoutTelegramRefundFields({
+    refundAddress: "legacy-address",
+    refundMemo: "legacy-memo",
+    frozenCreateBody: "kept-for-confirm-sanitization",
+  }), {
+    frozenCreateBody: "kept-for-confirm-sanitization",
+  });
   assert.equal(shouldAskDestination("swap", source), false);
   assert.equal(shouldAskDestination("swap", target), true);
 });
@@ -235,8 +242,6 @@ test("Telegram completion and validation decisions follow route kind", () => {
   assert.equal(shouldAskDestination("swap", fiat), false);
   assert.equal(shouldAskDestination("swap", crypto), true);
   assert.equal(shouldAskDestination("convert", fiat), true);
-  assert.equal(shouldAskRefund(crypto), true);
-  assert.equal(shouldAskRefund(fiat), true);
 });
 
 test("Telegram financial actions require private chat and durable lease disposition", () => {

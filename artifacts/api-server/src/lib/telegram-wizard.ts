@@ -113,11 +113,10 @@ export function buildQuotePayload(
 export function shouldAskDestination(mode: "swap" | "convert", target: TelegramRouteOption) {
   return mode === "convert" || target.kind === "crypto-network";
 }
-export function shouldAskRefund(source: TelegramRouteOption) {
-  // Refund is an optional step for every exchange route. Crypto routes add
-  // network-aware validation in the handler; fiat routes persist free-form
-  // destinations through the manual order contract.
-  return true;
+
+export function withoutTelegramRefundFields<T extends Record<string, unknown>>(data: T): Omit<T, "refundAddress" | "refundMemo"> {
+  const { refundAddress: _refundAddress, refundMemo: _refundMemo, ...safe } = data;
+  return safe;
 }
 
 export function filterManualTargets(
@@ -184,8 +183,6 @@ export function buildCreatePayload(
         toNetwork: quote.toNetwork,
       }
     : {};
-  const refundAddress = typeof data.refundAddress === "string" ? data.refundAddress.trim() : "";
-  const refundMemo = typeof data.refundMemo === "string" ? data.refundMemo.trim() : "";
   return {
     type: mode === "convert" ? "instant" : "manual",
     ...route,
@@ -195,7 +192,6 @@ export function buildCreatePayload(
     customerName: data.customerName,
     destinationAddress: data.destinationAddress,
     destinationMemo: data.destinationMemo,
-    ...(refundAddress ? { refundAddress, ...(refundMemo ? { refundMemo } : {}) } : {}),
     ...(mode === "swap"
       ? {
           sourceSettlementOptionId: source.id,

@@ -6,7 +6,7 @@ import { languageButtons, localeOf, t, type TelegramLocale } from "../lib/telegr
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { signOrderTrackingToken } from "../lib/order-access";
-import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, requiredFieldActive, shouldAskDestination, shouldAskRefund, telegramFieldSkipIndex, type TelegramRouteOption } from "../lib/telegram-wizard";
+import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, requiredFieldActive, shouldAskDestination, telegramFieldSkipIndex, withoutTelegramRefundFields, type TelegramRouteOption } from "../lib/telegram-wizard";
 import { createTelegramLinkChallenge } from "../lib/telegram-link";
 import { getCustomerVerifiedEmail, requireActiveCustomerIdentity } from "../lib/customer-auth";
 import { getCustomerOrderHistory } from "../lib/order-history";
@@ -130,8 +130,9 @@ async function chatFor(chatId: string, from: TelegramFrom | undefined) {
 }
 async function saveSession(chatId: string, state: string, data: Record<string, unknown>) {
   const updateId = telegramContext.getStore()?.updateId;
-  await db.insert(telegramWizardSessionsTable).values({ chatId, state, data, lastAppliedUpdateId: updateId ?? null, expiresAt: new Date(Date.now() + 30 * 60_000) })
-    .onConflictDoUpdate({ target: telegramWizardSessionsTable.chatId, set: { state, data, ...(updateId ? { lastAppliedUpdateId: updateId } : {}), expiresAt: new Date(Date.now() + 30 * 60_000), updatedAt: new Date() } });
+  const safeData = withoutTelegramRefundFields(data);
+  await db.insert(telegramWizardSessionsTable).values({ chatId, state, data: safeData, lastAppliedUpdateId: updateId ?? null, expiresAt: new Date(Date.now() + 30 * 60_000) })
+    .onConflictDoUpdate({ target: telegramWizardSessionsTable.chatId, set: { state, data: safeData, ...(updateId ? { lastAppliedUpdateId: updateId } : {}), expiresAt: new Date(Date.now() + 30 * 60_000), updatedAt: new Date() } });
 }
 async function getSession(chatId: string) {
   const [row] = await db.select().from(telegramWizardSessionsTable).where(and(eq(telegramWizardSessionsTable.chatId, chatId), gte(telegramWizardSessionsTable.expiresAt, new Date()))).limit(1);
@@ -335,14 +336,6 @@ function validFieldValue(field: Record<string, unknown>, value: string) {
   }
   return value.length > 0;
 }
-function refundPrompt(source: SettlementOption, locale: TelegramLocale) {
-  const network = source.routeNetwork || (source as TelegramRouteOption & { networkTitle?: string }).networkTitle || "selected network";
-  return `${t(locale, "optionalRefund")} (${source.assetCode} / ${network})`;
-}
-function refundKeyboard(locale: TelegramLocale): TelegramButton[][] {
-  return [[{ text: `⏭️ ${t(locale, "skip")}`, callback_data: "skip:refund" }]];
-}
-
 function displayNumber(value: unknown) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return "Not configured";
@@ -476,7 +469,7 @@ async function sendOrders(chatId: string, locale: TelegramLocale) {
     const response = await fetch(`${baseUrl()}${path}/${encodeURIComponent(item.orderId)}/status?trackingToken=${encodeURIComponent(item.trackingToken)}`);
     const result = await response.json() as Record<string, unknown>;
     lines.push(response.ok
-      ? `• <code>${html(item.orderId)}</code> — ${html(result.status)}\n  Refund Address: ${html(typeof result.refundAddress === "string" && result.refundAddress.trim() ? result.refundAddress : "Not provided")}${typeof result.refundMemo === "string" && result.refundMemo.trim() ? `\n  ${t(locale, "memo")}: ${html(result.refundMemo)}` : ""}`
+      ? `• <code>${html(item.orderId)}</code> — ${html(result.status)}`
       : `• <code>${html(item.orderId)}</code> — unavailable`);
     buttons.push([{ text: `🔎 Track ${item.orderId}`, callback_data: `order:${index}` }]);
   }
@@ -585,17 +578,15 @@ async function handleText(chatId: string, locale: TelegramLocale, text: string) 
     const result = quoted.result;
     if (!quoted.ok) { await sendTelegramMessage(chatId, `QuickXchange could not quote this route: ${html(result.error ?? "route unavailable")}`); return; }
     const amount = quoted.amount;
-    const source = session.data.source as SettlementOption;
     const target = session.data.target as SettlementOption;
     const mode = session.data.mode === "convert" ? "convert" : "swap";
     const fields = (result.requiredSettlementFields as Array<Record<string, unknown>> | undefined) ?? [];
     const firstField = nextRequiredField(fields as Array<{ required?: boolean; requiredWhen?: { fieldKey: string; equals: string | string[] } }>, 0, {});
     const needsDestination = shouldAskDestination(mode, target);
-    const sourceNeedsRefund = shouldAskRefund(source);
-    const initialState = firstField >= 0 ? "field" : needsDestination ? "destination" : sourceNeedsRefund ? "refundAddress" : "email";
+    const initialState = firstField >= 0 ? "field" : needsDestination ? "destination" : "email";
     await saveSession(chatId, initialState, { ...session.data, amount, enteredAmount, quote: result, fieldIndex: firstField, fields, values: {} });
     if (firstField >= 0) await askField(chatId, fields[firstField], firstField, locale);
-    else await sendTelegramMessage(chatId, needsDestination ? t(locale, "destination") : sourceNeedsRefund ? refundPrompt(source, locale) : t(locale, "email"), sourceNeedsRefund && !needsDestination ? refundKeyboard(locale) : undefined);
+    else await sendTelegramMessage(chatId, needsDestination ? t(locale, "destination") : t(locale, "email"));
     return;
   }
   if (session?.state === "field") {
@@ -610,9 +601,8 @@ async function handleText(chatId: string, locale: TelegramLocale, text: string) 
       await askField(chatId, fields[next], next, locale);
     } else {
       const needsDestination = shouldAskDestination(session.data.mode === "convert" ? "convert" : "swap", session.data.target as SettlementOption);
-      const needsRefund = shouldAskRefund(session.data.source as SettlementOption);
-      await saveSession(chatId, needsDestination ? "destination" : needsRefund ? "refundAddress" : "email", { ...session.data, values });
-      await sendTelegramMessage(chatId, needsDestination ? t(locale, "destination") : needsRefund ? refundPrompt(session.data.source as SettlementOption, locale) : t(locale, "email"), !needsDestination && needsRefund ? refundKeyboard(locale) : undefined);
+      await saveSession(chatId, needsDestination ? "destination" : "email", { ...session.data, values });
+      await sendTelegramMessage(chatId, needsDestination ? t(locale, "destination") : t(locale, "email"));
     }
     return;
   }
@@ -627,11 +617,6 @@ async function handleText(chatId: string, locale: TelegramLocale, text: string) 
       const response = await fetch(`${baseUrl()}/api/quickex/validate-address`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ asset: (session.data.target as SettlementOption).assetCode, network: (session.data.target as SettlementOption).routeNetwork, address: text.trim() }) });
       if (!response.ok) { await sendTelegramMessage(chatId, t(locale, "invalidAddress")); return; }
     }
-    if (shouldAskRefund(session.data.source as SettlementOption)) {
-      await saveSession(chatId, "refundAddress", { ...session.data, destinationAddress: text.trim() });
-      await sendTelegramMessage(chatId, refundPrompt(session.data.source as SettlementOption, locale), refundKeyboard(locale));
-      return;
-    }
     await saveSession(chatId, "email", { ...session.data, destinationAddress: text.trim() });
     await sendTelegramMessage(chatId, t(locale, "email"));
     return;
@@ -641,26 +626,12 @@ async function handleText(chatId: string, locale: TelegramLocale, text: string) 
       const response = await fetch(`${baseUrl()}/api/quickex/validate-address`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ asset: (session.data.target as SettlementOption).assetCode, network: (session.data.target as SettlementOption).routeNetwork, address: session.data.destinationAddress, memo: text.trim() }) });
       if (!response.ok) { await sendTelegramMessage(chatId, t(locale, "invalidAddress")); return; }
     }
-    if (shouldAskRefund(session.data.source as SettlementOption)) {
-      await saveSession(chatId, "refundAddress", { ...session.data, destinationMemo: text.trim() });
-      await sendTelegramMessage(chatId, refundPrompt(session.data.source as SettlementOption, locale), refundKeyboard(locale));
-      return;
-    }
     await saveSession(chatId, "email", { ...session.data, destinationMemo: text.trim() });
     await sendTelegramMessage(chatId, t(locale, "email"));
     return;
   }
-  if (session?.state === "refundAddress") {
-    const address = text.trim();
-    if (address) {
-      const needsMemo = (session.data.source as SettlementOption).requiresMemo;
-      await saveSession(chatId, needsMemo ? "refundMemo" : "email", { ...session.data, refundAddress: address });
-      await sendTelegramMessage(chatId, needsMemo ? t(locale, "memo") : t(locale, "email"));
-    }
-    return;
-  }
-  if (session?.state === "refundMemo") {
-    await saveSession(chatId, "email", { ...session.data, refundMemo: text.trim() });
+  if (session?.state === "refundAddress" || session?.state === "refundMemo") {
+    await saveSession(chatId, "email", session.data);
     await sendTelegramMessage(chatId, t(locale, "email"));
     return;
   }
@@ -689,7 +660,7 @@ async function handleText(chatId: string, locale: TelegramLocale, text: string) 
     if (response?.ok && !storedLink) {
       await db.insert(telegramOrderLinksTable).values({ chatId, orderId: id, trackingToken, orderKind: usedPath === "/api/quickex/orders" ? "convert" : "swap" }).onConflictDoNothing();
     }
-    await sendTelegramMessage(chatId, response?.ok ? `<b>${t(locale, "order")}</b> <code>${html(id)}</code>\n${t(locale, "status")}: ${html(result.status)}\n${t(locale, "amount")}: ${html(result.amount)} ${html(result.fromAsset)} → ${html(result.receiveAmount)} ${html(result.toAsset)}\nRefund Address: ${html(typeof result.refundAddress === "string" && result.refundAddress.trim() ? result.refundAddress : "Not provided")}${typeof result.refundMemo === "string" && result.refundMemo.trim() ? `\n${t(locale, "memo")}: ${html(result.refundMemo)}` : ""}` : `${t(locale, "unavailable")}: ${html(result.error ?? "invalid tracking capability")}`);
+    await sendTelegramMessage(chatId, response?.ok ? `<b>${t(locale, "order")}</b> <code>${html(id)}</code>\n${t(locale, "status")}: ${html(result.status)}\n${t(locale, "amount")}: ${html(result.amount)} ${html(result.fromAsset)} → ${html(result.receiveAmount)} ${html(result.toAsset)}` : `${t(locale, "unavailable")}: ${html(result.error ?? "invalid tracking capability")}`);
     if (response?.ok) await sendDepositInstructions(chatId, id, usedPath === "/api/quickex/orders" ? "convert" : "swap", trackingToken, result);
     return;
   }
@@ -755,9 +726,8 @@ async function callback(chatId: string, locale: TelegramLocale, data: string) {
     if (next >= 0) { await saveSession(chatId, "field", { ...session.data, values, fieldIndex: next }); await askField(chatId, fields[next], next, locale); }
     else {
       const needs = shouldAskDestination(session.data.mode === "convert" ? "convert" : "swap", session.data.target as SettlementOption);
-      const needsRefund = shouldAskRefund(session.data.source as SettlementOption);
-      await saveSession(chatId, needs ? "destination" : needsRefund ? "refundAddress" : "email", { ...session.data, values });
-      await sendTelegramMessage(chatId, needs ? t(locale, "destination") : refundPrompt(session.data.source as SettlementOption, locale), needs ? undefined : refundKeyboard(locale));
+      await saveSession(chatId, needs ? "destination" : "email", { ...session.data, values });
+      await sendTelegramMessage(chatId, needs ? t(locale, "destination") : t(locale, "email"));
     }
     return;
   }
@@ -780,14 +750,15 @@ async function callback(chatId: string, locale: TelegramLocale, data: string) {
     const values = (session.data.values as Record<string, unknown>) ?? {};
     const next = nextRequiredField(fields as Array<{ required?: boolean; requiredWhen?: { fieldKey: string; equals: string | string[] } }>, index + 1, values);
     if (next >= 0) { await saveSession(chatId, "field", { ...session.data, fieldIndex: next }); await askField(chatId, fields[next], next, locale); }
-    else { const needs = shouldAskDestination(session.data.mode === "convert" ? "convert" : "swap", session.data.target as SettlementOption); const needsRefund = shouldAskRefund(session.data.source as SettlementOption); const state = needs ? "destination" : needsRefund ? "refundAddress" : "email"; await saveSession(chatId, state, session.data); await sendTelegramMessage(chatId, needs ? t(locale, "destination") : needsRefund ? refundPrompt(session.data.source as SettlementOption, locale) : t(locale, "email"), !needs && needsRefund ? refundKeyboard(locale) : undefined); }
+    else { const needs = shouldAskDestination(session.data.mode === "convert" ? "convert" : "swap", session.data.target as SettlementOption); const state = needs ? "destination" : "email"; await saveSession(chatId, state, session.data); await sendTelegramMessage(chatId, needs ? t(locale, "destination") : t(locale, "email")); }
     return;
   }
   if (data === "skip:refund") {
     const session = await getSession(chatId);
-    if (session?.state !== "refundAddress") return;
-    await saveSession(chatId, "email", session.data);
-    await sendTelegramMessage(chatId, t(locale, "email"));
+    if (session?.state === "refundAddress" || session?.state === "refundMemo") {
+      await saveSession(chatId, "email", session.data);
+      await sendTelegramMessage(chatId, t(locale, "email"));
+    }
     return;
   }
   if (data === "track") { await saveSession(chatId, "track", {}); await sendTelegramMessage(chatId, t(locale, "tracking")); return; }
@@ -831,8 +802,10 @@ async function callback(chatId: string, locale: TelegramLocale, data: string) {
   if (data === "confirm") {
     const session = await getSession(chatId);
     if (!session || session.state !== "review") { await sendTelegramMessage(chatId, t(locale, "expired")); return; }
-    const body = (session.data.frozenCreateBody as ReturnType<typeof buildCreatePayload> | undefined)
-      ?? buildCreatePayload(session.data.mode === "convert" ? "convert" : "swap", session.data.source as SettlementOption, session.data.target as SettlementOption, session.data);
+    const body = withoutTelegramRefundFields(
+      (session.data.frozenCreateBody as ReturnType<typeof buildCreatePayload> | undefined)
+        ?? buildCreatePayload(session.data.mode === "convert" ? "convert" : "swap", session.data.source as SettlementOption, session.data.target as SettlementOption, session.data),
+    );
     const [linkedChat] = await db.select({ clerkCustomerUserId: telegramChatsTable.clerkCustomerUserId })
       .from(telegramChatsTable).where(eq(telegramChatsTable.chatId, chatId)).limit(1);
     const linkedCustomerClerkUserId = linkedChat?.clerkCustomerUserId ?? undefined;
