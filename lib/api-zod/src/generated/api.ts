@@ -13726,3 +13726,91 @@ export const ConsumeTelegramLinkChallengeResponse = zod.object({
   "intent": zod.enum(['signin', 'signup']),
   "chatId": zod.string()
 })
+
+
+export const createTelegramMiniAppSessionBodyInitDataMax = 4096;
+
+
+
+export const CreateTelegramMiniAppSessionBody = zod.object({
+  "initData": zod.string().min(1).max(createTelegramMiniAppSessionBodyInitDataMax)
+})
+
+export const CreateTelegramMiniAppSessionResponse = zod.object({
+  "token": zod.string(),
+  "expiresAt": zod.coerce.date(),
+  "user": zod.object({
+  "id": zod.string(),
+  "displayName": zod.string(),
+  "username": zod.string().nullish(),
+  "firstName": zod.string().nullish(),
+  "lastName": zod.string().nullish()
+}),
+  "linkedAccount": zod.boolean()
+})
+
+
+export const ListTelegramMiniAppOrdersResponseItem = zod.object({
+  "id": zod.string(),
+  "orderKind": zod.string(),
+  "status": zod.string(),
+  "fromAsset": zod.string().optional(),
+  "toAsset": zod.string().optional(),
+  "amount": zod.string(),
+  "receiveAmount": zod.string(),
+  "trackingToken": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "outcomeUnknown": zod.boolean().optional(),
+  "customerSafeNote": zod.string().optional()
+})
+export const ListTelegramMiniAppOrdersResponse = zod.array(ListTelegramMiniAppOrdersResponseItem)
+
+
+export const getTelegramMiniAppOrderPathIdMax = 255;
+
+
+
+export const GetTelegramMiniAppOrderParams = zod.object({
+  "id": zod.coerce.string().min(1).max(getTelegramMiniAppOrderPathIdMax)
+})
+
+export const GetTelegramMiniAppOrderResponse = zod.object({
+  "id": zod.string(),
+  "orderKind": zod.string(),
+  "status": zod.string(),
+  "fromAsset": zod.string().optional(),
+  "toAsset": zod.string().optional(),
+  "amount": zod.string(),
+  "receiveAmount": zod.string(),
+  "trackingToken": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "outcomeUnknown": zod.boolean().optional(),
+  "customerSafeNote": zod.string().optional()
+})
+
+
+export const linkTelegramMiniAppOrderBodyOrderIdMax = 255;
+
+export const linkTelegramMiniAppOrderBodyTrackingTokenMax = 4096;
+
+
+
+export const LinkTelegramMiniAppOrderBody = zod.object({
+  "orderId": zod.string().min(1).max(linkTelegramMiniAppOrderBodyOrderIdMax),
+  "trackingToken": zod.string().min(1).max(linkTelegramMiniAppOrderBodyTrackingTokenMax),
+  "orderKind": zod.enum(['manual', 'swap', 'convert'])
+})
+
+export const LinkTelegramMiniAppOrderResponse = zod.object({
+  "id": zod.string(),
+  "orderKind": zod.string(),
+  "status": zod.string(),
+  "fromAsset": zod.string().optional(),
+  "toAsset": zod.string().optional(),
+  "amount": zod.string(),
+  "receiveAmount": zod.string(),
+  "trackingToken": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "outcomeUnknown": zod.boolean().optional(),
+  "customerSafeNote": zod.string().optional()
+})

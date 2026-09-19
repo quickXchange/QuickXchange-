@@ -213,6 +213,10 @@ import type {
   TelegramLink,
   TelegramLinkChallenge,
   TelegramLinkInput,
+  TelegramMiniAppOrder,
+  TelegramMiniAppOrderLinkInput,
+  TelegramMiniAppSession,
+  TelegramMiniAppSessionInput,
   UnsubscribeNewsletterParams,
   UpdateWhitebitProviderStatusBody,
   WebsiteBranding,
@@ -16703,4 +16707,276 @@ export const useConsumeTelegramLinkChallenge = <TError = ErrorType<ApiError>,
         TContext
       > => {
       return useMutation(getConsumeTelegramLinkChallengeMutationOptions(options));
+    }
+
+export const getCreateTelegramMiniAppSessionUrl = () => {
+
+
+
+
+  return `/api/telegram/mini-app/session`
+}
+
+export const createTelegramMiniAppSession = async (telegramMiniAppSessionInput: TelegramMiniAppSessionInput, options?: Parameters<typeof customFetch>[1]): Promise<TelegramMiniAppSession> => {
+
+  return customFetch<TelegramMiniAppSession>(getCreateTelegramMiniAppSessionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(telegramMiniAppSessionInput)
+  }
+);}
+
+
+
+
+
+export const getCreateTelegramMiniAppSessionMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTelegramMiniAppSession>>, TError,{data: BodyType<TelegramMiniAppSessionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createTelegramMiniAppSession>>, TError,{data: BodyType<TelegramMiniAppSessionInput>}, TContext> => {
+
+const mutationKey = ['createTelegramMiniAppSession'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTelegramMiniAppSession>>, {data: BodyType<TelegramMiniAppSessionInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createTelegramMiniAppSession(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateTelegramMiniAppSessionMutationResult = NonNullable<Awaited<ReturnType<typeof createTelegramMiniAppSession>>>
+    export type CreateTelegramMiniAppSessionMutationBody = BodyType<TelegramMiniAppSessionInput>
+    export type CreateTelegramMiniAppSessionMutationError = ErrorType<ApiError>
+
+    export const useCreateTelegramMiniAppSession = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTelegramMiniAppSession>>, TError,{data: BodyType<TelegramMiniAppSessionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createTelegramMiniAppSession>>,
+        TError,
+        {data: BodyType<TelegramMiniAppSessionInput>},
+        TContext
+      > => {
+      return useMutation(getCreateTelegramMiniAppSessionMutationOptions(options));
+    }
+
+export const getListTelegramMiniAppOrdersUrl = () => {
+
+
+
+
+  return `/api/telegram/mini-app/orders`
+}
+
+export const listTelegramMiniAppOrders = async ( options?: Parameters<typeof customFetch>[1]): Promise<TelegramMiniAppOrder[]> => {
+
+  return customFetch<TelegramMiniAppOrder[]>(getListTelegramMiniAppOrdersUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListTelegramMiniAppOrdersQueryKey = () => {
+    return [
+    `/api/telegram/mini-app/orders`
+    ] as const;
+    }
+
+
+export const getListTelegramMiniAppOrdersQueryOptions = <TData = Awaited<ReturnType<typeof listTelegramMiniAppOrders>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTelegramMiniAppOrders>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListTelegramMiniAppOrdersQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTelegramMiniAppOrders>>> = ({ signal }) => listTelegramMiniAppOrders({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listTelegramMiniAppOrders>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListTelegramMiniAppOrdersQueryResult = NonNullable<Awaited<ReturnType<typeof listTelegramMiniAppOrders>>>
+export type ListTelegramMiniAppOrdersQueryError = ErrorType<unknown>
+
+
+
+export function useListTelegramMiniAppOrders<TData = Awaited<ReturnType<typeof listTelegramMiniAppOrders>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTelegramMiniAppOrders>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListTelegramMiniAppOrdersQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetTelegramMiniAppOrderUrl = (id: string,) => {
+
+
+
+
+  return `/api/telegram/mini-app/orders/${id}`
+}
+
+export const getTelegramMiniAppOrder = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<TelegramMiniAppOrder> => {
+
+  return customFetch<TelegramMiniAppOrder>(getGetTelegramMiniAppOrderUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTelegramMiniAppOrderQueryKey = (id: string,) => {
+    return [
+    `/api/telegram/mini-app/orders/${id}`
+    ] as const;
+    }
+
+
+export const getGetTelegramMiniAppOrderQueryOptions = <TData = Awaited<ReturnType<typeof getTelegramMiniAppOrder>>, TError = ErrorType<ApiError>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTelegramMiniAppOrder>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTelegramMiniAppOrderQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTelegramMiniAppOrder>>> = ({ signal }) => getTelegramMiniAppOrder(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTelegramMiniAppOrder>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTelegramMiniAppOrderQueryResult = NonNullable<Awaited<ReturnType<typeof getTelegramMiniAppOrder>>>
+export type GetTelegramMiniAppOrderQueryError = ErrorType<ApiError>
+
+
+
+export function useGetTelegramMiniAppOrder<TData = Awaited<ReturnType<typeof getTelegramMiniAppOrder>>, TError = ErrorType<ApiError>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTelegramMiniAppOrder>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTelegramMiniAppOrderQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getLinkTelegramMiniAppOrderUrl = () => {
+
+
+
+
+  return `/api/telegram/mini-app/orders/link`
+}
+
+export const linkTelegramMiniAppOrder = async (telegramMiniAppOrderLinkInput: TelegramMiniAppOrderLinkInput, options?: Parameters<typeof customFetch>[1]): Promise<TelegramMiniAppOrder> => {
+
+  return customFetch<TelegramMiniAppOrder>(getLinkTelegramMiniAppOrderUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(telegramMiniAppOrderLinkInput)
+  }
+);}
+
+
+
+
+
+export const getLinkTelegramMiniAppOrderMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof linkTelegramMiniAppOrder>>, TError,{data: BodyType<TelegramMiniAppOrderLinkInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof linkTelegramMiniAppOrder>>, TError,{data: BodyType<TelegramMiniAppOrderLinkInput>}, TContext> => {
+
+const mutationKey = ['linkTelegramMiniAppOrder'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof linkTelegramMiniAppOrder>>, {data: BodyType<TelegramMiniAppOrderLinkInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  linkTelegramMiniAppOrder(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LinkTelegramMiniAppOrderMutationResult = NonNullable<Awaited<ReturnType<typeof linkTelegramMiniAppOrder>>>
+    export type LinkTelegramMiniAppOrderMutationBody = BodyType<TelegramMiniAppOrderLinkInput>
+    export type LinkTelegramMiniAppOrderMutationError = ErrorType<ApiError>
+
+    export const useLinkTelegramMiniAppOrder = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof linkTelegramMiniAppOrder>>, TError,{data: BodyType<TelegramMiniAppOrderLinkInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof linkTelegramMiniAppOrder>>,
+        TError,
+        {data: BodyType<TelegramMiniAppOrderLinkInput>},
+        TContext
+      > => {
+      return useMutation(getLinkTelegramMiniAppOrderMutationOptions(options));
     }

@@ -16,6 +16,7 @@ import teamMembersRouter from "./team-members";
 import whitebitRouter, { whitebitOperatorRouter, whitebitWebhookRouter } from "./whitebit";
 import telegramRouter from "./telegram";
 import telegramConnectRouter from "./telegram-connect";
+import telegramMiniAppRouter from "./telegram-mini-app";
 import { apiBuildInfo } from "../lib/build-info";
 import workspaceConfigSyncRouter from "./workspace-config-sync";
 
@@ -26,6 +27,7 @@ router.use(whitebitRouter);
 router.use(whitebitWebhookRouter);
 router.use(telegramRouter);
 router.use(telegramConnectRouter);
+router.use(telegramMiniAppRouter);
 // All top-level Admin APIs are operator-only by default. Individual owner
 // routes retain their existing requireOwner middleware.
 router.use("/admin", requireOperator);

@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/telegram-mini-app/"
+title = "QuickXchange Telegram Mini App"
+description = "A dedicated mobile-first Telegram Mini App frontend that securely reuses the existing QuickXchange backend, exchange catalog, pricing, orders, customer data, and Telegram Bot integration."
+version = "1.0.0"
+id = "artifacts/quickxchange-telegram-mini-app"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/telegram-mini-app/" ]
+localPort = 24368
+
+[services.development]
+run = "pnpm --filter @workspace/quickxchange-telegram-mini-app run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/quickxchange-telegram-mini-app", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/quickxchange-telegram-mini-app/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24368"
+BASE_PATH = "/telegram-mini-app/"

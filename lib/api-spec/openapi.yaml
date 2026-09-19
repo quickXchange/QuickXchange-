@@ -3622,6 +3622,51 @@ paths:
         "200": { description: Linked Telegram account, content: { application/json: { schema: { $ref: "#/components/schemas/TelegramLink" } } } }
         "401": { description: Customer authentication is required, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
         "404": { description: Invalid challenge, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /telegram/mini-app/session:
+    post:
+      operationId: createTelegramMiniAppSession
+      tags: [telegram]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TelegramMiniAppSessionInput" }
+      responses:
+        "200":
+          description: Signed Mini App session
+          content: { application/json: { schema: { $ref: "#/components/schemas/TelegramMiniAppSession" } } }
+        "401": { description: Invalid init data, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /telegram/mini-app/orders:
+    get:
+      operationId: listTelegramMiniAppOrders
+      tags: [telegram]
+      security: [{ TelegramMiniAppSession: [] }]
+      responses:
+        "200":
+          description: Linked customer-safe orders
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/TelegramMiniAppOrder" } } } }
+  /telegram/mini-app/orders/{id}:
+    get:
+      operationId: getTelegramMiniAppOrder
+      tags: [telegram]
+      security: [{ TelegramMiniAppSession: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 255 } }]
+      responses:
+        "200": { description: Customer-safe order, content: { application/json: { schema: { $ref: "#/components/schemas/TelegramMiniAppOrder" } } } }
+        "404": { description: Order not found, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /telegram/mini-app/orders/link:
+    post:
+      operationId: linkTelegramMiniAppOrder
+      tags: [telegram]
+      security: [{ TelegramMiniAppSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TelegramMiniAppOrderLinkInput" }
+      responses:
+        "200": { description: Linked order, content: { application/json: { schema: { $ref: "#/components/schemas/TelegramMiniAppOrder" } } } }
+        "400": { description: Invalid tracking token or order, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
 
 components:
   parameters:
@@ -3679,6 +3724,10 @@ components:
       in: cookie
       name: __session
       description: Clerk customer session. Order ownership is derived from this authenticated session on the server.
+    TelegramMiniAppSession:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
     OperatorSession:
       type: apiKey
       in: cookie
@@ -6887,3 +6936,47 @@ components:
           additionalProperties: true
           properties:
             nonce: { type: integer }
+    TelegramMiniAppSessionInput:
+      type: object
+      required: [initData]
+      properties:
+        initData: { type: string, minLength: 1, maxLength: 4096 }
+    TelegramMiniAppUser:
+      type: object
+      required: [id, displayName]
+      properties:
+        id: { type: string }
+        displayName: { type: string }
+        username: { type: [string, "null"] }
+        firstName: { type: [string, "null"] }
+        lastName: { type: [string, "null"] }
+    TelegramMiniAppSession:
+      type: object
+      required: [token, expiresAt, user, linkedAccount]
+      properties:
+        token: { type: string }
+        expiresAt: { type: string, format: date-time }
+        user: { $ref: "#/components/schemas/TelegramMiniAppUser" }
+        linkedAccount: { type: boolean }
+    TelegramMiniAppOrder:
+      type: object
+      required: [id, orderKind, status, amount, receiveAmount, trackingToken, createdAt]
+      properties:
+        id: { type: string }
+        orderKind: { type: string }
+        status: { type: string }
+        fromAsset: { type: string }
+        toAsset: { type: string }
+        amount: { type: string }
+        receiveAmount: { type: string }
+        trackingToken: { type: string }
+        createdAt: { type: string, format: date-time }
+        outcomeUnknown: { type: boolean }
+        customerSafeNote: { type: string }
+    TelegramMiniAppOrderLinkInput:
+      type: object
+      required: [orderId, trackingToken, orderKind]
+      properties:
+        orderId: { type: string, minLength: 1, maxLength: 255 }
+        trackingToken: { type: string, minLength: 1, maxLength: 4096 }
+        orderKind: { type: string, enum: [manual, swap, convert] }

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { eq, inArray } from "drizzle-orm";
@@ -8,6 +9,44 @@ import { localeOf, t } from "../src/lib/telegram-localization";
 import { consumeTelegramLinkChallenge, createTelegramLinkChallenge, hashTelegramLinkToken, TelegramLinkChallengeError, TelegramLinkConflictError } from "../src/lib/telegram-link";
 import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, shouldAskDestination, telegramFieldSkipIndex, withoutTelegramRefundFields } from "../src/lib/telegram-wizard";
 import { normalizeRefundFields } from "../src/lib/manual-wallet-validation";
+import { validateTelegramMiniAppInitData, verifyTelegramMiniAppSession } from "../src/routes/telegram-mini-app";
+
+test("Telegram Mini App initData validates authentic user data", () => {
+  const previous = process.env.TELEGRAM_BOT_TOKEN;
+  process.env.TELEGRAM_BOT_TOKEN = "test-only-bot-token";
+  const authDate = Math.floor(Date.now() / 1000);
+  const params = new URLSearchParams({ auth_date: String(authDate), query_id: "query", user: JSON.stringify({ id: 741852, first_name: "Test", username: "tester" }) });
+  const check = [...params.entries()].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([key, value]) => `${key}=${value}`).join("\n");
+  const secret = createHmac("sha256", "WebAppData").update(process.env.TELEGRAM_BOT_TOKEN).digest();
+  params.set("hash", createHmac("sha256", secret).update(check).digest("hex"));
+  assert.equal(validateTelegramMiniAppInitData(params.toString()).id, 741852);
+  if (previous === undefined) delete process.env.TELEGRAM_BOT_TOKEN; else process.env.TELEGRAM_BOT_TOKEN = previous;
+});
+
+test("Telegram Mini App rejects tampered hashes and expired auth dates", () => {
+  const previous = process.env.TELEGRAM_BOT_TOKEN;
+  process.env.TELEGRAM_BOT_TOKEN = "test-only-bot-token";
+  const params = new URLSearchParams({ auth_date: String(Math.floor(Date.now() / 1000) - 901), user: JSON.stringify({ id: 741852 }) });
+  params.set("hash", "0".repeat(64));
+  assert.throws(() => validateTelegramMiniAppInitData(params.toString()), /Invalid Telegram init data/);
+  const check = [...params.entries()].filter(([key]) => key !== "hash").sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([key, value]) => `${key}=${value}`).join("\n");
+  const secret = createHmac("sha256", "WebAppData").update(process.env.TELEGRAM_BOT_TOKEN).digest();
+  params.set("hash", createHmac("sha256", secret).update(check).digest("hex"));
+  assert.throws(() => validateTelegramMiniAppInitData(params.toString()), /expired/);
+  if (previous === undefined) delete process.env.TELEGRAM_BOT_TOKEN; else process.env.TELEGRAM_BOT_TOKEN = previous;
+});
+
+test("Telegram Mini App signed sessions verify, reject tampering, and expire", () => {
+  const previous = process.env.SESSION_SECRET;
+  process.env.SESSION_SECRET = "test-only-session-secret";
+  const encoded = Buffer.from(JSON.stringify({ v: 1, userId: "741852", chatId: "741852", exp: Date.now() + 60_000 })).toString("base64url");
+  const signature = createHmac("sha256", process.env.SESSION_SECRET).update(`telegram-mini:${encoded}`).digest("base64url");
+  const token = `${encoded}.${signature}`;
+  assert.equal(verifyTelegramMiniAppSession(token).userId, "741852");
+  assert.throws(() => verifyTelegramMiniAppSession(`${encoded}.${signature.slice(0, -1)}x`), /Invalid session/);
+  assert.throws(() => verifyTelegramMiniAppSession(token, Date.now() + 61_000), /expired/);
+  if (previous === undefined) delete process.env.SESSION_SECRET; else process.env.SESSION_SECRET = previous;
+});
 
 test("refund fields normalize all absence forms and trim supplied values", () => {
   assert.deepEqual(normalizeRefundFields({}), { refundAddress: undefined, refundMemo: undefined });

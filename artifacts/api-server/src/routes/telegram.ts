@@ -14,6 +14,12 @@ import { getCustomerOrderHistory } from "../lib/order-history";
 const router: IRouter = Router();
 export const telegramManualOrderKinds = ["manual", "swap"] as const;
 const website = () => process.env.TELEGRAM_WEBSITE_URL?.trim() || process.env.PUBLIC_SITE_URL?.trim();
+const miniAppUrl = () => {
+  const configured = process.env.TELEGRAM_MINI_APP_URL?.trim();
+  if (configured) return configured;
+  const publicWebsite = website();
+  return publicWebsite ? `${publicWebsite.replace(/\/+$/, "")}/telegram-mini-app/` : undefined;
+};
 const html = (value: unknown) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 const baseUrl = () => `http://127.0.0.1:${process.env.PORT ?? "8080"}`;
 export const telegramSecretMatches = (provided: string | undefined) => {
@@ -120,6 +126,7 @@ export const menu = (locale: TelegramLocale, linked = false): TelegramButton[][]
   [{ text: `💬 ${t(locale, "support")}`, callback_data: "support" }, website()
     ? { text: `🌍 ${t(locale, "website")}`, url: website()! }
     : { text: `🌍 ${t(locale, "website")} unavailable`, callback_data: "website_unavailable" }],
+  ...(miniAppUrl() ? [[{ text: "📱 Open App", web_app: { url: miniAppUrl()! } }]] : []),
 ];
 async function chatFor(chatId: string, from: TelegramFrom | undefined) {
   const locale = localeOf(from?.language_code);
@@ -922,6 +929,8 @@ export async function setupTelegramCommands() {
     { command: "support", description: "Contact support" },
     { command: "language", description: "Choose language" },
   ] });
+  const appUrl = miniAppUrl();
+  if (appUrl) await telegramCall("setChatMenuButton", { menu_button: { type: "web_app", text: "Open App", web_app: { url: appUrl } } });
   return true;
 }
 

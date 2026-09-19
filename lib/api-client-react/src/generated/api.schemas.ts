@@ -5279,6 +5279,69 @@ export interface WhitebitWebhookEnvelope {
   params: WhitebitWebhookEnvelopeParams;
 }
 
+export interface TelegramMiniAppSessionInput {
+  /**
+     * @minLength 1
+     * @maxLength 4096
+     */
+  initData: string;
+}
+
+export interface TelegramMiniAppUser {
+  id: string;
+  displayName: string;
+  /** @nullable */
+  username?: string | null;
+  /** @nullable */
+  firstName?: string | null;
+  /** @nullable */
+  lastName?: string | null;
+}
+
+export interface TelegramMiniAppSession {
+  token: string;
+  expiresAt: string;
+  user: TelegramMiniAppUser;
+  linkedAccount: boolean;
+}
+
+export interface TelegramMiniAppOrder {
+  id: string;
+  orderKind: string;
+  status: string;
+  fromAsset?: string;
+  toAsset?: string;
+  amount: string;
+  receiveAmount: string;
+  trackingToken: string;
+  createdAt: string;
+  outcomeUnknown?: boolean;
+  customerSafeNote?: string;
+}
+
+export type TelegramMiniAppOrderLinkInputOrderKind = typeof TelegramMiniAppOrderLinkInputOrderKind[keyof typeof TelegramMiniAppOrderLinkInputOrderKind];
+
+
+export const TelegramMiniAppOrderLinkInputOrderKind = {
+  manual: 'manual',
+  swap: 'swap',
+  convert: 'convert',
+} as const;
+
+export interface TelegramMiniAppOrderLinkInput {
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
+  orderId: string;
+  /**
+     * @minLength 1
+     * @maxLength 4096
+     */
+  trackingToken: string;
+  orderKind: TelegramMiniAppOrderLinkInputOrderKind;
+}
+
 export type PageParameter = number;
 
 export type PageSizeParameter = number;
