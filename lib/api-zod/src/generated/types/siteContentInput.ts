@@ -8,5 +8,6 @@
 import type { SiteContentInputContent } from './siteContentInputContent';
 
 export interface SiteContentInput {
+  /** Page-specific content. The order-terms-acceptance page uses OrderTermsAcceptanceContent. */
   content: SiteContentInputContent;
 }

@@ -6551,13 +6551,32 @@ components:
       type: object
       required: [content]
       properties:
-        content: { type: object, additionalProperties: true }
+        content:
+          type: object
+          additionalProperties: true
+          description: Page-specific content. The order-terms-acceptance page uses OrderTermsAcceptanceContent.
     SiteContentDraftInput:
       type: object
       required: [pageKey, content]
       properties:
         pageKey: { $ref: "#/components/schemas/SitePageKey" }
-        content: { type: object, additionalProperties: true }
+        content:
+          type: object
+          additionalProperties: true
+          description: Page-specific content. The order-terms-acceptance page uses OrderTermsAcceptanceContent.
+    OrderTermsAcceptanceContent:
+      type: object
+      description: Shared order terms acceptance copy used by Convert and Swap.
+      required: [mainText, termsLabel, termsUrl, privacyLabel, privacyUrl, amlLabel, amlUrl]
+      additionalProperties: false
+      properties:
+        mainText: { type: string, minLength: 1, maxLength: 200 }
+        termsLabel: { type: string, minLength: 1, maxLength: 200 }
+        termsUrl: { type: string, minLength: 1, maxLength: 2048 }
+        privacyLabel: { type: string, minLength: 1, maxLength: 200 }
+        privacyUrl: { type: string, minLength: 1, maxLength: 2048 }
+        amlLabel: { type: string, minLength: 1, maxLength: 200 }
+        amlUrl: { type: string, minLength: 1, maxLength: 2048 }
     AdminSitePage:
       type: object
       required: [pageKey, draft, published]

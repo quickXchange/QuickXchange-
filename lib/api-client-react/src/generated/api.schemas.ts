@@ -4554,17 +4554,66 @@ export interface SiteContentRevision {
   createdAt: string;
 }
 
+/**
+ * Page-specific content. The order-terms-acceptance page uses OrderTermsAcceptanceContent.
+ */
 export type SiteContentInputContent = { [key: string]: unknown };
 
 export interface SiteContentInput {
+  /** Page-specific content. The order-terms-acceptance page uses OrderTermsAcceptanceContent. */
   content: SiteContentInputContent;
 }
 
+/**
+ * Page-specific content. The order-terms-acceptance page uses OrderTermsAcceptanceContent.
+ */
 export type SiteContentDraftInputContent = { [key: string]: unknown };
 
 export interface SiteContentDraftInput {
   pageKey: SitePageKey;
+  /** Page-specific content. The order-terms-acceptance page uses OrderTermsAcceptanceContent. */
   content: SiteContentDraftInputContent;
+}
+
+/**
+ * Shared order terms acceptance copy used by Convert and Swap.
+ */
+export interface OrderTermsAcceptanceContent {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  mainText: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  termsLabel: string;
+  /**
+     * @minLength 1
+     * @maxLength 2048
+     */
+  termsUrl: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  privacyLabel: string;
+  /**
+     * @minLength 1
+     * @maxLength 2048
+     */
+  privacyUrl: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  amlLabel: string;
+  /**
+     * @minLength 1
+     * @maxLength 2048
+     */
+  amlUrl: string;
 }
 
 export interface AdminSitePage {

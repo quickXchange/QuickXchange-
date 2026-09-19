@@ -318,6 +318,7 @@ export * from './orderSupportToolsInput';
 export * from './orderSupportToolsInputReceivingStatus';
 export * from './orderSupportToolsInputSendingStatus';
 export * from './orderSupportToolsInputSupportStatus';
+export * from './orderTermsAcceptanceContent';
 export * from './orderUpdate';
 export * from './orderUpdateManualSettlementState';
 export * from './orderVersionInput';

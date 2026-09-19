@@ -7389,6 +7389,7 @@ export const applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDecimalsMin = 0;
 export const applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDecimalsMax = 30;
 export const applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDecimalsMultipleOf = 1;
 
+
 export const applyCryptoAssetsBulkEditBodyEditsMax = 500;
 
 
@@ -7405,8 +7406,8 @@ export const ApplyCryptoAssetsBulkEditBody = zod.object({
   "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).optional(),
   "regions": zod.array(zod.string().max(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemRegionsItemMax)).max(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemRegionsMax).optional(),
   "decimals": zod.number().min(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDecimalsMin).max(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDecimalsMax).multipleOf(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDecimalsMultipleOf).optional(),
-  "requiresMemo": zod.boolean().optional(),
-   }).strict()).min(1).optional()
+  "requiresMemo": zod.boolean().optional()
+})).min(1).optional()
 })).min(1).max(applyCryptoAssetsBulkEditBodyEditsMax)
 })
 
@@ -7614,7 +7615,7 @@ export const SaveCryptoAssetReceivingWalletBody = zod.object({
   "walletAddress": zod.string().max(saveCryptoAssetReceivingWalletBodyWalletAddressMax),
   "memo": zod.string().max(saveCryptoAssetReceivingWalletBodyMemoMax).nullish(),
   "depositProvider": zod.string().min(1).max(saveCryptoAssetReceivingWalletBodyDepositProviderMax).default(saveCryptoAssetReceivingWalletBodyDepositProviderDefault),
-  "enabled": zod.boolean(),
+  "enabled": zod.boolean()
 })
 
 export const saveCryptoAssetReceivingWalletResponseOneLogoObjectPathRegExp = new RegExp('^/objects/crypto-network-logos/[0-9a-f-]{36}$');
@@ -12485,7 +12486,7 @@ export const saveAdminSiteContentBodyPageKeyRegExp = new RegExp('^[a-z0-9]+(?:-[
 
 export const SaveAdminSiteContentBody = zod.object({
   "pageKey": zod.string().min(1).max(saveAdminSiteContentBodyPageKeyMax).regex(saveAdminSiteContentBodyPageKeyRegExp),
-  "content": zod.record(zod.string(), zod.unknown())
+  "content": zod.record(zod.string(), zod.unknown()).describe('Page-specific content. The order-terms-acceptance page uses OrderTermsAcceptanceContent.')
 })
 
 export const saveAdminSiteContentResponsePageKeyMax = 80;
@@ -12835,7 +12836,7 @@ export const SaveAdminSitePageParams = zod.object({
 })
 
 export const SaveAdminSitePageBody = zod.object({
-  "content": zod.record(zod.string(), zod.unknown())
+  "content": zod.record(zod.string(), zod.unknown()).describe('Page-specific content. The order-terms-acceptance page uses OrderTermsAcceptanceContent.')
 })
 
 export const saveAdminSitePageResponsePageKeyMax = 80;

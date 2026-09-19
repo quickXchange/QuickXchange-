@@ -20,6 +20,7 @@ import {
   MARKET_CONVERT_SELECTION_EVENT,
   type MarketConvertSelection,
 } from '@/lib/market-convert-selection';
+import { OrderTermsAcceptance } from '@/lib/order-terms-acceptance';
 
 type Notice = { kind: 'error' | 'success'; text: string };
 
@@ -821,17 +822,7 @@ export function QuickexConvertWidget({
                 </div>
 
                 <div className="order-terms convert-terms-card mt-2 flex items-start gap-3">
-                   <input
-                     type="checkbox"
-                     id="convert-terms"
-                     required
-                     checked={termsAccepted}
-                     onChange={e => setTermsAccepted(e.target.checked)}
-                     className="mt-1 w-[18px] h-[18px] rounded border-border text-primary focus:ring-primary/20 shrink-0"
-                   />
-                   <label htmlFor="convert-terms" className="text-[14px] font-medium text-foreground leading-relaxed cursor-pointer select-none">
-                     {t('convert.terms')}
-                   </label>
+                   <OrderTermsAcceptance checkboxId="convert-terms" checked={termsAccepted} onChange={setTermsAccepted} />
                 </div>
 
                 {notice && (

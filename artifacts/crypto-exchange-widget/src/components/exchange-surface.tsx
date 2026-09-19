@@ -45,6 +45,7 @@ import {
 } from '@/components/shared-app-ui';
 
 import { useSitePreview } from '@/components/site-preview-context';
+import { OrderTermsAcceptance } from '@/lib/order-terms-acceptance';
 import {
   MARKET_CONVERT_SELECTION_EVENT,
   MARKET_SWAP_SELECTION_EVENT,
@@ -1733,17 +1734,7 @@ export function ManualSwapWidget({
                 </div>}
 
                 <div className="order-terms convert-terms-card mt-2 flex items-start gap-3">
-                   <input
-                     type="checkbox"
-                     id="swap-terms"
-                     required
-                     checked={termsAccepted}
-                     onChange={e => setTermsAccepted(e.target.checked)}
-                     className="mt-1 w-[18px] h-[18px] rounded border-border text-primary focus:ring-primary/20 shrink-0"
-                   />
-                   <label htmlFor="swap-terms" className="text-[14px] font-medium text-foreground leading-relaxed cursor-pointer select-none">
-                     {t('swap.terms')}
-                   </label>
+                   <OrderTermsAcceptance checkboxId="swap-terms" checked={termsAccepted} onChange={setTermsAccepted} />
                 </div>
 
                 <div className="order-actions convert-order-actions mt-2 flex flex-col gap-4">
