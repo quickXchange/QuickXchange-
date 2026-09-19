@@ -107,7 +107,6 @@ import { I18nProvider, useI18n } from '@/i18n';
 import { setAppTheme, useAppTheme } from '@/theme';
 import { trackEvent } from '@/lib/analytics';
 import { SitePreviewProvider, useSitePreview } from '@/components/site-preview-context';
-import { FaviconUpdater } from '@/components/favicon-updater';
 import { AdminPermissionsProvider, useAdminPermissions } from '@/lib/admin-permissions';
 
 const AccountPage = lazy(() => import('./pages/account').then(module => ({ default: module.AccountPage })));
@@ -1140,9 +1139,8 @@ function ConfiguredExchangePage({ pageKey }: { pageKey: SitePageKey }) {
   const getActiveMode = useCallback(() => activeModeRef.current, []);
 
   useLayoutEffect(() => {
-    const title = typeof seo.title === 'string' && seo.title.trim() ? seo.title.trim() : contentTitle;
     const description = typeof seo.description === 'string' && seo.description.trim() ? seo.description.trim() : contentDescription;
-    if (title) document.title = `${title} | QuickXchange`;
+    document.title = 'QuickXchange';
     if (description) {
       let meta = document.querySelector<HTMLMetaElement>('meta[name="description"]');
       if (!meta) {
@@ -1152,7 +1150,7 @@ function ConfiguredExchangePage({ pageKey }: { pageKey: SitePageKey }) {
       }
       meta.content = description;
     }
-  }, [contentDescription, contentTitle, seo.description, seo.title]);
+  }, [contentDescription, seo.description]);
 
   useLayoutEffect(() => {
     if (pageKey !== 'convert' || !hasRequestedConvertSelection) return;
@@ -2635,7 +2633,6 @@ export default function App() {
     <SitePreviewProvider>
       <I18nProvider>
         <QueryClientProvider client={queryClient}>
-          <FaviconUpdater />
           <WouterRouter base={basePath}>
             <ClerkProviderWithRoutes />
           </WouterRouter>
