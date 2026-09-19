@@ -7,4 +7,4 @@ Clerk exclusively owns TOTP enrollment secrets, QR data, verification challenges
 
 **Why:** Keeping factor material in one hardened identity system avoids split-brain enrollment, weaker local secret storage, and client-asserted MFA state.
 
-**How to apply:** Ordinary customer routes remain unaffected. Owner and operator access requires both Clerk's server-side TOTP enrollment state and a non-negative second-factor verification age from the signed session. Audit only safe enforcement metadata.
+**How to apply:** Ordinary customer routes remain unaffected. Owner and operator access requires both Clerk's server-side TOTP enrollment state and a non-negative second-factor verification age from the signed session. Treat missing enrollment and missing session assurance as distinct states: enrolled users receive Clerk's TOTP step-up challenge, never enrollment instructions. Refresh the Clerk session token before retrying Admin authorization. Audit only safe enforcement metadata.

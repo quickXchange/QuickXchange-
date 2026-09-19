@@ -3,7 +3,7 @@ import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent a
 import { createPortal } from 'react-dom';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
-import { ClerkProvider, Show, useClerk, useUser } from '@clerk/react';
+import { ClerkProvider, Show, useClerk, useSession, useUser } from '@clerk/react';
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import {
@@ -2127,7 +2127,9 @@ function OperatorAuthorizationGate({ component: Component }: { component: React.
     },
   });
   const authorizationStatus = apiErrorStatus(authorization.error);
-  const mfaRequired = apiErrorData(authorization.error)?.code === 'ADMIN_MFA_REQUIRED';
+  const authorizationErrorCode = apiErrorData(authorization.error)?.code;
+  const mfaRequired = authorizationErrorCode === 'ADMIN_MFA_REQUIRED';
+  const mfaEnrollmentRequired = authorizationErrorCode === 'ADMIN_MFA_ENROLLMENT_REQUIRED';
   const accessDenied = authorization.isError && authorizationStatus === 403;
 
   useEffect(() => {
@@ -2144,19 +2146,11 @@ function OperatorAuthorizationGate({ component: Component }: { component: React.
   }
 
   if (mfaRequired) {
-    return <main className="operator-access-page">
-      <BrandLogo />
-      <div className="operator-access-card" data-testid="operator-mfa-required">
-        <ShieldCheck size={28} />
-        <span className="section-kicker">{t('adminShell.securityRequired')}</span>
-        <h1>{t('adminShell.setupAuthenticator')}</h1>
-        <p>{t('adminShell.setupAuthenticatorDescription')}</p>
-        <div className="operator-access-actions">
-          <Link href="/account/settings" className="button button-primary">{t('adminShell.openSecuritySettings')}</Link>
-          <Link href="/" className="button button-secondary">{t('adminShell.backExchange')}</Link>
-        </div>
-      </div>
-    </main>;
+    return <AdminMfaChallenge onVerified={() => authorization.refetch()} />;
+  }
+
+  if (mfaEnrollmentRequired) {
+    return <AdminMfaEnrollmentRequired />;
   }
 
   if (accessDenied) {
@@ -2201,6 +2195,122 @@ function OperatorAuthorizationGate({ component: Component }: { component: React.
   return <AdminPermissionsProvider><Component /></AdminPermissionsProvider>;
 }
 
+function safeClerkVerificationMessage(error: unknown): string {
+  if (!error || typeof error !== 'object' || !('errors' in error) || !Array.isArray(error.errors)) {
+    return 'The authenticator code could not be verified. Try a new code.';
+  }
+  const first = error.errors[0];
+  if (!first || typeof first !== 'object') return 'The authenticator code could not be verified. Try a new code.';
+  const message = 'longMessage' in first ? first.longMessage : 'message' in first ? first.message : null;
+  return typeof message === 'string' && message.length <= 240
+    ? message
+    : 'The authenticator code could not be verified. Try a new code.';
+}
+
+function AdminMfaChallenge({ onVerified }: { onVerified: () => void | Promise<unknown> }) {
+  const { t } = useI18n();
+  const { session, isLoaded: sessionLoaded } = useSession();
+  const [code, setCode] = useState('');
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState('');
+
+  const verify = async () => {
+    if (!session || !/^\d{6}$/.test(code)) return;
+    setPending(true);
+    setError('');
+    try {
+      const secondFactorAge = session.factorVerificationAge?.[1];
+      if (typeof secondFactorAge !== 'number' || secondFactorAge < 0) {
+        const verification = await session.startVerification({ level: 'second_factor' });
+        if (verification.status === 'needs_first_factor') {
+          setError('Your first-factor session must be refreshed before verifying the authenticator.');
+          return;
+        }
+        if (verification.status !== 'complete') {
+          const completed = await session.attemptSecondFactorVerification({
+            strategy: 'totp',
+            code,
+          });
+          if (completed.status !== 'complete') {
+            setError('The authenticator code was not accepted. Try the newest 6-digit code.');
+            return;
+          }
+        }
+      }
+      setCode('');
+      await session.getToken({ skipCache: true });
+      await onVerified();
+    } catch (verificationError) {
+      setError(safeClerkVerificationMessage(verificationError));
+    } finally {
+      setPending(false);
+    }
+  };
+
+  if (!sessionLoaded) {
+    return <main className="operator-access-page" aria-label={t('adminShell.loading')} aria-busy="true">
+      <Loader2 className="spin" size={24} />
+    </main>;
+  }
+
+  return <main className="operator-access-page">
+    <BrandLogo />
+    <form
+      className="operator-access-card"
+      data-testid="operator-mfa-challenge"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void verify();
+      }}
+    >
+      <ShieldCheck size={28} />
+      <span className="section-kicker">{t('adminShell.securityRequired')}</span>
+      <h1>{t('adminShell.enterAuthenticatorCode')}</h1>
+      <p>{t('adminShell.enterAuthenticatorCodeDescription')}</p>
+      <label htmlFor="admin-totp-code" className="sr-only">{t('adminShell.authenticatorCode')}</label>
+      <input
+        id="admin-totp-code"
+        className="input"
+        type="text"
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        pattern="[0-9]{6}"
+        maxLength={6}
+        value={code}
+        onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+        placeholder="000000"
+        autoFocus
+        disabled={pending}
+      />
+      {error ? <p className="form-error" role="alert">{error}</p> : null}
+      <div className="operator-access-actions">
+        <button className="button button-primary" type="submit" disabled={pending || code.length !== 6}>
+          {pending ? <Loader2 className="spin" size={15} /> : <ShieldCheck size={15} />}
+          {t('adminShell.verifyAuthenticator')}
+        </button>
+        <Link href="/" className="button button-secondary">{t('adminShell.backExchange')}</Link>
+      </div>
+    </form>
+  </main>;
+}
+
+function AdminMfaEnrollmentRequired() {
+  const { t } = useI18n();
+  return <main className="operator-access-page">
+    <BrandLogo />
+    <div className="operator-access-card" data-testid="operator-mfa-enrollment-required">
+      <ShieldCheck size={28} />
+      <span className="section-kicker">{t('adminShell.securityRequired')}</span>
+      <h1>{t('adminShell.setupAuthenticator')}</h1>
+      <p>{t('adminShell.setupAuthenticatorDescription')}</p>
+      <div className="operator-access-actions">
+        <Link href="/account/settings" className="button button-primary">{t('adminShell.openSecuritySettings')}</Link>
+        <Link href="/" className="button button-secondary">{t('adminShell.backExchange')}</Link>
+      </div>
+    </div>
+  </main>;
+}
+
 function AdminGate({ component: Component }: { component: React.ComponentType }) {
   useLayoutEffect(() => {
     void import('./admin-redesign.css');
@@ -2222,7 +2332,9 @@ function OwnerAuthorizationGate({ component: Component }: { component: React.Com
     },
   });
   const authorizationStatus = apiErrorStatus(authorization.error);
-  const mfaRequired = apiErrorData(authorization.error)?.code === 'ADMIN_MFA_REQUIRED';
+  const authorizationErrorCode = apiErrorData(authorization.error)?.code;
+  const mfaRequired = authorizationErrorCode === 'ADMIN_MFA_REQUIRED';
+  const mfaEnrollmentRequired = authorizationErrorCode === 'ADMIN_MFA_ENROLLMENT_REQUIRED';
 
   if (authorization.isPending) {
     return <main className="operator-access-page" aria-busy="true">
@@ -2232,19 +2344,10 @@ function OwnerAuthorizationGate({ component: Component }: { component: React.Com
 
   if (authorization.isError) {
     if (mfaRequired) {
-      return <main className="operator-access-page">
-        <BrandLogo />
-        <div className="operator-access-card" data-testid="operator-mfa-required">
-          <ShieldCheck size={28} />
-          <span className="section-kicker">{t('adminShell.securityRequired')}</span>
-          <h1>{t('adminShell.setupAuthenticator')}</h1>
-          <p>{t('adminShell.setupAuthenticatorDescription')}</p>
-          <div className="operator-access-actions">
-            <Link href="/account/settings" className="button button-primary">{t('adminShell.openSecuritySettings')}</Link>
-            <Link href="/" className="button button-secondary">{t('adminShell.backExchange')}</Link>
-          </div>
-        </div>
-      </main>;
+      return <AdminMfaChallenge onVerified={() => authorization.refetch()} />;
+    }
+    if (mfaEnrollmentRequired) {
+      return <AdminMfaEnrollmentRequired />;
     }
     if (authorizationStatus === 401 || authorizationStatus === 403) {
       return <Redirect to="/" />;

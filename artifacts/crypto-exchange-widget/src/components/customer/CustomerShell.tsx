@@ -210,7 +210,9 @@ function CustomerSidebar({
     typeof ownerAccess.error.data === 'object' &&
     'code' in ownerAccess.error.data
   ) ? ownerAccess.error.data.code : null;
-  const canOpenAdmin = ownerAccess.isSuccess || ownerAccessErrorCode === 'ADMIN_MFA_REQUIRED';
+  const canOpenAdmin = ownerAccess.isSuccess ||
+    ownerAccessErrorCode === 'ADMIN_MFA_REQUIRED' ||
+    ownerAccessErrorCode === 'ADMIN_MFA_ENROLLMENT_REQUIRED';
   
   const navItems = [
     { href: '/account', icon: LayoutDashboard, label: t('customerPortal.dashboard'), exact: true },

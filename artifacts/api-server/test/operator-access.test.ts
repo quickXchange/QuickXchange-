@@ -13,6 +13,7 @@ const createdPaymentMethodIds = new Set<string>();
 const createdTeamRoleIds = new Set<string>();
 const verifiedEmails = new Map<string, string>();
 const verifiedSecondFactors = new Map<string, boolean>();
+const totpEnrollments = new Map<string, boolean>();
 const privilegedTestPool = createPrivilegedTestPool();
 
 let apiUrl = "";
@@ -313,6 +314,7 @@ before(async () => {
     getUserId: (req) => req.get("x-test-clerk-user-id") ?? null,
     getVerifiedEmail: (userId) => verifiedEmails.get(userId) ?? null,
     getSecondFactorVerified: (_req, userId) => verifiedSecondFactors.get(userId) ?? true,
+    getTotpEnabled: (userId) => totpEnrollments.get(userId) ?? true,
   });
   customerAuth.configureCustomerAuthorizationForTests({
     getUserId: (req) => req.get("x-test-clerk-user-id") ?? null,
@@ -981,6 +983,19 @@ test("active operators without a verified authenticator receive a distinct denia
     assert.equal(customerRoute.status, 200);
   } finally {
     verifiedSecondFactors.delete(userId);
+  }
+});
+
+test("active operators without an enrolled authenticator receive the enrollment-specific denial", async () => {
+  const userId = `user_mfa_enrollment_required_${randomUUID()}`;
+  await seedOperator({ clerkUserId: userId, role: "operator" });
+  totpEnrollments.set(userId, false);
+  try {
+    const response = await request("/quickex/admin/credentials", {}, userId);
+    assert.equal(response.status, 403);
+    assert.equal(response.body?.code, "ADMIN_MFA_ENROLLMENT_REQUIRED");
+  } finally {
+    totpEnrollments.delete(userId);
   }
 });
 

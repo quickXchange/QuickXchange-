@@ -1306,6 +1306,10 @@ Object.assign(en.adminShell, {
   setupAuthenticator: 'Set up your authenticator',
   setupAuthenticatorDescription: 'Admin access requires a verified authenticator. Open account security settings to enroll and verify it with Clerk.',
   openSecuritySettings: 'Open security settings',
+  enterAuthenticatorCode: 'Enter your authenticator code',
+  enterAuthenticatorCodeDescription: 'Enter the current 6-digit code from your authenticator application to verify this Admin session.',
+  authenticatorCode: 'Authenticator code',
+  verifyAuthenticator: 'Verify and continue',
 });
 
 Object.assign(en.account, {

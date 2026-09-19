@@ -38,6 +38,7 @@ type OperatorAuthorizationTestAdapter = {
     req: Request,
     userId: string,
   ) => boolean | Promise<boolean>;
+  getTotpEnabled?: (userId: string) => boolean | Promise<boolean>;
 };
 
 let testAdapter: OperatorAuthorizationTestAdapter | undefined;
@@ -161,14 +162,28 @@ async function getVerifiedEmail(userId: string): Promise<string | null> {
   return email ? email.emailAddress.trim().toLowerCase() : null;
 }
 
-async function hasVerifiedSecondFactor(
+type SecondFactorStatus = {
+  verified: boolean;
+  totpEnabled: boolean;
+  secondFactorAge: number | null;
+};
+
+async function getSecondFactorStatus(
   req: Request,
   userId: string,
-): Promise<boolean> {
+): Promise<SecondFactorStatus> {
   if (process.env.NODE_ENV === "test" && testAdapter) {
-    return testAdapter.getSecondFactorVerified
+    const verified = testAdapter.getSecondFactorVerified
       ? testAdapter.getSecondFactorVerified(req, userId)
       : true;
+    const totpEnabled = testAdapter.getTotpEnabled
+      ? await testAdapter.getTotpEnabled(userId)
+      : true;
+    return {
+      verified: (await verified) && totpEnabled,
+      totpEnabled,
+      secondFactorAge: null,
+    };
   }
 
   // Clerk's factorVerificationAge is derived from the signed session claims.
@@ -179,15 +194,20 @@ async function hasVerifiedSecondFactor(
   const auth = getAuth(req);
   const factorVerificationAge = auth.factorVerificationAge;
   const secondFactorAge = factorVerificationAge?.[1];
-  if (
-    typeof secondFactorAge !== "number" ||
-    !Number.isFinite(secondFactorAge) ||
-    secondFactorAge < 0
-  ) {
-    return false;
-  }
+  const verifiedSecondFactorAge =
+    typeof secondFactorAge === "number" &&
+    Number.isFinite(secondFactorAge) &&
+    secondFactorAge >= 0
+      ? secondFactorAge
+      : null;
+  const sessionSecondFactorVerified = verifiedSecondFactorAge !== null;
   const user = await clerkClient.users.getUser(userId);
-  return user.totpEnabled === true;
+  const totpEnabled = user.totpEnabled === true;
+  return {
+    verified: sessionSecondFactorVerified && totpEnabled,
+    totpEnabled,
+    secondFactorAge: verifiedSecondFactorAge,
+  };
 }
 
 async function recordMfaEnforcementDenied(
@@ -343,12 +363,26 @@ function requireRole(role: OperatorRole): RequestHandler {
     try {
       const operator = await getOperatorAuthorization(userId);
       if (operator && (role === "operator" || operator.role === "owner")) {
-        if (!(await hasVerifiedSecondFactor(req, userId))) {
+        const secondFactor = await getSecondFactorStatus(req, userId);
+        if (!secondFactor.verified) {
+          req.log.warn({
+            clerkEnvironment: process.env.NODE_ENV === "production" ? "production" : "development",
+            clerkUserId: userId,
+            totpFactorExists: secondFactor.totpEnabled,
+            totpFactorVerified: secondFactor.totpEnabled,
+            sessionSecondFactorVerified: secondFactor.secondFactorAge !== null,
+            sessionSecondFactorAgeMinutes: secondFactor.secondFactorAge,
+            sessionMfaLevel: secondFactor.secondFactorAge === null ? "first_factor" : "second_factor",
+          }, "Admin access requires Clerk TOTP session verification");
           await recordMfaEnforcementDenied(req, operator);
           next(
             new ApiError(
-              "ADMIN_MFA_REQUIRED",
-              "Authenticator verification is required before accessing the operations desk.",
+              secondFactor.totpEnabled
+                ? "ADMIN_MFA_REQUIRED"
+                : "ADMIN_MFA_ENROLLMENT_REQUIRED",
+              secondFactor.totpEnabled
+                ? "Authenticator verification is required before accessing the operations desk."
+                : "Authenticator enrollment is required before accessing the operations desk.",
               403,
             ),
           );
