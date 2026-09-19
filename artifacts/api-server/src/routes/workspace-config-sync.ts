@@ -14,13 +14,15 @@ import {
   storeVerifiedConfigurationImage,
   validatePaymentMethodLogoImage,
 } from "../lib/object-storage";
-import { parseWorkspaceConfigSnapshot, validateSnapshotReferences, type WorkspaceConfigSnapshot } from "../lib/workspace-config-sync-helpers";
+import {
+  customerDepositEligibilityDeterminants,
+  parseWorkspaceConfigSnapshot,
+  reactivatePaymentMethodsForEnabledLinks,
+  validateSnapshotReferences,
+  type WorkspaceConfigSnapshot,
+} from "../lib/workspace-config-sync-helpers";
 import { invalidatePopularExchangePairsCache } from "../lib/popular-exchange-pairs";
 import { invalidateManualDeskFiatRateCache } from "../lib/manual-desk-rates";
-import {
-  createCustomerDepositEligibilityContext,
-  reconcileCryptoCustomerDepositEligibilityWithExecutor,
-} from "../lib/customer-deposit-eligibility";
 
 type Executor = any;
 type Action = "add" | "update" | "softDisable" | "unchanged";
@@ -59,7 +61,7 @@ function parse(body: unknown): WorkspaceConfigSnapshot {
   }
   const errors = validateSnapshotReferences(parsed);
   if (errors.length) throw new ApiError("INVALID_WORKSPACE_CONFIG", errors.join("; "), 400);
-  return parsed;
+  return reactivatePaymentMethodsForEnabledLinks(parsed);
 }
 
 type ImageNamespace = "payment-method-logos" | "crypto-asset-logos" | "crypto-network-logos" | "fiat-currency-flags" | "partner-logos" | "site-page-media" | "social-trust-icons" | "website-branding";
@@ -192,6 +194,21 @@ export async function calculate(snapshot: WorkspaceConfigSnapshot, executor: Exe
     return [n.id, target?.id ?? n.id];
   }));
   const networkChanged = new Set(snapshot.cryptoNetworks.filter((n) => { const t = networks.find((x: any) => `${x.assetId}:${code(x.networkCode)}` === `${assetMap.get(n.assetId)}:${code(n.networkCode)}`); return t && stable(networkProjection(n, assetMap.get(n.assetId)!)) !== stable(networkProjection(t, t.assetId)); }).map((n) => `${assetMap.get(n.assetId)}:${code(n.networkCode)}`));
+  const eligibilityDisabledKeys = snapshot.cryptoNetworks.flatMap((network) => {
+    const targetAssetId = assetMap.get(network.assetId);
+    const target = networks.find((candidate: any) =>
+      candidate.assetId === targetAssetId &&
+      code(candidate.networkCode) === code(network.networkCode)
+    );
+    if (!target?.customerDepositsEnabled) return [];
+    const sourceAsset = snapshot.cryptoAssets.find((asset) => asset.id === network.assetId);
+    const targetAsset = assets.find((asset: any) => asset.id === target.assetId);
+    if (!sourceAsset || !targetAsset) return [];
+    return stable(customerDepositEligibilityDeterminants(network, sourceAsset)) !==
+        stable(customerDepositEligibilityDeterminants(target, targetAsset))
+      ? [`${target.assetId}:${code(target.networkCode)}`]
+      : [];
+  });
   const fiatKey = (f: any) => code(f.code);
   const methodKey = (m: any) => m.id;
   const fiatCodeById = new Map<string, string>(fiats.map((f: any) => [f.id, code(f.code)]));
@@ -222,6 +239,22 @@ export async function calculate(snapshot: WorkspaceConfigSnapshot, executor: Exe
     paymentMethods: detail(snapshot.paymentMethods.map(methodKey), methods.map(methodKey), new Set<string>(snapshot.paymentMethods.filter((m) => { const t = methods.find((x: any) => x.id === m.id); return t && stable(methodProjection(m)) !== stable(methodProjection(t)); }).map(methodKey)), new Set(methods.filter((row: any) => row.enabled).map(methodKey))),
     fiatCurrencyPaymentMethods: detail(sourceLinkKeys, targetLinkKeys, linkChanged, new Set(links.filter((row: any) => row.enabled).map((row: any) => `${fiatCodeById.get(row.fiatCurrencyId) ?? row.fiatCurrencyId}:${row.paymentMethodId}`))),
     manualDeskPricingRules: detail(snapshot.manualDeskPricingRules.map((r) => r.id), rules.map((r: any) => r.id), ruleChanged, new Set(rules.filter((row: any) => row.enabled).map((row: any) => row.id))),
+    customerDepositEligibility: {
+      counts: {
+        add: 0,
+        update: eligibilityDisabledKeys.length,
+        softDisable: 0,
+        unchanged: networks.length - eligibilityDisabledKeys.length,
+      },
+      keys: {
+        add: [],
+        update: eligibilityDisabledKeys,
+        softDisable: [],
+        unchanged: networks
+          .map((network: any) => `${network.assetId}:${code(network.networkCode)}`)
+          .filter((key: string) => !eligibilityDisabledKeys.includes(key)),
+      },
+    },
   };
   const latestPages = new Map<string, any>();
   for (const p of pages) if (!latestPages.has(p.pageKey)) latestPages.set(p.pageKey, p);
@@ -243,7 +276,10 @@ export async function calculate(snapshot: WorkspaceConfigSnapshot, executor: Exe
   };
   const stateHash = createHash("sha256").update(stable({
     assets: targetAssets.sort((a: any, b: any) => a.code.localeCompare(b.code)),
-    networks: networks.map((n: any) => networkProjection(n, n.assetId)).sort((a: any, b: any) => `${a.assetId}:${a.networkCode}`.localeCompare(`${b.assetId}:${b.networkCode}`)),
+    networks: networks.map((n: any) => ({
+      ...networkProjection(n, n.assetId),
+      customerDepositsEnabled: n.customerDepositsEnabled,
+    })).sort((a: any, b: any) => `${a.assetId}:${a.networkCode}`.localeCompare(`${b.assetId}:${b.networkCode}`)),
     fiats: fiats.map(fiatProjection).sort((a: any, b: any) => a.code.localeCompare(b.code)),
     methods: methods.map(methodProjection).sort((a: any, b: any) => a.id.localeCompare(b.id)),
     links: links.map((l: any) => ({ key: `${fiatCodeById.get(l.fiatCurrencyId) ?? l.fiatCurrencyId}:${l.paymentMethodId}`, ...linkProjection(l) })).sort((a: any, b: any) => a.key.localeCompare(b.key)),
@@ -271,7 +307,6 @@ router.post("/admin/workspace-config/apply", requireOwner, async (req, res, next
     const expectedStateHash = req.body?.expectedStateHash;
     if (typeof expectedStateHash !== "string" || !expectedStateHash) throw new ApiError("WORKSPACE_CONFIG_PREVIEW_REQUIRED", "Preview the current configuration immediately before applying.", 409);
     const actorId = String(res.locals.operator.id);
-    const eligibilityContext = await createCustomerDepositEligibilityContext();
     const result = await db.transaction(async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(2026091901)`);
       const before = await calculate(snapshot, tx);
@@ -294,10 +329,28 @@ router.post("/admin/workspace-config/apply", requireOwner, async (req, res, next
         const values = { assetId: targetAssetId, networkCode: n.networkCode, networkName: n.networkName, logoObjectPath: n.logoObjectPath, networkFamily: n.networkFamily, decimals: n.decimals, executionMode: n.executionMode, depositProvider: n.depositProvider, lifecycle: n.lifecycle, regions: n.regions, enabled: n.enabled, requiresMemo: n.requiresMemo, requiredConfirmations: n.requiredConfirmations, confirmationGuidance: n.confirmationGuidance, explorerUrlTemplate: n.explorerUrlTemplate, depositInstructions: n.depositInstructions, depositWarning: n.depositWarning };
         if (existing) {
           sourceNetworkMap.set(n.id, existing.id);
-          await tx.update(cryptoAssetNetworksTable).set(values).where(eq(cryptoAssetNetworksTable.id, existing.id));
+          const sourceAsset = snapshot.cryptoAssets.find((asset) => asset.id === n.assetId);
+          const targetAsset = assets.find((asset: any) => asset.id === existing.assetId);
+          const eligibilityDeterminantsChanged =
+            !sourceAsset ||
+            !targetAsset ||
+            stable(customerDepositEligibilityDeterminants(n, sourceAsset)) !==
+              stable(customerDepositEligibilityDeterminants(existing, targetAsset));
+          await tx.update(cryptoAssetNetworksTable)
+            .set({
+              ...values,
+              ...(eligibilityDeterminantsChanged
+                ? { customerDepositsEnabled: false }
+                : {}),
+            })
+            .where(eq(cryptoAssetNetworksTable.id, existing.id));
         } else {
           sourceNetworkMap.set(n.id, n.id);
-          await (tx.insert(cryptoAssetNetworksTable) as any).values({ id: n.id, ...values });
+          await (tx.insert(cryptoAssetNetworksTable) as any).values({
+            id: n.id,
+            ...values,
+            customerDepositsEnabled: false,
+          });
         }
       }
       for (const row of networks) if (row.enabled && !snapshot.cryptoNetworks.some((n) => `${assetMap.get(n.assetId)}:${code(n.networkCode)}` === `${row.assetId}:${code(row.networkCode)}`)) await tx.update(cryptoAssetNetworksTable).set({ enabled: false }).where(eq(cryptoAssetNetworksTable.id, row.id));
@@ -372,11 +425,7 @@ router.post("/admin/workspace-config/apply", requireOwner, async (req, res, next
           });
         }
       }
-      const depositEligibility = await reconcileCryptoCustomerDepositEligibilityWithExecutor(
-        tx,
-        eligibilityContext,
-      );
-      return { counts: before.counts, depositEligibility };
+      return { counts: before.counts };
     });
     invalidatePopularExchangePairsCache();
     invalidateManualDeskFiatRateCache();

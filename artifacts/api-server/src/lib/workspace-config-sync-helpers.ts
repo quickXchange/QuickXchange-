@@ -79,6 +79,60 @@ export function parseWorkspaceConfigSnapshot(value: unknown): WorkspaceConfigSna
   return value as unknown as WorkspaceConfigSnapshot;
 }
 
+/**
+ * An enabled currency/payment-method relationship is an explicit declaration
+ * that the parent payment method is intended to be usable. Normalize that
+ * parent flag before previewing or applying a snapshot so an older global
+ * disable cannot silently hide the reviewed relationship.
+ */
+export function reactivatePaymentMethodsForEnabledLinks(
+  snapshot: WorkspaceConfigSnapshot,
+): WorkspaceConfigSnapshot {
+  const linkedMethodIds = new Set(
+    snapshot.fiatCurrencyPaymentMethods
+      .filter((link) => link.enabled)
+      .map((link) => link.paymentMethodId),
+  );
+  return {
+    ...snapshot,
+    paymentMethods: snapshot.paymentMethods.map((method) =>
+      linkedMethodIds.has(method.id) && !method.enabled
+        ? { ...method, enabled: true }
+        : method
+    ),
+  };
+}
+
+export function customerDepositEligibilityDeterminants(
+  network: {
+    networkCode: string;
+    networkName: string;
+    networkFamily: string;
+    depositProvider: string;
+    requiresMemo: boolean;
+    enabled: boolean;
+    lifecycle: string;
+  },
+  asset: {
+    code: string;
+    enabled: boolean;
+    lifecycle: string;
+  },
+) {
+  return {
+    assetCode: asset.code.trim().toUpperCase(),
+    assetEnabled: asset.enabled,
+    assetLifecycle: asset.lifecycle,
+    networkCode: network.networkCode.trim().toUpperCase(),
+    networkName: network.networkName,
+    networkFamily: network.networkFamily,
+    depositProvider: network.depositProvider,
+    requiresMemo: network.requiresMemo,
+    networkEnabled: network.enabled,
+    networkLifecycle: network.lifecycle,
+  };
+}
+
 export type SyncCounts = {
   add: number;
   update: number;

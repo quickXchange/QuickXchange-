@@ -133,12 +133,14 @@ import {
   quickexOrdersTable,
   orderSupportMetadataTable,
   whitebitOrderAddressesTable,
+  providerIntegrationsTable,
 } from "@workspace/db";
 import { ApiError } from "../lib/api-error";
 import {
   createCustomerDepositEligibilityContext,
   isCustomerDepositEligible,
   reconcileCryptoCustomerDepositEligibility,
+  reconcileCryptoCustomerDepositEligibilityWithExecutor,
 } from "../lib/customer-deposit-eligibility";
 import { createCryptoAssetLogoUpload, createCryptoNetworkLogoUpload, createFiatCurrencyFlagUpload, deleteStoredCatalogImage } from "../lib/object-storage";
 import { logger } from "../lib/logger";
@@ -251,6 +253,7 @@ import {
 } from "./whitebit";
 import {
   whitebitSwapStatus,
+  getWhitebitCapabilities,
 } from "../lib/whitebit-capabilities";
 import {
   activateWhitebitCredentials,
@@ -4902,13 +4905,50 @@ router.patch("/admin/providers/whitebit", requireOwner, async (req, res, next) =
     if (typeof req.body?.enabled !== "boolean") {
       throw new ApiError("VALIDATION_ERROR", "enabled must be a boolean.", 400);
     }
-    if (req.body.enabled && process.env.NODE_ENV !== "test") {
-      await verifyWhitebitAddressCreationPermission();
-    }
     const disabled = !req.body.enabled;
     const operatorId = getOperatorActorUserId(req);
-    await db.transaction(async (tx) => {
+    const storedBefore = await getWhitebitCredentialStorageState();
+    const verifiedCredentials = req.body.enabled && storedBefore.status === "available"
+      ? storedBefore.credentials
+      : undefined;
+    const expectedCredentialUpdatedAt = storedBefore.status === "available" ||
+        storedBefore.status === "unavailable"
+      ? storedBefore.updatedAt
+      : null;
+    const eligibilityContext = req.body.enabled
+      ? {
+          whitebitReady: true,
+          whitebitCapabilities: await getWhitebitCapabilities(),
+        }
+      : {
+          whitebitReady: false,
+          whitebitCapabilities: null,
+        };
+    if (req.body.enabled && process.env.NODE_ENV !== "test") {
+      await verifyWhitebitAddressCreationPermission(verifiedCredentials);
+    }
+    const depositEligibility = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtextextended('rook:whitebit:credentials', 0))`,
+      );
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
+      const [credentialRow] = await tx.select({ updatedAt: providerIntegrationsTable.updatedAt })
+        .from(providerIntegrationsTable)
+        .where(eq(providerIntegrationsTable.provider, "whitebit"))
+        .limit(1);
+      const credentialStateUnchanged = expectedCredentialUpdatedAt === null
+        ? !credentialRow
+        : Boolean(
+            credentialRow &&
+            credentialRow.updatedAt.getTime() === expectedCredentialUpdatedAt.getTime()
+          );
+      if (!credentialStateUnchanged) {
+        throw new ApiError(
+          "WHITEBIT_CREDENTIAL_STATE_CHANGED",
+          "WhiteBIT credentials changed during verification. Retry the operation.",
+          409,
+        );
+      }
       const [current] = await tx.select({ version: whitebitProviderSettingsTable.version })
         .from(whitebitProviderSettingsTable)
         .where(eq(whitebitProviderSettingsTable.provider, "whitebit")).limit(1);
@@ -4927,8 +4967,11 @@ router.patch("/admin/providers/whitebit", requireOwner, async (req, res, next) =
           updatedAt: new Date(),
         },
       });
+      return reconcileCryptoCustomerDepositEligibilityWithExecutor(
+        tx,
+        eligibilityContext,
+      );
     });
-    const depositEligibility = await reconcileCryptoCustomerDepositEligibility();
     invalidatePopularExchangePairsCache();
     logger.info(
       {

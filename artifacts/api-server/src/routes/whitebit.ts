@@ -98,11 +98,24 @@ export async function testWhitebitSignedConnection(candidate?: WhitebitCredentia
   };
 }
 
-export async function verifyWhitebitAddressCreationPermission() {
-  await whitebitPost("/api/v4/main-account/create-new-address", {
+export async function verifyWhitebitAddressCreationPermission(
+  candidate?: WhitebitCredentials,
+) {
+  const result = await whitebitPost<Record<string, unknown>>(
+    "/api/v4/main-account/create-new-address",
+    {
     ticker: "BTC",
     network: "BTC",
-  });
+    },
+    candidate,
+  );
+  if (!parseWhitebitAddressResponse(result)?.address.trim()) {
+    throw new ApiError(
+      "WHITEBIT_ADDRESS_PERMISSION_UNVERIFIED",
+      "WhiteBIT did not return a valid deposit address.",
+      502,
+    );
+  }
 }
 
 export function classifyWhitebitHttpStatus(status: number): "definitive" | "ambiguous" {
@@ -314,7 +327,9 @@ export function parseWhitebitAddressResponse(value: unknown): { address: string;
   if (!value || typeof value !== "object") return null;
   const account = (value as { account?: unknown }).account;
   if (!account || typeof account !== "object" || typeof (account as { address?: unknown }).address !== "string") return null;
-  return { address: (account as { address: string }).address, memo: typeof (account as { memo?: unknown }).memo === "string" ? (account as { memo: string }).memo : null };
+  const address = (account as { address: string }).address.trim();
+  if (!address) return null;
+  return { address, memo: typeof (account as { memo?: unknown }).memo === "string" ? (account as { memo: string }).memo : null };
 }
 
 /**
