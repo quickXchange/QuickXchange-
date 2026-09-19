@@ -11,6 +11,12 @@ export const SUPPORT_EMAIL = 'support@quickxchange.net';
 export const SUPPORT_HOURS = '24/7 Support';
 export const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
 
+export const telegramOrderHref = (supportHref: string, orderId: string) => {
+  const url = new URL(supportHref);
+  url.searchParams.set('text', `Order ID: ${orderId}`);
+  return url.toString();
+};
+
 export const getPublicObjectUrl = (path: string | null | undefined) => {
   if (!path) return '';
   const cleanPath = path.replace(/^\/?objects\//, '').replace(/^\/+/, '');
@@ -92,6 +98,7 @@ export function CancelOrderAction({
 /** Customer-safe payment instructions. Keep this allowlist in one place so
  * internal order fields never accidentally become public payment details. */
 export function PaymentDetailsCard({
+  orderId,
   paymentDetails,
   paymentDetailsApplicable,
   sourcePaymentMethod,
@@ -102,6 +109,7 @@ export function PaymentDetailsCard({
   showPayNow = true,
   supportHref = SUPPORT_TELEGRAM,
 }: {
+  orderId: string;
   paymentDetails?: OrderPaymentDetails | null;
   paymentDetailsApplicable?: boolean;
   sourcePaymentMethod?: SourcePaymentMethod | null;
@@ -114,6 +122,7 @@ export function PaymentDetailsCard({
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const payNowHref = telegramOrderHref(supportHref, orderId);
 
   if (!paymentDetailsApplicable) return null;
 
@@ -140,7 +149,13 @@ export function PaymentDetailsCard({
         </div>
 
         {showPayNow && (
-          <DialogPrimitive.Root open={isModalOpen} onOpenChange={setIsModalOpen}>
+          <DialogPrimitive.Root open={isModalOpen} onOpenChange={(open) => {
+            if (open && !customerMarkedPaidAt && !actionsDisabled) {
+              window.open(payNowHref, '_blank', 'noopener,noreferrer');
+              return;
+            }
+            setIsModalOpen(open);
+          }}>
             <DialogPrimitive.Trigger asChild>
               {customerMarkedPaidAt || actionsDisabled ? (
                 <button type="button" className="button button-secondary" data-testid="button-view-payment-details">View Details</button>
