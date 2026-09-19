@@ -22,6 +22,7 @@ import {
   type WorkspaceConfigSnapshot,
 } from "../lib/workspace-config-sync-helpers";
 import { invalidatePopularExchangePairsCache } from "../lib/popular-exchange-pairs";
+import { invalidateWhitebitDepositRouteProofs } from "../lib/customer-deposit-eligibility";
 import { invalidateManualDeskFiatRateCache } from "../lib/manual-desk-rates";
 
 type Executor = any;
@@ -309,6 +310,7 @@ router.post("/admin/workspace-config/apply", requireOwner, async (req, res, next
     const actorId = String(res.locals.operator.id);
     const result = await db.transaction(async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(2026091901)`);
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
       const before = await calculate(snapshot, tx);
       if (before.stateHash !== expectedStateHash) throw new ApiError("WORKSPACE_CONFIG_CHANGED", "Configuration changed after preview. Review a fresh preview before applying.", 409);
       const assets = await tx.select().from(cryptoAssetsTable);
@@ -354,6 +356,14 @@ router.post("/admin/workspace-config/apply", requireOwner, async (req, res, next
         }
       }
       for (const row of networks) if (row.enabled && !snapshot.cryptoNetworks.some((n) => `${assetMap.get(n.assetId)}:${code(n.networkCode)}` === `${row.assetId}:${code(row.networkCode)}`)) await tx.update(cryptoAssetNetworksTable).set({ enabled: false }).where(eq(cryptoAssetNetworksTable.id, row.id));
+      if (
+        before.counts.cryptoAssets.counts.update > 0 ||
+        before.counts.cryptoAssets.counts.softDisable > 0 ||
+        before.counts.cryptoNetworks.counts.update > 0 ||
+        before.counts.cryptoNetworks.counts.softDisable > 0
+      ) {
+        await invalidateWhitebitDepositRouteProofs(tx);
+      }
       const fiats = await tx.select().from(fiatCurrenciesTable);
       const fiatMap = new Map(fiats.map((f: any) => [code(f.code), f.id]));
       const sourceFiatMap = new Map<string, string>();

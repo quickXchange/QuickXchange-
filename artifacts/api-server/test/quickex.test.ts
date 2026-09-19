@@ -2912,6 +2912,7 @@ test("manual crypto-to-fiat source accepts no refund and validates a supplied wa
     customersTable,
     db,
     ordersTable,
+    whitebitProviderSettingsTable,
   } = await import("@workspace/db");
   const [original] = await db.select().from(cryptoAssetNetworksTable)
     .where(eq(cryptoAssetNetworksTable.id, "xrp-xrpl")).limit(1);
@@ -3019,6 +3020,10 @@ test("manual lifecycle enforces transitions and concurrency and writes an operat
   const legacyOrderId = `legacy-manual-state-${suffix}`;
   const assetId = `asset-${suffix}`;
   const networkId = `network-${suffix}`;
+  const [whitebitSettingBefore] = await db.select()
+    .from(whitebitProviderSettingsTable)
+    .where(eq(whitebitProviderSettingsTable.provider, "whitebit"))
+    .limit(1);
   const [operator] = await db.insert(operatorsTable).values({
     email: `manual-state-${suffix}@example.test`, clerkUserId: userId,
     role: "operator", status: "active",
@@ -3122,28 +3127,24 @@ test("manual lifecycle enforces transitions and concurrency and writes an operat
       customerDepositsEnabled: true,
     }, "PATCH", headers);
     assert.equal(missingAddress.status, 422);
-    assert.equal(missingAddress.body.code, "CRYPTO_DEPOSIT_ADDRESS_REQUIRED");
-    const optionalMemo = await apiJson(api.url, `/admin/crypto-networks/${networkId}`, {
-      customerDepositsEnabled: true, requiresMemo: true,
-      sharedDepositAddress: "shared-address", sharedDepositMemo: null,
+    assert.equal(missingAddress.body.code, "CRYPTO_DEPOSIT_VERIFICATION_REQUIRED");
+    const createBypass = await apiJson(api.url, "/admin/crypto-networks", {
+      id: `${networkId}-unverified`, assetId, networkCode: "UNVERIFIED",
+      networkName: "Unverified network", decimals: 6,
+      customerDepositsEnabled: true,
+    }, "POST", headers);
+    assert.equal(createBypass.status, 422);
+    assert.equal(createBypass.body.code, "CRYPTO_DEPOSIT_VERIFICATION_REQUIRED");
+    await db.update(cryptoAssetNetworksTable).set({
+      depositProvider: "whitebit",
+      customerDepositsEnabled: true,
+      requiresMemo: false,
+    }).where(eq(cryptoAssetNetworksTable.id, networkId));
+    const determinantChange = await apiJson(api.url, `/admin/crypto-networks/${networkId}`, {
+      requiresMemo: true,
     }, "PATCH", headers);
-    assert.equal(optionalMemo.status, 200);
-    assert.equal(optionalMemo.body.sharedDepositMemo, null);
-    const configured = await apiJson(api.url, `/admin/crypto-networks/${networkId}`, {
-      customerDepositsEnabled: true, requiresMemo: true,
-      sharedDepositAddress: "shared-address", sharedDepositMemo: "shared-memo",
-    }, "PATCH", headers);
-    assert.equal(configured.status, 200);
-    const clearedMemo = await apiJson(api.url, `/admin/crypto-networks/${networkId}`, {
-      sharedDepositMemo: null,
-    }, "PATCH", headers);
-    assert.equal(clearedMemo.status, 200);
-    assert.equal(clearedMemo.body.sharedDepositMemo, null);
-    const clearedAddress = await apiJson(api.url, `/admin/crypto-networks/${networkId}`, {
-      sharedDepositAddress: "",
-    }, "PATCH", headers);
-    assert.equal(clearedAddress.status, 422);
-    assert.equal(clearedAddress.body.code, "CRYPTO_DEPOSIT_ADDRESS_REQUIRED");
+    assert.equal(determinantChange.status, 200);
+    assert.equal(determinantChange.body.customerDepositsEnabled, false);
     const providerBypass = await apiJson(api.url, `/admin/crypto-networks/${networkId}`, {
       depositProvider: "none",
     }, "PATCH", headers);
@@ -3155,6 +3156,11 @@ test("manual lifecycle enforces transitions and concurrency and writes an operat
     await db.delete(ordersTable).where(inArray(ordersTable.id, [orderId, legacyOrderId]));
     await db.delete(cryptoAssetNetworksTable).where(eq(cryptoAssetNetworksTable.id, networkId));
     await db.delete(cryptoAssetsTable).where(eq(cryptoAssetsTable.id, assetId));
+    if (whitebitSettingBefore) {
+      await db.update(whitebitProviderSettingsTable)
+        .set(whitebitSettingBefore)
+        .where(eq(whitebitProviderSettingsTable.provider, "whitebit"));
+    }
     await db.delete(operatorsTable).where(eq(operatorsTable.id, operator.id));
   }
 });

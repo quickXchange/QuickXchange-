@@ -98,24 +98,34 @@ export async function testWhitebitSignedConnection(candidate?: WhitebitCredentia
   };
 }
 
-export async function verifyWhitebitAddressCreationPermission(
+export async function verifyWhitebitDepositAddressPermission(
+  ticker: string,
+  network: string,
   candidate?: WhitebitCredentials,
 ) {
   const result = await whitebitPost<Record<string, unknown>>(
     "/api/v4/main-account/create-new-address",
     {
-    ticker: "BTC",
-    network: "BTC",
+      ticker,
+      network,
     },
     candidate,
   );
-  if (!parseWhitebitAddressResponse(result)?.address.trim()) {
+  const parsed = parseWhitebitAddressResponse(result);
+  if (!parsed?.address.trim()) {
     throw new ApiError(
       "WHITEBIT_ADDRESS_PERMISSION_UNVERIFIED",
-      "WhiteBIT did not return a valid deposit address.",
+      `WhiteBIT did not return a valid ${ticker}/${network} deposit address.`,
       502,
     );
   }
+  return parsed;
+}
+
+export async function verifyWhitebitAddressCreationPermission(
+  candidate?: WhitebitCredentials,
+) {
+  return verifyWhitebitDepositAddressPermission("BTC", "BTC", candidate);
 }
 
 export function classifyWhitebitHttpStatus(status: number): "definitive" | "ambiguous" {

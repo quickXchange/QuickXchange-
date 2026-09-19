@@ -127,6 +127,17 @@ export function quickexCredentialFingerprint(
     .digest("base64url");
 }
 
+export function whitebitCredentialFingerprint(
+  credentials: WhitebitCredentials,
+): string {
+  return createHmac("sha256", encryptionKey())
+    .update("whitebit-route-verification\0")
+    .update(credentials.apiKey)
+    .update("\0")
+    .update(credentials.secretKey)
+    .digest("base64url");
+}
+
 function additionalAuthenticatedData(provider: string): Buffer {
   return Buffer.from(
     `rook:${provider}:v${ENCRYPTION_VERSION}`,
@@ -273,11 +284,17 @@ export async function getWhitebitCredentialStorageState() {
 export async function activateWhitebitCredentials(
   credentials: WhitebitCredentials,
   audit: QuickexCredentialAudit,
+  options?: {
+    afterActivate?: (tx: any) => Promise<void>;
+  },
 ) {
   return activateProviderCredentials(
     WHITEBIT_PROVIDER,
     { publicKey: credentials.apiKey, secretKey: credentials.secretKey },
     audit,
+    undefined,
+    undefined,
+    options?.afterActivate,
   );
 }
 
@@ -311,6 +328,7 @@ async function activateProviderCredentials(
   audit: QuickexCredentialAudit,
   verification?: QuickexCredentialVerification,
   options?: { expectedUpdatedAt?: Date | null },
+  afterActivate?: (tx: any) => Promise<void>,
 ): Promise<StoredQuickexCredentials> {
   const encrypted = encryptProviderCredentials(provider, credentials);
   const now = new Date();
@@ -373,6 +391,7 @@ async function activateProviderCredentials(
         credentialSource: audit.credentialSource ?? "stored",
       },
     });
+    await afterActivate?.(tx);
     return {
       credentials,
       updatedAt: row.updatedAt,

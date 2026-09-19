@@ -137,7 +137,10 @@ import {
 } from "@workspace/db";
 import { ApiError } from "../lib/api-error";
 import {
+  assertCustomerDepositEligibilityContextCurrent,
   createCustomerDepositEligibilityContext,
+  customerDepositRouteConfigurationDigest,
+  invalidateWhitebitDepositRouteProofs,
   isCustomerDepositEligible,
   reconcileCryptoCustomerDepositEligibility,
   reconcileCryptoCustomerDepositEligibilityWithExecutor,
@@ -249,15 +252,17 @@ import { reconcilePendingQuickexOrders } from "../lib/quickex-order-service";
 import { finalizeSwapFundingFromClaim, provisionSwapFundingAddress } from "./whitebit";
 import {
   testWhitebitSignedConnection,
-  verifyWhitebitAddressCreationPermission,
+  verifyWhitebitDepositAddressPermission,
 } from "./whitebit";
 import {
-  whitebitSwapStatus,
   getWhitebitCapabilities,
+  matchWhitebitCapability,
+  whitebitSwapStatus,
 } from "../lib/whitebit-capabilities";
 import {
   activateWhitebitCredentials,
   getWhitebitCredentialStorageState,
+  whitebitCredentialFingerprint,
 } from "../lib/provider-credentials";
 
 import { whitebitProviderSettingsTable } from "@workspace/db";
@@ -3933,7 +3938,7 @@ router.post("/admin/crypto-assets/reconcile-customer-deposits", requireOwner, as
   }
 });
 router.post("/admin/crypto-assets", requireOperator, async (req, res, next) => {
-  try { const input = cryptoInput(req.body, false); const row = await db.transaction(async (tx) => { await verifyCatalogPath(tx, input.logoObjectPath, "crypto-asset-logos"); const [created] = await tx.insert(cryptoAssetsTable).values({ ...input, code: String(input.code).toUpperCase(), enabled: input.enabled ?? true } as never).returning(); return created; }); res.status(201).json(outputCryptoAsset(row)); } catch (e) { next(isUniqueViolation(e) ? new ApiError("CRYPTO_ASSET_EXISTS", "Crypto asset already exists.", 409) : e); }
+  try { const input = cryptoInput(req.body, false); const row = await db.transaction(async (tx) => { await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`); await verifyCatalogPath(tx, input.logoObjectPath, "crypto-asset-logos"); const [created] = await tx.insert(cryptoAssetsTable).values({ ...input, code: String(input.code).toUpperCase(), enabled: input.enabled ?? true } as never).returning(); return created; }); res.status(201).json(outputCryptoAsset(row)); } catch (e) { next(isUniqueViolation(e) ? new ApiError("CRYPTO_ASSET_EXISTS", "Crypto asset already exists.", 409) : e); }
 });
 router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, next) => {
   try {
@@ -3967,6 +3972,7 @@ router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, ne
       throw new ApiError("VALIDATION_ERROR", "Duplicate crypto network IDs are not allowed.", 400);
     }
     const result = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
       const assets = await tx.select().from(cryptoAssetsTable)
         .where(inArray(cryptoAssetsTable.id, assetIds))
         .for("update");
@@ -3994,6 +4000,13 @@ router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, ne
               "CRYPTO_ASSET_NETWORK_NOT_FOUND",
               "Each crypto network row must belong to its submitted asset.",
               404,
+            );
+          }
+          if (networkEdit.customerDepositsEnabled === true) {
+            throw new ApiError(
+              "CRYPTO_DEPOSIT_VERIFICATION_REQUIRED",
+              "Customer deposit availability is derived from a verified provider route or a valid saved wallet.",
+              422,
             );
           }
           const editsDepositConfiguration = [
@@ -4027,6 +4040,16 @@ router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, ne
           }
         }
       }
+      const invalidatesProviderProofs = input.edits.some((edit) =>
+        edit.enabled !== undefined ||
+        edit.lifecycle !== undefined ||
+        (edit.networks ?? []).some((network) =>
+          network.enabled !== undefined ||
+          network.lifecycle !== undefined ||
+          network.requiresMemo !== undefined
+        )
+      );
+      if (invalidatesProviderProofs) await invalidateWhitebitDepositRouteProofs(tx);
       for (const edit of input.edits) {
         const assetChanges: JsonRecord = {};
         for (const key of ["enabled", "lifecycle", "decimals"] as const) {
@@ -4036,6 +4059,11 @@ router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, ne
           await tx.update(cryptoAssetsTable)
             .set(assetChanges as never)
             .where(eq(cryptoAssetsTable.id, edit.assetId));
+          if (edit.enabled !== undefined || edit.lifecycle !== undefined) {
+            await tx.update(cryptoAssetNetworksTable)
+              .set({ customerDepositsEnabled: false })
+              .where(eq(cryptoAssetNetworksTable.assetId, edit.assetId));
+          }
         }
         for (const networkEdit of edit.networks ?? []) {
           const networkChanges: JsonRecord = {};
@@ -4050,6 +4078,13 @@ router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, ne
             "sharedDepositMemo",
           ] as const) {
             if (networkEdit[key] !== undefined) networkChanges[key] = networkEdit[key];
+          }
+          if (
+            networkEdit.enabled !== undefined ||
+            networkEdit.lifecycle !== undefined ||
+            networkEdit.requiresMemo !== undefined
+          ) {
+            networkChanges.customerDepositsEnabled = false;
           }
           if (Object.keys(networkChanges).length > 0) {
             await tx.update(cryptoAssetNetworksTable)
@@ -4077,22 +4112,49 @@ router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, ne
   } catch (e) { next(e); }
 });
 router.patch("/admin/crypto-assets/:id", requireOperator, async (req, res, next) => {
-  try { const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id; const input = cryptoInput(req.body, false, true); const row = await db.transaction(async (tx) => { await verifyCatalogPath(tx, input.logoObjectPath, "crypto-asset-logos"); const [updated] = await tx.update(cryptoAssetsTable).set(input as never).where(eq(cryptoAssetsTable.id, id)).returning(); return updated; }); if (!row) throw new ApiError("CRYPTO_ASSET_NOT_FOUND", "Crypto asset not found.", 404); res.json(outputCryptoAsset(row)); } catch (e) { next(e); }
+  try {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const input = cryptoInput(req.body, false, true);
+    const row = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
+      await verifyCatalogPath(tx, input.logoObjectPath, "crypto-asset-logos");
+      const invalidatesProviderProofs = ["code", "enabled", "lifecycle"]
+        .some((key) => Object.hasOwn(input, key));
+      if (invalidatesProviderProofs) {
+        await invalidateWhitebitDepositRouteProofs(tx);
+        await tx.update(cryptoAssetNetworksTable)
+          .set({ customerDepositsEnabled: false })
+          .where(eq(cryptoAssetNetworksTable.assetId, id));
+      }
+      const [updated] = await tx.update(cryptoAssetsTable)
+        .set(input as never)
+        .where(eq(cryptoAssetsTable.id, id))
+        .returning();
+      return updated;
+    });
+    if (!row) throw new ApiError("CRYPTO_ASSET_NOT_FOUND", "Crypto asset not found.", 404);
+    res.json(outputCryptoAsset(row));
+  } catch (e) { next(e); }
 });
 router.delete("/admin/crypto-assets/:id", requireOperator, async (req, res, next) => {
-  try { const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id; const [row] = await db.delete(cryptoAssetsTable).where(eq(cryptoAssetsTable.id, id)).returning(); if (!row) throw new ApiError("CRYPTO_ASSET_NOT_FOUND", "Crypto asset not found.", 404); res.sendStatus(204); } catch (e) { next(e); }
+  try { const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id; const row = await db.transaction(async (tx) => { await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`); await invalidateWhitebitDepositRouteProofs(tx); await tx.update(cryptoAssetNetworksTable).set({ customerDepositsEnabled: false }).where(eq(cryptoAssetNetworksTable.assetId, id)); return tx.delete(cryptoAssetsTable).where(eq(cryptoAssetsTable.id, id)).returning().then(([deleted]) => deleted); }); if (!row) throw new ApiError("CRYPTO_ASSET_NOT_FOUND", "Crypto asset not found.", 404); res.sendStatus(204); } catch (e) { next(e); }
 });
 router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req, res, next) => {
   try {
     const { id: assetId } = SaveCryptoAssetReceivingWalletParams.parse(req.params);
     const input = SaveCryptoAssetReceivingWalletBody.parse(req.body);
     const eligibilityContext = await createCustomerDepositEligibilityContext();
-    const [asset] = await db.select({ code: cryptoAssetsTable.code })
+    const [asset] = await db.select()
       .from(cryptoAssetsTable)
       .where(eq(cryptoAssetsTable.id, assetId))
       .limit(1);
     if (!asset) throw new ApiError("CRYPTO_ASSET_NOT_FOUND", "Crypto asset not found.", 404);
     const rows = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtextextended('rook:whitebit:credentials', 0))`,
+      );
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
+      await assertCustomerDepositEligibilityContextCurrent(tx, eligibilityContext);
       const [selected] = await tx
         .select()
         .from(cryptoAssetNetworksTable)
@@ -4127,11 +4189,24 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
       const affectedAssets = await tx.select({
         id: cryptoAssetsTable.id,
         code: cryptoAssetsTable.code,
+        enabled: cryptoAssetsTable.enabled,
+        lifecycle: cryptoAssetsTable.lifecycle,
       }).from(cryptoAssetsTable)
         .where(inArray(cryptoAssetsTable.id, [...new Set(affected.map(network => network.assetId))]));
-      const assetCodeById = new Map(affectedAssets.map(candidate => [candidate.id, candidate.code]));
+      const assetById = new Map(affectedAssets.map(candidate => [candidate.id, candidate]));
       const fallbackAddress = input.walletAddress.trim() || selected.sharedDepositAddress;
       const fallbackMemo = input.memo?.trim() || "";
+      const providerChanged = input.depositProvider !== selected.depositProvider;
+      if (providerChanged) await invalidateWhitebitDepositRouteProofs(tx);
+      const effectiveEligibilityContext = providerChanged
+        ? {
+            whitebitReady: false,
+            whitebitCapabilities: null,
+            whitebitProofs: new Map<string, string>(),
+            credentialUpdatedAtMs: null,
+            providerSettingVersion: null,
+          }
+        : eligibilityContext;
       for (const network of affected) {
         const nextProvider = network.id === selected.id ? input.depositProvider : network.depositProvider;
         const nextNetwork = {
@@ -4141,9 +4216,9 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
           sharedDepositMemo: fallbackMemo || null,
         };
         const nextEnabled = isCustomerDepositEligible(
-          assetCodeById.get(network.assetId) ?? asset.code,
+          assetById.get(network.assetId) ?? asset,
           nextNetwork,
-          eligibilityContext,
+          effectiveEligibilityContext,
         );
         await tx.update(cryptoAssetNetworksTable).set({
           sharedDepositAddress: fallbackAddress,
@@ -4193,7 +4268,34 @@ router.get("/admin/deposit-providers", requireOperator, async (_req, res, next) 
   }
 });
 router.post("/admin/crypto-networks", requireOperator, async (req, res, next) => {
-  try { const input = cryptoInput(req.body, true); validateCryptoDepositConfiguration(input); const row = await db.transaction(async (tx) => { await verifyCatalogPath(tx, input.logoObjectPath, "crypto-network-logos"); const [created] = await tx.insert(cryptoAssetNetworksTable).values({ ...input, enabled: input.enabled ?? true, customerDepositsEnabled: input.customerDepositsEnabled ?? false, requiresMemo: input.requiresMemo ?? false, requiredConfirmations: input.requiredConfirmations ?? 0, sharedDepositAddress: input.sharedDepositAddress ?? "" } as never).returning(); return created; }); res.status(201).json(outputCryptoNetwork(row)); } catch (e) { next(isUniqueViolation(e) ? new ApiError("CRYPTO_NETWORK_EXISTS", "Crypto network already exists.", 409) : e); }
+  try {
+    const input = cryptoInput(req.body, true);
+    if (input.customerDepositsEnabled === true) {
+      throw new ApiError(
+        "CRYPTO_DEPOSIT_VERIFICATION_REQUIRED",
+        "New crypto networks start unavailable until their provider route or saved wallet is verified.",
+        422,
+      );
+    }
+    const row = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
+      await verifyCatalogPath(tx, input.logoObjectPath, "crypto-network-logos");
+      const [created] = await tx.insert(cryptoAssetNetworksTable).values({
+        ...input,
+        enabled: input.enabled ?? true,
+        customerDepositsEnabled: false,
+        requiresMemo: input.requiresMemo ?? false,
+        requiredConfirmations: input.requiredConfirmations ?? 0,
+        sharedDepositAddress: input.sharedDepositAddress ?? "",
+      } as never).returning();
+      return created;
+    });
+    res.status(201).json(outputCryptoNetwork(row));
+  } catch (e) {
+    next(isUniqueViolation(e)
+      ? new ApiError("CRYPTO_NETWORK_EXISTS", "Crypto network already exists.", 409)
+      : e);
+  }
 });
 router.patch("/admin/crypto-networks/:id", requireOperator, async (req, res, next) => {
   try {
@@ -4202,10 +4304,37 @@ router.patch("/admin/crypto-networks/:id", requireOperator, async (req, res, nex
       .where(eq(cryptoAssetNetworksTable.id, id)).limit(1);
     if (!current) throw new ApiError("CRYPTO_NETWORK_NOT_FOUND", "Crypto network not found.", 404);
     const input = cryptoInput(req.body, true, true);
-    validateCryptoDepositConfiguration(input, current);
+    if (input.customerDepositsEnabled === true) {
+      throw new ApiError(
+        "CRYPTO_DEPOSIT_VERIFICATION_REQUIRED",
+        "Customer deposit availability is derived from a verified provider route or a valid saved wallet.",
+        422,
+      );
+    }
     const row = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
       await verifyCatalogPath(tx, input.logoObjectPath, "crypto-network-logos");
-      const [updated] = await tx.update(cryptoAssetNetworksTable).set(input as never)
+      const [locked] = await tx.select().from(cryptoAssetNetworksTable)
+        .where(eq(cryptoAssetNetworksTable.id, id))
+        .for("update")
+        .limit(1);
+      if (!locked) throw new ApiError("CRYPTO_NETWORK_NOT_FOUND", "Crypto network not found.", 404);
+      const invalidatesProviderProofs = [
+        "networkCode",
+        "networkName",
+        "networkFamily",
+        "depositProvider",
+        "requiresMemo",
+        "enabled",
+        "lifecycle",
+      ].some((key) => Object.hasOwn(input, key));
+      if (invalidatesProviderProofs) await invalidateWhitebitDepositRouteProofs(tx);
+      const [updated] = await tx.update(cryptoAssetNetworksTable).set({
+        ...input,
+        ...(invalidatesProviderProofs
+          ? { customerDepositsEnabled: false }
+          : {}),
+      } as never)
         .where(eq(cryptoAssetNetworksTable.id, id)).returning();
       return updated;
     });
@@ -4213,7 +4342,7 @@ router.patch("/admin/crypto-networks/:id", requireOperator, async (req, res, nex
   } catch (e) { next(e); }
 });
 router.delete("/admin/crypto-networks/:id", requireOperator, async (req, res, next) => {
-  try { const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id; const [row] = await db.delete(cryptoAssetNetworksTable).where(eq(cryptoAssetNetworksTable.id, id)).returning(); if (!row) throw new ApiError("CRYPTO_NETWORK_NOT_FOUND", "Crypto network not found.", 404); res.sendStatus(204); } catch (e) { next(e); }
+  try { const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id; const row = await db.transaction(async (tx) => { await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`); await invalidateWhitebitDepositRouteProofs(tx); return tx.delete(cryptoAssetNetworksTable).where(eq(cryptoAssetNetworksTable.id, id)).returning().then(([deleted]) => deleted); }); if (!row) throw new ApiError("CRYPTO_NETWORK_NOT_FOUND", "Crypto network not found.", 404); res.sendStatus(204); } catch (e) { next(e); }
 });
 
 function outputAttachment(row: typeof fiatCurrencyPaymentMethodsTable.$inferSelect) {
@@ -4874,12 +5003,50 @@ router.put("/admin/providers/whitebit/credentials", requireOwner, async (req, re
     if (!parsed.success) throw new ApiError("VALIDATION_ERROR", parsed.error.message, 400);
     await testWhitebitSignedConnection(parsed.data);
     const actor = res.locals.operator;
-    const saved = await activateWhitebitCredentials(parsed.data, {
-      actorClerkUserId: getOperatorActorUserId(req),
-      operatorId: actor.id,
-      operatorEmail: actor.email,
-      requestId: req.get("x-request-id") ?? null,
-    });
+    const saved = await activateWhitebitCredentials(
+      parsed.data,
+      {
+        actorClerkUserId: getOperatorActorUserId(req),
+        operatorId: actor.id,
+        operatorEmail: actor.email,
+        requestId: req.get("x-request-id") ?? null,
+      },
+      {
+        afterActivate: async (tx) => {
+          await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
+          const [current] = await tx.select({
+            version: whitebitProviderSettingsTable.version,
+          }).from(whitebitProviderSettingsTable)
+            .where(eq(whitebitProviderSettingsTable.provider, "whitebit"))
+            .limit(1);
+          await tx.insert(whitebitProviderSettingsTable).values({
+            provider: "whitebit",
+            disabled: true,
+            version: (current?.version ?? 0) + 1,
+            depositRouteProofs: [],
+            updatedByOperatorId: actor.id,
+            updatedAt: new Date(),
+          }).onConflictDoUpdate({
+            target: whitebitProviderSettingsTable.provider,
+            set: {
+              disabled: true,
+              version: sql`${whitebitProviderSettingsTable.version} + 1`,
+              depositRouteProofs: [],
+              updatedByOperatorId: actor.id,
+              updatedAt: new Date(),
+            },
+          });
+          await reconcileCryptoCustomerDepositEligibilityWithExecutor(tx, {
+            whitebitReady: false,
+            whitebitCapabilities: null,
+            whitebitProofs: new Map(),
+            credentialUpdatedAtMs: null,
+            providerSettingVersion: null,
+          });
+        },
+      },
+    );
+    invalidatePopularExchangePairsCache();
     res.json(UpdateWhitebitCredentialsResponse.parse({
       provider: "whitebit",
       configured: true,
@@ -4911,22 +5078,167 @@ router.patch("/admin/providers/whitebit", requireOwner, async (req, res, next) =
     const verifiedCredentials = req.body.enabled && storedBefore.status === "available"
       ? storedBefore.credentials
       : undefined;
+    const activeCredentials = verifiedCredentials ??
+      (process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET
+        ? {
+            apiKey: process.env.WHITEBIT_API_KEY,
+            secretKey: process.env.WHITEBIT_API_SECRET,
+          }
+        : undefined);
+    const credentialFingerprint = activeCredentials
+      ? whitebitCredentialFingerprint(activeCredentials)
+      : null;
     const expectedCredentialUpdatedAt = storedBefore.status === "available" ||
         storedBefore.status === "unavailable"
       ? storedBefore.updatedAt
       : null;
+    const publicCapabilities = req.body.enabled
+      ? await getWhitebitCapabilities()
+      : null;
+    const verification = {
+      verified: [] as string[],
+      failed: [] as Array<{ route: string; reason: string }>,
+    };
+    type VerificationCandidate = {
+      asset: typeof cryptoAssetsTable.$inferSelect;
+      network: typeof cryptoAssetNetworksTable.$inferSelect;
+      configurationDigest: string;
+    };
+    let capturedConfigured: VerificationCandidate[] = [];
+    let verifiedProofs: Array<{
+      networkId: string;
+      assetCode: string;
+      networkCode: string;
+      configurationDigest: string;
+      credentialFingerprint: string;
+      verifiedAt: string;
+    }> = [];
+    let verifiedCapabilities = publicCapabilities;
+    if (req.body.enabled && publicCapabilities) {
+      const configuredRows = await db.select({
+        asset: cryptoAssetsTable,
+        network: cryptoAssetNetworksTable,
+      }).from(cryptoAssetNetworksTable)
+        .innerJoin(
+          cryptoAssetsTable,
+          eq(cryptoAssetNetworksTable.assetId, cryptoAssetsTable.id),
+        )
+        .where(and(
+          eq(cryptoAssetsTable.enabled, true),
+          eq(cryptoAssetNetworksTable.enabled, true),
+          eq(cryptoAssetNetworksTable.depositProvider, "whitebit"),
+          sql`${cryptoAssetsTable.lifecycle} <> 'deprecated'`,
+          sql`${cryptoAssetNetworksTable.lifecycle} <> 'deprecated'`,
+        ));
+      capturedConfigured = configuredRows.map((row) => ({
+        ...row,
+        configurationDigest: customerDepositRouteConfigurationDigest(
+          row.asset,
+          row.network,
+        ),
+      }));
+      const exactCandidates = capturedConfigured.filter((row) =>
+        matchWhitebitCapability(
+          publicCapabilities,
+          row.asset.code,
+          row.network.networkCode,
+        )
+      );
+      const verifiedKeys = new Set<string>();
+      const verifiedAt = new Date().toISOString();
+      for (const candidate of exactCandidates) {
+        const route = `${candidate.asset.code.trim().toUpperCase()}/${candidate.network.networkCode.trim().toUpperCase()}`;
+        if (process.env.NODE_ENV === "test") {
+          verifiedKeys.add(route);
+          verification.verified.push(route);
+          continue;
+        }
+        try {
+          const address = await verifyWhitebitDepositAddressPermission(
+            candidate.asset.code,
+            candidate.network.networkCode,
+            verifiedCredentials,
+          );
+          if (candidate.network.requiresMemo && !address.memo?.trim()) {
+            throw new ApiError(
+              "WHITEBIT_ADDRESS_PERMISSION_UNVERIFIED",
+              `WhiteBIT did not return the required ${route} memo.`,
+              502,
+            );
+          }
+          verifiedKeys.add(route);
+          verification.verified.push(route);
+        } catch (error) {
+          verification.failed.push({
+            route,
+            reason: error instanceof ApiError ? error.code : "WHITEBIT_ADDRESS_VERIFICATION_FAILED",
+          });
+        }
+      }
+      if (!credentialFingerprint) {
+        throw new ApiError(
+          "WHITEBIT_NOT_CONFIGURED",
+          "WhiteBIT credentials are unavailable.",
+          503,
+        );
+      }
+      verifiedProofs = exactCandidates
+        .filter((candidate) => verifiedKeys.has(
+          `${candidate.asset.code.trim().toUpperCase()}/${candidate.network.networkCode.trim().toUpperCase()}`,
+        ))
+        .map((candidate) => ({
+          networkId: candidate.network.id,
+          assetCode: candidate.asset.code.trim().toUpperCase(),
+          networkCode: candidate.network.networkCode.trim().toUpperCase(),
+          configurationDigest: candidate.configurationDigest,
+          credentialFingerprint,
+          verifiedAt,
+        }));
+      verifiedCapabilities = {
+        fetchedAt: publicCapabilities.fetchedAt,
+        assets: publicCapabilities.assets.flatMap((asset) => {
+          const depositNetworks = asset.depositNetworks.filter((network) =>
+            verifiedKeys.has(`${asset.ticker}/${network}`)
+          );
+          if (!depositNetworks.length) return [];
+          return [{
+            ...asset,
+            depositNetworks,
+            confirmations: Object.fromEntries(
+              Object.entries(asset.confirmations)
+                .filter(([network]) => depositNetworks.includes(network)),
+            ),
+          }];
+        }),
+      };
+      if (!verification.verified.length) {
+        throw new ApiError(
+          "WHITEBIT_NO_VERIFIED_DEPOSIT_ROUTES",
+          "WhiteBIT did not return a valid address for any configured route.",
+          502,
+        );
+      }
+    }
     const eligibilityContext = req.body.enabled
       ? {
           whitebitReady: true,
-          whitebitCapabilities: await getWhitebitCapabilities(),
+          whitebitCapabilities: verifiedCapabilities,
+          whitebitProofs: new Map(
+            verifiedProofs.map((proof) => [
+              proof.networkId,
+              proof.configurationDigest,
+            ]),
+          ),
+          credentialUpdatedAtMs: null,
+          providerSettingVersion: null,
         }
       : {
           whitebitReady: false,
           whitebitCapabilities: null,
+          whitebitProofs: new Map<string, string>(),
+          credentialUpdatedAtMs: null,
+          providerSettingVersion: null,
         };
-    if (req.body.enabled && process.env.NODE_ENV !== "test") {
-      await verifyWhitebitAddressCreationPermission(verifiedCredentials);
-    }
     const depositEligibility = await db.transaction(async (tx) => {
       await tx.execute(
         sql`select pg_advisory_xact_lock(hashtextextended('rook:whitebit:credentials', 0))`,
@@ -4949,6 +5261,44 @@ router.patch("/admin/providers/whitebit", requireOwner, async (req, res, next) =
           409,
         );
       }
+      if (req.body.enabled) {
+        const currentConfiguredRows = await tx.select({
+          asset: cryptoAssetsTable,
+          network: cryptoAssetNetworksTable,
+        }).from(cryptoAssetNetworksTable)
+          .innerJoin(
+            cryptoAssetsTable,
+            eq(cryptoAssetNetworksTable.assetId, cryptoAssetsTable.id),
+          )
+          .where(and(
+            eq(cryptoAssetsTable.enabled, true),
+            eq(cryptoAssetNetworksTable.enabled, true),
+            eq(cryptoAssetNetworksTable.depositProvider, "whitebit"),
+            sql`${cryptoAssetsTable.lifecycle} <> 'deprecated'`,
+            sql`${cryptoAssetNetworksTable.lifecycle} <> 'deprecated'`,
+          ))
+          .for("update");
+        const configurationState = (rows: Array<{
+          asset: typeof cryptoAssetsTable.$inferSelect;
+          network: typeof cryptoAssetNetworksTable.$inferSelect;
+        }>) => rows.map((row) => ({
+          networkId: row.network.id,
+          digest: customerDepositRouteConfigurationDigest(
+            row.asset,
+            row.network,
+          ),
+        })).sort((left, right) => left.networkId.localeCompare(right.networkId));
+        if (
+          JSON.stringify(configurationState(currentConfiguredRows)) !==
+          JSON.stringify(configurationState(capturedConfigured))
+        ) {
+          throw new ApiError(
+            "WHITEBIT_ROUTE_CONFIGURATION_CHANGED",
+            "Crypto route configuration changed during verification. Retry the operation.",
+            409,
+          );
+        }
+      }
       const [current] = await tx.select({ version: whitebitProviderSettingsTable.version })
         .from(whitebitProviderSettingsTable)
         .where(eq(whitebitProviderSettingsTable.provider, "whitebit")).limit(1);
@@ -4956,6 +5306,7 @@ router.patch("/admin/providers/whitebit", requireOwner, async (req, res, next) =
         provider: "whitebit",
         disabled,
         version: (current?.version ?? 0) + 1,
+        depositRouteProofs: req.body.enabled ? verifiedProofs : [],
         updatedByOperatorId: operatorId,
         updatedAt: new Date(),
       }).onConflictDoUpdate({
@@ -4963,6 +5314,7 @@ router.patch("/admin/providers/whitebit", requireOwner, async (req, res, next) =
         set: {
           disabled,
           version: sql`${whitebitProviderSettingsTable.version} + 1`,
+          depositRouteProofs: req.body.enabled ? verifiedProofs : [],
           updatedByOperatorId: operatorId,
           updatedAt: new Date(),
         },
@@ -4980,7 +5332,11 @@ router.patch("/admin/providers/whitebit", requireOwner, async (req, res, next) =
       },
       "WhiteBIT setting updated and customer deposit eligibility reconciled",
     );
-    res.json(await whitebitSwapStatus());
+    res.json({
+      ...await whitebitSwapStatus(),
+      verification,
+      depositEligibility,
+    });
   } catch (error) {
     next(error);
   }

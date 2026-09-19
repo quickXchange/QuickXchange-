@@ -98,6 +98,7 @@
 - [Settlement-option pricing wildcards](settlement-option-pricing-wildcards.md) — a missing option ID is authoritative Any; exact two-option routes override wildcard routes.
 - [Provider-neutral network bulk edits](provider-neutral-network-bulk-edits.md) — Bulk Edit applies network settings regardless of provider; provider assignment stays in API Integrations.
 - [Automatic customer deposit eligibility](automatic-customer-deposit-eligibility.md) — enable deposit routes only from validated saved wallets or fresh exact provider capability.
+- [WhiteBIT route proof fencing](whitebit-route-proof-fencing.md) — provider-backed deposit eligibility requires credential-bound route proofs and atomic fail-closed invalidation.
 - [Popular-pair ranking boundaries](landing-shortcut-loading.md) — rank products separately from valid orders, intersect live routes, and serve stale cached results during refresh.
 - [Unified Convert route resolution](convert-route-resolution.md) — every Convert surface derives exact directed routes from executable asset-network capabilities; live quotes remain authoritative.
 - [Published Site Content freshness](published-site-content-freshness.md) — public revision endpoints must revalidate on every load so Admin publishing is immediately visible.

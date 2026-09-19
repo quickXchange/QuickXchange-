@@ -72,6 +72,14 @@ export const whitebitProviderSettingsTable = pgTable("whitebit_provider_settings
   provider: text("provider").primaryKey().default("whitebit"),
   disabled: boolean("disabled").notNull().default(true),
   version: integer("version").notNull().default(1),
+  depositRouteProofs: jsonb("deposit_route_proofs").$type<Array<{
+    networkId: string;
+    assetCode: string;
+    networkCode: string;
+    configurationDigest: string;
+    credentialFingerprint: string;
+    verifiedAt: string;
+  }>>().notNull().default([]),
   updatedByOperatorId: text("updated_by_operator_id"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
