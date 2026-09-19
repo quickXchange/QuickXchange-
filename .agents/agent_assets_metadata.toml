@@ -28,3 +28,17 @@ mtime_ms = 1789788129597
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/c6871b46-3f6d-4a15-83d5-4d6e6ad52836/7a744ad2-9818-436e-9ac1-5999a836c808"
 storage_version_token = "1789788342587489"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "L5PKSxeKsGAFbQ8GaQ4Yf"
+uri = "file://attached_assets/workspace-config-snapshot-current-2026-09-19.json"
+type = "unspecified"
+title = "Current Workspace configuration snapshot"
+description = "Fresh sanitized snapshot matching the current Workspace database: 48 assets, 63 networks, 164 fiat currencies, 45 methods, 243 links, and 61 pricing rules. SHA-256: 9b74dd0c443579f27dff3a768e939f9835fc7cc82df23e76f430250d8af59431"
+logical_id = "8bb21d48-f889-4f70-b82d-ebdcbb5f5703"
+content_hash = "sha256:9b74dd0c443579f27dff3a768e939f9835fc7cc82df23e76f430250d8af59431"
+size = 290502
+mtime_ms = 1789789086034
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/8bb21d48-f889-4f70-b82d-ebdcbb5f5703/35edcf91-30c1-45b7-8dc2-22c70f1f4f93"
+storage_version_token = "1789789092707257"
+content_type = "application/octet-stream"
