@@ -84,3 +84,17 @@ mtime_ms = 1789833236494
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/9bbd08a5-fb48-49fc-bc39-3a8a10d63a4e/323c2ccc-e7b9-438d-88ed-672b98bb502e"
 storage_version_token = "1789833822140115"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "cdxhTpvn1AJQqPXi4VnLR"
+uri = "file://exports/quickxchange-production-config-dry-run.json"
+type = "unspecified"
+title = "Production configuration dry run"
+description = "Itemized read-only comparison between the unchanged current Preview snapshot and Production. No Production writes were performed."
+logical_id = "3a00c532-de59-4916-ba2d-bae849940a2c"
+content_hash = "sha256:c5472026131bdeacafdd091023134e933a2fffd7e04688ba2a9856fbde9084dc"
+size = 315303
+mtime_ms = 1789834025721
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/3a00c532-de59-4916-ba2d-bae849940a2c/c1c751fc-2d28-41ee-8615-ca3450762a2b"
+storage_version_token = "1789834067218436"
+content_type = "application/octet-stream"
