@@ -7675,6 +7675,10 @@ canvas {
   margin-bottom: clamp(5rem, 8vw, 7rem);
 }
 
+.public-shell .why-choose-us {
+  margin-bottom: 2.25rem;
+}
+
 .public-shell .how-it-works {
   margin-top: clamp(5rem, 8vw, 7rem);
   margin-bottom: clamp(5rem, 8vw, 7rem);
@@ -7745,6 +7749,10 @@ canvas {
 }
 
 @media (min-width: 768px) and (max-width: 1199px) {
+  .public-shell .why-choose-us {
+    margin-bottom: 2.75rem;
+  }
+
   .public-shell .why-content {
     grid-template-columns: 1fr;
     gap: 3rem;
@@ -7756,6 +7764,12 @@ canvas {
 
   .public-shell .why-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1200px) {
+  .public-shell .why-choose-us {
+    margin-bottom: 3.5rem;
   }
 }
 
