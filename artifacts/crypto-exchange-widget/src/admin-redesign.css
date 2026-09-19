@@ -9197,7 +9197,7 @@ html:not(.dark) .admin-shell.admin-redesign .currencies-redesign .catalog-table 
 
 .payment-method-field-validation-inputs {
   display: grid;
-  grid-template-columns: minmax(70px, 0.7fr) minmax(70px, 0.7fr) minmax(130px, 1.6fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 

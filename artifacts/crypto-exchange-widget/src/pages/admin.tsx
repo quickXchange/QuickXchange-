@@ -5461,8 +5461,6 @@ function PaymentMethodDynamicFields({ fields, setFields }: { fields: PaymentMeth
           <fieldset className="payment-method-field-validation">
             <legend>Validation</legend>
             <div className="payment-method-field-validation-inputs">
-              <label><span>Min</span><input type="number" value={field.min ?? ""} placeholder="Min" onChange={event => update(index, { min: event.target.value ? Number(event.target.value) : undefined })} /></label>
-              <label><span>Max</span><input type="number" value={field.max ?? ""} placeholder="Max" onChange={event => update(index, { max: event.target.value ? Number(event.target.value) : undefined })} /></label>
               <label><span>Pattern</span><input value={field.pattern || ""} placeholder="Pattern" onChange={event => update(index, { pattern: event.target.value || undefined })} /></label>
             </div>
           </fieldset>
