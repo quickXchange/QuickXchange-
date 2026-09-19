@@ -3602,9 +3602,7 @@
       "providerId": null,
       "lifecycle": "active",
       "regions": [],
-      "countries": [
-        "US"
-      ],
+      "countries": ["US"],
       "requiresProviderConfiguration": false,
       "enabled": false,
       "canSend": true,
@@ -3685,10 +3683,7 @@
       "executionMode": "manual",
       "providerId": null,
       "lifecycle": "active",
-      "regions": [
-        "EEA",
-        "SEPA"
-      ],
+      "regions": ["EEA", "SEPA"],
       "countries": [],
       "requiresProviderConfiguration": false,
       "enabled": false,
@@ -3750,10 +3745,7 @@
       "executionMode": "manual",
       "providerId": null,
       "lifecycle": "active",
-      "regions": [
-        "EEA",
-        "SEPA"
-      ],
+      "regions": ["EEA", "SEPA"],
       "countries": [],
       "requiresProviderConfiguration": false,
       "enabled": true,
@@ -3813,10 +3805,7 @@
       "executionMode": "manual",
       "providerId": null,
       "lifecycle": "active",
-      "regions": [
-        "EEA",
-        "SEPA"
-      ],
+      "regions": ["EEA", "SEPA"],
       "countries": [],
       "requiresProviderConfiguration": false,
       "enabled": true,
@@ -3879,9 +3868,7 @@
       "providerId": null,
       "lifecycle": "active",
       "regions": [],
-      "countries": [
-        "US"
-      ],
+      "countries": ["US"],
       "requiresProviderConfiguration": false,
       "enabled": false,
       "canSend": true,
@@ -3927,9 +3914,7 @@
       "providerId": null,
       "lifecycle": "active",
       "regions": [],
-      "countries": [
-        "GB"
-      ],
+      "countries": ["GB"],
       "requiresProviderConfiguration": false,
       "enabled": false,
       "canSend": true,
@@ -3984,9 +3969,7 @@
       "providerId": null,
       "lifecycle": "active",
       "regions": [],
-      "countries": [
-        "GB"
-      ],
+      "countries": ["GB"],
       "requiresProviderConfiguration": false,
       "enabled": false,
       "canSend": true,
@@ -4022,10 +4005,7 @@
       "executionMode": "manual",
       "providerId": null,
       "lifecycle": "active",
-      "regions": [
-        "EEA",
-        "United Kingdom"
-      ],
+      "regions": ["EEA", "United Kingdom"],
       "countries": [],
       "requiresProviderConfiguration": false,
       "enabled": true,
@@ -4086,10 +4066,7 @@
       "executionMode": "manual",
       "providerId": null,
       "lifecycle": "active",
-      "regions": [
-        "EEA",
-        "SEPA"
-      ],
+      "regions": ["EEA", "SEPA"],
       "countries": [],
       "requiresProviderConfiguration": false,
       "enabled": true,
@@ -4152,9 +4129,7 @@
       "providerId": null,
       "lifecycle": "active",
       "regions": [],
-      "countries": [
-        "CA"
-      ],
+      "countries": ["CA"],
       "requiresProviderConfiguration": false,
       "enabled": false,
       "canSend": true,
@@ -4189,9 +4164,7 @@
       "providerId": null,
       "lifecycle": "active",
       "regions": [],
-      "countries": [
-        "MX"
-      ],
+      "countries": ["MX"],
       "requiresProviderConfiguration": false,
       "enabled": false,
       "canSend": true,
@@ -4237,9 +4210,7 @@
       "providerId": null,
       "lifecycle": "active",
       "regions": [],
-      "countries": [
-        "IN"
-      ],
+      "countries": ["IN"],
       "requiresProviderConfiguration": false,
       "enabled": false,
       "canSend": true,
@@ -4275,9 +4246,7 @@
       "providerId": null,
       "lifecycle": "active",
       "regions": [],
-      "countries": [
-        "IN"
-      ],
+      "countries": ["IN"],
       "requiresProviderConfiguration": false,
       "enabled": false,
       "canSend": true,
@@ -4323,9 +4292,7 @@
       "providerId": null,
       "lifecycle": "active",
       "regions": [],
-      "countries": [
-        "AU"
-      ],
+      "countries": ["AU"],
       "requiresProviderConfiguration": false,
       "enabled": false,
       "canSend": true,
@@ -4361,9 +4328,7 @@
       "providerId": null,
       "lifecycle": "active",
       "regions": [],
-      "countries": [
-        "SG"
-      ],
+      "countries": ["SG"],
       "requiresProviderConfiguration": false,
       "enabled": false,
       "canSend": true,
@@ -4399,9 +4364,7 @@
       "providerId": null,
       "lifecycle": "active",
       "regions": [],
-      "countries": [
-        "TH"
-      ],
+      "countries": ["TH"],
       "requiresProviderConfiguration": false,
       "enabled": false,
       "canSend": true,
@@ -4559,9 +4522,7 @@
       "providerId": null,
       "lifecycle": "active",
       "regions": [],
-      "countries": [
-        "US"
-      ],
+      "countries": ["US"],
       "requiresProviderConfiguration": false,
       "enabled": false,
       "canSend": true,
@@ -4595,9 +4556,7 @@
       "providerId": null,
       "lifecycle": "active",
       "regions": [],
-      "countries": [
-        "US"
-      ],
+      "countries": ["US"],
       "requiresProviderConfiguration": false,
       "enabled": false,
       "canSend": true,
@@ -4633,9 +4592,7 @@
       "providerId": null,
       "lifecycle": "active",
       "regions": [],
-      "countries": [
-        "TZ"
-      ],
+      "countries": ["TZ"],
       "requiresProviderConfiguration": false,
       "enabled": false,
       "canSend": true,
@@ -4671,9 +4628,7 @@
       "providerId": null,
       "lifecycle": "active",
       "regions": [],
-      "countries": [
-        "PH"
-      ],
+      "countries": ["PH"],
       "requiresProviderConfiguration": false,
       "enabled": false,
       "canSend": true,
@@ -4709,9 +4664,7 @@
       "providerId": null,
       "lifecycle": "active",
       "regions": [],
-      "countries": [
-        "BD"
-      ],
+      "countries": ["BD"],
       "requiresProviderConfiguration": false,
       "enabled": false,
       "canSend": true,
@@ -4747,9 +4700,7 @@
       "providerId": null,
       "lifecycle": "active",
       "regions": [],
-      "countries": [
-        "PK"
-      ],
+      "countries": ["PK"],
       "requiresProviderConfiguration": false,
       "enabled": false,
       "canSend": true,
@@ -4785,9 +4736,7 @@
       "providerId": null,
       "lifecycle": "active",
       "regions": [],
-      "countries": [
-        "CN"
-      ],
+      "countries": ["CN"],
       "requiresProviderConfiguration": false,
       "enabled": false,
       "canSend": true,
@@ -4915,10 +4864,7 @@
       "executionMode": "manual",
       "providerId": null,
       "lifecycle": "active",
-      "regions": [
-        "EEA",
-        "SEPA"
-      ],
+      "regions": ["EEA", "SEPA"],
       "countries": [],
       "requiresProviderConfiguration": false,
       "enabled": true,
@@ -4980,10 +4926,7 @@
       "executionMode": "manual",
       "providerId": null,
       "lifecycle": "active",
-      "regions": [
-        "EEA",
-        "SEPA"
-      ],
+      "regions": ["EEA", "SEPA"],
       "countries": [],
       "requiresProviderConfiguration": false,
       "enabled": true,
@@ -5045,10 +4988,7 @@
       "executionMode": "manual",
       "providerId": null,
       "lifecycle": "active",
-      "regions": [
-        "EEA",
-        "SEPA"
-      ],
+      "regions": ["EEA", "SEPA"],
       "countries": [],
       "requiresProviderConfiguration": false,
       "enabled": true,
@@ -5110,10 +5050,7 @@
       "executionMode": "manual",
       "providerId": null,
       "lifecycle": "active",
-      "regions": [
-        "EEA",
-        "SEPA"
-      ],
+      "regions": ["EEA", "SEPA"],
       "countries": [],
       "requiresProviderConfiguration": false,
       "enabled": true,
@@ -5175,9 +5112,7 @@
       "executionMode": "manual",
       "providerId": null,
       "lifecycle": "active",
-      "regions": [
-        "SEPA"
-      ],
+      "regions": ["SEPA"],
       "countries": [],
       "requiresProviderConfiguration": false,
       "enabled": true,
@@ -5204,9 +5139,7 @@
       "executionMode": "manual",
       "providerId": null,
       "lifecycle": "active",
-      "regions": [
-        "Global"
-      ],
+      "regions": ["Global"],
       "countries": [],
       "requiresProviderConfiguration": false,
       "enabled": false,
@@ -5252,10 +5185,7 @@
       "executionMode": "manual",
       "providerId": null,
       "lifecycle": "active",
-      "regions": [
-        "EEA",
-        "United Kingdom"
-      ],
+      "regions": ["EEA", "United Kingdom"],
       "countries": [],
       "requiresProviderConfiguration": false,
       "enabled": false,
@@ -5301,10 +5231,7 @@
       "executionMode": "manual",
       "providerId": null,
       "lifecycle": "active",
-      "regions": [
-        "EEA",
-        "SEPA"
-      ],
+      "regions": ["EEA", "SEPA"],
       "countries": [],
       "requiresProviderConfiguration": false,
       "enabled": true,
@@ -6304,9 +6231,7 @@
       "receiveInstructions": null,
       "minAmount": null,
       "maxAmount": null,
-      "countries": [
-        "US"
-      ]
+      "countries": ["US"]
     },
     {
       "fiatCode": "USD",
@@ -6318,9 +6243,7 @@
       "receiveInstructions": null,
       "minAmount": null,
       "maxAmount": null,
-      "countries": [
-        "US"
-      ]
+      "countries": ["US"]
     },
     {
       "fiatCode": "USD",
@@ -7628,9 +7551,7 @@
       "receiveInstructions": null,
       "minAmount": null,
       "maxAmount": null,
-      "countries": [
-        "CA"
-      ]
+      "countries": ["CA"]
     },
     {
       "fiatCode": "MXN",
@@ -7642,9 +7563,7 @@
       "receiveInstructions": null,
       "minAmount": null,
       "maxAmount": null,
-      "countries": [
-        "MX"
-      ]
+      "countries": ["MX"]
     },
     {
       "fiatCode": "INR",
@@ -7656,9 +7575,7 @@
       "receiveInstructions": null,
       "minAmount": null,
       "maxAmount": null,
-      "countries": [
-        "IN"
-      ]
+      "countries": ["IN"]
     },
     {
       "fiatCode": "INR",
@@ -7670,9 +7587,7 @@
       "receiveInstructions": null,
       "minAmount": null,
       "maxAmount": null,
-      "countries": [
-        "IN"
-      ]
+      "countries": ["IN"]
     },
     {
       "fiatCode": "AUD",
@@ -7684,9 +7599,7 @@
       "receiveInstructions": null,
       "minAmount": null,
       "maxAmount": null,
-      "countries": [
-        "AU"
-      ]
+      "countries": ["AU"]
     },
     {
       "fiatCode": "SGD",
@@ -7698,9 +7611,7 @@
       "receiveInstructions": null,
       "minAmount": null,
       "maxAmount": null,
-      "countries": [
-        "SG"
-      ]
+      "countries": ["SG"]
     },
     {
       "fiatCode": "THB",
@@ -7712,9 +7623,7 @@
       "receiveInstructions": null,
       "minAmount": null,
       "maxAmount": null,
-      "countries": [
-        "TH"
-      ]
+      "countries": ["TH"]
     },
     {
       "fiatCode": "CAD",
@@ -7774,9 +7683,7 @@
       "receiveInstructions": null,
       "minAmount": null,
       "maxAmount": null,
-      "countries": [
-        "TZ"
-      ]
+      "countries": ["TZ"]
     },
     {
       "fiatCode": "PHP",
@@ -7788,9 +7695,7 @@
       "receiveInstructions": null,
       "minAmount": null,
       "maxAmount": null,
-      "countries": [
-        "PH"
-      ]
+      "countries": ["PH"]
     },
     {
       "fiatCode": "BDT",
@@ -7802,9 +7707,7 @@
       "receiveInstructions": null,
       "minAmount": null,
       "maxAmount": null,
-      "countries": [
-        "BD"
-      ]
+      "countries": ["BD"]
     },
     {
       "fiatCode": "PKR",
@@ -7816,9 +7719,7 @@
       "receiveInstructions": null,
       "minAmount": null,
       "maxAmount": null,
-      "countries": [
-        "PK"
-      ]
+      "countries": ["PK"]
     },
     {
       "fiatCode": "CNY",
@@ -7830,9 +7731,7 @@
       "receiveInstructions": null,
       "minAmount": null,
       "maxAmount": null,
-      "countries": [
-        "CN"
-      ]
+      "countries": ["CN"]
     },
     {
       "fiatCode": "KES",
@@ -7988,9 +7887,7 @@
       "receiveInstructions": null,
       "minAmount": null,
       "maxAmount": null,
-      "countries": [
-        "US"
-      ]
+      "countries": ["US"]
     },
     {
       "fiatCode": "USD",
@@ -8002,9 +7899,7 @@
       "receiveInstructions": null,
       "minAmount": null,
       "maxAmount": null,
-      "countries": [
-        "US"
-      ]
+      "countries": ["US"]
     },
     {
       "fiatCode": "GBP",
@@ -8016,9 +7911,7 @@
       "receiveInstructions": null,
       "minAmount": null,
       "maxAmount": null,
-      "countries": [
-        "GB"
-      ]
+      "countries": ["GB"]
     },
     {
       "fiatCode": "GBP",
@@ -8030,9 +7923,7 @@
       "receiveInstructions": null,
       "minAmount": null,
       "maxAmount": null,
-      "countries": [
-        "GB"
-      ]
+      "countries": ["GB"]
     },
     {
       "fiatCode": "EUR",
