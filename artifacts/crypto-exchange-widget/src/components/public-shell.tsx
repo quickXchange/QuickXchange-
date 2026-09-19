@@ -31,7 +31,6 @@ import type { NavGroup } from '@/components/mega-menu';
 import { TelegramSupportButton } from '@/components/telegram-support-button';
 
 const COMPANY_FOOTER_LINKS = [
-  ['Home', '/'],
   ['About Us', '/about'],
   ['How It Works', '/how-it-works'],
   ['Affiliate Program', '/affiliates'],

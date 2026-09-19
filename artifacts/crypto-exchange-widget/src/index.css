@@ -5892,7 +5892,48 @@ html.dark .cl-modalContent .cl-cardBox {
 .live-landing-background-root .public-shell,
 html:not(.dark) .live-landing-background-root .public-shell,
 .dark .live-landing-background-root .public-shell {
-  background: transparent;
+  background:
+    radial-gradient(ellipse at 8% 48%, rgb(124 58 237 / 12%), transparent 34%),
+    radial-gradient(ellipse at 92% 70%, rgb(37 99 235 / 10%), transparent 36%),
+    linear-gradient(180deg, rgb(250 247 255 / 96%), rgb(244 248 255 / 98%));
+}
+
+.dark .live-landing-background-root .public-shell {
+  background:
+    radial-gradient(ellipse at 8% 48%, rgb(124 58 237 / 16%), transparent 34%),
+    radial-gradient(ellipse at 92% 70%, rgb(14 165 233 / 12%), transparent 36%),
+    linear-gradient(180deg, rgb(10 7 24 / 98%), rgb(5 12 27 / 99%));
+}
+
+.live-landing-background-root .public-hero-container {
+  position: relative;
+  isolation: isolate;
+}
+
+.live-landing-background-root .public-hero-container::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: -8rem;
+  bottom: -2.25rem;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  border-radius: 0 0 48% 52% / 0 0 5rem 4rem;
+  background:
+    radial-gradient(ellipse at 14% 20%, rgb(34 211 238 / 20%), transparent 36%),
+    radial-gradient(ellipse at 84% 42%, rgb(59 130 246 / 20%), transparent 38%),
+    radial-gradient(ellipse at 54% 92%, rgb(139 92 246 / 14%), transparent 42%),
+    linear-gradient(145deg, rgb(235 251 255 / 97%), rgb(235 240 255 / 97%) 54%, rgb(244 236 255 / 97%));
+  box-shadow: 0 28px 65px -58px rgb(37 99 235 / 65%);
+}
+
+.dark .live-landing-background-root .public-hero-container::before {
+  background:
+    radial-gradient(ellipse at 14% 20%, rgb(34 211 238 / 17%), transparent 36%),
+    radial-gradient(ellipse at 84% 42%, rgb(59 130 246 / 18%), transparent 38%),
+    radial-gradient(ellipse at 54% 92%, rgb(139 92 246 / 16%), transparent 42%),
+    linear-gradient(145deg, rgb(6 23 40 / 98%), rgb(10 18 45 / 98%) 54%, rgb(25 13 48 / 98%));
 }
 
 .public-shell :is(#exchange-widget, #market-rates, #why-choose-us, #how-it-works) {

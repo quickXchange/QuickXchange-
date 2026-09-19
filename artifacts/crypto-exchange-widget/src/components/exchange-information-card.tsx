@@ -49,38 +49,34 @@ export function ExchangeInformationCard({ content }: { content?: Record<string, 
   return (
     <aside
       className={cn(
-        'exchange-information-card relative mx-auto mt-4 h-auto w-full max-w-none overflow-hidden rounded-2xl p-px',
-        glow && 'shadow-[0_10px_32px_rgba(37,140,255,0.12),0_0_24px_rgba(124,58,237,0.12)]',
+        'exchange-information-card relative mx-auto mt-5 h-auto w-full max-w-none px-1 py-4 sm:px-2 sm:py-5',
+        glow && 'drop-shadow-[0_8px_22px_rgba(37,140,255,0.12)]',
       )}
       aria-label={config.title || 'Exchange information'}
       data-testid="exchange-information-card"
     >
-      <div className={cn(
-        'absolute inset-0 bg-gradient-to-r from-cyan-400/65 via-blue-500/70 to-violet-500/65',
-        !glow && 'opacity-45',
-      )} aria-hidden="true" />
-      <div className="relative h-auto rounded-[calc(1rem-1px)] bg-card/95 px-5 py-5 text-card-foreground shadow-[inset_0_0_24px_rgba(34,211,238,0.06)] backdrop-blur-sm sm:px-6 sm:py-5">
+      <div className="relative h-auto text-foreground">
         <div className={cn(
           'flex min-w-0 items-center gap-3',
           textAlign === 'center' && 'justify-center',
           textAlign === 'right' && 'justify-end',
         )}>
           {showIcon && (
-            <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-cyan-400/15 via-blue-500/15 to-violet-500/15 text-primary ring-1 ring-primary/15">
-              <ShieldCheck size={17} aria-hidden="true" />
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-cyan-400/20 via-blue-500/20 to-violet-500/20 text-primary">
+              <ShieldCheck size={19} aria-hidden="true" />
             </span>
           )}
           {config.title && (
-            <h2 className="min-w-0 text-balance text-sm font-bold tracking-tight text-foreground sm:text-[15px]">
+            <h2 className="min-w-0 text-balance text-base font-bold tracking-tight text-foreground sm:text-lg">
               {config.title}
             </h2>
           )}
         </div>
         <p className={cn(
-          'mt-3 min-w-0 whitespace-normal break-words leading-[1.7] text-muted-foreground',
+          'mt-3 min-w-0 whitespace-normal break-words leading-[1.75] text-foreground/75',
           textAlign === 'center' && 'text-center',
           textAlign === 'right' && 'text-right',
-          config.textSize === 'medium' ? 'text-sm sm:text-[15px]' : config.textSize === 'large' ? 'text-[15px] sm:text-base' : 'text-xs sm:text-[13px]',
+          config.textSize === 'medium' ? 'text-[15px] sm:text-base' : config.textSize === 'large' ? 'text-base sm:text-[17px]' : 'text-sm sm:text-[15px]',
         )}>
           {config.text}
         </p>
