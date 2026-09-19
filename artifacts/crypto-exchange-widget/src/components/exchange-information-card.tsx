@@ -11,8 +11,18 @@ type ExchangeInformationContent = {
   textAlign?: 'left' | 'center' | 'right';
 };
 
+export const DEFAULT_EXCHANGE_INFORMATION_CONTENT: ExchangeInformationContent = {
+  glow: true,
+  text: 'Exchanges are processed automatically with AML verification. The exchange rate is based on real-time spot market data and is floating, meaning it is calculated at the moment of processing according to current market conditions. The transaction requires network confirmations depending on the cryptocurrency and network. After the required confirmations are received, processing begins and may take up to 10 additional minutes. The final amount may vary depending on market fluctuations.',
+  title: 'Exchange Information',
+  visible: true,
+  showIcon: true,
+  textSize: 'small',
+  textAlign: 'left',
+};
+
 function parseContent(value: Record<string, unknown> | undefined): ExchangeInformationContent {
-  if (!value) return {};
+  if (!value) return DEFAULT_EXCHANGE_INFORMATION_CONTENT;
   return {
     visible: typeof value.visible === 'boolean' ? value.visible : undefined,
     showIcon: typeof value.showIcon === 'boolean' ? value.showIcon : undefined,

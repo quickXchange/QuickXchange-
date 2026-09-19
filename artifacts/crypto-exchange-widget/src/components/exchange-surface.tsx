@@ -726,7 +726,13 @@ export function ManualSwapWidget({
   const queryClient = useQueryClient();
   const { t } = useI18n();
   const { isLoaded: isCustomerLoaded, isSignedIn, user } = useUser();
-  const config = useGetExchangeConfig({ query: { queryKey: getGetExchangeConfigQueryKey(), staleTime: 300000 } });
+  const config = useGetExchangeConfig({
+    query: {
+      queryKey: getGetExchangeConfigQueryKey(),
+      staleTime: 0,
+      refetchOnMount: 'always',
+    },
+  });
   const quickexConfig = useGetQuickexConfig({ query: { queryKey: getGetQuickexConfigQueryKey(), staleTime: 300000 } });
   const officialCryptoBySymbol = useMemo(() => {
     const catalog = new Map<string, { name: string; logoUrl?: string }>();
@@ -864,12 +870,10 @@ export function ManualSwapWidget({
     () => new Set(availableManualRoutes.map(route => route.sourceSettlementOptionId)),
     [availableManualRoutes],
   );
-  const fromOptions = useMemo(() => allOptions.filter(o => {
-    if (o.kind === 'crypto-network' && o.lifecycle === 'active') {
-      return true;
-    }
-    return (o.direction === 'send' || o.direction === 'both') && availableSourceIds.has(o.id);
-  }), [allOptions, availableSourceIds]);
+  const fromOptions = useMemo(() => allOptions.filter(o =>
+    (o.direction === 'send' || o.direction === 'both') &&
+    availableSourceIds.has(o.id)
+  ), [allOptions, availableSourceIds]);
 
   const fromOption = fromOptions.find(o => o.id === fromId) || fromOptions[0];
 

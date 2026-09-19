@@ -1294,7 +1294,7 @@ router.get("/exchange/config", async (_req, res, next) => {
     const manualAssets = manualCryptoOptions.map((option) => ({ id: option.networkSlug, code: option.assetCode, name: option.title, kind: "crypto", network: option.routeNetwork, requiresMemo: option.requiresMemo, precision: 8 }));
     res.setHeader(
       "cache-control",
-      "public, max-age=30, s-maxage=60, stale-while-revalidate=300",
+      "no-store",
     );
     res.json(GetExchangeConfigResponse.parse({
       assets: [...manualAssets, ...fiatAssets].sort((a, b) => (a.code + "\0" + a.network + "\0" + a.id).localeCompare(b.code + "\0" + b.network + "\0" + b.id)),

@@ -1070,7 +1070,13 @@ function ExchangePage() {
 function ConfiguredExchangePage({ pageKey }: { pageKey: SitePageKey }) {
   const { t } = useI18n();
   const preview = useSitePreview();
-  const published = useGetPublishedSiteContent({ query: { queryKey: getGetPublishedSiteContentQueryKey(), staleTime: 60_000 } });
+  const published = useGetPublishedSiteContent({
+    query: {
+      queryKey: getGetPublishedSiteContentQueryKey(),
+      staleTime: 0,
+      refetchOnMount: 'always',
+    },
+  });
   const convertSearchParams = new URLSearchParams(window.location.search);
   const hasRequestedMarketAsset = Boolean(convertSearchParams.get('asset'));
   const hasRequestedConvertSelection = Boolean(
