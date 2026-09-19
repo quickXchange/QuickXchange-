@@ -24,6 +24,7 @@ export type MiniAppVisual = {
   logoUrl?: string;
   badgeUrl?: string;
   badgeVariant?: 'network' | 'flag';
+  variant?: 'asset' | 'payment';
   fallback?: string;
   label?: string;
 };
@@ -57,6 +58,7 @@ export function resolveOrderVisual(
     logoUrl: option?.logoUrl || paymentLogo || projectedLogo,
     badgeUrl: option?.kind === 'crypto-network' ? option.networkLogoUrl : option?.flagUrl || projectedBadge,
     badgeVariant: option?.kind === 'crypto-network' ? 'network' : 'flag',
+    variant: option?.kind === 'payment-method' || Boolean(paymentMethod) ? 'payment' : 'asset',
     fallback: asset,
     label: option?.title || text(paymentMethod?.name) || network || asset,
   };

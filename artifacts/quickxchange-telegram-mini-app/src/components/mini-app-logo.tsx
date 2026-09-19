@@ -23,6 +23,7 @@ export function MiniAppLogo({
   alt = '',
   size = 'normal',
   badgeVariant = 'network',
+  variant = 'asset',
   className,
 }: {
   src?: string | null;
@@ -31,6 +32,7 @@ export function MiniAppLogo({
   alt?: string;
   size?: MiniAppLogoSize;
   badgeVariant?: 'network' | 'flag';
+  variant?: 'asset' | 'payment';
   className?: string;
 }) {
   const normalizedSrc = normalizeMiniAppImageUrl(src);
@@ -51,12 +53,23 @@ export function MiniAppLogo({
       className,
     )}>
       {normalizedSrc && !mainFailed ? (
-        <img
-          src={normalizedSrc}
-          alt={alt}
-          className={cn('block object-contain', classes.image)}
-          onError={() => setMainFailed(true)}
-        />
+        variant === 'payment' ? (
+          <span className={cn('inline-grid aspect-square place-items-center overflow-hidden rounded-full', classes.image)}>
+            <img
+              src={normalizedSrc}
+              alt={alt}
+              className="block h-full w-full rounded-full object-contain object-center"
+              onError={() => setMainFailed(true)}
+            />
+          </span>
+        ) : (
+          <img
+            src={normalizedSrc}
+            alt={alt}
+            className={cn('block object-contain', classes.image)}
+            onError={() => setMainFailed(true)}
+          />
+        )
       ) : (
         <span className={cn('font-bold uppercase tracking-tight text-primary', classes.text)}>
           {(fallback || '?').slice(0, 4)}

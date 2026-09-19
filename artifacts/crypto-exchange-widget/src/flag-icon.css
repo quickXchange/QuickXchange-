@@ -168,6 +168,24 @@ html.dark .logo-avatar-bank {
   background: transparent !important;
 }
 
+/* Payment and bank artwork always renders through a circular 1:1 viewport.
+ * Keep the stack overflow visible so currency badges and existing glows retain
+ * their current geometry. */
+.payment-method-logo-stack > .payment-method-logo.logo-avatar {
+  aspect-ratio: 1 / 1 !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+}
+
+.payment-method-logo-stack > .payment-method-logo.logo-avatar > .logo-avatar-img {
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: 1 / 1 !important;
+  border-radius: 50% !important;
+  object-fit: contain !important;
+  object-position: center !important;
+}
+
 .payment-method-logo-stack-badged > .fiat-currency-flag,
 .crypto-logo + .fiat-currency-flag,
 .network-logo + .fiat-currency-flag {

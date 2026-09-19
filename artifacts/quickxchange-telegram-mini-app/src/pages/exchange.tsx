@@ -547,6 +547,7 @@ export default function Exchange() {
                   src={sourceOpt?.logoUrl}
                   badgeSrc={sourceOpt?.kind === 'crypto-network' ? sourceOpt?.networkLogoUrl : sourceOpt?.flagUrl}
                   badgeVariant={sourceOpt?.kind === 'crypto-network' ? 'network' : 'flag'}
+                  variant={sourceOpt?.kind === 'payment-method' ? 'payment' : 'asset'}
                   fallback={sourceOpt?.assetCode}
                   alt={sourceOpt?.title}
                   size="normal"
@@ -588,6 +589,7 @@ export default function Exchange() {
                   src={targetOpt?.logoUrl}
                   badgeSrc={targetOpt?.kind === 'crypto-network' ? targetOpt?.networkLogoUrl : targetOpt?.flagUrl}
                   badgeVariant={targetOpt?.kind === 'crypto-network' ? 'network' : 'flag'}
+                  variant={targetOpt?.kind === 'payment-method' ? 'payment' : 'asset'}
                   fallback={targetOpt?.assetCode}
                   alt={targetOpt?.title}
                   size="normal"
@@ -617,6 +619,7 @@ export default function Exchange() {
                 src={targetOpt?.logoUrl}
                 badgeSrc={targetOpt?.kind === 'crypto-network' ? targetOpt?.networkLogoUrl : targetOpt?.flagUrl}
                 badgeVariant={targetOpt?.kind === 'crypto-network' ? 'network' : 'flag'}
+                variant={targetOpt?.kind === 'payment-method' ? 'payment' : 'asset'}
                 fallback={targetOpt?.assetCode}
                 alt={targetOpt?.title}
                 size="small"
@@ -740,14 +743,14 @@ export default function Exchange() {
             <div className="flex justify-between items-center py-3 border-b border-border/50">
               <span className="text-[14px] font-semibold text-muted-foreground">You Send</span>
               <span className="flex items-center gap-2 font-bold text-[16px]">
-                <MiniAppLogo src={sourceOpt?.logoUrl} badgeSrc={sourceOpt?.kind === 'crypto-network' ? sourceOpt?.networkLogoUrl : sourceOpt?.flagUrl} badgeVariant={sourceOpt?.kind === 'crypto-network' ? 'network' : 'flag'} fallback={sourceOpt?.assetCode} size="small" />
+                <MiniAppLogo src={sourceOpt?.logoUrl} badgeSrc={sourceOpt?.kind === 'crypto-network' ? sourceOpt?.networkLogoUrl : sourceOpt?.flagUrl} badgeVariant={sourceOpt?.kind === 'crypto-network' ? 'network' : 'flag'} variant={sourceOpt?.kind === 'payment-method' ? 'payment' : 'asset'} fallback={sourceOpt?.assetCode} size="small" />
                 {amount} {sourceOpt?.assetCode}
               </span>
             </div>
             <div className="flex justify-between items-center py-3 border-b border-border/50">
               <span className="text-[14px] font-semibold text-muted-foreground">You Receive</span>
               <span className="flex items-center gap-2 font-bold text-[16px] text-primary">
-                <MiniAppLogo src={targetOpt?.logoUrl} badgeSrc={targetOpt?.kind === 'crypto-network' ? targetOpt?.networkLogoUrl : targetOpt?.flagUrl} badgeVariant={targetOpt?.kind === 'crypto-network' ? 'network' : 'flag'} fallback={targetOpt?.assetCode} size="small" />
+                <MiniAppLogo src={targetOpt?.logoUrl} badgeSrc={targetOpt?.kind === 'crypto-network' ? targetOpt?.networkLogoUrl : targetOpt?.flagUrl} badgeVariant={targetOpt?.kind === 'crypto-network' ? 'network' : 'flag'} variant={targetOpt?.kind === 'payment-method' ? 'payment' : 'asset'} fallback={targetOpt?.assetCode} size="small" />
                 {quoteData?.receiveAmount} {targetOpt?.assetCode}
               </span>
             </div>
@@ -866,6 +869,7 @@ export default function Exchange() {
                       src={o.logoUrl}
                       badgeSrc={o.kind === 'crypto-network' ? o.networkLogoUrl : o.flagUrl}
                       badgeVariant={o.kind === 'crypto-network' ? 'network' : 'flag'}
+                      variant={o.kind === 'payment-method' ? 'payment' : 'asset'}
                       fallback={o.assetCode}
                       alt={o.title}
                       size="medium"
