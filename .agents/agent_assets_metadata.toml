@@ -14,3 +14,17 @@ mtime_ms = 1788279462952
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/82b8248a-409c-4df5-9d31-9a0496132d3c/cc207d85-618d-426e-983b-bbbe7afd5536"
 storage_version_token = "1788279476397828"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "UWNNhU6CVHzbD8SmaWGuw"
+uri = "file://attached_assets/workspace-config-snapshot-2026-09-19.json"
+type = "unspecified"
+title = "Workspace configuration snapshot"
+description = "Sanitized, reviewed development configuration for the Owner-only Production preview/apply flow. SHA-256: d4fae61128556e09248bc74aa057f3cd24344084a9a1464b58c719a17d4e5a4b"
+logical_id = "c6871b46-3f6d-4a15-83d5-4d6e6ad52836"
+content_hash = "sha256:d4fae61128556e09248bc74aa057f3cd24344084a9a1464b58c719a17d4e5a4b"
+size = 277827
+mtime_ms = 1789788129597
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/c6871b46-3f6d-4a15-83d5-4d6e6ad52836/7a744ad2-9818-436e-9ac1-5999a836c808"
+storage_version_token = "1789788342587489"
+content_type = "application/octet-stream"

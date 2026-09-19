@@ -17,6 +17,7 @@ import whitebitRouter, { whitebitOperatorRouter, whitebitWebhookRouter } from ".
 import telegramRouter from "./telegram";
 import telegramConnectRouter from "./telegram-connect";
 import { apiBuildInfo } from "../lib/build-info";
+import workspaceConfigSyncRouter from "./workspace-config-sync";
 
 const router: IRouter = Router();
 
@@ -34,6 +35,7 @@ router.get("/admin/build-info", (_req, res) => {
 });
 router.use("/admin/whitebit", requireOwner);
 router.use(whitebitOperatorRouter);
+router.use(workspaceConfigSyncRouter);
 // Authenticate first, then enforce the centralized granular policy before any
 // Admin router can execute. Unmatched staff routes are deny-by-default.
 router.use(adminPolicy);

@@ -117,3 +117,4 @@
 - [Telegram production data boundary](telegram-production-data-boundary.md) — live bot orders belong to production; Replit preview Admin reads a separate development database.
 - [Telegram refund omission](telegram-refund-omission.md) — Telegram never collects, displays, or submits refund destinations, including from legacy saved sessions.
 - [Live Admin order directories](live-admin-order-directories.md) — operator financial queues must bypass HTTP caches and refetch across mounts and reconnects.
+- [Workspace-to-production configuration sync](workspace-production-config-sync.md) — Workspace is authoritative, but production changes require explicit Owner preview/apply with operational data fenced off.

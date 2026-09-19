@@ -1,6 +1,6 @@
 import { useI18n } from '../i18n/provider';
 import { lazy, Suspense, useEffect, useMemo, useState, useRef, useCallback } from 'react';
-import type { ComponentProps, CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react';
+import type { ChangeEvent, ComponentProps, CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
 import { createPortal } from 'react-dom';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
@@ -94,6 +94,19 @@ type AppBuildInfo = {
   commit: string;
   deployedAt: string;
   environment: string;
+};
+
+type WorkspaceConfigSyncDetail = {
+  counts: { add: number; update: number; softDisable: number; unchanged: number };
+  keys: { add: string[]; update: string[]; softDisable: string[]; unchanged: string[] };
+};
+
+type WorkspaceConfigSyncResponse = {
+  ok: boolean;
+  dryRun?: boolean;
+  applied?: boolean;
+  stateHash?: string;
+  counts: Record<string, WorkspaceConfigSyncDetail>;
 };
 
 const frontendBuildInfo: AppBuildInfo = {
@@ -2426,6 +2439,12 @@ function AdminOverview() {
   const { isOwner } = useAdminPermissions();
   const [apiBuildInfo, setApiBuildInfo] = useState<AppBuildInfo | null>(null);
   const [buildInfoError, setBuildInfoError] = useState(false);
+  const [configSnapshot, setConfigSnapshot] = useState<unknown>(null);
+  const [configSnapshotName, setConfigSnapshotName] = useState('');
+  const [configSyncPreview, setConfigSyncPreview] = useState<WorkspaceConfigSyncResponse | null>(null);
+  const [configSyncError, setConfigSyncError] = useState('');
+  const [configSyncPending, setConfigSyncPending] = useState(false);
+  const [configSyncApplied, setConfigSyncApplied] = useState(false);
   const [product, setProduct] = useState<'swap' | 'convert'>('swap');
   const [datePreset, setDatePreset] = useState<DatePreset>('7d');
 
@@ -2453,6 +2472,63 @@ function AdminOverview() {
       });
     return () => controller.abort();
   }, [isOwner]);
+
+  const requestConfigSync = async (path: 'preview' | 'apply', snapshot: unknown) => {
+    const response = await fetch(`${basePath}/api/admin/workspace-config/${path}`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { accept: 'application/json', 'content-type': 'application/json' },
+      body: JSON.stringify(path === 'apply'
+        ? { snapshot, confirmation: 'WORKSPACE_CONFIG_APPLY', expectedStateHash: configSyncPreview?.stateHash }
+        : snapshot),
+    });
+    const body = await response.json().catch(() => ({})) as WorkspaceConfigSyncResponse & { error?: string };
+    if (!response.ok) throw new Error(body.error || `Configuration ${path} failed (${response.status})`);
+    return body;
+  };
+
+  const onConfigSnapshotSelected = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setConfigSyncPending(true);
+    setConfigSyncError('');
+    setConfigSyncApplied(false);
+    setConfigSyncPreview(null);
+    try {
+      const snapshot = JSON.parse(await file.text()) as unknown;
+      const preview = await requestConfigSync('preview', snapshot);
+      setConfigSnapshot(snapshot);
+      setConfigSnapshotName(file.name);
+      setConfigSyncPreview(preview);
+    } catch (error) {
+      setConfigSnapshot(null);
+      setConfigSnapshotName('');
+      setConfigSyncError(error instanceof Error ? error.message : 'Configuration snapshot could not be read.');
+    } finally {
+      setConfigSyncPending(false);
+      event.target.value = '';
+    }
+  };
+
+  const applyConfigSnapshot = async () => {
+    if (!configSnapshot || !configSyncPreview) return;
+    const impact = Object.values(configSyncPreview.counts).reduce(
+      (sum, detail) => sum + detail.counts.add + detail.counts.update + detail.counts.softDisable,
+      0,
+    );
+    if (!window.confirm(`Apply ${impact} reviewed configuration changes to this environment? Production-only rows will be soft-disabled, not deleted.`)) return;
+    setConfigSyncPending(true);
+    setConfigSyncError('');
+    try {
+      const result = await requestConfigSync('apply', configSnapshot);
+      setConfigSyncPreview(result);
+      setConfigSyncApplied(true);
+    } catch (error) {
+      setConfigSyncError(error instanceof Error ? error.message : 'Configuration synchronization failed.');
+    } finally {
+      setConfigSyncPending(false);
+    }
+  };
 
   const { from, to } = useMemo(() => getUtcBounds(datePreset, customFrom, customTo), [datePreset, customFrom, customTo]);
 
@@ -2752,6 +2828,50 @@ function AdminOverview() {
                       </div>
                     );
                   })}
+                </div>
+                <div className="mt-4 border-t border-border pt-4" data-testid="workspace-config-sync">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <strong className="block text-sm text-foreground">Workspace configuration sync</strong>
+                      <small className="mt-1 block max-w-2xl text-muted-foreground">
+                        Owner-only, dry-run-first import. Orders, customers, transaction history, credentials, receiving wallets, and deposit state are excluded.
+                      </small>
+                    </div>
+                    <label className={cn('inline-flex cursor-pointer items-center rounded-lg border border-border bg-background px-3 py-2 text-xs font-bold text-foreground', configSyncPending && 'pointer-events-none opacity-60')}>
+                      {configSyncPending ? 'Checking…' : 'Choose snapshot'}
+                      <input type="file" accept="application/json,.json" className="sr-only" onChange={onConfigSnapshotSelected} disabled={configSyncPending} data-testid="input-workspace-config-snapshot" />
+                    </label>
+                  </div>
+                  {configSyncError && <p className="mt-3 text-xs font-medium text-destructive" role="alert">{configSyncError}</p>}
+                  {configSyncPreview && (
+                    <div className="mt-3">
+                      <p className="text-xs text-muted-foreground">
+                        Reviewed snapshot: <span className="font-mono text-foreground">{configSnapshotName}</span>
+                      </p>
+                      <div className="mt-2 overflow-x-auto">
+                        <table className="w-full min-w-[560px] text-left text-xs">
+                          <thead><tr className="text-muted-foreground"><th className="py-2 pr-3">Category</th><th className="px-3 py-2">Add</th><th className="px-3 py-2">Update</th><th className="px-3 py-2">Soft-disable</th><th className="px-3 py-2">Unchanged</th></tr></thead>
+                          <tbody>
+                            {Object.entries(configSyncPreview.counts).map(([category, detail]) => (
+                              <tr key={category} className="border-t border-border">
+                                <th className="py-2 pr-3 font-medium text-foreground">{category}</th>
+                                <td className="px-3 py-2">{detail.counts.add}</td>
+                                <td className="px-3 py-2">{detail.counts.update}</td>
+                                <td className="px-3 py-2">{detail.counts.softDisable}</td>
+                                <td className="px-3 py-2">{detail.counts.unchanged}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-3">
+                        <button type="button" onClick={applyConfigSnapshot} disabled={configSyncPending || configSyncApplied} className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground disabled:opacity-50" data-testid="button-apply-workspace-config">
+                          {configSyncApplied ? 'Configuration synchronized' : configSyncPending ? 'Applying…' : 'Apply reviewed changes'}
+                        </button>
+                        {configSyncApplied && <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Atomic synchronization completed.</span>}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
