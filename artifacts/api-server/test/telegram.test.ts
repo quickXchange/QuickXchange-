@@ -26,6 +26,28 @@ test("Telegram Mini App initData validates authentic user data", () => {
   if (previous === undefined) delete process.env.TELEGRAM_BOT_TOKEN; else process.env.TELEGRAM_BOT_TOKEN = previous;
 });
 
+test("Telegram Mini App initData includes the modern signature field in bot-token HMAC validation", () => {
+  const previous = process.env.TELEGRAM_BOT_TOKEN;
+  process.env.TELEGRAM_BOT_TOKEN = "test-only-bot-token";
+  const authDate = Math.floor(Date.now() / 1000);
+  const params = new URLSearchParams({
+    auth_date: String(authDate),
+    query_id: "modern-query",
+    signature: "base64url-telegram-signature",
+    user: JSON.stringify({ id: 963258, first_name: "Modern" }),
+  });
+  const check = [...params.entries()]
+    .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
+    .map(([key, value]) => `${key}=${value}`)
+    .join("\n");
+  const secret = createHmac("sha256", "WebAppData").update(process.env.TELEGRAM_BOT_TOKEN).digest();
+  params.set("hash", createHmac("sha256", secret).update(check).digest("hex"));
+
+  assert.equal(validateTelegramMiniAppInitData(params.toString()).id, 963258);
+
+  if (previous === undefined) delete process.env.TELEGRAM_BOT_TOKEN; else process.env.TELEGRAM_BOT_TOKEN = previous;
+});
+
 test("Telegram Mini App rejects tampered hashes and expired auth dates", () => {
   const previous = process.env.TELEGRAM_BOT_TOKEN;
   process.env.TELEGRAM_BOT_TOKEN = "test-only-bot-token";
@@ -87,7 +109,10 @@ test("Telegram locale stays supported with safe English fallback", () => {
 });
 
 test("Telegram main menu keeps the requested two-column signed-out and signed-in layouts", () => {
+  const previousWebsiteUrl = process.env.TELEGRAM_WEBSITE_URL;
+  const previousMiniAppUrl = process.env.TELEGRAM_MINI_APP_URL;
   process.env.TELEGRAM_WEBSITE_URL = "https://quickxchange.example";
+  process.env.TELEGRAM_MINI_APP_URL = "https://quickxchange.example/telegram-mini-app/";
   const signedOut = menu("en", false);
   assert.deepEqual(signedOut.slice(0, 4).map(row => row.map(button => button.text)), [
     ["⚡ Exchange", "📦 Track Order"],
@@ -117,7 +142,8 @@ test("Telegram main menu keeps the requested two-column signed-out and signed-in
     ["support", "url"],
   ]);
   assert.deepEqual(signedIn[4], [{ text: "📱 Open App", web_app: { url: "https://quickxchange.example/telegram-mini-app/" } }]);
-  delete process.env.TELEGRAM_WEBSITE_URL;
+  if (previousWebsiteUrl === undefined) delete process.env.TELEGRAM_WEBSITE_URL; else process.env.TELEGRAM_WEBSITE_URL = previousWebsiteUrl;
+  if (previousMiniAppUrl === undefined) delete process.env.TELEGRAM_MINI_APP_URL; else process.env.TELEGRAM_MINI_APP_URL = previousMiniAppUrl;
 });
 
 test("Telegram initData projection rejects invalid optional language and photo values", () => {

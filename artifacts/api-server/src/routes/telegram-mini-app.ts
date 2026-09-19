@@ -27,7 +27,7 @@ export function validateTelegramMiniAppInitData(raw: string, now = Date.now()): 
   const supplied = params.get("hash");
   if (!supplied || !/^[a-f0-9]{64}$/i.test(supplied)) throw new Error("Invalid Telegram init data.");
   const pairs = [...params.entries()]
-    .filter(([key]) => key !== "hash" && key !== "signature")
+    .filter(([key]) => key !== "hash")
     .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
     .map(([key, value]) => `${key}=${value}`)
     .join("\n");

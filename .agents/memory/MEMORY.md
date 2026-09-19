@@ -119,3 +119,4 @@
 - [Live Admin order directories](live-admin-order-directories.md) — operator financial queues must bypass HTTP caches and refetch across mounts and reconnects.
 - [Workspace-to-production configuration sync](workspace-production-config-sync.md) — Workspace is authoritative, but production changes require explicit Owner preview/apply with operational data fenced off.
 - [Telegram Mini App identity boundary](telegram-mini-app-identity.md) — validate initData server-side, use short-lived sessions, and attach canonical orders through tracking capabilities.
+- [Telegram initData signature field](telegram-initdata-signature.md) — bot-token HMAC validation excludes only `hash`; modern `signature` remains in the sorted data-check-string.
