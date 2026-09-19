@@ -23128,3 +23128,232 @@ html:not(.dark) .frontend-menu-drawer .qx-mobile-trigger[aria-expanded="true"] {
     object-position: left center;
   }
 }
+
+/* Premium QuickXchange motion layer.
+   Visual-only: no geometry, overflow, or interaction properties are changed. */
+@keyframes qx-premium-widget-flow {
+  0% {
+    background-position: -35% -25%, 0 0, 0% 50%;
+  }
+  50% {
+    background-position: 135% 125%, 0 0, 100% 50%;
+  }
+  100% {
+    background-position: -35% -25%, 0 0, 0% 50%;
+  }
+}
+
+@keyframes qx-premium-surface-flow {
+  0% {
+    background-position: -45% 20%, 0 0;
+  }
+  50% {
+    background-position: 145% 80%, 0 0;
+  }
+  100% {
+    background-position: -45% 20%, 0 0;
+  }
+}
+
+@keyframes qx-premium-control-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.public-shell .exchange-card.redesigned-widget {
+  background:
+    radial-gradient(circle at center, rgb(19 221 244 / 0.045) 0%, rgb(36 72 255 / 0.025) 22%, rgb(122 44 255 / 0.018) 35%, transparent 58%) padding-box,
+    linear-gradient(145deg, hsl(var(--widget-bg)) 0%, hsl(var(--widget-input-bg)) 100%) padding-box,
+    linear-gradient(115deg, #13ddf4 0%, #087bff 32%, #2448ff 61%, #7a2cff 82%, #13ddf4 100%) border-box !important;
+  background-size: 175% 175%, 100% 100%, 240% 240% !important;
+  border: 1px solid transparent !important;
+  box-shadow:
+    0 0 18px -8px rgb(19 221 244 / 0.26),
+    0 0 28px -12px rgb(36 72 255 / 0.2),
+    0 18px 44px -24px rgb(25 68 128 / 0.24) !important;
+  animation: qx-premium-widget-flow 20s ease-in-out infinite;
+}
+
+.dark .public-shell .exchange-card.redesigned-widget {
+  background:
+    radial-gradient(circle at center, rgb(19 221 244 / 0.07) 0%, rgb(36 72 255 / 0.045) 23%, rgb(122 44 255 / 0.035) 37%, transparent 60%) padding-box,
+    linear-gradient(155deg, hsl(var(--widget-bg)) 0%, hsl(var(--widget-input-bg)) 100%) padding-box,
+    linear-gradient(115deg, #13ddf4 0%, #087bff 32%, #2448ff 61%, #7a2cff 82%, #13ddf4 100%) border-box !important;
+  background-size: 175% 175%, 100% 100%, 240% 240% !important;
+  box-shadow:
+    0 0 22px -7px rgb(19 221 244 / 0.34),
+    0 0 36px -11px rgb(36 72 255 / 0.3),
+    0 0 42px -16px rgb(122 44 255 / 0.26),
+    var(--widget-shadow),
+    var(--widget-inset-highlight) !important;
+}
+
+.public-shell .exchange-card.redesigned-widget :is(
+  .reference-amount-panel,
+  .wallet-detail-card,
+  .receipt-tracking-card
+) {
+  background-image:
+    radial-gradient(circle at center, rgb(19 221 244 / 0.036) 0%, rgb(36 72 255 / 0.022) 28%, rgb(122 44 255 / 0.016) 42%, transparent 65%),
+    linear-gradient(180deg, hsl(var(--widget-input-bg)) 0%, hsl(var(--widget-bg)) 100%) !important;
+  background-size: 190% 190%, 100% 100% !important;
+  animation: qx-premium-surface-flow 26s ease-in-out infinite;
+}
+
+.dark .public-shell .exchange-card.redesigned-widget :is(
+  .reference-amount-panel,
+  .wallet-detail-card,
+  .receipt-tracking-card
+) {
+  background-image:
+    radial-gradient(circle at center, rgb(19 221 244 / 0.055) 0%, rgb(36 72 255 / 0.038) 30%, rgb(122 44 255 / 0.025) 44%, transparent 67%),
+    linear-gradient(180deg, hsl(var(--widget-input-bg)) 0%, hsl(var(--widget-bg)) 100%) !important;
+}
+
+.public-shell .exchange-card.redesigned-widget :is(
+  .reference-menu-btn,
+  .reference-swap-button,
+  .copy-field > button,
+  .swap-dropdown-chevron,
+  .qx-menu-icon,
+  .swap-step2-route-arrow,
+  .swap-step2-rate-icon,
+  .wallet-detail-icon,
+  .continue-arrow-accent
+) {
+  border-color: rgb(36 72 255 / 0.18);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.34),
+    0 4px 14px -9px rgb(8 123 255 / 0.28);
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.dark .public-shell .exchange-card.redesigned-widget :is(
+  .reference-menu-btn,
+  .reference-swap-button,
+  .copy-field > button,
+  .swap-dropdown-chevron,
+  .qx-menu-icon,
+  .swap-step2-route-arrow,
+  .swap-step2-rate-icon,
+  .wallet-detail-icon,
+  .continue-arrow-accent
+) {
+  border-color: rgb(19 221 244 / 0.2);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.1),
+    0 5px 16px -9px rgb(19 221 244 / 0.34);
+}
+
+.public-shell .exchange-card.redesigned-widget :is(
+  .reference-menu-btn,
+  .reference-swap-button,
+  .copy-field > button,
+  .swap-dropdown-chevron,
+  .qx-menu-icon,
+  .swap-step2-route-arrow,
+  .swap-step2-rate-icon,
+  .wallet-detail-icon,
+  .continue-arrow-accent
+):is(:hover, :focus-visible) {
+  background-image: linear-gradient(115deg, rgb(19 221 244 / 0.16), rgb(8 123 255 / 0.14), rgb(122 44 255 / 0.14), rgb(19 221 244 / 0.16));
+  background-size: 220% 220%;
+  border-color: rgb(36 72 255 / 0.34);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.38),
+    0 5px 18px -9px rgb(36 72 255 / 0.42);
+  animation: qx-premium-control-flow 7s ease-in-out infinite;
+}
+
+.public-shell .exchange-card.redesigned-widget :is(
+  .reference-menu-btn,
+  .reference-swap-button,
+  .copy-field > button,
+  .swap-dropdown-chevron,
+  .qx-menu-icon,
+  .swap-step2-route-arrow,
+  .swap-step2-rate-icon,
+  .wallet-detail-icon,
+  .continue-arrow-accent,
+  .convert-search-icon,
+  .reference-rate-icon,
+  .swap-step2-input-icon
+) svg,
+.public-shell .exchange-card.redesigned-widget svg:is(
+  .convert-search-icon,
+  .reference-rate-icon,
+  .swap-step2-input-icon
+) {
+  stroke-width: 1.7;
+}
+
+.public-shell .exchange-card.redesigned-widget :is(
+  .asset-combobox-trigger,
+  .swap-asset-trigger,
+  .swap-step2-party-icon,
+  .convert-route-summary-asset
+) :is(.crypto-logo, .payment-method-logo) {
+  box-shadow:
+    0 0 0 1px rgb(36 72 255 / 0.1),
+    0 5px 14px -9px rgb(8 123 255 / 0.28);
+}
+
+.public-shell .exchange-card.redesigned-widget :is(
+  .button-primary,
+  button[type="submit"]
+):not(:disabled) {
+  background-image: linear-gradient(115deg, #13ddf4 0%, #087bff 31%, #2448ff 61%, #7a2cff 83%, #13ddf4 100%) !important;
+  background-size: 230% 230% !important;
+  border-color: rgb(80 146 255 / 0.38) !important;
+  box-shadow:
+    0 7px 18px -9px rgb(8 123 255 / 0.52),
+    inset 0 1px 0 rgb(255 255 255 / 0.32) !important;
+  animation: qx-premium-control-flow 11s ease-in-out infinite;
+}
+
+.public-shell .exchange-card.redesigned-widget :is(
+  .button-primary,
+  button[type="submit"]
+):not(:disabled):is(:hover, :focus-visible) {
+  box-shadow:
+    0 9px 22px -9px rgb(8 123 255 / 0.58),
+    0 0 18px -9px rgb(122 44 255 / 0.46),
+    inset 0 1px 0 rgb(255 255 255 / 0.38) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .public-shell .exchange-card.redesigned-widget,
+  .public-shell .exchange-card.redesigned-widget :is(
+    .reference-amount-panel,
+    .wallet-detail-card,
+    .receipt-tracking-card,
+    .reference-menu-btn,
+    .reference-swap-button,
+    .copy-field > button,
+    .swap-dropdown-chevron,
+    .qx-menu-icon,
+    .swap-step2-route-arrow,
+    .swap-step2-rate-icon,
+    .wallet-detail-icon,
+    .continue-arrow-accent,
+    .button-primary,
+    button[type="submit"]
+  ) {
+    animation: none !important;
+  }
+
+  .public-shell .exchange-card.redesigned-widget {
+    background-position: 50% 50%, 0 0, 50% 50% !important;
+  }
+}

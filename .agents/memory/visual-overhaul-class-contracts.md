@@ -104,3 +104,9 @@ For high-specificity shared visual contracts, expose intentional context and bra
 **Why:** Repeated `!important` selectors kept transparent payment-logo defaults active even after a later brand rule added the required circular backing.
 
 **How to apply:** Let the authoritative base rule consume variables for padding, background, and similar controlled variations. Set only those variables on contextual or brand selectors, then assert the browser's computed style.
+
+For visual-only ambient widget motion, prefer scoped multi-layer backgrounds at the final cascade boundary over new overlay elements.
+
+**Why:** An absolutely positioned reflection layer can sit above text, interfere with stacking contexts, or require structural wrappers even when pointer events are disabled. Animated background layers preserve the existing DOM, dimensions, overflow, and hit testing.
+
+**How to apply:** Animate only background position on the existing widget and selected internal surfaces, keep theme-specific opacity low, leave official logo artwork untouched, and disable continuous movement under `prefers-reduced-motion`.
