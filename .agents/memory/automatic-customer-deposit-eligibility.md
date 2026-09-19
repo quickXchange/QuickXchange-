@@ -1,10 +1,10 @@
 ---
-name: Automatic customer deposit eligibility
-description: Defines the fail-closed rule for enabling customer deposits on crypto asset-network rows.
+name: You Send crypto authority
+description: Defines the boundary between Admin-configured selector visibility and runtime funding validation.
 ---
 
-Customer Deposits must be derived from usable receiving capability, not from an operator checkbox alone. A row is eligible when its saved address is valid for the network (including a required valid memo/tag), or its assigned active provider has fresh exact deposit capability for that asset-network. Provider policy None is always ineligible.
+Swap → You Send → Crypto visibility follows enabled, non-deprecated Admin asset/network rows with an explicit provider assignment other than None. Do not overwrite this selector authority during startup or provider reconciliation.
 
-**Why:** Persisted enabled flags can drift from wallet and provider reality. Enabling without a validated receiving path can accept customer funds that the system cannot identify or settle.
+**Why:** Automatic capability reconciliation once rewrote Admin route state and collapsed the live selector to one route even though the configured assets, networks, and provider assignments remained intact.
 
-**How to apply:** Reconcile all existing rows when Admin opens Crypto Assets, and apply the same evaluator whenever receiving-wallet data is saved. Provider failures and unsupported routes remain disabled; never create a provider-side address merely to perform a health check.
+**How to apply:** Build selector direction from Admin enabled/lifecycle/provider fields. Validate Manual wallet address/memo and registered provider capability separately when quoting or creating an order. Never change provider assignments as a side effect.

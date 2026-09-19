@@ -3,8 +3,8 @@ name: WhiteBIT route proof fencing
 description: Durable safety rules for enabling and invalidating provider-backed customer deposit routes.
 ---
 
-WhiteBIT-backed customer deposit availability requires a durable proof bound to the exact route configuration and active credential identity. A stored eligibility flag is never proof.
+WhiteBIT operational verification may use a durable proof bound to the exact route configuration and active credential identity. Proof state must not determine whether an explicitly assigned, enabled Admin route appears in the You Send selector.
 
-**Why:** Eligibility can otherwise survive credential rotation, capability outages, or route edits and expose a deposit route that the active provider account cannot safely receive.
+**Why:** Runtime funding safety and Admin-configured catalog visibility are separate concerns. Conflating them previously removed valid configured routes from the public selector.
 
-**How to apply:** Serialize verification, credential changes, and catalog determinant changes with shared locks and version fences. Any global proof invalidation must atomically reconcile every route with WhiteBIT unavailable, preserving only independently valid Manual/Fallback wallets.
+**How to apply:** Serialize verification and credential changes with locks and version fences, but use proofs only at operational provider boundaries. Never import routes, reassign providers, or rewrite selector visibility from WhiteBIT capabilities.

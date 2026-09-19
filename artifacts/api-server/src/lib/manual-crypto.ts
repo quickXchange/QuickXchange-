@@ -81,14 +81,16 @@ export async function listPublicManualCryptoSettlementOptions(): Promise<ManualC
   const rows = await listManualCryptoNetworks();
   return rows.filter(({ asset, network }) =>
     isManualCryptoRouteEligible(asset, network)
-  ).map(({ asset, network }) => ({
+  ).map(({ asset, network }) => {
+    const configuredForCustomerSend = isConfiguredYouSendCryptoNetwork(network);
+    return {
     id: `crypto:${network.id}`,
     assetId: asset.id,
     assetCode: asset.code,
     routeNetwork: manualCryptoRouteNetwork(network),
     kind: "crypto-network",
     title: `${asset.code} ${network.networkName}`,
-    direction: canAcceptManualCryptoDeposit(network) ? "both" : "receive",
+    direction: configuredForCustomerSend ? "both" : "receive",
     networkSlug: network.id,
     networkTitle: network.networkName,
     requiresMemo: network.requiresMemo,
@@ -96,14 +98,15 @@ export async function listPublicManualCryptoSettlementOptions(): Promise<ManualC
     sendInstructions: network.depositInstructions ?? undefined,
     receiveInstructions: network.depositInstructions ?? undefined,
     depositWarning: network.depositWarning ?? undefined,
-    customerDepositsEnabled: network.customerDepositsEnabled,
+    customerDepositsEnabled: configuredForCustomerSend,
     executionMode: "manual",
     lifecycle: network.lifecycle as "active" | "restricted" | "deprecated",
     regions: network.regions,
     countries: [],
     logoUrl: asset.logoObjectPath ? `/api/storage${asset.logoObjectPath}` : undefined,
     networkLogoUrl: network.logoObjectPath ? `/api/storage${network.logoObjectPath}` : undefined,
-  }));
+  };
+  });
 }
 
 export async function findManualCryptoNetwork(assetCode: string, networkCode: string) {
@@ -135,8 +138,17 @@ export async function findManualCryptoNetworkByIdForAsset(
   );
 }
 
+export function isConfiguredYouSendCryptoNetwork(
+  network: Pick<
+    typeof cryptoAssetNetworksTable.$inferSelect,
+    "enabled" | "depositProvider"
+  >,
+) {
+  return network.enabled && network.depositProvider !== "none";
+}
+
 export function canAcceptManualCryptoDeposit(network: typeof cryptoAssetNetworksTable.$inferSelect) {
-  if (!network.enabled || !network.customerDepositsEnabled || network.depositProvider === "none") return false;
+  if (!isConfiguredYouSendCryptoNetwork(network)) return false;
   if (network.depositProvider === "manual") {
     return Boolean(network.sharedDepositAddress.trim()) &&
       (!network.requiresMemo || Boolean(network.sharedDepositMemo?.trim()));

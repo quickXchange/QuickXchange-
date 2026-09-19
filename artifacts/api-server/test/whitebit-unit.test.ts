@@ -4,6 +4,10 @@ import test from "node:test";
 import { assetIdentity, classifyWhitebitHttpStatus, historyRecords, isCreditEligible, parseWhitebitAddressResponse, verifyWhitebitSignature } from "../src/routes/whitebit";
 import { matchWhitebitCapability, parseWhitebitAssets, parseWhitebitCatalogAssets, shouldReserveWhitebitOrderFunding } from "../src/lib/whitebit-capabilities";
 import { listDepositProviderOptions } from "../src/lib/deposit-provider-registry";
+import {
+  canAcceptManualCryptoDeposit,
+  isConfiguredYouSendCryptoNetwork,
+} from "../src/lib/manual-crypto";
 
 const secret = "unit-test-webhook-secret";
 const raw = Buffer.from(JSON.stringify({
@@ -135,4 +139,33 @@ test("deposit provider registry exposes only selectable adapters and fallback po
     { id: "manual", label: "Manual Only", implemented: true },
     { id: "none", label: "None", implemented: true },
   ]);
+});
+
+test("You Send visibility follows enabled Admin provider assignments, not reconciled flags", () => {
+  const whitebit = {
+    enabled: true,
+    depositProvider: "whitebit",
+    customerDepositsEnabled: false,
+    sharedDepositAddress: "",
+    requiresMemo: false,
+    sharedDepositMemo: null,
+  } as never;
+  const manualWithoutWallet = {
+    ...whitebit,
+    depositProvider: "manual",
+  } as never;
+  const manualWithWallet = {
+    ...manualWithoutWallet,
+    sharedDepositAddress: "configured-wallet",
+  } as never;
+
+  assert.equal(isConfiguredYouSendCryptoNetwork(whitebit), true);
+  assert.equal(canAcceptManualCryptoDeposit(whitebit), true);
+  assert.equal(isConfiguredYouSendCryptoNetwork(manualWithoutWallet), true);
+  assert.equal(canAcceptManualCryptoDeposit(manualWithoutWallet), false);
+  assert.equal(canAcceptManualCryptoDeposit(manualWithWallet), true);
+  assert.equal(isConfiguredYouSendCryptoNetwork({
+    enabled: true,
+    depositProvider: "none",
+  }), false);
 });
