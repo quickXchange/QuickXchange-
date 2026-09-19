@@ -7389,11 +7389,6 @@ export const applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDecimalsMin = 0;
 export const applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDecimalsMax = 30;
 export const applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDecimalsMultipleOf = 1;
 
-export const applyCryptoAssetsBulkEditBodyEditsItemNetworksItemSharedDepositAddressMax = 500;
-
-export const applyCryptoAssetsBulkEditBodyEditsItemNetworksItemSharedDepositMemoMax = 500;
-
-
 export const applyCryptoAssetsBulkEditBodyEditsMax = 500;
 
 
@@ -7407,14 +7402,11 @@ export const ApplyCryptoAssetsBulkEditBody = zod.object({
   "networks": zod.array(zod.object({
   "networkId": zod.string().regex(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemNetworkIdRegExp),
   "enabled": zod.boolean().optional(),
-  "customerDepositsEnabled": zod.boolean().optional(),
   "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).optional(),
   "regions": zod.array(zod.string().max(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemRegionsItemMax)).max(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemRegionsMax).optional(),
   "decimals": zod.number().min(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDecimalsMin).max(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDecimalsMax).multipleOf(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemDecimalsMultipleOf).optional(),
   "requiresMemo": zod.boolean().optional(),
-  "sharedDepositAddress": zod.string().max(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemSharedDepositAddressMax).optional(),
-  "sharedDepositMemo": zod.string().max(applyCryptoAssetsBulkEditBodyEditsItemNetworksItemSharedDepositMemoMax).nullish()
-})).min(1).optional()
+   }).strict()).min(1).optional()
 })).min(1).max(applyCryptoAssetsBulkEditBodyEditsMax)
 })
 
@@ -7623,7 +7615,6 @@ export const SaveCryptoAssetReceivingWalletBody = zod.object({
   "memo": zod.string().max(saveCryptoAssetReceivingWalletBodyMemoMax).nullish(),
   "depositProvider": zod.string().min(1).max(saveCryptoAssetReceivingWalletBodyDepositProviderMax).default(saveCryptoAssetReceivingWalletBodyDepositProviderDefault),
   "enabled": zod.boolean(),
-  "useForAllAssetsOnNetwork": zod.boolean()
 })
 
 export const saveCryptoAssetReceivingWalletResponseOneLogoObjectPathRegExp = new RegExp('^/objects/crypto-network-logos/[0-9a-f-]{36}$');

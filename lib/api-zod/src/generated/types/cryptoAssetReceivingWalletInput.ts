@@ -25,5 +25,4 @@ export interface CryptoAssetReceivingWalletInput {
      */
   depositProvider?: string;
   enabled: boolean;
-  useForAllAssetsOnNetwork: boolean;
 }

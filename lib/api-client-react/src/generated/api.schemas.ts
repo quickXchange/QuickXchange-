@@ -3175,7 +3175,6 @@ export interface CryptoAssetBulkNetworkEdit {
   /** @pattern ^[a-z0-9][a-z0-9-]{0,80}$ */
   networkId: string;
   enabled?: boolean;
-  customerDepositsEnabled?: boolean;
   lifecycle?: CryptoAssetBulkNetworkEditLifecycle;
   /**
      * @maxItems 20
@@ -3188,13 +3187,6 @@ export interface CryptoAssetBulkNetworkEdit {
      */
   decimals?: number;
   requiresMemo?: boolean;
-  /** @maxLength 500 */
-  sharedDepositAddress?: string;
-  /**
-     * @maxLength 500
-     * @nullable
-     */
-  sharedDepositMemo?: string | null;
 }
 
 export type CryptoAssetBulkEditLifecycle = typeof CryptoAssetBulkEditLifecycle[keyof typeof CryptoAssetBulkEditLifecycle];
@@ -3454,7 +3446,6 @@ export interface CryptoAssetReceivingWalletInput {
      */
   depositProvider?: string;
   enabled: boolean;
-  useForAllAssetsOnNetwork: boolean;
 }
 
 export type PaymentMethodInputFamily = typeof PaymentMethodInputFamily[keyof typeof PaymentMethodInputFamily];

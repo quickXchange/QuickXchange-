@@ -53,7 +53,7 @@ import {
   useGetManualDeskRevenue, getGetManualDeskRevenueQueryKey,
   exportManualDeskRevenueCsv,
   useGetCryptoAssets, getGetCryptoAssetsQueryKey, useCreateCryptoAsset, useUpdateCryptoAsset, useDeleteCryptoAsset, useRequestCryptoAssetLogoUpload, useDeleteCryptoAssetLogoUpload,
-  useGetCryptoNetworks, getGetCryptoNetworksQueryKey, useCreateCryptoNetwork, useUpdateCryptoNetwork, useDeleteCryptoNetwork, useRequestCryptoNetworkLogoUpload, useDeleteCryptoNetworkLogoUpload, useSaveCryptoAssetReceivingWallet, useReconcileCryptoCustomerDeposits,
+  useGetCryptoNetworks, getGetCryptoNetworksQueryKey, useCreateCryptoNetwork, useUpdateCryptoNetwork, useApplyCryptoAssetsBulkEdit, useDeleteCryptoNetwork, useRequestCryptoNetworkLogoUpload, useDeleteCryptoNetworkLogoUpload, useSaveCryptoAssetReceivingWallet, useReconcileCryptoCustomerDeposits,
   useGetDepositProviderOptions, getGetDepositProviderOptionsQueryKey,
   useRequestFiatCurrencyFlagUpload, useDeleteFiatCurrencyFlagUpload,
   useGetOrder, getGetOrderQueryKey, useAssignOrder, useArchiveOrder, useRestoreOrder,
@@ -7959,7 +7959,6 @@ type ReceivingWalletDraft = {
   walletAddress: string;
   memo: string;
   enabled: boolean;
-  share: boolean;
   depositProvider: string;
 };
 
@@ -7967,28 +7966,14 @@ function persistedReceivingWalletDraft(
   network: CryptoNetwork,
   catalog: CryptoNetwork[],
 ): ReceivingWalletDraft {
-  const matchingSavedNetworks = catalog.filter(candidate =>
-    candidate.networkCode === network.networkCode &&
-    Boolean(candidate.sharedDepositAddress?.trim())
-  );
-  const selectedSavedNetwork = matchingSavedNetworks.find(candidate => candidate.id === network.id);
-  const addressFrequency = new Map<string, number>();
-  matchingSavedNetworks.forEach(candidate => {
-    const identity = `${candidate.sharedDepositAddress?.trim() || ''}\0${candidate.sharedDepositMemo?.trim() || ''}`;
-    addressFrequency.set(identity, (addressFrequency.get(identity) || 0) + 1);
-  });
-  const sharedSavedNetwork = [...matchingSavedNetworks].sort((left, right) => {
-    const leftIdentity = `${left.sharedDepositAddress?.trim() || ''}\0${left.sharedDepositMemo?.trim() || ''}`;
-    const rightIdentity = `${right.sharedDepositAddress?.trim() || ''}\0${right.sharedDepositMemo?.trim() || ''}`;
-    return (addressFrequency.get(rightIdentity) || 0) - (addressFrequency.get(leftIdentity) || 0);
-  })[0];
-  const savedWallet = selectedSavedNetwork || sharedSavedNetwork;
+  // A draft belongs to this exact assigned network. Never infer an address
+  // from another asset's row with the same network code.
+  const savedWallet = catalog.find(candidate => candidate.id === network.id);
 
   return {
     walletAddress: savedWallet?.sharedDepositAddress || '',
     memo: savedWallet?.sharedDepositMemo || '',
     enabled: network.customerDepositsEnabled ?? false,
-    share: false,
     depositProvider: network.depositProvider || 'manual',
   };
 }
@@ -8006,6 +7991,8 @@ function AssetDrawer({
   const queryClient = useQueryClient();
   const createAsset = useCreateCryptoAsset();
   const updateAsset = useUpdateCryptoAsset();
+  const updateNetwork = useUpdateCryptoNetwork();
+  const applyNetworksBulk = useApplyCryptoAssetsBulkEdit();
   const saveReceivingWallet = useSaveCryptoAssetReceivingWallet();
   const deleteAsset = useDeleteCryptoAsset();
   const uploadAssetLogo = useRequestCryptoAssetLogoUpload();
@@ -8028,6 +8015,7 @@ function AssetDrawer({
   const [logoObjectPath, setLogoObjectPath] = useState(isNew ? '' : ((asset as any)?.logoObjectPath || ''));
   const commitAssetLogoRef = useRef<() => void>(() => {});
   const [error, setError] = useState('');
+  const [networkActionNotice, setNetworkActionNotice] = useState<string | null>(null);
   const assetNetworks = useMemo(
     () => (isNew ? [] : (assetNetworksQuery.data || []).filter((network: CryptoNetwork) => network.assetId === asset?.id)),
     [assetNetworksQuery.data, isNew, asset === 'new' ? undefined : asset?.id],
@@ -8054,7 +8042,7 @@ function AssetDrawer({
     if (assetNetworks.length > 0 && !assetNetworks.some(network => network.id === receivingNetworkId)) {
       setReceivingNetworkId(assetNetworks[0].id);
     }
-  }, [assetNetworks, isNew, receivingNetworkId]);
+  }, [allAssetNetworks, assetNetworks, isNew, receivingNetworkId]);
 
   const selectedReceivingNetwork = assetNetworks.find(network => network.id === receivingNetworkId);
   const selectedReceivingDraft = selectedReceivingNetwork
@@ -8074,7 +8062,8 @@ function AssetDrawer({
   );
 
   const hasValidWallet = Boolean(selectedReceivingDraft?.walletAddress.trim());
-  const manualIsValid = hasValidWallet;
+  const hasRequiredMemo = !selectedReceivingNetwork?.requiresMemo || Boolean(selectedReceivingDraft?.memo.trim());
+  const manualIsValid = hasValidWallet && hasRequiredMemo;
 
   const receivingCanEnable = Boolean(
     (isApiProvider && !selectedProviderUnavailable) || (isManual && manualIsValid)
@@ -8087,7 +8076,8 @@ function AssetDrawer({
       const isNextApiProvider = next.depositProvider !== 'manual' && next.depositProvider !== 'none';
       const isNextManual = next.depositProvider === 'manual';
       const nextHasValidWallet = Boolean(next.walletAddress.trim());
-      const nextManualIsValid = nextHasValidWallet;
+      const nextHasRequiredMemo = !selectedReceivingNetwork.requiresMemo || Boolean(next.memo.trim());
+      const nextManualIsValid = nextHasValidWallet && nextHasRequiredMemo;
 
       const nextProviderAvailable = providerOptions.some(option => option.id === next.depositProvider);
       const canEnable = (isNextApiProvider && nextProviderAvailable) || (isNextManual && nextManualIsValid);
@@ -8104,11 +8094,46 @@ function AssetDrawer({
       setReceivingNetworkId(networkId);
       return;
     }
-    setReceivingDrafts(current => ({
-      ...current,
-      [network.id]: persistedReceivingWalletDraft(network, allAssetNetworks),
-    }));
+    setReceivingDrafts(current => current[network.id]
+      ? current
+      : { ...current, [network.id]: persistedReceivingWalletDraft(network, allAssetNetworks) });
     setReceivingNetworkId(network.id);
+  };
+
+  const toggleNetworkEnabled = async (network: CryptoNetwork, enabled: boolean) => {
+    setError('');
+    setNetworkActionNotice(null);
+    try {
+      await updateNetwork.mutateAsync({ id: network.id, data: { enabled } });
+      await queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() });
+    } catch (err) {
+      setError(apiErrorText(err, `Failed to ${enabled ? 'enable' : 'disable'} ${network.networkName}.`));
+    }
+  };
+
+  const setAllNetworksEnabled = async (enabled: boolean) => {
+    setError('');
+    setNetworkActionNotice(null);
+    try {
+      if (!asset || asset === 'new') return;
+      await applyNetworksBulk.mutateAsync({
+        data: {
+          edits: [{
+            assetId: asset.id,
+            networks: assetNetworks.map(network => ({ networkId: network.id, enabled })),
+          }],
+        },
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: getGetCryptoAssetsQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
+      ]);
+      setNetworkActionNotice(`${enabled ? 'Enabled' : 'Disabled'} all ${assetNetworks.length} assigned networks.`);
+    } catch (err) {
+      setError(apiErrorText(err, `Failed to ${enabled ? 'enable' : 'disable'} all networks.`));
+      setNetworkActionNotice('Some networks may not have been updated. Review the network rows and try again.');
+    }
   };
 
   const save = async (e: React.FormEvent) => {
@@ -8142,9 +8167,8 @@ function AssetDrawer({
               walletAddress: selectedReceivingDraft.walletAddress.trim(),
               memo: selectedReceivingDraft.memo.trim() || null,
               enabled: Boolean(selectedReceivingDraft.enabled && receivingCanEnable),
-              useForAllAssetsOnNetwork: selectedReceivingDraft.share,
               depositProvider: selectedReceivingDraft.depositProvider,
-            },
+             } as any,
           });
           onWalletReconciled?.(
             updatedNetworks.filter(network => network.customerDepositsEnabled).length,
@@ -8183,10 +8207,11 @@ function AssetDrawer({
 
   return (
     <div className="drawer-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <aside className="order-drawer catalog-editor-drawer" role="dialog" aria-label={isNew ? t('adminCatalog.add_crypto_asset') : t('adminCatalog.edit_crypto_asset')}>
+       <aside className="order-drawer catalog-editor-drawer" role="dialog" aria-label={isNew ? t('adminCatalog.add_crypto_asset') : t('adminCatalog.edit_crypto_asset')}>
         <div className="drawer-head catalog-editor-head"><div className="catalog-editor-heading"><span className="catalog-editor-icon"><Coins size={19} /></span><div><span className="section-kicker">{t('adminCatalog.configuration')}</span><h2>{isNew ? t('adminCatalog.add_crypto_asset') : t('adminCatalog.edit_crypto_asset')}</h2></div></div><button className="icon-button catalog-editor-close" onClick={onClose} aria-label={t('adminCatalog.close_crypto_asset_drawer')}><X size={18} /></button></div>
         <form className="admin-form admin-form-card drawer-edit catalog-editor-form" onSubmit={save}>
           {error && <InlineNotice kind="error">{error}</InlineNotice>}
+          {networkActionNotice && <InlineNotice kind="info">{networkActionNotice}</InlineNotice>}
           <div className="catalog-editor-identity-preview">
              <span className="catalog-editor-logo-preview"><AdminCryptoLogo symbol={form.code || '—'} logoUrl={(asset as any)?.logoUrl} size="md" /></span>
             <span><small>{t('adminCatalog.crypto_asset')}</small><strong>{form.name || 'Asset name'}</strong><em>{form.code.toUpperCase() || 'SYMBOL'} · {form.decimals} {t('adminCatalog.decimals')}</em></span>
@@ -8224,13 +8249,32 @@ function AssetDrawer({
             ) : assetNetworks.length === 0 ? (
               <p className="field-hint">Assign at least one network to this asset before configuring a receiving address.</p>
             ) : (
-              <>
-                <label>
-                  <span className="field-label">Network</span>
-                  <select data-testid="receiving-wallet-network" value={receivingNetworkId} onChange={e => selectReceivingNetwork(e.target.value)}>
-                    {assetNetworks.map(network => <option key={network.id} value={network.id}>{network.networkName} ({network.networkCode})</option>)}
-                  </select>
-                </label>
+               <>
+                 <div className="receiving-network-actions flex flex-wrap gap-2 mb-3">
+                    <button type="button" className="button button-secondary" data-testid="button-enable-all-networks" onClick={() => void setAllNetworksEnabled(true)} disabled={updateNetwork.isPending || applyNetworksBulk.isPending}>
+                     Enable All Networks
+                   </button>
+                    <button type="button" className="button button-secondary" data-testid="button-disable-all-networks" onClick={() => void setAllNetworksEnabled(false)} disabled={updateNetwork.isPending || applyNetworksBulk.isPending}>
+                     Disable All Networks
+                   </button>
+                 </div>
+                 <div className="receiving-network-list" aria-label="Assigned networks">
+                   {assetNetworks.map(network => (
+                     <article key={network.id} className={`receiving-network-card ${network.id === receivingNetworkId ? 'is-selected' : ''}`} data-testid={`assigned-network-${network.id}`}>
+                       <button type="button" className="receiving-network-card-select" onClick={() => selectReceivingNetwork(network.id)} aria-expanded={network.id === receivingNetworkId}>
+                         <span><strong>{network.networkName}</strong><small>{network.networkCode} · {network.id}</small></span>
+                         <span className="text-xs">{network.customerDepositsEnabled ? 'Deposits ready' : 'Deposits disabled'}</span>
+                       </button>
+                       <label className="catalog-editor-toggle">
+                         <input type="checkbox" data-testid={`network-enabled-${network.id}`} checked={Boolean(network.enabled)} onChange={e => void toggleNetworkEnabled(network, e.target.checked)} disabled={updateNetwork.isPending} />
+                         <span className="field-label !mb-0 text-sm font-bold">Enabled</span>
+                       </label>
+                     </article>
+                   ))}
+                 </div>
+                 <div className="panel-heading mt-4 mb-3">
+                   <div><span className="section-kicker">Selected network</span><h3>{selectedReceivingNetwork?.networkName} ({selectedReceivingNetwork?.networkCode})</h3></div>
+                 </div>
                 <label>
                   <span className="field-label">Provider Policy</span>
                   <select
@@ -8261,10 +8305,6 @@ function AssetDrawer({
                   <label>
                     <input data-testid="receiving-wallet-enabled" type="checkbox" className="w-auto h-auto" checked={Boolean(selectedReceivingDraft?.enabled && receivingCanEnable && selectedReceivingDraft?.depositProvider !== 'none')} disabled={!receivingCanEnable || selectedReceivingDraft?.depositProvider === 'none'} onChange={e => updateReceivingDraft({ enabled: e.target.checked })} />
                     <span className="field-label !mb-0 font-bold">Enable customer deposits</span>
-                  </label>
-                  <label>
-                    <input data-testid="receiving-wallet-share" type="checkbox" className="w-auto h-auto" checked={Boolean(selectedReceivingDraft?.share)} onChange={e => updateReceivingDraft({ share: e.target.checked })} />
-                    <span className="field-label !mb-0 font-bold">Use this address for all assets on the same network</span>
                   </label>
                 </div>
                 {isApiProvider ? (

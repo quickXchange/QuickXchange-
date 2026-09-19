@@ -5696,7 +5696,6 @@ components:
       properties:
         networkId: { type: string, pattern: '^[a-z0-9][a-z0-9-]{0,80}$' }
         enabled: { type: boolean }
-        customerDepositsEnabled: { type: boolean }
         lifecycle: { type: string, enum: [active, restricted, deprecated] }
         regions:
           type: array
@@ -5704,8 +5703,6 @@ components:
           items: { type: string, maxLength: 32 }
         decimals: { type: number, minimum: 0, maximum: 30, multipleOf: 1 }
         requiresMemo: { type: boolean }
-        sharedDepositAddress: { type: string, maxLength: 500 }
-        sharedDepositMemo: { type: [string, "null"], maxLength: 500 }
       minProperties: 2
     CryptoAssetBulkEdit:
       type: object
@@ -5816,14 +5813,13 @@ components:
     CryptoAssetReceivingWalletInput:
       type: object
       additionalProperties: false
-      required: [networkId, walletAddress, enabled, useForAllAssetsOnNetwork]
+      required: [networkId, walletAddress, enabled]
       properties:
         networkId: { type: string, minLength: 1, maxLength: 80 }
         walletAddress: { type: string, maxLength: 500 }
         memo: { type: [string, "null"], maxLength: 500 }
         depositProvider: { type: string, minLength: 1, maxLength: 64, default: manual }
         enabled: { type: boolean }
-        useForAllAssetsOnNetwork: { type: boolean }
     CryptoNetwork:
       allOf:
         - $ref: "#/components/schemas/CryptoNetworkInput"

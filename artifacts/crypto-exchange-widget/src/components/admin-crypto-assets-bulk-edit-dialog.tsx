@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useApplyCryptoAssetsBulkEdit } from '@workspace/api-client-react';
 import type { CryptoAsset, CryptoNetwork, CryptoAssetsBulkEditInput } from '@workspace/api-client-react';
@@ -47,9 +47,6 @@ export function AdminCryptoAssetsBulkEditDialog({
   const [applyNetEnabled, setApplyNetEnabled] = useState(false);
   const [netEnabled, setNetEnabled] = useState(true);
 
-  const [applyNetCustomerDeposits, setApplyNetCustomerDeposits] = useState(false);
-  const [netCustomerDeposits, setNetCustomerDeposits] = useState(true);
-
   const [applyNetLifecycle, setApplyNetLifecycle] = useState(false);
   const [netLifecycle, setNetLifecycle] = useState<'active' | 'restricted' | 'deprecated'>('active');
 
@@ -62,17 +59,21 @@ export function AdminCryptoAssetsBulkEditDialog({
   const [applyNetRequiresMemo, setApplyNetRequiresMemo] = useState(false);
   const [netRequiresMemo, setNetRequiresMemo] = useState(false);
 
-  const [applyNetSharedAddress, setApplyNetSharedAddress] = useState(false);
-  const [netSharedAddress, setNetSharedAddress] = useState('');
-
-  const [applyNetSharedMemo, setApplyNetSharedMemo] = useState(false);
-  const [netSharedMemo, setNetSharedMemo] = useState('');
-
   const allTargetableNetworks = useMemo(() => {
     return networks.filter(n => selectedAssetIds.includes(n.assetId));
   }, [networks, selectedAssetIds]);
 
   const [selectedNetworkIds, setSelectedNetworkIds] = useState<Set<string>>(() => new Set(allTargetableNetworks.map(n => n.id)));
+  // The target list is loaded asynchronously when the dialog opens. Keep the
+  // selection in sync instead of retaining the initial (usually empty) set.
+  useEffect(() => {
+    setSelectedNetworkIds(current => {
+      const available = new Set(allTargetableNetworks.map(n => n.id));
+      const next = new Set([...current].filter(id => available.has(id)));
+      allTargetableNetworks.forEach(network => next.add(network.id));
+      return next;
+    });
+  }, [allTargetableNetworks]);
 
   const uniqueNetworkCodes = useMemo(() => {
     return Array.from(new Set(allTargetableNetworks.map(n => n.networkCode))).sort();
@@ -103,11 +104,9 @@ export function AdminCryptoAssetsBulkEditDialog({
   };
 
   const anySettingApplied = applyAssetEnabled || applyAssetLifecycle || applyAssetPrecision ||
-    applyNetEnabled || applyNetCustomerDeposits || applyNetLifecycle ||
-    applyNetRegions || applyNetPrecision || applyNetRequiresMemo || applyNetSharedAddress || applyNetSharedMemo;
+    applyNetEnabled || applyNetLifecycle || applyNetRegions || applyNetPrecision || applyNetRequiresMemo;
 
-  const anyNetworkSettingApplied = applyNetEnabled || applyNetCustomerDeposits || applyNetLifecycle ||
-    applyNetRegions || applyNetPrecision || applyNetRequiresMemo || applyNetSharedAddress || applyNetSharedMemo;
+  const anyNetworkSettingApplied = applyNetEnabled || applyNetLifecycle || applyNetRegions || applyNetPrecision || applyNetRequiresMemo;
 
   const selectedTargetAssets = assets.filter(a => selectedAssetIds.includes(a.id));
 
@@ -128,13 +127,10 @@ export function AdminCryptoAssetsBulkEditDialog({
         assetEdits.networks = networksForAsset.map(n => {
           const netEdit: any = { networkId: n.id };
           if (applyNetEnabled) netEdit.enabled = netEnabled;
-          if (applyNetCustomerDeposits) netEdit.customerDepositsEnabled = netCustomerDeposits;
           if (applyNetLifecycle) netEdit.lifecycle = netLifecycle;
           if (applyNetRegions) netEdit.regions = netRegions.split(',').map(s => s.trim()).filter(Boolean);
           if (applyNetPrecision) netEdit.decimals = netPrecision;
           if (applyNetRequiresMemo) netEdit.requiresMemo = netRequiresMemo;
-          if (applyNetSharedAddress) netEdit.sharedDepositAddress = netSharedAddress;
-          if (applyNetSharedMemo) netEdit.sharedDepositMemo = netSharedMemo.trim() || null;
           return netEdit;
         });
       }
@@ -285,17 +281,6 @@ export function AdminCryptoAssetsBulkEditDialog({
 
                   <div className="flex flex-col gap-2">
                     <label className="flex items-center gap-3 cursor-pointer">
-                      <input type="checkbox" className="rounded border-slate-600 w-4 h-4 bg-transparent" checked={applyNetCustomerDeposits} onChange={e => setApplyNetCustomerDeposits(e.target.checked)} />
-                      <span className="text-sm font-semibold">Apply this change: Customer Deposits</span>
-                    </label>
-                    <select aria-label="Customer Deposits" className="border border-border bg-background rounded-md text-sm px-3 py-2 disabled:opacity-50" disabled={!applyNetCustomerDeposits} value={netCustomerDeposits ? 'true' : 'false'} onChange={e => setNetCustomerDeposits(e.target.value === 'true')}>
-                      <option value="true">ON (Allowed)</option>
-                      <option value="false">OFF (Paused)</option>
-                    </select>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <label className="flex items-center gap-3 cursor-pointer">
                       <input type="checkbox" className="rounded border-slate-600 w-4 h-4 bg-transparent" checked={applyNetLifecycle} onChange={e => setApplyNetLifecycle(e.target.checked)} />
                       <span className="text-sm font-semibold">Apply this change: Network Lifecycle</span>
                     </label>
@@ -333,27 +318,6 @@ export function AdminCryptoAssetsBulkEditDialog({
                     </select>
                   </div>
 
-                  <div className="flex flex-col gap-2 md:col-span-2">
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input type="checkbox" className="rounded border-slate-600 w-4 h-4 bg-transparent" checked={applyNetSharedAddress} onChange={e => setApplyNetSharedAddress(e.target.checked)} />
-                      <span className="text-sm font-semibold">Apply this change: Fallback Wallet Address</span>
-                    </label>
-                    <input aria-label="Fallback Wallet Address" type="text" placeholder="Shared wallet address" className="border border-border bg-background rounded-md text-sm px-3 py-2 disabled:opacity-50 w-full" disabled={!applyNetSharedAddress} value={netSharedAddress} onChange={e => setNetSharedAddress(e.target.value)} />
-                    <p className="text-[11px] text-muted-foreground">
-                      Kept as the final fallback when WhiteBIT cannot generate a deposit address.
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col gap-2 md:col-span-2">
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input type="checkbox" className="rounded border-slate-600 w-4 h-4 bg-transparent" checked={applyNetSharedMemo} onChange={e => setApplyNetSharedMemo(e.target.checked)} />
-                      <span className="text-sm font-semibold">Apply this change: Fallback Memo/Tag</span>
-                    </label>
-                    <input aria-label="Fallback Memo or Tag" type="text" placeholder="Leave empty to send null and clear" className="border border-border bg-background rounded-md text-sm px-3 py-2 disabled:opacity-50 w-full" disabled={!applyNetSharedMemo} value={netSharedMemo} onChange={e => setNetSharedMemo(e.target.value)} />
-                    {applyNetSharedMemo && !netSharedMemo.trim() && (
-                      <p className="text-[11px] text-amber-500">Leaving this empty will CLEAR the fallback memo on all targeted networks.</p>
-                    )}
-                  </div>
                 </div>
               </div>
 
@@ -459,9 +423,6 @@ export function AdminCryptoAssetsBulkEditDialog({
                     {applyNetEnabled && (
                       <tr><td className="px-4 py-3 font-medium">Network Status</td><td className="px-4 py-3">{netEnabled ? 'Enabled' : 'Disabled'}</td></tr>
                     )}
-                    {applyNetCustomerDeposits && (
-                      <tr><td className="px-4 py-3 font-medium">Customer Deposits</td><td className="px-4 py-3">{netCustomerDeposits ? 'Allowed' : 'Paused'}</td></tr>
-                    )}
                     {applyNetLifecycle && (
                       <tr><td className="px-4 py-3 font-medium">Network Lifecycle</td><td className="px-4 py-3 capitalize">{netLifecycle}</td></tr>
                     )}
@@ -473,12 +434,6 @@ export function AdminCryptoAssetsBulkEditDialog({
                     )}
                     {applyNetRequiresMemo && (
                       <tr><td className="px-4 py-3 font-medium">Requires Memo</td><td className="px-4 py-3">{netRequiresMemo ? 'Yes' : 'No'}</td></tr>
-                    )}
-                    {applyNetSharedAddress && (
-                      <tr><td className="px-4 py-3 font-medium">Fallback Address</td><td className="px-4 py-3 break-all">{netSharedAddress.trim() ? netSharedAddress : <span className="text-destructive font-semibold">Cleared (Warning)</span>}</td></tr>
-                    )}
-                    {applyNetSharedMemo && (
-                      <tr><td className="px-4 py-3 font-medium">Fallback Memo</td><td className="px-4 py-3 break-all">{netSharedMemo.trim() ? netSharedMemo : <span className="text-amber-500 font-semibold">Cleared (Null)</span>}</td></tr>
                     )}
                   </tbody>
                 </table>
