@@ -5409,47 +5409,67 @@ const paymentFieldAlias = (key: string, label: string) => {
 function PaymentMethodDynamicFields({ fields, setFields }: { fields: PaymentMethodFieldDefinition[], setFields: React.Dispatch<React.SetStateAction<PaymentMethodFieldDefinition[]>> }) {
   const adminFields = fields as AdminPaymentField[];
   const update = (index: number, patch: Partial<AdminPaymentField>) => setFields(current => current.map((field, fieldIndex) => fieldIndex === index ? ({ ...field, ...patch } as PaymentMethodFieldDefinition) : field));
-  const move = (index: number, delta: -1 | 1) => setFields(current => {
-    const next = [...current], target = index + delta;
-    if (target < 0 || target >= next.length) return current;
+  const appliesToDirection = (field: PaymentMethodFieldDefinition, direction: "send" | "receive") => !field.direction || field.direction === "both" || field.direction === direction;
+  const move = (index: number, direction: "send" | "receive", delta: -1 | 1) => setFields(current => {
+    const sectionIndexes = current.map((field, fieldIndex) => appliesToDirection(field, direction) ? fieldIndex : -1).filter(fieldIndex => fieldIndex >= 0);
+    const sectionIndex = sectionIndexes.indexOf(index);
+    const target = sectionIndexes[sectionIndex + delta];
+    if (sectionIndex < 0 || target === undefined) return current;
+    const next = [...current];
     [next[index], next[target]] = [next[target], next[index]];
     return next;
   });
-  const add = (preset: typeof paymentFieldPresets[number]) => setFields(current => {
+  const add = (preset: typeof paymentFieldPresets[number], direction: "send" | "receive") => setFields(current => {
     const presetGroup = paymentFieldAlias(preset.key, preset.label);
-    if (presetGroup >= 0 && current.some(field => paymentFieldAlias(field.key, field.label) === presetGroup)) return current;
-    if (presetGroup < 0 && preset.key !== "custom_field" && current.some(field => field.key === preset.key)) return current;
+    if (presetGroup >= 0 && current.some(field => appliesToDirection(field, direction) && paymentFieldAlias(field.key, field.label) === presetGroup)) return current;
+    if (presetGroup < 0 && preset.key !== "custom_field" && current.some(field => appliesToDirection(field, direction) && field.key === preset.key)) return current;
     let key = preset.key;
-    if (preset.key === "custom_field") {
-      let suffix = 1;
-      while (current.some(field => field.key === key)) {
-        suffix += 1;
-        key = `custom_field_${suffix}`;
-      }
+    let suffix = 1;
+    while (current.some(field => field.key === key)) {
+      suffix += 1;
+      key = `${preset.key}_${suffix}`;
     }
-    return [...current, { ...preset, key, direction: "both", required: true, enabled: true, placeholder: `Enter ${preset.label.toLowerCase()}` } as AdminPaymentField] as PaymentMethodFieldDefinition[];
+    return [...current, { ...preset, key, direction, required: true, enabled: true, placeholder: `Enter ${preset.label.toLowerCase()}` } as AdminPaymentField] as PaymentMethodFieldDefinition[];
   });
-  return <div className="payment-method-fields">
-    <section className="payment-method-field-section" data-testid="section-payment-fields">
-      <div className="payment-method-field-section-head"><div><h3>Customer fields</h3><p>One stable row per field; array order controls display order.</p></div>
-        <DropdownMenuPrimitive.Root><DropdownMenuPrimitive.Trigger asChild><button type="button" className="payment-method-add-field">+ Add Field</button></DropdownMenuPrimitive.Trigger><DropdownMenuPrimitive.Portal><DropdownMenuPrimitive.Content className="admin-blog-actions-menu z-[9999]" sideOffset={4} align="end">
-          {paymentFieldPresets.map(preset => <DropdownMenuPrimitive.Item key={preset.key} className="admin-blog-actions-item" onSelect={() => add(preset)}>{preset.label}</DropdownMenuPrimitive.Item>)}
+  const remove = (index: number, direction: "send" | "receive") => setFields(current => {
+    const field = current[index];
+    if (!field) return current;
+    if (!field.direction || field.direction === "both") {
+      const otherDirection = direction === "send" ? "receive" : "send";
+      return current.map((item, fieldIndex) => fieldIndex === index ? { ...item, direction: otherDirection } : item);
+    }
+    return current.filter((_, fieldIndex) => fieldIndex !== index);
+  });
+  const renderSection = (direction: "send" | "receive", title: string, description: string) => {
+    const sectionFields = adminFields.map((field, index) => ({ field, index })).filter(({ field }) => appliesToDirection(field, direction));
+    return <section className={cn("payment-method-field-section", `payment-method-field-section--${direction}`)} data-testid={`section-${direction}-fields`}>
+      <div className="payment-method-field-section-head"><div><h3>{title}</h3><p>{description}</p></div>
+        <DropdownMenuPrimitive.Root><DropdownMenuPrimitive.Trigger asChild><button type="button" className="payment-method-add-field" data-testid={`button-add-field-${direction}`}>+ Add Field</button></DropdownMenuPrimitive.Trigger><DropdownMenuPrimitive.Portal><DropdownMenuPrimitive.Content className="admin-blog-actions-menu z-[9999]" sideOffset={4} align="end">
+          {paymentFieldPresets.map(preset => <DropdownMenuPrimitive.Item key={preset.key} className="admin-blog-actions-item" onSelect={() => add(preset, direction)}>{preset.label}</DropdownMenuPrimitive.Item>)}
         </DropdownMenuPrimitive.Content></DropdownMenuPrimitive.Portal></DropdownMenuPrimitive.Root>
       </div>
-      <div className="payment-method-field-list">{adminFields.map((field, index) => <div key={index} className="payment-method-field-row" data-testid={`row-field-${field.key}`}>
-        <label className="payment-method-field-label"><span>Label</span><input className="payment-method-field-name-input" value={field.label} onChange={e => update(index, { label: e.target.value })} data-testid={`input-field-label-${index}`} /></label>
-        <label className="payment-method-field-label"><span>Field Name</span><input className="payment-method-field-name-input" value={field.key} onChange={e => update(index, { key: e.target.value })} pattern="^[a-z][a-z0-9_]{0,63}$" data-testid={`input-field-name-${index}`} /></label>
-        <label className="payment-method-field-label"><span>Placeholder</span><input value={field.placeholder || ""} onChange={e => update(index, { placeholder: e.target.value })} data-testid={`input-field-placeholder-${index}`} /></label>
-        <label className="payment-method-field-label"><span>Type</span><select value={field.type} onChange={e => update(index, { type: e.target.value as AdminPaymentField["type"] })} data-testid={`select-field-type-${index}`}>{["short-text","long-text","email","phone","account-iban","account-number","account-name","bank-code","wallet-address","memo-tag","number","integer","numeric","decimal","select","date"].map(type => <option key={type} value={type}>{type}</option>)}</select></label>
-        <label className="payment-method-field-label"><span>Direction</span><select value={field.direction || "both"} onChange={e => update(index, { direction: e.target.value as AdminPaymentField["direction"] })} data-testid={`select-field-direction-${index}`}><option value="send">You Send</option><option value="receive">You Receive</option><option value="both">Both</option></select></label>
-        <label className="payment-method-required-toggle"><input type="checkbox" checked={field.required !== false} onChange={e => update(index, { required: e.target.checked })} data-testid={`toggle-field-required-${index}`} /> Required</label>
-        <label className="payment-method-required-toggle"><input type="checkbox" checked={field.enabled !== false} onChange={e => update(index, { enabled: e.target.checked })} data-testid={`toggle-field-enabled-${index}`} /> Enabled</label>
-        <label className="payment-method-field-label"><span>Help text</span><input value={field.help || ""} onChange={e => update(index, { help: e.target.value })} /></label>
-        <label className="payment-method-field-label"><span>Validation min / max / pattern</span><input type="number" value={field.min ?? ""} placeholder="min" onChange={e => update(index, { min: e.target.value ? Number(e.target.value) : undefined })} /><input type="number" value={field.max ?? ""} placeholder="max" onChange={e => update(index, { max: e.target.value ? Number(e.target.value) : undefined })} /><input value={field.pattern || ""} placeholder="pattern" onChange={e => update(index, { pattern: e.target.value || undefined })} /></label>
-        {field.type === "select" && <label className="payment-method-field-label"><span>Options value:label</span><textarea value={(field.options || []).map(option => `${option.value}:${option.label}`).join("\n")} onChange={e => update(index, { options: e.target.value.split("\n").map(line => { const [value, ...label] = line.split(":"); return { value: value.trim(), label: label.join(":").trim() || value.trim() }; }).filter(option => option.value) })} /></label>}
-        <div className="payment-method-field-actions"><button type="button" aria-label="Move field up" disabled={index === 0} onClick={() => move(index, -1)} data-testid={`button-field-up-${index}`}>↑</button><button type="button" aria-label="Move field down" disabled={index === adminFields.length - 1} onClick={() => move(index, 1)} data-testid={`button-field-down-${index}`}>↓</button><button type="button" aria-label="Remove field" className="payment-method-remove-field" onClick={() => setFields(current => current.filter((_, fieldIndex) => fieldIndex !== index))} data-testid={`button-field-remove-${index}`}><X size={15} /></button></div>
-      </div>)}</div>
-    </section>
+      <div className="payment-method-field-list">{sectionFields.map(({ field, index }, sectionIndex) => <div key={`${direction}-${index}`} className="payment-method-field-row payment-method-field-card" data-testid={`row-${direction}-${field.key}`}>
+        <label className="payment-method-field-label payment-method-field-card-label"><span>Label</span><input className="payment-method-field-name-input" value={field.label} onChange={event => update(index, { label: event.target.value })} data-testid={`input-label-${direction}-${index}`} /></label>
+        <label className="payment-method-required-toggle"><input type="checkbox" checked={field.required !== false} onChange={event => update(index, { required: event.target.checked })} data-testid={`input-required-${direction}-${index}`} /><span>Required <strong>{field.required !== false ? "ON" : "OFF"}</strong></span></label>
+        <button type="button" className="payment-method-remove-field" onClick={() => remove(index, direction)} data-testid={`button-remove-${direction}-${index}`} aria-label={`Remove field from ${direction}`}><X size={15} /></button>
+        <div className="payment-method-field-card-details">
+          <label className="payment-method-field-label"><span>Field Name</span><input value={field.key} onChange={event => update(index, { key: event.target.value })} pattern="^[a-z][a-z0-9_]{0,63}$" data-testid={`input-field-name-${direction}-${index}`} /></label>
+          <label className="payment-method-field-label"><span>Placeholder</span><input value={field.placeholder || ""} onChange={event => update(index, { placeholder: event.target.value })} data-testid={`input-placeholder-${direction}-${index}`} /></label>
+          <label className="payment-method-field-label"><span>Type</span><select value={field.type} onChange={event => update(index, { type: event.target.value as AdminPaymentField["type"] })} data-testid={`select-type-${direction}-${index}`}>{["short-text","long-text","email","phone","account-iban","account-number","account-name","bank-code","wallet-address","memo-tag","number","integer","numeric","decimal","select","date"].map(type => <option key={type} value={type}>{type}</option>)}</select></label>
+          <label className="payment-method-field-label"><span>Direction</span><select value={field.direction || "both"} onChange={event => update(index, { direction: event.target.value as AdminPaymentField["direction"] })} data-testid={`select-direction-${direction}-${index}`}><option value="send">You Send</option><option value="receive">You Receive</option><option value="both">Both</option></select></label>
+          <label className="payment-method-field-label payment-method-field-help"><span>Help Text</span><input value={field.help || ""} onChange={event => update(index, { help: event.target.value })} /></label>
+          <label className="payment-method-required-toggle payment-method-enabled-toggle"><input type="checkbox" checked={field.enabled !== false} onChange={event => update(index, { enabled: event.target.checked })} data-testid={`input-enabled-${direction}-${index}`} /><span>Enabled <strong>{field.enabled !== false ? "ON" : "OFF"}</strong></span></label>
+          <label className="payment-method-field-label payment-method-field-validation"><span>Validation Min / Max / Pattern</span><span className="payment-method-field-validation-inputs"><input type="number" value={field.min ?? ""} placeholder="min" onChange={event => update(index, { min: event.target.value ? Number(event.target.value) : undefined })} /><input type="number" value={field.max ?? ""} placeholder="max" onChange={event => update(index, { max: event.target.value ? Number(event.target.value) : undefined })} /><input value={field.pattern || ""} placeholder="pattern" onChange={event => update(index, { pattern: event.target.value || undefined })} /></span></label>
+          {field.type === "select" && <label className="payment-method-field-label payment-method-field-options"><span>Options value:label</span><textarea value={(field.options || []).map(option => `${option.value}:${option.label}`).join("\n")} onChange={event => update(index, { options: event.target.value.split("\n").map(line => { const [value, ...label] = line.split(":"); return { value: value.trim(), label: label.join(":").trim() || value.trim() }; }).filter(option => option.value) })} /></label>}
+        </div>
+        <div className="payment-method-field-actions"><button type="button" aria-label="Move field up" disabled={sectionIndex === 0} onClick={() => move(index, direction, -1)}>↑</button><button type="button" aria-label="Move field down" disabled={sectionIndex === sectionFields.length - 1} onClick={() => move(index, direction, 1)}>↓</button></div>
+      </div>)}
+      {sectionFields.length === 0 && <div className="payment-method-field-empty">No required information configured.</div>}</div>
+    </section>;
+  };
+  return <div className="payment-method-fields">
+    {renderSection("send", "YOU SEND — Required Information", "This controls what information must be requested from the customer when this Payment Method is selected in You Send.")}
+    {renderSection("receive", "YOU RECEIVE — Required Information", "This controls what information must be requested from the customer when this Payment Method is selected in You Receive.")}
   </div>;
 }
 

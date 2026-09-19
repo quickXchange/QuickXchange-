@@ -9148,6 +9148,65 @@ html:not(.dark) .admin-shell.admin-redesign .currencies-redesign .catalog-table 
   background: hsl(var(--muted) / 0.34);
 }
 
+.payment-method-field-card {
+  align-items: end;
+}
+
+.payment-method-field-card-details {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 11px;
+  padding-top: 11px;
+  border-top: 1px solid hsl(var(--border));
+}
+
+.payment-method-field-card-details > * {
+  min-width: 0;
+}
+
+.payment-method-field-help {
+  align-self: end;
+}
+
+.payment-method-enabled-toggle {
+  align-self: end;
+}
+
+.payment-method-field-validation,
+.payment-method-field-options {
+  grid-column: 1 / -1;
+}
+
+.payment-method-field-validation-inputs {
+  display: grid;
+  grid-template-columns: minmax(70px, 0.7fr) minmax(70px, 0.7fr) minmax(130px, 1.6fr);
+  gap: 8px;
+}
+
+.payment-method-field-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.payment-method-field-actions button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid hsl(var(--border));
+  border-radius: 9px;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--card) / 0.72);
+}
+
+.payment-method-field-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
 .catalog-editor-form .payment-method-field-label > span:first-child {
   margin-bottom: 5px;
 }
@@ -9233,6 +9292,15 @@ html:not(.dark) .admin-shell.admin-redesign .currencies-redesign .catalog-table 
 
   .payment-method-field-label {
     grid-column: 1 / -1;
+  }
+
+  .payment-method-field-card-details,
+  .payment-method-field-validation-inputs {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .payment-method-field-card > .payment-method-required-toggle {
+    justify-content: center;
   }
 
   .payment-method-required-toggle {
