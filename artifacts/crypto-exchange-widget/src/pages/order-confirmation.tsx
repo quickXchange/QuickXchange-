@@ -430,7 +430,6 @@ export function OrderConfirmationPage() {
             <div className="oc-deposit-column">
                {!isQuickex && order.paymentDetailsApplicable && (
                  <PaymentDetailsCard
-                   orderId={order.id}
                    paymentDetails={order.paymentDetails}
                    paymentDetailsApplicable={order.paymentDetailsApplicable}
                    sourcePaymentMethod={order.sourcePaymentMethod}
