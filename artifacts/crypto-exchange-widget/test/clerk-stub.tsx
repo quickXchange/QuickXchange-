@@ -54,6 +54,14 @@ export function useUser() {
   };
 }
 
+export function useSession() {
+  return {
+    isLoaded: true,
+    isSignedIn: !isE2eGuest(),
+    session: null,
+  };
+}
+
 export function publishableKeyFromHost() {
   return 'pk_test_e2e';
 }

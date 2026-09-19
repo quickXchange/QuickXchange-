@@ -44,3 +44,9 @@ Archived-order deletion must preserve protected WhiteBIT deposit and address rec
 **Why:** The runtime database role intentionally cannot delete protected WhiteBIT address rows, and those rows anchor provider reconciliation history that must outlive ordinary Admin cleanup.
 
 **How to apply:** Lock and re-check the archived order inside the deletion transaction, probe for protected provider dependencies, return an explicit per-order conflict when present, and delete only ordinary order-owned sidecars before removing the order.
+
+Every WhiteBIT idempotency target must have a named unique index in the live database, not only in the ORM schema or an old `CREATE TABLE` definition.
+
+**Why:** Schema reconciliation can leave column-level unique constraints absent while application code still uses targeted `ON CONFLICT`. The first deposit webhook, address claim, checkpoint update, or ledger credit then fails with a server error instead of deduplicating.
+
+**How to apply:** Audit development and production system catalogs for every WhiteBIT conflict target, check for duplicates before repair, restore missing named unique indexes through additive migrations, and run webhook, address-convergence, reconciliation, and ledger replay tests afterward.

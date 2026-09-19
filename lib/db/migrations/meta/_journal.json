@@ -589,6 +589,20 @@
       "when": 1789843646004,
       "tag": "0085_cute_doorman",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1789848702097,
+      "tag": "0086_restore_whitebit_ledger_source_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1789848995777,
+      "tag": "0087_restore_whitebit_idempotency_indexes",
+      "breakpoints": true
     }
   ]
 }

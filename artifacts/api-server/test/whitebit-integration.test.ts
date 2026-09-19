@@ -379,7 +379,8 @@ test("WhiteBIT catalog preview and selected import preserve manual assets and cr
 });
 
 test("webhook transitions are idempotent and only terminal statuses credit once", async () => {
-  assert.equal((await webhook("deposit.accepted", "delivery-accepted", depositParams("provider-1", 15))).status, 200);
+  const accepted = await webhook("deposit.accepted", "delivery-accepted", depositParams("provider-1", 15));
+  assert.equal(accepted.status, 200, JSON.stringify(accepted.body));
   assert.equal((await webhook("deposit.updated", "delivery-updated", depositParams("provider-1", 15))).status, 200);
   assert.equal((await webhook("deposit.processed", "delivery-processed", depositParams("provider-1", 3))).status, 200);
   assert.equal((await webhook("deposit.processed", "delivery-processed-duplicate", depositParams("provider-1", 3))).status, 200);

@@ -18,11 +18,22 @@ try {
     outfile,
     packages: "bundle",
     external: ["sharp"],
+    define: {
+      __API_BUILD_METADATA__: JSON.stringify({
+        buildId: "test",
+        commit: "test",
+        deployedAt: "1970-01-01T00:00:00.000Z",
+      }),
+    },
   });
-  const child = spawn(process.execPath, ["--test", "--test-concurrency=1", outfile], {
+  const child = spawn(
+    process.execPath,
+    ["--test", "--test-concurrency=1", ...process.argv.slice(3), outfile],
+    {
     stdio: "inherit",
     env: { ...process.env, NODE_PATH: `${process.cwd()}/node_modules${process.env.NODE_PATH ? `:${process.env.NODE_PATH}` : ""}` },
-  });
+    },
+  );
   const exitCode = await new Promise((resolve) => child.once("exit", resolve));
   process.exitCode = exitCode ?? 1;
 } finally {
