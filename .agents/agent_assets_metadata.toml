@@ -70,3 +70,17 @@ mtime_ms = 1789832808865
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/95481951-3e00-4c7e-8bcb-b00d271ce3c5/ffcda615-dce5-4d59-a9c5-0b0ac3d76fbb"
 storage_version_token = "1789832814042654"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "gnWJYBcIw-EmnM1x4Mm7B"
+uri = "file://exports/quickxchange-workspace-config-current.json"
+type = "unspecified"
+title = "Download current QuickXchange workspace configuration"
+description = "Fresh export of the current Replit Preview configuration. Includes catalogs, currencies, payment methods, routes/pricing, active states, send/receive settings, published site configuration, and object paths. Excludes orders, customers, accounts, transactions, credentials, and wallet addresses."
+logical_id = "9bbd08a5-fb48-49fc-bc39-3a8a10d63a4e"
+content_hash = "sha256:1a3007967ecdf725132720ba4e88c45c950fe27ce2367b91d84e0723d1fd1ee1"
+size = 277347
+mtime_ms = 1789832945110
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/9bbd08a5-fb48-49fc-bc39-3a8a10d63a4e/b271ce67-f5be-4b08-b430-198916dcd4e1"
+storage_version_token = "1789832979525362"
+content_type = "application/octet-stream"
