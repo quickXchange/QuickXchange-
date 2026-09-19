@@ -203,11 +203,17 @@ const DEFAULT_SOCIAL_TRUST = {
 export const DEFAULT_ORDER_TERMS_ACCEPTANCE = {
   mainText: "I accept the",
   termsLabel: "Terms & Conditions",
-  termsUrl: "/terms-conditions",
+  termsUrl: "/terms",
   privacyLabel: "Privacy Policy",
-  privacyUrl: "/privacy-policy",
+  privacyUrl: "/privacy",
   amlLabel: "AML/KYC Policy",
   amlUrl: "/aml-kyc",
+} as const;
+
+const ORDER_TERMS_LEGAL_ROUTES = {
+  termsUrl: DEFAULT_ORDER_TERMS_ACCEPTANCE.termsUrl,
+  privacyUrl: DEFAULT_ORDER_TERMS_ACCEPTANCE.privacyUrl,
+  amlUrl: DEFAULT_ORDER_TERMS_ACCEPTANCE.amlUrl,
 } as const;
 
 const DEFAULT_SOCIAL_ICON_APPEARANCE = {
@@ -336,22 +342,20 @@ function validatePageContent(content: Record<string, unknown>): void {
 function validateOrderTermsAcceptance(pageKey: string, content: Record<string, unknown>): void {
   if (pageKey !== "order-terms-acceptance") return;
   const textFields = ["mainText", "termsLabel", "privacyLabel", "amlLabel"] as const;
-  const urlFields = ["termsUrl", "privacyUrl", "amlUrl"] as const;
   for (const field of textFields) {
     const value = content[field];
     if (typeof value !== "string" || !value.trim() || value.length > 200) {
       throw new ApiError("ORDER_TERMS_CONTENT_INVALID", `${field} must be nonempty and 200 characters or fewer.`, 400);
     }
   }
-  for (const field of urlFields) {
+  for (const [field, expectedRoute] of Object.entries(ORDER_TERMS_LEGAL_ROUTES)) {
     const value = content[field];
-    const safeInternalOrHttps = typeof value === "string" && (
-      value.trim().startsWith("/") || value.trim().startsWith("#") ||
-      value.trim().startsWith("https://")
-    );
-    if (typeof value !== "string" || !value.trim() || value.length > 2048 ||
-      !safeInternalOrHttps || !isSafeSiteLink(value.trim())) {
-      throw new ApiError("ORDER_TERMS_LINK_INVALID", `${field} must be a safe internal or HTTPS link.`, 400);
+    if (typeof value !== "string" || value.trim() !== expectedRoute) {
+      throw new ApiError(
+        "ORDER_TERMS_LINK_INVALID",
+        `${field} must use the existing QuickXchange legal page route ${expectedRoute}.`,
+        400,
+      );
     }
   }
 }

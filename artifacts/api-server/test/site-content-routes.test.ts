@@ -283,9 +283,9 @@ test("order terms acceptance is shared, validated, and published immediately by 
   const content = {
     mainText: "I accept the",
     termsLabel: "Terms & Conditions",
-    termsUrl: "/terms-conditions",
+    termsUrl: "/terms",
     privacyLabel: "Privacy Policy",
-    privacyUrl: "/privacy-policy",
+    privacyUrl: "/privacy",
     amlLabel: "AML/KYC Policy",
     amlUrl: "/aml-kyc",
   };
@@ -308,6 +308,18 @@ test("order terms acceptance is shared, validated, and published immediately by 
     body: JSON.stringify({ content: { ...content, termsUrl: "javascript:alert(1)" } }),
   }, operatorUser);
   assert.equal(unsafe.response.status, 400, unsafe.body);
+
+  for (const [field, invalidRoute] of [
+    ["termsUrl", "/terms-conditions"],
+    ["privacyUrl", "/privacy-policy"],
+    ["amlUrl", "/aml-kyc-policy"],
+  ] as const) {
+    const brokenInternalRoute = await request(`/admin/site-content/${pageKey}`, {
+      method: "PUT",
+      body: JSON.stringify({ content: { ...content, [field]: invalidRoute } }),
+    }, operatorUser);
+    assert.equal(brokenInternalRoute.response.status, 400, brokenInternalRoute.body);
+  }
 
   const nonOwnerPublish = await request(`/admin/site-content/${pageKey}`, { method: "POST" }, operatorUser);
   assert.equal(nonOwnerPublish.response.status, 403, nonOwnerPublish.body);

@@ -17,6 +17,7 @@ import { ArrowDownUp, CheckCircle2, AlertCircle, ChevronDown, Loader2, X, Search
 import { cn } from '@/lib/utils';
 import { useHapticFeedback } from '@/lib/hooks';
 import { MiniAppLogo } from '@/components/mini-app-logo';
+import { OrderTermsLinks } from '@/components/order-terms-links';
 import { getFallbackPaymentLogos, getFallbackCryptoLogos, getLogoFallbackText } from '@/lib/logo-catalog';
 
 export default function Exchange() {
@@ -843,7 +844,7 @@ export default function Exchange() {
 
           <div className="flex items-start text-[12px] text-muted-foreground px-3 pt-2 bg-primary/5 p-3 rounded-xl border border-primary/10">
             <CheckCircle2 className="w-[18px] h-[18px] mr-2.5 text-primary shrink-0 opacity-80" />
-            <span className="leading-snug">By placing this order, you agree to the terms of service and confirm the destination details are correct.</span>
+            <OrderTermsLinks />
           </div>
         </div>
       )}
