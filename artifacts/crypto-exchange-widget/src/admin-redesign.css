@@ -9149,16 +9149,15 @@ html:not(.dark) .admin-shell.admin-redesign .currencies-redesign .catalog-table 
 }
 
 .payment-method-field-card {
-  align-items: end;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
 }
 
 .payment-method-field-card-details {
   display: grid;
-  grid-column: 1 / -1;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 11px;
-  padding-top: 11px;
-  border-top: 1px solid hsl(var(--border));
 }
 
 .payment-method-field-card-details > * {
@@ -9169,13 +9168,31 @@ html:not(.dark) .admin-shell.admin-redesign .currencies-redesign .catalog-table 
   align-self: end;
 }
 
-.payment-method-enabled-toggle {
-  align-self: end;
+.payment-method-field-toggles {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
 }
 
-.payment-method-field-validation,
-.payment-method-field-options {
+.payment-method-field-validation {
   grid-column: 1 / -1;
+  min-width: 0;
+  margin: 0;
+  padding: 11px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 11px;
+  background: hsl(var(--card) / 0.52);
+}
+
+.payment-method-field-validation legend {
+  padding: 0 6px;
+  color: hsl(var(--muted-foreground));
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
 }
 
 .payment-method-field-validation-inputs {
@@ -9186,20 +9203,25 @@ html:not(.dark) .admin-shell.admin-redesign .currencies-redesign .catalog-table 
 
 .payment-method-field-actions {
   display: flex;
-  grid-column: 1 / -1;
   justify-content: flex-end;
   gap: 7px;
+  padding-top: 10px;
+  border-top: 1px solid hsl(var(--border));
 }
 
 .payment-method-field-actions button {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  place-items: center;
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 9px;
   border: 1px solid hsl(var(--border));
   border-radius: 9px;
   color: hsl(var(--muted-foreground));
   background: hsl(var(--card) / 0.72);
+  font-size: 10px;
+  font-weight: 750;
 }
 
 .payment-method-field-actions button:disabled {
@@ -9241,14 +9263,7 @@ html:not(.dark) .admin-shell.admin-redesign .currencies-redesign .catalog-table 
 }
 
 .payment-method-remove-field {
-  display: grid;
-  width: 32px;
-  height: 38px;
-  place-items: center;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  color: hsl(var(--muted-foreground));
-  background: transparent;
+  color: hsl(var(--destructive)) !important;
   cursor: pointer;
   transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
 }
@@ -9285,8 +9300,9 @@ html:not(.dark) .admin-shell.admin-redesign .currencies-redesign .catalog-table 
     width: 100%;
   }
 
-  .payment-method-field-row {
-    grid-template-columns: minmax(0, 1fr) 32px;
+  .payment-method-field-row,
+  .payment-method-field-card {
+    grid-template-columns: minmax(0, 1fr);
     align-items: center;
   }
 
@@ -9295,12 +9311,14 @@ html:not(.dark) .admin-shell.admin-redesign .currencies-redesign .catalog-table 
   }
 
   .payment-method-field-card-details,
+  .payment-method-field-toggles,
   .payment-method-field-validation-inputs {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .payment-method-field-card > .payment-method-required-toggle {
-    justify-content: center;
+  .payment-method-field-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .payment-method-required-toggle {

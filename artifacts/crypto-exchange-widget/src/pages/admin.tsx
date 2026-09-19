@@ -5449,20 +5449,29 @@ function PaymentMethodDynamicFields({ fields, setFields }: { fields: PaymentMeth
         </DropdownMenuPrimitive.Content></DropdownMenuPrimitive.Portal></DropdownMenuPrimitive.Root>
       </div>
       <div className="payment-method-field-list">{sectionFields.map(({ field, index }, sectionIndex) => <div key={`${direction}-${index}`} className="payment-method-field-row payment-method-field-card" data-testid={`row-${direction}-${field.key}`}>
-        <label className="payment-method-field-label payment-method-field-card-label"><span>Label</span><input className="payment-method-field-name-input" value={field.label} onChange={event => update(index, { label: event.target.value })} data-testid={`input-label-${direction}-${index}`} /></label>
-        <label className="payment-method-required-toggle"><input type="checkbox" checked={field.required !== false} onChange={event => update(index, { required: event.target.checked })} data-testid={`input-required-${direction}-${index}`} /><span>Required <strong>{field.required !== false ? "ON" : "OFF"}</strong></span></label>
-        <button type="button" className="payment-method-remove-field" onClick={() => remove(index, direction)} data-testid={`button-remove-${direction}-${index}`} aria-label={`Remove field from ${direction}`}><X size={15} /></button>
         <div className="payment-method-field-card-details">
+          <label className="payment-method-field-label payment-method-field-card-label"><span>Label</span><input className="payment-method-field-name-input" value={field.label} onChange={event => update(index, { label: event.target.value })} data-testid={`input-label-${direction}-${index}`} /></label>
           <label className="payment-method-field-label"><span>Field Name</span><input value={field.key} onChange={event => update(index, { key: event.target.value })} pattern="^[a-z][a-z0-9_]{0,63}$" data-testid={`input-field-name-${direction}-${index}`} /></label>
           <label className="payment-method-field-label"><span>Placeholder</span><input value={field.placeholder || ""} onChange={event => update(index, { placeholder: event.target.value })} data-testid={`input-placeholder-${direction}-${index}`} /></label>
-          <label className="payment-method-field-label"><span>Type</span><select value={field.type} onChange={event => update(index, { type: event.target.value as AdminPaymentField["type"] })} data-testid={`select-type-${direction}-${index}`}>{["short-text","long-text","email","phone","account-iban","account-number","account-name","bank-code","wallet-address","memo-tag","number","integer","numeric","decimal","select","date"].map(type => <option key={type} value={type}>{type}</option>)}</select></label>
-          <label className="payment-method-field-label"><span>Direction</span><select value={field.direction || "both"} onChange={event => update(index, { direction: event.target.value as AdminPaymentField["direction"] })} data-testid={`select-direction-${direction}-${index}`}><option value="send">You Send</option><option value="receive">You Receive</option><option value="both">Both</option></select></label>
           <label className="payment-method-field-label payment-method-field-help"><span>Help Text</span><input value={field.help || ""} onChange={event => update(index, { help: event.target.value })} /></label>
-          <label className="payment-method-required-toggle payment-method-enabled-toggle"><input type="checkbox" checked={field.enabled !== false} onChange={event => update(index, { enabled: event.target.checked })} data-testid={`input-enabled-${direction}-${index}`} /><span>Enabled <strong>{field.enabled !== false ? "ON" : "OFF"}</strong></span></label>
-          <label className="payment-method-field-label payment-method-field-validation"><span>Validation Min / Max / Pattern</span><span className="payment-method-field-validation-inputs"><input type="number" value={field.min ?? ""} placeholder="min" onChange={event => update(index, { min: event.target.value ? Number(event.target.value) : undefined })} /><input type="number" value={field.max ?? ""} placeholder="max" onChange={event => update(index, { max: event.target.value ? Number(event.target.value) : undefined })} /><input value={field.pattern || ""} placeholder="pattern" onChange={event => update(index, { pattern: event.target.value || undefined })} /></span></label>
-          {field.type === "select" && <label className="payment-method-field-label payment-method-field-options"><span>Options value:label</span><textarea value={(field.options || []).map(option => `${option.value}:${option.label}`).join("\n")} onChange={event => update(index, { options: event.target.value.split("\n").map(line => { const [value, ...label] = line.split(":"); return { value: value.trim(), label: label.join(":").trim() || value.trim() }; }).filter(option => option.value) })} /></label>}
+          <div className="payment-method-field-toggles">
+            <label className="payment-method-required-toggle"><input type="checkbox" checked={field.required !== false} onChange={event => update(index, { required: event.target.checked })} data-testid={`input-required-${direction}-${index}`} /><span>Required <strong>{field.required !== false ? "ON" : "OFF"}</strong></span></label>
+            <label className="payment-method-required-toggle payment-method-enabled-toggle"><input type="checkbox" checked={field.enabled !== false} onChange={event => update(index, { enabled: event.target.checked })} data-testid={`input-enabled-${direction}-${index}`} /><span>Enabled <strong>{field.enabled !== false ? "ON" : "OFF"}</strong></span></label>
+          </div>
+          <fieldset className="payment-method-field-validation">
+            <legend>Validation</legend>
+            <div className="payment-method-field-validation-inputs">
+              <label><span>Min</span><input type="number" value={field.min ?? ""} placeholder="Min" onChange={event => update(index, { min: event.target.value ? Number(event.target.value) : undefined })} /></label>
+              <label><span>Max</span><input type="number" value={field.max ?? ""} placeholder="Max" onChange={event => update(index, { max: event.target.value ? Number(event.target.value) : undefined })} /></label>
+              <label><span>Pattern</span><input value={field.pattern || ""} placeholder="Pattern" onChange={event => update(index, { pattern: event.target.value || undefined })} /></label>
+            </div>
+          </fieldset>
         </div>
-        <div className="payment-method-field-actions"><button type="button" aria-label="Move field up" disabled={sectionIndex === 0} onClick={() => move(index, direction, -1)}>↑</button><button type="button" aria-label="Move field down" disabled={sectionIndex === sectionFields.length - 1} onClick={() => move(index, direction, 1)}>↓</button></div>
+        <div className="payment-method-field-actions">
+          <button type="button" className="payment-method-remove-field" onClick={() => remove(index, direction)} data-testid={`button-remove-${direction}-${index}`} aria-label={`Remove field from ${direction}`}><X size={14} /> Remove Field</button>
+          <button type="button" aria-label="Move field up" disabled={sectionIndex === 0} onClick={() => move(index, direction, -1)}>↑ Move Up</button>
+          <button type="button" aria-label="Move field down" disabled={sectionIndex === sectionFields.length - 1} onClick={() => move(index, direction, 1)}>↓ Move Down</button>
+        </div>
       </div>)}
       {sectionFields.length === 0 && <div className="payment-method-field-empty">No required information configured.</div>}</div>
     </section>;
