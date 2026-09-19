@@ -2,6 +2,7 @@
 - [OpenAPI query timestamps](openapi-query-timestamps.md) — date-time query parameters can generate server-only Date validators; keep HTTP query contracts string-based and validate calendar semantics.
 - [Quickex V2 signing](quickex-signing.md) — signed health checks must omit query parameters even though Quickex docs show pagination examples.
 - [Quickex egress restrictions](quickex-egress-restrictions.md) — public V2 endpoints can block server egress while remaining healthy elsewhere; fail closed rather than proxying financial quotes.
+- [Quickex pair-rate-limit fallback](quickex-pair-rate-limit-fallback.md) — a pair-catalog 429 may broaden selectors only when live quotes remain the authoritative route gate.
 - [Quickex instrument mapping](quickex-instrument-mapping.md) — use catalog network titles; rate responses embed reduced instrument objects.
 - [Quickex order payload](quickex-order-payload.md) — omit `markup` on order create unless `referrerId` is sent; create returns a UUID id while the order list shows a numeric one.
 - [Drizzle migration paths](drizzle-migration-paths.md) — keep `out` package-relative so later migration generations can load prior snapshots.

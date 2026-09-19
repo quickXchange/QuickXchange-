@@ -8,6 +8,7 @@ import {
   getQuickexInstruments,
   getQuickexPairs,
   getQuickexQuote,
+  QuickexApiError,
   type QuickexInstrument,
   type QuickexPair,
   type QuickexRateMode,
@@ -101,6 +102,37 @@ function resolveExecutableQuickexRoutes(
       toNetwork: target.networkCode,
     }];
   });
+}
+
+function rateLimitedFallbackRoutes(
+  capabilities: ProviderCapability[],
+): ExecutableQuickexRoute[] {
+  return capabilities.flatMap((source) =>
+    capabilities.flatMap((target) =>
+      capabilityKey(source.assetCode, source.networkCode) ===
+          capabilityKey(target.assetCode, target.networkCode)
+        ? []
+        : [{
+            fromAsset: source.assetCode,
+            fromNetwork: source.networkCode,
+            toAsset: target.assetCode,
+            toNetwork: target.networkCode,
+          }]
+    )
+  );
+}
+
+async function quickexRoutesWithRateLimitFallback(
+  capabilities: ProviderCapability[],
+): Promise<ExecutableQuickexRoute[]> {
+  try {
+    return resolveExecutableQuickexRoutes(capabilities, await getQuickexPairs());
+  } catch (error) {
+    if (error instanceof QuickexApiError && error.code === "QUICKEX_RATE_LIMITED") {
+      return rateLimitedFallbackRoutes(capabilities);
+    }
+    throw error;
+  }
 }
 
 export async function listExecutableQuickexRoutes(
@@ -266,15 +298,12 @@ export async function getQuickexPublicCapabilityConfig() {
   // Public Convert configuration must not turn a transient catalog failure
   // into a valid-looking empty result that the client caches for five minutes.
   // Warm both catalogs here so transport failures remain explicit 5xx errors.
-  const [instruments, providerPairs] = await Promise.all([
-    getQuickexInstruments(),
-    getQuickexPairs(),
-  ]);
+  const instruments = await getQuickexInstruments();
   const capabilities = await listExecutableProviderCapabilities({ cacheOnly: true });
   if (!capabilities.length) {
     return { provider: "Quickex" as const, instruments: [], pairs: [], signedOrders: false };
   }
-  const routes = resolveExecutableQuickexRoutes(capabilities, providerPairs);
+  const routes = await quickexRoutesWithRateLimitFallback(capabilities);
   const participating = new Set(routes.flatMap(route => [
     capabilityKey(route.fromAsset, route.fromNetwork),
     capabilityKey(route.toAsset, route.toNetwork),
@@ -305,10 +334,7 @@ export async function getQuickexPublicPairs(input: {
       400,
     );
   }
-  const [capabilities, providerPairs] = await Promise.all([
-    listExecutableProviderCapabilities(),
-    getQuickexPairs(),
-  ]);
+  const capabilities = await listExecutableProviderCapabilities();
   const sourceKey = input.fromAsset && input.fromNetwork
     ? capabilityKey(input.fromAsset, input.fromNetwork)
     : undefined;
@@ -317,15 +343,13 @@ export async function getQuickexPublicPairs(input: {
   )) {
     throw new ApiError("PROVIDER_ROUTE_UNAVAILABLE", "This instant exchange route is unavailable.", 422);
   }
-  return resolveExecutableQuickexRoutes(capabilities, providerPairs)
+  return (await quickexRoutesWithRateLimitFallback(capabilities))
     .filter(route => !sourceKey || capabilityKey(route.fromAsset, route.fromNetwork) === sourceKey);
 }
 
 export async function assertExecutableQuickexRoute(input: InstantRouteInput) {
-  const [capabilities, routes] = await Promise.all([
-    listExecutableProviderCapabilities(),
-    listExecutableQuickexRoutes(),
-  ]);
+  const capabilities = await listExecutableProviderCapabilities();
+  const routes = await quickexRoutesWithRateLimitFallback(capabilities);
   const find = (asset: string, network: string) => capabilities.find((item) =>
     item.assetCode.toUpperCase() === asset.toUpperCase() &&
     item.networkCode.toUpperCase() === network.toUpperCase()

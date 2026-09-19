@@ -18,8 +18,9 @@ const DEFAULT_CREATE_TIMEOUT_MS = 15_000;
 const DEFAULT_CATALOG_TIMEOUT_MS = 5_000;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const CACHE_STALE_TTL_MS = 15 * 60 * 1000;
-const PAIR_CATALOG_PAGE_SIZE = 500;
-const PAIR_CATALOG_BATCH_PAGES = 4;
+const PAIR_CACHE_STALE_TTL_MS = 24 * 60 * 60 * 1000;
+const PAIR_REFRESH_FAILURE_COOLDOWN_MS = 60 * 1000;
+const PAIR_CATALOG_PAGE_SIZE = 100;
 const PAIR_CATALOG_MAX_PAGES = 128;
 
 export type QuickexInstrument = {
@@ -173,8 +174,13 @@ type QuickexPairFilter = {
 };
 const pairCacheKey = (filter: QuickexPairFilter = {}) =>
   `${filter.fromCurrency?.trim().toUpperCase() ?? "*"}\0${filter.fromNetwork?.trim().toUpperCase() ?? "*"}`;
-const pairCache = new Map<string, { expiresAt: number; data: QuickexPair[] }>();
+const pairCache = new Map<string, {
+  expiresAt: number;
+  staleUntil: number;
+  data: QuickexPair[];
+}>();
 const pairRefresh = new Map<string, Promise<QuickexPair[]>>();
+const pairCacheLastFailureAt = new Map<string, number>();
 let pairCacheGeneration = 0;
 let quickexAddressCache: { address: string; expiresAt: number } | undefined;
 let quickexAddressRefresh: Promise<string> | undefined;
@@ -189,6 +195,7 @@ export function resetQuickexInstrumentCacheForTests() {
   instrumentCacheGeneration += 1;
   pairCache.clear();
   pairRefresh.clear();
+  pairCacheLastFailureAt.clear();
   pairCacheGeneration += 1;
 }
 
@@ -628,7 +635,17 @@ export async function getQuickexPairs(filter: QuickexPairFilter = {}): Promise<Q
   const cacheKey = pairCacheKey(filter);
   const generation = pairCacheGeneration;
   const cached = pairCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) return cached.data;
+  const now = Date.now();
+  if (cached && cached.expiresAt > now) return cached.data;
+  const lastFailureAt = pairCacheLastFailureAt.get(cacheKey);
+  if (
+    cached &&
+    cached.staleUntil > now &&
+    lastFailureAt !== undefined &&
+    now - lastFailureAt < PAIR_REFRESH_FAILURE_COOLDOWN_MS
+  ) {
+    return cached.data;
+  }
   const pending = pairRefresh.get(cacheKey);
   if (pending) return pending;
   const refresh = (async () => {
@@ -636,39 +653,25 @@ export async function getQuickexPairs(filter: QuickexPairFilter = {}): Promise<Q
     try {
       const raw: unknown[] = [];
       let complete = false;
-      for (
-        let firstPage = 0;
-        firstPage < PAIR_CATALOG_MAX_PAGES && !complete;
-        firstPage += PAIR_CATALOG_BATCH_PAGES
-      ) {
-        const pageCount = Math.min(
-          PAIR_CATALOG_BATCH_PAGES,
-          PAIR_CATALOG_MAX_PAGES - firstPage,
+      for (let pageIndex = 0; pageIndex < PAIR_CATALOG_MAX_PAGES && !complete; pageIndex++) {
+        const url = new URL(`${baseUrl}/pairs/public`);
+        if (filter.fromCurrency) {
+          url.searchParams.set("instrumentFromCurrencyTitle", filter.fromCurrency);
+        }
+        if (filter.fromNetwork) {
+          url.searchParams.set("instrumentFromNetworkTitle", filter.fromNetwork);
+        }
+        url.searchParams.set("offset", String(pageIndex * PAIR_CATALOG_PAGE_SIZE));
+        url.searchParams.set("limit", String(PAIR_CATALOG_PAGE_SIZE));
+        const page = await requestJson<unknown>(
+          url.toString(),
+          { headers: { Accept: "application/json" } },
+          catalogTimeoutMs,
+          false,
         );
-        const pages = await Promise.all(
-          Array.from({ length: pageCount }, async (_, pageIndex) => {
-            const offset = (firstPage + pageIndex) * PAIR_CATALOG_PAGE_SIZE;
-            const url = new URL(`${baseUrl}/pairs/public`);
-            if (filter.fromCurrency) {
-              url.searchParams.set("instrumentFromCurrencyTitle", filter.fromCurrency);
-            }
-            if (filter.fromNetwork) {
-              url.searchParams.set("instrumentFromNetworkTitle", filter.fromNetwork);
-            }
-            url.searchParams.set("offset", String(offset));
-            url.searchParams.set("limit", String(PAIR_CATALOG_PAGE_SIZE));
-            const page = await requestJson<unknown>(
-              url.toString(),
-              { headers: { Accept: "application/json" } },
-              catalogTimeoutMs,
-              false,
-            );
-            if (!Array.isArray(page)) throw new Error();
-            return page;
-          }),
-        );
-        for (const page of pages) raw.push(...page);
-        complete = pages.some((page) => page.length < PAIR_CATALOG_PAGE_SIZE);
+        if (!Array.isArray(page)) throw new Error();
+        raw.push(...page);
+        complete = page.length < PAIR_CATALOG_PAGE_SIZE;
       }
       if (!complete) {
         throw new QuickexApiError(
@@ -692,10 +695,31 @@ export async function getQuickexPairs(filter: QuickexPairFilter = {}): Promise<Q
           return true;
         });
       if (pairCacheGeneration === generation) {
-        pairCache.set(cacheKey, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+        const fetchedAt = Date.now();
+        pairCache.set(cacheKey, {
+          data,
+          expiresAt: fetchedAt + CACHE_TTL_MS,
+          staleUntil: fetchedAt + CACHE_TTL_MS + PAIR_CACHE_STALE_TTL_MS,
+        });
+        pairCacheLastFailureAt.delete(cacheKey);
       }
       return data;
     } catch (error) {
+      const failedAt = Date.now();
+      if (pairCacheGeneration === generation) {
+        pairCacheLastFailureAt.set(cacheKey, failedAt);
+      }
+      if (cached && cached.staleUntil > failedAt) {
+        logger.warn(
+          {
+            error,
+            fromCurrency: filter.fromCurrency,
+            fromNetwork: filter.fromNetwork,
+          },
+          "Quickex pair catalog refresh failed; serving stale cached routes",
+        );
+        return cached.data;
+      }
       if (error instanceof QuickexApiError) throw error;
       throw new QuickexApiError("QUICKEX_MALFORMED_RESPONSE", "The exchange service returned an invalid pair catalog.");
     }
