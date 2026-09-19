@@ -60,7 +60,12 @@ export default function Exchange() {
 
   // Data hooks
   const { data: config, isLoading: isConfigLoading } = useGetExchangeConfig({
-    query: { queryKey: getGetExchangeConfigQueryKey(), staleTime: 60000 }
+    query: {
+      queryKey: getGetExchangeConfigQueryKey(),
+      staleTime: 0,
+      refetchOnMount: 'always',
+      refetchOnWindowFocus: true,
+    }
   });
 
   const { data: quickexConfig, isLoading: isQuickexConfigLoading } = useGetQuickexConfig({

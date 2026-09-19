@@ -101,5 +101,5 @@ export function isSyntacticallyValidManualWalletMemo(
     return Buffer.byteLength(memo, "utf8") <= 120;
   }
 
-  return false;
+  return Buffer.byteLength(memo, "utf8") <= 120;
 }

@@ -141,10 +141,12 @@ export async function findManualCryptoNetworkByIdForAsset(
 export function isConfiguredYouSendCryptoNetwork(
   network: Pick<
     typeof cryptoAssetNetworksTable.$inferSelect,
-    "enabled" | "depositProvider"
+    "enabled" | "depositProvider" | "customerDepositsEnabled"
   >,
 ) {
-  return network.enabled && network.depositProvider !== "none";
+  return network.enabled &&
+    network.customerDepositsEnabled &&
+    network.depositProvider !== "none";
 }
 
 export function canAcceptManualCryptoDeposit(network: typeof cryptoAssetNetworksTable.$inferSelect) {

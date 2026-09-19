@@ -141,7 +141,7 @@ test("deposit provider registry exposes only selectable adapters and fallback po
   ]);
 });
 
-test("You Send visibility follows enabled Admin provider assignments, not reconciled flags", () => {
+test("You Send visibility follows the explicit enabled state and provider assignment", () => {
   const whitebit = {
     enabled: true,
     depositProvider: "whitebit",
@@ -159,13 +159,17 @@ test("You Send visibility follows enabled Admin provider assignments, not reconc
     sharedDepositAddress: "configured-wallet",
   } as never;
 
-  assert.equal(isConfiguredYouSendCryptoNetwork(whitebit), true);
-  assert.equal(canAcceptManualCryptoDeposit(whitebit), true);
-  assert.equal(isConfiguredYouSendCryptoNetwork(manualWithoutWallet), true);
+  assert.equal(isConfiguredYouSendCryptoNetwork(whitebit), false);
+  assert.equal(canAcceptManualCryptoDeposit(whitebit), false);
+  assert.equal(isConfiguredYouSendCryptoNetwork(manualWithoutWallet), false);
   assert.equal(canAcceptManualCryptoDeposit(manualWithoutWallet), false);
-  assert.equal(canAcceptManualCryptoDeposit(manualWithWallet), true);
+  assert.equal(canAcceptManualCryptoDeposit({
+    ...manualWithWallet,
+    customerDepositsEnabled: true,
+  }), true);
   assert.equal(isConfiguredYouSendCryptoNetwork({
     enabled: true,
     depositProvider: "none",
+    customerDepositsEnabled: true,
   }), false);
 });

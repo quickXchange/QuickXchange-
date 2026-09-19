@@ -1,4 +1,4 @@
-import { randomInt, randomUUID } from "node:crypto";
+import { createHash, randomInt, randomUUID } from "node:crypto";
 import { Router, type IRouter, type Request } from "express";
 import { and, asc, count, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, ne, notInArray, or, sql } from "drizzle-orm";
 import {
@@ -4143,6 +4143,8 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
   try {
     const { id: assetId } = SaveCryptoAssetReceivingWalletParams.parse(req.params);
     const input = SaveCryptoAssetReceivingWalletBody.parse(req.body);
+    const actor = res.locals.operator as OperatorAuthorization;
+    const actorClerkUserId = getOperatorActorUserId(req);
     const eligibilityContext = await createCustomerDepositEligibilityContext();
     const [asset] = await db.select()
       .from(cryptoAssetsTable)
@@ -4215,11 +4217,59 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
           sharedDepositAddress: fallbackAddress,
           sharedDepositMemo: fallbackMemo || null,
         };
-        const nextEnabled = isCustomerDepositEligible(
+        if (
+          nextProvider !== "none" &&
+          fallbackAddress &&
+          !isSyntacticallyValidManualWalletAddress(nextNetwork, fallbackAddress)
+        ) {
+          throw new ApiError(
+            "CRYPTO_DEPOSIT_ADDRESS_INVALID",
+            `The receiving address is invalid for ${network.networkCode}.`,
+            422,
+          );
+        }
+        if (
+          fallbackMemo &&
+          !isSyntacticallyValidManualWalletMemo(nextNetwork, fallbackMemo)
+        ) {
+          throw new ApiError(
+            "CRYPTO_DEPOSIT_MEMO_INVALID",
+            `The receiving memo or tag is invalid for ${network.networkCode}.`,
+            422,
+          );
+        }
+        if (input.enabled && nextProvider === "manual" && !fallbackAddress) {
+          throw new ApiError(
+            "CRYPTO_DEPOSIT_ADDRESS_REQUIRED",
+            "A valid receiving address is required before manual customer deposits can be enabled.",
+            422,
+          );
+        }
+        if (
+          input.enabled &&
+          nextProvider === "manual" &&
+          network.requiresMemo &&
+          !fallbackMemo
+        ) {
+          throw new ApiError(
+            "CRYPTO_DEPOSIT_MEMO_REQUIRED",
+            `A memo or tag is required before ${network.networkCode} customer deposits can be enabled.`,
+            422,
+          );
+        }
+        const eligible = isCustomerDepositEligible(
           assetById.get(network.assetId) ?? asset,
           nextNetwork,
           effectiveEligibilityContext,
         );
+        if (input.enabled && nextProvider !== "none" && !eligible) {
+          throw new ApiError(
+            "CRYPTO_DEPOSIT_VERIFICATION_REQUIRED",
+            "Customer deposits can only be enabled with a valid manual wallet or a verified provider route.",
+            422,
+          );
+        }
+        const nextEnabled = input.enabled && eligible;
         await tx.update(cryptoAssetNetworksTable).set({
           sharedDepositAddress: fallbackAddress,
           sharedDepositMemo: fallbackMemo || null,
@@ -4231,6 +4281,47 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
         .where(input.useForAllAssetsOnNetwork
           ? eq(cryptoAssetNetworksTable.networkCode, selected.networkCode)
           : eq(cryptoAssetNetworksTable.id, selected.id));
+      const fingerprint = (value: string | null | undefined) =>
+        value
+          ? createHash("sha256").update(value).digest("hex")
+          : null;
+      const updatedById = new Map(updated.map(network => [network.id, network]));
+      await tx.insert(operatorAuditLogsTable).values({
+        action: "crypto_receiving_wallet.updated",
+        actorClerkUserId,
+        targetOperatorId: actor.id,
+        targetEmail: actor.email,
+        requestId: String(req.id),
+        details: {
+          assetId,
+          selectedNetworkId: selected.id,
+          affectedNetworkIds: updated.map(network => network.id),
+          networkCode: selected.networkCode,
+          providerBefore: selected.depositProvider,
+          providerAfter: input.depositProvider,
+          enabledBefore: selected.customerDepositsEnabled,
+          enabledAfter: updated.find(network => network.id === selected.id)?.customerDepositsEnabled ?? false,
+          addressBeforeFingerprint: fingerprint(selected.sharedDepositAddress),
+          addressAfterFingerprint: fingerprint(fallbackAddress),
+          memoBeforeFingerprint: fingerprint(selected.sharedDepositMemo),
+          memoAfterFingerprint: fingerprint(fallbackMemo),
+          useForAllAssetsOnNetwork: input.useForAllAssetsOnNetwork,
+          changes: affected.map(before => {
+            const after = updatedById.get(before.id);
+            return {
+              networkId: before.id,
+              providerBefore: before.depositProvider,
+              providerAfter: after?.depositProvider ?? before.depositProvider,
+              enabledBefore: before.customerDepositsEnabled,
+              enabledAfter: after?.customerDepositsEnabled ?? false,
+              addressBeforeFingerprint: fingerprint(before.sharedDepositAddress),
+              addressAfterFingerprint: fingerprint(after?.sharedDepositAddress),
+              memoBeforeFingerprint: fingerprint(before.sharedDepositMemo),
+              memoAfterFingerprint: fingerprint(after?.sharedDepositMemo),
+            };
+          }),
+        },
+      });
       req.log.info(
         {
           assetId,

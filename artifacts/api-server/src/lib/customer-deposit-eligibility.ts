@@ -210,8 +210,13 @@ export async function reconcileCryptoCustomerDepositEligibilityWithExecutor(
     }).from(cryptoAssetNetworksTable)
       .innerJoin(cryptoAssetsTable, eq(cryptoAssetNetworksTable.assetId, cryptoAssetsTable.id))
       .for("update");
+    // Reconciliation may revoke an enabled route when its funding proof becomes
+    // invalid, but it must never override an Owner's explicit disabled state.
     const eligibleIds = new Set(rows
-      .filter(({ asset, network }) => isCustomerDepositEligible(asset, network, context))
+      .filter(({ asset, network }) =>
+        network.customerDepositsEnabled &&
+        isCustomerDepositEligible(asset, network, context)
+      )
       .map(({ network }) => network.id));
     const enabledIds = [...eligibleIds];
     const disabledIds = rows

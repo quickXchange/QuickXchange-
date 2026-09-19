@@ -3,8 +3,8 @@ name: You Send crypto authority
 description: Defines the boundary between Admin-configured selector visibility and runtime funding validation.
 ---
 
-Swap → You Send → Crypto visibility follows enabled, non-deprecated Admin asset/network rows with an explicit provider assignment other than None. Do not overwrite this selector authority during startup or provider reconciliation.
+Swap → You Send → Crypto visibility follows enabled, non-deprecated Admin asset/network rows whose customer-deposit toggle is explicitly enabled and whose provider is not None. Reconciliation may revoke an unsafe route, but must never re-enable an Owner-disabled route.
 
-**Why:** Automatic capability reconciliation once rewrote Admin route state and collapsed the live selector to one route even though the configured assets, networks, and provider assignments remained intact.
+**Why:** Provider assignment and wallet validity describe capability, not operator intent. Re-enabling a valid but deliberately disabled wallet can expose a deposit route without Owner approval.
 
-**How to apply:** Build selector direction from Admin enabled/lifecycle/provider fields. Validate Manual wallet address/memo and registered provider capability separately when quoting or creating an order. Never change provider assignments as a side effect.
+**How to apply:** Require the explicit customer-deposit flag for source selectors and order acceptance. Validate the exact row's Manual wallet or provider capability before enabling; reconciliation is one-way safe and may disable only.
