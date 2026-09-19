@@ -1,0 +1,948 @@
+Upgrade the existing QuickXchange Telegram Mini App and connect it completely to the current QuickXchange production system.
+
+IMPORTANT:
+Do NOT rebuild the project from scratch.
+Do NOT create a separate exchange system.
+Do NOT hard-code any website domain.
+
+Use the existing/current production configuration already configured in this project.
+
+Do NOT break:
+- Main website
+- Telegram Bot
+- Admin Panel
+- Swap
+- Convert
+- Orders
+- Pricing Rules
+- Price & Route
+- Payment Methods
+- Crypto Assets
+- Crypto Networks
+- API Integrations
+
+The Telegram Mini App, Telegram Bot, website and Admin Panel must use the SAME backend, database, orders, routes, pricing and configuration.
+
+==================================================
+1. QUICKXCHANGE DESIGN
+==================================================
+
+Redesign the existing Telegram Mini App so it matches the current QuickXchange website identity.
+
+Use the existing QuickXchange brand:
+
+Cyan → Blue → Purple
+
+Use:
+- Premium soft gradients
+- Subtle animated colors
+- Soft glow
+- Rounded cards
+- Thin illuminated borders
+- Clean typography
+- Soft modern icons
+- Smooth transitions
+
+Do not make the colors excessively bright.
+
+Use the real logos already configured in Admin for:
+
+- Crypto Assets
+- Crypto Networks
+- Payment Methods
+- Banks
+- Fiat currencies
+
+Do NOT use generic colored circles when a real logo exists.
+
+Support both:
+
+Dark Mode
+Light Mode
+
+Also respect the Telegram theme where appropriate.
+
+The Mini App must look like a real QuickXchange product, not a generic Telegram template.
+
+==================================================
+2. REMOVE MOCK / PREVIEW DATA
+==================================================
+
+Remove production-visible development messages such as:
+
+“Preview Mode: Running outside Telegram. Data is mocked and orders will not be processed.”
+
+Remove:
+
+“Mocked Session”
+
+Do not show fake:
+
+Guest
+@user
+
+when the Mini App is running inside Telegram.
+
+Use the real Telegram WebApp user data:
+
+- First Name
+- Last Name if available
+- Username
+- Telegram ID
+- Profile photo if available
+
+Validate Telegram initData securely on the backend.
+
+Do not trust Telegram identity data from the frontend alone.
+
+==================================================
+3. HOME
+==================================================
+
+Redesign Home.
+
+At the top show:
+
+Hi, [Telegram First Name]
+Welcome to QuickXchange
+
+Use the QuickXchange logo.
+
+Main services:
+
+Swap
+Convert
+
+Do NOT use:
+
+Buy / Sell
+
+QuickXchange uses the structure:
+
+You Send
+→
+You Receive
+
+Also add quick actions:
+
+Track Order
+My Orders
+
+Then show:
+
+Recent Orders
+
+Use REAL orders belonging to the current user.
+
+Each recent order should show:
+
+- You Send
+- You Receive
+- Amount
+- Order ID
+- Status
+- Date
+
+Use the real crypto/payment-method logos.
+
+Clicking an order must open its real Order Details page.
+
+If there are no orders:
+
+“No recent orders yet”
+
+Button:
+
+Start an Exchange
+
+==================================================
+4. EXCHANGE PAGE
+==================================================
+
+Redesign Exchange so it follows the same logic as the main QuickXchange exchange widget.
+
+At the top:
+
+Swap | Convert
+
+Both tabs must have identical size and height.
+
+STEP 1:
+
+You Send
+
+[Amount] [Asset / Payment Method]
+
+Exchange arrows
+
+You Receive
+
+[Calculated Amount] [Asset / Payment Method]
+
+Show:
+
+Exchange Rate
+Minimum
+Maximum
+
+The rate must come from the SAME current pricing system used by QuickXchange.
+
+Use:
+
+Admin → Price & Route / Pricing Rules
+
+Do NOT create separate Telegram rates.
+
+==================================================
+5. YOU SEND / YOU RECEIVE SELECTOR
+==================================================
+
+When the user taps You Send or You Receive, open a professional selector inside the Mini App.
+
+At the top:
+
+Search
+
+Then filters:
+
+All
+Crypto
+Payment Methods
+
+Allow searching by:
+
+- Name
+- Symbol
+- Network
+- Payment Method
+
+Example:
+
+Search:
+USDT
+
+Results can show:
+
+USDT · TRC20
+USDT · BEP20
+USDT · ERC20
+
+Show:
+
+Crypto logo
+Crypto name
+Symbol
+Network
+
+For payment methods show:
+
+Payment Method logo
+Payment Method name
+Currency
+
+Example:
+
+BBVA
+EUR · Payment Method
+
+IMPORTANT:
+
+Load these options from the current central Admin configuration.
+
+Do NOT maintain a separate Telegram asset list.
+
+If I disable/remove an asset, network, payment method or route from Admin, it must also disappear/become unavailable in the Mini App.
+
+==================================================
+6. SEARCH BEHAVIOR
+==================================================
+
+Make Search smooth and mobile friendly.
+
+When the keyboard opens:
+
+DO NOT move the entire selector unpredictably.
+
+DO NOT resize/jump the selector.
+
+Keep the selector stable in its intended position.
+
+The results list must remain scrollable.
+
+Do not automatically open the keyboard when the user only taps an arrow/dropdown.
+
+Only focus the keyboard when the user intentionally taps the Search input.
+
+Apply this behavior on:
+
+Android
+iPhone
+Tablet/iPad
+
+==================================================
+7. STEP 2 – DYNAMIC FIELDS
+==================================================
+
+Step 2 must depend on:
+
+You Send
+and
+You Receive
+
+Request ONLY the information required for that specific direction.
+
+Use the Dynamic Fields already configured in Admin.
+
+Example:
+
+You Send:
+BBVA / EUR
+
+You Receive:
+USDT / BEP20
+
+Only request configured fields such as:
+
+Email Address
+Receiving Wallet Address
+
+Example:
+
+Enter your USDT (BEP20) address
+
+Do NOT show irrelevant fields.
+
+Do NOT automatically request:
+
+Name
+IBAN
+Bank Name
+Payment Description
+
+unless that specific route requires them.
+
+For the opposite direction, if the user is receiving a bank/payment-method payout, request only the configured receiving information.
+
+For example:
+
+Name
+IBAN / Account Number
+Bank Name
+Payment Description
+
+ONLY when configured.
+
+Refund Address must remain OPTIONAL unless I explicitly configure it as required.
+
+Do NOT force Refund Address.
+
+==================================================
+8. STEP 2 DESIGN
+==================================================
+
+Give Step 2 the same premium visual identity as the Pay Now card.
+
+I want the WHOLE card/widget surface to have a very soft moving gradient.
+
+Use:
+
+Cyan → Blue → Purple
+
+The colors should slowly move across the card.
+
+Do not make it a static gradient.
+
+Keep the animation:
+- Slow
+- Smooth
+- Premium
+- Lightweight
+
+Fields should have slightly transparent surfaces so the animated background remains visible.
+
+Use thin soft icons.
+
+Keep excellent readability in both Dark Mode and Light Mode.
+
+==================================================
+9. ADD-ONS
+==================================================
+
+If Add-ons are enabled for the selected route, show them after the required customer information.
+
+Show:
+
+Add-on name
+Description if available
+Price
+
+Allow selection.
+
+Selected Add-ons must affect the final order amount correctly.
+
+Do not hard-code Add-ons in the Mini App.
+
+Use the existing configuration.
+
+==================================================
+10. ORDER REVIEW
+==================================================
+
+Before Place Order show a clean review.
+
+Display:
+
+You Send
+You Receive
+Amount
+Exchange Rate
+Payment Method
+Crypto
+Network
+Selected Add-ons
+Final amount
+
+Then:
+
+PLACE ORDER
+
+==================================================
+11. ORDER CREATION
+==================================================
+
+Place Order must use the SAME existing order creation backend as the website.
+
+Do NOT create:
+
+Telegram-only orders
+Separate Telegram order IDs
+Separate Telegram database
+
+One order must be usable everywhere.
+
+==================================================
+12. STEP 3 – ORDER CREATED
+==================================================
+
+After Place Order show a premium Step 3.
+
+Top card:
+
+✓ Order Created
+
+Show:
+
+Order ID
+Current Status
+
+Then show a progress indicator:
+
+Order Created
+→
+Payment / Deposit Received
+→
+Processing
+→
+Completed
+
+This must reflect the REAL current order status.
+
+Do not use fake status progress.
+
+==================================================
+13. CONVERSION / EXCHANGE SUMMARY
+==================================================
+
+Create a clean summary card.
+
+LEFT:
+
+YOU SEND
+
+Logo
+Asset / Payment Method
+Amount
+
+CENTER:
+
+Arrow
+
+RIGHT:
+
+YOU RECEIVE
+
+Logo
+Crypto / Payment Method
+Network
+Amount
+
+Under this show:
+
+Exchange Rate
+Network Fee if applicable
+Selected Add-ons
+Estimated Receive Amount
+
+Use real logos.
+
+Keep the layout compact on mobile.
+
+==================================================
+14. PAY NOW
+==================================================
+
+For orders requiring payment instructions show:
+
+Payment Details / Payment Instructions
+
+Then:
+
+PAY NOW
+
+Pay Now must have a premium animated QuickXchange gradient:
+
+Cyan → Blue → Purple
+
+Add a subtle glow.
+
+When Pay Now is tapped:
+
+If payment instructions have NOT yet been assigned to this specific order show:
+
+“Contact support to get payment details”
+
+Button:
+
+Contact Support
+
+Do NOT display fake/default bank information.
+
+==================================================
+15. PAYMENT DETAILS
+==================================================
+
+When Admin has assigned payment details to the order, Pay Now must show them.
+
+Example:
+
+[Payment Method Logo]
+
+BBVA
+
+Send money to this account
+
+NAME
+Mykhailo Melnychuk
+[Copy]
+
+IBAN
+LT...
+[Copy]
+
+PAYMENT DESCRIPTION / REFERENCE
+Payment
+[Copy]
+
+Also support other configured fields such as:
+
+Bank Name
+BIC / SWIFT
+Account Number
+Reference
+Amount
+Custom Instructions
+
+Only display fields that contain actual information.
+
+Add a soft Copy icon beside copyable fields.
+
+Do not expose one customer's payment instructions to another customer.
+
+==================================================
+16. PAYMENT CARD DESIGN
+==================================================
+
+Make the whole Payment Details card similar to the premium animated design.
+
+Background:
+
+Cyan → Blue → Purple
+
+with very slow moving colors.
+
+Use transparent/light inner field cards.
+
+Use smooth thin icons.
+
+Dark Mode:
+use deeper/darker gradient tones.
+
+Light Mode:
+use soft pastel cyan/blue/purple tones.
+
+Keep text readable.
+
+Bottom actions:
+
+Cancel
+Mark as Paid
+
+Mark as Paid should use the QuickXchange animated gradient.
+
+==================================================
+17. MARK AS PAID
+==================================================
+
+When the customer taps:
+
+Mark as Paid
+
+update the SAME order.
+
+Do not create another order.
+
+Admin must see that the customer marked the order as paid.
+
+The order status/history should update correctly according to the existing backend logic.
+
+==================================================
+18. REAL-TIME ORDER STATUS
+==================================================
+
+This is CRITICAL.
+
+If Admin changes the status of an order, the SAME status must update everywhere.
+
+For example:
+
+Awaiting Funds
+Payment Received
+Processing
+Completed
+Cancelled
+
+The updated status must appear in:
+
+Telegram Mini App → Recent Orders
+Telegram Mini App → My Orders
+Telegram Mini App → Order Details
+Telegram Bot where applicable
+Website → Track Order
+Admin → Orders
+
+Use the same order record.
+
+If the project already has real-time updates, reuse them.
+
+Otherwise use a safe lightweight refresh/polling method.
+
+Do not create duplicate records.
+
+==================================================
+19. MY ORDERS
+==================================================
+
+Replace the current empty/demo Orders page with real user orders.
+
+Show cards containing:
+
+Order ID
+You Send
+You Receive
+Amount
+Status
+Date
+
+Use real logos.
+
+Use the same status styles/colors as the main QuickXchange system.
+
+Clicking an order opens:
+
+Order Details
+
+Add:
+
+Search Order
+
+Allow search by:
+
+Order ID
+
+==================================================
+20. TRACK ORDER
+==================================================
+
+Add a real Track Order function.
+
+Input:
+
+Order ID
+
+Button:
+
+Track Order
+
+Use the existing current QuickXchange tracking backend.
+
+Do NOT hard-code any website URL.
+
+Do NOT redirect to an old domain.
+
+Whenever possible show the order tracking directly inside the Mini App.
+
+==================================================
+21. SUPPORT
+==================================================
+
+Keep:
+
+24/7 Support
+
+Button:
+
+Chat with Support
+
+Use the existing QuickXchange Telegram support configuration.
+
+Do not duplicate/hard-code support configuration if it already exists centrally.
+
+Open the support chat correctly from Telegram.
+
+==================================================
+22. ACCOUNT
+==================================================
+
+Redesign Account.
+
+Show real Telegram information:
+
+Avatar
+Name
+@username
+
+Then:
+
+QUICKXCHANGE ACCOUNT
+
+If not connected:
+
+Link QuickXchange Account
+
+If connected:
+
+Connected ✓
+
+Also provide:
+
+My Orders
+Security
+Language
+Support
+
+Remove:
+
+Mocked Session
+
+from production.
+
+==================================================
+23. BOTTOM NAVIGATION
+==================================================
+
+Keep:
+
+Home
+Exchange
+Orders
+Support
+Account
+
+Improve all icons.
+
+Use soft, thin, modern icons.
+
+Selected item:
+
+Cyan/Blue/Purple subtle highlight/glow.
+
+Unselected:
+
+Neutral color.
+
+Keep the navigation compact.
+
+==================================================
+24. RESPONSIVE TELEGRAM MINI APP
+==================================================
+
+Optimize specifically for Telegram WebView.
+
+Support:
+
+Android
+iPhone
+Tablet
+iPad
+
+Fix:
+
+Horizontal overflow
+Clipped cards
+Text overlap
+Buttons outside cards
+Keyboard layout jumps
+Selector movement
+Incorrect safe-area spacing
+
+Everything must remain scrollable naturally.
+
+Do not lock normal vertical page scrolling.
+
+==================================================
+25. PERFORMANCE
+==================================================
+
+Keep the Mini App lightweight.
+
+Avoid excessive:
+- blur
+- huge shadows
+- heavy animations
+- repeated API requests
+- duplicate logo downloads
+
+Animated gradients should be GPU-friendly.
+
+Respect reduced-motion settings.
+
+==================================================
+26. CENTRAL CONFIGURATION
+==================================================
+
+This is extremely important.
+
+Do NOT create separate configuration for:
+
+Website
+Telegram Bot
+Telegram Mini App
+
+They must share the current central configuration.
+
+Changes made in Admin to:
+
+Currencies
+Crypto Assets
+Crypto Networks
+Payment Methods
+Price & Route
+Pricing Rules
+Dynamic Fields
+Add-ons
+Orders
+
+must be reflected in the Telegram Mini App.
+
+==================================================
+27. CURRENT PRODUCTION ONLY
+==================================================
+
+Do NOT hard-code ANY domain name.
+
+Use the current production URLs, environment variables, services and configuration already defined in this project.
+
+Before changing anything, inspect the existing production/deployment configuration and identify which current services are authoritative.
+
+Do NOT connect the Mini App to:
+
+Old deployments
+Old domains
+Preview deployments
+Development databases
+Stale builds
+Stale configuration
+
+Do NOT overwrite newer production configuration with old development data.
+
+Preserve production-only records safely.
+
+==================================================
+28. SYNCHRONIZATION
+==================================================
+
+Verify that:
+
+Telegram Mini App
+Telegram Bot
+Main Website
+Admin Panel
+
+are using the intended current production backend/configuration.
+
+When something changes in the central Admin configuration, all applicable interfaces should receive/use the latest configuration.
+
+Do not solve synchronization by copying old database rows over production.
+
+==================================================
+29. TEST COMPLETE FLOW
+==================================================
+
+Do not stop after frontend redesign.
+
+Test the complete flow:
+
+Telegram
+→ Open Mini App
+→ Home
+→ Swap
+→ Select You Send
+→ Search
+→ Select You Receive
+→ Search
+→ Enter Amount
+→ Get real Rate
+→ Step 2
+→ Dynamic Fields
+→ Add-ons
+→ Review
+→ Place Order
+→ Step 3
+→ Order Created
+→ Pay Now
+→ Payment Details
+→ Mark as Paid
+→ My Orders
+→ Track Order
+
+Then:
+
+Open Admin → Orders
+
+Change the status of that SAME test order.
+
+Verify the updated status appears in the Mini App.
+
+Also verify that the existing website sees the same order/status.
+
+==================================================
+30. FINAL SAFETY REQUIREMENT
+==================================================
+
+Do not remove or rewrite working backend functionality just to achieve the redesign.
+
+Reuse existing components, APIs, models and configuration wherever possible.
+
+Do not hard-code:
+- Domains
+- Rates
+- Assets
+- Networks
+- Payment Methods
+- Bank Details
+- Order Status
+- Dynamic Fields
+
+Use the existing current QuickXchange production configuration as the source of truth.
+
+The final result should feel like the main QuickXchange experience adapted professionally for Telegram Mini App.

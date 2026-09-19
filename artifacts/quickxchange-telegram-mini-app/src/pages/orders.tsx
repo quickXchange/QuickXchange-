@@ -86,20 +86,29 @@ export default function Orders() {
         </div>
       ) : filteredOrders.length > 0 ? (
         <div className="space-y-3 pb-6">
-          {filteredOrders.map((order: any) => (
+          {filteredOrders.map((order: any) => {
+            const getLogoUrl = (url?: string) => url?.startsWith('/objects/') ? `/api/storage${url}` : url;
+            const fromLogo = getLogoUrl(order.logos?.sourceLogoUrl || order.logos?.fromAssetLogoUrl);
+            const toLogo = getLogoUrl(order.logos?.targetLogoUrl || order.logos?.toAssetLogoUrl);
+
+            return (
             <Link key={order.id} href={`/orders/${order.id}`} onClick={() => haptic.selection()}>
               <div className="premium-card p-4 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-all group">
                 <div className="flex items-center space-x-3.5 min-w-0">
                   <div className="w-[42px] h-[42px] rounded-2xl bg-accent/10 flex items-center justify-center text-accent shrink-0 group-hover:bg-accent/20 transition-colors">
-                    <History className="w-[18px] h-[18px]" />
+                    {fromLogo ? <img src={fromLogo} alt="" className="w-5 h-5 rounded-full object-contain" /> : <History className="w-[18px] h-[18px]" />}
                   </div>
                   <div className="flex flex-col min-w-0">
+                    <div className="text-[10px] text-muted-foreground font-mono mb-0.5">#{order.id.slice(0, 8)}</div>
                     <div className="font-bold text-[15px] flex items-center truncate">
+                      <span className="text-[12px] text-muted-foreground mr-1">Send</span>
                       <span className="truncate">{order.amount} {order.fromAsset}</span>
-                      <ArrowRight className="w-3.5 h-3.5 mx-1.5 text-muted-foreground/50 shrink-0" />
-                      <span className="truncate text-primary">{order.toAsset}</span>
                     </div>
-                    <div className="text-[11px] font-mono text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                    <div className="font-bold text-[15px] flex items-center truncate text-primary mt-0.5">
+                      <span className="text-[12px] text-muted-foreground mr-1">Receive</span>
+                      <span className="truncate">{order.toAsset}</span>
+                    </div>
+                    <div className="text-[11px] font-mono text-muted-foreground mt-1 flex items-center gap-1.5">
                       <span>{format(new Date(order.createdAt), 'MMM d, yyyy')}</span>
                       <span className="w-1 h-1 rounded-full bg-border" />
                       <span>{format(new Date(order.createdAt), 'HH:mm')}</span>
@@ -116,7 +125,7 @@ export default function Orders() {
                 </div>
               </div>
             </Link>
-          ))}
+          )})}
         </div>
       ) : (
         <div className="premium-card p-10 flex flex-col items-center justify-center text-center space-y-4 surface-animated mt-4">

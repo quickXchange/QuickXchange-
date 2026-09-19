@@ -13,7 +13,7 @@ import {
 import { useAuthHeaders } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowDownUp, CheckCircle2, AlertCircle, ChevronDown, Wallet, Loader2 } from 'lucide-react';
+import { ArrowDownUp, CheckCircle2, AlertCircle, ChevronDown, Wallet, Loader2, X, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useHapticFeedback } from '@/lib/hooks';
 
@@ -460,7 +460,9 @@ export default function Exchange() {
   }
 
   return (
-    <div className="flex flex-col p-4 space-y-4 pt-6 max-w-md mx-auto w-full relative pb-24 animate-in slide-in-from-bottom-4 duration-500">
+    <>
+      <div className="flex flex-col p-4 space-y-4 pt-6 max-w-md mx-auto w-full relative pb-24 animate-in slide-in-from-bottom-4 duration-500">
+
 
       {step === 1 && (
         <div className="flex bg-muted/50 p-1 rounded-2xl mb-2 backdrop-blur-md border border-white/5 relative z-10">
@@ -524,7 +526,7 @@ export default function Exchange() {
                 placeholder="0"
               />
               <button
-                onClick={() => setShowSourceSelector(!showSourceSelector)}
+                onClick={() => setShowSourceSelector(true)}
                 className="flex items-center space-x-2 bg-secondary/10 hover:bg-secondary/20 border border-secondary/20 transition-all px-3.5 py-2 rounded-2xl shrink-0 active:scale-95"
               >
                 {getLogoUrl(sourceOpt?.logoUrl) ? (
@@ -537,58 +539,6 @@ export default function Exchange() {
               </button>
             </div>
 
-            {showSourceSelector && (
-              <div className="pt-3 mt-4 border-t border-border/50 space-y-2">
-                <div className="relative">
-                  <Input
-                    value={sourceSearch}
-                    onChange={(e) => setSourceSearch(e.target.value)}
-                    placeholder="Search asset or method..."
-                    autoFocus={false}
-                    className="bg-background/50 h-10 rounded-xl border-white/5 focus-visible:ring-primary/50 text-[13px] shadow-sm"
-                  />
-                </div>
-                <div className="flex space-x-2 pt-1">
-                  {(['all', 'crypto', 'fiat'] as const).map(f => (
-                    <button
-                      key={f}
-                      onClick={() => setSourceFilter(f)}
-                      className={cn(
-                        "px-3 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors",
-                        sourceFilter === f ? "bg-primary/20 text-primary" : "bg-white/5 text-muted-foreground hover:bg-white/10"
-                      )}
-                    >
-                      {f}
-                    </button>
-                  ))}
-                </div>
-                <div className="max-h-[220px] overflow-y-auto hide-scrollbar space-y-1 pt-1">
-                  {filteredSourceOpts.length === 0 && (
-                    <div className="p-3 text-center text-[12px] text-muted-foreground">No options found.</div>
-                  )}
-                  {filteredSourceOpts.map(o => (
-                    <button
-                      key={o.id}
-                      onClick={() => { setSourceId(o.id); setShowSourceSelector(false); setSourceSearch(''); haptic.selection(); }}
-                      className={cn(
-                        "w-full flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors group",
-                        sourceId === o.id && "bg-primary/10 border border-primary/20"
-                      )}
-                    >
-                    <div className="flex items-center space-x-3">
-                      {getLogoUrl(o.logoUrl) ? (
-                        <img src={getLogoUrl(o.logoUrl)} alt="" className="w-[28px] h-[28px] rounded-full object-contain bg-white/10" />
-                      ) : <div className="w-[28px] h-[28px] rounded-full bg-muted/50" />}
-                      <div className="flex flex-col items-start">
-                        <span className="font-bold text-[15px] group-hover:text-primary transition-colors">{o.title}</span>
-                        <span className="text-[11px] font-medium text-muted-foreground">{o.assetCode}</span>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="flex justify-center -my-[18px] relative z-20">
@@ -614,7 +564,7 @@ export default function Exchange() {
                 placeholder="0"
               />
               <button
-                onClick={() => setShowTargetSelector(!showTargetSelector)}
+                onClick={() => setShowTargetSelector(true)}
                 className="flex items-center space-x-2 bg-primary/10 hover:bg-primary/20 border border-primary/20 transition-all px-3.5 py-2 rounded-2xl shrink-0 active:scale-95"
               >
                 {getLogoUrl(targetOpt?.logoUrl) ? (
@@ -627,58 +577,6 @@ export default function Exchange() {
               </button>
             </div>
 
-            {showTargetSelector && (
-              <div className="pt-3 mt-4 border-t border-border/50 space-y-2">
-                <div className="relative">
-                  <Input
-                    value={targetSearch}
-                    onChange={(e) => setTargetSearch(e.target.value)}
-                    placeholder="Search asset or method..."
-                    autoFocus={false}
-                    className="bg-background/50 h-10 rounded-xl border-white/5 focus-visible:ring-primary/50 text-[13px] shadow-sm"
-                  />
-                </div>
-                <div className="flex space-x-2 pt-1">
-                  {(['all', 'crypto', 'fiat'] as const).map(f => (
-                    <button
-                      key={f}
-                      onClick={() => setTargetFilter(f)}
-                      className={cn(
-                        "px-3 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors",
-                        targetFilter === f ? "bg-primary/20 text-primary" : "bg-white/5 text-muted-foreground hover:bg-white/10"
-                      )}
-                    >
-                      {f}
-                    </button>
-                  ))}
-                </div>
-                <div className="max-h-[220px] overflow-y-auto hide-scrollbar space-y-1 pt-1">
-                  {filteredTargetOpts.length === 0 && (
-                    <div className="p-3 text-center text-[12px] text-muted-foreground">No options found.</div>
-                  )}
-                  {filteredTargetOpts.map(o => (
-                    <button
-                      key={o.id}
-                      onClick={() => { setTargetId(o.id); setShowTargetSelector(false); setTargetSearch(''); haptic.selection(); }}
-                      className={cn(
-                        "w-full flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors group",
-                        targetId === o.id && "bg-primary/10 border border-primary/20"
-                      )}
-                    >
-                    <div className="flex items-center space-x-3">
-                      {getLogoUrl(o.logoUrl) ? (
-                        <img src={getLogoUrl(o.logoUrl)} alt="" className="w-[28px] h-[28px] rounded-full object-contain bg-white/10" />
-                      ) : <div className="w-[28px] h-[28px] rounded-full bg-muted/50" />}
-                      <div className="flex flex-col items-start">
-                        <span className="font-bold text-[15px] group-hover:text-primary transition-colors">{o.title}</span>
-                        <span className="text-[11px] font-medium text-muted-foreground">{o.assetCode}</span>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="pt-4 text-[13px] font-medium text-center text-muted-foreground/80">
@@ -693,62 +591,62 @@ export default function Exchange() {
 
       {step === 2 && (
         <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
-          <div className="premium-card p-5 space-y-5 surface-animated">
-            <h3 className="font-bold text-lg flex items-center tracking-tight">
-              <Wallet className="w-[18px] h-[18px] mr-2 text-primary" />
+          <div className="premium-card p-5 space-y-5 animated-gradient-bg">
+            <h3 className="font-bold text-lg flex items-center tracking-tight text-white drop-shadow-md">
+              <Wallet className="w-[18px] h-[18px] mr-2 text-white" />
               Receiving Details
             </h3>
 
             {mode === 'convert' ? (
               <>
                 <div className="space-y-2">
-                  <label className="text-[13px] font-bold text-muted-foreground/80 uppercase tracking-wider">
+                  <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">
                     Destination {targetOpt.assetCode} Address
                   </label>
                   <Input
                     value={destinationAddress}
                     onChange={(e) => setDestinationAddress(e.target.value)}
                     placeholder="Enter wallet address"
-                    className="bg-background/80 h-14 rounded-2xl border-white/10 focus-visible:ring-primary/50 text-[15px] shadow-inner font-mono"
+                    className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner font-mono text-white placeholder:text-white/50"
                   />
                 </div>
                 {targetOpt?.original?.requiresMemo && (
                   <div className="space-y-2 mt-4">
-                    <label className="text-[13px] font-bold text-muted-foreground/80 uppercase tracking-wider">
+                    <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">
                       Destination Memo / Tag
                     </label>
                     <Input
                       value={destinationMemo}
                       onChange={(e) => setDestinationMemo(e.target.value)}
                       placeholder="Enter memo"
-                      className="bg-background/80 h-14 rounded-2xl border-white/10 focus-visible:ring-primary/50 text-[15px] shadow-inner font-mono"
+                      className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner font-mono text-white placeholder:text-white/50"
                     />
                   </div>
                 )}
 
-                <div className="pt-4 border-t border-border/50 mt-6">
-                  <h4 className="text-[14px] font-bold text-muted-foreground mb-3">Optional Refund Details</h4>
+                <div className="pt-4 border-t border-white/20 mt-6">
+                  <h4 className="text-[14px] font-bold text-white/90 mb-3">Optional Refund Details</h4>
                   <div className="space-y-2">
-                    <label className="text-[13px] font-bold text-muted-foreground/80 uppercase tracking-wider">
+                    <label className="text-[13px] font-bold text-white/80 uppercase tracking-wider">
                       Refund {sourceOpt.assetCode} Address
                     </label>
                     <Input
                       value={refundAddress}
                       onChange={(e) => setRefundAddress(e.target.value)}
                       placeholder="Enter refund address (optional)"
-                      className="bg-background/80 h-14 rounded-2xl border-white/10 focus-visible:ring-primary/50 text-[15px] shadow-inner font-mono"
+                      className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner font-mono text-white placeholder:text-white/50"
                     />
                   </div>
                   {sourceOpt?.original?.requiresMemo && (
                     <div className="space-y-2 mt-4">
-                      <label className="text-[13px] font-bold text-muted-foreground/80 uppercase tracking-wider">
+                      <label className="text-[13px] font-bold text-white/80 uppercase tracking-wider">
                         Refund Memo / Tag
                       </label>
                       <Input
                         value={refundMemo}
                         onChange={(e) => setRefundMemo(e.target.value)}
                         placeholder="Enter refund memo"
-                        className="bg-background/80 h-14 rounded-2xl border-white/10 focus-visible:ring-primary/50 text-[15px] shadow-inner font-mono"
+                        className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner font-mono text-white placeholder:text-white/50"
                       />
                     </div>
                   )}
@@ -758,14 +656,14 @@ export default function Exchange() {
               <>
                 {targetOpt?.kind === 'crypto-network' && !quoteData?.requiredSettlementFields?.some((f: any) => f.type === 'wallet-address' || f.key.includes('address')) && (
                   <div className="space-y-2">
-                    <label className="text-[13px] font-bold text-muted-foreground/80 uppercase tracking-wider">
+                    <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">
                       Destination {targetOpt.assetCode} Address
                     </label>
                     <Input
                       value={destinationAddress}
                       onChange={(e) => setDestinationAddress(e.target.value)}
                       placeholder="Enter wallet address"
-                      className="bg-background/80 h-14 rounded-2xl border-white/10 focus-visible:ring-primary/50 text-[15px] shadow-inner font-mono"
+                      className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner font-mono text-white placeholder:text-white/50"
                     />
                   </div>
                 )}
@@ -784,14 +682,14 @@ export default function Exchange() {
 
                   return (
                     <div key={field.key} className="space-y-2 mt-4">
-                      <label className="text-[13px] font-bold text-muted-foreground/80 uppercase tracking-wider">
-                        {field.label} {field.required && <span className="text-primary">*</span>}
+                      <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">
+                        {field.label} {field.required && <span className="text-white">*</span>}
                       </label>
                       <Input
                         value={settlementFields[field.key] || ''}
                         onChange={(e) => setSettlementFields(prev => ({...prev, [field.key]: e.target.value}))}
                         placeholder={`Enter ${field.label.toLowerCase()}`}
-                        className="bg-background/80 h-14 rounded-2xl border-white/10 focus-visible:ring-primary/50 text-[15px] shadow-inner"
+                        className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner text-white placeholder:text-white/50"
                       />
                     </div>
                   );
@@ -800,8 +698,8 @@ export default function Exchange() {
             )}
 
             {mode === 'swap' && (!quoteData?.requiredSettlementFields || quoteData.requiredSettlementFields.length === 0) && targetOpt?.kind !== 'crypto-network' && (
-              <div className="bg-white/5 border border-white/5 rounded-2xl p-4 text-center">
-                <p className="text-[14px] font-medium text-muted-foreground">No additional details required.</p>
+              <div className="bg-black/10 border border-white/10 rounded-2xl p-4 text-center">
+                <p className="text-[14px] font-medium text-white/80">No additional details required.</p>
               </div>
             )}
           </div>
@@ -858,6 +756,94 @@ export default function Exchange() {
         </Button>
       </div>
 
-    </div>
+      </div>
+
+      {(showSourceSelector || showTargetSelector) && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-xl flex flex-col animate-in fade-in slide-in-from-bottom-8 duration-300">
+          <div className="flex items-center justify-between p-4 border-b border-white/10 glass-nav pt-[env(safe-area-inset-top,1rem)]">
+            <h2 className="font-bold text-lg">Select {showSourceSelector ? 'Asset to Send' : 'Asset to Receive'}</h2>
+            <button
+              onClick={() => { setShowSourceSelector(false); setShowTargetSelector(false); haptic.selection(); }}
+              className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="flex-1 flex flex-col p-4 space-y-4 overflow-y-auto pb-[env(safe-area-inset-bottom,1rem)]">
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
+              <Input
+                value={showSourceSelector ? sourceSearch : targetSearch}
+                onChange={(e) => showSourceSelector ? setSourceSearch(e.target.value) : setTargetSearch(e.target.value)}
+                placeholder="Search by name, symbol, or network..."
+                className="bg-white/5 h-12 rounded-2xl pl-10 border-white/10 focus-visible:ring-primary/50 text-[15px] shadow-sm"
+              />
+            </div>
+
+            <div className="flex space-x-2">
+              {(['all', 'crypto', 'fiat'] as const).map(f => {
+                const isActive = (showSourceSelector ? sourceFilter : targetFilter) === f;
+                return (
+                  <button
+                    key={f}
+                    onClick={() => {
+                      showSourceSelector ? setSourceFilter(f) : setTargetFilter(f);
+                      haptic.selection();
+                    }}
+                    className={cn(
+                      "px-4 py-2 rounded-xl text-[12px] font-bold uppercase tracking-wider transition-all",
+                      isActive ? "bg-primary text-primary-foreground shadow-[0_0_12px_rgba(var(--primary),0.3)]" : "bg-white/5 text-muted-foreground hover:bg-white/10"
+                    )}
+                  >
+                    {f === 'fiat' ? 'Payment Methods' : f}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex-1 space-y-2">
+              {(showSourceSelector ? filteredSourceOpts : filteredTargetOpts).length === 0 && (
+                <div className="p-8 text-center text-[13px] text-muted-foreground flex flex-col items-center">
+                  <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mb-3">
+                    <Search className="w-5 h-5 text-muted-foreground/50" />
+                  </div>
+                  No matching options found.
+                </div>
+              )}
+              {(showSourceSelector ? filteredSourceOpts : filteredTargetOpts).map(o => (
+                <button
+                  key={o.id}
+                  onClick={() => {
+                    if (showSourceSelector) {
+                      setSourceId(o.id);
+                      setShowSourceSelector(false);
+                      setSourceSearch('');
+                    } else {
+                      setTargetId(o.id);
+                      setShowTargetSelector(false);
+                      setTargetSearch('');
+                    }
+                    haptic.selection();
+                  }}
+                  className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-white/5 active:bg-white/10 transition-colors group border border-transparent"
+                >
+                  <div className="flex items-center space-x-4">
+                    {getLogoUrl(o.logoUrl) ? (
+                      <img src={getLogoUrl(o.logoUrl)} alt="" className="w-10 h-10 rounded-full object-contain bg-white/10 p-1" />
+                    ) : <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center font-bold text-muted-foreground text-xs">{o.assetCode.slice(0, 2)}</div>}
+                    <div className="flex flex-col items-start text-left">
+                      <span className="font-bold text-[16px] group-hover:text-primary transition-colors">{o.title}</span>
+                      <span className="text-[12px] font-medium text-muted-foreground/80 mt-0.5">
+                        {o.kind === 'crypto-network' ? `${o.assetCode} · ${o.routeNetwork}` : `${o.assetCode} · Payment Method`}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

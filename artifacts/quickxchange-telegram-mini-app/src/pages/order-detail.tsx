@@ -284,15 +284,15 @@ export default function OrderDetail() {
         </div>
 
         {isPending && (
-          <div className="premium-card p-5 space-y-4 illuminated-border bg-primary/5">
-            <h3 className="font-bold text-[16px] text-primary flex items-center tracking-tight">
+          <div className="premium-card p-5 space-y-4 animated-gradient-bg">
+            <h3 className="font-bold text-[16px] text-white flex items-center tracking-tight drop-shadow-md">
               Payment Instructions
             </h3>
             <div className="space-y-4">
               {paymentElements && paymentElements.length > 0 ? (
                 paymentElements
               ) : (
-                <div className="bg-background/80 p-4 rounded-2xl shadow-inner border border-white/5 relative group">
+                <div className="bg-black/20 p-4 rounded-2xl shadow-inner border border-white/20 relative group text-white">
                   <div className="flex flex-col items-center justify-center py-2 space-y-3">
                     <span className="text-[13px] font-medium text-center">Payment details not assigned automatically.</span>
                     <button
@@ -306,7 +306,7 @@ export default function OrderDetail() {
                           }
                         }
                       }}
-                      className={cn("inline-flex items-center justify-center rounded-xl font-bold bg-secondary text-secondary-foreground h-9 px-4 text-sm", !supportUrl && "hidden")}
+                      className={cn("inline-flex items-center justify-center rounded-xl font-bold bg-white text-black h-9 px-4 text-sm hover:bg-white/90 active:scale-95 transition-all", !supportUrl && "hidden")}
                     >
                       Contact Support
                     </button>
@@ -319,7 +319,7 @@ export default function OrderDetail() {
                   <Button
                     onClick={handleMarkPaid}
                     disabled={markPaid.isPending || (!paymentElements || paymentElements.length === 0)}
-                    className="flex-1 h-[48px] rounded-xl bg-primary text-primary-foreground font-bold shadow-[0_4px_14px_-6px_hsl(var(--primary))] active:scale-95 transition-transform disabled:opacity-50"
+                    className="flex-1 h-[48px] rounded-xl bg-white text-black hover:bg-white/90 font-bold shadow-[0_4px_14px_-6px_rgba(255,255,255,0.5)] active:scale-95 transition-all disabled:opacity-50"
                   >
                     {markPaid.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'I have paid'}
                   </Button>
@@ -327,7 +327,7 @@ export default function OrderDetail() {
                     onClick={handleCancel}
                     disabled={cancelOrder.isPending}
                     variant="destructive"
-                    className="h-[48px] px-5 rounded-xl bg-destructive/10 text-destructive font-bold border border-destructive/20 hover:bg-destructive/20 active:scale-95 transition-all"
+                    className="h-[48px] px-5 rounded-xl bg-black/20 text-white font-bold border border-white/30 hover:bg-black/40 active:scale-95 transition-all"
                   >
                     Cancel
                   </Button>

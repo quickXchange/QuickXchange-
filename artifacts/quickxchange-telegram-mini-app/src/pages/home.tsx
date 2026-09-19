@@ -1,6 +1,6 @@
 import { Link } from 'wouter';
 import { useAuth, useAuthHeaders } from '@/lib/auth';
-import { ArrowLeftRight, CreditCard, LifeBuoy, History, Search, ArrowRight } from 'lucide-react';
+import { ArrowLeftRight, CreditCard, LifeBuoy, History, Search, ArrowRight, Activity } from 'lucide-react';
 import { useListTelegramMiniAppOrders, getListTelegramMiniAppOrdersQueryKey } from '@workspace/api-client-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -25,10 +25,19 @@ export default function Home() {
     request: { headers }
   });
 
+  const getLogoUrl = (url?: string) => {
+    if (!url) return undefined;
+    return url.startsWith('/objects/') ? `/api/storage${url}` : url;
+  };
+
   return (
     <div className="flex flex-col p-4 space-y-6 animate-in fade-in duration-500 pb-20">
       <header className="flex items-center justify-between pt-2">
         <div className="flex flex-col gap-1">
+          <div className="flex items-center space-x-2 text-primary mb-1">
+            <Activity className="w-5 h-5" />
+            <span className="font-bold tracking-tight text-[13px] uppercase">QuickXchange</span>
+          </div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
             Hi, {user?.firstName || user?.displayName || 'User'}
           </h1>
@@ -84,22 +93,28 @@ export default function Home() {
           ) : ordersData && ordersData.length > 0 ? (
             ordersData.slice(0, 3).map((order: any) => (
               <Link key={order.id} href={`/orders/${order.id}`} onClick={() => haptic.selection()}>
-                <div className="premium-card p-4 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center text-accent shrink-0">
-                      <History className="w-4 h-4" />
+                <div className="premium-card p-4 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors group">
+                  <div className="flex items-center space-x-3 min-w-0">
+                    <div className="w-[42px] h-[42px] rounded-2xl bg-accent/10 flex items-center justify-center text-accent shrink-0 group-hover:bg-accent/20 transition-colors">
+                      <History className="w-[18px] h-[18px]" />
                     </div>
-                    <div className="min-w-0">
-                      <div className="font-bold text-[14px] truncate">
-                        {order.amount} {order.fromAsset} <ArrowRight className="inline w-3 h-3 text-muted-foreground mx-0.5" /> {order.toAsset}
+                    <div className="flex flex-col min-w-0">
+                      <div className="text-[10px] text-muted-foreground font-mono mb-0.5">#{order.id.slice(0, 8)}</div>
+                      <div className="font-bold text-[15px] flex items-center truncate">
+                        <span className="text-[12px] text-muted-foreground mr-1">Send</span>
+                        <span className="truncate">{order.amount} {order.fromAsset}</span>
                       </div>
-                      <div className="text-[11px] font-mono text-muted-foreground mt-0.5">
-                        {format(new Date(order.createdAt), 'MMM d, HH:mm')}
+                      <div className="font-bold text-[15px] flex items-center truncate text-primary mt-0.5">
+                        <span className="text-[12px] text-muted-foreground mr-1">Receive</span>
+                        <span className="truncate">{order.toAsset}</span>
+                      </div>
+                      <div className="text-[11px] font-mono text-muted-foreground mt-1 flex items-center gap-1.5">
+                        <span>{format(new Date(order.createdAt), 'MMM d, yyyy')}</span>
                       </div>
                     </div>
                   </div>
                   <div className={cn(
-                    "text-[10px] uppercase tracking-wider px-2 py-1 rounded-full font-bold shrink-0",
+                    "text-[10px] px-2.5 py-1 rounded-full font-bold tracking-widest uppercase shrink-0 shadow-sm ml-3",
                     order.status === 'completed' || order.status === 'paid' ? "bg-primary/10 text-primary border border-primary/20" :
                     order.status === 'failed' || order.status === 'cancelled' || order.status === 'expired' ? "bg-destructive/10 text-destructive border border-destructive/20" :
                     "bg-secondary/10 text-secondary border border-secondary/20"
@@ -110,11 +125,16 @@ export default function Home() {
               </Link>
             ))
           ) : (
-            <div className="premium-card p-8 flex flex-col items-center justify-center text-center space-y-3">
+            <div className="premium-card p-8 flex flex-col items-center justify-center text-center space-y-4">
               <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center text-muted-foreground/50 mb-1">
                 <Search className="w-5 h-5" />
               </div>
-              <p className="text-[13px] font-medium text-muted-foreground">No recent orders found</p>
+              <p className="text-[14px] font-medium text-muted-foreground">No recent orders yet</p>
+              <Link href="/exchange" onClick={() => haptic.selection()}>
+                <Button className="rounded-xl mt-2 font-bold px-6 bg-primary text-primary-foreground">
+                  Start an Exchange
+                </Button>
+              </Link>
             </div>
           )}
         </div>

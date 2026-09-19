@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth, useAuthHeaders } from '@/lib/auth';
-import { User, Shield, Link2, CheckCircle2, Loader2 } from 'lucide-react';
+import { Link } from 'wouter';
+import { User, Shield, Link2, CheckCircle2, Loader2, ListOrdered, LifeBuoy, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCreateTelegramMiniAppAccountLink } from '@workspace/api-client-react';
 import { useHapticFeedback } from '@/lib/hooks';
@@ -38,7 +39,7 @@ export default function Account() {
   return (
     <div className="flex flex-col p-4 space-y-6 pt-12 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-md mx-auto w-full pb-24">
       <div className="flex items-center justify-between mb-2">
-        <h1 className="text-[26px] font-bold tracking-tight">Profile</h1>
+        <h1 className="text-[26px] font-bold tracking-tight">Account</h1>
       </div>
 
       <div className="premium-card p-6 flex flex-col items-center justify-center space-y-4 surface-animated">
@@ -68,16 +69,11 @@ export default function Account() {
                 <CheckCircle2 className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <p className="font-bold text-[16px] tracking-tight">Account Linked</p>
+                <p className="font-bold text-[16px] tracking-tight">Connected ✓</p>
                 <p className="text-[13px] font-medium text-muted-foreground">
                   Verified account
                 </p>
               </div>
-            </div>
-            <div className="pt-2">
-              <p className="text-[12px] text-muted-foreground leading-relaxed">
-                Your Telegram identity is securely linked to your QuickXchange web account, allowing you to access and manage your order history.
-              </p>
             </div>
           </div>
         ) : (
@@ -87,7 +83,7 @@ export default function Account() {
                 <Shield className="w-[22px] h-[22px]" />
               </div>
               <div>
-                <p className="font-bold text-[16px] tracking-tight">Not Linked</p>
+                <p className="font-bold text-[16px] tracking-tight">Link QuickXchange Account</p>
                 <p className="text-[13px] font-medium text-muted-foreground">
                   Anonymous session
                 </p>
@@ -119,6 +115,31 @@ export default function Account() {
             </div>
           </div>
         )}
+
+        <div className="premium-card overflow-hidden mt-4">
+          <Link href="/orders" onClick={() => haptic.selection()}>
+            <div className="flex items-center justify-between p-4 hover:bg-white/5 transition-colors cursor-pointer border-b border-border/50">
+              <div className="flex items-center space-x-3 text-foreground">
+                <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-muted-foreground">
+                  <ListOrdered className="w-5 h-5" />
+                </div>
+                <span className="font-bold text-[15px]">My Orders</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground/50" />
+            </div>
+          </Link>
+          <Link href="/support" onClick={() => haptic.selection()}>
+            <div className="flex items-center justify-between p-4 hover:bg-white/5 transition-colors cursor-pointer">
+              <div className="flex items-center space-x-3 text-foreground">
+                <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-muted-foreground">
+                  <LifeBuoy className="w-5 h-5" />
+                </div>
+                <span className="font-bold text-[15px]">Support</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground/50" />
+            </div>
+          </Link>
+        </div>
       </div>
     </div>
   );
