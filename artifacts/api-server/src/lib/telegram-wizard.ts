@@ -114,6 +114,76 @@ export function shouldAskDestination(mode: "swap" | "convert", target: TelegramR
   return mode === "convert" || target.kind === "crypto-network";
 }
 
+type TelegramCollectedField = {
+  key?: unknown;
+  type?: unknown;
+  enabled?: unknown;
+};
+
+function normalizedFieldKey(field: TelegramCollectedField): string {
+  return String(field.key ?? "")
+    .replace(/^(?:source|target)_/i, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[-\s]+/g, "_");
+}
+
+function hasCollectedField(
+  fields: TelegramCollectedField[],
+  values: Record<string, unknown>,
+  kind: "email" | "wallet",
+): boolean {
+  const aliases = kind === "email"
+    ? new Set(["email", "customer_email", "contact_email"])
+    : new Set(["address", "wallet_address", "destination_address", "recipient_address"]);
+  return fields.some((field) => {
+    if (field.enabled === false) return false;
+    const type = String(field.type ?? "").toLowerCase();
+    const key = normalizedFieldKey(field);
+    if (kind === "email" ? type !== "email" && !aliases.has(key) : type !== "wallet-address" && !aliases.has(key)) {
+      return false;
+    }
+    const value = values[String(field.key ?? "")];
+    return typeof value === "string" && value.trim().length > 0;
+  });
+}
+
+export function shouldAskConfiguredEmail(
+  mode: "swap" | "convert",
+  fields: TelegramCollectedField[] = [],
+  values: Record<string, unknown> = {},
+) {
+  return mode === "convert" || !hasCollectedField(fields, values, "email");
+}
+
+export function shouldAskConfiguredDestination(
+  mode: "swap" | "convert",
+  target: TelegramRouteOption,
+  fields: TelegramCollectedField[] = [],
+  values: Record<string, unknown> = {},
+) {
+  return shouldAskDestination(mode, target) &&
+    (mode === "convert" || !hasCollectedField(fields, values, "wallet"));
+}
+
+export function configuredContactValues(
+  fields: TelegramCollectedField[],
+  values: Record<string, unknown>,
+) {
+  let email: string | undefined;
+  let destinationAddress: string | undefined;
+  for (const field of fields) {
+    if (field.enabled === false) continue;
+    const value = values[String(field.key ?? "")];
+    if (typeof value !== "string" || !value.trim()) continue;
+    const key = normalizedFieldKey(field);
+    const type = String(field.type ?? "").toLowerCase();
+    if (!email && (type === "email" || ["email", "customer_email", "contact_email"].includes(key))) email = value.trim();
+    if (!destinationAddress && (type === "wallet-address" || ["address", "wallet_address", "destination_address", "recipient_address"].includes(key))) destinationAddress = value.trim();
+  }
+  return { email, destinationAddress };
+}
+
 export function withoutTelegramRefundFields<T extends Record<string, unknown>>(data: T): Omit<T, "refundAddress" | "refundMemo"> {
   const { refundAddress: _refundAddress, refundMemo: _refundMemo, ...safe } = data;
   return safe;
@@ -153,11 +223,12 @@ export function requiredFieldActive(
 }
 
 export function nextRequiredField(
-  fields: Array<{ required?: boolean; requiredWhen?: { fieldKey: string; equals: string | string[] } }>,
+  fields: Array<{ enabled?: boolean; required?: boolean; requiredWhen?: { fieldKey: string; equals: string | string[] } }>,
   start: number,
   values: Record<string, unknown>,
 ) {
   for (let index = start; index < fields.length; index += 1) {
+    if (fields[index].enabled === false) continue;
     const condition = fields[index].requiredWhen;
     if (!condition) return index;
     const actual = String(values[condition.fieldKey] ?? "");
@@ -174,6 +245,12 @@ export function buildCreatePayload(
   data: Record<string, unknown>,
 ) {
   const quote = data.quote as Record<string, unknown> | undefined;
+  const configured: { email?: string; destinationAddress?: string } = mode === "swap"
+    ? configuredContactValues(
+        (data.fields as TelegramCollectedField[] | undefined) ?? [],
+        (data.values as Record<string, unknown> | undefined) ?? {},
+      )
+        : { email: undefined, destinationAddress: undefined };
   const route = routeFields(source, target);
   const canonical = quote?.fromAsset && quote?.toAsset
     ? {
@@ -188,9 +265,15 @@ export function buildCreatePayload(
     ...route,
     ...canonical,
     amount: data.amount,
-    customerEmail: data.email,
+    customerEmail: data.email ?? configured.email,
     customerName: data.customerName,
-    destinationAddress: data.destinationAddress,
+    destinationAddress: data.destinationAddress ??
+      (mode === "swap"
+        ? configuredContactValues(
+            (data.fields as TelegramCollectedField[] | undefined) ?? [],
+            (data.values as Record<string, unknown> | undefined) ?? {},
+          ).destinationAddress
+        : undefined),
     destinationMemo: data.destinationMemo,
     ...(mode === "swap"
       ? {

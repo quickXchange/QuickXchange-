@@ -2429,7 +2429,7 @@ async function createOrderFromInput(
   await revalidateManualDeskQuoteRoute(quote);
   const fiatToCrypto = quote.settlementSnapshot?.source?.kind === "fiat-payment-method" &&
     quote.settlementSnapshot?.target?.kind === "crypto-network";
-  const settlementDetails = quote.v === 2 && !fiatToCrypto
+  const settlementDetails = quote.v === 2
     ? validateSettlementDetails(
         quote.settlementSnapshot?.requiredFields ?? [],
         input.settlementDetails,

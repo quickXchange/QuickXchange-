@@ -1626,6 +1626,22 @@ test("expanded settlement fields filter by direction and validate modern types f
     { key: "email", type: "email", label: "Email", direction: "both" },
   ]);
   assert.equal(schema[0]?.direction, "receive");
+  assert.deepEqual(methods.publicFiatCustomerFields([
+    { key: "z_last", type: "short-text", label: "Last", enabled: true },
+    { key: "hidden", type: "short-text", label: "Hidden", enabled: false },
+    { key: "legacy", type: "short-text", label: "Legacy" },
+  ]).map(field => field.key), ["z_last", "legacy"]);
+  assert.deepEqual(methods.publicFiatCustomerFields([
+    { key: "first", type: "short-text", label: "First" },
+    { key: "second", type: "short-text", label: "Second" },
+  ]).map(field => field.key), ["first", "second"]);
+  assert.deepEqual(methods.validateSettlementDetails([
+    { key: "active", type: "short-text", label: "Active" },
+    { key: "disabled", type: "short-text", label: "Disabled", enabled: false },
+  ], { active: "ok" }), { active: "ok" });
+  assert.throws(() => methods.validateSettlementDetails([
+    { key: "disabled", type: "short-text", label: "Disabled", enabled: false },
+  ], { disabled: "nope" }), { code: "SETTLEMENT_DETAILS_INVALID" });
   assert.deepEqual(methods.validateSettlementDetails(schema, {
     iban: "GB82WEST12345698765432", count: 2, email: "person@example.test",
   }), { iban: "GB82WEST12345698765432", count: 2, email: "person@example.test" });
@@ -1697,6 +1713,10 @@ test("expanded settlement fields filter by direction and validate modern types f
       label: "Routing number",
       requiredWhen: { fieldKey: "missing_kind", equals: "local" },
     },
+  ]), { code: "INVALID_SETTLEMENT_FIELD" });
+  assert.throws(() => methods.validateSafeFieldDefinitions([
+    { key: "kind", type: "select", label: "Kind", enabled: false, options: [{ value: "a", label: "A" }] },
+    { key: "dependent", type: "short-text", label: "Dependent", requiredWhen: { fieldKey: "kind", equals: "a" } },
   ]), { code: "INVALID_SETTLEMENT_FIELD" });
 });
 

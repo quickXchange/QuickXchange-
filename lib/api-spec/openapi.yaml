@@ -5633,6 +5633,8 @@ components:
       properties:
         key: { type: string, pattern: '^[a-z][a-z0-9_]{0,63}$' }
         type: { type: string, enum: [short-text, long-text, integer, numeric, decimal, account-iban, account-number, account-name, bank-code, routing-number, country-code, postal-address, phone, email, date, select, wallet-address, memo-tag, private-image, text, number, textarea] }
+        enabled: { type: boolean, default: true }
+        placeholder: { type: string, maxLength: 200 }
         direction: { type: string, enum: [send, receive, both] }
         emphasizedLabel: { type: boolean }
         label: { type: string, minLength: 1, maxLength: 100 }

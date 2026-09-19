@@ -383,7 +383,7 @@ export default function Exchange() {
           return;
         }
       } else {
-        if (targetOpt.kind === 'crypto-network' && !destinationAddress && !quoteData?.requiredSettlementFields?.some((f: any) => f.type === 'wallet-address' || f.key.includes('address'))) {
+        if (targetOpt.kind === 'crypto-network' && !destinationAddress && !quoteData?.requiredSettlementFields?.some((f: any) => f.enabled !== false && (f.type === 'wallet-address' || f.key.includes('address')))) {
           setErrorMsg('Destination address is required');
           haptic.notification('warning');
           return;
@@ -391,6 +391,7 @@ export default function Exchange() {
 
         if (quoteData?.requiredSettlementFields) {
           for (const field of quoteData.requiredSettlementFields) {
+            if (field.enabled === false) continue;
             let isVisible = true;
             if (field.requiredWhen) {
               const { fieldKey, equals } = field.requiredWhen;
@@ -440,6 +441,16 @@ export default function Exchange() {
             }
           });
         } else {
+          const activeFields = (quoteData?.requiredSettlementFields || []).filter((field: any) => field.enabled !== false);
+          const submittedSettlementFields = Object.fromEntries(
+            Object.entries(settlementFields).filter(([key]) => activeFields.some((field: any) => field.key === key)),
+          );
+          const configuredEmail = Object.entries(submittedSettlementFields)
+            .find(([key, value]) => /email/i.test(key) && typeof value === 'string' && value.trim())?.[1] as string | undefined;
+          const configuredWallet = Object.entries(submittedSettlementFields)
+            .find(([key, value]) => /wallet|address/i.test(key) && typeof value === 'string' && value.trim())?.[1] as string | undefined;
+          const configuredMemo = Object.entries(submittedSettlementFields)
+            .find(([key, value]) => /memo|tag/i.test(key) && typeof value === 'string' && value.trim())?.[1] as string | undefined;
           order = await createOrder.mutateAsync({
             data: {
               type: 'manual',
@@ -450,8 +461,10 @@ export default function Exchange() {
               amount: parsedAmount,
               quoteId: quoteData.quoteId,
               clientRequestId: orderRequestIdRef.current,
-              destinationAddress: destinationAddress || undefined,
-              settlementDetails: Object.keys(settlementFields).length > 0 ? settlementFields : undefined,
+              customerEmail: configuredEmail,
+              destinationAddress: destinationAddress || configuredWallet || undefined,
+              destinationMemo: configuredMemo,
+              settlementDetails: Object.keys(submittedSettlementFields).length > 0 ? submittedSettlementFields : undefined,
               sourceSettlementOptionId: sourceOpt.id,
               targetSettlementOptionId: targetOpt.id
             }
@@ -710,7 +723,7 @@ export default function Exchange() {
               </>
             ) : (
               <>
-                {targetOpt?.kind === 'crypto-network' && !quoteData?.requiredSettlementFields?.some((f: any) => f.type === 'wallet-address' || f.key.includes('address')) && (
+                {targetOpt?.kind === 'crypto-network' && !quoteData?.requiredSettlementFields?.some((f: any) => f.enabled !== false && (f.type === 'wallet-address' || f.key.includes('address'))) && (
                   <div className="space-y-2">
                     <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">
                       Destination {targetOpt.assetCode} Address
@@ -725,6 +738,7 @@ export default function Exchange() {
                 )}
 
                 {quoteData?.requiredSettlementFields && quoteData.requiredSettlementFields.map((field: any) => {
+                  if (field.enabled === false) return null;
                   let isVisible = true;
                   if (field.requiredWhen) {
                     const { fieldKey, equals } = field.requiredWhen;
@@ -741,12 +755,42 @@ export default function Exchange() {
                       <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">
                         {field.label} {field.required && <span className="text-white">*</span>}
                       </label>
-                      <Input
-                        value={settlementFields[field.key] || ''}
-                        onChange={(e) => setSettlementFields(prev => ({...prev, [field.key]: e.target.value}))}
-                        placeholder={`Enter ${field.label.toLowerCase()}`}
-                        className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner text-white placeholder:text-white/50"
-                      />
+                      {field.type === 'select' ? (
+                        <select
+                          value={settlementFields[field.key] || ''}
+                          onChange={(e) => setSettlementFields(prev => ({...prev, [field.key]: e.target.value}))}
+                          required={field.required === true}
+                          className="bg-black/20 h-14 rounded-2xl border border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner text-white placeholder:text-white/50 px-3"
+                        >
+                          <option value="" disabled>Select {field.label}</option>
+                          {(field.options || []).map((option: any) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                        </select>
+                      ) : field.type === 'long-text' || field.type === 'textarea' || field.type === 'postal-address' ? (
+                        <textarea
+                          value={settlementFields[field.key] || ''}
+                          onChange={(e) => setSettlementFields(prev => ({...prev, [field.key]: e.target.value}))}
+                          placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+                          required={field.required === true}
+                          minLength={field.min}
+                          maxLength={field.max}
+                          className="bg-black/20 min-h-14 rounded-2xl border border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner text-white placeholder:text-white/50 p-3"
+                        />
+                      ) : (
+                        <Input
+                          type={field.type === 'email' ? 'email' : ['number', 'integer', 'numeric', 'decimal'].includes(field.type) ? 'number' : field.type === 'phone' ? 'tel' : field.type === 'date' ? 'date' : 'text'}
+                          value={settlementFields[field.key] || ''}
+                          onChange={(e) => setSettlementFields(prev => ({...prev, [field.key]: e.target.value}))}
+                          placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+                          required={field.required === true}
+                          minLength={field.type === 'number' || field.type === 'integer' || field.type === 'numeric' || field.type === 'decimal' ? undefined : field.min}
+                          maxLength={field.type === 'number' || field.type === 'integer' || field.type === 'numeric' || field.type === 'decimal' ? undefined : field.max}
+                          min={field.type === 'number' || field.type === 'integer' || field.type === 'numeric' || field.type === 'decimal' ? field.min : undefined}
+                          max={field.type === 'number' || field.type === 'integer' || field.type === 'numeric' || field.type === 'decimal' ? field.max : undefined}
+                          pattern={field.pattern}
+                          className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner text-white placeholder:text-white/50"
+                        />
+                      )}
+                      {field.help && <p className="text-[12px] text-white/70">{field.help}</p>}
                     </div>
                   );
                 })}

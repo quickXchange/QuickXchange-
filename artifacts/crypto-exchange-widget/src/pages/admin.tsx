@@ -5379,170 +5379,69 @@ function AdminProviders() {
   </AdminShell>;
 }
 
-const sendPresets = [
-  { label: "Name", type: "account-name" },
-  { label: "IBAN", type: "account-iban" },
-  { label: "Bank Account", type: "account-number" },
-  { label: "Payment Reference", type: "short-text" },
-  { label: "Description", type: "long-text" },
-  { label: "Email", type: "email" },
-  { label: "Telegram", type: "short-text" },
-  { label: "WhatsApp", type: "phone" },
-  { label: "Custom Field", type: "short-text" },
+type AdminPaymentField = PaymentMethodFieldDefinition & { enabled?: boolean; placeholder?: string };
+const paymentFieldPresets: Array<{ key: string; label: string; type: PaymentMethodFieldDefinition["type"] }> = [
+  { key: "name", label: "Name", type: "account-name" },
+  { key: "iban", label: "IBAN / Account Number", type: "account-iban" },
+  { key: "bank_name", label: "Bank Name", type: "short-text" },
+  { key: "payment_description", label: "Payment Description / Reference", type: "long-text" },
+  { key: "email", label: "Email", type: "email" },
+  { key: "telegram_or_whatsapp", label: "Telegram / WhatsApp", type: "short-text" },
+  { key: "wallet_address", label: "Wallet Address", type: "wallet-address" },
+  { key: "memo_tag", label: "Memo / Tag", type: "memo-tag" },
+  { key: "custom_field", label: "Custom Field", type: "short-text" },
 ];
-
-const receivePresets = [
-  { label: "Name", type: "account-name" },
-  { label: "IBAN", type: "account-iban" },
-  { label: "Bank Account", type: "account-number" },
-  { label: "BIC / SWIFT", type: "bank-code" },
-  { label: "Email", type: "email" },
-  { label: "Telegram", type: "short-text" },
-  { label: "WhatsApp", type: "phone" },
-  { label: "Custom Field", type: "short-text" },
+const paymentFieldAliasGroups = [
+  ["name", "account_name", "account_holder_name", "recipient_name"],
+  ["iban", "bank_detail", "bank_account_number", "account_number"],
+  ["bank_name", "bank"],
+  ["payment_description", "payment_reference", "reference", "description"],
+  ["email", "wallet_email"],
+  ["telegram", "whatsapp", "telegram_or_whatsapp", "phone", "recipient_phone"],
+  ["wallet_address", "address", "destination_address"],
+  ["memo", "tag", "memo_tag"],
 ];
+const paymentFieldAlias = (key: string, label: string) => {
+  const normalized = `${key} ${label}`.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+  return paymentFieldAliasGroups.findIndex(group => group.some(alias => normalized.includes(alias)));
+};
 
 function PaymentMethodDynamicFields({ fields, setFields }: { fields: PaymentMethodFieldDefinition[], setFields: React.Dispatch<React.SetStateAction<PaymentMethodFieldDefinition[]>> }) {
-  const sendFields = fields.filter(f => !f.direction || f.direction === "send" || f.direction === "both");
-  const receiveFields = fields.filter(f => !f.direction || f.direction === "receive" || f.direction === "both");
-
-  const genEditorKey = (dir: string) => `__auto__${dir}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-
-  const updateField = (originalField: PaymentMethodFieldDefinition, contextDir: "send" | "receive", updates: Partial<PaymentMethodFieldDefinition>) => {
-    setFields(current => {
-      const isBoth = !originalField.direction || originalField.direction === "both";
-      const idx = current.findIndex(f => f.key === originalField.key);
-      if (idx === -1) return current;
-
-      if (isBoth) {
-        const otherDir = contextDir === "send" ? "receive" : "send";
-        const newF = [...current];
-        newF[idx] = { ...newF[idx], direction: otherDir };
-        newF.push({
-          ...originalField,
-          ...updates,
-          key: genEditorKey(contextDir),
-          direction: contextDir
-        });
-        return newF;
-      } else {
-        const newF = [...current];
-        newF[idx] = { ...newF[idx], ...updates };
-        return newF;
-      }
-    });
-  };
-
-  const removeField = (originalField: PaymentMethodFieldDefinition, contextDir: "send" | "receive") => {
-    setFields(current => {
-      const isBoth = !originalField.direction || originalField.direction === "both";
-      if (isBoth) {
-        const otherDir = contextDir === "send" ? "receive" : "send";
-        return current.map(f => f.key === originalField.key ? { ...f, direction: otherDir } : f);
-      } else {
-        return current.filter(f => f.key !== originalField.key);
-      }
-    });
-  };
-
-  const addField = (preset: { label: string, type: string }, contextDir: "send" | "receive") => {
-    setFields(current => [
-      ...current,
-      {
-        key: genEditorKey(contextDir),
-        type: preset.type as any,
-        direction: contextDir,
-        label: preset.label,
-        required: true
-      }
-    ]);
-  };
-
-  const renderSection = (title: string, description: string, contextDir: "send" | "receive", currentFields: PaymentMethodFieldDefinition[], presets: { label: string, type: string }[]) => (
-    <section className={cn("payment-method-field-section", `payment-method-field-section--${contextDir}`)} data-testid={`section-${contextDir}-fields`}>
-      <div className="payment-method-field-section-head">
-        <div>
-          <h3>{title}</h3>
-          <p>{description}</p>
-        </div>
-        <DropdownMenuPrimitive.Root>
-          <DropdownMenuPrimitive.Trigger asChild>
-            <button type="button" className="payment-method-add-field" data-testid={`button-add-field-${contextDir}`}>
-              + Add Field
-            </button>
-          </DropdownMenuPrimitive.Trigger>
-          <DropdownMenuPrimitive.Portal>
-            <DropdownMenuPrimitive.Content className="admin-blog-actions-menu z-[9999]" sideOffset={4} align="end">
-              {presets.map(p => (
-                <DropdownMenuPrimitive.Item key={p.label} className="admin-blog-actions-item" onSelect={() => addField(p, contextDir)} data-testid={`menu-add-${contextDir}-${p.label.replace(/\s+/g, "-").toLowerCase()}`}>
-                  {p.label}
-                </DropdownMenuPrimitive.Item>
-              ))}
-            </DropdownMenuPrimitive.Content>
-          </DropdownMenuPrimitive.Portal>
-        </DropdownMenuPrimitive.Root>
+  const adminFields = fields as AdminPaymentField[];
+  const update = (key: string, patch: Partial<AdminPaymentField>) => setFields(current => current.map(field => field.key === key ? ({ ...field, ...patch } as PaymentMethodFieldDefinition) : field));
+  const move = (index: number, delta: -1 | 1) => setFields(current => {
+    const next = [...current], target = index + delta;
+    if (target < 0 || target >= next.length) return current;
+    [next[index], next[target]] = [next[target], next[index]];
+    return next;
+  });
+  const add = (preset: typeof paymentFieldPresets[number]) => setFields(current => {
+    const presetGroup = paymentFieldAlias(preset.key, preset.label);
+    if (presetGroup >= 0 && current.some(field => paymentFieldAlias(field.key, field.label) === presetGroup)) return current;
+    if (presetGroup < 0 && preset.key !== "custom_field" && current.some(field => field.key === preset.key)) return current;
+    return [...current, { ...preset, key: preset.key === "custom_field" ? `__auto__field_${Date.now()}` : preset.key, direction: "both", required: true, enabled: true, placeholder: `Enter ${preset.label.toLowerCase()}` } as AdminPaymentField] as PaymentMethodFieldDefinition[];
+  });
+  return <div className="payment-method-fields">
+    <section className="payment-method-field-section" data-testid="section-payment-fields">
+      <div className="payment-method-field-section-head"><div><h3>Customer fields</h3><p>One stable row per field; array order controls display order.</p></div>
+        <DropdownMenuPrimitive.Root><DropdownMenuPrimitive.Trigger asChild><button type="button" className="payment-method-add-field">+ Add Field</button></DropdownMenuPrimitive.Trigger><DropdownMenuPrimitive.Portal><DropdownMenuPrimitive.Content className="admin-blog-actions-menu z-[9999]" sideOffset={4} align="end">
+          {paymentFieldPresets.map(preset => <DropdownMenuPrimitive.Item key={preset.key} className="admin-blog-actions-item" onSelect={() => add(preset)}>{preset.label}</DropdownMenuPrimitive.Item>)}
+        </DropdownMenuPrimitive.Content></DropdownMenuPrimitive.Portal></DropdownMenuPrimitive.Root>
       </div>
-
-      <div className="payment-method-field-list">
-        {currentFields.map((field) => (
-          <div key={field.key} className="payment-method-field-row" data-testid={`row-${contextDir}-${field.key}`}>
-            <label className="payment-method-field-label">
-              <span>Field Name / Label</span>
-              <input
-                value={field.label}
-                onChange={e => updateField(field, contextDir, { label: e.target.value })}
-                className="payment-method-field-name-input"
-                placeholder="Field Name"
-                data-testid={`input-label-${contextDir}-${field.key}`}
-              />
-            </label>
-            <label className="payment-method-required-toggle" data-testid={`label-req-${contextDir}-${field.key}`}>
-              <input
-                type="checkbox"
-                checked={field.required !== false}
-                onChange={e => updateField(field, contextDir, { required: e.target.checked })}
-                data-testid={`input-req-${contextDir}-${field.key}`}
-              />
-              <span>Required <strong>{field.required !== false ? "ON" : "OFF"}</strong></span>
-            </label>
-            <button
-              type="button"
-              className="payment-method-remove-field"
-              onClick={() => removeField(field, contextDir)}
-              data-testid={`button-rem-${contextDir}-${field.key}`}
-              aria-label="Remove field"
-            >
-              <X size={15} />
-            </button>
-          </div>
-        ))}
-        {currentFields.length === 0 && (
-          <div className="payment-method-field-empty">
-            <span>No required information configured.</span>
-          </div>
-        )}
-      </div>
+      <div className="payment-method-field-list">{adminFields.map((field, index) => <div key={field.key} className="payment-method-field-row" data-testid={`row-field-${field.key}`}>
+        <label className="payment-method-field-label"><span>Label</span><input value={field.label} onChange={e => update(field.key, { label: e.target.value })} /></label>
+        <label className="payment-method-field-label"><span>Placeholder</span><input value={field.placeholder || ""} onChange={e => update(field.key, { placeholder: e.target.value })} /></label>
+        <label className="payment-method-field-label"><span>Type</span><select value={field.type} onChange={e => update(field.key, { type: e.target.value as AdminPaymentField["type"] })}>{["short-text","long-text","email","phone","account-iban","account-number","account-name","bank-code","wallet-address","memo-tag","number","integer","numeric","decimal","select","date"].map(type => <option key={type} value={type}>{type}</option>)}</select></label>
+        <label className="payment-method-field-label"><span>Direction</span><select value={field.direction || "both"} onChange={e => update(field.key, { direction: e.target.value as AdminPaymentField["direction"] })}><option value="send">You Send</option><option value="receive">You Receive</option><option value="both">Both</option></select></label>
+        <label className="payment-method-required-toggle"><input type="checkbox" checked={field.required !== false} onChange={e => update(field.key, { required: e.target.checked })} /> Required</label>
+        <label className="payment-method-required-toggle"><input type="checkbox" checked={field.enabled !== false} onChange={e => update(field.key, { enabled: e.target.checked })} /> Enabled</label>
+        <label className="payment-method-field-label"><span>Help text</span><input value={field.help || ""} onChange={e => update(field.key, { help: e.target.value })} /></label>
+        <label className="payment-method-field-label"><span>Validation min / max / pattern</span><input type="number" value={field.min ?? ""} placeholder="min" onChange={e => update(field.key, { min: e.target.value ? Number(e.target.value) : undefined })} /><input type="number" value={field.max ?? ""} placeholder="max" onChange={e => update(field.key, { max: e.target.value ? Number(e.target.value) : undefined })} /><input value={field.pattern || ""} placeholder="pattern" onChange={e => update(field.key, { pattern: e.target.value || undefined })} /></label>
+        {field.type === "select" && <label className="payment-method-field-label"><span>Options value:label</span><textarea value={(field.options || []).map(option => `${option.value}:${option.label}`).join("\n")} onChange={e => update(field.key, { options: e.target.value.split("\n").map(line => { const [value, ...label] = line.split(":"); return { value: value.trim(), label: label.join(":").trim() || value.trim() }; }).filter(option => option.value) })} /></label>}
+        <div className="payment-method-field-actions"><button type="button" disabled={index === 0} onClick={() => move(index, -1)}>↑</button><button type="button" disabled={index === adminFields.length - 1} onClick={() => move(index, 1)}>↓</button><button type="button" className="payment-method-remove-field" onClick={() => setFields(current => current.filter(item => item.key !== field.key))}><X size={15} /></button></div>
+      </div>)}</div>
     </section>
-  );
-
-  return (
-    <div className="payment-method-fields">
-      {renderSection(
-        "YOU SEND — Required Information",
-        "This controls what information must be requested from the customer when this Payment Method is selected in You Send.",
-        "send",
-        sendFields,
-        sendPresets
-      )}
-      {renderSection(
-        "YOU RECEIVE — Required Information",
-        "This controls what information must be requested from the customer when this Payment Method is selected in You Receive.",
-        "receive",
-        receiveFields,
-        receivePresets
-      )}
-    </div>
-  );
+  </div>;
 }
 
 

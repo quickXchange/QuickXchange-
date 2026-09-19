@@ -911,6 +911,9 @@ export interface PaymentMethodFieldDefinition {
   /** @pattern ^[a-z][a-z0-9_]{0,63}$ */
   key: string;
   type: PaymentMethodFieldDefinitionType;
+  enabled?: boolean;
+  /** @maxLength 200 */
+  placeholder?: string;
   direction?: PaymentMethodFieldDefinitionDirection;
   emphasizedLabel?: boolean;
   /**
