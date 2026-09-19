@@ -43,6 +43,27 @@ export function filterTelegramRouteOptions<T extends TelegramSearchableRouteOpti
   });
 }
 
+export function filterManualSourceOptions<T extends TelegramRouteOption & {
+  direction: string;
+  lifecycle?: string;
+}>(
+  options: T[],
+  routes: Array<{ sourceSettlementOptionId: string }>,
+): T[] {
+  const availableSourceIds = new Set(routes.map(route => route.sourceSettlementOptionId));
+  return options.filter(option => {
+    if (option.kind === "crypto-network" && option.lifecycle === "active") return true;
+    return ["send", "both"].includes(option.direction) && availableSourceIds.has(option.id);
+  });
+}
+
+export function telegramFieldSkipIndex(data: string): number | undefined {
+  const match = /^fieldskip:(0|[1-9]\d*)$/.exec(data);
+  if (!match) return undefined;
+  const index = Number(match[1]);
+  return Number.isSafeInteger(index) ? index : undefined;
+}
+
 export function nextSourceAmountForReceiveTarget(
   sourceAmount: number,
   quotedReceiveAmount: number,

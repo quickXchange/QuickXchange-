@@ -6,7 +6,7 @@ import { languageButtons, localeOf, t, type TelegramLocale } from "../lib/telegr
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { signOrderTrackingToken } from "../lib/order-access";
-import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, requiredFieldActive, shouldAskDestination, shouldAskRefund, type TelegramRouteOption } from "../lib/telegram-wizard";
+import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, requiredFieldActive, shouldAskDestination, shouldAskRefund, telegramFieldSkipIndex, type TelegramRouteOption } from "../lib/telegram-wizard";
 import { createTelegramLinkChallenge } from "../lib/telegram-link";
 import { getCustomerVerifiedEmail, requireActiveCustomerIdentity } from "../lib/customer-auth";
 import { getCustomerOrderHistory } from "../lib/order-history";
@@ -275,14 +275,13 @@ async function exchangeOptions(chatId: string, locale: TelegramLocale, mode: "sw
     const pairsResponse = await fetch(`${baseUrl()}/api/quickex/pairs`);
     convertPairs = pairsResponse.ok ? await pairsResponse.json() as ConvertPair[] : [];
   }
-  const manualSourceIds = new Set(manualRoutes.map(route => route.sourceSettlementOptionId));
   const convertSourceIds = new Set(convertPairs.map(pair => `${pair.fromAsset}\0${pair.fromNetwork}`));
-  const options = allOptions.filter(option => {
-    if (!["send", "both"].includes(option.direction)) return false;
-    return mode === "convert"
-      ? option.executionMode === "api" && convertSourceIds.has(`${option.assetCode}\0${option.routeNetwork}`)
-      : option.executionMode !== "api" && manualSourceIds.has(option.id);
-  });
+  const options = mode === "convert"
+    ? allOptions.filter(option =>
+        ["send", "both"].includes(option.direction) &&
+        option.executionMode === "api" &&
+        convertSourceIds.has(`${option.assetCode}\0${option.routeNetwork}`))
+    : filterManualSourceOptions(allOptions, manualRoutes);
   if (!options.length) { await sendTelegramMessage(chatId, t(locale, "unavailable")); return; }
   const data = { mode, options, allOptions, manualRoutes, convertPairs, sourceQuery: "", clientRequestId: randomUUID() };
   await saveSession(chatId, "source", data);
@@ -775,11 +774,12 @@ async function callback(chatId: string, locale: TelegramLocale, data: string) {
     const session = await getSession(chatId);
     if (!session || session.state !== "field") return;
     const fields = session.data.fields as Array<Record<string, unknown>>;
-    const index = Number(data.slice(9));
+    const index = telegramFieldSkipIndex(data);
+    if (index === undefined) return;
     if (fields[index]?.required !== false) return;
     const values = (session.data.values as Record<string, unknown>) ?? {};
     const next = nextRequiredField(fields as Array<{ required?: boolean; requiredWhen?: { fieldKey: string; equals: string | string[] } }>, index + 1, values);
-    if (next >= 0) { await saveSession(chatId, "field", { ...session.data, fieldIndex: next }); await askField(chatId, fields[next], next); }
+    if (next >= 0) { await saveSession(chatId, "field", { ...session.data, fieldIndex: next }); await askField(chatId, fields[next], next, locale); }
     else { const needs = shouldAskDestination(session.data.mode === "convert" ? "convert" : "swap", session.data.target as SettlementOption); const needsRefund = shouldAskRefund(session.data.source as SettlementOption); const state = needs ? "destination" : needsRefund ? "refundAddress" : "email"; await saveSession(chatId, state, session.data); await sendTelegramMessage(chatId, needs ? t(locale, "destination") : needsRefund ? refundPrompt(session.data.source as SettlementOption, locale) : t(locale, "email"), !needs && needsRefund ? refundKeyboard(locale) : undefined); }
     return;
   }

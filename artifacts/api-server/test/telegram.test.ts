@@ -6,7 +6,7 @@ import { db, telegramAccountLinkChallengesTable, telegramChatsTable } from "@wor
 import { DepositInstructionsPending, menu, shouldApplyUpdate, reconciliationClaimEligible, reconciliationWinnerTransition, telegramAdvisoryChatKey, telegramCreateRetryDecision, telegramCreationDeliveryDecision, telegramCreationOutboxPayload, telegramCreateState, telegramDepositInstruction, telegramInboxDisposition, telegramManualOrderKinds, telegramNextChatCursor, telegramOutboxFailureDisposition, telegramPrivateUpdate, telegramRequiresDeposit, telegramSecretMatches, telegramUpdateIdValid, telegramWebhookDisposition } from "../src/routes/telegram";
 import { localeOf, t } from "../src/lib/telegram-localization";
 import { consumeTelegramLinkChallenge, createTelegramLinkChallenge, hashTelegramLinkToken, TelegramLinkChallengeError, TelegramLinkConflictError } from "../src/lib/telegram-link";
-import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, shouldAskDestination, shouldAskRefund } from "../src/lib/telegram-wizard";
+import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, shouldAskDestination, shouldAskRefund, telegramFieldSkipIndex } from "../src/lib/telegram-wizard";
 import { normalizeRefundFields } from "../src/lib/manual-wallet-validation";
 
 test("refund fields normalize all absence forms and trim supplied values", () => {
@@ -183,6 +183,32 @@ test("Telegram route filtering preserves receive-only options without cross-prod
   const unrelated = { id: "x", assetCode: "ETH", routeNetwork: "ETH", kind: "crypto-network", direction: "receive" };
   assert.deepEqual(filterManualTargets([source, receiveOnly, unrelated], [{ sourceSettlementOptionId: "s", targetSettlementOptionId: "r" }], "s").map(x => x.id), ["r"]);
   assert.deepEqual(filterConvertTargets([source, receiveOnly, unrelated], [{ fromAsset: "BTC", fromNetwork: "BTC", toAsset: "USDT", toNetwork: "TRC20" }], source).map(x => x.id), ["r"]);
+});
+
+test("Telegram Swap sources match the main widget across active networks and priced payment methods", () => {
+  const options = [
+    { id: "usdt-trc20", assetCode: "USDT", routeNetwork: "TRC20", kind: "crypto-network", lifecycle: "active", direction: "send" },
+    { id: "usdt-bep20", assetCode: "USDT", routeNetwork: "BEP20", kind: "crypto-network", lifecycle: "active", direction: "receive" },
+    { id: "usdt-disabled", assetCode: "USDT", routeNetwork: "ERC20", kind: "crypto-network", lifecycle: "disabled", direction: "send" },
+    { id: "eur-sepa", assetCode: "EUR", routeNetwork: "SEPA", kind: "fiat-payment-method", lifecycle: "active", direction: "send" },
+    { id: "usd-wire", assetCode: "USD", routeNetwork: "WIRE", kind: "fiat-payment-method", lifecycle: "active", direction: "send" },
+  ];
+  const routes = [
+    { sourceSettlementOptionId: "usdt-trc20" },
+    { sourceSettlementOptionId: "eur-sepa" },
+  ];
+  assert.deepEqual(
+    filterManualSourceOptions(options, routes).map(option => option.id),
+    ["usdt-trc20", "usdt-bep20", "eur-sepa"],
+  );
+});
+
+test("Telegram optional-field Skip callback resolves the clicked field index", () => {
+  assert.equal(telegramFieldSkipIndex("fieldskip:0"), 0);
+  assert.equal(telegramFieldSkipIndex("fieldskip:12"), 12);
+  assert.equal(telegramFieldSkipIndex("fieldskip:"), undefined);
+  assert.equal(telegramFieldSkipIndex("fieldskip:-1"), undefined);
+  assert.equal(telegramFieldSkipIndex("fieldskip:2:3"), undefined);
 });
 
 test("Telegram option search covers currency, symbol, payment method, crypto, and network names", () => {
