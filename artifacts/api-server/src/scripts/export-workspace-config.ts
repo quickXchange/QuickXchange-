@@ -1,4 +1,5 @@
-import { writeFile } from "node:fs/promises";
+import { rename, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import {
   db, cryptoAssetsTable, cryptoAssetNetworksTable, fiatCurrenciesTable,
   paymentMethodsTable, fiatCurrencyPaymentMethodsTable,
@@ -6,6 +7,7 @@ import {
   sitePublicationRevisionsTable, landingBackgroundSettingsTable,
 } from "@workspace/db";
 import { desc, eq } from "drizzle-orm";
+import { getVerifiedStoredLogo } from "../lib/object-storage";
 
 const output = process.argv.find((value, index) => index > 1 && value !== "--");
 if (!output) throw new Error("Usage: export:workspace-config <output.json>");
@@ -37,7 +39,7 @@ if (strandedFixtures.length) {
 if (backgrounds[0]?.mode === "custom") throw new Error("Custom landing backgrounds require an explicit object-storage transfer and cannot be exported automatically.");
 const fiatById = new Map(fiats.map((f) => [f.id, f.code]));
 const latestPages = [...new Map(revisions.map((r) => [r.pageKey, r])).values()];
-const snapshot = {
+const snapshot: any = {
   schemaVersion: 1,
   source: { environment: "development" as const, exportedAt: new Date().toISOString() },
   cryptoAssets: assets.map(({ id, code, name, logoObjectPath, decimals, lifecycle, enabled }) => ({ id, code, name, logoObjectPath, decimals, lifecycle, enabled })),
@@ -48,7 +50,11 @@ const snapshot = {
   manualDeskPricingRules: rules.map(({ id, name, sourceAsset, targetAsset, sourceCryptoAssetId, targetCryptoAssetId, sourceNetwork, targetNetwork, paymentMethod, payoutMethod, sourceSettlementOptionId, targetSettlementOptionId, minAmount, maxAmount, operatorInstructions, customerInstructions, expectedSettlementMinutes, markupBasisPoints, adjustmentDirection, fixedFee, exactRate, priority, enabled }) => ({ id, name, sourceAsset, targetAsset, sourceCryptoAssetId, targetCryptoAssetId, sourceNetwork, targetNetwork, paymentMethod, payoutMethod, sourceSettlementOptionId, targetSettlementOptionId, minAmount, maxAmount, operatorInstructions, customerInstructions, expectedSettlementMinutes, markupBasisPoints, adjustmentDirection, fixedFee, exactRate, priority, enabled })),
   site: {
     publishedPages: latestPages.map(({ pageKey, content }) => ({ pageKey, content })),
-    publication: publications[0] ? { navigation: publications[0].navigation, partnerLogos: publications[0].partnerLogos, socialTrust: publications[0].socialTrust } : null,
+    publication: publications[0] ? {
+      navigation: publications[0].navigation,
+      partnerLogos: (publications[0].partnerLogos as any[]).filter((logo) => logo.enabled !== false && !logo.removedAt),
+      socialTrust: publications[0].socialTrust,
+    } : null,
   },
   landingBackground: backgrounds[0] ? {
     mode: "preset" as const,
@@ -58,11 +64,45 @@ const snapshot = {
     placements: backgrounds[0].placements,
   } : null,
 };
-await writeFile(output!, `${JSON.stringify(snapshot, null, 2)}\n`, "utf8");
+const objectPaths = new Set<string>();
+const findObjectPaths = (value: unknown) => {
+  if (typeof value === "string" && value.startsWith("/objects/")) objectPaths.add(value);
+  else if (Array.isArray(value)) value.forEach(findObjectPaths);
+  else if (value && typeof value === "object") Object.values(value).forEach(findObjectPaths);
+};
+findObjectPaths(snapshot);
+snapshot.objects = [];
+for (const path of [...objectPaths].sort()) {
+  const namespace = path.split("/")[2] as any;
+  try {
+    const { buffer, contentType } = await getVerifiedStoredLogo(path, namespace);
+    snapshot.objects.push({
+      path,
+      contentType,
+      sha256: createHash("sha256").update(buffer).digest("hex"),
+      base64: buffer.toString("base64"),
+    });
+  } catch {
+    const clear = (value: unknown): unknown => {
+      if (value === path) return null;
+      if (Array.isArray(value)) return value.map(clear);
+      if (value && typeof value === "object") {
+        for (const [key, item] of Object.entries(value)) (value as any)[key] = clear(item);
+      }
+      return value;
+    };
+    clear(snapshot);
+  }
+}
+const temporaryOutput = `${output}.${process.pid}.tmp`;
+await writeFile(temporaryOutput, `${JSON.stringify(snapshot, null, 2)}\n`, "utf8");
+await rename(temporaryOutput, output!);
 console.log(`Exported workspace configuration to ${output}`);
 }
 
-main().catch((error) => {
+main().then(() => {
+  process.exit(0);
+}).catch((error) => {
   console.error(error);
-  process.exitCode = 1;
+  process.exit(1);
 });

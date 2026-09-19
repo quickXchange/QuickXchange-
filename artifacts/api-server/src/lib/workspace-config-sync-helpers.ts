@@ -4,6 +4,7 @@ type JsonRecord = Record<string, unknown>;
 export type WorkspaceConfigSnapshot = {
   schemaVersion: 1;
   source: { environment: "development"; exportedAt: string };
+  objects?: Array<{ path: string; contentType: string; sha256: string; base64: string }>;
   cryptoAssets: Array<{ id: string; code: string; name: string; logoObjectPath: NullableString; decimals: number; lifecycle: string; enabled: boolean }>;
   cryptoNetworks: Array<{ id: string; assetId: string; networkCode: string; networkName: string; logoObjectPath: NullableString; networkFamily: string; decimals: number; executionMode: string; depositProvider: string; lifecycle: string; regions: string[]; enabled: boolean; requiresMemo: boolean; requiredConfirmations: number; confirmationGuidance: NullableString; explorerUrlTemplate: NullableString; depositInstructions: NullableString; depositWarning: NullableString }>;
   fiatCurrencies: Array<{ id: string; code: string; name: string; flagObjectPath: NullableString; network: string; precision: number; lifecycle: string; regions: string[]; countries: string[]; enabled: boolean; rateMode: string; manualRate: NullableString }>;
@@ -43,6 +44,22 @@ export function parseWorkspaceConfigSnapshot(value: unknown): WorkspaceConfigSna
     && Number.isInteger(value.landingBackground.focalY)
     && isRecord(value.landingBackground.placements)
   ))) throw new Error("Landing background must be a validated built-in preset.");
+  if (value.objects !== undefined) {
+    if (!Array.isArray(value.objects)) throw new Error("objects must be an array.");
+    const seenObjectPaths = new Set<string>();
+    for (const object of value.objects) {
+      if (
+        !isRecord(object) ||
+        !hasNonEmptyString(object, "path") ||
+        !hasNonEmptyString(object, "contentType") ||
+        typeof object.sha256 !== "string" ||
+        !/^[0-9a-f]{64}$/.test(object.sha256) ||
+        typeof object.base64 !== "string"
+      ) throw new Error("Invalid bundled configuration object.");
+      if (seenObjectPaths.has(object.path as string)) throw new Error(`Duplicate bundled object: ${object.path}`);
+      seenObjectPaths.add(object.path as string);
+    }
+  }
   const requiredStrings: Array<[keyof WorkspaceConfigSnapshot, string[]]> = [
     ["cryptoAssets", ["id", "code", "name"]],
     ["cryptoNetworks", ["id", "assetId", "networkCode", "networkName"]],

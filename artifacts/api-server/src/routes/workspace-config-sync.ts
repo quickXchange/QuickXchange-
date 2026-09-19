@@ -8,7 +8,12 @@ import {
 } from "@workspace/db";
 import { requireOwner } from "../lib/operator-auth";
 import { ApiError } from "../lib/api-error";
-import { getVerifiedStoredLogo } from "../lib/object-storage";
+import {
+  ALLOWED_LOGO_CONTENT_TYPES,
+  getVerifiedStoredLogo,
+  storeVerifiedConfigurationImage,
+  validatePaymentMethodLogoImage,
+} from "../lib/object-storage";
 import { parseWorkspaceConfigSnapshot, validateSnapshotReferences, type WorkspaceConfigSnapshot } from "../lib/workspace-config-sync-helpers";
 import { invalidatePopularExchangePairsCache } from "../lib/popular-exchange-pairs";
 import { invalidateManualDeskFiatRateCache } from "../lib/manual-desk-rates";
@@ -57,30 +62,110 @@ function parse(body: unknown): WorkspaceConfigSnapshot {
   return parsed;
 }
 
+type ImageNamespace = "payment-method-logos" | "crypto-asset-logos" | "crypto-network-logos" | "fiat-currency-flags" | "partner-logos" | "site-page-media" | "social-trust-icons" | "website-branding";
+type ObjectSyncReport = {
+  referenced: number;
+  available: string[];
+  copyOnApply: string[];
+  copied: string[];
+  optionalReferencesCleared: string[];
+  removedInactiveReferences: string[];
+};
+
 function snapshotObjectPaths(value: unknown, paths = new Set<string>()): Set<string> {
   if (typeof value === "string" && value.startsWith("/objects/")) paths.add(value);
   else if (Array.isArray(value)) for (const item of value) snapshotObjectPaths(item, paths);
-  else if (value && typeof value === "object") for (const item of Object.values(value)) snapshotObjectPaths(item, paths);
+  else if (value && typeof value === "object") for (const [key, item] of Object.entries(value)) if (key !== "objects") snapshotObjectPaths(item, paths);
   return paths;
 }
 
-async function verifySnapshotObjects(snapshot: WorkspaceConfigSnapshot): Promise<void> {
-  const allowedNamespaces = new Set([
+function objectNamespace(path: string): ImageNamespace | null {
+  const allowedNamespaces = new Set<ImageNamespace>([
     "payment-method-logos", "crypto-asset-logos", "crypto-network-logos",
     "fiat-currency-flags", "partner-logos", "site-page-media",
     "social-trust-icons", "website-branding",
   ]);
-  await Promise.all([...snapshotObjectPaths(snapshot)].map(async (path) => {
-    const match = /^\/objects\/([a-z-]+)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/.exec(path);
-    if (!match || !allowedNamespaces.has(match[1]!)) {
-      throw new ApiError("INVALID_WORKSPACE_CONFIG_OBJECT", `Unsupported configuration object path: ${path}`, 400);
+  const match = /^\/objects\/([a-z-]+)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/.exec(path);
+  return match && allowedNamespaces.has(match[1] as ImageNamespace) ? match[1] as ImageNamespace : null;
+}
+
+function replaceOptionalObjectPaths(value: unknown, unavailable: Set<string>): unknown {
+  if (typeof value === "string") return unavailable.has(value) ? null : value;
+  if (Array.isArray(value)) return value.map((item) => replaceOptionalObjectPaths(item, unavailable));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [
+      key,
+      key === "objects" ? item : replaceOptionalObjectPaths(item, unavailable),
+    ]));
+  }
+  return value;
+}
+
+async function prepareSnapshotObjects(
+  input: WorkspaceConfigSnapshot,
+  mode: "preview" | "apply",
+): Promise<{ snapshot: WorkspaceConfigSnapshot; objects: ObjectSyncReport }> {
+  const snapshot = structuredClone(input);
+  const removedInactiveReferences = (snapshot.site.publication?.partnerLogos ?? [])
+    .filter((logo) => logo.enabled === false || logo.removedAt)
+    .map((logo) => String(logo.objectPath ?? ""))
+    .filter((path) => path.startsWith("/objects/"));
+  if (snapshot.site.publication) {
+    snapshot.site.publication.partnerLogos = snapshot.site.publication.partnerLogos
+      .filter((logo) => logo.enabled !== false && !logo.removedAt);
+  }
+  const bundled = new Map((snapshot.objects ?? []).map((object) => [object.path, object]));
+  const available: string[] = [];
+  const copyOnApply: string[] = [];
+  const copied: string[] = [];
+  const unavailable = new Set<string>();
+  const paths = [...snapshotObjectPaths(snapshot)].sort();
+  for (const path of paths) {
+    const namespace = objectNamespace(path);
+    if (!namespace) {
+      unavailable.add(path);
+      continue;
     }
     try {
-      await getVerifiedStoredLogo(path, match[1] as any);
+      await getVerifiedStoredLogo(path, namespace);
+      available.push(path);
+      continue;
     } catch {
-      throw new ApiError("WORKSPACE_CONFIG_OBJECT_UNAVAILABLE", `Configuration object is unavailable: ${path}`, 409);
+      const object = bundled.get(path);
+      if (!object || !(ALLOWED_LOGO_CONTENT_TYPES as readonly string[]).includes(object.contentType)) {
+        unavailable.add(path);
+        continue;
+      }
+      const buffer = Buffer.from(object.base64, "base64");
+      if (createHash("sha256").update(buffer).digest("hex") !== object.sha256) {
+        unavailable.add(path);
+        continue;
+      }
+      try {
+        await validatePaymentMethodLogoImage(object.contentType, buffer);
+        if (mode === "preview") copyOnApply.push(path);
+        else {
+          await storeVerifiedConfigurationImage(path, namespace, object.contentType, buffer);
+          copied.push(path);
+        }
+      } catch {
+        unavailable.add(path);
+      }
     }
-  }));
+  }
+  const prepared = replaceOptionalObjectPaths(snapshot, unavailable) as WorkspaceConfigSnapshot;
+  delete prepared.objects;
+  return {
+    snapshot: prepared,
+    objects: {
+      referenced: paths.length,
+      available,
+      copyOnApply,
+      copied,
+      optionalReferencesCleared: [...unavailable],
+      removedInactiveReferences,
+    },
+  };
 }
 
 export async function calculate(snapshot: WorkspaceConfigSnapshot, executor: Executor = db) {
@@ -172,13 +257,17 @@ export async function calculate(snapshot: WorkspaceConfigSnapshot, executor: Exe
 
 const router = Router();
 router.post("/admin/workspace-config/preview", requireOwner, async (req, res, next) => {
-  try { const snapshot = parse(req.body); await verifySnapshotObjects(snapshot); res.setHeader("cache-control", "no-store"); res.json({ ok: true, dryRun: true, ...await calculate(snapshot) }); } catch (e) { next(e); }
+  try {
+    const prepared = await prepareSnapshotObjects(parse(req.body), "preview");
+    res.setHeader("cache-control", "no-store");
+    res.json({ ok: true, dryRun: true, objects: prepared.objects, ...await calculate(prepared.snapshot) });
+  } catch (e) { next(e); }
 });
 router.post("/admin/workspace-config/apply", requireOwner, async (req, res, next) => {
   try {
     if (req.body?.confirmation !== "WORKSPACE_CONFIG_APPLY") throw new ApiError("WORKSPACE_CONFIG_CONFIRMATION_REQUIRED", "Set confirmation to WORKSPACE_CONFIG_APPLY.", 400);
-    const snapshot = parse(req.body?.snapshot ?? req.body);
-    await verifySnapshotObjects(snapshot);
+    const prepared = await prepareSnapshotObjects(parse(req.body?.snapshot ?? req.body), "apply");
+    const snapshot = prepared.snapshot;
     const expectedStateHash = req.body?.expectedStateHash;
     if (typeof expectedStateHash !== "string" || !expectedStateHash) throw new ApiError("WORKSPACE_CONFIG_PREVIEW_REQUIRED", "Preview the current configuration immediately before applying.", 409);
     const actorId = String(res.locals.operator.id);
@@ -292,7 +381,7 @@ router.post("/admin/workspace-config/apply", requireOwner, async (req, res, next
     invalidatePopularExchangePairsCache();
     invalidateManualDeskFiatRateCache();
     res.setHeader("cache-control", "no-store");
-    res.json({ ok: true, applied: true, ...result });
+    res.json({ ok: true, applied: true, objects: prepared.objects, ...result });
   } catch (e) { next(e); }
 });
 export default router;

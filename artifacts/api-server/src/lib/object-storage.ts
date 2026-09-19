@@ -418,15 +418,19 @@ export const createSocialTrustIconUpload = (contentType: string) => createImageU
 export const createWebsiteBrandingUpload = (contentType: string) => createImageUpload("website-branding", contentType);
 
 async function getNamespacedStoredObject(path: string, namespace: ImageNamespace): Promise<StoredObject> {
+  const full = await getNamespacedStoredObjectPath(path, namespace);
+  const object = selectedBackend().getObject(full.bucket, full.name);
+  if (!await object.exists()) throw new StoredObjectNotFoundError();
+  return object;
+}
+
+async function getNamespacedStoredObjectPath(path: string, namespace: ImageNamespace) {
   const idPattern = namespace === "landing-backgrounds" || namespace === "crypto-asset-logos" || namespace === "crypto-network-logos" || namespace === "fiat-currency-flags" || namespace === "partner-logos" || namespace === "site-page-media" || namespace === "social-trust-icons" || namespace === "website-branding"
     ? "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
     : "[0-9a-f-]+";
   const pattern = new RegExp(`^/objects/${namespace}/${idPattern}$`);
   if (!pattern.test(path)) throw new StoredObjectNotFoundError();
-  const full = parse(`${privateDir()}/${path.slice("/objects/".length)}`);
-  const object = selectedBackend().getObject(full.bucket, full.name);
-  if (!await object.exists()) throw new StoredObjectNotFoundError();
-  return object;
+  return parse(`${privateDir()}/${path.slice("/objects/".length)}`);
 }
 
 export async function getStoredObject(path: string): Promise<StoredObject> {
@@ -478,6 +482,29 @@ export async function getVerifiedStoredLogo(path: string, namespace: ImageNamesp
   // Invalid objects must not remain available for later path reuse.
   await file.delete().catch(() => undefined);
   throw new StoredImageInvalidError();
+}
+
+export async function storeVerifiedConfigurationImage(
+  path: string,
+  namespace: ImageNamespace,
+  contentType: string,
+  buffer: Buffer,
+): Promise<void> {
+  if (!(ALLOWED_LOGO_CONTENT_TYPES as readonly string[]).includes(contentType)) {
+    throw new StoredImageInvalidError();
+  }
+  await validatePaymentMethodLogoImage(contentType, buffer);
+  const objectPath = await getNamespacedStoredObjectPath(path, namespace);
+  const backend = selectedBackend();
+  const uploadURL = await backend.createUpload(objectPath.bucket, objectPath.name, contentType);
+  const response = await fetch(uploadURL, {
+    method: "PUT",
+    headers: { "content-type": contentType },
+    body: new Uint8Array(buffer),
+    signal: AbortSignal.timeout(60_000),
+  });
+  if (!response.ok) throw new Error(`Configuration object upload failed (${response.status}).`);
+  await getVerifiedStoredLogo(path, namespace);
 }
 
 export async function verifyStoredLogo(path: string): Promise<void> {
