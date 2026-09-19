@@ -118,7 +118,7 @@
 .premium-glow-bg {
   position: relative;
   overflow-x: hidden;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .premium-glow-bg::before {

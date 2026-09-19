@@ -33,10 +33,11 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-background">
-        <div className="relative">
+        <div className="relative mb-5">
           <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
           <div className="w-10 h-10 rounded-full border-[3px] border-primary/30 border-t-primary animate-spin relative z-10" />
         </div>
+        <p className="text-sm font-semibold text-muted-foreground">Connecting to Telegram…</p>
       </div>
     );
   }

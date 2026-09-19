@@ -27,8 +27,16 @@ if (!basePath) {
   );
 }
 
+const buildIdentifier =
+  process.env.VITE_BUILD_ID?.trim() ||
+  process.env.REPLIT_DEPLOYMENT_ID?.trim() ||
+  `${process.env.REPL_ID?.trim() || 'local'}:${process.env.NODE_ENV || 'development'}`;
+
 export default defineConfig({
   base: basePath,
+  define: {
+    __APP_BUILD_ID__: JSON.stringify(buildIdentifier),
+  },
   plugins: [
     react(),
     tailwindcss(),

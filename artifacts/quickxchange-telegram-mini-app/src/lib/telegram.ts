@@ -87,6 +87,8 @@ export interface WebApp {
 }
 
 declare global {
+  const __APP_BUILD_ID__: string;
+
   interface Window {
     Telegram?: {
       WebApp: WebApp;

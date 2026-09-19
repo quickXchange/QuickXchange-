@@ -156,6 +156,19 @@ async function findOrders(chatId: string) {
 }
 
 router.post("/telegram/mini-app/session", async (req, res): Promise<void> => {
+  const diagnosticHeader = (name: string) => {
+    const value = req.get(name);
+    return typeof value === "string" ? value.replace(/[^A-Za-z0-9._:-]/g, "_").slice(0, 80) : "unknown";
+  };
+  const diagnostics = {
+    telegramWebAppDetected: diagnosticHeader("X-Telegram-WebApp-Detected"),
+    initDataPresent: typeof req.body?.initData === "string" && req.body.initData.length > 0,
+    unsafeUserPresent: diagnosticHeader("X-Telegram-Unsafe-User-Present"),
+    telegramPlatform: diagnosticHeader("X-Telegram-WebApp-Platform"),
+    telegramWebAppVersion: diagnosticHeader("X-Telegram-WebApp-Version"),
+    miniAppEnvironment: process.env.NODE_ENV ?? "unknown",
+    frontendBuildId: diagnosticHeader("X-Frontend-Build-Id"),
+  };
   try {
     if (typeof req.body?.initData !== "string") throw new Error("initData is required.");
     const user = validateTelegramMiniAppInitData(req.body.initData);
@@ -170,6 +183,7 @@ router.post("/telegram/mini-app/session", async (req, res): Promise<void> => {
     await db.update(telegramChatsTable).set({ username: user.username ?? chat.username, firstName: user.first_name ?? chat.firstName, updatedAt: new Date() })
       .where(eq(telegramChatsTable.chatId, chat.chatId));
     const expiresAt = Date.now() + SESSION_TTL_MS;
+    req.log.info({ ...diagnostics, validationSuccess: true }, "Telegram Mini App authentication succeeded");
     res.json({
       token: signSession({ v: 1, userId: chat.userId, chatId: chat.chatId, exp: expiresAt }),
       expiresAt: new Date(expiresAt).toISOString(),
@@ -178,6 +192,19 @@ router.post("/telegram/mini-app/session", async (req, res): Promise<void> => {
       linkedAccount: Boolean(chat.clerkCustomerUserId),
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    const validationFailureReason =
+      message.includes("expired") ? "init_data_expired"
+        : message.includes("user is missing") ? "telegram_user_missing"
+        : message.includes("Invalid Telegram user") ? "telegram_user_invalid"
+        : message.includes("identity conflict") ? "telegram_identity_conflict"
+        : message.includes("not configured") ? "telegram_auth_not_configured"
+        : message.includes("init data") || message.includes("initData") ? "init_data_invalid"
+        : "session_creation_failed";
+    req.log.warn(
+      { ...diagnostics, validationSuccess: false, validationFailureReason },
+      "Telegram Mini App authentication failed",
+    );
     const apiError = error instanceof ApiError ? error : new ApiError("TELEGRAM_AUTH_INVALID", error instanceof Error ? error.message : "Invalid session.", 401);
     res.status(apiError.status).json({ error: apiError.message, code: apiError.code, retryable: apiError.retryable, outcomeUnknown: apiError.outcomeUnknown });
   }

@@ -10,6 +10,7 @@ import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManu
 import { createTelegramLinkChallenge } from "../lib/telegram-link";
 import { getCustomerVerifiedEmail, requireActiveCustomerIdentity } from "../lib/customer-auth";
 import { getCustomerOrderHistory } from "../lib/order-history";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 export const telegramManualOrderKinds = ["manual", "swap"] as const;
@@ -904,34 +905,40 @@ export default router;
 
 export async function setupTelegramCommands() {
   if (!telegramEnabled()) return false;
-  await telegramCall("setMyName", { name: "QuickXchange" });
-  await telegramCall("setMyShortDescription", {
-    short_description: [
-      "💱 Crypto Exchange",
-      "🔗 Website: https://quickchange.exchange/",
-      "💬 Support: @Quick_change_support",
-    ].join("\n"),
-  });
-  await telegramCall("setMyDescription", {
-    description: [
-      "QuickXchange",
-      "",
-      "💱 Crypto Exchange",
-      "🔗 Website: https://quickchange.exchange/",
-      "💬 Support: @Quick_change_support",
-    ].join("\n"),
-  });
-  await telegramCall("setMyCommands", { commands: [
+  const safelyConfigure = async (operation: string, configure: () => Promise<unknown>) => {
+    try {
+      await configure();
+      return true;
+    } catch (error) {
+      logger.warn(
+        { operation, reason: error instanceof Error ? error.message.replace(/https?:\/\/\S+/g, "[url]") : "unknown" },
+        "Telegram bot configuration operation failed",
+      );
+      return false;
+    }
+  };
+  const appUrl = miniAppUrl();
+  const menuConfigured = appUrl
+    ? await safelyConfigure("setChatMenuButton", () => telegramCall("setChatMenuButton", { menu_button: { type: "web_app", text: "Open App", web_app: { url: appUrl } } }))
+    : false;
+  await safelyConfigure("setMyCommands", () => telegramCall("setMyCommands", { commands: [
     { command: "start", description: "Start QuickXchange" },
     { command: "exchange", description: "Start an exchange" },
     { command: "track", description: "Track an order" },
     { command: "orders", description: "My orders" },
     { command: "support", description: "Contact support" },
     { command: "language", description: "Choose language" },
-  ] });
-  const appUrl = miniAppUrl();
-  if (appUrl) await telegramCall("setChatMenuButton", { menu_button: { type: "web_app", text: "Open App", web_app: { url: appUrl } } });
-  return true;
+  ] }));
+  await safelyConfigure("setMyName", () => telegramCall("setMyName", { name: "QuickXchange" }));
+  const websiteUrl = website();
+  const supportUrl = process.env.TELEGRAM_SUPPORT_URL?.trim();
+  await safelyConfigure("setMyShortDescription", () => telegramCall("setMyShortDescription", {
+    short_description: ["💱 Crypto Exchange", websiteUrl && `🔗 Website: ${websiteUrl}`, supportUrl && `💬 Support: ${supportUrl}`].filter(Boolean).join("\n"),
+  }));
+  await safelyConfigure("setMyDescription", () => telegramCall("setMyDescription", {
+    description: ["QuickXchange", "", "💱 Crypto Exchange", websiteUrl && `🔗 Website: ${websiteUrl}`, supportUrl && `💬 Support: ${supportUrl}`].filter((line): line is string => typeof line === "string").join("\n"),
+  }));
+  return menuConfigured;
 }
 
 let telegramWorker: ReturnType<typeof setInterval> | undefined;

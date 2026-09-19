@@ -66,6 +66,7 @@ PUBLIC_APP_URL = "https://quickchange.exchange"
 TELEGRAM_SUPPORT_URL = "https://t.me/Quick_change_support"
 TELEGRAM_WEBSITE_URL = "https://quickchange.exchange"
 TELEGRAM_NEWS_CHANNEL_ID = "@quick_X_change"
+TELEGRAM_MINI_APP_URL = "https://quickchange.exchange/telegram-mini-app/"
 
 [userenv.production]
 USE_DATABASE_OWNER = "true"

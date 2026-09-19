@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth';
 export function BottomNav() {
   const [location] = useLocation();
   const haptic = useHapticFeedback();
-  const { sessionToken } = useAuth();
+  const { sessionToken, isLoading } = useAuth();
 
   const navItems = [
     { href: '/', icon: Home, label: 'Home' },
@@ -18,7 +18,7 @@ export function BottomNav() {
   ];
 
   // Hide nav on order details
-  if (!sessionToken || (location.startsWith('/orders/') && location !== '/orders')) {
+  if (isLoading || !sessionToken || (location.startsWith('/orders/') && location !== '/orders')) {
     return null;
   }
 
@@ -58,8 +58,14 @@ export function BottomNav() {
 }
 
 export function Shell({ children }: { children: React.ReactNode }) {
+  const { sessionToken, isLoading } = useAuth();
+  const showBottomNavigation = !isLoading && Boolean(sessionToken);
+
   return (
-    <div className="premium-glow-bg text-foreground min-h-[100dvh] flex flex-col pb-[calc(60px+env(safe-area-inset-bottom))]">
+    <div className={cn(
+      "premium-glow-bg text-foreground min-h-[100dvh] flex flex-col",
+      showBottomNavigation && "pb-[calc(60px+env(safe-area-inset-bottom))]",
+    )}>
       {children}
       <BottomNav />
     </div>
