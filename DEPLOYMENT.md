@@ -24,6 +24,11 @@ pnpm install --frozen-lockfile
 pnpm run build:production
 ```
 
+`build:production` deletes all deployable `dist` directories before compiling,
+builds the main website, Telegram Mini App, and API from the current workspace,
+and validates the generated public files. Any missing or inconsistent output
+fails the command so publishing cannot silently reuse an older build.
+
 ## Database release step
 
 Run migrations before routing production traffic to a new API version:
@@ -169,6 +174,11 @@ Forward the original host and HTTPS scheme so Clerk generates correct URLs.
    uploads, and status tracking on the production hostname.
 9. Enable TLS, process supervision, log retention, database backups, and uptime
    monitoring.
+10. After Replit Publish/Republish completes, inspect publishing logs, confirm
+    the new production build succeeded, and compare the live build identity
+    with the build produced by the current workspace. Treat a failed/current
+    build as a failed release; never report an older still-serving build as the
+    new release.
 
 ## Standard-server layout
 

@@ -10,7 +10,7 @@
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
-    "build:production": "pnpm run typecheck && pnpm --filter @workspace/crypto-exchange-widget run build && pnpm --filter @workspace/api-server run build",
+    "build:production": "node scripts/production-build.mjs",
     "start:production": "pnpm --filter @workspace/api-server run start",
     "test:quote-browser": "node scripts/ensure-playwright-chromium.mjs && playwright test e2e/live-quote.spec.ts e2e/admin-authorization.spec.ts e2e/admin-overview.spec.ts e2e/admin-orders.spec.ts e2e/admin-integrations.spec.ts e2e/admin-currencies.spec.ts e2e/admin-pricing.spec.ts e2e/customer-account.spec.ts e2e/responsive-layout.spec.ts e2e/affiliate.spec.ts e2e/landing-background.spec.ts",
     "test:live-logo-upload": "node scripts/ensure-playwright-chromium.mjs && playwright test --config playwright.live-storage.config.ts",

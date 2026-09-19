@@ -7,6 +7,7 @@ Rook is a crypto exchange widget for transparent manual fiat orders, crypto conv
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
+- `pnpm run build:production` — clean, build, and verify every production artifact; publishing must fail if this command fails
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required env: `DATABASE_URL` — Postgres connection string
@@ -50,6 +51,7 @@ The public widget calculates quotes, accepts manual or instant exchange orders, 
 
 - After changing `lib/api-spec/openapi.yaml`, run `pnpm --filter @workspace/api-spec run codegen` before checking or using generated client/server types.
 - Use the queryless Quickex `/api/v2/orders/public` endpoint for the non-destructive signed connection test; adding pagination parameters causes Quickex to reject the otherwise valid signature.
+- Replit publishing runs `pnpm run build:production` as its repository pre-build hook. Never remove this hook or publish pre-existing `dist` output; verify the live build identity and publishing logs after every Publish/Republish.
 
 ## Pointers
 
