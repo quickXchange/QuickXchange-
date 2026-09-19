@@ -4,9 +4,12 @@ import { ApiError } from "./api-error";
 import {
   getQuickexCredentialStatus,
   getCachedQuickexInstruments,
+  getCachedQuickexPairs,
   getQuickexInstruments,
+  getQuickexPairs,
   getQuickexQuote,
   type QuickexInstrument,
+  type QuickexPair,
   type QuickexRateMode,
 } from "./quickex";
 
@@ -65,6 +68,52 @@ export type ExecutableQuickexRoute = {
   toAsset: string;
   toNetwork: string;
 };
+
+function resolveExecutableQuickexRoutes(
+  capabilities: ProviderCapability[],
+  pairs: QuickexPair[],
+): ExecutableQuickexRoute[] {
+  const capabilityByKey = new Map(capabilities.map(capability => [
+    capabilityKey(capability.assetCode, capability.networkCode),
+    capability,
+  ]));
+  const seen = new Set<string>();
+  return pairs.flatMap((pair): ExecutableQuickexRoute[] => {
+    const source = capabilityByKey.get(capabilityKey(
+      pair.instrumentFromCurrencyTitle,
+      pair.instrumentFromNetworkTitle,
+    ));
+    const target = capabilityByKey.get(capabilityKey(
+      pair.instrumentToCurrencyTitle,
+      pair.instrumentToNetworkTitle,
+    ));
+    if (!source || !target) return [];
+    const key = [
+      capabilityKey(source.assetCode, source.networkCode),
+      capabilityKey(target.assetCode, target.networkCode),
+    ].join("\0");
+    if (seen.has(key)) return [];
+    seen.add(key);
+    return [{
+      fromAsset: source.assetCode,
+      fromNetwork: source.networkCode,
+      toAsset: target.assetCode,
+      toNetwork: target.networkCode,
+    }];
+  });
+}
+
+export async function listExecutableQuickexRoutes(
+  options: { cacheOnly?: boolean } = {},
+): Promise<ExecutableQuickexRoute[]> {
+  const capabilities = await listExecutableProviderCapabilities(options);
+  if (!capabilities.length) return [];
+  const pairs = options.cacheOnly
+    ? getCachedQuickexPairs()
+    : await getQuickexPairs();
+  if (!pairs?.length) return [];
+  return resolveExecutableQuickexRoutes(capabilities, pairs);
+}
 
 async function quickexIsConfigured() {
   const status = await getQuickexCredentialStatus();
@@ -161,7 +210,25 @@ export async function listExecutableProviderCapabilities(
 export async function listPublicProviderSettlementOptions(
   options: { cacheOnly?: boolean } = {},
 ) {
-  return (await listExecutableProviderCapabilities(options)).map((capability) => ({
+  let capabilities: ProviderCapability[];
+  let routes: ExecutableQuickexRoute[];
+  try {
+    [capabilities, routes] = await Promise.all([
+      listExecutableProviderCapabilities(options),
+      listExecutableQuickexRoutes(options),
+    ]);
+  } catch {
+    // Manual Swap configuration must remain available while the independent
+    // Quickex route catalog is unavailable. Convert fails closed with no options.
+    return [];
+  }
+  const participating = new Set(routes.flatMap(route => [
+    capabilityKey(route.fromAsset, route.fromNetwork),
+    capabilityKey(route.toAsset, route.toNetwork),
+  ]));
+  return capabilities.filter(capability =>
+    participating.has(capabilityKey(capability.assetCode, capability.networkCode))
+  ).map((capability) => ({
     id: `api:${capability.providerId}:${capability.networkId}`,
     assetId: capability.assetId,
     assetCode: capability.assetCode,
@@ -199,22 +266,31 @@ export async function getQuickexPublicCapabilityConfig() {
   // Public Convert configuration must not turn a transient catalog failure
   // into a valid-looking empty result that the client caches for five minutes.
   // Warm both catalogs here so transport failures remain explicit 5xx errors.
-  const instruments = await getQuickexInstruments();
+  const [instruments, providerPairs] = await Promise.all([
+    getQuickexInstruments(),
+    getQuickexPairs(),
+  ]);
   const capabilities = await listExecutableProviderCapabilities({ cacheOnly: true });
   if (!capabilities.length) {
     return { provider: "Quickex" as const, instruments: [], pairs: [], signedOrders: false };
   }
+  const routes = resolveExecutableQuickexRoutes(capabilities, providerPairs);
+  const participating = new Set(routes.flatMap(route => [
+    capabilityKey(route.fromAsset, route.fromNetwork),
+    capabilityKey(route.toAsset, route.toNetwork),
+  ]));
   const allowed = new Set(capabilities.map((item) =>
     `${item.assetCode.toUpperCase()}\0${item.networkCode.toUpperCase()}`
   ));
   const publicInstruments = instruments.filter((item) =>
-    allowed.has(`${item.currencyTitle.toUpperCase()}\0${item.networkTitle.toUpperCase()}`)
+    allowed.has(`${item.currencyTitle.toUpperCase()}\0${item.networkTitle.toUpperCase()}`) &&
+    participating.has(capabilityKey(item.currencyTitle, item.networkTitle))
   );
   return {
     provider: "Quickex" as const,
     instruments: publicInstruments,
-    pairs: [],
-    signedOrders: true,
+    pairs: routes,
+    signedOrders: routes.length > 0,
   };
 }
 
@@ -229,7 +305,10 @@ export async function getQuickexPublicPairs(input: {
       400,
     );
   }
-  const capabilities = await listExecutableProviderCapabilities();
+  const [capabilities, providerPairs] = await Promise.all([
+    listExecutableProviderCapabilities(),
+    getQuickexPairs(),
+  ]);
   const sourceKey = input.fromAsset && input.fromNetwork
     ? capabilityKey(input.fromAsset, input.fromNetwork)
     : undefined;
@@ -238,23 +317,15 @@ export async function getQuickexPublicPairs(input: {
   )) {
     throw new ApiError("PROVIDER_ROUTE_UNAVAILABLE", "This instant exchange route is unavailable.", 422);
   }
-  return capabilities.flatMap(source => {
-    if (sourceKey && capabilityKey(source.assetCode, source.networkCode) !== sourceKey) return [];
-    return capabilities.flatMap((target): ExecutableQuickexRoute[] =>
-      capabilityKey(source.assetCode, source.networkCode) ===
-        capabilityKey(target.assetCode, target.networkCode)
-        ? []
-        : [{
-          fromAsset: source.assetCode,
-          fromNetwork: source.networkCode,
-          toAsset: target.assetCode,
-          toNetwork: target.networkCode,
-        }]);
-  });
+  return resolveExecutableQuickexRoutes(capabilities, providerPairs)
+    .filter(route => !sourceKey || capabilityKey(route.fromAsset, route.fromNetwork) === sourceKey);
 }
 
 export async function assertExecutableQuickexRoute(input: InstantRouteInput) {
-  const capabilities = await listExecutableProviderCapabilities();
+  const [capabilities, routes] = await Promise.all([
+    listExecutableProviderCapabilities(),
+    listExecutableQuickexRoutes(),
+  ]);
   const find = (asset: string, network: string) => capabilities.find((item) =>
     item.assetCode.toUpperCase() === asset.toUpperCase() &&
     item.networkCode.toUpperCase() === network.toUpperCase()
@@ -265,7 +336,13 @@ export async function assertExecutableQuickexRoute(input: InstantRouteInput) {
     !source ||
     !target ||
     capabilityKey(source.assetCode, source.networkCode) ===
-      capabilityKey(target.assetCode, target.networkCode)
+      capabilityKey(target.assetCode, target.networkCode) ||
+    !routes.some(route =>
+      capabilityKey(route.fromAsset, route.fromNetwork) ===
+        capabilityKey(source.assetCode, source.networkCode) &&
+      capabilityKey(route.toAsset, route.toNetwork) ===
+        capabilityKey(target.assetCode, target.networkCode)
+    )
   ) {
     throw new ApiError("PROVIDER_ROUTE_UNAVAILABLE", "This instant exchange route is unavailable.", 422);
   }

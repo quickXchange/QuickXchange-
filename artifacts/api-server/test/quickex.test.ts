@@ -1905,13 +1905,26 @@ test("the capability registry exposes executable mapped networks without removin
     };
     assert.deepEqual(
       config.instantSettlementOptions.map(option => option.id).sort(),
-      ["api:quickex:btc-bitcoin", "api:quickex:usdt-trc20", "api:quickex:xrp-xrpl"],
+      ["api:quickex:btc-bitcoin", "api:quickex:usdt-trc20"],
     );
     assert.deepEqual(config.providers, ["Manual desk", "Quickex"]);
     assert.equal(
       config.instantSettlementOptions.some(option => option.id === `api:quickex:${unmappedNetworkId}`),
       false,
     );
+    const convertConfig = await (await fetch(`${api.url}/quickex/config`)).json() as {
+      instruments: Array<{ currencyTitle: string; networkTitle: string }>;
+      pairs: Array<{ fromAsset: string; fromNetwork: string; toAsset: string; toNetwork: string }>;
+    };
+    assert.deepEqual(convertConfig.instruments.map(instrument =>
+      `${instrument.currencyTitle}:${instrument.networkTitle}`
+    ).sort(), ["BTC:Bitcoin", "USDT:TRC20"]);
+    assert.deepEqual(convertConfig.pairs, [{
+      fromAsset: "BTC",
+      fromNetwork: "Bitcoin",
+      toAsset: "USDT",
+      toNetwork: "TRC20",
+    }]);
 
     const quoteInput = {
       type: "instant",
@@ -1988,20 +2001,20 @@ test("the capability registry exposes executable mapped networks without removin
 
     reset("pairUnavailable");
     quickex.resetQuickexInstrumentCacheForTests();
-    const noPairs = await (await fetch(`${api.url}/exchange/config`)).json() as {
+    const noPairsResponse = await fetch(`${api.url}/exchange/config`);
+    const noPairs = await noPairsResponse.json() as {
       instantSettlementOptions: unknown[];
       providers: string[];
     };
-    assert.ok(noPairs.instantSettlementOptions.length > 0);
-    assert.ok(noPairs.providers.includes("Quickex"));
+    assert.equal(noPairsResponse.status, 200, JSON.stringify(noPairs));
+    assert.deepEqual(noPairs.instantSettlementOptions, []);
+    assert.equal(noPairs.providers.includes("Quickex"), false);
     const unavailableConfigResponse = await fetch(`${api.url}/quickex/config`);
     const unavailableConfig = await unavailableConfigResponse.json() as {
       instruments: unknown[];
       pairs: unknown[];
     };
-    assert.equal(unavailableConfigResponse.status, 200);
-    assert.ok(unavailableConfig.instruments.length > 0);
-    assert.deepEqual(unavailableConfig.pairs, []);
+    assert.equal(unavailableConfigResponse.status, 503);
     const unavailablePairsResponse = await fetch(
       `${api.url}/quickex/pairs?fromAsset=BTC&fromNetwork=Bitcoin`,
     );
@@ -2009,8 +2022,8 @@ test("the capability registry exposes executable mapped networks without removin
     assert.equal(unavailablePairsResponse.status, 503);
     assert.equal(unavailablePairs.code, "QUICKEX_PROVIDER_UNAVAILABLE");
     const pairRejected = await apiJson(api.url, "/exchange/quote", quoteInput);
-    assert.equal(pairRejected.status, 200);
-    assert.equal(pairRejected.body.provider, "Quickex");
+    assert.equal(pairRejected.status, 503);
+    assert.equal(pairRejected.body.code, "QUICKEX_PROVIDER_UNAVAILABLE");
   } finally {
     await db.delete(quickexOrdersTable).where(eq(quickexOrdersTable.clientRequestId, requestId));
     await db.delete(cryptoAssetsTable).where(eq(cryptoAssetsTable.id, unmappedAssetId));
@@ -2043,7 +2056,12 @@ test("provider-only Quickex instruments remain available without entering the ma
       item.currencyTitle === providerOnlyInstrument.currencyTitle &&
       item.networkTitle === providerOnlyInstrument.networkTitle
     ));
-    assert.deepEqual(quickexConfig.pairs, []);
+    assert.ok(quickexConfig.pairs.some(pair =>
+      pair.fromAsset === providerOnlyInstrument.currencyTitle &&
+      pair.fromNetwork === providerOnlyInstrument.networkTitle &&
+      pair.toAsset === "BTC" &&
+      pair.toNetwork === "Bitcoin"
+    ));
     const quickexPairs = await (await fetch(
       `${api.url}/quickex/pairs?fromAsset=${encodeURIComponent(providerOnlyInstrument.currencyTitle)}&fromNetwork=${encodeURIComponent(providerOnlyInstrument.networkTitle)}`,
     )).json() as Array<{ fromAsset: string; fromNetwork: string; toAsset: string; toNetwork: string }>;
@@ -2156,7 +2174,12 @@ test("Quickex namespace owns signed quotes, orders, tracking, and idempotency", 
     const config = await (await fetch(`${api.url}/quickex/config`)).json() as {
       pairs: Array<Record<string, string>>;
     };
-    assert.deepEqual(config.pairs, []);
+    assert.ok(config.pairs.some(pair =>
+      pair.fromAsset === "BTC" &&
+      pair.fromNetwork === "Bitcoin" &&
+      pair.toAsset === "USDT" &&
+      pair.toNetwork === "TRC20"
+    ));
     const sourcePairs = await (await fetch(
       `${api.url}/quickex/pairs?fromAsset=BTC&fromNetwork=Bitcoin`,
     )).json() as Array<Record<string, string>>;

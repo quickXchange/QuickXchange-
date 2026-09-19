@@ -85,11 +85,15 @@ export default function Exchange() {
       }));
     } else {
       if (!quickexConfig) return [];
+      const sourceKeys = new Set(quickexConfig.pairs.map(pair =>
+        `${pair.fromAsset.trim().toUpperCase()}\0${pair.fromNetwork.trim().toUpperCase()}`
+      ));
       const seen = new Set<string>();
       const list: any[] = [];
       quickexConfig.instruments.forEach(inst => {
         if (inst.instrumentType.toLowerCase() !== 'crypto' || !inst.currencyTitle || !inst.networkTitle) return;
         const key = `${inst.currencyTitle.trim().toUpperCase()}\0${inst.networkTitle.trim().toUpperCase()}`;
+        if (!sourceKeys.has(key)) return;
         if (seen.has(key)) return;
         seen.add(key);
         const configured = config?.settlementOptions?.find(option =>
@@ -140,14 +144,24 @@ export default function Exchange() {
         }));
     } else {
       if (!quickexConfig) return [];
+      const source = quickexConfig.instruments.find(inst => inst.slug === sourceId);
+      if (!source) return [];
+      const sourceKey = `${source.currencyTitle.trim().toUpperCase()}\0${source.networkTitle.trim().toUpperCase()}`;
+      const targetKeys = new Set(quickexConfig.pairs
+        .filter(pair =>
+          `${pair.fromAsset.trim().toUpperCase()}\0${pair.fromNetwork.trim().toUpperCase()}` === sourceKey
+        )
+        .map(pair =>
+          `${pair.toAsset.trim().toUpperCase()}\0${pair.toNetwork.trim().toUpperCase()}`
+        ));
       const seen = new Set<string>();
       const list: any[] = [];
       quickexConfig.instruments.forEach(inst => {
         if (inst.instrumentType.toLowerCase() !== 'crypto' || !inst.currencyTitle || !inst.networkTitle) return;
         const key = `${inst.currencyTitle.trim().toUpperCase()}\0${inst.networkTitle.trim().toUpperCase()}`;
+        if (!targetKeys.has(key)) return;
         if (seen.has(key)) return;
         seen.add(key);
-        if (inst.slug === sourceId) return; // exclude identical instrument
         const configured = config?.settlementOptions?.find(option =>
           option.kind === 'crypto-network' &&
           option.assetCode.trim().toUpperCase() === inst.currencyTitle.trim().toUpperCase() &&

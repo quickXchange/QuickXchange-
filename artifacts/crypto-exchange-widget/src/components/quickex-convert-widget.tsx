@@ -183,14 +183,22 @@ export function QuickexConvertWidget({
     `${currencyTitle.trim().toUpperCase()}\0${networkTitle.trim().toUpperCase()}`;
   const fromOptions = useMemo(() => {
     if (!config.data) return [];
-    return cryptoInstruments;
+    const sourceKeys = new Set(config.data.pairs.map(pair =>
+      instrumentKey(pair.fromAsset, pair.fromNetwork)
+    ));
+    return cryptoInstruments.filter(item =>
+      sourceKeys.has(instrumentKey(item.currencyTitle, item.networkTitle))
+    );
   }, [config.data, cryptoInstruments]);
   const from = fromOptions.find(item => item.slug === fromSlug);
   const pairOptions = useMemo(() => {
     if (!from || !config.data) return [];
     const sourceKey = instrumentKey(from.currencyTitle, from.networkTitle);
+    const targetKeys = new Set(config.data.pairs
+      .filter(pair => instrumentKey(pair.fromAsset, pair.fromNetwork) === sourceKey)
+      .map(pair => instrumentKey(pair.toAsset, pair.toNetwork)));
     return cryptoInstruments.filter(item =>
-      instrumentKey(item.currencyTitle, item.networkTitle) !== sourceKey
+      targetKeys.has(instrumentKey(item.currencyTitle, item.networkTitle))
     );
   }, [config.data, from, cryptoInstruments]);
   const to = pairOptions.find(item => item.slug === toSlug);
@@ -199,11 +207,16 @@ export function QuickexConvertWidget({
     const reverseFrom = fromOptions.find(item =>
       instrumentKey(item.currencyTitle, item.networkTitle) === instrumentKey(to.currencyTitle, to.networkTitle)
     );
-    const reverseTo = cryptoInstruments.find(item =>
+    const reverseSourceKey = instrumentKey(to.currencyTitle, to.networkTitle);
+    const reverseAllowed = config.data?.pairs.some(pair =>
+      instrumentKey(pair.fromAsset, pair.fromNetwork) === reverseSourceKey &&
+      instrumentKey(pair.toAsset, pair.toNetwork) === instrumentKey(from.currencyTitle, from.networkTitle)
+    );
+    const reverseTo = reverseAllowed && cryptoInstruments.find(item =>
       instrumentKey(item.currencyTitle, item.networkTitle) === instrumentKey(from.currencyTitle, from.networkTitle)
     );
     return reverseFrom && reverseTo ? { fromSlug: reverseFrom.slug, toSlug: reverseTo.slug } : null;
-  }, [cryptoInstruments, from, fromOptions, to]);
+  }, [config.data?.pairs, cryptoInstruments, from, fromOptions, to]);
   const noReceiveRoutes = Boolean(from && pairOptions.length === 0);
   const configPending = !config.data && !config.isError;
   useEffect(() => {
@@ -275,7 +288,7 @@ export function QuickexConvertWidget({
         item.currencyTitle.trim().toUpperCase() === reqSource &&
         (!reqSourceNetwork || item.networkTitle.trim().toUpperCase() === reqSourceNetwork)
       );
-      const targetInst = cryptoInstruments.find(item =>
+      const targetInst = pairOptions.find(item =>
         item.currencyTitle.trim().toUpperCase() === reqDest &&
         (!reqDestNetwork || item.networkTitle.trim().toUpperCase() === reqDestNetwork)
       );
@@ -296,7 +309,7 @@ export function QuickexConvertWidget({
     if (marketRequest.openSelector === 'destination') setToSelectorOpen(true);
 
     setMarketRequest(null);
-  }, [cryptoInstruments, fromOptions, fromSlug, marketRequest, toSlug]);
+  }, [fromOptions, fromSlug, marketRequest, pairOptions, toSlug]);
   useEffect(() => {
     if (marketRequest) return;
     if (!pairOptions.length || pairOptions.some(item => item.slug === toSlug)) return;

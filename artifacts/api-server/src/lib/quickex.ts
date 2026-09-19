@@ -175,6 +175,7 @@ const pairCacheKey = (filter: QuickexPairFilter = {}) =>
   `${filter.fromCurrency?.trim().toUpperCase() ?? "*"}\0${filter.fromNetwork?.trim().toUpperCase() ?? "*"}`;
 const pairCache = new Map<string, { expiresAt: number; data: QuickexPair[] }>();
 const pairRefresh = new Map<string, Promise<QuickexPair[]>>();
+let pairCacheGeneration = 0;
 let quickexAddressCache: { address: string; expiresAt: number } | undefined;
 let quickexAddressRefresh: Promise<string> | undefined;
 
@@ -188,6 +189,7 @@ export function resetQuickexInstrumentCacheForTests() {
   instrumentCacheGeneration += 1;
   pairCache.clear();
   pairRefresh.clear();
+  pairCacheGeneration += 1;
 }
 
 export function getQuickexInstrumentCacheHealth() {
@@ -624,6 +626,7 @@ function validatePair(value: unknown): QuickexPair {
 /** Cached active directed routes.  Unlike instruments, not every combination is tradable. */
 export async function getQuickexPairs(filter: QuickexPairFilter = {}): Promise<QuickexPair[]> {
   const cacheKey = pairCacheKey(filter);
+  const generation = pairCacheGeneration;
   const cached = pairCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return cached.data;
   const pending = pairRefresh.get(cacheKey);
@@ -688,7 +691,9 @@ export async function getQuickexPairs(filter: QuickexPairFilter = {}): Promise<Q
           seen.add(key);
           return true;
         });
-      pairCache.set(cacheKey, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+      if (pairCacheGeneration === generation) {
+        pairCache.set(cacheKey, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+      }
       return data;
     } catch (error) {
       if (error instanceof QuickexApiError) throw error;
