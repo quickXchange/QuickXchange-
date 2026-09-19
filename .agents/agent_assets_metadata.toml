@@ -56,3 +56,17 @@ mtime_ms = 1789831960010
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/d1400d69-247d-483d-8706-f9c707af8799/d20b2933-ced9-4691-8d6d-b9f98e55effd"
 storage_version_token = "1789832075019824"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "Y4nwn2Un2Hh9-Hk2skG2r"
+uri = "file://exports/preview-production-exchange-api-comparison-before-fix.json"
+type = "unspecified"
+title = "Preview vs Production API comparison — before fix"
+description = "Exact /api/exchange/config option, route, crypto-network, and payment-method records captured from Preview and both live Production domains before the Production configuration apply."
+logical_id = "95481951-3e00-4c7e-8bcb-b00d271ce3c5"
+content_hash = "sha256:849283bf1ecffeb68b91fe13dccf51b0c3335d67e4f76c8524f4b8361e0cd99e"
+size = 736016
+mtime_ms = 1789832808865
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/95481951-3e00-4c7e-8bcb-b00d271ce3c5/ffcda615-dce5-4d59-a9c5-0b0ac3d76fbb"
+storage_version_token = "1789832814042654"
+content_type = "application/octet-stream"
