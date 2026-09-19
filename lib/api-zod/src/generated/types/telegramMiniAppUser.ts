@@ -15,4 +15,8 @@ export interface TelegramMiniAppUser {
   firstName?: string | null;
   /** @nullable */
   lastName?: string | null;
+  /** @nullable */
+  languageCode?: string | null;
+  /** @nullable */
+  photoUrl?: string | null;
 }

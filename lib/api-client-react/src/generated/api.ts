@@ -213,6 +213,8 @@ import type {
   TelegramLink,
   TelegramLinkChallenge,
   TelegramLinkInput,
+  TelegramMiniAppAccountLink,
+  TelegramMiniAppAccountLinkInput,
   TelegramMiniAppOrder,
   TelegramMiniAppOrderLinkInput,
   TelegramMiniAppSession,
@@ -16979,4 +16981,69 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getLinkTelegramMiniAppOrderMutationOptions(options));
+    }
+
+export const getCreateTelegramMiniAppAccountLinkUrl = () => {
+
+
+
+
+  return `/api/telegram/mini-app/account-link`
+}
+
+export const createTelegramMiniAppAccountLink = async (telegramMiniAppAccountLinkInput: TelegramMiniAppAccountLinkInput, options?: Parameters<typeof customFetch>[1]): Promise<TelegramMiniAppAccountLink> => {
+
+  return customFetch<TelegramMiniAppAccountLink>(getCreateTelegramMiniAppAccountLinkUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(telegramMiniAppAccountLinkInput)
+  }
+);}
+
+
+
+
+
+export const getCreateTelegramMiniAppAccountLinkMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTelegramMiniAppAccountLink>>, TError,{data: BodyType<TelegramMiniAppAccountLinkInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createTelegramMiniAppAccountLink>>, TError,{data: BodyType<TelegramMiniAppAccountLinkInput>}, TContext> => {
+
+const mutationKey = ['createTelegramMiniAppAccountLink'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTelegramMiniAppAccountLink>>, {data: BodyType<TelegramMiniAppAccountLinkInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createTelegramMiniAppAccountLink(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateTelegramMiniAppAccountLinkMutationResult = NonNullable<Awaited<ReturnType<typeof createTelegramMiniAppAccountLink>>>
+    export type CreateTelegramMiniAppAccountLinkMutationBody = BodyType<TelegramMiniAppAccountLinkInput>
+    export type CreateTelegramMiniAppAccountLinkMutationError = ErrorType<ApiError>
+
+    export const useCreateTelegramMiniAppAccountLink = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTelegramMiniAppAccountLink>>, TError,{data: BodyType<TelegramMiniAppAccountLinkInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createTelegramMiniAppAccountLink>>,
+        TError,
+        {data: BodyType<TelegramMiniAppAccountLinkInput>},
+        TContext
+      > => {
+      return useMutation(getCreateTelegramMiniAppAccountLinkMutationOptions(options));
     }

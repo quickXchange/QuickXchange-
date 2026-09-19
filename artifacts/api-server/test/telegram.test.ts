@@ -9,17 +9,20 @@ import { localeOf, t } from "../src/lib/telegram-localization";
 import { consumeTelegramLinkChallenge, createTelegramLinkChallenge, hashTelegramLinkToken, TelegramLinkChallengeError, TelegramLinkConflictError } from "../src/lib/telegram-link";
 import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, shouldAskDestination, telegramFieldSkipIndex, withoutTelegramRefundFields } from "../src/lib/telegram-wizard";
 import { normalizeRefundFields } from "../src/lib/manual-wallet-validation";
-import { validateTelegramMiniAppInitData, verifyTelegramMiniAppSession } from "../src/routes/telegram-mini-app";
+import { telegramAccountLinkRelativeUrl, validateTelegramMiniAppInitData, verifyTelegramMiniAppSession } from "../src/routes/telegram-mini-app";
 
 test("Telegram Mini App initData validates authentic user data", () => {
   const previous = process.env.TELEGRAM_BOT_TOKEN;
   process.env.TELEGRAM_BOT_TOKEN = "test-only-bot-token";
   const authDate = Math.floor(Date.now() / 1000);
-  const params = new URLSearchParams({ auth_date: String(authDate), query_id: "query", user: JSON.stringify({ id: 741852, first_name: "Test", username: "tester" }) });
+  const params = new URLSearchParams({ auth_date: String(authDate), query_id: "query", user: JSON.stringify({ id: 741852, first_name: "Test", username: "tester", language_code: "uk-UA", photo_url: "https://t.me/i/userpic/320/test.jpg" }) });
   const check = [...params.entries()].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([key, value]) => `${key}=${value}`).join("\n");
   const secret = createHmac("sha256", "WebAppData").update(process.env.TELEGRAM_BOT_TOKEN).digest();
   params.set("hash", createHmac("sha256", secret).update(check).digest("hex"));
-  assert.equal(validateTelegramMiniAppInitData(params.toString()).id, 741852);
+  const validated = validateTelegramMiniAppInitData(params.toString());
+  assert.equal(validated.id, 741852);
+  assert.equal(validated.languageCode, "uk-UA");
+  assert.equal(validated.photoUrl, "https://t.me/i/userpic/320/test.jpg");
   if (previous === undefined) delete process.env.TELEGRAM_BOT_TOKEN; else process.env.TELEGRAM_BOT_TOKEN = previous;
 });
 
@@ -86,33 +89,58 @@ test("Telegram locale stays supported with safe English fallback", () => {
 test("Telegram main menu keeps the requested two-column signed-out and signed-in layouts", () => {
   process.env.TELEGRAM_WEBSITE_URL = "https://quickxchange.example";
   const signedOut = menu("en", false);
-  assert.deepEqual(signedOut.map(row => row.map(button => button.text)), [
+  assert.deepEqual(signedOut.slice(0, 4).map(row => row.map(button => button.text)), [
     ["⚡ Exchange", "📦 Track Order"],
     ["📋 My Orders", "👤 Sign In"],
     ["📝 Sign Up", "🌐 Language"],
     ["💬 Support", "🌍 Website"],
   ]);
-  assert.deepEqual(signedOut.map(row => row.map(button => button.callback_data ?? "url")), [
+  assert.deepEqual(signedOut.slice(0, 4).map(row => row.map(button => button.callback_data ?? "url")), [
     ["exchange", "track"],
     ["orders", "signin"],
     ["signup", "language"],
     ["support", "url"],
   ]);
+  assert.deepEqual(signedOut[4], [{ text: "📱 Open App", web_app: { url: "https://quickxchange.example/telegram-mini-app/" } }]);
 
   const signedIn = menu("en", true);
-  assert.deepEqual(signedIn.map(row => row.map(button => button.text)), [
+  assert.deepEqual(signedIn.slice(0, 4).map(row => row.map(button => button.text)), [
     ["⚡ Exchange", "📦 Track Order"],
     ["📋 My Orders", "👤 My Account"],
     ["🚪 Sign Out", "🌐 Language"],
     ["💬 Support", "🌍 Website"],
   ]);
-  assert.deepEqual(signedIn.map(row => row.map(button => button.callback_data ?? "url")), [
+  assert.deepEqual(signedIn.slice(0, 4).map(row => row.map(button => button.callback_data ?? "url")), [
     ["exchange", "track"],
     ["orders", "account"],
     ["signout", "language"],
     ["support", "url"],
   ]);
+  assert.deepEqual(signedIn[4], [{ text: "📱 Open App", web_app: { url: "https://quickxchange.example/telegram-mini-app/" } }]);
   delete process.env.TELEGRAM_WEBSITE_URL;
+});
+
+test("Telegram initData projection rejects invalid optional language and photo values", () => {
+  const previous = process.env.TELEGRAM_BOT_TOKEN;
+  process.env.TELEGRAM_BOT_TOKEN = "test-only-bot-token";
+  const params = new URLSearchParams({
+    auth_date: String(Math.floor(Date.now() / 1000)),
+    user: JSON.stringify({ id: 741853, language_code: "not a locale", photo_url: "javascript:alert(1)" }),
+  });
+  const check = [...params.entries()].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([key, value]) => `${key}=${value}`).join("\n");
+  const secret = createHmac("sha256", "WebAppData").update(process.env.TELEGRAM_BOT_TOKEN).digest();
+  params.set("hash", createHmac("sha256", secret).update(check).digest("hex"));
+  const validated = validateTelegramMiniAppInitData(params.toString());
+  assert.equal(validated.languageCode, undefined);
+  assert.equal(validated.photoUrl, undefined);
+  if (previous === undefined) delete process.env.TELEGRAM_BOT_TOKEN; else process.env.TELEGRAM_BOT_TOKEN = previous;
+});
+
+test("Telegram account-link response remains same-origin and URL-encoded", () => {
+  const relativeUrl = telegramAccountLinkRelativeUrl("token with/slash");
+  assert.match(relativeUrl, /^\/telegram\/connect\?token=/);
+  assert.equal(new URL(relativeUrl, "https://example.test").origin, "https://example.test");
+  assert.equal(relativeUrl, "/telegram/connect?token=token%20with%2Fslash");
 });
 
 test("Telegram account links are one-time, expiring, and one-to-one", async () => {

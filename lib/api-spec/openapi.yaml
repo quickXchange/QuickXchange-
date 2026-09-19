@@ -3667,6 +3667,22 @@ paths:
       responses:
         "200": { description: Linked order, content: { application/json: { schema: { $ref: "#/components/schemas/TelegramMiniAppOrder" } } } }
         "400": { description: Invalid tracking token or order, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /telegram/mini-app/account-link:
+    post:
+      operationId: createTelegramMiniAppAccountLink
+      tags: [telegram]
+      security: [{ TelegramMiniAppSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TelegramMiniAppAccountLinkInput" }
+      responses:
+        "200":
+          description: Same-origin account-link challenge URL
+          content: { application/json: { schema: { $ref: "#/components/schemas/TelegramMiniAppAccountLink" } } }
+        "400": { description: Invalid link intent, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "401": { description: Telegram Mini App authentication is required, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
 
 components:
   parameters:
@@ -6950,6 +6966,8 @@ components:
         username: { type: [string, "null"] }
         firstName: { type: [string, "null"] }
         lastName: { type: [string, "null"] }
+        languageCode: { type: [string, "null"] }
+        photoUrl: { type: [string, "null"], format: uri }
     TelegramMiniAppSession:
       type: object
       required: [token, expiresAt, user, linkedAccount]
@@ -6958,21 +6976,50 @@ components:
         expiresAt: { type: string, format: date-time }
         user: { $ref: "#/components/schemas/TelegramMiniAppUser" }
         linkedAccount: { type: boolean }
+        supportUrl: { type: [string, "null"], format: uri }
     TelegramMiniAppOrder:
       type: object
       required: [id, orderKind, status, amount, receiveAmount, trackingToken, createdAt]
       properties:
         id: { type: string }
         orderKind: { type: string }
+        type: { type: string }
         status: { type: string }
         fromAsset: { type: string }
+        fromNetwork: { type: string }
+        sourceSettlementOptionId: { type: string }
         toAsset: { type: string }
+        toNetwork: { type: string }
+        targetSettlementOptionId: { type: string }
+        networks: { type: array, items: { type: string } }
         amount: { type: string }
         receiveAmount: { type: string }
         trackingToken: { type: string }
         createdAt: { type: string, format: date-time }
         outcomeUnknown: { type: boolean }
         customerSafeNote: { type: string }
+        manualSettlementState: { type: string }
+        fundingStatus: { type: string }
+        fundingSource: { type: string }
+        depositAddress: { type: string }
+        depositMemo: { type: string }
+        settlementDetails: { type: object, additionalProperties: true }
+        paymentDetails: { type: object, additionalProperties: true }
+        paymentDetailsApplicable: { type: boolean }
+        sourcePaymentMethod: { type: object, additionalProperties: true }
+        customerMarkedPaidAt: { type: [string, "null"], format: date-time }
+        refreshUnavailable: { type: boolean }
+        logos: { type: object, additionalProperties: true }
+    TelegramMiniAppAccountLinkInput:
+      type: object
+      required: [intent]
+      properties:
+        intent: { type: string, enum: [signin, signup] }
+    TelegramMiniAppAccountLink:
+      type: object
+      required: [relativeUrl]
+      properties:
+        relativeUrl: { type: string, pattern: "^/telegram/connect\\?token=" }
     TelegramMiniAppOrderLinkInput:
       type: object
       required: [orderId, trackingToken, orderKind]

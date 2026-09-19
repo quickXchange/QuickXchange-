@@ -4,14 +4,16 @@ import { createTelegramMiniAppSession } from '@workspace/api-client-react';
 interface AuthContextType {
   sessionToken: string | null;
   user: any | null;
-  isMock: boolean;
+  supportUrl: string | null;
+  linkedAccount: any | null;
   isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
   sessionToken: null,
   user: null,
-  isMock: false,
+  supportUrl: null,
+  linkedAccount: null,
   isLoading: true,
 });
 
@@ -20,7 +22,8 @@ export const useAuth = () => useContext(AuthContext);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [sessionToken, setSessionToken] = useState<string | null>(() => sessionStorage.getItem('tg_session_token'));
   const [user, setUser] = useState<any | null>(null);
-  const [isMock, setIsMock] = useState(false);
+  const [supportUrl, setSupportUrl] = useState<string | null>(null);
+  const [linkedAccount, setLinkedAccount] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -40,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const initData = tg?.initData;
       if (!initData) {
-        setIsMock(true);
+        setSessionToken(null);
         setUser(null);
         setIsLoading(false);
         return;
@@ -50,15 +53,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const session = await createTelegramMiniAppSession({ initData });
         setSessionToken(session.token);
         setUser(session.user);
+        setSupportUrl(session.supportUrl || null);
+        setLinkedAccount(session.linkedAccount || null);
         sessionStorage.setItem('tg_session_token', session.token);
-        setIsMock(false);
       } catch (err) {
         console.error('Failed to create session', err);
         // Fail closed
         setSessionToken(null);
         setUser(null);
+        setSupportUrl(null);
+        setLinkedAccount(null);
         sessionStorage.removeItem('tg_session_token');
-        setIsMock(false);
       } finally {
         setIsLoading(false);
       }
@@ -67,14 +72,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ sessionToken, user, isMock, isLoading }}>
+    <AuthContext.Provider value={{ sessionToken, user, supportUrl, linkedAccount, isLoading }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
 export function useAuthHeaders(): Record<string, string> {
-  const { sessionToken, isMock } = useAuth();
-  if (isMock || !sessionToken) return {};
+  const { sessionToken } = useAuth();
+  if (!sessionToken) return {};
   return { Authorization: `Bearer ${sessionToken}` };
 }

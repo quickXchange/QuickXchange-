@@ -6,11 +6,18 @@ import {
 } from "@workspace/db";
 import { verifyOrderTrackingToken } from "../lib/order-access";
 import { ApiError } from "../lib/api-error";
+import { createTelegramLinkChallenge } from "../lib/telegram-link";
 
 const router: IRouter = Router();
 const SESSION_TTL_MS = 15 * 60_000;
+export function telegramAccountLinkRelativeUrl(token: string): string {
+  return `/telegram/connect?token=${encodeURIComponent(token)}`;
+}
 
-type MiniUser = { id: number; username?: string; first_name?: string; last_name?: string };
+type MiniUser = {
+  id: number; username?: string; first_name?: string; last_name?: string;
+  languageCode?: string; photoUrl?: string;
+};
 type Session = { v: 1; userId: string; chatId: string; exp: number };
 
 export function validateTelegramMiniAppInitData(raw: string, now = Date.now()): MiniUser {
@@ -35,9 +42,13 @@ export function validateTelegramMiniAppInitData(raw: string, now = Date.now()): 
   }
   let user: unknown;
   try { user = JSON.parse(params.get("user") ?? ""); } catch { throw new Error("Telegram user is missing."); }
-  const parsed = user as Partial<MiniUser>;
+  const parsed = user as Partial<MiniUser> & { language_code?: string; photo_url?: string };
   if (!Number.isSafeInteger(parsed.id) || Number(parsed.id) <= 0) throw new Error("Invalid Telegram user.");
-  return parsed as MiniUser;
+  const languageCode = typeof parsed.language_code === "string" && /^[A-Za-z]{2,3}(?:-[A-Za-z]{2,8})?$/.test(parsed.language_code)
+    ? parsed.language_code : undefined;
+  const photoUrl = typeof parsed.photo_url === "string" && /^https:\/\//i.test(parsed.photo_url)
+    ? parsed.photo_url : undefined;
+  return { ...parsed, languageCode, photoUrl } as MiniUser;
 }
 
 function sessionSecret() {
@@ -74,19 +85,55 @@ async function authenticated(req: { headers: { authorization?: string } }) {
 }
 
 function manualProjection(row: typeof ordersTable.$inferSelect, link: typeof telegramOrderLinksTable.$inferSelect) {
+  const snapshot = row.settlementSnapshot as { source?: Record<string, unknown>; target?: Record<string, unknown> } | null;
+  const paymentApplicable = row.type === "manual" && snapshot?.source?.kind === "fiat-payment-method" && snapshot?.target?.kind === "crypto-network";
+  const paymentDetails = paymentApplicable ? safePaymentDetails(row.paymentDetails) : undefined;
   return {
-    id: row.id, orderKind: link.orderKind, status: row.status, fromAsset: row.fromAsset, toAsset: row.toAsset,
+    id: row.id, orderKind: link.orderKind, type: row.type, status: row.status, fromAsset: row.fromAsset, fromNetwork: row.fromNetwork || undefined,
+    sourceSettlementOptionId: row.sourceSettlementOptionId || undefined, toAsset: row.toAsset, toNetwork: row.toNetwork || undefined,
+    targetSettlementOptionId: row.targetSettlementOptionId || undefined,
     amount: row.amount, receiveAmount: row.receiveAmount, trackingToken: link.trackingToken,
-    createdAt: row.createdAt, outcomeUnknown: row.outcomeUnknown, customerSafeNote: row.customerSafeNote,
+    networks: [row.fromNetwork, row.toNetwork].filter(Boolean),
+    manualSettlementState: row.type === "manual" ? row.manualSettlementState : undefined,
+    fundingStatus: row.type === "manual" ? row.fundingStatus : undefined,
+    fundingSource: row.type === "manual" ? row.fundingProviderSource : undefined,
+    depositAddress: row.type === "manual" && ["ready_whitebit", "ready_manual"].includes(row.fundingStatus) ? row.depositAddress || undefined : undefined,
+    depositMemo: row.type === "manual" && ["ready_whitebit", "ready_manual"].includes(row.fundingStatus) ? row.depositMemo || undefined : undefined,
+    settlementDetails: row.type === "manual" ? row.settlementDetails ?? undefined : undefined,
+    paymentDetails, paymentDetailsApplicable: paymentApplicable, sourcePaymentMethod: safeSourcePaymentMethod(row),
+    customerMarkedPaidAt: row.customerMarkedPaidAt?.toISOString() ?? null,
+    createdAt: row.createdAt, outcomeUnknown: row.outcomeUnknown, refreshUnavailable: false, customerSafeNote: row.customerSafeNote,
+    logos: { from: snapshot?.source?.logoUrl, to: snapshot?.target?.logoUrl },
   };
 }
 function quickexProjection(row: typeof quickexOrdersTable.$inferSelect, link: typeof telegramOrderLinksTable.$inferSelect) {
-  const route = (row.route ?? {}) as { fromAsset?: string; toAsset?: string };
+  const route = (row.route ?? {}) as { fromAsset?: string; fromNetwork?: string; toAsset?: string; toNetwork?: string };
   const amounts = (row.amounts ?? {}) as { amount?: string; receiveAmount?: string };
   return {
-    id: row.legacyOrderId, orderKind: link.orderKind, status: row.status, fromAsset: route.fromAsset ?? "",
+    id: row.legacyOrderId, orderKind: link.orderKind, type: "convert", status: row.status, fromAsset: route.fromAsset ?? "",
     toAsset: route.toAsset ?? "", amount: amounts.amount ?? "", receiveAmount: amounts.receiveAmount ?? "",
+    fromNetwork: route.fromNetwork, toNetwork: route.toNetwork, networks: [route.fromNetwork, route.toNetwork].filter(Boolean),
     trackingToken: link.trackingToken, createdAt: row.createdAt, outcomeUnknown: row.outcomeUnknown,
+    refreshUnavailable: false, paymentDetailsApplicable: false,
+  };
+}
+
+function safePaymentDetails(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const allowed = ["name", "iban", "bankName", "bicSwift", "accountNumber", "paymentReference", "reference", "amount", "customInstructions"];
+  const source = value as Record<string, unknown>;
+  const result = Object.fromEntries(allowed.filter(key => typeof source[key] === "string" && source[key].trim()).map(key => [key, source[key]]));
+  return Object.keys(result).length ? result : undefined;
+}
+function safeSourcePaymentMethod(row: typeof ordersTable.$inferSelect) {
+  const snapshot = row.settlementSnapshot as { source?: Record<string, unknown> } | null;
+  const source = snapshot?.source;
+  if (!source || source.kind !== "fiat-payment-method") return undefined;
+  return {
+    id: typeof source.id === "string" ? source.id : row.sourceSettlementOptionId || undefined,
+    name: typeof source.title === "string" ? source.title : row.fromNetwork || undefined,
+    paymentMethodId: typeof source.paymentMethodId === "string" ? source.paymentMethodId : undefined,
+    logoUrl: typeof source.logoUrl === "string" ? source.logoUrl : undefined,
   };
 }
 
@@ -126,7 +173,8 @@ router.post("/telegram/mini-app/session", async (req, res): Promise<void> => {
     res.json({
       token: signSession({ v: 1, userId: chat.userId, chatId: chat.chatId, exp: expiresAt }),
       expiresAt: new Date(expiresAt).toISOString(),
-      user: { id: String(user.id), displayName: [user.first_name, user.last_name].filter(Boolean).join(" ") || user.username || String(user.id), username: user.username ?? null, firstName: user.first_name ?? null, lastName: user.last_name ?? null },
+      user: { id: String(user.id), displayName: [user.first_name, user.last_name].filter(Boolean).join(" ") || user.username || String(user.id), username: user.username ?? null, firstName: user.first_name ?? null, lastName: user.last_name ?? null, languageCode: user.languageCode ?? null, photoUrl: user.photoUrl ?? null },
+      supportUrl: process.env.TELEGRAM_SUPPORT_URL?.trim() || null,
       linkedAccount: Boolean(chat.clerkCustomerUserId),
     });
   } catch (error) {
@@ -136,7 +184,7 @@ router.post("/telegram/mini-app/session", async (req, res): Promise<void> => {
 });
 
 router.get("/telegram/mini-app/orders", async (req, res): Promise<void> => {
-  try { const { session } = await authenticated(req); res.json(await findOrders(session.chatId)); }
+  try { const { session } = await authenticated(req); res.set("Cache-Control", "no-store"); res.json(await findOrders(session.chatId)); }
   catch (error) {
     const apiError = error instanceof ApiError ? error : new ApiError("TELEGRAM_AUTH_REQUIRED", error instanceof Error ? error.message : "Authentication required.", 401);
     res.status(apiError.status).json({ error: apiError.message, code: apiError.code, retryable: apiError.retryable, outcomeUnknown: apiError.outcomeUnknown });
@@ -148,7 +196,20 @@ router.get("/telegram/mini-app/orders/:id", async (req, res): Promise<void> => {
     const orders = await findOrders(session.chatId);
     const found = orders.find(order => order.id === req.params.id);
     if (!found) { const error = new ApiError("ORDER_NOT_FOUND", "Order not found.", 404); res.status(404).json({ error: error.message, code: error.code, retryable: false, outcomeUnknown: false }); return; }
-    res.json(found);
+    res.set("Cache-Control", "no-store"); res.json(found);
+  } catch (error) {
+    const apiError = error instanceof ApiError ? error : new ApiError("TELEGRAM_AUTH_REQUIRED", error instanceof Error ? error.message : "Authentication required.", 401);
+    res.status(apiError.status).json({ error: apiError.message, code: apiError.code, retryable: apiError.retryable, outcomeUnknown: apiError.outcomeUnknown });
+  }
+});
+
+router.post("/telegram/mini-app/account-link", async (req, res): Promise<void> => {
+  try {
+    const { session } = await authenticated(req);
+    const intent = req.body?.intent;
+    if (intent !== "signin" && intent !== "signup") throw new ApiError("TELEGRAM_LINK_INVALID", "Link intent must be signin or signup.", 400);
+    const token = await createTelegramLinkChallenge(session.chatId, session.userId, intent);
+    res.json({ relativeUrl: telegramAccountLinkRelativeUrl(token) });
   } catch (error) {
     const apiError = error instanceof ApiError ? error : new ApiError("TELEGRAM_AUTH_REQUIRED", error instanceof Error ? error.message : "Authentication required.", 401);
     res.status(apiError.status).json({ error: apiError.message, code: apiError.code, retryable: apiError.retryable, outcomeUnknown: apiError.outcomeUnknown });

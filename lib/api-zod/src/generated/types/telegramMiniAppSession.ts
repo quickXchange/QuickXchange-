@@ -12,4 +12,6 @@ export interface TelegramMiniAppSession {
   expiresAt: Date;
   user: TelegramMiniAppUser;
   linkedAccount: boolean;
+  /** @nullable */
+  supportUrl?: string | null;
 }

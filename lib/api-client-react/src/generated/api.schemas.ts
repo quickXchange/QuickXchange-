@@ -5296,6 +5296,10 @@ export interface TelegramMiniAppUser {
   firstName?: string | null;
   /** @nullable */
   lastName?: string | null;
+  /** @nullable */
+  languageCode?: string | null;
+  /** @nullable */
+  photoUrl?: string | null;
 }
 
 export interface TelegramMiniAppSession {
@@ -5303,20 +5307,66 @@ export interface TelegramMiniAppSession {
   expiresAt: string;
   user: TelegramMiniAppUser;
   linkedAccount: boolean;
+  /** @nullable */
+  supportUrl?: string | null;
 }
+
+export type TelegramMiniAppOrderSettlementDetails = { [key: string]: unknown };
+
+export type TelegramMiniAppOrderPaymentDetails = { [key: string]: unknown };
+
+export type TelegramMiniAppOrderSourcePaymentMethod = { [key: string]: unknown };
+
+export type TelegramMiniAppOrderLogos = { [key: string]: unknown };
 
 export interface TelegramMiniAppOrder {
   id: string;
   orderKind: string;
+  type?: string;
   status: string;
   fromAsset?: string;
+  fromNetwork?: string;
+  sourceSettlementOptionId?: string;
   toAsset?: string;
+  toNetwork?: string;
+  targetSettlementOptionId?: string;
+  networks?: string[];
   amount: string;
   receiveAmount: string;
   trackingToken: string;
   createdAt: string;
   outcomeUnknown?: boolean;
   customerSafeNote?: string;
+  manualSettlementState?: string;
+  fundingStatus?: string;
+  fundingSource?: string;
+  depositAddress?: string;
+  depositMemo?: string;
+  settlementDetails?: TelegramMiniAppOrderSettlementDetails;
+  paymentDetails?: TelegramMiniAppOrderPaymentDetails;
+  paymentDetailsApplicable?: boolean;
+  sourcePaymentMethod?: TelegramMiniAppOrderSourcePaymentMethod;
+  /** @nullable */
+  customerMarkedPaidAt?: string | null;
+  refreshUnavailable?: boolean;
+  logos?: TelegramMiniAppOrderLogos;
+}
+
+export type TelegramMiniAppAccountLinkInputIntent = typeof TelegramMiniAppAccountLinkInputIntent[keyof typeof TelegramMiniAppAccountLinkInputIntent];
+
+
+export const TelegramMiniAppAccountLinkInputIntent = {
+  signin: 'signin',
+  signup: 'signup',
+} as const;
+
+export interface TelegramMiniAppAccountLinkInput {
+  intent: TelegramMiniAppAccountLinkInputIntent;
+}
+
+export interface TelegramMiniAppAccountLink {
+  /** @pattern ^/telegram/connect\?token= */
+  relativeUrl: string;
 }
 
 export type TelegramMiniAppOrderLinkInputOrderKind = typeof TelegramMiniAppOrderLinkInputOrderKind[keyof typeof TelegramMiniAppOrderLinkInputOrderKind];

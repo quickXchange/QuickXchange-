@@ -13744,24 +13744,45 @@ export const CreateTelegramMiniAppSessionResponse = zod.object({
   "displayName": zod.string(),
   "username": zod.string().nullish(),
   "firstName": zod.string().nullish(),
-  "lastName": zod.string().nullish()
+  "lastName": zod.string().nullish(),
+  "languageCode": zod.string().nullish(),
+  "photoUrl": zod.string().url().nullish()
 }),
-  "linkedAccount": zod.boolean()
+  "linkedAccount": zod.boolean(),
+  "supportUrl": zod.string().url().nullish()
 })
 
 
 export const ListTelegramMiniAppOrdersResponseItem = zod.object({
   "id": zod.string(),
   "orderKind": zod.string(),
+  "type": zod.string().optional(),
   "status": zod.string(),
   "fromAsset": zod.string().optional(),
+  "fromNetwork": zod.string().optional(),
+  "sourceSettlementOptionId": zod.string().optional(),
   "toAsset": zod.string().optional(),
+  "toNetwork": zod.string().optional(),
+  "targetSettlementOptionId": zod.string().optional(),
+  "networks": zod.array(zod.string()).optional(),
   "amount": zod.string(),
   "receiveAmount": zod.string(),
   "trackingToken": zod.string(),
   "createdAt": zod.coerce.date(),
   "outcomeUnknown": zod.boolean().optional(),
-  "customerSafeNote": zod.string().optional()
+  "customerSafeNote": zod.string().optional(),
+  "manualSettlementState": zod.string().optional(),
+  "fundingStatus": zod.string().optional(),
+  "fundingSource": zod.string().optional(),
+  "depositAddress": zod.string().optional(),
+  "depositMemo": zod.string().optional(),
+  "settlementDetails": zod.record(zod.string(), zod.unknown()).optional(),
+  "paymentDetails": zod.record(zod.string(), zod.unknown()).optional(),
+  "paymentDetailsApplicable": zod.boolean().optional(),
+  "sourcePaymentMethod": zod.record(zod.string(), zod.unknown()).optional(),
+  "customerMarkedPaidAt": zod.coerce.date().nullish(),
+  "refreshUnavailable": zod.boolean().optional(),
+  "logos": zod.record(zod.string(), zod.unknown()).optional()
 })
 export const ListTelegramMiniAppOrdersResponse = zod.array(ListTelegramMiniAppOrdersResponseItem)
 
@@ -13777,15 +13798,33 @@ export const GetTelegramMiniAppOrderParams = zod.object({
 export const GetTelegramMiniAppOrderResponse = zod.object({
   "id": zod.string(),
   "orderKind": zod.string(),
+  "type": zod.string().optional(),
   "status": zod.string(),
   "fromAsset": zod.string().optional(),
+  "fromNetwork": zod.string().optional(),
+  "sourceSettlementOptionId": zod.string().optional(),
   "toAsset": zod.string().optional(),
+  "toNetwork": zod.string().optional(),
+  "targetSettlementOptionId": zod.string().optional(),
+  "networks": zod.array(zod.string()).optional(),
   "amount": zod.string(),
   "receiveAmount": zod.string(),
   "trackingToken": zod.string(),
   "createdAt": zod.coerce.date(),
   "outcomeUnknown": zod.boolean().optional(),
-  "customerSafeNote": zod.string().optional()
+  "customerSafeNote": zod.string().optional(),
+  "manualSettlementState": zod.string().optional(),
+  "fundingStatus": zod.string().optional(),
+  "fundingSource": zod.string().optional(),
+  "depositAddress": zod.string().optional(),
+  "depositMemo": zod.string().optional(),
+  "settlementDetails": zod.record(zod.string(), zod.unknown()).optional(),
+  "paymentDetails": zod.record(zod.string(), zod.unknown()).optional(),
+  "paymentDetailsApplicable": zod.boolean().optional(),
+  "sourcePaymentMethod": zod.record(zod.string(), zod.unknown()).optional(),
+  "customerMarkedPaidAt": zod.coerce.date().nullish(),
+  "refreshUnavailable": zod.boolean().optional(),
+  "logos": zod.record(zod.string(), zod.unknown()).optional()
 })
 
 
@@ -13804,13 +13843,43 @@ export const LinkTelegramMiniAppOrderBody = zod.object({
 export const LinkTelegramMiniAppOrderResponse = zod.object({
   "id": zod.string(),
   "orderKind": zod.string(),
+  "type": zod.string().optional(),
   "status": zod.string(),
   "fromAsset": zod.string().optional(),
+  "fromNetwork": zod.string().optional(),
+  "sourceSettlementOptionId": zod.string().optional(),
   "toAsset": zod.string().optional(),
+  "toNetwork": zod.string().optional(),
+  "targetSettlementOptionId": zod.string().optional(),
+  "networks": zod.array(zod.string()).optional(),
   "amount": zod.string(),
   "receiveAmount": zod.string(),
   "trackingToken": zod.string(),
   "createdAt": zod.coerce.date(),
   "outcomeUnknown": zod.boolean().optional(),
-  "customerSafeNote": zod.string().optional()
+  "customerSafeNote": zod.string().optional(),
+  "manualSettlementState": zod.string().optional(),
+  "fundingStatus": zod.string().optional(),
+  "fundingSource": zod.string().optional(),
+  "depositAddress": zod.string().optional(),
+  "depositMemo": zod.string().optional(),
+  "settlementDetails": zod.record(zod.string(), zod.unknown()).optional(),
+  "paymentDetails": zod.record(zod.string(), zod.unknown()).optional(),
+  "paymentDetailsApplicable": zod.boolean().optional(),
+  "sourcePaymentMethod": zod.record(zod.string(), zod.unknown()).optional(),
+  "customerMarkedPaidAt": zod.coerce.date().nullish(),
+  "refreshUnavailable": zod.boolean().optional(),
+  "logos": zod.record(zod.string(), zod.unknown()).optional()
+})
+
+
+export const CreateTelegramMiniAppAccountLinkBody = zod.object({
+  "intent": zod.enum(['signin', 'signup'])
+})
+
+export const createTelegramMiniAppAccountLinkResponseRelativeUrlRegExp = new RegExp('^/telegram/connect\\?token=');
+
+
+export const CreateTelegramMiniAppAccountLinkResponse = zod.object({
+  "relativeUrl": zod.string().regex(createTelegramMiniAppAccountLinkResponseRelativeUrlRegExp)
 })

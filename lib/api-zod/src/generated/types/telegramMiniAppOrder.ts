@@ -5,17 +5,40 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { TelegramMiniAppOrderLogos } from './telegramMiniAppOrderLogos';
+import type { TelegramMiniAppOrderPaymentDetails } from './telegramMiniAppOrderPaymentDetails';
+import type { TelegramMiniAppOrderSettlementDetails } from './telegramMiniAppOrderSettlementDetails';
+import type { TelegramMiniAppOrderSourcePaymentMethod } from './telegramMiniAppOrderSourcePaymentMethod';
 
 export interface TelegramMiniAppOrder {
   id: string;
   orderKind: string;
+  type?: string;
   status: string;
   fromAsset?: string;
+  fromNetwork?: string;
+  sourceSettlementOptionId?: string;
   toAsset?: string;
+  toNetwork?: string;
+  targetSettlementOptionId?: string;
+  networks?: string[];
   amount: string;
   receiveAmount: string;
   trackingToken: string;
   createdAt: Date;
   outcomeUnknown?: boolean;
   customerSafeNote?: string;
+  manualSettlementState?: string;
+  fundingStatus?: string;
+  fundingSource?: string;
+  depositAddress?: string;
+  depositMemo?: string;
+  settlementDetails?: TelegramMiniAppOrderSettlementDetails;
+  paymentDetails?: TelegramMiniAppOrderPaymentDetails;
+  paymentDetailsApplicable?: boolean;
+  sourcePaymentMethod?: TelegramMiniAppOrderSourcePaymentMethod;
+  /** @nullable */
+  customerMarkedPaidAt?: Date | null;
+  refreshUnavailable?: boolean;
+  logos?: TelegramMiniAppOrderLogos;
 }

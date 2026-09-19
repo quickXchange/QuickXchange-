@@ -1,9 +1,10 @@
-import { type ReactNode, useEffect } from 'react';
+import { type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
+import { ShieldAlert } from 'lucide-react';
 
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { Shell } from '@/components/layout';
@@ -12,6 +13,7 @@ import Home from '@/pages/home';
 import Exchange from '@/pages/exchange';
 import Orders from '@/pages/orders';
 import OrderDetail from '@/pages/order-detail';
+import Track from '@/pages/track';
 import Support from '@/pages/support';
 import Account from '@/pages/account';
 import NotFound from '@/pages/not-found';
@@ -26,22 +28,29 @@ const queryClient = new QueryClient({
 });
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
-  const { isLoading, sessionToken, isMock } = useAuth();
+  const { isLoading, sessionToken } = useAuth();
   
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-background">
+        <div className="relative">
+          <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
+          <div className="w-10 h-10 rounded-full border-[3px] border-primary/30 border-t-primary animate-spin relative z-10" />
+        </div>
       </div>
     );
   }
 
-  if (!sessionToken && !isMock) {
+  if (!sessionToken) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] p-6 text-center">
-        <h2 className="text-xl font-bold text-foreground mb-2">Auth Error</h2>
-        <p className="text-muted-foreground text-sm">
-          Please open this app from Telegram to access all features.
+      <div className="flex flex-col items-center justify-center min-h-[100dvh] p-6 text-center premium-glow-bg bg-background">
+        <div className="w-16 h-16 rounded-3xl bg-destructive/10 flex items-center justify-center text-destructive mb-6 shadow-lg shadow-destructive/20 relative">
+          <div className="absolute inset-0 bg-destructive/20 blur-xl rounded-3xl" />
+          <ShieldAlert className="w-8 h-8 relative z-10" />
+        </div>
+        <h2 className="text-2xl font-bold text-foreground mb-3 tracking-tight">Open in Telegram</h2>
+        <p className="text-muted-foreground text-sm max-w-[260px] leading-relaxed">
+          QuickXchange is designed to be used securely inside Telegram. Please open the bot to access your account.
         </p>
       </div>
     );
@@ -58,6 +67,7 @@ function Router() {
           <Route path="/" component={() => <ProtectedRoute component={Home} />} />
           <Route path="/exchange" component={() => <ProtectedRoute component={Exchange} />} />
           <Route path="/orders" component={() => <ProtectedRoute component={Orders} />} />
+          <Route path="/track" component={() => <ProtectedRoute component={Track} />} />
           <Route path="/orders/:id" component={() => <ProtectedRoute component={OrderDetail} />} />
           <Route path="/support" component={() => <ProtectedRoute component={Support} />} />
           <Route path="/account" component={() => <ProtectedRoute component={Account} />} />
