@@ -5,10 +5,10 @@ import { cn } from '@/lib/utils';
 export type MiniAppLogoSize = 'small' | 'normal' | 'medium' | 'large';
 
 const sizeClasses: Record<MiniAppLogoSize, { container: string; image: string; text: string; badge: string }> = {
-  small: { container: 'w-6 h-6', image: 'max-w-4 max-h-4', text: 'text-[8px]', badge: 'w-2.5 h-2.5 -right-0.5 -bottom-0.5' },
-  normal: { container: 'w-8 h-8', image: 'max-w-5 max-h-5', text: 'text-[9px]', badge: 'w-3 h-3 -right-0.5 -bottom-0.5' },
-  medium: { container: 'w-10 h-10', image: 'max-w-7 max-h-7', text: 'text-[10px]', badge: 'w-3.5 h-3.5 -right-0.5 -bottom-0.5' },
-  large: { container: 'w-14 h-14', image: 'max-w-10 max-h-10', text: 'text-xs', badge: 'w-4.5 h-4.5 -right-0.5 -bottom-0.5' },
+  small: { container: 'w-6 h-6', image: 'w-4 h-4', text: 'text-[8px]', badge: 'w-2.5 h-2.5 -right-0.5 -bottom-0.5' },
+  normal: { container: 'w-8 h-8', image: 'w-5 h-5', text: 'text-[9px]', badge: 'w-3 h-3 -right-0.5 -bottom-0.5' },
+  medium: { container: 'w-10 h-10', image: 'w-7 h-7', text: 'text-[10px]', badge: 'w-3.5 h-3.5 -right-0.5 -bottom-0.5' },
+  large: { container: 'w-14 h-14', image: 'w-10 h-10', text: 'text-xs', badge: 'w-4.5 h-4.5 -right-0.5 -bottom-0.5' },
 };
 
 export function normalizeMiniAppImageUrl(url?: string | null) {
@@ -18,6 +18,7 @@ export function normalizeMiniAppImageUrl(url?: string | null) {
 
 export function MiniAppLogo({
   src,
+  fallbackSrcs = [],
   badgeSrc,
   fallback,
   alt = '',
@@ -27,6 +28,7 @@ export function MiniAppLogo({
   className,
 }: {
   src?: string | null;
+  fallbackSrcs?: Array<string | null | undefined>;
   badgeSrc?: string | null;
   fallback?: string | null;
   alt?: string;
@@ -35,14 +37,21 @@ export function MiniAppLogo({
   variant?: 'asset' | 'payment';
   className?: string;
 }) {
-  const normalizedSrc = normalizeMiniAppImageUrl(src);
+  const sources = Array.from(new Set(
+    [src, ...fallbackSrcs]
+      .map(normalizeMiniAppImageUrl)
+      .filter((value): value is string => Boolean(value)),
+  ));
+  const sourceKey = sources.join('\0');
   const normalizedBadge = normalizeMiniAppImageUrl(badgeSrc);
-  const [mainFailed, setMainFailed] = useState(false);
+  const [sourceIndex, setSourceIndex] = useState(0);
   const [badgeFailed, setBadgeFailed] = useState(false);
   const classes = sizeClasses[size];
 
-  useEffect(() => setMainFailed(false), [normalizedSrc]);
+  useEffect(() => setSourceIndex(0), [sourceKey]);
   useEffect(() => setBadgeFailed(false), [normalizedBadge]);
+
+  const currentSrc = sources[sourceIndex];
 
   return (
     <span className={cn(
@@ -52,24 +61,13 @@ export function MiniAppLogo({
       classes.container,
       className,
     )}>
-      {normalizedSrc && !mainFailed ? (
-        variant === 'payment' ? (
-          <span className={cn('inline-grid aspect-square place-items-center overflow-hidden rounded-full', classes.image)}>
-            <img
-              src={normalizedSrc}
-              alt={alt}
-              className="block h-full w-full rounded-full object-contain object-center"
-              onError={() => setMainFailed(true)}
-            />
-          </span>
-        ) : (
-          <img
-            src={normalizedSrc}
-            alt={alt}
-            className={cn('block object-contain', classes.image)}
-            onError={() => setMainFailed(true)}
-          />
-        )
+      {currentSrc ? (
+        <img
+          src={currentSrc}
+          alt={alt}
+          className={cn('block object-contain object-center', classes.image)}
+          onError={() => setSourceIndex(index => index + 1)}
+        />
       ) : (
         <span className={cn('font-bold uppercase tracking-tight text-primary', classes.text)}>
           {(fallback || '?').slice(0, 4)}
@@ -77,13 +75,16 @@ export function MiniAppLogo({
       )}
       {normalizedBadge && !badgeFailed && (
         <span className={cn(
-          'absolute overflow-hidden rounded-full border-2 border-background bg-background shadow-sm',
+          'absolute overflow-hidden rounded-full border-2 border-background bg-background shadow-sm flex items-center justify-center',
           classes.badge,
         )}>
           <img
             src={normalizedBadge}
             alt=""
-            className={cn('h-full w-full rounded-full', badgeVariant === 'flag' ? 'object-cover' : 'object-contain p-px')}
+            className={cn(
+              'h-full w-full rounded-full object-contain object-center',
+              badgeVariant === 'network' && 'p-[1px]',
+            )}
             onError={() => setBadgeFailed(true)}
           />
         </span>
