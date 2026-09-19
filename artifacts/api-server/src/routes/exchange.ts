@@ -1318,7 +1318,7 @@ router.get("/exchange/config", async (_req, res, next) => {
 
 router.get("/exchange/popular-pairs", async (_req, res, next) => {
   try {
-    res.setHeader("cache-control", "public, max-age=60, s-maxage=300, stale-while-revalidate=900");
+    res.setHeader("cache-control", "no-store");
     res.json(GetPopularExchangePairsResponse.parse(await getPopularExchangePairs()));
   } catch (error) {
     next(error);

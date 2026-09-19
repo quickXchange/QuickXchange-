@@ -42,3 +42,17 @@ mtime_ms = 1789789086034
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/8bb21d48-f889-4f70-b82d-ebdcbb5f5703/35edcf91-30c1-45b7-8dc2-22c70f1f4f93"
 storage_version_token = "1789789092707257"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "yMUwJ7uf1nta74Ides6E1"
+uri = "file://exports/quickxchange-workspace-config-2026-09-19.json"
+type = "unspecified"
+title = "QuickXchange workspace configuration snapshot"
+description = "Validated Development configuration snapshot for the Owner-only Production dry-run and apply flow. Contains no test fixtures, credentials, customer data, orders, or receiving-wallet addresses."
+logical_id = "d1400d69-247d-483d-8706-f9c707af8799"
+content_hash = "sha256:0dbff6d7259871c44df241b75dd80b867d77b822f4c7d996488a7e58f28d369e"
+size = 277347
+mtime_ms = 1789831960010
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/d1400d69-247d-483d-8706-f9c707af8799/d20b2933-ced9-4691-8d6d-b9f98e55effd"
+storage_version_token = "1789832075019824"
+content_type = "application/octet-stream"

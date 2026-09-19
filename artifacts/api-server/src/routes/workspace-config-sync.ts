@@ -10,6 +10,12 @@ import { requireOwner } from "../lib/operator-auth";
 import { ApiError } from "../lib/api-error";
 import { getVerifiedStoredLogo } from "../lib/object-storage";
 import { parseWorkspaceConfigSnapshot, validateSnapshotReferences, type WorkspaceConfigSnapshot } from "../lib/workspace-config-sync-helpers";
+import { invalidatePopularExchangePairsCache } from "../lib/popular-exchange-pairs";
+import { invalidateManualDeskFiatRateCache } from "../lib/manual-desk-rates";
+import {
+  createCustomerDepositEligibilityContext,
+  reconcileCryptoCustomerDepositEligibilityWithExecutor,
+} from "../lib/customer-deposit-eligibility";
 
 type Executor = any;
 type Action = "add" | "update" | "softDisable" | "unchanged";
@@ -176,7 +182,8 @@ router.post("/admin/workspace-config/apply", requireOwner, async (req, res, next
     const expectedStateHash = req.body?.expectedStateHash;
     if (typeof expectedStateHash !== "string" || !expectedStateHash) throw new ApiError("WORKSPACE_CONFIG_PREVIEW_REQUIRED", "Preview the current configuration immediately before applying.", 409);
     const actorId = String(res.locals.operator.id);
-    const counts = await db.transaction(async (tx) => {
+    const eligibilityContext = await createCustomerDepositEligibilityContext();
+    const result = await db.transaction(async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(2026091901)`);
       const before = await calculate(snapshot, tx);
       if (before.stateHash !== expectedStateHash) throw new ApiError("WORKSPACE_CONFIG_CHANGED", "Configuration changed after preview. Review a fresh preview before applying.", 409);
@@ -276,9 +283,16 @@ router.post("/admin/workspace-config/apply", requireOwner, async (req, res, next
           });
         }
       }
-      return before.counts;
+      const depositEligibility = await reconcileCryptoCustomerDepositEligibilityWithExecutor(
+        tx,
+        eligibilityContext,
+      );
+      return { counts: before.counts, depositEligibility };
     });
-    res.json({ ok: true, applied: true, counts });
+    invalidatePopularExchangePairsCache();
+    invalidateManualDeskFiatRateCache();
+    res.setHeader("cache-control", "no-store");
+    res.json({ ok: true, applied: true, ...result });
   } catch (e) { next(e); }
 });
 export default router;

@@ -33,6 +33,8 @@ export type CustomerDepositEligibilityContext = {
   whitebitCapabilities: WhitebitCapabilitySnapshot | null;
 };
 
+type EligibilityExecutor = Pick<typeof db, "select" | "update">;
+
 export async function createCustomerDepositEligibilityContext(): Promise<CustomerDepositEligibilityContext> {
   const status = await whitebitSwapStatus();
   if (!status.enabled || status.state !== "ready" || !status.credentialsReady) {
@@ -75,10 +77,11 @@ export function isCustomerDepositEligible(
   return false;
 }
 
-export async function reconcileCryptoCustomerDepositEligibility() {
-  const context = await createCustomerDepositEligibilityContext();
-  return db.transaction(async (tx) => {
-    const rows = await tx.select({
+export async function reconcileCryptoCustomerDepositEligibilityWithExecutor(
+  executor: EligibilityExecutor,
+  context: CustomerDepositEligibilityContext,
+) {
+    const rows = await executor.select({
       network: cryptoAssetNetworksTable,
       assetCode: cryptoAssetsTable.code,
     }).from(cryptoAssetNetworksTable)
@@ -92,12 +95,12 @@ export async function reconcileCryptoCustomerDepositEligibility() {
       .filter(({ network }) => !eligibleIds.has(network.id))
       .map(({ network }) => network.id);
     if (enabledIds.length) {
-      await tx.update(cryptoAssetNetworksTable)
+      await executor.update(cryptoAssetNetworksTable)
         .set({ customerDepositsEnabled: true })
         .where(inArray(cryptoAssetNetworksTable.id, enabledIds));
     }
     if (disabledIds.length) {
-      await tx.update(cryptoAssetNetworksTable)
+      await executor.update(cryptoAssetNetworksTable)
         .set({ customerDepositsEnabled: false })
         .where(inArray(cryptoAssetNetworksTable.id, disabledIds));
     }
@@ -108,5 +111,11 @@ export async function reconcileCryptoCustomerDepositEligibility() {
         network.customerDepositsEnabled !== eligibleIds.has(network.id)
       ).length,
     };
+}
+
+export async function reconcileCryptoCustomerDepositEligibility() {
+  const context = await createCustomerDepositEligibilityContext();
+  return db.transaction(async (tx) => {
+    return reconcileCryptoCustomerDepositEligibilityWithExecutor(tx, context);
   });
 }

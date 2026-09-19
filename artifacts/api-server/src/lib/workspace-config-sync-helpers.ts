@@ -83,12 +83,14 @@ export function duplicateValues(values: string[]): string[] {
 
 export function validateSnapshotReferences(snapshot: WorkspaceConfigSnapshot): string[] {
   const errors: string[] = [];
+  const strandedTestFixture = /^(?:bulk|wallet)-(?:asset|network)-/;
   const assetIds = new Set(snapshot.cryptoAssets.map((asset) => asset.id));
   const assetCodes = new Set<string>();
   for (const duplicate of duplicateValues(snapshot.cryptoAssets.map((asset) => asset.id))) {
     errors.push(`Duplicate crypto asset id: ${duplicate}`);
   }
   for (const asset of snapshot.cryptoAssets) {
+    if (strandedTestFixture.test(asset.id)) errors.push(`Test fixture crypto asset cannot be synchronized: ${asset.id}`);
     const code = asset.code.trim().toUpperCase();
     if (assetCodes.has(code)) errors.push(`Duplicate crypto asset code: ${asset.code}`);
     assetCodes.add(code);
@@ -96,6 +98,7 @@ export function validateSnapshotReferences(snapshot: WorkspaceConfigSnapshot): s
   const networkKeys = new Set<string>();
   const networkIds = new Set<string>();
   for (const network of snapshot.cryptoNetworks) {
+    if (strandedTestFixture.test(network.id)) errors.push(`Test fixture crypto network cannot be synchronized: ${network.id}`);
     if (networkIds.has(network.id)) errors.push(`Duplicate crypto network id: ${network.id}`);
     networkIds.add(network.id);
     if (!assetIds.has(network.assetId)) errors.push(`Network ${network.id} references missing asset ${network.assetId}`);

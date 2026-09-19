@@ -16,6 +16,7 @@ const databaseUrl = process.env.DATABASE_URL ?? "";
 let databaseName = "";
 try { databaseName = new URL(databaseUrl).pathname.replace(/^\//, ""); } catch {}
 if (databaseName !== "heliumdb") throw new Error(`Refusing to export from unexpected database "${databaseName || "unknown"}".`);
+const strandedTestFixture = /^(?:bulk|wallet)-(?:asset|network)-/;
 
 async function main() {
 const [assets, networks, fiats, methods, links, rules, revisions, publications, backgrounds] = await Promise.all([
@@ -26,6 +27,13 @@ const [assets, networks, fiats, methods, links, rules, revisions, publications, 
   db.select().from(sitePublicationRevisionsTable).orderBy(desc(sitePublicationRevisionsTable.version)),
   db.select().from(landingBackgroundSettingsTable).orderBy(desc(landingBackgroundSettingsTable.version)),
 ]);
+const strandedFixtures = [
+  ...assets.filter(({ id }) => strandedTestFixture.test(id)).map(({ id }) => id),
+  ...networks.filter(({ id }) => strandedTestFixture.test(id)).map(({ id }) => id),
+];
+if (strandedFixtures.length) {
+  throw new Error(`Refusing to export stranded API-test catalog fixtures: ${strandedFixtures.join(", ")}`);
+}
 if (backgrounds[0]?.mode === "custom") throw new Error("Custom landing backgrounds require an explicit object-storage transfer and cannot be exported automatically.");
 const fiatById = new Map(fiats.map((f) => [f.id, f.code]));
 const latestPages = [...new Map(revisions.map((r) => [r.pageKey, r])).values()];

@@ -2521,6 +2521,15 @@ function AdminOverview() {
     setConfigSyncError('');
     try {
       const result = await requestConfigSync('apply', configSnapshot);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: getGetFiatCurrenciesQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: getGetPaymentMethodsQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: getGetFiatCurrencyPaymentMethodsQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: getListManualDeskPricingRulesQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: getGetCryptoAssetsQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
+      ]);
       setConfigSyncPreview(result);
       setConfigSyncApplied(true);
     } catch (error) {

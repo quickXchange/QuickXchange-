@@ -3266,11 +3266,11 @@ test("owner receiving-wallet updates use exact asset-network rows and keep share
     assert.ok(afterOptionalMemoSave.every(row => row.sharedDepositAddress === "should-not-commit"));
     assert.ok(afterOptionalMemoSave.every(row => row.sharedDepositMemo === null));
   } finally {
-    await api.close();
     await db.delete(cryptoAssetNetworksTable)
       .where(inArray(cryptoAssetNetworksTable.id, [networkAId, networkBId, differentNetworkId]));
     await db.delete(cryptoAssetsTable).where(inArray(cryptoAssetsTable.id, [assetAId, assetBId]));
     await db.delete(operatorsTable).where(eq(operatorsTable.id, operator.id));
+    await api.close();
   }
 });
 
@@ -3443,12 +3443,12 @@ test("owner crypto asset bulk edits are atomic and preserve omitted network sett
     assert.equal(assetAfterInvalidOutput.enabled, true);
     assert.equal(networkAfterInvalidOutput.requiresMemo, false);
   } finally {
-    await api.close();
     await db.delete(cryptoAssetNetworksTable)
       .where(inArray(cryptoAssetNetworksTable.id, [networkAId, networkBId]));
     await db.delete(cryptoAssetsTable)
       .where(inArray(cryptoAssetsTable.id, [assetAId, assetBId]));
     await db.delete(operatorsTable).where(eq(operatorsTable.id, operator.id));
+    await api.close();
   }
 });
 
