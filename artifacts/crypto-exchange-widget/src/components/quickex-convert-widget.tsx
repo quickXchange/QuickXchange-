@@ -16,6 +16,7 @@ import { CryptoIdentity } from '@/components/crypto-identity';
 import { trackEvent } from '@/lib/analytics';
 import { useI18n } from '@/i18n/provider';
 import { useLocation, useSearch } from 'wouter';
+import { useSwapAnimator } from '@/components/use-swap-animator';
 import {
   MARKET_CONVERT_SELECTION_EVENT,
   type MarketConvertSelection,
@@ -161,7 +162,6 @@ export function QuickexConvertWidget({
   const [notice, setNotice] = useState<Notice | null>(null);
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [quoteExpired, setQuoteExpired] = useState(false);
-  const [swapFlipped, setSwapFlipped] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [createOutcomeUncertain, setCreateOutcomeUncertain] = useState(false);
   const requestId = useRef(crypto.randomUUID());
@@ -358,12 +358,13 @@ export function QuickexConvertWidget({
     return () => window.clearTimeout(timeout);
   }, [quote]);
 
-  const swap = () => {
-    if (!reverseSelection) return false;
+  const swapFn = useCallback(() => {
+    if (!reverseSelection) return;
     setFromSlug(reverseSelection.fromSlug);
     setToSlug(reverseSelection.toSlug);
-    return true;
-  };
+  }, [reverseSelection]);
+
+  const { isSwapping, swapFlipped, triggerSwap } = useSwapAnimator(swapFn);
 
   const moveToStep = (nextStep: 1 | 2 | 3 | 4) => {
     stepFocusPendingRef.current = true;
@@ -537,8 +538,8 @@ export function QuickexConvertWidget({
                 ))}
               </fieldset>
 
-              <div className="convert-quote-flow exchange-flow-stack">
-                <div className="reference-amount-panel amount-stack">
+              <div className={`convert-quote-flow exchange-flow-stack ${isSwapping ? 'is-swapping' : ''}`}>
+                <div className="reference-amount-panel amount-stack panel-from">
                   <div className="reference-amount-header">
                     <span className="reference-amount-label">{t('swap.youSend')}</span>
                   </div>
@@ -564,10 +565,8 @@ export function QuickexConvertWidget({
                   <button
                     type="button"
                     className={`reference-swap-button ${swapFlipped ? 'rotate-180' : ''}`}
-                    onClick={() => {
-                      if (swap()) setSwapFlipped(flipped => !flipped);
-                    }}
-                    disabled={!reverseSelection}
+                    onClick={() => triggerSwap(!!reverseSelection)}
+                    disabled={!reverseSelection || isSwapping}
                     title={reverseSelection ? t('convert.swapAssets') : t('convert.reverseUnavailable')}
                     data-testid="convert-button-swap-assets"
                     aria-label={reverseSelection ? t('convert.swapAssets') : t('convert.reverseUnavailable')}
@@ -577,7 +576,7 @@ export function QuickexConvertWidget({
                   </button>
                 </div>
 
-                <div className="reference-amount-panel amount-stack">
+                <div className="reference-amount-panel amount-stack panel-to">
                   <div className="reference-amount-header">
                     <span className="reference-amount-label">{t('swap.youReceive')}</span>
                   </div>

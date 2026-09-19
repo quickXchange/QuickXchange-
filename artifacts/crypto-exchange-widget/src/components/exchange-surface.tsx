@@ -20,6 +20,7 @@ import {
 } from '@workspace/api-client-react';
 import type { ApiError, PaymentMethodFieldDefinition, SettlementOption, SiteNavLink } from '@workspace/api-client-react';
 import { Link, useLocation } from 'wouter';
+import { useSwapAnimator } from '@/components/use-swap-animator';
 import {
   ArrowDownUp, ArrowLeftRight, ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight,
   Clock3, Copy, CreditCard, FileText, Home, Landmark, Loader2, Mail, Menu,
@@ -801,7 +802,6 @@ export function ManualSwapWidget({
   const [quoteStatus, setQuoteStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [quoteError, setQuoteError] = useState('');
   const [quoteRefreshCounter, setQuoteRefreshCounter] = useState(0);
-  const [swapFlipped, setSwapFlipped] = useState(false);
 
   const handleQuoteExpire = useCallback(() => {
     setStep(1);
@@ -1074,7 +1074,7 @@ export function ManualSwapWidget({
     quoteRefreshCounter,
   ]);
 
-  const swap = () => {
+  const swapFn = useCallback(() => {
     if (!fromOption || !toOption || !canReverseRoute) return;
     invalidateQuote();
     const oldFrom = fromId;
@@ -1082,8 +1082,9 @@ export function ManualSwapWidget({
     setFromId(oldTo);
     setToId(oldFrom);
     setSettlementDetails({});
-    setSwapFlipped(flipped => !flipped);
-  };
+  }, [fromOption, toOption, canReverseRoute, invalidateQuote, fromId, toId]);
+
+  const { isSwapping, swapFlipped, triggerSwap } = useSwapAnimator(swapFn);
 
   const canContinue = Boolean(
     quoteReady &&
@@ -1345,8 +1346,8 @@ export function ManualSwapWidget({
 
           {step === 1 ? (
             <div ref={stepPanelRef} className="swap-step-panel swap-quote-step animate-in fade-in slide-in-from-bottom-4 duration-300" tabIndex={-1}>
-              <div className="convert-quote-flow exchange-flow-stack">
-                <div className="reference-amount-panel amount-stack">
+              <div className={`convert-quote-flow exchange-flow-stack ${isSwapping ? 'is-swapping' : ''}`}>
+                <div className="reference-amount-panel amount-stack panel-from">
                   <div className="reference-amount-header">
                     <span className="reference-amount-label">{t('swap.youSend')}</span>
                   </div>
@@ -1376,18 +1377,18 @@ export function ManualSwapWidget({
                   <button
                     type="button"
                     className={`reference-swap-button ${swapFlipped ? 'rotate-180' : ''}`}
-                    onClick={swap}
+                    onClick={() => triggerSwap(canReverseRoute)}
                     aria-label={canReverseRoute ? t('swap.reverse') : t('swap.reverseUnavailable')}
                     title={canReverseRoute ? t('swap.reverse') : t('swap.reverseUnavailable')}
                     data-testid="button-swap-assets"
-                    disabled={!canReverseRoute || selectorOpen}
+                    disabled={!canReverseRoute || selectorOpen || isSwapping}
                     tabIndex={selectorOpen ? -1 : undefined}
                   >
                     <ArrowDownUp size={16} />
                   </button>
                 </div>
 
-                <div className="reference-amount-panel amount-stack">
+                <div className="reference-amount-panel amount-stack panel-to">
                   <div className="reference-amount-header">
                     <span className="reference-amount-label">{t('swap.youReceive')}</span>
                   </div>
@@ -1813,6 +1814,8 @@ export function ExchangeModeSwitcher({ onModeChange, initialMode = 'swap' }: { o
   const activeModeRef = useRef<'swap' | 'convert'>(initialMode);
   const [convertDataEnabled, setConvertDataEnabled] = useState(initialMode === 'convert');
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const heightTimeoutRef = useRef<number | undefined>(undefined);
   const preview = useSitePreview();
   const publishedNavigation = useGetPublishedNavigation({ query: { queryKey: getGetPublishedNavigationQueryKey(), staleTime: 60_000 } });
   const configuredWidgetLinks = (preview.active && preview.navigation ? preview.navigation : publishedNavigation.data ?? [])
@@ -1839,10 +1842,38 @@ export function ExchangeModeSwitcher({ onModeChange, initialMode = 'swap' }: { o
   const changeProduct = useCallback((nextProduct: 'swap' | 'convert') => {
     const currentProduct = activeModeRef.current;
     if (nextProduct === currentProduct) return;
+
+    const direction = nextProduct === 'convert' ? 'forward' : 'backward';
+    viewportRef.current?.setAttribute('data-transition-direction', direction);
+
     const convertActive = nextProduct === 'convert';
     if (convertActive) setConvertDataEnabled(true);
     const currentLayer = currentProduct === 'convert' ? convertLayerRef.current : swapLayerRef.current;
     const nextLayer = convertActive ? convertLayerRef.current : swapLayerRef.current;
+
+    if (nextLayer?.firstElementChild) {
+      const newHeight = (nextLayer.firstElementChild as HTMLElement).offsetHeight;
+      const currentHeight = (currentLayer?.firstElementChild as HTMLElement)?.offsetHeight;
+      if (newHeight !== currentHeight && currentHeight > 0 && newHeight > 0) {
+        const viewport = viewportRef.current;
+        if (viewport) {
+          viewport.style.setProperty('height', `${currentHeight}px`, 'important');
+          viewport.style.setProperty('overflow', 'hidden', 'important');
+
+          // Force reflow
+          void viewport.offsetHeight;
+
+          viewport.style.setProperty('height', `${newHeight}px`, 'important');
+
+          window.clearTimeout(heightTimeoutRef.current);
+          heightTimeoutRef.current = window.setTimeout(() => {
+            viewport.style.removeProperty('height');
+            viewport.style.removeProperty('overflow');
+          }, 350);
+        }
+      }
+    }
+
     const activeElement = document.activeElement;
     if (activeElement instanceof HTMLElement && currentLayer?.contains(activeElement)) {
       activeElement.blur();
@@ -1939,6 +1970,10 @@ export function ExchangeModeSwitcher({ onModeChange, initialMode = 'swap' }: { o
   }, [closeMenu, menuOpen]);
 
   useEffect(() => {
+    return () => window.clearTimeout(heightTimeoutRef.current);
+  }, []);
+
+  useEffect(() => {
     syncModeTestIds(activeModeRef.current);
     const observer = new MutationObserver(() => syncModeTestIds(activeModeRef.current));
     if (viewportRef.current) observer.observe(viewportRef.current, { childList: true, subtree: true });
@@ -1949,18 +1984,18 @@ export function ExchangeModeSwitcher({ onModeChange, initialMode = 'swap' }: { o
     <div ref={viewportRef} className={cn('exchange-mode-viewport', menuOpen && 'menu-open')}>
       <div
         ref={convertLayerRef}
-        className={cn('exchange-mode-layer', initialMode === 'convert' ? 'active-layer' : 'inactive-layer')}
-        aria-hidden={initialMode !== 'convert'}
-        inert={initialMode !== 'convert'}
+        className={cn('exchange-mode-layer', activeModeRef.current === 'convert' ? 'active-layer' : 'inactive-layer')}
+        aria-hidden={activeModeRef.current !== 'convert'}
+        inert={activeModeRef.current !== 'convert'}
       >
         <QuickexConvertWidget dataEnabled={convertDataEnabled} onSwap={selectSwap} onOpenMenu={openMenu} />
       </div>
 
       <div
         ref={swapLayerRef}
-        className={cn('exchange-mode-layer', initialMode === 'swap' ? 'active-layer' : 'inactive-layer')}
-        aria-hidden={initialMode === 'convert'}
-        inert={initialMode === 'convert'}
+        className={cn('exchange-mode-layer', activeModeRef.current === 'swap' ? 'active-layer' : 'inactive-layer')}
+        aria-hidden={activeModeRef.current === 'convert'}
+        inert={activeModeRef.current === 'convert'}
       >
         <ManualSwapWidget onConvert={selectConvert} onOpenMenu={openMenu} />
       </div>
