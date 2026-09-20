@@ -3405,8 +3405,8 @@ test("owner crypto asset bulk edits are atomic and preserve omitted network sett
   await db.insert(cryptoAssetNetworksTable).values([
     {
       id: networkAId, assetId: assetAId, networkCode: `BULK-A-${suffix.slice(0, 8)}`,
-      networkName: "Bulk A", decimals: 6, enabled: true,
-      sharedDepositAddress: "preserve-address", sharedDepositMemo: "preserve-memo",
+      networkName: "Bulk A", networkFamily: "ethereum", decimals: 6, enabled: true,
+      sharedDepositAddress: "0x52908400098527886E0F7030069857D2E4169EE7", sharedDepositMemo: "preserve-memo",
       depositProvider: "manual",
     },
     {
@@ -3423,6 +3423,25 @@ test("owner crypto asset bulk edits are atomic and preserve omitted network sett
   const api = await startApi();
   const headers = { "x-test-clerk-user-id": userId };
   try {
+    await db.update(cryptoAssetNetworksTable)
+      .set({ customerDepositsEnabled: true })
+      .where(eq(cryptoAssetNetworksTable.id, networkAId));
+    const singleAssetEdit = await apiJson(api.url, `/admin/crypto-assets/${assetAId}`, {
+      lifecycle: "restricted",
+    }, "PATCH", headers);
+    assert.equal(singleAssetEdit.status, 200);
+    const [networkAfterSingleAssetEdit] = await db.select().from(cryptoAssetNetworksTable)
+      .where(eq(cryptoAssetNetworksTable.id, networkAId));
+    assert.equal(networkAfterSingleAssetEdit.customerDepositsEnabled, true);
+
+    const bulkAssetOnlyEdit = await apiJson(api.url, "/admin/crypto-assets/bulk/apply", {
+      edits: [{ assetId: assetAId, lifecycle: "active" }],
+    }, "POST", headers);
+    assert.equal(bulkAssetOnlyEdit.status, 200);
+    const [networkAfterBulkAssetEdit] = await db.select().from(cryptoAssetNetworksTable)
+      .where(eq(cryptoAssetNetworksTable.id, networkAId));
+    assert.equal(networkAfterBulkAssetEdit.customerDepositsEnabled, true);
+
     const preserved = await apiJson(api.url, "/admin/crypto-assets/bulk/apply", {
       edits: [{
         assetId: assetAId,
@@ -3437,7 +3456,7 @@ test("owner crypto asset bulk edits are atomic and preserve omitted network sett
     const [afterPreserved] = await db.select().from(cryptoAssetNetworksTable)
       .where(eq(cryptoAssetNetworksTable.id, networkAId));
     assert.equal(afterPreserved.enabled, false);
-    assert.equal(afterPreserved.sharedDepositAddress, "preserve-address");
+    assert.equal(afterPreserved.sharedDepositAddress, "0x52908400098527886E0F7030069857D2E4169EE7");
     assert.equal(afterPreserved.sharedDepositMemo, "preserve-memo");
     assert.equal(afterPreserved.depositProvider, "manual");
     const [assetAfterPreserved] = await db.select().from(cryptoAssetsTable)
@@ -3477,7 +3496,7 @@ test("owner crypto asset bulk edits are atomic and preserve omitted network sett
       }],
     }, "POST", headers);
     assert.equal(invalidDeposit.status, 422);
-    assert.equal(invalidDeposit.body.code, "CRYPTO_DEPOSIT_ADDRESS_REQUIRED");
+    assert.equal(invalidDeposit.body.code, "CRYPTO_DEPOSIT_VERIFICATION_REQUIRED");
     const [networkAfterInvalidDeposit] = await db.select().from(cryptoAssetNetworksTable)
       .where(eq(cryptoAssetNetworksTable.id, networkBId));
     assert.equal(networkAfterInvalidDeposit.customerDepositsEnabled, false);
@@ -3525,7 +3544,7 @@ test("owner crypto asset bulk edits are atomic and preserve omitted network sett
     const [networkAfterFallback] = await db.select().from(cryptoAssetNetworksTable)
       .where(eq(cryptoAssetNetworksTable.id, networkAId));
     assert.equal(networkAfterFallback.depositProvider, "whitebit");
-    assert.equal(networkAfterFallback.customerDepositsEnabled, true);
+    assert.equal(networkAfterFallback.customerDepositsEnabled, false);
     assert.equal(networkAfterFallback.sharedDepositAddress, "bulk-manual-fallback");
     assert.equal(networkAfterFallback.sharedDepositMemo, "bulk-manual-memo");
 

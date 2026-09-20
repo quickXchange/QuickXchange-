@@ -4059,11 +4059,6 @@ router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, ne
           await tx.update(cryptoAssetsTable)
             .set(assetChanges as never)
             .where(eq(cryptoAssetsTable.id, edit.assetId));
-          if (edit.enabled !== undefined || edit.lifecycle !== undefined) {
-            await tx.update(cryptoAssetNetworksTable)
-              .set({ customerDepositsEnabled: false })
-              .where(eq(cryptoAssetNetworksTable.assetId, edit.assetId));
-          }
         }
         for (const networkEdit of edit.networks ?? []) {
           const networkChanges: JsonRecord = {};
@@ -4122,9 +4117,6 @@ router.patch("/admin/crypto-assets/:id", requireOperator, async (req, res, next)
         .some((key) => Object.hasOwn(input, key));
       if (invalidatesProviderProofs) {
         await invalidateWhitebitDepositRouteProofs(tx);
-        await tx.update(cryptoAssetNetworksTable)
-          .set({ customerDepositsEnabled: false })
-          .where(eq(cryptoAssetNetworksTable.assetId, id));
       }
       const [updated] = await tx.update(cryptoAssetsTable)
         .set(input as never)

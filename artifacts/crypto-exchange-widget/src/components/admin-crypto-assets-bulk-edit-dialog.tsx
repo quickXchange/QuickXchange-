@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useApplyCryptoAssetsBulkEdit } from '@workspace/api-client-react';
 import type { CryptoAsset, CryptoNetwork, CryptoAssetsBulkEditInput } from '@workspace/api-client-react';
@@ -48,7 +48,6 @@ export function AdminCryptoAssetsBulkEditDialog({
   const [netEnabled, setNetEnabled] = useState(true);
 
   const [applyNetCustomerDeposits, setApplyNetCustomerDeposits] = useState(false);
-  const [netCustomerDeposits, setNetCustomerDeposits] = useState(true);
 
   const [applyNetLifecycle, setApplyNetLifecycle] = useState(false);
   const [netLifecycle, setNetLifecycle] = useState<'active' | 'restricted' | 'deprecated'>('active');
@@ -73,6 +72,15 @@ export function AdminCryptoAssetsBulkEditDialog({
   }, [networks, selectedAssetIds]);
 
   const [selectedNetworkIds, setSelectedNetworkIds] = useState<Set<string>>(() => new Set(allTargetableNetworks.map(n => n.id)));
+  const targetNetworkSelectionKey = allTargetableNetworks.map(network => network.id).sort().join('\0');
+
+  useEffect(() => {
+    if (!open) return;
+    setSelectedNetworkIds(new Set(allTargetableNetworks.map(network => network.id)));
+    setStep('edit');
+    setApiError(null);
+    setReviewPayload(null);
+  }, [open, targetNetworkSelectionKey]);
 
   const uniqueNetworkCodes = useMemo(() => {
     return Array.from(new Set(allTargetableNetworks.map(n => n.networkCode))).sort();
@@ -128,7 +136,7 @@ export function AdminCryptoAssetsBulkEditDialog({
         assetEdits.networks = networksForAsset.map(n => {
           const netEdit: any = { networkId: n.id };
           if (applyNetEnabled) netEdit.enabled = netEnabled;
-          if (applyNetCustomerDeposits) netEdit.customerDepositsEnabled = netCustomerDeposits;
+          if (applyNetCustomerDeposits) netEdit.customerDepositsEnabled = false;
           if (applyNetLifecycle) netEdit.lifecycle = netLifecycle;
           if (applyNetRegions) netEdit.regions = netRegions.split(',').map(s => s.trim()).filter(Boolean);
           if (applyNetPrecision) netEdit.decimals = netPrecision;
@@ -286,12 +294,11 @@ export function AdminCryptoAssetsBulkEditDialog({
                   <div className="flex flex-col gap-2">
                     <label className="flex items-center gap-3 cursor-pointer">
                       <input type="checkbox" className="rounded border-slate-600 w-4 h-4 bg-transparent" checked={applyNetCustomerDeposits} onChange={e => setApplyNetCustomerDeposits(e.target.checked)} />
-                      <span className="text-sm font-semibold">Apply this change: Customer Deposits</span>
+                      <span className="text-sm font-semibold">Pause Customer Deposits</span>
                     </label>
-                    <select aria-label="Customer Deposits" className="border border-border bg-background rounded-md text-sm px-3 py-2 disabled:opacity-50" disabled={!applyNetCustomerDeposits} value={netCustomerDeposits ? 'true' : 'false'} onChange={e => setNetCustomerDeposits(e.target.value === 'true')}>
-                      <option value="true">ON (Allowed)</option>
-                      <option value="false">OFF (Paused)</option>
-                    </select>
+                    <p className="text-xs text-muted-foreground">
+                      Applies only to the selected network rows. Enable deposits individually after wallet verification.
+                    </p>
                   </div>
 
                   <div className="flex flex-col gap-2">
@@ -460,7 +467,7 @@ export function AdminCryptoAssetsBulkEditDialog({
                       <tr><td className="px-4 py-3 font-medium">Network Status</td><td className="px-4 py-3">{netEnabled ? 'Enabled' : 'Disabled'}</td></tr>
                     )}
                     {applyNetCustomerDeposits && (
-                      <tr><td className="px-4 py-3 font-medium">Customer Deposits</td><td className="px-4 py-3">{netCustomerDeposits ? 'Allowed' : 'Paused'}</td></tr>
+                      <tr><td className="px-4 py-3 font-medium">Customer Deposits</td><td className="px-4 py-3">Paused</td></tr>
                     )}
                     {applyNetLifecycle && (
                       <tr><td className="px-4 py-3 font-medium">Network Lifecycle</td><td className="px-4 py-3 capitalize">{netLifecycle}</td></tr>

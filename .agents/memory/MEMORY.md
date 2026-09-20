@@ -123,3 +123,4 @@
 - [Telegram Mini App identity boundary](telegram-mini-app-identity.md) — validate initData server-side, use short-lived sessions, and attach canonical orders through tracking capabilities.
 - [Telegram initData signature field](telegram-initdata-signature.md) — bot-token HMAC validation excludes only `hash`; modern `signature` remains in the sorted data-check-string.
 - [Workspace configuration media transfer](workspace-config-media-transfer.md) — cross-environment configuration snapshots bundle verified active media; removed optional media never blocks import.
+- [Asset and network state boundaries](asset-network-state-boundaries.md) — asset catalog edits must preserve independently verified per-network deposit settings.
