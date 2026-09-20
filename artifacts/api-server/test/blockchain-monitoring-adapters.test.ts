@@ -14,7 +14,7 @@ test("EVM parsing keeps exact raw amounts and filters the configured token contr
   const log = {
     address: asset.contractOrMint, transactionHash: "0xabc", blockNumber: "0x10", logIndex: "0x0",
     topics: [
-      "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a3d9b4f1e5",
+      "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
       `0x${"33".repeat(32)}`, `0x${"11".repeat(20).padStart(64, "0")}`,
     ],
     data: "0x0de0b6b3a7640000",

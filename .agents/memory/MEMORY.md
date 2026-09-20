@@ -130,3 +130,4 @@
 - [Canonical Convert status](convert-status-synchronization.md) — all surfaces share Quickex lifecycle state; payment milestones require exact provider evidence and Convert-only outbox events.
 - [Monitoring gap cursor boundary](monitoring-gap-cursor-boundary.md) — delayed watch activation starts at a fresh chain head; never silently backdate it to capture earlier transfers.
 - [EVM receipt scan efficiency](evm-receipt-scan-efficiency.md) — prefilter native transfers by watched recipient before requesting successful-transaction receipts.
+- [Canonical EVM event signatures](canonical-evm-event-signatures.md) — verify event topics independently; tests that copy a wrong constant can validate a detector that never matches chain logs.

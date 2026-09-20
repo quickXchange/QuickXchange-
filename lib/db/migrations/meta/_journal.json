@@ -610,6 +610,13 @@
       "when": 1789849000000,
       "tag": "0088_blockchain_monitoring",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1789943600000,
+      "tag": "0089_recover_verified_bep20_usdt_payment",
+      "breakpoints": true
     }
   ]
 }

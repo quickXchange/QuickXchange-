@@ -16,6 +16,7 @@ import { createBlockchainMonitorAdapter, type IncomingEvidence, type MonitorAsse
 import { normalizeTronAddress } from "./tron";
 import { enqueueSwapTelegramNotification } from "../telegram-swap-notifications";
 import { updateOrderAndQueueStatusNotificationTx } from "../customer-status-notifications";
+import { logger } from "../logger";
 
 const ELIGIBLE = and(
   eq(ordersTable.type, "manual"),
@@ -387,8 +388,18 @@ export async function applyConfirmedMatches(leaseToken?: string, networkId?: str
     if (!observation || !network || !isFinalitySatisfied(network.finalityPolicy, match.confirmations, match.confirmationsRequired, observation.finalized)) continue;
     if (!leaseToken || !networkId) continue;
     await withLease(networkId, leaseToken, async (tx) => {
-      const [current] = await tx.select().from(ordersTable).where(and(eq(ordersTable.id, match.orderId), ELIGIBLE)).limit(1);
+      let [current] = await tx.select().from(ordersTable).where(and(eq(ordersTable.id, match.orderId), ELIGIBLE)).limit(1);
       if (!current) return;
+      if (current.status === "awaiting funds") {
+        const detected = await updateOrderAndQueueStatusNotificationTx(tx, current, {
+          status: "payment detected",
+        }, eq(ordersTable.status, "awaiting funds"), {
+          action: "blockchain_monitoring.payment_detected",
+          details: { observationId: observation.id, recovery: true },
+        });
+        if (!detected) return;
+        current = detected;
+      }
       const order = await updateOrderAndQueueStatusNotificationTx(tx, current, {
         status: "processing", manualSettlementState: "funds_confirmed",
         manualSettlementStateUpdatedAt: new Date(), manualSettlementFundedAt: new Date(),
@@ -406,8 +417,11 @@ export async function applyConfirmedMatches(leaseToken?: string, networkId?: str
 }
 
 export function startBlockchainMonitoringWorker(): () => void {
-  const interval = setInterval(() => void runBlockchainMonitoringCycle(), 15_000);
+  const runSafely = () => void runBlockchainMonitoringCycle().catch((error) => {
+    logger.warn({ err: error }, "Blockchain monitoring worker failed");
+  });
+  const interval = setInterval(runSafely, 15_000);
   interval.unref();
-  void runBlockchainMonitoringCycle();
+  runSafely();
   return () => clearInterval(interval);
 }
