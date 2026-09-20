@@ -17,6 +17,7 @@ import { normalizeTronAddress } from "./tron";
 import { enqueueSwapTelegramNotification } from "../telegram-swap-notifications";
 import { updateOrderAndQueueStatusNotificationTx } from "../customer-status-notifications";
 import { logger } from "../logger";
+import verifiedBep20RecoverySql from "../../../../../lib/db/migrations/0089_recover_verified_bep20_usdt_payment.sql";
 
 const ELIGIBLE = and(
   eq(ordersTable.type, "manual"),
@@ -25,6 +26,7 @@ const ELIGIBLE = and(
   eq(ordersTable.manualSettlementState, "awaiting_funds"),
 );
 let cycleRunning = false;
+let recoveryMigration: Promise<void> | undefined;
 
 type JsonObject = Record<string, unknown>;
 const object = (value: unknown): JsonObject =>
@@ -417,7 +419,18 @@ export async function applyConfirmedMatches(leaseToken?: string, networkId?: str
 }
 
 export function startBlockchainMonitoringWorker(): () => void {
-  const runSafely = () => void runBlockchainMonitoringCycle().catch((error) => {
+  const applyRecoveryMigration = (): Promise<void> => {
+    if (!recoveryMigration) {
+      recoveryMigration = db.transaction(async (tx) => {
+        await tx.execute(sql.raw(verifiedBep20RecoverySql));
+      }).then(() => undefined).catch((error) => {
+        recoveryMigration = undefined;
+        throw error;
+      });
+    }
+    return recoveryMigration;
+  };
+  const runSafely = () => void applyRecoveryMigration().then(runBlockchainMonitoringCycle).catch((error) => {
     logger.warn({ err: error }, "Blockchain monitoring worker failed");
   });
   const interval = setInterval(runSafely, 15_000);

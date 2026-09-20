@@ -121,6 +121,9 @@ async function buildAll() {
       "electron",
     ],
     sourcemap: "linked",
+    loader: {
+      ".sql": "text",
+    },
     define: {
       __API_BUILD_METADATA__: JSON.stringify({
         buildId,
