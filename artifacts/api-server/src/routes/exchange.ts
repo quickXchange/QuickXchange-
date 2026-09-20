@@ -103,6 +103,8 @@ import {
   ApplyCryptoAssetsBulkEditResponse,
   SaveCryptoAssetReceivingWalletBody,
   SaveCryptoAssetReceivingWalletParams,
+  SetCryptoAssetNetworksEnabledBody,
+  SetCryptoAssetNetworksEnabledParams,
   ReconcileCryptoCustomerDepositsResponse,
   UpdateOrderSupportToolsParams,
   UpdateOrderSupportToolsBody,
@@ -4334,6 +4336,58 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
         "Saved crypto receiving wallet configuration",
       );
       return updated;
+    });
+    res.json(rows.map(outputCryptoNetwork));
+  } catch (e) { next(e); }
+});
+router.patch("/admin/crypto-assets/:id/networks/enabled", requireOperator, async (req, res, next) => {
+  try {
+    const { id: assetId } = SetCryptoAssetNetworksEnabledParams.parse(req.params);
+    const input = SetCryptoAssetNetworksEnabledBody.parse(req.body);
+    const actor = res.locals.operator as OperatorAuthorization;
+    const actorClerkUserId = getOperatorActorUserId(req);
+    const rows = await db.transaction(async (tx) => {
+      const [asset] = await tx.select().from(cryptoAssetsTable)
+        .where(eq(cryptoAssetsTable.id, assetId))
+        .for("update")
+        .limit(1);
+      if (!asset) throw new ApiError("CRYPTO_ASSET_NOT_FOUND", "Crypto asset not found.", 404);
+      const networks = await tx.select().from(cryptoAssetNetworksTable)
+        .where(eq(cryptoAssetNetworksTable.assetId, assetId))
+        .for("update");
+      const changes: Array<{
+        networkId: string;
+        enabledBefore: boolean;
+        enabledAfter: boolean;
+        customerDepositsEnabledBefore: boolean;
+        customerDepositsEnabledAfter: boolean;
+      }> = [];
+      for (const network of networks) {
+        changes.push({
+          networkId: network.id,
+          enabledBefore: network.enabled,
+          enabledAfter: input.enabled,
+          customerDepositsEnabledBefore: network.customerDepositsEnabled,
+          customerDepositsEnabledAfter: network.customerDepositsEnabled,
+        });
+        if (network.enabled === input.enabled) continue;
+        await tx.update(cryptoAssetNetworksTable).set({
+          enabled: input.enabled,
+        }).where(eq(cryptoAssetNetworksTable.id, network.id));
+      }
+      await tx.insert(operatorAuditLogsTable).values({
+        action: input.enabled
+          ? "crypto_asset_networks.enabled"
+          : "crypto_asset_networks.disabled",
+        actorClerkUserId,
+        targetOperatorId: actor.id,
+        targetEmail: actor.email,
+        requestId: String(req.id),
+        details: { assetId, changes },
+      });
+      return tx.select().from(cryptoAssetNetworksTable)
+        .where(eq(cryptoAssetNetworksTable.assetId, assetId))
+        .orderBy(asc(cryptoAssetNetworksTable.networkName), asc(cryptoAssetNetworksTable.id));
     });
     res.json(rows.map(outputCryptoNetwork));
   } catch (e) { next(e); }

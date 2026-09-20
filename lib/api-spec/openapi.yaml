@@ -1896,6 +1896,33 @@ paths:
         "422":
           description: Receiving wallet configuration is invalid
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+  /admin/crypto-assets/{id}/networks/enabled:
+    patch:
+      operationId: setCryptoAssetNetworksEnabled
+      tags: [admin]
+      security: [{ OperatorSession: [] }]
+      summary: Enable or disable every network attached to a crypto asset
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, pattern: '^[a-z0-9][a-z0-9-]{0,63}$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CryptoAssetNetworksEnabledInput" }
+      responses:
+        "200":
+          description: Updated asset network rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/CryptoNetwork" }
+        "404":
+          description: Crypto asset was not found
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
   /admin/crypto-networks:
     get:
       operationId: getCryptoNetworks
@@ -5822,6 +5849,12 @@ components:
         depositProvider: { type: string, minLength: 1, maxLength: 64, default: manual }
         enabled: { type: boolean }
         useForAllAssetsOnNetwork: { type: boolean }
+    CryptoAssetNetworksEnabledInput:
+      type: object
+      additionalProperties: false
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
     CryptoNetwork:
       allOf:
         - $ref: "#/components/schemas/CryptoNetworkInput"

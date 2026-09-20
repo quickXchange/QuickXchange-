@@ -62,6 +62,7 @@ import type {
   ContactSubmissionReceipt,
   CryptoAsset,
   CryptoAssetInput,
+  CryptoAssetNetworksEnabledInput,
   CryptoAssetReceivingWalletInput,
   CryptoAssetUpdate,
   CryptoAssetsBulkEditInput,
@@ -6674,6 +6675,78 @@ export const useSaveCryptoAssetReceivingWallet = <TError = ErrorType<ApiError>,
         TContext
       > => {
       return useMutation(getSaveCryptoAssetReceivingWalletMutationOptions(options));
+    }
+
+export const getSetCryptoAssetNetworksEnabledUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/crypto-assets/${id}/networks/enabled`
+}
+
+/**
+ * @summary Enable or disable every network attached to a crypto asset
+ */
+export const setCryptoAssetNetworksEnabled = async (id: string,
+    cryptoAssetNetworksEnabledInput: CryptoAssetNetworksEnabledInput, options?: Parameters<typeof customFetch>[1]): Promise<CryptoNetwork[]> => {
+
+  return customFetch<CryptoNetwork[]>(getSetCryptoAssetNetworksEnabledUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(cryptoAssetNetworksEnabledInput)
+  }
+);}
+
+
+
+
+
+export const getSetCryptoAssetNetworksEnabledMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setCryptoAssetNetworksEnabled>>, TError,{id: string;data: BodyType<CryptoAssetNetworksEnabledInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setCryptoAssetNetworksEnabled>>, TError,{id: string;data: BodyType<CryptoAssetNetworksEnabledInput>}, TContext> => {
+
+const mutationKey = ['setCryptoAssetNetworksEnabled'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setCryptoAssetNetworksEnabled>>, {id: string;data: BodyType<CryptoAssetNetworksEnabledInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  setCryptoAssetNetworksEnabled(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetCryptoAssetNetworksEnabledMutationResult = NonNullable<Awaited<ReturnType<typeof setCryptoAssetNetworksEnabled>>>
+    export type SetCryptoAssetNetworksEnabledMutationBody = BodyType<CryptoAssetNetworksEnabledInput>
+    export type SetCryptoAssetNetworksEnabledMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Enable or disable every network attached to a crypto asset
+ */
+export const useSetCryptoAssetNetworksEnabled = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setCryptoAssetNetworksEnabled>>, TError,{id: string;data: BodyType<CryptoAssetNetworksEnabledInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setCryptoAssetNetworksEnabled>>,
+        TError,
+        {id: string;data: BodyType<CryptoAssetNetworksEnabledInput>},
+        TContext
+      > => {
+      return useMutation(getSetCryptoAssetNetworksEnabledMutationOptions(options));
     }
 
 export const getGetCryptoNetworksUrl = () => {

@@ -105,6 +105,7 @@ export * from './cryptoAssetBulkNetworkEdit';
 export * from './cryptoAssetBulkNetworkEditLifecycle';
 export * from './cryptoAssetInput';
 export * from './cryptoAssetInputLifecycle';
+export * from './cryptoAssetNetworksEnabledInput';
 export * from './cryptoAssetReceivingWalletInput';
 export * from './cryptoAssetsBulkEditInput';
 export * from './cryptoAssetsBulkEditResponse';

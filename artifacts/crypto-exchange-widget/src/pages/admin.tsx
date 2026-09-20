@@ -53,7 +53,7 @@ import {
   useGetManualDeskRevenue, getGetManualDeskRevenueQueryKey,
   exportManualDeskRevenueCsv,
   useGetCryptoAssets, getGetCryptoAssetsQueryKey, useCreateCryptoAsset, useUpdateCryptoAsset, useDeleteCryptoAsset, useRequestCryptoAssetLogoUpload, useDeleteCryptoAssetLogoUpload,
-  useGetCryptoNetworks, getGetCryptoNetworksQueryKey, useCreateCryptoNetwork, useUpdateCryptoNetwork, useDeleteCryptoNetwork, useRequestCryptoNetworkLogoUpload, useDeleteCryptoNetworkLogoUpload, useSaveCryptoAssetReceivingWallet, useReconcileCryptoCustomerDeposits,
+  useGetCryptoNetworks, getGetCryptoNetworksQueryKey, useCreateCryptoNetwork, useUpdateCryptoNetwork, useDeleteCryptoNetwork, useRequestCryptoNetworkLogoUpload, useDeleteCryptoNetworkLogoUpload, useSaveCryptoAssetReceivingWallet, useSetCryptoAssetNetworksEnabled, useReconcileCryptoCustomerDeposits,
   useGetDepositProviderOptions, getGetDepositProviderOptionsQueryKey,
   useRequestFiatCurrencyFlagUpload, useDeleteFiatCurrencyFlagUpload,
   useGetOrder, getGetOrderQueryKey, useAssignOrder, useArchiveOrder, useRestoreOrder,
@@ -8108,6 +8108,7 @@ function AssetDrawer({
   const createAsset = useCreateCryptoAsset();
   const updateAsset = useUpdateCryptoAsset();
   const saveReceivingWallet = useSaveCryptoAssetReceivingWallet();
+  const setAllNetworksEnabled = useSetCryptoAssetNetworksEnabled();
   const deleteAsset = useDeleteCryptoAsset();
   const uploadAssetLogo = useRequestCryptoAssetLogoUpload();
   const deleteAssetLogo = useDeleteCryptoAssetLogoUpload();
@@ -8210,6 +8211,34 @@ function AssetDrawer({
       [network.id]: persistedReceivingWalletDraft(network, allAssetNetworks),
     }));
     setReceivingNetworkId(network.id);
+  };
+
+  const setEveryNetworkEnabled = async (enabled: boolean) => {
+    if (isNew || !asset) return;
+    setError('');
+    try {
+      const updatedNetworks = await setAllNetworksEnabled.mutateAsync({
+        id: asset.id,
+        data: { enabled },
+      });
+      setReceivingDrafts(current => {
+        const next = { ...current };
+        updatedNetworks.forEach(network => {
+          const existing = next[network.id] || persistedReceivingWalletDraft(network, updatedNetworks);
+          next[network.id] = {
+            ...existing,
+            enabled: Boolean(network.customerDepositsEnabled),
+          };
+        });
+        return next;
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
+      ]);
+    } catch (err) {
+      setError(apiErrorText(err, `Failed to ${enabled ? 'enable' : 'disable'} all networks.`));
+    }
   };
 
   const save = async (e: React.FormEvent) => {
@@ -8319,6 +8348,28 @@ function AssetDrawer({
           <section className="receiving-wallet-section" data-testid="receiving-wallet-section" aria-label="Receiving Wallet Address">
             <div className="panel-heading mb-3">
               <div><span className="section-kicker">Receiving funds</span><h2>Receiving Wallet Address</h2></div>
+              {!isNew && assetNetworks.length > 0 && (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="button"
+                    data-testid="button-enable-all-asset-networks"
+                    disabled={setAllNetworksEnabled.isPending}
+                    onClick={() => void setEveryNetworkEnabled(true)}
+                  >
+                    Enable All Networks
+                  </button>
+                  <button
+                    type="button"
+                    className="button"
+                    data-testid="button-disable-all-asset-networks"
+                    disabled={setAllNetworksEnabled.isPending}
+                    onClick={() => void setEveryNetworkEnabled(false)}
+                  >
+                    Disable All Networks
+                  </button>
+                </div>
+              )}
             </div>
             {isNew ? (
               <p className="field-hint">Save this asset and assign at least one network before configuring a receiving address.</p>
@@ -8394,7 +8445,7 @@ function AssetDrawer({
           </section>
 
           <div className="catalog-editor-actions">
-             <button type="submit" className="catalog-editor-primary" disabled={createAsset.isPending || updateAsset.isPending || saveReceivingWallet.isPending}><Save size={16} />{t('adminCatalog.save_asset')}</button>
+             <button type="submit" className="catalog-editor-primary" disabled={createAsset.isPending || updateAsset.isPending || saveReceivingWallet.isPending || setAllNetworksEnabled.isPending}><Save size={16} />{t('adminCatalog.save_asset')}</button>
             {!isNew && <button type="button" className="catalog-editor-danger" onClick={remove} disabled={deleteAsset.isPending}><Trash2 size={15} />{t('adminCatalog.delete')}</button>}
           </div>
         </form>

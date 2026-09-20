@@ -7653,6 +7653,92 @@ export const SaveCryptoAssetReceivingWalletResponseItem = zod.object({
 export const SaveCryptoAssetReceivingWalletResponse = zod.array(SaveCryptoAssetReceivingWalletResponseItem)
 
 
+/**
+ * @summary Enable or disable every network attached to a crypto asset
+ */
+export const setCryptoAssetNetworksEnabledPathIdRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,63}$');
+
+
+export const SetCryptoAssetNetworksEnabledParams = zod.object({
+  "id": zod.coerce.string().regex(setCryptoAssetNetworksEnabledPathIdRegExp)
+})
+
+export const SetCryptoAssetNetworksEnabledBody = zod.object({
+  "enabled": zod.boolean()
+})
+
+export const setCryptoAssetNetworksEnabledResponseOneLogoObjectPathRegExp = new RegExp('^/objects/crypto-network-logos/[0-9a-f-]{36}$');
+export const setCryptoAssetNetworksEnabledResponseOneIdRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,80}$');
+export const setCryptoAssetNetworksEnabledResponseOneAssetIdRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,63}$');
+export const setCryptoAssetNetworksEnabledResponseOneNetworkCodeMax = 32;
+
+export const setCryptoAssetNetworksEnabledResponseOneNetworkNameMax = 100;
+
+export const setCryptoAssetNetworksEnabledResponseOneNetworkFamilyDefault = `native`;
+export const setCryptoAssetNetworksEnabledResponseOneNetworkFamilyMax = 64;
+
+export const setCryptoAssetNetworksEnabledResponseOneDecimalsMin = 0;
+export const setCryptoAssetNetworksEnabledResponseOneDecimalsMax = 30;
+export const setCryptoAssetNetworksEnabledResponseOneDecimalsMultipleOf = 1;
+
+export const setCryptoAssetNetworksEnabledResponseOneExecutionModeDefault = `manual`;
+export const setCryptoAssetNetworksEnabledResponseOneLifecycleDefault = `active`;
+export const setCryptoAssetNetworksEnabledResponseOneRegionsItemMax = 32;
+
+export const setCryptoAssetNetworksEnabledResponseOneRegionsMax = 20;
+
+export const setCryptoAssetNetworksEnabledResponseOneEnabledDefault = true;
+export const setCryptoAssetNetworksEnabledResponseOneCustomerDepositsEnabledDefault = false;
+export const setCryptoAssetNetworksEnabledResponseOneRequiresMemoDefault = false;
+export const setCryptoAssetNetworksEnabledResponseOneRequiredConfirmationsDefault = 0;
+export const setCryptoAssetNetworksEnabledResponseOneRequiredConfirmationsMin = 0;
+export const setCryptoAssetNetworksEnabledResponseOneRequiredConfirmationsMax = 10000;
+export const setCryptoAssetNetworksEnabledResponseOneRequiredConfirmationsMultipleOf = 1;
+
+export const setCryptoAssetNetworksEnabledResponseOneConfirmationGuidanceMax = 1000;
+
+export const setCryptoAssetNetworksEnabledResponseOneExplorerUrlTemplateMax = 1000;
+
+export const setCryptoAssetNetworksEnabledResponseOneDepositInstructionsMax = 2000;
+
+export const setCryptoAssetNetworksEnabledResponseOneDepositWarningMax = 2000;
+
+export const setCryptoAssetNetworksEnabledResponseOneSharedDepositAddressMax = 500;
+
+export const setCryptoAssetNetworksEnabledResponseOneSharedDepositMemoMax = 500;
+
+export const setCryptoAssetNetworksEnabledResponseTwoDepositProviderDefault = `manual`;
+
+export const SetCryptoAssetNetworksEnabledResponseItem = zod.object({
+  "logoObjectPath": zod.string().regex(setCryptoAssetNetworksEnabledResponseOneLogoObjectPathRegExp).nullish(),
+  "id": zod.string().regex(setCryptoAssetNetworksEnabledResponseOneIdRegExp),
+  "assetId": zod.string().regex(setCryptoAssetNetworksEnabledResponseOneAssetIdRegExp),
+  "networkCode": zod.string().min(1).max(setCryptoAssetNetworksEnabledResponseOneNetworkCodeMax),
+  "networkName": zod.string().min(1).max(setCryptoAssetNetworksEnabledResponseOneNetworkNameMax),
+  "networkFamily": zod.string().min(1).max(setCryptoAssetNetworksEnabledResponseOneNetworkFamilyMax).default(setCryptoAssetNetworksEnabledResponseOneNetworkFamilyDefault),
+  "decimals": zod.number().min(setCryptoAssetNetworksEnabledResponseOneDecimalsMin).max(setCryptoAssetNetworksEnabledResponseOneDecimalsMax).multipleOf(setCryptoAssetNetworksEnabledResponseOneDecimalsMultipleOf),
+  "executionMode": zod.enum(['catalog', 'manual', 'api']).default(setCryptoAssetNetworksEnabledResponseOneExecutionModeDefault),
+  "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).default(setCryptoAssetNetworksEnabledResponseOneLifecycleDefault),
+  "regions": zod.array(zod.string().max(setCryptoAssetNetworksEnabledResponseOneRegionsItemMax)).max(setCryptoAssetNetworksEnabledResponseOneRegionsMax).optional(),
+  "enabled": zod.boolean().default(setCryptoAssetNetworksEnabledResponseOneEnabledDefault),
+  "customerDepositsEnabled": zod.boolean().default(setCryptoAssetNetworksEnabledResponseOneCustomerDepositsEnabledDefault),
+  "requiresMemo": zod.boolean().default(setCryptoAssetNetworksEnabledResponseOneRequiresMemoDefault),
+  "requiredConfirmations": zod.number().min(setCryptoAssetNetworksEnabledResponseOneRequiredConfirmationsMin).max(setCryptoAssetNetworksEnabledResponseOneRequiredConfirmationsMax).multipleOf(setCryptoAssetNetworksEnabledResponseOneRequiredConfirmationsMultipleOf).default(setCryptoAssetNetworksEnabledResponseOneRequiredConfirmationsDefault),
+  "confirmationGuidance": zod.string().max(setCryptoAssetNetworksEnabledResponseOneConfirmationGuidanceMax).nullish(),
+  "explorerUrlTemplate": zod.string().max(setCryptoAssetNetworksEnabledResponseOneExplorerUrlTemplateMax).nullish(),
+  "depositInstructions": zod.string().max(setCryptoAssetNetworksEnabledResponseOneDepositInstructionsMax).nullish(),
+  "depositWarning": zod.string().max(setCryptoAssetNetworksEnabledResponseOneDepositWarningMax).nullish(),
+  "sharedDepositAddress": zod.string().max(setCryptoAssetNetworksEnabledResponseOneSharedDepositAddressMax).optional(),
+  "sharedDepositMemo": zod.string().max(setCryptoAssetNetworksEnabledResponseOneSharedDepositMemoMax).nullish()
+}).and(zod.object({
+  "depositProvider": zod.string().default(setCryptoAssetNetworksEnabledResponseTwoDepositProviderDefault),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "logoUrl": zod.string().optional()
+}))
+export const SetCryptoAssetNetworksEnabledResponse = zod.array(SetCryptoAssetNetworksEnabledResponseItem)
+
+
 export const getCryptoNetworksResponseOneLogoObjectPathRegExp = new RegExp('^/objects/crypto-network-logos/[0-9a-f-]{36}$');
 export const getCryptoNetworksResponseOneIdRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,80}$');
 export const getCryptoNetworksResponseOneAssetIdRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,63}$');
