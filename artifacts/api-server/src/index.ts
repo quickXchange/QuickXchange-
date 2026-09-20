@@ -8,6 +8,7 @@ import { startBlogScheduler } from "./routes/blog";
 import { startNewsletterWorker } from "./lib/newsletter";
 import { setupTelegramCommands, startTelegramNotificationWorker } from "./routes/telegram";
 import { startTelegramNewsWorker } from "./lib/telegram-news";
+import { startBlockchainMonitoringWorker } from "./lib/blockchain-monitoring/service";
 
 const rawPort = process.env["PORT"];
 
@@ -61,6 +62,7 @@ async function start() {
   const stopNewsletterWorker = startNewsletterWorker();
   const stopTelegramWorker = startTelegramNotificationWorker();
   const stopTelegramNewsWorker = startTelegramNewsWorker();
+  const stopBlockchainMonitoringWorker = startBlockchainMonitoringWorker();
   void setupTelegramCommands().catch((error) => logger.warn({ err: error }, "Telegram command setup failed"));
   let verificationTimer: ReturnType<typeof setTimeout> | undefined;
   const verifyQuickex = async (): Promise<boolean> => {
@@ -110,6 +112,7 @@ async function start() {
   server.on("close", stopNewsletterWorker);
   server.on("close", stopTelegramWorker);
   server.on("close", stopTelegramNewsWorker);
+  server.on("close", stopBlockchainMonitoringWorker);
 
   let shuttingDown = false;
   const shutdown = (signal: NodeJS.Signals) => {

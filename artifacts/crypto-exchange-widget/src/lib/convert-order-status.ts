@@ -25,6 +25,9 @@ export function convertOrderStatusLabel(status: unknown): string {
     case 'pending':
     case 'verification required':
       return 'AWAITING FUNDS';
+    case 'confirming':
+    case 'payment detected':
+      return 'CONFIRMING';
     case 'processing':
     case 'deposit received':
     case 'exchanging':
@@ -50,9 +53,11 @@ export function convertOrderStatusLabel(status: unknown): string {
 export function convertOrderStatusStep(status: unknown): number {
   const normalized = normalizeConvertOrderStatus(status);
   return normalized === 'completed' || normalized === 'complete' || normalized === 'finished' || normalized === 'paid'
-    ? 2
+    ? 3
     : normalized === 'processing' || normalized === 'deposit received' || normalized === 'exchanging' ||
       normalized === 'sending payout' || normalized === 'sending'
-      ? 1
-      : 0;
+      ? 2
+      : normalized === 'confirming' || normalized === 'payment detected'
+        ? 1
+        : 0;
 }

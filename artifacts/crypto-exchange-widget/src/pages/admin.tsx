@@ -74,9 +74,20 @@ import {
   useSearchAffiliateCommissions, getSearchAffiliateCommissionsQueryKey,
   useGetAffiliateValuationReviews, getGetAffiliateValuationReviewsQueryKey,
   useGetAffiliateValuationReview, getGetAffiliateValuationReviewQueryKey,
-  useReviewAffiliateValuation
+  useReviewAffiliateValuation,
+  useListBlockchainMonitoringNetworks,
+  useCreateBlockchainMonitoringNetwork,
+  useUpdateBlockchainMonitoringNetwork,
+  useTestBlockchainMonitoringNetwork,
+  useListBlockchainMonitoringAssets,
+  useUpsertBlockchainMonitoringAsset,
+  useListBlockchainMonitoringRegistrationGaps,
+  useActivateBlockchainMonitoringRegistrationGap,
+  useListBlockchainMonitoringWatches,
+  useListBlockchainMonitoringMatches,
+  useReviewBlockchainMonitoringMatch
 } from '@workspace/api-client-react';
-import type { Asset, Customer, Order, PublicOrderStatus, ApiError, QuickexRateMode, CustomerOrder, FiatCurrency, OneForgeProviderStatus, WhitebitProviderStatus, ManualDeskPricingRule, ManualDeskPricingRuleInput, ManualDeskPricingQuotePreviewInput, SettlementOption, PaymentMethod, PaymentMethodFieldDefinition, CryptoAsset, CryptoNetwork, OrderBulkMutationResponse, OrderBulkStatusInputManualSettlementState, AffiliateAccount, AffiliateSettings, AffiliatePayout, AffiliateOverview, AffiliateAccountPage, AffiliateCommission, AffiliateAccountDetail, AffiliateValuationReview, AffiliateReferral, AffiliateDashboard, ManualDeskPricingRulesBulkResponse, ManualDeskPricingRulesBulkPatch } from '@workspace/api-client-react';
+import type { Asset, Customer, Order, PublicOrderStatus, ApiError, QuickexRateMode, CustomerOrder, FiatCurrency, OneForgeProviderStatus, WhitebitProviderStatus, ManualDeskPricingRule, ManualDeskPricingRuleInput, ManualDeskPricingQuotePreviewInput, SettlementOption, PaymentMethod, PaymentMethodFieldDefinition, CryptoAsset, CryptoNetwork, OrderBulkMutationResponse, OrderBulkStatusInputManualSettlementState, AffiliateAccount, AffiliateSettings, AffiliatePayout, AffiliateOverview, AffiliateAccountPage, AffiliateCommission, AffiliateAccountDetail, AffiliateValuationReview, AffiliateReferral, AffiliateDashboard, ManualDeskPricingRulesBulkResponse, ManualDeskPricingRulesBulkPatch, BlockchainMonitoringNetwork, BlockchainMonitoringAsset, BlockchainMonitoringWatch, BlockchainMonitoringMatch, BlockchainMonitoringReviewInputDecision } from '@workspace/api-client-react';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { CryptoIdentity, CryptoLogo, CryptoNetworkBadge, cryptoLogoFallbackUrls } from '@/components/crypto-identity';
@@ -2973,12 +2984,20 @@ function AdminOverview() {
                 </>
             }
           </div>
+
+          <div className="mt-4 rise-in rise-delay-3">
+            <OperationsMonitors />
+          </div>
         </>
       )}
     </AdminShell>
   );
 }
 
+
+import { OperationsMonitors } from '../components/admin-operations-monitors';
+
+import { BlockchainMonitorConfig } from '../components/admin-blockchain-monitor-config';
 
 function formatRevenueDecimal(value: string, asset: string, exact: boolean) {
   const match = value.trim().match(/^(-?)(\d+)(?:\.(\d+))?$/);
@@ -8636,7 +8655,11 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
             </section>
           )}
 
-          <div className="network-drawer-actions catalog-editor-actions">
+          {!isNew && network && (
+            <BlockchainMonitorConfig network={network} networkCode={network.networkCode || networkCode} />
+          )}
+
+          <div className="network-drawer-actions catalog-editor-actions mt-4">
             <button type="submit" className="catalog-editor-primary" disabled={createNetwork.isPending || updateNetwork.isPending || saveReceivingWallet.isPending}><Save size={16} />{t('adminCatalog.save_network')}</button>
             {!isNew && <button type="button" className="catalog-editor-danger" onClick={remove} disabled={deleteNetwork.isPending}><Trash2 size={15} />{t('adminCatalog.delete')}</button>}
           </div>

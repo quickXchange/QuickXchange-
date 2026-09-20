@@ -169,10 +169,13 @@ export default function OrderDetail() {
     ? canonicalSwapStatus === 'completed'
     : isConvertTerminalStatus(status) && ['completed'].includes(status);
   const isFailed = isManualSwap ? isCancelled || isRefunded || /failed|expired/.test(status) : isConvertTerminalStatus(status) && !isCompleted;
+  const isConfirming = isManualSwap
+    ? canonicalSwapStatus === 'funds_confirmed' || canonicalSwapStatus === 'confirming'
+    : !isCompleted && !isFailed && ['confirming', 'payment detected'].includes(status);
   const isProcessing = isManualSwap
     ? canonicalSwapStatus === 'processing'
     : !isCompleted && !isFailed && status === 'processing';
-  const isPending = !isCompleted && !isFailed && !isProcessing;
+  const isPending = !isCompleted && !isFailed && !isProcessing && !isConfirming;
   const currentStep = isManualSwap
     ? swapOrderStatusStep(canonicalSwapStatus)
     : convertOrderStatusStep(status) + 1;
@@ -197,14 +200,18 @@ export default function OrderDetail() {
         ? { label: swapOrderStatusLabel(canonicalSwapStatus), description: 'This order is no longer active.', icon: XCircle, tone: 'text-destructive', surface: 'bg-destructive/10' }
         : isProcessing
           ? { label: swapOrderStatusLabel(canonicalSwapStatus), description: 'Your payment was received and your order is being processed.', icon: RefreshCcw, tone: 'text-accent', surface: 'bg-accent/10' }
-          : { label: swapOrderStatusLabel(canonicalSwapStatus), description: 'Complete the payment using the order-specific details below.', icon: Clock3, tone: 'text-secondary', surface: 'bg-secondary/10' }
+          : isConfirming
+            ? { label: swapOrderStatusLabel(canonicalSwapStatus), description: 'Your payment has been detected and is confirming.', icon: Clock3, tone: 'text-amber-500', surface: 'bg-amber-500/10' }
+            : { label: swapOrderStatusLabel(canonicalSwapStatus), description: 'Complete the payment using the order-specific details below.', icon: Clock3, tone: 'text-secondary', surface: 'bg-secondary/10' }
     : isCompleted
      ? { label: isManualSwap ? 'Completed' : convertOrderStatusLabel(status), description: 'Your exchange has been completed successfully.', icon: CheckCircle2, tone: 'text-primary', surface: 'bg-primary/10' }
      : isFailed
        ? { label: isManualSwap ? (isCancelled ? 'Cancelled' : status === 'expired' ? 'Expired' : 'Failed') : convertOrderStatusLabel(status), description: 'This order is no longer active.', icon: XCircle, tone: 'text-destructive', surface: 'bg-destructive/10' }
        : isProcessing
         ? { label: 'Processing', description: 'Your payment is being processed for delivery.', icon: RefreshCcw, tone: 'text-accent', surface: 'bg-accent/10' }
-         : { label: convertOrderStatusLabel(status), description: 'Complete the payment using the order-specific details below.', icon: Clock3, tone: 'text-secondary', surface: 'bg-secondary/10' };
+        : isConfirming
+          ? { label: convertOrderStatusLabel(status), description: 'Your payment has been detected and is confirming.', icon: Clock3, tone: 'text-amber-500', surface: 'bg-amber-500/10' }
+          : { label: convertOrderStatusLabel(status), description: 'Complete the payment using the order-specific details below.', icon: Clock3, tone: 'text-secondary', surface: 'bg-secondary/10' };
   const StatusIcon = statusPresentation.icon;
   const paymentFieldLabels: Record<string, string> = {
     name: 'Name',
@@ -294,10 +301,10 @@ export default function OrderDetail() {
       {!isFailed && <div className="mt-4 border-t border-border/50 pt-4">
       <div className="relative pt-2 pb-1">
         <div className="absolute top-[15px] left-[10%] right-[10%] h-[2px] bg-border z-0" />
-        <div className="absolute top-[15px] left-[10%] h-[2px] bg-gradient-to-r from-secondary via-primary to-accent z-0 transition-all duration-500" style={{ width: `${(Math.max(0, currentStep - 1) / 2) * 80}%` }} />
+        <div className="absolute top-[15px] left-[10%] h-[2px] bg-gradient-to-r from-secondary via-primary to-accent z-0 transition-all duration-500" style={{ width: `${(Math.max(0, currentStep - 1) / 3) * 80}%` }} />
 
         <div className="flex justify-between relative z-10">
-          {(isManualSwap ? ['Created', 'Processing', 'Done'] : ['Created', 'Processing', 'Done']).map((label, idx) => {
+          {(isManualSwap ? ['Created', 'Detected', 'Processing', 'Done'] : ['Created', 'Confirming', 'Processing', 'Done']).map((label, idx) => {
             const step = idx + 1;
             const isPast = currentStep > step;
             const isCurrent = currentStep === step;

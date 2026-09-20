@@ -261,12 +261,13 @@ export function OrderConfirmationPage() {
   const progressTimeline = isManual
     ? [
         { key: 'order-created', label: 'Order Created' },
-        { key: 'deposit-received', label: 'Payment Received' },
+        { key: 'deposit-received', label: 'Payment Detected' },
         { key: 'processing', label: 'Processing' },
         { key: 'completed', label: 'Completed' },
       ]
     : [
         { key: 'order-created', label: 'Created' },
+        { key: 'confirming', label: 'Confirming' },
         { key: 'processing', label: 'Processing' },
         { key: 'completed', label: 'Done' },
       ];

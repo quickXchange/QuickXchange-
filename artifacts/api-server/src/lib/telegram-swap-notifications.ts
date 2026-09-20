@@ -6,6 +6,7 @@ import {
   telegramNotificationOutboxTable,
   telegramOrderLinksTable,
   whitebitDepositsTable,
+  blockchainMonitorMatchesTable,
 } from "@workspace/db";
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -41,6 +42,8 @@ export type SwapTelegramNotificationPayload = {
 export function swapTelegramStatusLabel(status: string): string {
   switch (status.trim().toLowerCase()) {
     case "awaiting funds": return "AWAITING FUNDS";
+    case "payment detected": return "PAYMENT DETECTED";
+    case "confirming": return "CONFIRMING";
     case "processing": return "PROCESSING";
     case "completed": return "DONE ✅";
     case "cancelled": return "CANCELLED";
@@ -206,15 +209,13 @@ export async function swapTelegramRecipientIsCurrent(
     return false;
   }
   if (eventKind === "completed") return linked.status === "completed";
-  const [deposit] = await db
-    .select({ id: whitebitDepositsTable.id })
-    .from(whitebitDepositsTable)
-    .where(and(
-      eq(whitebitDepositsTable.orderId, orderId),
-      eq(whitebitDepositsTable.status, "processed"),
-    ))
-    .limit(1);
-  return Boolean(deposit);
+  const [deposit] = await db.select({ id: whitebitDepositsTable.id }).from(whitebitDepositsTable)
+    .where(and(eq(whitebitDepositsTable.orderId, orderId), eq(whitebitDepositsTable.status, "processed"))).limit(1);
+  if (deposit) return true;
+  const [blockchainMatch] = await db.select({ id: blockchainMonitorMatchesTable.id })
+    .from(blockchainMonitorMatchesTable)
+    .where(and(eq(blockchainMonitorMatchesTable.orderId, orderId), eq(blockchainMonitorMatchesTable.state, "applied"))).limit(1);
+  return Boolean(blockchainMatch);
 }
 
 function escapeHtml(value: unknown): string {

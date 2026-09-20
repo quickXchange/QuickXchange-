@@ -603,6 +603,13 @@
       "when": 1789848995777,
       "tag": "0087_restore_whitebit_idempotency_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1789849000000,
+      "tag": "0088_blockchain_monitoring",
+      "breakpoints": true
     }
   ]
 }

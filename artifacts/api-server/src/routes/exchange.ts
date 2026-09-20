@@ -1,4 +1,5 @@
 import { createHash, randomInt, randomUUID } from "node:crypto";
+import { registerManualBlockchainWatch } from "../lib/blockchain-monitoring/service";
 import { Router, type IRouter, type Request } from "express";
 import { and, asc, count, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, ne, notInArray, or, sql } from "drizzle-orm";
 import {
@@ -135,6 +136,7 @@ import {
   orderSupportMetadataTable,
   whitebitOrderAddressesTable,
   providerIntegrationsTable,
+  blockchainMonitorMatchesTable,
 } from "@workspace/db";
 import { ApiError } from "../lib/api-error";
 import {
@@ -2572,10 +2574,23 @@ async function createOrderFromInput(
     const [existing] = await db.select().from(ordersTable)
       .where(eq(ordersTable.clientRequestId, input.clientRequestId)).limit(1);
     if (!existing) throw new ApiError("IDEMPOTENCY_CONFLICT", "The existing order could not be loaded.", 409);
+    try {
+      await registerManualBlockchainWatch(existing.id);
+    } catch (error) {
+      console.warn("Manual blockchain watch replay reconciliation failed", error);
+    }
     return existingOrderResult(existing, input, matchQuoteId);
   }
 
   let finalOrder = inserted;
+  // Registration is deliberately best-effort: an unconfigured network must
+  // not make Manual Swap order creation fail. The immutable snapshot remains
+  // in the order and can be registered by a later reconciliation pass.
+  try {
+    await registerManualBlockchainWatch(inserted.id);
+  } catch (error) {
+    console.warn("Manual blockchain watch registration failed", error);
+  }
   if (providerFundingCandidate && sourceSnapshot?.kind === "crypto-network" && manualFunding) {
     const [orderClaim] = await db.select({ claimToken: whitebitOrderAddressesTable.claimToken })
       .from(whitebitOrderAddressesTable)
@@ -3223,6 +3238,11 @@ router.patch("/orders/:id", requireOperator, async (req, res, next) => {
       .where(eq(ordersTable.id, params.id)).limit(1);
     if (!existing) {
       throw new ApiError("ORDER_NOT_FOUND", "Order not found.", 404);
+    }
+    if (existing.type === "manual" && (input.status !== undefined || manualInput.manualSettlementState !== undefined)) {
+      const [hold] = await db.select({ id: blockchainMonitorMatchesTable.id }).from(blockchainMonitorMatchesTable)
+        .where(and(eq(blockchainMonitorMatchesTable.orderId, existing.id), eq(blockchainMonitorMatchesTable.state, "needs_review"))).limit(1);
+      if (hold) throw new ApiError("BLOCKCHAIN_MONITORING_REVIEW_REQUIRED", "Resolve the active blockchain monitoring review before changing this order.", 409);
     }
     if (
       input.recordVersion !== undefined &&

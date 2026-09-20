@@ -1,5 +1,7 @@
 export type SwapOrderStatus =
   | 'awaiting funds'
+  | 'funds_confirmed'
+  | 'confirming'
   | 'processing'
   | 'completed'
   | 'cancelled'
@@ -13,6 +15,8 @@ export function normalizeSwapOrderStatus(status: unknown): string {
 export function swapOrderStatusLabel(status: unknown): string {
   switch (normalizeSwapOrderStatus(status)) {
     case 'awaiting funds': return 'AWAITING FUNDS';
+    case 'funds_confirmed':
+    case 'confirming': return 'CONFIRMING';
     case 'processing': return 'PROCESSING';
     case 'completed': return 'DONE ✅';
     case 'cancelled': return 'CANCELLED';
@@ -24,8 +28,10 @@ export function swapOrderStatusLabel(status: unknown): string {
 
 export function swapOrderStatusStep(status: unknown): number {
   switch (normalizeSwapOrderStatus(status)) {
-    case 'completed': return 3;
-    case 'processing': return 2;
+    case 'completed': return 4;
+    case 'processing': return 3;
+    case 'funds_confirmed':
+    case 'confirming': return 2;
     default: return 1;
   }
 }

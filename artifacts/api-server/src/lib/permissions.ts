@@ -41,6 +41,8 @@ export const PERMISSION_CATALOG = [
   { key: "integrations.credentials.delete", section: "integrations", label: "Delete integration credentials", ownerOnly: true },
   { key: "integrations.credentials.rotate", section: "integrations", label: "Rotate integration credentials", ownerOnly: true },
   { key: "integrations.credentials.test", section: "integrations", label: "Test integration credentials", ownerOnly: true },
+  { key: "blockchain_monitoring.view", section: "blockchain_monitoring", label: "View blockchain monitoring" },
+  { key: "blockchain_monitoring.manage", section: "blockchain_monitoring", label: "Manage blockchain monitoring", ownerOnly: true },
   { key: "blog.view", section: "blog", label: "View blog content" },
   { key: "blog.manage", section: "blog", label: "Manage blog content" },
   { key: "languages.view", section: "languages", label: "View languages" },

@@ -19,6 +19,7 @@ import telegramConnectRouter from "./telegram-connect";
 import telegramMiniAppRouter from "./telegram-mini-app";
 import { apiBuildInfo } from "../lib/build-info";
 import workspaceConfigSyncRouter from "./workspace-config-sync";
+import blockchainMonitoringRouter from "./blockchain-monitoring";
 
 const router: IRouter = Router();
 
@@ -41,6 +42,7 @@ router.use(workspaceConfigSyncRouter);
 // Authenticate first, then enforce the centralized granular policy before any
 // Admin router can execute. Unmatched staff routes are deny-by-default.
 router.use(adminPolicy);
+router.use(blockchainMonitoringRouter);
 router.use(landingBackgroundRouter);
 router.use(exchangeRouter);
 router.use(customerManagementRouter);

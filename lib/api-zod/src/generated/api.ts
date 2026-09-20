@@ -5248,6 +5248,381 @@ export const GetAdminSummaryResponse = zod.object({
 
 
 /**
+ * @summary List sanitized Manual Swap blockchain monitoring configuration
+ */
+export const listBlockchainMonitoringNetworksResponseItemsItemConfirmationsRequiredMin = 0;
+
+export const listBlockchainMonitoringNetworksResponseItemsItemConsecutiveFailuresMin = 0;
+
+
+
+export const ListBlockchainMonitoringNetworksResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "adapterKind": zod.enum(['evm', 'tron', 'solana']),
+  "providerKind": zod.enum(['rpc', 'indexer', 'none']),
+  "enabled": zod.boolean(),
+  "endpointConfigured": zod.boolean(),
+  "apiKeyConfigured": zod.boolean(),
+  "confirmationsRequired": zod.number().int().min(listBlockchainMonitoringNetworksResponseItemsItemConfirmationsRequiredMin),
+  "finalityPolicy": zod.enum(['confirmations', 'finalized']),
+  "pollIntervalSeconds": zod.number().int(),
+  "cursor": zod.string().nullish(),
+  "lastHead": zod.string().nullish(),
+  "healthStatus": zod.enum(['connected', 'disconnected', 'not_configured']),
+  "healthCheckedAt": zod.coerce.date().nullish(),
+  "healthError": zod.string().nullish(),
+  "consecutiveFailures": zod.number().int().min(listBlockchainMonitoringNetworksResponseItemsItemConsecutiveFailuresMin),
+  "nextAttemptAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Create a Manual Swap blockchain monitoring network
+ */
+export const createBlockchainMonitoringNetworkBodyIdMax = 128;
+
+
+export const createBlockchainMonitoringNetworkBodyIdRegExp = new RegExp('^[A-Za-z0-9_-]+$');
+export const createBlockchainMonitoringNetworkBodyNetworkCodeMax = 64;
+
+export const createBlockchainMonitoringNetworkBodyNetworkNameMax = 128;
+
+export const createBlockchainMonitoringNetworkBodyChainIdMax = 128;
+
+export const createBlockchainMonitoringNetworkBodyEnabledDefault = false;
+export const createBlockchainMonitoringNetworkBodyEndpointSecretRefMax = 255;
+
+export const createBlockchainMonitoringNetworkBodyApiKeySecretRefMax = 255;
+
+export const createBlockchainMonitoringNetworkBodyConfirmationsRequiredMin = 0;
+export const createBlockchainMonitoringNetworkBodyConfirmationsRequiredMax = 100000;
+
+export const createBlockchainMonitoringNetworkBodyPollIntervalSecondsMin = 5;
+export const createBlockchainMonitoringNetworkBodyPollIntervalSecondsMax = 86400;
+
+
+
+export const CreateBlockchainMonitoringNetworkBody = zod.object({
+  "id": zod.string().min(1).max(createBlockchainMonitoringNetworkBodyIdMax).regex(createBlockchainMonitoringNetworkBodyIdRegExp),
+  "networkCode": zod.string().min(1).max(createBlockchainMonitoringNetworkBodyNetworkCodeMax),
+  "networkName": zod.string().min(1).max(createBlockchainMonitoringNetworkBodyNetworkNameMax),
+  "adapterKind": zod.enum(['evm', 'tron', 'solana']),
+  "chainId": zod.string().max(createBlockchainMonitoringNetworkBodyChainIdMax).nullish(),
+  "providerKind": zod.enum(['rpc', 'indexer']),
+  "enabled": zod.boolean().default(createBlockchainMonitoringNetworkBodyEnabledDefault),
+  "endpointSecretRef": zod.string().min(1).max(createBlockchainMonitoringNetworkBodyEndpointSecretRefMax).nullish(),
+  "apiKeySecretRef": zod.string().min(1).max(createBlockchainMonitoringNetworkBodyApiKeySecretRefMax).nullish(),
+  "confirmationsRequired": zod.number().int().min(createBlockchainMonitoringNetworkBodyConfirmationsRequiredMin).max(createBlockchainMonitoringNetworkBodyConfirmationsRequiredMax).optional(),
+  "finalityPolicy": zod.enum(['confirmations', 'finalized']).optional(),
+  "pollIntervalSeconds": zod.number().int().min(createBlockchainMonitoringNetworkBodyPollIntervalSecondsMin).max(createBlockchainMonitoringNetworkBodyPollIntervalSecondsMax).optional()
+})
+
+export const createBlockchainMonitoringNetworkResponseConfirmationsRequiredMin = 0;
+
+export const createBlockchainMonitoringNetworkResponseConsecutiveFailuresMin = 0;
+
+
+
+export const CreateBlockchainMonitoringNetworkResponse = zod.object({
+  "id": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "adapterKind": zod.enum(['evm', 'tron', 'solana']),
+  "providerKind": zod.enum(['rpc', 'indexer', 'none']),
+  "enabled": zod.boolean(),
+  "endpointConfigured": zod.boolean(),
+  "apiKeyConfigured": zod.boolean(),
+  "confirmationsRequired": zod.number().int().min(createBlockchainMonitoringNetworkResponseConfirmationsRequiredMin),
+  "finalityPolicy": zod.enum(['confirmations', 'finalized']),
+  "pollIntervalSeconds": zod.number().int(),
+  "cursor": zod.string().nullish(),
+  "lastHead": zod.string().nullish(),
+  "healthStatus": zod.enum(['connected', 'disconnected', 'not_configured']),
+  "healthCheckedAt": zod.coerce.date().nullish(),
+  "healthError": zod.string().nullish(),
+  "consecutiveFailures": zod.number().int().min(createBlockchainMonitoringNetworkResponseConsecutiveFailuresMin),
+  "nextAttemptAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+export const ListBlockchainMonitoringAssetsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "monitorNetworkId": zod.string(),
+  "assetNetworkId": zod.string(),
+  "identityKind": zod.enum(['native', 'token']),
+  "contractOrMint": zod.string().nullish(),
+  "decimals": zod.number().int(),
+  "enabled": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}))
+})
+
+
+export const upsertBlockchainMonitoringAssetBodyMonitorNetworkIdMax = 128;
+
+export const upsertBlockchainMonitoringAssetBodyAssetNetworkIdMax = 128;
+
+export const upsertBlockchainMonitoringAssetBodyContractOrMintMax = 128;
+
+export const upsertBlockchainMonitoringAssetBodyDecimalsMin = 0;
+export const upsertBlockchainMonitoringAssetBodyDecimalsMax = 36;
+
+export const upsertBlockchainMonitoringAssetBodyEnabledDefault = false;
+
+export const UpsertBlockchainMonitoringAssetBody = zod.object({
+  "monitorNetworkId": zod.string().min(1).max(upsertBlockchainMonitoringAssetBodyMonitorNetworkIdMax),
+  "assetNetworkId": zod.string().min(1).max(upsertBlockchainMonitoringAssetBodyAssetNetworkIdMax),
+  "identityKind": zod.enum(['native', 'token']),
+  "contractOrMint": zod.string().min(1).max(upsertBlockchainMonitoringAssetBodyContractOrMintMax).nullish(),
+  "decimals": zod.number().int().min(upsertBlockchainMonitoringAssetBodyDecimalsMin).max(upsertBlockchainMonitoringAssetBodyDecimalsMax),
+  "enabled": zod.boolean().default(upsertBlockchainMonitoringAssetBodyEnabledDefault)
+})
+
+export const UpsertBlockchainMonitoringAssetResponse = zod.object({
+  "id": zod.string().uuid(),
+  "monitorNetworkId": zod.string(),
+  "assetNetworkId": zod.string(),
+  "identityKind": zod.enum(['native', 'token']),
+  "contractOrMint": zod.string().nullish(),
+  "decimals": zod.number().int(),
+  "enabled": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+export const ListBlockchainMonitoringRegistrationGapsResponse = zod.object({
+  "items": zod.array(zod.record(zod.string(), zod.unknown()))
+})
+
+
+export const ActivateBlockchainMonitoringRegistrationGapParams = zod.object({
+  "orderId": zod.coerce.string()
+})
+
+export const ActivateBlockchainMonitoringRegistrationGapResponse = zod.unknown()
+
+
+/**
+ * @summary Update Manual Swap blockchain monitoring configuration
+ */
+export const updateBlockchainMonitoringNetworkPathIdMax = 128;
+
+
+
+export const UpdateBlockchainMonitoringNetworkParams = zod.object({
+  "id": zod.coerce.string().min(1).max(updateBlockchainMonitoringNetworkPathIdMax)
+})
+
+export const updateBlockchainMonitoringNetworkBodyNetworkNameMax = 128;
+
+export const updateBlockchainMonitoringNetworkBodyChainIdMax = 128;
+
+export const updateBlockchainMonitoringNetworkBodyEndpointSecretRefMax = 255;
+
+export const updateBlockchainMonitoringNetworkBodyApiKeySecretRefMax = 255;
+
+export const updateBlockchainMonitoringNetworkBodyConfirmationsRequiredMin = 0;
+export const updateBlockchainMonitoringNetworkBodyConfirmationsRequiredMax = 100000;
+
+export const updateBlockchainMonitoringNetworkBodyPollIntervalSecondsMin = 5;
+export const updateBlockchainMonitoringNetworkBodyPollIntervalSecondsMax = 86400;
+
+
+
+export const UpdateBlockchainMonitoringNetworkBody = zod.object({
+  "networkName": zod.string().min(1).max(updateBlockchainMonitoringNetworkBodyNetworkNameMax).optional(),
+  "adapterKind": zod.enum(['evm', 'tron', 'solana']).optional(),
+  "chainId": zod.string().max(updateBlockchainMonitoringNetworkBodyChainIdMax).nullish(),
+  "providerKind": zod.enum(['rpc', 'indexer']).optional(),
+  "enabled": zod.boolean().optional(),
+  "endpointSecretRef": zod.string().min(1).max(updateBlockchainMonitoringNetworkBodyEndpointSecretRefMax).nullish(),
+  "apiKeySecretRef": zod.string().min(1).max(updateBlockchainMonitoringNetworkBodyApiKeySecretRefMax).nullish(),
+  "confirmationsRequired": zod.number().int().min(updateBlockchainMonitoringNetworkBodyConfirmationsRequiredMin).max(updateBlockchainMonitoringNetworkBodyConfirmationsRequiredMax).optional(),
+  "finalityPolicy": zod.enum(['confirmations', 'finalized']).optional(),
+  "pollIntervalSeconds": zod.number().int().min(updateBlockchainMonitoringNetworkBodyPollIntervalSecondsMin).max(updateBlockchainMonitoringNetworkBodyPollIntervalSecondsMax).optional()
+}).describe('Partial update of mutable provider configuration; secret values are never accepted.')
+
+export const updateBlockchainMonitoringNetworkResponseConfirmationsRequiredMin = 0;
+
+export const updateBlockchainMonitoringNetworkResponseConsecutiveFailuresMin = 0;
+
+
+
+export const UpdateBlockchainMonitoringNetworkResponse = zod.object({
+  "id": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "adapterKind": zod.enum(['evm', 'tron', 'solana']),
+  "providerKind": zod.enum(['rpc', 'indexer', 'none']),
+  "enabled": zod.boolean(),
+  "endpointConfigured": zod.boolean(),
+  "apiKeyConfigured": zod.boolean(),
+  "confirmationsRequired": zod.number().int().min(updateBlockchainMonitoringNetworkResponseConfirmationsRequiredMin),
+  "finalityPolicy": zod.enum(['confirmations', 'finalized']),
+  "pollIntervalSeconds": zod.number().int(),
+  "cursor": zod.string().nullish(),
+  "lastHead": zod.string().nullish(),
+  "healthStatus": zod.enum(['connected', 'disconnected', 'not_configured']),
+  "healthCheckedAt": zod.coerce.date().nullish(),
+  "healthError": zod.string().nullish(),
+  "consecutiveFailures": zod.number().int().min(updateBlockchainMonitoringNetworkResponseConsecutiveFailuresMin),
+  "nextAttemptAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Test a configured blockchain monitoring provider
+ */
+export const testBlockchainMonitoringNetworkPathIdMax = 128;
+
+
+
+export const TestBlockchainMonitoringNetworkParams = zod.object({
+  "id": zod.coerce.string().min(1).max(testBlockchainMonitoringNetworkPathIdMax)
+})
+
+export const testBlockchainMonitoringNetworkResponseLatencyMsMin = 0;
+
+
+
+export const TestBlockchainMonitoringNetworkResponse = zod.object({
+  "connected": zod.boolean(),
+  "head": zod.string(),
+  "chainId": zod.string().nullish(),
+  "latencyMs": zod.number().int().min(testBlockchainMonitoringNetworkResponseLatencyMsMin)
+})
+
+
+/**
+ * @summary List immutable Manual Swap monitoring watches
+ */
+export const listBlockchainMonitoringWatchesQueryLimitDefault = 50;
+export const listBlockchainMonitoringWatchesQueryLimitMax = 200;
+
+
+
+export const ListBlockchainMonitoringWatchesQueryParams = zod.object({
+  "state": zod.enum(['active', 'inactive']).optional(),
+  "limit": zod.coerce.number().int().min(1).max(listBlockchainMonitoringWatchesQueryLimitMax).default(listBlockchainMonitoringWatchesQueryLimitDefault)
+})
+
+export const listBlockchainMonitoringWatchesResponseItemsItemDecimalsMin = 0;
+
+
+
+export const ListBlockchainMonitoringWatchesResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "orderId": zod.string(),
+  "monitorNetworkId": zod.string(),
+  "monitorAssetId": zod.string().uuid(),
+  "assetNetworkId": zod.string(),
+  "expectedAmount": zod.string(),
+  "receivingAddress": zod.string(),
+  "memoOrTag": zod.string().nullish(),
+  "identityKind": zod.enum(['native', 'token']),
+  "contractOrMint": zod.string().nullish(),
+  "decimals": zod.number().int().min(listBlockchainMonitoringWatchesResponseItemsItemDecimalsMin),
+  "orderCreatedAt": zod.coerce.date(),
+  "active": zod.boolean(),
+  "createdAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary List Manual Swap payment detections and review items
+ */
+export const listBlockchainMonitoringMatchesQueryLimitDefault = 50;
+export const listBlockchainMonitoringMatchesQueryLimitMax = 200;
+
+
+
+export const ListBlockchainMonitoringMatchesQueryParams = zod.object({
+  "state": zod.enum(['confirming', 'matched', 'needs_review', 'applied', 'rejected']).optional(),
+  "limit": zod.coerce.number().int().min(1).max(listBlockchainMonitoringMatchesQueryLimitMax).default(listBlockchainMonitoringMatchesQueryLimitDefault)
+})
+
+export const listBlockchainMonitoringMatchesResponseItemsItemConfirmationsMin = 0;
+
+export const listBlockchainMonitoringMatchesResponseItemsItemConfirmationsRequiredMin = 0;
+
+
+
+export const ListBlockchainMonitoringMatchesResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "watchId": zod.string().uuid(),
+  "observationId": zod.string().uuid(),
+  "orderId": zod.string(),
+  "state": zod.enum(['confirming', 'matched', 'needs_review', 'applied', 'rejected']),
+  "matchBasis": zod.record(zod.string(), zod.unknown()).optional(),
+  "ambiguityReason": zod.string().nullish(),
+  "confirmations": zod.number().int().min(listBlockchainMonitoringMatchesResponseItemsItemConfirmationsMin),
+  "confirmationsRequired": zod.number().int().min(listBlockchainMonitoringMatchesResponseItemsItemConfirmationsRequiredMin),
+  "reviewedBy": zod.string().uuid().nullish(),
+  "reviewedAt": zod.coerce.date().nullish(),
+  "appliedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Resolve an ambiguous Manual Swap payment detection
+ */
+export const ReviewBlockchainMonitoringMatchParams = zod.object({
+  "id": zod.string().uuid()
+})
+
+export const reviewBlockchainMonitoringMatchBodyReasonMax = 1000;
+
+
+
+export const ReviewBlockchainMonitoringMatchBody = zod.object({
+  "decision": zod.enum(['approve', 'reject']),
+  "reason": zod.string().max(reviewBlockchainMonitoringMatchBodyReasonMax).nullish()
+})
+
+export const reviewBlockchainMonitoringMatchResponseConfirmationsMin = 0;
+
+export const reviewBlockchainMonitoringMatchResponseConfirmationsRequiredMin = 0;
+
+
+
+export const ReviewBlockchainMonitoringMatchResponse = zod.object({
+  "id": zod.string().uuid(),
+  "watchId": zod.string().uuid(),
+  "observationId": zod.string().uuid(),
+  "orderId": zod.string(),
+  "state": zod.enum(['confirming', 'matched', 'needs_review', 'applied', 'rejected']),
+  "matchBasis": zod.record(zod.string(), zod.unknown()).optional(),
+  "ambiguityReason": zod.string().nullish(),
+  "confirmations": zod.number().int().min(reviewBlockchainMonitoringMatchResponseConfirmationsMin),
+  "confirmationsRequired": zod.number().int().min(reviewBlockchainMonitoringMatchResponseConfirmationsRequiredMin),
+  "reviewedBy": zod.string().uuid().nullish(),
+  "reviewedAt": zod.coerce.date().nullish(),
+  "appliedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
  * @summary Report expected manual desk fee revenue from immutable order snapshots
  */
 export const getManualDeskRevenueQueryFromRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$');

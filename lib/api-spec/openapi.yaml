@@ -1178,6 +1178,204 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminSummary"
+  /admin/blockchain-monitoring/networks:
+    get:
+      operationId: listBlockchainMonitoringNetworks
+      tags: [admin]
+      security: [{ OperatorSession: [] }]
+      summary: List sanitized Manual Swap blockchain monitoring configuration
+      responses:
+        "200":
+          description: Monitoring network configuration without provider secrets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlockchainMonitoringNetworkList"
+        "403":
+          description: Insufficient permission
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    post:
+      operationId: createBlockchainMonitoringNetwork
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      summary: Create a Manual Swap blockchain monitoring network
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BlockchainMonitoringNetworkInput" }
+      responses:
+        "201":
+          description: Created monitoring network without provider secrets
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BlockchainMonitoringNetwork" }
+        "400":
+          description: Invalid monitoring configuration
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+  /admin/blockchain-monitoring/assets/list:
+    get:
+      operationId: listBlockchainMonitoringAssets
+      tags: [admin]
+      security: [{ OperatorSession: [] }]
+      responses:
+        "200":
+          description: Exact configured monitor asset identities
+          content: { application/json: { schema: { $ref: "#/components/schemas/BlockchainMonitoringAssetList" } } }
+  /admin/blockchain-monitoring/assets/upsert:
+    post:
+      operationId: upsertBlockchainMonitoringAsset
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/BlockchainMonitoringAssetInput" } } }
+      responses:
+        "200":
+          description: Updated exact monitor asset identity
+          content: { application/json: { schema: { $ref: "#/components/schemas/BlockchainMonitoringAsset" } } }
+  /admin/blockchain-monitoring/registration-gaps:
+    get:
+      operationId: listBlockchainMonitoringRegistrationGaps
+      tags: [admin]
+      security: [{ OperatorSession: [] }]
+      responses:
+        "200":
+          description: Registration gaps requiring operator review
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { type: object, additionalProperties: true } }
+  /admin/blockchain-monitoring/registration-gaps/{orderId}/activate:
+    post:
+      operationId: activateBlockchainMonitoringRegistrationGap
+      tags: [admin]
+      security: [{ OperatorSession: [] }]
+      parameters:
+        - { name: orderId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Activated watch }
+  /admin/blockchain-monitoring/networks/{id}:
+    patch:
+      operationId: updateBlockchainMonitoringNetwork
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      summary: Update Manual Swap blockchain monitoring configuration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 128 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BlockchainMonitoringNetworkUpdate" }
+      responses:
+        "200":
+          description: Updated monitoring network without provider secrets
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BlockchainMonitoringNetwork" }
+        "400":
+          description: Invalid monitoring configuration
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: Monitoring network not found
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+  /admin/blockchain-monitoring/networks/{id}/test:
+    post:
+      operationId: testBlockchainMonitoringNetwork
+      tags: [admin]
+      security: [{ OperatorSession: [] }]
+      summary: Test a configured blockchain monitoring provider
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 128 }
+      responses:
+        "200":
+          description: Sanitized provider connectivity result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BlockchainMonitoringTestResult" }
+        "404":
+          description: Monitoring network not found
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+  /admin/blockchain-monitoring/watches:
+    get:
+      operationId: listBlockchainMonitoringWatches
+      tags: [admin]
+      security: [{ OperatorSession: [] }]
+      summary: List immutable Manual Swap monitoring watches
+      parameters:
+        - name: state
+          in: query
+          required: false
+          schema: { type: string, enum: [active, inactive] }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        "200":
+          description: Sanitized monitoring watches
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BlockchainMonitoringWatchList" }
+  /admin/blockchain-monitoring/matches:
+    get:
+      operationId: listBlockchainMonitoringMatches
+      tags: [admin]
+      security: [{ OperatorSession: [] }]
+      summary: List Manual Swap payment detections and review items
+      parameters:
+        - name: state
+          in: query
+          required: false
+          schema: { type: string, enum: [confirming, matched, needs_review, applied, rejected] }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        "200":
+          description: Sanitized monitoring matches
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BlockchainMonitoringMatchList" }
+  /admin/blockchain-monitoring/matches/{id}/review:
+    post:
+      operationId: reviewBlockchainMonitoringMatch
+      tags: [admin]
+      security: [{ OperatorSession: [] }]
+      summary: Resolve an ambiguous Manual Swap payment detection
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BlockchainMonitoringReviewInput" }
+      responses:
+        "200":
+          description: Reviewed monitoring match
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BlockchainMonitoringMatch" }
+        "400":
+          description: Invalid review or unsafe state transition
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: Monitoring match not found
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
   /admin/manual-desk-revenue:
     get:
       operationId: getManualDeskRevenue
@@ -7073,3 +7271,151 @@ components:
         orderId: { type: string, minLength: 1, maxLength: 255 }
         trackingToken: { type: string, minLength: 1, maxLength: 4096 }
         orderKind: { type: string, enum: [manual, swap, convert] }
+    BlockchainMonitoringNetworkInput:
+      type: object
+      required: [id, networkCode, networkName, adapterKind, providerKind]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 128, pattern: '^[A-Za-z0-9_-]+$' }
+        networkCode: { type: string, minLength: 1, maxLength: 64 }
+        networkName: { type: string, minLength: 1, maxLength: 128 }
+        adapterKind: { type: string, enum: [evm, tron, solana] }
+        chainId: { type: [string, "null"], maxLength: 128 }
+        providerKind: { type: string, enum: [rpc, indexer] }
+        enabled: { type: boolean, default: false }
+        endpointSecretRef: { type: [string, "null"], minLength: 1, maxLength: 255 }
+        apiKeySecretRef: { type: [string, "null"], minLength: 1, maxLength: 255 }
+        confirmationsRequired: { type: integer, minimum: 0, maximum: 100000 }
+        finalityPolicy: { type: string, enum: [confirmations, finalized] }
+        pollIntervalSeconds: { type: integer, minimum: 5, maximum: 86400 }
+    BlockchainMonitoringNetworkUpdate:
+      type: object
+      additionalProperties: false
+      description: Partial update of mutable provider configuration; secret values are never accepted.
+      properties:
+        networkName: { type: string, minLength: 1, maxLength: 128 }
+        adapterKind: { type: string, enum: [evm, tron, solana] }
+        chainId: { type: [string, "null"], maxLength: 128 }
+        providerKind: { type: string, enum: [rpc, indexer] }
+        enabled: { type: boolean }
+        endpointSecretRef: { type: [string, "null"], minLength: 1, maxLength: 255 }
+        apiKeySecretRef: { type: [string, "null"], minLength: 1, maxLength: 255 }
+        confirmationsRequired: { type: integer, minimum: 0, maximum: 100000 }
+        finalityPolicy: { type: string, enum: [confirmations, finalized] }
+        pollIntervalSeconds: { type: integer, minimum: 5, maximum: 86400 }
+    BlockchainMonitoringNetwork:
+      type: object
+      required: [id, networkCode, networkName, adapterKind, providerKind, enabled, endpointConfigured, apiKeyConfigured, confirmationsRequired, finalityPolicy, pollIntervalSeconds, healthStatus, consecutiveFailures, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        networkCode: { type: string }
+        networkName: { type: string }
+        adapterKind: { type: string, enum: [evm, tron, solana] }
+        providerKind: { type: string, enum: [rpc, indexer, none] }
+        enabled: { type: boolean }
+        endpointConfigured: { type: boolean }
+        apiKeyConfigured: { type: boolean }
+        confirmationsRequired: { type: integer, minimum: 0 }
+        finalityPolicy: { type: string, enum: [confirmations, finalized] }
+        pollIntervalSeconds: { type: integer }
+        cursor: { type: [string, "null"] }
+        lastHead: { type: [string, "null"] }
+        healthStatus: { type: string, enum: [connected, disconnected, not_configured] }
+        healthCheckedAt: { type: [string, "null"], format: date-time }
+        healthError: { type: [string, "null"] }
+        consecutiveFailures: { type: integer, minimum: 0 }
+        nextAttemptAt: { type: [string, "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    BlockchainMonitoringNetworkList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/BlockchainMonitoringNetwork" } }
+    BlockchainMonitoringTestResult:
+      type: object
+      required: [connected, head, latencyMs]
+      properties:
+        connected: { type: boolean }
+        head: { type: string }
+        chainId: { type: [string, "null"] }
+        latencyMs: { type: integer, minimum: 0 }
+    BlockchainMonitoringWatch:
+      type: object
+      required: [id, orderId, monitorNetworkId, monitorAssetId, assetNetworkId, expectedAmount, receivingAddress, identityKind, decimals, orderCreatedAt, active, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        orderId: { type: string }
+        monitorNetworkId: { type: string }
+        monitorAssetId: { type: string, format: uuid }
+        assetNetworkId: { type: string }
+        expectedAmount: { type: string }
+        receivingAddress: { type: string }
+        memoOrTag: { type: [string, "null"] }
+        identityKind: { type: string, enum: [native, token] }
+        contractOrMint: { type: [string, "null"] }
+        decimals: { type: integer, minimum: 0 }
+        orderCreatedAt: { type: string, format: date-time }
+        active: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    BlockchainMonitoringWatchList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/BlockchainMonitoringWatch" } }
+    BlockchainMonitoringMatch:
+      type: object
+      required: [id, watchId, observationId, orderId, state, confirmations, confirmationsRequired, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        watchId: { type: string, format: uuid }
+        observationId: { type: string, format: uuid }
+        orderId: { type: string }
+        state: { type: string, enum: [confirming, matched, needs_review, applied, rejected] }
+        matchBasis: { type: object, additionalProperties: true }
+        ambiguityReason: { type: [string, "null"] }
+        confirmations: { type: integer, minimum: 0 }
+        confirmationsRequired: { type: integer, minimum: 0 }
+        reviewedBy: { type: [string, "null"], format: uuid }
+        reviewedAt: { type: [string, "null"], format: date-time }
+        appliedAt: { type: [string, "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    BlockchainMonitoringMatchList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/BlockchainMonitoringMatch" } }
+    BlockchainMonitoringReviewInput:
+      type: object
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [approve, reject] }
+        reason: { type: [string, "null"], maxLength: 1000 }
+    BlockchainMonitoringAssetInput:
+      type: object
+      required: [monitorNetworkId, assetNetworkId, identityKind, decimals]
+      properties:
+        monitorNetworkId: { type: string, minLength: 1, maxLength: 128 }
+        assetNetworkId: { type: string, minLength: 1, maxLength: 128 }
+        identityKind: { type: string, enum: [native, token] }
+        contractOrMint: { type: [string, "null"], minLength: 1, maxLength: 128 }
+        decimals: { type: integer, minimum: 0, maximum: 36 }
+        enabled: { type: boolean, default: false }
+    BlockchainMonitoringAsset:
+      type: object
+      required: [id, monitorNetworkId, assetNetworkId, identityKind, decimals, enabled, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        monitorNetworkId: { type: string }
+        assetNetworkId: { type: string }
+        identityKind: { type: string, enum: [native, token] }
+        contractOrMint: { type: [string, "null"] }
+        decimals: { type: integer }
+        enabled: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    BlockchainMonitoringAssetList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/BlockchainMonitoringAsset" } }

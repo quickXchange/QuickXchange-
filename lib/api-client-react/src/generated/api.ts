@@ -44,6 +44,18 @@ import type {
   AffiliateValuationReview,
   ApiError,
   BindAffiliateReferrerBody,
+  BlockchainMonitoringAsset,
+  BlockchainMonitoringAssetInput,
+  BlockchainMonitoringAssetList,
+  BlockchainMonitoringMatch,
+  BlockchainMonitoringMatchList,
+  BlockchainMonitoringNetwork,
+  BlockchainMonitoringNetworkInput,
+  BlockchainMonitoringNetworkList,
+  BlockchainMonitoringNetworkUpdate,
+  BlockchainMonitoringReviewInput,
+  BlockchainMonitoringTestResult,
+  BlockchainMonitoringWatchList,
   BlogArticleDetail,
   BlogArticleInput,
   BlogArticlePage,
@@ -125,6 +137,9 @@ import type {
   LandingBackgroundUploadInput,
   ListAdminActivityParams,
   ListAdminBlogArticlesParams,
+  ListBlockchainMonitoringMatchesParams,
+  ListBlockchainMonitoringRegistrationGaps200,
+  ListBlockchainMonitoringWatchesParams,
   ListBlogArticlesParams,
   ListContactSubmissionsParams,
   ManualDeskPricingPreviewInput,
@@ -3566,6 +3581,809 @@ export function useGetAdminSummary<TData = Awaited<ReturnType<typeof getAdminSum
 
 
 
+
+export const getListBlockchainMonitoringNetworksUrl = () => {
+
+
+
+
+  return `/api/admin/blockchain-monitoring/networks`
+}
+
+/**
+ * @summary List sanitized Manual Swap blockchain monitoring configuration
+ */
+export const listBlockchainMonitoringNetworks = async ( options?: Parameters<typeof customFetch>[1]): Promise<BlockchainMonitoringNetworkList> => {
+
+  return customFetch<BlockchainMonitoringNetworkList>(getListBlockchainMonitoringNetworksUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListBlockchainMonitoringNetworksQueryKey = () => {
+    return [
+    `/api/admin/blockchain-monitoring/networks`
+    ] as const;
+    }
+
+
+export const getListBlockchainMonitoringNetworksQueryOptions = <TData = Awaited<ReturnType<typeof listBlockchainMonitoringNetworks>>, TError = ErrorType<ApiError>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBlockchainMonitoringNetworks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListBlockchainMonitoringNetworksQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listBlockchainMonitoringNetworks>>> = ({ signal }) => listBlockchainMonitoringNetworks({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listBlockchainMonitoringNetworks>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListBlockchainMonitoringNetworksQueryResult = NonNullable<Awaited<ReturnType<typeof listBlockchainMonitoringNetworks>>>
+export type ListBlockchainMonitoringNetworksQueryError = ErrorType<ApiError>
+
+
+/**
+ * @summary List sanitized Manual Swap blockchain monitoring configuration
+ */
+
+export function useListBlockchainMonitoringNetworks<TData = Awaited<ReturnType<typeof listBlockchainMonitoringNetworks>>, TError = ErrorType<ApiError>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBlockchainMonitoringNetworks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListBlockchainMonitoringNetworksQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateBlockchainMonitoringNetworkUrl = () => {
+
+
+
+
+  return `/api/admin/blockchain-monitoring/networks`
+}
+
+/**
+ * @summary Create a Manual Swap blockchain monitoring network
+ */
+export const createBlockchainMonitoringNetwork = async (blockchainMonitoringNetworkInput: BlockchainMonitoringNetworkInput, options?: Parameters<typeof customFetch>[1]): Promise<BlockchainMonitoringNetwork> => {
+
+  return customFetch<BlockchainMonitoringNetwork>(getCreateBlockchainMonitoringNetworkUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(blockchainMonitoringNetworkInput)
+  }
+);}
+
+
+
+
+
+export const getCreateBlockchainMonitoringNetworkMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBlockchainMonitoringNetwork>>, TError,{data: BodyType<BlockchainMonitoringNetworkInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createBlockchainMonitoringNetwork>>, TError,{data: BodyType<BlockchainMonitoringNetworkInput>}, TContext> => {
+
+const mutationKey = ['createBlockchainMonitoringNetwork'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createBlockchainMonitoringNetwork>>, {data: BodyType<BlockchainMonitoringNetworkInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createBlockchainMonitoringNetwork(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateBlockchainMonitoringNetworkMutationResult = NonNullable<Awaited<ReturnType<typeof createBlockchainMonitoringNetwork>>>
+    export type CreateBlockchainMonitoringNetworkMutationBody = BodyType<BlockchainMonitoringNetworkInput>
+    export type CreateBlockchainMonitoringNetworkMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Create a Manual Swap blockchain monitoring network
+ */
+export const useCreateBlockchainMonitoringNetwork = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBlockchainMonitoringNetwork>>, TError,{data: BodyType<BlockchainMonitoringNetworkInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createBlockchainMonitoringNetwork>>,
+        TError,
+        {data: BodyType<BlockchainMonitoringNetworkInput>},
+        TContext
+      > => {
+      return useMutation(getCreateBlockchainMonitoringNetworkMutationOptions(options));
+    }
+
+export const getListBlockchainMonitoringAssetsUrl = () => {
+
+
+
+
+  return `/api/admin/blockchain-monitoring/assets/list`
+}
+
+export const listBlockchainMonitoringAssets = async ( options?: Parameters<typeof customFetch>[1]): Promise<BlockchainMonitoringAssetList> => {
+
+  return customFetch<BlockchainMonitoringAssetList>(getListBlockchainMonitoringAssetsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListBlockchainMonitoringAssetsQueryKey = () => {
+    return [
+    `/api/admin/blockchain-monitoring/assets/list`
+    ] as const;
+    }
+
+
+export const getListBlockchainMonitoringAssetsQueryOptions = <TData = Awaited<ReturnType<typeof listBlockchainMonitoringAssets>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBlockchainMonitoringAssets>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListBlockchainMonitoringAssetsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listBlockchainMonitoringAssets>>> = ({ signal }) => listBlockchainMonitoringAssets({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listBlockchainMonitoringAssets>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListBlockchainMonitoringAssetsQueryResult = NonNullable<Awaited<ReturnType<typeof listBlockchainMonitoringAssets>>>
+export type ListBlockchainMonitoringAssetsQueryError = ErrorType<unknown>
+
+
+
+export function useListBlockchainMonitoringAssets<TData = Awaited<ReturnType<typeof listBlockchainMonitoringAssets>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBlockchainMonitoringAssets>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListBlockchainMonitoringAssetsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpsertBlockchainMonitoringAssetUrl = () => {
+
+
+
+
+  return `/api/admin/blockchain-monitoring/assets/upsert`
+}
+
+export const upsertBlockchainMonitoringAsset = async (blockchainMonitoringAssetInput: BlockchainMonitoringAssetInput, options?: Parameters<typeof customFetch>[1]): Promise<BlockchainMonitoringAsset> => {
+
+  return customFetch<BlockchainMonitoringAsset>(getUpsertBlockchainMonitoringAssetUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(blockchainMonitoringAssetInput)
+  }
+);}
+
+
+
+
+
+export const getUpsertBlockchainMonitoringAssetMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof upsertBlockchainMonitoringAsset>>, TError,{data: BodyType<BlockchainMonitoringAssetInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof upsertBlockchainMonitoringAsset>>, TError,{data: BodyType<BlockchainMonitoringAssetInput>}, TContext> => {
+
+const mutationKey = ['upsertBlockchainMonitoringAsset'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof upsertBlockchainMonitoringAsset>>, {data: BodyType<BlockchainMonitoringAssetInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  upsertBlockchainMonitoringAsset(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpsertBlockchainMonitoringAssetMutationResult = NonNullable<Awaited<ReturnType<typeof upsertBlockchainMonitoringAsset>>>
+    export type UpsertBlockchainMonitoringAssetMutationBody = BodyType<BlockchainMonitoringAssetInput>
+    export type UpsertBlockchainMonitoringAssetMutationError = ErrorType<unknown>
+
+    export const useUpsertBlockchainMonitoringAsset = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof upsertBlockchainMonitoringAsset>>, TError,{data: BodyType<BlockchainMonitoringAssetInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof upsertBlockchainMonitoringAsset>>,
+        TError,
+        {data: BodyType<BlockchainMonitoringAssetInput>},
+        TContext
+      > => {
+      return useMutation(getUpsertBlockchainMonitoringAssetMutationOptions(options));
+    }
+
+export const getListBlockchainMonitoringRegistrationGapsUrl = () => {
+
+
+
+
+  return `/api/admin/blockchain-monitoring/registration-gaps`
+}
+
+export const listBlockchainMonitoringRegistrationGaps = async ( options?: Parameters<typeof customFetch>[1]): Promise<ListBlockchainMonitoringRegistrationGaps200> => {
+
+  return customFetch<ListBlockchainMonitoringRegistrationGaps200>(getListBlockchainMonitoringRegistrationGapsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListBlockchainMonitoringRegistrationGapsQueryKey = () => {
+    return [
+    `/api/admin/blockchain-monitoring/registration-gaps`
+    ] as const;
+    }
+
+
+export const getListBlockchainMonitoringRegistrationGapsQueryOptions = <TData = Awaited<ReturnType<typeof listBlockchainMonitoringRegistrationGaps>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBlockchainMonitoringRegistrationGaps>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListBlockchainMonitoringRegistrationGapsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listBlockchainMonitoringRegistrationGaps>>> = ({ signal }) => listBlockchainMonitoringRegistrationGaps({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listBlockchainMonitoringRegistrationGaps>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListBlockchainMonitoringRegistrationGapsQueryResult = NonNullable<Awaited<ReturnType<typeof listBlockchainMonitoringRegistrationGaps>>>
+export type ListBlockchainMonitoringRegistrationGapsQueryError = ErrorType<unknown>
+
+
+
+export function useListBlockchainMonitoringRegistrationGaps<TData = Awaited<ReturnType<typeof listBlockchainMonitoringRegistrationGaps>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBlockchainMonitoringRegistrationGaps>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListBlockchainMonitoringRegistrationGapsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getActivateBlockchainMonitoringRegistrationGapUrl = (orderId: string,) => {
+
+
+
+
+  return `/api/admin/blockchain-monitoring/registration-gaps/${orderId}/activate`
+}
+
+export const activateBlockchainMonitoringRegistrationGap = async (orderId: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getActivateBlockchainMonitoringRegistrationGapUrl(orderId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getActivateBlockchainMonitoringRegistrationGapMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof activateBlockchainMonitoringRegistrationGap>>, TError,{orderId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof activateBlockchainMonitoringRegistrationGap>>, TError,{orderId: string}, TContext> => {
+
+const mutationKey = ['activateBlockchainMonitoringRegistrationGap'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof activateBlockchainMonitoringRegistrationGap>>, {orderId: string}> = (props) => {
+          const {orderId} = props ?? {};
+
+          return  activateBlockchainMonitoringRegistrationGap(orderId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ActivateBlockchainMonitoringRegistrationGapMutationResult = NonNullable<Awaited<ReturnType<typeof activateBlockchainMonitoringRegistrationGap>>>
+
+    export type ActivateBlockchainMonitoringRegistrationGapMutationError = ErrorType<unknown>
+
+    export const useActivateBlockchainMonitoringRegistrationGap = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof activateBlockchainMonitoringRegistrationGap>>, TError,{orderId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof activateBlockchainMonitoringRegistrationGap>>,
+        TError,
+        {orderId: string},
+        TContext
+      > => {
+      return useMutation(getActivateBlockchainMonitoringRegistrationGapMutationOptions(options));
+    }
+
+export const getUpdateBlockchainMonitoringNetworkUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/blockchain-monitoring/networks/${id}`
+}
+
+/**
+ * @summary Update Manual Swap blockchain monitoring configuration
+ */
+export const updateBlockchainMonitoringNetwork = async (id: string,
+    blockchainMonitoringNetworkUpdate: BlockchainMonitoringNetworkUpdate, options?: Parameters<typeof customFetch>[1]): Promise<BlockchainMonitoringNetwork> => {
+
+  return customFetch<BlockchainMonitoringNetwork>(getUpdateBlockchainMonitoringNetworkUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(blockchainMonitoringNetworkUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateBlockchainMonitoringNetworkMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateBlockchainMonitoringNetwork>>, TError,{id: string;data: BodyType<BlockchainMonitoringNetworkUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateBlockchainMonitoringNetwork>>, TError,{id: string;data: BodyType<BlockchainMonitoringNetworkUpdate>}, TContext> => {
+
+const mutationKey = ['updateBlockchainMonitoringNetwork'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateBlockchainMonitoringNetwork>>, {id: string;data: BodyType<BlockchainMonitoringNetworkUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateBlockchainMonitoringNetwork(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateBlockchainMonitoringNetworkMutationResult = NonNullable<Awaited<ReturnType<typeof updateBlockchainMonitoringNetwork>>>
+    export type UpdateBlockchainMonitoringNetworkMutationBody = BodyType<BlockchainMonitoringNetworkUpdate>
+    export type UpdateBlockchainMonitoringNetworkMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Update Manual Swap blockchain monitoring configuration
+ */
+export const useUpdateBlockchainMonitoringNetwork = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateBlockchainMonitoringNetwork>>, TError,{id: string;data: BodyType<BlockchainMonitoringNetworkUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateBlockchainMonitoringNetwork>>,
+        TError,
+        {id: string;data: BodyType<BlockchainMonitoringNetworkUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateBlockchainMonitoringNetworkMutationOptions(options));
+    }
+
+export const getTestBlockchainMonitoringNetworkUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/blockchain-monitoring/networks/${id}/test`
+}
+
+/**
+ * @summary Test a configured blockchain monitoring provider
+ */
+export const testBlockchainMonitoringNetwork = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<BlockchainMonitoringTestResult> => {
+
+  return customFetch<BlockchainMonitoringTestResult>(getTestBlockchainMonitoringNetworkUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getTestBlockchainMonitoringNetworkMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testBlockchainMonitoringNetwork>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof testBlockchainMonitoringNetwork>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['testBlockchainMonitoringNetwork'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof testBlockchainMonitoringNetwork>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  testBlockchainMonitoringNetwork(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TestBlockchainMonitoringNetworkMutationResult = NonNullable<Awaited<ReturnType<typeof testBlockchainMonitoringNetwork>>>
+
+    export type TestBlockchainMonitoringNetworkMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Test a configured blockchain monitoring provider
+ */
+export const useTestBlockchainMonitoringNetwork = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testBlockchainMonitoringNetwork>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof testBlockchainMonitoringNetwork>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getTestBlockchainMonitoringNetworkMutationOptions(options));
+    }
+
+export const getListBlockchainMonitoringWatchesUrl = (params?: ListBlockchainMonitoringWatchesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/blockchain-monitoring/watches?${stringifiedParams}` : `/api/admin/blockchain-monitoring/watches`
+}
+
+/**
+ * @summary List immutable Manual Swap monitoring watches
+ */
+export const listBlockchainMonitoringWatches = async (params?: ListBlockchainMonitoringWatchesParams, options?: Parameters<typeof customFetch>[1]): Promise<BlockchainMonitoringWatchList> => {
+
+  return customFetch<BlockchainMonitoringWatchList>(getListBlockchainMonitoringWatchesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListBlockchainMonitoringWatchesQueryKey = (params?: ListBlockchainMonitoringWatchesParams,) => {
+    return [
+    `/api/admin/blockchain-monitoring/watches`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListBlockchainMonitoringWatchesQueryOptions = <TData = Awaited<ReturnType<typeof listBlockchainMonitoringWatches>>, TError = ErrorType<unknown>>(params?: ListBlockchainMonitoringWatchesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBlockchainMonitoringWatches>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListBlockchainMonitoringWatchesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listBlockchainMonitoringWatches>>> = ({ signal }) => listBlockchainMonitoringWatches(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listBlockchainMonitoringWatches>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListBlockchainMonitoringWatchesQueryResult = NonNullable<Awaited<ReturnType<typeof listBlockchainMonitoringWatches>>>
+export type ListBlockchainMonitoringWatchesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List immutable Manual Swap monitoring watches
+ */
+
+export function useListBlockchainMonitoringWatches<TData = Awaited<ReturnType<typeof listBlockchainMonitoringWatches>>, TError = ErrorType<unknown>>(
+ params?: ListBlockchainMonitoringWatchesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBlockchainMonitoringWatches>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListBlockchainMonitoringWatchesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListBlockchainMonitoringMatchesUrl = (params?: ListBlockchainMonitoringMatchesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/blockchain-monitoring/matches?${stringifiedParams}` : `/api/admin/blockchain-monitoring/matches`
+}
+
+/**
+ * @summary List Manual Swap payment detections and review items
+ */
+export const listBlockchainMonitoringMatches = async (params?: ListBlockchainMonitoringMatchesParams, options?: Parameters<typeof customFetch>[1]): Promise<BlockchainMonitoringMatchList> => {
+
+  return customFetch<BlockchainMonitoringMatchList>(getListBlockchainMonitoringMatchesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListBlockchainMonitoringMatchesQueryKey = (params?: ListBlockchainMonitoringMatchesParams,) => {
+    return [
+    `/api/admin/blockchain-monitoring/matches`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListBlockchainMonitoringMatchesQueryOptions = <TData = Awaited<ReturnType<typeof listBlockchainMonitoringMatches>>, TError = ErrorType<unknown>>(params?: ListBlockchainMonitoringMatchesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBlockchainMonitoringMatches>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListBlockchainMonitoringMatchesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listBlockchainMonitoringMatches>>> = ({ signal }) => listBlockchainMonitoringMatches(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listBlockchainMonitoringMatches>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListBlockchainMonitoringMatchesQueryResult = NonNullable<Awaited<ReturnType<typeof listBlockchainMonitoringMatches>>>
+export type ListBlockchainMonitoringMatchesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List Manual Swap payment detections and review items
+ */
+
+export function useListBlockchainMonitoringMatches<TData = Awaited<ReturnType<typeof listBlockchainMonitoringMatches>>, TError = ErrorType<unknown>>(
+ params?: ListBlockchainMonitoringMatchesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBlockchainMonitoringMatches>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListBlockchainMonitoringMatchesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getReviewBlockchainMonitoringMatchUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/blockchain-monitoring/matches/${id}/review`
+}
+
+/**
+ * @summary Resolve an ambiguous Manual Swap payment detection
+ */
+export const reviewBlockchainMonitoringMatch = async (id: string,
+    blockchainMonitoringReviewInput: BlockchainMonitoringReviewInput, options?: Parameters<typeof customFetch>[1]): Promise<BlockchainMonitoringMatch> => {
+
+  return customFetch<BlockchainMonitoringMatch>(getReviewBlockchainMonitoringMatchUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(blockchainMonitoringReviewInput)
+  }
+);}
+
+
+
+
+
+export const getReviewBlockchainMonitoringMatchMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewBlockchainMonitoringMatch>>, TError,{id: string;data: BodyType<BlockchainMonitoringReviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reviewBlockchainMonitoringMatch>>, TError,{id: string;data: BodyType<BlockchainMonitoringReviewInput>}, TContext> => {
+
+const mutationKey = ['reviewBlockchainMonitoringMatch'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reviewBlockchainMonitoringMatch>>, {id: string;data: BodyType<BlockchainMonitoringReviewInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  reviewBlockchainMonitoringMatch(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReviewBlockchainMonitoringMatchMutationResult = NonNullable<Awaited<ReturnType<typeof reviewBlockchainMonitoringMatch>>>
+    export type ReviewBlockchainMonitoringMatchMutationBody = BodyType<BlockchainMonitoringReviewInput>
+    export type ReviewBlockchainMonitoringMatchMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Resolve an ambiguous Manual Swap payment detection
+ */
+export const useReviewBlockchainMonitoringMatch = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewBlockchainMonitoringMatch>>, TError,{id: string;data: BodyType<BlockchainMonitoringReviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reviewBlockchainMonitoringMatch>>,
+        TError,
+        {id: string;data: BodyType<BlockchainMonitoringReviewInput>},
+        TContext
+      > => {
+      return useMutation(getReviewBlockchainMonitoringMatchMutationOptions(options));
+    }
 
 export const getGetManualDeskRevenueUrl = (params: GetManualDeskRevenueParams,) => {
   const normalizedParams = new URLSearchParams();

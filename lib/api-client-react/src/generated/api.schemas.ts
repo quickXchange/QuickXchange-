@@ -5421,6 +5421,374 @@ export interface TelegramMiniAppOrderLinkInput {
   orderKind: TelegramMiniAppOrderLinkInputOrderKind;
 }
 
+export type BlockchainMonitoringNetworkInputAdapterKind = typeof BlockchainMonitoringNetworkInputAdapterKind[keyof typeof BlockchainMonitoringNetworkInputAdapterKind];
+
+
+export const BlockchainMonitoringNetworkInputAdapterKind = {
+  evm: 'evm',
+  tron: 'tron',
+  solana: 'solana',
+} as const;
+
+export type BlockchainMonitoringNetworkInputProviderKind = typeof BlockchainMonitoringNetworkInputProviderKind[keyof typeof BlockchainMonitoringNetworkInputProviderKind];
+
+
+export const BlockchainMonitoringNetworkInputProviderKind = {
+  rpc: 'rpc',
+  indexer: 'indexer',
+} as const;
+
+export type BlockchainMonitoringNetworkInputFinalityPolicy = typeof BlockchainMonitoringNetworkInputFinalityPolicy[keyof typeof BlockchainMonitoringNetworkInputFinalityPolicy];
+
+
+export const BlockchainMonitoringNetworkInputFinalityPolicy = {
+  confirmations: 'confirmations',
+  finalized: 'finalized',
+} as const;
+
+export interface BlockchainMonitoringNetworkInput {
+  /**
+     * @minLength 1
+     * @maxLength 128
+     * @pattern ^[A-Za-z0-9_-]+$
+     */
+  id: string;
+  /**
+     * @minLength 1
+     * @maxLength 64
+     */
+  networkCode: string;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  networkName: string;
+  adapterKind: BlockchainMonitoringNetworkInputAdapterKind;
+  /**
+     * @maxLength 128
+     * @nullable
+     */
+  chainId?: string | null;
+  providerKind: BlockchainMonitoringNetworkInputProviderKind;
+  enabled?: boolean;
+  /**
+     * @minLength 1
+     * @maxLength 255
+     * @nullable
+     */
+  endpointSecretRef?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 255
+     * @nullable
+     */
+  apiKeySecretRef?: string | null;
+  /**
+     * @minimum 0
+     * @maximum 100000
+     */
+  confirmationsRequired?: number;
+  finalityPolicy?: BlockchainMonitoringNetworkInputFinalityPolicy;
+  /**
+     * @minimum 5
+     * @maximum 86400
+     */
+  pollIntervalSeconds?: number;
+}
+
+export type BlockchainMonitoringNetworkUpdateAdapterKind = typeof BlockchainMonitoringNetworkUpdateAdapterKind[keyof typeof BlockchainMonitoringNetworkUpdateAdapterKind];
+
+
+export const BlockchainMonitoringNetworkUpdateAdapterKind = {
+  evm: 'evm',
+  tron: 'tron',
+  solana: 'solana',
+} as const;
+
+export type BlockchainMonitoringNetworkUpdateProviderKind = typeof BlockchainMonitoringNetworkUpdateProviderKind[keyof typeof BlockchainMonitoringNetworkUpdateProviderKind];
+
+
+export const BlockchainMonitoringNetworkUpdateProviderKind = {
+  rpc: 'rpc',
+  indexer: 'indexer',
+} as const;
+
+export type BlockchainMonitoringNetworkUpdateFinalityPolicy = typeof BlockchainMonitoringNetworkUpdateFinalityPolicy[keyof typeof BlockchainMonitoringNetworkUpdateFinalityPolicy];
+
+
+export const BlockchainMonitoringNetworkUpdateFinalityPolicy = {
+  confirmations: 'confirmations',
+  finalized: 'finalized',
+} as const;
+
+/**
+ * Partial update of mutable provider configuration; secret values are never accepted.
+ */
+export interface BlockchainMonitoringNetworkUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  networkName?: string;
+  adapterKind?: BlockchainMonitoringNetworkUpdateAdapterKind;
+  /**
+     * @maxLength 128
+     * @nullable
+     */
+  chainId?: string | null;
+  providerKind?: BlockchainMonitoringNetworkUpdateProviderKind;
+  enabled?: boolean;
+  /**
+     * @minLength 1
+     * @maxLength 255
+     * @nullable
+     */
+  endpointSecretRef?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 255
+     * @nullable
+     */
+  apiKeySecretRef?: string | null;
+  /**
+     * @minimum 0
+     * @maximum 100000
+     */
+  confirmationsRequired?: number;
+  finalityPolicy?: BlockchainMonitoringNetworkUpdateFinalityPolicy;
+  /**
+     * @minimum 5
+     * @maximum 86400
+     */
+  pollIntervalSeconds?: number;
+}
+
+export type BlockchainMonitoringNetworkAdapterKind = typeof BlockchainMonitoringNetworkAdapterKind[keyof typeof BlockchainMonitoringNetworkAdapterKind];
+
+
+export const BlockchainMonitoringNetworkAdapterKind = {
+  evm: 'evm',
+  tron: 'tron',
+  solana: 'solana',
+} as const;
+
+export type BlockchainMonitoringNetworkProviderKind = typeof BlockchainMonitoringNetworkProviderKind[keyof typeof BlockchainMonitoringNetworkProviderKind];
+
+
+export const BlockchainMonitoringNetworkProviderKind = {
+  rpc: 'rpc',
+  indexer: 'indexer',
+  none: 'none',
+} as const;
+
+export type BlockchainMonitoringNetworkFinalityPolicy = typeof BlockchainMonitoringNetworkFinalityPolicy[keyof typeof BlockchainMonitoringNetworkFinalityPolicy];
+
+
+export const BlockchainMonitoringNetworkFinalityPolicy = {
+  confirmations: 'confirmations',
+  finalized: 'finalized',
+} as const;
+
+export type BlockchainMonitoringNetworkHealthStatus = typeof BlockchainMonitoringNetworkHealthStatus[keyof typeof BlockchainMonitoringNetworkHealthStatus];
+
+
+export const BlockchainMonitoringNetworkHealthStatus = {
+  connected: 'connected',
+  disconnected: 'disconnected',
+  not_configured: 'not_configured',
+} as const;
+
+export interface BlockchainMonitoringNetwork {
+  id: string;
+  networkCode: string;
+  networkName: string;
+  adapterKind: BlockchainMonitoringNetworkAdapterKind;
+  providerKind: BlockchainMonitoringNetworkProviderKind;
+  enabled: boolean;
+  endpointConfigured: boolean;
+  apiKeyConfigured: boolean;
+  /** @minimum 0 */
+  confirmationsRequired: number;
+  finalityPolicy: BlockchainMonitoringNetworkFinalityPolicy;
+  pollIntervalSeconds: number;
+  /** @nullable */
+  cursor?: string | null;
+  /** @nullable */
+  lastHead?: string | null;
+  healthStatus: BlockchainMonitoringNetworkHealthStatus;
+  /** @nullable */
+  healthCheckedAt?: string | null;
+  /** @nullable */
+  healthError?: string | null;
+  /** @minimum 0 */
+  consecutiveFailures: number;
+  /** @nullable */
+  nextAttemptAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BlockchainMonitoringNetworkList {
+  items: BlockchainMonitoringNetwork[];
+}
+
+export interface BlockchainMonitoringTestResult {
+  connected: boolean;
+  head: string;
+  /** @nullable */
+  chainId?: string | null;
+  /** @minimum 0 */
+  latencyMs: number;
+}
+
+export type BlockchainMonitoringWatchIdentityKind = typeof BlockchainMonitoringWatchIdentityKind[keyof typeof BlockchainMonitoringWatchIdentityKind];
+
+
+export const BlockchainMonitoringWatchIdentityKind = {
+  native: 'native',
+  token: 'token',
+} as const;
+
+export interface BlockchainMonitoringWatch {
+  id: string;
+  orderId: string;
+  monitorNetworkId: string;
+  monitorAssetId: string;
+  assetNetworkId: string;
+  expectedAmount: string;
+  receivingAddress: string;
+  /** @nullable */
+  memoOrTag?: string | null;
+  identityKind: BlockchainMonitoringWatchIdentityKind;
+  /** @nullable */
+  contractOrMint?: string | null;
+  /** @minimum 0 */
+  decimals: number;
+  orderCreatedAt: string;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface BlockchainMonitoringWatchList {
+  items: BlockchainMonitoringWatch[];
+}
+
+export type BlockchainMonitoringMatchState = typeof BlockchainMonitoringMatchState[keyof typeof BlockchainMonitoringMatchState];
+
+
+export const BlockchainMonitoringMatchState = {
+  confirming: 'confirming',
+  matched: 'matched',
+  needs_review: 'needs_review',
+  applied: 'applied',
+  rejected: 'rejected',
+} as const;
+
+export type BlockchainMonitoringMatchMatchBasis = { [key: string]: unknown };
+
+export interface BlockchainMonitoringMatch {
+  id: string;
+  watchId: string;
+  observationId: string;
+  orderId: string;
+  state: BlockchainMonitoringMatchState;
+  matchBasis?: BlockchainMonitoringMatchMatchBasis;
+  /** @nullable */
+  ambiguityReason?: string | null;
+  /** @minimum 0 */
+  confirmations: number;
+  /** @minimum 0 */
+  confirmationsRequired: number;
+  /** @nullable */
+  reviewedBy?: string | null;
+  /** @nullable */
+  reviewedAt?: string | null;
+  /** @nullable */
+  appliedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BlockchainMonitoringMatchList {
+  items: BlockchainMonitoringMatch[];
+}
+
+export type BlockchainMonitoringReviewInputDecision = typeof BlockchainMonitoringReviewInputDecision[keyof typeof BlockchainMonitoringReviewInputDecision];
+
+
+export const BlockchainMonitoringReviewInputDecision = {
+  approve: 'approve',
+  reject: 'reject',
+} as const;
+
+export interface BlockchainMonitoringReviewInput {
+  decision: BlockchainMonitoringReviewInputDecision;
+  /**
+     * @maxLength 1000
+     * @nullable
+     */
+  reason?: string | null;
+}
+
+export type BlockchainMonitoringAssetInputIdentityKind = typeof BlockchainMonitoringAssetInputIdentityKind[keyof typeof BlockchainMonitoringAssetInputIdentityKind];
+
+
+export const BlockchainMonitoringAssetInputIdentityKind = {
+  native: 'native',
+  token: 'token',
+} as const;
+
+export interface BlockchainMonitoringAssetInput {
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  monitorNetworkId: string;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  assetNetworkId: string;
+  identityKind: BlockchainMonitoringAssetInputIdentityKind;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     * @nullable
+     */
+  contractOrMint?: string | null;
+  /**
+     * @minimum 0
+     * @maximum 36
+     */
+  decimals: number;
+  enabled?: boolean;
+}
+
+export type BlockchainMonitoringAssetIdentityKind = typeof BlockchainMonitoringAssetIdentityKind[keyof typeof BlockchainMonitoringAssetIdentityKind];
+
+
+export const BlockchainMonitoringAssetIdentityKind = {
+  native: 'native',
+  token: 'token',
+} as const;
+
+export interface BlockchainMonitoringAsset {
+  id: string;
+  monitorNetworkId: string;
+  assetNetworkId: string;
+  identityKind: BlockchainMonitoringAssetIdentityKind;
+  /** @nullable */
+  contractOrMint?: string | null;
+  decimals: number;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BlockchainMonitoringAssetList {
+  items: BlockchainMonitoringAsset[];
+}
+
 export type PageParameter = number;
 
 export type PageSizeParameter = number;
@@ -5606,6 +5974,49 @@ export type GetAdminSummaryProduct = typeof GetAdminSummaryProduct[keyof typeof 
 export const GetAdminSummaryProduct = {
   swap: 'swap',
   convert: 'convert',
+} as const;
+
+export type ListBlockchainMonitoringRegistrationGaps200ItemsItem = { [key: string]: unknown };
+
+export type ListBlockchainMonitoringRegistrationGaps200 = {
+  items: ListBlockchainMonitoringRegistrationGaps200ItemsItem[];
+};
+
+export type ListBlockchainMonitoringWatchesParams = {
+state?: ListBlockchainMonitoringWatchesState;
+/**
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: number;
+};
+
+export type ListBlockchainMonitoringWatchesState = typeof ListBlockchainMonitoringWatchesState[keyof typeof ListBlockchainMonitoringWatchesState];
+
+
+export const ListBlockchainMonitoringWatchesState = {
+  active: 'active',
+  inactive: 'inactive',
+} as const;
+
+export type ListBlockchainMonitoringMatchesParams = {
+state?: ListBlockchainMonitoringMatchesState;
+/**
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: number;
+};
+
+export type ListBlockchainMonitoringMatchesState = typeof ListBlockchainMonitoringMatchesState[keyof typeof ListBlockchainMonitoringMatchesState];
+
+
+export const ListBlockchainMonitoringMatchesState = {
+  confirming: 'confirming',
+  matched: 'matched',
+  needs_review: 'needs_review',
+  applied: 'applied',
+  rejected: 'rejected',
 } as const;
 
 export type GetManualDeskRevenueParams = {
