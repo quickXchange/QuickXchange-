@@ -171,14 +171,27 @@ export function SettlementOptionCombobox({
         : option.paymentMethodId
           ? 'payment-method'
           : 'fiat',
-      searchText: [
-        option.assetCode,
-        option.title,
-        option.networkTitle,
-        option.networkSlug,
-        option.routeNetwork,
-        officialCryptoBySymbol?.get(option.assetCode.trim().toUpperCase())?.name,
-      ].filter(Boolean).join(' ').toLowerCase(),
+      searchText: (
+        option.kind === 'crypto-network'
+          ? [
+              option.assetCode,
+              option.title,
+              option.networkTitle,
+              option.networkSlug,
+              option.routeNetwork,
+              officialCryptoBySymbol?.get(option.assetCode.trim().toUpperCase())?.name,
+            ]
+          : option.paymentMethodId
+            ? [
+                option.assetCode,
+                option.title,
+                option.paymentMethodId,
+              ]
+            : [
+                option.assetCode,
+                option.title,
+              ]
+      ).filter(Boolean).join(' ').toLowerCase(),
       settlementOption: option,
     })));
     return list;
