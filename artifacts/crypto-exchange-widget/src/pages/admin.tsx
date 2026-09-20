@@ -6367,18 +6367,6 @@ function AdminCurrencies() {
                   compact
                 />
                 <small className="catalog-row-id">{item.id}</small>
-                {canManageCurrent && (
-                  <button
-                    type="button"
-                    className="action-button sm:hidden mt-2"
-                    aria-label={t('adminCatalog.edit_item_named', { name })}
-                    data-testid={`button-edit-mobile-crypto-network-${item.id}`}
-                    onClick={() => setDrawerNetwork(item)}
-                  >
-                    <Pencil size={14} />
-                    <span>{t('adminCatalog.edit')}</span>
-                  </button>
-                )}
               </span>
             )}
           </td>
