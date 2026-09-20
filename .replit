@@ -72,5 +72,8 @@ TELEGRAM_MINI_APP_URL = "https://quickchange.exchange/telegram-mini-app/"
 [userenv.production]
 USE_DATABASE_OWNER = "true"
 
+[userenv.development]
+BSC_MONITOR_RPC_URL = "https://bsc-dataseed.binance.org/"
+
 [objectStorage]
 defaultBucketID = "replit-objstore-77d8e649-ef02-4a1f-8c20-21e842be9461"
