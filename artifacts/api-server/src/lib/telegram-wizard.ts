@@ -13,6 +13,10 @@ export type TelegramSearchableRouteOption = TelegramRouteOption & {
   paymentMethodId?: string;
 };
 
+export function telegramAssetNetworkKey(assetCode: string, routeNetwork: string) {
+  return `${assetCode.trim().toUpperCase()}\0${routeNetwork.trim().toUpperCase()}`;
+}
+
 export function filterTelegramRouteOptions<T extends TelegramSearchableRouteOption>(
   options: T[],
   query: string,
@@ -133,9 +137,14 @@ export function filterConvertTargets(
   pairs: Array<{ fromAsset: string; fromNetwork: string; toAsset: string; toNetwork: string }>,
   source: TelegramRouteOption,
 ) {
-  const ids = new Set(pairs.filter(pair => pair.fromAsset === source.assetCode && pair.fromNetwork === source.routeNetwork)
-    .map(pair => `${pair.toAsset}\0${pair.toNetwork}`));
-  return allOptions.filter(option => ["receive", "both"].includes(option.direction) && ids.has(`${option.assetCode}\0${option.routeNetwork}`));
+  const sourceKey = telegramAssetNetworkKey(source.assetCode, source.routeNetwork);
+  const ids = new Set(pairs
+    .filter(pair => telegramAssetNetworkKey(pair.fromAsset, pair.fromNetwork) === sourceKey)
+    .map(pair => telegramAssetNetworkKey(pair.toAsset, pair.toNetwork)));
+  return allOptions.filter(option =>
+    ["receive", "both"].includes(option.direction) &&
+    ids.has(telegramAssetNetworkKey(option.assetCode, option.routeNetwork))
+  );
 }
 
 export function requiredFieldActive(

@@ -6,7 +6,7 @@ import { languageButtons, localeOf, t, type TelegramLocale } from "../lib/telegr
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { signOrderTrackingToken } from "../lib/order-access";
-import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, requiredFieldActive, shouldAskDestination, telegramFieldSkipIndex, withoutTelegramRefundFields, type TelegramRouteOption } from "../lib/telegram-wizard";
+import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, requiredFieldActive, shouldAskDestination, telegramAssetNetworkKey, telegramFieldSkipIndex, withoutTelegramRefundFields, type TelegramRouteOption } from "../lib/telegram-wizard";
 import { createTelegramLinkChallenge } from "../lib/telegram-link";
 import { getCustomerVerifiedEmail, requireActiveCustomerIdentity } from "../lib/customer-auth";
 import { getCustomerOrderHistory } from "../lib/order-history";
@@ -284,12 +284,14 @@ async function exchangeOptions(chatId: string, locale: TelegramLocale, mode: "sw
     const pairsResponse = await fetch(`${baseUrl()}/api/quickex/pairs`);
     convertPairs = pairsResponse.ok ? await pairsResponse.json() as ConvertPair[] : [];
   }
-  const convertSourceIds = new Set(convertPairs.map(pair => `${pair.fromAsset}\0${pair.fromNetwork}`));
+  const convertSourceIds = new Set(convertPairs.map(pair =>
+    telegramAssetNetworkKey(pair.fromAsset, pair.fromNetwork)
+  ));
   const options = mode === "convert"
     ? allOptions.filter(option =>
         ["send", "both"].includes(option.direction) &&
         option.executionMode === "api" &&
-        convertSourceIds.has(`${option.assetCode}\0${option.routeNetwork}`))
+        convertSourceIds.has(telegramAssetNetworkKey(option.assetCode, option.routeNetwork)))
     : filterManualSourceOptions(allOptions, manualRoutes);
   if (!options.length) { await sendTelegramMessage(chatId, t(locale, "unavailable")); return; }
   const data = { mode, options, allOptions, manualRoutes, convertPairs, sourceQuery: "", clientRequestId: randomUUID() };

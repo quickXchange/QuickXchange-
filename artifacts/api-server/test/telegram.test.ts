@@ -7,7 +7,7 @@ import { db, telegramAccountLinkChallengesTable, telegramChatsTable } from "@wor
 import { DepositInstructionsPending, menu, shouldApplyUpdate, reconciliationClaimEligible, reconciliationWinnerTransition, telegramAdvisoryChatKey, telegramCreateRetryDecision, telegramCreationDeliveryDecision, telegramCreationOutboxPayload, telegramCreateState, telegramDepositInstruction, telegramInboxDisposition, telegramManualOrderKinds, telegramNextChatCursor, telegramOutboxFailureDisposition, telegramPrivateUpdate, telegramRequiresDeposit, telegramSecretMatches, telegramUpdateIdValid, telegramWebhookDisposition } from "../src/routes/telegram";
 import { localeOf, t } from "../src/lib/telegram-localization";
 import { consumeTelegramLinkChallenge, createTelegramLinkChallenge, hashTelegramLinkToken, TelegramLinkChallengeError, TelegramLinkConflictError } from "../src/lib/telegram-link";
-import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, shouldAskDestination, telegramFieldSkipIndex, withoutTelegramRefundFields } from "../src/lib/telegram-wizard";
+import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, shouldAskDestination, telegramAssetNetworkKey, telegramFieldSkipIndex, withoutTelegramRefundFields } from "../src/lib/telegram-wizard";
 import { normalizeRefundFields } from "../src/lib/manual-wallet-validation";
 import { telegramAccountLinkRelativeUrl, validateTelegramMiniAppInitData, verifyTelegramMiniAppSession } from "../src/routes/telegram-mini-app";
 
@@ -285,21 +285,42 @@ test("Telegram route filtering preserves receive-only options without cross-prod
   assert.deepEqual(filterConvertTargets([source, receiveOnly, unrelated], [{ fromAsset: "BTC", fromNetwork: "BTC", toAsset: "USDT", toNetwork: "TRC20" }], source).map(x => x.id), ["r"]);
 });
 
+test("Telegram Convert preserves same-symbol networks and normalizes exact route keys", () => {
+  const source = { id: "btc-mainnet", assetCode: " BTC ", routeNetwork: "bitcoin", kind: "crypto-network", direction: "send" };
+  const options = [
+    source,
+    { id: "usdt-trc20", assetCode: "USDT", routeNetwork: "TRC20", kind: "crypto-network", direction: "receive" },
+    { id: "usdt-erc20", assetCode: "usdt", routeNetwork: " erc20 ", kind: "crypto-network", direction: "receive" },
+    { id: "usdt-ton", assetCode: "USDT", routeNetwork: "TON", kind: "crypto-network", direction: "receive" },
+  ];
+  const pairs = [
+    { fromAsset: "btc", fromNetwork: " BITCOIN ", toAsset: " usdt ", toNetwork: "trc20" },
+    { fromAsset: "BTC", fromNetwork: "bitcoin", toAsset: "USDT", toNetwork: "ERC20" },
+  ];
+
+  assert.equal(telegramAssetNetworkKey(" usdt ", "trc20"), "USDT\0TRC20");
+  assert.deepEqual(
+    filterConvertTargets(options, pairs, source).map(option => option.id),
+    ["usdt-trc20", "usdt-erc20"],
+  );
+});
+
 test("Telegram Swap sources match executable website routes", () => {
   const options = [
     { id: "usdt-trc20", assetCode: "USDT", routeNetwork: "TRC20", kind: "crypto-network", lifecycle: "active", direction: "send" },
-    { id: "usdt-bep20", assetCode: "USDT", routeNetwork: "BEP20", kind: "crypto-network", lifecycle: "active", direction: "receive" },
+    { id: "usdt-bep20", assetCode: "USDT", routeNetwork: "BEP20", kind: "crypto-network", lifecycle: "active", direction: "both" },
     { id: "usdt-disabled", assetCode: "USDT", routeNetwork: "ERC20", kind: "crypto-network", lifecycle: "disabled", direction: "send" },
     { id: "eur-sepa", assetCode: "EUR", routeNetwork: "SEPA", kind: "fiat-payment-method", lifecycle: "active", direction: "send" },
     { id: "usd-wire", assetCode: "USD", routeNetwork: "WIRE", kind: "fiat-payment-method", lifecycle: "active", direction: "send" },
   ];
   const routes = [
     { sourceSettlementOptionId: "usdt-trc20" },
+    { sourceSettlementOptionId: "usdt-bep20" },
     { sourceSettlementOptionId: "eur-sepa" },
   ];
   assert.deepEqual(
     filterManualSourceOptions(options, routes).map(option => option.id),
-    ["usdt-trc20", "eur-sepa"],
+    ["usdt-trc20", "usdt-bep20", "eur-sepa"],
   );
 });
 
