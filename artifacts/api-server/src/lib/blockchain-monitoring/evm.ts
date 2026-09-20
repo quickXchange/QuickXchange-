@@ -168,13 +168,17 @@ export class EvmJsonRpcAdapter implements BlockchainMonitorAdapter {
       if (native.length) {
         const fullBlock = await this.rpc<EvmBlock | null>("eth_getBlockByNumber", [blockHex, true]);
         for (const transaction of fullBlock?.transactions ?? []) {
+          const candidates = native.flatMap((item) => {
+            const parsed = parseEvmNativeTransfer(transaction, this.networkCode, item.address, item.asset);
+            return parsed ? [parsed] : [];
+          });
+          if (!candidates.length) continue;
           const receipt = transaction.hash
             ? await this.rpc<{ status?: string } | null>("eth_getTransactionReceipt", [transaction.hash])
             : null;
           if (receipt?.status !== "0x1") continue;
-          for (const item of native) {
-            const parsed = parseEvmNativeTransfer(transaction, this.networkCode, item.address, item.asset);
-            if (parsed) evidence.push({ ...parsed, blockHash: transaction.blockHash ?? fullBlock?.hash, blockTimestamp: fullBlock?.timestamp ? new Date(Number(BigInt(fullBlock.timestamp)) * 1000).toISOString() : undefined });
+          for (const parsed of candidates) {
+            evidence.push({ ...parsed, blockHash: transaction.blockHash ?? fullBlock?.hash, blockTimestamp: fullBlock?.timestamp ? new Date(Number(BigInt(fullBlock.timestamp)) * 1000).toISOString() : undefined });
           }
         }
       }
