@@ -11,6 +11,12 @@ import { createTelegramLinkChallenge } from "../lib/telegram-link";
 import { getCustomerVerifiedEmail, requireActiveCustomerIdentity } from "../lib/customer-auth";
 import { getCustomerOrderHistory } from "../lib/order-history";
 import { logger } from "../lib/logger";
+import {
+  formatSwapTelegramNotification,
+  swapTelegramRecipientIsCurrent,
+  type SwapTelegramEventKind,
+  type SwapTelegramNotificationPayload,
+} from "../lib/telegram-swap-notifications";
 
 const router: IRouter = Router();
 export const telegramManualOrderKinds = ["manual", "swap"] as const;
@@ -1121,7 +1127,7 @@ export function startTelegramNotificationWorker(): () => void {
         const payload = claimed.payload as { status?: string; eventKind?: string; requiresDeposit?: boolean; trackingToken?: string; depositAddress?: string; depositMemo?: string; orderKind?: string };
         const [noticeChat] = await db.select({ locale: telegramChatsTable.locale }).from(telegramChatsTable).where(eq(telegramChatsTable.chatId, claimed.chatId)).limit(1);
         const noticeLocale = localeOf(noticeChat?.locale);
-        if (payload.eventKind === "order_created") {
+        if (claimed.eventKind === "order_created") {
           let deposit = telegramDepositInstruction(payload as Record<string, unknown>);
           if (!deposit && payload.requiresDeposit) {
             const path = payload.orderKind === "convert" ? "/api/quickex/orders" : "/api/orders";
@@ -1140,6 +1146,34 @@ export function startTelegramNotificationWorker(): () => void {
           const caption = `✅ <b>${t(noticeLocale, "order")} ${html(claimed.orderId)}</b>\n${t(noticeLocale, "status")}: <b>${html(payload.status ?? "updated")}</b>${deposit ? `\n${t(noticeLocale, "deposit")}: <code>${html(deposit.address)}</code>${deposit.memo ? `\n${t(noticeLocale, "memo")}: <code>${html(deposit.memo)}</code>` : ""}` : ""}`;
           if (deposit) await sendTelegramPhoto(claimed.chatId, deposit.address, caption);
           else await sendTelegramMessage(claimed.chatId, caption);
+        } else if (
+          claimed.eventKind === "payment_received" ||
+          claimed.eventKind === "completed"
+        ) {
+          const eventKind = claimed.eventKind as SwapTelegramEventKind;
+          const recipientIsCurrent = await swapTelegramRecipientIsCurrent(
+            claimed.chatId,
+            claimed.orderId,
+            eventKind,
+          );
+          if (!recipientIsCurrent) {
+            await db.update(telegramNotificationOutboxTable).set({
+              deliveryStatus: "failed",
+              lastError: "Telegram order link or Swap state is no longer valid.",
+              claimToken: null,
+              claimExpiresAt: null,
+            }).where(and(
+              eq(telegramNotificationOutboxTable.id, claimed.id),
+              eq(telegramNotificationOutboxTable.claimToken, claimToken),
+            ));
+            continue;
+          }
+          await sendTelegramMessage(
+            claimed.chatId,
+            formatSwapTelegramNotification(
+              payload as SwapTelegramNotificationPayload,
+            ),
+          );
         } else {
           await sendTelegramMessage(claimed.chatId, `🔔 QuickXchange ${t(noticeLocale, "order")} <code>${html(claimed.orderId)}</code> ${t(noticeLocale, "notification")} <b>${html(payload.status ?? "updated")}</b>.`);
         }

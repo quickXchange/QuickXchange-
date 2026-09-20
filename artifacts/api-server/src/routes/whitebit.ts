@@ -24,6 +24,8 @@ import { ApiError } from "../lib/api-error";
 import { requireOperator, requireOwner } from "../lib/operator-auth";
 import { isWhitebitSwapEnabled, parseWhitebitCatalogAssets } from "../lib/whitebit-capabilities";
 import { getWhitebitCredentialStorageState, type WhitebitCredentials } from "../lib/provider-credentials";
+import { updateOrderAndQueueStatusNotificationTx } from "../lib/customer-status-notifications";
+import { enqueueSwapTelegramNotification } from "../lib/telegram-swap-notifications";
 
 const api = "https://whitebit.com";
 let orderAddressTableAvailable: boolean | undefined;
@@ -652,6 +654,52 @@ export async function processNormalizedDeposit(tx: WhitebitTransaction, input: N
        : deposit.conflict,
     updatedAt: new Date(), rawPayload: input.rawPayload,
   }).where(eq(whitebitDepositsTable.id, deposit.id));
+  if (!ambiguousMapping && terminal && stable && orderAddressRow) {
+    const [order] = await tx
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderAddressRow.orderId))
+      .limit(1);
+    if (
+      order?.type === "manual" &&
+      order.manualSettlementState === "awaiting_funds"
+    ) {
+      const now = new Date();
+      const updated = await updateOrderAndQueueStatusNotificationTx(
+        tx,
+        order,
+        {
+          manualSettlementState: "funds_confirmed",
+          manualSettlementStateUpdatedAt: now,
+          manualSettlementFundedAt: order.manualSettlementFundedAt ?? now,
+          status: "funds confirmed",
+        },
+        undefined,
+        {
+          action: "order.deposit_confirmed",
+          actorType: "system",
+          details: {
+            provider: "whitebit",
+            depositId: deposit.id,
+            providerIdentity: identity,
+            transactionHash: input.transactionHash,
+          },
+        },
+      );
+      if (updated) {
+        await enqueueSwapTelegramNotification(
+          tx,
+          updated,
+          "payment_received",
+          {
+            amount: nextAmount,
+            asset: input.ticker,
+            network: input.network,
+          },
+        );
+      }
+    }
+  }
   if (ambiguousMapping || !terminal || !stable || !addressRow?.customerId || orderAddressRow) return false;
   const [ledger] = await tx.insert(whitebitLedgerEntriesTable).values({
     customerId: addressRow.customerId, ticker: input.ticker, amount: nextAmount,

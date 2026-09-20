@@ -3,13 +3,23 @@ import { createHmac } from "node:crypto";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { eq, inArray } from "drizzle-orm";
-import { db, telegramAccountLinkChallengesTable, telegramChatsTable } from "@workspace/db";
+import {
+  affiliateCompletionEventsTable,
+  db,
+  ordersTable,
+  telegramAccountLinkChallengesTable,
+  telegramChatsTable,
+  telegramNotificationOutboxTable,
+  telegramOrderLinksTable,
+} from "@workspace/db";
 import { DepositInstructionsPending, menu, shouldApplyUpdate, reconciliationClaimEligible, reconciliationWinnerTransition, telegramAdvisoryChatKey, telegramCreateRetryDecision, telegramCreationDeliveryDecision, telegramCreationOutboxPayload, telegramCreateState, telegramDepositInstruction, telegramInboxDisposition, telegramManualOrderKinds, telegramNextChatCursor, telegramOutboxFailureDisposition, telegramPrivateUpdate, telegramRequiresDeposit, telegramSecretMatches, telegramUpdateIdValid, telegramWebhookDisposition } from "../src/routes/telegram";
 import { localeOf, t } from "../src/lib/telegram-localization";
 import { consumeTelegramLinkChallenge, createTelegramLinkChallenge, hashTelegramLinkToken, TelegramLinkChallengeError, TelegramLinkConflictError } from "../src/lib/telegram-link";
 import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, shouldAskDestination, telegramAssetNetworkKey, telegramFieldSkipIndex, withoutTelegramRefundFields } from "../src/lib/telegram-wizard";
 import { normalizeRefundFields } from "../src/lib/manual-wallet-validation";
 import { telegramAccountLinkRelativeUrl, validateTelegramMiniAppInitData, verifyTelegramMiniAppSession } from "../src/routes/telegram-mini-app";
+import { formatSwapTelegramNotification } from "../src/lib/telegram-swap-notifications";
+import { updateOrderAndQueueStatusNotification } from "../src/lib/customer-status-notifications";
 
 test("Telegram Mini App initData validates authentic user data", () => {
   const previous = process.env.TELEGRAM_BOT_TOKEN;
@@ -408,4 +418,124 @@ test("Required deposit provisioning never terminally fails, while Telegram error
   assert.equal(telegramOutboxFailureDisposition(new DepositInstructionsPending(), 100), "pending");
   assert.equal(telegramOutboxFailureDisposition(new Error("Telegram send failed"), 5), "failed");
   assert.equal(telegramOutboxFailureDisposition(new Error("Telegram send failed"), 4), "pending");
+});
+
+test("Swap Telegram payment and completion messages use stored event details", () => {
+  const base = {
+    orderId: "0996522166",
+    status: "completed",
+    sendAmount: "20",
+    sendAsset: "USDT",
+    sendMethod: "USDT",
+    sendNetwork: "BEP20",
+    receiveAmount: "18.75",
+    receiveAsset: "EUR",
+    receiveMethod: "SEPA",
+    receiveNetwork: "",
+  };
+  const payment = formatSwapTelegramNotification({
+    ...base,
+    eventKind: "payment_received",
+    receivedAmount: "20",
+    receivedAsset: "USDT",
+    receivedNetwork: "BEP20",
+  });
+  assert.match(payment, /Payment Received/);
+  assert.match(payment, /Order #0996522166/);
+  assert.match(payment, /Received: <b>20 USDT<\/b>/);
+  assert.match(payment, /Network: <b>BEP20<\/b>/);
+  assert.match(payment, /now being processed/);
+
+  const completed = formatSwapTelegramNotification({
+    ...base,
+    eventKind: "completed",
+  });
+  assert.match(completed, /Done ✅/);
+  assert.match(completed, /20 USDT \(BEP20\)/);
+  assert.match(completed, /18\.75 SEPA/);
+  assert.match(completed, /Status: <b>Completed ✅<\/b>/);
+});
+
+test("real Manual Swap completion queues one stored Telegram completion snapshot", async () => {
+  const id = `O${randomUUID().replaceAll("-", "").slice(0, 10)}`;
+  const chatId = `92${Date.now()}`;
+  await db.insert(ordersTable).values({
+    id,
+    type: "manual",
+    status: "funds confirmed",
+    manualSettlementState: "funds_confirmed",
+    fromAsset: "USDT",
+    fromNetwork: "BEP20",
+    toAsset: "EUR",
+    toNetwork: "SEPA",
+    amount: "20",
+    receiveAmount: "18.75",
+    customerEmail: `${id}@example.test`,
+    customerName: "Telegram completion",
+    destinationAddress: "",
+    destinationMemo: "",
+    refundAddress: "",
+    refundMemo: "",
+    provider: "Manual desk",
+    settlementSnapshot: {
+      source: { kind: "crypto-network", title: "USDT", routeNetwork: "BEP20" },
+      target: { kind: "fiat-payment-method", title: "SEPA" },
+    },
+  });
+  await db.insert(telegramChatsTable).values({ chatId, userId: chatId, locale: "en" });
+  await db.insert(telegramOrderLinksTable).values({
+    chatId,
+    orderId: id,
+    orderKind: "swap",
+    trackingToken: "completion-test-token",
+  });
+
+  try {
+    const [current] = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
+    const completed = await updateOrderAndQueueStatusNotification(current, {
+      status: "completed",
+      manualSettlementState: "completed",
+      manualSettlementStateUpdatedAt: new Date(),
+      manualSettlementPaidAt: new Date(),
+    });
+    assert.equal(completed?.status, "completed");
+
+    const notices = await db.select().from(telegramNotificationOutboxTable)
+      .where(eq(telegramNotificationOutboxTable.orderId, id));
+    const completion = notices.filter((notice) => notice.eventKind === "completed");
+    const genericStatus = notices.filter((notice) => notice.eventKind === "status");
+    assert.equal(completion.length, 1);
+    assert.equal(genericStatus.length, 1);
+    assert.equal(genericStatus[0]?.deliveryStatus, "delivered");
+    assert.equal(completion[0]?.statusVersion, completed?.statusVersion);
+    assert.deepEqual(
+      {
+        sendAmount: completion[0]?.payload.sendAmount,
+        sendAsset: completion[0]?.payload.sendAsset,
+        sendMethod: completion[0]?.payload.sendMethod,
+        sendNetwork: completion[0]?.payload.sendNetwork,
+        receiveAmount: completion[0]?.payload.receiveAmount,
+        receiveAsset: completion[0]?.payload.receiveAsset,
+        receiveMethod: completion[0]?.payload.receiveMethod,
+      },
+      {
+        sendAmount: "20",
+        sendAsset: "USDT",
+        sendMethod: "USDT",
+        sendNetwork: "BEP20",
+        receiveAmount: "18.75",
+        receiveAsset: "EUR",
+        receiveMethod: "SEPA",
+      },
+    );
+  } finally {
+    await db.delete(telegramNotificationOutboxTable)
+      .where(eq(telegramNotificationOutboxTable.orderId, id));
+    await db.delete(telegramOrderLinksTable)
+      .where(eq(telegramOrderLinksTable.orderId, id));
+    await db.delete(telegramChatsTable).where(eq(telegramChatsTable.chatId, chatId));
+    await db.delete(affiliateCompletionEventsTable)
+      .where(eq(affiliateCompletionEventsTable.aggregateId, id));
+    await db.delete(ordersTable).where(eq(ordersTable.id, id));
+  }
 });

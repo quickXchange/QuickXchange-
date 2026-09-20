@@ -597,6 +597,97 @@ test("signed WhiteBIT webhook attaches the exact Swap order without ledger credi
   assert.equal(row.depositAddress, claim.address);
 });
 
+test("confirmed Swap deposit advances the real order and queues one exact Telegram payment notice", async () => {
+  const telegramOrderId = `${orderId}-telegram-payment`;
+  const chatId = `91${Date.now()}`;
+  const uniqueId = `telegram-payment-${suffix}`;
+  await insertProvisioningOrder(telegramOrderId);
+  await database.db.update(database.ordersTable).set({
+    manualSettlementState: "awaiting_funds",
+    status: "awaiting funds",
+    settlementSnapshot: {
+      source: { kind: "crypto-network", title: "Bitcoin", routeNetwork: "BITCOIN" },
+      target: { kind: "fiat-payment-method", title: "SEPA" },
+    },
+  }).where(eq(database.ordersTable.id, telegramOrderId));
+  const [claim] = await database.db.insert(database.whitebitOrderAddressesTable).values({
+    orderId: telegramOrderId,
+    ticker: "BTC",
+    providerTicker: "BTC",
+    network: "BITCOIN",
+    address: `telegram-payment-address-${suffix}`,
+    memo: "TAG-TG",
+    status: "ready",
+  }).returning();
+  await finalizeSwapFundingFromClaim(telegramOrderId);
+  await database.db.insert(database.telegramChatsTable).values({
+    chatId,
+    userId: chatId,
+    locale: "en",
+  });
+  await database.db.insert(database.telegramOrderLinksTable).values({
+    chatId,
+    orderId: telegramOrderId,
+    orderKind: "swap",
+    trackingToken: "test-tracking-token",
+  });
+
+  try {
+    const input = {
+      address: claim.address!,
+      ticker: "BTC",
+      providerTicker: "BTC",
+      network: "BITCOIN",
+      memo: claim.memo,
+      amount: "1.25",
+      fee: "0",
+      status: 3,
+      event: "deposit.processed",
+      transactionHash: `hash-${uniqueId}`,
+      uniqueId,
+      transactionId: `tx-${uniqueId}`,
+      rawPayload: {},
+    };
+    await database.db.transaction((tx) => processNormalizedDeposit(tx, input));
+    await database.db.transaction((tx) => processNormalizedDeposit(tx, input));
+
+    const [order] = await database.db.select().from(database.ordersTable)
+      .where(eq(database.ordersTable.id, telegramOrderId));
+    assert.equal(order.manualSettlementState, "funds_confirmed");
+    assert.equal(order.status, "funds confirmed");
+    assert.ok(order.manualSettlementFundedAt);
+
+    const notices = await database.db.select()
+      .from(database.telegramNotificationOutboxTable)
+      .where(eq(database.telegramNotificationOutboxTable.orderId, telegramOrderId));
+    const payments = notices.filter((notice) => notice.eventKind === "payment_received");
+    const genericStatus = notices.filter((notice) => notice.eventKind === "status");
+    assert.equal(payments.length, 1);
+    assert.equal(genericStatus.length, 1);
+    assert.equal(genericStatus[0]?.deliveryStatus, "delivered");
+    assert.equal(payments[0]?.statusVersion, 0);
+    assert.deepEqual(
+      {
+        receivedAmount: payments[0]?.payload.receivedAmount,
+        receivedAsset: payments[0]?.payload.receivedAsset,
+        receivedNetwork: payments[0]?.payload.receivedNetwork,
+      },
+      {
+        receivedAmount: "1.25",
+        receivedAsset: "BTC",
+        receivedNetwork: "BITCOIN",
+      },
+    );
+  } finally {
+    await database.db.delete(database.telegramNotificationOutboxTable)
+      .where(eq(database.telegramNotificationOutboxTable.orderId, telegramOrderId));
+    await database.db.delete(database.telegramOrderLinksTable)
+      .where(eq(database.telegramOrderLinksTable.orderId, telegramOrderId));
+    await database.db.delete(database.telegramChatsTable)
+      .where(eq(database.telegramChatsTable.chatId, chatId));
+  }
+});
+
 test("signed webhooks attach both guest and authenticated Swap orders without ledger credit", async () => {
   const guestOrderId = `${orderId}-guest-webhook`;
   const authOrderId = `${orderId}-auth-webhook`;

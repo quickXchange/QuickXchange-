@@ -20,6 +20,7 @@ import {
   orderAuditLogsTable,
   ordersTable,
 } from "@workspace/db";
+import { enqueueSwapTelegramNotification } from "./telegram-swap-notifications";
 import { getCustomerVerifiedEmail } from "./customer-auth";
 import { logger } from "./logger";
 
@@ -170,7 +171,10 @@ async function sendCustomerStatusNotification(
   }
 }
 
-export async function updateOrderAndQueueStatusNotification(
+type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export async function updateOrderAndQueueStatusNotificationTx(
+  tx: DbTransaction,
   current: OrderRow,
   updates: OrderUpdate,
   additionalCondition?: SQL,
@@ -186,7 +190,6 @@ export async function updateOrderAndQueueStatusNotification(
     const key = field as keyof OrderRow;
     return updates[key] !== undefined && updates[key] !== current[key];
   });
-  return db.transaction(async (tx) => {
     const [updated] = await tx
       .update(ordersTable)
       .set({
@@ -275,8 +278,31 @@ export async function updateOrderAndQueueStatusNotification(
           ],
         });
     }
+    if (
+      statusChanged &&
+      updated.status === "completed" &&
+      updated.type === "manual"
+    ) {
+      await enqueueSwapTelegramNotification(tx, updated, "completed");
+    }
     return updated;
-  });
+}
+
+export async function updateOrderAndQueueStatusNotification(
+  current: OrderRow,
+  updates: OrderUpdate,
+  additionalCondition?: SQL,
+  audit: OrderMutationAudit = {},
+): Promise<OrderRow | undefined> {
+  return db.transaction((tx) =>
+    updateOrderAndQueueStatusNotificationTx(
+      tx,
+      current,
+      updates,
+      additionalCondition,
+      audit,
+    )
+  );
 }
 
 function exactDivide(value: string, divisor: string): string {
