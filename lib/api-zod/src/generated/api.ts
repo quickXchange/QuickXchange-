@@ -7862,7 +7862,7 @@ export const CreateCryptoNetworkResponse = zod.object({
 
 
 /**
- * @summary Atomically apply one receiving-wallet configuration to explicitly selected network rows
+ * @summary Atomically apply one Manual Swap receiving-wallet configuration to explicitly selected network rows
  */
 export const saveCryptoNetworkReceivingWalletBodyNetworkIdsItemMax = 80;
 

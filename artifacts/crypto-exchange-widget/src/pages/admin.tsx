@@ -8429,9 +8429,9 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
           <label><span className="field-label">{t('adminCatalog.deposit_warning')}</span><textarea rows={2} value={form.depositWarning} onChange={e => setForm({...form, depositWarning: e.target.value})} placeholder={t('adminCatalog.red_warning_text_if_necessary')} /></label>
 
           {!isNew && (
-            <section className="receiving-wallet-section" data-testid="network-receiving-wallet-section" aria-label="Receiving Wallet Address">
+            <section className="receiving-wallet-section" data-testid="network-receiving-wallet-section" aria-label="Manual Swap Receiving Wallet Address">
               <div className="panel-heading mb-3">
-                <div><span className="section-kicker">Receiving funds</span><h2>Receiving Wallet Address</h2></div>
+                <div><span className="section-kicker">Manual Swap</span><h2>Receiving Wallet Address</h2></div>
               </div>
               <label>
                 <span className="field-label">Networks</span>
@@ -8492,7 +8492,7 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                 <span className="field-label !mb-0 font-bold">Customer Deposits Enabled</span>
               </label>
               <p className="field-hint">
-                The address, provider, memo, and deposit availability are applied only to the explicitly selected network records.
+                Applies only to Manual Swap. Convert continues to use its existing API provider. These settings update only the explicitly selected network records.
               </p>
             </section>
           )}

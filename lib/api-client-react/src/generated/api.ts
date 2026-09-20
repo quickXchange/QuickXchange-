@@ -6822,7 +6822,7 @@ export const getSaveCryptoNetworkReceivingWalletUrl = () => {
 }
 
 /**
- * @summary Atomically apply one receiving-wallet configuration to explicitly selected network rows
+ * @summary Atomically apply one Manual Swap receiving-wallet configuration to explicitly selected network rows
  */
 export const saveCryptoNetworkReceivingWallet = async (cryptoNetworkReceivingWalletInput: CryptoNetworkReceivingWalletInput, options?: Parameters<typeof customFetch>[1]): Promise<CryptoNetwork[]> => {
 
@@ -6871,7 +6871,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type SaveCryptoNetworkReceivingWalletMutationError = ErrorType<ApiError>
 
     /**
- * @summary Atomically apply one receiving-wallet configuration to explicitly selected network rows
+ * @summary Atomically apply one Manual Swap receiving-wallet configuration to explicitly selected network rows
  */
 export const useSaveCryptoNetworkReceivingWallet = <TError = ErrorType<ApiError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveCryptoNetworkReceivingWallet>>, TError,{data: BodyType<CryptoNetworkReceivingWalletInput>}, TContext>, request?: SecondParameter<typeof customFetch>}

@@ -1921,7 +1921,7 @@ paths:
       operationId: saveCryptoNetworkReceivingWallet
       tags: [admin]
       security: [{ OwnerSession: [] }]
-      summary: Atomically apply one receiving-wallet configuration to explicitly selected network rows
+      summary: Atomically apply one Manual Swap receiving-wallet configuration to explicitly selected network rows
       requestBody:
         required: true
         content:
