@@ -125,3 +125,4 @@
 - [Workspace configuration media transfer](workspace-config-media-transfer.md) — cross-environment configuration snapshots bundle verified active media; removed optional media never blocks import.
 - [Asset and network state boundaries](asset-network-state-boundaries.md) — asset catalog edits must preserve independently verified per-network deposit settings.
 - [Swap payment-field authority](swap-payment-field-authority.md) — new Swap quotes use only active Admin fields in persisted order for either fiat direction; existing orders retain snapshots.
+- [Live selector search state](live-selector-search-state.md) — option refreshes must not clear an open selector query; use normalized partial matching across all searchable identity fields.

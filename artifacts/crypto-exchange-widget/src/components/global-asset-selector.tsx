@@ -13,6 +13,20 @@ export type GlobalAssetSelectorOption = {
   searchText: string;
 };
 
+export function normalizeSelectorSearchValue(value: string): string {
+  return value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase()
+    .trim();
+}
+
+export function selectorOptionMatchesQuery(searchText: string, query: string): boolean {
+  const normalizedQuery = normalizeSelectorSearchValue(query);
+  return !normalizedQuery
+    || normalizeSelectorSearchValue(searchText).includes(normalizedQuery);
+}
+
 type GlobalAssetSelectorProps<TOption extends GlobalAssetSelectorOption> = {
   value: string;
   options: TOption[];
@@ -80,11 +94,7 @@ export function GlobalAssetSelector<TOption extends GlobalAssetSelectorOption>({
   } | null>(null);
 
   const selected = options.find(option => option.id === value) || options[0];
-  const normalizedQuery = query.trim().toLowerCase();
-  const optionSetKey = useMemo(
-    () => options.map(option => option.id).join('\0'),
-    [options],
-  );
+  const normalizedQuery = normalizeSelectorSearchValue(query);
   const availableCategories = useMemo(
     () => CATEGORY_DEFINITIONS.filter(category =>
       category.id === 'all' || options.some(option => option.category === category.id)
@@ -94,7 +104,7 @@ export function GlobalAssetSelector<TOption extends GlobalAssetSelectorOption>({
   const filteredOptions = useMemo(
     () => options.filter(option =>
       (activeCategory === 'all' || option.category === activeCategory)
-      && (!normalizedQuery || option.searchText.toLowerCase().includes(normalizedQuery))
+      && selectorOptionMatchesQuery(option.searchText, normalizedQuery)
     ),
     [activeCategory, normalizedQuery, options],
   );
@@ -107,11 +117,6 @@ export function GlobalAssetSelector<TOption extends GlobalAssetSelectorOption>({
       if (open) onOpenChange?.(false);
     };
   }, [open, onOpenChange]);
-
-  useEffect(() => {
-    setQuery('');
-    setActiveCategory('all');
-  }, [optionSetKey]);
 
   useEffect(() => {
     setPortalContainer(
