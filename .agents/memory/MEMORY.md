@@ -128,3 +128,5 @@
 - [Live selector search state](live-selector-search-state.md) — option refreshes must not clear an open selector query; use normalized partial matching across all searchable identity fields.
 - [Canonical Manual Swap status](canonical-manual-swap-status.md) — customer surfaces use one backend status; operational settlement stages must not become competing public lifecycle states.
 - [Canonical Convert status](convert-status-synchronization.md) — all surfaces share Quickex lifecycle state; payment milestones require exact provider evidence and Convert-only outbox events.
+- [Monitoring gap cursor boundary](monitoring-gap-cursor-boundary.md) — delayed watch activation starts at a fresh chain head; never silently backdate it to capture earlier transfers.
+- [EVM receipt scan efficiency](evm-receipt-scan-efficiency.md) — prefilter native transfers by watched recipient before requesting successful-transaction receipts.

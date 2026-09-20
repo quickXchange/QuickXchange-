@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
+import { createServer } from "node:http";
 import test from "node:test";
-import { normalizeEvmAddress, parseEvmNativeTransfer, parseEvmTransferLog } from "../src/lib/blockchain-monitoring/evm";
+import { EvmJsonRpcAdapter, normalizeEvmAddress, parseEvmNativeTransfer, parseEvmTransferLog } from "../src/lib/blockchain-monitoring/evm";
 import { normalizeTronAddress, parseTronNativeTransfer, parseTronTokenTransfer } from "../src/lib/blockchain-monitoring/tron";
 import { normalizeSolanaAddress, parseSolanaTransaction } from "../src/lib/blockchain-monitoring/solana";
 
@@ -24,6 +25,55 @@ test("EVM parsing keeps exact raw amounts and filters the configured token contr
   assert.equal(parseEvmTransferLog({ ...log, address: "0x3333333333333333333333333333333333333333" }, "BEP20", watched, asset), undefined);
   assert.equal(parseEvmNativeTransfer({ hash: "0xnative", from: "0x3333333333333333333333333333333333333333", to: watched.address, value: "0x2a", blockNumber: "0x10" }, "BEP20", watched, { assetId: "bnb", symbol: "BNB", kind: "native", decimals: 18 })?.rawAmount, "42");
   assert.equal(normalizeEvmAddress("0xABCDEFabcdefABCDEFabcdefABCDEFabcdefABCD"), "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd");
+});
+
+test("EVM native scans request receipts only for watched-address candidates", async () => {
+  const methods: string[] = [];
+  const server = createServer((req, res) => {
+    let body = "";
+    req.setEncoding("utf8");
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", () => {
+      const request = JSON.parse(body) as { id: number; method: string };
+      methods.push(request.method);
+      const result = request.method === "eth_getBlockByNumber"
+        ? {
+            number: "0x10",
+            hash: "0xblock",
+            timestamp: "0x1",
+            transactions: [{
+              hash: "0xunrelated",
+              from: "0x3333333333333333333333333333333333333333",
+              to: "0x4444444444444444444444444444444444444444",
+              value: "0x2a",
+              blockNumber: "0x10",
+              blockHash: "0xblock",
+            }],
+          }
+        : null;
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ jsonrpc: "2.0", id: request.id, result }));
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = server.address();
+    assert(address && typeof address === "object");
+    const adapter = new EvmJsonRpcAdapter({
+      networkCode: "BEP20",
+      provider: "rpc",
+      adapterKind: "evm",
+      endpoint: `http://127.0.0.1:${address.port}`,
+    });
+    const result = await adapter.scanIncoming({ from: "16", to: "16" }, [{
+      address: "0x1111111111111111111111111111111111111111",
+      assets: [{ assetId: "bnb-bep20", symbol: "BNB", kind: "native", decimals: 18 }],
+    }]);
+    assert.deepEqual(result.evidence, []);
+    assert.deepEqual(methods, ["eth_getBlockByNumber"]);
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
 });
 
 test("TRON parsing normalizes Base58 and hex addresses without exposing provider details", () => {
