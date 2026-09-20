@@ -3036,6 +3036,7 @@ test("manual lifecycle enforces transitions and concurrency and writes an operat
     operatorsTable,
     orderAuditLogsTable,
     ordersTable,
+    whitebitProviderSettingsTable,
   } = await import("@workspace/db");
   const operatorAuth = await import("../src/lib/operator-auth");
   const suffix = randomUUID();
@@ -3169,6 +3170,38 @@ test("manual lifecycle enforces transitions and concurrency and writes an operat
     }, "PATCH", headers);
     assert.equal(determinantChange.status, 200);
     assert.equal(determinantChange.body.customerDepositsEnabled, false);
+    const siblingNetworkId = `${networkId}-sibling`;
+    await db.insert(cryptoAssetNetworksTable).values({
+      id: siblingNetworkId,
+      assetId,
+      networkCode: "SIBLING",
+      networkName: "Sibling network",
+      networkFamily: "ethereum",
+      decimals: 6,
+      enabled: true,
+      depositProvider: "manual",
+      sharedDepositAddress: "0x52908400098527886E0F7030069857D2E4169EE7",
+      customerDepositsEnabled: true,
+    });
+    await db.update(cryptoAssetNetworksTable).set({
+      networkFamily: "ethereum",
+      depositProvider: "manual",
+      sharedDepositAddress: "0xde709f2102306220921060314715629080e2fb77",
+      sharedDepositMemo: null,
+      requiresMemo: false,
+      enabled: false,
+      customerDepositsEnabled: false,
+    }).where(eq(cryptoAssetNetworksTable.id, networkId));
+    const enabledManualNetwork = await apiJson(api.url, `/admin/crypto-networks/${networkId}`, {
+      enabled: true,
+    }, "PATCH", headers);
+    assert.equal(enabledManualNetwork.status, 200);
+    assert.equal(enabledManualNetwork.body.enabled, true);
+    assert.equal(enabledManualNetwork.body.customerDepositsEnabled, true);
+    const [siblingAfterEnable] = await db.select().from(cryptoAssetNetworksTable)
+      .where(eq(cryptoAssetNetworksTable.id, siblingNetworkId));
+    assert.equal(siblingAfterEnable.enabled, true);
+    assert.equal(siblingAfterEnable.customerDepositsEnabled, true);
     const providerBypass = await apiJson(api.url, `/admin/crypto-networks/${networkId}`, {
       depositProvider: "none",
     }, "PATCH", headers);
@@ -3178,7 +3211,10 @@ test("manual lifecycle enforces transitions and concurrency and writes an operat
     await api.close();
     await deleteOrderAuditLogsForMaintenance(orderId);
     await db.delete(ordersTable).where(inArray(ordersTable.id, [orderId, legacyOrderId]));
-    await db.delete(cryptoAssetNetworksTable).where(eq(cryptoAssetNetworksTable.id, networkId));
+    await db.delete(cryptoAssetNetworksTable).where(inArray(
+      cryptoAssetNetworksTable.id,
+      [networkId, `${networkId}-sibling`],
+    ));
     await db.delete(cryptoAssetsTable).where(eq(cryptoAssetsTable.id, assetId));
     if (whitebitSettingBefore) {
       await db.update(whitebitProviderSettingsTable)
@@ -3208,6 +3244,11 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
   const differentNetworkId = `wallet-network-different-${suffix}`;
   const sharedCode = `WALLET-${suffix.slice(0, 12)}`;
   const differentCode = `OTHER-${suffix.slice(0, 12)}`;
+  const existingDepositStates = await db.select({
+    id: cryptoAssetNetworksTable.id,
+    customerDepositsEnabled: cryptoAssetNetworksTable.customerDepositsEnabled,
+    updatedAt: cryptoAssetNetworksTable.updatedAt,
+  }).from(cryptoAssetNetworksTable);
   const [operator] = await db.insert(operatorsTable).values({
     email: `wallet-owner-${suffix}@example.test`,
     clerkUserId: userId,
@@ -3369,6 +3410,14 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
       )
     ));
   } finally {
+    await db.transaction(async tx => {
+      for (const state of existingDepositStates) {
+        await tx.update(cryptoAssetNetworksTable).set({
+          customerDepositsEnabled: state.customerDepositsEnabled,
+          updatedAt: state.updatedAt,
+        }).where(eq(cryptoAssetNetworksTable.id, state.id));
+      }
+    });
     await db.delete(operatorAuditLogsTable).where(eq(operatorAuditLogsTable.actorClerkUserId, userId));
     await db.delete(cryptoAssetNetworksTable)
       .where(inArray(cryptoAssetNetworksTable.id, [networkAId, networkBId, differentNetworkId]));

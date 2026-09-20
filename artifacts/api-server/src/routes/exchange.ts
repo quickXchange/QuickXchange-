@@ -140,6 +140,7 @@ import {
   assertCustomerDepositEligibilityContextCurrent,
   createCustomerDepositEligibilityContext,
   customerDepositRouteConfigurationDigest,
+  hasUsableSavedReceivingWallet,
   invalidateWhitebitDepositRouteProofs,
   isCustomerDepositEligible,
   reconcileCryptoCustomerDepositEligibility,
@@ -4061,6 +4062,10 @@ router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, ne
             .where(eq(cryptoAssetsTable.id, edit.assetId));
         }
         for (const networkEdit of edit.networks ?? []) {
+          const currentNetwork = networkById.get(networkEdit.networkId);
+          if (!currentNetwork) {
+            throw new ApiError("CRYPTO_ASSET_NETWORK_NOT_FOUND", "One or more crypto network rows were not found.", 404);
+          }
           const networkChanges: JsonRecord = {};
           for (const key of [
             "enabled",
@@ -4074,12 +4079,22 @@ router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, ne
           ] as const) {
             if (networkEdit[key] !== undefined) networkChanges[key] = networkEdit[key];
           }
-          if (
+          const changesDepositEligibility =
             networkEdit.enabled !== undefined ||
             networkEdit.lifecycle !== undefined ||
-            networkEdit.requiresMemo !== undefined
-          ) {
-            networkChanges.customerDepositsEnabled = false;
+            networkEdit.requiresMemo !== undefined;
+          if (changesDepositEligibility) {
+            const currentAsset = assetById.get(edit.assetId);
+            const nextAsset = { ...currentAsset, ...assetChanges };
+            const nextNetwork = { ...currentNetwork, ...networkEdit };
+            networkChanges.customerDepositsEnabled = Boolean(
+              nextAsset.enabled &&
+              nextAsset.lifecycle !== "deprecated" &&
+              nextNetwork.enabled &&
+              nextNetwork.lifecycle !== "deprecated" &&
+              nextNetwork.depositProvider === "manual" &&
+              hasUsableSavedReceivingWallet(nextNetwork),
+            );
           }
           if (Object.keys(networkChanges).length > 0) {
             await tx.update(cryptoAssetNetworksTable)
@@ -4402,7 +4417,7 @@ router.patch("/admin/crypto-networks/:id", requireOperator, async (req, res, nex
         .for("update")
         .limit(1);
       if (!locked) throw new ApiError("CRYPTO_NETWORK_NOT_FOUND", "Crypto network not found.", 404);
-      const invalidatesProviderProofs = [
+      const depositEligibilityKeys = [
         "networkCode",
         "networkName",
         "networkFamily",
@@ -4410,13 +4425,35 @@ router.patch("/admin/crypto-networks/:id", requireOperator, async (req, res, nex
         "requiresMemo",
         "enabled",
         "lifecycle",
-      ].some((key) => Object.hasOwn(input, key));
+      ] as const;
+      const changesDepositEligibility = depositEligibilityKeys.some((key) =>
+        Object.hasOwn(input, key) && input[key] !== locked[key]
+      );
+      const invalidatesProviderProofs =
+        changesDepositEligibility &&
+        (locked.depositProvider === "whitebit" || input.depositProvider === "whitebit");
       if (invalidatesProviderProofs) await invalidateWhitebitDepositRouteProofs(tx);
+      const nextNetwork = { ...locked, ...input };
+      const [asset] = await tx.select().from(cryptoAssetsTable)
+        .where(eq(cryptoAssetsTable.id, locked.assetId))
+        .limit(1);
+      if (!asset) throw new ApiError("CRYPTO_ASSET_NOT_FOUND", "Crypto asset not found.", 404);
+      const derivedCustomerDepositsEnabled = changesDepositEligibility
+        ? Boolean(
+            asset.enabled &&
+            asset.lifecycle !== "deprecated" &&
+            nextNetwork.enabled &&
+            nextNetwork.lifecycle !== "deprecated" &&
+            nextNetwork.depositProvider === "manual" &&
+            hasUsableSavedReceivingWallet(nextNetwork),
+          )
+        : locked.customerDepositsEnabled;
       const [updated] = await tx.update(cryptoAssetNetworksTable).set({
         ...input,
-        ...(invalidatesProviderProofs
-          ? { customerDepositsEnabled: false }
-          : {}),
+        customerDepositsEnabled:
+          input.customerDepositsEnabled === false
+            ? false
+            : derivedCustomerDepositsEnabled,
       } as never)
         .where(eq(cryptoAssetNetworksTable.id, id)).returning();
       return updated;
