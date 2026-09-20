@@ -8221,6 +8221,7 @@ function BulkNetworkWalletDialog({
   const [depositProvider, setDepositProvider] = useState(networks[0]?.depositProvider || 'manual');
   const [walletAddress, setWalletAddress] = useState('');
   const [memo, setMemo] = useState('');
+  const [customerDepositsAction, setCustomerDepositsAction] = useState<'keep' | 'enable' | 'disable'>('keep');
   const [error, setError] = useState('');
   const providerOptions = providerOptionsQuery.data || [];
   const selectedProviderUnavailable = Boolean(
@@ -8244,6 +8245,9 @@ function BulkNetworkWalletDialog({
           walletAddress: walletAddress.trim(),
           memo: memo.trim() || null,
           depositProvider,
+          ...(customerDepositsAction === 'keep'
+            ? {}
+            : { enabled: customerDepositsAction === 'enable' }),
         },
       });
       await Promise.all([
@@ -8283,6 +8287,14 @@ function BulkNetworkWalletDialog({
           <label>
             <span className="field-label">{isApiProvider ? 'Fallback Memo / Tag' : 'Memo / Tag'}</span>
             <input data-testid="bulk-network-wallet-memo" value={memo} onChange={event => setMemo(event.target.value)} placeholder="Optional memo or tag" />
+          </label>
+          <label>
+            <span className="field-label">Customer Deposits</span>
+            <select data-testid="bulk-network-wallet-customer-deposits" value={customerDepositsAction} onChange={event => setCustomerDepositsAction(event.target.value as 'keep' | 'enable' | 'disable')}>
+              <option value="keep">Keep Current</option>
+              <option value="enable">Enable for selected routes</option>
+              <option value="disable">Disable for selected routes</option>
+            </select>
           </label>
           <p className="field-hint">A blank address preserves each selected route’s existing address. Convert remains independent.</p>
           <div className="catalog-editor-actions">

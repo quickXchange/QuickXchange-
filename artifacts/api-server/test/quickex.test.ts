@@ -3328,6 +3328,21 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
       row.sharedDepositMemo === "selected-network-memo" &&
       row.customerDepositsEnabled
     ));
+    const enabledSelectedConfig = await (await fetch(`${api.url}/exchange/config`)).json() as {
+      manualSettlementOptions: Array<{ id: string; direction: string }>;
+    };
+    assert.equal(
+      enabledSelectedConfig.manualSettlementOptions.find(option => option.id === `crypto:${networkAId}`)?.direction,
+      "both",
+    );
+    assert.equal(
+      enabledSelectedConfig.manualSettlementOptions.find(option => option.id === `crypto:${networkBId}`)?.direction,
+      "both",
+    );
+    assert.equal(
+      enabledSelectedConfig.manualSettlementOptions.find(option => option.id === `crypto:${differentNetworkId}`)?.direction,
+      "receive",
+    );
     const tableSelectedBulk = await apiJson(api.url, "/admin/crypto-networks/receiving-wallet", {
       networkIds: [differentNetworkId],
       walletAddress: "",
