@@ -65,4 +65,8 @@ test("blockchain monitoring bulk setup keeps view and Owner mutation boundaries 
     classifyAdminRoute("POST", "/admin/blockchain-monitoring/setup/enable-ready"),
     { permission: "blockchain_monitoring.manage", ownerOnly: true },
   );
+  assert.deepEqual(
+    classifyAdminRoute("POST", "/admin/blockchain-monitoring/setup/enable-selected"),
+    { permission: "blockchain_monitoring.manage", ownerOnly: true },
+  );
 });

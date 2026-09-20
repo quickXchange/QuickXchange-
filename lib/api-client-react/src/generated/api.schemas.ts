@@ -5841,6 +5841,16 @@ export interface BlockchainMonitoringBulkEnableResult {
   skippedRoutes: number;
 }
 
+export interface BlockchainMonitoringRouteSelectionInput {
+  /**
+     * @minItems 1
+     * @maxItems 500
+     * @items.minLength 1
+     * @items.maxLength 255
+     */
+  assetNetworkIds: string[];
+}
+
 export type PageParameter = number;
 
 export type PageSizeParameter = number;

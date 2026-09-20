@@ -119,6 +119,7 @@ const POLICY_MATCHERS: readonly PolicyMatcher[] = [
   { method: "GET", pattern: /^\/admin\/blockchain-monitoring\/assets\/list$/, policy: P("blockchain_monitoring.view") },
   { method: "GET", pattern: /^\/admin\/blockchain-monitoring\/setup\/routes$/, policy: P("blockchain_monitoring.view") },
   { method: "POST", pattern: /^\/admin\/blockchain-monitoring\/setup\/enable-ready$/, policy: P("blockchain_monitoring.manage", true) },
+  { method: "POST", pattern: /^\/admin\/blockchain-monitoring\/setup\/enable-selected$/, policy: P("blockchain_monitoring.manage", true) },
   { method: "GET", pattern: /^\/admin\/blockchain-monitoring\/registration-gaps$/, policy: P("blockchain_monitoring.view") },
   { method: "POST", pattern: /^\/admin\/blockchain-monitoring\/registration-gaps\/[^/]+\/activate$/, policy: P("blockchain_monitoring.manage", true) },
   { method: "POST", pattern: /^\/admin\/blockchain-monitoring\/assets\/upsert$/, policy: P("blockchain_monitoring.manage", true) },

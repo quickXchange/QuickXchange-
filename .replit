@@ -68,6 +68,12 @@ TELEGRAM_SUPPORT_URL = "https://t.me/Quick_change_support"
 TELEGRAM_WEBSITE_URL = "https://quickchange.exchange"
 TELEGRAM_NEWS_CHANNEL_ID = "@quick_X_change"
 TELEGRAM_MINI_APP_URL = "https://quickchange.exchange/telegram-mini-app/"
+ARBITRUM_MONITOR_RPC_URL = "https://arb1.arbitrum.io/rpc"
+AVAXC_MONITOR_RPC_URL = "https://api.avax.network/ext/bc/C/rpc"
+BASE_MONITOR_RPC_URL = "https://mainnet.base.org"
+POLYGON_MONITOR_RPC_URL = "https://polygon.drpc.org"
+SOLANA_MONITOR_RPC_URL = "https://api.mainnet-beta.solana.com"
+TRON_MONITOR_API_URL = "https://api.trongrid.io"
 
 [userenv.production]
 USE_DATABASE_OWNER = "true"

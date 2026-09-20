@@ -617,6 +617,13 @@
       "when": 1789943600000,
       "tag": "0089_recover_verified_bep20_usdt_payment",
       "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1790028000000,
+      "tag": "0090_configure_manual_swap_blockchain_monitoring",
+      "breakpoints": true
     }
   ]
 }

@@ -91,6 +91,32 @@ export function deriveBlockchainMonitoringSetupStatus(input: {
   return "ready";
 }
 
+export function selectReadyBlockchainMonitoringSetupRoutes<T extends {
+  assetNetworkId: string;
+  status: BlockchainMonitoringSetupStatus;
+  monitorNetworkId?: string;
+  monitorAssetId?: string;
+}>(
+  routes: readonly T[],
+  selectedAssetNetworkIds?: readonly string[],
+): { ready: T[]; skippedRoutes: number } {
+  const selectedIds = selectedAssetNetworkIds ? new Set(selectedAssetNetworkIds) : null;
+  const candidates = selectedIds
+    ? routes.filter(route => selectedIds.has(route.assetNetworkId))
+    : routes;
+  const ready = candidates.filter(route =>
+    route.status === "ready" &&
+    Boolean(route.monitorNetworkId) &&
+    Boolean(route.monitorAssetId),
+  );
+  return {
+    ready,
+    skippedRoutes: selectedIds
+      ? selectedIds.size - ready.length
+      : routes.length - ready.length,
+  };
+}
+
 export function selectWatchScanCursor(currentCursor: string | null, startCursor: string | null): string | undefined {
   return currentCursor ?? startCursor ?? undefined;
 }

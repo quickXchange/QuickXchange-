@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canResolveRegistrationGap, deriveBlockchainMonitoringSetupStatus, exactAmountMatches, exactWatchMatchesOrderSnapshot, evidenceMeetsWatchTimeAndMemo, immutableIdentityMatches, isFinalitySatisfied, selectWatchScanCursor } from "../src/lib/blockchain-monitoring/service";
+import { canResolveRegistrationGap, deriveBlockchainMonitoringSetupStatus, exactAmountMatches, exactWatchMatchesOrderSnapshot, evidenceMeetsWatchTimeAndMemo, immutableIdentityMatches, isFinalitySatisfied, selectReadyBlockchainMonitoringSetupRoutes, selectWatchScanCursor } from "../src/lib/blockchain-monitoring/service";
 
 test("Manual monitoring matches decimal order amounts only at configured precision", () => {
     assert.equal(exactAmountMatches("1.25", 6, "1250000"), true);
@@ -74,4 +74,18 @@ test("bulk monitoring setup keeps disabled routes disabled and never infers toke
     identityKind: "token",
     contractOrMint: "mint-or-contract",
   }), "ready");
+});
+
+test("selected monitoring setup enables only requested ready routes", () => {
+  const routes = [
+    { assetNetworkId: "ready-a", status: "ready" as const, monitorNetworkId: "network-a", monitorAssetId: "asset-a" },
+    { assetNetworkId: "ready-b", status: "ready" as const, monitorNetworkId: "network-b", monitorAssetId: "asset-b" },
+    { assetNetworkId: "missing", status: "missing_rpc" as const, monitorNetworkId: "network-c", monitorAssetId: "asset-c" },
+  ];
+  const selected = selectReadyBlockchainMonitoringSetupRoutes(routes, ["ready-a", "missing", "unknown"]);
+  assert.deepEqual(selected.ready.map(route => route.assetNetworkId), ["ready-a"]);
+  assert.equal(selected.skippedRoutes, 2);
+  const all = selectReadyBlockchainMonitoringSetupRoutes(routes);
+  assert.deepEqual(all.ready.map(route => route.assetNetworkId), ["ready-a", "ready-b"]);
+  assert.equal(all.skippedRoutes, 1);
 });

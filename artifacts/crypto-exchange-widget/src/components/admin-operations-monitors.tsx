@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Check, X, ShieldCheck, Play, Power, Filter, CheckCircle, RotateCcw } from 'lucide-react';
+import { Check, X, Search } from 'lucide-react';
 import {
   useListBlockchainMonitoringRegistrationGaps,
   useActivateBlockchainMonitoringRegistrationGap,
@@ -9,6 +9,7 @@ import {
   useReviewBlockchainMonitoringMatch,
   useListBlockchainMonitoringSetupRoutes,
   useEnableAllReadyBlockchainMonitoringRoutes,
+  useEnableSelectedBlockchainMonitoringRoutes,
   getListBlockchainMonitoringSetupRoutesQueryKey,
   getListBlockchainMonitoringNetworksQueryKey,
   getListBlockchainMonitoringAssetsQueryKey,
@@ -16,9 +17,9 @@ import {
   BlockchainMonitoringMatch,
   BlockchainMonitoringSetupRoute
 } from '@workspace/api-client-react';
-import { cn, ErrorState, LoadingBlock, ago, exactDateTime, InlineNotice } from '../App';
-import { apiErrorText } from '../App';
+import { cn, ErrorState, LoadingBlock, exactDateTime, InlineNotice, apiErrorText } from '../App';
 import { useAdminPermissions } from '../lib/admin-permissions';
+import { CryptoLogo, cryptoLogoFallbackUrls } from './crypto-identity';
 
 const setupStatusLabel: Record<BlockchainMonitoringSetupRoute['status'], string> = {
   ready: 'Ready',
@@ -31,6 +32,9 @@ export function OperationsMonitors({ showSetup = true }: { showSetup?: boolean }
   const queryClient = useQueryClient();
   const { can } = useAdminPermissions();
   const [setupNotice, setSetupNotice] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
+
+  const [search, setSearch] = useState('');
+  const [selectedRouteIds, setSelectedRouteIds] = useState<Set<string>>(new Set());
 
   const gapsQuery = useListBlockchainMonitoringRegistrationGaps({ query: { queryKey: ['listBlockchainMonitoringRegistrationGaps'] } });
   const watchesQuery = useListBlockchainMonitoringWatches({ state: 'active', limit: 50 }, { query: { queryKey: ['listBlockchainMonitoringWatches', 'active'] } });
@@ -45,6 +49,7 @@ export function OperationsMonitors({ showSetup = true }: { showSetup?: boolean }
   const activateGap = useActivateBlockchainMonitoringRegistrationGap();
   const reviewMatch = useReviewBlockchainMonitoringMatch();
   const enableAllReady = useEnableAllReadyBlockchainMonitoringRoutes();
+  const enableSelected = useEnableSelectedBlockchainMonitoringRoutes();
 
   const handleActivateGap = (orderId: string) => {
     if (!window.confirm(`Activate gap for order ${orderId}?`)) return;
@@ -76,9 +81,35 @@ export function OperationsMonitors({ showSetup = true }: { showSetup?: boolean }
           kind: 'success',
           message: `Enabled ${res.enabledRoutes} ready routes across ${res.enabledNetworks} networks. Skipped ${res.skippedRoutes} routes.`,
         });
+        setSelectedRouteIds(new Set());
       },
       onError: (err) => {
         setSetupNotice({ kind: 'error', message: apiErrorText(err, 'Failed to enable ready routes.') });
+      }
+    });
+  };
+
+  const handleEnableSelected = () => {
+    const readySelectedIds = Array.from(selectedRouteIds).filter(id => {
+      const route = setupRoutesQuery.data?.items?.find(r => r.assetNetworkId === id);
+      return route?.status === 'ready';
+    });
+    if (readySelectedIds.length === 0) return;
+    if (!window.confirm(`Are you sure you want to enable ${readySelectedIds.length} selected ready route(s)?`)) return;
+    setSetupNotice(null);
+    enableSelected.mutate({ data: { assetNetworkIds: readySelectedIds } }, {
+      onSuccess: (res) => {
+        queryClient.invalidateQueries({ queryKey: getListBlockchainMonitoringSetupRoutesQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getListBlockchainMonitoringNetworksQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getListBlockchainMonitoringAssetsQueryKey() });
+        setSetupNotice({
+          kind: 'success',
+          message: `Enabled ${res.enabledRoutes} ready routes across ${res.enabledNetworks} networks. Skipped ${res.skippedRoutes} routes.`,
+        });
+        setSelectedRouteIds(new Set());
+      },
+      onError: (err) => {
+        setSetupNotice({ kind: 'error', message: apiErrorText(err, 'Failed to enable selected routes.') });
       }
     });
   };
@@ -91,11 +122,68 @@ export function OperationsMonitors({ showSetup = true }: { showSetup?: boolean }
   const readyCount = statusCounts.ready;
   const enabledCount = setupRoutes.filter(r => r.monitoringEnabled).length;
 
+  const filteredRoutes = useMemo(() => {
+    if (!search.trim()) return setupRoutes;
+    const lowerSearch = search.toLowerCase();
+    return setupRoutes.filter(route => {
+      return (
+        route.assetCode.toLowerCase().includes(lowerSearch) ||
+        route.assetName.toLowerCase().includes(lowerSearch) ||
+        route.networkCode.toLowerCase().includes(lowerSearch) ||
+        route.networkName.toLowerCase().includes(lowerSearch) ||
+        (route.identityKind || 'Not configured').toLowerCase().includes(lowerSearch) ||
+        setupStatusLabel[route.status].toLowerCase().includes(lowerSearch)
+      );
+    });
+  }, [setupRoutes, search]);
+
+  const toggleRouteSelection = (id: string) => {
+    setSelectedRouteIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    setSelectedRouteIds(prev => {
+      const next = new Set(prev);
+      filteredRoutes.forEach(route => next.add(route.assetNetworkId));
+      return next;
+    });
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedRouteIds(new Set());
+  };
+
+  const allFilteredSelected = filteredRoutes.length > 0 && filteredRoutes.every(r => selectedRouteIds.has(r.assetNetworkId));
+  const someFilteredSelected = filteredRoutes.some(r => selectedRouteIds.has(r.assetNetworkId));
+
+  const toggleAllVisible = () => {
+    if (allFilteredSelected) {
+      // If all currently filtered are selected, unselect just them
+      setSelectedRouteIds(prev => {
+        const next = new Set(prev);
+        filteredRoutes.forEach(route => next.delete(route.assetNetworkId));
+        return next;
+      });
+    } else {
+      handleSelectAll();
+    }
+  };
+
+  const readySelectedCount = Array.from(selectedRouteIds).filter(id => {
+    const route = setupRoutes.find(r => r.assetNetworkId === id);
+    return route?.status === 'ready';
+  }).length;
+
   return (
     <div className="space-y-4">
       {/* Setup Routes */}
       {showSetup && <div className="panel pending-panel rise-in rise-delay-2 mt-4">
-        <div className="panel-heading flex flex-row items-center justify-between">
+        <div className="panel-heading flex flex-row items-center justify-between gap-4 flex-wrap">
           <div>
             <span className="section-kicker">Configuration</span>
             <h2>Manual Swap Blockchain Monitoring</h2>
@@ -104,27 +192,65 @@ export function OperationsMonitors({ showSetup = true }: { showSetup?: boolean }
             </div>
           </div>
           {can('blockchain_monitoring.manage') && (
-            <button
-              onClick={handleEnableAllReady}
-              disabled={enableAllReady.isPending || readyCount === 0}
-              className="button button-primary button-sm"
-            >
-              {enableAllReady.isPending ? 'Enabling...' : 'Enable All Ready'}
-            </button>
+            <div className="flex flex-wrap gap-2 items-center">
+              <button
+                onClick={handleEnableSelected}
+                disabled={enableSelected.isPending || readySelectedCount === 0}
+                className="button button-secondary button-sm"
+              >
+                {enableSelected.isPending ? 'Enabling...' : `Enable Selected (${readySelectedCount} Ready)`}
+              </button>
+              <button
+                onClick={handleEnableAllReady}
+                disabled={enableAllReady.isPending || readyCount === 0}
+                className="button button-primary button-sm"
+              >
+                {enableAllReady.isPending ? 'Enabling...' : 'Enable All Ready'}
+              </button>
+            </div>
           )}
         </div>
-        <div className="flex flex-wrap gap-2 mb-4" aria-label="Blockchain monitoring setup status counts">
-          {(Object.keys(setupStatusLabel) as BlockchainMonitoringSetupRoute['status'][]).map(status => (
-            <span key={status} className={cn(
-              "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold",
-              status === 'ready' ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400" :
-              status === 'missing_rpc' || status === 'missing_contract_or_mint' ? "bg-destructive/10 text-destructive" :
-              "bg-muted text-muted-foreground"
-            )}>
-              {setupStatusLabel[status]}: {statusCounts[status]}
-            </span>
-          ))}
+
+        <div className="flex flex-wrap gap-2 mb-4 items-center justify-between">
+          <div className="flex flex-wrap gap-2" aria-label="Blockchain monitoring setup status counts">
+            {(Object.keys(setupStatusLabel) as BlockchainMonitoringSetupRoute['status'][]).map(status => (
+              <span key={status} className={cn(
+                "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold",
+                status === 'ready' ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400" :
+                status === 'missing_rpc' || status === 'missing_contract_or_mint' ? "bg-destructive/10 text-destructive" :
+                "bg-muted text-muted-foreground"
+              )}>
+                {setupStatusLabel[status]}: {statusCounts[status]}
+              </span>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2 max-w-full w-full sm:w-auto">
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search routes..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="input input-sm pl-9 w-full"
+              />
+            </div>
+          </div>
         </div>
+
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 bg-primary/5 text-primary px-3 py-2 rounded-md text-sm">
+            <div>
+              <span className="font-semibold">{selectedRouteIds.size}</span> routes selected
+              ({readySelectedCount} ready)
+            </div>
+            <div className="flex gap-2">
+              <button onClick={handleSelectAll} className="text-primary font-medium hover:underline">Select All Filtered</button>
+              <span className="text-primary/30">|</span>
+              <button onClick={handleDeselectAll} className="text-primary font-medium hover:underline">Deselect All</button>
+            </div>
+        </div>
+
         {setupNotice && <InlineNotice kind={setupNotice.kind}>{setupNotice.message}</InlineNotice>}
         {setupRoutesQuery.isLoading ? <LoadingBlock rows={3} /> : setupRoutesQuery.isError ? <ErrorState message="Could not load setup routes" retry={() => setupRoutesQuery.refetch()} /> : (
           <div className="w-full relative group">
@@ -132,6 +258,20 @@ export function OperationsMonitors({ showSetup = true }: { showSetup?: boolean }
               <table className="admin-table">
                 <thead>
                   <tr>
+                    <th className="w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={filteredRoutes.length > 0 && allFilteredSelected}
+                        ref={input => {
+                          if (input) {
+                            input.indeterminate = !allFilteredSelected && someFilteredSelected;
+                          }
+                        }}
+                        onChange={toggleAllVisible}
+                        className="rounded border-input/50"
+                        aria-label="Select all visible routes"
+                      />
+                    </th>
                     <th>Asset</th>
                     <th>Network</th>
                     <th>Type</th>
@@ -140,13 +280,33 @@ export function OperationsMonitors({ showSetup = true }: { showSetup?: boolean }
                   </tr>
                 </thead>
                 <tbody>
-                  {setupRoutes.length === 0 ? (
-                    <tr><td colSpan={5} className="text-center py-4 text-muted-foreground">No setup routes</td></tr>
-                  ) : setupRoutes.map((route: BlockchainMonitoringSetupRoute) => (
-                    <tr key={route.assetNetworkId}>
+                  {filteredRoutes.length === 0 ? (
+                    <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">
+                      {search ? "No routes match your search" : "No setup routes"}
+                    </td></tr>
+                  ) : filteredRoutes.map((route: BlockchainMonitoringSetupRoute) => (
+                    <tr key={route.assetNetworkId} className={cn(selectedRouteIds.has(route.assetNetworkId) && "bg-primary/5")}>
+                      <td className="text-center align-middle">
+                        <input
+                          type="checkbox"
+                          checked={selectedRouteIds.has(route.assetNetworkId)}
+                          onChange={() => toggleRouteSelection(route.assetNetworkId)}
+                          className="rounded border-input/50"
+                          aria-label={`Select ${route.assetName} on ${route.networkName}`}
+                        />
+                      </td>
                       <td>
-                        <div className="font-medium">{route.assetName}</div>
-                        <div className="text-xs text-muted-foreground">{route.assetCode}</div>
+                        <div className="flex items-center gap-3">
+                          <CryptoLogo
+                            symbol={route.assetCode}
+                            logoFallbackUrls={cryptoLogoFallbackUrls(route.assetCode)}
+                            size="sm"
+                          />
+                          <div>
+                            <div className="font-medium">{route.assetName}</div>
+                            <div className="text-xs text-muted-foreground">{route.assetCode}</div>
+                          </div>
+                        </div>
                       </td>
                       <td>
                         <div>{route.networkName}</div>

@@ -5442,6 +5442,34 @@ export const EnableAllReadyBlockchainMonitoringRoutesResponse = zod.object({
 })
 
 
+/**
+ * @summary Enable monitoring only for selected Manual Swap routes that are ready
+ */
+export const enableSelectedBlockchainMonitoringRoutesBodyAssetNetworkIdsItemMax = 255;
+
+export const enableSelectedBlockchainMonitoringRoutesBodyAssetNetworkIdsMax = 500;
+
+
+
+export const EnableSelectedBlockchainMonitoringRoutesBody = zod.object({
+  "assetNetworkIds": zod.array(zod.string().min(1).max(enableSelectedBlockchainMonitoringRoutesBodyAssetNetworkIdsItemMax)).min(1).max(enableSelectedBlockchainMonitoringRoutesBodyAssetNetworkIdsMax)
+})
+
+export const enableSelectedBlockchainMonitoringRoutesResponseEnabledRoutesMin = 0;
+
+export const enableSelectedBlockchainMonitoringRoutesResponseEnabledNetworksMin = 0;
+
+export const enableSelectedBlockchainMonitoringRoutesResponseSkippedRoutesMin = 0;
+
+
+
+export const EnableSelectedBlockchainMonitoringRoutesResponse = zod.object({
+  "enabledRoutes": zod.number().int().min(enableSelectedBlockchainMonitoringRoutesResponseEnabledRoutesMin),
+  "enabledNetworks": zod.number().int().min(enableSelectedBlockchainMonitoringRoutesResponseEnabledNetworksMin),
+  "skippedRoutes": zod.number().int().min(enableSelectedBlockchainMonitoringRoutesResponseSkippedRoutesMin)
+})
+
+
 export const ListBlockchainMonitoringRegistrationGapsResponse = zod.object({
   "items": zod.array(zod.record(zod.string(), zod.unknown()))
 })

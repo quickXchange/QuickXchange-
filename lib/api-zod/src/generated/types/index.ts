@@ -80,6 +80,7 @@ export * from './blockchainMonitoringNetworkUpdateFinalityPolicy';
 export * from './blockchainMonitoringNetworkUpdateProviderKind';
 export * from './blockchainMonitoringReviewInput';
 export * from './blockchainMonitoringReviewInputDecision';
+export * from './blockchainMonitoringRouteSelectionInput';
 export * from './blockchainMonitoringSetupRoute';
 export * from './blockchainMonitoringSetupRouteIdentityKind';
 export * from './blockchainMonitoringSetupRouteList';

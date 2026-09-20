@@ -13,9 +13,9 @@ import {
   cryptoAssetsTable,
   orderAuditLogsTable,
 } from "@workspace/db";
-import { CreateBlockchainMonitoringNetworkBody, UpdateBlockchainMonitoringNetworkBody, ReviewBlockchainMonitoringMatchBody } from "@workspace/api-zod";
+import { CreateBlockchainMonitoringNetworkBody, EnableSelectedBlockchainMonitoringRoutesBody, UpdateBlockchainMonitoringNetworkBody, ReviewBlockchainMonitoringMatchBody } from "@workspace/api-zod";
 import { createBlockchainMonitorAdapter } from "../lib/blockchain-monitoring";
-import { adapterConfig, deriveBlockchainMonitoringSetupStatus, exactWatchMatchesOrderSnapshot, isFinalitySatisfied } from "../lib/blockchain-monitoring/service";
+import { adapterConfig, deriveBlockchainMonitoringSetupStatus, exactWatchMatchesOrderSnapshot, isFinalitySatisfied, selectReadyBlockchainMonitoringSetupRoutes } from "../lib/blockchain-monitoring/service";
 import { normalizeTronAddress } from "../lib/blockchain-monitoring/tron";
 import { getOperatorActorUserId } from "../lib/operator-auth";
 import { ApiError } from "../lib/api-error";
@@ -153,15 +153,10 @@ router.get("/admin/blockchain-monitoring/setup/routes", async (_req, res, next) 
   } catch (error) { next(error); }
 });
 
-router.post("/admin/blockchain-monitoring/setup/enable-ready", async (_req, res, next) => {
-  try {
-    const result = await db.transaction(async (tx) => {
+async function enableReadyBlockchainMonitoringRoutes(selectedAssetNetworkIds?: readonly string[]) {
+  return db.transaction(async (tx) => {
       const routes = await loadBlockchainMonitoringSetupRoutes(tx);
-      const ready = routes.filter(route =>
-        route.status === "ready" &&
-        route.monitorNetworkId &&
-        route.monitorAssetId,
-      );
+      const { ready, skippedRoutes } = selectReadyBlockchainMonitoringSetupRoutes(routes, selectedAssetNetworkIds);
       const networkIds = [...new Set(ready.flatMap(route => route.monitorNetworkId ? [route.monitorNetworkId] : []))];
       const assetIds = [...new Set(ready.flatMap(route => route.monitorAssetId ? [route.monitorAssetId] : []))];
       if (networkIds.length) {
@@ -177,9 +172,22 @@ router.post("/admin/blockchain-monitoring/setup/enable-ready", async (_req, res,
       return {
         enabledRoutes: ready.length,
         enabledNetworks: networkIds.length,
-        skippedRoutes: routes.length - ready.length,
+        skippedRoutes,
       };
     });
+}
+
+router.post("/admin/blockchain-monitoring/setup/enable-ready", async (_req, res, next) => {
+  try {
+    const result = await enableReadyBlockchainMonitoringRoutes();
+    res.json(result);
+  } catch (error) { next(error); }
+});
+
+router.post("/admin/blockchain-monitoring/setup/enable-selected", async (req, res, next) => {
+  try {
+    const input = EnableSelectedBlockchainMonitoringRoutesBody.parse(req.body);
+    const result = await enableReadyBlockchainMonitoringRoutes(input.assetNetworkIds);
     res.json(result);
   } catch (error) { next(error); }
 });

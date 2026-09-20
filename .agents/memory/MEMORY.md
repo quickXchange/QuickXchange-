@@ -132,3 +132,4 @@
 - [EVM receipt scan efficiency](evm-receipt-scan-efficiency.md) — prefilter native transfers by watched recipient before requesting successful-transaction receipts.
 - [Canonical EVM event signatures](canonical-evm-event-signatures.md) — verify event topics independently; tests that copy a wrong constant can validate a detector that never matches chain logs.
 - [Blockchain monitoring route identities](blockchain-monitoring-route-identities.md) — never infer native/token identity from network family; bulk setup enables only explicit identities.
+- [Issuer-verified bridged tokens](issuer-verified-bridged-tokens.md) — leave bridged token routes incomplete when issuer protocol lists do not verify the deployment.

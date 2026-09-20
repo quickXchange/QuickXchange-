@@ -55,6 +55,7 @@ import type {
   BlockchainMonitoringNetworkList,
   BlockchainMonitoringNetworkUpdate,
   BlockchainMonitoringReviewInput,
+  BlockchainMonitoringRouteSelectionInput,
   BlockchainMonitoringSetupRouteList,
   BlockchainMonitoringTestResult,
   BlockchainMonitoringWatchList,
@@ -4014,6 +4015,77 @@ export const useEnableAllReadyBlockchainMonitoringRoutes = <TError = ErrorType<A
         TContext
       > => {
       return useMutation(getEnableAllReadyBlockchainMonitoringRoutesMutationOptions(options));
+    }
+
+export const getEnableSelectedBlockchainMonitoringRoutesUrl = () => {
+
+
+
+
+  return `/api/admin/blockchain-monitoring/setup/enable-selected`
+}
+
+/**
+ * @summary Enable monitoring only for selected Manual Swap routes that are ready
+ */
+export const enableSelectedBlockchainMonitoringRoutes = async (blockchainMonitoringRouteSelectionInput: BlockchainMonitoringRouteSelectionInput, options?: Parameters<typeof customFetch>[1]): Promise<BlockchainMonitoringBulkEnableResult> => {
+
+  return customFetch<BlockchainMonitoringBulkEnableResult>(getEnableSelectedBlockchainMonitoringRoutesUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(blockchainMonitoringRouteSelectionInput)
+  }
+);}
+
+
+
+
+
+export const getEnableSelectedBlockchainMonitoringRoutesMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enableSelectedBlockchainMonitoringRoutes>>, TError,{data: BodyType<BlockchainMonitoringRouteSelectionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof enableSelectedBlockchainMonitoringRoutes>>, TError,{data: BodyType<BlockchainMonitoringRouteSelectionInput>}, TContext> => {
+
+const mutationKey = ['enableSelectedBlockchainMonitoringRoutes'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof enableSelectedBlockchainMonitoringRoutes>>, {data: BodyType<BlockchainMonitoringRouteSelectionInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  enableSelectedBlockchainMonitoringRoutes(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EnableSelectedBlockchainMonitoringRoutesMutationResult = NonNullable<Awaited<ReturnType<typeof enableSelectedBlockchainMonitoringRoutes>>>
+    export type EnableSelectedBlockchainMonitoringRoutesMutationBody = BodyType<BlockchainMonitoringRouteSelectionInput>
+    export type EnableSelectedBlockchainMonitoringRoutesMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Enable monitoring only for selected Manual Swap routes that are ready
+ */
+export const useEnableSelectedBlockchainMonitoringRoutes = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enableSelectedBlockchainMonitoringRoutes>>, TError,{data: BodyType<BlockchainMonitoringRouteSelectionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof enableSelectedBlockchainMonitoringRoutes>>,
+        TError,
+        {data: BodyType<BlockchainMonitoringRouteSelectionInput>},
+        TContext
+      > => {
+      return useMutation(getEnableSelectedBlockchainMonitoringRoutesMutationOptions(options));
     }
 
 export const getListBlockchainMonitoringRegistrationGapsUrl = () => {
