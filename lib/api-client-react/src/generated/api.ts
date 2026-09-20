@@ -47,6 +47,7 @@ import type {
   BlockchainMonitoringAsset,
   BlockchainMonitoringAssetInput,
   BlockchainMonitoringAssetList,
+  BlockchainMonitoringBulkEnableResult,
   BlockchainMonitoringMatch,
   BlockchainMonitoringMatchList,
   BlockchainMonitoringNetwork,
@@ -54,6 +55,7 @@ import type {
   BlockchainMonitoringNetworkList,
   BlockchainMonitoringNetworkUpdate,
   BlockchainMonitoringReviewInput,
+  BlockchainMonitoringSetupRouteList,
   BlockchainMonitoringTestResult,
   BlockchainMonitoringWatchList,
   BlogArticleDetail,
@@ -3864,6 +3866,154 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getUpsertBlockchainMonitoringAssetMutationOptions(options));
+    }
+
+export const getListBlockchainMonitoringSetupRoutesUrl = () => {
+
+
+
+
+  return `/api/admin/blockchain-monitoring/setup/routes`
+}
+
+/**
+ * @summary List readiness for every non-provider Manual Swap Asset and Network route
+ */
+export const listBlockchainMonitoringSetupRoutes = async ( options?: Parameters<typeof customFetch>[1]): Promise<BlockchainMonitoringSetupRouteList> => {
+
+  return customFetch<BlockchainMonitoringSetupRouteList>(getListBlockchainMonitoringSetupRoutesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListBlockchainMonitoringSetupRoutesQueryKey = () => {
+    return [
+    `/api/admin/blockchain-monitoring/setup/routes`
+    ] as const;
+    }
+
+
+export const getListBlockchainMonitoringSetupRoutesQueryOptions = <TData = Awaited<ReturnType<typeof listBlockchainMonitoringSetupRoutes>>, TError = ErrorType<ApiError>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBlockchainMonitoringSetupRoutes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListBlockchainMonitoringSetupRoutesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listBlockchainMonitoringSetupRoutes>>> = ({ signal }) => listBlockchainMonitoringSetupRoutes({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listBlockchainMonitoringSetupRoutes>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListBlockchainMonitoringSetupRoutesQueryResult = NonNullable<Awaited<ReturnType<typeof listBlockchainMonitoringSetupRoutes>>>
+export type ListBlockchainMonitoringSetupRoutesQueryError = ErrorType<ApiError>
+
+
+/**
+ * @summary List readiness for every non-provider Manual Swap Asset and Network route
+ */
+
+export function useListBlockchainMonitoringSetupRoutes<TData = Awaited<ReturnType<typeof listBlockchainMonitoringSetupRoutes>>, TError = ErrorType<ApiError>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBlockchainMonitoringSetupRoutes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListBlockchainMonitoringSetupRoutesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getEnableAllReadyBlockchainMonitoringRoutesUrl = () => {
+
+
+
+
+  return `/api/admin/blockchain-monitoring/setup/enable-ready`
+}
+
+/**
+ * @summary Enable monitoring only for Manual Swap routes whose RPC and exact identity are ready
+ */
+export const enableAllReadyBlockchainMonitoringRoutes = async ( options?: Parameters<typeof customFetch>[1]): Promise<BlockchainMonitoringBulkEnableResult> => {
+
+  return customFetch<BlockchainMonitoringBulkEnableResult>(getEnableAllReadyBlockchainMonitoringRoutesUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getEnableAllReadyBlockchainMonitoringRoutesMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enableAllReadyBlockchainMonitoringRoutes>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof enableAllReadyBlockchainMonitoringRoutes>>, TError,void, TContext> => {
+
+const mutationKey = ['enableAllReadyBlockchainMonitoringRoutes'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof enableAllReadyBlockchainMonitoringRoutes>>, void> = () => {
+
+
+          return  enableAllReadyBlockchainMonitoringRoutes(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EnableAllReadyBlockchainMonitoringRoutesMutationResult = NonNullable<Awaited<ReturnType<typeof enableAllReadyBlockchainMonitoringRoutes>>>
+
+    export type EnableAllReadyBlockchainMonitoringRoutesMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Enable monitoring only for Manual Swap routes whose RPC and exact identity are ready
+ */
+export const useEnableAllReadyBlockchainMonitoringRoutes = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enableAllReadyBlockchainMonitoringRoutes>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof enableAllReadyBlockchainMonitoringRoutes>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getEnableAllReadyBlockchainMonitoringRoutesMutationOptions(options));
     }
 
 export const getListBlockchainMonitoringRegistrationGapsUrl = () => {

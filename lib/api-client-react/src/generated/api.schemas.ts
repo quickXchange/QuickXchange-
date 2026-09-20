@@ -5791,6 +5791,56 @@ export interface BlockchainMonitoringAssetList {
   items: BlockchainMonitoringAsset[];
 }
 
+/**
+ * @nullable
+ */
+export type BlockchainMonitoringSetupRouteIdentityKind = typeof BlockchainMonitoringSetupRouteIdentityKind[keyof typeof BlockchainMonitoringSetupRouteIdentityKind] | null;
+
+
+export const BlockchainMonitoringSetupRouteIdentityKind = {
+  native: 'native',
+  token: 'token',
+} as const;
+
+export type BlockchainMonitoringSetupRouteStatus = typeof BlockchainMonitoringSetupRouteStatus[keyof typeof BlockchainMonitoringSetupRouteStatus];
+
+
+export const BlockchainMonitoringSetupRouteStatus = {
+  ready: 'ready',
+  missing_rpc: 'missing_rpc',
+  missing_contract_or_mint: 'missing_contract_or_mint',
+  disabled: 'disabled',
+} as const;
+
+export interface BlockchainMonitoringSetupRoute {
+  assetNetworkId: string;
+  assetCode: string;
+  assetName: string;
+  networkCode: string;
+  networkName: string;
+  /** @minimum 0 */
+  decimals: number;
+  /** @nullable */
+  identityKind?: BlockchainMonitoringSetupRouteIdentityKind;
+  /** @nullable */
+  contractOrMint?: string | null;
+  status: BlockchainMonitoringSetupRouteStatus;
+  monitoringEnabled: boolean;
+}
+
+export interface BlockchainMonitoringSetupRouteList {
+  items: BlockchainMonitoringSetupRoute[];
+}
+
+export interface BlockchainMonitoringBulkEnableResult {
+  /** @minimum 0 */
+  enabledRoutes: number;
+  /** @minimum 0 */
+  enabledNetworks: number;
+  /** @minimum 0 */
+  skippedRoutes: number;
+}
+
 export type PageParameter = number;
 
 export type PageSizeParameter = number;

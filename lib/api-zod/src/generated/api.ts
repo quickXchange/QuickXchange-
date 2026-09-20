@@ -5401,6 +5401,47 @@ export const UpsertBlockchainMonitoringAssetResponse = zod.object({
 })
 
 
+/**
+ * @summary List readiness for every non-provider Manual Swap Asset and Network route
+ */
+export const listBlockchainMonitoringSetupRoutesResponseItemsItemDecimalsMin = 0;
+
+
+
+export const ListBlockchainMonitoringSetupRoutesResponse = zod.object({
+  "items": zod.array(zod.object({
+  "assetNetworkId": zod.string(),
+  "assetCode": zod.string(),
+  "assetName": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "decimals": zod.number().int().min(listBlockchainMonitoringSetupRoutesResponseItemsItemDecimalsMin),
+  "identityKind": zod.union([zod.literal('native'),zod.literal('token'),zod.literal(null)]).nullish(),
+  "contractOrMint": zod.string().nullish(),
+  "status": zod.enum(['ready', 'missing_rpc', 'missing_contract_or_mint', 'disabled']),
+  "monitoringEnabled": zod.boolean()
+}))
+})
+
+
+/**
+ * @summary Enable monitoring only for Manual Swap routes whose RPC and exact identity are ready
+ */
+export const enableAllReadyBlockchainMonitoringRoutesResponseEnabledRoutesMin = 0;
+
+export const enableAllReadyBlockchainMonitoringRoutesResponseEnabledNetworksMin = 0;
+
+export const enableAllReadyBlockchainMonitoringRoutesResponseSkippedRoutesMin = 0;
+
+
+
+export const EnableAllReadyBlockchainMonitoringRoutesResponse = zod.object({
+  "enabledRoutes": zod.number().int().min(enableAllReadyBlockchainMonitoringRoutesResponseEnabledRoutesMin),
+  "enabledNetworks": zod.number().int().min(enableAllReadyBlockchainMonitoringRoutesResponseEnabledNetworksMin),
+  "skippedRoutes": zod.number().int().min(enableAllReadyBlockchainMonitoringRoutesResponseSkippedRoutesMin)
+})
+
+
 export const ListBlockchainMonitoringRegistrationGapsResponse = zod.object({
   "items": zod.array(zod.record(zod.string(), zod.unknown()))
 })

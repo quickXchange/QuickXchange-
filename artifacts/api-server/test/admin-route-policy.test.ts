@@ -55,3 +55,14 @@ test("deposit provider options use the receiving-wallet Owner boundary", () => {
     { permission: "receiving_wallets.manage", ownerOnly: true },
   );
 });
+
+test("blockchain monitoring bulk setup keeps view and Owner mutation boundaries separate", () => {
+  assert.deepEqual(
+    classifyAdminRoute("GET", "/admin/blockchain-monitoring/setup/routes"),
+    { permission: "blockchain_monitoring.view", ownerOnly: false },
+  );
+  assert.deepEqual(
+    classifyAdminRoute("POST", "/admin/blockchain-monitoring/setup/enable-ready"),
+    { permission: "blockchain_monitoring.manage", ownerOnly: true },
+  );
+});

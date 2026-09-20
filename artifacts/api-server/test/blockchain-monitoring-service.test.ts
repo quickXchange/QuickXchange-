@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canResolveRegistrationGap, exactAmountMatches, exactWatchMatchesOrderSnapshot, evidenceMeetsWatchTimeAndMemo, immutableIdentityMatches, isFinalitySatisfied, selectWatchScanCursor } from "../src/lib/blockchain-monitoring/service";
+import { canResolveRegistrationGap, deriveBlockchainMonitoringSetupStatus, exactAmountMatches, exactWatchMatchesOrderSnapshot, evidenceMeetsWatchTimeAndMemo, immutableIdentityMatches, isFinalitySatisfied, selectWatchScanCursor } from "../src/lib/blockchain-monitoring/service";
 
 test("Manual monitoring matches decimal order amounts only at configured precision", () => {
     assert.equal(exactAmountMatches("1.25", 6, "1250000"), true);
@@ -34,4 +34,44 @@ test("Manual monitoring applies configured finality and immutable identity", () 
   assert.equal(canResolveRegistrationGap("active", true), true);
   const snapshot = { orderId: "o", monitorNetworkId: "n", monitorAssetId: "a", assetNetworkId: "r", expectedAmount: "1", receivingAddress: "x", memoOrTag: null, identityKind: "native", contractOrMint: null, decimals: 18, orderCreatedAt: new Date(0) };
   assert.equal(exactWatchMatchesOrderSnapshot(snapshot, snapshot), true);
+});
+
+test("bulk monitoring setup keeps disabled routes disabled and never infers token identity", () => {
+  assert.equal(deriveBlockchainMonitoringSetupStatus({
+    catalogEnabled: false,
+    catalogActive: true,
+    networkConfigured: false,
+  }), "disabled");
+  assert.equal(deriveBlockchainMonitoringSetupStatus({
+    catalogEnabled: true,
+    catalogActive: true,
+    networkConfigured: false,
+    identityKind: "native",
+  }), "missing_rpc");
+  assert.equal(deriveBlockchainMonitoringSetupStatus({
+    catalogEnabled: true,
+    catalogActive: true,
+    networkConfigured: true,
+  }), "missing_contract_or_mint");
+  assert.equal(deriveBlockchainMonitoringSetupStatus({
+    catalogEnabled: true,
+    catalogActive: true,
+    networkConfigured: true,
+    identityKind: "token",
+    contractOrMint: null,
+  }), "missing_contract_or_mint");
+  assert.equal(deriveBlockchainMonitoringSetupStatus({
+    catalogEnabled: true,
+    catalogActive: true,
+    networkConfigured: true,
+    identityKind: "native",
+    contractOrMint: null,
+  }), "ready");
+  assert.equal(deriveBlockchainMonitoringSetupStatus({
+    catalogEnabled: true,
+    catalogActive: true,
+    networkConfigured: true,
+    identityKind: "token",
+    contractOrMint: "mint-or-contract",
+  }), "ready");
 });

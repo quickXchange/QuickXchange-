@@ -69,6 +69,28 @@ export function immutableIdentityMatches(
     watch.decimals === evidence.decimals;
 }
 
+export type BlockchainMonitoringSetupStatus =
+  | "ready"
+  | "missing_rpc"
+  | "missing_contract_or_mint"
+  | "disabled";
+
+export function deriveBlockchainMonitoringSetupStatus(input: {
+  catalogEnabled: boolean;
+  catalogActive: boolean;
+  networkConfigured: boolean;
+  identityKind?: string | null;
+  contractOrMint?: string | null;
+}): BlockchainMonitoringSetupStatus {
+  if (!input.catalogEnabled || !input.catalogActive) return "disabled";
+  if (!input.networkConfigured) return "missing_rpc";
+  if (
+    input.identityKind !== "native" &&
+    (input.identityKind !== "token" || !input.contractOrMint?.trim())
+  ) return "missing_contract_or_mint";
+  return "ready";
+}
+
 export function selectWatchScanCursor(currentCursor: string | null, startCursor: string | null): string | undefined {
   return currentCursor ?? startCursor ?? undefined;
 }

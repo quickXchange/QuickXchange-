@@ -1234,6 +1234,36 @@ paths:
         "200":
           description: Updated exact monitor asset identity
           content: { application/json: { schema: { $ref: "#/components/schemas/BlockchainMonitoringAsset" } } }
+  /admin/blockchain-monitoring/setup/routes:
+    get:
+      operationId: listBlockchainMonitoringSetupRoutes
+      tags: [admin]
+      security: [{ OperatorSession: [] }]
+      summary: List readiness for every non-provider Manual Swap Asset and Network route
+      responses:
+        "200":
+          description: Derived monitoring readiness without provider secrets
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BlockchainMonitoringSetupRouteList" }
+        "403":
+          description: Insufficient permission
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+  /admin/blockchain-monitoring/setup/enable-ready:
+    post:
+      operationId: enableAllReadyBlockchainMonitoringRoutes
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      summary: Enable monitoring only for Manual Swap routes whose RPC and exact identity are ready
+      responses:
+        "200":
+          description: Bulk enable result after transactional readiness recheck
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BlockchainMonitoringBulkEnableResult" }
+        "403":
+          description: Insufficient permission
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
   /admin/blockchain-monitoring/registration-gaps:
     get:
       operationId: listBlockchainMonitoringRegistrationGaps
@@ -7421,3 +7451,31 @@ components:
       required: [items]
       properties:
         items: { type: array, items: { $ref: "#/components/schemas/BlockchainMonitoringAsset" } }
+    BlockchainMonitoringSetupRoute:
+      type: object
+      required: [assetNetworkId, assetCode, assetName, networkCode, networkName, decimals, status, monitoringEnabled]
+      properties:
+        assetNetworkId: { type: string }
+        assetCode: { type: string }
+        assetName: { type: string }
+        networkCode: { type: string }
+        networkName: { type: string }
+        decimals: { type: integer, minimum: 0 }
+        identityKind: { type: [string, "null"], enum: [native, token, null] }
+        contractOrMint: { type: [string, "null"] }
+        status: { type: string, enum: [ready, missing_rpc, missing_contract_or_mint, disabled] }
+        monitoringEnabled: { type: boolean }
+    BlockchainMonitoringSetupRouteList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/BlockchainMonitoringSetupRoute" }
+    BlockchainMonitoringBulkEnableResult:
+      type: object
+      required: [enabledRoutes, enabledNetworks, skippedRoutes]
+      properties:
+        enabledRoutes: { type: integer, minimum: 0 }
+        enabledNetworks: { type: integer, minimum: 0 }
+        skippedRoutes: { type: integer, minimum: 0 }

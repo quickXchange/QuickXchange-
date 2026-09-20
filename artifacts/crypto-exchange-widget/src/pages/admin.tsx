@@ -2986,7 +2986,7 @@ function AdminOverview() {
           </div>
 
           <div className="mt-4 rise-in rise-delay-3">
-            <OperationsMonitors />
+            <OperationsMonitors showSetup={product === 'swap'} />
           </div>
         </>
       )}

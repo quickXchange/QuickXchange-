@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
   blockchainMonitorMatchesTable,
   blockchainMonitorAssetsTable,
@@ -15,7 +15,7 @@ import {
 } from "@workspace/db";
 import { CreateBlockchainMonitoringNetworkBody, UpdateBlockchainMonitoringNetworkBody, ReviewBlockchainMonitoringMatchBody } from "@workspace/api-zod";
 import { createBlockchainMonitorAdapter } from "../lib/blockchain-monitoring";
-import { adapterConfig, exactWatchMatchesOrderSnapshot, isFinalitySatisfied } from "../lib/blockchain-monitoring/service";
+import { adapterConfig, deriveBlockchainMonitoringSetupStatus, exactWatchMatchesOrderSnapshot, isFinalitySatisfied } from "../lib/blockchain-monitoring/service";
 import { normalizeTronAddress } from "../lib/blockchain-monitoring/tron";
 import { getOperatorActorUserId } from "../lib/operator-auth";
 import { ApiError } from "../lib/api-error";
@@ -92,6 +92,96 @@ const sanitized = (row: typeof blockchainMonitorNetworksTable.$inferSelect) => (
   apiKeySecretRef: undefined,
   endpointConfigured: Boolean(row.endpointSecretRef && process.env[row.endpointSecretRef]),
   apiKeyConfigured: Boolean(row.apiKeySecretRef && process.env[row.apiKeySecretRef]),
+});
+
+async function loadBlockchainMonitoringSetupRoutes(executor: Pick<typeof db, "select"> = db) {
+  const [catalogRows, networks, monitorAssets] = await Promise.all([
+    executor.select({
+      route: cryptoAssetNetworksTable,
+      asset: cryptoAssetsTable,
+    }).from(cryptoAssetNetworksTable)
+      .innerJoin(cryptoAssetsTable, eq(cryptoAssetsTable.id, cryptoAssetNetworksTable.assetId))
+      .where(and(
+        eq(cryptoAssetNetworksTable.executionMode, "manual"),
+        eq(cryptoAssetNetworksTable.depositProvider, "manual"),
+      ))
+      .orderBy(cryptoAssetsTable.code, cryptoAssetNetworksTable.networkCode),
+    executor.select().from(blockchainMonitorNetworksTable),
+    executor.select().from(blockchainMonitorAssetsTable),
+  ]);
+  const networksByCode = new Map(networks.map(network => [network.networkCode.trim().toUpperCase(), network]));
+  const monitorAssetsByRoute = new Map(monitorAssets.map(asset => [asset.assetNetworkId, asset]));
+  return catalogRows.map(({ route, asset }) => {
+    const network = networksByCode.get(route.networkCode.trim().toUpperCase());
+    const monitorAsset = monitorAssetsByRoute.get(route.id);
+    const networkConfigured = Boolean(
+      network &&
+      network.providerKind !== "none" &&
+      network.endpointSecretRef &&
+      process.env[network.endpointSecretRef],
+    );
+    const status = deriveBlockchainMonitoringSetupStatus({
+      catalogEnabled: asset.enabled && route.enabled,
+      catalogActive: asset.lifecycle === "active" && route.lifecycle === "active",
+      networkConfigured,
+      identityKind: monitorAsset?.identityKind,
+      contractOrMint: monitorAsset?.contractOrMint,
+    });
+    return {
+      assetNetworkId: route.id,
+      assetCode: asset.code,
+      assetName: asset.name,
+      networkCode: route.networkCode,
+      networkName: route.networkName,
+      decimals: route.decimals,
+      identityKind: monitorAsset?.identityKind === "native" || monitorAsset?.identityKind === "token"
+        ? monitorAsset.identityKind
+        : null,
+      contractOrMint: monitorAsset?.contractOrMint ?? null,
+      status,
+      monitoringEnabled: Boolean(network?.enabled && monitorAsset?.enabled),
+      monitorNetworkId: network?.id,
+      monitorAssetId: monitorAsset?.id,
+    };
+  });
+}
+
+router.get("/admin/blockchain-monitoring/setup/routes", async (_req, res, next) => {
+  try {
+    const items = await loadBlockchainMonitoringSetupRoutes();
+    res.json({ items: items.map(({ monitorNetworkId: _network, monitorAssetId: _asset, ...item }) => item) });
+  } catch (error) { next(error); }
+});
+
+router.post("/admin/blockchain-monitoring/setup/enable-ready", async (_req, res, next) => {
+  try {
+    const result = await db.transaction(async (tx) => {
+      const routes = await loadBlockchainMonitoringSetupRoutes(tx);
+      const ready = routes.filter(route =>
+        route.status === "ready" &&
+        route.monitorNetworkId &&
+        route.monitorAssetId,
+      );
+      const networkIds = [...new Set(ready.flatMap(route => route.monitorNetworkId ? [route.monitorNetworkId] : []))];
+      const assetIds = [...new Set(ready.flatMap(route => route.monitorAssetId ? [route.monitorAssetId] : []))];
+      if (networkIds.length) {
+        await tx.update(blockchainMonitorNetworksTable)
+          .set({ enabled: true })
+          .where(inArray(blockchainMonitorNetworksTable.id, networkIds));
+      }
+      if (assetIds.length) {
+        await tx.update(blockchainMonitorAssetsTable)
+          .set({ enabled: true })
+          .where(inArray(blockchainMonitorAssetsTable.id, assetIds));
+      }
+      return {
+        enabledRoutes: ready.length,
+        enabledNetworks: networkIds.length,
+        skippedRoutes: routes.length - ready.length,
+      };
+    });
+    res.json(result);
+  } catch (error) { next(error); }
 });
 
 router.get("/admin/blockchain-monitoring/assets/list", async (_req, res, next) => {
