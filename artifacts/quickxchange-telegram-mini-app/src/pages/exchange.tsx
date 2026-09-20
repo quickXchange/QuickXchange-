@@ -56,6 +56,7 @@ export default function Exchange() {
   const [destinationMemo, setDestinationMemo] = useState('');
   const [refundAddress, setRefundAddress] = useState('');
   const [refundMemo, setRefundMemo] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
   const [settlementFields, setSettlementFields] = useState<Record<string, string>>({});
 
   // Data hooks
@@ -382,6 +383,11 @@ export default function Exchange() {
           haptic.notification('warning');
           return;
         }
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(customerEmail.trim())) {
+          setErrorMsg('Enter a valid customer email');
+          haptic.notification('warning');
+          return;
+        }
       } else {
         if (targetOpt.kind === 'crypto-network' && !destinationAddress && !quoteData?.requiredSettlementFields?.some((f: any) => f.type === 'wallet-address' || f.key.includes('address'))) {
           setErrorMsg('Destination address is required');
@@ -428,6 +434,7 @@ export default function Exchange() {
               toAsset: targetOpt.assetCode,
               toNetwork: targetOpt.routeNetwork,
               amount: parsedAmount,
+              customerEmail: customerEmail.trim(),
               quoteId: quoteData.quoteId,
               rateMode: 'FLOATING',
               destinationAddress: destinationAddress.trim(),
@@ -680,6 +687,24 @@ export default function Exchange() {
                   </div>
                 )}
 
+                <div className="space-y-2 pt-4 border-t border-white/20">
+                  <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">
+                    Customer Email
+                  </label>
+                  <Input
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    value={customerEmail}
+                    onChange={(e) => setCustomerEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner text-white placeholder:text-white/50"
+                  />
+                  <p className="text-[12px] leading-relaxed text-white/60">
+                    Used for your Convert order confirmation and support.
+                  </p>
+                </div>
+
                 <div className="pt-4 border-t border-white/20 mt-6">
                   <h4 className="text-[14px] font-bold text-white/90 mb-3">Optional Refund Details</h4>
                   <div className="space-y-2">
@@ -784,6 +809,14 @@ export default function Exchange() {
                 <span className="text-[14px] font-semibold text-muted-foreground">Destination</span>
                 <span className="text-[13px] font-mono max-w-[150px] truncate text-foreground/80 bg-white/5 px-2 py-1 rounded-lg border border-white/5">
                   {destinationAddress || Object.values(settlementFields)[0] || 'Pending'}
+                </span>
+              </div>
+            )}
+            {mode === 'convert' && (
+              <div className="flex justify-between items-center gap-4 py-3 border-b border-border/50">
+                <span className="text-[14px] font-semibold text-muted-foreground">Email</span>
+                <span className="text-[13px] text-right break-all text-foreground/80">
+                  {customerEmail}
                 </span>
               </div>
             )}

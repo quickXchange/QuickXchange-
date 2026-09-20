@@ -13,8 +13,52 @@ export type TelegramSearchableRouteOption = TelegramRouteOption & {
   paymentMethodId?: string;
 };
 
+export type TelegramConvertInstrument = {
+  slug: string;
+  currencyTitle: string;
+  networkTitle: string;
+  instrumentType: string;
+  fullName?: string;
+  currencyFriendlyTitle?: string;
+  requiresMemo?: boolean;
+};
+
 export function telegramAssetNetworkKey(assetCode: string, routeNetwork: string) {
   return `${assetCode.trim().toUpperCase()}\0${routeNetwork.trim().toUpperCase()}`;
+}
+
+export function buildTelegramConvertOptions(
+  instruments: TelegramConvertInstrument[],
+  pairs: Array<{ fromAsset: string; fromNetwork: string; toAsset: string; toNetwork: string }>,
+) {
+  const executableKeys = new Set<string>();
+  for (const pair of pairs) {
+    executableKeys.add(telegramAssetNetworkKey(pair.fromAsset, pair.fromNetwork));
+    executableKeys.add(telegramAssetNetworkKey(pair.toAsset, pair.toNetwork));
+  }
+  const seen = new Set<string>();
+  return instruments.flatMap(instrument => {
+    if (
+      instrument.instrumentType.trim().toLowerCase() !== "crypto" ||
+      !instrument.currencyTitle.trim() ||
+      !instrument.networkTitle.trim()
+    ) return [];
+    const key = telegramAssetNetworkKey(instrument.currencyTitle, instrument.networkTitle);
+    if (!executableKeys.has(key) || seen.has(key)) return [];
+    seen.add(key);
+    return [{
+      id: `quickex:${instrument.slug}`,
+      assetCode: instrument.currencyTitle,
+      routeNetwork: instrument.networkTitle,
+      kind: "crypto-network",
+      direction: "both",
+      executionMode: "api",
+      title: instrument.fullName || instrument.currencyFriendlyTitle || instrument.currencyTitle,
+      assetName: instrument.currencyFriendlyTitle || instrument.fullName || instrument.currencyTitle,
+      networkTitle: instrument.networkTitle,
+      requiresMemo: Boolean(instrument.requiresMemo),
+    }];
+  });
 }
 
 export function filterTelegramRouteOptions<T extends TelegramSearchableRouteOption>(

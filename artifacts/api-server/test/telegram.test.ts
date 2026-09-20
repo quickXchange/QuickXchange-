@@ -15,7 +15,7 @@ import {
 import { DepositInstructionsPending, menu, shouldApplyUpdate, reconciliationClaimEligible, reconciliationWinnerTransition, telegramAdvisoryChatKey, telegramCreateRetryDecision, telegramCreationDeliveryDecision, telegramCreationOutboxPayload, telegramCreateState, telegramDepositInstruction, telegramInboxDisposition, telegramManualOrderKinds, telegramNextChatCursor, telegramOutboxFailureDisposition, telegramPrivateUpdate, telegramRequiresDeposit, telegramSecretMatches, telegramUpdateIdValid, telegramWebhookDisposition } from "../src/routes/telegram";
 import { localeOf, t } from "../src/lib/telegram-localization";
 import { consumeTelegramLinkChallenge, createTelegramLinkChallenge, hashTelegramLinkToken, TelegramLinkChallengeError, TelegramLinkConflictError } from "../src/lib/telegram-link";
-import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, shouldAskDestination, telegramAssetNetworkKey, telegramFieldSkipIndex, withoutTelegramRefundFields } from "../src/lib/telegram-wizard";
+import { buildCreatePayload, buildQuotePayload, buildTelegramConvertOptions, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, shouldAskDestination, telegramAssetNetworkKey, telegramFieldSkipIndex, withoutTelegramRefundFields } from "../src/lib/telegram-wizard";
 import { normalizeRefundFields } from "../src/lib/manual-wallet-validation";
 import { telegramAccountLinkRelativeUrl, validateTelegramMiniAppInitData, verifyTelegramMiniAppSession } from "../src/routes/telegram-mini-app";
 import { formatSwapTelegramNotification } from "../src/lib/telegram-swap-notifications";
@@ -316,6 +316,24 @@ test("Telegram Convert preserves same-symbol networks and normalizes exact route
   assert.deepEqual(
     filterConvertTargets(options, pairs, source).map(option => option.id),
     ["usdt-trc20", "usdt-erc20"],
+  );
+});
+
+test("Telegram Convert builds executable options from the Quickex catalog", () => {
+  const options = buildTelegramConvertOptions([
+    { slug: "btc-bitcoin", currencyTitle: "BTC", networkTitle: "Bitcoin", instrumentType: "crypto", fullName: "Bitcoin", requiresMemo: false },
+    { slug: "usdt-trc20", currencyTitle: "USDT", networkTitle: "TRC20", instrumentType: "crypto", fullName: "Tether", requiresMemo: true },
+    { slug: "orphan", currencyTitle: "ORPHAN", networkTitle: "NONE", instrumentType: "crypto", fullName: "Orphan" },
+    { slug: "fiat", currencyTitle: "EUR", networkTitle: "SEPA", instrumentType: "fiat", fullName: "Euro" },
+  ], [
+    { fromAsset: "BTC", fromNetwork: "BITCOIN", toAsset: "USDT", toNetwork: "TRC20" },
+  ]);
+
+  assert.deepEqual(options.map(option => option.id), ["quickex:btc-bitcoin", "quickex:usdt-trc20"]);
+  assert.equal(options[1]?.requiresMemo, true);
+  assert.deepEqual(
+    filterConvertTargets(options, [{ fromAsset: "BTC", fromNetwork: "Bitcoin", toAsset: "USDT", toNetwork: "TRC20" }], options[0]!).map(option => option.id),
+    ["quickex:usdt-trc20"],
   );
 });
 
