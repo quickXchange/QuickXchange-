@@ -5664,6 +5664,8 @@ components:
         direction: { type: string, enum: [send, receive, both] }
         emphasizedLabel: { type: boolean }
         label: { type: string, minLength: 1, maxLength: 100 }
+        placeholder: { type: string, maxLength: 200 }
+        enabled: { type: boolean }
         help: { type: string, maxLength: 500 }
         options:
           type: array

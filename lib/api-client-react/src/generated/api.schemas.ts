@@ -918,6 +918,9 @@ export interface PaymentMethodFieldDefinition {
      * @maxLength 100
      */
   label: string;
+  /** @maxLength 200 */
+  placeholder?: string;
+  enabled?: boolean;
   /** @maxLength 500 */
   help?: string;
   /** @maxItems 100 */

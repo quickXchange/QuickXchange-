@@ -1782,6 +1782,130 @@ test("deleted fiat currencies stay deleted when catalog lists are reloaded", asy
   }
 });
 
+test("Swap config mirrors current Admin payment fields without defaults or stale definitions", async () => {
+  const api = await startApi();
+  const {
+    db,
+    fiatCurrenciesTable,
+    fiatCurrencyPaymentMethodsTable,
+    manualDeskPricingRulesTable,
+    paymentMethodsTable,
+  } = await import("@workspace/db");
+  const methodId = `field-sync-${randomUUID()}`;
+  let ruleId: string | undefined;
+  const [usd] = await db.select().from(fiatCurrenciesTable)
+    .where(eq(fiatCurrenciesTable.code, "USD")).limit(1);
+  assert.ok(usd);
+  const fiveFields = [
+    { key: "full_name", type: "account-name" as const, label: "Full Name", placeholder: "Your legal name", required: true, direction: "send" as const },
+    { key: "iban", type: "account-iban" as const, label: "IBAN", pattern: "^[A-Z0-9]+$", required: true, direction: "send" as const },
+    { key: "bank_name", type: "short-text" as const, label: "Bank Name", required: true, direction: "send" as const },
+    { key: "payment_description", type: "long-text" as const, label: "Payment Description", required: false, direction: "send" as const },
+    { key: "contact", type: "short-text" as const, label: "Telegram / WhatsApp", required: false, direction: "send" as const },
+  ];
+  try {
+    await db.insert(paymentMethodsTable).values({
+      id: methodId,
+      name: "Field synchronization fixture",
+      family: "bank-transfer",
+      executionMode: "manual",
+      enabled: true,
+      canSend: true,
+      canReceive: false,
+      fieldDefinitions: fiveFields,
+    });
+    await db.insert(fiatCurrencyPaymentMethodsTable).values({
+      fiatCurrencyId: usd.id,
+      paymentMethodId: methodId,
+      enabled: true,
+      canSend: true,
+      canReceive: false,
+    });
+    const initialConfig = await (await fetch(`${api.url}/exchange/config`, { cache: "no-store" })).json() as any;
+    const sourceOption = initialConfig.manualSettlementOptions.find(
+      (option: any) => option.paymentMethodId === methodId,
+    );
+    const targetOption = initialConfig.manualSettlementOptions.find(
+      (option: any) => option.id === "crypto:xrp-xrpl",
+    );
+    assert.ok(sourceOption && targetOption);
+    ruleId = await createExactPathRule({
+      sourceAsset: sourceOption.assetCode,
+      targetAsset: targetOption.assetCode,
+      sourceNetwork: sourceOption.routeNetwork,
+      targetNetwork: targetOption.routeNetwork,
+      sourceSettlementOptionId: sourceOption.id,
+      targetSettlementOptionId: targetOption.id,
+      exactRate: "2",
+    });
+    const fieldsFromConfig = async () => {
+      const response = await fetch(`${api.url}/exchange/config`, { cache: "no-store" });
+      assert.equal(response.status, 200);
+      const config = await response.json() as {
+        manualSettlementOptions: Array<{
+          paymentMethodId?: string;
+          fields?: Array<Record<string, unknown>>;
+        }>;
+      };
+      return config.manualSettlementOptions.find(option => option.paymentMethodId === methodId)?.fields;
+    };
+    assert.deepEqual((await fieldsFromConfig())?.map(field => field.key), fiveFields.map(field => field.key));
+
+    const remainingFields = [
+      { ...fiveFields[0], label: "Account Holder", placeholder: "Name shown on account" },
+      fiveFields[1],
+      fiveFields[4],
+    ];
+    await db.update(paymentMethodsTable).set({ fieldDefinitions: remainingFields })
+      .where(eq(paymentMethodsTable.id, methodId));
+    const afterDelete = await fieldsFromConfig();
+    assert.deepEqual(afterDelete?.map(field => field.key), ["full_name", "iban", "contact"]);
+    assert.equal(afterDelete?.[0]?.label, "Account Holder");
+    assert.equal(afterDelete?.[0]?.placeholder, "Name shown on account");
+    assert.equal(afterDelete?.[1]?.pattern, "^[A-Z0-9]+$");
+
+    await db.update(paymentMethodsTable).set({
+      fieldDefinitions: remainingFields.map(field =>
+        field.key === "iban" ? { ...field, enabled: false } : field
+      ),
+    }).where(eq(paymentMethodsTable.id, methodId));
+    assert.deepEqual((await fieldsFromConfig())?.map(field => field.key), ["full_name", "contact"]);
+
+    await db.update(paymentMethodsTable).set({
+      fieldDefinitions: [
+        remainingFields[2],
+        { key: "reference", type: "short-text", label: "Reference", placeholder: "Transfer reference", required: true, direction: "send" },
+        remainingFields[0],
+      ],
+    }).where(eq(paymentMethodsTable.id, methodId));
+    assert.deepEqual((await fieldsFromConfig())?.map(field => field.key), ["contact", "reference", "full_name"]);
+    const quote = await apiJson(api.url, "/exchange/quote", {
+      type: "manual",
+      fromAsset: sourceOption.assetCode,
+      fromNetwork: sourceOption.routeNetwork,
+      toAsset: targetOption.assetCode,
+      toNetwork: targetOption.routeNetwork,
+      amount: 100,
+      sourceSettlementOptionId: sourceOption.id,
+      targetSettlementOptionId: targetOption.id,
+    });
+    assert.equal(quote.status, 200, JSON.stringify(quote.body));
+    assert.deepEqual(
+      quote.body.requiredSettlementFields.map((field: any) => field.key),
+      ["source_contact", "source_reference", "source_full_name"],
+    );
+  } finally {
+    if (ruleId) {
+      await db.delete(manualDeskPricingRulesTable)
+        .where(eq(manualDeskPricingRulesTable.id, ruleId));
+    }
+    await db.delete(fiatCurrencyPaymentMethodsTable)
+      .where(eq(fiatCurrencyPaymentMethodsTable.paymentMethodId, methodId));
+    await db.delete(paymentMethodsTable).where(eq(paymentMethodsTable.id, methodId));
+    await api.close();
+  }
+});
+
 test("catalog and API execution modes never enter the manual settlement route", async () => {
   const api = await startApi();
   const {
@@ -2780,7 +2904,7 @@ test("manual crypto catalog and signed funding snapshots are independent of Quic
   }
 });
 
-test("fiat-to-crypto requires a destination wallet but not settlement fields or a memo", async () => {
+test("fiat-to-crypto requires current source settlement fields and a destination wallet but not a memo", async () => {
   reset();
   const api = await startApi();
   let ruleId: string | undefined;
@@ -2807,13 +2931,25 @@ test("fiat-to-crypto requires a destination wallet but not settlement fields or 
       sourceSettlementOptionId: source.id, targetSettlementOptionId: target.id,
     });
     assert.equal(quote.status, 200);
-    assert.deepEqual(quote.body.requiredSettlementFields, []);
+    assert.deepEqual(
+      quote.body.requiredSettlementFields,
+      source.fields
+        .filter((field: any) => !field.direction || field.direction === "both" || field.direction === "send")
+        .map((field: any) => ({
+          ...field,
+          key: `source_${field.key}`,
+          ...(field.requiredWhen
+            ? { requiredWhen: { ...field.requiredWhen, fieldKey: `source_${field.requiredWhen.fieldKey}` } }
+            : {}),
+        })),
+    );
     const order = {
       type: "manual", fromAsset: source.assetCode, fromNetwork: source.routeNetwork,
       toAsset: target.assetCode, toNetwork: target.routeNetwork, amount: 100,
       sourceSettlementOptionId: source.id, targetSettlementOptionId: target.id,
       quoteId: quote.body.quoteId,
       customerEmail, clientRequestId: randomUUID(),
+      settlementDetails: settlementDetailsFixture(quote.body.requiredSettlementFields),
     };
     const missingWallet = await apiJson(api.url, "/orders", order);
     assert.equal(missingWallet.body.code, "MANUAL_DESTINATION_ADDRESS_REQUIRED");
@@ -5341,7 +5477,18 @@ test("low-rate manual tickets persist a non-exponent canonical final rate", asyn
       ...route,
     });
     assert.equal(quote.status, 200);
-    assert.deepEqual(quote.body.requiredSettlementFields, []);
+    assert.deepEqual(
+      quote.body.requiredSettlementFields,
+      source.fields
+        .filter((field: any) => !field.direction || field.direction === "both" || field.direction === "send")
+        .map((field: any) => ({
+          ...field,
+          key: `source_${field.key}`,
+          ...(field.requiredWhen
+            ? { requiredWhen: { ...field.requiredWhen, fieldKey: `source_${field.requiredWhen.fieldKey}` } }
+            : {}),
+        })),
+    );
     const signed = JSON.parse(
       Buffer.from(String(quote.body.quoteId).split(".")[0], "base64url").toString("utf8"),
     ) as { pricingSnapshot: { amounts: { finalRate: string } } };
@@ -5352,6 +5499,7 @@ test("low-rate manual tickets persist a non-exponent canonical final rate", asyn
       toAsset: "BTC", toNetwork: "Bitcoin", amount: 100,
       quoteId: quote.body.quoteId, customerEmail: email,
       clientRequestId: randomUUID(),
+      settlementDetails: settlementDetailsFixture(quote.body.requiredSettlementFields),
       paymentMethod: "bank transfer", payoutMethod: "wallet",
       destinationAddress: "1BoatSLRHtKNngkdXEeobR76b53LETtpyT",
       ...route,

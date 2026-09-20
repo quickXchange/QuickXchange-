@@ -489,7 +489,7 @@ function DynamicField({ field, value, onChange }: { field: any; value: string; o
             : renderType === 'wallet-address'
               ? WalletCards
               : FileText;
-  const placeholder = ({
+  const placeholder = field.placeholder || ({
     name: 'Enter your full name',
     account_holder_name: 'Enter your full name',
     bank_detail: 'Enter IBAN or account number',
@@ -942,22 +942,20 @@ export function ManualSwapWidget({
     }
   }, [toOptions, toId]);
 
+  const settlementFieldConfigurationKey = JSON.stringify([
+    fromOption?.fields || [],
+    toOption?.fields || [],
+  ]);
   const quoteRequestKey = fromOption && toOption
     ? JSON.stringify([
         'manual',
         fromOption.id,
         toOption.id,
         amount,
+         settlementFieldConfigurationKey,
       ])
     : '';
   const currentQuote = quotePreview?.requestKey === quoteRequestKey ? quotePreview : null;
-  const hasAccountHolderNameField = Boolean(currentQuote?.requiredSettlementFields?.some(field => {
-    const normalizedKey = field.key.replace(/^(source|target)_/, '').toLowerCase();
-    const normalizedLabel = field.label.trim().toLowerCase();
-    return normalizedKey === 'name'
-      || /^(account holder|beneficiary|recipient) name$/.test(normalizedLabel)
-      || normalizedLabel === 'name';
-  }));
   const quoteReady = Boolean(
     currentQuote &&
     quoteStatus === 'idle' &&
@@ -1181,7 +1179,7 @@ export function ManualSwapWidget({
     setNotice(null);
 
     const parsedDetails: Record<string, string | number> = {};
-    if (!isFiatToCryptoSwap && currentQuote?.requiredSettlementFields) {
+    if (currentQuote?.requiredSettlementFields) {
       for (const field of currentQuote.requiredSettlementFields) {
         if (field.requiredWhen) {
           const targetValue = settlementDetails[field.requiredWhen.fieldKey];
@@ -1601,26 +1599,7 @@ export function ManualSwapWidget({
                   </>
                 )}
 
-                {!isFiatToCryptoSwap && !hasAccountHolderNameField && (
-                  <div className="order-detail-field order-detail-field--name">
-                    <label htmlFor="swap-name" className="swap-step2-field-label">
-                      {t('swap.yourName')} <small className="swap-step2-optional-badge">{t('swap.optional')}</small>
-                    </label>
-                    <div className="swap-step2-input-shell">
-                      <UserRound size={18} className="swap-step2-input-icon" aria-hidden="true" />
-                      <input
-                        id="swap-name"
-                        value={name}
-                        onChange={(event) => setName(event.target.value)}
-                        placeholder={t('swap.nameOnOrder')}
-                        data-testid="input-customer-name"
-                        className="swap-step2-input font-sans"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {!isFiatToCryptoSwap && currentQuote?.requiredSettlementFields?.filter((field: any) => {
+                {currentQuote?.requiredSettlementFields?.filter((field: any) => {
                   if (field.requiredWhen) {
                     const targetValue = settlementDetails[field.requiredWhen.fieldKey];
                     const matches = Array.isArray(field.requiredWhen.equals)

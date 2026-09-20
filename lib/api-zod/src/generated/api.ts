@@ -26,6 +26,8 @@ export const getExchangeConfigResponseAssetsItemPrecisionMultipleOf = 1;
 export const getExchangeConfigResponseSettlementOptionsItemFieldsItemKeyRegExp = new RegExp('^[a-z][a-z0-9_]{0,63}$');
 export const getExchangeConfigResponseSettlementOptionsItemFieldsItemLabelMax = 100;
 
+export const getExchangeConfigResponseSettlementOptionsItemFieldsItemPlaceholderMax = 200;
+
 export const getExchangeConfigResponseSettlementOptionsItemFieldsItemHelpMax = 500;
 
 export const getExchangeConfigResponseSettlementOptionsItemFieldsItemOptionsItemValueMax = 200;
@@ -46,6 +48,8 @@ export const getExchangeConfigResponseSettlementOptionsItemFieldsItemRequiredWhe
 export const getExchangeConfigResponseManualSettlementOptionsItemFieldsItemKeyRegExp = new RegExp('^[a-z][a-z0-9_]{0,63}$');
 export const getExchangeConfigResponseManualSettlementOptionsItemFieldsItemLabelMax = 100;
 
+export const getExchangeConfigResponseManualSettlementOptionsItemFieldsItemPlaceholderMax = 200;
+
 export const getExchangeConfigResponseManualSettlementOptionsItemFieldsItemHelpMax = 500;
 
 export const getExchangeConfigResponseManualSettlementOptionsItemFieldsItemOptionsItemValueMax = 200;
@@ -65,6 +69,8 @@ export const getExchangeConfigResponseManualSettlementOptionsItemFieldsItemRequi
 
 export const getExchangeConfigResponseInstantSettlementOptionsItemFieldsItemKeyRegExp = new RegExp('^[a-z][a-z0-9_]{0,63}$');
 export const getExchangeConfigResponseInstantSettlementOptionsItemFieldsItemLabelMax = 100;
+
+export const getExchangeConfigResponseInstantSettlementOptionsItemFieldsItemPlaceholderMax = 200;
 
 export const getExchangeConfigResponseInstantSettlementOptionsItemFieldsItemHelpMax = 500;
 
@@ -129,6 +135,8 @@ export const GetExchangeConfigResponse = zod.object({
   "direction": zod.enum(['send', 'receive', 'both']).optional(),
   "emphasizedLabel": zod.boolean().optional(),
   "label": zod.string().min(1).max(getExchangeConfigResponseSettlementOptionsItemFieldsItemLabelMax),
+  "placeholder": zod.string().max(getExchangeConfigResponseSettlementOptionsItemFieldsItemPlaceholderMax).optional(),
+  "enabled": zod.boolean().optional(),
   "help": zod.string().max(getExchangeConfigResponseSettlementOptionsItemFieldsItemHelpMax).optional(),
   "options": zod.array(zod.object({
   "value": zod.string().max(getExchangeConfigResponseSettlementOptionsItemFieldsItemOptionsItemValueMax),
@@ -177,6 +185,8 @@ export const GetExchangeConfigResponse = zod.object({
   "direction": zod.enum(['send', 'receive', 'both']).optional(),
   "emphasizedLabel": zod.boolean().optional(),
   "label": zod.string().min(1).max(getExchangeConfigResponseManualSettlementOptionsItemFieldsItemLabelMax),
+  "placeholder": zod.string().max(getExchangeConfigResponseManualSettlementOptionsItemFieldsItemPlaceholderMax).optional(),
+  "enabled": zod.boolean().optional(),
   "help": zod.string().max(getExchangeConfigResponseManualSettlementOptionsItemFieldsItemHelpMax).optional(),
   "options": zod.array(zod.object({
   "value": zod.string().max(getExchangeConfigResponseManualSettlementOptionsItemFieldsItemOptionsItemValueMax),
@@ -225,6 +235,8 @@ export const GetExchangeConfigResponse = zod.object({
   "direction": zod.enum(['send', 'receive', 'both']).optional(),
   "emphasizedLabel": zod.boolean().optional(),
   "label": zod.string().min(1).max(getExchangeConfigResponseInstantSettlementOptionsItemFieldsItemLabelMax),
+  "placeholder": zod.string().max(getExchangeConfigResponseInstantSettlementOptionsItemFieldsItemPlaceholderMax).optional(),
+  "enabled": zod.boolean().optional(),
   "help": zod.string().max(getExchangeConfigResponseInstantSettlementOptionsItemFieldsItemHelpMax).optional(),
   "options": zod.array(zod.object({
   "value": zod.string().max(getExchangeConfigResponseInstantSettlementOptionsItemFieldsItemOptionsItemValueMax),
@@ -969,6 +981,8 @@ export const createExchangeQuoteResponsePricingRuleVersionMultipleOf = 1;
 export const createExchangeQuoteResponseRequiredSettlementFieldsItemKeyRegExp = new RegExp('^[a-z][a-z0-9_]{0,63}$');
 export const createExchangeQuoteResponseRequiredSettlementFieldsItemLabelMax = 100;
 
+export const createExchangeQuoteResponseRequiredSettlementFieldsItemPlaceholderMax = 200;
+
 export const createExchangeQuoteResponseRequiredSettlementFieldsItemHelpMax = 500;
 
 export const createExchangeQuoteResponseRequiredSettlementFieldsItemOptionsItemValueMax = 200;
@@ -1021,6 +1035,8 @@ export const CreateExchangeQuoteResponse = zod.object({
   "direction": zod.enum(['send', 'receive', 'both']).optional(),
   "emphasizedLabel": zod.boolean().optional(),
   "label": zod.string().min(1).max(createExchangeQuoteResponseRequiredSettlementFieldsItemLabelMax),
+  "placeholder": zod.string().max(createExchangeQuoteResponseRequiredSettlementFieldsItemPlaceholderMax).optional(),
+  "enabled": zod.boolean().optional(),
   "help": zod.string().max(createExchangeQuoteResponseRequiredSettlementFieldsItemHelpMax).optional(),
   "options": zod.array(zod.object({
   "value": zod.string().max(createExchangeQuoteResponseRequiredSettlementFieldsItemOptionsItemValueMax),
@@ -5869,6 +5885,8 @@ export const getPaymentMethodsResponseOneRequiresProviderConfigurationDefault = 
 export const getPaymentMethodsResponseOneFieldDefinitionsItemKeyRegExp = new RegExp('^[a-z][a-z0-9_]{0,63}$');
 export const getPaymentMethodsResponseOneFieldDefinitionsItemLabelMax = 100;
 
+export const getPaymentMethodsResponseOneFieldDefinitionsItemPlaceholderMax = 200;
+
 export const getPaymentMethodsResponseOneFieldDefinitionsItemHelpMax = 500;
 
 export const getPaymentMethodsResponseOneFieldDefinitionsItemOptionsItemValueMax = 200;
@@ -5912,6 +5930,8 @@ export const GetPaymentMethodsResponseItem = zod.object({
   "direction": zod.enum(['send', 'receive', 'both']).optional(),
   "emphasizedLabel": zod.boolean().optional(),
   "label": zod.string().min(1).max(getPaymentMethodsResponseOneFieldDefinitionsItemLabelMax),
+  "placeholder": zod.string().max(getPaymentMethodsResponseOneFieldDefinitionsItemPlaceholderMax).optional(),
+  "enabled": zod.boolean().optional(),
   "help": zod.string().max(getPaymentMethodsResponseOneFieldDefinitionsItemHelpMax).optional(),
   "options": zod.array(zod.object({
   "value": zod.string().max(getPaymentMethodsResponseOneFieldDefinitionsItemOptionsItemValueMax),
@@ -5960,6 +5980,8 @@ export const createPaymentMethodBodyRequiresProviderConfigurationDefault = false
 export const createPaymentMethodBodyFieldDefinitionsItemKeyRegExp = new RegExp('^[a-z][a-z0-9_]{0,63}$');
 export const createPaymentMethodBodyFieldDefinitionsItemLabelMax = 100;
 
+export const createPaymentMethodBodyFieldDefinitionsItemPlaceholderMax = 200;
+
 export const createPaymentMethodBodyFieldDefinitionsItemHelpMax = 500;
 
 export const createPaymentMethodBodyFieldDefinitionsItemOptionsItemValueMax = 200;
@@ -6003,6 +6025,8 @@ export const CreatePaymentMethodBody = zod.object({
   "direction": zod.enum(['send', 'receive', 'both']).optional(),
   "emphasizedLabel": zod.boolean().optional(),
   "label": zod.string().min(1).max(createPaymentMethodBodyFieldDefinitionsItemLabelMax),
+  "placeholder": zod.string().max(createPaymentMethodBodyFieldDefinitionsItemPlaceholderMax).optional(),
+  "enabled": zod.boolean().optional(),
   "help": zod.string().max(createPaymentMethodBodyFieldDefinitionsItemHelpMax).optional(),
   "options": zod.array(zod.object({
   "value": zod.string().max(createPaymentMethodBodyFieldDefinitionsItemOptionsItemValueMax),
@@ -6041,6 +6065,8 @@ export const createPaymentMethodResponseOneCountriesMax = 300;
 export const createPaymentMethodResponseOneRequiresProviderConfigurationDefault = false;
 export const createPaymentMethodResponseOneFieldDefinitionsItemKeyRegExp = new RegExp('^[a-z][a-z0-9_]{0,63}$');
 export const createPaymentMethodResponseOneFieldDefinitionsItemLabelMax = 100;
+
+export const createPaymentMethodResponseOneFieldDefinitionsItemPlaceholderMax = 200;
 
 export const createPaymentMethodResponseOneFieldDefinitionsItemHelpMax = 500;
 
@@ -6085,6 +6111,8 @@ export const CreatePaymentMethodResponse = zod.object({
   "direction": zod.enum(['send', 'receive', 'both']).optional(),
   "emphasizedLabel": zod.boolean().optional(),
   "label": zod.string().min(1).max(createPaymentMethodResponseOneFieldDefinitionsItemLabelMax),
+  "placeholder": zod.string().max(createPaymentMethodResponseOneFieldDefinitionsItemPlaceholderMax).optional(),
+  "enabled": zod.boolean().optional(),
   "help": zod.string().max(createPaymentMethodResponseOneFieldDefinitionsItemHelpMax).optional(),
   "options": zod.array(zod.object({
   "value": zod.string().max(createPaymentMethodResponseOneFieldDefinitionsItemOptionsItemValueMax),
@@ -6128,6 +6156,8 @@ export const updatePaymentMethodBodyCountriesMax = 300;
 export const updatePaymentMethodBodyFieldDefinitionsItemKeyRegExp = new RegExp('^[a-z][a-z0-9_]{0,63}$');
 export const updatePaymentMethodBodyFieldDefinitionsItemLabelMax = 100;
 
+export const updatePaymentMethodBodyFieldDefinitionsItemPlaceholderMax = 200;
+
 export const updatePaymentMethodBodyFieldDefinitionsItemHelpMax = 500;
 
 export const updatePaymentMethodBodyFieldDefinitionsItemOptionsItemValueMax = 200;
@@ -6170,6 +6200,8 @@ export const UpdatePaymentMethodBody = zod.object({
   "direction": zod.enum(['send', 'receive', 'both']).optional(),
   "emphasizedLabel": zod.boolean().optional(),
   "label": zod.string().min(1).max(updatePaymentMethodBodyFieldDefinitionsItemLabelMax),
+  "placeholder": zod.string().max(updatePaymentMethodBodyFieldDefinitionsItemPlaceholderMax).optional(),
+  "enabled": zod.boolean().optional(),
   "help": zod.string().max(updatePaymentMethodBodyFieldDefinitionsItemHelpMax).optional(),
   "options": zod.array(zod.object({
   "value": zod.string().max(updatePaymentMethodBodyFieldDefinitionsItemOptionsItemValueMax),
@@ -6208,6 +6240,8 @@ export const updatePaymentMethodResponseOneCountriesMax = 300;
 export const updatePaymentMethodResponseOneRequiresProviderConfigurationDefault = false;
 export const updatePaymentMethodResponseOneFieldDefinitionsItemKeyRegExp = new RegExp('^[a-z][a-z0-9_]{0,63}$');
 export const updatePaymentMethodResponseOneFieldDefinitionsItemLabelMax = 100;
+
+export const updatePaymentMethodResponseOneFieldDefinitionsItemPlaceholderMax = 200;
 
 export const updatePaymentMethodResponseOneFieldDefinitionsItemHelpMax = 500;
 
@@ -6252,6 +6286,8 @@ export const UpdatePaymentMethodResponse = zod.object({
   "direction": zod.enum(['send', 'receive', 'both']).optional(),
   "emphasizedLabel": zod.boolean().optional(),
   "label": zod.string().min(1).max(updatePaymentMethodResponseOneFieldDefinitionsItemLabelMax),
+  "placeholder": zod.string().max(updatePaymentMethodResponseOneFieldDefinitionsItemPlaceholderMax).optional(),
+  "enabled": zod.boolean().optional(),
   "help": zod.string().max(updatePaymentMethodResponseOneFieldDefinitionsItemHelpMax).optional(),
   "options": zod.array(zod.object({
   "value": zod.string().max(updatePaymentMethodResponseOneFieldDefinitionsItemOptionsItemValueMax),
@@ -9404,6 +9440,8 @@ export const createQuickexQuoteResponsePricingRuleVersionMultipleOf = 1;
 export const createQuickexQuoteResponseRequiredSettlementFieldsItemKeyRegExp = new RegExp('^[a-z][a-z0-9_]{0,63}$');
 export const createQuickexQuoteResponseRequiredSettlementFieldsItemLabelMax = 100;
 
+export const createQuickexQuoteResponseRequiredSettlementFieldsItemPlaceholderMax = 200;
+
 export const createQuickexQuoteResponseRequiredSettlementFieldsItemHelpMax = 500;
 
 export const createQuickexQuoteResponseRequiredSettlementFieldsItemOptionsItemValueMax = 200;
@@ -9456,6 +9494,8 @@ export const CreateQuickexQuoteResponse = zod.object({
   "direction": zod.enum(['send', 'receive', 'both']).optional(),
   "emphasizedLabel": zod.boolean().optional(),
   "label": zod.string().min(1).max(createQuickexQuoteResponseRequiredSettlementFieldsItemLabelMax),
+  "placeholder": zod.string().max(createQuickexQuoteResponseRequiredSettlementFieldsItemPlaceholderMax).optional(),
+  "enabled": zod.boolean().optional(),
   "help": zod.string().max(createQuickexQuoteResponseRequiredSettlementFieldsItemHelpMax).optional(),
   "options": zod.array(zod.object({
   "value": zod.string().max(createQuickexQuoteResponseRequiredSettlementFieldsItemOptionsItemValueMax),

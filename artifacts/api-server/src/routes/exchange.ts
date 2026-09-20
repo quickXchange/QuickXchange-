@@ -943,13 +943,10 @@ async function buildQuoteTicket(
         customerInstructions: rule.customerInstructions ?? null,
         expectedSettlementMinutes: rule.expectedSettlementMinutes ?? null,
       },
-      requiredFields: sourceOption.kind === "fiat-payment-method" &&
-        targetOption.kind === "crypto-network"
-        ? []
-        : settlementFieldsForRoute(
-            sourceOption.kind === "fiat-payment-method" ? sourceOption.fields as never : undefined,
-            targetOption.kind === "fiat-payment-method" ? targetOption.fields as never : undefined,
-          ) as never,
+      requiredFields: settlementFieldsForRoute(
+        sourceOption.kind === "fiat-payment-method" ? sourceOption.fields as never : undefined,
+        targetOption.kind === "fiat-payment-method" ? targetOption.fields as never : undefined,
+      ) as never,
       funding: sourceOption.kind === "crypto-network" ? await (async () => {
         const source = await findManualCryptoNetworkByIdForAsset(
           sourceOption!.networkSlug,
@@ -1119,13 +1116,10 @@ async function revalidateManualDeskQuoteRoute(quote: QuoteTicket): Promise<void>
     } else if (snapshot.funding !== undefined) {
       throw new ApiError("SETTLEMENT_OPTION_CHANGED", "The signed funding instructions no longer match this route.", 409);
     }
-    const currentFields = source!.kind === "fiat-payment-method" &&
-      target!.kind === "crypto-network"
-      ? []
-      : settlementFieldsForRoute(
-          source!.kind === "fiat-payment-method" ? source!.fields as never : undefined,
-          target!.kind === "fiat-payment-method" ? target!.fields as never : undefined,
-        );
+    const currentFields = settlementFieldsForRoute(
+      source!.kind === "fiat-payment-method" ? source!.fields as never : undefined,
+      target!.kind === "fiat-payment-method" ? target!.fields as never : undefined,
+    );
     if (JSON.stringify(currentFields) !== JSON.stringify(snapshot.requiredFields)) {
       throw new ApiError("SETTLEMENT_OPTION_CHANGED", "The required settlement details changed after this quote was issued.", 409);
     }
@@ -2431,7 +2425,7 @@ async function createOrderFromInput(
   await revalidateManualDeskQuoteRoute(quote);
   const fiatToCrypto = quote.settlementSnapshot?.source?.kind === "fiat-payment-method" &&
     quote.settlementSnapshot?.target?.kind === "crypto-network";
-  const settlementDetails = quote.v === 2 && !fiatToCrypto
+  const settlementDetails = quote.v === 2
     ? validateSettlementDetails(
         quote.settlementSnapshot?.requiredFields ?? [],
         input.settlementDetails,

@@ -5444,6 +5444,22 @@ function PaymentMethodDynamicFields({ fields, setFields }: { fields: PaymentMeth
     });
   };
 
+  const moveField = (originalField: PaymentMethodFieldDefinition, contextDir: "send" | "receive", offset: -1 | 1) => {
+    setFields(current => {
+      const directional = current.filter(field =>
+        !field.direction || field.direction === "both" || field.direction === contextDir
+      );
+      const directionalIndex = directional.findIndex(field => field.key === originalField.key);
+      const target = directional[directionalIndex + offset];
+      if (!target) return current;
+      const sourceIndex = current.findIndex(field => field.key === originalField.key);
+      const targetIndex = current.findIndex(field => field.key === target.key);
+      const next = [...current];
+      [next[sourceIndex], next[targetIndex]] = [next[targetIndex], next[sourceIndex]];
+      return next;
+    });
+  };
+
   const addField = (preset: { label: string, type: string }, contextDir: "send" | "receive") => {
     setFields(current => [
       ...current,
@@ -5495,6 +5511,25 @@ function PaymentMethodDynamicFields({ fields, setFields }: { fields: PaymentMeth
                 data-testid={`input-label-${contextDir}-${field.key}`}
               />
             </label>
+            <label className="payment-method-field-label">
+              <span>Placeholder</span>
+              <input
+                value={field.placeholder || ''}
+                onChange={e => updateField(field, contextDir, { placeholder: e.target.value || undefined })}
+                className="payment-method-field-name-input"
+                placeholder="Input placeholder"
+                data-testid={`input-placeholder-${contextDir}-${field.key}`}
+              />
+            </label>
+            <label className="payment-method-required-toggle">
+              <input
+                type="checkbox"
+                checked={field.enabled !== false}
+                onChange={e => updateField(field, contextDir, { enabled: e.target.checked })}
+                data-testid={`input-enabled-${contextDir}-${field.key}`}
+              />
+              <span>Enabled <strong>{field.enabled !== false ? "ON" : "OFF"}</strong></span>
+            </label>
             <label className="payment-method-required-toggle" data-testid={`label-req-${contextDir}-${field.key}`}>
               <input
                 type="checkbox"
@@ -5504,6 +5539,8 @@ function PaymentMethodDynamicFields({ fields, setFields }: { fields: PaymentMeth
               />
               <span>Required <strong>{field.required !== false ? "ON" : "OFF"}</strong></span>
             </label>
+            <button type="button" className="payment-method-remove-field" onClick={() => moveField(field, contextDir, -1)} aria-label="Move field up">↑</button>
+            <button type="button" className="payment-method-remove-field" onClick={() => moveField(field, contextDir, 1)} aria-label="Move field down">↓</button>
             <button
               type="button"
               className="payment-method-remove-field"

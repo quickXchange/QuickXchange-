@@ -11,77 +11,6 @@ import { ApiError } from "./api-error";
 
 const FORBIDDEN = /\b(?:password|passcode|pin|otp|2fa|auth(?:entication)?(?:\s+|-)?code|verification(?:\s+|-)?code|cvv|cvc|pan|card(?:\s+|-)?number|seed(?:\s+|-)?phrase|recovery(?:\s+|-)?phrase|private(?:\s+|-)?key|security(?:\s+|-)?code|secret|credential|login)\b/i;
 
-const STANDARD_FIAT_CUSTOMER_FIELDS = [
-  {
-    key: "name",
-    type: "account-name",
-    label: "Name",
-    direction: "both",
-    required: true,
-    min: 2,
-    max: 140,
-  },
-  {
-    key: "bank_detail",
-    type: "account-number",
-    label: "Bank detail (IBAN or account number)",
-    direction: "both",
-    required: true,
-    min: 2,
-    max: 64,
-  },
-  {
-    key: "bank_name",
-    type: "short-text",
-    label: "Bank name",
-    direction: "both",
-    required: true,
-    min: 2,
-    max: 140,
-  },
-  {
-    key: "payment_description",
-    type: "long-text",
-    label: "Payment description",
-    direction: "both",
-    required: false,
-    max: 500,
-  },
-  {
-    key: "telegram_or_whatsapp",
-    type: "short-text",
-    label: "Your Telegram or WhatsApp",
-    direction: "both",
-    required: false,
-    max: 100,
-  },
-] as const satisfies readonly PaymentMethodFieldDefinition[];
-
-const STANDARD_FIAT_REPLACED_KEYS = new Set([
-  "name",
-  "recipient_name",
-  "account_holder_name",
-  "iban",
-  "bank_account_number",
-  "bank_detail",
-  "bank_name",
-  "payment_description",
-  "telegram_or_whatsapp",
-]);
-
-function publicFiatCustomerFields(
-  definitions: PaymentMethodFieldDefinition[],
-): PaymentMethodFieldDefinition[] {
-  const methodSpecificFields = definitions.filter((field) =>
-    !STANDARD_FIAT_REPLACED_KEYS.has(field.key) &&
-    !["account-name", "account-iban", "account-number"].includes(field.type)
-  );
-  return [
-    ...STANDARD_FIAT_CUSTOMER_FIELDS.map((field) => ({ ...field })),
-    ...methodSpecificFields,
-  ];
-}
-
 function passesLuhn(value: string): boolean {
   let sum = 0;
   let double = false;
@@ -398,7 +327,7 @@ export async function listPublicFiatSettlementOptions() {
         instructions: method.instructions ?? undefined,
         sendInstructions: attachment.sendInstructions ?? method.instructions ?? undefined,
         receiveInstructions: attachment.receiveInstructions ?? method.instructions ?? undefined,
-        fields: publicFiatCustomerFields(method.fieldDefinitions),
+         fields: method.fieldDefinitions.filter((field) => field.enabled !== false),
       }];
     },
   );

@@ -124,3 +124,4 @@
 - [Telegram initData signature field](telegram-initdata-signature.md) — bot-token HMAC validation excludes only `hash`; modern `signature` remains in the sorted data-check-string.
 - [Workspace configuration media transfer](workspace-config-media-transfer.md) — cross-environment configuration snapshots bundle verified active media; removed optional media never blocks import.
 - [Asset and network state boundaries](asset-network-state-boundaries.md) — asset catalog edits must preserve independently verified per-network deposit settings.
+- [Swap payment-field authority](swap-payment-field-authority.md) — new Swap quotes use only active Admin fields in persisted order for either fiat direction; existing orders retain snapshots.
