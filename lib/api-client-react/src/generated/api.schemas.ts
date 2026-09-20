@@ -1311,6 +1311,7 @@ export const OrderUpdateManualSettlementState = {
   completed: 'completed',
   cancelled: 'cancelled',
   failed: 'failed',
+  refunded: 'refunded',
 } as const;
 
 export interface OrderPaymentDetails {
@@ -1411,6 +1412,7 @@ export const OrderBulkStatusInputManualSettlementState = {
   completed: 'completed',
   cancelled: 'cancelled',
   failed: 'failed',
+  refunded: 'refunded',
 } as const;
 
 export interface OrderBulkStatusInput {

@@ -654,7 +654,7 @@ test("confirmed Swap deposit advances the real order and queues one exact Telegr
     const [order] = await database.db.select().from(database.ordersTable)
       .where(eq(database.ordersTable.id, telegramOrderId));
     assert.equal(order.manualSettlementState, "funds_confirmed");
-    assert.equal(order.status, "funds confirmed");
+    assert.equal(order.status, "processing");
     assert.ok(order.manualSettlementFundedAt);
 
     const notices = await database.db.select()

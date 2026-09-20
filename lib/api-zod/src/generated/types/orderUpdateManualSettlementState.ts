@@ -17,4 +17,5 @@ export const OrderUpdateManualSettlementState = {
   completed: 'completed',
   cancelled: 'cancelled',
   failed: 'failed',
+  refunded: 'refunded',
 } as const;

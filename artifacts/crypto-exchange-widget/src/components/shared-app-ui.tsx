@@ -327,13 +327,13 @@ export function StatusPill({ status, customerFacing = false }: { status?: string
     : normalized.includes('refund') ? 'Refunded'
       : normalized.includes('expire') ? 'Expired'
         : normalized.includes('fail') ? 'Failed'
-          : normalized.includes('complete') || normalized.includes('finish') || normalized.includes('paid') ? 'Completed'
+          : normalized.includes('complete') || normalized.includes('finish') || normalized.includes('paid') ? 'Done ✅'
             : normalized.includes('funds confirmed') || normalized.includes('deposit received') ? 'Deposit Received'
               : normalized.includes('process') || normalized.includes('exchang') || normalized.includes('send') || normalized.includes('payout') ? 'Processing'
                 : normalized.includes('review') || normalized.includes('confirm') || normalized.includes('hold') || normalized.includes('verif') || normalized.includes('manual-review') ? 'Operator Reviewing'
                   : normalized.includes('awaiting funds') ? 'Awaiting Funds'
                     : normalized.includes('pending') || normalized.includes('created') || normalized.includes('new') || normalized.includes('await') || normalized.includes('deposit') ? 'Pending' : (status || 'Pending');
-  const customerTone = customerLabel === 'Completed' ? 'success'
+  const customerTone = customerLabel === 'Done ✅' ? 'success'
     : ['Cancelled', 'Refunded', 'Expired', 'Failed'].includes(customerLabel) ? 'error'
       : customerLabel === 'Processing' || customerLabel === 'Operator Reviewing' || customerLabel === 'Deposit Received' ? 'warning'
         : 'info';

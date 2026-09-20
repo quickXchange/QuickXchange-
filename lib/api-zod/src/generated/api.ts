@@ -1957,7 +1957,7 @@ export const BulkUpdateOrderStatusBody = zod.object({
   "id": zod.string().min(1).max(bulkUpdateOrderStatusBodyItemsItemIdMax),
   "recordVersion": zod.number().min(bulkUpdateOrderStatusBodyItemsItemRecordVersionMin).multipleOf(bulkUpdateOrderStatusBodyItemsItemRecordVersionMultipleOf)
 })).min(1).max(bulkUpdateOrderStatusBodyItemsMax),
-  "manualSettlementState": zod.enum(['awaiting_funds', 'funds_confirmed', 'payout_processing', 'payout_sent', 'completed', 'cancelled', 'failed'])
+  "manualSettlementState": zod.enum(['awaiting_funds', 'funds_confirmed', 'payout_processing', 'payout_sent', 'completed', 'cancelled', 'failed', 'refunded'])
 })
 
 export const bulkUpdateOrderStatusResponseResultsItemOrderRecordVersionMin = 0;
@@ -3141,7 +3141,7 @@ export const UpdateOrderBody = zod.object({
   "status": zod.string().optional(),
   "note": zod.string().optional(),
   "providerReference": zod.string().optional(),
-  "manualSettlementState": zod.enum(['awaiting_funds', 'funds_confirmed', 'payout_processing', 'payout_sent', 'completed', 'cancelled', 'failed']).optional(),
+  "manualSettlementState": zod.enum(['awaiting_funds', 'funds_confirmed', 'payout_processing', 'payout_sent', 'completed', 'cancelled', 'failed', 'refunded']).optional(),
   "incomingTransactionReference": zod.string().max(updateOrderBodyIncomingTransactionReferenceMax).optional(),
   "outgoingTransactionReference": zod.string().max(updateOrderBodyOutgoingTransactionReferenceMax).optional(),
   "customerSafeNote": zod.string().max(updateOrderBodyCustomerSafeNoteMax).optional(),

@@ -453,7 +453,7 @@ test("Swap Telegram payment and completion messages use stored event details", (
   assert.match(completed, /Done ✅/);
   assert.match(completed, /20 USDT \(BEP20\)/);
   assert.match(completed, /18\.75 SEPA/);
-  assert.match(completed, /Status: <b>Completed ✅<\/b>/);
+  assert.match(completed, /Status: <b>Done ✅<\/b>/);
 });
 
 test("real Manual Swap completion queues one stored Telegram completion snapshot", async () => {
@@ -462,7 +462,7 @@ test("real Manual Swap completion queues one stored Telegram completion snapshot
   await db.insert(ordersTable).values({
     id,
     type: "manual",
-    status: "funds confirmed",
+    status: "processing",
     manualSettlementState: "funds_confirmed",
     fromAsset: "USDT",
     fromNetwork: "BEP20",

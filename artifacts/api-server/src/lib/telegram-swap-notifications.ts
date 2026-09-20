@@ -38,6 +38,18 @@ export type SwapTelegramNotificationPayload = {
   receivedNetwork?: string;
 };
 
+export function swapTelegramStatusLabel(status: string): string {
+  switch (status.trim().toLowerCase()) {
+    case "awaiting funds": return "AWAITING FUNDS";
+    case "processing": return "PROCESSING";
+    case "completed": return "DONE ✅";
+    case "cancelled": return "CANCELLED";
+    case "failed": return "FAILED";
+    case "refunded": return "REFUNDED";
+    default: return status;
+  }
+}
+
 function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -139,6 +151,7 @@ export async function enqueueSwapTelegramNotification(
           status: order.status,
           amount: order.amount,
           receiveAmount: order.receiveAmount,
+          orderKind: "manual",
         },
         deliveryStatus: "delivered",
         deliveredAt: new Date(),
@@ -244,7 +257,7 @@ export function formatSwapTelegramNotification(
     "→",
     `<b>${escapeHtml(payload.receiveAmount)} ${escapeHtml(routeLabel(payload.receiveMethod, payload.receiveAsset, payload.receiveNetwork))}</b>`,
     "",
-    "Status: <b>Completed ✅</b>",
+    "Status: <b>Done ✅</b>",
     "",
     "Your QuickXchange order has been completed successfully.",
   ].join("\n");

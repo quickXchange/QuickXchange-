@@ -4486,7 +4486,7 @@ components:
         providerReference: { type: string }
         manualSettlementState:
           type: string
-          enum: [awaiting_funds, funds_confirmed, payout_processing, payout_sent, completed, cancelled, failed]
+          enum: [awaiting_funds, funds_confirmed, payout_processing, payout_sent, completed, cancelled, failed, refunded]
         incomingTransactionReference: { type: string, maxLength: 500 }
         outgoingTransactionReference: { type: string, maxLength: 500 }
         customerSafeNote: { type: string, maxLength: 2000 }
@@ -4548,7 +4548,7 @@ components:
           items: { $ref: "#/components/schemas/OrderBulkMutationItem" }
         manualSettlementState:
           type: string
-          enum: [awaiting_funds, funds_confirmed, payout_processing, payout_sent, completed, cancelled, failed]
+          enum: [awaiting_funds, funds_confirmed, payout_processing, payout_sent, completed, cancelled, failed, refunded]
     OrderBulkArchiveInput:
       type: object
       additionalProperties: false

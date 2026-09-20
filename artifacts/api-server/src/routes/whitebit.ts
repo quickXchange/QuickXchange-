@@ -672,7 +672,7 @@ export async function processNormalizedDeposit(tx: WhitebitTransaction, input: N
           manualSettlementState: "funds_confirmed",
           manualSettlementStateUpdatedAt: now,
           manualSettlementFundedAt: order.manualSettlementFundedAt ?? now,
-          status: "funds confirmed",
+          status: "processing",
         },
         undefined,
         {

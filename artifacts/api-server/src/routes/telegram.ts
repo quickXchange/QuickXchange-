@@ -13,6 +13,7 @@ import { getCustomerOrderHistory } from "../lib/order-history";
 import { logger } from "../lib/logger";
 import {
   formatSwapTelegramNotification,
+  swapTelegramStatusLabel,
   swapTelegramRecipientIsCurrent,
   type SwapTelegramEventKind,
   type SwapTelegramNotificationPayload,
@@ -472,7 +473,7 @@ async function sendOrders(chatId: string, locale: TelegramLocale) {
     const owned = await getCustomerOrderHistory(linked.customerClerkUserId, 10);
     if (!owned.length) { await sendTelegramMessage(chatId, t(locale, "noOrders")); return; }
     const buttons = owned.map(item => [{ text: `🔎 ${item.id}`, url: website() ? `${website()!.replace(/\/+$/, "")}/account/orders/${encodeURIComponent(item.id)}` : undefined, callback_data: website() ? undefined : "website_unavailable" }]);
-    await sendTelegramMessage(chatId, owned.map(item => `• <code>${html(item.id)}</code> — ${html(item.status)}`).join("\n"), buttons);
+    await sendTelegramMessage(chatId, owned.map(item => `• <code>${html(item.id)}</code> — ${html(item.type === "manual" ? swapTelegramStatusLabel(item.status) : item.status)}`).join("\n"), buttons);
     return;
   }
   const links = await db.select().from(telegramOrderLinksTable).where(eq(telegramOrderLinksTable.chatId, chatId)).orderBy(telegramOrderLinksTable.createdAt).limit(10);
@@ -485,7 +486,7 @@ async function sendOrders(chatId: string, locale: TelegramLocale) {
     const response = await fetch(`${baseUrl()}${path}/${encodeURIComponent(item.orderId)}/status?trackingToken=${encodeURIComponent(item.trackingToken)}`);
     const result = await response.json() as Record<string, unknown>;
     lines.push(response.ok
-      ? `• <code>${html(item.orderId)}</code> — ${html(result.status)}`
+      ? `• <code>${html(item.orderId)}</code> — ${html(item.orderKind === "convert" ? result.status : swapTelegramStatusLabel(String(result.status ?? "")))}`
       : `• <code>${html(item.orderId)}</code> — unavailable`);
     buttons.push([{ text: `🔎 Track ${item.orderId}`, callback_data: `order:${index}` }]);
   }
@@ -1095,7 +1096,7 @@ export function startTelegramNotificationWorker(): () => void {
         chatId: order.chatId,
         orderId: order.orderId,
         statusVersion: order.statusVersion,
-        payload: { status: order.status, amount: order.amount, receiveAmount: order.receiveAmount },
+        payload: { status: order.status, amount: order.amount, receiveAmount: order.receiveAmount, orderKind: "manual" },
       }).onConflictDoNothing();
     }
     for (const order of missingConvertNotifications) {
@@ -1175,7 +1176,10 @@ export function startTelegramNotificationWorker(): () => void {
             ),
           );
         } else {
-          await sendTelegramMessage(claimed.chatId, `🔔 QuickXchange ${t(noticeLocale, "order")} <code>${html(claimed.orderId)}</code> ${t(noticeLocale, "notification")} <b>${html(payload.status ?? "updated")}</b>.`);
+          const displayedStatus = payload.orderKind === "manual"
+            ? swapTelegramStatusLabel(payload.status ?? "updated")
+            : payload.status ?? "updated";
+          await sendTelegramMessage(claimed.chatId, `🔔 QuickXchange ${t(noticeLocale, "order")} <code>${html(claimed.orderId)}</code> ${t(noticeLocale, "notification")} <b>${html(displayedStatus)}</b>.`);
         }
         await db.update(telegramNotificationOutboxTable).set({ deliveryStatus: "delivered", deliveredAt: new Date(), claimToken: null, claimExpiresAt: null }).where(and(eq(telegramNotificationOutboxTable.id, claimed.id), eq(telegramNotificationOutboxTable.claimToken, claimToken)));
       } catch (error) {

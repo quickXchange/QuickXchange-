@@ -3754,6 +3754,7 @@ const manualStatusLabels: Record<OrderBulkStatusInputManualSettlementState, stri
   completed: 'Completed',
   cancelled: 'Cancelled',
   failed: 'Failed',
+  refunded: 'Refunded',
 };
 
 const manualProgressStatuses: OrderBulkStatusInputManualSettlementState[] = [
@@ -3761,9 +3762,10 @@ const manualProgressStatuses: OrderBulkStatusInputManualSettlementState[] = [
 ];
 const manualTerminalStatuses: Partial<Record<OrderBulkStatusInputManualSettlementState, OrderBulkStatusInputManualSettlementState[]>> = {
   awaiting_funds: ['cancelled', 'failed'],
-  funds_confirmed: ['cancelled', 'failed'],
-  payout_processing: ['cancelled', 'failed'],
-  payout_sent: ['failed'],
+  funds_confirmed: ['cancelled', 'failed', 'refunded'],
+  payout_processing: ['cancelled', 'failed', 'refunded'],
+  payout_sent: ['failed', 'refunded'],
+  completed: ['refunded'],
 };
 
 function availableManualStatuses(current: string): OrderBulkStatusInputManualSettlementState[] {
@@ -4341,9 +4343,9 @@ function OperationalProgress({ order }: { order: Order }) {
   const { t } = useI18n();
   const manual = order.type === 'manual';
   const steps = manual
-    ? [['awaiting_funds', 'Awaiting funds'], ['funds_confirmed', 'Funds confirmed'], ['payout_processing', 'Payout processing'], ['payout_sent', 'Payout sent'], ['completed', 'Completed']]
+    ? [['awaiting_funds', 'Created'], ['processing', 'Processing'], ['completed', 'Done']]
     : [['created', 'Order created'], ['received', 'Deposit received'], ['exchanging', 'Exchanging'], ['payout', 'Sending payout'], ['completed', 'Completed']];
-  const status = (order.manualSettlementState || order.status).toLowerCase().replaceAll(' ', '_');
+  const status = order.status.toLowerCase().replaceAll(' ', '_');
   const terminal = /failed|cancelled|expired|refunded/.test(status);
   let current = manual ? steps.findIndex(([key]) => key === status)
     : /complete/.test(status) ? 4 : /send|withdraw|payout/.test(status) ? 3 : /exchang|process/.test(status) ? 2 : /received|confirm/.test(status) ? 1 : 0;

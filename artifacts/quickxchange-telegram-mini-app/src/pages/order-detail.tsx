@@ -20,6 +20,12 @@ import { format } from 'date-fns';
 import { QRCodeSVG } from 'qrcode.react';
 import { MiniAppLogo } from '@/components/mini-app-logo';
 import { resolveOrderVisual } from '@/lib/logo-catalog';
+import {
+  normalizeSwapOrderStatus,
+  swapOrderStatusLabel,
+  swapOrderStatusStep,
+  swapOrderStatusTerminal,
+} from '@/lib/swap-order-status';
 
 export default function OrderDetail() {
   const [, params] = useRoute('/orders/:id');
@@ -60,6 +66,7 @@ export default function OrderDetail() {
         enabled: !!trackingToken,
         refetchInterval: (query) => {
           const status = query.state.data?.status?.toLowerCase() || '';
+          if (orderData?.orderKind !== 'convert' && swapOrderStatusTerminal(status)) return false;
           if (['completed', 'paid', 'failed', 'cancelled', 'expired'].includes(status)) return false;
           return 5000;
         }
@@ -146,18 +153,26 @@ export default function OrderDetail() {
   }
 
   const status = (publicStatus?.status || orderData.status || '').toLowerCase();
-
   const targetStatus = { ...orderData, ...(publicStatus || {}) };
+  const isManualSwap = orderData.orderKind !== 'convert' && orderData.type === 'manual';
+  const canonicalSwapStatus = normalizeSwapOrderStatus(status);
   const isCancelled = status === 'cancelled';
-  const isFailed = isCancelled || /failed|expired/.test(status);
-  const isCompleted = /completed|complete|finished|success/.test(status) || status === 'paid';
-  const isProcessing = !isCompleted && !isFailed && /processing|exchanging|sending|payout/.test(status);
-  const isPaymentReceived = !isCompleted && !isFailed && (
+  const isRefunded = isManualSwap && canonicalSwapStatus === 'refunded';
+  const isFailed = isCancelled || isRefunded || /failed|expired/.test(status);
+  const isCompleted = isManualSwap
+    ? canonicalSwapStatus === 'completed'
+    : /completed|complete|finished|success/.test(status) || status === 'paid';
+  const isProcessing = isManualSwap
+    ? canonicalSwapStatus === 'processing'
+    : !isCompleted && !isFailed && /processing|exchanging|sending|payout/.test(status);
+  const isPaymentReceived = !isManualSwap && !isCompleted && !isFailed && (
     Boolean(targetStatus?.customerMarkedPaidAt) ||
     /payment_received|funds_received|funds_confirmed|confirmed/.test(status)
   );
   const isPending = !isCompleted && !isFailed && !isProcessing && !isPaymentReceived;
-  const currentStep = isCompleted ? 4 : isProcessing ? 3 : isPaymentReceived ? 2 : 1;
+  const currentStep = isManualSwap
+    ? swapOrderStatusStep(canonicalSwapStatus)
+    : isCompleted ? 4 : isProcessing ? 3 : isPaymentReceived ? 2 : 1;
 
   const showPaymentActions = isPending && !targetStatus?.customerMarkedPaidAt && !isFailed && targetStatus?.paymentDetailsApplicable;
 
@@ -172,7 +187,15 @@ export default function OrderDetail() {
     ? parsedReceiveAmount / parsedSendAmount
     : null;
 
-  const statusPresentation = isCompleted
+  const statusPresentation = isManualSwap
+    ? isCompleted
+      ? { label: swapOrderStatusLabel(canonicalSwapStatus), description: 'Your exchange has been completed successfully.', icon: CheckCircle2, tone: 'text-primary', surface: 'bg-primary/10' }
+      : isFailed
+        ? { label: swapOrderStatusLabel(canonicalSwapStatus), description: 'This order is no longer active.', icon: XCircle, tone: 'text-destructive', surface: 'bg-destructive/10' }
+        : isProcessing
+          ? { label: swapOrderStatusLabel(canonicalSwapStatus), description: 'Your payment was received and your order is being processed.', icon: RefreshCcw, tone: 'text-accent', surface: 'bg-accent/10' }
+          : { label: swapOrderStatusLabel(canonicalSwapStatus), description: 'Complete the payment using the order-specific details below.', icon: Clock3, tone: 'text-secondary', surface: 'bg-secondary/10' }
+    : isCompleted
     ? { label: 'Completed', description: 'Your exchange has been completed successfully.', icon: CheckCircle2, tone: 'text-primary', surface: 'bg-primary/10' }
     : isFailed
       ? { label: isCancelled ? 'Cancelled' : status === 'expired' ? 'Expired' : 'Failed', description: 'This order is no longer active.', icon: XCircle, tone: 'text-destructive', surface: 'bg-destructive/10' }
@@ -270,10 +293,10 @@ export default function OrderDetail() {
       {!isFailed && <div className="mt-4 border-t border-border/50 pt-4">
       <div className="relative pt-2 pb-1">
         <div className="absolute top-[15px] left-[10%] right-[10%] h-[2px] bg-border z-0" />
-        <div className="absolute top-[15px] left-[10%] h-[2px] bg-gradient-to-r from-secondary via-primary to-accent z-0 transition-all duration-500" style={{ width: `${(Math.max(0, currentStep - 1) / 3) * 80}%` }} />
+        <div className="absolute top-[15px] left-[10%] h-[2px] bg-gradient-to-r from-secondary via-primary to-accent z-0 transition-all duration-500" style={{ width: `${(Math.max(0, currentStep - 1) / ((isManualSwap ? 3 : 4) - 1)) * 80}%` }} />
 
         <div className="flex justify-between relative z-10">
-          {['Order Created', 'Payment Received', 'Processing', 'Completed'].map((label, idx) => {
+          {(isManualSwap ? ['Created', 'Processing', 'Done'] : ['Order Created', 'Payment Received', 'Processing', 'Completed']).map((label, idx) => {
             const step = idx + 1;
             const isPast = currentStep > step;
             const isCurrent = currentStep === step;

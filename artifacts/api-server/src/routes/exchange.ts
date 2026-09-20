@@ -2704,7 +2704,7 @@ router.post("/orders", async (req, res, next) => {
 
 function parseManualOrderPatch(value: unknown) {
   const body = value && typeof value === "object" ? value as Record<string, unknown> : {};
-  const allowed = ["awaiting_funds", "funds_confirmed", "payout_processing", "payout_sent", "completed", "cancelled", "failed"];
+  const allowed = ["awaiting_funds", "funds_confirmed", "payout_processing", "payout_sent", "completed", "cancelled", "failed", "refunded"];
   if (body.manualSettlementState !== undefined &&
       (typeof body.manualSettlementState !== "string" || !allowed.includes(body.manualSettlementState))) {
     throw new ApiError("VALIDATION_ERROR", "Invalid manual settlement state.", 400);
@@ -2798,9 +2798,10 @@ const MANUAL_PROGRESS_STATES = [
 ] as const;
 const MANUAL_TERMINAL_TRANSITIONS: Record<string, string[]> = {
   awaiting_funds: ["cancelled", "failed"],
-  funds_confirmed: ["cancelled", "failed"],
-  payout_processing: ["cancelled", "failed"],
-  payout_sent: ["failed"],
+  funds_confirmed: ["cancelled", "failed", "refunded"],
+  payout_processing: ["cancelled", "failed", "refunded"],
+  payout_sent: ["failed", "refunded"],
+  completed: ["refunded"],
 };
 function manualTransitionStates(current: string): string[] {
   const currentIndex = MANUAL_PROGRESS_STATES.indexOf(
@@ -2855,9 +2856,10 @@ function manualMilestoneUpdates(
   };
 }
 const manualStatus = (state: string) => ({
-  awaiting_funds: "awaiting funds", funds_confirmed: "funds confirmed",
-  payout_processing: "payout processing", payout_sent: "payout sent",
+  awaiting_funds: "awaiting funds", funds_confirmed: "processing",
+  payout_processing: "processing", payout_sent: "processing",
   completed: "completed", cancelled: "cancelled", failed: "failed",
+  refunded: "refunded",
 }[state] ?? state);
 
 type BulkMutationItem = { id: string; recordVersion: number };

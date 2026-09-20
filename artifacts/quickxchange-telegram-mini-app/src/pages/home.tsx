@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { useHapticFeedback } from '@/lib/hooks';
 import { MiniAppBrandLogo, MiniAppLogo } from '@/components/mini-app-logo';
 import { resolveOrderVisual } from '@/lib/logo-catalog';
+import { swapOrderStatusLabel, swapOrderStatusTerminal } from '@/lib/swap-order-status';
 
 export default function Home() {
   const { user } = useAuth();
@@ -24,10 +25,14 @@ export default function Home() {
     query: {
       queryKey: getListTelegramMiniAppOrdersQueryKey(),
       enabled: Boolean(headers.Authorization),
+      refetchOnWindowFocus: 'always',
+      refetchIntervalInBackground: true,
       refetchInterval: (query) => {
         const orders = query.state.data || [];
-        const hasActive = orders.some((o: any) => !['completed', 'paid', 'failed', 'cancelled', 'expired'].includes((o.status || '').toLowerCase()));
-        return hasActive ? 10000 : false;
+        const hasActive = orders.some((o: any) => o.orderKind === 'convert'
+          ? !['completed', 'paid', 'failed', 'cancelled', 'expired'].includes((o.status || '').toLowerCase())
+          : !swapOrderStatusTerminal(o.status));
+        return hasActive ? 3000 : false;
       },
     },
     request: { headers }
@@ -124,7 +129,7 @@ export default function Home() {
                     order.status === 'failed' || order.status === 'cancelled' || order.status === 'expired' ? "bg-destructive/10 text-destructive border border-destructive/20" :
                     "bg-secondary/10 text-secondary border border-secondary/20"
                   )}>
-                    {order.status}
+                    {order.orderKind === 'convert' ? order.status : swapOrderStatusLabel(order.status)}
                   </div>
                 </div>
               </Link>;

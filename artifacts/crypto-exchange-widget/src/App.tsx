@@ -1411,21 +1411,19 @@ function OrderStatusCard({
   markPaidPending?: boolean;
 }) {
   const { t } = useI18n();
-  const isManual = order.type === 'manual' || Boolean(order.manualSettlementState);
-  const mss = (order.manualSettlementState || 'awaiting_funds').toLowerCase();
-
   const status = order.status.toLowerCase();
-  const halted = /refund|expire|fail|cancel/.test(status) || mss === 'cancelled' || mss === 'failed';
+  const isManual = order.type === 'manual';
+  const halted = /refund|expire|fail|cancel/.test(status);
   const uncertain = /unknown|held|verification|review/.test(status) || order.outcomeUnknown;
-  const completed = /complete|paid/.test(status) || mss === 'completed';
+  const completed = /complete|paid/.test(status);
   const depositActionable = Boolean(order.depositAddress) && !halted && !uncertain && !completed;
 
   const timeline = isManual
-    ? [t('orderStatus.awaitingFunds'), t('orderStatus.depositReceived'), t('orderStatus.payoutProcessing'), t('orderStatus.payoutSent'), t('orderStatus.completed')]
+    ? ['Created', 'Processing', 'Done']
     : [t('orderStatus.orderCreated'), t('orderStatus.depositReceived'), t('orderStatus.exchanging'), t('orderStatus.sendingPayout'), t('orderStatus.complete')];
 
   const current = isManual
-    ? (mss === 'completed' ? 4 : mss === 'payout_sent' ? 3 : mss === 'payout_processing' ? 2 : mss === 'funds_confirmed' ? 1 : 0)
+    ? (status === 'completed' ? 2 : status === 'processing' ? 1 : 0)
     : (/complete/.test(status) ? 4 : /send|withdraw|payout/.test(status) ? 3 : /exchang|process/.test(status) ? 2 : /deposit received|received|confirm/.test(status) ? 1 : 0);
 
   const haltedMessage = /refund/.test(status) ? t('orderStatus.refunded')

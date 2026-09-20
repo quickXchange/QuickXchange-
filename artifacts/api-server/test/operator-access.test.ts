@@ -1445,10 +1445,13 @@ test("anonymous orders stay public and can be claimed exactly once without owner
   );
   assert.equal(paymentConfirmed.status, 200);
   assert.equal(paymentConfirmed.body?.manualSettlementState, "funds_confirmed");
+  assert.equal(paymentConfirmed.body?.status, "processing");
   assert.equal(paymentConfirmed.body?.assignedOperatorId, operator.id);
 
   const publicStatus = await request(`/orders/${anonymousId}/status`);
   assert.equal(publicStatus.status, 200);
+  assert.equal(publicStatus.body?.id, anonymousId);
+  assert.equal(publicStatus.body?.status, "processing");
 
   const customerA = `user_claim_a_${randomUUID()}`;
   const customerB = `user_claim_b_${randomUUID()}`;
@@ -2028,6 +2031,22 @@ test("bulk order status and archive mutations are bounded, fenced, authorized, a
   assert.equal(notificationEvents[0]?.toStatus, "completed");
   await database.db.delete(database.customerStatusNotificationEventsTable)
     .where(eq(database.customerStatusNotificationEventsTable.orderId, success.id));
+
+  const refunded = await request(`/orders/${success.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      recordVersion: storedSuccess.recordVersion,
+      manualSettlementState: "refunded",
+    }),
+  }, ownerUserId);
+  assert.equal(refunded.status, 200);
+  assert.equal(refunded.body?.id, success.id);
+  assert.equal(refunded.body?.manualSettlementState, "refunded");
+  assert.equal(refunded.body?.status, "refunded");
+  const refundedPublicStatus = await request(`/orders/${success.id}/status`);
+  assert.equal(refundedPublicStatus.status, 200);
+  assert.equal(refundedPublicStatus.body?.id, success.id);
+  assert.equal(refundedPublicStatus.body?.status, "refunded");
 
   const operatorArchive = await request("/orders/bulk/archive", {
     method: "POST",
