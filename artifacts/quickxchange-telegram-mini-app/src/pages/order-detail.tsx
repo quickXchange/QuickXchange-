@@ -26,6 +26,11 @@ import {
   swapOrderStatusStep,
   swapOrderStatusTerminal,
 } from '@/lib/swap-order-status';
+import {
+  convertOrderStatusLabel,
+  convertOrderStatusStep,
+  isConvertTerminalStatus,
+} from '@/lib/convert-order-status';
 
 export default function OrderDetail() {
   const [, params] = useRoute('/orders/:id');
@@ -64,11 +69,13 @@ export default function OrderDetail() {
       query: {
         queryKey: getGetPublicOrderStatusQueryKey(orderId, { trackingToken: trackingToken || '' }),
         enabled: !!trackingToken,
+        refetchOnWindowFocus: 'always',
+        refetchIntervalInBackground: true,
         refetchInterval: (query) => {
           const status = query.state.data?.status?.toLowerCase() || '';
           if (orderData?.orderKind !== 'convert' && swapOrderStatusTerminal(status)) return false;
-          if (['completed', 'paid', 'failed', 'cancelled', 'expired'].includes(status)) return false;
-          return 5000;
+          if (orderData?.orderKind === 'convert' && isConvertTerminalStatus(status)) return false;
+          return 3000;
         }
       }
     }
@@ -158,21 +165,17 @@ export default function OrderDetail() {
   const canonicalSwapStatus = normalizeSwapOrderStatus(status);
   const isCancelled = status === 'cancelled';
   const isRefunded = isManualSwap && canonicalSwapStatus === 'refunded';
-  const isFailed = isCancelled || isRefunded || /failed|expired/.test(status);
   const isCompleted = isManualSwap
     ? canonicalSwapStatus === 'completed'
-    : /completed|complete|finished|success/.test(status) || status === 'paid';
+    : isConvertTerminalStatus(status) && ['completed'].includes(status);
+  const isFailed = isManualSwap ? isCancelled || isRefunded || /failed|expired/.test(status) : isConvertTerminalStatus(status) && !isCompleted;
   const isProcessing = isManualSwap
     ? canonicalSwapStatus === 'processing'
-    : !isCompleted && !isFailed && /processing|exchanging|sending|payout/.test(status);
-  const isPaymentReceived = !isManualSwap && !isCompleted && !isFailed && (
-    Boolean(targetStatus?.customerMarkedPaidAt) ||
-    /payment_received|funds_received|funds_confirmed|confirmed/.test(status)
-  );
-  const isPending = !isCompleted && !isFailed && !isProcessing && !isPaymentReceived;
+    : !isCompleted && !isFailed && status === 'processing';
+  const isPending = !isCompleted && !isFailed && !isProcessing;
   const currentStep = isManualSwap
     ? swapOrderStatusStep(canonicalSwapStatus)
-    : isCompleted ? 4 : isProcessing ? 3 : isPaymentReceived ? 2 : 1;
+    : convertOrderStatusStep(status) + 1;
 
   const showPaymentActions = isPending && !targetStatus?.customerMarkedPaidAt && !isFailed && targetStatus?.paymentDetailsApplicable;
 
@@ -196,14 +199,12 @@ export default function OrderDetail() {
           ? { label: swapOrderStatusLabel(canonicalSwapStatus), description: 'Your payment was received and your order is being processed.', icon: RefreshCcw, tone: 'text-accent', surface: 'bg-accent/10' }
           : { label: swapOrderStatusLabel(canonicalSwapStatus), description: 'Complete the payment using the order-specific details below.', icon: Clock3, tone: 'text-secondary', surface: 'bg-secondary/10' }
     : isCompleted
-    ? { label: 'Completed', description: 'Your exchange has been completed successfully.', icon: CheckCircle2, tone: 'text-primary', surface: 'bg-primary/10' }
-    : isFailed
-      ? { label: isCancelled ? 'Cancelled' : status === 'expired' ? 'Expired' : 'Failed', description: 'This order is no longer active.', icon: XCircle, tone: 'text-destructive', surface: 'bg-destructive/10' }
-      : isProcessing
+     ? { label: isManualSwap ? 'Completed' : convertOrderStatusLabel(status), description: 'Your exchange has been completed successfully.', icon: CheckCircle2, tone: 'text-primary', surface: 'bg-primary/10' }
+     : isFailed
+       ? { label: isManualSwap ? (isCancelled ? 'Cancelled' : status === 'expired' ? 'Expired' : 'Failed') : convertOrderStatusLabel(status), description: 'This order is no longer active.', icon: XCircle, tone: 'text-destructive', surface: 'bg-destructive/10' }
+       : isProcessing
         ? { label: 'Processing', description: 'Your payment is being processed for delivery.', icon: RefreshCcw, tone: 'text-accent', surface: 'bg-accent/10' }
-        : isPaymentReceived
-          ? { label: 'Payment Received', description: 'Your payment has been reported and is awaiting processing.', icon: Check, tone: 'text-secondary', surface: 'bg-secondary/10' }
-          : { label: 'Awaiting Payment', description: 'Complete the payment using the order-specific details below.', icon: Clock3, tone: 'text-secondary', surface: 'bg-secondary/10' };
+         : { label: convertOrderStatusLabel(status), description: 'Complete the payment using the order-specific details below.', icon: Clock3, tone: 'text-secondary', surface: 'bg-secondary/10' };
   const StatusIcon = statusPresentation.icon;
   const paymentFieldLabels: Record<string, string> = {
     name: 'Name',
@@ -293,10 +294,10 @@ export default function OrderDetail() {
       {!isFailed && <div className="mt-4 border-t border-border/50 pt-4">
       <div className="relative pt-2 pb-1">
         <div className="absolute top-[15px] left-[10%] right-[10%] h-[2px] bg-border z-0" />
-        <div className="absolute top-[15px] left-[10%] h-[2px] bg-gradient-to-r from-secondary via-primary to-accent z-0 transition-all duration-500" style={{ width: `${(Math.max(0, currentStep - 1) / ((isManualSwap ? 3 : 4) - 1)) * 80}%` }} />
+        <div className="absolute top-[15px] left-[10%] h-[2px] bg-gradient-to-r from-secondary via-primary to-accent z-0 transition-all duration-500" style={{ width: `${(Math.max(0, currentStep - 1) / 2) * 80}%` }} />
 
         <div className="flex justify-between relative z-10">
-          {(isManualSwap ? ['Created', 'Processing', 'Done'] : ['Order Created', 'Payment Received', 'Processing', 'Completed']).map((label, idx) => {
+          {(isManualSwap ? ['Created', 'Processing', 'Done'] : ['Created', 'Processing', 'Done']).map((label, idx) => {
             const step = idx + 1;
             const isPast = currentStep > step;
             const isCurrent = currentStep === step;

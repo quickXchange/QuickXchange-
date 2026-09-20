@@ -18,6 +18,13 @@ import {
   type SwapTelegramEventKind,
   type SwapTelegramNotificationPayload,
 } from "../lib/telegram-swap-notifications";
+import {
+  convertTelegramRecipientIsCurrent,
+  convertTelegramStatusLabel,
+  enqueueConvertTelegramMilestones,
+  formatConvertTelegramNotification,
+  type ConvertNotificationPayload,
+} from "../lib/telegram-convert-notifications";
 
 const router: IRouter = Router();
 export const telegramManualOrderKinds = ["manual", "swap"] as const;
@@ -473,7 +480,7 @@ async function sendOrders(chatId: string, locale: TelegramLocale) {
     const owned = await getCustomerOrderHistory(linked.customerClerkUserId, 10);
     if (!owned.length) { await sendTelegramMessage(chatId, t(locale, "noOrders")); return; }
     const buttons = owned.map(item => [{ text: `🔎 ${item.id}`, url: website() ? `${website()!.replace(/\/+$/, "")}/account/orders/${encodeURIComponent(item.id)}` : undefined, callback_data: website() ? undefined : "website_unavailable" }]);
-    await sendTelegramMessage(chatId, owned.map(item => `• <code>${html(item.id)}</code> — ${html(item.type === "manual" ? swapTelegramStatusLabel(item.status) : item.status)}`).join("\n"), buttons);
+    await sendTelegramMessage(chatId, owned.map(item => `• <code>${html(item.id)}</code> — ${html(item.type === "manual" ? swapTelegramStatusLabel(item.status) : item.type === "instant" ? convertTelegramStatusLabel(item.status) : item.status)}`).join("\n"), buttons);
     return;
   }
   const links = await db.select().from(telegramOrderLinksTable).where(eq(telegramOrderLinksTable.chatId, chatId)).orderBy(telegramOrderLinksTable.createdAt).limit(10);
@@ -486,7 +493,7 @@ async function sendOrders(chatId: string, locale: TelegramLocale) {
     const response = await fetch(`${baseUrl()}${path}/${encodeURIComponent(item.orderId)}/status?trackingToken=${encodeURIComponent(item.trackingToken)}`);
     const result = await response.json() as Record<string, unknown>;
     lines.push(response.ok
-      ? `• <code>${html(item.orderId)}</code> — ${html(item.orderKind === "convert" ? result.status : swapTelegramStatusLabel(String(result.status ?? "")))}`
+      ? `• <code>${html(item.orderId)}</code> — ${html(item.orderKind === "convert" ? convertTelegramStatusLabel(String(result.status ?? "")) : swapTelegramStatusLabel(String(result.status ?? "")))}`
       : `• <code>${html(item.orderId)}</code> — unavailable`);
     buttons.push([{ text: `🔎 Track ${item.orderId}`, callback_data: `order:${index}` }]);
   }
@@ -1105,8 +1112,20 @@ export function startTelegramNotificationWorker(): () => void {
         chatId: order.chatId,
         orderId: order.orderId,
         statusVersion: order.statusVersion,
-        payload: { status: order.status, amount: amounts.amount, receiveAmount: amounts.receiveAmount },
+        payload: { status: order.status, amount: amounts.amount, receiveAmount: amounts.receiveAmount, orderKind: "convert" },
       }).onConflictDoNothing();
+    }
+    const convertMilestoneOrders = await db.select({
+      order: quickexOrdersTable,
+    }).from(telegramOrderLinksTable)
+      .innerJoin(quickexOrdersTable, and(
+        eq(telegramOrderLinksTable.orderKind, "convert"),
+        eq(telegramOrderLinksTable.orderId, quickexOrdersTable.legacyOrderId),
+      ))
+      .where(inArray(quickexOrdersTable.status, ["processing", "completed"]))
+      .limit(100);
+    for (const { order } of convertMilestoneOrders) {
+      await db.transaction((tx) => enqueueConvertTelegramMilestones(tx, order));
     }
     const now = new Date();
     const pending = await db.select().from(telegramNotificationOutboxTable)
@@ -1125,7 +1144,7 @@ export function startTelegramNotificationWorker(): () => void {
       ))).returning();
       if (!claimed) continue;
       try {
-        const payload = claimed.payload as { status?: string; eventKind?: string; requiresDeposit?: boolean; trackingToken?: string; depositAddress?: string; depositMemo?: string; orderKind?: string };
+         const payload = claimed.payload as { status?: string; eventKind?: string; requiresDeposit?: boolean; trackingToken?: string; depositAddress?: string; depositMemo?: string; orderKind?: string };
         const [noticeChat] = await db.select({ locale: telegramChatsTable.locale }).from(telegramChatsTable).where(eq(telegramChatsTable.chatId, claimed.chatId)).limit(1);
         const noticeLocale = localeOf(noticeChat?.locale);
         if (claimed.eventKind === "order_created") {
@@ -1151,16 +1170,15 @@ export function startTelegramNotificationWorker(): () => void {
           claimed.eventKind === "payment_received" ||
           claimed.eventKind === "completed"
         ) {
-          const eventKind = claimed.eventKind as SwapTelegramEventKind;
-          const recipientIsCurrent = await swapTelegramRecipientIsCurrent(
-            claimed.chatId,
-            claimed.orderId,
-            eventKind,
-          );
+          const eventKind = claimed.eventKind as "payment_received" | "completed";
+          const convert = payload.orderKind === "convert";
+          const recipientIsCurrent = convert
+            ? await convertTelegramRecipientIsCurrent(claimed.chatId, claimed.orderId, eventKind)
+            : await swapTelegramRecipientIsCurrent(claimed.chatId, claimed.orderId, eventKind as SwapTelegramEventKind);
           if (!recipientIsCurrent) {
             await db.update(telegramNotificationOutboxTable).set({
               deliveryStatus: "failed",
-              lastError: "Telegram order link or Swap state is no longer valid.",
+              lastError: "Telegram order link or current order state is no longer valid.",
               claimToken: null,
               claimExpiresAt: null,
             }).where(and(
@@ -1171,13 +1189,15 @@ export function startTelegramNotificationWorker(): () => void {
           }
           await sendTelegramMessage(
             claimed.chatId,
-            formatSwapTelegramNotification(
-              payload as SwapTelegramNotificationPayload,
-            ),
+            convert
+              ? formatConvertTelegramNotification(payload as ConvertNotificationPayload)
+              : formatSwapTelegramNotification(payload as SwapTelegramNotificationPayload),
           );
         } else {
           const displayedStatus = payload.orderKind === "manual"
             ? swapTelegramStatusLabel(payload.status ?? "updated")
+            : payload.orderKind === "convert"
+              ? convertTelegramStatusLabel(payload.status ?? "updated")
             : payload.status ?? "updated";
           await sendTelegramMessage(claimed.chatId, `🔔 QuickXchange ${t(noticeLocale, "order")} <code>${html(claimed.orderId)}</code> ${t(noticeLocale, "notification")} <b>${html(displayedStatus)}</b>.`);
         }

@@ -25,6 +25,7 @@ import { LanguageSelector } from '@/components/language-selector';
 import { basePath, CancelOrderAction, cn, ErrorState, InlineNotice, LoadingBlock, number, publicApiErrorText, StatusPill, PaymentDetailsCard, SUPPORT_TELEGRAM } from '@/components/shared-app-ui';
 import { PublicShell } from '@/components/public-shell';
 import { ExchangeModeSwitcher } from '@/components/exchange-surface';
+import { convertOrderStatusStep } from '@/lib/convert-order-status';
 
 type CustomerStatusGroup = 'pending' | 'processing' | 'completed' | 'failed';
 
@@ -1057,27 +1058,32 @@ function CustomerOrderView({ order }: { order: CustomerOrder }) {
   const cancelOrderMutation = useCancelCustomerOrder();
   const [cancelError, setCancelError] = useState<string | null>(null);
   const normalizedStatus = order.status.trim().toLowerCase();
+  const isConvert = order.type === 'instant';
   const canCustomerCancel = order.type === 'manual' &&
     order.manualSettlementState === 'awaiting_funds' &&
     !order.customerMarkedPaidAt &&
     statusGroup === 'pending';
-  const currentStage = statusGroup === 'completed'
-    ? 3
-    : statusGroup === 'processing'
-      ? 2
-      : isFailed && /fail|refund/.test(normalizedStatus)
+  const currentStage = isConvert
+    ? convertOrderStatusStep(normalizedStatus)
+    : statusGroup === 'completed'
+      ? 3
+      : statusGroup === 'processing'
         ? 2
-        : 1;
-  const stages = [
-    t('customerPortal.timelineCreated'),
-    t('customerPortal.timelineAwaitingPayment'),
-    t('customerPortal.timelineProcessing'),
-    t('customerPortal.timelineCompleted'),
-  ].map((label, index) => ({
-    id: ['created', 'awaiting-payment', 'processing', 'completed'][index],
+        : isFailed && /fail|refund/.test(normalizedStatus)
+          ? 2
+          : 1;
+  const stages = (isConvert
+    ? ['Created', 'Processing', 'Done']
+    : [
+      t('customerPortal.timelineCreated'),
+      t('customerPortal.timelineAwaitingPayment'),
+      t('customerPortal.timelineProcessing'),
+      t('customerPortal.timelineCompleted'),
+    ]).map((label, index) => ({
+    id: (isConvert ? ['created', 'processing', 'completed'] : ['created', 'awaiting-payment', 'processing', 'completed'])[index],
     label,
-    completed: statusGroup === 'completed' || index < currentStage,
-    active: statusGroup !== 'completed' && !isFailed && index === currentStage,
+    completed: isConvert ? currentStage === 2 || index < currentStage : statusGroup === 'completed' || index < currentStage,
+    active: isConvert ? currentStage !== 2 && !isFailed && index === currentStage : statusGroup !== 'completed' && !isFailed && index === currentStage,
     failed: isFailed && index === currentStage,
   }));
 

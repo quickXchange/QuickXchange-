@@ -1092,16 +1092,14 @@ async function listQuickexOrdersWithCredentials(
 export function mapQuickexState(state: string | undefined, completed?: boolean) {
   if (completed) return "completed";
   const normalized = (state ?? "").trim().toLowerCase();
-  if (!normalized) return "pending";
-  if (/refund/.test(normalized)) return "refunded";
+  if (!normalized) return "awaiting funds";
+  if (/refund|revers/.test(normalized)) return "refunded";
   if (/expire|overdue/.test(normalized)) return "expired";
-  if (/fail|error|reject|cancel/.test(normalized)) return "failed";
-  if (/hold|frozen|verif|kyc|aml/.test(normalized)) return "on hold";
-  if (/send|withdraw|payout/.test(normalized)) return "sending payout";
-  if (/exchang|trade|convert|process/.test(normalized)) return "exchanging";
-  if (/received|confirm/.test(normalized)) return "deposit received";
-  if (/created|new|wait|await|deposit|pending/.test(normalized)) return "awaiting deposit";
-  return "pending";
+  if (/cancel/.test(normalized)) return "cancelled";
+  if (/fail|error|reject/.test(normalized)) return "failed";
+  if (/send|withdraw|payout|exchang|trade|convert|process|received|confirm/.test(normalized)) return "processing";
+  if (/created|new|wait|await|deposit|pending/.test(normalized)) return "awaiting funds";
+  return "awaiting funds";
 }
 
 export const TERMINAL_STATUSES = ["completed", "refunded", "expired", "failed", "cancelled"] as const;

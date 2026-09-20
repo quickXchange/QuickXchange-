@@ -108,6 +108,7 @@ import { setAppTheme, useAppTheme } from '@/theme';
 import { trackEvent } from '@/lib/analytics';
 import { SitePreviewProvider, useSitePreview } from '@/components/site-preview-context';
 import { AdminPermissionsProvider, useAdminPermissions } from '@/lib/admin-permissions';
+import { convertOrderStatusStep, isConvertTerminalStatus } from '@/lib/convert-order-status';
 
 const AccountPage = lazy(() => import('./pages/account').then(module => ({ default: module.AccountPage })));
 const AccountOrdersPage = lazy(() => import('./pages/account').then(module => ({ default: module.AccountOrdersPage })));
@@ -1246,7 +1247,6 @@ function StatusPage() {
   const markPaidMutation = useMarkOrderPaid();
   const validCapabilityId = /^(?:O[0-9]{9}|QX-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$/.test(submitted);
   const isQuickexOrder = submitted.startsWith('QX-');
-  const quickexTrackingTokenMissing = validCapabilityId && isQuickexOrder && !trackingToken;
   const trackingParams = trackingToken ? { trackingToken } : undefined;
 
   const statusQuery = useGetPublicOrderStatus(validCapabilityId ? submitted : '', trackingParams, { query: {
@@ -1272,13 +1272,13 @@ function StatusPage() {
   const quickexTrackingParams = { trackingToken };
   const quickexStatusQuery = useGetQuickexOrderStatus(isQuickexOrder ? submitted : '', quickexTrackingParams, { query: {
     queryKey: getGetQuickexOrderStatusQueryKey(isQuickexOrder ? submitted : '', quickexTrackingParams),
-    enabled: validCapabilityId && isQuickexOrder && Boolean(trackingToken),
+    enabled: validCapabilityId && isQuickexOrder,
     refetchOnWindowFocus: 'always',
     refetchIntervalInBackground: true,
     refetchInterval: (query: any) => {
       const order = query.state.data;
       if (!order) return 3000;
-      return /complete|paid|refund|expire|fail|cancel/i.test(order.status) ? false : 3000;
+      return isConvertTerminalStatus(order.status) ? false : 3000;
     },
   } });
 
@@ -1356,19 +1356,11 @@ function StatusPage() {
             </div>
           )}
 
-          {quickexTrackingTokenMissing && (
-            <div className="lookup-card track-order-state-card result-empty" data-testid="missing-tracking-token-result">
-              <CircleAlert size={24} />
-              <strong>Tracking link required</strong>
-              <p>Open the tracking link from your order confirmation to view this order.</p>
-            </div>
-          )}
-
           {activeStatusQuery.isError && validCapabilityId && !visibleOrder && (notFound
             ? <div className="lookup-card track-order-state-card result-empty" data-testid="empty-order-result"><Search size={24} /><strong>Order not found</strong><p>Check your Order ID and try again.</p></div>
             : <div className="lookup-card track-order-state-card"><div className="lookup-card-inner"><ErrorState message={lookupErrorMessage} retry={() => activeStatusQuery.refetch()} /></div></div>)}
 
-          {!visibleOrder && activeStatusQuery.isFetching && validCapabilityId && !quickexTrackingTokenMissing && (
+          {!visibleOrder && activeStatusQuery.isFetching && validCapabilityId && (
             <div className="lookup-card track-order-state-card"><div className="lookup-card-inner flex justify-center py-12"><Loader2 size={32} className="animate-spin text-primary" /></div></div>
           )}
 
@@ -1413,6 +1405,7 @@ function OrderStatusCard({
   const { t } = useI18n();
   const status = order.status.toLowerCase();
   const isManual = order.type === 'manual';
+  const isConvert = !isManual;
   const halted = /refund|expire|fail|cancel/.test(status);
   const uncertain = /unknown|held|verification|review/.test(status) || order.outcomeUnknown;
   const completed = /complete|paid/.test(status);
@@ -1420,11 +1413,11 @@ function OrderStatusCard({
 
   const timeline = isManual
     ? ['Created', 'Processing', 'Done']
-    : [t('orderStatus.orderCreated'), t('orderStatus.depositReceived'), t('orderStatus.exchanging'), t('orderStatus.sendingPayout'), t('orderStatus.complete')];
+    : ['Created', 'Processing', 'Done'];
 
   const current = isManual
     ? (status === 'completed' ? 2 : status === 'processing' ? 1 : 0)
-    : (/complete/.test(status) ? 4 : /send|withdraw|payout/.test(status) ? 3 : /exchang|process/.test(status) ? 2 : /deposit received|received|confirm/.test(status) ? 1 : 0);
+    : convertOrderStatusStep(status);
 
   const haltedMessage = /refund/.test(status) ? t('orderStatus.refunded')
     : /expire/.test(status) ? t('orderStatus.expired')

@@ -87,6 +87,7 @@ import { AdminSearch } from '../components/admin-search';
 import { AdminWhitebitAssetSyncDialog } from '../components/admin-whitebit-asset-sync-dialog';
 import { AdminCryptoAssetsBulkEditDialog } from '../components/admin-crypto-assets-bulk-edit-dialog';
 import { OrderSupportToolsSection } from '../components/admin-order-support-tools';
+import { convertOrderStatusLabel, convertOrderStatusStep, normalizeConvertOrderStatus } from '../lib/convert-order-status';
 
 type AppBuildInfo = {
   buildId: string;
@@ -3198,7 +3199,7 @@ function OverviewQueueTable({ orders, loading = false, emptyLabel }: {
   if (loading && !orders.length) return <LoadingBlock rows={4} />;
 
   const visibleOrders = orders.filter((order) => {
-    const status = order.type === 'manual' ? swapStatusLabel(order) : order.status;
+    const status = order.type === 'manual' ? swapStatusLabel(order) : convertOrderStatusLabel(order.status);
     const haystack = [
       order.id,
       order.fromAsset,
@@ -3279,7 +3280,7 @@ function OverviewQueueTable({ orders, loading = false, emptyLabel }: {
                     ['funds_confirmed', 'payout_processing', 'payout_sent', 'completed'].includes(settlementState)
                   );
                   const customer = guestCustomerLabel(order);
-                  const status = order.type === 'manual' ? swapStatusLabel(order) : order.status;
+                  const status = order.type === 'manual' ? swapStatusLabel(order) : convertOrderStatusLabel(order.status);
                   const statusTone = modernOrderStatusTone(status);
                   return (
                     <tr key={order.id} data-testid={`row-order-${order.id}`}>
@@ -3363,7 +3364,7 @@ function OverviewRecentTable({ orders, loading = false, emptyLabel }: {
               <tbody>
                 {orders.map((order) => {
                   const customer = guestCustomerLabel(order);
-                  const status = order.type === 'manual' ? swapStatusLabel(order) : order.status;
+                   const status = order.type === 'manual' ? swapStatusLabel(order) : convertOrderStatusLabel(order.status);
                   const statusTone = modernOrderStatusTone(status);
                   return (
                     <tr key={order.id} data-testid={`row-recent-order-${order.id}`}>
@@ -3548,7 +3549,7 @@ function RedesignedOrderTable({
         </thead>
         <tbody>
           {orders.map((order) => {
-            const status = type === 'manual' || order.type === 'manual' ? swapStatusLabel(order) : order.status;
+            const status = type === 'manual' || order.type === 'manual' ? swapStatusLabel(order) : convertOrderStatusLabel(order.status);
             return <tr key={order.id} data-testid={`row-order-${order.id}`} className={cn("group cursor-pointer transition-colors hover:bg-muted/30 border-b border-border/50", selectedIds?.has(order.id) && "bg-primary/5 hover:bg-primary/10")} onClick={() => onSelectOrder(order.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!(e.target as HTMLElement).closest('button, input, select, a, label')) onSelectOrder(order.id); } }} tabIndex={0}>
               {onToggleOrder && <td className="selection-column" onClick={(e) => e.stopPropagation()}><SelectionCheckbox checked={Boolean(selectedIds?.has(order.id))} onChange={(selected) => onToggleOrder(order.id, selected)} label={t('adminOrders.select_order_named', { id: order.id })} testId={`checkbox-order-${order.id}`} /></td>}
               <td className="order-exchange-cell" data-label="Exchange">
@@ -4174,7 +4175,7 @@ function AdminOrders() {
 
         {showFilters && (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
-            <label><span className="field-label">{t('adminOrders.status')}</span><select value={status} onChange={(e) => setStatus(e.target.value)} data-testid="select-filter-status" className="!bg-background"><option value="">{t('adminOrders.all_statuses')}</option>{type === 'manual' ? <><option value="awaiting funds">{t('adminOrders.awaiting')}</option><option value="funds confirmed">{t('adminOrders.confirmed')}</option><option value="payout processing">{t('adminOrders.payout_processing')}</option><option value="payout sent">{t('adminOrders.payout_sent')}</option><option value="completed">{t('adminOrders.completed')}</option><option value="failed">{t('adminOrders.failed')}</option><option value="cancelled">{t('adminOrders.cancelled')}</option></> : <><option value="active">{t('adminOrders.active_all_non_terminal')}</option><option value="awaiting deposit">{t('adminOrders.awaiting_deposit')}</option><option value="deposit received">{t('adminOrders.deposit_received')}</option><option value="exchanging">{t('adminOrders.exchanging')}</option><option value="sending payout">{t('adminOrders.sending_payout')}</option><option value="on hold">{t('adminOrders.on_hold')}</option><option value="verification required">{t('adminOrders.verification_required')}</option><option value="pending">{t('adminOrders.pending')}</option><option value="completed">{t('adminOrders.completed')}</option><option value="refunded">{t('adminOrders.refunded')}</option><option value="expired">{t('adminOrders.expired')}</option><option value="failed">{t('adminOrders.failed')}</option><option value="cancelled">{t('adminOrders.cancelled')}</option></>}</select></label>
+            <label><span className="field-label">{t('adminOrders.status')}</span><select value={status} onChange={(e) => setStatus(e.target.value)} data-testid="select-filter-status" className="!bg-background"><option value="">{t('adminOrders.all_statuses')}</option>{type === 'manual' ? <><option value="awaiting funds">{t('adminOrders.awaiting')}</option><option value="funds confirmed">{t('adminOrders.confirmed')}</option><option value="payout processing">{t('adminOrders.payout_processing')}</option><option value="payout sent">{t('adminOrders.payout_sent')}</option><option value="completed">{t('adminOrders.completed')}</option><option value="failed">{t('adminOrders.failed')}</option><option value="cancelled">{t('adminOrders.cancelled')}</option></> : <><option value="active">{t('adminOrders.active_all_non_terminal')}</option><option value="awaiting funds">AWAITING FUNDS</option><option value="processing">PROCESSING</option><option value="completed">DONE</option><option value="failed">FAILED</option><option value="cancelled">CANCELLED</option><option value="refunded">REFUNDED</option><option value="expired">EXPIRED</option></>}</select></label>
             <label><span className="field-label">{t('adminOrders.send_method')}</span><SettlementOptionCombobox value={sendMethodId} options={sendMethods} onChange={setSendMethodId} label={t('adminOrders.send_method')} testId="select-filter-send-method" allowAny paymentMethodFirst searchAppearance="admin" /></label>
             <label><span className="field-label">{t('adminOrders.receive_method')}</span><SettlementOptionCombobox value={receiveMethodId} options={receiveMethods} onChange={setReceiveMethodId} label={t('adminOrders.receive_method')} testId="select-filter-receive-method" allowAny paymentMethodFirst searchAppearance="admin" /></label>
             <label><span className="field-label">{t('adminOrders.user_email')}</span><input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder={t('adminOrders.user_example_com')} data-testid="input-filter-customer-email" className="!bg-background" /></label>
@@ -4344,11 +4345,12 @@ function OperationalProgress({ order }: { order: Order }) {
   const manual = order.type === 'manual';
   const steps = manual
     ? [['awaiting_funds', 'Created'], ['processing', 'Processing'], ['completed', 'Done']]
-    : [['created', 'Order created'], ['received', 'Deposit received'], ['exchanging', 'Exchanging'], ['payout', 'Sending payout'], ['completed', 'Completed']];
+    : [['created', 'Created'], ['processing', 'Processing'], ['completed', 'Done']];
   const status = order.status.toLowerCase().replaceAll(' ', '_');
   const terminal = /failed|cancelled|expired|refunded/.test(status);
-  let current = manual ? steps.findIndex(([key]) => key === status)
-    : /complete/.test(status) ? 4 : /send|withdraw|payout/.test(status) ? 3 : /exchang|process/.test(status) ? 2 : /received|confirm/.test(status) ? 1 : 0;
+  let current = manual
+    ? steps.findIndex(([key]) => key === status)
+    : convertOrderStatusStep(order.status);
   if (current < 0) current = 0;
   return <section className="order-progress" data-testid="order-status-progression">
     <div className="order-route-heading"><span className="section-kicker">{manual ? t('adminOrders.manual_swap_settlement_desk') : t('adminOrders.convert_order_provider_route')}</span></div>
@@ -4617,6 +4619,12 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
     if (opt === 'cancelled') return can('orders.cancel');
     return can('orders.status');
   });
+  const convertStatusOptions = ['awaiting funds', 'processing', 'completed', 'failed', 'cancelled', 'refunded', 'expired'].filter(status => {
+    if (status === normalizeConvertOrderStatus(order?.status)) return true;
+    if (status === 'completed') return can('orders.complete');
+    if (status === 'cancelled') return can('orders.cancel');
+    return can('orders.status');
+  });
 
   const canReconcile = order?.provider === 'Quickex' && Boolean(order.outcomeUnknown || order.status === 'verification required');
   const reconciliationAttempts = useGetOrderReconciliationAttempts(id, {
@@ -4628,7 +4636,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
 
   useEffect(() => {
     if (!order) return;
-    setManualState(order.manualSettlementState || 'awaiting_funds');
+    setManualState(order.type === 'manual' ? (order.manualSettlementState || 'awaiting_funds') : normalizeConvertOrderStatus(order.status));
     setAssigneeId(order.assignedOperatorId || '');
     const details = order.paymentDetails || {};
     setPaymentDetailsDraft({
@@ -4663,7 +4671,11 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
     setShowSettings(false);
   }, [supportToolsDirty, paymentDetailsDirty]);
 
-  const hasSettingsAccess = can(PermissionKey.orderssupport_tools) || can(PermissionKey.ordersarchive);
+  const hasSettingsAccess = can(PermissionKey.orderssupport_tools) ||
+    can(PermissionKey.ordersarchive) ||
+    can('orders.status') ||
+    can('orders.complete') ||
+    can('orders.cancel');
 
   const handleClose = useCallback(() => {
     if (supportToolsDirty || paymentDetailsDirty) {
@@ -4710,7 +4722,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   const save = () => {
     if (!order) return;
     setNotice(null);
-    updateOrder.mutate({ id, data: { recordVersion: order.recordVersion, manualSettlementState: manualLifecycle ? manualState as any : undefined } }, {
+    updateOrder.mutate({ id, data: { recordVersion: order.recordVersion, manualSettlementState: manualLifecycle ? manualState as any : undefined, status: order.type === 'manual' ? undefined : manualState } }, {
       onSuccess: async (updated) => {
         if (!order.assignedOperatorId && updated.assignedOperatorId) setSelfClaimedOperatorId(updated.assignedOperatorId);
         setNotice({ kind: 'success', text: t('adminOrders.order_changes_saved') });
@@ -4829,8 +4841,8 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
     else if (/complete|finished/.test(normalizedStatus)) currentStep = 2;
     else currentStep = 1;
   } else {
-    steps = ['Awaiting deposit', 'Awaiting confirmations', 'Exchanging', 'Sending', 'Done'];
-    currentStep = /complete|finished/.test(normalizedStatus) ? 4 : /send|withdraw|payout/.test(normalizedStatus) ? 3 : /exchang|process/.test(normalizedStatus) ? 2 : /received|confirm/.test(normalizedStatus) ? 1 : 0;
+    steps = ['Created', 'Processing', 'Done'];
+    currentStep = convertOrderStatusStep(order.status);
   }
   const currentStatusTone = /complete|paid|finished/.test(normalizedStatus)
     ? 'border-emerald-400 text-emerald-300'
@@ -5210,6 +5222,19 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
                   onNotice={setNotice}
                   onDirtyChange={setSupportToolsDirty}
                 />
+              )}
+              {order.type !== 'manual' && convertStatusOptions.length > 0 && (
+                <div ref={statusRef} className="quickx-order-card quickx-manual-status border p-4 rounded-xl shadow-sm space-y-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">Update Convert Status</h4>
+                  <div className="flex gap-2">
+                    <select value={manualState} onChange={e => setManualState(e.target.value)} disabled={Boolean(order.archivedAt)} className="flex-1 px-3 py-2 rounded-lg bg-input border border-border text-sm text-foreground focus:outline-none focus:border-primary" data-testid="select-edit-convert-status">
+                      {convertStatusOptions.map(opt => <option key={opt} value={opt}>{convertOrderStatusLabel(opt)}</option>)}
+                    </select>
+                    <button type="button" onClick={save} disabled={updateOrder.isPending || Boolean(order.archivedAt)} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-bold shadow-sm hover:opacity-90 disabled:opacity-50" data-testid="button-save-convert-status">
+                      {updateOrder.isPending ? "Saving..." : "Save"}
+                    </button>
+                  </div>
+                </div>
               )}
               {can(PermissionKey.ordersarchive) && (
                 <div className="quickx-order-card border p-5 rounded-xl shadow-sm space-y-4">

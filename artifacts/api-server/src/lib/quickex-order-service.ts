@@ -10,6 +10,7 @@ import { verifyQuoteTicket } from "./quote-ticket";
 import { signOrderTrackingToken, verifyOrderTrackingToken } from "./order-access";
 import { assertExecutableQuickexRoute } from "./provider-capabilities";
 import { normalizeRefundFields } from "./manual-wallet-validation";
+import { enqueueConvertTelegramMilestones } from "./telegram-convert-notifications";
 
 type CreateInput = {
   fromAsset: string; fromNetwork: string; toAsset: string; toNetwork: string;
@@ -184,7 +185,10 @@ function output(row: typeof quickexOrdersTable.$inferSelect, includeInstructions
       depositAddress: addresses.depositAddress, depositMemo: addresses.depositMemo,
     } : {}),
     provider: "Quickex", providerReference: row.providerReference, providerOrderId: row.providerOrderId,
-    providerState: row.providerState, rateMode: route.rateMode, quoteId: row.quoteId,
+     providerState: row.providerState.startsWith("admin_status_override:")
+       ? row.providerState.slice("admin_status_override:".length)
+       : row.providerState,
+     rateMode: route.rateMode, quoteId: row.quoteId,
     clientRequestId: row.clientRequestId ?? undefined, outcomeUnknown: row.outcomeUnknown,
     createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(),
     trackingToken: signOrderTrackingToken(row.legacyOrderId),
@@ -281,7 +285,7 @@ export async function createQuickexConvertOrder(input: CreateInput) {
     ...base,
     providerOrderId: "",
     providerReference: "",
-    status: "verification required",
+    status: "awaiting funds",
     providerState: "submission pending",
     outcomeUnknown: true,
     amounts: {
@@ -381,6 +385,20 @@ export async function reconcileQuickexOrder(row: typeof quickexOrdersTable.$infe
        };
        const nextProviderOrderId = String(match.orderId);
        const nextProviderState = match.state ?? "";
+        // An authorized Admin may apply a canonical customer status while the
+        // provider is still reporting the same state. Do not immediately erase
+        // that deliberate status change on the next polling request; once the
+        // provider state advances, normal provider reconciliation resumes.
+        const overriddenProviderState = row.providerState.startsWith("admin_status_override:")
+          ? row.providerState.slice("admin_status_override:".length)
+          : undefined;
+        if (
+          overriddenProviderState === nextProviderState &&
+          row.status !== nextStatus &&
+          row.providerOrderId === nextProviderOrderId
+        ) {
+          return row;
+        }
        if (
          row.providerOrderId === nextProviderOrderId &&
          row.status === nextStatus &&
@@ -417,6 +435,12 @@ export async function reconcileQuickexOrder(row: typeof quickexOrdersTable.$infe
              payload: { customerClerkUserId: persisted.customerClerkUserId, snapshot },
            }).onConflictDoNothing();
          }
+          if (
+            persisted.status === "processing" && row.status !== "processing" ||
+            persisted.status === "completed" && row.status !== "completed"
+          ) {
+            await enqueueConvertTelegramMilestones(tx, persisted);
+          }
          return persisted;
        });
        return updated;

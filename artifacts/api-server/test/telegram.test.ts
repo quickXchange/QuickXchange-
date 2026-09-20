@@ -19,6 +19,10 @@ import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManu
 import { normalizeRefundFields } from "../src/lib/manual-wallet-validation";
 import { telegramAccountLinkRelativeUrl, validateTelegramMiniAppInitData, verifyTelegramMiniAppSession } from "../src/routes/telegram-mini-app";
 import { formatSwapTelegramNotification } from "../src/lib/telegram-swap-notifications";
+import {
+  convertTelegramStatusLabel,
+  formatConvertTelegramNotification,
+} from "../src/lib/telegram-convert-notifications";
 import { updateOrderAndQueueStatusNotification } from "../src/lib/customer-status-notifications";
 
 test("Telegram Mini App initData validates authentic user data", () => {
@@ -454,6 +458,45 @@ test("Swap Telegram payment and completion messages use stored event details", (
   assert.match(completed, /20 USDT \(BEP20\)/);
   assert.match(completed, /18\.75 SEPA/);
   assert.match(completed, /Status: <b>Done ✅<\/b>/);
+});
+
+test("Convert Telegram milestone messages use canonical status labels and stored details", () => {
+  assert.equal(convertTelegramStatusLabel("awaiting funds"), "AWAITING FUNDS");
+  assert.equal(convertTelegramStatusLabel("processing"), "PROCESSING");
+  assert.equal(convertTelegramStatusLabel("completed"), "DONE ✅");
+  const payment = formatConvertTelegramNotification({
+    eventKind: "payment_received",
+    orderKind: "convert",
+    orderId: "QX-123",
+    status: "processing",
+    sendAmount: "1.25",
+    sendAsset: "BTC",
+    sendNetwork: "Bitcoin",
+    receiveAmount: "100",
+    receiveAsset: "USDT",
+    receiveNetwork: "TRC20",
+    receivedAmount: "1.25",
+    receivedAsset: "BTC",
+    receivedNetwork: "Bitcoin",
+  });
+  assert.match(payment, /Payment Received/);
+  assert.match(payment, /Received: <b>1\.25 BTC<\/b>/);
+  assert.match(payment, /Your conversion is now being processed/);
+  const completed = formatConvertTelegramNotification({
+    eventKind: "completed",
+    orderKind: "convert",
+    orderId: "QX-123",
+    status: "completed",
+    sendAmount: "1.25",
+    sendAsset: "BTC",
+    sendNetwork: "Bitcoin",
+    receiveAmount: "100",
+    receiveAsset: "USDT",
+    receiveNetwork: "TRC20",
+  });
+  assert.match(completed, /1\.25 BTC \(Bitcoin\)/);
+  assert.match(completed, /100 USDT \(TRC20\)/);
+  assert.match(completed, /QuickXchange Convert order has been completed/);
 });
 
 test("real Manual Swap completion queues one stored Telegram completion snapshot", async () => {

@@ -13,6 +13,7 @@ import { useHapticFeedback } from '@/lib/hooks';
 import { MiniAppLogo } from '@/components/mini-app-logo';
 import { resolveOrderVisual } from '@/lib/logo-catalog';
 import { swapOrderStatusLabel, swapOrderStatusTerminal } from '@/lib/swap-order-status';
+import { convertOrderStatusLabel, isConvertTerminalStatus } from '@/lib/convert-order-status';
 
 export default function Orders() {
   const headers = useAuthHeaders();
@@ -31,7 +32,7 @@ export default function Orders() {
       refetchInterval: (query) => {
         const orders = query.state.data || [];
         const hasActive = orders.some((o: any) => o.orderKind === 'convert'
-          ? !['completed', 'paid', 'failed', 'cancelled', 'expired'].includes((o.status || '').toLowerCase())
+          ? !isConvertTerminalStatus(o.status)
           : !swapOrderStatusTerminal(o.status));
         return hasActive ? 3000 : false;
       },
@@ -134,7 +135,7 @@ export default function Orders() {
                   order.status === 'failed' || order.status === 'cancelled' || order.status === 'expired' ? "bg-destructive/10 text-destructive border border-destructive/20" :
                   "bg-secondary/10 text-secondary border border-secondary/20"
                 )}>
-                  {order.orderKind === 'convert' ? order.status : swapOrderStatusLabel(order.status)}
+                   {order.orderKind === 'convert' ? convertOrderStatusLabel(order.status) : swapOrderStatusLabel(order.status)}
                 </div>
               </div>
             </Link>

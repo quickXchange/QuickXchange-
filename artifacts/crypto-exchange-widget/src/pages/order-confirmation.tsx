@@ -17,6 +17,7 @@ import { useI18n } from "@/i18n";
 import { CancelOrderAction, cn, PaymentDetailsCard, publicApiErrorText, SUPPORT_TELEGRAM } from "@/components/shared-app-ui";
 import { OrderSettlementIdentity } from "@/components/order-settlement-identity";
 import { QRCodeSVG } from "qrcode.react";
+import { convertOrderStatusLabel, convertOrderStatusStep, isConvertTerminalStatus } from "@/lib/convert-order-status";
 
 function AddressCopyBox({ text, actionable = true }: { text: string; actionable?: boolean }) {
   const { t } = useI18n();
@@ -102,7 +103,7 @@ export function OrderConfirmationPage() {
      refetchInterval: (query: any) => {
        const currentOrder = query.state.data;
        if (!currentOrder) return 3000;
-       if (/complete|paid|refund|expire|fail|cancel/i.test(currentOrder.status)) return false;
+         if (/complete|paid|refund|expire|fail|cancel/i.test(currentOrder.status)) return false;
        return currentOrder.fundingStatus === 'provisioning' ? 2000 : 3000;
      },
   } });
@@ -115,7 +116,7 @@ export function OrderConfirmationPage() {
     refetchInterval: (query: any) => {
       const order = query.state.data;
       if (!order) return 3000;
-      return /complete|paid|refund|expire|fail|cancel/i.test(order.status) ? false : 3000;
+       return isConvertTerminalStatus(order.status) ? false : 3000;
     },
   } });
 
@@ -252,18 +253,26 @@ export function OrderConfirmationPage() {
 
   const timeline = isManual
     ? ['awaitingFunds', 'fundsConfirmed', 'payoutProcessing', 'payoutSent', 'completed']
-    : ['orderCreated', 'depositReceived', 'exchanging', 'sendingPayout', 'complete'];
+    : ['created', 'processing', 'completed'];
 
   const current = isManual
     ? (mss === 'completed' ? 4 : mss === 'payout_sent' ? 3 : mss === 'payout_processing' ? 2 : mss === 'funds_confirmed' ? 1 : 0)
-    : (/complete/.test(status) ? 4 : /send|withdraw|payout/.test(status) ? 3 : /exchang|process/.test(status) ? 2 : /deposit received|received|confirm/.test(status) ? 1 : 0);
-  const progressTimeline = [
-    { key: 'order-created', label: 'Order Created' },
-    { key: 'deposit-received', label: 'Deposit Received' },
-    { key: 'processing', label: 'Processing' },
-    { key: 'completed', label: 'Completed' },
-  ];
-  const progressCurrent = completed ? 3 : current >= 2 ? 2 : current >= 1 ? 1 : 0;
+    : convertOrderStatusStep(status);
+  const progressTimeline = isManual
+    ? [
+        { key: 'order-created', label: 'Order Created' },
+        { key: 'deposit-received', label: 'Payment Received' },
+        { key: 'processing', label: 'Processing' },
+        { key: 'completed', label: 'Completed' },
+      ]
+    : [
+        { key: 'order-created', label: 'Created' },
+        { key: 'processing', label: 'Processing' },
+        { key: 'completed', label: 'Done' },
+      ];
+  const progressCurrent = isManual
+    ? completed ? 3 : current >= 2 ? 2 : current >= 1 ? 1 : 0
+    : current;
   const completedProgressShare = completed
     ? 100
     : progressCurrent > 0
@@ -320,7 +329,7 @@ export function OrderConfirmationPage() {
                 "oc-status-badge",
                 halted ? "oc-status-danger" : completed ? "oc-status-success" : uncertain ? "oc-status-warning" : "oc-status-primary"
               )} data-testid="status-order-confirmation">
-                 {order.status}
+                  {isQuickex ? convertOrderStatusLabel(order.status) : order.status}
               </div>
             </div>
           </div>

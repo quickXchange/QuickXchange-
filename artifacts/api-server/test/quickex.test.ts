@@ -1520,8 +1520,81 @@ test("order lists preserve exact references, accept numeric-string IDs, and map 
   assert.equal(numericStringOrder?.providerReference, "provider-reference-7001");
   assert.equal(numericStringOrder?.amountToGet, "-1");
 
-  assert.equal(quickex.mapQuickexState("unrecognized future state"), "pending");
+  assert.equal(quickex.mapQuickexState("unrecognized future state"), "awaiting funds");
+  assert.equal(quickex.mapQuickexState("created"), "awaiting funds");
+  assert.equal(quickex.mapQuickexState("received"), "processing");
+  assert.equal(quickex.mapQuickexState("exchange"), "processing");
+  assert.equal(quickex.mapQuickexState("sending payout"), "processing");
+  assert.equal(quickex.mapQuickexState("refunded"), "refunded");
+  assert.equal(quickex.mapQuickexState("expired"), "expired");
+  assert.equal(quickex.mapQuickexState("cancelled"), "cancelled");
+  assert.equal(quickex.mapQuickexState("verification required"), "awaiting funds");
   assert.equal(quickex.mapQuickexState("failed", true), "completed");
+});
+
+test("Convert reconciliation advances one order and queues each Telegram milestone once", async () => {
+  const {
+    db,
+    quickexOrdersTable,
+    telegramChatsTable,
+    telegramOrderLinksTable,
+    telegramNotificationOutboxTable,
+  } = await import("@workspace/db");
+  const { reconcileQuickexOrder } = await import("../src/lib/quickex-order-service");
+  const orderId = `QX-${randomUUID()}`;
+  const chatId = `convert-milestone-${randomUUID()}`;
+  const now = new Date();
+  try {
+    const [created] = await db.insert(quickexOrdersTable).values({
+      legacyOrderId: orderId,
+      providerOrderId: "800",
+      providerReference: "provider-reference-800",
+      customerEmail: `${orderId}@example.test`,
+      customerName: "Convert milestone",
+      status: "awaiting funds",
+      providerState: "created",
+      route: { fromAsset: "BTC", fromNetwork: "Bitcoin", toAsset: "USDT", toNetwork: "TRC20", rateMode: "FLOATING" },
+      amounts: { amount: "1.25", receiveAmount: "100" },
+      addresses: { destinationAddress: "destination", destinationMemo: "", refundAddress: "refund", refundMemo: "" },
+      createdAt: now,
+      updatedAt: now,
+    }).returning();
+    await db.insert(telegramChatsTable).values({ chatId, userId: chatId, locale: "en" });
+    await db.insert(telegramOrderLinksTable).values({
+      chatId, orderId, orderKind: "convert", trackingToken: "convert-test-token",
+    });
+    const processing = await reconcileQuickexOrder(created, {
+      orderId: 800, state: "received", completed: false,
+      claimedDepositAmount: "1.25", amountToGet: "100", amountToWithdrawFact: "1.25",
+    });
+    assert.equal(processing?.status, "processing");
+    await reconcileQuickexOrder(processing!, {
+      orderId: 800, state: "received", completed: false,
+      claimedDepositAmount: "1.25", amountToGet: "100", amountToWithdrawFact: "1.25",
+    });
+    const afterPayment = await db.select().from(telegramNotificationOutboxTable)
+      .where(eq(telegramNotificationOutboxTable.orderId, orderId));
+    assert.equal(afterPayment.filter((event) => event.eventKind === "payment_received").length, 1);
+    const completed = await reconcileQuickexOrder(processing!, {
+      orderId: 800, state: "completed", completed: true,
+      claimedDepositAmount: "1.25", amountToGet: "100", amountToWithdrawFact: "99",
+    });
+    assert.equal(completed?.status, "completed");
+    await reconcileQuickexOrder(completed!, {
+      orderId: 800, state: "completed", completed: true,
+      claimedDepositAmount: "1.25", amountToGet: "100", amountToWithdrawFact: "99",
+    });
+    const events = await db.select().from(telegramNotificationOutboxTable)
+      .where(eq(telegramNotificationOutboxTable.orderId, orderId));
+    assert.equal(events.filter((event) => event.eventKind === "payment_received").length, 1);
+    assert.equal(events.filter((event) => event.eventKind === "completed").length, 1);
+    assert.match(String(events.find((event) => event.eventKind === "payment_received")?.payload.receivedAmount), /1\.25/);
+  } finally {
+    await db.delete(telegramNotificationOutboxTable).where(eq(telegramNotificationOutboxTable.orderId, orderId));
+    await db.delete(telegramOrderLinksTable).where(eq(telegramOrderLinksTable.orderId, orderId));
+    await db.delete(telegramChatsTable).where(eq(telegramChatsTable.chatId, chatId));
+    await db.delete(quickexOrdersTable).where(eq(quickexOrdersTable.legacyOrderId, orderId));
+  }
 });
 
 test("quote tickets reject tampering, mismatch, and expiry", () => {
@@ -2273,7 +2346,16 @@ test("Quickex namespace owns signed quotes, orders, tracking, and idempotency", 
   reset();
   const api = await startApi();
   const { resetQuickexOrderSnapshotForTests } = await import("../src/lib/quickex-order-service");
-  const { cryptoAssetNetworksTable, db, providerSyncStatesTable, quickexOrdersTable, ordersTable } = await import("@workspace/db");
+  const {
+    cryptoAssetNetworksTable,
+    db,
+    providerSyncStatesTable,
+    quickexOrdersTable,
+    ordersTable,
+    telegramChatsTable,
+    telegramOrderLinksTable,
+    telegramNotificationOutboxTable,
+  } = await import("@workspace/db");
   const originals = await db.select().from(cryptoAssetNetworksTable)
     .where(inArray(cryptoAssetNetworksTable.id, ["btc-bitcoin", "usdt-trc20"]));
   const requestId = requestIdForTest(50);
@@ -2377,6 +2459,14 @@ test("Quickex namespace owns signed quotes, orders, tracking, and idempotency", 
     const exchangeRows = await db.select().from(ordersTable)
       .where(eq(ordersTable.id, String(created.body.id)));
     assert.equal(exchangeRows.length, 0);
+    const chatId = `convert-status-${randomUUID()}`;
+    await db.insert(telegramChatsTable).values({ chatId, userId: chatId, locale: "en" });
+    await db.insert(telegramOrderLinksTable).values({
+      chatId,
+      orderId: String(created.body.id),
+      orderKind: "convert",
+      trackingToken: String(created.body.trackingToken),
+    });
 
     const tokenlessCapabilityLookup = await fetch(
       `${api.url}/quickex/orders/${created.body.id}/status`,
@@ -2404,6 +2494,30 @@ test("Quickex namespace owns signed quotes, orders, tracking, and idempotency", 
     const pendingStatusBody = await pendingStatus.json() as Record<string, unknown>;
     assertDecimalEqual(pendingStatusBody.receiveAmount, "99.5");
     assert.equal(pendingStatusBody.providerPaidAmount ?? null, null);
+    assert.equal(pendingStatusBody.status, "awaiting funds");
+    await db.update(providerSyncStatesTable).set({
+      nextAttemptAt: new Date(Date.now() - 1),
+    }).where(eq(providerSyncStatesTable.provider, "quickex-order-reconciliation"));
+    resetQuickexOrderSnapshotForTests();
+
+    providerOrders = [order({
+      orderId: 800,
+      state: "received",
+      completed: false,
+      amountToWithdrawFact: "1",
+      destinationAddress: input.destinationAddress,
+      refundAddress: input.refundAddress,
+      claimedDepositAmount: "1",
+      createdAt: String(created.body.createdAt),
+    })];
+    const processingStatus = await fetch(
+      `${api.url}/quickex/orders/${created.body.id}/status?trackingToken=${created.body.trackingToken}`,
+    );
+    assert.equal(processingStatus.status, 200);
+    assert.equal((await processingStatus.json() as Record<string, unknown>).status, "processing");
+    const paymentEvents = await db.select().from(telegramNotificationOutboxTable)
+      .where(eq(telegramNotificationOutboxTable.orderId, String(created.body.id)));
+    assert.equal(paymentEvents.filter((event) => event.eventKind === "payment_received").length, 1);
     await db.update(providerSyncStatesTable).set({
       nextAttemptAt: new Date(Date.now() - 1),
     }).where(eq(providerSyncStatesTable.provider, "quickex-order-reconciliation"));
@@ -2427,6 +2541,22 @@ test("Quickex namespace owns signed quotes, orders, tracking, and idempotency", 
     assert.equal(statusBody.status, "completed");
     assert.equal(statusBody.receiveAmount, "98.75");
     assert.equal(statusBody.refreshUnavailable, false);
+    const completedEvents = await db.select().from(telegramNotificationOutboxTable)
+      .where(eq(telegramNotificationOutboxTable.orderId, String(created.body.id)));
+    assert.equal(completedEvents.filter((event) => event.eventKind === "payment_received").length, 1);
+    assert.equal(completedEvents.filter((event) => event.eventKind === "completed").length, 1);
+    await db.update(providerSyncStatesTable).set({
+      nextAttemptAt: new Date(Date.now() - 1),
+    }).where(eq(providerSyncStatesTable.provider, "quickex-order-reconciliation"));
+    resetQuickexOrderSnapshotForTests();
+    const replay = await fetch(
+      `${api.url}/quickex/orders/${created.body.id}/status?trackingToken=${created.body.trackingToken}`,
+    );
+    assert.equal(replay.status, 200);
+    const replayEvents = await db.select().from(telegramNotificationOutboxTable)
+      .where(eq(telegramNotificationOutboxTable.orderId, String(created.body.id)));
+    assert.equal(replayEvents.filter((event) => event.eventKind === "payment_received").length, 1);
+    assert.equal(replayEvents.filter((event) => event.eventKind === "completed").length, 1);
     const [refreshed] = await db.select().from(quickexOrdersTable)
       .where(eq(quickexOrdersTable.legacyOrderId, String(created.body.id)));
     assert.equal(refreshed?.providerOrderId, "800");

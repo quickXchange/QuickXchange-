@@ -1573,7 +1573,7 @@ test("simultaneous operators atomically claim one unassigned Swap order", async 
   assert.equal(losingOperatorRetry.body?.code, "ORDER_STATUS_ACCESS_DENIED");
 });
 
-test("guest Convert orders are Admin-visible and remain provider-managed", async () => {
+test("guest Convert orders are Admin-visible with status-only operator overrides", async () => {
   const operatorUserId = `user_guest_convert_operator_${randomUUID()}`;
   const ownerUserId = `user_guest_convert_owner_${randomUUID()}`;
   const [operator] = await Promise.all([
@@ -1607,8 +1607,15 @@ test("guest Convert orders are Admin-visible and remain provider-managed", async
     },
     operatorUserId,
   );
-  assert.equal(directStatusMutation.status, 409);
-  assert.equal(directStatusMutation.body?.code, "PROVIDER_ORDER_READ_ONLY");
+  assert.equal(directStatusMutation.status, 200);
+  assert.equal(directStatusMutation.body?.id, convertOrder.legacyOrderId);
+  assert.equal(directStatusMutation.body?.status, "processing");
+  const [overriddenConvertOrder] = await database.db.select()
+    .from(database.quickexOrdersTable)
+    .where(eq(database.quickexOrdersTable.legacyOrderId, convertOrder.legacyOrderId))
+    .limit(1);
+  assert.equal(overriddenConvertOrder?.recordVersion, convertOrder.recordVersion + 1);
+  assert.match(overriddenConvertOrder?.providerState ?? "", /^admin_status_override:/);
 
   const bulkStatusMutation = await request(
     "/orders/bulk/status",

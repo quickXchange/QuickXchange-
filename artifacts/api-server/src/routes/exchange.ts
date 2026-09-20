@@ -3157,6 +3157,61 @@ router.patch("/orders/:id", requireOperator, async (req, res, next) => {
     const params = UpdateOrderParams.parse(req.params);
     const input = UpdateOrderBody.parse(req.body);
     const manualInput = parseManualOrderPatch(req.body);
+    const [quickexOrder] = await db.select()
+      .from(quickexOrdersTable)
+      .where(eq(quickexOrdersTable.legacyOrderId, params.id))
+      .limit(1);
+    if (quickexOrder) {
+      const rawKeys = Object.keys(req.body ?? {});
+      if (
+        input.status === undefined ||
+        rawKeys.some((key) => !["recordVersion", "status"].includes(key))
+      ) {
+        throw new ApiError(
+          "PROVIDER_STATUS_UPDATE_INVALID",
+          "Provider-managed Convert orders accept only a canonical status and recordVersion.",
+          400,
+        );
+      }
+      const canonicalStatuses = new Set(["awaiting funds", "processing", "completed", "failed", "cancelled", "refunded", "expired"]);
+      const nextStatus = input.status.trim().toLowerCase();
+      if (!canonicalStatuses.has(nextStatus)) {
+        throw new ApiError("PROVIDER_STATUS_UPDATE_INVALID", "Invalid Convert order status.", 400);
+      }
+      if (input.recordVersion === undefined || input.recordVersion !== quickexOrder.recordVersion) {
+        throw new ApiError("ORDER_STATUS_CONFLICT", "The order changed concurrently. Reload it before saving.", 409);
+      }
+      const operator = res.locals.operator as OperatorAuthorization;
+      requireOrderPatchPermissions(
+        operator,
+        { status: quickexOrder.status, manualSettlementState: "not_required" },
+        input,
+        {},
+      );
+      if (nextStatus === quickexOrder.status) {
+        res.json(outputQuickexOrder(quickexOrder));
+        return;
+      }
+      const [updatedQuickexOrder] = await db.update(quickexOrdersTable).set({
+        status: nextStatus,
+        providerState: `admin_status_override:${
+          quickexOrder.providerState.startsWith("admin_status_override:")
+            ? quickexOrder.providerState.slice("admin_status_override:".length)
+            : quickexOrder.providerState
+        }`,
+        outcomeUnknown: false,
+        updatedAt: new Date(),
+        recordVersion: quickexOrder.recordVersion + 1,
+      }).where(and(
+        eq(quickexOrdersTable.legacyOrderId, quickexOrder.legacyOrderId),
+        eq(quickexOrdersTable.recordVersion, quickexOrder.recordVersion),
+      )).returning();
+      if (!updatedQuickexOrder) {
+        throw new ApiError("ORDER_STATUS_CONFLICT", "The order changed concurrently. Reload it before saving.", 409);
+      }
+      res.json(outputQuickexOrder(updatedQuickexOrder));
+      return;
+    }
     if (await isProviderManagedOrder(params.id)) {
       throw new ApiError(
         "PROVIDER_ORDER_READ_ONLY",
