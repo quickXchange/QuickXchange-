@@ -115,6 +115,7 @@ export * from './cryptoNetwork';
 export * from './cryptoNetworkInput';
 export * from './cryptoNetworkInputExecutionMode';
 export * from './cryptoNetworkInputLifecycle';
+export * from './cryptoNetworkReceivingWalletInput';
 export * from './cryptoNetworkUpdate';
 export * from './cryptoNetworkUpdateExecutionMode';
 export * from './cryptoNetworkUpdateLifecycle';

@@ -103,6 +103,7 @@ import {
   ApplyCryptoAssetsBulkEditResponse,
   SaveCryptoAssetReceivingWalletBody,
   SaveCryptoAssetReceivingWalletParams,
+  SaveCryptoNetworkReceivingWalletBody,
   ReconcileCryptoCustomerDepositsResponse,
   UpdateOrderSupportToolsParams,
   UpdateOrderSupportToolsBody,
@@ -4344,6 +4345,156 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
     });
     res.json(rows.map(outputCryptoNetwork));
   } catch (e) { next(e); }
+});
+router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, res, next) => {
+  try {
+    const input = SaveCryptoNetworkReceivingWalletBody.parse(req.body);
+    const actor = res.locals.operator as OperatorAuthorization;
+    const actorClerkUserId = getOperatorActorUserId(req);
+    const eligibilityContext = await createCustomerDepositEligibilityContext();
+    const rows = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtextextended('rook:whitebit:credentials', 0))`,
+      );
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
+      await assertCustomerDepositEligibilityContextCurrent(tx, eligibilityContext);
+      const selected = await tx.select().from(cryptoAssetNetworksTable)
+        .where(inArray(cryptoAssetNetworksTable.id, input.networkIds))
+        .for("update");
+      if (selected.length !== input.networkIds.length) {
+        throw new ApiError(
+          "CRYPTO_ASSET_NETWORK_NOT_FOUND",
+          "One or more selected crypto network rows were not found.",
+          404,
+        );
+      }
+      const availableProviders = await listConnectedDepositProviderOptions();
+      if (!availableProviders.some((provider) => provider.id === input.depositProvider)) {
+        throw new ApiError(
+          "CRYPTO_DEPOSIT_PROVIDER_UNAVAILABLE",
+          "The selected deposit provider is not connected and enabled in API Integrations.",
+          422,
+        );
+      }
+      const affectedAssets = await tx.select({
+        id: cryptoAssetsTable.id,
+        code: cryptoAssetsTable.code,
+        enabled: cryptoAssetsTable.enabled,
+        lifecycle: cryptoAssetsTable.lifecycle,
+      }).from(cryptoAssetsTable)
+        .where(inArray(cryptoAssetsTable.id, [...new Set(selected.map(network => network.assetId))]));
+      const assetById = new Map(affectedAssets.map(asset => [asset.id, asset]));
+      if (assetById.size !== new Set(selected.map(network => network.assetId)).size) {
+        throw new ApiError("CRYPTO_ASSET_NOT_FOUND", "One or more parent assets were not found.", 404);
+      }
+      const providerChanged = selected.some(network => network.depositProvider !== input.depositProvider);
+      if (providerChanged) await invalidateWhitebitDepositRouteProofs(tx);
+      const effectiveEligibilityContext = providerChanged
+        ? {
+            whitebitReady: false,
+            whitebitCapabilities: null,
+            whitebitProofs: new Map<string, string>(),
+            credentialUpdatedAtMs: null,
+            providerSettingVersion: null,
+          }
+        : eligibilityContext;
+      const memo = input.memo?.trim() || "";
+      for (const network of selected) {
+        const address = input.walletAddress.trim() || network.sharedDepositAddress;
+        const nextNetwork = {
+          ...network,
+          depositProvider: input.depositProvider,
+          sharedDepositAddress: address,
+          sharedDepositMemo: memo || null,
+        };
+        if (
+          input.depositProvider !== "none" &&
+          address &&
+          !isSyntacticallyValidManualWalletAddress(nextNetwork, address)
+        ) {
+          throw new ApiError(
+            "CRYPTO_DEPOSIT_ADDRESS_INVALID",
+            `The receiving address is invalid for ${network.networkCode}.`,
+            422,
+          );
+        }
+        if (memo && !isSyntacticallyValidManualWalletMemo(nextNetwork, memo)) {
+          throw new ApiError(
+            "CRYPTO_DEPOSIT_MEMO_INVALID",
+            `The receiving memo or tag is invalid for ${network.networkCode}.`,
+            422,
+          );
+        }
+        if (input.enabled && input.depositProvider === "manual" && !address) {
+          throw new ApiError(
+            "CRYPTO_DEPOSIT_ADDRESS_REQUIRED",
+            "A valid receiving address is required before manual customer deposits can be enabled.",
+            422,
+          );
+        }
+        if (input.enabled && input.depositProvider === "manual" && network.requiresMemo && !memo) {
+          throw new ApiError(
+            "CRYPTO_DEPOSIT_MEMO_REQUIRED",
+            `A memo or tag is required before ${network.networkCode} customer deposits can be enabled.`,
+            422,
+          );
+        }
+        const eligible = isCustomerDepositEligible(
+          assetById.get(network.assetId)!,
+          nextNetwork,
+          effectiveEligibilityContext,
+        );
+        if (input.enabled && input.depositProvider !== "none" && !eligible) {
+          throw new ApiError(
+            "CRYPTO_DEPOSIT_VERIFICATION_REQUIRED",
+            `Customer deposits cannot be enabled for ${network.networkCode} without a valid wallet or verified provider route.`,
+            422,
+          );
+        }
+        await tx.update(cryptoAssetNetworksTable).set({
+          depositProvider: input.depositProvider,
+          sharedDepositAddress: address,
+          sharedDepositMemo: memo || null,
+          customerDepositsEnabled: input.enabled && eligible,
+        }).where(eq(cryptoAssetNetworksTable.id, network.id));
+      }
+      const updated = await tx.select().from(cryptoAssetNetworksTable)
+        .where(inArray(cryptoAssetNetworksTable.id, input.networkIds));
+      const updatedById = new Map(updated.map(network => [network.id, network]));
+      const fingerprint = (value: string | null | undefined) =>
+        value ? createHash("sha256").update(value).digest("hex") : null;
+      await tx.insert(operatorAuditLogsTable).values({
+        action: "crypto_network_receiving_wallet.bulk_updated",
+        actorClerkUserId,
+        targetOperatorId: actor.id,
+        targetEmail: actor.email,
+        requestId: String(req.id),
+        details: {
+          affectedNetworkIds: input.networkIds,
+          providerAfter: input.depositProvider,
+          enabledAfter: input.enabled,
+          changes: selected.map(before => {
+            const after = updatedById.get(before.id);
+            return {
+              networkId: before.id,
+              providerBefore: before.depositProvider,
+              providerAfter: after?.depositProvider,
+              enabledBefore: before.customerDepositsEnabled,
+              enabledAfter: after?.customerDepositsEnabled,
+              addressBeforeFingerprint: fingerprint(before.sharedDepositAddress),
+              addressAfterFingerprint: fingerprint(after?.sharedDepositAddress),
+              memoBeforeFingerprint: fingerprint(before.sharedDepositMemo),
+              memoAfterFingerprint: fingerprint(after?.sharedDepositMemo),
+            };
+          }),
+        },
+      });
+      return updated;
+    });
+    res.json(rows.map(outputCryptoNetwork));
+  } catch (error) {
+    next(error);
+  }
 });
 router.get("/admin/crypto-networks", requireOperator, async (_req, res, next) => {
   try {

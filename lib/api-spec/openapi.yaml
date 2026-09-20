@@ -1916,6 +1916,34 @@ paths:
         "201":
           description: Created network
           content: { application/json: { schema: { $ref: "#/components/schemas/CryptoNetwork" } } }
+  /admin/crypto-networks/receiving-wallet:
+    put:
+      operationId: saveCryptoNetworkReceivingWallet
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      summary: Atomically apply one receiving-wallet configuration to explicitly selected network rows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CryptoNetworkReceivingWalletInput" }
+      responses:
+        "200":
+          description: Independently updated network rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/CryptoNetwork" }
+        "400":
+          description: Invalid receiving wallet input
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: One or more selected network rows were not found
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "422":
+          description: Receiving wallet configuration is invalid for one or more selected networks
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
   /admin/deposit-providers:
     get:
       operationId: getDepositProviderOptions
@@ -5822,6 +5850,21 @@ components:
         depositProvider: { type: string, minLength: 1, maxLength: 64, default: manual }
         enabled: { type: boolean }
         useForAllAssetsOnNetwork: { type: boolean }
+    CryptoNetworkReceivingWalletInput:
+      type: object
+      additionalProperties: false
+      required: [networkIds, walletAddress, depositProvider, enabled]
+      properties:
+        networkIds:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 80 }
+        walletAddress: { type: string, maxLength: 500 }
+        memo: { type: [string, "null"], maxLength: 500 }
+        depositProvider: { type: string, minLength: 1, maxLength: 64 }
+        enabled: { type: boolean }
     CryptoNetwork:
       allOf:
         - $ref: "#/components/schemas/CryptoNetworkInput"

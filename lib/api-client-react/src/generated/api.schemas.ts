@@ -3454,6 +3454,29 @@ export interface CryptoAssetReceivingWalletInput {
   useForAllAssetsOnNetwork: boolean;
 }
 
+export interface CryptoNetworkReceivingWalletInput {
+  /**
+     * @minItems 1
+     * @maxItems 100
+     * @items.minLength 1
+     * @items.maxLength 80
+     */
+  networkIds: string[];
+  /** @maxLength 500 */
+  walletAddress: string;
+  /**
+     * @maxLength 500
+     * @nullable
+     */
+  memo?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 64
+     */
+  depositProvider: string;
+  enabled: boolean;
+}
+
 export type PaymentMethodInputFamily = typeof PaymentMethodInputFamily[keyof typeof PaymentMethodInputFamily];
 
 

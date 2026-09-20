@@ -69,6 +69,7 @@ import type {
   CryptoCustomerDepositReconciliation,
   CryptoNetwork,
   CryptoNetworkInput,
+  CryptoNetworkReceivingWalletInput,
   CryptoNetworkUpdate,
   CustomerActionResult,
   CustomerDetail,
@@ -6810,6 +6811,77 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getCreateCryptoNetworkMutationOptions(options));
+    }
+
+export const getSaveCryptoNetworkReceivingWalletUrl = () => {
+
+
+
+
+  return `/api/admin/crypto-networks/receiving-wallet`
+}
+
+/**
+ * @summary Atomically apply one receiving-wallet configuration to explicitly selected network rows
+ */
+export const saveCryptoNetworkReceivingWallet = async (cryptoNetworkReceivingWalletInput: CryptoNetworkReceivingWalletInput, options?: Parameters<typeof customFetch>[1]): Promise<CryptoNetwork[]> => {
+
+  return customFetch<CryptoNetwork[]>(getSaveCryptoNetworkReceivingWalletUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(cryptoNetworkReceivingWalletInput)
+  }
+);}
+
+
+
+
+
+export const getSaveCryptoNetworkReceivingWalletMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveCryptoNetworkReceivingWallet>>, TError,{data: BodyType<CryptoNetworkReceivingWalletInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveCryptoNetworkReceivingWallet>>, TError,{data: BodyType<CryptoNetworkReceivingWalletInput>}, TContext> => {
+
+const mutationKey = ['saveCryptoNetworkReceivingWallet'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveCryptoNetworkReceivingWallet>>, {data: BodyType<CryptoNetworkReceivingWalletInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  saveCryptoNetworkReceivingWallet(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveCryptoNetworkReceivingWalletMutationResult = NonNullable<Awaited<ReturnType<typeof saveCryptoNetworkReceivingWallet>>>
+    export type SaveCryptoNetworkReceivingWalletMutationBody = BodyType<CryptoNetworkReceivingWalletInput>
+    export type SaveCryptoNetworkReceivingWalletMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Atomically apply one receiving-wallet configuration to explicitly selected network rows
+ */
+export const useSaveCryptoNetworkReceivingWallet = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveCryptoNetworkReceivingWallet>>, TError,{data: BodyType<CryptoNetworkReceivingWalletInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveCryptoNetworkReceivingWallet>>,
+        TError,
+        {data: BodyType<CryptoNetworkReceivingWalletInput>},
+        TContext
+      > => {
+      return useMutation(getSaveCryptoNetworkReceivingWalletMutationOptions(options));
     }
 
 export const getGetDepositProviderOptionsUrl = () => {
