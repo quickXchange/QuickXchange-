@@ -8243,7 +8243,7 @@ function AssetDrawer({
 
   return (
     <div className="drawer-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
-       <aside className="order-drawer catalog-editor-drawer" role="dialog" aria-label={isNew ? t('adminCatalog.add_crypto_asset') : t('adminCatalog.edit_crypto_asset')}>
+       <aside className="order-drawer catalog-editor-drawer asset-editor-drawer" role="dialog" aria-label={isNew ? t('adminCatalog.add_crypto_asset') : t('adminCatalog.edit_crypto_asset')}>
         <div className="drawer-head catalog-editor-head"><div className="catalog-editor-heading"><span className="catalog-editor-icon"><Coins size={19} /></span><div><span className="section-kicker">{t('adminCatalog.configuration')}</span><h2>{isNew ? t('adminCatalog.add_crypto_asset') : t('adminCatalog.edit_crypto_asset')}</h2></div></div><button className="icon-button catalog-editor-close" onClick={onClose} aria-label={t('adminCatalog.close_crypto_asset_drawer')}><X size={18} /></button></div>
         <form className="admin-form admin-form-card drawer-edit catalog-editor-form" onSubmit={save}>
           {error && <InlineNotice kind="error">{error}</InlineNotice>}
@@ -8308,62 +8308,64 @@ function AssetDrawer({
                      </article>
                    ))}
                  </div>
-                 <div className="panel-heading mt-4 mb-3">
-                   <div><span className="section-kicker">Selected network</span><h3>{selectedReceivingNetwork?.networkName} ({selectedReceivingNetwork?.networkCode})</h3></div>
+                 <div className="receiving-network-config">
+                   <div className="panel-heading">
+                     <div><span className="section-kicker">Selected network</span><h3>{selectedReceivingNetwork?.networkName} ({selectedReceivingNetwork?.networkCode})</h3></div>
+                   </div>
+                   <label>
+                     <span className="field-label">Provider Policy</span>
+                     <select
+                       data-testid="receiving-wallet-provider"
+                       value={selectedReceivingDraft?.depositProvider || 'manual'}
+                       disabled={providerOptionsQuery.isLoading}
+                       onChange={e => updateReceivingDraft({ depositProvider: e.target.value })}
+                     >
+                       {selectedProviderUnavailable && selectedReceivingDraft && (
+                         <option value={selectedReceivingDraft.depositProvider} disabled>
+                           {selectedReceivingDraft.depositProvider} (not connected)
+                         </option>
+                       )}
+                       {providerOptions.map(opt => (
+                         <option key={opt.id} value={opt.id} disabled={!opt.implemented}>{opt.label}</option>
+                       ))}
+                     </select>
+                   </label>
+                   <label>
+                     <span className="field-label">{isApiProvider ? 'Fallback Wallet Address' : 'Wallet Address'}</span>
+                     <input data-testid="receiving-wallet-address" value={selectedReceivingDraft?.walletAddress || ''} onChange={e => updateReceivingDraft({ walletAddress: e.target.value })} placeholder="Master receiving address" />
+                   </label>
+                   <label>
+                     <span className="field-label">{isApiProvider ? 'Fallback Memo / Tag' : 'Memo / Tag'}</span>
+                     <input data-testid="receiving-wallet-memo" value={selectedReceivingDraft?.memo || ''} onChange={e => updateReceivingDraft({ memo: e.target.value })} placeholder="Optional memo or tag" />
+                   </label>
+                   <div className="network-toggle-group catalog-editor-toggles">
+                     <label>
+                       <input data-testid="receiving-wallet-enabled" type="checkbox" className="w-auto h-auto" checked={Boolean(selectedReceivingDraft?.enabled && receivingCanEnable && selectedReceivingDraft?.depositProvider !== 'none')} disabled={!receivingCanEnable || selectedReceivingDraft?.depositProvider === 'none'} onChange={e => updateReceivingDraft({ enabled: e.target.checked })} />
+                       <span className="field-label !mb-0 font-bold">Enable customer deposits</span>
+                     </label>
+                   </div>
+                   {isApiProvider ? (
+                     <p className="field-hint text-muted-foreground mt-1.5 text-[13px]">
+                       {selectedProviderUnavailable
+                         ? 'This assigned provider is not currently connected and enabled in API Integrations.'
+                         : `${selectedProviderOption?.label || 'The selected provider'} generates the deposit address through its API. If generation fails, the exact wallet above is used as fallback.`}
+                       {!selectedProviderUnavailable && !receivingCanEnable && " The fallback is currently invalid."}
+                     </p>
+                   ) : selectedReceivingDraft?.depositProvider === 'none' ? (
+                     <p className="field-hint text-muted-foreground mt-1.5 text-[13px]">
+                       Deposits are disabled. The address above remains editable for future use.
+                     </p>
+                   ) : (
+                     !receivingCanEnable && <p className="field-hint text-muted-foreground mt-1.5 text-[13px]">
+                       Customer deposits require a wallet address.
+                     </p>
+                   )}
+                   {selectedReceivingDraft?.walletAddress.trim() && (
+                     <div className="receiving-wallet-qr" data-testid="receiving-wallet-qr" aria-label="Receiving wallet QR preview">
+                       <QRCodeSVG value={selectedReceivingDraft.walletAddress.trim()} size={168} />
+                     </div>
+                   )}
                  </div>
-                <label>
-                  <span className="field-label">Provider Policy</span>
-                  <select
-                    data-testid="receiving-wallet-provider"
-                    value={selectedReceivingDraft?.depositProvider || 'manual'}
-                    disabled={providerOptionsQuery.isLoading}
-                    onChange={e => updateReceivingDraft({ depositProvider: e.target.value })}
-                  >
-                    {selectedProviderUnavailable && selectedReceivingDraft && (
-                      <option value={selectedReceivingDraft.depositProvider} disabled>
-                        {selectedReceivingDraft.depositProvider} (not connected)
-                      </option>
-                    )}
-                    {providerOptions.map(opt => (
-                      <option key={opt.id} value={opt.id} disabled={!opt.implemented}>{opt.label}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  <span className="field-label">{isApiProvider ? 'Fallback Wallet Address' : 'Wallet Address'}</span>
-                  <input data-testid="receiving-wallet-address" value={selectedReceivingDraft?.walletAddress || ''} onChange={e => updateReceivingDraft({ walletAddress: e.target.value })} placeholder="Master receiving address" />
-                </label>
-                <label>
-                  <span className="field-label">{isApiProvider ? 'Fallback Memo / Tag' : 'Memo / Tag'}</span>
-                  <input data-testid="receiving-wallet-memo" value={selectedReceivingDraft?.memo || ''} onChange={e => updateReceivingDraft({ memo: e.target.value })} placeholder="Optional memo or tag" />
-                </label>
-                <div className="network-toggle-group catalog-editor-toggles">
-                  <label>
-                    <input data-testid="receiving-wallet-enabled" type="checkbox" className="w-auto h-auto" checked={Boolean(selectedReceivingDraft?.enabled && receivingCanEnable && selectedReceivingDraft?.depositProvider !== 'none')} disabled={!receivingCanEnable || selectedReceivingDraft?.depositProvider === 'none'} onChange={e => updateReceivingDraft({ enabled: e.target.checked })} />
-                    <span className="field-label !mb-0 font-bold">Enable customer deposits</span>
-                  </label>
-                </div>
-                {isApiProvider ? (
-                  <p className="field-hint text-muted-foreground mt-1.5 text-[13px]">
-                    {selectedProviderUnavailable
-                      ? 'This assigned provider is not currently connected and enabled in API Integrations.'
-                      : `${selectedProviderOption?.label || 'The selected provider'} generates the deposit address through its API. If generation fails, the exact wallet above is used as fallback.`}
-                    {!selectedProviderUnavailable && !receivingCanEnable && " The fallback is currently invalid."}
-                  </p>
-                ) : selectedReceivingDraft?.depositProvider === 'none' ? (
-                  <p className="field-hint text-muted-foreground mt-1.5 text-[13px]">
-                    Deposits are disabled. The address above remains editable for future use.
-                  </p>
-                ) : (
-                  !receivingCanEnable && <p className="field-hint text-muted-foreground mt-1.5 text-[13px]">
-                    Customer deposits require a wallet address.
-                  </p>
-                )}
-                {selectedReceivingDraft?.walletAddress.trim() && (
-                  <div className="receiving-wallet-qr" data-testid="receiving-wallet-qr" aria-label="Receiving wallet QR preview">
-                    <QRCodeSVG value={selectedReceivingDraft.walletAddress.trim()} size={168} />
-                  </div>
-                )}
               </>
             )}
           </section>
