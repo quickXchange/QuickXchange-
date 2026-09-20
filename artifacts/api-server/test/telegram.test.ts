@@ -12,7 +12,7 @@ import {
   telegramNotificationOutboxTable,
   telegramOrderLinksTable,
 } from "@workspace/db";
-import { DepositInstructionsPending, menu, shouldApplyUpdate, reconciliationClaimEligible, reconciliationWinnerTransition, telegramAdvisoryChatKey, telegramCreateRetryDecision, telegramCreationDeliveryDecision, telegramCreationOutboxPayload, telegramCreateState, telegramDepositInstruction, telegramInboxDisposition, telegramManualOrderKinds, telegramNextChatCursor, telegramOutboxFailureDisposition, telegramPrivateUpdate, telegramRequiresDeposit, telegramSecretMatches, telegramUpdateIdValid, telegramWebhookDisposition } from "../src/routes/telegram";
+import { DepositInstructionsPending, menu, shouldApplyUpdate, reconciliationClaimEligible, reconciliationWinnerTransition, telegramAdvisoryChatKey, telegramCreateRetryDecision, telegramCreatingOrderMessage, telegramCreationDeliveryDecision, telegramCreationOutboxPayload, telegramCreateState, telegramDepositInstruction, telegramInboxDisposition, telegramManualOrderKinds, telegramNextChatCursor, telegramOrderCreatedMessage, telegramOrderStatusMessage, telegramOutboxFailureDisposition, telegramPrivateUpdate, telegramRequiresDeposit, telegramSecretMatches, telegramUpdateIdValid, telegramWebhookDisposition } from "../src/routes/telegram";
 import { localeOf, t } from "../src/lib/telegram-localization";
 import { consumeTelegramLinkChallenge, createTelegramLinkChallenge, hashTelegramLinkToken, TelegramLinkChallengeError, TelegramLinkConflictError } from "../src/lib/telegram-link";
 import { buildCreatePayload, buildQuotePayload, buildTelegramConvertOptions, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, shouldAskDestination, telegramAssetNetworkKey, telegramFieldSkipIndex, withoutTelegramRefundFields } from "../src/lib/telegram-wizard";
@@ -434,6 +434,13 @@ test("Telegram creation recovery preserves retry identity and durable delivery s
   assert.equal(payload.depositAddress, "addr");
   assert.equal(payload.trackingToken, "signed-token");
   assert.equal(payload.requiresDeposit, true);
+  assert.equal(telegramCreatingOrderMessage(), "⏳ <b>Creating your order...</b>");
+  const created = telegramOrderCreatedMessage("O<&123", "awaiting", "en", { address: "0x<&", memo: "42" });
+  assert.match(created, /<b>Order ID<\/b>\n<code>O&lt;&amp;123<\/code>/);
+  assert.match(created, /Deposit address: <code>0x&lt;&amp;<\/code>/);
+  const status = telegramOrderStatusMessage("O<&123", "PROCESSING", "en");
+  assert.match(status, /<b>Order ID<\/b>\n<code>O&lt;&amp;123<\/code>/);
+  assert.match(status, /Status: <b>PROCESSING<\/b>/);
 });
 
 test("Required deposit provisioning never terminally fails, while Telegram errors do", () => {
@@ -463,7 +470,7 @@ test("Swap Telegram payment and completion messages use stored event details", (
     receivedNetwork: "BEP20",
   });
   assert.match(payment, /Payment Received/);
-  assert.match(payment, /Order #0996522166/);
+  assert.match(payment, /<b>Order ID<\/b>\n<code>0996522166<\/code>/);
   assert.match(payment, /Received: <b>20 USDT<\/b>/);
   assert.match(payment, /Network: <b>BEP20<\/b>/);
   assert.match(payment, /now being processed/);
@@ -498,6 +505,7 @@ test("Convert Telegram milestone messages use canonical status labels and stored
     receivedNetwork: "Bitcoin",
   });
   assert.match(payment, /Payment Received/);
+  assert.match(payment, /<b>Order ID<\/b>\n<code>QX-123<\/code>/);
   assert.match(payment, /Received: <b>1\.25 BTC<\/b>/);
   assert.match(payment, /Your conversion is now being processed/);
   const completed = formatConvertTelegramNotification({
@@ -515,6 +523,7 @@ test("Convert Telegram milestone messages use canonical status labels and stored
   assert.match(completed, /1\.25 BTC \(Bitcoin\)/);
   assert.match(completed, /100 USDT \(TRC20\)/);
   assert.match(completed, /QuickXchange Convert order has been completed/);
+  assert.match(completed, /<b>Order ID<\/b>\n<code>QX-123<\/code>/);
 });
 
 test("real Manual Swap completion queues one stored Telegram completion snapshot", async () => {

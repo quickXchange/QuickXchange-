@@ -8,6 +8,7 @@ import {
   whitebitDepositsTable,
   blockchainMonitorMatchesTable,
 } from "@workspace/db";
+import { formatTelegramOrderId } from "./telegram-api";
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type OrderRow = typeof ordersTable.$inferSelect;
@@ -239,7 +240,7 @@ export function formatSwapTelegramNotification(
     return [
       "✅ <b>Payment Received</b>",
       "",
-      `<b>Order #${escapeHtml(payload.orderId)}</b>`,
+      formatTelegramOrderId(payload.orderId),
       "",
       `Received: <b>${escapeHtml(payload.receivedAmount)} ${escapeHtml(payload.receivedAsset)}</b>`,
       `Network: <b>${escapeHtml(payload.receivedNetwork)}</b>`,
@@ -252,7 +253,7 @@ export function formatSwapTelegramNotification(
   return [
     "<b>Done ✅</b>",
     "",
-    `<b>Order #${escapeHtml(payload.orderId)}</b>`,
+    formatTelegramOrderId(payload.orderId),
     "",
     `<b>${escapeHtml(payload.sendAmount)} ${escapeHtml(routeLabel(payload.sendMethod, payload.sendAsset, payload.sendNetwork))}</b>`,
     "→",

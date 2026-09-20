@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request } from "express";
 import { and, eq, gt, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { db, ordersTable, quickexOrdersTable, telegramChatsTable, telegramNotificationOutboxTable, telegramOrderLinksTable, telegramProcessedUpdatesTable, telegramWizardSessionsTable } from "@workspace/db";
-import { sendTelegramMessage, sendTelegramPhoto, telegramCall, telegramEnabled, type TelegramButton } from "../lib/telegram-api";
+import { editTelegramMessage, formatTelegramOrderId, sendTelegramMessage, sendTelegramPhoto, telegramCall, telegramEnabled, type TelegramButton } from "../lib/telegram-api";
 import { languageButtons, localeOf, t, type TelegramLocale } from "../lib/telegram-localization";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -97,6 +97,36 @@ export function telegramCreationOutboxPayload(orderId: string, orderKind: string
     receiveAmount: result.receiveAmount,
   };
 }
+export function telegramCreatingOrderMessage() {
+  return "⏳ <b>Creating your order...</b>";
+}
+export function telegramOrderCreatedMessage(
+  orderId: string,
+  status: unknown,
+  locale: TelegramLocale = "en",
+  deposit?: { address: string; memo?: string },
+) {
+  return [
+    `✅ <b>${t(locale, "order")} created</b>`,
+    "",
+    formatTelegramOrderId(orderId),
+    "",
+    `${t(locale, "status")}: <b>${html(status ?? "updated")}</b>`,
+    ...(deposit ? [
+      `${t(locale, "deposit")}: <code>${html(deposit.address)}</code>`,
+      ...(deposit.memo ? [`${t(locale, "memo")}: <code>${html(deposit.memo)}</code>`] : []),
+    ] : []),
+  ].join("\n");
+}
+export function telegramOrderStatusMessage(orderId: string, status: unknown, locale: TelegramLocale = "en") {
+  return [
+    "🔔 <b>QuickXchange order update</b>",
+    "",
+    formatTelegramOrderId(orderId),
+    "",
+    `${t(locale, "status")}: <b>${html(status ?? "updated")}</b>`,
+  ].join("\n");
+}
 export function telegramRequiresDeposit(orderKind: string, sourceKind?: string) {
   return orderKind === "convert" || sourceKind === "crypto-network";
 }
@@ -129,7 +159,7 @@ async function withTelegramChatLock<T>(chatId: string, handler: () => Promise<T>
 type Update = {
   update_id?: number;
   message?: { chat?: { id?: number | string; type?: string }; from?: { id?: number; language_code?: string; first_name?: string; username?: string }; text?: string };
-  callback_query?: { id?: string; data?: string; message?: { chat?: { id?: number | string; type?: string } }; from?: { id?: number; language_code?: string; first_name?: string; username?: string } };
+  callback_query?: { id?: string; data?: string; message?: { message_id?: number; chat?: { id?: number | string; type?: string } }; from?: { id?: number; language_code?: string; first_name?: string; username?: string } };
 };
 type TelegramFrom = { id?: number; language_code?: string; first_name?: string; username?: string };
 export const menu = (locale: TelegramLocale, linked = false): TelegramButton[][] => [
@@ -493,7 +523,10 @@ async function sendOrders(chatId: string, locale: TelegramLocale) {
     const owned = await getCustomerOrderHistory(linked.customerClerkUserId, 10);
     if (!owned.length) { await sendTelegramMessage(chatId, t(locale, "noOrders")); return; }
     const buttons = owned.map(item => [{ text: `🔎 ${item.id}`, url: website() ? `${website()!.replace(/\/+$/, "")}/account/orders/${encodeURIComponent(item.id)}` : undefined, callback_data: website() ? undefined : "website_unavailable" }]);
-    await sendTelegramMessage(chatId, owned.map(item => `• <code>${html(item.id)}</code> — ${html(item.type === "manual" ? swapTelegramStatusLabel(item.status) : item.type === "instant" ? convertTelegramStatusLabel(item.status) : item.status)}`).join("\n"), buttons);
+    await sendTelegramMessage(chatId, owned.map(item => [
+      formatTelegramOrderId(item.id),
+      `${t(locale, "status")}: <b>${html(item.type === "manual" ? swapTelegramStatusLabel(item.status) : item.type === "instant" ? convertTelegramStatusLabel(item.status) : item.status)}</b>`,
+    ].join("\n")).join("\n\n"), buttons);
     return;
   }
   const links = await db.select().from(telegramOrderLinksTable).where(eq(telegramOrderLinksTable.chatId, chatId)).orderBy(telegramOrderLinksTable.createdAt).limit(10);
@@ -505,9 +538,12 @@ async function sendOrders(chatId: string, locale: TelegramLocale) {
     const path = item.orderKind === "convert" ? "/api/quickex/orders" : "/api/orders";
     const response = await fetch(`${baseUrl()}${path}/${encodeURIComponent(item.orderId)}/status?trackingToken=${encodeURIComponent(item.trackingToken)}`);
     const result = await response.json() as Record<string, unknown>;
-    lines.push(response.ok
-      ? `• <code>${html(item.orderId)}</code> — ${html(item.orderKind === "convert" ? convertTelegramStatusLabel(String(result.status ?? "")) : swapTelegramStatusLabel(String(result.status ?? "")))}`
-      : `• <code>${html(item.orderId)}</code> — unavailable`);
+    lines.push([
+      formatTelegramOrderId(item.orderId),
+      response.ok
+        ? `${t(locale, "status")}: <b>${html(item.orderKind === "convert" ? convertTelegramStatusLabel(String(result.status ?? "")) : swapTelegramStatusLabel(String(result.status ?? "")))}</b>`
+        : `${t(locale, "status")}: <b>unavailable</b>`,
+    ].join("\n"));
     buttons.push([{ text: `🔎 Track ${item.orderId}`, callback_data: `order:${index}` }]);
   }
   await sendTelegramMessage(chatId, lines.join("\n"), buttons);
@@ -521,7 +557,7 @@ async function sendDepositInstructions(chatId: string, orderId: string, orderKin
   const deposit = telegramDepositInstruction(status);
   if (!deposit) return;
   const memo = deposit.memo ? `\n${html(t("en", "memo"))}: <code>${html(deposit.memo)}</code>` : "";
-  await sendTelegramPhoto(chatId, deposit.address, `${t("en", "deposit")}: \n<code>${html(deposit.address)}</code>${memo}`);
+  await sendTelegramPhoto(chatId, deposit.address, `${formatTelegramOrderId(orderId)}\n\n${t("en", "deposit")}:\n<code>${html(deposit.address)}</code>${memo}`);
 }
 type TelegramDbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -580,6 +616,101 @@ async function persistCreatedOrder(
       payload: creation, deliveryStatus: "pending",
     }).onConflictDoNothing();
   });
+}
+
+async function replaceOrSendTelegramMessage(
+  chatId: string,
+  messageId: number | undefined,
+  text: string,
+  keyboard?: TelegramButton[][],
+) {
+  if (messageId !== undefined) {
+    try {
+      await editTelegramMessage(chatId, messageId, text, keyboard);
+      return;
+    } catch (error) {
+      logger.warn(
+        { chatId, messageId, reason: error instanceof Error ? error.message : "unknown" },
+        "Telegram message edit failed; sending a replacement",
+      );
+    }
+  }
+  await sendTelegramMessage(chatId, text, keyboard);
+}
+
+async function deliverCreatedOrderImmediately(
+  chatId: string,
+  orderId: string,
+  messageId: number | undefined,
+  locale: TelegramLocale,
+) {
+  if (messageId === undefined) return;
+  const claimToken = randomUUID();
+  const claimExpiresAt = new Date(Date.now() + 5 * 60_000);
+  const [claimed] = await db.update(telegramNotificationOutboxTable).set({
+    deliveryStatus: "sending",
+    attemptCount: sql`${telegramNotificationOutboxTable.attemptCount} + 1`,
+    claimToken,
+    claimExpiresAt,
+  }).where(and(
+    eq(telegramNotificationOutboxTable.chatId, chatId),
+    eq(telegramNotificationOutboxTable.orderId, orderId),
+    eq(telegramNotificationOutboxTable.eventKind, "order_created"),
+    eq(telegramNotificationOutboxTable.deliveryStatus, "pending"),
+  )).returning();
+  if (!claimed) return;
+
+  try {
+    const payload = claimed.payload as {
+      status?: string;
+      requiresDeposit?: boolean;
+      depositAddress?: string;
+      depositMemo?: string;
+    };
+    const deposit = telegramDepositInstruction(payload as Record<string, unknown>);
+    const text = telegramOrderCreatedMessage(orderId, payload.status, locale, deposit);
+    await replaceOrSendTelegramMessage(chatId, messageId, deposit || !payload.requiresDeposit
+      ? text
+      : `${text}\n\n⏳ Deposit instructions are being prepared.`);
+
+    if (payload.requiresDeposit && !deposit) {
+      await db.update(telegramNotificationOutboxTable).set({
+        deliveryStatus: "pending",
+        claimToken: null,
+        claimExpiresAt: null,
+        nextAttemptAt: new Date(),
+      }).where(and(
+        eq(telegramNotificationOutboxTable.id, claimed.id),
+        eq(telegramNotificationOutboxTable.claimToken, claimToken),
+      ));
+      return;
+    }
+    if (deposit) await sendTelegramPhoto(chatId, deposit.address, text);
+    await db.update(telegramNotificationOutboxTable).set({
+      deliveryStatus: "delivered",
+      deliveredAt: new Date(),
+      claimToken: null,
+      claimExpiresAt: null,
+    }).where(and(
+      eq(telegramNotificationOutboxTable.id, claimed.id),
+      eq(telegramNotificationOutboxTable.claimToken, claimToken),
+    ));
+  } catch (error) {
+    await db.update(telegramNotificationOutboxTable).set({
+      deliveryStatus: "pending",
+      lastError: error instanceof Error ? error.message.slice(0, 500) : "delivery failed",
+      nextAttemptAt: new Date(),
+      claimToken: null,
+      claimExpiresAt: null,
+    }).where(and(
+      eq(telegramNotificationOutboxTable.id, claimed.id),
+      eq(telegramNotificationOutboxTable.claimToken, claimToken),
+    ));
+    logger.warn(
+      { chatId, orderId, reason: error instanceof Error ? error.message : "unknown" },
+      "Immediate Telegram order delivery failed; queued retry remains pending",
+    );
+  }
 }
 async function handleText(chatId: string, locale: TelegramLocale, text: string) {
   const command = text.trim().split(/\s+/)[0].toLowerCase();
@@ -704,7 +835,7 @@ async function handleText(chatId: string, locale: TelegramLocale, text: string) 
   if (text.startsWith("/start")) { await mainMenu(chatId, locale); return; }
   await mainMenu(chatId, locale);
 }
-async function callback(chatId: string, locale: TelegramLocale, data: string) {
+async function callback(chatId: string, locale: TelegramLocale, data: string, messageId?: number) {
   if (data.startsWith("lang:")) {
     const next = localeOf(data.slice(5));
     await db.update(telegramChatsTable).set({ locale: next, updatedAt: new Date() }).where(eq(telegramChatsTable.chatId, chatId));
@@ -833,12 +964,16 @@ async function callback(chatId: string, locale: TelegramLocale, data: string) {
     const session = await getSession(chatId);
     if (!session || session.state !== "processing") return;
     await saveSession(chatId, "review", session.data);
-    await callback(chatId, locale, "confirm");
+    await callback(chatId, locale, "confirm", messageId);
     return;
   }
   if (data === "confirm") {
     const session = await getSession(chatId);
-    if (!session || session.state !== "review") { await sendTelegramMessage(chatId, t(locale, "expired")); return; }
+    if (!session) {
+      await replaceOrSendTelegramMessage(chatId, messageId, t(locale, "expired"));
+      return;
+    }
+    if (session.state !== "review") return;
     const body = withoutTelegramRefundFields(
       (session.data.frozenCreateBody as ReturnType<typeof buildCreatePayload> | undefined)
         ?? buildCreatePayload(session.data.mode === "convert" ? "convert" : "swap", session.data.source as SettlementOption, session.data.target as SettlementOption, session.data),
@@ -851,14 +986,15 @@ async function callback(chatId: string, locale: TelegramLocale, data: string) {
       frozenCreateBody: body,
       linkedCustomerClerkUserId,
     });
+    await replaceOrSendTelegramMessage(chatId, messageId, telegramCreatingOrderMessage());
     const response = await fetch(`${baseUrl()}${body.type === "instant" ? "/api/quickex/create-order" : "/api/exchange/orders"}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     const result = await response.json() as Record<string, unknown>;
     if (!response.ok) {
       if (response.status >= 400 && response.status < 500 && response.status !== 408 && response.status !== 429) {
         await saveSession(chatId, "review", session.data);
-        await sendTelegramMessage(chatId, `QuickXchange could not create the order: ${html(result.error ?? "please check the details and try again")}\nYour review is still saved; you may retry safely.`);
+        await replaceOrSendTelegramMessage(chatId, messageId, `QuickXchange could not create the order: ${html(result.error ?? "please check the details and try again")}\nYour review is still saved; you may retry safely.`);
       } else {
-        await sendTelegramMessage(chatId, `QuickXchange could not confirm whether the order was created: ${html(result.error ?? "provider timeout")}\nPlease do not start over. Retry only when reconciliation confirms no order exists.`, [[{ text: `🔁 ${t(locale, "retry")}`, callback_data: "retry:create" }]]);
+        await replaceOrSendTelegramMessage(chatId, messageId, `QuickXchange could not confirm whether the order was created: ${html(result.error ?? "provider timeout")}\nPlease do not start over. Retry only when reconciliation confirms no order exists.`, [[{ text: `🔁 ${t(locale, "retry")}`, callback_data: "retry:create" }]]);
       }
       return;
     }
@@ -874,6 +1010,7 @@ async function callback(chatId: string, locale: TelegramLocale, data: string) {
       linkedCustomerClerkUserId,
     );
     await saveSession(chatId, "idle", {});
+    await deliverCreatedOrderImmediately(chatId, orderId, messageId, locale);
     return;
   }
 }
@@ -891,6 +1028,19 @@ router.post("/telegram/webhook", async (req: Request, res) => {
     await sendTelegramMessage(chatId, t(localeOf(from.language_code), "privateOnly"));
     res.sendStatus(200);
     return;
+  }
+  if (query?.id) {
+    void telegramCall("answerCallbackQuery", {
+      callback_query_id: query.id,
+      ...(query.data === "confirm" || query.data === "retry:create"
+        ? { text: "Creating your order..." }
+        : {}),
+    }).catch(error => {
+      logger.warn(
+        { reason: error instanceof Error ? error.message : "unknown" },
+        "Telegram callback acknowledgement failed",
+      );
+    });
   }
   const updateId = String(update.update_id);
   const claimToken = randomUUID();
@@ -913,20 +1063,26 @@ router.post("/telegram/webhook", async (req: Request, res) => {
     return;
   }
   const locale = localeOf(chat?.locale);
-  try {
+  const processClaimedUpdate = async () => {
+    try {
     await withTelegramChatLock(chatId, () => telegramContext.run({ updateId }, async () => {
       const [session] = await db.select({ lastAppliedUpdateId: telegramWizardSessionsTable.lastAppliedUpdateId }).from(telegramWizardSessionsTable).where(eq(telegramWizardSessionsTable.chatId, chatId)).limit(1);
       if (!session || shouldApplyUpdate(session.lastAppliedUpdateId, updateId)) {
-        if (query?.id) await telegramCall("answerCallbackQuery", { callback_query_id: query.id });
-        if (query?.data) await callback(chatId, locale, query.data);
+        if (query?.data) await callback(chatId, locale, query.data, query.message?.message_id);
         else if (message?.text) await handleText(chatId, locale, message.text);
       }
     }));
     await db.update(telegramProcessedUpdatesTable).set({ status: "completed", claimToken: null, claimExpiresAt: null, lastError: "" }).where(and(eq(telegramProcessedUpdatesTable.updateId, updateId), eq(telegramProcessedUpdatesTable.claimToken, claimToken)));
+    } catch (error) {
+      await sendTelegramMessage(chatId, t(locale, "stepError"));
+      await db.update(telegramProcessedUpdatesTable).set({ status: "failed", claimToken: null, claimExpiresAt: null, lastError: error instanceof Error ? error.message.slice(0, 500) : "processing failed" }).where(and(eq(telegramProcessedUpdatesTable.updateId, updateId), eq(telegramProcessedUpdatesTable.claimToken, claimToken)));
+      throw error;
+    }
+  };
+  try {
+    await processClaimedUpdate();
     res.sendStatus(200);
-  } catch (error) {
-    await sendTelegramMessage(chatId, t(locale, "stepError"));
-    await db.update(telegramProcessedUpdatesTable).set({ status: "failed", claimToken: null, claimExpiresAt: null, lastError: error instanceof Error ? error.message.slice(0, 500) : "processing failed" }).where(and(eq(telegramProcessedUpdatesTable.updateId, updateId), eq(telegramProcessedUpdatesTable.claimToken, claimToken)));
+  } catch {
     res.status(500).json({ error: "Telegram update processing failed." });
   }
 });
@@ -1176,7 +1332,7 @@ export function startTelegramNotificationWorker(): () => void {
             deposit = telegramDepositInstruction(status);
             if (!deposit) throw new DepositInstructionsPending();
           }
-          const caption = `✅ <b>${t(noticeLocale, "order")} ${html(claimed.orderId)}</b>\n${t(noticeLocale, "status")}: <b>${html(payload.status ?? "updated")}</b>${deposit ? `\n${t(noticeLocale, "deposit")}: <code>${html(deposit.address)}</code>${deposit.memo ? `\n${t(noticeLocale, "memo")}: <code>${html(deposit.memo)}</code>` : ""}` : ""}`;
+          const caption = telegramOrderCreatedMessage(claimed.orderId, payload.status, noticeLocale, deposit);
           if (deposit) await sendTelegramPhoto(claimed.chatId, deposit.address, caption);
           else await sendTelegramMessage(claimed.chatId, caption);
         } else if (
@@ -1212,7 +1368,7 @@ export function startTelegramNotificationWorker(): () => void {
             : payload.orderKind === "convert"
               ? convertTelegramStatusLabel(payload.status ?? "updated")
             : payload.status ?? "updated";
-          await sendTelegramMessage(claimed.chatId, `🔔 QuickXchange ${t(noticeLocale, "order")} <code>${html(claimed.orderId)}</code> ${t(noticeLocale, "notification")} <b>${html(displayedStatus)}</b>.`);
+          await sendTelegramMessage(claimed.chatId, telegramOrderStatusMessage(claimed.orderId, displayedStatus, noticeLocale));
         }
         await db.update(telegramNotificationOutboxTable).set({ deliveryStatus: "delivered", deliveredAt: new Date(), claimToken: null, claimExpiresAt: null }).where(and(eq(telegramNotificationOutboxTable.id, claimed.id), eq(telegramNotificationOutboxTable.claimToken, claimToken)));
       } catch (error) {

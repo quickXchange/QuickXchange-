@@ -7,6 +7,8 @@ Customer Telegram exchange flows must be private-chat and user-bound. Process up
 
 Automatic payment and completion notices for Manual Swap orders must be enqueued inside the same database transaction that accepts the authoritative state transition. Use an event-specific immutable deduplication identity for payment receipt rather than the order's mutable status version, and revalidate the exact order/chat link plus compatible customer ownership immediately before delivery.
 
-**Why:** A financial bot can otherwise expose order data in groups, apply one message to two wizard steps after a crash, lose an accepted create response, duplicate recovery notices across workers, or finalize an order without ever delivering its funding address.
+Answer callback queries immediately, before inbox claiming or per-chat lock waits, but do not return the webhook success response until the financial action has reached a replayable durable state. A fire-and-forget task after HTTP 200 is unsafe unless a worker actually consumes and replays the durable inbox payload.
+
+**Why:** A financial bot can otherwise expose order data in groups, apply one message to two wizard steps after a crash, lose an accepted create response, acknowledge a financial action that no worker can replay after restart, duplicate recovery notices across workers, or finalize an order without ever delivering its funding address.
 
 **How to apply:** Use these boundaries for every Telegram action that advances an exchange, links an order, or sends funding instructions. A confirmed provider deposit may advance only its exact unambiguous Manual Swap from awaiting funds to funds confirmed. Completion notices come only from the canonical completed-status CAS path. Informational retries may duplicate harmless text, but financial state notices and funding delivery must remain recoverable and winner-fenced across process crashes and multiple server instances.

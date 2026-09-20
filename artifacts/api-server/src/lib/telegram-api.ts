@@ -4,6 +4,19 @@ const api = () => token() ? `https://api.telegram.org/bot${token()}` : null;
 
 export type TelegramButton = { text: string; callback_data?: string; url?: string; web_app?: { url: string } };
 
+export function escapeTelegramHtml(value: unknown): string {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+export function formatTelegramOrderId(orderId: unknown): string {
+  return `<b>Order ID</b>\n<code>${escapeTelegramHtml(orderId)}</code>`;
+}
+
 export async function telegramCall<T>(
   method: string,
   body: Record<string, unknown>,
@@ -36,6 +49,22 @@ export async function sendTelegramMessage(
     parse_mode: "HTML",
     disable_web_page_preview: true,
     ...(keyboard ? { reply_markup: { inline_keyboard: keyboard } } : {}),
+  });
+}
+
+export async function editTelegramMessage(
+  chatId: string,
+  messageId: number,
+  text: string,
+  keyboard?: TelegramButton[][],
+) {
+  return telegramCall("editMessageText", {
+    chat_id: chatId,
+    message_id: messageId,
+    text,
+    parse_mode: "HTML",
+    disable_web_page_preview: true,
+    reply_markup: { inline_keyboard: keyboard ?? [] },
   });
 }
 

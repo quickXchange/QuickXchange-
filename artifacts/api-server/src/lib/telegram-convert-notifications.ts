@@ -6,6 +6,7 @@ import {
   telegramNotificationOutboxTable,
   telegramOrderLinksTable,
 } from "@workspace/db";
+import { formatTelegramOrderId } from "./telegram-api";
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type QuickexOrderRow = typeof quickexOrdersTable.$inferSelect;
@@ -180,7 +181,7 @@ export function formatConvertTelegramNotification(payload: ConvertNotificationPa
   if (payload.eventKind === "payment_received") {
     return [
       "✅ <b>Payment Received</b>", "",
-      `<b>Order #${escapeHtml(payload.orderId)}</b>`, "",
+      formatTelegramOrderId(payload.orderId), "",
       `Received: <b>${escapeHtml(payload.receivedAmount)} ${escapeHtml(payload.receivedAsset)}</b>`,
       `Network: <b>${escapeHtml(payload.receivedNetwork)}</b>`, "",
       "Your payment has been received successfully.", "",
@@ -189,7 +190,7 @@ export function formatConvertTelegramNotification(payload: ConvertNotificationPa
   }
   return [
     "<b>Done ✅</b>", "",
-    `<b>Order #${escapeHtml(payload.orderId)}</b>`, "",
+    formatTelegramOrderId(payload.orderId), "",
     `<b>${escapeHtml(payload.sendAmount)} ${escapeHtml(routeLabel(payload.sendAsset, payload.sendNetwork))}</b>`,
     "→",
     `<b>${escapeHtml(payload.receiveAmount)} ${escapeHtml(routeLabel(payload.receiveAsset, payload.receiveNetwork))}</b>`, "",
