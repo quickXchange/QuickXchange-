@@ -1626,22 +1626,6 @@ test("expanded settlement fields filter by direction and validate modern types f
     { key: "email", type: "email", label: "Email", direction: "both" },
   ]);
   assert.equal(schema[0]?.direction, "receive");
-  assert.deepEqual(methods.publicFiatCustomerFields([
-    { key: "z_last", type: "short-text", label: "Last", enabled: true },
-    { key: "hidden", type: "short-text", label: "Hidden", enabled: false },
-    { key: "legacy", type: "short-text", label: "Legacy" },
-  ]).map(field => field.key), ["z_last", "legacy"]);
-  assert.deepEqual(methods.publicFiatCustomerFields([
-    { key: "first", type: "short-text", label: "First" },
-    { key: "second", type: "short-text", label: "Second" },
-  ]).map(field => field.key), ["first", "second"]);
-  assert.deepEqual(methods.validateSettlementDetails([
-    { key: "active", type: "short-text", label: "Active" },
-    { key: "disabled", type: "short-text", label: "Disabled", enabled: false },
-  ], { active: "ok" }), { active: "ok" });
-  assert.throws(() => methods.validateSettlementDetails([
-    { key: "disabled", type: "short-text", label: "Disabled", enabled: false },
-  ], { disabled: "nope" }), { code: "SETTLEMENT_DETAILS_INVALID" });
   assert.deepEqual(methods.validateSettlementDetails(schema, {
     iban: "GB82WEST12345698765432", count: 2, email: "person@example.test",
   }), { iban: "GB82WEST12345698765432", count: 2, email: "person@example.test" });
@@ -1713,10 +1697,6 @@ test("expanded settlement fields filter by direction and validate modern types f
       label: "Routing number",
       requiredWhen: { fieldKey: "missing_kind", equals: "local" },
     },
-  ]), { code: "INVALID_SETTLEMENT_FIELD" });
-  assert.throws(() => methods.validateSafeFieldDefinitions([
-    { key: "kind", type: "select", label: "Kind", enabled: false, options: [{ value: "a", label: "A" }] },
-    { key: "dependent", type: "short-text", label: "Dependent", requiredWhen: { fieldKey: "kind", equals: "a" } },
   ]), { code: "INVALID_SETTLEMENT_FIELD" });
 });
 
@@ -3263,19 +3243,14 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
   try {
     const mismatched = await apiJson(api.url, `/admin/crypto-assets/${assetBId}/receiving-wallet`, {
       networkId: networkAId, walletAddress: "wrong-asset", enabled: false,
+      useForAllAssetsOnNetwork: false,
     }, "PUT", headers);
     assert.equal(mismatched.status, 404);
     assert.equal(mismatched.body.code, "CRYPTO_ASSET_NETWORK_NOT_FOUND");
 
-    const legacyFlag = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
-      networkId: networkAId, walletAddress: "wrong-asset", enabled: false,
-      useForAllAssetsOnNetwork: true,
-    }, "PUT", headers);
-    assert.equal(legacyFlag.status, 400);
-
     const connectedWhitebit = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
       networkId: networkAId, walletAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", memo: "fallback-memo",
-      enabled: true, depositProvider: "whitebit",
+      enabled: true, useForAllAssetsOnNetwork: false, depositProvider: "whitebit",
     }, "PUT", headers);
     assert.equal(connectedWhitebit.status, 200);
     assert.equal(
@@ -3285,7 +3260,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
 
     const exact = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
       networkId: networkAId, walletAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", memo: "exact-memo",
-      enabled: false, depositProvider: "manual",
+      enabled: false, useForAllAssetsOnNetwork: false, depositProvider: "manual",
     }, "PUT", headers);
     assert.equal(exact.status, 200);
     assert.deepEqual(exact.body.map((row: { id: string }) => row.id), [networkAId]);
@@ -3312,7 +3287,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
 
     const invalidAddress = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
       networkId: networkAId, walletAddress: "not-a-bitcoin-address", memo: null,
-      enabled: true, depositProvider: "manual",
+      enabled: true, useForAllAssetsOnNetwork: false, depositProvider: "manual",
     }, "PUT", headers);
     assert.equal(invalidAddress.status, 422);
     assert.equal(invalidAddress.body.code, "CRYPTO_DEPOSIT_ADDRESS_INVALID");
@@ -3321,6 +3296,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
       walletAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
       memo: "invalid\u0000memo",
       enabled: true,
+      useForAllAssetsOnNetwork: false,
       depositProvider: "manual",
     }, "PUT", headers);
     assert.equal(invalidOptionalMemo.status, 422);
@@ -3330,6 +3306,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
       walletAddress: "",
       memo: "invalid\u0000memo",
       enabled: false,
+      useForAllAssetsOnNetwork: false,
       depositProvider: "none",
     }, "PUT", headers);
     assert.equal(invalidDisabledMemo.status, 422);
@@ -3337,10 +3314,13 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
 
     const shared = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
       networkId: networkAId, walletAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", memo: "shared-memo",
-      enabled: true, depositProvider: "none",
+      enabled: true, useForAllAssetsOnNetwork: true, depositProvider: "none",
     }, "PUT", headers);
     assert.equal(shared.status, 200);
-    assert.deepEqual(shared.body.map((row: { id: string }) => row.id), [networkAId]);
+    assert.deepEqual(
+      shared.body.map((row: { id: string }) => row.id).sort(),
+      [networkAId, networkBId].sort(),
+    );
     const [differentAfterShared] = await db.select().from(cryptoAssetNetworksTable)
       .where(eq(cryptoAssetNetworksTable.id, differentNetworkId));
     assert.equal(differentAfterShared.sharedDepositAddress, "untouched-address");
@@ -3350,7 +3330,8 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     assert.equal(sharedRows.find(row => row.id === networkAId)?.depositProvider, "none");
     assert.equal(sharedRows.find(row => row.id === networkAId)?.customerDepositsEnabled, false);
     assert.equal(sharedRows.find(row => row.id === networkBId)?.depositProvider, "manual");
-    assert.equal(sharedRows.find(row => row.id === networkBId)?.sharedDepositAddress, "");
+    assert.equal(sharedRows.find(row => row.id === networkBId)?.sharedDepositAddress, "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh");
+    assert.equal(sharedRows.find(row => row.id === networkBId)?.customerDepositsEnabled, true);
     const sharedConfig = await (await fetch(`${api.url}/exchange/config`)).json() as {
       manualSettlementOptions: Array<{ id: string; direction: string }>;
     };
@@ -3360,21 +3341,20 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     );
     assert.equal(
       sharedConfig.manualSettlementOptions.find(option => option.id === `crypto:${networkBId}`)?.direction,
-      "receive",
+      "both",
     );
 
     await db.update(cryptoAssetNetworksTable).set({ sharedDepositMemo: null })
       .where(inArray(cryptoAssetNetworksTable.id, [networkAId, networkBId]));
-    const requiredMemo = await apiJson(api.url, `/admin/crypto-assets/${assetBId}/receiving-wallet`, {
-      networkId: networkBId, walletAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", memo: null,
-      enabled: true, depositProvider: "manual",
+    const optionalMemo = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
+      networkId: networkAId, walletAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", memo: null,
+      enabled: true, useForAllAssetsOnNetwork: true, depositProvider: "manual",
     }, "PUT", headers);
-    assert.equal(requiredMemo.status, 422);
-    assert.equal(requiredMemo.body.code, "CRYPTO_DEPOSIT_MEMO_REQUIRED");
+    assert.equal(optionalMemo.status, 422);
+    assert.equal(optionalMemo.body.code, "CRYPTO_DEPOSIT_MEMO_REQUIRED");
     const afterOptionalMemoSave = await db.select().from(cryptoAssetNetworksTable)
       .where(inArray(cryptoAssetNetworksTable.id, [networkAId, networkBId]));
-    assert.equal(afterOptionalMemoSave.find(row => row.id === networkAId)?.sharedDepositAddress, "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh");
-    assert.equal(afterOptionalMemoSave.find(row => row.id === networkBId)?.sharedDepositAddress, "");
+    assert.ok(afterOptionalMemoSave.every(row => row.sharedDepositAddress === "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"));
     assert.ok(afterOptionalMemoSave.every(row => row.sharedDepositMemo === null));
     const auditRows = await db.select().from(operatorAuditLogsTable)
       .where(eq(operatorAuditLogsTable.actorClerkUserId, userId));
@@ -3384,8 +3364,9 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
         selectedNetworkId?: string;
         changes?: Array<{ networkId: string }>;
       }).selectedNetworkId === networkAId &&
-      (row.details as { changes?: Array<{ networkId: string }> }).changes?.length === 1 &&
-      (row.details as { changes?: Array<{ networkId: string }> }).changes?.[0]?.networkId === networkAId
+      (row.details as { changes?: Array<{ networkId: string }> }).changes?.some(
+        change => change.networkId === networkBId,
+      )
     ));
   } finally {
     await db.delete(operatorAuditLogsTable).where(eq(operatorAuditLogsTable.actorClerkUserId, userId));
@@ -3424,9 +3405,9 @@ test("owner crypto asset bulk edits are atomic and preserve omitted network sett
   await db.insert(cryptoAssetNetworksTable).values([
     {
       id: networkAId, assetId: assetAId, networkCode: `BULK-A-${suffix.slice(0, 8)}`,
-      networkName: "Bitcoin Bulk A", decimals: 6, enabled: true,
-      sharedDepositAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", sharedDepositMemo: "preserve-memo",
-      depositProvider: "manual", customerDepositsEnabled: true,
+      networkName: "Bulk A", decimals: 6, enabled: true,
+      sharedDepositAddress: "preserve-address", sharedDepositMemo: "preserve-memo",
+      depositProvider: "manual",
     },
     {
       id: networkBId, assetId: assetBId, networkCode: `BULK-B-${suffix.slice(0, 8)}`,
@@ -3442,20 +3423,6 @@ test("owner crypto asset bulk edits are atomic and preserve omitted network sett
   const api = await startApi();
   const headers = { "x-test-clerk-user-id": userId };
   try {
-    const parentPatch = await apiJson(api.url, `/admin/crypto-assets/${assetAId}`, {
-      enabled: false,
-    }, "PATCH", headers);
-    assert.equal(parentPatch.status, 200, JSON.stringify(parentPatch.body));
-    const [afterParentPatch] = await db.select().from(cryptoAssetNetworksTable)
-      .where(eq(cryptoAssetNetworksTable.id, networkAId));
-    assert.equal(afterParentPatch.enabled, true);
-    assert.equal(afterParentPatch.customerDepositsEnabled, true);
-    assert.equal(afterParentPatch.sharedDepositAddress, "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh");
-    assert.equal(afterParentPatch.sharedDepositMemo, "preserve-memo");
-    await apiJson(api.url, `/admin/crypto-assets/${assetAId}`, {
-      enabled: true,
-    }, "PATCH", headers);
-
     const preserved = await apiJson(api.url, "/admin/crypto-assets/bulk/apply", {
       edits: [{
         assetId: assetAId,
@@ -3466,11 +3433,11 @@ test("owner crypto asset bulk edits are atomic and preserve omitted network sett
         }],
       }],
     }, "POST", headers);
-    assert.equal(preserved.status, 200, JSON.stringify(preserved.body));
+    assert.equal(preserved.status, 200);
     const [afterPreserved] = await db.select().from(cryptoAssetNetworksTable)
       .where(eq(cryptoAssetNetworksTable.id, networkAId));
     assert.equal(afterPreserved.enabled, false);
-    assert.equal(afterPreserved.sharedDepositAddress, "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh");
+    assert.equal(afterPreserved.sharedDepositAddress, "preserve-address");
     assert.equal(afterPreserved.sharedDepositMemo, "preserve-memo");
     assert.equal(afterPreserved.depositProvider, "manual");
     const [assetAfterPreserved] = await db.select().from(cryptoAssetsTable)
@@ -3483,10 +3450,10 @@ test("owner crypto asset bulk edits are atomic and preserve omitted network sett
         networks: [{ networkId: networkAId, sharedDepositMemo: null }],
       }],
     }, "POST", headers);
-    assert.equal(clearedMemo.status, 400);
+    assert.equal(clearedMemo.status, 200);
     const [afterClearedMemo] = await db.select().from(cryptoAssetNetworksTable)
       .where(eq(cryptoAssetNetworksTable.id, networkAId));
-    assert.equal(afterClearedMemo.sharedDepositMemo, "preserve-memo");
+    assert.equal(afterClearedMemo.sharedDepositMemo, null);
 
     const crossAsset = await apiJson(api.url, "/admin/crypto-assets/bulk/apply", {
       edits: [{
@@ -3509,12 +3476,11 @@ test("owner crypto asset bulk edits are atomic and preserve omitted network sett
         networks: [{ networkId: networkBId, customerDepositsEnabled: true }],
       }],
     }, "POST", headers);
-    assert.equal(invalidDeposit.status, 400);
+    assert.equal(invalidDeposit.status, 422);
+    assert.equal(invalidDeposit.body.code, "CRYPTO_DEPOSIT_ADDRESS_REQUIRED");
     const [networkAfterInvalidDeposit] = await db.select().from(cryptoAssetNetworksTable)
       .where(eq(cryptoAssetNetworksTable.id, networkBId));
     assert.equal(networkAfterInvalidDeposit.customerDepositsEnabled, false);
-    assert.equal(networkAfterInvalidDeposit.sharedDepositAddress, "");
-    assert.equal(networkAfterInvalidDeposit.sharedDepositMemo, "asset-b-memo");
 
     const providerAssignmentRejected = await apiJson(api.url, "/admin/crypto-assets/bulk/apply", {
       edits: [{
@@ -3555,13 +3521,13 @@ test("owner crypto asset bulk edits are atomic and preserve omitted network sett
         }],
       }],
     }, "POST", headers);
-    assert.equal(degradedWhitebitFallback.status, 400, JSON.stringify(degradedWhitebitFallback.body));
+    assert.equal(degradedWhitebitFallback.status, 200, JSON.stringify(degradedWhitebitFallback.body));
     const [networkAfterFallback] = await db.select().from(cryptoAssetNetworksTable)
       .where(eq(cryptoAssetNetworksTable.id, networkAId));
     assert.equal(networkAfterFallback.depositProvider, "whitebit");
     assert.equal(networkAfterFallback.customerDepositsEnabled, true);
-    assert.equal(networkAfterFallback.sharedDepositAddress, "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh");
-    assert.equal(networkAfterFallback.sharedDepositMemo, "preserve-memo");
+    assert.equal(networkAfterFallback.sharedDepositAddress, "bulk-manual-fallback");
+    assert.equal(networkAfterFallback.sharedDepositMemo, "bulk-manual-memo");
 
     await db.update(cryptoAssetNetworksTable)
       .set({ sharedDepositMemo: "x".repeat(600) })

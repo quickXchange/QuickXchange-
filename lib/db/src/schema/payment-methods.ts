@@ -39,8 +39,6 @@ export type PaymentMethodFieldDefinition = {
     | "number"
     | "textarea";
   label: string;
-  enabled?: boolean;
-  placeholder?: string;
   direction?: "send" | "receive" | "both";
   emphasizedLabel?: boolean;
   help?: string;

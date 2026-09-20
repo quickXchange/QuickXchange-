@@ -101,7 +101,7 @@ import {
   getVerifiedWebsiteBrandingImage,
   getStoredWebsiteBrandingImage,
 } from "../lib/object-storage";
-import { requireOperator, requireOwner, requirePermission } from "../lib/operator-auth";
+import { requireOperator, requireOwner } from "../lib/operator-auth";
 import { isSafeSiteLink } from "../lib/site-content-policy";
 import { getTrustedClientIp } from "../lib/client-ip";
 
@@ -199,22 +199,6 @@ const DEFAULT_SOCIAL_TRUST = {
   facebookUrl: null,
   telegramUrl: null,
 };
-
-export const DEFAULT_ORDER_TERMS_ACCEPTANCE = {
-  mainText: "I accept the",
-  termsLabel: "Terms & Conditions",
-  termsUrl: "/terms",
-  privacyLabel: "Privacy Policy",
-  privacyUrl: "/privacy",
-  amlLabel: "AML/KYC Policy",
-  amlUrl: "/aml-kyc",
-} as const;
-
-const ORDER_TERMS_LEGAL_ROUTES = {
-  termsUrl: DEFAULT_ORDER_TERMS_ACCEPTANCE.termsUrl,
-  privacyUrl: DEFAULT_ORDER_TERMS_ACCEPTANCE.privacyUrl,
-  amlUrl: DEFAULT_ORDER_TERMS_ACCEPTANCE.amlUrl,
-} as const;
 
 const DEFAULT_SOCIAL_ICON_APPEARANCE = {
   iconSize: 16,
@@ -336,27 +320,6 @@ function validatePageContent(content: Record<string, unknown>): void {
   }
   if (JSON.stringify(content).length > 250_000) {
     throw new ApiError("SITE_CONTENT_TOO_LARGE", "Page content is too large.", 400);
-  }
-}
-
-function validateOrderTermsAcceptance(pageKey: string, content: Record<string, unknown>): void {
-  if (pageKey !== "order-terms-acceptance") return;
-  const textFields = ["mainText", "termsLabel", "privacyLabel", "amlLabel"] as const;
-  for (const field of textFields) {
-    const value = content[field];
-    if (typeof value !== "string" || !value.trim() || value.length > 200) {
-      throw new ApiError("ORDER_TERMS_CONTENT_INVALID", `${field} must be nonempty and 200 characters or fewer.`, 400);
-    }
-  }
-  for (const [field, expectedRoute] of Object.entries(ORDER_TERMS_LEGAL_ROUTES)) {
-    const value = content[field];
-    if (typeof value !== "string" || value.trim() !== expectedRoute) {
-      throw new ApiError(
-        "ORDER_TERMS_LINK_INVALID",
-        `${field} must use the existing QuickXchange legal page route ${expectedRoute}.`,
-        400,
-      );
-    }
   }
 }
 
@@ -676,7 +639,7 @@ router.post("/contact-submissions", async (req, res): Promise<void> => {
   res.status(201).json(CreateContactSubmissionResponse.parse({ id: created.id, receivedAt: created.createdAt }));
 });
 
-router.get("/admin/site-content", requirePermission("site_settings.view"), async (_req, res): Promise<void> => {
+router.get("/admin/site-content", requireOperator, async (_req, res): Promise<void> => {
   const rows = await db.select().from(siteContentRevisionsTable)
     .orderBy(siteContentRevisionsTable.pageKey, desc(siteContentRevisionsTable.revision));
   res.json(ListAdminSiteContentResponse.parse(rows));
@@ -792,7 +755,6 @@ router.post("/admin/website-branding/reset", requireOwner, async (_req, res): Pr
 
 async function saveDraft(pageKey: string, content: Record<string, unknown>, actorId: string) {
   validatePageContent(content);
-  validateOrderTermsAcceptance(pageKey, content);
   validateWidgetExchangeInformation(pageKey, content);
   await verifyPageMedia(content);
   return db.transaction(async (tx) => {
@@ -811,72 +773,22 @@ async function saveDraft(pageKey: string, content: Record<string, unknown>, acto
   });
 }
 
-async function saveOrderTermsAcceptanceLive(content: Record<string, unknown>, actorId: string) {
-  const pageKey = "order-terms-acceptance";
-  validatePageContent(content);
-  validateOrderTermsAcceptance(pageKey, content);
-  return db.transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(2026083152)`);
-    const [latest] = await tx.select({ revision: siteContentRevisionsTable.revision })
-      .from(siteContentRevisionsTable).where(eq(siteContentRevisionsTable.pageKey, pageKey))
-      .orderBy(desc(siteContentRevisionsTable.revision)).limit(1);
-    const draftRevision = (latest?.revision ?? 0) + 1;
-    const [draft] = await tx.insert(siteContentRevisionsTable).values({
-      pageKey,
-      revision: draftRevision,
-      status: "draft",
-      content,
-      createdBy: actorId,
-    }).returning();
-    const [published] = await tx.insert(siteContentRevisionsTable).values({
-      pageKey,
-      revision: draftRevision + 1,
-      status: "published",
-      content,
-      createdBy: actorId,
-      publishedBy: actorId,
-      publishedAt: new Date(),
-    }).returning();
-    await tx.insert(siteContentAuditLogsTable).values([
-      {
-        action: "site_content.draft_saved",
-        actorId,
-        pageKey,
-        revisionId: draft.id,
-        details: { revision: draft.revision },
-      },
-      {
-        action: "site_content.published",
-        actorId,
-        pageKey,
-        revisionId: published.id,
-        details: { sourceRevision: draft.revision, revision: published.revision },
-      },
-    ]);
-    return published;
-  });
-}
-
-router.post("/admin/site-content", requirePermission("site_settings.manage"), async (req, res): Promise<void> => {
+router.post("/admin/site-content", requireOperator, async (req, res): Promise<void> => {
   const input = SaveAdminSiteContentBody.parse(req.body);
-  const row = input.pageKey === "order-terms-acceptance"
-    ? await saveOrderTermsAcceptanceLive(input.content, res.locals.operator.id)
-    : await saveDraft(input.pageKey, input.content, res.locals.operator.id);
+  const row = await saveDraft(input.pageKey, input.content, res.locals.operator.id);
   res.status(201).json(SaveAdminSiteContentResponse.parse(row));
 });
 
-router.get("/admin/site-content/:pageKey", requirePermission("site_settings.view"), async (req, res): Promise<void> => {
+router.get("/admin/site-content/:pageKey", requireOperator, async (req, res): Promise<void> => {
   const { pageKey } = GetAdminSiteContentParams.parse(req.params);
   const [draft, published] = await Promise.all([latestRevision(pageKey, "draft"), latestRevision(pageKey, "published")]);
   res.json(GetAdminSiteContentResponse.parse({ pageKey, draft, published }));
 });
 
-router.put("/admin/site-content/:pageKey", requirePermission("site_settings.manage"), async (req, res): Promise<void> => {
+router.put("/admin/site-content/:pageKey", requireOperator, async (req, res): Promise<void> => {
   const { pageKey } = SaveAdminSitePageParams.parse(req.params);
   const { content } = SaveAdminSitePageBody.parse(req.body);
-  const row = pageKey === "order-terms-acceptance"
-    ? await saveOrderTermsAcceptanceLive(content, res.locals.operator.id)
-    : await saveDraft(pageKey, content, res.locals.operator.id);
+  const row = await saveDraft(pageKey, content, res.locals.operator.id);
   res.status(201).json(SaveAdminSitePageResponse.parse(row));
 });
 
@@ -894,7 +806,6 @@ router.post("/admin/site-content/:pageKey", requireOwner, async (req, res): Prom
       return existingPublished ? { row: existingPublished, created: false } : undefined;
     }
     validatePageContent(draft.content);
-    validateOrderTermsAcceptance(pageKey, draft.content);
     validateWidgetExchangeInformation(pageKey, draft.content);
     await verifyPageMedia(draft.content);
     if (
@@ -920,7 +831,7 @@ router.post("/admin/site-content/:pageKey", requireOwner, async (req, res): Prom
   res.json(PublishAdminSitePageResponse.parse(result.row));
 });
 
-router.get("/admin/site-content/:pageKey/preview", requirePermission("site_settings.view"), async (req, res): Promise<void> => {
+router.get("/admin/site-content/:pageKey/preview", requireOperator, async (req, res): Promise<void> => {
   const { pageKey } = PreviewAdminSitePageParams.parse(req.params);
   const draft = await latestRevision(pageKey, "draft");
   if (!draft) throw new ApiError("SITE_CONTENT_DRAFT_NOT_FOUND", "No draft exists for this page.", 404);

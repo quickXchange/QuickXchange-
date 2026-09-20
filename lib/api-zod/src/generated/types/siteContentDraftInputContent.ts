@@ -6,7 +6,4 @@
  * OpenAPI spec version: 0.1.0
  */
 
-/**
- * Page-specific content. The order-terms-acceptance page uses OrderTermsAcceptanceContent.
- */
 export type SiteContentDraftInputContent = { [key: string]: unknown };

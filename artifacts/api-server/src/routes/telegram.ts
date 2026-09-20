@@ -6,7 +6,7 @@ import { languageButtons, localeOf, t, type TelegramLocale } from "../lib/telegr
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { signOrderTrackingToken } from "../lib/order-access";
-import { buildCreatePayload, buildQuotePayload, configuredContactValues, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, requiredFieldActive, shouldAskConfiguredDestination, shouldAskConfiguredEmail, telegramFieldSkipIndex, withoutTelegramRefundFields, type TelegramRouteOption } from "../lib/telegram-wizard";
+import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, requiredFieldActive, shouldAskDestination, telegramFieldSkipIndex, withoutTelegramRefundFields, type TelegramRouteOption } from "../lib/telegram-wizard";
 import { createTelegramLinkChallenge } from "../lib/telegram-link";
 import { getCustomerVerifiedEmail, requireActiveCustomerIdentity } from "../lib/customer-auth";
 import { getCustomerOrderHistory } from "../lib/order-history";
@@ -322,9 +322,6 @@ async function chooseTarget(chatId: string, locale: TelegramLocale, source: Sett
 }
 async function askField(chatId: string, field: Record<string, unknown>, fieldIndex = 0, locale: TelegramLocale = "en", page = 0) {
   const label = String(field.label ?? field.key ?? "Required detail");
-  const help = typeof field.help === "string" ? field.help.trim() : "";
-  const placeholder = typeof field.placeholder === "string" ? field.placeholder.trim() : "";
-  const prompt = [label, help, placeholder ? `Placeholder: ${placeholder}` : ""].filter(Boolean).join("\n");
   const options = field.options as Array<{ value: string; label: string }> | undefined;
   const start = page * 20;
   const keyboard: TelegramButton[][] = options?.length
@@ -333,25 +330,7 @@ async function askField(chatId: string, field: Record<string, unknown>, fieldInd
   if (start > 0) keyboard.push([{ text: "⬅️ Back", callback_data: `fieldpage:${fieldIndex}:${page - 1}` }]);
   if (options && start + 20 < options.length) keyboard.push([{ text: "➡️ Next", callback_data: `fieldpage:${fieldIndex}:${page + 1}` }]);
   if (field.required === false) keyboard.push([{ text: `⏭️ ${t(locale, "skip")}`, callback_data: `fieldskip:${fieldIndex}` }]);
-  await sendTelegramMessage(chatId, prompt, keyboard.length ? keyboard : undefined);
-}
-async function sendReview(chatId: string, locale: TelegramLocale, data: Record<string, unknown>) {
-  const source = data.source as SettlementOption;
-  const target = data.target as SettlementOption;
-  const fields = (data.fields as Array<Record<string, unknown>> | undefined) ?? [];
-  const values = (data.values as Record<string, unknown> | undefined) ?? {};
-  const configured = configuredContactValues(fields, values);
-  const destination = typeof data.destinationAddress === "string" && data.destinationAddress.trim()
-    ? data.destinationAddress.trim()
-    : configured.destinationAddress;
-  const email = typeof data.email === "string" && data.email.trim()
-    ? data.email.trim()
-    : configured.email;
-  const message = `${t(locale, "review")}\n${html(data.amount)} ${html(source.assetCode)} (${html(source.routeNetwork)}) → ${html(target.assetCode)} (${html(target.routeNetwork)})\n${destination ? `${t(locale, "destination")} ${html(destination)}\n` : ""}${email ? `${t(locale, "email")} ${html(email)}` : ""}`;
-  await sendTelegramMessage(chatId, message, [
-    [{ text: `✅ ${t(locale, "confirm")}`, callback_data: "confirm" }],
-    [{ text: `❌ ${t(locale, "cancel")}`, callback_data: "cancel" }],
-  ]);
+  await sendTelegramMessage(chatId, label, keyboard.length ? keyboard : undefined);
 }
 function validFieldValue(field: Record<string, unknown>, value: string) {
   const min = typeof field.min === "number" ? field.min : undefined;
@@ -610,8 +589,8 @@ async function handleText(chatId: string, locale: TelegramLocale, text: string) 
     const target = session.data.target as SettlementOption;
     const mode = session.data.mode === "convert" ? "convert" : "swap";
     const fields = (result.requiredSettlementFields as Array<Record<string, unknown>> | undefined) ?? [];
-    const firstField = nextRequiredField(fields as Array<{ enabled?: boolean; required?: boolean; requiredWhen?: { fieldKey: string; equals: string | string[] } }>, 0, {});
-    const needsDestination = shouldAskConfiguredDestination(mode, target, fields, {});
+    const firstField = nextRequiredField(fields as Array<{ required?: boolean; requiredWhen?: { fieldKey: string; equals: string | string[] } }>, 0, {});
+    const needsDestination = shouldAskDestination(mode, target);
     const initialState = firstField >= 0 ? "field" : needsDestination ? "destination" : "email";
     await saveSession(chatId, initialState, { ...session.data, amount, enteredAmount, quote: result, fieldIndex: firstField, fields, values: {} });
     if (firstField >= 0) await askField(chatId, fields[firstField], firstField, locale);
@@ -624,21 +603,14 @@ async function handleText(chatId: string, locale: TelegramLocale, text: string) 
     if (!validFieldValue(fields[index] ?? {}, text.trim())) { await sendTelegramMessage(chatId, t(locale, "invalid")); return; }
     const key = String(fields[index]?.key ?? "");
     const values = { ...((session.data.values as Record<string, unknown>) ?? {}), [key]: text.trim() };
-    const next = nextRequiredField(fields as Array<{ enabled?: boolean; required?: boolean; requiredWhen?: { fieldKey: string; equals: string | string[] } }>, index + 1, values);
+    const next = nextRequiredField(fields as Array<{ required?: boolean; requiredWhen?: { fieldKey: string; equals: string | string[] } }>, index + 1, values);
     if (next >= 0) {
       await saveSession(chatId, "field", { ...session.data, values, fieldIndex: next });
       await askField(chatId, fields[next], next, locale);
     } else {
-      const mode = session.data.mode === "convert" ? "convert" : "swap";
-      const needsDestination = shouldAskConfiguredDestination(mode, session.data.target as SettlementOption, fields, values);
-      const needsEmail = shouldAskConfiguredEmail(mode, fields, values);
-      if (needsDestination || needsEmail) {
-        await saveSession(chatId, needsDestination ? "destination" : "email", { ...session.data, values });
-        await sendTelegramMessage(chatId, needsDestination ? t(locale, "destination") : t(locale, "email"));
-      } else {
-        await saveSession(chatId, "review", { ...session.data, values });
-        await sendReview(chatId, locale, { ...session.data, values });
-      }
+      const needsDestination = shouldAskDestination(session.data.mode === "convert" ? "convert" : "swap", session.data.target as SettlementOption);
+      await saveSession(chatId, needsDestination ? "destination" : "email", { ...session.data, values });
+      await sendTelegramMessage(chatId, needsDestination ? t(locale, "destination") : t(locale, "email"));
     }
     return;
   }
@@ -653,17 +625,8 @@ async function handleText(chatId: string, locale: TelegramLocale, text: string) 
       const response = await fetch(`${baseUrl()}/api/quickex/validate-address`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ asset: (session.data.target as SettlementOption).assetCode, network: (session.data.target as SettlementOption).routeNetwork, address: text.trim() }) });
       if (!response.ok) { await sendTelegramMessage(chatId, t(locale, "invalidAddress")); return; }
     }
-    const fields = (session.data.fields as Array<Record<string, unknown>> | undefined) ?? [];
-    const values = (session.data.values as Record<string, unknown> | undefined) ?? {};
-    const mode = session.data.mode === "convert" ? "convert" : "swap";
-    const needsEmail = shouldAskConfiguredEmail(mode, fields, values);
-    if (needsEmail) {
-      await saveSession(chatId, "email", { ...session.data, destinationAddress: text.trim() });
-      await sendTelegramMessage(chatId, t(locale, "email"));
-    } else {
-      await saveSession(chatId, "review", { ...session.data, destinationAddress: text.trim() });
-      await sendReview(chatId, locale, { ...session.data, destinationAddress: text.trim() });
-    }
+    await saveSession(chatId, "email", { ...session.data, destinationAddress: text.trim() });
+    await sendTelegramMessage(chatId, t(locale, "email"));
     return;
   }
   if (session?.state === "destinationMemo") {
@@ -683,7 +646,9 @@ async function handleText(chatId: string, locale: TelegramLocale, text: string) 
   if (session?.state === "email") {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(text.trim())) { await sendTelegramMessage(chatId, t(locale, "invalidEmail")); return; }
     await saveSession(chatId, "review", { ...session.data, email: text.trim() });
-    await sendReview(chatId, locale, { ...session.data, email: text.trim() });
+    const source = session.data.source as SettlementOption;
+    const target = session.data.target as SettlementOption;
+    await sendTelegramMessage(chatId, `${t(locale, "review")}\n${html(session.data.amount)} ${html(source.assetCode)} (${html(source.routeNetwork)}) → ${html(target.assetCode)} (${html(target.routeNetwork)})\n${session.data.destinationAddress ? `${t(locale, "destination")} ${html(session.data.destinationAddress)}\n` : ""}${t(locale, "email")} ${html(text.trim())}`, [[{ text: `✅ ${t(locale, "confirm")}`, callback_data: "confirm" }], [{ text: `❌ ${t(locale, "cancel")}`, callback_data: "cancel" }]]);
     return;
   }
   if (session?.state === "track") {
@@ -765,19 +730,12 @@ async function callback(chatId: string, locale: TelegramLocale, data: string) {
     const option = (fields[index]?.options as Array<{ value: string }> | undefined)?.[optionIndex];
     if (!option) return;
     const values = { ...((session.data.values as Record<string, unknown>) ?? {}), [String(fields[index]?.key ?? "")]: option.value };
-    const next = nextRequiredField(fields as Array<{ enabled?: boolean; required?: boolean; requiredWhen?: { fieldKey: string; equals: string | string[] } }>, index + 1, values);
+    const next = nextRequiredField(fields as Array<{ required?: boolean; requiredWhen?: { fieldKey: string; equals: string | string[] } }>, index + 1, values);
     if (next >= 0) { await saveSession(chatId, "field", { ...session.data, values, fieldIndex: next }); await askField(chatId, fields[next], next, locale); }
     else {
-      const mode = session.data.mode === "convert" ? "convert" : "swap";
-      const needs = shouldAskConfiguredDestination(mode, session.data.target as SettlementOption, fields, values);
-      const needsEmail = shouldAskConfiguredEmail(mode, fields, values);
-      if (needs || needsEmail) {
-        await saveSession(chatId, needs ? "destination" : "email", { ...session.data, values });
-        await sendTelegramMessage(chatId, needs ? t(locale, "destination") : t(locale, "email"));
-      } else {
-        await saveSession(chatId, "review", { ...session.data, values });
-        await sendReview(chatId, locale, { ...session.data, values });
-      }
+      const needs = shouldAskDestination(session.data.mode === "convert" ? "convert" : "swap", session.data.target as SettlementOption);
+      await saveSession(chatId, needs ? "destination" : "email", { ...session.data, values });
+      await sendTelegramMessage(chatId, needs ? t(locale, "destination") : t(locale, "email"));
     }
     return;
   }
@@ -798,21 +756,9 @@ async function callback(chatId: string, locale: TelegramLocale, data: string) {
     if (index === undefined) return;
     if (fields[index]?.required !== false) return;
     const values = (session.data.values as Record<string, unknown>) ?? {};
-    const next = nextRequiredField(fields as Array<{ enabled?: boolean; required?: boolean; requiredWhen?: { fieldKey: string; equals: string | string[] } }>, index + 1, values);
+    const next = nextRequiredField(fields as Array<{ required?: boolean; requiredWhen?: { fieldKey: string; equals: string | string[] } }>, index + 1, values);
     if (next >= 0) { await saveSession(chatId, "field", { ...session.data, fieldIndex: next }); await askField(chatId, fields[next], next, locale); }
-    else {
-      const mode = session.data.mode === "convert" ? "convert" : "swap";
-      const needs = shouldAskConfiguredDestination(mode, session.data.target as SettlementOption, fields, values);
-      const needsEmail = shouldAskConfiguredEmail(mode, fields, values);
-      if (needs || needsEmail) {
-        const state = needs ? "destination" : "email";
-        await saveSession(chatId, state, session.data);
-        await sendTelegramMessage(chatId, needs ? t(locale, "destination") : t(locale, "email"));
-      } else {
-        await saveSession(chatId, "review", session.data);
-        await sendReview(chatId, locale, session.data);
-      }
-    }
+    else { const needs = shouldAskDestination(session.data.mode === "convert" ? "convert" : "swap", session.data.target as SettlementOption); const state = needs ? "destination" : "email"; await saveSession(chatId, state, session.data); await sendTelegramMessage(chatId, needs ? t(locale, "destination") : t(locale, "email")); }
     return;
   }
   if (data === "skip:refund") {

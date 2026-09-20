@@ -53,7 +53,7 @@ import {
   useGetManualDeskRevenue, getGetManualDeskRevenueQueryKey,
   exportManualDeskRevenueCsv,
   useGetCryptoAssets, getGetCryptoAssetsQueryKey, useCreateCryptoAsset, useUpdateCryptoAsset, useDeleteCryptoAsset, useRequestCryptoAssetLogoUpload, useDeleteCryptoAssetLogoUpload,
-  useGetCryptoNetworks, getGetCryptoNetworksQueryKey, useCreateCryptoNetwork, useUpdateCryptoNetwork, useApplyCryptoAssetsBulkEdit, useDeleteCryptoNetwork, useRequestCryptoNetworkLogoUpload, useDeleteCryptoNetworkLogoUpload, useSaveCryptoAssetReceivingWallet, useReconcileCryptoCustomerDeposits,
+  useGetCryptoNetworks, getGetCryptoNetworksQueryKey, useCreateCryptoNetwork, useUpdateCryptoNetwork, useDeleteCryptoNetwork, useRequestCryptoNetworkLogoUpload, useDeleteCryptoNetworkLogoUpload, useSaveCryptoAssetReceivingWallet, useReconcileCryptoCustomerDeposits,
   useGetDepositProviderOptions, getGetDepositProviderOptionsQueryKey,
   useRequestFiatCurrencyFlagUpload, useDeleteFiatCurrencyFlagUpload,
   useGetOrder, getGetOrderQueryKey, useAssignOrder, useArchiveOrder, useRestoreOrder,
@@ -5379,105 +5379,170 @@ function AdminProviders() {
   </AdminShell>;
 }
 
-type AdminPaymentField = PaymentMethodFieldDefinition & { enabled?: boolean; placeholder?: string };
-const paymentFieldPresets: Array<{ key: string; label: string; type: PaymentMethodFieldDefinition["type"] }> = [
-  { key: "name", label: "Name", type: "account-name" },
-  { key: "iban", label: "IBAN / Account Number", type: "account-iban" },
-  { key: "bank_name", label: "Bank Name", type: "short-text" },
-  { key: "payment_description", label: "Payment Description / Reference", type: "long-text" },
-  { key: "email", label: "Email", type: "email" },
-  { key: "telegram_or_whatsapp", label: "Telegram / WhatsApp", type: "short-text" },
-  { key: "wallet_address", label: "Wallet Address", type: "wallet-address" },
-  { key: "memo_tag", label: "Memo / Tag", type: "memo-tag" },
-  { key: "custom_field", label: "Custom Field", type: "short-text" },
+const sendPresets = [
+  { label: "Name", type: "account-name" },
+  { label: "IBAN", type: "account-iban" },
+  { label: "Bank Account", type: "account-number" },
+  { label: "Payment Reference", type: "short-text" },
+  { label: "Description", type: "long-text" },
+  { label: "Email", type: "email" },
+  { label: "Telegram", type: "short-text" },
+  { label: "WhatsApp", type: "phone" },
+  { label: "Custom Field", type: "short-text" },
 ];
-const paymentFieldAliasGroups = [
-  ["name", "account_name", "account_holder_name", "recipient_name"],
-  ["iban", "bank_detail", "bank_account_number", "account_number"],
-  ["bank_name", "bank"],
-  ["payment_description", "payment_reference", "reference", "description"],
-  ["email", "wallet_email"],
-  ["telegram", "whatsapp", "telegram_or_whatsapp", "phone", "recipient_phone"],
-  ["wallet_address", "address", "destination_address"],
-  ["memo", "tag", "memo_tag"],
+
+const receivePresets = [
+  { label: "Name", type: "account-name" },
+  { label: "IBAN", type: "account-iban" },
+  { label: "Bank Account", type: "account-number" },
+  { label: "BIC / SWIFT", type: "bank-code" },
+  { label: "Email", type: "email" },
+  { label: "Telegram", type: "short-text" },
+  { label: "WhatsApp", type: "phone" },
+  { label: "Custom Field", type: "short-text" },
 ];
-const paymentFieldAlias = (key: string, label: string) => {
-  const normalized = `${key} ${label}`.toLowerCase().replace(/[^a-z0-9]+/g, "_");
-  return paymentFieldAliasGroups.findIndex(group => group.some(alias => normalized.includes(alias)));
-};
 
 function PaymentMethodDynamicFields({ fields, setFields }: { fields: PaymentMethodFieldDefinition[], setFields: React.Dispatch<React.SetStateAction<PaymentMethodFieldDefinition[]>> }) {
-  const adminFields = fields as AdminPaymentField[];
-  const update = (index: number, patch: Partial<AdminPaymentField>) => setFields(current => current.map((field, fieldIndex) => fieldIndex === index ? ({ ...field, ...patch } as PaymentMethodFieldDefinition) : field));
-  const appliesToDirection = (field: PaymentMethodFieldDefinition, direction: "send" | "receive") => !field.direction || field.direction === "both" || field.direction === direction;
-  const move = (index: number, direction: "send" | "receive", delta: -1 | 1) => setFields(current => {
-    const sectionIndexes = current.map((field, fieldIndex) => appliesToDirection(field, direction) ? fieldIndex : -1).filter(fieldIndex => fieldIndex >= 0);
-    const sectionIndex = sectionIndexes.indexOf(index);
-    const target = sectionIndexes[sectionIndex + delta];
-    if (sectionIndex < 0 || target === undefined) return current;
-    const next = [...current];
-    [next[index], next[target]] = [next[target], next[index]];
-    return next;
-  });
-  const add = (preset: typeof paymentFieldPresets[number], direction: "send" | "receive") => setFields(current => {
-    const presetGroup = paymentFieldAlias(preset.key, preset.label);
-    if (presetGroup >= 0 && current.some(field => appliesToDirection(field, direction) && paymentFieldAlias(field.key, field.label) === presetGroup)) return current;
-    if (presetGroup < 0 && preset.key !== "custom_field" && current.some(field => appliesToDirection(field, direction) && field.key === preset.key)) return current;
-    let key = preset.key;
-    let suffix = 1;
-    while (current.some(field => field.key === key)) {
-      suffix += 1;
-      key = `${preset.key}_${suffix}`;
-    }
-    return [...current, { ...preset, key, direction, required: true, enabled: true, placeholder: `Enter ${preset.label.toLowerCase()}` } as AdminPaymentField] as PaymentMethodFieldDefinition[];
-  });
-  const remove = (index: number, direction: "send" | "receive") => setFields(current => {
-    const field = current[index];
-    if (!field) return current;
-    if (!field.direction || field.direction === "both") {
-      const otherDirection = direction === "send" ? "receive" : "send";
-      return current.map((item, fieldIndex) => fieldIndex === index ? { ...item, direction: otherDirection } : item);
-    }
-    return current.filter((_, fieldIndex) => fieldIndex !== index);
-  });
-  const renderSection = (direction: "send" | "receive", title: string, description: string) => {
-    const sectionFields = adminFields.map((field, index) => ({ field, index })).filter(({ field }) => appliesToDirection(field, direction));
-    return <section className={cn("payment-method-field-section", `payment-method-field-section--${direction}`)} data-testid={`section-${direction}-fields`}>
-      <div className="payment-method-field-section-head"><div><h3>{title}</h3><p>{description}</p></div>
-        <DropdownMenuPrimitive.Root><DropdownMenuPrimitive.Trigger asChild><button type="button" className="payment-method-add-field" data-testid={`button-add-field-${direction}`}>+ Add Field</button></DropdownMenuPrimitive.Trigger><DropdownMenuPrimitive.Portal><DropdownMenuPrimitive.Content className="admin-blog-actions-menu z-[9999]" sideOffset={4} align="end">
-          {paymentFieldPresets.map(preset => <DropdownMenuPrimitive.Item key={preset.key} className="admin-blog-actions-item" onSelect={() => add(preset, direction)}>{preset.label}</DropdownMenuPrimitive.Item>)}
-        </DropdownMenuPrimitive.Content></DropdownMenuPrimitive.Portal></DropdownMenuPrimitive.Root>
-      </div>
-      <div className="payment-method-field-list">{sectionFields.map(({ field, index }, sectionIndex) => <div key={`${direction}-${index}`} className="payment-method-field-row payment-method-field-card" data-testid={`row-${direction}-${field.key}`}>
-        <div className="payment-method-field-card-details">
-          <label className="payment-method-field-label payment-method-field-card-label"><span>Label</span><input className="payment-method-field-name-input" value={field.label} onChange={event => update(index, { label: event.target.value })} data-testid={`input-label-${direction}-${index}`} /></label>
-          <label className="payment-method-field-label"><span>Field Name</span><input value={field.key} onChange={event => update(index, { key: event.target.value })} pattern="^[a-z][a-z0-9_]{0,63}$" data-testid={`input-field-name-${direction}-${index}`} /></label>
-          <label className="payment-method-field-label"><span>Placeholder</span><input value={field.placeholder || ""} onChange={event => update(index, { placeholder: event.target.value })} data-testid={`input-placeholder-${direction}-${index}`} /></label>
-          <label className="payment-method-field-label payment-method-field-help"><span>Help Text</span><input value={field.help || ""} onChange={event => update(index, { help: event.target.value })} /></label>
-          <div className="payment-method-field-toggles">
-            <label className="payment-method-required-toggle"><input type="checkbox" checked={field.required !== false} onChange={event => update(index, { required: event.target.checked })} data-testid={`input-required-${direction}-${index}`} /><span>Required <strong>{field.required !== false ? "ON" : "OFF"}</strong></span></label>
-            <label className="payment-method-required-toggle payment-method-enabled-toggle"><input type="checkbox" checked={field.enabled !== false} onChange={event => update(index, { enabled: event.target.checked })} data-testid={`input-enabled-${direction}-${index}`} /><span>Enabled <strong>{field.enabled !== false ? "ON" : "OFF"}</strong></span></label>
-          </div>
-          <fieldset className="payment-method-field-validation">
-            <legend>Validation</legend>
-            <div className="payment-method-field-validation-inputs">
-              <label><span>Pattern</span><input value={field.pattern || ""} placeholder="Pattern" onChange={event => update(index, { pattern: event.target.value || undefined })} /></label>
-            </div>
-          </fieldset>
-        </div>
-        <div className="payment-method-field-actions">
-          <button type="button" className="payment-method-remove-field" onClick={() => remove(index, direction)} data-testid={`button-remove-${direction}-${index}`} aria-label={`Remove field from ${direction}`}><X size={14} /> Remove Field</button>
-          <button type="button" aria-label="Move field up" disabled={sectionIndex === 0} onClick={() => move(index, direction, -1)}>↑ Move Up</button>
-          <button type="button" aria-label="Move field down" disabled={sectionIndex === sectionFields.length - 1} onClick={() => move(index, direction, 1)}>↓ Move Down</button>
-        </div>
-      </div>)}
-      {sectionFields.length === 0 && <div className="payment-method-field-empty">No required information configured.</div>}</div>
-    </section>;
+  const sendFields = fields.filter(f => !f.direction || f.direction === "send" || f.direction === "both");
+  const receiveFields = fields.filter(f => !f.direction || f.direction === "receive" || f.direction === "both");
+
+  const genEditorKey = (dir: string) => `__auto__${dir}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+  const updateField = (originalField: PaymentMethodFieldDefinition, contextDir: "send" | "receive", updates: Partial<PaymentMethodFieldDefinition>) => {
+    setFields(current => {
+      const isBoth = !originalField.direction || originalField.direction === "both";
+      const idx = current.findIndex(f => f.key === originalField.key);
+      if (idx === -1) return current;
+
+      if (isBoth) {
+        const otherDir = contextDir === "send" ? "receive" : "send";
+        const newF = [...current];
+        newF[idx] = { ...newF[idx], direction: otherDir };
+        newF.push({
+          ...originalField,
+          ...updates,
+          key: genEditorKey(contextDir),
+          direction: contextDir
+        });
+        return newF;
+      } else {
+        const newF = [...current];
+        newF[idx] = { ...newF[idx], ...updates };
+        return newF;
+      }
+    });
   };
-  return <div className="payment-method-fields">
-    {renderSection("send", "YOU SEND — Required Information", "This controls what information must be requested from the customer when this Payment Method is selected in You Send.")}
-    {renderSection("receive", "YOU RECEIVE — Required Information", "This controls what information must be requested from the customer when this Payment Method is selected in You Receive.")}
-  </div>;
+
+  const removeField = (originalField: PaymentMethodFieldDefinition, contextDir: "send" | "receive") => {
+    setFields(current => {
+      const isBoth = !originalField.direction || originalField.direction === "both";
+      if (isBoth) {
+        const otherDir = contextDir === "send" ? "receive" : "send";
+        return current.map(f => f.key === originalField.key ? { ...f, direction: otherDir } : f);
+      } else {
+        return current.filter(f => f.key !== originalField.key);
+      }
+    });
+  };
+
+  const addField = (preset: { label: string, type: string }, contextDir: "send" | "receive") => {
+    setFields(current => [
+      ...current,
+      {
+        key: genEditorKey(contextDir),
+        type: preset.type as any,
+        direction: contextDir,
+        label: preset.label,
+        required: true
+      }
+    ]);
+  };
+
+  const renderSection = (title: string, description: string, contextDir: "send" | "receive", currentFields: PaymentMethodFieldDefinition[], presets: { label: string, type: string }[]) => (
+    <section className={cn("payment-method-field-section", `payment-method-field-section--${contextDir}`)} data-testid={`section-${contextDir}-fields`}>
+      <div className="payment-method-field-section-head">
+        <div>
+          <h3>{title}</h3>
+          <p>{description}</p>
+        </div>
+        <DropdownMenuPrimitive.Root>
+          <DropdownMenuPrimitive.Trigger asChild>
+            <button type="button" className="payment-method-add-field" data-testid={`button-add-field-${contextDir}`}>
+              + Add Field
+            </button>
+          </DropdownMenuPrimitive.Trigger>
+          <DropdownMenuPrimitive.Portal>
+            <DropdownMenuPrimitive.Content className="admin-blog-actions-menu z-[9999]" sideOffset={4} align="end">
+              {presets.map(p => (
+                <DropdownMenuPrimitive.Item key={p.label} className="admin-blog-actions-item" onSelect={() => addField(p, contextDir)} data-testid={`menu-add-${contextDir}-${p.label.replace(/\s+/g, "-").toLowerCase()}`}>
+                  {p.label}
+                </DropdownMenuPrimitive.Item>
+              ))}
+            </DropdownMenuPrimitive.Content>
+          </DropdownMenuPrimitive.Portal>
+        </DropdownMenuPrimitive.Root>
+      </div>
+
+      <div className="payment-method-field-list">
+        {currentFields.map((field) => (
+          <div key={field.key} className="payment-method-field-row" data-testid={`row-${contextDir}-${field.key}`}>
+            <label className="payment-method-field-label">
+              <span>Field Name / Label</span>
+              <input
+                value={field.label}
+                onChange={e => updateField(field, contextDir, { label: e.target.value })}
+                className="payment-method-field-name-input"
+                placeholder="Field Name"
+                data-testid={`input-label-${contextDir}-${field.key}`}
+              />
+            </label>
+            <label className="payment-method-required-toggle" data-testid={`label-req-${contextDir}-${field.key}`}>
+              <input
+                type="checkbox"
+                checked={field.required !== false}
+                onChange={e => updateField(field, contextDir, { required: e.target.checked })}
+                data-testid={`input-req-${contextDir}-${field.key}`}
+              />
+              <span>Required <strong>{field.required !== false ? "ON" : "OFF"}</strong></span>
+            </label>
+            <button
+              type="button"
+              className="payment-method-remove-field"
+              onClick={() => removeField(field, contextDir)}
+              data-testid={`button-rem-${contextDir}-${field.key}`}
+              aria-label="Remove field"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        ))}
+        {currentFields.length === 0 && (
+          <div className="payment-method-field-empty">
+            <span>No required information configured.</span>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+
+  return (
+    <div className="payment-method-fields">
+      {renderSection(
+        "YOU SEND — Required Information",
+        "This controls what information must be requested from the customer when this Payment Method is selected in You Send.",
+        "send",
+        sendFields,
+        sendPresets
+      )}
+      {renderSection(
+        "YOU RECEIVE — Required Information",
+        "This controls what information must be requested from the customer when this Payment Method is selected in You Receive.",
+        "receive",
+        receiveFields,
+        receivePresets
+      )}
+    </div>
+  );
 }
 
 
@@ -7995,6 +8060,7 @@ type ReceivingWalletDraft = {
   walletAddress: string;
   memo: string;
   enabled: boolean;
+  share: boolean;
   depositProvider: string;
 };
 
@@ -8002,14 +8068,28 @@ function persistedReceivingWalletDraft(
   network: CryptoNetwork,
   catalog: CryptoNetwork[],
 ): ReceivingWalletDraft {
-  // A draft belongs to this exact assigned network. Never infer an address
-  // from another asset's row with the same network code.
-  const savedWallet = catalog.find(candidate => candidate.id === network.id);
+  const matchingSavedNetworks = catalog.filter(candidate =>
+    candidate.networkCode === network.networkCode &&
+    Boolean(candidate.sharedDepositAddress?.trim())
+  );
+  const selectedSavedNetwork = matchingSavedNetworks.find(candidate => candidate.id === network.id);
+  const addressFrequency = new Map<string, number>();
+  matchingSavedNetworks.forEach(candidate => {
+    const identity = `${candidate.sharedDepositAddress?.trim() || ''}\0${candidate.sharedDepositMemo?.trim() || ''}`;
+    addressFrequency.set(identity, (addressFrequency.get(identity) || 0) + 1);
+  });
+  const sharedSavedNetwork = [...matchingSavedNetworks].sort((left, right) => {
+    const leftIdentity = `${left.sharedDepositAddress?.trim() || ''}\0${left.sharedDepositMemo?.trim() || ''}`;
+    const rightIdentity = `${right.sharedDepositAddress?.trim() || ''}\0${right.sharedDepositMemo?.trim() || ''}`;
+    return (addressFrequency.get(rightIdentity) || 0) - (addressFrequency.get(leftIdentity) || 0);
+  })[0];
+  const savedWallet = selectedSavedNetwork || sharedSavedNetwork;
 
   return {
     walletAddress: savedWallet?.sharedDepositAddress || '',
     memo: savedWallet?.sharedDepositMemo || '',
     enabled: network.customerDepositsEnabled ?? false,
+    share: false,
     depositProvider: network.depositProvider || 'manual',
   };
 }
@@ -8027,8 +8107,6 @@ function AssetDrawer({
   const queryClient = useQueryClient();
   const createAsset = useCreateCryptoAsset();
   const updateAsset = useUpdateCryptoAsset();
-  const updateNetwork = useUpdateCryptoNetwork();
-  const applyNetworksBulk = useApplyCryptoAssetsBulkEdit();
   const saveReceivingWallet = useSaveCryptoAssetReceivingWallet();
   const deleteAsset = useDeleteCryptoAsset();
   const uploadAssetLogo = useRequestCryptoAssetLogoUpload();
@@ -8051,7 +8129,6 @@ function AssetDrawer({
   const [logoObjectPath, setLogoObjectPath] = useState(isNew ? '' : ((asset as any)?.logoObjectPath || ''));
   const commitAssetLogoRef = useRef<() => void>(() => {});
   const [error, setError] = useState('');
-  const [networkActionNotice, setNetworkActionNotice] = useState<string | null>(null);
   const assetNetworks = useMemo(
     () => (isNew ? [] : (assetNetworksQuery.data || []).filter((network: CryptoNetwork) => network.assetId === asset?.id)),
     [assetNetworksQuery.data, isNew, asset === 'new' ? undefined : asset?.id],
@@ -8078,7 +8155,7 @@ function AssetDrawer({
     if (assetNetworks.length > 0 && !assetNetworks.some(network => network.id === receivingNetworkId)) {
       setReceivingNetworkId(assetNetworks[0].id);
     }
-  }, [allAssetNetworks, assetNetworks, isNew, receivingNetworkId]);
+  }, [assetNetworks, isNew, receivingNetworkId]);
 
   const selectedReceivingNetwork = assetNetworks.find(network => network.id === receivingNetworkId);
   const selectedReceivingDraft = selectedReceivingNetwork
@@ -8098,8 +8175,7 @@ function AssetDrawer({
   );
 
   const hasValidWallet = Boolean(selectedReceivingDraft?.walletAddress.trim());
-  const hasRequiredMemo = !selectedReceivingNetwork?.requiresMemo || Boolean(selectedReceivingDraft?.memo.trim());
-  const manualIsValid = hasValidWallet && hasRequiredMemo;
+  const manualIsValid = hasValidWallet;
 
   const receivingCanEnable = Boolean(
     (isApiProvider && !selectedProviderUnavailable) || (isManual && manualIsValid)
@@ -8112,8 +8188,7 @@ function AssetDrawer({
       const isNextApiProvider = next.depositProvider !== 'manual' && next.depositProvider !== 'none';
       const isNextManual = next.depositProvider === 'manual';
       const nextHasValidWallet = Boolean(next.walletAddress.trim());
-      const nextHasRequiredMemo = !selectedReceivingNetwork.requiresMemo || Boolean(next.memo.trim());
-      const nextManualIsValid = nextHasValidWallet && nextHasRequiredMemo;
+      const nextManualIsValid = nextHasValidWallet;
 
       const nextProviderAvailable = providerOptions.some(option => option.id === next.depositProvider);
       const canEnable = (isNextApiProvider && nextProviderAvailable) || (isNextManual && nextManualIsValid);
@@ -8130,46 +8205,11 @@ function AssetDrawer({
       setReceivingNetworkId(networkId);
       return;
     }
-    setReceivingDrafts(current => current[network.id]
-      ? current
-      : { ...current, [network.id]: persistedReceivingWalletDraft(network, allAssetNetworks) });
+    setReceivingDrafts(current => ({
+      ...current,
+      [network.id]: persistedReceivingWalletDraft(network, allAssetNetworks),
+    }));
     setReceivingNetworkId(network.id);
-  };
-
-  const toggleNetworkEnabled = async (network: CryptoNetwork, enabled: boolean) => {
-    setError('');
-    setNetworkActionNotice(null);
-    try {
-      await updateNetwork.mutateAsync({ id: network.id, data: { enabled } });
-      await queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() });
-    } catch (err) {
-      setError(apiErrorText(err, `Failed to ${enabled ? 'enable' : 'disable'} ${network.networkName}.`));
-    }
-  };
-
-  const setAllNetworksEnabled = async (enabled: boolean) => {
-    setError('');
-    setNetworkActionNotice(null);
-    try {
-      if (!asset || asset === 'new') return;
-      await applyNetworksBulk.mutateAsync({
-        data: {
-          edits: [{
-            assetId: asset.id,
-            networks: assetNetworks.map(network => ({ networkId: network.id, enabled })),
-          }],
-        },
-      });
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: getGetCryptoAssetsQueryKey() }),
-        queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
-        queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
-      ]);
-      setNetworkActionNotice(`${enabled ? 'Enabled' : 'Disabled'} all ${assetNetworks.length} assigned networks.`);
-    } catch (err) {
-      setError(apiErrorText(err, `Failed to ${enabled ? 'enable' : 'disable'} all networks.`));
-      setNetworkActionNotice('Some networks may not have been updated. Review the network rows and try again.');
-    }
   };
 
   const save = async (e: React.FormEvent) => {
@@ -8203,8 +8243,9 @@ function AssetDrawer({
               walletAddress: selectedReceivingDraft.walletAddress.trim(),
               memo: selectedReceivingDraft.memo.trim() || null,
               enabled: Boolean(selectedReceivingDraft.enabled && receivingCanEnable),
+              useForAllAssetsOnNetwork: selectedReceivingDraft.share,
               depositProvider: selectedReceivingDraft.depositProvider,
-             } as any,
+            },
           });
           onWalletReconciled?.(
             updatedNetworks.filter(network => network.customerDepositsEnabled).length,
@@ -8243,11 +8284,10 @@ function AssetDrawer({
 
   return (
     <div className="drawer-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
-       <aside className="order-drawer catalog-editor-drawer asset-editor-drawer" role="dialog" aria-label={isNew ? t('adminCatalog.add_crypto_asset') : t('adminCatalog.edit_crypto_asset')}>
+      <aside className="order-drawer catalog-editor-drawer" role="dialog" aria-label={isNew ? t('adminCatalog.add_crypto_asset') : t('adminCatalog.edit_crypto_asset')}>
         <div className="drawer-head catalog-editor-head"><div className="catalog-editor-heading"><span className="catalog-editor-icon"><Coins size={19} /></span><div><span className="section-kicker">{t('adminCatalog.configuration')}</span><h2>{isNew ? t('adminCatalog.add_crypto_asset') : t('adminCatalog.edit_crypto_asset')}</h2></div></div><button className="icon-button catalog-editor-close" onClick={onClose} aria-label={t('adminCatalog.close_crypto_asset_drawer')}><X size={18} /></button></div>
         <form className="admin-form admin-form-card drawer-edit catalog-editor-form" onSubmit={save}>
           {error && <InlineNotice kind="error">{error}</InlineNotice>}
-          {networkActionNotice && <InlineNotice kind="info">{networkActionNotice}</InlineNotice>}
           <div className="catalog-editor-identity-preview">
              <span className="catalog-editor-logo-preview"><AdminCryptoLogo symbol={form.code || '—'} logoUrl={(asset as any)?.logoUrl} size="md" /></span>
             <span><small>{t('adminCatalog.crypto_asset')}</small><strong>{form.name || 'Asset name'}</strong><em>{form.code.toUpperCase() || 'SYMBOL'} · {form.decimals} {t('adminCatalog.decimals')}</em></span>
@@ -8285,87 +8325,70 @@ function AssetDrawer({
             ) : assetNetworks.length === 0 ? (
               <p className="field-hint">Assign at least one network to this asset before configuring a receiving address.</p>
             ) : (
-               <>
-                 <div className="receiving-network-actions flex flex-wrap gap-2 mb-3">
-                    <button type="button" className="button button-secondary" data-testid="button-enable-all-networks" onClick={() => void setAllNetworksEnabled(true)} disabled={updateNetwork.isPending || applyNetworksBulk.isPending}>
-                     Enable All Networks
-                   </button>
-                    <button type="button" className="button button-secondary" data-testid="button-disable-all-networks" onClick={() => void setAllNetworksEnabled(false)} disabled={updateNetwork.isPending || applyNetworksBulk.isPending}>
-                     Disable All Networks
-                   </button>
-                 </div>
-                 <div className="receiving-network-list" aria-label="Assigned networks">
-                   {assetNetworks.map(network => (
-                     <article key={network.id} className={`receiving-network-card ${network.id === receivingNetworkId ? 'is-selected' : ''}`} data-testid={`assigned-network-${network.id}`}>
-                       <button type="button" className="receiving-network-card-select" onClick={() => selectReceivingNetwork(network.id)} aria-expanded={network.id === receivingNetworkId}>
-                         <span><strong>{network.networkName}</strong><small>{network.networkCode} · {network.id}</small></span>
-                         <span className="text-xs">{network.customerDepositsEnabled ? 'Deposits ready' : 'Deposits disabled'}</span>
-                       </button>
-                       <label className="catalog-editor-toggle">
-                         <input type="checkbox" data-testid={`network-enabled-${network.id}`} checked={Boolean(network.enabled)} onChange={e => void toggleNetworkEnabled(network, e.target.checked)} disabled={updateNetwork.isPending} />
-                         <span className="field-label !mb-0 text-sm font-bold">Enabled</span>
-                       </label>
-                     </article>
-                   ))}
-                 </div>
-                 <div className="receiving-network-config">
-                   <div className="panel-heading">
-                     <div><span className="section-kicker">Selected network</span><h3>{selectedReceivingNetwork?.networkName} ({selectedReceivingNetwork?.networkCode})</h3></div>
-                   </div>
-                   <label>
-                     <span className="field-label">Provider Policy</span>
-                     <select
-                       data-testid="receiving-wallet-provider"
-                       value={selectedReceivingDraft?.depositProvider || 'manual'}
-                       disabled={providerOptionsQuery.isLoading}
-                       onChange={e => updateReceivingDraft({ depositProvider: e.target.value })}
-                     >
-                       {selectedProviderUnavailable && selectedReceivingDraft && (
-                         <option value={selectedReceivingDraft.depositProvider} disabled>
-                           {selectedReceivingDraft.depositProvider} (not connected)
-                         </option>
-                       )}
-                       {providerOptions.map(opt => (
-                         <option key={opt.id} value={opt.id} disabled={!opt.implemented}>{opt.label}</option>
-                       ))}
-                     </select>
-                   </label>
-                   <label>
-                     <span className="field-label">{isApiProvider ? 'Fallback Wallet Address' : 'Wallet Address'}</span>
-                     <input data-testid="receiving-wallet-address" value={selectedReceivingDraft?.walletAddress || ''} onChange={e => updateReceivingDraft({ walletAddress: e.target.value })} placeholder="Master receiving address" />
-                   </label>
-                   <label>
-                     <span className="field-label">{isApiProvider ? 'Fallback Memo / Tag' : 'Memo / Tag'}</span>
-                     <input data-testid="receiving-wallet-memo" value={selectedReceivingDraft?.memo || ''} onChange={e => updateReceivingDraft({ memo: e.target.value })} placeholder="Optional memo or tag" />
-                   </label>
-                   <div className="network-toggle-group catalog-editor-toggles">
-                     <label>
-                       <input data-testid="receiving-wallet-enabled" type="checkbox" className="w-auto h-auto" checked={Boolean(selectedReceivingDraft?.enabled && receivingCanEnable && selectedReceivingDraft?.depositProvider !== 'none')} disabled={!receivingCanEnable || selectedReceivingDraft?.depositProvider === 'none'} onChange={e => updateReceivingDraft({ enabled: e.target.checked })} />
-                       <span className="field-label !mb-0 font-bold">Enable customer deposits</span>
-                     </label>
-                   </div>
-                   {isApiProvider ? (
-                     <p className="field-hint text-muted-foreground mt-1.5 text-[13px]">
-                       {selectedProviderUnavailable
-                         ? 'This assigned provider is not currently connected and enabled in API Integrations.'
-                         : `${selectedProviderOption?.label || 'The selected provider'} generates the deposit address through its API. If generation fails, the exact wallet above is used as fallback.`}
-                       {!selectedProviderUnavailable && !receivingCanEnable && " The fallback is currently invalid."}
-                     </p>
-                   ) : selectedReceivingDraft?.depositProvider === 'none' ? (
-                     <p className="field-hint text-muted-foreground mt-1.5 text-[13px]">
-                       Deposits are disabled. The address above remains editable for future use.
-                     </p>
-                   ) : (
-                     !receivingCanEnable && <p className="field-hint text-muted-foreground mt-1.5 text-[13px]">
-                       Customer deposits require a wallet address.
-                     </p>
-                   )}
-                   {selectedReceivingDraft?.walletAddress.trim() && (
-                     <div className="receiving-wallet-qr" data-testid="receiving-wallet-qr" aria-label="Receiving wallet QR preview">
-                       <QRCodeSVG value={selectedReceivingDraft.walletAddress.trim()} size={168} />
-                     </div>
-                   )}
-                 </div>
+              <>
+                <label>
+                  <span className="field-label">Network</span>
+                  <select data-testid="receiving-wallet-network" value={receivingNetworkId} onChange={e => selectReceivingNetwork(e.target.value)}>
+                    {assetNetworks.map(network => <option key={network.id} value={network.id}>{network.networkName} ({network.networkCode})</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span className="field-label">Provider Policy</span>
+                  <select
+                    data-testid="receiving-wallet-provider"
+                    value={selectedReceivingDraft?.depositProvider || 'manual'}
+                    disabled={providerOptionsQuery.isLoading}
+                    onChange={e => updateReceivingDraft({ depositProvider: e.target.value })}
+                  >
+                    {selectedProviderUnavailable && selectedReceivingDraft && (
+                      <option value={selectedReceivingDraft.depositProvider} disabled>
+                        {selectedReceivingDraft.depositProvider} (not connected)
+                      </option>
+                    )}
+                    {providerOptions.map(opt => (
+                      <option key={opt.id} value={opt.id} disabled={!opt.implemented}>{opt.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span className="field-label">{isApiProvider ? 'Fallback Wallet Address' : 'Wallet Address'}</span>
+                  <input data-testid="receiving-wallet-address" value={selectedReceivingDraft?.walletAddress || ''} onChange={e => updateReceivingDraft({ walletAddress: e.target.value })} placeholder="Master receiving address" />
+                </label>
+                <label>
+                  <span className="field-label">{isApiProvider ? 'Fallback Memo / Tag' : 'Memo / Tag'}</span>
+                  <input data-testid="receiving-wallet-memo" value={selectedReceivingDraft?.memo || ''} onChange={e => updateReceivingDraft({ memo: e.target.value })} placeholder="Optional memo or tag" />
+                </label>
+                <div className="network-toggle-group catalog-editor-toggles">
+                  <label>
+                    <input data-testid="receiving-wallet-enabled" type="checkbox" className="w-auto h-auto" checked={Boolean(selectedReceivingDraft?.enabled && receivingCanEnable && selectedReceivingDraft?.depositProvider !== 'none')} disabled={!receivingCanEnable || selectedReceivingDraft?.depositProvider === 'none'} onChange={e => updateReceivingDraft({ enabled: e.target.checked })} />
+                    <span className="field-label !mb-0 font-bold">Enable customer deposits</span>
+                  </label>
+                  <label>
+                    <input data-testid="receiving-wallet-share" type="checkbox" className="w-auto h-auto" checked={Boolean(selectedReceivingDraft?.share)} onChange={e => updateReceivingDraft({ share: e.target.checked })} />
+                    <span className="field-label !mb-0 font-bold">Use this address for all assets on the same network</span>
+                  </label>
+                </div>
+                {isApiProvider ? (
+                  <p className="field-hint text-muted-foreground mt-1.5 text-[13px]">
+                    {selectedProviderUnavailable
+                      ? 'This assigned provider is not currently connected and enabled in API Integrations.'
+                      : `${selectedProviderOption?.label || 'The selected provider'} generates the deposit address through its API. If generation fails, the exact wallet above is used as fallback.`}
+                    {!selectedProviderUnavailable && !receivingCanEnable && " The fallback is currently invalid."}
+                  </p>
+                ) : selectedReceivingDraft?.depositProvider === 'none' ? (
+                  <p className="field-hint text-muted-foreground mt-1.5 text-[13px]">
+                    Deposits are disabled. The address above remains editable for future use.
+                  </p>
+                ) : (
+                  !receivingCanEnable && <p className="field-hint text-muted-foreground mt-1.5 text-[13px]">
+                    Customer deposits require a wallet address.
+                  </p>
+                )}
+                {selectedReceivingDraft?.walletAddress.trim() && (
+                  <div className="receiving-wallet-qr" data-testid="receiving-wallet-qr" aria-label="Receiving wallet QR preview">
+                    <QRCodeSVG value={selectedReceivingDraft.walletAddress.trim()} size={168} />
+                  </div>
+                )}
               </>
             )}
           </section>

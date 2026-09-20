@@ -15,7 +15,6 @@ export const SITE_CONTENT_PAGE_KEYS = [
   "terms-conditions",
   "aml-kyc",
   "widget-exchange-information",
-  "order-terms-acceptance",
 ] as const;
 export type SiteContentPageKey = typeof SITE_CONTENT_PAGE_KEYS[number];
 

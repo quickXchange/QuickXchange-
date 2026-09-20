@@ -1,15 +1,15 @@
 ---
 name: Asset-network wallet identity
-description: Rules for selecting and updating receiving wallets by exact crypto asset-network identity.
+description: Rules for selecting and sharing receiving wallets across crypto assets without symbol or display-name inference.
 ---
 
-Receiving-wallet updates must identify one immutable asset-network mapping row, verify that it belongs to the submitted asset, and change only that row. Never propagate addresses, memos, providers, or deposit settings to sibling rows, even when they share a network code.
+Receiving-wallet updates must identify an immutable asset-network mapping row and verify that it belongs to the submitted asset. Sharing across assets derives from that selected row's exact configured network code; never infer a chain from an asset symbol, asset name, or network display name.
 
 Deposit-provider policy is also owned by that exact row, but it is never shared when an operator shares a wallet across assets. A selected API provider tries its idempotent adapter first, then permanently projects that order onto the same row's snapshotted manual wallet when the call is unavailable, rejected, malformed, or ambiguous. Once exposed, that fallback address cannot later switch to a recovered API address.
 
 **Why:** Assets can support multiple chains, and multiple assets can use one chain. Display labels and symbols are not stable or unique enough to select a customer deposit destination. Switching an address after showing it to a customer can strand funds.
 
-**How to apply:** Admin saves, Swap quote funding, and order revalidation must preserve the selected asset-network row identity. Reject legacy cross-row sharing flags, and test that sibling rows remain byte-for-byte unchanged. Keep provider claims fenced and Convert provider-address driven.
+**How to apply:** Admin saves, Swap quote funding, and order revalidation must preserve the selected asset-network row identity. The Admin editor may hydrate address/memo fields from another asset only by exact network code, then save through the selected row; never infer a chain from labels or symbols. Keep provider claims fenced and Convert provider-address driven.
 
 Receiving-wallet memo/tag values may be omitted only when the exact network does not require one. Every supplied memo is syntax-validated; an empty memo clears the value, but a required memo must be present before enabling customer deposits.
 

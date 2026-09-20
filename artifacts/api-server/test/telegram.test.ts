@@ -7,7 +7,7 @@ import { db, telegramAccountLinkChallengesTable, telegramChatsTable } from "@wor
 import { DepositInstructionsPending, menu, shouldApplyUpdate, reconciliationClaimEligible, reconciliationWinnerTransition, telegramAdvisoryChatKey, telegramCreateRetryDecision, telegramCreationDeliveryDecision, telegramCreationOutboxPayload, telegramCreateState, telegramDepositInstruction, telegramInboxDisposition, telegramManualOrderKinds, telegramNextChatCursor, telegramOutboxFailureDisposition, telegramPrivateUpdate, telegramRequiresDeposit, telegramSecretMatches, telegramUpdateIdValid, telegramWebhookDisposition } from "../src/routes/telegram";
 import { localeOf, t } from "../src/lib/telegram-localization";
 import { consumeTelegramLinkChallenge, createTelegramLinkChallenge, hashTelegramLinkToken, TelegramLinkChallengeError, TelegramLinkConflictError } from "../src/lib/telegram-link";
-import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, shouldAskConfiguredDestination, shouldAskConfiguredEmail, shouldAskDestination, telegramFieldSkipIndex, withoutTelegramRefundFields } from "../src/lib/telegram-wizard";
+import { buildCreatePayload, buildQuotePayload, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, shouldAskDestination, telegramFieldSkipIndex, withoutTelegramRefundFields } from "../src/lib/telegram-wizard";
 import { normalizeRefundFields } from "../src/lib/manual-wallet-validation";
 import { telegramAccountLinkRelativeUrl, validateTelegramMiniAppInitData, verifyTelegramMiniAppSession } from "../src/routes/telegram-mini-app";
 
@@ -251,22 +251,6 @@ test("Telegram wizard builds exact route bodies from persisted selections", () =
   });
   assert.equal(shouldAskDestination("swap", source), false);
   assert.equal(shouldAskDestination("swap", target), true);
-  const configuredFields = [
-    { key: "source_email", type: "email", enabled: true, required: true },
-    { key: "target_wallet_address", type: "wallet-address", enabled: true, required: true },
-  ];
-  const configuredValues = {
-    source_email: "configured@example.test",
-    target_wallet_address: "wallet-value",
-  };
-  assert.equal(shouldAskConfiguredEmail("swap", configuredFields, configuredValues), false);
-  assert.equal(shouldAskConfiguredDestination("swap", target, configuredFields, configuredValues), false);
-  const mapped = buildCreatePayload("swap", source, target, {
-    amount: 100, quote: { quoteId: "quoted" }, clientRequestId: "id-3",
-    fields: configuredFields, values: configuredValues,
-  });
-  assert.equal(mapped.customerEmail, "configured@example.test");
-  assert.equal(mapped.destinationAddress, "wallet-value");
 });
 
 test("Telegram Convert omits absent refund fields for USDT TRC20 to fiat", () => {
@@ -291,10 +275,6 @@ test("Telegram wizard honors conditional and optional fields", () => {
   assert.equal(nextRequiredField(fields, 0, {}), 0);
   assert.equal(nextRequiredField(fields, 1, { method: "cash" }), 2);
   assert.equal(nextRequiredField(fields, 1, { method: "bank" }), 1);
-  assert.equal(nextRequiredField([
-    { key: "stale", enabled: false, required: true },
-    { key: "live", required: true },
-  ], 0, {}), 1);
 });
 
 test("Telegram route filtering preserves receive-only options without cross-products", () => {

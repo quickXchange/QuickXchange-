@@ -5633,8 +5633,6 @@ components:
       properties:
         key: { type: string, pattern: '^[a-z][a-z0-9_]{0,63}$' }
         type: { type: string, enum: [short-text, long-text, integer, numeric, decimal, account-iban, account-number, account-name, bank-code, routing-number, country-code, postal-address, phone, email, date, select, wallet-address, memo-tag, private-image, text, number, textarea] }
-        enabled: { type: boolean, default: true }
-        placeholder: { type: string, maxLength: 200 }
         direction: { type: string, enum: [send, receive, both] }
         emphasizedLabel: { type: boolean }
         label: { type: string, minLength: 1, maxLength: 100 }
@@ -5696,6 +5694,7 @@ components:
       properties:
         networkId: { type: string, pattern: '^[a-z0-9][a-z0-9-]{0,80}$' }
         enabled: { type: boolean }
+        customerDepositsEnabled: { type: boolean }
         lifecycle: { type: string, enum: [active, restricted, deprecated] }
         regions:
           type: array
@@ -5703,6 +5702,8 @@ components:
           items: { type: string, maxLength: 32 }
         decimals: { type: number, minimum: 0, maximum: 30, multipleOf: 1 }
         requiresMemo: { type: boolean }
+        sharedDepositAddress: { type: string, maxLength: 500 }
+        sharedDepositMemo: { type: [string, "null"], maxLength: 500 }
       minProperties: 2
     CryptoAssetBulkEdit:
       type: object
@@ -5813,13 +5814,14 @@ components:
     CryptoAssetReceivingWalletInput:
       type: object
       additionalProperties: false
-      required: [networkId, walletAddress, enabled]
+      required: [networkId, walletAddress, enabled, useForAllAssetsOnNetwork]
       properties:
         networkId: { type: string, minLength: 1, maxLength: 80 }
         walletAddress: { type: string, maxLength: 500 }
         memo: { type: [string, "null"], maxLength: 500 }
         depositProvider: { type: string, minLength: 1, maxLength: 64, default: manual }
         enabled: { type: boolean }
+        useForAllAssetsOnNetwork: { type: boolean }
     CryptoNetwork:
       allOf:
         - $ref: "#/components/schemas/CryptoNetworkInput"
@@ -6551,32 +6553,13 @@ components:
       type: object
       required: [content]
       properties:
-        content:
-          type: object
-          additionalProperties: true
-          description: Page-specific content. The order-terms-acceptance page uses OrderTermsAcceptanceContent.
+        content: { type: object, additionalProperties: true }
     SiteContentDraftInput:
       type: object
       required: [pageKey, content]
       properties:
         pageKey: { $ref: "#/components/schemas/SitePageKey" }
-        content:
-          type: object
-          additionalProperties: true
-          description: Page-specific content. The order-terms-acceptance page uses OrderTermsAcceptanceContent.
-    OrderTermsAcceptanceContent:
-      type: object
-      description: Shared order terms acceptance copy used by Convert and Swap.
-      required: [mainText, termsLabel, termsUrl, privacyLabel, privacyUrl, amlLabel, amlUrl]
-      additionalProperties: false
-      properties:
-        mainText: { type: string, minLength: 1, maxLength: 200 }
-        termsLabel: { type: string, minLength: 1, maxLength: 200 }
-        termsUrl: { type: string, minLength: 1, maxLength: 2048 }
-        privacyLabel: { type: string, minLength: 1, maxLength: 200 }
-        privacyUrl: { type: string, minLength: 1, maxLength: 2048 }
-        amlLabel: { type: string, minLength: 1, maxLength: 200 }
-        amlUrl: { type: string, minLength: 1, maxLength: 2048 }
+        content: { type: object, additionalProperties: true }
     AdminSitePage:
       type: object
       required: [pageKey, draft, published]

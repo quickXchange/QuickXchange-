@@ -10,6 +10,5 @@ import type { SitePageKey } from './sitePageKey';
 
 export interface SiteContentDraftInput {
   pageKey: SitePageKey;
-  /** Page-specific content. The order-terms-acceptance page uses OrderTermsAcceptanceContent. */
   content: SiteContentDraftInputContent;
 }

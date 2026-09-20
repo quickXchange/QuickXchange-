@@ -11,12 +11,75 @@ import { ApiError } from "./api-error";
 
 const FORBIDDEN = /\b(?:password|passcode|pin|otp|2fa|auth(?:entication)?(?:\s+|-)?code|verification(?:\s+|-)?code|cvv|cvc|pan|card(?:\s+|-)?number|seed(?:\s+|-)?phrase|recovery(?:\s+|-)?phrase|private(?:\s+|-)?key|security(?:\s+|-)?code|secret|credential|login)\b/i;
 
-export function publicFiatCustomerFields(
+const STANDARD_FIAT_CUSTOMER_FIELDS = [
+  {
+    key: "name",
+    type: "account-name",
+    label: "Name",
+    direction: "both",
+    required: true,
+    min: 2,
+    max: 140,
+  },
+  {
+    key: "bank_detail",
+    type: "account-number",
+    label: "Bank detail (IBAN or account number)",
+    direction: "both",
+    required: true,
+    min: 2,
+    max: 64,
+  },
+  {
+    key: "bank_name",
+    type: "short-text",
+    label: "Bank name",
+    direction: "both",
+    required: true,
+    min: 2,
+    max: 140,
+  },
+  {
+    key: "payment_description",
+    type: "long-text",
+    label: "Payment description",
+    direction: "both",
+    required: false,
+    max: 500,
+  },
+  {
+    key: "telegram_or_whatsapp",
+    type: "short-text",
+    label: "Your Telegram or WhatsApp",
+    direction: "both",
+    required: false,
+    max: 100,
+  },
+] as const satisfies readonly PaymentMethodFieldDefinition[];
+
+const STANDARD_FIAT_REPLACED_KEYS = new Set([
+  "name",
+  "recipient_name",
+  "account_holder_name",
+  "iban",
+  "bank_account_number",
+  "bank_detail",
+  "bank_name",
+  "payment_description",
+  "telegram_or_whatsapp",
+]);
+
+function publicFiatCustomerFields(
   definitions: PaymentMethodFieldDefinition[],
 ): PaymentMethodFieldDefinition[] {
-  return definitions
-    .filter((field) => field.enabled !== false)
-    .map((field) => ({ ...field, enabled: field.enabled ?? true }));
+  const methodSpecificFields = definitions.filter((field) =>
+    !STANDARD_FIAT_REPLACED_KEYS.has(field.key) &&
+    !["account-name", "account-iban", "account-number"].includes(field.type)
+  );
+  return [
+    ...STANDARD_FIAT_CUSTOMER_FIELDS.map((field) => ({ ...field })),
+    ...methodSpecificFields,
+  ];
 }
 
 function passesLuhn(value: string): boolean {
@@ -113,7 +176,6 @@ export function validateSafeFieldDefinitions(
   definitions: PaymentMethodFieldDefinition[],
 ): PaymentMethodFieldDefinition[] {
   const keys = new Set<string>();
-  const activeKeys = new Set<string>();
   for (const field of definitions) {
     const safetyText = `${field.key} ${field.label} ${field.help ?? ""}`.replace(/[_-]+/g, " ");
     if (FORBIDDEN.test(safetyText)) {
@@ -127,7 +189,6 @@ export function validateSafeFieldDefinitions(
       throw new ApiError("DUPLICATE_SETTLEMENT_FIELD", `Duplicate field key: ${field.key}.`, 400);
     }
     keys.add(field.key);
-    if (field.enabled !== false) activeKeys.add(field.key);
     if (field.min !== undefined && field.max !== undefined && field.min > field.max) {
       throw new ApiError("INVALID_SETTLEMENT_FIELD", `Invalid range for ${field.key}.`, 400);
     }
@@ -150,7 +211,7 @@ export function validateSafeFieldDefinitions(
       field.requiredWhen &&
       (
         field.requiredWhen.fieldKey === field.key ||
-        !activeKeys.has(field.requiredWhen.fieldKey)
+        !keys.has(field.requiredWhen.fieldKey)
       )
     ) {
       throw new ApiError(
@@ -179,14 +240,13 @@ export function validateSettlementDetails(
   schema: PaymentMethodFieldDefinition[],
   details: Record<string, unknown> | undefined,
 ): Record<string, string | number | null> {
-  const activeSchema = schema.filter((field) => field.enabled !== false);
   const values = details ?? {};
-  const allowed = new Set(activeSchema.map((field) => field.key));
+  const allowed = new Set(schema.map((field) => field.key));
   if (Object.keys(values).some((key) => !allowed.has(key))) {
     throw new ApiError("SETTLEMENT_DETAILS_INVALID", "Settlement details contain an unknown field.", 400);
   }
   const result: Record<string, string | number | null> = {};
-  for (const field of activeSchema) {
+  for (const field of schema) {
     const value = values[field.key];
     const applicable = fieldConditionMatches(field, values);
     if (!applicable) {

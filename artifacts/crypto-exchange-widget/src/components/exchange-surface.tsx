@@ -45,7 +45,6 @@ import {
 } from '@/components/shared-app-ui';
 
 import { useSitePreview } from '@/components/site-preview-context';
-import { OrderTermsAcceptance } from '@/lib/order-terms-acceptance';
 import {
   MARKET_CONVERT_SELECTION_EVENT,
   MARKET_SWAP_SELECTION_EVENT,
@@ -959,19 +958,6 @@ export function ManualSwapWidget({
       || /^(account holder|beneficiary|recipient) name$/.test(normalizedLabel)
       || normalizedLabel === 'name';
   }));
-  const activeSettlementFields = (currentQuote?.requiredSettlementFields || []).filter((field: any) => field.enabled !== false);
-  const hasConfiguredEmailField = activeSettlementFields.some(field => {
-    const key = field.key.replace(/^(source|target)_/, '').toLowerCase();
-    return field.type === 'email' || key === 'email' || key.includes('email');
-  });
-  const hasConfiguredWalletField = activeSettlementFields.some(field => {
-    const key = field.key.replace(/^(source|target)_/, '').toLowerCase();
-    return field.type === 'wallet-address' || key.includes('wallet') || key.includes('address');
-  });
-  const hasConfiguredMemoField = activeSettlementFields.some(field => {
-    const key = field.key.replace(/^(source|target)_/, '').toLowerCase();
-    return field.type === 'memo-tag' || key.includes('memo') || key.includes('tag');
-  });
   const quoteReady = Boolean(
     currentQuote &&
     quoteStatus === 'idle' &&
@@ -1170,13 +1156,13 @@ export function ManualSwapWidget({
       setNotice({ kind: 'info', text: t('public.quoteExpiredReview') });
       return;
     }
-    if (!signedInCustomer && !email.trim() && !hasConfiguredEmailField) {
+    if (!signedInCustomer && !email.trim()) {
       setNotice({ kind: 'error', text: t('swap.contactEmail') }); return;
     }
-    if (toOption.kind === 'crypto-network' && !destinationAddress.trim() && !hasConfiguredWalletField) {
+    if (toOption.kind === 'crypto-network' && !destinationAddress.trim()) {
       setNotice({ kind: 'error', text: t('swap.requiredField', { field: t('swap.destinationAddress') }) }); return;
     }
-    if (!isFiatToCryptoSwap && toOption.kind === 'crypto-network' && toOption.requiresMemo && !destinationMemo.trim() && !hasConfiguredMemoField) {
+    if (!isFiatToCryptoSwap && toOption.kind === 'crypto-network' && toOption.requiresMemo && !destinationMemo.trim()) {
       setNotice({ kind: 'error', text: t('swap.requiredField', { field: t('swap.destinationMemo') }) }); return;
     }
     if (
@@ -1195,9 +1181,8 @@ export function ManualSwapWidget({
     setNotice(null);
 
     const parsedDetails: Record<string, string | number> = {};
-    if (currentQuote?.requiredSettlementFields) {
+    if (!isFiatToCryptoSwap && currentQuote?.requiredSettlementFields) {
       for (const field of currentQuote.requiredSettlementFields) {
-        if ((field as any).enabled === false) continue;
         if (field.requiredWhen) {
           const targetValue = settlementDetails[field.requiredWhen.fieldKey];
           const matches = Array.isArray(field.requiredWhen.equals)
@@ -1222,15 +1207,6 @@ export function ManualSwapWidget({
     const settlementCustomerName = Object.entries(parsedDetails).find(
       ([key, value]) => /^(source|target)_name$/.test(key) && typeof value === 'string',
     )?.[1] as string | undefined;
-    const configuredEmail = Object.entries(parsedDetails).find(
-      ([key, value]) => /email/i.test(key) && typeof value === 'string' && value.trim(),
-    )?.[1] as string | undefined;
-    const configuredWallet = Object.entries(parsedDetails).find(
-      ([key, value]) => /wallet|address/i.test(key) && typeof value === 'string' && value.trim(),
-    )?.[1] as string | undefined;
-    const configuredMemo = Object.entries(parsedDetails).find(
-      ([key, value]) => /memo|tag/i.test(key) && typeof value === 'string' && value.trim(),
-    )?.[1] as string | undefined;
 
     orderMutation.mutate({
       data: {
@@ -1240,15 +1216,13 @@ export function ManualSwapWidget({
         toAsset: toOption.assetCode,
         toNetwork: toOption.routeNetwork,
         amount: parsed,
-        customerEmail: signedInCustomer
-          ? (user?.primaryEmailAddress?.emailAddress || configuredEmail)
-          : (email.trim() || configuredEmail),
+        customerEmail: signedInCustomer ? undefined : email.trim(),
         customerName: name || settlementCustomerName || undefined,
         clientRequestId: clientRequestId,
         sourceSettlementOptionId: fromOption.id,
         targetSettlementOptionId: toOption.id,
-        destinationAddress: toOption.kind === 'crypto-network' ? (destinationAddress.trim() || configuredWallet) : undefined,
-        destinationMemo: !isFiatToCryptoSwap && toOption.kind === 'crypto-network' ? (destinationMemo.trim() || configuredMemo) : undefined,
+        destinationAddress: toOption.kind === 'crypto-network' ? destinationAddress.trim() : undefined,
+        destinationMemo: !isFiatToCryptoSwap && toOption.kind === 'crypto-network' ? destinationMemo.trim() : undefined,
          ...(refundAddress.trim() ? {
            refundAddress: refundAddress.trim(),
            refundMemo: fromOption.kind === 'crypto-network' ? refundMemo.trim() || undefined : undefined,
@@ -1557,7 +1531,7 @@ export function ManualSwapWidget({
               )}
 
               <div className="order-details-content swap-step2-fields">
-                {isFiatToCryptoSwap && !hasConfiguredEmailField && (
+                {isFiatToCryptoSwap && (
                   <div className="order-detail-field order-detail-field--email flex flex-col gap-1.5">
                     <label htmlFor="swap-email" className="text-[13px] font-semibold text-muted-foreground">
                       Email Address <span className="required-field-mark" aria-hidden="true">*</span>
@@ -1580,7 +1554,7 @@ export function ManualSwapWidget({
                 )}
                 {toOption?.kind === 'crypto-network' && (
                   <>
-                    {!hasConfiguredWalletField && <div className="order-detail-field order-detail-field--destination">
+                    <div className="order-detail-field order-detail-field--destination">
                       <label htmlFor="swap-destination" className="swap-step2-field-label">
                         {isFiatToCryptoSwap
                           ? <>Receiving Wallet Address <span className="required-field-mark" aria-hidden="true">*</span></>
@@ -1602,9 +1576,9 @@ export function ManualSwapWidget({
                           className="swap-step2-input font-mono"
                         />
                       </div>
-                    </div>}
+                    </div>
 
-                    {!isFiatToCryptoSwap && toOption.requiresMemo && !hasConfiguredMemoField && (
+                    {!isFiatToCryptoSwap && toOption.requiresMemo && (
                       <div className="order-detail-field order-detail-field--memo">
                         <label htmlFor="swap-destination-memo" className="swap-step2-field-label">
                           {t('swap.destinationMemo')}
@@ -1646,8 +1620,7 @@ export function ManualSwapWidget({
                   </div>
                 )}
 
-                {currentQuote?.requiredSettlementFields?.filter((field: any) => {
-                  if (field.enabled === false) return false;
+                {!isFiatToCryptoSwap && currentQuote?.requiredSettlementFields?.filter((field: any) => {
                   if (field.requiredWhen) {
                     const targetValue = settlementDetails[field.requiredWhen.fieldKey];
                     const matches = Array.isArray(field.requiredWhen.equals)
@@ -1713,7 +1686,7 @@ export function ManualSwapWidget({
                   </div>
                 )}
 
-                {!isFiatToCryptoSwap && !hasConfiguredEmailField && <div className="order-detail-field order-detail-field--email flex flex-col gap-1.5">
+                {!isFiatToCryptoSwap && <div className="order-detail-field order-detail-field--email flex flex-col gap-1.5">
                   <label htmlFor="swap-email" className="text-[13px] font-semibold text-muted-foreground">
                     {t('convert.emailAddress')}
                   </label>
@@ -1734,7 +1707,17 @@ export function ManualSwapWidget({
                 </div>}
 
                 <div className="order-terms convert-terms-card mt-2 flex items-start gap-3">
-                   <OrderTermsAcceptance checkboxId="swap-terms" checked={termsAccepted} onChange={setTermsAccepted} />
+                   <input
+                     type="checkbox"
+                     id="swap-terms"
+                     required
+                     checked={termsAccepted}
+                     onChange={e => setTermsAccepted(e.target.checked)}
+                     className="mt-1 w-[18px] h-[18px] rounded border-border text-primary focus:ring-primary/20 shrink-0"
+                   />
+                   <label htmlFor="swap-terms" className="text-[14px] font-medium text-foreground leading-relaxed cursor-pointer select-none">
+                     {t('swap.terms')}
+                   </label>
                 </div>
 
                 <div className="order-actions convert-order-actions mt-2 flex flex-col gap-4">

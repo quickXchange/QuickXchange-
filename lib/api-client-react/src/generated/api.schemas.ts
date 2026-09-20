@@ -911,9 +911,6 @@ export interface PaymentMethodFieldDefinition {
   /** @pattern ^[a-z][a-z0-9_]{0,63}$ */
   key: string;
   type: PaymentMethodFieldDefinitionType;
-  enabled?: boolean;
-  /** @maxLength 200 */
-  placeholder?: string;
   direction?: PaymentMethodFieldDefinitionDirection;
   emphasizedLabel?: boolean;
   /**
@@ -3175,6 +3172,7 @@ export interface CryptoAssetBulkNetworkEdit {
   /** @pattern ^[a-z0-9][a-z0-9-]{0,80}$ */
   networkId: string;
   enabled?: boolean;
+  customerDepositsEnabled?: boolean;
   lifecycle?: CryptoAssetBulkNetworkEditLifecycle;
   /**
      * @maxItems 20
@@ -3187,6 +3185,13 @@ export interface CryptoAssetBulkNetworkEdit {
      */
   decimals?: number;
   requiresMemo?: boolean;
+  /** @maxLength 500 */
+  sharedDepositAddress?: string;
+  /**
+     * @maxLength 500
+     * @nullable
+     */
+  sharedDepositMemo?: string | null;
 }
 
 export type CryptoAssetBulkEditLifecycle = typeof CryptoAssetBulkEditLifecycle[keyof typeof CryptoAssetBulkEditLifecycle];
@@ -3446,6 +3451,7 @@ export interface CryptoAssetReceivingWalletInput {
      */
   depositProvider?: string;
   enabled: boolean;
+  useForAllAssetsOnNetwork: boolean;
 }
 
 export type PaymentMethodInputFamily = typeof PaymentMethodInputFamily[keyof typeof PaymentMethodInputFamily];
@@ -4554,66 +4560,17 @@ export interface SiteContentRevision {
   createdAt: string;
 }
 
-/**
- * Page-specific content. The order-terms-acceptance page uses OrderTermsAcceptanceContent.
- */
 export type SiteContentInputContent = { [key: string]: unknown };
 
 export interface SiteContentInput {
-  /** Page-specific content. The order-terms-acceptance page uses OrderTermsAcceptanceContent. */
   content: SiteContentInputContent;
 }
 
-/**
- * Page-specific content. The order-terms-acceptance page uses OrderTermsAcceptanceContent.
- */
 export type SiteContentDraftInputContent = { [key: string]: unknown };
 
 export interface SiteContentDraftInput {
   pageKey: SitePageKey;
-  /** Page-specific content. The order-terms-acceptance page uses OrderTermsAcceptanceContent. */
   content: SiteContentDraftInputContent;
-}
-
-/**
- * Shared order terms acceptance copy used by Convert and Swap.
- */
-export interface OrderTermsAcceptanceContent {
-  /**
-     * @minLength 1
-     * @maxLength 200
-     */
-  mainText: string;
-  /**
-     * @minLength 1
-     * @maxLength 200
-     */
-  termsLabel: string;
-  /**
-     * @minLength 1
-     * @maxLength 2048
-     */
-  termsUrl: string;
-  /**
-     * @minLength 1
-     * @maxLength 200
-     */
-  privacyLabel: string;
-  /**
-     * @minLength 1
-     * @maxLength 2048
-     */
-  privacyUrl: string;
-  /**
-     * @minLength 1
-     * @maxLength 200
-     */
-  amlLabel: string;
-  /**
-     * @minLength 1
-     * @maxLength 2048
-     */
-  amlUrl: string;
 }
 
 export interface AdminSitePage {

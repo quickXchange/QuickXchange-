@@ -63,18 +63,11 @@ import NotFound from './not-found';
 import { LivePreviewFrame } from '../components/live-preview-frame';
 import { PRIVACY_NOTICE_SECTIONS, TERMS_NOTICE_SECTIONS } from '../lib/legal-page-content';
 import { useAdminPermissions } from '../lib/admin-permissions';
-import {
-  DEFAULT_ORDER_TERMS_ACCEPTANCE,
-  ORDER_TERMS_ACCEPTANCE_PAGE_KEY,
-  normalizeOrderTermsAcceptance,
-} from '../lib/order-terms-acceptance';
 
 const WIDGET_EXCHANGE_INFORMATION_KEY = 'widget-exchange-information' as SitePageKey;
-const ORDER_TERMS_ACCEPTANCE_KEY = ORDER_TERMS_ACCEPTANCE_PAGE_KEY as SitePageKey;
 const SITE_CONTENT_EDITOR_SECTIONS = [
   ...EDITABLE_PUBLIC_PAGES,
   { key: WIDGET_EXCHANGE_INFORMATION_KEY, label: 'Widget Exchange Information' },
-  { key: ORDER_TERMS_ACCEPTANCE_KEY, label: 'Order Terms Acceptance' },
 ];
 export const SITE_PAGE_KEYS = SITE_CONTENT_EDITOR_SECTIONS.map(p => p.key as SitePageKey);
 const PAGE_LABELS = Object.fromEntries(SITE_CONTENT_EDITOR_SECTIONS.map(p => [p.key, p.label])) as Record<SitePageKey, string>;
@@ -304,8 +297,6 @@ export function PartnerSlider({ logos }: { logos: PartnerLogo[] }) {
 }
 
 function DraftEditor() {
-  const { can } = useAdminPermissions();
-  const canManage = can('site_settings.manage');
   const [pageKey, setPageKey] = useState<SitePageKey>('home');
   const page = useGetAdminSiteContent(pageKey, { query: { queryKey: getGetAdminSiteContentQueryKey(pageKey), staleTime: 0 } });
   const save = useSaveAdminSitePage();
@@ -313,7 +304,6 @@ function DraftEditor() {
   const upload = useRequestSitePageMediaUpload();
   const [json, setJson] = useState('{}');
   const [preview, setPreview] = useState(false);
-  const [editingOrderTerms, setEditingOrderTerms] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [mode, setMode] = useState<'visual' | 'json'>('visual');
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -324,14 +314,8 @@ function DraftEditor() {
 
   useEffect(() => {
     if (loadedPageRef.current === pageKey && dirtyRef.current) return;
-    const persistedContent = page.data?.draft?.content ?? page.data?.published?.content;
-    setJson(safeJson(
-      pageKey === ORDER_TERMS_ACCEPTANCE_KEY
-        ? normalizeOrderTermsAcceptance(persistedContent)
-        : persistedContent ?? {},
-    ));
+    setJson(safeJson(page.data?.draft?.content ?? page.data?.published?.content ?? {}));
     setPreview(false);
-    setEditingOrderTerms(false);
     dirtyRef.current = false;
     loadedPageRef.current = pageKey;
   }, [page.data, pageKey]);
@@ -354,7 +338,6 @@ function DraftEditor() {
   const pageDefinition = EDITABLE_PUBLIC_PAGES.find((page) => page.key === pageKey);
   const pageDefaults = pageDefinition as { defaultHeader?: boolean; defaultFooter?: boolean } | undefined;
   const isWidgetExchangeInformation = pageKey === WIDGET_EXCHANGE_INFORMATION_KEY;
-  const isOrderTermsAcceptance = pageKey === ORDER_TERMS_ACCEPTANCE_KEY;
   const heroObjectPath = typeof parsedContent.heroImage?.objectPath === 'string' ? parsedContent.heroImage.objectPath : '';
 
   useEffect(() => {
@@ -411,18 +394,12 @@ function DraftEditor() {
         dirtyRef.current = false;
         void queryClient.invalidateQueries({ queryKey: getGetAdminSiteContentQueryKey(pageKey) });
         void queryClient.invalidateQueries({ queryKey: getGetPublishedSiteContentQueryKey() });
-        if (isOrderTermsAcceptance) {
-          setEditingOrderTerms(false);
-          setNotice({ kind: 'success', text: 'Order Terms Acceptance saved and published.' });
-          return;
-        }
         if (!publishAfterSave) {
           setNotice({ kind: 'success', text: 'Draft saved.' });
           return;
         }
         publish.mutate({ pageKey }, {
           onSuccess: () => {
-            if (isOrderTermsAcceptance) setEditingOrderTerms(false);
             void queryClient.invalidateQueries({ queryKey: getGetAdminSiteContentQueryKey(pageKey) });
             void queryClient.invalidateQueries({ queryKey: getGetPublishedSiteContentQueryKey() });
             setNotice({ kind: 'success', text: `${PAGE_LABELS[pageKey]} published.` });
@@ -488,7 +465,6 @@ function DraftEditor() {
           loadedPageRef.current = null;
           dirtyRef.current = false;
           setLocalMedia(null);
-          setEditingOrderTerms(false);
           setPageKey(key);
         }} data-testid={`tab-site-page-${key}`}>{PAGE_LABELS[key]}</button>)}
       </div>
@@ -513,35 +489,10 @@ function DraftEditor() {
             </div>
 
             {mode === 'json' ? (
-              <textarea className="min-h-[620px] w-full rounded-xl border border-border bg-background p-4 font-mono text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" value={json} onChange={(event) => setEditedJson(event.target.value)} disabled={isOrderTermsAcceptance && !canManage} aria-label={`${PAGE_LABELS[pageKey]} draft JSON`} data-testid="input-site-content-json" spellCheck={false} />
+              <textarea className="min-h-[620px] w-full rounded-xl border border-border bg-background p-4 font-mono text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" value={json} onChange={(event) => setEditedJson(event.target.value)} aria-label={`${PAGE_LABELS[pageKey]} draft JSON`} data-testid="input-site-content-json" spellCheck={false} />
             ) : (
               <div className="space-y-6 max-h-[620px] overflow-y-auto pr-2 pb-4">
-                {isOrderTermsAcceptance ? (
-                  <div className="space-y-4" data-testid="order-terms-acceptance-editor">
-                    <div className="rounded-xl border border-border bg-muted/10 p-4">
-                      <h3 className="font-bold text-sm">Order Terms Acceptance</h3>
-                      <p className="mt-1 text-xs text-muted-foreground">Configure the required acceptance sentence shown on Convert and Swap.</p>
-                    </div>
-                    {([
-                      ['mainText', 'Main text'],
-                      ['termsLabel', 'Terms & Conditions label'],
-                      ['termsUrl', 'Terms & Conditions URL'],
-                      ['privacyLabel', 'Privacy Policy label'],
-                      ['privacyUrl', 'Privacy Policy URL'],
-                      ['amlLabel', 'AML/KYC Policy label'],
-                      ['amlUrl', 'AML/KYC Policy URL'],
-                    ] as const).map(([key, label]) => (
-                      <label className="block space-y-1" key={key}>
-                        <span className="text-sm font-semibold">{label}</span>
-                        <input className="admin-input w-full" value={parsedContent[key] ?? DEFAULT_ORDER_TERMS_ACCEPTANCE[key]} disabled={!canManage || !editingOrderTerms} onChange={(event) => updateField(key, event.target.value)} data-testid={`input-order-terms-${key}`} />
-                      </label>
-                    ))}
-                    <div className="flex flex-wrap gap-2">
-                      <button type="button" className="button button-secondary" disabled={!canManage || editingOrderTerms} onClick={() => setEditingOrderTerms(true)} data-testid="button-edit-order-terms">Edit</button>
-                      <button type="button" className="button button-secondary" disabled={!canManage || !editingOrderTerms} onClick={() => setEditedJson(safeJson(DEFAULT_ORDER_TERMS_ACCEPTANCE))} data-testid="button-reset-order-terms">Reset to Default</button>
-                    </div>
-                  </div>
-                ) : isWidgetExchangeInformation ? (
+                {isWidgetExchangeInformation ? (
                   <div className="space-y-4" data-testid="widget-exchange-information-editor">
                     <div className="rounded-xl border border-border bg-muted/10 p-4">
                       <h3 className="font-bold text-sm">Widget Exchange Information</h3>
@@ -855,15 +806,15 @@ function DraftEditor() {
 
             {notice && <div className="mt-4"><InlineNotice kind={notice.kind}>{notice.text}</InlineNotice></div>}
             <div className="mt-4 flex flex-wrap gap-3">
-              <button type="button" className="button button-secondary" onClick={() => setPreview((value) => !value)} data-testid="button-preview-site-content"><Eye size={15} /> {preview ? (isOrderTermsAcceptance ? 'Close Live Preview' : 'Close preview') : (isOrderTermsAcceptance ? 'Live Preview' : 'Preview draft')}</button>
-              <button type="button" className="button button-secondary" disabled={save.isPending || publish.isPending || !canManage || (isOrderTermsAcceptance && !editingOrderTerms)} onClick={() => submit(false)} data-testid="button-save-site-content"><Save size={15} /> {isOrderTermsAcceptance ? 'Save' : 'Save draft'}</button>
-              {!isOrderTermsAcceptance && <button type="button" className="button button-primary" disabled={save.isPending || publish.isPending || !canManage} onClick={() => submit(true)} data-testid="button-publish-site-content">{save.isPending || publish.isPending ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />} Publish</button>}
+              <button type="button" className="button button-secondary" onClick={() => setPreview((value) => !value)} data-testid="button-preview-site-content"><Eye size={15} /> {preview ? 'Close preview' : 'Preview draft'}</button>
+              <button type="button" className="button button-secondary" disabled={save.isPending} onClick={() => submit(false)} data-testid="button-save-site-content"><Save size={15} /> Save draft</button>
+              <button type="button" className="button button-primary" disabled={save.isPending || publish.isPending} onClick={() => submit(true)} data-testid="button-publish-site-content">{save.isPending || publish.isPending ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />} Publish</button>
             </div>
           </div>
           {preview ? (
             <div className="panel overflow-hidden border border-border bg-background p-0">
                <LivePreviewFrame draftState={{
-                 pageKey: isOrderTermsAcceptance ? 'convert' : pageKey,
+                 pageKey,
                   content: parsedContent,
                   assetUrls: localMedia
                     ? { [localMedia.objectPath]: localMedia.url }

@@ -2429,7 +2429,7 @@ async function createOrderFromInput(
   await revalidateManualDeskQuoteRoute(quote);
   const fiatToCrypto = quote.settlementSnapshot?.source?.kind === "fiat-payment-method" &&
     quote.settlementSnapshot?.target?.kind === "crypto-network";
-  const settlementDetails = quote.v === 2
+  const settlementDetails = quote.v === 2 && !fiatToCrypto
     ? validateSettlementDetails(
         quote.settlementSnapshot?.requiredFields ?? [],
         input.settlementDetails,
@@ -4002,6 +4002,42 @@ router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, ne
               404,
             );
           }
+          if (networkEdit.customerDepositsEnabled === true) {
+            throw new ApiError(
+              "CRYPTO_DEPOSIT_VERIFICATION_REQUIRED",
+              "Customer deposit availability is derived from a verified provider route or a valid saved wallet.",
+              422,
+            );
+          }
+          const editsDepositConfiguration = [
+            "customerDepositsEnabled",
+            "sharedDepositAddress",
+          ].some(key => Object.hasOwn(networkEdit, key));
+          if (editsDepositConfiguration) {
+            const effectiveProvider = network.depositProvider;
+            const effectiveDepositsEnabled =
+              networkEdit.customerDepositsEnabled ?? network.customerDepositsEnabled;
+            const effectiveAddress =
+              networkEdit.sharedDepositAddress ?? network.sharedDepositAddress;
+            if (effectiveProvider === "none" && effectiveDepositsEnabled) {
+              throw new ApiError(
+                "CRYPTO_DEPOSIT_PROVIDER_DISABLED",
+                "Customer deposits must be disabled when Provider Policy is None.",
+                422,
+              );
+            }
+            if (
+              effectiveProvider === "manual" &&
+              effectiveDepositsEnabled &&
+              !effectiveAddress.trim()
+            ) {
+              throw new ApiError(
+                "CRYPTO_DEPOSIT_ADDRESS_REQUIRED",
+                "A shared deposit address is required before manual customer deposits can be enabled.",
+                422,
+              );
+            }
+          }
         }
       }
       const invalidatesProviderProofs = input.edits.some((edit) =>
@@ -4023,17 +4059,32 @@ router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, ne
           await tx.update(cryptoAssetsTable)
             .set(assetChanges as never)
             .where(eq(cryptoAssetsTable.id, edit.assetId));
+          if (edit.enabled !== undefined || edit.lifecycle !== undefined) {
+            await tx.update(cryptoAssetNetworksTable)
+              .set({ customerDepositsEnabled: false })
+              .where(eq(cryptoAssetNetworksTable.assetId, edit.assetId));
+          }
         }
         for (const networkEdit of edit.networks ?? []) {
           const networkChanges: JsonRecord = {};
           for (const key of [
             "enabled",
+            "customerDepositsEnabled",
             "lifecycle",
             "regions",
             "decimals",
             "requiresMemo",
+            "sharedDepositAddress",
+            "sharedDepositMemo",
           ] as const) {
             if (networkEdit[key] !== undefined) networkChanges[key] = networkEdit[key];
+          }
+          if (
+            networkEdit.enabled !== undefined ||
+            networkEdit.lifecycle !== undefined ||
+            networkEdit.requiresMemo !== undefined
+          ) {
+            networkChanges.customerDepositsEnabled = false;
           }
           if (Object.keys(networkChanges).length > 0) {
             await tx.update(cryptoAssetNetworksTable)
@@ -4071,6 +4122,9 @@ router.patch("/admin/crypto-assets/:id", requireOperator, async (req, res, next)
         .some((key) => Object.hasOwn(input, key));
       if (invalidatesProviderProofs) {
         await invalidateWhitebitDepositRouteProofs(tx);
+        await tx.update(cryptoAssetNetworksTable)
+          .set({ customerDepositsEnabled: false })
+          .where(eq(cryptoAssetNetworksTable.assetId, id));
       }
       const [updated] = await tx.update(cryptoAssetsTable)
         .set(input as never)
@@ -4087,17 +4141,6 @@ router.delete("/admin/crypto-assets/:id", requireOperator, async (req, res, next
 });
 router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req, res, next) => {
   try {
-    if (
-      req.body &&
-      typeof req.body === "object" &&
-      Object.hasOwn(req.body as object, "useForAllAssetsOnNetwork")
-    ) {
-      throw new ApiError(
-        "VALIDATION_ERROR",
-        "Receiving-wallet configuration must target exactly one asset-network row.",
-        400,
-      );
-    }
     const { id: assetId } = SaveCryptoAssetReceivingWalletParams.parse(req.params);
     const input = SaveCryptoAssetReceivingWalletBody.parse(req.body);
     const actor = res.locals.operator as OperatorAuthorization;
@@ -4138,7 +4181,13 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
           422,
         );
       }
-      const affected = [selected];
+      const affected = input.useForAllAssetsOnNetwork
+        ? await tx
+          .select()
+          .from(cryptoAssetNetworksTable)
+          .where(eq(cryptoAssetNetworksTable.networkCode, selected.networkCode))
+          .for("update")
+        : [selected];
       const affectedAssets = await tx.select({
         id: cryptoAssetsTable.id,
         code: cryptoAssetsTable.code,
@@ -4229,7 +4278,9 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
         }).where(eq(cryptoAssetNetworksTable.id, network.id));
       }
       const updated = await tx.select().from(cryptoAssetNetworksTable)
-        .where(eq(cryptoAssetNetworksTable.id, selected.id));
+        .where(input.useForAllAssetsOnNetwork
+          ? eq(cryptoAssetNetworksTable.networkCode, selected.networkCode)
+          : eq(cryptoAssetNetworksTable.id, selected.id));
       const fingerprint = (value: string | null | undefined) =>
         value
           ? createHash("sha256").update(value).digest("hex")
@@ -4254,6 +4305,7 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
           addressAfterFingerprint: fingerprint(fallbackAddress),
           memoBeforeFingerprint: fingerprint(selected.sharedDepositMemo),
           memoAfterFingerprint: fingerprint(fallbackMemo),
+          useForAllAssetsOnNetwork: input.useForAllAssetsOnNetwork,
           changes: affected.map(before => {
             const after = updatedById.get(before.id);
             return {
@@ -4276,6 +4328,7 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
           selectedNetworkId: selected.id,
           networkCode: selected.networkCode,
           affectedRows: updated.length,
+          useForAllAssetsOnNetwork: input.useForAllAssetsOnNetwork,
           enabled: input.enabled,
         },
         "Saved crypto receiving wallet configuration",
@@ -4369,6 +4422,9 @@ router.patch("/admin/crypto-networks/:id", requireOperator, async (req, res, nex
       if (invalidatesProviderProofs) await invalidateWhitebitDepositRouteProofs(tx);
       const [updated] = await tx.update(cryptoAssetNetworksTable).set({
         ...input,
+        ...(invalidatesProviderProofs
+          ? { customerDepositsEnabled: false }
+          : {}),
       } as never)
         .where(eq(cryptoAssetNetworksTable.id, id)).returning();
       return updated;

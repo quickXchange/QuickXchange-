@@ -277,54 +277,6 @@ test("public site content serves the newest publication and redacts hidden page 
   assert.equal(individual.response.status, 404, individual.body);
 });
 
-test("order terms acceptance is shared, validated, and published immediately by authorized Admins", { concurrency: false }, async () => {
-  const pageKey = "order-terms-acceptance";
-  pageKeys.add(pageKey);
-  const content = {
-    mainText: "I accept the",
-    termsLabel: "Terms & Conditions",
-    termsUrl: "/terms",
-    privacyLabel: "Privacy Policy",
-    privacyUrl: "/privacy",
-    amlLabel: "AML/KYC Policy",
-    amlUrl: "/aml-kyc",
-  };
-  const saved = await request(`/admin/site-content/${pageKey}`, {
-    method: "PUT",
-    body: JSON.stringify({ content }),
-  }, operatorUser);
-  assert.equal(saved.response.status, 201, saved.body);
-  assert.equal((JSON.parse(saved.body) as { status: string }).status, "published");
-
-  const publicContent = await request("/site-content");
-  assert.equal(publicContent.response.status, 200, publicContent.body);
-  const page = (JSON.parse(publicContent.body) as {
-    pages: Array<{ pageKey: string; content: Record<string, unknown> }>;
-  }).pages.find((candidate) => candidate.pageKey === pageKey);
-  assert.deepEqual(page?.content, content);
-
-  const unsafe = await request(`/admin/site-content/${pageKey}`, {
-    method: "PUT",
-    body: JSON.stringify({ content: { ...content, termsUrl: "javascript:alert(1)" } }),
-  }, operatorUser);
-  assert.equal(unsafe.response.status, 400, unsafe.body);
-
-  for (const [field, invalidRoute] of [
-    ["termsUrl", "/terms-conditions"],
-    ["privacyUrl", "/privacy-policy"],
-    ["amlUrl", "/aml-kyc-policy"],
-  ] as const) {
-    const brokenInternalRoute = await request(`/admin/site-content/${pageKey}`, {
-      method: "PUT",
-      body: JSON.stringify({ content: { ...content, [field]: invalidRoute } }),
-    }, operatorUser);
-    assert.equal(brokenInternalRoute.response.status, 400, brokenInternalRoute.body);
-  }
-
-  const nonOwnerPublish = await request(`/admin/site-content/${pageKey}`, { method: "POST" }, operatorUser);
-  assert.equal(nonOwnerPublish.response.status, 403, nonOwnerPublish.body);
-});
-
 test("social and trust drafts become public only through owner publication", { concurrency: false }, async () => {
   const originalDraftResponse = await request("/admin/social-trust", {}, operatorUser);
   assert.equal(originalDraftResponse.response.status, 200, originalDraftResponse.body);
