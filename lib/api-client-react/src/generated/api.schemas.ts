@@ -3474,8 +3474,8 @@ export interface CryptoNetworkReceivingWalletInput {
      * @maxLength 64
      */
   depositProvider: string;
-  networkEnabled: boolean;
-  enabled: boolean;
+  networkEnabled?: boolean;
+  enabled?: boolean;
 }
 
 export type PaymentMethodInputFamily = typeof PaymentMethodInputFamily[keyof typeof PaymentMethodInputFamily];

@@ -5967,6 +5967,7 @@ function AdminCurrencies() {
   const [drawerNetwork, setDrawerNetwork] = useState<CryptoNetwork | 'new' | null>(initialCreate === 'network' ? 'new' : null);
   const [syncWhitebitOpen, setSyncWhitebitOpen] = useState(false);
   const [bulkEditAssetsOpen, setBulkEditAssetsOpen] = useState(false);
+  const [bulkNetworkWalletOpen, setBulkNetworkWalletOpen] = useState(false);
 
   const currenciesQuery = useGetFiatCurrencies({ query: { queryKey: getGetFiatCurrenciesQueryKey() } });
   const methodsQuery = useGetPaymentMethods({ query: { queryKey: getGetPaymentMethodsQueryKey() } });
@@ -6649,6 +6650,12 @@ function AdminCurrencies() {
                       <div className="bulk-actions-divider" />
                     </>
                   )}
+                  {isOwner && tab === 'networks' && (
+                    <>
+                      <button type="button" disabled={catalogActionPending} onClick={() => setBulkNetworkWalletOpen(true)}><WalletCards size={14} /> Set Wallet Address</button>
+                      <div className="bulk-actions-divider" />
+                    </>
+                  )}
                   <button type="button" className="bulk-actions-delete" disabled={catalogActionPending} onClick={() => runCatalogAction('delete')}><Trash2 size={14} /> {t('adminCatalog.delete')}</button>
                 </div>
               </div>}
@@ -6772,6 +6779,16 @@ function AdminCurrencies() {
           onSuccess={() => {
             setCatalogSelected(prev => ({ ...prev, assets: new Set() }));
             setBulkEditAssetsOpen(false);
+          }}
+        />
+      )}
+      {bulkNetworkWalletOpen && networksQuery.data && (
+        <BulkNetworkWalletDialog
+          networks={networksQuery.data.filter((candidate: CryptoNetwork) => selectedCatalogIdsOnPage.includes(candidate.id))}
+          onClose={() => setBulkNetworkWalletOpen(false)}
+          onSuccess={() => {
+            setCatalogSelected(prev => ({ ...prev, networks: new Set() }));
+            setBulkNetworkWalletOpen(false);
           }}
         />
       )}
@@ -8201,6 +8218,96 @@ function AssetDrawer({
   );
 }
 
+function BulkNetworkWalletDialog({
+  networks,
+  onClose,
+  onSuccess,
+}: {
+  networks: CryptoNetwork[];
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const saveReceivingWallet = useSaveCryptoNetworkReceivingWallet();
+  const providerOptionsQuery = useGetDepositProviderOptions({ query: { queryKey: getGetDepositProviderOptionsQueryKey() } });
+  const [depositProvider, setDepositProvider] = useState(networks[0]?.depositProvider || 'manual');
+  const [walletAddress, setWalletAddress] = useState('');
+  const [memo, setMemo] = useState('');
+  const [error, setError] = useState('');
+  const providerOptions = providerOptionsQuery.data || [];
+  const selectedProviderUnavailable = Boolean(
+    depositProvider !== 'manual' &&
+    depositProvider !== 'none' &&
+    !providerOptions.some(option => option.id === depositProvider),
+  );
+  const isApiProvider = depositProvider !== 'manual' && depositProvider !== 'none';
+
+  const apply = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError('');
+    if (!networks.length) {
+      setError('Select at least one Asset + Network route.');
+      return;
+    }
+    try {
+      await saveReceivingWallet.mutateAsync({
+        data: {
+          networkIds: networks.map(network => network.id),
+          walletAddress: walletAddress.trim(),
+          memo: memo.trim() || null,
+          depositProvider,
+        },
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
+      ]);
+      onSuccess();
+    } catch (cause) {
+      setError(apiErrorText(cause, 'Failed to update the selected receiving wallets.'));
+    }
+  };
+
+  return (
+    <div className="drawer-backdrop" onClick={event => event.target === event.currentTarget && onClose()}>
+      <aside className="order-drawer catalog-editor-drawer" role="dialog" aria-label="Set Wallet Address" data-testid="bulk-network-wallet-dialog">
+        <div className="drawer-head catalog-editor-head">
+          <div className="catalog-editor-heading">
+            <span className="catalog-editor-icon"><WalletCards size={19} /></span>
+            <div><span className="section-kicker">Manual Swap</span><h2>Set Wallet Address</h2></div>
+          </div>
+          <button className="icon-button catalog-editor-close" onClick={onClose} aria-label="Close Set Wallet Address"><X size={18} /></button>
+        </div>
+        <form className="admin-form admin-form-card drawer-edit catalog-editor-form" onSubmit={apply}>
+          {error && <InlineNotice kind="error">{error}</InlineNotice>}
+          <p className="field-hint">{networks.length} selected Asset + Network {networks.length === 1 ? 'route' : 'routes'}. Only these checked table rows will be updated.</p>
+          <label>
+            <span className="field-label">Provider Policy</span>
+            <select data-testid="bulk-network-wallet-provider" value={depositProvider} disabled={providerOptionsQuery.isLoading} onChange={event => setDepositProvider(event.target.value)}>
+              {selectedProviderUnavailable && <option value={depositProvider} disabled>{depositProvider} (not connected)</option>}
+              {providerOptions.map(option => <option key={option.id} value={option.id} disabled={!option.implemented}>{option.label}</option>)}
+            </select>
+          </label>
+          <label>
+            <span className="field-label">{isApiProvider ? 'Fallback Wallet Address' : 'Manual Address'}</span>
+            <input data-testid="bulk-network-wallet-address" value={walletAddress} onChange={event => setWalletAddress(event.target.value)} placeholder="Receiving wallet address" />
+          </label>
+          <label>
+            <span className="field-label">{isApiProvider ? 'Fallback Memo / Tag' : 'Memo / Tag'}</span>
+            <input data-testid="bulk-network-wallet-memo" value={memo} onChange={event => setMemo(event.target.value)} placeholder="Optional memo or tag" />
+          </label>
+          <p className="field-hint">A blank address preserves each selected route’s existing address. Convert remains independent.</p>
+          <div className="catalog-editor-actions">
+            <button type="submit" className="catalog-editor-primary" disabled={saveReceivingWallet.isPending || selectedProviderUnavailable}>
+              <Save size={16} /> Apply to Selected
+            </button>
+          </div>
+        </form>
+      </aside>
+    </div>
+  );
+}
+
 function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; onClose: () => void }) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
@@ -8211,7 +8318,6 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
   const uploadNetworkLogo = useRequestCryptoNetworkLogoUpload();
   const deleteNetworkLogo = useDeleteCryptoNetworkLogoUpload();
   const assetsQuery = useGetCryptoAssets({ query: { queryKey: getGetCryptoAssetsQueryKey() } });
-  const networksQuery = useGetCryptoNetworks({ query: { queryKey: getGetCryptoNetworksQueryKey() } });
   const providerOptionsQuery = useGetDepositProviderOptions({ query: { queryKey: getGetDepositProviderOptionsQueryKey() } });
 
   const isNew = network === 'new';
@@ -8241,16 +8347,7 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
   const [logoObjectPath, setLogoObjectPath] = useState(isNew ? '' : ((network as any)?.logoObjectPath || ''));
   const commitNetworkLogoRef = useRef<() => void>(() => {});
   const [error, setError] = useState('');
-  const [selectedDepositNetworkIds, setSelectedDepositNetworkIds] = useState<string[]>(
-    isNew || !network ? [] : [network.id],
-  );
   const selectedAsset = assetsQuery.data?.find((asset: CryptoAsset) => asset.id === form.assetId);
-  const matchingRouteNetworks = (networksQuery.data || []).filter((candidate: CryptoNetwork) =>
-    candidate.networkCode.trim().toUpperCase() === form.networkCode.trim().toUpperCase()
-  );
-  const allDepositNetworksSelected = matchingRouteNetworks.length > 0 &&
-    matchingRouteNetworks.every((candidate: CryptoNetwork) => selectedDepositNetworkIds.includes(candidate.id));
-  const assetById = new Map((assetsQuery.data || []).map((asset: CryptoAsset) => [asset.id, asset]));
   const providerOptions = providerOptionsQuery.data || [];
   const selectedProviderUnavailable = Boolean(
     form.depositProvider !== 'manual' &&
@@ -8307,15 +8404,11 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
       }
     } else if (network) {
       const { id: _id, assetId: _assetId, ...updates } = payload;
-      if (selectedDepositNetworkIds.length === 0) {
-        setError('Select at least one network before saving the receiving wallet configuration.');
-        return;
-      }
       try {
         await updateNetwork.mutateAsync({ id: network.id, data: updates });
         await saveReceivingWallet.mutateAsync({
           data: {
-            networkIds: selectedDepositNetworkIds,
+            networkIds: [network.id],
             walletAddress: form.sharedDepositAddress.trim(),
             memo: form.sharedDepositMemo.trim() || null,
             depositProvider: form.depositProvider,
@@ -8432,6 +8525,13 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
             <span className="field-label !mb-0 text-sm font-bold">{t('adminCatalog.enabled')}</span>
           </label>
 
+          {!isNew && (
+            <label className="catalog-editor-toggle">
+              <input data-testid="network-wallet-enabled" type="checkbox" className="w-auto h-auto" checked={form.customerDepositsEnabled} disabled={form.depositProvider === 'none' || selectedProviderUnavailable} onChange={e => setForm({...form, customerDepositsEnabled: e.target.checked})} />
+              <span className="field-label !mb-0 font-bold">Customer Deposits Enabled</span>
+            </label>
+          )}
+
            <label className="catalog-editor-toggle">
              <input type="checkbox" className="w-auto h-auto" checked={form.requiresMemo} onChange={e => setForm({...form, requiresMemo: e.target.checked})} />
              <span className="field-label !mb-0 font-bold">{t('adminCatalog.requires_memo')}</span>
@@ -8452,46 +8552,6 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                 <div><span className="section-kicker">Manual Swap</span><h2>Receiving Wallet Address</h2></div>
               </div>
               <label>
-                <span className="field-label">Networks</span>
-                <DropdownMenuPrimitive.Root>
-                  <DropdownMenuPrimitive.Trigger type="button" className="catalog-network-multiselect-trigger" data-testid="network-wallet-multiselect">
-                    <span>{selectedDepositNetworkIds.length} of {matchingRouteNetworks.length} selected</span>
-                    <ChevronDown size={15} aria-hidden="true" />
-                  </DropdownMenuPrimitive.Trigger>
-                  <DropdownMenuPrimitive.Portal>
-                    <DropdownMenuPrimitive.Content className="admin-dropdown-content catalog-network-multiselect-content" sideOffset={4} align="start">
-                      <div className="catalog-network-multiselect-actions">
-                        <button type="button" className="admin-dropdown-item" onClick={() => setSelectedDepositNetworkIds(matchingRouteNetworks.map((candidate: CryptoNetwork) => candidate.id))}>Select All</button>
-                        <button type="button" className="admin-dropdown-item" onClick={() => setSelectedDepositNetworkIds([])}>Deselect All</button>
-                      </div>
-                      <DropdownMenuPrimitive.Separator className="catalog-network-multiselect-separator" />
-                      {matchingRouteNetworks.map((candidate: CryptoNetwork) => {
-                        const checked = selectedDepositNetworkIds.includes(candidate.id);
-                        const candidateAsset = assetById.get(candidate.assetId);
-                        return (
-                          <DropdownMenuPrimitive.CheckboxItem
-                            key={candidate.id}
-                            className="admin-dropdown-item catalog-network-multiselect-item"
-                            checked={checked}
-                            onCheckedChange={nextChecked => setSelectedDepositNetworkIds(current =>
-                              nextChecked === true
-                                ? [...new Set([...current, candidate.id])]
-                                : current.filter(id => id !== candidate.id)
-                            )}
-                            onSelect={event => event.preventDefault()}
-                            data-testid={`network-wallet-option-${candidate.id}`}
-                          >
-                            <span className="catalog-network-checkbox" aria-hidden="true">{checked && <Check size={13} />}</span>
-                            <span>{candidateAsset?.code || candidate.assetId} / {candidate.networkCode}</span>
-                          </DropdownMenuPrimitive.CheckboxItem>
-                        );
-                      })}
-                    </DropdownMenuPrimitive.Content>
-                  </DropdownMenuPrimitive.Portal>
-                </DropdownMenuPrimitive.Root>
-                {allDepositNetworksSelected && <small className="field-hint">All {networkCode || 'matching'} Asset + Network routes are selected.</small>}
-              </label>
-              <label>
                 <span className="field-label">Provider Policy</span>
                 <select data-testid="network-wallet-provider" value={form.depositProvider} disabled={providerOptionsQuery.isLoading} onChange={e => setForm({...form, depositProvider: e.target.value})}>
                   {selectedProviderUnavailable && <option value={form.depositProvider} disabled>{form.depositProvider} (not connected)</option>}
@@ -8506,12 +8566,8 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                 <span className="field-label">{isApiProvider ? 'Fallback Memo / Tag' : 'Memo / Tag'}</span>
                 <input data-testid="network-wallet-memo" value={form.sharedDepositMemo} onChange={e => setForm({...form, sharedDepositMemo: e.target.value})} placeholder="Optional memo or tag" />
               </label>
-              <label className="catalog-editor-toggle">
-                <input data-testid="network-wallet-enabled" type="checkbox" className="w-auto h-auto" checked={form.customerDepositsEnabled} disabled={form.depositProvider === 'none' || selectedProviderUnavailable} onChange={e => setForm({...form, customerDepositsEnabled: e.target.checked})} />
-                <span className="field-label !mb-0 font-bold">Customer Deposits Enabled</span>
-              </label>
               <p className="field-hint">
-                Applies only to Manual Swap. Convert continues to use its existing API provider. These settings update only the explicitly selected network records.
+                Applies only to this Manual Swap Asset + Network route. Convert continues to use its existing API provider.
               </p>
             </section>
           )}

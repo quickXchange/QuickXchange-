@@ -3243,7 +3243,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
   const networkBId = `wallet-network-b-${suffix}`;
   const differentNetworkId = `wallet-network-different-${suffix}`;
   const sharedCode = `WALLET-${suffix.slice(0, 12)}`;
-  const differentCode = `OTHER-${suffix.slice(0, 12)}`;
+  const differentCode = "BTC";
   const existingDepositStates = await db.select({
     id: cryptoAssetNetworksTable.id,
     customerDepositsEnabled: cryptoAssetNetworksTable.customerDepositsEnabled,
@@ -3270,8 +3270,8 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     },
     {
       id: differentNetworkId, assetId: assetAId, networkCode: differentCode,
-      networkName: "Different", decimals: 6,
-      sharedDepositAddress: "untouched-address",
+      networkName: "Bitcoin", decimals: 6,
+      sharedDepositAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
       sharedDepositMemo: "untouched-memo",
     },
   ]);
@@ -3328,6 +3328,17 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
       row.sharedDepositMemo === "selected-network-memo" &&
       row.customerDepositsEnabled
     ));
+    const tableSelectedBulk = await apiJson(api.url, "/admin/crypto-networks/receiving-wallet", {
+      networkIds: [differentNetworkId],
+      walletAddress: "",
+      memo: "table-selected-memo",
+      depositProvider: "manual",
+    }, "PUT", headers);
+    assert.equal(tableSelectedBulk.status, 200, JSON.stringify(tableSelectedBulk.body));
+    assert.equal(tableSelectedBulk.body[0]?.enabled, true);
+    assert.equal(tableSelectedBulk.body[0]?.customerDepositsEnabled, false);
+    assert.equal(tableSelectedBulk.body[0]?.sharedDepositAddress, "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh");
+    assert.equal(tableSelectedBulk.body[0]?.sharedDepositMemo, "table-selected-memo");
     const rejectedSelection = await apiJson(api.url, "/admin/crypto-networks/receiving-wallet", {
       networkIds: [networkAId, networkBId],
       walletAddress: "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080",
@@ -3422,7 +3433,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     );
     const [differentAfterShared] = await db.select().from(cryptoAssetNetworksTable)
       .where(eq(cryptoAssetNetworksTable.id, differentNetworkId));
-    assert.equal(differentAfterShared.sharedDepositAddress, "untouched-address");
+    assert.equal(differentAfterShared.sharedDepositAddress, "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh");
     assert.equal(differentAfterShared.customerDepositsEnabled, false);
     const sharedRows = await db.select().from(cryptoAssetNetworksTable)
       .where(inArray(cryptoAssetNetworksTable.id, [networkAId, networkBId]));

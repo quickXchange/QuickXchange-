@@ -4401,9 +4401,11 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
       const memo = input.memo?.trim() || "";
       for (const network of selected) {
         const address = input.walletAddress.trim() || network.sharedDepositAddress;
+        const networkEnabled = input.networkEnabled ?? network.enabled;
+        const customerDepositsEnabled = input.enabled ?? network.customerDepositsEnabled;
         const nextNetwork = {
           ...network,
-          enabled: input.networkEnabled,
+          enabled: networkEnabled,
           depositProvider: input.depositProvider,
           sharedDepositAddress: address,
           sharedDepositMemo: memo || null,
@@ -4426,14 +4428,14 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
             422,
           );
         }
-        if (input.enabled && input.depositProvider === "manual" && !address) {
+        if (customerDepositsEnabled && input.depositProvider === "manual" && !address) {
           throw new ApiError(
             "CRYPTO_DEPOSIT_ADDRESS_REQUIRED",
             "A valid receiving address is required before manual customer deposits can be enabled.",
             422,
           );
         }
-        if (input.enabled && input.depositProvider === "manual" && network.requiresMemo && !memo) {
+        if (customerDepositsEnabled && input.depositProvider === "manual" && network.requiresMemo && !memo) {
           throw new ApiError(
             "CRYPTO_DEPOSIT_MEMO_REQUIRED",
             `A memo or tag is required before ${network.networkCode} customer deposits can be enabled.`,
@@ -4445,7 +4447,7 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
           nextNetwork,
           effectiveEligibilityContext,
         );
-        if (input.enabled && input.depositProvider !== "none" && !eligible) {
+        if (customerDepositsEnabled && input.depositProvider !== "none" && !eligible) {
           throw new ApiError(
             "CRYPTO_DEPOSIT_VERIFICATION_REQUIRED",
             `Customer deposits cannot be enabled for ${network.networkCode} without a valid wallet or verified provider route.`,
@@ -4453,11 +4455,11 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
           );
         }
         await tx.update(cryptoAssetNetworksTable).set({
-          enabled: input.networkEnabled,
+          enabled: networkEnabled,
           depositProvider: input.depositProvider,
           sharedDepositAddress: address,
           sharedDepositMemo: memo || null,
-          customerDepositsEnabled: input.networkEnabled && input.enabled && eligible,
+          customerDepositsEnabled: networkEnabled && customerDepositsEnabled && eligible,
         }).where(eq(cryptoAssetNetworksTable.id, network.id));
       }
       const updated = await tx.select().from(cryptoAssetNetworksTable)
@@ -4474,8 +4476,8 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
         details: {
           affectedNetworkIds: input.networkIds,
           providerAfter: input.depositProvider,
-          networkEnabledAfter: input.networkEnabled,
-          enabledAfter: input.enabled,
+          networkEnabledAfter: input.networkEnabled ?? "preserved",
+          enabledAfter: input.enabled ?? "preserved",
           changes: selected.map(before => {
             const after = updatedById.get(before.id);
             return {

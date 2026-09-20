@@ -7881,8 +7881,8 @@ export const SaveCryptoNetworkReceivingWalletBody = zod.object({
   "walletAddress": zod.string().max(saveCryptoNetworkReceivingWalletBodyWalletAddressMax),
   "memo": zod.string().max(saveCryptoNetworkReceivingWalletBodyMemoMax).nullish(),
   "depositProvider": zod.string().min(1).max(saveCryptoNetworkReceivingWalletBodyDepositProviderMax),
-  "networkEnabled": zod.boolean(),
-  "enabled": zod.boolean()
+  "networkEnabled": zod.boolean().optional(),
+  "enabled": zod.boolean().optional()
 })
 
 export const saveCryptoNetworkReceivingWalletResponseOneLogoObjectPathRegExp = new RegExp('^/objects/crypto-network-logos/[0-9a-f-]{36}$');

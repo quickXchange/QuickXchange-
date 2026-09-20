@@ -5853,7 +5853,7 @@ components:
     CryptoNetworkReceivingWalletInput:
       type: object
       additionalProperties: false
-      required: [networkIds, walletAddress, depositProvider, networkEnabled, enabled]
+      required: [networkIds, walletAddress, depositProvider]
       properties:
         networkIds:
           type: array
