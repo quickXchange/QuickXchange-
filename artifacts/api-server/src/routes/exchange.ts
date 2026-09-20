@@ -4403,6 +4403,7 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
         const address = input.walletAddress.trim() || network.sharedDepositAddress;
         const nextNetwork = {
           ...network,
+          enabled: input.networkEnabled,
           depositProvider: input.depositProvider,
           sharedDepositAddress: address,
           sharedDepositMemo: memo || null,
@@ -4452,10 +4453,11 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
           );
         }
         await tx.update(cryptoAssetNetworksTable).set({
+          enabled: input.networkEnabled,
           depositProvider: input.depositProvider,
           sharedDepositAddress: address,
           sharedDepositMemo: memo || null,
-          customerDepositsEnabled: input.enabled && eligible,
+          customerDepositsEnabled: input.networkEnabled && input.enabled && eligible,
         }).where(eq(cryptoAssetNetworksTable.id, network.id));
       }
       const updated = await tx.select().from(cryptoAssetNetworksTable)
@@ -4472,6 +4474,7 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
         details: {
           affectedNetworkIds: input.networkIds,
           providerAfter: input.depositProvider,
+          networkEnabledAfter: input.networkEnabled,
           enabledAfter: input.enabled,
           changes: selected.map(before => {
             const after = updatedById.get(before.id);

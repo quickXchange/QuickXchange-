@@ -7881,6 +7881,7 @@ export const SaveCryptoNetworkReceivingWalletBody = zod.object({
   "walletAddress": zod.string().max(saveCryptoNetworkReceivingWalletBodyWalletAddressMax),
   "memo": zod.string().max(saveCryptoNetworkReceivingWalletBodyMemoMax).nullish(),
   "depositProvider": zod.string().min(1).max(saveCryptoNetworkReceivingWalletBodyDepositProviderMax),
+  "networkEnabled": zod.boolean(),
   "enabled": zod.boolean()
 })
 

@@ -3310,6 +3310,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
       networkIds: [networkAId, networkBId],
       walletAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
       memo: "selected-network-memo",
+      networkEnabled: true,
       enabled: true,
       depositProvider: "manual",
     }, "PUT", headers);
@@ -3331,6 +3332,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
       networkIds: [networkAId, networkBId],
       walletAddress: "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080",
       memo: null,
+      networkEnabled: true,
       enabled: true,
       depositProvider: "manual",
     }, "PUT", headers);
@@ -3347,6 +3349,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
       networkIds: [networkAId],
       walletAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
       memo: "network-a-only",
+      networkEnabled: false,
       enabled: false,
       depositProvider: "none",
     }, "PUT", headers);
@@ -3354,9 +3357,13 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     const independentRows = await db.select().from(cryptoAssetNetworksTable)
       .where(inArray(cryptoAssetNetworksTable.id, [networkAId, networkBId]));
     assert.equal(independentRows.find(row => row.id === networkAId)?.sharedDepositMemo, "network-a-only");
+    assert.equal(independentRows.find(row => row.id === networkAId)?.enabled, false);
     assert.equal(independentRows.find(row => row.id === networkAId)?.customerDepositsEnabled, false);
     assert.equal(independentRows.find(row => row.id === networkBId)?.sharedDepositMemo, "selected-network-memo");
+    assert.equal(independentRows.find(row => row.id === networkBId)?.enabled, true);
     assert.equal(independentRows.find(row => row.id === networkBId)?.customerDepositsEnabled, true);
+    await db.update(cryptoAssetNetworksTable).set({ enabled: true })
+      .where(eq(cryptoAssetNetworksTable.id, networkAId));
     await db.transaction(tx =>
       depositEligibility.reconcileCryptoCustomerDepositEligibilityWithExecutor(tx, {
         whitebitReady: false,

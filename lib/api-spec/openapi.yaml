@@ -5853,7 +5853,7 @@ components:
     CryptoNetworkReceivingWalletInput:
       type: object
       additionalProperties: false
-      required: [networkIds, walletAddress, depositProvider, enabled]
+      required: [networkIds, walletAddress, depositProvider, networkEnabled, enabled]
       properties:
         networkIds:
           type: array
@@ -5864,6 +5864,7 @@ components:
         walletAddress: { type: string, maxLength: 500 }
         memo: { type: [string, "null"], maxLength: 500 }
         depositProvider: { type: string, minLength: 1, maxLength: 64 }
+        networkEnabled: { type: boolean }
         enabled: { type: boolean }
     CryptoNetwork:
       allOf:

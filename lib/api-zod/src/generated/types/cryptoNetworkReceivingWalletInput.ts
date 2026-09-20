@@ -26,5 +26,6 @@ export interface CryptoNetworkReceivingWalletInput {
      * @maxLength 64
      */
   depositProvider: string;
+  networkEnabled: boolean;
   enabled: boolean;
 }

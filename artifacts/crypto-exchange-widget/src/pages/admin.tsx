@@ -6366,6 +6366,18 @@ function AdminCurrencies() {
                   compact
                 />
                 <small className="catalog-row-id">{item.id}</small>
+                {canManageCurrent && (
+                  <button
+                    type="button"
+                    className="action-button sm:hidden mt-2"
+                    aria-label={t('adminCatalog.edit_item_named', { name })}
+                    data-testid={`button-edit-mobile-crypto-network-${item.id}`}
+                    onClick={() => setDrawerNetwork(item)}
+                  >
+                    <Pencil size={14} />
+                    <span>{t('adminCatalog.edit')}</span>
+                  </button>
+                )}
               </span>
             )}
           </td>
@@ -6401,13 +6413,14 @@ function AdminCurrencies() {
           </td>
           <td data-label="Actions">
              {canManageCurrent && <div className="flex items-center gap-2">
-          <button type="button" aria-label={t('adminCatalog.edit_item_named', { name })} data-testid={`button-edit-${isCur ? `currency-${item.code}` : isMeth ? `method-${item.id}` : isAst ? `crypto-asset-${item.id}` : `crypto-network-${item.id}`}`} className="action-button hidden sm:flex" onClick={() => {
+          <button type="button" aria-label={t('adminCatalog.edit_item_named', { name })} data-testid={`button-edit-${isCur ? `currency-${item.code}` : isMeth ? `method-${item.id}` : isAst ? `crypto-asset-${item.id}` : `crypto-network-${item.id}`}`} className="action-button catalog-row-edit-action" onClick={() => {
                 if (isCur) setDrawerCurrency(item);
                 else if (isMeth) setDrawerMethod(item);
                 else if (isAst) setDrawerAsset(item);
                 else if (isNet) setDrawerNetwork(item);
               }}>
                 <Pencil size={14} />
+                <span className="hidden sm:inline">{t('adminCatalog.edit')}</span>
               </button>
               <DropdownMenuPrimitive.Root>
                 <DropdownMenuPrimitive.Trigger type="button" className="action-button" aria-label={t('adminCatalog.more_actions_for_item', { name })} disabled={catalogActionPending}>
@@ -8232,9 +8245,12 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
     isNew || !network ? [] : [network.id],
   );
   const selectedAsset = assetsQuery.data?.find((asset: CryptoAsset) => asset.id === form.assetId);
-  const assetNetworks = (networksQuery.data || []).filter((candidate: CryptoNetwork) => candidate.assetId === form.assetId);
-  const allDepositNetworksSelected = assetNetworks.length > 0 &&
-    assetNetworks.every((candidate: CryptoNetwork) => selectedDepositNetworkIds.includes(candidate.id));
+  const matchingRouteNetworks = (networksQuery.data || []).filter((candidate: CryptoNetwork) =>
+    candidate.networkCode.trim().toUpperCase() === form.networkCode.trim().toUpperCase()
+  );
+  const allDepositNetworksSelected = matchingRouteNetworks.length > 0 &&
+    matchingRouteNetworks.every((candidate: CryptoNetwork) => selectedDepositNetworkIds.includes(candidate.id));
+  const assetById = new Map((assetsQuery.data || []).map((asset: CryptoAsset) => [asset.id, asset]));
   const providerOptions = providerOptionsQuery.data || [];
   const selectedProviderUnavailable = Boolean(
     form.depositProvider !== 'manual' &&
@@ -8257,6 +8273,7 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
       .slice(0, 81);
     const {
       customerDepositsEnabled: _customerDepositsEnabled,
+      enabled: _enabled,
       sharedDepositAddress: _sharedDepositAddress,
       sharedDepositMemo: _sharedDepositMemo,
       depositProvider: _depositProvider,
@@ -8302,6 +8319,7 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
             walletAddress: form.sharedDepositAddress.trim(),
             memo: form.sharedDepositMemo.trim() || null,
             depositProvider: form.depositProvider,
+            networkEnabled: form.enabled,
             enabled: form.customerDepositsEnabled,
           },
         });
@@ -8437,18 +8455,19 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                 <span className="field-label">Networks</span>
                 <DropdownMenuPrimitive.Root>
                   <DropdownMenuPrimitive.Trigger type="button" className="catalog-network-multiselect-trigger" data-testid="network-wallet-multiselect">
-                    <span>{selectedDepositNetworkIds.length} of {assetNetworks.length} selected</span>
+                    <span>{selectedDepositNetworkIds.length} of {matchingRouteNetworks.length} selected</span>
                     <ChevronDown size={15} aria-hidden="true" />
                   </DropdownMenuPrimitive.Trigger>
                   <DropdownMenuPrimitive.Portal>
                     <DropdownMenuPrimitive.Content className="admin-dropdown-content catalog-network-multiselect-content" sideOffset={4} align="start">
                       <div className="catalog-network-multiselect-actions">
-                        <button type="button" className="admin-dropdown-item" onClick={() => setSelectedDepositNetworkIds(assetNetworks.map((candidate: CryptoNetwork) => candidate.id))}>Select All</button>
+                        <button type="button" className="admin-dropdown-item" onClick={() => setSelectedDepositNetworkIds(matchingRouteNetworks.map((candidate: CryptoNetwork) => candidate.id))}>Select All</button>
                         <button type="button" className="admin-dropdown-item" onClick={() => setSelectedDepositNetworkIds([])}>Deselect All</button>
                       </div>
                       <DropdownMenuPrimitive.Separator className="catalog-network-multiselect-separator" />
-                      {assetNetworks.map((candidate: CryptoNetwork) => {
+                      {matchingRouteNetworks.map((candidate: CryptoNetwork) => {
                         const checked = selectedDepositNetworkIds.includes(candidate.id);
+                        const candidateAsset = assetById.get(candidate.assetId);
                         return (
                           <DropdownMenuPrimitive.CheckboxItem
                             key={candidate.id}
@@ -8463,14 +8482,14 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                             data-testid={`network-wallet-option-${candidate.id}`}
                           >
                             <span className="catalog-network-checkbox" aria-hidden="true">{checked && <Check size={13} />}</span>
-                            <span>{candidate.networkName} ({candidate.networkCode})</span>
+                            <span>{candidateAsset?.code || candidate.assetId} / {candidate.networkCode}</span>
                           </DropdownMenuPrimitive.CheckboxItem>
                         );
                       })}
                     </DropdownMenuPrimitive.Content>
                   </DropdownMenuPrimitive.Portal>
                 </DropdownMenuPrimitive.Root>
-                {allDepositNetworksSelected && <small className="field-hint">All networks for {selectedAsset?.code || 'this asset'} are selected.</small>}
+                {allDepositNetworksSelected && <small className="field-hint">All {networkCode || 'matching'} Asset + Network routes are selected.</small>}
               </label>
               <label>
                 <span className="field-label">Provider Policy</span>
