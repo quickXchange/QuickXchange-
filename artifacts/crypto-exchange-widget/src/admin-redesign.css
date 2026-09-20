@@ -8841,14 +8841,43 @@ html:not(.dark) .admin-shell.admin-redesign .currencies-redesign .catalog-table 
 
 .catalog-network-multiselect-content {
   width: var(--radix-dropdown-menu-trigger-width);
-  max-height: min(320px, var(--radix-dropdown-menu-content-available-height));
+  max-width: calc(100vw - 16px);
+  max-height: min(320px, var(--radix-dropdown-menu-content-available-height)) !important;
+  padding: 6px;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid hsl(var(--border));
+  border-radius: 13px;
+  color: hsl(var(--foreground));
+  background: hsl(var(--card));
+  box-shadow: 0 18px 48px hsl(var(--foreground) / 0.2), 0 0 24px hsl(var(--primary) / 0.1);
+  z-index: 1300 !important;
+}
+
+body > [data-radix-popper-content-wrapper]:has(> .catalog-network-multiselect-content) {
+  z-index: 1300 !important;
 }
 
 .catalog-network-multiselect-item {
   display: flex;
+  width: 100%;
+  min-height: 38px;
   align-items: center;
   gap: 9px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  outline: none;
+  color: hsl(var(--foreground));
+  background: transparent;
+  font-size: 13px;
+  line-height: 1.3;
+  cursor: pointer;
+  user-select: none;
+}
+
+.catalog-network-multiselect-item:is(:hover, :focus-visible, [data-highlighted]) {
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.09);
 }
 
 .catalog-network-checkbox {
