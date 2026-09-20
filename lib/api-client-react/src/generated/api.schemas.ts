@@ -3454,10 +3454,6 @@ export interface CryptoAssetReceivingWalletInput {
   useForAllAssetsOnNetwork: boolean;
 }
 
-export interface CryptoAssetNetworksEnabledInput {
-  enabled: boolean;
-}
-
 export type PaymentMethodInputFamily = typeof PaymentMethodInputFamily[keyof typeof PaymentMethodInputFamily];
 
 
