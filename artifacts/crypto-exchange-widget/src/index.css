@@ -17861,6 +17861,29 @@ body:has(.track-order-page) .public-footer a:hover {
   z-index: 1001 !important;
 }
 
+.public-shell .exchange-card > .qx-overlay-card.qx-widget-anchored.qx-preserve-open-geometry {
+  height: var(--qx-selector-anchor-max-height) !important;
+}
+
+.public-shell .exchange-card > .qx-overlay-card.qx-widget-anchored.qx-preserve-open-geometry .qx-overlay-search {
+  position: relative;
+}
+
+.public-shell .exchange-card > .qx-overlay-card.qx-widget-anchored.qx-preserve-open-geometry .qx-overlay-search-clear {
+  position: absolute;
+  right: 12px;
+}
+
+.public-shell .exchange-card > .qx-overlay-card.qx-widget-anchored.qx-preserve-open-geometry > .qx-overlay-list {
+  max-height: none !important;
+}
+
+.public-shell .exchange-card > .qx-overlay-card.qx-widget-anchored.qx-preserve-open-geometry .qx-asset-option {
+  flex: 0 0 52px;
+  height: 52px;
+  min-height: 52px;
+}
+
 .public-shell .exchange-card > .qx-overlay-card.qx-widget-anchored > :not(.qx-overlay-list) {
   flex: 0 0 auto;
 }

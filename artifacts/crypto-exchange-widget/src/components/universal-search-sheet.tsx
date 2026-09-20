@@ -34,6 +34,7 @@ export type UniversalSearchSheetProps<TOption> = {
   portalContainer?: HTMLElement | null;
   overlayStyle?: CSSProperties;
   anchoredInsideWidget?: boolean;
+  preserveOpenGeometry?: boolean;
   listboxId?: string;
   label?: string;
   getOptionId: (option: TOption) => string;
@@ -64,6 +65,7 @@ export function UniversalSearchSheet<TOption>({
   portalContainer,
   overlayStyle,
   anchoredInsideWidget = false,
+  preserveOpenGeometry = false,
   listboxId,
   label,
   getOptionId,
@@ -110,7 +112,7 @@ export function UniversalSearchSheet<TOption>({
         onOpenAutoFocus={(event) => {
           event.preventDefault();
         }}
-        className={`qx-overlay-card ${anchoredInsideWidget ? 'qx-widget-anchored swap-contained-selector convert-contained-selector' : 'qx-standalone'}`}
+        className={`qx-overlay-card ${anchoredInsideWidget ? 'qx-widget-anchored swap-contained-selector convert-contained-selector' : 'qx-standalone'} ${preserveOpenGeometry ? 'qx-preserve-open-geometry' : ''}`}
       >
         <QuickXchangeOverlayHeader
           title={<DialogPrimitive.Title>{title}</DialogPrimitive.Title>}

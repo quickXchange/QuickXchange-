@@ -45,6 +45,7 @@ type GlobalAssetSelectorProps<TOption extends GlobalAssetSelectorOption> = {
   noOptionsText?: string;
   noFilteredOptionsText?: string;
   triggerClassName?: string;
+  preserveOpenGeometry?: boolean;
 };
 
 const CATEGORY_DEFINITIONS = [
@@ -79,6 +80,7 @@ export function GlobalAssetSelector<TOption extends GlobalAssetSelectorOption>({
   noOptionsText,
   noFilteredOptionsText,
   triggerClassName,
+  preserveOpenGeometry = false,
 }: GlobalAssetSelectorProps<TOption>) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -131,6 +133,27 @@ export function GlobalAssetSelector<TOption extends GlobalAssetSelectorOption>({
     }
   }, [open]);
 
+  useEffect(() => {
+    if (!open || !preserveOpenGeometry) return;
+
+    const viewportMeta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+    if (!viewportMeta) return;
+
+    const previousContent = viewportMeta.content;
+    const withoutInteractiveWidget = previousContent
+      .split(',')
+      .map(part => part.trim())
+      .filter(part => !part.startsWith('interactive-widget='));
+    viewportMeta.content = [
+      ...withoutInteractiveWidget,
+      'interactive-widget=overlays-content',
+    ].join(', ');
+
+    return () => {
+      viewportMeta.content = previousContent;
+    };
+  }, [open, preserveOpenGeometry]);
+
   useLayoutEffect(() => {
     if (!open) return;
 
@@ -171,6 +194,8 @@ export function GlobalAssetSelector<TOption extends GlobalAssetSelectorOption>({
     };
 
     updateOverlayAnchor();
+    if (preserveOpenGeometry) return;
+
     window.addEventListener('resize', updateOverlayAnchor);
     window.visualViewport?.addEventListener('resize', updateOverlayAnchor);
 
@@ -178,7 +203,7 @@ export function GlobalAssetSelector<TOption extends GlobalAssetSelectorOption>({
       window.removeEventListener('resize', updateOverlayAnchor);
       window.visualViewport?.removeEventListener('resize', updateOverlayAnchor);
     };
-  }, [open]);
+  }, [open, preserveOpenGeometry]);
 
   const anchoredInsideWidget = portalContainer !== null && portalContainer !== document.body;
   const overlayStyle = overlayAnchor ? {
@@ -248,6 +273,7 @@ export function GlobalAssetSelector<TOption extends GlobalAssetSelectorOption>({
         portalContainer={portalContainer}
         overlayStyle={overlayStyle}
         anchoredInsideWidget={anchoredInsideWidget}
+        preserveOpenGeometry={preserveOpenGeometry}
         listboxId={listboxId}
         label={label}
         getOptionId={(option) => option.id}

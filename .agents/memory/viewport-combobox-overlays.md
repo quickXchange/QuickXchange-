@@ -15,6 +15,12 @@ On phones, an embedded selector must size from the visual viewport and the visib
 
 **How to apply:** Recompute on layout and visual-viewport resize, cap height from the visible widget bottom to the visual viewport top, offset a widget bottom that falls below the visual viewport, and wait for entrance animations before asserting bounds.
 
+Swap's mobile You Send/You Receive search cards are an explicit exception once open: capture their anchored geometry once, keep card/list/row dimensions fixed, and request `interactive-widget=overlays-content` only while the card is open.
+
+**Why:** Keyboard-driven viewport changes and result filtering otherwise compressed the card, list, input, or single remaining row even though the selector must remain visually identical while typing.
+
+**How to apply:** Freeze the opened card's pixel height and anchor, remove `dvh` list caps, prevent result rows from flex-growing, keep the clear control out of input-width flow, and restore the prior viewport policy on close.
+
 Closing dialogs may remain mounted while their exit animation runs. Tests and cross-mode queries must identify the open state rather than relying on CSS visibility alone.
 
 **Why:** A closing selector can still have a rendered box for a few hundred milliseconds, causing strict locators to match both the outgoing and newly opened selector.
