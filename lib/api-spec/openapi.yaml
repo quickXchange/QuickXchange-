@@ -6583,6 +6583,8 @@ components:
         - integrations.credentials.delete
         - integrations.credentials.rotate
         - integrations.credentials.test
+        - blockchain_monitoring.view
+        - blockchain_monitoring.manage
         - blog.view
         - blog.manage
         - languages.view

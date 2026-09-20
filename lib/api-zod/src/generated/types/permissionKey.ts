@@ -45,6 +45,8 @@ export const PermissionKey = {
   integrationscredentialsdelete: 'integrations.credentials.delete',
   integrationscredentialsrotate: 'integrations.credentials.rotate',
   integrationscredentialstest: 'integrations.credentials.test',
+  blockchain_monitoringview: 'blockchain_monitoring.view',
+  blockchain_monitoringmanage: 'blockchain_monitoring.manage',
   blogview: 'blog.view',
   blogmanage: 'blog.manage',
   languagesview: 'languages.view',
