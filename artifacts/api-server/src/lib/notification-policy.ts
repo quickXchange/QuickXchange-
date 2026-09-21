@@ -47,7 +47,8 @@ export function customerEmailEventEnabled(
   settings: NotificationSettings | undefined,
   eventKind: NotificationEventKind,
 ) {
-  if (!settings || settings.emailEnabled === false) return false;
+  if (!settings) return true;
+  if (settings.emailEnabled === false) return false;
   return eventKind === "order_created"
     ? settings.customerEmailOrderCreatedEnabled
     : eventKind === "payment_received"
