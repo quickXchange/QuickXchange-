@@ -38,7 +38,7 @@ export function convertOrderStatusLabel(status: unknown): string {
     case 'complete':
     case 'finished':
     case 'paid':
-      return 'DONE ✅';
+      return 'DONE';
     case 'failed': return 'FAILED';
     case 'cancelled':
     case 'canceled': return 'CANCELLED';

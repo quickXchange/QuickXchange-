@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams, useSearch, Link } from "wouter";
-import { 
-  useGetPublicOrderStatus, 
-  useGetQuickexOrderStatus, 
-  getGetPublicOrderStatusQueryKey, 
-  getGetQuickexOrderStatusQueryKey 
+import {
+  useGetPublicOrderStatus,
+  useGetQuickexOrderStatus,
+  getGetPublicOrderStatusQueryKey,
+  getGetQuickexOrderStatusQueryKey
   , useMarkOrderPaid, useCancelCustomerOrder
 } from "@workspace/api-client-react";
 import type { ApiError } from "@workspace/api-client-react";
 import { PublicShell } from "@/components/public-shell";
-import { 
-  CircleAlert, RefreshCw, Loader2, Copy, Network, Check, ArrowRight, ShieldCheck
+import {
+  CircleAlert, RefreshCw, Loader2, Copy, Network, Check, ArrowRight, ShieldCheck, CheckCircle2, XCircle, Clock3, ArrowDown
 } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { CancelOrderAction, cn, PaymentDetailsCard, publicApiErrorText, SUPPORT_TELEGRAM } from "@/components/shared-app-ui";
@@ -19,54 +19,20 @@ import { OrderSettlementIdentity } from "@/components/order-settlement-identity"
 import { QRCodeSVG } from "qrcode.react";
 import { convertOrderStatusLabel, convertOrderStatusStep, isConvertTerminalStatus } from "@/lib/convert-order-status";
 
-function AddressCopyBox({ text, actionable = true }: { text: string; actionable?: boolean }) {
-  const { t } = useI18n();
-  const [copied, setCopied] = useState(false);
-
-  const copy = () => {
-    if (!actionable) return;
-    void navigator.clipboard.writeText(text).catch(() => undefined);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div className="oc-address-box">
-      <code>{text}</code>
-      {actionable && (
-        <button type="button" onClick={copy} className={copied ? "copied" : ""} data-testid="button-copy-deposit" aria-label={copied ? t('actions.copied') : t('orderStatus.copyToClipboard')}>
-          {copied ? <Check size={18} /> : <Copy size={18} />}
-        </button>
-      )}
-    </div>
-  );
-}
-
-function MemoCopyBox({ text, label, actionable = true }: { text: string; label: string; actionable?: boolean }) {
-  const { t } = useI18n();
-  const [copied, setCopied] = useState(false);
-
-  const copy = () => {
-    if (!actionable) return;
-    void navigator.clipboard.writeText(text).catch(() => undefined);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div className="mt-4">
-      <span className="oc-label">{label}</span>
-      <div className="oc-address-box mt-2">
-        <code>{text}</code>
-        {actionable && (
-          <button type="button" onClick={copy} className={copied ? "copied" : ""} data-testid="button-copy-deposit-memo" aria-label={copied ? t('actions.copied') : t('orderStatus.copyToClipboard')}>
-            {copied ? <Check size={18} /> : <Copy size={18} />}
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
+const formatExactDateTime = (dateStr: string) => {
+  const date = new Date(dateStr);
+  const datePart = new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date);
+  const timePart = new Intl.DateTimeFormat('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
+  return `${datePart} · ${timePart}`;
+};
 
 export function OrderConfirmationPage() {
   const { id = '' } = useParams();
@@ -75,13 +41,15 @@ export function OrderConfirmationPage() {
   const trackingToken = queryParams.get("trackingToken") || "";
   const provider = queryParams.get("provider") || "manual";
   const isQuickex = provider === "quickex";
-  
+
   const { t, formatNumber } = useI18n();
   const queryClient = useQueryClient();
   const markPaidMutation = useMarkOrderPaid();
   const cancelOrderMutation = useCancelCustomerOrder();
   const [cancelError, setCancelError] = useState<string | null>(null);
-  const [orderIdCopied, setOrderIdCopied] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [showQR, setShowQR] = useState(false);
+
   const formatAmount = (value?: number | string) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? formatNumber(parsed, { maximumFractionDigits: 8 }) : '—';
@@ -126,6 +94,13 @@ export function OrderConfirmationPage() {
   const lookupErrorMessage = notFound ? t('orderStatus.notFound') : t('orderStatus.refreshFailed');
 
   const order = activeStatusQuery.data?.id === id ? activeStatusQuery.data : undefined;
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(text);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
   const markPaid = () => {
     markPaidMutation.mutate({ id, data: trackingToken ? { trackingToken } : undefined }, {
       onSuccess: () => {
@@ -133,6 +108,7 @@ export function OrderConfirmationPage() {
       },
     });
   };
+
   const cancelOrder = () => {
     setCancelError(null);
     cancelOrderMutation.mutate({
@@ -154,55 +130,33 @@ export function OrderConfirmationPage() {
       : 'Order Confirmation · QuickXchange';
   }, [order]);
 
-  const copyOrderId = () => {
-    if (!order) return;
-    navigator.clipboard.writeText(order.id);
-    setOrderIdCopied(true);
-    setTimeout(() => setOrderIdCopied(false), 2000);
-  };
-
-  const renderLoading = () => (
-    <PublicShell>
-      <div className="order-confirmation-main min-h-[80vh] flex flex-col items-center justify-center">
-        <div className="relative">
-          <div className="absolute inset-0 bg-blue-500/20 blur-xl rounded-full" />
-          <Loader2 size={48} className="animate-spin text-blue-400 relative z-10" />
-        </div>
-        <h2 className="oc-loading-title mt-8 text-xl font-bold tracking-tight">Securing your order...</h2>
-        <p className="mt-2 text-muted-foreground text-sm">Please wait while we confirm details.</p>
-      </div>
-    </PublicShell>
-  );
-
-  const renderError = () => (
-    <PublicShell>
-      <div className="order-confirmation-main min-h-[80vh] flex flex-col items-center justify-center">
-        <div className="oc-card oc-error-card w-full max-w-md p-8 text-center">
+  if (!order) {
+    if (activeStatusQuery.isError && notFound) return (
+      <PublicShell>
+        <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 text-center">
           <div className="w-16 h-16 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mx-auto mb-6">
             <CircleAlert size={32} />
           </div>
-          <h2 className="oc-error-title text-2xl font-bold tracking-tight mb-2">Order Not Found</h2>
-          <p className="text-muted-foreground mb-8">{lookupErrorMessage}</p>
-          <div className="flex flex-col gap-3">
-            {activeStatusQuery.isError && !notFound && (
-              <button className="oc-btn oc-btn-primary w-full" onClick={() => activeStatusQuery.refetch()}>
-                {t('orderStatus.retry')}
-              </button>
-            )}
-            <Link href="/" className="oc-btn oc-btn-secondary w-full">
-              Return to Exchange
-            </Link>
+          <h2 className="text-2xl font-bold tracking-tight mb-2">Order Not Found</h2>
+          <p className="text-muted-foreground mb-8 max-w-md mx-auto">{lookupErrorMessage}</p>
+          <div className="flex flex-col gap-3 w-full max-w-xs mx-auto">
+            <Link href="/" className="button button-secondary w-full">Return to Exchange</Link>
           </div>
         </div>
-      </div>
-    </PublicShell>
-  );
-
-  if (!order) {
-    if (activeStatusQuery.isError && notFound) return renderError();
-    if (activeStatusQuery.isFetching || !activeStatusQuery.isFetched) return renderLoading();
-    if (activeStatusQuery.isError) return renderError();
-    return renderLoading();
+      </PublicShell>
+    );
+    return (
+      <PublicShell>
+        <div className="min-h-[80vh] flex flex-col items-center justify-center">
+          <div className="relative">
+            <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
+            <Loader2 size={48} className="animate-spin text-primary relative z-10" />
+          </div>
+          <h2 className="mt-8 text-xl font-bold tracking-tight">Securing your order...</h2>
+          <p className="mt-2 text-muted-foreground text-sm">Please wait while we confirm details.</p>
+        </div>
+      </PublicShell>
+    );
   }
 
   const isManual = order.type === 'manual' || Boolean(order.manualSettlementState);
@@ -214,32 +168,31 @@ export function OrderConfirmationPage() {
   const completed = /complete|paid/.test(status) || mss === 'completed';
   const canCustomerCancel = !isQuickex && isManual && mss === 'awaiting_funds' &&
     !order.customerMarkedPaidAt && !halted && !uncertain && !completed && !/process|paid/.test(status);
+
+  const isCancelled = status === 'cancelled' || mss === 'cancelled';
+  const isConfirming = isManual
+    ? mss === 'funds_confirmed' || status === 'confirming'
+    : !completed && !halted && ['confirming', 'payment detected'].includes(status);
+  const isProcessing = isManual
+    ? mss === 'payout_processing' || mss === 'payout_sent'
+    : !completed && !halted && status === 'processing';
+
+  const currentStep = isManual
+    ? (completed ? 4 : isProcessing ? 3 : isConfirming ? 2 : 1)
+    : (convertOrderStatusStep(status) + 1);
+
   const depositActionable = Boolean(order.depositAddress) && !halted && !uncertain && !completed;
   const fundingStatus = order.fundingStatus?.toLowerCase();
   const addressPending = isManual && !order.depositAddress && fundingStatus === 'provisioning';
   const addressUnavailable = isManual && !order.depositAddress && fundingStatus === 'unresolved';
-  
+
   const fundingDetails = order.fundingDetails as {
     warning?: unknown;
     instructions?: unknown;
     requiredConfirmations?: unknown;
     addressSource?: unknown;
   } | undefined;
-  const fundingAddressSource = typeof fundingDetails?.addressSource === 'string'
-    ? fundingDetails.addressSource
-    : order.fundingSource === 'whitebit'
-      ? 'live_api'
-      : order.fundingSource === 'manual'
-        ? 'manual_only'
-        : undefined;
-  const fundingAddressSourceLabel = fundingAddressSource === 'live_api'
-    ? 'Unique API address'
-    : fundingAddressSource === 'manual_fallback'
-      ? 'Manual fallback address'
-      : fundingAddressSource === 'manual_only'
-        ? 'Manual address'
-        : null;
-  
+
   const hasPaymentInstructions = Boolean(
     order.depositAddress ||
     order.depositMemo ||
@@ -251,124 +204,114 @@ export function OrderConfirmationPage() {
     fundingDetails?.requiredConfirmations
   );
 
-  const timeline = isManual
-    ? ['awaitingFunds', 'fundsConfirmed', 'payoutProcessing', 'payoutSent', 'completed']
-    : ['created', 'processing', 'completed'];
+  const statusPresentation = isManual
+    ? completed
+      ? { label: 'Completed', description: 'Your exchange has been completed successfully.', icon: CheckCircle2, tone: 'text-primary', surface: 'bg-primary/10', border: 'border-primary/20' }
+      : halted
+        ? { label: isCancelled ? 'Cancelled' : status === 'expired' ? 'Expired' : 'Failed', description: 'This order is no longer active.', icon: XCircle, tone: 'text-destructive', surface: 'bg-destructive/10', border: 'border-destructive/20' }
+        : isProcessing
+          ? { label: 'Processing', description: 'Your payment was received and your order is being processed.', icon: RefreshCw, tone: 'text-accent', surface: 'bg-accent/10', border: 'border-accent/20' }
+          : isConfirming
+            ? { label: 'Confirming', description: 'Your payment has been detected and is confirming.', icon: Clock3, tone: 'text-amber-500', surface: 'bg-amber-500/10', border: 'border-amber-500/20' }
+            : { label: 'Pending', description: 'Complete the payment using the order-specific details below.', icon: Clock3, tone: 'text-primary', surface: 'bg-primary/10', border: 'border-primary/20' }
+    : completed
+     ? { label: convertOrderStatusLabel(status), description: 'Your exchange has been completed successfully.', icon: CheckCircle2, tone: 'text-primary', surface: 'bg-primary/10', border: 'border-primary/20' }
+     : halted
+       ? { label: convertOrderStatusLabel(status), description: 'This order is no longer active.', icon: XCircle, tone: 'text-destructive', surface: 'bg-destructive/10', border: 'border-destructive/20' }
+       : isProcessing
+        ? { label: 'Processing', description: 'Your payment is being processed for delivery.', icon: RefreshCw, tone: 'text-accent', surface: 'bg-accent/10', border: 'border-accent/20' }
+        : isConfirming
+          ? { label: convertOrderStatusLabel(status), description: 'Your payment has been detected and is confirming.', icon: Clock3, tone: 'text-amber-500', surface: 'bg-amber-500/10', border: 'border-amber-500/20' }
+          : { label: convertOrderStatusLabel(status), description: 'Complete the payment using the order-specific details below.', icon: Clock3, tone: 'text-primary', surface: 'bg-primary/10', border: 'border-primary/20' };
 
-  const current = isManual
-    ? (mss === 'completed' ? 4 : mss === 'payout_sent' ? 3 : mss === 'payout_processing' ? 2 : mss === 'funds_confirmed' ? 1 : 0)
-    : convertOrderStatusStep(status);
-  const progressTimeline = isManual
-    ? [
-        { key: 'order-created', label: 'Order Created' },
-        { key: 'deposit-received', label: 'Payment Detected' },
-        { key: 'processing', label: 'Processing' },
-        { key: 'completed', label: 'Completed' },
-      ]
-    : [
-        { key: 'order-created', label: 'Created' },
-        { key: 'confirming', label: 'Confirming' },
-        { key: 'processing', label: 'Processing' },
-        { key: 'completed', label: 'Done' },
-      ];
-  const progressCurrent = isManual
-    ? completed ? 3 : current >= 2 ? 2 : current >= 1 ? 1 : 0
-    : current;
-  const completedProgressShare = completed
-    ? 100
-    : progressCurrent > 0
-      ? ((progressCurrent - 1) / progressCurrent) * 100
-      : 0;
+  const StatusIcon = statusPresentation.icon;
+  const isCryptoDeposit = Boolean(order.depositAddress) || addressPending || addressUnavailable;
 
-  const haltedMessage = /refund/.test(status) ? t('orderStatus.refunded')
-    : /expire/.test(status) ? t('orderStatus.expired')
-      : t('orderStatus.stopped');
+  const parsedSendAmount = Number(order.amount);
+  const parsedReceiveAmount = Number(order.receiveAmount);
+  const exchangeRate = Number.isFinite(parsedSendAmount) && parsedSendAmount > 0 && Number.isFinite(parsedReceiveAmount)
+    ? parsedReceiveAmount / parsedSendAmount
+    : null;
+
+  const sourceIdentity = order.sourcePaymentMethod?.name || order.fromNetwork || order.fromAsset;
+  const targetIdentity = order.toNetwork || order.toAsset;
+  const fundingAddressSourceLabel = typeof fundingDetails?.addressSource === 'string'
+    ? fundingDetails.addressSource === 'live_api'
+      ? 'Unique API address'
+      : fundingDetails.addressSource === 'manual_fallback'
+        ? 'Manual fallback address'
+        : fundingDetails.addressSource === 'manual_only'
+          ? 'Manual address'
+          : null
+    : null;
 
   return (
     <PublicShell>
-      <main className="order-confirmation-main">
-        <div className="oc-container animate-in fade-in slide-in-from-bottom-8 duration-700">
-          
-          <div className="oc-topbar oc-card oc-header-card">
-            <div className="oc-intro">
-              <div className={cn(
-                "oc-status-icon",
-                completed ? "oc-completed" : halted ? "oc-halted" : uncertain ? "oc-warning" : ""
-              )}>
-                <Check size={28} strokeWidth={3} />
-              </div>
-              <div className="oc-intro-copy">
-                <h1 className={cn(
-                  "oc-title",
-                  completed && "oc-title-completed",
-                  halted && "oc-title-halted",
-                )} data-testid="heading-order-created">
-                  {halted ? 'Order Halted' : completed ? 'Order Completed' : 'Order Created'}
-                </h1>
-                <p className="oc-subtitle">
-                  {halted ? haltedMessage : completed ? 'Your exchange has been completed successfully.' : 'Your exchange is being processed.'}
-                </p>
-              </div>
+      <main className="min-h-[80vh] py-8 px-4 sm:px-6 lg:px-8 max-w-3xl mx-auto space-y-6">
+        {/* Status Panel */}
+        <div className={cn("bg-card border rounded-3xl p-5 sm:p-6 shadow-sm", statusPresentation.border)}>
+          <div className="flex items-start gap-4">
+            <div className={cn("relative w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center", statusPresentation.surface)}>
+              {!halted && <div className="absolute inset-1 rounded-xl bg-gradient-to-br from-secondary/30 via-primary/20 to-accent/30 blur-md" />}
+              <StatusIcon className={cn("relative z-10 w-6 h-6", statusPresentation.tone, isProcessing && "animate-spin")} />
             </div>
-
-            <div className="oc-order-card">
-              <div className="oc-order-id-group">
-                 <span className="oc-label">Order ID</span>
-                 <div className="oc-order-id-row">
-                   <code className="oc-order-id" data-testid="text-order-id">{order.id}</code>
-                   <button
-                     className={cn("oc-copy-btn", orderIdCopied && "copied")}
-                     onClick={copyOrderId}
-                     aria-label="Copy Order ID"
-                     data-testid="button-copy-header-order-id"
-                   >
-                     {orderIdCopied ? <Check size={14} /> : <Copy size={14} />}
-                   </button>
-                 </div>
-              </div>
-              <div className={cn(
-                "oc-status-badge",
-                halted ? "oc-status-danger" : completed ? "oc-status-success" : uncertain ? "oc-status-warning" : "oc-status-primary"
-              )} data-testid="status-order-confirmation">
-                  {isQuickex ? convertOrderStatusLabel(order.status) : order.status}
-              </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Current Status</p>
+              <h2 className={cn("text-2xl font-bold tracking-tight", statusPresentation.tone)} data-testid="heading-order-created">{statusPresentation.label}</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed mt-1">{statusPresentation.description}</p>
             </div>
           </div>
 
-          {!halted && (
-            <div className="oc-card oc-progress-card">
-              <div className="oc-timeline">
-                <div className="oc-timeline-track" />
-                <div
-                  className={cn("oc-timeline-fill", completed && "oc-timeline-fill-completed")}
-                  style={{
-                    transform: `scaleX(${progressCurrent / (progressTimeline.length - 1)})`,
-                    '--oc-completed-share': `${completedProgressShare}%`,
-                  } as React.CSSProperties}
-                />
-                
-                {progressTimeline.map((item, index) => {
-                  const isCompletedStep = completed || index < progressCurrent;
-                  const isCurrent = index === progressCurrent;
-                  return (
-                    <div
-                      key={item.key}
-                      className={cn(
-                        "oc-timeline-step",
-                        isCompletedStep && "completed-step",
-                        isCurrent && !completed && "current",
-                      )}
-                      title={item.label}
-                    >
-                      <div className="oc-step-icon">
-                        <Check size={14} strokeWidth={3} />
-                      </div>
-                      <span className="oc-step-label">{item.label}</span>
-                    </div>
-                  );
-                })}
-              </div>
+          <div className="mt-5 flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl bg-secondary/5 border border-border/50 px-4 py-3">
+             <div className="min-w-0 flex-1 w-full sm:w-auto">
+               <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Order ID</p>
+               <p className="font-mono text-sm font-semibold truncate text-foreground" data-testid="text-order-id">{order.id}</p>
+             </div>
+             <div className="flex gap-2 w-full sm:w-auto self-start sm:self-center">
+               <span className={cn("text-xs font-bold rounded-xl bg-primary/10 text-primary border border-primary/20 px-3 py-1.5 flex items-center shrink-0")} data-testid="status-order-confirmation">
+                 {isQuickex ? convertOrderStatusLabel(order.status) : order.status}
+               </span>
+               <button
+                 onClick={() => handleCopy(order.id)}
+                 className="p-1.5 rounded-xl bg-secondary/10 text-secondary-foreground hover:bg-secondary/20 active:scale-95 transition-all shrink-0"
+                 aria-label="Copy order ID"
+                 data-testid="button-copy-header-order-id"
+               >
+                 {copied === order.id ? <Check size={16} /> : <Copy size={16} />}
+               </button>
+             </div>
+          </div>
 
+          {!halted && (
+            <div className="mt-6 border-t border-border/50 pt-6">
+              <div className="relative pt-2 pb-1">
+                <div className="absolute top-[17px] left-[10%] right-[10%] h-[2px] bg-border z-0" />
+                <div className="absolute top-[17px] left-[10%] h-[2px] bg-gradient-to-r from-secondary via-primary to-accent z-0 transition-all duration-500" style={{ width: `${(Math.max(0, currentStep - 1) / 3) * 80}%` }} />
+
+                <div className="flex justify-between relative z-10">
+                  {(isManual ? ['Created', 'Detected', 'Processing', 'Done'] : ['Created', 'Confirming', 'Processing', 'Done']).map((label, idx) => {
+                    const step = idx + 1;
+                    const isPast = currentStep > step;
+                    const isCurrent = currentStep === step;
+                    return (
+                      <div key={label} className="flex flex-col items-center gap-2 w-[70px]">
+                        <div className={cn(
+                          "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border-2",
+                          isPast ? "bg-primary border-primary text-primary-foreground shadow-[0_0_12px_hsl(var(--primary)/0.6)]" :
+                          isCurrent ? "bg-background border-primary text-primary shadow-[0_0_14px_hsl(var(--primary)/0.7)] scale-110" :
+                          "bg-background border-border text-muted-foreground/50"
+                        )}>
+                          {isPast ? <Check className="w-4 h-4" /> : step}
+                        </div>
+                        <span className={cn(
+                          "text-[10px] leading-tight font-semibold transition-colors text-center uppercase tracking-wider",
+                          isPast || isCurrent ? "text-foreground" : "text-muted-foreground/50"
+                        )}>{label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
               {(order.refreshUnavailable || activeStatusQuery.isError) && (
                 <div className="mt-8 p-4 bg-warning/10 border border-warning/20 rounded-2xl flex gap-3 text-warning-foreground text-sm">
                   <RefreshCw size={18} className="mt-0.5 shrink-0 animate-spin-slow" />
@@ -377,259 +320,266 @@ export function OrderConfirmationPage() {
               )}
             </div>
           )}
+        </div>
 
-          <div className="oc-dashboard-grid">
-            <div className="oc-card oc-summary-card" data-testid="order-confirmation-exchange-summary">
-              <h2 className="oc-section-title">Conversion Summary</h2>
-              <div className="oc-summary-row">
-                <div className="oc-summary-asset">
-                   <span className="oc-label">You Send</span>
-                   <OrderSettlementIdentity
-                     assetCode={order.fromAsset}
-                     routeLabel={order.fromNetwork}
-                     settlementOptionId={order.sourceSettlementOptionId}
-                     size="lg"
-                   />
-                   <div className="oc-amount">
-                     <span className="oc-amount-value">{formatAmount(order.amount)}</span>
-                     <span className="oc-amount-unit">{order.fromAsset}</span>
+        {/* Exchange Summary */}
+        <div className="bg-card border border-border rounded-3xl p-5 sm:p-6 shadow-sm space-y-5" data-testid="order-confirmation-exchange-summary">
+           <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Exchange Summary</h3>
+
+           <div className="relative">
+             <div className="flex items-center justify-between bg-secondary/5 rounded-t-2xl p-4 sm:p-5 border border-border border-b-0">
+                <div className="flex items-center gap-4 min-w-0">
+                   <div className="w-12 h-12 [&_.order-settlement-copy]:hidden flex items-center justify-center bg-background rounded-full border border-border shrink-0">
+                     <OrderSettlementIdentity assetCode={order.fromAsset} routeLabel={order.fromNetwork} settlementOptionId={order.sourceSettlementOptionId} size="md" compact={true} />
+                   </div>
+                   <div className="flex flex-col justify-center min-w-0">
+                      <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">You Send</div>
+                      <div className="font-bold text-xl sm:text-2xl leading-none text-foreground truncate">{order.amount} {order.fromAsset}</div>
+                      {sourceIdentity !== order.fromAsset && (
+                        <span className="text-[11px] text-muted-foreground font-semibold mt-1.5 truncate">{sourceIdentity}</span>
+                      )}
                    </div>
                 </div>
-                <div className="oc-summary-arrow"><ArrowRight size={24} /></div>
-                <div className="oc-summary-asset">
-                   <span className="oc-label">You Receive</span>
-                   <OrderSettlementIdentity
-                     assetCode={order.toAsset}
-                     routeLabel={order.toNetwork}
-                     settlementOptionId={order.targetSettlementOptionId}
-                     size="lg"
-                   />
-                   <div className="oc-amount">
-                     <span className="oc-amount-value">{isManual ? '≈ ' : ''}{formatAmount(order.receiveAmount)}</span>
-                     <span className="oc-amount-unit">{order.toAsset}</span>
+             </div>
+
+             <div className="flex items-center justify-between bg-primary/5 rounded-b-2xl p-4 sm:p-5 border border-border">
+                <div className="flex items-center gap-4 min-w-0">
+                   <div className="w-12 h-12 [&_.order-settlement-copy]:hidden flex items-center justify-center bg-background rounded-full border border-border shrink-0">
+                     <OrderSettlementIdentity assetCode={order.toAsset} routeLabel={order.toNetwork} settlementOptionId={order.targetSettlementOptionId} size="md" compact={true} />
+                   </div>
+                   <div className="flex flex-col justify-center min-w-0">
+                      <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">You Receive</div>
+                      <div className="font-bold text-xl sm:text-2xl leading-none text-primary truncate">{isManual ? '≈ ' : ''}{order.receiveAmount} {order.toAsset}</div>
+                      {targetIdentity !== order.toAsset && (
+                        <span className="text-[11px] text-primary/70 font-semibold mt-1.5 truncate">{targetIdentity}</span>
+                      )}
                    </div>
                 </div>
-              </div>
+             </div>
 
-              <div className={`oc-summary-details ${isQuickex ? 'oc-summary-details-convert' : ''}`}>
-                {!isQuickex && (
-                  <div className="oc-detail">
-                    <span className="oc-label">Exchange Rate</span>
-                    <span className="oc-value oc-value-highlight">
-                      {(() => {
-                        const from = Number(order.amount);
-                        const to = Number(order.receiveAmount);
-                        return from > 0 && to > 0
-                          ? `1 ${order.fromAsset} = ${formatNumber(to / from, { maximumFractionDigits: 6 })} ${order.toAsset}`
-                          : '—';
-                      })()}
-                    </span>
-                  </div>
-                )}
-                <div className="oc-detail oc-detail-center">
-                   <span className="oc-label">Network Fee</span>
-                    <span className="oc-value oc-value-success">Included</span>
-                </div>
-                <div className="oc-detail oc-detail-right">
-                   <span className="oc-label">You Receive (Est.)</span>
-                   <span className="oc-value">≈ {formatAmount(order.receiveAmount)} {order.toAsset}</span>
-                </div>
-              </div>
-            </div>
+             <div className="absolute left-10 top-1/2 -translate-y-1/2 w-8 h-8 bg-background border border-border rounded-full flex items-center justify-center shadow-sm">
+               <ArrowDown size={14} className="text-muted-foreground" />
+             </div>
+           </div>
 
-            <div className="oc-deposit-column">
-               {!isQuickex && order.paymentDetailsApplicable && (
-                 <PaymentDetailsCard
-                   paymentDetails={order.paymentDetails}
-                   paymentDetailsApplicable={order.paymentDetailsApplicable}
-                   sourcePaymentMethod={order.sourcePaymentMethod}
-                   customerMarkedPaidAt={order.customerMarkedPaidAt}
-                    actionsDisabled={halted || completed}
-                   onMarkPaid={markPaid}
-                   markPaidPending={markPaidMutation.isPending}
-                   supportHref={SUPPORT_TELEGRAM}
-                 />
-               )}
-              {hasPaymentInstructions && (
-                <div className="oc-card oc-deposit-card" data-testid="order-confirmation-payment-card">
-               <div className="oc-deposit-header">
-                 <span className="oc-label">Deposit Instructions</span>
-                 <div className="flex items-center gap-3">
-                   <OrderSettlementIdentity
-                     assetCode={order.fromAsset}
-                     routeLabel={order.fromNetwork}
-                     settlementOptionId={order.sourceSettlementOptionId}
-                     size="lg"
-                   />
-                    {fundingAddressSourceLabel && (
-                      <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-white/70">
-                        {fundingAddressSourceLabel}
-                      </span>
-                    )}
-                 </div>
-               </div>
-
-               <div className="space-y-0 relative z-10">
-                 {order.customerSafeNote && (
-                   <div className="p-4 bg-primary/5 border border-primary/10 rounded-xl mb-4">
-                     <p className="text-sm text-white whitespace-pre-wrap leading-relaxed">{order.customerSafeNote}</p>
-                   </div>
-                 )}
-
-                  {addressPending && (
-                    <div
-                      className="rounded-xl border border-primary/20 bg-primary/10 p-5"
-                      data-testid="order-confirmation-address-pending"
-                    >
-                      <div className="flex items-start gap-3">
-                        <Loader2 size={20} className="mt-0.5 shrink-0 animate-spin text-primary" />
-                        <div>
-                          <strong className="block text-sm text-white">Generating your deposit address</strong>
-                          <p className="mt-1 text-sm leading-relaxed text-white/70">
-                            Keep this page open. Your address will appear here automatically.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {addressUnavailable && (
-                    <div
-                      className="rounded-xl border border-destructive/30 bg-destructive/10 p-5"
-                      data-testid="order-confirmation-address-unavailable"
-                    >
-                      <div className="flex items-start gap-3">
-                        <CircleAlert size={20} className="mt-0.5 shrink-0 text-destructive" />
-                        <div>
-                          <strong className="block text-sm text-white">Deposit address unavailable</strong>
-                          <p className="mt-1 text-sm leading-relaxed text-white/70">
-                            Do not send funds for this order. Contact support and provide order ID {order.id}.
-                          </p>
-                          <button
-                            type="button"
-                            className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-white"
-                            onClick={() => activeStatusQuery.refetch()}
-                            disabled={activeStatusQuery.isFetching}
-                          >
-                            <RefreshCw size={15} className={activeStatusQuery.isFetching ? 'animate-spin' : ''} />
-                            Check again
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                 {order.depositAddress && (
-                   <>
-                     <div className="oc-deposit-amount-row" data-testid="text-deposit-amount">
-                         <div className="oc-qr shadow-sm">
-                           <QRCodeSVG
-                             value={order.depositAddress}
-                             size={96}
-                             bgColor={"#ffffff"}
-                             fgColor={"#000000"}
-                             level={"M"}
-                             includeMargin={false}
-                           />
-                         </div>
-
-                        <div className="min-w-0">
-                          <span className="oc-label">Send Exactly</span>
-                          <div className="oc-send-amount">
-                             <span className="oc-send-amount-value">{formatAmount(order.amount)}</span>
-                             <span className="oc-send-amount-unit">{order.fromAsset}</span>
-                          </div>
-                          <div className="oc-network-info">
-                            on {order.fromNetwork || t('orderStatus.sourceNetwork')} network
-                          </div>
-                         </div>
-                     </div>
-
-                     <div>
-                       <span className="oc-label">Deposit Address</span>
-                       <AddressCopyBox text={order.depositAddress} actionable={depositActionable} />
-                     </div>
-
-                     {depositActionable && (
-                        <div className="oc-warning">
-                          <CircleAlert size={20} />
-                          <p>
-                            Send only {order.fromAsset} {order.fromNetwork ? `(${order.fromNetwork})` : ''} to this address. Sending other assets may result in loss of funds.
-                          </p>
-                        </div>
-                     )}
-                   </>
-                 )}
-
-                 {order.depositMemo && (
-                   <MemoCopyBox
-                     label={depositActionable ? t('orderStatus.depositMemo') : t('orderStatus.depositMemoRecorded')}
-                     text={order.depositMemo}
-                     actionable={depositActionable}
-                   />
-                 )}
-
-                 {depositActionable && (Boolean(fundingDetails?.warning) || Boolean(fundingDetails?.instructions) || Boolean(fundingDetails?.requiredConfirmations)) && (
-                   <div className="mt-6 space-y-3 text-sm text-muted-foreground bg-muted/20 p-4 rounded-xl border border-white/10">
-                     {Boolean(fundingDetails?.warning) && (
-                       <div className="flex gap-3 text-warning">
-                         <CircleAlert size={16} className="shrink-0 mt-0.5" />
-                         <p className="leading-relaxed">{String(fundingDetails?.warning)}</p>
-                       </div>
-                     )}
-                     {Boolean(fundingDetails?.instructions) && (
-                       <div className="flex gap-3 text-white/80">
-                         <ShieldCheck size={16} className="shrink-0 mt-0.5 opacity-70" />
-                         <p className="leading-relaxed">{String(fundingDetails?.instructions)}</p>
-                       </div>
-                     )}
-                     {Boolean(fundingDetails?.requiredConfirmations) && (
-                       <div className="flex gap-3 text-white/80">
-                         <Network size={16} className="shrink-0 mt-0.5 text-primary/70" />
-                         <p className="leading-relaxed">{t('orderStatus.requiresConfirmations', { count: String(fundingDetails?.requiredConfirmations) })}</p>
-                       </div>
-                     )}
-                   </div>
-                 )}
-               </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="oc-actions">
-            <Link href={`/status?order=${encodeURIComponent(order.id)}${trackingToken ? `&trackingToken=${encodeURIComponent(trackingToken)}` : ''}`} className="oc-btn oc-btn-primary" data-testid="button-track-this-order">
-              TRACK THIS ORDER
-              <ArrowRight size={18} />
-            </Link>
-
-            <div className="oc-secondary-actions">
-              <button
-                type="button"
-                className={cn("oc-btn oc-btn-secondary", orderIdCopied && "copied")}
-                onClick={copyOrderId}
-                data-testid="button-copy-order-id"
-              >
-                {orderIdCopied ? <Check size={16} /> : <Copy size={16} />}
-                {orderIdCopied ? 'ORDER ID COPIED' : 'COPY ORDER ID'}
-              </button>
-
-              <Link href="/" className="oc-btn oc-btn-secondary oc-btn-start-another" data-testid="button-start-another-conversion">
-                START ANOTHER CONVERSION
-              </Link>
-            </div>
-             {canCustomerCancel && (
-               <div className="mt-4 border-t border-destructive/15 pt-4">
-                 <CancelOrderAction
-                   onConfirm={cancelOrder}
-                   pending={cancelOrderMutation.isPending}
-                   errorMessage={cancelError}
-                   triggerClassName="w-full sm:w-auto"
-                 />
+           <div className="divide-y divide-border/50 rounded-2xl border border-border bg-background/50 px-4">
+             {exchangeRate !== null && !isQuickex && (
+               <div className="flex items-center justify-between gap-3 py-3 text-xs">
+                 <span className="text-muted-foreground font-medium">Exchange Rate</span>
+                 <span className="font-mono font-semibold text-right">1 {order.fromAsset} = {exchangeRate.toLocaleString(undefined, { maximumFractionDigits: 8 })} {order.toAsset}</span>
                </div>
              )}
-          </div>
+             <div className="flex items-center justify-between gap-3 py-3 text-xs">
+               <span className="text-muted-foreground font-medium">Created Date</span>
+               <span className="font-semibold text-right">{formatExactDateTime(order.createdAt)}</span>
+             </div>
+             <div className="flex items-center justify-between gap-3 py-3 text-xs">
+               <span className="text-muted-foreground font-medium">Order ID</span>
+               <button onClick={() => handleCopy(order.id)} className="inline-flex items-center gap-1.5 font-mono font-semibold text-primary min-w-0 hover:opacity-80 transition-opacity">
+                 <span className="truncate max-w-[180px]">{order.id}</span>
+                 {copied === order.id ? <Check className="w-3.5 h-3.5 shrink-0" /> : <Copy className="w-3.5 h-3.5 shrink-0" />}
+               </button>
+             </div>
+           </div>
+        </div>
 
+        {/* Payment Details */}
+        {!isQuickex && order.paymentDetailsApplicable && (
+          <PaymentDetailsCard
+            paymentDetails={order.paymentDetails}
+            paymentDetailsApplicable={order.paymentDetailsApplicable}
+            sourcePaymentMethod={order.sourcePaymentMethod}
+            customerMarkedPaidAt={order.customerMarkedPaidAt}
+            actionsDisabled={halted || completed}
+            onMarkPaid={markPaid}
+            markPaidPending={markPaidMutation.isPending}
+            supportHref={SUPPORT_TELEGRAM}
+          />
+        )}
+
+        {hasPaymentInstructions && (
+           <div className="relative rounded-3xl p-[1px] overflow-hidden" data-testid="order-confirmation-payment-card">
+             <div className="absolute inset-0 bg-gradient-to-br from-secondary via-primary to-accent opacity-50 blur-sm" />
+             <div className="relative bg-card/95 backdrop-blur-xl rounded-3xl h-full p-5 sm:p-6 space-y-5">
+                <div className="flex items-center gap-4 border-b border-border/50 pb-4">
+                   <div className="w-12 h-12 [&_.order-settlement-copy]:hidden flex items-center justify-center bg-background rounded-full border border-border shrink-0">
+                     <OrderSettlementIdentity assetCode={order.fromAsset} routeLabel={order.fromNetwork} settlementOptionId={order.sourceSettlementOptionId} size="md" compact={true} />
+                   </div>
+                   <div>
+                      <h3 className="font-bold text-lg tracking-tight">{isCryptoDeposit ? 'Crypto Deposit Details' : 'Payment Details'}</h3>
+                      <p className="text-sm text-muted-foreground leading-tight">
+                         {isCryptoDeposit ? `Send exactly ${order.amount} ${order.fromAsset}` : order.sourcePaymentMethod?.name || 'Use the assigned order instructions'}
+                      </p>
+                   </div>
+                </div>
+
+                <div className="space-y-4">
+                   {order.customerSafeNote && (
+                     <div className="p-4 bg-primary/5 border border-primary/10 rounded-2xl mb-4">
+                       <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{order.customerSafeNote}</p>
+                     </div>
+                   )}
+
+                   {addressPending && (
+                     <div className="rounded-2xl border border-primary/20 bg-primary/10 p-5" data-testid="order-confirmation-address-pending">
+                       <div className="flex items-start gap-3">
+                         <Loader2 size={20} className="mt-0.5 shrink-0 animate-spin text-primary" />
+                         <div>
+                           <strong className="block text-sm text-foreground">Generating your deposit address</strong>
+                           <p className="mt-1 text-sm leading-relaxed text-foreground/70">
+                             Keep this page open. Your address will appear here automatically.
+                           </p>
+                         </div>
+                       </div>
+                     </div>
+                   )}
+
+                   {addressUnavailable && (
+                     <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-5" data-testid="order-confirmation-address-unavailable">
+                       <div className="flex items-start gap-3">
+                         <CircleAlert size={20} className="mt-0.5 shrink-0 text-destructive" />
+                         <div>
+                           <strong className="block text-sm text-foreground">Deposit address unavailable</strong>
+                           <p className="mt-1 text-sm leading-relaxed text-foreground/70">
+                             Do not send funds for this order. Contact support and provide order ID {order.id}.
+                           </p>
+                           <button
+                             type="button"
+                             className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-foreground hover:opacity-80 transition-opacity"
+                             onClick={() => activeStatusQuery.refetch()}
+                             disabled={activeStatusQuery.isFetching}
+                           >
+                             <RefreshCw size={15} className={activeStatusQuery.isFetching ? 'animate-spin' : ''} />
+                             Check again
+                           </button>
+                         </div>
+                       </div>
+                     </div>
+                   )}
+
+                   {order.depositAddress && (
+                     !showQR ? (
+                       <button type="button" className="button button-primary w-full shadow-[0_4px_16px_-4px_rgba(59,130,246,0.4)] transition-all hover:shadow-[0_6px_24px_-6px_rgba(59,130,246,0.6)]" onClick={() => setShowQR(true)}>
+                         Show QR
+                       </button>
+                     ) : (
+                       <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                          <div className="flex items-center justify-between rounded-2xl bg-secondary/5 border border-secondary/15 p-4" data-testid="text-deposit-amount">
+                             <div>
+                               <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Send Exactly</p>
+                               <p className="font-mono text-xl font-bold">{order.amount} {order.fromAsset}</p>
+                             </div>
+                             <span className="text-xs font-bold rounded-full bg-secondary/10 text-secondary border border-secondary/20 px-3 py-1">
+                               {order.fromNetwork || 'Crypto'}
+                             </span>
+                          </div>
+
+                          <div className="mx-auto w-fit rounded-2xl bg-white p-4 shadow-[0_8px_28px_-12px_hsl(var(--primary)/0.5)] border border-border">
+                            <QRCodeSVG value={order.depositAddress} size={160} level="M" includeMargin={false} />
+                          </div>
+                          <p className="text-center text-xs font-semibold text-muted-foreground">Scan the deposit address</p>
+
+                          <div className="flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 text-xs leading-relaxed text-muted-foreground">
+                             <CircleAlert className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
+                             <span>Send only {order.fromAsset} on the {order.fromNetwork || 'shown'} network. Using another network may result in permanent loss.</span>
+                          </div>
+
+                          <div className="space-y-3">
+                             <div className="relative bg-secondary/5 rounded-2xl p-4 border border-border shadow-sm">
+                               <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center justify-between">
+                                  Deposit Address
+                                  {fundingAddressSourceLabel && (
+                                    <span className="rounded-full bg-background border border-border px-2 py-0.5 text-[9px] text-muted-foreground lowercase normal-case">{fundingAddressSourceLabel}</span>
+                                  )}
+                               </div>
+                               <div className="font-mono text-sm font-medium break-all pr-12">{order.depositAddress}</div>
+                               {depositActionable && (
+                                 <button onClick={() => handleCopy(order.depositAddress!)} className="absolute top-1/2 -translate-y-1/2 right-3 p-2.5 rounded-xl bg-background border border-border hover:bg-muted active:scale-95 transition-all text-muted-foreground shadow-sm" data-testid="button-copy-deposit">
+                                   {copied === order.depositAddress ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                                 </button>
+                               )}
+                             </div>
+
+                             {order.depositMemo && (
+                               <div className="relative bg-secondary/5 rounded-2xl p-4 border border-border shadow-sm">
+                                 <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
+                                   {depositActionable ? t('orderStatus.depositMemo') : t('orderStatus.depositMemoRecorded')}
+                                 </div>
+                                 <div className="font-mono text-sm font-bold break-all pr-12 text-amber-600 dark:text-amber-400">{order.depositMemo}</div>
+                                 {depositActionable && (
+                                   <button onClick={() => handleCopy(order.depositMemo!)} className="absolute top-1/2 -translate-y-1/2 right-3 p-2.5 rounded-xl bg-background border border-border hover:bg-muted active:scale-95 transition-all text-muted-foreground shadow-sm" data-testid="button-copy-deposit-memo">
+                                     {copied === order.depositMemo ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                                   </button>
+                                 )}
+                               </div>
+                             )}
+                          </div>
+
+                          {(Boolean(fundingDetails?.warning) || Boolean(fundingDetails?.instructions) || Boolean(fundingDetails?.requiredConfirmations)) && (
+                             <div className="space-y-3 text-sm text-muted-foreground bg-secondary/5 p-4 rounded-2xl border border-border">
+                               {Boolean(fundingDetails?.warning) && (
+                                 <div className="flex gap-3 text-amber-500">
+                                   <CircleAlert size={16} className="shrink-0 mt-0.5" />
+                                   <p className="leading-relaxed">{String(fundingDetails?.warning)}</p>
+                                 </div>
+                               )}
+                               {Boolean(fundingDetails?.instructions) && (
+                                 <div className="flex gap-3 text-foreground/80">
+                                   <ShieldCheck size={16} className="shrink-0 mt-0.5 opacity-70" />
+                                   <p className="leading-relaxed">{String(fundingDetails?.instructions)}</p>
+                                 </div>
+                               )}
+                               {Boolean(fundingDetails?.requiredConfirmations) && (
+                                 <div className="flex gap-3 text-foreground/80">
+                                   <Network size={16} className="shrink-0 mt-0.5 text-primary/70" />
+                                   <p className="leading-relaxed">{t('orderStatus.requiresConfirmations', { count: String(fundingDetails?.requiredConfirmations) })}</p>
+                                 </div>
+                               )}
+                             </div>
+                          )}
+
+                          <button type="button" className="button button-secondary w-full" onClick={() => setShowQR(false)}>
+                            Hide QR
+                          </button>
+                       </div>
+                     )
+                   )}
+
+
+                </div>
+             </div>
+           </div>
+        )}
+
+        <div className="flex flex-col gap-3 pb-8">
+          <Link href={`/status?order=${encodeURIComponent(order.id)}${trackingToken ? `&trackingToken=${encodeURIComponent(trackingToken)}` : ''}`} className="button button-primary h-14 rounded-2xl shadow-sm text-sm font-bold w-full" data-testid="button-track-this-order">
+            TRACK THIS ORDER
+            <ArrowRight size={18} className="ml-2" />
+          </Link>
+          <div className="flex flex-col sm:flex-row gap-3">
+             <button
+               type="button"
+               className="button button-secondary h-12 rounded-2xl shadow-sm text-xs font-bold flex-1 bg-secondary/5 border-border"
+               onClick={() => handleCopy(order.id)}
+               data-testid="button-copy-order-id"
+             >
+               {copied === order.id ? <Check size={16} className="mr-2" /> : <Copy size={16} className="mr-2" />}
+               {copied === order.id ? 'ORDER ID COPIED' : 'COPY ORDER ID'}
+             </button>
+             <Link href="/" className="button button-secondary h-12 rounded-2xl shadow-sm text-xs font-bold flex-1 bg-secondary/5 border-border flex items-center justify-center text-center px-2" data-testid="button-start-another-conversion">
+               START ANOTHER CONVERSION
+             </Link>
+          </div>
+          {canCustomerCancel && (
+            <div className="mt-2 border-t border-border/50 pt-4">
+              <CancelOrderAction
+                onConfirm={cancelOrder}
+                pending={cancelOrderMutation.isPending}
+                errorMessage={cancelError}
+                triggerClassName="w-full sm:w-auto rounded-2xl bg-destructive/5 text-destructive border-destructive/20 hover:bg-destructive/10"
+              />
+            </div>
+          )}
         </div>
       </main>
     </PublicShell>

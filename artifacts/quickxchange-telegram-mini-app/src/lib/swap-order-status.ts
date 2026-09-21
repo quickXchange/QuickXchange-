@@ -18,7 +18,7 @@ export function swapOrderStatusLabel(status: unknown): string {
     case 'funds_confirmed':
     case 'confirming': return 'CONFIRMING';
     case 'processing': return 'PROCESSING';
-    case 'completed': return 'DONE ✅';
+    case 'completed': return 'DONE';
     case 'cancelled': return 'CANCELLED';
     case 'failed': return 'FAILED';
     case 'refunded': return 'REFUNDED';

@@ -10,7 +10,7 @@ export function isConvertTerminalStatus(status: unknown): boolean {
 
 export function convertOrderStatusLabel(status: unknown): string {
   switch (normalizeConvertOrderStatus(status)) {
-    case 'completed': case 'complete': case 'finished': case 'paid': return 'DONE ✅';
+    case 'completed': case 'complete': case 'finished': case 'paid': return 'DONE';
     case 'processing': case 'deposit received': case 'exchanging': case 'sending payout': case 'sending': return 'PROCESSING';
     case 'failed': return 'FAILED';
     case 'cancelled': case 'canceled': return 'CANCELLED';
