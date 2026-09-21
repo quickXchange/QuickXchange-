@@ -4,6 +4,7 @@ import {
   asc,
   desc,
   eq,
+  inArray,
   isNull,
   lte,
   or,
@@ -36,6 +37,7 @@ import { sendResendRequest } from "./resend";
 const MAX_DELIVERY_ATTEMPTS = 5;
 const DELIVERY_CLAIM_LEASE_MS = 5 * 60 * 1000;
 const PROVIDER_IDEMPOTENCY_RETRY_WINDOW_MS = 12 * 60 * 60 * 1000;
+let configuredRecoveryAttempted = false;
 
 type OrderRow = typeof ordersTable.$inferSelect;
 type OrderUpdate = Partial<typeof ordersTable.$inferInsert>;
@@ -87,6 +89,117 @@ function customerEmailDeliveryEnabled(): boolean {
 export type CustomerNotificationDeliveryOptions = {
   idempotencyKey: string;
 };
+
+export async function applyConfiguredCustomerNotificationRecovery(): Promise<void> {
+  if (configuredRecoveryAttempted) return;
+  configuredRecoveryAttempted = true;
+
+  const orderId = process.env.CUSTOMER_NOTIFICATION_RECOVERY_ORDER_ID?.trim();
+  const adminEmail = process.env.CUSTOMER_NOTIFICATION_RECOVERY_ADMIN_EMAIL?.trim().toLowerCase();
+  const eventIds = (process.env.CUSTOMER_NOTIFICATION_RECOVERY_EVENT_IDS ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (!orderId && !adminEmail && eventIds.length === 0) return;
+  if (!orderId || !adminEmail || eventIds.length === 0) {
+    throw new Error("Customer notification recovery configuration is incomplete.");
+  }
+
+  await db.transaction(async (tx) => {
+    const [order] = await tx.select().from(ordersTable)
+      .where(eq(ordersTable.id, orderId)).limit(1);
+    if (!order || order.type !== "manual" || order.status.toLowerCase() !== "processing") {
+      throw new Error("Customer notification recovery order is not the expected processing Manual order.");
+    }
+
+    const events = await tx.select().from(customerStatusNotificationEventsTable)
+      .where(and(
+        eq(customerStatusNotificationEventsTable.orderId, orderId),
+        inArray(customerStatusNotificationEventsTable.id, eventIds),
+        eq(customerStatusNotificationEventsTable.adminRecipient, false),
+      ));
+    if (
+      events.length !== eventIds.length ||
+      events.some((event) =>
+        event.deliveryStatus !== "failed" ||
+        event.deliveredAt ||
+        !["payment_received", "processing"].includes(event.eventKind)
+      )
+    ) {
+      throw new Error("Customer notification recovery events do not match the expected failed paid-order events.");
+    }
+
+    const [paymentEvidence] = await tx.select({ id: blockchainMonitorMatchesTable.id })
+      .from(blockchainMonitorMatchesTable)
+      .where(and(
+        eq(blockchainMonitorMatchesTable.orderId, orderId),
+        eq(blockchainMonitorMatchesTable.state, "applied"),
+      ))
+      .limit(1);
+    if (!paymentEvidence) {
+      throw new Error("Customer notification recovery requires applied blockchain payment evidence.");
+    }
+
+    await tx.insert(notificationSettingsTable).values({
+      id: "global",
+      adminNotificationEmail: adminEmail,
+      adminNotificationsEnabled: true,
+      adminEmailEnabled: true,
+      adminEmailPaymentReceivedEnabled: true,
+      adminEmailProcessingEnabled: true,
+    }).onConflictDoUpdate({
+      target: notificationSettingsTable.id,
+      set: {
+        adminNotificationEmail: adminEmail,
+        adminNotificationsEnabled: true,
+        adminEmailEnabled: true,
+        adminEmailPaymentReceivedEnabled: true,
+        adminEmailProcessingEnabled: true,
+        updatedAt: new Date(),
+      },
+    });
+
+    const paymentEvent = events.find((event) => event.eventKind === "payment_received");
+    if (!paymentEvent) {
+      throw new Error("Customer notification recovery is missing the Payment Received event.");
+    }
+    await tx.insert(customerStatusNotificationEventsTable).values({
+      orderId,
+      customerClerkUserId: `admin:${adminEmail}`,
+      eventKind: "payment_received",
+      channel: "email",
+      recipientEmail: adminEmail,
+      adminRecipient: true,
+      evidenceKey: paymentEvent.evidenceKey,
+      fromStatus: paymentEvent.fromStatus,
+      toStatus: paymentEvent.toStatus,
+      statusVersion: paymentEvent.statusVersion,
+    }).onConflictDoNothing({
+      target: [
+        customerStatusNotificationEventsTable.orderId,
+        customerStatusNotificationEventsTable.eventKind,
+        customerStatusNotificationEventsTable.statusVersion,
+        customerStatusNotificationEventsTable.channel,
+        customerStatusNotificationEventsTable.recipientEmail,
+        customerStatusNotificationEventsTable.evidenceKey,
+      ],
+    });
+
+    await tx.update(customerStatusNotificationEventsTable).set({
+      deliveryStatus: "pending",
+      attemptCount: 0,
+      nextAttemptAt: new Date(),
+      claimToken: null,
+      claimExpiresAt: null,
+      lastErrorCode: "",
+    }).where(and(
+      eq(customerStatusNotificationEventsTable.orderId, orderId),
+      inArray(customerStatusNotificationEventsTable.id, eventIds),
+      eq(customerStatusNotificationEventsTable.deliveryStatus, "failed"),
+      eq(customerStatusNotificationEventsTable.adminRecipient, false),
+    ));
+  });
+}
 
 export const DEFAULT_NOTIFICATION_EMAIL_TEMPLATES: Record<string, NotificationEmailTemplate> = {
   order_created: {

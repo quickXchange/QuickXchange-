@@ -9,6 +9,7 @@ import { startNewsletterWorker } from "./lib/newsletter";
 import { setupTelegramCommands, startTelegramNotificationWorker } from "./routes/telegram";
 import { startTelegramNewsWorker } from "./lib/telegram-news";
 import { startBlockchainMonitoringWorker } from "./lib/blockchain-monitoring/service";
+import { applyConfiguredCustomerNotificationRecovery } from "./lib/customer-status-notifications";
 
 const rawPort = process.env["PORT"];
 
@@ -57,6 +58,7 @@ function validateRuntimeConfig(): void {
 async function start() {
   validateRuntimeConfig();
   await validateObjectStorageConfiguration();
+  await applyConfiguredCustomerNotificationRecovery();
   const stopBlogScheduler = startBlogScheduler();
   const stopNotificationWorker = startExchangeStatusNotificationWorker();
   const stopNewsletterWorker = startNewsletterWorker();
