@@ -116,10 +116,10 @@ export function MiniAppBrandLogo({ className }: { className?: string }) {
   }
 
   return (
-    <span className={cn('relative inline-flex min-w-0 items-center', className)}>
-      <span className="font-bold tracking-tight text-primary">QuickXchange</span>
-      {light && !lightFailed && <img src={light} alt="QuickXchange" onError={() => setLightFailed(true)} className="absolute inset-y-0 left-0 block dark:hidden h-7 max-w-[150px] object-contain object-left bg-background" />}
-      {dark && !darkFailed && <img src={dark} alt="QuickXchange" onError={() => setDarkFailed(true)} className="absolute inset-y-0 left-0 hidden dark:block h-7 max-w-[150px] object-contain object-left bg-background" />}
+    <span className={cn('inline-flex min-w-0 max-w-full items-center', className)}>
+      {light && !lightFailed && <img src={light} alt="QuickXchange" onError={() => setLightFailed(true)} className="block h-7 w-auto max-w-full object-contain object-left dark:hidden" />}
+      {dark && !darkFailed && <img src={dark} alt="QuickXchange" onError={() => setDarkFailed(true)} className="hidden h-7 w-auto max-w-full object-contain object-left dark:block" />}
+      {lightFailed && darkFailed && <span className="font-bold tracking-tight text-primary">QuickXchange</span>}
     </span>
   );
 }

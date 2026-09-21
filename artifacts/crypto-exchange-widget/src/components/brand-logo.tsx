@@ -53,7 +53,7 @@ export function BrandLogo({
   const commonImgProps = {
     alt: "QuickXchange",
     width: branding?.logoWidth || 900,
-    height: branding?.logoHeight || 288,
+    height: branding?.logoHeight || 287,
     decoding: "async" as const,
   };
 

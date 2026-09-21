@@ -15730,3 +15730,64 @@ html:not(.dark) .admin-shell.admin-redesign .admin-header-avatar {
     align-items: center !important;
   }
 }
+
+/* Keep public and Admin brand geometry identical at every responsive tier.
+   Theme-specific artwork may change, but its rendered box never does. */
+@media (min-width: 901px) {
+  .admin-shell.admin-redesign .admin-header-brand,
+  .admin-shell.admin-redesign .admin-header-brand .brand,
+  .admin-shell.admin-redesign > .admin-sidebar .sidebar-brand .brand-logo-surface {
+    width: 138px !important;
+    min-width: 138px !important;
+    max-width: 138px !important;
+    flex: 0 0 138px !important;
+  }
+
+  .admin-shell.admin-redesign .admin-header-brand .brand-reference-logo,
+  .admin-shell.admin-redesign > .admin-sidebar .sidebar-brand .brand-reference-logo {
+    width: 138px !important;
+    height: 30px !important;
+    max-width: 138px !important;
+    max-height: 30px !important;
+    object-fit: contain;
+    object-position: left center;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 900px) {
+  .admin-shell.admin-redesign .admin-header-brand,
+  .admin-shell.admin-redesign .admin-header-brand .brand {
+    width: 130px !important;
+    min-width: 130px !important;
+    max-width: 130px !important;
+    flex: 0 0 130px !important;
+  }
+
+  .admin-shell.admin-redesign .admin-header-brand .brand-reference-logo {
+    width: 130px !important;
+    height: 28px !important;
+    max-width: 130px !important;
+    max-height: 28px !important;
+    object-fit: contain;
+    object-position: left center;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-shell.admin-redesign .admin-header-brand,
+  .admin-shell.admin-redesign .admin-header-brand .brand {
+    width: 116px !important;
+    min-width: 116px !important;
+    max-width: 116px !important;
+    flex: 0 0 116px !important;
+  }
+
+  .admin-shell.admin-redesign .admin-header-brand .brand-reference-logo {
+    width: 116px !important;
+    height: 28px !important;
+    max-width: 116px !important;
+    max-height: 28px !important;
+    object-fit: contain;
+    object-position: left center;
+  }
+}

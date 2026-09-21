@@ -934,49 +934,6 @@ function LandingSections({ getMode }: { getMode: () => 'swap' | 'convert' }) {
         </div>
       </section>
 
-      {/* How It Works (Compact Preview) */}
-      <section id="how-it-works" className="how-it-works-preview relative mx-auto my-24 max-w-5xl px-4 sm:px-6">
-        <div className="relative overflow-hidden rounded-[2rem] border border-blue-300/50 bg-gradient-to-br from-cyan-50 via-blue-50 to-violet-100/80 p-5 shadow-[0_24px_70px_rgba(59,130,246,0.14)] sm:p-8 md:p-10 dark:border-blue-500/25 dark:from-[#0a1428] dark:via-[#0b1730] dark:to-[#17132d]">
-          <div className="pointer-events-none absolute -left-20 top-10 h-52 w-52 rounded-full bg-cyan-400/15 blur-3xl" />
-          <div className="pointer-events-none absolute -right-16 bottom-0 h-56 w-56 rounded-full bg-purple-500/15 blur-3xl" />
-
-          <div className="relative text-center">
-            <span className="section-kicker">HOW IT WORKS</span>
-            <h2 className="mt-2 text-3xl font-bold tracking-tight text-foreground md:text-4xl">How It Works</h2>
-            <p className="mx-auto mt-3 max-w-xl text-base text-muted-foreground sm:text-lg">
-              See how Swap and Convert work in less than a minute.
-            </p>
-          </div>
-
-          <Link
-            href="/how-it-works"
-            onClick={() => trackEvent('landing_action_clicked', { action: 'view_how_it_works' })}
-            className="group relative mx-auto mt-7 flex h-13 w-full max-w-3xl items-center justify-center gap-2 rounded-full border border-blue-400/30 bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 px-6 text-sm font-extrabold tracking-wide text-white shadow-[0_10px_30px_rgba(37,99,235,0.25)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_36px_rgba(37,99,235,0.35)] motion-reduce:transform-none"
-          >
-            LEARN HOW IT WORKS
-            <ArrowRight size={17} className="transition-transform duration-300 group-hover:translate-x-1 motion-reduce:transform-none" />
-          </Link>
-
-          <div className="mx-auto mt-6 grid max-w-3xl grid-cols-1 divide-y divide-blue-300/30 sm:grid-cols-3 sm:divide-x sm:divide-y-0 dark:divide-blue-400/15">
-            {[
-              { icon: Zap, title: 'Simple Steps', detail: 'Easy to follow' },
-              { icon: ShieldCheck, title: 'Safe & Secure', detail: 'Clear order flow' },
-              { icon: Activity, title: 'Less than 1 minute', detail: 'Get started quickly' },
-            ].map(({ icon: Icon, title, detail }) => (
-              <div key={title} className="flex min-w-0 items-center justify-center gap-3 px-3 py-4 text-left sm:justify-start sm:px-5">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400/20 via-blue-500/20 to-purple-500/25 text-blue-600 ring-1 ring-blue-400/20 dark:text-cyan-300">
-                  <Icon size={17} aria-hidden="true" />
-                </span>
-                <span className="min-w-0">
-                  <strong className="block text-sm font-bold leading-tight text-foreground">{title}</strong>
-                  <span className="mt-1 block text-xs leading-tight text-muted-foreground">{detail}</span>
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Our Trust */}
       <section className="our-trust relative overflow-hidden">
         <div className="trust-content grid grid-cols-1 lg:grid-cols-2 gap-16 items-center relative z-10">
@@ -1195,22 +1152,45 @@ function ConfiguredExchangePage({ pageKey }: { pageKey: SitePageKey }) {
             </section>
           </main>
 
-          <section className="desk-notes relative overflow-hidden rounded-3xl p-8 md:p-12 bg-card border border-border shadow-xl max-w-[1440px] mx-auto mb-16 mt-8 w-[calc(100%-2rem)]">
-            <div className="desk-notes-glow absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 relative z-10">
-              <div className="max-w-xl">
-                <span className="section-kicker">QUICKXCHANGE</span>
-                <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-4">{t('home.clarity')}</h2>
-                <p className="exchange-desk-copy exchange-desk-copy-swap text-muted-foreground text-[15px] md:text-[16px] leading-relaxed">
-                  {t('home.manualEstimateDescription')}
-                </p>
-                <p className="exchange-desk-copy exchange-desk-copy-convert text-muted-foreground text-[15px] md:text-[16px] leading-relaxed">
-                  {t('home.automaticEstimateDescription')}
+          <section id="how-it-works" className="how-it-works-preview relative mx-auto mb-16 mt-8 w-[calc(100%-2rem)] max-w-5xl">
+            <div className="relative overflow-hidden rounded-[2rem] border border-blue-300/50 bg-gradient-to-br from-cyan-50 via-blue-50 to-violet-100/80 p-5 shadow-[0_24px_70px_rgba(59,130,246,0.14)] sm:p-8 md:p-10 dark:border-blue-500/25 dark:from-[#0a1428] dark:via-[#0b1730] dark:to-[#17132d]">
+              <div className="pointer-events-none absolute -left-20 top-10 h-52 w-52 rounded-full bg-cyan-400/15 blur-3xl" />
+              <div className="pointer-events-none absolute -right-16 bottom-0 h-56 w-56 rounded-full bg-purple-500/15 blur-3xl" />
+
+              <div className="relative text-center">
+                <span className="section-kicker">HOW IT WORKS</span>
+                <h2 className="mt-2 text-3xl font-bold tracking-tight text-foreground md:text-4xl">How It Works</h2>
+                <p className="mx-auto mt-3 max-w-xl text-base text-muted-foreground sm:text-lg">
+                  See how Swap and Convert work in less than a minute.
                 </p>
               </div>
-              <Link href="/status" className="shrink-0 button button-secondary h-12 px-6 rounded-full font-bold shadow-sm inline-flex items-center gap-2 group hover:border-primary/30 transition-all" data-testid="link-track-order">
-                {t('home.trackExisting')} <ArrowRight size={16} className="text-primary group-hover:translate-x-1 transition-transform" />
+
+              <Link
+                href="/how-it-works"
+                onClick={() => trackEvent('landing_action_clicked', { action: 'view_how_it_works' })}
+                className="group relative mx-auto mt-7 flex h-13 w-full max-w-3xl items-center justify-center gap-2 rounded-full border border-blue-400/30 bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 px-6 text-sm font-extrabold tracking-wide text-white shadow-[0_10px_30px_rgba(37,99,235,0.25)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_36px_rgba(37,99,235,0.35)] motion-reduce:transform-none"
+              >
+                LEARN HOW IT WORKS
+                <ArrowRight size={17} className="transition-transform duration-300 group-hover:translate-x-1 motion-reduce:transform-none" />
               </Link>
+
+              <div className="mx-auto mt-6 grid max-w-3xl grid-cols-1 divide-y divide-blue-300/30 sm:grid-cols-3 sm:divide-x sm:divide-y-0 dark:divide-blue-400/15">
+                {[
+                  { icon: Zap, title: 'Simple Steps', detail: 'Easy to follow' },
+                  { icon: ShieldCheck, title: 'Safe & Secure', detail: 'Clear order flow' },
+                  { icon: Activity, title: 'Less than 1 minute', detail: 'Get started quickly' },
+                ].map(({ icon: Icon, title, detail }) => (
+                  <div key={title} className="flex min-w-0 items-center justify-center gap-3 px-3 py-4 text-left sm:justify-start sm:px-5">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400/20 via-blue-500/20 to-purple-500/25 text-blue-600 ring-1 ring-blue-400/20 dark:text-cyan-300">
+                      <Icon size={17} aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0">
+                      <strong className="block text-sm font-bold leading-tight text-foreground">{title}</strong>
+                      <span className="mt-1 block text-xs leading-tight text-muted-foreground">{detail}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           </section>
           {(managedBody || managedSections.length > 0) && (

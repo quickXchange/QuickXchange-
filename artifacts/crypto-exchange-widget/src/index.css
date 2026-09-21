@@ -23236,7 +23236,7 @@ html:not(.dark) .live-landing-background-root .public-shell .public-header {
   .public-shell .public-header .brand-logo-surface .brand-reference-logo {
     width: var(--qx-logo-desktop-width) !important;
     max-width: 100% !important;
-    height: auto !important;
+    height: var(--qx-logo-desktop-max-height) !important;
     max-height: var(--qx-logo-desktop-max-height) !important;
     object-fit: contain;
     object-position: left center;
@@ -23253,7 +23253,7 @@ html:not(.dark) .live-landing-background-root .public-shell .public-header {
   .public-shell .public-header .brand-logo-surface .brand-reference-logo {
     width: var(--qx-logo-tablet-width) !important;
     max-width: 100% !important;
-    height: auto !important;
+    height: var(--qx-logo-tablet-max-height) !important;
     max-height: var(--qx-logo-tablet-max-height) !important;
     object-fit: contain;
     object-position: left center;
@@ -23270,7 +23270,7 @@ html:not(.dark) .live-landing-background-root .public-shell .public-header {
   .public-shell .public-header .brand-logo-surface .brand-reference-logo {
     width: var(--qx-logo-mobile-width) !important;
     max-width: 100% !important;
-    height: auto !important;
+    height: var(--qx-logo-mobile-max-height) !important;
     max-height: var(--qx-logo-mobile-max-height) !important;
     object-fit: contain;
     object-position: left center;
