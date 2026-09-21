@@ -77,9 +77,6 @@ TRON_MONITOR_API_URL = "https://api.trongrid.io"
 
 [userenv.production]
 USE_DATABASE_OWNER = "true"
-CUSTOMER_NOTIFICATION_RECOVERY_ADMIN_EMAIL = "quickchange1001@gmail.com"
-CUSTOMER_NOTIFICATION_RECOVERY_EVENT_IDS = "01e39f00-78e6-4a16-a2c5-f9fac020627a,7a50346a-d7b1-4397-b244-81779505b2fa,9cb6c9f5-4786-4fca-92b0-92d68f009a2f"
-CUSTOMER_NOTIFICATION_RECOVERY_ORDER_ID = "O180006775"
 
 [userenv.development]
 BSC_MONITOR_RPC_URL = "https://bsc-dataseed.binance.org/"
