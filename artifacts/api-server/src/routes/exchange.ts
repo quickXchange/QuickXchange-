@@ -492,6 +492,8 @@ function outputCustomerOrder(
   row: typeof ordersTable.$inferSelect,
   refreshUnavailable: boolean,
 ) {
+  const completed = /^(?:completed|complete|done|finished)$/i.test(row.status.trim());
+  const exchangeRate = row.finalRate ?? row.exchangeRateOverride ?? undefined;
   return {
     id: row.id,
     type: row.type,
@@ -534,6 +536,10 @@ function outputCustomerOrder(
      paymentDetailsApplicable: isApplicablePaymentDetailsOrder(row),
       sourcePaymentMethod: outputSourcePaymentMethod(row),
      customerMarkedPaidAt: row.customerMarkedPaidAt?.toISOString() ?? null,
+    completedAt: completed ? row.updatedAt.toISOString() : null,
+    exchangeRate,
+    transactionHash: row.transactionHash || undefined,
+    paymentReference: row.paymentReference || undefined,
     trackingToken: signOrderTrackingToken(row.id),
     createdAt: row.createdAt.toISOString(),
   };
@@ -2058,6 +2064,10 @@ router.get("/orders/:id/status", async (req, res, next) => {
          paymentDetailsApplicable: isApplicablePaymentDetailsOrder(row),
          sourcePaymentMethod: outputSourcePaymentMethod(row),
          customerMarkedPaidAt: row.customerMarkedPaidAt?.toISOString() ?? null,
+        completedAt: /^(?:completed|complete|done|finished)$/i.test(row.status.trim()) ? row.updatedAt.toISOString() : null,
+        exchangeRate: row.finalRate ?? row.exchangeRateOverride ?? undefined,
+        transactionHash: canViewDeposit ? row.transactionHash || undefined : undefined,
+        paymentReference: canViewDeposit ? row.paymentReference || undefined : undefined,
         rateMode: orderRateMode(row),
         outcomeUnknown: row.outcomeUnknown,
         refreshUnavailable: false,
@@ -2477,6 +2487,7 @@ async function createOrderFromInput(
   const id = `O${randomInt(0, 1_000_000_000).toString().padStart(9, "0")}`;
   const intent = {
     id, type: "manual", status: "awaiting funds",
+    statusNotificationsEnabled: true,
     manualSettlementState: "awaiting_funds",
     manualSettlementStateUpdatedAt: createdAt,
     manualSettlementStartedAt: createdAt,
@@ -2559,6 +2570,33 @@ async function createOrderFromInput(
       nextVersion: created.recordVersion,
       details: { type: created.type },
     });
+    // Queue the customer-created email only for a real Manual Swap with a
+    // supplied destination. Admin channels are intentionally not involved.
+    if (
+      created.type === "manual" &&
+      created.customerEmail.trim() &&
+      created.statusNotificationsEnabled
+    ) {
+      await tx.insert(customerStatusNotificationEventsTable).values({
+        orderId: created.id,
+        customerClerkUserId: created.customerClerkUserId ??
+          `guest:${created.customerEmail.trim().toLowerCase()}`,
+        fromStatus: "created",
+        toStatus: created.status,
+        statusVersion: created.statusVersion,
+        eventKind: "order_created",
+        recipientEmail: created.customerEmail.trim(),
+      }).onConflictDoNothing({
+        target: [
+          customerStatusNotificationEventsTable.orderId,
+          customerStatusNotificationEventsTable.eventKind,
+          customerStatusNotificationEventsTable.statusVersion,
+          customerStatusNotificationEventsTable.channel,
+          customerStatusNotificationEventsTable.recipientEmail,
+          customerStatusNotificationEventsTable.evidenceKey,
+        ],
+      });
+    }
     if (providerFundingCandidate && sourceSnapshot?.kind === "crypto-network" && manualFunding) {
       await tx.insert(whitebitOrderAddressesTable).values({
         orderId: created.id,

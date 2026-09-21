@@ -2387,6 +2387,11 @@ export interface PublicOrderStatus {
   sourcePaymentMethod?: SourcePaymentMethod;
   /** @nullable */
   customerMarkedPaidAt?: string | null;
+  /** @nullable */
+  completedAt?: string | null;
+  exchangeRate?: string;
+  transactionHash?: string;
+  paymentReference?: string;
 }
 
 export type CustomerOrderFundingDetails = { [key: string]: unknown };
@@ -2423,6 +2428,11 @@ export interface CustomerOrder {
   sourcePaymentMethod?: SourcePaymentMethod;
   /** @nullable */
   customerMarkedPaidAt?: string | null;
+  /** @nullable */
+  completedAt?: string | null;
+  exchangeRate?: string;
+  transactionHash?: string;
+  paymentReference?: string;
 }
 
 export interface CustomerOrderPage {
@@ -5849,6 +5859,48 @@ export interface BlockchainMonitoringRouteSelectionInput {
      * @items.maxLength 255
      */
   assetNetworkIds: string[];
+}
+
+export interface NotificationSettings {
+  id: string;
+  emailEnabled: boolean;
+  telegramEnabled: boolean;
+  paymentReceivedEnabled: boolean;
+  processingEnabled: boolean;
+  completedEnabled: boolean;
+  failedCancelledEnabled: boolean;
+  /** @maxLength 320 */
+  adminNotificationEmail: string;
+  /** @maxLength 128 */
+  adminTelegramChatId: string;
+  /** @maxLength 2048 */
+  trustpilotReviewUrl: string;
+  /** @nullable */
+  updatedBy?: string | null;
+  updatedAt: string;
+}
+
+export interface PublicNotificationSettings {
+  /**
+     * @maxLength 2048
+     * @nullable
+     */
+  trustpilotReviewUrl: string | null;
+}
+
+export interface NotificationSettingsInput {
+  emailEnabled: boolean;
+  telegramEnabled: boolean;
+  paymentReceivedEnabled: boolean;
+  processingEnabled: boolean;
+  completedEnabled: boolean;
+  failedCancelledEnabled: boolean;
+  /** @maxLength 320 */
+  adminNotificationEmail: string;
+  /** @maxLength 128 */
+  adminTelegramChatId: string;
+  /** @maxLength 2048 */
+  trustpilotReviewUrl: string;
 }
 
 export type PageParameter = number;

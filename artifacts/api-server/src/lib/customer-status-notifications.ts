@@ -19,10 +19,17 @@ import {
   db,
   orderAuditLogsTable,
   ordersTable,
+  notificationSettingsTable,
+  whitebitDepositsTable,
+  blockchainMonitorMatchesTable,
 } from "@workspace/db";
-import { enqueueSwapTelegramNotification } from "./telegram-swap-notifications";
+import {
+  enqueueAdminSwapTelegramLifecycleNotification,
+  enqueueSwapTelegramNotification,
+} from "./telegram-swap-notifications";
 import { getCustomerVerifiedEmail } from "./customer-auth";
 import { logger } from "./logger";
+import { signOrderTrackingToken } from "./order-access";
 
 const MAX_DELIVERY_ATTEMPTS = 5;
 const DELIVERY_CLAIM_LEASE_MS = 5 * 60 * 1000;
@@ -53,6 +60,10 @@ export type CustomerStatusNotification = {
   amount: string;
   receiveAmount: string;
   createdAt: Date;
+  eventKind?: string;
+  adminRecipient?: boolean;
+  trustpilotUrl?: string;
+  customerName?: string;
 };
 
 type CustomerNotificationDeliveryTestAdapter = {
@@ -65,9 +76,7 @@ type CustomerNotificationDeliveryTestAdapter = {
 let testDeliveryAdapter: CustomerNotificationDeliveryTestAdapter | undefined;
 
 function customerEmailDeliveryEnabled(): boolean {
-  // Customer email delivery is intentionally disabled. Tests keep the delivery
-  // machinery exercisable without allowing runtime messages to users.
-  return process.env.NODE_ENV === "test";
+  return process.env.NOTIFICATIONS_DISABLED !== "true";
 }
 
 export type CustomerNotificationDeliveryOptions = {
@@ -111,28 +120,57 @@ export function buildCustomerStatusNotificationContent(
     `${notification.receiveAmount} ${notification.toAsset}`,
     notification.toNetwork ? `on ${notification.toNetwork}` : "",
   ].filter(Boolean).join(" ");
-  const subject = `Order ${notification.orderId} is now ${status}`;
+  const subject = notification.eventKind === "payment_received"
+    ? `Payment received for QuickXchange order ${notification.orderId}`
+    : `QuickXchange order ${notification.orderId} is now ${status}`;
+  const configuredBase = process.env.PUBLIC_APP_URL?.trim()?.replace(/\/+$/, "") || "";
+  const base = /^https:\/\//i.test(configuredBase) ? configuredBase : "";
+  const customerIsGuest = notification.customerClerkUserId.startsWith("guest:");
+  const orderUrl = !base ? "" : notification.adminRecipient
+    ? `${base}/admin/orders/${encodeURIComponent(notification.orderId)}`
+    : customerIsGuest
+      ? `${base}/status?order=${encodeURIComponent(notification.orderId)}&trackingToken=${encodeURIComponent(signOrderTrackingToken(notification.orderId))}`
+      : `${base}/account/orders/${encodeURIComponent(notification.orderId)}`;
+  const invoiceUrl = orderUrl ? `${orderUrl}${orderUrl.includes("?") ? "&" : "?"}invoice=1` : "";
+  const reviewUrl = notification.trustpilotUrl?.trim() || process.env.TRUSTPILOT_REVIEW_URL?.trim() || "";
+  const heading = notification.eventKind === "payment_received"
+    ? "Payment received"
+    : notification.eventKind === "order_created"
+      ? "Your exchange order is confirmed"
+      : `Order ${status}`;
   const text = [
     `Your exchange order status changed from ${humanizeStatus(notification.fromStatus)} to ${status}.`,
     "",
     `Order: ${notification.orderId}`,
+    notification.adminRecipient ? `Customer: ${notification.customerName || "Guest"}` : "",
     `Exchange: ${route}`,
     `New status: ${status}`,
+    notification.eventKind === "payment_received" ? "Payment has been confirmed by QuickXchange." : "",
+    notification.eventKind === "completed" && !notification.adminRecipient && invoiceUrl ? `Invoice: ${invoiceUrl}` : "",
+    notification.eventKind === "completed" && !notification.adminRecipient && reviewUrl ? `Review us on Trustpilot: ${reviewUrl}` : "",
     "",
-    "Sign in to your Rook account and open Order History for the latest details.",
+    "Open your QuickXchange order page for the latest details.",
     "This message never asks for wallet details or payment credentials.",
   ].join("\n");
-  const html = [
-    "<h1>Your exchange status changed</h1>",
-    `<p>Your order moved from <strong>${escapeHtml(humanizeStatus(notification.fromStatus))}</strong> to <strong>${escapeHtml(status)}</strong>.</p>`,
-    "<dl>",
-    `<dt>Order</dt><dd>${escapeHtml(notification.orderId)}</dd>`,
-    `<dt>Exchange</dt><dd>${escapeHtml(route)}</dd>`,
-    `<dt>New status</dt><dd>${escapeHtml(status)}</dd>`,
-    "</dl>",
-    "<p>Sign in to your Rook account and open Order History for the latest details.</p>",
-    "<p>This message never asks for wallet details or payment credentials.</p>",
-  ].join("");
+  const html = `<!doctype html>
+<html><body style="margin:0;background:#f4f7fb;color:#111827;font-family:Arial,sans-serif">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f7fb;padding:28px 12px">
+<tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border:1px solid #e5e7eb;border-radius:18px;overflow:hidden">
+<tr><td style="background:#071a2f;padding:24px 30px;color:#ffffff"><div style="font-size:22px;font-weight:800;letter-spacing:.2px">Quick<span style="color:#35d29a">X</span>change</div><div style="margin-top:5px;color:#9fb2c8;font-size:12px">Secure digital asset exchange</div></td></tr>
+<tr><td style="padding:32px 30px">
+<div style="display:inline-block;padding:6px 10px;border-radius:999px;background:#e8fbf3;color:#087653;font-size:12px;font-weight:700">${escapeHtml(status)}</div>
+<h1 style="margin:16px 0 8px;font-size:26px;line-height:1.2;color:#071a2f">${escapeHtml(heading)}</h1>
+<p style="margin:0 0 24px;color:#4b5563;line-height:1.65">Your order moved from <strong>${escapeHtml(humanizeStatus(notification.fromStatus))}</strong> to <strong>${escapeHtml(status)}</strong>.</p>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#f8fafc;border-radius:12px">
+<tr><td style="padding:14px 16px;color:#6b7280;font-size:12px;border-bottom:1px solid #e5e7eb">ORDER</td><td style="padding:14px 16px;text-align:right;font-weight:700;border-bottom:1px solid #e5e7eb">${escapeHtml(notification.orderId)}</td></tr>
+${notification.adminRecipient ? `<tr><td style="padding:14px 16px;color:#6b7280;font-size:12px;border-bottom:1px solid #e5e7eb">CUSTOMER</td><td style="padding:14px 16px;text-align:right;font-weight:700;border-bottom:1px solid #e5e7eb">${escapeHtml(notification.customerName || "Guest")}</td></tr>` : ""}
+<tr><td style="padding:14px 16px;color:#6b7280;font-size:12px;border-bottom:1px solid #e5e7eb">EXCHANGE</td><td style="padding:14px 16px;text-align:right;font-weight:700;border-bottom:1px solid #e5e7eb">${escapeHtml(route)}</td></tr>
+<tr><td style="padding:14px 16px;color:#6b7280;font-size:12px">STATUS</td><td style="padding:14px 16px;text-align:right;font-weight:700;color:#087653">${escapeHtml(status)}</td></tr>
+</table>
+${orderUrl ? `<p style="margin:24px 0 0"><a href="${escapeHtml(orderUrl)}" style="display:inline-block;background:#0ea572;color:#ffffff;text-decoration:none;font-weight:700;padding:13px 20px;border-radius:10px">Open order</a></p>` : ""}
+${notification.eventKind === "completed" && !notification.adminRecipient && invoiceUrl ? `<p style="margin:18px 0 0"><a href="${escapeHtml(invoiceUrl)}" style="color:#087653;font-weight:700">Invoice / Download Invoice</a>${reviewUrl ? ` &nbsp;·&nbsp; <a href="${escapeHtml(reviewUrl)}" style="color:#087653;font-weight:700">Review us on Trustpilot</a>` : ""}</p>` : ""}
+<p style="margin:28px 0 0;padding-top:20px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;line-height:1.6">For your security, QuickXchange will never ask for wallet credentials, passwords, or recovery phrases by email.</p>
+</td></tr></table></td></tr></table></body></html>`;
   return { subject, text, html };
 }
 
@@ -149,7 +187,7 @@ async function sendCustomerStatusNotification(
   const content = buildCustomerStatusNotificationContent(notification);
   const fromAddress =
     process.env.CUSTOMER_NOTIFICATION_FROM_EMAIL?.trim() ||
-    "notifications@rook.exchange";
+    "QuickXchange <support@quickxchange.net>";
   const response = await new ReplitConnectors().proxy("resend", "/emails", {
     method: "POST",
     headers: {
@@ -256,27 +294,102 @@ export async function updateOrderAndQueueStatusNotificationTx(
       }).onConflictDoNothing();
     }
 
+    const [notificationSettings] = await tx.select().from(notificationSettingsTable)
+      .where(eq(notificationSettingsTable.id, "global")).limit(1);
+    const eventEnabled = updated.status.toLowerCase() === "completed"
+      ? notificationSettings?.completedEnabled !== false
+      : ["failed", "cancelled", "canceled", "refunded"].includes(updated.status.toLowerCase())
+        ? notificationSettings?.failedCancelledEnabled !== false
+        : notificationSettings?.processingEnabled !== false;
     if (
       customerEmailDeliveryEnabled() &&
+      notificationSettings?.emailEnabled !== false &&
       updated.status !== current.status &&
+      updated.type === "manual" &&
+      updated.customerEmail.trim() &&
       updated.statusNotificationsEnabled &&
-      updated.customerClerkUserId
+      eventEnabled
     ) {
       await tx
         .insert(customerStatusNotificationEventsTable)
         .values({
           orderId: updated.id,
-          customerClerkUserId: updated.customerClerkUserId,
+          customerClerkUserId: updated.customerClerkUserId ?? `guest:${updated.customerEmail.trim().toLowerCase()}`,
           fromStatus: current.status,
           toStatus: updated.status,
           statusVersion: updated.statusVersion,
+          eventKind: ["failed", "cancelled", "canceled", "refunded"].includes(updated.status.toLowerCase())
+            ? "failed_cancelled"
+            : updated.status.toLowerCase() === "completed" ? "completed" : "processing",
+          recipientEmail: updated.customerEmail.trim(),
         })
         .onConflictDoNothing({
           target: [
             customerStatusNotificationEventsTable.orderId,
+            customerStatusNotificationEventsTable.eventKind,
             customerStatusNotificationEventsTable.statusVersion,
+            customerStatusNotificationEventsTable.channel,
+            customerStatusNotificationEventsTable.recipientEmail,
+            customerStatusNotificationEventsTable.evidenceKey,
           ],
         });
+    }
+    if (
+      updated.type === "manual" &&
+      statusChanged &&
+      eventEnabled &&
+      updated.status.toLowerCase() !== "awaiting funds"
+    ) {
+      const [whitebitPayment] = await tx.select({ id: whitebitDepositsTable.id })
+        .from(whitebitDepositsTable)
+        .where(and(
+          eq(whitebitDepositsTable.orderId, updated.id),
+          eq(whitebitDepositsTable.status, "processed"),
+        ))
+        .limit(1);
+      const [blockchainPayment] = whitebitPayment ? [] : await tx
+        .select({ id: blockchainMonitorMatchesTable.id })
+        .from(blockchainMonitorMatchesTable)
+        .where(and(
+          eq(blockchainMonitorMatchesTable.orderId, updated.id),
+          eq(blockchainMonitorMatchesTable.state, "applied"),
+        ))
+        .limit(1);
+      if (whitebitPayment || blockchainPayment) {
+        const lifecycleEvent = updated.status.toLowerCase() === "completed"
+          ? "completed"
+          : ["failed", "cancelled", "canceled", "refunded"].includes(updated.status.toLowerCase())
+            ? "failed_cancelled"
+            : "processing";
+        if (
+          notificationSettings?.emailEnabled !== false &&
+          notificationSettings?.adminNotificationEmail
+        ) {
+          await tx.insert(customerStatusNotificationEventsTable).values({
+            orderId: updated.id,
+            customerClerkUserId: `admin:${notificationSettings.adminNotificationEmail.toLowerCase()}`,
+            fromStatus: current.status,
+            toStatus: updated.status,
+            statusVersion: updated.statusVersion,
+            eventKind: lifecycleEvent,
+            recipientEmail: notificationSettings.adminNotificationEmail,
+            adminRecipient: true,
+            evidenceKey: `lifecycle:${updated.id}:${updated.statusVersion}`,
+          }).onConflictDoNothing({
+            target: [
+              customerStatusNotificationEventsTable.orderId,
+              customerStatusNotificationEventsTable.eventKind,
+              customerStatusNotificationEventsTable.statusVersion,
+              customerStatusNotificationEventsTable.channel,
+              customerStatusNotificationEventsTable.recipientEmail,
+              customerStatusNotificationEventsTable.evidenceKey,
+            ],
+          });
+        }
+        if (lifecycleEvent !== "completed") {
+          await enqueueAdminSwapTelegramLifecycleNotification(tx, updated, lifecycleEvent);
+        }
+      }
     }
     if (
       statusChanged &&
@@ -415,10 +528,52 @@ export async function processCustomerStatusNotificationOutbox(
       .from(ordersTable)
       .where(eq(ordersTable.id, claimed.orderId))
       .limit(1);
+    const [notificationSettings] = await db.select()
+      .from(notificationSettingsTable)
+      .where(eq(notificationSettingsTable.id, "global"))
+      .limit(1);
+    const eventEnabled = claimed.eventKind === "payment_received"
+      ? notificationSettings?.paymentReceivedEnabled !== false
+      : claimed.eventKind === "completed"
+        ? notificationSettings?.completedEnabled !== false
+        : claimed.eventKind === "failed_cancelled"
+          ? notificationSettings?.failedCancelledEnabled !== false
+          : notificationSettings?.processingEnabled !== false;
+    const adminRecipientIsCurrent = !claimed.adminRecipient ||
+      Boolean(
+        notificationSettings?.adminNotificationEmail &&
+        notificationSettings.adminNotificationEmail.trim().toLowerCase() ===
+          claimed.recipientEmail.trim().toLowerCase(),
+      );
+    let authoritativePaymentExists = true;
+    if (claimed.adminRecipient) {
+      const [whitebitPayment] = await db.select({ id: whitebitDepositsTable.id })
+        .from(whitebitDepositsTable)
+        .where(and(
+          eq(whitebitDepositsTable.orderId, claimed.orderId),
+          eq(whitebitDepositsTable.status, "processed"),
+        ))
+        .limit(1);
+      const [blockchainPayment] = whitebitPayment ? [] : await db
+        .select({ id: blockchainMonitorMatchesTable.id })
+        .from(blockchainMonitorMatchesTable)
+        .where(and(
+          eq(blockchainMonitorMatchesTable.orderId, claimed.orderId),
+          eq(blockchainMonitorMatchesTable.state, "applied"),
+        ))
+        .limit(1);
+      authoritativePaymentExists = Boolean(whitebitPayment || blockchainPayment);
+    }
     if (
       !order ||
-      !order.statusNotificationsEnabled ||
-      order.customerClerkUserId !== claimed.customerClerkUserId
+      order.type !== "manual" ||
+      notificationSettings?.emailEnabled === false ||
+      !eventEnabled ||
+      !adminRecipientIsCurrent ||
+      !authoritativePaymentExists ||
+      (!claimed.adminRecipient && !order.statusNotificationsEnabled) ||
+      (!claimed.adminRecipient && order.customerClerkUserId &&
+        order.customerClerkUserId !== claimed.customerClerkUserId)
     ) {
       await db
         .update(customerStatusNotificationEventsTable)
@@ -431,9 +586,11 @@ export async function processCustomerStatusNotificationOutbox(
         .where(activeClaim);
       continue;
     }
-    const recipientEmail = await getCustomerVerifiedEmail(
-      claimed.customerClerkUserId,
-    );
+    const recipientEmail = claimed.recipientEmail.trim() ||
+      order.customerEmail.trim() ||
+      (order.customerClerkUserId
+        ? await getCustomerVerifiedEmail(order.customerClerkUserId)
+        : "");
     if (!recipientEmail) {
       await db
         .update(customerStatusNotificationEventsTable)
@@ -451,6 +608,8 @@ export async function processCustomerStatusNotificationOutbox(
       eventId: claimed.id,
       customerClerkUserId: claimed.customerClerkUserId,
       recipientEmail,
+      trustpilotUrl: notificationSettings?.trustpilotReviewUrl ?? "",
+      customerName: order.customerName,
       orderId: order.id,
       fromStatus: claimed.fromStatus,
       status: claimed.toStatus,
@@ -461,6 +620,8 @@ export async function processCustomerStatusNotificationOutbox(
       amount: order.amount,
       receiveAmount: order.receiveAmount,
       createdAt: order.createdAt,
+      eventKind: claimed.eventKind,
+      adminRecipient: claimed.adminRecipient,
     };
 
     const heartbeat = setInterval(() => {

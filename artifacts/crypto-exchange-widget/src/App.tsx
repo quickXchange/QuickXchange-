@@ -71,6 +71,7 @@ import {
   useGetAffiliateValuationReview, getGetAffiliateValuationReviewQueryKey,
   useReviewAffiliateValuation,
   useGetPublishedSiteContent, getGetPublishedSiteContentQueryKey
+  , useGetPublicNotificationSettings, getGetPublicNotificationSettingsQueryKey
 } from '@workspace/api-client-react';
 import type { Asset, Customer, Order, PublicOrderStatus, ApiError, QuickexRateMode, CustomerOrder, FiatCurrency, OneForgeProviderStatus, ManualDeskPricingRule, ManualDeskPricingRuleInput, SettlementOption, PaymentMethod, PaymentMethodFieldDefinition, CryptoAsset, CryptoNetwork, OrderBulkMutationResponse, OrderBulkStatusInputManualSettlementState, FiatCurrencyPaymentMethodBulkPreview, FiatCurrencyPaymentMethodBulkApplyResult, AffiliateAccount, AffiliateSettings, AffiliatePayout, AffiliateOverview, AffiliateAccountPage, AffiliateCommission, AffiliateAccountDetail, AffiliateValuationReview, AffiliateReferral, AffiliateDashboard, SitePageKey, PermissionKey } from '@workspace/api-client-react';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
@@ -109,6 +110,7 @@ import { trackEvent } from '@/lib/analytics';
 import { SitePreviewProvider, useSitePreview } from '@/components/site-preview-context';
 import { AdminPermissionsProvider, useAdminPermissions } from '@/lib/admin-permissions';
 import { convertOrderStatusStep, isConvertTerminalStatus } from '@/lib/convert-order-status';
+import { OrderCompletionSection } from '@/components/order-completion';
 
 const AccountPage = lazy(() => import('./pages/account').then(module => ({ default: module.AccountPage })));
 const AccountOrdersPage = lazy(() => import('./pages/account').then(module => ({ default: module.AccountOrdersPage })));
@@ -134,6 +136,7 @@ const AdminSiteContentPage = lazy(() => import('./pages/site-content').then(modu
 const PublicSitePage = lazy(() => import('./pages/site-content').then(module => ({ default: module.PublicSitePage })));
 const AdminProviders = lazy(() => import('./pages/admin').then(module => ({ default: module.AdminProviders })));
 const AdminIntegrations = lazy(() => import('./pages/admin').then(module => ({ default: module.AdminIntegrations })));
+const AdminNotificationSettings = lazy(() => import('./pages/admin').then(module => ({ default: module.AdminNotificationSettings })));
 const AdminCurrencies = lazy(() => import('./pages/admin').then(module => ({ default: module.AdminCurrencies })));
 const AdminManualPricing = lazy(() => import('./pages/admin').then(module => ({ default: module.AdminManualPricing })));
 const AdminBlogPage = lazy(() => import('./pages/admin-blog').then(module => ({ default: module.AdminBlogPage })));
@@ -1383,6 +1386,9 @@ function OrderStatusCard({
   markPaidPending?: boolean;
 }) {
   const { t } = useI18n();
+  const publicNotificationSettings = useGetPublicNotificationSettings({
+    query: { queryKey: getGetPublicNotificationSettingsQueryKey(), staleTime: 60_000 },
+  });
   const status = order.status.toLowerCase();
   const isManual = order.type === 'manual';
   const isConvert = !isManual;
@@ -1562,6 +1568,12 @@ function OrderStatusCard({
             </div>
           </div>
         )}
+
+        <OrderCompletionSection
+          order={order}
+          trustpilotUrl={publicNotificationSettings.data?.trustpilotReviewUrl}
+          refreshWarning={refreshWarning}
+        />
 
         {order.customerSafeNote && (
           <div className="notice notice-info" data-testid="notice-customer-safe">
@@ -2360,6 +2372,7 @@ const AdminAffiliatePayoutsRoute = authorizedAdminRoute(AdminAffiliatePayoutsPag
 const AdminAffiliateSettingsRoute = authorizedAdminRoute(AdminAffiliateSettingsPage);
 const AdminProvidersRoute = authorizedAdminRoute(AdminProviders);
 const AdminIntegrationsRoute = authorizedAdminRoute(AdminIntegrations);
+const AdminNotificationSettingsRoute = authorizedAdminRoute(AdminNotificationSettings);
 const AdminCurrenciesRoute = authorizedAdminRoute(AdminCurrencies);
 const AdminManualPricingRoute = authorizedAdminRoute(AdminManualPricing);
 const AdminLandingBackgroundStudioRoute = authorizedAdminRoute(AdminLandingBackgroundStudio);
@@ -2680,6 +2693,7 @@ function ClerkProviderWithRoutes() {
             <Route path="/admin/affiliate-settings" component={AdminAffiliateSettingsRoute} />
             <Route path="/admin/providers" component={AdminProvidersRoute} />
             <Route path="/admin/integrations" component={AdminIntegrationsRoute} />
+            <Route path="/admin/notification-settings" component={AdminNotificationSettingsRoute} />
             <Route path="/admin/currencies" component={AdminCurrenciesRoute} />
             <Route path="/admin/pricing" component={AdminManualPricingRoute} />
             <Route path="/admin/appearance" component={AdminAppearanceRoute} />

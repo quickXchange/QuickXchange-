@@ -156,6 +156,8 @@ const POLICY_MATCHERS: readonly PolicyMatcher[] = [
   { method: "POST", pattern: /^\/admin\/site-page-media\/upload$/, policy: P("site_settings.manage") },
   { method: "GET", pattern: /^\/admin\/site-page-media\/[^/]+\/[^/]+\/preview$/, policy: P("site_settings.view") },
   { method: "GET", pattern: /^\/admin\/website-branding$/, policy: P("site_settings.view") },
+  { method: "GET", pattern: /^\/admin\/notification-settings$/, policy: P("site_settings.view") },
+  { method: "PUT", pattern: /^\/admin\/notification-settings$/, policy: P("site_settings.manage", true) },
   { method: "PUT", pattern: /^\/admin\/website-branding$/, policy: P("site_settings.manage", true) },
   { method: "POST", pattern: /^\/admin\/website-branding\/(reset|upload)$/, policy: P("site_settings.manage", true) },
   { method: "POST", pattern: /^\/admin\/site-publication$/, policy: P("site_settings.manage", true) },

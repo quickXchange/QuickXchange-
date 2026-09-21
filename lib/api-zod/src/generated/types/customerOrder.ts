@@ -42,4 +42,9 @@ export interface CustomerOrder {
   sourcePaymentMethod?: SourcePaymentMethod;
   /** @nullable */
   customerMarkedPaidAt?: string | null;
+  /** @nullable */
+  completedAt?: Date | null;
+  exchangeRate?: string;
+  transactionHash?: string;
+  paymentReference?: string;
 }

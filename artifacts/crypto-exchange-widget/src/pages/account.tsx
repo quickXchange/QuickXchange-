@@ -14,6 +14,7 @@ import {
   useGetAffiliateDashboard, getGetAffiliateDashboardQueryKey,
   useBindAffiliateReferrer,
   captureAffiliateReferral,
+  useGetPublicNotificationSettings, getGetPublicNotificationSettingsQueryKey,
 } from '@workspace/api-client-react';
 import type { CustomerOrder } from '@workspace/api-client-react';
 import { Link, useLocation, useParams } from 'wouter';
@@ -26,6 +27,7 @@ import { basePath, CancelOrderAction, cn, ErrorState, InlineNotice, LoadingBlock
 import { PublicShell } from '@/components/public-shell';
 import { ExchangeModeSwitcher } from '@/components/exchange-surface';
 import { convertOrderStatusStep } from '@/lib/convert-order-status';
+import { OrderCompletionSection } from '@/components/order-completion';
 
 type CustomerStatusGroup = 'pending' | 'processing' | 'completed' | 'failed';
 
@@ -1053,6 +1055,9 @@ function CustomerOrderView({ order }: { order: CustomerOrder }) {
   const { t, formatDate } = useI18n();
   const queryClient = useQueryClient();
   const statusGroup = customerStatusGroup(order.status);
+  const publicNotificationSettings = useGetPublicNotificationSettings({
+    query: { queryKey: getGetPublicNotificationSettingsQueryKey(), staleTime: 60_000 },
+  });
   const isFailed = statusGroup === 'failed';
   const markPaidMutation = useMarkOrderPaid();
   const cancelOrderMutation = useCancelCustomerOrder();
@@ -1256,6 +1261,11 @@ function CustomerOrderView({ order }: { order: CustomerOrder }) {
           />
         </section>
       )}
+
+      <OrderCompletionSection
+        order={order}
+        trustpilotUrl={publicNotificationSettings.data?.trustpilotReviewUrl}
+      />
 
       <CustomerOrderNotificationControl order={order} />
     </div>

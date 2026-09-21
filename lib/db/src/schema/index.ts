@@ -48,6 +48,7 @@ export * from "./whitebit-deposits";
 export * from "./telegram";
 export * from "./telegram-news";
 export * from "./blockchain-monitoring";
+export * from "./notification-settings";
 
 export const ordersTable = pgTable("exchange_orders", {
     id: text("id").primaryKey(),
@@ -163,6 +164,11 @@ export const customerStatusNotificationEventsTable = pgTable(
       .notNull()
       .references(() => ordersTable.id, { onDelete: "cascade" }),
     customerClerkUserId: text("customer_clerk_user_id").notNull(),
+    eventKind: text("event_kind").notNull().default("status"),
+    channel: text("channel").notNull().default("email"),
+    recipientEmail: text("recipient_email").notNull().default(""),
+    adminRecipient: boolean("admin_recipient").notNull().default(false),
+    evidenceKey: text("evidence_key").notNull().default(""),
     fromStatus: text("from_status").notNull(),
     toStatus: text("to_status").notNull(),
     statusVersion: integer("status_version").notNull(),
@@ -180,9 +186,13 @@ export const customerStatusNotificationEventsTable = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex("customer_status_notification_version_uidx").on(
+    uniqueIndex("customer_status_notification_event_uidx").on(
       table.orderId,
+      table.eventKind,
       table.statusVersion,
+      table.channel,
+      table.recipientEmail,
+      table.evidenceKey,
     ),
     index("customer_status_notification_delivery_idx").on(
       table.deliveryStatus,

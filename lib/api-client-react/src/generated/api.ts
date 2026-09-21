@@ -165,6 +165,8 @@ import type {
   NewsletterSubscriber,
   NewsletterSubscriberPage,
   NewsletterSubscriberStatusInput,
+  NotificationSettings,
+  NotificationSettingsInput,
   OneForgeProviderStatus,
   Operator,
   OperatorAuditLog,
@@ -193,6 +195,7 @@ import type {
   PaymentMethodLogoUploadInput,
   PaymentMethodUpdate,
   PopularExchangePairs,
+  PublicNotificationSettings,
   PublicOrderStatus,
   PublicSiteContent,
   PublicSiteContentRevision,
@@ -18159,3 +18162,210 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getCreateTelegramMiniAppAccountLinkMutationOptions(options));
     }
+
+export const getGetAdminNotificationSettingsUrl = () => {
+
+
+
+
+  return `/api/admin/notification-settings`
+}
+
+export const getAdminNotificationSettings = async ( options?: Parameters<typeof customFetch>[1]): Promise<NotificationSettings> => {
+
+  return customFetch<NotificationSettings>(getGetAdminNotificationSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminNotificationSettingsQueryKey = () => {
+    return [
+    `/api/admin/notification-settings`
+    ] as const;
+    }
+
+
+export const getGetAdminNotificationSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getAdminNotificationSettings>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminNotificationSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminNotificationSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminNotificationSettings>>> = ({ signal }) => getAdminNotificationSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminNotificationSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminNotificationSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminNotificationSettings>>>
+export type GetAdminNotificationSettingsQueryError = ErrorType<unknown>
+
+
+
+export function useGetAdminNotificationSettings<TData = Awaited<ReturnType<typeof getAdminNotificationSettings>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminNotificationSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminNotificationSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateAdminNotificationSettingsUrl = () => {
+
+
+
+
+  return `/api/admin/notification-settings`
+}
+
+export const updateAdminNotificationSettings = async (notificationSettingsInput: NotificationSettingsInput, options?: Parameters<typeof customFetch>[1]): Promise<NotificationSettings> => {
+
+  return customFetch<NotificationSettings>(getUpdateAdminNotificationSettingsUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(notificationSettingsInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateAdminNotificationSettingsMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminNotificationSettings>>, TError,{data: BodyType<NotificationSettingsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAdminNotificationSettings>>, TError,{data: BodyType<NotificationSettingsInput>}, TContext> => {
+
+const mutationKey = ['updateAdminNotificationSettings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAdminNotificationSettings>>, {data: BodyType<NotificationSettingsInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateAdminNotificationSettings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAdminNotificationSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateAdminNotificationSettings>>>
+    export type UpdateAdminNotificationSettingsMutationBody = BodyType<NotificationSettingsInput>
+    export type UpdateAdminNotificationSettingsMutationError = ErrorType<ApiError>
+
+    export const useUpdateAdminNotificationSettings = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminNotificationSettings>>, TError,{data: BodyType<NotificationSettingsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAdminNotificationSettings>>,
+        TError,
+        {data: BodyType<NotificationSettingsInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateAdminNotificationSettingsMutationOptions(options));
+    }
+
+export const getGetPublicNotificationSettingsUrl = () => {
+
+
+
+
+  return `/api/notification-settings/public`
+}
+
+/**
+ * @summary Get customer-safe public notification settings
+ */
+export const getPublicNotificationSettings = async ( options?: Parameters<typeof customFetch>[1]): Promise<PublicNotificationSettings> => {
+
+  return customFetch<PublicNotificationSettings>(getGetPublicNotificationSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPublicNotificationSettingsQueryKey = () => {
+    return [
+    `/api/notification-settings/public`
+    ] as const;
+    }
+
+
+export const getGetPublicNotificationSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getPublicNotificationSettings>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicNotificationSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPublicNotificationSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPublicNotificationSettings>>> = ({ signal }) => getPublicNotificationSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPublicNotificationSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPublicNotificationSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getPublicNotificationSettings>>>
+export type GetPublicNotificationSettingsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get customer-safe public notification settings
+ */
+
+export function useGetPublicNotificationSettings<TData = Awaited<ReturnType<typeof getPublicNotificationSettings>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicNotificationSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPublicNotificationSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}

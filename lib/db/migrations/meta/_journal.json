@@ -624,6 +624,20 @@
       "when": 1790028000000,
       "tag": "0090_configure_manual_swap_blockchain_monitoring",
       "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1790030000000,
+      "tag": "0091_notification_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1790031000000,
+      "tag": "0092_notification_event_identities",
+      "breakpoints": true
     }
   ]
 }

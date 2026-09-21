@@ -12,6 +12,7 @@ import { getCustomerVerifiedEmail, requireActiveCustomerIdentity } from "../lib/
 import { getCustomerOrderHistory } from "../lib/order-history";
 import { logger } from "../lib/logger";
 import {
+  adminSwapTelegramRecipientIsCurrent,
   formatSwapTelegramNotification,
   swapTelegramStatusLabel,
   swapTelegramRecipientIsCurrent,
@@ -1337,13 +1338,24 @@ export function startTelegramNotificationWorker(): () => void {
           else await sendTelegramMessage(claimed.chatId, caption);
         } else if (
           claimed.eventKind === "payment_received" ||
-          claimed.eventKind === "completed"
+          claimed.eventKind === "processing" ||
+          claimed.eventKind === "completed" ||
+          claimed.eventKind === "failed_cancelled"
         ) {
-          const eventKind = claimed.eventKind as "payment_received" | "completed";
+          const eventKind = claimed.eventKind as SwapTelegramEventKind;
           const convert = payload.orderKind === "convert";
-          const recipientIsCurrent = convert
-            ? await convertTelegramRecipientIsCurrent(claimed.chatId, claimed.orderId, eventKind)
-            : await swapTelegramRecipientIsCurrent(claimed.chatId, claimed.orderId, eventKind as SwapTelegramEventKind);
+          const adminRecipient = Boolean((payload as { adminRecipient?: boolean }).adminRecipient);
+          const recipientIsCurrent = adminRecipient
+            ? convert
+              ? true
+              : await adminSwapTelegramRecipientIsCurrent(claimed.chatId, claimed.orderId, eventKind)
+            : convert
+            ? await convertTelegramRecipientIsCurrent(
+                claimed.chatId,
+                claimed.orderId,
+                eventKind as "payment_received" | "completed",
+              )
+            : await swapTelegramRecipientIsCurrent(claimed.chatId, claimed.orderId, eventKind);
           if (!recipientIsCurrent) {
             await db.update(telegramNotificationOutboxTable).set({
               deliveryStatus: "failed",

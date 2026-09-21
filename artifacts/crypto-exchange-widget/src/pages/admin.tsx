@@ -66,6 +66,8 @@ import {
   useRequestAffiliatePayout,
   useGetAffiliateSettings, getGetAffiliateSettingsQueryKey,
   useCreateAffiliateSettingsVersion,
+  useGetAdminNotificationSettings, getGetAdminNotificationSettingsQueryKey,
+  useUpdateAdminNotificationSettings,
   useGetAffiliatePayoutQueue, getGetAffiliatePayoutQueueQueryKey,
   useTransitionAffiliatePayout,
   useGetAffiliateOverview, getGetAffiliateOverviewQueryKey,
@@ -1671,6 +1673,80 @@ function AdminIntegrations() {
 
           </div>
         ) : null}
+      </div>
+    </AdminShell>
+  );
+}
+
+function AdminNotificationSettings() {
+  const { isOwner } = useAdminPermissions();
+  const query = useGetAdminNotificationSettings({
+    query: { queryKey: getGetAdminNotificationSettingsQueryKey() },
+  });
+  const update = useUpdateAdminNotificationSettings();
+  const [draft, setDraft] = useState<Record<string, unknown> | null>(null);
+  useEffect(() => {
+    if (query.data) setDraft({ ...query.data });
+  }, [query.data]);
+  if (!isOwner) {
+    return <AdminShell eyebrow="Operations settings" title="Notification settings" requiredPermission="site_settings.manage"><ErrorState message="Owner access required" /></AdminShell>;
+  }
+  if (!draft || query.isLoading) {
+    return <AdminShell eyebrow="Operations settings" title="Notification settings" requiredPermission="site_settings.manage"><LoadingBlock rows={6} /></AdminShell>;
+  }
+  const set = (key: string, value: unknown) => setDraft(current => current ? { ...current, [key]: value } : current);
+  const toggle = (key: string, label: string) => (
+    <label className="flex items-center justify-between gap-4 rounded-xl border border-border bg-card px-4 py-3">
+      <span className="text-sm font-medium">{label}</span>
+      <input type="checkbox" checked={Boolean(draft[key])} onChange={event => set(key, event.target.checked)} />
+    </label>
+  );
+  return (
+    <AdminShell eyebrow="Operations settings" title="Notification settings" subtitle="Manual Swap customer and payment-confirmed admin notifications" requiredPermission="site_settings.manage">
+      <div className="grid max-w-3xl gap-6">
+        <section className="panel space-y-3">
+          <h3 className="text-base font-semibold">Channels</h3>
+          {toggle('emailEnabled', 'Email notifications')}
+          {toggle('telegramEnabled', 'Telegram notifications')}
+        </section>
+        <section className="panel space-y-3">
+          <h3 className="text-base font-semibold">Events</h3>
+          {toggle('paymentReceivedEnabled', 'Payment Received')}
+          {toggle('processingEnabled', 'Order Processing')}
+          {toggle('completedEnabled', 'Order Completed')}
+          {toggle('failedCancelledEnabled', 'Order Failed / Cancelled')}
+        </section>
+        <section className="panel space-y-4">
+          <h3 className="text-base font-semibold">Recipients and review link</h3>
+          {([
+            ['adminNotificationEmail', 'Admin notification email', 'email'],
+            ['adminTelegramChatId', 'Admin Telegram chat ID', 'text'],
+            ['trustpilotReviewUrl', 'Trustpilot review URL', 'url'],
+          ] as const).map(([key, label, type]) => (
+            <label key={key} className="grid gap-2 text-sm font-medium">
+              {label}
+              <input className="input" type={type} value={String(draft[key] ?? '')} onChange={event => set(key, event.target.value)} />
+            </label>
+          ))}
+          <button
+            type="button"
+            className="button button-primary"
+            disabled={update.isPending}
+            onClick={() => update.mutate({ data: {
+              emailEnabled: Boolean(draft.emailEnabled),
+              telegramEnabled: Boolean(draft.telegramEnabled),
+              paymentReceivedEnabled: Boolean(draft.paymentReceivedEnabled),
+              processingEnabled: Boolean(draft.processingEnabled),
+              completedEnabled: Boolean(draft.completedEnabled),
+              failedCancelledEnabled: Boolean(draft.failedCancelledEnabled),
+              adminNotificationEmail: String(draft.adminNotificationEmail ?? ''),
+              adminTelegramChatId: String(draft.adminTelegramChatId ?? ''),
+              trustpilotReviewUrl: String(draft.trustpilotReviewUrl ?? ''),
+            } })}
+          >
+            {update.isPending ? 'Saving…' : 'Save notification settings'}
+          </button>
+        </section>
       </div>
     </AdminShell>
   );
@@ -8755,6 +8831,7 @@ const ResponsiveAdminCustomers = withAdminResponsiveLayout(AdminCustomers);
 const ResponsiveAdminProviders = withAdminResponsiveLayout(AdminProviders);
 const ResponsiveAdminCurrencies = withAdminResponsiveLayout(AdminCurrencies);
 const ResponsiveAdminManualPricing = withAdminResponsiveLayout(AdminManualPricing);
+const ResponsiveAdminNotificationSettings = withAdminResponsiveLayout(AdminNotificationSettings);
 
 export {
   ResponsiveAdminIntegrations as AdminIntegrations,
@@ -8766,4 +8843,5 @@ export {
   ResponsiveAdminProviders as AdminProviders,
   ResponsiveAdminCurrencies as AdminCurrencies,
   ResponsiveAdminManualPricing as AdminManualPricing,
+  ResponsiveAdminNotificationSettings as AdminNotificationSettings,
 };

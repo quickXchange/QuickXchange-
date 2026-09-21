@@ -3963,6 +3963,49 @@ paths:
         "400": { description: Invalid link intent, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
         "401": { description: Telegram Mini App authentication is required, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
 
+  /admin/notification-settings:
+    get:
+      operationId: getAdminNotificationSettings
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      responses:
+        "200":
+          description: Manual Swap notification settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationSettings" }
+    put:
+      operationId: updateAdminNotificationSettings
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NotificationSettingsInput" }
+      responses:
+        "200":
+          description: Updated Manual Swap notification settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationSettings" }
+        "400":
+          description: Invalid notification settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /notification-settings/public:
+    get:
+      operationId: getPublicNotificationSettings
+      tags: [exchange]
+      summary: Get customer-safe public notification settings
+      responses:
+        "200":
+          description: Public Trustpilot review link
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PublicNotificationSettings" }
+
 components:
   parameters:
     Page:
@@ -5404,6 +5447,10 @@ components:
         paymentDetailsApplicable: { type: boolean }
         sourcePaymentMethod: { $ref: "#/components/schemas/SourcePaymentMethod" }
         customerMarkedPaidAt: { type: ["string", "null"] }
+        completedAt: { type: ["string", "null"], format: date-time }
+        exchangeRate: { type: string }
+        transactionHash: { type: string }
+        paymentReference: { type: string }
     CustomerOrder:
       type: object
       required: [id, type, status, fromAsset, toAsset, amount, receiveAmount, outcomeUnknown, refreshUnavailable, statusNotificationsEnabled, trackingToken, createdAt]
@@ -5435,6 +5482,10 @@ components:
         paymentDetailsApplicable: { type: boolean }
         sourcePaymentMethod: { $ref: "#/components/schemas/SourcePaymentMethod" }
         customerMarkedPaidAt: { type: ["string", "null"] }
+        completedAt: { type: ["string", "null"], format: date-time }
+        exchangeRate: { type: string }
+        transactionHash: { type: string }
+        paymentReference: { type: string }
     CustomerOrderPage:
       type: object
       required: [items, total, page, pageSize, refreshUnavailable, providerFreshness]
@@ -7513,3 +7564,38 @@ components:
           maxItems: 500
           uniqueItems: true
           items: { type: string, minLength: 1, maxLength: 255 }
+    NotificationSettings:
+      type: object
+      required: [id, emailEnabled, telegramEnabled, paymentReceivedEnabled, processingEnabled, completedEnabled, failedCancelledEnabled, adminNotificationEmail, adminTelegramChatId, trustpilotReviewUrl, updatedAt]
+      properties:
+        id: { type: string }
+        emailEnabled: { type: boolean }
+        telegramEnabled: { type: boolean }
+        paymentReceivedEnabled: { type: boolean }
+        processingEnabled: { type: boolean }
+        completedEnabled: { type: boolean }
+        failedCancelledEnabled: { type: boolean }
+        adminNotificationEmail: { type: string, maxLength: 320 }
+        adminTelegramChatId: { type: string, maxLength: 128 }
+        trustpilotReviewUrl: { type: string, maxLength: 2048 }
+        updatedBy: { type: [string, "null"] }
+        updatedAt: { type: string, format: date-time }
+    PublicNotificationSettings:
+      type: object
+      required: [trustpilotReviewUrl]
+      properties:
+        trustpilotReviewUrl: { type: [string, "null"], maxLength: 2048 }
+    NotificationSettingsInput:
+      type: object
+      additionalProperties: false
+      required: [emailEnabled, telegramEnabled, paymentReceivedEnabled, processingEnabled, completedEnabled, failedCancelledEnabled, adminNotificationEmail, adminTelegramChatId, trustpilotReviewUrl]
+      properties:
+        emailEnabled: { type: boolean }
+        telegramEnabled: { type: boolean }
+        paymentReceivedEnabled: { type: boolean }
+        processingEnabled: { type: boolean }
+        completedEnabled: { type: boolean }
+        failedCancelledEnabled: { type: boolean }
+        adminNotificationEmail: { type: string, maxLength: 320 }
+        adminTelegramChatId: { type: string, maxLength: 128 }
+        trustpilotReviewUrl: { type: string, maxLength: 2048 }

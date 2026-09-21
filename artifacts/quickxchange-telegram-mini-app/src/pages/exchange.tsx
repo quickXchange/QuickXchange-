@@ -19,6 +19,36 @@ import { useHapticFeedback } from '@/lib/hooks';
 import { MiniAppLogo } from '@/components/mini-app-logo';
 import { getFallbackPaymentLogos, getFallbackCryptoLogos, getLogoFallbackText } from '@/lib/logo-catalog';
 
+export function normalizeExchangeSearchValue(value: string): string {
+  return value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase()
+    .trim();
+}
+
+type ExchangeSearchOption = {
+  title?: string | null;
+  assetCode?: string | null;
+  routeNetwork?: string | null;
+  paymentMethodId?: string | null;
+};
+
+export function exchangeOptionMatchesSearch(
+  option: ExchangeSearchOption,
+  query: string,
+): boolean {
+  const normalizedQuery = normalizeExchangeSearchValue(query);
+  if (!normalizedQuery) return true;
+
+  return [
+    option.title,
+    option.assetCode,
+    option.routeNetwork,
+    option.paymentMethodId,
+  ].some(value => value != null && normalizeExchangeSearchValue(String(value)).includes(normalizedQuery));
+}
+
 export default function Exchange() {
   const [, setLocation] = useLocation();
   const headers = useAuthHeaders();
@@ -194,19 +224,21 @@ export default function Exchange() {
     let list = sourceOpts;
     if (sourceFilter === 'crypto') list = list.filter(o => o.kind === 'crypto-network');
     if (sourceFilter === 'fiat') list = list.filter(o => o.kind !== 'crypto-network');
+    if (mode === 'swap') return list.filter(o => exchangeOptionMatchesSearch(o, sourceSearch));
     if (!sourceSearch) return list;
-    const q = sourceSearch.toLowerCase();
-    return list.filter(o => o.title.toLowerCase().includes(q) || o.assetCode.toLowerCase().includes(q) || (o.routeNetwork || '').toLowerCase().includes(q));
-  }, [sourceOpts, sourceSearch, sourceFilter]);
+    const query = sourceSearch.toLowerCase();
+    return list.filter(o => o.title.toLowerCase().includes(query) || o.assetCode.toLowerCase().includes(query) || (o.routeNetwork || '').toLowerCase().includes(query));
+  }, [sourceOpts, sourceSearch, sourceFilter, mode]);
 
   const filteredTargetOpts = useMemo(() => {
     let list = targetOpts;
     if (targetFilter === 'crypto') list = list.filter(o => o.kind === 'crypto-network');
     if (targetFilter === 'fiat') list = list.filter(o => o.kind !== 'crypto-network');
+    if (mode === 'swap') return list.filter(o => exchangeOptionMatchesSearch(o, targetSearch));
     if (!targetSearch) return list;
-    const q = targetSearch.toLowerCase();
-    return list.filter(o => o.title.toLowerCase().includes(q) || o.assetCode.toLowerCase().includes(q) || (o.routeNetwork || '').toLowerCase().includes(q));
-  }, [targetOpts, targetSearch, targetFilter]);
+    const query = targetSearch.toLowerCase();
+    return list.filter(o => o.title.toLowerCase().includes(query) || o.assetCode.toLowerCase().includes(query) || (o.routeNetwork || '').toLowerCase().includes(query));
+  }, [targetOpts, targetSearch, targetFilter, mode]);
 
   useEffect(() => {
     if ((mode === 'swap' && config) || (mode === 'convert' && quickexConfig)) {

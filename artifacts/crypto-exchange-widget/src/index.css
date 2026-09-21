@@ -84,6 +84,92 @@
   }
 }
 
+.order-completion-section {
+  margin: 2rem 0;
+  overflow: hidden;
+  border: 1px solid hsl(var(--primary) / .24);
+  border-radius: 1.25rem;
+  background: linear-gradient(145deg, hsl(var(--primary) / .08), hsl(var(--card)));
+  box-shadow: 0 18px 42px -30px hsl(var(--primary) / .65);
+}
+.order-completion-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: .85rem;
+  padding: 1.25rem 1.25rem .9rem;
+}
+.order-completion-icon {
+  display: grid;
+  width: 2.6rem;
+  height: 2.6rem;
+  flex: 0 0 2.6rem;
+  place-items: center;
+  border-radius: .85rem;
+  background: hsl(145 65% 42% / .14);
+  color: hsl(145 65% 38%);
+}
+.order-completion-kicker {
+  display: block;
+  color: hsl(var(--primary));
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .14em;
+}
+.order-completion-heading h3 { margin: .18rem 0 .2rem; font-size: 1.25rem; font-weight: 800; }
+.order-completion-heading p { margin: 0; color: hsl(var(--muted-foreground)); font-size: .8rem; }
+.order-completion-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .65rem;
+  padding: 0 1.25rem 1.1rem;
+}
+.order-completion-button,
+.order-completion-trustpilot {
+  display: inline-flex;
+  min-height: 2.65rem;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  border-radius: .7rem;
+  padding: .65rem .9rem;
+  font-size: .78rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+.order-completion-button { border: 1px solid hsl(var(--primary) / .2); background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); cursor: pointer; }
+.order-completion-button.secondary { border-color: hsl(var(--border)); background: hsl(var(--card)); color: hsl(var(--foreground)); }
+.order-completion-trustpilot { flex: 1 1 230px; justify-content: flex-start; border: 1px solid hsl(153 55% 40% / .28); background: hsl(153 55% 40% / .08); color: hsl(var(--foreground)); }
+.order-completion-trustpilot small { display: block; margin-top: .1rem; color: hsl(var(--muted-foreground)); font-size: .68rem; font-weight: 500; }
+.trustpilot-star { color: #00b67a; font-size: 1.25rem; }
+.order-invoice-sheet { margin: 0 1.25rem 1.25rem; border: 1px solid hsl(var(--border)); border-radius: .9rem; background: hsl(var(--card) / .82); padding: 1rem; }
+.order-invoice-brand, .order-invoice-title { display: flex; align-items: center; gap: .55rem; }
+.order-invoice-brand { justify-content: space-between; border-bottom: 1px solid hsl(var(--border)); padding-bottom: .75rem; }
+.order-invoice-brand img { width: 8.5rem; max-width: 52%; height: 2rem; object-fit: contain; object-position: left center; }
+.order-invoice-brand span { display: inline-flex; align-items: center; gap: .3rem; color: hsl(var(--muted-foreground)); font-size: .68rem; }
+.order-invoice-title { margin: 1rem 0 .8rem; color: hsl(var(--primary)); }
+.order-invoice-title strong { color: hsl(var(--foreground)); }
+.order-invoice-title span { margin-left: auto; color: hsl(var(--muted-foreground)); font-family: var(--font-mono); font-size: .7rem; }
+.order-invoice-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .7rem; }
+.order-invoice-grid small, .order-invoice-route small, .order-invoice-meta small { display: block; margin-bottom: .25rem; color: hsl(var(--muted-foreground)); font-size: .64rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.order-invoice-grid strong, .order-invoice-route strong { display: block; font-size: .78rem; }
+.order-invoice-route { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; margin-top: .9rem; border-top: 1px solid hsl(var(--border)); padding-top: .9rem; }
+.order-invoice-route > div { border-radius: .65rem; background: hsl(var(--muted) / .45); padding: .7rem; }
+.order-invoice-route span { display: block; margin-top: .25rem; color: hsl(var(--muted-foreground)); font-size: .7rem; }
+.order-invoice-meta { display: grid; gap: .6rem; margin-top: .9rem; border-top: 1px solid hsl(var(--border)); padding-top: .8rem; }
+.order-invoice-meta code { display: block; overflow-wrap: anywhere; color: hsl(var(--foreground)); font-family: var(--font-mono); font-size: .68rem; }
+@media (max-width: 640px) {
+  .order-completion-actions { flex-direction: column; }
+  .order-completion-button, .order-completion-trustpilot { width: 100%; }
+  .order-invoice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .order-invoice-route { grid-template-columns: 1fr; }
+}
+@media print {
+  body * { visibility: hidden !important; }
+  .order-invoice-sheet, .order-invoice-sheet * { visibility: visible !important; }
+  .order-invoice-sheet { position: absolute; inset: 0; width: auto; margin: 0; border: 0; box-shadow: none; background: white; color: black; }
+  .order-completion-section { border: 0; box-shadow: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .popular-pairs-marquee {
     overflow-x: auto;

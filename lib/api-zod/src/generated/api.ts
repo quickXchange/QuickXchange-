@@ -2851,7 +2851,11 @@ export const GetPublicOrderStatusResponse = zod.object({
   "name": zod.string().min(1).max(getPublicOrderStatusResponseSourcePaymentMethodNameMax),
   "logoUrl": zod.string().min(1).max(getPublicOrderStatusResponseSourcePaymentMethodLogoUrlMax).optional()
 }).optional(),
-  "customerMarkedPaidAt": zod.string().nullish()
+  "customerMarkedPaidAt": zod.string().nullish(),
+  "completedAt": zod.coerce.date().nullish(),
+  "exchangeRate": zod.string().optional(),
+  "transactionHash": zod.string().optional(),
+  "paymentReference": zod.string().optional()
 })
 
 
@@ -3482,7 +3486,11 @@ export const MarkOrderPaidResponse = zod.object({
   "name": zod.string().min(1).max(markOrderPaidResponseSourcePaymentMethodNameMax),
   "logoUrl": zod.string().min(1).max(markOrderPaidResponseSourcePaymentMethodLogoUrlMax).optional()
 }).optional(),
-  "customerMarkedPaidAt": zod.string().nullish()
+  "customerMarkedPaidAt": zod.string().nullish(),
+  "completedAt": zod.coerce.date().nullish(),
+  "exchangeRate": zod.string().optional(),
+  "transactionHash": zod.string().optional(),
+  "paymentReference": zod.string().optional()
 })
 
 
@@ -3570,7 +3578,11 @@ export const CancelCustomerOrderResponse = zod.object({
   "name": zod.string().min(1).max(cancelCustomerOrderResponseSourcePaymentMethodNameMax),
   "logoUrl": zod.string().min(1).max(cancelCustomerOrderResponseSourcePaymentMethodLogoUrlMax).optional()
 }).optional(),
-  "customerMarkedPaidAt": zod.string().nullish()
+  "customerMarkedPaidAt": zod.string().nullish(),
+  "completedAt": zod.coerce.date().nullish(),
+  "exchangeRate": zod.string().optional(),
+  "transactionHash": zod.string().optional(),
+  "paymentReference": zod.string().optional()
 })
 
 
@@ -4744,7 +4756,11 @@ export const GetCustomerOrdersResponse = zod.object({
   "name": zod.string().min(1).max(getCustomerOrdersResponseItemsItemSourcePaymentMethodNameMax),
   "logoUrl": zod.string().min(1).max(getCustomerOrdersResponseItemsItemSourcePaymentMethodLogoUrlMax).optional()
 }).optional(),
-  "customerMarkedPaidAt": zod.string().nullish()
+  "customerMarkedPaidAt": zod.string().nullish(),
+  "completedAt": zod.coerce.date().nullish(),
+  "exchangeRate": zod.string().optional(),
+  "transactionHash": zod.string().optional(),
+  "paymentReference": zod.string().optional()
 })),
   "total": zod.number().min(getCustomerOrdersResponseTotalMin).multipleOf(getCustomerOrdersResponseTotalMultipleOf),
   "page": zod.number().min(1).multipleOf(getCustomerOrdersResponsePageMultipleOf),
@@ -4893,7 +4909,11 @@ export const ClaimCustomerOrderResponse = zod.object({
   "name": zod.string().min(1).max(claimCustomerOrderResponseSourcePaymentMethodNameMax),
   "logoUrl": zod.string().min(1).max(claimCustomerOrderResponseSourcePaymentMethodLogoUrlMax).optional()
 }).optional(),
-  "customerMarkedPaidAt": zod.string().nullish()
+  "customerMarkedPaidAt": zod.string().nullish(),
+  "completedAt": zod.coerce.date().nullish(),
+  "exchangeRate": zod.string().optional(),
+  "transactionHash": zod.string().optional(),
+  "paymentReference": zod.string().optional()
 })
 
 
@@ -4972,7 +4992,11 @@ export const GetCustomerOrderResponse = zod.object({
   "name": zod.string().min(1).max(getCustomerOrderResponseSourcePaymentMethodNameMax),
   "logoUrl": zod.string().min(1).max(getCustomerOrderResponseSourcePaymentMethodLogoUrlMax).optional()
 }).optional(),
-  "customerMarkedPaidAt": zod.string().nullish()
+  "customerMarkedPaidAt": zod.string().nullish(),
+  "completedAt": zod.coerce.date().nullish(),
+  "exchangeRate": zod.string().optional(),
+  "transactionHash": zod.string().optional(),
+  "paymentReference": zod.string().optional()
 })
 
 
@@ -10363,7 +10387,11 @@ export const GetQuickexOrderStatusResponse = zod.object({
   "name": zod.string().min(1).max(getQuickexOrderStatusResponseSourcePaymentMethodNameMax),
   "logoUrl": zod.string().min(1).max(getQuickexOrderStatusResponseSourcePaymentMethodLogoUrlMax).optional()
 }).optional(),
-  "customerMarkedPaidAt": zod.string().nullish()
+  "customerMarkedPaidAt": zod.string().nullish(),
+  "completedAt": zod.coerce.date().nullish(),
+  "exchangeRate": zod.string().optional(),
+  "transactionHash": zod.string().optional(),
+  "paymentReference": zod.string().optional()
 })
 
 
@@ -14462,4 +14490,84 @@ export const createTelegramMiniAppAccountLinkResponseRelativeUrlRegExp = new Reg
 
 export const CreateTelegramMiniAppAccountLinkResponse = zod.object({
   "relativeUrl": zod.string().regex(createTelegramMiniAppAccountLinkResponseRelativeUrlRegExp)
+})
+
+
+export const getAdminNotificationSettingsResponseAdminNotificationEmailMax = 320;
+
+export const getAdminNotificationSettingsResponseAdminTelegramChatIdMax = 128;
+
+export const getAdminNotificationSettingsResponseTrustpilotReviewUrlMax = 2048;
+
+
+
+export const GetAdminNotificationSettingsResponse = zod.object({
+  "id": zod.string(),
+  "emailEnabled": zod.boolean(),
+  "telegramEnabled": zod.boolean(),
+  "paymentReceivedEnabled": zod.boolean(),
+  "processingEnabled": zod.boolean(),
+  "completedEnabled": zod.boolean(),
+  "failedCancelledEnabled": zod.boolean(),
+  "adminNotificationEmail": zod.string().max(getAdminNotificationSettingsResponseAdminNotificationEmailMax),
+  "adminTelegramChatId": zod.string().max(getAdminNotificationSettingsResponseAdminTelegramChatIdMax),
+  "trustpilotReviewUrl": zod.string().max(getAdminNotificationSettingsResponseTrustpilotReviewUrlMax),
+  "updatedBy": zod.string().nullish(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+export const updateAdminNotificationSettingsBodyAdminNotificationEmailMax = 320;
+
+export const updateAdminNotificationSettingsBodyAdminTelegramChatIdMax = 128;
+
+export const updateAdminNotificationSettingsBodyTrustpilotReviewUrlMax = 2048;
+
+
+
+export const UpdateAdminNotificationSettingsBody = zod.object({
+  "emailEnabled": zod.boolean(),
+  "telegramEnabled": zod.boolean(),
+  "paymentReceivedEnabled": zod.boolean(),
+  "processingEnabled": zod.boolean(),
+  "completedEnabled": zod.boolean(),
+  "failedCancelledEnabled": zod.boolean(),
+  "adminNotificationEmail": zod.string().max(updateAdminNotificationSettingsBodyAdminNotificationEmailMax),
+  "adminTelegramChatId": zod.string().max(updateAdminNotificationSettingsBodyAdminTelegramChatIdMax),
+  "trustpilotReviewUrl": zod.string().max(updateAdminNotificationSettingsBodyTrustpilotReviewUrlMax)
+})
+
+export const updateAdminNotificationSettingsResponseAdminNotificationEmailMax = 320;
+
+export const updateAdminNotificationSettingsResponseAdminTelegramChatIdMax = 128;
+
+export const updateAdminNotificationSettingsResponseTrustpilotReviewUrlMax = 2048;
+
+
+
+export const UpdateAdminNotificationSettingsResponse = zod.object({
+  "id": zod.string(),
+  "emailEnabled": zod.boolean(),
+  "telegramEnabled": zod.boolean(),
+  "paymentReceivedEnabled": zod.boolean(),
+  "processingEnabled": zod.boolean(),
+  "completedEnabled": zod.boolean(),
+  "failedCancelledEnabled": zod.boolean(),
+  "adminNotificationEmail": zod.string().max(updateAdminNotificationSettingsResponseAdminNotificationEmailMax),
+  "adminTelegramChatId": zod.string().max(updateAdminNotificationSettingsResponseAdminTelegramChatIdMax),
+  "trustpilotReviewUrl": zod.string().max(updateAdminNotificationSettingsResponseTrustpilotReviewUrlMax),
+  "updatedBy": zod.string().nullish(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Get customer-safe public notification settings
+ */
+export const getPublicNotificationSettingsResponseTrustpilotReviewUrlMax = 2048;
+
+
+
+export const GetPublicNotificationSettingsResponse = zod.object({
+  "trustpilotReviewUrl": zod.string().max(getPublicNotificationSettingsResponseTrustpilotReviewUrlMax).nullable()
 })

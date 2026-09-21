@@ -7,13 +7,19 @@ import {
   telegramOrderLinksTable,
   whitebitDepositsTable,
   blockchainMonitorMatchesTable,
+  notificationSettingsTable,
+  customerStatusNotificationEventsTable,
 } from "@workspace/db";
 import { formatTelegramOrderId } from "./telegram-api";
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type OrderRow = typeof ordersTable.$inferSelect;
 
-export type SwapTelegramEventKind = "payment_received" | "completed";
+export type SwapTelegramEventKind =
+  | "payment_received"
+  | "processing"
+  | "completed"
+  | "failed_cancelled";
 
 type SettlementIdentity = {
   kind?: unknown;
@@ -120,6 +126,95 @@ export async function enqueueSwapTelegramNotification(
   received?: { amount: string; asset: string; network: string },
 ): Promise<number> {
   if (order.type !== "manual") return 0;
+  const [settings] = await tx.select().from(notificationSettingsTable).where(eq(notificationSettingsTable.id, "global")).limit(1);
+  if (settings && eventKind === "completed" && !settings.completedEnabled) return 0;
+  let queued = 0;
+  if (
+    eventKind === "payment_received" &&
+    settings?.emailEnabled !== false &&
+    settings?.paymentReceivedEnabled !== false
+  ) {
+    const evidenceKey = `payment_received:${order.id}`;
+    if (order.statusNotificationsEnabled && order.customerEmail.trim()) {
+      await tx.insert(customerStatusNotificationEventsTable).values({
+        orderId: order.id,
+        customerClerkUserId: order.customerClerkUserId ?? `guest:${order.customerEmail.trim().toLowerCase()}`,
+        fromStatus: order.status,
+        toStatus: "payment_received",
+        statusVersion: 0,
+        eventKind: "payment_received",
+        recipientEmail: order.customerEmail.trim(),
+        evidenceKey,
+      }).onConflictDoNothing({
+        target: [
+          customerStatusNotificationEventsTable.orderId,
+          customerStatusNotificationEventsTable.eventKind,
+          customerStatusNotificationEventsTable.statusVersion,
+          customerStatusNotificationEventsTable.channel,
+          customerStatusNotificationEventsTable.recipientEmail,
+          customerStatusNotificationEventsTable.evidenceKey,
+        ],
+      });
+    }
+    if (settings?.adminNotificationEmail) {
+      await tx.insert(customerStatusNotificationEventsTable).values({
+        orderId: order.id,
+        customerClerkUserId: `admin:${settings.adminNotificationEmail.toLowerCase()}`,
+        fromStatus: order.status,
+        toStatus: "payment_received",
+        statusVersion: 0,
+        eventKind: "payment_received",
+        recipientEmail: settings.adminNotificationEmail,
+        adminRecipient: true,
+        evidenceKey,
+      }).onConflictDoNothing({
+        target: [
+          customerStatusNotificationEventsTable.orderId,
+          customerStatusNotificationEventsTable.eventKind,
+          customerStatusNotificationEventsTable.statusVersion,
+          customerStatusNotificationEventsTable.channel,
+          customerStatusNotificationEventsTable.recipientEmail,
+          customerStatusNotificationEventsTable.evidenceKey,
+        ],
+      });
+    }
+  }
+  if (
+    eventKind === "payment_received" &&
+    order.status.trim().toLowerCase() === "processing" &&
+    settings?.processingEnabled !== false
+  ) {
+    if (settings?.emailEnabled !== false && settings?.adminNotificationEmail) {
+      await tx.insert(customerStatusNotificationEventsTable).values({
+        orderId: order.id,
+        customerClerkUserId: `admin:${settings.adminNotificationEmail.toLowerCase()}`,
+        fromStatus: "payment_received",
+        toStatus: order.status,
+        statusVersion: order.statusVersion,
+        eventKind: "processing",
+        recipientEmail: settings.adminNotificationEmail,
+        adminRecipient: true,
+        evidenceKey: `lifecycle:${order.id}:${order.statusVersion}`,
+      }).onConflictDoNothing({
+        target: [
+          customerStatusNotificationEventsTable.orderId,
+          customerStatusNotificationEventsTable.eventKind,
+          customerStatusNotificationEventsTable.statusVersion,
+          customerStatusNotificationEventsTable.channel,
+          customerStatusNotificationEventsTable.recipientEmail,
+          customerStatusNotificationEventsTable.evidenceKey,
+        ],
+      });
+    }
+    queued += await enqueueAdminSwapTelegramLifecycleNotification(tx, order, "processing");
+  }
+  if (
+    settings &&
+    (!settings.telegramEnabled ||
+      (eventKind === "payment_received" && !settings.paymentReceivedEnabled))
+  ) {
+    return queued;
+  }
   const links = await tx
     .select({
       chatId: telegramOrderLinksTable.chatId,
@@ -135,7 +230,6 @@ export async function enqueueSwapTelegramNotification(
       inArray(telegramOrderLinksTable.orderKind, ["manual", "swap"]),
     ));
   const payload = buildSwapTelegramNotificationPayload(order, eventKind, received);
-  let queued = 0;
   for (const link of links) {
     if (
       order.customerClerkUserId &&
@@ -174,7 +268,88 @@ export async function enqueueSwapTelegramNotification(
       .returning({ id: telegramNotificationOutboxTable.id });
     queued += inserted.length;
   }
+  // The configured admin destination is deliberately independent of customer
+  // order links. This is only reached by authoritative payment evidence or a
+  // later terminal lifecycle enqueue, never by order creation.
+  if (
+    settings?.adminTelegramChatId &&
+    ((eventKind === "payment_received" && settings.paymentReceivedEnabled) ||
+      (eventKind === "completed" && settings.completedEnabled))
+  ) {
+    if (eventKind === "completed") {
+      const [whitebitPayment] = await tx.select({ id: whitebitDepositsTable.id })
+        .from(whitebitDepositsTable)
+        .where(and(
+          eq(whitebitDepositsTable.orderId, order.id),
+          eq(whitebitDepositsTable.status, "processed"),
+        ))
+        .limit(1);
+      const [blockchainPayment] = whitebitPayment ? [] : await tx
+        .select({ id: blockchainMonitorMatchesTable.id })
+        .from(blockchainMonitorMatchesTable)
+        .where(and(
+          eq(blockchainMonitorMatchesTable.orderId, order.id),
+          eq(blockchainMonitorMatchesTable.state, "applied"),
+        ))
+        .limit(1);
+      if (!whitebitPayment && !blockchainPayment) return queued;
+    }
+    await tx.insert(telegramNotificationOutboxTable).values({
+      chatId: settings.adminTelegramChatId,
+      orderId: order.id,
+      statusVersion: eventKind === "payment_received" ? 0 : order.statusVersion,
+      eventKind,
+      payload: { ...payload, adminRecipient: true },
+    }).onConflictDoNothing();
+    queued += 1;
+  }
   return queued;
+}
+
+export async function enqueueAdminSwapTelegramLifecycleNotification(
+  tx: DbTransaction,
+  order: OrderRow,
+  eventKind: "processing" | "failed_cancelled",
+): Promise<number> {
+  if (order.type !== "manual") return 0;
+  const [settings] = await tx.select().from(notificationSettingsTable)
+    .where(eq(notificationSettingsTable.id, "global"))
+    .limit(1);
+  if (
+    !settings?.telegramEnabled ||
+    !settings.adminTelegramChatId ||
+    (eventKind === "processing" && !settings.processingEnabled) ||
+    (eventKind === "failed_cancelled" && !settings.failedCancelledEnabled)
+  ) {
+    return 0;
+  }
+  const [whitebitPayment] = await tx.select({ id: whitebitDepositsTable.id })
+    .from(whitebitDepositsTable)
+    .where(and(
+      eq(whitebitDepositsTable.orderId, order.id),
+      eq(whitebitDepositsTable.status, "processed"),
+    ))
+    .limit(1);
+  const [blockchainPayment] = whitebitPayment ? [] : await tx
+    .select({ id: blockchainMonitorMatchesTable.id })
+    .from(blockchainMonitorMatchesTable)
+    .where(and(
+      eq(blockchainMonitorMatchesTable.orderId, order.id),
+      eq(blockchainMonitorMatchesTable.state, "applied"),
+    ))
+    .limit(1);
+  if (!whitebitPayment && !blockchainPayment) return 0;
+  const inserted = await tx.insert(telegramNotificationOutboxTable).values({
+    chatId: settings.adminTelegramChatId,
+    orderId: order.id,
+    statusVersion: order.statusVersion,
+    eventKind,
+    payload: {
+      ...buildSwapTelegramNotificationPayload(order, eventKind),
+      adminRecipient: true,
+    },
+  }).onConflictDoNothing().returning({ id: telegramNotificationOutboxTable.id });
+  return inserted.length;
 }
 
 export async function swapTelegramRecipientIsCurrent(
@@ -210,12 +385,62 @@ export async function swapTelegramRecipientIsCurrent(
     return false;
   }
   if (eventKind === "completed") return linked.status === "completed";
+  if (eventKind === "processing") return linked.status === "processing";
+  if (eventKind === "failed_cancelled") {
+    return ["failed", "cancelled", "canceled", "refunded"].includes(linked.status.toLowerCase());
+  }
   const [deposit] = await db.select({ id: whitebitDepositsTable.id }).from(whitebitDepositsTable)
     .where(and(eq(whitebitDepositsTable.orderId, orderId), eq(whitebitDepositsTable.status, "processed"))).limit(1);
   if (deposit) return true;
   const [blockchainMatch] = await db.select({ id: blockchainMonitorMatchesTable.id })
     .from(blockchainMonitorMatchesTable)
     .where(and(eq(blockchainMonitorMatchesTable.orderId, orderId), eq(blockchainMonitorMatchesTable.state, "applied"))).limit(1);
+  return Boolean(blockchainMatch);
+}
+
+export async function adminSwapTelegramRecipientIsCurrent(
+  chatId: string,
+  orderId: string,
+  eventKind: SwapTelegramEventKind,
+): Promise<boolean> {
+  const [settings] = await db.select().from(notificationSettingsTable)
+    .where(eq(notificationSettingsTable.id, "global"))
+    .limit(1);
+  const eventEnabled = eventKind === "payment_received"
+    ? settings?.paymentReceivedEnabled
+    : eventKind === "completed"
+      ? settings?.completedEnabled
+      : eventKind === "failed_cancelled"
+        ? settings?.failedCancelledEnabled
+        : settings?.processingEnabled;
+  if (
+    !settings?.telegramEnabled ||
+    !eventEnabled ||
+    !settings.adminTelegramChatId ||
+    settings.adminTelegramChatId !== chatId
+  ) {
+    return false;
+  }
+  const [order] = await db.select({ type: ordersTable.type })
+    .from(ordersTable)
+    .where(eq(ordersTable.id, orderId))
+    .limit(1);
+  if (!order || order.type !== "manual") return false;
+  const [deposit] = await db.select({ id: whitebitDepositsTable.id })
+    .from(whitebitDepositsTable)
+    .where(and(
+      eq(whitebitDepositsTable.orderId, orderId),
+      eq(whitebitDepositsTable.status, "processed"),
+    ))
+    .limit(1);
+  if (deposit) return true;
+  const [blockchainMatch] = await db.select({ id: blockchainMonitorMatchesTable.id })
+    .from(blockchainMonitorMatchesTable)
+    .where(and(
+      eq(blockchainMonitorMatchesTable.orderId, orderId),
+      eq(blockchainMonitorMatchesTable.state, "applied"),
+    ))
+    .limit(1);
   return Boolean(blockchainMatch);
 }
 
@@ -248,6 +473,32 @@ export function formatSwapTelegramNotification(
       "Your payment has been received successfully.",
       "",
       "⏳ Your order is now being processed.",
+    ].join("\n");
+  }
+  if (payload.eventKind === "processing") {
+    return [
+      "⏳ <b>Order Processing</b>",
+      "",
+      formatTelegramOrderId(payload.orderId),
+      "",
+      `<b>${escapeHtml(payload.sendAmount)} ${escapeHtml(routeLabel(payload.sendMethod, payload.sendAsset, payload.sendNetwork))}</b>`,
+      "→",
+      `<b>${escapeHtml(payload.receiveAmount)} ${escapeHtml(routeLabel(payload.receiveMethod, payload.receiveAsset, payload.receiveNetwork))}</b>`,
+      "",
+      "Status: <b>Processing</b>",
+    ].join("\n");
+  }
+  if (payload.eventKind === "failed_cancelled") {
+    return [
+      "⚠️ <b>Order Failed / Cancelled</b>",
+      "",
+      formatTelegramOrderId(payload.orderId),
+      "",
+      `<b>${escapeHtml(payload.sendAmount)} ${escapeHtml(routeLabel(payload.sendMethod, payload.sendAsset, payload.sendNetwork))}</b>`,
+      "→",
+      `<b>${escapeHtml(payload.receiveAmount)} ${escapeHtml(routeLabel(payload.receiveMethod, payload.receiveAsset, payload.receiveNetwork))}</b>`,
+      "",
+      `Status: <b>${escapeHtml(swapTelegramStatusLabel(payload.status))}</b>`,
     ].join("\n");
   }
   return [
