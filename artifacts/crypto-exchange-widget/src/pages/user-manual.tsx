@@ -1,9 +1,9 @@
-import { useLayoutEffect } from 'react';
-import type { ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { PublicShell } from '../components/public-shell';
 import { basePath, cn, SUPPORT_TELEGRAM, SUPPORT_EMAIL } from '../components/shared-app-ui';
 import { Link } from 'wouter';
-import { ShieldAlert, Info, AlertTriangle, BookOpen } from 'lucide-react';
+import { ShieldAlert, Info, AlertTriangle, BookOpen, Maximize2, PlayCircle, RotateCcw, X, ZoomIn } from 'lucide-react';
 import './user-manual.css';
 
 function useUserManualSEO() {
@@ -165,28 +165,145 @@ function ManualFigure({
   alt,
   title,
   caption,
+  hotspots = [],
 }: {
   src: string;
   alt: string;
   title: string;
   caption: string;
+  hotspots?: Array<{ number: number; label: string; x: string; y: string }>;
 }) {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const lightboxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setLightboxOpen(false);
+    };
+    document.body.classList.add('user-manual-lightbox-open');
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.classList.remove('user-manual-lightbox-open');
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [lightboxOpen]);
+
+  const enterFullscreen = async () => {
+    if (!lightboxRef.current?.requestFullscreen) return;
+    await lightboxRef.current.requestFullscreen();
+  };
+
   return (
-    <figure className="user-manual-figure">
-      <div className="user-manual-figure-frame">
-        <img
-          src={`${basePath}${src}`}
-          alt={alt}
-          loading="lazy"
-          decoding="async"
-          className="user-manual-figure-image"
-        />
+    <>
+      <figure className="user-manual-figure">
+        <button
+          type="button"
+          className="user-manual-figure-frame"
+          onClick={() => setLightboxOpen(true)}
+          aria-label={`Open a larger view of ${title}`}
+        >
+          <img
+            src={`${basePath}${src}`}
+            alt={alt}
+            loading="lazy"
+            decoding="async"
+            className="user-manual-figure-image"
+          />
+          {hotspots.map((hotspot) => (
+            <span
+              key={hotspot.number}
+              className="user-manual-hotspot"
+              style={{ left: hotspot.x, top: hotspot.y }}
+              aria-label={`${hotspot.number}. ${hotspot.label}`}
+            >
+              {hotspot.number}
+            </span>
+          ))}
+          <span className="user-manual-image-action" aria-hidden="true">
+            <ZoomIn size={16} />
+            Zoom
+          </span>
+        </button>
+        <figcaption>
+          <strong>{title}</strong>
+          <span>{caption}</span>
+          {hotspots.length > 0 && (
+            <ol className="user-manual-hotspot-key">
+              {hotspots.map((hotspot) => <li key={hotspot.number}><b>{hotspot.number}</b>{hotspot.label}</li>)}
+            </ol>
+          )}
+        </figcaption>
+      </figure>
+
+      {lightboxOpen && (
+        <div
+          className="user-manual-lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${title} enlarged image`}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setLightboxOpen(false);
+          }}
+        >
+          <div className="user-manual-lightbox-panel" ref={lightboxRef}>
+            <div className="user-manual-lightbox-toolbar">
+              <div>
+                <strong>{title}</strong>
+                <span>Detailed product view</span>
+              </div>
+              <div className="user-manual-lightbox-actions">
+                <button type="button" onClick={() => void enterFullscreen()} aria-label="View image fullscreen">
+                  <Maximize2 size={18} />
+                  <span>Fullscreen</span>
+                </button>
+                <button type="button" onClick={() => setLightboxOpen(false)} aria-label="Close enlarged image">
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+            <div className="user-manual-lightbox-image-wrap">
+              <img src={`${basePath}${src}`} alt={alt} className="user-manual-lightbox-image" />
+              {hotspots.map((hotspot) => (
+                <span
+                  key={hotspot.number}
+                  className="user-manual-hotspot"
+                  style={{ left: hotspot.x, top: hotspot.y }}
+                  aria-label={`${hotspot.number}. ${hotspot.label}`}
+                >
+                  {hotspot.number}
+                </span>
+              ))}
+            </div>
+            <p>{caption}</p>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function VideoPlaceholder() {
+  return (
+    <div
+      className="user-manual-video-placeholder"
+      aria-label="Instructional video placeholder"
+      style={{ '--manual-video-image': `url("${basePath}/manual/convert-guide.jpg")` } as CSSProperties}
+    >
+      <div className="user-manual-video-screen">
+        <span className="user-manual-video-icon"><PlayCircle size={34} aria-hidden="true" /></span>
+        <span className="user-manual-video-eyebrow">Video walkthrough</span>
+        <strong>Funding an exchange order</strong>
+        <p>A guided video will appear here when approved instructional footage is available.</p>
       </div>
-      <figcaption>
-        <strong>{title}</strong>
-        <span>{caption}</span>
-      </figcaption>
-    </figure>
+      <div className="user-manual-video-controls" aria-hidden="true">
+        <PlayCircle size={18} />
+        <div className="user-manual-video-track"><span /></div>
+        <span>00:00</span>
+        <RotateCcw size={17} />
+        <Maximize2 size={17} />
+      </div>
+    </div>
   );
 }
 
@@ -275,12 +392,20 @@ export function UserManualPage() {
                   alt="QuickXchange Swap screen showing the You Send and You Receive selectors"
                   title="Swap interface"
                   caption="Select Swap, then choose the source and destination shown in the exchange card."
+                  hotspots={[
+                    { number: 1, label: 'Choose the Swap tab.', x: '18%', y: '27%' },
+                    { number: 2, label: 'Review the You Send and You Receive selectors.', x: '27%', y: '56%' },
+                  ]}
                 />
                 <ManualFigure
                   src="/manual/convert-guide.jpg"
                   alt="QuickXchange Convert screen showing crypto selectors and floating-rate choice"
                   title="Convert interface"
                   caption="Select Convert for crypto-to-crypto orders, then choose both assets and the available rate type."
+                  hotspots={[
+                    { number: 1, label: 'Choose the Convert tab.', x: '37%', y: '27%' },
+                    { number: 2, label: 'Review the available rate type.', x: '37%', y: '39%' },
+                  ]}
                 />
               </div>
             </section>
@@ -288,7 +413,7 @@ export function UserManualPage() {
             <section id="starting-exchange">
               <h2>Starting an Exchange</h2>
               <p>To begin, navigate to the main exchange widget on the <Link href="/" className="user-manual-link" data-testid="link-home">Home page</Link> or open the dedicated <Link href="/swap" className="user-manual-link" data-testid="link-swap">Swap</Link> or <Link href="/convert" className="user-manual-link" data-testid="link-convert">Convert</Link> page.</p>
-              <ol>
+              <ol className="user-manual-procedure">
                 <li>Select the appropriate tab: <strong>Swap</strong> or <strong>Convert</strong>.</li>
                 <li>Choose whether you are sending ("You Send") or receiving ("You Receive") a specific amount by interacting with the input fields.</li>
                 <li>Click on the asset dropdowns to open the selection menu.</li>
@@ -340,7 +465,7 @@ export function UserManualPage() {
             <section id="terms-submission">
               <h2>Terms and Order Submission</h2>
               <p>To finalize the creation of your order, you must review and agree to the platform's terms of service and privacy policy.</p>
-              <ol>
+              <ol className="user-manual-procedure">
                 <li>Check the agreement box to confirm your acceptance.</li>
                 <li>Use the final submit button shown for the selected flow.</li>
                 <li>You will be securely routed to your unique Order Details page. Bookmark this page or save your Order ID.</li>
@@ -353,7 +478,7 @@ export function UserManualPage() {
               
               <h3>For Swap Orders</h3>
               <p>Your order page displays instructions for the source asset or payment method you selected.</p>
-              <ol>
+              <ol className="user-manual-procedure">
                 <li>Open and read all payment or deposit instructions.</li>
                 <li>Confirm the asset, network, recipient details, exact amount, and any payment reference.</li>
                 <li>Send funds through the instructed wallet, bank, or payment provider.</li>
@@ -362,12 +487,14 @@ export function UserManualPage() {
 
               <h3>For Convert Orders</h3>
               <p>You will be provided with a deposit address and a QR code.</p>
-              <ol>
+              <ol className="user-manual-procedure">
                 <li>Open your cryptocurrency wallet.</li>
                 <li>Scan the QR code or copy the deposit address carefully.</li>
                 <li>Send the exact specified amount of crypto on the correct network.</li>
                 <li>The system will automatically detect the incoming deposit once it is confirmed on the blockchain.</li>
               </ol>
+
+              <VideoPlaceholder />
 
               <Callout type="warning" title="Exact Amount Requirement">
                 <p>Always send the exact amount requested. Sending a different amount may delay processing or require manual intervention by our support team.</p>
@@ -381,6 +508,10 @@ export function UserManualPage() {
                 alt="QuickXchange Track your order page with an Order ID field and Track Order button"
                 title="Track an Order"
                 caption="Open Track an Order, enter the requested Order ID and tracking information, then select Track Order."
+                hotspots={[
+                  { number: 1, label: 'Enter the requested Order ID and tracking information.', x: '43%', y: '70%' },
+                  { number: 2, label: 'Select Track Order.', x: '68%', y: '70%' },
+                ]}
               />
               <p>Every exchange generates a unique Order ID and an order or tracking page. Status availability depends on the order type and tracking information supplied when the order was created.</p>
               <ul>

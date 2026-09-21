@@ -1,0 +1,143 @@
+EDIT THE EXISTING USER MANUAL — DO NOT REBUILD IT FROM SCRATCH.
+Keep the current user manual, its existing content, structure, pages, and working features.
+I want you to upgrade the existing manual to make it look and feel much more professional, visual, and premium.
+1. KEEP THE EXISTING MANUAL
+Do NOT delete or replace the current manual.
+Do NOT change the actual product information unless I specifically ask you to.
+Keep all existing:
+Text
+Instructions
+Sections
+Product information
+Safety information
+Specifications
+Navigation
+Improve the presentation and user experience around the existing content.
+2. ADD BETTER PRODUCT VISUALS
+Upgrade the manual with professional product imagery.
+Where appropriate, add:
+Large product images
+Detailed close-ups
+Component images
+Technical illustrations
+Highlighted parts
+Arrows and callouts
+Zoomable images
+Fullscreen image viewing
+Use professional studio-style lighting, realistic shadows, reflections, and clean backgrounds.
+Do not change the actual appearance of the product.
+3. ADD 3D EXPERIENCE
+If the project already has a 3D model, improve the existing 3D experience.
+If I provide a GLB/GLTF model, integrate it into the manual.
+Add:
+Rotate
+Zoom
+Pan
+Reset view
+Fullscreen
+Auto rotation
+Professional lighting
+Interactive hotspots
+Allow the user to select important parts of the product and see the corresponding explanation from the manual.
+Do NOT invent product geometry.
+4. ADD 3D / VISUAL INSTRUCTIONS
+Improve important instructions with visual demonstrations.
+Where useful, show:
+Part movement
+Assembly
+Installation
+Connections
+Adjustments
+Opening/closing
+Maintenance
+Use smooth technical animations and visual arrows.
+The animations should explain the instruction, not simply decorate the page.
+5. IMPROVE LIGHTING
+Make all product visualizations look professional.
+Use realistic:
+Key lighting
+Fill lighting
+Rim lighting
+Soft shadows
+Reflections
+Ambient lighting
+Create a clean technical/product-visualization appearance.
+Do not use excessive effects.
+6. IMPROVE STEP-BY-STEP INSTRUCTIONS
+Keep the existing instructions but make them easier to follow visually.
+For every important procedure:
+STEP 1 → Image / animation → Short explanation
+STEP 2 → Image / animation → Short explanation
+STEP 3 → Image / animation → Short explanation
+Use:
+Large step numbers
+Arrows
+Highlighted components
+Close-up views
+Callouts
+Warning indicators
+7. ADD VIDEO SUPPORT
+Where the existing manual needs a demonstration, add a professional video area.
+Support:
+Play/pause
+Fullscreen
+Captions
+Replay
+Playback controls
+If an actual video is not available, create a clean placeholder for the video instead of inventing one.
+8. IMPROVE IMAGES
+Every important image should support:
+Zoom
+Fullscreen
+Close-up viewing
+Captions where useful
+Make images responsive on mobile.
+9. IMPROVE THE VISUAL DESIGN
+Keep the existing manual identity, but make it feel significantly more premium.
+Use:
+Clean typography
+Better spacing
+Professional hierarchy
+Strong visual separation between steps
+High-quality imagery
+Subtle animations
+Consistent icons
+Professional technical diagrams
+Avoid:
+Excessive gradients
+Unnecessary animations
+Cartoon-like graphics
+Generic website styling
+Clutter
+10. DO NOT CHANGE TECHNICAL INFORMATION
+This is extremely important.
+Do NOT invent or modify:
+Specifications
+Dimensions
+Product functions
+Safety information
+Part numbers
+Technical claims
+Instructions
+The existing manual content is the source of truth.
+Only improve the visual presentation unless I explicitly provide new information.
+11. MOBILE
+Make sure the upgraded manual works perfectly on:
+Desktop
+Tablet
+Mobile
+3D, images, videos, animations and instructions must all remain usable on mobile.
+12. FINAL CHECK
+After making the changes:
+Review the entire existing manual.
+Preserve all existing content.
+Improve the visual quality.
+Test every existing feature.
+Test the new 3D features.
+Test images and videos.
+Test mobile responsiveness.
+Fix visual bugs.
+Fix spacing and typography issues.
+Make sure there are no broken components.
+IMPORTANT:
+EDIT AND UPGRADE THE EXISTING USER MANUAL.
