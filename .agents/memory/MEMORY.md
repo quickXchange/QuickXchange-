@@ -89,6 +89,7 @@
 - [Admin permission boundaries](admin-permission-boundaries.md) — Admin APIs are deny-by-default; Owner-only sensitive actions cannot be delegated or restored through overrides.
 - [Provider support metadata](provider-support-metadata.md) — provider-only orders keep operational support data in a fenced sidecar with explicit result tags and safe projections.
 - [Resend sender domain verification](resend-sender-domain.md) — Contact Form delivery stays fail-closed until quickxchange.net is verified in the connected Resend account.
+- [Resend connector state validation](resend-connector-state-validation.md) — connector UI and directory state can disagree; validate the runtime credential with a read-only provider call before retrying email.
 - [Newsletter delivery integrity](newsletter-delivery-integrity.md) — publish enqueue is atomic, unsubscribe is terminal, and Read More links are parser-checked.
 - [WhiteBIT deposit integrity](whitebit-deposit-integrity.md) — alias all stable provider IDs, freeze credited economics, and reconcile within the provider’s bounded history window.
 - [Shared DB test isolation](shared-db-test-isolation.md) — privileged integration tests use development storage; never drop or truncate public tables.
