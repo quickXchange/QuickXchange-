@@ -7,7 +7,7 @@ import { useI18n } from '@/i18n';
 
 export const SUPPORT_TELEGRAM = 'https://t.me/Quick_change_support';
 export const TELEGRAM_BOT_URL = 'https://t.me/QuickXchangeNetBot';
-export const SUPPORT_EMAIL = 'support@quickxchange.net';
+export const SUPPORT_EMAIL = 'support@quickchange.exchange';
 export const SUPPORT_HOURS = '24/7 Support';
 export const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
 

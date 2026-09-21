@@ -36,7 +36,7 @@ async function emailProviderRejectionMessage(response: Response) {
     // Keep the safe fallback when the provider does not return JSON.
   }
   if (/domain.+not verified|not verified.+domain/i.test(providerMessage)) {
-    return "Resend rejected the message because quickxchange.net is not verified. Verify quickxchange.net in Resend, then retry.";
+    return "Resend rejected the message because quickchange.exchange is not verified. Verify quickchange.exchange in Resend, then retry.";
   }
   return providerMessage
     ? `Resend rejected the message: ${providerMessage.slice(0, 300)}`
@@ -85,7 +85,7 @@ router.post("/admin/notification-settings/test-email", requireOwner, async (req,
     headers: { "Content-Type": "application/json" },
     body: {
       to: [settings.adminNotificationEmail],
-      from: process.env.CUSTOMER_NOTIFICATION_FROM_EMAIL?.trim() || "QuickXchange <support@quickxchange.net>",
+      from: process.env.CUSTOMER_NOTIFICATION_FROM_EMAIL?.trim() || "QuickXchange <support@quickchange.exchange>",
       subject: "QuickXchange Admin notification test",
       text: "Your QuickXchange Admin email notifications are connected and ready.",
       html: '<div style="font-family:Arial,sans-serif;padding:24px"><h2>QuickXchange Admin notification test</h2><p>Your Admin email notifications are connected and ready.</p></div>',
@@ -242,7 +242,7 @@ router.post("/admin/notification-settings/email-templates/test", requireOwner, a
     headers: { "Content-Type": "application/json" },
     body: {
       to: [settings.adminNotificationEmail],
-      from: process.env.CUSTOMER_NOTIFICATION_FROM_EMAIL?.trim() || "QuickXchange <support@quickxchange.net>",
+      from: process.env.CUSTOMER_NOTIFICATION_FROM_EMAIL?.trim() || "QuickXchange <support@quickchange.exchange>",
       subject: `[Preview] ${content.subject}`,
       text: content.text,
       html: content.html,

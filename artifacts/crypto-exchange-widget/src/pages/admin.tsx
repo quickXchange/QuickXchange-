@@ -2060,7 +2060,7 @@ function AdminNotificationSettings() {
                   <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Admin notification email</label>
                   <div className="relative">
                     <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                    <input className="qx-notif-input qx-notif-input-icon" placeholder="admin@quickxchange.net" value={String(draft.adminNotificationEmail ?? '')} onChange={e => set('adminNotificationEmail', e.target.value)} />
+                    <input className="qx-notif-input qx-notif-input-icon" placeholder="admin@quickchange.exchange" value={String(draft.adminNotificationEmail ?? '')} onChange={e => set('adminNotificationEmail', e.target.value)} />
                   </div>
                   {Boolean(draft.adminNotificationEmail) && <div className="mt-2 text-[10px] text-emerald-400 flex items-center gap-1"><Check size={11} /> Email configured</div>}
                   <div className="mt-3 flex items-center justify-between">
@@ -2464,9 +2464,9 @@ function AdminNotificationSettings() {
                         .replace(/\{\{status\}\}/g, 'Processing')
                         .replace(/\{\{createdDate\}\}/g, 'Sep 21, 2026 14:20')
                         .replace(/\{\{completedDate\}\}/g, 'Sep 21, 2026 14:48')
-                        .replace(/\{\{orderUrl\}\}/g, 'https://quickxchange.net/status')
-                        .replace(/\{\{invoiceUrl\}\}/g, 'https://quickxchange.net/status?invoice=1')
-                        .replace(/\{\{trustpilotUrl\}\}/g, 'https://www.trustpilot.com/review/quickxchange.net')
+                        .replace(/\{\{orderUrl\}\}/g, 'https://quickchange.exchange/status')
+                        .replace(/\{\{invoiceUrl\}\}/g, 'https://quickchange.exchange/status?invoice=1')
+                        .replace(/\{\{trustpilotUrl\}\}/g, 'https://www.trustpilot.com/review/quickchange.exchange')
                     : 'Message body will appear here...'}
                 </div>
 

@@ -3,8 +3,8 @@ name: Resend sender domain verification
 description: Sender-domain constraint for QuickXchange transactional email.
 ---
 
-The connected Resend credential is send-only and cannot list domains. Resend rejects every sender on `quickxchange.net` until that domain is verified in the same Resend account.
+The connected Resend credential is send-only and cannot list domains. Resend rejects every sender on `quickchange.exchange` until that domain is verified in the same Resend account.
 
-**Why:** Both the explicit Contact Form sender and the configured notification sender resolved to `quickxchange.net` and were rejected with the provider's unverified-domain response.
+**Why:** The project owner confirmed `quickchange.exchange` is the authoritative domain; both support and notification email must use it. Resend still requires verification in the connected account.
 
-**How to apply:** Keep contact delivery fail-closed. Verify `quickxchange.net` in Resend before live email tests; do not substitute the Resend test sender for production customer mail.
+**How to apply:** Keep contact delivery fail-closed. Verify `quickchange.exchange` in Resend before live email tests; do not substitute the Resend test sender for production customer mail.
