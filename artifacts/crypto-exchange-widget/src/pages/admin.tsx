@@ -2060,7 +2060,7 @@ function AdminNotificationSettings() {
                   <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Admin notification email</label>
                   <div className="relative">
                     <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                    <input className="qx-notif-input pl-9" placeholder="admin@quickxchange.net" value={String(draft.adminNotificationEmail ?? '')} onChange={e => set('adminNotificationEmail', e.target.value)} />
+                    <input className="qx-notif-input qx-notif-input-icon" placeholder="admin@quickxchange.net" value={String(draft.adminNotificationEmail ?? '')} onChange={e => set('adminNotificationEmail', e.target.value)} />
                   </div>
                   {Boolean(draft.adminNotificationEmail) && <div className="mt-2 text-[10px] text-emerald-400 flex items-center gap-1"><Check size={11} /> Email configured</div>}
                   <div className="mt-3 flex items-center justify-between">
@@ -2082,7 +2082,7 @@ function AdminNotificationSettings() {
 
               {/* Telegram Notifications */}
               <div className="qx-notif-card">
-                <div className="qx-notif-card-header border-b-0 pb-0 flex-col items-start gap-1">
+                <div className="qx-notif-card-header border-b-0 pb-0">
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
                     <SiTelegram size={16} className="text-blue-400" />
                     Telegram Notifications
@@ -2097,14 +2097,14 @@ function AdminNotificationSettings() {
                       <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Telegram Phone Number</span>
                       <div className="relative mt-1">
                         <Smartphone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                        <input className="qx-notif-input pl-9 text-sm" placeholder="+213 555 000 000" value={String(draft.adminNotificationPhone ?? '')} onChange={e => set('adminNotificationPhone', e.target.value)} />
+                        <input className="qx-notif-input qx-notif-input-icon text-sm" placeholder="+213 555 000 000" value={String(draft.adminNotificationPhone ?? '')} onChange={e => set('adminNotificationPhone', e.target.value)} />
                       </div>
                     </label>
                     <label className="block">
                       <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Telegram Chat ID</span>
                       <div className="relative mt-1">
                         <Send size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                        <input className="qx-notif-input pl-9 text-sm" placeholder="Not connected" value={draft.adminTelegramChatId ? '********' + String(draft.adminTelegramChatId).slice(-4) : ''} readOnly />
+                        <input className="qx-notif-input qx-notif-input-icon text-sm" placeholder="Not connected" value={draft.adminTelegramChatId ? '********' + String(draft.adminTelegramChatId).slice(-4) : ''} readOnly />
                       </div>
                     </label>
                   </div>

@@ -27,6 +27,22 @@ async function getSettings() {
   return settings;
 }
 
+async function emailProviderRejectionMessage(response: Response) {
+  let providerMessage = "";
+  try {
+    const body = await response.json() as { message?: unknown };
+    providerMessage = typeof body.message === "string" ? body.message : "";
+  } catch {
+    // Keep the safe fallback when the provider does not return JSON.
+  }
+  if (/domain.+not verified|not verified.+domain/i.test(providerMessage)) {
+    return "Resend rejected the message because quickxchange.net is not verified. Verify quickxchange.net in Resend, then retry.";
+  }
+  return providerMessage
+    ? `Resend rejected the message: ${providerMessage.slice(0, 300)}`
+    : "The email provider rejected the test message.";
+}
+
 router.get("/admin/notification-settings", requireOwner, async (_req, res) => {
   const settings = await getSettings();
   res.json(settings);
@@ -76,7 +92,7 @@ router.post("/admin/notification-settings/test-email", requireOwner, async (req,
     },
   });
   if (!response.ok) {
-    throw new ApiError("ADMIN_EMAIL_TEST_FAILED", "The email provider rejected the test message.", 502);
+    throw new ApiError("ADMIN_EMAIL_TEST_FAILED", await emailProviderRejectionMessage(response), 502);
   }
   res.json({ success: true, message: `Test email sent to ${settings.adminNotificationEmail}.` });
 });
@@ -232,7 +248,7 @@ router.post("/admin/notification-settings/email-templates/test", requireOwner, a
       html: content.html,
     },
   });
-  if (!response.ok) throw new ApiError("ADMIN_EMAIL_TEST_FAILED", "The email provider rejected the template test.", 502);
+  if (!response.ok) throw new ApiError("ADMIN_EMAIL_TEST_FAILED", await emailProviderRejectionMessage(response), 502);
   res.json({ success: true, message: `Template test email sent to ${settings.adminNotificationEmail}.` });
 });
 

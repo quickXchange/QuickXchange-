@@ -119,6 +119,10 @@
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
+.qx-notif-input.qx-notif-input-icon {
+  padding-left: 2.5rem;
+}
+
 .qx-notif-input:focus {
   outline: none;
   border-color: var(--accent-cyan);
