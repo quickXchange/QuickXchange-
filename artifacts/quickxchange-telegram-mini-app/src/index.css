@@ -239,3 +239,52 @@
 .dark .glass-nav {
   box-shadow: 0 -4px 24px -8px rgba(0,0,0,0.5);
 }
+
+/* Order Details Exchange Summary: keep payment and asset artwork identically circular. */
+.order-detail-summary-logo {
+  width: 2.5rem !important;
+  height: 2.5rem !important;
+  min-width: 2.5rem !important;
+  min-height: 2.5rem !important;
+  aspect-ratio: 1 / 1;
+  border-radius: 9999px;
+  background: transparent !important;
+  box-shadow:
+    0 0 0 1px rgba(67, 186, 255, 0.22),
+    0 0 12px -5px rgba(6, 182, 212, 0.5),
+    0 0 16px -8px rgba(124, 58, 237, 0.42);
+}
+
+.order-detail-summary-logo-receive {
+  box-shadow:
+    0 0 0 1px rgba(124, 58, 237, 0.18),
+    0 0 12px -5px rgba(59, 130, 246, 0.46),
+    0 0 16px -8px rgba(124, 58, 237, 0.5);
+}
+
+.order-detail-summary-logo > span {
+  width: 2rem !important;
+  height: 2rem !important;
+  aspect-ratio: 1 / 1;
+  padding: 0 !important;
+  overflow: hidden;
+  border: 0 !important;
+  border-radius: 9999px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.order-detail-summary-logo > span > img {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: 1 / 1;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 9999px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  object-fit: contain !important;
+  object-position: center !important;
+}
+

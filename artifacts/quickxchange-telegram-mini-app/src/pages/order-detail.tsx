@@ -20,6 +20,7 @@ import { format } from 'date-fns';
 import { QRCodeSVG } from 'qrcode.react';
 import { MiniAppLogo } from '@/components/mini-app-logo';
 import { resolveOrderVisual } from '@/lib/logo-catalog';
+import bbvaTransparentLogoUrl from '../../../../attached_assets/bbva-logo-transparent.png';
 import {
   normalizeSwapOrderStatus,
   swapOrderStatusLabel,
@@ -185,6 +186,12 @@ export default function OrderDetail() {
   const sourcePaymentMethod = (targetStatus as any).sourcePaymentMethod;
   const sourceVisual = resolveOrderVisual(exchangeConfig?.settlementOptions, targetStatus, 'source');
   const targetVisual = resolveOrderVisual(exchangeConfig?.settlementOptions, targetStatus, 'target');
+  const sourceSummaryVisual = /bbva/i.test(sourceVisual.label || '')
+    ? { ...sourceVisual, logoUrl: bbvaTransparentLogoUrl }
+    : sourceVisual;
+  const targetSummaryVisual = /bbva/i.test(targetVisual.label || '')
+    ? { ...targetVisual, logoUrl: bbvaTransparentLogoUrl }
+    : targetVisual;
   const sourceIdentity = sourcePaymentMethod?.name || targetStatus.fromNetwork || targetStatus.fromAsset;
   const isCryptoDeposit = Boolean(targetStatus.depositAddress);
   const parsedSendAmount = Number(targetStatus.amount);
@@ -360,7 +367,15 @@ export default function OrderDetail() {
           <div className="relative">
             <div className="flex items-center justify-between bg-secondary/[0.06] rounded-t-xl p-3.5 border border-border/50 border-b-0">
               <div className="flex items-center gap-3 overflow-hidden mr-3">
-                <MiniAppLogo {...sourceVisual} alt={targetStatus.fromAsset} size="medium" />
+                <MiniAppLogo
+                  {...sourceSummaryVisual}
+                  alt={targetStatus.fromAsset}
+                  size="medium"
+                  className={cn(
+                    'order-detail-summary-logo order-detail-summary-logo-send',
+                    /bbva/i.test(sourceSummaryVisual.label || '') && 'is-bbva',
+                  )}
+                />
                 <div className="flex flex-col justify-center min-w-0">
                   <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.16em] leading-none mb-1.5">You Send</div>
                   <div className="font-bold text-[17px] leading-none truncate">{targetStatus.amount} {targetStatus.fromAsset}</div>
@@ -373,7 +388,15 @@ export default function OrderDetail() {
 
             <div className="flex items-center justify-between bg-gradient-to-br from-primary/[0.08] to-accent/[0.07] rounded-b-xl p-3.5 border border-border/50">
               <div className="flex items-center gap-3 overflow-hidden mr-3">
-                <MiniAppLogo {...targetVisual} alt={targetStatus.toAsset} size="medium" />
+                <MiniAppLogo
+                  {...targetSummaryVisual}
+                  alt={targetStatus.toAsset}
+                  size="medium"
+                  className={cn(
+                    'order-detail-summary-logo order-detail-summary-logo-receive',
+                    /bbva/i.test(targetSummaryVisual.label || '') && 'is-bbva',
+                  )}
+                />
                 <div className="flex flex-col justify-center min-w-0">
                   <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.16em] leading-none mb-1.5">You Receive</div>
                   <div className="font-bold text-[17px] leading-none text-primary truncate">{targetStatus.receiveAmount} {targetStatus.toAsset}</div>

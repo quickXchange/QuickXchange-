@@ -14,6 +14,7 @@ type OrderSettlementIdentityProps = {
   size?: 'sm' | 'md' | 'lg';
   compact?: boolean;
   className?: string;
+  summaryLogoArtwork?: boolean;
 };
 
 const normalizedIdentityPart = (value?: string | null) => value?.trim().toLowerCase() || '';
@@ -57,6 +58,7 @@ export function OrderSettlementIdentity({
   size = 'md',
   compact = false,
   className,
+  summaryLogoArtwork = false,
 }: OrderSettlementIdentityProps) {
   const config = useGetExchangeConfig({
     query: {
@@ -91,6 +93,7 @@ export function OrderSettlementIdentity({
           logoUrl={paymentOption.logoUrl}
           flagUrl={(paymentOption as SettlementOption & { flagUrl?: string | null }).flagUrl}
           className="order-settlement-payment-logo"
+          preferTransparentBbvaArtwork={summaryLogoArtwork}
         />
         <span className="order-settlement-copy">
           <strong>{methodName}</strong>

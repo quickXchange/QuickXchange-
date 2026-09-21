@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { SiAlipay, SiCashapp, SiN26, SiPaypal, SiPix, SiRevolut, SiVenmo, SiVisa, SiWise, SiZelle } from 'react-icons/si';
 import bbvaLogoUrl from '../../../../attached_assets/bbva-logo-png_seeklogo-474433_1788988228546.png';
+import bbvaTransparentLogoUrl from '../../../../attached_assets/bbva-logo-transparent.png';
 import { getBrandfetchLogoUrl } from '@/lib/brandfetch';
 import { LogoAvatar } from '@/components/logo-avatar';
 import { FiatCurrencyFlag } from '@/components/fiat-flag';
@@ -85,6 +86,7 @@ export function PaymentMethodLogo({
   className,
   priority = true,
   preferBrandIcon = false,
+  preferTransparentBbvaArtwork = false,
 }: {
   name: string;
   logoUrl?: string | null;
@@ -94,6 +96,7 @@ export function PaymentMethodLogo({
   className?: string;
   priority?: boolean;
   preferBrandIcon?: boolean;
+  preferTransparentBbvaArtwork?: boolean;
 }) {
   const normalized = name.toLowerCase();
   const visualProfile = PAYMENT_METHOD_VISUAL_PROFILES.find(([pattern]) => pattern.test(name))?.[1];
@@ -125,6 +128,9 @@ export function PaymentMethodLogo({
   else if (normalized === 'pix' || normalized.includes(' pix')) { logo = <SiPix color="#32BCAD" />; brand = 'pix'; }
 
   const officialLogoUrl = PAYMENT_METHOD_OFFICIAL_LOGOS.find(([pattern]) => pattern.test(name))?.[1];
+  const presentationLogoUrl = preferTransparentBbvaArtwork && brand === 'bbva'
+    ? bbvaTransparentLogoUrl
+    : officialLogoUrl;
   const remoteDomain = PAYMENT_METHOD_LOGO_DOMAINS.find(([pattern]) => pattern.test(name))?.[1];
   const brandfetchUrl = remoteDomain ? getBrandfetchLogoUrl(remoteDomain, { type: 'icon' }) : null;
   const fallbackRemoteUrl = remoteDomain
@@ -142,8 +148,8 @@ export function PaymentMethodLogo({
       ? [brandfetchUrl, bundledUrl, logoUrl, fallbackRemoteUrl]
       : [logoUrl, bundledUrl, brandfetchUrl, fallbackRemoteUrl]).filter(Boolean).join('\0')
     : (preferBrandIcon
-      ? [brandfetchUrl, officialLogoUrl, logoUrl, fallbackRemoteUrl]
-      : [logoUrl, officialLogoUrl, brandfetchUrl, fallbackRemoteUrl]).filter(Boolean).join('\0');
+      ? [brandfetchUrl, presentationLogoUrl, logoUrl, fallbackRemoteUrl]
+      : [preferTransparentBbvaArtwork ? presentationLogoUrl : logoUrl, presentationLogoUrl, brandfetchUrl, fallbackRemoteUrl]).filter(Boolean).join('\0');
   const imageSources = useMemo(() => Array.from(new Set(sourceKey.split('\0').filter(Boolean))), [sourceKey]);
   const logoType = /\b(?:bank|bbva|n26|bunq|commerzbank|caixabank|ziraat|zirrat|icard|bnp|ing)\b/iu.test(name)
     ? 'bank'

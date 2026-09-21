@@ -84,6 +84,76 @@
   }
 }
 
+/* Order Details Exchange Summary: one circular artwork contract for both legs. */
+.order-exchange-summary-logo {
+  width: 3rem;
+  height: 3rem;
+  min-width: 3rem;
+  min-height: 3rem;
+  aspect-ratio: 1 / 1;
+  border: 1px solid rgba(67, 186, 255, 0.24);
+  border-radius: 9999px;
+  background: transparent;
+  box-shadow:
+    0 0 0 1px rgba(37, 99, 235, 0.05),
+    0 0 13px -5px rgba(6, 182, 212, 0.48),
+    0 0 18px -9px rgba(124, 58, 237, 0.4);
+}
+
+.order-exchange-summary-logo-receive {
+  box-shadow:
+    0 0 0 1px rgba(124, 58, 237, 0.06),
+    0 0 13px -5px rgba(59, 130, 246, 0.44),
+    0 0 18px -9px rgba(124, 58, 237, 0.48);
+}
+
+.order-exchange-summary-logo :is(
+  .order-settlement-identity,
+  .order-settlement-payment-logo,
+  .payment-method-logo-stack,
+  .payment-method-logo,
+  .crypto-identity,
+  .crypto-logo,
+  .logo-avatar
+) {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.order-exchange-summary-logo :is(
+  .order-settlement-payment-logo,
+  .payment-method-logo,
+  .crypto-logo,
+  .logo-avatar
+) {
+  width: 2.125rem !important;
+  height: 2.125rem !important;
+  min-width: 2.125rem !important;
+  min-height: 2.125rem !important;
+  max-width: 2.125rem !important;
+  max-height: 2.125rem !important;
+  aspect-ratio: 1 / 1 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border-radius: 9999px !important;
+}
+
+.order-exchange-summary-logo :is(img, .logo-avatar-img) {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: 1 / 1 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 9999px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  object-fit: contain !important;
+  object-position: center !important;
+}
+
+
 .order-completion-section {
   margin: 2rem 0;
   overflow: hidden;
