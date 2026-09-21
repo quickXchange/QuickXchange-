@@ -17,8 +17,6 @@ import { normalizeTronAddress } from "./tron";
 import { enqueueSwapTelegramNotification } from "../telegram-swap-notifications";
 import { updateOrderAndQueueStatusNotificationTx } from "../customer-status-notifications";
 import { logger } from "../logger";
-import verifiedBep20RecoverySql from "../../../../../lib/db/migrations/0089_recover_verified_bep20_usdt_payment.sql";
-import verifiedLiveBep20RecoverySql from "../../../../../lib/db/migrations/0091_recover_verified_live_bep20_usdt_payment.sql";
 import verifiedRecurringBep20RecoverySql from "../../../../../lib/db/migrations/0098_recover_verified_bep20_usdt_payment.sql";
 
 const ELIGIBLE = and(
@@ -642,8 +640,6 @@ export function startBlockchainMonitoringWorker(): () => void {
   const applyRecoveryMigration = (): Promise<void> => {
     if (!recoveryMigration) {
       recoveryMigration = db.transaction(async (tx) => {
-        await tx.execute(sql.raw(verifiedBep20RecoverySql));
-        await tx.execute(sql.raw(verifiedLiveBep20RecoverySql));
         await tx.execute(sql.raw(verifiedRecurringBep20RecoverySql));
       }).then(() => undefined).catch((error) => {
         recoveryMigration = undefined;

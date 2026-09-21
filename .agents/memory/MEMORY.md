@@ -136,3 +136,4 @@
 - [Issuer-verified bridged tokens](issuer-verified-bridged-tokens.md) — leave bridged token routes incomplete when issuer protocol lists do not verify the deployment.
 - [Payment-backed Admin notifications](payment-backed-admin-notifications.md) — gate every Admin lifecycle channel on durable payment evidence, never on another notification event.
 - [BSC payment evidence lookup](bsc-payment-evidence-lookup.md) — public BSC RPCs may reject broad token-log scans; discover the tx narrowly, then verify its receipt and canonical block by RPC.
+- [Recovery migration replay isolation](recovery-migration-replay-isolation.md) — obsolete evidence recoveries must not replay ahead of a current recovery or one mismatch can stop the monitoring worker.
