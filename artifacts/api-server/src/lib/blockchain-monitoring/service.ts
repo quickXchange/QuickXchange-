@@ -19,6 +19,7 @@ import { updateOrderAndQueueStatusNotificationTx } from "../customer-status-noti
 import { logger } from "../logger";
 import verifiedBep20RecoverySql from "../../../../../lib/db/migrations/0089_recover_verified_bep20_usdt_payment.sql";
 import verifiedLiveBep20RecoverySql from "../../../../../lib/db/migrations/0091_recover_verified_live_bep20_usdt_payment.sql";
+import verifiedRecurringBep20RecoverySql from "../../../../../lib/db/migrations/0098_recover_verified_bep20_usdt_payment.sql";
 
 const ELIGIBLE = and(
   eq(ordersTable.type, "manual"),
@@ -28,6 +29,8 @@ const ELIGIBLE = and(
 );
 let cycleRunning = false;
 let recoveryMigration: Promise<void> | undefined;
+const VERIFIED_RECEIPT_RECOVERY_REASON =
+  "Verified receipt recovery; inactive to prevent unbounded rescanning.";
 
 type JsonObject = Record<string, unknown>;
 const object = (value: unknown): JsonObject =>
@@ -58,6 +61,20 @@ export function evidenceMeetsWatchTimeAndMemo(
 
 export function isFinalitySatisfied(policy: string, confirmations: number, required: number, finalized: boolean): boolean {
   return policy === "finalized" ? finalized : confirmations >= required;
+}
+
+export function canApplyConfirmedMatchWatch(watch: {
+  active: boolean;
+  registrationState: string;
+  registrationReason: string | null;
+  startCursor: string | null;
+  currentCursor: string | null;
+}): boolean {
+  if (watch.registrationState !== "active") return false;
+  if (watch.active) return true;
+  return watch.registrationReason === VERIFIED_RECEIPT_RECOVERY_REASON &&
+    watch.startCursor === null &&
+    watch.currentCursor === null;
 }
 
 export function immutableIdentityMatches(
@@ -576,8 +593,7 @@ export async function applyConfirmedMatches(leaseToken?: string, networkId?: str
         .where(eq(blockchainMonitorWatchesTable.id, match.watchId)).limit(1);
       if (
         !watch ||
-        !watch.active ||
-        watch.registrationState !== "active" ||
+        !canApplyConfirmedMatchWatch(watch) ||
         watch.orderId !== match.orderId
       ) {
         await tx.update(blockchainMonitorMatchesTable).set({
@@ -628,6 +644,7 @@ export function startBlockchainMonitoringWorker(): () => void {
       recoveryMigration = db.transaction(async (tx) => {
         await tx.execute(sql.raw(verifiedBep20RecoverySql));
         await tx.execute(sql.raw(verifiedLiveBep20RecoverySql));
+        await tx.execute(sql.raw(verifiedRecurringBep20RecoverySql));
       }).then(() => undefined).catch((error) => {
         recoveryMigration = undefined;
         throw error;

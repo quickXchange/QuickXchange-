@@ -7,6 +7,7 @@ import { listDepositProviderOptions } from "../src/lib/deposit-provider-registry
 import {
   canAcceptManualCryptoDeposit,
   isConfiguredYouSendCryptoNetwork,
+  isManualMonitoringRuntimeReady,
 } from "../src/lib/manual-crypto";
 
 const secret = "unit-test-webhook-secret";
@@ -172,4 +173,23 @@ test("You Send visibility follows the explicit enabled state and provider assign
     depositProvider: "none",
     customerDepositsEnabled: true,
   }), false);
+});
+
+test("manual customer deposits require a connected exact monitoring identity", () => {
+  const ready = {
+    routeId: "usdt-bep20",
+    routeNetworkCode: "BEP20",
+    monitorAssetRouteId: "usdt-bep20",
+    monitorNetworkCode: "BEP20",
+    assetEnabled: true,
+    networkEnabled: true,
+    providerKind: "rpc",
+    endpointConfigured: true,
+    healthStatus: "connected",
+  };
+  assert.equal(isManualMonitoringRuntimeReady(ready), true);
+  assert.equal(isManualMonitoringRuntimeReady({ ...ready, endpointConfigured: false }), false);
+  assert.equal(isManualMonitoringRuntimeReady({ ...ready, healthStatus: "disconnected" }), false);
+  assert.equal(isManualMonitoringRuntimeReady({ ...ready, monitorAssetRouteId: "usdc-bep20" }), false);
+  assert.equal(isManualMonitoringRuntimeReady({ ...ready, monitorNetworkCode: "ERC20" }), false);
 });

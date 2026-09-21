@@ -1,5 +1,11 @@
-import { asc, desc, eq, sql } from "drizzle-orm";
-import { cryptoAssetNetworksTable, cryptoAssetsTable, db } from "@workspace/db";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
+import {
+  blockchainMonitorAssetsTable,
+  blockchainMonitorNetworksTable,
+  cryptoAssetNetworksTable,
+  cryptoAssetsTable,
+  db,
+} from "@workspace/db";
 import { isRegisteredDepositProvider } from "./deposit-provider-registry";
 
 export type ManualCryptoOption = {
@@ -65,6 +71,63 @@ export async function listManualCryptoNetworks() {
     );
 }
 
+export function isManualMonitoringRuntimeReady(input: {
+  routeId: string;
+  routeNetworkCode: string;
+  monitorAssetRouteId: string;
+  monitorNetworkCode: string;
+  assetEnabled: boolean;
+  networkEnabled: boolean;
+  providerKind: string;
+  endpointConfigured: boolean;
+  healthStatus: string;
+}) {
+  return input.routeId === input.monitorAssetRouteId &&
+    input.routeNetworkCode.trim().toUpperCase() ===
+      input.monitorNetworkCode.trim().toUpperCase() &&
+    input.assetEnabled &&
+    input.networkEnabled &&
+    input.providerKind !== "none" &&
+    input.endpointConfigured &&
+    input.healthStatus === "connected";
+}
+
+async function listReadyManualMonitoringRoutes(): Promise<Map<string, string>> {
+  const rows = await db.select({
+    monitorAssetRouteId: blockchainMonitorAssetsTable.assetNetworkId,
+    monitorNetworkCode: blockchainMonitorNetworksTable.networkCode,
+    assetEnabled: blockchainMonitorAssetsTable.enabled,
+    networkEnabled: blockchainMonitorNetworksTable.enabled,
+    providerKind: blockchainMonitorNetworksTable.providerKind,
+    endpointSecretRef: blockchainMonitorNetworksTable.endpointSecretRef,
+    healthStatus: blockchainMonitorNetworksTable.healthStatus,
+  }).from(blockchainMonitorAssetsTable)
+    .innerJoin(
+      blockchainMonitorNetworksTable,
+      eq(blockchainMonitorNetworksTable.id, blockchainMonitorAssetsTable.monitorNetworkId),
+    )
+    .where(and(
+      eq(blockchainMonitorAssetsTable.enabled, true),
+      eq(blockchainMonitorNetworksTable.enabled, true),
+    ));
+  return new Map(rows
+    .filter((row) => isManualMonitoringRuntimeReady({
+      routeId: row.monitorAssetRouteId,
+      routeNetworkCode: row.monitorNetworkCode,
+      monitorAssetRouteId: row.monitorAssetRouteId,
+      monitorNetworkCode: row.monitorNetworkCode,
+      assetEnabled: row.assetEnabled,
+      networkEnabled: row.networkEnabled,
+      providerKind: row.providerKind,
+      endpointConfigured: Boolean(
+        row.endpointSecretRef &&
+        process.env[row.endpointSecretRef],
+      ),
+      healthStatus: row.healthStatus,
+    }))
+    .map((row) => [row.monitorAssetRouteId, row.monitorNetworkCode]));
+}
+
 function isManualCryptoRouteEligible(
   asset: typeof cryptoAssetsTable.$inferSelect,
   network: typeof cryptoAssetNetworksTable.$inferSelect,
@@ -78,11 +141,20 @@ function isManualCryptoRouteEligible(
 
 /** Public catalog deliberately never includes the shared receiving address. */
 export async function listPublicManualCryptoSettlementOptions(): Promise<ManualCryptoOption[]> {
-  const rows = await listManualCryptoNetworks();
+  const [rows, readyManualMonitoringRoutes] = await Promise.all([
+    listManualCryptoNetworks(),
+    listReadyManualMonitoringRoutes(),
+  ]);
   return rows.filter(({ asset, network }) =>
     isManualCryptoRouteEligible(asset, network)
   ).map(({ asset, network }) => {
-    const configuredForCustomerSend = isConfiguredYouSendCryptoNetwork(network);
+    const configuredForCustomerSend =
+      isConfiguredYouSendCryptoNetwork(network) &&
+      (
+        network.depositProvider !== "manual" ||
+        readyManualMonitoringRoutes.get(network.id)?.trim().toUpperCase() ===
+          network.networkCode.trim().toUpperCase()
+      );
     return {
     id: `crypto:${network.id}`,
     assetId: asset.id,

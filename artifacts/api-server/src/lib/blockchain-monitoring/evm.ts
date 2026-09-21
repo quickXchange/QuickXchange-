@@ -15,7 +15,12 @@ type EvmTransaction = {
 type EvmLog = {
   address?: string; topics?: string[]; data?: string; transactionHash?: string; blockNumber?: string; logIndex?: string;
 };
-type EvmBlock = { number?: string; hash?: string; timestamp?: string; transactions?: EvmTransaction[] };
+type EvmBlock = {
+  number?: string;
+  hash?: string;
+  timestamp?: string;
+  transactions?: Array<EvmTransaction | string>;
+};
 
 export function normalizeEvmAddress(address: string): string {
   const value = address.trim().toLowerCase();
@@ -142,6 +147,39 @@ export class EvmJsonRpcAdapter implements BlockchainMonitorAdapter {
     if (this.config.chainId && chainId.toLowerCase() !== this.config.chainId.toLowerCase()) {
       throw new BlockchainMonitorError("PROVIDER", "Blockchain monitoring provider returned an unexpected network.");
     }
+    const block = await this.rpc<EvmBlock | null>("eth_getBlockByNumber", [head, true]);
+    if (!block?.hash || !block.timestamp) {
+      throw new BlockchainMonitorError("PROVIDER", "Blockchain monitoring provider did not return the current block.");
+    }
+    await this.rpc<EvmLog[]>("eth_getLogs", [{
+      fromBlock: head,
+      toBlock: head,
+      topics: [TRANSFER_TOPIC],
+    }]);
+    let transactionHash = block.transactions
+      ?.map((transaction) => typeof transaction === "string" ? transaction : transaction.hash)
+      .find((hash): hash is string => Boolean(hash));
+    for (let offset = 1n; !transactionHash && offset <= 5n; offset += 1n) {
+      const candidateNumber = BigInt(head) - offset;
+      if (candidateNumber < 0n) break;
+      const candidate = await this.rpc<EvmBlock | null>(
+        "eth_getBlockByNumber",
+        [`0x${candidateNumber.toString(16)}`, true],
+      );
+      transactionHash = candidate?.transactions
+        ?.map((transaction) => typeof transaction === "string" ? transaction : transaction.hash)
+        .find((hash): hash is string => Boolean(hash));
+    }
+    if (!transactionHash) {
+      throw new BlockchainMonitorError("PROVIDER", "Blockchain monitoring provider did not return a transaction for receipt verification.");
+    }
+    const receipt = await this.rpc<{ status?: string } | null>(
+      "eth_getTransactionReceipt",
+      [transactionHash],
+    );
+    if (!receipt?.status) {
+      throw new BlockchainMonitorError("PROVIDER", "Blockchain monitoring provider did not return a transaction receipt.");
+    }
     return { connected: true, chainId, head: BigInt(head).toString(10), latencyMs: Date.now() - started };
   }
 
@@ -168,6 +206,7 @@ export class EvmJsonRpcAdapter implements BlockchainMonitorAdapter {
       if (native.length) {
         const fullBlock = await this.rpc<EvmBlock | null>("eth_getBlockByNumber", [blockHex, true]);
         for (const transaction of fullBlock?.transactions ?? []) {
+          if (typeof transaction === "string") continue;
           const candidates = native.flatMap((item) => {
             const parsed = parseEvmNativeTransfer(transaction, this.networkCode, item.address, item.asset);
             return parsed ? [parsed] : [];

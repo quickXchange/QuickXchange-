@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canResolveRegistrationGap, cursorAfterCapturedHead, deriveBlockchainMonitoringSetupStatus, evidenceWithinWatchCursor, exactAmountMatches, exactWatchMatchesOrderSnapshot, evidenceMeetsWatchTimeAndMemo, immutableIdentityMatches, isFinalitySatisfied, selectReadyBlockchainMonitoringSetupRoutes, selectWatchScanCursor } from "../src/lib/blockchain-monitoring/service";
+import { canApplyConfirmedMatchWatch, canResolveRegistrationGap, cursorAfterCapturedHead, deriveBlockchainMonitoringSetupStatus, evidenceWithinWatchCursor, exactAmountMatches, exactWatchMatchesOrderSnapshot, evidenceMeetsWatchTimeAndMemo, immutableIdentityMatches, isFinalitySatisfied, selectReadyBlockchainMonitoringSetupRoutes, selectWatchScanCursor } from "../src/lib/blockchain-monitoring/service";
 import { canEnqueueSwapPaymentReceived } from "../src/lib/telegram-swap-notifications";
 
 test("Manual monitoring matches decimal order amounts only at configured precision", () => {
@@ -112,4 +112,19 @@ test("Payment Received notifications require the canonical funded processing sta
     status: "processing",
     manualSettlementState: "awaiting_funds",
   }), false);
+});
+
+test("verified receipt recovery is bounded to an inactive cursorless recovery watch", () => {
+  const verified = {
+    active: false,
+    registrationState: "active",
+    registrationReason: "Verified receipt recovery; inactive to prevent unbounded rescanning.",
+    startCursor: null,
+    currentCursor: null,
+  };
+  assert.equal(canApplyConfirmedMatchWatch(verified), true);
+  assert.equal(canApplyConfirmedMatchWatch({ ...verified, registrationState: "pending_review" }), false);
+  assert.equal(canApplyConfirmedMatchWatch({ ...verified, startCursor: "123" }), false);
+  assert.equal(canApplyConfirmedMatchWatch({ ...verified, registrationReason: "operator override" }), false);
+  assert.equal(canApplyConfirmedMatchWatch({ ...verified, active: true, registrationReason: null }), true);
 });
