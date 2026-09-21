@@ -3,7 +3,6 @@ import type { CustomerOrder, PublicOrderStatus } from '@workspace/api-client-rea
 import { basePath, number } from '@/components/shared-app-ui';
 
 type CompletionOrder = CustomerOrder | PublicOrderStatus;
-const officialLogoUrl = `${basePath}/brand/quickxchange-official.png`;
 
 function isCompletedConvert(order: CompletionOrder): boolean {
   return order.type === 'instant' &&
@@ -28,41 +27,7 @@ function optionalOrderString(order: CompletionOrder, key: string): string | unde
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
-async function invoiceLogoJpeg(): Promise<{ bytes: Uint8Array; width: number; height: number }> {
-  const image = new Image();
-  image.src = officialLogoUrl;
-  await image.decode();
-  const canvas = document.createElement('canvas');
-  canvas.width = image.naturalWidth;
-  canvas.height = image.naturalHeight;
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error('Invoice logo rendering is unavailable.');
-  context.fillStyle = '#ffffff';
-  context.fillRect(0, 0, canvas.width, canvas.height);
-  context.drawImage(image, 0, 0);
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((value) => value ? resolve(value) : reject(new Error('Invoice logo encoding failed.')), 'image/jpeg', 0.96);
-  });
-  return { bytes: new Uint8Array(await blob.arrayBuffer()), width: canvas.width, height: canvas.height };
-}
-
-function encoded(value: string): Uint8Array {
-  return new TextEncoder().encode(value);
-}
-
-function concatBytes(parts: Uint8Array[]): Uint8Array<ArrayBuffer> {
-  const length = parts.reduce((total, part) => total + part.byteLength, 0);
-  const output = new Uint8Array(length);
-  let offset = 0;
-  for (const part of parts) {
-    output.set(part, offset);
-    offset += part.byteLength;
-  }
-  return output;
-}
-
-async function buildInvoicePdf(order: CompletionOrder): Promise<Blob> {
-  const logo = await invoiceLogoJpeg();
+function buildInvoicePdf(order: CompletionOrder): Blob {
   const isConvert = order.type === 'instant';
   const completedAt = order.completedAt ||
     optionalOrderString(order, 'providerUpdatedAt') ||
@@ -70,6 +35,7 @@ async function buildInvoicePdf(order: CompletionOrder): Promise<Blob> {
   const providerReference = optionalOrderString(order, 'providerReference');
   const paymentMethod = order.sourcePaymentMethod?.name || order.paymentDetails?.name || '—';
   const lines = [
+    'QUICKXCHANGE',
     'COMPLETION RECEIPT / INVOICE',
     '',
     `Order ID: ${order.id}`,
@@ -98,47 +64,26 @@ async function buildInvoicePdf(order: CompletionOrder): Promise<Blob> {
     ...lines.slice(1).flatMap(line => [`(${escape(printable(line))}) Tj`, '0 -17 Td']),
     'ET',
   ].join('\n');
-  const brandedStream = [
-    'q',
-    '205 0 0 205 50 565 cm',
-    '/Logo Do',
-    'Q',
-    stream.replace('50 760 Td', '50 540 Td'),
-  ].join('\n');
-  const imageObject = concatBytes([
-    encoded(`<< /Type /XObject /Subtype /Image /Width ${logo.width} /Height ${logo.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${logo.bytes.byteLength} >>\nstream\n`),
-    logo.bytes,
-    encoded('\nendstream'),
-  ]);
-  const objects: Uint8Array[] = [
-    encoded('<< /Type /Catalog /Pages 2 0 R >>'),
-    encoded('<< /Type /Pages /Kids [3 0 R] /Count 1 >>'),
-    encoded('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> /XObject << /Logo 6 0 R >> >> /Contents 4 0 R >>'),
-    encoded(`<< /Length ${encoded(brandedStream).byteLength} >>\nstream\n${brandedStream}\nendstream`),
-    encoded('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'),
-    imageObject,
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
+    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
   ];
-  const chunks: Uint8Array[] = [encoded('%PDF-1.4\n')];
-  let byteLength = chunks[0].byteLength;
+  let pdf = '%PDF-1.4\n';
   const offsets: number[] = [0];
   objects.forEach((object, index) => {
-    offsets[index + 1] = byteLength;
-    const chunk = concatBytes([
-      encoded(`${index + 1} 0 obj\n`),
-      object,
-      encoded('\nendobj\n'),
-    ]);
-    chunks.push(chunk);
-    byteLength += chunk.byteLength;
+    offsets[index + 1] = pdf.length;
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
   });
-  const xref = byteLength;
-  let trailer = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  const xref = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
   for (let index = 1; index <= objects.length; index += 1) {
-    trailer += `${String(offsets[index]).padStart(10, '0')} 00000 n \n`;
+    pdf += `${String(offsets[index]).padStart(10, '0')} 00000 n \n`;
   }
-  trailer += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
-  chunks.push(encoded(trailer));
-  return new Blob([concatBytes(chunks).buffer], { type: 'application/pdf' });
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  return new Blob([pdf], { type: 'application/pdf' });
 }
 
 export function OrderCompletionSection({
@@ -158,8 +103,8 @@ export function OrderCompletionSection({
     optionalOrderString(order, 'updatedAt');
   const providerReference = optionalOrderString(order, 'providerReference');
   const paymentMethod = order.sourcePaymentMethod?.name || order.paymentDetails?.name || '—';
-  const downloadPdf = async () => {
-    const url = URL.createObjectURL(await buildInvoicePdf(order));
+  const downloadPdf = () => {
+    const url = URL.createObjectURL(buildInvoicePdf(order));
     const link = document.createElement('a');
     link.href = url;
     link.download = `quickxchange-invoice-${order.id}.pdf`;
@@ -185,7 +130,7 @@ export function OrderCompletionSection({
             <ExternalLink size={15} />
           </a>
         )}
-        <button type="button" className="order-completion-button" onClick={() => void downloadPdf()} data-testid="button-download-invoice">
+        <button type="button" className="order-completion-button" onClick={downloadPdf} data-testid="button-download-invoice">
           <Download size={16} /> Download PDF
         </button>
         <button type="button" className="order-completion-button secondary" onClick={() => window.print()} data-testid="button-print-invoice">
@@ -194,7 +139,7 @@ export function OrderCompletionSection({
       </div>
       <div className="order-invoice-sheet" data-testid="order-invoice">
         <div className="order-invoice-brand">
-          <span className="order-invoice-logo"><img src={officialLogoUrl} alt="QuickXchange" /></span>
+          <img src={`${basePath}/brand/quickxchange-header-light.png`} alt="QuickXchange" />
           <span><ShieldCheck size={14} /> Official completion receipt</span>
         </div>
         <div className="order-invoice-title"><FileText size={19} /><strong>{isConvert ? 'Convert invoice' : 'Swap invoice'}</strong><span>#{order.id}</span></div>

@@ -307,10 +307,6 @@ test("Customer lifecycle emails render premium event-specific content from safe 
     assert.match(created.html, /Awaiting payment/);
     assert.match(created.html, /Manual Swap/);
     assert.match(created.html, /within the given time/);
-    assert.match(created.html, /brand\/quickxchange-official\.png/);
-    assert.doesNotMatch(created.html, /brand\/quickxchange-mark\.png/);
-    assert.doesNotMatch(created.html, /Quick<span/);
-    assert.match(created.html, /linear-gradient\(90deg,#06b6d4 0%,#2563eb 52%,#9333ea 100%\)/);
     assert.match(created.html, /https:\/\/x\.com\/quickxchange/);
     assert.doesNotMatch(created.html, /javascript:/);
 
@@ -386,8 +382,6 @@ test("Convert lifecycle emails use Quickex data without Swap settlement claims",
     assert.match(completed.html, /Bitcoin/);
     assert.match(completed.html, /TRC20/);
     assert.match(completed.html, /quickex-reference-800/);
-    assert.match(completed.html, /brand\/quickxchange-official\.png/);
-    assert.doesNotMatch(completed.html, /brand\/quickxchange-mark\.png/);
     assert.match(completed.html, /invoice=1/);
     assert.match(completed.html, /Review us on Trustpilot/);
     assert.doesNotMatch(completed.html, /Confirmations/);

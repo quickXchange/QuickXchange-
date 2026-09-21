@@ -206,16 +206,15 @@
   font-weight: 750;
   text-decoration: none;
 }
-.order-completion-button { border: 1px solid rgba(34, 211, 238, .28); background: linear-gradient(90deg, #06b6d4 0%, #2563eb 52%, #9333ea 100%); color: #fff; cursor: pointer; box-shadow: 0 8px 22px -10px rgba(37, 99, 235, .72), 0 0 18px rgba(6, 182, 212, .14); }
-.order-completion-button.secondary { border-color: rgba(139, 92, 246, .3); background: linear-gradient(90deg, #06b6d4 0%, #2563eb 52%, #9333ea 100%); color: #fff; }
+.order-completion-button { border: 1px solid hsl(var(--primary) / .2); background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); cursor: pointer; }
+.order-completion-button.secondary { border-color: hsl(var(--border)); background: hsl(var(--card)); color: hsl(var(--foreground)); }
 .order-completion-trustpilot { flex: 1 1 230px; justify-content: flex-start; border: 1px solid hsl(153 55% 40% / .28); background: hsl(153 55% 40% / .08); color: hsl(var(--foreground)); }
 .order-completion-trustpilot small { display: block; margin-top: .1rem; color: hsl(var(--muted-foreground)); font-size: .68rem; font-weight: 500; }
 .trustpilot-star { color: #00b67a; font-size: 1.25rem; }
 .order-invoice-sheet { margin: 0 1.25rem 1.25rem; border: 1px solid hsl(var(--border)); border-radius: .9rem; background: hsl(var(--card) / .82); padding: 1rem; }
 .order-invoice-brand, .order-invoice-title { display: flex; align-items: center; gap: .55rem; }
 .order-invoice-brand { justify-content: space-between; border-bottom: 1px solid hsl(var(--border)); padding-bottom: .75rem; }
-.order-invoice-logo { display: inline-flex; width: 9.5rem; height: 3.3rem; max-width: 52%; overflow: hidden; border: 1px solid hsl(var(--border)); border-radius: .65rem; background: #fff; box-shadow: 0 0 16px rgba(37, 99, 235, .1); }
-.order-invoice-brand img { display: block; width: 100%; height: auto; margin-top: -31.3%; object-fit: contain; object-position: left center; }
+.order-invoice-brand img { width: 8.5rem; max-width: 52%; height: 2rem; object-fit: contain; object-position: left center; }
 .order-invoice-brand span { display: inline-flex; align-items: center; gap: .3rem; color: hsl(var(--muted-foreground)); font-size: .68rem; }
 .order-invoice-title { margin: 1rem 0 .8rem; color: hsl(var(--primary)); }
 .order-invoice-title strong { color: hsl(var(--foreground)); }
