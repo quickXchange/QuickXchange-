@@ -1638,6 +1638,7 @@ const ADMIN_TOP_LEVEL_HEADER_LABELS: Record<string, string> = {
   '/admin/appearance': 'DESIGN / APPEARANCE',
   '/admin/landing-background': 'DESIGN / LANDING BACKGROUND',
   '/admin/integrations': 'INTEGRATIONS / API',
+  '/admin/notification-settings': 'SYSTEM / NOTIFICATIONS',
   '/admin/currencies': 'ASSETS / PAYMENT METHODS',
   '/admin/pricing': 'PRICING / ENGINE',
   '/admin/team': 'ADMINISTRATION / TEAM',
@@ -1659,7 +1660,7 @@ export function AdminShell({ children, title, eyebrow, action, subtitle, titleIc
   const { signOut } = useClerk();
   const { t } = useI18n();
 
-  const { authorization: adminAuth, isLoading: authLoading, error: authError, can } = useAdminPermissions();
+  const { authorization: adminAuth, isLoading: authLoading, error: authError, can, isOwner } = useAdminPermissions();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [mobileProfileOpen, setMobileProfileOpen] = useState(false);
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
@@ -1728,6 +1729,7 @@ export function AdminShell({ children, title, eyebrow, action, subtitle, titleIc
         { href: '/admin/providers', label: t('adminShell.providers'), testId: 'providers', icon: Settings, requiredPermission: 'integrations.view' },
         { href: '/admin/landing-background', label: t('adminShell.backgroundStudio'), testId: 'landing-background', icon: ImageIcon, requiredPermission: 'site_settings.view' },
         { href: '/admin/integrations', label: t('adminShell.apiIntegrations'), testId: 'api integrations', icon: Network, requiredPermission: 'integrations.view' },
+        { href: '/admin/notification-settings', label: 'Notification Settings', testId: 'notification-settings', icon: Bell, requiredPermission: 'site_settings.manage', ownerOnly: true },
         { href: '/admin/currencies', label: t('adminShell.currenciesMethods'), testId: 'currency and methods', icon: Landmark, requiredPermission: ['currencies.view', 'payment_methods.view', 'crypto_assets.view', 'crypto_networks.view'] },
         { href: '/admin/pricing', label: t('adminShell.manualPricing'), testId: 'manual pricing', icon: TrendingUp, requiredPermission: 'pricing.view' },
         { href: '/admin/team', label: t('adminShell.staff'), testId: 'team', icon: Key, requiredPermission: ['team.members.view', 'team.roles.view', 'team.activity.view'] },
@@ -1740,8 +1742,9 @@ export function AdminShell({ children, title, eyebrow, action, subtitle, titleIc
 
   const permittedNavGroups = navGroups.map(group => ({
     ...group,
-    items: group.items.filter(item =>
-     item.requiredPermission && (Array.isArray(item.requiredPermission)
+     items: group.items.filter(item =>
+      (!('ownerOnly' in item) || !item.ownerOnly || isOwner) &&
+      item.requiredPermission && (Array.isArray(item.requiredPermission)
        ? item.requiredPermission.some((permission) => can(permission as PermissionKey))
        : can(item.requiredPermission as PermissionKey))
     )

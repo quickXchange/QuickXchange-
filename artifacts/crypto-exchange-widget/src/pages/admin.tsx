@@ -1680,11 +1680,13 @@ function AdminIntegrations() {
 
 function AdminNotificationSettings() {
   const { isOwner } = useAdminPermissions();
+  const queryClient = useQueryClient();
   const query = useGetAdminNotificationSettings({
     query: { queryKey: getGetAdminNotificationSettingsQueryKey() },
   });
   const update = useUpdateAdminNotificationSettings();
   const [draft, setDraft] = useState<Record<string, unknown> | null>(null);
+  const [saveMessage, setSaveMessage] = useState('');
   useEffect(() => {
     if (query.data) setDraft({ ...query.data });
   }, [query.data]);
@@ -1696,53 +1698,121 @@ function AdminNotificationSettings() {
   }
   const set = (key: string, value: unknown) => setDraft(current => current ? { ...current, [key]: value } : current);
   const toggle = (key: string, label: string) => (
-    <label className="flex items-center justify-between gap-4 rounded-xl border border-border bg-card px-4 py-3">
-      <span className="text-sm font-medium">{label}</span>
-      <input type="checkbox" checked={Boolean(draft[key])} onChange={event => set(key, event.target.checked)} />
+    <label className="flex items-center justify-between gap-4 rounded-xl border border-border bg-background px-4 py-3.5">
+      <span className="text-sm font-semibold">{label}</span>
+      <input className="size-4 accent-primary" type="checkbox" checked={Boolean(draft[key])} onChange={event => set(key, event.target.checked)} />
     </label>
   );
+  const templates = [
+    ['Order created', 'QuickXchange order {{orderId}} is now Awaiting funds'],
+    ['Payment received', 'Payment received for QuickXchange order {{orderId}}'],
+    ['Processing', 'QuickXchange order {{orderId}} is now Processing'],
+    ['Completed', 'QuickXchange order {{orderId}} is now Completed'],
+    ['Failed / Cancelled', 'QuickXchange order {{orderId}} is now Failed / Cancelled'],
+  ];
+  const save = () => {
+    setSaveMessage('');
+    update.mutate({ data: {
+      emailEnabled: Boolean(draft.emailEnabled),
+      telegramEnabled: Boolean(draft.telegramEnabled),
+      paymentReceivedEnabled: Boolean(draft.paymentReceivedEnabled),
+      processingEnabled: Boolean(draft.processingEnabled),
+      completedEnabled: Boolean(draft.completedEnabled),
+      failedCancelledEnabled: Boolean(draft.failedCancelledEnabled),
+      adminNotificationEmail: String(draft.adminNotificationEmail ?? '').trim(),
+      adminTelegramChatId: String(draft.adminTelegramChatId ?? '').trim(),
+      trustpilotReviewUrl: String(draft.trustpilotReviewUrl ?? '').trim(),
+    } }, {
+      onSuccess: (saved) => {
+        setDraft({ ...saved });
+        queryClient.setQueryData(getGetAdminNotificationSettingsQueryKey(), saved);
+        setSaveMessage('Notification settings saved.');
+      },
+      onError: () => setSaveMessage('Unable to save notification settings. Check the values and try again.'),
+    });
+  };
   return (
-    <AdminShell eyebrow="Operations settings" title="Notification settings" subtitle="Manual Swap customer and payment-confirmed admin notifications" requiredPermission="site_settings.manage">
-      <div className="grid max-w-3xl gap-6">
-        <section className="panel space-y-3">
-          <h3 className="text-base font-semibold">Channels</h3>
-          {toggle('emailEnabled', 'Email notifications')}
-          {toggle('telegramEnabled', 'Telegram notifications')}
-        </section>
-        <section className="panel space-y-3">
-          <h3 className="text-base font-semibold">Events</h3>
-          {toggle('paymentReceivedEnabled', 'Payment Received')}
-          {toggle('processingEnabled', 'Order Processing')}
-          {toggle('completedEnabled', 'Order Completed')}
-          {toggle('failedCancelledEnabled', 'Order Failed / Cancelled')}
-        </section>
+    <AdminShell eyebrow="System configuration" title="Notification Settings" subtitle="Manage existing Manual Swap customer and payment-confirmed Admin notifications." requiredPermission="site_settings.manage">
+      <div className="grid max-w-5xl gap-6" data-testid="admin-notification-settings">
         <section className="panel space-y-4">
-          <h3 className="text-base font-semibold">Recipients and review link</h3>
-          {([
-            ['adminNotificationEmail', 'Admin notification email', 'email'],
-            ['adminTelegramChatId', 'Admin Telegram chat ID', 'text'],
-            ['trustpilotReviewUrl', 'Trustpilot review URL', 'url'],
-          ] as const).map(([key, label, type]) => (
-            <label key={key} className="grid gap-2 text-sm font-medium">
-              {label}
-              <input className="input" type={type} value={String(draft[key] ?? '')} onChange={event => set(key, event.target.value)} />
+          <div>
+            <h3 className="text-base font-semibold">Customer Email</h3>
+            <p className="mt-1 text-sm text-muted-foreground">Send branded lifecycle emails to the address attached to each Manual Swap order.</p>
+          </div>
+          {toggle('emailEnabled', 'Customer and Admin email delivery')}
+        </section>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <section className="panel space-y-4">
+            <div>
+              <h3 className="text-base font-semibold">Admin Email</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Admin alerts are sent only after authoritative payment confirmation.</p>
+            </div>
+            <label className="grid gap-2 text-sm font-medium">
+              Admin notification email
+              <input className="input" type="email" value={String(draft.adminNotificationEmail ?? '')} onChange={event => set('adminNotificationEmail', event.target.value)} placeholder="operations@example.com" />
             </label>
-          ))}
+          </section>
+          <section className="panel space-y-4">
+            <div>
+              <h3 className="text-base font-semibold">Admin Telegram</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Use the configured bot to send payment-confirmed lifecycle alerts.</p>
+            </div>
+            {toggle('telegramEnabled', 'Telegram delivery')}
+            <label className="grid gap-2 text-sm font-medium">
+              Admin Telegram chat ID
+              <input className="input" type="text" value={String(draft.adminTelegramChatId ?? '')} onChange={event => set('adminTelegramChatId', event.target.value)} placeholder="-1001234567890" />
+            </label>
+          </section>
+        </div>
+
+        <section className="panel space-y-4">
+          <div>
+            <h3 className="text-base font-semibold">Event ON/OFF Controls</h3>
+            <p className="mt-1 text-sm text-muted-foreground">These controls apply to the existing customer and Admin notification pipeline.</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {toggle('paymentReceivedEnabled', 'Payment Received')}
+            {toggle('processingEnabled', 'Order Processing')}
+            {toggle('completedEnabled', 'Order Completed')}
+            {toggle('failedCancelledEnabled', 'Order Failed / Cancelled')}
+          </div>
+        </section>
+
+        <section className="panel space-y-4">
+          <div>
+            <h3 className="text-base font-semibold">Trustpilot URL</h3>
+            <p className="mt-1 text-sm text-muted-foreground">Shown after a completed Manual Swap and in the completion email.</p>
+          </div>
+          <label className="grid gap-2 text-sm font-medium">
+            Trustpilot review URL
+            <input className="input" type="url" value={String(draft.trustpilotReviewUrl ?? '')} onChange={event => set('trustpilotReviewUrl', event.target.value)} placeholder="https://www.trustpilot.com/evaluate/…" />
+          </label>
+        </section>
+
+        <section className="panel space-y-4">
+          <div>
+            <h3 className="text-base font-semibold">Email Templates</h3>
+            <p className="mt-1 text-sm text-muted-foreground">The existing branded templates are managed by the notification system. This page shows the active subjects and event mapping.</p>
+          </div>
+          <div className="divide-y divide-border overflow-hidden rounded-xl border border-border">
+            {templates.map(([name, subject]) => (
+              <div key={name} className="grid gap-1 bg-background px-4 py-3 sm:grid-cols-[150px_1fr] sm:items-center">
+                <strong className="text-sm">{name}</strong>
+                <code className="break-words text-xs text-muted-foreground">{subject}</code>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">Available order data includes order ID, customer name, exchange route, current status, invoice link, and Trustpilot link where applicable.</p>
+        </section>
+
+        <section className="panel flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div aria-live="polite" className="text-sm text-muted-foreground">{saveMessage || 'Changes apply to new notification deliveries immediately.'}</div>
           <button
             type="button"
             className="button button-primary"
             disabled={update.isPending}
-            onClick={() => update.mutate({ data: {
-              emailEnabled: Boolean(draft.emailEnabled),
-              telegramEnabled: Boolean(draft.telegramEnabled),
-              paymentReceivedEnabled: Boolean(draft.paymentReceivedEnabled),
-              processingEnabled: Boolean(draft.processingEnabled),
-              completedEnabled: Boolean(draft.completedEnabled),
-              failedCancelledEnabled: Boolean(draft.failedCancelledEnabled),
-              adminNotificationEmail: String(draft.adminNotificationEmail ?? ''),
-              adminTelegramChatId: String(draft.adminTelegramChatId ?? ''),
-              trustpilotReviewUrl: String(draft.trustpilotReviewUrl ?? ''),
-            } })}
+            onClick={save}
           >
             {update.isPending ? 'Saving…' : 'Save notification settings'}
           </button>
