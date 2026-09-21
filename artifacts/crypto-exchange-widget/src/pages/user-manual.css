@@ -297,6 +297,64 @@
   line-height: 1.6;
 }
 
+.user-manual-media-grid {
+  display: grid;
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+@media (min-width: 768px) {
+  .user-manual-media-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.user-manual-figure {
+  margin: 2rem 0;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-xl);
+  background: hsl(var(--card));
+  box-shadow: var(--shadow-sm);
+}
+
+.user-manual-media-grid .user-manual-figure {
+  margin: 0;
+}
+
+.user-manual-figure-frame {
+  overflow: hidden;
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--muted) / 0.35);
+  aspect-ratio: 16 / 10;
+}
+
+.user-manual-figure-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+}
+
+.user-manual-figure figcaption {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem 1.15rem 1.15rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.user-manual-figure figcaption strong {
+  color: hsl(var(--foreground));
+  font-size: 1rem;
+}
+
+.user-manual-figure figcaption span {
+  display: block;
+}
+
 .user-manual-link {
   color: hsl(var(--primary));
   text-decoration: none;

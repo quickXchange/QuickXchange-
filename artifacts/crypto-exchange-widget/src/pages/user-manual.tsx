@@ -1,7 +1,7 @@
 import { useLayoutEffect } from 'react';
 import type { ReactNode } from 'react';
 import { PublicShell } from '../components/public-shell';
-import { cn, SUPPORT_TELEGRAM, SUPPORT_EMAIL } from '../components/shared-app-ui';
+import { basePath, cn, SUPPORT_TELEGRAM, SUPPORT_EMAIL } from '../components/shared-app-ui';
 import { Link } from 'wouter';
 import { ShieldAlert, Info, AlertTriangle, BookOpen } from 'lucide-react';
 import './user-manual.css';
@@ -68,6 +68,11 @@ function useUserManualSEO() {
           "description": description,
           "url": canonical,
           "inLanguage": "en",
+          "image": [
+            "https://quickchange.exchange/manual/swap-guide.jpg",
+            "https://quickchange.exchange/manual/convert-guide.jpg",
+            "https://quickchange.exchange/manual/tracking-guide.jpg"
+          ],
           "publisher": {
             "@type": "Organization",
             "name": "QuickXchange",
@@ -155,6 +160,36 @@ function Callout({ type, title, children }: { type: 'info' | 'warning' | 'safety
   );
 }
 
+function ManualFigure({
+  src,
+  alt,
+  title,
+  caption,
+}: {
+  src: string;
+  alt: string;
+  title: string;
+  caption: string;
+}) {
+  return (
+    <figure className="user-manual-figure">
+      <div className="user-manual-figure-frame">
+        <img
+          src={`${basePath}${src}`}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+          className="user-manual-figure-image"
+        />
+      </div>
+      <figcaption>
+        <strong>{title}</strong>
+        <span>{caption}</span>
+      </figcaption>
+    </figure>
+  );
+}
+
 const TOC = [
   { id: 'introduction', label: 'Introduction' },
   { id: 'swap-vs-convert', label: 'Swap vs. Convert' },
@@ -232,6 +267,21 @@ export function UserManualPage() {
                     <p>Built exclusively for crypto-to-crypto exchanges. Convert generates an automated deposit address and QR code, monitoring the blockchain to process your transaction as soon as the funds arrive.</p>
                   </div>
                 </div>
+              </div>
+
+              <div className="user-manual-media-grid" aria-label="Swap and Convert interface examples">
+                <ManualFigure
+                  src="/manual/swap-guide.jpg"
+                  alt="QuickXchange Swap screen showing the You Send and You Receive selectors"
+                  title="Swap interface"
+                  caption="Select Swap, then choose the source and destination shown in the exchange card."
+                />
+                <ManualFigure
+                  src="/manual/convert-guide.jpg"
+                  alt="QuickXchange Convert screen showing crypto selectors and floating-rate choice"
+                  title="Convert interface"
+                  caption="Select Convert for crypto-to-crypto orders, then choose both assets and the available rate type."
+                />
               </div>
             </section>
 
@@ -326,6 +376,12 @@ export function UserManualPage() {
 
             <section id="tracking-order">
               <h2>Tracking Your Order</h2>
+              <ManualFigure
+                src="/manual/tracking-guide.jpg"
+                alt="QuickXchange Track your order page with an Order ID field and Track Order button"
+                title="Track an Order"
+                caption="Open Track an Order, enter the requested Order ID and tracking information, then select Track Order."
+              />
               <p>Every exchange generates a unique Order ID and an order or tracking page. Status availability depends on the order type and tracking information supplied when the order was created.</p>
               <ul>
                 <li><strong>Pending:</strong> The order is created and awaiting your deposit.</li>
