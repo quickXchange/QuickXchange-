@@ -544,6 +544,7 @@ export function buildCustomerStatusNotificationContent(
       .stack-col { display: block !important; width: 100% !important; padding: 0 0 16px 0 !important; }
       .text-center { text-align: center !important; }
       .feature-col { display: inline-block !important; width: 50% !important; padding: 0 4px 8px 4px !important; box-sizing: border-box !important; }
+      .email-action { display: block !important; margin: 0 auto 10px auto !important; max-width: 240px !important; }
     }
   </style>
 </head>
@@ -557,10 +558,7 @@ export function buildCustomerStatusNotificationContent(
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
           <tr>
             <td style="vertical-align:middle;">
-              <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:0.2px;">
-                ${base ? `<img src="${escapeHtml(base)}/brand/quickxchange-mark.png" width="32" height="32" alt="Q" style="vertical-align:middle;margin-right:8px;border:none;" />` : ""}
-                <span style="vertical-align:middle;">Quick<span style="color:#38bdf8;">X</span>change</span>
-              </div>
+              ${base ? `<div style="display:inline-block;width:210px;height:73px;overflow:hidden;background-color:#ffffff;border:1px solid #334155;border-radius:12px;padding:0;box-shadow:0 0 18px rgba(14,165,233,0.16);"><img src="${escapeHtml(base)}/brand/quickxchange-official.png" width="210" alt="QuickXchange" style="display:block;width:210px;height:auto;margin-top:-66px;border:0;" /></div>` : ""}
               <div style="font-size:11px;color:#94a3b8;margin-top:2px;">Secure digital asset exchange</div>
             </td>
             <td style="vertical-align:middle;text-align:right;">
@@ -655,8 +653,8 @@ export function buildCustomerStatusNotificationContent(
 
       <!-- Buttons -->
       <tr><td style="padding:16px 0 24px 0;text-align:center;">
-        ${orderUrl ? `<a href="${escapeHtml(orderUrl)}" style="display:inline-block;background:linear-gradient(90deg, #0ea5e9, #6366f1);background-color:#0ea5e9;color:#ffffff;font-weight:600;font-size:15px;padding:14px 28px;border-radius:9999px;text-decoration:none;">${buttonText} &rarr;</a>` : ""}
-        ${notification.eventKind === "completed" && !notification.adminRecipient && invoiceUrl ? `<a href="${escapeHtml(invoiceUrl)}" style="display:inline-block;background-color:transparent;color:#ffffff;font-weight:600;font-size:15px;padding:13px 28px;border-radius:9999px;text-decoration:none;border:1px solid #38bdf8;margin-left:12px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Download Invoice</a>` : ""}
+        ${orderUrl ? `<a class="email-action" href="${escapeHtml(orderUrl)}" style="display:inline-block;background:linear-gradient(90deg,#06b6d4 0%,#2563eb 52%,#9333ea 100%);background-color:#2563eb;color:#ffffff;font-weight:600;font-size:15px;padding:14px 28px;border-radius:9999px;text-decoration:none;box-shadow:0 0 18px rgba(37,99,235,0.34);">${buttonText} &rarr;</a>` : ""}
+        ${notification.eventKind === "completed" && !notification.adminRecipient && invoiceUrl ? `<a class="email-action" href="${escapeHtml(invoiceUrl)}" style="display:inline-block;background:linear-gradient(90deg,#06b6d4 0%,#2563eb 52%,#9333ea 100%);background-color:#2563eb;color:#ffffff;font-weight:600;font-size:15px;padding:13px 28px;border-radius:9999px;text-decoration:none;border:1px solid #8b5cf6;margin-left:12px;box-shadow:0 0 18px rgba(139,92,246,0.28);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Download Invoice</a>` : ""}
       </td></tr>
 
       <tr><td style="text-align:center;font-size:12px;color:#94a3b8;padding-bottom:32px;">
@@ -724,10 +722,7 @@ export function buildCustomerStatusNotificationContent(
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
           <tr>
             <td width="33%" class="stack-col text-center" style="vertical-align:top;padding-right:16px;">
-              <div style="font-size:16px;font-weight:800;color:#ffffff;letter-spacing:0.2px;margin-bottom:4px;">
-                ${base ? `<img src="${escapeHtml(base)}/brand/quickxchange-mark.png" width="20" height="20" alt="Q" style="vertical-align:middle;margin-right:4px;border:none;" />` : ""}
-                <span style="vertical-align:middle;">Quick<span style="color:#38bdf8;">X</span>change</span>
-              </div>
+              ${base ? `<div style="display:inline-block;width:150px;height:52px;overflow:hidden;background-color:#ffffff;border-radius:8px;margin-bottom:6px;"><img src="${escapeHtml(base)}/brand/quickxchange-official.png" width="150" alt="QuickXchange" style="display:block;width:150px;height:auto;margin-top:-47px;border:0;" /></div>` : ""}
               <div style="font-size:8px;color:#38bdf8;font-weight:700;letter-spacing:1px;margin-bottom:12px;text-transform:uppercase;">YOUR CRYPTO EXCHANGE PARTNER</div>
               <div style="font-size:11px;color:#94a3b8;line-height:1.5;">Fast. Secure. Global. Exchange, convert and move your crypto with confidence.</div>
             </td>
