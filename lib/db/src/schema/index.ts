@@ -49,6 +49,7 @@ export * from "./telegram";
 export * from "./telegram-news";
 export * from "./blockchain-monitoring";
 export * from "./notification-settings";
+export * from "./convert-notification-outbox";
 
 export const ordersTable = pgTable("exchange_orders", {
     id: text("id").primaryKey(),

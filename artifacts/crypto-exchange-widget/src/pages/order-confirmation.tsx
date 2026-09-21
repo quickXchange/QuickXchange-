@@ -16,6 +16,7 @@ import {
 import { useI18n } from "@/i18n";
 import { CancelOrderAction, cn, PaymentDetailsCard, publicApiErrorText, SUPPORT_TELEGRAM } from "@/components/shared-app-ui";
 import { OrderSettlementIdentity } from "@/components/order-settlement-identity";
+import { OrderCompletionSection } from "@/components/order-completion";
 import { QRCodeSVG } from "qrcode.react";
 import { convertOrderStatusLabel, convertOrderStatusStep, isConvertTerminalStatus } from "@/lib/convert-order-status";
 
@@ -41,6 +42,7 @@ export function OrderConfirmationPage() {
   const trackingToken = queryParams.get("trackingToken") || "";
   const provider = queryParams.get("provider") || "manual";
   const isQuickex = provider === "quickex";
+  const invoiceRequested = queryParams.get("invoice") === "1";
 
   const { t, formatNumber } = useI18n();
   const queryClient = useQueryClient();
@@ -570,6 +572,10 @@ export function OrderConfirmationPage() {
                 </div>
              </div>
            </div>
+        )}
+
+        {invoiceRequested && (
+          <OrderCompletionSection order={order} />
         )}
 
         <div className="flex flex-col gap-3 pb-8">

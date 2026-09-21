@@ -4,6 +4,12 @@ import { basePath, number } from '@/components/shared-app-ui';
 
 type CompletionOrder = CustomerOrder | PublicOrderStatus;
 
+function isCompletedConvert(order: CompletionOrder): boolean {
+  return order.type === 'instant' &&
+    /^(?:completed|done)$/i.test(order.status.trim()) &&
+    !order.outcomeUnknown;
+}
+
 export function isCompletedManualSwap(order: CompletionOrder, refreshWarning = false): boolean {
   return order.type === 'manual' &&
     /^(?:completed|complete|done|finished)$/i.test(order.status.trim()) &&
@@ -16,8 +22,17 @@ function printable(value: unknown): string {
   return String(value ?? '—').replace(/[^\x20-\x7e]/g, '');
 }
 
+function optionalOrderString(order: CompletionOrder, key: string): string | undefined {
+  const value = (order as unknown as Record<string, unknown>)[key];
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
 function buildInvoicePdf(order: CompletionOrder): Blob {
-  const completedAt = order.completedAt || undefined;
+  const isConvert = order.type === 'instant';
+  const completedAt = order.completedAt ||
+    optionalOrderString(order, 'providerUpdatedAt') ||
+    optionalOrderString(order, 'updatedAt');
+  const providerReference = optionalOrderString(order, 'providerReference');
   const paymentMethod = order.sourcePaymentMethod?.name || order.paymentDetails?.name || '—';
   const lines = [
     'QUICKXCHANGE',
@@ -29,11 +44,12 @@ function buildInvoicePdf(order: CompletionOrder): Blob {
     `Completed: ${completedAt ? new Date(completedAt).toLocaleString() : '—'}`,
     '',
     `You Send: ${number(order.amount)} ${order.fromAsset} / ${order.fromNetwork || '—'}`,
-    `You Receive: ${number(order.receiveAmount)} ${order.toAsset}`,
-    `Payment method: ${paymentMethod}`,
-    `Exchange rate: ${order.exchangeRate || '—'}`,
+    `You Receive: ${number(order.receiveAmount)} ${order.toAsset}${isConvert ? ` / ${order.toNetwork || '—'}` : ''}`,
+    ...(!isConvert ? [`Payment method: ${paymentMethod}`] : []),
+    ...(!isConvert ? [`Exchange rate: ${order.exchangeRate || '—'}`] : []),
     ...(order.transactionHash ? [`Transaction hash: ${order.transactionHash}`] : []),
     ...(order.paymentReference ? [`Payment reference: ${order.paymentReference}`] : []),
+    ...(providerReference ? [`Provider reference: ${providerReference}`] : []),
     '',
     'Thank you for choosing QuickXchange.',
   ];
@@ -79,8 +95,13 @@ export function OrderCompletionSection({
   trustpilotUrl?: string | null;
   refreshWarning?: boolean;
 }) {
-  if (!isCompletedManualSwap(order, refreshWarning)) return null;
+  const isConvert = order.type === 'instant';
+  if (isConvert ? !isCompletedConvert(order) : !isCompletedManualSwap(order, refreshWarning)) return null;
 
+  const completedAt = order.completedAt ||
+    optionalOrderString(order, 'providerUpdatedAt') ||
+    optionalOrderString(order, 'updatedAt');
+  const providerReference = optionalOrderString(order, 'providerReference');
   const paymentMethod = order.sourcePaymentMethod?.name || order.paymentDetails?.name || '—';
   const downloadPdf = () => {
     const url = URL.createObjectURL(buildInvoicePdf(order));
@@ -97,7 +118,7 @@ export function OrderCompletionSection({
         <span className="order-completion-icon"><CheckCircle2 size={22} /></span>
         <div>
           <span className="order-completion-kicker">TRANSACTION COMPLETE</span>
-          <h3>Your Swap is complete</h3>
+          <h3>{isConvert ? 'Your Convert is complete' : 'Your Swap is complete'}</h3>
           <p>Your receipt is ready. Keep it for your records.</p>
         </div>
       </div>
@@ -121,21 +142,22 @@ export function OrderCompletionSection({
           <img src={`${basePath}/brand/quickxchange-header-light.png`} alt="QuickXchange" />
           <span><ShieldCheck size={14} /> Official completion receipt</span>
         </div>
-        <div className="order-invoice-title"><FileText size={19} /><strong>Swap invoice</strong><span>#{order.id}</span></div>
+        <div className="order-invoice-title"><FileText size={19} /><strong>{isConvert ? 'Convert invoice' : 'Swap invoice'}</strong><span>#{order.id}</span></div>
         <div className="order-invoice-grid">
           <div><small>Status</small><strong className="text-emerald-600">Completed</strong></div>
           <div><small>Created</small><strong>{new Date(order.createdAt).toLocaleString()}</strong></div>
-          <div><small>Completed</small><strong>{order.completedAt ? new Date(order.completedAt).toLocaleString() : '—'}</strong></div>
-          <div><small>Exchange rate</small><strong>{order.exchangeRate || '—'}</strong></div>
+          <div><small>{completedAt ? 'Completed' : 'Updated'}</small><strong>{completedAt ? new Date(completedAt).toLocaleString() : '—'}</strong></div>
+          {!isConvert && <div><small>Exchange rate</small><strong>{order.exchangeRate || '—'}</strong></div>}
         </div>
         <div className="order-invoice-route">
           <div><small>You Send</small><strong>{number(order.amount)} {order.fromAsset}</strong><span>{order.fromNetwork || 'Network unavailable'}</span></div>
-          <div><small>You Receive</small><strong>{number(order.receiveAmount)} {order.toAsset}</strong><span>{paymentMethod}</span></div>
+          <div><small>You Receive</small><strong>{number(order.receiveAmount)} {order.toAsset}</strong><span>{isConvert ? order.toNetwork || 'Network unavailable' : paymentMethod}</span></div>
         </div>
-        {(order.transactionHash || order.paymentReference) && (
+        {(order.transactionHash || order.paymentReference || providerReference) && (
           <div className="order-invoice-meta">
             {order.transactionHash && <div><small>Transaction hash</small><code>{order.transactionHash}</code></div>}
             {order.paymentReference && <div><small>Payment reference</small><code>{order.paymentReference}</code></div>}
+            {providerReference && <div><small>Provider reference</small><code>{providerReference}</code></div>}
           </div>
         )}
       </div>

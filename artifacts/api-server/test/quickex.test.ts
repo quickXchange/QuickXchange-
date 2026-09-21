@@ -1534,6 +1534,7 @@ test("order lists preserve exact references, accept numeric-string IDs, and map 
 
 test("Convert reconciliation advances one order and queues each Telegram milestone once", async () => {
   const {
+    convertNotificationOutboxTable,
     db,
     quickexOrdersTable,
     telegramChatsTable,
@@ -1566,30 +1567,57 @@ test("Convert reconciliation advances one order and queues each Telegram milesto
     const processing = await reconcileQuickexOrder(created, {
       orderId: 800, state: "received", completed: false,
       claimedDepositAmount: "1.25", amountToGet: "100", amountToWithdrawFact: "1.25",
+      createdAt: now.toISOString(), updatedAt: new Date(now.getTime() + 60_000).toISOString(),
     });
     assert.equal(processing?.status, "processing");
     await reconcileQuickexOrder(processing!, {
       orderId: 800, state: "received", completed: false,
       claimedDepositAmount: "1.25", amountToGet: "100", amountToWithdrawFact: "1.25",
+      createdAt: now.toISOString(), updatedAt: new Date(now.getTime() + 60_000).toISOString(),
     });
     const afterPayment = await db.select().from(telegramNotificationOutboxTable)
       .where(eq(telegramNotificationOutboxTable.orderId, orderId));
     assert.equal(afterPayment.filter((event) => event.eventKind === "payment_received").length, 1);
+    const emailAfterPayment = await db.select().from(convertNotificationOutboxTable)
+      .where(eq(convertNotificationOutboxTable.quickexOrderId, orderId));
+    assert.equal(emailAfterPayment.filter((event) => event.eventKind === "payment_received").length, 1);
+    assert.equal(emailAfterPayment.filter((event) => event.eventKind === "processing").length, 1);
+    assert.equal(emailAfterPayment.filter((event) => event.eventKind === "order_created").length, 1);
+    const paymentPayload = emailAfterPayment.find((event) => event.eventKind === "payment_received")
+      ?.payload as { amounts?: { paidAmount?: string; receiveAmount?: string }; providerUpdatedAt?: string };
+    assert.equal(paymentPayload.amounts?.paidAmount, "1.25");
+    assert.equal(paymentPayload.amounts?.receiveAmount, "100");
+    assert.equal(paymentPayload.providerUpdatedAt, new Date(now.getTime() + 60_000).toISOString());
     const completed = await reconcileQuickexOrder(processing!, {
       orderId: 800, state: "completed", completed: true,
       claimedDepositAmount: "1.25", amountToGet: "100", amountToWithdrawFact: "99",
+      createdAt: now.toISOString(), updatedAt: new Date(now.getTime() + 120_000).toISOString(),
     });
     assert.equal(completed?.status, "completed");
     await reconcileQuickexOrder(completed!, {
       orderId: 800, state: "completed", completed: true,
       claimedDepositAmount: "1.25", amountToGet: "100", amountToWithdrawFact: "99",
+      createdAt: now.toISOString(), updatedAt: new Date(now.getTime() + 120_000).toISOString(),
     });
     const events = await db.select().from(telegramNotificationOutboxTable)
       .where(eq(telegramNotificationOutboxTable.orderId, orderId));
     assert.equal(events.filter((event) => event.eventKind === "payment_received").length, 1);
     assert.equal(events.filter((event) => event.eventKind === "completed").length, 1);
     assert.match(String(events.find((event) => event.eventKind === "payment_received")?.payload.receivedAmount), /1\.25/);
+    const emailEvents = await db.select().from(convertNotificationOutboxTable)
+      .where(eq(convertNotificationOutboxTable.quickexOrderId, orderId));
+    assert.equal(emailEvents.filter((event) => event.eventKind === "payment_received").length, 1);
+    assert.equal(emailEvents.filter((event) => event.eventKind === "processing").length, 1);
+    assert.equal(emailEvents.filter((event) => event.eventKind === "completed").length, 1);
+    assert.equal(emailEvents.filter((event) => event.eventKind === "order_created").length, 1);
+    const completedPayload = emailEvents.find((event) => event.eventKind === "completed")
+      ?.payload as { amounts?: { paidAmount?: string; receiveAmount?: string }; providerUpdatedAt?: string };
+    assert.equal(completedPayload.amounts?.paidAmount, "1.25");
+    assert.equal(completedPayload.amounts?.receiveAmount, "99");
+    assert.equal(completedPayload.providerUpdatedAt, new Date(now.getTime() + 120_000).toISOString());
   } finally {
+    await db.delete(convertNotificationOutboxTable)
+      .where(eq(convertNotificationOutboxTable.quickexOrderId, orderId));
     await db.delete(telegramNotificationOutboxTable).where(eq(telegramNotificationOutboxTable.orderId, orderId));
     await db.delete(telegramOrderLinksTable).where(eq(telegramOrderLinksTable.orderId, orderId));
     await db.delete(telegramChatsTable).where(eq(telegramChatsTable.chatId, chatId));

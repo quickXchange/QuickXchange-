@@ -11,6 +11,7 @@ import { signOrderTrackingToken, verifyOrderTrackingToken } from "./order-access
 import { assertExecutableQuickexRoute } from "./provider-capabilities";
 import { normalizeRefundFields } from "./manual-wallet-validation";
 import { enqueueConvertTelegramMilestones } from "./telegram-convert-notifications";
+import { enqueueConvertEmailNotification } from "./customer-status-notifications";
 
 type CreateInput = {
   fromAsset: string; fromNetwork: string; toAsset: string; toNetwork: string;
@@ -88,6 +89,12 @@ function positiveProviderAmount(value: string | null | undefined) {
   if (!value) return null;
   const numeric = Number(value);
   return Number.isFinite(numeric) && numeric > 0 ? value : null;
+}
+
+function providerInstant(value: string | null | undefined): Date | undefined {
+  if (!value) return undefined;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
 /**
@@ -194,7 +201,9 @@ function output(row: typeof quickexOrdersTable.$inferSelect, includeInstructions
     trackingToken: signOrderTrackingToken(row.legacyOrderId),
     providerClaimedDepositAmount: amounts.claimedDepositAmount ?? null,
     providerExpectedReceiveAmount: amounts.expectedReceiveAmount ?? null,
-    providerPaidAmount: amounts.paidAmount ?? null, providerCreatedAt: null, providerUpdatedAt: null,
+    providerPaidAmount: amounts.paidAmount ?? null,
+    providerCreatedAt: row.providerCreatedAt?.toISOString() ?? null,
+    providerUpdatedAt: row.providerUpdatedAt?.toISOString() ?? null,
     providerCompleted: null,
   };
 }
@@ -298,24 +307,13 @@ export async function createQuickexConvertOrder(input: CreateInput) {
     // side effect. Re-entering performs the full payload comparison above.
     return createQuickexConvertOrder(input);
   }
+  let result: Awaited<ReturnType<typeof createQuickexOrder>>;
   try {
-    const result = await createQuickexOrder({
+    result = await createQuickexOrder({
       fromCurrency: input.fromAsset, fromNetwork: input.fromNetwork, toCurrency: input.toAsset, toNetwork: input.toNetwork,
       amount: input.amount, destinationAddress: input.destinationAddress, destinationMemo: input.destinationMemo,
       refundAddress: input.refundAddress ?? undefined, refundMemo: input.refundAddress ? input.refundMemo ?? undefined : undefined, email: input.customerEmail, rateMode, quote: ticket.quickexQuote,
     });
-    const [row] = await db.update(quickexOrdersTable).set({
-      providerOrderId: result.order.providerOrderId ?? "",
-      providerReference: result.order.providerReference ?? String(result.order.orderId),
-      status: mapQuickexState(result.order.state), providerState: result.order.state ?? "",
-      amounts: { amount: String(input.amount), receiveAmount: result.order.amountToGet ?? result.quote.amountToGet },
-      addresses: { ...base.addresses, depositAddress: result.order.depositAddress, depositMemo: result.order.depositMemo ?? "" },
-      outcomeUnknown: false,
-      updatedAt: new Date(),
-      recordVersion: intent.recordVersion + 1,
-    }).where(eq(quickexOrdersTable.legacyOrderId, intent.legacyOrderId)).returning();
-    providerSnapshotCache = undefined;
-    return { row, created: true, uncertain: false };
   } catch (error) {
     // A transport failure after submission is durable and must never cause a retry.
     if ((error as { outcomeUnknown?: boolean }).outcomeUnknown) {
@@ -324,6 +322,36 @@ export async function createQuickexConvertOrder(input: CreateInput) {
     await db.delete(quickexOrdersTable)
       .where(eq(quickexOrdersTable.legacyOrderId, intent.legacyOrderId));
     throw error;
+  }
+  const providerProjection = {
+    providerOrderId: result.order.providerOrderId ?? "",
+    providerReference: result.order.providerReference ?? String(result.order.orderId),
+    status: mapQuickexState(result.order.state),
+    providerState: result.order.state ?? "",
+    amounts: { amount: String(input.amount), receiveAmount: result.order.amountToGet ?? result.quote.amountToGet },
+    addresses: { ...base.addresses, depositAddress: result.order.depositAddress, depositMemo: result.order.depositMemo ?? "" },
+    outcomeUnknown: false,
+    updatedAt: new Date(),
+    recordVersion: intent.recordVersion + 1,
+  };
+  try {
+    const [row] = await db.transaction(async tx => {
+      const [updated] = await tx.update(quickexOrdersTable).set({
+        ...providerProjection,
+      }).where(eq(quickexOrdersTable.legacyOrderId, intent.legacyOrderId)).returning();
+      if (updated) await enqueueConvertEmailNotification(tx, updated, "created", "order_created");
+      return [updated];
+    });
+    providerSnapshotCache = undefined;
+    return { row, created: true, uncertain: false };
+  } catch (error) {
+    // Quickex already accepted the order. Never delete the durable intent or
+    // call the provider again because a local projection/outbox write failed.
+    const [recovered] = await db.update(quickexOrdersTable).set({
+      ...providerProjection,
+      outcomeUnknown: true,
+    }).where(eq(quickexOrdersTable.legacyOrderId, intent.legacyOrderId)).returning();
+    return { row: recovered ?? intent, created: true, uncertain: true };
   }
 }
 
@@ -368,17 +396,23 @@ export async function getQuickexOrderStatus(id: string, token?: string) {
 
 export async function reconcileQuickexOrder(row: typeof quickexOrdersTable.$inferSelect, match: {
   orderId: string | number; providerReference?: string | null; state?: string | null; completed?: boolean;
-  amountToWithdrawFact?: string | null; amountToGet?: string | null; claimedDepositAmount?: string | null;
+  amountToWithdrawFact?: string | null; paidAmount?: string | null; amountToGet?: string | null; claimedDepositAmount?: string | null;
+  createdAt?: string | null; updatedAt?: string | null;
 }) {
       const amounts = row.amounts as Amounts;
-      const paidAmount = positiveProviderAmount(match.amountToWithdrawFact)
+      const nextStatus = mapQuickexState(match.state ?? undefined, match.completed);
+      const providerConfirmsPayment = nextStatus === "processing" || nextStatus === "completed";
+      const paidAmount = positiveProviderAmount(match.paidAmount)
+        ?? (providerConfirmsPayment ? positiveProviderAmount(match.claimedDepositAmount) : null)
         ?? positiveProviderAmount(amounts.paidAmount);
+      const actualReceiveAmount = positiveProviderAmount(match.amountToWithdrawFact);
       const expectedReceiveAmount = positiveProviderAmount(match.amountToGet)
         ?? positiveProviderAmount(amounts.expectedReceiveAmount);
-       const nextStatus = mapQuickexState(match.state ?? undefined, match.completed);
        const nextAmounts = {
          ...amounts,
-         receiveAmount: paidAmount || expectedReceiveAmount || amounts.receiveAmount,
+         receiveAmount: nextStatus === "completed"
+           ? actualReceiveAmount || expectedReceiveAmount || amounts.receiveAmount
+           : expectedReceiveAmount || amounts.receiveAmount,
          claimedDepositAmount: match.claimedDepositAmount,
          expectedReceiveAmount,
          paidAmount,
@@ -411,6 +445,8 @@ export async function reconcileQuickexOrder(row: typeof quickexOrdersTable.$infe
          providerOrderId: nextProviderOrderId,
          status: nextStatus, providerState: nextProviderState,
         outcomeUnknown: false, updatedAt: new Date(),
+         providerCreatedAt: providerInstant(match.createdAt) ?? row.providerCreatedAt,
+         providerUpdatedAt: providerInstant(match.updatedAt) ?? row.providerUpdatedAt,
          amounts: nextAmounts,
         recordVersion: row.recordVersion + 1,
       };
@@ -418,6 +454,15 @@ export async function reconcileQuickexOrder(row: typeof quickexOrdersTable.$infe
          const [persisted] = await tx.update(quickexOrdersTable).set(next)
            .where(and(eq(quickexOrdersTable.legacyOrderId, row.legacyOrderId), eq(quickexOrdersTable.recordVersion, row.recordVersion))).returning();
          if (!persisted) return undefined;
+          // Stable identity backfills Order Created if the post-provider
+          // projection succeeded through the recovery path without its outbox
+          // insert. Repeated reconciliation cannot duplicate this event.
+          await enqueueConvertEmailNotification(
+            tx,
+            persisted,
+            "created",
+            "order_created",
+          );
          const completing = persisted.status === "completed" && row.status !== "completed";
          const reversing = ["refunded", "reversed"].includes(persisted.status.toLowerCase()) && row.status === "completed";
          if (completing || reversing) {
@@ -435,11 +480,26 @@ export async function reconcileQuickexOrder(row: typeof quickexOrdersTable.$infe
              payload: { customerClerkUserId: persisted.customerClerkUserId, snapshot },
            }).onConflictDoNothing();
          }
+          if (positiveProviderAmount(nextAmounts.paidAmount) &&
+            !positiveProviderAmount(amounts.paidAmount)) {
+            await enqueueConvertEmailNotification(
+              tx, persisted, row.status, "payment_received",
+              `paid:${nextAmounts.paidAmount}`,
+            );
+          }
           if (
             persisted.status === "processing" && row.status !== "processing" ||
             persisted.status === "completed" && row.status !== "completed"
           ) {
             await enqueueConvertTelegramMilestones(tx, persisted);
+          }
+          const lifecycleEvent = persisted.status === "completed"
+            ? "completed" as const
+            : ["failed", "cancelled", "canceled", "refunded", "reversed", "expired"].includes(persisted.status.toLowerCase())
+              ? "failed_cancelled" as const
+              : persisted.status === "processing" ? "processing" as const : undefined;
+          if (lifecycleEvent && persisted.status !== row.status) {
+            await enqueueConvertEmailNotification(tx, persisted, row.status, lifecycleEvent);
           }
          return persisted;
        });

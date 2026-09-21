@@ -24,6 +24,8 @@ import {
   whitebitDepositsTable,
   blockchainMonitorMatchesTable,
   blockchainMonitorObservationsTable,
+  convertNotificationOutboxTable,
+  quickexOrdersTable,
 } from "@workspace/db";
 import type { NotificationEmailTemplate } from "@workspace/db";
 import {
@@ -794,6 +796,188 @@ async function sendCustomerStatusNotification(
 }
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+type ConvertOrderRow = typeof quickexOrdersTable.$inferSelect;
+type ConvertRoute = { fromAsset: string; fromNetwork: string; toAsset: string; toNetwork: string };
+type ConvertAmounts = {
+  amount: string;
+  receiveAmount: string;
+  expectedReceiveAmount?: string | null;
+  paidAmount?: string | null;
+};
+type ConvertNotificationPayload = {
+  route?: ConvertRoute;
+  amounts?: ConvertAmounts;
+  providerOrderId?: string;
+  providerReference?: string;
+  providerState?: string;
+  createdAt?: string;
+  providerCreatedAt?: string | null;
+  providerUpdatedAt?: string | null;
+};
+
+function positiveConvertAmount(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? value : undefined;
+}
+
+/** Queue Convert mail without ever consulting the Swap aggregate. */
+export async function enqueueConvertEmailNotification(
+  tx: DbTransaction,
+  order: ConvertOrderRow,
+  fromStatus: string,
+  eventKind: "order_created" | "payment_received" | "processing" | "completed" | "failed_cancelled",
+  evidenceKey = "",
+) {
+  const enabled = await tx.select().from(notificationSettingsTable)
+    .where(eq(notificationSettingsTable.id, "global")).limit(1);
+  if (!customerEmailDeliveryEnabled() ||
+      !customerEmailEventEnabled(enabled[0], eventKind) ||
+      !order.customerEmail.trim()) return;
+  await tx.insert(convertNotificationOutboxTable).values({
+    quickexOrderId: order.legacyOrderId,
+    customerClerkUserId: order.customerClerkUserId ?? `guest:${order.customerEmail.trim().toLowerCase()}`,
+    recipientEmail: order.customerEmail.trim(),
+    eventKind,
+    fromStatus,
+    toStatus: order.status,
+    // Payment Received is an order-level fact, not a provider poll/version.
+    // Keep one stable identity even if the provider later revises its amount.
+    statusVersion: ["order_created", "payment_received"].includes(eventKind)
+      ? 0
+      : order.recordVersion,
+    evidenceKey: eventKind === "order_created"
+      ? "provider-created"
+      : eventKind === "payment_received"
+        ? "authoritative-paid"
+        : evidenceKey,
+    payload: {
+      route: order.route as ConvertRoute,
+      amounts: order.amounts as ConvertAmounts,
+      providerOrderId: order.providerOrderId,
+      providerReference: order.providerReference,
+      providerState: order.providerState,
+      createdAt: order.createdAt.toISOString(),
+      providerCreatedAt: order.providerCreatedAt?.toISOString() ?? null,
+      providerUpdatedAt: order.providerUpdatedAt?.toISOString() ?? null,
+    } satisfies ConvertNotificationPayload,
+  }).onConflictDoNothing({
+    target: [
+      convertNotificationOutboxTable.quickexOrderId,
+      convertNotificationOutboxTable.eventKind,
+      convertNotificationOutboxTable.statusVersion,
+      convertNotificationOutboxTable.evidenceKey,
+    ],
+  });
+}
+
+function convertDeliveryEligible(at: Date) {
+  return or(
+    and(eq(convertNotificationOutboxTable.deliveryStatus, "pending"), lte(convertNotificationOutboxTable.nextAttemptAt, at)),
+    and(eq(convertNotificationOutboxTable.deliveryStatus, "sending"), or(
+      isNull(convertNotificationOutboxTable.claimExpiresAt),
+      lte(convertNotificationOutboxTable.claimExpiresAt, at),
+    )),
+  );
+}
+
+/** Convert worker projection: only quickex_orders and notification settings are read. */
+export async function processConvertNotificationOutbox(limit = 25): Promise<number> {
+  if (!customerEmailDeliveryEnabled()) return 0;
+  const now = new Date();
+  const rows = await db.select().from(convertNotificationOutboxTable)
+    .where(convertDeliveryEligible(now))
+    .orderBy(asc(convertNotificationOutboxTable.createdAt), asc(convertNotificationOutboxTable.id))
+    .limit(limit);
+  let delivered = 0;
+  for (const candidate of rows) {
+    const claimToken = randomUUID();
+    const [claimed] = await db.update(convertNotificationOutboxTable).set({
+      deliveryStatus: "sending", lastAttemptAt: now, attemptCount: candidate.attemptCount + 1,
+      claimToken, claimExpiresAt: new Date(now.getTime() + DELIVERY_CLAIM_LEASE_MS),
+      providerIdempotencyStartedAt: sql`coalesce(${convertNotificationOutboxTable.providerIdempotencyStartedAt}, ${now})`,
+    }).where(and(eq(convertNotificationOutboxTable.id, candidate.id), convertDeliveryEligible(now))).returning();
+    if (!claimed) continue;
+    const activeClaim = and(eq(convertNotificationOutboxTable.id, claimed.id), eq(convertNotificationOutboxTable.claimToken, claimToken));
+    if (claimed.providerIdempotencyStartedAt &&
+      now.getTime() - claimed.providerIdempotencyStartedAt.getTime() >= PROVIDER_IDEMPOTENCY_RETRY_WINDOW_MS) {
+      await db.update(convertNotificationOutboxTable).set({
+        deliveryStatus: "failed", claimToken: null, claimExpiresAt: null, lastErrorCode: "EMAIL_IDEMPOTENCY_WINDOW_EXPIRED",
+      }).where(activeClaim);
+      continue;
+    }
+    const [order] = await db.select().from(quickexOrdersTable)
+      .where(eq(quickexOrdersTable.legacyOrderId, claimed.quickexOrderId)).limit(1);
+    const [settings] = await db.select().from(notificationSettingsTable)
+      .where(eq(notificationSettingsTable.id, "global")).limit(1);
+    const eventEnabled = customerEmailEventEnabled(settings, claimed.eventKind as Parameters<typeof customerEmailEventEnabled>[1]);
+    const recipientEmail = claimed.customerClerkUserId.startsWith("guest:")
+      ? (order?.customerEmail.trim() || claimed.recipientEmail.trim())
+      : await getCustomerVerifiedEmail(claimed.customerClerkUserId);
+    if (!order || !recipientEmail || !eventEnabled) {
+      await db.update(convertNotificationOutboxTable).set({
+        deliveryStatus: "suppressed", claimToken: null, claimExpiresAt: null,
+        lastErrorCode: !recipientEmail ? "CUSTOMER_VERIFIED_EMAIL_MISSING" : "",
+      }).where(activeClaim);
+      continue;
+    }
+    const payload = claimed.payload as ConvertNotificationPayload;
+    const route = payload.route ?? order.route as ConvertRoute;
+    const amounts = payload.amounts ?? order.amounts as ConvertAmounts;
+    const paidAmount = positiveConvertAmount(amounts.paidAmount);
+    if (claimed.eventKind === "payment_received" && !paidAmount) {
+      await db.update(convertNotificationOutboxTable).set({
+        deliveryStatus: "suppressed",
+        claimToken: null,
+        claimExpiresAt: null,
+        lastErrorCode: "QUICKEX_PAYMENT_EVIDENCE_MISSING",
+      }).where(activeClaim);
+      continue;
+    }
+    const receiveAmount = claimed.eventKind === "completed"
+      ? positiveConvertAmount(amounts.receiveAmount) ??
+        positiveConvertAmount(amounts.expectedReceiveAmount) ??
+        amounts.receiveAmount
+      : positiveConvertAmount(amounts.expectedReceiveAmount) ??
+        amounts.receiveAmount;
+    const socialLinks = await db.select({ name: socialTrustLinksTable.name, href: socialTrustLinksTable.href })
+      .from(socialTrustLinksTable).where(and(
+        eq(socialTrustLinksTable.group, "social"), eq(socialTrustLinksTable.enabled, true), isNull(socialTrustLinksTable.removedAt),
+      )).orderBy(asc(socialTrustLinksTable.createdAt));
+    const notification: CustomerStatusNotification = {
+      eventId: claimed.id, customerClerkUserId: claimed.customerClerkUserId, recipientEmail,
+      trustpilotUrl: settings?.trustpilotReviewUrl ?? "", customerName: order.customerName,
+      orderId: order.legacyOrderId, fromStatus: claimed.fromStatus, status: claimed.toStatus,
+      fromAsset: route.fromAsset, fromNetwork: route.fromNetwork, toAsset: route.toAsset, toNetwork: route.toNetwork,
+      amount: paidAmount ?? amounts.amount, receiveAmount, createdAt: order.createdAt,
+      completedAt: claimed.eventKind === "completed"
+        ? payload.providerUpdatedAt ? new Date(payload.providerUpdatedAt) : claimed.createdAt
+        : null,
+      fundedAt: claimed.eventKind === "payment_received"
+        ? payload.providerUpdatedAt ? new Date(payload.providerUpdatedAt) : claimed.createdAt
+        : null,
+      eventKind: claimed.eventKind, template: notificationTemplateForEvent(settings?.emailTemplates, claimed.eventKind),
+      paymentReference: payload.providerReference || payload.providerOrderId || undefined,
+      orderType: "convert", socialLinks,
+    };
+    try {
+      await sendCustomerStatusNotification(notification);
+      const [done] = await db.update(convertNotificationOutboxTable).set({
+        deliveryStatus: "delivered", deliveredAt: new Date(), claimToken: null, claimExpiresAt: null, lastErrorCode: "",
+      }).where(activeClaim).returning({ id: convertNotificationOutboxTable.id });
+      if (done) delivered++;
+    } catch (error) {
+      const exhausted = claimed.attemptCount >= MAX_DELIVERY_ATTEMPTS;
+      await db.update(convertNotificationOutboxTable).set({
+        deliveryStatus: exhausted ? "failed" : "pending",
+        nextAttemptAt: new Date(Date.now() + retryDelayMs(claimed.attemptCount)),
+        claimToken: null, claimExpiresAt: null, lastErrorCode: error instanceof Error ? error.name : "DeliveryError",
+      }).where(activeClaim);
+    }
+  }
+  return delivered;
+}
 
 export async function updateOrderAndQueueStatusNotificationTx(
   tx: DbTransaction,

@@ -22,6 +22,8 @@ export const quickexOrdersTable = pgTable("quickex_orders", {
   addresses: jsonb("addresses").notNull(),
   outcomeUnknown: boolean("outcome_unknown").notNull().default(false),
   recordVersion: integer("record_version").notNull().default(0),
+  providerCreatedAt: timestamp("provider_created_at", { withTimezone: true }),
+  providerUpdatedAt: timestamp("provider_updated_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
 }, (table) => [

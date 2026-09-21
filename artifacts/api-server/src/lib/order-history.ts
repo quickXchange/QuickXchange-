@@ -95,8 +95,8 @@ function operatorRecord(row: typeof quickexOrdersTable.$inferSelect) {
     providerClaimedDepositAmount: optionalExactDecimalString(amounts.claimedDepositAmount),
     providerExpectedReceiveAmount: optionalExactDecimalString(amounts.expectedReceiveAmount),
     providerPaidAmount: optionalExactDecimalString(amounts.paidAmount),
-    providerCreatedAt: null,
-    providerUpdatedAt: null,
+    providerCreatedAt: row.providerCreatedAt?.toISOString() ?? null,
+    providerUpdatedAt: row.providerUpdatedAt?.toISOString() ?? null,
     providerCompleted: null,
   };
 }

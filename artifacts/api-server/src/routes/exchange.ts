@@ -172,6 +172,7 @@ import {
 } from "../lib/customer-auth";
 import {
   processCustomerStatusNotificationOutbox,
+  processConvertNotificationOutbox,
   updateOrderAndQueueStatusNotification,
 } from "../lib/customer-status-notifications";
 import { enqueueAdminSwapTelegramOrderCreatedNotification } from "../lib/telegram-swap-notifications";
@@ -334,6 +335,7 @@ export function startExchangeStatusNotificationWorker(): () => void {
     if (customerNotificationCycleInFlight) return;
     customerNotificationCycleInFlight = (async () => {
       await processCustomerStatusNotificationOutbox();
+      await processConvertNotificationOutbox();
       await processPendingAffiliateCompletions();
       await reconcilePendingQuickexOrders();
     })()

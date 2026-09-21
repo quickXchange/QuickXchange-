@@ -349,6 +349,49 @@ test("Customer lifecycle emails render premium event-specific content from safe 
   }
 });
 
+test("Convert lifecycle emails use Quickex data without Swap settlement claims", () => {
+  const previousPublicAppUrl = process.env.PUBLIC_APP_URL;
+  process.env.PUBLIC_APP_URL = "https://quickchange.exchange";
+  try {
+    const completed = buildCustomerStatusNotificationContent({
+      eventId: "convert-email-render-test",
+      customerClerkUserId: "guest:convert@example.test",
+      recipientEmail: "convert@example.test",
+      customerName: "Amina",
+      orderId: "QX-00000000-0000-4000-8000-000000000001",
+      fromStatus: "processing",
+      status: "completed",
+      fromAsset: "BTC",
+      fromNetwork: "Bitcoin",
+      toAsset: "USDT",
+      toNetwork: "TRC20",
+      amount: "1.25",
+      receiveAmount: "99",
+      createdAt: new Date("2026-09-21T12:00:00.000Z"),
+      completedAt: new Date("2026-09-21T12:15:00.000Z"),
+      eventKind: "completed",
+      orderType: "convert",
+      paymentReference: "quickex-reference-800",
+      trustpilotUrl: "https://www.trustpilot.com/evaluate/quickchange.exchange",
+    });
+    assert.match(completed.html, /Exchange Completed/);
+    assert.match(completed.html, /Convert/);
+    assert.match(completed.html, /1\.25 BTC/);
+    assert.match(completed.html, /99 USDT/);
+    assert.doesNotMatch(completed.html, /100 USDT/);
+    assert.match(completed.html, /Bitcoin/);
+    assert.match(completed.html, /TRC20/);
+    assert.match(completed.html, /quickex-reference-800/);
+    assert.match(completed.html, /invoice=1/);
+    assert.match(completed.html, /Review us on Trustpilot/);
+    assert.doesNotMatch(completed.html, /Confirmations/);
+    assert.doesNotMatch(completed.html, /Transaction Hash/);
+  } finally {
+    if (previousPublicAppUrl === undefined) delete process.env.PUBLIC_APP_URL;
+    else process.env.PUBLIC_APP_URL = previousPublicAppUrl;
+  }
+});
+
 test("Admin and customer notification channel gates remain independent", () => {
   const settings = {
     adminNotificationsEnabled: true,

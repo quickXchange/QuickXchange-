@@ -1038,7 +1038,7 @@ async function createQuickexOrderSerial(input: { fromCurrency: string; fromNetwo
   };
 }
 
-export type QuickexOrderListItem = { orderId: number; providerReference: string | null; destinationAddress: string | null; refundAddress: string | null; claimedDepositAmount: string | null; amountToGet: string | null; amountToWithdrawFact: string | null; instrumentFromCurrencyTitle: string; instrumentFromNetworkTitle: string; instrumentToCurrencyTitle: string; instrumentToNetworkTitle: string; createdAt: string; updatedAt: string; completed: boolean; state: string; };
+export type QuickexOrderListItem = { orderId: number; providerReference: string | null; destinationAddress: string | null; refundAddress: string | null; claimedDepositAmount: string | null; amountToGet: string | null; amountToWithdrawFact: string | null; paidAmount?: string | null; instrumentFromCurrencyTitle: string; instrumentFromNetworkTitle: string; instrumentToCurrencyTitle: string; instrumentToNetworkTitle: string; createdAt: string; updatedAt: string; completed: boolean; state: string; };
 
 function validateOrder(value: unknown): QuickexOrderListItem {
   const o = value as Record<string, unknown>;
@@ -1053,6 +1053,7 @@ function validateOrder(value: unknown): QuickexOrderListItem {
   for (const key of ["amountToGet", "amountToWithdrawFact"]) {
     if (o[key] !== null && !signedDecimal(o[key])) throw new Error();
   }
+  if (o.paidAmount !== undefined && o.paidAmount !== null && !signedDecimal(o.paidAmount)) throw new Error();
   const providerReference = [o.id, o.uuid, o.providerReference, o.reference]
     .find((candidate) => usableString(candidate));
   return {
