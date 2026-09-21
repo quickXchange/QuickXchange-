@@ -361,7 +361,27 @@ function renderBlogArticle(req, article) {
 
 async function renderSitemap(req) {
   const origin = requestOrigin(req);
-  const entries = [`<url><loc>${escapeHtml(`${origin}/blog`)}</loc></url>`];
+  const publicRoutes = [
+    ["/", "daily", "1.0"],
+    ["/swap", "weekly", "0.9"],
+    ["/convert", "weekly", "0.9"],
+    ["/user-manual", "monthly", "0.9"],
+    ["/market-rates", "daily", "0.8"],
+    ["/crypto-pairs", "daily", "0.8"],
+    ["/status", "weekly", "0.8"],
+    ["/how-it-works", "monthly", "0.8"],
+    ["/faq", "monthly", "0.8"],
+    ["/blog", "daily", "0.8"],
+    ["/about", "monthly", "0.6"],
+    ["/affiliates", "monthly", "0.6"],
+    ["/contact", "monthly", "0.6"],
+    ["/operations", "weekly", "0.5"],
+    ["/aml-kyc", "monthly", "0.5"],
+    ["/privacy", "yearly", "0.4"],
+    ["/terms", "yearly", "0.4"],
+  ];
+  const entries = publicRoutes.map(([path, changefreq, priority]) =>
+    `<url><loc>${escapeHtml(`${origin}${path}`)}</loc><changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`);
   let page = 1;
   while (page <= 20) {
     let data;
@@ -418,7 +438,7 @@ export function createProductionServer({
           return;
         }
         if (url.pathname === "/robots.txt") {
-          const body = Buffer.from(`User-agent: *\nAllow: /blog\nDisallow: /admin\nSitemap: ${requestOrigin(req)}/sitemap.xml\n`);
+          const body = Buffer.from(`User-agent: *\nAllow: /\nDisallow: /admin\nSitemap: ${requestOrigin(req)}/sitemap.xml\n`);
           res.writeHead(200, {
             "cache-control": "public, max-age=300",
             "content-type": "text/plain; charset=utf-8",

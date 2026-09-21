@@ -37,6 +37,7 @@ const COMPANY_FOOTER_LINKS = [
 ] as const;
 
 const INFORMATION_FOOTER_LINKS = [
+  ['User Manual', '/user-manual'],
   ['Terms and Conditions', '/terms'],
   ['AML / KYC Policy', '/aml-kyc'],
   ['FAQ', '/faq'],

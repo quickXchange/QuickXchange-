@@ -158,6 +158,7 @@ const AmlKycPage = lazy(() => import('./pages/public-info-pages').then(module =>
 const MarketRatesPage = lazy(() => import('./pages/market-rates').then(module => ({ default: module.MarketRatesPage })));
 const CryptoPairsPage = lazy(() => import('./pages/crypto-pairs').then(module => ({ default: module.CryptoPairsPage })));
 const FaqPage = lazy(() => import('./pages/faq').then(module => ({ default: module.FaqPage })));
+const UserManualPage = lazy(() => import('./pages/user-manual').then(module => ({ default: module.UserManualPage })));
 const LiveMarketSection = lazy(() => import('./components/live-market-section').then(module => ({ default: module.LiveMarketSection })));
 
 const customPublicContentPages: Record<string, React.ComponentType> = {
@@ -2660,6 +2661,7 @@ function ClerkProviderWithRoutes() {
             <Route path="/" component={ExchangePage} />
             <Route path="/convert" component={() => <ConfiguredExchangePage pageKey="convert" />} />
             <Route path="/swap" component={() => <ConfiguredExchangePage pageKey="swap" />} />
+            <Route path="/user-manual" component={UserManualPage} />
             {PUBLIC_PAGE_REGISTRY.filter(({ key }) => !['home', 'convert', 'swap'].includes(key)).map((page) => {
               const Component = customPublicContentPages[page.key];
               return <Route

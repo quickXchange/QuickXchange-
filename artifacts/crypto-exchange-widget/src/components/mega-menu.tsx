@@ -3,7 +3,7 @@ import { Link, useLocation } from 'wouter';
 import { cn } from '@/components/shared-app-ui';
 import {
   ArrowRight, ArrowRightLeft, Coins, Info, HelpCircle, ShieldCheck,
-  Clock, MessageCircle, Newspaper,
+  BookOpen, Clock, MessageCircle, Newspaper,
   ChevronDown
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -41,6 +41,13 @@ export const NAVIGATION_DATA: NavGroup[] = [
       { label: 'AML / KYC', href: '/aml-kyc', icon: ShieldCheck, description: 'Compliance and verification policy' },
       { label: 'Contact Support', href: '/contact', icon: HelpCircle, description: '24/7 customer service' },
     ]
+  },
+  {
+    title: 'User Manual',
+    items: [
+      { label: 'User Manual', href: '/user-manual', icon: BookOpen, description: 'Step-by-step exchange guide' },
+    ],
+    direct: true,
   },
   {
     title: 'Blog',
