@@ -166,18 +166,18 @@ export function OrderConfirmationPage() {
   const mss = (order.manualSettlementState || 'awaiting_funds').toLowerCase();
 
   const status = order.status.toLowerCase();
-  const halted = /refund|expire|fail|cancel/.test(status) || mss === 'cancelled' || mss === 'failed';
+  const halted = /refund|expire|fail|cancel/.test(status);
   const uncertain = /unknown|held|verification|review/.test(status) || order.outcomeUnknown;
-  const completed = /complete|paid/.test(status) || mss === 'completed';
+  const completed = /complete|paid/.test(status);
   const canCustomerCancel = !isQuickex && isManual && mss === 'awaiting_funds' &&
     !order.customerMarkedPaidAt && !halted && !uncertain && !completed && !/process|paid/.test(status);
 
-  const isCancelled = status === 'cancelled' || mss === 'cancelled';
+  const isCancelled = status === 'cancelled';
   const isConfirming = isManual
-    ? mss === 'funds_confirmed' || status === 'confirming'
+    ? ['confirming', 'payment detected'].includes(status)
     : !completed && !halted && ['confirming', 'payment detected'].includes(status);
   const isProcessing = isManual
-    ? mss === 'payout_processing' || mss === 'payout_sent'
+    ? status === 'processing'
     : !completed && !halted && status === 'processing';
 
   const currentStep = isManual
@@ -274,7 +274,7 @@ export function OrderConfirmationPage() {
              </div>
              <div className="flex gap-2 w-full sm:w-auto self-start sm:self-center">
                <span className={cn("text-xs font-bold rounded-xl bg-primary/10 text-primary border border-primary/20 px-3 py-1.5 flex items-center shrink-0")} data-testid="status-order-confirmation">
-                 {isQuickex ? convertOrderStatusLabel(order.status) : order.status}
+                  {statusPresentation.label}
                </span>
                <button
                  onClick={() => handleCopy(order.id)}
