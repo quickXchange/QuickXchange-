@@ -140,7 +140,10 @@ export function OrderConfirmationPage() {
           <h2 className="text-2xl font-bold tracking-tight mb-2">Order Not Found</h2>
           <p className="text-muted-foreground mb-8 max-w-md mx-auto">{lookupErrorMessage}</p>
           <div className="flex flex-col gap-3 w-full max-w-xs mx-auto">
-            <Link href="/" className="button button-secondary w-full">Return to Exchange</Link>
+            <Link href="/" className="group relative flex h-11 w-full items-center justify-center overflow-hidden rounded-xl bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 text-sm font-bold text-white shadow-[0_4px_16px_-4px_rgba(6,182,212,0.4)] transition-all hover:from-cyan-400 hover:via-blue-400 hover:to-purple-400 hover:shadow-[0_6px_24px_-6px_rgba(6,182,212,0.6)]">
+              <div className="absolute inset-0 bg-white/20 translate-y-[100%] group-hover:translate-y-0 transition-transform duration-300 ease-out" />
+              <span className="relative z-10">Return to Exchange</span>
+            </Link>
           </div>
         </div>
       </PublicShell>
@@ -249,10 +252,12 @@ export function OrderConfirmationPage() {
     <PublicShell>
       <main className="min-h-[80vh] py-8 px-4 sm:px-6 lg:px-8 max-w-3xl mx-auto space-y-6">
         {/* Status Panel */}
-        <div className={cn("bg-card border rounded-3xl p-5 sm:p-6 shadow-sm", statusPresentation.border)}>
+        <div className={cn("relative overflow-hidden bg-card border rounded-3xl p-5 sm:p-6 shadow-sm transition-all duration-500 hover:shadow-[0_8px_30px_-12px_rgba(139,92,246,0.15)] dark:hover:shadow-[0_8px_30px_-12px_rgba(139,92,246,0.25)]", statusPresentation.border)}>
+          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-purple-500/10 via-blue-500/5 to-transparent blur-3xl pointer-events-none rounded-full" />
+          <div className="relative z-10">
           <div className="flex items-start gap-4">
-            <div className={cn("relative w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center", statusPresentation.surface)}>
-              {!halted && <div className="absolute inset-1 rounded-xl bg-gradient-to-br from-secondary/30 via-primary/20 to-accent/30 blur-md" />}
+            <div className={cn("relative w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center shadow-[0_0_16px_-4px_rgba(6,182,212,0.25)]", statusPresentation.surface)}>
+              {!halted && <div className="absolute inset-1 rounded-xl bg-gradient-to-br from-cyan-500/20 via-blue-500/10 to-purple-500/20 blur-md" />}
               <StatusIcon className={cn("relative z-10 w-6 h-6", statusPresentation.tone, isProcessing && "animate-spin")} />
             </div>
             <div className="min-w-0 flex-1">
@@ -286,7 +291,7 @@ export function OrderConfirmationPage() {
             <div className="mt-6 border-t border-border/50 pt-6">
               <div className="relative pt-2 pb-1">
                 <div className="absolute top-[17px] left-[10%] right-[10%] h-[2px] bg-border z-0" />
-                <div className="absolute top-[17px] left-[10%] h-[2px] bg-gradient-to-r from-secondary via-primary to-accent z-0 transition-all duration-500" style={{ width: `${(Math.max(0, currentStep - 1) / 3) * 80}%` }} />
+                <div className="absolute top-[17px] left-[10%] h-[2px] bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 z-0 transition-all duration-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]" style={{ width: `${(Math.max(0, currentStep - 1) / 3) * 80}%` }} />
 
                 <div className="flex justify-between relative z-10">
                   {(isManual ? ['Created', 'Detected', 'Processing', 'Done'] : ['Created', 'Confirming', 'Processing', 'Done']).map((label, idx) => {
@@ -296,16 +301,17 @@ export function OrderConfirmationPage() {
                     return (
                       <div key={label} className="flex flex-col items-center gap-2 w-[70px]">
                         <div className={cn(
-                          "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border-2",
-                          isPast ? "bg-primary border-primary text-primary-foreground shadow-[0_0_12px_hsl(var(--primary)/0.6)]" :
-                          isCurrent ? "bg-background border-primary text-primary shadow-[0_0_14px_hsl(var(--primary)/0.7)] scale-110" :
+                          "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border-2 relative overflow-hidden",
+                          isPast ? "bg-gradient-to-br from-cyan-500 to-blue-500 border-transparent text-white shadow-[0_0_12px_rgba(6,182,212,0.6)]" :
+                          isCurrent ? "bg-background border-cyan-500 text-cyan-600 dark:text-cyan-400 shadow-[0_0_14px_rgba(6,182,212,0.7)] scale-110" :
                           "bg-background border-border text-muted-foreground/50"
                         )}>
-                          {isPast ? <Check className="w-4 h-4" /> : step}
+                          {isCurrent && <div className="absolute inset-0 bg-cyan-500/10" />}
+                          {isPast ? <Check className="w-4 h-4" /> : <span className="relative z-10">{step}</span>}
                         </div>
                         <span className={cn(
                           "text-[10px] leading-tight font-semibold transition-colors text-center uppercase tracking-wider",
-                          isPast || isCurrent ? "text-foreground" : "text-muted-foreground/50"
+                          isPast || isCurrent ? "text-cyan-700 dark:text-cyan-400" : "text-muted-foreground/50"
                         )}>{label}</span>
                       </div>
                     );
@@ -320,19 +326,26 @@ export function OrderConfirmationPage() {
               )}
             </div>
           )}
+          </div>
         </div>
 
         {/* Exchange Summary */}
-        <div className="bg-card border border-border rounded-3xl p-5 sm:p-6 shadow-sm space-y-5" data-testid="order-confirmation-exchange-summary">
-           <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Exchange Summary</h3>
+        <div className="relative overflow-hidden bg-card border border-border rounded-3xl p-5 sm:p-6 shadow-sm space-y-5 transition-all hover:shadow-[0_8px_32px_-12px_rgba(59,130,246,0.15)] dark:hover:shadow-[0_8px_32px_-12px_rgba(59,130,246,0.25)] group/summary" data-testid="order-confirmation-exchange-summary">
+           <div className="absolute -top-24 -left-24 w-64 h-64 bg-gradient-to-br from-cyan-500/10 via-blue-500/5 to-transparent blur-3xl pointer-events-none rounded-full opacity-70 group-hover/summary:opacity-100 transition-opacity duration-500" />
+           <div className="relative z-10">
+           <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground mb-5">Exchange Summary</h3>
 
            <div className="relative">
-             <div className="flex items-center justify-between bg-secondary/5 rounded-t-2xl p-4 sm:p-5 border border-border border-b-0">
-                <div className="flex items-center gap-4 min-w-0">
-                   <div className="w-12 h-12 [&_.order-settlement-copy]:hidden flex items-center justify-center bg-background rounded-full border border-border shrink-0">
-                     <OrderSettlementIdentity assetCode={order.fromAsset} routeLabel={order.fromNetwork} settlementOptionId={order.sourceSettlementOptionId} size="md" compact={true} />
+             <div className="flex items-center justify-between bg-secondary/5 rounded-t-2xl p-4 sm:p-5 border border-border border-b-0 relative overflow-hidden group/send">
+                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-blue-500/5 to-purple-500/0 opacity-0 group-hover/send:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                <div className="relative z-10 flex items-center gap-4 min-w-0 w-full">
+                   <div className="w-12 h-12 [&_.order-settlement-copy]:hidden [&_.crypto-identity-copy]:hidden flex items-center justify-center overflow-hidden bg-background rounded-full border border-border shrink-0 shadow-[0_0_12px_-4px_rgba(6,182,212,0.2)] group-hover/send:border-cyan-500/40 transition-colors relative [&_.order-settlement-identity]:!bg-transparent [&_.order-settlement-identity]:!p-0 [&_.order-settlement-identity]:!border-0 [&_.crypto-identity]:!bg-transparent [&_.crypto-identity]:!p-0 [&_.crypto-identity]:!border-0 [&_img]:!w-7 [&_img]:!h-7 [&_.crypto-network-badge]:hidden [&_svg]:!w-7 [&_svg]:!h-7">
+                     <div className="absolute inset-0 rounded-full bg-gradient-to-br from-cyan-500/10 to-blue-500/10 opacity-0 group-hover/send:opacity-100 transition-opacity pointer-events-none" />
+                     <div className="relative z-10 flex items-center justify-center w-full h-full">
+                       <OrderSettlementIdentity assetCode={order.fromAsset} routeLabel={order.fromNetwork} settlementOptionId={order.sourceSettlementOptionId} size="md" compact={true} />
+                     </div>
                    </div>
-                   <div className="flex flex-col justify-center min-w-0">
+                   <div className="flex flex-col justify-center min-w-0 flex-1">
                       <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">You Send</div>
                       <div className="font-bold text-xl sm:text-2xl leading-none text-foreground truncate">{order.amount} {order.fromAsset}</div>
                       {sourceIdentity !== order.fromAsset && (
@@ -342,12 +355,16 @@ export function OrderConfirmationPage() {
                 </div>
              </div>
 
-             <div className="flex items-center justify-between bg-primary/5 rounded-b-2xl p-4 sm:p-5 border border-border">
-                <div className="flex items-center gap-4 min-w-0">
-                   <div className="w-12 h-12 [&_.order-settlement-copy]:hidden flex items-center justify-center bg-background rounded-full border border-border shrink-0">
-                     <OrderSettlementIdentity assetCode={order.toAsset} routeLabel={order.toNetwork} settlementOptionId={order.targetSettlementOptionId} size="md" compact={true} />
+             <div className="flex items-center justify-between bg-primary/5 rounded-b-2xl p-4 sm:p-5 border border-border relative overflow-hidden group/recv">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-purple-500/5 to-cyan-500/0 opacity-0 group-hover/recv:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                <div className="relative z-10 flex items-center gap-4 min-w-0 w-full">
+                   <div className="w-12 h-12 [&_.order-settlement-copy]:hidden [&_.crypto-identity-copy]:hidden flex items-center justify-center overflow-hidden bg-background rounded-full border border-border shrink-0 shadow-[0_0_12px_-4px_rgba(139,92,246,0.2)] group-hover/recv:border-purple-500/40 transition-colors relative [&_.order-settlement-identity]:!bg-transparent [&_.order-settlement-identity]:!p-0 [&_.order-settlement-identity]:!border-0 [&_.crypto-identity]:!bg-transparent [&_.crypto-identity]:!p-0 [&_.crypto-identity]:!border-0 [&_img]:!w-7 [&_img]:!h-7 [&_.crypto-network-badge]:hidden [&_svg]:!w-7 [&_svg]:!h-7">
+                     <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-500/10 to-purple-500/10 opacity-0 group-hover/recv:opacity-100 transition-opacity pointer-events-none" />
+                     <div className="relative z-10 flex items-center justify-center w-full h-full">
+                       <OrderSettlementIdentity assetCode={order.toAsset} routeLabel={order.toNetwork} settlementOptionId={order.targetSettlementOptionId} size="md" compact={true} />
+                     </div>
                    </div>
-                   <div className="flex flex-col justify-center min-w-0">
+                   <div className="flex flex-col justify-center min-w-0 flex-1">
                       <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">You Receive</div>
                       <div className="font-bold text-xl sm:text-2xl leading-none text-primary truncate">{isManual ? '≈ ' : ''}{order.receiveAmount} {order.toAsset}</div>
                       {targetIdentity !== order.toAsset && (
@@ -357,8 +374,8 @@ export function OrderConfirmationPage() {
                 </div>
              </div>
 
-             <div className="absolute left-10 top-1/2 -translate-y-1/2 w-8 h-8 bg-background border border-border rounded-full flex items-center justify-center shadow-sm">
-               <ArrowDown size={14} className="text-muted-foreground" />
+             <div className="absolute left-10 top-1/2 -translate-y-1/2 w-8 h-8 bg-background border border-border rounded-full flex items-center justify-center shadow-[0_4px_12px_-2px_rgba(59,130,246,0.2)] z-20">
+               <ArrowDown size={14} className="text-blue-500 dark:text-blue-400" />
              </div>
            </div>
 
@@ -381,6 +398,7 @@ export function OrderConfirmationPage() {
                </button>
              </div>
            </div>
+           </div>
         </div>
 
         {/* Payment Details */}
@@ -398,16 +416,19 @@ export function OrderConfirmationPage() {
         )}
 
         {hasPaymentInstructions && (
-           <div className="relative rounded-3xl p-[1px] overflow-hidden" data-testid="order-confirmation-payment-card">
-             <div className="absolute inset-0 bg-gradient-to-br from-secondary via-primary to-accent opacity-50 blur-sm" />
-             <div className="relative bg-card/95 backdrop-blur-xl rounded-3xl h-full p-5 sm:p-6 space-y-5">
-                <div className="flex items-center gap-4 border-b border-border/50 pb-4">
-                   <div className="w-12 h-12 [&_.order-settlement-copy]:hidden flex items-center justify-center bg-background rounded-full border border-border shrink-0">
-                     <OrderSettlementIdentity assetCode={order.fromAsset} routeLabel={order.fromNetwork} settlementOptionId={order.sourceSettlementOptionId} size="md" compact={true} />
+           <div className="relative rounded-3xl p-[1px] overflow-hidden group/pay" data-testid="order-confirmation-payment-card">
+             <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-500 opacity-30 blur-sm group-hover/pay:opacity-50 transition-opacity duration-500" />
+             <div className="relative bg-card/95 backdrop-blur-xl rounded-3xl h-full p-5 sm:p-6 space-y-5 shadow-inner">
+                <div className="flex items-center gap-4 border-b border-border/50 pb-4 relative z-10">
+                    <div className="w-12 h-12 [&_.order-settlement-copy]:hidden [&_.crypto-identity-copy]:hidden flex items-center justify-center overflow-hidden bg-background rounded-full border border-border shrink-0 shadow-[0_0_12px_-4px_rgba(6,182,212,0.3)] relative [&_.order-settlement-identity]:!bg-transparent [&_.order-settlement-identity]:!p-0 [&_.order-settlement-identity]:!border-0 [&_.crypto-identity]:!bg-transparent [&_.crypto-identity]:!p-0 [&_.crypto-identity]:!border-0 [&_img]:!w-7 [&_img]:!h-7 [&_.crypto-network-badge]:hidden [&_svg]:!w-7 [&_svg]:!h-7">
+                     <div className="absolute inset-0 rounded-full bg-gradient-to-br from-cyan-500/10 to-blue-500/10 opacity-50" />
+                     <div className="relative z-10 flex items-center justify-center w-full h-full">
+                       <OrderSettlementIdentity assetCode={order.fromAsset} routeLabel={order.fromNetwork} settlementOptionId={order.sourceSettlementOptionId} size="md" compact={true} />
+                     </div>
                    </div>
-                   <div>
-                      <h3 className="font-bold text-lg tracking-tight">{isCryptoDeposit ? 'Crypto Deposit Details' : 'Payment Details'}</h3>
-                      <p className="text-sm text-muted-foreground leading-tight">
+                   <div className="relative z-10">
+                      <h3 className="font-bold text-lg tracking-tight text-foreground">{isCryptoDeposit ? 'Crypto Deposit Details' : 'Payment Details'}</h3>
+                      <p className="text-sm text-muted-foreground leading-tight mt-0.5">
                          {isCryptoDeposit ? `Send exactly ${order.amount} ${order.fromAsset}` : order.sourcePaymentMethod?.name || 'Use the assigned order instructions'}
                       </p>
                    </div>
@@ -415,13 +436,13 @@ export function OrderConfirmationPage() {
 
                 <div className="space-y-4">
                    {order.customerSafeNote && (
-                     <div className="p-4 bg-primary/5 border border-primary/10 rounded-2xl mb-4">
+                     <div className="p-4 bg-cyan-500/5 border border-cyan-500/20 rounded-2xl mb-4 relative z-10">
                        <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{order.customerSafeNote}</p>
                      </div>
                    )}
 
                    {addressPending && (
-                     <div className="rounded-2xl border border-primary/20 bg-primary/10 p-5" data-testid="order-confirmation-address-pending">
+                     <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-5 relative z-10 shadow-[0_4px_12px_-4px_rgba(6,182,212,0.15)]" data-testid="order-confirmation-address-pending">
                        <div className="flex items-start gap-3">
                          <Loader2 size={20} className="mt-0.5 shrink-0 animate-spin text-primary" />
                          <div>
@@ -435,7 +456,7 @@ export function OrderConfirmationPage() {
                    )}
 
                    {addressUnavailable && (
-                     <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-5" data-testid="order-confirmation-address-unavailable">
+                     <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-5 relative z-10" data-testid="order-confirmation-address-unavailable">
                        <div className="flex items-start gap-3">
                          <CircleAlert size={20} className="mt-0.5 shrink-0 text-destructive" />
                          <div>
@@ -552,7 +573,7 @@ export function OrderConfirmationPage() {
         )}
 
         <div className="flex flex-col gap-3 pb-8">
-          <Link href={`/status?order=${encodeURIComponent(order.id)}${trackingToken ? `&trackingToken=${encodeURIComponent(trackingToken)}` : ''}`} className="button button-primary h-14 rounded-2xl shadow-sm text-sm font-bold w-full" data-testid="button-track-this-order">
+          <Link href={`/status?order=${encodeURIComponent(order.id)}${trackingToken ? `&trackingToken=${encodeURIComponent(trackingToken)}` : ''}`} className="button button-primary h-14 rounded-2xl text-sm font-bold w-full shadow-[0_8px_24px_-8px_rgba(37,99,235,0.45),0_0_18px_-8px_rgba(6,182,212,0.45)] transition-all hover:shadow-[0_10px_30px_-8px_rgba(124,58,237,0.5),0_0_22px_-8px_rgba(6,182,212,0.55)]" data-testid="button-track-this-order">
             TRACK THIS ORDER
             <ArrowRight size={18} className="ml-2" />
           </Link>
