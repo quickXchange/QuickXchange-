@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { and, eq } from "drizzle-orm";
-import { ReplitConnectors } from "@replit/connectors-sdk";
 import {
   TestAdminNotificationEmailTemplateBody,
   UpdateAdminNotificationEmailTemplatesBody,
@@ -16,6 +15,7 @@ import {
   DEFAULT_NOTIFICATION_EMAIL_TEMPLATES,
   NOTIFICATION_TEMPLATE_VARIABLES,
 } from "../lib/customer-status-notifications";
+import { sendResendRequest } from "../lib/resend";
 
 const router = Router();
 
@@ -80,7 +80,7 @@ router.post("/admin/notification-settings/test-email", requireOwner, async (req,
   if (!settings.adminNotificationEmail) {
     throw new ApiError("ADMIN_EMAIL_NOT_CONFIGURED", "Save an Admin notification email before sending a test.", 400);
   }
-  const response = await new ReplitConnectors().proxy("resend", "/emails", {
+  const response = await sendResendRequest("/emails", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: {
@@ -237,7 +237,7 @@ router.post("/admin/notification-settings/email-templates/test", requireOwner, a
     trustpilotUrl: settings.trustpilotReviewUrl,
     template: parsed.data,
   });
-  const response = await new ReplitConnectors().proxy("resend", "/emails", {
+  const response = await sendResendRequest("/emails", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: {

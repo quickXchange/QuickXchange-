@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { ReplitConnectors } from "@replit/connectors-sdk";
 import {
   and,
   asc,
@@ -32,6 +31,7 @@ import { getCustomerVerifiedEmail } from "./customer-auth";
 import { logger } from "./logger";
 import { signOrderTrackingToken } from "./order-access";
 import { adminEmailEventEnabled, adminTelegramEventEnabled, customerEmailEventEnabled } from "./notification-policy";
+import { sendResendRequest } from "./resend";
 
 const MAX_DELIVERY_ATTEMPTS = 5;
 const DELIVERY_CLAIM_LEASE_MS = 5 * 60 * 1000;
@@ -272,7 +272,7 @@ async function sendCustomerStatusNotification(
   const fromAddress =
     process.env.CUSTOMER_NOTIFICATION_FROM_EMAIL?.trim() ||
     "QuickXchange <support@quickchange.exchange>";
-  const response = await new ReplitConnectors().proxy("resend", "/emails", {
+  const response = await sendResendRequest("/emails", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
