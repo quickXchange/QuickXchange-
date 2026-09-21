@@ -61,7 +61,7 @@ export async function sendContactSupportEmail(
   const content = buildContactSupportEmail(input);
   const fromAddress =
     process.env.CUSTOMER_NOTIFICATION_FROM_EMAIL?.trim() ||
-    "QuickXchange Website <support@quickchange.exchange>";
+    "QuickXchange Website <support@quickxchange.net>";
   const response = await new ReplitConnectors().proxy("resend", "/emails", {
     method: "POST",
     headers: {
@@ -70,7 +70,7 @@ export async function sendContactSupportEmail(
     },
     body: {
       from: fromAddress,
-      to: ["support@quickchange.exchange"],
+      to: ["support@quickxchange.net"],
       reply_to: input.customerEmail,
       subject: content.subject,
       text: content.text,

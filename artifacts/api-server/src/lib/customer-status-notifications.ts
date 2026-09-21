@@ -271,7 +271,7 @@ async function sendCustomerStatusNotification(
   const content = buildCustomerStatusNotificationContent(notification);
   const fromAddress =
     process.env.CUSTOMER_NOTIFICATION_FROM_EMAIL?.trim() ||
-    "QuickXchange <support@quickchange.exchange>";
+    "QuickXchange <support@quickxchange.net>";
   const response = await new ReplitConnectors().proxy("resend", "/emails", {
     method: "POST",
     headers: {
