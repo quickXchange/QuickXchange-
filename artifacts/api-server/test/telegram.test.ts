@@ -271,6 +271,84 @@ test("Notification templates allow only safe variables and escape rendered value
   assert.doesNotMatch(content.html, /trustpilot\.test/);
 });
 
+test("Customer lifecycle emails render premium event-specific content from safe order data", () => {
+  const previousPublicAppUrl = process.env.PUBLIC_APP_URL;
+  process.env.PUBLIC_APP_URL = "https://quickchange.exchange";
+  const baseNotification = {
+    eventId: "email-render-test",
+    customerClerkUserId: "user_email_render_test",
+    recipientEmail: "customer@example.test",
+    customerName: "Amina",
+    orderId: "QX-EMAIL-001",
+    fromStatus: "pending",
+    status: "pending",
+    fromAsset: "USDT",
+    fromNetwork: "TRC20",
+    toAsset: "EUR",
+    toNetwork: "",
+    amount: "250.00",
+    receiveAmount: "229.50",
+    paymentMethod: "Crypto wallet",
+    receiveMethod: "SEPA transfer",
+    orderType: "manual",
+    createdAt: new Date("2026-09-21T12:00:00.000Z"),
+    socialLinks: [
+      { name: "X", href: "https://x.com/quickxchange" },
+      { name: "Telegram", href: "javascript:alert(1)" },
+    ],
+  };
+
+  try {
+    const created = buildCustomerStatusNotificationContent({
+      ...baseNotification,
+      eventKind: "order_created",
+    });
+    assert.match(created.html, /Hello Amina/);
+    assert.match(created.html, /Awaiting payment/);
+    assert.match(created.html, /Manual Swap/);
+    assert.match(created.html, /within the given time/);
+    assert.match(created.html, /https:\/\/x\.com\/quickxchange/);
+    assert.doesNotMatch(created.html, /javascript:/);
+
+    const payment = buildCustomerStatusNotificationContent({
+      ...baseNotification,
+      eventKind: "payment_received",
+      fromStatus: "pending",
+      status: "processing",
+      transactionHash: "0x1234567890abcdef1234567890abcdef",
+      confirmations: 12,
+      confirmationsRequired: 12,
+    });
+    assert.match(payment.html, /Payment Received/);
+    assert.match(payment.html, /You Sent/);
+    assert.match(payment.html, /0x1234\.\.\.90abcdef/);
+    assert.match(payment.html, /12 \/ 12/);
+    assert.doesNotMatch(payment.html, /Received at/);
+    assert.match(payment.text, /0x1234567890abcdef1234567890abcdef/);
+
+    const completed = buildCustomerStatusNotificationContent({
+      ...baseNotification,
+      eventKind: "completed",
+      fromStatus: "processing",
+      status: "completed",
+      completedAt: new Date("2026-09-21T12:15:00.000Z"),
+      paymentReference: "SEPA-REF-123",
+      trustpilotUrl: "https://www.trustpilot.com/evaluate/quickchange.exchange",
+    });
+    assert.match(completed.html, /You Received/);
+    assert.match(completed.html, /SEPA-REF-123/);
+    assert.match(completed.html, /Download Invoice/);
+    assert.match(completed.html, /invoice=1/);
+    assert.match(completed.html, /Review us on Trustpilot/);
+  } finally {
+    if (previousPublicAppUrl === undefined) {
+      delete process.env.PUBLIC_APP_URL;
+    } else {
+      process.env.PUBLIC_APP_URL = previousPublicAppUrl;
+    }
+  }
+});
+
 test("Admin and customer notification channel gates remain independent", () => {
   const settings = {
     adminNotificationsEnabled: true,

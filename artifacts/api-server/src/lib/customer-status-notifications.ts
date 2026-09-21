@@ -20,8 +20,10 @@ import {
   orderAuditLogsTable,
   ordersTable,
   notificationSettingsTable,
+  socialTrustLinksTable,
   whitebitDepositsTable,
   blockchainMonitorMatchesTable,
+  blockchainMonitorObservationsTable,
 } from "@workspace/db";
 import type { NotificationEmailTemplate } from "@workspace/db";
 import {
@@ -69,8 +71,16 @@ export type CustomerStatusNotification = {
   trustpilotUrl?: string;
   customerName?: string;
   receiveMethod?: string;
+  paymentMethod?: string;
   completedAt?: Date | null;
+  fundedAt?: Date | null;
   template?: NotificationEmailTemplate;
+  transactionHash?: string;
+  paymentReference?: string;
+  confirmations?: number;
+  confirmationsRequired?: number;
+  orderType?: string;
+  socialLinks?: Array<{ name: string; href: string }>;
 };
 
 type CustomerNotificationDeliveryTestAdapter = {
@@ -204,15 +214,15 @@ export async function applyConfiguredCustomerNotificationRecovery(): Promise<voi
 export const DEFAULT_NOTIFICATION_EMAIL_TEMPLATES: Record<string, NotificationEmailTemplate> = {
   order_created: {
     subject: "Your QuickXchange order {{orderId}} has been created",
-    heading: "Your order has been created",
-    message: "We have received your order and it is now waiting for payment. Please complete the payment to continue.",
+    heading: "Your order has been created!",
+    message: "We have received your order and it is now waiting for payment. Please complete the payment within the given time to continue.",
     buttonText: "View Order",
     footerText: "Thank you for choosing QuickXchange.",
   },
   payment_received: {
     subject: "Payment received for QuickXchange order {{orderId}}",
-    heading: "Payment received",
-    message: "We have received your payment and your exchange is moving forward.",
+    heading: "We've received your payment!",
+    message: "Great! We've detected your payment and it is now being processed. You will receive another email once your exchange is completed.",
     buttonText: "View Order",
     footerText: "We will keep you updated as your exchange progresses.",
   },
@@ -225,8 +235,8 @@ export const DEFAULT_NOTIFICATION_EMAIL_TEMPLATES: Record<string, NotificationEm
   },
   completed: {
     subject: "QuickXchange order {{orderId}} is complete",
-    heading: "Exchange Completed",
-    message: "Your exchange has been completed successfully. Thank you for using QuickXchange.",
+    heading: "Your exchange is completed!",
+    message: "Great! Your exchange has been successfully completed. Thank you for using QuickXchange. We hope to see you again soon!",
     buttonText: "View Order",
     footerText: "Thank you for choosing QuickXchange.",
   },
@@ -292,6 +302,47 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#039;");
 }
 
+function formatDate(date: Date): string {
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const m = months[date.getUTCMonth()];
+  const d = date.getUTCDate();
+  const y = date.getUTCFullYear();
+  const hh = date.getUTCHours().toString().padStart(2, "0");
+  const mm = date.getUTCMinutes().toString().padStart(2, "0");
+  return `${m} ${d}, ${y} ${hh}:${mm} (UTC)`;
+}
+
+function truncateHash(hash: string): string {
+  if (hash.length <= 16) return hash;
+  return `${hash.slice(0, 6)}...${hash.slice(-8)}`;
+}
+
+function safeHttpsUrl(value: string | null | undefined): string {
+  if (!value?.trim()) return "";
+  try {
+    const parsed = new URL(value.trim());
+    return parsed.protocol === "https:" ? parsed.toString() : "";
+  } catch {
+    return "";
+  }
+}
+
+function socialLinkFor(
+  links: CustomerStatusNotification["socialLinks"],
+  platform: string,
+): string {
+  const aliases: Record<string, string[]> = {
+    Telegram: ["telegram"],
+    X: ["x", "twitter", "x / twitter"],
+    Instagram: ["instagram"],
+    YouTube: ["youtube"],
+    Facebook: ["facebook"],
+  };
+  const accepted = aliases[platform] ?? [platform.toLowerCase()];
+  const match = links?.find(({ name }) => accepted.includes(name.trim().toLowerCase()));
+  return safeHttpsUrl(match?.href);
+}
+
 export function buildCustomerStatusNotificationContent(
   notification: CustomerStatusNotification,
 ): { subject: string; text: string; html: string } {
@@ -304,7 +355,7 @@ export function buildCustomerStatusNotificationContent(
     notification.toNetwork ? `on ${notification.toNetwork}` : "",
   ].filter(Boolean).join(" ");
   const configuredBase = process.env.PUBLIC_APP_URL?.trim()?.replace(/\/+$/, "") || "";
-  const base = /^https:\/\//i.test(configuredBase) ? configuredBase : "";
+  const base = safeHttpsUrl(configuredBase).replace(/\/+$/, "");
   const customerIsGuest = notification.customerClerkUserId.startsWith("guest:");
   const orderUrl = !base ? "" : notification.adminRecipient
     ? `${base}/admin/orders/${encodeURIComponent(notification.orderId)}`
@@ -312,9 +363,11 @@ export function buildCustomerStatusNotificationContent(
       ? `${base}/status?order=${encodeURIComponent(notification.orderId)}&trackingToken=${encodeURIComponent(signOrderTrackingToken(notification.orderId))}`
       : `${base}/account/orders/${encodeURIComponent(notification.orderId)}`;
   const invoiceUrl = orderUrl ? `${orderUrl}${orderUrl.includes("?") ? "&" : "?"}invoice=1` : "";
-  const reviewUrl = notification.trustpilotUrl?.trim() || process.env.TRUSTPILOT_REVIEW_URL?.trim() || "";
-  const template = notificationTemplateForEvent(undefined, notification.eventKind);
-  const configuredTemplate = notification.template || template;
+  const reviewUrl = safeHttpsUrl(
+    notification.trustpilotUrl?.trim() || process.env.TRUSTPILOT_REVIEW_URL?.trim(),
+  );
+  const configuredTemplate = notification.template ||
+    notificationTemplateForEvent(undefined, notification.eventKind);
   const values = {
     customerName: notification.customerName || "Customer",
     orderId: notification.orderId,
@@ -323,7 +376,7 @@ export function buildCustomerStatusNotificationContent(
     sendNetwork: notification.fromNetwork,
     receiveAmount: notification.receiveAmount,
     receiveAsset: notification.toAsset,
-    receiveMethod: notification.receiveMethod || notification.toAsset,
+    receiveMethod: notification.receiveMethod || notification.toNetwork || notification.toAsset,
     status,
     createdDate: notification.createdAt.toISOString(),
     completedDate: notification.completedAt?.toISOString() || "",
@@ -331,11 +384,133 @@ export function buildCustomerStatusNotificationContent(
     invoiceUrl,
     trustpilotUrl: notification.eventKind === "completed" ? reviewUrl : "",
   };
-  const subject = interpolateTemplate(configuredTemplate.subject, values);
-  const heading = interpolateTemplate(configuredTemplate.heading, values, true);
-  const message = interpolateTemplate(configuredTemplate.message, values, true);
+  const configuredHeading = interpolateTemplate(configuredTemplate.heading, values, true);
+  const configuredMessage = interpolateTemplate(configuredTemplate.message, values, true);
   const buttonText = interpolateTemplate(configuredTemplate.buttonText, values, true);
   const footerText = interpolateTemplate(configuredTemplate.footerText, values, true);
+
+  let badgeHtml = '';
+  let heroTitle = '';
+  let heroSubtitle = '';
+  let heroText = '';
+  const subject = interpolateTemplate(configuredTemplate.subject, values);
+
+  if (notification.eventKind === "order_created") {
+      badgeHtml = `<div style="display:inline-block;padding:6px 14px;border-radius:9999px;font-size:12px;font-weight:600;background-color:rgba(14,165,233,0.1);color:#38bdf8;border:1px solid rgba(14,165,233,0.2);margin-bottom:24px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          Order Created
+      </div>`;
+      heroTitle = `Hello ${escapeHtml(notification.customerName || "Customer")} 👋`;
+      heroSubtitle = configuredHeading;
+      heroText = configuredMessage;
+  } else if (notification.eventKind === "payment_received") {
+      badgeHtml = `<div style="display:inline-block;padding:6px 14px;border-radius:9999px;font-size:12px;font-weight:600;background-color:rgba(34,197,94,0.1);color:#4ade80;border:1px solid rgba(34,197,94,0.2);margin-bottom:24px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          Payment Received
+      </div>`;
+      heroTitle = configuredHeading;
+      heroSubtitle = ``;
+      heroText = configuredMessage;
+  } else if (notification.eventKind === "completed") {
+      badgeHtml = `<div style="display:inline-block;padding:6px 14px;border-radius:9999px;font-size:12px;font-weight:600;background-color:rgba(34,197,94,0.1);color:#4ade80;border:1px solid rgba(34,197,94,0.2);margin-bottom:24px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          Exchange Completed
+      </div>`;
+      heroTitle = configuredHeading;
+      heroSubtitle = ``;
+      heroText = configuredMessage;
+  } else {
+      badgeHtml = `<div style="display:inline-block;padding:6px 14px;border-radius:9999px;font-size:12px;font-weight:600;background-color:rgba(148,163,184,0.1);color:#cbd5e1;border:1px solid rgba(148,163,184,0.2);margin-bottom:24px;">
+          ${escapeHtml(humanizeStatus(notification.status).replace(/\b\w/g, l => l.toUpperCase()))}
+      </div>`;
+      heroTitle = configuredHeading;
+      heroSubtitle = ``;
+      heroText = configuredMessage;
+  }
+
+  const orderTypeLabel = notification.orderType === "manual"
+    ? "Manual Swap"
+    : notification.orderType
+      ? humanizeStatus(notification.orderType).replace(/\b\w/g, (letter) => letter.toUpperCase())
+      : "";
+  const paymentMethod = notification.paymentMethod?.trim() ||
+    notification.receiveMethod?.trim() || "";
+  const sendDescriptor = [notification.fromAsset, notification.fromNetwork || notification.paymentMethod]
+    .filter(Boolean).join(" · ");
+  const receiveDescriptor = [
+    notification.toAsset,
+    notification.toNetwork || notification.receiveMethod,
+  ].filter(Boolean).join(" · ");
+  const sendLabel = notification.eventKind === "order_created" ? "You Send" : "You Sent";
+  const receiveLabel = notification.eventKind === "completed" ? "You Received" : "You Receive";
+  const detailsItems: { label: string; value: string; valueColor?: string; icon?: string }[] = [];
+
+  if (notification.eventKind === "order_created") {
+      detailsItems.push({ label: "Status", value: "Awaiting payment", valueColor: "#38bdf8", icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>' });
+      detailsItems.push({ label: "Created at", value: formatDate(notification.createdAt), icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>' });
+      if (orderTypeLabel) detailsItems.push({ label: "Exchange type", value: orderTypeLabel, icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>' });
+      if (paymentMethod) detailsItems.push({ label: "Payment method", value: paymentMethod });
+  } else if (notification.eventKind === "payment_received") {
+      detailsItems.push({ label: "Status", value: "Payment Received", valueColor: "#4ade80", icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>' });
+      if (notification.fundedAt) {
+          detailsItems.push({ label: "Received at", value: formatDate(notification.fundedAt), icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>' });
+      }
+      if (paymentMethod) detailsItems.push({ label: "Payment method", value: paymentMethod });
+      if (notification.transactionHash) {
+          detailsItems.push({ label: "Transaction Hash", value: truncateHash(notification.transactionHash), icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>' });
+      }
+      if (notification.paymentReference) {
+          detailsItems.push({ label: "Payment reference", value: notification.paymentReference });
+      }
+      if (notification.confirmations !== undefined && notification.confirmationsRequired !== undefined) {
+          detailsItems.push({ label: "Confirmations", value: `${notification.confirmations} / ${notification.confirmationsRequired}`, valueColor: notification.confirmations >= notification.confirmationsRequired ? "#4ade80" : "#ffffff", icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line><line x1="10" y1="3" x2="8" y2="21"></line><line x1="16" y1="3" x2="14" y2="21"></line></svg>' });
+      }
+  } else if (notification.eventKind === "completed") {
+      detailsItems.push({ label: "Status", value: "Completed", valueColor: "#4ade80", icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>' });
+      if (notification.completedAt) {
+          detailsItems.push({ label: "Completed at", value: formatDate(notification.completedAt), icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>' });
+      }
+      if (notification.transactionHash) {
+          detailsItems.push({ label: "Transaction Hash", value: truncateHash(notification.transactionHash), icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>' });
+      }
+      if (notification.paymentReference) {
+          detailsItems.push({ label: "Payment reference", value: notification.paymentReference });
+      }
+      if (paymentMethod) detailsItems.push({ label: "Payment method", value: paymentMethod });
+      if (orderTypeLabel) detailsItems.push({ label: "Exchange type", value: orderTypeLabel, icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>' });
+  } else {
+      detailsItems.push({ label: "Status", value: humanizeStatus(notification.status).replace(/\b\w/g, l => l.toUpperCase()), valueColor: "#ffffff" });
+  }
+
+  let detailsHtml = '<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border-top:1px solid #1e293b;padding-top:16px;">';
+  for (let i = 0; i < detailsItems.length; i += 2) {
+      const item1 = detailsItems[i];
+      const item2 = detailsItems[i+1];
+      detailsHtml += `<tr>
+        <td width="50%" class="stack-col" style="vertical-align:top;padding:12px 8px;">
+          <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;white-space:nowrap;">${item1.icon || ''}<span style="vertical-align:middle;">${escapeHtml(item1.label)}</span></div>
+          <div style="font-size:13px;font-weight:500;color:${item1.valueColor || '#ffffff'};word-break:break-all;">${escapeHtml(item1.value)}</div>
+        </td>
+        ${item2 ? `
+        <td width="50%" class="stack-col" style="vertical-align:top;padding:12px 8px;">
+          <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;white-space:nowrap;">${item2.icon || ''}<span style="vertical-align:middle;">${escapeHtml(item2.label)}</span></div>
+          <div style="font-size:13px;font-weight:500;color:${item2.valueColor || '#ffffff'};word-break:break-all;">${escapeHtml(item2.value)}</div>
+        </td>
+        ` : `<td width="50%"></td>`}
+      </tr>`;
+  }
+  detailsHtml += '</table>';
+
+  const socialPlatforms = ["Telegram", "X", "Instagram", "YouTube", "Facebook"];
+  const socialLinksHtml = socialPlatforms.map((platform) => {
+    const href = socialLinkFor(notification.socialLinks, platform);
+    const content = escapeHtml(platform);
+    const style = "display:inline-block;margin:0 3px 6px;padding:6px 8px;border-radius:999px;background-color:#111827;border:1px solid #243247;color:#cbd5e1;text-decoration:none;font-size:9px;line-height:1";
+    return href
+      ? `<a href="${escapeHtml(href)}" style="${style}">${content}</a>`
+      : `<span style="${style}">${content}</span>`;
+  }).join("");
+
   const text = [
     interpolateTemplate(configuredTemplate.message, values),
     "",
@@ -343,31 +518,245 @@ export function buildCustomerStatusNotificationContent(
     notification.adminRecipient ? `Customer: ${notification.customerName || "Guest"}` : "",
     `Exchange: ${route}`,
     `New status: ${status}`,
+    paymentMethod ? `Payment method: ${paymentMethod}` : "",
+    notification.transactionHash ? `Transaction hash: ${notification.transactionHash}` : "",
+    notification.paymentReference ? `Payment reference: ${notification.paymentReference}` : "",
+    notification.confirmations !== undefined && notification.confirmationsRequired !== undefined
+      ? `Confirmations: ${notification.confirmations} / ${notification.confirmationsRequired}`
+      : "",
     notification.eventKind === "completed" ? `Completion date: ${notification.completedAt?.toISOString() || notification.createdAt.toISOString()}` : "",
     notification.eventKind === "completed" && !notification.adminRecipient && invoiceUrl ? `Invoice: ${invoiceUrl}` : "",
     notification.eventKind === "completed" && !notification.adminRecipient && reviewUrl ? `Review us on Trustpilot: ${reviewUrl}` : "",
     "",
     interpolateTemplate(configuredTemplate.footerText, values),
-  ].join("\n");
+  ].filter((line, index, lines) => line || (index > 0 && lines[index - 1])).join("\n");
+
   const html = `<!doctype html>
-<html><body style="margin:0;background:#f4f7fb;color:#111827;font-family:Arial,sans-serif">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f7fb;padding:28px 12px">
-<tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border:1px solid #e5e7eb;border-radius:18px;overflow:hidden">
-<tr><td style="background:#071a2f;padding:24px 30px;color:#ffffff"><div style="font-size:22px;font-weight:800;letter-spacing:.2px">Quick<span style="color:#35d29a">X</span>change</div><div style="margin-top:5px;color:#9fb2c8;font-size:12px">Secure digital asset exchange</div></td></tr>
-<tr><td style="padding:32px 30px">
-<div style="display:inline-block;padding:6px 10px;border-radius:999px;background:#e8fbf3;color:#087653;font-size:12px;font-weight:700">${escapeHtml(status)}</div>
- <h1 style="margin:16px 0 8px;font-size:26px;line-height:1.2;color:#071a2f">${heading}</h1>
- <p style="margin:0 0 24px;color:#4b5563;line-height:1.65">${message}</p>
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#f8fafc;border-radius:12px">
-<tr><td style="padding:14px 16px;color:#6b7280;font-size:12px;border-bottom:1px solid #e5e7eb">ORDER</td><td style="padding:14px 16px;text-align:right;font-weight:700;border-bottom:1px solid #e5e7eb">${escapeHtml(notification.orderId)}</td></tr>
-${notification.adminRecipient ? `<tr><td style="padding:14px 16px;color:#6b7280;font-size:12px;border-bottom:1px solid #e5e7eb">CUSTOMER</td><td style="padding:14px 16px;text-align:right;font-weight:700;border-bottom:1px solid #e5e7eb">${escapeHtml(notification.customerName || "Guest")}</td></tr>` : ""}
-<tr><td style="padding:14px 16px;color:#6b7280;font-size:12px;border-bottom:1px solid #e5e7eb">EXCHANGE</td><td style="padding:14px 16px;text-align:right;font-weight:700;border-bottom:1px solid #e5e7eb">${escapeHtml(route)}</td></tr>
-<tr><td style="padding:14px 16px;color:#6b7280;font-size:12px">STATUS</td><td style="padding:14px 16px;text-align:right;font-weight:700;color:#087653">${escapeHtml(status)}</td></tr>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QuickXchange</title>
+  <style type="text/css">
+    @media screen and (max-width: 600px) {
+      .stack-col { display: block !important; width: 100% !important; padding: 0 0 16px 0 !important; }
+      .text-center { text-align: center !important; }
+      .feature-col { display: inline-block !important; width: 50% !important; padding: 0 4px 8px 4px !important; box-sizing: border-box !important; }
+    }
+  </style>
+</head>
+<body style="margin:0;padding:0;background-color:#060b14;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#060b14;padding:20px 10px">
+  <tr><td align="center">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background-color:#060b14;">
+
+      <!-- Header -->
+      <tr><td style="padding-bottom:32px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+          <tr>
+            <td style="vertical-align:middle;">
+              <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:0.2px;">
+                ${base ? `<img src="${escapeHtml(base)}/brand/quickxchange-mark.png" width="32" height="32" alt="Q" style="vertical-align:middle;margin-right:8px;border:none;" />` : ""}
+                <span style="vertical-align:middle;">Quick<span style="color:#38bdf8;">X</span>change</span>
+              </div>
+              <div style="font-size:11px;color:#94a3b8;margin-top:2px;">Secure digital asset exchange</div>
+            </td>
+            <td style="vertical-align:middle;text-align:right;">
+              <div style="font-size:9px;font-weight:600;color:#cbd5e1;letter-spacing:1px;line-height:1.4;text-transform:uppercase;">
+                EXCHANGE<br/>CONVERT<br/>BEYOND BORDERS
+              </div>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+
+      <!-- Hero Section -->
+      <tr><td style="padding-bottom:24px;">
+        ${badgeHtml}
+        <h1 style="font-size:32px;font-weight:700;margin:0 0 8px 0;color:#ffffff;">${heroTitle}</h1>
+        ${heroSubtitle ? `<h2 style="font-size:20px;font-weight:600;margin:0 0 16px 0;color:#ffffff;">${heroSubtitle}</h2>` : ''}
+        <p style="font-size:15px;line-height:1.6;color:#cbd5e1;margin:0 0 32px 0;max-width:480px;">${heroText}</p>
+      </td></tr>
+
+      <!-- Order Details Card -->
+      <tr><td>
+        <div style="background-color:#0b1324;border:1px solid #1e293b;border-radius:16px;padding:24px;margin-bottom:24px;">
+          <!-- Card Header -->
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom:20px;border-bottom:1px solid #1e293b;padding-bottom:16px;">
+            <tr>
+              <td style="font-size:16px;font-weight:600;color:#ffffff;vertical-align:middle;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                <span style="vertical-align:middle;">Order Details</span>
+              </td>
+              <td style="text-align:right;font-size:14px;font-weight:600;color:#38bdf8;vertical-align:middle;">
+                # ${escapeHtml(notification.orderId)}
+              </td>
+            </tr>
+          </table>
+
+          <!-- Exchange Flow -->
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+            <tr>
+              <td width="42%" style="text-align:center;vertical-align:middle;">
+                <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">${sendLabel}</div>
+                <div style="font-size:18px;font-weight:700;color:#ffffff;margin-bottom:4px;white-space:nowrap;">
+                  ${escapeHtml(notification.amount)} ${escapeHtml(notification.fromAsset)}
+                </div>
+                <div style="font-size:12px;color:#94a3b8;">${escapeHtml(sendDescriptor)}</div>
+              </td>
+              <td width="16%" style="text-align:center;vertical-align:middle;">
+                <div style="display:inline-block;width:32px;height:32px;line-height:32px;border-radius:50%;background-color:rgba(14,165,233,0.1);color:#38bdf8;font-size:18px;">&rarr;</div>
+              </td>
+              <td width="42%" style="text-align:center;vertical-align:middle;">
+                <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">${receiveLabel}</div>
+                <div style="font-size:18px;font-weight:700;color:#ffffff;margin-bottom:4px;white-space:nowrap;">
+                  ${escapeHtml(notification.receiveAmount)} ${escapeHtml(notification.toAsset)}
+                </div>
+                <div style="font-size:12px;color:#94a3b8;">${escapeHtml(receiveDescriptor)}</div>
+              </td>
+            </tr>
+          </table>
+
+          ${detailsHtml}
+        </div>
+      </td></tr>
+
+      ${notification.eventKind === "payment_received" ? `
+      <!-- Timeline -->
+      <tr><td style="padding:16px 0 32px 0;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+          <tr>
+            <td align="center" width="25%" style="vertical-align:top;padding-top:10px;">
+              <div style="width:24px;height:24px;border-radius:50%;background-color:#4ade80;color:#060b14;line-height:24px;font-size:12px;margin:0 auto 8px auto;border:2px solid #060b14;position:relative;z-index:2;font-weight:bold;">✓</div>
+              <div style="font-size:11px;font-weight:600;color:#ffffff;line-height:1.4;">Order created</div>
+              <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Completed</div>
+            </td>
+            <td align="center" width="25%" style="vertical-align:top;padding-top:10px;">
+              <div style="width:24px;height:24px;border-radius:50%;background-color:#4ade80;color:#060b14;line-height:24px;font-size:12px;margin:0 auto 8px auto;border:2px solid #060b14;position:relative;z-index:2;font-weight:bold;">✓</div>
+              <div style="font-size:11px;font-weight:600;color:#4ade80;line-height:1.4;">Payment received</div>
+              <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Completed</div>
+            </td>
+            <td align="center" width="25%" style="vertical-align:top;padding-top:10px;">
+              <div style="width:24px;height:24px;border-radius:50%;background-color:#1e293b;color:#cbd5e1;line-height:24px;font-size:12px;margin:0 auto 8px auto;border:2px solid #060b14;position:relative;z-index:2;">3</div>
+              <div style="font-size:11px;font-weight:600;color:#ffffff;line-height:1.4;">Processing</div>
+              <div style="font-size:10px;color:#94a3b8;margin-top:2px;">In progress</div>
+            </td>
+            <td align="center" width="25%" style="vertical-align:top;padding-top:10px;">
+              <div style="width:24px;height:24px;border-radius:50%;background-color:#1e293b;color:#cbd5e1;line-height:24px;font-size:12px;margin:0 auto 8px auto;border:2px solid #060b14;position:relative;z-index:2;">4</div>
+              <div style="font-size:11px;font-weight:600;color:#ffffff;line-height:1.4;">Exchange completed</div>
+              <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Pending</div>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+      ` : ""}
+
+      <!-- Buttons -->
+      <tr><td style="padding:16px 0 24px 0;text-align:center;">
+        ${orderUrl ? `<a href="${escapeHtml(orderUrl)}" style="display:inline-block;background:linear-gradient(90deg, #0ea5e9, #6366f1);background-color:#0ea5e9;color:#ffffff;font-weight:600;font-size:15px;padding:14px 28px;border-radius:9999px;text-decoration:none;">${buttonText} &rarr;</a>` : ""}
+        ${notification.eventKind === "completed" && !notification.adminRecipient && invoiceUrl ? `<a href="${escapeHtml(invoiceUrl)}" style="display:inline-block;background-color:transparent;color:#ffffff;font-weight:600;font-size:15px;padding:13px 28px;border-radius:9999px;text-decoration:none;border:1px solid #38bdf8;margin-left:12px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Download Invoice</a>` : ""}
+      </td></tr>
+
+      <tr><td style="text-align:center;font-size:12px;color:#94a3b8;padding-bottom:32px;">
+        ${footerText}
+      </td></tr>
+
+      ${notification.eventKind === "completed" && !notification.adminRecipient && reviewUrl ? `
+      <!-- Trustpilot -->
+      <tr><td style="padding-bottom:32px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:rgba(34,197,94,0.05);border:1px solid rgba(34,197,94,0.2);border-radius:12px;">
+          <tr>
+            <td width="48" style="padding:16px 0 16px 16px;vertical-align:middle;">
+              <span style="font-size:24px;color:#4ade80;">★</span>
+            </td>
+            <td style="padding:16px 0;vertical-align:middle;">
+              <div style="font-size:14px;font-weight:600;color:#ffffff;margin-bottom:2px;">Enjoyed our service?</div>
+              <div style="font-size:12px;color:#94a3b8;">Your feedback helps us grow!</div>
+            </td>
+            <td style="padding:16px;text-align:right;vertical-align:middle;">
+              <a href="${escapeHtml(reviewUrl)}" style="display:inline-block;padding:8px 16px;background-color:transparent;border:1px solid #4ade80;color:#4ade80;text-decoration:none;border-radius:8px;font-size:12px;font-weight:600;">★ Review us on Trustpilot</a>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+      ` : ""}
+
+      <!-- Features -->
+      <tr><td style="padding:16px 0;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+          <tr>
+            <td width="25%" class="feature-col" align="center" style="padding:0 4px;vertical-align:top;">
+              <div style="border:1px solid #1e293b;background-color:#0b1324;border-radius:12px;padding:16px 8px;min-height:80px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" style="margin-bottom:8px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                <div style="font-size:11px;font-weight:600;color:#ffffff;margin-bottom:4px;">Secure</div>
+                <div style="font-size:10px;color:#94a3b8;line-height:1.3;">Your funds are safe with us</div>
+              </div>
+            </td>
+            <td width="25%" class="feature-col" align="center" style="padding:0 4px;vertical-align:top;">
+              <div style="border:1px solid #1e293b;background-color:#0b1324;border-radius:12px;padding:16px 8px;min-height:80px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" style="margin-bottom:8px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                <div style="font-size:11px;font-weight:600;color:#ffffff;margin-bottom:4px;">Fast</div>
+                <div style="font-size:10px;color:#94a3b8;line-height:1.3;">Quick processing time</div>
+              </div>
+            </td>
+            <td width="25%" class="feature-col" align="center" style="padding:0 4px;vertical-align:top;">
+              <div style="border:1px solid #1e293b;background-color:#0b1324;border-radius:12px;padding:16px 8px;min-height:80px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" style="margin-bottom:8px;"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                <div style="font-size:11px;font-weight:600;color:#ffffff;margin-bottom:4px;">Global</div>
+                <div style="font-size:10px;color:#94a3b8;line-height:1.3;">Exchange without borders</div>
+              </div>
+            </td>
+            <td width="25%" class="feature-col" align="center" style="padding:0 4px;vertical-align:top;">
+              <div style="border:1px solid #1e293b;background-color:#0b1324;border-radius:12px;padding:16px 8px;min-height:80px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" style="margin-bottom:8px;"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
+                <div style="font-size:11px;font-weight:600;color:#ffffff;margin-bottom:4px;">24/7 Support</div>
+                <div style="font-size:10px;color:#94a3b8;line-height:1.3;">We're here anytime</div>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+
+      <!-- Footer -->
+      <tr><td style="padding-top:40px;border-top:1px solid #1e293b;margin-top:16px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+          <tr>
+            <td width="33%" class="stack-col text-center" style="vertical-align:top;padding-right:16px;">
+              <div style="font-size:16px;font-weight:800;color:#ffffff;letter-spacing:0.2px;margin-bottom:4px;">
+                ${base ? `<img src="${escapeHtml(base)}/brand/quickxchange-mark.png" width="20" height="20" alt="Q" style="vertical-align:middle;margin-right:4px;border:none;" />` : ""}
+                <span style="vertical-align:middle;">Quick<span style="color:#38bdf8;">X</span>change</span>
+              </div>
+              <div style="font-size:8px;color:#38bdf8;font-weight:700;letter-spacing:1px;margin-bottom:12px;text-transform:uppercase;">YOUR CRYPTO EXCHANGE PARTNER</div>
+              <div style="font-size:11px;color:#94a3b8;line-height:1.5;">Fast. Secure. Global. Exchange, convert and move your crypto with confidence.</div>
+            </td>
+            <td width="34%" class="stack-col text-center" style="vertical-align:top;text-align:center;">
+              <div style="margin-bottom:16px;">
+                ${socialLinksHtml}
+              </div>
+              <div style="font-size:11px;color:#94a3b8;line-height:1.5;">quickchange.exchange<br/>support@quickchange.exchange</div>
+            </td>
+            <td width="33%" class="stack-col text-center" style="vertical-align:top;text-align:right;padding-left:16px;">
+              <div style="font-family:Georgia,serif;font-size:18px;font-style:italic;color:#cbd5e1;line-height:1.2;">Thank you<br/>for choosing<br/>QuickXchange!</div>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+
+      <tr><td style="padding-top:16px;border-top:1px solid #1e293b;margin-top:32px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+          <tr>
+            <td style="font-size:10px;color:#64748b;">&copy; ${new Date().getUTCFullYear()} QuickXchange. All rights reserved.</td>
+            <td style="font-size:10px;color:#64748b;text-align:right;">Trade Smarter. Move Freely.</td>
+          </tr>
+        </table>
+      </td></tr>
+
+    </table>
+  </td></tr>
 </table>
- ${orderUrl ? `<p style="margin:24px 0 0"><a href="${escapeHtml(orderUrl)}" style="display:inline-block;background:#0ea572;color:#ffffff;text-decoration:none;font-weight:700;padding:13px 20px;border-radius:10px">${buttonText}</a></p>` : ""}
-${notification.eventKind === "completed" && !notification.adminRecipient && invoiceUrl ? `<p style="margin:18px 0 0"><a href="${escapeHtml(invoiceUrl)}" style="color:#087653;font-weight:700">Invoice / Download Invoice</a>${reviewUrl ? ` &nbsp;·&nbsp; <a href="${escapeHtml(reviewUrl)}" style="color:#087653;font-weight:700">Review us on Trustpilot</a>` : ""}</p>` : ""}
- <p style="margin:28px 0 0;padding-top:20px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;line-height:1.6">${footerText}</p>
-</td></tr></table></td></tr></table></body></html>`;
+</body>
+</html>`;
+
   return { subject, text, html };
 }
 
@@ -382,9 +771,7 @@ async function sendCustomerStatusNotification(
     return;
   }
   const content = buildCustomerStatusNotificationContent(notification);
-  const fromAddress =
-    process.env.CUSTOMER_NOTIFICATION_FROM_EMAIL?.trim() ||
-    "QuickXchange <support@quickchange.exchange>";
+  const fromAddress = "QuickXchange <support@quickchange.exchange>";
   const response = await sendResendRequest("/emails", {
     method: "POST",
     headers: {
@@ -741,8 +1128,19 @@ export async function processCustomerStatusNotificationOutbox(
           claimed.recipientEmail.trim().toLowerCase(),
       );
     let authoritativePaymentExists = true;
-    if (claimed.adminRecipient && claimed.eventKind !== "order_created") {
-      const [whitebitPayment] = await db.select({ id: whitebitDepositsTable.id })
+    let transactionHash = order?.transactionHash || undefined;
+    let confirmations: number | undefined;
+    let confirmationsRequired: number | undefined;
+    let fundedAt = order?.manualSettlementFundedAt ?? null;
+
+    if (claimed.eventKind !== "order_created") {
+      const [whitebitPayment] = await db.select({
+        id: whitebitDepositsTable.id,
+        transactionHash: whitebitDepositsTable.transactionHash,
+        confirmations: whitebitDepositsTable.confirmationsActual,
+        confirmationsRequired: whitebitDepositsTable.confirmationsRequired,
+        creditedAt: whitebitDepositsTable.creditedAt,
+      })
         .from(whitebitDepositsTable)
         .where(and(
           eq(whitebitDepositsTable.orderId, claimed.orderId),
@@ -750,14 +1148,40 @@ export async function processCustomerStatusNotificationOutbox(
         ))
         .limit(1);
       const [blockchainPayment] = whitebitPayment ? [] : await db
-        .select({ id: blockchainMonitorMatchesTable.id })
+        .select({
+          id: blockchainMonitorMatchesTable.id,
+          observationId: blockchainMonitorMatchesTable.observationId,
+          confirmations: blockchainMonitorMatchesTable.confirmations,
+          confirmationsRequired: blockchainMonitorMatchesTable.confirmationsRequired,
+          appliedAt: blockchainMonitorMatchesTable.appliedAt,
+        })
         .from(blockchainMonitorMatchesTable)
         .where(and(
           eq(blockchainMonitorMatchesTable.orderId, claimed.orderId),
           eq(blockchainMonitorMatchesTable.state, "applied"),
         ))
         .limit(1);
-      authoritativePaymentExists = Boolean(whitebitPayment || blockchainPayment);
+
+      if (blockchainPayment) {
+        const [observation] = await db
+          .select({ transactionHash: blockchainMonitorObservationsTable.transactionHash })
+          .from(blockchainMonitorObservationsTable)
+          .where(eq(blockchainMonitorObservationsTable.id, blockchainPayment.observationId))
+          .limit(1);
+        if (observation?.transactionHash) transactionHash = observation.transactionHash;
+        confirmations = blockchainPayment.confirmations;
+        confirmationsRequired = blockchainPayment.confirmationsRequired;
+        fundedAt = blockchainPayment.appliedAt ?? fundedAt;
+      } else if (whitebitPayment && whitebitPayment.transactionHash) {
+        transactionHash = whitebitPayment.transactionHash;
+        confirmations = whitebitPayment.confirmations ?? undefined;
+        confirmationsRequired = whitebitPayment.confirmationsRequired ?? undefined;
+        fundedAt = whitebitPayment.creditedAt ?? fundedAt;
+      }
+
+      if (claimed.adminRecipient || claimed.eventKind === "payment_received") {
+        authoritativePaymentExists = Boolean(whitebitPayment || blockchainPayment);
+      }
     }
     if (
       !order ||
@@ -797,6 +1221,18 @@ export async function processCustomerStatusNotificationOutbox(
         .where(activeClaim);
       continue;
     }
+    const socialLinks = await db
+      .select({
+        name: socialTrustLinksTable.name,
+        href: socialTrustLinksTable.href,
+      })
+      .from(socialTrustLinksTable)
+      .where(and(
+        eq(socialTrustLinksTable.group, "social"),
+        eq(socialTrustLinksTable.enabled, true),
+        isNull(socialTrustLinksTable.removedAt),
+      ))
+      .orderBy(asc(socialTrustLinksTable.createdAt));
 
     const notification: CustomerStatusNotification = {
       eventId: claimed.id,
@@ -815,13 +1251,21 @@ export async function processCustomerStatusNotificationOutbox(
       receiveAmount: order.receiveAmount,
       createdAt: order.createdAt,
       completedAt: order.status.toLowerCase() === "completed" ? order.updatedAt : null,
+      fundedAt,
       receiveMethod: order.payoutMethod,
+      paymentMethod: order.paymentMethod,
       eventKind: claimed.eventKind,
       adminRecipient: claimed.adminRecipient,
       template: notificationTemplateForEvent(
         notificationSettings?.emailTemplates,
         claimed.eventKind,
       ),
+      transactionHash,
+      paymentReference: order.paymentReference || undefined,
+      confirmations,
+      confirmationsRequired,
+      orderType: order.type,
+      socialLinks,
     };
 
     const heartbeat = setInterval(() => {
