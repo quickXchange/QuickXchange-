@@ -172,7 +172,7 @@ async function sendNewsletterEmail(delivery: typeof newsletterDeliveriesTable.$i
   const request = new ReplitConnectors().proxy("resend", "/emails", {
     method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": `newsletter-delivery-${delivery.id}` },
     body: {
-      from: process.env.CUSTOMER_NOTIFICATION_FROM_EMAIL?.trim() || "QuickXchange <support@quickxchange.net>",
+      from: process.env.CUSTOMER_NOTIFICATION_FROM_EMAIL?.trim() || "QuickXchange <support@quickchange.exchange>",
       to: [subscriber.email], subject: campaign.title, html, text,
     },
   });

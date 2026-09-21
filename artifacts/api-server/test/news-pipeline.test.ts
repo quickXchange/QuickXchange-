@@ -57,7 +57,7 @@ test("official generated articles remain review-first and cannot notify before r
 });
 
 test("Telegram news posts escape publisher-controlled content and stay bounded", () => {
-  process.env.PUBLIC_APP_URL = "https://quickxchange.net";
+  process.env.PUBLIC_APP_URL = "https://quickchange.exchange";
   const text = telegramNewsText({
     title: "<Breaking & update>",
     summary: "A concise original summary.",
@@ -66,7 +66,7 @@ test("Telegram news posts escape publisher-controlled content and stay bounded",
     sourcePublisher: "CoinDesk",
   });
   assert.match(text, /&lt;Breaking &amp; update&gt;/);
-  assert.match(text, /https:\/\/quickxchange.net\/blog\/breaking-update/);
+  assert.match(text, /https:\/\/quickchange\.exchange\/blog\/breaking-update/);
   assert.match(text, /Source:/);
   assert.ok(text.length < 3901);
 });

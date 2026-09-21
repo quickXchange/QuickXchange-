@@ -29,12 +29,12 @@ test("newsletter unsubscribe token hashes are deterministic and one-way", () => 
 test("newsletter Read More URLs reject protocol-relative and unsafe paths", () => {
   for (const value of [
     "//evil.example/path", "javascript:alert(1)", "http://evil.example", "relative/path",
-    "https://user:password@quickxchange.net/path", "https://quickxchange.net:8443/path",
+    "https://user:password@quickchange.exchange/path", "https://quickchange.exchange:8443/path",
     "/\\evil.example/path", "/foo\\@evil.example", "/foo\u0000bar", "/foo\u007fbar",
   ]) {
     assert.throws(() => validateNewsletterReadMorePath(value));
   }
-  for (const value of ["/blog/article", "https://quickxchange.net/blog/article"]) {
+  for (const value of ["/blog/article", "https://quickchange.exchange/blog/article"]) {
     assert.doesNotThrow(() => validateNewsletterReadMorePath(value));
   }
 });
