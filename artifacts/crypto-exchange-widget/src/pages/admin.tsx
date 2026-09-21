@@ -4429,20 +4429,16 @@ function RedesignedOrderTable({
 }
 
 const swapStatusLabel = (order: Order) => {
-  const status = order.manualSettlementState || order.status;
+  const status = order.status;
   const labels: Record<string, string> = {
-    not_required: 'Awaiting',
-    awaiting_funds: 'Awaiting',
-    'awaiting funds': 'Awaiting',
-    funds_confirmed: 'Confirmed',
-    'funds confirmed': 'Confirmed',
-    payout_processing: 'Payout processing',
-    'payout processing': 'Payout processing',
-    payout_sent: 'Payout sent',
-    'payout sent': 'Payout sent',
+    'awaiting funds': 'Awaiting Funds',
+    'payment detected': 'Payment Detected',
+    processing: 'Processing',
+    'needs review': 'Needs Review',
     completed: 'Completed',
     failed: 'Failed',
     cancelled: 'Cancelled',
+    refunded: 'Refunded',
   };
   return labels[status.toLowerCase()] || status;
 };
@@ -5668,7 +5664,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   if (orderQuery.isLoading) return <div className="fixed inset-0 z-50 flex sm:justify-end bg-black/40 backdrop-blur-sm"><aside className="w-full sm:w-[480px] sm:max-w-full h-full bg-background border-l border-border flex flex-col shadow-2xl"><div className="p-12"><LoadingBlock rows={10} /></div></aside></div>;
   if (orderQuery.isError || !order) return <div className="fixed inset-0 z-50 flex sm:justify-end bg-black/40 backdrop-blur-sm"><aside className="w-full sm:w-[480px] sm:max-w-full h-full bg-background border-l border-border flex flex-col shadow-2xl"><div className="p-12"><ErrorState message="Error loading order" retry={() => orderQuery.refetch()} /></div></aside></div>;
 
-  const normalizedStatus = (order.manualSettlementState || order.status).toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
+  const normalizedStatus = order.status.toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
   const terminal = /failed|cancelled|expired|refunded/.test(normalizedStatus);
   let steps = ['Created', 'Processing', 'Done'];
   let currentStep = 0;

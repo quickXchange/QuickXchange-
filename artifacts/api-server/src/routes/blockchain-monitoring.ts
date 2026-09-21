@@ -15,7 +15,7 @@ import {
 } from "@workspace/db";
 import { CreateBlockchainMonitoringNetworkBody, EnableSelectedBlockchainMonitoringRoutesBody, UpdateBlockchainMonitoringNetworkBody, ReviewBlockchainMonitoringMatchBody } from "@workspace/api-zod";
 import { createBlockchainMonitorAdapter } from "../lib/blockchain-monitoring";
-import { adapterConfig, deriveBlockchainMonitoringSetupStatus, exactWatchMatchesOrderSnapshot, isFinalitySatisfied, selectReadyBlockchainMonitoringSetupRoutes } from "../lib/blockchain-monitoring/service";
+import { adapterConfig, deriveBlockchainMonitoringSetupStatus, exactWatchMatchesOrderSnapshot, isFinalitySatisfied, registerManualBlockchainWatch, selectReadyBlockchainMonitoringSetupRoutes } from "../lib/blockchain-monitoring/service";
 import { normalizeTronAddress } from "../lib/blockchain-monitoring/tron";
 import { getOperatorActorUserId } from "../lib/operator-auth";
 import { ApiError } from "../lib/api-error";
@@ -28,62 +28,38 @@ router.get("/admin/blockchain-monitoring/registration-gaps", async (_req, res, n
 });
 router.post("/admin/blockchain-monitoring/registration-gaps/:orderId/activate", async (req, res, next) => {
   try {
-    const [gap] = await db.select().from(blockchainMonitorRegistrationGapsTable).where(eq(blockchainMonitorRegistrationGapsTable.orderId, req.params.orderId)).limit(1);
     const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, req.params.orderId)).limit(1);
     if (!order) throw new ApiError("REGISTRATION_GAP_NOT_FOUND", "Registration gap not found.", 404);
-    const snapshot = (order.fundingDetailsSnapshot && typeof order.fundingDetailsSnapshot === "object" ? order.fundingDetailsSnapshot : {}) as Record<string, unknown>;
-    const networkCode = String(snapshot.networkCode ?? snapshot.network ?? order.fromNetwork);
-    const assetCode = String(snapshot.assetCode ?? snapshot.asset ?? order.fromAsset);
-    const rawAddress = String(snapshot.address ?? order.depositAddress);
-    const memoOrTag = typeof snapshot.memo === "string" ? snapshot.memo : order.depositMemo;
-    const [network] = await db.select().from(blockchainMonitorNetworksTable).where(eq(blockchainMonitorNetworksTable.networkCode, networkCode)).limit(1);
-    const [route] = await db.select({ route: cryptoAssetNetworksTable }).from(cryptoAssetNetworksTable)
-      .innerJoin(cryptoAssetsTable, eq(cryptoAssetsTable.id, cryptoAssetNetworksTable.assetId))
-      .where(and(eq(cryptoAssetNetworksTable.networkCode, networkCode), sql`${cryptoAssetNetworksTable.assetId} = ${assetCode} or upper(${cryptoAssetsTable.code}) = upper(${assetCode})`)).limit(1);
-    const [asset] = network && route ? await db.select().from(blockchainMonitorAssetsTable).where(and(eq(blockchainMonitorAssetsTable.monitorNetworkId, network.id), eq(blockchainMonitorAssetsTable.assetNetworkId, route.route.id))).limit(1) : [];
-    if (!network || !route || !asset) throw new ApiError("REGISTRATION_NOT_READY", "Network, route, and monitor asset are required.", 422);
-    const receivingAddress = network.adapterKind === "tron" ? normalizeTronAddress(rawAddress) : rawAddress;
-    const contractOrMint = network.adapterKind === "tron" && asset.contractOrMint ? normalizeTronAddress(asset.contractOrMint) : asset.contractOrMint;
-    if (!receivingAddress || (network.adapterKind === "evm" && memoOrTag)) throw new ApiError("INVALID_WATCH_IDENTITY", "The immutable watch identity is invalid for this network.", 422);
-    const expectedWatch = { orderId: order.id, monitorNetworkId: network.id, monitorAssetId: asset.id, assetNetworkId: route.route.id, expectedAmount: order.amount, receivingAddress, memoOrTag: memoOrTag || null, identityKind: asset.identityKind, contractOrMint, decimals: asset.decimals, orderCreatedAt: order.createdAt };
-    const [existingActive] = await db.select().from(blockchainMonitorWatchesTable).where(and(eq(blockchainMonitorWatchesTable.orderId, order.id), eq(blockchainMonitorWatchesTable.registrationState, "active"))).limit(1);
-    if (existingActive) {
-      if (!exactWatchMatchesOrderSnapshot(existingActive, expectedWatch)) throw new ApiError("WATCH_IDENTITY_MISMATCH", "The active watch does not match the immutable order snapshot.", 409);
-      const actor = getOperatorActorUserId(req);
-      const result = await db.transaction(async (tx) => {
-        const [lockedGap] = await tx.select().from(blockchainMonitorRegistrationGapsTable).where(eq(blockchainMonitorRegistrationGapsTable.orderId, order.id)).for("update");
-        if (lockedGap) await tx.update(blockchainMonitorRegistrationGapsTable).set({ resolvedAt: new Date(), resolvedBy: actor }).where(eq(blockchainMonitorRegistrationGapsTable.orderId, order.id));
-        return existingActive;
-      });
-      res.json(result);
-      return;
+    await registerManualBlockchainWatch(order.id, { freshCursor: true });
+    const [watch] = await db.select().from(blockchainMonitorWatchesTable)
+      .where(and(
+        eq(blockchainMonitorWatchesTable.orderId, order.id),
+        eq(blockchainMonitorWatchesTable.registrationState, "active"),
+        eq(blockchainMonitorWatchesTable.active, true),
+      ))
+      .limit(1);
+    if (!watch) {
+      throw new ApiError(
+        "REGISTRATION_NOT_READY",
+        "The immutable order watch could not be activated from the current chain head.",
+        422,
+      );
     }
-    const config = adapterConfig(network);
-    if (!network.enabled || !asset.enabled || !config) throw new ApiError("REGISTRATION_NOT_READY", "Enabled network, asset, and provider configuration are required.", 422);
-    const adapter = createBlockchainMonitorAdapter(config);
-    const connection = await adapter.testConnection();
-    if (network.chainId && connection.chainId?.toLowerCase() !== network.chainId.toLowerCase()) throw new ApiError("CHAIN_ID_MISMATCH", "Provider chain identity does not match configuration.", 422);
-    const head = await adapter.getHead();
     const actor = getOperatorActorUserId(req);
-    const result = await db.transaction(async (tx) => {
+    await db.transaction(async (tx) => {
       const [lockedGap] = await tx.select().from(blockchainMonitorRegistrationGapsTable).where(eq(blockchainMonitorRegistrationGapsTable.orderId, req.params.orderId)).for("update");
-      const [existing] = await tx.select().from(blockchainMonitorWatchesTable).where(eq(blockchainMonitorWatchesTable.orderId, order.id)).for("update");
-      if (existing?.registrationState === "active") {
-        if (lockedGap) await tx.update(blockchainMonitorRegistrationGapsTable).set({ resolvedAt: new Date(), resolvedBy: actor }).where(eq(blockchainMonitorRegistrationGapsTable.orderId, order.id));
-        return existing;
-      }
-      if (!lockedGap && !existing) throw new ApiError("REGISTRATION_GAP_NOT_FOUND", "Registration gap or pending watch not found.", 404);
-      const [watch] = await tx.insert(blockchainMonitorWatchesTable).values({
-        orderId: order.id, monitorNetworkId: network.id, monitorAssetId: asset.id, assetNetworkId: route.route.id,
-        expectedAmount: order.amount, receivingAddress, memoOrTag: memoOrTag || null, identityKind: asset.identityKind,
-        contractOrMint, decimals: asset.decimals, orderCreatedAt: order.createdAt,
-        startCursor: head.cursor, currentCursor: head.cursor, registrationState: "active",
-      }).onConflictDoUpdate({ target: blockchainMonitorWatchesTable.orderId, set: { monitorNetworkId: network.id, monitorAssetId: asset.id, assetNetworkId: route.route.id, startCursor: head.cursor, currentCursor: head.cursor, registrationState: "active", registrationReason: null } }).returning();
       if (lockedGap) await tx.update(blockchainMonitorRegistrationGapsTable).set({ resolvedAt: new Date(), resolvedBy: actor }).where(eq(blockchainMonitorRegistrationGapsTable.orderId, order.id));
-      await tx.insert(orderAuditLogsTable).values({ orderId: order.id, action: "blockchain_monitoring.registration_gap_activated", actorType: "operator", actorId: actor, previousVersion: order.recordVersion, nextVersion: order.recordVersion, details: { cursor: head.cursor } });
-      return watch;
+      await tx.insert(orderAuditLogsTable).values({
+        orderId: order.id,
+        action: "blockchain_monitoring.registration_gap_activated",
+        actorType: "operator",
+        actorId: actor,
+        previousVersion: order.recordVersion,
+        nextVersion: order.recordVersion,
+        details: { cursor: watch.startCursor },
+      });
     });
-    res.json(result);
+    res.json(watch);
   } catch (error) { next(error); }
 });
 const sanitized = (row: typeof blockchainMonitorNetworksTable.$inferSelect) => ({
@@ -303,7 +279,40 @@ router.post("/admin/blockchain-monitoring/matches/:id/review", async (req, res, 
           }, and(eq(ordersTable.status, "needs review"), eq(ordersTable.manualSettlementState, "funds_confirmed")),
           { action: "blockchain_monitoring.review_rejected_invalidated_payment", details: { reason: input.reason ?? null } });
           if (!transitioned) throw new ApiError("ORDER_STATUS_CONFLICT", "The order changed concurrently.", 409);
+          await tx.insert(blockchainMonitorRegistrationGapsTable).values({
+            orderId: order.id,
+            networkCode: order.fromNetwork,
+            assetCode: order.fromAsset,
+            receivingAddress: order.depositAddress,
+            reason: "Payment evidence was rejected; watch requires fresh reactivation.",
+          }).onConflictDoUpdate({
+            target: blockchainMonitorRegistrationGapsTable.orderId,
+            set: {
+              reason: "Payment evidence was rejected; watch requires fresh reactivation.",
+              resolvedAt: null,
+              resolvedBy: null,
+            },
+          });
           const [updated] = await tx.update(blockchainMonitorMatchesTable).set({ state: "rejected", reviewedAt: new Date(), reviewedBy: getOperatorActorUserId(req), ambiguityReason: input.reason ?? "Operator rejected the reorg review." }).where(eq(blockchainMonitorMatchesTable.id, current.id)).returning();
+          return updated;
+        }
+        if (order?.status === "needs review" && order.manualSettlementState === "awaiting_funds") {
+          const transitioned = await updateOrderAndQueueStatusNotificationTx(tx, order, {
+            status: "awaiting funds",
+          }, and(
+            eq(ordersTable.status, "needs review"),
+            eq(ordersTable.manualSettlementState, "awaiting_funds"),
+          ), {
+            action: "blockchain_monitoring.review_rejected_unconfirmed_payment",
+            details: { reason: input.reason ?? null },
+          });
+          if (!transitioned) throw new ApiError("ORDER_STATUS_CONFLICT", "The order changed concurrently.", 409);
+          const [updated] = await tx.update(blockchainMonitorMatchesTable).set({
+            state: "rejected",
+            reviewedAt: new Date(),
+            reviewedBy: getOperatorActorUserId(req),
+            ambiguityReason: input.reason ?? "Operator rejected invalid unconfirmed payment evidence.",
+          }).where(eq(blockchainMonitorMatchesTable.id, current.id)).returning();
           return updated;
         }
       }

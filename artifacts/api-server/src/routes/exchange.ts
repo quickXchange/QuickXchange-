@@ -138,6 +138,7 @@ import {
   whitebitOrderAddressesTable,
   providerIntegrationsTable,
   blockchainMonitorMatchesTable,
+  blockchainMonitorRegistrationGapsTable,
 } from "@workspace/db";
 import { ApiError } from "../lib/api-error";
 import {
@@ -532,8 +533,8 @@ function outputCustomerOrder(
        ? row.depositAddress || undefined : undefined,
      depositMemo: row.type === "manual" && ["ready_whitebit", "ready_manual"].includes(row.fundingStatus)
        ? row.depositMemo || undefined : undefined,
-     fundingDetails: row.type === "manual" && ["ready_whitebit", "ready_manual"].includes(row.fundingStatus)
-       ? row.fundingDetailsSnapshot ?? undefined : undefined,
+      fundingDetails: row.type === "manual" && ["ready_whitebit", "ready_manual"].includes(row.fundingStatus)
+        ? customerSafeFundingDetails(row.fundingDetailsSnapshot, row.fundingStatus) ?? undefined : undefined,
      settlementDetails: row.type === "manual" ? row.settlementDetails ?? undefined : undefined,
      paymentDetails: isApplicablePaymentDetailsOrder(row) ? row.paymentDetails ?? undefined : undefined,
      paymentDetailsApplicable: isApplicablePaymentDetailsOrder(row),
@@ -760,6 +761,25 @@ function cryptoFundingSnapshot(network: typeof cryptoAssetNetworksTable.$inferSe
     instructions: network.depositInstructions ?? "",
     warning: network.depositWarning ?? "",
   };
+}
+
+const ROUTE_UNAVAILABLE_WARNING =
+  "Deposits are unavailable until an operator configures this route.";
+
+function customerSafeFundingDetails(
+  value: unknown,
+  fundingStatus: string,
+): unknown {
+  if (
+    !["ready_whitebit", "ready_manual"].includes(fundingStatus) ||
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value)
+  ) return value;
+  const details = value as Record<string, unknown>;
+  return details.warning === ROUTE_UNAVAILABLE_WARNING
+    ? { ...details, warning: "" }
+    : details;
 }
 
 async function normalizeExchangeRoute(input: ParsedQuoteInput): Promise<NormalizedRoute> {
@@ -2059,7 +2079,7 @@ router.get("/orders/:id/status", async (req, res, next) => {
         fundingError: row.type === "manual" && row.fundingStatus === "unresolved"
           ? "Deposit address provisioning is pending operator recovery." : undefined,
          fundingDetails: canViewDeposit && row.type === "manual" && ["ready_whitebit", "ready_manual"].includes(row.fundingStatus)
-          ? row.fundingDetailsSnapshot ?? undefined : undefined,
+          ? customerSafeFundingDetails(row.fundingDetailsSnapshot, row.fundingStatus) ?? undefined : undefined,
           settlementDetails: canViewDeposit && row.type === "manual"
           ? row.settlementDetails ?? undefined : undefined,
          paymentDetails: canViewDeposit && isApplicablePaymentDetailsOrder(row)
@@ -2481,6 +2501,9 @@ async function createOrderFromInput(
       : manualFunding
         ? {
             ...manualFunding,
+            warning: manualFunding.warning === ROUTE_UNAVAILABLE_WARNING
+              ? ""
+              : manualFunding.warning,
             source: "manual",
             selectedProvider: "manual",
             addressSource: "manual_only",
@@ -2641,6 +2664,21 @@ async function createOrderFromInput(
         status: "claiming",
       }).onConflictDoNothing({ target: whitebitOrderAddressesTable.orderId });
     }
+    if (
+      created.type === "manual" &&
+      created.fundingProviderSource === "manual" &&
+      created.fundingStatus === "ready_manual"
+    ) {
+      await tx.insert(blockchainMonitorRegistrationGapsTable).values({
+        orderId: created.id,
+        networkCode: created.fromNetwork,
+        assetCode: created.fromAsset,
+        receivingAddress: created.depositAddress,
+        reason: "Watch registration is pending.",
+      }).onConflictDoNothing({
+        target: blockchainMonitorRegistrationGapsTable.orderId,
+      });
+    }
     return created;
   });
   if (!inserted) {
@@ -2648,7 +2686,7 @@ async function createOrderFromInput(
       .where(eq(ordersTable.clientRequestId, input.clientRequestId)).limit(1);
     if (!existing) throw new ApiError("IDEMPOTENCY_CONFLICT", "The existing order could not be loaded.", 409);
     try {
-      await registerManualBlockchainWatch(existing.id);
+      await registerManualBlockchainWatch(existing.id, { freshCursor: true });
     } catch (error) {
       console.warn("Manual blockchain watch replay reconciliation failed", error);
     }
@@ -2660,7 +2698,7 @@ async function createOrderFromInput(
   // not make Manual Swap order creation fail. The immutable snapshot remains
   // in the order and can be registered by a later reconciliation pass.
   try {
-    await registerManualBlockchainWatch(inserted.id);
+    await registerManualBlockchainWatch(inserted.id, { freshCursor: true });
   } catch (error) {
     console.warn("Manual blockchain watch registration failed", error);
   }

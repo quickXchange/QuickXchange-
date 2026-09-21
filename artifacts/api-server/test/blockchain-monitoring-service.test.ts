@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canResolveRegistrationGap, deriveBlockchainMonitoringSetupStatus, exactAmountMatches, exactWatchMatchesOrderSnapshot, evidenceMeetsWatchTimeAndMemo, immutableIdentityMatches, isFinalitySatisfied, selectReadyBlockchainMonitoringSetupRoutes, selectWatchScanCursor } from "../src/lib/blockchain-monitoring/service";
+import { canResolveRegistrationGap, cursorAfterCapturedHead, deriveBlockchainMonitoringSetupStatus, evidenceWithinWatchCursor, exactAmountMatches, exactWatchMatchesOrderSnapshot, evidenceMeetsWatchTimeAndMemo, immutableIdentityMatches, isFinalitySatisfied, selectReadyBlockchainMonitoringSetupRoutes, selectWatchScanCursor } from "../src/lib/blockchain-monitoring/service";
+import { canEnqueueSwapPaymentReceived } from "../src/lib/telegram-swap-notifications";
 
 test("Manual monitoring matches decimal order amounts only at configured precision", () => {
     assert.equal(exactAmountMatches("1.25", 6, "1250000"), true);
@@ -30,6 +31,11 @@ test("Manual monitoring applies configured finality and immutable identity", () 
   assert.equal(immutableIdentityMatches(watch, { identityKind: "native", contractOrMint: null, decimals: 6 }), false);
   assert.equal(selectWatchScanCursor(null, "12"), "12");
   assert.equal(selectWatchScanCursor("18", "12"), "18");
+  assert.equal(cursorAfterCapturedHead("18"), "19");
+  assert.equal(cursorAfterCapturedHead("opaque-cursor"), undefined);
+  assert.equal(evidenceWithinWatchCursor("19", "18"), false);
+  assert.equal(evidenceWithinWatchCursor("19", "19"), true);
+  assert.equal(evidenceWithinWatchCursor(null, "19"), false);
   assert.equal(canResolveRegistrationGap("pending_review", false), false);
   assert.equal(canResolveRegistrationGap("active", true), true);
   const snapshot = { orderId: "o", monitorNetworkId: "n", monitorAssetId: "a", assetNetworkId: "r", expectedAmount: "1", receivingAddress: "x", memoOrTag: null, identityKind: "native", contractOrMint: null, decimals: 18, orderCreatedAt: new Date(0) };
@@ -88,4 +94,22 @@ test("selected monitoring setup enables only requested ready routes", () => {
   const all = selectReadyBlockchainMonitoringSetupRoutes(routes);
   assert.deepEqual(all.ready.map(route => route.assetNetworkId), ["ready-a", "ready-b"]);
   assert.equal(all.skippedRoutes, 1);
+});
+
+test("Payment Received notifications require the canonical funded processing state", () => {
+  assert.equal(canEnqueueSwapPaymentReceived({
+    type: "manual",
+    status: "processing",
+    manualSettlementState: "funds_confirmed",
+  }), true);
+  assert.equal(canEnqueueSwapPaymentReceived({
+    type: "manual",
+    status: "awaiting funds",
+    manualSettlementState: "awaiting_funds",
+  }), false);
+  assert.equal(canEnqueueSwapPaymentReceived({
+    type: "manual",
+    status: "processing",
+    manualSettlementState: "awaiting_funds",
+  }), false);
 });

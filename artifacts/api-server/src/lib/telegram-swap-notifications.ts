@@ -134,6 +134,7 @@ export async function enqueueSwapTelegramNotification(
   received?: { amount: string; asset: string; network: string },
 ): Promise<number> {
   if (order.type !== "manual") return 0;
+  if (eventKind === "payment_received" && !canEnqueueSwapPaymentReceived(order)) return 0;
   const [settings] = await tx.select().from(notificationSettingsTable).where(eq(notificationSettingsTable.id, "global")).limit(1);
   let queued = 0;
   if (eventKind === "payment_received") {
@@ -305,6 +306,14 @@ export async function enqueueSwapTelegramNotification(
     queued += 1;
   }
   return queued;
+}
+
+export function canEnqueueSwapPaymentReceived(
+  order: Pick<OrderRow, "type" | "status" | "manualSettlementState">,
+): boolean {
+  return order.type === "manual" &&
+    order.status.trim().toLowerCase() === "processing" &&
+    order.manualSettlementState.trim().toLowerCase() === "funds_confirmed";
 }
 
 export async function enqueueAdminSwapTelegramLifecycleNotification(
