@@ -398,11 +398,11 @@ export function buildCustomerStatusNotificationContent(
   const subject = interpolateTemplate(configuredTemplate.subject, values);
 
   if (notification.eventKind === "order_created") {
-      badgeHtml = `<div style="display:inline-block;padding:6px 14px;border-radius:9999px;font-size:12px;font-weight:600;background-color:rgba(14,165,233,0.1);color:#38bdf8;border:1px solid rgba(14,165,233,0.2);margin-bottom:24px;">
+      badgeHtml = `<div style="display:inline-block;padding:6px 14px;border-radius:9999px;font-size:12px;font-weight:600;background-color:rgba(6,182,212,0.1);color:#06b6d4;border:1px solid rgba(6,182,212,0.2);margin-bottom:24px;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
           Order Created
       </div>`;
-      heroTitle = `Hello ${escapeHtml(notification.customerName || "Customer")} 👋`;
+      heroTitle = `Hello ${escapeHtml(notification.customerName || "Customer")}`;
       heroSubtitle = configuredHeading;
       heroText = configuredMessage;
   } else if (notification.eventKind === "payment_received") {
@@ -448,7 +448,7 @@ export function buildCustomerStatusNotificationContent(
   const detailsItems: { label: string; value: string; valueColor?: string; icon?: string }[] = [];
 
   if (notification.eventKind === "order_created") {
-      detailsItems.push({ label: "Status", value: "Awaiting payment", valueColor: "#38bdf8", icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>' });
+      detailsItems.push({ label: "Status", value: "Awaiting payment", valueColor: "#06b6d4", icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>' });
       detailsItems.push({ label: "Created at", value: formatDate(notification.createdAt), icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>' });
       if (orderTypeLabel) detailsItems.push({ label: "Exchange type", value: orderTypeLabel, icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>' });
       if (paymentMethod) detailsItems.push({ label: "Payment method", value: paymentMethod });
@@ -547,25 +547,21 @@ export function buildCustomerStatusNotificationContent(
     }
   </style>
 </head>
-<body style="margin:0;padding:0;background-color:#060b14;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#060b14;padding:20px 10px">
+<body style="margin:0;padding:0;background-color:#050b14;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#050b14;padding:20px 10px">
   <tr><td align="center">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background-color:#060b14;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background-color:#050b14;">
 
       <!-- Header -->
       <tr><td style="padding-bottom:32px;">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
           <tr>
             <td style="vertical-align:middle;">
-              <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:0.2px;">
-                ${base ? `<img src="${escapeHtml(base)}/brand/quickxchange-mark.png" width="32" height="32" alt="Q" style="vertical-align:middle;margin-right:8px;border:none;" />` : ""}
-                <span style="vertical-align:middle;">Quick<span style="color:#38bdf8;">X</span>change</span>
-              </div>
-              <div style="font-size:11px;color:#94a3b8;margin-top:2px;">Secure digital asset exchange</div>
+              ${base ? `<img src="${escapeHtml(base)}/brand/quickxchange-header-dark.png" alt="QuickXchange" height="28" style="display:block;border:none;max-width:200px;outline:none;text-decoration:none;" />` : `<span style="font-size:20px;font-weight:700;color:#ffffff;letter-spacing:0.2px;">QuickXchange</span>`}
             </td>
             <td style="vertical-align:middle;text-align:right;">
-              <div style="font-size:9px;font-weight:600;color:#cbd5e1;letter-spacing:1px;line-height:1.4;text-transform:uppercase;">
-                EXCHANGE<br/>CONVERT<br/>BEYOND BORDERS
+              <div style="font-size:9px;font-weight:600;color:#94a3b8;letter-spacing:1px;line-height:1.4;text-transform:uppercase;">
+                Secure<br/>Digital Asset<br/>Exchange
               </div>
             </td>
           </tr>
@@ -582,15 +578,15 @@ export function buildCustomerStatusNotificationContent(
 
       <!-- Order Details Card -->
       <tr><td>
-        <div style="background-color:#0b1324;border:1px solid #1e293b;border-radius:16px;padding:24px;margin-bottom:24px;">
+        <div style="background-color:#0b111f;border:1px solid #1e293b;border-radius:16px;padding:24px;margin-bottom:24px;">
           <!-- Card Header -->
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom:20px;border-bottom:1px solid #1e293b;padding-bottom:16px;">
             <tr>
               <td style="font-size:16px;font-weight:600;color:#ffffff;vertical-align:middle;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                 <span style="vertical-align:middle;">Order Details</span>
               </td>
-              <td style="text-align:right;font-size:14px;font-weight:600;color:#38bdf8;vertical-align:middle;">
+              <td style="text-align:right;font-size:14px;font-weight:600;color:#06b6d4;vertical-align:middle;">
                 # ${escapeHtml(notification.orderId)}
               </td>
             </tr>
@@ -607,7 +603,7 @@ export function buildCustomerStatusNotificationContent(
                 <div style="font-size:12px;color:#94a3b8;">${escapeHtml(sendDescriptor)}</div>
               </td>
               <td width="16%" style="text-align:center;vertical-align:middle;">
-                <div style="display:inline-block;width:32px;height:32px;line-height:32px;border-radius:50%;background-color:rgba(14,165,233,0.1);color:#38bdf8;font-size:18px;">&rarr;</div>
+                <div style="display:inline-block;width:32px;height:32px;line-height:32px;border-radius:50%;background-color:rgba(6,182,212,0.1);color:#06b6d4;font-size:18px;">&rarr;</div>
               </td>
               <td width="42%" style="text-align:center;vertical-align:middle;">
                 <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">${receiveLabel}</div>
@@ -629,22 +625,22 @@ export function buildCustomerStatusNotificationContent(
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
           <tr>
             <td align="center" width="25%" style="vertical-align:top;padding-top:10px;">
-              <div style="width:24px;height:24px;border-radius:50%;background-color:#4ade80;color:#060b14;line-height:24px;font-size:12px;margin:0 auto 8px auto;border:2px solid #060b14;position:relative;z-index:2;font-weight:bold;">✓</div>
+              <div style="width:24px;height:24px;border-radius:50%;background-color:#4ade80;color:#050b14;line-height:24px;font-size:12px;margin:0 auto 8px auto;border:2px solid #050b14;position:relative;z-index:2;font-weight:bold;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="display:block;margin:6px auto 0;"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
               <div style="font-size:11px;font-weight:600;color:#ffffff;line-height:1.4;">Order created</div>
               <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Completed</div>
             </td>
             <td align="center" width="25%" style="vertical-align:top;padding-top:10px;">
-              <div style="width:24px;height:24px;border-radius:50%;background-color:#4ade80;color:#060b14;line-height:24px;font-size:12px;margin:0 auto 8px auto;border:2px solid #060b14;position:relative;z-index:2;font-weight:bold;">✓</div>
+              <div style="width:24px;height:24px;border-radius:50%;background-color:#4ade80;color:#050b14;line-height:24px;font-size:12px;margin:0 auto 8px auto;border:2px solid #050b14;position:relative;z-index:2;font-weight:bold;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="display:block;margin:6px auto 0;"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
               <div style="font-size:11px;font-weight:600;color:#4ade80;line-height:1.4;">Payment received</div>
               <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Completed</div>
             </td>
             <td align="center" width="25%" style="vertical-align:top;padding-top:10px;">
-              <div style="width:24px;height:24px;border-radius:50%;background-color:#1e293b;color:#cbd5e1;line-height:24px;font-size:12px;margin:0 auto 8px auto;border:2px solid #060b14;position:relative;z-index:2;">3</div>
+              <div style="width:24px;height:24px;border-radius:50%;background-color:#1e293b;color:#cbd5e1;line-height:24px;font-size:12px;margin:0 auto 8px auto;border:2px solid #050b14;position:relative;z-index:2;">3</div>
               <div style="font-size:11px;font-weight:600;color:#ffffff;line-height:1.4;">Processing</div>
               <div style="font-size:10px;color:#94a3b8;margin-top:2px;">In progress</div>
             </td>
             <td align="center" width="25%" style="vertical-align:top;padding-top:10px;">
-              <div style="width:24px;height:24px;border-radius:50%;background-color:#1e293b;color:#cbd5e1;line-height:24px;font-size:12px;margin:0 auto 8px auto;border:2px solid #060b14;position:relative;z-index:2;">4</div>
+              <div style="width:24px;height:24px;border-radius:50%;background-color:#1e293b;color:#cbd5e1;line-height:24px;font-size:12px;margin:0 auto 8px auto;border:2px solid #050b14;position:relative;z-index:2;">4</div>
               <div style="font-size:11px;font-weight:600;color:#ffffff;line-height:1.4;">Exchange completed</div>
               <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Pending</div>
             </td>
@@ -655,8 +651,8 @@ export function buildCustomerStatusNotificationContent(
 
       <!-- Buttons -->
       <tr><td style="padding:16px 0 24px 0;text-align:center;">
-        ${orderUrl ? `<a href="${escapeHtml(orderUrl)}" style="display:inline-block;background:linear-gradient(90deg, #0ea5e9, #6366f1);background-color:#0ea5e9;color:#ffffff;font-weight:600;font-size:15px;padding:14px 28px;border-radius:9999px;text-decoration:none;">${buttonText} &rarr;</a>` : ""}
-        ${notification.eventKind === "completed" && !notification.adminRecipient && invoiceUrl ? `<a href="${escapeHtml(invoiceUrl)}" style="display:inline-block;background-color:transparent;color:#ffffff;font-weight:600;font-size:15px;padding:13px 28px;border-radius:9999px;text-decoration:none;border:1px solid #38bdf8;margin-left:12px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Download Invoice</a>` : ""}
+        ${orderUrl ? `<a href="${escapeHtml(orderUrl)}" style="display:inline-block;background-color:#06b6d4;background:linear-gradient(90deg, #06b6d4, #3b82f6, #7c3aed);color:#ffffff;font-weight:600;font-size:15px;padding:14px 28px;border-radius:9999px;text-decoration:none;">${buttonText} &rarr;</a>` : ""}
+        ${notification.eventKind === "completed" && !notification.adminRecipient && invoiceUrl ? `<a href="${escapeHtml(invoiceUrl)}" style="display:inline-block;background-color:transparent;color:#ffffff;font-weight:600;font-size:15px;padding:13px 28px;border-radius:9999px;text-decoration:none;border:1px solid #06b6d4;margin-left:12px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Download Invoice</a>` : ""}
       </td></tr>
 
       <tr><td style="text-align:center;font-size:12px;color:#94a3b8;padding-bottom:32px;">
@@ -669,76 +665,36 @@ export function buildCustomerStatusNotificationContent(
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:rgba(34,197,94,0.05);border:1px solid rgba(34,197,94,0.2);border-radius:12px;">
           <tr>
             <td width="48" style="padding:16px 0 16px 16px;vertical-align:middle;">
-              <span style="font-size:24px;color:#4ade80;">★</span>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="#4ade80" stroke="#4ade80" stroke-width="1.5" style="display:block;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
             </td>
             <td style="padding:16px 0;vertical-align:middle;">
               <div style="font-size:14px;font-weight:600;color:#ffffff;margin-bottom:2px;">Enjoyed our service?</div>
               <div style="font-size:12px;color:#94a3b8;">Your feedback helps us grow!</div>
             </td>
             <td style="padding:16px;text-align:right;vertical-align:middle;">
-              <a href="${escapeHtml(reviewUrl)}" style="display:inline-block;padding:8px 16px;background-color:transparent;border:1px solid #4ade80;color:#4ade80;text-decoration:none;border-radius:8px;font-size:12px;font-weight:600;">★ Review us on Trustpilot</a>
+              <a href="${escapeHtml(reviewUrl)}" style="display:inline-block;padding:8px 16px;background-color:transparent;border:1px solid #4ade80;color:#4ade80;text-decoration:none;border-radius:8px;font-size:12px;font-weight:600;">Review us on Trustpilot</a>
             </td>
           </tr>
         </table>
       </td></tr>
       ` : ""}
 
-      <!-- Features -->
-      <tr><td style="padding:16px 0;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-          <tr>
-            <td width="25%" class="feature-col" align="center" style="padding:0 4px;vertical-align:top;">
-              <div style="border:1px solid #1e293b;background-color:#0b1324;border-radius:12px;padding:16px 8px;min-height:80px;">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" style="margin-bottom:8px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                <div style="font-size:11px;font-weight:600;color:#ffffff;margin-bottom:4px;">Secure</div>
-                <div style="font-size:10px;color:#94a3b8;line-height:1.3;">Your funds are safe with us</div>
-              </div>
-            </td>
-            <td width="25%" class="feature-col" align="center" style="padding:0 4px;vertical-align:top;">
-              <div style="border:1px solid #1e293b;background-color:#0b1324;border-radius:12px;padding:16px 8px;min-height:80px;">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" style="margin-bottom:8px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-                <div style="font-size:11px;font-weight:600;color:#ffffff;margin-bottom:4px;">Fast</div>
-                <div style="font-size:10px;color:#94a3b8;line-height:1.3;">Quick processing time</div>
-              </div>
-            </td>
-            <td width="25%" class="feature-col" align="center" style="padding:0 4px;vertical-align:top;">
-              <div style="border:1px solid #1e293b;background-color:#0b1324;border-radius:12px;padding:16px 8px;min-height:80px;">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" style="margin-bottom:8px;"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-                <div style="font-size:11px;font-weight:600;color:#ffffff;margin-bottom:4px;">Global</div>
-                <div style="font-size:10px;color:#94a3b8;line-height:1.3;">Exchange without borders</div>
-              </div>
-            </td>
-            <td width="25%" class="feature-col" align="center" style="padding:0 4px;vertical-align:top;">
-              <div style="border:1px solid #1e293b;background-color:#0b1324;border-radius:12px;padding:16px 8px;min-height:80px;">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" style="margin-bottom:8px;"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
-                <div style="font-size:11px;font-weight:600;color:#ffffff;margin-bottom:4px;">24/7 Support</div>
-                <div style="font-size:10px;color:#94a3b8;line-height:1.3;">We're here anytime</div>
-              </div>
-            </td>
-          </tr>
-        </table>
-      </td></tr>
-
       <!-- Footer -->
-      <tr><td style="padding-top:40px;border-top:1px solid #1e293b;margin-top:16px;">
+      <tr><td style="padding-top:24px;border-top:1px solid #1e293b;">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
           <tr>
-            <td width="33%" class="stack-col text-center" style="vertical-align:top;padding-right:16px;">
-              <div style="font-size:16px;font-weight:800;color:#ffffff;letter-spacing:0.2px;margin-bottom:4px;">
-                ${base ? `<img src="${escapeHtml(base)}/brand/quickxchange-mark.png" width="20" height="20" alt="Q" style="vertical-align:middle;margin-right:4px;border:none;" />` : ""}
-                <span style="vertical-align:middle;">Quick<span style="color:#38bdf8;">X</span>change</span>
+            <td width="48%" class="stack-col text-center" style="vertical-align:top;padding-right:16px;">
+              <div style="margin-bottom:12px;">
+                ${base ? `<img src="${escapeHtml(base)}/brand/quickxchange-header-dark.png" alt="QuickXchange" height="20" style="display:block;border:none;max-width:200px;outline:none;text-decoration:none;margin:0 auto;" />` : `<span style="font-size:16px;font-weight:700;color:#ffffff;letter-spacing:0.2px;">QuickXchange</span>`}
               </div>
-              <div style="font-size:8px;color:#38bdf8;font-weight:700;letter-spacing:1px;margin-bottom:12px;text-transform:uppercase;">YOUR CRYPTO EXCHANGE PARTNER</div>
+              <div style="font-size:8px;color:#06b6d4;font-weight:700;letter-spacing:1px;margin-bottom:12px;text-transform:uppercase;">YOUR CRYPTO EXCHANGE PARTNER</div>
               <div style="font-size:11px;color:#94a3b8;line-height:1.5;">Fast. Secure. Global. Exchange, convert and move your crypto with confidence.</div>
             </td>
-            <td width="34%" class="stack-col text-center" style="vertical-align:top;text-align:center;">
+            <td width="52%" class="stack-col text-center" style="vertical-align:top;text-align:right;">
               <div style="margin-bottom:16px;">
                 ${socialLinksHtml}
               </div>
               <div style="font-size:11px;color:#94a3b8;line-height:1.5;">quickchange.exchange<br/>support@quickchange.exchange</div>
-            </td>
-            <td width="33%" class="stack-col text-center" style="vertical-align:top;text-align:right;padding-left:16px;">
-              <div style="font-family:Georgia,serif;font-size:18px;font-style:italic;color:#cbd5e1;line-height:1.2;">Thank you<br/>for choosing<br/>QuickXchange!</div>
             </td>
           </tr>
         </table>
