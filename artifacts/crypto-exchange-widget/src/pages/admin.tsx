@@ -1,3 +1,7 @@
+
+import { useGetAdminNotificationEmailTemplates, getGetAdminNotificationEmailTemplatesQueryKey, useUpdateAdminNotificationEmailTemplates, useTestAdminNotificationEmailTemplate } from '@workspace/api-client-react';
+import type { NotificationEmailTemplate, NotificationEmailTemplateEventKind } from '@workspace/api-client-react';
+import '../admin-notifications-redesign.css';
 import { useI18n } from '../i18n/provider';
 import { lazy, Suspense, useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import type { ChangeEvent, ComponentProps, CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react';
@@ -12,11 +16,12 @@ import {
   LayoutDashboard, Loader2, Mail, Menu, MoreHorizontal, Archive, ArchiveRestore,
   RefreshCw, RotateCcw, Save, ShieldCheck, TrendingUp, UserRound, Users,
   X, Zap, Settings, Key, Activity, Network, LogOut, Moon, Sun, Eye, Pause, Trash2, UserCheck, Crown, Coins, Ban, CheckCircle,
-  CreditCard, ExternalLink, Database, HandCoins, Info, Landmark, ShoppingBag, Smartphone, WalletCards, CalendarDays
+  CreditCard, ExternalLink, Database, HandCoins, Info, Landmark, ShoppingBag, Smartphone, WalletCards, CalendarDays,
+  Send, BellRing, Link as LinkIcon, Unplug, MessageSquare, CheckCircle2, XCircle, Bell, Settings2, Star, Code
 } from 'lucide-react';
 import {
   SiAlipay, SiCashapp, SiMastercard, SiPaypal, SiPix, SiRevolut,
-  SiVenmo, SiVisa, SiWise, SiZelle
+  SiVenmo, SiVisa, SiWise, SiZelle, SiTelegram
 } from 'react-icons/si';
 import {
   getGetAdminSummaryQueryKey, getGetCustomersQueryKey, getGetExchangeConfigQueryKey,
@@ -68,6 +73,11 @@ import {
   useCreateAffiliateSettingsVersion,
   useGetAdminNotificationSettings, getGetAdminNotificationSettingsQueryKey,
   useUpdateAdminNotificationSettings,
+  useTestAdminNotificationEmail,
+  useTestAdminNotificationTelegram,
+  useCreateAdminNotificationTelegramLink,
+  useGetAdminNotificationTelegramLink, getGetAdminNotificationTelegramLinkQueryKey,
+  useDisconnectAdminNotificationTelegram,
   useGetAffiliatePayoutQueue, getGetAffiliatePayoutQueueQueryKey,
   useTransitionAffiliatePayout,
   useGetAffiliateOverview, getGetAffiliateOverviewQueryKey,
@@ -1684,143 +1694,804 @@ function AdminNotificationSettings() {
   const query = useGetAdminNotificationSettings({
     query: { queryKey: getGetAdminNotificationSettingsQueryKey() },
   });
+
+  const templatesQuery = useGetAdminNotificationEmailTemplates({
+    query: { queryKey: getGetAdminNotificationEmailTemplatesQueryKey() },
+  });
+
   const update = useUpdateAdminNotificationSettings();
+  const updateTemplates = useUpdateAdminNotificationEmailTemplates();
+  const testEmail = useTestAdminNotificationEmail();
+  const testTelegram = useTestAdminNotificationTelegram();
+  const testTemplate = useTestAdminNotificationEmailTemplate();
+  const createTgLink = useCreateAdminNotificationTelegramLink();
+  const disconnectTg = useDisconnectAdminNotificationTelegram();
+
   const [draft, setDraft] = useState<Record<string, unknown> | null>(null);
   const [saveMessage, setSaveMessage] = useState('');
+  const [testResult, setTestResult] = useState<{type: 'email' | 'telegram' | 'template', success: boolean, message: string} | null>(null);
+  const [tgLinkId, setTgLinkId] = useState<string | null>(null);
+
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+  const [selectedTemplateKind, setSelectedTemplateKind] = useState<string>('order_created');
+  const [templatesDraft, setTemplatesDraft] = useState<NotificationEmailTemplate[]>([]);
+
+  const tgLinkQuery = useGetAdminNotificationTelegramLink(tgLinkId!, {
+    query: {
+      enabled: !!tgLinkId,
+      refetchInterval: (query) => query.state.data?.status === 'pending' ? 3000 : false,
+      queryKey: getGetAdminNotificationTelegramLinkQueryKey(tgLinkId!)
+    }
+  });
+
   useEffect(() => {
     if (query.data) setDraft({ ...query.data });
   }, [query.data]);
+
+  useEffect(() => {
+    if (templatesQuery.data?.items) {
+      setTemplatesDraft(JSON.parse(JSON.stringify(templatesQuery.data.items)));
+    }
+  }, [templatesQuery.data]);
+
+  useEffect(() => {
+    if (tgLinkQuery.data?.status === 'connected' && tgLinkQuery.data.settings) {
+      setDraft(tgLinkQuery.data.settings as unknown as Record<string, unknown>);
+      queryClient.setQueryData(getGetAdminNotificationSettingsQueryKey(), tgLinkQuery.data.settings);
+      setTgLinkId(null);
+      setSaveMessage('Telegram successfully connected.');
+    } else if (tgLinkQuery.data?.status === 'expired') {
+      setTgLinkId(null);
+      setSaveMessage('Telegram connection link expired.');
+    }
+  }, [tgLinkQuery.data, queryClient]);
+
   if (!isOwner) {
     return <AdminShell eyebrow="Operations settings" title="Notification settings" requiredPermission="site_settings.manage"><ErrorState message="Owner access required" /></AdminShell>;
   }
   if (!draft || query.isLoading) {
     return <AdminShell eyebrow="Operations settings" title="Notification settings" requiredPermission="site_settings.manage"><LoadingBlock rows={6} /></AdminShell>;
   }
-  const set = (key: string, value: unknown) => setDraft(current => current ? { ...current, [key]: value } : current);
-  const toggle = (key: string, label: string) => (
-    <label className="flex items-center justify-between gap-4 rounded-xl border border-border bg-background px-4 py-3.5">
-      <span className="text-sm font-semibold">{label}</span>
-      <input className="size-4 accent-primary" type="checkbox" checked={Boolean(draft[key])} onChange={event => set(key, event.target.checked)} />
-    </label>
-  );
-  const templates = [
-    ['Order created', 'QuickXchange order {{orderId}} is now Awaiting funds'],
-    ['Payment received', 'Payment received for QuickXchange order {{orderId}}'],
-    ['Processing', 'QuickXchange order {{orderId}} is now Processing'],
-    ['Completed', 'QuickXchange order {{orderId}} is now Completed'],
-    ['Failed / Cancelled', 'QuickXchange order {{orderId}} is now Failed / Cancelled'],
-  ];
+
+  const set = (key: string, value: unknown) => {
+    setDraft(current => current ? { ...current, [key]: value } : current);
+    setSaveMessage('');
+  };
+
   const save = () => {
     setSaveMessage('');
     update.mutate({ data: {
+      adminNotificationsEnabled: Boolean(draft.adminNotificationsEnabled),
+      adminEmailEnabled: Boolean(draft.adminEmailEnabled),
       emailEnabled: Boolean(draft.emailEnabled),
       telegramEnabled: Boolean(draft.telegramEnabled),
+
+      adminEmailOrderCreatedEnabled: Boolean(draft.adminEmailOrderCreatedEnabled),
+      adminEmailPaymentReceivedEnabled: Boolean(draft.adminEmailPaymentReceivedEnabled),
+      adminEmailProcessingEnabled: Boolean(draft.adminEmailProcessingEnabled),
+      adminEmailCompletedEnabled: Boolean(draft.adminEmailCompletedEnabled),
+      adminEmailFailedCancelledEnabled: Boolean(draft.adminEmailFailedCancelledEnabled),
+
+      adminTelegramOrderCreatedEnabled: Boolean(draft.adminTelegramOrderCreatedEnabled),
+      adminTelegramPaymentReceivedEnabled: Boolean(draft.adminTelegramPaymentReceivedEnabled),
+      adminTelegramProcessingEnabled: Boolean(draft.adminTelegramProcessingEnabled),
+      adminTelegramCompletedEnabled: Boolean(draft.adminTelegramCompletedEnabled),
+      adminTelegramFailedCancelledEnabled: Boolean(draft.adminTelegramFailedCancelledEnabled),
+
+      customerEmailOrderCreatedEnabled: Boolean(draft.customerEmailOrderCreatedEnabled),
+      customerEmailPaymentReceivedEnabled: Boolean(draft.customerEmailPaymentReceivedEnabled),
+      customerEmailProcessingEnabled: Boolean(draft.customerEmailProcessingEnabled),
+      customerEmailCompletedEnabled: Boolean(draft.customerEmailCompletedEnabled),
+      customerEmailFailedCancelledEnabled: Boolean(draft.customerEmailFailedCancelledEnabled),
+
+      adminNotificationEmail: String(draft.adminNotificationEmail ?? '').trim(),
+      adminNotificationPhone: String(draft.adminNotificationPhone ?? '').trim(),
+      adminTelegramChatId: String(draft.adminTelegramChatId ?? '').trim(),
+      trustpilotReviewUrl: String(draft.trustpilotReviewUrl ?? '').trim(),
+
       paymentReceivedEnabled: Boolean(draft.paymentReceivedEnabled),
       processingEnabled: Boolean(draft.processingEnabled),
       completedEnabled: Boolean(draft.completedEnabled),
       failedCancelledEnabled: Boolean(draft.failedCancelledEnabled),
-      adminNotificationEmail: String(draft.adminNotificationEmail ?? '').trim(),
-      adminTelegramChatId: String(draft.adminTelegramChatId ?? '').trim(),
-      trustpilotReviewUrl: String(draft.trustpilotReviewUrl ?? '').trim(),
     } }, {
       onSuccess: (saved) => {
         setDraft({ ...saved });
         queryClient.setQueryData(getGetAdminNotificationSettingsQueryKey(), saved);
-        setSaveMessage('Notification settings saved.');
+        setSaveMessage('Settings saved successfully.');
       },
-      onError: () => setSaveMessage('Unable to save notification settings. Check the values and try again.'),
+      onError: () => setSaveMessage('Unable to save settings. Check the values and try again.'),
     });
   };
-  return (
-    <AdminShell eyebrow="System configuration" title="Notification Settings" subtitle="Manage existing Manual Swap customer and payment-confirmed Admin notifications." requiredPermission="site_settings.manage">
-      <div className="grid max-w-5xl gap-6" data-testid="admin-notification-settings">
-        <section className="panel space-y-4">
-          <div>
-            <h3 className="text-base font-semibold">Customer Email</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Send branded lifecycle emails to the address attached to each Manual Swap order.</p>
-          </div>
-          {toggle('emailEnabled', 'Customer and Admin email delivery')}
-        </section>
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <section className="panel space-y-4">
-            <div>
-              <h3 className="text-base font-semibold">Admin Email</h3>
-              <p className="mt-1 text-sm text-muted-foreground">Admin alerts are sent only after authoritative payment confirmation.</p>
-            </div>
-            <label className="grid gap-2 text-sm font-medium">
-              Admin notification email
-              <input className="input" type="email" value={String(draft.adminNotificationEmail ?? '')} onChange={event => set('adminNotificationEmail', event.target.value)} placeholder="operations@example.com" />
-            </label>
-          </section>
-          <section className="panel space-y-4">
-            <div>
-              <h3 className="text-base font-semibold">Admin Telegram</h3>
-              <p className="mt-1 text-sm text-muted-foreground">Use the configured bot to send payment-confirmed lifecycle alerts.</p>
-            </div>
-            {toggle('telegramEnabled', 'Telegram delivery')}
-            <label className="grid gap-2 text-sm font-medium">
-              Admin Telegram chat ID
-              <input className="input" type="text" value={String(draft.adminTelegramChatId ?? '')} onChange={event => set('adminTelegramChatId', event.target.value)} placeholder="-1001234567890" />
-            </label>
-          </section>
+  const saveTemplates = () => {
+    setTestResult(null);
+    updateTemplates.mutate({ data: { items: templatesDraft } }, {
+      onSuccess: (saved) => {
+        setTemplatesDraft(saved.items);
+        queryClient.setQueryData(getGetAdminNotificationEmailTemplatesQueryKey(), saved);
+        setTestResult({ type: 'template', success: true, message: 'Templates saved successfully.' });
+      },
+      onError: (error) => setTestResult({ type: 'template', success: false, message: apiErrorText(error, 'Failed to save templates.') })
+    });
+  };
+
+  const handleConnectTg = () => {
+    setSaveMessage('');
+    setTestResult(null);
+    const popup = window.open('about:blank', '_blank');
+    if (popup) popup.opener = null;
+    createTgLink.mutate(undefined, {
+      onSuccess: (link) => {
+        setTgLinkId(link.id);
+        if (popup) {
+          popup.location.href = link.botUrl;
+        } else {
+          window.open(link.botUrl, '_blank', 'noopener,noreferrer');
+        }
+      },
+      onError: (error) => {
+        popup?.close();
+        setTestResult({ type: 'telegram', success: false, message: apiErrorText(error, 'Failed to create connection link.') });
+      }
+    });
+  };
+
+  const handleDisconnectTg = () => {
+    disconnectTg.mutate(undefined, {
+      onSuccess: (settings) => {
+        setDraft(settings as unknown as Record<string, unknown>);
+        queryClient.setQueryData(getGetAdminNotificationSettingsQueryKey(), settings);
+        setSaveMessage('Telegram disconnected.');
+        setTestResult(null);
+      },
+      onError: (error) => {
+        setTestResult({ type: 'telegram', success: false, message: apiErrorText(error, 'Failed to disconnect Telegram.') });
+      }
+    });
+  };
+
+  const handleTestEmail = () => {
+    setTestResult(null);
+    testEmail.mutate(undefined, {
+      onSuccess: (result) => setTestResult({ type: 'email', success: result.success, message: result.message }),
+      onError: (error) => setTestResult({ type: 'email', success: false, message: apiErrorText(error, 'Failed to send test email.') })
+    });
+  };
+
+  const handleTestTg = () => {
+    setTestResult(null);
+    testTelegram.mutate(undefined, {
+      onSuccess: (result) => setTestResult({ type: 'telegram', success: result.success, message: result.message }),
+      onError: (error) => setTestResult({ type: 'telegram', success: false, message: apiErrorText(error, 'Failed to send test Telegram.') })
+    });
+  };
+
+  const handleTestTemplate = (eventKind: string) => {
+    setTestResult(null);
+    const templateToTest = templatesDraft.find(t => t.eventKind === eventKind);
+    if (!templateToTest) return;
+
+    testTemplate.mutate({ data: templateToTest }, {
+      onSuccess: (result) => setTestResult({ type: 'template', success: result.success, message: result.message }),
+      onError: (error) => setTestResult({ type: 'template', success: false, message: apiErrorText(error, 'Failed to send test email.') })
+    });
+  };
+
+  const Toggle = ({ checked, onChange }: { checked: boolean, onChange: (v: boolean) => void }) => (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      className="qx-notif-toggle"
+      data-state={checked ? 'checked' : 'unchecked'}
+      onClick={() => onChange(!checked)}
+    >
+      <span className="qx-notif-toggle-thumb" />
+    </button>
+  );
+
+  const hasTgConnection = Boolean(draft.adminTelegramChatId);
+
+  const customerEmailExamples = [
+    { key: 'customerEmailOrderCreatedEnabled', title: 'Order Created', icon: <FileText size={16} />, color: 'text-blue-400', message: 'We have received your order and it is now waiting for payment.', status: 'Waiting for payment', state: 'bg-muted text-foreground' },
+    { key: 'customerEmailPaymentReceivedEnabled', title: 'Payment Received', icon: <Banknote size={16} />, color: 'text-emerald-400', message: 'Your payment has been detected and is now being processed.', status: 'Payment Received', state: 'bg-emerald-500/20 text-emerald-400' },
+    { key: 'customerEmailProcessingEnabled', title: 'Processing', icon: <Settings2 size={16} />, color: 'text-purple-400', message: 'We are now processing your exchange. You will receive another update soon.', status: 'Processing', state: 'bg-purple-500/20 text-purple-400' },
+    { key: 'customerEmailCompletedEnabled', title: 'Completed / Done', icon: <CheckCircle2 size={16} />, color: 'text-cyan-400', message: 'Your exchange is completed! Thank you for using QuickXchange!', status: 'Completed', state: 'bg-cyan-500/20 text-cyan-400' },
+    { key: 'customerEmailFailedCancelledEnabled', title: 'Failed / Cancelled', icon: <XCircle size={16} />, color: 'text-red-400', message: 'Your exchange has failed or been cancelled.', status: 'Failed / Cancelled', state: 'bg-red-500/20 text-red-400' }
+  ];
+
+  const activeTemplate = templatesDraft.find(t => t.eventKind === selectedTemplateKind) || {
+    eventKind: 'order_created' as any, subject: '', heading: '', message: '', buttonText: '', footerText: ''
+  };
+
+  const updateActiveTemplate = (field: keyof NotificationEmailTemplate, value: string) => {
+    setTemplatesDraft(drafts => {
+      const exists = drafts.some(t => t.eventKind === selectedTemplateKind);
+      if (!exists) {
+        return [...drafts, {
+          eventKind: selectedTemplateKind as NotificationEmailTemplateEventKind,
+          subject: '', heading: '', message: '', buttonText: '', footerText: '',
+          [field]: value
+        }];
+      }
+      return drafts.map(t =>
+        t.eventKind === selectedTemplateKind ? { ...t, [field]: value } : t
+      );
+    });
+  };
+
+  const variables = [
+    '{{customerName}}', '{{orderId}}', '{{sendAmount}}', '{{sendAsset}}',
+    '{{sendNetwork}}', '{{receiveAmount}}', '{{receiveAsset}}', '{{receiveMethod}}',
+    '{{status}}', '{{createdDate}}', '{{completedDate}}', '{{orderUrl}}',
+    '{{invoiceUrl}}', '{{trustpilotUrl}}'
+  ];
+
+  return (
+    <AdminShell eyebrow="Operations console" title="Notification Settings" requiredPermission="site_settings.manage">
+      <div className="qx-notif-page p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Notification Settings</h1>
+            <p className="text-sm text-slate-400">Control when and how you receive notifications</p>
+          </div>
+          <div className="flex items-center gap-4">
+            {saveMessage && (
+              <span className={cn("text-sm font-medium", saveMessage.includes('Unable') || saveMessage.includes('Failed') ? "text-red-400" : "text-emerald-400")}>
+                {saveMessage}
+              </span>
+            )}
+            <button className="qx-notif-btn qx-notif-btn-primary" onClick={save} disabled={update.isPending}>
+              {update.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              SAVE NOTIFICATION SETTINGS
+            </button>
+          </div>
         </div>
 
-        <section className="panel space-y-4">
-          <div>
-            <h3 className="text-base font-semibold">Event ON/OFF Controls</h3>
-            <p className="mt-1 text-sm text-muted-foreground">These controls apply to the existing customer and Admin notification pipeline.</p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {toggle('paymentReceivedEnabled', 'Payment Received')}
-            {toggle('processingEnabled', 'Order Processing')}
-            {toggle('completedEnabled', 'Order Completed')}
-            {toggle('failedCancelledEnabled', 'Order Failed / Cancelled')}
-          </div>
-        </section>
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
+          <div className="space-y-6">
 
-        <section className="panel space-y-4">
-          <div>
-            <h3 className="text-base font-semibold">Trustpilot URL</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Shown after a completed Manual Swap and in the completion email.</p>
-          </div>
-          <label className="grid gap-2 text-sm font-medium">
-            Trustpilot review URL
-            <input className="input" type="url" value={String(draft.trustpilotReviewUrl ?? '')} onChange={event => set('trustpilotReviewUrl', event.target.value)} placeholder="https://www.trustpilot.com/evaluate/…" />
-          </label>
-        </section>
-
-        <section className="panel space-y-4">
-          <div>
-            <h3 className="text-base font-semibold">Email Templates</h3>
-            <p className="mt-1 text-sm text-muted-foreground">The existing branded templates are managed by the notification system. This page shows the active subjects and event mapping.</p>
-          </div>
-          <div className="divide-y divide-border overflow-hidden rounded-xl border border-border">
-            {templates.map(([name, subject]) => (
-              <div key={name} className="grid gap-1 bg-background px-4 py-3 sm:grid-cols-[150px_1fr] sm:items-center">
-                <strong className="text-sm">{name}</strong>
-                <code className="break-words text-xs text-muted-foreground">{subject}</code>
+            {/* Admin Notifications Matrix */}
+            <div className="qx-notif-card">
+              <div className="qx-notif-card-header">
+                <div>
+                  <h2 className="text-[15px] font-bold text-white flex items-center gap-2">
+                    <Bell size={18} className="text-blue-400" />
+                    Admin Notifications
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-1">Choose which events should trigger notifications.</p>
+                </div>
+                <button
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-1.5 rounded-full border transition-colors cursor-pointer",
+                    draft.adminNotificationsEnabled
+                      ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                      : "bg-slate-800/50 border-slate-700 text-slate-400"
+                  )}
+                  onClick={() => set('adminNotificationsEnabled', !draft.adminNotificationsEnabled)}
+                >
+                  {draft.adminNotificationsEnabled ? <Check size={14} /> : <X size={14} />}
+                  <span className="text-xs font-semibold">
+                    {draft.adminNotificationsEnabled ? "Notifications are enabled" : "Notifications are disabled"}
+                  </span>
+                </button>
               </div>
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground">Available order data includes order ID, customer name, exchange route, current status, invoice link, and Trustpilot link where applicable.</p>
-        </section>
+              <div className="overflow-x-auto">
+                <table className="qx-notif-table">
+                  <thead>
+                    <tr>
+                      <th className="w-1/2">Event</th>
+                      <th>Email</th>
+                      <th>Telegram</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>
+                        <div className="flex items-center gap-3">
+                          <FileText size={16} className="text-slate-400" />
+                          <div>
+                            <span className="text-sm font-medium text-white block">New Order (Created)</span>
+                             <span className="text-[10px] text-slate-500">Optional — enable only if you want notifications for unpaid/new orders.</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td><Toggle checked={Boolean(draft.adminEmailOrderCreatedEnabled)} onChange={v => set('adminEmailOrderCreatedEnabled', v)} /></td>
+                      <td><Toggle checked={Boolean(draft.adminTelegramOrderCreatedEnabled)} onChange={v => set('adminTelegramOrderCreatedEnabled', v)} /></td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <div className="flex items-center gap-3">
+                          <Banknote size={16} className="text-slate-400" />
+                          <span className="text-sm font-medium text-white block">Payment Received</span>
+                        </div>
+                      </td>
+                      <td><Toggle checked={Boolean(draft.adminEmailPaymentReceivedEnabled)} onChange={v => set('adminEmailPaymentReceivedEnabled', v)} /></td>
+                      <td><Toggle checked={Boolean(draft.adminTelegramPaymentReceivedEnabled)} onChange={v => set('adminTelegramPaymentReceivedEnabled', v)} /></td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <div className="flex items-center gap-3">
+                          <Settings2 size={16} className="text-slate-400" />
+                          <span className="text-sm font-medium text-white block">Order Processing</span>
+                        </div>
+                      </td>
+                      <td><Toggle checked={Boolean(draft.adminEmailProcessingEnabled)} onChange={v => set('adminEmailProcessingEnabled', v)} /></td>
+                      <td><Toggle checked={Boolean(draft.adminTelegramProcessingEnabled)} onChange={v => set('adminTelegramProcessingEnabled', v)} /></td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <div className="flex items-center gap-3">
+                          <CheckCircle2 size={16} className="text-slate-400" />
+                          <span className="text-sm font-medium text-white block">Order Completed</span>
+                        </div>
+                      </td>
+                      <td><Toggle checked={Boolean(draft.adminEmailCompletedEnabled)} onChange={v => set('adminEmailCompletedEnabled', v)} /></td>
+                      <td><Toggle checked={Boolean(draft.adminTelegramCompletedEnabled)} onChange={v => set('adminTelegramCompletedEnabled', v)} /></td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <div className="flex items-center gap-3">
+                          <XCircle size={16} className="text-slate-400" />
+                          <span className="text-sm font-medium text-white block">Order Failed / Cancelled</span>
+                        </div>
+                      </td>
+                      <td><Toggle checked={Boolean(draft.adminEmailFailedCancelledEnabled)} onChange={v => set('adminEmailFailedCancelledEnabled', v)} /></td>
+                      <td><Toggle checked={Boolean(draft.adminTelegramFailedCancelledEnabled)} onChange={v => set('adminTelegramFailedCancelledEnabled', v)} /></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-        <section className="panel flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div aria-live="polite" className="text-sm text-muted-foreground">{saveMessage || 'Changes apply to new notification deliveries immediately.'}</div>
-          <button
-            type="button"
-            className="button button-primary"
-            disabled={update.isPending}
-            onClick={save}
-          >
-            {update.isPending ? 'Saving…' : 'Save notification settings'}
-          </button>
-        </section>
+            {/* Config Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Admin Email */}
+              <div className="qx-notif-card">
+                <div className="qx-notif-card-header border-b-0 pb-0">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Mail size={16} className="text-slate-400" />
+                    Admin Email
+                  </h3>
+                   <Toggle checked={Boolean(draft.adminEmailEnabled)} onChange={v => set('adminEmailEnabled', v)} />
+                </div>
+                <div className="qx-notif-card-body pt-2">
+                  <p className="text-[11px] text-slate-400 mb-3">Receive notifications at this email address</p>
+                  <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Admin notification email</label>
+                  <div className="relative">
+                    <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <input className="qx-notif-input pl-9" placeholder="admin@quickxchange.net" value={String(draft.adminNotificationEmail ?? '')} onChange={e => set('adminNotificationEmail', e.target.value)} />
+                  </div>
+                  {Boolean(draft.adminNotificationEmail) && <div className="mt-2 text-[10px] text-emerald-400 flex items-center gap-1"><Check size={11} /> Email configured</div>}
+                  <div className="mt-3 flex items-center justify-between">
+                    <button className="text-xs text-slate-300 hover:text-white flex items-center gap-1" onClick={save} disabled={update.isPending}>
+                      <Save size={12} /> Save
+                    </button>
+                    <button className="text-xs text-blue-400 hover:text-blue-300 ml-auto flex items-center gap-1" onClick={handleTestEmail} disabled={testEmail.isPending || !draft.adminNotificationEmail}>
+                      {testEmail.isPending ? <RefreshCw size={12} className="animate-spin" /> : <Play size={12} />} Send Test Email
+                    </button>
+                  </div>
+                  {testResult?.type === 'email' && (
+                    <span className={cn("mt-2 text-[10px] flex items-center gap-1", testResult.success ? "text-emerald-400" : "text-red-400")}>
+                      {testResult.success ? <Check size={12} /> : <X size={12} />}
+                      {testResult.message}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Telegram Notifications */}
+              <div className="qx-notif-card">
+                <div className="qx-notif-card-header border-b-0 pb-0 flex-col items-start gap-1">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <SiTelegram size={16} className="text-blue-400" />
+                    Telegram Notifications
+                  </h3>
+                   <Toggle checked={Boolean(draft.telegramEnabled)} onChange={v => set('telegramEnabled', v)} />
+                </div>
+                <div className="qx-notif-card-body pt-2">
+                  <p className="text-[11px] text-slate-400 mb-3">Send notifications to this Telegram chat</p>
+
+                  <div className="space-y-2 mb-2">
+                    <label className="block">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Telegram Phone Number</span>
+                      <div className="relative mt-1">
+                        <Smartphone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                        <input className="qx-notif-input pl-9 text-sm" placeholder="+213 555 000 000" value={String(draft.adminNotificationPhone ?? '')} onChange={e => set('adminNotificationPhone', e.target.value)} />
+                      </div>
+                    </label>
+                    <label className="block">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Telegram Chat ID</span>
+                      <div className="relative mt-1">
+                        <Send size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                        <input className="qx-notif-input pl-9 text-sm" placeholder="Not connected" value={draft.adminTelegramChatId ? '********' + String(draft.adminTelegramChatId).slice(-4) : ''} readOnly />
+                      </div>
+                    </label>
+                  </div>
+
+                  {hasTgConnection ? (
+                    <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
+                      <div className="text-[10px] text-emerald-400 flex items-center gap-1"><Check size={11} /> Telegram Connected</div>
+                      <div className="text-[10px] text-slate-400">Phone: {String(draft.adminNotificationPhone || 'Not provided')}</div>
+                      {Boolean(draft.adminTelegramUsername) && <div className="text-[10px] text-slate-400">Username: @{String(draft.adminTelegramUsername)}</div>}
+                      <div className="text-[10px] text-slate-400">Chat ID: ********{String(draft.adminTelegramChatId).slice(-4)}</div>
+                      <div className="flex items-center justify-between gap-2">
+                        <button className="text-[11px] text-red-400 hover:text-red-300" onClick={handleDisconnectTg} disabled={disconnectTg.isPending}>Disconnect</button>
+                        <button className="text-[11px] text-blue-400 hover:text-blue-300 flex items-center gap-1" onClick={handleTestTg} disabled={testTelegram.isPending}>
+                          {testTelegram.isPending ? <RefreshCw size={10} className="animate-spin" /> : <Play size={10} />} Send Test Telegram
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button className="text-[11px] text-blue-400 hover:text-blue-300 mt-2 flex items-center gap-1 pt-1" onClick={handleConnectTg} disabled={createTgLink.isPending}>
+                      <SiTelegram size={12} /> Connect Telegram
+                    </button>
+                  )}
+                  <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">Phone number is contact information only and is never used as a Telegram Chat ID.</p>
+                  {testResult?.type === 'telegram' && (
+                    <div className={cn("mt-2 text-[10px] flex items-center gap-1", testResult.success ? "text-emerald-400" : "text-red-400")}>
+                      {testResult.success ? <Check size={11} /> : <X size={11} />}{testResult.message}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Trustpilot */}
+              <div className="qx-notif-card">
+                <div className="qx-notif-card-header border-b-0 pb-0">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Star size={16} className="text-emerald-400" />
+                    Trustpilot
+                  </h3>
+                </div>
+                <div className="qx-notif-card-body pt-2">
+                  <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Trustpilot Review URL</label>
+                  <p className="text-[11px] text-slate-400 mb-3">Shown to customers only after Completed / Done.</p>
+                  <input className="qx-notif-input" placeholder="https://www.trustpilot.com/review/..." value={String(draft.trustpilotReviewUrl ?? '')} onChange={e => set('trustpilotReviewUrl', e.target.value)} />
+                </div>
+              </div>
+            </div>
+
+            {/* Customer Email Notifications */}
+            <div className="qx-notif-card">
+              <div className="qx-notif-card-header">
+                <div className="flex items-center gap-3">
+                  <div className="bg-blue-500/20 p-2 rounded-full">
+                    <Mail size={20} className="text-blue-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-[15px] font-bold text-white">Customer Email Notifications (Examples)</h2>
+                    <p className="text-xs text-slate-400">Manage what emails customers receive.</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <button className="qx-notif-btn qx-notif-btn-secondary text-xs py-1.5 h-8" onClick={() => setIsTemplatesOpen(true)}>
+                    <Code size={14} className="mr-2" />
+                    Edit Templates
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-300">Master Switch</span>
+                    <Toggle checked={Boolean(draft.emailEnabled)} onChange={v => set('emailEnabled', v)} />
+                  </div>
+                </div>
+              </div>
+              <div className="qx-notif-card-body">
+                <div className="qx-preview-grid">
+                  {customerEmailExamples.map((ex, i) => (
+                    <div key={i} className={cn("qx-preview-card flex flex-col transition-all duration-300", !draft[ex.key] && "opacity-50 grayscale")}>
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-xs font-semibold text-slate-300">{ex.title}</span>
+                        <Toggle checked={Boolean(draft[ex.key])} onChange={v => set(ex.key, v)} />
+                      </div>
+
+                      <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-800 flex-1 flex flex-col">
+                        <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-800">
+                          <div className="w-6 h-6 rounded bg-blue-500/20 flex items-center justify-center">
+                            <span className="text-blue-400 font-bold text-[10px]">QX</span>
+                          </div>
+                          <span className="text-sm font-bold text-white">QuickXchange</span>
+                        </div>
+
+                        <h4 className="text-lg font-bold text-white mb-2">Hello User,</h4>
+                        <p className={cn("text-sm font-semibold mb-2", ex.color)}>{ex.title}!</p>
+                        <p className="text-[11px] text-slate-400 leading-relaxed mb-6">{ex.message}</p>
+
+                        <div className="mt-auto space-y-2 mb-4">
+                          <div className="flex justify-between text-[10px]">
+                            <span className="text-slate-500">Order ID</span>
+                            <span className="text-slate-300 font-mono">QX1254F7</span>
+                          </div>
+                          <div className="flex justify-between text-[10px]">
+                            <span className="text-slate-500">Status</span>
+                            <span className={cn("px-2 py-0.5 rounded-full font-semibold", ex.state)}>{ex.status}</span>
+                          </div>
+                        </div>
+
+                        <button className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-bold transition-colors">
+                          View Order →
+                        </button>
+                        {ex.key === 'customerEmailCompletedEnabled' && (
+                          <div className="mt-2 grid gap-2">
+                            <div className="w-full py-2 text-center border border-slate-700 text-slate-200 rounded text-xs font-semibold">Download Invoice</div>
+                            <div className="w-full py-2 text-center bg-emerald-500/15 text-emerald-400 rounded text-xs font-semibold">Review us on Trustpilot</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Admin Telegram Preview */}
+          <div className="hidden lg:block">
+            <div className="qx-notif-card sticky top-6">
+              <div className="qx-notif-card-header bg-slate-900/80 justify-center">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <SiTelegram size={16} className="text-blue-400" />
+                  Telegram Notification (Admin)
+                </h3>
+              </div>
+              <div className="qx-notif-card-body bg-[#0E1629] p-4">
+                <div className="bg-[#1C2438] rounded-xl p-4 border border-slate-700/50 shadow-lg">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-6 h-6 rounded bg-blue-500 flex items-center justify-center">
+                      <span className="text-white font-bold text-[10px]">QX</span>
+                    </div>
+                    <span className="text-sm font-bold text-white">QuickXchange Bot</span>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h4 className="text-[15px] font-bold text-emerald-400 flex items-center gap-2">
+                      <CheckCircle2 size={16} /> Order Payment Received
+                    </h4>
+                    <p className="text-[13px] text-slate-300">A payment has been received!</p>
+
+                    <div className="bg-slate-900/50 rounded-lg p-3 space-y-2 border border-slate-800">
+                      <div className="flex items-start gap-2 text-[12px]">
+                        <span className="text-slate-400 w-24 flex-shrink-0">Order ID:</span>
+                        <span className="text-blue-400 font-mono break-all">QX1254F7</span>
+                      </div>
+                      <div className="flex items-start gap-2 text-[12px]">
+                        <span className="text-slate-400 w-24 flex-shrink-0">Customer:</span>
+                        <span className="text-slate-200 break-all">user@example.com</span>
+                      </div>
+                      <div className="flex items-start gap-2 text-[12px]">
+                        <span className="text-slate-400 w-24 flex-shrink-0">You Send:</span>
+                        <span className="text-slate-200 font-semibold">500 USDT (TRC20)</span>
+                      </div>
+                      <div className="flex items-start gap-2 text-[12px]">
+                        <span className="text-slate-400 w-24 flex-shrink-0">You Receive:</span>
+                        <span className="text-slate-200 font-semibold">465 EUR (SEPA)</span>
+                      </div>
+                      <div className="flex items-start gap-2 text-[12px]">
+                        <span className="text-slate-400 w-24 flex-shrink-0">Status:</span>
+                        <span className="text-emerald-400 font-semibold">Payment Received</span>
+                      </div>
+                    </div>
+
+                    <button className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2 mt-4">
+                      Open Order
+                    </button>
+                    <div className="text-right text-[10px] text-slate-500 mt-1">14:32</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
+
+      {/* Email Templates Editor Dialog */}
+      <Dialog open={isTemplatesOpen} onOpenChange={setIsTemplatesOpen}>
+        <DialogContent className="max-w-5xl bg-[#030712] border-slate-800 text-slate-200 p-0 overflow-hidden shadow-2xl">
+          <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+            <div>
+              <DialogTitle className="text-lg font-bold text-white flex items-center gap-2">
+                <Code size={18} className="text-blue-400" />
+                Email Templates Editor
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-400 mt-1">
+                Customize the content of transactional emails sent to customers.
+              </DialogDescription>
+            </div>
+            <div className="flex items-center gap-3">
+              {testResult?.type === 'template' && (
+                <span className={cn("text-xs font-medium", testResult.success ? "text-emerald-400" : "text-red-400")}>
+                  {testResult.message}
+                </span>
+              )}
+              <button
+                className="qx-notif-btn qx-notif-btn-secondary text-xs h-8 py-0"
+                type="button"
+                onClick={() => document.querySelector('.qx-template-preview')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}
+              >
+                <Eye size={14} className="mr-2" />
+                Preview Email
+              </button>
+              <button
+                className="qx-notif-btn qx-notif-btn-secondary text-xs h-8 py-0"
+                onClick={() => handleTestTemplate(selectedTemplateKind)}
+                disabled={testTemplate.isPending}
+              >
+                {testTemplate.isPending ? <RefreshCw size={14} className="mr-2 animate-spin" /> : <Play size={14} className="mr-2" />}
+                Send Test
+              </button>
+              <button
+                className="qx-notif-btn qx-notif-btn-primary text-xs h-8 py-0"
+                onClick={saveTemplates}
+                disabled={updateTemplates.isPending}
+              >
+                {updateTemplates.isPending ? <RefreshCw size={14} className="mr-2 animate-spin" /> : <Save size={14} className="mr-2" />}
+                Save Templates
+              </button>
+            </div>
+          </div>
+
+          <div className="qx-template-editor">
+            {/* Sidebar */}
+            <div className="qx-template-sidebar p-4 bg-slate-900/20">
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 px-2">Events</h4>
+              <div className="space-y-1">
+                <div className="qx-template-item" data-active={selectedTemplateKind === 'order_created'} onClick={() => setSelectedTemplateKind('order_created')}>
+                  <div className="text-sm font-bold text-slate-200">Order Created</div>
+                  <div className="text-[10px] text-slate-500 mt-1">Awaiting funds notification</div>
+                </div>
+                <div className="qx-template-item" data-active={selectedTemplateKind === 'payment_received'} onClick={() => setSelectedTemplateKind('payment_received')}>
+                  <div className="text-sm font-bold text-slate-200">Payment Received</div>
+                  <div className="text-[10px] text-slate-500 mt-1">Authoritative deposit confirmed</div>
+                </div>
+                <div className="qx-template-item" data-active={selectedTemplateKind === 'processing'} onClick={() => setSelectedTemplateKind('processing')}>
+                  <div className="text-sm font-bold text-slate-200">Order Processing</div>
+                  <div className="text-[10px] text-slate-500 mt-1">Execution has begun</div>
+                </div>
+                <div className="qx-template-item" data-active={selectedTemplateKind === 'completed'} onClick={() => setSelectedTemplateKind('completed')}>
+                  <div className="text-sm font-bold text-slate-200">Order Completed</div>
+                  <div className="text-[10px] text-slate-500 mt-1">Funds successfully dispatched</div>
+                </div>
+                <div className="qx-template-item" data-active={selectedTemplateKind === 'failed_cancelled'} onClick={() => setSelectedTemplateKind('failed_cancelled')}>
+                  <div className="text-sm font-bold text-slate-200">Failed / Cancelled</div>
+                  <div className="text-[10px] text-slate-500 mt-1">Order aborted or failed</div>
+                </div>
+              </div>
+
+              <div className="mt-8 px-2">
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Available Variables</h4>
+                <div className="flex flex-wrap gap-2">
+                  {variables.map(v => (
+                    <span
+                      key={v}
+                      className="qx-variable-badge"
+                      title="Click to copy"
+                      onClick={() => navigator.clipboard.writeText(v)}
+                    >
+                      {v}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-[10px] text-slate-500 mt-3 leading-relaxed">
+                  Click a variable to copy it. Variables will be replaced with real order data when emails are sent.
+                </p>
+              </div>
+            </div>
+
+            {/* Editor */}
+            <div className="qx-template-main p-6">
+              <div className="max-w-2xl mx-auto space-y-6">
+                <div className="qx-form-group">
+                  <label className="qx-form-label">Email Subject</label>
+                  <input
+                    className="qx-notif-input"
+                    value={activeTemplate.subject}
+                    onChange={e => updateActiveTemplate('subject', e.target.value)}
+                    placeholder="e.g. Your QuickXchange Order {{orderId}}"
+                  />
+                </div>
+
+                <div className="qx-form-group">
+                  <label className="qx-form-label">Heading</label>
+                  <input
+                    className="qx-notif-input font-bold"
+                    value={activeTemplate.heading}
+                    onChange={e => updateActiveTemplate('heading', e.target.value)}
+                    placeholder="e.g. Order Received!"
+                  />
+                </div>
+
+                <div className="qx-form-group">
+                  <label className="qx-form-label">Message Body</label>
+                  <textarea
+                    className="qx-notif-input qx-textarea font-mono text-sm leading-relaxed"
+                    value={activeTemplate.message}
+                    onChange={e => updateActiveTemplate('message', e.target.value)}
+                    placeholder="e.g. We have received your order {{orderId}} and are waiting for payment..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="qx-form-group">
+                    <label className="qx-form-label">Button Text</label>
+                    <input
+                      className="qx-notif-input"
+                      value={activeTemplate.buttonText}
+                      onChange={e => updateActiveTemplate('buttonText', e.target.value)}
+                      placeholder="e.g. View Order"
+                    />
+                  </div>
+
+                  <div className="qx-form-group">
+                    <label className="qx-form-label">Footer Text</label>
+                    <input
+                      className="qx-notif-input text-xs"
+                      value={activeTemplate.footerText}
+                      onChange={e => updateActiveTemplate('footerText', e.target.value)}
+                      placeholder="e.g. Thank you for choosing QuickXchange!"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Preview */}
+            <div className="qx-template-preview p-6 bg-slate-900/10">
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Preview</h4>
+              <div className="bg-white rounded-lg p-6 shadow-xl text-slate-900">
+                <div className="flex justify-center mb-6 border-b pb-6 border-slate-200">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded bg-blue-600 flex items-center justify-center">
+                      <span className="text-white font-bold text-xs">QX</span>
+                    </div>
+                    <span className="text-xl font-bold text-slate-900">QuickXchange</span>
+                  </div>
+                </div>
+
+                <h1 className="text-2xl font-bold mb-4">{activeTemplate.heading || 'Heading'}</h1>
+
+                <div className="text-[15px] leading-relaxed text-slate-600 mb-8 whitespace-pre-wrap">
+                  {activeTemplate.message
+                    ? activeTemplate.message
+                        .replace(/\{\{orderId\}\}/g, 'QX1254F7')
+                        .replace(/\{\{customerName\}\}/g, 'Islam')
+                        .replace(/\{\{sendAmount\}\}/g, '500')
+                        .replace(/\{\{sendAsset\}\}/g, 'USDT')
+                        .replace(/\{\{sendNetwork\}\}/g, 'TRC20')
+                        .replace(/\{\{receiveAmount\}\}/g, '465')
+                        .replace(/\{\{receiveAsset\}\}/g, 'EUR')
+                        .replace(/\{\{receiveMethod\}\}/g, 'SEPA')
+                        .replace(/\{\{status\}\}/g, 'Processing')
+                        .replace(/\{\{createdDate\}\}/g, 'Sep 21, 2026 14:20')
+                        .replace(/\{\{completedDate\}\}/g, 'Sep 21, 2026 14:48')
+                        .replace(/\{\{orderUrl\}\}/g, 'https://quickxchange.net/status')
+                        .replace(/\{\{invoiceUrl\}\}/g, 'https://quickxchange.net/status?invoice=1')
+                        .replace(/\{\{trustpilotUrl\}\}/g, 'https://www.trustpilot.com/review/quickxchange.net')
+                    : 'Message body will appear here...'}
+                </div>
+
+                {activeTemplate.buttonText && (
+                  <div className="mb-8">
+                    <span className="inline-block bg-blue-600 text-white font-bold text-sm px-6 py-3 rounded-lg">
+                      {activeTemplate.buttonText}
+                    </span>
+                  </div>
+                )}
+
+                {activeTemplate.footerText && (
+                  <div className="text-xs text-slate-400 border-t border-slate-200 pt-6 mt-6">
+                    {activeTemplate.footerText}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AdminShell>
   );
 }
+
 function StaffPage() {
   const { t, formatDate } = useI18n();
   const queryClient = useQueryClient();

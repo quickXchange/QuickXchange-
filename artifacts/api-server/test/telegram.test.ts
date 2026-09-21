@@ -5,7 +5,9 @@ import test from "node:test";
 import { eq, inArray } from "drizzle-orm";
 import {
   affiliateCompletionEventsTable,
+  adminTelegramLinkChallengesTable,
   db,
+  notificationSettingsTable,
   ordersTable,
   telegramAccountLinkChallengesTable,
   telegramChatsTable,
@@ -15,10 +17,14 @@ import {
 import { DepositInstructionsPending, menu, shouldApplyUpdate, reconciliationClaimEligible, reconciliationWinnerTransition, telegramAdvisoryChatKey, telegramCreateRetryDecision, telegramCreatingOrderMessage, telegramCreationDeliveryDecision, telegramCreationOutboxPayload, telegramCreateState, telegramDepositInstruction, telegramInboxDisposition, telegramManualOrderKinds, telegramNextChatCursor, telegramOrderCreatedMessage, telegramOrderStatusMessage, telegramOutboxFailureDisposition, telegramPrivateUpdate, telegramRequiresDeposit, telegramSecretMatches, telegramUpdateIdValid, telegramWebhookDisposition } from "../src/routes/telegram";
 import { localeOf, t } from "../src/lib/telegram-localization";
 import { consumeTelegramLinkChallenge, createTelegramLinkChallenge, hashTelegramLinkToken, TelegramLinkChallengeError, TelegramLinkConflictError } from "../src/lib/telegram-link";
+import { AdminTelegramLinkChallengeError, consumeAdminTelegramLinkChallenge, createAdminTelegramLinkChallenge } from "../src/lib/admin-telegram-link";
 import { buildCreatePayload, buildQuotePayload, buildTelegramConvertOptions, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, shouldAskDestination, telegramAssetNetworkKey, telegramFieldSkipIndex, withoutTelegramRefundFields } from "../src/lib/telegram-wizard";
+import { adminEmailEventEnabled, adminTelegramEventEnabled, customerEmailEventEnabled } from "../src/lib/notification-policy";
 import { normalizeRefundFields } from "../src/lib/manual-wallet-validation";
 import { telegramAccountLinkRelativeUrl, validateTelegramMiniAppInitData, verifyTelegramMiniAppSession } from "../src/routes/telegram-mini-app";
 import { formatSwapTelegramNotification } from "../src/lib/telegram-swap-notifications";
+import { buildCustomerStatusNotificationContent } from "../src/lib/customer-status-notifications";
+import { validateNotificationTemplateVariables } from "../src/routes/notification-settings";
 import {
   convertTelegramStatusLabel,
   formatConvertTelegramNotification,
@@ -230,6 +236,112 @@ test("Telegram account links are one-time, expiring, and one-to-one", async () =
   } finally {
     await db.delete(telegramAccountLinkChallengesTable).where(inArray(telegramAccountLinkChallengesTable.chatId, chatIds));
     await db.delete(telegramChatsTable).where(inArray(telegramChatsTable.chatId, chatIds));
+  }
+});
+
+test("Notification templates allow only safe variables and escape rendered values", () => {
+  assert.doesNotThrow(() => validateNotificationTemplateVariables("Hello {{customerName}} {{orderId}}"));
+  assert.throws(() => validateNotificationTemplateVariables("{{unknownSecret}}"), /Unsupported template variable/);
+  const content = buildCustomerStatusNotificationContent({
+    eventId: "template-test",
+    customerClerkUserId: "guest:test",
+    recipientEmail: "customer@example.test",
+    orderId: "QX-<unsafe>",
+    fromStatus: "processing",
+    status: "processing",
+    fromAsset: "USDT",
+    fromNetwork: "TRC20",
+    toAsset: "EUR",
+    toNetwork: "SEPA",
+    amount: "1",
+    receiveAmount: "0.9",
+    receiveMethod: "SEPA",
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    eventKind: "processing",
+    trustpilotUrl: "https://trustpilot.test/review",
+    template: {
+      subject: "Order {{orderId}}",
+      heading: "Hello {{customerName}}",
+      message: "Status {{status}}",
+      buttonText: "View {{orderId}}",
+      footerText: "Footer",
+    },
+  });
+  assert.match(content.html, /QX-&lt;unsafe&gt;/);
+  assert.doesNotMatch(content.html, /trustpilot\.test/);
+});
+
+test("Admin and customer notification channel gates remain independent", () => {
+  const settings = {
+    adminNotificationsEnabled: true,
+    adminEmailEnabled: true,
+    emailEnabled: true,
+    telegramEnabled: true,
+    adminEmailOrderCreatedEnabled: false,
+    adminEmailPaymentReceivedEnabled: true,
+    adminEmailProcessingEnabled: true,
+    adminEmailCompletedEnabled: true,
+    adminEmailFailedCancelledEnabled: true,
+    adminTelegramOrderCreatedEnabled: false,
+    adminTelegramPaymentReceivedEnabled: false,
+    adminTelegramProcessingEnabled: true,
+    adminTelegramCompletedEnabled: true,
+    adminTelegramFailedCancelledEnabled: true,
+    customerEmailOrderCreatedEnabled: true,
+    customerEmailPaymentReceivedEnabled: true,
+    customerEmailProcessingEnabled: false,
+    customerEmailCompletedEnabled: true,
+    customerEmailFailedCancelledEnabled: true,
+  } as Parameters<typeof adminEmailEventEnabled>[0];
+
+  assert.equal(adminEmailEventEnabled(settings, "payment_received"), true);
+  assert.equal(adminTelegramEventEnabled(settings, "payment_received"), false);
+  assert.equal(customerEmailEventEnabled(settings, "processing"), false);
+  assert.equal(customerEmailEventEnabled(settings, "payment_received"), true);
+  assert.equal(adminEmailEventEnabled({ ...settings, adminNotificationsEnabled: false }, "payment_received"), false);
+  assert.equal(customerEmailEventEnabled({ ...settings, adminNotificationsEnabled: false }, "payment_received"), true);
+});
+
+test("Admin Telegram links are one-time and bind the verified private chat identity", async () => {
+  const ownerId = `owner-${randomUUID()}`;
+  const chatId = `admin-chat-${randomUUID()}`;
+  const [original] = await db.select().from(notificationSettingsTable)
+    .where(eq(notificationSettingsTable.id, "global"))
+    .limit(1);
+  if (!original) {
+    await db.insert(notificationSettingsTable).values({ id: "global" });
+  }
+
+  const challenge = await createAdminTelegramLinkChallenge(ownerId);
+  try {
+    const linked = await consumeAdminTelegramLinkChallenge(challenge.token, chatId, "admin_operator");
+    assert.equal(linked.adminTelegramChatId, chatId);
+    assert.equal(linked.adminTelegramUsername, "admin_operator");
+    assert.equal(linked.telegramEnabled, true);
+    await assert.rejects(
+      () => consumeAdminTelegramLinkChallenge(challenge.token, "other-chat", "other_operator"),
+      AdminTelegramLinkChallengeError,
+    );
+  } finally {
+    await db.delete(adminTelegramLinkChallengesTable)
+      .where(eq(adminTelegramLinkChallengesTable.createdBy, ownerId));
+    if (original) {
+      await db.update(notificationSettingsTable).set({
+        emailEnabled: original.emailEnabled,
+        telegramEnabled: original.telegramEnabled,
+        paymentReceivedEnabled: original.paymentReceivedEnabled,
+        processingEnabled: original.processingEnabled,
+        completedEnabled: original.completedEnabled,
+        failedCancelledEnabled: original.failedCancelledEnabled,
+        adminNotificationEmail: original.adminNotificationEmail,
+        adminNotificationPhone: original.adminNotificationPhone,
+        adminTelegramChatId: original.adminTelegramChatId,
+        adminTelegramUsername: original.adminTelegramUsername,
+        trustpilotReviewUrl: original.trustpilotReviewUrl,
+        updatedBy: original.updatedBy,
+        updatedAt: original.updatedAt,
+      }).where(eq(notificationSettingsTable.id, "global"));
+    }
   }
 });
 

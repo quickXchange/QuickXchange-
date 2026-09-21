@@ -1,0 +1,18 @@
+ALTER TABLE "notification_settings"
+  ADD COLUMN IF NOT EXISTS "admin_notifications_enabled" boolean DEFAULT true NOT NULL,
+  ADD COLUMN IF NOT EXISTS "admin_email_enabled" boolean DEFAULT true NOT NULL,
+  ADD COLUMN IF NOT EXISTS "admin_email_order_created_enabled" boolean DEFAULT false NOT NULL,
+  ADD COLUMN IF NOT EXISTS "admin_email_payment_received_enabled" boolean DEFAULT true NOT NULL,
+  ADD COLUMN IF NOT EXISTS "admin_email_processing_enabled" boolean DEFAULT true NOT NULL,
+  ADD COLUMN IF NOT EXISTS "admin_email_completed_enabled" boolean DEFAULT true NOT NULL,
+  ADD COLUMN IF NOT EXISTS "admin_email_failed_cancelled_enabled" boolean DEFAULT true NOT NULL,
+  ADD COLUMN IF NOT EXISTS "admin_telegram_order_created_enabled" boolean DEFAULT false NOT NULL,
+  ADD COLUMN IF NOT EXISTS "admin_telegram_payment_received_enabled" boolean DEFAULT true NOT NULL,
+  ADD COLUMN IF NOT EXISTS "admin_telegram_processing_enabled" boolean DEFAULT true NOT NULL,
+  ADD COLUMN IF NOT EXISTS "admin_telegram_completed_enabled" boolean DEFAULT true NOT NULL,
+  ADD COLUMN IF NOT EXISTS "admin_telegram_failed_cancelled_enabled" boolean DEFAULT true NOT NULL,
+  ADD COLUMN IF NOT EXISTS "customer_email_order_created_enabled" boolean DEFAULT true NOT NULL,
+  ADD COLUMN IF NOT EXISTS "customer_email_payment_received_enabled" boolean DEFAULT true NOT NULL,
+  ADD COLUMN IF NOT EXISTS "customer_email_processing_enabled" boolean DEFAULT true NOT NULL,
+  ADD COLUMN IF NOT EXISTS "customer_email_completed_enabled" boolean DEFAULT true NOT NULL,
+  ADD COLUMN IF NOT EXISTS "customer_email_failed_cancelled_enabled" boolean DEFAULT true NOT NULL;

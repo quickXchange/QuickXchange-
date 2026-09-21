@@ -26,6 +26,8 @@ import type {
   AdminLandingBackground,
   AdminSitePage,
   AdminSummary,
+  AdminTelegramLink,
+  AdminTelegramLinkStatus,
   AdminWebsiteBranding,
   AffiliateAccount,
   AffiliateAccountDetail,
@@ -165,8 +167,11 @@ import type {
   NewsletterSubscriber,
   NewsletterSubscriberPage,
   NewsletterSubscriberStatusInput,
+  NotificationEmailTemplate,
+  NotificationEmailTemplateList,
   NotificationSettings,
   NotificationSettingsInput,
+  NotificationTestResult,
   OneForgeProviderStatus,
   Operator,
   OperatorAuditLog,
@@ -18297,6 +18302,538 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getUpdateAdminNotificationSettingsMutationOptions(options));
+    }
+
+export const getTestAdminNotificationEmailUrl = () => {
+
+
+
+
+  return `/api/admin/notification-settings/test-email`
+}
+
+export const testAdminNotificationEmail = async ( options?: Parameters<typeof customFetch>[1]): Promise<NotificationTestResult> => {
+
+  return customFetch<NotificationTestResult>(getTestAdminNotificationEmailUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getTestAdminNotificationEmailMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testAdminNotificationEmail>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof testAdminNotificationEmail>>, TError,void, TContext> => {
+
+const mutationKey = ['testAdminNotificationEmail'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof testAdminNotificationEmail>>, void> = () => {
+
+
+          return  testAdminNotificationEmail(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TestAdminNotificationEmailMutationResult = NonNullable<Awaited<ReturnType<typeof testAdminNotificationEmail>>>
+
+    export type TestAdminNotificationEmailMutationError = ErrorType<ApiError>
+
+    export const useTestAdminNotificationEmail = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testAdminNotificationEmail>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof testAdminNotificationEmail>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getTestAdminNotificationEmailMutationOptions(options));
+    }
+
+export const getTestAdminNotificationTelegramUrl = () => {
+
+
+
+
+  return `/api/admin/notification-settings/test-telegram`
+}
+
+export const testAdminNotificationTelegram = async ( options?: Parameters<typeof customFetch>[1]): Promise<NotificationTestResult> => {
+
+  return customFetch<NotificationTestResult>(getTestAdminNotificationTelegramUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getTestAdminNotificationTelegramMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testAdminNotificationTelegram>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof testAdminNotificationTelegram>>, TError,void, TContext> => {
+
+const mutationKey = ['testAdminNotificationTelegram'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof testAdminNotificationTelegram>>, void> = () => {
+
+
+          return  testAdminNotificationTelegram(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TestAdminNotificationTelegramMutationResult = NonNullable<Awaited<ReturnType<typeof testAdminNotificationTelegram>>>
+
+    export type TestAdminNotificationTelegramMutationError = ErrorType<ApiError>
+
+    export const useTestAdminNotificationTelegram = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testAdminNotificationTelegram>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof testAdminNotificationTelegram>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getTestAdminNotificationTelegramMutationOptions(options));
+    }
+
+export const getCreateAdminNotificationTelegramLinkUrl = () => {
+
+
+
+
+  return `/api/admin/notification-settings/telegram-link`
+}
+
+export const createAdminNotificationTelegramLink = async ( options?: Parameters<typeof customFetch>[1]): Promise<AdminTelegramLink> => {
+
+  return customFetch<AdminTelegramLink>(getCreateAdminNotificationTelegramLinkUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCreateAdminNotificationTelegramLinkMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAdminNotificationTelegramLink>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createAdminNotificationTelegramLink>>, TError,void, TContext> => {
+
+const mutationKey = ['createAdminNotificationTelegramLink'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createAdminNotificationTelegramLink>>, void> = () => {
+
+
+          return  createAdminNotificationTelegramLink(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateAdminNotificationTelegramLinkMutationResult = NonNullable<Awaited<ReturnType<typeof createAdminNotificationTelegramLink>>>
+
+    export type CreateAdminNotificationTelegramLinkMutationError = ErrorType<unknown>
+
+    export const useCreateAdminNotificationTelegramLink = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAdminNotificationTelegramLink>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createAdminNotificationTelegramLink>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getCreateAdminNotificationTelegramLinkMutationOptions(options));
+    }
+
+export const getGetAdminNotificationTelegramLinkUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/notification-settings/telegram-link/${id}`
+}
+
+export const getAdminNotificationTelegramLink = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<AdminTelegramLinkStatus> => {
+
+  return customFetch<AdminTelegramLinkStatus>(getGetAdminNotificationTelegramLinkUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminNotificationTelegramLinkQueryKey = (id: string,) => {
+    return [
+    `/api/admin/notification-settings/telegram-link/${id}`
+    ] as const;
+    }
+
+
+export const getGetAdminNotificationTelegramLinkQueryOptions = <TData = Awaited<ReturnType<typeof getAdminNotificationTelegramLink>>, TError = ErrorType<ApiError>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminNotificationTelegramLink>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminNotificationTelegramLinkQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminNotificationTelegramLink>>> = ({ signal }) => getAdminNotificationTelegramLink(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminNotificationTelegramLink>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminNotificationTelegramLinkQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminNotificationTelegramLink>>>
+export type GetAdminNotificationTelegramLinkQueryError = ErrorType<ApiError>
+
+
+
+export function useGetAdminNotificationTelegramLink<TData = Awaited<ReturnType<typeof getAdminNotificationTelegramLink>>, TError = ErrorType<ApiError>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminNotificationTelegramLink>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminNotificationTelegramLinkQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDisconnectAdminNotificationTelegramUrl = () => {
+
+
+
+
+  return `/api/admin/notification-settings/telegram-disconnect`
+}
+
+export const disconnectAdminNotificationTelegram = async ( options?: Parameters<typeof customFetch>[1]): Promise<NotificationSettings> => {
+
+  return customFetch<NotificationSettings>(getDisconnectAdminNotificationTelegramUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getDisconnectAdminNotificationTelegramMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof disconnectAdminNotificationTelegram>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof disconnectAdminNotificationTelegram>>, TError,void, TContext> => {
+
+const mutationKey = ['disconnectAdminNotificationTelegram'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof disconnectAdminNotificationTelegram>>, void> = () => {
+
+
+          return  disconnectAdminNotificationTelegram(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DisconnectAdminNotificationTelegramMutationResult = NonNullable<Awaited<ReturnType<typeof disconnectAdminNotificationTelegram>>>
+
+    export type DisconnectAdminNotificationTelegramMutationError = ErrorType<unknown>
+
+    export const useDisconnectAdminNotificationTelegram = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof disconnectAdminNotificationTelegram>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof disconnectAdminNotificationTelegram>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDisconnectAdminNotificationTelegramMutationOptions(options));
+    }
+
+export const getGetAdminNotificationEmailTemplatesUrl = () => {
+
+
+
+
+  return `/api/admin/notification-settings/email-templates`
+}
+
+export const getAdminNotificationEmailTemplates = async ( options?: Parameters<typeof customFetch>[1]): Promise<NotificationEmailTemplateList> => {
+
+  return customFetch<NotificationEmailTemplateList>(getGetAdminNotificationEmailTemplatesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminNotificationEmailTemplatesQueryKey = () => {
+    return [
+    `/api/admin/notification-settings/email-templates`
+    ] as const;
+    }
+
+
+export const getGetAdminNotificationEmailTemplatesQueryOptions = <TData = Awaited<ReturnType<typeof getAdminNotificationEmailTemplates>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminNotificationEmailTemplates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminNotificationEmailTemplatesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminNotificationEmailTemplates>>> = ({ signal }) => getAdminNotificationEmailTemplates({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminNotificationEmailTemplates>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminNotificationEmailTemplatesQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminNotificationEmailTemplates>>>
+export type GetAdminNotificationEmailTemplatesQueryError = ErrorType<unknown>
+
+
+
+export function useGetAdminNotificationEmailTemplates<TData = Awaited<ReturnType<typeof getAdminNotificationEmailTemplates>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminNotificationEmailTemplates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminNotificationEmailTemplatesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateAdminNotificationEmailTemplatesUrl = () => {
+
+
+
+
+  return `/api/admin/notification-settings/email-templates`
+}
+
+export const updateAdminNotificationEmailTemplates = async (notificationEmailTemplateList: NotificationEmailTemplateList, options?: Parameters<typeof customFetch>[1]): Promise<NotificationEmailTemplateList> => {
+
+  return customFetch<NotificationEmailTemplateList>(getUpdateAdminNotificationEmailTemplatesUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(notificationEmailTemplateList)
+  }
+);}
+
+
+
+
+
+export const getUpdateAdminNotificationEmailTemplatesMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminNotificationEmailTemplates>>, TError,{data: BodyType<NotificationEmailTemplateList>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAdminNotificationEmailTemplates>>, TError,{data: BodyType<NotificationEmailTemplateList>}, TContext> => {
+
+const mutationKey = ['updateAdminNotificationEmailTemplates'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAdminNotificationEmailTemplates>>, {data: BodyType<NotificationEmailTemplateList>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateAdminNotificationEmailTemplates(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAdminNotificationEmailTemplatesMutationResult = NonNullable<Awaited<ReturnType<typeof updateAdminNotificationEmailTemplates>>>
+    export type UpdateAdminNotificationEmailTemplatesMutationBody = BodyType<NotificationEmailTemplateList>
+    export type UpdateAdminNotificationEmailTemplatesMutationError = ErrorType<ApiError>
+
+    export const useUpdateAdminNotificationEmailTemplates = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminNotificationEmailTemplates>>, TError,{data: BodyType<NotificationEmailTemplateList>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAdminNotificationEmailTemplates>>,
+        TError,
+        {data: BodyType<NotificationEmailTemplateList>},
+        TContext
+      > => {
+      return useMutation(getUpdateAdminNotificationEmailTemplatesMutationOptions(options));
+    }
+
+export const getTestAdminNotificationEmailTemplateUrl = () => {
+
+
+
+
+  return `/api/admin/notification-settings/email-templates/test`
+}
+
+export const testAdminNotificationEmailTemplate = async (notificationEmailTemplate: NotificationEmailTemplate, options?: Parameters<typeof customFetch>[1]): Promise<NotificationTestResult> => {
+
+  return customFetch<NotificationTestResult>(getTestAdminNotificationEmailTemplateUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(notificationEmailTemplate)
+  }
+);}
+
+
+
+
+
+export const getTestAdminNotificationEmailTemplateMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testAdminNotificationEmailTemplate>>, TError,{data: BodyType<NotificationEmailTemplate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof testAdminNotificationEmailTemplate>>, TError,{data: BodyType<NotificationEmailTemplate>}, TContext> => {
+
+const mutationKey = ['testAdminNotificationEmailTemplate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof testAdminNotificationEmailTemplate>>, {data: BodyType<NotificationEmailTemplate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  testAdminNotificationEmailTemplate(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TestAdminNotificationEmailTemplateMutationResult = NonNullable<Awaited<ReturnType<typeof testAdminNotificationEmailTemplate>>>
+    export type TestAdminNotificationEmailTemplateMutationBody = BodyType<NotificationEmailTemplate>
+    export type TestAdminNotificationEmailTemplateMutationError = ErrorType<ApiError>
+
+    export const useTestAdminNotificationEmailTemplate = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testAdminNotificationEmailTemplate>>, TError,{data: BodyType<NotificationEmailTemplate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof testAdminNotificationEmailTemplate>>,
+        TError,
+        {data: BodyType<NotificationEmailTemplate>},
+        TContext
+      > => {
+      return useMutation(getTestAdminNotificationEmailTemplateMutationOptions(options));
     }
 
 export const getGetPublicNotificationSettingsUrl = () => {

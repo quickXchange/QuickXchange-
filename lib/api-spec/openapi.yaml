@@ -3994,6 +3994,81 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }
+  /admin/notification-settings/test-email:
+    post:
+      operationId: testAdminNotificationEmail
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      responses:
+        "200": { description: Test email sent, content: { application/json: { schema: { $ref: "#/components/schemas/NotificationTestResult" } } } }
+        "400": { description: Email is not configured, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "502": { description: Email provider rejected the test, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /admin/notification-settings/test-telegram:
+    post:
+      operationId: testAdminNotificationTelegram
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      responses:
+        "200": { description: Test Telegram sent, content: { application/json: { schema: { $ref: "#/components/schemas/NotificationTestResult" } } } }
+        "400": { description: Telegram is not connected, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "502": { description: Telegram rejected the test, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /admin/notification-settings/telegram-link:
+    post:
+      operationId: createAdminNotificationTelegramLink
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      responses:
+        "200": { description: One-time Telegram bot link, content: { application/json: { schema: { $ref: "#/components/schemas/AdminTelegramLink" } } } }
+  /admin/notification-settings/telegram-link/{id}:
+    get:
+      operationId: getAdminNotificationTelegramLink
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Telegram bot link status, content: { application/json: { schema: { $ref: "#/components/schemas/AdminTelegramLinkStatus" } } } }
+        "404": { description: Link not found, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /admin/notification-settings/telegram-disconnect:
+    post:
+      operationId: disconnectAdminNotificationTelegram
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      responses:
+        "200": { description: Telegram disconnected, content: { application/json: { schema: { $ref: "#/components/schemas/NotificationSettings" } } } }
+  /admin/notification-settings/email-templates:
+    get:
+      operationId: getAdminNotificationEmailTemplates
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      responses:
+        "200": { description: Editable customer email templates, content: { application/json: { schema: { $ref: "#/components/schemas/NotificationEmailTemplateList" } } } }
+    put:
+      operationId: updateAdminNotificationEmailTemplates
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NotificationEmailTemplateList" }
+      responses:
+        "200": { description: Updated customer email templates, content: { application/json: { schema: { $ref: "#/components/schemas/NotificationEmailTemplateList" } } } }
+        "400": { description: Invalid template content, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /admin/notification-settings/email-templates/test:
+    post:
+      operationId: testAdminNotificationEmailTemplate
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NotificationEmailTemplate" }
+      responses:
+        "200": { description: Template test email sent, content: { application/json: { schema: { $ref: "#/components/schemas/NotificationTestResult" } } } }
+        "400": { description: Email or template is not configured, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "502": { description: Email provider rejected the test, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
   /notification-settings/public:
     get:
       operationId: getPublicNotificationSettings
@@ -7566,17 +7641,36 @@ components:
           items: { type: string, minLength: 1, maxLength: 255 }
     NotificationSettings:
       type: object
-      required: [id, emailEnabled, telegramEnabled, paymentReceivedEnabled, processingEnabled, completedEnabled, failedCancelledEnabled, adminNotificationEmail, adminTelegramChatId, trustpilotReviewUrl, updatedAt]
+      required: [id, adminNotificationsEnabled, adminEmailEnabled, emailEnabled, telegramEnabled, paymentReceivedEnabled, processingEnabled, completedEnabled, failedCancelledEnabled, adminEmailOrderCreatedEnabled, adminEmailPaymentReceivedEnabled, adminEmailProcessingEnabled, adminEmailCompletedEnabled, adminEmailFailedCancelledEnabled, adminTelegramOrderCreatedEnabled, adminTelegramPaymentReceivedEnabled, adminTelegramProcessingEnabled, adminTelegramCompletedEnabled, adminTelegramFailedCancelledEnabled, customerEmailOrderCreatedEnabled, customerEmailPaymentReceivedEnabled, customerEmailProcessingEnabled, customerEmailCompletedEnabled, customerEmailFailedCancelledEnabled, adminNotificationEmail, adminNotificationPhone, adminTelegramChatId, adminTelegramUsername, trustpilotReviewUrl, updatedAt]
       properties:
         id: { type: string }
+        adminNotificationsEnabled: { type: boolean }
+        adminEmailEnabled: { type: boolean }
         emailEnabled: { type: boolean }
         telegramEnabled: { type: boolean }
         paymentReceivedEnabled: { type: boolean }
         processingEnabled: { type: boolean }
         completedEnabled: { type: boolean }
         failedCancelledEnabled: { type: boolean }
+        adminEmailOrderCreatedEnabled: { type: boolean }
+        adminEmailPaymentReceivedEnabled: { type: boolean }
+        adminEmailProcessingEnabled: { type: boolean }
+        adminEmailCompletedEnabled: { type: boolean }
+        adminEmailFailedCancelledEnabled: { type: boolean }
+        adminTelegramOrderCreatedEnabled: { type: boolean }
+        adminTelegramPaymentReceivedEnabled: { type: boolean }
+        adminTelegramProcessingEnabled: { type: boolean }
+        adminTelegramCompletedEnabled: { type: boolean }
+        adminTelegramFailedCancelledEnabled: { type: boolean }
+        customerEmailOrderCreatedEnabled: { type: boolean }
+        customerEmailPaymentReceivedEnabled: { type: boolean }
+        customerEmailProcessingEnabled: { type: boolean }
+        customerEmailCompletedEnabled: { type: boolean }
+        customerEmailFailedCancelledEnabled: { type: boolean }
         adminNotificationEmail: { type: string, maxLength: 320 }
+        adminNotificationPhone: { type: string, maxLength: 32 }
         adminTelegramChatId: { type: string, maxLength: 128 }
+        adminTelegramUsername: { type: string, maxLength: 64 }
         trustpilotReviewUrl: { type: string, maxLength: 2048 }
         updatedBy: { type: [string, "null"] }
         updatedAt: { type: string, format: date-time }
@@ -7588,14 +7682,72 @@ components:
     NotificationSettingsInput:
       type: object
       additionalProperties: false
-      required: [emailEnabled, telegramEnabled, paymentReceivedEnabled, processingEnabled, completedEnabled, failedCancelledEnabled, adminNotificationEmail, adminTelegramChatId, trustpilotReviewUrl]
+      required: [adminNotificationsEnabled, adminEmailEnabled, emailEnabled, telegramEnabled, paymentReceivedEnabled, processingEnabled, completedEnabled, failedCancelledEnabled, adminEmailOrderCreatedEnabled, adminEmailPaymentReceivedEnabled, adminEmailProcessingEnabled, adminEmailCompletedEnabled, adminEmailFailedCancelledEnabled, adminTelegramOrderCreatedEnabled, adminTelegramPaymentReceivedEnabled, adminTelegramProcessingEnabled, adminTelegramCompletedEnabled, adminTelegramFailedCancelledEnabled, customerEmailOrderCreatedEnabled, customerEmailPaymentReceivedEnabled, customerEmailProcessingEnabled, customerEmailCompletedEnabled, customerEmailFailedCancelledEnabled, adminNotificationEmail, adminNotificationPhone, adminTelegramChatId, trustpilotReviewUrl]
       properties:
+        adminNotificationsEnabled: { type: boolean }
+        adminEmailEnabled: { type: boolean }
         emailEnabled: { type: boolean }
         telegramEnabled: { type: boolean }
         paymentReceivedEnabled: { type: boolean }
         processingEnabled: { type: boolean }
         completedEnabled: { type: boolean }
         failedCancelledEnabled: { type: boolean }
+        adminEmailOrderCreatedEnabled: { type: boolean }
+        adminEmailPaymentReceivedEnabled: { type: boolean }
+        adminEmailProcessingEnabled: { type: boolean }
+        adminEmailCompletedEnabled: { type: boolean }
+        adminEmailFailedCancelledEnabled: { type: boolean }
+        adminTelegramOrderCreatedEnabled: { type: boolean }
+        adminTelegramPaymentReceivedEnabled: { type: boolean }
+        adminTelegramProcessingEnabled: { type: boolean }
+        adminTelegramCompletedEnabled: { type: boolean }
+        adminTelegramFailedCancelledEnabled: { type: boolean }
+        customerEmailOrderCreatedEnabled: { type: boolean }
+        customerEmailPaymentReceivedEnabled: { type: boolean }
+        customerEmailProcessingEnabled: { type: boolean }
+        customerEmailCompletedEnabled: { type: boolean }
+        customerEmailFailedCancelledEnabled: { type: boolean }
         adminNotificationEmail: { type: string, maxLength: 320 }
+        adminNotificationPhone: { type: string, maxLength: 32 }
         adminTelegramChatId: { type: string, maxLength: 128 }
         trustpilotReviewUrl: { type: string, maxLength: 2048 }
+    NotificationEmailTemplate:
+      type: object
+      additionalProperties: false
+      required: [eventKind, subject, heading, message, buttonText, footerText]
+      properties:
+        eventKind: { type: string, enum: [order_created, payment_received, processing, completed, failed_cancelled] }
+        subject: { type: string, minLength: 1, maxLength: 200 }
+        heading: { type: string, minLength: 1, maxLength: 200 }
+        message: { type: string, minLength: 1, maxLength: 5000 }
+        buttonText: { type: string, minLength: 1, maxLength: 80 }
+        footerText: { type: string, minLength: 1, maxLength: 1000 }
+    NotificationEmailTemplateList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 5
+          maxItems: 5
+          items: { $ref: "#/components/schemas/NotificationEmailTemplate" }
+    NotificationTestResult:
+      type: object
+      required: [success, message]
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+    AdminTelegramLink:
+      type: object
+      required: [id, botUrl, expiresAt]
+      properties:
+        id: { type: string, format: uuid }
+        botUrl: { type: string, format: uri }
+        expiresAt: { type: string, format: date-time }
+    AdminTelegramLinkStatus:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [pending, connected, expired] }
+        settings: { $ref: "#/components/schemas/NotificationSettings" }

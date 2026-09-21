@@ -638,6 +638,27 @@
       "when": 1790031000000,
       "tag": "0092_notification_event_identities",
       "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1790032000000,
+      "tag": "0093_perfect_stone_men",
+      "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1790033000000,
+      "tag": "0094_notification_delivery_matrix",
+      "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1790034000000,
+      "tag": "0095_notification_email_templates",
+      "breakpoints": true
     }
   ]
 }

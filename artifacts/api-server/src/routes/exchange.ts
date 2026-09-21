@@ -118,6 +118,7 @@ import {
 } from "@workspace/api-zod";
 import {
   customerStatusNotificationEventsTable,
+  notificationSettingsTable,
   customersTable,
   db,
   fiatCurrenciesTable,
@@ -172,6 +173,8 @@ import {
   processCustomerStatusNotificationOutbox,
   updateOrderAndQueueStatusNotification,
 } from "../lib/customer-status-notifications";
+import { enqueueAdminSwapTelegramOrderCreatedNotification } from "../lib/telegram-swap-notifications";
+import { adminEmailEventEnabled, customerEmailEventEnabled } from "../lib/notification-policy";
 import {
   signQuoteTicket,
   verifyQuoteTicket,
@@ -2570,12 +2573,15 @@ async function createOrderFromInput(
       nextVersion: created.recordVersion,
       details: { type: created.type },
     });
-    // Queue the customer-created email only for a real Manual Swap with a
-    // supplied destination. Admin channels are intentionally not involved.
+    const [notificationSettings] = await tx.select().from(notificationSettingsTable)
+      .where(eq(notificationSettingsTable.id, "global")).limit(1);
+    // Queue created notifications through the existing outboxes. Admin
+    // destinations remain disabled by default and require an explicit opt-in.
     if (
       created.type === "manual" &&
       created.customerEmail.trim() &&
-      created.statusNotificationsEnabled
+      created.statusNotificationsEnabled &&
+      customerEmailEventEnabled(notificationSettings, "order_created")
     ) {
       await tx.insert(customerStatusNotificationEventsTable).values({
         orderId: created.id,
@@ -2596,6 +2602,35 @@ async function createOrderFromInput(
           customerStatusNotificationEventsTable.evidenceKey,
         ],
       });
+    }
+    if (
+      created.type === "manual" &&
+      notificationSettings?.adminNotificationEmail &&
+      adminEmailEventEnabled(notificationSettings, "order_created")
+    ) {
+      await tx.insert(customerStatusNotificationEventsTable).values({
+        orderId: created.id,
+        customerClerkUserId: `admin:${notificationSettings.adminNotificationEmail.toLowerCase()}`,
+        fromStatus: "created",
+        toStatus: created.status,
+        statusVersion: created.statusVersion,
+        eventKind: "order_created",
+        recipientEmail: notificationSettings.adminNotificationEmail,
+        adminRecipient: true,
+        evidenceKey: `created:${created.id}:${created.statusVersion}`,
+      }).onConflictDoNothing({
+        target: [
+          customerStatusNotificationEventsTable.orderId,
+          customerStatusNotificationEventsTable.eventKind,
+          customerStatusNotificationEventsTable.statusVersion,
+          customerStatusNotificationEventsTable.channel,
+          customerStatusNotificationEventsTable.recipientEmail,
+          customerStatusNotificationEventsTable.evidenceKey,
+        ],
+      });
+    }
+    if (created.type === "manual" && notificationSettings?.adminTelegramOrderCreatedEnabled) {
+      await enqueueAdminSwapTelegramOrderCreatedNotification(tx, created);
     }
     if (providerFundingCandidate && sourceSnapshot?.kind === "crypto-network" && manualFunding) {
       await tx.insert(whitebitOrderAddressesTable).values({

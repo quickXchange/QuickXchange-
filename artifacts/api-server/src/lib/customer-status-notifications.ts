@@ -23,6 +23,7 @@ import {
   whitebitDepositsTable,
   blockchainMonitorMatchesTable,
 } from "@workspace/db";
+import type { NotificationEmailTemplate } from "@workspace/db";
 import {
   enqueueAdminSwapTelegramLifecycleNotification,
   enqueueSwapTelegramNotification,
@@ -30,6 +31,7 @@ import {
 import { getCustomerVerifiedEmail } from "./customer-auth";
 import { logger } from "./logger";
 import { signOrderTrackingToken } from "./order-access";
+import { adminEmailEventEnabled, adminTelegramEventEnabled, customerEmailEventEnabled } from "./notification-policy";
 
 const MAX_DELIVERY_ATTEMPTS = 5;
 const DELIVERY_CLAIM_LEASE_MS = 5 * 60 * 1000;
@@ -64,6 +66,9 @@ export type CustomerStatusNotification = {
   adminRecipient?: boolean;
   trustpilotUrl?: string;
   customerName?: string;
+  receiveMethod?: string;
+  completedAt?: Date | null;
+  template?: NotificationEmailTemplate;
 };
 
 type CustomerNotificationDeliveryTestAdapter = {
@@ -82,6 +87,71 @@ function customerEmailDeliveryEnabled(): boolean {
 export type CustomerNotificationDeliveryOptions = {
   idempotencyKey: string;
 };
+
+export const DEFAULT_NOTIFICATION_EMAIL_TEMPLATES: Record<string, NotificationEmailTemplate> = {
+  order_created: {
+    subject: "Your QuickXchange order {{orderId}} has been created",
+    heading: "Your order has been created",
+    message: "We have received your order and it is now waiting for payment. Please complete the payment to continue.",
+    buttonText: "View Order",
+    footerText: "Thank you for choosing QuickXchange.",
+  },
+  payment_received: {
+    subject: "Payment received for QuickXchange order {{orderId}}",
+    heading: "Payment received",
+    message: "We have received your payment and your exchange is moving forward.",
+    buttonText: "View Order",
+    footerText: "We will keep you updated as your exchange progresses.",
+  },
+  processing: {
+    subject: "QuickXchange order {{orderId}} is processing",
+    heading: "Your exchange is processing",
+    message: "We are now processing your exchange. We will notify you when there is another update.",
+    buttonText: "View Order",
+    footerText: "For your security, we will never ask for wallet credentials by email.",
+  },
+  completed: {
+    subject: "QuickXchange order {{orderId}} is complete",
+    heading: "Exchange Completed",
+    message: "Your exchange has been completed successfully. Thank you for using QuickXchange.",
+    buttonText: "View Order",
+    footerText: "Thank you for choosing QuickXchange.",
+  },
+  failed_cancelled: {
+    subject: "QuickXchange order {{orderId}} requires your attention",
+    heading: "Order update",
+    message: "Your order could not be completed as requested. Please open your order for the latest details.",
+    buttonText: "View Order",
+    footerText: "If you need help, please contact QuickXchange support.",
+  },
+};
+
+export const NOTIFICATION_TEMPLATE_VARIABLES = [
+  "customerName", "orderId", "sendAmount", "sendAsset", "sendNetwork",
+  "receiveAmount", "receiveAsset", "receiveMethod", "status", "createdDate",
+  "completedDate", "orderUrl", "invoiceUrl", "trustpilotUrl",
+] as const;
+
+export function notificationTemplateForEvent(
+  templates: Record<string, NotificationEmailTemplate> | null | undefined,
+  eventKind: string | undefined,
+) {
+  const candidate = templates?.[eventKind || ""];
+  if (candidate && [candidate.subject, candidate.heading, candidate.message, candidate.buttonText, candidate.footerText]
+    .every((value) => typeof value === "string" && value.trim())) {
+    return candidate;
+  }
+  return DEFAULT_NOTIFICATION_EMAIL_TEMPLATES[eventKind || ""] ||
+    DEFAULT_NOTIFICATION_EMAIL_TEMPLATES.processing;
+}
+
+function interpolateTemplate(value: string, values: Record<string, string>, html = false) {
+  const source = html ? escapeHtml(value) : value;
+  return source.replace(/\{\{([A-Za-z][A-Za-z0-9]*)\}\}/g, (_match, key: string) => {
+    const result = values[key] ?? "";
+    return html ? escapeHtml(result) : result;
+  });
+}
 
 export function configureCustomerNotificationDeliveryForTests(
   adapter: CustomerNotificationDeliveryTestAdapter,
@@ -120,9 +190,6 @@ export function buildCustomerStatusNotificationContent(
     `${notification.receiveAmount} ${notification.toAsset}`,
     notification.toNetwork ? `on ${notification.toNetwork}` : "",
   ].filter(Boolean).join(" ");
-  const subject = notification.eventKind === "payment_received"
-    ? `Payment received for QuickXchange order ${notification.orderId}`
-    : `QuickXchange order ${notification.orderId} is now ${status}`;
   const configuredBase = process.env.PUBLIC_APP_URL?.trim()?.replace(/\/+$/, "") || "";
   const base = /^https:\/\//i.test(configuredBase) ? configuredBase : "";
   const customerIsGuest = notification.customerClerkUserId.startsWith("guest:");
@@ -133,24 +200,41 @@ export function buildCustomerStatusNotificationContent(
       : `${base}/account/orders/${encodeURIComponent(notification.orderId)}`;
   const invoiceUrl = orderUrl ? `${orderUrl}${orderUrl.includes("?") ? "&" : "?"}invoice=1` : "";
   const reviewUrl = notification.trustpilotUrl?.trim() || process.env.TRUSTPILOT_REVIEW_URL?.trim() || "";
-  const heading = notification.eventKind === "payment_received"
-    ? "Payment received"
-    : notification.eventKind === "order_created"
-      ? "Your exchange order is confirmed"
-      : `Order ${status}`;
+  const template = notificationTemplateForEvent(undefined, notification.eventKind);
+  const configuredTemplate = notification.template || template;
+  const values = {
+    customerName: notification.customerName || "Customer",
+    orderId: notification.orderId,
+    sendAmount: notification.amount,
+    sendAsset: notification.fromAsset,
+    sendNetwork: notification.fromNetwork,
+    receiveAmount: notification.receiveAmount,
+    receiveAsset: notification.toAsset,
+    receiveMethod: notification.receiveMethod || notification.toAsset,
+    status,
+    createdDate: notification.createdAt.toISOString(),
+    completedDate: notification.completedAt?.toISOString() || "",
+    orderUrl,
+    invoiceUrl,
+    trustpilotUrl: notification.eventKind === "completed" ? reviewUrl : "",
+  };
+  const subject = interpolateTemplate(configuredTemplate.subject, values);
+  const heading = interpolateTemplate(configuredTemplate.heading, values, true);
+  const message = interpolateTemplate(configuredTemplate.message, values, true);
+  const buttonText = interpolateTemplate(configuredTemplate.buttonText, values, true);
+  const footerText = interpolateTemplate(configuredTemplate.footerText, values, true);
   const text = [
-    `Your exchange order status changed from ${humanizeStatus(notification.fromStatus)} to ${status}.`,
+    interpolateTemplate(configuredTemplate.message, values),
     "",
     `Order: ${notification.orderId}`,
     notification.adminRecipient ? `Customer: ${notification.customerName || "Guest"}` : "",
     `Exchange: ${route}`,
     `New status: ${status}`,
-    notification.eventKind === "payment_received" ? "Payment has been confirmed by QuickXchange." : "",
+    notification.eventKind === "completed" ? `Completion date: ${notification.completedAt?.toISOString() || notification.createdAt.toISOString()}` : "",
     notification.eventKind === "completed" && !notification.adminRecipient && invoiceUrl ? `Invoice: ${invoiceUrl}` : "",
     notification.eventKind === "completed" && !notification.adminRecipient && reviewUrl ? `Review us on Trustpilot: ${reviewUrl}` : "",
     "",
-    "Open your QuickXchange order page for the latest details.",
-    "This message never asks for wallet details or payment credentials.",
+    interpolateTemplate(configuredTemplate.footerText, values),
   ].join("\n");
   const html = `<!doctype html>
 <html><body style="margin:0;background:#f4f7fb;color:#111827;font-family:Arial,sans-serif">
@@ -159,17 +243,17 @@ export function buildCustomerStatusNotificationContent(
 <tr><td style="background:#071a2f;padding:24px 30px;color:#ffffff"><div style="font-size:22px;font-weight:800;letter-spacing:.2px">Quick<span style="color:#35d29a">X</span>change</div><div style="margin-top:5px;color:#9fb2c8;font-size:12px">Secure digital asset exchange</div></td></tr>
 <tr><td style="padding:32px 30px">
 <div style="display:inline-block;padding:6px 10px;border-radius:999px;background:#e8fbf3;color:#087653;font-size:12px;font-weight:700">${escapeHtml(status)}</div>
-<h1 style="margin:16px 0 8px;font-size:26px;line-height:1.2;color:#071a2f">${escapeHtml(heading)}</h1>
-<p style="margin:0 0 24px;color:#4b5563;line-height:1.65">Your order moved from <strong>${escapeHtml(humanizeStatus(notification.fromStatus))}</strong> to <strong>${escapeHtml(status)}</strong>.</p>
+ <h1 style="margin:16px 0 8px;font-size:26px;line-height:1.2;color:#071a2f">${heading}</h1>
+ <p style="margin:0 0 24px;color:#4b5563;line-height:1.65">${message}</p>
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#f8fafc;border-radius:12px">
 <tr><td style="padding:14px 16px;color:#6b7280;font-size:12px;border-bottom:1px solid #e5e7eb">ORDER</td><td style="padding:14px 16px;text-align:right;font-weight:700;border-bottom:1px solid #e5e7eb">${escapeHtml(notification.orderId)}</td></tr>
 ${notification.adminRecipient ? `<tr><td style="padding:14px 16px;color:#6b7280;font-size:12px;border-bottom:1px solid #e5e7eb">CUSTOMER</td><td style="padding:14px 16px;text-align:right;font-weight:700;border-bottom:1px solid #e5e7eb">${escapeHtml(notification.customerName || "Guest")}</td></tr>` : ""}
 <tr><td style="padding:14px 16px;color:#6b7280;font-size:12px;border-bottom:1px solid #e5e7eb">EXCHANGE</td><td style="padding:14px 16px;text-align:right;font-weight:700;border-bottom:1px solid #e5e7eb">${escapeHtml(route)}</td></tr>
 <tr><td style="padding:14px 16px;color:#6b7280;font-size:12px">STATUS</td><td style="padding:14px 16px;text-align:right;font-weight:700;color:#087653">${escapeHtml(status)}</td></tr>
 </table>
-${orderUrl ? `<p style="margin:24px 0 0"><a href="${escapeHtml(orderUrl)}" style="display:inline-block;background:#0ea572;color:#ffffff;text-decoration:none;font-weight:700;padding:13px 20px;border-radius:10px">Open order</a></p>` : ""}
+ ${orderUrl ? `<p style="margin:24px 0 0"><a href="${escapeHtml(orderUrl)}" style="display:inline-block;background:#0ea572;color:#ffffff;text-decoration:none;font-weight:700;padding:13px 20px;border-radius:10px">${buttonText}</a></p>` : ""}
 ${notification.eventKind === "completed" && !notification.adminRecipient && invoiceUrl ? `<p style="margin:18px 0 0"><a href="${escapeHtml(invoiceUrl)}" style="color:#087653;font-weight:700">Invoice / Download Invoice</a>${reviewUrl ? ` &nbsp;·&nbsp; <a href="${escapeHtml(reviewUrl)}" style="color:#087653;font-weight:700">Review us on Trustpilot</a>` : ""}</p>` : ""}
-<p style="margin:28px 0 0;padding-top:20px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;line-height:1.6">For your security, QuickXchange will never ask for wallet credentials, passwords, or recovery phrases by email.</p>
+ <p style="margin:28px 0 0;padding-top:20px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;line-height:1.6">${footerText}</p>
 </td></tr></table></td></tr></table></body></html>`;
   return { subject, text, html };
 }
@@ -296,11 +380,12 @@ export async function updateOrderAndQueueStatusNotificationTx(
 
     const [notificationSettings] = await tx.select().from(notificationSettingsTable)
       .where(eq(notificationSettingsTable.id, "global")).limit(1);
-    const eventEnabled = updated.status.toLowerCase() === "completed"
-      ? notificationSettings?.completedEnabled !== false
+    const eventKind = updated.status.toLowerCase() === "completed"
+      ? "completed" as const
       : ["failed", "cancelled", "canceled", "refunded"].includes(updated.status.toLowerCase())
-        ? notificationSettings?.failedCancelledEnabled !== false
-        : notificationSettings?.processingEnabled !== false;
+        ? "failed_cancelled" as const
+        : "processing" as const;
+    const eventEnabled = customerEmailEventEnabled(notificationSettings, eventKind);
     if (
       customerEmailDeliveryEnabled() &&
       notificationSettings?.emailEnabled !== false &&
@@ -337,7 +422,8 @@ export async function updateOrderAndQueueStatusNotificationTx(
     if (
       updated.type === "manual" &&
       statusChanged &&
-      eventEnabled &&
+      (adminEmailEventEnabled(notificationSettings, eventKind) ||
+        adminTelegramEventEnabled(notificationSettings, eventKind)) &&
       updated.status.toLowerCase() !== "awaiting funds"
     ) {
       const [whitebitPayment] = await tx.select({ id: whitebitDepositsTable.id })
@@ -356,13 +442,13 @@ export async function updateOrderAndQueueStatusNotificationTx(
         ))
         .limit(1);
       if (whitebitPayment || blockchainPayment) {
-        const lifecycleEvent = updated.status.toLowerCase() === "completed"
+      const lifecycleEvent = updated.status.toLowerCase() === "completed"
           ? "completed"
           : ["failed", "cancelled", "canceled", "refunded"].includes(updated.status.toLowerCase())
             ? "failed_cancelled"
             : "processing";
         if (
-          notificationSettings?.emailEnabled !== false &&
+          adminEmailEventEnabled(notificationSettings, lifecycleEvent) &&
           notificationSettings?.adminNotificationEmail
         ) {
           await tx.insert(customerStatusNotificationEventsTable).values({
@@ -532,13 +618,9 @@ export async function processCustomerStatusNotificationOutbox(
       .from(notificationSettingsTable)
       .where(eq(notificationSettingsTable.id, "global"))
       .limit(1);
-    const eventEnabled = claimed.eventKind === "payment_received"
-      ? notificationSettings?.paymentReceivedEnabled !== false
-      : claimed.eventKind === "completed"
-        ? notificationSettings?.completedEnabled !== false
-        : claimed.eventKind === "failed_cancelled"
-          ? notificationSettings?.failedCancelledEnabled !== false
-          : notificationSettings?.processingEnabled !== false;
+    const eventEnabled = claimed.adminRecipient
+      ? adminEmailEventEnabled(notificationSettings, claimed.eventKind as "order_created" | "payment_received" | "processing" | "completed" | "failed_cancelled")
+      : customerEmailEventEnabled(notificationSettings, claimed.eventKind as "order_created" | "payment_received" | "processing" | "completed" | "failed_cancelled");
     const adminRecipientIsCurrent = !claimed.adminRecipient ||
       Boolean(
         notificationSettings?.adminNotificationEmail &&
@@ -546,7 +628,7 @@ export async function processCustomerStatusNotificationOutbox(
           claimed.recipientEmail.trim().toLowerCase(),
       );
     let authoritativePaymentExists = true;
-    if (claimed.adminRecipient) {
+    if (claimed.adminRecipient && claimed.eventKind !== "order_created") {
       const [whitebitPayment] = await db.select({ id: whitebitDepositsTable.id })
         .from(whitebitDepositsTable)
         .where(and(
@@ -567,7 +649,6 @@ export async function processCustomerStatusNotificationOutbox(
     if (
       !order ||
       order.type !== "manual" ||
-      notificationSettings?.emailEnabled === false ||
       !eventEnabled ||
       !adminRecipientIsCurrent ||
       !authoritativePaymentExists ||
@@ -620,8 +701,14 @@ export async function processCustomerStatusNotificationOutbox(
       amount: order.amount,
       receiveAmount: order.receiveAmount,
       createdAt: order.createdAt,
+      completedAt: order.status.toLowerCase() === "completed" ? order.updatedAt : null,
+      receiveMethod: order.payoutMethod,
       eventKind: claimed.eventKind,
       adminRecipient: claimed.adminRecipient,
+      template: notificationTemplateForEvent(
+        notificationSettings?.emailTemplates,
+        claimed.eventKind,
+      ),
     };
 
     const heartbeat = setInterval(() => {

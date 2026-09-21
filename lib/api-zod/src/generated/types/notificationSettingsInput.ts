@@ -7,14 +7,33 @@
  */
 
 export interface NotificationSettingsInput {
+  adminNotificationsEnabled: boolean;
+  adminEmailEnabled: boolean;
   emailEnabled: boolean;
   telegramEnabled: boolean;
   paymentReceivedEnabled: boolean;
   processingEnabled: boolean;
   completedEnabled: boolean;
   failedCancelledEnabled: boolean;
+  adminEmailOrderCreatedEnabled: boolean;
+  adminEmailPaymentReceivedEnabled: boolean;
+  adminEmailProcessingEnabled: boolean;
+  adminEmailCompletedEnabled: boolean;
+  adminEmailFailedCancelledEnabled: boolean;
+  adminTelegramOrderCreatedEnabled: boolean;
+  adminTelegramPaymentReceivedEnabled: boolean;
+  adminTelegramProcessingEnabled: boolean;
+  adminTelegramCompletedEnabled: boolean;
+  adminTelegramFailedCancelledEnabled: boolean;
+  customerEmailOrderCreatedEnabled: boolean;
+  customerEmailPaymentReceivedEnabled: boolean;
+  customerEmailProcessingEnabled: boolean;
+  customerEmailCompletedEnabled: boolean;
+  customerEmailFailedCancelledEnabled: boolean;
   /** @maxLength 320 */
   adminNotificationEmail: string;
+  /** @maxLength 32 */
+  adminNotificationPhone: string;
   /** @maxLength 128 */
   adminTelegramChatId: string;
   /** @maxLength 2048 */

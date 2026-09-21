@@ -8,6 +8,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { signOrderTrackingToken } from "../lib/order-access";
 import { buildCreatePayload, buildQuotePayload, buildTelegramConvertOptions, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, requiredFieldActive, shouldAskDestination, telegramFieldSkipIndex, withoutTelegramRefundFields, type TelegramConvertInstrument, type TelegramRouteOption } from "../lib/telegram-wizard";
 import { createTelegramLinkChallenge } from "../lib/telegram-link";
+import { AdminTelegramLinkChallengeError, consumeAdminTelegramLinkChallenge } from "../lib/admin-telegram-link";
 import { getCustomerVerifiedEmail, requireActiveCustomerIdentity } from "../lib/customer-auth";
 import { getCustomerOrderHistory } from "../lib/order-history";
 import { logger } from "../lib/logger";
@@ -38,6 +39,12 @@ const miniAppUrl = () => {
 };
 const html = (value: unknown) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 const baseUrl = () => `http://127.0.0.1:${process.env.PORT ?? "8080"}`;
+const adminOrderUrl = (orderId: string) => {
+  const configured = process.env.PUBLIC_APP_URL?.trim().replace(/\/+$/, "") || "";
+  return /^https:\/\//i.test(configured)
+    ? `${configured}/admin/orders/${encodeURIComponent(orderId)}`
+    : undefined;
+};
 export const telegramSecretMatches = (provided: string | undefined) => {
   const expected = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
   if (!expected || !provided) return false;
@@ -1070,7 +1077,23 @@ router.post("/telegram/webhook", async (req: Request, res) => {
       const [session] = await db.select({ lastAppliedUpdateId: telegramWizardSessionsTable.lastAppliedUpdateId }).from(telegramWizardSessionsTable).where(eq(telegramWizardSessionsTable.chatId, chatId)).limit(1);
       if (!session || shouldApplyUpdate(session.lastAppliedUpdateId, updateId)) {
         if (query?.data) await callback(chatId, locale, query.data, query.message?.message_id);
-        else if (message?.text) await handleText(chatId, locale, message.text);
+        else if (message?.text) {
+          if (message.text.startsWith("/start admin_")) {
+            const token = message.text.trim().slice("/start admin_".length);
+            try {
+              await consumeAdminTelegramLinkChallenge(token, chatId, from?.username?.trim() ?? "");
+              await sendTelegramMessage(chatId, "✅ <b>Telegram Connected</b>\n\nThis private chat will now receive enabled QuickXchange Admin notifications.");
+            } catch (error) {
+              if (error instanceof AdminTelegramLinkChallengeError) {
+                await sendTelegramMessage(chatId, "This Admin connection link has expired or was already used. Create a new link in Notification Settings.");
+              } else {
+                throw error;
+              }
+            }
+          } else {
+            await handleText(chatId, locale, message.text);
+          }
+        }
       }
     }));
     await db.update(telegramProcessedUpdatesTable).set({ status: "completed", claimToken: null, claimExpiresAt: null, lastError: "" }).where(and(eq(telegramProcessedUpdatesTable.updateId, updateId), eq(telegramProcessedUpdatesTable.claimToken, claimToken)));
@@ -1318,6 +1341,21 @@ export function startTelegramNotificationWorker(): () => void {
         const [noticeChat] = await db.select({ locale: telegramChatsTable.locale }).from(telegramChatsTable).where(eq(telegramChatsTable.chatId, claimed.chatId)).limit(1);
         const noticeLocale = localeOf(noticeChat?.locale);
         if (claimed.eventKind === "order_created") {
+          const adminRecipient = Boolean((payload as { adminRecipient?: boolean }).adminRecipient);
+          if (adminRecipient) {
+            const eventKind = "order_created" as SwapTelegramEventKind;
+            if (!await adminSwapTelegramRecipientIsCurrent(claimed.chatId, claimed.orderId, eventKind)) {
+              throw new Error("Telegram Admin recipient is no longer current.");
+            }
+            const orderUrl = adminOrderUrl(claimed.orderId);
+            await sendTelegramMessage(
+              claimed.chatId,
+              formatSwapTelegramNotification(payload as SwapTelegramNotificationPayload),
+              orderUrl ? [[{ text: "Open Order", url: orderUrl }]] : undefined,
+            );
+            await db.update(telegramNotificationOutboxTable).set({ deliveryStatus: "delivered", deliveredAt: new Date(), claimToken: null, claimExpiresAt: null }).where(and(eq(telegramNotificationOutboxTable.id, claimed.id), eq(telegramNotificationOutboxTable.claimToken, claimToken)));
+            continue;
+          }
           let deposit = telegramDepositInstruction(payload as Record<string, unknown>);
           if (!deposit && payload.requiresDeposit) {
             const path = payload.orderKind === "convert" ? "/api/quickex/orders" : "/api/orders";
@@ -1373,6 +1411,9 @@ export function startTelegramNotificationWorker(): () => void {
             convert
               ? formatConvertTelegramNotification(payload as ConvertNotificationPayload)
               : formatSwapTelegramNotification(payload as SwapTelegramNotificationPayload),
+            adminRecipient && !convert && adminOrderUrl(claimed.orderId)
+              ? [[{ text: "Open Order", url: adminOrderUrl(claimed.orderId) }]]
+              : undefined,
           );
         } else {
           const displayedStatus = payload.orderKind === "manual"

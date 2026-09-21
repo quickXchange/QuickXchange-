@@ -5863,16 +5863,37 @@ export interface BlockchainMonitoringRouteSelectionInput {
 
 export interface NotificationSettings {
   id: string;
+  adminNotificationsEnabled: boolean;
+  adminEmailEnabled: boolean;
   emailEnabled: boolean;
   telegramEnabled: boolean;
   paymentReceivedEnabled: boolean;
   processingEnabled: boolean;
   completedEnabled: boolean;
   failedCancelledEnabled: boolean;
+  adminEmailOrderCreatedEnabled: boolean;
+  adminEmailPaymentReceivedEnabled: boolean;
+  adminEmailProcessingEnabled: boolean;
+  adminEmailCompletedEnabled: boolean;
+  adminEmailFailedCancelledEnabled: boolean;
+  adminTelegramOrderCreatedEnabled: boolean;
+  adminTelegramPaymentReceivedEnabled: boolean;
+  adminTelegramProcessingEnabled: boolean;
+  adminTelegramCompletedEnabled: boolean;
+  adminTelegramFailedCancelledEnabled: boolean;
+  customerEmailOrderCreatedEnabled: boolean;
+  customerEmailPaymentReceivedEnabled: boolean;
+  customerEmailProcessingEnabled: boolean;
+  customerEmailCompletedEnabled: boolean;
+  customerEmailFailedCancelledEnabled: boolean;
   /** @maxLength 320 */
   adminNotificationEmail: string;
+  /** @maxLength 32 */
+  adminNotificationPhone: string;
   /** @maxLength 128 */
   adminTelegramChatId: string;
+  /** @maxLength 64 */
+  adminTelegramUsername: string;
   /** @maxLength 2048 */
   trustpilotReviewUrl: string;
   /** @nullable */
@@ -5889,18 +5910,110 @@ export interface PublicNotificationSettings {
 }
 
 export interface NotificationSettingsInput {
+  adminNotificationsEnabled: boolean;
+  adminEmailEnabled: boolean;
   emailEnabled: boolean;
   telegramEnabled: boolean;
   paymentReceivedEnabled: boolean;
   processingEnabled: boolean;
   completedEnabled: boolean;
   failedCancelledEnabled: boolean;
+  adminEmailOrderCreatedEnabled: boolean;
+  adminEmailPaymentReceivedEnabled: boolean;
+  adminEmailProcessingEnabled: boolean;
+  adminEmailCompletedEnabled: boolean;
+  adminEmailFailedCancelledEnabled: boolean;
+  adminTelegramOrderCreatedEnabled: boolean;
+  adminTelegramPaymentReceivedEnabled: boolean;
+  adminTelegramProcessingEnabled: boolean;
+  adminTelegramCompletedEnabled: boolean;
+  adminTelegramFailedCancelledEnabled: boolean;
+  customerEmailOrderCreatedEnabled: boolean;
+  customerEmailPaymentReceivedEnabled: boolean;
+  customerEmailProcessingEnabled: boolean;
+  customerEmailCompletedEnabled: boolean;
+  customerEmailFailedCancelledEnabled: boolean;
   /** @maxLength 320 */
   adminNotificationEmail: string;
+  /** @maxLength 32 */
+  adminNotificationPhone: string;
   /** @maxLength 128 */
   adminTelegramChatId: string;
   /** @maxLength 2048 */
   trustpilotReviewUrl: string;
+}
+
+export type NotificationEmailTemplateEventKind = typeof NotificationEmailTemplateEventKind[keyof typeof NotificationEmailTemplateEventKind];
+
+
+export const NotificationEmailTemplateEventKind = {
+  order_created: 'order_created',
+  payment_received: 'payment_received',
+  processing: 'processing',
+  completed: 'completed',
+  failed_cancelled: 'failed_cancelled',
+} as const;
+
+export interface NotificationEmailTemplate {
+  eventKind: NotificationEmailTemplateEventKind;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  subject: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  heading: string;
+  /**
+     * @minLength 1
+     * @maxLength 5000
+     */
+  message: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  buttonText: string;
+  /**
+     * @minLength 1
+     * @maxLength 1000
+     */
+  footerText: string;
+}
+
+export interface NotificationEmailTemplateList {
+  /**
+     * @minItems 5
+     * @maxItems 5
+     */
+  items: NotificationEmailTemplate[];
+}
+
+export interface NotificationTestResult {
+  success: boolean;
+  message: string;
+}
+
+export interface AdminTelegramLink {
+  id: string;
+  botUrl: string;
+  expiresAt: string;
+}
+
+export type AdminTelegramLinkStatusStatus = typeof AdminTelegramLinkStatusStatus[keyof typeof AdminTelegramLinkStatusStatus];
+
+
+export const AdminTelegramLinkStatusStatus = {
+  pending: 'pending',
+  connected: 'connected',
+  expired: 'expired',
+} as const;
+
+export interface AdminTelegramLinkStatus {
+  status: AdminTelegramLinkStatusStatus;
+  settings?: NotificationSettings;
 }
 
 export type PageParameter = number;

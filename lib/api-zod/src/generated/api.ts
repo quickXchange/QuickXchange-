@@ -14495,7 +14495,11 @@ export const CreateTelegramMiniAppAccountLinkResponse = zod.object({
 
 export const getAdminNotificationSettingsResponseAdminNotificationEmailMax = 320;
 
+export const getAdminNotificationSettingsResponseAdminNotificationPhoneMax = 32;
+
 export const getAdminNotificationSettingsResponseAdminTelegramChatIdMax = 128;
+
+export const getAdminNotificationSettingsResponseAdminTelegramUsernameMax = 64;
 
 export const getAdminNotificationSettingsResponseTrustpilotReviewUrlMax = 2048;
 
@@ -14503,14 +14507,33 @@ export const getAdminNotificationSettingsResponseTrustpilotReviewUrlMax = 2048;
 
 export const GetAdminNotificationSettingsResponse = zod.object({
   "id": zod.string(),
+  "adminNotificationsEnabled": zod.boolean(),
+  "adminEmailEnabled": zod.boolean(),
   "emailEnabled": zod.boolean(),
   "telegramEnabled": zod.boolean(),
   "paymentReceivedEnabled": zod.boolean(),
   "processingEnabled": zod.boolean(),
   "completedEnabled": zod.boolean(),
   "failedCancelledEnabled": zod.boolean(),
+  "adminEmailOrderCreatedEnabled": zod.boolean(),
+  "adminEmailPaymentReceivedEnabled": zod.boolean(),
+  "adminEmailProcessingEnabled": zod.boolean(),
+  "adminEmailCompletedEnabled": zod.boolean(),
+  "adminEmailFailedCancelledEnabled": zod.boolean(),
+  "adminTelegramOrderCreatedEnabled": zod.boolean(),
+  "adminTelegramPaymentReceivedEnabled": zod.boolean(),
+  "adminTelegramProcessingEnabled": zod.boolean(),
+  "adminTelegramCompletedEnabled": zod.boolean(),
+  "adminTelegramFailedCancelledEnabled": zod.boolean(),
+  "customerEmailOrderCreatedEnabled": zod.boolean(),
+  "customerEmailPaymentReceivedEnabled": zod.boolean(),
+  "customerEmailProcessingEnabled": zod.boolean(),
+  "customerEmailCompletedEnabled": zod.boolean(),
+  "customerEmailFailedCancelledEnabled": zod.boolean(),
   "adminNotificationEmail": zod.string().max(getAdminNotificationSettingsResponseAdminNotificationEmailMax),
+  "adminNotificationPhone": zod.string().max(getAdminNotificationSettingsResponseAdminNotificationPhoneMax),
   "adminTelegramChatId": zod.string().max(getAdminNotificationSettingsResponseAdminTelegramChatIdMax),
+  "adminTelegramUsername": zod.string().max(getAdminNotificationSettingsResponseAdminTelegramUsernameMax),
   "trustpilotReviewUrl": zod.string().max(getAdminNotificationSettingsResponseTrustpilotReviewUrlMax),
   "updatedBy": zod.string().nullish(),
   "updatedAt": zod.coerce.date()
@@ -14519,6 +14542,8 @@ export const GetAdminNotificationSettingsResponse = zod.object({
 
 export const updateAdminNotificationSettingsBodyAdminNotificationEmailMax = 320;
 
+export const updateAdminNotificationSettingsBodyAdminNotificationPhoneMax = 32;
+
 export const updateAdminNotificationSettingsBodyAdminTelegramChatIdMax = 128;
 
 export const updateAdminNotificationSettingsBodyTrustpilotReviewUrlMax = 2048;
@@ -14526,20 +14551,42 @@ export const updateAdminNotificationSettingsBodyTrustpilotReviewUrlMax = 2048;
 
 
 export const UpdateAdminNotificationSettingsBody = zod.object({
+  "adminNotificationsEnabled": zod.boolean(),
+  "adminEmailEnabled": zod.boolean(),
   "emailEnabled": zod.boolean(),
   "telegramEnabled": zod.boolean(),
   "paymentReceivedEnabled": zod.boolean(),
   "processingEnabled": zod.boolean(),
   "completedEnabled": zod.boolean(),
   "failedCancelledEnabled": zod.boolean(),
+  "adminEmailOrderCreatedEnabled": zod.boolean(),
+  "adminEmailPaymentReceivedEnabled": zod.boolean(),
+  "adminEmailProcessingEnabled": zod.boolean(),
+  "adminEmailCompletedEnabled": zod.boolean(),
+  "adminEmailFailedCancelledEnabled": zod.boolean(),
+  "adminTelegramOrderCreatedEnabled": zod.boolean(),
+  "adminTelegramPaymentReceivedEnabled": zod.boolean(),
+  "adminTelegramProcessingEnabled": zod.boolean(),
+  "adminTelegramCompletedEnabled": zod.boolean(),
+  "adminTelegramFailedCancelledEnabled": zod.boolean(),
+  "customerEmailOrderCreatedEnabled": zod.boolean(),
+  "customerEmailPaymentReceivedEnabled": zod.boolean(),
+  "customerEmailProcessingEnabled": zod.boolean(),
+  "customerEmailCompletedEnabled": zod.boolean(),
+  "customerEmailFailedCancelledEnabled": zod.boolean(),
   "adminNotificationEmail": zod.string().max(updateAdminNotificationSettingsBodyAdminNotificationEmailMax),
+  "adminNotificationPhone": zod.string().max(updateAdminNotificationSettingsBodyAdminNotificationPhoneMax),
   "adminTelegramChatId": zod.string().max(updateAdminNotificationSettingsBodyAdminTelegramChatIdMax),
   "trustpilotReviewUrl": zod.string().max(updateAdminNotificationSettingsBodyTrustpilotReviewUrlMax)
 })
 
 export const updateAdminNotificationSettingsResponseAdminNotificationEmailMax = 320;
 
+export const updateAdminNotificationSettingsResponseAdminNotificationPhoneMax = 32;
+
 export const updateAdminNotificationSettingsResponseAdminTelegramChatIdMax = 128;
+
+export const updateAdminNotificationSettingsResponseAdminTelegramUsernameMax = 64;
 
 export const updateAdminNotificationSettingsResponseTrustpilotReviewUrlMax = 2048;
 
@@ -14547,17 +14594,263 @@ export const updateAdminNotificationSettingsResponseTrustpilotReviewUrlMax = 204
 
 export const UpdateAdminNotificationSettingsResponse = zod.object({
   "id": zod.string(),
+  "adminNotificationsEnabled": zod.boolean(),
+  "adminEmailEnabled": zod.boolean(),
   "emailEnabled": zod.boolean(),
   "telegramEnabled": zod.boolean(),
   "paymentReceivedEnabled": zod.boolean(),
   "processingEnabled": zod.boolean(),
   "completedEnabled": zod.boolean(),
   "failedCancelledEnabled": zod.boolean(),
+  "adminEmailOrderCreatedEnabled": zod.boolean(),
+  "adminEmailPaymentReceivedEnabled": zod.boolean(),
+  "adminEmailProcessingEnabled": zod.boolean(),
+  "adminEmailCompletedEnabled": zod.boolean(),
+  "adminEmailFailedCancelledEnabled": zod.boolean(),
+  "adminTelegramOrderCreatedEnabled": zod.boolean(),
+  "adminTelegramPaymentReceivedEnabled": zod.boolean(),
+  "adminTelegramProcessingEnabled": zod.boolean(),
+  "adminTelegramCompletedEnabled": zod.boolean(),
+  "adminTelegramFailedCancelledEnabled": zod.boolean(),
+  "customerEmailOrderCreatedEnabled": zod.boolean(),
+  "customerEmailPaymentReceivedEnabled": zod.boolean(),
+  "customerEmailProcessingEnabled": zod.boolean(),
+  "customerEmailCompletedEnabled": zod.boolean(),
+  "customerEmailFailedCancelledEnabled": zod.boolean(),
   "adminNotificationEmail": zod.string().max(updateAdminNotificationSettingsResponseAdminNotificationEmailMax),
+  "adminNotificationPhone": zod.string().max(updateAdminNotificationSettingsResponseAdminNotificationPhoneMax),
   "adminTelegramChatId": zod.string().max(updateAdminNotificationSettingsResponseAdminTelegramChatIdMax),
+  "adminTelegramUsername": zod.string().max(updateAdminNotificationSettingsResponseAdminTelegramUsernameMax),
   "trustpilotReviewUrl": zod.string().max(updateAdminNotificationSettingsResponseTrustpilotReviewUrlMax),
   "updatedBy": zod.string().nullish(),
   "updatedAt": zod.coerce.date()
+})
+
+
+export const TestAdminNotificationEmailResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string()
+})
+
+
+export const TestAdminNotificationTelegramResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string()
+})
+
+
+export const CreateAdminNotificationTelegramLinkResponse = zod.object({
+  "id": zod.string().uuid(),
+  "botUrl": zod.string().url(),
+  "expiresAt": zod.coerce.date()
+})
+
+
+export const GetAdminNotificationTelegramLinkParams = zod.object({
+  "id": zod.string().uuid()
+})
+
+export const getAdminNotificationTelegramLinkResponseSettingsAdminNotificationEmailMax = 320;
+
+export const getAdminNotificationTelegramLinkResponseSettingsAdminNotificationPhoneMax = 32;
+
+export const getAdminNotificationTelegramLinkResponseSettingsAdminTelegramChatIdMax = 128;
+
+export const getAdminNotificationTelegramLinkResponseSettingsAdminTelegramUsernameMax = 64;
+
+export const getAdminNotificationTelegramLinkResponseSettingsTrustpilotReviewUrlMax = 2048;
+
+
+
+export const GetAdminNotificationTelegramLinkResponse = zod.object({
+  "status": zod.enum(['pending', 'connected', 'expired']),
+  "settings": zod.object({
+  "id": zod.string(),
+  "adminNotificationsEnabled": zod.boolean(),
+  "adminEmailEnabled": zod.boolean(),
+  "emailEnabled": zod.boolean(),
+  "telegramEnabled": zod.boolean(),
+  "paymentReceivedEnabled": zod.boolean(),
+  "processingEnabled": zod.boolean(),
+  "completedEnabled": zod.boolean(),
+  "failedCancelledEnabled": zod.boolean(),
+  "adminEmailOrderCreatedEnabled": zod.boolean(),
+  "adminEmailPaymentReceivedEnabled": zod.boolean(),
+  "adminEmailProcessingEnabled": zod.boolean(),
+  "adminEmailCompletedEnabled": zod.boolean(),
+  "adminEmailFailedCancelledEnabled": zod.boolean(),
+  "adminTelegramOrderCreatedEnabled": zod.boolean(),
+  "adminTelegramPaymentReceivedEnabled": zod.boolean(),
+  "adminTelegramProcessingEnabled": zod.boolean(),
+  "adminTelegramCompletedEnabled": zod.boolean(),
+  "adminTelegramFailedCancelledEnabled": zod.boolean(),
+  "customerEmailOrderCreatedEnabled": zod.boolean(),
+  "customerEmailPaymentReceivedEnabled": zod.boolean(),
+  "customerEmailProcessingEnabled": zod.boolean(),
+  "customerEmailCompletedEnabled": zod.boolean(),
+  "customerEmailFailedCancelledEnabled": zod.boolean(),
+  "adminNotificationEmail": zod.string().max(getAdminNotificationTelegramLinkResponseSettingsAdminNotificationEmailMax),
+  "adminNotificationPhone": zod.string().max(getAdminNotificationTelegramLinkResponseSettingsAdminNotificationPhoneMax),
+  "adminTelegramChatId": zod.string().max(getAdminNotificationTelegramLinkResponseSettingsAdminTelegramChatIdMax),
+  "adminTelegramUsername": zod.string().max(getAdminNotificationTelegramLinkResponseSettingsAdminTelegramUsernameMax),
+  "trustpilotReviewUrl": zod.string().max(getAdminNotificationTelegramLinkResponseSettingsTrustpilotReviewUrlMax),
+  "updatedBy": zod.string().nullish(),
+  "updatedAt": zod.coerce.date()
+}).optional()
+})
+
+
+export const disconnectAdminNotificationTelegramResponseAdminNotificationEmailMax = 320;
+
+export const disconnectAdminNotificationTelegramResponseAdminNotificationPhoneMax = 32;
+
+export const disconnectAdminNotificationTelegramResponseAdminTelegramChatIdMax = 128;
+
+export const disconnectAdminNotificationTelegramResponseAdminTelegramUsernameMax = 64;
+
+export const disconnectAdminNotificationTelegramResponseTrustpilotReviewUrlMax = 2048;
+
+
+
+export const DisconnectAdminNotificationTelegramResponse = zod.object({
+  "id": zod.string(),
+  "adminNotificationsEnabled": zod.boolean(),
+  "adminEmailEnabled": zod.boolean(),
+  "emailEnabled": zod.boolean(),
+  "telegramEnabled": zod.boolean(),
+  "paymentReceivedEnabled": zod.boolean(),
+  "processingEnabled": zod.boolean(),
+  "completedEnabled": zod.boolean(),
+  "failedCancelledEnabled": zod.boolean(),
+  "adminEmailOrderCreatedEnabled": zod.boolean(),
+  "adminEmailPaymentReceivedEnabled": zod.boolean(),
+  "adminEmailProcessingEnabled": zod.boolean(),
+  "adminEmailCompletedEnabled": zod.boolean(),
+  "adminEmailFailedCancelledEnabled": zod.boolean(),
+  "adminTelegramOrderCreatedEnabled": zod.boolean(),
+  "adminTelegramPaymentReceivedEnabled": zod.boolean(),
+  "adminTelegramProcessingEnabled": zod.boolean(),
+  "adminTelegramCompletedEnabled": zod.boolean(),
+  "adminTelegramFailedCancelledEnabled": zod.boolean(),
+  "customerEmailOrderCreatedEnabled": zod.boolean(),
+  "customerEmailPaymentReceivedEnabled": zod.boolean(),
+  "customerEmailProcessingEnabled": zod.boolean(),
+  "customerEmailCompletedEnabled": zod.boolean(),
+  "customerEmailFailedCancelledEnabled": zod.boolean(),
+  "adminNotificationEmail": zod.string().max(disconnectAdminNotificationTelegramResponseAdminNotificationEmailMax),
+  "adminNotificationPhone": zod.string().max(disconnectAdminNotificationTelegramResponseAdminNotificationPhoneMax),
+  "adminTelegramChatId": zod.string().max(disconnectAdminNotificationTelegramResponseAdminTelegramChatIdMax),
+  "adminTelegramUsername": zod.string().max(disconnectAdminNotificationTelegramResponseAdminTelegramUsernameMax),
+  "trustpilotReviewUrl": zod.string().max(disconnectAdminNotificationTelegramResponseTrustpilotReviewUrlMax),
+  "updatedBy": zod.string().nullish(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+export const getAdminNotificationEmailTemplatesResponseItemsItemSubjectMax = 200;
+
+export const getAdminNotificationEmailTemplatesResponseItemsItemHeadingMax = 200;
+
+export const getAdminNotificationEmailTemplatesResponseItemsItemMessageMax = 5000;
+
+export const getAdminNotificationEmailTemplatesResponseItemsItemButtonTextMax = 80;
+
+export const getAdminNotificationEmailTemplatesResponseItemsItemFooterTextMax = 1000;
+
+export const getAdminNotificationEmailTemplatesResponseItemsMin = 5;
+export const getAdminNotificationEmailTemplatesResponseItemsMax = 5;
+
+
+
+export const GetAdminNotificationEmailTemplatesResponse = zod.object({
+  "items": zod.array(zod.object({
+  "eventKind": zod.enum(['order_created', 'payment_received', 'processing', 'completed', 'failed_cancelled']),
+  "subject": zod.string().min(1).max(getAdminNotificationEmailTemplatesResponseItemsItemSubjectMax),
+  "heading": zod.string().min(1).max(getAdminNotificationEmailTemplatesResponseItemsItemHeadingMax),
+  "message": zod.string().min(1).max(getAdminNotificationEmailTemplatesResponseItemsItemMessageMax),
+  "buttonText": zod.string().min(1).max(getAdminNotificationEmailTemplatesResponseItemsItemButtonTextMax),
+  "footerText": zod.string().min(1).max(getAdminNotificationEmailTemplatesResponseItemsItemFooterTextMax)
+})).min(getAdminNotificationEmailTemplatesResponseItemsMin).max(getAdminNotificationEmailTemplatesResponseItemsMax)
+})
+
+
+export const updateAdminNotificationEmailTemplatesBodyItemsItemSubjectMax = 200;
+
+export const updateAdminNotificationEmailTemplatesBodyItemsItemHeadingMax = 200;
+
+export const updateAdminNotificationEmailTemplatesBodyItemsItemMessageMax = 5000;
+
+export const updateAdminNotificationEmailTemplatesBodyItemsItemButtonTextMax = 80;
+
+export const updateAdminNotificationEmailTemplatesBodyItemsItemFooterTextMax = 1000;
+
+export const updateAdminNotificationEmailTemplatesBodyItemsMin = 5;
+export const updateAdminNotificationEmailTemplatesBodyItemsMax = 5;
+
+
+
+export const UpdateAdminNotificationEmailTemplatesBody = zod.object({
+  "items": zod.array(zod.object({
+  "eventKind": zod.enum(['order_created', 'payment_received', 'processing', 'completed', 'failed_cancelled']),
+  "subject": zod.string().min(1).max(updateAdminNotificationEmailTemplatesBodyItemsItemSubjectMax),
+  "heading": zod.string().min(1).max(updateAdminNotificationEmailTemplatesBodyItemsItemHeadingMax),
+  "message": zod.string().min(1).max(updateAdminNotificationEmailTemplatesBodyItemsItemMessageMax),
+  "buttonText": zod.string().min(1).max(updateAdminNotificationEmailTemplatesBodyItemsItemButtonTextMax),
+  "footerText": zod.string().min(1).max(updateAdminNotificationEmailTemplatesBodyItemsItemFooterTextMax)
+})).min(updateAdminNotificationEmailTemplatesBodyItemsMin).max(updateAdminNotificationEmailTemplatesBodyItemsMax)
+})
+
+export const updateAdminNotificationEmailTemplatesResponseItemsItemSubjectMax = 200;
+
+export const updateAdminNotificationEmailTemplatesResponseItemsItemHeadingMax = 200;
+
+export const updateAdminNotificationEmailTemplatesResponseItemsItemMessageMax = 5000;
+
+export const updateAdminNotificationEmailTemplatesResponseItemsItemButtonTextMax = 80;
+
+export const updateAdminNotificationEmailTemplatesResponseItemsItemFooterTextMax = 1000;
+
+export const updateAdminNotificationEmailTemplatesResponseItemsMin = 5;
+export const updateAdminNotificationEmailTemplatesResponseItemsMax = 5;
+
+
+
+export const UpdateAdminNotificationEmailTemplatesResponse = zod.object({
+  "items": zod.array(zod.object({
+  "eventKind": zod.enum(['order_created', 'payment_received', 'processing', 'completed', 'failed_cancelled']),
+  "subject": zod.string().min(1).max(updateAdminNotificationEmailTemplatesResponseItemsItemSubjectMax),
+  "heading": zod.string().min(1).max(updateAdminNotificationEmailTemplatesResponseItemsItemHeadingMax),
+  "message": zod.string().min(1).max(updateAdminNotificationEmailTemplatesResponseItemsItemMessageMax),
+  "buttonText": zod.string().min(1).max(updateAdminNotificationEmailTemplatesResponseItemsItemButtonTextMax),
+  "footerText": zod.string().min(1).max(updateAdminNotificationEmailTemplatesResponseItemsItemFooterTextMax)
+})).min(updateAdminNotificationEmailTemplatesResponseItemsMin).max(updateAdminNotificationEmailTemplatesResponseItemsMax)
+})
+
+
+export const testAdminNotificationEmailTemplateBodySubjectMax = 200;
+
+export const testAdminNotificationEmailTemplateBodyHeadingMax = 200;
+
+export const testAdminNotificationEmailTemplateBodyMessageMax = 5000;
+
+export const testAdminNotificationEmailTemplateBodyButtonTextMax = 80;
+
+export const testAdminNotificationEmailTemplateBodyFooterTextMax = 1000;
+
+
+
+export const TestAdminNotificationEmailTemplateBody = zod.object({
+  "eventKind": zod.enum(['order_created', 'payment_received', 'processing', 'completed', 'failed_cancelled']),
+  "subject": zod.string().min(1).max(testAdminNotificationEmailTemplateBodySubjectMax),
+  "heading": zod.string().min(1).max(testAdminNotificationEmailTemplateBodyHeadingMax),
+  "message": zod.string().min(1).max(testAdminNotificationEmailTemplateBodyMessageMax),
+  "buttonText": zod.string().min(1).max(testAdminNotificationEmailTemplateBodyButtonTextMax),
+  "footerText": zod.string().min(1).max(testAdminNotificationEmailTemplateBodyFooterTextMax)
+})
+
+export const TestAdminNotificationEmailTemplateResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string()
 })
 
 
