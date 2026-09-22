@@ -5,7 +5,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import test, { after, before } from "node:test";
 import { once } from "node:events";
 import { resolve } from "node:path";
-import { eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import {
@@ -147,14 +147,7 @@ async function restorePricingFallback() {
 }
 
 type ReadyManualMonitorFixture = {
-  routeSnapshots: Array<{
-    id: string;
-    networkCode: string;
-    customerDepositsEnabled: boolean;
-    depositProvider: string;
-    sharedDepositAddress: string;
-    sharedDepositMemo: string | null;
-  }>;
+  routeSnapshots: Array<Record<string, any> & { id: string }>;
   monitorNetworkIds: string[];
   monitorAssetIds: string[];
 };
@@ -167,14 +160,7 @@ async function installReadyManualMonitorFixture(
   const routes = await db.select().from(cryptoAssetNetworksTable)
     .where(inArray(cryptoAssetNetworksTable.id, [...routeIds]));
   assert.equal(routes.length, routeIds.length);
-  const routeSnapshots = routes.map(route => ({
-    id: route.id,
-    networkCode: route.networkCode,
-    customerDepositsEnabled: route.customerDepositsEnabled,
-    depositProvider: route.depositProvider,
-    sharedDepositAddress: route.sharedDepositAddress,
-    sharedDepositMemo: route.sharedDepositMemo,
-  }));
+  const routeSnapshots = routes.map(route => ({ ...route }));
   const monitorNetworkIds: string[] = [];
   const monitorAssetIds: string[] = [];
   const monitorByCode = new Map<string, string>();
@@ -188,15 +174,15 @@ async function installReadyManualMonitorFixture(
       assert.equal(existing, undefined, `test route already has a monitor: ${route.networkCode}`);
       monitorNetworkId = `test-monitor-${randomUUID()}`;
       const endpointSecretRef = `TEST_MONITOR_RPC_${randomUUID().replaceAll("-", "").slice(0, 12)}`;
-      process.env[endpointSecretRef] = "https://monitor.test.invalid";
+      process.env[endpointSecretRef] = `${baseUrl}/test-monitor-rpc`;
       await db.insert(blockchainMonitorNetworksTable).values({
         id: monitorNetworkId,
         networkCode: route.networkCode,
         networkName: route.networkName,
-        adapterKind: "evm",
+        adapterKind: /^XRP$/i.test(route.networkCode) ? "tron" : "evm",
         providerKind: "rpc",
         enabled: true,
-        chainId: "0x1",
+        chainId: /^XRP$/i.test(route.networkCode) ? "tron-mainnet" : "0x1",
         endpointSecretRef,
         confirmationsRequired: 1,
         finalityPolicy: "confirmations",
@@ -222,6 +208,41 @@ async function installReadyManualMonitorFixture(
       sharedDepositAddress: options.addressByRoute?.[route.id] ?? route.sharedDepositAddress,
       sharedDepositMemo: options.memoByRoute?.[route.id] ?? route.sharedDepositMemo,
     }).where(eq(cryptoAssetNetworksTable.id, route.id));
+    const [network] = await db.select().from(blockchainMonitorNetworksTable)
+      .where(eq(blockchainMonitorNetworksTable.id, monitorNetworkId));
+    const [monitorAsset] = await db.select().from(blockchainMonitorAssetsTable)
+      .where(eq(blockchainMonitorAssetsTable.id, monitorAssetIds.at(-1)!));
+    const [updatedRoute] = await db.select().from(cryptoAssetNetworksTable)
+      .where(eq(cryptoAssetNetworksTable.id, route.id));
+    assert.ok(network && monitorAsset && updatedRoute);
+    const { manualMonitoringNetworkConfigDigest, manualMonitoringProofFingerprint } =
+      await import("../src/lib/manual-monitoring-readiness");
+    const endpoint = process.env[network.endpointSecretRef ?? ""];
+    const capturedAt = new Date();
+    const networkDigest = manualMonitoringNetworkConfigDigest({ network, endpoint });
+    const proof = manualMonitoringProofFingerprint({
+      network,
+      asset: monitorAsset,
+      route: updatedRoute,
+      endpoint,
+      capturedAt,
+      head: "test-head",
+    });
+    await db.update(blockchainMonitorNetworksTable).set({
+      healthProofFingerprint: networkDigest,
+      healthProofCapturedAt: capturedAt,
+    }).where(eq(blockchainMonitorNetworksTable.id, network.id));
+    await db.update(blockchainMonitorAssetsTable).set({
+      readinessProofFingerprint: proof,
+      readinessProofCapturedAt: capturedAt,
+    }).where(eq(blockchainMonitorAssetsTable.id, monitorAsset.id));
+    const { listReadyManualMonitoringRoutes } =
+      await import("../src/lib/manual-crypto");
+    assert.equal(
+      (await listReadyManualMonitoringRoutes()).has(route.id),
+      true,
+      `Test monitor fixture did not produce a ready route: ${route.id}`,
+    );
   }
   return { routeSnapshots, monitorNetworkIds, monitorAssetIds };
 }
@@ -246,6 +267,73 @@ async function restoreReadyManualMonitorFixture(fixture: ReadyManualMonitorFixtu
       if (network.endpointSecretRef) delete process.env[network.endpointSecretRef];
     }
   }
+}
+
+async function enableManualRouteForTest(
+  routeId: string,
+  overrides: Record<string, unknown> = {},
+) {
+  const { cryptoAssetNetworksTable, db } = await import("@workspace/db");
+  const [original] = await db.select().from(cryptoAssetNetworksTable)
+    .where(eq(cryptoAssetNetworksTable.id, routeId)).limit(1);
+  assert.ok(original, `Missing test route ${routeId}`);
+  await db.update(cryptoAssetNetworksTable).set({
+    executionMode: "manual",
+    enabled: true,
+    ...overrides,
+  }).where(eq(cryptoAssetNetworksTable.id, routeId));
+  return async () => {
+    await db.update(cryptoAssetNetworksTable).set(original)
+      .where(eq(cryptoAssetNetworksTable.id, routeId));
+  };
+}
+
+async function enableFiatOptionsForTest(
+  predicate: (row: any) => boolean,
+) {
+  const {
+    db,
+    fiatCurrenciesTable,
+    fiatCurrencyPaymentMethodsTable,
+    paymentMethodsTable,
+  } = await import("@workspace/db");
+  const rows = await db.select({
+    attachment: fiatCurrencyPaymentMethodsTable,
+    currency: fiatCurrenciesTable,
+    method: paymentMethodsTable,
+  }).from(fiatCurrencyPaymentMethodsTable)
+    .innerJoin(fiatCurrenciesTable, eq(fiatCurrencyPaymentMethodsTable.fiatCurrencyId, fiatCurrenciesTable.id))
+    .innerJoin(paymentMethodsTable, eq(fiatCurrencyPaymentMethodsTable.paymentMethodId, paymentMethodsTable.id));
+  const selected = rows.filter(predicate);
+  assert.ok(selected.length, "Missing required fiat test fixture.");
+  for (const row of selected) {
+    await db.update(fiatCurrenciesTable).set({
+      enabled: true,
+      lifecycle: "active",
+    }).where(eq(fiatCurrenciesTable.id, row.currency.id));
+    await db.update(paymentMethodsTable).set({
+      enabled: true,
+      lifecycle: "active",
+      executionMode: "manual",
+      canSend: true,
+      canReceive: true,
+    }).where(eq(paymentMethodsTable.id, row.method.id));
+    await db.update(fiatCurrencyPaymentMethodsTable).set({
+      enabled: true,
+      canSend: true,
+      canReceive: true,
+    }).where(eq(fiatCurrencyPaymentMethodsTable.id, row.attachment.id));
+  }
+  return async () => {
+    for (const row of selected) {
+      await db.update(fiatCurrenciesTable).set(row.currency)
+        .where(eq(fiatCurrenciesTable.id, row.currency.id));
+      await db.update(paymentMethodsTable).set(row.method)
+        .where(eq(paymentMethodsTable.id, row.method.id));
+      await db.update(fiatCurrencyPaymentMethodsTable).set(row.attachment)
+        .where(eq(fiatCurrencyPaymentMethodsTable.id, row.attachment.id));
+    }
+  };
 }
 
 function order(overrides: Record<string, unknown> = {}) {
@@ -294,6 +382,36 @@ async function readRequestJson(req: IncomingMessage) {
 }
 async function mock(req: IncomingMessage, res: ServerResponse) {
   const url = new URL(req.url ?? "/", "http://mock");
+  if (url.pathname === "/test-monitor-rpc") {
+    const request = await readRequestJson(req) as { id?: unknown; method?: string };
+    const result = request.method === "eth_chainId"
+      ? "0x1"
+      : request.method === "eth_blockNumber"
+        ? "0x1"
+        : request.method === "eth_getBlockByNumber"
+          ? {
+              hash: `0x${"1".repeat(64)}`,
+              timestamp: "0x1",
+              transactions: [`0x${"2".repeat(64)}`],
+            }
+          : request.method === "eth_getLogs"
+            ? []
+            : request.method === "eth_getTransactionReceipt"
+              ? { status: "0x1" }
+              : undefined;
+    if (result === undefined) {
+      return send(res, 400, {
+        jsonrpc: "2.0",
+        id: request.id ?? null,
+        error: { code: -32601, message: "Method not found" },
+      });
+    }
+    return send(res, 200, {
+      jsonrpc: "2.0",
+      id: request.id ?? null,
+      result,
+    });
+  }
   if (url.pathname === "/quotes") {
     fiatRateCalls++;
     receivedOneForgeKeys.push(url.searchParams.get("api_key") ?? "");
@@ -477,6 +595,7 @@ async function mock(req: IncomingMessage, res: ServerResponse) {
     if (mode === "missingSlow") return setTimeout(() => send(res, 201, { orderId: 812, depositAddress: "deposit" }), 150);
     providerOrders = [order({
       orderId: 800,
+      id: "provider-reference-800",
       createdAt: new Date().toISOString(),
     })];
     return send(res, 201, {
@@ -2204,7 +2323,9 @@ test("the capability registry exposes executable mapped networks without removin
     .where(eq(cryptoAssetNetworksTable.id, "btc-bitcoin")).limit(1);
   const [usdt] = await db.select().from(cryptoAssetNetworksTable)
     .where(eq(cryptoAssetNetworksTable.id, "usdt-trc20")).limit(1);
-  assert.ok(btc && usdt);
+  const [xrp] = await db.select().from(cryptoAssetNetworksTable)
+    .where(eq(cryptoAssetNetworksTable.id, "xrp-xrpl")).limit(1);
+  assert.ok(btc && usdt && xrp);
   const unmappedAssetId = `unmapped-${randomUUID()}`;
   const unmappedNetworkId = `unmapped-${randomUUID()}`;
   const requestId = requestIdForTest(49);
@@ -2213,6 +2334,8 @@ test("the capability registry exposes executable mapped networks without removin
       .where(eq(cryptoAssetNetworksTable.id, btc.id));
     await db.update(cryptoAssetNetworksTable).set({ executionMode: "api", enabled: true })
       .where(eq(cryptoAssetNetworksTable.id, usdt.id));
+    await db.update(cryptoAssetNetworksTable).set({ executionMode: "manual", enabled: false })
+      .where(eq(cryptoAssetNetworksTable.id, xrp.id));
     await db.insert(cryptoAssetsTable).values({
       id: unmappedAssetId,
       code: "ZZZ",
@@ -2358,14 +2481,12 @@ test("the capability registry exposes executable mapped networks without removin
   } finally {
     await db.delete(quickexOrdersTable).where(eq(quickexOrdersTable.clientRequestId, requestId));
     await db.delete(cryptoAssetsTable).where(eq(cryptoAssetsTable.id, unmappedAssetId));
-    await db.update(cryptoAssetNetworksTable).set({
-      executionMode: btc.executionMode,
-      enabled: btc.enabled,
-    }).where(eq(cryptoAssetNetworksTable.id, btc.id));
-    await db.update(cryptoAssetNetworksTable).set({
-      executionMode: usdt.executionMode,
-      enabled: usdt.enabled,
-    }).where(eq(cryptoAssetNetworksTable.id, usdt.id));
+    await db.update(cryptoAssetNetworksTable).set(btc)
+      .where(eq(cryptoAssetNetworksTable.id, btc.id));
+    await db.update(cryptoAssetNetworksTable).set(usdt)
+      .where(eq(cryptoAssetNetworksTable.id, usdt.id));
+    await db.update(cryptoAssetNetworksTable).set(xrp)
+      .where(eq(cryptoAssetNetworksTable.id, xrp.id));
     reset();
     quickex.resetQuickexInstrumentCacheForTests();
     await api.close();
@@ -2546,6 +2667,15 @@ test("Quickex namespace owns signed quotes, orders, tracking, and idempotency", 
       assert.equal("refundAddressMemo" in (createPayloads.at(-1) ?? {}), false);
       await db.delete(quickexOrdersTable).where(eq(quickexOrdersTable.clientRequestId, absentRefundRequestId));
     }
+    providerOrders = [order({
+      orderId: 799,
+      state: "created",
+      completed: false,
+      amountToWithdrawFact: "0",
+      destinationAddress: input.destinationAddress,
+      createdAt: new Date(Date.now() - 1_000).toISOString(),
+    })];
+    resetQuickexOrderSnapshotForTests();
     createCalls = 0;
     assert.equal((await apiJson(api.url, "/quickex/create-order", {
       ...input, quoteId: quoted.body.quoteId, clientRequestId: "",
@@ -2602,16 +2732,35 @@ test("Quickex namespace owns signed quotes, orders, tracking, and idempotency", 
       trackingToken: String(created.body.trackingToken),
     });
 
+    providerOrders = [order({
+      orderId: 800,
+      id: "provider-reference-800",
+      state: "created",
+      completed: false,
+      amountToGet: "99.5",
+      amountToWithdrawFact: "0",
+      destinationAddress: input.destinationAddress,
+      refundAddress: null,
+      claimedDepositAmount: "1",
+      createdAt: String(created.body.createdAt),
+    })];
+    resetQuickexOrderSnapshotForTests();
     const tokenlessCapabilityLookup = await fetch(
       `${api.url}/quickex/orders/${created.body.id}/status`,
     );
-    assert.equal(tokenlessCapabilityLookup.status, 200);
+    const tokenlessCapabilityBody = await tokenlessCapabilityLookup.json() as Record<string, unknown>;
     assert.equal(
-      ((await tokenlessCapabilityLookup.json()) as Record<string, unknown>).id,
+      tokenlessCapabilityLookup.status,
+      200,
+      JSON.stringify(tokenlessCapabilityBody),
+    );
+    assert.equal(
+      tokenlessCapabilityBody.id,
       created.body.id,
     );
     providerOrders = [order({
       orderId: 800,
+      id: "provider-reference-800",
       state: "created",
       completed: false,
       amountToGet: "99.5",
@@ -2636,6 +2785,7 @@ test("Quickex namespace owns signed quotes, orders, tracking, and idempotency", 
 
     providerOrders = [order({
       orderId: 800,
+      id: "provider-reference-800",
       state: "received",
       completed: false,
       amountToWithdrawFact: "1",
@@ -2659,6 +2809,7 @@ test("Quickex namespace owns signed quotes, orders, tracking, and idempotency", 
 
     providerOrders = [order({
       orderId: 800,
+      id: "provider-reference-800",
       state: "completed",
       completed: true,
       amountToWithdrawFact: "98.75",
@@ -3071,13 +3222,28 @@ test("manual pricing bulk actions update safe rules and report skipped conflicts
 });
 
 test("manual crypto catalog and signed funding snapshots are independent of Quickex", async () => {
-  const { cryptoAssetNetworksTable, db, manualDeskPricingRulesTable } = await import("@workspace/db");
+  const {
+    cryptoAssetNetworksTable,
+    customersTable,
+    db,
+    manualDeskPricingRulesTable,
+    ordersTable,
+  } = await import("@workspace/db");
   const [original] = await db.select().from(cryptoAssetNetworksTable)
     .where(eq(cryptoAssetNetworksTable.id, "btc-bitcoin")).limit(1);
   assert.ok(original);
   const api = await startApi();
   let ruleId: string | undefined;
   let monitorFixture: ReadyManualMonitorFixture | undefined;
+  const createdOrderIds: string[] = [];
+  const unchangedFundingEmail = `unchanged-funding-${randomUUID()}@example.test`;
+  const changedFundingEmail = `changed-funding-${randomUUID()}@example.test`;
+  const restoreRoute = await enableManualRouteForTest("btc-bitcoin", {
+    networkCode: "Bitcoin",
+    customerDepositsEnabled: false,
+    sharedDepositAddress: "",
+    sharedDepositMemo: null,
+  });
   try {
     reset("catalogUnavailable");
     quickex.resetQuickexInstrumentCacheForTests();
@@ -3120,6 +3286,11 @@ test("manual crypto catalog and signed funding snapshots are independent of Quic
       requiredConfirmations: 3,
       confirmationGuidance: "Wait for three confirmations.",
     }).where(eq(cryptoAssetNetworksTable.id, "btc-bitcoin"));
+    assert.equal(
+      (await (await import("../src/lib/manual-crypto")).listReadyManualMonitoringRoutes())
+        .has("btc-bitcoin"),
+      true,
+    );
     const fundedConfig = await (await fetch(`${api.url}/exchange/config`)).json() as {
       manualSettlementOptions: Array<Record<string, unknown>>;
     };
@@ -3143,10 +3314,11 @@ test("manual crypto catalog and signed funding snapshots are independent of Quic
       quoteId: quoted.body.quoteId,
       settlementDetails: settlementDetailsFixture(quoted.body.requiredSettlementFields),
       refundAddress: "1BoatSLRHtKNngkdXEeobR76b53LETtpyT",
-      customerEmail: "unchanged-funding@example.test",
+      customerEmail: unchangedFundingEmail,
       clientRequestId: randomUUID(),
     });
-    assert.equal(unchangedFundingOrder.status, 201);
+    assert.equal(unchangedFundingOrder.status, 201, JSON.stringify(unchangedFundingOrder.body));
+    createdOrderIds.push(String(unchangedFundingOrder.body.id));
     await db.update(cryptoAssetNetworksTable).set({ sharedDepositAddress: "changed-later" })
       .where(eq(cryptoAssetNetworksTable.id, "btc-bitcoin"));
     const immutable = JSON.parse(Buffer.from(String(quoted.body.quoteId).split(".")[0], "base64url").toString()) as any;
@@ -3156,14 +3328,20 @@ test("manual crypto catalog and signed funding snapshots are independent of Quic
       quoteId: quoted.body.quoteId,
       settlementDetails: settlementDetailsFixture(quoted.body.requiredSettlementFields),
       refundAddress: "1BoatSLRHtKNngkdXEeobR76b53LETtpyT",
-      customerEmail: "changed-funding@example.test",
+      customerEmail: changedFundingEmail,
       clientRequestId: randomUUID(),
     });
     assert.equal(changedFundingOrder.status, 422);
     assert.equal(changedFundingOrder.body.code, "SETTLEMENT_OPTION_INVALID");
   } finally {
+    if (createdOrderIds.length) {
+      await db.delete(ordersTable).where(inArray(ordersTable.id, createdOrderIds));
+    }
+    await db.delete(customersTable).where(eq(customersTable.email, unchangedFundingEmail));
+    await db.delete(customersTable).where(eq(customersTable.email, changedFundingEmail));
     if (ruleId) await db.delete(manualDeskPricingRulesTable).where(eq(manualDeskPricingRulesTable.id, ruleId));
     if (monitorFixture) await restoreReadyManualMonitorFixture(monitorFixture);
+    await restoreRoute();
     await db.update(cryptoAssetNetworksTable).set(original)
       .where(eq(cryptoAssetNetworksTable.id, original.id));
     reset();
@@ -3349,6 +3527,14 @@ test("manual crypto-to-fiat source accepts no refund and validates a supplied wa
   const createdOrderIds: string[] = [];
   let ruleId: string | undefined;
   let monitorFixture: ReadyManualMonitorFixture | undefined;
+  const restoreRoute = await enableManualRouteForTest("xrp-xrpl", {
+    networkCode: "Ripple",
+    customerDepositsEnabled: false,
+    sharedDepositAddress: "",
+    sharedDepositMemo: null,
+  });
+  const restoreFiat = await enableFiatOptionsForTest(row =>
+    row.currency.code === "EUR" && row.method.id === "revolut-eur");
   try {
     monitorFixture = await installReadyManualMonitorFixture(["xrp-xrpl"], {
       addressByRoute: { "xrp-xrpl": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh" },
@@ -3425,6 +3611,8 @@ test("manual crypto-to-fiat source accepts no refund and validates a supplied wa
     if (ruleId) await db.delete((await import("@workspace/db")).manualDeskPricingRulesTable)
       .where(eq((await import("@workspace/db")).manualDeskPricingRulesTable.id, ruleId));
     if (monitorFixture) await restoreReadyManualMonitorFixture(monitorFixture);
+    await restoreFiat();
+    await restoreRoute();
     await db.update(cryptoAssetNetworksTable).set(original)
       .where(eq(cryptoAssetNetworksTable.id, original.id));
     await api.close();
@@ -3648,11 +3836,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
   const differentNetworkId = `wallet-network-different-${suffix}`;
   const sharedCode = `WALLET-${suffix.slice(0, 12)}`;
   const differentCode = "BTC";
-  const existingDepositStates = await db.select({
-    id: cryptoAssetNetworksTable.id,
-    customerDepositsEnabled: cryptoAssetNetworksTable.customerDepositsEnabled,
-    updatedAt: cryptoAssetNetworksTable.updatedAt,
-  }).from(cryptoAssetNetworksTable);
+  const existingDepositStates = await db.select().from(cryptoAssetNetworksTable);
   let monitorFixture: ReadyManualMonitorFixture | undefined;
   const [operator] = await db.insert(operatorsTable).values({
     email: `wallet-owner-${suffix}@example.test`,
@@ -3667,15 +3851,18 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
   await db.insert(cryptoAssetNetworksTable).values([
     {
       id: networkAId, assetId: assetAId, networkCode: sharedCode,
-      networkName: "Bitcoin Shared A", decimals: 6,
+      networkName: "Bitcoin Shared A", decimals: 6, executionMode: "manual",
+      depositProvider: "manual",
     },
     {
       id: networkBId, assetId: assetBId, networkCode: sharedCode,
       networkName: "Bitcoin Shared B", decimals: 6, requiresMemo: true,
+      executionMode: "manual", depositProvider: "manual",
     },
     {
       id: differentNetworkId, assetId: assetAId, networkCode: differentCode,
       networkName: "Bitcoin", decimals: 6,
+      executionMode: "manual", depositProvider: "manual",
       sharedDepositAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
       sharedDepositMemo: "untouched-memo",
     },
@@ -3742,7 +3929,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
       row.sharedDepositAddress === "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh" &&
       row.sharedDepositMemo === "selected-network-memo" &&
       row.customerDepositsEnabled
-    ));
+    ), JSON.stringify(selectedNetworks.body));
     const enabledSelectedConfig = await (await fetch(`${api.url}/exchange/config`)).json() as {
       manualSettlementOptions: Array<{ id: string; direction: string }>;
     };
@@ -3777,7 +3964,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
       enabled: true,
       depositProvider: "manual",
     }, "PUT", headers);
-    assert.equal(rejectedSelection.status, 422);
+    assert.equal(rejectedSelection.status, 422, JSON.stringify(rejectedSelection.body));
     assert.equal(rejectedSelection.body.code, "CRYPTO_DEPOSIT_MEMO_REQUIRED");
     const rowsAfterRejectedSelection = await db.select().from(cryptoAssetNetworksTable)
       .where(inArray(cryptoAssetNetworksTable.id, [networkAId, networkBId]));
@@ -3912,10 +4099,8 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     if (monitorFixture) await restoreReadyManualMonitorFixture(monitorFixture);
     await db.transaction(async tx => {
       for (const state of existingDepositStates) {
-        await tx.update(cryptoAssetNetworksTable).set({
-          customerDepositsEnabled: state.customerDepositsEnabled,
-          updatedAt: state.updatedAt,
-        }).where(eq(cryptoAssetNetworksTable.id, state.id));
+        await tx.update(cryptoAssetNetworksTable).set(state)
+          .where(eq(cryptoAssetNetworksTable.id, state.id));
       }
     });
     await db.delete(operatorAuditLogsTable).where(eq(operatorAuditLogsTable.actorClerkUserId, userId));
@@ -6225,6 +6410,9 @@ test("operators can price enabled fiat settlement routes with exact and fallback
   const api = await startApi();
   const headers = { "x-test-clerk-user-id": userId };
   const ruleIds: string[] = [];
+  let conflictingRules: Array<Record<string, any>> = [];
+  const restoreFiat = await enableFiatOptionsForTest(row =>
+    row.currency.code === "USD" || row.currency.code === "EUR");
   try {
     const configResponse = await fetch(`${api.url}/exchange/config`);
     assert.equal(configResponse.status, 200);
@@ -6247,6 +6435,16 @@ test("operators can price enabled fiat settlement routes with exact and fallback
       (option.direction === "receive" || option.direction === "both"));
     assert.ok(source && target);
     assert.notEqual(source.id, target.id);
+    conflictingRules = (await db.select().from(manualDeskPricingRulesTable))
+      .filter(rule =>
+        rule.sourceAsset === source.assetCode &&
+        rule.targetAsset === target.assetCode &&
+        (!rule.sourceNetwork || rule.sourceNetwork === source.routeNetwork) &&
+        (!rule.targetNetwork || rule.targetNetwork === target.routeNetwork));
+    for (const rule of conflictingRules) {
+      await db.update(manualDeskPricingRulesTable).set({ enabled: false })
+        .where(eq(manualDeskPricingRulesTable.id, rule.id));
+    }
 
     const exactRule = {
       name: "Exact enabled EUR to USD fiat route",
@@ -6458,6 +6656,11 @@ test("operators can price enabled fiat settlement routes with exact and fallback
         .where(inArray(manualDeskPricingRulesTable.id, ruleIds));
     }
     await db.delete(operatorsTable).where(eq(operatorsTable.id, operator.id));
+    for (const rule of conflictingRules) {
+      await db.update(manualDeskPricingRulesTable).set(rule)
+        .where(eq(manualDeskPricingRulesTable.id, rule.id));
+    }
+    await restoreFiat();
     await api.close();
     manualDeskRates.configureManualDeskRateAdapterForTests(async () => ({
       USD: 1, EUR: 0.9, GBP: 0.8, AED: 3.67, BTC: 0.00002, USDT: 1, XRP: 2,
@@ -6494,6 +6697,14 @@ test("manual pricing rules match deterministically, protect writes, and snapshot
   const ruleIds: string[] = [];
   let orderId: string | undefined;
   const email = `pricing-customer-${suffix}@example.test`;
+  const restoreUsdtRoute = await enableManualRouteForTest("usdt-trc20", {
+    customerDepositsEnabled: true,
+    depositProvider: "whitebit",
+    sharedDepositAddress: "TBLc145ZDNs4LjPqQtuvqkEDjhesemTosd",
+    sharedDepositMemo: null,
+  });
+  const restoreFiat = await enableFiatOptionsForTest(row =>
+    row.currency.code === "USD" || row.currency.code === "EUR");
   const routeRule = {
     name: "USD EUR wallet pricing",
     sourceAsset: "USD",
@@ -6860,6 +7071,8 @@ test("manual pricing rules match deterministically, protect writes, and snapshot
     if (ruleIds.length) await db.delete(manualDeskPricingRulesTable)
       .where(inArray(manualDeskPricingRulesTable.id, ruleIds));
     await db.delete(operatorsTable).where(eq(operatorsTable.id, operator.id));
+    await restoreFiat();
+    await restoreUsdtRoute();
     await api.close();
   }
 });
