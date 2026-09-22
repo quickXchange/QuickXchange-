@@ -280,26 +280,28 @@ export class EvmJsonRpcAdapter implements BlockchainMonitorAdapter {
           }
         }
       }
-      for (const contract of tokenContracts) {
-        for (const address of tokenAddresses) {
-          const logs = await this.rpc<EvmLog[]>("eth_getLogs", [{
-            fromBlock: blockHex, toBlock: blockHex, address: contract,
-            topics: [TRANSFER_TOPIC, null, topicAddress(address)],
-          }]);
-          const item = tokens.find(candidate =>
-            normalizeEvmAddress(candidate.address.address) === address &&
-            normalizeEvmAddress(candidate.asset.contractOrMint ?? "") === contract);
-          if (!item) continue;
-          for (const log of logs) {
-            const receipt = log.transactionHash
-              ? await this.rpc<{ status?: string } | null>("eth_getTransactionReceipt", [log.transactionHash])
-              : null;
-            if (receipt?.status !== "0x1") continue;
-            const parsed = parseEvmTransferLog(log, this.networkCode, item.address, item.asset);
-            if (parsed) {
-              const fullBlock = await this.rpc<EvmBlock | null>("eth_getBlockByNumber", [blockHex, false]);
-              evidence.push({ ...parsed, blockHash: fullBlock?.hash, blockTimestamp: fullBlock?.timestamp ? new Date(Number(BigInt(fullBlock.timestamp)) * 1000).toISOString() : undefined });
-            }
+    }
+    const fromHex = `0x${from.toString(16)}`;
+    const toHex = `0x${to.toString(16)}`;
+    for (const contract of tokenContracts) {
+      for (const address of tokenAddresses) {
+        const item = tokens.find(candidate =>
+          normalizeEvmAddress(candidate.address.address) === address &&
+          normalizeEvmAddress(candidate.asset.contractOrMint ?? "") === contract);
+        if (!item) continue;
+        const logs = await this.rpc<EvmLog[]>("eth_getLogs", [{
+          fromBlock: fromHex, toBlock: toHex, address: contract,
+          topics: [TRANSFER_TOPIC, null, topicAddress(address)],
+        }]);
+        for (const log of logs) {
+          const receipt = log.transactionHash
+            ? await this.rpc<{ status?: string } | null>("eth_getTransactionReceipt", [log.transactionHash])
+            : null;
+          if (receipt?.status !== "0x1") continue;
+          const parsed = parseEvmTransferLog(log, this.networkCode, item.address, item.asset);
+          if (parsed) {
+            const fullBlock = await this.rpc<EvmBlock | null>("eth_getBlockByNumber", [log.blockNumber ?? fromHex, false]);
+            evidence.push({ ...parsed, blockHash: fullBlock?.hash, blockTimestamp: fullBlock?.timestamp ? new Date(Number(BigInt(fullBlock.timestamp)) * 1000).toISOString() : undefined });
           }
         }
       }

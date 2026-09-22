@@ -77,6 +77,54 @@ test("EVM native scans request receipts only for watched-address candidates", as
   }
 });
 
+test("EVM token scans query one exact bounded range instead of one request per block", async () => {
+  const logRequests: unknown[][] = [];
+  const server = createServer((req, res) => {
+    let body = "";
+    req.setEncoding("utf8");
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", () => {
+      const request = JSON.parse(body) as { id: number; method: string; params: unknown[] };
+      if (request.method === "eth_getLogs") logRequests.push(request.params);
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ jsonrpc: "2.0", id: request.id, result: [] }));
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = server.address();
+    assert(address && typeof address === "object");
+    const adapter = new EvmJsonRpcAdapter({
+      networkCode: "BEP20",
+      provider: "rpc",
+      adapterKind: "evm",
+      endpoint: `http://127.0.0.1:${address.port}`,
+    });
+    await adapter.scanIncoming({ from: "16", to: "1016" }, [{
+      address: "0x1111111111111111111111111111111111111111",
+      assets: [{
+        assetId: "usdt-bep20",
+        symbol: "USDT",
+        kind: "token",
+        contractOrMint: "0x2222222222222222222222222222222222222222",
+        decimals: 18,
+      }],
+    }]);
+    assert.deepEqual(logRequests, [[{
+      fromBlock: "0x10",
+      toBlock: "0x3f8",
+      address: "0x2222222222222222222222222222222222222222",
+      topics: [
+        "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+        null,
+        `0x${"11".repeat(20).padStart(64, "0")}`,
+      ],
+    }]]);
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
+});
+
 test("EVM health checks prove required RPC methods with bounded payloads", async () => {
   const requests: Array<{ method: string; params: unknown[] }> = [];
   const server = createServer((req, res) => {
