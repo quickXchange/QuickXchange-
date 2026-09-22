@@ -4,6 +4,10 @@ import path from "node:path";
 const artifactDir = path.resolve(process.argv[2] || ".");
 const publicDir = path.join(artifactDir, "dist", "public");
 const indexPath = path.join(publicDir, "index.html");
+const configuredBasePath = process.env.BASE_PATH?.trim();
+const basePath = configuredBasePath
+  ? `/${configuredBasePath.replace(/^\/+|\/+$/g, "")}/`
+  : "/telegram-mini-app/";
 
 async function requireFile(filePath) {
   await access(filePath);
@@ -21,7 +25,11 @@ const references = [...html.matchAll(/(?:src|href)=["']([^"'?#]+)(?:[?#][^"']*)?
   .filter((reference) => !/^(?:https?:|data:|mailto:|#)/.test(reference));
 
 for (const reference of references) {
-  const relativePath = reference.replace(/^\/telegram-mini-app\//, "").replace(/^\/+/, "");
+  const relativePath = (
+    reference.startsWith(basePath)
+      ? reference.slice(basePath.length)
+      : reference
+  ).replace(/^\/+/, "");
   if (!relativePath) continue;
   await requireFile(path.join(publicDir, relativePath));
 }
