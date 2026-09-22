@@ -715,6 +715,13 @@
       "when": 1790085000000,
       "tag": "0103_bsc_monitor_rpc_v2",
       "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1790086000000,
+      "tag": "0104_bsc_alchemy_log_range",
+      "breakpoints": true
     }
   ]
 }
