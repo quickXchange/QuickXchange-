@@ -77,7 +77,7 @@ TRON_MONITOR_API_URL = "https://api.trongrid.io"
 
 [userenv.production]
 USE_DATABASE_OWNER = "true"
-BSC_MONITOR_RPC_URL = "https://1rpc.io/bnb"
+BSC_MONITOR_RPC_URL = "https://bsc.rpc.blxrbdn.com"
 
 [userenv.development]
 BSC_MONITOR_RPC_URL = "https://bsc-dataseed.binance.org/"
