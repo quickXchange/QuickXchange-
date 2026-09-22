@@ -2669,16 +2669,19 @@ async function createOrderFromInput(
       sourceSnapshot?.kind === "crypto-network" &&
       selectedDepositProvider === "manual"
     ) {
-      const networkCode = (sourceSnapshot.networkCode ?? quote.fromNetwork).trim();
+      const sourceRouteId = sourceSnapshot.networkId ??
+        sourceSnapshot.id.replace(/^crypto:/, "");
       const [catalog] = await tx.select({
         route: cryptoAssetNetworksTable,
         asset: cryptoAssetsTable,
       }).from(cryptoAssetNetworksTable)
         .innerJoin(cryptoAssetsTable, eq(cryptoAssetsTable.id, cryptoAssetNetworksTable.assetId))
         .where(and(
-          eq(cryptoAssetNetworksTable.networkCode, networkCode),
+          eq(cryptoAssetNetworksTable.id, sourceRouteId),
           eq(cryptoAssetsTable.code, sourceSnapshot.assetCode.toUpperCase()),
         )).for("update").limit(1);
+      const networkCode = catalog?.route.networkCode ??
+        (sourceSnapshot.networkCode ?? quote.fromNetwork).trim();
       const [monitorNetwork] = catalog
         ? await tx.select().from(blockchainMonitorNetworksTable)
           .where(eq(blockchainMonitorNetworksTable.networkCode, networkCode))

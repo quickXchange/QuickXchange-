@@ -247,9 +247,25 @@ export async function registerManualBlockchainWatch(
   const [order] = await db.select().from(ordersTable).where(and(eq(ordersTable.id, orderId), ELIGIBLE)).limit(1);
   if (!order) return;
   const funding = object(order.fundingDetailsSnapshot);
-  const networkCode = text(funding.networkCode) || text(funding.network) || order.fromNetwork;
   const rawAddress = text(funding.address) || order.depositAddress;
   const assetCode = text(funding.assetCode) || text(funding.asset) || order.fromAsset;
+  const snapshotNetworkCode = text(funding.networkCode) || text(funding.network) || order.fromNetwork;
+  const sourceRouteId = order.sourceSettlementOptionId?.startsWith("crypto:")
+    ? order.sourceSettlementOptionId.slice("crypto:".length)
+    : "";
+  const [route] = await db.select({ route: cryptoAssetNetworksTable }).from(cryptoAssetNetworksTable)
+    .innerJoin(cryptoAssetsTable, eq(cryptoAssetsTable.id, cryptoAssetNetworksTable.assetId))
+    .where(sourceRouteId
+      ? and(
+          eq(cryptoAssetNetworksTable.id, sourceRouteId),
+          sql`${cryptoAssetNetworksTable.assetId} = ${assetCode} or upper(${cryptoAssetsTable.code}) = upper(${assetCode})`,
+        )
+      : and(
+          eq(cryptoAssetNetworksTable.networkCode, snapshotNetworkCode),
+          sql`${cryptoAssetNetworksTable.assetId} = ${assetCode} or upper(${cryptoAssetsTable.code}) = upper(${assetCode})`,
+        ))
+    .limit(1);
+  const networkCode = route?.route.networkCode ?? snapshotNetworkCode;
   const persistGap = async (reason: string) => {
     await db.insert(blockchainMonitorRegistrationGapsTable).values({ orderId, networkCode, assetCode, receivingAddress: rawAddress, reason })
       .onConflictDoUpdate({ target: blockchainMonitorRegistrationGapsTable.orderId, set: { reason, resolvedAt: null } });
@@ -259,21 +275,6 @@ export async function registerManualBlockchainWatch(
   if (!network) { await persistGap("Monitoring network is not configured."); return; }
   const address = network.adapterKind === "tron" ? normalizeTronAddress(rawAddress) : rawAddress;
   if (!address) return;
-  const sourceRouteId = order.sourceSettlementOptionId?.startsWith("crypto:")
-    ? order.sourceSettlementOptionId.slice("crypto:".length)
-    : "";
-  const [route] = await db.select({ route: cryptoAssetNetworksTable }).from(cryptoAssetNetworksTable)
-    .innerJoin(cryptoAssetsTable, eq(cryptoAssetsTable.id, cryptoAssetNetworksTable.assetId))
-    .where(sourceRouteId
-      ? and(
-          eq(cryptoAssetNetworksTable.id, sourceRouteId),
-          eq(cryptoAssetNetworksTable.networkCode, networkCode),
-        )
-      : and(
-          eq(cryptoAssetNetworksTable.networkCode, networkCode),
-          sql`${cryptoAssetNetworksTable.assetId} = ${assetCode} or upper(${cryptoAssetsTable.code}) = upper(${assetCode})`,
-        ))
-    .limit(1);
   if (!route) { await persistGap("Asset network route is not configured."); return; }
   if (network.adapterKind === "evm" && (text(funding.memo) || order.depositMemo)) return;
   let startCursor = options.freshCursor ? null : network.lastHead;
