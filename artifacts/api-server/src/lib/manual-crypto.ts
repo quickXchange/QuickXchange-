@@ -131,7 +131,7 @@ export function isManualMonitoringRuntimeReady(input: {
       Date.now() - input.healthProofCapturedAtMs >= 0 &&
       Date.now() - input.healthProofCapturedAtMs <= healthMaxAgeMs
     )) &&
-    ["evm", "tron", "solana"].includes(input.adapterKind) &&
+    ["evm", "tron", "solana", "bitcoin"].includes(input.adapterKind) &&
     input.providerCompatible &&
     input.receivingAddressValid &&
     input.memoValid &&

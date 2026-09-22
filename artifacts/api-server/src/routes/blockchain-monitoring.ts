@@ -283,7 +283,7 @@ router.post("/admin/blockchain-monitoring/networks/:id/test", async (req, res, n
     const adapter = createBlockchainMonitorAdapter({
       networkCode: row.networkCode,
       provider: row.providerKind as "rpc" | "indexer",
-      adapterKind: row.adapterKind as "evm" | "tron" | "solana",
+      adapterKind: row.adapterKind as "evm" | "tron" | "solana" | "bitcoin",
       endpoint,
       apiKey: row.apiKeySecretRef ? process.env[row.apiKeySecretRef] : undefined,
       chainId: row.chainId ?? undefined,

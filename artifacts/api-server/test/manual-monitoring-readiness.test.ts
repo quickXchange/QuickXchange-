@@ -136,7 +136,16 @@ test("non-BSC routes require a fresh proof and exact provider compatibility befo
     healthCheckedAtMs: Date.now() - 180_000,
   })), false);
   assert.equal(isManualMonitoringRuntimeReady(runtimeInput({ providerCompatible: false })), false);
-  assert.equal(isManualMonitoringRuntimeReady(runtimeInput({ adapterKind: "bitcoin", providerKind: "rpc" })), false);
+  assert.equal(isManualMonitoringRuntimeReady(runtimeInput({
+    routeId: "btc-bitcoin",
+    routeNetworkCode: "BTC",
+    monitorAssetRouteId: "btc-bitcoin",
+    monitorNetworkCode: "BTC",
+    adapterKind: "bitcoin",
+    providerKind: "rpc",
+    identityKind: "native",
+    contractOrMint: null,
+  })), true);
 });
 
 test("native and token identities are not interchangeable and malformed identities stay unavailable", () => {
