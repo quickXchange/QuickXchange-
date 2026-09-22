@@ -260,6 +260,15 @@ import {
   isSyntacticallyValidManualWalletMemo,
   normalizeRefundFields,
 } from "../lib/manual-wallet-validation";
+import {
+  prepareManualMonitoringReadiness,
+  manualMonitoringProofFingerprint,
+  manualMonitoringNetworkConfigDigest,
+  isLegacyBep20Network,
+  isValidManualMonitoringTokenIdentity,
+  type ManualMonitoringReadiness,
+} from "../lib/manual-monitoring-readiness";
+import { adapterConfig } from "../lib/blockchain-monitoring/service";
 import { initializeAffiliateForOrder, processPendingAffiliateCompletions } from "../lib/affiliate-accounting";
 import { reconcilePendingQuickexOrders } from "../lib/quickex-order-service";
 import { finalizeSwapFundingFromClaim, provisionSwapFundingAddress } from "./whitebit";
@@ -2652,6 +2661,137 @@ async function createOrderFromInput(
     const [existing] = await tx.select().from(ordersTable)
       .where(eq(ordersTable.clientRequestId, input.clientRequestId)).limit(1);
     if (existing) return undefined;
+    if (
+      sourceSnapshot?.kind === "crypto-network" &&
+      selectedDepositProvider === "manual"
+    ) {
+      const networkCode = (sourceSnapshot.networkCode ?? quote.fromNetwork).trim();
+      const [catalog] = await tx.select({
+        route: cryptoAssetNetworksTable,
+        asset: cryptoAssetsTable,
+      }).from(cryptoAssetNetworksTable)
+        .innerJoin(cryptoAssetsTable, eq(cryptoAssetsTable.id, cryptoAssetNetworksTable.assetId))
+        .where(and(
+          eq(cryptoAssetNetworksTable.networkCode, networkCode),
+          eq(cryptoAssetsTable.code, sourceSnapshot.assetCode.toUpperCase()),
+        )).for("update").limit(1);
+      const [monitorNetwork] = catalog
+        ? await tx.select().from(blockchainMonitorNetworksTable)
+          .where(eq(blockchainMonitorNetworksTable.networkCode, networkCode))
+          .for("update").limit(1)
+        : [];
+      const [monitorAsset] = catalog && monitorNetwork
+        ? await tx.select().from(blockchainMonitorAssetsTable).where(and(
+          eq(blockchainMonitorAssetsTable.monitorNetworkId, monitorNetwork.id),
+          eq(blockchainMonitorAssetsTable.assetNetworkId, catalog.route.id),
+        )).for("update").limit(1)
+        : [];
+      const legacy = isLegacyBep20Network(networkCode);
+      const endpoint = monitorNetwork?.endpointSecretRef
+        ? process.env[monitorNetwork.endpointSecretRef]
+        : undefined;
+      const apiKey = monitorNetwork?.apiKeySecretRef
+        ? process.env[monitorNetwork.apiKeySecretRef]
+        : undefined;
+      const configDigest = monitorNetwork
+        ? manualMonitoringNetworkConfigDigest({ network: monitorNetwork, endpoint, apiKey })
+        : undefined;
+      const routeDigest = monitorNetwork && monitorAsset
+        ? manualMonitoringProofFingerprint({
+          network: monitorNetwork,
+          asset: monitorAsset,
+          route: catalog!.route,
+          endpoint,
+          apiKey,
+          capturedAt: monitorNetwork.healthProofCapturedAt ?? new Date(0),
+          head: monitorNetwork.lastHead ?? "",
+        })
+        : undefined;
+      const healthFresh = monitorNetwork?.healthProofCapturedAt &&
+        Date.now() - monitorNetwork.healthProofCapturedAt.getTime() >= 0 &&
+        Date.now() - monitorNetwork.healthProofCapturedAt.getTime() <=
+          Math.max(120_000, (monitorNetwork.pollIntervalSeconds ?? 15) * 3_000);
+      const legacyHealthFresh = monitorNetwork?.healthCheckedAt &&
+        Date.now() - monitorNetwork.healthCheckedAt.getTime() >= 0 &&
+        Date.now() - monitorNetwork.healthCheckedAt.getTime() <=
+          Math.max(120_000, (monitorNetwork.pollIntervalSeconds ?? 15) * 3_000);
+      const route = catalog?.route;
+      const asset = catalog?.asset;
+      const identityValid = Boolean(
+        monitorAsset &&
+        (
+          monitorAsset.identityKind === "native"
+            ? !monitorAsset.contractOrMint?.trim()
+            : monitorAsset.identityKind === "token" &&
+              isValidManualMonitoringTokenIdentity(
+                monitorNetwork?.adapterKind ?? "",
+                monitorAsset.contractOrMint,
+              )
+        ) &&
+        monitorAsset.decimals === route?.decimals
+      );
+      const catalogEligible = Boolean(
+        route &&
+        asset &&
+        asset.enabled &&
+        asset.lifecycle !== "deprecated" &&
+        route.enabled &&
+        route.lifecycle !== "deprecated" &&
+        route.executionMode === "manual" &&
+        route.depositProvider === "manual" &&
+        route.customerDepositsEnabled &&
+        isSyntacticallyValidManualWalletAddress(route, route.sharedDepositAddress) &&
+        (!route.requiresMemo ||
+          Boolean(
+            route.sharedDepositMemo &&
+            isSyntacticallyValidManualWalletMemo(route, route.sharedDepositMemo),
+          )),
+      );
+      const providerCompatible = Boolean(
+        monitorNetwork &&
+        (
+          monitorNetwork.adapterKind === "evm" && monitorNetwork.providerKind === "rpc" ||
+          monitorNetwork.adapterKind === "solana" && monitorNetwork.providerKind === "rpc" ||
+          monitorNetwork.adapterKind === "tron" && monitorNetwork.providerKind === "indexer"
+        ),
+      );
+      const ready = legacy
+        ? Boolean(
+          catalogEligible &&
+          monitorNetwork &&
+          monitorAsset &&
+          identityValid &&
+          monitorNetwork.networkCode.trim().toUpperCase() === route!.networkCode.trim().toUpperCase() &&
+          monitorNetwork.healthStatus === "connected" &&
+          legacyHealthFresh &&
+          monitorAsset.enabled &&
+          monitorNetwork.enabled &&
+          providerCompatible &&
+          Boolean(endpoint),
+        )
+        : Boolean(
+          catalogEligible &&
+          monitorNetwork &&
+          monitorAsset &&
+          identityValid &&
+          monitorNetwork.networkCode.trim().toUpperCase() === route!.networkCode.trim().toUpperCase() &&
+          monitorNetwork.healthStatus === "connected" &&
+          healthFresh &&
+          monitorNetwork.healthProofFingerprint === configDigest &&
+          monitorAsset.readinessProofFingerprint === routeDigest &&
+          monitorAsset.enabled &&
+          monitorNetwork.enabled &&
+          providerCompatible &&
+          Boolean(endpoint),
+        );
+      if (!ready) {
+        throw new ApiError(
+          "DESK_CRYPTO_DEPOSIT_UNAVAILABLE",
+          "The selected crypto deposit route is no longer ready. Refresh and try again.",
+          409,
+        );
+      }
+    }
     const [created] = await tx
       .insert(ordersTable)
       .values(intent)
@@ -4172,8 +4312,24 @@ function validateCryptoDepositConfiguration(
 function outputCryptoAsset(row: typeof cryptoAssetsTable.$inferSelect) {
   return { ...row, logoUrl: row.logoObjectPath ? `/api/storage${row.logoObjectPath}` : undefined, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() };
 }
-function outputCryptoNetwork(row: typeof cryptoAssetNetworksTable.$inferSelect) {
-  return { ...row, logoUrl: row.logoObjectPath ? `/api/storage${row.logoObjectPath}` : undefined, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() };
+function outputCryptoNetwork(
+  row: typeof cryptoAssetNetworksTable.$inferSelect,
+  monitoringReadiness?: ManualMonitoringReadiness,
+) {
+  return {
+    ...row,
+    logoUrl: row.logoObjectPath ? `/api/storage${row.logoObjectPath}` : undefined,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    monitoringReadiness: monitoringReadiness
+      ? {
+          code: monitoringReadiness.code,
+          message: monitoringReadiness.message,
+          ready: monitoringReadiness.ready,
+          networkCode: monitoringReadiness.networkCode,
+        }
+      : undefined,
+  };
 }
 router.get("/admin/crypto-assets", requireOperator, async (_req, res, next) => {
   try {
@@ -4384,7 +4540,7 @@ router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, ne
       );
       return ApplyCryptoAssetsBulkEditResponse.parse({
         assets: updatedAssets.map(outputCryptoAsset),
-        networks: updatedNetworks.map(outputCryptoNetwork),
+        networks: updatedNetworks.map(row => outputCryptoNetwork(row)),
       });
     });
     res.json(result);
@@ -4427,6 +4583,42 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
       .where(eq(cryptoAssetsTable.id, assetId))
       .limit(1);
     if (!asset) throw new ApiError("CRYPTO_ASSET_NOT_FOUND", "Crypto asset not found.", 404);
+    const selectedRoute = await db.select({
+      id: cryptoAssetNetworksTable.id,
+      networkCode: cryptoAssetNetworksTable.networkCode,
+      sharedDepositAddress: cryptoAssetNetworksTable.sharedDepositAddress,
+      sharedDepositMemo: cryptoAssetNetworksTable.sharedDepositMemo,
+    }).from(cryptoAssetNetworksTable).where(and(
+      eq(cryptoAssetNetworksTable.id, input.networkId),
+      eq(cryptoAssetNetworksTable.assetId, assetId),
+    )).limit(1);
+    if (!selectedRoute[0]) {
+      throw new ApiError(
+        "CRYPTO_ASSET_NETWORK_NOT_FOUND",
+        "The selected asset network was not found for this asset.",
+        404,
+      );
+    }
+    const affectedRouteIds = input.useForAllAssetsOnNetwork
+      ? (await db.select({ id: cryptoAssetNetworksTable.id })
+        .from(cryptoAssetNetworksTable)
+        .where(eq(cryptoAssetNetworksTable.networkCode, selectedRoute[0].networkCode))).map(row => row.id)
+      : [selectedRoute[0].id];
+    const fallbackByRoute = await db.select({
+      id: cryptoAssetNetworksTable.id,
+      sharedDepositAddress: cryptoAssetNetworksTable.sharedDepositAddress,
+    }).from(cryptoAssetNetworksTable)
+      .where(inArray(cryptoAssetNetworksTable.id, affectedRouteIds));
+    const manualReadiness = input.depositProvider === "manual"
+      ? await prepareManualMonitoringReadiness(
+        affectedRouteIds.map(routeId => ({
+          routeId,
+          address: input.walletAddress.trim() ||
+            fallbackByRoute.find(row => row.id === routeId)?.sharedDepositAddress || "",
+          memo: input.memo,
+        })),
+      )
+      : new Map<string, ManualMonitoringReadiness>();
     const rows = await db.transaction(async (tx) => {
       await tx.execute(
         sql`select pg_advisory_xact_lock(hashtextextended('rook:whitebit:credentials', 0))`,
@@ -4472,7 +4664,6 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
       }).from(cryptoAssetsTable)
         .where(inArray(cryptoAssetsTable.id, [...new Set(affected.map(network => network.assetId))]));
       const assetById = new Map(affectedAssets.map(candidate => [candidate.id, candidate]));
-      const fallbackAddress = input.walletAddress.trim() || selected.sharedDepositAddress;
       const fallbackMemo = input.memo?.trim() || "";
       const providerChanged = input.depositProvider !== selected.depositProvider;
       if (providerChanged) await invalidateWhitebitDepositRouteProofs(tx);
@@ -4486,6 +4677,7 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
           }
         : eligibilityContext;
       for (const network of affected) {
+        const fallbackAddress = input.walletAddress.trim() || network.sharedDepositAddress;
         const nextProvider = network.id === selected.id ? input.depositProvider : network.depositProvider;
         const nextNetwork = {
           ...network,
@@ -4493,12 +4685,57 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
           sharedDepositAddress: fallbackAddress,
           sharedDepositMemo: fallbackMemo || null,
         };
+        const readiness = manualReadiness.get(network.id);
+        if (input.depositProvider === "manual" && readiness?.ready &&
+            readiness.code !== "LEGACY_BEP20") {
+          const [currentMonitor] = await tx.select().from(blockchainMonitorNetworksTable)
+            .where(eq(blockchainMonitorNetworksTable.id, readiness.monitorNetworkId!))
+            .for("update")
+            .limit(1);
+          const [currentAsset] = currentMonitor
+            ? await tx.select().from(blockchainMonitorAssetsTable).where(and(
+              eq(blockchainMonitorAssetsTable.monitorNetworkId, currentMonitor.id),
+              eq(blockchainMonitorAssetsTable.assetNetworkId, network.id),
+            )).for("update").limit(1)
+            : [];
+          const currentConfig = currentMonitor ? adapterConfig(currentMonitor) : undefined;
+          const currentFingerprint = currentMonitor && currentAsset && currentConfig &&
+            currentMonitor.healthCheckedAt && currentMonitor.lastHead
+            ? manualMonitoringProofFingerprint({
+              network: currentMonitor,
+              asset: currentAsset,
+               route: {
+                 ...network,
+                 sharedDepositAddress: fallbackAddress,
+                 sharedDepositMemo: fallbackMemo || null,
+               },
+              endpoint: currentConfig.endpoint,
+              apiKey: currentConfig.apiKey,
+              capturedAt: currentMonitor.healthCheckedAt,
+              head: currentMonitor.lastHead,
+            })
+            : undefined;
+          if (!currentFingerprint || currentFingerprint !== readiness.proofFingerprint) {
+            readiness.code = "CONFIG_CHANGED_RETRY";
+            readiness.message = "Monitoring configuration changed while saving; retry the save.";
+            readiness.ready = false;
+          } else {
+            await tx.update(blockchainMonitorAssetsTable).set({
+              enabled: true,
+              readinessProofFingerprint: currentFingerprint,
+              readinessProofCapturedAt: currentMonitor.healthCheckedAt,
+            }).where(and(
+              eq(blockchainMonitorAssetsTable.id, currentAsset.id),
+              eq(blockchainMonitorAssetsTable.assetNetworkId, network.id),
+            ));
+          }
+        }
         if (
           nextProvider !== "none" &&
           fallbackAddress &&
           !isSyntacticallyValidManualWalletAddress(nextNetwork, fallbackAddress)
         ) {
-          throw new ApiError(
+          if (nextProvider !== "manual" || manualReadiness.get(network.id)?.code === "LEGACY_BEP20") throw new ApiError(
             "CRYPTO_DEPOSIT_ADDRESS_INVALID",
             `The receiving address is invalid for ${network.networkCode}.`,
             422,
@@ -4508,13 +4745,15 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
           fallbackMemo &&
           !isSyntacticallyValidManualWalletMemo(nextNetwork, fallbackMemo)
         ) {
-          throw new ApiError(
+          if (nextProvider !== "manual" || manualReadiness.get(network.id)?.code === "LEGACY_BEP20") throw new ApiError(
             "CRYPTO_DEPOSIT_MEMO_INVALID",
             `The receiving memo or tag is invalid for ${network.networkCode}.`,
             422,
           );
         }
-        if (input.enabled && nextProvider === "manual" && !fallbackAddress) {
+        if (input.enabled && nextProvider === "manual" && !fallbackAddress && !manualReadiness.get(network.id)?.ready) {
+          // The address is still persisted, but customer deposits remain disabled.
+        } else if (input.enabled && nextProvider === "manual" && !fallbackAddress) {
           throw new ApiError(
             "CRYPTO_DEPOSIT_ADDRESS_REQUIRED",
             "A valid receiving address is required before manual customer deposits can be enabled.",
@@ -4527,7 +4766,7 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
           network.requiresMemo &&
           !fallbackMemo
         ) {
-          throw new ApiError(
+          if (manualReadiness.get(network.id)?.ready !== false) throw new ApiError(
             "CRYPTO_DEPOSIT_MEMO_REQUIRED",
             `A memo or tag is required before ${network.networkCode} customer deposits can be enabled.`,
             422,
@@ -4538,14 +4777,21 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
           nextNetwork,
           effectiveEligibilityContext,
         );
-        if (input.enabled && nextProvider !== "none" && !eligible) {
+        if (
+          input.enabled &&
+          nextProvider !== "none" &&
+          !eligible &&
+          !(nextProvider === "manual" && manualReadiness.get(network.id)?.ready === false)
+        ) {
           throw new ApiError(
             "CRYPTO_DEPOSIT_VERIFICATION_REQUIRED",
             "Customer deposits can only be enabled with a valid manual wallet or a verified provider route.",
             422,
           );
         }
-        const nextEnabled = input.enabled && eligible;
+        const nextEnabled = input.enabled &&
+          eligible &&
+          (nextProvider !== "manual" || manualReadiness.get(network.id)?.ready === true);
         await tx.update(cryptoAssetNetworksTable).set({
           sharedDepositAddress: fallbackAddress,
           sharedDepositMemo: fallbackMemo || null,
@@ -4578,7 +4824,7 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
           enabledBefore: selected.customerDepositsEnabled,
           enabledAfter: updated.find(network => network.id === selected.id)?.customerDepositsEnabled ?? false,
           addressBeforeFingerprint: fingerprint(selected.sharedDepositAddress),
-          addressAfterFingerprint: fingerprint(fallbackAddress),
+          addressAfterFingerprint: fingerprint(input.walletAddress.trim() || selected.sharedDepositAddress),
           memoBeforeFingerprint: fingerprint(selected.sharedDepositMemo),
           memoAfterFingerprint: fingerprint(fallbackMemo),
           useForAllAssetsOnNetwork: input.useForAllAssetsOnNetwork,
@@ -4611,7 +4857,7 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
       );
       return updated;
     });
-    res.json(rows.map(outputCryptoNetwork));
+    res.json(rows.map(row => outputCryptoNetwork(row, manualReadiness.get(row.id))));
   } catch (e) { next(e); }
 });
 router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, res, next) => {
@@ -4620,6 +4866,21 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
     const actor = res.locals.operator as OperatorAuthorization;
     const actorClerkUserId = getOperatorActorUserId(req);
     const eligibilityContext = await createCustomerDepositEligibilityContext();
+    const selectedForReadiness = input.depositProvider === "manual"
+      ? await db.select({
+          id: cryptoAssetNetworksTable.id,
+          sharedDepositAddress: cryptoAssetNetworksTable.sharedDepositAddress,
+        }).from(cryptoAssetNetworksTable)
+        .where(inArray(cryptoAssetNetworksTable.id, input.networkIds))
+      : [];
+    const manualReadiness = input.depositProvider === "manual"
+      ? await prepareManualMonitoringReadiness(input.networkIds.map(routeId => ({
+        routeId,
+        address: input.walletAddress.trim() ||
+          selectedForReadiness.find(row => row.id === routeId)?.sharedDepositAddress || "",
+        memo: input.memo,
+      })))
+      : new Map<string, ManualMonitoringReadiness>();
     const rows = await db.transaction(async (tx) => {
       await tx.execute(
         sql`select pg_advisory_xact_lock(hashtextextended('rook:whitebit:credentials', 0))`,
@@ -4670,7 +4931,11 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
       for (const network of selected) {
         const address = input.walletAddress.trim() || network.sharedDepositAddress;
         const networkEnabled = input.networkEnabled ?? network.enabled;
-        const customerDepositsEnabled = input.enabled ?? network.customerDepositsEnabled;
+        const customerDepositsEnabled =
+          input.depositProvider === "manual" &&
+          manualReadiness.get(network.id)?.code !== "LEGACY_BEP20"
+            ? true
+            : input.enabled ?? network.customerDepositsEnabled;
         const nextNetwork = {
           ...network,
           enabled: networkEnabled,
@@ -4678,25 +4943,71 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
           sharedDepositAddress: address,
           sharedDepositMemo: memo || null,
         };
+        const readiness = manualReadiness.get(network.id);
+        if (input.depositProvider === "manual" && readiness?.ready &&
+            readiness.code !== "LEGACY_BEP20") {
+          const [currentMonitor] = await tx.select().from(blockchainMonitorNetworksTable)
+            .where(eq(blockchainMonitorNetworksTable.id, readiness.monitorNetworkId!))
+            .for("update")
+            .limit(1);
+          const [currentAsset] = currentMonitor
+            ? await tx.select().from(blockchainMonitorAssetsTable).where(and(
+              eq(blockchainMonitorAssetsTable.monitorNetworkId, currentMonitor.id),
+              eq(blockchainMonitorAssetsTable.assetNetworkId, network.id),
+            )).for("update").limit(1)
+            : [];
+          const currentConfig = currentMonitor ? adapterConfig(currentMonitor) : undefined;
+          const currentFingerprint = currentMonitor && currentAsset && currentConfig &&
+            currentMonitor.healthCheckedAt && currentMonitor.lastHead
+            ? manualMonitoringProofFingerprint({
+              network: currentMonitor,
+              asset: currentAsset,
+               route: {
+                 ...network,
+                 sharedDepositAddress: address,
+                 sharedDepositMemo: memo || null,
+               },
+              endpoint: currentConfig.endpoint,
+              apiKey: currentConfig.apiKey,
+              capturedAt: currentMonitor.healthCheckedAt,
+              head: currentMonitor.lastHead,
+            })
+            : undefined;
+          if (!currentFingerprint || currentFingerprint !== readiness.proofFingerprint) {
+            readiness.code = "CONFIG_CHANGED_RETRY";
+            readiness.message = "Monitoring configuration changed while saving; retry the save.";
+            readiness.ready = false;
+          } else {
+            await tx.update(blockchainMonitorAssetsTable).set({
+              enabled: true,
+              readinessProofFingerprint: currentFingerprint,
+              readinessProofCapturedAt: currentMonitor.healthCheckedAt,
+            }).where(and(
+              eq(blockchainMonitorAssetsTable.id, currentAsset.id),
+              eq(blockchainMonitorAssetsTable.assetNetworkId, network.id),
+            ));
+          }
+        }
         if (
           input.depositProvider !== "none" &&
           address &&
           !isSyntacticallyValidManualWalletAddress(nextNetwork, address)
         ) {
-          throw new ApiError(
+          if (input.depositProvider !== "manual" || manualReadiness.get(network.id)?.code === "LEGACY_BEP20") throw new ApiError(
             "CRYPTO_DEPOSIT_ADDRESS_INVALID",
             `The receiving address is invalid for ${network.networkCode}.`,
             422,
           );
         }
         if (memo && !isSyntacticallyValidManualWalletMemo(nextNetwork, memo)) {
-          throw new ApiError(
+          if (input.depositProvider !== "manual" || manualReadiness.get(network.id)?.code === "LEGACY_BEP20") throw new ApiError(
             "CRYPTO_DEPOSIT_MEMO_INVALID",
             `The receiving memo or tag is invalid for ${network.networkCode}.`,
             422,
           );
         }
-        if (customerDepositsEnabled && input.depositProvider === "manual" && !address) {
+        if (customerDepositsEnabled && input.depositProvider === "manual" && !address &&
+            manualReadiness.get(network.id)?.ready !== false) {
           throw new ApiError(
             "CRYPTO_DEPOSIT_ADDRESS_REQUIRED",
             "A valid receiving address is required before manual customer deposits can be enabled.",
@@ -4704,7 +5015,7 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
           );
         }
         if (customerDepositsEnabled && input.depositProvider === "manual" && network.requiresMemo && !memo) {
-          throw new ApiError(
+          if (manualReadiness.get(network.id)?.ready !== false) throw new ApiError(
             "CRYPTO_DEPOSIT_MEMO_REQUIRED",
             `A memo or tag is required before ${network.networkCode} customer deposits can be enabled.`,
             422,
@@ -4715,7 +5026,12 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
           nextNetwork,
           effectiveEligibilityContext,
         );
-        if (customerDepositsEnabled && input.depositProvider !== "none" && !eligible) {
+        if (
+          customerDepositsEnabled &&
+          input.depositProvider !== "none" &&
+          !eligible &&
+          !(input.depositProvider === "manual" && manualReadiness.get(network.id)?.ready === false)
+        ) {
           throw new ApiError(
             "CRYPTO_DEPOSIT_VERIFICATION_REQUIRED",
             `Customer deposits cannot be enabled for ${network.networkCode} without a valid wallet or verified provider route.`,
@@ -4727,7 +5043,10 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
           depositProvider: input.depositProvider,
           sharedDepositAddress: address,
           sharedDepositMemo: memo || null,
-          customerDepositsEnabled: networkEnabled && customerDepositsEnabled && eligible,
+           customerDepositsEnabled: networkEnabled &&
+             customerDepositsEnabled &&
+             eligible &&
+             (input.depositProvider !== "manual" || manualReadiness.get(network.id)?.ready === true),
         }).where(eq(cryptoAssetNetworksTable.id, network.id));
       }
       const updated = await tx.select().from(cryptoAssetNetworksTable)
@@ -4764,7 +5083,7 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
       });
       return updated;
     });
-    res.json(rows.map(outputCryptoNetwork));
+    res.json(rows.map(row => outputCryptoNetwork(row, manualReadiness.get(row.id))));
   } catch (error) {
     next(error);
   }
@@ -4779,7 +5098,7 @@ router.get("/admin/crypto-networks", requireOperator, async (_req, res, next) =>
       asc(cryptoAssetNetworksTable.assetId),
       asc(cryptoAssetNetworksTable.id),
     );
-    res.json(rows.map(outputCryptoNetwork));
+    res.json(rows.map(row => outputCryptoNetwork(row)));
   } catch (e) { next(e); }
 });
 router.get("/admin/deposit-providers", requireOperator, async (_req, res, next) => {

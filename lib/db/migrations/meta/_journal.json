@@ -687,6 +687,13 @@
       "when": 1790041000000,
       "tag": "0099_bnb_bep20_native_monitor",
       "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "7",
+      "when": 1790042000000,
+      "tag": "0100_manual_monitoring_readiness_proofs",
+      "breakpoints": true
     }
   ]
 }

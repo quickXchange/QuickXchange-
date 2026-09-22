@@ -1,4 +1,5 @@
 import { BlockchainMonitorError } from "./errors";
+import { createHash } from "node:crypto";
 import { positiveInteger, providerHeaders, providerJson, requireEndpoint } from "./http";
 import type {
   BlockchainMonitorAdapter, ChainHead, ConnectionResult, IncomingEvidence,
@@ -42,9 +43,15 @@ export function normalizeTronAddress(value: string): string {
   if (/^41[0-9a-f]{40}$/i.test(trimmed)) return trimmed.toLowerCase();
   if (!trimmed.startsWith("T")) return "";
   const bytes = base58Decode(trimmed);
-  if (!bytes || bytes.length < 21) return "";
+  if (!bytes || bytes.length !== 25) return "";
   // Tron Base58Check values contain version + payload + four checksum bytes.
-  return [...bytes.slice(0, 21)].map(byte => byte.toString(16).padStart(2, "0")).join("").toLowerCase();
+  const payload = bytes.slice(0, 21);
+  const checksum = bytes.slice(21);
+  const digest = (value: Uint8Array) =>
+    createHash("sha256").update(value).digest();
+  const expected = digest(digest(payload)).subarray(0, 4);
+  if (!expected.every((byte, index) => byte === checksum[index])) return "";
+  return [...payload].map(byte => byte.toString(16).padStart(2, "0")).join("").toLowerCase();
 }
 
 export function parseTronNativeTransfer(

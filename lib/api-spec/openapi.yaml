@@ -6273,6 +6273,17 @@ components:
             createdAt: { type: string, format: date-time }
             updatedAt: { type: string, format: date-time }
             logoUrl: { type: string, readOnly: true }
+            monitoringReadiness:
+              type: object
+              readOnly: true
+              required: [code, message, ready, networkCode]
+              properties:
+                code:
+                  type: string
+                  enum: [READY, ADDRESS_INVALID, MEMO_INVALID, MONITOR_MISSING, ENDPOINT_MISSING, IDENTITY_MISSING, ASSET_MONITOR_DISABLED, NETWORK_MONITOR_DISABLED, PROVIDER_INCOMPATIBLE, HEALTH_CHECK_FAILED, CHAIN_ID_MISMATCH, CONFIG_CHANGED_RETRY, LEGACY_BEP20]
+                message: { type: string }
+                ready: { type: boolean }
+                networkCode: { type: string }
     SettlementDetails:
       type: object
       additionalProperties: { type: [string, number, "null"] }

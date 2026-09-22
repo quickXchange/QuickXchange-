@@ -42,6 +42,8 @@ export const blockchainMonitorNetworksTable = pgTable(
     healthCheckedAt: timestamp("health_checked_at", { withTimezone: true }),
     healthError: text("health_error"),
     consecutiveFailures: integer("consecutive_failures").notNull().default(0),
+    healthProofFingerprint: text("health_proof_fingerprint"),
+    healthProofCapturedAt: timestamp("health_proof_captured_at", { withTimezone: true }),
     nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
     leaseToken: text("lease_token"),
     leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
@@ -95,6 +97,8 @@ export const blockchainMonitorAssetsTable = pgTable(
       .notNull()
       .defaultNow()
       .$onUpdate(() => new Date()),
+    readinessProofFingerprint: text("readiness_proof_fingerprint"),
+    readinessProofCapturedAt: timestamp("readiness_proof_captured_at", { withTimezone: true }),
   },
   (table) => [
     uniqueIndex("blockchain_monitor_assets_route_uidx").on(

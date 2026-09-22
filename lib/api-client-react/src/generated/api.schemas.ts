@@ -3356,11 +3356,38 @@ export interface CryptoNetworkInput {
   sharedDepositMemo?: string | null;
 }
 
+export type CryptoNetworkMonitoringReadinessCode = typeof CryptoNetworkMonitoringReadinessCode[keyof typeof CryptoNetworkMonitoringReadinessCode];
+
+
+export const CryptoNetworkMonitoringReadinessCode = {
+  READY: 'READY',
+  ADDRESS_INVALID: 'ADDRESS_INVALID',
+  MEMO_INVALID: 'MEMO_INVALID',
+  MONITOR_MISSING: 'MONITOR_MISSING',
+  ENDPOINT_MISSING: 'ENDPOINT_MISSING',
+  IDENTITY_MISSING: 'IDENTITY_MISSING',
+  ASSET_MONITOR_DISABLED: 'ASSET_MONITOR_DISABLED',
+  NETWORK_MONITOR_DISABLED: 'NETWORK_MONITOR_DISABLED',
+  PROVIDER_INCOMPATIBLE: 'PROVIDER_INCOMPATIBLE',
+  HEALTH_CHECK_FAILED: 'HEALTH_CHECK_FAILED',
+  CHAIN_ID_MISMATCH: 'CHAIN_ID_MISMATCH',
+  CONFIG_CHANGED_RETRY: 'CONFIG_CHANGED_RETRY',
+  LEGACY_BEP20: 'LEGACY_BEP20',
+} as const;
+
+export type CryptoNetworkMonitoringReadiness = {
+  readonly code: CryptoNetworkMonitoringReadinessCode;
+  readonly message: string;
+  readonly ready: boolean;
+  readonly networkCode: string;
+};
+
 export type CryptoNetwork = CryptoNetworkInput & {
   depositProvider: string;
   createdAt: string;
   updatedAt: string;
   readonly logoUrl?: string;
+  readonly monitoringReadiness?: CryptoNetworkMonitoringReadiness;
 };
 
 export interface CryptoAssetsBulkEditResponse {

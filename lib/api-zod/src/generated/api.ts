@@ -8186,7 +8186,13 @@ export const ApplyCryptoAssetsBulkEditResponse = zod.object({
   "depositProvider": zod.string().default(applyCryptoAssetsBulkEditResponseNetworksItemTwoDepositProviderDefault),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
-  "logoUrl": zod.string().optional()
+  "logoUrl": zod.string().optional(),
+  "monitoringReadiness": zod.object({
+  "code": zod.enum(['READY', 'ADDRESS_INVALID', 'MEMO_INVALID', 'MONITOR_MISSING', 'ENDPOINT_MISSING', 'IDENTITY_MISSING', 'ASSET_MONITOR_DISABLED', 'NETWORK_MONITOR_DISABLED', 'PROVIDER_INCOMPATIBLE', 'HEALTH_CHECK_FAILED', 'CHAIN_ID_MISMATCH', 'CONFIG_CHANGED_RETRY', 'LEGACY_BEP20']),
+  "message": zod.string(),
+  "ready": zod.boolean(),
+  "networkCode": zod.string()
+}).optional()
 })))
 })
 
@@ -8369,7 +8375,13 @@ export const SaveCryptoAssetReceivingWalletResponseItem = zod.object({
   "depositProvider": zod.string().default(saveCryptoAssetReceivingWalletResponseTwoDepositProviderDefault),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
-  "logoUrl": zod.string().optional()
+  "logoUrl": zod.string().optional(),
+  "monitoringReadiness": zod.object({
+  "code": zod.enum(['READY', 'ADDRESS_INVALID', 'MEMO_INVALID', 'MONITOR_MISSING', 'ENDPOINT_MISSING', 'IDENTITY_MISSING', 'ASSET_MONITOR_DISABLED', 'NETWORK_MONITOR_DISABLED', 'PROVIDER_INCOMPATIBLE', 'HEALTH_CHECK_FAILED', 'CHAIN_ID_MISMATCH', 'CONFIG_CHANGED_RETRY', 'LEGACY_BEP20']),
+  "message": zod.string(),
+  "ready": zod.boolean(),
+  "networkCode": zod.string()
+}).optional()
 }))
 export const SaveCryptoAssetReceivingWalletResponse = zod.array(SaveCryptoAssetReceivingWalletResponseItem)
 
@@ -8441,7 +8453,13 @@ export const GetCryptoNetworksResponseItem = zod.object({
   "depositProvider": zod.string().default(getCryptoNetworksResponseTwoDepositProviderDefault),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
-  "logoUrl": zod.string().optional()
+  "logoUrl": zod.string().optional(),
+  "monitoringReadiness": zod.object({
+  "code": zod.enum(['READY', 'ADDRESS_INVALID', 'MEMO_INVALID', 'MONITOR_MISSING', 'ENDPOINT_MISSING', 'IDENTITY_MISSING', 'ASSET_MONITOR_DISABLED', 'NETWORK_MONITOR_DISABLED', 'PROVIDER_INCOMPATIBLE', 'HEALTH_CHECK_FAILED', 'CHAIN_ID_MISMATCH', 'CONFIG_CHANGED_RETRY', 'LEGACY_BEP20']),
+  "message": zod.string(),
+  "ready": zod.boolean(),
+  "networkCode": zod.string()
+}).optional()
 }))
 export const GetCryptoNetworksResponse = zod.array(GetCryptoNetworksResponseItem)
 
@@ -8578,7 +8596,13 @@ export const CreateCryptoNetworkResponse = zod.object({
   "depositProvider": zod.string().default(createCryptoNetworkResponseTwoDepositProviderDefault),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
-  "logoUrl": zod.string().optional()
+  "logoUrl": zod.string().optional(),
+  "monitoringReadiness": zod.object({
+  "code": zod.enum(['READY', 'ADDRESS_INVALID', 'MEMO_INVALID', 'MONITOR_MISSING', 'ENDPOINT_MISSING', 'IDENTITY_MISSING', 'ASSET_MONITOR_DISABLED', 'NETWORK_MONITOR_DISABLED', 'PROVIDER_INCOMPATIBLE', 'HEALTH_CHECK_FAILED', 'CHAIN_ID_MISMATCH', 'CONFIG_CHANGED_RETRY', 'LEGACY_BEP20']),
+  "message": zod.string(),
+  "ready": zod.boolean(),
+  "networkCode": zod.string()
+}).optional()
 }))
 
 
@@ -8673,7 +8697,13 @@ export const SaveCryptoNetworkReceivingWalletResponseItem = zod.object({
   "depositProvider": zod.string().default(saveCryptoNetworkReceivingWalletResponseTwoDepositProviderDefault),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
-  "logoUrl": zod.string().optional()
+  "logoUrl": zod.string().optional(),
+  "monitoringReadiness": zod.object({
+  "code": zod.enum(['READY', 'ADDRESS_INVALID', 'MEMO_INVALID', 'MONITOR_MISSING', 'ENDPOINT_MISSING', 'IDENTITY_MISSING', 'ASSET_MONITOR_DISABLED', 'NETWORK_MONITOR_DISABLED', 'PROVIDER_INCOMPATIBLE', 'HEALTH_CHECK_FAILED', 'CHAIN_ID_MISMATCH', 'CONFIG_CHANGED_RETRY', 'LEGACY_BEP20']),
+  "message": zod.string(),
+  "ready": zod.boolean(),
+  "networkCode": zod.string()
+}).optional()
 }))
 export const SaveCryptoNetworkReceivingWalletResponse = zod.array(SaveCryptoNetworkReceivingWalletResponseItem)
 
@@ -8818,7 +8848,13 @@ export const UpdateCryptoNetworkResponse = zod.object({
   "depositProvider": zod.string().default(updateCryptoNetworkResponseTwoDepositProviderDefault),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
-  "logoUrl": zod.string().optional()
+  "logoUrl": zod.string().optional(),
+  "monitoringReadiness": zod.object({
+  "code": zod.enum(['READY', 'ADDRESS_INVALID', 'MEMO_INVALID', 'MONITOR_MISSING', 'ENDPOINT_MISSING', 'IDENTITY_MISSING', 'ASSET_MONITOR_DISABLED', 'NETWORK_MONITOR_DISABLED', 'PROVIDER_INCOMPATIBLE', 'HEALTH_CHECK_FAILED', 'CHAIN_ID_MISMATCH', 'CONFIG_CHANGED_RETRY', 'LEGACY_BEP20']),
+  "message": zod.string(),
+  "ready": zod.boolean(),
+  "networkCode": zod.string()
+}).optional()
 }))
 
 

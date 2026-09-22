@@ -31,6 +31,26 @@ const MONITOR_CYCLE_DEADLINE_MS = 90_000;
 const NATIVE_SCAN_BLOCKS_PER_WATCH_CYCLE = 8;
 const VERIFIED_RECEIPT_RECOVERY_REASON =
   "Verified receipt recovery; inactive to prevent unbounded rescanning.";
+const networkConfigDigest = (
+  network: typeof blockchainMonitorNetworksTable.$inferSelect,
+  endpoint?: string,
+  apiKey?: string,
+) => {
+  const hash = (value?: string) =>
+    value ? createHash("sha256").update(value).digest("hex") : null;
+  return createHash("sha256").update(JSON.stringify({
+    id: network.id,
+    networkCode: network.networkCode,
+    adapterKind: network.adapterKind,
+    providerKind: network.providerKind,
+    chainId: network.chainId,
+    enabled: network.enabled,
+    endpointSecretRef: network.endpointSecretRef,
+    apiKeySecretRef: network.apiKeySecretRef,
+    endpointHash: hash(endpoint),
+    apiKeyHash: hash(apiKey),
+  })).digest("hex");
+};
 
 type JsonObject = Record<string, unknown>;
 const object = (value: unknown): JsonObject =>
@@ -591,7 +611,21 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
       }
       await refreshConfirming(network, leaseToken);
       await applyConfirmedMatches(leaseToken, network.id);
-      await withLease(network.id, leaseToken, (tx) => tx.update(blockchainMonitorNetworksTable).set({ lastHead: head.cursor, healthStatus: "connected", healthCheckedAt: new Date(), consecutiveFailures: 0, nextAttemptAt: null, healthError: null }).where(eq(blockchainMonitorNetworksTable.id, network.id)));
+      const checkedAt = new Date();
+      const legacyBep20 = /^(?:BSC|BEP20|BSC_BEP20)$/i.test(network.networkCode);
+      const healthProofConfig = legacyBep20 ? undefined : adapterConfig(network);
+      await withLease(network.id, leaseToken, (tx) => tx.update(blockchainMonitorNetworksTable).set({
+        lastHead: head.cursor,
+        healthStatus: "connected",
+        healthCheckedAt: checkedAt,
+        consecutiveFailures: 0,
+        nextAttemptAt: null,
+        healthError: null,
+        ...(legacyBep20 || !healthProofConfig ? {} : {
+          healthProofFingerprint: networkConfigDigest(network, healthProofConfig.endpoint, healthProofConfig.apiKey),
+          healthProofCapturedAt: checkedAt,
+        }),
+      }).where(eq(blockchainMonitorNetworksTable.id, network.id)));
     } catch (error) {
       try {
         await withLease(network.id, leaseToken, (tx) => tx.update(blockchainMonitorNetworksTable).set({

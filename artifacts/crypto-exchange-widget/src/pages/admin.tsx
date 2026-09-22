@@ -6913,7 +6913,7 @@ function AdminCurrencies() {
     networks: new Set(),
   });
   const [catalogActionPending, setCatalogActionPending] = useState(false);
-  const [catalogActionNotice, setCatalogActionNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+  const [catalogActionNotice, setCatalogActionNotice] = useState<{ kind: 'success' | 'warning' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     if (
@@ -7547,7 +7547,13 @@ function AdminCurrencies() {
                   <button type="button" className="bulk-actions-delete" disabled={catalogActionPending} onClick={() => runCatalogAction('delete')}><Trash2 size={14} /> {t('adminCatalog.delete')}</button>
                 </div>
               </div>}
-              {catalogActionNotice && <div className={`bulk-actions-notice text-sm ${catalogActionNotice.kind === 'error' ? 'text-red-500' : 'text-emerald-500'}`}>{catalogActionNotice.text}</div>}
+              {catalogActionNotice && <div className={`bulk-actions-notice text-sm ${
+                catalogActionNotice.kind === 'error'
+                  ? 'text-red-500'
+                  : catalogActionNotice.kind === 'warning'
+                    ? 'text-amber-500'
+                    : 'text-emerald-500'
+              }`}>{catalogActionNotice.text}</div>}
             </>
           )}
           <div className="w-full relative group">
@@ -7674,8 +7680,23 @@ function AdminCurrencies() {
         <BulkNetworkWalletDialog
           networks={networksQuery.data.filter((candidate: CryptoNetwork) => selectedCatalogIdsOnPage.includes(candidate.id))}
           onClose={() => setBulkNetworkWalletOpen(false)}
-          onSuccess={() => {
+          onSuccess={(savedNetworks) => {
             setCatalogSelected(prev => ({ ...prev, networks: new Set() }));
+            const readiness = savedNetworks
+              .map(saved => {
+                const status = saved.monitoringReadiness;
+                if (!status) return null;
+                return `${saved.networkName}: ${status.code} — ${status.message}${saved.customerDepositsEnabled === true ? ' Customer deposits enabled.' : ' Wallet saved but Customer Deposits disabled.'}`;
+              })
+              .filter(Boolean)
+              .join(' ');
+            if (readiness) {
+              const depositsEnabled = savedNetworks.every(saved => saved.customerDepositsEnabled === true);
+              setCatalogActionNotice({
+                kind: depositsEnabled ? 'success' : 'warning',
+                text: readiness,
+              });
+            }
             setBulkNetworkWalletOpen(false);
           }}
         />
@@ -9113,7 +9134,7 @@ function BulkNetworkWalletDialog({
 }: {
   networks: CryptoNetwork[];
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (savedNetworks: CryptoNetwork[]) => void;
 }) {
   const queryClient = useQueryClient();
   const saveReceivingWallet = useSaveCryptoNetworkReceivingWallet();
@@ -9121,7 +9142,6 @@ function BulkNetworkWalletDialog({
   const [depositProvider, setDepositProvider] = useState(networks[0]?.depositProvider || 'manual');
   const [walletAddress, setWalletAddress] = useState('');
   const [memo, setMemo] = useState('');
-  const [customerDepositsAction, setCustomerDepositsAction] = useState<'keep' | 'enable' | 'disable'>('keep');
   const [error, setError] = useState('');
   const providerOptions = providerOptionsQuery.data || [];
   const selectedProviderUnavailable = Boolean(
@@ -9139,22 +9159,19 @@ function BulkNetworkWalletDialog({
       return;
     }
     try {
-      await saveReceivingWallet.mutateAsync({
+      const savedNetworks = await saveReceivingWallet.mutateAsync({
         data: {
           networkIds: networks.map(network => network.id),
           walletAddress: walletAddress.trim(),
           memo: memo.trim() || null,
           depositProvider,
-          ...(customerDepositsAction === 'keep'
-            ? {}
-            : { enabled: customerDepositsAction === 'enable' }),
         },
       });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
         queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
       ]);
-      onSuccess();
+      onSuccess(savedNetworks);
     } catch (cause) {
       setError(apiErrorText(cause, 'Failed to update the selected receiving wallets.'));
     }
@@ -9188,15 +9205,7 @@ function BulkNetworkWalletDialog({
             <span className="field-label">{isApiProvider ? 'Fallback Memo / Tag' : 'Memo / Tag'}</span>
             <input data-testid="bulk-network-wallet-memo" value={memo} onChange={event => setMemo(event.target.value)} placeholder="Optional memo or tag" />
           </label>
-          <label>
-            <span className="field-label">Customer Deposits</span>
-            <select data-testid="bulk-network-wallet-customer-deposits" value={customerDepositsAction} onChange={event => setCustomerDepositsAction(event.target.value as 'keep' | 'enable' | 'disable')}>
-              <option value="keep">Keep Current</option>
-              <option value="enable">Enable for selected routes</option>
-              <option value="disable">Disable for selected routes</option>
-            </select>
-          </label>
-          <p className="field-hint">A blank address preserves each selected route’s existing address. Convert remains independent.</p>
+          <p className="field-hint">A blank address preserves each selected route’s existing address. Customer deposits are enabled only when monitoring readiness is READY. Convert remains independent.</p>
           <div className="catalog-editor-actions">
             <button type="submit" className="catalog-editor-primary" disabled={saveReceivingWallet.isPending || selectedProviderUnavailable}>
               <Save size={16} /> Apply to Selected
@@ -9247,6 +9256,12 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
   const [logoObjectPath, setLogoObjectPath] = useState(isNew ? '' : ((network as any)?.logoObjectPath || ''));
   const commitNetworkLogoRef = useRef<() => void>(() => {});
   const [error, setError] = useState('');
+  const [monitoringReadiness, setMonitoringReadiness] = useState<CryptoNetwork['monitoringReadiness']>(
+    isNew ? undefined : network?.monitoringReadiness,
+  );
+  const [customerDepositsEnabled, setCustomerDepositsEnabled] = useState(
+    isNew ? false : network?.customerDepositsEnabled === true,
+  );
   const selectedAsset = assetsQuery.data?.find((asset: CryptoAsset) => asset.id === form.assetId);
   const providerOptions = providerOptionsQuery.data || [];
   const selectedProviderUnavailable = Boolean(
@@ -9306,16 +9321,18 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
       const { id: _id, assetId: _assetId, ...updates } = payload;
       try {
         await updateNetwork.mutateAsync({ id: network.id, data: updates });
-        await saveReceivingWallet.mutateAsync({
+        const savedNetworks = await saveReceivingWallet.mutateAsync({
           data: {
             networkIds: [network.id],
             walletAddress: form.sharedDepositAddress.trim(),
             memo: form.sharedDepositMemo.trim() || null,
             depositProvider: form.depositProvider,
             networkEnabled: form.enabled,
-            enabled: form.customerDepositsEnabled,
           },
         });
+        const savedNetwork = savedNetworks[0];
+        setMonitoringReadiness(savedNetwork?.monitoringReadiness);
+        setCustomerDepositsEnabled(savedNetwork?.customerDepositsEnabled === true);
         commitNetworkLogoRef.current();
         const previousPath = (network as any)?.logoObjectPath as string | undefined;
         if (previousPath && previousPath !== logoObjectPath) void deleteNetworkLogo.mutateAsync({ id: previousPath.split('/').pop()! }).catch(() => undefined);
@@ -9323,7 +9340,6 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
           queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
           queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
         ]);
-        onClose();
       } catch (err) {
         setError(apiErrorText(err, t('adminCatalog.failed_to_update_network')));
       }
@@ -9425,13 +9441,6 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
             <span className="field-label !mb-0 text-sm font-bold">{t('adminCatalog.enabled')}</span>
           </label>
 
-          {!isNew && (
-            <label className="catalog-editor-toggle">
-              <input data-testid="network-wallet-enabled" type="checkbox" className="w-auto h-auto" checked={form.customerDepositsEnabled} disabled={form.depositProvider === 'none' || selectedProviderUnavailable} onChange={e => setForm({...form, customerDepositsEnabled: e.target.checked})} />
-              <span className="field-label !mb-0 font-bold">Customer Deposits Enabled</span>
-            </label>
-          )}
-
            <label className="catalog-editor-toggle">
              <input type="checkbox" className="w-auto h-auto" checked={form.requiresMemo} onChange={e => setForm({...form, requiresMemo: e.target.checked})} />
              <span className="field-label !mb-0 font-bold">{t('adminCatalog.requires_memo')}</span>
@@ -9467,8 +9476,16 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                 <input data-testid="network-wallet-memo" value={form.sharedDepositMemo} onChange={e => setForm({...form, sharedDepositMemo: e.target.value})} placeholder="Optional memo or tag" />
               </label>
               <p className="field-hint">
-                Applies only to this Manual Swap Asset + Network route. Convert continues to use its existing API provider.
+                Applies only to this Manual Swap Asset + Network route. Customer deposits are enabled automatically only when monitoring is READY. Convert continues to use its existing API provider.
               </p>
+              {monitoringReadiness && (
+                <InlineNotice kind={customerDepositsEnabled ? 'success' : 'warning'}>
+                  {monitoringReadiness.code}: {monitoringReadiness.message}{' '}
+                  {customerDepositsEnabled
+                    ? 'Customer deposits enabled.'
+                    : 'Wallet saved but Customer Deposits disabled.'}
+                </InlineNotice>
+              )}
             </section>
           )}
 

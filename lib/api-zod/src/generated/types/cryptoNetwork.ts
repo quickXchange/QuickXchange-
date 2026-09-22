@@ -6,10 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CryptoNetworkInput } from './cryptoNetworkInput';
+import type { CryptoNetworkMonitoringReadiness } from './cryptoNetworkMonitoringReadiness';
 
 export type CryptoNetwork = CryptoNetworkInput & {
   depositProvider: string;
   createdAt: Date;
   updatedAt: Date;
   readonly logoUrl?: string;
+  readonly monitoringReadiness?: CryptoNetworkMonitoringReadiness;
 };

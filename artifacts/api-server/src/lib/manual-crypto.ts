@@ -11,6 +11,12 @@ import {
   isSyntacticallyValidManualWalletAddress,
   isSyntacticallyValidManualWalletMemo,
 } from "./manual-wallet-validation";
+import {
+  isLegacyBep20Network,
+  isValidManualMonitoringTokenIdentity,
+  manualMonitoringNetworkConfigDigest,
+  manualMonitoringProofFingerprint,
+} from "./manual-monitoring-readiness";
 
 export type ManualCryptoOption = {
   id: string;
@@ -86,6 +92,7 @@ export function isManualMonitoringRuntimeReady(input: {
   endpointConfigured: boolean;
   healthStatus: string;
   healthCheckedAtMs: number | null;
+  healthProofCapturedAtMs: number | null;
   pollIntervalSeconds: number;
   adapterKind: string;
   identityKind: string;
@@ -93,22 +100,18 @@ export function isManualMonitoringRuntimeReady(input: {
   providerCompatible: boolean;
   receivingAddressValid: boolean;
   memoValid: boolean;
+  readinessProofFingerprint?: string | null;
+  networkHealthProofFingerprint?: string | null;
+  networkDigest?: string;
+  routeDigest?: string;
 }) {
   const healthMaxAgeMs = Math.max(120_000, input.pollIntervalSeconds * 3_000);
+  const legacyBep20 = isLegacyBep20Network(input.monitorNetworkCode);
   const healthFresh = input.healthCheckedAtMs !== null &&
     Date.now() - input.healthCheckedAtMs >= 0 &&
     Date.now() - input.healthCheckedAtMs <= healthMaxAgeMs;
-  const tokenIdentityValid = input.identityKind === "token" && Boolean(
-    input.contractOrMint?.trim() && (
-      input.adapterKind === "evm"
-        ? /^0x[0-9a-fA-F]{40}$/.test(input.contractOrMint.trim())
-        : input.adapterKind === "tron"
-          ? /^(?:T[1-9A-HJ-NP-Za-km-z]{33}|41[0-9a-fA-F]{40})$/.test(input.contractOrMint.trim())
-          : input.adapterKind === "solana"
-            ? /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(input.contractOrMint.trim())
-            : false
-    )
-  );
+  const tokenIdentityValid = input.identityKind === "token" &&
+    isValidManualMonitoringTokenIdentity(input.adapterKind, input.contractOrMint);
   return input.routeId === input.monitorAssetRouteId &&
     input.routeNetworkCode.trim().toUpperCase() ===
       input.monitorNetworkCode.trim().toUpperCase() &&
@@ -118,10 +121,20 @@ export function isManualMonitoringRuntimeReady(input: {
     input.endpointConfigured &&
     input.healthStatus === "connected" &&
     healthFresh &&
+    (legacyBep20 || (
+      input.healthProofCapturedAtMs !== null &&
+      Date.now() - input.healthProofCapturedAtMs >= 0 &&
+      Date.now() - input.healthProofCapturedAtMs <= healthMaxAgeMs
+    )) &&
     ["evm", "tron", "solana"].includes(input.adapterKind) &&
     input.providerCompatible &&
     input.receivingAddressValid &&
     input.memoValid &&
+    (legacyBep20 || Boolean(input.readinessProofFingerprint)) &&
+    (legacyBep20 ||
+      input.networkDigest === input.networkHealthProofFingerprint) &&
+    (legacyBep20 ||
+      input.routeDigest === input.readinessProofFingerprint) &&
     (
       input.identityKind === "native" && !input.contractOrMint?.trim() ||
       tokenIdentityValid
@@ -132,11 +145,16 @@ export async function listReadyManualMonitoringRoutes(): Promise<Map<string, str
   const rows = await db.select({
     route: cryptoAssetNetworksTable,
     monitorAssetRouteId: blockchainMonitorAssetsTable.assetNetworkId,
+    asset: blockchainMonitorAssetsTable,
+    network: blockchainMonitorNetworksTable,
     identityKind: blockchainMonitorAssetsTable.identityKind,
     contractOrMint: blockchainMonitorAssetsTable.contractOrMint,
     monitorNetworkCode: blockchainMonitorNetworksTable.networkCode,
     adapterKind: blockchainMonitorNetworksTable.adapterKind,
     assetEnabled: blockchainMonitorAssetsTable.enabled,
+    readinessProofFingerprint: blockchainMonitorAssetsTable.readinessProofFingerprint,
+    healthProofCapturedAt: blockchainMonitorNetworksTable.healthProofCapturedAt,
+    networkHealthProofFingerprint: blockchainMonitorNetworksTable.healthProofFingerprint,
     networkEnabled: blockchainMonitorNetworksTable.enabled,
     providerKind: blockchainMonitorNetworksTable.providerKind,
     endpointSecretRef: blockchainMonitorNetworksTable.endpointSecretRef,
@@ -157,7 +175,24 @@ export async function listReadyManualMonitoringRoutes(): Promise<Map<string, str
       eq(blockchainMonitorNetworksTable.enabled, true),
     ));
   return new Map(rows
-    .filter((row) => isManualMonitoringRuntimeReady({
+    .filter((row) => {
+      const config = row.endpointSecretRef ? process.env[row.endpointSecretRef] : undefined;
+      const apiKey = row.network.apiKeySecretRef ? process.env[row.network.apiKeySecretRef] : undefined;
+      const networkDigest = manualMonitoringNetworkConfigDigest({
+        network: row.network,
+        endpoint: config,
+        apiKey,
+      });
+      const routeDigest = manualMonitoringProofFingerprint({
+        network: row.network,
+        asset: row.asset,
+        route: row.route,
+        endpoint: config,
+        apiKey,
+        capturedAt: row.healthCheckedAt ?? new Date(0),
+        head: "",
+      });
+      return isManualMonitoringRuntimeReady({
       routeId: row.monitorAssetRouteId,
       routeNetworkCode: row.monitorNetworkCode,
       monitorAssetRouteId: row.monitorAssetRouteId,
@@ -171,6 +206,7 @@ export async function listReadyManualMonitoringRoutes(): Promise<Map<string, str
       ),
       healthStatus: row.healthStatus,
       healthCheckedAtMs: row.healthCheckedAt?.getTime() ?? null,
+      healthProofCapturedAtMs: row.healthProofCapturedAt?.getTime() ?? null,
       pollIntervalSeconds: row.pollIntervalSeconds,
       adapterKind: row.adapterKind,
       identityKind: row.identityKind,
@@ -187,7 +223,12 @@ export async function listReadyManualMonitoringRoutes(): Promise<Map<string, str
         row.route.sharedDepositMemo &&
         isSyntacticallyValidManualWalletMemo(row.route, row.route.sharedDepositMemo),
       ),
-    }))
+      readinessProofFingerprint: row.readinessProofFingerprint,
+      networkHealthProofFingerprint: row.networkHealthProofFingerprint,
+      networkDigest,
+      routeDigest,
+      });
+    })
     .map((row) => [row.monitorAssetRouteId, row.monitorNetworkCode]));
 }
 

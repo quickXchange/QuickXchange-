@@ -153,6 +153,8 @@ export * from './cryptoNetwork';
 export * from './cryptoNetworkInput';
 export * from './cryptoNetworkInputExecutionMode';
 export * from './cryptoNetworkInputLifecycle';
+export * from './cryptoNetworkMonitoringReadiness';
+export * from './cryptoNetworkMonitoringReadinessCode';
 export * from './cryptoNetworkReceivingWalletInput';
 export * from './cryptoNetworkUpdate';
 export * from './cryptoNetworkUpdateExecutionMode';

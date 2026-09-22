@@ -119,6 +119,7 @@ async function loadBlockchainMonitoringSetupRoutes(executor: Pick<typeof db, "se
       endpointConfigured: networkConfigured,
       healthStatus: network.healthStatus,
       healthCheckedAtMs: network.healthCheckedAt?.getTime() ?? null,
+      healthProofCapturedAtMs: network.healthProofCapturedAt?.getTime() ?? null,
       pollIntervalSeconds: network.pollIntervalSeconds,
       adapterKind: network.adapterKind,
       identityKind: monitorAsset.identityKind,

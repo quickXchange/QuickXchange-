@@ -3,8 +3,8 @@ name: Deposit monitoring readiness
 description: Safety boundary for exposing and creating Manual Swap customer-deposit routes.
 ---
 
-Customer deposits require an exact asset-network monitor identity, a supported adapter/provider pair, valid chain-specific identity and wallet data, and a fresh connected health check. An unhealthy route may remain available for customer payouts, but it must not remain a deposit source.
+Customer deposits require an exact asset-network monitor identity, a supported adapter/provider pair, valid chain-specific identity and wallet data, a stable digest of current route/network configuration (including hashed resolved endpoint material), and a fresh connected health attestation. An unhealthy route may remain available for customer payouts, but it must not remain a deposit source.
 
-**Why:** Network-level health alone can incorrectly authorize sibling assets, and a previously connected status can become unsafe if monitoring stops. Removing the route entirely also breaks payouts that do not depend on inbound monitoring.
+**Why:** Network-level health alone can incorrectly authorize sibling assets. Proofs based only on timestamps, or generated from the pre-save address, become invalid after commit; proofs not recomputed from current secrets survive endpoint rotation. Removing the route entirely also breaks payouts that do not depend on inbound monitoring.
 
-**How to apply:** Use the same fail-closed readiness decision at public source availability and order creation, including legacy signed quotes. Keep receive-only presentation independent from deposit readiness.
+**How to apply:** Probe outside transactions, then lock and revalidate the exact catalog route, monitor network, and monitor asset before enabling deposits. Store stable configuration digests separately from freshness timestamps. Recompute both at public source selection and inside the order transaction, including legacy signed quotes. Keep receive-only presentation independent from deposit readiness.
