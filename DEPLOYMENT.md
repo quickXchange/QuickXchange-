@@ -31,14 +31,15 @@ fails the command so publishing cannot silently reuse an older build.
 
 ## Database release step
 
-Run migrations before routing production traffic to a new API version:
+The production API start command runs migrations before accepting traffic:
 
 ```sh
-pnpm --filter @workspace/db run migrate
+pnpm run start:production
 ```
 
-Migrations require `DATABASE_URL` and `APP_DATABASE_PASSWORD`. Do not use
-`drizzle-kit push` in production and do not reorder or edit applied migrations.
+The command fails before starting the API if a migration fails. Migrations
+require `DATABASE_URL` and `APP_DATABASE_PASSWORD`. Do not use `drizzle-kit
+push` in production and do not reorder or edit applied migrations.
 
 ## Start
 

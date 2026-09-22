@@ -138,3 +138,4 @@
 - [BSC payment evidence lookup](bsc-payment-evidence-lookup.md) — public BSC RPCs may reject broad token-log scans; discover the tx narrowly, then verify its receipt and canonical block by RPC.
 - [Recovery migration replay isolation](recovery-migration-replay-isolation.md) — obsolete evidence recoveries must not replay ahead of a current recovery or one mismatch can stop the monitoring worker.
 - [Deposit monitoring readiness](deposit-monitoring-readiness.md) — customer deposits require fresh exact-route health and valid chain identity; unhealthy routes remain payout-only.
+- [Production migration entrypoint](production-migration-entrypoint.md) — artifact deployments must run the real migrator before API startup; post-merge and root scripts are not implicit release hooks.
