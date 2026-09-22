@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, isNull, lt, lte, or, sql } from "drizzle-orm";
 import {
   blockchainMonitorAssetsTable,
   blockchainMonitorMatchesTable,
@@ -17,6 +17,10 @@ import { normalizeTronAddress } from "./tron";
 import { enqueueSwapTelegramNotification } from "../telegram-swap-notifications";
 import { updateOrderAndQueueStatusNotificationTx } from "../customer-status-notifications";
 import { logger } from "../logger";
+import {
+  manualMonitoringNetworkConfigDigest,
+  manualMonitoringProofFingerprint,
+} from "../manual-monitoring-readiness";
 import verifiedRecurringBep20RecoverySql from "../../../../../lib/db/migrations/0098_recover_verified_bep20_usdt_payment.sql";
 
 const ELIGIBLE = and(
@@ -31,7 +35,7 @@ const MONITOR_CYCLE_DEADLINE_MS = 90_000;
 const NATIVE_SCAN_BLOCKS_PER_WATCH_CYCLE = 8;
 const VERIFIED_RECEIPT_RECOVERY_REASON =
   "Verified receipt recovery; inactive to prevent unbounded rescanning.";
-const networkConfigDigest = (
+const legacyNetworkConfigDigest = (
   network: typeof blockchainMonitorNetworksTable.$inferSelect,
   endpoint?: string,
   apiKey?: string,
@@ -51,7 +55,6 @@ const networkConfigDigest = (
     apiKeyHash: hash(apiKey),
   })).digest("hex");
 };
-
 type JsonObject = Record<string, unknown>;
 const object = (value: unknown): JsonObject =>
   value && typeof value === "object" && !Array.isArray(value) ? value as JsonObject : {};
@@ -672,19 +675,93 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
       const checkedAt = new Date();
       const legacyBep20 = /^(?:BSC|BEP20|BSC_BEP20)$/i.test(network.networkCode);
       const healthProofConfig = legacyBep20 ? undefined : adapterConfig(network);
-      await withLease(network.id, leaseToken, (tx) => tx.update(blockchainMonitorNetworksTable).set({
-        lastHead: head.cursor,
-        healthStatus: "connected",
-        healthCheckedAt: checkedAt,
-        lastSuccessfulScanAt: checkedAt,
-        consecutiveFailures: 0,
-        nextAttemptAt: null,
-        healthError: null,
-        ...(legacyBep20 || !healthProofConfig ? {} : {
-          healthProofFingerprint: networkConfigDigest(network, healthProofConfig.endpoint, healthProofConfig.apiKey),
-          healthProofCapturedAt: checkedAt,
-        }),
-      }).where(eq(blockchainMonitorNetworksTable.id, network.id)));
+       await withLease(network.id, leaseToken, async (tx) => {
+         const [currentNetwork] = await tx.select().from(blockchainMonitorNetworksTable)
+           .where(eq(blockchainMonitorNetworksTable.id, network.id))
+           .limit(1);
+         const currentHealthProofConfig = currentNetwork && !legacyBep20
+           ? adapterConfig(currentNetwork)
+           : undefined;
+         const cycleConfigDigest = healthProofConfig
+           ? network.adapterKind === "bitcoin"
+             ? manualMonitoringNetworkConfigDigest({
+                 network,
+                 endpoint: healthProofConfig.endpoint,
+                 apiKey: healthProofConfig.apiKey,
+               })
+             : legacyNetworkConfigDigest(network, healthProofConfig.endpoint, healthProofConfig.apiKey)
+           : undefined;
+         const currentConfigDigest = currentNetwork && currentHealthProofConfig
+           ? currentNetwork.adapterKind === "bitcoin"
+             ? manualMonitoringNetworkConfigDigest({
+                 network: currentNetwork,
+                 endpoint: currentHealthProofConfig.endpoint,
+                 apiKey: currentHealthProofConfig.apiKey,
+               })
+             : legacyNetworkConfigDigest(
+                 currentNetwork,
+                 currentHealthProofConfig.endpoint,
+                 currentHealthProofConfig.apiKey,
+               )
+           : undefined;
+         if (!legacyBep20 && (
+           !currentNetwork ||
+           !currentHealthProofConfig ||
+           !cycleConfigDigest ||
+           currentConfigDigest !== cycleConfigDigest
+         )) {
+           throw new Error("Blockchain monitoring configuration changed during the scheduler cycle.");
+         }
+         await tx.update(blockchainMonitorNetworksTable).set({
+           lastHead: head.cursor,
+           healthStatus: "connected",
+           healthCheckedAt: checkedAt,
+           lastSuccessfulScanAt: checkedAt,
+           consecutiveFailures: 0,
+           nextAttemptAt: null,
+           healthError: null,
+           ...(legacyBep20 || !currentConfigDigest ? {} : {
+             healthProofFingerprint: currentConfigDigest,
+             healthProofCapturedAt: checkedAt,
+           }),
+         }).where(eq(blockchainMonitorNetworksTable.id, network.id));
+         if (
+           !legacyBep20 &&
+           currentNetwork?.adapterKind === "bitcoin" &&
+           currentHealthProofConfig
+         ) {
+           const proofRows = await tx.select({
+             asset: blockchainMonitorAssetsTable,
+             route: cryptoAssetNetworksTable,
+           }).from(blockchainMonitorAssetsTable)
+             .innerJoin(
+               cryptoAssetNetworksTable,
+               eq(cryptoAssetNetworksTable.id, blockchainMonitorAssetsTable.assetNetworkId),
+             )
+             .where(and(
+               eq(blockchainMonitorAssetsTable.monitorNetworkId, network.id),
+               isNotNull(blockchainMonitorAssetsTable.readinessProofFingerprint),
+             ));
+           for (const { asset, route } of proofRows) {
+             const readinessProofFingerprint = manualMonitoringProofFingerprint({
+               network: currentNetwork,
+               asset,
+               route,
+               endpoint: currentHealthProofConfig.endpoint,
+               apiKey: currentHealthProofConfig.apiKey,
+               capturedAt: checkedAt,
+               head: head.cursor,
+             });
+             await tx.update(blockchainMonitorAssetsTable).set({
+               readinessProofFingerprint,
+             }).where(and(
+               eq(blockchainMonitorAssetsTable.id, asset.id),
+               eq(blockchainMonitorAssetsTable.monitorNetworkId, network.id),
+               eq(blockchainMonitorAssetsTable.readinessProofFingerprint, asset.readinessProofFingerprint!),
+             ));
+           }
+         }
+       });
     } catch (error) {
       try {
         await withLease(network.id, leaseToken, (tx) => tx.update(blockchainMonitorNetworksTable).set({
