@@ -215,7 +215,8 @@ export async function listReadyManualMonitoringRoutes(): Promise<Map<string, str
       providerCompatible:
         row.adapterKind === "evm" && row.providerKind === "rpc" ||
         row.adapterKind === "solana" && row.providerKind === "rpc" ||
-        row.adapterKind === "tron" && row.providerKind === "indexer",
+        row.adapterKind === "tron" && row.providerKind === "indexer" ||
+        row.adapterKind === "bitcoin" && row.providerKind === "rpc",
       receivingAddressValid: isSyntacticallyValidManualWalletAddress(
         row.route,
         row.route.sharedDepositAddress,

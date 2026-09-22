@@ -2752,7 +2752,8 @@ async function createOrderFromInput(
         (
           monitorNetwork.adapterKind === "evm" && monitorNetwork.providerKind === "rpc" ||
           monitorNetwork.adapterKind === "solana" && monitorNetwork.providerKind === "rpc" ||
-          monitorNetwork.adapterKind === "tron" && monitorNetwork.providerKind === "indexer"
+          monitorNetwork.adapterKind === "tron" && monitorNetwork.providerKind === "indexer" ||
+          monitorNetwork.adapterKind === "bitcoin" && monitorNetwork.providerKind === "rpc"
         ),
       );
       const ready = legacy

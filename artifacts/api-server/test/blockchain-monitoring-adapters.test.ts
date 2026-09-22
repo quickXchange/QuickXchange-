@@ -35,7 +35,7 @@ test("EVM parsing keeps exact raw amounts and filters the configured token contr
   assert.equal(normalizeEvmAddress("0xABCDEFabcdefABCDEFabcdefABCDEFabcdefABCD"), "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd");
 });
 
-test("adapter selection rejects missing and unsupported chain kinds instead of falling through to EVM", () => {
+test("adapter selection rejects missing chain kinds and selects Bitcoin explicitly", () => {
   const config = {
     networkCode: "UNKNOWN",
     provider: "rpc" as const,
@@ -45,9 +45,9 @@ test("adapter selection rejects missing and unsupported chain kinds instead of f
     () => createBlockchainMonitorAdapter(config),
     (error: unknown) => error instanceof BlockchainMonitorError && error.code === "CONFIGURATION",
   );
-  assert.throws(
-    () => createBlockchainMonitorAdapter({ ...config, adapterKind: "bitcoin" as never }),
-    (error: unknown) => error instanceof BlockchainMonitorError && error.code === "CONFIGURATION",
+  assert.equal(
+    createBlockchainMonitorAdapter({ ...config, adapterKind: "bitcoin" }).constructor.name,
+    "BitcoinUtxoAdapter",
   );
 });
 

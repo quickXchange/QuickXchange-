@@ -12,7 +12,7 @@ import {
   ordersTable,
 } from "@workspace/db";
 import { randomUUID, createHash } from "node:crypto";
-import { createBlockchainMonitorAdapter, type IncomingEvidence, type MonitorAsset, type WatchedAddress } from "./index";
+import { createBlockchainMonitorAdapter, type IncomingEvidence, type MonitorAsset, type ScanCursor, type WatchedAddress } from "./index";
 import { normalizeTronAddress } from "./tron";
 import { enqueueSwapTelegramNotification } from "../telegram-swap-notifications";
 import { updateOrderAndQueueStatusNotificationTx } from "../customer-status-notifications";
@@ -134,6 +134,7 @@ export function selectReadyBlockchainMonitoringSetupRoutes<T extends {
   status: BlockchainMonitoringSetupStatus;
   monitorNetworkId?: string;
   monitorAssetId?: string;
+  autoEnableEligible?: boolean;
 }>(
   routes: readonly T[],
   selectedAssetNetworkIds?: readonly string[],
@@ -144,6 +145,7 @@ export function selectReadyBlockchainMonitoringSetupRoutes<T extends {
     : routes;
   const ready = candidates.filter(route =>
     route.status === "ready" &&
+    route.autoEnableEligible !== false &&
     Boolean(route.monitorNetworkId) &&
     Boolean(route.monitorAssetId),
   );
@@ -172,6 +174,29 @@ export function boundedWatchScanEnd(
     ? NATIVE_SCAN_BLOCKS_PER_WATCH_CYCLE - 1
     : maxTokenRange;
   return String(Math.min(headNumber, fromNumber + maxOffset));
+}
+
+export function boundedBitcoinWatchScanRange(
+  progressFrom: string,
+  startCursor: string | null,
+  head: string,
+  maxRange: number,
+  requestedLookback = 6,
+): ScanCursor {
+  if (
+    !/^[0-9]+$/.test(progressFrom) ||
+    !/^[0-9]+$/.test(head) ||
+    (startCursor !== null && !/^[0-9]+$/.test(startCursor))
+  ) return { from: progressFrom, to: head };
+  const range = Math.max(1, Math.floor(maxRange));
+  const lookback = BigInt(Math.min(Math.max(0, requestedLookback), range - 1));
+  const progress = BigInt(progressFrom);
+  const floor = startCursor === null ? 0n : BigInt(startCursor);
+  const from = progress > lookback ? progress - lookback : 0n;
+  const boundedFrom = from < floor ? floor : from;
+  const boundedTo = [BigInt(head), boundedFrom + BigInt(range)]
+    .reduce((minimum, value) => value < minimum ? value : minimum);
+  return { from: boundedFrom.toString(), to: boundedTo.toString() };
 }
 
 export function cursorAfterCapturedHead(head: string): string | undefined {
@@ -352,7 +377,7 @@ export function adapterConfig(network: typeof blockchainMonitorNetworksTable.$in
   return {
     networkCode: network.networkCode,
     provider: network.providerKind as "rpc" | "indexer",
-    adapterKind: network.adapterKind as "evm" | "tron" | "solana",
+    adapterKind: network.adapterKind as "evm" | "tron" | "solana" | "bitcoin",
     chainId: network.chainId ?? undefined,
     endpoint,
     apiKey,
@@ -424,7 +449,11 @@ async function persistEvidence(network: typeof blockchainMonitorNetworksTable.$i
     return evidenceWithinWatchCursor(watch.startCursor, evidence.blockOrSlot) &&
       immutableIdentityMatches(watch, evidence) &&
       evidenceMeetsWatchTimeAndMemo(watch.orderCreatedAt, evidence.blockTimestamp, watch.memoOrTag, evidence.memoOrTag) &&
-      watch.receivingAddress.trim().toLowerCase() === evidence.toAddress.trim().toLowerCase() &&
+      (
+        network.adapterKind === "bitcoin"
+          ? watch.receivingAddress.trim() === evidence.toAddress.trim()
+          : watch.receivingAddress.trim().toLowerCase() === evidence.toAddress.trim().toLowerCase()
+      ) &&
       exactAmountMatches(watch.expectedAmount, watch.decimals, evidence.rawAmount);
   }).map(({ watch }) => watch);
   if (!matches.length) return;
@@ -471,7 +500,10 @@ async function refreshConfirming(network: typeof blockchainMonitorNetworksTable.
       toAddress: row.observation.toAddress, rawAmount: row.observation.amount, blockOrSlot: row.observation.blockReference ?? "0",
       decimals: row.asset.decimals,
       blockHash: row.observation.blockHash ?? undefined, blockTimestamp: row.observation.blockTimestamp?.toISOString(),
-      detectedAt: row.observation.observedAt.toISOString(), source: "evm-json-rpc",
+       detectedAt: row.observation.observedAt.toISOString(),
+       source: network.adapterKind === "bitcoin" ? "bitcoin-json-rpc" :
+         network.adapterKind === "tron" ? "tron-indexer" :
+           network.adapterKind === "solana" ? "solana-json-rpc" : "evm-json-rpc",
     };
     const status = await adapter.getEvidenceStatus(evidence);
     await withLease(network.id, leaseToken, async (tx) => {
@@ -600,13 +632,25 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
           /^[0-9]+$/.test(head.cursor) &&
           BigInt(from) > BigInt(head.cursor)
         ) continue;
-        const boundedTo = boundedWatchScanEnd(
+        let scanFrom = from;
+        let boundedTo = boundedWatchScanEnd(
           from,
           head.cursor,
           watch.identityKind,
           network.maxScanRange,
         );
-        const result = await adapter.scanIncoming({ from, to: boundedTo }, watched);
+        if (network.adapterKind === "bitcoin") {
+          const range = boundedBitcoinWatchScanRange(
+            from,
+            watch.startCursor,
+            head.cursor,
+            network.maxScanRange,
+            Math.max(6, network.confirmationsRequired),
+          );
+          scanFrom = range.from;
+          boundedTo = range.to;
+        }
+        const result = await adapter.scanIncoming({ from: scanFrom, to: boundedTo }, watched);
         for (const evidence of result.evidence) {
         if (leaseLost) throw new Error("Blockchain monitoring lease was lost.");
         const block = Number(evidence.blockOrSlot);

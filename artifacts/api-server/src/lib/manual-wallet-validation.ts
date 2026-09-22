@@ -1,3 +1,5 @@
+import { decodeBitcoinMainnetAddress } from "./blockchain-monitoring/bitcoin";
+
 type ManualNetwork = {
   id: string;
   networkCode: string;
@@ -76,7 +78,7 @@ export function isSyntacticallyValidManualWalletAddress(
     return new RegExp(`^${BASE58}{47,48}$`).test(address);
   }
   if (/(BITCOIN|\bBTC\b)/.test(keys)) {
-    return /^(?:bc1[ac-hj-np-z02-9]{25,90}|[13][1-9A-HJ-NP-Za-km-z]{25,34})$/i.test(address);
+    return Boolean(decodeBitcoinMainnetAddress(address));
   }
 
   return false;

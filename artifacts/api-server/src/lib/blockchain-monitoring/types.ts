@@ -23,7 +23,7 @@ export type ScanCursor = {
 
 export type MonitorConfig = {
   networkCode: string;
-  adapterKind?: "evm" | "tron" | "solana";
+  adapterKind?: "evm" | "tron" | "solana" | "bitcoin";
   provider: MonitoringProvider;
   endpoint: string;
   /** Passed at runtime only. Never persist, serialize, or return it. */
@@ -80,7 +80,7 @@ export type IncomingEvidence = {
   memoOrTag?: string;
   detectedAt: string;
   /** Adapter-specific immutable facts useful for audit/debugging. */
-  source: "evm-json-rpc" | "tron-indexer" | "solana-json-rpc";
+  source: "evm-json-rpc" | "tron-indexer" | "solana-json-rpc" | "bitcoin-json-rpc";
 };
 
 export type EvidenceStatus = {

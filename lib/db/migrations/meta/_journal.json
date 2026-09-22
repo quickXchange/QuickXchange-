@@ -750,6 +750,13 @@
       "when": 1790098000000,
       "tag": "0108_polygon_usdt0_monitor",
       "breakpoints": true
+    },
+    {
+      "idx": 109,
+      "version": "7",
+      "when": 1790099000000,
+      "tag": "0109_bitcoin_mainnet_monitor",
+      "breakpoints": true
     }
   ]
 }

@@ -245,7 +245,8 @@ export async function prepareManualMonitoringReadiness(
     const compatible =
       network.adapterKind === "evm" && network.providerKind === "rpc" ||
       network.adapterKind === "solana" && network.providerKind === "rpc" ||
-      network.adapterKind === "tron" && network.providerKind === "indexer";
+      network.adapterKind === "tron" && network.providerKind === "indexer" ||
+      network.adapterKind === "bitcoin" && network.providerKind === "rpc";
     if (!compatible) {
       outcomes.set(input.routeId, result(input, "PROVIDER_INCOMPATIBLE", networkCode, network.id, verifiedAsset.id));
       continue;

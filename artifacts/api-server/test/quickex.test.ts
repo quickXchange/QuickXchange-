@@ -3277,11 +3277,11 @@ test("manual crypto catalog and signed funding snapshots are independent of Quic
       USD: 1, EUR: 0.9, GBP: 0.8, AED: 3.67, BTC: 0.00002, USDT: 1, XRP: 2,
     }));
     monitorFixture = await installReadyManualMonitorFixture(["btc-bitcoin"], {
-      addressByRoute: { "btc-bitcoin": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh" },
+      addressByRoute: { "btc-bitcoin": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9e75rs" },
       memoByRoute: { "btc-bitcoin": "immutable-memo" },
     });
     await db.update(cryptoAssetNetworksTable).set({
-      sharedDepositAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+      sharedDepositAddress: "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9e75rs",
       sharedDepositMemo: "immutable-memo",
       requiredConfirmations: 3,
       confirmationGuidance: "Wait for three confirmations.",
@@ -3306,7 +3306,7 @@ test("manual crypto catalog and signed funding snapshots are independent of Quic
     const quoted = await apiJson(api.url, "/exchange/quote", quoteInput);
     assert.equal(quoted.status, 200);
     const ticket = JSON.parse(Buffer.from(String(quoted.body.quoteId).split(".")[0], "base64url").toString()) as any;
-    assert.equal(ticket.settlementSnapshot.funding.address, "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh");
+    assert.equal(ticket.settlementSnapshot.funding.address, "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9e75rs");
     assert.equal(ticket.settlementSnapshot.funding.depositProvider, "manual");
     assert.equal(ticket.settlementSnapshot.funding.requiredConfirmations, 3);
     const unchangedFundingOrder = await apiJson(api.url, "/orders", {
@@ -3322,7 +3322,7 @@ test("manual crypto catalog and signed funding snapshots are independent of Quic
     await db.update(cryptoAssetNetworksTable).set({ sharedDepositAddress: "changed-later" })
       .where(eq(cryptoAssetNetworksTable.id, "btc-bitcoin"));
     const immutable = JSON.parse(Buffer.from(String(quoted.body.quoteId).split(".")[0], "base64url").toString()) as any;
-    assert.equal(immutable.settlementSnapshot.funding.address, "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh");
+    assert.equal(immutable.settlementSnapshot.funding.address, "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9e75rs");
     const changedFundingOrder = await apiJson(api.url, "/orders", {
       ...quoteInput,
       quoteId: quoted.body.quoteId,
@@ -3863,14 +3863,14 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
       id: differentNetworkId, assetId: assetAId, networkCode: differentCode,
       networkName: "Bitcoin", decimals: 6,
       executionMode: "manual", depositProvider: "manual",
-      sharedDepositAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+      sharedDepositAddress: "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9e75rs",
       sharedDepositMemo: "untouched-memo",
     },
   ]);
   monitorFixture = await installReadyManualMonitorFixture([networkAId, networkBId], {
     addressByRoute: {
-      [networkAId]: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
-      [networkBId]: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+      [networkAId]: "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9e75rs",
+      [networkBId]: "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9e75rs",
     },
     memoByRoute: {
       [networkAId]: "initial-memo",
@@ -3892,7 +3892,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     assert.equal(mismatched.body.code, "CRYPTO_ASSET_NETWORK_NOT_FOUND");
 
     const connectedWhitebit = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
-      networkId: networkAId, walletAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", memo: "fallback-memo",
+      networkId: networkAId, walletAddress: "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9e75rs", memo: "fallback-memo",
       enabled: true, useForAllAssetsOnNetwork: false, depositProvider: "whitebit",
     }, "PUT", headers);
     assert.equal(connectedWhitebit.status, 200);
@@ -3902,7 +3902,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     );
 
     const exact = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
-      networkId: networkAId, walletAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", memo: "exact-memo",
+      networkId: networkAId, walletAddress: "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9e75rs", memo: "exact-memo",
       enabled: false, useForAllAssetsOnNetwork: false, depositProvider: "manual",
     }, "PUT", headers);
     assert.equal(exact.status, 200);
@@ -3910,7 +3910,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     assert.equal(exact.body[0]?.customerDepositsEnabled, false);
     const selectedNetworks = await apiJson(api.url, "/admin/crypto-networks/receiving-wallet", {
       networkIds: [networkAId, networkBId],
-      walletAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+      walletAddress: "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9e75rs",
       memo: "selected-network-memo",
       networkEnabled: true,
       enabled: true,
@@ -3926,7 +3926,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
       sharedDepositMemo: string;
       customerDepositsEnabled: boolean;
     }) =>
-      row.sharedDepositAddress === "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh" &&
+      row.sharedDepositAddress === "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9e75rs" &&
       row.sharedDepositMemo === "selected-network-memo" &&
       row.customerDepositsEnabled
     ), JSON.stringify(selectedNetworks.body));
@@ -3954,11 +3954,11 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     assert.equal(tableSelectedBulk.status, 200, JSON.stringify(tableSelectedBulk.body));
     assert.equal(tableSelectedBulk.body[0]?.enabled, true);
     assert.equal(tableSelectedBulk.body[0]?.customerDepositsEnabled, false);
-    assert.equal(tableSelectedBulk.body[0]?.sharedDepositAddress, "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh");
+    assert.equal(tableSelectedBulk.body[0]?.sharedDepositAddress, "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9e75rs");
     assert.equal(tableSelectedBulk.body[0]?.sharedDepositMemo, "table-selected-memo");
     const partiallyReadySelection = await apiJson(api.url, "/admin/crypto-networks/receiving-wallet", {
       networkIds: [networkAId, networkBId],
-      walletAddress: "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080",
+      walletAddress: "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqthqst8",
       memo: null,
       networkEnabled: true,
       enabled: true,
@@ -3971,12 +3971,12 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     const memoRequired = partiallyReadySelection.body.find(
       (row: { id: string }) => row.id === networkBId,
     );
-    assert.equal(readyWithoutMemo?.sharedDepositAddress, "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080");
+    assert.equal(readyWithoutMemo?.sharedDepositAddress, "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqthqst8");
     assert.equal(readyWithoutMemo?.sharedDepositMemo, null);
     assert.equal(readyWithoutMemo?.customerDepositsEnabled, true);
     assert.equal(readyWithoutMemo?.monitoringReadiness?.code, "READY");
     assert.equal(readyWithoutMemo?.monitoringReadiness?.ready, true);
-    assert.equal(memoRequired?.sharedDepositAddress, "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080");
+    assert.equal(memoRequired?.sharedDepositAddress, "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqthqst8");
     assert.equal(memoRequired?.sharedDepositMemo, null);
     assert.equal(memoRequired?.customerDepositsEnabled, false);
     assert.equal(memoRequired?.monitoringReadiness?.code, "MEMO_INVALID");
@@ -3984,7 +3984,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     const rowsAfterPartiallyReadySelection = await db.select().from(cryptoAssetNetworksTable)
       .where(inArray(cryptoAssetNetworksTable.id, [networkAId, networkBId]));
     assert.ok(rowsAfterPartiallyReadySelection.every(row =>
-      row.sharedDepositAddress === "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080" &&
+      row.sharedDepositAddress === "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqthqst8" &&
       row.sharedDepositMemo === null
     ));
     assert.equal(
@@ -3997,7 +3997,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     );
     const exactNetworkOnly = await apiJson(api.url, "/admin/crypto-networks/receiving-wallet", {
       networkIds: [networkAId],
-      walletAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+      walletAddress: "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9e75rs",
       memo: "network-a-only",
       networkEnabled: false,
       enabled: false,
@@ -4044,7 +4044,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     assert.equal(invalidAddress.body[0]?.monitoringReadiness?.ready, false);
     const invalidOptionalMemo = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
       networkId: networkAId,
-      walletAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+      walletAddress: "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9e75rs",
       memo: "x".repeat(121),
       enabled: true,
       useForAllAssetsOnNetwork: false,
@@ -4066,7 +4066,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     assert.equal(invalidDisabledMemo.body.code, "CRYPTO_DEPOSIT_MEMO_INVALID");
 
     const shared = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
-      networkId: networkAId, walletAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", memo: "shared-memo",
+      networkId: networkAId, walletAddress: "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9e75rs", memo: "shared-memo",
       enabled: true, useForAllAssetsOnNetwork: true, depositProvider: "none",
     }, "PUT", headers);
     assert.equal(shared.status, 200);
@@ -4076,14 +4076,14 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     );
     const [differentAfterShared] = await db.select().from(cryptoAssetNetworksTable)
       .where(eq(cryptoAssetNetworksTable.id, differentNetworkId));
-    assert.equal(differentAfterShared.sharedDepositAddress, "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh");
+    assert.equal(differentAfterShared.sharedDepositAddress, "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9e75rs");
     assert.equal(differentAfterShared.customerDepositsEnabled, false);
     const sharedRows = await db.select().from(cryptoAssetNetworksTable)
       .where(inArray(cryptoAssetNetworksTable.id, [networkAId, networkBId]));
     assert.equal(sharedRows.find(row => row.id === networkAId)?.depositProvider, "none");
     assert.equal(sharedRows.find(row => row.id === networkAId)?.customerDepositsEnabled, false);
     assert.equal(sharedRows.find(row => row.id === networkBId)?.depositProvider, "manual");
-    assert.equal(sharedRows.find(row => row.id === networkBId)?.sharedDepositAddress, "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh");
+    assert.equal(sharedRows.find(row => row.id === networkBId)?.sharedDepositAddress, "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9e75rs");
     assert.equal(sharedRows.find(row => row.id === networkBId)?.customerDepositsEnabled, false);
     const sharedConfig = await (await fetch(`${api.url}/exchange/config`)).json() as {
       manualSettlementOptions: Array<{ id: string; direction: string }>;
@@ -4100,7 +4100,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     await db.update(cryptoAssetNetworksTable).set({ sharedDepositMemo: null })
       .where(inArray(cryptoAssetNetworksTable.id, [networkAId, networkBId]));
     const optionalMemo = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
-      networkId: networkAId, walletAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", memo: null,
+      networkId: networkAId, walletAddress: "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9e75rs", memo: null,
       enabled: true, useForAllAssetsOnNetwork: true, depositProvider: "manual",
     }, "PUT", headers);
     assert.equal(optionalMemo.status, 200, JSON.stringify(optionalMemo.body));
@@ -4116,7 +4116,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     assert.equal(optionalMemoRequired?.monitoringReadiness?.code, "MEMO_INVALID");
     const afterOptionalMemoSave = await db.select().from(cryptoAssetNetworksTable)
       .where(inArray(cryptoAssetNetworksTable.id, [networkAId, networkBId]));
-    assert.ok(afterOptionalMemoSave.every(row => row.sharedDepositAddress === "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"));
+    assert.ok(afterOptionalMemoSave.every(row => row.sharedDepositAddress === "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9e75rs"));
     assert.ok(afterOptionalMemoSave.every(row => row.sharedDepositMemo === null));
     const auditRows = await db.select().from(operatorAuditLogsTable)
       .where(eq(operatorAuditLogsTable.actorClerkUserId, userId));

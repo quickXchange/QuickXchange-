@@ -127,7 +127,8 @@ async function loadBlockchainMonitoringSetupRoutes(executor: Pick<typeof db, "se
       providerCompatible:
         network.adapterKind === "evm" && network.providerKind === "rpc" ||
         network.adapterKind === "solana" && network.providerKind === "rpc" ||
-        network.adapterKind === "tron" && network.providerKind === "indexer",
+        network.adapterKind === "tron" && network.providerKind === "indexer" ||
+        network.adapterKind === "bitcoin" && network.providerKind === "rpc",
       receivingAddressValid: isSyntacticallyValidManualWalletAddress(
         route,
         route.sharedDepositAddress,
@@ -173,6 +174,7 @@ async function loadBlockchainMonitoringSetupRoutes(executor: Pick<typeof db, "se
       customerDepositsAvailable:
         runtimeReadiness === "ready" && route.customerDepositsEnabled,
       monitoringEnabled: Boolean(network?.enabled && monitorAsset?.enabled),
+      autoEnableEligible: network?.adapterKind !== "bitcoin",
       monitorNetworkId: network?.id,
       monitorAssetId: monitorAsset?.id,
     };
@@ -182,7 +184,7 @@ async function loadBlockchainMonitoringSetupRoutes(executor: Pick<typeof db, "se
 router.get("/admin/blockchain-monitoring/setup/routes", async (_req, res, next) => {
   try {
     const items = await loadBlockchainMonitoringSetupRoutes();
-    res.json({ items: items.map(({ monitorNetworkId: _network, monitorAssetId: _asset, ...item }) => item) });
+    res.json({ items: items.map(({ monitorNetworkId: _network, monitorAssetId: _asset, autoEnableEligible: _auto, ...item }) => item) });
   } catch (error) { next(error); }
 });
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { boundedWatchScanEnd, canApplyConfirmedMatchWatch, canResolveRegistrationGap, cursorAfterCapturedHead, deriveBlockchainMonitoringSetupStatus, evidenceWithinWatchCursor, exactAmountMatches, exactWatchMatchesOrderSnapshot, evidenceMeetsWatchTimeAndMemo, immutableIdentityMatches, isFinalitySatisfied, selectReadyBlockchainMonitoringSetupRoutes, selectWatchScanCursor } from "../src/lib/blockchain-monitoring/service";
+import { boundedBitcoinWatchScanRange, boundedWatchScanEnd, canApplyConfirmedMatchWatch, canResolveRegistrationGap, cursorAfterCapturedHead, deriveBlockchainMonitoringSetupStatus, evidenceWithinWatchCursor, exactAmountMatches, exactWatchMatchesOrderSnapshot, evidenceMeetsWatchTimeAndMemo, immutableIdentityMatches, isFinalitySatisfied, selectReadyBlockchainMonitoringSetupRoutes, selectWatchScanCursor } from "../src/lib/blockchain-monitoring/service";
 import { canEnqueueSwapPaymentReceived } from "../src/lib/telegram-swap-notifications";
 
 test("Manual monitoring matches decimal order amounts only at configured precision", () => {
@@ -47,6 +47,14 @@ test("native watch ranges make bounded progress while token ranges retain bulk l
   assert.equal(boundedWatchScanEnd("100", "105", "native"), "105");
   assert.equal(boundedWatchScanEnd("100", "10000", "token"), "1100");
   assert.equal(boundedWatchScanEnd("100", "10000", "token", 9), "109");
+  assert.deepEqual(
+    boundedBitcoinWatchScanRange("100", "50", "120", 8, 6),
+    { from: "94", to: "102" },
+  );
+  assert.deepEqual(
+    boundedBitcoinWatchScanRange("100", "98", "100", 8, 6),
+    { from: "98", to: "100" },
+  );
 });
 
 test("bulk monitoring setup keeps disabled routes disabled and never infers token identity", () => {
@@ -93,6 +101,7 @@ test("selected monitoring setup enables only requested ready routes", () => {
   const routes = [
     { assetNetworkId: "ready-a", status: "ready" as const, monitorNetworkId: "network-a", monitorAssetId: "asset-a" },
     { assetNetworkId: "ready-b", status: "ready" as const, monitorNetworkId: "network-b", monitorAssetId: "asset-b" },
+    { assetNetworkId: "bitcoin-disabled", status: "ready" as const, monitorNetworkId: "network-bitcoin", monitorAssetId: "asset-bitcoin", autoEnableEligible: false },
     { assetNetworkId: "missing", status: "missing_rpc" as const, monitorNetworkId: "network-c", monitorAssetId: "asset-c" },
   ];
   const selected = selectReadyBlockchainMonitoringSetupRoutes(routes, ["ready-a", "missing", "unknown"]);
@@ -100,7 +109,7 @@ test("selected monitoring setup enables only requested ready routes", () => {
   assert.equal(selected.skippedRoutes, 2);
   const all = selectReadyBlockchainMonitoringSetupRoutes(routes);
   assert.deepEqual(all.ready.map(route => route.assetNetworkId), ["ready-a", "ready-b"]);
-  assert.equal(all.skippedRoutes, 1);
+  assert.equal(all.skippedRoutes, 2);
 });
 
 test("Payment Received notifications require the canonical funded processing state", () => {
