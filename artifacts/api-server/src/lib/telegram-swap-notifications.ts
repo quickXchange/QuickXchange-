@@ -48,6 +48,13 @@ export type SwapTelegramNotificationPayload = {
   receivedNetwork?: string;
   customerName?: string;
   createdAt?: string;
+  transactionHash?: string;
+  explorerUrl?: string;
+};
+
+export type VerifiedManualTransaction = {
+  transactionHash: string;
+  explorerUrlTemplate?: string | null;
 };
 
 export function swapTelegramStatusLabel(status: string): string {
@@ -127,11 +134,23 @@ export function buildSwapTelegramNotificationPayload(
   };
 }
 
+function verifiedExplorerUrl(template: unknown, transactionHash: string): string | undefined {
+  if (typeof template !== "string" || !template.startsWith("https://") || !template.includes("{tx}")) return undefined;
+  const candidate = template.replaceAll("{tx}", encodeURIComponent(transactionHash));
+  try {
+    const url = new URL(candidate);
+    return url.protocol === "https:" ? url.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function enqueueSwapTelegramNotification(
   tx: DbTransaction,
   order: OrderRow,
   eventKind: SwapTelegramEventKind,
   received?: { amount: string; asset: string; network: string },
+  verifiedTransaction?: VerifiedManualTransaction,
 ): Promise<number> {
   if (order.type !== "manual") return 0;
   if (eventKind === "payment_received" && !canEnqueueSwapPaymentReceived(order)) return 0;
@@ -233,6 +252,15 @@ export async function enqueueSwapTelegramNotification(
       inArray(telegramOrderLinksTable.orderKind, ["manual", "swap"]),
     ));
   const payload = buildSwapTelegramNotificationPayload(order, eventKind, received);
+  if (eventKind === "payment_received" && verifiedTransaction?.transactionHash) {
+    Object.assign(payload, {
+      transactionHash: verifiedTransaction.transactionHash,
+      explorerUrl: verifiedExplorerUrl(
+        verifiedTransaction.explorerUrlTemplate,
+        verifiedTransaction.transactionHash,
+      ),
+    });
+  }
   for (const link of links) {
     if (
       order.customerClerkUserId &&
@@ -509,6 +537,7 @@ export function formatSwapTelegramNotification(
       `You Receive: <b>${escapeHtml(payload.receiveAmount)} ${escapeHtml(routeLabel(payload.receiveMethod, payload.receiveAsset, payload.receiveNetwork))}</b>`,
       `Received: <b>${escapeHtml(payload.receivedAmount)} ${escapeHtml(payload.receivedAsset)}</b>`,
       payload.receivedNetwork ? `Network: <b>${escapeHtml(payload.receivedNetwork)}</b>` : "",
+      payload.transactionHash ? `TxID: <code>${escapeHtml(payload.transactionHash)}</code>` : "",
       "Status: <b>Payment Received</b>",
       payload.createdAt ? `Time: ${escapeHtml(payload.createdAt)}` : "",
       "",

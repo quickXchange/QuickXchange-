@@ -1113,6 +1113,10 @@ export const createExchangeOrderResponseTransactionHashMax = 500;
 
 export const createExchangeOrderResponsePaymentReferenceMax = 500;
 
+export const createExchangeOrderResponseVerifiedFundingTransactionConfirmationsMin = 0;
+export const createExchangeOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf = 1;
+
+export const createExchangeOrderResponseVerifiedFundingTransactionExplorerUrlRegExp = new RegExp('^https:/');
 export const createExchangeOrderResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createExchangeOrderResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createExchangeOrderResponseCustomerSafeNoteMax = 2000;
@@ -1193,6 +1197,14 @@ export const CreateExchangeOrderResponse = zod.object({
   "networkFeeAmount": zod.string().regex(createExchangeOrderResponseNetworkFeeAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.').nullable(),
   "transactionHash": zod.string().max(createExchangeOrderResponseTransactionHashMax).nullable(),
   "paymentReference": zod.string().max(createExchangeOrderResponsePaymentReferenceMax).nullable(),
+  "verifiedFundingTransaction": zod.object({
+  "transactionHash": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "confirmations": zod.number().min(createExchangeOrderResponseVerifiedFundingTransactionConfirmationsMin).multipleOf(createExchangeOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf),
+  "detectedAt": zod.coerce.date().nullable(),
+  "explorerUrl": zod.string().url().regex(createExchangeOrderResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
+}).optional(),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -1407,6 +1419,10 @@ export const getOrdersResponseItemsItemTransactionHashMax = 500;
 
 export const getOrdersResponseItemsItemPaymentReferenceMax = 500;
 
+export const getOrdersResponseItemsItemVerifiedFundingTransactionConfirmationsMin = 0;
+export const getOrdersResponseItemsItemVerifiedFundingTransactionConfirmationsMultipleOf = 1;
+
+export const getOrdersResponseItemsItemVerifiedFundingTransactionExplorerUrlRegExp = new RegExp('^https:/');
 export const getOrdersResponseItemsItemAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getOrdersResponseItemsItemReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getOrdersResponseItemsItemCustomerSafeNoteMax = 2000;
@@ -1496,6 +1512,14 @@ export const GetOrdersResponse = zod.object({
   "networkFeeAmount": zod.string().regex(getOrdersResponseItemsItemNetworkFeeAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.').nullable(),
   "transactionHash": zod.string().max(getOrdersResponseItemsItemTransactionHashMax).nullable(),
   "paymentReference": zod.string().max(getOrdersResponseItemsItemPaymentReferenceMax).nullable(),
+  "verifiedFundingTransaction": zod.object({
+  "transactionHash": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "confirmations": zod.number().min(getOrdersResponseItemsItemVerifiedFundingTransactionConfirmationsMin).multipleOf(getOrdersResponseItemsItemVerifiedFundingTransactionConfirmationsMultipleOf),
+  "detectedAt": zod.coerce.date().nullable(),
+  "explorerUrl": zod.string().url().regex(getOrdersResponseItemsItemVerifiedFundingTransactionExplorerUrlRegExp).optional()
+}).optional(),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -1709,6 +1733,10 @@ export const createOrderResponseTransactionHashMax = 500;
 
 export const createOrderResponsePaymentReferenceMax = 500;
 
+export const createOrderResponseVerifiedFundingTransactionConfirmationsMin = 0;
+export const createOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf = 1;
+
+export const createOrderResponseVerifiedFundingTransactionExplorerUrlRegExp = new RegExp('^https:/');
 export const createOrderResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createOrderResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createOrderResponseCustomerSafeNoteMax = 2000;
@@ -1789,6 +1817,14 @@ export const CreateOrderResponse = zod.object({
   "networkFeeAmount": zod.string().regex(createOrderResponseNetworkFeeAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.').nullable(),
   "transactionHash": zod.string().max(createOrderResponseTransactionHashMax).nullable(),
   "paymentReference": zod.string().max(createOrderResponsePaymentReferenceMax).nullable(),
+  "verifiedFundingTransaction": zod.object({
+  "transactionHash": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "confirmations": zod.number().min(createOrderResponseVerifiedFundingTransactionConfirmationsMin).multipleOf(createOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf),
+  "detectedAt": zod.coerce.date().nullable(),
+  "explorerUrl": zod.string().url().regex(createOrderResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
+}).optional(),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -1971,6 +2007,10 @@ export const bulkUpdateOrderStatusResponseResultsItemOrderTransactionHashMax = 5
 
 export const bulkUpdateOrderStatusResponseResultsItemOrderPaymentReferenceMax = 500;
 
+export const bulkUpdateOrderStatusResponseResultsItemOrderVerifiedFundingTransactionConfirmationsMin = 0;
+export const bulkUpdateOrderStatusResponseResultsItemOrderVerifiedFundingTransactionConfirmationsMultipleOf = 1;
+
+export const bulkUpdateOrderStatusResponseResultsItemOrderVerifiedFundingTransactionExplorerUrlRegExp = new RegExp('^https:/');
 export const bulkUpdateOrderStatusResponseResultsItemOrderAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const bulkUpdateOrderStatusResponseResultsItemOrderReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const bulkUpdateOrderStatusResponseResultsItemOrderCustomerSafeNoteMax = 2000;
@@ -2055,6 +2095,14 @@ export const BulkUpdateOrderStatusResponse = zod.object({
   "networkFeeAmount": zod.string().regex(bulkUpdateOrderStatusResponseResultsItemOrderNetworkFeeAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.').nullable(),
   "transactionHash": zod.string().max(bulkUpdateOrderStatusResponseResultsItemOrderTransactionHashMax).nullable(),
   "paymentReference": zod.string().max(bulkUpdateOrderStatusResponseResultsItemOrderPaymentReferenceMax).nullable(),
+  "verifiedFundingTransaction": zod.object({
+  "transactionHash": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "confirmations": zod.number().min(bulkUpdateOrderStatusResponseResultsItemOrderVerifiedFundingTransactionConfirmationsMin).multipleOf(bulkUpdateOrderStatusResponseResultsItemOrderVerifiedFundingTransactionConfirmationsMultipleOf),
+  "detectedAt": zod.coerce.date().nullable(),
+  "explorerUrl": zod.string().url().regex(bulkUpdateOrderStatusResponseResultsItemOrderVerifiedFundingTransactionExplorerUrlRegExp).optional()
+}).optional(),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -2243,6 +2291,10 @@ export const bulkArchiveOrdersResponseResultsItemOrderTransactionHashMax = 500;
 
 export const bulkArchiveOrdersResponseResultsItemOrderPaymentReferenceMax = 500;
 
+export const bulkArchiveOrdersResponseResultsItemOrderVerifiedFundingTransactionConfirmationsMin = 0;
+export const bulkArchiveOrdersResponseResultsItemOrderVerifiedFundingTransactionConfirmationsMultipleOf = 1;
+
+export const bulkArchiveOrdersResponseResultsItemOrderVerifiedFundingTransactionExplorerUrlRegExp = new RegExp('^https:/');
 export const bulkArchiveOrdersResponseResultsItemOrderAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const bulkArchiveOrdersResponseResultsItemOrderReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const bulkArchiveOrdersResponseResultsItemOrderCustomerSafeNoteMax = 2000;
@@ -2327,6 +2379,14 @@ export const BulkArchiveOrdersResponse = zod.object({
   "networkFeeAmount": zod.string().regex(bulkArchiveOrdersResponseResultsItemOrderNetworkFeeAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.').nullable(),
   "transactionHash": zod.string().max(bulkArchiveOrdersResponseResultsItemOrderTransactionHashMax).nullable(),
   "paymentReference": zod.string().max(bulkArchiveOrdersResponseResultsItemOrderPaymentReferenceMax).nullable(),
+  "verifiedFundingTransaction": zod.object({
+  "transactionHash": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "confirmations": zod.number().min(bulkArchiveOrdersResponseResultsItemOrderVerifiedFundingTransactionConfirmationsMin).multipleOf(bulkArchiveOrdersResponseResultsItemOrderVerifiedFundingTransactionConfirmationsMultipleOf),
+  "detectedAt": zod.coerce.date().nullable(),
+  "explorerUrl": zod.string().url().regex(bulkArchiveOrdersResponseResultsItemOrderVerifiedFundingTransactionExplorerUrlRegExp).optional()
+}).optional(),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -2514,6 +2574,10 @@ export const permanentlyDeleteOrdersResponseResultsItemOrderTransactionHashMax =
 
 export const permanentlyDeleteOrdersResponseResultsItemOrderPaymentReferenceMax = 500;
 
+export const permanentlyDeleteOrdersResponseResultsItemOrderVerifiedFundingTransactionConfirmationsMin = 0;
+export const permanentlyDeleteOrdersResponseResultsItemOrderVerifiedFundingTransactionConfirmationsMultipleOf = 1;
+
+export const permanentlyDeleteOrdersResponseResultsItemOrderVerifiedFundingTransactionExplorerUrlRegExp = new RegExp('^https:/');
 export const permanentlyDeleteOrdersResponseResultsItemOrderAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const permanentlyDeleteOrdersResponseResultsItemOrderReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const permanentlyDeleteOrdersResponseResultsItemOrderCustomerSafeNoteMax = 2000;
@@ -2598,6 +2662,14 @@ export const PermanentlyDeleteOrdersResponse = zod.object({
   "networkFeeAmount": zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderNetworkFeeAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.').nullable(),
   "transactionHash": zod.string().max(permanentlyDeleteOrdersResponseResultsItemOrderTransactionHashMax).nullable(),
   "paymentReference": zod.string().max(permanentlyDeleteOrdersResponseResultsItemOrderPaymentReferenceMax).nullable(),
+  "verifiedFundingTransaction": zod.object({
+  "transactionHash": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "confirmations": zod.number().min(permanentlyDeleteOrdersResponseResultsItemOrderVerifiedFundingTransactionConfirmationsMin).multipleOf(permanentlyDeleteOrdersResponseResultsItemOrderVerifiedFundingTransactionConfirmationsMultipleOf),
+  "detectedAt": zod.coerce.date().nullable(),
+  "explorerUrl": zod.string().url().regex(permanentlyDeleteOrdersResponseResultsItemOrderVerifiedFundingTransactionExplorerUrlRegExp).optional()
+}).optional(),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -2774,32 +2846,36 @@ export const GetPublicOrderStatusQueryParams = zod.object({
   "trackingToken": zod.coerce.string().min(getPublicOrderStatusQueryTrackingTokenMin).max(getPublicOrderStatusQueryTrackingTokenMax).optional().describe('Expiring capability returned when the order is created. Required for deposit instructions.')
 })
 
-export const getPublicOrderStatusResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
-export const getPublicOrderStatusResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
-export const getPublicOrderStatusResponseCustomerSafeNoteMax = 2000;
+export const getPublicOrderStatusResponseOneAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const getPublicOrderStatusResponseOneReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const getPublicOrderStatusResponseOneCustomerSafeNoteMax = 2000;
 
-export const getPublicOrderStatusResponsePaymentDetailsNameMax = 500;
+export const getPublicOrderStatusResponseOnePaymentDetailsNameMax = 500;
 
-export const getPublicOrderStatusResponsePaymentDetailsIbanMax = 500;
+export const getPublicOrderStatusResponseOnePaymentDetailsIbanMax = 500;
 
-export const getPublicOrderStatusResponsePaymentDetailsBankNameMax = 500;
+export const getPublicOrderStatusResponseOnePaymentDetailsBankNameMax = 500;
 
-export const getPublicOrderStatusResponsePaymentDetailsBicSwiftMax = 500;
+export const getPublicOrderStatusResponseOnePaymentDetailsBicSwiftMax = 500;
 
-export const getPublicOrderStatusResponsePaymentDetailsPaymentReferenceMax = 500;
+export const getPublicOrderStatusResponseOnePaymentDetailsPaymentReferenceMax = 500;
 
-export const getPublicOrderStatusResponsePaymentDetailsAmountMax = 120;
+export const getPublicOrderStatusResponseOnePaymentDetailsAmountMax = 120;
 
-export const getPublicOrderStatusResponsePaymentDetailsCustomInstructionsMax = 2000;
+export const getPublicOrderStatusResponseOnePaymentDetailsCustomInstructionsMax = 2000;
 
-export const getPublicOrderStatusResponseSourcePaymentMethodIdMax = 200;
+export const getPublicOrderStatusResponseOneSourcePaymentMethodIdMax = 200;
 
-export const getPublicOrderStatusResponseSourcePaymentMethodPaymentMethodIdMax = 200;
+export const getPublicOrderStatusResponseOneSourcePaymentMethodPaymentMethodIdMax = 200;
 
-export const getPublicOrderStatusResponseSourcePaymentMethodNameMax = 200;
+export const getPublicOrderStatusResponseOneSourcePaymentMethodNameMax = 200;
 
-export const getPublicOrderStatusResponseSourcePaymentMethodLogoUrlMax = 2048;
+export const getPublicOrderStatusResponseOneSourcePaymentMethodLogoUrlMax = 2048;
 
+export const getPublicOrderStatusResponseTwoVerifiedFundingTransactionConfirmationsMin = 0;
+export const getPublicOrderStatusResponseTwoVerifiedFundingTransactionConfirmationsMultipleOf = 1;
+
+export const getPublicOrderStatusResponseTwoVerifiedFundingTransactionExplorerUrlRegExp = new RegExp('^https:/');
 
 
 export const GetPublicOrderStatusResponse = zod.object({
@@ -2812,8 +2888,8 @@ export const GetPublicOrderStatusResponse = zod.object({
   "toAsset": zod.string(),
   "toNetwork": zod.string().optional(),
   "targetSettlementOptionId": zod.string().optional(),
-  "amount": zod.string().regex(getPublicOrderStatusResponseAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
-  "receiveAmount": zod.string().regex(getPublicOrderStatusResponseReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "amount": zod.string().regex(getPublicOrderStatusResponseOneAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "receiveAmount": zod.string().regex(getPublicOrderStatusResponseOneReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
   "depositAddress": zod.string().optional(),
   "depositMemo": zod.string().optional(),
   "refundAddress": zod.string().optional(),
@@ -2829,34 +2905,43 @@ export const GetPublicOrderStatusResponse = zod.object({
 }).describe('Product-specific upstream freshness. Swap reflects the 1Forge fiat-rate cache used for manual quotes. Convert reflects the Quickex instrument catalog refresh that gates executable routes.'),
   "createdAt": zod.string(),
   "manualSettlementState": zod.string().optional(),
-  "customerSafeNote": zod.string().max(getPublicOrderStatusResponseCustomerSafeNoteMax).optional(),
+  "customerSafeNote": zod.string().max(getPublicOrderStatusResponseOneCustomerSafeNoteMax).optional(),
   "fundingDetails": zod.record(zod.string(), zod.unknown()).optional(),
   "fundingStatus": zod.enum(['provisioning', 'ready_whitebit', 'ready_manual', 'unresolved']).optional(),
   "fundingSource": zod.enum(['whitebit', 'manual']).optional(),
   "fundingError": zod.string().optional(),
   "settlementDetails": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).optional(),
   "paymentDetails": zod.object({
-  "name": zod.string().max(getPublicOrderStatusResponsePaymentDetailsNameMax).optional(),
-  "iban": zod.string().max(getPublicOrderStatusResponsePaymentDetailsIbanMax).optional(),
-  "bankName": zod.string().max(getPublicOrderStatusResponsePaymentDetailsBankNameMax).optional(),
-  "bicSwift": zod.string().max(getPublicOrderStatusResponsePaymentDetailsBicSwiftMax).optional(),
-  "paymentReference": zod.string().max(getPublicOrderStatusResponsePaymentDetailsPaymentReferenceMax).optional(),
-  "amount": zod.string().max(getPublicOrderStatusResponsePaymentDetailsAmountMax).optional(),
-  "customInstructions": zod.string().max(getPublicOrderStatusResponsePaymentDetailsCustomInstructionsMax).optional()
+  "name": zod.string().max(getPublicOrderStatusResponseOnePaymentDetailsNameMax).optional(),
+  "iban": zod.string().max(getPublicOrderStatusResponseOnePaymentDetailsIbanMax).optional(),
+  "bankName": zod.string().max(getPublicOrderStatusResponseOnePaymentDetailsBankNameMax).optional(),
+  "bicSwift": zod.string().max(getPublicOrderStatusResponseOnePaymentDetailsBicSwiftMax).optional(),
+  "paymentReference": zod.string().max(getPublicOrderStatusResponseOnePaymentDetailsPaymentReferenceMax).optional(),
+  "amount": zod.string().max(getPublicOrderStatusResponseOnePaymentDetailsAmountMax).optional(),
+  "customInstructions": zod.string().max(getPublicOrderStatusResponseOnePaymentDetailsCustomInstructionsMax).optional()
 }).optional(),
   "paymentDetailsApplicable": zod.boolean().optional(),
   "sourcePaymentMethod": zod.object({
-  "id": zod.string().min(1).max(getPublicOrderStatusResponseSourcePaymentMethodIdMax),
-  "paymentMethodId": zod.string().min(1).max(getPublicOrderStatusResponseSourcePaymentMethodPaymentMethodIdMax).optional(),
-  "name": zod.string().min(1).max(getPublicOrderStatusResponseSourcePaymentMethodNameMax),
-  "logoUrl": zod.string().min(1).max(getPublicOrderStatusResponseSourcePaymentMethodLogoUrlMax).optional()
+  "id": zod.string().min(1).max(getPublicOrderStatusResponseOneSourcePaymentMethodIdMax),
+  "paymentMethodId": zod.string().min(1).max(getPublicOrderStatusResponseOneSourcePaymentMethodPaymentMethodIdMax).optional(),
+  "name": zod.string().min(1).max(getPublicOrderStatusResponseOneSourcePaymentMethodNameMax),
+  "logoUrl": zod.string().min(1).max(getPublicOrderStatusResponseOneSourcePaymentMethodLogoUrlMax).optional()
 }).optional(),
   "customerMarkedPaidAt": zod.string().nullish(),
   "completedAt": zod.coerce.date().nullish(),
   "exchangeRate": zod.string().optional(),
   "transactionHash": zod.string().optional(),
   "paymentReference": zod.string().optional()
-})
+}).and(zod.object({
+  "verifiedFundingTransaction": zod.object({
+  "transactionHash": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "confirmations": zod.number().min(getPublicOrderStatusResponseTwoVerifiedFundingTransactionConfirmationsMin).multipleOf(getPublicOrderStatusResponseTwoVerifiedFundingTransactionConfirmationsMultipleOf),
+  "detectedAt": zod.coerce.date().nullable(),
+  "explorerUrl": zod.string().url().regex(getPublicOrderStatusResponseTwoVerifiedFundingTransactionExplorerUrlRegExp).optional()
+}).optional()
+}))
 
 
 /**
@@ -2877,6 +2962,10 @@ export const getOrderResponseTransactionHashMax = 500;
 
 export const getOrderResponsePaymentReferenceMax = 500;
 
+export const getOrderResponseVerifiedFundingTransactionConfirmationsMin = 0;
+export const getOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf = 1;
+
+export const getOrderResponseVerifiedFundingTransactionExplorerUrlRegExp = new RegExp('^https:/');
 export const getOrderResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getOrderResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getOrderResponseCustomerSafeNoteMax = 2000;
@@ -2957,6 +3046,14 @@ export const GetOrderResponse = zod.object({
   "networkFeeAmount": zod.string().regex(getOrderResponseNetworkFeeAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.').nullable(),
   "transactionHash": zod.string().max(getOrderResponseTransactionHashMax).nullable(),
   "paymentReference": zod.string().max(getOrderResponsePaymentReferenceMax).nullable(),
+  "verifiedFundingTransaction": zod.object({
+  "transactionHash": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "confirmations": zod.number().min(getOrderResponseVerifiedFundingTransactionConfirmationsMin).multipleOf(getOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf),
+  "detectedAt": zod.coerce.date().nullable(),
+  "explorerUrl": zod.string().url().regex(getOrderResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
+}).optional(),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -3171,6 +3268,10 @@ export const updateOrderResponseTransactionHashMax = 500;
 
 export const updateOrderResponsePaymentReferenceMax = 500;
 
+export const updateOrderResponseVerifiedFundingTransactionConfirmationsMin = 0;
+export const updateOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf = 1;
+
+export const updateOrderResponseVerifiedFundingTransactionExplorerUrlRegExp = new RegExp('^https:/');
 export const updateOrderResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const updateOrderResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const updateOrderResponseCustomerSafeNoteMax = 2000;
@@ -3251,6 +3352,14 @@ export const UpdateOrderResponse = zod.object({
   "networkFeeAmount": zod.string().regex(updateOrderResponseNetworkFeeAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.').nullable(),
   "transactionHash": zod.string().max(updateOrderResponseTransactionHashMax).nullable(),
   "paymentReference": zod.string().max(updateOrderResponsePaymentReferenceMax).nullable(),
+  "verifiedFundingTransaction": zod.object({
+  "transactionHash": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "confirmations": zod.number().min(updateOrderResponseVerifiedFundingTransactionConfirmationsMin).multipleOf(updateOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf),
+  "detectedAt": zod.coerce.date().nullable(),
+  "explorerUrl": zod.string().url().regex(updateOrderResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
+}).optional(),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -3444,6 +3553,10 @@ export const markOrderPaidResponseSourcePaymentMethodNameMax = 200;
 
 export const markOrderPaidResponseSourcePaymentMethodLogoUrlMax = 2048;
 
+export const markOrderPaidResponseVerifiedFundingTransactionConfirmationsMin = 0;
+export const markOrderPaidResponseVerifiedFundingTransactionConfirmationsMultipleOf = 1;
+
+export const markOrderPaidResponseVerifiedFundingTransactionExplorerUrlRegExp = new RegExp('^https:/');
 
 
 export const MarkOrderPaidResponse = zod.object({
@@ -3490,7 +3603,15 @@ export const MarkOrderPaidResponse = zod.object({
   "completedAt": zod.coerce.date().nullish(),
   "exchangeRate": zod.string().optional(),
   "transactionHash": zod.string().optional(),
-  "paymentReference": zod.string().optional()
+  "paymentReference": zod.string().optional(),
+  "verifiedFundingTransaction": zod.object({
+  "transactionHash": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "confirmations": zod.number().min(markOrderPaidResponseVerifiedFundingTransactionConfirmationsMin).multipleOf(markOrderPaidResponseVerifiedFundingTransactionConfirmationsMultipleOf),
+  "detectedAt": zod.coerce.date().nullable(),
+  "explorerUrl": zod.string().url().regex(markOrderPaidResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
+}).optional()
 })
 
 
@@ -3536,6 +3657,10 @@ export const cancelCustomerOrderResponseSourcePaymentMethodNameMax = 200;
 
 export const cancelCustomerOrderResponseSourcePaymentMethodLogoUrlMax = 2048;
 
+export const cancelCustomerOrderResponseVerifiedFundingTransactionConfirmationsMin = 0;
+export const cancelCustomerOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf = 1;
+
+export const cancelCustomerOrderResponseVerifiedFundingTransactionExplorerUrlRegExp = new RegExp('^https:/');
 
 
 export const CancelCustomerOrderResponse = zod.object({
@@ -3582,7 +3707,15 @@ export const CancelCustomerOrderResponse = zod.object({
   "completedAt": zod.coerce.date().nullish(),
   "exchangeRate": zod.string().optional(),
   "transactionHash": zod.string().optional(),
-  "paymentReference": zod.string().optional()
+  "paymentReference": zod.string().optional(),
+  "verifiedFundingTransaction": zod.object({
+  "transactionHash": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "confirmations": zod.number().min(cancelCustomerOrderResponseVerifiedFundingTransactionConfirmationsMin).multipleOf(cancelCustomerOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf),
+  "detectedAt": zod.coerce.date().nullable(),
+  "explorerUrl": zod.string().url().regex(cancelCustomerOrderResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
+}).optional()
 })
 
 
@@ -3615,6 +3748,10 @@ export const assignOrderResponseTransactionHashMax = 500;
 
 export const assignOrderResponsePaymentReferenceMax = 500;
 
+export const assignOrderResponseVerifiedFundingTransactionConfirmationsMin = 0;
+export const assignOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf = 1;
+
+export const assignOrderResponseVerifiedFundingTransactionExplorerUrlRegExp = new RegExp('^https:/');
 export const assignOrderResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const assignOrderResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const assignOrderResponseCustomerSafeNoteMax = 2000;
@@ -3695,6 +3832,14 @@ export const AssignOrderResponse = zod.object({
   "networkFeeAmount": zod.string().regex(assignOrderResponseNetworkFeeAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.').nullable(),
   "transactionHash": zod.string().max(assignOrderResponseTransactionHashMax).nullable(),
   "paymentReference": zod.string().max(assignOrderResponsePaymentReferenceMax).nullable(),
+  "verifiedFundingTransaction": zod.object({
+  "transactionHash": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "confirmations": zod.number().min(assignOrderResponseVerifiedFundingTransactionConfirmationsMin).multipleOf(assignOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf),
+  "detectedAt": zod.coerce.date().nullable(),
+  "explorerUrl": zod.string().url().regex(assignOrderResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
+}).optional(),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -3894,6 +4039,10 @@ export const updateOrderSupportToolsResponseTransactionHashMax = 500;
 
 export const updateOrderSupportToolsResponsePaymentReferenceMax = 500;
 
+export const updateOrderSupportToolsResponseVerifiedFundingTransactionConfirmationsMin = 0;
+export const updateOrderSupportToolsResponseVerifiedFundingTransactionConfirmationsMultipleOf = 1;
+
+export const updateOrderSupportToolsResponseVerifiedFundingTransactionExplorerUrlRegExp = new RegExp('^https:/');
 export const updateOrderSupportToolsResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const updateOrderSupportToolsResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const updateOrderSupportToolsResponseCustomerSafeNoteMax = 2000;
@@ -3974,6 +4123,14 @@ export const UpdateOrderSupportToolsResponse = zod.object({
   "networkFeeAmount": zod.string().regex(updateOrderSupportToolsResponseNetworkFeeAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.').nullable(),
   "transactionHash": zod.string().max(updateOrderSupportToolsResponseTransactionHashMax).nullable(),
   "paymentReference": zod.string().max(updateOrderSupportToolsResponsePaymentReferenceMax).nullable(),
+  "verifiedFundingTransaction": zod.object({
+  "transactionHash": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "confirmations": zod.number().min(updateOrderSupportToolsResponseVerifiedFundingTransactionConfirmationsMin).multipleOf(updateOrderSupportToolsResponseVerifiedFundingTransactionConfirmationsMultipleOf),
+  "detectedAt": zod.coerce.date().nullable(),
+  "explorerUrl": zod.string().url().regex(updateOrderSupportToolsResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
+}).optional(),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -4152,6 +4309,10 @@ export const archiveOrderResponseTransactionHashMax = 500;
 
 export const archiveOrderResponsePaymentReferenceMax = 500;
 
+export const archiveOrderResponseVerifiedFundingTransactionConfirmationsMin = 0;
+export const archiveOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf = 1;
+
+export const archiveOrderResponseVerifiedFundingTransactionExplorerUrlRegExp = new RegExp('^https:/');
 export const archiveOrderResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const archiveOrderResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const archiveOrderResponseCustomerSafeNoteMax = 2000;
@@ -4232,6 +4393,14 @@ export const ArchiveOrderResponse = zod.object({
   "networkFeeAmount": zod.string().regex(archiveOrderResponseNetworkFeeAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.').nullable(),
   "transactionHash": zod.string().max(archiveOrderResponseTransactionHashMax).nullable(),
   "paymentReference": zod.string().max(archiveOrderResponsePaymentReferenceMax).nullable(),
+  "verifiedFundingTransaction": zod.object({
+  "transactionHash": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "confirmations": zod.number().min(archiveOrderResponseVerifiedFundingTransactionConfirmationsMin).multipleOf(archiveOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf),
+  "detectedAt": zod.coerce.date().nullable(),
+  "explorerUrl": zod.string().url().regex(archiveOrderResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
+}).optional(),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -4410,6 +4579,10 @@ export const restoreOrderResponseTransactionHashMax = 500;
 
 export const restoreOrderResponsePaymentReferenceMax = 500;
 
+export const restoreOrderResponseVerifiedFundingTransactionConfirmationsMin = 0;
+export const restoreOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf = 1;
+
+export const restoreOrderResponseVerifiedFundingTransactionExplorerUrlRegExp = new RegExp('^https:/');
 export const restoreOrderResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const restoreOrderResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const restoreOrderResponseCustomerSafeNoteMax = 2000;
@@ -4490,6 +4663,14 @@ export const RestoreOrderResponse = zod.object({
   "networkFeeAmount": zod.string().regex(restoreOrderResponseNetworkFeeAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.').nullable(),
   "transactionHash": zod.string().max(restoreOrderResponseTransactionHashMax).nullable(),
   "paymentReference": zod.string().max(restoreOrderResponsePaymentReferenceMax).nullable(),
+  "verifiedFundingTransaction": zod.object({
+  "transactionHash": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "confirmations": zod.number().min(restoreOrderResponseVerifiedFundingTransactionConfirmationsMin).multipleOf(restoreOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf),
+  "detectedAt": zod.coerce.date().nullable(),
+  "explorerUrl": zod.string().url().regex(restoreOrderResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
+}).optional(),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -4705,6 +4886,10 @@ export const getCustomerOrdersResponseItemsItemSourcePaymentMethodNameMax = 200;
 
 export const getCustomerOrdersResponseItemsItemSourcePaymentMethodLogoUrlMax = 2048;
 
+export const getCustomerOrdersResponseItemsItemVerifiedFundingTransactionConfirmationsMin = 0;
+export const getCustomerOrdersResponseItemsItemVerifiedFundingTransactionConfirmationsMultipleOf = 1;
+
+export const getCustomerOrdersResponseItemsItemVerifiedFundingTransactionExplorerUrlRegExp = new RegExp('^https:/');
 export const getCustomerOrdersResponseTotalMin = 0;
 export const getCustomerOrdersResponseTotalMultipleOf = 1;
 
@@ -4760,7 +4945,15 @@ export const GetCustomerOrdersResponse = zod.object({
   "completedAt": zod.coerce.date().nullish(),
   "exchangeRate": zod.string().optional(),
   "transactionHash": zod.string().optional(),
-  "paymentReference": zod.string().optional()
+  "paymentReference": zod.string().optional(),
+  "verifiedFundingTransaction": zod.object({
+  "transactionHash": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "confirmations": zod.number().min(getCustomerOrdersResponseItemsItemVerifiedFundingTransactionConfirmationsMin).multipleOf(getCustomerOrdersResponseItemsItemVerifiedFundingTransactionConfirmationsMultipleOf),
+  "detectedAt": zod.coerce.date().nullable(),
+  "explorerUrl": zod.string().url().regex(getCustomerOrdersResponseItemsItemVerifiedFundingTransactionExplorerUrlRegExp).optional()
+}).optional()
 })),
   "total": zod.number().min(getCustomerOrdersResponseTotalMin).multipleOf(getCustomerOrdersResponseTotalMultipleOf),
   "page": zod.number().min(1).multipleOf(getCustomerOrdersResponsePageMultipleOf),
@@ -4867,6 +5060,10 @@ export const claimCustomerOrderResponseSourcePaymentMethodNameMax = 200;
 
 export const claimCustomerOrderResponseSourcePaymentMethodLogoUrlMax = 2048;
 
+export const claimCustomerOrderResponseVerifiedFundingTransactionConfirmationsMin = 0;
+export const claimCustomerOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf = 1;
+
+export const claimCustomerOrderResponseVerifiedFundingTransactionExplorerUrlRegExp = new RegExp('^https:/');
 
 
 export const ClaimCustomerOrderResponse = zod.object({
@@ -4913,7 +5110,15 @@ export const ClaimCustomerOrderResponse = zod.object({
   "completedAt": zod.coerce.date().nullish(),
   "exchangeRate": zod.string().optional(),
   "transactionHash": zod.string().optional(),
-  "paymentReference": zod.string().optional()
+  "paymentReference": zod.string().optional(),
+  "verifiedFundingTransaction": zod.object({
+  "transactionHash": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "confirmations": zod.number().min(claimCustomerOrderResponseVerifiedFundingTransactionConfirmationsMin).multipleOf(claimCustomerOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf),
+  "detectedAt": zod.coerce.date().nullable(),
+  "explorerUrl": zod.string().url().regex(claimCustomerOrderResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
+}).optional()
 })
 
 
@@ -4950,6 +5155,10 @@ export const getCustomerOrderResponseSourcePaymentMethodNameMax = 200;
 
 export const getCustomerOrderResponseSourcePaymentMethodLogoUrlMax = 2048;
 
+export const getCustomerOrderResponseVerifiedFundingTransactionConfirmationsMin = 0;
+export const getCustomerOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf = 1;
+
+export const getCustomerOrderResponseVerifiedFundingTransactionExplorerUrlRegExp = new RegExp('^https:/');
 
 
 export const GetCustomerOrderResponse = zod.object({
@@ -4996,7 +5205,15 @@ export const GetCustomerOrderResponse = zod.object({
   "completedAt": zod.coerce.date().nullish(),
   "exchangeRate": zod.string().optional(),
   "transactionHash": zod.string().optional(),
-  "paymentReference": zod.string().optional()
+  "paymentReference": zod.string().optional(),
+  "verifiedFundingTransaction": zod.object({
+  "transactionHash": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "confirmations": zod.number().min(getCustomerOrderResponseVerifiedFundingTransactionConfirmationsMin).multipleOf(getCustomerOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf),
+  "detectedAt": zod.coerce.date().nullable(),
+  "explorerUrl": zod.string().url().regex(getCustomerOrderResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
+}).optional()
 })
 
 
@@ -9114,6 +9331,10 @@ export const reconcileOrderResponseOrderTransactionHashMax = 500;
 
 export const reconcileOrderResponseOrderPaymentReferenceMax = 500;
 
+export const reconcileOrderResponseOrderVerifiedFundingTransactionConfirmationsMin = 0;
+export const reconcileOrderResponseOrderVerifiedFundingTransactionConfirmationsMultipleOf = 1;
+
+export const reconcileOrderResponseOrderVerifiedFundingTransactionExplorerUrlRegExp = new RegExp('^https:/');
 export const reconcileOrderResponseOrderAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const reconcileOrderResponseOrderReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const reconcileOrderResponseOrderCustomerSafeNoteMax = 2000;
@@ -9197,6 +9418,14 @@ export const ReconcileOrderResponse = zod.object({
   "networkFeeAmount": zod.string().regex(reconcileOrderResponseOrderNetworkFeeAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.').nullable(),
   "transactionHash": zod.string().max(reconcileOrderResponseOrderTransactionHashMax).nullable(),
   "paymentReference": zod.string().max(reconcileOrderResponseOrderPaymentReferenceMax).nullable(),
+  "verifiedFundingTransaction": zod.object({
+  "transactionHash": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "confirmations": zod.number().min(reconcileOrderResponseOrderVerifiedFundingTransactionConfirmationsMin).multipleOf(reconcileOrderResponseOrderVerifiedFundingTransactionConfirmationsMultipleOf),
+  "detectedAt": zod.coerce.date().nullable(),
+  "explorerUrl": zod.string().url().regex(reconcileOrderResponseOrderVerifiedFundingTransactionExplorerUrlRegExp).optional()
+}).optional(),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -10040,6 +10269,10 @@ export const createQuickexOrderResponseTransactionHashMax = 500;
 
 export const createQuickexOrderResponsePaymentReferenceMax = 500;
 
+export const createQuickexOrderResponseVerifiedFundingTransactionConfirmationsMin = 0;
+export const createQuickexOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf = 1;
+
+export const createQuickexOrderResponseVerifiedFundingTransactionExplorerUrlRegExp = new RegExp('^https:/');
 export const createQuickexOrderResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createQuickexOrderResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createQuickexOrderResponseCustomerSafeNoteMax = 2000;
@@ -10120,6 +10353,14 @@ export const CreateQuickexOrderResponse = zod.object({
   "networkFeeAmount": zod.string().regex(createQuickexOrderResponseNetworkFeeAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.').nullable(),
   "transactionHash": zod.string().max(createQuickexOrderResponseTransactionHashMax).nullable(),
   "paymentReference": zod.string().max(createQuickexOrderResponsePaymentReferenceMax).nullable(),
+  "verifiedFundingTransaction": zod.object({
+  "transactionHash": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "confirmations": zod.number().min(createQuickexOrderResponseVerifiedFundingTransactionConfirmationsMin).multipleOf(createQuickexOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf),
+  "detectedAt": zod.coerce.date().nullable(),
+  "explorerUrl": zod.string().url().regex(createQuickexOrderResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
+}).optional(),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -14361,6 +14602,12 @@ export const CreateTelegramMiniAppSessionResponse = zod.object({
 })
 
 
+export const listTelegramMiniAppOrdersResponseVerifiedFundingTransactionConfirmationsMin = 0;
+export const listTelegramMiniAppOrdersResponseVerifiedFundingTransactionConfirmationsMultipleOf = 1;
+
+export const listTelegramMiniAppOrdersResponseVerifiedFundingTransactionExplorerUrlRegExp = new RegExp('^https:/');
+
+
 export const ListTelegramMiniAppOrdersResponseItem = zod.object({
   "id": zod.string(),
   "orderKind": zod.string(),
@@ -14390,7 +14637,15 @@ export const ListTelegramMiniAppOrdersResponseItem = zod.object({
   "sourcePaymentMethod": zod.record(zod.string(), zod.unknown()).optional(),
   "customerMarkedPaidAt": zod.coerce.date().nullish(),
   "refreshUnavailable": zod.boolean().optional(),
-  "logos": zod.record(zod.string(), zod.unknown()).optional()
+  "logos": zod.record(zod.string(), zod.unknown()).optional(),
+  "verifiedFundingTransaction": zod.object({
+  "transactionHash": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "confirmations": zod.number().min(listTelegramMiniAppOrdersResponseVerifiedFundingTransactionConfirmationsMin).multipleOf(listTelegramMiniAppOrdersResponseVerifiedFundingTransactionConfirmationsMultipleOf),
+  "detectedAt": zod.coerce.date().nullable(),
+  "explorerUrl": zod.string().url().regex(listTelegramMiniAppOrdersResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
+}).optional()
 })
 export const ListTelegramMiniAppOrdersResponse = zod.array(ListTelegramMiniAppOrdersResponseItem)
 
@@ -14402,6 +14657,12 @@ export const getTelegramMiniAppOrderPathIdMax = 255;
 export const GetTelegramMiniAppOrderParams = zod.object({
   "id": zod.coerce.string().min(1).max(getTelegramMiniAppOrderPathIdMax)
 })
+
+export const getTelegramMiniAppOrderResponseVerifiedFundingTransactionConfirmationsMin = 0;
+export const getTelegramMiniAppOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf = 1;
+
+export const getTelegramMiniAppOrderResponseVerifiedFundingTransactionExplorerUrlRegExp = new RegExp('^https:/');
+
 
 export const GetTelegramMiniAppOrderResponse = zod.object({
   "id": zod.string(),
@@ -14432,7 +14693,15 @@ export const GetTelegramMiniAppOrderResponse = zod.object({
   "sourcePaymentMethod": zod.record(zod.string(), zod.unknown()).optional(),
   "customerMarkedPaidAt": zod.coerce.date().nullish(),
   "refreshUnavailable": zod.boolean().optional(),
-  "logos": zod.record(zod.string(), zod.unknown()).optional()
+  "logos": zod.record(zod.string(), zod.unknown()).optional(),
+  "verifiedFundingTransaction": zod.object({
+  "transactionHash": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "confirmations": zod.number().min(getTelegramMiniAppOrderResponseVerifiedFundingTransactionConfirmationsMin).multipleOf(getTelegramMiniAppOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf),
+  "detectedAt": zod.coerce.date().nullable(),
+  "explorerUrl": zod.string().url().regex(getTelegramMiniAppOrderResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
+}).optional()
 })
 
 
@@ -14447,6 +14716,12 @@ export const LinkTelegramMiniAppOrderBody = zod.object({
   "trackingToken": zod.string().min(1).max(linkTelegramMiniAppOrderBodyTrackingTokenMax),
   "orderKind": zod.enum(['manual', 'swap', 'convert'])
 })
+
+export const linkTelegramMiniAppOrderResponseVerifiedFundingTransactionConfirmationsMin = 0;
+export const linkTelegramMiniAppOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf = 1;
+
+export const linkTelegramMiniAppOrderResponseVerifiedFundingTransactionExplorerUrlRegExp = new RegExp('^https:/');
+
 
 export const LinkTelegramMiniAppOrderResponse = zod.object({
   "id": zod.string(),
@@ -14477,7 +14752,15 @@ export const LinkTelegramMiniAppOrderResponse = zod.object({
   "sourcePaymentMethod": zod.record(zod.string(), zod.unknown()).optional(),
   "customerMarkedPaidAt": zod.coerce.date().nullish(),
   "refreshUnavailable": zod.boolean().optional(),
-  "logos": zod.record(zod.string(), zod.unknown()).optional()
+  "logos": zod.record(zod.string(), zod.unknown()).optional(),
+  "verifiedFundingTransaction": zod.object({
+  "transactionHash": zod.string(),
+  "networkCode": zod.string(),
+  "networkName": zod.string(),
+  "confirmations": zod.number().min(linkTelegramMiniAppOrderResponseVerifiedFundingTransactionConfirmationsMin).multipleOf(linkTelegramMiniAppOrderResponseVerifiedFundingTransactionConfirmationsMultipleOf),
+  "detectedAt": zod.coerce.date().nullable(),
+  "explorerUrl": zod.string().url().regex(linkTelegramMiniAppOrderResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
+}).optional()
 })
 
 

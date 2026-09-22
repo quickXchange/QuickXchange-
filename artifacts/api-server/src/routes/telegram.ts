@@ -1406,14 +1406,23 @@ export function startTelegramNotificationWorker(): () => void {
             ));
             continue;
           }
+          const swapPayload = payload as SwapTelegramNotificationPayload;
+          const transactionButton = !convert && eventKind === "payment_received" && swapPayload.explorerUrl
+            ? [{ text: "View Transaction", url: swapPayload.explorerUrl }]
+            : undefined;
+          const adminUrl = !convert && adminRecipient ? adminOrderUrl(claimed.orderId) : undefined;
+          const orderButton = adminUrl
+            ? [{ text: "Open Order", url: adminUrl }]
+            : undefined;
+          const buttons: Array<Array<{ text: string; url: string }>> = [];
+          if (orderButton) buttons.push(orderButton);
+          if (transactionButton) buttons.push(transactionButton);
           await sendTelegramMessage(
             claimed.chatId,
             convert
               ? formatConvertTelegramNotification(payload as ConvertNotificationPayload)
-              : formatSwapTelegramNotification(payload as SwapTelegramNotificationPayload),
-            adminRecipient && !convert && adminOrderUrl(claimed.orderId)
-              ? [[{ text: "Open Order", url: adminOrderUrl(claimed.orderId) }]]
-              : undefined,
+              : formatSwapTelegramNotification(swapPayload),
+            buttons.length ? buttons : undefined,
           );
         } else {
           const displayedStatus = payload.orderKind === "manual"

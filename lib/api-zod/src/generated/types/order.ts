@@ -18,6 +18,7 @@ import type { OrderSettlementSnapshot } from './orderSettlementSnapshot';
 import type { OrderSupportStatus } from './orderSupportStatus';
 import type { QuickexRateMode } from './quickexRateMode';
 import type { SourcePaymentMethod } from './sourcePaymentMethod';
+import type { VerifiedFundingTransaction } from './verifiedFundingTransaction';
 
 export interface Order {
   id: string;
@@ -44,6 +45,7 @@ export interface Order {
      * @nullable
      */
   paymentReference: string | null;
+  verifiedFundingTransaction?: VerifiedFundingTransaction;
   /** @nullable */
   archivedAt?: string | null;
   /** @nullable */

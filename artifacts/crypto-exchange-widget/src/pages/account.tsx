@@ -28,6 +28,7 @@ import { PublicShell } from '@/components/public-shell';
 import { ExchangeModeSwitcher } from '@/components/exchange-surface';
 import { convertOrderStatusStep } from '@/lib/convert-order-status';
 import { OrderCompletionSection } from '@/components/order-completion';
+import { VerifiedTransaction } from '@/components/verified-transaction';
 
 type CustomerStatusGroup = 'pending' | 'processing' | 'completed' | 'failed';
 
@@ -1188,6 +1189,12 @@ function CustomerOrderView({ order }: { order: CustomerOrder }) {
           </div>
         )}
       </section>
+
+      {order.type === 'manual' && order.verifiedFundingTransaction && (
+        <div className="mb-6">
+          <VerifiedTransaction transaction={order.verifiedFundingTransaction} />
+        </div>
+      )}
 
       <TransactionDetails
         fundingDetails={order.fundingDetails}

@@ -182,6 +182,7 @@ export default function OrderDetail() {
     : convertOrderStatusStep(status) + 1;
 
   const showPaymentActions = isPending && !targetStatus?.customerMarkedPaidAt && !isFailed && targetStatus?.paymentDetailsApplicable;
+  const verifiedFundingTransaction = orderData.verifiedFundingTransaction;
 
   const sourcePaymentMethod = (targetStatus as any).sourcePaymentMethod;
   const sourceVisual = resolveOrderVisual(exchangeConfig?.settlementOptions, targetStatus, 'source');
@@ -430,6 +431,42 @@ export default function OrderDetail() {
                 {copied === orderId ? <Check className="w-3.5 h-3.5 shrink-0" /> : <Copy className="w-3.5 h-3.5 shrink-0" />}
               </button>
             </div>
+            {isManualSwap && verifiedFundingTransaction?.transactionHash && (
+              <div className="py-3" data-testid="verified-transaction">
+                <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Transaction ID</div>
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <code className="min-w-0 flex-1 truncate font-mono text-xs font-semibold" title={verifiedFundingTransaction.transactionHash}>
+                    {verifiedFundingTransaction.transactionHash.length > 18
+                      ? `${verifiedFundingTransaction.transactionHash.slice(0, 10)}…${verifiedFundingTransaction.transactionHash.slice(-8)}`
+                      : verifiedFundingTransaction.transactionHash}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(verifiedFundingTransaction.transactionHash)}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border/60 px-2 py-1.5 text-[10px] font-semibold"
+                    aria-label="Copy transaction ID"
+                  >
+                    {copied === verifiedFundingTransaction.transactionHash ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    {copied === verifiedFundingTransaction.transactionHash ? 'Copied' : 'Copy'}
+                  </button>
+                  {verifiedFundingTransaction.explorerUrl && (
+                    <a
+                      href={verifiedFundingTransaction.explorerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border/60 px-2 py-1.5 text-[10px] font-semibold text-primary"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" /> View on Explorer
+                    </a>
+                  )}
+                </div>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
+                  <span>Network: <strong className="text-foreground">{verifiedFundingTransaction.networkName || verifiedFundingTransaction.networkCode || '—'}</strong></span>
+                  <span>Confirmations: <strong className="text-foreground">{verifiedFundingTransaction.confirmations}</strong></span>
+                  {verifiedFundingTransaction.detectedAt && <span>Detected: <strong className="text-foreground">{format(new Date(verifiedFundingTransaction.detectedAt), 'MMM d, yyyy · HH:mm')}</strong></span>}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

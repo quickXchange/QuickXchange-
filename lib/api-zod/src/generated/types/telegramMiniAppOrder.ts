@@ -9,6 +9,7 @@ import type { TelegramMiniAppOrderLogos } from './telegramMiniAppOrderLogos';
 import type { TelegramMiniAppOrderPaymentDetails } from './telegramMiniAppOrderPaymentDetails';
 import type { TelegramMiniAppOrderSettlementDetails } from './telegramMiniAppOrderSettlementDetails';
 import type { TelegramMiniAppOrderSourcePaymentMethod } from './telegramMiniAppOrderSourcePaymentMethod';
+import type { VerifiedFundingTransaction } from './verifiedFundingTransaction';
 
 export interface TelegramMiniAppOrder {
   id: string;
@@ -41,4 +42,5 @@ export interface TelegramMiniAppOrder {
   customerMarkedPaidAt?: Date | null;
   refreshUnavailable?: boolean;
   logos?: TelegramMiniAppOrderLogos;
+  verifiedFundingTransaction?: VerifiedFundingTransaction;
 }

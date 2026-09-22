@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import {
   affiliateCompletionEventsTable,
   adminTelegramLinkChallengesTable,
@@ -22,7 +22,7 @@ import { buildCreatePayload, buildQuotePayload, buildTelegramConvertOptions, fil
 import { adminEmailEventEnabled, adminTelegramEventEnabled, customerEmailEventEnabled } from "../src/lib/notification-policy";
 import { normalizeRefundFields } from "../src/lib/manual-wallet-validation";
 import { telegramAccountLinkRelativeUrl, validateTelegramMiniAppInitData, verifyTelegramMiniAppSession } from "../src/routes/telegram-mini-app";
-import { formatSwapTelegramNotification } from "../src/lib/telegram-swap-notifications";
+import { enqueueSwapTelegramNotification, formatSwapTelegramNotification } from "../src/lib/telegram-swap-notifications";
 import { buildCustomerStatusNotificationContent } from "../src/lib/customer-status-notifications";
 import { validateNotificationTemplateVariables } from "../src/routes/notification-settings";
 import {
@@ -321,7 +321,7 @@ test("Customer lifecycle emails render premium event-specific content from safe 
     });
     assert.match(payment.html, /Payment Received/);
     assert.match(payment.html, /You Sent/);
-    assert.match(payment.html, /0x1234\.\.\.90abcdef/);
+    assert.match(payment.html, /0x1234567890abcdef1234567890abcdef/);
     assert.match(payment.html, /12 \/ 12/);
     assert.doesNotMatch(payment.html, /Received at/);
     assert.match(payment.text, /0x1234567890abcdef1234567890abcdef/);
@@ -706,6 +706,17 @@ test("Swap Telegram payment and completion messages use stored event details", (
   assert.match(payment, /<b>Order ID<\/b>\n<code>0996522166<\/code>/);
   assert.match(payment, /Received: <b>20 USDT<\/b>/);
   assert.match(payment, /Network: <b>BEP20<\/b>/);
+  const verifiedTx = "0x174c2400abcdef0123456789abcdef0123456789abcdef0123456789fcb58c";
+  const paymentWithTx = formatSwapTelegramNotification({
+    ...base,
+    eventKind: "payment_received",
+    receivedAmount: "20",
+    receivedAsset: "USDT",
+    receivedNetwork: "BEP20",
+    transactionHash: verifiedTx,
+  });
+  assert.match(paymentWithTx, new RegExp(`TxID: <code>${verifiedTx}</code>`));
+  assert.doesNotMatch(payment, /TxID:/);
   assert.match(payment, /now being processed/);
 
   const completed = formatSwapTelegramNotification({
@@ -839,6 +850,55 @@ test("real Manual Swap completion queues one stored Telegram completion snapshot
     await db.delete(telegramChatsTable).where(eq(telegramChatsTable.chatId, chatId));
     await db.delete(affiliateCompletionEventsTable)
       .where(eq(affiliateCompletionEventsTable.aggregateId, id));
+    await db.delete(ordersTable).where(eq(ordersTable.id, id));
+  }
+});
+
+test("Manual payment Telegram outbox persists only the passed verified TxID and explorer", async () => {
+  const id = `O${randomUUID().replaceAll("-", "").slice(0, 10)}`;
+  const chatId = `93${Date.now()}`;
+  const txHash = "0xverified-observation-payment";
+  await db.insert(ordersTable).values({
+    id,
+    type: "manual",
+    status: "processing",
+    manualSettlementState: "funds_confirmed",
+    transactionHash: "0xeditable-order-field-must-be-ignored",
+    fromAsset: "USDT",
+    fromNetwork: "BEP20",
+    toAsset: "EUR",
+    toNetwork: "SEPA",
+    amount: "20",
+    receiveAmount: "18.75",
+    customerEmail: `${id}@example.test`,
+    destinationAddress: "",
+    destinationMemo: "",
+    refundAddress: "",
+    refundMemo: "",
+    provider: "Manual desk",
+  });
+  await db.insert(telegramChatsTable).values({ chatId, userId: chatId, locale: "en" });
+  await db.insert(telegramOrderLinksTable).values({ chatId, orderId: id, orderKind: "swap", trackingToken: "txid-test-token" });
+  try {
+    const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
+    await db.transaction((tx) => enqueueSwapTelegramNotification(tx, order, "payment_received", {
+      amount: "20", asset: "USDT", network: "BEP20",
+    }, {
+      transactionHash: txHash,
+      explorerUrlTemplate: "https://bscscan.com/tx/{tx}",
+    }));
+    const [payment] = await db.select().from(telegramNotificationOutboxTable).where(and(
+      eq(telegramNotificationOutboxTable.orderId, id),
+      eq(telegramNotificationOutboxTable.eventKind, "payment_received"),
+    ));
+    const payload = payment?.payload as { transactionHash?: string; explorerUrl?: string };
+    assert.equal(payload.transactionHash, txHash);
+    assert.equal(payload.explorerUrl, `https://bscscan.com/tx/${txHash}`);
+    assert.notEqual(payload.transactionHash, "0xeditable-order-field-must-be-ignored");
+  } finally {
+    await db.delete(telegramNotificationOutboxTable).where(eq(telegramNotificationOutboxTable.orderId, id));
+    await db.delete(telegramOrderLinksTable).where(eq(telegramOrderLinksTable.orderId, id));
+    await db.delete(telegramChatsTable).where(eq(telegramChatsTable.chatId, chatId));
     await db.delete(ordersTable).where(eq(ordersTable.id, id));
   }
 });

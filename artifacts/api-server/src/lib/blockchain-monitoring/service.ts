@@ -679,9 +679,23 @@ export async function applyConfirmedMatches(leaseToken?: string, networkId?: str
           eq(blockchainMonitorWatchesTable.id, watch.id),
           eq(blockchainMonitorWatchesTable.active, true),
         ));
+      const [verifiedTransaction] = await tx.select({
+        transactionHash: blockchainMonitorObservationsTable.transactionHash,
+        explorerUrlTemplate: cryptoAssetNetworksTable.explorerUrlTemplate,
+      }).from(blockchainMonitorObservationsTable)
+        .innerJoin(
+          blockchainMonitorWatchesTable,
+          eq(blockchainMonitorWatchesTable.id, watch.id),
+        )
+        .innerJoin(
+          cryptoAssetNetworksTable,
+          eq(cryptoAssetNetworksTable.id, blockchainMonitorWatchesTable.assetNetworkId),
+        )
+        .where(eq(blockchainMonitorObservationsTable.id, observation.id))
+        .limit(1);
       await enqueueSwapTelegramNotification(tx, order, "payment_received", {
         amount: order.amount, asset: order.fromAsset, network: order.fromNetwork,
-      });
+      }, verifiedTransaction?.transactionHash ? verifiedTransaction : undefined);
     });
   }
 }

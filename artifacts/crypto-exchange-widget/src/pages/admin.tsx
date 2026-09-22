@@ -19,6 +19,7 @@ import {
   CreditCard, ExternalLink, Database, HandCoins, Info, Landmark, ShoppingBag, Smartphone, WalletCards, CalendarDays,
   Send, BellRing, Link as LinkIcon, Unplug, MessageSquare, CheckCircle2, XCircle, Bell, Settings2, Star, Code
 } from 'lucide-react';
+import { VerifiedTransaction } from '@/components/verified-transaction';
 import {
   SiAlipay, SiCashapp, SiMastercard, SiPaypal, SiPix, SiRevolut,
   SiVenmo, SiVisa, SiWise, SiZelle, SiTelegram
@@ -5911,6 +5912,9 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
 
           {/* Remaining existing fields */}
           <div className="space-y-6 pt-4 border-t border-border">
+               {(order as typeof order & { verifiedFundingTransaction?: Parameters<typeof VerifiedTransaction>[0]["transaction"] }).verifiedFundingTransaction && (
+                 <VerifiedTransaction transaction={(order as typeof order & { verifiedFundingTransaction?: Parameters<typeof VerifiedTransaction>[0]["transaction"] }).verifiedFundingTransaction} admin />
+               )}
               {order.paymentDetailsApplicable && (
                 <div className="quickx-order-card border rounded-xl p-4 shadow-sm space-y-4" data-testid="admin-payment-details">
                   <div className="flex items-center justify-between gap-3">

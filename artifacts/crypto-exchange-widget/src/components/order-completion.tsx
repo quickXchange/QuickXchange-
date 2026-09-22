@@ -1,8 +1,8 @@
 import { CheckCircle2, Download, ExternalLink, FileText, Printer, ShieldCheck, Star } from 'lucide-react';
-import type { CustomerOrder, PublicOrderStatus } from '@workspace/api-client-react';
+import type { CustomerOrder, ManualPublicOrderStatus, PublicOrderStatus } from '@workspace/api-client-react';
 import { basePath, number } from '@/components/shared-app-ui';
 
-type CompletionOrder = CustomerOrder | PublicOrderStatus;
+type CompletionOrder = CustomerOrder | (PublicOrderStatus & Partial<ManualPublicOrderStatus>);
 
 function isCompletedConvert(order: CompletionOrder): boolean {
   return order.type === 'instant' &&
@@ -174,7 +174,9 @@ async function buildInvoicePdf(order: CompletionOrder): Promise<Blob> {
 
   const details = [];
   if (!isConvert) details.push(`Exchange rate: ${order.exchangeRate || '—'}`);
-  if (order.transactionHash) details.push(`Transaction hash: ${order.transactionHash}`);
+  if (!isConvert && order.verifiedFundingTransaction?.transactionHash) {
+    details.push(`Transaction ID: ${order.verifiedFundingTransaction.transactionHash}`);
+  }
   if (order.paymentReference) details.push(`Payment reference: ${order.paymentReference}`);
   if (providerReference) details.push(`Provider reference: ${providerReference}`);
 
@@ -295,9 +297,9 @@ export function OrderCompletionSection({
           <div><small>You Send</small><strong>{number(order.amount)} {order.fromAsset}</strong><span>{order.fromNetwork || 'Network unavailable'}</span></div>
           <div><small>You Receive</small><strong>{number(order.receiveAmount)} {order.toAsset}</strong><span>{isConvert ? order.toNetwork || 'Network unavailable' : paymentMethod}</span></div>
         </div>
-        {(order.transactionHash || order.paymentReference || providerReference) && (
+         {(order.verifiedFundingTransaction || order.paymentReference || providerReference) && (
           <div className="order-invoice-meta">
-            {order.transactionHash && <div><small>Transaction hash</small><code>{order.transactionHash}</code></div>}
+             {!isConvert && order.verifiedFundingTransaction && <div><small>Transaction ID</small><code>{order.verifiedFundingTransaction.transactionHash}</code></div>}
             {order.paymentReference && <div><small>Payment reference</small><code>{order.paymentReference}</code></div>}
             {providerReference && <div><small>Provider reference</small><code>{providerReference}</code></div>}
           </div>

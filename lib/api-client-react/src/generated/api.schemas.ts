@@ -1471,6 +1471,18 @@ export const OrderReceivingStatus = {
   confirmed: 'confirmed',
 } as const;
 
+export interface VerifiedFundingTransaction {
+  transactionHash: string;
+  networkCode: string;
+  networkName: string;
+  /** @minimum 0 */
+  confirmations: number;
+  /** @nullable */
+  detectedAt: string | null;
+  /** @pattern ^https:// */
+  explorerUrl?: string;
+}
+
 export type OrderFundingStatus = typeof OrderFundingStatus[keyof typeof OrderFundingStatus];
 
 
@@ -1733,6 +1745,7 @@ export interface Order {
      * @nullable
      */
   paymentReference: string | null;
+  verifiedFundingTransaction?: VerifiedFundingTransaction;
   /** @nullable */
   archivedAt?: string | null;
   /** @nullable */
@@ -2394,6 +2407,10 @@ export interface PublicOrderStatus {
   paymentReference?: string;
 }
 
+export type ManualPublicOrderStatus = PublicOrderStatus & {
+  verifiedFundingTransaction?: VerifiedFundingTransaction;
+};
+
 export type CustomerOrderFundingDetails = { [key: string]: unknown };
 
 export type CustomerOrderSettlementDetails = {[key: string]: string | number | null};
@@ -2433,6 +2450,7 @@ export interface CustomerOrder {
   exchangeRate?: string;
   transactionHash?: string;
   paymentReference?: string;
+  verifiedFundingTransaction?: VerifiedFundingTransaction;
 }
 
 export interface CustomerOrderPage {
@@ -5391,6 +5409,7 @@ export interface TelegramMiniAppOrder {
   customerMarkedPaidAt?: string | null;
   refreshUnavailable?: boolean;
   logos?: TelegramMiniAppOrderLogos;
+  verifiedFundingTransaction?: VerifiedFundingTransaction;
 }
 
 export type TelegramMiniAppAccountLinkInputIntent = typeof TelegramMiniAppAccountLinkInputIntent[keyof typeof TelegramMiniAppAccountLinkInputIntent];

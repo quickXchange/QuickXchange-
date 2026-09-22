@@ -3,6 +3,8 @@ import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import {
   db, ordersTable, quickexOrdersTable, telegramChatsTable, telegramOrderLinksTable,
+  blockchainMonitorMatchesTable, blockchainMonitorObservationsTable,
+  blockchainMonitorAssetsTable, blockchainMonitorNetworksTable, cryptoAssetNetworksTable,
 } from "@workspace/db";
 import { verifyOrderTrackingToken } from "../lib/order-access";
 import { ApiError } from "../lib/api-error";
@@ -19,6 +21,17 @@ type MiniUser = {
   languageCode?: string; photoUrl?: string;
 };
 type Session = { v: 1; userId: string; chatId: string; exp: number };
+type TelegramMiniAppVerifiedFundingTransaction = {
+  transactionHash: string;
+  networkCode: string;
+  networkName: string;
+  confirmations: number;
+  detectedAt: string | null;
+  explorerUrl?: string;
+};
+export type TelegramMiniAppManualOrder = ReturnType<typeof manualProjection> & {
+  verifiedFundingTransaction?: TelegramMiniAppVerifiedFundingTransaction;
+};
 
 export function validateTelegramMiniAppInitData(raw: string, now = Date.now()): MiniUser {
   const botToken = process.env.TELEGRAM_BOT_TOKEN?.trim();
@@ -106,6 +119,39 @@ function manualProjection(row: typeof ordersTable.$inferSelect, link: typeof tel
     logos: { from: snapshot?.source?.logoUrl, to: snapshot?.target?.logoUrl },
   };
 }
+async function verifiedFundingTransaction(orderId: string) {
+  const [row] = await db.select({
+    transactionHash: blockchainMonitorObservationsTable.transactionHash,
+    networkCode: blockchainMonitorNetworksTable.networkCode,
+    networkName: blockchainMonitorNetworksTable.networkName,
+    confirmations: blockchainMonitorMatchesTable.confirmations,
+    detectedAt: blockchainMonitorMatchesTable.appliedAt,
+    observedAt: blockchainMonitorObservationsTable.observedAt,
+    explorerUrlTemplate: cryptoAssetNetworksTable.explorerUrlTemplate,
+  }).from(blockchainMonitorMatchesTable)
+    .innerJoin(ordersTable, eq(ordersTable.id, blockchainMonitorMatchesTable.orderId))
+    .innerJoin(blockchainMonitorObservationsTable, eq(blockchainMonitorObservationsTable.id, blockchainMonitorMatchesTable.observationId))
+    .innerJoin(blockchainMonitorAssetsTable, eq(blockchainMonitorAssetsTable.id, blockchainMonitorObservationsTable.monitorAssetId))
+    .innerJoin(blockchainMonitorNetworksTable, eq(blockchainMonitorNetworksTable.id, blockchainMonitorObservationsTable.monitorNetworkId))
+    .innerJoin(cryptoAssetNetworksTable, eq(cryptoAssetNetworksTable.id, blockchainMonitorAssetsTable.assetNetworkId))
+    .where(and(
+      eq(blockchainMonitorMatchesTable.orderId, orderId),
+      eq(blockchainMonitorMatchesTable.state, "applied"),
+      eq(ordersTable.type, "manual"),
+    ))
+    .orderBy(desc(blockchainMonitorMatchesTable.appliedAt), desc(blockchainMonitorMatchesTable.updatedAt)).limit(1);
+  if (!row) return undefined;
+  const template = row.explorerUrlTemplate?.trim();
+  return {
+    transactionHash: row.transactionHash,
+    networkCode: row.networkCode,
+    networkName: row.networkName,
+    confirmations: row.confirmations,
+    detectedAt: (row.detectedAt ?? row.observedAt)?.toISOString() ?? null,
+    explorerUrl: template && /^https:\/\//i.test(template) && /\{(?:tx|transactionHash)\}/i.test(template)
+      ? template.replace(/\{(?:tx|transactionHash)\}/gi, encodeURIComponent(row.transactionHash)) : undefined,
+  };
+}
 function quickexProjection(row: typeof quickexOrdersTable.$inferSelect, link: typeof telegramOrderLinksTable.$inferSelect) {
   const route = (row.route ?? {}) as { fromAsset?: string; fromNetwork?: string; toAsset?: string; toNetwork?: string };
   const amounts = (row.amounts ?? {}) as { amount?: string; receiveAmount?: string };
@@ -137,7 +183,7 @@ function safeSourcePaymentMethod(row: typeof ordersTable.$inferSelect) {
   };
 }
 
-async function findOrders(chatId: string) {
+async function findOrders(chatId: string): Promise<Array<ReturnType<typeof quickexProjection> | TelegramMiniAppManualOrder>> {
   const links = await db.select().from(telegramOrderLinksTable)
     .where(eq(telegramOrderLinksTable.chatId, chatId)).orderBy(desc(telegramOrderLinksTable.createdAt));
   const manual = links.filter(link => link.orderKind !== "convert");
@@ -146,13 +192,16 @@ async function findOrders(chatId: string) {
     ...(manual.length ? await db.select().from(ordersTable).where(inArray(ordersTable.id, manual.map(x => x.orderId))) : []),
     ...(convert.length ? await db.select().from(quickexOrdersTable).where(inArray(quickexOrdersTable.legacyOrderId, convert.map(x => x.orderId))) : []),
   ];
-  return links.flatMap(link => {
+  return (await Promise.all(links.map(async link => {
     const row = rows.find(candidate => ("legacyOrderId" in candidate ? candidate.legacyOrderId : candidate.id) === link.orderId);
     if (!row) return [];
     return ["convert"].includes(link.orderKind)
       ? [quickexProjection(row as typeof quickexOrdersTable.$inferSelect, link)]
-      : [manualProjection(row as typeof ordersTable.$inferSelect, link)];
-  });
+      : [{
+          ...manualProjection(row as typeof ordersTable.$inferSelect, link),
+          verifiedFundingTransaction: await verifiedFundingTransaction(link.orderId),
+        }];
+  }))).flat();
 }
 
 router.post("/telegram/mini-app/session", async (req, res): Promise<void> => {

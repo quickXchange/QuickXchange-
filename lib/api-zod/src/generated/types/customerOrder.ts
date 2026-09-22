@@ -11,6 +11,7 @@ import type { ExactDecimal } from './exactDecimal';
 import type { OrderPaymentDetails } from './orderPaymentDetails';
 import type { QuickexRateMode } from './quickexRateMode';
 import type { SourcePaymentMethod } from './sourcePaymentMethod';
+import type { VerifiedFundingTransaction } from './verifiedFundingTransaction';
 
 export interface CustomerOrder {
   id: string;
@@ -47,4 +48,5 @@ export interface CustomerOrder {
   exchangeRate?: string;
   transactionHash?: string;
   paymentReference?: string;
+  verifiedFundingTransaction?: VerifiedFundingTransaction;
 }

@@ -8,7 +8,7 @@ import {
   getGetQuickexOrderStatusQueryKey
   , useMarkOrderPaid, useCancelCustomerOrder
 } from "@workspace/api-client-react";
-import type { ApiError } from "@workspace/api-client-react";
+import type { ApiError, ManualPublicOrderStatus } from "@workspace/api-client-react";
 import { PublicShell } from "@/components/public-shell";
 import {
   CircleAlert, RefreshCw, Loader2, Copy, Network, Check, ArrowRight, ShieldCheck, CheckCircle2, XCircle, Clock3, ArrowDown
@@ -19,6 +19,7 @@ import { OrderSettlementIdentity } from "@/components/order-settlement-identity"
 import { OrderCompletionSection } from "@/components/order-completion";
 import { QRCodeSVG } from "qrcode.react";
 import { convertOrderStatusLabel, convertOrderStatusStep, isConvertTerminalStatus } from "@/lib/convert-order-status";
+import { VerifiedTransaction } from "@/components/verified-transaction";
 
 const formatExactDateTime = (dateStr: string) => {
   const date = new Date(dateStr);
@@ -96,6 +97,7 @@ export function OrderConfirmationPage() {
   const lookupErrorMessage = notFound ? t('orderStatus.notFound') : t('orderStatus.refreshFailed');
 
   const order = activeStatusQuery.data?.id === id ? activeStatusQuery.data : undefined;
+  const manualOrder = !isQuickex ? order as ManualPublicOrderStatus | undefined : undefined;
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -399,6 +401,11 @@ export function OrderConfirmationPage() {
                  {copied === order.id ? <Check className="w-3.5 h-3.5 shrink-0" /> : <Copy className="w-3.5 h-3.5 shrink-0" />}
                </button>
              </div>
+               {isManual && manualOrder?.verifiedFundingTransaction && (
+                <div className="py-3">
+                   <VerifiedTransaction transaction={manualOrder.verifiedFundingTransaction} />
+                </div>
+              )}
            </div>
            </div>
         </div>

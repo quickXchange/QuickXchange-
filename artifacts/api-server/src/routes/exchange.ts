@@ -138,6 +138,9 @@ import {
   whitebitOrderAddressesTable,
   providerIntegrationsTable,
   blockchainMonitorMatchesTable,
+  blockchainMonitorObservationsTable,
+  blockchainMonitorNetworksTable,
+  blockchainMonitorAssetsTable,
   blockchainMonitorRegistrationGapsTable,
 } from "@workspace/db";
 import { ApiError } from "../lib/api-error";
@@ -211,6 +214,7 @@ import {
   getQuickexInstruments,
 } from "../lib/quickex";
 import { buildAdminSummaryAnalytics } from "../lib/admin-summary";
+import { buildVerifiedExplorerUrl, exposeLegacyTransactionHash } from "../lib/verified-funding";
 import {
   findProviderManagedCustomerOrder,
   findProviderManagedOperatorOrder,
@@ -403,7 +407,8 @@ function outputOrder(row: typeof ordersTable.$inferSelect) {
     ...operatorVisibleRow
   } = row;
   const result = {
-    ...operatorVisibleRow,
+     ...operatorVisibleRow,
+     transactionHash: row.type === "manual" ? null : row.transactionHash,
     customerRegistered: Boolean(row.customerClerkUserId),
     clientRequestId: row.clientRequestId ?? undefined,
     rateMode: orderRateMode(row),
@@ -497,6 +502,7 @@ const DEFAULT_SUPPORT = {
 function outputCustomerOrder(
   row: typeof ordersTable.$inferSelect,
   refreshUnavailable: boolean,
+  verifiedFunding?: Awaited<ReturnType<typeof getVerifiedFundingTransaction>>,
 ) {
   const completed = /^(?:completed|complete|done|finished)$/i.test(row.status.trim());
   const exchangeRate = row.finalRate ?? row.exchangeRateOverride ?? undefined;
@@ -542,12 +548,68 @@ function outputCustomerOrder(
      paymentDetailsApplicable: isApplicablePaymentDetailsOrder(row),
       sourcePaymentMethod: outputSourcePaymentMethod(row),
      customerMarkedPaidAt: row.customerMarkedPaidAt?.toISOString() ?? null,
+     verifiedFundingTransaction: verifiedFunding ?? undefined,
     completedAt: completed ? row.updatedAt.toISOString() : null,
     exchangeRate,
-    transactionHash: row.transactionHash || undefined,
+     transactionHash: exposeLegacyTransactionHash(row.type, row.transactionHash),
     paymentReference: row.paymentReference || undefined,
     trackingToken: signOrderTrackingToken(row.id),
     createdAt: row.createdAt.toISOString(),
+  };
+}
+
+/**
+ * Projects only the immutable observation selected by the applied match for
+ * this exact order. The editable support-tools transactionHash is deliberately
+ * not consulted here.
+ */
+async function getVerifiedFundingTransaction(orderId: string) {
+  const [row] = await db
+    .select({
+      transactionHash: blockchainMonitorObservationsTable.transactionHash,
+      networkCode: blockchainMonitorNetworksTable.networkCode,
+      networkName: blockchainMonitorNetworksTable.networkName,
+      confirmations: blockchainMonitorMatchesTable.confirmations,
+      detectedAt: blockchainMonitorMatchesTable.appliedAt,
+      observedAt: blockchainMonitorObservationsTable.observedAt,
+      explorerUrlTemplate: cryptoAssetNetworksTable.explorerUrlTemplate,
+    })
+    .from(blockchainMonitorMatchesTable)
+    .innerJoin(ordersTable, eq(ordersTable.id, blockchainMonitorMatchesTable.orderId))
+    .innerJoin(
+      blockchainMonitorObservationsTable,
+      eq(blockchainMonitorObservationsTable.id, blockchainMonitorMatchesTable.observationId),
+    )
+    .innerJoin(
+      blockchainMonitorAssetsTable,
+      eq(blockchainMonitorAssetsTable.id, blockchainMonitorObservationsTable.monitorAssetId),
+    )
+    .innerJoin(
+      blockchainMonitorNetworksTable,
+      eq(blockchainMonitorNetworksTable.id, blockchainMonitorObservationsTable.monitorNetworkId),
+    )
+    .innerJoin(
+      cryptoAssetNetworksTable,
+      eq(cryptoAssetNetworksTable.id, blockchainMonitorAssetsTable.assetNetworkId),
+    )
+    .where(and(
+      eq(blockchainMonitorMatchesTable.orderId, orderId),
+      eq(blockchainMonitorMatchesTable.state, "applied"),
+      eq(ordersTable.id, orderId),
+      eq(ordersTable.type, "manual"),
+    ))
+    .orderBy(desc(blockchainMonitorMatchesTable.appliedAt), desc(blockchainMonitorMatchesTable.updatedAt))
+    .limit(1);
+  if (!row) return undefined;
+  const template = row.explorerUrlTemplate?.trim();
+  const explorerUrl = buildVerifiedExplorerUrl(template, row.transactionHash);
+  return {
+    transactionHash: row.transactionHash,
+    networkCode: row.networkCode,
+    networkName: row.networkName,
+    confirmations: row.confirmations,
+    detectedAt: (row.detectedAt ?? row.observedAt)?.toISOString() ?? null,
+    explorerUrl,
   };
 }
 
@@ -1689,9 +1751,14 @@ router.get("/orders/:id", requireOperator, async (req, res, next) => {
     const result = await findProviderManagedOperatorOrder(id) ??
       (row ? outputOrder(row) : undefined);
     if (!result) throw new ApiError("ORDER_NOT_FOUND", "Order not found.", 404);
+    const verifiedFunding = await getVerifiedFundingTransaction(id);
     const [support] = await db.select().from(orderSupportMetadataTable)
       .where(eq(orderSupportMetadataTable.orderId, id)).limit(1);
-    res.json(GetOrderResponse.parse(support ? { ...result, ...outputSupportMetadata(support) } : result));
+    res.json(GetOrderResponse.parse({
+      ...(support ? { ...result, ...outputSupportMetadata(support) } : result),
+      verifiedFundingTransaction: verifiedFunding,
+      transactionHash: row?.type === "manual" ? null : (support?.transactionHash ?? (result as { transactionHash?: string | null }).transactionHash ?? null),
+    }));
   } catch (error) { next(error); }
 });
 
@@ -2069,6 +2136,7 @@ router.get("/orders/:id/status", async (req, res, next) => {
       row.id,
     );
 
+    const verifiedFunding = await getVerifiedFundingTransaction(row.id);
     res.json(
       GetPublicOrderStatusResponse.parse({
         id: row.id,
@@ -2105,8 +2173,9 @@ router.get("/orders/:id/status", async (req, res, next) => {
          customerMarkedPaidAt: row.customerMarkedPaidAt?.toISOString() ?? null,
         completedAt: /^(?:completed|complete|done|finished)$/i.test(row.status.trim()) ? row.updatedAt.toISOString() : null,
         exchangeRate: row.finalRate ?? row.exchangeRateOverride ?? undefined,
-        transactionHash: canViewDeposit ? row.transactionHash || undefined : undefined,
+         transactionHash: canViewDeposit ? exposeLegacyTransactionHash(row.type, row.transactionHash) : undefined,
         paymentReference: canViewDeposit ? row.paymentReference || undefined : undefined,
+         verifiedFundingTransaction: canViewDeposit && row.type === "manual" ? verifiedFunding : undefined,
         rateMode: orderRateMode(row),
         outcomeUnknown: row.outcomeUnknown,
         refreshUnavailable: false,
@@ -2136,7 +2205,8 @@ router.get("/account/orders", requireCustomer, async (req, res, next) => {
     const isRefreshUnavailable = false;
 
     const merged = await mergeCustomerOrderHistory(
-      rows.map((row) => outputCustomerOrder(row, isRefreshUnavailable)),
+      await Promise.all(rows.map(async (row) =>
+        outputCustomerOrder(row, isRefreshUnavailable, await getVerifiedFundingTransaction(row.id)))),
       customerClerkUserId,
       query.page,
       query.pageSize,
@@ -2227,7 +2297,7 @@ router.post("/account/orders/claim", requireCustomer, async (req, res, next) => 
     const providerFreshness = { state: "unavailable" as const, syncing: false };
     res.json(
       GetCustomerOrderResponse.parse(
-        outputCustomerOrder(row, false),
+        outputCustomerOrder(row, false, await getVerifiedFundingTransaction(row.id)),
       ),
     );
   } catch (error) {
@@ -2252,7 +2322,7 @@ router.get("/account/orders/:id", requireCustomer, async (req, res, next) => {
     const result = await findProviderManagedCustomerOrder(
       params.id,
       customerClerkUserId,
-    ) ?? (row ? outputCustomerOrder(row, false) : undefined);
+    ) ?? (row ? outputCustomerOrder(row, false, await getVerifiedFundingTransaction(row.id)) : undefined);
     if (!result) {
       throw new ApiError("CUSTOMER_ORDER_NOT_FOUND", "Order not found.", 404);
     }

@@ -315,8 +315,9 @@ function formatDate(date: Date): string {
 }
 
 function truncateHash(hash: string): string {
-  if (hash.length <= 16) return hash;
-  return `${hash.slice(0, 6)}...${hash.slice(-8)}`;
+  // Email clients should receive the canonical value in full so it can be
+  // copied or searched without losing transaction identity.
+  return hash;
 }
 
 function safeHttpsUrl(value: string | null | undefined): string {
@@ -521,7 +522,7 @@ export function buildCustomerStatusNotificationContent(
     `Exchange: ${route}`,
     `New status: ${status}`,
     paymentMethod ? `Payment method: ${paymentMethod}` : "",
-    notification.transactionHash ? `Transaction hash: ${notification.transactionHash}` : "",
+    notification.transactionHash ? `Transaction ID: ${notification.transactionHash}` : "",
     notification.paymentReference ? `Payment reference: ${notification.paymentReference}` : "",
     notification.confirmations !== undefined && notification.confirmationsRequired !== undefined
       ? `Confirmations: ${notification.confirmations} / ${notification.confirmationsRequired}`
@@ -1268,10 +1269,14 @@ export async function processCustomerStatusNotificationOutbox(
           claimed.recipientEmail.trim().toLowerCase(),
       );
     let authoritativePaymentExists = true;
-    let transactionHash = order?.transactionHash || undefined;
+    // Manual Swap transaction identity comes only from applied blockchain
+    // evidence below, never from the editable operational order field.
+    let transactionHash: string | undefined;
     let confirmations: number | undefined;
     let confirmationsRequired: number | undefined;
     let fundedAt = order?.manualSettlementFundedAt ?? null;
+    const blockchainManualOrder = order?.type === "manual" &&
+      order.fundingProviderSource === "manual";
 
     if (claimed.eventKind !== "order_created") {
       const [whitebitPayment] = await db.select({
@@ -1287,7 +1292,7 @@ export async function processCustomerStatusNotificationOutbox(
           eq(whitebitDepositsTable.status, "processed"),
         ))
         .limit(1);
-      const [blockchainPayment] = whitebitPayment ? [] : await db
+      const [blockchainPayment] = blockchainManualOrder || !whitebitPayment ? (await db
         .select({
           id: blockchainMonitorMatchesTable.id,
           observationId: blockchainMonitorMatchesTable.observationId,
@@ -1300,7 +1305,7 @@ export async function processCustomerStatusNotificationOutbox(
           eq(blockchainMonitorMatchesTable.orderId, claimed.orderId),
           eq(blockchainMonitorMatchesTable.state, "applied"),
         ))
-        .limit(1);
+        .limit(1)) : [];
 
       if (blockchainPayment) {
         const [observation] = await db
@@ -1312,7 +1317,7 @@ export async function processCustomerStatusNotificationOutbox(
         confirmations = blockchainPayment.confirmations;
         confirmationsRequired = blockchainPayment.confirmationsRequired;
         fundedAt = blockchainPayment.appliedAt ?? fundedAt;
-      } else if (whitebitPayment && whitebitPayment.transactionHash) {
+      } else if (!blockchainManualOrder && whitebitPayment && whitebitPayment.transactionHash) {
         transactionHash = whitebitPayment.transactionHash;
         confirmations = whitebitPayment.confirmations ?? undefined;
         confirmationsRequired = whitebitPayment.confirmationsRequired ?? undefined;
@@ -1320,7 +1325,9 @@ export async function processCustomerStatusNotificationOutbox(
       }
 
       if (claimed.adminRecipient || claimed.eventKind === "payment_received") {
-        authoritativePaymentExists = Boolean(whitebitPayment || blockchainPayment);
+        authoritativePaymentExists = blockchainManualOrder
+          ? Boolean(blockchainPayment)
+          : Boolean(whitebitPayment || blockchainPayment);
       }
     }
     if (

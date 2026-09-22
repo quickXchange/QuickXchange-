@@ -261,14 +261,16 @@ export function OrderSupportToolsSection({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-border/50">
-        <OverrideField 
-          label="Transaction Hash" 
-          testId="transaction-hash"
-          originalValue={null} 
-          overrideValue={formData.transactionHash} 
-          onChange={val => handleChange('transactionHash', val)} 
-          onEditStateChange={isEditing => setEditingFields(prev => prev + (isEditing ? 1 : -1))}
-        />
+        {order.type !== 'manual' && (
+          <OverrideField
+            label="Transaction Hash"
+            testId="transaction-hash"
+            originalValue={null}
+            overrideValue={formData.transactionHash}
+            onChange={val => handleChange('transactionHash', val)}
+            onEditStateChange={isEditing => setEditingFields(prev => prev + (isEditing ? 1 : -1))}
+          />
+        )}
         <OverrideField 
           label="Payment Reference" 
           testId="payment-reference"

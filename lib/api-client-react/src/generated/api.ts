@@ -159,6 +159,7 @@ import type {
   ManualDeskPricingRulesCreateBatch,
   ManualDeskPricingRulesCreateBatchResult,
   ManualDeskRevenueReport,
+  ManualPublicOrderStatus,
   MarkOrderPaidInput,
   NewsletterAnnouncement,
   NewsletterAnnouncementInput,
@@ -1743,9 +1744,9 @@ export const getGetPublicOrderStatusUrl = (id: string,
  * @summary Get one customer-safe order status by capability ID
  */
 export const getPublicOrderStatus = async (id: string,
-    params?: GetPublicOrderStatusParams, options?: Parameters<typeof customFetch>[1]): Promise<PublicOrderStatus> => {
+    params?: GetPublicOrderStatusParams, options?: Parameters<typeof customFetch>[1]): Promise<ManualPublicOrderStatus> => {
 
-  return customFetch<PublicOrderStatus>(getGetPublicOrderStatusUrl(id,params),
+  return customFetch<ManualPublicOrderStatus>(getGetPublicOrderStatusUrl(id,params),
   {
     ...options,
     method: 'GET'

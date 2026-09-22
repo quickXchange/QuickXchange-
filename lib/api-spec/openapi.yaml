@@ -653,8 +653,8 @@ paths:
           description: Customer-safe order status
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/PublicOrderStatus"
+               schema:
+                 $ref: "#/components/schemas/ManualPublicOrderStatus"
         "400":
           description: Invalid tracking ID
           content:
@@ -2884,7 +2884,7 @@ paths:
           description: Customer-safe Quickex status
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/PublicOrderStatus" }
+               schema: { $ref: "#/components/schemas/PublicOrderStatus" }
   /quickex/admin/credentials:
     get:
       operationId: getQuickexCredentials
@@ -5015,6 +5015,7 @@ components:
         networkFeeAmount: { allOf: [{ $ref: "#/components/schemas/ExactDecimal" }], nullable: true }
         transactionHash: { type: ["string", "null"], maxLength: 500 }
         paymentReference: { type: ["string", "null"], maxLength: 500 }
+        verifiedFundingTransaction: { $ref: "#/components/schemas/VerifiedFundingTransaction" }
         archivedAt: { type: ["string", "null"] }
         archivedBy: { type: ["string", "null"] }
         fromAsset: { type: string }
@@ -5526,6 +5527,22 @@ components:
         exchangeRate: { type: string }
         transactionHash: { type: string }
         paymentReference: { type: string }
+    ManualPublicOrderStatus:
+      allOf:
+        - $ref: "#/components/schemas/PublicOrderStatus"
+        - type: object
+          properties:
+            verifiedFundingTransaction: { $ref: "#/components/schemas/VerifiedFundingTransaction" }
+    VerifiedFundingTransaction:
+      type: object
+      required: [transactionHash, networkCode, networkName, confirmations, detectedAt]
+      properties:
+        transactionHash: { type: string }
+        networkCode: { type: string }
+        networkName: { type: string }
+        confirmations: { type: number, minimum: 0, multipleOf: 1 }
+        detectedAt: { type: ["string", "null"], format: date-time }
+        explorerUrl: { type: string, format: uri, pattern: "^https://" }
     CustomerOrder:
       type: object
       required: [id, type, status, fromAsset, toAsset, amount, receiveAmount, outcomeUnknown, refreshUnavailable, statusNotificationsEnabled, trackingToken, createdAt]
@@ -5561,6 +5578,7 @@ components:
         exchangeRate: { type: string }
         transactionHash: { type: string }
         paymentReference: { type: string }
+        verifiedFundingTransaction: { $ref: "#/components/schemas/VerifiedFundingTransaction" }
     CustomerOrderPage:
       type: object
       required: [items, total, page, pageSize, refreshUnavailable, providerFreshness]
@@ -7435,6 +7453,7 @@ components:
         customerMarkedPaidAt: { type: [string, "null"], format: date-time }
         refreshUnavailable: { type: boolean }
         logos: { type: object, additionalProperties: true }
+        verifiedFundingTransaction: { $ref: "#/components/schemas/VerifiedFundingTransaction" }
     TelegramMiniAppAccountLinkInput:
       type: object
       required: [intent]

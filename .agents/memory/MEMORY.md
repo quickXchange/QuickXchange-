@@ -139,3 +139,4 @@
 - [Recovery migration replay isolation](recovery-migration-replay-isolation.md) — obsolete evidence recoveries must not replay ahead of a current recovery or one mismatch can stop the monitoring worker.
 - [Deposit monitoring readiness](deposit-monitoring-readiness.md) — customer deposits require fresh exact-route health and valid chain identity; unhealthy routes remain payout-only.
 - [Production migration entrypoint](production-migration-entrypoint.md) — artifact deployments must run the real migrator before API startup; post-merge and root scripts are not implicit release hooks.
+- [Verified funding transaction identity](verified-funding-transaction-identity.md) — Manual Swap TxIDs come only from applied immutable observations and must remain separate from editable operational references.
