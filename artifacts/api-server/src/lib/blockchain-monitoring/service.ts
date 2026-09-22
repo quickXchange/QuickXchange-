@@ -363,8 +363,22 @@ export async function registerManualBlockchainWatch(
     }
   }
   const [asset] = await db.select().from(blockchainMonitorAssetsTable)
-    .where(and(eq(blockchainMonitorAssetsTable.monitorNetworkId, network.id), eq(blockchainMonitorAssetsTable.assetNetworkId, route.route.id), eq(blockchainMonitorAssetsTable.enabled, true))).limit(1);
-  if (!asset) { await persistGap("Exact monitor asset identity is not configured."); return; }
+    .where(and(
+      eq(blockchainMonitorAssetsTable.monitorNetworkId, network.id),
+      eq(blockchainMonitorAssetsTable.assetNetworkId, route.route.id),
+    )).limit(1);
+  if (!asset) {
+    await persistGap("Exact monitor asset identity is not configured.");
+    return;
+  }
+  if (!asset.enabled) {
+    await persistGap("ASSET_MONITOR_DISABLED");
+    logger.warn(
+      { orderId, monitorNetworkId: network.id, assetNetworkId: route.route.id, code: "ASSET_MONITOR_DISABLED" },
+      "Blockchain watch registration blocked",
+    );
+    return;
+  }
   const expectedWatch = {
     orderId, monitorNetworkId: network.id, monitorAssetId: asset.id, assetNetworkId: route.route.id,
     expectedAmount: order.amount, receivingAddress: address, memoOrTag: text(funding.memo) || order.depositMemo || null,
@@ -419,6 +433,150 @@ export async function registerManualBlockchainWatch(
   }
 }
 
+async function ensureVerifiedErc20RecoveryAssetEligibility(
+  network: typeof blockchainMonitorNetworksTable.$inferSelect,
+  leaseToken: string,
+  head: string,
+): Promise<boolean> {
+  const recovery = VERIFIED_ERC20_WATCH_RECOVERY;
+  if (
+    network.id !== recovery.networkId ||
+    network.networkCode !== "ERC20" ||
+    network.adapterKind !== "evm" ||
+    network.chainId?.toLowerCase() !== "0x1" ||
+    network.providerKind !== "rpc" ||
+    !network.enabled
+  ) return false;
+  const config = adapterConfig(network);
+  if (!config) return false;
+
+  return withLease(network.id, leaseToken, async (tx) => {
+    const [currentNetwork] = await tx.select().from(blockchainMonitorNetworksTable)
+      .where(eq(blockchainMonitorNetworksTable.id, recovery.networkId))
+      .limit(1);
+    const currentConfig = currentNetwork ? adapterConfig(currentNetwork) : undefined;
+    if (
+      !currentNetwork ||
+      currentNetwork.networkCode !== "ERC20" ||
+      currentNetwork.adapterKind !== "evm" ||
+      currentNetwork.chainId?.toLowerCase() !== "0x1" ||
+      currentNetwork.providerKind !== "rpc" ||
+      !currentNetwork.enabled ||
+      !currentConfig ||
+      manualMonitoringNetworkConfigDigest({
+        network: currentNetwork,
+        endpoint: currentConfig.endpoint,
+        apiKey: currentConfig.apiKey,
+      }) !== manualMonitoringNetworkConfigDigest({
+        network,
+        endpoint: config.endpoint,
+        apiKey: config.apiKey,
+      })
+    ) {
+      logger.warn(
+        { orderId: recovery.orderId, code: "MONITOR_CONFIG_CHANGED" },
+        "Verified ERC20 recovery eligibility blocked",
+      );
+      return false;
+    }
+    const [order] = await tx.select({ id: ordersTable.id }).from(ordersTable)
+      .innerJoin(
+        blockchainMonitorRegistrationGapsTable,
+        eq(blockchainMonitorRegistrationGapsTable.orderId, ordersTable.id),
+      )
+      .where(and(
+        eq(ordersTable.id, recovery.orderId),
+        ELIGIBLE,
+        eq(ordersTable.status, "awaiting funds"),
+        eq(ordersTable.sourceSettlementOptionId, `crypto:${recovery.routeId}`),
+        eq(ordersTable.fromAsset, "USDC"),
+        eq(ordersTable.fromNetwork, "ERC20"),
+        eq(ordersTable.amount, recovery.amount),
+        sql`lower(${ordersTable.depositAddress}) = lower(${recovery.receivingAddress})`,
+        eq(ordersTable.createdAt, recovery.orderCreatedAt),
+        eq(blockchainMonitorRegistrationGapsTable.networkCode, "ERC20"),
+        eq(blockchainMonitorRegistrationGapsTable.assetCode, "USDC"),
+        sql`lower(${blockchainMonitorRegistrationGapsTable.receivingAddress}) = lower(${recovery.receivingAddress})`,
+        isNull(blockchainMonitorRegistrationGapsTable.resolvedAt),
+      ))
+      .limit(1);
+    if (!order) return false;
+
+    const [identity] = await tx.select({
+      asset: blockchainMonitorAssetsTable,
+      route: cryptoAssetNetworksTable,
+    }).from(blockchainMonitorAssetsTable)
+      .innerJoin(
+        cryptoAssetNetworksTable,
+        eq(cryptoAssetNetworksTable.id, blockchainMonitorAssetsTable.assetNetworkId),
+      )
+      .innerJoin(
+        cryptoAssetsTable,
+        eq(cryptoAssetsTable.id, cryptoAssetNetworksTable.assetId),
+      )
+      .where(and(
+        eq(blockchainMonitorAssetsTable.monitorNetworkId, recovery.networkId),
+        eq(blockchainMonitorAssetsTable.assetNetworkId, recovery.routeId),
+        eq(blockchainMonitorAssetsTable.identityKind, "token"),
+        sql`lower(${blockchainMonitorAssetsTable.contractOrMint}) = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'`,
+        eq(blockchainMonitorAssetsTable.decimals, 6),
+        eq(cryptoAssetNetworksTable.id, recovery.routeId),
+        eq(cryptoAssetNetworksTable.networkCode, "ERC20"),
+        eq(cryptoAssetNetworksTable.decimals, 6),
+        sql`upper(${cryptoAssetsTable.code}) = 'USDC'`,
+      ))
+      .limit(1);
+    if (!identity) {
+      logger.warn(
+        { orderId: recovery.orderId, code: "ASSET_MONITOR_IDENTITY_MISMATCH" },
+        "Verified ERC20 recovery eligibility blocked",
+      );
+      return false;
+    }
+
+    const capturedAt = new Date();
+    const enabledAsset = { ...identity.asset, enabled: true };
+    const readinessProofFingerprint = manualMonitoringProofFingerprint({
+      network: currentNetwork,
+      asset: enabledAsset,
+      route: identity.route,
+      endpoint: currentConfig.endpoint,
+      apiKey: currentConfig.apiKey,
+      capturedAt,
+      head,
+    });
+    const [enabled] = await tx.update(blockchainMonitorAssetsTable).set({
+      enabled: true,
+      readinessProofFingerprint,
+      readinessProofCapturedAt: capturedAt,
+    }).where(and(
+      eq(blockchainMonitorAssetsTable.id, identity.asset.id),
+      eq(blockchainMonitorAssetsTable.monitorNetworkId, recovery.networkId),
+      eq(blockchainMonitorAssetsTable.assetNetworkId, recovery.routeId),
+      eq(blockchainMonitorAssetsTable.identityKind, "token"),
+      sql`lower(${blockchainMonitorAssetsTable.contractOrMint}) = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'`,
+      eq(blockchainMonitorAssetsTable.decimals, 6),
+    )).returning();
+    if (
+      !enabled ||
+      !enabled.enabled ||
+      enabled.readinessProofFingerprint !== readinessProofFingerprint
+    ) {
+      throw new Error("Verified ERC20 recovery asset eligibility could not be persisted.");
+    }
+    logger.info(
+      {
+        orderId: recovery.orderId,
+        monitorNetworkId: recovery.networkId,
+        monitorAssetId: enabled.id,
+        assetNetworkId: recovery.routeId,
+      },
+      "Verified ERC20 recovery asset monitor enabled with exact-route readiness proof",
+    );
+    return true;
+  });
+}
+
 async function recoverVerifiedErc20Watch(
   network: typeof blockchainMonitorNetworksTable.$inferSelect,
   leaseToken: string,
@@ -426,6 +584,14 @@ async function recoverVerifiedErc20Watch(
 ): Promise<void> {
   const recovery = VERIFIED_ERC20_WATCH_RECOVERY;
   if (network.id !== recovery.networkId) return;
+  const [gap] = await db.select().from(blockchainMonitorRegistrationGapsTable).where(and(
+    eq(blockchainMonitorRegistrationGapsTable.orderId, recovery.orderId),
+    eq(blockchainMonitorRegistrationGapsTable.networkCode, "ERC20"),
+    eq(blockchainMonitorRegistrationGapsTable.assetCode, "USDC"),
+    sql`lower(${blockchainMonitorRegistrationGapsTable.receivingAddress}) = lower(${recovery.receivingAddress})`,
+    isNull(blockchainMonitorRegistrationGapsTable.resolvedAt),
+  )).limit(1);
+  if (!gap) return;
   const [order] = await db.select().from(ordersTable).where(and(
     eq(ordersTable.id, recovery.orderId),
     ELIGIBLE,
@@ -451,9 +617,20 @@ async function recoverVerifiedErc20Watch(
       eq(blockchainMonitorAssetsTable.identityKind, "token"),
       sql`lower(${blockchainMonitorAssetsTable.contractOrMint}) = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'`,
       eq(blockchainMonitorAssetsTable.decimals, 6),
-      eq(blockchainMonitorAssetsTable.enabled, true),
     ))
     .limit(1);
+  if (asset && !asset.enabled) {
+    logger.warn(
+      {
+        orderId: recovery.orderId,
+        monitorNetworkId: recovery.networkId,
+        assetNetworkId: recovery.routeId,
+        code: "ASSET_MONITOR_DISABLED",
+      },
+      "Verified ERC20 watch recovery blocked",
+    );
+    return;
+  }
   if (
     !asset ||
     network.networkCode !== "ERC20" ||
@@ -498,6 +675,15 @@ async function recoverVerifiedErc20Watch(
       return;
     }
     await withLease(network.id, leaseToken, async (tx) => {
+      const [lockedGap] = await tx.select().from(blockchainMonitorRegistrationGapsTable).where(and(
+        eq(blockchainMonitorRegistrationGapsTable.id, gap.id),
+        eq(blockchainMonitorRegistrationGapsTable.orderId, recovery.orderId),
+        eq(blockchainMonitorRegistrationGapsTable.networkCode, "ERC20"),
+        eq(blockchainMonitorRegistrationGapsTable.assetCode, "USDC"),
+        sql`lower(${blockchainMonitorRegistrationGapsTable.receivingAddress}) = lower(${recovery.receivingAddress})`,
+        isNull(blockchainMonitorRegistrationGapsTable.resolvedAt),
+      )).for("update").limit(1);
+      if (!lockedGap) return;
       const [lockedOrder] = await tx.select().from(ordersTable).where(and(
         eq(ordersTable.id, recovery.orderId),
         ELIGIBLE,
@@ -573,6 +759,7 @@ async function recoverVerifiedErc20Watch(
         resolvedAt: new Date(),
         resolvedBy: "reviewed-order-time-cursor-recovery",
       }).where(and(
+        eq(blockchainMonitorRegistrationGapsTable.id, lockedGap.id),
         eq(blockchainMonitorRegistrationGapsTable.orderId, recovery.orderId),
         isNull(blockchainMonitorRegistrationGapsTable.resolvedAt),
       ));
@@ -865,8 +1052,15 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
       if (network.chainId && connection.chainId?.toLowerCase() !== network.chainId.toLowerCase()) {
         throw new Error("Configured blockchain network identity did not match provider.");
       }
-      const head = await adapter.getHead();
-      await recoverVerifiedErc20Watch(network, leaseToken, adapter);
+       const head = await adapter.getHead();
+       const recoveryEligible = await ensureVerifiedErc20RecoveryAssetEligibility(
+         network,
+         leaseToken,
+         head.cursor,
+       );
+       if (recoveryEligible) {
+         await recoverVerifiedErc20Watch(network, leaseToken, adapter);
+       }
       if (leaseLost) throw new Error("Blockchain monitoring lease was lost.");
       const watches = await db.select().from(blockchainMonitorWatchesTable)
         .where(and(eq(blockchainMonitorWatchesTable.monitorNetworkId, network.id), eq(blockchainMonitorWatchesTable.active, true), eq(blockchainMonitorWatchesTable.registrationState, "active")));
