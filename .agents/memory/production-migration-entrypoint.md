@@ -14,3 +14,5 @@ On port-probed deployment targets, bind a temporary fail-closed startup gate imm
 For autoscaled processes, acquire a session-level advisory lock before opening a repeatable-read reconciliation transaction. A transaction-scoped lock acquired after `BEGIN` can leave a waiting process with a stale snapshot and cause a serialization failure after the first process commits. Release the session lock on the same client in `finally`.
 
 Configuration postconditions must accept both the freshly invalidated state produced by reconciliation and an already healthy proof-backed state. Otherwise, every process restart unnecessarily clears valid health proofs and forces revalidation.
+
+Once the exact production postcondition is already satisfied, skip replaying reconciliation SQL entirely—especially `ALTER TABLE ... IF NOT EXISTS`, which still requests an exclusive lock and can hold the startup gate at 503 beyond Autoscale's readiness deadline.
