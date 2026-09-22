@@ -1479,7 +1479,7 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
            currentHealthProofConfig
          ) {
             const includeInitialTronProofs =
-              currentNetwork?.id === "monitor-trc20" &&
+              (currentNetwork?.id === "monitor-trc20" || currentNetwork?.id === "mon-trc20") &&
               currentNetwork.networkCode.trim().toUpperCase() === "TRC20" &&
               currentNetwork?.adapterKind === "tron" &&
               currentNetwork.chainId?.trim().toLowerCase() === TRON_MAINNET_CHAIN_ID;

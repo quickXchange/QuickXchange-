@@ -778,6 +778,13 @@
       "when": 1790119200000,
       "tag": "0112_configure_tron_mainnet_monitor",
       "breakpoints": true
+    },
+    {
+      "idx": 113,
+      "version": "7",
+      "when": 1790121000000,
+      "tag": "0113_reconcile_production_tron_monitor",
+      "breakpoints": true
     }
   ]
 }
