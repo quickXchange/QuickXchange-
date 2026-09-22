@@ -694,6 +694,13 @@
       "when": 1790042000000,
       "tag": "0100_manual_monitoring_readiness_proofs",
       "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1790043000000,
+      "tag": "0101_configure_ethereum_mainnet_monitor",
+      "breakpoints": true
     }
   ]
 }
