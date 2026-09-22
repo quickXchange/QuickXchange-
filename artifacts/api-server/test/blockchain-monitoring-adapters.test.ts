@@ -76,6 +76,62 @@ test("EVM native scans request receipts only for watched-address candidates", as
   }
 });
 
+test("EVM health checks prove required RPC methods with bounded payloads", async () => {
+  const requests: Array<{ method: string; params: unknown[] }> = [];
+  const server = createServer((req, res) => {
+    let body = "";
+    req.setEncoding("utf8");
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", () => {
+      const request = JSON.parse(body) as { id: number; method: string; params: unknown[] };
+      requests.push({ method: request.method, params: request.params });
+      const result = request.method === "eth_chainId"
+        ? "0x38"
+        : request.method === "eth_blockNumber"
+          ? "0x10"
+          : request.method === "eth_getBlockByNumber"
+            ? { number: "0x10", hash: "0xblock", timestamp: "0x1", transactions: ["0xtx"] }
+            : request.method === "eth_getLogs"
+              ? []
+              : request.method === "eth_getTransactionReceipt"
+                ? { status: "0x1" }
+                : null;
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ jsonrpc: "2.0", id: request.id, result }));
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = server.address();
+    assert(address && typeof address === "object");
+    const adapter = new EvmJsonRpcAdapter({
+      networkCode: "BEP20",
+      provider: "rpc",
+      adapterKind: "evm",
+      endpoint: `http://127.0.0.1:${address.port}`,
+      chainId: "0x38",
+    });
+    const result = await adapter.testConnection();
+    assert.equal(result.connected, true);
+    assert.deepEqual(
+      requests.find((request) => request.method === "eth_getBlockByNumber")?.params,
+      ["0x10", false],
+    );
+    assert.deepEqual(
+      requests.find((request) => request.method === "eth_getLogs")?.params,
+      [{
+        fromBlock: "0x10",
+        toBlock: "0x10",
+        address: "0x0000000000000000000000000000000000000001",
+        topics: ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"],
+      }],
+    );
+    assert(requests.some((request) => request.method === "eth_getTransactionReceipt"));
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
+});
+
 test("TRON parsing normalizes Base58 and hex addresses without exposing provider details", () => {
   // T-address is the documented TronGrid representation; 41-prefixed hex is
   // the documented full-node representation of the same address.

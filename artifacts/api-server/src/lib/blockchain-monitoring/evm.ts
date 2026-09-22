@@ -147,13 +147,14 @@ export class EvmJsonRpcAdapter implements BlockchainMonitorAdapter {
     if (this.config.chainId && chainId.toLowerCase() !== this.config.chainId.toLowerCase()) {
       throw new BlockchainMonitorError("PROVIDER", "Blockchain monitoring provider returned an unexpected network.");
     }
-    const block = await this.rpc<EvmBlock | null>("eth_getBlockByNumber", [head, true]);
+    const block = await this.rpc<EvmBlock | null>("eth_getBlockByNumber", [head, false]);
     if (!block?.hash || !block.timestamp) {
       throw new BlockchainMonitorError("PROVIDER", "Blockchain monitoring provider did not return the current block.");
     }
     await this.rpc<EvmLog[]>("eth_getLogs", [{
       fromBlock: head,
       toBlock: head,
+      address: "0x0000000000000000000000000000000000000001",
       topics: [TRANSFER_TOPIC],
     }]);
     let transactionHash = block.transactions
@@ -164,7 +165,7 @@ export class EvmJsonRpcAdapter implements BlockchainMonitorAdapter {
       if (candidateNumber < 0n) break;
       const candidate = await this.rpc<EvmBlock | null>(
         "eth_getBlockByNumber",
-        [`0x${candidateNumber.toString(16)}`, true],
+        [`0x${candidateNumber.toString(16)}`, false],
       );
       transactionHash = candidate?.transactions
         ?.map((transaction) => typeof transaction === "string" ? transaction : transaction.hash)
