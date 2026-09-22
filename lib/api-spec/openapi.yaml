@@ -2195,6 +2195,34 @@ paths:
         "422":
           description: Receiving wallet configuration is invalid for one or more selected networks
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+  /admin/crypto-networks/{id}/customer-deposits:
+    patch:
+      operationId: updateCryptoNetworkCustomerDeposits
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      summary: Enable or disable customer deposits for one exact asset and network route
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, pattern: '^[a-z0-9][a-z0-9-]{0,80}$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CryptoNetworkCustomerDepositsUpdate" }
+      responses:
+        "200":
+          description: Updated exact asset and network route
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CryptoNetwork" }
+        "404":
+          description: Asset and network route not found
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "409":
+          description: Exact route monitoring is not ready
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
   /admin/deposit-providers:
     get:
       operationId: getDepositProviderOptions
@@ -6263,6 +6291,12 @@ components:
         depositProvider: { type: string, minLength: 1, maxLength: 64 }
         networkEnabled: { type: boolean }
         enabled: { type: boolean }
+    CryptoNetworkCustomerDepositsUpdate:
+      type: object
+      additionalProperties: false
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
     CryptoNetwork:
       allOf:
         - $ref: "#/components/schemas/CryptoNetworkInput"
@@ -7633,7 +7667,7 @@ components:
         items: { type: array, items: { $ref: "#/components/schemas/BlockchainMonitoringAsset" } }
     BlockchainMonitoringSetupRoute:
       type: object
-      required: [assetNetworkId, assetCode, assetName, networkCode, networkName, decimals, status, monitoringEnabled]
+      required: [assetNetworkId, assetCode, assetName, networkCode, networkName, decimals, status, runtimeReadiness, missingConfiguration, monitoringEnabled]
       properties:
         assetNetworkId: { type: string }
         assetCode: { type: string }
@@ -7644,6 +7678,10 @@ components:
         identityKind: { type: [string, "null"], enum: [native, token, null] }
         contractOrMint: { type: [string, "null"] }
         status: { type: string, enum: [ready, missing_rpc, missing_contract_or_mint, disabled] }
+        runtimeReadiness: { type: string, enum: [ready, disconnected, incomplete] }
+        missingConfiguration:
+          type: array
+          items: { type: string }
         monitoringEnabled: { type: boolean }
     BlockchainMonitoringSetupRouteList:
       type: object

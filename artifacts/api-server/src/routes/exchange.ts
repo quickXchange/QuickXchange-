@@ -105,6 +105,9 @@ import {
   SaveCryptoAssetReceivingWalletBody,
   SaveCryptoAssetReceivingWalletParams,
   SaveCryptoNetworkReceivingWalletBody,
+  UpdateCryptoNetworkCustomerDepositsBody,
+  UpdateCryptoNetworkCustomerDepositsParams,
+  UpdateCryptoNetworkCustomerDepositsResponse,
   ReconcileCryptoCustomerDepositsResponse,
   UpdateOrderSupportToolsParams,
   UpdateOrderSupportToolsBody,
@@ -5105,6 +5108,122 @@ router.get("/admin/crypto-networks", requireOperator, async (_req, res, next) =>
 router.get("/admin/deposit-providers", requireOperator, async (_req, res, next) => {
   try {
     res.json(await listConnectedDepositProviderOptions());
+  } catch (error) {
+    next(error);
+  }
+});
+router.patch("/admin/crypto-networks/:id/customer-deposits", requireOwner, async (req, res, next) => {
+  try {
+    const { id } = UpdateCryptoNetworkCustomerDepositsParams.parse(req.params);
+    const input = UpdateCryptoNetworkCustomerDepositsBody.parse(req.body);
+    const actor = res.locals.operator as OperatorAuthorization;
+    const actorClerkUserId = getOperatorActorUserId(req);
+    const [current] = await db.select().from(cryptoAssetNetworksTable)
+      .where(eq(cryptoAssetNetworksTable.id, id))
+      .limit(1);
+    if (!current) {
+      throw new ApiError("CRYPTO_NETWORK_NOT_FOUND", "Crypto network not found.", 404);
+    }
+
+    const readiness = input.enabled
+      ? (await prepareManualMonitoringReadiness([{
+          routeId: current.id,
+          address: current.sharedDepositAddress,
+          memo: current.sharedDepositMemo,
+        }])).get(current.id)
+      : undefined;
+    if (input.enabled && (!readiness?.ready || readiness.code === "LEGACY_BEP20")) {
+      throw new ApiError(
+        "CRYPTO_DEPOSIT_READINESS_BLOCKED",
+        readiness
+          ? `${readiness.code}: ${readiness.message}`
+          : "Monitoring readiness could not be verified for this exact route.",
+        409,
+      );
+    }
+
+    const updated = await db.transaction(async (tx) => {
+      const [locked] = await tx.select().from(cryptoAssetNetworksTable)
+        .where(eq(cryptoAssetNetworksTable.id, id))
+        .for("update")
+        .limit(1);
+      if (!locked) {
+        throw new ApiError("CRYPTO_NETWORK_NOT_FOUND", "Crypto network not found.", 404);
+      }
+      if (
+        input.enabled &&
+        (!locked.enabled ||
+          locked.lifecycle === "deprecated" ||
+          locked.executionMode !== "manual" ||
+          locked.depositProvider !== "manual")
+      ) {
+        throw new ApiError(
+          "CRYPTO_DEPOSIT_ROUTE_BLOCKED",
+          "This exact Asset + Network route must be enabled, active, Manual, and use the manual deposit provider.",
+          409,
+        );
+      }
+      if (input.enabled && readiness) {
+        const [monitor] = await tx.select().from(blockchainMonitorNetworksTable)
+          .where(eq(blockchainMonitorNetworksTable.id, readiness.monitorNetworkId!))
+          .for("update")
+          .limit(1);
+        const [monitorAsset] = monitor
+          ? await tx.select().from(blockchainMonitorAssetsTable).where(and(
+              eq(blockchainMonitorAssetsTable.id, readiness.monitorAssetId!),
+              eq(blockchainMonitorAssetsTable.assetNetworkId, locked.id),
+            )).for("update").limit(1)
+          : [];
+        const config = monitor ? adapterConfig(monitor) : undefined;
+        const currentProof = monitor && monitorAsset && config &&
+          monitor.healthCheckedAt && monitor.lastHead
+          ? manualMonitoringProofFingerprint({
+              network: monitor,
+              asset: monitorAsset,
+              route: locked,
+              endpoint: config.endpoint,
+              apiKey: config.apiKey,
+              capturedAt: monitor.healthCheckedAt,
+              head: monitor.lastHead,
+            })
+          : undefined;
+        if (
+          !monitor?.enabled ||
+          !monitorAsset?.enabled ||
+          !currentProof ||
+          currentProof !== readiness.proofFingerprint ||
+          monitorAsset.readinessProofFingerprint !== currentProof
+        ) {
+          throw new ApiError(
+            "CRYPTO_DEPOSIT_READINESS_CHANGED",
+            "CONFIG_CHANGED_RETRY: Monitoring configuration changed while enabling this route. Refresh and try again.",
+            409,
+          );
+        }
+      }
+      const [row] = await tx.update(cryptoAssetNetworksTable)
+        .set({ customerDepositsEnabled: input.enabled })
+        .where(eq(cryptoAssetNetworksTable.id, locked.id))
+        .returning();
+      await tx.insert(operatorAuditLogsTable).values({
+        action: "crypto_customer_deposits.updated",
+        actorClerkUserId,
+        targetOperatorId: actor.id,
+        targetEmail: actor.email,
+        requestId: String(req.id),
+        details: {
+          assetNetworkId: locked.id,
+          assetId: locked.assetId,
+          networkCode: locked.networkCode,
+          enabledBefore: locked.customerDepositsEnabled,
+          enabledAfter: input.enabled,
+        },
+      });
+      return row!;
+    });
+    res.json(UpdateCryptoNetworkCustomerDepositsResponse.parse(
+      outputCryptoNetwork(updated, readiness),
+    ));
   } catch (error) {
     next(error);
   }

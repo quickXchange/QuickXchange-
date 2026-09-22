@@ -3540,6 +3540,10 @@ export interface CryptoNetworkReceivingWalletInput {
   enabled?: boolean;
 }
 
+export interface CryptoNetworkCustomerDepositsUpdate {
+  enabled: boolean;
+}
+
 export type PaymentMethodInputFamily = typeof PaymentMethodInputFamily[keyof typeof PaymentMethodInputFamily];
 
 
@@ -5875,6 +5879,15 @@ export const BlockchainMonitoringSetupRouteStatus = {
   disabled: 'disabled',
 } as const;
 
+export type BlockchainMonitoringSetupRouteRuntimeReadiness = typeof BlockchainMonitoringSetupRouteRuntimeReadiness[keyof typeof BlockchainMonitoringSetupRouteRuntimeReadiness];
+
+
+export const BlockchainMonitoringSetupRouteRuntimeReadiness = {
+  ready: 'ready',
+  disconnected: 'disconnected',
+  incomplete: 'incomplete',
+} as const;
+
 export interface BlockchainMonitoringSetupRoute {
   assetNetworkId: string;
   assetCode: string;
@@ -5888,6 +5901,8 @@ export interface BlockchainMonitoringSetupRoute {
   /** @nullable */
   contractOrMint?: string | null;
   status: BlockchainMonitoringSetupRouteStatus;
+  runtimeReadiness: BlockchainMonitoringSetupRouteRuntimeReadiness;
+  missingConfiguration: string[];
   monitoringEnabled: boolean;
 }
 

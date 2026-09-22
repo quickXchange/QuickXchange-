@@ -85,6 +85,7 @@ import type {
   CryptoAssetsBulkEditResponse,
   CryptoCustomerDepositReconciliation,
   CryptoNetwork,
+  CryptoNetworkCustomerDepositsUpdate,
   CryptoNetworkInput,
   CryptoNetworkReceivingWalletInput,
   CryptoNetworkUpdate,
@@ -7931,6 +7932,78 @@ export const useSaveCryptoNetworkReceivingWallet = <TError = ErrorType<ApiError>
         TContext
       > => {
       return useMutation(getSaveCryptoNetworkReceivingWalletMutationOptions(options));
+    }
+
+export const getUpdateCryptoNetworkCustomerDepositsUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/crypto-networks/${id}/customer-deposits`
+}
+
+/**
+ * @summary Enable or disable customer deposits for one exact asset and network route
+ */
+export const updateCryptoNetworkCustomerDeposits = async (id: string,
+    cryptoNetworkCustomerDepositsUpdate: CryptoNetworkCustomerDepositsUpdate, options?: Parameters<typeof customFetch>[1]): Promise<CryptoNetwork> => {
+
+  return customFetch<CryptoNetwork>(getUpdateCryptoNetworkCustomerDepositsUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(cryptoNetworkCustomerDepositsUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateCryptoNetworkCustomerDepositsMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCryptoNetworkCustomerDeposits>>, TError,{id: string;data: BodyType<CryptoNetworkCustomerDepositsUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCryptoNetworkCustomerDeposits>>, TError,{id: string;data: BodyType<CryptoNetworkCustomerDepositsUpdate>}, TContext> => {
+
+const mutationKey = ['updateCryptoNetworkCustomerDeposits'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCryptoNetworkCustomerDeposits>>, {id: string;data: BodyType<CryptoNetworkCustomerDepositsUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCryptoNetworkCustomerDeposits(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCryptoNetworkCustomerDepositsMutationResult = NonNullable<Awaited<ReturnType<typeof updateCryptoNetworkCustomerDeposits>>>
+    export type UpdateCryptoNetworkCustomerDepositsMutationBody = BodyType<CryptoNetworkCustomerDepositsUpdate>
+    export type UpdateCryptoNetworkCustomerDepositsMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Enable or disable customer deposits for one exact asset and network route
+ */
+export const useUpdateCryptoNetworkCustomerDeposits = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCryptoNetworkCustomerDeposits>>, TError,{id: string;data: BodyType<CryptoNetworkCustomerDepositsUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCryptoNetworkCustomerDeposits>>,
+        TError,
+        {id: string;data: BodyType<CryptoNetworkCustomerDepositsUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateCryptoNetworkCustomerDepositsMutationOptions(options));
     }
 
 export const getGetDepositProviderOptionsUrl = () => {

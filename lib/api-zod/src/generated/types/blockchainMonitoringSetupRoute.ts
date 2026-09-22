@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { BlockchainMonitoringSetupRouteIdentityKind } from './blockchainMonitoringSetupRouteIdentityKind';
+import type { BlockchainMonitoringSetupRouteRuntimeReadiness } from './blockchainMonitoringSetupRouteRuntimeReadiness';
 import type { BlockchainMonitoringSetupRouteStatus } from './blockchainMonitoringSetupRouteStatus';
 
 export interface BlockchainMonitoringSetupRoute {
@@ -21,5 +22,7 @@ export interface BlockchainMonitoringSetupRoute {
   /** @nullable */
   contractOrMint?: string | null;
   status: BlockchainMonitoringSetupRouteStatus;
+  runtimeReadiness: BlockchainMonitoringSetupRouteRuntimeReadiness;
+  missingConfiguration: string[];
   monitoringEnabled: boolean;
 }

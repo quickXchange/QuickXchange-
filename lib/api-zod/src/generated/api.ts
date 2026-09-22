@@ -5662,6 +5662,8 @@ export const ListBlockchainMonitoringSetupRoutesResponse = zod.object({
   "identityKind": zod.union([zod.literal('native'),zod.literal('token'),zod.literal(null)]).nullish(),
   "contractOrMint": zod.string().nullish(),
   "status": zod.enum(['ready', 'missing_rpc', 'missing_contract_or_mint', 'disabled']),
+  "runtimeReadiness": zod.enum(['ready', 'disconnected', 'incomplete']),
+  "missingConfiguration": zod.array(zod.string()),
   "monitoringEnabled": zod.boolean()
 }))
 })
@@ -8709,6 +8711,97 @@ export const SaveCryptoNetworkReceivingWalletResponseItem = zod.object({
 }).optional()
 }))
 export const SaveCryptoNetworkReceivingWalletResponse = zod.array(SaveCryptoNetworkReceivingWalletResponseItem)
+
+
+/**
+ * @summary Enable or disable customer deposits for one exact asset and network route
+ */
+export const updateCryptoNetworkCustomerDepositsPathIdRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,80}$');
+
+
+export const UpdateCryptoNetworkCustomerDepositsParams = zod.object({
+  "id": zod.coerce.string().regex(updateCryptoNetworkCustomerDepositsPathIdRegExp)
+})
+
+export const UpdateCryptoNetworkCustomerDepositsBody = zod.object({
+  "enabled": zod.boolean()
+})
+
+export const updateCryptoNetworkCustomerDepositsResponseOneLogoObjectPathRegExp = new RegExp('^/objects/crypto-network-logos/[0-9a-f-]{36}$');
+export const updateCryptoNetworkCustomerDepositsResponseOneIdRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,80}$');
+export const updateCryptoNetworkCustomerDepositsResponseOneAssetIdRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,63}$');
+export const updateCryptoNetworkCustomerDepositsResponseOneNetworkCodeMax = 32;
+
+export const updateCryptoNetworkCustomerDepositsResponseOneNetworkNameMax = 100;
+
+export const updateCryptoNetworkCustomerDepositsResponseOneNetworkFamilyDefault = `native`;
+export const updateCryptoNetworkCustomerDepositsResponseOneNetworkFamilyMax = 64;
+
+export const updateCryptoNetworkCustomerDepositsResponseOneDecimalsMin = 0;
+export const updateCryptoNetworkCustomerDepositsResponseOneDecimalsMax = 30;
+export const updateCryptoNetworkCustomerDepositsResponseOneDecimalsMultipleOf = 1;
+
+export const updateCryptoNetworkCustomerDepositsResponseOneExecutionModeDefault = `manual`;
+export const updateCryptoNetworkCustomerDepositsResponseOneLifecycleDefault = `active`;
+export const updateCryptoNetworkCustomerDepositsResponseOneRegionsItemMax = 32;
+
+export const updateCryptoNetworkCustomerDepositsResponseOneRegionsMax = 20;
+
+export const updateCryptoNetworkCustomerDepositsResponseOneEnabledDefault = true;
+export const updateCryptoNetworkCustomerDepositsResponseOneCustomerDepositsEnabledDefault = false;
+export const updateCryptoNetworkCustomerDepositsResponseOneRequiresMemoDefault = false;
+export const updateCryptoNetworkCustomerDepositsResponseOneRequiredConfirmationsDefault = 0;
+export const updateCryptoNetworkCustomerDepositsResponseOneRequiredConfirmationsMin = 0;
+export const updateCryptoNetworkCustomerDepositsResponseOneRequiredConfirmationsMax = 10000;
+export const updateCryptoNetworkCustomerDepositsResponseOneRequiredConfirmationsMultipleOf = 1;
+
+export const updateCryptoNetworkCustomerDepositsResponseOneConfirmationGuidanceMax = 1000;
+
+export const updateCryptoNetworkCustomerDepositsResponseOneExplorerUrlTemplateMax = 1000;
+
+export const updateCryptoNetworkCustomerDepositsResponseOneDepositInstructionsMax = 2000;
+
+export const updateCryptoNetworkCustomerDepositsResponseOneDepositWarningMax = 2000;
+
+export const updateCryptoNetworkCustomerDepositsResponseOneSharedDepositAddressMax = 500;
+
+export const updateCryptoNetworkCustomerDepositsResponseOneSharedDepositMemoMax = 500;
+
+export const updateCryptoNetworkCustomerDepositsResponseTwoDepositProviderDefault = `manual`;
+
+export const UpdateCryptoNetworkCustomerDepositsResponse = zod.object({
+  "logoObjectPath": zod.string().regex(updateCryptoNetworkCustomerDepositsResponseOneLogoObjectPathRegExp).nullish(),
+  "id": zod.string().regex(updateCryptoNetworkCustomerDepositsResponseOneIdRegExp),
+  "assetId": zod.string().regex(updateCryptoNetworkCustomerDepositsResponseOneAssetIdRegExp),
+  "networkCode": zod.string().min(1).max(updateCryptoNetworkCustomerDepositsResponseOneNetworkCodeMax),
+  "networkName": zod.string().min(1).max(updateCryptoNetworkCustomerDepositsResponseOneNetworkNameMax),
+  "networkFamily": zod.string().min(1).max(updateCryptoNetworkCustomerDepositsResponseOneNetworkFamilyMax).default(updateCryptoNetworkCustomerDepositsResponseOneNetworkFamilyDefault),
+  "decimals": zod.number().min(updateCryptoNetworkCustomerDepositsResponseOneDecimalsMin).max(updateCryptoNetworkCustomerDepositsResponseOneDecimalsMax).multipleOf(updateCryptoNetworkCustomerDepositsResponseOneDecimalsMultipleOf),
+  "executionMode": zod.enum(['catalog', 'manual', 'api']).default(updateCryptoNetworkCustomerDepositsResponseOneExecutionModeDefault),
+  "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).default(updateCryptoNetworkCustomerDepositsResponseOneLifecycleDefault),
+  "regions": zod.array(zod.string().max(updateCryptoNetworkCustomerDepositsResponseOneRegionsItemMax)).max(updateCryptoNetworkCustomerDepositsResponseOneRegionsMax).optional(),
+  "enabled": zod.boolean().default(updateCryptoNetworkCustomerDepositsResponseOneEnabledDefault),
+  "customerDepositsEnabled": zod.boolean().default(updateCryptoNetworkCustomerDepositsResponseOneCustomerDepositsEnabledDefault),
+  "requiresMemo": zod.boolean().default(updateCryptoNetworkCustomerDepositsResponseOneRequiresMemoDefault),
+  "requiredConfirmations": zod.number().min(updateCryptoNetworkCustomerDepositsResponseOneRequiredConfirmationsMin).max(updateCryptoNetworkCustomerDepositsResponseOneRequiredConfirmationsMax).multipleOf(updateCryptoNetworkCustomerDepositsResponseOneRequiredConfirmationsMultipleOf).default(updateCryptoNetworkCustomerDepositsResponseOneRequiredConfirmationsDefault),
+  "confirmationGuidance": zod.string().max(updateCryptoNetworkCustomerDepositsResponseOneConfirmationGuidanceMax).nullish(),
+  "explorerUrlTemplate": zod.string().max(updateCryptoNetworkCustomerDepositsResponseOneExplorerUrlTemplateMax).nullish(),
+  "depositInstructions": zod.string().max(updateCryptoNetworkCustomerDepositsResponseOneDepositInstructionsMax).nullish(),
+  "depositWarning": zod.string().max(updateCryptoNetworkCustomerDepositsResponseOneDepositWarningMax).nullish(),
+  "sharedDepositAddress": zod.string().max(updateCryptoNetworkCustomerDepositsResponseOneSharedDepositAddressMax).optional(),
+  "sharedDepositMemo": zod.string().max(updateCryptoNetworkCustomerDepositsResponseOneSharedDepositMemoMax).nullish()
+}).and(zod.object({
+  "depositProvider": zod.string().default(updateCryptoNetworkCustomerDepositsResponseTwoDepositProviderDefault),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "logoUrl": zod.string().optional(),
+  "monitoringReadiness": zod.object({
+  "code": zod.enum(['READY', 'ADDRESS_INVALID', 'MEMO_INVALID', 'MONITOR_MISSING', 'ENDPOINT_MISSING', 'IDENTITY_MISSING', 'ASSET_MONITOR_DISABLED', 'NETWORK_MONITOR_DISABLED', 'PROVIDER_INCOMPATIBLE', 'HEALTH_CHECK_FAILED', 'CHAIN_ID_MISMATCH', 'CONFIG_CHANGED_RETRY', 'LEGACY_BEP20']),
+  "message": zod.string(),
+  "ready": zod.boolean(),
+  "networkCode": zod.string()
+}).optional()
+}))
 
 
 export const getDepositProviderOptionsResponseIdMax = 64;

@@ -23,6 +23,10 @@ import { updateOrderAndQueueStatusNotificationTx } from "../lib/customer-status-
 import { UpsertBlockchainMonitoringAssetBody } from "@workspace/api-zod";
 import { isManualMonitoringRuntimeReady } from "../lib/manual-crypto";
 import {
+  manualMonitoringNetworkConfigDigest,
+  manualMonitoringProofFingerprint,
+} from "../lib/manual-monitoring-readiness";
+import {
   isSyntacticallyValidManualWalletAddress,
   isSyntacticallyValidManualWalletMemo,
 } from "../lib/manual-wallet-validation";
@@ -101,6 +105,34 @@ async function loadBlockchainMonitoringSetupRoutes(executor: Pick<typeof db, "se
       network.endpointSecretRef &&
       process.env[network.endpointSecretRef],
     );
+    const endpoint = network?.endpointSecretRef
+      ? process.env[network.endpointSecretRef]
+      : undefined;
+    const apiKey = network?.apiKeySecretRef
+      ? process.env[network.apiKeySecretRef]
+      : undefined;
+    const networkDigest = network
+      ? manualMonitoringNetworkConfigDigest({ network, endpoint, apiKey })
+      : undefined;
+    const routeDigest = network && monitorAsset
+      ? manualMonitoringProofFingerprint({
+          network,
+          asset: monitorAsset,
+          route,
+          endpoint,
+          apiKey,
+          capturedAt: network.healthCheckedAt ?? new Date(0),
+          head: network.lastHead ?? "",
+        })
+      : undefined;
+    const receivingAddressValid = isSyntacticallyValidManualWalletAddress(
+      route,
+      route.sharedDepositAddress,
+    );
+    const memoValid = !route.requiresMemo || Boolean(
+      route.sharedDepositMemo &&
+      isSyntacticallyValidManualWalletMemo(route, route.sharedDepositMemo),
+    );
     const status = deriveBlockchainMonitoringSetupStatus({
       catalogEnabled: asset.enabled && route.enabled,
       catalogActive: asset.lifecycle === "active" && route.lifecycle === "active",
@@ -120,6 +152,10 @@ async function loadBlockchainMonitoringSetupRoutes(executor: Pick<typeof db, "se
       healthStatus: network.healthStatus,
       healthCheckedAtMs: network.healthCheckedAt?.getTime() ?? null,
       healthProofCapturedAtMs: network.healthProofCapturedAt?.getTime() ?? null,
+      readinessProofFingerprint: monitorAsset.readinessProofFingerprint,
+      networkHealthProofFingerprint: network.healthProofFingerprint,
+      networkDigest,
+      routeDigest,
       pollIntervalSeconds: network.pollIntervalSeconds,
       adapterKind: network.adapterKind,
       identityKind: monitorAsset.identityKind,
@@ -129,14 +165,8 @@ async function loadBlockchainMonitoringSetupRoutes(executor: Pick<typeof db, "se
         network.adapterKind === "solana" && network.providerKind === "rpc" ||
         network.adapterKind === "tron" && network.providerKind === "indexer" ||
         network.adapterKind === "bitcoin" && network.providerKind === "rpc",
-      receivingAddressValid: isSyntacticallyValidManualWalletAddress(
-        route,
-        route.sharedDepositAddress,
-      ),
-      memoValid: !route.requiresMemo || Boolean(
-        route.sharedDepositMemo &&
-        isSyntacticallyValidManualWalletMemo(route, route.sharedDepositMemo),
-      ),
+      receivingAddressValid,
+      memoValid,
     }));
     const runtimeReadiness = runtimeReady
       ? "ready"
@@ -153,6 +183,14 @@ async function loadBlockchainMonitoringSetupRoutes(executor: Pick<typeof db, "se
       network && !network.enabled ? "enabled network monitor" : null,
       monitorAsset && !monitorAsset.enabled ? "enabled asset monitor" : null,
       network && network.healthStatus !== "connected" ? "healthy provider connection" : null,
+      !receivingAddressValid ? "valid receiving address" : null,
+      !memoValid ? "valid receiving memo or tag" : null,
+      network && network.healthProofFingerprint !== networkDigest
+        ? "current network health proof"
+        : null,
+      monitorAsset && monitorAsset.readinessProofFingerprint !== routeDigest
+        ? "current exact-route readiness proof"
+        : null,
     ].filter((item): item is string => Boolean(item));
     return {
       assetNetworkId: route.id,
