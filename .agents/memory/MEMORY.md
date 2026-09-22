@@ -141,3 +141,4 @@
 - [Production migration entrypoint](production-migration-entrypoint.md) — artifact deployments must run the real migrator before API startup; post-merge and root scripts are not implicit release hooks.
 - [Verified funding transaction identity](verified-funding-transaction-identity.md) — Manual Swap TxIDs come only from applied immutable observations and must remain separate from editable operational references.
 - [Environment-specific RPC secret overrides](rpc-secret-environment-overrides.md) — a changed shared RPC secret can remain shadowed by an environment override; validate the runtime value in every target environment.
+- [Bundled test worker cleanup](bundled-test-worker-cleanup.md) — bundled Node tests must avoid presentation transports and await child closure before deleting temporary output.

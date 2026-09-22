@@ -33,11 +33,17 @@ try {
     process.execPath,
     ["--test", "--test-concurrency=1", ...process.argv.slice(3), outfile],
     {
-    stdio: "inherit",
-    env: { ...process.env, NODE_PATH: `${process.cwd()}/node_modules${process.env.NODE_PATH ? `:${process.env.NODE_PATH}` : ""}` },
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        NODE_PATH: `${process.cwd()}/node_modules${process.env.NODE_PATH ? `:${process.env.NODE_PATH}` : ""}`,
+      },
     },
   );
-  const exitCode = await new Promise((resolve) => child.once("exit", resolve));
+  const exitCode = await new Promise((resolve, reject) => {
+    child.once("error", reject);
+    child.once("close", resolve);
+  });
   process.exitCode = exitCode ?? 1;
 } finally {
   await rm(directory, { recursive: true, force: true });
