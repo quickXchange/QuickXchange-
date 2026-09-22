@@ -265,6 +265,9 @@ export const blockchainMonitorMatchesTable = pgTable(
   },
   (table) => [
     uniqueIndex("blockchain_monitor_matches_observation_watch_uidx").on(table.observationId, table.watchId),
+    uniqueIndex("blockchain_monitor_matches_applied_order_uidx")
+      .on(table.orderId)
+      .where(sql`${table.state} = 'applied'`),
     index("blockchain_monitor_matches_state_created_idx").on(table.state, table.createdAt),
     check(
       "blockchain_monitor_matches_state_check",

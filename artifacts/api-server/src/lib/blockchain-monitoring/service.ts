@@ -23,6 +23,7 @@ import {
   manualMonitoringProofFingerprint,
   usesLegacyBep20Readiness,
 } from "../manual-monitoring-readiness";
+import { signedCryptoRouteId } from "../manual-crypto";
 import verifiedRecurringBep20RecoverySql from "../../../../../lib/db/migrations/0098_recover_verified_bep20_usdt_payment.sql";
 
 const ELIGIBLE = and(
@@ -110,6 +111,43 @@ export function immutableIdentityMatches(
   return watch.identityKind === evidence.identityKind &&
     normalize(watch.contractOrMint) === normalize(evidence.contractOrMint) &&
     watch.decimals === evidence.decimals;
+}
+
+export function incomingEvidenceMatchesWatch(
+  network: { id: string; networkCode: string; adapterKind: string },
+  asset: { id: string },
+  watch: {
+    monitorNetworkId: string;
+    monitorAssetId: string;
+    startCursor: string | null;
+    identityKind: string;
+    contractOrMint: string | null;
+    decimals: number;
+    orderCreatedAt: Date;
+    memoOrTag: string | null;
+    receivingAddress: string;
+    expectedAmount: string;
+  },
+  evidence: IncomingEvidence,
+): boolean {
+  return watch.monitorNetworkId === network.id &&
+    watch.monitorAssetId === asset.id &&
+    evidence.networkCode.trim().toUpperCase() === network.networkCode.trim().toUpperCase() &&
+    evidence.assetId === asset.id &&
+    evidenceWithinWatchCursor(watch.startCursor, evidence.blockOrSlot) &&
+    immutableIdentityMatches(watch, evidence) &&
+    evidenceMeetsWatchTimeAndMemo(
+      watch.orderCreatedAt,
+      evidence.blockTimestamp,
+      watch.memoOrTag,
+      evidence.memoOrTag,
+    ) &&
+    (
+      network.adapterKind === "bitcoin"
+        ? watch.receivingAddress.trim() === evidence.toAddress.trim()
+        : watch.receivingAddress.trim().toLowerCase() === evidence.toAddress.trim().toLowerCase()
+    ) &&
+    exactAmountMatches(watch.expectedAmount, watch.decimals, evidence.rawAmount);
 }
 
 export type BlockchainMonitoringSetupStatus =
@@ -250,9 +288,10 @@ export async function registerManualBlockchainWatch(
   const rawAddress = text(funding.address) || order.depositAddress;
   const assetCode = text(funding.assetCode) || text(funding.asset) || order.fromAsset;
   const snapshotNetworkCode = text(funding.networkCode) || text(funding.network) || order.fromNetwork;
-  const sourceRouteId = order.sourceSettlementOptionId?.startsWith("crypto:")
-    ? order.sourceSettlementOptionId.slice("crypto:".length)
-    : "";
+  const sourceRouteId = signedCryptoRouteId({
+    id: order.sourceSettlementOptionId ?? "",
+    networkId: text(funding.networkId) || null,
+  });
   const [route] = await db.select({ route: cryptoAssetNetworksTable }).from(cryptoAssetNetworksTable)
     .innerJoin(cryptoAssetsTable, eq(cryptoAssetsTable.id, cryptoAssetNetworksTable.assetId))
     .where(sourceRouteId
@@ -473,17 +512,9 @@ async function persistEvidence(network: typeof blockchainMonitorNetworksTable.$i
       eq(blockchainMonitorWatchesTable.registrationState, "active"),
       ELIGIBLE,
     ));
-  const matches = candidates.filter(({ watch }) => {
-    return evidenceWithinWatchCursor(watch.startCursor, evidence.blockOrSlot) &&
-      immutableIdentityMatches(watch, evidence) &&
-      evidenceMeetsWatchTimeAndMemo(watch.orderCreatedAt, evidence.blockTimestamp, watch.memoOrTag, evidence.memoOrTag) &&
-      (
-        network.adapterKind === "bitcoin"
-          ? watch.receivingAddress.trim() === evidence.toAddress.trim()
-          : watch.receivingAddress.trim().toLowerCase() === evidence.toAddress.trim().toLowerCase()
-      ) &&
-      exactAmountMatches(watch.expectedAmount, watch.decimals, evidence.rawAmount);
-  }).map(({ watch }) => watch);
+  const matches = candidates.filter(({ watch }) =>
+    incomingEvidenceMatchesWatch(network, asset, watch, evidence)
+  ).map(({ watch }) => watch);
   if (!matches.length) return;
   const state = matches.length === 1 ? "confirming" : "needs_review";
   const watch = matches[0]!;

@@ -259,6 +259,7 @@ import {
   isManualMonitoringRuntimeReady,
   listPublicManualCryptoSettlementOptions,
   manualCryptoRouteNetwork,
+  signedCryptoRouteId,
 } from "../lib/manual-crypto";
 import {
   isSyntacticallyValidManualWalletAddress,
@@ -2669,8 +2670,7 @@ async function createOrderFromInput(
       sourceSnapshot?.kind === "crypto-network" &&
       selectedDepositProvider === "manual"
     ) {
-      const sourceRouteId = sourceSnapshot.networkId ??
-        sourceSnapshot.id.replace(/^crypto:/, "");
+      const sourceRouteId = signedCryptoRouteId(sourceSnapshot);
       const [catalog] = await tx.select({
         route: cryptoAssetNetworksTable,
         asset: cryptoAssetsTable,

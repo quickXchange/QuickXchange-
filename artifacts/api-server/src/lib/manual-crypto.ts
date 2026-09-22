@@ -42,6 +42,13 @@ export type ManualCryptoOption = {
   networkLogoUrl?: string;
 };
 
+export function signedCryptoRouteId(snapshot: {
+  id: string;
+  networkId?: string | null;
+}): string {
+  return snapshot.networkId?.trim() || snapshot.id.replace(/^crypto:/, "");
+}
+
 /**
  * Keep the public route spelling used by the existing exchange API.  The
  * database network code is an operator-facing identifier and is deliberately
