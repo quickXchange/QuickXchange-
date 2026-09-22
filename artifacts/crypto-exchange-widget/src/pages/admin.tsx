@@ -6873,6 +6873,11 @@ function AdminCurrencies() {
   const methodsQuery = useGetPaymentMethods({ query: { queryKey: getGetPaymentMethodsQueryKey() } });
   const assetsQuery = useGetCryptoAssets({ query: { queryKey: getGetCryptoAssetsQueryKey() } });
   const networksQuery = useGetCryptoNetworks({ query: { queryKey: getGetCryptoNetworksQueryKey() } });
+  const currentDrawerNetwork = drawerNetwork === 'new'
+    ? 'new'
+    : drawerNetwork
+      ? networksQuery.data?.find((network: CryptoNetwork) => network.id === drawerNetwork.id) ?? drawerNetwork
+      : null;
   const healthQuery = useGetOneForgeProviderStatus({ query: { queryKey: getGetOneForgeProviderStatusQueryKey(), refetchInterval: 30000 } });
   const health = healthQuery.data;
   const permissionForTab = (section: typeof tab) =>
@@ -7286,7 +7291,9 @@ function AdminCurrencies() {
               {isNet && (
                 <>
                   <small className={item.sharedDepositAddress ? 'font-mono' : undefined}>{item.sharedDepositAddress || 'Not configured'}</small>
-                  {item.sharedDepositAddress && <small>{item.customerDepositsEnabled ? t('adminCatalog.deposit_ready') : t('adminCatalog.deposits_disabled')}</small>}
+                  {item.sharedDepositAddress && (
+                    <small>Customer Deposits: {item.customerDepositsEnabled ? 'Enabled' : 'Disabled'}</small>
+                  )}
                 </>
               )}
             </span>
@@ -7653,9 +7660,9 @@ function AdminCurrencies() {
           })}
         />
       )}
-      {can('crypto_networks.manage') && drawerNetwork && (
+      {can('crypto_networks.manage') && currentDrawerNetwork && (
         <NetworkDrawer
-          network={drawerNetwork}
+          network={currentDrawerNetwork}
           onClose={() => setDrawerNetwork(null)}
         />
       )}
@@ -9141,7 +9148,9 @@ function BulkNetworkWalletDialog({
   const previewReceivingWallet = usePreviewCryptoNetworkReceivingWallet();
   const [walletAddress, setWalletAddress] = useState('');
   const [memo, setMemo] = useState('');
-  const [enableCustomerDeposits, setEnableCustomerDeposits] = useState(false);
+  const [enableCustomerDeposits, setEnableCustomerDeposits] = useState(
+    networks.length > 0 && networks.every(network => network.customerDepositsEnabled === true),
+  );
   const [previewNetworks, setPreviewNetworks] = useState<CryptoNetwork[] | null>(null);
   const [savedNetworks, setSavedNetworks] = useState<CryptoNetwork[] | null>(null);
   const [error, setError] = useState('');
@@ -9166,6 +9175,11 @@ function BulkNetworkWalletDialog({
         return;
       }
       const saved = await saveReceivingWallet.mutateAsync({ data: payload });
+      const savedById = new Map(saved.map(network => [network.id, network]));
+      queryClient.setQueryData<CryptoNetwork[]>(
+        getGetCryptoNetworksQueryKey(),
+        current => current?.map(network => savedById.get(network.id) ?? network),
+      );
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
         queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
@@ -9333,9 +9347,6 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
   const [monitoringReadiness, setMonitoringReadiness] = useState<CryptoNetwork['monitoringReadiness']>(
     isNew ? undefined : network?.monitoringReadiness,
   );
-  const [customerDepositsEnabled, setCustomerDepositsEnabled] = useState(
-    isNew ? false : network?.customerDepositsEnabled === true,
-  );
   const selectedAsset = assetsQuery.data?.find((asset: CryptoAsset) => asset.id === form.assetId);
   const providerOptions = providerOptionsQuery.data || [];
   const selectedProviderUnavailable = Boolean(
@@ -9408,11 +9419,16 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
         });
         const savedNetwork = savedNetworks[0];
         setMonitoringReadiness(savedNetwork?.monitoringReadiness);
-        setCustomerDepositsEnabled(savedNetwork?.customerDepositsEnabled === true);
          setForm(current => ({
            ...current,
            customerDepositsEnabled: savedNetwork?.customerDepositsEnabled === true,
          }));
+         if (savedNetwork) {
+           queryClient.setQueryData<CryptoNetwork[]>(
+             getGetCryptoNetworksQueryKey(),
+             current => current?.map(candidate => candidate.id === savedNetwork.id ? savedNetwork : candidate),
+           );
+         }
          setSuccessNotice(
            savedNetwork?.customerDepositsEnabled
              ? 'Network saved successfully. Customer Deposits are enabled.'
@@ -9576,9 +9592,9 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                 Applies only to this exact Asset + Network route. Enabling is blocked unless blockchain monitoring Readiness is READY. Network Monitor, Asset Monitoring, and provider assignments are not enabled automatically.
               </p>
               {monitoringReadiness && (
-                <InlineNotice kind={customerDepositsEnabled ? 'success' : 'warning'}>
+                <InlineNotice kind={network?.customerDepositsEnabled === true ? 'success' : 'warning'}>
                   {monitoringReadiness.code}: {monitoringReadiness.message}{' '}
-                  {customerDepositsEnabled
+                  {network?.customerDepositsEnabled === true
                     ? 'Customer deposits enabled.'
                     : 'Wallet saved but Customer Deposits disabled.'}
                 </InlineNotice>

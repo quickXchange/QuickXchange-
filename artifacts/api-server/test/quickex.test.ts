@@ -3987,6 +3987,20 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
       row.sharedDepositMemo === "selected-network-memo" &&
       row.customerDepositsEnabled
     ), JSON.stringify(selectedNetworks.body));
+    const persistedSelectedNetworks = await apiJson(
+      api.url,
+      "/admin/crypto-networks",
+      undefined,
+      "GET",
+      headers,
+    );
+    assert.equal(persistedSelectedNetworks.status, 200, JSON.stringify(persistedSelectedNetworks.body));
+    assert.ok(
+      persistedSelectedNetworks.body
+        .filter((row: { id: string }) => row.id === networkAId || row.id === networkBId)
+        .every((row: { customerDepositsEnabled: boolean }) => row.customerDepositsEnabled === true),
+      JSON.stringify(persistedSelectedNetworks.body),
+    );
     const enabledSelectedConfig = await (await fetch(`${api.url}/exchange/config`)).json() as {
       manualSettlementOptions: Array<{ id: string; direction: string }>;
     };
