@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawn } from "node:child_process";
+import { get } from "node:http";
 import test from "node:test";
 
 const wrapper = resolve("scripts/production-api-start.mjs");
@@ -22,8 +23,18 @@ async function fixture(migrationScript, apiScript = "process.exit(0);") {
 function run(directory, env) {
   return spawn(process.execPath, [wrapper], {
     cwd: directory,
-    env,
+    env: { ...env, PORT: env.PORT ?? "18081" },
     stdio: ["ignore", "pipe", "pipe"],
+  });
+}
+
+function getStatus(port) {
+  return new Promise((resolve, reject) => {
+    const request = get(`http://127.0.0.1:${port}/api/healthz`, response => {
+      response.resume();
+      response.on("end", () => resolve(response.statusCode));
+    });
+    request.on("error", reject);
   });
 }
 
@@ -103,6 +114,39 @@ test("termination during migration is forwarded and API never starts", async () 
     const result = await resultPromise;
     assert.equal(result.code, 143);
     assert.equal((await readFile(terminationMarker, "utf8")).trim(), "terminated");
+  } finally {
+    await rm(f.directory, { recursive: true, force: true });
+  }
+});
+
+test("startup gate listens while migration is in progress", async () => {
+  const migrationScript = `
+    import { writeFileSync } from "node:fs";
+    writeFileSync(process.env.MIGRATION_MARKER, "started");
+    setInterval(() => {}, 1000);
+  `;
+  const f = await fixture(migrationScript, "throw new Error('API must not start');");
+  const marker = join(f.directory, "migration-started");
+  const port = "18082";
+  try {
+    const child = run(f.directory, {
+      ...f.env,
+      PORT: port,
+      MIGRATION_MARKER: marker,
+    });
+    const resultPromise = collect(child);
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      try {
+        await readFile(marker);
+        break;
+      } catch {
+        await new Promise(resolve => setTimeout(resolve, 20));
+      }
+    }
+    assert.equal(await getStatus(port), 503);
+    child.kill("SIGTERM");
+    const result = await resultPromise;
+    assert.equal(result.code, 143);
   } finally {
     await rm(f.directory, { recursive: true, force: true });
   }
