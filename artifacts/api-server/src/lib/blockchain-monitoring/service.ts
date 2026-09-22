@@ -163,13 +163,14 @@ export function boundedWatchScanEnd(
   from: string,
   head: string,
   identityKind: string,
+  maxTokenRange = 1_000,
 ): string {
   const fromNumber = Number(from);
   const headNumber = Number(head);
   if (!Number.isSafeInteger(fromNumber) || !Number.isSafeInteger(headNumber)) return head;
   const maxOffset = identityKind === "native"
     ? NATIVE_SCAN_BLOCKS_PER_WATCH_CYCLE - 1
-    : 1_000;
+    : maxTokenRange;
   return String(Math.min(headNumber, fromNumber + maxOffset));
 }
 
@@ -356,6 +357,7 @@ export function adapterConfig(network: typeof blockchainMonitorNetworksTable.$in
     endpoint,
     apiKey,
     confirmationsRequired: network.confirmationsRequired,
+    maxRange: network.maxScanRange,
   };
 }
 
@@ -591,7 +593,12 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
           /^[0-9]+$/.test(head.cursor) &&
           BigInt(from) > BigInt(head.cursor)
         ) continue;
-        const boundedTo = boundedWatchScanEnd(from, head.cursor, watch.identityKind);
+        const boundedTo = boundedWatchScanEnd(
+          from,
+          head.cursor,
+          watch.identityKind,
+          network.maxScanRange,
+        );
         const result = await adapter.scanIncoming({ from, to: boundedTo }, watched);
         for (const evidence of result.evidence) {
         if (leaseLost) throw new Error("Blockchain monitoring lease was lost.");

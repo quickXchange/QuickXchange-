@@ -84,6 +84,7 @@ export function manualMonitoringProofFingerprint(input: {
       endpointRef: input.network.endpointSecretRef,
       apiKeyRef: input.network.apiKeySecretRef,
       enabled: input.network.enabled,
+      maxScanRange: input.network.maxScanRange,
     },
     asset: {
       id: input.asset.id,
@@ -118,6 +119,7 @@ export function manualMonitoringNetworkConfigDigest(input: {
     providerKind: input.network.providerKind,
     chainId: input.network.chainId,
     enabled: input.network.enabled,
+    maxScanRange: input.network.maxScanRange,
     endpointSecretRef: input.network.endpointSecretRef,
     apiKeySecretRef: input.network.apiKeySecretRef,
     endpointHash: hash(input.endpoint),

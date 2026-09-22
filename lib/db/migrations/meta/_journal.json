@@ -701,6 +701,13 @@
       "when": 1790043000000,
       "tag": "0101_configure_ethereum_mainnet_monitor",
       "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1790044000000,
+      "tag": "0102_ethereum_rpc_scan_range",
+      "breakpoints": true
     }
   ]
 }

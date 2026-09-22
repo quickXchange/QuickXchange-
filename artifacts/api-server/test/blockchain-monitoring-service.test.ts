@@ -46,6 +46,7 @@ test("native watch ranges make bounded progress while token ranges retain bulk l
   assert.equal(boundedWatchScanEnd("100", "10000", "native"), "107");
   assert.equal(boundedWatchScanEnd("100", "105", "native"), "105");
   assert.equal(boundedWatchScanEnd("100", "10000", "token"), "1100");
+  assert.equal(boundedWatchScanEnd("100", "10000", "token", 9), "109");
 });
 
 test("bulk monitoring setup keeps disabled routes disabled and never infers token identity", () => {

@@ -36,6 +36,8 @@ export const blockchainMonitorNetworksTable = pgTable(
     confirmationsRequired: integer("confirmations_required").notNull().default(0),
     finalityPolicy: text("finality_policy").notNull().default("confirmations"),
     pollIntervalSeconds: integer("poll_interval_seconds").notNull().default(15),
+    // Inclusive block offset used to bound one adapter scan request.
+    maxScanRange: integer("max_scan_range").notNull().default(1000),
     cursor: text("cursor"),
     lastHead: text("last_head"),
     healthStatus: text("health_status").notNull().default("not_configured"),
@@ -70,6 +72,10 @@ export const blockchainMonitorNetworksTable = pgTable(
     check(
       "blockchain_monitor_networks_poll_interval_check",
       sql`${table.pollIntervalSeconds} between 5 and 86400`,
+    ),
+    check(
+      "blockchain_monitor_networks_max_scan_range_check",
+      sql`${table.maxScanRange} between 0 and 10000`,
     ),
   ],
 );
