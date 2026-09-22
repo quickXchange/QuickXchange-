@@ -256,6 +256,7 @@ import {
   canAcceptReadyManualCryptoDeposit,
   findManualCryptoNetwork,
   findManualCryptoNetworkByIdForAsset,
+  isManualMonitoringRuntimeReady,
   listPublicManualCryptoSettlementOptions,
   manualCryptoRouteNetwork,
 } from "../lib/manual-crypto";
@@ -268,7 +269,6 @@ import {
   prepareManualMonitoringReadiness,
   manualMonitoringProofFingerprint,
   manualMonitoringNetworkConfigDigest,
-  isLegacyBep20Network,
   isValidManualMonitoringTokenIdentity,
   type ManualMonitoringReadiness,
 } from "../lib/manual-monitoring-readiness";
@@ -2690,7 +2690,6 @@ async function createOrderFromInput(
           eq(blockchainMonitorAssetsTable.assetNetworkId, catalog.route.id),
         )).for("update").limit(1)
         : [];
-      const legacy = isLegacyBep20Network(networkCode);
       const endpoint = monitorNetwork?.endpointSecretRef
         ? process.env[monitorNetwork.endpointSecretRef]
         : undefined;
@@ -2711,14 +2710,6 @@ async function createOrderFromInput(
           head: monitorNetwork.lastHead ?? "",
         })
         : undefined;
-      const healthFresh = monitorNetwork?.healthProofCapturedAt &&
-        Date.now() - monitorNetwork.healthProofCapturedAt.getTime() >= 0 &&
-        Date.now() - monitorNetwork.healthProofCapturedAt.getTime() <=
-          Math.max(120_000, (monitorNetwork.pollIntervalSeconds ?? 15) * 3_000);
-      const legacyHealthFresh = monitorNetwork?.healthCheckedAt &&
-        Date.now() - monitorNetwork.healthCheckedAt.getTime() >= 0 &&
-        Date.now() - monitorNetwork.healthCheckedAt.getTime() <=
-          Math.max(120_000, (monitorNetwork.pollIntervalSeconds ?? 15) * 3_000);
       const route = catalog?.route;
       const asset = catalog?.asset;
       const identityValid = Boolean(
@@ -2760,35 +2751,38 @@ async function createOrderFromInput(
           monitorNetwork.adapterKind === "bitcoin" && monitorNetwork.providerKind === "rpc"
         ),
       );
-      const ready = legacy
-        ? Boolean(
-          catalogEligible &&
-          monitorNetwork &&
-          monitorAsset &&
-          identityValid &&
-          monitorNetwork.networkCode.trim().toUpperCase() === route!.networkCode.trim().toUpperCase() &&
-          monitorNetwork.healthStatus === "connected" &&
-          legacyHealthFresh &&
-          monitorAsset.enabled &&
-          monitorNetwork.enabled &&
-          providerCompatible &&
-          Boolean(endpoint),
-        )
-        : Boolean(
-          catalogEligible &&
-          monitorNetwork &&
-          monitorAsset &&
-          identityValid &&
-          monitorNetwork.networkCode.trim().toUpperCase() === route!.networkCode.trim().toUpperCase() &&
-          monitorNetwork.healthStatus === "connected" &&
-          healthFresh &&
-          monitorNetwork.healthProofFingerprint === configDigest &&
-          monitorAsset.readinessProofFingerprint === routeDigest &&
-          monitorAsset.enabled &&
-          monitorNetwork.enabled &&
-          providerCompatible &&
-          Boolean(endpoint),
-        );
+      const ready = Boolean(
+        catalogEligible &&
+        route &&
+        monitorNetwork &&
+        monitorAsset &&
+        identityValid &&
+        isManualMonitoringRuntimeReady({
+          routeId: route.id,
+          routeNetworkCode: route.networkCode,
+          monitorAssetRouteId: monitorAsset.assetNetworkId,
+          monitorNetworkCode: monitorNetwork.networkCode,
+          monitorChainId: monitorNetwork.chainId,
+          assetEnabled: monitorAsset.enabled,
+          networkEnabled: monitorNetwork.enabled,
+          providerKind: monitorNetwork.providerKind,
+          endpointConfigured: Boolean(endpoint),
+          healthStatus: monitorNetwork.healthStatus,
+          healthCheckedAtMs: monitorNetwork.healthCheckedAt?.getTime() ?? null,
+          healthProofCapturedAtMs: monitorNetwork.healthProofCapturedAt?.getTime() ?? null,
+          pollIntervalSeconds: monitorNetwork.pollIntervalSeconds,
+          adapterKind: monitorNetwork.adapterKind,
+          identityKind: monitorAsset.identityKind,
+          contractOrMint: monitorAsset.contractOrMint,
+          providerCompatible,
+          receivingAddressValid: true,
+          memoValid: true,
+          readinessProofFingerprint: monitorAsset.readinessProofFingerprint,
+          networkHealthProofFingerprint: monitorNetwork.healthProofFingerprint,
+          networkDigest: configDigest,
+          routeDigest,
+        }),
+      );
       if (!ready) {
         throw new ApiError(
           "DESK_CRYPTO_DEPOSIT_UNAVAILABLE",

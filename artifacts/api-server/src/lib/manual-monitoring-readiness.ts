@@ -31,6 +31,11 @@ export type ManualMonitoringReadinessCode =
 export const isLegacyBep20Network = (value: string) =>
   /^(?:BSC|BEP20|BSC_BEP20)$/i.test(value.trim());
 
+export const usesLegacyBep20Readiness = (
+  networkCode: string,
+  chainId: string | null | undefined,
+) => isLegacyBep20Network(networkCode) && chainId?.trim().toLowerCase() !== "0x38";
+
 export function isValidManualMonitoringTokenIdentity(
   adapterKind: string,
   contractOrMint: string | null | undefined,
@@ -205,7 +210,7 @@ export async function prepareManualMonitoringReadiness(
     const network = row.network;
     const networkCode = network?.networkCode ?? row.route.networkCode;
     if (
-      isLegacyBep20Network(networkCode) &&
+      usesLegacyBep20Readiness(networkCode, network?.chainId) &&
       row.monitorAsset?.identityKind === "native" &&
       !row.monitorAsset.contractOrMint &&
       row.monitorAsset.enabled

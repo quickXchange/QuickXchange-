@@ -4,6 +4,7 @@ import {
   isLegacyBep20Network,
   isValidManualMonitoringTokenIdentity,
   manualMonitoringProofFingerprint,
+  usesLegacyBep20Readiness,
 } from "../src/lib/manual-monitoring-readiness";
 import { isManualMonitoringRuntimeReady } from "../src/lib/manual-crypto";
 
@@ -37,6 +38,8 @@ test("BEP20 remains on the established legacy readiness path", () => {
   assert.equal(isLegacyBep20Network("BSC"), true);
   assert.equal(isLegacyBep20Network("BEP20"), true);
   assert.equal(isLegacyBep20Network("POLYGON"), false);
+  assert.equal(usesLegacyBep20Readiness("BEP20", null), true);
+  assert.equal(usesLegacyBep20Readiness("BEP20", "0x38"), false);
 });
 
 test("manual readiness proof fingerprints include route identity and secret material hashes", () => {
@@ -107,6 +110,7 @@ function runtimeInput(overrides: Record<string, unknown> = {}) {
     routeNetworkCode: "POLYGON",
     monitorAssetRouteId: "usdc-polygon",
     monitorNetworkCode: "POLYGON",
+    monitorChainId: "137",
     assetEnabled: true,
     networkEnabled: true,
     providerKind: "rpc",
@@ -177,11 +181,25 @@ test("BEP20 keeps the established native BNB path but token routes require proof
     routeNetworkCode: "BEP20",
     monitorAssetRouteId: "bnb-bep20",
     monitorNetworkCode: "BEP20",
+    monitorChainId: null,
     identityKind: "native",
     contractOrMint: null,
     readinessProofFingerprint: null,
   });
   assert.equal(isManualMonitoringRuntimeReady(bsc), true);
+  assert.equal(isManualMonitoringRuntimeReady({
+    ...bsc,
+    monitorChainId: "0x38",
+  }), false);
+  assert.equal(isManualMonitoringRuntimeReady({
+    ...bsc,
+    monitorChainId: "0x38",
+    readinessProofFingerprint: "proof-bnb",
+    healthProofCapturedAtMs: Date.now() - 1_000,
+    networkHealthProofFingerprint: "network-bnb",
+    networkDigest: "network-bnb",
+    routeDigest: "proof-bnb",
+  }), true);
   assert.equal(isManualMonitoringRuntimeReady({
     ...bsc,
     identityKind: "token",

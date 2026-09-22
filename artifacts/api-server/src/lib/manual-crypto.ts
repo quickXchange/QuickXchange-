@@ -12,10 +12,10 @@ import {
   isSyntacticallyValidManualWalletMemo,
 } from "./manual-wallet-validation";
 import {
-  isLegacyBep20Network,
   isValidManualMonitoringTokenIdentity,
   manualMonitoringNetworkConfigDigest,
   manualMonitoringProofFingerprint,
+  usesLegacyBep20Readiness,
 } from "./manual-monitoring-readiness";
 
 export type ManualCryptoOption = {
@@ -87,6 +87,7 @@ export function isManualMonitoringRuntimeReady(input: {
   routeNetworkCode: string;
   monitorAssetRouteId: string;
   monitorNetworkCode: string;
+  monitorChainId?: string | null;
   assetEnabled: boolean;
   networkEnabled: boolean;
   providerKind: string;
@@ -109,7 +110,10 @@ export function isManualMonitoringRuntimeReady(input: {
   const healthMaxAgeMs = Math.max(120_000, input.pollIntervalSeconds * 3_000);
   // Preserve the established native-BNB path only. Token routes must prove
   // their exact contract identity and readiness like every other token route.
-  const legacyBep20 = isLegacyBep20Network(input.monitorNetworkCode) &&
+  const legacyBep20 = usesLegacyBep20Readiness(
+    input.monitorNetworkCode,
+    input.monitorChainId,
+  ) &&
     input.identityKind === "native" &&
     !input.contractOrMint?.trim();
   const healthFresh = input.healthCheckedAtMs !== null &&
@@ -202,6 +206,7 @@ export async function listReadyManualMonitoringRoutes(): Promise<Map<string, str
       routeNetworkCode: row.monitorNetworkCode,
       monitorAssetRouteId: row.monitorAssetRouteId,
       monitorNetworkCode: row.monitorNetworkCode,
+      monitorChainId: row.network.chainId,
       assetEnabled: row.assetEnabled,
       networkEnabled: row.networkEnabled,
       providerKind: row.providerKind,

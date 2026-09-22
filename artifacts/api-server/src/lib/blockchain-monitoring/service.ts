@@ -18,8 +18,10 @@ import { enqueueSwapTelegramNotification } from "../telegram-swap-notifications"
 import { updateOrderAndQueueStatusNotificationTx } from "../customer-status-notifications";
 import { logger } from "../logger";
 import {
+  isLegacyBep20Network,
   manualMonitoringNetworkConfigDigest,
   manualMonitoringProofFingerprint,
+  usesLegacyBep20Readiness,
 } from "../manual-monitoring-readiness";
 import verifiedRecurringBep20RecoverySql from "../../../../../lib/db/migrations/0098_recover_verified_bep20_usdt_payment.sql";
 
@@ -673,7 +675,11 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
       await refreshConfirming(network, leaseToken);
       await applyConfirmedMatches(leaseToken, network.id);
       const checkedAt = new Date();
-      const legacyBep20 = /^(?:BSC|BEP20|BSC_BEP20)$/i.test(network.networkCode);
+      const legacyBep20 = usesLegacyBep20Readiness(network.networkCode, network.chainId);
+      const strictManualProof = network.adapterKind === "bitcoin" || (
+        isLegacyBep20Network(network.networkCode) &&
+        network.chainId?.trim().toLowerCase() === "0x38"
+      );
       const healthProofConfig = legacyBep20 ? undefined : adapterConfig(network);
        await withLease(network.id, leaseToken, async (tx) => {
          const [currentNetwork] = await tx.select().from(blockchainMonitorNetworksTable)
@@ -683,7 +689,7 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
            ? adapterConfig(currentNetwork)
            : undefined;
          const cycleConfigDigest = healthProofConfig
-           ? network.adapterKind === "bitcoin"
+            ? strictManualProof
              ? manualMonitoringNetworkConfigDigest({
                  network,
                  endpoint: healthProofConfig.endpoint,
@@ -692,7 +698,7 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
              : legacyNetworkConfigDigest(network, healthProofConfig.endpoint, healthProofConfig.apiKey)
            : undefined;
          const currentConfigDigest = currentNetwork && currentHealthProofConfig
-           ? currentNetwork.adapterKind === "bitcoin"
+            ? strictManualProof
              ? manualMonitoringNetworkConfigDigest({
                  network: currentNetwork,
                  endpoint: currentHealthProofConfig.endpoint,
@@ -727,7 +733,7 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
          }).where(eq(blockchainMonitorNetworksTable.id, network.id));
          if (
            !legacyBep20 &&
-           currentNetwork?.adapterKind === "bitcoin" &&
+            strictManualProof &&
            currentHealthProofConfig
          ) {
            const proofRows = await tx.select({
@@ -754,6 +760,7 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
              });
              await tx.update(blockchainMonitorAssetsTable).set({
                readinessProofFingerprint,
+                readinessProofCapturedAt: checkedAt,
              }).where(and(
                eq(blockchainMonitorAssetsTable.id, asset.id),
                eq(blockchainMonitorAssetsTable.monitorNetworkId, network.id),

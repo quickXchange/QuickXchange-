@@ -181,12 +181,14 @@ test("manual customer deposits require a connected exact monitoring identity", (
     routeNetworkCode: "BEP20",
     monitorAssetRouteId: "usdt-bep20",
     monitorNetworkCode: "BEP20",
+    monitorChainId: "0x38",
     assetEnabled: true,
     networkEnabled: true,
     providerKind: "rpc",
     endpointConfigured: true,
     healthStatus: "connected",
     healthCheckedAtMs: Date.now(),
+    healthProofCapturedAtMs: Date.now(),
     pollIntervalSeconds: 15,
     adapterKind: "evm",
     identityKind: "token",
@@ -194,6 +196,10 @@ test("manual customer deposits require a connected exact monitoring identity", (
     providerCompatible: true,
     receivingAddressValid: true,
     memoValid: true,
+    readinessProofFingerprint: "proof-usdt-bep20",
+    routeDigest: "proof-usdt-bep20",
+    networkHealthProofFingerprint: "network-bep20",
+    networkDigest: "network-bep20",
   };
   assert.equal(isManualMonitoringRuntimeReady(ready), true);
   assert.equal(isManualMonitoringRuntimeReady({ ...ready, endpointConfigured: false }), false);

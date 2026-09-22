@@ -145,6 +145,7 @@ async function loadBlockchainMonitoringSetupRoutes(executor: Pick<typeof db, "se
       routeNetworkCode: route.networkCode,
       monitorAssetRouteId: monitorAsset.assetNetworkId,
       monitorNetworkCode: network.networkCode,
+      monitorChainId: network.chainId,
       assetEnabled: monitorAsset.enabled,
       networkEnabled: network.enabled,
       providerKind: network.providerKind,
