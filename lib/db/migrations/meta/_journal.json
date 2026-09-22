@@ -736,6 +736,13 @@
       "when": 1790096000000,
       "tag": "0106_reconcile_trx_tron_native_monitor",
       "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1790097000000,
+      "tag": "0107_polygon_native_pol_monitor",
+      "breakpoints": true
     }
   ]
 }
