@@ -1,0 +1,69 @@
+The read-only audit established the correct database boundaries.
+
+Proceed carefully with MONITOR CONFIGURATION ONLY.
+
+Do not modify, migrate, copy, delete, recreate, or synchronize any orders between development and production.
+Production's 56 orders are the correct production dataset.
+Development's 298 orders / 137 active orders must remain development-only.
+
+Fix the production monitoring configuration:
+
+1. BSC
+- Production currently references BSC_MONITOR_RPC_URL.
+- Development uses the working BSC_MONITOR_RPC_URL_V2.
+- Update only the production BSC monitor configuration so it references BSC_MONITOR_RPC_URL_V2.
+- Do not expose or copy the secret value.
+- Preserve the existing BNB native and USDT/BEP20 identities.
+- Preserve all existing production watches, cursors, observations, matches, and order snapshots.
+- Do not reset order monitoring history.
+- After the change, verify live:
+  - chain ID = 0x38 / 56
+  - block number
+  - full block reads
+  - receipts
+  - bounded eth_getLogs
+  - BNB native scanner
+  - USDT/BEP20 scanner
+  - existing production watch cursors continue advancing
+  - monitor reaches connected/healthy with zero consecutive failures and remains stable across multiple cycles
+
+2. Ethereum
+- Production currently has no Ethereum monitor row.
+- Do NOT blindly copy the development database row.
+- Create/configure the production Ethereum monitor from the verified network configuration only, using ETHEREUM_MONITOR_RPC_URL as the secret reference.
+- Never expose the secret.
+- Verify chain ID 0x1 and all required EVM RPC methods live.
+- Configure/verify exact production identities for:
+  - ETH native
+  - USDT/ERC20
+  - USDC/ERC20
+- Reuse only already verified contract addresses and decimals. Do not guess anything.
+- Customer Deposits must remain fail-closed for any route that does not have its required receiving address and exact READY proof.
+
+3. Safety
+- Do not modify Convert, Quickex, WhiteBIT, pricing, payment methods, or Telegram logic.
+- Do not modify any existing order or status.
+- Do not copy development orders/configuration wholesale into production.
+- Existing active order funding snapshots must remain immutable.
+- Take a fresh PRODUCTION-only order fingerprint/count before and after the monitor changes and confirm it is unchanged.
+
+Then run the final production-readiness suite against the real production database only.
+
+Return PASS/FAIL separately for:
+- BSC monitor
+- BNB/BEP20
+- USDT/BEP20
+- Ethereum monitor
+- ETH/ERC20
+- USDT/ERC20
+- USDC/ERC20
+- production order integrity
+- builds/migrations
+
+Do not republish automatically.
+
+At the end, explicitly state either:
+SAFE TO REPUBLISH
+or
+NOT SAFE TO REPUBLISH
+with the exact remaining blocker.
