@@ -29,17 +29,19 @@ builds the main website, Telegram Mini App, and API from the current workspace,
 and validates the generated public files. Any missing or inconsistent output
 fails the command so publishing cannot silently reuse an older build.
 
-## Database release step
+## Production monitoring release step
 
-The production API start command runs migrations before accepting traffic:
+The production API start command verifies required monitoring data before
+accepting traffic:
 
 ```sh
 pnpm run start:production
 ```
 
-The command fails before starting the API if a migration fails. Migrations
-require `DATABASE_URL` and `APP_DATABASE_PASSWORD`. Do not use `drizzle-kit
-push` in production and do not reorder or edit applied migrations.
+The command fails before starting the API unless the exact native BNB/BEP20
+identity exists on the already-configured BSC monitor. It does not create a
+monitor or replay schema migrations. Replit Publish owns production schema
+reconciliation; do not use `drizzle-kit push` in production.
 
 ## Start
 
@@ -166,7 +168,10 @@ Forward the original host and HTTPS scheme so Clerk generates correct URLs.
 
 1. Install with `pnpm install --frozen-lockfile`.
 2. Set all required secrets outside source control.
-3. Back up PostgreSQL and run `pnpm --filter @workspace/db run migrate`.
+3. On Replit, let Publish reconcile schema and let `start:production` run the
+   targeted monitoring-data verification. Do not run the full Drizzle history
+   against Replit production. On a standard server, back up PostgreSQL and run
+   `pnpm --filter @workspace/db run migrate`.
 4. Run `pnpm run build:production`.
 5. Start the API with `NODE_ENV=production`.
 6. Confirm `/api/healthz` and `/api/readyz` return HTTP 200.

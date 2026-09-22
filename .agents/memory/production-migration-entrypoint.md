@@ -1,12 +1,12 @@
 ---
 name: Production migration entrypoint
-description: How artifact deployments reliably apply ordered database migrations before serving traffic.
+description: How managed artifact deployments apply targeted production data reconciliation before serving traffic.
 ---
 
-The API artifact production command must invoke the real database migrator and wait for success before starting the server. Track the actual Node migrator process directly so deployment termination reaches it; do not hide it behind a package-manager child process.
+On Replit managed production databases, Publish owns schema reconciliation. The API artifact startup must run only narrowly scoped, idempotent production data reconciliation and verify its exact postcondition before starting the server. Do not replay the full Drizzle history when its journal can lag behind schema already applied by Publish.
 
 On port-probed deployment targets, bind a temporary fail-closed startup gate immediately and return HTTP 503 until migration succeeds. Release the port completely before starting the API, and never spawn another child after a shutdown signal.
 
-**Why:** Artifact publishing uses its own production run command. Development post-merge hooks and unrelated root scripts are not implicit production release steps, so a migration can apply in development but never reach production. A package-manager intermediary can leave the real migrator running after startup termination. Waiting to bind the configured port until migrations finish can make the platform restart the container repeatedly before the migrator completes.
+**Why:** Artifact publishing uses its own production run command. Development post-merge hooks are not implicit production release steps, so required data reconciliation can apply in development but never reach production. Conversely, managed Publish can apply schema without advancing a separate Drizzle journal; replaying that journal then fails on already-existing schema before reaching the required data change. Waiting to bind the configured port can also make the platform restart the container before reconciliation completes.
 
-**How to apply:** Keep migrations ordered and idempotent, fail startup on migration errors, forward signals to the active migrator or API child, and test gate behavior, migration failure, successful handoff, and termination in both phases.
+**How to apply:** Keep standard-server schema migrations ordered and idempotent, but use exact transactional data reconcilers on Replit startup. Fail closed on unmet prerequisites, forward signals to the active reconciler or API child, and test gate behavior, failure, successful handoff, and termination in both phases.

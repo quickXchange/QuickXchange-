@@ -70,7 +70,7 @@ if (process.env.MIGRATIONS_ONLY !== "true") {
 
 const migration = await runChild(
   process.execPath,
-  ["lib/db/migrate.mjs"],
+  ["lib/db/run-production-monitoring-migrations.mjs"],
 );
 if (requestedSignal) {
   await closeStartupGate();

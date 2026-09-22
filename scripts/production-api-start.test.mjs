@@ -12,7 +12,10 @@ async function fixture(migrationScript, apiScript = "process.exit(0);") {
   const directory = await mkdtemp(join(tmpdir(), "quickex-production-start-"));
   await mkdir(join(directory, "lib/db"), { recursive: true });
   await mkdir(join(directory, "artifacts/api-server/dist"), { recursive: true });
-  await writeFile(join(directory, "lib/db/migrate.mjs"), migrationScript);
+  await writeFile(
+    join(directory, "lib/db/run-production-monitoring-migrations.mjs"),
+    migrationScript,
+  );
   await writeFile(join(directory, "artifacts/api-server/dist/index.mjs"), apiScript);
   return {
     directory,
