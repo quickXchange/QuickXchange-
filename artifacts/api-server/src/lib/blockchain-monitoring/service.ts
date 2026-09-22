@@ -28,7 +28,7 @@ const ELIGIBLE = and(
 let cycleRunning = false;
 let recoveryMigration: Promise<void> | undefined;
 const MONITOR_CYCLE_DEADLINE_MS = 90_000;
-const NATIVE_SCAN_BLOCKS_PER_WATCH_CYCLE = 64;
+const NATIVE_SCAN_BLOCKS_PER_WATCH_CYCLE = 8;
 const VERIFIED_RECEIPT_RECOVERY_REASON =
   "Verified receipt recovery; inactive to prevent unbounded rescanning.";
 

@@ -97,6 +97,7 @@ test("EVM native scans request receipts only for watched-address candidates", as
 test("EVM native scans read bounded block batches concurrently and preserve exact evidence checks", async () => {
   let inFlightBlocks = 0;
   let maxInFlightBlocks = 0;
+  const blockAttempts = new Map<number, number>();
   const watchedAddress = "0x1111111111111111111111111111111111111111";
   const server = createServer((req, res) => {
     let body = "";
@@ -109,9 +110,12 @@ test("EVM native scans read bounded block batches concurrently and preserve exac
         maxInFlightBlocks = Math.max(maxInFlightBlocks, inFlightBlocks);
         const blockHex = String(request.params[0]);
         const blockNumber = Number(BigInt(blockHex));
+        const attempt = (blockAttempts.get(blockNumber) ?? 0) + 1;
+        blockAttempts.set(blockNumber, attempt);
         setTimeout(() => {
           inFlightBlocks -= 1;
-        const matching = blockNumber === 20 || blockNumber === 21;
+          if (res.destroyed) return;
+          const matching = blockNumber === 20 || blockNumber === 21;
           res.writeHead(200, { "content-type": "application/json" });
           res.end(JSON.stringify({
             jsonrpc: "2.0",
@@ -130,7 +134,7 @@ test("EVM native scans read bounded block batches concurrently and preserve exac
               }] : [],
             },
           }));
-        }, 20);
+        }, blockNumber === 20 && attempt === 1 ? 125 : 10);
         return;
       }
       res.writeHead(200, { "content-type": "application/json" });
@@ -157,19 +161,21 @@ test("EVM native scans read bounded block batches concurrently and preserve exac
       provider: "rpc",
       adapterKind: "evm",
       endpoint: `http://127.0.0.1:${address.port}`,
+      requestTimeoutMs: 100,
     });
-    const result = await adapter.scanIncoming({ from: "16", to: "31" }, [{
+    const result = await adapter.scanIncoming({ from: "16", to: "23" }, [{
       address: watchedAddress,
       assets: [{ assetId: "bnb-bep20", symbol: "BNB", kind: "native", decimals: 18 }],
     }]);
     assert(maxInFlightBlocks > 1);
-    assert(maxInFlightBlocks <= 8);
+    assert(maxInFlightBlocks <= 4);
+    assert.equal(blockAttempts.get(20), 2);
     assert.equal(result.evidence.length, 1);
     assert.equal(result.evidence[0]?.transactionHash, "0xmatching");
     assert.equal(result.evidence[0]?.rawAmount, "2000000000000000000");
     assert.equal(result.evidence[0]?.toAddress, watchedAddress);
     await assert.rejects(
-      adapter.scanIncoming({ from: "16", to: "80" }, [{
+      adapter.scanIncoming({ from: "16", to: "24" }, [{
         address: watchedAddress,
         assets: [{ assetId: "bnb-bep20", symbol: "BNB", kind: "native", decimals: 18 }],
       }]),
@@ -177,6 +183,49 @@ test("EVM native scans read bounded block batches concurrently and preserve exac
         error instanceof BlockchainMonitorError &&
         error.code === "RANGE",
     );
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
+});
+
+test("EVM native retry cooldown does not overrun the shared cycle deadline", async () => {
+  let requests = 0;
+  const server = createServer((req, res) => {
+    req.resume();
+    req.on("end", () => {
+      requests += 1;
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        error: { code: -32000, message: "transient provider failure" },
+      }));
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = server.address();
+    assert(address && typeof address === "object");
+    const startedAt = Date.now();
+    const adapter = new EvmJsonRpcAdapter({
+      networkCode: "BEP20",
+      provider: "rpc",
+      adapterKind: "evm",
+      endpoint: `http://127.0.0.1:${address.port}`,
+      requestTimeoutMs: 1_000,
+      deadlineAtMs: startedAt + 100,
+    });
+    await assert.rejects(
+      adapter.scanIncoming({ from: "16", to: "16" }, [{
+        address: "0x1111111111111111111111111111111111111111",
+        assets: [{ assetId: "bnb-bep20", symbol: "BNB", kind: "native", decimals: 18 }],
+      }]),
+      (error: unknown) =>
+        error instanceof BlockchainMonitorError &&
+        error.code === "PROVIDER",
+    );
+    assert.equal(requests, 1);
+    assert(Date.now() - startedAt < 200);
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }

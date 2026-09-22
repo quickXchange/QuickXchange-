@@ -43,8 +43,8 @@ test("Manual monitoring applies configured finality and immutable identity", () 
 });
 
 test("native watch ranges make bounded progress while token ranges retain bulk log scans", () => {
-  assert.equal(boundedWatchScanEnd("100", "10000", "native"), "163");
-  assert.equal(boundedWatchScanEnd("100", "120", "native"), "120");
+  assert.equal(boundedWatchScanEnd("100", "10000", "native"), "107");
+  assert.equal(boundedWatchScanEnd("100", "105", "native"), "105");
   assert.equal(boundedWatchScanEnd("100", "10000", "token"), "1100");
 });
 

@@ -1,5 +1,6 @@
 import { BlockchainMonitorError, sanitizedProviderError } from "./errors";
 import { positiveInteger, providerHeaders, providerJson, requireEndpoint } from "./http";
+import { setTimeout as delay } from "node:timers/promises";
 import type {
   BlockchainMonitorAdapter, ChainHead, ConnectionResult, IncomingEvidence,
   MonitorAsset, MonitorConfig, ScanCursor, ScanResult, WatchedAddress,
@@ -7,7 +8,8 @@ import type {
 
 const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 const HEX_ADDRESS_LENGTH = 64;
-const NATIVE_BLOCK_READ_CONCURRENCY = 8;
+const NATIVE_BLOCK_READ_CONCURRENCY = 4;
+const NATIVE_MAX_BLOCKS_PER_SCAN = 8;
 
 type RpcResponse<T> = { result?: T; error?: unknown };
 type EvmTransaction = {
@@ -258,7 +260,7 @@ export class EvmJsonRpcAdapter implements BlockchainMonitorAdapter {
     const watched = watchedAddresses.flatMap(address => address.assets.map(asset => ({ address, asset })));
     const native = watched.filter(item => item.asset.kind === "native");
     const tokens = watched.filter(item => item.asset.kind === "token" && normalizeEvmAddress(item.asset.contractOrMint ?? ""));
-    if (native.length && to - from >= NATIVE_BLOCK_READ_CONCURRENCY * NATIVE_BLOCK_READ_CONCURRENCY) {
+    if (native.length && to - from >= NATIVE_MAX_BLOCKS_PER_SCAN) {
       throw new BlockchainMonitorError("RANGE", "Native EVM monitoring scan range is too large.");
     }
     const tokenAddresses = [...new Set(tokens.map(item => normalizeEvmAddress(item.address.address)).filter(Boolean))];
@@ -268,9 +270,23 @@ export class EvmJsonRpcAdapter implements BlockchainMonitorAdapter {
       for (let batchStart = from; batchStart <= to; batchStart += NATIVE_BLOCK_READ_CONCURRENCY) {
         const batchEnd = Math.min(to, batchStart + NATIVE_BLOCK_READ_CONCURRENCY - 1);
         const fullBlocks = await Promise.all(
-          Array.from({ length: batchEnd - batchStart + 1 }, (_, offset) => {
+          Array.from({ length: batchEnd - batchStart + 1 }, async (_, offset) => {
             const blockHex = `0x${(batchStart + offset).toString(16)}`;
-            return this.rpc<EvmBlock | null>("eth_getBlockByNumber", [blockHex, true]);
+            try {
+              return await this.rpc<EvmBlock | null>("eth_getBlockByNumber", [blockHex, true]);
+            } catch (error) {
+              if (
+                !(error instanceof BlockchainMonitorError) ||
+                !["TIMEOUT", "NETWORK", "PROVIDER"].includes(error.code)
+              ) throw error;
+              const cooldownMs = Math.min(5_000, Math.max(50, Math.floor(this.timeoutMs / 3)));
+              if (
+                this.config.deadlineAtMs !== undefined &&
+                this.config.deadlineAtMs - Date.now() <= cooldownMs + 1
+              ) throw error;
+              await delay(cooldownMs);
+              return this.rpc<EvmBlock | null>("eth_getBlockByNumber", [blockHex, true]);
+            }
           }),
         );
         for (const [offset, fullBlock] of fullBlocks.entries()) {
