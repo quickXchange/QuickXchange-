@@ -142,3 +142,4 @@
 - [Verified funding transaction identity](verified-funding-transaction-identity.md) — Manual Swap TxIDs come only from applied immutable observations and must remain separate from editable operational references.
 - [Environment-specific RPC secret overrides](rpc-secret-environment-overrides.md) — a changed shared RPC secret can remain shadowed by an environment override; validate the runtime value in every target environment.
 - [Bundled test worker cleanup](bundled-test-worker-cleanup.md) — bundled Node tests must avoid presentation transports and await child closure before deleting temporary output.
+- [TRON contract query encoding](tron-contract-query-encoding.md) — live TRC20 scans can fail when the indexer query receives the stored hex contract identity directly.
