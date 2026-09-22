@@ -1,0 +1,85 @@
+Now that Bitcoin Mainnet monitoring is implemented and verified, perform a final readiness audit of ALL blockchain monitoring networks together:
+
+- Ethereum / ERC20
+- BSC / BEP20
+- TRON / TRC20
+- Polygon
+- Bitcoin Mainnet
+
+IMPORTANT:
+Do NOT enable operational monitoring yet.
+Do NOT enable customer deposits yet.
+Do NOT republish yet.
+Do NOT modify Convert, Quickex, WhiteBIT, Pricing, existing orders, or production data.
+
+For every network and every supported asset route:
+
+1. Verify the blockchain monitor exists and uses the correct adapter/provider.
+2. Verify the chain/network identity.
+3. Verify every monitoring identity:
+   - native/token
+   - contract address when applicable
+   - decimals
+   - asset-network route
+4. Verify the receiving address configuration and validation.
+5. Verify current bounded scanning works.
+6. Verify at least one real historical transaction through the FINAL adapter.
+7. Verify exact amount detection.
+8. Verify recipient matching.
+9. Verify canonical block membership.
+10. Verify confirmations/finality.
+11. Verify unique event identity and duplicate protection.
+12. Verify confirmation refresh/reorg behavior.
+13. Verify API/provider failure is fail-safe and cannot mark an order as paid incorrectly.
+
+Then audit Admin → Crypto Networks.
+
+The Admin UI must clearly show, separately:
+
+- Network Monitor: Enabled / Disabled
+- Asset Monitoring: Enabled / Disabled
+- Customer Deposits: Enabled / Disabled
+- Provider connection status
+- Last successful scan
+- Last error, if any
+
+Do not treat these states as the same setting.
+
+Also verify the Widget catalog independently.
+
+The Widget must show every enabled customer-facing route correctly, including networks under the same asset:
+
+USDT:
+- ERC20
+- BEP20
+- TRC20
+- Polygon
+
+USDC:
+- all currently supported/enabled networks
+
+BTC:
+- Bitcoin
+
+BNB:
+- BEP20
+
+TRX:
+- TRON/TRC20
+
+POL:
+- Polygon
+
+Do not hide a Widget route merely because blockchain monitoring is currently disabled. Widget availability and blockchain-monitoring activation must remain separate concepts.
+
+Do not create, rename, delete, enable, or disable anything during this audit unless an existing configuration is clearly incorrect and the change is required for correctness. Report it first if the change could affect customer deposits.
+
+At the end give me one matrix:
+
+Network | Route | Widget | Identity | Provider | Live Scan | Historical Proof | Monitoring | Customer Deposits | READY
+
+If anything is not ready, state the exact blocker.
+
+Ignore the existing unrelated operator-access test failures. Do not modify Quickex or unrelated systems to make those tests pass.
+
+Stop before activation and wait for my approval.
