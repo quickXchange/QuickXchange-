@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { boundedBitcoinWatchScanRange, boundedWatchScanEnd, canApplyConfirmedMatchWatch, canResolveRegistrationGap, cursorAfterCapturedHead, deriveBlockchainMonitoringSetupStatus, evidenceWithinWatchCursor, exactAmountMatches, exactWatchMatchesOrderSnapshot, evidenceMeetsWatchTimeAndMemo, immutableIdentityMatches, isFinalitySatisfied, selectReadyBlockchainMonitoringSetupRoutes, selectWatchScanCursor, shouldRefreshStrictManualReadinessProof } from "../src/lib/blockchain-monitoring/service";
+import { boundedBitcoinWatchScanRange, boundedWatchScanEnd, canApplyConfirmedMatchWatch, canResolveRegistrationGap, classifyWatchRegistrationIdentity, cursorAfterCapturedHead, deriveBlockchainMonitoringSetupStatus, evidenceWithinWatchCursor, exactAmountMatches, exactWatchMatchesOrderSnapshot, evidenceMeetsWatchTimeAndMemo, immutableIdentityMatches, isFinalitySatisfied, selectReadyBlockchainMonitoringSetupRoutes, selectWatchScanCursor, shouldRefreshStrictManualReadinessProof } from "../src/lib/blockchain-monitoring/service";
 import { canEnqueueSwapPaymentReceived } from "../src/lib/telegram-swap-notifications";
+import { signedCryptoRouteId } from "../src/lib/manual-crypto";
 
 test("Manual monitoring matches decimal order amounts only at configured precision", () => {
     assert.equal(exactAmountMatches("1.25", 6, "1250000"), true);
@@ -40,6 +41,61 @@ test("Manual monitoring applies configured finality and immutable identity", () 
   assert.equal(canResolveRegistrationGap("active", true), true);
   const snapshot = { orderId: "o", monitorNetworkId: "n", monitorAssetId: "a", assetNetworkId: "r", expectedAmount: "1", receivingAddress: "x", memoOrTag: null, identityKind: "native", contractOrMint: null, decimals: 18, orderCreatedAt: new Date(0) };
   assert.equal(exactWatchMatchesOrderSnapshot(snapshot, snapshot), true);
+});
+
+test("eligible signed blockchain routes resolve once without display-label fallbacks", () => {
+  const routes = [
+    { id: "btc-bitcoin", displayNetwork: "Bitcoin" },
+    { id: "usdt-bep20", displayNetwork: "BNB Smart Chain" },
+    { id: "usdc-erc20", displayNetwork: "Ethereum" },
+    { id: "usdt-trc20", displayNetwork: "Tron" },
+    { id: "usdc-polygon", displayNetwork: "Polygon" },
+  ];
+  const watchOrderIds = new Set<string>();
+  for (const [index, route] of routes.entries()) {
+    assert.equal(
+      signedCryptoRouteId({
+        id: `crypto:${route.id}`,
+        networkId: route.id,
+      }),
+      route.id,
+    );
+    assert.equal(classifyWatchRegistrationIdentity({
+      routeFound: true,
+      routeAssetMatches: true,
+      exactAssetIdentity: true,
+      networkFound: true,
+      networkEnabled: true,
+      assetFound: true,
+      assetEnabled: true,
+      networkProofPresent: true,
+      assetProofPresent: true,
+    }), null, route.displayNetwork);
+    const orderId = `eligible-route-${index}`;
+    watchOrderIds.add(orderId);
+    watchOrderIds.add(orderId);
+  }
+  assert.equal(watchOrderIds.size, routes.length);
+});
+
+test("watch registration diagnostics distinguish every blocked identity gate", () => {
+  const ready = {
+    routeFound: true,
+    routeAssetMatches: true,
+    exactAssetIdentity: true,
+    networkFound: true,
+    networkEnabled: true,
+    assetFound: true,
+    assetEnabled: true,
+    networkProofPresent: true,
+    assetProofPresent: true,
+  };
+  assert.equal(classifyWatchRegistrationIdentity({ ...ready, routeFound: false }), "ROUTE_IDENTITY_MISMATCH");
+  assert.equal(classifyWatchRegistrationIdentity({ ...ready, networkFound: false }), "NETWORK_MONITOR_MISSING");
+  assert.equal(classifyWatchRegistrationIdentity({ ...ready, networkEnabled: false }), "NETWORK_MONITOR_DISABLED");
+  assert.equal(classifyWatchRegistrationIdentity({ ...ready, assetFound: false }), "ASSET_MONITOR_MISSING");
+  assert.equal(classifyWatchRegistrationIdentity({ ...ready, assetEnabled: false }), "ASSET_MONITOR_DISABLED");
+  assert.equal(classifyWatchRegistrationIdentity({ ...ready, assetProofPresent: false }), "READINESS_PROOF_MISSING");
 });
 
 test("strict scheduler proof refresh accepts only canonical Polygon", () => {

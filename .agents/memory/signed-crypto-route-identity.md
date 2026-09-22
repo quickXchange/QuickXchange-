@@ -7,4 +7,4 @@ Resolve the signed crypto settlement option by its immutable asset-network route
 
 **Why:** A valid BTC quote can carry the display label `Bitcoin` while the monitoring network is keyed by canonical code `BTC`. Treating the label as the code rejects an otherwise ready order or leaves it without an active watch.
 
-**How to apply:** At order-time revalidation and delayed watch reconciliation, prefer the signed route ID, verify the expected asset, and fail closed if that exact route cannot be resolved. Use label/code fallback only for legacy snapshots with no route ID.
+**How to apply:** At order-time revalidation and delayed watch reconciliation, use the signed route ID as the sole lookup key, derive its canonical network code, and resolve the exact enabled monitor network and asset in one transaction. Revalidate configuration before inserting the watch; distinguish missing, disabled, proof-missing, and identity-mismatch states explicitly.

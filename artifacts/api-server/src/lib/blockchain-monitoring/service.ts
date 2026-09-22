@@ -18,6 +18,7 @@ import { enqueueSwapTelegramNotification } from "../telegram-swap-notifications"
 import { updateOrderAndQueueStatusNotificationTx } from "../customer-status-notifications";
 import { logger } from "../logger";
 import {
+  isValidManualMonitoringTokenIdentity,
   isLegacyBep20Network,
   manualMonitoringNetworkConfigDigest,
   manualMonitoringProofFingerprint,
@@ -49,6 +50,15 @@ const VERIFIED_ERC20_WATCH_RECOVERY = {
   transactionHash: "0x1dd0bb8b9c28a80ad0df295a1de737c12c386f3d51b74abf13403d4e987c9b4b",
   transactionBlock: "26035851",
 } as const;
+const VERIFIED_BEP20_GAP_RECOVERY = {
+  orderId: "O243008796",
+  routeId: "usdt-bep20",
+  networkId: "monitor-bep20",
+  amount: "12",
+  receivingAddress: "0x961fFd69412BdD402B8a63FC67D5d7f1A105abDb",
+  orderCreatedAt: new Date("2026-09-22T22:46:24.066Z"),
+  startCursor: "123455507",
+} as const;
 const legacyNetworkConfigDigest = (
   network: typeof blockchainMonitorNetworksTable.$inferSelect,
   endpoint?: string,
@@ -73,6 +83,120 @@ type JsonObject = Record<string, unknown>;
 const object = (value: unknown): JsonObject =>
   value && typeof value === "object" && !Array.isArray(value) ? value as JsonObject : {};
 const text = (value: unknown): string => typeof value === "string" ? value.trim() : "";
+type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export type WatchRegistrationDiagnostic =
+  | "NETWORK_MONITOR_MISSING"
+  | "NETWORK_MONITOR_DISABLED"
+  | "ASSET_MONITOR_MISSING"
+  | "ASSET_MONITOR_DISABLED"
+  | "READINESS_PROOF_MISSING"
+  | "ROUTE_IDENTITY_MISMATCH";
+
+export function classifyWatchRegistrationIdentity(input: {
+  routeFound: boolean;
+  routeAssetMatches: boolean;
+  exactAssetIdentity: boolean;
+  networkFound: boolean;
+  networkEnabled: boolean;
+  assetFound: boolean;
+  assetEnabled: boolean;
+  networkProofPresent: boolean;
+  assetProofPresent: boolean;
+}): WatchRegistrationDiagnostic | null {
+  if (!input.routeFound || !input.routeAssetMatches) {
+    return "ROUTE_IDENTITY_MISMATCH";
+  }
+  if (!input.networkFound) return "NETWORK_MONITOR_MISSING";
+  if (!input.networkEnabled) return "NETWORK_MONITOR_DISABLED";
+  if (!input.assetFound) return "ASSET_MONITOR_MISSING";
+  if (!input.exactAssetIdentity) return "ROUTE_IDENTITY_MISMATCH";
+  if (!input.assetEnabled) return "ASSET_MONITOR_DISABLED";
+  if (!input.networkProofPresent || !input.assetProofPresent) return "READINESS_PROOF_MISSING";
+  return null;
+}
+
+async function selectWatchRegistrationIdentity(tx: DbTx, orderId: string) {
+  const signedRouteId = sql<string>`coalesce(
+    nullif(${ordersTable.fundingDetailsSnapshot} ->> 'networkId', ''),
+    regexp_replace(coalesce(${ordersTable.sourceSettlementOptionId}, ''), '^crypto:', '')
+  )`;
+  const [resolved] = await tx.select({
+    order: ordersTable,
+    route: cryptoAssetNetworksTable,
+    catalogAsset: cryptoAssetsTable,
+    network: blockchainMonitorNetworksTable,
+    asset: blockchainMonitorAssetsTable,
+  }).from(ordersTable)
+    .leftJoin(cryptoAssetNetworksTable, eq(cryptoAssetNetworksTable.id, signedRouteId))
+    .leftJoin(cryptoAssetsTable, eq(cryptoAssetsTable.id, cryptoAssetNetworksTable.assetId))
+    .leftJoin(
+      blockchainMonitorNetworksTable,
+      eq(blockchainMonitorNetworksTable.networkCode, cryptoAssetNetworksTable.networkCode),
+    )
+    .leftJoin(
+      blockchainMonitorAssetsTable,
+      and(
+        eq(blockchainMonitorAssetsTable.monitorNetworkId, blockchainMonitorNetworksTable.id),
+        eq(blockchainMonitorAssetsTable.assetNetworkId, cryptoAssetNetworksTable.id),
+      ),
+    )
+    .where(and(eq(ordersTable.id, orderId), ELIGIBLE))
+    .limit(1);
+  return resolved;
+}
+
+function diagnoseWatchRegistrationIdentity(
+  resolved: NonNullable<Awaited<ReturnType<typeof selectWatchRegistrationIdentity>>>,
+): WatchRegistrationDiagnostic | null {
+  const { order, route, catalogAsset, network, asset } = resolved;
+  const funding = object(order.fundingDetailsSnapshot);
+  const assetCode = text(funding.assetCode) || text(funding.asset) || order.fromAsset;
+  const sourceRouteId = signedCryptoRouteId({
+    id: order.sourceSettlementOptionId ?? "",
+    networkId: text(funding.networkId) || null,
+  });
+  const exactAssetIdentity = Boolean(
+    route &&
+    asset &&
+    asset.assetNetworkId === route.id &&
+    asset.decimals === route.decimals &&
+    (
+      asset.identityKind === "native"
+        ? !asset.contractOrMint
+        : asset.identityKind === "token" &&
+          Boolean(network) &&
+          isValidManualMonitoringTokenIdentity(network!.adapterKind, asset.contractOrMint)
+    )
+  );
+  const legacyBep20 = network
+    ? usesLegacyBep20Readiness(network.networkCode, network.chainId)
+    : false;
+  return classifyWatchRegistrationIdentity({
+    routeFound: Boolean(route) && Boolean(sourceRouteId) && route?.id === sourceRouteId,
+    routeAssetMatches: Boolean(
+      route &&
+      catalogAsset &&
+      (
+        route.assetId.toUpperCase() === assetCode.toUpperCase() ||
+        catalogAsset.code.toUpperCase() === assetCode.toUpperCase()
+      )
+    ),
+    exactAssetIdentity,
+    networkFound: Boolean(network),
+    networkEnabled: network?.enabled ?? false,
+    assetFound: Boolean(asset),
+    assetEnabled: asset?.enabled ?? false,
+    networkProofPresent: legacyBep20 || Boolean(
+      network?.healthProofFingerprint &&
+      network.healthProofCapturedAt
+    ),
+    assetProofPresent: legacyBep20 || Boolean(
+      asset?.readinessProofFingerprint &&
+      asset.readinessProofCapturedAt
+    ),
+  });
+}
 
 function rawAmount(amount: string, decimals: number): bigint | undefined {
   if (!/^[0-9]+(?:\.[0-9]+)?$/.test(amount)) return undefined;
@@ -293,47 +417,35 @@ export async function registerManualBlockchainWatch(
   orderId: string,
   options: { freshCursor?: boolean } = {},
 ): Promise<void> {
-  const [order] = await db.select().from(ordersTable).where(and(eq(ordersTable.id, orderId), ELIGIBLE)).limit(1);
-  if (!order) return;
+  const resolved = await db.transaction((tx) => selectWatchRegistrationIdentity(tx, orderId));
+  if (!resolved) return;
+  const { order, route, catalogAsset, network, asset } = resolved;
   const funding = object(order.fundingDetailsSnapshot);
   const rawAddress = text(funding.address) || order.depositAddress;
   const assetCode = text(funding.assetCode) || text(funding.asset) || order.fromAsset;
-  const snapshotNetworkCode = text(funding.networkCode) || text(funding.network) || order.fromNetwork;
   const sourceRouteId = signedCryptoRouteId({
     id: order.sourceSettlementOptionId ?? "",
     networkId: text(funding.networkId) || null,
   });
-  const [resolvedIdentity] = await db.select({
-    route: cryptoAssetNetworksTable,
-    network: blockchainMonitorNetworksTable,
-  }).from(cryptoAssetNetworksTable)
-    .innerJoin(cryptoAssetsTable, eq(cryptoAssetsTable.id, cryptoAssetNetworksTable.assetId))
-    .leftJoin(
-      blockchainMonitorNetworksTable,
-      eq(blockchainMonitorNetworksTable.networkCode, cryptoAssetNetworksTable.networkCode),
-    )
-    .where(sourceRouteId
-      ? and(
-          eq(cryptoAssetNetworksTable.id, sourceRouteId),
-          sql`${cryptoAssetNetworksTable.assetId} = ${assetCode} or upper(${cryptoAssetsTable.code}) = upper(${assetCode})`,
-        )
-      : and(
-          eq(cryptoAssetNetworksTable.networkCode, snapshotNetworkCode),
-          sql`${cryptoAssetNetworksTable.assetId} = ${assetCode} or upper(${cryptoAssetsTable.code}) = upper(${assetCode})`,
-        ))
-    .limit(1);
-  const route = resolvedIdentity ? { route: resolvedIdentity.route } : undefined;
-  const networkCode = route?.route.networkCode ?? snapshotNetworkCode;
+  const diagnostic = diagnoseWatchRegistrationIdentity(resolved);
+  const networkCode = route?.networkCode || order.fromNetwork;
   const persistGap = async (reason: string) => {
     await db.insert(blockchainMonitorRegistrationGapsTable).values({ orderId, networkCode, assetCode, receivingAddress: rawAddress, reason })
       .onConflictDoUpdate({ target: blockchainMonitorRegistrationGapsTable.orderId, set: { reason, resolvedAt: null } });
   };
-  const network = resolvedIdentity?.network ?? (await db.select().from(blockchainMonitorNetworksTable)
-    .where(eq(blockchainMonitorNetworksTable.networkCode, networkCode)).limit(1))[0];
-  if (!network) { await persistGap("Monitoring network is not configured."); return; }
+  if (diagnostic) {
+    await persistGap(diagnostic);
+    logger.warn(
+      { orderId, sourceRouteId, networkCode, assetCode, code: diagnostic },
+      "Blockchain watch registration blocked",
+    );
+    return;
+  }
+  if (!route || !network || !asset) {
+    throw new Error("Blockchain watch registration identity unexpectedly incomplete.");
+  }
   const address = network.adapterKind === "tron" ? normalizeTronAddress(rawAddress) : rawAddress;
   if (!address) return;
-  if (!route) { await persistGap("Asset network route is not configured."); return; }
   if (network.adapterKind === "evm" && (text(funding.memo) || order.depositMemo)) return;
   let startCursor = options.freshCursor ? null : network.lastHead;
   let registrationState: "active" | "pending_review" = "active";
@@ -362,74 +474,121 @@ export async function registerManualBlockchainWatch(
       registrationReason = "Monitoring provider is not configured.";
     }
   }
-  const [asset] = await db.select().from(blockchainMonitorAssetsTable)
-    .where(and(
-      eq(blockchainMonitorAssetsTable.monitorNetworkId, network.id),
-      eq(blockchainMonitorAssetsTable.assetNetworkId, route.route.id),
-    )).limit(1);
-  if (!asset) {
-    await persistGap("Exact monitor asset identity is not configured.");
-    return;
-  }
-  if (!asset.enabled) {
-    await persistGap("ASSET_MONITOR_DISABLED");
+  const mutationDiagnostic = await db.transaction(async (tx): Promise<string | null> => {
+    const current = await selectWatchRegistrationIdentity(tx, orderId);
+    if (!current) return "ROUTE_IDENTITY_MISMATCH";
+    const currentDiagnostic = diagnoseWatchRegistrationIdentity(current);
+    if (currentDiagnostic) return currentDiagnostic;
+    if (!current.route || !current.network || !current.asset) return "ROUTE_IDENTITY_MISMATCH";
+    const currentConfig = adapterConfig(current.network);
+    const resolvedConfig = adapterConfig(network);
+    if (
+      current.route.id !== route.id ||
+      current.network.id !== network.id ||
+      current.asset.id !== asset.id ||
+      !currentConfig ||
+      !resolvedConfig ||
+      manualMonitoringNetworkConfigDigest({
+        network: current.network,
+        endpoint: currentConfig.endpoint,
+        apiKey: currentConfig.apiKey,
+      }) !== manualMonitoringNetworkConfigDigest({
+        network,
+        endpoint: resolvedConfig.endpoint,
+        apiKey: resolvedConfig.apiKey,
+      })
+    ) return "ROUTE_IDENTITY_MISMATCH";
+    const currentFunding = object(current.order.fundingDetailsSnapshot);
+    const currentRawAddress = text(currentFunding.address) || current.order.depositAddress;
+    const currentAddress = current.network.adapterKind === "tron"
+      ? normalizeTronAddress(currentRawAddress)
+      : currentRawAddress;
+    const expectedWatch = {
+      orderId,
+      monitorNetworkId: current.network.id,
+      monitorAssetId: current.asset.id,
+      assetNetworkId: current.route.id,
+      expectedAmount: current.order.amount,
+      receivingAddress: currentAddress,
+      memoOrTag: text(currentFunding.memo) || current.order.depositMemo || null,
+      identityKind: current.asset.identityKind,
+      contractOrMint: current.network.adapterKind === "tron" && current.asset.contractOrMint
+        ? normalizeTronAddress(current.asset.contractOrMint)
+        : current.asset.contractOrMint,
+      decimals: current.asset.decimals,
+      orderCreatedAt: current.order.createdAt,
+    };
+    const [existingWatch] = await tx.select().from(blockchainMonitorWatchesTable)
+      .where(eq(blockchainMonitorWatchesTable.orderId, orderId)).for("update").limit(1);
+    if (
+      existingWatch &&
+      options.freshCursor &&
+      (existingWatch.registrationState === "pending_review" || !existingWatch.active)
+    ) {
+      if (!exactWatchMatchesOrderSnapshot(existingWatch, expectedWatch)) {
+        return "WATCH_IDENTITY_MISMATCH";
+      }
+      if (registrationState === "active" && startCursor) {
+        await tx.update(blockchainMonitorWatchesTable).set({
+          startCursor,
+          currentCursor: startCursor,
+          registrationState: "active",
+          registrationReason: null,
+          active: true,
+        }).where(and(
+          eq(blockchainMonitorWatchesTable.id, existingWatch.id),
+          or(
+            eq(blockchainMonitorWatchesTable.registrationState, "pending_review"),
+            eq(blockchainMonitorWatchesTable.active, false),
+          ),
+        ));
+      }
+    }
+    await tx.insert(blockchainMonitorWatchesTable).values({
+      ...expectedWatch,
+      startCursor,
+      currentCursor: startCursor,
+      registrationState,
+      registrationReason,
+      active: registrationState === "active",
+    }).onConflictDoNothing({ target: blockchainMonitorWatchesTable.orderId });
+    const [storedWatch] = await tx.select().from(blockchainMonitorWatchesTable)
+      .where(eq(blockchainMonitorWatchesTable.orderId, orderId)).limit(1);
+    if (storedWatch?.registrationState === "pending_review") {
+      await tx.insert(blockchainMonitorRegistrationGapsTable).values({
+        orderId,
+        networkCode,
+        assetCode,
+        receivingAddress: rawAddress,
+        reason: registrationReason ?? "Watch requires explicit operator activation.",
+      }).onConflictDoUpdate({
+        target: blockchainMonitorRegistrationGapsTable.orderId,
+        set: {
+          reason: registrationReason ?? "Watch requires explicit operator activation.",
+          resolvedAt: null,
+        },
+      });
+    } else if (
+      storedWatch?.registrationState === "active" &&
+      storedWatch.active &&
+      exactWatchMatchesOrderSnapshot(storedWatch, expectedWatch)
+    ) {
+      await tx.update(blockchainMonitorRegistrationGapsTable).set({ resolvedAt: new Date() })
+        .where(and(
+          eq(blockchainMonitorRegistrationGapsTable.orderId, orderId),
+          isNull(blockchainMonitorRegistrationGapsTable.resolvedAt),
+        ));
+    } else if (storedWatch?.registrationState === "active") {
+      return "WATCH_IDENTITY_MISMATCH";
+    }
+    return null;
+  });
+  if (mutationDiagnostic) {
+    await persistGap(mutationDiagnostic);
     logger.warn(
-      { orderId, monitorNetworkId: network.id, assetNetworkId: route.route.id, code: "ASSET_MONITOR_DISABLED" },
-      "Blockchain watch registration blocked",
+      { orderId, sourceRouteId, networkCode, assetCode, code: mutationDiagnostic },
+      "Blockchain watch registration blocked after identity revalidation",
     );
-    return;
-  }
-  const expectedWatch = {
-    orderId, monitorNetworkId: network.id, monitorAssetId: asset.id, assetNetworkId: route.route.id,
-    expectedAmount: order.amount, receivingAddress: address, memoOrTag: text(funding.memo) || order.depositMemo || null,
-    identityKind: asset.identityKind,
-    contractOrMint: network.adapterKind === "tron" && asset.contractOrMint ? normalizeTronAddress(asset.contractOrMint) : asset.contractOrMint,
-    decimals: asset.decimals, orderCreatedAt: order.createdAt,
-  };
-  const [existingWatch] = await db.select().from(blockchainMonitorWatchesTable)
-    .where(eq(blockchainMonitorWatchesTable.orderId, orderId)).limit(1);
-  if (
-    existingWatch &&
-    options.freshCursor &&
-    (existingWatch.registrationState === "pending_review" || !existingWatch.active)
-  ) {
-    if (!exactWatchMatchesOrderSnapshot(existingWatch, expectedWatch)) {
-      await persistGap("WATCH_IDENTITY_MISMATCH");
-      return;
-    }
-    if (registrationState === "active" && startCursor) {
-      await db.update(blockchainMonitorWatchesTable).set({
-        startCursor,
-        currentCursor: startCursor,
-        registrationState: "active",
-        registrationReason: null,
-        active: true,
-      }).where(and(
-        eq(blockchainMonitorWatchesTable.id, existingWatch.id),
-        or(
-          eq(blockchainMonitorWatchesTable.registrationState, "pending_review"),
-          eq(blockchainMonitorWatchesTable.active, false),
-        ),
-      ));
-    }
-  }
-  await db.insert(blockchainMonitorWatchesTable).values({
-    ...expectedWatch,
-    orderCreatedAt: order.createdAt, startCursor, currentCursor: startCursor,
-    registrationState, registrationReason, active: registrationState === "active",
-  }).onConflictDoNothing({ target: blockchainMonitorWatchesTable.orderId });
-  const [storedWatch] = await db.select().from(blockchainMonitorWatchesTable).where(eq(blockchainMonitorWatchesTable.orderId, orderId)).limit(1);
-  if (storedWatch?.registrationState === "pending_review") {
-    await persistGap(registrationReason ?? "Watch requires explicit operator activation.");
-  } else if (
-    storedWatch?.registrationState === "active" &&
-    storedWatch.active &&
-    exactWatchMatchesOrderSnapshot(storedWatch, expectedWatch)
-  ) {
-    await db.update(blockchainMonitorRegistrationGapsTable).set({ resolvedAt: new Date() })
-      .where(and(eq(blockchainMonitorRegistrationGapsTable.orderId, orderId), isNull(blockchainMonitorRegistrationGapsTable.resolvedAt)));
-  } else if (storedWatch?.registrationState === "active") {
-    await persistGap("WATCH_IDENTITY_MISMATCH");
   }
 }
 
@@ -772,13 +931,160 @@ async function recoverVerifiedErc20Watch(
   }
 }
 
+async function recoverReviewedBep20RegistrationGap(
+  network: typeof blockchainMonitorNetworksTable.$inferSelect,
+  leaseToken: string,
+): Promise<void> {
+  const recovery = VERIFIED_BEP20_GAP_RECOVERY;
+  if (
+    network.id !== recovery.networkId ||
+    network.networkCode !== "BEP20" ||
+    network.adapterKind !== "evm" ||
+    network.chainId?.toLowerCase() !== "0x38" ||
+    network.providerKind !== "rpc" ||
+    !network.enabled
+  ) return;
+
+  await withLease(network.id, leaseToken, async (tx) => {
+    const [lockedNetwork] = await tx.select().from(blockchainMonitorNetworksTable).where(and(
+      eq(blockchainMonitorNetworksTable.id, recovery.networkId),
+      eq(blockchainMonitorNetworksTable.networkCode, "BEP20"),
+      eq(blockchainMonitorNetworksTable.adapterKind, "evm"),
+      eq(blockchainMonitorNetworksTable.chainId, "0x38"),
+      eq(blockchainMonitorNetworksTable.providerKind, "rpc"),
+      eq(blockchainMonitorNetworksTable.enabled, true),
+      eq(blockchainMonitorNetworksTable.healthStatus, "connected"),
+      isNotNull(blockchainMonitorNetworksTable.healthProofFingerprint),
+      isNotNull(blockchainMonitorNetworksTable.healthProofCapturedAt),
+    )).for("update").limit(1);
+    const lockedConfig = lockedNetwork ? adapterConfig(lockedNetwork) : null;
+    const cycleConfig = adapterConfig(network);
+    if (
+      !lockedNetwork ||
+      !lockedConfig ||
+      !cycleConfig ||
+      manualMonitoringNetworkConfigDigest({
+        network: lockedNetwork,
+        endpoint: lockedConfig.endpoint,
+        apiKey: lockedConfig.apiKey,
+      }) !== manualMonitoringNetworkConfigDigest({
+        network,
+        endpoint: cycleConfig.endpoint,
+        apiKey: cycleConfig.apiKey,
+      })
+    ) return;
+    const [gap] = await tx.select().from(blockchainMonitorRegistrationGapsTable).where(and(
+      eq(blockchainMonitorRegistrationGapsTable.orderId, recovery.orderId),
+      eq(blockchainMonitorRegistrationGapsTable.networkCode, "BEP20"),
+      eq(blockchainMonitorRegistrationGapsTable.assetCode, "USDT"),
+      sql`lower(${blockchainMonitorRegistrationGapsTable.receivingAddress}) = lower(${recovery.receivingAddress})`,
+      isNull(blockchainMonitorRegistrationGapsTable.resolvedAt),
+    )).for("update").limit(1);
+    if (!gap) return;
+    const [order] = await tx.select().from(ordersTable).where(and(
+      eq(ordersTable.id, recovery.orderId),
+      ELIGIBLE,
+      eq(ordersTable.status, "awaiting funds"),
+      eq(ordersTable.sourceSettlementOptionId, `crypto:${recovery.routeId}`),
+      eq(ordersTable.fromAsset, "USDT"),
+      eq(ordersTable.fromNetwork, "BEP20"),
+      eq(ordersTable.amount, recovery.amount),
+      sql`lower(${ordersTable.depositAddress}) = lower(${recovery.receivingAddress})`,
+      eq(ordersTable.createdAt, recovery.orderCreatedAt),
+    )).for("update").limit(1);
+    if (!order) return;
+    const [identity] = await tx.select({
+      asset: blockchainMonitorAssetsTable,
+      route: cryptoAssetNetworksTable,
+      catalogAsset: cryptoAssetsTable,
+    }).from(blockchainMonitorAssetsTable)
+      .innerJoin(
+        cryptoAssetNetworksTable,
+        eq(cryptoAssetNetworksTable.id, blockchainMonitorAssetsTable.assetNetworkId),
+      )
+      .innerJoin(cryptoAssetsTable, eq(cryptoAssetsTable.id, cryptoAssetNetworksTable.assetId))
+      .where(and(
+        eq(blockchainMonitorAssetsTable.monitorNetworkId, recovery.networkId),
+        eq(blockchainMonitorAssetsTable.assetNetworkId, recovery.routeId),
+        eq(blockchainMonitorAssetsTable.identityKind, "token"),
+        sql`lower(${blockchainMonitorAssetsTable.contractOrMint}) = '0x55d398326f99059ff775485246999027b3197955'`,
+        eq(blockchainMonitorAssetsTable.decimals, 18),
+        eq(blockchainMonitorAssetsTable.enabled, true),
+        isNotNull(blockchainMonitorAssetsTable.readinessProofFingerprint),
+        isNotNull(blockchainMonitorAssetsTable.readinessProofCapturedAt),
+        eq(cryptoAssetNetworksTable.networkCode, "BEP20"),
+        eq(cryptoAssetNetworksTable.decimals, 18),
+        sql`upper(${cryptoAssetsTable.code}) = 'USDT'`,
+      ))
+      .for("update")
+      .limit(1);
+    if (!identity) return;
+    const [existing] = await tx.select({ id: blockchainMonitorWatchesTable.id })
+      .from(blockchainMonitorWatchesTable)
+      .where(eq(blockchainMonitorWatchesTable.orderId, recovery.orderId))
+      .limit(1);
+    if (existing) return;
+
+    await tx.insert(blockchainMonitorWatchesTable).values({
+      orderId: recovery.orderId,
+      monitorNetworkId: recovery.networkId,
+      monitorAssetId: identity.asset.id,
+      assetNetworkId: recovery.routeId,
+      expectedAmount: recovery.amount,
+      receivingAddress: recovery.receivingAddress,
+      memoOrTag: null,
+      identityKind: "token",
+      contractOrMint: identity.asset.contractOrMint,
+      decimals: 18,
+      orderCreatedAt: recovery.orderCreatedAt,
+      startCursor: recovery.startCursor,
+      currentCursor: recovery.startCursor,
+      registrationState: "active",
+      registrationReason: "Reviewed order-time cursor recovery for unresolved automatic-registration gap.",
+      active: true,
+    }).onConflictDoNothing({ target: blockchainMonitorWatchesTable.orderId });
+    const [stored] = await tx.select().from(blockchainMonitorWatchesTable)
+      .where(eq(blockchainMonitorWatchesTable.orderId, recovery.orderId))
+      .limit(1);
+    if (
+      !stored ||
+      stored.monitorNetworkId !== recovery.networkId ||
+      stored.monitorAssetId !== identity.asset.id ||
+      stored.assetNetworkId !== recovery.routeId ||
+      stored.expectedAmount !== recovery.amount ||
+      stored.receivingAddress.toLowerCase() !== recovery.receivingAddress.toLowerCase() ||
+      stored.startCursor !== recovery.startCursor ||
+      stored.currentCursor !== recovery.startCursor ||
+      stored.registrationState !== "active" ||
+      !stored.active
+    ) {
+      throw new Error("Reviewed BEP20 registration-gap recovery produced an unexpected watch.");
+    }
+    await tx.update(blockchainMonitorRegistrationGapsTable).set({
+      resolvedAt: new Date(),
+      resolvedBy: "reviewed-order-time-cursor-recovery",
+    }).where(and(
+      eq(blockchainMonitorRegistrationGapsTable.id, gap.id),
+      isNull(blockchainMonitorRegistrationGapsTable.resolvedAt),
+    ));
+    logger.info(
+      {
+        orderId: recovery.orderId,
+        watchId: stored.id,
+        startCursor: recovery.startCursor,
+      },
+      "Reviewed BEP20 registration gap recovered",
+    );
+  });
+}
+
 async function reconcileResolvableRegistrationGaps(): Promise<void> {
   const gaps = await db.select({ orderId: blockchainMonitorRegistrationGapsTable.orderId })
     .from(blockchainMonitorRegistrationGapsTable)
     .innerJoin(ordersTable, eq(ordersTable.id, blockchainMonitorRegistrationGapsTable.orderId))
     .where(and(
       isNull(blockchainMonitorRegistrationGapsTable.resolvedAt),
-      sql`${blockchainMonitorRegistrationGapsTable.orderId} <> ${VERIFIED_ERC20_WATCH_RECOVERY.orderId}`,
+      sql`${blockchainMonitorRegistrationGapsTable.orderId} not in (${VERIFIED_ERC20_WATCH_RECOVERY.orderId}, ${VERIFIED_BEP20_GAP_RECOVERY.orderId})`,
       ELIGIBLE,
     ))
     .limit(100);
@@ -829,7 +1135,6 @@ export function adapterConfig(network: typeof blockchainMonitorNetworksTable.$in
   };
 }
 
-type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 async function withLease<T>(networkId: string, leaseToken: string, work: (tx: DbTx) => Promise<T>): Promise<T> {
   return db.transaction(async (tx) => {
     const [lease] = await tx.select({ token: blockchainMonitorNetworksTable.leaseToken, expires: blockchainMonitorNetworksTable.leaseExpiresAt })
@@ -1061,6 +1366,7 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
        if (recoveryEligible) {
          await recoverVerifiedErc20Watch(network, leaseToken, adapter);
        }
+       await recoverReviewedBep20RegistrationGap(network, leaseToken);
       if (leaseLost) throw new Error("Blockchain monitoring lease was lost.");
       const watches = await db.select().from(blockchainMonitorWatchesTable)
         .where(and(eq(blockchainMonitorWatchesTable.monitorNetworkId, network.id), eq(blockchainMonitorWatchesTable.active, true), eq(blockchainMonitorWatchesTable.registrationState, "active")));
