@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import test from "node:test";
 import { EvmJsonRpcAdapter, normalizeEvmAddress, parseEvmNativeTransfer, parseEvmTransferLog } from "../src/lib/blockchain-monitoring/evm";
-import { normalizeTronAddress, parseTronNativeTransfer, parseTronTokenTransfer } from "../src/lib/blockchain-monitoring/tron";
+import {
+  normalizeTronAddress,
+  parseTronNativeTransfer,
+  parseTronTokenTransfer,
+  serializeTronIndexerAddress,
+  TronIndexerAdapter,
+} from "../src/lib/blockchain-monitoring/tron";
 import { normalizeSolanaAddress, parseSolanaTransaction } from "../src/lib/blockchain-monitoring/solana";
 import { BlockchainMonitorError } from "../src/lib/blockchain-monitoring/errors";
 import { createBlockchainMonitorAdapter } from "../src/lib/blockchain-monitoring";
@@ -421,6 +427,7 @@ test("TRON parsing normalizes Base58 and hex addresses without exposing provider
   const tronSystemAddress = `41${"00".repeat(20)}`;
   assert.equal(normalizeTronAddress("T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb"), tronSystemAddress);
   assert.equal(normalizeTronAddress(tronSystemAddress.toUpperCase()), tronSystemAddress);
+  assert.equal(serializeTronIndexerAddress(tronSystemAddress), "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb");
   const watched = { address: tronSystemAddress, assets: [] };
   const native = parseTronNativeTransfer({
     txID: "tx-native", block: 12,
@@ -430,10 +437,159 @@ test("TRON parsing normalizes Base58 and hex addresses without exposing provider
   assert.equal(native?.rawAmount, "123");
   const token = parseTronTokenTransfer({
     transaction_id: "tx-token", block: 13, from: watched.address, to: watched.address, value: "999",
+    eventIndex: 0,
     token_info: { address: watched.address, symbol: "USDT", decimals: 6 },
     ret: [{ contractRet: "SUCCESS" }],
   }, "TRC20", watched, { assetId: "usdt", symbol: "USDT", kind: "token", contractOrMint: watched.address, decimals: 6 });
   assert.equal(token?.rawAmount, "999");
+});
+
+test("TRON token scans serialize contracts for the indexer and paginate exact confirmed receipts", async () => {
+  const watchedAddress = `41${"00".repeat(20)}`;
+  const watchedIndexerAddress = "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb";
+  const contractHex = "41a614f803b6fd780986a42c78ec9c7f77e6ded13c";
+  const contractBase58 = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
+  const requests: URL[] = [];
+  const tokenLog = {
+    address: contractHex.slice(2),
+    topics: [
+      "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+      "0".repeat(64),
+      "0".repeat(64),
+    ],
+    data: "f4240".padStart(64, "0"),
+  };
+  const server = createServer((req, res) => {
+    const requestUrl = new URL(req.url ?? "/", "http://127.0.0.1");
+    requests.push(requestUrl);
+    res.writeHead(200, { "content-type": "application/json" });
+    if (requestUrl.pathname === "/wallet/getblockbynum") {
+      const number = Number(requestUrl.searchParams.get("num"));
+      res.end(JSON.stringify({
+        blockID: `block-${number}`,
+        block_header: { raw_data: { number, timestamp: number * 3_000 } },
+        transactions: number === 101
+          ? [{ txID: "tx-success" }]
+          : number === 102
+            ? [{ txID: "tx-wrong-decimals" }, { txID: "tx-failed" }]
+            : [],
+      }));
+      return;
+    }
+    if (requestUrl.pathname === "/wallet/gettransactioninfobyid") {
+      const transactionId = requestUrl.searchParams.get("value");
+      res.end(JSON.stringify({
+        id: transactionId,
+        blockNumber: transactionId === "tx-success" ? 101 : 102,
+        blockTimeStamp: transactionId === "tx-success" ? 303_000 : 306_000,
+        receipt: { result: transactionId === "tx-success" ? "SUCCESS" : "FAILED" },
+        log: transactionId === "tx-success" ? [tokenLog, tokenLog] : [tokenLog],
+      }));
+      return;
+    }
+    if (requestUrl.pathname === "/wallet/getnowblock") {
+      res.end(JSON.stringify({ block_header: { raw_data: { number: 120 } } }));
+      return;
+    }
+    const fingerprint = requestUrl.searchParams.get("fingerprint");
+    const records = fingerprint
+      ? [{
+          transaction_id: "tx-failed",
+          token_info: { address: contractBase58, symbol: "USDT", decimals: 6 },
+          block_timestamp: 306_000,
+          from: watchedIndexerAddress,
+          to: watchedIndexerAddress,
+          value: "2000000",
+        }]
+      : [{
+          transaction_id: "tx-success",
+          token_info: { address: contractBase58, symbol: "USDT", decimals: 7 },
+          block_timestamp: 303_000,
+          from: watchedIndexerAddress,
+          to: watchedIndexerAddress,
+          value: "1000000",
+        }, {
+          transaction_id: "tx-success",
+          token_info: { address: contractBase58, symbol: "USDT", decimals: 6 },
+          block_timestamp: 303_000,
+          from: watchedIndexerAddress,
+          to: watchedIndexerAddress,
+          value: "1000000",
+        }, {
+          transaction_id: "tx-success",
+          token_info: { address: contractBase58, symbol: "USDT", decimals: 6 },
+          block_timestamp: 303_000,
+          from: watchedIndexerAddress,
+          to: watchedIndexerAddress,
+          value: "1000000",
+        }, {
+          transaction_id: "tx-wrong-decimals",
+          token_info: { address: contractBase58, symbol: "USDT", decimals: 7 },
+          block_timestamp: 306_000,
+          from: watchedIndexerAddress,
+          to: watchedIndexerAddress,
+          value: "1000000",
+        }];
+    res.end(JSON.stringify({
+      data: records,
+      success: true,
+      meta: fingerprint ? {} : { fingerprint: "next-page" },
+    }));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = server.address();
+    assert(address && typeof address === "object");
+    const adapter = new TronIndexerAdapter({
+      networkCode: "TRC20",
+      adapterKind: "tron",
+      provider: "indexer",
+      endpoint: `http://127.0.0.1:${address.port}`,
+      maxRange: 10,
+    });
+    const result = await adapter.scanIncoming({ from: "100", to: "105" }, [{
+      address: watchedAddress,
+      assets: [{
+        assetId: "usdt-trc20",
+        symbol: "USDT",
+        kind: "token",
+        contractOrMint: contractHex,
+        decimals: 6,
+      }],
+    }]);
+    const pageRequests = requests.filter(request =>
+      request.pathname.endsWith("/transactions/trc20"),
+    );
+    assert.equal(pageRequests.length, 2);
+    assert.equal(pageRequests[0]?.pathname, `/v1/accounts/${watchedIndexerAddress}/transactions/trc20`);
+    assert.equal(pageRequests[0]?.searchParams.get("contract_address"), contractBase58);
+    assert.equal(pageRequests[0]?.searchParams.get("min_timestamp"), "300000");
+    assert.equal(pageRequests[0]?.searchParams.get("max_timestamp"), "315000");
+    assert.equal(pageRequests[0]?.searchParams.get("fingerprint"), null);
+    assert.equal(pageRequests[1]?.searchParams.get("fingerprint"), "next-page");
+    assert.equal(result.evidence.length, 2);
+    assert.equal(result.evidence[0]?.transactionHash, "tx-success");
+    assert.equal(result.evidence[1]?.transactionHash, "tx-success");
+    assert.notEqual(result.evidence[0]?.eventId, result.evidence[1]?.eventId);
+    assert.equal(result.evidence[0]?.toAddress, normalizeTronAddress(watchedAddress));
+    assert.equal(result.evidence[0]?.rawAmount, "1000000");
+    assert.equal(result.evidence[0]?.decimals, 6);
+    assert.equal(result.evidence[0]?.blockOrSlot, "101");
+    assert.equal(result.evidence[0]?.blockHash, "block-101");
+    assert.equal(result.evidence[0]?.contractOrMint, contractHex);
+    const status = await adapter.getEvidenceStatus(result.evidence[0]!);
+    assert.deepEqual(status, {
+      exists: true,
+      successful: true,
+      canonical: true,
+      confirmations: 20,
+      finalized: false,
+      blockHash: "block-101",
+      blockTimestamp: new Date(303_000).toISOString(),
+    });
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
 });
 
 test("Solana parsing uses balance deltas and exact mint identity", () => {
