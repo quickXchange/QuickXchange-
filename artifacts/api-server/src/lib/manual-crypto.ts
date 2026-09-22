@@ -7,6 +7,10 @@ import {
   db,
 } from "@workspace/db";
 import { isRegisteredDepositProvider } from "./deposit-provider-registry";
+import {
+  isSyntacticallyValidManualWalletAddress,
+  isSyntacticallyValidManualWalletMemo,
+} from "./manual-wallet-validation";
 
 export type ManualCryptoOption = {
   id: string;
@@ -81,7 +85,30 @@ export function isManualMonitoringRuntimeReady(input: {
   providerKind: string;
   endpointConfigured: boolean;
   healthStatus: string;
+  healthCheckedAtMs: number | null;
+  pollIntervalSeconds: number;
+  adapterKind: string;
+  identityKind: string;
+  contractOrMint?: string | null;
+  providerCompatible: boolean;
+  receivingAddressValid: boolean;
+  memoValid: boolean;
 }) {
+  const healthMaxAgeMs = Math.max(120_000, input.pollIntervalSeconds * 3_000);
+  const healthFresh = input.healthCheckedAtMs !== null &&
+    Date.now() - input.healthCheckedAtMs >= 0 &&
+    Date.now() - input.healthCheckedAtMs <= healthMaxAgeMs;
+  const tokenIdentityValid = input.identityKind === "token" && Boolean(
+    input.contractOrMint?.trim() && (
+      input.adapterKind === "evm"
+        ? /^0x[0-9a-fA-F]{40}$/.test(input.contractOrMint.trim())
+        : input.adapterKind === "tron"
+          ? /^(?:T[1-9A-HJ-NP-Za-km-z]{33}|41[0-9a-fA-F]{40})$/.test(input.contractOrMint.trim())
+          : input.adapterKind === "solana"
+            ? /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(input.contractOrMint.trim())
+            : false
+    )
+  );
   return input.routeId === input.monitorAssetRouteId &&
     input.routeNetworkCode.trim().toUpperCase() ===
       input.monitorNetworkCode.trim().toUpperCase() &&
@@ -89,22 +116,41 @@ export function isManualMonitoringRuntimeReady(input: {
     input.networkEnabled &&
     input.providerKind !== "none" &&
     input.endpointConfigured &&
-    input.healthStatus === "connected";
+    input.healthStatus === "connected" &&
+    healthFresh &&
+    ["evm", "tron", "solana"].includes(input.adapterKind) &&
+    input.providerCompatible &&
+    input.receivingAddressValid &&
+    input.memoValid &&
+    (
+      input.identityKind === "native" && !input.contractOrMint?.trim() ||
+      tokenIdentityValid
+    );
 }
 
-async function listReadyManualMonitoringRoutes(): Promise<Map<string, string>> {
+export async function listReadyManualMonitoringRoutes(): Promise<Map<string, string>> {
   const rows = await db.select({
+    route: cryptoAssetNetworksTable,
     monitorAssetRouteId: blockchainMonitorAssetsTable.assetNetworkId,
+    identityKind: blockchainMonitorAssetsTable.identityKind,
+    contractOrMint: blockchainMonitorAssetsTable.contractOrMint,
     monitorNetworkCode: blockchainMonitorNetworksTable.networkCode,
+    adapterKind: blockchainMonitorNetworksTable.adapterKind,
     assetEnabled: blockchainMonitorAssetsTable.enabled,
     networkEnabled: blockchainMonitorNetworksTable.enabled,
     providerKind: blockchainMonitorNetworksTable.providerKind,
     endpointSecretRef: blockchainMonitorNetworksTable.endpointSecretRef,
     healthStatus: blockchainMonitorNetworksTable.healthStatus,
+    healthCheckedAt: blockchainMonitorNetworksTable.healthCheckedAt,
+    pollIntervalSeconds: blockchainMonitorNetworksTable.pollIntervalSeconds,
   }).from(blockchainMonitorAssetsTable)
     .innerJoin(
       blockchainMonitorNetworksTable,
       eq(blockchainMonitorNetworksTable.id, blockchainMonitorAssetsTable.monitorNetworkId),
+    )
+    .innerJoin(
+      cryptoAssetNetworksTable,
+      eq(cryptoAssetNetworksTable.id, blockchainMonitorAssetsTable.assetNetworkId),
     )
     .where(and(
       eq(blockchainMonitorAssetsTable.enabled, true),
@@ -124,6 +170,23 @@ async function listReadyManualMonitoringRoutes(): Promise<Map<string, string>> {
         process.env[row.endpointSecretRef],
       ),
       healthStatus: row.healthStatus,
+      healthCheckedAtMs: row.healthCheckedAt?.getTime() ?? null,
+      pollIntervalSeconds: row.pollIntervalSeconds,
+      adapterKind: row.adapterKind,
+      identityKind: row.identityKind,
+      contractOrMint: row.contractOrMint,
+      providerCompatible:
+        row.adapterKind === "evm" && row.providerKind === "rpc" ||
+        row.adapterKind === "solana" && row.providerKind === "rpc" ||
+        row.adapterKind === "tron" && row.providerKind === "indexer",
+      receivingAddressValid: isSyntacticallyValidManualWalletAddress(
+        row.route,
+        row.route.sharedDepositAddress,
+      ),
+      memoValid: !row.route.requiresMemo || Boolean(
+        row.route.sharedDepositMemo &&
+        isSyntacticallyValidManualWalletMemo(row.route, row.route.sharedDepositMemo),
+      ),
     }))
     .map((row) => [row.monitorAssetRouteId, row.monitorNetworkCode]));
 }
@@ -136,7 +199,7 @@ function isManualCryptoRouteEligible(
     network.enabled &&
     asset.lifecycle !== "deprecated" &&
     network.lifecycle !== "deprecated" &&
-    (network.executionMode === "manual" || network.executionMode === "api");
+    network.executionMode === "manual";
 }
 
 /** Public catalog deliberately never includes the shared receiving address. */
@@ -228,4 +291,13 @@ export function canAcceptManualCryptoDeposit(network: typeof cryptoAssetNetworks
       (!network.requiresMemo || Boolean(network.sharedDepositMemo?.trim()));
   }
   return isRegisteredDepositProvider(network.depositProvider);
+}
+
+export async function canAcceptReadyManualCryptoDeposit(
+  network: typeof cryptoAssetNetworksTable.$inferSelect,
+) {
+  if (!canAcceptManualCryptoDeposit(network)) return false;
+  if (network.depositProvider !== "manual") return true;
+  const ready = await listReadyManualMonitoringRoutes();
+  return ready.get(network.id)?.trim().toUpperCase() === network.networkCode.trim().toUpperCase();
 }

@@ -25,6 +25,33 @@ export function BlockchainMonitorConfig({ network, networkCode }: { network: Cry
 
   const existingNet = monitorNetworks.data?.items.find(n => n.networkCode === networkCode);
   const existingAsset = monitorAssets.data?.items.find(a => a.assetNetworkId === network.id);
+  const endpointReady = Boolean(existingNet && (existingNet as any).endpointConfigured);
+  const identityReady = Boolean(existingAsset && existingAsset.enabled && (
+    existingAsset.identityKind === 'native'
+      ? !existingAsset.contractOrMint
+      : Boolean(existingAsset.contractOrMint)
+  ));
+  const addressReady = /^(0x[0-9a-fA-F]{40})$/.test(network.sharedDepositAddress || '');
+  const healthCheckedAtMs = existingNet?.healthCheckedAt
+    ? new Date(existingNet.healthCheckedAt).getTime()
+    : 0;
+  const healthFresh = healthCheckedAtMs > 0 &&
+    Date.now() - healthCheckedAtMs >= 0 &&
+    Date.now() - healthCheckedAtMs <= Math.max(120_000, (existingNet?.pollIntervalSeconds ?? 15) * 3_000);
+  const providerCompatible = Boolean(existingNet && (
+    existingNet.adapterKind === 'evm' && existingNet.providerKind === 'rpc' ||
+    existingNet.adapterKind === 'solana' && existingNet.providerKind === 'rpc' ||
+    existingNet.adapterKind === 'tron' && existingNet.providerKind === 'indexer'
+  ));
+  const readiness = !existingNet || !existingNet.enabled || !endpointReady ||
+    !identityReady || !addressReady || !providerCompatible || !healthFresh
+    ? 'INCOMPLETE'
+    : existingNet.healthStatus !== 'connected'
+      ? 'DISCONNECTED'
+      : 'READY';
+  const providerLabel = networkCode.toUpperCase() === 'BEP20'
+    ? 'BSC Monitor'
+    : existingNet?.networkName || 'Not configured';
 
   const [netForm, setNetForm] = useState({
     id: '',
@@ -149,6 +176,12 @@ export function BlockchainMonitorConfig({ network, networkCode }: { network: Cry
       {success && <InlineNotice kind="success">{success}</InlineNotice>}
 
       <div className="space-y-4">
+        <div className="grid gap-2 rounded-lg border border-border bg-background/60 p-3 text-sm">
+          <div><strong>Monitoring:</strong> {readiness}</div>
+          <div><strong>Provider:</strong> {providerLabel}</div>
+          <div><strong>Asset Type:</strong> {existingAsset?.identityKind === 'native' ? 'Native' : existingAsset?.identityKind === 'token' ? 'Token' : 'Not configured'}</div>
+          <div><strong>Customer Deposits:</strong> {readiness === 'READY' && network.customerDepositsEnabled ? 'Available' : 'Unavailable until READY'}</div>
+        </div>
         <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground border-b border-border/50 pb-2">Network Configuration</h3>
         
         <div className="admin-form-grid form-grid">

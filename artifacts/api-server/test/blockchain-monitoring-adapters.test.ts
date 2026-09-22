@@ -5,6 +5,7 @@ import { EvmJsonRpcAdapter, normalizeEvmAddress, parseEvmNativeTransfer, parseEv
 import { normalizeTronAddress, parseTronNativeTransfer, parseTronTokenTransfer } from "../src/lib/blockchain-monitoring/tron";
 import { normalizeSolanaAddress, parseSolanaTransaction } from "../src/lib/blockchain-monitoring/solana";
 import { BlockchainMonitorError } from "../src/lib/blockchain-monitoring/errors";
+import { createBlockchainMonitorAdapter } from "../src/lib/blockchain-monitoring";
 
 // Shapes below follow the public Ethereum JSON-RPC eth_getBlockByNumber /
 // eth_getLogs documentation and the public TronGrid v1 transaction response
@@ -26,6 +27,22 @@ test("EVM parsing keeps exact raw amounts and filters the configured token contr
   assert.equal(parseEvmTransferLog({ ...log, address: "0x3333333333333333333333333333333333333333" }, "BEP20", watched, asset), undefined);
   assert.equal(parseEvmNativeTransfer({ hash: "0xnative", from: "0x3333333333333333333333333333333333333333", to: watched.address, value: "0x2a", blockNumber: "0x10" }, "BEP20", watched, { assetId: "bnb", symbol: "BNB", kind: "native", decimals: 18 })?.rawAmount, "42");
   assert.equal(normalizeEvmAddress("0xABCDEFabcdefABCDEFabcdefABCDEFabcdefABCD"), "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd");
+});
+
+test("adapter selection rejects missing and unsupported chain kinds instead of falling through to EVM", () => {
+  const config = {
+    networkCode: "UNKNOWN",
+    provider: "rpc" as const,
+    endpoint: "https://example.invalid",
+  };
+  assert.throws(
+    () => createBlockchainMonitorAdapter(config),
+    (error: unknown) => error instanceof BlockchainMonitorError && error.code === "CONFIGURATION",
+  );
+  assert.throws(
+    () => createBlockchainMonitorAdapter({ ...config, adapterKind: "bitcoin" as never }),
+    (error: unknown) => error instanceof BlockchainMonitorError && error.code === "CONFIGURATION",
+  );
 });
 
 test("EVM native scans request receipts only for watched-address candidates", async () => {

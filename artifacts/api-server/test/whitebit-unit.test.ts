@@ -186,10 +186,25 @@ test("manual customer deposits require a connected exact monitoring identity", (
     providerKind: "rpc",
     endpointConfigured: true,
     healthStatus: "connected",
+    healthCheckedAtMs: Date.now(),
+    pollIntervalSeconds: 15,
+    adapterKind: "evm",
+    identityKind: "token",
+    contractOrMint: "0x55d398326f99059ff775485246999027b3197955",
+    providerCompatible: true,
+    receivingAddressValid: true,
+    memoValid: true,
   };
   assert.equal(isManualMonitoringRuntimeReady(ready), true);
   assert.equal(isManualMonitoringRuntimeReady({ ...ready, endpointConfigured: false }), false);
   assert.equal(isManualMonitoringRuntimeReady({ ...ready, healthStatus: "disconnected" }), false);
+  assert.equal(isManualMonitoringRuntimeReady({ ...ready, healthCheckedAtMs: Date.now() - 180_000 }), false);
   assert.equal(isManualMonitoringRuntimeReady({ ...ready, monitorAssetRouteId: "usdc-bep20" }), false);
   assert.equal(isManualMonitoringRuntimeReady({ ...ready, monitorNetworkCode: "ERC20" }), false);
+  assert.equal(isManualMonitoringRuntimeReady({ ...ready, adapterKind: "bitcoin" }), false);
+  assert.equal(isManualMonitoringRuntimeReady({ ...ready, providerCompatible: false }), false);
+  assert.equal(isManualMonitoringRuntimeReady({ ...ready, receivingAddressValid: false }), false);
+  assert.equal(isManualMonitoringRuntimeReady({ ...ready, identityKind: "native", contractOrMint: null }), true);
+  assert.equal(isManualMonitoringRuntimeReady({ ...ready, identityKind: "native" }), false);
+  assert.equal(isManualMonitoringRuntimeReady({ ...ready, contractOrMint: "not-a-contract" }), false);
 });

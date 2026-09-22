@@ -8,6 +8,10 @@ import { resolve } from "node:path";
 import { eq, inArray, ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
+import {
+  blockchainMonitorAssetsTable,
+  blockchainMonitorNetworksTable,
+} from "@workspace/db";
 import { ensureOrderDirectoryIndexes } from "@workspace/db/online-order-directory-indexes";
 import { createPrivilegedTestPool } from "@workspace/db/test-admin";
 
@@ -140,6 +144,108 @@ async function restorePricingFallback() {
   const { id: _id, ...originalValues } = originalFallbackRule;
   await db.update(manualDeskPricingRulesTable).set(originalValues)
     .where(eq(manualDeskPricingRulesTable.id, fallbackRuleId));
+}
+
+type ReadyManualMonitorFixture = {
+  routeSnapshots: Array<{
+    id: string;
+    networkCode: string;
+    customerDepositsEnabled: boolean;
+    depositProvider: string;
+    sharedDepositAddress: string;
+    sharedDepositMemo: string | null;
+  }>;
+  monitorNetworkIds: string[];
+  monitorAssetIds: string[];
+};
+
+async function installReadyManualMonitorFixture(
+  routeIds: readonly string[],
+  options: { addressByRoute?: Record<string, string>; memoByRoute?: Record<string, string> } = {},
+): Promise<ReadyManualMonitorFixture> {
+  const { cryptoAssetNetworksTable, db } = await import("@workspace/db");
+  const routes = await db.select().from(cryptoAssetNetworksTable)
+    .where(inArray(cryptoAssetNetworksTable.id, [...routeIds]));
+  assert.equal(routes.length, routeIds.length);
+  const routeSnapshots = routes.map(route => ({
+    id: route.id,
+    networkCode: route.networkCode,
+    customerDepositsEnabled: route.customerDepositsEnabled,
+    depositProvider: route.depositProvider,
+    sharedDepositAddress: route.sharedDepositAddress,
+    sharedDepositMemo: route.sharedDepositMemo,
+  }));
+  const monitorNetworkIds: string[] = [];
+  const monitorAssetIds: string[] = [];
+  const monitorByCode = new Map<string, string>();
+  for (const route of routes) {
+    let monitorNetworkId = monitorByCode.get(route.networkCode);
+    if (!monitorNetworkId) {
+      const [existing] = await db.select({ id: blockchainMonitorNetworksTable.id })
+        .from(blockchainMonitorNetworksTable)
+        .where(eq(blockchainMonitorNetworksTable.networkCode, route.networkCode))
+        .limit(1);
+      assert.equal(existing, undefined, `test route already has a monitor: ${route.networkCode}`);
+      monitorNetworkId = `test-monitor-${randomUUID()}`;
+      const endpointSecretRef = `TEST_MONITOR_RPC_${randomUUID().replaceAll("-", "").slice(0, 12)}`;
+      process.env[endpointSecretRef] = "https://monitor.test.invalid";
+      await db.insert(blockchainMonitorNetworksTable).values({
+        id: monitorNetworkId,
+        networkCode: route.networkCode,
+        networkName: route.networkName,
+        adapterKind: "evm",
+        providerKind: "rpc",
+        enabled: true,
+        chainId: "0x1",
+        endpointSecretRef,
+        confirmationsRequired: 1,
+        finalityPolicy: "confirmations",
+        pollIntervalSeconds: 15,
+        healthStatus: "connected",
+        healthCheckedAt: new Date(),
+      });
+      monitorNetworkIds.push(monitorNetworkId);
+      monitorByCode.set(route.networkCode, monitorNetworkId);
+    }
+    const [asset] = await db.insert(blockchainMonitorAssetsTable).values({
+      monitorNetworkId,
+      assetNetworkId: route.id,
+      identityKind: "native",
+      contractOrMint: null,
+      decimals: route.decimals,
+      enabled: true,
+    }).returning({ id: blockchainMonitorAssetsTable.id });
+    monitorAssetIds.push(asset!.id);
+    await db.update(cryptoAssetNetworksTable).set({
+      customerDepositsEnabled: true,
+      depositProvider: "manual",
+      sharedDepositAddress: options.addressByRoute?.[route.id] ?? route.sharedDepositAddress,
+      sharedDepositMemo: options.memoByRoute?.[route.id] ?? route.sharedDepositMemo,
+    }).where(eq(cryptoAssetNetworksTable.id, route.id));
+  }
+  return { routeSnapshots, monitorNetworkIds, monitorAssetIds };
+}
+
+async function restoreReadyManualMonitorFixture(fixture: ReadyManualMonitorFixture) {
+  const { cryptoAssetNetworksTable, db } = await import("@workspace/db");
+  for (const route of fixture.routeSnapshots) {
+    await db.update(cryptoAssetNetworksTable).set(route)
+      .where(eq(cryptoAssetNetworksTable.id, route.id));
+  }
+  if (fixture.monitorAssetIds.length) {
+    await db.delete(blockchainMonitorAssetsTable)
+      .where(inArray(blockchainMonitorAssetsTable.id, fixture.monitorAssetIds));
+  }
+  if (fixture.monitorNetworkIds.length) {
+    const networks = await db.select({ endpointSecretRef: blockchainMonitorNetworksTable.endpointSecretRef })
+      .from(blockchainMonitorNetworksTable)
+      .where(inArray(blockchainMonitorNetworksTable.id, fixture.monitorNetworkIds));
+    await db.delete(blockchainMonitorNetworksTable)
+      .where(inArray(blockchainMonitorNetworksTable.id, fixture.monitorNetworkIds));
+    for (const network of networks) {
+      if (network.endpointSecretRef) delete process.env[network.endpointSecretRef];
+    }
+  }
 }
 
 function order(overrides: Record<string, unknown> = {}) {
@@ -2971,6 +3077,7 @@ test("manual crypto catalog and signed funding snapshots are independent of Quic
   assert.ok(original);
   const api = await startApi();
   let ruleId: string | undefined;
+  let monitorFixture: ReadyManualMonitorFixture | undefined;
   try {
     reset("catalogUnavailable");
     quickex.resetQuickexInstrumentCacheForTests();
@@ -3003,10 +3110,12 @@ test("manual crypto catalog and signed funding snapshots are independent of Quic
     manualDeskRates.configureManualDeskRateAdapterForTests(async () => ({
       USD: 1, EUR: 0.9, GBP: 0.8, AED: 3.67, BTC: 0.00002, USDT: 1, XRP: 2,
     }));
+    monitorFixture = await installReadyManualMonitorFixture(["btc-bitcoin"], {
+      addressByRoute: { "btc-bitcoin": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh" },
+      memoByRoute: { "btc-bitcoin": "immutable-memo" },
+    });
     await db.update(cryptoAssetNetworksTable).set({
-      customerDepositsEnabled: true,
-      depositProvider: "manual",
-      sharedDepositAddress: "immutable-btc-deposit",
+      sharedDepositAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
       sharedDepositMemo: "immutable-memo",
       requiredConfirmations: 3,
       confirmationGuidance: "Wait for three confirmations.",
@@ -3026,7 +3135,7 @@ test("manual crypto catalog and signed funding snapshots are independent of Quic
     const quoted = await apiJson(api.url, "/exchange/quote", quoteInput);
     assert.equal(quoted.status, 200);
     const ticket = JSON.parse(Buffer.from(String(quoted.body.quoteId).split(".")[0], "base64url").toString()) as any;
-    assert.equal(ticket.settlementSnapshot.funding.address, "immutable-btc-deposit");
+    assert.equal(ticket.settlementSnapshot.funding.address, "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh");
     assert.equal(ticket.settlementSnapshot.funding.depositProvider, "manual");
     assert.equal(ticket.settlementSnapshot.funding.requiredConfirmations, 3);
     const unchangedFundingOrder = await apiJson(api.url, "/orders", {
@@ -3041,7 +3150,7 @@ test("manual crypto catalog and signed funding snapshots are independent of Quic
     await db.update(cryptoAssetNetworksTable).set({ sharedDepositAddress: "changed-later" })
       .where(eq(cryptoAssetNetworksTable.id, "btc-bitcoin"));
     const immutable = JSON.parse(Buffer.from(String(quoted.body.quoteId).split(".")[0], "base64url").toString()) as any;
-    assert.equal(immutable.settlementSnapshot.funding.address, "immutable-btc-deposit");
+    assert.equal(immutable.settlementSnapshot.funding.address, "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh");
     const changedFundingOrder = await apiJson(api.url, "/orders", {
       ...quoteInput,
       quoteId: quoted.body.quoteId,
@@ -3050,10 +3159,11 @@ test("manual crypto catalog and signed funding snapshots are independent of Quic
       customerEmail: "changed-funding@example.test",
       clientRequestId: randomUUID(),
     });
-    assert.equal(changedFundingOrder.status, 409);
-    assert.equal(changedFundingOrder.body.code, "SETTLEMENT_OPTION_CHANGED");
+    assert.equal(changedFundingOrder.status, 422);
+    assert.equal(changedFundingOrder.body.code, "SETTLEMENT_OPTION_INVALID");
   } finally {
     if (ruleId) await db.delete(manualDeskPricingRulesTable).where(eq(manualDeskPricingRulesTable.id, ruleId));
+    if (monitorFixture) await restoreReadyManualMonitorFixture(monitorFixture);
     await db.update(cryptoAssetNetworksTable).set(original)
       .where(eq(cryptoAssetNetworksTable.id, original.id));
     reset();
@@ -3238,13 +3348,12 @@ test("manual crypto-to-fiat source accepts no refund and validates a supplied wa
   const customerEmail = `manual-revolut-${randomUUID()}@example.test`;
   const createdOrderIds: string[] = [];
   let ruleId: string | undefined;
+  let monitorFixture: ReadyManualMonitorFixture | undefined;
   try {
-    await db.update(cryptoAssetNetworksTable).set({
-      enabled: true,
-      customerDepositsEnabled: true,
-      sharedDepositAddress: "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh",
-      sharedDepositMemo: "987",
-    }).where(eq(cryptoAssetNetworksTable.id, "xrp-xrpl"));
+    monitorFixture = await installReadyManualMonitorFixture(["xrp-xrpl"], {
+      addressByRoute: { "xrp-xrpl": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh" },
+      memoByRoute: { "xrp-xrpl": "987" },
+    });
     const config = await (await fetch(`${api.url}/exchange/config`)).json() as any;
     const source = config.manualSettlementOptions.find((option: any) =>
       option.id === "crypto:xrp-xrpl" &&
@@ -3315,6 +3424,7 @@ test("manual crypto-to-fiat source accepts no refund and validates a supplied wa
     await db.delete(customersTable).where(eq(customersTable.email, customerEmail));
     if (ruleId) await db.delete((await import("@workspace/db")).manualDeskPricingRulesTable)
       .where(eq((await import("@workspace/db")).manualDeskPricingRulesTable.id, ruleId));
+    if (monitorFixture) await restoreReadyManualMonitorFixture(monitorFixture);
     await db.update(cryptoAssetNetworksTable).set(original)
       .where(eq(cryptoAssetNetworksTable.id, original.id));
     await api.close();
@@ -3543,6 +3653,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     customerDepositsEnabled: cryptoAssetNetworksTable.customerDepositsEnabled,
     updatedAt: cryptoAssetNetworksTable.updatedAt,
   }).from(cryptoAssetNetworksTable);
+  let monitorFixture: ReadyManualMonitorFixture | undefined;
   const [operator] = await db.insert(operatorsTable).values({
     email: `wallet-owner-${suffix}@example.test`,
     clerkUserId: userId,
@@ -3569,6 +3680,16 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
       sharedDepositMemo: "untouched-memo",
     },
   ]);
+  monitorFixture = await installReadyManualMonitorFixture([networkAId, networkBId], {
+    addressByRoute: {
+      [networkAId]: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+      [networkBId]: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+    },
+    memoByRoute: {
+      [networkAId]: "initial-memo",
+      [networkBId]: "initial-memo",
+    },
+  });
   operatorAuth.configureOperatorAuthorizationForTests({
     getUserId: req => req.get("x-test-clerk-user-id") ?? null,
     getVerifiedEmail: () => null,
@@ -3788,6 +3909,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
       )
     ));
   } finally {
+    if (monitorFixture) await restoreReadyManualMonitorFixture(monitorFixture);
     await db.transaction(async tx => {
       for (const state of existingDepositStates) {
         await tx.update(cryptoAssetNetworksTable).set({

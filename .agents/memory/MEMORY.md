@@ -137,3 +137,4 @@
 - [Payment-backed Admin notifications](payment-backed-admin-notifications.md) — gate every Admin lifecycle channel on durable payment evidence, never on another notification event.
 - [BSC payment evidence lookup](bsc-payment-evidence-lookup.md) — public BSC RPCs may reject broad token-log scans; discover the tx narrowly, then verify its receipt and canonical block by RPC.
 - [Recovery migration replay isolation](recovery-migration-replay-isolation.md) — obsolete evidence recoveries must not replay ahead of a current recovery or one mismatch can stop the monitoring worker.
+- [Deposit monitoring readiness](deposit-monitoring-readiness.md) — customer deposits require fresh exact-route health and valid chain identity; unhealthy routes remain payout-only.

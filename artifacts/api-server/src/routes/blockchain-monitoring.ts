@@ -21,6 +21,11 @@ import { getOperatorActorUserId } from "../lib/operator-auth";
 import { ApiError } from "../lib/api-error";
 import { updateOrderAndQueueStatusNotificationTx } from "../lib/customer-status-notifications";
 import { UpsertBlockchainMonitoringAssetBody } from "@workspace/api-zod";
+import { isManualMonitoringRuntimeReady } from "../lib/manual-crypto";
+import {
+  isSyntacticallyValidManualWalletAddress,
+  isSyntacticallyValidManualWalletMemo,
+} from "../lib/manual-wallet-validation";
 
 const router: IRouter = Router();
 router.get("/admin/blockchain-monitoring/registration-gaps", async (_req, res, next) => {
@@ -103,6 +108,50 @@ async function loadBlockchainMonitoringSetupRoutes(executor: Pick<typeof db, "se
       identityKind: monitorAsset?.identityKind,
       contractOrMint: monitorAsset?.contractOrMint,
     });
+    const runtimeReady = Boolean(network && monitorAsset && isManualMonitoringRuntimeReady({
+      routeId: route.id,
+      routeNetworkCode: route.networkCode,
+      monitorAssetRouteId: monitorAsset.assetNetworkId,
+      monitorNetworkCode: network.networkCode,
+      assetEnabled: monitorAsset.enabled,
+      networkEnabled: network.enabled,
+      providerKind: network.providerKind,
+      endpointConfigured: networkConfigured,
+      healthStatus: network.healthStatus,
+      healthCheckedAtMs: network.healthCheckedAt?.getTime() ?? null,
+      pollIntervalSeconds: network.pollIntervalSeconds,
+      adapterKind: network.adapterKind,
+      identityKind: monitorAsset.identityKind,
+      contractOrMint: monitorAsset.contractOrMint,
+      providerCompatible:
+        network.adapterKind === "evm" && network.providerKind === "rpc" ||
+        network.adapterKind === "solana" && network.providerKind === "rpc" ||
+        network.adapterKind === "tron" && network.providerKind === "indexer",
+      receivingAddressValid: isSyntacticallyValidManualWalletAddress(
+        route,
+        route.sharedDepositAddress,
+      ),
+      memoValid: !route.requiresMemo || Boolean(
+        route.sharedDepositMemo &&
+        isSyntacticallyValidManualWalletMemo(route, route.sharedDepositMemo),
+      ),
+    }));
+    const runtimeReadiness = runtimeReady
+      ? "ready"
+      : status === "ready" && network?.healthStatus !== "connected"
+        ? "disconnected"
+        : "incomplete";
+    const missingConfiguration = [
+      !network ? "monitor network" : null,
+      !networkConfigured ? "RPC/API endpoint" : null,
+      !monitorAsset ? "exact asset-network identity" : null,
+      monitorAsset?.identityKind === "token" && !monitorAsset.contractOrMint?.trim()
+        ? "token contract or mint"
+        : null,
+      network && !network.enabled ? "enabled network monitor" : null,
+      monitorAsset && !monitorAsset.enabled ? "enabled asset monitor" : null,
+      network && network.healthStatus !== "connected" ? "healthy provider connection" : null,
+    ].filter((item): item is string => Boolean(item));
     return {
       assetNetworkId: route.id,
       assetCode: asset.code,
@@ -115,6 +164,13 @@ async function loadBlockchainMonitoringSetupRoutes(executor: Pick<typeof db, "se
         : null,
       contractOrMint: monitorAsset?.contractOrMint ?? null,
       status,
+      runtimeReadiness,
+      missingConfiguration,
+      providerLabel: route.networkCode.trim().toUpperCase() === "BEP20"
+        ? "BSC Monitor"
+        : network?.networkName ?? null,
+      customerDepositsAvailable:
+        runtimeReadiness === "ready" && route.customerDepositsEnabled,
       monitoringEnabled: Boolean(network?.enabled && monitorAsset?.enabled),
       monitorNetworkId: network?.id,
       monitorAssetId: monitorAsset?.id,
@@ -221,7 +277,14 @@ router.post("/admin/blockchain-monitoring/networks/:id/test", async (req, res, n
     if (!row) { res.status(404).json({ error: "MONITOR_NETWORK_NOT_FOUND", message: "Monitoring network not found." }); return; }
     const endpoint = row.endpointSecretRef ? process.env[row.endpointSecretRef] : undefined;
     if (!endpoint) { res.status(422).json({ error: "MONITOR_NOT_CONFIGURED", message: "The provider endpoint is not configured." }); return; }
-    const adapter = createBlockchainMonitorAdapter({ networkCode: row.networkCode, provider: row.providerKind as "rpc" | "indexer", endpoint, apiKey: row.apiKeySecretRef ? process.env[row.apiKeySecretRef] : undefined });
+    const adapter = createBlockchainMonitorAdapter({
+      networkCode: row.networkCode,
+      provider: row.providerKind as "rpc" | "indexer",
+      adapterKind: row.adapterKind as "evm" | "tron" | "solana",
+      endpoint,
+      apiKey: row.apiKeySecretRef ? process.env[row.apiKeySecretRef] : undefined,
+      chainId: row.chainId ?? undefined,
+    });
     res.json(await adapter.testConnection());
   } catch (error) { next(error); }
 });

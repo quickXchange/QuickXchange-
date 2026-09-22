@@ -14,12 +14,5 @@ export function createBlockchainMonitorAdapter(config: MonitorConfig): Blockchai
   if (config.adapterKind === "tron") return new TronIndexerAdapter(config);
   if (config.adapterKind === "solana") return new SolanaJsonRpcAdapter(config);
   if (config.adapterKind === "evm") return new EvmJsonRpcAdapter(config);
-  if (config.provider === "indexer" && ["TRC20", "TRON"].includes(config.networkCode.toUpperCase())) {
-    return new TronIndexerAdapter(config);
-  }
-  if (["SOL", "SPL", "SOLANA"].includes(config.networkCode.toUpperCase())) {
-    return new SolanaJsonRpcAdapter(config);
-  }
-  if (config.provider === "rpc") return new EvmJsonRpcAdapter(config);
   throw new BlockchainMonitorError("CONFIGURATION", "No blockchain monitoring adapter is available for this network.");
 }

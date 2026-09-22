@@ -245,7 +245,7 @@ import {
 } from "../lib/payment-methods";
 import { paymentMethodBrandfetchLogoUrl } from "../lib/payment-method-brandfetch";
 import {
-  canAcceptManualCryptoDeposit,
+  canAcceptReadyManualCryptoDeposit,
   findManualCryptoNetwork,
   findManualCryptoNetworkByIdForAsset,
   listPublicManualCryptoSettlementOptions,
@@ -985,7 +985,7 @@ async function buildQuoteTicket(
           sourceOption!.networkSlug,
           sourceOption!.assetCode,
         );
-        if (!source || !canAcceptManualCryptoDeposit(source.network)) {
+        if (!source || !await canAcceptReadyManualCryptoDeposit(source.network)) {
           if (skipFundingAvailability) return undefined;
           throw new ApiError("DESK_CRYPTO_DEPOSIT_UNAVAILABLE", "Customer deposits are not enabled for this crypto network.", 422);
         }
@@ -1139,7 +1139,7 @@ async function revalidateManualDeskQuoteRoute(quote: QuoteTicket): Promise<void>
         source!.networkSlug,
         source!.assetCode,
       );
-      if (!network || !canAcceptManualCryptoDeposit(network.network)) {
+      if (!network || !await canAcceptReadyManualCryptoDeposit(network.network)) {
         throw new ApiError("DESK_CRYPTO_DEPOSIT_UNAVAILABLE", "Customer deposits are not enabled for this crypto network.", 422);
       }
       const currentFunding = cryptoFundingSnapshot(network.network);
@@ -1209,6 +1209,20 @@ async function revalidateManualDeskQuoteRoute(quote: QuoteTicket): Promise<void>
     toNetwork: quote.toNetwork,
     amount: quote.amount,
   });
+  const legacySourceCrypto = await findManualCryptoNetwork(
+    quote.fromAsset,
+    quote.fromNetwork,
+  );
+  if (
+    legacySourceCrypto &&
+    !await canAcceptReadyManualCryptoDeposit(legacySourceCrypto.network)
+  ) {
+    throw new ApiError(
+      "DESK_CRYPTO_DEPOSIT_UNAVAILABLE",
+      "Customer deposits are not enabled for this crypto network.",
+      422,
+    );
+  }
   if (
     current.fromAsset !== quote.fromAsset ||
     current.fromNetwork !== quote.fromNetwork ||

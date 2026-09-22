@@ -673,6 +673,20 @@
       "when": 1790036000000,
       "tag": "0097_quickex_notification_facts",
       "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1790037000000,
+      "tag": "0098_recover_verified_bep20_usdt_payment",
+      "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1790041000000,
+      "tag": "0099_bnb_bep20_native_monitor",
+      "breakpoints": true
     }
   ]
 }
