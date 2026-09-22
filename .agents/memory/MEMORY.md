@@ -143,3 +143,4 @@
 - [Environment-specific RPC secret overrides](rpc-secret-environment-overrides.md) — a changed shared RPC secret can remain shadowed by an environment override; validate the runtime value in every target environment.
 - [Bundled test worker cleanup](bundled-test-worker-cleanup.md) — bundled Node tests must avoid presentation transports and await child closure before deleting temporary output.
 - [TRON indexer identity boundaries](tron-contract-query-encoding.md) — serialize canonical identities only at provider requests and bind TRC20 evidence to exact receipt-log indexes.
+- [TRON native evidence verification](tron-native-evidence.md) — verify native transfers with exact raw transaction results and canonical blocks before persistence.

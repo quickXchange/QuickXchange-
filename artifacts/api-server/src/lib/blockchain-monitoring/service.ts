@@ -447,9 +447,14 @@ async function persistEvidence(network: typeof blockchainMonitorNetworksTable.$i
 }
 
 async function refreshConfirming(network: typeof blockchainMonitorNetworksTable.$inferSelect, leaseToken: string): Promise<void> {
-  const rows = await db.select({ match: blockchainMonitorMatchesTable, observation: blockchainMonitorObservationsTable })
+  const rows = await db.select({
+    match: blockchainMonitorMatchesTable,
+    observation: blockchainMonitorObservationsTable,
+    asset: blockchainMonitorAssetsTable,
+  })
     .from(blockchainMonitorMatchesTable)
     .innerJoin(blockchainMonitorObservationsTable, eq(blockchainMonitorObservationsTable.id, blockchainMonitorMatchesTable.observationId))
+    .innerJoin(blockchainMonitorAssetsTable, eq(blockchainMonitorAssetsTable.id, blockchainMonitorObservationsTable.monitorAssetId))
     .where(and(inArray(blockchainMonitorMatchesTable.state, ["confirming", "applied"]), or(eq(blockchainMonitorMatchesTable.state, "confirming"), gte(blockchainMonitorMatchesTable.appliedAt, new Date(Date.now() - 60 * 60_000))), eq(blockchainMonitorObservationsTable.monitorNetworkId, network.id)));
   const config = adapterConfig(network);
   if (!config) return;
@@ -461,8 +466,10 @@ async function refreshConfirming(network: typeof blockchainMonitorNetworksTable.
     const evidence: IncomingEvidence = {
       eventId: row.observation.eventIndex, transactionHash: row.observation.transactionHash,
       networkCode: network.networkCode, assetId: row.observation.monitorAssetId, assetSymbol: "",
+      identityKind: row.asset.identityKind as "native" | "token",
+      contractOrMint: row.asset.contractOrMint ?? undefined,
       toAddress: row.observation.toAddress, rawAmount: row.observation.amount, blockOrSlot: row.observation.blockReference ?? "0",
-      decimals: 0,
+      decimals: row.asset.decimals,
       blockHash: row.observation.blockHash ?? undefined, blockTimestamp: row.observation.blockTimestamp?.toISOString(),
       detectedAt: row.observation.observedAt.toISOString(), source: "evm-json-rpc",
     };

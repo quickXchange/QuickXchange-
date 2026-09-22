@@ -722,6 +722,20 @@
       "when": 1790086000000,
       "tag": "0104_bsc_alchemy_log_range",
       "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1790095000000,
+      "tag": "0105_trx_tron_native_monitor",
+      "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1790096000000,
+      "tag": "0106_reconcile_trx_tron_native_monitor",
+      "breakpoints": true
     }
   ]
 }

@@ -435,6 +435,7 @@ test("TRON parsing normalizes Base58 and hex addresses without exposing provider
     ret: [{ contractRet: "SUCCESS" }],
   }, "TRC20", watched, { assetId: "trx", symbol: "TRX", kind: "native", decimals: 6 });
   assert.equal(native?.rawAmount, "123");
+  assert.equal(native?.eventId, "tx-native:native:0:trx");
   const token = parseTronTokenTransfer({
     transaction_id: "tx-token", block: 13, from: watched.address, to: watched.address, value: "999",
     eventIndex: 0,
@@ -442,6 +443,150 @@ test("TRON parsing normalizes Base58 and hex addresses without exposing provider
     ret: [{ contractRet: "SUCCESS" }],
   }, "TRC20", watched, { assetId: "usdt", symbol: "USDT", kind: "token", contractOrMint: watched.address, decimals: 6 });
   assert.equal(token?.rawAmount, "999");
+});
+
+test("TRON native scans use provider block numbers and revalidate raw transaction success", async () => {
+  const watchedHex = `41${"00".repeat(20)}`;
+  const watchedBase58 = "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb";
+  let includeCanonicalTransaction = true;
+  let transactionInfoId = "tx-native";
+  let rawTransactionId = "tx-native";
+  const server = createServer((req, res) => {
+    const requestUrl = new URL(req.url ?? "/", "http://127.0.0.1");
+    res.writeHead(200, { "content-type": "application/json" });
+    if (requestUrl.pathname === "/wallet/getblockbynum") {
+      const number = Number(requestUrl.searchParams.get("num"));
+      res.end(JSON.stringify({
+        blockID: `block-${number}`,
+        block_header: { raw_data: { number, timestamp: number * 3_000 } },
+        transactions: includeCanonicalTransaction && number === 101 ? [{ txID: "tx-native" }] : [],
+      }));
+      return;
+    }
+    if (requestUrl.pathname === "/wallet/gettransactioninfobyid") {
+      res.end(JSON.stringify({
+        id: transactionInfoId,
+        blockNumber: 101,
+        blockTimeStamp: 303_000,
+        receipt: {},
+      }));
+      return;
+    }
+    if (requestUrl.pathname === "/wallet/gettransactionbyid") {
+      res.end(JSON.stringify({
+        txID: rawTransactionId,
+        ret: [{ contractRet: "SUCCESS" }],
+        raw_data: {
+          contract: [{
+            type: "TransferContract",
+            parameter: {
+              value: {
+                owner_address: watchedBase58,
+                to_address: watchedBase58,
+                amount: 1_000_000,
+              },
+            },
+          }],
+        },
+      }));
+      return;
+    }
+    if (requestUrl.pathname === "/wallet/getnowblock") {
+      res.end(JSON.stringify({ block_header: { raw_data: { number: 120 } } }));
+      return;
+    }
+    res.end(JSON.stringify({
+      data: [{
+        txID: "tx-native",
+        blockNumber: 101,
+        block_timestamp: 303_000,
+        ret: [{ contractRet: "SUCCESS" }],
+        raw_data: {
+          contract: [{
+            type: "TransferContract",
+            parameter: {
+              value: {
+                owner_address: watchedBase58,
+                to_address: watchedBase58,
+                amount: 1_000_000,
+              },
+            },
+          }],
+        },
+      }],
+      success: true,
+      meta: {},
+    }));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = server.address();
+    assert(address && typeof address === "object");
+    const adapter = new TronIndexerAdapter({
+      networkCode: "TRC20",
+      adapterKind: "tron",
+      provider: "indexer",
+      endpoint: `http://127.0.0.1:${address.port}`,
+      maxRange: 10,
+    });
+    const result = await adapter.scanIncoming({ from: "100", to: "105" }, [{
+      address: watchedHex,
+      assets: [{
+        assetId: "trx-tron",
+        symbol: "TRX",
+        kind: "native",
+        decimals: 6,
+      }],
+    }]);
+    assert.equal(result.evidence.length, 1);
+    assert.equal(result.evidence[0]?.rawAmount, "1000000");
+    assert.equal(result.evidence[0]?.toAddress, watchedHex);
+    assert.equal(result.evidence[0]?.eventId, "tx-native:native:0:trx-tron");
+    assert.deepEqual(await adapter.getEvidenceStatus(result.evidence[0]!), {
+      exists: true,
+      successful: true,
+      canonical: true,
+      confirmations: 20,
+      finalized: false,
+      blockHash: "block-101",
+      blockTimestamp: new Date(303_000).toISOString(),
+    });
+    rawTransactionId = "different-transaction";
+    assert.deepEqual(await adapter.getEvidenceStatus(result.evidence[0]!), {
+      exists: false,
+      successful: false,
+      canonical: false,
+      confirmations: 0,
+      finalized: false,
+      blockHash: "block-101",
+      blockTimestamp: new Date(303_000).toISOString(),
+    });
+    rawTransactionId = "tx-native";
+    transactionInfoId = "different-transaction";
+    assert.deepEqual(await adapter.getEvidenceStatus(result.evidence[0]!), {
+      exists: false,
+      successful: false,
+      canonical: false,
+      confirmations: 0,
+      finalized: false,
+      blockHash: "block-101",
+      blockTimestamp: new Date(303_000).toISOString(),
+    });
+    transactionInfoId = "tx-native";
+    includeCanonicalTransaction = false;
+    const nonCanonical = await adapter.scanIncoming({ from: "100", to: "105" }, [{
+      address: watchedHex,
+      assets: [{
+        assetId: "trx-tron",
+        symbol: "TRX",
+        kind: "native",
+        decimals: 6,
+      }],
+    }]);
+    assert.equal(nonCanonical.evidence.length, 0);
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
 });
 
 test("TRON token scans serialize contracts for the indexer and paginate exact confirmed receipts", async () => {

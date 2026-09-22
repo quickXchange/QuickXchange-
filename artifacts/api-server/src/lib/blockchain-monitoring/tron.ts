@@ -7,7 +7,8 @@ import type {
 } from "./types";
 
 type TronNativeRecord = {
-  txID?: string; block?: number; block_timestamp?: number;
+  txID?: string; block?: number; blockNumber?: number; block_timestamp?: number;
+  blockHash?: string; contractIndex?: number;
   raw_data?: { contract?: Array<{ type?: string; parameter?: { value?: { owner_address?: string; to_address?: string; amount?: number | string } } }> };
   ret?: Array<{ contractRet?: string }>;
 };
@@ -81,6 +82,13 @@ function findTronTokenLogIndex(
   return undefined;
 }
 
+function nativeContractIndex(eventId: string): number | undefined {
+  const match = eventId.match(/:native:([0-9]+):/);
+  if (!match) return undefined;
+  const index = Number(match[1]);
+  return Number.isSafeInteger(index) ? index : undefined;
+}
+
 function base58Decode(value: string): Uint8Array | undefined {
   let number = 0n;
   for (const character of value) {
@@ -141,18 +149,21 @@ export function parseTronNativeTransfer(
   watched: WatchedAddress,
   asset: MonitorAsset,
 ): IncomingEvidence | undefined {
-  const value = record.raw_data?.contract?.[0]?.parameter?.value;
+  const contractIndex = record.contractIndex ?? 0;
+  const contract = record.raw_data?.contract?.[contractIndex];
+  const value = contract?.parameter?.value;
   const to = normalizeTronAddress(value?.to_address ?? "");
   const rawAmount = exactPositiveInteger(value?.amount);
-  if (asset.kind !== "native" || !record.txID || !to || to !== normalizeTronAddress(watched.address) || !rawAmount || record.ret?.[0]?.contractRet !== "SUCCESS") return undefined;
+  if (asset.kind !== "native" || contract?.type !== "TransferContract" || !record.txID || !to || to !== normalizeTronAddress(watched.address) || !rawAmount || record.ret?.[contractIndex]?.contractRet !== "SUCCESS") return undefined;
   return {
-    eventId: `${record.txID}:native:${asset.assetId}`,
+    eventId: `${record.txID}:native:${contractIndex}:${asset.assetId}`,
     transactionHash: record.txID,
     networkCode, assetId: asset.assetId, assetSymbol: asset.symbol,
     identityKind: asset.kind,
     fromAddress: normalizeTronAddress(value?.owner_address ?? "") || undefined,
     toAddress: to, rawAmount, decimals: asset.decimals,
-    blockOrSlot: String(record.block ?? ""),
+    blockOrSlot: String(record.block ?? record.blockNumber ?? ""),
+    blockHash: record.blockHash,
     blockTimestamp: record.block_timestamp ? new Date(record.block_timestamp).toISOString() : undefined,
     detectedAt: new Date().toISOString(), source: "tron-indexer",
   };
@@ -251,14 +262,93 @@ export class TronIndexerAdapter implements BlockchainMonitorAdapter {
       const nativeAssets = watched.assets.filter(asset => asset.kind === "native");
       const tokenAssets = watched.assets.filter(asset => asset.kind === "token");
       if (nativeAssets.length) {
-        const records = await this.get<{ data?: TronNativeRecord[] }>(`/v1/accounts/${encodeURIComponent(indexerAddress)}/transactions?only_to=true&limit=200`);
-        for (const record of records.data ?? []) {
-          if (Number(record.block ?? -1) < from || Number(record.block ?? -1) > to) continue;
-          for (const asset of nativeAssets) {
-            const parsed = parseTronNativeTransfer(record, this.networkCode, watched, asset);
-            if (parsed) evidence.push(parsed);
-          }
+        const [fromBlock, toBlock] = await Promise.all([
+          this.get<TronBlock>(`/wallet/getblockbynum?num=${encodeURIComponent(String(from))}`),
+          this.get<TronBlock>(`/wallet/getblockbynum?num=${encodeURIComponent(String(to))}`),
+        ]);
+        const minTimestamp = fromBlock.block_header?.raw_data?.timestamp;
+        const maxTimestamp = toBlock.block_header?.raw_data?.timestamp;
+        if (!Number.isSafeInteger(minTimestamp) || !Number.isSafeInteger(maxTimestamp)) {
+          throw new BlockchainMonitorError("INVALID_RESPONSE", "Blockchain monitoring provider returned invalid scan boundary blocks.");
         }
+        let fingerprint: string | undefined;
+        const seenFingerprints = new Set<string>();
+        const rawTransactionCache = new Map<string, TronNativeRecord>();
+        const transactionInfoCache = new Map<string, TronTransactionInfo>();
+        const canonicalBlockCache = new Map<number, TronBlock>();
+        let pageCount = 0;
+        do {
+          if (pageCount >= 100) {
+            throw new BlockchainMonitorError("RANGE", "Blockchain monitoring provider pagination exceeded the bounded scan limit.");
+          }
+          const query = new URLSearchParams({
+            only_to: "true",
+            limit: "200",
+            min_timestamp: String(minTimestamp),
+            max_timestamp: String(maxTimestamp),
+          });
+          if (fingerprint) query.set("fingerprint", fingerprint);
+          const page = await this.get<TronIndexerPage<TronNativeRecord>>(
+            `/v1/accounts/${encodeURIComponent(indexerAddress)}/transactions?${query.toString()}`,
+          );
+          pageCount += 1;
+          for (const record of page.data ?? []) {
+            if (!record.txID) continue;
+            let rawTransaction = rawTransactionCache.get(record.txID);
+            if (!rawTransaction) {
+              rawTransaction = await this.get<TronNativeRecord>(
+                `/wallet/gettransactionbyid?value=${encodeURIComponent(record.txID)}`,
+              );
+              rawTransactionCache.set(record.txID, rawTransaction);
+            }
+            let transactionInfo = transactionInfoCache.get(record.txID);
+            if (!transactionInfo) {
+              transactionInfo = await this.get<TronTransactionInfo>(
+                `/wallet/gettransactioninfobyid?value=${encodeURIComponent(record.txID)}`,
+              );
+              transactionInfoCache.set(record.txID, transactionInfo);
+            }
+            if (rawTransaction.txID !== record.txID || transactionInfo.id !== record.txID) continue;
+            const block = transactionInfo.blockNumber;
+            if (!Number.isSafeInteger(block) || block! < from || block! > to) continue;
+            let canonicalBlock = canonicalBlockCache.get(block!);
+            if (!canonicalBlock) {
+              canonicalBlock = await this.get<TronBlock>(
+                `/wallet/getblockbynum?num=${encodeURIComponent(String(block))}`,
+              );
+              canonicalBlockCache.set(block!, canonicalBlock);
+            }
+            if (
+              !canonicalBlock.blockID ||
+              !canonicalBlock.transactions?.some(item => item.txID === record.txID)
+            ) continue;
+            for (const [contractIndex] of (rawTransaction.raw_data?.contract ?? []).entries()) {
+              for (const asset of nativeAssets) {
+                const parsed = parseTronNativeTransfer(
+                  {
+                    ...rawTransaction,
+                    block: block!,
+                    block_timestamp: transactionInfo.blockTimeStamp ?? record.block_timestamp,
+                    blockHash: canonicalBlock.blockID,
+                    contractIndex,
+                  },
+                  this.networkCode,
+                  watched,
+                  asset,
+                );
+                if (parsed) evidence.push(parsed);
+              }
+            }
+          }
+          const nextFingerprint = page.meta?.fingerprint;
+          if (!nextFingerprint) break;
+          if (seenFingerprints.has(nextFingerprint)) {
+            throw new BlockchainMonitorError("INVALID_RESPONSE", "Blockchain monitoring provider repeated a pagination cursor.");
+          }
+          seenFingerprints.add(nextFingerprint);
+          fingerprint = nextFingerprint;
+        }
+        while (fingerprint);
       }
       for (const asset of tokenAssets) {
         const contractAddress = serializeTronIndexerAddress(asset.contractOrMint ?? "");
@@ -361,7 +451,23 @@ export class TronIndexerAdapter implements BlockchainMonitorAdapter {
     const transaction = await this.get<TronTransactionInfo>(
       `/wallet/gettransactioninfobyid?value=${encodeURIComponent(evidence.transactionHash)}`,
     );
-    const success = transaction.receipt?.result === "SUCCESS";
+    const nativeTransaction = evidence.identityKind === "native"
+      ? await this.get<TronNativeRecord>(
+          `/wallet/gettransactionbyid?value=${encodeURIComponent(evidence.transactionHash)}`,
+        )
+      : undefined;
+    const contractIndex = evidence.identityKind === "native"
+      ? nativeContractIndex(evidence.eventId)
+      : undefined;
+    const transactionMatches = transaction.id === evidence.transactionHash;
+    const nativeTransactionMatches = evidence.identityKind !== "native" ||
+      nativeTransaction?.txID === evidence.transactionHash;
+    const success = evidence.identityKind === "native"
+      ? transactionMatches &&
+        nativeTransactionMatches &&
+        Number.isSafeInteger(contractIndex) &&
+        nativeTransaction?.ret?.[contractIndex!]?.contractRet === "SUCCESS"
+      : transactionMatches && transaction.receipt?.result === "SUCCESS";
     const blockNumber = transaction.blockNumber;
     const block = Number.isSafeInteger(blockNumber)
       ? await this.get<TronBlock>(`/wallet/getblockbynum?num=${encodeURIComponent(String(blockNumber))}`)
@@ -375,7 +481,9 @@ export class TronIndexerAdapter implements BlockchainMonitorAdapter {
     const confirmations = canonical && Number.isSafeInteger(head.block_header?.raw_data?.number)
       ? Math.max(0, Number(head.block_header!.raw_data!.number) - blockNumber! + 1) : 0;
     return {
-      exists: Boolean(transaction.id),
+      exists: evidence.identityKind === "native"
+        ? transactionMatches && nativeTransactionMatches
+        : transactionMatches,
       successful: success,
       canonical,
       confirmations,
