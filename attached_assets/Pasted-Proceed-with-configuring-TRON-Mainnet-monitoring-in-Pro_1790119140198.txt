@@ -1,0 +1,53 @@
+Proceed with configuring TRON Mainnet monitoring in Production.
+Scope ONLY:
+- trx-tron
+- usdt-trc20
+Create/configure the canonical TRON monitor:
+- Monitor ID: monitor-trc20
+- Network code: TRC20
+- Adapter: tron
+- Provider kind: indexer
+- Endpoint secret: TRON_MONITOR_API_URL
+- Mainnet chain identity: 0x2b6653dc
+- Required confirmations: 19
+- Poll interval: 15 seconds
+Configure exact asset monitoring:
+TRX
+- Route: trx-tron
+- Identity: native
+- Decimals: 6
+- No contract
+USDT TRC20
+- Route: usdt-trc20
+- Identity: token
+- Contract hex: 41a614f803b6fd780986a42c78ec9c7f77e6ded13c
+- Base58 contract: TXLAQ63Xg1NAzckPwKHvzw7CSEmLMEqcdj
+- Decimals: 6
+Use the existing Production receiving address:
+TBLc145ZDNs4LjPqQtuvqkEDjhesemTosd
+Do not replace or invent another wallet address.
+Then verify:
+1. Provider connects successfully.
+2. Mainnet identity is proven.
+3. Network Monitor is Enabled.
+4. TRX Asset Monitoring is Enabled.
+5. USDT TRC20 Asset Monitoring is Enabled.
+6. Last Scan begins advancing.
+7. Last Error remains empty.
+8. Generate fresh Production network and exact-route readiness proofs.
+9. Both exact routes reach genuine READY.
+10. Verify the generic watch-registration resolver can create exactly one watch for each eligible route.
+IMPORTANT:
+- Do not create a real order yet.
+- Do not send funds.
+- Do not modify the three historical TRC20 orders with zero watches.
+- Do not perform historical recovery for them.
+- Do not change WhiteBIT/provider assignments used for deposit execution unless monitoring technically requires separation; report any conflict first.
+- Do not modify BTC, BSC, Ethereum, Polygon, Convert, Pricing, or other orders.
+Customer Deposits safety:
+TRX currently has Customer Deposits enabled while NOT READY. Prevent it from being exposed as deposit-enabled until strict readiness passes.
+Keep USDT TRC20 Customer Deposits disabled.
+Do not automatically enable USDT Customer Deposits.
+After configuration, report:
+Route | Network Monitor | Asset Monitor | Provider | Chain Identity | Address | Last Scan | Last Error | Readiness | Customer Deposits
+Stop after both routes are technically READY. Do not create a test order.

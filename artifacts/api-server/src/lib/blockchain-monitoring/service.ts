@@ -1478,6 +1478,11 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
             strictManualProof &&
            currentHealthProofConfig
          ) {
+            const includeInitialTronProofs =
+              currentNetwork?.id === "monitor-trc20" &&
+              currentNetwork.networkCode.trim().toUpperCase() === "TRC20" &&
+              currentNetwork?.adapterKind === "tron" &&
+              currentNetwork.chainId?.trim().toLowerCase() === TRON_MAINNET_CHAIN_ID;
            const proofRows = await tx.select({
              asset: blockchainMonitorAssetsTable,
              route: cryptoAssetNetworksTable,
@@ -1488,7 +1493,32 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
              )
              .where(and(
                eq(blockchainMonitorAssetsTable.monitorNetworkId, network.id),
-               isNotNull(blockchainMonitorAssetsTable.readinessProofFingerprint),
+                includeInitialTronProofs
+                  ? or(
+                      isNotNull(blockchainMonitorAssetsTable.readinessProofFingerprint),
+                      and(
+                        eq(blockchainMonitorAssetsTable.enabled, true),
+                        eq(cryptoAssetNetworksTable.sharedDepositAddress, "TBLc145ZDNs4LjPqQtuvqkEDjhesemTosd"),
+                        or(
+                          and(
+                            eq(cryptoAssetNetworksTable.id, "trx-tron"),
+                            eq(blockchainMonitorAssetsTable.identityKind, "native"),
+                            isNull(blockchainMonitorAssetsTable.contractOrMint),
+                            eq(blockchainMonitorAssetsTable.decimals, 6),
+                          ),
+                          and(
+                            eq(cryptoAssetNetworksTable.id, "usdt-trc20"),
+                            eq(blockchainMonitorAssetsTable.identityKind, "token"),
+                            eq(
+                              blockchainMonitorAssetsTable.contractOrMint,
+                              "41a614f803b6fd780986a42c78ec9c7f77e6ded13c",
+                            ),
+                            eq(blockchainMonitorAssetsTable.decimals, 6),
+                          ),
+                        ),
+                      ),
+                    )
+                  : isNotNull(blockchainMonitorAssetsTable.readinessProofFingerprint),
              ));
            for (const { asset, route } of proofRows) {
              const readinessProofFingerprint = manualMonitoringProofFingerprint({
@@ -1506,7 +1536,14 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
              }).where(and(
                eq(blockchainMonitorAssetsTable.id, asset.id),
                eq(blockchainMonitorAssetsTable.monitorNetworkId, network.id),
-               eq(blockchainMonitorAssetsTable.readinessProofFingerprint, asset.readinessProofFingerprint!),
+                asset.readinessProofFingerprint
+                  ? eq(blockchainMonitorAssetsTable.readinessProofFingerprint, asset.readinessProofFingerprint)
+                  : and(
+                      includeInitialTronProofs
+                        ? eq(blockchainMonitorAssetsTable.enabled, true)
+                        : sql`false`,
+                      isNull(blockchainMonitorAssetsTable.readinessProofFingerprint),
+                    ),
              ));
            }
          }

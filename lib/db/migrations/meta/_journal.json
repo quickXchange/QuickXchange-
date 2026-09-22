@@ -771,6 +771,13 @@
       "when": 1790101000000,
       "tag": "0111_remove_bitcoin_test_receiving_address",
       "breakpoints": true
+    },
+    {
+      "idx": 112,
+      "version": "7",
+      "when": 1790119200000,
+      "tag": "0112_configure_tron_mainnet_monitor",
+      "breakpoints": true
     }
   ]
 }

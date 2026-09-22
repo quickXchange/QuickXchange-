@@ -144,6 +144,29 @@ test("strict scheduler proof refresh accepts only canonical Ethereum", () => {
   }), false);
 });
 
+test("strict scheduler proof refresh accepts only canonical TRON Mainnet", () => {
+  assert.equal(shouldRefreshStrictManualReadinessProof({
+    adapterKind: "tron",
+    networkCode: "TRC20",
+    chainId: "0x2b6653dc",
+  }), true);
+  assert.equal(shouldRefreshStrictManualReadinessProof({
+    adapterKind: "tron",
+    networkCode: "TRC20",
+    chainId: null,
+  }), false);
+  assert.equal(shouldRefreshStrictManualReadinessProof({
+    adapterKind: "tron",
+    networkCode: "TRC20",
+    chainId: "0x1",
+  }), false);
+  assert.equal(shouldRefreshStrictManualReadinessProof({
+    adapterKind: "evm",
+    networkCode: "TRC20",
+    chainId: "0x2b6653dc",
+  }), false);
+});
+
 test("native watch ranges make bounded progress while token ranges retain bulk log scans", () => {
   assert.equal(boundedWatchScanEnd("100", "10000", "native"), "107");
   assert.equal(boundedWatchScanEnd("100", "105", "native"), "105");
