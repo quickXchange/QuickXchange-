@@ -7,6 +7,7 @@ import type {
 
 const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 const HEX_ADDRESS_LENGTH = 64;
+const NATIVE_BLOCK_READ_CONCURRENCY = 8;
 
 type RpcResponse<T> = { result?: T; error?: unknown };
 type EvmTransaction = {
@@ -257,26 +258,50 @@ export class EvmJsonRpcAdapter implements BlockchainMonitorAdapter {
     const watched = watchedAddresses.flatMap(address => address.assets.map(asset => ({ address, asset })));
     const native = watched.filter(item => item.asset.kind === "native");
     const tokens = watched.filter(item => item.asset.kind === "token" && normalizeEvmAddress(item.asset.contractOrMint ?? ""));
+    if (native.length && to - from >= NATIVE_BLOCK_READ_CONCURRENCY * NATIVE_BLOCK_READ_CONCURRENCY) {
+      throw new BlockchainMonitorError("RANGE", "Native EVM monitoring scan range is too large.");
+    }
     const tokenAddresses = [...new Set(tokens.map(item => normalizeEvmAddress(item.address.address)).filter(Boolean))];
     const tokenContracts = [...new Set(tokens.map(item => normalizeEvmAddress(item.asset.contractOrMint ?? "")).filter(Boolean))];
 
-    for (let block = from; block <= to; block++) {
-      const blockHex = `0x${block.toString(16)}`;
-      if (native.length) {
-        const fullBlock = await this.rpc<EvmBlock | null>("eth_getBlockByNumber", [blockHex, true]);
-        for (const transaction of fullBlock?.transactions ?? []) {
-          if (typeof transaction === "string") continue;
-          const candidates = native.flatMap((item) => {
-            const parsed = parseEvmNativeTransfer(transaction, this.networkCode, item.address, item.asset);
-            return parsed ? [parsed] : [];
-          });
-          if (!candidates.length) continue;
-          const receipt = transaction.hash
-            ? await this.rpc<{ status?: string } | null>("eth_getTransactionReceipt", [transaction.hash])
-            : null;
-          if (receipt?.status !== "0x1") continue;
-          for (const parsed of candidates) {
-            evidence.push({ ...parsed, blockHash: transaction.blockHash ?? fullBlock?.hash, blockTimestamp: fullBlock?.timestamp ? new Date(Number(BigInt(fullBlock.timestamp)) * 1000).toISOString() : undefined });
+    if (native.length) {
+      for (let batchStart = from; batchStart <= to; batchStart += NATIVE_BLOCK_READ_CONCURRENCY) {
+        const batchEnd = Math.min(to, batchStart + NATIVE_BLOCK_READ_CONCURRENCY - 1);
+        const fullBlocks = await Promise.all(
+          Array.from({ length: batchEnd - batchStart + 1 }, (_, offset) => {
+            const blockHex = `0x${(batchStart + offset).toString(16)}`;
+            return this.rpc<EvmBlock | null>("eth_getBlockByNumber", [blockHex, true]);
+          }),
+        );
+        for (const [offset, fullBlock] of fullBlocks.entries()) {
+          const requestedBlockNumber = batchStart + offset;
+          for (const transaction of fullBlock?.transactions ?? []) {
+            if (typeof transaction === "string") continue;
+            const candidates = native.flatMap((item) => {
+              const parsed = parseEvmNativeTransfer(transaction, this.networkCode, item.address, item.asset);
+              return parsed ? [parsed] : [];
+            });
+            if (!candidates.length) continue;
+            const receipt = transaction.hash
+              ? await this.rpc<{ status?: string; blockNumber?: string; blockHash?: string } | null>("eth_getTransactionReceipt", [transaction.hash])
+              : null;
+            if (
+              receipt?.status !== "0x1" ||
+              !receipt.blockNumber ||
+              !receipt.blockHash ||
+              !transaction.blockNumber ||
+              !fullBlock?.number ||
+              BigInt(fullBlock.number) !== BigInt(requestedBlockNumber) ||
+              BigInt(transaction.blockNumber) !== BigInt(requestedBlockNumber) ||
+              BigInt(receipt.blockNumber) !== BigInt(transaction.blockNumber) ||
+              !fullBlock?.hash ||
+              !transaction.blockHash ||
+              transaction.blockHash.toLowerCase() !== fullBlock.hash.toLowerCase() ||
+              receipt.blockHash.toLowerCase() !== fullBlock.hash.toLowerCase()
+            ) continue;
+            for (const parsed of candidates) {
+              evidence.push({ ...parsed, blockHash: fullBlock.hash, blockTimestamp: fullBlock.timestamp ? new Date(Number(BigInt(fullBlock.timestamp)) * 1000).toISOString() : undefined });
+            }
           }
         }
       }

@@ -94,6 +94,94 @@ test("EVM native scans request receipts only for watched-address candidates", as
   }
 });
 
+test("EVM native scans read bounded block batches concurrently and preserve exact evidence checks", async () => {
+  let inFlightBlocks = 0;
+  let maxInFlightBlocks = 0;
+  const watchedAddress = "0x1111111111111111111111111111111111111111";
+  const server = createServer((req, res) => {
+    let body = "";
+    req.setEncoding("utf8");
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", () => {
+      const request = JSON.parse(body) as { id: number; method: string; params: unknown[] };
+      if (request.method === "eth_getBlockByNumber") {
+        inFlightBlocks += 1;
+        maxInFlightBlocks = Math.max(maxInFlightBlocks, inFlightBlocks);
+        const blockHex = String(request.params[0]);
+        const blockNumber = Number(BigInt(blockHex));
+        setTimeout(() => {
+          inFlightBlocks -= 1;
+        const matching = blockNumber === 20 || blockNumber === 21;
+          res.writeHead(200, { "content-type": "application/json" });
+          res.end(JSON.stringify({
+            jsonrpc: "2.0",
+            id: request.id,
+            result: {
+              number: blockHex,
+              hash: `0xblock${blockNumber}`,
+              timestamp: "0x1",
+              transactions: matching ? [{
+                hash: blockNumber === 20 ? "0xmatching" : "0xmismatched-receipt",
+                from: "0x3333333333333333333333333333333333333333",
+                to: watchedAddress,
+                value: "0x1bc16d674ec80000",
+                blockNumber: blockNumber === 20 ? blockHex : "0x16",
+                blockHash: `0xblock${blockNumber}`,
+              }] : [],
+            },
+          }));
+        }, 20);
+        return;
+      }
+      res.writeHead(200, { "content-type": "application/json" });
+      const transactionHash = String(request.params[0] ?? "");
+      res.end(JSON.stringify({
+        jsonrpc: "2.0",
+        id: request.id,
+        result: request.method === "eth_getTransactionReceipt"
+          ? {
+              status: "0x1",
+              blockNumber: transactionHash === "0xmatching" ? "0x14" : "0x16",
+              blockHash: transactionHash === "0xmatching" ? "0xblock20" : "0xblock21",
+            }
+          : null,
+      }));
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = server.address();
+    assert(address && typeof address === "object");
+    const adapter = new EvmJsonRpcAdapter({
+      networkCode: "BEP20",
+      provider: "rpc",
+      adapterKind: "evm",
+      endpoint: `http://127.0.0.1:${address.port}`,
+    });
+    const result = await adapter.scanIncoming({ from: "16", to: "31" }, [{
+      address: watchedAddress,
+      assets: [{ assetId: "bnb-bep20", symbol: "BNB", kind: "native", decimals: 18 }],
+    }]);
+    assert(maxInFlightBlocks > 1);
+    assert(maxInFlightBlocks <= 8);
+    assert.equal(result.evidence.length, 1);
+    assert.equal(result.evidence[0]?.transactionHash, "0xmatching");
+    assert.equal(result.evidence[0]?.rawAmount, "2000000000000000000");
+    assert.equal(result.evidence[0]?.toAddress, watchedAddress);
+    await assert.rejects(
+      adapter.scanIncoming({ from: "16", to: "80" }, [{
+        address: watchedAddress,
+        assets: [{ assetId: "bnb-bep20", symbol: "BNB", kind: "native", decimals: 18 }],
+      }]),
+      (error: unknown) =>
+        error instanceof BlockchainMonitorError &&
+        error.code === "RANGE",
+    );
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
+});
+
 test("EVM token scans query one exact bounded range instead of one request per block", async () => {
   const logRequests: unknown[][] = [];
   const server = createServer((req, res) => {

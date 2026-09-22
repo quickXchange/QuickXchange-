@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canApplyConfirmedMatchWatch, canResolveRegistrationGap, cursorAfterCapturedHead, deriveBlockchainMonitoringSetupStatus, evidenceWithinWatchCursor, exactAmountMatches, exactWatchMatchesOrderSnapshot, evidenceMeetsWatchTimeAndMemo, immutableIdentityMatches, isFinalitySatisfied, selectReadyBlockchainMonitoringSetupRoutes, selectWatchScanCursor } from "../src/lib/blockchain-monitoring/service";
+import { boundedWatchScanEnd, canApplyConfirmedMatchWatch, canResolveRegistrationGap, cursorAfterCapturedHead, deriveBlockchainMonitoringSetupStatus, evidenceWithinWatchCursor, exactAmountMatches, exactWatchMatchesOrderSnapshot, evidenceMeetsWatchTimeAndMemo, immutableIdentityMatches, isFinalitySatisfied, selectReadyBlockchainMonitoringSetupRoutes, selectWatchScanCursor } from "../src/lib/blockchain-monitoring/service";
 import { canEnqueueSwapPaymentReceived } from "../src/lib/telegram-swap-notifications";
 
 test("Manual monitoring matches decimal order amounts only at configured precision", () => {
@@ -40,6 +40,12 @@ test("Manual monitoring applies configured finality and immutable identity", () 
   assert.equal(canResolveRegistrationGap("active", true), true);
   const snapshot = { orderId: "o", monitorNetworkId: "n", monitorAssetId: "a", assetNetworkId: "r", expectedAmount: "1", receivingAddress: "x", memoOrTag: null, identityKind: "native", contractOrMint: null, decimals: 18, orderCreatedAt: new Date(0) };
   assert.equal(exactWatchMatchesOrderSnapshot(snapshot, snapshot), true);
+});
+
+test("native watch ranges make bounded progress while token ranges retain bulk log scans", () => {
+  assert.equal(boundedWatchScanEnd("100", "10000", "native"), "163");
+  assert.equal(boundedWatchScanEnd("100", "120", "native"), "120");
+  assert.equal(boundedWatchScanEnd("100", "10000", "token"), "1100");
 });
 
 test("bulk monitoring setup keeps disabled routes disabled and never infers token identity", () => {

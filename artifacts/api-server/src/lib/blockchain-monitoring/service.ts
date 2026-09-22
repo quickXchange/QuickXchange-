@@ -28,6 +28,7 @@ const ELIGIBLE = and(
 let cycleRunning = false;
 let recoveryMigration: Promise<void> | undefined;
 const MONITOR_CYCLE_DEADLINE_MS = 90_000;
+const NATIVE_SCAN_BLOCKS_PER_WATCH_CYCLE = 64;
 const VERIFIED_RECEIPT_RECOVERY_REASON =
   "Verified receipt recovery; inactive to prevent unbounded rescanning.";
 
@@ -136,6 +137,20 @@ export function selectReadyBlockchainMonitoringSetupRoutes<T extends {
 
 export function selectWatchScanCursor(currentCursor: string | null, startCursor: string | null): string | undefined {
   return currentCursor ?? startCursor ?? undefined;
+}
+
+export function boundedWatchScanEnd(
+  from: string,
+  head: string,
+  identityKind: string,
+): string {
+  const fromNumber = Number(from);
+  const headNumber = Number(head);
+  if (!Number.isSafeInteger(fromNumber) || !Number.isSafeInteger(headNumber)) return head;
+  const maxOffset = identityKind === "native"
+    ? NATIVE_SCAN_BLOCKS_PER_WATCH_CYCLE - 1
+    : 1_000;
+  return String(Math.min(headNumber, fromNumber + maxOffset));
 }
 
 export function cursorAfterCapturedHead(head: string): string | undefined {
@@ -556,8 +571,7 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
           /^[0-9]+$/.test(head.cursor) &&
           BigInt(from) > BigInt(head.cursor)
         ) continue;
-        const boundedTo = Number.isSafeInteger(Number(from)) && Number.isSafeInteger(Number(head.cursor))
-          ? String(Math.min(Number(head.cursor), Number(from) + 1_000)) : head.cursor;
+        const boundedTo = boundedWatchScanEnd(from, head.cursor, watch.identityKind);
         const result = await adapter.scanIncoming({ from, to: boundedTo }, watched);
         for (const evidence of result.evidence) {
         if (leaseLost) throw new Error("Blockchain monitoring lease was lost.");
