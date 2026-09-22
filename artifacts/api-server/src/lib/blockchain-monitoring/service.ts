@@ -38,6 +38,17 @@ const MONITOR_CYCLE_DEADLINE_MS = 90_000;
 const NATIVE_SCAN_BLOCKS_PER_WATCH_CYCLE = 8;
 const VERIFIED_RECEIPT_RECOVERY_REASON =
   "Verified receipt recovery; inactive to prevent unbounded rescanning.";
+const VERIFIED_ERC20_WATCH_RECOVERY = {
+  orderId: "O241097549",
+  routeId: "usdc-erc20",
+  networkId: "monitor-ethereum-mainnet",
+  amount: "10",
+  receivingAddress: "0x961fFd69412BdD402B8a63FC67D5d7f1A105abDb",
+  orderCreatedAt: new Date("2026-09-22T21:39:42.698Z"),
+  startCursor: "26035766",
+  transactionHash: "0x1dd0bb8b9c28a80ad0df295a1de737c12c386f3d51b74abf13403d4e987c9b4b",
+  transactionBlock: "26035851",
+} as const;
 const legacyNetworkConfigDigest = (
   network: typeof blockchainMonitorNetworksTable.$inferSelect,
   endpoint?: string,
@@ -292,8 +303,15 @@ export async function registerManualBlockchainWatch(
     id: order.sourceSettlementOptionId ?? "",
     networkId: text(funding.networkId) || null,
   });
-  const [route] = await db.select({ route: cryptoAssetNetworksTable }).from(cryptoAssetNetworksTable)
+  const [resolvedIdentity] = await db.select({
+    route: cryptoAssetNetworksTable,
+    network: blockchainMonitorNetworksTable,
+  }).from(cryptoAssetNetworksTable)
     .innerJoin(cryptoAssetsTable, eq(cryptoAssetsTable.id, cryptoAssetNetworksTable.assetId))
+    .leftJoin(
+      blockchainMonitorNetworksTable,
+      eq(blockchainMonitorNetworksTable.networkCode, cryptoAssetNetworksTable.networkCode),
+    )
     .where(sourceRouteId
       ? and(
           eq(cryptoAssetNetworksTable.id, sourceRouteId),
@@ -304,13 +322,14 @@ export async function registerManualBlockchainWatch(
           sql`${cryptoAssetNetworksTable.assetId} = ${assetCode} or upper(${cryptoAssetsTable.code}) = upper(${assetCode})`,
         ))
     .limit(1);
+  const route = resolvedIdentity ? { route: resolvedIdentity.route } : undefined;
   const networkCode = route?.route.networkCode ?? snapshotNetworkCode;
   const persistGap = async (reason: string) => {
     await db.insert(blockchainMonitorRegistrationGapsTable).values({ orderId, networkCode, assetCode, receivingAddress: rawAddress, reason })
       .onConflictDoUpdate({ target: blockchainMonitorRegistrationGapsTable.orderId, set: { reason, resolvedAt: null } });
   };
-  const [network] = await db.select().from(blockchainMonitorNetworksTable)
-    .where(eq(blockchainMonitorNetworksTable.networkCode, networkCode)).limit(1);
+  const network = resolvedIdentity?.network ?? (await db.select().from(blockchainMonitorNetworksTable)
+    .where(eq(blockchainMonitorNetworksTable.networkCode, networkCode)).limit(1))[0];
   if (!network) { await persistGap("Monitoring network is not configured."); return; }
   const address = network.adapterKind === "tron" ? normalizeTronAddress(rawAddress) : rawAddress;
   if (!address) return;
@@ -400,11 +419,181 @@ export async function registerManualBlockchainWatch(
   }
 }
 
+async function recoverVerifiedErc20Watch(
+  network: typeof blockchainMonitorNetworksTable.$inferSelect,
+  leaseToken: string,
+  adapter: ReturnType<typeof createBlockchainMonitorAdapter>,
+): Promise<void> {
+  const recovery = VERIFIED_ERC20_WATCH_RECOVERY;
+  if (network.id !== recovery.networkId) return;
+  const [order] = await db.select().from(ordersTable).where(and(
+    eq(ordersTable.id, recovery.orderId),
+    ELIGIBLE,
+    eq(ordersTable.status, "awaiting funds"),
+    eq(ordersTable.sourceSettlementOptionId, `crypto:${recovery.routeId}`),
+    eq(ordersTable.fromAsset, "USDC"),
+    eq(ordersTable.fromNetwork, "ERC20"),
+    eq(ordersTable.amount, recovery.amount),
+    sql`lower(${ordersTable.depositAddress}) = lower(${recovery.receivingAddress})`,
+    eq(ordersTable.createdAt, recovery.orderCreatedAt),
+  )).limit(1);
+  if (!order) return;
+  const [existingWatch] = await db.select({ id: blockchainMonitorWatchesTable.id })
+    .from(blockchainMonitorWatchesTable)
+    .where(eq(blockchainMonitorWatchesTable.orderId, recovery.orderId))
+    .limit(1);
+  if (existingWatch) return;
+
+  const [asset] = await db.select().from(blockchainMonitorAssetsTable)
+    .where(and(
+      eq(blockchainMonitorAssetsTable.monitorNetworkId, recovery.networkId),
+      eq(blockchainMonitorAssetsTable.assetNetworkId, recovery.routeId),
+      eq(blockchainMonitorAssetsTable.identityKind, "token"),
+      sql`lower(${blockchainMonitorAssetsTable.contractOrMint}) = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'`,
+      eq(blockchainMonitorAssetsTable.decimals, 6),
+      eq(blockchainMonitorAssetsTable.enabled, true),
+    ))
+    .limit(1);
+  if (
+    !asset ||
+    network.networkCode !== "ERC20" ||
+    network.adapterKind !== "evm" ||
+    network.chainId?.toLowerCase() !== "0x1" ||
+    network.providerKind !== "rpc" ||
+    !network.enabled
+  ) return;
+
+  try {
+    const scanned = await adapter.scanIncoming({
+      from: recovery.transactionBlock,
+      to: recovery.transactionBlock,
+    }, [{
+      address: recovery.receivingAddress,
+      assets: [{
+        assetId: asset.id,
+        symbol: recovery.routeId,
+        kind: "token",
+        contractOrMint: asset.contractOrMint ?? undefined,
+        decimals: asset.decimals,
+      }],
+    }]);
+    const evidence = scanned.evidence.find((candidate) =>
+      candidate.transactionHash.toLowerCase() === recovery.transactionHash &&
+      candidate.blockOrSlot === recovery.transactionBlock &&
+      candidate.assetId === asset.id &&
+      candidate.identityKind === "token" &&
+      candidate.contractOrMint?.toLowerCase() ===
+        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" &&
+      candidate.decimals === 6 &&
+      candidate.rawAmount === "10000000" &&
+      candidate.toAddress.toLowerCase() === recovery.receivingAddress.toLowerCase() &&
+      Boolean(candidate.blockTimestamp) &&
+      new Date(candidate.blockTimestamp!).getTime() >= recovery.orderCreatedAt.getTime()
+    );
+    if (!evidence) {
+      logger.warn(
+        { orderId: recovery.orderId, transactionHash: recovery.transactionHash },
+        "Verified ERC20 watch recovery evidence could not be independently reproduced",
+      );
+      return;
+    }
+    await withLease(network.id, leaseToken, async (tx) => {
+      const [lockedOrder] = await tx.select().from(ordersTable).where(and(
+        eq(ordersTable.id, recovery.orderId),
+        ELIGIBLE,
+        eq(ordersTable.status, "awaiting funds"),
+        eq(ordersTable.sourceSettlementOptionId, `crypto:${recovery.routeId}`),
+        eq(ordersTable.fromAsset, "USDC"),
+        eq(ordersTable.fromNetwork, "ERC20"),
+        eq(ordersTable.amount, recovery.amount),
+        sql`lower(${ordersTable.depositAddress}) = lower(${recovery.receivingAddress})`,
+        eq(ordersTable.createdAt, recovery.orderCreatedAt),
+      )).for("update").limit(1);
+      if (!lockedOrder) return;
+      const [lockedExistingWatch] = await tx.select().from(blockchainMonitorWatchesTable)
+        .where(eq(blockchainMonitorWatchesTable.orderId, recovery.orderId))
+        .limit(1);
+      if (lockedExistingWatch) return;
+      const [lockedAsset] = await tx.select().from(blockchainMonitorAssetsTable)
+        .where(and(
+          eq(blockchainMonitorAssetsTable.id, asset.id),
+          eq(blockchainMonitorAssetsTable.monitorNetworkId, network.id),
+          eq(blockchainMonitorAssetsTable.assetNetworkId, recovery.routeId),
+          eq(blockchainMonitorAssetsTable.identityKind, "token"),
+          sql`lower(${blockchainMonitorAssetsTable.contractOrMint}) = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'`,
+          eq(blockchainMonitorAssetsTable.decimals, 6),
+          eq(blockchainMonitorAssetsTable.enabled, true),
+        ))
+        .for("update")
+        .limit(1);
+      if (!lockedAsset) {
+        throw new Error("Verified ERC20 watch recovery asset identity changed before insertion.");
+      }
+      await tx.insert(blockchainMonitorWatchesTable).values({
+        orderId: recovery.orderId,
+        monitorNetworkId: network.id,
+        monitorAssetId: lockedAsset.id,
+        assetNetworkId: recovery.routeId,
+        expectedAmount: recovery.amount,
+        receivingAddress: recovery.receivingAddress,
+        memoOrTag: null,
+        identityKind: "token",
+        contractOrMint: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        decimals: 6,
+        orderCreatedAt: recovery.orderCreatedAt,
+        startCursor: recovery.startCursor,
+        currentCursor: recovery.startCursor,
+        registrationState: "active",
+        registrationReason: "Reviewed order-time cursor recovery after exact RPC receipt verification.",
+        active: true,
+      }).onConflictDoNothing({ target: blockchainMonitorWatchesTable.orderId });
+      const [storedWatch] = await tx.select().from(blockchainMonitorWatchesTable)
+        .where(eq(blockchainMonitorWatchesTable.orderId, recovery.orderId))
+        .limit(1);
+      if (
+        !storedWatch ||
+        storedWatch.monitorNetworkId !== network.id ||
+        storedWatch.monitorAssetId !== lockedAsset.id ||
+        storedWatch.assetNetworkId !== recovery.routeId ||
+        storedWatch.expectedAmount !== recovery.amount ||
+        storedWatch.receivingAddress.toLowerCase() !== recovery.receivingAddress.toLowerCase() ||
+        storedWatch.identityKind !== "token" ||
+        storedWatch.contractOrMint?.toLowerCase() !==
+          "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" ||
+        storedWatch.decimals !== 6 ||
+        storedWatch.orderCreatedAt.getTime() !== recovery.orderCreatedAt.getTime() ||
+        storedWatch.startCursor !== recovery.startCursor ||
+        storedWatch.currentCursor !== recovery.startCursor ||
+        storedWatch.registrationState !== "active" ||
+        !storedWatch.active
+      ) {
+        throw new Error("Verified ERC20 watch recovery produced an unexpected watch.");
+      }
+      await tx.update(blockchainMonitorRegistrationGapsTable).set({
+        resolvedAt: new Date(),
+        resolvedBy: "reviewed-order-time-cursor-recovery",
+      }).where(and(
+        eq(blockchainMonitorRegistrationGapsTable.orderId, recovery.orderId),
+        isNull(blockchainMonitorRegistrationGapsTable.resolvedAt),
+      ));
+    });
+  } catch (error) {
+    logger.warn(
+      { err: error, orderId: recovery.orderId },
+      "Verified ERC20 watch recovery failed",
+    );
+  }
+}
+
 async function reconcileResolvableRegistrationGaps(): Promise<void> {
   const gaps = await db.select({ orderId: blockchainMonitorRegistrationGapsTable.orderId })
     .from(blockchainMonitorRegistrationGapsTable)
     .innerJoin(ordersTable, eq(ordersTable.id, blockchainMonitorRegistrationGapsTable.orderId))
-    .where(and(isNull(blockchainMonitorRegistrationGapsTable.resolvedAt), ELIGIBLE))
+    .where(and(
+      isNull(blockchainMonitorRegistrationGapsTable.resolvedAt),
+      sql`${blockchainMonitorRegistrationGapsTable.orderId} <> ${VERIFIED_ERC20_WATCH_RECOVERY.orderId}`,
+      ELIGIBLE,
+    ))
     .limit(100);
   for (const gap of gaps) {
     try {
@@ -672,13 +861,15 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
     try {
       const adapter = createBlockchainMonitorAdapter(config);
       if (leaseLost) throw new Error("Blockchain monitoring lease was lost.");
-      const watches = await db.select().from(blockchainMonitorWatchesTable)
-        .where(and(eq(blockchainMonitorWatchesTable.monitorNetworkId, network.id), eq(blockchainMonitorWatchesTable.active, true), eq(blockchainMonitorWatchesTable.registrationState, "active")));
       const connection = await adapter.testConnection();
       if (network.chainId && connection.chainId?.toLowerCase() !== network.chainId.toLowerCase()) {
         throw new Error("Configured blockchain network identity did not match provider.");
       }
       const head = await adapter.getHead();
+      await recoverVerifiedErc20Watch(network, leaseToken, adapter);
+      if (leaseLost) throw new Error("Blockchain monitoring lease was lost.");
+      const watches = await db.select().from(blockchainMonitorWatchesTable)
+        .where(and(eq(blockchainMonitorWatchesTable.monitorNetworkId, network.id), eq(blockchainMonitorWatchesTable.active, true), eq(blockchainMonitorWatchesTable.registrationState, "active")));
       for (const watch of watches) {
         const watched: WatchedAddress[] = [{
           address: watch.receivingAddress, memoOrTag: undefined,
