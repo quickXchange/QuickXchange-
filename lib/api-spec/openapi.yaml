@@ -2195,6 +2195,28 @@ paths:
         "422":
           description: Receiving wallet configuration is invalid for one or more selected networks
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+  /admin/crypto-networks/receiving-wallet/preview:
+    post:
+      operationId: previewCryptoNetworkReceivingWallet
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      summary: Preview wallet and Customer Deposits changes for exact selected routes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CryptoNetworkReceivingWalletInput" }
+      responses:
+        "200":
+          description: Proposed route results with exact monitoring readiness
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/CryptoNetwork" }
+        "404":
+          description: One or more selected network rows were not found
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
   /admin/crypto-networks/{id}/customer-deposits:
     patch:
       operationId: updateCryptoNetworkCustomerDeposits
@@ -6278,7 +6300,7 @@ components:
     CryptoNetworkReceivingWalletInput:
       type: object
       additionalProperties: false
-      required: [networkIds, walletAddress, depositProvider]
+      required: [networkIds, walletAddress]
       properties:
         networkIds:
           type: array
@@ -6289,6 +6311,7 @@ components:
         walletAddress: { type: string, maxLength: 500 }
         memo: { type: [string, "null"], maxLength: 500 }
         depositProvider: { type: string, minLength: 1, maxLength: 64 }
+        preserveDepositProviders: { type: boolean, default: false }
         networkEnabled: { type: boolean }
         enabled: { type: boolean }
     CryptoNetworkCustomerDepositsUpdate:

@@ -3908,14 +3908,71 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     assert.equal(exact.status, 200);
     assert.deepEqual(exact.body.map((row: { id: string }) => row.id), [networkAId]);
     assert.equal(exact.body[0]?.customerDepositsEnabled, false);
-    const selectedNetworks = await apiJson(api.url, "/admin/crypto-networks/receiving-wallet", {
+    const selectedWalletPayload = {
       networkIds: [networkAId, networkBId],
       walletAddress: "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9e75rs",
       memo: "selected-network-memo",
       networkEnabled: true,
       enabled: true,
-      depositProvider: "manual",
-    }, "PUT", headers);
+      preserveDepositProviders: true,
+    };
+    await db.update(blockchainMonitorAssetsTable).set({ enabled: false })
+      .where(eq(blockchainMonitorAssetsTable.assetNetworkId, networkBId));
+    const blockedMonitorPreview = await apiJson(
+      api.url,
+      "/admin/crypto-networks/receiving-wallet/preview",
+      selectedWalletPayload,
+      "POST",
+      headers,
+    );
+    assert.equal(blockedMonitorPreview.status, 200, JSON.stringify(blockedMonitorPreview.body));
+    assert.equal(
+      blockedMonitorPreview.body.find((row: { id: string }) => row.id === networkBId)
+        ?.monitoringReadiness?.code,
+      "ASSET_MONITOR_DISABLED",
+    );
+    const blockedMonitorApply = await apiJson(
+      api.url,
+      "/admin/crypto-networks/receiving-wallet",
+      selectedWalletPayload,
+      "PUT",
+      headers,
+    );
+    assert.equal(blockedMonitorApply.status, 200, JSON.stringify(blockedMonitorApply.body));
+    assert.equal(
+      blockedMonitorApply.body.find((row: { id: string }) => row.id === networkBId)
+        ?.customerDepositsEnabled,
+      false,
+    );
+    assert.equal(
+      (await db.select({ enabled: blockchainMonitorAssetsTable.enabled })
+        .from(blockchainMonitorAssetsTable)
+        .where(eq(blockchainMonitorAssetsTable.assetNetworkId, networkBId))
+        .limit(1))[0]?.enabled,
+      false,
+    );
+    await db.update(blockchainMonitorAssetsTable).set({ enabled: true })
+      .where(eq(blockchainMonitorAssetsTable.assetNetworkId, networkBId));
+    const selectedPreview = await apiJson(
+      api.url,
+      "/admin/crypto-networks/receiving-wallet/preview",
+      selectedWalletPayload,
+      "POST",
+      headers,
+    );
+    assert.equal(selectedPreview.status, 200, JSON.stringify(selectedPreview.body));
+    assert.equal(selectedPreview.body.length, 2);
+    assert.ok(selectedPreview.body.every((row: {
+      customerDepositsEnabled: boolean;
+      monitoringReadiness?: { code: string };
+    }) => row.customerDepositsEnabled && row.monitoringReadiness?.code === "READY"));
+    const selectedNetworks = await apiJson(
+      api.url,
+      "/admin/crypto-networks/receiving-wallet",
+      selectedWalletPayload,
+      "PUT",
+      headers,
+    );
     assert.equal(selectedNetworks.status, 200, JSON.stringify(selectedNetworks.body));
     assert.deepEqual(
       selectedNetworks.body.map((row: { id: string }) => row.id).sort(),

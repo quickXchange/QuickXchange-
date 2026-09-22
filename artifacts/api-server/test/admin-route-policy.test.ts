@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
-import { classifyAdminRoute } from "../src/lib/admin-policy";
+import { adminPolicy, classifyAdminRoute } from "../src/lib/admin-policy";
 
 test("every statically declared Admin route has a deny-by-default policy", async () => {
   const routesDirectory = join(process.cwd(), "src/routes");
@@ -54,6 +54,43 @@ test("deposit provider options use the receiving-wallet Owner boundary", () => {
     classifyAdminRoute("GET", "/admin/deposit-providers"),
     { permission: "receiving_wallets.manage", ownerOnly: true },
   );
+  assert.deepEqual(
+    classifyAdminRoute("POST", "/admin/crypto-networks/receiving-wallet/preview"),
+    { permission: "receiving_wallets.manage", ownerOnly: true },
+  );
+  assert.deepEqual(
+    classifyAdminRoute("PUT", "/admin/crypto-networks/receiving-wallet"),
+    { permission: "receiving_wallets.manage", ownerOnly: true },
+  );
+  assert.deepEqual(
+    classifyAdminRoute("PATCH", "/admin/crypto-networks/btc-bitcoin/customer-deposits"),
+    { permission: "receiving_wallets.manage", ownerOnly: true },
+  );
+});
+
+test("non-owner operators cannot preview, bulk apply, or toggle Customer Deposits", async () => {
+  const paths = [
+    ["POST", "/admin/crypto-networks/receiving-wallet/preview"],
+    ["PUT", "/admin/crypto-networks/receiving-wallet"],
+    ["PATCH", "/admin/crypto-networks/btc-bitcoin/customer-deposits"],
+  ] as const;
+  for (const [method, path] of paths) {
+    const error = await new Promise<unknown>((resolve) => {
+      adminPolicy(
+        { method, path } as never,
+        {
+          locals: {
+            operator: {
+              role: "operator",
+              effectivePermissions: ["receiving_wallets.manage"],
+            },
+          },
+        } as never,
+        resolve,
+      );
+    });
+    assert.equal((error as { code?: string }).code, "OWNER_ACCESS_REQUIRED");
+  }
 });
 
 test("blockchain monitoring bulk setup keeps view and Owner mutation boundaries separate", () => {

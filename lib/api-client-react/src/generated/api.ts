@@ -7934,6 +7934,77 @@ export const useSaveCryptoNetworkReceivingWallet = <TError = ErrorType<ApiError>
       return useMutation(getSaveCryptoNetworkReceivingWalletMutationOptions(options));
     }
 
+export const getPreviewCryptoNetworkReceivingWalletUrl = () => {
+
+
+
+
+  return `/api/admin/crypto-networks/receiving-wallet/preview`
+}
+
+/**
+ * @summary Preview wallet and Customer Deposits changes for exact selected routes
+ */
+export const previewCryptoNetworkReceivingWallet = async (cryptoNetworkReceivingWalletInput: CryptoNetworkReceivingWalletInput, options?: Parameters<typeof customFetch>[1]): Promise<CryptoNetwork[]> => {
+
+  return customFetch<CryptoNetwork[]>(getPreviewCryptoNetworkReceivingWalletUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(cryptoNetworkReceivingWalletInput)
+  }
+);}
+
+
+
+
+
+export const getPreviewCryptoNetworkReceivingWalletMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewCryptoNetworkReceivingWallet>>, TError,{data: BodyType<CryptoNetworkReceivingWalletInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewCryptoNetworkReceivingWallet>>, TError,{data: BodyType<CryptoNetworkReceivingWalletInput>}, TContext> => {
+
+const mutationKey = ['previewCryptoNetworkReceivingWallet'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewCryptoNetworkReceivingWallet>>, {data: BodyType<CryptoNetworkReceivingWalletInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  previewCryptoNetworkReceivingWallet(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PreviewCryptoNetworkReceivingWalletMutationResult = NonNullable<Awaited<ReturnType<typeof previewCryptoNetworkReceivingWallet>>>
+    export type PreviewCryptoNetworkReceivingWalletMutationBody = BodyType<CryptoNetworkReceivingWalletInput>
+    export type PreviewCryptoNetworkReceivingWalletMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Preview wallet and Customer Deposits changes for exact selected routes
+ */
+export const usePreviewCryptoNetworkReceivingWallet = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewCryptoNetworkReceivingWallet>>, TError,{data: BodyType<CryptoNetworkReceivingWalletInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof previewCryptoNetworkReceivingWallet>>,
+        TError,
+        {data: BodyType<CryptoNetworkReceivingWalletInput>},
+        TContext
+      > => {
+      return useMutation(getPreviewCryptoNetworkReceivingWalletMutationOptions(options));
+    }
+
 export const getUpdateCryptoNetworkCustomerDepositsUrl = (id: string,) => {
 
 

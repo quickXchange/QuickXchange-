@@ -243,6 +243,10 @@ export async function prepareManualMonitoringReadiness(
       continue;
     }
     const verifiedAsset = identity;
+    if (!verifiedAsset.enabled) {
+      outcomes.set(input.routeId, result(input, "ASSET_MONITOR_DISABLED", networkCode, network.id, verifiedAsset.id));
+      continue;
+    }
     if (!network.enabled) {
       outcomes.set(input.routeId, result(input, "NETWORK_MONITOR_DISABLED", networkCode, network.id, verifiedAsset.id));
       continue;

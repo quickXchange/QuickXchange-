@@ -104,6 +104,8 @@ const POLICY_MATCHERS: readonly PolicyMatcher[] = [
   { method: "DELETE", pattern: /^\/admin\/crypto-assets\/logo-upload\/[^/]+$/, policy: P("crypto_assets.manage") },
   { method: "GET", pattern: /^\/admin\/crypto-networks$/, policy: P("crypto_networks.view") },
   { method: "POST", pattern: /^\/admin\/crypto-networks$/, policy: P("crypto_networks.manage") },
+  { method: "POST", pattern: /^\/admin\/crypto-networks\/receiving-wallet\/preview$/, policy: P("receiving_wallets.manage", true) },
+  { method: "PATCH", pattern: /^\/admin\/crypto-networks\/[^/]+\/customer-deposits$/, policy: P("receiving_wallets.manage", true) },
   { method: "PATCH", pattern: /^\/admin\/crypto-networks\/[^/]+$/, policy: P("crypto_networks.manage") },
   { method: "DELETE", pattern: /^\/admin\/crypto-networks\/[^/]+$/, policy: P("crypto_networks.manage") },
   { method: "PUT", pattern: /^\/admin\/crypto-networks\/receiving-wallet$/, policy: P("receiving_wallets.manage", true) },
