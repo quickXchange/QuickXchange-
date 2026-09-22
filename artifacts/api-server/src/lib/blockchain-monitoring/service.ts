@@ -134,6 +134,24 @@ export function deriveBlockchainMonitoringSetupStatus(input: {
   return "ready";
 }
 
+export function shouldRefreshStrictManualReadinessProof(input: {
+  adapterKind: string;
+  networkCode: string;
+  chainId: string | null;
+}): boolean {
+  return input.adapterKind === "bitcoin" || (
+    isLegacyBep20Network(input.networkCode) &&
+    input.chainId?.trim().toLowerCase() === "0x38"
+  ) || (
+    input.adapterKind === "tron" &&
+    input.chainId?.trim().toLowerCase() === TRON_MAINNET_CHAIN_ID
+  ) || (
+    input.adapterKind === "evm" &&
+    input.networkCode.trim().toUpperCase() === "POLYGON" &&
+    input.chainId?.trim().toLowerCase() === "0x89"
+  );
+}
+
 export function selectReadyBlockchainMonitoringSetupRoutes<T extends {
   assetNetworkId: string;
   status: BlockchainMonitoringSetupStatus;
@@ -676,13 +694,7 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
       await applyConfirmedMatches(leaseToken, network.id);
       const checkedAt = new Date();
       const legacyBep20 = usesLegacyBep20Readiness(network.networkCode, network.chainId);
-      const strictManualProof = network.adapterKind === "bitcoin" || (
-        isLegacyBep20Network(network.networkCode) &&
-        network.chainId?.trim().toLowerCase() === "0x38"
-      ) || (
-        network.adapterKind === "tron" &&
-        network.chainId?.trim().toLowerCase() === TRON_MAINNET_CHAIN_ID
-      );
+      const strictManualProof = shouldRefreshStrictManualReadinessProof(network);
       const healthProofConfig = legacyBep20 ? undefined : adapterConfig(network);
        await withLease(network.id, leaseToken, async (tx) => {
          const [currentNetwork] = await tx.select().from(blockchainMonitorNetworksTable)

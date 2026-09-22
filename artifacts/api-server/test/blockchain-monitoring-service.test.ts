@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { boundedBitcoinWatchScanRange, boundedWatchScanEnd, canApplyConfirmedMatchWatch, canResolveRegistrationGap, cursorAfterCapturedHead, deriveBlockchainMonitoringSetupStatus, evidenceWithinWatchCursor, exactAmountMatches, exactWatchMatchesOrderSnapshot, evidenceMeetsWatchTimeAndMemo, immutableIdentityMatches, isFinalitySatisfied, selectReadyBlockchainMonitoringSetupRoutes, selectWatchScanCursor } from "../src/lib/blockchain-monitoring/service";
+import { boundedBitcoinWatchScanRange, boundedWatchScanEnd, canApplyConfirmedMatchWatch, canResolveRegistrationGap, cursorAfterCapturedHead, deriveBlockchainMonitoringSetupStatus, evidenceWithinWatchCursor, exactAmountMatches, exactWatchMatchesOrderSnapshot, evidenceMeetsWatchTimeAndMemo, immutableIdentityMatches, isFinalitySatisfied, selectReadyBlockchainMonitoringSetupRoutes, selectWatchScanCursor, shouldRefreshStrictManualReadinessProof } from "../src/lib/blockchain-monitoring/service";
 import { canEnqueueSwapPaymentReceived } from "../src/lib/telegram-swap-notifications";
 
 test("Manual monitoring matches decimal order amounts only at configured precision", () => {
@@ -40,6 +40,29 @@ test("Manual monitoring applies configured finality and immutable identity", () 
   assert.equal(canResolveRegistrationGap("active", true), true);
   const snapshot = { orderId: "o", monitorNetworkId: "n", monitorAssetId: "a", assetNetworkId: "r", expectedAmount: "1", receivingAddress: "x", memoOrTag: null, identityKind: "native", contractOrMint: null, decimals: 18, orderCreatedAt: new Date(0) };
   assert.equal(exactWatchMatchesOrderSnapshot(snapshot, snapshot), true);
+});
+
+test("strict scheduler proof refresh accepts only canonical Polygon", () => {
+  assert.equal(shouldRefreshStrictManualReadinessProof({
+    adapterKind: "evm",
+    networkCode: "POLYGON",
+    chainId: "0x89",
+  }), true);
+  assert.equal(shouldRefreshStrictManualReadinessProof({
+    adapterKind: "evm",
+    networkCode: "POLYGON_LEGACY",
+    chainId: "0x89",
+  }), false);
+  assert.equal(shouldRefreshStrictManualReadinessProof({
+    adapterKind: "evm",
+    networkCode: "POLYGON",
+    chainId: "0x1",
+  }), false);
+  assert.equal(shouldRefreshStrictManualReadinessProof({
+    adapterKind: "evm",
+    networkCode: "POLYGON",
+    chainId: null,
+  }), false);
 });
 
 test("native watch ranges make bounded progress while token ranges retain bulk log scans", () => {
