@@ -5525,8 +5525,8 @@ components:
         customerMarkedPaidAt: { type: ["string", "null"] }
         completedAt: { type: ["string", "null"], format: date-time }
         exchangeRate: { type: string }
-        transactionHash: { type: string }
-        paymentReference: { type: string }
+        transactionHash: { type: [string, "null"] }
+        paymentReference: { type: [string, "null"] }
     ManualPublicOrderStatus:
       allOf:
         - $ref: "#/components/schemas/PublicOrderStatus"

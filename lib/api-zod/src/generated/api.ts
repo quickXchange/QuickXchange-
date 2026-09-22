@@ -2930,8 +2930,8 @@ export const GetPublicOrderStatusResponse = zod.object({
   "customerMarkedPaidAt": zod.string().nullish(),
   "completedAt": zod.coerce.date().nullish(),
   "exchangeRate": zod.string().optional(),
-  "transactionHash": zod.string().optional(),
-  "paymentReference": zod.string().optional()
+  "transactionHash": zod.string().nullish(),
+  "paymentReference": zod.string().nullish()
 }).and(zod.object({
   "verifiedFundingTransaction": zod.object({
   "transactionHash": zod.string(),
@@ -10667,8 +10667,8 @@ export const GetQuickexOrderStatusResponse = zod.object({
   "customerMarkedPaidAt": zod.string().nullish(),
   "completedAt": zod.coerce.date().nullish(),
   "exchangeRate": zod.string().optional(),
-  "transactionHash": zod.string().optional(),
-  "paymentReference": zod.string().optional()
+  "transactionHash": zod.string().nullish(),
+  "paymentReference": zod.string().nullish()
 })
 
 

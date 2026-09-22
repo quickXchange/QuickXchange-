@@ -52,6 +52,8 @@ export interface PublicOrderStatus {
   /** @nullable */
   completedAt?: Date | null;
   exchangeRate?: string;
-  transactionHash?: string;
-  paymentReference?: string;
+  /** @nullable */
+  transactionHash?: string | null;
+  /** @nullable */
+  paymentReference?: string | null;
 }

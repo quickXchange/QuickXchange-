@@ -2403,8 +2403,10 @@ export interface PublicOrderStatus {
   /** @nullable */
   completedAt?: string | null;
   exchangeRate?: string;
-  transactionHash?: string;
-  paymentReference?: string;
+  /** @nullable */
+  transactionHash?: string | null;
+  /** @nullable */
+  paymentReference?: string | null;
 }
 
 export type ManualPublicOrderStatus = PublicOrderStatus & {

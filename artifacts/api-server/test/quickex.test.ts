@@ -3956,7 +3956,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     assert.equal(tableSelectedBulk.body[0]?.customerDepositsEnabled, false);
     assert.equal(tableSelectedBulk.body[0]?.sharedDepositAddress, "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh");
     assert.equal(tableSelectedBulk.body[0]?.sharedDepositMemo, "table-selected-memo");
-    const rejectedSelection = await apiJson(api.url, "/admin/crypto-networks/receiving-wallet", {
+    const partiallyReadySelection = await apiJson(api.url, "/admin/crypto-networks/receiving-wallet", {
       networkIds: [networkAId, networkBId],
       walletAddress: "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080",
       memo: null,
@@ -3964,15 +3964,37 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
       enabled: true,
       depositProvider: "manual",
     }, "PUT", headers);
-    assert.equal(rejectedSelection.status, 422, JSON.stringify(rejectedSelection.body));
-    assert.equal(rejectedSelection.body.code, "CRYPTO_DEPOSIT_MEMO_REQUIRED");
-    const rowsAfterRejectedSelection = await db.select().from(cryptoAssetNetworksTable)
+    assert.equal(partiallyReadySelection.status, 200, JSON.stringify(partiallyReadySelection.body));
+    const readyWithoutMemo = partiallyReadySelection.body.find(
+      (row: { id: string }) => row.id === networkAId,
+    );
+    const memoRequired = partiallyReadySelection.body.find(
+      (row: { id: string }) => row.id === networkBId,
+    );
+    assert.equal(readyWithoutMemo?.sharedDepositAddress, "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080");
+    assert.equal(readyWithoutMemo?.sharedDepositMemo, null);
+    assert.equal(readyWithoutMemo?.customerDepositsEnabled, true);
+    assert.equal(readyWithoutMemo?.monitoringReadiness?.code, "READY");
+    assert.equal(readyWithoutMemo?.monitoringReadiness?.ready, true);
+    assert.equal(memoRequired?.sharedDepositAddress, "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080");
+    assert.equal(memoRequired?.sharedDepositMemo, null);
+    assert.equal(memoRequired?.customerDepositsEnabled, false);
+    assert.equal(memoRequired?.monitoringReadiness?.code, "MEMO_INVALID");
+    assert.equal(memoRequired?.monitoringReadiness?.ready, false);
+    const rowsAfterPartiallyReadySelection = await db.select().from(cryptoAssetNetworksTable)
       .where(inArray(cryptoAssetNetworksTable.id, [networkAId, networkBId]));
-    assert.ok(rowsAfterRejectedSelection.every(row =>
-      row.sharedDepositAddress === "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh" &&
-      row.sharedDepositMemo === "selected-network-memo" &&
-      row.customerDepositsEnabled
+    assert.ok(rowsAfterPartiallyReadySelection.every(row =>
+      row.sharedDepositAddress === "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080" &&
+      row.sharedDepositMemo === null
     ));
+    assert.equal(
+      rowsAfterPartiallyReadySelection.find(row => row.id === networkAId)?.customerDepositsEnabled,
+      true,
+    );
+    assert.equal(
+      rowsAfterPartiallyReadySelection.find(row => row.id === networkBId)?.customerDepositsEnabled,
+      false,
+    );
     const exactNetworkOnly = await apiJson(api.url, "/admin/crypto-networks/receiving-wallet", {
       networkIds: [networkAId],
       walletAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
@@ -3987,9 +4009,9 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     assert.equal(independentRows.find(row => row.id === networkAId)?.sharedDepositMemo, "network-a-only");
     assert.equal(independentRows.find(row => row.id === networkAId)?.enabled, false);
     assert.equal(independentRows.find(row => row.id === networkAId)?.customerDepositsEnabled, false);
-    assert.equal(independentRows.find(row => row.id === networkBId)?.sharedDepositMemo, "selected-network-memo");
+    assert.equal(independentRows.find(row => row.id === networkBId)?.sharedDepositMemo, null);
     assert.equal(independentRows.find(row => row.id === networkBId)?.enabled, true);
-    assert.equal(independentRows.find(row => row.id === networkBId)?.customerDepositsEnabled, true);
+    assert.equal(independentRows.find(row => row.id === networkBId)?.customerDepositsEnabled, false);
     await db.update(cryptoAssetNetworksTable).set({ enabled: true })
       .where(eq(cryptoAssetNetworksTable.id, networkAId));
     await db.transaction(tx =>
@@ -4016,22 +4038,26 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
       networkId: networkAId, walletAddress: "not-a-bitcoin-address", memo: null,
       enabled: true, useForAllAssetsOnNetwork: false, depositProvider: "manual",
     }, "PUT", headers);
-    assert.equal(invalidAddress.status, 422);
-    assert.equal(invalidAddress.body.code, "CRYPTO_DEPOSIT_ADDRESS_INVALID");
+    assert.equal(invalidAddress.status, 200, JSON.stringify(invalidAddress.body));
+    assert.equal(invalidAddress.body[0]?.customerDepositsEnabled, false);
+    assert.equal(invalidAddress.body[0]?.monitoringReadiness?.code, "ADDRESS_INVALID");
+    assert.equal(invalidAddress.body[0]?.monitoringReadiness?.ready, false);
     const invalidOptionalMemo = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
       networkId: networkAId,
       walletAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
-      memo: "invalid\u0000memo",
+      memo: "x".repeat(121),
       enabled: true,
       useForAllAssetsOnNetwork: false,
       depositProvider: "manual",
     }, "PUT", headers);
-    assert.equal(invalidOptionalMemo.status, 422);
-    assert.equal(invalidOptionalMemo.body.code, "CRYPTO_DEPOSIT_MEMO_INVALID");
+    assert.equal(invalidOptionalMemo.status, 200, JSON.stringify(invalidOptionalMemo.body));
+    assert.equal(invalidOptionalMemo.body[0]?.customerDepositsEnabled, false);
+    assert.equal(invalidOptionalMemo.body[0]?.monitoringReadiness?.code, "MEMO_INVALID");
+    assert.equal(invalidOptionalMemo.body[0]?.monitoringReadiness?.ready, false);
     const invalidDisabledMemo = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
       networkId: networkAId,
       walletAddress: "",
-      memo: "invalid\u0000memo",
+      memo: "x".repeat(121),
       enabled: false,
       useForAllAssetsOnNetwork: false,
       depositProvider: "none",
@@ -4058,7 +4084,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     assert.equal(sharedRows.find(row => row.id === networkAId)?.customerDepositsEnabled, false);
     assert.equal(sharedRows.find(row => row.id === networkBId)?.depositProvider, "manual");
     assert.equal(sharedRows.find(row => row.id === networkBId)?.sharedDepositAddress, "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh");
-    assert.equal(sharedRows.find(row => row.id === networkBId)?.customerDepositsEnabled, true);
+    assert.equal(sharedRows.find(row => row.id === networkBId)?.customerDepositsEnabled, false);
     const sharedConfig = await (await fetch(`${api.url}/exchange/config`)).json() as {
       manualSettlementOptions: Array<{ id: string; direction: string }>;
     };
@@ -4068,7 +4094,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     );
     assert.equal(
       sharedConfig.manualSettlementOptions.find(option => option.id === `crypto:${networkBId}`)?.direction,
-      "both",
+      "receive",
     );
 
     await db.update(cryptoAssetNetworksTable).set({ sharedDepositMemo: null })
@@ -4077,8 +4103,17 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
       networkId: networkAId, walletAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", memo: null,
       enabled: true, useForAllAssetsOnNetwork: true, depositProvider: "manual",
     }, "PUT", headers);
-    assert.equal(optionalMemo.status, 422);
-    assert.equal(optionalMemo.body.code, "CRYPTO_DEPOSIT_MEMO_REQUIRED");
+    assert.equal(optionalMemo.status, 200, JSON.stringify(optionalMemo.body));
+    const optionalMemoReady = optionalMemo.body.find(
+      (row: { id: string }) => row.id === networkAId,
+    );
+    const optionalMemoRequired = optionalMemo.body.find(
+      (row: { id: string }) => row.id === networkBId,
+    );
+    assert.equal(optionalMemoReady?.customerDepositsEnabled, true);
+    assert.equal(optionalMemoReady?.monitoringReadiness?.code, "READY");
+    assert.equal(optionalMemoRequired?.customerDepositsEnabled, false);
+    assert.equal(optionalMemoRequired?.monitoringReadiness?.code, "MEMO_INVALID");
     const afterOptionalMemoSave = await db.select().from(cryptoAssetNetworksTable)
       .where(inArray(cryptoAssetNetworksTable.id, [networkAId, networkBId]));
     assert.ok(afterOptionalMemoSave.every(row => row.sharedDepositAddress === "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"));
