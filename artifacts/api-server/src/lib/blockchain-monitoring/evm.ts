@@ -130,12 +130,70 @@ export class EvmJsonRpcAdapter implements BlockchainMonitorAdapter {
   }
 
   private async rpc<T>(method: string, params: unknown[]): Promise<T> {
-    const response = await providerJson<RpcResponse<T>>(this.endpoint, {
-      method: "POST",
-      headers: { "content-type": "application/json", ...this.headers },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-    }, this.timeoutMs);
-    return rpcError(response);
+    const startedAt = new Date();
+    const remainingMs = this.config.deadlineAtMs === undefined
+      ? this.timeoutMs
+      : this.config.deadlineAtMs - startedAt.getTime();
+    const requestTimeoutMs = Math.min(this.timeoutMs, remainingMs);
+    this.config.rpcTrace?.({
+      networkCode: this.networkCode,
+      method,
+      startedAt: startedAt.toISOString(),
+      timeoutMs: Math.max(0, requestTimeoutMs),
+      outcome: "started",
+    });
+    if (requestTimeoutMs <= 0) {
+      const completedAt = new Date();
+      this.config.rpcTrace?.({
+        networkCode: this.networkCode,
+        method,
+        startedAt: startedAt.toISOString(),
+        completedAt: completedAt.toISOString(),
+        durationMs: completedAt.getTime() - startedAt.getTime(),
+        timeoutMs: 0,
+        outcome: "timeout",
+        errorCategory: "TIMEOUT",
+      });
+      throw new BlockchainMonitorError("TIMEOUT", `Blockchain RPC ${method} timed out.`);
+    }
+    try {
+      const response = await providerJson<RpcResponse<T>>(this.endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...this.headers },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+      }, requestTimeoutMs);
+      const result = rpcError(response);
+      const completedAt = new Date();
+      this.config.rpcTrace?.({
+        networkCode: this.networkCode,
+        method,
+        startedAt: startedAt.toISOString(),
+        completedAt: completedAt.toISOString(),
+        durationMs: completedAt.getTime() - startedAt.getTime(),
+        timeoutMs: requestTimeoutMs,
+        outcome: "success",
+      });
+      return result;
+    } catch (error) {
+      const completedAt = new Date();
+      const errorCategory = error instanceof BlockchainMonitorError ? error.code : "NETWORK";
+      this.config.rpcTrace?.({
+        networkCode: this.networkCode,
+        method,
+        startedAt: startedAt.toISOString(),
+        completedAt: completedAt.toISOString(),
+        durationMs: completedAt.getTime() - startedAt.getTime(),
+        timeoutMs: requestTimeoutMs,
+        outcome: errorCategory === "TIMEOUT" ? "timeout" : "failure",
+        errorCategory,
+      });
+      throw new BlockchainMonitorError(
+        errorCategory,
+        errorCategory === "TIMEOUT"
+          ? `Blockchain RPC ${method} timed out.`
+          : `Blockchain RPC ${method} failed (${errorCategory}).`,
+      );
+    }
   }
 
   async testConnection(): Promise<ConnectionResult> {

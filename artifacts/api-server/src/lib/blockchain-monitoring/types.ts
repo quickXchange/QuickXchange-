@@ -33,6 +33,19 @@ export type MonitorConfig = {
   chainId?: string;
   confirmationsRequired?: number;
   requestTimeoutMs?: number;
+  /** Internal absolute deadline shared by all requests in one leased cycle. */
+  deadlineAtMs?: number;
+  /** Internal structured RPC trace sink. It must never receive endpoint or credential values. */
+  rpcTrace?: (event: {
+    networkCode: string;
+    method: string;
+    startedAt: string;
+    completedAt?: string;
+    durationMs?: number;
+    timeoutMs: number;
+    outcome: "started" | "success" | "failure" | "timeout";
+    errorCategory?: string;
+  }) => void;
   maxRange?: number;
 };
 

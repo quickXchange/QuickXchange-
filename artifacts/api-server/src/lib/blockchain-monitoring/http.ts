@@ -6,8 +6,8 @@ export async function providerJson<T>(
   timeoutMs: number,
 ): Promise<T> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const request = (async () => {
     const response = await fetch(endpoint, { ...init, signal: controller.signal });
     if (!response.ok) throw sanitizedProviderError("PROVIDER");
     try {
@@ -15,11 +15,20 @@ export async function providerJson<T>(
     } catch {
       throw sanitizedProviderError("INVALID_RESPONSE");
     }
+  })();
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(sanitizedProviderError("TIMEOUT"));
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([request, deadline]);
   } catch (error) {
     if (error instanceof BlockchainMonitorError) throw error;
     throw sanitizedProviderError("NETWORK");
   } finally {
-    clearTimeout(timer);
+    if (timer) clearTimeout(timer);
   }
 }
 

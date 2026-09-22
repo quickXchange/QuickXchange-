@@ -4,6 +4,7 @@ import test from "node:test";
 import { EvmJsonRpcAdapter, normalizeEvmAddress, parseEvmNativeTransfer, parseEvmTransferLog } from "../src/lib/blockchain-monitoring/evm";
 import { normalizeTronAddress, parseTronNativeTransfer, parseTronTokenTransfer } from "../src/lib/blockchain-monitoring/tron";
 import { normalizeSolanaAddress, parseSolanaTransaction } from "../src/lib/blockchain-monitoring/solana";
+import { BlockchainMonitorError } from "../src/lib/blockchain-monitoring/errors";
 
 // Shapes below follow the public Ethereum JSON-RPC eth_getBlockByNumber /
 // eth_getLogs documentation and the public TronGrid v1 transaction response
@@ -128,6 +129,86 @@ test("EVM health checks prove required RPC methods with bounded payloads", async
     );
     assert(requests.some((request) => request.method === "eth_getTransactionReceipt"));
   } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
+});
+
+test("EVM RPC requests abort a hanging provider within the strict request timeout", async () => {
+  let closedRequests = 0;
+  const server = createServer((req) => {
+    req.on("close", () => { closedRequests += 1; });
+    req.resume();
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = server.address();
+    assert(address && typeof address === "object");
+    const adapter = new EvmJsonRpcAdapter({
+      networkCode: "BEP20",
+      provider: "rpc",
+      adapterKind: "evm",
+      endpoint: `http://127.0.0.1:${address.port}`,
+      chainId: "0x38",
+      requestTimeoutMs: 50,
+    });
+    const startedAt = Date.now();
+    await assert.rejects(
+      adapter.testConnection(),
+      (error: unknown) => {
+        assert(error instanceof BlockchainMonitorError);
+        assert.equal(error.code, "TIMEOUT");
+        assert.match(error.message, /^Blockchain RPC eth_(chainId|blockNumber) timed out\.$/);
+        return true;
+      },
+    );
+    assert(Date.now() - startedAt < 500);
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    assert(closedRequests >= 1);
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
+});
+
+test("EVM validation shares one total deadline across sequential RPC operations", async () => {
+  const server = createServer((req, res) => {
+    let body = "";
+    req.setEncoding("utf8");
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", () => {
+      const request = JSON.parse(body) as { id: number; method: string };
+      if (request.method === "eth_getBlockByNumber") return;
+      const result = request.method === "eth_chainId" ? "0x38" : "0x10";
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ jsonrpc: "2.0", id: request.id, result }));
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = server.address();
+    assert(address && typeof address === "object");
+    const startedAt = Date.now();
+    const adapter = new EvmJsonRpcAdapter({
+      networkCode: "BEP20",
+      provider: "rpc",
+      adapterKind: "evm",
+      endpoint: `http://127.0.0.1:${address.port}`,
+      chainId: "0x38",
+      requestTimeoutMs: 1_000,
+      deadlineAtMs: startedAt + 80,
+    });
+    await assert.rejects(
+      adapter.testConnection(),
+      (error: unknown) => {
+        assert(error instanceof BlockchainMonitorError);
+        assert.equal(error.code, "TIMEOUT");
+        assert.equal(error.message, "Blockchain RPC eth_getBlockByNumber timed out.");
+        return true;
+      },
+    );
+    assert(Date.now() - startedAt < 500);
+  } finally {
+    server.closeAllConnections();
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
 });

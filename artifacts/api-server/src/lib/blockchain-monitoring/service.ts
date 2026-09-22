@@ -27,6 +27,7 @@ const ELIGIBLE = and(
 );
 let cycleRunning = false;
 let recoveryMigration: Promise<void> | undefined;
+const MONITOR_CYCLE_DEADLINE_MS = 90_000;
 const VERIFIED_RECEIPT_RECOVERY_REASON =
   "Verified receipt recovery; inactive to prevent unbounded rescanning.";
 
@@ -476,13 +477,48 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
       or(isNull(blockchainMonitorNetworksTable.leaseExpiresAt), lt(blockchainMonitorNetworksTable.leaseExpiresAt, new Date())),
     )).returning();
     if (!leased) continue;
-    const config = adapterConfig(network);
-    if (!config) {
+    const baseConfig = adapterConfig(network);
+    if (!baseConfig) {
       await releaseLease(network.id, leaseToken);
       continue;
     }
+    const cycleDeadlineAt = Date.now() + MONITOR_CYCLE_DEADLINE_MS;
+    const config = {
+      ...baseConfig,
+      deadlineAtMs: cycleDeadlineAt,
+      rpcTrace: (event: {
+        networkCode: string;
+        method: string;
+        startedAt: string;
+        completedAt?: string;
+        durationMs?: number;
+        timeoutMs: number;
+        outcome: "started" | "success" | "failure" | "timeout";
+        errorCategory?: string;
+      }) => {
+        const details = {
+          networkCode: event.networkCode,
+          rpcMethod: event.method,
+          startedAt: event.startedAt,
+          completedAt: event.completedAt,
+          durationMs: event.durationMs,
+          requestTimeoutMs: event.timeoutMs,
+          outcome: event.outcome,
+          errorCategory: event.errorCategory,
+        };
+        if (event.outcome === "success" || event.outcome === "started") {
+          logger.info(details, `Blockchain RPC request ${event.outcome}`);
+        } else {
+          logger.warn(details, "Blockchain RPC request completed");
+        }
+      },
+    };
     let leaseLost = false;
     const heartbeat = setInterval(() => {
+      if (Date.now() >= cycleDeadlineAt) {
+        leaseLost = true;
+        return;
+      }
       void db.update(blockchainMonitorNetworksTable).set({ leaseExpiresAt: new Date(Date.now() + 30_000) })
         .where(and(eq(blockchainMonitorNetworksTable.id, network.id), eq(blockchainMonitorNetworksTable.leaseToken, leaseToken), sql`${blockchainMonitorNetworksTable.leaseExpiresAt} > now()`))
         .returning({ id: blockchainMonitorNetworksTable.id })
