@@ -145,5 +145,6 @@
 - [TRON indexer identity boundaries](tron-contract-query-encoding.md) — serialize canonical identities only at provider requests and bind TRC20 evidence to exact receipt-log indexes.
 - [TRON native evidence verification](tron-native-evidence.md) — verify native transfers with exact raw transaction results and canonical blocks before persistence.
 - [Polygon USDT0 identity boundary](polygon-usdt0-identity.md) — Polygon’s former bridged USDT contract now identifies as USDT0; never persist it as USDT without a catalog decision.
+- [Ethereum strict readiness](ethereum-strict-readiness.md) — exact-route proofs refresh only for canonical ERC20 on chain 0x1; disabled API routes remain outside manual monitoring.
 - [UTXO reorg discovery windows](utxo-reorg-discovery-windows.md) — UTXO monitors must rewind bounded confirmation windows so replacement-chain deposits are discoverable.
 - [BSC legacy readiness boundary](bsc-legacy-readiness-boundary.md) — preserve the legacy exception only for enabled native BNB; every BEP20 token requires exact readiness proof.

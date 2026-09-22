@@ -147,6 +147,10 @@ export function shouldRefreshStrictManualReadinessProof(input: {
     input.chainId?.trim().toLowerCase() === TRON_MAINNET_CHAIN_ID
   ) || (
     input.adapterKind === "evm" &&
+    input.networkCode.trim().toUpperCase() === "ERC20" &&
+    input.chainId?.trim().toLowerCase() === "0x1"
+  ) || (
+    input.adapterKind === "evm" &&
     input.networkCode.trim().toUpperCase() === "POLYGON" &&
     input.chainId?.trim().toLowerCase() === "0x89"
   );

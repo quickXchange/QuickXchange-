@@ -65,6 +65,29 @@ test("strict scheduler proof refresh accepts only canonical Polygon", () => {
   }), false);
 });
 
+test("strict scheduler proof refresh accepts only canonical Ethereum", () => {
+  assert.equal(shouldRefreshStrictManualReadinessProof({
+    adapterKind: "evm",
+    networkCode: "ERC20",
+    chainId: "0x1",
+  }), true);
+  assert.equal(shouldRefreshStrictManualReadinessProof({
+    adapterKind: "evm",
+    networkCode: "ERC20",
+    chainId: "0x89",
+  }), false);
+  assert.equal(shouldRefreshStrictManualReadinessProof({
+    adapterKind: "evm",
+    networkCode: "ETHEREUM_LEGACY",
+    chainId: "0x1",
+  }), false);
+  assert.equal(shouldRefreshStrictManualReadinessProof({
+    adapterKind: "tron",
+    networkCode: "ERC20",
+    chainId: "0x1",
+  }), false);
+});
+
 test("native watch ranges make bounded progress while token ranges retain bulk log scans", () => {
   assert.equal(boundedWatchScanEnd("100", "10000", "native"), "107");
   assert.equal(boundedWatchScanEnd("100", "105", "native"), "105");
