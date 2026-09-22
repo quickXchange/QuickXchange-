@@ -57,6 +57,7 @@ export function manualCryptoRouteNetwork(network: {
     "eth-ethereum": "Ethereum",
     "xrp-xrpl": "Ripple",
     "xmr-monero": "Monero",
+    "usdt0-polygon": "Polygon",
   };
   return legacyRouteNames[network.id] ?? network.networkCode;
 }

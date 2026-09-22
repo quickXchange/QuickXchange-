@@ -341,7 +341,7 @@ export const CRYPTO_NETWORK_CATALOG = [
   ["usdt-trc20", "usdt", "TRC20", "Tron", 6, false, 19],
   ["usdt-bep20", "usdt", "BEP20", "BNB Smart Chain", 6, false, 15],
   ["usdt-solana", "usdt", "SPL", "Solana", 6, false, 32],
-  ["usdt-polygon", "usdt", "POLYGON", "Polygon PoS", 6, false, 128],
+  ["usdt0-polygon", "usdt", "POLYGON", "Polygon", 6, false, 128],
   ["usdt-arbitrum", "usdt", "ARBITRUM", "Arbitrum One", 6, false, 1],
   ["usdt-base", "usdt", "BASE", "Base", 6, false, 1],
   ["usdt-avalanche-c", "usdt", "AVAXC", "Avalanche C-Chain", 6, false, 1],

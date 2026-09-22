@@ -3,8 +3,8 @@ name: Polygon USDT0 identity boundary
 description: Current Polygon stablecoin identity and the safe boundary for the existing USDT route.
 ---
 
-Do not bind the existing Polygon `USDT` route to the former bridged-USDT contract without explicitly reconciling the catalog to USDT0. The live contract now reports symbol `USDT0`, even though its address is unchanged.
+Use a separate Polygon route whose immutable identity makes USDT0 explicit, while the Widget may present that route as customer-facing `USDT` / `Polygon`. Preserve the former USDT route only for historical references and exclude it from new selections.
 
-**Why:** Polygon and USDT0 sources state that the former Polygon PoS child asset was upgraded to Polygon-native USDT0. Live Polygon Mainnet calls confirm deployed code, 6 decimals, active Transfer logs, and symbol `USDT0`, not `USDT`.
+**Why:** Polygon and USDT0 sources state that the former Polygon PoS child asset was upgraded to Polygon-native USDT0. The product decision is to keep the familiar USDT label for customers without weakening the exact on-chain identity boundary.
 
-**How to apply:** Treat USDT0 as a distinct verified identity decision. Update or add the catalog route only with explicit product approval, then persist the matching monitor identity and rerun final-adapter scans. Never silently label USDT0 as USDT.
+**How to apply:** Keep the route ID and monitor contract tied to USDT0, keep the public presentation alias limited to the Widget, and never use the legacy route for new selections. Reverify code, symbol, decimals, and real logs before identity changes.

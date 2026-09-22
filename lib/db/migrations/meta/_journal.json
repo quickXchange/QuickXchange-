@@ -743,6 +743,13 @@
       "when": 1790097000000,
       "tag": "0107_polygon_native_pol_monitor",
       "breakpoints": true
+    },
+    {
+      "idx": 108,
+      "version": "7",
+      "when": 1790098000000,
+      "tag": "0108_polygon_usdt0_monitor",
+      "breakpoints": true
     }
   ]
 }
