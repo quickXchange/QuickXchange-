@@ -13,7 +13,7 @@ import {
 } from "@workspace/db";
 import { randomUUID, createHash } from "node:crypto";
 import { createBlockchainMonitorAdapter, type IncomingEvidence, type MonitorAsset, type ScanCursor, type WatchedAddress } from "./index";
-import { normalizeTronAddress } from "./tron";
+import { normalizeTronAddress, TRON_MAINNET_CHAIN_ID } from "./tron";
 import { enqueueSwapTelegramNotification } from "../telegram-swap-notifications";
 import { updateOrderAndQueueStatusNotificationTx } from "../customer-status-notifications";
 import { logger } from "../logger";
@@ -679,6 +679,9 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
       const strictManualProof = network.adapterKind === "bitcoin" || (
         isLegacyBep20Network(network.networkCode) &&
         network.chainId?.trim().toLowerCase() === "0x38"
+      ) || (
+        network.adapterKind === "tron" &&
+        network.chainId?.trim().toLowerCase() === TRON_MAINNET_CHAIN_ID
       );
       const healthProofConfig = legacyBep20 ? undefined : adapterConfig(network);
        await withLease(network.id, leaseToken, async (tx) => {

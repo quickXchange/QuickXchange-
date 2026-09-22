@@ -6,6 +6,8 @@ import type {
   MonitorAsset, MonitorConfig, ScanCursor, ScanResult, WatchedAddress,
 } from "./types";
 
+export const TRON_MAINNET_CHAIN_ID = "0x2b6653dc";
+
 type TronNativeRecord = {
   txID?: string; block?: number; blockNumber?: number; block_timestamp?: number;
   blockHash?: string; contractIndex?: number;
@@ -258,13 +260,18 @@ export class TronIndexerAdapter implements BlockchainMonitorAdapter {
       identity.jsonrpc !== "2.0" ||
       identity.id !== 1 ||
       identity.error !== undefined ||
-      identity.result !== "0x2b6653dc"
+      identity.result !== TRON_MAINNET_CHAIN_ID
     ) {
       throw new BlockchainMonitorError("PROVIDER", "Blockchain monitoring provider returned an unexpected network.");
     }
     const number = head.block_header?.raw_data?.number;
     if (!Number.isSafeInteger(number)) throw new BlockchainMonitorError("INVALID_RESPONSE", "Blockchain monitoring provider returned an invalid head.");
-    return { connected: true, head: String(number), latencyMs: Date.now() - started };
+    return {
+      connected: true,
+      head: String(number),
+      chainId: TRON_MAINNET_CHAIN_ID,
+      latencyMs: Date.now() - started,
+    };
   }
 
   async getHead(): Promise<ChainHead> {

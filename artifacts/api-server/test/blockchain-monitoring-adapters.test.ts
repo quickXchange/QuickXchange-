@@ -543,6 +543,7 @@ test("TRON connection proves the configured endpoint is Mainnet before accepting
         const result = await adapter.testConnection();
         assert.deepEqual(result.connected, true);
         assert.equal(result.head, "120");
+        assert.equal(result.chainId, "0x2b6653dc");
         assert.equal(rpcMethod, "eth_chainId");
       } else {
         await assert.rejects(
