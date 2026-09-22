@@ -676,6 +676,7 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
         lastHead: head.cursor,
         healthStatus: "connected",
         healthCheckedAt: checkedAt,
+        lastSuccessfulScanAt: checkedAt,
         consecutiveFailures: 0,
         nextAttemptAt: null,
         healthError: null,

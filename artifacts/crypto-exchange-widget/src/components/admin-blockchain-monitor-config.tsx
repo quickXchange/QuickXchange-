@@ -31,7 +31,6 @@ export function BlockchainMonitorConfig({ network, networkCode }: { network: Cry
       ? !existingAsset.contractOrMint
       : Boolean(existingAsset.contractOrMint)
   ));
-  const addressReady = /^(0x[0-9a-fA-F]{40})$/.test(network.sharedDepositAddress || '');
   const healthCheckedAtMs = existingNet?.healthCheckedAt
     ? new Date(existingNet.healthCheckedAt).getTime()
     : 0;
@@ -41,17 +40,27 @@ export function BlockchainMonitorConfig({ network, networkCode }: { network: Cry
   const providerCompatible = Boolean(existingNet && (
     existingNet.adapterKind === 'evm' && existingNet.providerKind === 'rpc' ||
     existingNet.adapterKind === 'solana' && existingNet.providerKind === 'rpc' ||
-    existingNet.adapterKind === 'tron' && existingNet.providerKind === 'indexer'
+    existingNet.adapterKind === 'tron' && existingNet.providerKind === 'indexer' ||
+    existingNet.adapterKind === 'bitcoin' && existingNet.providerKind === 'rpc'
   ));
-  const readiness = !existingNet || !existingNet.enabled || !endpointReady ||
-    !identityReady || !addressReady || !providerCompatible || !healthFresh
-    ? 'INCOMPLETE'
-    : existingNet.healthStatus !== 'connected'
-      ? 'DISCONNECTED'
-      : 'READY';
-  const providerLabel = networkCode.toUpperCase() === 'BEP20'
-    ? 'BSC Monitor'
-    : existingNet?.networkName || 'Not configured';
+  const readinessReasons: string[] = [];
+  if (!existingNet) readinessReasons.push('Network monitor not configured');
+  else if (!existingNet.enabled) readinessReasons.push('Network monitor disabled');
+  else if (!endpointReady) readinessReasons.push('Endpoint secret not configured');
+  else if (!providerCompatible) readinessReasons.push('Incompatible provider/adapter combination');
+  else if (existingNet.healthStatus === 'not_configured') readinessReasons.push('Provider not configured');
+  else if (existingNet.healthStatus !== 'connected') readinessReasons.push('Provider disconnected');
+  else if (!healthFresh) readinessReasons.push('Health check stale');
+
+  if (!existingAsset) readinessReasons.push('Asset monitor not configured');
+  else if (!existingAsset.enabled) readinessReasons.push('Asset monitor disabled');
+  else if (!identityReady) readinessReasons.push('Asset identity incomplete');
+
+  if (network.monitoringReadiness?.ready === false) {
+    readinessReasons.push(network.monitoringReadiness.message);
+  }
+
+  const isReady = readinessReasons.length === 0;
 
   const [netForm, setNetForm] = useState({
     id: '',
@@ -176,11 +185,70 @@ export function BlockchainMonitorConfig({ network, networkCode }: { network: Cry
       {success && <InlineNotice kind="success">{success}</InlineNotice>}
 
       <div className="space-y-4">
-        <div className="grid gap-2 rounded-lg border border-border bg-background/60 p-3 text-sm">
-          <div><strong>Monitoring:</strong> {readiness}</div>
-          <div><strong>Provider:</strong> {providerLabel}</div>
-          <div><strong>Asset Type:</strong> {existingAsset?.identityKind === 'native' ? 'Native' : existingAsset?.identityKind === 'token' ? 'Token' : 'Not configured'}</div>
-          <div><strong>Customer Deposits:</strong> {readiness === 'READY' && network.customerDepositsEnabled ? 'Available' : 'Unavailable until READY'}</div>
+        <div className="space-y-4 mb-6">
+          <div className="grid gap-3 rounded-xl border border-border bg-card p-4 text-sm shadow-sm">
+            <div className="grid sm:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <div className="flex justify-between items-center pb-2 border-b border-border/50">
+                  <span className="text-muted-foreground font-medium">Network Monitor</span>
+                  <span className={existingNet?.enabled ? "text-emerald-500 font-semibold" : "text-muted-foreground font-semibold"}>{existingNet?.enabled ? "Enabled" : "Disabled"}</span>
+                </div>
+                <div className="flex justify-between items-center pb-2 border-b border-border/50">
+                  <span className="text-muted-foreground font-medium">Asset Monitoring</span>
+                  <span className={existingAsset?.enabled ? "text-emerald-500 font-semibold" : "text-muted-foreground font-semibold"}>{existingAsset?.enabled ? "Enabled" : "Disabled"}</span>
+                </div>
+                <div className="flex justify-between items-center pb-2 border-b border-border/50">
+                  <span className="text-muted-foreground font-medium">Customer Deposits</span>
+                  <span className={network.customerDepositsEnabled ? "text-emerald-500 font-semibold" : "text-muted-foreground font-semibold"}>{network.customerDepositsEnabled ? "Enabled" : "Disabled"}</span>
+                </div>
+                <div className="flex justify-between items-center pb-2 border-b border-border/50">
+                  <span className="text-muted-foreground font-medium">Provider</span>
+                  <span className={
+                    !existingNet || !endpointReady || existingNet.healthStatus === 'not_configured' ? "text-muted-foreground font-semibold" :
+                    existingNet.healthStatus === 'connected' ? "text-emerald-500 font-semibold" :
+                    "text-red-500 font-semibold"
+                  }>
+                    {!existingNet || !endpointReady || existingNet.healthStatus === 'not_configured' ? "Not configured" : existingNet.healthStatus === 'connected' ? "Connected" : "Disconnected"}
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between items-start pb-2 border-b border-border/50 flex-col sm:flex-row sm:items-center gap-1">
+                  <span className="text-muted-foreground font-medium">Last Scan</span>
+                  <span className="font-mono text-xs text-right break-all">
+                    {existingNet?.lastSuccessfulScanAt ? `${new Date(existingNet.lastSuccessfulScanAt).toLocaleString()} (Head: ${existingNet.lastHead || '?'})` : "Never"}
+                  </span>
+                </div>
+                <div className="flex justify-between items-start pb-2 border-b border-border/50 flex-col sm:flex-row sm:items-center gap-1">
+                  <span className="text-muted-foreground font-medium">Last Error</span>
+                  <span className={existingNet?.healthError ? "text-red-500 font-mono text-xs text-right break-all" : "text-muted-foreground font-mono text-xs text-right"}>
+                    {existingNet?.healthError || "None"}
+                  </span>
+                </div>
+                <div className="flex justify-between items-start pt-1 flex-col sm:flex-row gap-2">
+                  <span className="text-muted-foreground font-medium mt-0.5">Readiness</span>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className={isReady ? "inline-flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-500 border border-emerald-500/20" : "inline-flex items-center gap-1 rounded bg-red-500/10 px-2 py-0.5 text-xs font-semibold text-red-500 border border-red-500/20"}>
+                      {isReady ? <><Check size={12} /> READY</> : <><X size={12} /> BLOCKED</>}
+                    </span>
+                    {!isReady && readinessReasons.length > 0 && (
+                      <ul className="text-xs text-red-500/80 text-right space-y-0.5 mt-1">
+                        {readinessReasons.map((r, i) => <li key={i}>{r}</li>)}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {!isReady && network.customerDepositsEnabled && (
+            <div className="mb-4">
+              <InlineNotice kind="error">
+                <strong>Customer deposits enabled while blockchain monitoring is not READY.</strong> New manual deposit activation remains blocked until all readiness requirements pass.
+              </InlineNotice>
+            </div>
+          )}
         </div>
         <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground border-b border-border/50 pb-2">Network Configuration</h3>
         

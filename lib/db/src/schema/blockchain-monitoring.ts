@@ -42,6 +42,7 @@ export const blockchainMonitorNetworksTable = pgTable(
     lastHead: text("last_head"),
     healthStatus: text("health_status").notNull().default("not_configured"),
     healthCheckedAt: timestamp("health_checked_at", { withTimezone: true }),
+    lastSuccessfulScanAt: timestamp("last_successful_scan_at", { withTimezone: true }),
     healthError: text("health_error"),
     consecutiveFailures: integer("consecutive_failures").notNull().default(0),
     healthProofFingerprint: text("health_proof_fingerprint"),

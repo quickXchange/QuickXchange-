@@ -35,6 +35,12 @@ type TronIndexerPage<T> = {
   data?: T[];
   meta?: { fingerprint?: string };
 };
+type TronRpcResponse<T> = {
+  jsonrpc?: unknown;
+  id?: unknown;
+  result?: T;
+  error?: unknown;
+};
 
 const BASE58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 const TRON_INDEXER_MIN_REQUEST_INTERVAL_MS = 350;
@@ -234,7 +240,28 @@ export class TronIndexerAdapter implements BlockchainMonitorAdapter {
 
   async testConnection(): Promise<ConnectionResult> {
     const started = Date.now();
-    const head = await this.get<{ block_header?: { raw_data?: { number?: number } } }>("/wallet/getnowblock");
+    const [identity, head] = await Promise.all([
+      providerJson<TronRpcResponse<unknown>>(
+        `${this.endpoint}/jsonrpc`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json", ...this.headers },
+          body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_chainId", params: [] }),
+        },
+        this.timeoutMs,
+      ),
+      this.get<{ block_header?: { raw_data?: { number?: number } } }>("/wallet/getnowblock"),
+    ]);
+    if (
+      !identity ||
+      typeof identity !== "object" ||
+      identity.jsonrpc !== "2.0" ||
+      identity.id !== 1 ||
+      identity.error !== undefined ||
+      identity.result !== "0x2b6653dc"
+    ) {
+      throw new BlockchainMonitorError("PROVIDER", "Blockchain monitoring provider returned an unexpected network.");
+    }
     const number = head.block_header?.raw_data?.number;
     if (!Number.isSafeInteger(number)) throw new BlockchainMonitorError("INVALID_RESPONSE", "Blockchain monitoring provider returned an invalid head.");
     return { connected: true, head: String(number), latencyMs: Date.now() - started };

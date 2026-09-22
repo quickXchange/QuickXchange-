@@ -204,7 +204,12 @@ export async function prepareManualMonitoringReadiness(
     }
     const network = row.network;
     const networkCode = network?.networkCode ?? row.route.networkCode;
-    if (isLegacyBep20Network(networkCode)) {
+    if (
+      isLegacyBep20Network(networkCode) &&
+      row.monitorAsset?.identityKind === "native" &&
+      !row.monitorAsset.contractOrMint &&
+      row.monitorAsset.enabled
+    ) {
       outcomes.set(input.routeId, result(input, "LEGACY_BEP20", networkCode));
       continue;
     }

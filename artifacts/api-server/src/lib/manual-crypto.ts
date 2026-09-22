@@ -107,7 +107,11 @@ export function isManualMonitoringRuntimeReady(input: {
   routeDigest?: string;
 }) {
   const healthMaxAgeMs = Math.max(120_000, input.pollIntervalSeconds * 3_000);
-  const legacyBep20 = isLegacyBep20Network(input.monitorNetworkCode);
+  // Preserve the established native-BNB path only. Token routes must prove
+  // their exact contract identity and readiness like every other token route.
+  const legacyBep20 = isLegacyBep20Network(input.monitorNetworkCode) &&
+    input.identityKind === "native" &&
+    !input.contractOrMint?.trim();
   const healthFresh = input.healthCheckedAtMs !== null &&
     Date.now() - input.healthCheckedAtMs >= 0 &&
     Date.now() - input.healthCheckedAtMs <= healthMaxAgeMs;

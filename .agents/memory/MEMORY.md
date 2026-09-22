@@ -146,3 +146,4 @@
 - [TRON native evidence verification](tron-native-evidence.md) — verify native transfers with exact raw transaction results and canonical blocks before persistence.
 - [Polygon USDT0 identity boundary](polygon-usdt0-identity.md) — Polygon’s former bridged USDT contract now identifies as USDT0; never persist it as USDT without a catalog decision.
 - [UTXO reorg discovery windows](utxo-reorg-discovery-windows.md) — UTXO monitors must rewind bounded confirmation windows so replacement-chain deposits are discoverable.
+- [BSC legacy readiness boundary](bsc-legacy-readiness-boundary.md) — preserve the legacy exception only for enabled native BNB; every BEP20 token requires exact readiness proof.

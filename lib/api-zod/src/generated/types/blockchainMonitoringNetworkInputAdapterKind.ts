@@ -13,4 +13,5 @@ export const BlockchainMonitoringNetworkInputAdapterKind = {
   evm: 'evm',
   tron: 'tron',
   solana: 'solana',
+  bitcoin: 'bitcoin',
 } as const;

@@ -757,6 +757,20 @@
       "when": 1790099000000,
       "tag": "0109_bitcoin_mainnet_monitor",
       "breakpoints": true
+    },
+    {
+      "idx": 110,
+      "version": "7",
+      "when": 1790100000000,
+      "tag": "0110_bsc_stablecoin_monitor_identities",
+      "breakpoints": true
+    },
+    {
+      "idx": 111,
+      "version": "7",
+      "when": 1790101000000,
+      "tag": "0111_remove_bitcoin_test_receiving_address",
+      "breakpoints": true
     }
   ]
 }

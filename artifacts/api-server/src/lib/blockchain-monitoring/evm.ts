@@ -16,7 +16,7 @@ type EvmTransaction = {
   hash?: string; from?: string; to?: string; value?: string; blockNumber?: string; blockHash?: string;
 };
 type EvmLog = {
-  address?: string; topics?: string[]; data?: string; transactionHash?: string; blockNumber?: string; logIndex?: string;
+  address?: string; topics?: string[]; data?: string; transactionHash?: string; blockNumber?: string; blockHash?: string; logIndex?: string;
 };
 type EvmBlock = {
   number?: string;
@@ -42,6 +42,38 @@ export function quantityToRawAmount(value: unknown): string | undefined {
 
 function topicAddress(address: string): string {
   return `0x${address.slice(2).padStart(HEX_ADDRESS_LENGTH, "0")}`;
+}
+
+function sameHash(left: string | undefined, right: string | undefined): boolean {
+  return Boolean(left && right && left.toLowerCase() === right.toLowerCase());
+}
+
+function transactionIsInBlock(block: EvmBlock | null, transactionHash: string): boolean {
+  return Boolean(block?.transactions?.some(transaction =>
+    (typeof transaction === "string" ? transaction : transaction.hash)?.toLowerCase() === transactionHash.toLowerCase(),
+  ));
+}
+
+function logIndexInvalid(logIndex: string | undefined): boolean {
+  return typeof logIndex !== "string" || !/^0x[0-9a-f]+$/i.test(logIndex);
+}
+
+function tokenEventMatchesLog(
+  log: EvmLog,
+  transactionHash: string,
+  contract: string,
+  recipient: string,
+  amount: string,
+  logIndex: string,
+): boolean {
+  return (
+    sameHash(log.transactionHash, transactionHash) &&
+    normalizeEvmAddress(log.address ?? "") === contract &&
+    log.topics?.[0]?.toLowerCase() === TRANSFER_TOPIC &&
+    log.topics?.[2]?.toLowerCase() === topicAddress(recipient) &&
+    quantityToRawAmount(log.data) === amount &&
+    log.logIndex === logIndex
+  );
 }
 
 function rpcError<T>(response: RpcResponse<T>): T {
@@ -335,14 +367,39 @@ export class EvmJsonRpcAdapter implements BlockchainMonitorAdapter {
           topics: [TRANSFER_TOPIC, null, topicAddress(address)],
         }]);
         for (const log of logs) {
-          const receipt = log.transactionHash
-            ? await this.rpc<{ status?: string } | null>("eth_getTransactionReceipt", [log.transactionHash])
+          const transactionHash = log.transactionHash;
+           const receipt = transactionHash
+             ? await this.rpc<{ status?: string; blockNumber?: string; blockHash?: string; logs?: EvmLog[] } | null>("eth_getTransactionReceipt", [transactionHash])
             : null;
-          if (receipt?.status !== "0x1") continue;
+           if (
+             receipt?.status !== "0x1" ||
+             !transactionHash ||
+             !log.blockHash ||
+             !log.blockNumber ||
+             !receipt.blockNumber ||
+             !receipt.blockHash ||
+             logIndexInvalid(log.logIndex)
+           ) continue;
           const parsed = parseEvmTransferLog(log, this.networkCode, item.address, item.asset);
-          if (parsed) {
-            const fullBlock = await this.rpc<EvmBlock | null>("eth_getBlockByNumber", [log.blockNumber ?? fromHex, false]);
-            evidence.push({ ...parsed, blockHash: fullBlock?.hash, blockTimestamp: fullBlock?.timestamp ? new Date(Number(BigInt(fullBlock.timestamp)) * 1000).toISOString() : undefined });
+           if (parsed && receipt.logs?.some(receiptLog => tokenEventMatchesLog(
+             receiptLog,
+             transactionHash,
+             parsed.contractOrMint ?? "",
+             parsed.toAddress,
+             parsed.rawAmount,
+             log.logIndex!,
+           ))) {
+             const fullBlock = await this.rpc<EvmBlock | null>("eth_getBlockByNumber", [log.blockNumber, true]);
+             if (
+               !fullBlock?.hash ||
+               !fullBlock.number ||
+               BigInt(fullBlock.number) !== BigInt(log.blockNumber) ||
+               BigInt(receipt.blockNumber) !== BigInt(log.blockNumber) ||
+               !sameHash(log.blockHash, receipt.blockHash) ||
+               !sameHash(receipt.blockHash, fullBlock.hash) ||
+                !transactionIsInBlock(fullBlock, transactionHash)
+             ) continue;
+             evidence.push({ ...parsed, blockHash: fullBlock.hash, blockTimestamp: fullBlock.timestamp ? new Date(Number(BigInt(fullBlock.timestamp)) * 1000).toISOString() : undefined });
           }
         }
       }
@@ -351,15 +408,43 @@ export class EvmJsonRpcAdapter implements BlockchainMonitorAdapter {
   }
 
   async getEvidenceStatus(evidence: IncomingEvidence) {
-    const receipt = await this.rpc<{ status?: string; blockHash?: string; blockNumber?: string } | null>("eth_getTransactionReceipt", [evidence.transactionHash]);
+    const receipt = await this.rpc<{
+      status?: string; blockHash?: string; blockNumber?: string; logs?: EvmLog[];
+    } | null>("eth_getTransactionReceipt", [evidence.transactionHash]);
     if (!receipt || receipt.status !== "0x1" || !receipt.blockNumber) {
       return { exists: Boolean(receipt), successful: false, canonical: false, confirmations: 0, finalized: false };
     }
     const head = BigInt(await this.rpc<string>("eth_blockNumber", []));
-    const block = await this.rpc<EvmBlock | null>("eth_getBlockByNumber", [receipt.blockNumber, false]);
+    const block = await this.rpc<EvmBlock | null>("eth_getBlockByNumber", [receipt.blockNumber, true]);
     const confirmations = head >= BigInt(receipt.blockNumber) ? Number(head - BigInt(receipt.blockNumber) + 1n) : 0;
+    const transactionCanonical = transactionIsInBlock(block, evidence.transactionHash);
+    const hashCanonical = Boolean(
+      block?.hash &&
+      sameHash(receipt.blockHash, block.hash) &&
+      (!evidence.blockHash || sameHash(block.hash, evidence.blockHash)),
+    );
+    let eventCanonical = true;
+    if (evidence.identityKind === "token") {
+      const eventParts = evidence.eventId.startsWith(`${evidence.transactionHash}:`)
+        ? evidence.eventId.slice(evidence.transactionHash.length + 1).split(":")
+        : [];
+      const logIndex = eventParts[0];
+      eventCanonical = Boolean(
+        logIndex &&
+        normalizeEvmAddress(evidence.contractOrMint ?? "") &&
+        block &&
+        receipt.logs?.some(log => tokenEventMatchesLog(
+          log,
+          evidence.transactionHash,
+          normalizeEvmAddress(evidence.contractOrMint ?? ""),
+          evidence.toAddress,
+          evidence.rawAmount,
+          logIndex,
+        )),
+      );
+    }
     return {
-      exists: true, successful: true, canonical: Boolean(block && (!evidence.blockHash || block.hash === evidence.blockHash)),
+      exists: true, successful: true, canonical: transactionCanonical && hashCanonical && eventCanonical,
       confirmations, finalized: false, blockHash: block?.hash, blockTimestamp: block?.timestamp ? new Date(Number(BigInt(block.timestamp)) * 1000).toISOString() : undefined,
     };
   }

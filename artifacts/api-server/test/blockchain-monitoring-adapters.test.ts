@@ -285,6 +285,67 @@ test("EVM token scans query one exact bounded range instead of one request per b
   }
 });
 
+test("EVM token evidence rejects mismatched log, receipt, or canonical block hashes", async () => {
+  for (const mismatch of ["log", "receipt", "block"] as const) {
+    const server = createServer((req, res) => {
+      let body = "";
+      req.setEncoding("utf8");
+      req.on("data", (chunk) => { body += chunk; });
+      req.on("end", () => {
+        const request = JSON.parse(body) as { id: number; method: string };
+        const result = request.method === "eth_getLogs"
+          ? [{
+              address: "0x2222222222222222222222222222222222222222",
+              topics: [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                `0x${"33".repeat(32)}`,
+                `0x${"11".repeat(20).padStart(64, "0")}`,
+              ],
+              data: "0x2a",
+              transactionHash: "0xtoken",
+              blockNumber: "0x10",
+              blockHash: mismatch === "log" ? "0xwrong" : "0xcanonical",
+              logIndex: "0x0",
+            }]
+          : request.method === "eth_getTransactionReceipt"
+            ? { status: "0x1", blockNumber: "0x10", blockHash: mismatch === "receipt" ? "0xwrong" : "0xcanonical" }
+            : {
+                number: "0x10",
+                hash: mismatch === "block" ? "0xwrong" : "0xcanonical",
+                timestamp: "0x1",
+                transactions: [{ hash: "0xtoken", blockNumber: "0x10", blockHash: "0xcanonical" }],
+              };
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ jsonrpc: "2.0", id: request.id, result }));
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    try {
+      const address = server.address();
+      assert(address && typeof address === "object");
+      const adapter = new EvmJsonRpcAdapter({
+        networkCode: "BEP20",
+        provider: "rpc",
+        adapterKind: "evm",
+        endpoint: `http://127.0.0.1:${address.port}`,
+      });
+      const result = await adapter.scanIncoming({ from: "16", to: "16" }, [{
+        address: "0x1111111111111111111111111111111111111111",
+        assets: [{
+          assetId: "token",
+          symbol: "TKN",
+          kind: "token",
+          contractOrMint: "0x2222222222222222222222222222222222222222",
+          decimals: 18,
+        }],
+      }]);
+      assert.deepEqual(result.evidence, [], `mismatched ${mismatch} hash was accepted`);
+    } finally {
+      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    }
+  }
+});
+
 test("EVM health checks prove required RPC methods with bounded payloads", async () => {
   const requests: Array<{ method: string; params: unknown[] }> = [];
   const server = createServer((req, res) => {
@@ -443,6 +504,56 @@ test("TRON parsing normalizes Base58 and hex addresses without exposing provider
     ret: [{ contractRet: "SUCCESS" }],
   }, "TRC20", watched, { assetId: "usdt", symbol: "USDT", kind: "token", contractOrMint: watched.address, decimals: 6 });
   assert.equal(token?.rawAmount, "999");
+});
+
+test("TRON connection proves the configured endpoint is Mainnet before accepting its head", async () => {
+  const identities: Array<{ name: string; response: unknown; accepted: boolean }> = [
+    { name: "Mainnet", response: { jsonrpc: "2.0", id: 1, result: "0x2b6653dc" }, accepted: true },
+    { name: "Shasta", response: { jsonrpc: "2.0", id: 1, result: "0x94a9059e" }, accepted: false },
+    { name: "Nile", response: { jsonrpc: "2.0", id: 1, result: "0xcd8690dc" }, accepted: false },
+    { name: "wrong chain", response: { jsonrpc: "2.0", id: 1, result: "0x1" }, accepted: false },
+    { name: "missing identity", response: { jsonrpc: "2.0", id: 1 }, accepted: false },
+    { name: "malformed identity", response: { jsonrpc: "2.0", id: 1, result: { chainId: "0x2b6653dc" } }, accepted: false },
+  ];
+  for (const identity of identities) {
+    let rpcMethod = "";
+    const server = createServer((req, res) => {
+      let body = "";
+      req.setEncoding("utf8");
+      req.on("data", (chunk) => { body += chunk; });
+      req.on("end", () => {
+        if (req.method === "POST") rpcMethod = (JSON.parse(body) as { method?: string }).method ?? "";
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(req.method === "POST"
+          ? JSON.stringify(identity.response)
+          : JSON.stringify({ block_header: { raw_data: { number: 120 } } }));
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    try {
+      const address = server.address();
+      assert(address && typeof address === "object");
+      const adapter = new TronIndexerAdapter({
+        networkCode: "TRC20",
+        adapterKind: "tron",
+        provider: "indexer",
+        endpoint: `http://127.0.0.1:${address.port}`,
+      });
+      if (identity.accepted) {
+        const result = await adapter.testConnection();
+        assert.deepEqual(result.connected, true);
+        assert.equal(result.head, "120");
+        assert.equal(rpcMethod, "eth_chainId");
+      } else {
+        await assert.rejects(
+          adapter.testConnection(),
+          (error: unknown) => error instanceof BlockchainMonitorError && error.code === "PROVIDER",
+        );
+      }
+    } finally {
+      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    }
+  }
 });
 
 test("TRON native scans use provider block numbers and revalidate raw transaction success", async () => {

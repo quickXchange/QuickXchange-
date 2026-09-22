@@ -162,7 +162,7 @@ test("native and token identities are not interchangeable and malformed identiti
   })), false);
 });
 
-test("BEP20 keeps the established legacy path without requiring the new proof", () => {
+test("BEP20 keeps the established native BNB path but token routes require proof", () => {
   const bsc = runtimeInput({
     routeId: "bnb-bep20",
     routeNetworkCode: "BEP20",
@@ -177,7 +177,7 @@ test("BEP20 keeps the established legacy path without requiring the new proof", 
     ...bsc,
     identityKind: "token",
     contractOrMint: "0x0000000000000000000000000000000000000001",
-  }), true);
+  }), false);
 });
 
 test("address, memo, asset, and network changes fail closed", () => {

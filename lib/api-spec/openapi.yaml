@@ -7489,7 +7489,7 @@ components:
         id: { type: string, minLength: 1, maxLength: 128, pattern: '^[A-Za-z0-9_-]+$' }
         networkCode: { type: string, minLength: 1, maxLength: 64 }
         networkName: { type: string, minLength: 1, maxLength: 128 }
-        adapterKind: { type: string, enum: [evm, tron, solana] }
+        adapterKind: { type: string, enum: [evm, tron, solana, bitcoin] }
         chainId: { type: [string, "null"], maxLength: 128 }
         providerKind: { type: string, enum: [rpc, indexer] }
         enabled: { type: boolean, default: false }
@@ -7504,7 +7504,7 @@ components:
       description: Partial update of mutable provider configuration; secret values are never accepted.
       properties:
         networkName: { type: string, minLength: 1, maxLength: 128 }
-        adapterKind: { type: string, enum: [evm, tron, solana] }
+        adapterKind: { type: string, enum: [evm, tron, solana, bitcoin] }
         chainId: { type: [string, "null"], maxLength: 128 }
         providerKind: { type: string, enum: [rpc, indexer] }
         enabled: { type: boolean }
@@ -7520,7 +7520,7 @@ components:
         id: { type: string }
         networkCode: { type: string }
         networkName: { type: string }
-        adapterKind: { type: string, enum: [evm, tron, solana] }
+        adapterKind: { type: string, enum: [evm, tron, solana, bitcoin] }
         providerKind: { type: string, enum: [rpc, indexer, none] }
         enabled: { type: boolean }
         endpointConfigured: { type: boolean }
@@ -7532,6 +7532,7 @@ components:
         lastHead: { type: [string, "null"] }
         healthStatus: { type: string, enum: [connected, disconnected, not_configured] }
         healthCheckedAt: { type: [string, "null"], format: date-time }
+        lastSuccessfulScanAt: { type: [string, "null"], format: date-time }
         healthError: { type: [string, "null"] }
         consecutiveFailures: { type: integer, minimum: 0 }
         nextAttemptAt: { type: [string, "null"], format: date-time }

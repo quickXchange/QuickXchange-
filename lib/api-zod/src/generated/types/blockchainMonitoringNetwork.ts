@@ -31,6 +31,8 @@ export interface BlockchainMonitoringNetwork {
   /** @nullable */
   healthCheckedAt?: Date | null;
   /** @nullable */
+  lastSuccessfulScanAt?: Date | null;
+  /** @nullable */
   healthError?: string | null;
   /** @minimum 0 */
   consecutiveFailures: number;

@@ -5488,6 +5488,7 @@ export const BlockchainMonitoringNetworkInputAdapterKind = {
   evm: 'evm',
   tron: 'tron',
   solana: 'solana',
+  bitcoin: 'bitcoin',
 } as const;
 
 export type BlockchainMonitoringNetworkInputProviderKind = typeof BlockchainMonitoringNetworkInputProviderKind[keyof typeof BlockchainMonitoringNetworkInputProviderKind];
@@ -5563,6 +5564,7 @@ export const BlockchainMonitoringNetworkUpdateAdapterKind = {
   evm: 'evm',
   tron: 'tron',
   solana: 'solana',
+  bitcoin: 'bitcoin',
 } as const;
 
 export type BlockchainMonitoringNetworkUpdateProviderKind = typeof BlockchainMonitoringNetworkUpdateProviderKind[keyof typeof BlockchainMonitoringNetworkUpdateProviderKind];
@@ -5630,6 +5632,7 @@ export const BlockchainMonitoringNetworkAdapterKind = {
   evm: 'evm',
   tron: 'tron',
   solana: 'solana',
+  bitcoin: 'bitcoin',
 } as const;
 
 export type BlockchainMonitoringNetworkProviderKind = typeof BlockchainMonitoringNetworkProviderKind[keyof typeof BlockchainMonitoringNetworkProviderKind];
@@ -5678,6 +5681,8 @@ export interface BlockchainMonitoringNetwork {
   healthStatus: BlockchainMonitoringNetworkHealthStatus;
   /** @nullable */
   healthCheckedAt?: string | null;
+  /** @nullable */
+  lastSuccessfulScanAt?: string | null;
   /** @nullable */
   healthError?: string | null;
   /** @minimum 0 */
