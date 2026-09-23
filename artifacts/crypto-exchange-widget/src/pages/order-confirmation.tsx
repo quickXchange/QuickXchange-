@@ -217,7 +217,7 @@ export function OrderConfirmationPage() {
       : halted
         ? { label: isCancelled ? 'Cancelled' : status === 'expired' ? 'Expired' : 'Failed', description: 'This order is no longer active.', icon: XCircle, tone: 'text-destructive', surface: 'bg-destructive/10', border: 'border-destructive/20' }
         : isProcessing
-          ? { label: 'Processing', description: 'Your payment was received and your order is being processed.', icon: RefreshCw, tone: 'text-accent', surface: 'bg-accent/10', border: 'border-accent/20' }
+          ? { label: 'Processing', description: 'Your payment was received and your order is being processed.', icon: RefreshCw, tone: 'text-cyan-700 dark:text-cyan-300', surface: 'bg-cyan-500/12 dark:bg-cyan-400/15', border: 'border-cyan-500/35 dark:border-cyan-400/35' }
           : isConfirming
             ? { label: 'Confirming', description: 'Your payment has been detected and is confirming.', icon: Clock3, tone: 'text-amber-500', surface: 'bg-amber-500/10', border: 'border-amber-500/20' }
             : { label: 'Pending', description: 'Complete the payment using the order-specific details below.', icon: Clock3, tone: 'text-primary', surface: 'bg-primary/10', border: 'border-primary/20' }
@@ -226,7 +226,7 @@ export function OrderConfirmationPage() {
      : halted
        ? { label: convertOrderStatusLabel(status), description: 'This order is no longer active.', icon: XCircle, tone: 'text-destructive', surface: 'bg-destructive/10', border: 'border-destructive/20' }
        : isProcessing
-        ? { label: 'Processing', description: 'Your payment is being processed for delivery.', icon: RefreshCw, tone: 'text-accent', surface: 'bg-accent/10', border: 'border-accent/20' }
+         ? { label: 'Processing', description: 'Your payment is being processed for delivery.', icon: RefreshCw, tone: 'text-cyan-700 dark:text-cyan-300', surface: 'bg-cyan-500/12 dark:bg-cyan-400/15', border: 'border-cyan-500/35 dark:border-cyan-400/35' }
         : isConfirming
           ? { label: convertOrderStatusLabel(status), description: 'Your payment has been detected and is confirming.', icon: Clock3, tone: 'text-amber-500', surface: 'bg-amber-500/10', border: 'border-amber-500/20' }
           : { label: convertOrderStatusLabel(status), description: 'Complete the payment using the order-specific details below.', icon: Clock3, tone: 'text-primary', surface: 'bg-primary/10', border: 'border-primary/20' };
@@ -256,25 +256,28 @@ export function OrderConfirmationPage() {
     <PublicShell>
       <main className="min-h-[80vh] py-8 px-4 sm:px-6 lg:px-8 max-w-3xl mx-auto space-y-6">
         {/* Status Panel */}
-        <div className={cn("relative overflow-hidden bg-card border rounded-3xl p-5 sm:p-6 shadow-sm transition-all duration-500 hover:shadow-[0_8px_30px_-12px_rgba(139,92,246,0.15)] dark:hover:shadow-[0_8px_30px_-12px_rgba(139,92,246,0.25)]", statusPresentation.border)}>
+        <div
+          className={cn("order-status-card relative overflow-hidden bg-card border rounded-3xl p-5 sm:p-6 shadow-sm transition-all duration-500 hover:shadow-[0_8px_30px_-12px_rgba(139,92,246,0.15)] dark:hover:shadow-[0_8px_30px_-12px_rgba(139,92,246,0.25)]", statusPresentation.border)}
+          data-status={completed ? 'completed' : isProcessing ? 'processing' : isConfirming ? 'confirming' : 'pending'}
+        >
           <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-purple-500/10 via-blue-500/5 to-transparent blur-3xl pointer-events-none rounded-full" />
           <div className="relative z-10">
           <div className="flex items-start gap-4">
-            <div className={cn("relative w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center shadow-[0_0_16px_-4px_rgba(6,182,212,0.25)]", statusPresentation.surface)}>
+            <div className={cn("order-status-icon relative w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center shadow-[0_0_16px_-4px_rgba(6,182,212,0.25)]", statusPresentation.surface)}>
               {!halted && <div className="absolute inset-1 rounded-xl bg-gradient-to-br from-cyan-500/20 via-blue-500/10 to-purple-500/20 blur-md" />}
               <StatusIcon className={cn("relative z-10 w-6 h-6", statusPresentation.tone, isProcessing && "animate-spin")} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Current Status</p>
-              <h2 className={cn("text-2xl font-bold tracking-tight", statusPresentation.tone)} data-testid="heading-order-created">{statusPresentation.label}</h2>
-              <p className="text-sm text-muted-foreground leading-relaxed mt-1">{statusPresentation.description}</p>
+              <p className="order-status-kicker text-[11px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Current Status</p>
+              <h2 className={cn("order-status-title text-2xl font-bold tracking-tight", statusPresentation.tone)} data-testid="heading-order-created">{statusPresentation.label}</h2>
+              <p className="order-status-description text-sm text-muted-foreground leading-relaxed mt-1">{statusPresentation.description}</p>
             </div>
           </div>
 
-          <div className="mt-5 flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl bg-secondary/5 border border-border/50 px-4 py-3">
+          <div className="order-status-meta mt-5 flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl bg-secondary/5 border border-border/50 px-4 py-3">
              <div className="min-w-0 flex-1 w-full sm:w-auto">
-               <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Order ID</p>
-               <p className="font-mono text-sm font-semibold truncate text-foreground" data-testid="text-order-id">{order.id}</p>
+                <p className="order-status-meta-label text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Order ID</p>
+                <p className="order-status-id font-mono text-sm font-semibold truncate text-foreground" data-testid="text-order-id">{order.id}</p>
              </div>
              <div className="flex gap-2 w-full sm:w-auto self-start sm:self-center">
                 <span className={cn(
@@ -297,7 +300,7 @@ export function OrderConfirmationPage() {
           </div>
 
           {!halted && (
-            <div className="mt-6 border-t border-border/50 pt-6">
+            <div className="order-status-progress mt-6 border-t border-border/50 pt-6">
               <div className="relative pt-2 pb-1">
                 <div className="absolute top-[17px] left-[10%] right-[10%] h-[2px] bg-border z-0" />
                 <div className="absolute top-[17px] left-[10%] h-[2px] bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 z-0 transition-all duration-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]" style={{ width: `${(Math.max(0, currentStep - 1) / 3) * 80}%` }} />
@@ -309,7 +312,11 @@ export function OrderConfirmationPage() {
                     const isCurrent = currentStep === step;
                      const isCompletedDone = completed && label === 'Done';
                     return (
-                      <div key={label} className="flex flex-col items-center gap-2 w-[70px]">
+                      <div
+                        key={label}
+                        className="order-status-step flex flex-col items-center gap-2 w-[70px]"
+                        data-state={isCompletedDone ? 'done' : isPast ? 'past' : isCurrent ? 'current' : 'pending'}
+                      >
                         <div className={cn(
                           "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border-2 relative overflow-hidden",
                           isCompletedDone ? "bg-emerald-500/15 border-emerald-500 text-emerald-700 dark:bg-emerald-400/15 dark:border-emerald-400 dark:text-emerald-400 shadow-[0_0_12px_rgba(34,197,94,0.35)] scale-110" :
@@ -321,7 +328,7 @@ export function OrderConfirmationPage() {
                           {isPast || isCompletedDone ? <Check className="relative z-10 w-4 h-4" /> : <span className="relative z-10">{step}</span>}
                         </div>
                         <span className={cn(
-                          "text-[10px] leading-tight font-semibold transition-colors text-center uppercase tracking-wider",
+                          "order-status-step-label text-[10px] leading-tight font-semibold transition-colors text-center uppercase tracking-wider",
                           isCompletedDone
                             ? "text-emerald-700 dark:text-emerald-400"
                             : isPast || isCurrent
