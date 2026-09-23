@@ -51,11 +51,16 @@ if (process.env.MIGRATIONS_ONLY !== "true") {
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new Error("PORT must be an integer from 1 through 65535.");
   }
-  startupGate = createServer((_request, response) => {
-    response.statusCode = 503;
+  startupGate = createServer((request, response) => {
+    const isStartupProbe = request.url === "/api/healthz";
+    response.statusCode = isStartupProbe ? 200 : 503;
     response.setHeader("Content-Type", "text/plain; charset=utf-8");
-    response.setHeader("Retry-After", "5");
-    response.end("Database release step in progress.\n");
+    if (!isStartupProbe) response.setHeader("Retry-After", "5");
+    response.end(
+      isStartupProbe
+        ? "Database release step in progress.\n"
+        : "Service unavailable while database release step is in progress.\n",
+    );
   });
   await new Promise((resolve, reject) => {
     startupGate.once("error", reject);
