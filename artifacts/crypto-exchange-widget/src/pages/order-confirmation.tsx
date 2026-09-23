@@ -217,7 +217,7 @@ export function OrderConfirmationPage() {
       : halted
         ? { label: isCancelled ? 'Cancelled' : status === 'expired' ? 'Expired' : 'Failed', description: 'This order is no longer active.', icon: XCircle, tone: 'text-destructive', surface: 'bg-destructive/10', border: 'border-destructive/20' }
         : isProcessing
-          ? { label: 'Processing', description: 'Your payment was received and your order is being processed.', icon: RefreshCw, tone: 'text-cyan-700 dark:text-cyan-300', surface: 'bg-cyan-500/12 dark:bg-cyan-400/15', border: 'border-cyan-500/35 dark:border-cyan-400/35' }
+          ? { label: 'Processing', description: 'Your payment was received and your order is being processed.', icon: RefreshCw, tone: 'text-orange-700 dark:text-orange-300', surface: 'bg-orange-500/12 dark:bg-orange-400/15', border: 'border-orange-500/40 dark:border-orange-400/40' }
           : isConfirming
             ? { label: 'Confirming', description: 'Your payment has been detected and is confirming.', icon: Clock3, tone: 'text-amber-500', surface: 'bg-amber-500/10', border: 'border-amber-500/20' }
             : { label: 'Pending', description: 'Complete the payment using the order-specific details below.', icon: Clock3, tone: 'text-primary', surface: 'bg-primary/10', border: 'border-primary/20' }
@@ -226,7 +226,7 @@ export function OrderConfirmationPage() {
      : halted
        ? { label: convertOrderStatusLabel(status), description: 'This order is no longer active.', icon: XCircle, tone: 'text-destructive', surface: 'bg-destructive/10', border: 'border-destructive/20' }
        : isProcessing
-         ? { label: 'Processing', description: 'Your payment is being processed for delivery.', icon: RefreshCw, tone: 'text-cyan-700 dark:text-cyan-300', surface: 'bg-cyan-500/12 dark:bg-cyan-400/15', border: 'border-cyan-500/35 dark:border-cyan-400/35' }
+         ? { label: 'Processing', description: 'Your payment is being processed for delivery.', icon: RefreshCw, tone: 'text-orange-700 dark:text-orange-300', surface: 'bg-orange-500/12 dark:bg-orange-400/15', border: 'border-orange-500/40 dark:border-orange-400/40' }
         : isConfirming
           ? { label: convertOrderStatusLabel(status), description: 'Your payment has been detected and is confirming.', icon: Clock3, tone: 'text-amber-500', surface: 'bg-amber-500/10', border: 'border-amber-500/20' }
           : { label: convertOrderStatusLabel(status), description: 'Complete the payment using the order-specific details below.', icon: Clock3, tone: 'text-primary', surface: 'bg-primary/10', border: 'border-primary/20' };
@@ -280,7 +280,8 @@ export function OrderConfirmationPage() {
                 <p className="order-status-id font-mono text-sm font-semibold truncate text-foreground" data-testid="text-order-id">{order.id}</p>
              </div>
              <div className="flex gap-2 w-full sm:w-auto self-start sm:self-center">
-                <span className={cn(
+                 <span className={cn(
+                   "order-status-badge",
                   "text-xs font-bold rounded-xl border px-3 py-1.5 flex items-center shrink-0",
                   completed
                     ? "bg-emerald-500/10 text-emerald-700 border-emerald-500/30 dark:bg-emerald-400/10 dark:text-emerald-400 dark:border-emerald-400/30"
@@ -316,21 +317,25 @@ export function OrderConfirmationPage() {
                         key={label}
                         className="order-status-step flex flex-col items-center gap-2 w-[70px]"
                         data-state={isCompletedDone ? 'done' : isPast ? 'past' : isCurrent ? 'current' : 'pending'}
+                        data-label={label.toLowerCase()}
                       >
                         <div className={cn(
                           "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border-2 relative overflow-hidden",
                           isCompletedDone ? "bg-emerald-500/15 border-emerald-500 text-emerald-700 dark:bg-emerald-400/15 dark:border-emerald-400 dark:text-emerald-400 shadow-[0_0_12px_rgba(34,197,94,0.35)] scale-110" :
                           isPast ? "bg-gradient-to-br from-cyan-500 to-blue-500 border-transparent text-white shadow-[0_0_12px_rgba(6,182,212,0.6)]" :
+                          isCurrent && label === 'Processing' ? "bg-background border-orange-500 text-orange-700 dark:border-orange-400 dark:text-orange-300 shadow-[0_0_14px_rgba(249,115,22,0.5)] scale-110" :
                           isCurrent ? "bg-background border-cyan-500 text-cyan-600 dark:text-cyan-400 shadow-[0_0_14px_rgba(6,182,212,0.7)] scale-110" :
                           "bg-background border-border text-muted-foreground"
                         )}>
-                          {isCurrent && !isCompletedDone && <div className="absolute inset-0 bg-cyan-500/10" />}
+                          {isCurrent && !isCompletedDone && <div className={cn("absolute inset-0", label === 'Processing' ? "bg-orange-500/10" : "bg-cyan-500/10")} />}
                           {isPast || isCompletedDone ? <Check className="relative z-10 w-4 h-4" /> : <span className="relative z-10">{step}</span>}
                         </div>
                         <span className={cn(
                           "order-status-step-label text-[10px] leading-tight font-semibold transition-colors text-center uppercase tracking-wider",
                           isCompletedDone
                             ? "text-emerald-700 dark:text-emerald-400"
+                            : isCurrent && label === 'Processing'
+                              ? "text-orange-700 dark:text-orange-300"
                             : isPast || isCurrent
                               ? "text-cyan-700 dark:text-cyan-400"
                               : "text-muted-foreground"
@@ -352,13 +357,13 @@ export function OrderConfirmationPage() {
         </div>
 
         {/* Exchange Summary */}
-        <div className="relative overflow-hidden bg-card border border-border rounded-3xl p-5 sm:p-6 shadow-sm space-y-5 transition-all hover:shadow-[0_8px_32px_-12px_rgba(59,130,246,0.15)] dark:hover:shadow-[0_8px_32px_-12px_rgba(59,130,246,0.25)] group/summary" data-testid="order-confirmation-exchange-summary">
+        <div className="order-exchange-summary-card relative overflow-hidden bg-card border border-border rounded-3xl p-5 sm:p-6 shadow-sm space-y-5 transition-all group/summary" data-testid="order-confirmation-exchange-summary">
            <div className="absolute -top-24 -left-24 w-64 h-64 bg-gradient-to-br from-cyan-500/10 via-blue-500/5 to-transparent blur-3xl pointer-events-none rounded-full opacity-70 group-hover/summary:opacity-100 transition-opacity duration-500" />
            <div className="relative z-10">
-           <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground mb-5">Exchange Summary</h3>
+           <h3 className="order-exchange-summary-title font-bold text-sm uppercase tracking-wider text-muted-foreground mb-5">Exchange Summary</h3>
 
            <div className="relative">
-             <div className="flex items-center justify-between bg-secondary/5 rounded-t-2xl p-4 sm:p-5 border border-border border-b-0 relative overflow-hidden group/send">
+              <div className="order-exchange-summary-leg order-exchange-summary-leg-send flex items-center justify-between bg-secondary/5 rounded-t-2xl p-4 sm:p-5 border border-border border-b-0 relative overflow-hidden group/send">
                 <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-blue-500/5 to-purple-500/0 opacity-0 group-hover/send:opacity-100 transition-opacity duration-500 pointer-events-none" />
                 <div className="relative z-10 flex items-center gap-4 min-w-0 w-full">
                    <div className="order-exchange-summary-logo order-exchange-summary-logo-send w-12 h-12 [&_.order-settlement-copy]:hidden [&_.crypto-identity-copy]:hidden flex items-center justify-center overflow-hidden rounded-full shrink-0 group-hover/send:border-cyan-500/40 transition-colors relative [&_.crypto-network-badge]:hidden">
@@ -368,16 +373,16 @@ export function OrderConfirmationPage() {
                      </div>
                    </div>
                    <div className="flex flex-col justify-center min-w-0 flex-1">
-                      <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">You Send</div>
+                       <div className="order-exchange-summary-label text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">You Send</div>
                       <div className="font-bold text-xl sm:text-2xl leading-none text-foreground truncate">{order.amount} {order.fromAsset}</div>
                       {sourceIdentity !== order.fromAsset && (
-                        <span className="text-[11px] text-muted-foreground font-semibold mt-1.5 truncate">{sourceIdentity}</span>
+                         <span className="order-exchange-summary-network text-[11px] text-muted-foreground font-semibold mt-1.5 truncate">{sourceIdentity}</span>
                       )}
                    </div>
                 </div>
              </div>
 
-             <div className="flex items-center justify-between bg-primary/5 rounded-b-2xl p-4 sm:p-5 border border-border relative overflow-hidden group/recv">
+              <div className="order-exchange-summary-leg order-exchange-summary-leg-receive flex items-center justify-between bg-primary/5 rounded-b-2xl p-4 sm:p-5 border border-border relative overflow-hidden group/recv">
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-purple-500/5 to-cyan-500/0 opacity-0 group-hover/recv:opacity-100 transition-opacity duration-500 pointer-events-none" />
                 <div className="relative z-10 flex items-center gap-4 min-w-0 w-full">
                    <div className="order-exchange-summary-logo order-exchange-summary-logo-receive w-12 h-12 [&_.order-settlement-copy]:hidden [&_.crypto-identity-copy]:hidden flex items-center justify-center overflow-hidden rounded-full shrink-0 group-hover/recv:border-purple-500/40 transition-colors relative [&_.crypto-network-badge]:hidden">
@@ -387,10 +392,10 @@ export function OrderConfirmationPage() {
                      </div>
                    </div>
                    <div className="flex flex-col justify-center min-w-0 flex-1">
-                      <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">You Receive</div>
+                       <div className="order-exchange-summary-label text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">You Receive</div>
                       <div className="font-bold text-xl sm:text-2xl leading-none text-primary truncate">{isManual ? '≈ ' : ''}{order.receiveAmount} {order.toAsset}</div>
                       {targetIdentity !== order.toAsset && (
-                        <span className="text-[11px] text-primary/70 font-semibold mt-1.5 truncate">{targetIdentity}</span>
+                         <span className="order-exchange-summary-network text-[11px] text-primary/70 font-semibold mt-1.5 truncate">{targetIdentity}</span>
                       )}
                    </div>
                 </div>
@@ -401,7 +406,7 @@ export function OrderConfirmationPage() {
              </div>
            </div>
 
-           <div className="divide-y divide-border/50 rounded-2xl border border-border bg-background/50 px-4">
+           <div className="order-exchange-summary-meta divide-y divide-border/50 rounded-2xl border border-border bg-background/50 px-4">
              {exchangeRate !== null && !isQuickex && (
                <div className="flex items-center justify-between gap-3 py-3 text-xs">
                  <span className="text-muted-foreground font-medium">Exchange Rate</span>
@@ -443,11 +448,9 @@ export function OrderConfirmationPage() {
         )}
 
         {hasPaymentInstructions && (
-           <div className="relative rounded-3xl p-[1px] overflow-hidden group/pay" data-testid="order-confirmation-payment-card">
-             <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-500 opacity-30 blur-sm group-hover/pay:opacity-50 transition-opacity duration-500" />
-             <div className="relative bg-card/95 backdrop-blur-xl rounded-3xl h-full p-5 sm:p-6 space-y-5 shadow-inner">
+           <div className="order-deposit-card relative overflow-hidden rounded-3xl bg-card p-5 sm:p-6 space-y-5 group/pay" data-testid="order-confirmation-payment-card">
                 <div className="flex items-center gap-4 border-b border-border/50 pb-4 relative z-10">
-                    <div className="w-12 h-12 [&_.order-settlement-copy]:hidden [&_.crypto-identity-copy]:hidden flex items-center justify-center overflow-hidden bg-background rounded-full border border-border shrink-0 shadow-[0_0_12px_-4px_rgba(6,182,212,0.3)] relative [&_.order-settlement-identity]:!bg-transparent [&_.order-settlement-identity]:!p-0 [&_.order-settlement-identity]:!border-0 [&_.crypto-identity]:!bg-transparent [&_.crypto-identity]:!p-0 [&_.crypto-identity]:!border-0 [&_img]:!w-7 [&_img]:!h-7 [&_.crypto-network-badge]:hidden [&_svg]:!w-7 [&_svg]:!h-7">
+                    <div className="order-deposit-logo w-12 h-12 [&_.order-settlement-copy]:hidden [&_.crypto-identity-copy]:hidden flex items-center justify-center overflow-hidden bg-background rounded-full border border-border shrink-0 shadow-[0_0_12px_-4px_rgba(6,182,212,0.3)] relative [&_.order-settlement-identity]:!bg-transparent [&_.order-settlement-identity]:!p-0 [&_.order-settlement-identity]:!border-0 [&_.crypto-identity]:!bg-transparent [&_.crypto-identity]:!p-0 [&_.crypto-identity]:!border-0 [&_img]:!w-7 [&_img]:!h-7 [&_.crypto-network-badge]:hidden [&_svg]:!w-7 [&_svg]:!h-7">
                      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-cyan-500/10 to-blue-500/10 opacity-50" />
                      <div className="relative z-10 flex items-center justify-center w-full h-full">
                        <OrderSettlementIdentity assetCode={order.fromAsset} routeLabel={order.fromNetwork} settlementOptionId={order.sourceSettlementOptionId} size="md" compact={true} />
@@ -508,7 +511,7 @@ export function OrderConfirmationPage() {
                    {order.depositAddress && (
                      !showQR ? (
                        <button type="button" className="button button-primary w-full shadow-[0_4px_16px_-4px_rgba(59,130,246,0.4)] transition-all hover:shadow-[0_6px_24px_-6px_rgba(59,130,246,0.6)]" onClick={() => setShowQR(true)}>
-                         Show QR
+                          Show Deposit Details
                        </button>
                      ) : (
                        <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
@@ -517,7 +520,7 @@ export function OrderConfirmationPage() {
                                <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Send Exactly</p>
                                <p className="font-mono text-xl font-bold">{order.amount} {order.fromAsset}</p>
                              </div>
-                             <span className="text-xs font-bold rounded-full bg-secondary/10 text-secondary border border-secondary/20 px-3 py-1">
+                              <span className="order-deposit-network text-xs font-bold rounded-full bg-secondary/10 text-secondary border border-secondary/20 px-3 py-1">
                                {order.fromNetwork || 'Crypto'}
                              </span>
                           </div>
@@ -594,7 +597,6 @@ export function OrderConfirmationPage() {
                    )}
 
 
-                </div>
              </div>
            </div>
         )}

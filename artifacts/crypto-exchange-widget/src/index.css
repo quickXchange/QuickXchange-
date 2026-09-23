@@ -23498,22 +23498,36 @@ html:not(.dark) .order-status-meta {
 
 html:not(.dark) .order-status-card[data-status="processing"] .order-status-title,
 html:not(.dark) .order-status-card[data-status="processing"] .order-status-icon {
-  color: #0369a1;
+  color: #c2410c;
 }
 
 .dark .order-status-card[data-status="processing"] .order-status-title,
 .dark .order-status-card[data-status="processing"] .order-status-icon {
-  color: #67e8f9;
+  color: #fb923c;
 }
 
 html:not(.dark) .order-status-card[data-status="processing"] .order-status-icon {
-  background: rgba(6, 182, 212, 0.13);
-  border: 1px solid rgba(8, 145, 178, 0.3);
+  background: rgba(249, 115, 22, 0.12);
+  border: 1px solid rgba(234, 88, 12, 0.42);
+  box-shadow: 0 0 14px -4px rgba(249, 115, 22, 0.5);
 }
 
 .dark .order-status-card[data-status="processing"] .order-status-icon {
-  background: rgba(34, 211, 238, 0.14);
-  border: 1px solid rgba(103, 232, 249, 0.34);
+  background: rgba(249, 115, 22, 0.15);
+  border: 1px solid rgba(251, 146, 60, 0.48);
+  box-shadow: 0 0 15px -4px rgba(249, 115, 22, 0.6);
+}
+
+html:not(.dark) .order-status-card[data-status="processing"] .order-status-badge {
+  background: rgba(249, 115, 22, 0.1);
+  color: #c2410c;
+  border-color: rgba(234, 88, 12, 0.42);
+}
+
+.dark .order-status-card[data-status="processing"] .order-status-badge {
+  background: rgba(249, 115, 22, 0.14);
+  color: #fb923c;
+  border-color: rgba(251, 146, 60, 0.45);
 }
 
 html:not(.dark) .order-status-card[data-status="completed"] .order-status-title,
@@ -23540,4 +23554,179 @@ html:not(.dark) .order-status-step[data-state="pending"] .order-status-step-labe
 
 .dark .order-status-step[data-state="pending"] .order-status-step-label {
   color: #cbd5e1;
+}
+
+/* Premium exchange summary surface and identity artwork. */
+.order-exchange-summary-card {
+  border-color: transparent;
+  background:
+    linear-gradient(hsl(var(--card)), hsl(var(--card))) padding-box,
+    linear-gradient(125deg, rgba(6, 182, 212, 0.62), rgba(59, 130, 246, 0.58) 48%, rgba(124, 58, 237, 0.58)) border-box;
+  box-shadow:
+    inset 0 0 24px rgba(59, 130, 246, 0.045),
+    0 14px 34px -22px rgba(37, 99, 235, 0.48),
+    0 0 18px -12px rgba(124, 58, 237, 0.42);
+}
+
+.dark .order-exchange-summary-card {
+  background:
+    linear-gradient(145deg, rgba(13, 20, 42, 0.98), rgba(8, 13, 30, 0.98)) padding-box,
+    linear-gradient(125deg, rgba(34, 211, 238, 0.65), rgba(59, 130, 246, 0.62) 48%, rgba(139, 92, 246, 0.62)) border-box;
+  box-shadow:
+    inset 0 0 28px rgba(59, 130, 246, 0.07),
+    0 18px 40px -24px rgba(37, 99, 235, 0.58),
+    0 0 20px -12px rgba(139, 92, 246, 0.5);
+}
+
+html:not(.dark) .order-exchange-summary-title,
+html:not(.dark) .order-exchange-summary-label {
+  color: #334155;
+}
+
+.dark .order-exchange-summary-title,
+.dark .order-exchange-summary-label {
+  color: #cbd5e1;
+}
+
+html:not(.dark) .order-exchange-summary-network {
+  color: #334155;
+}
+
+.dark .order-exchange-summary-network {
+  color: #67e8f9;
+}
+
+html:not(.dark) .order-exchange-summary-leg {
+  background: rgba(248, 250, 252, 0.92);
+  border-color: #cbd5e1;
+}
+
+.dark .order-exchange-summary-leg {
+  background: rgba(15, 23, 48, 0.78);
+  border-color: rgba(96, 165, 250, 0.28);
+}
+
+html:not(.dark) .order-exchange-summary-meta {
+  background: rgba(248, 250, 252, 0.88);
+  border-color: #cbd5e1;
+}
+
+.dark .order-exchange-summary-meta {
+  background: rgba(15, 23, 42, 0.7);
+  border-color: rgba(148, 163, 184, 0.28);
+}
+
+.order-exchange-summary-logo,
+.order-deposit-logo {
+  width: 3rem !important;
+  height: 3rem !important;
+  min-width: 3rem !important;
+  min-height: 3rem !important;
+  aspect-ratio: 1 / 1 !important;
+  border-radius: 9999px !important;
+  background: transparent !important;
+  border: 1px solid rgba(34, 211, 238, 0.4) !important;
+  box-shadow:
+    0 0 0 1px rgba(59, 130, 246, 0.08),
+    0 0 13px -5px rgba(6, 182, 212, 0.6),
+    0 0 18px -8px rgba(124, 58, 237, 0.5) !important;
+}
+
+.order-exchange-summary-logo :is(
+  .order-settlement-identity,
+  .order-settlement-payment-logo,
+  .payment-method-logo-stack,
+  .payment-method-logo,
+  .crypto-identity,
+  .crypto-logo,
+  .logo-avatar
+),
+.order-deposit-logo :is(
+  .order-settlement-identity,
+  .order-settlement-payment-logo,
+  .payment-method-logo-stack,
+  .payment-method-logo,
+  .crypto-identity,
+  .crypto-logo,
+  .logo-avatar
+) {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: 0 !important;
+  border-radius: 9999px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.order-exchange-summary-logo :is(img, .logo-avatar-img),
+.order-deposit-logo :is(img, .logo-avatar-img) {
+  display: block !important;
+  width: 2.125rem !important;
+  height: 2.125rem !important;
+  min-width: 2.125rem !important;
+  min-height: 2.125rem !important;
+  max-width: 2.125rem !important;
+  max-height: 2.125rem !important;
+  aspect-ratio: 1 / 1 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 9999px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  object-fit: contain !important;
+  object-position: center !important;
+}
+
+/* Deposit details uses one clipped card shape so the glow follows every corner. */
+.order-deposit-card {
+  isolation: isolate;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(hsl(var(--card)), hsl(var(--card))) padding-box,
+    linear-gradient(125deg, rgba(6, 182, 212, 0.6), rgba(59, 130, 246, 0.56) 50%, rgba(124, 58, 237, 0.56)) border-box;
+  box-shadow:
+    inset 0 0 24px rgba(59, 130, 246, 0.05),
+    0 14px 34px -24px rgba(37, 99, 235, 0.52),
+    0 0 18px -12px rgba(124, 58, 237, 0.45);
+}
+
+.dark .order-deposit-card {
+  background:
+    linear-gradient(145deg, rgba(13, 20, 42, 0.98), rgba(8, 13, 30, 0.98)) padding-box,
+    linear-gradient(125deg, rgba(34, 211, 238, 0.64), rgba(59, 130, 246, 0.62) 50%, rgba(139, 92, 246, 0.62)) border-box;
+  box-shadow:
+    inset 0 0 28px rgba(59, 130, 246, 0.075),
+    0 18px 40px -24px rgba(37, 99, 235, 0.58),
+    0 0 20px -12px rgba(139, 92, 246, 0.5);
+}
+
+html:not(.dark) .order-deposit-network {
+  background: rgba(14, 116, 144, 0.1);
+  color: #164e63;
+  border-color: rgba(14, 116, 144, 0.35);
+}
+
+.dark .order-deposit-network {
+  background: rgba(34, 211, 238, 0.12);
+  color: #67e8f9;
+  border-color: rgba(103, 232, 249, 0.4);
+}
+
+@media (max-width: 640px) {
+  .order-exchange-summary-leg {
+    padding: 1rem;
+  }
+
+  .order-exchange-summary-logo,
+  .order-deposit-logo {
+    flex: 0 0 3rem;
+  }
+
+  .order-deposit-network {
+    max-width: 44%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
