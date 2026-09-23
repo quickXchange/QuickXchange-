@@ -520,8 +520,26 @@ test("Telegram wizard honors conditional and optional fields", () => {
     { key: "note", required: false },
   ];
   assert.equal(nextRequiredField(fields, 0, {}), 0);
-  assert.equal(nextRequiredField(fields, 1, { method: "cash" }), 2);
+  assert.equal(nextRequiredField(fields, 1, { method: "cash" }), -1);
   assert.equal(nextRequiredField(fields, 1, { method: "bank" }), 1);
+});
+
+test("Telegram Convert keeps canonical API settlement capability IDs", () => {
+  const options = buildTelegramConvertOptions([
+    { slug: "btc-bitcoin", currencyTitle: "BTC", networkTitle: "Bitcoin", instrumentType: "crypto", fullName: "Bitcoin" },
+  ], [
+    { fromAsset: "BTC", fromNetwork: "Bitcoin", toAsset: "BTC", toNetwork: "Bitcoin" },
+  ], [
+    {
+      id: "api:quickex:btc-bitcoin",
+      assetCode: "BTC",
+      routeNetwork: "Bitcoin",
+      kind: "crypto-network",
+      direction: "both",
+      executionMode: "api",
+    },
+  ]);
+  assert.equal(options[0]?.id, "api:quickex:btc-bitcoin");
 });
 
 test("Telegram route filtering preserves receive-only options without cross-products", () => {

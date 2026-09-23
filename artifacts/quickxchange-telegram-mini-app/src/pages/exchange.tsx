@@ -315,15 +315,7 @@ export default function Exchange() {
             }
           });
           if (quoteRequestVersionRef.current !== requestVersion) return;
-          setQuoteData({
-            quoteId: res.quoteId,
-            receiveAmount: res.receiveAmount,
-            rate: res.rate,
-            fee: res.fee,
-            minAmount: res.minAmount,
-            maxAmount: res.maxAmount,
-            type: 'instant'
-          });
+          setQuoteData({ ...res, type: 'instant' });
           setErrorMsg('');
         } catch (err: any) {
           if (quoteRequestVersionRef.current !== requestVersion) return;
@@ -410,16 +402,6 @@ export default function Exchange() {
           haptic.notification('warning');
           return;
         }
-        if (refundAddress && sourceOpt.original.requiresMemo && !refundMemo) {
-          setErrorMsg('Refund memo is required if refund address is provided');
-          haptic.notification('warning');
-          return;
-        }
-        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(customerEmail.trim())) {
-          setErrorMsg('Enter a valid customer email');
-          haptic.notification('warning');
-          return;
-        }
       } else {
         if (targetOpt.kind === 'crypto-network' && !destinationAddress && !quoteData?.requiredSettlementFields?.some((f: any) => f.type === 'wallet-address' || f.key.includes('address'))) {
           setErrorMsg('Destination address is required');
@@ -429,6 +411,7 @@ export default function Exchange() {
 
         if (quoteData?.requiredSettlementFields) {
           for (const field of quoteData.requiredSettlementFields) {
+              if (field.enabled === false) continue;
             let isVisible = true;
             if (field.requiredWhen) {
               const { fieldKey, equals } = field.requiredWhen;
@@ -438,13 +421,23 @@ export default function Exchange() {
                 isVisible = false;
               }
             }
-            if (isVisible && field.required && !settlementFields[field.key]) {
+            if (isVisible && field.required && !settlementFields[field.key]?.trim()) {
               setErrorMsg(`${field.label} is required`);
               haptic.notification('warning');
               return;
             }
           }
         }
+      }
+      if (refundAddress && sourceOpt.original.requiresMemo && !refundMemo) {
+        setErrorMsg('Refund memo is required if refund address is provided');
+        haptic.notification('warning');
+        return;
+      }
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(customerEmail.trim())) {
+        setErrorMsg('Enter a valid customer email');
+        haptic.notification('warning');
+        return;
       }
 
       setErrorMsg('');
@@ -458,14 +451,17 @@ export default function Exchange() {
       try {
         let order;
         if (mode === 'convert') {
+          if (!quoteData?.quoteId || !quoteData?.fromAsset || !quoteData?.fromNetwork || !quoteData?.toAsset || !quoteData?.toNetwork || !quoteData?.amount) {
+            throw new Error('The current Convert quote is incomplete. Refresh the quote and try again.');
+          }
           order = await createQuickexOrder.mutateAsync({
             data: {
               type: 'instant',
-              fromAsset: sourceOpt.assetCode,
-              fromNetwork: sourceOpt.routeNetwork,
-              toAsset: targetOpt.assetCode,
-              toNetwork: targetOpt.routeNetwork,
-              amount: parsedAmount,
+              fromAsset: quoteData.fromAsset,
+              fromNetwork: quoteData.fromNetwork,
+              toAsset: quoteData.toAsset,
+              toNetwork: quoteData.toNetwork,
+              amount: quoteData.amount,
               customerEmail: customerEmail.trim(),
               quoteId: quoteData.quoteId,
               rateMode: 'FLOATING',
@@ -489,7 +485,12 @@ export default function Exchange() {
               amount: parsedAmount,
               quoteId: quoteData.quoteId,
               clientRequestId: orderRequestIdRef.current,
+              customerEmail: customerEmail.trim(),
               destinationAddress: destinationAddress || undefined,
+              ...(refundAddress.trim() ? {
+                refundAddress: refundAddress.trim(),
+                refundMemo: refundMemo.trim() || undefined,
+              } : {}),
               settlementDetails: Object.keys(settlementFields).length > 0 ? settlementFields : undefined,
               sourceSettlementOptionId: sourceOpt.id,
               targetSettlementOptionId: targetOpt.id
@@ -791,22 +792,69 @@ export default function Exchange() {
                       isVisible = false;
                     }
                   }
-                  if (!isVisible) return null;
+                  if (!isVisible || field.enabled === false) return null;
 
                   return (
                     <div key={field.key} className="space-y-2 mt-4">
                       <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">
                         {field.label} {field.required && <span className="text-white">*</span>}
                       </label>
-                      <Input
-                        value={settlementFields[field.key] || ''}
-                        onChange={(e) => setSettlementFields(prev => ({...prev, [field.key]: e.target.value}))}
-                        placeholder={`Enter ${field.label.toLowerCase()}`}
-                        className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner text-white placeholder:text-white/50"
-                      />
+                      {field.type === 'select' && field.options?.length ? (
+                        <select
+                          value={settlementFields[field.key] || ''}
+                          onChange={(e) => setSettlementFields(prev => ({...prev, [field.key]: e.target.value}))}
+                          className="w-full bg-black/20 h-14 rounded-2xl border border-white/20 px-3 text-[15px] text-white"
+                        >
+                          <option value="">Select {field.label.toLowerCase()}</option>
+                          {field.options.map((option: any) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                        </select>
+                      ) : (
+                        <Input
+                          value={settlementFields[field.key] || ''}
+                          onChange={(e) => setSettlementFields(prev => ({...prev, [field.key]: e.target.value}))}
+                          placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+                          type={field.type === 'email' ? 'email' : field.type === 'number' || field.type === 'integer' || field.type === 'numeric' || field.type === 'decimal' ? 'number' : 'text'}
+                          className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner text-white placeholder:text-white/50"
+                        />
+                      )}
                     </div>
                   );
                 })}
+
+                <div className="space-y-2 pt-4 border-t border-white/20">
+                  <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">
+                    Customer Email
+                  </label>
+                  <Input
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    value={customerEmail}
+                    onChange={(e) => setCustomerEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner text-white placeholder:text-white/50"
+                  />
+                </div>
+
+                {sourceOpt?.kind === 'crypto-network' && (
+                  <div className="pt-4 border-t border-white/20 mt-6">
+                    <h4 className="text-[14px] font-bold text-white/90 mb-3">Optional Refund Details</h4>
+                    <Input
+                      value={refundAddress}
+                      onChange={(e) => setRefundAddress(e.target.value)}
+                      placeholder={`Refund ${sourceOpt.assetCode} address (optional)`}
+                      className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner font-mono text-white placeholder:text-white/50"
+                    />
+                    {sourceOpt?.original?.requiresMemo && (
+                      <Input
+                        value={refundMemo}
+                        onChange={(e) => setRefundMemo(e.target.value)}
+                        placeholder="Refund memo / tag"
+                        className="mt-4 bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner font-mono text-white placeholder:text-white/50"
+                      />
+                    )}
+                  </div>
+                )}
               </>
             )}
 
@@ -844,7 +892,7 @@ export default function Exchange() {
                 </span>
               </div>
             )}
-            {mode === 'convert' && (
+            {customerEmail && (
               <div className="flex justify-between items-center gap-4 py-3 border-b border-border/50">
                 <span className="text-[14px] font-semibold text-muted-foreground">Email</span>
                 <span className="text-[13px] text-right break-all text-foreground/80">

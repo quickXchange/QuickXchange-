@@ -18,5 +18,6 @@ export interface TelegramMiniAppOrderLinkInput {
      * @maxLength 4096
      */
   trackingToken: string;
-  orderKind: TelegramMiniAppOrderLinkInputOrderKind;
+  /** Optional legacy hint; the server derives the kind from the order ID. */
+  orderKind?: TelegramMiniAppOrderLinkInputOrderKind;
 }

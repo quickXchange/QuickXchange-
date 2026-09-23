@@ -23,13 +23,41 @@ export type TelegramConvertInstrument = {
   requiresMemo?: boolean;
 };
 
+export type TelegramCanonicalSettlementOption = TelegramRouteOption & {
+  assetId?: string;
+  title?: string;
+  direction?: string;
+  executionMode?: string;
+  networkTitle?: string;
+  providerId?: string;
+  fields?: unknown[];
+};
+
 export function telegramAssetNetworkKey(assetCode: string, routeNetwork: string) {
   return `${assetCode.trim().toUpperCase()}\0${routeNetwork.trim().toUpperCase()}`;
+}
+
+/** Presentation for the backend's canonical customer status values. */
+export function telegramStatusLabel(status: string): string {
+  switch (status.trim().toLowerCase()) {
+    case "awaiting funds": return "AWAITING FUNDS";
+    case "payment detected": return "PAYMENT DETECTED";
+    case "confirming": return "CONFIRMING";
+    case "processing": return "PROCESSING";
+    case "completed": return "DONE ✅";
+    case "failed": return "FAILED";
+    case "cancelled":
+    case "canceled": return "CANCELLED";
+    case "refunded": return "REFUNDED";
+    case "expired": return "EXPIRED";
+    default: return status;
+  }
 }
 
 export function buildTelegramConvertOptions(
   instruments: TelegramConvertInstrument[],
   pairs: Array<{ fromAsset: string; fromNetwork: string; toAsset: string; toNetwork: string }>,
+  canonicalOptions?: TelegramCanonicalSettlementOption[],
 ) {
   const executableKeys = new Set<string>();
   for (const pair of pairs) {
@@ -46,8 +74,13 @@ export function buildTelegramConvertOptions(
     const key = telegramAssetNetworkKey(instrument.currencyTitle, instrument.networkTitle);
     if (!executableKeys.has(key) || seen.has(key)) return [];
     seen.add(key);
+    const canonical = canonicalOptions?.find(option =>
+      telegramAssetNetworkKey(option.assetCode, option.routeNetwork) === key,
+    );
+    if (canonicalOptions && !canonical) return [];
     return [{
-      id: `quickex:${instrument.slug}`,
+      ...canonical,
+      id: canonical?.id ?? `quickex:${instrument.slug}`,
       assetCode: instrument.currencyTitle,
       routeNetwork: instrument.networkTitle,
       kind: "crypto-network",
@@ -211,11 +244,7 @@ export function nextRequiredField(
   values: Record<string, unknown>,
 ) {
   for (let index = start; index < fields.length; index += 1) {
-    const condition = fields[index].requiredWhen;
-    if (!condition) return index;
-    const actual = String(values[condition.fieldKey] ?? "");
-    const expected = Array.isArray(condition.equals) ? condition.equals : [condition.equals];
-    if (expected.includes(actual)) return index;
+    if (requiredFieldActive(fields[index], values)) return index;
   }
   return -1;
 }

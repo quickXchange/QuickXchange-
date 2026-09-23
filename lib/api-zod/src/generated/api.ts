@@ -14950,7 +14950,7 @@ export const linkTelegramMiniAppOrderBodyTrackingTokenMax = 4096;
 export const LinkTelegramMiniAppOrderBody = zod.object({
   "orderId": zod.string().min(1).max(linkTelegramMiniAppOrderBodyOrderIdMax),
   "trackingToken": zod.string().min(1).max(linkTelegramMiniAppOrderBodyTrackingTokenMax),
-  "orderKind": zod.enum(['manual', 'swap', 'convert'])
+  "orderKind": zod.enum(['manual', 'swap', 'convert']).optional().describe('Optional legacy hint; the server derives the kind from the order ID.')
 })
 
 export const linkTelegramMiniAppOrderResponseVerifiedFundingTransactionConfirmationsMin = 0;

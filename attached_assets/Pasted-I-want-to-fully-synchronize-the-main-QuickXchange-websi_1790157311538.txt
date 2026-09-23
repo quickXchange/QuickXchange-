@@ -1,0 +1,250 @@
+I want to fully synchronize the main QuickXchange website, Telegram Mini App, and Telegram Bot.
+
+The main website must be the source of truth.
+
+IMPORTANT:
+Do not create three separate versions of the Swap/Convert logic.
+Reuse the same APIs, configuration, order flow, route data, pricing, assets, networks, payment methods, and order-status logic wherever possible.
+
+==================================================
+1. SYNC STEP 2 WITH THE MAIN WEBSITE
+==================================================
+
+Update Telegram Mini App and Telegram Bot so Step 2 matches the CURRENT main website Step 2.
+
+Anything currently displayed on the website Step 2 must also appear in:
+- Telegram Mini App
+- Telegram Bot flow where applicable
+
+If something is removed from the website Step 2, it must no longer remain as an old/stale field in Telegram Mini App or Telegram Bot.
+
+Examples include:
+- Email
+- Receiving address
+- Refund address when applicable
+- Add-ons
+- Payment information
+- Network information
+- Amount
+- Place Order
+- validation rules
+- required/optional fields
+
+Do NOT manually duplicate the configuration in three places.
+
+Use shared configuration/components or the same backend API response so all three stay synchronized.
+
+==================================================
+2. TELEGRAM BOT — TRACK ORDER IS NOT WORKING
+==================================================
+
+Fix Track Order in the Telegram Bot.
+
+Currently Track Order does not work correctly.
+
+It must use the SAME order tracking backend/API as the main website.
+
+User should be able to enter/select an Order ID and receive the real current status:
+
+Created
+Detected
+Confirming (when applicable)
+Processing
+Completed
+
+Also return the customer-safe order information available on the website.
+
+Do not create a separate Telegram-only order status.
+
+The website, Mini App, and Telegram Bot must always read the same real order status.
+
+==================================================
+3. FIX CONVERT IN TELEGRAM MINI APP
+==================================================
+
+Fix the complete Convert flow in Telegram Mini App.
+
+It must use the same current Convert configuration as the main website:
+
+- Available assets
+- Networks
+- Minimum/maximum amounts
+- Routes
+- Pricing
+- Deposit information
+- Address/memo when applicable
+- Validation
+- Order creation
+- Order status
+- View Order
+
+Do not leave the Mini App using an old Convert implementation.
+
+==================================================
+4. FIX CONVERT IN TELEGRAM BOT
+==================================================
+
+Fix Convert in Telegram Bot as well.
+
+The Telegram Bot must create and retrieve orders through the SAME backend/order system used by the website and Mini App.
+
+Do not maintain separate pricing, currencies, networks, or route lists inside the Telegram Bot.
+
+==================================================
+5. MAKE WEBSITE THE SOURCE OF TRUTH
+==================================================
+
+Architecture should be:
+
+                QuickXchange Backend / Shared APIs
+                         ↓
+        ┌────────────────┼────────────────┐
+        ↓                ↓                ↓
+Main Website      Telegram Mini App   Telegram Bot
+
+The three interfaces should NOT have independent business logic.
+
+Centralize/reuse:
+- Crypto assets
+- Networks
+- Payment methods
+- Enabled/disabled routes
+- Swap configuration
+- Convert configuration
+- Step 2 fields/configuration
+- Pricing
+- Fees
+- Min/max
+- Order creation
+- Order status
+- Track Order
+- Deposit details
+- Transaction detection/status
+- Customer-safe View Order data
+
+If I enable/disable or change something through the existing website/Admin configuration, Telegram Mini App and Telegram Bot should consume the updated configuration automatically instead of requiring another manual code edit.
+
+==================================================
+6. UI SYNC
+==================================================
+
+Telegram Mini App should follow the current QuickXchange website identity:
+
+- Current Swap/Convert flow
+- Current Step 2 structure
+- Current status design
+- Circular logos
+- No unwanted square backgrounds behind logos
+- Light Mode
+- Dark Mode
+- Mobile-friendly layout
+
+Do not blindly copy desktop dimensions.
+Keep Mini App optimized for Telegram/mobile.
+
+==================================================
+7. ORDER CONSISTENCY
+==================================================
+
+An order created from:
+- Website
+- Telegram Mini App
+- Telegram Bot
+
+must enter the SAME order system.
+
+Admin Panel must see all of them normally.
+
+Order status changes must synchronize everywhere.
+
+Example:
+
+Payment detected
+        ↓
+Backend order becomes Detected/Confirming
+        ↓
+Website updates
+Mini App updates
+Telegram Bot Track Order returns the same status
+
+When Admin changes a status, the customer must see the updated status through all supported interfaces.
+
+==================================================
+8. IMPORTANT — DO NOT BREAK WORKING MONITORING
+==================================================
+
+Do NOT rewrite or modify the currently working blockchain monitoring system unless an actual integration issue requires it.
+
+Do not break:
+- Ethereum monitoring
+- BSC/BEP20 monitoring
+- TRON/TRC20 monitoring
+- BTC monitoring
+- deposit watches
+- confirmation handling
+- transaction matching
+- duplicate protection
+- receiving wallets
+- existing orders
+
+This task is primarily integration/synchronization between the Website, Telegram Mini App, and Telegram Bot.
+
+==================================================
+9. REMOVE DUPLICATED / LEGACY LOGIC
+==================================================
+
+Inspect whether Telegram Mini App or Telegram Bot currently contains old duplicated:
+- asset lists
+- network lists
+- Step 2 fields
+- pricing
+- routes
+- status mappings
+- Convert logic
+
+Replace those duplicated sources with the existing shared backend/configuration where safely possible.
+
+Do not delete working code until you verify its replacement works.
+
+==================================================
+10. TEST EVERYTHING BEFORE FINISHING
+==================================================
+
+Test:
+
+SWAP:
+Website → Mini App → Telegram Bot
+
+CONVERT:
+Website → Mini App → Telegram Bot
+
+TRACK ORDER:
+Website → Mini App → Telegram Bot
+
+Verify:
+- same assets
+- same networks
+- same Step 2
+- same pricing
+- same order
+- same status
+- same deposit information
+- same final Completed status
+
+Also verify an order created in Mini App/Bot appears correctly in Admin Orders.
+
+Do not use real funds for testing.
+Use safe test orders/configuration.
+
+Do NOT publish automatically.
+
+Show me:
+1. What was duplicated/outdated.
+2. What was centralized/shared.
+3. What caused Telegram Bot Track Order to fail.
+4. What caused Convert in Mini App/Bot to fail.
+5. Test results for Website vs Mini App vs Telegram Bot.
+6. Any remaining differences that cannot safely be shared.
+
+The final goal is:
+Website + Telegram Mini App + Telegram Bot = one QuickXchange system, with the website/backend configuration as the single source of truth.

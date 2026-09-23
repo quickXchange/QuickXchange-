@@ -7,6 +7,7 @@ import {
   telegramOrderLinksTable,
 } from "@workspace/db";
 import { formatTelegramOrderId } from "./telegram-api";
+import { telegramStatusLabel } from "./telegram-wizard";
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type QuickexOrderRow = typeof quickexOrdersTable.$inferSelect;
@@ -69,16 +70,7 @@ function convertPayload(
 }
 
 export function convertTelegramStatusLabel(status: string): string {
-  switch (status.trim().toLowerCase()) {
-    case "awaiting funds": return "AWAITING FUNDS";
-    case "processing": return "PROCESSING";
-    case "completed": return "DONE ✅";
-    case "failed": return "FAILED";
-    case "cancelled": return "CANCELLED";
-    case "refunded": return "REFUNDED";
-    case "expired": return "EXPIRED";
-    default: return status;
-  }
+  return telegramStatusLabel(status);
 }
 
 export async function enqueueConvertTelegramMilestones(

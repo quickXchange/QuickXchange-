@@ -294,13 +294,14 @@ router.post("/telegram/mini-app/account-link", async (req, res): Promise<void> =
 router.post("/telegram/mini-app/orders/link", async (req, res): Promise<void> => {
   try {
     const { session, chat } = await authenticated(req);
-    const { orderId, trackingToken, orderKind } = req.body ?? {};
-    if (typeof orderId !== "string" || typeof trackingToken !== "string" || !["manual", "swap", "convert"].includes(orderKind)) throw new Error("Invalid order link.");
+    const { orderId, trackingToken } = req.body ?? {};
+    if (typeof orderId !== "string" || typeof trackingToken !== "string") throw new Error("Invalid order link.");
     if (!verifyOrderTrackingToken(trackingToken, orderId)) throw new ApiError("ORDER_TRACKING_INVALID", "Invalid tracking token.", 400);
-    const exists = orderKind === "convert"
-      ? (await db.select().from(quickexOrdersTable).where(eq(quickexOrdersTable.legacyOrderId, orderId)).limit(1))[0]
-      : (await db.select().from(ordersTable).where(eq(ordersTable.id, orderId)).limit(1))[0];
-    if (!exists) throw new ApiError("ORDER_NOT_FOUND", "Order not found.", 404);
+    const quickexOrder = (await db.select().from(quickexOrdersTable).where(eq(quickexOrdersTable.legacyOrderId, orderId)).limit(1))[0];
+    const manualOrder = (await db.select().from(ordersTable).where(eq(ordersTable.id, orderId)).limit(1))[0];
+    const orderKind = quickexOrder ? "convert" : manualOrder?.type === "manual" ? "manual" : manualOrder ? "swap" : undefined;
+    const exists = quickexOrder || manualOrder;
+    if (!exists || !orderKind) throw new ApiError("ORDER_NOT_FOUND", "Order not found.", 404);
     await db.transaction(async tx => {
       await claimTelegramOrderOwnership(tx, orderId, orderKind, chat.clerkCustomerUserId ?? undefined);
       await tx.insert(telegramOrderLinksTable).values({ chatId: session.chatId, orderId, trackingToken, orderKind }).onConflictDoNothing();

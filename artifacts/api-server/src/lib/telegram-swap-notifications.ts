@@ -12,6 +12,7 @@ import {
 } from "@workspace/db";
 import { formatTelegramOrderId } from "./telegram-api";
 import { adminEmailEventEnabled, adminTelegramEventEnabled, customerEmailEventEnabled } from "./notification-policy";
+import { telegramStatusLabel } from "./telegram-wizard";
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type OrderRow = typeof ordersTable.$inferSelect;
@@ -58,17 +59,7 @@ export type VerifiedManualTransaction = {
 };
 
 export function swapTelegramStatusLabel(status: string): string {
-  switch (status.trim().toLowerCase()) {
-    case "awaiting funds": return "AWAITING FUNDS";
-    case "payment detected": return "PAYMENT DETECTED";
-    case "confirming": return "CONFIRMING";
-    case "processing": return "PROCESSING";
-    case "completed": return "DONE ✅";
-    case "cancelled": return "CANCELLED";
-    case "failed": return "FAILED";
-    case "refunded": return "REFUNDED";
-    default: return status;
-  }
+  return telegramStatusLabel(status);
 }
 
 function text(value: unknown): string {

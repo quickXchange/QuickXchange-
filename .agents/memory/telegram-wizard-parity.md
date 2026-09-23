@@ -9,6 +9,12 @@ Telegram Swap source eligibility must match the main widget: every source, inclu
 
 **How to apply:** Share or regression-test equivalent source predicates across both surfaces. Admin pricing and route availability remain authoritative; do not use lifecycle alone as proof that a source can execute.
 
+Telegram Convert must preserve the canonical API settlement-option IDs supplied by the backend capability projection and fail closed when a provider instrument has no canonical match.
+
+**Why:** Reconstructing IDs from provider slugs created selectable Telegram routes that the shared quote/order service could never execute.
+
+**How to apply:** Match provider catalog entries to backend-projected options by exact asset/network identity, carry the projected ID unchanged, and never substitute a Telegram-only ID in production.
+
 Telegram callback payloads must be parsed by their delimiter/shape rather than hard-coded substring offsets.
 
 **Why:** An off-by-one prefix length made a valid optional-field Skip callback parse as `NaN`, so Telegram acknowledged the click but did not advance the wizard.

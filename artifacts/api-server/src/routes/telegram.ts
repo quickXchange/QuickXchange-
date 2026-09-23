@@ -6,7 +6,7 @@ import { languageButtons, localeOf, t, type TelegramLocale } from "../lib/telegr
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { signOrderTrackingToken } from "../lib/order-access";
-import { buildCreatePayload, buildQuotePayload, buildTelegramConvertOptions, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, requiredFieldActive, shouldAskDestination, telegramFieldSkipIndex, withoutTelegramRefundFields, type TelegramConvertInstrument, type TelegramRouteOption } from "../lib/telegram-wizard";
+import { buildCreatePayload, buildQuotePayload, buildTelegramConvertOptions, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, requiredFieldActive, shouldAskDestination, telegramFieldSkipIndex, telegramStatusLabel, withoutTelegramRefundFields, type TelegramConvertInstrument, type TelegramRouteOption } from "../lib/telegram-wizard";
 import { createTelegramLinkChallenge } from "../lib/telegram-link";
 import { AdminTelegramLinkChallengeError, consumeAdminTelegramLinkChallenge } from "../lib/admin-telegram-link";
 import { getCustomerVerifiedEmail, requireActiveCustomerIdentity } from "../lib/customer-auth";
@@ -119,7 +119,7 @@ export function telegramOrderCreatedMessage(
     "",
     formatTelegramOrderId(orderId),
     "",
-    `${t(locale, "status")}: <b>${html(status ?? "updated")}</b>`,
+    `${t(locale, "status")}: <b>${html(telegramStatusLabel(String(status ?? "updated")))}</b>`,
     ...(deposit ? [
       `${t(locale, "deposit")}: <code>${html(deposit.address)}</code>`,
       ...(deposit.memo ? [`${t(locale, "memo")}: <code>${html(deposit.memo)}</code>`] : []),
@@ -132,7 +132,7 @@ export function telegramOrderStatusMessage(orderId: string, status: unknown, loc
     "",
     formatTelegramOrderId(orderId),
     "",
-    `${t(locale, "status")}: <b>${html(status ?? "updated")}</b>`,
+    `${t(locale, "status")}: <b>${html(telegramStatusLabel(String(status ?? "updated")))}</b>`,
   ].join("\n");
 }
 export function telegramRequiresDeposit(orderKind: string, sourceKind?: string) {
@@ -320,6 +320,7 @@ async function exchangeOptions(chatId: string, locale: TelegramLocale, mode: "sw
   const config = await response.json() as {
     assets?: Array<{ id: string; name: string }>;
     settlementOptions?: SettlementOption[];
+    instantSettlementOptions?: SettlementOption[];
     manualRouteAvailability?: { routes?: Array<{ sourceSettlementOptionId: string; targetSettlementOptionId: string }> };
   };
   const assetNames = new Map((config.assets ?? []).map(asset => [asset.id, asset.name]));
@@ -344,6 +345,7 @@ async function exchangeOptions(chatId: string, locale: TelegramLocale, mode: "sw
       convertOptions = buildTelegramConvertOptions(
         quickex.instruments ?? [],
         convertPairs,
+        (config.instantSettlementOptions ?? []) as SettlementOption[],
       ) as SettlementOption[];
     }
   }
@@ -566,6 +568,32 @@ async function sendDepositInstructions(chatId: string, orderId: string, orderKin
   if (!deposit) return;
   const memo = deposit.memo ? `\n${html(t("en", "memo"))}: <code>${html(deposit.memo)}</code>` : "";
   await sendTelegramPhoto(chatId, deposit.address, `${formatTelegramOrderId(orderId)}\n\n${t("en", "deposit")}:\n<code>${html(deposit.address)}</code>${memo}`);
+}
+
+/**
+ * Resolve the customer-safe status contract from the local order index.  The
+ * Telegram flow must not probe both status endpoints: doing so can turn a
+ * valid capability into an ambiguous route and makes ownership failures
+ * observable.  A linked order is authoritative; otherwise the id must exist
+ * in exactly one order store.
+ */
+async function resolveTelegramOrderKind(chatId: string, orderId: string) {
+  const [linked] = await db.select({ orderKind: telegramOrderLinksTable.orderKind })
+    .from(telegramOrderLinksTable)
+    .where(and(
+      eq(telegramOrderLinksTable.chatId, chatId),
+      eq(telegramOrderLinksTable.orderId, orderId),
+    ))
+    .limit(1);
+  if (linked) return linked.orderKind === "convert" ? "convert" : "swap";
+  const [convert, swap] = await Promise.all([
+    db.select({ id: quickexOrdersTable.legacyOrderId })
+      .from(quickexOrdersTable).where(eq(quickexOrdersTable.legacyOrderId, orderId)).limit(1),
+    db.select({ id: ordersTable.id })
+      .from(ordersTable).where(eq(ordersTable.id, orderId)).limit(1),
+  ]);
+  if (Boolean(convert.length) === Boolean(swap.length)) return undefined;
+  return convert.length ? "convert" : "swap";
 }
 type TelegramDbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -822,22 +850,19 @@ async function handleText(chatId: string, locale: TelegramLocale, text: string) 
   if (session?.state === "track") {
     const [id, trackingToken] = text.trim().split(/\s+/);
     if (!id || !trackingToken) { await sendTelegramMessage(chatId, t(locale, "tracking")); return; }
-    const [storedLink] = await db.select({ orderKind: telegramOrderLinksTable.orderKind }).from(telegramOrderLinksTable).where(and(eq(telegramOrderLinksTable.chatId, chatId), eq(telegramOrderLinksTable.orderId, id))).limit(1);
-    const paths = storedLink ? [storedLink.orderKind === "convert" ? "/api/quickex/orders" : "/api/orders"] : ["/api/orders", "/api/quickex/orders"];
-    let response: Response | undefined;
-    let usedPath = paths[0];
-    let result: Record<string, unknown> = {};
-    for (const statusPath of paths) {
-      usedPath = statusPath;
-      response = await fetch(`${baseUrl()}${statusPath}/${encodeURIComponent(id)}/status?trackingToken=${encodeURIComponent(trackingToken)}`);
-      result = await response.json() as Record<string, unknown>;
-      if (response.ok || ![400, 404, 422].includes(response.status)) break;
+    const orderKind = await resolveTelegramOrderKind(chatId, id);
+    if (!orderKind) {
+      await sendTelegramMessage(chatId, `${t(locale, "unavailable")}: invalid or ambiguous order identifier`);
+      return;
     }
-    if (response?.ok && !storedLink) {
-      await db.insert(telegramOrderLinksTable).values({ chatId, orderId: id, trackingToken, orderKind: usedPath === "/api/quickex/orders" ? "convert" : "swap" }).onConflictDoNothing();
+    const statusPath = orderKind === "convert" ? "/api/quickex/orders" : "/api/orders";
+    const response = await fetch(`${baseUrl()}${statusPath}/${encodeURIComponent(id)}/status?trackingToken=${encodeURIComponent(trackingToken)}`);
+    const result = await response.json() as Record<string, unknown>;
+    if (response.ok) {
+      await db.insert(telegramOrderLinksTable).values({ chatId, orderId: id, trackingToken, orderKind }).onConflictDoNothing();
     }
-    await sendTelegramMessage(chatId, response?.ok ? `<b>${t(locale, "order")}</b> <code>${html(id)}</code>\n${t(locale, "status")}: ${html(result.status)}\n${t(locale, "amount")}: ${html(result.amount)} ${html(result.fromAsset)} → ${html(result.receiveAmount)} ${html(result.toAsset)}` : `${t(locale, "unavailable")}: ${html(result.error ?? "invalid tracking capability")}`);
-    if (response?.ok) await sendDepositInstructions(chatId, id, usedPath === "/api/quickex/orders" ? "convert" : "swap", trackingToken, result);
+    await sendTelegramMessage(chatId, response.ok ? `<b>${t(locale, "order")}</b> <code>${html(id)}</code>\n${t(locale, "status")}: ${html(result.status)}\n${t(locale, "amount")}: ${html(result.amount)} ${html(result.fromAsset)} → ${html(result.receiveAmount)} ${html(result.toAsset)}` : `${t(locale, "unavailable")}: ${html(result.error ?? "invalid tracking capability")}`);
+    if (response.ok) await sendDepositInstructions(chatId, id, orderKind, trackingToken, result);
     return;
   }
   if (text.startsWith("/start")) { await mainMenu(chatId, locale); return; }

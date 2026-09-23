@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Optional legacy hint; the server derives the kind from the order ID.
+ */
 export type TelegramMiniAppOrderLinkInputOrderKind = typeof TelegramMiniAppOrderLinkInputOrderKind[keyof typeof TelegramMiniAppOrderLinkInputOrderKind];
 
 

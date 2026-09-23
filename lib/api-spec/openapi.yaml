@@ -7534,11 +7534,11 @@ components:
         relativeUrl: { type: string, pattern: "^/telegram/connect\\?token=" }
     TelegramMiniAppOrderLinkInput:
       type: object
-      required: [orderId, trackingToken, orderKind]
+      required: [orderId, trackingToken]
       properties:
         orderId: { type: string, minLength: 1, maxLength: 255 }
         trackingToken: { type: string, minLength: 1, maxLength: 4096 }
-        orderKind: { type: string, enum: [manual, swap, convert] }
+        orderKind: { type: string, enum: [manual, swap, convert], description: Optional legacy hint; the server derives the kind from the order ID. }
     BlockchainMonitoringNetworkInput:
       type: object
       required: [id, networkCode, networkName, adapterKind, providerKind]
