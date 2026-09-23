@@ -1105,11 +1105,27 @@ function PartnerLogosEditor() {
           </label>
           <label className="space-y-1 text-sm">
             <span className="font-semibold">Speed</span>
-            <select className="admin-input" value={localSettings.speed} onChange={e => setLocalSettings({...localSettings, speed: e.target.value as any})}>
+            <select className="admin-input" value={localSettings.speed} onChange={e => setLocalSettings({...localSettings, speed: e.target.value as PartnerLogoSettings['speed']})}>
+              <option value="very-slow">Very Slow</option>
               <option value="slow">Slow</option>
               <option value="normal">Normal</option>
               <option value="fast">Fast</option>
+              <option value="very-fast">Very Fast</option>
+              <option value="custom">Custom</option>
             </select>
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-semibold">Custom Speed: {localSettings.customSpeed ?? 55} / 150</span>
+            <input
+              type="range"
+              min="1"
+              max="150"
+              step="1"
+              className="w-full accent-primary"
+              value={localSettings.customSpeed ?? 55}
+              onChange={e => setLocalSettings({ ...localSettings, speed: 'custom', customSpeed: Number(e.target.value) })}
+              aria-label="Custom partner logo scroll speed"
+            />
           </label>
           <label className="space-y-1 text-sm">
             <span className="font-semibold">Direction</span>

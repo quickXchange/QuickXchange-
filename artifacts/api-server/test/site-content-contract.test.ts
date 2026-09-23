@@ -131,6 +131,15 @@ test("partner logo appearance variants and layout settings are constrained", () 
   assert.equal(settings.layout, "marquee");
   assert.throws(() => UpdateAdminPartnerLogoSettingsBody.parse({ ...settings, columnsMobile: 3 }));
   assert.throws(() => UpdateAdminPartnerLogoSettingsBody.parse({ ...settings, customSize: 241 }));
+  for (const speed of ["very-slow", "slow", "normal", "fast", "very-fast"]) {
+    assert.equal(UpdateAdminPartnerLogoSettingsBody.parse({ ...settings, speed }).speed, speed);
+  }
+  for (const customSpeed of [1, 150]) {
+    assert.equal(UpdateAdminPartnerLogoSettingsBody.parse({ ...settings, speed: "custom", customSpeed }).customSpeed, customSpeed);
+  }
+  for (const customSpeed of [0, 151, 1.5]) {
+    assert.throws(() => UpdateAdminPartnerLogoSettingsBody.parse({ ...settings, speed: "custom", customSpeed }));
+  }
 });
 
 test("website branding contract constrains namespaced uploads and dimensions", () => {

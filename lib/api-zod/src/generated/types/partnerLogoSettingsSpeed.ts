@@ -10,7 +10,10 @@ export type PartnerLogoSettingsSpeed = typeof PartnerLogoSettingsSpeed[keyof typ
 
 
 export const PartnerLogoSettingsSpeed = {
+  'very-slow': 'very-slow',
   slow: 'slow',
   normal: 'normal',
   fast: 'fast',
+  'very-fast': 'very-fast',
+  custom: 'custom',
 } as const;

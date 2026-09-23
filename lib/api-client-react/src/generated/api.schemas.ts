@@ -4752,9 +4752,12 @@ export type PartnerLogoSettingsSpeed = typeof PartnerLogoSettingsSpeed[keyof typ
 
 
 export const PartnerLogoSettingsSpeed = {
+  'very-slow': 'very-slow',
   slow: 'slow',
   normal: 'normal',
   fast: 'fast',
+  'very-fast': 'very-fast',
+  custom: 'custom',
 } as const;
 
 export type PartnerLogoSettingsSize = typeof PartnerLogoSettingsSize[keyof typeof PartnerLogoSettingsSize];
@@ -4799,6 +4802,11 @@ export interface PartnerLogoSettings {
   animation: PartnerLogoSettingsAnimation;
   direction: PartnerLogoSettingsDirection;
   speed: PartnerLogoSettingsSpeed;
+  /**
+     * @minimum 1
+     * @maximum 150
+     */
+  customSpeed?: number;
   pauseOnHover: boolean;
   manualInteraction: boolean;
   resumeAfterInteraction: boolean;

@@ -11587,6 +11587,8 @@ export const getPublishedSiteContentResponsePagesItemRevisionMultipleOf = 1;
 
 export const getPublishedSiteContentResponsePartnerLogosItemLightObjectPathRegExp = new RegExp('^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
 export const getPublishedSiteContentResponsePartnerLogosItemDarkObjectPathRegExp = new RegExp('^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+export const getPublishedSiteContentResponsePartnerLogoSettingsCustomSpeedMax = 150;
+
 export const getPublishedSiteContentResponsePartnerLogoSettingsColumnsDesktopMax = 6;
 
 export const getPublishedSiteContentResponsePartnerLogoSettingsColumnsTabletMax = 4;
@@ -11696,7 +11698,8 @@ export const GetPublishedSiteContentResponse = zod.object({
   "layout": zod.enum(['horizontal-row', 'carousel', 'grid', 'vertical-list', 'stacked-rows', 'marquee']),
   "animation": zod.enum(['static', 'auto-scroll']),
   "direction": zod.enum(['ltr', 'rtl']),
-  "speed": zod.enum(['slow', 'normal', 'fast']),
+  "speed": zod.enum(['very-slow', 'slow', 'normal', 'fast', 'very-fast', 'custom']),
+  "customSpeed": zod.number().int().min(1).max(getPublishedSiteContentResponsePartnerLogoSettingsCustomSpeedMax).optional(),
   "pauseOnHover": zod.boolean(),
   "manualInteraction": zod.boolean(),
   "resumeAfterInteraction": zod.boolean(),
@@ -14055,6 +14058,8 @@ export const publishSitePublicationResponseVersionMultipleOf = 1;
 
 export const publishSitePublicationResponsePartnerLogosItemOneLightObjectPathRegExp = new RegExp('^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
 export const publishSitePublicationResponsePartnerLogosItemOneDarkObjectPathRegExp = new RegExp('^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+export const publishSitePublicationResponsePartnerLogoSettingsOneCustomSpeedMax = 150;
+
 export const publishSitePublicationResponsePartnerLogoSettingsOneColumnsDesktopMax = 6;
 
 export const publishSitePublicationResponsePartnerLogoSettingsOneColumnsTabletMax = 4;
@@ -14124,7 +14129,8 @@ export const PublishSitePublicationResponse = zod.object({
   "layout": zod.enum(['horizontal-row', 'carousel', 'grid', 'vertical-list', 'stacked-rows', 'marquee']),
   "animation": zod.enum(['static', 'auto-scroll']),
   "direction": zod.enum(['ltr', 'rtl']),
-  "speed": zod.enum(['slow', 'normal', 'fast']),
+  "speed": zod.enum(['very-slow', 'slow', 'normal', 'fast', 'very-fast', 'custom']),
+  "customSpeed": zod.number().int().min(1).max(publishSitePublicationResponsePartnerLogoSettingsOneCustomSpeedMax).optional(),
   "pauseOnHover": zod.boolean(),
   "manualInteraction": zod.boolean(),
   "resumeAfterInteraction": zod.boolean(),
@@ -14345,6 +14351,8 @@ export const CreateAdminPartnerLogoResponse = zod.object({
 /**
  * @summary Get draft partner logo appearance and layout settings
  */
+export const getAdminPartnerLogoSettingsResponseCustomSpeedMax = 150;
+
 export const getAdminPartnerLogoSettingsResponseColumnsDesktopMax = 6;
 
 export const getAdminPartnerLogoSettingsResponseColumnsTabletMax = 4;
@@ -14360,7 +14368,8 @@ export const GetAdminPartnerLogoSettingsResponse = zod.object({
   "layout": zod.enum(['horizontal-row', 'carousel', 'grid', 'vertical-list', 'stacked-rows', 'marquee']),
   "animation": zod.enum(['static', 'auto-scroll']),
   "direction": zod.enum(['ltr', 'rtl']),
-  "speed": zod.enum(['slow', 'normal', 'fast']),
+  "speed": zod.enum(['very-slow', 'slow', 'normal', 'fast', 'very-fast', 'custom']),
+  "customSpeed": zod.number().int().min(1).max(getAdminPartnerLogoSettingsResponseCustomSpeedMax).optional(),
   "pauseOnHover": zod.boolean(),
   "manualInteraction": zod.boolean(),
   "resumeAfterInteraction": zod.boolean(),
@@ -14378,6 +14387,8 @@ export const GetAdminPartnerLogoSettingsResponse = zod.object({
 /**
  * @summary Update draft partner logo appearance and layout settings
  */
+export const updateAdminPartnerLogoSettingsBodyCustomSpeedMax = 150;
+
 export const updateAdminPartnerLogoSettingsBodyColumnsDesktopMax = 6;
 
 export const updateAdminPartnerLogoSettingsBodyColumnsTabletMax = 4;
@@ -14393,7 +14404,8 @@ export const UpdateAdminPartnerLogoSettingsBody = zod.object({
   "layout": zod.enum(['horizontal-row', 'carousel', 'grid', 'vertical-list', 'stacked-rows', 'marquee']),
   "animation": zod.enum(['static', 'auto-scroll']),
   "direction": zod.enum(['ltr', 'rtl']),
-  "speed": zod.enum(['slow', 'normal', 'fast']),
+  "speed": zod.enum(['very-slow', 'slow', 'normal', 'fast', 'very-fast', 'custom']),
+  "customSpeed": zod.number().int().min(1).max(updateAdminPartnerLogoSettingsBodyCustomSpeedMax).optional(),
   "pauseOnHover": zod.boolean(),
   "manualInteraction": zod.boolean(),
   "resumeAfterInteraction": zod.boolean(),
@@ -14406,6 +14418,8 @@ export const UpdateAdminPartnerLogoSettingsBody = zod.object({
   "spacing": zod.enum(['compact', 'normal', 'wide']),
   "alignment": zod.enum(['left', 'center', 'right'])
 })
+
+export const updateAdminPartnerLogoSettingsResponseCustomSpeedMax = 150;
 
 export const updateAdminPartnerLogoSettingsResponseColumnsDesktopMax = 6;
 
@@ -14422,7 +14436,8 @@ export const UpdateAdminPartnerLogoSettingsResponse = zod.object({
   "layout": zod.enum(['horizontal-row', 'carousel', 'grid', 'vertical-list', 'stacked-rows', 'marquee']),
   "animation": zod.enum(['static', 'auto-scroll']),
   "direction": zod.enum(['ltr', 'rtl']),
-  "speed": zod.enum(['slow', 'normal', 'fast']),
+  "speed": zod.enum(['very-slow', 'slow', 'normal', 'fast', 'very-fast', 'custom']),
+  "customSpeed": zod.number().int().min(1).max(updateAdminPartnerLogoSettingsResponseCustomSpeedMax).optional(),
   "pauseOnHover": zod.boolean(),
   "manualInteraction": zod.boolean(),
   "resumeAfterInteraction": zod.boolean(),

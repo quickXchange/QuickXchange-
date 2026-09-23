@@ -223,6 +223,7 @@ const DEFAULT_PARTNER_LOGO_SETTINGS: PartnerLogoSettings = {
   animation: "auto-scroll",
   direction: "ltr",
   speed: "normal",
+  customSpeed: 55,
   pauseOnHover: true,
   manualInteraction: true,
   resumeAfterInteraction: true,

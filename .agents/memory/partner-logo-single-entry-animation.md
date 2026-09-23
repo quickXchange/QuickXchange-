@@ -7,4 +7,4 @@ Each enabled partner entry should have one rendered logo. The old infinite-loop 
 
 **Why:** Duplication was a rendering technique, not duplicate source data; deleting or merging records would have damaged operator-managed content without fixing the cause.
 
-**How to apply:** Keep partner identities sourced from published Site Studio data. For motion, scroll the single set and reverse at its bounds rather than cloning items. Explicitly created separate entries remain distinct.
+**How to apply:** Keep partner identities sourced from published Site Studio data. For continuous motion, wrap each single item only while it is completely outside the viewport rather than cloning it. Leave enough cycle length that a wrap cannot show a reset or an entirely empty strip. Explicitly created separate entries remain distinct.

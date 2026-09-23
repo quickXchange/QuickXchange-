@@ -2,11 +2,27 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { cn } from './shared-app-ui';
 import { useAppTheme } from '../theme';
 
+const PRESET_SPEED: Record<Exclude<PartnerLogoSettings['speed'], 'custom'>, number> = {
+  'very-slow': 6,
+  slow: 20,
+  normal: 50,
+  fast: 95,
+  'very-fast': 150,
+};
+
+function pixelsPerSecond(settings: PartnerLogoSettings): number {
+  const value = settings.speed === 'custom'
+    ? Math.max(1, Math.min(150, settings.customSpeed ?? 55))
+    : PRESET_SPEED[settings.speed];
+  return value * 2;
+}
+
 export interface PartnerLogoSettings {
   layout: 'horizontal-row' | 'carousel' | 'grid' | 'vertical-list' | 'stacked-rows' | 'marquee';
   animation: 'static' | 'auto-scroll';
   direction: 'ltr' | 'rtl';
-  speed: 'slow' | 'normal' | 'fast';
+  speed: 'very-slow' | 'slow' | 'normal' | 'fast' | 'very-fast' | 'custom';
+  customSpeed?: number;
   pauseOnHover: boolean;
   manualInteraction: boolean;
   resumeAfterInteraction: boolean;
@@ -25,6 +41,7 @@ export const DEFAULT_PARTNER_LOGO_SETTINGS: PartnerLogoSettings = {
   animation: 'auto-scroll',
   direction: 'ltr',
   speed: 'normal',
+  customSpeed: 55,
   pauseOnHover: true,
   manualInteraction: true,
   resumeAfterInteraction: true,
@@ -73,6 +90,11 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
   const [isDragging, setIsDragging] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const motionTrackRef = useRef<HTMLDivElement>(null);
+  const motionOffsetRef = useRef(0);
+  const drawMotionRef = useRef<() => void>(() => {});
+  const activePointerRef = useRef<{ id: number; lastX: number; startX: number } | null>(null);
+  const suppressClickRef = useRef(false);
   
   // Responsive motion
   useEffect(() => {
@@ -96,7 +118,10 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
     }
   };
 
-  
+  useEffect(() => () => {
+    if (interactTimeoutRef.current) window.clearTimeout(interactTimeoutRef.current);
+  }, []);
+
   const expectedScrollLeft = useRef<number | null>(null);
 
   const handleScroll = () => {
@@ -108,14 +133,14 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
 
   const handleMouseEnter = () => { if (settings.pauseOnHover) setIsHovered(true); };
   const handleMouseLeave = () => { if (settings.pauseOnHover && !isDragging) setIsHovered(false); };
-  const handleTouchStart = () => triggerInteraction();
+  const handleTouchStart = () => { if (!motionEnabled) triggerInteraction(); };
   
   // Mouse drag logic
   const startX = useRef(0);
   const scrollLeft = useRef(0);
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (!settings.manualInteraction) return;
+    if (!settings.manualInteraction || motionEnabled) return;
     setIsDragging(true);
     triggerInteraction();
     startX.current = e.pageX - (containerRef.current?.offsetLeft || 0);
@@ -123,7 +148,7 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !settings.manualInteraction) return;
+    if (!isDragging || !settings.manualInteraction || motionEnabled) return;
     e.preventDefault();
     const x = e.pageX - (containerRef.current?.offsetLeft || 0);
     const walk = (x - startX.current) * 2;
@@ -131,56 +156,12 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
   };
 
   const handleMouseUp = () => {
-    if (!settings.manualInteraction) return;
+    if (!settings.manualInteraction || motionEnabled) return;
     setIsDragging(false);
     triggerInteraction();
   };
 
   const isPaused = isHovered || isInteracting || isDragging || forcePaused;
-
-  // Auto-scroll logic with alternating direction
-  const animationRef = useRef<number>(0);
-  const currentDirection = useRef<'ltr' | 'rtl'>(settings.direction);
-
-  useEffect(() => {
-    currentDirection.current = settings.direction;
-  }, [settings.direction]);
-
-  useEffect(() => {
-    if (!shouldAnimate || isPaused || (settings.layout !== 'marquee' && settings.layout !== 'horizontal-row' && settings.layout !== 'carousel')) {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
-      return;
-    }
-
-    let lastTime = performance.now();
-    const speedPxPerSec = settings.speed === 'slow' ? 25 : settings.speed === 'fast' ? 100 : 50;
-
-    const animate = (time: number) => {
-      const dt = (time - lastTime) / 1000;
-      lastTime = time;
-      
-      const el = containerRef.current;
-      if (el) {
-        const maxScroll = el.scrollWidth - el.clientWidth;
-        if (maxScroll > 0) {
-          const move = speedPxPerSec * dt;
-          if (currentDirection.current === 'ltr') {
-            el.scrollLeft += move;
-            expectedScrollLeft.current = el.scrollLeft;
-            if (el.scrollLeft >= maxScroll - 1) currentDirection.current = 'rtl';
-          } else {
-            el.scrollLeft -= move;
-            expectedScrollLeft.current = el.scrollLeft;
-            if (el.scrollLeft <= 1) currentDirection.current = 'ltr';
-          }
-        }
-      }
-      animationRef.current = requestAnimationFrame(animate);
-    };
-
-    animationRef.current = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationRef.current);
-  }, [shouldAnimate, isPaused, settings.layout, settings.speed]);
 
   const getLogoSrc = (logo: PartnerLogoExtended) => {
     let path = logo.objectPath;
@@ -231,6 +212,68 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
     });
   }, [logos, isDark, settings, maxW, getLogoSrc]);
 
+  const isScrollable = settings.layout === 'marquee' || settings.layout === 'horizontal-row' || settings.layout === 'carousel';
+  // A single small logo cannot cover a viewport without making visual copies.
+  const motionEnabled = isScrollable && shouldAnimate && items.length > 1;
+  const motionSlotWidth = maxW + (settings.container === 'none' ? 16 : 34);
+  const motionHeight = maxW * 0.6 + (settings.container === 'none' ? 16 : 34);
+
+  useEffect(() => {
+    if (!motionEnabled) return;
+    const viewport = containerRef.current;
+    const track = motionTrackRef.current;
+    if (!viewport || !track) return;
+    const slots = Array.from(track.children) as HTMLDivElement[];
+    const gap = settings.spacing === 'compact' ? 16 : settings.spacing === 'wide' ? 48 : 32;
+    const draw = () => {
+      // A full cycle reaches beyond both viewport edges. Each item wraps only
+      // while completely offscreen, so no visual clone or reset is needed.
+      const stride = Math.max(motionSlotWidth + gap, (viewport.clientWidth + motionSlotWidth + gap) / slots.length);
+      const cycle = stride * slots.length;
+      const phase = ((motionOffsetRef.current % cycle) + cycle) % cycle;
+      slots.forEach((slot, index) => {
+        const x = ((index * stride - phase + motionSlotWidth) % cycle + cycle) % cycle - motionSlotWidth;
+        slot.style.transform = `translate3d(${x}px, 0, 0)`;
+      });
+    };
+    drawMotionRef.current = draw;
+    draw();
+    const observer = new ResizeObserver(draw);
+    observer.observe(viewport);
+
+    let frameId = 0;
+    let lastTime: number | null = null;
+    const frame = (time: number) => {
+      if (lastTime !== null) {
+        // Cap elapsed time after tab suspension so returning never jumps.
+        const seconds = Math.min(time - lastTime, 50) / 1000;
+        motionOffsetRef.current += (settings.direction === 'ltr' ? -1 : 1) * pixelsPerSecond(settings) * seconds;
+        draw();
+      }
+      lastTime = time;
+      frameId = requestAnimationFrame(frame);
+    };
+    if (!isPaused) frameId = requestAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frameId);
+      observer.disconnect();
+      drawMotionRef.current = () => {};
+    };
+  }, [motionEnabled, items.length, motionSlotWidth, settings.spacing, settings.direction, settings.speed, settings.customSpeed, isPaused]);
+
+  const finishPointer = (e: React.PointerEvent<HTMLDivElement>) => {
+    const active = activePointerRef.current;
+    if (!active || active.id !== e.pointerId) return;
+    activePointerRef.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    if (Math.abs(e.clientX - active.startX) > 4) {
+      suppressClickRef.current = true;
+      window.setTimeout(() => { suppressClickRef.current = false; }, 0);
+    }
+    setIsDragging(false);
+    triggerInteraction();
+  };
+
   if (items.length === 0) return null;
 
   const gridStyle = {
@@ -242,14 +285,13 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
     } : {})
   } as React.CSSProperties;
 
-  const isScrollable = settings.layout === 'marquee' || settings.layout === 'horizontal-row' || settings.layout === 'carousel';
-
   const baseContainerClass = cn(
     'partner-logos-container w-full overflow-hidden no-scrollbar',
-    isScrollable && 'overflow-x-auto overscroll-x-contain touch-pan-y',
+    isScrollable && !motionEnabled && 'overflow-x-auto overscroll-x-contain touch-pan-y',
+    motionEnabled && 'touch-pan-y',
     isScrollable && settings.manualInteraction && 'cursor-grab',
     isDragging && 'cursor-grabbing',
-    settings.layout === 'carousel' && 'snap-x snap-mandatory',
+    settings.layout === 'carousel' && !motionEnabled && 'snap-x snap-mandatory',
     className
   );
 
@@ -262,7 +304,8 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
     settings.layout === 'grid' && 'grid w-full',
     settings.layout === 'vertical-list' && 'flex-col items-center',
     settings.layout === 'stacked-rows' && 'flex-row justify-center flex-wrap',
-    isScrollable && 'w-max'
+    isScrollable && !motionEnabled && 'w-max',
+    motionEnabled && 'relative w-full'
   );
 
   return (
@@ -270,21 +313,57 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
       className={baseContainerClass}
       style={gridStyle}
       ref={containerRef}
-      onScroll={handleScroll}
+      onScroll={motionEnabled ? undefined : handleScroll}
       onTouchStart={handleTouchStart}
       onMouseEnter={handleMouseEnter}
-      onMouseLeave={(e) => { handleMouseLeave(); handleMouseUp(); }}
+      onMouseLeave={() => { handleMouseLeave(); handleMouseUp(); }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
+      onPointerDown={(e) => {
+        if (!motionEnabled || !settings.manualInteraction || !e.isPrimary) return;
+        activePointerRef.current = { id: e.pointerId, startX: e.clientX, lastX: e.clientX };
+        setIsDragging(true);
+        triggerInteraction();
+      }}
+      onPointerMove={(e) => {
+        const active = activePointerRef.current;
+        if (!motionEnabled || !active || active.id !== e.pointerId) return;
+        if (Math.abs(e.clientX - active.startX) > 4 && !e.currentTarget.hasPointerCapture(e.pointerId)) {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        }
+        motionOffsetRef.current -= e.clientX - active.lastX;
+        active.lastX = e.clientX;
+        drawMotionRef.current();
+      }}
+      onPointerUp={finishPointer}
+      onPointerCancel={finishPointer}
+      onWheel={(e) => {
+        if (!motionEnabled || !settings.manualInteraction || !e.deltaX) return;
+        motionOffsetRef.current += e.deltaX;
+        drawMotionRef.current();
+        triggerInteraction();
+      }}
+      onClickCapture={(e) => {
+        if (suppressClickRef.current) {
+          e.preventDefault();
+          e.stopPropagation();
+          suppressClickRef.current = false;
+        }
+      }}
       data-testid="partner-logos-container"
     >
       <div 
         className={trackClassName}
-        style={isScrollable ? { minWidth: shouldAnimate && items.length > 1 ? 'calc(100% + 180px)' : '100%' } : undefined}
+        ref={motionTrackRef}
+        style={motionEnabled ? { height: motionHeight } : isScrollable ? { minWidth: '100%' } : undefined}
         data-layout={settings.layout}
       >
-        {settings.layout === 'carousel' ? items.map((item, i) => (
+        {motionEnabled ? items.map((item, i) => (
+          <div key={item.key ?? i} className="absolute top-0 left-0 flex h-full items-center justify-center will-change-transform" style={{ width: motionSlotWidth }}>
+            {item}
+          </div>
+        )) : settings.layout === 'carousel' ? items.map((item, i) => (
           <div key={i} className="snap-center">{item}</div>
         )) : items}
       </div>

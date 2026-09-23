@@ -46,7 +46,8 @@ export type PartnerLogoSettings = {
   layout: "horizontal-row" | "carousel" | "grid" | "vertical-list" | "stacked-rows" | "marquee";
   animation: "static" | "auto-scroll";
   direction: "ltr" | "rtl";
-  speed: "slow" | "normal" | "fast";
+  speed: "very-slow" | "slow" | "normal" | "fast" | "very-fast" | "custom";
+  customSpeed?: number;
   pauseOnHover: boolean;
   manualInteraction: boolean;
   resumeAfterInteraction: boolean;

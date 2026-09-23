@@ -19,6 +19,11 @@ export interface PartnerLogoSettings {
   animation: PartnerLogoSettingsAnimation;
   direction: PartnerLogoSettingsDirection;
   speed: PartnerLogoSettingsSpeed;
+  /**
+     * @minimum 1
+     * @maximum 150
+     */
+  customSpeed?: number;
   pauseOnHover: boolean;
   manualInteraction: boolean;
   resumeAfterInteraction: boolean;

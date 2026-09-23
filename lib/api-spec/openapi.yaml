@@ -7253,7 +7253,8 @@ components:
         layout: { type: string, enum: [horizontal-row, carousel, grid, vertical-list, stacked-rows, marquee] }
         animation: { type: string, enum: [static, auto-scroll] }
         direction: { type: string, enum: [ltr, rtl] }
-        speed: { type: string, enum: [slow, normal, fast] }
+        speed: { type: string, enum: [very-slow, slow, normal, fast, very-fast, custom] }
+        customSpeed: { type: integer, minimum: 1, maximum: 150 }
         pauseOnHover: { type: boolean }
         manualInteraction: { type: boolean }
         resumeAfterInteraction: { type: boolean }
