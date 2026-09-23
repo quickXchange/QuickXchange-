@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
 import {
   useGetExchangeConfig, getGetExchangeConfigQueryKey,
@@ -70,6 +70,9 @@ export default function Exchange() {
   };
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+  }, [step]);
   const [sourceId, setSourceId] = useState<string>('');
   const [targetId, setTargetId] = useState<string>('');
   const [amount, setAmount] = useState<string>('100');
@@ -586,7 +589,10 @@ export default function Exchange() {
 
   return (
     <>
-      <div className="flex flex-col p-4 space-y-4 pt-6 max-w-md mx-auto w-full relative pb-24 animate-in slide-in-from-bottom-4 duration-500">
+      <div className={cn(
+        "flex flex-col p-4 space-y-4 pt-6 max-w-md mx-auto w-full relative animate-in slide-in-from-bottom-4 duration-500",
+        step === 2 ? "pb-44" : "pb-24",
+      )}>
 
 
       {step === 1 && (
@@ -1030,18 +1036,29 @@ export default function Exchange() {
         </div>
       )}
 
-      <div className="pt-6">
-        <Button
-          className="w-full h-[56px] rounded-2xl text-[17px] font-bold shadow-[0_8px_20px_-8px_hsl(var(--primary))] transition-transform active:scale-95 disabled:opacity-50 disabled:active:scale-100 illuminated-border"
-          onClick={handleContinue}
-          disabled={isProcessing || isPricingLoading || quoteExpired || (mode === 'swap' && !pricing && step === 1) || (mode === 'convert' && !quoteData && step === 1)}
-        >
-          {isProcessing ? (
-            <span className="flex items-center">
-              <Loader2 className="w-5 h-5 mr-2 animate-spin" /> Processing...
-            </span>
-          ) : step === 1 ? 'Continue' : step === 2 ? 'Review Order' : 'Place Order'}
-        </Button>
+      <div className={cn(
+        step === 2
+          ? "fixed inset-x-0 bottom-[calc(60px+env(safe-area-inset-bottom))] z-40 border-t border-border/60 bg-background/95 px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.15)] backdrop-blur-xl"
+          : "pt-6",
+      )}>
+        <div className={cn(step === 2 && "mx-auto max-w-md")}>
+          {step === 2 && errorMsg && (
+            <p role="alert" className="mb-2 text-sm font-medium text-destructive">
+              {errorMsg}
+            </p>
+          )}
+          <Button
+            className="w-full h-[56px] rounded-2xl text-[17px] font-bold shadow-[0_8px_20px_-8px_hsl(var(--primary))] transition-transform active:scale-95 disabled:opacity-50 disabled:active:scale-100 illuminated-border"
+            onClick={handleContinue}
+            disabled={isProcessing || isPricingLoading || quoteExpired || (mode === 'swap' && !pricing && step === 1) || (mode === 'convert' && !quoteData && step === 1)}
+          >
+            {isProcessing ? (
+              <span className="flex items-center">
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" /> Processing...
+              </span>
+            ) : step === 1 ? 'Continue' : step === 2 ? 'Review Order' : 'Place Order'}
+          </Button>
+        </div>
       </div>
 
       </div>
