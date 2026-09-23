@@ -264,8 +264,10 @@ Promise<QuickexCredentialStorageState> {
   }
 }
 
-export async function getWhitebitCredentialStorageState() {
-  const [row] = await db.select().from(providerIntegrationsTable)
+export async function getWhitebitCredentialStorageState(
+  executor: { select: (...args: any[]) => any } = db,
+) {
+  const [row] = await executor.select().from(providerIntegrationsTable)
     .where(eq(providerIntegrationsTable.provider, WHITEBIT_PROVIDER)).limit(1);
   if (!row) return { status: "absent" as const };
   try {

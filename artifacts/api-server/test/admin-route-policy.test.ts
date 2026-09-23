@@ -107,3 +107,19 @@ test("blockchain monitoring bulk setup keeps view and Owner mutation boundaries 
     { permission: "blockchain_monitoring.manage", ownerOnly: true },
   );
 });
+
+test("build info is authenticated while workspace configuration remains Owner-only", () => {
+  assert.deepEqual(
+    classifyAdminRoute("GET", "/admin/build-info"),
+    { authenticatedOnly: true },
+  );
+  for (const path of [
+    "/admin/workspace-config/preview",
+    "/admin/workspace-config/apply",
+  ]) {
+    assert.deepEqual(
+      classifyAdminRoute("POST", path),
+      { permission: "site_settings.manage", ownerOnly: true },
+    );
+  }
+});

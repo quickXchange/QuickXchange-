@@ -27,6 +27,8 @@ const catalogManualTicker = `WM${suffix.replaceAll("-", "").slice(0, 8)}`.toUppe
 const catalogImportedTicker = `WN${suffix.replaceAll("-", "").slice(0, 8)}`.toUpperCase();
 const catalogManualAssetId = `catalog-manual-${suffix}`;
 const catalogImportedAssetId = `whitebit-${catalogImportedTicker.toLowerCase()}`;
+const runId = (value: string) => `${value}-${suffix}`;
+const ownedRunPattern = `%-${suffix}%`;
 let server: ReturnType<typeof app.listen>;
 const app = express();
 app.use(express.json({ verify: (req, _res, buffer) => {
@@ -39,13 +41,13 @@ app.use((error: unknown, _req: express.Request, res: express.Response, _next: ex
   res.status((error as { status?: number }).status ?? 500).json({ error: String(error) });
 });
 let baseUrl = "";
-let nonce = 1000000000000;
+let nonce = 1_000_000_000_000 + Number.parseInt(suffix.replaceAll("-", "").slice(0, 10), 16);
 let providerCreateCalls = 0;
 let reconciliationRun = 0;
 let priorProviderSetting: typeof database.whitebitProviderSettingsTable.$inferSelect | null = null;
 const reconciliationRecords = Array.from({ length: 501 }, (_, index) => ({
   address, ticker, network, amount: "0.00000001", fee: "0", status: 3,
-  unique_id: `history-${suffix}-${index}`, transaction_id: `history-tx-${suffix}-${index}`,
+  unique_id: runId(`history-${index}`), transaction_id: runId(`history-tx-${index}`),
 }));
 const originalFetch = globalThis.fetch;
 
@@ -187,7 +189,7 @@ before(async () => {
       const offset = request.offset ?? 0;
       const records = reconciliationRun === 0
         ? reconciliationRecords.slice(offset, offset + (request.limit ?? 500))
-        : [{ ...reconciliationRecords[0], unique_id: `history-new-${suffix}`, transaction_id: `history-new-tx-${suffix}` }, ...reconciliationRecords].slice(offset, offset + (request.limit ?? 500));
+        : [{ ...reconciliationRecords[0], unique_id: runId("history-new"), transaction_id: runId("history-new-tx") }, ...reconciliationRecords].slice(offset, offset + (request.limit ?? 500));
       return new Response(JSON.stringify(records), { status: 200 });
     }
     return originalFetch(input, init);
@@ -201,28 +203,28 @@ before(async () => {
 after(async () => {
   globalThis.fetch = originalFetch;
   const ownedUniqueIds = [
-    "provider-1", "provider-2", "provider-unknown", "provider-replay",
-    "provider-concurrent", "ignored",
+    runId("provider-1"), runId("provider-2"), runId("provider-unknown"), runId("provider-replay"),
+    runId("provider-concurrent"), runId("ignored"),
   ];
   const ownedEnvelopeIds = [
-    "delivery-accepted", "delivery-updated", "delivery-processed", "delivery-processed-duplicate",
-    "delivery-seven", "delivery-unknown", "delivery-concurrent-a", "delivery-concurrent-b",
-    "delivery-provisional", "delivery-alias", "delivery-concurrent-alias-a", "delivery-concurrent-alias-b",
-    "delivery-immutable-a",
+    runId("delivery-accepted"), runId("delivery-updated"), runId("delivery-processed"), runId("delivery-processed-duplicate"),
+    runId("delivery-seven"), runId("delivery-unknown"), runId("delivery-concurrent-a"), runId("delivery-concurrent-b"),
+    runId("delivery-provisional"), runId("delivery-alias"), runId("delivery-concurrent-alias-a"), runId("delivery-concurrent-alias-b"),
+    runId("delivery-immutable-a"),
   ];
   if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
   const cleanup = await pool.connect();
   try {
     await cleanup.query("BEGIN");
     await cleanup.query("SET LOCAL session_replication_role = replica");
-    await cleanup.query("DELETE FROM whitebit_ledger_entries WHERE customer_id = $1 OR deposit_id IN (SELECT id FROM whitebit_deposits WHERE customer_id = $1 OR address = $2 OR unique_id LIKE $3 OR unique_id = ANY($4))", [customerId, address, `%-${suffix}-%`, ownedUniqueIds]);
+    await cleanup.query("DELETE FROM whitebit_ledger_entries WHERE customer_id = $1 OR deposit_id IN (SELECT id FROM whitebit_deposits WHERE customer_id = $1 OR address = $2 OR unique_id LIKE $3 OR unique_id = ANY($4))", [customerId, address, ownedRunPattern, ownedUniqueIds]);
     await cleanup.query("COMMIT");
   } finally {
     cleanup.release();
   }
-  await pool.query("DELETE FROM whitebit_deposits WHERE customer_id = $1 OR address = $2 OR unique_id LIKE $3 OR unique_id = ANY($4)", [customerId, address, `%-${suffix}-%`, ownedUniqueIds]);
+  await pool.query("DELETE FROM whitebit_deposits WHERE customer_id = $1 OR address = $2 OR unique_id LIKE $3 OR unique_id = ANY($4)", [customerId, address, ownedRunPattern, ownedUniqueIds]);
   await pool.query("DELETE FROM whitebit_history_checkpoints WHERE address_id IN (SELECT id FROM whitebit_deposit_addresses WHERE customer_id = $1)", [customerId]);
-  await pool.query("DELETE FROM whitebit_webhook_deliveries WHERE payload->'params'->>'address' = $1 OR envelope_id LIKE $2 OR envelope_id = ANY($3) OR (nonce >= $4 AND nonce < $5)", [address, `%-${suffix}-%`, ownedEnvelopeIds, nonce - 1000, nonce + 1000]);
+  await pool.query("DELETE FROM whitebit_webhook_deliveries WHERE payload->'params'->>'address' = $1 OR envelope_id LIKE $2 OR envelope_id = ANY($3) OR (nonce >= $4 AND nonce < $5)", [address, ownedRunPattern, ownedEnvelopeIds, nonce - 1000, nonce + 1000]);
   await pool.query("DELETE FROM whitebit_deposit_addresses WHERE customer_id = $1", [customerId]);
   await pool.query("DELETE FROM customer_profiles WHERE customer_id = $1", [customerId]);
   await pool.query("DELETE FROM exchange_customers WHERE id = $1", [customerId]);
@@ -379,12 +381,13 @@ test("WhiteBIT catalog preview and selected import preserve manual assets and cr
 });
 
 test("webhook transitions are idempotent and only terminal statuses credit once", async () => {
-  const accepted = await webhook("deposit.accepted", "delivery-accepted", depositParams("provider-1", 15));
+  const provider = runId("provider-1");
+  const accepted = await webhook("deposit.accepted", runId("delivery-accepted"), depositParams(provider, 15));
   assert.equal(accepted.status, 200, JSON.stringify(accepted.body));
-  assert.equal((await webhook("deposit.updated", "delivery-updated", depositParams("provider-1", 15))).status, 200);
-  assert.equal((await webhook("deposit.processed", "delivery-processed", depositParams("provider-1", 3))).status, 200);
-  assert.equal((await webhook("deposit.processed", "delivery-processed-duplicate", depositParams("provider-1", 3))).status, 200);
-  const [deposit] = await database.db.select().from(database.whitebitDepositsTable).where(eq(database.whitebitDepositsTable.uniqueId, "provider-1"));
+  assert.equal((await webhook("deposit.updated", runId("delivery-updated"), depositParams(provider, 15))).status, 200);
+  assert.equal((await webhook("deposit.processed", runId("delivery-processed"), depositParams(provider, 3))).status, 200);
+  assert.equal((await webhook("deposit.processed", runId("delivery-processed-duplicate"), depositParams(provider, 3))).status, 200);
+  const [deposit] = await database.db.select().from(database.whitebitDepositsTable).where(eq(database.whitebitDepositsTable.uniqueId, provider));
   assert.equal(deposit.status, "processed");
   assert.equal(deposit.creditedAt !== null, true);
   const ledger = await database.db.select().from(database.whitebitLedgerEntriesTable).where(eq(database.whitebitLedgerEntriesTable.depositId, deposit.id));
@@ -392,17 +395,17 @@ test("webhook transitions are idempotent and only terminal statuses credit once"
 });
 
 test("duplicate envelope, status 7, and unknown address cannot double-credit", async () => {
-  const params = depositParams("provider-2", 7);
-  assert.equal((await webhook("deposit.processed", "delivery-seven", params)).status, 200);
-  assert.equal((await webhook("deposit.processed", "delivery-seven", params, nonce)).status, 200);
-  const unknown = { ...depositParams("provider-unknown", 7), address: `unknown-${suffix}` };
-  assert.equal((await webhook("deposit.processed", "delivery-unknown", unknown)).status, 200);
+  const params = depositParams(runId("provider-2"), 7);
+  assert.equal((await webhook("deposit.processed", runId("delivery-seven"), params)).status, 200);
+  assert.equal((await webhook("deposit.processed", runId("delivery-seven"), params, nonce)).status, 200);
+  const unknown = { ...depositParams(runId("provider-unknown"), 7), address: `unknown-${suffix}` };
+  assert.equal((await webhook("deposit.processed", runId("delivery-unknown"), unknown)).status, 200);
   const ledger = await database.db.select().from(database.whitebitLedgerEntriesTable).where(eq(database.whitebitLedgerEntriesTable.customerId, customerId));
   assert.equal(ledger.length, 2);
 });
 
 test("reconciliation replay uses the same unique ledger source and is duplicate-safe", async () => {
-  const record = depositParams("provider-replay", 7);
+  const record = depositParams(runId("provider-replay"), 7);
   assert.equal(await replayHistoryRecord(record), true);
   assert.equal(await replayHistoryRecord(record), false);
   const ledger = await database.db.select().from(database.whitebitLedgerEntriesTable).where(eq(database.whitebitLedgerEntriesTable.customerId, customerId));
@@ -410,14 +413,15 @@ test("reconciliation replay uses the same unique ledger source and is duplicate-
 });
 
 test("concurrent deliveries for one provider uniqueId credit at most once", async () => {
-  const params = depositParams("provider-concurrent", 3);
+  const uniqueId = runId("provider-concurrent");
+  const params = depositParams(uniqueId, 3);
   const responses = await Promise.all([
-    webhook("deposit.processed", "delivery-concurrent-a", params),
-    webhook("deposit.processed", "delivery-concurrent-b", params),
+    webhook("deposit.processed", runId("delivery-concurrent-a"), params),
+    webhook("deposit.processed", runId("delivery-concurrent-b"), params),
   ]);
   assert.deepEqual(responses.map((response) => response.status).sort(), [200, 200]);
   const deposits = await database.db.select().from(database.whitebitDepositsTable)
-    .where(eq(database.whitebitDepositsTable.uniqueId, "provider-concurrent"));
+    .where(eq(database.whitebitDepositsTable.uniqueId, uniqueId));
   const ledger = await database.db.select().from(database.whitebitLedgerEntriesTable)
     .where(eq(database.whitebitLedgerEntriesTable.depositId, deposits[0]!.id));
   assert.equal(deposits.length, 1);
@@ -425,12 +429,12 @@ test("concurrent deliveries for one provider uniqueId credit at most once", asyn
 });
 
 test("null-ID webhook remains hidden audit-only while stable history credits corrected terminal amount", async () => {
-  const provisional = { ...depositParams(`ignored-${suffix}`, 15) };
+  const provisional = { ...depositParams(runId("ignored"), 15) };
   delete (provisional as Record<string, unknown>).uniqueId;
-  assert.equal((await webhook("deposit.accepted", "delivery-provisional", provisional)).status, 200);
+  assert.equal((await webhook("deposit.accepted", runId("delivery-provisional"), provisional)).status, 200);
   assert.equal(await replayHistoryRecord({
     address, ticker, network, amount: "2.50000000", fee: "0.01000000", status: 3,
-    transaction_id: `stable-history-id-${suffix}`, transactionHash: provisional.transactionHash,
+    transaction_id: runId("stable-history-id"), transactionHash: provisional.transactionHash,
   }), true);
   const visible = await database.db.select().from(database.whitebitDepositsTable)
     .where(eq(database.whitebitDepositsTable.transactionHash, provisional.transactionHash));
@@ -438,16 +442,16 @@ test("null-ID webhook remains hidden audit-only while stable history credits cor
   assert.equal(visible.filter((row) => row.providerIdentity.startsWith("provisional:")).length, 1);
   const ledger = await database.db.select().from(database.whitebitLedgerEntriesTable)
     .where(eq(database.whitebitLedgerEntriesTable.customerId, customerId));
-  const corrected = ledger.find((row) => row.depositId === visible.find((item) => item.transactionId === `stable-history-id-${suffix}`)?.id);
+  const corrected = ledger.find((row) => row.depositId === visible.find((item) => item.transactionId === runId("stable-history-id"))?.id);
   assert.equal(Number(corrected?.amount), 2.5);
 });
 
 test("unique-only webhook is promoted by dual-ID history without a second ledger credit", async () => {
   const unique = `alias-${suffix}`;
-  assert.equal((await webhook("deposit.processed", "delivery-alias", depositParams(unique, 3))).status, 200);
+  assert.equal((await webhook("deposit.processed", runId("delivery-alias"), depositParams(unique, 3))).status, 200);
   assert.equal(await replayHistoryRecord({
     address, ticker, network, amount: "1.25000000", fee: "0", status: 3,
-    unique_id: unique, transaction_id: `tx-${unique}`, transactionHash: `tx-${unique}`,
+    unique_id: unique, transaction_id: runId("alias-tx"), transactionHash: runId("alias-tx"),
   }), false);
   const deposits = await database.db.select().from(database.whitebitDepositsTable)
     .where(eq(database.whitebitDepositsTable.uniqueId, unique));
@@ -455,7 +459,7 @@ test("unique-only webhook is promoted by dual-ID history without a second ledger
   const ledger = await database.db.select().from(database.whitebitLedgerEntriesTable)
     .where(eq(database.whitebitLedgerEntriesTable.depositId, deposits[0]!.id));
   assert.equal(ledger.length, 1);
-  assert.equal(deposits[0]!.transactionId, `tx-${unique}`);
+  assert.equal(deposits[0]!.transactionId, runId("alias-tx"));
 });
 
 test("ledger is append-only and rejects invalid amounts and destructive deletes", async () => {
@@ -541,7 +545,7 @@ test("owner reconciliation scans 501 array records, persists high-water, and cat
       const pageSize = request.limit ?? 500;
       const source = reconciliationRun === 0
         ? reconciliationRecords
-        : [{ ...reconciliationRecords[0], unique_id: `history-new-${suffix}`, transaction_id: `history-new-tx-${suffix}` }, ...reconciliationRecords];
+        : [{ ...reconciliationRecords[0], unique_id: runId("history-new"), transaction_id: runId("history-new-tx") }, ...reconciliationRecords];
       return new Response(JSON.stringify(source.slice(offset, offset + pageSize)), { status: 200 });
     }
     return originalFetch(input, init);
@@ -565,17 +569,17 @@ test("owner reconciliation scans 501 array records, persists high-water, and cat
   assert.equal(sawNetwork, false);
   const rows = await database.db.select().from(database.whitebitDepositsTable)
     .where(eq(database.whitebitDepositsTable.address, address));
-  assert.ok(rows.some((row) => row.uniqueId === `history-new-${suffix}`));
-  assert.ok(rows.filter((row) => row.uniqueId?.startsWith(`history-${suffix}-`)).length >= 501);
+  assert.ok(rows.some((row) => row.uniqueId === runId("history-new")));
+  assert.ok(rows.filter((row) => row.uniqueId?.startsWith("history-") && row.uniqueId?.endsWith(`-${suffix}`)).length >= 501);
 });
 
 test("concurrent unique-only webhook and dual-ID history converge to one credited deposit", async () => {
   const unique = `concurrent-alias-${suffix}`;
   const first = depositParams(unique, 3);
-  const second = { ...first, transaction_id: `concurrent-tx-${suffix}`, transactionHash: `concurrent-tx-${suffix}` };
+  const second = { ...first, transaction_id: runId("concurrent-tx"), transactionHash: runId("concurrent-tx") };
   const responses = await Promise.all([
-    webhook("deposit.processed", "delivery-concurrent-alias-a", first),
-    webhook("deposit.processed", "delivery-concurrent-alias-b", second),
+    webhook("deposit.processed", runId("delivery-concurrent-alias-a"), first),
+    webhook("deposit.processed", runId("delivery-concurrent-alias-b"), second),
   ]);
   assert.deepEqual(responses.map((item) => item.status).sort(), [200, 200]);
   const deposits = await database.db.select().from(database.whitebitDepositsTable)
@@ -589,10 +593,10 @@ test("concurrent unique-only webhook and dual-ID history converge to one credite
 test("credited terminal replay mismatch is quarantined without changing amount or balance", async () => {
   const unique = `immutable-${suffix}`;
   const original = depositParams(unique, 3);
-  assert.equal((await webhook("deposit.processed", "delivery-immutable-a", original)).status, 200);
+  assert.equal((await webhook("deposit.processed", runId("delivery-immutable-a"), original)).status, 200);
   assert.equal(await replayHistoryRecord({
     address, ticker, network, amount: "9.00000000", fee: "0.50000000", status: 3,
-    unique_id: unique, transaction_id: `immutable-tx-${suffix}`, transactionHash: original.transactionHash,
+    unique_id: unique, transaction_id: runId("immutable-tx"), transactionHash: original.transactionHash,
   }), false);
   const [deposit] = await database.db.select().from(database.whitebitDepositsTable)
     .where(eq(database.whitebitDepositsTable.uniqueId, unique));
@@ -614,7 +618,7 @@ test("reconciliation stops the array scan at the 10000-record provider boundary"
   const legalOffsets: number[] = [];
   const page = Array.from({ length: 500 }, (_, index) => ({
     address: boundaryAddress, ticker: "BOUND", network: "TEST", amount: "0.00000001", fee: "0",
-    status: 3, unique_id: `boundary-${index}`, transaction_id: `boundary-tx-${index}`,
+    status: 3, unique_id: runId(`boundary-${index}`), transaction_id: runId(`boundary-tx-${index}`),
   }));
   globalThis.fetch = async (input, init) => {
     const url = String(input);
@@ -627,7 +631,7 @@ test("reconciliation stops the array scan at the 10000-record provider boundary"
       if (request.address === laterAddress) {
         return new Response(JSON.stringify([{
           address: laterAddress, ticker: "LATER", network: "TEST", amount: "1", fee: "0",
-          status: 3, unique_id: "later-boundary-id", transaction_id: "later-boundary-tx",
+          status: 3, unique_id: runId("later-boundary-id"), transaction_id: runId("later-boundary-tx"),
         }]), { status: 200 });
       }
       return new Response(JSON.stringify([]), { status: 200 });
@@ -644,7 +648,7 @@ test("reconciliation stops the array scan at the 10000-record provider boundary"
     .where(eq(database.whitebitHistoryCheckpointsTable.addressId, (await database.db.select().from(database.whitebitDepositAddressesTable).where(eq(database.whitebitDepositAddressesTable.address, boundaryAddress)).limit(1))[0]!.id));
   assert.equal(checkpoint, undefined);
   const [later] = await database.db.select().from(database.whitebitDepositsTable)
-    .where(eq(database.whitebitDepositsTable.uniqueId, "later-boundary-id"));
+    .where(eq(database.whitebitDepositsTable.uniqueId, runId("later-boundary-id")));
   assert.ok(later);
 });
 
@@ -658,7 +662,7 @@ test("object history envelopes also enforce the 10000-record ceiling", async () 
   const offsets: number[] = [];
   const page = Array.from({ length: 500 }, (_, index) => ({
     address: boundaryAddress, ticker: "OBJBOUND", network: "TEST", amount: "0.00000001", fee: "0",
-    status: 3, unique_id: `obj-boundary-${index}`, transaction_id: `obj-boundary-tx-${index}`,
+    status: 3, unique_id: runId(`obj-boundary-${index}`), transaction_id: runId(`obj-boundary-tx-${index}`),
   }));
   globalThis.fetch = async (input, init) => {
     if (String(input).includes("whitebit.com/api/v4/main-account/history")) {
@@ -670,7 +674,7 @@ test("object history envelopes also enforce the 10000-record ceiling", async () 
       if (request.address === laterAddress) {
         return new Response(JSON.stringify({ limit: 500, offset: 0, total: 1, records: [{
           address: laterAddress, ticker: "OBJLATER", network: "TEST", amount: "1", fee: "0",
-          status: 3, unique_id: "object-later-id", transaction_id: "object-later-tx",
+          status: 3, unique_id: runId("object-later-id"), transaction_id: runId("object-later-tx"),
         }] }), { status: 200 });
       }
       return new Response(JSON.stringify({ limit: 500, offset: 0, total: 0, records: [] }), { status: 200 });
@@ -689,5 +693,5 @@ test("object history envelopes also enforce the 10000-record ceiling", async () 
     .where(eq(database.whitebitHistoryCheckpointsTable.addressId, boundary!.id));
   assert.equal(checkpoint, undefined);
   assert.ok((await database.db.select().from(database.whitebitDepositsTable)
-    .where(eq(database.whitebitDepositsTable.uniqueId, "object-later-id")))[0]);
+    .where(eq(database.whitebitDepositsTable.uniqueId, runId("object-later-id"))))[0]);
 });

@@ -1,18 +1,34 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { createTelegramMiniAppSession } from '@workspace/api-client-react';
 import type { WebApp } from '@/lib/telegram';
+import { clearTelegramSession, createIdempotentSessionExpiry, registerSessionExpiryHandler } from '@/lib/session-expiry';
 
 const TELEGRAM_INITIALIZATION_TIMEOUT_MS = 4_000;
 const TELEGRAM_INITIALIZATION_POLL_MS = 50;
 
-const delay = (milliseconds: number) => new Promise(resolve => window.setTimeout(resolve, milliseconds));
+const delay = (milliseconds: number, signal: AbortSignal) => new Promise<boolean>(resolve => {
+  if (signal.aborted) {
+    resolve(false);
+    return;
+  }
+  const timeout = window.setTimeout(() => {
+    signal.removeEventListener('abort', onAbort);
+    resolve(true);
+  }, milliseconds);
+  const onAbort = () => {
+    window.clearTimeout(timeout);
+    resolve(false);
+  };
+  signal.addEventListener('abort', onAbort, { once: true });
+});
 
-async function initializeTelegramWebApp(): Promise<WebApp | undefined> {
+async function initializeTelegramWebApp(signal: AbortSignal): Promise<WebApp | undefined> {
   const deadline = Date.now() + TELEGRAM_INITIALIZATION_TIMEOUT_MS;
   let webApp: WebApp | undefined;
   let webAppReady = false;
 
   while (Date.now() < deadline) {
+    if (signal.aborted) return undefined;
     webApp = window.Telegram?.WebApp;
     if (webApp && !webAppReady) {
       webApp.ready();
@@ -20,7 +36,7 @@ async function initializeTelegramWebApp(): Promise<WebApp | undefined> {
       webAppReady = true;
     }
     if (webApp?.initData) return webApp;
-    await delay(TELEGRAM_INITIALIZATION_POLL_MS);
+    if (!(await delay(TELEGRAM_INITIALIZATION_POLL_MS, signal))) return undefined;
   }
 
   return webApp;
@@ -38,6 +54,7 @@ interface AuthContextType {
   supportUrl: string | null;
   linkedAccount: any | null;
   isLoading: boolean;
+  expireSession: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -46,6 +63,7 @@ const AuthContext = createContext<AuthContextType>({
   supportUrl: null,
   linkedAccount: null,
   isLoading: true,
+  expireSession: () => undefined,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -56,10 +74,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [supportUrl, setSupportUrl] = useState<string | null>(null);
   const [linkedAccount, setLinkedAccount] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const expiryRef = useRef<ReturnType<typeof createIdempotentSessionExpiry> | undefined>(undefined);
+
+  const expireSession = useCallback(() => {
+    setSessionToken(null);
+    setUser(null);
+    setSupportUrl(null);
+    setLinkedAccount(null);
+    clearTelegramSession(sessionStorage);
+  }, []);
+
+  if (!expiryRef.current) {
+    expiryRef.current = createIdempotentSessionExpiry(expireSession);
+  }
 
   useEffect(() => {
+    const unregister = registerSessionExpiryHandler(() => expiryRef.current?.expire());
+    return unregister;
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let mounted = true;
     const init = async () => {
-      const tg = await initializeTelegramWebApp();
+      const tg = await initializeTelegramWebApp(controller.signal);
+      if (!mounted) return;
       if (tg) {
         // Sync theme
         if (tg.colorScheme === 'dark') {
@@ -72,9 +111,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const initData = tg?.initData ?? '';
       const initDataUnsafe = tg?.initDataUnsafe;
       if (!initData) {
-        setSessionToken(null);
-        setUser(null);
-        setIsLoading(false);
+        expireSession();
+        if (mounted) setIsLoading(false);
         return;
       }
 
@@ -90,30 +128,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               'X-Telegram-WebApp-Version': safeDiagnosticHeader(tg?.version),
               'X-Frontend-Build-Id': safeDiagnosticHeader(__APP_BUILD_ID__),
             },
+            signal: controller.signal,
           },
         );
+        expiryRef.current?.reset();
         setSessionToken(session.token);
         setUser(session.user);
         setSupportUrl(session.supportUrl || null);
         setLinkedAccount(session.linkedAccount || null);
         sessionStorage.setItem('tg_session_token', session.token);
       } catch (err) {
+        if (!mounted) return;
         console.error('Failed to create session', err);
         // Fail closed
-        setSessionToken(null);
-        setUser(null);
-        setSupportUrl(null);
-        setLinkedAccount(null);
-        sessionStorage.removeItem('tg_session_token');
+        expireSession();
       } finally {
-        setIsLoading(false);
+        if (mounted) setIsLoading(false);
       }
     };
     init();
-  }, []);
+    return () => {
+      mounted = false;
+      controller.abort();
+    };
+  }, [expireSession]);
 
   return (
-    <AuthContext.Provider value={{ sessionToken, user, supportUrl, linkedAccount, isLoading }}>
+    <AuthContext.Provider value={{ sessionToken, user, supportUrl, linkedAccount, isLoading, expireSession }}>
       {children}
     </AuthContext.Provider>
   );

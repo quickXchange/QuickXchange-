@@ -50,3 +50,9 @@ Every WhiteBIT idempotency target must have a named unique index in the live dat
 **Why:** Schema reconciliation can leave column-level unique constraints absent while application code still uses targeted `ON CONFLICT`. The first deposit webhook, address claim, checkpoint update, or ledger credit then fails with a server error instead of deduplicating.
 
 **How to apply:** Audit development and production system catalogs for every WhiteBIT conflict target, check for duplicates before repair, restore missing named unique indexes through additive migrations, and run webhook, address-convergence, reconciliation, and ledger replay tests afterward.
+
+WhiteBIT provisioning must lock credential state before provider state and carry one exact credential snapshot from the durable claim decision into the irreversible address request.
+
+**Why:** Re-reading credentials after claiming can race an Admin rotation or disable operation, causing the claim to be authorized under one state while the provider call uses another.
+
+**How to apply:** Acquire the credential advisory lock before the provider lock, read settings and persisted credentials through the same transaction, snapshot persisted-or-environment credentials, and pass that snapshot explicitly to the provider call.

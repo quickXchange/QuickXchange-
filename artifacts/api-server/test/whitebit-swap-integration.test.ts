@@ -20,6 +20,8 @@ import { matchWhitebitCapability, parseWhitebitAssets, resetWhitebitCapabilityCa
 import { configureOperatorAuthorizationForTests } from "../src/lib/operator-auth";
 import { configureCustomerAuthorizationForTests } from "../src/lib/customer-auth";
 import { signOrderTrackingToken } from "../src/lib/order-access";
+import { activateWhitebitCredentials } from "../src/lib/provider-credentials";
+import exchangeConfigRouter from "../src/routes/exchange-config";
 import exchangeRouter from "../src/routes/exchange";
 
 process.env.NODE_ENV = "test";
@@ -30,8 +32,16 @@ process.env.WHITEBIT_WEBHOOK_SECRET = `swap-webhook-secret-${randomUUID()}`;
 
 const pool = createPrivilegedTestPool();
 const suffix = randomUUID();
+const runId = (value: string) => `${value}-${suffix}`;
+const pricingPriority = -1 - (Number.parseInt(suffix.replaceAll("-", "").slice(0, 8), 16) % 1_000_000);
 const originalFetch = globalThis.fetch;
 const orderId = `O${randomUUID().replaceAll("-", "").slice(0, 9)}`;
+const projectionPrefix = String(Number.parseInt(suffix.replaceAll("-", "").slice(0, 8), 16) % 100_000_000).padStart(8, "0");
+const projectionOrderIds = [
+  `O${projectionPrefix}1`,
+  `O${projectionPrefix}2`,
+  `O${projectionPrefix}3`,
+] as const;
 const customerId = `swap-customer-${suffix}`;
 let orderAddress = `swap-order-address-${suffix}`;
 const ownerClerkUserId = `whitebit-owner-${suffix}`;
@@ -40,6 +50,10 @@ let providerCalls = 0;
 let baseUrl = "";
 let server: ReturnType<typeof app.listen>;
 let priorProviderSetting: typeof database.whitebitProviderSettingsTable.$inferSelect | null = null;
+let priorBtcNetwork: typeof database.cryptoAssetNetworksTable.$inferSelect | null = null;
+let priorBtcAsset: typeof database.cryptoAssetsTable.$inferSelect | null = null;
+let priorUsdtAsset: typeof database.cryptoAssetsTable.$inferSelect | null = null;
+let priorWhitebitIntegration: typeof database.providerIntegrationsTable.$inferSelect | null = null;
 
 const app = express();
 app.use(express.json({ verify: (request, _response, body) => {
@@ -48,6 +62,7 @@ app.use(express.json({ verify: (request, _response, body) => {
 app.use("/api", whitebitPublicRouter);
 app.use("/api", whitebitWebhookRouter);
 app.use("/api", whitebitOperatorRouter);
+app.use("/api", exchangeConfigRouter);
 app.use("/api", exchangeRouter);
 app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
   const status = typeof error === "object" && error && "status" in error &&
@@ -147,7 +162,7 @@ async function signedOrderWebhook(uniqueId: string, address = orderAddress, netw
       transaction_id: `tx-${uniqueId}`,
       transactionHash: `hash-${uniqueId}`,
     },
-    id: `delivery-${uniqueId}`,
+    id: runId(`delivery-${uniqueId}`),
   });
   const payload = Buffer.from(body).toString("base64");
   const signature = createHmac("sha512", process.env.WHITEBIT_WEBHOOK_SECRET!)
@@ -168,6 +183,14 @@ before(async () => {
   await migrateTestTables();
   priorProviderSetting = (await database.db.select().from(database.whitebitProviderSettingsTable)
     .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit")).limit(1))[0] ?? null;
+  priorBtcNetwork = (await database.db.select().from(database.cryptoAssetNetworksTable)
+    .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin")).limit(1))[0] ?? null;
+  priorBtcAsset = (await database.db.select().from(database.cryptoAssetsTable)
+    .where(eq(database.cryptoAssetsTable.id, priorBtcNetwork?.assetId ?? "")).limit(1))[0] ?? null;
+  priorUsdtAsset = (await database.db.select().from(database.cryptoAssetsTable)
+    .where(eq(database.cryptoAssetsTable.id, "usdt")).limit(1))[0] ?? null;
+  priorWhitebitIntegration = (await database.db.select().from(database.providerIntegrationsTable)
+    .where(eq(database.providerIntegrationsTable.provider, "whitebit")).limit(1))[0] ?? null;
   await database.db.insert(database.whitebitProviderSettingsTable)
     .values({ provider: "whitebit", disabled: false })
     .onConflictDoUpdate({ target: database.whitebitProviderSettingsTable.provider, set: { disabled: false } });
@@ -200,18 +223,22 @@ after(async () => {
     await cleanup.query("SET LOCAL session_replication_role = replica");
     await cleanup.query(`DELETE FROM whitebit_ledger_entries WHERE deposit_id IN (
       SELECT id FROM whitebit_deposits
-      WHERE unique_id LIKE $1 OR address LIKE $1 OR order_id LIKE $2 OR order_id IN ('O123456701', 'O123456702', 'O123456703')
-    )`, [`%${suffix}%`, `${orderId}%`]);
+      WHERE unique_id LIKE $1 OR address LIKE $1 OR order_id LIKE $2 OR order_id = ANY($3)
+    )`, [`%${suffix}%`, `${orderId}%`, projectionOrderIds]);
     await cleanup.query("COMMIT");
   } finally {
     cleanup.release();
   }
-  await pool.query("DELETE FROM whitebit_deposits WHERE unique_id LIKE $1 OR address LIKE $1 OR order_id LIKE $2 OR order_id IN ('O123456701', 'O123456702', 'O123456703')", [`%${suffix}%`, `${orderId}%`]);
+  await pool.query("DELETE FROM whitebit_deposits WHERE unique_id LIKE $1 OR address LIKE $1 OR order_id LIKE $2 OR order_id = ANY($3)", [`%${suffix}%`, `${orderId}%`, projectionOrderIds]);
   await pool.query(`DELETE FROM whitebit_order_history_checkpoints WHERE order_address_id IN (
-    SELECT id FROM whitebit_order_addresses WHERE order_id LIKE $1 OR order_id IN ('O123456701', 'O123456702', 'O123456703')
-  )`, [`${orderId}%`]);
-  await pool.query("DELETE FROM whitebit_order_addresses WHERE order_id LIKE $1 OR order_id IN ('O123456701', 'O123456702', 'O123456703')", [`${orderId}%`]);
-  await pool.query("DELETE FROM exchange_orders WHERE id LIKE $1 OR id IN ('O123456701', 'O123456702', 'O123456703')", [`${orderId}%`]);
+    SELECT id FROM whitebit_order_addresses WHERE order_id LIKE $1 OR order_id = ANY($2)
+  )`, [`${orderId}%`, projectionOrderIds]);
+  await pool.query("DELETE FROM whitebit_order_addresses WHERE order_id LIKE $1 OR order_id = ANY($2)", [`${orderId}%`, projectionOrderIds]);
+  await pool.query("DELETE FROM exchange_orders WHERE id LIKE $1 OR id = ANY($2)", [`${orderId}%`, projectionOrderIds]);
+  await pool.query("DELETE FROM manual_desk_pricing_rules WHERE name LIKE $1 OR name LIKE $2", [
+    `Swap test ${suffix}%`,
+    `Refund absence ${suffix}%`,
+  ]);
   await pool.query("DELETE FROM whitebit_webhook_deliveries WHERE envelope_id LIKE $1 OR payload->'params'->>'address' LIKE $2", [`%${suffix}%`, `%${suffix}%`]);
   await pool.query("DELETE FROM desk_operators WHERE clerk_user_id = $1", [ownerClerkUserId]);
   if (priorProviderSetting) {
@@ -224,6 +251,29 @@ after(async () => {
   } else {
     await database.db.delete(database.whitebitProviderSettingsTable)
       .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+  }
+  if (priorBtcNetwork) {
+    await database.db.update(database.cryptoAssetNetworksTable).set({
+      enabled: priorBtcNetwork.enabled,
+      executionMode: priorBtcNetwork.executionMode,
+      customerDepositsEnabled: priorBtcNetwork.customerDepositsEnabled,
+      depositProvider: priorBtcNetwork.depositProvider,
+      sharedDepositAddress: priorBtcNetwork.sharedDepositAddress,
+      sharedDepositMemo: priorBtcNetwork.sharedDepositMemo,
+    }).where(eq(database.cryptoAssetNetworksTable.id, priorBtcNetwork.id));
+  }
+  if (priorBtcAsset) {
+    await database.db.update(database.cryptoAssetsTable).set({ enabled: priorBtcAsset.enabled })
+      .where(eq(database.cryptoAssetsTable.id, priorBtcAsset.id));
+  }
+  if (priorUsdtAsset) {
+    await database.db.update(database.cryptoAssetsTable).set({ enabled: priorUsdtAsset.enabled })
+      .where(eq(database.cryptoAssetsTable.id, priorUsdtAsset.id));
+  }
+  await database.db.delete(database.providerIntegrationsTable)
+    .where(eq(database.providerIntegrationsTable.provider, "whitebit"));
+  if (priorWhitebitIntegration) {
+    await database.db.insert(database.providerIntegrationsTable).values(priorWhitebitIntegration);
   }
   await database.pool.end();
   await pool.end();
@@ -238,6 +288,140 @@ test("supported exact route allocates WhiteBIT after durable order claim", async
   assert.equal(result.source, "whitebit");
   assert.equal(result.address, orderAddress);
   assert.equal(providerCalls, 1);
+});
+
+test("persisted WhiteBIT credentials provision addresses without environment credentials", async () => {
+  const originalKey = process.env.WHITEBIT_API_KEY;
+  const originalSecret = process.env.WHITEBIT_API_SECRET;
+  const storedOrderId = `${orderId}-stored-credentials`;
+  providerCalls = 0;
+  try {
+    await activateWhitebitCredentials(
+      { apiKey: `stored-key-${suffix}`, secretKey: `stored-secret-${suffix}` },
+      {
+        actorClerkUserId: ownerClerkUserId,
+        operatorId: null,
+        operatorEmail: ownerEmail,
+        requestId: `stored-credentials-${suffix}`,
+        action: "test.activate_whitebit_credentials",
+        credentialSource: "stored",
+      },
+    );
+    delete process.env.WHITEBIT_API_KEY;
+    delete process.env.WHITEBIT_API_SECRET;
+    await mockAssets();
+    const result = await provisionTest({
+      orderId: storedOrderId,
+      assetCode: "BTC",
+      networkCode: "BITCOIN",
+      manualAddress: "manual-wallet",
+      manualMemo: "",
+      chosenWhitebit: true,
+    });
+    assert.equal(result.source, "whitebit");
+    assert.equal(result.address, orderAddress);
+    assert.equal(providerCalls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    process.env.WHITEBIT_API_KEY = originalKey;
+    process.env.WHITEBIT_API_SECRET = originalSecret;
+    await database.db.delete(database.providerIntegrationsTable)
+      .where(eq(database.providerIntegrationsTable.provider, "whitebit"));
+    if (priorWhitebitIntegration) {
+      await database.db.insert(database.providerIntegrationsTable).values(priorWhitebitIntegration);
+    }
+    resetWhitebitCapabilityCacheForTests();
+  }
+});
+
+test("credential rotation and provider disable cannot mismatch the claimed WhiteBIT snapshot", async () => {
+  const originalKey = process.env.WHITEBIT_API_KEY;
+  const originalSecret = process.env.WHITEBIT_API_SECRET;
+  providerCalls = 0;
+  const rotationOrderId = `${orderId}-rotation-disable`;
+  const oldKey = `rotation-old-key-${suffix}`;
+  const oldSecret = `rotation-old-secret-${suffix}`;
+  const newKey = `rotation-new-key-${suffix}`;
+  const newSecret = `rotation-new-secret-${suffix}`;
+  let releaseProvider: (() => void) | undefined;
+  let signalProviderStarted!: () => void;
+  const providerStarted = new Promise<void>((resolve) => { signalProviderStarted = resolve; });
+  const providerRelease = new Promise<void>((resolve) => { releaseProvider = resolve; });
+  try {
+    await activateWhitebitCredentials(
+      { apiKey: oldKey, secretKey: oldSecret },
+      {
+        actorClerkUserId: ownerClerkUserId,
+        operatorId: null,
+        operatorEmail: ownerEmail,
+        requestId: `rotation-old-${suffix}`,
+        action: "test.activate_whitebit_credentials",
+        credentialSource: "stored",
+      },
+    );
+    delete process.env.WHITEBIT_API_KEY;
+    delete process.env.WHITEBIT_API_SECRET;
+    await mockAssets();
+    const assetFetch = globalThis.fetch;
+    globalThis.fetch = async (input, init) => {
+      if (!String(input).endsWith("/api/v4/main-account/create-new-address")) {
+        return assetFetch(input, init);
+      }
+      providerCalls += 1;
+      signalProviderStarted();
+      await providerRelease;
+      const headers = new Headers(init?.headers);
+      assert.equal(headers.get("X-TXC-APIKEY"), oldKey);
+      const body = String(init?.body);
+      const payload = Buffer.from(body).toString("base64");
+      assert.equal(headers.get("X-TXC-SIGNATURE"), createHmac("sha512", oldSecret).update(payload).digest("hex"));
+      return new Response(JSON.stringify({ account: { address: orderAddress, memo: "ROTATION-TAG" } }), { status: 200 });
+    };
+    const provisioning = provisionTest({
+      orderId: rotationOrderId,
+      assetCode: "BTC",
+      networkCode: "BITCOIN",
+      manualAddress: "manual-wallet",
+      manualMemo: "",
+      chosenWhitebit: true,
+    });
+    await providerStarted;
+    await Promise.all([
+      activateWhitebitCredentials(
+        { apiKey: newKey, secretKey: newSecret },
+        {
+          actorClerkUserId: ownerClerkUserId,
+          operatorId: null,
+          operatorEmail: ownerEmail,
+          requestId: `rotation-new-${suffix}`,
+          action: "test.rotate_whitebit_credentials",
+          credentialSource: "stored",
+        },
+      ),
+      database.db.update(database.whitebitProviderSettingsTable)
+        .set({ disabled: true })
+        .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit")),
+    ]);
+    releaseProvider?.();
+    const result = await provisioning;
+    assert.equal(result.source, "whitebit");
+    assert.equal(result.address, orderAddress);
+    assert.equal(providerCalls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    process.env.WHITEBIT_API_KEY = originalKey;
+    process.env.WHITEBIT_API_SECRET = originalSecret;
+    await database.db.update(database.whitebitProviderSettingsTable)
+      .set({ disabled: false })
+      .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+    await database.db.delete(database.providerIntegrationsTable)
+      .where(eq(database.providerIntegrationsTable.provider, "whitebit"));
+    if (priorWhitebitIntegration) {
+      await database.db.insert(database.providerIntegrationsTable).values(priorWhitebitIntegration);
+    }
+    releaseProvider?.();
+    resetWhitebitCapabilityCacheForTests();
+  }
 });
 
 test("webhook authentication falls back to the configured WhiteBIT API credentials", async () => {
@@ -440,9 +624,12 @@ test("disabled provider uses fallback without a provider call", async () => {
 test("ready provider claim converges order snapshots after simulated crash without provider recall", async () => {
   await finalizeSwapFundingFromClaim(orderId);
   const [row] = await database.db.select().from(database.ordersTable).where(eq(database.ordersTable.id, orderId));
+  const [claim] = await database.db.select({ address: database.whitebitOrderAddressesTable.address })
+    .from(database.whitebitOrderAddressesTable)
+    .where(eq(database.whitebitOrderAddressesTable.orderId, orderId));
   assert.equal(row.fundingStatus, "ready_whitebit");
-  assert.equal(row.depositAddress, orderAddress);
-  assert.equal((row.settlementSnapshot as { funding?: { address?: string } }).funding?.address, orderAddress);
+  assert.equal(row.depositAddress, claim.address);
+  assert.equal((row.settlementSnapshot as { funding?: { address?: string } }).funding?.address, claim.address);
 });
 
 test("owner recovery atomically updates all order snapshots", async () => {
@@ -718,20 +905,23 @@ test("signed webhooks attach both guest and authenticated Swap orders without le
 
 test("signed account/order collision is quarantined without either attachment or credit", async () => {
   const collisionCustomer = `collision-customer-${suffix}`;
+  const [existingClaim] = await database.db.select().from(database.whitebitOrderAddressesTable)
+    .where(eq(database.whitebitOrderAddressesTable.orderId, orderId)).limit(1);
+  assert.ok(existingClaim?.address);
   await database.db.insert(database.customersTable).values({
     id: collisionCustomer, name: "Collision", email: `${collisionCustomer}@example.test`,
   });
   await database.db.insert(database.whitebitDepositAddressesTable).values({
     customerId: collisionCustomer, ticker: "BTC", providerTicker: "BTC",
-    network: "BITCOIN", address: orderAddress, memo: "TAG-1", status: "ready",
+    network: existingClaim.network, address: existingClaim.address, memo: existingClaim.memo, status: "ready",
   });
-  const response = await signedOrderWebhook(`order-collision-${suffix}`);
-  assert.equal(response.status, 200);
+  const response = await signedOrderWebhook(`order-collision-${suffix}`, existingClaim.address, existingClaim.network, existingClaim.memo ?? "");
+  assert.equal(response.status, 200, await response.text());
   const [deposit] = await database.db.select().from(database.whitebitDepositsTable)
     .where(eq(database.whitebitDepositsTable.uniqueId, `order-collision-${suffix}`));
   assert.equal(deposit.orderId, null);
   assert.equal(deposit.orderAddressId, null);
-  assert.match(deposit.conflict ?? "", /quarantined/);
+  assert.match(deposit.conflict ?? "", /quarantined/, JSON.stringify({ deposit, orderAddress, suffix }));
   assert.equal((await database.db.select().from(database.whitebitLedgerEntriesTable)
     .where(eq(database.whitebitLedgerEntriesTable.customerId, collisionCustomer))).length, 0);
   await database.db.delete(database.whitebitDepositAddressesTable)
@@ -958,9 +1148,7 @@ test("migration 0073 partial upgrade, reapply, FK/check/default-disabled/grants"
 });
 
 test("public and Admin HTTP projections hide non-ready addresses and expose safe ready funding", async () => {
-  const provisioningId = "O123456701";
-  const unresolvedId = "O123456702";
-  const manualId = "O123456703";
+  const [provisioningId, unresolvedId, manualId] = projectionOrderIds;
   await insertProvisioningOrder(provisioningId);
   await insertProvisioningOrder(unresolvedId);
   await insertProvisioningOrder(manualId);
@@ -976,8 +1164,9 @@ test("public and Admin HTTP projections hide non-ready addresses and expose safe
   }).where(eq(database.ordersTable.id, manualId));
   const publicProjection = async (id: string) => {
     const response = await fetch(`${baseUrl}/api/orders/${id}/status?trackingToken=${encodeURIComponent(signOrderTrackingToken(id))}`);
-    assert.equal(response.status, 200);
-    return response.json() as Promise<Record<string, unknown>>;
+    const responseText = await response.text();
+    assert.equal(response.status, 200, responseText);
+    return JSON.parse(responseText) as Record<string, unknown>;
   };
   const provisioning = await publicProjection(provisioningId);
   assert.equal(provisioning.fundingStatus, "provisioning");
@@ -1022,6 +1211,12 @@ test("Convert and account deposit routes remain isolated", async () => {
 test("actual signed exchange order replay allocates one WhiteBIT address", async () => {
   providerCalls = 0;
   await mockAssets();
+  await database.db.update(database.cryptoAssetNetworksTable).set({
+    enabled: true, executionMode: "manual", customerDepositsEnabled: true,
+    depositProvider: "whitebit",
+  }).where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
+  await database.db.update(database.cryptoAssetsTable).set({ enabled: true })
+    .where(eq(database.cryptoAssetsTable.id, priorBtcNetwork?.assetId ?? ""));
   await database.db.insert(fiatCurrenciesTable).values({
     code: "EUR", name: "Euro", network: "SEPA", precision: 2, enabled: true,
     lifecycle: "active", rateMode: "manual", manualRate: "100",
@@ -1029,10 +1224,10 @@ test("actual signed exchange order replay allocates one WhiteBIT address", async
   await database.db.insert(manualDeskPricingRulesTable).values({
     name: `Swap test ${suffix}`, sourceAsset: "BTC", targetAsset: "EUR",
     sourceNetwork: "BITCOIN", targetNetwork: "SEPA", markupBasisPoints: 0,
-    exactRate: "100", fixedFee: "0", enabled: true, priority: 100,
+     exactRate: "100", fixedFee: "0", enabled: true, priority: pricingPriority,
   });
   const configResponse = await fetch(`${baseUrl}/api/exchange/config`);
-  assert.equal(configResponse.status, 200);
+  assert.equal(configResponse.status, 200, await configResponse.clone().text());
   const config = await configResponse.json() as {
     manualSettlementOptions: Array<{
       id: string; kind: string; assetCode: string; routeNetwork: string;
@@ -1044,7 +1239,7 @@ test("actual signed exchange order replay allocates one WhiteBIT address", async
     option.routeNetwork.toUpperCase() === "BITCOIN" && (option.direction === "send" || option.direction === "both"));
   const target = config.manualSettlementOptions.find((option) =>
     option.kind === "fiat-payment-method" && (option.direction === "receive" || option.direction === "both"));
-  if (!source || !target) throw new Error(`Test catalog lacks a BTC/BITCOIN-to-fiat route: ${JSON.stringify(config.manualSettlementOptions.slice(0, 10))}`);
+  if (!source || !target) throw new Error(`Test catalog lacks a BTC/BITCOIN-to-fiat route: ${JSON.stringify(config.manualSettlementOptions.filter((option) => option.assetCode === "BTC" || option.assetCode === "EUR"))}`);
   const quoteResponse = await fetch(`${baseUrl}/api/exchange/quote`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -1054,7 +1249,7 @@ test("actual signed exchange order replay allocates one WhiteBIT address", async
       sourceSettlementOptionId: source.id, targetSettlementOptionId: target.id,
     }),
   });
-  assert.equal(quoteResponse.status, 200);
+  assert.equal(quoteResponse.status, 200, await quoteResponse.clone().text());
   const quote = await quoteResponse.json() as {
     quoteId: string; receiveAmount: number; rate: number; fee: number;
     fromAsset: string; fromNetwork: string; toAsset: string; toNetwork: string;
@@ -1062,7 +1257,8 @@ test("actual signed exchange order replay allocates one WhiteBIT address", async
   };
   const settlementDetails = Object.fromEntries((quote.requiredSettlementFields ?? []).map((field) => [
     field.key,
-    field.type === "email" ? `${suffix}@example.test` : "Actual Swap",
+    field.type === "email" ? `${suffix}@example.test` :
+      field.type === "account-iban" ? "DE89370400440532013000" : "Actual Swap",
   ]));
   const clientRequestId = randomUUID();
   const request = {
@@ -1092,7 +1288,10 @@ test("actual signed exchange order replay allocates one WhiteBIT address", async
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(request),
   });
   const firstResponsePromise = postOrder();
-  await started;
+  await Promise.race([
+    started,
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timed out waiting for WhiteBIT provider call")), 10_000)),
+  ]);
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const [order] = await database.db.select({ id: database.ordersTable.id })
       .from(database.ordersTable)
@@ -1147,13 +1346,15 @@ test("Manual USDT TRC20 to EUR accepts every absent refund representation", asyn
   try {
     await database.db.update(database.cryptoAssetNetworksTable).set({
       enabled: true, executionMode: "manual", customerDepositsEnabled: true,
-      depositProvider: "manual", sharedDepositAddress: `T${"1".repeat(33)}`, sharedDepositMemo: "",
+      depositProvider: "whitebit", sharedDepositAddress: `T${"1".repeat(33)}`, sharedDepositMemo: "",
       requiresMemo: false,
     }).where(eq(database.cryptoAssetNetworksTable.id, networkId));
+    await database.db.update(database.cryptoAssetsTable).set({ enabled: true })
+      .where(eq(database.cryptoAssetsTable.id, originalNetwork.assetId));
     await database.db.insert(database.manualDeskPricingRulesTable).values({
       name: ruleName, sourceAsset: "USDT", targetAsset: "EUR",
       sourceNetwork: "TRC20", targetNetwork: "SEPA", markupBasisPoints: 0,
-      exactRate: "1", fixedFee: "0", enabled: true, priority: 100,
+       exactRate: "1", fixedFee: "0", enabled: true, priority: pricingPriority + 1,
     });
     const config = await (await fetch(`${baseUrl}/api/exchange/config`)).json() as {
       manualSettlementOptions: Array<{ id: string; kind: string; assetCode: string; routeNetwork: string; direction: string }>;
@@ -1164,7 +1365,7 @@ test("Manual USDT TRC20 to EUR accepts every absent refund representation", asyn
     const target = config.manualSettlementOptions.find((item) =>
       item.kind === "fiat-payment-method" && item.assetCode === "EUR" && item.routeNetwork.toUpperCase() === "SEPA" &&
       ["receive", "both"].includes(item.direction));
-    if (!source || !target) throw new Error("Test catalog lacks USDT/TRC20 to EUR/SEPA settlement options.");
+    if (!source || !target) throw new Error(`Test catalog lacks USDT/TRC20 to EUR/SEPA settlement options: ${JSON.stringify(config.manualSettlementOptions.filter((item) => item.assetCode === "USDT" || item.assetCode === "EUR"))}`);
     for (const [index, refundValue] of [undefined, "", null].entries()) {
       const quoteResponse = await fetch(`${baseUrl}/api/exchange/quote`, {
         method: "POST", headers: { "content-type": "application/json" },
@@ -1177,7 +1378,9 @@ test("Manual USDT TRC20 to EUR accepts every absent refund representation", asyn
       assert.equal(quoteResponse.status, 200, quoteText);
       const quote = JSON.parse(quoteText) as Record<string, unknown>;
       const settlementDetails = Object.fromEntries(((quote.requiredSettlementFields ?? []) as Array<{ key: string; type?: string }>).map((field) => [
-        field.key, field.type === "email" ? `${suffix}-${index}@example.test` : "Refund absence test",
+        field.key,
+        field.type === "email" ? `${suffix}-${index}@example.test` :
+          field.type === "account-iban" ? "DE89370400440532013000" : "Refund absence test",
       ]));
       const request: Record<string, unknown> = {
         type: "manual", fromAsset: "USDT", fromNetwork: "TRC20", toAsset: "EUR", toNetwork: "SEPA",
@@ -1203,6 +1406,8 @@ test("Manual USDT TRC20 to EUR accepts every absent refund representation", asyn
     }
   } finally {
     for (const id of createdOrderIds) {
+      await pool.query("DELETE FROM whitebit_order_history_checkpoints WHERE order_address_id IN (SELECT id FROM whitebit_order_addresses WHERE order_id = $1)", [id]);
+      await pool.query("DELETE FROM whitebit_order_addresses WHERE order_id = $1", [id]);
       await database.db.delete(database.ordersTable).where(eq(database.ordersTable.id, id));
     }
     await database.db.delete(database.manualDeskPricingRulesTable)

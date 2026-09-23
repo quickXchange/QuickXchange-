@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -7,6 +7,7 @@ import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 import { ShieldAlert } from 'lucide-react';
 
 import { AuthProvider, useAuth } from '@/lib/auth';
+import { createSessionAwareQueryClient } from '@/lib/session-expiry';
 import { Shell } from '@/components/layout';
 
 import Home from '@/pages/home';
@@ -18,7 +19,7 @@ import Support from '@/pages/support';
 import Account from '@/pages/account';
 import NotFound from '@/pages/not-found';
 
-const queryClient = new QueryClient({
+const queryClient = createSessionAwareQueryClient({
   defaultOptions: {
     queries: {
       retry: 1,

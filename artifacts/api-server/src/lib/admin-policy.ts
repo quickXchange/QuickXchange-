@@ -35,6 +35,8 @@ const AUTHENTICATED: AdminRoutePolicy = { authenticatedOnly: true };
  * sensitive boundary; route-level requireOwner remains defense in depth.
  */
 const POLICY_MATCHERS: readonly PolicyMatcher[] = [
+  { method: "GET", pattern: /^\/admin\/build-info$/, policy: AUTHENTICATED },
+  { method: "POST", pattern: /^\/admin\/workspace-config\/(preview|apply)$/, policy: P("site_settings.manage", true) },
   { method: "GET", pattern: /^\/admin\/operators$/, policy: P("team.members.view") },
   { method: "POST", pattern: /^\/admin\/operators\/invitations$/, policy: P("team.members.invite", true) },
   { method: "POST", pattern: /^\/admin\/operators\/[^/]+\/approve$/, policy: P("team.members.update", true) },

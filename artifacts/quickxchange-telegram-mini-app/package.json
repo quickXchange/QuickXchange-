@@ -7,6 +7,7 @@
     "dev": "vite --config vite.config.ts --host 0.0.0.0",
     "build": "vite build --config vite.config.ts && node ../../scripts/verify-web-build.mjs .",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
+    "test": "tsx --test src/lib/session-expiry.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
@@ -73,6 +74,7 @@
     "vaul": "^1.1.2",
     "vite": "catalog:",
     "wouter": "^3.3.5",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "tsx": "^4.20.6"
   }
 }

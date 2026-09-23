@@ -200,10 +200,21 @@ export async function provisionSwapFundingAddress(input: {
     return { source: "whitebit" as const, address: usedFallback ? input.manualAddress : null, memo: usedFallback ? input.manualMemo : null, unresolved: !usedFallback };
   }
   const claimed = await db.transaction(async (tx) => {
+    // Credential activation takes the credentials lock before the provider lock.
+    // Keep that order here to avoid a rotation/provisioning deadlock.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('rook:whitebit:credentials', 0))`);
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
     const [setting] = await tx.select().from(whitebitProviderSettingsTable)
       .where(eq(whitebitProviderSettingsTable.provider, "whitebit")).limit(1);
-    if (!setting || setting.disabled || !process.env.WHITEBIT_API_KEY || !process.env.WHITEBIT_API_SECRET) return { claim: undefined, row: undefined, disabled: true };
+    const storedCredentials = await getWhitebitCredentialStorageState(tx);
+    const credentialsReady = storedCredentials.status === "available" ||
+      Boolean(process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET);
+    const credentialSnapshot: WhitebitCredentials | undefined = storedCredentials.status === "available"
+      ? storedCredentials.credentials
+      : process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET
+        ? { apiKey: process.env.WHITEBIT_API_KEY, secretKey: process.env.WHITEBIT_API_SECRET }
+        : undefined;
+    if (!setting || setting.disabled || !credentialsReady) return { claim: undefined, row: undefined, disabled: true };
     const [claim] = await tx.insert(whitebitOrderAddressesTable).values({
       orderId: input.orderId,
       ticker: input.assetCode.trim().toUpperCase(),
@@ -213,7 +224,7 @@ export async function provisionSwapFundingAddress(input: {
     }).onConflictDoNothing({ target: whitebitOrderAddressesTable.orderId }).returning();
     const row = claim ?? (await tx.select().from(whitebitOrderAddressesTable)
       .where(eq(whitebitOrderAddressesTable.orderId, input.orderId)).limit(1))[0];
-    return { claim, row, disabled: false };
+    return { claim, row, disabled: false, credentialSnapshot };
   });
    if (claimed.disabled) {
       const usedFallback = await fallback("WhiteBIT is disabled or not configured.");
@@ -243,7 +254,7 @@ export async function provisionSwapFundingAddress(input: {
     result = await whitebitPost<Record<string, unknown>>("/api/v4/main-account/create-new-address", {
       ticker: capability.providerTicker,
       network: capability.providerNetwork,
-    });
+    }, claimed.credentialSnapshot);
   } catch (error) {
     const definitive = error instanceof ApiError && error.code === "WHITEBIT_PROVIDER_DEFINITIVE";
     await finalizeClaimAndOrder(input.orderId, calling.id, {

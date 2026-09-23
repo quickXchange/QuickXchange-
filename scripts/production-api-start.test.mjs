@@ -54,8 +54,28 @@ function collect(child) {
 test("migration failure prevents API startup", async () => {
   const f = await fixture("process.exit(23);", "throw new Error('API must not start');");
   try {
-    const result = await collect(run(f.directory, f.env));
+    const result = await collect(run(f.directory, { ...f.env, MIGRATIONS_ONLY: "true" }));
     assert.equal(result.code, 23);
+  } finally {
+    await rm(f.directory, { recursive: true, force: true });
+  }
+});
+
+test("normal mode starts API without running migrations", async () => {
+  const f = await fixture(
+    "import { writeFileSync } from 'node:fs'; writeFileSync(process.env.MIGRATION_MARKER, 'started'); process.exit(23);",
+    "console.log('api-started');",
+  );
+  const migrationMarker = join(f.directory, "migration-started");
+  try {
+    const result = await collect(run(f.directory, {
+      ...f.env,
+      MIGRATION_MARKER: migrationMarker,
+    }));
+    assert.equal(result.code, 0);
+    assert.match(result.stdout, /Starting Production API without running database release operations/);
+    assert.match(result.stdout, /api-started/);
+    await assert.rejects(readFile(migrationMarker));
   } finally {
     await rm(f.directory, { recursive: true, force: true });
   }
@@ -67,17 +87,6 @@ test("migrations-only mode completes without starting API", async () => {
     const result = await collect(run(f.directory, { ...f.env, MIGRATIONS_ONLY: "true" }));
     assert.equal(result.code, 0);
     assert.match(result.stdout, /Production database release step completed/);
-  } finally {
-    await rm(f.directory, { recursive: true, force: true });
-  }
-});
-
-test("successful migration hands off to API", async () => {
-  const f = await fixture("process.exit(0);", "console.log('api-started');");
-  try {
-    const result = await collect(run(f.directory, f.env));
-    assert.equal(result.code, 0);
-    assert.match(result.stdout, /api-started/);
   } finally {
     await rm(f.directory, { recursive: true, force: true });
   }
@@ -101,6 +110,7 @@ test("termination during migration is forwarded and API never starts", async () 
   try {
     const child = run(f.directory, {
       ...f.env,
+      MIGRATIONS_ONLY: "true",
       MIGRATION_MARKER: migrationMarker,
       TERMINATION_MARKER: terminationMarker,
     });
@@ -122,7 +132,7 @@ test("termination during migration is forwarded and API never starts", async () 
   }
 });
 
-test("startup gate listens while migration is in progress", async () => {
+test("migrations-only mode does not start API or listen while migration is in progress", async () => {
   const migrationScript = `
     import { writeFileSync } from "node:fs";
     writeFileSync(process.env.MIGRATION_MARKER, "started");
@@ -134,6 +144,7 @@ test("startup gate listens while migration is in progress", async () => {
   try {
     const child = run(f.directory, {
       ...f.env,
+      MIGRATIONS_ONLY: "true",
       PORT: port,
       MIGRATION_MARKER: marker,
     });
@@ -146,7 +157,10 @@ test("startup gate listens while migration is in progress", async () => {
         await new Promise(resolve => setTimeout(resolve, 20));
       }
     }
-    assert.equal(await getStatus(port), 503);
+    await assert.rejects(
+      getStatus(port),
+      error => error?.code === "ECONNREFUSED",
+    );
     child.kill("SIGTERM");
     const result = await resultPromise;
     assert.equal(result.code, 143);
