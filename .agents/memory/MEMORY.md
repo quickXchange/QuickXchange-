@@ -138,7 +138,7 @@
 - [BSC payment evidence lookup](bsc-payment-evidence-lookup.md) — public BSC RPCs may reject broad token-log scans; discover the tx narrowly, then verify its receipt and canonical block by RPC.
 - [Recovery migration replay isolation](recovery-migration-replay-isolation.md) — obsolete evidence recoveries must not replay ahead of a current recovery or one mismatch can stop the monitoring worker.
 - [Deposit monitoring readiness](deposit-monitoring-readiness.md) — gate deposits with locked exact-route identity, stable config digests, and fresh health; unhealthy routes remain payout-only.
-- [Production migration entrypoint](production-migration-entrypoint.md) — artifact deployments must run the real migrator before API startup; post-merge and root scripts are not implicit release hooks.
+- [Production migration entrypoint](production-migration-entrypoint.md) — managed Publish can align schema without advancing Drizzle history; verify data-only release postconditions separately.
 - [Verified funding transaction identity](verified-funding-transaction-identity.md) — Manual Swap TxIDs come only from applied immutable observations and must remain separate from editable operational references.
 - [Environment-specific RPC secret overrides](rpc-secret-environment-overrides.md) — a changed shared RPC secret can remain shadowed by an environment override; validate the runtime value in every target environment.
 - [Bundled test worker cleanup](bundled-test-worker-cleanup.md) — bundled Node tests must avoid presentation transports and await child closure before deleting temporary output.
