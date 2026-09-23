@@ -799,6 +799,13 @@
       "when": 1790123400000,
       "tag": "0115_restore_polygon_mainnet_reference",
       "breakpoints": true
+    },
+    {
+      "idx": 116,
+      "version": "7",
+      "when": 1790199084841,
+      "tag": "0116_long_kate_bishop",
+      "breakpoints": true
     }
   ]
 }

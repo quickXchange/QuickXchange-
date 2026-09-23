@@ -208,6 +208,56 @@ test("admin partner preview resolves the active draft record before its object p
   assert.equal(missing.response.status, 404);
 });
 
+test("partner logo variants are authorized by draft and published rows", { concurrency: false }, async () => {
+  const originalId = randomUUID();
+  const lightId = randomUUID();
+  const darkId = randomUUID();
+  const bytes = await sharp({ create: { width: 2, height: 2, channels: 3, background: "#123456" } }).png().toBuffer();
+  for (const id of [originalId, lightId, darkId]) {
+    objects.set(`assets/partner-logos/${id}`, { bytes, contentType: "image/png", deleted: false });
+  }
+  const created = await request("/admin/partner-logos", {
+    method: "POST",
+    body: JSON.stringify({
+      name: `${TEST_MARKER}-variants`,
+      objectPath: `/objects/partner-logos/${originalId}`,
+      lightObjectPath: `/objects/partner-logos/${lightId}`,
+      darkObjectPath: `/objects/partner-logos/${darkId}`,
+      appearance: "separate",
+      sortOrder: 7,
+      enabled: true,
+    }),
+  }, operatorUser);
+  assert.equal(created.response.status, 201, created.body);
+  const row = JSON.parse(created.body) as { id: string; sortOrder?: number };
+  partnerIds.add(row.id);
+  assert.equal(row.sortOrder, 7);
+
+  const preview = await fetch(
+    `${apiUrl}/admin/partner-logos/${row.id}/preview?objectPath=${encodeURIComponent(`/objects/partner-logos/${lightId}`)}`,
+    { headers: { "x-test-clerk-user-id": operatorUser } },
+  );
+  assert.equal(preview.status, 200);
+  assert.deepEqual(Buffer.from(await preview.arrayBuffer()), bytes);
+  const unreferencedPreview = await fetch(
+    `${apiUrl}/admin/partner-logos/${row.id}/preview?objectPath=${encodeURIComponent(`/objects/partner-logos/${randomUUID()}`)}`,
+    { headers: { "x-test-clerk-user-id": operatorUser } },
+  );
+  assert.equal(unreferencedPreview.status, 404);
+
+  const publication = await request("/admin/site-publication", { method: "POST" }, ownerUser);
+  assert.equal(publication.response.status, 201, publication.body);
+  const publicLogos = await request("/partner-logos");
+  assert.equal(publicLogos.response.status, 200, publicLogos.body);
+  const published = (JSON.parse(publicLogos.body) as Array<{ id: string }>).find((logo) => logo.id === row.id);
+  assert.ok(published);
+  for (const id of [originalId, lightId, darkId]) {
+    const served = await fetch(`${apiUrl}/storage/objects/partner-logos/${id}`);
+    assert.equal(served.status, 200);
+    assert.deepEqual(Buffer.from(await served.arrayBuffer()), bytes);
+  }
+});
+
 test("disable, publish, re-enable, and publish preserves the draft logo object", { concurrency: false }, async () => {
   const objectId = randomUUID();
   const bytes = await sharp({ create: { width: 1, height: 1, channels: 3, background: "#abcdef" } }).png().toBuffer();

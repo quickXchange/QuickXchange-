@@ -11,6 +11,7 @@ import {
   GetAdminSiteContentResponse,
   GetAdminWebsiteBrandingResponse,
   GetAdminSocialTrustResponse,
+  GetAdminPartnerLogoSettingsResponse,
   GetWebsiteBrandingResponse,
   GetPublishedNavigationResponse,
   GetPublishedPartnerLogosResponse,
@@ -60,6 +61,8 @@ import {
   UpdateAdminSocialMediaResponse,
   UpdateAdminSocialTrustTitlesBody,
   UpdateAdminSocialTrustTitlesResponse,
+  UpdateAdminPartnerLogoSettingsBody,
+  UpdateAdminPartnerLogoSettingsResponse,
 } from "@workspace/api-zod";
 import {
   contactSubmissionsTable,
@@ -67,6 +70,7 @@ import {
   db,
   navLinksTable,
   partnerLogosTable,
+  partnerLogoSettingsTable,
   siteContentAuditLogsTable,
   siteContentRevisionsTable,
   sitePublicationRevisionsTable,
@@ -75,6 +79,7 @@ import {
   websiteBrandingSettingsTable,
   type SiteNavigationSnapshot,
   type SitePartnerLogoSnapshot,
+  type PartnerLogoSettings,
   type SiteSocialTrustSnapshot,
 } from "@workspace/db";
 import { ApiError } from "../lib/api-error";
@@ -212,6 +217,73 @@ const DEFAULT_SOCIAL_ICON_APPEARANCE = {
   glowIntensity: 0,
   iconOpacity: 100,
 };
+
+const DEFAULT_PARTNER_LOGO_SETTINGS: PartnerLogoSettings = {
+  layout: "carousel",
+  animation: "auto-scroll",
+  direction: "ltr",
+  speed: "normal",
+  pauseOnHover: true,
+  manualInteraction: true,
+  resumeAfterInteraction: true,
+  columnsDesktop: 4,
+  columnsTablet: 3,
+  columnsMobile: 2,
+  size: "medium",
+  customSize: 96,
+  container: "none",
+  spacing: "normal",
+  alignment: "center",
+};
+
+async function draftPartnerLogoSettings(): Promise<PartnerLogoSettings> {
+  const [row] = await db.select().from(partnerLogoSettingsTable)
+    .where(eq(partnerLogoSettingsTable.id, "global")).limit(1);
+  return row?.settings ?? DEFAULT_PARTNER_LOGO_SETTINGS;
+}
+
+function partnerLogoPaths(logo: Pick<SitePartnerLogoSnapshot, "objectPath" | "lightObjectPath" | "darkObjectPath">): string[] {
+  return [...new Set([logo.objectPath, logo.lightObjectPath, logo.darkObjectPath]
+    .filter((path): path is string => Boolean(path)))];
+}
+
+function publicPartnerLogo(logo: SitePartnerLogoSnapshot): SitePartnerLogoSnapshot {
+  return {
+    ...logo,
+    appearance: logo.appearance ?? "auto",
+    lightObjectPath: logo.lightObjectPath ?? null,
+    darkObjectPath: logo.darkObjectPath ?? null,
+  };
+}
+
+function sortPartnerLogos<T extends { name: string; id: string; sortOrder?: number | null }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) =>
+    (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER)
+    || a.name.localeCompare(b.name)
+    || a.id.localeCompare(b.id),
+  );
+}
+
+function omitNullSortOrder<T extends { sortOrder?: number | null }>(row: T) {
+  const { sortOrder, ...rest } = row;
+  return sortOrder == null ? rest : { ...rest, sortOrder };
+}
+
+async function verifyPartnerLogoPaths(paths: Array<string | null | undefined>): Promise<void> {
+  for (const path of new Set(paths.filter((value): value is string => Boolean(value)))) {
+    try {
+      await verifyStoredPartnerLogo(path);
+    } catch (error) {
+      if (error instanceof StoredObjectNotFoundError) {
+        throw new ApiError("PARTNER_LOGO_OBJECT_MISSING", "A referenced partner logo image is missing.", 409);
+      }
+      if (error instanceof StoredImageInvalidError) {
+        throw new ApiError("PARTNER_LOGO_OBJECT_INVALID", "A referenced partner logo image is invalid.", 409);
+      }
+      throw error;
+    }
+  }
+}
 
 function normalizedSocialIconAppearance(value: unknown) {
   const input = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
@@ -377,7 +449,9 @@ router.get("/site-content", async (_req, res): Promise<void> => {
     .sort((a, b) => a.label.localeCompare(b.label) || a.href.localeCompare(b.href) || a.id.localeCompare(b.id));
   const partnerLogos = (publication?.partnerLogos ?? []).filter((row) =>
     row.enabled && !row.removedAt && (!row.link || isSafeSiteLink(row.link)),
-  ).sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+  );
+  const orderedPartnerLogos = sortPartnerLogos(partnerLogos).map(publicPartnerLogo);
+  const partnerLogoSettings = publication?.partnerLogoSettings ?? DEFAULT_PARTNER_LOGO_SETTINGS;
   const socialTrust = publication?.socialTrust
     ? { ...publication.socialTrust, items: [...publication.socialTrust.items] }
     : { ...DEFAULT_SOCIAL_TRUST, items: [] };
@@ -386,7 +460,9 @@ router.get("/site-content", async (_req, res): Promise<void> => {
     .sort((a, b) => a.group.localeCompare(b.group) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
   const branding = GetWebsiteBrandingResponse.parse(publicWebsiteBranding(brandingRow));
   res.setHeader("cache-control", "public, max-age=0, must-revalidate");
-  res.json(GetPublishedSiteContentResponse.parse({ pages: latestPages, navigation, partnerLogos, socialTrust, branding }));
+  res.json(GetPublishedSiteContentResponse.parse({
+    pages: latestPages, navigation, partnerLogos: orderedPartnerLogos, partnerLogoSettings, socialTrust, branding,
+  }));
 });
 
 router.get("/website-branding", async (_req, res): Promise<void> => {
@@ -470,9 +546,9 @@ router.get("/partner-logos", async (_req, res): Promise<void> => {
   const publication = await latestPublication();
   const rows = (publication?.partnerLogos ?? []).filter((row) =>
     row.enabled && !row.removedAt && (!row.link || isSafeSiteLink(row.link)),
-  ).sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+  );
   res.setHeader("cache-control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
-  res.json(GetPublishedPartnerLogosResponse.parse(rows.filter((row) => !row.link || isSafeSiteLink(row.link))));
+  res.json(GetPublishedPartnerLogosResponse.parse(sortPartnerLogos(rows).map(publicPartnerLogo)));
 });
 
 router.get("/storage/objects/partner-logos/:id", async (req, res, next): Promise<void> => {
@@ -484,7 +560,7 @@ router.get("/storage/objects/partner-logos/:id", async (req, res, next): Promise
   try {
     const publication = await latestPublication();
     const referenced = publication?.partnerLogos.find((logo) =>
-      logo.objectPath === `/objects/partner-logos/${id}` && logo.enabled && !logo.removedAt,
+      partnerLogoPaths(logo).includes(`/objects/partner-logos/${id}`) && logo.enabled && !logo.removedAt,
     );
     if (!referenced) {
       res.status(404).json({ error: "Object not found" });
@@ -561,7 +637,12 @@ router.get("/admin/partner-logos/:id/preview", requireOperator, async (req, res,
     return;
   }
   try {
-    const [logo] = await db.select({ objectPath: partnerLogosTable.objectPath })
+    const requestedPath = typeof req.query.objectPath === "string" ? req.query.objectPath : undefined;
+    const [logo] = await db.select({
+      objectPath: partnerLogosTable.objectPath,
+      lightObjectPath: partnerLogosTable.lightObjectPath,
+      darkObjectPath: partnerLogosTable.darkObjectPath,
+    })
       .from(partnerLogosTable)
       .where(and(eq(partnerLogosTable.id, id), isNull(partnerLogosTable.removedAt)))
       .limit(1);
@@ -571,7 +652,12 @@ router.get("/admin/partner-logos/:id/preview", requireOperator, async (req, res,
       res.status(404).json({ error: "Object not found" });
       return;
     }
-    const image = await getVerifiedStoredLogo(logo.objectPath, "partner-logos");
+    const objectPath = requestedPath ?? logo.objectPath;
+    if (![logo.objectPath, logo.lightObjectPath, logo.darkObjectPath].includes(objectPath)) {
+      res.status(404).json({ error: "Object not found" });
+      return;
+    }
+    const image = await getVerifiedStoredLogo(objectPath, "partner-logos");
     res.setHeader("content-type", image.contentType);
     res.setHeader("cache-control", "private, no-store");
     res.setHeader("x-content-type-options", "nosniff");
@@ -880,8 +966,11 @@ router.post("/admin/site-publication", requireOwner, async (_req, res): Promise<
       desc(navLinksTable.enabled), navLinksTable.label, navLinksTable.href, navLinksTable.id,
     );
     const partnerRows = await tx.select().from(partnerLogosTable).orderBy(
-      desc(partnerLogosTable.enabled), partnerLogosTable.name, partnerLogosTable.id,
+      partnerLogosTable.sortOrder, partnerLogosTable.name, partnerLogosTable.id,
     );
+    const [partnerLogoSettingsRow] = await tx.select().from(partnerLogoSettingsTable)
+      .where(eq(partnerLogoSettingsTable.id, "global")).limit(1);
+    const partnerLogoSettings = partnerLogoSettingsRow?.settings ?? DEFAULT_PARTNER_LOGO_SETTINGS;
     const [socialTrustSettings] = await tx.select().from(socialTrustSettingsTable)
       .where(eq(socialTrustSettingsTable.id, "footer")).limit(1);
     const socialTrustItems = await tx.select().from(socialTrustLinksTable)
@@ -904,7 +993,7 @@ router.post("/admin/site-publication", requireOwner, async (_req, res): Promise<
     };
     for (const logo of partnerRows.filter((row) => row.enabled)) {
       try {
-        await verifyStoredPartnerLogo(logo.objectPath);
+        await verifyPartnerLogoPaths([logo.objectPath, logo.lightObjectPath, logo.darkObjectPath]);
       } catch (error) {
         if (error instanceof StoredObjectNotFoundError) {
           throw new ApiError("PARTNER_LOGO_OBJECT_MISSING", `Enabled partner logo object is missing: ${logo.id}`, 409);
@@ -931,6 +1020,9 @@ router.post("/admin/site-publication", requireOwner, async (_req, res): Promise<
     }));
     const partnerLogos: SitePartnerLogoSnapshot[] = partnerRows.map((row) => ({
       id: row.id, name: row.name, objectPath: row.objectPath, link: row.link,
+      lightObjectPath: row.lightObjectPath, darkObjectPath: row.darkObjectPath,
+      appearance: row.appearance as "auto" | "same" | "separate",
+      ...(row.sortOrder == null ? {} : { sortOrder: row.sortOrder }),
       enabled: row.enabled,
       removedAt: row.removedAt?.toISOString() ?? null, createdAt: row.createdAt.toISOString(),
     }));
@@ -952,6 +1044,7 @@ router.post("/admin/site-publication", requireOwner, async (_req, res): Promise<
       latest &&
       JSON.stringify(latest.navigation) === JSON.stringify(navigation) &&
       JSON.stringify(latest.partnerLogos) === JSON.stringify(partnerLogos) &&
+      JSON.stringify(latest.partnerLogoSettings ?? DEFAULT_PARTNER_LOGO_SETTINGS) === JSON.stringify(partnerLogoSettings) &&
       JSON.stringify(latest.socialTrust) === JSON.stringify(socialTrust)
     ) {
       return { row: latest, created: false, partnerCleanupPaths: [] as string[], socialCleanupPaths: [] as string[] };
@@ -960,6 +1053,7 @@ router.post("/admin/site-publication", requireOwner, async (_req, res): Promise<
       version: (latest?.version ?? 0) + 1,
       navigation,
       partnerLogos,
+      partnerLogoSettings,
       socialTrust,
       createdBy: res.locals.operator.id,
       publishedBy: res.locals.operator.id,
@@ -971,19 +1065,17 @@ router.post("/admin/site-publication", requireOwner, async (_req, res): Promise<
       details: { version: row.version, navigationCount: navigation.length, partnerLogoCount: partnerLogos.length, socialTrustCount: socialTrust.items.length },
     });
     const currentPaths = new Set(
-      partnerLogos.filter((logo) => logo.enabled && !logo.removedAt).map((logo) => logo.objectPath),
+      partnerLogos.filter((logo) => logo.enabled && !logo.removedAt).flatMap(partnerLogoPaths),
     );
     const draftActivePaths = new Set(
-      partnerLogos.filter((logo) => !logo.removedAt).map((logo) => logo.objectPath),
+      partnerRows.filter((logo) => !logo.removedAt).flatMap((logo) =>
+        [logo.objectPath, logo.lightObjectPath, logo.darkObjectPath]
+          .filter((path): path is string => Boolean(path))),
     );
-    const partnerCleanupPaths = (latest?.partnerLogos ?? [])
-      .filter((logo) => {
-        const draftLogo = partnerRows.find((row) => row.objectPath === logo.objectPath);
-        return logo.enabled && !logo.removedAt && !currentPaths.has(logo.objectPath)
-          && !draftActivePaths.has(logo.objectPath)
-          && (!draftLogo || Boolean(draftLogo.removedAt));
-      })
-      .map((logo) => logo.objectPath);
+    const partnerCleanupPaths = [...new Set((latest?.partnerLogos ?? [])
+      .filter((logo) => logo.enabled && !logo.removedAt)
+      .flatMap(partnerLogoPaths)
+      .filter((path) => !currentPaths.has(path) && !draftActivePaths.has(path)))];
      const currentSocialPaths = new Set(
        socialTrust.items.filter((item) => item.enabled && !item.removedAt && item.objectPath).map((item) => item.objectPath as string),
     );
@@ -1048,9 +1140,31 @@ router.delete("/admin/site-navigation/:id", requireOperator, async (req, res): P
 });
 
 router.get("/admin/partner-logos", requireOperator, async (_req, res): Promise<void> => {
-  res.json(ListAdminPartnerLogosResponse.parse(await db.select().from(partnerLogosTable)
+  const rows = await db.select().from(partnerLogosTable)
     .where(isNull(partnerLogosTable.removedAt))
-    .orderBy(desc(partnerLogosTable.enabled), partnerLogosTable.name, partnerLogosTable.id)));
+    .orderBy(partnerLogosTable.sortOrder, partnerLogosTable.name, partnerLogosTable.id);
+  res.json(ListAdminPartnerLogosResponse.parse(sortPartnerLogos(rows).map(omitNullSortOrder)));
+});
+
+router.get("/admin/partner-logo-settings", requireOperator, async (_req, res): Promise<void> => {
+  res.json(GetAdminPartnerLogoSettingsResponse.parse(await draftPartnerLogoSettings()));
+});
+
+router.put("/admin/partner-logo-settings", requireOperator, async (req, res): Promise<void> => {
+  const input = UpdateAdminPartnerLogoSettingsBody.parse(req.body);
+  const actorId = res.locals.operator.id;
+  await db.transaction(async (tx) => {
+    await tx.insert(partnerLogoSettingsTable).values({
+      id: "global", settings: input, updatedBy: actorId, updatedAt: new Date(),
+    }).onConflictDoUpdate({
+      target: partnerLogoSettingsTable.id,
+      set: { settings: input, updatedBy: actorId, updatedAt: new Date() },
+    });
+    await tx.insert(siteContentAuditLogsTable).values({
+      action: "partner_logo_settings.updated", actorId, details: input,
+    });
+  });
+  res.json(UpdateAdminPartnerLogoSettingsResponse.parse(input));
 });
 
 router.post("/admin/partner-logos/upload", requireOperator, async (req, res): Promise<void> => {
@@ -1063,10 +1177,11 @@ router.post("/admin/partner-logos", requireOperator, async (req, res): Promise<v
   if (input.link && !isSafeSiteLink(input.link.trim())) {
     throw new ApiError("PARTNER_LINK_INVALID", "Partner links must be relative paths, anchors, or HTTP(S) URLs.", 400);
   }
-  await verifyStoredPartnerLogo(input.objectPath);
+  await verifyPartnerLogoPaths([input.objectPath, input.lightObjectPath, input.darkObjectPath]);
   const [row] = await db.transaction(async (tx) => {
     const [created] = await tx.insert(partnerLogosTable).values({
       ...input,
+      appearance: input.appearance ?? "auto",
       link: input.link == null ? input.link : input.link.trim(),
       createdBy: res.locals.operator.id,
     }).returning();
@@ -1076,7 +1191,7 @@ router.post("/admin/partner-logos", requireOperator, async (req, res): Promise<v
     });
     return [created];
   });
-  res.status(201).json(CreateAdminPartnerLogoResponse.parse(row));
+  res.status(201).json(CreateAdminPartnerLogoResponse.parse(omitNullSortOrder(row)));
 });
 
 router.patch("/admin/partner-logos/:id", requireOperator, async (req, res): Promise<void> => {
@@ -1085,6 +1200,7 @@ router.patch("/admin/partner-logos/:id", requireOperator, async (req, res): Prom
   if (input.link && !isSafeSiteLink(input.link.trim())) {
     throw new ApiError("PARTNER_LINK_INVALID", "Partner links must be relative paths, anchors, or HTTP(S) URLs.", 400);
   }
+  await verifyPartnerLogoPaths([input.lightObjectPath, input.darkObjectPath]);
   const [row] = await db.transaction(async (tx) => {
     const [updated] = await tx.update(partnerLogosTable).set({
       ...input,
@@ -1099,7 +1215,7 @@ router.patch("/admin/partner-logos/:id", requireOperator, async (req, res): Prom
     return [updated];
   });
   if (!row) throw new ApiError("PARTNER_LOGO_NOT_FOUND", "Partner logo not found.", 404);
-  res.json(UpdateAdminPartnerLogoResponse.parse(row));
+  res.json(UpdateAdminPartnerLogoResponse.parse(omitNullSortOrder(row)));
 });
 
 router.delete("/admin/partner-logos/:id", requireOperator, async (req, res): Promise<void> => {
@@ -1115,15 +1231,8 @@ router.delete("/admin/partner-logos/:id", requireOperator, async (req, res): Pro
     return [removed];
   });
   if (!row) throw new ApiError("PARTNER_LOGO_NOT_FOUND", "Partner logo not found.", 404);
-  // Preserve an object still referenced by the immutable public snapshot. It
-  // becomes eligible for cleanup only after an owner publishes the removal.
-  const publication = await latestPublication();
-  const stillPublished = publication?.partnerLogos.some((logo) =>
-    logo.objectPath === row.objectPath && logo.enabled && !logo.removedAt,
-  );
-  if (!stillPublished) {
-    try { const object = await getStoredPartnerLogo(row.objectPath); await object.delete(); } catch { /* object cleanup is best effort */ }
-  }
+  // Keep all uploads intact until publication cleanup proves they are no
+  // longer referenced by either the active draft or the current publication.
   res.status(204).end();
 });
 

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   CreateContactSubmissionBody,
+  CreateAdminPartnerLogoBody,
   GetPublishedSiteContentResponse,
   GetWebsiteBrandingResponse,
   PreviewAdminPartnerLogoParams,
@@ -12,6 +13,7 @@ import {
   SaveAdminSitePageBody,
   SaveAdminNavigationBody,
   SaveAdminWebsiteBrandingBody,
+  UpdateAdminPartnerLogoSettingsBody,
   RequestWebsiteBrandingUploadBody,
 } from "@workspace/api-zod";
 import { buildContactSupportEmail } from "../src/lib/contact-support-email";
@@ -33,7 +35,31 @@ test("site content contract accepts the registered pages and future slug-safe pa
       createdAt: new Date(),
     })),
     navigation: [],
-    partnerLogos: [],
+    partnerLogos: [{
+      id: "11111111-1111-4111-8111-111111111111",
+      name: "Legacy partner",
+      objectPath: "/objects/partner-logos/22222222-2222-4222-8222-222222222222",
+      link: null,
+      enabled: true,
+      createdAt: new Date(),
+    }],
+    partnerLogoSettings: {
+      layout: "carousel",
+      animation: "auto-scroll",
+      direction: "ltr",
+      speed: "normal",
+      pauseOnHover: true,
+      manualInteraction: true,
+      resumeAfterInteraction: true,
+      columnsDesktop: 4,
+      columnsTablet: 3,
+      columnsMobile: 2,
+      size: "medium",
+      customSize: 96,
+      container: "none",
+      spacing: "normal",
+      alignment: "center",
+    },
     socialTrust: {
       socialTitle: "Stay connected with us",
       trustTitle: "Share your feedback with us",
@@ -62,9 +88,49 @@ test("site content contract accepts the registered pages and future slug-safe pa
   };
   const publicContent = GetPublishedSiteContentResponse.parse(payload);
   assert.equal(publicContent.pages.length, 11);
+  assert.equal(publicContent.partnerLogos[0]?.appearance, undefined);
+  assert.equal(publicContent.partnerLogoSettings.layout, "carousel");
   assert.equal(Object.hasOwn(publicContent.pages[0]!, "createdBy"), false);
   assert.equal(Object.hasOwn(publicContent.pages[0]!, "publishedBy"), false);
   assert.deepEqual(SaveAdminSitePageBody.parse({ content: {} }), { content: {} });
+});
+
+test("partner logo appearance variants and layout settings are constrained", () => {
+  const logo = CreateAdminPartnerLogoBody.parse({
+    name: "Partner",
+    objectPath: "/objects/partner-logos/11111111-1111-4111-8111-111111111111",
+    lightObjectPath: "/objects/partner-logos/22222222-2222-4222-8222-222222222222",
+    darkObjectPath: null,
+    enabled: true,
+  });
+  assert.equal(logo.appearance, "auto");
+  assert.equal(logo.lightObjectPath, "/objects/partner-logos/22222222-2222-4222-8222-222222222222");
+  assert.throws(() => CreateAdminPartnerLogoBody.parse({
+    name: "Partner",
+    objectPath: "/objects/partner-logos/11111111-1111-4111-8111-111111111111",
+    lightObjectPath: "/objects/website-branding/22222222-2222-4222-8222-222222222222",
+    enabled: true,
+  }));
+  const settings = UpdateAdminPartnerLogoSettingsBody.parse({
+    layout: "marquee",
+    animation: "auto-scroll",
+    direction: "rtl",
+    speed: "fast",
+    pauseOnHover: true,
+    manualInteraction: false,
+    resumeAfterInteraction: false,
+    columnsDesktop: 6,
+    columnsTablet: 4,
+    columnsMobile: 2,
+    size: "custom",
+    customSize: 240,
+    container: "glow-card",
+    spacing: "wide",
+    alignment: "right",
+  });
+  assert.equal(settings.layout, "marquee");
+  assert.throws(() => UpdateAdminPartnerLogoSettingsBody.parse({ ...settings, columnsMobile: 3 }));
+  assert.throws(() => UpdateAdminPartnerLogoSettingsBody.parse({ ...settings, customSize: 241 }));
 });
 
 test("website branding contract constrains namespaced uploads and dimensions", () => {

@@ -154,3 +154,4 @@
 - [Convert and monitoring boundary](convert-monitoring-boundary.md) — Quickex Convert execution and Manual Swap blockchain monitoring must remain runtime-independent.
 - [Playwright custom contexts](playwright-custom-contexts.md) — manually created browser contexts do not inherit standard page fixtures, routes, or base URLs.
 - [Bounded blockchain catch-up](bounded-blockchain-catch-up.md) — lagging EVM watches need multiple small ranges per cycle with end-to-end deadline, lease, fairness, and cursor fencing.
+- [Partner logo single-entry animation](partner-logo-single-entry-animation.md) — do not duplicate partner elements for a seamless marquee; animation copies made single published records appear twice.

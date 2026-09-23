@@ -4689,6 +4689,15 @@ export interface SiteNavLink {
   widget: boolean;
 }
 
+export type PartnerLogoAppearance = typeof PartnerLogoAppearance[keyof typeof PartnerLogoAppearance];
+
+
+export const PartnerLogoAppearance = {
+  auto: 'auto',
+  same: 'same',
+  separate: 'separate',
+} as const;
+
 export interface PartnerLogo {
   id: string;
   name: string;
@@ -4697,6 +4706,126 @@ export interface PartnerLogo {
   link?: string | null;
   enabled: boolean;
   createdAt: string;
+  sortOrder?: number;
+  appearance?: PartnerLogoAppearance;
+  /**
+     * @nullable
+     * @pattern ^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+     */
+  lightObjectPath?: string | null;
+  /**
+     * @nullable
+     * @pattern ^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+     */
+  darkObjectPath?: string | null;
+}
+
+export type PartnerLogoSettingsLayout = typeof PartnerLogoSettingsLayout[keyof typeof PartnerLogoSettingsLayout];
+
+
+export const PartnerLogoSettingsLayout = {
+  'horizontal-row': 'horizontal-row',
+  carousel: 'carousel',
+  grid: 'grid',
+  'vertical-list': 'vertical-list',
+  'stacked-rows': 'stacked-rows',
+  marquee: 'marquee',
+} as const;
+
+export type PartnerLogoSettingsAnimation = typeof PartnerLogoSettingsAnimation[keyof typeof PartnerLogoSettingsAnimation];
+
+
+export const PartnerLogoSettingsAnimation = {
+  static: 'static',
+  'auto-scroll': 'auto-scroll',
+} as const;
+
+export type PartnerLogoSettingsDirection = typeof PartnerLogoSettingsDirection[keyof typeof PartnerLogoSettingsDirection];
+
+
+export const PartnerLogoSettingsDirection = {
+  ltr: 'ltr',
+  rtl: 'rtl',
+} as const;
+
+export type PartnerLogoSettingsSpeed = typeof PartnerLogoSettingsSpeed[keyof typeof PartnerLogoSettingsSpeed];
+
+
+export const PartnerLogoSettingsSpeed = {
+  slow: 'slow',
+  normal: 'normal',
+  fast: 'fast',
+} as const;
+
+export type PartnerLogoSettingsSize = typeof PartnerLogoSettingsSize[keyof typeof PartnerLogoSettingsSize];
+
+
+export const PartnerLogoSettingsSize = {
+  small: 'small',
+  medium: 'medium',
+  large: 'large',
+  custom: 'custom',
+} as const;
+
+export type PartnerLogoSettingsContainer = typeof PartnerLogoSettingsContainer[keyof typeof PartnerLogoSettingsContainer];
+
+
+export const PartnerLogoSettingsContainer = {
+  none: 'none',
+  'subtle-card': 'subtle-card',
+  'glow-card': 'glow-card',
+} as const;
+
+export type PartnerLogoSettingsSpacing = typeof PartnerLogoSettingsSpacing[keyof typeof PartnerLogoSettingsSpacing];
+
+
+export const PartnerLogoSettingsSpacing = {
+  compact: 'compact',
+  normal: 'normal',
+  wide: 'wide',
+} as const;
+
+export type PartnerLogoSettingsAlignment = typeof PartnerLogoSettingsAlignment[keyof typeof PartnerLogoSettingsAlignment];
+
+
+export const PartnerLogoSettingsAlignment = {
+  left: 'left',
+  center: 'center',
+  right: 'right',
+} as const;
+
+export interface PartnerLogoSettings {
+  layout: PartnerLogoSettingsLayout;
+  animation: PartnerLogoSettingsAnimation;
+  direction: PartnerLogoSettingsDirection;
+  speed: PartnerLogoSettingsSpeed;
+  pauseOnHover: boolean;
+  manualInteraction: boolean;
+  resumeAfterInteraction: boolean;
+  /**
+     * @minimum 1
+     * @maximum 6
+     */
+  columnsDesktop: number;
+  /**
+     * @minimum 1
+     * @maximum 4
+     */
+  columnsTablet: number;
+  /**
+     * @minimum 1
+     * @maximum 2
+     */
+  columnsMobile: number;
+  size: PartnerLogoSettingsSize;
+  /**
+     * @minimum 32
+     * @maximum 240
+     */
+  customSize: number;
+  container: PartnerLogoSettingsContainer;
+  spacing: PartnerLogoSettingsSpacing;
+  alignment: PartnerLogoSettingsAlignment;
 }
 
 export type SocialTrustItemGroup = typeof SocialTrustItemGroup[keyof typeof SocialTrustItemGroup];
@@ -4853,6 +4982,7 @@ export interface PublicSiteContent {
   pages: PublicSiteContentRevision[];
   navigation: SiteNavLink[];
   partnerLogos: PartnerLogo[];
+  partnerLogoSettings: PartnerLogoSettings;
   socialTrust: SocialTrustConfig;
   branding: WebsiteBranding;
 }
@@ -4960,6 +5090,7 @@ export interface SitePublicationRevision {
   version: number;
   navigation: SiteNavLink[];
   partnerLogos: SitePublicationRevisionPartnerLogosItem[];
+  partnerLogoSettings: PartnerLogoSettings | null;
   socialTrust: SocialTrustConfig;
   createdBy: string;
   publishedBy: string;
@@ -4986,6 +5117,15 @@ export interface SiteNavLinkInput {
   widget: boolean;
 }
 
+export type PartnerLogoInputAppearance = typeof PartnerLogoInputAppearance[keyof typeof PartnerLogoInputAppearance];
+
+
+export const PartnerLogoInputAppearance = {
+  auto: 'auto',
+  same: 'same',
+  separate: 'separate',
+} as const;
+
 export interface PartnerLogoInput {
   /**
      * @minLength 1
@@ -5000,7 +5140,29 @@ export interface PartnerLogoInput {
      */
   link?: string | null;
   enabled: boolean;
+  /** @nullable */
+  sortOrder?: number | null;
+  appearance?: PartnerLogoInputAppearance;
+  /**
+     * @nullable
+     * @pattern ^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+     */
+  lightObjectPath?: string | null;
+  /**
+     * @nullable
+     * @pattern ^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+     */
+  darkObjectPath?: string | null;
 }
+
+export type PartnerLogoUpdateAppearance = typeof PartnerLogoUpdateAppearance[keyof typeof PartnerLogoUpdateAppearance];
+
+
+export const PartnerLogoUpdateAppearance = {
+  auto: 'auto',
+  same: 'same',
+  separate: 'separate',
+} as const;
 
 export interface PartnerLogoUpdate {
   /**
@@ -5014,6 +5176,19 @@ export interface PartnerLogoUpdate {
      */
   link?: string | null;
   enabled?: boolean;
+  /** @nullable */
+  sortOrder?: number | null;
+  appearance?: PartnerLogoUpdateAppearance;
+  /**
+     * @nullable
+     * @pattern ^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+     */
+  lightObjectPath?: string | null;
+  /**
+     * @nullable
+     * @pattern ^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+     */
+  darkObjectPath?: string | null;
 }
 
 export interface SocialTrustTitlesInput {
@@ -6649,6 +6824,14 @@ export type ScheduleAdminBlogArticleBody = {
 
 export type RunBlogAutomationBody = {
   dryRun?: boolean;
+};
+
+export type PreviewAdminPartnerLogoParams = {
+/**
+ * Optional draft variant path; it must match this partner row.
+ * @pattern ^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+ */
+objectPath?: string;
 };
 
 export type ListContactSubmissionsParams = {

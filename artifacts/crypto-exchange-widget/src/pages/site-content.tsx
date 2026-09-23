@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import type { FormEvent } from 'react';
-import { Eye, ExternalLink, ImagePlus, Inbox, Link2, Loader2, Pause, Play, Plus, Save, Trash2, Upload, X, Share2 } from 'lucide-react';
+import { Eye, ExternalLink, ImagePlus, GripVertical, Inbox, Link2, Loader2, Pause, Play, Plus, Save, Trash2, Upload, X, Share2 } from 'lucide-react';
 import {
   getGetAdminSiteContentQueryKey,
   getListAdminNavigationQueryKey,
@@ -35,6 +35,9 @@ import {
   useSaveAdminSitePage,
   useUpdateAdminPartnerLogo,
   useGetAdminSocialTrust,
+  useGetAdminPartnerLogoSettings,
+  useUpdateAdminPartnerLogoSettings,
+  getGetAdminPartnerLogoSettingsQueryKey,
   useUpdateAdminSocialTrustTitles,
   useUpdateAdminSocialMedia,
   useRequestSocialTrustIconUpload,
@@ -55,6 +58,9 @@ import type {
   SocialTrustItemUpdateGroup,
   SocialIconAppearance,
 } from '@workspace/api-client-react';
+import { PartnerLogos, DEFAULT_PARTNER_LOGO_SETTINGS } from '../components/partner-logos';
+import type { PartnerLogoSettings, PartnerLogoExtended } from '../components/partner-logos';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { AdminShell, apiErrorData, apiErrorText, cn, InlineNotice, LoadingBlock, queryClient } from '../App';
 import { basePath } from '../components/shared-app-ui';
 import { EDITABLE_PUBLIC_PAGES } from '../lib/public-page-registry';
@@ -142,6 +148,7 @@ function contentSections(content: Record<string, unknown> | undefined): Array<{ 
     return body ? [{ heading: contentValue(item, ['heading', 'title']) || undefined, body }] : [];
   });
 }
+
 
 export function PublishedContentRenderer({
   content,
@@ -249,51 +256,6 @@ function PublishSnapshotButton({ setNotice }: { setNotice: (notice: Notice) => v
     onError: (error) => setNotice({ kind: 'error', text: apiErrorText(error, 'Only an owner can publish the site snapshot.') }),
   });
   return <button type="button" className="button button-primary" disabled={publish.isPending} onClick={onPublish} data-testid="button-publish-site-section">{publish.isPending ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />} Publish</button>;
-}
-
-export function PartnerSlider({ logos }: { logos: PartnerLogo[] }) {
-  const [manualPaused, setManualPaused] = useState(false);
-  const [interactionPaused, setInteractionPaused] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(false);
-  const paused = manualPaused || interactionPaused || reducedMotion;
-  useEffect(() => {
-    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => setReducedMotion(media.matches);
-    update();
-    media.addEventListener?.('change', update);
-    return () => media.removeEventListener?.('change', update);
-  }, []);
-  if (!logos.length) return null;
-  const items = logos.map((logo) => (
-    <li key={logo.id} className="partner-slide" data-testid={`partner-logo-${logo.id}`}>
-      {logo.link ? (
-        <a href={logo.link} target="_blank" rel="noreferrer" aria-label={logo.name}>
-          <img src={partnerLogoUrl(logo.objectPath)} alt={logo.name} loading="lazy" />
-        </a>
-      ) : <img src={partnerLogoUrl(logo.objectPath)} alt={logo.name} loading="lazy" />}
-    </li>
-  ));
-  return (
-    <section className="partner-slider mx-auto w-full max-w-7xl px-6 py-12 md:px-8" aria-labelledby="partner-slider-title">
-      <div className="mb-6 flex items-center justify-center gap-3">
-        <h2 id="partner-slider-title" className="text-center text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Trusted partners</h2>
-        <button type="button" className="button button-secondary h-8 px-2 text-xs" onClick={() => setManualPaused((value) => !value)} aria-label={paused ? 'Play partner logo slider' : 'Pause partner logo slider'} aria-pressed={paused} data-testid="button-partner-slider-toggle">
-          {paused ? <Play size={13} aria-hidden="true" /> : <Pause size={13} aria-hidden="true" />}
-          <span className="sr-only">{paused ? 'Play' : 'Pause'} partner logo slider</span>
-        </button>
-      </div>
-      <div
-        className={cn('partner-slider-viewport', paused && 'is-paused')}
-        onMouseEnter={() => setInteractionPaused(true)}
-        onMouseLeave={() => setInteractionPaused(false)}
-        onFocus={() => setInteractionPaused(true)}
-        onBlur={() => setInteractionPaused(false)}
-        data-testid="partner-slider"
-      >
-        <ul className="partner-slider-track" aria-live="polite">{items}{logos.map((logo) => <li key={`duplicate-${logo.id}`} className="partner-slide" aria-hidden="true"><img src={partnerLogoUrl(logo.objectPath)} alt="" /></li>)}</ul>
-      </div>
-    </section>
-  );
 }
 
 function DraftEditor() {
@@ -888,7 +850,7 @@ function NavigationEditor() {
 }
 
 function AdminPartnerLogoPreview({ logo }: { logo: PartnerLogo }) {
-  const preview = usePreviewAdminPartnerLogo(logo.id, {
+  const preview = usePreviewAdminPartnerLogo(logo.id, {}, {
     query: { queryKey: getPreviewAdminPartnerLogoQueryKey(logo.id), staleTime: 0 },
   });
   const [src, setSrc] = useState<string | null>(null);
@@ -913,16 +875,37 @@ function AdminPartnerLogoPreview({ logo }: { logo: PartnerLogo }) {
   );
 }
 
+
+
+
+
+
+
 function PartnerLogosEditor() {
   const query = useListAdminPartnerLogos({ query: { queryKey: getListAdminPartnerLogosQueryKey(), staleTime: 0 } });
+  const settingsQuery = useGetAdminPartnerLogoSettings({ query: { queryKey: getGetAdminPartnerLogoSettingsQueryKey(), staleTime: 0, retry: false } });
+  const updateSettings = useUpdateAdminPartnerLogoSettings();
+  
   const upload = useRequestPartnerLogoUpload();
   const create = useCreateAdminPartnerLogo();
   const update = useUpdateAdminPartnerLogo();
   const remove = useRemoveAdminPartnerLogo();
   const [notice, setNotice] = useState<Notice | null>(null);
-  const [editing, setEditing] = useState<PartnerLogo | null>(null);
+  
+  const [editing, setEditing] = useState<PartnerLogoExtended | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  
+  // Settings edit state
+  const [localSettings, setLocalSettings] = useState<PartnerLogoSettings | null>(null);
+  useEffect(() => {
+    if (settingsQuery.data && !localSettings) setLocalSettings(settingsQuery.data);
+  }, [settingsQuery.data]);
+
   const [preview, setPreview] = useState(false);
+  const [previewTheme, setPreviewTheme] = useState<'light'|'dark'>('light');
+  const [previewViewport, setPreviewViewport] = useState<'desktop'|'tablet'|'mobile'>('desktop');
+  const [previewAnimation, setPreviewAnimation] = useState<'static'|'animated'>('animated');
+  
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [storedPreviewUrls, setStoredPreviewUrls] = useState<Record<string, string>>({});
 
@@ -945,16 +928,38 @@ function PartnerLogosEditor() {
     const objectUrls: string[] = [];
     void Promise.all(query.data.map(async (logo) => {
       try {
-        const blob = await previewAdminPartnerLogo(logo.id);
+        const blobs = await Promise.all([
+          logo.objectPath ? previewAdminPartnerLogo(logo.id).catch(() => null) : null,
+          (logo as any).lightObjectPath ? previewAdminPartnerLogo(logo.id, { objectPath: (logo as any).lightObjectPath }).catch(() => null) : null,
+          (logo as any).darkObjectPath ? previewAdminPartnerLogo(logo.id, { objectPath: (logo as any).darkObjectPath }).catch(() => null) : null,
+        ]);
         if (disposed) return null;
-        const url = URL.createObjectURL(blob);
-        objectUrls.push(url);
-        return [logo.objectPath, url] as const;
+        
+        const entries: (readonly [string, string])[] = [];
+        if (blobs[0] && logo.objectPath) {
+          const url = URL.createObjectURL(blobs[0]);
+          objectUrls.push(url);
+          entries.push([logo.objectPath, url]);
+        }
+        if (blobs[1] && (logo as any).lightObjectPath) {
+          const url = URL.createObjectURL(blobs[1]);
+          objectUrls.push(url);
+          entries.push([(logo as any).lightObjectPath, url]);
+        }
+        if (blobs[2] && (logo as any).darkObjectPath) {
+          const url = URL.createObjectURL(blobs[2]);
+          objectUrls.push(url);
+          entries.push([(logo as any).darkObjectPath, url]);
+        }
+        return entries;
       } catch {
         return null;
       }
-    })).then((entries) => {
-      if (!disposed) setStoredPreviewUrls(Object.fromEntries(entries.filter((entry): entry is readonly [string, string] => Boolean(entry))));
+    })).then((results) => {
+      if (!disposed) {
+        const allEntries = results.flatMap(r => r || []);
+        setStoredPreviewUrls(Object.fromEntries(allEntries));
+      }
     });
     return () => {
       disposed = true;
@@ -962,12 +967,17 @@ function PartnerLogosEditor() {
     };
   }, [preview, query.data]);
 
-  const previewLogos = useMemo(() => {
-    const logos = [...(query.data ?? [])];
+  const cardsLogos = useMemo(() => {
+    const logos = [...(query.data ?? [])] as PartnerLogoExtended[];
     if (editing) {
       const index = logos.findIndex((logo) => logo.id === editing.id);
       if (index >= 0) logos[index] = editing;
     }
+    return logos.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  }, [editing, query.data]);
+
+  const previewLogos = useMemo(() => {
+    const logos = cardsLogos.filter(l => l.enabled);
     if (file && filePreviewUrl) {
       logos.push({
         id: 'preview-partner-logo',
@@ -975,24 +985,92 @@ function PartnerLogosEditor() {
         objectPath: 'preview-partner-logo',
         link: null,
         enabled: true,
-        createdAt: new Date(0).toISOString(),
       });
     }
-    return logos.sort(automaticNameOrder);
-  }, [editing, file, filePreviewUrl, query.data]);
+    return logos;
+  }, [cardsLogos, file, filePreviewUrl]);
 
-  const saveEdited = (logo: PartnerLogo, patch: Partial<PartnerLogo>) => update.mutate({ id: logo.id, data: patch }, { onSuccess: () => { void queryClient.invalidateQueries({ queryKey: getListAdminPartnerLogosQueryKey() }); void queryClient.invalidateQueries({ queryKey: getPreviewAdminPartnerLogoQueryKey(logo.id) }); setEditing(null); setNotice({ kind: 'success', text: 'Partner logo draft saved. Publish the site snapshot to make it public.' }); }, onError: (error) => setNotice({ kind: 'error', text: apiErrorText(error, 'Unable to update logo draft.') }) });
+  const saveEdited = (logo: PartnerLogoExtended, patch: Partial<PartnerLogoExtended>) => {
+    update.mutate({ id: logo.id, data: patch as any }, { 
+      onSuccess: () => { 
+        void queryClient.invalidateQueries({ queryKey: getListAdminPartnerLogosQueryKey() }); 
+        void queryClient.invalidateQueries({ queryKey: getPreviewAdminPartnerLogoQueryKey(logo.id) }); 
+        setEditing(null); 
+        setNotice({ kind: 'success', text: 'Partner logo draft saved. Publish the site snapshot to make it public.' }); 
+      }, 
+      onError: (error) => setNotice({ kind: 'error', text: apiErrorText(error, 'Unable to update logo draft.') }) 
+    });
+  };
+
   const addLogo = async () => {
     if (!file) return;
     setNotice(null);
     try {
-      const intent = await upload.mutateAsync({ data: { contentType: file.type as ImageUploadInputContentType } });
+      const intent = await upload.mutateAsync({ data: { contentType: file.type as any } });
       const response = await fetch(intent.uploadURL, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
       if (!response.ok) throw new Error(`Upload failed (${response.status}).`);
-      await create.mutateAsync({ data: { name: file.name.replace(/\.[^.]+$/, ''), objectPath: intent.objectPath, link: null, enabled: true } });
-      setFile(null); setNotice({ kind: 'success', text: 'Partner logo draft uploaded. Publish the site snapshot to make it public.' }); void queryClient.invalidateQueries({ queryKey: getListAdminPartnerLogosQueryKey() });
+      await create.mutateAsync({ data: { name: file.name.replace(/\.[^.]+$/, ''), objectPath: intent.objectPath, link: null, enabled: true, sortOrder: (query.data?.length || 0) } });
+      setFile(null); 
+      setNotice({ kind: 'success', text: 'Partner logo draft uploaded. Publish the site snapshot to make it public.' }); 
+      void queryClient.invalidateQueries({ queryKey: getListAdminPartnerLogosQueryKey() });
     } catch (error) { setNotice({ kind: 'error', text: apiErrorText(error, 'Unable to upload partner logo.') }); }
   };
+  
+  const handleVariantUpload = async (file: File, variant: 'light'|'dark') => {
+    if (!editing) return;
+    setNotice(null);
+    try {
+      const intent = await upload.mutateAsync({ data: { contentType: file.type as any } });
+      const response = await fetch(intent.uploadURL, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+      if (!response.ok) throw new Error(`Upload failed (${response.status}).`);
+      setEditing({ ...editing, [variant === 'light' ? 'lightObjectPath' : 'darkObjectPath']: intent.objectPath });
+      setNotice({ kind: 'success', text: `${variant} variant uploaded to draft.` });
+    } catch (error) { setNotice({ kind: 'error', text: apiErrorText(error, 'Unable to upload variant.') }); }
+  };
+
+  const saveSettings = () => {
+    if (!localSettings) return;
+    updateSettings.mutate({ data: localSettings }, {
+      onSuccess: () => {
+        setNotice({ kind: 'success', text: 'Settings saved.' });
+        queryClient.invalidateQueries({ queryKey: getGetAdminPartnerLogoSettingsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetPublishedSiteContentQueryKey() });
+      },
+      onError: (e) => setNotice({ kind: 'error', text: apiErrorText(e, 'Failed to save settings.') })
+    });
+  };
+
+  // Drag and drop
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
+
+  const handleDrop = async (targetId: string) => {
+    if (!draggedId || draggedId === targetId || reordering) return;
+    const sorted = [...cardsLogos].filter((logo) => logo.id !== 'preview-partner-logo');
+    const draggedIdx = sorted.findIndex(l => l.id === draggedId);
+    const targetIdx = sorted.findIndex(l => l.id === targetId);
+    if (draggedIdx < 0 || targetIdx < 0) return;
+
+    const [draggedItem] = sorted.splice(draggedIdx, 1);
+    sorted.splice(targetIdx, 0, draggedItem);
+
+    setReordering(true);
+    setDraggedId(null);
+    try {
+      for (const [idx, logo] of sorted.entries()) {
+        if (logo.sortOrder !== idx) {
+          await update.mutateAsync({ id: logo.id, data: { sortOrder: idx } });
+        }
+      }
+      setNotice({ kind: 'success', text: 'Partner logo order saved as a draft. Publish to make it public.' });
+    } catch (error) {
+      setNotice({ kind: 'error', text: apiErrorText(error, 'Unable to save partner logo order.') });
+    } finally {
+      await queryClient.invalidateQueries({ queryKey: getListAdminPartnerLogosQueryKey() });
+      setReordering(false);
+    }
+  };
+
   return <section className="space-y-5" data-testid="partner-logos-editor">
     <div className="panel flex flex-wrap items-center gap-3 p-5">
       <label className="button button-secondary cursor-pointer"><ImagePlus size={15} /> Choose logo<input className="sr-only" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={(e) => setFile(e.target.files?.[0] ?? null)} data-testid="input-partner-logo-file" /></label>
@@ -1002,19 +1080,209 @@ function PartnerLogosEditor() {
       <PublishSnapshotButton setNotice={setNotice} />
       {notice && <div className="basis-full"><InlineNotice kind={notice.kind}>{notice.text}</InlineNotice></div>}
     </div>
-    {preview && (
-      <div className="panel p-0 h-[600px]">
-        <LivePreviewFrame draftState={{
-          pageKey: 'home',
-           partnerLogos: previewLogos,
-           assetUrls: {
-             ...storedPreviewUrls,
-             ...(filePreviewUrl ? { 'preview-partner-logo': filePreviewUrl } : {}),
-           },
-        }} />
+    
+    {localSettings && (
+      <div className="panel p-5 space-y-4">
+        <h3 className="font-bold">Settings</h3>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <label className="space-y-1 text-sm">
+            <span className="font-semibold">Layout</span>
+            <select className="admin-input" value={localSettings.layout} onChange={e => setLocalSettings({...localSettings, layout: e.target.value as any})}>
+              <option value="horizontal-row">Horizontal Row</option>
+              <option value="carousel">Carousel</option>
+              <option value="grid">Grid</option>
+              <option value="vertical-list">Vertical List</option>
+              <option value="stacked-rows">Stacked Rows</option>
+              <option value="marquee">Marquee</option>
+            </select>
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-semibold">Animation</span>
+            <select className="admin-input" value={localSettings.animation} onChange={e => setLocalSettings({...localSettings, animation: e.target.value as any})}>
+              <option value="static">Static</option>
+              <option value="auto-scroll">Auto Scroll</option>
+            </select>
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-semibold">Speed</span>
+            <select className="admin-input" value={localSettings.speed} onChange={e => setLocalSettings({...localSettings, speed: e.target.value as any})}>
+              <option value="slow">Slow</option>
+              <option value="normal">Normal</option>
+              <option value="fast">Fast</option>
+            </select>
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-semibold">Direction</span>
+            <select className="admin-input" value={localSettings.direction} onChange={e => setLocalSettings({...localSettings, direction: e.target.value as any})}>
+              <option value="ltr">Left to Right</option>
+              <option value="rtl">Right to Left</option>
+            </select>
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-semibold">Container</span>
+            <select className="admin-input" value={localSettings.container} onChange={e => setLocalSettings({...localSettings, container: e.target.value as any})}>
+              <option value="none">None</option>
+              <option value="subtle-card">Subtle Card</option>
+              <option value="glow-card">Glow Card</option>
+            </select>
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-semibold">Spacing</span>
+            <select className="admin-input" value={localSettings.spacing} onChange={e => setLocalSettings({...localSettings, spacing: e.target.value as any})}>
+              <option value="compact">Compact</option>
+              <option value="normal">Normal</option>
+              <option value="wide">Wide</option>
+            </select>
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-semibold">Alignment</span>
+            <select className="admin-input" value={localSettings.alignment} onChange={e => setLocalSettings({...localSettings, alignment: e.target.value as any})}>
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+            </select>
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-semibold">Logo Size</span>
+            <select className="admin-input" value={localSettings.size} onChange={e => setLocalSettings({...localSettings, size: e.target.value as any})}>
+              <option value="small">Small</option>
+              <option value="medium">Medium</option>
+              <option value="large">Large</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+          {localSettings.size === 'custom' && (
+            <label className="space-y-1 text-sm">
+              <span className="font-semibold">Custom Size (px)</span>
+              <input type="number" min="32" max="240" className="admin-input" value={localSettings.customSize} onChange={e => setLocalSettings({...localSettings, customSize: parseInt(e.target.value, 10) || 80})} />
+            </label>
+          )}
+          <label className="space-y-1 text-sm">
+            <span className="font-semibold">Cols Desktop</span>
+            <input type="number" min="1" max="6" className="admin-input" value={localSettings.columnsDesktop} onChange={e => setLocalSettings({...localSettings, columnsDesktop: parseInt(e.target.value, 10) || 4})} />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-semibold">Cols Tablet</span>
+            <input type="number" min="1" max="4" className="admin-input" value={localSettings.columnsTablet} onChange={e => setLocalSettings({...localSettings, columnsTablet: parseInt(e.target.value, 10) || 3})} />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-semibold">Cols Mobile</span>
+            <input type="number" min="1" max="2" className="admin-input" value={localSettings.columnsMobile} onChange={e => setLocalSettings({...localSettings, columnsMobile: parseInt(e.target.value, 10) || 2})} />
+          </label>
+        </div>
+        <div className="flex flex-wrap gap-4 pt-2">
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={localSettings.pauseOnHover} onChange={e => setLocalSettings({...localSettings, pauseOnHover: e.target.checked})} /> Pause on hover</label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={localSettings.manualInteraction} onChange={e => setLocalSettings({...localSettings, manualInteraction: e.target.checked})} /> Manual interaction</label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={localSettings.resumeAfterInteraction} onChange={e => setLocalSettings({...localSettings, resumeAfterInteraction: e.target.checked})} /> Resume after interaction</label>
+        </div>
+        <button type="button" className="button button-primary h-8 px-3 text-xs" onClick={saveSettings} disabled={updateSettings.isPending}><Save size={13}/> Save Settings</button>
       </div>
     )}
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{[...(query.data ?? [])].sort(automaticNameOrder).map((logo) => <div className="panel overflow-hidden p-4" key={logo.id} data-testid={`card-partner-logo-${logo.id}`}><div className="flex h-24 items-center justify-center rounded-lg bg-muted p-3"><AdminPartnerLogoPreview logo={logo} /></div>{editing?.id === logo.id ? <div className="mt-3 space-y-2"><input className="admin-input" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} aria-label="Partner name" /><input className="admin-input" value={editing.link ?? ''} onChange={(e) => setEditing({ ...editing, link: e.target.value || null })} placeholder="https://partner.example" aria-label="Partner URL" /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={editing.enabled} onChange={(e) => setEditing({ ...editing, enabled: e.target.checked })} /> Enabled</label><div className="flex gap-2"><button type="button" className="button button-primary h-8 px-2 text-xs" onClick={() => saveEdited(logo, { name: editing.name, link: editing.link, enabled: editing.enabled })} data-testid={`button-save-partner-logo-${logo.id}`}><Save size={13} /> Save</button><button type="button" className="button button-secondary h-8 px-2 text-xs" onClick={() => setEditing(null)}><X size={13} /></button></div></div> : <div className="mt-3 flex items-center gap-2"><span className="min-w-0 flex-1 truncate text-sm font-semibold">{logo.name}</span><button type="button" className="button button-secondary h-8 px-2 text-xs" onClick={() => setEditing(logo)} data-testid={`button-edit-partner-logo-${logo.id}`}>Edit</button><button type="button" className="button button-secondary h-8 px-2 text-xs text-destructive" onClick={() => remove.mutate({ id: logo.id }, { onSuccess: () => { void queryClient.invalidateQueries({ queryKey: getListAdminPartnerLogosQueryKey() }); setNotice({ kind: 'success', text: 'Partner logo removal saved as a draft. Publish the site snapshot to make it public.' }); }, onError: (error) => setNotice({ kind: 'error', text: apiErrorText(error, 'Unable to remove logo draft.') }) })} data-testid={`button-remove-partner-logo-${logo.id}`}><Trash2 size={13} /></button></div>}</div>)}</div>
+
+    {preview && (
+      <div className="panel p-0 flex flex-col h-[600px] overflow-hidden">
+        <div className="flex flex-wrap gap-2 p-3 border-b border-border bg-muted/20">
+          <select className="admin-input h-8 w-auto text-xs" value={previewTheme} onChange={e => setPreviewTheme(e.target.value as any)}>
+            <option value="light">Light Mode</option>
+            <option value="dark">Dark Mode</option>
+          </select>
+          <select className="admin-input h-8 w-auto text-xs" value={previewViewport} onChange={e => setPreviewViewport(e.target.value as any)}>
+            <option value="desktop">Desktop</option>
+            <option value="tablet">Tablet</option>
+            <option value="mobile">Mobile</option>
+          </select>
+          <select className="admin-input h-8 w-auto text-xs" value={previewAnimation} onChange={e => setPreviewAnimation(e.target.value as any)}>
+            <option value="animated">Animated</option>
+            <option value="static">Static (Paused)</option>
+          </select>
+        </div>
+        <div className="flex-1 overflow-auto bg-muted/5 p-4 flex items-center justify-center">
+           <div className={cn(
+             "w-full transition-all border border-border shadow-sm rounded-xl overflow-hidden relative",
+             previewTheme === 'dark' ? "bg-background text-foreground dark" : "bg-white text-black",
+             previewViewport === 'mobile' ? 'max-w-[375px]' : previewViewport === 'tablet' ? 'max-w-[768px]' : 'max-w-[1200px]'
+           )}>
+             {localSettings && (
+               <PartnerLogos 
+                 logos={previewLogos} 
+                 settings={localSettings} 
+                 assetUrls={{
+                   ...storedPreviewUrls,
+                   ...(filePreviewUrl ? { 'preview-partner-logo': filePreviewUrl } : {}),
+                 }}
+                 getLogoUrl={(logo, p) => `${basePath}/api/storage/objects/partner-logos/${p.split('/').pop()}`}
+                 previewState={{ theme: previewTheme, viewport: previewViewport, animation: previewAnimation }}
+                 className="py-12"
+               />
+             )}
+           </div>
+        </div>
+      </div>
+    )}
+
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {cardsLogos.map((logo) => (
+        <div 
+          className="panel overflow-hidden p-4 relative" 
+          key={logo.id} 
+          data-testid={`card-partner-logo-${logo.id}`}
+          draggable={!editing && !reordering}
+          onDragStart={() => setDraggedId(logo.id)}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={() => void handleDrop(logo.id)}
+          style={{ opacity: draggedId === logo.id ? 0.5 : 1 }}
+        >
+          {!editing && <div className="absolute top-2 left-2 cursor-grab text-muted-foreground hover:text-foreground"><GripVertical size={16} /></div>}
+          <div className="flex h-24 items-center justify-center rounded-lg bg-muted p-3">
+            <AdminPartnerLogoPreview logo={logo as PartnerLogo} />
+          </div>
+          {editing?.id === logo.id ? (
+            <div className="mt-3 space-y-3">
+              <input className="admin-input" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} aria-label="Partner name" />
+              <input className="admin-input" value={editing.link ?? ''} onChange={(e) => setEditing({ ...editing, link: e.target.value || null })} placeholder="https://partner.example" aria-label="Partner URL" />
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={editing.enabled} onChange={(e) => setEditing({ ...editing, enabled: e.target.checked })} /> Enabled</label>
+              
+              <label className="block text-sm space-y-1">
+                <span className="font-semibold text-xs">Appearance</span>
+                <select className="admin-input" value={editing.appearance || 'auto'} onChange={e => setEditing({...editing, appearance: e.target.value as any})}>
+                  <option value="auto">Auto (Adaptive drop-shadow in Dark Mode)</option>
+                  <option value="same">Same (No change)</option>
+                  <option value="separate">Separate (Light/Dark variants)</option>
+                </select>
+              </label>
+
+              {editing.appearance === 'separate' && (
+                <div className="space-y-2 p-2 bg-muted/30 rounded-lg text-xs">
+                  <div>
+                    <span className="font-semibold">Light Variant</span>
+                    <label className="button button-secondary w-full mt-1 cursor-pointer"><Upload size={12}/> {editing.lightObjectPath ? 'Replace' : 'Upload'}
+                      <input className="sr-only" type="file" onChange={e => e.target.files?.[0] && handleVariantUpload(e.target.files[0], 'light')} />
+                    </label>
+                  </div>
+                  <div>
+                    <span className="font-semibold">Dark Variant</span>
+                    <label className="button button-secondary w-full mt-1 cursor-pointer"><Upload size={12}/> {editing.darkObjectPath ? 'Replace' : 'Upload'}
+                      <input className="sr-only" type="file" onChange={e => e.target.files?.[0] && handleVariantUpload(e.target.files[0], 'dark')} />
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <button type="button" className="button button-primary h-8 px-2 text-xs" onClick={() => saveEdited(logo, { name: editing.name, link: editing.link, enabled: editing.enabled, appearance: editing.appearance, lightObjectPath: editing.lightObjectPath, darkObjectPath: editing.darkObjectPath })} data-testid={`button-save-partner-logo-${logo.id}`}><Save size={13} /> Save</button>
+                <button type="button" className="button button-secondary h-8 px-2 text-xs" onClick={() => setEditing(null)}><X size={13} /></button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-3 flex items-center gap-2">
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold">{logo.name} {logo.enabled ? '' : '(Disabled)'}</span>
+              <button type="button" className="button button-secondary h-8 px-2 text-xs" onClick={() => setEditing(logo)} data-testid={`button-edit-partner-logo-${logo.id}`}>Edit</button>
+              <button type="button" className="button button-secondary h-8 px-2 text-xs text-destructive" onClick={() => remove.mutate({ id: logo.id }, { onSuccess: () => { void queryClient.invalidateQueries({ queryKey: getListAdminPartnerLogosQueryKey() }); setNotice({ kind: 'success', text: 'Partner logo removal saved as a draft. Publish the site snapshot to make it public.' }); }, onError: (error) => setNotice({ kind: 'error', text: apiErrorText(error, 'Unable to remove logo draft.') }) })} data-testid={`button-remove-partner-logo-${logo.id}`}><Trash2 size={13} /></button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
   </section>;
 }
 

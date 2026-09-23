@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { PartnerLogoUpdateAppearance } from './partnerLogoUpdateAppearance';
 
 export interface PartnerLogoUpdate {
   /**
@@ -18,4 +19,17 @@ export interface PartnerLogoUpdate {
      */
   link?: string | null;
   enabled?: boolean;
+  /** @nullable */
+  sortOrder?: number | null;
+  appearance?: PartnerLogoUpdateAppearance;
+  /**
+     * @nullable
+     * @pattern ^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+     */
+  lightObjectPath?: string | null;
+  /**
+     * @nullable
+     * @pattern ^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+     */
+  darkObjectPath?: string | null;
 }

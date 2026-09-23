@@ -174,6 +174,8 @@ const POLICY_MATCHERS: readonly PolicyMatcher[] = [
   { method: "POST", pattern: /^\/admin\/site-navigation$/, policy: P("site_settings.manage") },
   { method: "DELETE", pattern: /^\/admin\/site-navigation\/[^/]+$/, policy: P("site_settings.manage") },
   { method: "GET", pattern: /^\/admin\/partner-logos$/, policy: P("site_settings.view") },
+  { method: "GET", pattern: /^\/admin\/partner-logo-settings$/, policy: P("site_settings.view") },
+  { method: "PUT", pattern: /^\/admin\/partner-logo-settings$/, policy: P("site_settings.manage") },
   { method: "POST", pattern: /^\/admin\/partner-logos(\/upload)?$/, policy: P("site_settings.manage") },
   { method: "PATCH", pattern: /^\/admin\/partner-logos\/[^/]+$/, policy: P("site_settings.manage") },
   { method: "DELETE", pattern: /^\/admin\/partner-logos\/[^/]+$/, policy: P("site_settings.manage") },

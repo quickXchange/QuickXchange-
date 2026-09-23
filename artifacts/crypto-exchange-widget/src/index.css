@@ -750,15 +750,6 @@
   }
 
   .partner-slider { overflow: hidden; }
-  .partner-slider-viewport { overflow: hidden; mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent); }
-  .partner-slider-track { display: flex; width: max-content; align-items: center; gap: 3rem; animation: partner-slider-scroll 28s linear infinite; }
-  .partner-slider-viewport.is-paused .partner-slider-track { animation-play-state: paused; }
-  .partner-slide { display: flex; width: 150px; height: 58px; align-items: center; justify-content: center; border: 1px solid hsl(var(--border) / .65); border-radius: .75rem; background: hsl(var(--card) / .7); padding: .75rem; }
-  .partner-slide img { max-width: 100%; max-height: 100%; object-fit: contain; }
-  @keyframes partner-slider-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-  @media (prefers-reduced-motion: reduce) {
-    .partner-slider-track { animation: none; flex-wrap: wrap; width: 100%; justify-content: center; }
-  }
 
   .landing-background-image {
     background-size: cover;
@@ -23790,4 +23781,30 @@ html:not(.dark) .order-deposit-network {
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+}
+
+/* Shared Partner Logos Component */
+.partner-logos-container {
+  --cols-desktop: 4;
+  --cols-tablet: 3;
+  --cols-mobile: 2;
+}
+.partner-logos-track.grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols-active, var(--cols-mobile)), minmax(0, 1fr));
+}
+@media (min-width: 768px) {
+  .partner-logos-track.grid { grid-template-columns: repeat(var(--cols-active, var(--cols-tablet)), minmax(0, 1fr)); }
+}
+@media (min-width: 1024px) {
+  .partner-logos-track.grid { grid-template-columns: repeat(var(--cols-active, var(--cols-desktop)), minmax(0, 1fr)); }
+}
+
+/* Hide scrollbar for horizontal row */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

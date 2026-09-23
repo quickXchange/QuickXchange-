@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { PartnerLogoSettings } from './partnerLogoSettings';
 import type { SiteNavLink } from './siteNavLink';
 import type { SitePublicationRevisionPartnerLogosItem } from './sitePublicationRevisionPartnerLogosItem';
 import type { SocialTrustConfig } from './socialTrustConfig';
@@ -15,6 +16,7 @@ export interface SitePublicationRevision {
   version: number;
   navigation: SiteNavLink[];
   partnerLogos: SitePublicationRevisionPartnerLogosItem[];
+  partnerLogoSettings: PartnerLogoSettings | null;
   socialTrust: SocialTrustConfig;
   createdBy: string;
   publishedBy: string;

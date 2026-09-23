@@ -3717,6 +3717,28 @@ paths:
         "201":
           description: Partner logo
           content: { application/json: { schema: { $ref: "#/components/schemas/PartnerLogo" } } }
+  /admin/partner-logo-settings:
+    get:
+      operationId: getAdminPartnerLogoSettings
+      tags: [admin]
+      security: [{ OperatorSession: [] }]
+      summary: Get draft partner logo appearance and layout settings
+      responses:
+        "200":
+          description: Partner logo settings
+          content: { application/json: { schema: { $ref: "#/components/schemas/PartnerLogoSettings" } } }
+    put:
+      operationId: updateAdminPartnerLogoSettings
+      tags: [admin]
+      security: [{ OperatorSession: [] }]
+      summary: Update draft partner logo appearance and layout settings
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/PartnerLogoSettings" } } }
+      responses:
+        "200":
+          description: Saved partner logo settings
+          content: { application/json: { schema: { $ref: "#/components/schemas/PartnerLogoSettings" } } }
   /admin/partner-logos/upload:
     post:
       operationId: requestPartnerLogoUpload
@@ -3759,6 +3781,7 @@ paths:
       summary: Preview a verified draft partner logo
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' } }
+        - { name: objectPath, in: query, required: false, description: "Optional draft variant path; it must match this partner row.", schema: { type: string, pattern: '^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' } }
       responses:
         "200":
           description: Verified draft partner logo
@@ -7085,11 +7108,12 @@ components:
         published: { anyOf: [{ $ref: "#/components/schemas/SiteContentRevision" }, { type: "null" }] }
     PublicSiteContent:
       type: object
-      required: [pages, navigation, partnerLogos, socialTrust, branding]
+      required: [pages, navigation, partnerLogos, partnerLogoSettings, socialTrust, branding]
       properties:
         pages: { type: array, items: { $ref: "#/components/schemas/PublicSiteContentRevision" } }
         navigation: { type: array, items: { $ref: "#/components/schemas/SiteNavLink" } }
         partnerLogos: { type: array, items: { $ref: "#/components/schemas/PartnerLogo" } }
+        partnerLogoSettings: { $ref: "#/components/schemas/PartnerLogoSettings" }
         socialTrust: { $ref: "#/components/schemas/SocialTrustConfig" }
         branding: { $ref: "#/components/schemas/WebsiteBranding" }
     WebsiteBranding:
@@ -7145,7 +7169,7 @@ components:
         objectPath: { type: string, pattern: '^/objects/website-branding/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
     SitePublicationRevision:
       type: object
-      required: [id, version, navigation, partnerLogos, socialTrust, createdBy, publishedBy, publishedAt, createdAt]
+      required: [id, version, navigation, partnerLogos, partnerLogoSettings, socialTrust, createdBy, publishedBy, publishedAt, createdAt]
       properties:
         id: { type: string }
         version: { type: number, multipleOf: 1, minimum: 1 }
@@ -7158,6 +7182,7 @@ components:
               - type: object
                 properties:
                   removedAt: { type: [string, "null"], format: date-time }
+        partnerLogoSettings: { anyOf: [{ $ref: "#/components/schemas/PartnerLogoSettings" }, { type: "null" }] }
         socialTrust: { $ref: "#/components/schemas/SocialTrustConfig" }
         createdBy: { type: string }
         publishedBy: { type: string }
@@ -7195,6 +7220,10 @@ components:
         link: { type: [string, "null"] }
         enabled: { type: boolean }
         createdAt: { type: string, format: date-time }
+        sortOrder: { type: integer }
+        appearance: { type: string, enum: [auto, same, separate] }
+        lightObjectPath: { type: [string, "null"], pattern: '^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' }
+        darkObjectPath: { type: [string, "null"], pattern: '^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' }
     PartnerLogoInput:
       type: object
       required: [name, objectPath, enabled]
@@ -7203,12 +7232,39 @@ components:
         objectPath: { type: string, pattern: '^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' }
         link: { type: [string, "null"], maxLength: 2048 }
         enabled: { type: boolean }
+        sortOrder: { type: [integer, "null"] }
+        appearance: { type: string, enum: [auto, same, separate], default: auto }
+        lightObjectPath: { type: [string, "null"], pattern: '^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' }
+        darkObjectPath: { type: [string, "null"], pattern: '^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' }
     PartnerLogoUpdate:
       type: object
       properties:
         name: { type: string, minLength: 1, maxLength: 160 }
         link: { type: [string, "null"], maxLength: 2048 }
         enabled: { type: boolean }
+        sortOrder: { type: [integer, "null"] }
+        appearance: { type: string, enum: [auto, same, separate] }
+        lightObjectPath: { type: [string, "null"], pattern: '^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' }
+        darkObjectPath: { type: [string, "null"], pattern: '^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' }
+    PartnerLogoSettings:
+      type: object
+      required: [layout, animation, direction, speed, pauseOnHover, manualInteraction, resumeAfterInteraction, columnsDesktop, columnsTablet, columnsMobile, size, customSize, container, spacing, alignment]
+      properties:
+        layout: { type: string, enum: [horizontal-row, carousel, grid, vertical-list, stacked-rows, marquee] }
+        animation: { type: string, enum: [static, auto-scroll] }
+        direction: { type: string, enum: [ltr, rtl] }
+        speed: { type: string, enum: [slow, normal, fast] }
+        pauseOnHover: { type: boolean }
+        manualInteraction: { type: boolean }
+        resumeAfterInteraction: { type: boolean }
+        columnsDesktop: { type: integer, minimum: 1, maximum: 6 }
+        columnsTablet: { type: integer, minimum: 1, maximum: 4 }
+        columnsMobile: { type: integer, minimum: 1, maximum: 2 }
+        size: { type: string, enum: [small, medium, large, custom] }
+        customSize: { type: integer, minimum: 32, maximum: 240 }
+        container: { type: string, enum: [none, subtle-card, glow-card] }
+        spacing: { type: string, enum: [compact, normal, wide] }
+        alignment: { type: string, enum: [left, center, right] }
     SocialTrustItem:
       type: object
       required: [id, group, name, href, objectPath, enabled, createdAt]

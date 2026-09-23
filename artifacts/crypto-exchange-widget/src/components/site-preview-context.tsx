@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { SiteNavLink, PartnerLogo, SocialTrustItem, WebsiteBranding } from '@workspace/api-client-react';
+import type { PartnerLogoSettings } from './partner-logos';
 import { setTransientAppTheme } from '@/theme';
 
 export type SitePreviewState = {
@@ -9,6 +10,7 @@ export type SitePreviewState = {
   theme?: 'light' | 'dark';
   navigation?: SiteNavLink[];
   partnerLogos?: PartnerLogo[];
+  partnerLogoSettings?: PartnerLogoSettings;
   assetUrls?: Record<string, string>;
   socialTrust?: {
     socialTitle?: string;

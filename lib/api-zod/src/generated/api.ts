@@ -11585,6 +11585,17 @@ export const getPublishedSiteContentResponsePagesItemPageKeyMax = 80;
 export const getPublishedSiteContentResponsePagesItemPageKeyRegExp = new RegExp('^[a-z0-9]+(?:-[a-z0-9]+)*$');
 export const getPublishedSiteContentResponsePagesItemRevisionMultipleOf = 1;
 
+export const getPublishedSiteContentResponsePartnerLogosItemLightObjectPathRegExp = new RegExp('^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+export const getPublishedSiteContentResponsePartnerLogosItemDarkObjectPathRegExp = new RegExp('^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+export const getPublishedSiteContentResponsePartnerLogoSettingsColumnsDesktopMax = 6;
+
+export const getPublishedSiteContentResponsePartnerLogoSettingsColumnsTabletMax = 4;
+
+export const getPublishedSiteContentResponsePartnerLogoSettingsColumnsMobileMax = 2;
+
+export const getPublishedSiteContentResponsePartnerLogoSettingsCustomSizeMin = 32;
+export const getPublishedSiteContentResponsePartnerLogoSettingsCustomSizeMax = 240;
+
 export const getPublishedSiteContentResponseSocialTrustItemsItemIdRegExp = new RegExp('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
 export const getPublishedSiteContentResponseSocialTrustAppearanceIconSizeMin = 8;
 export const getPublishedSiteContentResponseSocialTrustAppearanceIconSizeMax = 48;
@@ -11675,8 +11686,29 @@ export const GetPublishedSiteContentResponse = zod.object({
   "objectPath": zod.string(),
   "link": zod.string().nullish(),
   "enabled": zod.boolean(),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "sortOrder": zod.number().int().optional(),
+  "appearance": zod.enum(['auto', 'same', 'separate']).optional(),
+  "lightObjectPath": zod.string().regex(getPublishedSiteContentResponsePartnerLogosItemLightObjectPathRegExp).nullish(),
+  "darkObjectPath": zod.string().regex(getPublishedSiteContentResponsePartnerLogosItemDarkObjectPathRegExp).nullish()
 })),
+  "partnerLogoSettings": zod.object({
+  "layout": zod.enum(['horizontal-row', 'carousel', 'grid', 'vertical-list', 'stacked-rows', 'marquee']),
+  "animation": zod.enum(['static', 'auto-scroll']),
+  "direction": zod.enum(['ltr', 'rtl']),
+  "speed": zod.enum(['slow', 'normal', 'fast']),
+  "pauseOnHover": zod.boolean(),
+  "manualInteraction": zod.boolean(),
+  "resumeAfterInteraction": zod.boolean(),
+  "columnsDesktop": zod.number().int().min(1).max(getPublishedSiteContentResponsePartnerLogoSettingsColumnsDesktopMax),
+  "columnsTablet": zod.number().int().min(1).max(getPublishedSiteContentResponsePartnerLogoSettingsColumnsTabletMax),
+  "columnsMobile": zod.number().int().min(1).max(getPublishedSiteContentResponsePartnerLogoSettingsColumnsMobileMax),
+  "size": zod.enum(['small', 'medium', 'large', 'custom']),
+  "customSize": zod.number().int().min(getPublishedSiteContentResponsePartnerLogoSettingsCustomSizeMin).max(getPublishedSiteContentResponsePartnerLogoSettingsCustomSizeMax),
+  "container": zod.enum(['none', 'subtle-card', 'glow-card']),
+  "spacing": zod.enum(['compact', 'normal', 'wide']),
+  "alignment": zod.enum(['left', 'center', 'right'])
+}),
   "socialTrust": zod.object({
   "socialTitle": zod.string(),
   "trustTitle": zod.string(),
@@ -14021,6 +14053,17 @@ export const GetPublishedSitePageMediaResponse = zod.unknown()
  */
 export const publishSitePublicationResponseVersionMultipleOf = 1;
 
+export const publishSitePublicationResponsePartnerLogosItemOneLightObjectPathRegExp = new RegExp('^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+export const publishSitePublicationResponsePartnerLogosItemOneDarkObjectPathRegExp = new RegExp('^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+export const publishSitePublicationResponsePartnerLogoSettingsOneColumnsDesktopMax = 6;
+
+export const publishSitePublicationResponsePartnerLogoSettingsOneColumnsTabletMax = 4;
+
+export const publishSitePublicationResponsePartnerLogoSettingsOneColumnsMobileMax = 2;
+
+export const publishSitePublicationResponsePartnerLogoSettingsOneCustomSizeMin = 32;
+export const publishSitePublicationResponsePartnerLogoSettingsOneCustomSizeMax = 240;
+
 export const publishSitePublicationResponseSocialTrustItemsItemIdRegExp = new RegExp('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
 export const publishSitePublicationResponseSocialTrustAppearanceIconSizeMin = 8;
 export const publishSitePublicationResponseSocialTrustAppearanceIconSizeMax = 48;
@@ -14069,10 +14112,31 @@ export const PublishSitePublicationResponse = zod.object({
   "objectPath": zod.string(),
   "link": zod.string().nullish(),
   "enabled": zod.boolean(),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "sortOrder": zod.number().int().optional(),
+  "appearance": zod.enum(['auto', 'same', 'separate']).optional(),
+  "lightObjectPath": zod.string().regex(publishSitePublicationResponsePartnerLogosItemOneLightObjectPathRegExp).nullish(),
+  "darkObjectPath": zod.string().regex(publishSitePublicationResponsePartnerLogosItemOneDarkObjectPathRegExp).nullish()
 }).and(zod.object({
   "removedAt": zod.coerce.date().nullish()
 }))),
+  "partnerLogoSettings": zod.union([zod.object({
+  "layout": zod.enum(['horizontal-row', 'carousel', 'grid', 'vertical-list', 'stacked-rows', 'marquee']),
+  "animation": zod.enum(['static', 'auto-scroll']),
+  "direction": zod.enum(['ltr', 'rtl']),
+  "speed": zod.enum(['slow', 'normal', 'fast']),
+  "pauseOnHover": zod.boolean(),
+  "manualInteraction": zod.boolean(),
+  "resumeAfterInteraction": zod.boolean(),
+  "columnsDesktop": zod.number().int().min(1).max(publishSitePublicationResponsePartnerLogoSettingsOneColumnsDesktopMax),
+  "columnsTablet": zod.number().int().min(1).max(publishSitePublicationResponsePartnerLogoSettingsOneColumnsTabletMax),
+  "columnsMobile": zod.number().int().min(1).max(publishSitePublicationResponsePartnerLogoSettingsOneColumnsMobileMax),
+  "size": zod.enum(['small', 'medium', 'large', 'custom']),
+  "customSize": zod.number().int().min(publishSitePublicationResponsePartnerLogoSettingsOneCustomSizeMin).max(publishSitePublicationResponsePartnerLogoSettingsOneCustomSizeMax),
+  "container": zod.enum(['none', 'subtle-card', 'glow-card']),
+  "spacing": zod.enum(['compact', 'normal', 'wide']),
+  "alignment": zod.enum(['left', 'center', 'right'])
+}),zod.null()]),
   "socialTrust": zod.object({
   "socialTitle": zod.string(),
   "trustTitle": zod.string(),
@@ -14182,13 +14246,21 @@ export const RemoveAdminNavigationResponse = zod.void()
 /**
  * @summary Get enabled published partner logos in order
  */
+export const getPublishedPartnerLogosResponseLightObjectPathRegExp = new RegExp('^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+export const getPublishedPartnerLogosResponseDarkObjectPathRegExp = new RegExp('^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+
+
 export const GetPublishedPartnerLogosResponseItem = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "objectPath": zod.string(),
   "link": zod.string().nullish(),
   "enabled": zod.boolean(),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "sortOrder": zod.number().int().optional(),
+  "appearance": zod.enum(['auto', 'same', 'separate']).optional(),
+  "lightObjectPath": zod.string().regex(getPublishedPartnerLogosResponseLightObjectPathRegExp).nullish(),
+  "darkObjectPath": zod.string().regex(getPublishedPartnerLogosResponseDarkObjectPathRegExp).nullish()
 })
 export const GetPublishedPartnerLogosResponse = zod.array(GetPublishedPartnerLogosResponseItem)
 
@@ -14209,13 +14281,21 @@ export const ServePartnerLogoResponse = zod.unknown()
 /**
  * @summary List partner logos
  */
+export const listAdminPartnerLogosResponseLightObjectPathRegExp = new RegExp('^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+export const listAdminPartnerLogosResponseDarkObjectPathRegExp = new RegExp('^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+
+
 export const ListAdminPartnerLogosResponseItem = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "objectPath": zod.string(),
   "link": zod.string().nullish(),
   "enabled": zod.boolean(),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "sortOrder": zod.number().int().optional(),
+  "appearance": zod.enum(['auto', 'same', 'separate']).optional(),
+  "lightObjectPath": zod.string().regex(listAdminPartnerLogosResponseLightObjectPathRegExp).nullish(),
+  "darkObjectPath": zod.string().regex(listAdminPartnerLogosResponseDarkObjectPathRegExp).nullish()
 })
 export const ListAdminPartnerLogosResponse = zod.array(ListAdminPartnerLogosResponseItem)
 
@@ -14228,14 +14308,25 @@ export const createAdminPartnerLogoBodyNameMax = 160;
 export const createAdminPartnerLogoBodyObjectPathRegExp = new RegExp('^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
 export const createAdminPartnerLogoBodyLinkMax = 2048;
 
+export const createAdminPartnerLogoBodyAppearanceDefault = `auto`;
+export const createAdminPartnerLogoBodyLightObjectPathRegExp = new RegExp('^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+export const createAdminPartnerLogoBodyDarkObjectPathRegExp = new RegExp('^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
 
 
 export const CreateAdminPartnerLogoBody = zod.object({
   "name": zod.string().min(1).max(createAdminPartnerLogoBodyNameMax),
   "objectPath": zod.string().regex(createAdminPartnerLogoBodyObjectPathRegExp),
   "link": zod.string().max(createAdminPartnerLogoBodyLinkMax).nullish(),
-  "enabled": zod.boolean()
+  "enabled": zod.boolean(),
+  "sortOrder": zod.number().int().nullish(),
+  "appearance": zod.enum(['auto', 'same', 'separate']).default(createAdminPartnerLogoBodyAppearanceDefault),
+  "lightObjectPath": zod.string().regex(createAdminPartnerLogoBodyLightObjectPathRegExp).nullish(),
+  "darkObjectPath": zod.string().regex(createAdminPartnerLogoBodyDarkObjectPathRegExp).nullish()
 })
+
+export const createAdminPartnerLogoResponseLightObjectPathRegExp = new RegExp('^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+export const createAdminPartnerLogoResponseDarkObjectPathRegExp = new RegExp('^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+
 
 export const CreateAdminPartnerLogoResponse = zod.object({
   "id": zod.string(),
@@ -14243,7 +14334,106 @@ export const CreateAdminPartnerLogoResponse = zod.object({
   "objectPath": zod.string(),
   "link": zod.string().nullish(),
   "enabled": zod.boolean(),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "sortOrder": zod.number().int().optional(),
+  "appearance": zod.enum(['auto', 'same', 'separate']).optional(),
+  "lightObjectPath": zod.string().regex(createAdminPartnerLogoResponseLightObjectPathRegExp).nullish(),
+  "darkObjectPath": zod.string().regex(createAdminPartnerLogoResponseDarkObjectPathRegExp).nullish()
+})
+
+
+/**
+ * @summary Get draft partner logo appearance and layout settings
+ */
+export const getAdminPartnerLogoSettingsResponseColumnsDesktopMax = 6;
+
+export const getAdminPartnerLogoSettingsResponseColumnsTabletMax = 4;
+
+export const getAdminPartnerLogoSettingsResponseColumnsMobileMax = 2;
+
+export const getAdminPartnerLogoSettingsResponseCustomSizeMin = 32;
+export const getAdminPartnerLogoSettingsResponseCustomSizeMax = 240;
+
+
+
+export const GetAdminPartnerLogoSettingsResponse = zod.object({
+  "layout": zod.enum(['horizontal-row', 'carousel', 'grid', 'vertical-list', 'stacked-rows', 'marquee']),
+  "animation": zod.enum(['static', 'auto-scroll']),
+  "direction": zod.enum(['ltr', 'rtl']),
+  "speed": zod.enum(['slow', 'normal', 'fast']),
+  "pauseOnHover": zod.boolean(),
+  "manualInteraction": zod.boolean(),
+  "resumeAfterInteraction": zod.boolean(),
+  "columnsDesktop": zod.number().int().min(1).max(getAdminPartnerLogoSettingsResponseColumnsDesktopMax),
+  "columnsTablet": zod.number().int().min(1).max(getAdminPartnerLogoSettingsResponseColumnsTabletMax),
+  "columnsMobile": zod.number().int().min(1).max(getAdminPartnerLogoSettingsResponseColumnsMobileMax),
+  "size": zod.enum(['small', 'medium', 'large', 'custom']),
+  "customSize": zod.number().int().min(getAdminPartnerLogoSettingsResponseCustomSizeMin).max(getAdminPartnerLogoSettingsResponseCustomSizeMax),
+  "container": zod.enum(['none', 'subtle-card', 'glow-card']),
+  "spacing": zod.enum(['compact', 'normal', 'wide']),
+  "alignment": zod.enum(['left', 'center', 'right'])
+})
+
+
+/**
+ * @summary Update draft partner logo appearance and layout settings
+ */
+export const updateAdminPartnerLogoSettingsBodyColumnsDesktopMax = 6;
+
+export const updateAdminPartnerLogoSettingsBodyColumnsTabletMax = 4;
+
+export const updateAdminPartnerLogoSettingsBodyColumnsMobileMax = 2;
+
+export const updateAdminPartnerLogoSettingsBodyCustomSizeMin = 32;
+export const updateAdminPartnerLogoSettingsBodyCustomSizeMax = 240;
+
+
+
+export const UpdateAdminPartnerLogoSettingsBody = zod.object({
+  "layout": zod.enum(['horizontal-row', 'carousel', 'grid', 'vertical-list', 'stacked-rows', 'marquee']),
+  "animation": zod.enum(['static', 'auto-scroll']),
+  "direction": zod.enum(['ltr', 'rtl']),
+  "speed": zod.enum(['slow', 'normal', 'fast']),
+  "pauseOnHover": zod.boolean(),
+  "manualInteraction": zod.boolean(),
+  "resumeAfterInteraction": zod.boolean(),
+  "columnsDesktop": zod.number().int().min(1).max(updateAdminPartnerLogoSettingsBodyColumnsDesktopMax),
+  "columnsTablet": zod.number().int().min(1).max(updateAdminPartnerLogoSettingsBodyColumnsTabletMax),
+  "columnsMobile": zod.number().int().min(1).max(updateAdminPartnerLogoSettingsBodyColumnsMobileMax),
+  "size": zod.enum(['small', 'medium', 'large', 'custom']),
+  "customSize": zod.number().int().min(updateAdminPartnerLogoSettingsBodyCustomSizeMin).max(updateAdminPartnerLogoSettingsBodyCustomSizeMax),
+  "container": zod.enum(['none', 'subtle-card', 'glow-card']),
+  "spacing": zod.enum(['compact', 'normal', 'wide']),
+  "alignment": zod.enum(['left', 'center', 'right'])
+})
+
+export const updateAdminPartnerLogoSettingsResponseColumnsDesktopMax = 6;
+
+export const updateAdminPartnerLogoSettingsResponseColumnsTabletMax = 4;
+
+export const updateAdminPartnerLogoSettingsResponseColumnsMobileMax = 2;
+
+export const updateAdminPartnerLogoSettingsResponseCustomSizeMin = 32;
+export const updateAdminPartnerLogoSettingsResponseCustomSizeMax = 240;
+
+
+
+export const UpdateAdminPartnerLogoSettingsResponse = zod.object({
+  "layout": zod.enum(['horizontal-row', 'carousel', 'grid', 'vertical-list', 'stacked-rows', 'marquee']),
+  "animation": zod.enum(['static', 'auto-scroll']),
+  "direction": zod.enum(['ltr', 'rtl']),
+  "speed": zod.enum(['slow', 'normal', 'fast']),
+  "pauseOnHover": zod.boolean(),
+  "manualInteraction": zod.boolean(),
+  "resumeAfterInteraction": zod.boolean(),
+  "columnsDesktop": zod.number().int().min(1).max(updateAdminPartnerLogoSettingsResponseColumnsDesktopMax),
+  "columnsTablet": zod.number().int().min(1).max(updateAdminPartnerLogoSettingsResponseColumnsTabletMax),
+  "columnsMobile": zod.number().int().min(1).max(updateAdminPartnerLogoSettingsResponseColumnsMobileMax),
+  "size": zod.enum(['small', 'medium', 'large', 'custom']),
+  "customSize": zod.number().int().min(updateAdminPartnerLogoSettingsResponseCustomSizeMin).max(updateAdminPartnerLogoSettingsResponseCustomSizeMax),
+  "container": zod.enum(['none', 'subtle-card', 'glow-card']),
+  "spacing": zod.enum(['compact', 'normal', 'wide']),
+  "alignment": zod.enum(['left', 'center', 'right'])
 })
 
 
@@ -14271,13 +14461,23 @@ export const updateAdminPartnerLogoBodyNameMax = 160;
 
 export const updateAdminPartnerLogoBodyLinkMax = 2048;
 
+export const updateAdminPartnerLogoBodyLightObjectPathRegExp = new RegExp('^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+export const updateAdminPartnerLogoBodyDarkObjectPathRegExp = new RegExp('^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
 
 
 export const UpdateAdminPartnerLogoBody = zod.object({
   "name": zod.string().min(1).max(updateAdminPartnerLogoBodyNameMax).optional(),
   "link": zod.string().max(updateAdminPartnerLogoBodyLinkMax).nullish(),
-  "enabled": zod.boolean().optional()
+  "enabled": zod.boolean().optional(),
+  "sortOrder": zod.number().int().nullish(),
+  "appearance": zod.enum(['auto', 'same', 'separate']).optional(),
+  "lightObjectPath": zod.string().regex(updateAdminPartnerLogoBodyLightObjectPathRegExp).nullish(),
+  "darkObjectPath": zod.string().regex(updateAdminPartnerLogoBodyDarkObjectPathRegExp).nullish()
 })
+
+export const updateAdminPartnerLogoResponseLightObjectPathRegExp = new RegExp('^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+export const updateAdminPartnerLogoResponseDarkObjectPathRegExp = new RegExp('^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+
 
 export const UpdateAdminPartnerLogoResponse = zod.object({
   "id": zod.string(),
@@ -14285,7 +14485,11 @@ export const UpdateAdminPartnerLogoResponse = zod.object({
   "objectPath": zod.string(),
   "link": zod.string().nullish(),
   "enabled": zod.boolean(),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "sortOrder": zod.number().int().optional(),
+  "appearance": zod.enum(['auto', 'same', 'separate']).optional(),
+  "lightObjectPath": zod.string().regex(updateAdminPartnerLogoResponseLightObjectPathRegExp).nullish(),
+  "darkObjectPath": zod.string().regex(updateAdminPartnerLogoResponseDarkObjectPathRegExp).nullish()
 })
 
 
@@ -14307,6 +14511,13 @@ export const previewAdminPartnerLogoPathIdRegExp = new RegExp('^[0-9a-f]{8}-[0-9
 
 export const PreviewAdminPartnerLogoParams = zod.object({
   "id": zod.coerce.string().regex(previewAdminPartnerLogoPathIdRegExp)
+})
+
+export const previewAdminPartnerLogoQueryObjectPathRegExp = new RegExp('^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+
+
+export const PreviewAdminPartnerLogoQueryParams = zod.object({
+  "objectPath": zod.coerce.string().regex(previewAdminPartnerLogoQueryObjectPathRegExp).optional().describe('Optional draft variant path; it must match this partner row.')
 })
 
 export const PreviewAdminPartnerLogoResponse = zod.unknown()

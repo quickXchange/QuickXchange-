@@ -26,6 +26,8 @@ import { SideDrawer } from '@/components/side-drawer';
 import { setAppTheme, useAppTheme } from '@/theme';
 import { useSitePreview } from './site-preview-context';
 import { BrandLogo } from '@/components/brand-logo';
+import { PartnerLogos, DEFAULT_PARTNER_LOGO_SETTINGS } from './partner-logos';
+import type { PartnerLogoSettings, PartnerLogoExtended } from './partner-logos';
 import { DesktopMegaMenu, NAVIGATION_DATA } from '@/components/mega-menu';
 import type { NavGroup } from '@/components/mega-menu';
 import { TelegramSupportButton } from '@/components/telegram-support-button';
@@ -91,52 +93,6 @@ function ThemeToggle({ testIdPrefix = '' }: { testIdPrefix?: string } = {}) {
 function publishedPartnerLogoUrl(objectPath: string) {
   const id = objectPath.split('/').pop();
   return id ? `${basePath}/api/storage/objects/partner-logos/${id}` : '';
-}
-
-function PartnerLogoSlider({ logos }: { logos: PartnerLogo[] }) {
-  const preview = useSitePreview();
-  const logoUrl = (logo: PartnerLogo) => preview.assetUrls?.[logo.objectPath]
-    ?? (preview.active
-      ? `${basePath}/api/admin/partner-logos/${logo.id}/preview`
-      : publishedPartnerLogoUrl(logo.objectPath));
-  const [manualPaused, setManualPaused] = useState(false);
-  const [interactionPaused, setInteractionPaused] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(false);
-  const paused = manualPaused || interactionPaused || reducedMotion;
-  useEffect(() => {
-    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => setReducedMotion(media.matches);
-    update();
-    media.addEventListener?.('change', update);
-    return () => media.removeEventListener?.('change', update);
-  }, []);
-  if (!logos.length) return null;
-  const slides = logos.map((logo) => (
-    <li key={logo.id} className="partner-slide" data-testid={`public-partner-logo-${logo.id}`}>
-      {logo.link ? <a href={logo.link} target="_blank" rel="noreferrer" aria-label={logo.name}><img src={logoUrl(logo)} alt={logo.name} loading="lazy" /></a> : <img src={logoUrl(logo)} alt={logo.name} loading="lazy" />}
-    </li>
-  ));
-  return (
-    <section className="partner-slider mx-auto w-full max-w-7xl px-3 sm:px-6 py-12 md:px-8" aria-labelledby="public-partner-slider-title">
-      <div className="mb-6 flex items-center justify-center gap-3">
-        <h2 id="public-partner-slider-title" className="text-center text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Trusted partners</h2>
-        <button
-          type="button"
-          className="button button-secondary h-8 px-2 text-xs"
-          onClick={() => setManualPaused((value) => !value)}
-          aria-label={paused ? 'Play partner logo slider' : 'Pause partner logo slider'}
-          aria-pressed={paused}
-          data-testid="button-partner-slider-toggle"
-        >
-          {paused ? <Play size={13} aria-hidden="true" /> : <Pause size={13} aria-hidden="true" />}
-          <span className="sr-only">{paused ? 'Play' : 'Pause'} partner logo slider</span>
-        </button>
-      </div>
-      <div className={cn('partner-slider-viewport', paused && 'is-paused')} onMouseEnter={() => setInteractionPaused(true)} onMouseLeave={() => setInteractionPaused(false)} onFocus={() => setInteractionPaused(true)} onBlur={() => setInteractionPaused(false)} data-testid="partner-slider">
-        <ul className="partner-slider-track" aria-live="polite">{slides}{logos.map((logo) => <li key={`duplicate-${logo.id}`} className="partner-slide" aria-hidden="true"><img src={logoUrl(logo)} alt="" /></li>)}</ul>
-      </div>
-    </section>
-  );
 }
 
 function ConfiguredLink({ link, placement }: { link: SiteNavLink; placement: 'header' | 'footer' }) {
@@ -601,6 +557,38 @@ function PublicHeader() {
   </div>;
 }
 
+
+function PublicPartnerLogosWrapper({ logos, settings, preview }: { logos: PartnerLogoExtended[], settings: PartnerLogoSettings, preview: any }) {
+  const [manualPaused, setManualPaused] = useState(false);
+  const paused = manualPaused;
+  
+  return (
+    <section className="partner-slider mx-auto w-full max-w-7xl px-3 sm:px-6 py-12 md:px-8" aria-labelledby="public-partner-slider-title">
+      <div className="mb-6 flex items-center justify-center gap-3">
+        <h2 id="public-partner-slider-title" className="text-center text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Trusted partners</h2>
+        <button
+          type="button"
+          className="button button-secondary h-8 px-2 text-xs"
+          onClick={() => setManualPaused((value) => !value)}
+          aria-label={paused ? 'Play partner logo slider' : 'Pause partner logo slider'}
+          aria-pressed={paused}
+          data-testid="button-partner-slider-toggle"
+        >
+          {paused ? <Play size={13} aria-hidden="true" /> : <Pause size={13} aria-hidden="true" />}
+          <span className="sr-only">{paused ? 'Play' : 'Pause'} partner logo slider</span>
+        </button>
+      </div>
+      <PartnerLogos 
+        logos={logos} 
+        settings={settings}
+        assetUrls={preview.assetUrls}
+        getLogoUrl={(logo, path) => preview.assetUrls?.[path] ?? (preview.active ? `${basePath}/api/admin/partner-logos/${logo.id}/preview${path !== logo.objectPath ? '?objectPath=' + encodeURIComponent(path) : ''}` : publishedPartnerLogoUrl(path))}
+        forcePaused={paused}
+      />
+    </section>
+  );
+}
+
 export function PublicShell({ children }: { children: ReactNode }) {
   const { t } = useI18n();
   const preview = useSitePreview();
@@ -654,9 +642,13 @@ export function PublicShell({ children }: { children: ReactNode }) {
   const exchangeFooterLinks = resolveFooterLinks(EXCHANGE_FOOTER_LINKS);
 
   const socialTrust = preview.active && preview.socialTrust ? preview.socialTrust : published.data?.socialTrust;
+  
+  const partnerLogoSettings = (preview.active && preview.partnerLogoSettings
+    ? preview.partnerLogoSettings
+    : published.data?.partnerLogoSettings) ?? DEFAULT_PARTNER_LOGO_SETTINGS;
+
   const partnerLogos = (preview.active && preview.partnerLogos ? preview.partnerLogos : (published.data?.partnerLogos ?? []))
-    .filter((logo) => logo.enabled)
-    .sort(automaticNameOrder);
+    .filter((logo) => logo.enabled);
 
   const socialItems = (socialTrust?.items ?? [])
     .filter(i => i.enabled && i.group === 'social' && normalizeFooterLabel(i.name) !== 'telegram')
@@ -748,7 +740,7 @@ export function PublicShell({ children }: { children: ReactNode }) {
 
           {partnerLogos.length > 0 && (
              <div className="qx-premium-footer-partner-wrapper">
-                <PartnerLogoSlider logos={partnerLogos} />
+<PublicPartnerLogosWrapper logos={partnerLogos as PartnerLogoExtended[]} settings={partnerLogoSettings} preview={preview} />
              </div>
           )}
 

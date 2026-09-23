@@ -195,6 +195,7 @@ import type {
   OrderVersionInput,
   PartnerLogo,
   PartnerLogoInput,
+  PartnerLogoSettings,
   PartnerLogoUpdate,
   PaymentMethod,
   PaymentMethodInput,
@@ -202,6 +203,7 @@ import type {
   PaymentMethodLogoUploadInput,
   PaymentMethodUpdate,
   PopularExchangePairs,
+  PreviewAdminPartnerLogoParams,
   PublicNotificationSettings,
   PublicOrderStatus,
   PublicSiteContent,
@@ -16432,6 +16434,154 @@ export const useCreateAdminPartnerLogo = <TError = ErrorType<unknown>,
       return useMutation(getCreateAdminPartnerLogoMutationOptions(options));
     }
 
+export const getGetAdminPartnerLogoSettingsUrl = () => {
+
+
+
+
+  return `/api/admin/partner-logo-settings`
+}
+
+/**
+ * @summary Get draft partner logo appearance and layout settings
+ */
+export const getAdminPartnerLogoSettings = async ( options?: Parameters<typeof customFetch>[1]): Promise<PartnerLogoSettings> => {
+
+  return customFetch<PartnerLogoSettings>(getGetAdminPartnerLogoSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminPartnerLogoSettingsQueryKey = () => {
+    return [
+    `/api/admin/partner-logo-settings`
+    ] as const;
+    }
+
+
+export const getGetAdminPartnerLogoSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getAdminPartnerLogoSettings>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminPartnerLogoSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminPartnerLogoSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminPartnerLogoSettings>>> = ({ signal }) => getAdminPartnerLogoSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminPartnerLogoSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminPartnerLogoSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminPartnerLogoSettings>>>
+export type GetAdminPartnerLogoSettingsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get draft partner logo appearance and layout settings
+ */
+
+export function useGetAdminPartnerLogoSettings<TData = Awaited<ReturnType<typeof getAdminPartnerLogoSettings>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminPartnerLogoSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminPartnerLogoSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateAdminPartnerLogoSettingsUrl = () => {
+
+
+
+
+  return `/api/admin/partner-logo-settings`
+}
+
+/**
+ * @summary Update draft partner logo appearance and layout settings
+ */
+export const updateAdminPartnerLogoSettings = async (partnerLogoSettings: PartnerLogoSettings, options?: Parameters<typeof customFetch>[1]): Promise<PartnerLogoSettings> => {
+
+  return customFetch<PartnerLogoSettings>(getUpdateAdminPartnerLogoSettingsUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(partnerLogoSettings)
+  }
+);}
+
+
+
+
+
+export const getUpdateAdminPartnerLogoSettingsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminPartnerLogoSettings>>, TError,{data: BodyType<PartnerLogoSettings>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAdminPartnerLogoSettings>>, TError,{data: BodyType<PartnerLogoSettings>}, TContext> => {
+
+const mutationKey = ['updateAdminPartnerLogoSettings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAdminPartnerLogoSettings>>, {data: BodyType<PartnerLogoSettings>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateAdminPartnerLogoSettings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAdminPartnerLogoSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateAdminPartnerLogoSettings>>>
+    export type UpdateAdminPartnerLogoSettingsMutationBody = BodyType<PartnerLogoSettings>
+    export type UpdateAdminPartnerLogoSettingsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update draft partner logo appearance and layout settings
+ */
+export const useUpdateAdminPartnerLogoSettings = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminPartnerLogoSettings>>, TError,{data: BodyType<PartnerLogoSettings>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAdminPartnerLogoSettings>>,
+        TError,
+        {data: BodyType<PartnerLogoSettings>},
+        TContext
+      > => {
+      return useMutation(getUpdateAdminPartnerLogoSettingsMutationOptions(options));
+    }
+
 export const getRequestPartnerLogoUploadUrl = () => {
 
 
@@ -16646,20 +16796,29 @@ export const useRemoveAdminPartnerLogo = <TError = ErrorType<unknown>,
       return useMutation(getRemoveAdminPartnerLogoMutationOptions(options));
     }
 
-export const getPreviewAdminPartnerLogoUrl = (id: string,) => {
+export const getPreviewAdminPartnerLogoUrl = (id: string,
+    params?: PreviewAdminPartnerLogoParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/admin/partner-logos/${id}/preview`
+  return stringifiedParams.length > 0 ? `/api/admin/partner-logos/${id}/preview?${stringifiedParams}` : `/api/admin/partner-logos/${id}/preview`
 }
 
 /**
  * @summary Preview a verified draft partner logo
  */
-export const previewAdminPartnerLogo = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
+export const previewAdminPartnerLogo = async (id: string,
+    params?: PreviewAdminPartnerLogoParams, options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
 
-  return customFetch<Blob>(getPreviewAdminPartnerLogoUrl(id),
+  return customFetch<Blob>(getPreviewAdminPartnerLogoUrl(id,params),
   {
     ...options,
     method: 'GET'
@@ -16672,23 +16831,25 @@ export const previewAdminPartnerLogo = async (id: string, options?: Parameters<t
 
 
 
-export const getPreviewAdminPartnerLogoQueryKey = (id: string,) => {
+export const getPreviewAdminPartnerLogoQueryKey = (id: string,
+    params?: PreviewAdminPartnerLogoParams,) => {
     return [
-    `/api/admin/partner-logos/${id}/preview`
+    `/api/admin/partner-logos/${id}/preview`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getPreviewAdminPartnerLogoQueryOptions = <TData = Awaited<ReturnType<typeof previewAdminPartnerLogo>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof previewAdminPartnerLogo>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getPreviewAdminPartnerLogoQueryOptions = <TData = Awaited<ReturnType<typeof previewAdminPartnerLogo>>, TError = ErrorType<void>>(id: string,
+    params?: PreviewAdminPartnerLogoParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof previewAdminPartnerLogo>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getPreviewAdminPartnerLogoQueryKey(id);
+  const queryKey =  queryOptions?.queryKey ?? getPreviewAdminPartnerLogoQueryKey(id,params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof previewAdminPartnerLogo>>> = ({ signal }) => previewAdminPartnerLogo(id, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof previewAdminPartnerLogo>>> = ({ signal }) => previewAdminPartnerLogo(id,params, { signal, ...requestOptions });
 
 
 
@@ -16706,11 +16867,12 @@ export type PreviewAdminPartnerLogoQueryError = ErrorType<void>
  */
 
 export function usePreviewAdminPartnerLogo<TData = Awaited<ReturnType<typeof previewAdminPartnerLogo>>, TError = ErrorType<void>>(
- id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof previewAdminPartnerLogo>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ id: string,
+    params?: PreviewAdminPartnerLogoParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof previewAdminPartnerLogo>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getPreviewAdminPartnerLogoQueryOptions(id,options)
+  const queryOptions = getPreviewAdminPartnerLogoQueryOptions(id,params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

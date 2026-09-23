@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { PartnerLogo } from './partnerLogo';
+import type { PartnerLogoSettings } from './partnerLogoSettings';
 import type { PublicSiteContentRevision } from './publicSiteContentRevision';
 import type { SiteNavLink } from './siteNavLink';
 import type { SocialTrustConfig } from './socialTrustConfig';
@@ -15,6 +16,7 @@ export interface PublicSiteContent {
   pages: PublicSiteContentRevision[];
   navigation: SiteNavLink[];
   partnerLogos: PartnerLogo[];
+  partnerLogoSettings: PartnerLogoSettings;
   socialTrust: SocialTrustConfig;
   branding: WebsiteBranding;
 }
