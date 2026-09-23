@@ -5667,6 +5667,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
 
   const normalizedStatus = order.status.toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
   const terminal = /failed|cancelled|expired|refunded/.test(normalizedStatus);
+  const isProcessingStatus = normalizedStatus === 'processing';
   let steps = ['Created', 'Processing', 'Done'];
   let currentStep = 0;
   if (order.type === 'manual') {
@@ -5681,6 +5682,8 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
     ? 'border-emerald-400 text-emerald-300'
     : /awaiting_funds|awaiting_deposit/.test(normalizedStatus)
       ? 'border-amber-400 text-amber-300'
+      : isProcessingStatus
+        ? 'border-orange-600 text-orange-700 shadow-[0_0_10px_-2px_rgba(249,115,22,0.5)] dark:border-orange-400 dark:text-orange-300'
       : currentStep === 0
         ? 'border-blue-400 text-blue-300'
         : 'border-violet-400 text-violet-300';
@@ -5688,6 +5691,8 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
     ? 'text-emerald-300'
     : /awaiting_funds|awaiting_deposit/.test(normalizedStatus)
       ? 'text-amber-300'
+      : isProcessingStatus
+        ? 'text-orange-700 dark:text-orange-300'
       : currentStep === 0
         ? 'text-blue-300'
         : 'text-violet-300';
