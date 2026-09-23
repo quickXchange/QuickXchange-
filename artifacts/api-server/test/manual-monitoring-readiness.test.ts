@@ -7,6 +7,7 @@ import {
   usesLegacyBep20Readiness,
 } from "../src/lib/manual-monitoring-readiness";
 import { isManualMonitoringRuntimeReady } from "../src/lib/manual-crypto";
+import { isSyntacticallyValidManualWalletAddress } from "../src/lib/manual-wallet-validation";
 
 const network = {
   id: "polygon",
@@ -212,6 +213,36 @@ test("address, memo, asset, and network changes fail closed", () => {
   assert.equal(isManualMonitoringRuntimeReady(runtimeInput({ memoValid: false })), false);
   assert.equal(isManualMonitoringRuntimeReady(runtimeInput({ assetEnabled: false })), false);
   assert.equal(isManualMonitoringRuntimeReady(runtimeInput({ networkEnabled: false })), false);
+});
+
+test("TRON receiving-address readiness requires a valid Base58Check checksum", () => {
+  const tronRoute = {
+    id: "usdt-trc20",
+    networkCode: "TRC20",
+    networkName: "TRON",
+    networkFamily: "TRON",
+  };
+  const valid = isSyntacticallyValidManualWalletAddress(
+    tronRoute,
+    "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb",
+  );
+  const invalid = isSyntacticallyValidManualWalletAddress(
+    tronRoute,
+    "T111111111111111111111111111111111",
+  );
+  assert.equal(valid, true);
+  assert.equal(invalid, false);
+  assert.equal(isManualMonitoringRuntimeReady(runtimeInput({
+    routeId: "usdt-trc20",
+    routeNetworkCode: "TRC20",
+    monitorAssetRouteId: "usdt-trc20",
+    monitorNetworkCode: "TRC20",
+    monitorChainId: "0x2b6653dc",
+    adapterKind: "tron",
+    providerKind: "indexer",
+    contractOrMint: "41a614f803b6fd780986a42c78ec9c7f77e6ded13c",
+    receivingAddressValid: invalid,
+  })), false);
 });
 
 test("TRON token identity requires a checksum-valid normalized address", () => {

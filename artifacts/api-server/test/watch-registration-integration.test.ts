@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import {
   blockchainMonitorRegistrationGapsTable,
+  blockchainMonitorAssetsTable,
   blockchainMonitorWatchesTable,
   cryptoAssetNetworksTable,
   cryptoAssetsTable,
@@ -19,6 +20,8 @@ const routeIds = [
   "usdt-trc20",
   "usdc-polygon",
 ] as const;
+const validTronMainnetAddress = "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb";
+const invalidTronAddress = "T111111111111111111111111111111111";
 
 test("eligible signed routes create exactly one automatic watch per order", async () => {
   const routes = await db.select({
@@ -33,6 +36,25 @@ test("eligible signed routes create exactly one automatic watch per order", asyn
   const orderIds = routes.map((route) => `watch-regression-${route.route.id}-${suffix}`);
   try {
     await db.insert(ordersTable).values(routes.map((route, index) => ({
+      ...(route.route.id === "usdt-trc20"
+        ? {
+            depositAddress: validTronMainnetAddress,
+            fundingDetailsSnapshot: {
+              address: validTronMainnetAddress,
+              memo: route.route.sharedDepositMemo ?? "",
+              assetCode: route.assetCode,
+              networkId: route.route.id,
+            },
+          }
+        : {
+            depositAddress: route.route.sharedDepositAddress,
+            fundingDetailsSnapshot: {
+              address: route.route.sharedDepositAddress,
+              memo: route.route.sharedDepositMemo ?? "",
+              assetCode: route.assetCode,
+              networkId: route.route.id,
+            },
+          }),
       id: orderIds[index],
       type: "manual",
       status: "awaiting funds",
@@ -43,19 +65,12 @@ test("eligible signed routes create exactly one automatic watch per order", asyn
       amount: "1",
       receiveAmount: "1",
       customerEmail: `watch-regression-${index}-${suffix}@example.test`,
-      depositAddress: route.route.sharedDepositAddress,
       depositMemo: route.route.sharedDepositMemo ?? "",
       provider: "Manual desk",
       sourceSettlementOptionId: `crypto:${route.route.id}`,
       fundingStatus: "ready_manual",
       fundingProviderSource: "manual",
       manualSettlementState: "awaiting_funds",
-      fundingDetailsSnapshot: {
-        address: route.route.sharedDepositAddress,
-        memo: route.route.sharedDepositMemo ?? "",
-        assetCode: route.assetCode,
-        networkId: route.route.id,
-      },
       clientRequestId: randomUUID(),
     })));
 
@@ -83,5 +98,78 @@ test("eligible signed routes create exactly one automatic watch per order", asyn
     await db.delete(blockchainMonitorRegistrationGapsTable)
       .where(inArray(blockchainMonitorRegistrationGapsTable.orderId, orderIds));
     await db.delete(ordersTable).where(inArray(ordersTable.id, orderIds));
+  }
+});
+
+test("invalid TRON receiving addresses create one actionable gap and no watch", async () => {
+  const [route] = await db.select({
+    route: cryptoAssetNetworksTable,
+    assetCode: cryptoAssetsTable.code,
+  }).from(cryptoAssetNetworksTable)
+    .innerJoin(cryptoAssetsTable, eq(cryptoAssetsTable.id, cryptoAssetNetworksTable.assetId))
+    .where(eq(cryptoAssetNetworksTable.id, "usdt-trc20"))
+    .limit(1);
+  assert.ok(route);
+  const [monitorAsset] = await db.select().from(blockchainMonitorAssetsTable)
+    .where(eq(blockchainMonitorAssetsTable.assetNetworkId, route.route.id))
+    .limit(1);
+  assert.ok(monitorAsset);
+
+  const orderId = `watch-invalid-tron-${randomUUID()}`;
+  try {
+    await db.insert(ordersTable).values({
+      id: orderId,
+      type: "manual",
+      status: "awaiting funds",
+      fromAsset: route.assetCode,
+      fromNetwork: route.route.networkCode,
+      toAsset: "EUR",
+      toNetwork: "SEPA",
+      amount: "1",
+      receiveAmount: "1",
+      customerEmail: `${orderId}@example.test`,
+      depositAddress: invalidTronAddress,
+      depositMemo: "",
+      provider: "Manual desk",
+      sourceSettlementOptionId: `crypto:${route.route.id}`,
+      fundingStatus: "ready_manual",
+      fundingProviderSource: "manual",
+      manualSettlementState: "awaiting_funds",
+      fundingDetailsSnapshot: {
+        address: invalidTronAddress,
+        memo: "",
+        assetCode: route.assetCode,
+        networkId: route.route.id,
+      },
+      clientRequestId: randomUUID(),
+    });
+
+    await Promise.all([
+      registerManualBlockchainWatch(orderId),
+      registerManualBlockchainWatch(orderId),
+      registerManualBlockchainWatch(orderId),
+    ]);
+
+    const watches = await db.select().from(blockchainMonitorWatchesTable)
+      .where(eq(blockchainMonitorWatchesTable.orderId, orderId));
+    const gaps = await db.select().from(blockchainMonitorRegistrationGapsTable)
+      .where(eq(blockchainMonitorRegistrationGapsTable.orderId, orderId));
+    assert.equal(watches.length, 0);
+    assert.equal(gaps.length, 1);
+    assert.equal(
+      gaps[0]?.reason,
+      [
+        "INVALID_RECEIVING_ADDRESS",
+        `routeId=${route.route.id}`,
+        `monitorNetworkId=${monitorAsset.monitorNetworkId}`,
+        `monitorAssetId=${monitorAsset.id}`,
+      ].join(" "),
+    );
+  } finally {
+    await db.delete(blockchainMonitorWatchesTable)
+      .where(eq(blockchainMonitorWatchesTable.orderId, orderId));
+    await db.delete(blockchainMonitorRegistrationGapsTable)
+      .where(eq(blockchainMonitorRegistrationGapsTable.orderId, orderId));
+    await db.delete(ordersTable).where(eq(ordersTable.id, orderId));
   }
 });

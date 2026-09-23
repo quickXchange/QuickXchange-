@@ -97,6 +97,7 @@ export type WatchRegistrationDiagnostic =
   | "ASSET_MONITOR_MISSING"
   | "ASSET_MONITOR_DISABLED"
   | "READINESS_PROOF_MISSING"
+  | "INVALID_RECEIVING_ADDRESS"
   | "ROUTE_IDENTITY_MISMATCH";
 
 export function classifyWatchRegistrationIdentity(input: {
@@ -517,8 +518,30 @@ export async function registerManualBlockchainWatch(
   if (!route || !network || !asset) {
     throw new Error("Blockchain watch registration identity unexpectedly incomplete.");
   }
+  const invalidReceivingAddressReason = [
+    "INVALID_RECEIVING_ADDRESS",
+    `routeId=${route.id}`,
+    `monitorNetworkId=${network.id}`,
+    `monitorAssetId=${asset.id}`,
+  ].join(" ");
   const address = network.adapterKind === "tron" ? normalizeTronAddress(rawAddress) : rawAddress;
-  if (!address) return;
+  if (!address) {
+    await persistGap(invalidReceivingAddressReason);
+    logger.warn(
+      {
+        orderId,
+        sourceRouteId,
+        routeId: route.id,
+        monitorNetworkId: network.id,
+        monitorAssetId: asset.id,
+        networkCode,
+        assetCode,
+        code: "INVALID_RECEIVING_ADDRESS",
+      },
+      "Blockchain watch registration blocked",
+    );
+    return;
+  }
   if (network.adapterKind === "evm" && (text(funding.memo) || order.depositMemo)) return;
   let startCursor = options.freshCursor ? null : network.lastHead;
   let registrationState: "active" | "pending_review" = "active";
@@ -576,6 +599,14 @@ export async function registerManualBlockchainWatch(
     const currentAddress = current.network.adapterKind === "tron"
       ? normalizeTronAddress(currentRawAddress)
       : currentRawAddress;
+    if (!currentAddress) {
+      return [
+        "INVALID_RECEIVING_ADDRESS",
+        `routeId=${current.route.id}`,
+        `monitorNetworkId=${current.network.id}`,
+        `monitorAssetId=${current.asset.id}`,
+      ].join(" ");
+    }
     const expectedWatch = {
       orderId,
       monitorNetworkId: current.network.id,

@@ -1,4 +1,5 @@
 import { decodeBitcoinMainnetAddress } from "./blockchain-monitoring/bitcoin";
+import { normalizeTronAddress } from "./blockchain-monitoring/tron";
 
 type ManualNetwork = {
   id: string;
@@ -48,7 +49,7 @@ export function isSyntacticallyValidManualWalletAddress(
     return /^0x[0-9a-fA-F]{40}$/.test(address);
   }
   if (/(TRC20|TRON)/.test(keys)) {
-    return /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(address);
+    return Boolean(normalizeTronAddress(address));
   }
   if (/(SOLANA|\bSPL\b|\bSOL\b)/.test(keys)) {
     return new RegExp(`^${BASE58}{32,44}$`).test(address);
