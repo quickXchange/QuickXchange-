@@ -9,6 +9,7 @@ import { startNewsletterWorker } from "./lib/newsletter";
 import { setupTelegramCommands, startTelegramNotificationWorker } from "./routes/telegram";
 import { startTelegramNewsWorker } from "./lib/telegram-news";
 import { startBlockchainMonitoringWorker } from "./lib/blockchain-monitoring/service";
+import { startConvertReconciliationWorker } from "./lib/convert-provider-boundary";
 import { applyConfiguredCustomerNotificationRecovery } from "./lib/customer-status-notifications";
 
 const rawPort = process.env["PORT"];
@@ -61,6 +62,7 @@ async function start() {
   await applyConfiguredCustomerNotificationRecovery();
   const stopBlogScheduler = startBlogScheduler();
   const stopNotificationWorker = startExchangeStatusNotificationWorker();
+  const stopConvertWorker = startConvertReconciliationWorker();
   const stopNewsletterWorker = startNewsletterWorker();
   const stopTelegramWorker = startTelegramNotificationWorker();
   const stopTelegramNewsWorker = startTelegramNewsWorker();
@@ -115,6 +117,7 @@ async function start() {
   server.on("close", stopTelegramWorker);
   server.on("close", stopTelegramNewsWorker);
   server.on("close", stopBlockchainMonitoringWorker);
+  server.on("close", stopConvertWorker);
 
   let shuttingDown = false;
   const shutdown = (signal: NodeJS.Signals) => {

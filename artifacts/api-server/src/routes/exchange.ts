@@ -27,7 +27,6 @@ import {
   ExportManualDeskRevenueCsvQueryParams,
   GetCustomersQueryParams,
   GetCustomersResponse,
-  GetExchangeConfigResponse,
   GetPopularExchangePairsResponse,
   GetExchangeRoutePricingQueryParams,
   GetExchangeRoutePricingResponse,
@@ -137,7 +136,6 @@ import {
   cryptoAssetNetworksTable,
   whitebitAssetMappingsTable,
   whitebitNetworkMappingsTable,
-  quickexOrdersTable,
   orderSupportMetadataTable,
   whitebitOrderAddressesTable,
   providerIntegrationsTable,
@@ -179,7 +177,6 @@ import {
 } from "../lib/customer-auth";
 import {
   processCustomerStatusNotificationOutbox,
-  processConvertNotificationOutbox,
   updateOrderAndQueueStatusNotification,
 } from "../lib/customer-status-notifications";
 import { enqueueAdminSwapTelegramOrderCreatedNotification } from "../lib/telegram-swap-notifications";
@@ -190,18 +187,9 @@ import {
   type QuoteTicket,
 } from "../lib/quote-ticket";
 import {
-  buildProviderQuoteTicket,
-  listPublicProviderSettlementOptions,
-} from "../lib/provider-capabilities";
-import {
   getPopularExchangePairs,
   invalidatePopularExchangePairsCache,
 } from "../lib/popular-exchange-pairs";
-import {
-  createQuickexConvertOrder,
-  getQuickexReconciliationHealth,
-  outputQuickexOrder,
-} from "../lib/quickex-order-service";
 import {
   signOrderTrackingToken,
   verifyOrderTrackingToken,
@@ -213,11 +201,9 @@ import {
   MAX_MANUAL_DESK_TARGET_PRECISION,
   refreshManualDeskRateProviderStatus,
 } from "../lib/manual-desk-rates";
-import {
-  getQuickexInstrumentCacheHealth,
-  getQuickexInstruments,
-} from "../lib/quickex";
 import { buildAdminSummaryAnalytics } from "../lib/admin-summary";
+import { manualExternalProviderHealthPlaceholders } from "../lib/manual-operational-health";
+import { normalizeRefundFields } from "../lib/wallet-fields";
 import { buildVerifiedExplorerUrl, exposeLegacyTransactionHash } from "../lib/verified-funding";
 import {
   findProviderManagedCustomerOrder,
@@ -264,7 +250,6 @@ import {
 import {
   isSyntacticallyValidManualWalletAddress,
   isSyntacticallyValidManualWalletMemo,
-  normalizeRefundFields,
 } from "../lib/manual-wallet-validation";
 import {
   prepareManualMonitoringReadiness,
@@ -275,7 +260,6 @@ import {
 } from "../lib/manual-monitoring-readiness";
 import { adapterConfig } from "../lib/blockchain-monitoring/service";
 import { initializeAffiliateForOrder, processPendingAffiliateCompletions } from "../lib/affiliate-accounting";
-import { reconcilePendingQuickexOrders } from "../lib/quickex-order-service";
 import { finalizeSwapFundingFromClaim, provisionSwapFundingAddress } from "./whitebit";
 import {
   testWhitebitSignedConnection,
@@ -353,9 +337,7 @@ export function startExchangeStatusNotificationWorker(): () => void {
     if (customerNotificationCycleInFlight) return;
     customerNotificationCycleInFlight = (async () => {
       await processCustomerStatusNotificationOutbox();
-      await processConvertNotificationOutbox();
       await processPendingAffiliateCompletions();
-      await reconcilePendingQuickexOrders();
     })()
       .catch((error) => {
         logger.warn({ err: error }, "Customer notification cycle failed");
@@ -927,9 +909,6 @@ async function buildQuoteTicket(
   normalizedRoute?: NormalizedRoute,
   skipFundingAvailability = false,
 ): Promise<QuoteTicket> {
-  if (input.type === "instant") {
-    return buildProviderQuoteTicket(input);
-  }
   const route = normalizedRoute ?? await normalizeExchangeRoute(input);
   let sourceOption: PublicSettlementOption | undefined;
   let targetOption: PublicSettlementOption | undefined;
@@ -1393,56 +1372,6 @@ async function validateExactPricingRuleOptions(input: {
   }
 }
 
-router.get("/exchange/config", async (_req, res, next) => {
-  try {
-    const [
-      fiatCurrencies,
-      manualCryptoOptions,
-      manualFiatOptions,
-      pricingRules,
-      instantOptions,
-    ] = await Promise.all([
-      listEnabledFiatCurrencies(),
-      listPublicManualCryptoSettlementOptions(),
-      listPublicFiatSettlementOptions(),
-      db.select().from(manualDeskPricingRulesTable)
-        .where(eq(manualDeskPricingRulesTable.enabled, true)),
-      listPublicProviderSettlementOptions({
-        cacheOnly: process.env.NODE_ENV !== "test",
-      }),
-    ]);
-    const fiatAssets = fiatCurrencies.map((currency) => ({ id: currency.id, code: currency.code, name: currency.name, kind: "fiat", network: currency.network, requiresMemo: false, precision: currency.precision }));
-    const coverage = evaluateManualPricingCoverage(
-      pricingRules,
-      [...manualCryptoOptions, ...manualFiatOptions],
-    );
-    // Swap is backed by the local manual catalog and must remain responsive
-    // even while the independent Quickex/Convert provider is timing out.
-    const manualAssets = manualCryptoOptions.map((option) => ({ id: option.networkSlug, code: option.assetCode, name: option.title, kind: "crypto", network: option.routeNetwork, requiresMemo: option.requiresMemo, precision: 8 }));
-    res.setHeader(
-      "cache-control",
-      "no-store",
-    );
-    res.json(GetExchangeConfigResponse.parse({
-      assets: [...manualAssets, ...fiatAssets].sort((a, b) => (a.code + "\0" + a.network + "\0" + a.id).localeCompare(b.code + "\0" + b.network + "\0" + b.id)),
-      fiatCurrencies: fiatCurrencies.map(({ code }) => code),
-      settlementOptions: [...manualCryptoOptions, ...manualFiatOptions, ...instantOptions],
-      manualSettlementOptions: [...manualCryptoOptions, ...manualFiatOptions],
-      instantSettlementOptions: instantOptions,
-      manualRouteAvailability: {
-        available: coverage.coveredRoutes.length > 0,
-        routes: coverage.coveredRoutes,
-        unavailableMessage: coverage.coveredRoutes.length > 0
-          ? null
-          : "Manual Swap is temporarily unavailable because no routes are configured.",
-      },
-      providers: instantOptions.length ? ["Manual desk", "Quickex"] : ["Manual desk"],
-      feePercent: 0.6,
-      manualPricingMessage: "Manual desk fees vary by route and payment or payout method and are included in each quote.",
-    }));
-  } catch (error) { next(error); }
-});
-
 router.get("/exchange/popular-pairs", async (_req, res, next) => {
   try {
     res.setHeader("cache-control", "no-store");
@@ -1783,43 +1712,7 @@ router.patch("/orders/:id/support-tools", requirePermission("orders.details"), r
     const actor = res.locals.operator as OperatorAuthorization;
     const updated = await db.transaction(async (tx) => {
       const [existing] = await tx.select().from(ordersTable).where(eq(ordersTable.id, id)).limit(1);
-      const [providerOrder] = existing ? [] : await tx.select({ id: quickexOrdersTable.legacyOrderId, recordVersion: quickexOrdersTable.recordVersion })
-        .from(quickexOrdersTable).where(eq(quickexOrdersTable.legacyOrderId, id)).limit(1);
-      if (!existing && !providerOrder) throw new ApiError("ORDER_NOT_FOUND", "Order not found.", 404);
-      if (!existing) {
-        const [metadata] = await tx.select().from(orderSupportMetadataTable)
-          .where(eq(orderSupportMetadataTable.orderId, id)).limit(1);
-        const version = metadata?.recordVersion ?? 0;
-        if (version !== input.recordVersion) throw new ApiError("ORDER_UPDATE_CONFLICT", "The order changed concurrently. Reload it before saving.", 409);
-        const old = metadata ? outputSupportMetadata(metadata) : DEFAULT_SUPPORT;
-        const fields = {
-          supportStatus: input.supportStatus, sendingStatus: input.sendingStatus, receivingStatus: input.receivingStatus,
-          sentAmountOverride: input.sentAmountOverride, receiveAmountOverride: input.receiveAmountOverride,
-          exchangeRateOverride: input.exchangeRateOverride, networkFeeAmount: input.networkFeeAmount,
-          transactionHash: input.transactionHash, paymentReference: input.paymentReference,
-          assignedOperatorId: input.assignedOperatorId, note: input.note,
-        };
-        const changes: Record<string, { oldValue: unknown; newValue: unknown }> = {};
-        for (const [key, newValue] of Object.entries(fields)) {
-          const oldValue = old[key as keyof typeof old];
-          if ((oldValue ?? null) !== (newValue ?? null)) changes[key] = { oldValue: oldValue ?? null, newValue: newValue ?? null };
-        }
-        const can = (permission: PermissionKey) => actor.role === "owner" || actor.effectivePermissions.includes(permission);
-        if (changes.assignedOperatorId && !can("orders.assign")) throw new ApiError("PERMISSION_ACCESS_DENIED", "The signed-in operator does not have permission for this action.", 403);
-        if (changes.note && !can("orders.notes")) throw new ApiError("PERMISSION_ACCESS_DENIED", "The signed-in operator does not have permission for this action.", 403);
-        if (Object.keys(changes).length === 0) return { provider: true, next: metadata };
-        let assignee: { id: string } | undefined;
-        if (changes.assignedOperatorId && input.assignedOperatorId) {
-          [assignee] = await tx.select({ id: operatorsTable.id }).from(operatorsTable)
-            .where(and(eq(operatorsTable.id, input.assignedOperatorId), eq(operatorsTable.status, "active"))).limit(1);
-          if (!assignee) throw new ApiError("ASSIGNEE_NOT_ELIGIBLE", "The assignee must be an active operator.", 422);
-        }
-        const values = { orderId: id, providerKind: "quickex", ...fields, assignedOperatorId: assignee?.id ?? input.assignedOperatorId, recordVersion: version + 1 };
-        const [next] = await tx.insert(orderSupportMetadataTable).values(values).onConflictDoUpdate({ target: orderSupportMetadataTable.orderId, set: { ...fields, assignedOperatorId: assignee?.id ?? input.assignedOperatorId, recordVersion: version + 1, updatedAt: new Date() }, where: eq(orderSupportMetadataTable.recordVersion, version) }).returning();
-        if (!next) throw new ApiError("ORDER_UPDATE_CONFLICT", "The order changed concurrently. Reload it before saving.", 409);
-        await tx.insert(orderAuditLogsTable).values({ orderId: id, action: "order.support_tools_updated", actorType: "operator", actorId: actor.id, requestId: String(req.id ?? ""), previousVersion: version, nextVersion: next.recordVersion, details: { changes } });
-        return { provider: true, next };
-      }
+      if (!existing) throw new ApiError("ORDER_NOT_FOUND", "Order not found.", 404);
       if (existing.recordVersion !== input.recordVersion) {
         throw new ApiError("ORDER_UPDATE_CONFLICT", "The order changed concurrently. Reload it before saving.", 409);
       }
@@ -1870,15 +1763,7 @@ router.patch("/orders/:id/support-tools", requirePermission("orders.details"), r
       });
       return next;
     });
-    if ((updated as { provider?: boolean }).provider === true) {
-      const provider = await findProviderManagedOperatorOrder(id);
-      const metadata = (updated as { next: typeof orderSupportMetadataTable.$inferSelect }).next;
-      return res.json(UpdateOrderSupportToolsResponse.parse({
-        ...provider,
-        ...(metadata ? outputSupportMetadata(metadata) : { ...DEFAULT_SUPPORT, recordVersion: input.recordVersion }),
-      }));
-    }
-    const rawOrder = outputOrder(updated as typeof ordersTable.$inferSelect);
+    const rawOrder = outputOrder(updated);
     return res.json(UpdateOrderSupportToolsResponse.parse(rawOrder));
   } catch (error) {
     return next(error);
@@ -2962,25 +2847,20 @@ router.post("/exchange/orders", async (req, res, next) => {
       ...CreateExchangeOrderBody.parse(req.body),
       ...normalizeRefundFields(req.body),
     };
+    if (rawInput.type !== "manual") return next();
     await ensureSeed();
     const resolvedIdentity = await resolveCustomerOrderIdentity(req, rawInput);
     if (resolvedIdentity.customerClerkUserId) {
-      const referral = typeof req.cookies?.affiliate_referral === "string" ? req.cookies.affiliate_referral : undefined;
-      const affiliate = await initializeAffiliateForOrder(resolvedIdentity.customerClerkUserId, referral);
-      if (referral && affiliate.referralStatus !== "unavailable") res.clearCookie("affiliate_referral");
-    }
-    if (rawInput.type === "instant") {
-      if (!resolvedIdentity.input.quoteId) {
-        throw new ApiError("QUOTE_INVALID", "A quoteId is required.", 400);
+      const referral = typeof req.cookies?.affiliate_referral === "string"
+        ? req.cookies.affiliate_referral
+        : undefined;
+      const affiliate = await initializeAffiliateForOrder(
+        resolvedIdentity.customerClerkUserId,
+        referral,
+      );
+      if (referral && affiliate.referralStatus !== "unavailable") {
+        res.clearCookie("affiliate_referral");
       }
-      const result = await createQuickexConvertOrder({
-        ...resolvedIdentity.input,
-        quoteId: resolvedIdentity.input.quoteId,
-        customerClerkUserId: resolvedIdentity.customerClerkUserId ?? undefined,
-      });
-      res.status(result.created ? (result.uncertain ? 202 : 201) : 200)
-        .json(CreateExchangeOrderResponse.parse(outputQuickexOrder(result.row)));
-      return;
     }
     if (!resolvedIdentity.input.quoteId) {
       throw new ApiError(
@@ -3002,7 +2882,6 @@ router.post("/exchange/orders", async (req, res, next) => {
       res.status(result.status).json(result.body);
       return;
     }
-
     const orderInput: ParsedOrderInput = {
       ...CreateOrderBody.parse({
         ...input,
@@ -3027,23 +2906,19 @@ router.post("/orders", async (req, res, next) => {
       ...CreateOrderBody.parse(req.body),
       ...normalizeRefundFields(req.body),
     };
-    const resolvedIdentity = await resolveCustomerOrderIdentity(
-      req,
-      parsed,
-    );
+    if (parsed.type !== "manual") return next();
+    const resolvedIdentity = await resolveCustomerOrderIdentity(req, parsed);
     if (resolvedIdentity.customerClerkUserId) {
-      const referral = typeof req.cookies?.affiliate_referral === "string" ? req.cookies.affiliate_referral : undefined;
-      const affiliate = await initializeAffiliateForOrder(resolvedIdentity.customerClerkUserId, referral);
-      if (referral && affiliate.referralStatus !== "unavailable") res.clearCookie("affiliate_referral");
-    }
-    if (parsed.type === "instant") {
-      const result = await createQuickexConvertOrder({
-        ...resolvedIdentity.input,
-        customerClerkUserId: resolvedIdentity.customerClerkUserId ?? undefined,
-      });
-      res.status(result.created ? (result.uncertain ? 202 : 201) : 200)
-        .json(outputQuickexOrder(result.row));
-      return;
+      const referral = typeof req.cookies?.affiliate_referral === "string"
+        ? req.cookies.affiliate_referral
+        : undefined;
+      const affiliate = await initializeAffiliateForOrder(
+        resolvedIdentity.customerClerkUserId,
+        referral,
+      );
+      if (referral && affiliate.referralStatus !== "unavailable") {
+        res.clearCookie("affiliate_referral");
+      }
     }
     const result = await createOrderFromInput(
       resolvedIdentity.input,
@@ -3511,61 +3386,6 @@ router.patch("/orders/:id", requireOperator, async (req, res, next) => {
     const params = UpdateOrderParams.parse(req.params);
     const input = UpdateOrderBody.parse(req.body);
     const manualInput = parseManualOrderPatch(req.body);
-    const [quickexOrder] = await db.select()
-      .from(quickexOrdersTable)
-      .where(eq(quickexOrdersTable.legacyOrderId, params.id))
-      .limit(1);
-    if (quickexOrder) {
-      const rawKeys = Object.keys(req.body ?? {});
-      if (
-        input.status === undefined ||
-        rawKeys.some((key) => !["recordVersion", "status"].includes(key))
-      ) {
-        throw new ApiError(
-          "PROVIDER_STATUS_UPDATE_INVALID",
-          "Provider-managed Convert orders accept only a canonical status and recordVersion.",
-          400,
-        );
-      }
-      const canonicalStatuses = new Set(["awaiting funds", "processing", "completed", "failed", "cancelled", "refunded", "expired"]);
-      const nextStatus = input.status.trim().toLowerCase();
-      if (!canonicalStatuses.has(nextStatus)) {
-        throw new ApiError("PROVIDER_STATUS_UPDATE_INVALID", "Invalid Convert order status.", 400);
-      }
-      if (input.recordVersion === undefined || input.recordVersion !== quickexOrder.recordVersion) {
-        throw new ApiError("ORDER_STATUS_CONFLICT", "The order changed concurrently. Reload it before saving.", 409);
-      }
-      const operator = res.locals.operator as OperatorAuthorization;
-      requireOrderPatchPermissions(
-        operator,
-        { status: quickexOrder.status, manualSettlementState: "not_required" },
-        input,
-        {},
-      );
-      if (nextStatus === quickexOrder.status) {
-        res.json(outputQuickexOrder(quickexOrder));
-        return;
-      }
-      const [updatedQuickexOrder] = await db.update(quickexOrdersTable).set({
-        status: nextStatus,
-        providerState: `admin_status_override:${
-          quickexOrder.providerState.startsWith("admin_status_override:")
-            ? quickexOrder.providerState.slice("admin_status_override:".length)
-            : quickexOrder.providerState
-        }`,
-        outcomeUnknown: false,
-        updatedAt: new Date(),
-        recordVersion: quickexOrder.recordVersion + 1,
-      }).where(and(
-        eq(quickexOrdersTable.legacyOrderId, quickexOrder.legacyOrderId),
-        eq(quickexOrdersTable.recordVersion, quickexOrder.recordVersion),
-      )).returning();
-      if (!updatedQuickexOrder) {
-        throw new ApiError("ORDER_STATUS_CONFLICT", "The order changed concurrently. Reload it before saving.", 409);
-      }
-      res.json(outputQuickexOrder(updatedQuickexOrder));
-      return;
-    }
     if (await isProviderManagedOrder(params.id)) {
       throw new ApiError(
         "PROVIDER_ORDER_READ_ONLY",
@@ -3908,47 +3728,19 @@ router.get("/admin/summary", async (req, res, next): Promise<void> => {
         400,
       );
     }
-    let providerFreshness;
-    let quickexCatalogHealth = { ageMs: null as number | null, stale: true, lastFailureAt: null as string | null };
-    if (query.product === "swap") {
-      const status = await refreshManualDeskRateProviderStatus();
-      providerFreshness = {
-        state: status.state === "loading" ? "syncing" as const : status.state,
-        syncing: status.state === "loading",
-        ...(status.fetchedAt ? { lastSucceededAt: status.fetchedAt } : {}),
-        ...(status.lastFailureAt ? { lastFailedAt: status.lastFailureAt } : {}),
-      };
-    } else {
-      await (async () => {
-        try {
-          await getQuickexInstruments();
-        } catch {
-          // Cache health retains the safe failure timestamp and availability.
-        }
-      })();
-      quickexCatalogHealth = getQuickexInstrumentCacheHealth();
-      providerFreshness = {
-        state: quickexCatalogHealth.ageMs === null
-          ? "unavailable" as const
-          : quickexCatalogHealth.stale
-            ? "stale" as const
-            : "healthy" as const,
-        syncing: false,
-        ...(quickexCatalogHealth.ageMs === null
-          ? {}
-          : { lastSucceededAt: new Date(Date.now() - quickexCatalogHealth.ageMs).toISOString() }),
-        ...(quickexCatalogHealth.lastFailureAt
-          ? { lastFailedAt: quickexCatalogHealth.lastFailureAt }
-          : {}),
-      };
-    }
+    const status = await refreshManualDeskRateProviderStatus();
+    const providerFreshness = {
+      state: status.state === "loading" ? "syncing" as const : status.state,
+      syncing: status.state === "loading",
+      ...(status.fetchedAt ? { lastSucceededAt: status.fetchedAt } : {}),
+      ...(status.lastFailureAt ? { lastFailedAt: status.lastFailureAt } : {}),
+    };
     const [
       analytics,
       [notificationHealth],
       [unresolvedHealth],
-      quickexReconciliation,
     ] = await Promise.all([
-      buildAdminSummaryAnalytics({ product: query.product, from, to }),
+      buildAdminSummaryAnalytics({ product: "swap", from, to }),
       db.select({
         pending: sql<number>`count(*) filter (
           where ${customerStatusNotificationEventsTable.deliveryStatus}
@@ -3970,15 +3762,13 @@ router.get("/admin/summary", async (req, res, next): Promise<void> => {
              or ${ordersTable.status} = 'verification required'
         )`,
       }).from(ordersTable),
-      getQuickexReconciliationHealth(),
     ]);
     const oldestPendingAt = notificationHealth?.oldestPendingAt;
     const summary = {
       ...analytics,
       operationalHealth: {
         providerFreshness,
-        catalog: quickexCatalogHealth,
-        quickexReconciliation,
+        ...manualExternalProviderHealthPlaceholders(),
         unresolvedOrders: Number(unresolvedHealth?.count ?? 0),
         notificationsPending: Number(notificationHealth?.pending ?? 0),
         notificationsFailed: Number(notificationHealth?.failed ?? 0),

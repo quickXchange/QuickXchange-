@@ -12,6 +12,11 @@ async function source(path: string) {
 test("manual exchange boundary is independent from provider implementation", async () => {
   const exchange = await source("routes/exchange.ts");
   assert.equal(/quickex/i.test(exchange), false);
+  assert.equal(
+    /convert-provider-boundary/.test(exchange),
+    false,
+    "routes/exchange.ts must not import the Convert provider boundary",
+  );
 
   for (const path of [
     "routes/quickex.ts",
@@ -22,6 +27,38 @@ test("manual exchange boundary is independent from provider implementation", asy
       /from\s+["'][^"']*(?:routes\/exchange|manual-)[^"']*["']/.test(content),
       false,
       `${path} must not import the manual exchange boundary`,
+    );
+  }
+});
+
+test("Convert provider and blockchain monitoring have no bidirectional runtime imports", async () => {
+  const providerModules = [
+    "lib/quickex.ts",
+    "lib/quickex-order-service.ts",
+    "lib/convert-provider-boundary.ts",
+  ];
+  const monitoringModules = [
+    "lib/blockchain-monitoring/service.ts",
+    "lib/manual-monitoring-readiness.ts",
+    "lib/manual-crypto.ts",
+    "routes/blockchain-monitoring.ts",
+  ];
+  const providerSources = await Promise.all(providerModules.map(source));
+  const monitoringSources = await Promise.all(monitoringModules.map(source));
+  const monitoringImport = /from\s+["'][^"']*(?:blockchain-monitor|manual-monitor|manual-crypto|routes\/blockchain-monitoring)[^"']*["']/i;
+  const providerImport = /from\s+["'][^"']*(?:quickex|convert-provider-boundary)[^"']*["']/i;
+  for (const [index, content] of providerSources.entries()) {
+    assert.equal(
+      monitoringImport.test(content),
+      false,
+      `${providerModules[index]} must not import monitoring or Manual/Swap deposit code`,
+    );
+  }
+  for (const [index, content] of monitoringSources.entries()) {
+    assert.equal(
+      providerImport.test(content),
+      false,
+      `${monitoringModules[index]} must not import Convert provider code`,
     );
   }
 });

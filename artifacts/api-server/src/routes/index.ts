@@ -21,6 +21,8 @@ import { apiBuildInfo } from "../lib/build-info";
 import workspaceConfigSyncRouter from "./workspace-config-sync";
 import blockchainMonitoringRouter from "./blockchain-monitoring";
 import notificationSettingsRouter from "./notification-settings";
+import convertCompatibilityRouter from "./convert-compatibility";
+import exchangeConfigRouter from "./exchange-config";
 
 const router: IRouter = Router();
 
@@ -43,6 +45,8 @@ router.use(workspaceConfigSyncRouter);
 // Authenticate first, then enforce the centralized granular policy before any
 // Admin router can execute. Unmatched staff routes are deny-by-default.
 router.use(adminPolicy);
+router.use(convertCompatibilityRouter);
+router.use(exchangeConfigRouter);
 router.use(blockchainMonitoringRouter);
 router.use(notificationSettingsRouter);
 router.use(landingBackgroundRouter);

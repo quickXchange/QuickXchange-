@@ -9,7 +9,7 @@ import {
 import { verifyQuoteTicket } from "./quote-ticket";
 import { signOrderTrackingToken, verifyOrderTrackingToken } from "./order-access";
 import { assertExecutableQuickexRoute } from "./provider-capabilities";
-import { normalizeRefundFields } from "./manual-wallet-validation";
+import { normalizeRefundFields } from "./wallet-fields";
 import { validateSettlementDetails } from "./payment-methods";
 import { enqueueConvertTelegramMilestones } from "./telegram-convert-notifications";
 import { enqueueConvertEmailNotification } from "./customer-status-notifications";

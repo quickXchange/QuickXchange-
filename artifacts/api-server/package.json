@@ -9,6 +9,7 @@
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:quickex": "node ./test/run.mjs quickex.test.ts",
+    "test:migrations": "NODE_ENV=test node ./test/run.mjs versioned-migration.test.ts",
     "test:revenue": "node ./test/run.mjs manual-desk-revenue.test.ts",
     "test:pricing-coverage": "node ./test/run.mjs manual-pricing-coverage.test.ts",
     "test:manual-path": "NODE_ENV=test node ./test/run.mjs manual-path-pricing.test.ts",
