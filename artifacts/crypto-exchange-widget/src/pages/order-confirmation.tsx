@@ -213,7 +213,7 @@ export function OrderConfirmationPage() {
 
   const statusPresentation = isManual
     ? completed
-      ? { label: 'Completed', description: 'Your exchange has been completed successfully.', icon: CheckCircle2, tone: 'text-primary', surface: 'bg-primary/10', border: 'border-primary/20' }
+      ? { label: 'Completed', description: 'Your exchange has been completed successfully.', icon: CheckCircle2, tone: 'text-emerald-700 dark:text-emerald-400', surface: 'bg-emerald-500/10 dark:bg-emerald-400/10', border: 'border-emerald-500/30 dark:border-emerald-400/30' }
       : halted
         ? { label: isCancelled ? 'Cancelled' : status === 'expired' ? 'Expired' : 'Failed', description: 'This order is no longer active.', icon: XCircle, tone: 'text-destructive', surface: 'bg-destructive/10', border: 'border-destructive/20' }
         : isProcessing
@@ -222,7 +222,7 @@ export function OrderConfirmationPage() {
             ? { label: 'Confirming', description: 'Your payment has been detected and is confirming.', icon: Clock3, tone: 'text-amber-500', surface: 'bg-amber-500/10', border: 'border-amber-500/20' }
             : { label: 'Pending', description: 'Complete the payment using the order-specific details below.', icon: Clock3, tone: 'text-primary', surface: 'bg-primary/10', border: 'border-primary/20' }
     : completed
-     ? { label: convertOrderStatusLabel(status), description: 'Your exchange has been completed successfully.', icon: CheckCircle2, tone: 'text-primary', surface: 'bg-primary/10', border: 'border-primary/20' }
+     ? { label: convertOrderStatusLabel(status), description: 'Your exchange has been completed successfully.', icon: CheckCircle2, tone: 'text-emerald-700 dark:text-emerald-400', surface: 'bg-emerald-500/10 dark:bg-emerald-400/10', border: 'border-emerald-500/30 dark:border-emerald-400/30' }
      : halted
        ? { label: convertOrderStatusLabel(status), description: 'This order is no longer active.', icon: XCircle, tone: 'text-destructive', surface: 'bg-destructive/10', border: 'border-destructive/20' }
        : isProcessing
@@ -277,7 +277,12 @@ export function OrderConfirmationPage() {
                <p className="font-mono text-sm font-semibold truncate text-foreground" data-testid="text-order-id">{order.id}</p>
              </div>
              <div className="flex gap-2 w-full sm:w-auto self-start sm:self-center">
-               <span className={cn("text-xs font-bold rounded-xl bg-primary/10 text-primary border border-primary/20 px-3 py-1.5 flex items-center shrink-0")} data-testid="status-order-confirmation">
+                <span className={cn(
+                  "text-xs font-bold rounded-xl border px-3 py-1.5 flex items-center shrink-0",
+                  completed
+                    ? "bg-emerald-500/10 text-emerald-700 border-emerald-500/30 dark:bg-emerald-400/10 dark:text-emerald-400 dark:border-emerald-400/30"
+                    : "bg-primary/10 text-primary border-primary/20",
+                )} data-testid="status-order-confirmation">
                   {statusPresentation.label}
                </span>
                <button
@@ -302,20 +307,26 @@ export function OrderConfirmationPage() {
                     const step = idx + 1;
                     const isPast = currentStep > step;
                     const isCurrent = currentStep === step;
+                     const isCompletedDone = completed && label === 'Done';
                     return (
                       <div key={label} className="flex flex-col items-center gap-2 w-[70px]">
                         <div className={cn(
                           "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border-2 relative overflow-hidden",
+                          isCompletedDone ? "bg-emerald-500/15 border-emerald-500 text-emerald-700 dark:bg-emerald-400/15 dark:border-emerald-400 dark:text-emerald-400 shadow-[0_0_12px_rgba(34,197,94,0.35)] scale-110" :
                           isPast ? "bg-gradient-to-br from-cyan-500 to-blue-500 border-transparent text-white shadow-[0_0_12px_rgba(6,182,212,0.6)]" :
                           isCurrent ? "bg-background border-cyan-500 text-cyan-600 dark:text-cyan-400 shadow-[0_0_14px_rgba(6,182,212,0.7)] scale-110" :
-                          "bg-background border-border text-muted-foreground/50"
+                          "bg-background border-border text-muted-foreground"
                         )}>
-                          {isCurrent && <div className="absolute inset-0 bg-cyan-500/10" />}
-                          {isPast ? <Check className="w-4 h-4" /> : <span className="relative z-10">{step}</span>}
+                          {isCurrent && !isCompletedDone && <div className="absolute inset-0 bg-cyan-500/10" />}
+                          {isPast || isCompletedDone ? <Check className="relative z-10 w-4 h-4" /> : <span className="relative z-10">{step}</span>}
                         </div>
                         <span className={cn(
                           "text-[10px] leading-tight font-semibold transition-colors text-center uppercase tracking-wider",
-                          isPast || isCurrent ? "text-cyan-700 dark:text-cyan-400" : "text-muted-foreground/50"
+                          isCompletedDone
+                            ? "text-emerald-700 dark:text-emerald-400"
+                            : isPast || isCurrent
+                              ? "text-cyan-700 dark:text-cyan-400"
+                              : "text-muted-foreground"
                         )}>{label}</span>
                       </div>
                     );
