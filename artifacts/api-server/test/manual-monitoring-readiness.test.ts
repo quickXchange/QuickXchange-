@@ -6,7 +6,10 @@ import {
   manualMonitoringProofFingerprint,
   usesLegacyBep20Readiness,
 } from "../src/lib/manual-monitoring-readiness";
-import { isManualMonitoringRuntimeReady } from "../src/lib/manual-crypto";
+import {
+  isManualCryptoCustomerSendReady,
+  isManualMonitoringRuntimeReady,
+} from "../src/lib/manual-crypto";
 import { isSyntacticallyValidManualWalletAddress } from "../src/lib/manual-wallet-validation";
 
 const network = {
@@ -243,6 +246,32 @@ test("TRON receiving-address readiness requires a valid Base58Check checksum", (
     contractOrMint: "41a614f803b6fd780986a42c78ec9c7f77e6ded13c",
     receivingAddressValid: invalid,
   })), false);
+});
+
+test("an invalid configured TRON address blocks only its exact customer-send route", () => {
+  const shared = {
+    networkCode: "TRC20",
+    networkName: "TRON",
+    networkFamily: "TRON",
+    enabled: true,
+    depositProvider: "whitebit",
+    customerDepositsEnabled: true,
+  } as const;
+  const readyRoutes = new Map([
+    ["usdt-trc20", "TRC20"],
+    ["other-trc20", "TRC20"],
+  ]);
+
+  assert.equal(isManualCryptoCustomerSendReady({
+    ...shared,
+    id: "usdt-trc20",
+    sharedDepositAddress: "T111111111111111111111111111111111",
+  }, readyRoutes), false);
+  assert.equal(isManualCryptoCustomerSendReady({
+    ...shared,
+    id: "other-trc20",
+    sharedDepositAddress: "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb",
+  }, readyRoutes), true);
 });
 
 test("TRON token identity requires a checksum-valid normalized address", () => {

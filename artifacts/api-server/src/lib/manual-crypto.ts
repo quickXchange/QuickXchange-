@@ -250,6 +250,31 @@ export async function listReadyManualMonitoringRoutes(): Promise<Map<string, str
     .map((row) => [row.monitorAssetRouteId, row.monitorNetworkCode]));
 }
 
+export function isManualCryptoCustomerSendReady(
+  network: Pick<
+    typeof cryptoAssetNetworksTable.$inferSelect,
+    | "id"
+    | "networkCode"
+    | "networkName"
+    | "networkFamily"
+    | "enabled"
+    | "depositProvider"
+    | "customerDepositsEnabled"
+    | "sharedDepositAddress"
+  >,
+  readyManualMonitoringRoutes: ReadonlyMap<string, string>,
+): boolean {
+  if (!isConfiguredYouSendCryptoNetwork(network)) return false;
+  const configuredAddress = network.sharedDepositAddress.trim();
+  if (
+    configuredAddress &&
+    !isSyntacticallyValidManualWalletAddress(network, configuredAddress)
+  ) return false;
+  return network.depositProvider !== "manual" ||
+    readyManualMonitoringRoutes.get(network.id)?.trim().toUpperCase() ===
+      network.networkCode.trim().toUpperCase();
+}
+
 function isManualCryptoRouteEligible(
   asset: typeof cryptoAssetsTable.$inferSelect,
   network: typeof cryptoAssetNetworksTable.$inferSelect,
@@ -270,13 +295,10 @@ export async function listPublicManualCryptoSettlementOptions(): Promise<ManualC
   return rows.filter(({ asset, network }) =>
     isManualCryptoRouteEligible(asset, network)
   ).map(({ asset, network }) => {
-    const configuredForCustomerSend =
-      isConfiguredYouSendCryptoNetwork(network) &&
-      (
-        network.depositProvider !== "manual" ||
-        readyManualMonitoringRoutes.get(network.id)?.trim().toUpperCase() ===
-          network.networkCode.trim().toUpperCase()
-      );
+    const configuredForCustomerSend = isManualCryptoCustomerSendReady(
+      network,
+      readyManualMonitoringRoutes,
+    );
     return {
     id: `crypto:${network.id}`,
     assetId: asset.id,
