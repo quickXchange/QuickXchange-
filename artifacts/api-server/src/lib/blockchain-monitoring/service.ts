@@ -8,6 +8,7 @@ import {
   blockchainMonitorRegistrationGapsTable,
   cryptoAssetsTable,
   cryptoAssetNetworksTable,
+  databasePoolTelemetry,
   db,
   ordersTable,
 } from "@workspace/db";
@@ -1438,7 +1439,11 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
         .catch((error) => {
           leaseLost = true;
           logger.warn(
-            { err: error, networkId: network.id },
+            {
+              err: error,
+              networkId: network.id,
+              dbPool: databasePoolTelemetry("blockchain-monitoring-lease-heartbeat", error),
+            },
             "Blockchain monitoring lease heartbeat failed",
           );
         });
@@ -1714,7 +1719,11 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
         }).where(eq(blockchainMonitorNetworksTable.id, network.id)));
       } catch (leaseError) {
         logger.warn(
-          { err: leaseError, networkId: network.id },
+          {
+            err: leaseError,
+            networkId: network.id,
+            dbPool: databasePoolTelemetry("blockchain-monitoring-health-update", leaseError),
+          },
           "Blockchain monitoring failure could not update health after lease loss",
         );
       }
@@ -1722,7 +1731,11 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
       clearInterval(heartbeat);
       await releaseLease(network.id, leaseToken).catch((error) => {
         logger.warn(
-          { err: error, networkId: network.id },
+          {
+            err: error,
+            networkId: network.id,
+            dbPool: databasePoolTelemetry("blockchain-monitoring-lease-release", error),
+          },
           "Blockchain monitoring lease release failed",
         );
       });
@@ -1852,7 +1865,10 @@ export function startBlockchainMonitoringWorker(): () => void {
     return recoveryMigration;
   };
   const runSafely = () => void applyRecoveryMigration().then(runBlockchainMonitoringCycle).catch((error) => {
-    logger.warn({ err: error }, "Blockchain monitoring worker failed");
+    logger.warn({
+      err: error,
+      dbPool: databasePoolTelemetry("blockchain-monitoring-worker", error),
+    }, "Blockchain monitoring worker failed");
   });
   const interval = setInterval(runSafely, 15_000);
   interval.unref();

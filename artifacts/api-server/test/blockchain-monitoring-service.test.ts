@@ -3,6 +3,46 @@ import test from "node:test";
 import { boundedBitcoinWatchScanRange, boundedWatchScanEnd, canApplyConfirmedMatchWatch, canResolveRegistrationGap, classifyWatchRegistrationIdentity, cursorAfterCapturedHead, deriveBlockchainMonitoringSetupStatus, evidenceWithinWatchCursor, exactAmountMatches, exactWatchMatchesOrderSnapshot, evidenceMeetsWatchTimeAndMemo, immutableIdentityMatches, isFinalitySatisfied, isTerminalBlockchainWatchOrder, MAX_CATCH_UP_RANGES_PER_WATCH_CYCLE, maxWatchCatchUpRanges, planBoundedWatchCatchUpRanges, processBoundedWatchCatchUpRanges, selectReadyBlockchainMonitoringSetupRoutes, selectWatchScanCursor, shouldRefreshStrictManualReadinessProof } from "../src/lib/blockchain-monitoring/service";
 import { canEnqueueSwapPaymentReceived } from "../src/lib/telegram-swap-notifications";
 import { signedCryptoRouteId } from "../src/lib/manual-crypto";
+import { classifyDatabasePoolError, databasePoolTelemetry, pool } from "@workspace/db";
+
+test("Database pool telemetry classifies connection failures without sensitive configuration", () => {
+  const physicalTimeout = new Error("query failed", {
+    cause: new Error("Connection terminated due to connection timeout"),
+  });
+  assert.equal(
+    classifyDatabasePoolError(physicalTimeout),
+    "physical_connection_establishment_timeout",
+  );
+  assert.equal(
+    classifyDatabasePoolError(new Error("timeout exceeded when trying to connect")),
+    "pool_acquisition_timeout",
+  );
+  assert.equal(
+    classifyDatabasePoolError(new Error("duplicate key value violates unique constraint")),
+    "database_query_failure",
+  );
+
+  const telemetry = databasePoolTelemetry(
+    "test-worker",
+    physicalTimeout,
+  );
+  assert.equal(telemetry.processId, process.pid);
+  assert.equal(telemetry.component, "test-worker");
+  assert.equal(telemetry.errorCategory, "physical_connection_establishment_timeout");
+  assert.equal(Number.isInteger(telemetry.totalCount), true);
+  assert.equal(Number.isInteger(telemetry.idleCount), true);
+  assert.equal(Number.isInteger(telemetry.waitingCount), true);
+  assert.equal("connectionString" in telemetry, false);
+});
+
+test("Database pool keeps one warm keepalive client without changing its connection cap or timeout", () => {
+  assert.equal(pool.options.max, 10);
+  assert.equal(pool.options.min, 1);
+  assert.equal(pool.options.idleTimeoutMillis, 300_000);
+  assert.equal(pool.options.connectionTimeoutMillis, 5_000);
+  assert.equal(pool.options.keepAlive, true);
+  assert.equal(pool.options.allowExitOnIdle, true);
+});
 
 test("Manual monitoring matches decimal order amounts only at configured precision", () => {
     assert.equal(exactAmountMatches("1.25", 6, "1250000"), true);

@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { db, quickexOrdersTable } from "@workspace/db";
+import { databasePoolTelemetry, db, quickexOrdersTable } from "@workspace/db";
 import {
   buildProviderQuoteTicket,
   listPublicProviderSettlementOptions,
@@ -37,7 +37,10 @@ export function startConvertReconciliationWorker(): () => void {
       await processConvertNotificationOutbox();
       await reconcilePendingConvertOrders();
     })().catch(error => {
-      logger.warn({ err: error }, "Convert reconciliation cycle failed");
+      logger.warn({
+        err: error,
+        dbPool: databasePoolTelemetry("convert-reconciliation-worker", error),
+      }, "Convert reconciliation cycle failed");
     }).finally(() => {
       convertWorkerInFlight = undefined;
     });

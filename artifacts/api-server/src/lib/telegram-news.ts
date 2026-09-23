@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { and, asc, eq, lte, or, isNull } from "drizzle-orm";
-import { db, telegramNewsOutboxTable } from "@workspace/db";
+import { databasePoolTelemetry, db, telegramNewsOutboxTable } from "@workspace/db";
 
 const CLAIM_MS = 2 * 60_000;
 const MAX_ATTEMPTS = 8;
@@ -117,7 +117,10 @@ export function startTelegramNewsWorker(): () => void {
   const timer = setInterval(() => {
     void processTelegramNewsOutbox().catch(async (error) => {
       const { logger } = await import("./logger");
-      logger.warn({ err: error }, "Telegram news worker failed");
+      logger.warn({
+        err: error,
+        dbPool: databasePoolTelemetry("telegram-news-worker", error),
+      }, "Telegram news worker failed");
     });
   }, 30_000);
   timer.unref();

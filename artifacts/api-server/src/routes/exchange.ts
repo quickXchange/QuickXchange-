@@ -119,6 +119,7 @@ import {
   CancelCustomerOrderBody,
   CancelCustomerOrderResponse,
 } from "@workspace/api-zod";
+import { databasePoolTelemetry } from "@workspace/db";
 import {
   customerStatusNotificationEventsTable,
   notificationSettingsTable,
@@ -340,7 +341,10 @@ export function startExchangeStatusNotificationWorker(): () => void {
       await processPendingAffiliateCompletions();
     })()
       .catch((error) => {
-        logger.warn({ err: error }, "Customer notification cycle failed");
+        logger.warn({
+          err: error,
+          dbPool: databasePoolTelemetry("customer-notification-worker", error),
+        }, "Customer notification cycle failed");
       })
       .finally(() => {
         customerNotificationCycleInFlight = undefined;

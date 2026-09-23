@@ -3,6 +3,7 @@ import { and, asc, eq, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { ReplitConnectors } from "@replit/connectors-sdk";
 import {
   db,
+  databasePoolTelemetry,
   newsletterCampaignsTable,
   newsletterDeliveriesTable,
   newsletterSubscribersTable,
@@ -254,7 +255,12 @@ export async function processNewsletterOutbox(limit = 25): Promise<number> {
 }
 
 export function startNewsletterWorker() {
-  const timer = setInterval(() => { void processNewsletterOutbox().catch((error) => logger.warn({ err: error }, "Newsletter worker failed")); }, 30_000);
+  const timer = setInterval(() => {
+    void processNewsletterOutbox().catch((error) => logger.warn({
+      err: error,
+      dbPool: databasePoolTelemetry("newsletter-worker", error),
+    }, "Newsletter worker failed"));
+  }, 30_000);
   timer.unref();
   return () => clearInterval(timer);
 }
