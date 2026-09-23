@@ -792,6 +792,13 @@
       "when": 1790122200000,
       "tag": "0114_restore_tron_endpoint_reference",
       "breakpoints": true
+    },
+    {
+      "idx": 115,
+      "version": "7",
+      "when": 1790123400000,
+      "tag": "0115_restore_polygon_mainnet_reference",
+      "breakpoints": true
     }
   ]
 }
