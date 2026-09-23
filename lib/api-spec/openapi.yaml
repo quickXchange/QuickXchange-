@@ -3860,7 +3860,9 @@ paths:
       operationId: previewAdminSocialTrustIcon
       tags: [admin]
       security: [{ OperatorSession: [] }]
-      parameters: [{ name: id, in: path, required: true, schema: { type: string, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' } }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' } }
+        - { name: objectPath, in: query, required: false, schema: { type: string, pattern: '^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' } }
       responses:
         "200":
           description: Verified draft icon
@@ -7268,13 +7270,18 @@ components:
         alignment: { type: string, enum: [left, center, right] }
     SocialTrustItem:
       type: object
-      required: [id, group, name, href, objectPath, enabled, createdAt]
+      required: [id, group, name, href, objectPath, enabled, createdAt, displayMode]
       properties:
         id: { type: string, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' }
         group: { type: string, enum: [social, trust] }
         name: { type: string }
         href: { type: string }
         objectPath: { type: [string, "null"] }
+        lightObjectPath: { type: [string, "null"] }
+        darkObjectPath: { type: [string, "null"] }
+        appearance: { type: string, enum: [auto, same, separate] }
+        displayMode: { type: string, enum: [icon-only, icon-name] }
+        sortOrder: { type: integer }
         enabled: { type: boolean }
         createdAt: { type: string, format: date-time }
     SocialTrustConfig:
@@ -7289,6 +7296,11 @@ components:
         telegramUrl: { type: [string, "null"], format: uri }
         items: { type: array, items: { $ref: "#/components/schemas/SocialTrustItem" } }
         appearance: { $ref: "#/components/schemas/SocialIconAppearance" }
+        trustAppearance: { $ref: "#/components/schemas/SocialIconAppearance" }
+        socialTitleVisible: { type: boolean }
+        trustTitleVisible: { type: boolean }
+        trustTitleFontSize: { type: integer, minimum: 12, maximum: 40 }
+        trustTitleAlignment: { type: string, enum: [left, center, right] }
     SocialIconAppearance:
       type: object
       required: [iconSize, logoSize, circleSize, borderThickness, radiusMode, backgroundColor, borderColor, glowColor, glowIntensity, iconOpacity]
@@ -7303,6 +7315,17 @@ components:
         glowColor: { type: string, pattern: '^#[0-9a-fA-F]{6}$' }
         glowIntensity: { type: number, multipleOf: 1, minimum: 0, maximum: 100 }
         iconOpacity: { type: number, multipleOf: 1, minimum: 0, maximum: 100 }
+        spacing: { type: integer, minimum: 0, maximum: 80 }
+        alignment: { type: string, enum: [left, center, right] }
+        hoverAnimation: { type: string, enum: [none, lift, scale, glow] }
+        layout: { type: string, enum: [horizontal, centered, vertical, grid] }
+        container: { type: string, enum: [none, subtle, glow] }
+        titleFontSize: { type: integer, minimum: 12, maximum: 40 }
+        titleAlignment: { type: string, enum: [left, center, right] }
+        socialTitleVisible: { type: boolean }
+        trustTitleVisible: { type: boolean }
+        trustTitleFontSize: { type: integer, minimum: 12, maximum: 40 }
+        trustTitleAlignment: { type: string, enum: [left, center, right] }
     SocialTrustTitlesInput:
       type: object
       required: [socialTitle, trustTitle]
@@ -7318,6 +7341,7 @@ components:
         facebookUrl: { type: [string, "null"], format: uri, maxLength: 2048 }
         telegramUrl: { type: [string, "null"], format: uri, maxLength: 2048 }
         appearance: { $ref: "#/components/schemas/SocialIconAppearance" }
+        trustAppearance: { $ref: "#/components/schemas/SocialIconAppearance" }
     SocialTrustItemInput:
       type: object
       required: [group, name, href, enabled]
@@ -7326,7 +7350,12 @@ components:
         name: { type: string, minLength: 1, maxLength: 160 }
         href: { type: string, minLength: 1, maxLength: 2048 }
         objectPath: { type: [string, "null"], pattern: '^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' }
+        lightObjectPath: { type: [string, "null"], pattern: '^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' }
+        darkObjectPath: { type: [string, "null"], pattern: '^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' }
         enabled: { type: boolean }
+        displayMode: { type: string, enum: [icon-only, icon-name], default: icon-only }
+        appearance: { type: string, enum: [auto, same, separate], default: auto }
+        sortOrder: { type: integer }
     SocialTrustItemUpdate:
       type: object
       properties:
@@ -7334,7 +7363,12 @@ components:
         name: { type: string, minLength: 1, maxLength: 160 }
         href: { type: string, minLength: 1, maxLength: 2048 }
         objectPath: { type: [string, "null"], pattern: '^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' }
+        lightObjectPath: { type: [string, "null"], pattern: '^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' }
+        darkObjectPath: { type: [string, "null"], pattern: '^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' }
         enabled: { type: boolean }
+        displayMode: { type: string, enum: [icon-only, icon-name] }
+        appearance: { type: string, enum: [auto, same, separate] }
+        sortOrder: { type: integer }
     ImageUploadInput:
       type: object
       required: [contentType]

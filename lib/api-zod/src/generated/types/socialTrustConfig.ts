@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { SocialIconAppearance } from './socialIconAppearance';
+import type { SocialTrustConfigTrustTitleAlignment } from './socialTrustConfigTrustTitleAlignment';
 import type { SocialTrustItem } from './socialTrustItem';
 
 export interface SocialTrustConfig {
@@ -21,4 +22,13 @@ export interface SocialTrustConfig {
   telegramUrl?: string | null;
   items: SocialTrustItem[];
   appearance?: SocialIconAppearance;
+  trustAppearance?: SocialIconAppearance;
+  socialTitleVisible?: boolean;
+  trustTitleVisible?: boolean;
+  /**
+     * @minimum 12
+     * @maximum 40
+     */
+  trustTitleFontSize?: number;
+  trustTitleAlignment?: SocialTrustConfigTrustTitleAlignment;
 }

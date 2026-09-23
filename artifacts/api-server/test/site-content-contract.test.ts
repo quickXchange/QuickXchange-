@@ -15,6 +15,7 @@ import {
   SaveAdminWebsiteBrandingBody,
   UpdateAdminPartnerLogoSettingsBody,
   RequestWebsiteBrandingUploadBody,
+  UpdateAdminSocialMediaBody,
 } from "@workspace/api-zod";
 import { buildContactSupportEmail } from "../src/lib/contact-support-email";
 import { isSafeSiteLink } from "../src/lib/site-content-policy";
@@ -185,6 +186,37 @@ test("social and trust items are custom, image-backed, and URL constrained", () 
   }
   assert.throws(() => RequestSocialTrustIconUploadBody.parse({ contentType: "text/html" }));
   assert.throws(() => CreateAdminSocialTrustItemBody.parse({ ...input, objectPath: "/objects/partner-logos/11111111-1111-4111-8111-111111111111" }));
+  const iconOnly = CreateAdminSocialTrustItemBody.parse({
+    ...input,
+    group: "social",
+    lightObjectPath: "/objects/social-trust-icons/22222222-2222-4222-8222-222222222222",
+    darkObjectPath: "/objects/social-trust-icons/33333333-3333-4333-8333-333333333333",
+    displayMode: "icon-only",
+    appearance: "separate",
+    sortOrder: 2,
+  });
+  assert.equal(iconOnly.displayMode, "icon-only");
+  assert.equal(iconOnly.appearance, "separate");
+  assert.equal(iconOnly.sortOrder, 2);
+  assert.throws(() => CreateAdminSocialTrustItemBody.parse({ ...iconOnly, displayMode: "name-only" }));
+  assert.throws(() => CreateAdminSocialTrustItemBody.parse({ ...iconOnly, darkObjectPath: "/objects/partner-logos/33333333-3333-4333-8333-333333333333" }));
+  assert.throws(() => UpdateAdminSocialMediaBody.parse({
+    instagramUrl: null, xUrl: null, facebookUrl: null, telegramUrl: null,
+    appearance: { iconSize: 60 },
+  }));
+  const trustAppearance = {
+    iconSize: 20, logoSize: 76, circleSize: 42, borderThickness: 1, radiusMode: "circle",
+    backgroundColor: "#ffffff", borderColor: "#dce3ed", glowColor: "#38bdf8", glowIntensity: 0, iconOpacity: 100,
+    spacing: 24, layout: "grid", alignment: "center",
+  };
+  const settings = UpdateAdminSocialMediaBody.parse({
+    instagramUrl: null, xUrl: null, facebookUrl: null, telegramUrl: null, trustAppearance,
+  });
+  assert.deepEqual(settings.trustAppearance, trustAppearance);
+  assert.throws(() => UpdateAdminSocialMediaBody.parse({
+    instagramUrl: null, xUrl: null, facebookUrl: null, telegramUrl: null,
+    trustAppearance: { ...trustAppearance, spacing: 81 },
+  }));
 });
 
 test("contact submission contract rejects missing and oversized fields", () => {

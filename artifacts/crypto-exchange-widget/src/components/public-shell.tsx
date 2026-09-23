@@ -10,14 +10,15 @@ import {
   SiReddit,
   SiTelegram,
   SiTiktok,
+  SiTrustpilot,
   SiWhatsapp,
   SiX,
   SiYoutube,
 } from 'react-icons/si';
 import { FaLinkedinIn } from 'react-icons/fa6';
 import { Link, useLocation } from 'wouter';
-import { useGetOperators, getGetOperatorsQueryKey, useGetPublishedSiteContent, getGetPublishedSiteContentQueryKey } from '@workspace/api-client-react';
-import type { PartnerLogo, SiteNavLink, SocialTrustConfig, SocialTrustItem } from '@workspace/api-client-react';
+import { useGetOperators, getGetOperatorsQueryKey, useGetPublishedSiteContent, getGetPublishedSiteContentQueryKey, useGetPublicNotificationSettings } from '@workspace/api-client-react';
+import type { PartnerLogo, SiteNavLink, SocialIconAppearance, SocialTrustConfig, SocialTrustItem } from '@workspace/api-client-react';
 import { LanguageSelector } from '@/components/language-selector';
 import { useI18n } from '@/i18n';
 import { PUBLIC_PAGE_REGISTRY } from '../lib/public-page-registry';
@@ -31,6 +32,7 @@ import type { PartnerLogoSettings, PartnerLogoExtended } from './partner-logos';
 import { DesktopMegaMenu, NAVIGATION_DATA } from '@/components/mega-menu';
 import type { NavGroup } from '@/components/mega-menu';
 import { TelegramSupportButton } from '@/components/telegram-support-button';
+import './social-trust-footer.css';
 
 const COMPANY_FOOTER_LINKS = [
   ['About Us', '/about'],
@@ -111,19 +113,19 @@ function ConfiguredLinks({ links, placement }: { links: SiteNavLink[]; placement
 
 type RenderableSocialItem = Pick<SocialTrustItem, 'id' | 'name' | 'href'> & {
   objectPath?: string | null;
+  lightObjectPath?: string | null;
+  darkObjectPath?: string | null;
+  displayMode?: 'icon-only' | 'icon-name';
+  appearance?: 'auto' | 'same' | 'separate';
   defaultAssetPath?: string | null;
 };
 
 const LEGACY_SOCIAL_FIELDS = [
+  ['telegramUrl', 'Telegram'],
   ['instagramUrl', 'Instagram'],
   ['xUrl', 'X'],
   ['facebookUrl', 'Facebook'],
 ] as const;
-
-function initialsForSocialName(name: string) {
-  const initials = name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('');
-  return (initials || '?').toUpperCase();
-}
 
 function footerSocialAppearance(socialTrust?: SocialTrustConfig): CSSProperties {
   const appearance = (socialTrust as (SocialTrustConfig & { appearance?: Record<string, unknown> }) | undefined)?.appearance;
@@ -137,8 +139,8 @@ function footerSocialAppearance(socialTrust?: SocialTrustConfig): CSSProperties 
   };
   return {
     '--qx-social-border-width': `${number('borderThickness', 1, 0, 8)}px`,
-    '--qx-social-glow': color('glowColor', 'hsl(var(--primary))'),
-    '--qx-social-glow-intensity': `${number('glowIntensity', 18, 0, 100) / 100}`,
+    '--qx-social-glow': color('glowColor', '#38bdf8'),
+    '--qx-social-glow-intensity': `${number('glowIntensity', 0, 0, 100) / 100}`,
     '--qx-social-opacity': `${number('iconOpacity', 100, 0, 100) / 100}`,
   } as CSSProperties;
 }
@@ -160,27 +162,34 @@ function footerSocialPlatformIcon(item: RenderableSocialItem) {
   return Icon ? <Icon className="qx-footer-social-svg" aria-hidden="true" /> : null;
 }
 
-function FooterSocialIcon({ item, preview }: { item: RenderableSocialItem; preview: ReturnType<typeof useSitePreview> }) {
-  const platformIcon = footerSocialPlatformIcon(item);
-  if (platformIcon) return platformIcon;
-  const objectPath = item.objectPath || '';
+function FooterSocialIcon({ item, preview, isDark }: { item: RenderableSocialItem; preview: ReturnType<typeof useSitePreview>; isDark: boolean }) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const selectedPath = item.appearance === 'separate'
+    ? (isDark ? item.darkObjectPath || item.objectPath : item.lightObjectPath || item.objectPath)
+    : item.objectPath;
+  const objectPath = selectedPath || '';
   const src = objectPath
     ? preview.assetUrls?.[objectPath]
       ?? (preview.active
-        ? `${basePath}/api/admin/social-trust/items/${item.id}/preview`
+        ? `${basePath}/api/admin/social-trust/items/${item.id}/preview?objectPath=${encodeURIComponent(objectPath)}`
         : `${basePath}/api/storage/objects/social-trust-icons/${objectPath.split('/').pop()}`)
     : item.defaultAssetPath || null;
-  return src
-    ? <img src={src} alt="" className="qx-footer-social-image" loading="lazy" />
-    : <span className="qx-footer-social-initials" aria-hidden="true">{initialsForSocialName(item.name)}</span>;
+  if (src && failedSrc !== src) return <img src={src} alt="" className="qx-footer-social-image" style={{ width: '100%', height: '100%', objectFit: 'contain' }} loading="lazy" onError={() => setFailedSrc(src)} />;
+  if (item.name.toLocaleLowerCase().includes('trustpilot')) return <SiTrustpilot className="qx-footer-social-svg text-emerald-500" style={{ width: '100%', height: '100%' }} aria-hidden="true" />;
+  const Icon = footerSocialPlatformIcon(item);
+  return Icon ? <span className="qx-footer-social-svg" style={{ width: '100%', height: '100%' }}>{Icon}</span> : <Link2 className="qx-footer-social-svg" style={{ width: '100%', height: '100%' }} aria-hidden="true" />;
 }
 
-function FooterSocialLinksDataDriven({ socialTrust, socialItems, trustItems, preview }: {
+function FooterSocialLinksDataDriven({ socialTrust, socialItems, trustItems, preview, trustpilotUrl, trustpilotIsConfigured, trustpilotPartner }: {
   socialTrust?: SocialTrustConfig;
   socialItems: SocialTrustItem[];
   trustItems: SocialTrustItem[];
   preview: ReturnType<typeof useSitePreview>;
+  trustpilotUrl?: string | null;
+  trustpilotIsConfigured: boolean;
+  trustpilotPartner?: PartnerLogoExtended;
 }) {
+  const isDark = useAppTheme();
   const legacyItems: RenderableSocialItem[] = LEGACY_SOCIAL_FIELDS.flatMap(([field, name]) => {
     const href = socialTrust?.[field];
     if (!href || socialItems.some((item) => item.href === href)) return [];
@@ -188,26 +197,77 @@ function FooterSocialLinksDataDriven({ socialTrust, socialItems, trustItems, pre
   });
   const allSocialItems: RenderableSocialItem[] = [...socialItems, ...legacyItems];
   const appearanceStyle = footerSocialAppearance(socialTrust);
+  const style = (socialTrust?.appearance ?? {}) as SocialIconAppearance & Record<string, unknown>;
+  const trustStyle = (socialTrust?.trustAppearance ?? {}) as SocialIconAppearance & Record<string, unknown>;
+  const circleSize = Math.min(80, Math.max(24, style.circleSize ?? 42));
+  const iconSize = Math.min(circleSize, Math.max(8, style.iconSize ?? circleSize * ((style.logoSize ?? 76) / 100)));
+  const radius = style.radiusMode === 'square' ? '0px' : style.radiusMode === 'rounded' ? '12px' : '999px';
+  const socialJustify = style.alignment === 'center' ? 'center' : style.alignment === 'right' ? 'flex-end' : 'flex-start';
+  const trustLayout = trustStyle.layout ?? 'horizontal';
+  const trustJustify = trustLayout === 'centered' || trustStyle.alignment === 'center' ? 'center'
+    : trustStyle.alignment === 'right' ? 'flex-end' : 'flex-start';
+  const trustContainerStyle: CSSProperties = {
+    display: trustLayout === 'vertical' ? 'flex' : trustLayout === 'grid' ? 'grid' : 'flex',
+    flexDirection: trustLayout === 'vertical' ? 'column' : 'row',
+    flexWrap: trustLayout === 'grid' ? 'wrap' : 'wrap',
+    gridTemplateColumns: trustLayout === 'grid' ? 'repeat(auto-fit, minmax(110px, max-content))' : undefined,
+    justifyContent: trustJustify,
+    alignItems: 'center',
+    gap: `${trustStyle.spacing ?? 14}px`,
+    padding: trustStyle.container && trustStyle.container !== 'none' ? '12px' : 0,
+    border: trustStyle.container && trustStyle.container !== 'none' ? `${trustStyle.borderThickness ?? 1}px solid ${trustStyle.borderColor ?? '#dce3ed'}` : 'none',
+    borderRadius: '12px',
+    background: trustStyle.container === 'subtle' ? `${trustStyle.backgroundColor ?? '#ffffff'}88` : 'transparent',
+    boxShadow: trustStyle.container === 'glow' ? `0 0 ${Math.max(0, trustStyle.glowIntensity ?? 0) * 0.25}px ${trustStyle.glowColor ?? '#38bdf8'}` : undefined,
+  };
+  const hasTrustpilotItemInTrust = trustItems.some((item) =>
+    item.name.toLowerCase().includes('trustpilot') || item.href === trustpilotUrl,
+  );
+  const renderedTrustItems: RenderableSocialItem[] = [
+    ...trustItems,
+    ...(trustpilotUrl && !trustpilotIsConfigured && !hasTrustpilotItemInTrust ? [{
+      id: 'legacy-trustpilot',
+      name: 'Trustpilot',
+      href: trustpilotUrl,
+      objectPath: null,
+      defaultAssetPath: trustpilotPartner
+        ? preview.assetUrls?.[trustpilotPartner.objectPath]
+          ?? (preview.active
+            ? `${basePath}/api/admin/partner-logos/${trustpilotPartner.id}/preview`
+            : publishedPartnerLogoUrl(trustpilotPartner.objectPath))
+        : null,
+      displayMode: 'icon-only' as const,
+    }] : []),
+  ];
+  const showSocialTitle = (socialTrust?.socialTitleVisible ?? true)
+    && !(renderedTrustItems.length > 0 && socialTrust?.socialTitle?.trim() === socialTrust?.trustTitle?.trim());
   return (
-    <div className="flex flex-col gap-4" aria-label="Social connections">
-      <div className="qx-footer-social-links">
+    <div className="flex flex-col gap-3" aria-label="Social connections">
+      {allSocialItems.length > 0 && <>
+      {showSocialTitle && <h3 className="font-semibold text-foreground" style={{ fontSize: `${style.titleFontSize ?? 18}px`, textAlign: (style.titleAlignment ?? style.alignment ?? 'left') as CSSProperties['textAlign'] }}>{socialTrust?.socialTitle ?? 'Stay connected with us'}</h3>}
+      <div className="qx-footer-social-links" style={{ gap: `${style.spacing ?? 14}px`, justifyContent: socialJustify }}>
         {allSocialItems.map((item) => (
-          <a key={item.id} href={item.href} target="_blank" rel="noreferrer noopener" aria-label={item.name} data-testid={`link-published-social-${item.id}`} className="qx-footer-social-link" style={appearanceStyle}>
-            <FooterSocialIcon item={item} preview={preview} />
+          <a key={item.id} href={item.href} target="_blank" rel="noreferrer noopener" aria-label={item.name} data-testid={`link-published-social-${item.id}`} className={`qx-footer-social-link qx-social-hover-${style.hoverAnimation ?? 'lift'}`} style={{ ...appearanceStyle, width: item.displayMode === 'icon-name' ? 'auto' : `${circleSize}px`, height: `${circleSize}px`, flexBasis: item.displayMode === 'icon-name' ? 'auto' : `${circleSize}px`, padding: item.displayMode === 'icon-name' ? '0 10px' : 0, borderRadius: radius, borderColor: style.borderColor, backgroundColor: style.backgroundColor }}>
+            <span style={{ display: 'flex', flex: 'none', width: `${iconSize}px`, height: `${iconSize}px`, alignItems: 'center', justifyContent: 'center' }}><FooterSocialIcon item={item} preview={preview} isDark={isDark} /></span>
+            {item.displayMode === 'icon-name' && <span className="ml-2 text-xs">{item.name}</span>}
           </a>
         ))}
       </div>
-      {trustItems.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3">
-          {trustItems.map((item) => (
-            <a key={item.id} href={item.href} target="_blank" rel="noreferrer noopener" data-testid={`link-published-trust-${item.id}`} className="group flex items-center gap-2 hover:text-primary transition-colors">
-              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-muted/40 border border-border/50 group-hover:border-border transition-colors">
-                <FooterSocialIcon item={item} preview={preview} />
+      </>}
+      {renderedTrustItems.length > 0 && (
+        <section className="qx-feedback-trust flex flex-col gap-2" aria-label="Feedback and reviews">
+        {(trustStyle.trustTitleVisible ?? socialTrust?.trustTitleVisible ?? true) && <h3 className="font-semibold text-foreground" style={{ fontSize: `${trustStyle.titleFontSize ?? socialTrust?.trustTitleFontSize ?? 18}px`, textAlign: (trustStyle.titleAlignment ?? socialTrust?.trustTitleAlignment ?? 'left') as CSSProperties['textAlign'] }}>{socialTrust?.trustTitle ?? 'Share your feedback with us'}</h3>}
+        <div style={trustContainerStyle}>
+          {renderedTrustItems.map((item) => (
+            <a key={item.id} href={item.href} target="_blank" rel="noreferrer noopener" aria-label={item.name} data-testid={`link-published-trust-${item.id}`} className="group flex items-center gap-2 text-foreground transition-colors">
+              <span className="flex shrink-0 items-center justify-center overflow-hidden rounded-md" style={{ width: `${Math.max(90, Math.min(220, (trustStyle.logoSize ?? 76) * 2))}px`, height: `${Math.max(44, Math.min(80, (trustStyle.circleSize ?? 42) + 12))}px`, padding: '5px', background: item.id === 'legacy-trustpilot' ? '#ffffff' : trustStyle.container === 'none' ? 'transparent' : trustStyle.backgroundColor ?? '#ffffff', border: item.id === 'legacy-trustpilot' ? '1px solid #dce3ed' : trustStyle.container === 'none' ? 'none' : `${trustStyle.borderThickness ?? 1}px solid ${trustStyle.borderColor ?? '#dce3ed'}`, boxShadow: trustStyle.container === 'glow' ? `0 0 ${(trustStyle.glowIntensity ?? 0) * 0.2}px ${trustStyle.glowColor ?? '#38bdf8'}` : undefined }}>
+                <span className="flex h-full w-full items-center justify-center"><FooterSocialIcon item={item} preview={preview} isDark={isDark} /></span>
               </span>
-              <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">{item.name}</span>
+              {item.displayMode === 'icon-name' && <span className="text-xs font-medium">{item.name}</span>}
             </a>
           ))}
         </div>
+        </section>
       )}
     </div>
   );
@@ -593,6 +653,7 @@ export function PublicShell({ children }: { children: ReactNode }) {
   const { t } = useI18n();
   const preview = useSitePreview();
   const published = useGetPublishedSiteContent({ query: { queryKey: getGetPublishedSiteContentQueryKey(), staleTime: 60_000 } });
+  const notificationSettings = useGetPublicNotificationSettings();
 
   const effectivePages = useMemo(() => {
     const pages = published.data?.pages ? [...published.data.pages] : [];
@@ -651,15 +712,21 @@ export function PublicShell({ children }: { children: ReactNode }) {
     .filter((logo) => logo.enabled);
 
   const socialItems = (socialTrust?.items ?? [])
-    .filter(i => i.enabled && i.group === 'social' && normalizeFooterLabel(i.name) !== 'telegram')
-    .sort(automaticNameOrder);
-  const trustItems = (socialTrust?.items ?? []).filter(i => i.enabled && i.group === 'trust').sort(automaticNameOrder);
+    .filter(i => i.enabled && i.group === 'social')
+    .sort((a, b) => (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER) || automaticNameOrder(a, b));
+  const trustItems = (socialTrust?.items ?? []).filter(i => i.enabled && i.group === 'trust')
+    .sort((a, b) => (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER) || automaticNameOrder(a, b));
   const telegramSupportUrl = (socialTrust?.items ?? []).find((item) =>
     item.enabled && normalizeFooterLabel(item.name) === 'telegram')?.href
     ?? socialTrust?.telegramUrl
     ?? SUPPORT_TELEGRAM;
 
-  const hasSocial = Boolean(socialItems.length || socialTrust?.instagramUrl || socialTrust?.xUrl || socialTrust?.facebookUrl || trustItems.length);
+  const trustpilotPartner = partnerLogos.find((logo) => logo.enabled && /trustpilot/i.test(logo.name) && logo.link);
+  const trustpilotUrl = notificationSettings.data?.trustpilotReviewUrl || trustpilotPartner?.link || null;
+  const hasConfiguredTrustpilot = (socialTrust?.items ?? []).some((item) =>
+    item.enabled && (item.name.toLowerCase().includes('trustpilot') || item.href === trustpilotUrl),
+  );
+  const hasSocial = Boolean(socialItems.length || socialTrust?.instagramUrl || socialTrust?.xUrl || socialTrust?.facebookUrl || trustItems.length || (trustpilotUrl && !hasConfiguredTrustpilot));
 
   const footerNavigationGroups = [
     { title: 'Company', links: companyFooterLinks, type: 'links' },
@@ -719,6 +786,9 @@ export function PublicShell({ children }: { children: ReactNode }) {
                     socialItems={socialItems}
                     trustItems={trustItems}
                     preview={preview}
+                    trustpilotUrl={trustpilotUrl}
+                    trustpilotIsConfigured={hasConfiguredTrustpilot}
+                    trustpilotPartner={trustpilotPartner}
                   />
                 </div>
               )}

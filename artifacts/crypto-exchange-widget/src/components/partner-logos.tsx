@@ -179,6 +179,8 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
 
   const gapClass = settings.spacing === 'compact' ? 'gap-4' : settings.spacing === 'wide' ? 'gap-12' : 'gap-8';
   const justifyClass = settings.alignment === 'left' ? 'justify-start' : settings.alignment === 'right' ? 'justify-end' : 'justify-center';
+  const motionSlotWidth = maxW + (settings.container === 'none' ? 16 : 34);
+  const motionHeight = maxW * 0.6 + (settings.container === 'none' ? 16 : 34);
 
   const items = useMemo(() => {
     const sorted = [...logos].filter((logo) => logo.enabled !== false);
@@ -192,31 +194,33 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
         settings.container === 'none' && 'p-2',
       );
       const imgClass = cn(
-        'max-h-full object-contain transition-all duration-300',
+        'block shrink-0 object-contain transition-all duration-300',
         isAuto && (isDark
           ? 'drop-shadow-[0_0_8px_rgba(255,255,255,0.7)] drop-shadow-[0_0_2px_rgba(255,255,255,0.9)]'
           : 'drop-shadow-[0_0_2px_rgba(0,0,0,0.55)]')
       );
 
-      const content = <img src={src} alt={logo.name} className={imgClass} style={{ maxWidth: maxW, height: 'auto', maxHeight: maxW * 0.6 }} loading="lazy" draggable={false} />;
+      // Every image occupies the same centered content box, regardless of its
+      // intrinsic dimensions. object-fit preserves the original proportions.
+      const content = <img src={src} alt={logo.name} className={imgClass} style={{ width: maxW, height: maxW * 0.6, objectFit: 'contain' }} loading={shouldAnimate ? 'eager' : 'lazy'} draggable={false} />;
 
       return (
-        <div key={logo.id} className={cardClass} style={{ width: settings.layout === 'grid' ? '100%' : 'auto' }}>
+        <div key={logo.id} className={cardClass} style={{ width: motionSlotWidth, height: motionHeight, boxSizing: 'border-box' }}>
           {logo.link ? (
-            <a href={logo.link} target="_blank" rel="noreferrer" aria-label={logo.name} className="block w-full h-full flex items-center justify-center focus-visible:outline-primary">
+            <a href={logo.link} target="_blank" rel="noreferrer" aria-label={logo.name} className="flex w-full h-full items-center justify-center focus-visible:outline-primary">
               {content}
             </a>
           ) : content}
         </div>
       );
     });
-  }, [logos, isDark, settings, maxW, getLogoSrc]);
+  }, [logos, isDark, settings, maxW, motionSlotWidth, motionHeight, shouldAnimate, getLogoSrc]);
 
-  const isScrollable = settings.layout === 'marquee' || settings.layout === 'horizontal-row' || settings.layout === 'carousel';
+  // Landing-page partners are always a single row, including when a saved
+  // legacy layout requested columns or wrapping.
+  const isScrollable = true;
   // A single small logo cannot cover a viewport without making visual copies.
   const motionEnabled = isScrollable && shouldAnimate && items.length > 1;
-  const motionSlotWidth = maxW + (settings.container === 'none' ? 16 : 34);
-  const motionHeight = maxW * 0.6 + (settings.container === 'none' ? 16 : 34);
 
   useEffect(() => {
     if (!motionEnabled) return;
@@ -296,14 +300,9 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
   );
 
   const trackClassName = cn(
-    'partner-logos-track flex',
+    'partner-logos-track flex flex-nowrap items-center',
     gapClass,
-    isScrollable && justifyClass,
-    !isScrollable && 'flex-wrap',
-    !isScrollable && settings.layout !== 'horizontal-row' && justifyClass,
-    settings.layout === 'grid' && 'grid w-full',
-    settings.layout === 'vertical-list' && 'flex-col items-center',
-    settings.layout === 'stacked-rows' && 'flex-row justify-center flex-wrap',
+    justifyClass,
     isScrollable && !motionEnabled && 'w-max',
     motionEnabled && 'relative w-full'
   );

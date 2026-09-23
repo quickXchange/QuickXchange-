@@ -204,6 +204,7 @@ import type {
   PaymentMethodUpdate,
   PopularExchangePairs,
   PreviewAdminPartnerLogoParams,
+  PreviewAdminSocialTrustIconParams,
   PublicNotificationSettings,
   PublicOrderStatus,
   PublicSiteContent,
@@ -17347,17 +17348,26 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getRemoveAdminSocialTrustItemMutationOptions(options));
     }
 
-export const getPreviewAdminSocialTrustIconUrl = (id: string,) => {
+export const getPreviewAdminSocialTrustIconUrl = (id: string,
+    params?: PreviewAdminSocialTrustIconParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/admin/social-trust/items/${id}/preview`
+  return stringifiedParams.length > 0 ? `/api/admin/social-trust/items/${id}/preview?${stringifiedParams}` : `/api/admin/social-trust/items/${id}/preview`
 }
 
-export const previewAdminSocialTrustIcon = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
+export const previewAdminSocialTrustIcon = async (id: string,
+    params?: PreviewAdminSocialTrustIconParams, options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
 
-  return customFetch<Blob>(getPreviewAdminSocialTrustIconUrl(id),
+  return customFetch<Blob>(getPreviewAdminSocialTrustIconUrl(id,params),
   {
     ...options,
     method: 'GET'
@@ -17370,23 +17380,25 @@ export const previewAdminSocialTrustIcon = async (id: string, options?: Paramete
 
 
 
-export const getPreviewAdminSocialTrustIconQueryKey = (id: string,) => {
+export const getPreviewAdminSocialTrustIconQueryKey = (id: string,
+    params?: PreviewAdminSocialTrustIconParams,) => {
     return [
-    `/api/admin/social-trust/items/${id}/preview`
+    `/api/admin/social-trust/items/${id}/preview`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getPreviewAdminSocialTrustIconQueryOptions = <TData = Awaited<ReturnType<typeof previewAdminSocialTrustIcon>>, TError = ErrorType<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof previewAdminSocialTrustIcon>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getPreviewAdminSocialTrustIconQueryOptions = <TData = Awaited<ReturnType<typeof previewAdminSocialTrustIcon>>, TError = ErrorType<unknown>>(id: string,
+    params?: PreviewAdminSocialTrustIconParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof previewAdminSocialTrustIcon>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getPreviewAdminSocialTrustIconQueryKey(id);
+  const queryKey =  queryOptions?.queryKey ?? getPreviewAdminSocialTrustIconQueryKey(id,params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof previewAdminSocialTrustIcon>>> = ({ signal }) => previewAdminSocialTrustIcon(id, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof previewAdminSocialTrustIcon>>> = ({ signal }) => previewAdminSocialTrustIcon(id,params, { signal, ...requestOptions });
 
 
 
@@ -17401,11 +17413,12 @@ export type PreviewAdminSocialTrustIconQueryError = ErrorType<unknown>
 
 
 export function usePreviewAdminSocialTrustIcon<TData = Awaited<ReturnType<typeof previewAdminSocialTrustIcon>>, TError = ErrorType<unknown>>(
- id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof previewAdminSocialTrustIcon>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ id: string,
+    params?: PreviewAdminSocialTrustIconParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof previewAdminSocialTrustIcon>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getPreviewAdminSocialTrustIconQueryOptions(id,options)
+  const queryOptions = getPreviewAdminSocialTrustIconQueryOptions(id,params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

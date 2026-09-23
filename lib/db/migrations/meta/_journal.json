@@ -806,6 +806,27 @@
       "when": 1790199084841,
       "tag": "0116_long_kate_bishop",
       "breakpoints": true
+    },
+    {
+      "idx": 117,
+      "version": "7",
+      "when": 1790199085841,
+      "tag": "0117_social_trust_display_controls",
+      "breakpoints": true
+    },
+    {
+      "idx": 118,
+      "version": "7",
+      "when": 1790199086841,
+      "tag": "0118_social_trust_appearance",
+      "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1790199087841,
+      "tag": "0119_copy_legacy_trust_appearance",
+      "breakpoints": true
     }
   ]
 }

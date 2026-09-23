@@ -29,4 +29,5 @@ export interface SocialMediaSettingsInput {
      */
   telegramUrl: string | null;
   appearance?: SocialIconAppearance;
+  trustAppearance?: SocialIconAppearance;
 }

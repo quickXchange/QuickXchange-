@@ -80,6 +80,7 @@ import {
   type SiteNavigationSnapshot,
   type SitePartnerLogoSnapshot,
   type PartnerLogoSettings,
+  type SocialIconAppearance,
   type SiteSocialTrustSnapshot,
 } from "@workspace/db";
 import { ApiError } from "../lib/api-error";
@@ -288,7 +289,7 @@ async function verifyPartnerLogoPaths(paths: Array<string | null | undefined>): 
 
 function normalizedSocialIconAppearance(value: unknown) {
   const input = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
-  const result = { ...DEFAULT_SOCIAL_ICON_APPEARANCE };
+  const result: SocialIconAppearance = { ...DEFAULT_SOCIAL_ICON_APPEARANCE };
   const ranges = {
     iconSize: [8, 48],
     logoSize: [20, 100],
@@ -296,12 +297,23 @@ function normalizedSocialIconAppearance(value: unknown) {
     borderThickness: [0, 8],
     glowIntensity: [0, 100],
     iconOpacity: [0, 100],
+    spacing: [0, 80],
+    titleFontSize: [12, 40],
+    trustTitleFontSize: [12, 40],
   } as const;
   for (const [key, [minimum, maximum]] of Object.entries(ranges) as Array<[keyof typeof ranges, readonly [number, number]]>) {
     const candidate = Number(input[key]);
     if (Number.isFinite(candidate)) result[key] = Math.round(Math.min(maximum, Math.max(minimum, candidate)));
   }
   if (input.radiusMode === "circle" || input.radiusMode === "rounded" || input.radiusMode === "square") result.radiusMode = input.radiusMode as typeof DEFAULT_SOCIAL_ICON_APPEARANCE.radiusMode;
+  if (["left", "center", "right"].includes(String(input.alignment))) result.alignment = input.alignment as "left" | "center" | "right";
+  if (["left", "center", "right"].includes(String(input.titleAlignment))) result.titleAlignment = input.titleAlignment as "left" | "center" | "right";
+  if (["left", "center", "right"].includes(String(input.trustTitleAlignment))) result.trustTitleAlignment = input.trustTitleAlignment as "left" | "center" | "right";
+  if (["none", "lift", "scale", "glow"].includes(String(input.hoverAnimation))) result.hoverAnimation = input.hoverAnimation as "none" | "lift" | "scale" | "glow";
+  if (["horizontal", "centered", "vertical", "grid"].includes(String(input.layout))) result.layout = input.layout as "horizontal" | "centered" | "vertical" | "grid";
+  if (["none", "subtle", "glow"].includes(String(input.container))) result.container = input.container as "none" | "subtle" | "glow";
+  if (typeof input.socialTitleVisible === "boolean") result.socialTitleVisible = input.socialTitleVisible;
+  if (typeof input.trustTitleVisible === "boolean") result.trustTitleVisible = input.trustTitleVisible;
   for (const key of ["backgroundColor", "borderColor", "glowColor"] as const) {
     if (typeof input[key] === "string" && /^#[0-9a-f]{6}$/i.test(input[key])) result[key] = input[key];
   }
@@ -327,12 +339,7 @@ async function draftSocialTrust() {
   const [settings] = await db.select().from(socialTrustSettingsTable).where(eq(socialTrustSettingsTable.id, "footer")).limit(1);
   const items = await db.select().from(socialTrustLinksTable)
     .where(isNull(socialTrustLinksTable.removedAt))
-    .orderBy(
-      socialTrustLinksTable.group,
-      desc(socialTrustLinksTable.enabled),
-      socialTrustLinksTable.name,
-      socialTrustLinksTable.id,
-    );
+    .orderBy(socialTrustLinksTable.group, socialTrustLinksTable.sortOrder, socialTrustLinksTable.createdAt, socialTrustLinksTable.id);
   return {
     socialTitle: settings?.socialTitle ?? DEFAULT_SOCIAL_TRUST.socialTitle,
     trustTitle: settings?.trustTitle ?? DEFAULT_SOCIAL_TRUST.trustTitle,
@@ -341,6 +348,11 @@ async function draftSocialTrust() {
     facebookUrl: settings?.facebookUrl ?? DEFAULT_SOCIAL_TRUST.facebookUrl,
     telegramUrl: settings?.telegramUrl ?? DEFAULT_SOCIAL_TRUST.telegramUrl,
     appearance: normalizedSocialIconAppearance(settings?.appearance),
+    trustAppearance: normalizedSocialIconAppearance(settings?.trustAppearance),
+    socialTitleVisible: normalizedSocialIconAppearance(settings?.appearance).socialTitleVisible ?? true,
+    trustTitleVisible: normalizedSocialIconAppearance(settings?.trustAppearance).trustTitleVisible ?? true,
+    trustTitleFontSize: normalizedSocialIconAppearance(settings?.trustAppearance).titleFontSize ?? 18,
+    trustTitleAlignment: normalizedSocialIconAppearance(settings?.trustAppearance).titleAlignment ?? "left",
     items,
   };
 }
@@ -453,12 +465,17 @@ router.get("/site-content", async (_req, res): Promise<void> => {
   );
   const orderedPartnerLogos = sortPartnerLogos(partnerLogos).map(publicPartnerLogo);
   const partnerLogoSettings = publication?.partnerLogoSettings ?? DEFAULT_PARTNER_LOGO_SETTINGS;
-  const socialTrust = publication?.socialTrust
-    ? { ...publication.socialTrust, items: [...publication.socialTrust.items] }
+  const socialTrust: SiteSocialTrustSnapshot = publication?.socialTrust
+    ? {
+      ...publication.socialTrust,
+      trustAppearance: publication.socialTrust.trustAppearance ?? publication.socialTrust.appearance,
+      items: [...publication.socialTrust.items],
+    }
     : { ...DEFAULT_SOCIAL_TRUST, items: [] };
   socialTrust.items = socialTrust.items
     .filter((item) => item.enabled && !item.removedAt && isSafeSiteLink(item.href))
-    .sort((a, b) => a.group.localeCompare(b.group) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+    .map((item) => ({ ...item, displayMode: item.displayMode ?? "icon-only", appearance: item.appearance ?? "auto", sortOrder: item.sortOrder ?? 0 }))
+    .sort((a, b) => a.group.localeCompare(b.group) || (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
   const branding = GetWebsiteBrandingResponse.parse(publicWebsiteBranding(brandingRow));
   res.setHeader("cache-control", "public, max-age=0, must-revalidate");
   res.json(GetPublishedSiteContentResponse.parse({
@@ -506,7 +523,7 @@ router.get("/storage/objects/social-trust-icons/:id", async (req, res, next): Pr
   try {
     const publication = await latestPublication();
     const referenced = publication?.socialTrust.items.some((item) =>
-      item.objectPath === objectPath && item.enabled && !item.removedAt,
+      [item.objectPath, item.lightObjectPath, item.darkObjectPath].includes(objectPath) && item.enabled && !item.removedAt,
     );
     if (!referenced) { res.status(404).json({ error: "Object not found" }); return; }
     const image = await getVerifiedSocialTrustIcon(objectPath);
@@ -976,12 +993,7 @@ router.post("/admin/site-publication", requireOwner, async (_req, res): Promise<
       .where(eq(socialTrustSettingsTable.id, "footer")).limit(1);
     const socialTrustItems = await tx.select().from(socialTrustLinksTable)
       .where(isNull(socialTrustLinksTable.removedAt))
-      .orderBy(
-        socialTrustLinksTable.group,
-        desc(socialTrustLinksTable.enabled),
-        socialTrustLinksTable.name,
-        socialTrustLinksTable.id,
-      );
+       .orderBy(socialTrustLinksTable.group, socialTrustLinksTable.sortOrder, socialTrustLinksTable.createdAt, socialTrustLinksTable.id);
     const socialTrustDraft = {
       socialTitle: socialTrustSettings?.socialTitle ?? DEFAULT_SOCIAL_TRUST.socialTitle,
       trustTitle: socialTrustSettings?.trustTitle ?? DEFAULT_SOCIAL_TRUST.trustTitle,
@@ -990,6 +1002,11 @@ router.post("/admin/site-publication", requireOwner, async (_req, res): Promise<
       facebookUrl: socialTrustSettings?.facebookUrl ?? DEFAULT_SOCIAL_TRUST.facebookUrl,
       telegramUrl: socialTrustSettings?.telegramUrl ?? DEFAULT_SOCIAL_TRUST.telegramUrl,
       appearance: normalizedSocialIconAppearance(socialTrustSettings?.appearance),
+      trustAppearance: normalizedSocialIconAppearance(socialTrustSettings?.trustAppearance),
+      socialTitleVisible: normalizedSocialIconAppearance(socialTrustSettings?.appearance).socialTitleVisible ?? true,
+      trustTitleVisible: normalizedSocialIconAppearance(socialTrustSettings?.trustAppearance).trustTitleVisible ?? true,
+      trustTitleFontSize: normalizedSocialIconAppearance(socialTrustSettings?.trustAppearance).titleFontSize ?? 18,
+      trustTitleAlignment: normalizedSocialIconAppearance(socialTrustSettings?.trustAppearance).titleAlignment ?? "left",
       items: socialTrustItems,
     };
     for (const logo of partnerRows.filter((row) => row.enabled)) {
@@ -1008,7 +1025,7 @@ router.post("/admin/site-publication", requireOwner, async (_req, res): Promise<
     for (const item of socialTrustDraft.items.filter((row) => row.enabled)) {
       if (!isSafeSiteLink(item.href)) throw new ApiError("SOCIAL_TRUST_LINK_INVALID", `Enabled footer link is invalid: ${item.id}`, 409);
        try {
-         if (item.objectPath) await verifyStoredSocialTrustIcon(item.objectPath);
+          for (const path of [item.objectPath, item.lightObjectPath, item.darkObjectPath]) if (path) await verifyStoredSocialTrustIcon(path);
       } catch (error) {
         if (error instanceof StoredObjectNotFoundError) throw new ApiError("SOCIAL_TRUST_ICON_MISSING", `Enabled footer icon is missing: ${item.id}`, 409);
         if (error instanceof StoredImageInvalidError) throw new ApiError("SOCIAL_TRUST_ICON_INVALID", `Enabled footer icon is invalid: ${item.id}`, 409);
@@ -1035,9 +1052,17 @@ router.post("/admin/site-publication", requireOwner, async (_req, res): Promise<
       facebookUrl: socialTrustDraft.facebookUrl,
       telegramUrl: socialTrustDraft.telegramUrl,
       appearance: socialTrustDraft.appearance,
+      trustAppearance: socialTrustDraft.trustAppearance,
+      socialTitleVisible: socialTrustDraft.socialTitleVisible,
+      trustTitleVisible: socialTrustDraft.trustTitleVisible,
+      trustTitleFontSize: socialTrustDraft.trustTitleFontSize,
+      trustTitleAlignment: socialTrustDraft.trustTitleAlignment,
       items: socialTrustDraft.items.map((row) => ({
         id: row.id, group: row.group as "social" | "trust", name: row.name, href: row.href,
-        objectPath: row.objectPath, enabled: row.enabled,
+        objectPath: row.objectPath, lightObjectPath: row.lightObjectPath, darkObjectPath: row.darkObjectPath,
+        appearance: row.appearance as "auto" | "same" | "separate",
+        displayMode: row.displayMode as "icon-only" | "icon-name", sortOrder: row.sortOrder ?? 0,
+        enabled: row.enabled,
         removedAt: row.removedAt?.toISOString() ?? null, createdAt: row.createdAt.toISOString(),
       })),
     };
@@ -1078,15 +1103,13 @@ router.post("/admin/site-publication", requireOwner, async (_req, res): Promise<
       .flatMap(partnerLogoPaths)
       .filter((path) => !currentPaths.has(path) && !draftActivePaths.has(path)))];
      const currentSocialPaths = new Set(
-       socialTrust.items.filter((item) => item.enabled && !item.removedAt && item.objectPath).map((item) => item.objectPath as string),
+       socialTrust.items.filter((item) => item.enabled && !item.removedAt)
+         .flatMap((item) => [item.objectPath, item.lightObjectPath, item.darkObjectPath].filter((path): path is string => Boolean(path))),
     );
-     const draftActiveSocialPaths = new Set(socialTrust.items.map((item) => item.objectPath).filter((path): path is string => Boolean(path)));
+      const draftActiveSocialPaths = new Set(socialTrust.items.flatMap((item) => [item.objectPath, item.lightObjectPath, item.darkObjectPath]).filter((path): path is string => Boolean(path)));
     const socialCleanupPaths = (latest?.socialTrust.items ?? [])
-       .filter((item) => item.enabled && !item.removedAt && item.objectPath
-        && !currentSocialPaths.has(item.objectPath)
-        && !draftActiveSocialPaths.has(item.objectPath))
-       .map((item) => item.objectPath)
-       .filter((path): path is string => Boolean(path));
+        .flatMap((item) => [item.objectPath, item.lightObjectPath, item.darkObjectPath])
+        .filter((path): path is string => typeof path === "string" && !currentSocialPaths.has(path) && !draftActiveSocialPaths.has(path));
     return { row, created: true, partnerCleanupPaths, socialCleanupPaths };
   });
   for (const objectPath of result.partnerCleanupPaths) {
@@ -1274,6 +1297,7 @@ router.put("/admin/social-trust/social-media", requireOperator, async (req, res)
     facebookUrl: normalizedSocialUrl(input.facebookUrl),
     telegramUrl: normalizedSocialUrl(input.telegramUrl),
     ...(input.appearance ? { appearance: normalizedSocialIconAppearance(input.appearance) } : {}),
+    ...(input.trustAppearance ? { trustAppearance: normalizedSocialIconAppearance(input.trustAppearance) } : {}),
   };
   await db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(2026083153)`);
@@ -1281,6 +1305,7 @@ router.put("/admin/social-trust/social-media", requireOperator, async (req, res)
       id: "footer",
       ...DEFAULT_SOCIAL_TRUST,
       appearance: DEFAULT_SOCIAL_ICON_APPEARANCE,
+      trustAppearance: DEFAULT_SOCIAL_ICON_APPEARANCE,
       ...values,
       updatedBy: res.locals.operator.id,
     }).onConflictDoUpdate({
@@ -1306,7 +1331,7 @@ router.post("/admin/social-trust/items", requireOperator, async (req, res): Prom
   if (!input.name.trim()) throw new ApiError("SOCIAL_TRUST_NAME_INVALID", "Footer item names cannot be blank.", 400);
   if (!isSafeSiteLink(input.href.trim())) throw new ApiError("SOCIAL_TRUST_LINK_INVALID", "Footer links must be relative paths, anchors, or HTTP(S) URLs.", 400);
    try {
-     if (input.objectPath) await verifyStoredSocialTrustIcon(input.objectPath);
+      for (const path of [input.objectPath, input.lightObjectPath, input.darkObjectPath]) if (path) await verifyStoredSocialTrustIcon(path);
   } catch (error) {
     if (error instanceof StoredObjectNotFoundError) throw new ApiError("SOCIAL_TRUST_ICON_MISSING", "The uploaded icon could not be found. Please upload it again.", 400);
     if (error instanceof StoredImageInvalidError) throw new ApiError("SOCIAL_TRUST_ICON_INVALID", "This SVG contains unsupported content. Use a standard SVG, PNG, WebP, JPG, or JPEG icon.", 415);
@@ -1314,10 +1339,16 @@ router.post("/admin/social-trust/items", requireOperator, async (req, res): Prom
   }
   const [row] = await db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(2026083153)`);
+    const [lastInGroup] = await tx.select({ sortOrder: socialTrustLinksTable.sortOrder }).from(socialTrustLinksTable)
+      .where(and(eq(socialTrustLinksTable.group, input.group), isNull(socialTrustLinksTable.removedAt)))
+      .orderBy(desc(socialTrustLinksTable.sortOrder)).limit(1);
     const [created] = await tx.insert(socialTrustLinksTable).values({
       ...input,
       name: input.name.trim(),
       href: input.href.trim(),
+      displayMode: input.displayMode ?? "icon-only",
+      appearance: input.appearance ?? "auto",
+      sortOrder: input.sortOrder ?? ((lastInGroup?.sortOrder ?? -1) + 1),
       createdBy: res.locals.operator.id,
     }).returning();
     await tx.insert(siteContentAuditLogsTable).values({
@@ -1334,9 +1365,9 @@ router.patch("/admin/social-trust/items/:id", requireOperator, async (req, res):
   const input = UpdateAdminSocialTrustItemBody.parse(req.body);
   if (input.name !== undefined && !input.name.trim()) throw new ApiError("SOCIAL_TRUST_NAME_INVALID", "Footer item names cannot be blank.", 400);
   if (input.href && !isSafeSiteLink(input.href.trim())) throw new ApiError("SOCIAL_TRUST_LINK_INVALID", "Footer links must be relative paths, anchors, or HTTP(S) URLs.", 400);
-  if (input.objectPath) {
+  for (const path of [input.objectPath, input.lightObjectPath, input.darkObjectPath]) if (path) {
     try {
-      await verifyStoredSocialTrustIcon(input.objectPath);
+      await verifyStoredSocialTrustIcon(path);
     } catch (error) {
       if (error instanceof StoredObjectNotFoundError) throw new ApiError("SOCIAL_TRUST_ICON_MISSING", "The uploaded icon could not be found. Please upload it again.", 400);
       if (error instanceof StoredImageInvalidError) throw new ApiError("SOCIAL_TRUST_ICON_INVALID", "This SVG contains unsupported content. Use a standard SVG, PNG, WebP, JPG, or JPEG icon.", 415);
@@ -1375,11 +1406,17 @@ router.delete("/admin/social-trust/items/:id", requireOperator, async (req, res)
 router.get("/admin/social-trust/items/:id/preview", requireOperator, async (req, res, next): Promise<void> => {
   const { id } = PreviewAdminSocialTrustIconParams.parse(req.params);
   try {
-    const [item] = await db.select({ objectPath: socialTrustLinksTable.objectPath }).from(socialTrustLinksTable)
+    const [item] = await db.select({
+      objectPath: socialTrustLinksTable.objectPath,
+      lightObjectPath: socialTrustLinksTable.lightObjectPath,
+      darkObjectPath: socialTrustLinksTable.darkObjectPath,
+    }).from(socialTrustLinksTable)
       .where(and(eq(socialTrustLinksTable.id, id), isNull(socialTrustLinksTable.removedAt))).limit(1);
     if (!item) { res.status(404).json({ error: "Object not found" }); return; }
-    if (!item.objectPath) { res.status(404).json({ error: "Item has no icon" }); return; }
-    const image = await getVerifiedSocialTrustIcon(item.objectPath);
+    const requestedPath = typeof req.query.objectPath === "string" ? req.query.objectPath : item.objectPath;
+    if (![item.objectPath, item.lightObjectPath, item.darkObjectPath].includes(requestedPath)) { res.status(404).json({ error: "Object not found" }); return; }
+    if (!requestedPath) { res.status(404).json({ error: "Item has no icon" }); return; }
+    const image = await getVerifiedSocialTrustIcon(requestedPath);
     res.setHeader("content-type", image.contentType);
     res.setHeader("cache-control", "private, no-store");
     res.setHeader("x-content-type-options", "nosniff");

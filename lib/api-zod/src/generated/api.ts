@@ -11626,6 +11626,54 @@ export const getPublishedSiteContentResponseSocialTrustAppearanceIconOpacityMin 
 export const getPublishedSiteContentResponseSocialTrustAppearanceIconOpacityMax = 100;
 export const getPublishedSiteContentResponseSocialTrustAppearanceIconOpacityMultipleOf = 1;
 
+export const getPublishedSiteContentResponseSocialTrustAppearanceSpacingMin = 0;
+export const getPublishedSiteContentResponseSocialTrustAppearanceSpacingMax = 80;
+
+export const getPublishedSiteContentResponseSocialTrustAppearanceTitleFontSizeMin = 12;
+export const getPublishedSiteContentResponseSocialTrustAppearanceTitleFontSizeMax = 40;
+
+export const getPublishedSiteContentResponseSocialTrustAppearanceTrustTitleFontSizeMin = 12;
+export const getPublishedSiteContentResponseSocialTrustAppearanceTrustTitleFontSizeMax = 40;
+
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceIconSizeMin = 8;
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceIconSizeMax = 48;
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceIconSizeMultipleOf = 1;
+
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceLogoSizeMin = 20;
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceLogoSizeMax = 100;
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceLogoSizeMultipleOf = 1;
+
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceCircleSizeMin = 24;
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceCircleSizeMax = 80;
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceCircleSizeMultipleOf = 1;
+
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceBorderThicknessMin = 0;
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceBorderThicknessMax = 8;
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceBorderThicknessMultipleOf = 1;
+
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceBackgroundColorRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceBorderColorRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceGlowColorRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceGlowIntensityMin = 0;
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceGlowIntensityMax = 100;
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceGlowIntensityMultipleOf = 1;
+
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceIconOpacityMin = 0;
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceIconOpacityMax = 100;
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceIconOpacityMultipleOf = 1;
+
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceSpacingMin = 0;
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceSpacingMax = 80;
+
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceTitleFontSizeMin = 12;
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceTitleFontSizeMax = 40;
+
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceTrustTitleFontSizeMin = 12;
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceTrustTitleFontSizeMax = 40;
+
+export const getPublishedSiteContentResponseSocialTrustTrustTitleFontSizeMin = 12;
+export const getPublishedSiteContentResponseSocialTrustTrustTitleFontSizeMax = 40;
+
 
 
 export const getPublishedSiteContentResponseBrandingLogoWidthMax = 4096;
@@ -11725,6 +11773,11 @@ export const GetPublishedSiteContentResponse = zod.object({
   "name": zod.string(),
   "href": zod.string(),
   "objectPath": zod.string().nullable(),
+  "lightObjectPath": zod.string().nullish(),
+  "darkObjectPath": zod.string().nullish(),
+  "appearance": zod.enum(['auto', 'same', 'separate']).optional(),
+  "displayMode": zod.enum(['icon-only', 'icon-name']),
+  "sortOrder": zod.number().int().optional(),
   "enabled": zod.boolean(),
   "createdAt": zod.coerce.date()
 })),
@@ -11738,8 +11791,46 @@ export const GetPublishedSiteContentResponse = zod.object({
   "borderColor": zod.string().regex(getPublishedSiteContentResponseSocialTrustAppearanceBorderColorRegExp),
   "glowColor": zod.string().regex(getPublishedSiteContentResponseSocialTrustAppearanceGlowColorRegExp),
   "glowIntensity": zod.number().min(getPublishedSiteContentResponseSocialTrustAppearanceGlowIntensityMin).max(getPublishedSiteContentResponseSocialTrustAppearanceGlowIntensityMax).multipleOf(getPublishedSiteContentResponseSocialTrustAppearanceGlowIntensityMultipleOf),
-  "iconOpacity": zod.number().min(getPublishedSiteContentResponseSocialTrustAppearanceIconOpacityMin).max(getPublishedSiteContentResponseSocialTrustAppearanceIconOpacityMax).multipleOf(getPublishedSiteContentResponseSocialTrustAppearanceIconOpacityMultipleOf)
-}).optional()
+  "iconOpacity": zod.number().min(getPublishedSiteContentResponseSocialTrustAppearanceIconOpacityMin).max(getPublishedSiteContentResponseSocialTrustAppearanceIconOpacityMax).multipleOf(getPublishedSiteContentResponseSocialTrustAppearanceIconOpacityMultipleOf),
+  "spacing": zod.number().int().min(getPublishedSiteContentResponseSocialTrustAppearanceSpacingMin).max(getPublishedSiteContentResponseSocialTrustAppearanceSpacingMax).optional(),
+  "alignment": zod.enum(['left', 'center', 'right']).optional(),
+  "hoverAnimation": zod.enum(['none', 'lift', 'scale', 'glow']).optional(),
+  "layout": zod.enum(['horizontal', 'centered', 'vertical', 'grid']).optional(),
+  "container": zod.enum(['none', 'subtle', 'glow']).optional(),
+  "titleFontSize": zod.number().int().min(getPublishedSiteContentResponseSocialTrustAppearanceTitleFontSizeMin).max(getPublishedSiteContentResponseSocialTrustAppearanceTitleFontSizeMax).optional(),
+  "titleAlignment": zod.enum(['left', 'center', 'right']).optional(),
+  "socialTitleVisible": zod.boolean().optional(),
+  "trustTitleVisible": zod.boolean().optional(),
+  "trustTitleFontSize": zod.number().int().min(getPublishedSiteContentResponseSocialTrustAppearanceTrustTitleFontSizeMin).max(getPublishedSiteContentResponseSocialTrustAppearanceTrustTitleFontSizeMax).optional(),
+  "trustTitleAlignment": zod.enum(['left', 'center', 'right']).optional()
+}).optional(),
+  "trustAppearance": zod.object({
+  "iconSize": zod.number().min(getPublishedSiteContentResponseSocialTrustTrustAppearanceIconSizeMin).max(getPublishedSiteContentResponseSocialTrustTrustAppearanceIconSizeMax).multipleOf(getPublishedSiteContentResponseSocialTrustTrustAppearanceIconSizeMultipleOf),
+  "logoSize": zod.number().min(getPublishedSiteContentResponseSocialTrustTrustAppearanceLogoSizeMin).max(getPublishedSiteContentResponseSocialTrustTrustAppearanceLogoSizeMax).multipleOf(getPublishedSiteContentResponseSocialTrustTrustAppearanceLogoSizeMultipleOf),
+  "circleSize": zod.number().min(getPublishedSiteContentResponseSocialTrustTrustAppearanceCircleSizeMin).max(getPublishedSiteContentResponseSocialTrustTrustAppearanceCircleSizeMax).multipleOf(getPublishedSiteContentResponseSocialTrustTrustAppearanceCircleSizeMultipleOf),
+  "borderThickness": zod.number().min(getPublishedSiteContentResponseSocialTrustTrustAppearanceBorderThicknessMin).max(getPublishedSiteContentResponseSocialTrustTrustAppearanceBorderThicknessMax).multipleOf(getPublishedSiteContentResponseSocialTrustTrustAppearanceBorderThicknessMultipleOf),
+  "radiusMode": zod.enum(['circle', 'rounded', 'square']),
+  "backgroundColor": zod.string().regex(getPublishedSiteContentResponseSocialTrustTrustAppearanceBackgroundColorRegExp),
+  "borderColor": zod.string().regex(getPublishedSiteContentResponseSocialTrustTrustAppearanceBorderColorRegExp),
+  "glowColor": zod.string().regex(getPublishedSiteContentResponseSocialTrustTrustAppearanceGlowColorRegExp),
+  "glowIntensity": zod.number().min(getPublishedSiteContentResponseSocialTrustTrustAppearanceGlowIntensityMin).max(getPublishedSiteContentResponseSocialTrustTrustAppearanceGlowIntensityMax).multipleOf(getPublishedSiteContentResponseSocialTrustTrustAppearanceGlowIntensityMultipleOf),
+  "iconOpacity": zod.number().min(getPublishedSiteContentResponseSocialTrustTrustAppearanceIconOpacityMin).max(getPublishedSiteContentResponseSocialTrustTrustAppearanceIconOpacityMax).multipleOf(getPublishedSiteContentResponseSocialTrustTrustAppearanceIconOpacityMultipleOf),
+  "spacing": zod.number().int().min(getPublishedSiteContentResponseSocialTrustTrustAppearanceSpacingMin).max(getPublishedSiteContentResponseSocialTrustTrustAppearanceSpacingMax).optional(),
+  "alignment": zod.enum(['left', 'center', 'right']).optional(),
+  "hoverAnimation": zod.enum(['none', 'lift', 'scale', 'glow']).optional(),
+  "layout": zod.enum(['horizontal', 'centered', 'vertical', 'grid']).optional(),
+  "container": zod.enum(['none', 'subtle', 'glow']).optional(),
+  "titleFontSize": zod.number().int().min(getPublishedSiteContentResponseSocialTrustTrustAppearanceTitleFontSizeMin).max(getPublishedSiteContentResponseSocialTrustTrustAppearanceTitleFontSizeMax).optional(),
+  "titleAlignment": zod.enum(['left', 'center', 'right']).optional(),
+  "socialTitleVisible": zod.boolean().optional(),
+  "trustTitleVisible": zod.boolean().optional(),
+  "trustTitleFontSize": zod.number().int().min(getPublishedSiteContentResponseSocialTrustTrustAppearanceTrustTitleFontSizeMin).max(getPublishedSiteContentResponseSocialTrustTrustAppearanceTrustTitleFontSizeMax).optional(),
+  "trustTitleAlignment": zod.enum(['left', 'center', 'right']).optional()
+}).optional(),
+  "socialTitleVisible": zod.boolean().optional(),
+  "trustTitleVisible": zod.boolean().optional(),
+  "trustTitleFontSize": zod.number().int().min(getPublishedSiteContentResponseSocialTrustTrustTitleFontSizeMin).max(getPublishedSiteContentResponseSocialTrustTrustTitleFontSizeMax).optional(),
+  "trustTitleAlignment": zod.enum(['left', 'center', 'right']).optional()
 }),
   "branding": zod.object({
   "lightLogoPath": zod.string().min(1),
@@ -14097,6 +14188,54 @@ export const publishSitePublicationResponseSocialTrustAppearanceIconOpacityMin =
 export const publishSitePublicationResponseSocialTrustAppearanceIconOpacityMax = 100;
 export const publishSitePublicationResponseSocialTrustAppearanceIconOpacityMultipleOf = 1;
 
+export const publishSitePublicationResponseSocialTrustAppearanceSpacingMin = 0;
+export const publishSitePublicationResponseSocialTrustAppearanceSpacingMax = 80;
+
+export const publishSitePublicationResponseSocialTrustAppearanceTitleFontSizeMin = 12;
+export const publishSitePublicationResponseSocialTrustAppearanceTitleFontSizeMax = 40;
+
+export const publishSitePublicationResponseSocialTrustAppearanceTrustTitleFontSizeMin = 12;
+export const publishSitePublicationResponseSocialTrustAppearanceTrustTitleFontSizeMax = 40;
+
+export const publishSitePublicationResponseSocialTrustTrustAppearanceIconSizeMin = 8;
+export const publishSitePublicationResponseSocialTrustTrustAppearanceIconSizeMax = 48;
+export const publishSitePublicationResponseSocialTrustTrustAppearanceIconSizeMultipleOf = 1;
+
+export const publishSitePublicationResponseSocialTrustTrustAppearanceLogoSizeMin = 20;
+export const publishSitePublicationResponseSocialTrustTrustAppearanceLogoSizeMax = 100;
+export const publishSitePublicationResponseSocialTrustTrustAppearanceLogoSizeMultipleOf = 1;
+
+export const publishSitePublicationResponseSocialTrustTrustAppearanceCircleSizeMin = 24;
+export const publishSitePublicationResponseSocialTrustTrustAppearanceCircleSizeMax = 80;
+export const publishSitePublicationResponseSocialTrustTrustAppearanceCircleSizeMultipleOf = 1;
+
+export const publishSitePublicationResponseSocialTrustTrustAppearanceBorderThicknessMin = 0;
+export const publishSitePublicationResponseSocialTrustTrustAppearanceBorderThicknessMax = 8;
+export const publishSitePublicationResponseSocialTrustTrustAppearanceBorderThicknessMultipleOf = 1;
+
+export const publishSitePublicationResponseSocialTrustTrustAppearanceBackgroundColorRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
+export const publishSitePublicationResponseSocialTrustTrustAppearanceBorderColorRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
+export const publishSitePublicationResponseSocialTrustTrustAppearanceGlowColorRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
+export const publishSitePublicationResponseSocialTrustTrustAppearanceGlowIntensityMin = 0;
+export const publishSitePublicationResponseSocialTrustTrustAppearanceGlowIntensityMax = 100;
+export const publishSitePublicationResponseSocialTrustTrustAppearanceGlowIntensityMultipleOf = 1;
+
+export const publishSitePublicationResponseSocialTrustTrustAppearanceIconOpacityMin = 0;
+export const publishSitePublicationResponseSocialTrustTrustAppearanceIconOpacityMax = 100;
+export const publishSitePublicationResponseSocialTrustTrustAppearanceIconOpacityMultipleOf = 1;
+
+export const publishSitePublicationResponseSocialTrustTrustAppearanceSpacingMin = 0;
+export const publishSitePublicationResponseSocialTrustTrustAppearanceSpacingMax = 80;
+
+export const publishSitePublicationResponseSocialTrustTrustAppearanceTitleFontSizeMin = 12;
+export const publishSitePublicationResponseSocialTrustTrustAppearanceTitleFontSizeMax = 40;
+
+export const publishSitePublicationResponseSocialTrustTrustAppearanceTrustTitleFontSizeMin = 12;
+export const publishSitePublicationResponseSocialTrustTrustAppearanceTrustTitleFontSizeMax = 40;
+
+export const publishSitePublicationResponseSocialTrustTrustTitleFontSizeMin = 12;
+export const publishSitePublicationResponseSocialTrustTrustTitleFontSizeMax = 40;
+
 
 
 export const PublishSitePublicationResponse = zod.object({
@@ -14156,6 +14295,11 @@ export const PublishSitePublicationResponse = zod.object({
   "name": zod.string(),
   "href": zod.string(),
   "objectPath": zod.string().nullable(),
+  "lightObjectPath": zod.string().nullish(),
+  "darkObjectPath": zod.string().nullish(),
+  "appearance": zod.enum(['auto', 'same', 'separate']).optional(),
+  "displayMode": zod.enum(['icon-only', 'icon-name']),
+  "sortOrder": zod.number().int().optional(),
   "enabled": zod.boolean(),
   "createdAt": zod.coerce.date()
 })),
@@ -14169,8 +14313,46 @@ export const PublishSitePublicationResponse = zod.object({
   "borderColor": zod.string().regex(publishSitePublicationResponseSocialTrustAppearanceBorderColorRegExp),
   "glowColor": zod.string().regex(publishSitePublicationResponseSocialTrustAppearanceGlowColorRegExp),
   "glowIntensity": zod.number().min(publishSitePublicationResponseSocialTrustAppearanceGlowIntensityMin).max(publishSitePublicationResponseSocialTrustAppearanceGlowIntensityMax).multipleOf(publishSitePublicationResponseSocialTrustAppearanceGlowIntensityMultipleOf),
-  "iconOpacity": zod.number().min(publishSitePublicationResponseSocialTrustAppearanceIconOpacityMin).max(publishSitePublicationResponseSocialTrustAppearanceIconOpacityMax).multipleOf(publishSitePublicationResponseSocialTrustAppearanceIconOpacityMultipleOf)
-}).optional()
+  "iconOpacity": zod.number().min(publishSitePublicationResponseSocialTrustAppearanceIconOpacityMin).max(publishSitePublicationResponseSocialTrustAppearanceIconOpacityMax).multipleOf(publishSitePublicationResponseSocialTrustAppearanceIconOpacityMultipleOf),
+  "spacing": zod.number().int().min(publishSitePublicationResponseSocialTrustAppearanceSpacingMin).max(publishSitePublicationResponseSocialTrustAppearanceSpacingMax).optional(),
+  "alignment": zod.enum(['left', 'center', 'right']).optional(),
+  "hoverAnimation": zod.enum(['none', 'lift', 'scale', 'glow']).optional(),
+  "layout": zod.enum(['horizontal', 'centered', 'vertical', 'grid']).optional(),
+  "container": zod.enum(['none', 'subtle', 'glow']).optional(),
+  "titleFontSize": zod.number().int().min(publishSitePublicationResponseSocialTrustAppearanceTitleFontSizeMin).max(publishSitePublicationResponseSocialTrustAppearanceTitleFontSizeMax).optional(),
+  "titleAlignment": zod.enum(['left', 'center', 'right']).optional(),
+  "socialTitleVisible": zod.boolean().optional(),
+  "trustTitleVisible": zod.boolean().optional(),
+  "trustTitleFontSize": zod.number().int().min(publishSitePublicationResponseSocialTrustAppearanceTrustTitleFontSizeMin).max(publishSitePublicationResponseSocialTrustAppearanceTrustTitleFontSizeMax).optional(),
+  "trustTitleAlignment": zod.enum(['left', 'center', 'right']).optional()
+}).optional(),
+  "trustAppearance": zod.object({
+  "iconSize": zod.number().min(publishSitePublicationResponseSocialTrustTrustAppearanceIconSizeMin).max(publishSitePublicationResponseSocialTrustTrustAppearanceIconSizeMax).multipleOf(publishSitePublicationResponseSocialTrustTrustAppearanceIconSizeMultipleOf),
+  "logoSize": zod.number().min(publishSitePublicationResponseSocialTrustTrustAppearanceLogoSizeMin).max(publishSitePublicationResponseSocialTrustTrustAppearanceLogoSizeMax).multipleOf(publishSitePublicationResponseSocialTrustTrustAppearanceLogoSizeMultipleOf),
+  "circleSize": zod.number().min(publishSitePublicationResponseSocialTrustTrustAppearanceCircleSizeMin).max(publishSitePublicationResponseSocialTrustTrustAppearanceCircleSizeMax).multipleOf(publishSitePublicationResponseSocialTrustTrustAppearanceCircleSizeMultipleOf),
+  "borderThickness": zod.number().min(publishSitePublicationResponseSocialTrustTrustAppearanceBorderThicknessMin).max(publishSitePublicationResponseSocialTrustTrustAppearanceBorderThicknessMax).multipleOf(publishSitePublicationResponseSocialTrustTrustAppearanceBorderThicknessMultipleOf),
+  "radiusMode": zod.enum(['circle', 'rounded', 'square']),
+  "backgroundColor": zod.string().regex(publishSitePublicationResponseSocialTrustTrustAppearanceBackgroundColorRegExp),
+  "borderColor": zod.string().regex(publishSitePublicationResponseSocialTrustTrustAppearanceBorderColorRegExp),
+  "glowColor": zod.string().regex(publishSitePublicationResponseSocialTrustTrustAppearanceGlowColorRegExp),
+  "glowIntensity": zod.number().min(publishSitePublicationResponseSocialTrustTrustAppearanceGlowIntensityMin).max(publishSitePublicationResponseSocialTrustTrustAppearanceGlowIntensityMax).multipleOf(publishSitePublicationResponseSocialTrustTrustAppearanceGlowIntensityMultipleOf),
+  "iconOpacity": zod.number().min(publishSitePublicationResponseSocialTrustTrustAppearanceIconOpacityMin).max(publishSitePublicationResponseSocialTrustTrustAppearanceIconOpacityMax).multipleOf(publishSitePublicationResponseSocialTrustTrustAppearanceIconOpacityMultipleOf),
+  "spacing": zod.number().int().min(publishSitePublicationResponseSocialTrustTrustAppearanceSpacingMin).max(publishSitePublicationResponseSocialTrustTrustAppearanceSpacingMax).optional(),
+  "alignment": zod.enum(['left', 'center', 'right']).optional(),
+  "hoverAnimation": zod.enum(['none', 'lift', 'scale', 'glow']).optional(),
+  "layout": zod.enum(['horizontal', 'centered', 'vertical', 'grid']).optional(),
+  "container": zod.enum(['none', 'subtle', 'glow']).optional(),
+  "titleFontSize": zod.number().int().min(publishSitePublicationResponseSocialTrustTrustAppearanceTitleFontSizeMin).max(publishSitePublicationResponseSocialTrustTrustAppearanceTitleFontSizeMax).optional(),
+  "titleAlignment": zod.enum(['left', 'center', 'right']).optional(),
+  "socialTitleVisible": zod.boolean().optional(),
+  "trustTitleVisible": zod.boolean().optional(),
+  "trustTitleFontSize": zod.number().int().min(publishSitePublicationResponseSocialTrustTrustAppearanceTrustTitleFontSizeMin).max(publishSitePublicationResponseSocialTrustTrustAppearanceTrustTitleFontSizeMax).optional(),
+  "trustTitleAlignment": zod.enum(['left', 'center', 'right']).optional()
+}).optional(),
+  "socialTitleVisible": zod.boolean().optional(),
+  "trustTitleVisible": zod.boolean().optional(),
+  "trustTitleFontSize": zod.number().int().min(publishSitePublicationResponseSocialTrustTrustTitleFontSizeMin).max(publishSitePublicationResponseSocialTrustTrustTitleFontSizeMax).optional(),
+  "trustTitleAlignment": zod.enum(['left', 'center', 'right']).optional()
 }),
   "createdBy": zod.string(),
   "publishedBy": zod.string(),
@@ -14566,6 +14748,54 @@ export const getAdminSocialTrustResponseAppearanceIconOpacityMin = 0;
 export const getAdminSocialTrustResponseAppearanceIconOpacityMax = 100;
 export const getAdminSocialTrustResponseAppearanceIconOpacityMultipleOf = 1;
 
+export const getAdminSocialTrustResponseAppearanceSpacingMin = 0;
+export const getAdminSocialTrustResponseAppearanceSpacingMax = 80;
+
+export const getAdminSocialTrustResponseAppearanceTitleFontSizeMin = 12;
+export const getAdminSocialTrustResponseAppearanceTitleFontSizeMax = 40;
+
+export const getAdminSocialTrustResponseAppearanceTrustTitleFontSizeMin = 12;
+export const getAdminSocialTrustResponseAppearanceTrustTitleFontSizeMax = 40;
+
+export const getAdminSocialTrustResponseTrustAppearanceIconSizeMin = 8;
+export const getAdminSocialTrustResponseTrustAppearanceIconSizeMax = 48;
+export const getAdminSocialTrustResponseTrustAppearanceIconSizeMultipleOf = 1;
+
+export const getAdminSocialTrustResponseTrustAppearanceLogoSizeMin = 20;
+export const getAdminSocialTrustResponseTrustAppearanceLogoSizeMax = 100;
+export const getAdminSocialTrustResponseTrustAppearanceLogoSizeMultipleOf = 1;
+
+export const getAdminSocialTrustResponseTrustAppearanceCircleSizeMin = 24;
+export const getAdminSocialTrustResponseTrustAppearanceCircleSizeMax = 80;
+export const getAdminSocialTrustResponseTrustAppearanceCircleSizeMultipleOf = 1;
+
+export const getAdminSocialTrustResponseTrustAppearanceBorderThicknessMin = 0;
+export const getAdminSocialTrustResponseTrustAppearanceBorderThicknessMax = 8;
+export const getAdminSocialTrustResponseTrustAppearanceBorderThicknessMultipleOf = 1;
+
+export const getAdminSocialTrustResponseTrustAppearanceBackgroundColorRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
+export const getAdminSocialTrustResponseTrustAppearanceBorderColorRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
+export const getAdminSocialTrustResponseTrustAppearanceGlowColorRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
+export const getAdminSocialTrustResponseTrustAppearanceGlowIntensityMin = 0;
+export const getAdminSocialTrustResponseTrustAppearanceGlowIntensityMax = 100;
+export const getAdminSocialTrustResponseTrustAppearanceGlowIntensityMultipleOf = 1;
+
+export const getAdminSocialTrustResponseTrustAppearanceIconOpacityMin = 0;
+export const getAdminSocialTrustResponseTrustAppearanceIconOpacityMax = 100;
+export const getAdminSocialTrustResponseTrustAppearanceIconOpacityMultipleOf = 1;
+
+export const getAdminSocialTrustResponseTrustAppearanceSpacingMin = 0;
+export const getAdminSocialTrustResponseTrustAppearanceSpacingMax = 80;
+
+export const getAdminSocialTrustResponseTrustAppearanceTitleFontSizeMin = 12;
+export const getAdminSocialTrustResponseTrustAppearanceTitleFontSizeMax = 40;
+
+export const getAdminSocialTrustResponseTrustAppearanceTrustTitleFontSizeMin = 12;
+export const getAdminSocialTrustResponseTrustAppearanceTrustTitleFontSizeMax = 40;
+
+export const getAdminSocialTrustResponseTrustTitleFontSizeMin = 12;
+export const getAdminSocialTrustResponseTrustTitleFontSizeMax = 40;
+
 
 
 export const GetAdminSocialTrustResponse = zod.object({
@@ -14581,6 +14811,11 @@ export const GetAdminSocialTrustResponse = zod.object({
   "name": zod.string(),
   "href": zod.string(),
   "objectPath": zod.string().nullable(),
+  "lightObjectPath": zod.string().nullish(),
+  "darkObjectPath": zod.string().nullish(),
+  "appearance": zod.enum(['auto', 'same', 'separate']).optional(),
+  "displayMode": zod.enum(['icon-only', 'icon-name']),
+  "sortOrder": zod.number().int().optional(),
   "enabled": zod.boolean(),
   "createdAt": zod.coerce.date()
 })),
@@ -14594,8 +14829,46 @@ export const GetAdminSocialTrustResponse = zod.object({
   "borderColor": zod.string().regex(getAdminSocialTrustResponseAppearanceBorderColorRegExp),
   "glowColor": zod.string().regex(getAdminSocialTrustResponseAppearanceGlowColorRegExp),
   "glowIntensity": zod.number().min(getAdminSocialTrustResponseAppearanceGlowIntensityMin).max(getAdminSocialTrustResponseAppearanceGlowIntensityMax).multipleOf(getAdminSocialTrustResponseAppearanceGlowIntensityMultipleOf),
-  "iconOpacity": zod.number().min(getAdminSocialTrustResponseAppearanceIconOpacityMin).max(getAdminSocialTrustResponseAppearanceIconOpacityMax).multipleOf(getAdminSocialTrustResponseAppearanceIconOpacityMultipleOf)
-}).optional()
+  "iconOpacity": zod.number().min(getAdminSocialTrustResponseAppearanceIconOpacityMin).max(getAdminSocialTrustResponseAppearanceIconOpacityMax).multipleOf(getAdminSocialTrustResponseAppearanceIconOpacityMultipleOf),
+  "spacing": zod.number().int().min(getAdminSocialTrustResponseAppearanceSpacingMin).max(getAdminSocialTrustResponseAppearanceSpacingMax).optional(),
+  "alignment": zod.enum(['left', 'center', 'right']).optional(),
+  "hoverAnimation": zod.enum(['none', 'lift', 'scale', 'glow']).optional(),
+  "layout": zod.enum(['horizontal', 'centered', 'vertical', 'grid']).optional(),
+  "container": zod.enum(['none', 'subtle', 'glow']).optional(),
+  "titleFontSize": zod.number().int().min(getAdminSocialTrustResponseAppearanceTitleFontSizeMin).max(getAdminSocialTrustResponseAppearanceTitleFontSizeMax).optional(),
+  "titleAlignment": zod.enum(['left', 'center', 'right']).optional(),
+  "socialTitleVisible": zod.boolean().optional(),
+  "trustTitleVisible": zod.boolean().optional(),
+  "trustTitleFontSize": zod.number().int().min(getAdminSocialTrustResponseAppearanceTrustTitleFontSizeMin).max(getAdminSocialTrustResponseAppearanceTrustTitleFontSizeMax).optional(),
+  "trustTitleAlignment": zod.enum(['left', 'center', 'right']).optional()
+}).optional(),
+  "trustAppearance": zod.object({
+  "iconSize": zod.number().min(getAdminSocialTrustResponseTrustAppearanceIconSizeMin).max(getAdminSocialTrustResponseTrustAppearanceIconSizeMax).multipleOf(getAdminSocialTrustResponseTrustAppearanceIconSizeMultipleOf),
+  "logoSize": zod.number().min(getAdminSocialTrustResponseTrustAppearanceLogoSizeMin).max(getAdminSocialTrustResponseTrustAppearanceLogoSizeMax).multipleOf(getAdminSocialTrustResponseTrustAppearanceLogoSizeMultipleOf),
+  "circleSize": zod.number().min(getAdminSocialTrustResponseTrustAppearanceCircleSizeMin).max(getAdminSocialTrustResponseTrustAppearanceCircleSizeMax).multipleOf(getAdminSocialTrustResponseTrustAppearanceCircleSizeMultipleOf),
+  "borderThickness": zod.number().min(getAdminSocialTrustResponseTrustAppearanceBorderThicknessMin).max(getAdminSocialTrustResponseTrustAppearanceBorderThicknessMax).multipleOf(getAdminSocialTrustResponseTrustAppearanceBorderThicknessMultipleOf),
+  "radiusMode": zod.enum(['circle', 'rounded', 'square']),
+  "backgroundColor": zod.string().regex(getAdminSocialTrustResponseTrustAppearanceBackgroundColorRegExp),
+  "borderColor": zod.string().regex(getAdminSocialTrustResponseTrustAppearanceBorderColorRegExp),
+  "glowColor": zod.string().regex(getAdminSocialTrustResponseTrustAppearanceGlowColorRegExp),
+  "glowIntensity": zod.number().min(getAdminSocialTrustResponseTrustAppearanceGlowIntensityMin).max(getAdminSocialTrustResponseTrustAppearanceGlowIntensityMax).multipleOf(getAdminSocialTrustResponseTrustAppearanceGlowIntensityMultipleOf),
+  "iconOpacity": zod.number().min(getAdminSocialTrustResponseTrustAppearanceIconOpacityMin).max(getAdminSocialTrustResponseTrustAppearanceIconOpacityMax).multipleOf(getAdminSocialTrustResponseTrustAppearanceIconOpacityMultipleOf),
+  "spacing": zod.number().int().min(getAdminSocialTrustResponseTrustAppearanceSpacingMin).max(getAdminSocialTrustResponseTrustAppearanceSpacingMax).optional(),
+  "alignment": zod.enum(['left', 'center', 'right']).optional(),
+  "hoverAnimation": zod.enum(['none', 'lift', 'scale', 'glow']).optional(),
+  "layout": zod.enum(['horizontal', 'centered', 'vertical', 'grid']).optional(),
+  "container": zod.enum(['none', 'subtle', 'glow']).optional(),
+  "titleFontSize": zod.number().int().min(getAdminSocialTrustResponseTrustAppearanceTitleFontSizeMin).max(getAdminSocialTrustResponseTrustAppearanceTitleFontSizeMax).optional(),
+  "titleAlignment": zod.enum(['left', 'center', 'right']).optional(),
+  "socialTitleVisible": zod.boolean().optional(),
+  "trustTitleVisible": zod.boolean().optional(),
+  "trustTitleFontSize": zod.number().int().min(getAdminSocialTrustResponseTrustAppearanceTrustTitleFontSizeMin).max(getAdminSocialTrustResponseTrustAppearanceTrustTitleFontSizeMax).optional(),
+  "trustTitleAlignment": zod.enum(['left', 'center', 'right']).optional()
+}).optional(),
+  "socialTitleVisible": zod.boolean().optional(),
+  "trustTitleVisible": zod.boolean().optional(),
+  "trustTitleFontSize": zod.number().int().min(getAdminSocialTrustResponseTrustTitleFontSizeMin).max(getAdminSocialTrustResponseTrustTitleFontSizeMax).optional(),
+  "trustTitleAlignment": zod.enum(['left', 'center', 'right']).optional()
 })
 
 
@@ -14638,6 +14911,54 @@ export const updateAdminSocialTrustTitlesResponseAppearanceIconOpacityMin = 0;
 export const updateAdminSocialTrustTitlesResponseAppearanceIconOpacityMax = 100;
 export const updateAdminSocialTrustTitlesResponseAppearanceIconOpacityMultipleOf = 1;
 
+export const updateAdminSocialTrustTitlesResponseAppearanceSpacingMin = 0;
+export const updateAdminSocialTrustTitlesResponseAppearanceSpacingMax = 80;
+
+export const updateAdminSocialTrustTitlesResponseAppearanceTitleFontSizeMin = 12;
+export const updateAdminSocialTrustTitlesResponseAppearanceTitleFontSizeMax = 40;
+
+export const updateAdminSocialTrustTitlesResponseAppearanceTrustTitleFontSizeMin = 12;
+export const updateAdminSocialTrustTitlesResponseAppearanceTrustTitleFontSizeMax = 40;
+
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceIconSizeMin = 8;
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceIconSizeMax = 48;
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceIconSizeMultipleOf = 1;
+
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceLogoSizeMin = 20;
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceLogoSizeMax = 100;
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceLogoSizeMultipleOf = 1;
+
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceCircleSizeMin = 24;
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceCircleSizeMax = 80;
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceCircleSizeMultipleOf = 1;
+
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceBorderThicknessMin = 0;
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceBorderThicknessMax = 8;
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceBorderThicknessMultipleOf = 1;
+
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceBackgroundColorRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceBorderColorRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceGlowColorRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceGlowIntensityMin = 0;
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceGlowIntensityMax = 100;
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceGlowIntensityMultipleOf = 1;
+
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceIconOpacityMin = 0;
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceIconOpacityMax = 100;
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceIconOpacityMultipleOf = 1;
+
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceSpacingMin = 0;
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceSpacingMax = 80;
+
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceTitleFontSizeMin = 12;
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceTitleFontSizeMax = 40;
+
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceTrustTitleFontSizeMin = 12;
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceTrustTitleFontSizeMax = 40;
+
+export const updateAdminSocialTrustTitlesResponseTrustTitleFontSizeMin = 12;
+export const updateAdminSocialTrustTitlesResponseTrustTitleFontSizeMax = 40;
+
 
 
 export const UpdateAdminSocialTrustTitlesResponse = zod.object({
@@ -14653,6 +14974,11 @@ export const UpdateAdminSocialTrustTitlesResponse = zod.object({
   "name": zod.string(),
   "href": zod.string(),
   "objectPath": zod.string().nullable(),
+  "lightObjectPath": zod.string().nullish(),
+  "darkObjectPath": zod.string().nullish(),
+  "appearance": zod.enum(['auto', 'same', 'separate']).optional(),
+  "displayMode": zod.enum(['icon-only', 'icon-name']),
+  "sortOrder": zod.number().int().optional(),
   "enabled": zod.boolean(),
   "createdAt": zod.coerce.date()
 })),
@@ -14666,8 +14992,46 @@ export const UpdateAdminSocialTrustTitlesResponse = zod.object({
   "borderColor": zod.string().regex(updateAdminSocialTrustTitlesResponseAppearanceBorderColorRegExp),
   "glowColor": zod.string().regex(updateAdminSocialTrustTitlesResponseAppearanceGlowColorRegExp),
   "glowIntensity": zod.number().min(updateAdminSocialTrustTitlesResponseAppearanceGlowIntensityMin).max(updateAdminSocialTrustTitlesResponseAppearanceGlowIntensityMax).multipleOf(updateAdminSocialTrustTitlesResponseAppearanceGlowIntensityMultipleOf),
-  "iconOpacity": zod.number().min(updateAdminSocialTrustTitlesResponseAppearanceIconOpacityMin).max(updateAdminSocialTrustTitlesResponseAppearanceIconOpacityMax).multipleOf(updateAdminSocialTrustTitlesResponseAppearanceIconOpacityMultipleOf)
-}).optional()
+  "iconOpacity": zod.number().min(updateAdminSocialTrustTitlesResponseAppearanceIconOpacityMin).max(updateAdminSocialTrustTitlesResponseAppearanceIconOpacityMax).multipleOf(updateAdminSocialTrustTitlesResponseAppearanceIconOpacityMultipleOf),
+  "spacing": zod.number().int().min(updateAdminSocialTrustTitlesResponseAppearanceSpacingMin).max(updateAdminSocialTrustTitlesResponseAppearanceSpacingMax).optional(),
+  "alignment": zod.enum(['left', 'center', 'right']).optional(),
+  "hoverAnimation": zod.enum(['none', 'lift', 'scale', 'glow']).optional(),
+  "layout": zod.enum(['horizontal', 'centered', 'vertical', 'grid']).optional(),
+  "container": zod.enum(['none', 'subtle', 'glow']).optional(),
+  "titleFontSize": zod.number().int().min(updateAdminSocialTrustTitlesResponseAppearanceTitleFontSizeMin).max(updateAdminSocialTrustTitlesResponseAppearanceTitleFontSizeMax).optional(),
+  "titleAlignment": zod.enum(['left', 'center', 'right']).optional(),
+  "socialTitleVisible": zod.boolean().optional(),
+  "trustTitleVisible": zod.boolean().optional(),
+  "trustTitleFontSize": zod.number().int().min(updateAdminSocialTrustTitlesResponseAppearanceTrustTitleFontSizeMin).max(updateAdminSocialTrustTitlesResponseAppearanceTrustTitleFontSizeMax).optional(),
+  "trustTitleAlignment": zod.enum(['left', 'center', 'right']).optional()
+}).optional(),
+  "trustAppearance": zod.object({
+  "iconSize": zod.number().min(updateAdminSocialTrustTitlesResponseTrustAppearanceIconSizeMin).max(updateAdminSocialTrustTitlesResponseTrustAppearanceIconSizeMax).multipleOf(updateAdminSocialTrustTitlesResponseTrustAppearanceIconSizeMultipleOf),
+  "logoSize": zod.number().min(updateAdminSocialTrustTitlesResponseTrustAppearanceLogoSizeMin).max(updateAdminSocialTrustTitlesResponseTrustAppearanceLogoSizeMax).multipleOf(updateAdminSocialTrustTitlesResponseTrustAppearanceLogoSizeMultipleOf),
+  "circleSize": zod.number().min(updateAdminSocialTrustTitlesResponseTrustAppearanceCircleSizeMin).max(updateAdminSocialTrustTitlesResponseTrustAppearanceCircleSizeMax).multipleOf(updateAdminSocialTrustTitlesResponseTrustAppearanceCircleSizeMultipleOf),
+  "borderThickness": zod.number().min(updateAdminSocialTrustTitlesResponseTrustAppearanceBorderThicknessMin).max(updateAdminSocialTrustTitlesResponseTrustAppearanceBorderThicknessMax).multipleOf(updateAdminSocialTrustTitlesResponseTrustAppearanceBorderThicknessMultipleOf),
+  "radiusMode": zod.enum(['circle', 'rounded', 'square']),
+  "backgroundColor": zod.string().regex(updateAdminSocialTrustTitlesResponseTrustAppearanceBackgroundColorRegExp),
+  "borderColor": zod.string().regex(updateAdminSocialTrustTitlesResponseTrustAppearanceBorderColorRegExp),
+  "glowColor": zod.string().regex(updateAdminSocialTrustTitlesResponseTrustAppearanceGlowColorRegExp),
+  "glowIntensity": zod.number().min(updateAdminSocialTrustTitlesResponseTrustAppearanceGlowIntensityMin).max(updateAdminSocialTrustTitlesResponseTrustAppearanceGlowIntensityMax).multipleOf(updateAdminSocialTrustTitlesResponseTrustAppearanceGlowIntensityMultipleOf),
+  "iconOpacity": zod.number().min(updateAdminSocialTrustTitlesResponseTrustAppearanceIconOpacityMin).max(updateAdminSocialTrustTitlesResponseTrustAppearanceIconOpacityMax).multipleOf(updateAdminSocialTrustTitlesResponseTrustAppearanceIconOpacityMultipleOf),
+  "spacing": zod.number().int().min(updateAdminSocialTrustTitlesResponseTrustAppearanceSpacingMin).max(updateAdminSocialTrustTitlesResponseTrustAppearanceSpacingMax).optional(),
+  "alignment": zod.enum(['left', 'center', 'right']).optional(),
+  "hoverAnimation": zod.enum(['none', 'lift', 'scale', 'glow']).optional(),
+  "layout": zod.enum(['horizontal', 'centered', 'vertical', 'grid']).optional(),
+  "container": zod.enum(['none', 'subtle', 'glow']).optional(),
+  "titleFontSize": zod.number().int().min(updateAdminSocialTrustTitlesResponseTrustAppearanceTitleFontSizeMin).max(updateAdminSocialTrustTitlesResponseTrustAppearanceTitleFontSizeMax).optional(),
+  "titleAlignment": zod.enum(['left', 'center', 'right']).optional(),
+  "socialTitleVisible": zod.boolean().optional(),
+  "trustTitleVisible": zod.boolean().optional(),
+  "trustTitleFontSize": zod.number().int().min(updateAdminSocialTrustTitlesResponseTrustAppearanceTrustTitleFontSizeMin).max(updateAdminSocialTrustTitlesResponseTrustAppearanceTrustTitleFontSizeMax).optional(),
+  "trustTitleAlignment": zod.enum(['left', 'center', 'right']).optional()
+}).optional(),
+  "socialTitleVisible": zod.boolean().optional(),
+  "trustTitleVisible": zod.boolean().optional(),
+  "trustTitleFontSize": zod.number().int().min(updateAdminSocialTrustTitlesResponseTrustTitleFontSizeMin).max(updateAdminSocialTrustTitlesResponseTrustTitleFontSizeMax).optional(),
+  "trustTitleAlignment": zod.enum(['left', 'center', 'right']).optional()
 })
 
 
@@ -14706,6 +15070,51 @@ export const updateAdminSocialMediaBodyAppearanceIconOpacityMin = 0;
 export const updateAdminSocialMediaBodyAppearanceIconOpacityMax = 100;
 export const updateAdminSocialMediaBodyAppearanceIconOpacityMultipleOf = 1;
 
+export const updateAdminSocialMediaBodyAppearanceSpacingMin = 0;
+export const updateAdminSocialMediaBodyAppearanceSpacingMax = 80;
+
+export const updateAdminSocialMediaBodyAppearanceTitleFontSizeMin = 12;
+export const updateAdminSocialMediaBodyAppearanceTitleFontSizeMax = 40;
+
+export const updateAdminSocialMediaBodyAppearanceTrustTitleFontSizeMin = 12;
+export const updateAdminSocialMediaBodyAppearanceTrustTitleFontSizeMax = 40;
+
+export const updateAdminSocialMediaBodyTrustAppearanceIconSizeMin = 8;
+export const updateAdminSocialMediaBodyTrustAppearanceIconSizeMax = 48;
+export const updateAdminSocialMediaBodyTrustAppearanceIconSizeMultipleOf = 1;
+
+export const updateAdminSocialMediaBodyTrustAppearanceLogoSizeMin = 20;
+export const updateAdminSocialMediaBodyTrustAppearanceLogoSizeMax = 100;
+export const updateAdminSocialMediaBodyTrustAppearanceLogoSizeMultipleOf = 1;
+
+export const updateAdminSocialMediaBodyTrustAppearanceCircleSizeMin = 24;
+export const updateAdminSocialMediaBodyTrustAppearanceCircleSizeMax = 80;
+export const updateAdminSocialMediaBodyTrustAppearanceCircleSizeMultipleOf = 1;
+
+export const updateAdminSocialMediaBodyTrustAppearanceBorderThicknessMin = 0;
+export const updateAdminSocialMediaBodyTrustAppearanceBorderThicknessMax = 8;
+export const updateAdminSocialMediaBodyTrustAppearanceBorderThicknessMultipleOf = 1;
+
+export const updateAdminSocialMediaBodyTrustAppearanceBackgroundColorRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
+export const updateAdminSocialMediaBodyTrustAppearanceBorderColorRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
+export const updateAdminSocialMediaBodyTrustAppearanceGlowColorRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
+export const updateAdminSocialMediaBodyTrustAppearanceGlowIntensityMin = 0;
+export const updateAdminSocialMediaBodyTrustAppearanceGlowIntensityMax = 100;
+export const updateAdminSocialMediaBodyTrustAppearanceGlowIntensityMultipleOf = 1;
+
+export const updateAdminSocialMediaBodyTrustAppearanceIconOpacityMin = 0;
+export const updateAdminSocialMediaBodyTrustAppearanceIconOpacityMax = 100;
+export const updateAdminSocialMediaBodyTrustAppearanceIconOpacityMultipleOf = 1;
+
+export const updateAdminSocialMediaBodyTrustAppearanceSpacingMin = 0;
+export const updateAdminSocialMediaBodyTrustAppearanceSpacingMax = 80;
+
+export const updateAdminSocialMediaBodyTrustAppearanceTitleFontSizeMin = 12;
+export const updateAdminSocialMediaBodyTrustAppearanceTitleFontSizeMax = 40;
+
+export const updateAdminSocialMediaBodyTrustAppearanceTrustTitleFontSizeMin = 12;
+export const updateAdminSocialMediaBodyTrustAppearanceTrustTitleFontSizeMax = 40;
+
 
 
 export const UpdateAdminSocialMediaBody = zod.object({
@@ -14723,7 +15132,41 @@ export const UpdateAdminSocialMediaBody = zod.object({
   "borderColor": zod.string().regex(updateAdminSocialMediaBodyAppearanceBorderColorRegExp),
   "glowColor": zod.string().regex(updateAdminSocialMediaBodyAppearanceGlowColorRegExp),
   "glowIntensity": zod.number().min(updateAdminSocialMediaBodyAppearanceGlowIntensityMin).max(updateAdminSocialMediaBodyAppearanceGlowIntensityMax).multipleOf(updateAdminSocialMediaBodyAppearanceGlowIntensityMultipleOf),
-  "iconOpacity": zod.number().min(updateAdminSocialMediaBodyAppearanceIconOpacityMin).max(updateAdminSocialMediaBodyAppearanceIconOpacityMax).multipleOf(updateAdminSocialMediaBodyAppearanceIconOpacityMultipleOf)
+  "iconOpacity": zod.number().min(updateAdminSocialMediaBodyAppearanceIconOpacityMin).max(updateAdminSocialMediaBodyAppearanceIconOpacityMax).multipleOf(updateAdminSocialMediaBodyAppearanceIconOpacityMultipleOf),
+  "spacing": zod.number().int().min(updateAdminSocialMediaBodyAppearanceSpacingMin).max(updateAdminSocialMediaBodyAppearanceSpacingMax).optional(),
+  "alignment": zod.enum(['left', 'center', 'right']).optional(),
+  "hoverAnimation": zod.enum(['none', 'lift', 'scale', 'glow']).optional(),
+  "layout": zod.enum(['horizontal', 'centered', 'vertical', 'grid']).optional(),
+  "container": zod.enum(['none', 'subtle', 'glow']).optional(),
+  "titleFontSize": zod.number().int().min(updateAdminSocialMediaBodyAppearanceTitleFontSizeMin).max(updateAdminSocialMediaBodyAppearanceTitleFontSizeMax).optional(),
+  "titleAlignment": zod.enum(['left', 'center', 'right']).optional(),
+  "socialTitleVisible": zod.boolean().optional(),
+  "trustTitleVisible": zod.boolean().optional(),
+  "trustTitleFontSize": zod.number().int().min(updateAdminSocialMediaBodyAppearanceTrustTitleFontSizeMin).max(updateAdminSocialMediaBodyAppearanceTrustTitleFontSizeMax).optional(),
+  "trustTitleAlignment": zod.enum(['left', 'center', 'right']).optional()
+}).optional(),
+  "trustAppearance": zod.object({
+  "iconSize": zod.number().min(updateAdminSocialMediaBodyTrustAppearanceIconSizeMin).max(updateAdminSocialMediaBodyTrustAppearanceIconSizeMax).multipleOf(updateAdminSocialMediaBodyTrustAppearanceIconSizeMultipleOf),
+  "logoSize": zod.number().min(updateAdminSocialMediaBodyTrustAppearanceLogoSizeMin).max(updateAdminSocialMediaBodyTrustAppearanceLogoSizeMax).multipleOf(updateAdminSocialMediaBodyTrustAppearanceLogoSizeMultipleOf),
+  "circleSize": zod.number().min(updateAdminSocialMediaBodyTrustAppearanceCircleSizeMin).max(updateAdminSocialMediaBodyTrustAppearanceCircleSizeMax).multipleOf(updateAdminSocialMediaBodyTrustAppearanceCircleSizeMultipleOf),
+  "borderThickness": zod.number().min(updateAdminSocialMediaBodyTrustAppearanceBorderThicknessMin).max(updateAdminSocialMediaBodyTrustAppearanceBorderThicknessMax).multipleOf(updateAdminSocialMediaBodyTrustAppearanceBorderThicknessMultipleOf),
+  "radiusMode": zod.enum(['circle', 'rounded', 'square']),
+  "backgroundColor": zod.string().regex(updateAdminSocialMediaBodyTrustAppearanceBackgroundColorRegExp),
+  "borderColor": zod.string().regex(updateAdminSocialMediaBodyTrustAppearanceBorderColorRegExp),
+  "glowColor": zod.string().regex(updateAdminSocialMediaBodyTrustAppearanceGlowColorRegExp),
+  "glowIntensity": zod.number().min(updateAdminSocialMediaBodyTrustAppearanceGlowIntensityMin).max(updateAdminSocialMediaBodyTrustAppearanceGlowIntensityMax).multipleOf(updateAdminSocialMediaBodyTrustAppearanceGlowIntensityMultipleOf),
+  "iconOpacity": zod.number().min(updateAdminSocialMediaBodyTrustAppearanceIconOpacityMin).max(updateAdminSocialMediaBodyTrustAppearanceIconOpacityMax).multipleOf(updateAdminSocialMediaBodyTrustAppearanceIconOpacityMultipleOf),
+  "spacing": zod.number().int().min(updateAdminSocialMediaBodyTrustAppearanceSpacingMin).max(updateAdminSocialMediaBodyTrustAppearanceSpacingMax).optional(),
+  "alignment": zod.enum(['left', 'center', 'right']).optional(),
+  "hoverAnimation": zod.enum(['none', 'lift', 'scale', 'glow']).optional(),
+  "layout": zod.enum(['horizontal', 'centered', 'vertical', 'grid']).optional(),
+  "container": zod.enum(['none', 'subtle', 'glow']).optional(),
+  "titleFontSize": zod.number().int().min(updateAdminSocialMediaBodyTrustAppearanceTitleFontSizeMin).max(updateAdminSocialMediaBodyTrustAppearanceTitleFontSizeMax).optional(),
+  "titleAlignment": zod.enum(['left', 'center', 'right']).optional(),
+  "socialTitleVisible": zod.boolean().optional(),
+  "trustTitleVisible": zod.boolean().optional(),
+  "trustTitleFontSize": zod.number().int().min(updateAdminSocialMediaBodyTrustAppearanceTrustTitleFontSizeMin).max(updateAdminSocialMediaBodyTrustAppearanceTrustTitleFontSizeMax).optional(),
+  "trustTitleAlignment": zod.enum(['left', 'center', 'right']).optional()
 }).optional()
 })
 
@@ -14755,6 +15198,54 @@ export const updateAdminSocialMediaResponseAppearanceIconOpacityMin = 0;
 export const updateAdminSocialMediaResponseAppearanceIconOpacityMax = 100;
 export const updateAdminSocialMediaResponseAppearanceIconOpacityMultipleOf = 1;
 
+export const updateAdminSocialMediaResponseAppearanceSpacingMin = 0;
+export const updateAdminSocialMediaResponseAppearanceSpacingMax = 80;
+
+export const updateAdminSocialMediaResponseAppearanceTitleFontSizeMin = 12;
+export const updateAdminSocialMediaResponseAppearanceTitleFontSizeMax = 40;
+
+export const updateAdminSocialMediaResponseAppearanceTrustTitleFontSizeMin = 12;
+export const updateAdminSocialMediaResponseAppearanceTrustTitleFontSizeMax = 40;
+
+export const updateAdminSocialMediaResponseTrustAppearanceIconSizeMin = 8;
+export const updateAdminSocialMediaResponseTrustAppearanceIconSizeMax = 48;
+export const updateAdminSocialMediaResponseTrustAppearanceIconSizeMultipleOf = 1;
+
+export const updateAdminSocialMediaResponseTrustAppearanceLogoSizeMin = 20;
+export const updateAdminSocialMediaResponseTrustAppearanceLogoSizeMax = 100;
+export const updateAdminSocialMediaResponseTrustAppearanceLogoSizeMultipleOf = 1;
+
+export const updateAdminSocialMediaResponseTrustAppearanceCircleSizeMin = 24;
+export const updateAdminSocialMediaResponseTrustAppearanceCircleSizeMax = 80;
+export const updateAdminSocialMediaResponseTrustAppearanceCircleSizeMultipleOf = 1;
+
+export const updateAdminSocialMediaResponseTrustAppearanceBorderThicknessMin = 0;
+export const updateAdminSocialMediaResponseTrustAppearanceBorderThicknessMax = 8;
+export const updateAdminSocialMediaResponseTrustAppearanceBorderThicknessMultipleOf = 1;
+
+export const updateAdminSocialMediaResponseTrustAppearanceBackgroundColorRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
+export const updateAdminSocialMediaResponseTrustAppearanceBorderColorRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
+export const updateAdminSocialMediaResponseTrustAppearanceGlowColorRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
+export const updateAdminSocialMediaResponseTrustAppearanceGlowIntensityMin = 0;
+export const updateAdminSocialMediaResponseTrustAppearanceGlowIntensityMax = 100;
+export const updateAdminSocialMediaResponseTrustAppearanceGlowIntensityMultipleOf = 1;
+
+export const updateAdminSocialMediaResponseTrustAppearanceIconOpacityMin = 0;
+export const updateAdminSocialMediaResponseTrustAppearanceIconOpacityMax = 100;
+export const updateAdminSocialMediaResponseTrustAppearanceIconOpacityMultipleOf = 1;
+
+export const updateAdminSocialMediaResponseTrustAppearanceSpacingMin = 0;
+export const updateAdminSocialMediaResponseTrustAppearanceSpacingMax = 80;
+
+export const updateAdminSocialMediaResponseTrustAppearanceTitleFontSizeMin = 12;
+export const updateAdminSocialMediaResponseTrustAppearanceTitleFontSizeMax = 40;
+
+export const updateAdminSocialMediaResponseTrustAppearanceTrustTitleFontSizeMin = 12;
+export const updateAdminSocialMediaResponseTrustAppearanceTrustTitleFontSizeMax = 40;
+
+export const updateAdminSocialMediaResponseTrustTitleFontSizeMin = 12;
+export const updateAdminSocialMediaResponseTrustTitleFontSizeMax = 40;
+
 
 
 export const UpdateAdminSocialMediaResponse = zod.object({
@@ -14770,6 +15261,11 @@ export const UpdateAdminSocialMediaResponse = zod.object({
   "name": zod.string(),
   "href": zod.string(),
   "objectPath": zod.string().nullable(),
+  "lightObjectPath": zod.string().nullish(),
+  "darkObjectPath": zod.string().nullish(),
+  "appearance": zod.enum(['auto', 'same', 'separate']).optional(),
+  "displayMode": zod.enum(['icon-only', 'icon-name']),
+  "sortOrder": zod.number().int().optional(),
   "enabled": zod.boolean(),
   "createdAt": zod.coerce.date()
 })),
@@ -14783,8 +15279,46 @@ export const UpdateAdminSocialMediaResponse = zod.object({
   "borderColor": zod.string().regex(updateAdminSocialMediaResponseAppearanceBorderColorRegExp),
   "glowColor": zod.string().regex(updateAdminSocialMediaResponseAppearanceGlowColorRegExp),
   "glowIntensity": zod.number().min(updateAdminSocialMediaResponseAppearanceGlowIntensityMin).max(updateAdminSocialMediaResponseAppearanceGlowIntensityMax).multipleOf(updateAdminSocialMediaResponseAppearanceGlowIntensityMultipleOf),
-  "iconOpacity": zod.number().min(updateAdminSocialMediaResponseAppearanceIconOpacityMin).max(updateAdminSocialMediaResponseAppearanceIconOpacityMax).multipleOf(updateAdminSocialMediaResponseAppearanceIconOpacityMultipleOf)
-}).optional()
+  "iconOpacity": zod.number().min(updateAdminSocialMediaResponseAppearanceIconOpacityMin).max(updateAdminSocialMediaResponseAppearanceIconOpacityMax).multipleOf(updateAdminSocialMediaResponseAppearanceIconOpacityMultipleOf),
+  "spacing": zod.number().int().min(updateAdminSocialMediaResponseAppearanceSpacingMin).max(updateAdminSocialMediaResponseAppearanceSpacingMax).optional(),
+  "alignment": zod.enum(['left', 'center', 'right']).optional(),
+  "hoverAnimation": zod.enum(['none', 'lift', 'scale', 'glow']).optional(),
+  "layout": zod.enum(['horizontal', 'centered', 'vertical', 'grid']).optional(),
+  "container": zod.enum(['none', 'subtle', 'glow']).optional(),
+  "titleFontSize": zod.number().int().min(updateAdminSocialMediaResponseAppearanceTitleFontSizeMin).max(updateAdminSocialMediaResponseAppearanceTitleFontSizeMax).optional(),
+  "titleAlignment": zod.enum(['left', 'center', 'right']).optional(),
+  "socialTitleVisible": zod.boolean().optional(),
+  "trustTitleVisible": zod.boolean().optional(),
+  "trustTitleFontSize": zod.number().int().min(updateAdminSocialMediaResponseAppearanceTrustTitleFontSizeMin).max(updateAdminSocialMediaResponseAppearanceTrustTitleFontSizeMax).optional(),
+  "trustTitleAlignment": zod.enum(['left', 'center', 'right']).optional()
+}).optional(),
+  "trustAppearance": zod.object({
+  "iconSize": zod.number().min(updateAdminSocialMediaResponseTrustAppearanceIconSizeMin).max(updateAdminSocialMediaResponseTrustAppearanceIconSizeMax).multipleOf(updateAdminSocialMediaResponseTrustAppearanceIconSizeMultipleOf),
+  "logoSize": zod.number().min(updateAdminSocialMediaResponseTrustAppearanceLogoSizeMin).max(updateAdminSocialMediaResponseTrustAppearanceLogoSizeMax).multipleOf(updateAdminSocialMediaResponseTrustAppearanceLogoSizeMultipleOf),
+  "circleSize": zod.number().min(updateAdminSocialMediaResponseTrustAppearanceCircleSizeMin).max(updateAdminSocialMediaResponseTrustAppearanceCircleSizeMax).multipleOf(updateAdminSocialMediaResponseTrustAppearanceCircleSizeMultipleOf),
+  "borderThickness": zod.number().min(updateAdminSocialMediaResponseTrustAppearanceBorderThicknessMin).max(updateAdminSocialMediaResponseTrustAppearanceBorderThicknessMax).multipleOf(updateAdminSocialMediaResponseTrustAppearanceBorderThicknessMultipleOf),
+  "radiusMode": zod.enum(['circle', 'rounded', 'square']),
+  "backgroundColor": zod.string().regex(updateAdminSocialMediaResponseTrustAppearanceBackgroundColorRegExp),
+  "borderColor": zod.string().regex(updateAdminSocialMediaResponseTrustAppearanceBorderColorRegExp),
+  "glowColor": zod.string().regex(updateAdminSocialMediaResponseTrustAppearanceGlowColorRegExp),
+  "glowIntensity": zod.number().min(updateAdminSocialMediaResponseTrustAppearanceGlowIntensityMin).max(updateAdminSocialMediaResponseTrustAppearanceGlowIntensityMax).multipleOf(updateAdminSocialMediaResponseTrustAppearanceGlowIntensityMultipleOf),
+  "iconOpacity": zod.number().min(updateAdminSocialMediaResponseTrustAppearanceIconOpacityMin).max(updateAdminSocialMediaResponseTrustAppearanceIconOpacityMax).multipleOf(updateAdminSocialMediaResponseTrustAppearanceIconOpacityMultipleOf),
+  "spacing": zod.number().int().min(updateAdminSocialMediaResponseTrustAppearanceSpacingMin).max(updateAdminSocialMediaResponseTrustAppearanceSpacingMax).optional(),
+  "alignment": zod.enum(['left', 'center', 'right']).optional(),
+  "hoverAnimation": zod.enum(['none', 'lift', 'scale', 'glow']).optional(),
+  "layout": zod.enum(['horizontal', 'centered', 'vertical', 'grid']).optional(),
+  "container": zod.enum(['none', 'subtle', 'glow']).optional(),
+  "titleFontSize": zod.number().int().min(updateAdminSocialMediaResponseTrustAppearanceTitleFontSizeMin).max(updateAdminSocialMediaResponseTrustAppearanceTitleFontSizeMax).optional(),
+  "titleAlignment": zod.enum(['left', 'center', 'right']).optional(),
+  "socialTitleVisible": zod.boolean().optional(),
+  "trustTitleVisible": zod.boolean().optional(),
+  "trustTitleFontSize": zod.number().int().min(updateAdminSocialMediaResponseTrustAppearanceTrustTitleFontSizeMin).max(updateAdminSocialMediaResponseTrustAppearanceTrustTitleFontSizeMax).optional(),
+  "trustTitleAlignment": zod.enum(['left', 'center', 'right']).optional()
+}).optional(),
+  "socialTitleVisible": zod.boolean().optional(),
+  "trustTitleVisible": zod.boolean().optional(),
+  "trustTitleFontSize": zod.number().int().min(updateAdminSocialMediaResponseTrustTitleFontSizeMin).max(updateAdminSocialMediaResponseTrustTitleFontSizeMax).optional(),
+  "trustTitleAlignment": zod.enum(['left', 'center', 'right']).optional()
 })
 
 
@@ -14803,14 +15337,22 @@ export const createAdminSocialTrustItemBodyNameMax = 160;
 export const createAdminSocialTrustItemBodyHrefMax = 2048;
 
 export const createAdminSocialTrustItemBodyObjectPathRegExp = new RegExp('^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
-
+export const createAdminSocialTrustItemBodyLightObjectPathRegExp = new RegExp('^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+export const createAdminSocialTrustItemBodyDarkObjectPathRegExp = new RegExp('^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+export const createAdminSocialTrustItemBodyDisplayModeDefault = `icon-only`;
+export const createAdminSocialTrustItemBodyAppearanceDefault = `auto`;
 
 export const CreateAdminSocialTrustItemBody = zod.object({
   "group": zod.enum(['social', 'trust']),
   "name": zod.string().min(1).max(createAdminSocialTrustItemBodyNameMax),
   "href": zod.string().min(1).max(createAdminSocialTrustItemBodyHrefMax),
   "objectPath": zod.string().regex(createAdminSocialTrustItemBodyObjectPathRegExp).nullish(),
-  "enabled": zod.boolean()
+  "lightObjectPath": zod.string().regex(createAdminSocialTrustItemBodyLightObjectPathRegExp).nullish(),
+  "darkObjectPath": zod.string().regex(createAdminSocialTrustItemBodyDarkObjectPathRegExp).nullish(),
+  "enabled": zod.boolean(),
+  "displayMode": zod.enum(['icon-only', 'icon-name']).default(createAdminSocialTrustItemBodyDisplayModeDefault),
+  "appearance": zod.enum(['auto', 'same', 'separate']).default(createAdminSocialTrustItemBodyAppearanceDefault),
+  "sortOrder": zod.number().int().optional()
 })
 
 export const createAdminSocialTrustItemResponseIdRegExp = new RegExp('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
@@ -14822,6 +15364,11 @@ export const CreateAdminSocialTrustItemResponse = zod.object({
   "name": zod.string(),
   "href": zod.string(),
   "objectPath": zod.string().nullable(),
+  "lightObjectPath": zod.string().nullish(),
+  "darkObjectPath": zod.string().nullish(),
+  "appearance": zod.enum(['auto', 'same', 'separate']).optional(),
+  "displayMode": zod.enum(['icon-only', 'icon-name']),
+  "sortOrder": zod.number().int().optional(),
   "enabled": zod.boolean(),
   "createdAt": zod.coerce.date()
 })
@@ -14839,6 +15386,8 @@ export const updateAdminSocialTrustItemBodyNameMax = 160;
 export const updateAdminSocialTrustItemBodyHrefMax = 2048;
 
 export const updateAdminSocialTrustItemBodyObjectPathRegExp = new RegExp('^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+export const updateAdminSocialTrustItemBodyLightObjectPathRegExp = new RegExp('^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+export const updateAdminSocialTrustItemBodyDarkObjectPathRegExp = new RegExp('^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
 
 
 export const UpdateAdminSocialTrustItemBody = zod.object({
@@ -14846,7 +15395,12 @@ export const UpdateAdminSocialTrustItemBody = zod.object({
   "name": zod.string().min(1).max(updateAdminSocialTrustItemBodyNameMax).optional(),
   "href": zod.string().min(1).max(updateAdminSocialTrustItemBodyHrefMax).optional(),
   "objectPath": zod.string().regex(updateAdminSocialTrustItemBodyObjectPathRegExp).nullish(),
-  "enabled": zod.boolean().optional()
+  "lightObjectPath": zod.string().regex(updateAdminSocialTrustItemBodyLightObjectPathRegExp).nullish(),
+  "darkObjectPath": zod.string().regex(updateAdminSocialTrustItemBodyDarkObjectPathRegExp).nullish(),
+  "enabled": zod.boolean().optional(),
+  "displayMode": zod.enum(['icon-only', 'icon-name']).optional(),
+  "appearance": zod.enum(['auto', 'same', 'separate']).optional(),
+  "sortOrder": zod.number().int().optional()
 })
 
 export const updateAdminSocialTrustItemResponseIdRegExp = new RegExp('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
@@ -14858,6 +15412,11 @@ export const UpdateAdminSocialTrustItemResponse = zod.object({
   "name": zod.string(),
   "href": zod.string(),
   "objectPath": zod.string().nullable(),
+  "lightObjectPath": zod.string().nullish(),
+  "darkObjectPath": zod.string().nullish(),
+  "appearance": zod.enum(['auto', 'same', 'separate']).optional(),
+  "displayMode": zod.enum(['icon-only', 'icon-name']),
+  "sortOrder": zod.number().int().optional(),
   "enabled": zod.boolean(),
   "createdAt": zod.coerce.date()
 })
@@ -14878,6 +15437,13 @@ export const previewAdminSocialTrustIconPathIdRegExp = new RegExp('^[0-9a-f]{8}-
 
 export const PreviewAdminSocialTrustIconParams = zod.object({
   "id": zod.coerce.string().regex(previewAdminSocialTrustIconPathIdRegExp)
+})
+
+export const previewAdminSocialTrustIconQueryObjectPathRegExp = new RegExp('^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+
+
+export const PreviewAdminSocialTrustIconQueryParams = zod.object({
+  "objectPath": zod.coerce.string().regex(previewAdminSocialTrustIconQueryObjectPathRegExp).optional()
 })
 
 export const PreviewAdminSocialTrustIconResponse = zod.unknown()

@@ -69,6 +69,11 @@ export type SiteSocialTrustSnapshot = {
   facebookUrl?: string | null;
   telegramUrl?: string | null;
   appearance?: SocialIconAppearance;
+  trustAppearance?: SocialIconAppearance;
+  socialTitleVisible?: boolean;
+  trustTitleVisible?: boolean;
+  trustTitleFontSize?: number;
+  trustTitleAlignment?: "left" | "center" | "right";
   items: SiteSocialTrustLinkSnapshot[];
 };
 
@@ -83,6 +88,17 @@ export type SocialIconAppearance = {
   glowColor: string;
   glowIntensity: number;
   iconOpacity: number;
+  spacing?: number;
+  alignment?: "left" | "center" | "right";
+  hoverAnimation?: "none" | "lift" | "scale" | "glow";
+  layout?: "horizontal" | "centered" | "vertical" | "grid";
+  container?: "none" | "subtle" | "glow";
+  titleFontSize?: number;
+  titleAlignment?: "left" | "center" | "right";
+  socialTitleVisible?: boolean;
+  trustTitleVisible?: boolean;
+  trustTitleFontSize?: number;
+  trustTitleAlignment?: "left" | "center" | "right";
 };
 
 export type SiteSocialTrustLinkSnapshot = {
@@ -91,6 +107,11 @@ export type SiteSocialTrustLinkSnapshot = {
   name: string;
   href: string;
   objectPath: string | null;
+  lightObjectPath?: string | null;
+  darkObjectPath?: string | null;
+  appearance?: "auto" | "same" | "separate";
+  displayMode?: "icon-only" | "icon-name";
+  sortOrder?: number;
   enabled: boolean;
   removedAt: string | null;
   createdAt: string;
@@ -200,6 +221,7 @@ export const socialTrustSettingsTable = pgTable("site_social_trust_settings", {
   facebookUrl: text("facebook_url"),
   telegramUrl: text("telegram_url"),
   appearance: jsonb("appearance").$type<SocialIconAppearance>().notNull().default({ iconSize: 16, logoSize: 72, circleSize: 36, borderThickness: 1, radiusMode: "circle", backgroundColor: "#111827", borderColor: "#374151", glowColor: "#6366f1", glowIntensity: 0, iconOpacity: 100 }),
+  trustAppearance: jsonb("trust_appearance").$type<SocialIconAppearance>(),
   updatedBy: text("updated_by").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -210,6 +232,11 @@ export const socialTrustLinksTable = pgTable("site_social_trust_links", {
   name: text("name").notNull(),
   href: text("href").notNull(),
   objectPath: text("object_path"),
+  lightObjectPath: text("light_object_path"),
+  darkObjectPath: text("dark_object_path"),
+  appearance: text("appearance").notNull().default("auto"),
+  displayMode: text("display_mode").notNull().default("icon-only"),
+  sortOrder: integer("sort_order"),
   enabled: boolean("enabled").notNull().default(true),
   createdBy: text("created_by").notNull(),
   removedAt: timestamp("removed_at", { withTimezone: true }),
@@ -218,6 +245,10 @@ export const socialTrustLinksTable = pgTable("site_social_trust_links", {
 }, (table) => [
   check("site_social_trust_links_group_check", sql`${table.group} in ('social','trust')`),
   check("site_social_trust_links_path_check", sql`${table.objectPath} is null or ${table.objectPath} ~ '^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'`),
+  check("site_social_trust_links_light_path_check", sql`${table.lightObjectPath} is null or ${table.lightObjectPath} ~ '^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'`),
+  check("site_social_trust_links_dark_path_check", sql`${table.darkObjectPath} is null or ${table.darkObjectPath} ~ '^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'`),
+  check("site_social_trust_links_appearance_check", sql`${table.appearance} in ('auto','same','separate')`),
+  check("site_social_trust_links_display_mode_check", sql`${table.displayMode} in ('icon-only','icon-name')`),
 ]);
 
 export const contactSubmissionsTable = pgTable("site_contact_submissions", {

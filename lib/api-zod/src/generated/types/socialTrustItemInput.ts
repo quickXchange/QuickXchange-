@@ -5,6 +5,8 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { SocialTrustItemInputAppearance } from './socialTrustItemInputAppearance';
+import type { SocialTrustItemInputDisplayMode } from './socialTrustItemInputDisplayMode';
 import type { SocialTrustItemInputGroup } from './socialTrustItemInputGroup';
 
 export interface SocialTrustItemInput {
@@ -24,5 +26,18 @@ export interface SocialTrustItemInput {
      * @pattern ^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
      */
   objectPath?: string | null;
+  /**
+     * @nullable
+     * @pattern ^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+     */
+  lightObjectPath?: string | null;
+  /**
+     * @nullable
+     * @pattern ^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+     */
+  darkObjectPath?: string | null;
   enabled: boolean;
+  displayMode?: SocialTrustItemInputDisplayMode;
+  appearance?: SocialTrustItemInputAppearance;
+  sortOrder?: number;
 }

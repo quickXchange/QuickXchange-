@@ -347,6 +347,12 @@ test("social and trust drafts become public only through owner publication", { c
       glowIntensity: number;
       iconOpacity: number;
     };
+    trustAppearance: {
+      iconSize: number; logoSize: number; circleSize: number; borderThickness: number;
+      radiusMode: "circle" | "rounded" | "square"; backgroundColor: string; borderColor: string;
+      glowColor: string; glowIntensity: number; iconOpacity: number; spacing?: number; layout?: string;
+      alignment?: string;
+    };
   };
   const appearance = {
     iconSize: 20,
@@ -359,6 +365,13 @@ test("social and trust drafts become public only through owner publication", { c
     glowColor: "#6366f1",
     glowIntensity: 35,
     iconOpacity: 88,
+  };
+  const trustAppearance = {
+    ...appearance,
+    spacing: 26,
+    alignment: "center",
+    layout: "grid",
+    container: "subtle",
   };
   const invalidSocialMedia = await request("/admin/social-trust/social-media", {
     method: "PUT",
@@ -391,13 +404,18 @@ test("social and trust drafts become public only through owner publication", { c
       facebookUrl: "https://facebook.com/quickxchange",
       telegramUrl: "https://t.me/quickxchange",
       appearance,
+      trustAppearance,
     }),
   }, operatorUser);
   assert.equal(socialMedia.response.status, 200, socialMedia.body);
 
   const objectId = randomUUID();
+  const lightObjectId = randomUUID();
+  const darkObjectId = randomUUID();
   const bytes = await sharp({ create: { width: 3, height: 3, channels: 4, background: "#abcdef" } }).png().toBuffer();
-  objects.set(`assets/social-trust-icons/${objectId}`, { bytes, contentType: "image/png", deleted: false });
+  for (const iconId of [objectId, lightObjectId, darkObjectId]) {
+    objects.set(`assets/social-trust-icons/${iconId}`, { bytes, contentType: "image/png", deleted: false });
+  }
 
   const created = await request("/admin/social-trust/items", {
     method: "POST",
@@ -406,12 +424,27 @@ test("social and trust drafts become public only through owner publication", { c
       name: `${TEST_MARKER}-community`,
       href: "https://community.example.test/exact/path?from=footer",
       objectPath: `/objects/social-trust-icons/${objectId}`,
+      lightObjectPath: `/objects/social-trust-icons/${lightObjectId}`,
+      darkObjectPath: `/objects/social-trust-icons/${darkObjectId}`,
+      appearance: "separate",
+      displayMode: "icon-only",
+      sortOrder: 2,
       enabled: true,
     }),
   }, operatorUser);
   assert.equal(created.response.status, 201, created.body);
-  const item = JSON.parse(created.body) as { id: string };
+  const item = JSON.parse(created.body) as { id: string; displayMode: string; sortOrder: number };
   socialTrustIds.add(item.id);
+  assert.equal(item.displayMode, "icon-only");
+  assert.equal(item.sortOrder, 2);
+  for (const variantId of [lightObjectId, darkObjectId]) {
+    const variantPreview = await fetch(
+      `${apiUrl}/admin/social-trust/items/${item.id}/preview?objectPath=${encodeURIComponent(`/objects/social-trust-icons/${variantId}`)}`,
+      { headers: { "x-test-clerk-user-id": operatorUser } },
+    );
+    assert.equal(variantPreview.status, 200);
+    assert.deepEqual(Buffer.from(await variantPreview.arrayBuffer()), bytes);
+  }
 
   const beforePublish = await request(`/storage/objects/social-trust-icons/${objectId}`);
   assert.equal(beforePublish.response.status, 404);
@@ -432,7 +465,8 @@ test("social and trust drafts become public only through owner publication", { c
       facebookUrl: string | null;
       telegramUrl: string | null;
       appearance: typeof appearance;
-      items: Array<{ id: string; href: string }>;
+      trustAppearance: typeof trustAppearance;
+      items: Array<{ id: string; href: string; displayMode: string; sortOrder: number }>;
     };
   }).socialTrust;
   assert.equal(configured.instagramUrl, "https://instagram.com/quickxchange");
@@ -440,12 +474,17 @@ test("social and trust drafts become public only through owner publication", { c
   assert.equal(configured.facebookUrl, "https://facebook.com/quickxchange");
   assert.equal(configured.telegramUrl, "https://t.me/quickxchange");
   assert.deepEqual(configured.appearance, appearance);
+  assert.deepEqual(configured.trustAppearance, trustAppearance);
   const configuredItem = configured.items.find((candidate) => candidate.id === item.id);
   assert.equal(configuredItem?.href, "https://community.example.test/exact/path?from=footer");
+  assert.equal(configuredItem?.displayMode, "icon-only");
+  assert.equal(configuredItem?.sortOrder, 2);
 
-  const icon = await fetch(`${apiUrl}/storage/objects/social-trust-icons/${objectId}`);
-  assert.equal(icon.status, 200);
-  assert.deepEqual(Buffer.from(await icon.arrayBuffer()), bytes);
+  for (const iconId of [objectId, lightObjectId, darkObjectId]) {
+    const icon = await fetch(`${apiUrl}/storage/objects/social-trust-icons/${iconId}`);
+    assert.equal(icon.status, 200);
+    assert.deepEqual(Buffer.from(await icon.arrayBuffer()), bytes);
+  }
 
   const removedIcon = await request(`/admin/social-trust/items/${item.id}`, {
     method: "PATCH",
@@ -467,6 +506,7 @@ test("social and trust drafts become public only through owner publication", { c
       facebookUrl: originalDraft.facebookUrl,
       telegramUrl: originalDraft.telegramUrl,
       appearance: originalDraft.appearance,
+      trustAppearance: originalDraft.trustAppearance,
     }),
   }, operatorUser);
   assert.equal(clearedSocialMedia.response.status, 200, clearedSocialMedia.body);

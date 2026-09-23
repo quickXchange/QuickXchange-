@@ -4844,6 +4844,23 @@ export const SocialTrustItemGroup = {
   trust: 'trust',
 } as const;
 
+export type SocialTrustItemAppearance = typeof SocialTrustItemAppearance[keyof typeof SocialTrustItemAppearance];
+
+
+export const SocialTrustItemAppearance = {
+  auto: 'auto',
+  same: 'same',
+  separate: 'separate',
+} as const;
+
+export type SocialTrustItemDisplayMode = typeof SocialTrustItemDisplayMode[keyof typeof SocialTrustItemDisplayMode];
+
+
+export const SocialTrustItemDisplayMode = {
+  'icon-only': 'icon-only',
+  'icon-name': 'icon-name',
+} as const;
+
 export interface SocialTrustItem {
   /** @pattern ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ */
   id: string;
@@ -4852,6 +4869,13 @@ export interface SocialTrustItem {
   href: string;
   /** @nullable */
   objectPath: string | null;
+  /** @nullable */
+  lightObjectPath?: string | null;
+  /** @nullable */
+  darkObjectPath?: string | null;
+  appearance?: SocialTrustItemAppearance;
+  displayMode: SocialTrustItemDisplayMode;
+  sortOrder?: number;
   enabled: boolean;
   createdAt: string;
 }
@@ -4863,6 +4887,62 @@ export const SocialIconAppearanceRadiusMode = {
   circle: 'circle',
   rounded: 'rounded',
   square: 'square',
+} as const;
+
+export type SocialIconAppearanceAlignment = typeof SocialIconAppearanceAlignment[keyof typeof SocialIconAppearanceAlignment];
+
+
+export const SocialIconAppearanceAlignment = {
+  left: 'left',
+  center: 'center',
+  right: 'right',
+} as const;
+
+export type SocialIconAppearanceHoverAnimation = typeof SocialIconAppearanceHoverAnimation[keyof typeof SocialIconAppearanceHoverAnimation];
+
+
+export const SocialIconAppearanceHoverAnimation = {
+  none: 'none',
+  lift: 'lift',
+  scale: 'scale',
+  glow: 'glow',
+} as const;
+
+export type SocialIconAppearanceLayout = typeof SocialIconAppearanceLayout[keyof typeof SocialIconAppearanceLayout];
+
+
+export const SocialIconAppearanceLayout = {
+  horizontal: 'horizontal',
+  centered: 'centered',
+  vertical: 'vertical',
+  grid: 'grid',
+} as const;
+
+export type SocialIconAppearanceContainer = typeof SocialIconAppearanceContainer[keyof typeof SocialIconAppearanceContainer];
+
+
+export const SocialIconAppearanceContainer = {
+  none: 'none',
+  subtle: 'subtle',
+  glow: 'glow',
+} as const;
+
+export type SocialIconAppearanceTitleAlignment = typeof SocialIconAppearanceTitleAlignment[keyof typeof SocialIconAppearanceTitleAlignment];
+
+
+export const SocialIconAppearanceTitleAlignment = {
+  left: 'left',
+  center: 'center',
+  right: 'right',
+} as const;
+
+export type SocialIconAppearanceTrustTitleAlignment = typeof SocialIconAppearanceTrustTitleAlignment[keyof typeof SocialIconAppearanceTrustTitleAlignment];
+
+
+export const SocialIconAppearanceTrustTitleAlignment = {
+  left: 'left',
+  center: 'center',
+  right: 'right',
 } as const;
 
 export interface SocialIconAppearance {
@@ -4903,7 +4983,39 @@ export interface SocialIconAppearance {
      * @maximum 100
      */
   iconOpacity: number;
+  /**
+     * @minimum 0
+     * @maximum 80
+     */
+  spacing?: number;
+  alignment?: SocialIconAppearanceAlignment;
+  hoverAnimation?: SocialIconAppearanceHoverAnimation;
+  layout?: SocialIconAppearanceLayout;
+  container?: SocialIconAppearanceContainer;
+  /**
+     * @minimum 12
+     * @maximum 40
+     */
+  titleFontSize?: number;
+  titleAlignment?: SocialIconAppearanceTitleAlignment;
+  socialTitleVisible?: boolean;
+  trustTitleVisible?: boolean;
+  /**
+     * @minimum 12
+     * @maximum 40
+     */
+  trustTitleFontSize?: number;
+  trustTitleAlignment?: SocialIconAppearanceTrustTitleAlignment;
 }
+
+export type SocialTrustConfigTrustTitleAlignment = typeof SocialTrustConfigTrustTitleAlignment[keyof typeof SocialTrustConfigTrustTitleAlignment];
+
+
+export const SocialTrustConfigTrustTitleAlignment = {
+  left: 'left',
+  center: 'center',
+  right: 'right',
+} as const;
 
 export interface SocialTrustConfig {
   socialTitle: string;
@@ -4918,6 +5030,15 @@ export interface SocialTrustConfig {
   telegramUrl?: string | null;
   items: SocialTrustItem[];
   appearance?: SocialIconAppearance;
+  trustAppearance?: SocialIconAppearance;
+  socialTitleVisible?: boolean;
+  trustTitleVisible?: boolean;
+  /**
+     * @minimum 12
+     * @maximum 40
+     */
+  trustTitleFontSize?: number;
+  trustTitleAlignment?: SocialTrustConfigTrustTitleAlignment;
 }
 
 export type WebsiteBrandingAlignment = typeof WebsiteBrandingAlignment[keyof typeof WebsiteBrandingAlignment];
@@ -5234,6 +5355,7 @@ export interface SocialMediaSettingsInput {
      */
   telegramUrl: string | null;
   appearance?: SocialIconAppearance;
+  trustAppearance?: SocialIconAppearance;
 }
 
 export type SocialTrustItemInputGroup = typeof SocialTrustItemInputGroup[keyof typeof SocialTrustItemInputGroup];
@@ -5242,6 +5364,23 @@ export type SocialTrustItemInputGroup = typeof SocialTrustItemInputGroup[keyof t
 export const SocialTrustItemInputGroup = {
   social: 'social',
   trust: 'trust',
+} as const;
+
+export type SocialTrustItemInputDisplayMode = typeof SocialTrustItemInputDisplayMode[keyof typeof SocialTrustItemInputDisplayMode];
+
+
+export const SocialTrustItemInputDisplayMode = {
+  'icon-only': 'icon-only',
+  'icon-name': 'icon-name',
+} as const;
+
+export type SocialTrustItemInputAppearance = typeof SocialTrustItemInputAppearance[keyof typeof SocialTrustItemInputAppearance];
+
+
+export const SocialTrustItemInputAppearance = {
+  auto: 'auto',
+  same: 'same',
+  separate: 'separate',
 } as const;
 
 export interface SocialTrustItemInput {
@@ -5261,7 +5400,20 @@ export interface SocialTrustItemInput {
      * @pattern ^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
      */
   objectPath?: string | null;
+  /**
+     * @nullable
+     * @pattern ^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+     */
+  lightObjectPath?: string | null;
+  /**
+     * @nullable
+     * @pattern ^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+     */
+  darkObjectPath?: string | null;
   enabled: boolean;
+  displayMode?: SocialTrustItemInputDisplayMode;
+  appearance?: SocialTrustItemInputAppearance;
+  sortOrder?: number;
 }
 
 export type SocialTrustItemUpdateGroup = typeof SocialTrustItemUpdateGroup[keyof typeof SocialTrustItemUpdateGroup];
@@ -5270,6 +5422,23 @@ export type SocialTrustItemUpdateGroup = typeof SocialTrustItemUpdateGroup[keyof
 export const SocialTrustItemUpdateGroup = {
   social: 'social',
   trust: 'trust',
+} as const;
+
+export type SocialTrustItemUpdateDisplayMode = typeof SocialTrustItemUpdateDisplayMode[keyof typeof SocialTrustItemUpdateDisplayMode];
+
+
+export const SocialTrustItemUpdateDisplayMode = {
+  'icon-only': 'icon-only',
+  'icon-name': 'icon-name',
+} as const;
+
+export type SocialTrustItemUpdateAppearance = typeof SocialTrustItemUpdateAppearance[keyof typeof SocialTrustItemUpdateAppearance];
+
+
+export const SocialTrustItemUpdateAppearance = {
+  auto: 'auto',
+  same: 'same',
+  separate: 'separate',
 } as const;
 
 export interface SocialTrustItemUpdate {
@@ -5289,7 +5458,20 @@ export interface SocialTrustItemUpdate {
      * @pattern ^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
      */
   objectPath?: string | null;
+  /**
+     * @nullable
+     * @pattern ^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+     */
+  lightObjectPath?: string | null;
+  /**
+     * @nullable
+     * @pattern ^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+     */
+  darkObjectPath?: string | null;
   enabled?: boolean;
+  displayMode?: SocialTrustItemUpdateDisplayMode;
+  appearance?: SocialTrustItemUpdateAppearance;
+  sortOrder?: number;
 }
 
 export type ImageUploadInputContentType = typeof ImageUploadInputContentType[keyof typeof ImageUploadInputContentType];
@@ -6838,6 +7020,13 @@ export type PreviewAdminPartnerLogoParams = {
 /**
  * Optional draft variant path; it must match this partner row.
  * @pattern ^/objects/partner-logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+ */
+objectPath?: string;
+};
+
+export type PreviewAdminSocialTrustIconParams = {
+/**
+ * @pattern ^/objects/social-trust-icons/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
  */
 objectPath?: string;
 };

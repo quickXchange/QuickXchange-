@@ -5,7 +5,13 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { SocialIconAppearanceAlignment } from './socialIconAppearanceAlignment';
+import type { SocialIconAppearanceContainer } from './socialIconAppearanceContainer';
+import type { SocialIconAppearanceHoverAnimation } from './socialIconAppearanceHoverAnimation';
+import type { SocialIconAppearanceLayout } from './socialIconAppearanceLayout';
 import type { SocialIconAppearanceRadiusMode } from './socialIconAppearanceRadiusMode';
+import type { SocialIconAppearanceTitleAlignment } from './socialIconAppearanceTitleAlignment';
+import type { SocialIconAppearanceTrustTitleAlignment } from './socialIconAppearanceTrustTitleAlignment';
 
 export interface SocialIconAppearance {
   /**
@@ -45,4 +51,27 @@ export interface SocialIconAppearance {
      * @maximum 100
      */
   iconOpacity: number;
+  /**
+     * @minimum 0
+     * @maximum 80
+     */
+  spacing?: number;
+  alignment?: SocialIconAppearanceAlignment;
+  hoverAnimation?: SocialIconAppearanceHoverAnimation;
+  layout?: SocialIconAppearanceLayout;
+  container?: SocialIconAppearanceContainer;
+  /**
+     * @minimum 12
+     * @maximum 40
+     */
+  titleFontSize?: number;
+  titleAlignment?: SocialIconAppearanceTitleAlignment;
+  socialTitleVisible?: boolean;
+  trustTitleVisible?: boolean;
+  /**
+     * @minimum 12
+     * @maximum 40
+     */
+  trustTitleFontSize?: number;
+  trustTitleAlignment?: SocialIconAppearanceTrustTitleAlignment;
 }

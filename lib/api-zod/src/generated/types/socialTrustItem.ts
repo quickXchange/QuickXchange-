@@ -5,6 +5,8 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { SocialTrustItemAppearance } from './socialTrustItemAppearance';
+import type { SocialTrustItemDisplayMode } from './socialTrustItemDisplayMode';
 import type { SocialTrustItemGroup } from './socialTrustItemGroup';
 
 export interface SocialTrustItem {
@@ -15,6 +17,13 @@ export interface SocialTrustItem {
   href: string;
   /** @nullable */
   objectPath: string | null;
+  /** @nullable */
+  lightObjectPath?: string | null;
+  /** @nullable */
+  darkObjectPath?: string | null;
+  appearance?: SocialTrustItemAppearance;
+  displayMode: SocialTrustItemDisplayMode;
+  sortOrder?: number;
   enabled: boolean;
   createdAt: Date;
 }

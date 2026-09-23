@@ -69,6 +69,7 @@ import NotFound from './not-found';
 import { LivePreviewFrame } from '../components/live-preview-frame';
 import { PRIVACY_NOTICE_SECTIONS, TERMS_NOTICE_SECTIONS } from '../lib/legal-page-content';
 import { useAdminPermissions } from '../lib/admin-permissions';
+import { SocialTrustEditor as SocialTrustEditorV2 } from '../components/social-trust-editor';
 
 const WIDGET_EXCHANGE_INFORMATION_KEY = 'widget-exchange-information' as SitePageKey;
 const SITE_CONTENT_EDITOR_SECTIONS = [
@@ -1303,7 +1304,7 @@ function PartnerLogosEditor() {
 }
 
 function AdminSocialTrustIconPreview({ item }: { item: SocialTrustItem }) {
-  const preview = usePreviewAdminSocialTrustIcon(item.id, {
+  const preview = usePreviewAdminSocialTrustIcon(item.id, {}, {
     query: { queryKey: getPreviewAdminSocialTrustIconQueryKey(item.id), staleTime: 0, enabled: Boolean(item.objectPath) },
   });
   const [src, setSrc] = useState<string | null>(null);
@@ -1478,6 +1479,7 @@ function SocialTrustEditor() {
         name: newName.trim(),
         href: newHref.trim(),
         objectPath: file && newFilePreviewUrl ? 'preview-social-trust-icon' : null,
+        displayMode: 'icon-only',
         enabled: true,
         createdAt: new Date(0).toISOString(),
       });
@@ -1849,12 +1851,24 @@ export function AdminSiteContentPage() {
   const draftSocialTrustSnapshot = JSON.stringify({
     socialTitle: draftSocialTrust.data?.socialTitle,
     trustTitle: draftSocialTrust.data?.trustTitle,
-    items: (draftSocialTrust.data?.items ?? []).filter(i => i.enabled).map(({ id, group, name, href, objectPath, enabled, createdAt }) => ({ id, group, name, href, objectPath, enabled, createdAt }))
+    instagramUrl: draftSocialTrust.data?.instagramUrl,
+    xUrl: draftSocialTrust.data?.xUrl,
+    facebookUrl: draftSocialTrust.data?.facebookUrl,
+    telegramUrl: draftSocialTrust.data?.telegramUrl,
+    appearance: draftSocialTrust.data?.appearance,
+    trustAppearance: draftSocialTrust.data?.trustAppearance,
+    items: (draftSocialTrust.data?.items ?? []).filter(i => i.enabled).map(({ id, group, name, href, objectPath, lightObjectPath, darkObjectPath, appearance, displayMode, sortOrder, enabled, createdAt }) => ({ id, group, name, href, objectPath, lightObjectPath, darkObjectPath, appearance, displayMode, sortOrder, enabled, createdAt }))
   });
   const publishedSocialTrustSnapshot = JSON.stringify({
     socialTitle: publishedSiteContent.data?.socialTrust?.socialTitle,
     trustTitle: publishedSiteContent.data?.socialTrust?.trustTitle,
-    items: (publishedSiteContent.data?.socialTrust?.items ?? []).map(({ id, group, name, href, objectPath, enabled, createdAt }) => ({ id, group, name, href, objectPath, enabled, createdAt }))
+    instagramUrl: publishedSiteContent.data?.socialTrust?.instagramUrl,
+    xUrl: publishedSiteContent.data?.socialTrust?.xUrl,
+    facebookUrl: publishedSiteContent.data?.socialTrust?.facebookUrl,
+    telegramUrl: publishedSiteContent.data?.socialTrust?.telegramUrl,
+    appearance: publishedSiteContent.data?.socialTrust?.appearance,
+    trustAppearance: publishedSiteContent.data?.socialTrust?.trustAppearance,
+    items: (publishedSiteContent.data?.socialTrust?.items ?? []).map(({ id, group, name, href, objectPath, lightObjectPath, darkObjectPath, appearance, displayMode, sortOrder, enabled, createdAt }) => ({ id, group, name, href, objectPath, lightObjectPath, darkObjectPath, appearance, displayMode, sortOrder, enabled, createdAt }))
   });
 
   const publicationDataReady = draftNavigation.isSuccess && draftLogos.isSuccess && publishedNavigation.isSuccess && publishedLogos.isSuccess && draftSocialTrust.isSuccess && publishedSiteContent.isSuccess;
@@ -1915,7 +1929,7 @@ export function AdminSiteContentPage() {
       {([['pages', 'Pages'], ['navigation', 'Navigation'], ['logos', 'Partner logos'], ['social-trust', 'Social Media'], ['inbox', 'Contact inbox']] as const).map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={tab === value} className={cn('button', tab === value ? 'button-primary' : 'button-secondary')} onClick={() => setTab(value)} data-testid={`tab-site-management-${value}`}>{value === 'pages' ? <Save size={15} /> : value === 'navigation' ? <Link2 size={15} /> : value === 'logos' ? <ImagePlus size={15} /> : value === 'social-trust' ? <Share2 size={15} /> : <Inbox size={15} />}{label}</button>)}
     </div>
      {canManage
-       ? (tab === 'pages' ? <DraftEditor /> : tab === 'navigation' ? <NavigationEditor /> : tab === 'logos' ? <PartnerLogosEditor /> : tab === 'social-trust' ? <SocialTrustEditor /> : <ContactInbox />)
+       ? (tab === 'pages' ? <DraftEditor /> : tab === 'navigation' ? <NavigationEditor /> : tab === 'logos' ? <PartnerLogosEditor /> : tab === 'social-trust' ? <SocialTrustEditorV2 /> : <ContactInbox />)
        : <section className="panel p-6 text-sm text-muted-foreground" data-testid="site-content-read-only">You have view-only access to site settings.</section>}
    </AdminShell>;
 }
