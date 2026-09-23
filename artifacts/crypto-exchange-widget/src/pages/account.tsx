@@ -250,7 +250,7 @@ function ClaimOrderForm() {
           onChange={e => setOrderId(e.target.value)}
           placeholder={t('account.claimPlaceholder')}
           aria-label={t('account.claimInputLabel')}
-          className="flex-1 bg-input/50 border border-border rounded-xl h-10 px-4 font-mono text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all min-w-0"
+          className="flex-1 bg-background border border-border rounded-xl h-10 px-4 font-mono text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all min-w-0"
           data-testid="input-claim-order"
         />
         <button
@@ -321,7 +321,7 @@ function ReferralCodePrompt() {
         <input
           value={code}
           onChange={event => setCode(event.target.value.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 12))}
-          className="h-10 min-w-0 flex-1 rounded-xl border border-border bg-input/50 px-3 font-mono text-sm uppercase tracking-wider focus:border-primary focus:ring-1 focus:ring-primary"
+          className="h-10 min-w-0 flex-1 rounded-xl border border-border bg-background px-3 font-mono text-sm uppercase tracking-wider focus:border-primary focus:ring-1 focus:ring-primary"
           placeholder="8-character code"
           aria-label="Affiliate code"
           autoCapitalize="characters"
@@ -623,13 +623,13 @@ export function AccountOrdersPage() {
                 placeholder={t('customerPortal.searchPlaceholder')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-input/50 border border-border rounded-xl h-10 pl-9 pr-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                className="w-full bg-background border border-border rounded-xl h-10 pl-9 pr-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                 data-testid="search-orders"
               />
             </div>
 
             <select
-              className="bg-input/50 border border-border rounded-xl h-10 px-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all font-semibold outline-none"
+              className="bg-background border border-border rounded-xl h-10 px-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all font-semibold outline-none"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               data-testid="filter-status"

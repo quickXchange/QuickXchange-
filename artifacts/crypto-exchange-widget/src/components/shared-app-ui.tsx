@@ -320,23 +320,33 @@ export const publicApiErrorText = (
 
 export function StatusPill({ status, customerFacing = false }: { status?: string; customerFacing?: boolean }) {
   const normalized = (status || 'pending').toLowerCase();
-  const rawTone = normalized.includes('complete') || normalized.includes('paid') || normalized.includes('configured') || normalized.includes('active') || normalized.includes('healthy') ? 'success'
-    : normalized.includes('fail') || normalized.includes('cancel') || normalized.includes('missing') || normalized.includes('expire') || normalized.includes('disabled') || normalized.includes('unavailable') ? 'error'
-      : normalized.includes('process') || normalized.includes('review') || normalized.includes('exchang') || normalized.includes('payout') || normalized.includes('refund') || normalized.includes('hold') || normalized.includes('deposit received') || normalized.includes('stale') ? 'warning' : 'info';
+
   const customerLabel = normalized.includes('cancel') ? 'Cancelled'
     : normalized.includes('refund') ? 'Refunded'
       : normalized.includes('expire') ? 'Expired'
         : normalized.includes('fail') ? 'Failed'
-          : normalized.includes('complete') || normalized.includes('finish') || normalized.includes('paid') ? 'Done'
+          : normalized.includes('complete') || normalized.includes('finish') || normalized.includes('paid') || normalized.includes('done') ? 'Done'
             : normalized.includes('funds confirmed') || normalized.includes('deposit received') ? 'Deposit Received'
               : normalized.includes('process') || normalized.includes('exchang') || normalized.includes('send') || normalized.includes('payout') ? 'Processing'
                 : normalized.includes('review') || normalized.includes('confirm') || normalized.includes('hold') || normalized.includes('verif') || normalized.includes('manual-review') ? 'Operator Reviewing'
                   : normalized.includes('awaiting funds') ? 'Awaiting Funds'
                     : normalized.includes('pending') || normalized.includes('created') || normalized.includes('new') || normalized.includes('await') || normalized.includes('deposit') ? 'Pending' : (status || 'Pending');
+
+  const isCompleted = normalized.includes('complete') || normalized.includes('paid') || normalized.includes('done') || normalized.includes('finish');
+  const isFailed = normalized.includes('fail') || normalized.includes('cancel') || normalized.includes('expire') || normalized.includes('refund');
+  const isProcessing = normalized.includes('process') || normalized.includes('exchang') || normalized.includes('send') || normalized.includes('payout') || normalized.includes('review') || normalized.includes('confirm') || normalized.includes('deposit received');
+
+  const rawTone = isCompleted ? 'success'
+    : isFailed || normalized.includes('missing') || normalized.includes('disabled') || normalized.includes('unavailable') ? 'error'
+    : isProcessing || normalized.includes('hold') || normalized.includes('stale') ? 'warning'
+    : normalized.includes('configured') || normalized.includes('active') || normalized.includes('healthy') ? 'success'
+    : 'info';
+
   const customerTone = customerLabel === 'Done' ? 'success'
     : ['Cancelled', 'Refunded', 'Expired', 'Failed'].includes(customerLabel) ? 'error'
       : customerLabel === 'Processing' || customerLabel === 'Operator Reviewing' || customerLabel === 'Deposit Received' ? 'warning'
         : 'info';
+
   const tone = customerFacing ? customerTone : rawTone;
   return <span data-testid={`status-${normalized}`} className={`badge badge-${tone}`}>{customerFacing ? customerLabel : (status || 'Pending')}</span>;
 }

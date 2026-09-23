@@ -12321,6 +12321,20 @@ body > [data-radix-popper-content-wrapper]:has(> .catalog-network-multiselect-co
   appearance: none;
 }
 
+html:not(.dark) .admin-shell.admin-redesign .admin-search-field input.admin-search-input {
+  border-color: rgb(148 163 184 / 0.62);
+  background: #fff !important;
+  color: #0f172a;
+}
+
+html:not(.dark) .admin-shell.admin-redesign .admin-search-field input.admin-search-input::placeholder {
+  color: #64748b;
+}
+
+html:not(.dark) .admin-shell.admin-redesign .admin-search-field .admin-search-icon {
+  color: #64748b;
+}
+
 .admin-shell.admin-redesign .admin-search-field input.admin-search-input::placeholder {
   color: hsl(var(--muted-foreground));
   opacity: 1;

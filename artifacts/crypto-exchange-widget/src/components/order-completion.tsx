@@ -1,6 +1,7 @@
-import { CheckCircle2, Download, ExternalLink, FileText, Printer, ShieldCheck, Star } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Download, ExternalLink, FileText, Printer, ShieldCheck, Star } from 'lucide-react';
 import type { CustomerOrder, ManualPublicOrderStatus, PublicOrderStatus } from '@workspace/api-client-react';
 import { basePath, number } from '@/components/shared-app-ui';
+import { OrderSettlementIdentity } from '@/components/order-settlement-identity';
 
 type CompletionOrder = CustomerOrder | (PublicOrderStatus & Partial<ManualPublicOrderStatus>);
 
@@ -71,124 +72,190 @@ async function buildInvoicePdf(order: CompletionOrder): Promise<Blob> {
   const completedAt = order.completedAt ||
     optionalOrderString(order, 'providerUpdatedAt') ||
     optionalOrderString(order, 'updatedAt');
-  const providerReference = optionalOrderString(order, 'providerReference');
   const paymentMethod = order.sourcePaymentMethod?.name || order.paymentDetails?.name || '—';
+  const receiveRouteLabel = isConvert ? order.toNetwork || 'Network unavailable' : order.toNetwork || paymentMethod;
   const logo = await loadInvoiceLogo();
 
   const escape = (value: string) => value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+  const text = (value: unknown) => escape(printable(value));
+  const date = (value?: string | null) => value ? new Date(value).toLocaleString() : '—';
+  const transaction = order.verifiedFundingTransaction;
+  const wrap = (value: string, width = 66) => {
+    const result: string[] = [];
+    for (let offset = 0; offset < value.length; offset += width) result.push(value.slice(offset, offset + width));
+    return result.length > 0 ? result : ['—'];
+  };
 
   const stream = [
     '0.043 0.067 0.122 rg',
-    '0 680 612 112 re f',
+    '0 650 612 142 re f',
     '0.024 0.714 0.831 rg',
     '0 788 612 4 re f',
+    '0.055 0.337 0.827 rg',
+    '0 784 204 4 re f',
+    '0.486 0.173 1 rg',
+    '204 784 204 4 re f',
     ...(logo ? [
       'q',
-      '168 0 0 71 44 704 cm',
+      '154 0 0 65 42 706 cm',
       '/Logo Do',
       'Q',
     ] : []),
     'BT',
-    '0.024 0.714 0.831 rg',
-    '/F1 10 Tf',
-    `${logo ? '238 727' : '50 735'} Td`,
-    `(${escape('COMPLETION RECEIPT / INVOICE')}) Tj`,
-    'ET',
-    'BT',
-    '0.4 0.4 0.4 rg',
-    '/F1 10 Tf',
-    '50 635 Td',
-    `(${escape('ORDER ID')}) Tj`,
-    '0 0 0 rg',
-    '/F1 12 Tf',
-    '0 -14 Td',
-    `(${escape(order.id)}) Tj`,
-    '0.4 0.4 0.4 rg',
-    '/F1 10 Tf',
-    '250 14 Td',
-    `(${escape('STATUS')}) Tj`,
+    '1 1 1 rg',
+    '/F1 15 Tf',
+    '372 744 Td',
+    `(${text('COMPLETION RECEIPT')}) Tj`,
     '0.133 0.773 0.369 rg',
-    '/F1 12 Tf',
-    '0 -14 Td',
-    `(${escape('Completed')}) Tj`,
+    '/F1 10 Tf',
+    '0 -24 Td',
+    `(${text('✓ COMPLETED')}) Tj`,
+    '0.75 0.82 0.91 rg',
+    '/F1 8 Tf',
+    '0 -22 Td',
+    `(${text(`ORDER ${order.id}`)}) Tj`,
     'ET',
+    '0.92 0.95 0.98 rg',
+    '36 612 540 20 re f',
     'BT',
-    '0.4 0.4 0.4 rg',
-    '/F1 10 Tf',
-    '50 575 Td',
-    `(${escape('CREATED')}) Tj`,
-    '0 0 0 rg',
-    '/F1 11 Tf',
-    '0 -14 Td',
-    `(${escape(new Date(order.createdAt).toLocaleString())}) Tj`,
-
-    '0.4 0.4 0.4 rg',
-    '/F1 10 Tf',
-    '250 14 Td',
-    `(${escape(completedAt ? 'COMPLETED' : 'UPDATED')}) Tj`,
-    '0 0 0 rg',
-    '/F1 11 Tf',
-    '0 -14 Td',
-    `(${escape(printable(completedAt ? new Date(completedAt).toLocaleString() : '—'))}) Tj`,
+    '0.08 0.12 0.2 rg',
+    '/F1 9 Tf',
+    '46 619 Td',
+    `(${text('TRANSACTION SUMMARY')}) Tj`,
     'ET',
-    '0.85 0.85 0.85 RG',
-    '1 w',
-    '50 530 m',
-    '562 530 l S',
+    '0.965 0.976 0.992 rg',
+    '36 516 250 82 re f',
+    '36 516 250 82 re S',
+    '326 516 250 82 re f',
+    '326 516 250 82 re S',
     'BT',
-    '0.4 0.4 0.4 rg',
-    '/F1 10 Tf',
-    '50 495 Td',
-    `(${escape('YOU SEND')}) Tj`,
-    '0 0 0 rg',
-    '/F1 14 Tf',
+    '0.39 0.46 0.57 rg',
+    '/F1 8 Tf',
+    '52 579 Td',
+    `(${text('YOU SEND')}) Tj`,
+    '0.04 0.07 0.12 rg',
+    '/F1 16 Tf',
+    '0 -25 Td',
+    `(${text(`${number(order.amount)} ${order.fromAsset}`)}) Tj`,
+    '0.39 0.46 0.57 rg',
+    '/F1 9 Tf',
     '0 -18 Td',
-    `(${escape(`${number(order.amount)} ${order.fromAsset}`)}) Tj`,
-    '0.4 0.4 0.4 rg',
-    '/F1 10 Tf',
-    '0 -14 Td',
-    `(${escape(order.fromNetwork || '—')}) Tj`,
-
-    '0.4 0.4 0.4 rg',
-    '/F1 10 Tf',
-    '250 32 Td',
-    `(${escape('YOU RECEIVE')}) Tj`,
-    '0 0 0 rg',
-    '/F1 14 Tf',
+    `(${text(order.fromNetwork || 'Network unavailable')}) Tj`,
+    '0.39 0.46 0.57 rg',
+    '/F1 8 Tf',
+    '290 43 Td',
+    `(${text('YOU RECEIVE')}) Tj`,
+    '0.055 0.337 0.827 rg',
+    '/F1 16 Tf',
+    '0 -25 Td',
+    `(${text(`${number(order.receiveAmount)} ${order.toAsset}`)}) Tj`,
+    '0.39 0.46 0.57 rg',
+    '/F1 9 Tf',
     '0 -18 Td',
-    `(${escape(`${number(order.receiveAmount)} ${order.toAsset}`)}) Tj`,
-    '0.4 0.4 0.4 rg',
-    '/F1 10 Tf',
-    '0 -14 Td',
-    `(${escape(isConvert ? order.toNetwork || '—' : paymentMethod)}) Tj`,
+    `(${text(receiveRouteLabel)}) Tj`,
     'ET',
-    '0.85 0.85 0.85 RG',
-    '1 w',
-    '50 420 m',
-    '562 420 l S',
+    '0.92 0.95 0.98 rg',
+    '36 476 540 20 re f',
     'BT',
-    '0 0 0 rg',
-    '/F1 10 Tf',
-    '50 385 Td',
+    '0.08 0.12 0.2 rg',
+    '/F1 9 Tf',
+    '46 483 Td',
+    `(${text('ORDER DETAILS')}) Tj`,
+    'ET',
+    'BT',
+    '0.39 0.46 0.57 rg',
+    '/F1 8 Tf',
+    '46 452 Td',
+    `(${text('ORDER ID')}) Tj`,
+    '0.04 0.07 0.12 rg',
+    '/F1 9 Tf',
+    '0 -14 Td',
+    `(${text(order.id)}) Tj`,
+    '0.39 0.46 0.57 rg',
+    '/F1 8 Tf',
+    '0 -28 Td',
+    `(${text('EXCHANGE TYPE')}) Tj`,
+    '0.04 0.07 0.12 rg',
+    '/F1 9 Tf',
+    '0 -14 Td',
+    `(${text(isConvert ? 'Convert' : 'Swap')}) Tj`,
+    '0.39 0.46 0.57 rg',
+    '/F1 8 Tf',
+    '0 -28 Td',
+    `(${text('NETWORK')}) Tj`,
+    '0.04 0.07 0.12 rg',
+    '/F1 9 Tf',
+    '0 -14 Td',
+    `(${text(order.fromNetwork || '—')}) Tj`,
+    '0.39 0.46 0.57 rg',
+    '/F1 8 Tf',
+    '280 84 Td',
+    `(${text('CREATED DATE')}) Tj`,
+    '0.04 0.07 0.12 rg',
+    '/F1 9 Tf',
+    '0 -14 Td',
+    `(${text(date(order.createdAt))}) Tj`,
+    '0.39 0.46 0.57 rg',
+    '/F1 8 Tf',
+    '0 -28 Td',
+    `(${text('COMPLETED DATE')}) Tj`,
+    '0.04 0.07 0.12 rg',
+    '/F1 9 Tf',
+    '0 -14 Td',
+    `(${text(date(completedAt))}) Tj`,
+    '0.39 0.46 0.57 rg',
+    '/F1 8 Tf',
+    '0 -28 Td',
+    `(${text(isConvert ? 'STATUS' : 'EXCHANGE RATE')}) Tj`,
+    '0.04 0.07 0.12 rg',
+    '/F1 9 Tf',
+    '0 -14 Td',
+    `(${text(isConvert ? 'Completed' : order.exchangeRate || '—')}) Tj`,
+    'ET',
   ];
 
-  const details = [];
-  if (!isConvert) details.push(`Exchange rate: ${order.exchangeRate || '—'}`);
-  if (!isConvert && order.verifiedFundingTransaction?.transactionHash) {
-    details.push(`Transaction ID: ${order.verifiedFundingTransaction.transactionHash}`);
+  if (transaction?.transactionHash) {
+    stream.push(
+      '0.92 0.95 0.98 rg',
+      '36 284 540 20 re f',
+      'BT',
+      '0.08 0.12 0.2 rg',
+      '/F1 9 Tf',
+      '46 291 Td',
+      `(${text('BLOCKCHAIN TRANSACTION')}) Tj`,
+      '0.39 0.46 0.57 rg',
+      '/F1 8 Tf',
+      '0 -28 Td',
+      `(${text('TRANSACTION ID')}) Tj`,
+      '0.04 0.07 0.12 rg',
+      '/F1 8 Tf',
+      '0 -14 Td',
+      ...wrap(transaction.transactionHash).flatMap(line => [`(${text(line)}) Tj`, '0 -12 Td']),
+      '0.39 0.46 0.57 rg',
+      '/F1 8 Tf',
+      '0 -8 Td',
+      `(${text(`NETWORK: ${transaction.networkName || transaction.networkCode}`)}) Tj`,
+      '0 -14 Td',
+      `(${text(`CONFIRMATIONS: ${transaction.confirmations}`)}) Tj`,
+      '0 -14 Td',
+      `(${text(`DETECTED: ${date(transaction.detectedAt)}`)}) Tj`,
+      'ET',
+    );
   }
-  if (order.paymentReference) details.push(`Payment reference: ${order.paymentReference}`);
-  if (providerReference) details.push(`Provider reference: ${providerReference}`);
-
-  details.forEach((line) => {
-    stream.push(`(${escape(printable(line))}) Tj`, '0 -16 Td');
-  });
 
   stream.push(
-    '0.4 0.4 0.4 rg',
-    '0 -24 Td',
-    `(${escape('Thank you for choosing QuickXchange.')}) Tj`,
-    'ET'
+    '0.043 0.067 0.122 rg',
+    '0 0 612 66 re f',
+    'BT',
+    '1 1 1 rg',
+    '/F1 10 Tf',
+    '190 40 Td',
+    `(${text('Thank you for choosing QuickXchange.')}) Tj`,
+    '0.62 0.72 0.85 rg',
+    '/F1 8 Tf',
+    '-36 -18 Td',
+    `(${text('quickxchange.net   •   @Quick_change_support')}) Tj`,
+    'ET',
   );
 
   const finalStream = stream.join('\n');
@@ -244,8 +311,9 @@ export function OrderCompletionSection({
   const completedAt = order.completedAt ||
     optionalOrderString(order, 'providerUpdatedAt') ||
     optionalOrderString(order, 'updatedAt');
-  const providerReference = optionalOrderString(order, 'providerReference');
   const paymentMethod = order.sourcePaymentMethod?.name || order.paymentDetails?.name || '—';
+  const receiveRouteLabel = isConvert ? order.toNetwork || 'Network unavailable' : order.toNetwork || paymentMethod;
+  const transaction = order.verifiedFundingTransaction;
   const downloadPdf = async () => {
     const url = URL.createObjectURL(await buildInvoicePdf(order));
     const link = document.createElement('a');
@@ -282,28 +350,63 @@ export function OrderCompletionSection({
       </div>
       <div className="order-invoice-sheet" data-testid="order-invoice">
         <div className="order-invoice-brand">
-          <img src={`${basePath}/brand/quickxchange-header-dark.png`} className="hidden dark:block print:hidden" alt="QuickXchange" />
-          <img src={`${basePath}/brand/quickxchange-header-light.png`} className="block dark:hidden print:block" alt="QuickXchange" />
-          <span><ShieldCheck size={14} /> Official completion receipt</span>
+          <img src={`${basePath}/brand/quickxchange-header-dark.png`} alt="QuickXchange" />
+          <div className="order-invoice-brand-copy">
+            <strong>Completion Receipt</strong>
+            <span className="order-invoice-badge"><CheckCircle2 size={14} /> Completed</span>
+          </div>
         </div>
-        <div className="order-invoice-title"><FileText size={19} /><strong>{isConvert ? 'Convert invoice' : 'Swap invoice'}</strong><span>#{order.id}</span></div>
-        <div className="order-invoice-grid">
-          <div><small>Status</small><strong className="text-emerald-600">Completed</strong></div>
-          <div><small>Created</small><strong>{new Date(order.createdAt).toLocaleString()}</strong></div>
-          <div><small>{completedAt ? 'Completed' : 'Updated'}</small><strong>{completedAt ? new Date(completedAt).toLocaleString() : '—'}</strong></div>
-          {!isConvert && <div><small>Exchange rate</small><strong>{order.exchangeRate || '—'}</strong></div>}
+        <div className="order-invoice-title">
+          <FileText size={19} className="text-primary shrink-0" />
+          <strong>{isConvert ? 'Convert receipt' : 'Swap receipt'}</strong>
+          <span>#{order.id}</span>
         </div>
         <div className="order-invoice-route">
-          <div><small>You Send</small><strong>{number(order.amount)} {order.fromAsset}</strong><span>{order.fromNetwork || 'Network unavailable'}</span></div>
-          <div><small>You Receive</small><strong>{number(order.receiveAmount)} {order.toAsset}</strong><span>{isConvert ? order.toNetwork || 'Network unavailable' : paymentMethod}</span></div>
+          <div>
+            <OrderSettlementIdentity assetCode={order.fromAsset} routeLabel={order.fromNetwork} settlementOptionId={order.sourceSettlementOptionId} size="md" compact summaryLogoArtwork />
+            <small>You Send</small>
+            <strong>{number(order.amount)} {order.fromAsset}</strong>
+            <span>{order.fromNetwork || 'Network unavailable'}</span>
+          </div>
+          <span className="order-invoice-route-arrow" aria-hidden="true"><ArrowRight size={18} /></span>
+          <div>
+            <OrderSettlementIdentity assetCode={order.toAsset} routeLabel={order.toNetwork} settlementOptionId={order.targetSettlementOptionId} size="md" compact summaryLogoArtwork />
+            <small>You Receive</small>
+            <strong>{number(order.receiveAmount)} {order.toAsset}</strong>
+            <span>{receiveRouteLabel}</span>
+          </div>
         </div>
-         {(order.verifiedFundingTransaction || order.paymentReference || providerReference) && (
+        <div className="order-invoice-section-title">Order Details</div>
+        <div className="order-invoice-grid">
+          <div><small>Order ID</small><strong className="order-invoice-break">{order.id}</strong></div>
+          <div><small>Exchange Type</small><strong>{isConvert ? 'Convert' : 'Swap'}</strong></div>
+          <div><small>Created Date</small><strong>{new Date(order.createdAt).toLocaleString()}</strong></div>
+          <div><small>{completedAt ? 'Completed Date' : 'Updated Date'}</small><strong>{completedAt ? new Date(completedAt).toLocaleString() : '—'}</strong></div>
+          {!isConvert && <div><small>Exchange Rate</small><strong>{order.exchangeRate || '—'}</strong></div>}
+          <div><small>Network</small><strong>{order.fromNetwork || '—'}</strong></div>
+          <div><small>Status</small><strong className="order-invoice-completed"><CheckCircle2 size={14} /> Completed</strong></div>
+        </div>
+        {transaction?.transactionHash && (
+          <>
+            <div className="order-invoice-section-title">Blockchain Transaction</div>
+            <div className="order-invoice-meta">
+              <div><small>Transaction ID</small><code>{transaction.transactionHash}</code></div>
+              <div><small>Network</small><strong>{transaction.networkName || transaction.networkCode}</strong></div>
+              <div><small>Confirmations</small><strong>{transaction.confirmations}</strong></div>
+              <div><small>Detected</small><strong>{transaction.detectedAt ? new Date(transaction.detectedAt).toLocaleString() : '—'}</strong></div>
+            </div>
+          </>
+        )}
+        {order.paymentReference && (
           <div className="order-invoice-meta">
-             {!isConvert && order.verifiedFundingTransaction && <div><small>Transaction ID</small><code>{order.verifiedFundingTransaction.transactionHash}</code></div>}
-            {order.paymentReference && <div><small>Payment reference</small><code>{order.paymentReference}</code></div>}
-            {providerReference && <div><small>Provider reference</small><code>{providerReference}</code></div>}
+            <div><small>Payment Reference</small><code>{order.paymentReference}</code></div>
           </div>
         )}
+        <div className="order-invoice-footer">
+          <strong>Thank you for choosing QuickXchange.</strong>
+          <span>quickxchange.net</span>
+          <span>@Quick_change_support</span>
+        </div>
       </div>
     </section>
   );

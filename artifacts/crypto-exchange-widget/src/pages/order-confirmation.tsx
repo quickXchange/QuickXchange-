@@ -283,9 +283,7 @@ export function OrderConfirmationPage() {
                  <span className={cn(
                    "order-status-badge",
                   "text-xs font-bold rounded-xl border px-3 py-1.5 flex items-center shrink-0",
-                  completed
-                    ? "bg-emerald-500/10 text-emerald-700 border-emerald-500/30 dark:bg-emerald-400/10 dark:text-emerald-400 dark:border-emerald-400/30"
-                    : "bg-primary/10 text-primary border-primary/20",
+                  statusPresentation.surface, statusPresentation.tone, statusPresentation.border
                 )} data-testid="status-order-confirmation">
                   {statusPresentation.label}
                </span>

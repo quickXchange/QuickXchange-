@@ -1,0 +1,455 @@
+Please make one coordinated UI/UX cleanup across QuickXchange Order Tracking, Customer My Orders / View Order, Admin Orders, Crypto Deposit Details, and Completion Receipt PDF.
+
+IMPORTANT:
+Do not change blockchain monitoring, deposit detection, order matching, confirmations, pricing, calculations, APIs, database data, wallet addresses, transaction data, or order-status backend logic.
+This task is UI/design/text only.
+Do not modify the working Production monitoring logic.
+
+==================================================
+1. ORDER TRACKING — LIGHT + DARK MODE
+==================================================
+
+Fix the Order Tracking / View Order page in BOTH Light Mode and Dark Mode.
+
+Current status text such as:
+- Processing
+- Completed
+- status descriptions
+- timeline labels
+
+must always have strong readable contrast.
+
+Do not use faded/low-opacity text that becomes almost invisible.
+
+LIGHT MODE:
+- Dark readable text.
+- Clear borders.
+- Clean white/light cards.
+- Status colors must remain clearly visible.
+
+DARK MODE:
+- Bright readable text.
+- Proper dark cards.
+- Keep subtle QuickXchange cyan/blue/purple glow.
+- Do not overuse glow.
+
+Maintain the existing QuickXchange visual identity.
+
+==================================================
+2. ORDER STATUS TIMELINE
+==================================================
+
+Keep the timeline structure:
+
+Created → Detected → Processing → Done
+
+Created and Detected can keep the current QuickXchange blue/cyan styling.
+
+Processing should remain visually distinct.
+
+IMPORTANT:
+Only the FINAL "Done" stage should become GREEN when the order is completed.
+
+When completed:
+- Replace the final Done number/icon with a clean green checkmark similar to a Nike/check shape.
+- "Done" label must be green.
+- The final part of the timeline leading into Done may use green.
+- Do NOT make the entire timeline green.
+
+At the top:
+When the order is finished, change:
+
+CURRENT STATUS
+Processing
+
+to:
+
+CURRENT STATUS
+Completed
+
+Completed must use a professional green status treatment.
+
+==================================================
+3. ADMIN ORDERS STATUS COLORS
+==================================================
+
+In Admin → Orders:
+
+Processing = ORANGE
+
+Use:
+- orange text
+- orange border
+- subtle orange glow/background
+
+Completed = GREEN
+
+Keep other existing statuses unchanged unless required for readability.
+
+Apply this consistently in Light Mode and Dark Mode.
+
+==================================================
+4. CRYPTO DEPOSIT DETAILS CARD
+==================================================
+
+Improve the Crypto Deposit Details card.
+
+The current edges/borders are too strong and visually awkward.
+
+Use:
+- softer rounded corners
+- subtle border
+- subtle QuickXchange cyan/blue/purple glow in Dark Mode
+- clean subtle shadow/border in Light Mode
+- no harsh cyan block around the card
+- balanced padding and spacing
+
+Make the card look integrated with the rest of QuickXchange.
+
+==================================================
+5. NETWORK LABEL VISIBILITY
+==================================================
+
+Fix network labels such as:
+
+TRC20
+ERC20
+BEP20
+BTC
+Polygon
+etc.
+
+The TRC20 label is currently almost invisible in Light Mode.
+
+Network labels must have proper contrast in BOTH themes.
+
+Do not hardcode this only for TRC20.
+Fix the shared network-label component/styles so all network names remain readable.
+
+==================================================
+6. DEPOSIT DETAILS BUTTON TEXT
+==================================================
+
+Change the button:
+
+SHOW QR
+
+to:
+
+SHOW DEPOSIT DETAILS
+
+When opened, it may display:
+- QR code
+- receiving address
+- network
+- memo/tag when applicable
+- amount
+
+Do not change the actual deposit information or wallet logic.
+
+==================================================
+7. EXCHANGE SUMMARY / ORDER CREATED LOGOS
+==================================================
+
+Improve the Exchange Summary displayed after an order is created.
+
+Crypto and Payment Method logos should look professional and consistent.
+
+For ALL logos:
+- equal visual size
+- circular presentation
+- width = height
+- aspect-ratio: 1 / 1
+- border-radius: 50%
+- object-fit: contain
+- centered
+- transparent/clean background
+- no stretched logos
+- no egg-shaped circles
+- no oversized logo compared with another
+
+Keep:
+
+YOU SEND
+[USDT logo]
+35 USDT
+TRC20
+
+↓ / exchange indicator
+
+YOU RECEIVE
+[BBVA logo]
+≈29.67 EUR
+SEPA
+
+but improve alignment, spacing, typography and logo sizing.
+
+==================================================
+8. REMOVE RECTANGLES BEHIND LOGOS
+==================================================
+
+Remove the visible square/rectangular backgrounds behind logos such as BBVA.
+
+The BBVA logo should NOT sit inside an additional square box.
+
+The logo should appear naturally inside the shared circular logo presentation.
+
+Apply this globally to:
+- Crypto logos
+- Bank logos
+- Payment Method logos
+- Network logos
+- Order Summary
+- Customer My Orders
+- Customer View Order
+- Admin Orders where applicable
+
+Do NOT edit or replace the uploaded logo files themselves.
+Fix only their UI containers/rendering.
+
+==================================================
+9. SEARCH BAR — LIGHT MODE
+==================================================
+
+Fix ALL search inputs across QuickXchange in Light Mode.
+
+The Admin Orders search bar currently appears like a dark/black bar even in Light Mode.
+
+In Light Mode:
+- light/white input background
+- dark readable text
+- visible placeholder
+- subtle border
+- correct search icon color
+- proper focus state using QuickXchange blue/cyan
+- no black search bar
+
+In Dark Mode:
+keep the appropriate dark styling.
+
+Apply the shared fix globally to search fields across:
+- Admin Panel
+- Orders
+- Customers
+- Crypto Assets
+- Crypto Networks
+- Payment Methods
+- Pricing/Routes
+- Blog
+- other searchable tables/pages
+
+==================================================
+10. CUSTOMER → MY ORDERS
+==================================================
+
+Redesign Customer → My Orders to feel as polished and organized as Admin → Orders.
+
+Do NOT expose admin-only information or controls.
+
+Use a professional table/card structure showing customer-safe information such as:
+- Exchange pair
+- Send amount
+- Receive amount
+- Network
+- Status
+- Date
+- Order ID
+- View Order action
+
+Status badges must use the same shared status design.
+
+Desktop/tablet/mobile must remain responsive.
+
+==================================================
+11. CUSTOMER → VIEW ORDER
+==================================================
+
+Redesign Customer View Order so it follows the same professional visual system as the Admin View Order page, while showing ONLY customer-safe information.
+
+Organize information into clear cards:
+
+Order Status
+Exchange Summary
+Payment / Deposit Information
+Transaction Information
+Order Information
+
+Keep:
+- circular logos
+- consistent spacing
+- clean typography
+- QuickXchange blue/cyan/purple identity
+- readable Light Mode
+- premium Dark Mode
+- responsive mobile/tablet/desktop layout
+
+Do NOT expose internal Admin notes, private configuration, provider information, API information, or backend monitoring details.
+
+==================================================
+12. COMPLETION RECEIPT / INVOICE PDF
+==================================================
+
+Completely redesign the current Completion Receipt / Invoice PDF.
+
+The current invoice is too basic and has too much unused white space.
+
+Create a premium professional A4 QuickXchange transaction receipt.
+
+HEADER:
+- Premium dark QuickXchange branded header.
+- QuickXchange logo on the left.
+- "COMPLETION RECEIPT" on the right.
+- Small green COMPLETED badge.
+- Order ID clearly displayed.
+
+Use QuickXchange:
+cyan → blue → purple
+
+but keep the document professional and suitable for printing.
+
+==================================================
+13. INVOICE EXCHANGE SUMMARY
+==================================================
+
+Add a professional visual transaction summary:
+
+[USDT Logo]
+35 USDT
+TRC20
+
+→
+
+[BBVA Logo]
+29.67 EUR
+SEPA
+
+Use the REAL logos and information belonging to the order.
+
+Do not hardcode USDT, TRC20, BBVA, SEPA or amounts.
+
+The invoice must dynamically use each order's actual:
+- send asset
+- send amount
+- network
+- receive method
+- receive amount
+- payment method/bank
+
+==================================================
+14. INVOICE ORDER DETAILS
+==================================================
+
+Create a clean two-column Order Details section containing:
+
+Order ID
+Exchange Type
+Created Date
+Completed Date
+Exchange Rate
+Network
+Status
+
+Use professional typography and alignment.
+
+==================================================
+15. INVOICE BLOCKCHAIN TRANSACTION
+==================================================
+
+Create a separate Blockchain Transaction section when blockchain transaction information exists.
+
+Show:
+- Transaction ID
+- Network
+- Confirmations, when available
+- Detected date/time
+
+Long transaction IDs must wrap correctly.
+
+They must NEVER overflow the PDF or leave the page.
+
+==================================================
+16. INVOICE COMPLETED STATUS
+==================================================
+
+Completed must use:
+- green text/badge
+- professional green checkmark
+
+Do not use excessive glow in the PDF.
+
+==================================================
+17. INVOICE FOOTER
+==================================================
+
+Add a clean professional footer:
+
+Thank you for choosing QuickXchange.
+
+quickxchange.net
+@Quick_change_support
+
+Keep the footer balanced and professional.
+
+==================================================
+18. PDF QUALITY
+==================================================
+
+The PDF must:
+- be proper A4
+- have balanced margins
+- remove unnecessary empty space
+- print correctly
+- export sharply
+- handle long transaction IDs
+- handle different amounts
+- handle different crypto/network/payment-method names
+- never overlap content
+- never cut content off
+- use actual order data dynamically
+
+==================================================
+19. SHARED DESIGN SYSTEM
+==================================================
+
+Do not implement these fixes as isolated one-off patches.
+
+Where possible, use shared components/styles for:
+
+- Status badges
+- Logo containers
+- Search inputs
+- Network badges
+- Cards
+- Order summary
+- Light/Dark theme colors
+
+This should prevent the same visibility and consistency problems from appearing elsewhere.
+
+==================================================
+FINAL SAFETY REQUIREMENT
+==================================================
+
+Before finishing, verify the changes visually in BOTH Light Mode and Dark Mode and at:
+- Desktop
+- Tablet
+- Mobile
+
+Do not change:
+- Production database data
+- wallet addresses
+- blockchain monitors
+- watchers
+- deposit detection
+- confirmation logic
+- transaction matching
+- APIs
+- pricing
+- exchange calculations
+- existing orders
+- customer balances
+- deployment configuration
+
+This is a UI/UX + PDF presentation task only.
+
+Do not publish or deploy automatically.
+Show me the completed changes in Preview first.

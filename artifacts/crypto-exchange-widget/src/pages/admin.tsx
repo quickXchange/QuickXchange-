@@ -5942,7 +5942,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
                           <input value={paymentDetailsDraft[key]} onChange={event => {
                             setPaymentDetailsDraft(previous => ({ ...previous, [key]: event.target.value }));
                             setPaymentDetailsDirty(true);
-                          }} className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground" data-testid={`input-payment-details-${key}`} />
+                          }} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground" data-testid={`input-payment-details-${key}`} />
                         </label>
                       ))}
                       <label className="space-y-1 text-xs font-semibold text-muted-foreground sm:col-span-2">
@@ -5950,7 +5950,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
                         <textarea value={paymentDetailsDraft.customInstructions} onChange={event => {
                           setPaymentDetailsDraft(previous => ({ ...previous, customInstructions: event.target.value }));
                           setPaymentDetailsDirty(true);
-                        }} rows={3} className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground" data-testid="input-payment-details-custom-instructions" />
+                        }} rows={3} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground" data-testid="input-payment-details-custom-instructions" />
                       </label>
                       <div className="flex flex-wrap gap-2 sm:col-span-2">
                         <button type="button" className="button button-primary px-4 py-2 text-xs" onClick={savePaymentDetails} disabled={updateOrder.isPending} data-testid="button-save-payment-details">Save</button>
@@ -5996,7 +5996,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
                <div ref={statusRef} className="quickx-order-card quickx-manual-status border p-4 rounded-xl shadow-sm space-y-3">
                  <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">Update Manual Status</h4>
                  <div className="flex gap-2">
-                   <select value={manualState} onChange={e => setManualState(e.target.value)} disabled={Boolean(order.archivedAt) || manualStateOptions.length <= 1} className="flex-1 px-3 py-2 rounded-lg bg-input border border-border text-sm text-foreground focus:outline-none focus:border-primary" data-testid="select-edit-manual-state">
+                   <select value={manualState} onChange={e => setManualState(e.target.value)} disabled={Boolean(order.archivedAt) || manualStateOptions.length <= 1} className="flex-1 px-3 py-2 rounded-lg bg-background border border-border text-sm text-foreground focus:outline-none focus:border-primary" data-testid="select-edit-manual-state">
                      {manualStateOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                    </select>
                    <button type="button" onClick={save} disabled={updateOrder.isPending || Boolean(order.archivedAt)} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-bold shadow-sm hover:opacity-90 disabled:opacity-50" data-testid="button-save-order">
@@ -6068,7 +6068,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
                 <div ref={statusRef} className="quickx-order-card quickx-manual-status border p-4 rounded-xl shadow-sm space-y-3">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">Update Convert Status</h4>
                   <div className="flex gap-2">
-                    <select value={manualState} onChange={e => setManualState(e.target.value)} disabled={Boolean(order.archivedAt)} className="flex-1 px-3 py-2 rounded-lg bg-input border border-border text-sm text-foreground focus:outline-none focus:border-primary" data-testid="select-edit-convert-status">
+                    <select value={manualState} onChange={e => setManualState(e.target.value)} disabled={Boolean(order.archivedAt)} className="flex-1 px-3 py-2 rounded-lg bg-background border border-border text-sm text-foreground focus:outline-none focus:border-primary" data-testid="select-edit-convert-status">
                       {convertStatusOptions.map(opt => <option key={opt} value={opt}>{convertOrderStatusLabel(opt)}</option>)}
                     </select>
                     <button type="button" onClick={save} disabled={updateOrder.isPending || Boolean(order.archivedAt)} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-bold shadow-sm hover:opacity-90 disabled:opacity-50" data-testid="button-save-convert-status">
@@ -7629,7 +7629,7 @@ function AdminCurrencies() {
                 <button type="button" aria-label={t('adminCatalog.next_page')} className="page-btn" disabled={clampedPage === totalPages} onClick={() => setPage(p => p + 1)}>{t('adminCatalog.gt')}</button>
               </div>
               <select
-                className="bg-input border border-border text-foreground rounded-md p-1.5 text-sm outline-none"
+                className="bg-background border border-border text-foreground rounded-md p-1.5 text-sm outline-none"
                 value={pageSize}
                 onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
               >
