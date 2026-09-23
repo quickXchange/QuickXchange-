@@ -52,7 +52,15 @@ if (process.env.MIGRATIONS_ONLY !== "true") {
     throw new Error("PORT must be an integer from 1 through 65535.");
   }
   startupGate = createServer((request, response) => {
-    const isStartupProbe = request.url === "/api/healthz";
+    const startupProbePaths = new Set([
+      "/",
+      "/api",
+      "/api/healthz",
+      "/whiteBIT-verification",
+    ]);
+    const isStartupProbe =
+      request.method === "GET" &&
+      startupProbePaths.has(request.url ?? "");
     response.statusCode = isStartupProbe ? 200 : 503;
     response.setHeader("Content-Type", "text/plain; charset=utf-8");
     if (!isStartupProbe) response.setHeader("Retry-After", "5");
