@@ -1181,13 +1181,21 @@ function deliveryEligible(at: Date): SQL | undefined {
 
 export async function processCustomerStatusNotificationOutbox(
   limit = 25,
+  orderId?: string,
 ): Promise<number> {
   if (!customerEmailDeliveryEnabled()) return 0;
   const now = new Date();
   const candidates = await db
     .select()
     .from(customerStatusNotificationEventsTable)
-    .where(deliveryEligible(now))
+    .where(
+      orderId
+        ? and(
+            deliveryEligible(now),
+            eq(customerStatusNotificationEventsTable.orderId, orderId),
+          )
+        : deliveryEligible(now),
+    )
     .orderBy(
       asc(customerStatusNotificationEventsTable.createdAt),
       asc(customerStatusNotificationEventsTable.id),

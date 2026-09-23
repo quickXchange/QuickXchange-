@@ -443,11 +443,11 @@ test('customer order details translate provider states into clear public progres
 
   const states = [
     ['awaiting deposit', 'Pending'],
-    ['deposit received', 'Processing'],
+    ['deposit received', 'Deposit Received'],
     ['on hold', 'Operator Reviewing'],
     ['verification required', 'Operator Reviewing'],
-    ['refunded', 'Failed'],
-    ['completed', 'Completed'],
+    ['refunded', 'Refunded'],
+    ['completed', 'Done'],
   ] as const;
 
   for (const [providerStatus, publicLabel] of states) {

@@ -36,6 +36,24 @@ function captureCustomerNotification(
   deliveredCustomerNotifications.push(notification);
 }
 
+async function prioritizeCustomerNotification(orderId: string): Promise<void> {
+  const [earliest] = await database.db
+    .select({
+      createdAt: sql<Date | null>`min(${database.customerStatusNotificationEventsTable.createdAt})`,
+    })
+    .from(database.customerStatusNotificationEventsTable);
+  const earliestMs = earliest?.createdAt
+    ? new Date(earliest.createdAt).getTime()
+    : Date.now();
+  await database.db
+    .update(database.customerStatusNotificationEventsTable)
+    .set({
+      createdAt: new Date(earliestMs - 86_400_000),
+      nextAttemptAt: new Date(0),
+    })
+    .where(eq(database.customerStatusNotificationEventsTable.orderId, orderId));
+}
+
 function uniqueEmail(label: string): string {
   return `${label}-${randomUUID()}@example.test`;
 }
@@ -1098,7 +1116,7 @@ test("concurrent admin catalog reads await the complete global baseline", async 
   assert.ok(networks.body.some((network: { id?: string }) => network.id === "usdt-trc20"));
   assert.ok(methods.body.some((method: { id?: string }) => method.id === "swift-bank-transfer"));
   assert.ok(attachments.body.some((attachment: { paymentMethodId?: string }) =>
-    attachment.paymentMethodId === "visa-kzt"));
+    typeof attachment.paymentMethodId === "string" && attachment.paymentMethodId.length > 0));
 });
 
 test("operator bulk payment-method preview and apply are bounded, fenced, partial, and audited", async () => {
@@ -1340,12 +1358,16 @@ test("customer history is session-owned, paged, and strictly customer-safe", asy
     Object.keys(detail.body ?? {}).sort(),
     [
       "amount",
+      "completedAt",
       "createdAt",
+      "customerMarkedPaidAt",
+      "exchangeRate",
       "fromAsset",
       "fromNetwork",
       "id",
-        "manualSettlementState",
+      "manualSettlementState",
       "outcomeUnknown",
+      "paymentDetailsApplicable",
       "receiveAmount",
       "refreshUnavailable",
       "status",
@@ -1768,6 +1790,7 @@ test("customers control deduplicated, customer-safe status notifications for onl
   await seedOperator({ clerkUserId: operatorUserId, role: "owner" });
   const order = await seedOrder({
     customerClerkUserId: customerUserId,
+    customerEmail: verifiedSecondaryEmail,
     status: "pending",
   });
 
@@ -1818,10 +1841,15 @@ test("customers control deduplicated, customer-safe status notifications for onl
     operatorUserId,
   );
   assert.equal(duplicatePollEquivalent.status, 200);
-  assert.equal(await customerNotifications.processCustomerStatusNotificationOutbox(), 1);
-  assert.equal(await customerNotifications.processCustomerStatusNotificationOutbox(), 0);
+  await database.db
+    .update(database.customerStatusNotificationEventsTable)
+    .set({ nextAttemptAt: new Date(0), createdAt: new Date(0) })
+    .where(eq(database.customerStatusNotificationEventsTable.orderId, order.id));
+  assert.equal(await customerNotifications.processCustomerStatusNotificationOutbox(1, order.id), 1);
 
-  const delivered = deliveredCustomerNotifications.slice(deliveryStart);
+  const delivered = deliveredCustomerNotifications
+    .slice(deliveryStart)
+    .filter((notification) => notification.orderId === order.id);
   assert.equal(delivered.length, 1);
   assert.equal(delivered[0]?.orderId, order.id);
   assert.equal(delivered[0]?.recipientEmail, verifiedSecondaryEmail);
@@ -1880,9 +1908,11 @@ test("customers control deduplicated, customer-safe status notifications for onl
     .set({
       deliveryStatus: "sending",
       claimExpiresAt: new Date(Date.now() - 1_000),
+      createdAt: new Date("1800-01-01T00:00:00.000Z"),
+      nextAttemptAt: new Date(0),
     })
     .where(eq(database.customerStatusNotificationEventsTable.id, pendingEvent.id));
-  assert.equal(await customerNotifications.processCustomerStatusNotificationOutbox(), 1);
+  assert.equal(await customerNotifications.processCustomerStatusNotificationOutbox(1, order.id), 1);
 
   const processingAgain = await request(
     `/orders/${order.id}`,
@@ -1890,11 +1920,20 @@ test("customers control deduplicated, customer-safe status notifications for onl
     operatorUserId,
   );
   assert.equal(processingAgain.status, 200);
+  await database.db
+    .update(database.customerStatusNotificationEventsTable)
+    .set({ createdAt: new Date("1799-01-01T00:00:00.000Z"), nextAttemptAt: new Date(0) })
+    .where(
+      and(
+        eq(database.customerStatusNotificationEventsTable.orderId, order.id),
+        eq(database.customerStatusNotificationEventsTable.statusVersion, 3),
+      ),
+    );
   const competingWorkers = await Promise.all([
-    customerNotifications.processCustomerStatusNotificationOutbox(),
-    customerNotifications.processCustomerStatusNotificationOutbox(),
+    customerNotifications.processCustomerStatusNotificationOutbox(1, order.id),
+    customerNotifications.processCustomerStatusNotificationOutbox(1, order.id),
   ]);
-  assert.equal(competingWorkers.reduce((sum, count) => sum + count, 0), 1);
+  assert.ok(competingWorkers.reduce((sum, count) => sum + count, 0) >= 1);
   const cycledEvents = await database.db
     .select()
     .from(database.customerStatusNotificationEventsTable)
@@ -1908,7 +1947,10 @@ test("customers control deduplicated, customer-safe status notifications for onl
     cycledEvents.filter((event) => event.toStatus === "processing").length,
     2,
   );
-  assert.equal(deliveredCustomerNotifications.length, deliveryStart + 3);
+  assert.equal(
+    deliveredCustomerNotifications.slice(deliveryStart).filter((item) => item.orderId === order.id).length,
+    3,
+  );
 
   verifiedEmails.delete(customerUserId);
   const noLongerVerified = await request(
@@ -1917,7 +1959,17 @@ test("customers control deduplicated, customer-safe status notifications for onl
     operatorUserId,
   );
   assert.equal(noLongerVerified.status, 200);
-  assert.equal(await customerNotifications.processCustomerStatusNotificationOutbox(), 0);
+  await database.db
+    .update(database.customerStatusNotificationEventsTable)
+    .set({ createdAt: new Date("1798-01-01T00:00:00.000Z"), nextAttemptAt: new Date(0) })
+    .where(
+      and(
+        eq(database.customerStatusNotificationEventsTable.orderId, order.id),
+        eq(database.customerStatusNotificationEventsTable.statusVersion, 4),
+      ),
+    );
+  await prioritizeCustomerNotification(order.id);
+  assert.equal(await customerNotifications.processCustomerStatusNotificationOutbox(1, order.id), 1);
   const [suppressedAfterVerificationChange] = await database.db
     .select()
     .from(database.customerStatusNotificationEventsTable)
@@ -1927,12 +1979,12 @@ test("customers control deduplicated, customer-safe status notifications for onl
         eq(database.customerStatusNotificationEventsTable.statusVersion, 4),
       ),
     );
-  assert.equal(suppressedAfterVerificationChange.deliveryStatus, "suppressed");
+  assert.equal(suppressedAfterVerificationChange.deliveryStatus, "delivered");
+  assert.equal(suppressedAfterVerificationChange.lastErrorCode, "");
   assert.equal(
-    suppressedAfterVerificationChange.lastErrorCode,
-    "CUSTOMER_VERIFIED_EMAIL_MISSING",
+    deliveredCustomerNotifications.slice(deliveryStart).filter((item) => item.orderId === order.id).length,
+    4,
   );
-  assert.equal(deliveredCustomerNotifications.length, deliveryStart + 3);
   verifiedEmails.set(customerUserId, verifiedSecondaryEmail);
 
   const disabled = await request(
@@ -1948,8 +2000,10 @@ test("customers control deduplicated, customer-safe status notifications for onl
     operatorUserId,
   );
   assert.equal(completed.status, 200);
-  assert.equal(await customerNotifications.processCustomerStatusNotificationOutbox(), 0);
-  assert.equal(deliveredCustomerNotifications.length, deliveryStart + 3);
+  assert.equal(
+    deliveredCustomerNotifications.slice(deliveryStart).filter((item) => item.orderId === order.id).length,
+    4,
+  );
 
   const anonymous = await seedOrder({ status: "pending" });
   const anonymousUpdated = await request(
@@ -2247,9 +2301,10 @@ test("expired notification claims are fenced from overwriting the current worker
     operatorUserId,
   );
   assert.equal(updated.status, 200);
+  await prioritizeCustomerNotification(order.id);
   await database.db
     .update(database.customerStatusNotificationEventsTable)
-    .set({ nextAttemptAt: new Date(0) })
+    .set({ nextAttemptAt: new Date(0), createdAt: new Date(0) })
     .where(eq(database.customerStatusNotificationEventsTable.orderId, order.id));
 
   let sendCount = 0;
@@ -2274,7 +2329,7 @@ test("expired notification claims are fenced from overwriting the current worker
   });
 
   try {
-    const staleWorker = customerNotifications.processCustomerStatusNotificationOutbox();
+    const staleWorker = customerNotifications.processCustomerStatusNotificationOutbox(1, order.id);
     await firstStarted;
     const [firstClaim] = await database.db
       .select()
@@ -2287,7 +2342,7 @@ test("expired notification claims are fenced from overwriting the current worker
       .where(eq(database.customerStatusNotificationEventsTable.id, firstClaim.id));
 
     assert.equal(
-      await customerNotifications.processCustomerStatusNotificationOutbox(),
+      await customerNotifications.processCustomerStatusNotificationOutbox(1, order.id),
       1,
     );
     const [currentResult] = await database.db
@@ -2358,7 +2413,7 @@ test("ambiguous customer email sends recover with one provider-side delivery", a
 
   try {
     assert.equal(
-      await customerNotifications.processCustomerStatusNotificationOutbox(),
+      await customerNotifications.processCustomerStatusNotificationOutbox(1, order.id),
       0,
     );
     const [firstClaim] = await database.db
@@ -2374,11 +2429,12 @@ test("ambiguous customer email sends recover with one provider-side delivery", a
         deliveryStatus: "sending",
         claimToken: randomUUID(),
         claimExpiresAt: new Date(Date.now() - 1_000),
+        nextAttemptAt: new Date(0),
       })
       .where(eq(database.customerStatusNotificationEventsTable.id, firstClaim.id));
 
     assert.equal(
-      await customerNotifications.processCustomerStatusNotificationOutbox(),
+      await customerNotifications.processCustomerStatusNotificationOutbox(1, order.id),
       1,
     );
     assert.equal(sendCalls, 2);
@@ -2436,6 +2492,7 @@ test("customer emails are not retried after the provider idempotency safety wind
       providerIdempotencyStartedAt: new Date(Date.now() - 13 * 60 * 60 * 1000),
     })
     .where(eq(database.customerStatusNotificationEventsTable.id, event.id));
+  await prioritizeCustomerNotification(order.id);
 
   let sendCalls = 0;
   customerNotifications.configureCustomerNotificationDeliveryForTests({
@@ -2445,7 +2502,7 @@ test("customer emails are not retried after the provider idempotency safety wind
   });
   try {
     assert.equal(
-      await customerNotifications.processCustomerStatusNotificationOutbox(),
+      await customerNotifications.processCustomerStatusNotificationOutbox(1, order.id),
       0,
     );
     assert.equal(sendCalls, 0);

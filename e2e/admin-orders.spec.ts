@@ -145,7 +145,7 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
       url.searchParams.get('sourceSettlementOptionId') === 'crypto:btc-bitcoin' &&
       url.searchParams.get('targetSettlementOptionId') === 'crypto:usdt-trc20' &&
       url.searchParams.get('customerEmail') === 'named-guest@example.test' &&
-      url.searchParams.get('status') === 'sending payout' &&
+      url.searchParams.get('status') === 'processing' &&
       url.searchParams.get('createdFrom') === '2025-06-01T00:00:00.000Z' &&
       url.searchParams.get('createdTo') === '2025-06-30T23:59:59.999Z' &&
       url.searchParams.get('outcomeUnknown') === 'true' &&
@@ -329,11 +329,11 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
   expect(quickexOrderSelectionBox?.width).toBeLessThanOrEqual(24);
   expect(quickexOrderSelectionBox?.height).toBeLessThanOrEqual(24);
   await quickexOrderSelection.check();
-  await expect(page.getByTestId('bulk-selected-count')).toHaveText('1order selected');
+  await expect(page.getByTestId('bulk-selected-count')).toHaveText('1 order selected');
   await expect(page.getByTestId('button-bulk-status')).toBeDisabled();
   await expect(page.getByTestId('button-bulk-archive')).toBeVisible();
   await expect(page.getByTestId('button-bulk-delete')).toHaveCount(0);
-  await expect(page.getByTestId('bulk-actions-bar')).toContainText('synchronized from the provider');
+  await expect(page.locator('.bulk-actions-context')).toContainText('synchronized from the provider');
   await page.getByTestId('button-clear-selection').click();
   await page.setViewportSize({ width: 1280, height: 900 });
   await expect(page.getByTestId('table-orders').getByText('Named Guest')).toBeVisible();
@@ -353,7 +353,7 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
   await page.getByTestId('option-filter-send-method-crypto:btc-bitcoin').click();
   await page.getByTestId('select-filter-receive-method').click();
   await page.getByTestId('option-filter-receive-method-crypto:usdt-trc20').click();
-  await page.getByTestId('select-filter-status').selectOption('sending payout');
+  await page.getByTestId('select-filter-status').selectOption('processing');
   await page.getByTestId('input-filter-customer-email').fill('named-guest@example.test');
   await page.getByTestId('input-filter-createdfrom').fill('2025-06-01');
   await page.getByTestId('input-filter-createdto').fill('2025-06-30');
@@ -365,7 +365,7 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
     url.searchParams.get('sourceSettlementOptionId') === 'crypto:btc-bitcoin' &&
     url.searchParams.get('targetSettlementOptionId') === 'crypto:usdt-trc20' &&
     url.searchParams.get('customerEmail') === 'named-guest@example.test' &&
-    url.searchParams.get('status') === 'sending payout' &&
+    url.searchParams.get('status') === 'processing' &&
     url.searchParams.get('createdFrom') === '2025-06-01T00:00:00.000Z' &&
     url.searchParams.get('createdTo') === '2025-06-30T23:59:59.999Z' &&
     url.searchParams.get('outcomeUnknown') === 'true' &&
@@ -401,13 +401,13 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
   await page.getByTestId('tab-orders-swap').click();
   await expect(page.getByTestId('table-orders')).toBeVisible();
   await page.getByTestId(`checkbox-order-${manualOrder.id}`).check();
-  await expect(page.getByTestId('bulk-selected-count')).toHaveText('1order selected');
+  await expect(page.getByTestId('bulk-selected-count')).toHaveText('1 order selected');
   await page.getByTestId(`checkbox-order-${secondManualOrder.id}`).check();
   await expect(page.getByTestId('checkbox-select-all-orders')).toBeChecked();
   await page.getByTestId(`checkbox-order-${manualOrder.id}`).uncheck();
   await expect.poll(() => page.getByTestId('checkbox-select-all-orders').evaluate((element) => (element as HTMLInputElement).indeterminate)).toBe(true);
   await page.getByTestId('checkbox-select-all-orders').check();
-  await expect(page.getByTestId('bulk-selected-count')).toHaveText('2orders selected');
+  await expect(page.getByTestId('bulk-selected-count')).toHaveText('2 orders selected');
   await page.getByTestId('button-bulk-status').click();
   await expect(page.getByRole('alertdialog')).toContainText('2 selected Swap orders');
   await expect(page.getByTestId('select-bulk-status').locator('option[value="completed"]')).toHaveCount(1);
@@ -423,13 +423,13 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
   await expect(page.getByTestId('notice-bulk-result')).toContainText('2 updated successfully');
 
   await page.getByTestId('checkbox-select-all-orders').check();
-  await page.getByTestId('button-bulk-delete').click();
+  await page.getByTestId('button-bulk-archive').click();
   await expect(page.getByRole('alertdialog')).toContainText('Nothing is permanently deleted');
   await expect(page.getByRole('alertdialog').getByRole('button', { name: 'Cancel' })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('alertdialog')).toHaveCount(0);
-  await expect(page.getByTestId('button-bulk-delete')).toBeFocused();
-  await page.getByTestId('button-bulk-delete').click();
+  await expect(page.getByTestId('button-bulk-archive')).toBeFocused();
+  await page.getByTestId('button-bulk-archive').click();
   await page.getByTestId('button-confirm-bulk-archive').click();
   await expect.poll(() => bulkArchivePayload).toMatchObject({
     archived: true,
@@ -504,7 +504,7 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
     borderRadius: '50%',
     overflow: 'hidden',
     objectFit: 'contain',
-    hasBackground: true,
+    hasBackground: false,
     hasIconFit: true,
   });
   await expect(manualExchange.locator('.crypto-logo img[src^="data:image/svg+xml"]').first()).toBeVisible();
@@ -517,7 +517,7 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
   await expect(manualRow.locator('.order-amount-cell').locator('img, [data-testid^="asset-mark-"]')).toHaveCount(0);
   await expect(manualExchange).not.toContainText('SEPA transfer');
   await expect(page.getByTestId('table-orders')).toContainText('Guest');
-  await expect(page.getByTestId('table-orders')).toContainText('Awaiting');
+  await expect(page.getByTestId('table-orders')).toContainText('Pending');
   for (const width of [390, 768, 900, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     const expectedLogoSize = width <= 767 ? 40 : width <= 1199 ? 42 : 44;
@@ -560,7 +560,7 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
   await page.getByTestId('checkbox-select-all-orders').check();
   await expect(page.getByTestId('bulk-actions-bar')).toContainText('Restore Selected');
   await expect(page.getByTestId('bulk-actions-bar')).toContainText('Delete Selected');
-  await expect(page.getByTestId('bulk-actions-bar')).toContainText('Clear Selection');
+  await expect(page.getByTestId('bulk-actions-bar')).toContainText('Clear selection');
   await page.getByTestId('button-bulk-delete').click();
   await expect(page.getByRole('alertdialog')).toContainText('Permanently delete 2 archived orders?');
   await expect(page.getByRole('alertdialog')).toContainText('This action cannot be undone.');

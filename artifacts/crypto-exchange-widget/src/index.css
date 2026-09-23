@@ -3161,6 +3161,9 @@ html.dark .cl-modalContent .cl-cardBox {
     border-radius: 50% !important;
     background: transparent !important;
   }
+  .logo-avatar-fit-cover > .logo-avatar-img {
+    object-fit: cover !important;
+  }
   .crypto-logo {
     border-radius: 50% !important;
     background: transparent !important;
@@ -5217,6 +5220,9 @@ html.dark .cl-modalContent .cl-cardBox {
     object-fit: contain !important;
     border-radius: 50% !important;
     background: transparent !important;
+  }
+  .logo-avatar-fit-cover > .logo-avatar-img {
+    object-fit: cover !important;
   }
   .crypto-logo {
     border-radius: 50% !important;
@@ -8273,27 +8279,27 @@ canvas {
  * changing the compact column geometry shared by the rest of Admin.
  */
 .admin-shell .pricing-table tbody td {
-  padding-top: 18px;
-  padding-bottom: 18px;
+  height: 36px;
+  padding: 2px 8px;
 }
 
 .admin-shell .pricing-table .pricing-rule-identity {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 52px;
+  gap: 5px;
+  min-height: 32px;
 }
 
 .admin-shell .pricing-table .pricing-rule-identity > .admin-payment-logo-stack,
 .admin-shell .pricing-table .pricing-rule-identity > .admin-payment-logo-stack > .payment-method-logo {
   box-sizing: border-box;
-  width: 52px !important;
-  height: 52px !important;
-  min-width: 52px !important;
-  min-height: 52px !important;
-  max-width: 52px !important;
-  max-height: 52px !important;
-  flex: 0 0 52px !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  max-width: 32px !important;
+  max-height: 32px !important;
+  flex: 0 0 32px !important;
   aspect-ratio: 1 / 1;
   border-radius: 50% !important;
 }
