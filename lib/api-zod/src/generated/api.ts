@@ -10489,6 +10489,7 @@ export const CreateQuickexOrderBody = zod.object({
   "destinationMemo": zod.string().max(createQuickexOrderBodyDestinationMemoMax).optional(),
   "refundAddress": zod.string().max(createQuickexOrderBodyRefundAddressMax).nullish(),
   "refundMemo": zod.string().max(createQuickexOrderBodyRefundMemoMax).nullish(),
+  "settlementDetails": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).optional().describe('Canonical provider-defined settlement values collected from the quote contract.'),
   "quoteId": zod.string().min(createQuickexOrderBodyQuoteIdMin).max(createQuickexOrderBodyQuoteIdMax),
   "clientRequestId": zod.string().regex(createQuickexOrderBodyClientRequestIdRegExp),
   "rateMode": zod.enum(['FLOATING', 'FIXED']).optional()
@@ -14874,6 +14875,11 @@ export const ListTelegramMiniAppOrdersResponseItem = zod.object({
   "customerMarkedPaidAt": zod.coerce.date().nullish(),
   "refreshUnavailable": zod.boolean().optional(),
   "logos": zod.record(zod.string(), zod.unknown()).optional(),
+  "depositAsset": zod.string().optional(),
+  "depositNetwork": zod.string().optional(),
+  "depositAmount": zod.string().optional(),
+  "depositQrData": zod.string().optional(),
+  "depositStatus": zod.string().optional(),
   "verifiedFundingTransaction": zod.object({
   "transactionHash": zod.string(),
   "networkCode": zod.string(),
@@ -14930,6 +14936,11 @@ export const GetTelegramMiniAppOrderResponse = zod.object({
   "customerMarkedPaidAt": zod.coerce.date().nullish(),
   "refreshUnavailable": zod.boolean().optional(),
   "logos": zod.record(zod.string(), zod.unknown()).optional(),
+  "depositAsset": zod.string().optional(),
+  "depositNetwork": zod.string().optional(),
+  "depositAmount": zod.string().optional(),
+  "depositQrData": zod.string().optional(),
+  "depositStatus": zod.string().optional(),
   "verifiedFundingTransaction": zod.object({
   "transactionHash": zod.string(),
   "networkCode": zod.string(),
@@ -14989,6 +15000,11 @@ export const LinkTelegramMiniAppOrderResponse = zod.object({
   "customerMarkedPaidAt": zod.coerce.date().nullish(),
   "refreshUnavailable": zod.boolean().optional(),
   "logos": zod.record(zod.string(), zod.unknown()).optional(),
+  "depositAsset": zod.string().optional(),
+  "depositNetwork": zod.string().optional(),
+  "depositAmount": zod.string().optional(),
+  "depositQrData": zod.string().optional(),
+  "depositStatus": zod.string().optional(),
   "verifiedFundingTransaction": zod.object({
   "transactionHash": zod.string(),
   "networkCode": zod.string(),

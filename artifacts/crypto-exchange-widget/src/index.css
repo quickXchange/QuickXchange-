@@ -23145,6 +23145,23 @@ html:not(.dark) .frontend-menu-drawer .qx-mobile-trigger[aria-expanded="true"] {
 
 /* --- PHONE WIDTH OPTIMIZATIONS (<=640px) --- */
 @media (max-width: 640px) {
+  /* The hero container has a desktop 1.5rem inline gutter. The public
+     exchange wrapper already owns the phone gutter, so retaining that
+     padding here double-indents the widget on narrow screens. */
+  .public-shell .exchange-main.public-hero-container {
+    width: calc(100vw - 20px) !important;
+    max-width: calc(100vw - 20px) !important;
+    padding-inline: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .public-shell .exchange-main.public-hero-container > #exchange-widget.exchange-layout-wide {
+    width: calc(100vw - 20px) !important;
+    max-width: calc(100vw - 20px) !important;
+    margin-inline: calc((100% - (100vw - 20px)) / 2) !important;
+    align-self: center !important;
+  }
+
   .public-shell .public-header,
   .public-shell .exchange-wrapper,
   .public-shell .public-main,

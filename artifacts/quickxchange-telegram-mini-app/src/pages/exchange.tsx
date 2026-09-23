@@ -293,9 +293,39 @@ export default function Exchange() {
   const [quoteData, setQuoteData] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [quoteNow, setQuoteNow] = useState(() => Date.now());
+  const [quoteRefreshNonce, setQuoteRefreshNonce] = useState(0);
+  const convertFieldValues: Record<string, string> = {
+    ...settlementFields,
+    destinationAddress,
+    destinationMemo,
+    refundAddress,
+    refundMemo,
+  };
+  const convertSettlementDetails = () => Object.fromEntries(
+    (quoteData?.requiredSettlementFields ?? [])
+      .filter((field: any) => field.enabled !== false)
+      .map((field: any) => {
+        const rawValue = convertFieldValues[field.key] ?? '';
+        const numeric = ['number', 'integer', 'numeric', 'decimal'].includes(field.type);
+        return [
+          field.key,
+          numeric && rawValue !== '' ? Number(rawValue) : rawValue,
+        ];
+      }),
+  );
   const receiveAmount = mode === 'swap'
     ? (pricing ? parsedAmount * pricing.rate : 0)
     : quoteData?.receiveAmount;
+  const quoteExpired = mode === 'convert' && Boolean(
+    quoteData?.expiresAt && new Date(quoteData.expiresAt).getTime() <= quoteNow,
+  );
+
+  useEffect(() => {
+    if (mode !== 'convert' || !quoteData?.expiresAt) return undefined;
+    const timer = window.setInterval(() => setQuoteNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [mode, quoteData?.expiresAt]);
 
   useEffect(() => {
     const requestVersion = ++quoteRequestVersionRef.current;
@@ -316,6 +346,7 @@ export default function Exchange() {
           });
           if (quoteRequestVersionRef.current !== requestVersion) return;
           setQuoteData({ ...res, type: 'instant' });
+          setQuoteNow(Date.now());
           setErrorMsg('');
         } catch (err: any) {
           if (quoteRequestVersionRef.current !== requestVersion) return;
@@ -328,7 +359,7 @@ export default function Exchange() {
       return () => clearTimeout(timer);
     }
     return undefined;
-  }, [mode, step, sourceId, targetId, parsedAmount, sourceOpt, targetOpt]);
+  }, [mode, step, sourceId, targetId, parsedAmount, sourceOpt, targetOpt, quoteRefreshNonce]);
 
   const handleContinue = async () => {
     if (step === 1) {
@@ -353,8 +384,8 @@ export default function Exchange() {
       }
 
       if (mode === 'convert') {
-        if (!quoteData) {
-          setErrorMsg('Waiting for quote...');
+        if (!quoteData || quoteExpired) {
+          setErrorMsg(quoteExpired ? 'Quote expired' : 'Waiting for quote...');
           return;
         }
         setErrorMsg('');
@@ -401,6 +432,18 @@ export default function Exchange() {
           setErrorMsg('Destination memo is required');
           haptic.notification('warning');
           return;
+        }
+        for (const field of quoteData?.requiredSettlementFields ?? []) {
+          if (field.enabled === false) continue;
+          const condition = field.requiredWhen;
+          const visible = !condition || (Array.isArray(condition.equals)
+            ? condition.equals.includes(convertFieldValues[condition.fieldKey])
+            : convertFieldValues[condition.fieldKey] === condition.equals);
+          if (visible && field.required && !convertFieldValues[field.key]?.trim()) {
+            setErrorMsg(`${field.label} is required`);
+            haptic.notification('warning');
+            return;
+          }
         }
       } else {
         if (targetOpt.kind === 'crypto-network' && !destinationAddress && !quoteData?.requiredSettlementFields?.some((f: any) => f.type === 'wallet-address' || f.key.includes('address'))) {
@@ -451,6 +494,9 @@ export default function Exchange() {
       try {
         let order;
         if (mode === 'convert') {
+          if (quoteExpired) {
+            throw new Error('Quote expired. Refresh the quote before submitting.');
+          }
           if (!quoteData?.quoteId || !quoteData?.fromAsset || !quoteData?.fromNetwork || !quoteData?.toAsset || !quoteData?.toNetwork || !quoteData?.amount) {
             throw new Error('The current Convert quote is incomplete. Refresh the quote and try again.');
           }
@@ -471,6 +517,9 @@ export default function Exchange() {
                 refundAddress: refundAddress.trim(),
                 refundMemo: refundMemo.trim() || undefined,
               } : {}),
+              ...(quoteData.requiredSettlementFields?.length
+                ? { settlementDetails: convertSettlementDetails() }
+                : {}),
               clientRequestId: orderRequestIdRef.current
             }
           });
@@ -584,6 +633,30 @@ export default function Exchange() {
         <div className="bg-destructive/10 border border-destructive/20 text-destructive p-3.5 rounded-2xl flex items-start text-sm animate-in fade-in slide-in-from-top-2">
           <AlertCircle className="w-[18px] h-[18px] mt-[1px] mr-2 shrink-0 opacity-80" />
           <span className="font-medium leading-tight">{errorMsg}</span>
+        </div>
+      )}
+      {quoteExpired && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-700 dark:text-amber-300">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="mt-0.5 h-[18px] w-[18px] shrink-0" />
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">Quote expired</p>
+              <p className="text-xs leading-relaxed">Refresh the quote to continue. Your selected route and amount will stay unchanged.</p>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 rounded-xl border-amber-500/40 text-xs font-bold"
+                onClick={() => {
+                  setQuoteData(null);
+                  setErrorMsg('');
+                  setStep(1);
+                  setQuoteRefreshNonce((nonce) => nonce + 1);
+                }}
+              >
+                Refresh quote
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -765,6 +838,46 @@ export default function Exchange() {
                     </div>
                   )}
                 </div>
+                {quoteData?.requiredSettlementFields
+                  ?.filter((field: any) => ![
+                    'destinationAddress', 'destinationMemo', 'refundAddress', 'refundMemo',
+                  ].includes(field.key))
+                  .map((field: any) => {
+                    const condition = field.requiredWhen;
+                    const visible = !condition || (Array.isArray(condition.equals)
+                      ? condition.equals.includes(settlementFields[condition.fieldKey])
+                      : settlementFields[condition.fieldKey] === condition.equals);
+                    if (!visible || field.enabled === false) return null;
+                    return (
+                      <div key={field.key} className="space-y-2 mt-4">
+                        <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">
+                          {field.label} {field.required && <span className="text-white">*</span>}
+                        </label>
+                        {field.type === 'select' && field.options?.length ? (
+                          <select
+                            value={settlementFields[field.key] || ''}
+                            required={field.required}
+                            onChange={(e) => setSettlementFields(prev => ({ ...prev, [field.key]: e.target.value }))}
+                            className="w-full bg-black/20 h-14 rounded-2xl border border-white/20 px-3 text-[15px] text-white"
+                          >
+                            <option value="">Select {field.label.toLowerCase()}</option>
+                            {field.options.map((option: any) => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <Input
+                            value={settlementFields[field.key] || ''}
+                            required={field.required}
+                            onChange={(e) => setSettlementFields(prev => ({ ...prev, [field.key]: e.target.value }))}
+                            placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+                            type={field.type === 'email' ? 'email' : field.type === 'number' || field.type === 'integer' || field.type === 'numeric' || field.type === 'decimal' ? 'number' : 'text'}
+                            className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner text-white placeholder:text-white/50"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
               </>
             ) : (
               <>
@@ -921,7 +1034,7 @@ export default function Exchange() {
         <Button
           className="w-full h-[56px] rounded-2xl text-[17px] font-bold shadow-[0_8px_20px_-8px_hsl(var(--primary))] transition-transform active:scale-95 disabled:opacity-50 disabled:active:scale-100 illuminated-border"
           onClick={handleContinue}
-          disabled={isProcessing || isPricingLoading || (mode === 'swap' && !pricing && step === 1) || (mode === 'convert' && !quoteData && step === 1)}
+          disabled={isProcessing || isPricingLoading || quoteExpired || (mode === 'swap' && !pricing && step === 1) || (mode === 'convert' && !quoteData && step === 1)}
         >
           {isProcessing ? (
             <span className="flex items-center">

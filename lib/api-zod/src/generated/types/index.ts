@@ -432,6 +432,7 @@ export * from './quickexDiagnosticsInstrumentCache';
 export * from './quickexDiagnosticsProvider';
 export * from './quickexInstrument';
 export * from './quickexOrderInput';
+export * from './quickexOrderInputSettlementDetails';
 export * from './quickexOrderInputType';
 export * from './quickexPair';
 export * from './quickexProviderStatus';

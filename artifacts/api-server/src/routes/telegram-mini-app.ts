@@ -152,15 +152,26 @@ async function verifiedFundingTransaction(orderId: string) {
       ? template.replace(/\{(?:tx|transactionHash)\}/gi, encodeURIComponent(row.transactionHash)) : undefined,
   };
 }
-function quickexProjection(row: typeof quickexOrdersTable.$inferSelect, link: typeof telegramOrderLinksTable.$inferSelect) {
+export function quickexProjection(row: typeof quickexOrdersTable.$inferSelect, link: typeof telegramOrderLinksTable.$inferSelect) {
   const route = (row.route ?? {}) as { fromAsset?: string; fromNetwork?: string; toAsset?: string; toNetwork?: string };
   const amounts = (row.amounts ?? {}) as { amount?: string; receiveAmount?: string };
+  const addresses = (row.addresses ?? {}) as {
+    depositAddress?: string; depositMemo?: string; depositQrData?: string;
+    settlementDetails?: Record<string, string | number | null>;
+  };
   return {
     id: row.legacyOrderId, orderKind: link.orderKind, type: "convert", status: row.status, fromAsset: route.fromAsset ?? "",
     toAsset: route.toAsset ?? "", amount: amounts.amount ?? "", receiveAmount: amounts.receiveAmount ?? "",
     fromNetwork: route.fromNetwork, toNetwork: route.toNetwork, networks: [route.fromNetwork, route.toNetwork].filter(Boolean),
     trackingToken: link.trackingToken, createdAt: row.createdAt, outcomeUnknown: row.outcomeUnknown,
     refreshUnavailable: false, paymentDetailsApplicable: false,
+    depositAsset: route.fromAsset, depositNetwork: route.fromNetwork,
+    depositAmount: amounts.amount,
+    depositAddress: addresses.depositAddress || undefined,
+    depositMemo: addresses.depositMemo || undefined,
+    depositQrData: addresses.depositQrData || undefined,
+    depositStatus: row.status,
+    settlementDetails: addresses.settlementDetails,
   };
 }
 

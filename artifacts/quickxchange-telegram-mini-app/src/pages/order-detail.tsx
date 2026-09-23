@@ -193,9 +193,12 @@ export default function OrderDetail() {
   const targetSummaryVisual = /bbva/i.test(targetVisual.label || '')
     ? { ...targetVisual, logoUrl: bbvaTransparentLogoUrl }
     : targetVisual;
-  const sourceIdentity = sourcePaymentMethod?.name || targetStatus.fromNetwork || targetStatus.fromAsset;
+  const depositAsset = targetStatus.depositAsset || targetStatus.fromAsset;
+  const depositNetwork = targetStatus.depositNetwork || targetStatus.fromNetwork;
+  const depositAmount = targetStatus.depositAmount || targetStatus.amount;
+  const sourceIdentity = sourcePaymentMethod?.name || depositNetwork || depositAsset;
   const isCryptoDeposit = Boolean(targetStatus.depositAddress);
-  const parsedSendAmount = Number(targetStatus.amount);
+  const parsedSendAmount = Number(depositAmount);
   const parsedReceiveAmount = Number(targetStatus.receiveAmount);
   const exchangeRate = Number.isFinite(parsedSendAmount) && parsedSendAmount > 0 && Number.isFinite(parsedReceiveAmount)
     ? parsedReceiveAmount / parsedSendAmount
@@ -480,7 +483,7 @@ export default function OrderDetail() {
                 <div>
                   <h3 className="font-bold text-[15px] tracking-tight">{isCryptoDeposit ? 'Crypto Deposit Details' : 'Payment Details'}</h3>
                   <p className="text-[11px] text-muted-foreground leading-tight">
-                    {isCryptoDeposit ? `Send exactly ${targetStatus.amount} ${targetStatus.fromAsset}` : sourcePaymentMethod?.name || 'Use the assigned order instructions'}
+                    {isCryptoDeposit ? `Send exactly ${depositAmount} ${depositAsset}` : sourcePaymentMethod?.name || 'Use the assigned order instructions'}
                   </p>
                 </div>
               </div>
@@ -490,10 +493,10 @@ export default function OrderDetail() {
                   <div className="flex items-center justify-between rounded-xl bg-secondary/[0.07] border border-secondary/15 p-3">
                     <div>
                       <p className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground">Send Exactly</p>
-                      <p className="font-mono text-[17px] font-bold">{targetStatus.amount} {targetStatus.fromAsset}</p>
+                      <p className="font-mono text-[17px] font-bold">{depositAmount} {depositAsset}</p>
                     </div>
                     <span className="text-[10px] font-bold rounded-full bg-secondary/10 text-secondary border border-secondary/20 px-2 py-1">
-                      {targetStatus.fromNetwork || 'Crypto'}
+                      {depositNetwork || 'Crypto'}
                     </span>
                   </div>
                 )}
@@ -516,12 +519,12 @@ export default function OrderDetail() {
                 {isCryptoDeposit && paymentElements.length > 0 && (
                   <>
                     <div className="mx-auto w-fit rounded-2xl bg-white p-3 shadow-[0_8px_28px_-12px_hsl(var(--primary)/0.5)]">
-                      <QRCodeSVG value={targetStatus.depositAddress!} size={136} level="M" />
+                       <QRCodeSVG value={targetStatus.depositQrData || targetStatus.depositAddress!} size={136} level="M" />
                     </div>
                     <p className="text-center text-[10px] font-semibold text-muted-foreground">Scan the deposit address</p>
                     <div className="flex items-start gap-2 rounded-xl bg-yellow-500/[0.08] border border-yellow-500/15 p-3 text-[11px] leading-relaxed text-muted-foreground">
                       <AlertCircle className="w-4 h-4 shrink-0 text-yellow-500 mt-0.5" />
-                      <span>Send only {targetStatus.fromAsset} on the {targetStatus.fromNetwork || 'shown'} network. Using another network may result in permanent loss.</span>
+                      <span>Send only {depositAsset} on the {depositNetwork || 'shown'} network. Using another network may result in permanent loss.</span>
                     </div>
                   </>
                 )}

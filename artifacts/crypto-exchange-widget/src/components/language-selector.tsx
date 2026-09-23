@@ -37,7 +37,12 @@ export function LanguageSelector({
   const panelId = useId();
   const close = () => {
     setOpen(false);
-    requestAnimationFrame(() => triggerRef.current?.focus());
+    requestAnimationFrame(() => {
+      const trigger = triggerRef.current;
+      if (trigger?.isConnected && !trigger.disabled) {
+        trigger.focus();
+      }
+    });
   };
 
   useEffect(() => {

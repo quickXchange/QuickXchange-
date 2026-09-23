@@ -1260,6 +1260,11 @@ export const QuickexOrderInputType = {
   instant: 'instant',
 } as const;
 
+/**
+ * Canonical provider-defined settlement values collected from the quote contract.
+ */
+export type QuickexOrderInputSettlementDetails = {[key: string]: string | number | null};
+
 export interface QuickexOrderInput {
   type: QuickexOrderInputType;
   /** @minLength 2 */
@@ -1290,6 +1295,8 @@ export interface QuickexOrderInput {
   refundAddress?: string | null;
   /** @maxLength 256 */
   refundMemo?: string | null;
+  /** Canonical provider-defined settlement values collected from the quote contract. */
+  settlementDetails?: QuickexOrderInputSettlementDetails;
   /**
      * @minLength 16
      * @maxLength 16384
@@ -5443,6 +5450,11 @@ export interface TelegramMiniAppOrder {
   customerMarkedPaidAt?: string | null;
   refreshUnavailable?: boolean;
   logos?: TelegramMiniAppOrderLogos;
+  depositAsset?: string;
+  depositNetwork?: string;
+  depositAmount?: string;
+  depositQrData?: string;
+  depositStatus?: string;
   verifiedFundingTransaction?: VerifiedFundingTransaction;
 }
 

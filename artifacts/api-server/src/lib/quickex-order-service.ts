@@ -10,6 +10,7 @@ import { verifyQuoteTicket } from "./quote-ticket";
 import { signOrderTrackingToken, verifyOrderTrackingToken } from "./order-access";
 import { assertExecutableQuickexRoute } from "./provider-capabilities";
 import { normalizeRefundFields } from "./manual-wallet-validation";
+import { validateSettlementDetails } from "./payment-methods";
 import { enqueueConvertTelegramMilestones } from "./telegram-convert-notifications";
 import { enqueueConvertEmailNotification } from "./customer-status-notifications";
 
@@ -19,11 +20,25 @@ type CreateInput = {
   destinationMemo?: string; refundAddress?: string | null; refundMemo?: string | null;
   customerEmail?: string; customerName?: string; clientRequestId: string; quoteId: string;
   sourceSettlementOptionId?: string; targetSettlementOptionId?: string;
+  settlementDetails?: Record<string, string | number | null>;
   customerClerkUserId?: string;
 };
 type Route = { fromAsset: string; fromNetwork: string; toAsset: string; toNetwork: string; rateMode: QuickexRateMode };
 type Amounts = { amount: string; receiveAmount: string; claimedDepositAmount?: string | null; expectedReceiveAmount?: string | null; paidAmount?: string | null };
-type Addresses = { destinationAddress: string; destinationMemo?: string; refundAddress: string; refundMemo?: string; depositAddress?: string; depositMemo?: string };
+type Addresses = {
+  destinationAddress: string; destinationMemo?: string; refundAddress: string; refundMemo?: string;
+  depositAddress?: string; depositMemo?: string; depositQrData?: string;
+  settlementDetails?: Record<string, string | number | null>;
+};
+function canonicalSettlementDetails(
+  details: Record<string, string | number | null> | undefined,
+) {
+  return JSON.stringify(
+    Object.entries(details ?? {})
+      .filter(([, value]) => value !== null && value !== "")
+      .sort(([left], [right]) => left.localeCompare(right)),
+  );
+}
 const QUICKEX_FINAL_STATUSES = ["failed", "cancelled", "refunded", "reversed", "expired"];
 const QUICKEX_REVERSAL_WINDOW_MS = 30 * 24 * 60 * 60 * 1_000;
 const QUICKEX_PROVIDER_SNAPSHOT_KEY = "quickex-order-reconciliation";
@@ -231,7 +246,9 @@ export async function createQuickexConvertOrder(input: CreateInput) {
       addresses.destinationAddress === (input.destinationAddress ?? "") &&
       (addresses.destinationMemo ?? "") === (input.destinationMemo ?? "") &&
       addresses.refundAddress === (input.refundAddress ?? "") &&
-      (addresses.refundMemo ?? "") === (input.refundMemo ?? "");
+      (addresses.refundMemo ?? "") === (input.refundMemo ?? "") &&
+      canonicalSettlementDetails(addresses.settlementDetails) ===
+        canonicalSettlementDetails(input.settlementDetails);
     if (!sameRequest) {
       throw new ApiError(
         "IDEMPOTENCY_CONFLICT",
@@ -245,6 +262,8 @@ export async function createQuickexConvertOrder(input: CreateInput) {
   if (!input.destinationAddress || !input.customerEmail) {
     throw new ApiError("VALIDATION_ERROR", "Destination address and email are required.", 400);
   }
+  const destinationAddress = input.destinationAddress;
+  const customerEmail = input.customerEmail;
   const rateMode = input.rateMode ?? "FLOATING";
   const ticket = verifyQuoteTicket(input.quoteId, {
     type: "instant", fromAsset: input.fromAsset, fromNetwork: input.fromNetwork,
@@ -255,6 +274,11 @@ export async function createQuickexConvertOrder(input: CreateInput) {
       `api:${capability.target.providerId}:${capability.target.networkId}`,
   });
   if (!ticket.quickexQuote) throw new ApiError("QUOTE_INVALID", "The quote ticket lacks a provider quote.", 400);
+  const normalizedSettlementDetails = validateSettlementDetails(
+    ticket.requiredSettlementFields ?? [],
+    input.settlementDetails,
+  );
+  input = { ...input, settlementDetails: normalizedSettlementDetails };
   const instruments = await getQuickexInstruments();
   const sourceInstrument = instruments.find(item =>
     item.currencyTitle.toUpperCase() === input.fromAsset.toUpperCase() &&
@@ -273,7 +297,7 @@ export async function createQuickexConvertOrder(input: CreateInput) {
     );
   }
   const addressValidations = [
-    validateQuickexAddress({ currencyTitle: input.toAsset, networkTitle: input.toNetwork, address: input.destinationAddress, memo: input.destinationMemo }),
+    validateQuickexAddress({ currencyTitle: input.toAsset, networkTitle: input.toNetwork, address: destinationAddress, memo: input.destinationMemo }),
   ];
   if (input.refundAddress) {
     addressValidations.push(
@@ -287,7 +311,11 @@ export async function createQuickexConvertOrder(input: CreateInput) {
     customerEmail: input.customerEmail, customerName: input.customerName ?? "Guest",
     customerClerkUserId: input.customerClerkUserId,
     route: { fromAsset: input.fromAsset, fromNetwork: input.fromNetwork, toAsset: input.toAsset, toNetwork: input.toNetwork, rateMode },
-    addresses: { destinationAddress: input.destinationAddress, destinationMemo: input.destinationMemo ?? "", refundAddress: input.refundAddress ?? "", refundMemo: input.refundAddress ? input.refundMemo ?? "" : "" },
+    addresses: {
+      destinationAddress: input.destinationAddress, destinationMemo: input.destinationMemo ?? "",
+      refundAddress: input.refundAddress ?? "", refundMemo: input.refundAddress ? input.refundMemo ?? "" : "",
+      settlementDetails: input.settlementDetails,
+    },
     createdAt: now, updatedAt: now,
   };
   const [intent] = await db.insert(quickexOrdersTable).values({
@@ -311,8 +339,10 @@ export async function createQuickexConvertOrder(input: CreateInput) {
   try {
     result = await createQuickexOrder({
       fromCurrency: input.fromAsset, fromNetwork: input.fromNetwork, toCurrency: input.toAsset, toNetwork: input.toNetwork,
-      amount: input.amount, destinationAddress: input.destinationAddress, destinationMemo: input.destinationMemo,
-      refundAddress: input.refundAddress ?? undefined, refundMemo: input.refundAddress ? input.refundMemo ?? undefined : undefined, email: input.customerEmail, rateMode, quote: ticket.quickexQuote,
+      amount: input.amount, destinationAddress, destinationMemo: input.destinationMemo,
+      refundAddress: input.refundAddress ?? undefined,
+      refundMemo: input.refundAddress ? input.refundMemo ?? undefined : undefined,
+      email: customerEmail, rateMode, quote: ticket.quickexQuote,
     });
   } catch (error) {
     // A transport failure after submission is durable and must never cause a retry.

@@ -18,6 +18,7 @@ import { createPrivilegedTestPool } from "@workspace/db/test-admin";
 type MockMode =
   | "ok" | "auth" | "address" | "memo" | "rateRead" | "rateCreate"
   | "fiveHundred" | "badJson" | "badBody" | "slow" | "acceptedSlow" | "missingSlow"
+  | "malformedSettlementFields"
   | "mismatchedRateMode" | "catalogUnavailable" | "slowOrders" | "slowOrdersFailure"
   | "authHtml" | "validationForbidden" | "pairUnavailable" | "expandedCatalog"
   | "ambiguousEmpty" | "ambiguousPlausible" | "formatOnlyReject" | "noContent"
@@ -519,6 +520,14 @@ async function mock(req: IncomingMessage, res: ServerResponse) {
       rateMode: mode === "mismatchedRateMode"
         ? (requestedRateMode === "FIXED" ? "FLOATING" : "FIXED")
         : requestedRateMode,
+      ...(mode === "malformedSettlementFields" ? {
+        requiredSettlementFields: [{
+          key: "accountReference",
+          label: "Account reference",
+          type: "unsupported-provider-field",
+          required: true,
+        }],
+      } : {}),
     };
     if (mode === "slow") return setTimeout(() => send(res, 200, responseQuote), 150);
     return send(res, 200, responseQuote);
@@ -1725,6 +1734,8 @@ test("provider, malformed, network, and timeout failures are classified safely",
   await expectCode(() => quickex.getQuickexQuote({ fromCurrency: "BTC", fromNetwork: "Bitcoin", toCurrency: "USDT", toNetwork: "TRC20", amount: 1 }), "QUICKEX_MALFORMED_RESPONSE");
   reset("badBody");
   await expectCode(() => quickex.getQuickexQuote({ fromCurrency: "BTC", fromNetwork: "Bitcoin", toCurrency: "USDT", toNetwork: "TRC20", amount: 1 }), "QUICKEX_MALFORMED_RESPONSE");
+  reset("malformedSettlementFields");
+  await expectCode(() => quickex.getQuickexQuote({ fromCurrency: "BTC", fromNetwork: "Bitcoin", toCurrency: "USDT", toNetwork: "TRC20", amount: 1 }), "QUICKEX_MALFORMED_RESPONSE");
   process.env.QUICKEX_BASE_URL = "http://127.0.0.1:1";
   await expectCode(() => quickex.getQuickexQuote({ fromCurrency: "BTC", fromNetwork: "Bitcoin", toCurrency: "USDT", toNetwork: "TRC20", amount: 1 }), "QUICKEX_NETWORK", { retryable: true });
   reset("slow");
@@ -1857,6 +1868,24 @@ test("quote tickets reject tampering, mismatch, and expiry", () => {
   assert.throws(() => tickets.verifyQuoteTicket(ticket, { ...base, amount: 2 }), { code: "QUOTE_MISMATCH" });
   assert.throws(() => tickets.verifyQuoteTicket(ticket, { ...base, rateMode: "FLOATING" }), { code: "QUOTE_MISMATCH" });
   assert.throws(() => tickets.verifyQuoteTicket(tickets.signQuoteTicket({ ...base, expiresAt: Date.now() - 1 }), base), { code: "QUOTE_EXPIRED" });
+});
+
+test("instant quote tickets carry only validated provider settlement field metadata", () => {
+  const base = {
+    v: 2 as const, type: "instant" as const, fromAsset: "BTC", fromNetwork: "Bitcoin",
+    toAsset: "USDT", toNetwork: "TRC20", amount: 1, receiveAmount: 2, rate: 2, fee: 0,
+    provider: "Quickex", expiresAt: Date.now() + 10_000, rateMode: "FIXED" as const,
+    requiredSettlementFields: [{
+      key: "accountReference", label: "Account reference", type: "short-text" as const,
+      required: true,
+    }],
+  };
+  const ticket = tickets.signQuoteTicket(base);
+  assert.deepEqual(tickets.verifyQuoteTicket(ticket, base).requiredSettlementFields, base.requiredSettlementFields);
+  assert.throws(() => tickets.verifyQuoteTicket(tickets.signQuoteTicket({
+    ...base,
+    requiredSettlementFields: [{ key: "accountReference", label: "Account reference", type: "unsafe" }],
+  } as never), base), { code: "QUOTE_INVALID" });
 });
 
 test("Convert creation enforces required provider memos before submission", async () => {

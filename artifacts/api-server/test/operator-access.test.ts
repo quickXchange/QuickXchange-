@@ -111,6 +111,7 @@ async function seedOrder(input: {
   customerEmail?: string;
   provider?: string;
   status?: string;
+  createdAt?: Date;
 }) {
   const id = input.id ?? `QX-${randomUUID()}`;
   const customerEmail = input.customerEmail ?? uniqueEmail("customer-order");
@@ -147,13 +148,14 @@ async function seedOrder(input: {
       customerOwnershipSource: input.customerClerkUserId
         ? "authenticated_create"
         : "",
+      ...(input.createdAt ? { createdAt: input.createdAt, updatedAt: input.createdAt } : {}),
     })
     .returning();
   createdOrderIds.add(order.id);
   return order;
 }
 
-async function seedQuickexOrder(customerClerkUserId: string | null) {
+async function seedQuickexOrder(customerClerkUserId: string | null, input: { createdAt?: Date } = {}) {
   const legacyOrderId = `QX-${randomUUID()}`;
   const [order] = await database.db
     .insert(database.quickexOrdersTable)
@@ -179,8 +181,8 @@ async function seedQuickexOrder(customerClerkUserId: string | null) {
         destinationAddress: "quickex-destination",
         refundAddress: "quickex-refund",
       },
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: input.createdAt ?? new Date(),
+      updatedAt: input.createdAt ?? new Date(),
     })
     .returning();
   createdQuickexOrderIds.add(legacyOrderId);
@@ -1389,6 +1391,83 @@ test("customer history is session-owned, paged, and strictly customer-safe", asy
   assert.equal(publiclyTracked.status, 200);
   assert.equal(Object.hasOwn(publiclyTracked.body ?? {}, "customerClerkUserId"), false);
   assert.equal(Object.hasOwn(publiclyTracked.body ?? {}, "customerEmail"), false);
+});
+
+test("customer history unions owned manual and Convert orders with shared pagination and isolation", async () => {
+  const customer = `user_customer_union_${randomUUID()}`;
+  const foreignCustomer = `user_customer_union_foreign_${randomUUID()}`;
+  const times = {
+    manualOld: new Date("2024-01-01T00:00:00.000Z"),
+    convertOld: new Date("2024-01-02T00:00:00.000Z"),
+    manualNew: new Date("2024-01-03T00:00:00.000Z"),
+    convertNew: new Date("2024-01-04T00:00:00.000Z"),
+  };
+  const manualOld = await seedOrder({
+    customerClerkUserId: customer,
+    createdAt: times.manualOld,
+  });
+  const convertOld = await seedQuickexOrder(customer, { createdAt: times.convertOld });
+  const manualNew = await seedOrder({
+    customerClerkUserId: customer,
+    createdAt: times.manualNew,
+  });
+  const convertNew = await seedQuickexOrder(customer, { createdAt: times.convertNew });
+  const foreignManual = await seedOrder({
+    customerClerkUserId: foreignCustomer,
+    createdAt: new Date("2024-01-05T00:00:00.000Z"),
+  });
+  const foreignConvert = await seedQuickexOrder(foreignCustomer, {
+    createdAt: new Date("2024-01-06T00:00:00.000Z"),
+  });
+
+  const firstPage = await request(
+    "/account/orders?page=1&pageSize=2",
+    {},
+    customer,
+  );
+  assert.equal(firstPage.status, 200);
+  assert.equal(firstPage.body?.total, 4);
+  assert.deepEqual(
+    (firstPage.body?.items as Array<Record<string, unknown>>).map((item) => item.id),
+    [convertNew.legacyOrderId, manualNew.id],
+  );
+
+  const secondPage = await request(
+    "/account/orders?page=2&pageSize=2",
+    {},
+    customer,
+  );
+  assert.equal(secondPage.status, 200);
+  assert.deepEqual(
+    (secondPage.body?.items as Array<Record<string, unknown>>).map((item) => item.id),
+    [convertOld.legacyOrderId, manualOld.id],
+  );
+  for (const page of [firstPage, secondPage]) {
+    const items = page.body?.items as Array<Record<string, unknown>>;
+    assert.equal(items.some((item) => item.id === foreignManual.id), false);
+    assert.equal(items.some((item) => item.id === foreignConvert.legacyOrderId), false);
+    for (const item of items) {
+      assert.equal(typeof item.trackingToken, "string");
+      assert.equal(Object.hasOwn(item, "customerEmail"), false);
+      assert.equal(Object.hasOwn(item, "providerReference"), false);
+    }
+  }
+
+  for (const id of [
+    manualOld.id,
+    manualNew.id,
+    convertOld.legacyOrderId,
+    convertNew.legacyOrderId,
+  ]) {
+    const detail = await request(`/account/orders/${id}`, {}, customer);
+    assert.equal(detail.status, 200);
+    assert.equal(detail.body?.id, id);
+  }
+  for (const id of [foreignManual.id, foreignConvert.legacyOrderId]) {
+    const detail = await request(`/account/orders/${id}`, {}, customer);
+    assert.equal(detail.status, 404);
+    assert.equal(detail.body?.code, "CUSTOMER_ORDER_NOT_FOUND");
+  }
 });
 
 test("anonymous orders stay public and can be claimed exactly once without ownership disclosure", async () => {

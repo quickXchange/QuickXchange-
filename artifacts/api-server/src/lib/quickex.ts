@@ -11,6 +11,8 @@ import {
   type QuickexCredentials,
 } from "./provider-credentials";
 import { logger } from "./logger";
+import type { PaymentMethodFieldDefinition } from "@workspace/db";
+import { validateSafeFieldDefinitions } from "./payment-methods";
 
 const DEFAULT_BASE_URL = "https://quickex.io/api/v2";
 const DEFAULT_READ_TIMEOUT_MS = 12_000;
@@ -66,6 +68,7 @@ export type QuickexQuote = {
   generalMinAmount?: string;
   generalMaxAmount?: string;
   rateMode: QuickexRateMode;
+  requiredSettlementFields?: PaymentMethodFieldDefinition[];
 };
 export type QuickexPair = {
   instrumentFromCurrencyTitle: string;
@@ -835,18 +838,96 @@ function validateQuote(
   expectedRateMode?: QuickexRateMode,
 ): QuickexQuote {
   const quote = value as Record<string, unknown>;
+  const malformedQuote = () => new QuickexApiError(
+    "QUICKEX_MALFORMED_RESPONSE",
+    "The exchange service returned an invalid quote.",
+  );
+  const settlementFieldTypes = new Set([
+    "short-text", "long-text", "integer", "numeric", "decimal", "account-iban",
+    "account-number", "account-name", "bank-code", "routing-number", "country-code",
+    "postal-address", "phone", "email", "date", "select", "wallet-address", "memo-tag",
+    "private-image", "text", "number", "textarea",
+  ]);
+  const requiredSettlementFields: PaymentMethodFieldDefinition[] = [];
+  if (quote.requiredSettlementFields !== undefined) {
+    if (!Array.isArray(quote.requiredSettlementFields)) throw malformedQuote();
+    const seen = new Set<string>();
+    for (const candidate of quote.requiredSettlementFields) {
+      if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+        throw malformedQuote();
+      }
+      const field = candidate as Record<string, unknown>;
+      if (typeof field.key !== "string" || !field.key || seen.has(field.key) ||
+        typeof field.label !== "string" || !field.label ||
+        typeof field.type !== "string" || !settlementFieldTypes.has(field.type) ||
+        (field.required !== undefined && typeof field.required !== "boolean") ||
+        (field.enabled !== undefined && typeof field.enabled !== "boolean") ||
+        (field.placeholder !== undefined && typeof field.placeholder !== "string") ||
+        (field.help !== undefined && typeof field.help !== "string") ||
+        (field.direction !== undefined && !["send", "receive", "both"].includes(String(field.direction))) ||
+        (field.emphasizedLabel !== undefined && typeof field.emphasizedLabel !== "boolean") ||
+        (field.min !== undefined && (typeof field.min !== "number" || !Number.isFinite(field.min))) ||
+        (field.max !== undefined && (typeof field.max !== "number" || !Number.isFinite(field.max))) ||
+        (field.pattern !== undefined && typeof field.pattern !== "string")) {
+        throw malformedQuote();
+      }
+      const options = field.options;
+      if (options !== undefined && (!Array.isArray(options) || options.some((option) =>
+        !option || typeof option !== "object" ||
+        typeof (option as Record<string, unknown>).value !== "string" ||
+        typeof (option as Record<string, unknown>).label !== "string"))) {
+        throw malformedQuote();
+      }
+      const requiredWhen = field.requiredWhen;
+      const requiredWhenRecord = requiredWhen && typeof requiredWhen === "object"
+        ? requiredWhen as Record<string, unknown>
+        : undefined;
+      if (requiredWhen !== undefined && (!requiredWhen || typeof requiredWhen !== "object" ||
+        typeof requiredWhenRecord?.fieldKey !== "string" ||
+        (typeof requiredWhenRecord?.equals !== "string" &&
+          !(Array.isArray(requiredWhenRecord?.equals) &&
+            requiredWhenRecord.equals.every((value: unknown) => typeof value === "string"))))) {
+        throw malformedQuote();
+      }
+      seen.add(field.key);
+      requiredSettlementFields.push({
+        key: field.key, label: field.label, type: field.type as PaymentMethodFieldDefinition["type"],
+        ...(typeof field.placeholder === "string" ? { placeholder: field.placeholder } : {}),
+        ...(field.help === undefined || typeof field.help === "string" ? { help: field.help } : {}),
+        ...(field.required === undefined || typeof field.required === "boolean" ? { required: field.required } : {}),
+        ...(field.enabled === undefined || typeof field.enabled === "boolean" ? { enabled: field.enabled } : {}),
+        ...(field.direction === "send" || field.direction === "receive" || field.direction === "both"
+          ? { direction: field.direction }
+          : {}),
+        ...(typeof field.emphasizedLabel === "boolean"
+          ? { emphasizedLabel: field.emphasizedLabel }
+          : {}),
+        ...(typeof field.min === "number" && Number.isFinite(field.min) ? { min: field.min } : {}),
+        ...(typeof field.max === "number" && Number.isFinite(field.max) ? { max: field.max } : {}),
+        ...(typeof field.pattern === "string" ? { pattern: field.pattern } : {}),
+        ...(Array.isArray(options) ? { options } : {}),
+        ...(requiredWhen ? { requiredWhen } : {}),
+      } as PaymentMethodFieldDefinition);
+    }
+  }
+  try {
+    validateSafeFieldDefinitions(requiredSettlementFields);
+  } catch {
+    throw malformedQuote();
+  }
   let result: QuickexQuote;
   try {
     result = {
       ...quote,
       instrumentFrom: validateQuotedInstrument(quote.instrumentFrom, expectedFrom),
       instrumentTo: validateQuotedInstrument(quote.instrumentTo, expectedTo),
+      requiredSettlementFields,
     } as QuickexQuote;
     if (!decimal(result.amountToGet) || !decimal(result.price) || !Number.isFinite(result.updatedAt) || !["FLOATING", "FIXED"].includes(result.rateMode) ||
       (result.finalNetworkFeeAmount !== undefined && !decimal(result.finalNetworkFeeAmount)) ||
       (result.generalMinAmount !== undefined && !decimal(result.generalMinAmount)) ||
       (result.generalMaxAmount !== undefined && !decimal(result.generalMaxAmount))) throw new Error();
-  } catch { throw new QuickexApiError("QUICKEX_MALFORMED_RESPONSE", "The exchange service returned an invalid quote."); }
+  } catch { throw malformedQuote(); }
   if (expectedRateMode && result.rateMode !== expectedRateMode) {
     throw new QuickexApiError(
       "QUICKEX_RATE_MODE_UNAVAILABLE",

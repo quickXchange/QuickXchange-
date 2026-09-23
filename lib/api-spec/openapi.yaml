@@ -4890,6 +4890,11 @@ components:
         destinationMemo: { type: string, maxLength: 256 }
         refundAddress: { type: string, maxLength: 512, nullable: true }
         refundMemo: { type: string, maxLength: 256, nullable: true }
+        settlementDetails:
+          type: object
+          additionalProperties:
+            type: [string, number, "null"]
+          description: Canonical provider-defined settlement values collected from the quote contract.
         quoteId: { type: string, minLength: 16, maxLength: 16384 }
         clientRequestId:
           type: string
@@ -7521,6 +7526,11 @@ components:
         customerMarkedPaidAt: { type: [string, "null"], format: date-time }
         refreshUnavailable: { type: boolean }
         logos: { type: object, additionalProperties: true }
+        depositAsset: { type: string }
+        depositNetwork: { type: string }
+        depositAmount: { type: string }
+        depositQrData: { type: string }
+        depositStatus: { type: string }
         verifiedFundingTransaction: { $ref: "#/components/schemas/VerifiedFundingTransaction" }
     TelegramMiniAppAccountLinkInput:
       type: object

@@ -42,5 +42,10 @@ export interface TelegramMiniAppOrder {
   customerMarkedPaidAt?: Date | null;
   refreshUnavailable?: boolean;
   logos?: TelegramMiniAppOrderLogos;
+  depositAsset?: string;
+  depositNetwork?: string;
+  depositAmount?: string;
+  depositQrData?: string;
+  depositStatus?: string;
   verifiedFundingTransaction?: VerifiedFundingTransaction;
 }

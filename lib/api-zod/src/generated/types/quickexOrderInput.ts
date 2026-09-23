@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { QuickexOrderInputSettlementDetails } from './quickexOrderInputSettlementDetails';
 import type { QuickexOrderInputType } from './quickexOrderInputType';
 import type { QuickexRateMode } from './quickexRateMode';
 
@@ -38,6 +39,8 @@ export interface QuickexOrderInput {
   refundAddress?: string | null;
   /** @maxLength 256 */
   refundMemo?: string | null;
+  /** Canonical provider-defined settlement values collected from the quote contract. */
+  settlementDetails?: QuickexOrderInputSettlementDetails;
   /**
      * @minLength 16
      * @maxLength 16384

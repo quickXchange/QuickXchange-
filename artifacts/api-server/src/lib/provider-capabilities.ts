@@ -407,6 +407,7 @@ export async function buildProviderQuoteTicket(input: InstantRouteInput) {
     provider: "Quickex",
     rateMode: quote.rateMode,
     quickexQuote: quote,
+    requiredSettlementFields: quote.requiredSettlementFields ?? [],
     expiresAt: Date.now() + 120_000,
   };
 }

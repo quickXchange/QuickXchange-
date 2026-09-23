@@ -21,7 +21,7 @@ import { AdminTelegramLinkChallengeError, consumeAdminTelegramLinkChallenge, cre
 import { buildCreatePayload, buildQuotePayload, buildTelegramConvertOptions, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, shouldAskDestination, telegramAssetNetworkKey, telegramFieldSkipIndex, withoutTelegramRefundFields } from "../src/lib/telegram-wizard";
 import { adminEmailEventEnabled, adminTelegramEventEnabled, customerEmailEventEnabled } from "../src/lib/notification-policy";
 import { normalizeRefundFields } from "../src/lib/manual-wallet-validation";
-import { telegramAccountLinkRelativeUrl, validateTelegramMiniAppInitData, verifyTelegramMiniAppSession } from "../src/routes/telegram-mini-app";
+import { quickexProjection, telegramAccountLinkRelativeUrl, validateTelegramMiniAppInitData, verifyTelegramMiniAppSession } from "../src/routes/telegram-mini-app";
 import { enqueueSwapTelegramNotification, formatSwapTelegramNotification } from "../src/lib/telegram-swap-notifications";
 import { buildCustomerStatusNotificationContent } from "../src/lib/customer-status-notifications";
 import { validateNotificationTemplateVariables } from "../src/routes/notification-settings";
@@ -30,6 +30,39 @@ import {
   formatConvertTelegramNotification,
 } from "../src/lib/telegram-convert-notifications";
 import { updateOrderAndQueueStatusNotification } from "../src/lib/customer-status-notifications";
+
+test("Telegram Mini App Convert projection exposes only persisted provider deposit instructions", () => {
+  const projected = quickexProjection({
+    legacyOrderId: "QX-test",
+    route: { fromAsset: "USDT", fromNetwork: "TRC20", toAsset: "BTC", toNetwork: "Bitcoin" },
+    amounts: { amount: "25.000000", receiveAmount: "0.001" },
+    addresses: {
+      destinationAddress: "customer-destination",
+      destinationMemo: "",
+      refundAddress: "",
+      refundMemo: "",
+      depositAddress: "provider-deposit",
+      depositMemo: "memo-42",
+      depositQrData: "bitcoin:provider-deposit?amount=25",
+      settlementDetails: { accountReference: "REF-42" },
+    },
+    status: "awaiting funds",
+    outcomeUnknown: false,
+    createdAt: new Date("2025-01-01T00:00:00.000Z"),
+  } as never, {
+    orderId: "QX-test",
+    orderKind: "convert",
+    trackingToken: "signed-tracking-token",
+  } as never);
+  assert.equal(projected.depositAsset, "USDT");
+  assert.equal(projected.depositNetwork, "TRC20");
+  assert.equal(projected.depositAmount, "25.000000");
+  assert.equal(projected.depositAddress, "provider-deposit");
+  assert.equal(projected.depositMemo, "memo-42");
+  assert.equal(projected.depositQrData, "bitcoin:provider-deposit?amount=25");
+  assert.equal(projected.depositStatus, "awaiting funds");
+  assert.deepEqual(projected.settlementDetails, { accountReference: "REF-42" });
+});
 
 test("Telegram Mini App initData validates authentic user data", () => {
   const previous = process.env.TELEGRAM_BOT_TOKEN;

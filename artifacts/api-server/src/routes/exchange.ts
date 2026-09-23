@@ -682,8 +682,8 @@ function assertIdempotentOrderMatches(
      row.rateMode !== (input.rateMode ?? "") ||
     (row.sourceSettlementOptionId ?? undefined) !== input.sourceSettlementOptionId ||
     (row.targetSettlementOptionId ?? undefined) !== input.targetSettlementOptionId ||
-     canonicalJson(row.settlementDetails ?? undefined) !==
-       canonicalJson(input.settlementDetails ?? undefined)
+     canonicalJson(row.settlementDetails ?? {}) !==
+       canonicalJson(input.settlementDetails ?? {})
   ) {
     throw new ApiError(
       "IDEMPOTENCY_CONFLICT",

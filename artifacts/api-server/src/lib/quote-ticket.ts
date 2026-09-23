@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import type { PaymentMethodFieldDefinition } from "@workspace/db";
 import { QuickexApiError, type QuickexQuote, type QuickexRateMode } from "./quickex";
 
 export type QuoteTicket = {
@@ -42,6 +43,7 @@ export type QuoteTicket = {
       confirmationGuidance: string; instructions: string; warning: string;
     };
   };
+  requiredSettlementFields?: PaymentMethodFieldDefinition[];
   manualOrderCreationDisabled?: boolean;
   pricingRuleId?: string;
   pricingRuleVersion?: number;
@@ -185,6 +187,24 @@ function validSettlementSnapshot(snapshot: unknown): snapshot is NonNullable<Quo
     (value.funding === undefined || Boolean(value.funding && typeof value.funding === "object" &&
       typeof (value.funding as Record<string, unknown>).address === "string" &&
       typeof (value.funding as Record<string, unknown>).memo === "string"));
+}
+function validRequiredSettlementFields(fields: unknown): fields is PaymentMethodFieldDefinition[] {
+  if (!Array.isArray(fields)) return false;
+  const keys = new Set<string>();
+  return fields.every((field) => {
+    if (!field || typeof field !== "object" || Array.isArray(field)) return false;
+    const value = field as Record<string, unknown>;
+    if (typeof value.key !== "string" || !value.key || keys.has(value.key) ||
+      typeof value.label !== "string" || !value.label ||
+      !["short-text", "long-text", "integer", "numeric", "decimal", "account-iban",
+        "account-number", "account-name", "bank-code", "routing-number", "country-code",
+        "postal-address", "phone", "email", "date", "select", "wallet-address", "memo-tag",
+        "private-image", "text", "number", "textarea"].includes(String(value.type))) return false;
+    keys.add(value.key);
+    return (value.required === undefined || typeof value.required === "boolean") &&
+      (value.enabled === undefined || typeof value.enabled === "boolean") &&
+      (value.requiredWhen === undefined || Boolean(value.requiredWhen && typeof value.requiredWhen === "object"));
+  });
 }
 type PricingReferenceLeg = {
   currency: string;
@@ -336,6 +356,10 @@ export function verifyQuoteTicket(
   }
   if (!value || typeof value !== "object") invalid("QUOTE_INVALID", "The quote ticket is invalid.");
   const ticket = value as QuoteTicket;
+  if (ticket.requiredSettlementFields !== undefined &&
+    !validRequiredSettlementFields(ticket.requiredSettlementFields)) {
+    invalid("QUOTE_INVALID", "The quote contains invalid settlement field metadata.");
+  }
   if (
     ![1, 2].includes(ticket.v) ||
     !["instant", "manual"].includes(ticket.type) ||
