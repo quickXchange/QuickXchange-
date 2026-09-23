@@ -1211,6 +1211,20 @@
   border-color: hsl(var(--warning) / 0.25);
 }
 
+html:not(.dark) .admin-shell.admin-redesign .admin-orders-page .status-badge-processing {
+  background: rgba(249, 115, 22, 0.11);
+  color: #c2410c;
+  border-color: rgba(234, 88, 12, 0.48);
+  box-shadow: 0 0 10px -3px rgba(249, 115, 22, 0.42);
+}
+
+.dark .admin-shell.admin-redesign .admin-orders-page .status-badge-processing {
+  background: rgba(249, 115, 22, 0.14);
+  color: #fb923c;
+  border-color: rgba(251, 146, 60, 0.52);
+  box-shadow: 0 0 11px -3px rgba(249, 115, 22, 0.5);
+}
+
 .admin-shell.admin-redesign .status-badge-gray {
   background: hsl(var(--muted));
   color: hsl(var(--muted-foreground));

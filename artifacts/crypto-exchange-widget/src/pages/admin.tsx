@@ -4263,7 +4263,7 @@ function RedesignedStatusBadge({ status }: { status: string }) {
     confirmed: 'status-badge-purple',
     'funds confirmed': 'status-badge-purple',
     'deposit received': 'status-badge-purple',
-    processing: 'status-badge-purple',
+    processing: 'status-badge-processing',
     'payout processing': 'status-badge-purple',
     'payout sent': 'status-badge-purple',
     exchanging: 'status-badge-purple',
