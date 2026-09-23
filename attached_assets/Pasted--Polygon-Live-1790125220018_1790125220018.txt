@@ -1,0 +1,33 @@
+واضح. المحاولة الثانية **لم تصل لقاعدة البيانات أصلًا**، وبالتالي ما تغير أي شيء في Polygon والـLive السليم بقي كما هو. المشكلة الآن ليست في migration نفسها؛ المشكلة أن استخدام Publish لتشغيل process لا يفتح Web Server يجعله يُقتل أثناء health checks قبل أن يكتمل الاتصال.
+
+لا نكرر Publish بنفس الأسلوب. أرسل لـReplit:
+
+> Stop retrying the migration-only process through the normal Replit Publish/web deployment path.
+>
+> The controlled release repeatedly gets terminated by web health checks while blocked in `pool.connect()`, before any transaction or Polygon change occurs.
+>
+> Keep the healthy live revision unchanged.
+>
+> Investigate the correct supported way to run this **one-shot Production database release job independently of the web deployment health checks**.
+>
+> Requirements:
+> - Do not run migrations during normal API startup.
+> - Do not replace the healthy live revision with a migration-only process.
+> - Do not modify Production data while diagnosing.
+> - Do not change database credentials/secrets blindly.
+> - Do not weaken or bypass web health checks.
+> - Do not modify Polygon manually yet.
+>
+> Also determine why `pool.connect()` does not honor/return within the configured five-second timeout and verify whether the runner is actually receiving the same effective database host, port, database, username, SSL/TLS settings, and password source as the healthy Production API.
+>
+> Do not print credentials or secret values.
+>
+> Report:
+> 1. The exact effective connection-setting differences between the healthy API and release runner (redacted).
+> 2. Why `pool.connect()` hangs instead of timing out.
+> 3. The supported one-shot job/release mechanism that is not subject to web-server health checks.
+> 4. A safe validation method that connects and immediately disconnects without running migrations.
+>
+> Do not execute the Polygon repair yet.
+
+**المهم الآن: لا تعمل Publish مرة أخرى** بنفس `MIGRATIONS_ONLY=true`؛ جرّبناه أكثر من مرة ونفس آلية الـdeployment تمنع الـone-shot job من العمل.

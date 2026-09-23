@@ -149,3 +149,4 @@
 - [UTXO reorg discovery windows](utxo-reorg-discovery-windows.md) — UTXO monitors must rewind bounded confirmation windows so replacement-chain deposits are discoverable.
 - [BSC legacy readiness boundary](bsc-legacy-readiness-boundary.md) — preserve the legacy exception only for enabled native BNB; every BEP20 token requires exact readiness proof.
 - [Signed crypto route identity](signed-crypto-route-identity.md) — resolve manual funding and monitoring by immutable route ID before deriving canonical network codes; display labels are not identifiers.
+- [Production one-shot release jobs](production-one-shot-release-jobs.md) — run database release commands as non-web scheduled jobs, never as autoscale web candidates or normal API startup.
