@@ -37,6 +37,11 @@ let cycleRunning = false;
 let recoveryMigration: Promise<void> | undefined;
 const MONITOR_CYCLE_DEADLINE_MS = 90_000;
 const NATIVE_SCAN_BLOCKS_PER_WATCH_CYCLE = 8;
+export const MAX_CATCH_UP_RANGES_PER_WATCH_CYCLE = 16;
+const MAX_CONFIRMING_REFRESHES_PER_CYCLE = 75;
+const MAX_APPLIED_REFRESHES_PER_CYCLE = 25;
+const MAX_MATCH_APPLICATIONS_PER_CYCLE = 100;
+const CATCH_UP_DEADLINE_GUARD_MS = 5_000;
 const VERIFIED_RECEIPT_RECOVERY_REASON =
   "Verified receipt recovery; inactive to prevent unbounded rescanning.";
 const VERIFIED_ERC20_WATCH_RECOVERY = {
@@ -374,6 +379,73 @@ export function boundedWatchScanEnd(
     ? NATIVE_SCAN_BLOCKS_PER_WATCH_CYCLE - 1
     : maxTokenRange;
   return String(Math.min(headNumber, fromNumber + maxOffset));
+}
+
+export function planBoundedWatchCatchUpRanges(
+  from: string,
+  head: string,
+  identityKind: string,
+  maxTokenRange: number,
+  maxRanges = MAX_CATCH_UP_RANGES_PER_WATCH_CYCLE,
+): ScanCursor[] {
+  const ranges: ScanCursor[] = [];
+  let cursor = from;
+  const safeLimit = Math.max(1, Math.floor(maxRanges));
+  for (let index = 0; index < safeLimit; index += 1) {
+    if (
+      /^[0-9]+$/.test(cursor) &&
+      /^[0-9]+$/.test(head) &&
+      BigInt(cursor) > BigInt(head)
+    ) break;
+    const to = boundedWatchScanEnd(cursor, head, identityKind, maxTokenRange);
+    ranges.push({ from: cursor, to });
+    if (to === head || to === cursor) break;
+    cursor = to;
+  }
+  return ranges;
+}
+
+export function maxWatchCatchUpRanges(
+  networkCode: string,
+  identityKind: string,
+): number {
+  return networkCode.trim().toUpperCase() === "BEP20" && identityKind === "token"
+    ? MAX_CATCH_UP_RANGES_PER_WATCH_CYCLE
+    : 1;
+}
+
+export function isTerminalBlockchainWatchOrder(
+  status: string,
+  manualSettlementState: string | null,
+): boolean {
+  const terminal = new Set([
+    "completed",
+    "cancelled",
+    "canceled",
+    "expired",
+    "failed",
+    "refunded",
+  ]);
+  return terminal.has(status.trim().toLowerCase()) ||
+    terminal.has(manualSettlementState?.trim().toLowerCase() ?? "");
+}
+
+export async function processBoundedWatchCatchUpRanges(input: {
+  ranges: readonly ScanCursor[];
+  initialCursor: string | null;
+  shouldContinue?: () => boolean;
+  processRange: (range: ScanCursor) => Promise<string>;
+  advanceCursor: (expectedCursor: string | null, nextCursor: string) => Promise<boolean>;
+}): Promise<string | null> {
+  let expectedCursor = input.initialCursor;
+  for (const range of input.ranges) {
+    if (input.shouldContinue && !input.shouldContinue()) break;
+    const nextCursor = await input.processRange(range);
+    if (!await input.advanceCursor(expectedCursor, nextCursor)) break;
+    expectedCursor = nextCursor;
+    if (nextCursor === range.from) break;
+  }
+  return expectedCursor;
 }
 
 export function boundedBitcoinWatchScanRange(
@@ -1215,8 +1287,15 @@ async function persistEvidence(network: typeof blockchainMonitorNetworksTable.$i
   }
 }
 
-async function refreshConfirming(network: typeof blockchainMonitorNetworksTable.$inferSelect, leaseToken: string): Promise<void> {
-  const rows = await db.select({
+async function refreshConfirming(
+  network: typeof blockchainMonitorNetworksTable.$inferSelect,
+  leaseToken: string,
+  deadlineAtMs: number,
+): Promise<void> {
+  const selectRows = (
+    state: "confirming" | "applied",
+    limit: number,
+  ) => db.select({
     match: blockchainMonitorMatchesTable,
     observation: blockchainMonitorObservationsTable,
     asset: blockchainMonitorAssetsTable,
@@ -1224,11 +1303,25 @@ async function refreshConfirming(network: typeof blockchainMonitorNetworksTable.
     .from(blockchainMonitorMatchesTable)
     .innerJoin(blockchainMonitorObservationsTable, eq(blockchainMonitorObservationsTable.id, blockchainMonitorMatchesTable.observationId))
     .innerJoin(blockchainMonitorAssetsTable, eq(blockchainMonitorAssetsTable.id, blockchainMonitorObservationsTable.monitorAssetId))
-    .where(and(inArray(blockchainMonitorMatchesTable.state, ["confirming", "applied"]), or(eq(blockchainMonitorMatchesTable.state, "confirming"), gte(blockchainMonitorMatchesTable.appliedAt, new Date(Date.now() - 60 * 60_000))), eq(blockchainMonitorObservationsTable.monitorNetworkId, network.id)));
+    .where(and(
+      eq(blockchainMonitorMatchesTable.state, state),
+      state === "applied"
+        ? gte(blockchainMonitorMatchesTable.appliedAt, new Date(Date.now() - 60 * 60_000))
+        : undefined,
+      eq(blockchainMonitorObservationsTable.monitorNetworkId, network.id),
+    ))
+    .orderBy(blockchainMonitorMatchesTable.updatedAt, blockchainMonitorMatchesTable.id)
+    .limit(limit);
+  const [confirmingRows, appliedRows] = await Promise.all([
+    selectRows("confirming", MAX_CONFIRMING_REFRESHES_PER_CYCLE),
+    selectRows("applied", MAX_APPLIED_REFRESHES_PER_CYCLE),
+  ]);
+  const rows = [...confirmingRows, ...appliedRows];
   const config = adapterConfig(network);
   if (!config) return;
-  const adapter = createBlockchainMonitorAdapter(config);
+  const adapter = createBlockchainMonitorAdapter({ ...config, deadlineAtMs });
   for (const row of rows) {
+    if (Date.now() >= deadlineAtMs - CATCH_UP_DEADLINE_GUARD_MS) return;
     const [lease] = await db.select({ token: blockchainMonitorNetworksTable.leaseToken, expires: blockchainMonitorNetworksTable.leaseExpiresAt })
       .from(blockchainMonitorNetworksTable).where(eq(blockchainMonitorNetworksTable.id, network.id)).limit(1);
     if (!lease || lease.token !== leaseToken || !lease.expires || lease.expires <= new Date()) return;
@@ -1256,6 +1349,7 @@ async function refreshConfirming(network: typeof blockchainMonitorNetworksTable.
       const [updatedMatch] = await tx.update(blockchainMonitorMatchesTable).set({
         confirmations: status.confirmations,
         state: invalid ? "needs_review" : row.match.state,
+        updatedAt: new Date(),
       }).where(and(
         eq(blockchainMonitorMatchesTable.id, row.match.id),
         eq(blockchainMonitorMatchesTable.state, row.match.state),
@@ -1370,7 +1464,43 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
       if (leaseLost) throw new Error("Blockchain monitoring lease was lost.");
       const watches = await db.select().from(blockchainMonitorWatchesTable)
         .where(and(eq(blockchainMonitorWatchesTable.monitorNetworkId, network.id), eq(blockchainMonitorWatchesTable.active, true), eq(blockchainMonitorWatchesTable.registrationState, "active")));
+      const watchOrders = watches.length
+        ? await db.select({
+            id: ordersTable.id,
+            status: ordersTable.status,
+            manualSettlementState: ordersTable.manualSettlementState,
+          }).from(ordersTable).where(inArray(ordersTable.id, watches.map((watch) => watch.orderId)))
+        : [];
+      const orderById = new Map(watchOrders.map((order) => [order.id, order]));
+      const terminalWatchIds = watches
+        .filter((watch) => {
+          const order = orderById.get(watch.orderId);
+          return order
+            ? isTerminalBlockchainWatchOrder(order.status, order.manualSettlementState)
+            : false;
+        })
+        .map((watch) => watch.id);
+      const deactivatedWatchIds = new Set<string>();
+      if (terminalWatchIds.length) {
+        const deactivated = await withLease(network.id, leaseToken, async (tx) => {
+          const terminalOrderIds = tx.select({ id: ordersTable.id })
+            .from(ordersTable)
+            .where(or(
+              inArray(ordersTable.status, ["completed", "cancelled", "canceled", "expired", "failed", "refunded"]),
+              inArray(ordersTable.manualSettlementState, ["completed", "cancelled", "failed", "refunded"]),
+            ));
+          return tx.update(blockchainMonitorWatchesTable).set({ active: false })
+            .where(and(
+              inArray(blockchainMonitorWatchesTable.id, terminalWatchIds),
+              inArray(blockchainMonitorWatchesTable.orderId, terminalOrderIds),
+              eq(blockchainMonitorWatchesTable.active, true),
+            ))
+            .returning({ id: blockchainMonitorWatchesTable.id });
+        });
+        for (const watch of deactivated) deactivatedWatchIds.add(watch.id);
+      }
       for (const watch of watches) {
+        if (deactivatedWatchIds.has(watch.id)) continue;
         const watched: WatchedAddress[] = [{
           address: watch.receivingAddress, memoOrTag: undefined,
           assets: [{ assetId: watch.monitorAssetId, symbol: watch.assetNetworkId, kind: watch.identityKind as "native" | "token", contractOrMint: watch.contractOrMint ?? undefined, decimals: watch.decimals }],
@@ -1382,43 +1512,69 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
           /^[0-9]+$/.test(head.cursor) &&
           BigInt(from) > BigInt(head.cursor)
         ) continue;
-        let scanFrom = from;
-        let boundedTo = boundedWatchScanEnd(
-          from,
-          head.cursor,
-          watch.identityKind,
-          network.maxScanRange,
-        );
-        if (network.adapterKind === "bitcoin") {
-          const range = boundedBitcoinWatchScanRange(
-            from,
-            watch.startCursor,
-            head.cursor,
-            network.maxScanRange,
-            Math.max(6, network.confirmationsRequired),
+        const ranges = network.adapterKind === "bitcoin"
+          ? [boundedBitcoinWatchScanRange(
+              from,
+              watch.startCursor,
+              head.cursor,
+              network.maxScanRange,
+              Math.max(6, network.confirmationsRequired),
+            )]
+          : planBoundedWatchCatchUpRanges(
+              from,
+              head.cursor,
+              watch.identityKind,
+              network.maxScanRange,
+              maxWatchCatchUpRanges(network.networkCode, watch.identityKind),
+            );
+        try {
+          await processBoundedWatchCatchUpRanges({
+            ranges,
+            initialCursor: watch.currentCursor,
+            shouldContinue: () => {
+              if (leaseLost) throw new Error("Blockchain monitoring lease was lost.");
+              return Date.now() < cycleDeadlineAt - CATCH_UP_DEADLINE_GUARD_MS;
+            },
+            processRange: async (range) => {
+              const result = await adapter.scanIncoming(range, watched);
+              for (const evidence of result.evidence) {
+                if (leaseLost) throw new Error("Blockchain monitoring lease was lost.");
+                const block = Number(evidence.blockOrSlot);
+                const headNumber = Number(head.cursor);
+                const confirmations = Number.isSafeInteger(block) && Number.isSafeInteger(headNumber) && headNumber >= block
+                  ? String(headNumber - block + 1)
+                  : evidence.confirmations;
+                await persistEvidence(network, leaseToken, { ...evidence, confirmations });
+              }
+              if (leaseLost) throw new Error("Blockchain monitoring lease was lost.");
+              return result.cursor.to;
+            },
+            advanceCursor: async (expectedCursor, nextCursor) => withLease(network.id, leaseToken, async (tx) => {
+              const [guard] = await tx.select({ token: blockchainMonitorNetworksTable.leaseToken, expires: blockchainMonitorNetworksTable.leaseExpiresAt }).from(blockchainMonitorNetworksTable).where(eq(blockchainMonitorNetworksTable.id, network.id)).for("update");
+              if (!guard || guard.token !== leaseToken || !guard.expires || guard.expires <= new Date()) throw new Error("Blockchain monitoring lease was lost.");
+              const cursorCondition = expectedCursor === null
+                ? isNull(blockchainMonitorWatchesTable.currentCursor)
+                : eq(blockchainMonitorWatchesTable.currentCursor, expectedCursor);
+              const [updated] = await tx.update(blockchainMonitorWatchesTable)
+                .set({ currentCursor: nextCursor })
+                .where(and(
+                  eq(blockchainMonitorWatchesTable.id, watch.id),
+                  eq(blockchainMonitorWatchesTable.active, true),
+                  cursorCondition,
+                ))
+                .returning({ id: blockchainMonitorWatchesTable.id });
+              return Boolean(updated);
+            }),
+          });
+        } catch (error) {
+          logger.warn(
+            { err: error, networkId: network.id, watchId: watch.id, orderId: watch.orderId },
+            "Blockchain monitoring watch scan failed",
           );
-          scanFrom = range.from;
-          boundedTo = range.to;
         }
-        const result = await adapter.scanIncoming({ from: scanFrom, to: boundedTo }, watched);
-        for (const evidence of result.evidence) {
-        if (leaseLost) throw new Error("Blockchain monitoring lease was lost.");
-        const block = Number(evidence.blockOrSlot);
-        const headNumber = Number(head.cursor);
-        const confirmations = Number.isSafeInteger(block) && Number.isSafeInteger(headNumber) && headNumber >= block
-          ? String(headNumber - block + 1)
-          : evidence.confirmations;
-        await persistEvidence(network, leaseToken, { ...evidence, confirmations });
-        }
-        if (leaseLost) throw new Error("Blockchain monitoring lease was lost.");
-      await withLease(network.id, leaseToken, async (tx) => {
-          const [guard] = await tx.select({ token: blockchainMonitorNetworksTable.leaseToken, expires: blockchainMonitorNetworksTable.leaseExpiresAt }).from(blockchainMonitorNetworksTable).where(eq(blockchainMonitorNetworksTable.id, network.id)).for("update");
-          if (!guard || guard.token !== leaseToken || !guard.expires || guard.expires <= new Date()) throw new Error("Blockchain monitoring lease was lost.");
-          await tx.update(blockchainMonitorWatchesTable).set({ currentCursor: result.cursor.to }).where(and(eq(blockchainMonitorWatchesTable.id, watch.id), eq(blockchainMonitorWatchesTable.currentCursor, from)));
-        });
       }
-      await refreshConfirming(network, leaseToken);
-      await applyConfirmedMatches(leaseToken, network.id);
+      await refreshConfirming(network, leaseToken, cycleDeadlineAt);
+      await applyConfirmedMatches(leaseToken, network.id, cycleDeadlineAt);
       const checkedAt = new Date();
       const legacyBep20 = usesLegacyBep20Readiness(network.networkCode, network.chainId);
       const strictManualProof = shouldRefreshStrictManualReadinessProof(network);
@@ -1577,21 +1733,36 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
   }
 }
 
-export async function applyConfirmedMatches(leaseToken?: string, networkId?: string): Promise<void> {
-  const matches = await db.select().from(blockchainMonitorMatchesTable).where(eq(blockchainMonitorMatchesTable.state, "confirming"));
-  for (const match of matches) {
-    if (leaseToken && networkId) {
-      const [lease] = await db.select({ token: blockchainMonitorNetworksTable.leaseToken, expires: blockchainMonitorNetworksTable.leaseExpiresAt })
-        .from(blockchainMonitorNetworksTable).where(and(eq(blockchainMonitorNetworksTable.id, networkId), eq(blockchainMonitorNetworksTable.leaseToken, leaseToken))).limit(1);
-      if (!lease || !lease.expires || lease.expires <= new Date()) return;
-      const [observation] = await db.select({ networkId: blockchainMonitorObservationsTable.monitorNetworkId })
-        .from(blockchainMonitorObservationsTable).where(eq(blockchainMonitorObservationsTable.id, match.observationId)).limit(1);
-      if (!observation || observation.networkId !== networkId) continue;
-    }
-    const [observation] = await db.select().from(blockchainMonitorObservationsTable).where(eq(blockchainMonitorObservationsTable.id, match.observationId)).limit(1);
-    const [network] = observation ? await db.select().from(blockchainMonitorNetworksTable).where(eq(blockchainMonitorNetworksTable.id, observation.monitorNetworkId)).limit(1) : [];
-    if (!observation || !network || !isFinalitySatisfied(network.finalityPolicy, match.confirmations, match.confirmationsRequired, observation.finalized)) continue;
-    if (!leaseToken || !networkId) continue;
+export async function applyConfirmedMatches(
+  leaseToken: string,
+  networkId: string,
+  deadlineAtMs: number,
+): Promise<void> {
+  const [network] = await db.select().from(blockchainMonitorNetworksTable)
+    .where(eq(blockchainMonitorNetworksTable.id, networkId)).limit(1);
+  if (!network) return;
+  const rows = await db.select({
+    match: blockchainMonitorMatchesTable,
+    observation: blockchainMonitorObservationsTable,
+  }).from(blockchainMonitorMatchesTable)
+    .innerJoin(
+      blockchainMonitorObservationsTable,
+      eq(blockchainMonitorObservationsTable.id, blockchainMonitorMatchesTable.observationId),
+    )
+    .where(and(
+      eq(blockchainMonitorMatchesTable.state, "confirming"),
+      eq(blockchainMonitorObservationsTable.monitorNetworkId, networkId),
+      network.finalityPolicy === "finalized"
+        ? eq(blockchainMonitorObservationsTable.finalized, true)
+        : sql`${blockchainMonitorMatchesTable.confirmations} >= ${blockchainMonitorMatchesTable.confirmationsRequired}`,
+    ))
+    .orderBy(blockchainMonitorMatchesTable.updatedAt, blockchainMonitorMatchesTable.id)
+    .limit(MAX_MATCH_APPLICATIONS_PER_CYCLE);
+  for (const { match, observation } of rows) {
+    if (Date.now() >= deadlineAtMs - CATCH_UP_DEADLINE_GUARD_MS) return;
+    const [lease] = await db.select({ token: blockchainMonitorNetworksTable.leaseToken, expires: blockchainMonitorNetworksTable.leaseExpiresAt })
+      .from(blockchainMonitorNetworksTable).where(and(eq(blockchainMonitorNetworksTable.id, networkId), eq(blockchainMonitorNetworksTable.leaseToken, leaseToken))).limit(1);
+    if (!lease || !lease.expires || lease.expires <= new Date()) return;
     await withLease(networkId, leaseToken, async (tx) => {
       const [watch] = await tx.select().from(blockchainMonitorWatchesTable)
         .where(eq(blockchainMonitorWatchesTable.id, match.watchId)).limit(1);
@@ -1603,6 +1774,7 @@ export async function applyConfirmedMatches(leaseToken?: string, networkId?: str
         await tx.update(blockchainMonitorMatchesTable).set({
           state: "needs_review",
           ambiguityReason: "The payment match watch is not actively registered.",
+          updatedAt: new Date(),
         }).where(and(
           eq(blockchainMonitorMatchesTable.id, match.id),
           eq(blockchainMonitorMatchesTable.state, "confirming"),
@@ -1610,7 +1782,14 @@ export async function applyConfirmedMatches(leaseToken?: string, networkId?: str
         return;
       }
       let [current] = await tx.select().from(ordersTable).where(and(eq(ordersTable.id, match.orderId), ELIGIBLE)).limit(1);
-      if (!current) return;
+      if (!current) {
+        await tx.update(blockchainMonitorMatchesTable).set({ updatedAt: new Date() })
+          .where(and(
+            eq(blockchainMonitorMatchesTable.id, match.id),
+            eq(blockchainMonitorMatchesTable.state, "confirming"),
+          ));
+        return;
+      }
       if (current.status === "awaiting funds") {
         const detected = await updateOrderAndQueueStatusNotificationTx(tx, current, {
           status: "payment detected",
@@ -1629,7 +1808,11 @@ export async function applyConfirmedMatches(leaseToken?: string, networkId?: str
         action: "blockchain_monitoring.funds_confirmed",
       });
       if (!order) return;
-      await tx.update(blockchainMonitorMatchesTable).set({ state: "applied", appliedAt: new Date() }).where(eq(blockchainMonitorMatchesTable.id, match.id));
+      await tx.update(blockchainMonitorMatchesTable).set({
+        state: "applied",
+        appliedAt: new Date(),
+        updatedAt: new Date(),
+      }).where(eq(blockchainMonitorMatchesTable.id, match.id));
       await tx.update(blockchainMonitorWatchesTable).set({ active: false })
         .where(and(
           eq(blockchainMonitorWatchesTable.id, watch.id),

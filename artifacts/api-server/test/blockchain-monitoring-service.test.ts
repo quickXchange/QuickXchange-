@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { boundedBitcoinWatchScanRange, boundedWatchScanEnd, canApplyConfirmedMatchWatch, canResolveRegistrationGap, classifyWatchRegistrationIdentity, cursorAfterCapturedHead, deriveBlockchainMonitoringSetupStatus, evidenceWithinWatchCursor, exactAmountMatches, exactWatchMatchesOrderSnapshot, evidenceMeetsWatchTimeAndMemo, immutableIdentityMatches, isFinalitySatisfied, selectReadyBlockchainMonitoringSetupRoutes, selectWatchScanCursor, shouldRefreshStrictManualReadinessProof } from "../src/lib/blockchain-monitoring/service";
+import { boundedBitcoinWatchScanRange, boundedWatchScanEnd, canApplyConfirmedMatchWatch, canResolveRegistrationGap, classifyWatchRegistrationIdentity, cursorAfterCapturedHead, deriveBlockchainMonitoringSetupStatus, evidenceWithinWatchCursor, exactAmountMatches, exactWatchMatchesOrderSnapshot, evidenceMeetsWatchTimeAndMemo, immutableIdentityMatches, isFinalitySatisfied, isTerminalBlockchainWatchOrder, MAX_CATCH_UP_RANGES_PER_WATCH_CYCLE, maxWatchCatchUpRanges, planBoundedWatchCatchUpRanges, processBoundedWatchCatchUpRanges, selectReadyBlockchainMonitoringSetupRoutes, selectWatchScanCursor, shouldRefreshStrictManualReadinessProof } from "../src/lib/blockchain-monitoring/service";
 import { canEnqueueSwapPaymentReceived } from "../src/lib/telegram-swap-notifications";
 import { signedCryptoRouteId } from "../src/lib/manual-crypto";
 
@@ -180,6 +180,71 @@ test("native watch ranges make bounded progress while token ranges retain bulk l
     boundedBitcoinWatchScanRange("100", "98", "100", 8, 6),
     { from: "98", to: "100" },
   );
+});
+
+test("BEP20 catch-up uses multiple bounded ranges and catches an advancing live head", () => {
+  let cursor = 1_000;
+  let head = 1_300;
+  for (let cycle = 0; cycle < 4; cycle += 1) {
+    const ranges = planBoundedWatchCatchUpRanges(
+      String(cursor),
+      String(head),
+      "token",
+      9,
+    );
+    assert.ok(ranges.length <= MAX_CATCH_UP_RANGES_PER_WATCH_CYCLE);
+    assert.ok(ranges.every((range) => Number(range.to) - Number(range.from) <= 9));
+    assert.ok(ranges.every((range, index) =>
+      index === 0 || range.from === ranges[index - 1]?.to
+    ));
+    cursor = Number(ranges.at(-1)?.to ?? cursor);
+    head += 30;
+  }
+  assert.ok(head - cursor <= 30, `expected catch-up cursor ${cursor} near live head ${head}`);
+});
+
+test("BEP20 catch-up caps work per cycle and terminal orders stop scanning", () => {
+  const ranges = planBoundedWatchCatchUpRanges("100", "10000", "token", 9);
+  assert.equal(ranges.length, MAX_CATCH_UP_RANGES_PER_WATCH_CYCLE);
+  assert.equal(ranges.at(-1)?.to, "244");
+  assert.equal(isTerminalBlockchainWatchOrder("completed", "funds_confirmed"), true);
+  assert.equal(isTerminalBlockchainWatchOrder("cancelled", "cancelled"), true);
+  assert.equal(isTerminalBlockchainWatchOrder("expired", "awaiting_funds"), true);
+  assert.equal(isTerminalBlockchainWatchOrder("failed", "failed"), true);
+  assert.equal(isTerminalBlockchainWatchOrder("refunded", "refunded"), true);
+  assert.equal(isTerminalBlockchainWatchOrder("processing", "funds_confirmed"), false);
+  assert.equal(isTerminalBlockchainWatchOrder("awaiting funds", "awaiting_funds"), false);
+});
+
+test("multi-range catch-up is isolated to BEP20 token watches", () => {
+  assert.equal(maxWatchCatchUpRanges("BEP20", "token"), MAX_CATCH_UP_RANGES_PER_WATCH_CYCLE);
+  assert.equal(maxWatchCatchUpRanges("BEP20", "native"), 1);
+  assert.equal(maxWatchCatchUpRanges("BSC", "token"), 1);
+  assert.equal(maxWatchCatchUpRanges("BSC_BEP20", "token"), 1);
+  assert.equal(maxWatchCatchUpRanges("ERC20", "token"), 1);
+  assert.equal(maxWatchCatchUpRanges("POLYGON", "token"), 1);
+  assert.equal(maxWatchCatchUpRanges("TRC20", "token"), 1);
+});
+
+test("BEP20 catch-up never advances a failed range and preserves prior progress", async () => {
+  const ranges = planBoundedWatchCatchUpRanges("100", "200", "token", 9, 4);
+  const committed: Array<{ expected: string | null; next: string }> = [];
+  await assert.rejects(
+    processBoundedWatchCatchUpRanges({
+      ranges,
+      initialCursor: "100",
+      processRange: async (range) => {
+        if (range.from === "109") throw new Error("simulated RPC failure");
+        return range.to;
+      },
+      advanceCursor: async (expected, next) => {
+        committed.push({ expected, next });
+        return true;
+      },
+    }),
+    /simulated RPC failure/,
+  );
+  assert.deepEqual(committed, [{ expected: "100", next: "109" }]);
 });
 
 test("bulk monitoring setup keeps disabled routes disabled and never infers token identity", () => {
