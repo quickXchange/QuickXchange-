@@ -1,5 +1,4 @@
 import { spawn } from "node:child_process";
-import { createServer } from "node:http";
 
 let activeChild = null;
 let requestedSignal = null;
@@ -35,78 +34,23 @@ function runChild(command, args) {
   });
 }
 
-let startupGate = null;
-
-async function closeStartupGate() {
-  if (!startupGate) return;
-  const server = startupGate;
-  startupGate = null;
-  await new Promise((resolve, reject) => {
-    server.close(error => error ? reject(error) : resolve());
-  });
-}
-
-if (process.env.MIGRATIONS_ONLY !== "true") {
-  const port = Number(process.env.PORT);
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error("PORT must be an integer from 1 through 65535.");
-  }
-  startupGate = createServer((request, response) => {
-    const startupProbePaths = new Set([
-      "/",
-      "/api",
-      "/api/healthz",
-      "/whiteBIT-verification",
-    ]);
-    const isStartupProbe =
-      request.method === "GET" &&
-      startupProbePaths.has(request.url ?? "");
-    response.statusCode = isStartupProbe ? 200 : 503;
-    response.setHeader("Content-Type", "text/plain; charset=utf-8");
-    if (!isStartupProbe) response.setHeader("Retry-After", "5");
-    response.end(
-      isStartupProbe
-        ? "Database release step in progress.\n"
-        : "Service unavailable while database release step is in progress.\n",
-    );
-  });
-  await new Promise((resolve, reject) => {
-    startupGate.once("error", reject);
-    startupGate.listen(port, "0.0.0.0", resolve);
-  });
-  console.log(`Production startup gate listening on port ${port}.`);
-  if (requestedSignal) {
-    await closeStartupGate();
-    process.exit(exitCodeForSignal(requestedSignal));
-  }
-}
-
-const migration = await runChild(
-  process.execPath,
-  ["lib/db/run-production-monitoring-migrations.mjs"],
-);
-if (requestedSignal) {
-  await closeStartupGate();
-  process.exit(exitCodeForSignal(requestedSignal));
-}
-if (migration.signal) {
-  await closeStartupGate();
-  process.exit(exitCodeForSignal(migration.signal));
-}
-if (migration.code !== 0) {
-  await closeStartupGate();
-  console.error(`Production database release step failed with exit code ${migration.code ?? 1}.`);
-  process.exit(migration.code ?? 1);
-}
-
 if (process.env.MIGRATIONS_ONLY === "true") {
+  const migration = await runChild(
+    process.execPath,
+    ["lib/db/run-production-monitoring-migrations.mjs"],
+  );
+  if (requestedSignal) process.exit(exitCodeForSignal(requestedSignal));
+  if (migration.signal) process.exit(exitCodeForSignal(migration.signal));
+  if (migration.code !== 0) {
+    console.error(`Production database release step failed with exit code ${migration.code ?? 1}.`);
+    process.exit(migration.code ?? 1);
+  }
   console.log("Production database release step completed.");
   process.exit(0);
 }
 
-await closeStartupGate();
 if (requestedSignal) process.exit(exitCodeForSignal(requestedSignal));
-console.log("Production database release step completed; starting API.");
+console.log("Starting Production API without running database release operations.");
 
 const api = await runChild(
   process.execPath,
