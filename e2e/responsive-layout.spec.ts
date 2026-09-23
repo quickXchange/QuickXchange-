@@ -1889,30 +1889,24 @@ test('homepage uses a left-widget two-column hero on tablets and iPads', async (
   }
 });
 
-test('desktop-mode iPads keep the exchange widget in the left hero column', async ({ browser }) => {
-  const context = await browser.newContext({
-    viewport: { width: 1366, height: 1024 },
-    hasTouch: true,
+test('desktop-mode iPads keep the exchange widget in the left hero column', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 1024 });
+  await page.goto('/');
+  const hero = page.locator('.exchange-main.public-hero-container:visible');
+  await expect(hero.locator('#exchange-widget')).toBeVisible();
+  await expect(hero.locator('.exchange-hero-copy > h1')).toBeVisible();
+  const geometry = await hero.evaluate((hero) => {
+    const widget = hero.querySelector<HTMLElement>('#exchange-widget')!.getBoundingClientRect();
+    const title = hero.querySelector<HTMLElement>('.exchange-hero-copy > h1')!.getBoundingClientRect();
+    return {
+      widget: { top: widget.top, right: widget.right, width: widget.width },
+      title: { top: title.top, left: title.left },
+      documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
   });
-  const page = await context.newPage();
 
-  try {
-    await page.goto('/');
-    const geometry = await page.locator('.exchange-main.public-hero-container').evaluate((hero) => {
-      const widget = hero.querySelector<HTMLElement>('#exchange-widget')!.getBoundingClientRect();
-      const title = hero.querySelector<HTMLElement>('.exchange-hero-copy > h1')!.getBoundingClientRect();
-      return {
-        widget: { top: widget.top, right: widget.right, width: widget.width },
-        title: { top: title.top, left: title.left },
-        documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      };
-    });
-
-    expect(geometry.widget.right).toBeLessThan(geometry.title.left);
-    expect(Math.abs(geometry.widget.top - geometry.title.top)).toBeLessThan(100);
-    expect(geometry.widget.width).toBeLessThanOrEqual(500);
-    expect(geometry.documentOverflow).toBe(0);
-  } finally {
-    await context.close();
-  }
+  expect(geometry.widget.right).toBeLessThan(geometry.title.left);
+  expect(Math.abs(geometry.widget.top - geometry.title.top)).toBeLessThan(100);
+  expect(geometry.widget.width).toBeLessThanOrEqual(500);
+  expect(geometry.documentOverflow).toBe(0);
 });

@@ -152,3 +152,4 @@
 - [Production one-shot release jobs](production-one-shot-release-jobs.md) — run database release commands as non-web scheduled jobs, never as autoscale web candidates or normal API startup.
 - [Provider settlement field validation](provider-settlement-field-validation.md) — reject the whole quote when any provider-declared settlement field is malformed; never silently drop it.
 - [Convert and monitoring boundary](convert-monitoring-boundary.md) — Quickex Convert execution and Manual Swap blockchain monitoring must remain runtime-independent.
+- [Playwright custom contexts](playwright-custom-contexts.md) — manually created browser contexts do not inherit standard page fixtures, routes, or base URLs.

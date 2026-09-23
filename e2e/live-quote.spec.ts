@@ -588,7 +588,7 @@ test('previews a manual quote and handles cleared and failed quotes without subm
   expect(languageFlagGeometry.every(flag =>
     Math.abs(flag.width - flag.height) < 0.5
     && flag.width > 0
-    && (!flag.hasImage || flag.objectFit === 'contain')
+    && (!flag.hasImage || flag.objectFit === 'cover')
   )).toBe(true);
   await page.keyboard.press('Escape');
 
@@ -1531,7 +1531,7 @@ test('keeps compact exchange widgets and asset menus usable across viewport size
   await expect(btcLogo).toHaveCSS('width', '32px');
   await expect(btcLogo).toHaveCSS('height', '32px');
   const btcLogoImage = btcLogo.locator('img');
-  await expect(btcLogoImage).toHaveCSS('object-fit', 'contain');
+  await expect(btcLogoImage).toHaveCSS('object-fit', 'cover');
 
   const btcNetworkBadge = btcOption.locator('.crypto-network-badge');
   await expect(btcNetworkBadge).toBeVisible();

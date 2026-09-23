@@ -23180,6 +23180,12 @@ html:not(.dark) .frontend-menu-drawer .qx-mobile-trigger[aria-expanded="true"] {
     box-sizing: border-box !important;
   }
 
+  .public-shell .status-main.track-order-page {
+    padding-inline:
+      max(16px, env(safe-area-inset-left))
+      max(16px, env(safe-area-inset-right)) !important;
+  }
+
   .public-shell .exchange-wrapper-wide {
     width: 100% !important;
     max-width: 100% !important;
