@@ -26,6 +26,7 @@ args = ["node", "scripts/production-api-start.mjs"]
 [services.production.run.env]
 PORT = "8080"
 NODE_ENV = "production"
+MIGRATIONS_ONLY = "true"
 
 [services.production.health.startup]
 path = "/api/healthz"
