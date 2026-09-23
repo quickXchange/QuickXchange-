@@ -6120,7 +6120,7 @@ function AdminCustomers() {
     title={t('adminCore.customers')}
     requiredPermission="customers.view"
   >
-    <div className="admin-page-actions customers-page-actions">
+    <div className="admin-customer-area admin-page-actions customers-page-actions">
       <div className="customer-search">
         <AdminSearch
           value={search}
@@ -6131,7 +6131,7 @@ function AdminCustomers() {
         />
       </div>
     </div>
-    <div className="panel customers-panel rise-in">
+    <div className="admin-customer-area panel customers-panel rise-in">
       {customers.isError ? <ErrorState message={t('adminCore.load_customers_error')} retry={() => customers.refetch()} /> : customers.isLoading ? <LoadingBlock rows={6} /> : !customers.data?.items.length ? <div className="table-empty" data-testid="empty-customers"><Users size={20} /><strong>{t('adminCore.no_customers_found')}</strong></div> : <div className="w-full relative group">
         <div className="swipeable-scroll-hint" aria-hidden="true" />
         <div className="table-wrap" onScroll={(e) => {

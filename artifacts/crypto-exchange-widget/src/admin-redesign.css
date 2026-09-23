@@ -10012,6 +10012,47 @@ body > [data-radix-popper-content-wrapper]:has(> .catalog-network-multiselect-co
   background: transparent;
 }
 
+/* Admin Customers only: keep uploaded and catalog logos circular without a
+   painted square backing. Public customer and other Admin surfaces are excluded. */
+.admin-shell.admin-redesign .admin-customer-area :is(
+  .crypto-logo,
+  .payment-method-logo,
+  .network-logo,
+  .fiat-currency-flag,
+  .fiat-currency-flag-admin,
+  .logo-avatar
+) {
+  aspect-ratio: 1 / 1 !important;
+  overflow: hidden !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.admin-shell.admin-redesign .admin-customer-area :is(
+  .crypto-logo,
+  .payment-method-logo,
+  .network-logo,
+  .fiat-currency-flag,
+  .fiat-currency-flag-admin,
+  .logo-avatar
+) :is(img, .logo-avatar-img) {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  aspect-ratio: 1 / 1 !important;
+  margin: auto !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  object-fit: contain !important;
+  object-position: center !important;
+}
+
 .customer-admin-dialog-body {
   padding: 22px 24px;
 }

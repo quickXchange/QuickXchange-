@@ -218,7 +218,7 @@ export function AdminCustomerProfile() {
         </div>
       }
     >
-      <div className="rise-in space-y-6">
+      <div className="admin-customer-area rise-in space-y-6">
         {actionNotice && (
           <InlineNotice kind={actionNotice.kind} onDismiss={() => setActionNotice(null)}>
             {actionNotice.text}
