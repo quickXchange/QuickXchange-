@@ -4642,12 +4642,16 @@ html:not(.dark) .admin-shell.admin-redesign .pricing-table tbody tr:hover td {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  border: 0;
   border-radius: 50%;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
   contain: layout paint;
 }
 
 .admin-shell.admin-redesign .admin-orders-page .order-route-logo-frame > :is(.crypto-logo, .admin-payment-logo-stack),
-.admin-shell.admin-redesign .admin-orders-page .order-route-logo-frame .payment-method-logo {
+.admin-shell.admin-redesign .admin-orders-page .order-route-logo-frame :is(.payment-method-logo, .logo-avatar) {
   box-sizing: border-box;
   width: 100% !important;
   height: 100% !important;
@@ -4658,11 +4662,36 @@ html:not(.dark) .admin-shell.admin-redesign .pricing-table tbody tr:hover td {
   aspect-ratio: 1 / 1;
   flex: 0 0 100% !important;
   overflow: hidden !important;
+  border: 0 !important;
   border-radius: 50% !important;
+  outline: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
   padding: 0 !important;
   box-shadow: none !important;
   filter: none !important;
   transform: none !important;
+}
+
+.admin-shell.admin-redesign .admin-orders-page .order-route-logo-frame :is(
+  .crypto-logo,
+  .payment-method-logo,
+  .logo-avatar
+) :is(img, .logo-avatar-img) {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  aspect-ratio: 1 / 1 !important;
+  margin: auto !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  object-fit: contain !important;
+  object-position: center !important;
 }
 
 .admin-shell.admin-redesign .admin-orders-page .order-route-copy {
