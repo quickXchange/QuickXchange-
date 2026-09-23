@@ -33,11 +33,11 @@ WhiteBIT's per-order `create-new-address` endpoint requires provider-granted per
 
 **How to apply:** Keep an exact manual fallback for each selected WhiteBIT route, record definitive rejection as unavailable when no fallback was snapshotted, and show that state explicitly to the customer instead of leaving an empty deposit panel.
 
-WhiteBIT webhook authentication may use dedicated webhook credentials when configured, otherwise it uses the same API key and HMAC secret as signed WhiteBIT API requests. The public ownership-verification key is separate and must never be treated as an HMAC secret.
+WhiteBIT's current webhook documentation describes a separately generated webhook API key and HMAC secret; the public ownership-verification key is a third, distinct value. A successful signed trading API request does not establish that webhook signatures will validate.
 
-**Why:** WhiteBIT sends `x-txc-apikey`, payload, and signature headers compatible with the account API credentials, while ownership verification exposes a public key through a separate root endpoint. Requiring duplicate webhook-only secrets can silently disable valid callbacks.
+**Why:** Earlier integration assumptions allowed falling back to trading API credentials for callbacks, but the provider now explicitly describes the webhook as a separate entity with its own generated credentials. A public verification response or unsigned 401 proves reachability and rejection, not successful signed delivery.
 
-**How to apply:** Prefer explicit webhook key/secret overrides, fall back to the configured WhiteBIT API key/secret, keep `/whiteBIT-verification` at the service root, and reject unsigned or malformed webhook requests before processing deposits.
+**How to apply:** Before claiming webhook readiness, confirm which generation of webhook credentials the account uses and verify a genuine signed delivery using its dedicated key/secret. Keep `/whiteBIT-verification` at the service root, and never treat its public key as an HMAC secret. Do not infer callback authentication from a successful deposit-address call.
 
 Archived-order deletion must preserve protected WhiteBIT deposit and address records. Refuse permanent deletion when an order still owns those records rather than granting broad delete rights or silently removing financial provenance.
 
