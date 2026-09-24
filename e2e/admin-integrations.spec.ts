@@ -58,6 +58,9 @@ test('owners can validate and integrate Quickex without exposing saved credentia
       webhookReady: false,
     }),
   }));
+  // The broad status fixture above is an object; this endpoint returns an array.
+  await page.route('**/api/admin/providers/whitebit/verification-routes**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
 
   await page.route('**/api/quickex/admin/credentials/test', async (route) => {
     diagnosticsRuns += 1;
@@ -130,6 +133,8 @@ test('owners can validate and integrate Quickex without exposing saved credentia
 });
 
 test('provider summary stays unknown when integration status cannot be loaded', async ({ page }) => {
+  await page.route('**/api/admin/providers/whitebit/verification-routes**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
   await page.route('**/api/quickex/admin/credentials', async (route) => {
     await route.fulfill({
       status: 503,

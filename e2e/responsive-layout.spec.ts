@@ -213,6 +213,7 @@ async function mockLayoutApis(page: Page) {
     if (path === '/api/exchange/config') body = exchangeConfig;
     else if (path === '/api/site-content') body = publishedSiteContentStub;
     else if (path === '/api/site-navigation') body = [];
+    else if (path === '/api/admin/providers/whitebit/verification-routes') body = [];
     else if (path === '/api/admin/authorization') body = {
       member: { id: 'operator-1', email: 'operator@example.test', role: 'owner', status: 'active' },
       owner: true,
