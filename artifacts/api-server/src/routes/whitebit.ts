@@ -26,6 +26,8 @@ import { isWhitebitSwapEnabled, parseWhitebitCatalogAssets } from "../lib/whiteb
 import { getWhitebitCredentialStorageState, type WhitebitCredentials } from "../lib/provider-credentials";
 import { updateOrderAndQueueStatusNotificationTx } from "../lib/customer-status-notifications";
 import { enqueueSwapTelegramNotification } from "../lib/telegram-swap-notifications";
+import { signedCryptoRouteId } from "../lib/manual-crypto";
+import { isSyntacticallyValidManualWalletAddress, isSyntacticallyValidManualWalletMemo } from "../lib/manual-wallet-validation";
 
 const api = "https://whitebit.com";
 let orderAddressTableAvailable: boolean | undefined;
@@ -133,6 +135,46 @@ export async function verifyWhitebitAddressCreationPermission(
 export function classifyWhitebitHttpStatus(status: number): "definitive" | "ambiguous" {
   return status >= 400 && status < 500 && ![408, 409, 429].includes(status)
     ? "definitive" : "ambiguous";
+}
+
+async function validateOrderDepositInstructions(
+  orderId: string,
+  assetCode: string,
+  networkCode: string,
+  instructions: { address: string; memo: string | null },
+): Promise<{ address: string; memo: string } | null> {
+  const [order] = await db.select({
+    sourceSettlementOptionId: ordersTable.sourceSettlementOptionId,
+    fundingDetailsSnapshot: ordersTable.fundingDetailsSnapshot,
+    fromAsset: ordersTable.fromAsset,
+    fromNetwork: ordersTable.fromNetwork,
+  }).from(ordersTable).where(eq(ordersTable.id, orderId)).limit(1);
+  if (!order ||
+    order.fromAsset.trim().toUpperCase() !== assetCode.trim().toUpperCase() ||
+    order.fromNetwork.trim().toUpperCase() !== networkCode.trim().toUpperCase()
+  ) return null;
+  const funding = (order.fundingDetailsSnapshot ?? {}) as Record<string, unknown>;
+  const routeId = signedCryptoRouteId({
+    id: order.sourceSettlementOptionId ?? "",
+    networkId: typeof funding.networkId === "string" ? funding.networkId : null,
+  });
+  if (!routeId) return null;
+  const [exactRoute] = await db.select({
+    route: cryptoAssetNetworksTable,
+    assetCode: cryptoAssetsTable.code,
+  }).from(cryptoAssetNetworksTable)
+    .innerJoin(cryptoAssetsTable, eq(cryptoAssetsTable.id, cryptoAssetNetworksTable.assetId))
+    .where(eq(cryptoAssetNetworksTable.id, routeId)).limit(1);
+  if (!exactRoute ||
+    exactRoute.assetCode.toUpperCase() !== assetCode.trim().toUpperCase()
+  ) return null;
+  const address = instructions.address.trim();
+  const memo = instructions.memo?.trim() ?? "";
+  if (!isSyntacticallyValidManualWalletAddress(exactRoute.route, address) ||
+    (exactRoute.route.requiresMemo && !memo) ||
+    (memo && !isSyntacticallyValidManualWalletMemo(exactRoute.route, memo))
+  ) return null;
+  return { address, memo };
 }
 
 /**
@@ -269,19 +311,22 @@ export async function provisionSwapFundingAddress(input: {
     return { source: "whitebit" as const, address: usedFallback ? input.manualAddress : null, memo: usedFallback ? input.manualMemo : null, unresolved: !usedFallback };
   }
   const parsedAddress = parseWhitebitAddressResponse(result);
-   if (!parsedAddress?.address) {
-     await finalizeClaimAndOrder(input.orderId, calling.id, {
+  const validatedAddress = parsedAddress
+    ? await validateOrderDepositInstructions(input.orderId, input.assetCode, input.networkCode, parsedAddress)
+    : null;
+  if (!validatedAddress) {
+    await finalizeClaimAndOrder(input.orderId, calling.id, {
       status: "unresolved",
-      providerError: "WhiteBIT response did not contain an address.",
+      providerError: "WhiteBIT response did not contain valid instructions for the exact order route.",
     });
-    const usedFallback = await fallback("WhiteBIT response did not contain an address.");
+    const usedFallback = await fallback("WhiteBIT response did not contain valid instructions for the exact order route.");
     return { source: "whitebit" as const, address: usedFallback ? input.manualAddress : null, memo: usedFallback ? input.manualMemo : null, unresolved: !usedFallback };
   }
    let saved: Awaited<ReturnType<typeof finalizeClaimAndOrder>>;
    try {
      saved = await finalizeClaimAndOrder(input.orderId, calling.id, {
-       address: parsedAddress.address,
-       memo: parsedAddress.memo,
+        address: validatedAddress.address,
+        memo: validatedAddress.memo,
        status: "ready",
        providerError: null,
      });
@@ -1027,7 +1072,7 @@ whitebitOperatorRouter.post("/admin/whitebit/recover-address", requireOwner, asy
 });
 whitebitOperatorRouter.post("/admin/whitebit/recover-order-address", requireOwner, async (req, res): Promise<void> => {
   const id = typeof req.body?.id === "string" ? req.body.id : "";
-  const address = typeof req.body?.address === "string" ? req.body.address : "";
+  const address = typeof req.body?.address === "string" ? req.body.address.trim() : "";
   const memo = typeof req.body?.memo === "string" ? req.body.memo : null;
   if (!id || !address) throw new ApiError("VALIDATION_ERROR", "Order address recovery requires the record id and confirmed provider address.", 400);
   const row = await db.transaction(async (tx) => {
@@ -1042,6 +1087,21 @@ whitebitOperatorRouter.post("/admin/whitebit/recover-order-address", requireOwne
       throw new ApiError(
         "WHITEBIT_ORDER_ALREADY_FALLBACK",
         "This order already exposed its manual fallback address and cannot switch deposit addresses.",
+        409,
+      );
+    }
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"whitebit-order-address:" + address}))`);
+    const [assigned] = await tx.select({ id: whitebitOrderAddressesTable.id })
+      .from(whitebitOrderAddressesTable)
+      .where(and(
+        eq(whitebitOrderAddressesTable.address, address),
+        eq(whitebitOrderAddressesTable.status, "ready"),
+        sql`${whitebitOrderAddressesTable.id} <> ${id}`,
+      )).limit(1);
+    if (assigned) {
+      throw new ApiError(
+        "WHITEBIT_ORDER_ADDRESS_REUSED",
+        "WhiteBIT returned an address already assigned to another Swap order.",
         409,
       );
     }

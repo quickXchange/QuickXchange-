@@ -1,0 +1,33 @@
+mplement the three readiness fixes identified in the inspection. Do not expand scope.
+1. Validate WhiteBIT-generated deposit instructions before exposure
+When WhiteBIT returns an address:
+validate the address against the exact Asset + Network route before persisting/exposing it
+if that route requires Memo/Tag, require a valid nonempty memo/tag
+an invalid address or missing required memo must be treated as provisioning failure
+never expose invalid deposit instructions
+then use the existing fallback/unresolved behavior
+2. Make Manual Fallback monitoring-eligible when appropriate
+When WhiteBIT provisioning fails BEFORE exposure and a valid Manual Fallback Address wins:
+permanently record addressSource = manual_fallback
+preserve the fact that WhiteBIT was the configured primary provider
+but make the actual order funding path eligible for the existing Blockchain Monitoring registrar
+create a watch ONLY if that exact Asset + Network monitoring route is READY and supports monitoring
+if monitoring is not READY, do not invent/create an unsafe watch
+do not change any global monitoring configuration, endpoints, cursors, or existing watches
+WhiteBIT-generated-address orders must NEVER create Blockchain Monitoring watches.
+3. Fix owner recovery uniqueness
+Apply the same address uniqueness fence used by the normal provisioning path to owner recovery.
+Owner recovery must not assign a WhiteBIT deposit address already frozen/assigned to another order.
+Preserve all existing provider/address freeze guarantees:
+WhiteBIT first
+fallback only before exposure
+once address/provider is exposed, never switch it
+next new order retries WhiteBIT independently
+WhiteBIT route may operate without a Manual Fallback Address
+if WhiteBIT fails and no valid fallback exists, remain safely unresolved
+Add/update focused tests for all three fixes, including concurrency/idempotency.
+Do NOT call the real WhiteBIT API.
+Do NOT modify Production.
+Do NOT modify Blockchain Monitoring configuration/watches/cursors.
+Do NOT publish.
+After implementation, rerun the complete WhiteBIT suite and relevant Blockchain Monitoring tests and report the results.

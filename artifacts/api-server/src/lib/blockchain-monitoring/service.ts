@@ -25,12 +25,20 @@ import {
   manualMonitoringProofFingerprint,
   usesLegacyBep20Readiness,
 } from "../manual-monitoring-readiness";
-import { signedCryptoRouteId } from "../manual-crypto";
+import { isManualMonitoringRuntimeReady, signedCryptoRouteId } from "../manual-crypto";
+import { isSyntacticallyValidManualWalletAddress, isSyntacticallyValidManualWalletMemo } from "../manual-wallet-validation";
 import verifiedRecurringBep20RecoverySql from "../../../../../lib/db/migrations/0098_recover_verified_bep20_usdt_payment.sql";
 
 const ELIGIBLE = and(
   eq(ordersTable.type, "manual"),
-  eq(ordersTable.fundingProviderSource, "manual"),
+  or(
+    eq(ordersTable.fundingProviderSource, "manual"),
+    and(
+      eq(ordersTable.fundingProviderSource, "whitebit"),
+      eq(ordersTable.providerState, "whitebit_fallback"),
+      sql`${ordersTable.fundingDetailsSnapshot} ->> 'addressSource' = 'manual_fallback'`,
+    ),
+  ),
   eq(ordersTable.fundingStatus, "ready_manual"),
   eq(ordersTable.manualSettlementState, "awaiting_funds"),
 );
@@ -98,6 +106,7 @@ export type WatchRegistrationDiagnostic =
   | "ASSET_MONITOR_DISABLED"
   | "READINESS_PROOF_MISSING"
   | "INVALID_RECEIVING_ADDRESS"
+  | "FALLBACK_MONITOR_NOT_READY"
   | "ROUTE_IDENTITY_MISMATCH";
 
 export function classifyWatchRegistrationIdentity(input: {
@@ -179,7 +188,7 @@ function diagnoseWatchRegistrationIdentity(
   const legacyBep20 = network
     ? usesLegacyBep20Readiness(network.networkCode, network.chainId)
     : false;
-  return classifyWatchRegistrationIdentity({
+  const diagnostic = classifyWatchRegistrationIdentity({
     routeFound: Boolean(route) && Boolean(sourceRouteId) && route?.id === sourceRouteId,
     routeAssetMatches: Boolean(
       route &&
@@ -202,6 +211,77 @@ function diagnoseWatchRegistrationIdentity(
       asset?.readinessProofFingerprint &&
       asset.readinessProofCapturedAt
     ),
+  });
+  if (diagnostic || order.providerState !== "whitebit_fallback") return diagnostic;
+  if (!route || !catalogAsset || !network || !asset) return "FALLBACK_MONITOR_NOT_READY";
+  return isReadyManualFallbackWatch(
+    order, route, catalogAsset, network, asset, adapterConfig(network),
+  ) ? null : "FALLBACK_MONITOR_NOT_READY";
+}
+
+/** The fallback can join the manual watch path only with an exact, live route proof. */
+export function isReadyManualFallbackWatch(
+  order: typeof ordersTable.$inferSelect,
+  route: typeof cryptoAssetNetworksTable.$inferSelect,
+  catalogAsset: typeof cryptoAssetsTable.$inferSelect,
+  network: typeof blockchainMonitorNetworksTable.$inferSelect,
+  asset: typeof blockchainMonitorAssetsTable.$inferSelect,
+  config: { endpoint: string; apiKey?: string } | undefined,
+): boolean {
+  const funding = object(order.fundingDetailsSnapshot);
+  if (
+    order.fundingProviderSource !== "whitebit" ||
+    order.providerState !== "whitebit_fallback" ||
+    text(funding.addressSource) !== "manual_fallback" ||
+    route.depositProvider !== "whitebit" ||
+    route.executionMode !== "manual" ||
+    !route.enabled ||
+    !catalogAsset.enabled ||
+    route.lifecycle === "deprecated" ||
+    catalogAsset.lifecycle === "deprecated" ||
+    route.sharedDepositAddress.trim() !== order.depositAddress.trim() ||
+    (route.sharedDepositMemo ?? "").trim() !== order.depositMemo.trim() ||
+    text(funding.address) !== order.depositAddress.trim() ||
+    text(funding.memo) !== order.depositMemo.trim() ||
+    !isSyntacticallyValidManualWalletAddress(route, order.depositAddress) ||
+    (route.requiresMemo && !order.depositMemo.trim()) ||
+    (order.depositMemo.trim() && !isSyntacticallyValidManualWalletMemo(route, order.depositMemo))
+  ) return false;
+  const endpoint = config?.endpoint;
+  const apiKey = config?.apiKey;
+  const providerCompatible =
+    network.adapterKind === "evm" && network.providerKind === "rpc" ||
+    network.adapterKind === "solana" && network.providerKind === "rpc" ||
+    network.adapterKind === "tron" && network.providerKind === "indexer" ||
+    network.adapterKind === "bitcoin" && network.providerKind === "rpc";
+  return isManualMonitoringRuntimeReady({
+    routeId: route.id,
+    routeNetworkCode: route.networkCode,
+    monitorAssetRouteId: asset.assetNetworkId,
+    monitorNetworkCode: network.networkCode,
+    monitorChainId: network.chainId,
+    assetEnabled: asset.enabled,
+    networkEnabled: network.enabled,
+    providerKind: network.providerKind,
+    endpointConfigured: Boolean(endpoint),
+    healthStatus: network.healthStatus,
+    healthCheckedAtMs: network.healthCheckedAt?.getTime() ?? null,
+    healthProofCapturedAtMs: network.healthProofCapturedAt?.getTime() ?? null,
+    pollIntervalSeconds: network.pollIntervalSeconds,
+    adapterKind: network.adapterKind,
+    identityKind: asset.identityKind,
+    contractOrMint: asset.contractOrMint,
+    providerCompatible,
+    receivingAddressValid: true,
+    memoValid: true,
+    readinessProofFingerprint: asset.readinessProofFingerprint,
+    networkHealthProofFingerprint: network.healthProofFingerprint,
+    networkDigest: manualMonitoringNetworkConfigDigest({ network, endpoint, apiKey }),
+    routeDigest: manualMonitoringProofFingerprint({
+      network, asset, route, endpoint, apiKey,
+      capturedAt: network.healthProofCapturedAt ?? new Date(0),
+      head: network.lastHead ?? "",
+    }),
   });
 }
 
@@ -559,8 +639,10 @@ export async function registerManualBlockchainWatch(
           registrationState = "pending_review";
           registrationReason = "Provider cursor cannot be activated without explicit review.";
         }
-        await db.update(blockchainMonitorNetworksTable).set({ lastHead: capturedHead })
-          .where(and(eq(blockchainMonitorNetworksTable.id, network.id), isNull(blockchainMonitorNetworksTable.lastHead)));
+        if (order.providerState !== "whitebit_fallback") {
+          await db.update(blockchainMonitorNetworksTable).set({ lastHead: capturedHead })
+            .where(and(eq(blockchainMonitorNetworksTable.id, network.id), isNull(blockchainMonitorNetworksTable.lastHead)));
+        }
       } catch {
         registrationState = "pending_review";
         registrationReason = "Provider head could not be captured before order response.";

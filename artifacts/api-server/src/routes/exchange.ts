@@ -2364,6 +2364,14 @@ async function existingOrderResult(
   if (row.type === "manual" && row.fundingStatus === "provisioning") {
     row = (await finalizeSwapFundingFromClaim(row.id)) ?? row;
   }
+  if (row.type === "manual" && row.providerState === "whitebit_fallback" &&
+    row.fundingStatus === "ready_manual") {
+    try {
+      await registerManualBlockchainWatch(row.id, { freshCursor: true });
+    } catch (error) {
+      console.warn("Manual fallback blockchain watch replay reconciliation failed", error);
+    }
+  }
   return {
     status: row.status === "creating" || row.outcomeUnknown || row.fundingStatus === "provisioning" ? 202 : 200,
     body: outputOrder(row),
@@ -2839,6 +2847,14 @@ async function createOrderFromInput(
     void provisioned;
     const updated = await finalizeSwapFundingFromClaim(inserted.id);
     if (updated) finalOrder = updated;
+    if (finalOrder.providerState === "whitebit_fallback" &&
+      finalOrder.fundingStatus === "ready_manual") {
+      try {
+        await registerManualBlockchainWatch(finalOrder.id, { freshCursor: true });
+      } catch (error) {
+        console.warn("Manual fallback blockchain watch registration failed", error);
+      }
+    }
     return { status: provisioned.unresolved ? 202 : 201, body: outputOrder(finalOrder) };
   }
   return { status: 201, body: outputOrder(finalOrder) };
