@@ -8209,6 +8209,142 @@ export const ApplyCryptoAssetsBulkEditResponse = zod.object({
 
 
 /**
+ * @summary Review exact Asset + Network provider assignments without creating addresses
+ */
+export const previewCryptoDepositProviderAssignmentBodyNetworkIdsItemRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,80}$');
+export const previewCryptoDepositProviderAssignmentBodyNetworkIdsMax = 500;
+
+
+
+export const PreviewCryptoDepositProviderAssignmentBody = zod.object({
+  "networkIds": zod.array(zod.string().regex(previewCryptoDepositProviderAssignmentBodyNetworkIdsItemRegExp)).min(1).max(previewCryptoDepositProviderAssignmentBodyNetworkIdsMax),
+  "depositProvider": zod.enum(['none', 'manual', 'whitebit'])
+})
+
+export const PreviewCryptoDepositProviderAssignmentResponse = zod.object({
+  "reviewToken": zod.string(),
+  "routes": zod.array(zod.object({
+  "networkId": zod.string(),
+  "assetCode": zod.string(),
+  "networkCode": zod.string(),
+  "currentProvider": zod.string(),
+  "status": zod.enum(['supported', 'unsupported', 'requires_configuration']),
+  "reason": zod.string(),
+  "customerDepositsAfter": zod.boolean()
+}))
+})
+
+
+/**
+ * @summary Atomically assign providers to reviewed exact routes; preserve tracking and manual wallets
+ */
+export const applyCryptoDepositProviderAssignmentBodyNetworkIdsItemRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,80}$');
+export const applyCryptoDepositProviderAssignmentBodyNetworkIdsMax = 500;
+
+export const applyCryptoDepositProviderAssignmentBodyReviewTokenRegExp = new RegExp('^[a-f0-9]{64}$');
+
+
+export const ApplyCryptoDepositProviderAssignmentBody = zod.object({
+  "networkIds": zod.array(zod.string().regex(applyCryptoDepositProviderAssignmentBodyNetworkIdsItemRegExp)).min(1).max(applyCryptoDepositProviderAssignmentBodyNetworkIdsMax),
+  "depositProvider": zod.enum(['none', 'manual', 'whitebit']),
+  "reviewToken": zod.string().regex(applyCryptoDepositProviderAssignmentBodyReviewTokenRegExp)
+})
+
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneLogoObjectPathRegExp = new RegExp('^/objects/crypto-network-logos/[0-9a-f-]{36}$');
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneIdRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,80}$');
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneAssetIdRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,63}$');
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneNetworkCodeMax = 32;
+
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneNetworkNameMax = 100;
+
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneNetworkFamilyDefault = `native`;
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneNetworkFamilyMax = 64;
+
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneDecimalsMin = 0;
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneDecimalsMax = 30;
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneDecimalsMultipleOf = 1;
+
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneExecutionModeDefault = `manual`;
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneDepositProviderDefault = `manual`;
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneLifecycleDefault = `active`;
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneRegionsItemMax = 32;
+
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneRegionsMax = 20;
+
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneEnabledDefault = true;
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneCustomerDepositsEnabledDefault = false;
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneManualWalletTrackingEnabledDefault = true;
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneRequiresMemoDefault = false;
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneRequiredConfirmationsDefault = 0;
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneRequiredConfirmationsMin = 0;
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneRequiredConfirmationsMax = 10000;
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneRequiredConfirmationsMultipleOf = 1;
+
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneConfirmationGuidanceMax = 1000;
+
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneExplorerUrlTemplateMax = 1000;
+
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneDepositInstructionsMax = 2000;
+
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneDepositWarningMax = 2000;
+
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneSharedDepositAddressMax = 500;
+
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneSharedDepositMemoMax = 500;
+
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemTwoDepositProviderDefault = `manual`;
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemTwoManualWalletTrackingEnabledDefault = true;
+
+export const ApplyCryptoDepositProviderAssignmentResponse = zod.object({
+  "routes": zod.array(zod.object({
+  "networkId": zod.string(),
+  "assetCode": zod.string(),
+  "networkCode": zod.string(),
+  "currentProvider": zod.string(),
+  "status": zod.enum(['supported', 'unsupported', 'requires_configuration']),
+  "reason": zod.string(),
+  "customerDepositsAfter": zod.boolean()
+})),
+  "networks": zod.array(zod.object({
+  "logoObjectPath": zod.string().regex(applyCryptoDepositProviderAssignmentResponseNetworksItemOneLogoObjectPathRegExp).nullish(),
+  "id": zod.string().regex(applyCryptoDepositProviderAssignmentResponseNetworksItemOneIdRegExp),
+  "assetId": zod.string().regex(applyCryptoDepositProviderAssignmentResponseNetworksItemOneAssetIdRegExp),
+  "networkCode": zod.string().min(1).max(applyCryptoDepositProviderAssignmentResponseNetworksItemOneNetworkCodeMax),
+  "networkName": zod.string().min(1).max(applyCryptoDepositProviderAssignmentResponseNetworksItemOneNetworkNameMax),
+  "networkFamily": zod.string().min(1).max(applyCryptoDepositProviderAssignmentResponseNetworksItemOneNetworkFamilyMax).default(applyCryptoDepositProviderAssignmentResponseNetworksItemOneNetworkFamilyDefault),
+  "decimals": zod.number().min(applyCryptoDepositProviderAssignmentResponseNetworksItemOneDecimalsMin).max(applyCryptoDepositProviderAssignmentResponseNetworksItemOneDecimalsMax).multipleOf(applyCryptoDepositProviderAssignmentResponseNetworksItemOneDecimalsMultipleOf),
+  "executionMode": zod.enum(['catalog', 'manual', 'api']).default(applyCryptoDepositProviderAssignmentResponseNetworksItemOneExecutionModeDefault),
+  "depositProvider": zod.enum(['none', 'manual', 'whitebit']).default(applyCryptoDepositProviderAssignmentResponseNetworksItemOneDepositProviderDefault),
+  "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).default(applyCryptoDepositProviderAssignmentResponseNetworksItemOneLifecycleDefault),
+  "regions": zod.array(zod.string().max(applyCryptoDepositProviderAssignmentResponseNetworksItemOneRegionsItemMax)).max(applyCryptoDepositProviderAssignmentResponseNetworksItemOneRegionsMax).optional(),
+  "enabled": zod.boolean().default(applyCryptoDepositProviderAssignmentResponseNetworksItemOneEnabledDefault),
+  "customerDepositsEnabled": zod.boolean().default(applyCryptoDepositProviderAssignmentResponseNetworksItemOneCustomerDepositsEnabledDefault),
+  "manualWalletTrackingEnabled": zod.boolean().default(applyCryptoDepositProviderAssignmentResponseNetworksItemOneManualWalletTrackingEnabledDefault),
+  "requiresMemo": zod.boolean().default(applyCryptoDepositProviderAssignmentResponseNetworksItemOneRequiresMemoDefault),
+  "requiredConfirmations": zod.number().min(applyCryptoDepositProviderAssignmentResponseNetworksItemOneRequiredConfirmationsMin).max(applyCryptoDepositProviderAssignmentResponseNetworksItemOneRequiredConfirmationsMax).multipleOf(applyCryptoDepositProviderAssignmentResponseNetworksItemOneRequiredConfirmationsMultipleOf).default(applyCryptoDepositProviderAssignmentResponseNetworksItemOneRequiredConfirmationsDefault),
+  "confirmationGuidance": zod.string().max(applyCryptoDepositProviderAssignmentResponseNetworksItemOneConfirmationGuidanceMax).nullish(),
+  "explorerUrlTemplate": zod.string().max(applyCryptoDepositProviderAssignmentResponseNetworksItemOneExplorerUrlTemplateMax).nullish(),
+  "depositInstructions": zod.string().max(applyCryptoDepositProviderAssignmentResponseNetworksItemOneDepositInstructionsMax).nullish(),
+  "depositWarning": zod.string().max(applyCryptoDepositProviderAssignmentResponseNetworksItemOneDepositWarningMax).nullish(),
+  "sharedDepositAddress": zod.string().max(applyCryptoDepositProviderAssignmentResponseNetworksItemOneSharedDepositAddressMax).optional(),
+  "sharedDepositMemo": zod.string().max(applyCryptoDepositProviderAssignmentResponseNetworksItemOneSharedDepositMemoMax).nullish()
+}).and(zod.object({
+  "depositProvider": zod.string().default(applyCryptoDepositProviderAssignmentResponseNetworksItemTwoDepositProviderDefault),
+  "manualWalletTrackingEnabled": zod.boolean().default(applyCryptoDepositProviderAssignmentResponseNetworksItemTwoManualWalletTrackingEnabledDefault),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "logoUrl": zod.string().optional(),
+  "monitoringReadiness": zod.object({
+  "code": zod.enum(['READY', 'ADDRESS_INVALID', 'MEMO_INVALID', 'MONITOR_MISSING', 'ENDPOINT_MISSING', 'IDENTITY_MISSING', 'ASSET_MONITOR_DISABLED', 'NETWORK_MONITOR_DISABLED', 'PROVIDER_INCOMPATIBLE', 'HEALTH_CHECK_FAILED', 'CHAIN_ID_MISMATCH', 'CONFIG_CHANGED_RETRY', 'LEGACY_BEP20']),
+  "message": zod.string(),
+  "ready": zod.boolean(),
+  "networkCode": zod.string()
+}).optional()
+})))
+})
+
+
+/**
  * @summary Enable customer deposits only for networks with a usable saved wallet or working provider route
  */
 export const reconcileCryptoCustomerDepositsResponseEnabledMin = 0;

@@ -3416,6 +3416,75 @@ export interface CryptoAssetsBulkEditResponse {
   networks: CryptoNetwork[];
 }
 
+export type CryptoDepositProviderAssignmentInputDepositProvider = typeof CryptoDepositProviderAssignmentInputDepositProvider[keyof typeof CryptoDepositProviderAssignmentInputDepositProvider];
+
+
+export const CryptoDepositProviderAssignmentInputDepositProvider = {
+  none: 'none',
+  manual: 'manual',
+  whitebit: 'whitebit',
+} as const;
+
+export interface CryptoDepositProviderAssignmentInput {
+  /**
+     * @minItems 1
+     * @maxItems 500
+     * @items.pattern ^[a-z0-9][a-z0-9-]{0,80}$
+     */
+  networkIds: string[];
+  depositProvider: CryptoDepositProviderAssignmentInputDepositProvider;
+}
+
+export type CryptoDepositProviderAssignmentApplyDepositProvider = typeof CryptoDepositProviderAssignmentApplyDepositProvider[keyof typeof CryptoDepositProviderAssignmentApplyDepositProvider];
+
+
+export const CryptoDepositProviderAssignmentApplyDepositProvider = {
+  none: 'none',
+  manual: 'manual',
+  whitebit: 'whitebit',
+} as const;
+
+export interface CryptoDepositProviderAssignmentApply {
+  /**
+     * @minItems 1
+     * @maxItems 500
+     * @items.pattern ^[a-z0-9][a-z0-9-]{0,80}$
+     */
+  networkIds: string[];
+  depositProvider: CryptoDepositProviderAssignmentApplyDepositProvider;
+  /** @pattern ^[a-f0-9]{64}$ */
+  reviewToken: string;
+}
+
+export type CryptoDepositProviderAssignmentRouteStatus = typeof CryptoDepositProviderAssignmentRouteStatus[keyof typeof CryptoDepositProviderAssignmentRouteStatus];
+
+
+export const CryptoDepositProviderAssignmentRouteStatus = {
+  supported: 'supported',
+  unsupported: 'unsupported',
+  requires_configuration: 'requires_configuration',
+} as const;
+
+export interface CryptoDepositProviderAssignmentRoute {
+  networkId: string;
+  assetCode: string;
+  networkCode: string;
+  currentProvider: string;
+  status: CryptoDepositProviderAssignmentRouteStatus;
+  reason: string;
+  customerDepositsAfter: boolean;
+}
+
+export interface CryptoDepositProviderAssignmentPreview {
+  reviewToken: string;
+  routes: CryptoDepositProviderAssignmentRoute[];
+}
+
+export interface CryptoDepositProviderAssignmentResult {
+  routes: CryptoDepositProviderAssignmentRoute[];
+  networks: CryptoNetwork[];
+}
+
 export interface CryptoCustomerDepositReconciliation {
   /** @minimum 0 */
   enabled: number;

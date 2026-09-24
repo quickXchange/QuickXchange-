@@ -1882,6 +1882,119 @@ test("WhiteBIT permission verification is explicit, private, and side-effect fen
   assert.deepEqual(proofSettingAfterDisable?.depositRouteProofs, proofSettingBeforeDisable?.depositRouteProofs);
 });
 
+test("bulk provider assignment reviews exact capabilities, preserves tracking, and never creates an address", async () => {
+  const fixtureAssets = [
+    { id: `bulk-a-${suffix}`, code: `Z${suffix.slice(0, 8).toUpperCase()}`, networkCode: "TRC20" },
+    { id: `bulk-b-${suffix}`, code: `Y${suffix.slice(0, 8).toUpperCase()}`, networkCode: "BITCOIN" },
+  ];
+  const ids = fixtureAssets.map(asset => `${asset.id}-route`);
+  const unsupportedId = `${fixtureAssets[0].id}-unsupported`;
+  const savedFetch = globalThis.fetch;
+  try {
+    for (const asset of fixtureAssets) {
+      await database.db.insert(database.cryptoAssetsTable).values({
+        id: asset.id, code: asset.code, name: asset.code, decimals: 8, enabled: true,
+      });
+      await database.db.insert(database.cryptoAssetNetworksTable).values({
+        id: `${asset.id}-route`, assetId: asset.id, networkCode: asset.networkCode,
+        networkName: asset.networkCode, decimals: 8, executionMode: "manual",
+        depositProvider: "manual", sharedDepositAddress: "",
+        manualWalletTrackingEnabled: true, customerDepositsEnabled: false, enabled: true,
+      });
+    }
+    await database.db.insert(database.cryptoAssetNetworksTable).values({
+      id: unsupportedId, assetId: fixtureAssets[0].id, networkCode: "NO-SUCH-NETWORK",
+      networkName: "Unsupported", decimals: 8, executionMode: "manual",
+      depositProvider: "manual", manualWalletTrackingEnabled: false,
+      customerDepositsEnabled: false, enabled: true,
+    });
+    globalThis.fetch = async (input, init) => String(input).endsWith("/api/v4/public/assets")
+      ? new Response(JSON.stringify(Object.fromEntries(fixtureAssets.map(asset => [
+        asset.code, { can_deposit: true, networks: { deposits: [asset.networkCode] } },
+      ]))), { status: 200 })
+      : savedFetch(input, init);
+    resetWhitebitCapabilityCacheForTests();
+    const headers = { "content-type": "application/json", "x-test-operator": ownerClerkUserId };
+    const endpoint = `${baseUrl}/api/admin/crypto-networks/deposit-provider`;
+    const post = (path: string, body: object) => fetch(`${endpoint}/${path}`, {
+      method: "POST", headers, body: JSON.stringify(body),
+    });
+    const callsBefore = providerPermissionCalls;
+    const unsafe = await post("preview", { networkIds: [...ids, unsupportedId], depositProvider: "whitebit" });
+    assert.equal(unsafe.status, 200, await unsafe.clone().text());
+    const unsafeReview = await unsafe.json() as {
+      reviewToken: string; routes: Array<{ networkId: string; status: string }>;
+    };
+    assert.equal(unsafeReview.routes.find(route => route.networkId === unsupportedId)?.status, "unsupported");
+    assert.ok(ids.every(id => unsafeReview.routes.find(route => route.networkId === id)?.status === "requires_configuration"));
+    const blocked = await post("apply", {
+      networkIds: [...ids, unsupportedId], depositProvider: "whitebit", reviewToken: unsafeReview.reviewToken,
+    });
+    assert.equal(blocked.status, 422);
+    const safe = await post("preview", { networkIds: ids, depositProvider: "whitebit" });
+    assert.equal(safe.status, 200, await safe.clone().text());
+    const review = await safe.json() as { reviewToken: string };
+    const applied = await post("apply", {
+      networkIds: ids, depositProvider: "whitebit", reviewToken: review.reviewToken,
+    });
+    assert.equal(applied.status, 200, await applied.clone().text());
+    const [first] = await database.db.select().from(database.cryptoAssetNetworksTable)
+      .where(eq(database.cryptoAssetNetworksTable.id, ids[0]));
+    const [second] = await database.db.select().from(database.cryptoAssetNetworksTable)
+      .where(eq(database.cryptoAssetNetworksTable.id, ids[1]));
+    assert.equal(first?.depositProvider, "whitebit");
+    assert.equal(second?.depositProvider, "whitebit");
+    assert.equal(first?.manualWalletTrackingEnabled, true);
+    assert.equal(second?.manualWalletTrackingEnabled, true);
+    assert.equal(first?.sharedDepositAddress, "");
+    assert.equal(first?.customerDepositsEnabled, false);
+    assert.equal(providerPermissionCalls, callsBefore);
+
+    const stalePreviewResponse = await post("preview", { networkIds: ids, depositProvider: "manual" });
+    const stalePreview = await stalePreviewResponse.json() as { reviewToken: string };
+    await database.db.update(database.cryptoAssetNetworksTable)
+      .set({ manualWalletTrackingEnabled: false })
+      .where(eq(database.cryptoAssetNetworksTable.id, ids[0]));
+    const staleApply = await post("apply", {
+      networkIds: ids, depositProvider: "manual", reviewToken: stalePreview.reviewToken,
+    });
+    assert.equal(staleApply.status, 409);
+    await database.db.update(database.cryptoAssetNetworksTable)
+      .set({ manualWalletTrackingEnabled: true })
+      .where(eq(database.cryptoAssetNetworksTable.id, ids[0]));
+
+    const noneReviewResponse = await post("preview", { networkIds: ids, depositProvider: "none" });
+    const noneReview = await noneReviewResponse.json() as { reviewToken: string };
+    const none = await post("apply", {
+      networkIds: ids, depositProvider: "none", reviewToken: noneReview.reviewToken,
+    });
+    assert.equal(none.status, 200, await none.clone().text());
+    const manualReviewResponse = await post("preview", { networkIds: ids, depositProvider: "manual" });
+    const manualReview = await manualReviewResponse.json() as { reviewToken: string };
+    const manual = await post("apply", {
+      networkIds: ids, depositProvider: "manual", reviewToken: manualReview.reviewToken,
+    });
+    assert.equal(manual.status, 200, await manual.clone().text());
+    const [restored] = await database.db.select().from(database.cryptoAssetNetworksTable)
+      .where(eq(database.cryptoAssetNetworksTable.id, ids[0]));
+    assert.equal(restored?.manualWalletTrackingEnabled, true);
+    assert.equal(restored?.depositProvider, "manual");
+    assert.equal(restored?.customerDepositsEnabled, false);
+    assert.equal(providerPermissionCalls, callsBefore);
+  } finally {
+    globalThis.fetch = savedFetch;
+    resetWhitebitCapabilityCacheForTests();
+    for (const id of [...ids, unsupportedId]) {
+      await database.db.delete(database.cryptoAssetNetworksTable)
+        .where(eq(database.cryptoAssetNetworksTable.id, id));
+    }
+    for (const asset of fixtureAssets) {
+      await database.db.delete(database.cryptoAssetsTable)
+        .where(eq(database.cryptoAssetsTable.id, asset.id));
+    }
+  }
+});
+
 test("actual signed exchange order replay allocates one WhiteBIT address", async () => {
   providerCalls = 0;
   await mockAssets();

@@ -110,6 +110,7 @@ import { AdminShell, ago, apiErrorData, apiErrorText, basePath, cn, ErrorState, 
 import { AdminSearch } from '../components/admin-search';
 import { AdminWhitebitAssetSyncDialog } from '../components/admin-whitebit-asset-sync-dialog';
 import { AdminCryptoAssetsBulkEditDialog } from '../components/admin-crypto-assets-bulk-edit-dialog';
+import { BulkDepositProviderDialog } from '../components/bulk-deposit-provider-dialog';
 import { OrderSupportToolsSection } from '../components/admin-order-support-tools';
 import { convertOrderStatusLabel, convertOrderStatusStep, normalizeConvertOrderStatus } from '../lib/convert-order-status';
 
@@ -7005,6 +7006,7 @@ function AdminCurrencies() {
   const [syncWhitebitOpen, setSyncWhitebitOpen] = useState(false);
   const [bulkEditAssetsOpen, setBulkEditAssetsOpen] = useState(false);
   const [bulkNetworkWalletOpen, setBulkNetworkWalletOpen] = useState(false);
+  const [bulkDepositProviderOpen, setBulkDepositProviderOpen] = useState(false);
 
   const currenciesQuery = useGetFiatCurrencies({ query: { queryKey: getGetFiatCurrenciesQueryKey() } });
   const methodsQuery = useGetPaymentMethods({ query: { queryKey: getGetPaymentMethodsQueryKey() } });
@@ -7135,12 +7137,22 @@ function AdminCurrencies() {
 
   const filteredNetworks = useMemo(() => {
     let list = networksQuery.data || [];
-    if (normalizedSearch) list = list.filter(n => n.id.toLowerCase().includes(normalizedSearch) || n.networkCode.toLowerCase().includes(normalizedSearch) || n.networkName.toLowerCase().includes(normalizedSearch) || n.regions?.some((r: string) => r.toLowerCase().includes(normalizedSearch)));
+    if (normalizedSearch) list = list.filter(n => {
+      const asset = assetsQuery.data?.find(candidate => candidate.id === n.assetId);
+      return (
+      n.id.toLowerCase().includes(normalizedSearch) ||
+      n.networkCode.toLowerCase().includes(normalizedSearch) ||
+      n.networkName.toLowerCase().includes(normalizedSearch) ||
+      n.regions?.some((r: string) => r.toLowerCase().includes(normalizedSearch)) ||
+      asset?.code.toLowerCase().includes(normalizedSearch) ||
+      asset?.name.toLowerCase().includes(normalizedSearch)
+      );
+    });
     if (filterStatus !== 'all') list = list.filter(n => n.enabled === (filterStatus === 'active'));
     if (filterLifecycle !== 'all') list = list.filter(n => n.lifecycle === filterLifecycle);
     if (filterRegion !== 'all') list = list.filter(n => n.regions?.includes(filterRegion));
     return list;
-  }, [networksQuery.data, normalizedSearch, filterStatus, filterLifecycle, filterRegion]);
+  }, [networksQuery.data, assetsQuery.data, normalizedSearch, filterStatus, filterLifecycle, filterRegion]);
 
   const activeData = tab === 'currencies' ? currenciesQuery.data
     : tab === 'methods' ? methodsQuery.data
@@ -7427,10 +7439,12 @@ function AdminCurrencies() {
               )}
               {isNet && (
                 <>
-                  <small className={item.sharedDepositAddress ? 'font-mono' : undefined}>{item.sharedDepositAddress || 'Not configured'}</small>
-                  {item.sharedDepositAddress && (
-                    <small>Customer Deposits: {item.customerDepositsEnabled ? 'Enabled' : 'Disabled'}</small>
-                  )}
+                  <small>Deposit Provider: {item.depositProvider === 'whitebit' ? 'WhiteBIT' : item.depositProvider === 'manual' ? 'Manual Wallet' : 'None'}</small>
+                  <small className={item.sharedDepositAddress ? 'font-mono' : undefined}>
+                    {item.sharedDepositAddress || (item.depositProvider === 'whitebit' ? 'Manual fallback: Not configured (optional)' : 'Not configured')}
+                  </small>
+                  <small>Customer Deposits: {item.customerDepositsEnabled ? 'Enabled' : 'Disabled'}</small>
+                  <small>Manual Wallet Tracking: {item.manualWalletTrackingEnabled ? 'On' : 'Off'}</small>
                 </>
               )}
             </span>
@@ -7684,6 +7698,8 @@ function AdminCurrencies() {
                   )}
                   {isOwner && tab === 'networks' && (
                     <>
+                      <button type="button" disabled={catalogActionPending} onClick={() => setBulkDepositProviderOpen(true)}><Network size={14} /> Assign Deposit Provider</button>
+                      <div className="bulk-actions-divider" />
                       <button type="button" disabled={catalogActionPending} onClick={() => setBulkNetworkWalletOpen(true)}><WalletCards size={14} /> Set Wallet Address</button>
                       <div className="bulk-actions-divider" />
                     </>
@@ -7842,6 +7858,19 @@ function AdminCurrencies() {
               });
             }
             setBulkNetworkWalletOpen(false);
+          }}
+        />
+      )}
+      {bulkDepositProviderOpen && networksQuery.data && assetsQuery.data && (
+        <BulkDepositProviderDialog
+          networks={networksQuery.data}
+          assets={assetsQuery.data}
+          initialNetworkIds={selectedCatalogIdsOnPage}
+          onClose={() => setBulkDepositProviderOpen(false)}
+          onSuccess={(count) => {
+            setCatalogSelected(prev => ({ ...prev, networks: new Set() }));
+            setCatalogActionNotice({ kind: 'success', text: `Deposit Provider assigned for ${count} exact Asset + Network ${count === 1 ? 'route' : 'routes'}. Manual Wallet Tracking and saved wallet fields were preserved.` });
+            setBulkDepositProviderOpen(false);
           }}
         />
       )}

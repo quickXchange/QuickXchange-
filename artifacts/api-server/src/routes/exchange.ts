@@ -104,6 +104,10 @@ import {
   ApplyBulkFiatCurrencyPaymentMethodsResponse,
   ApplyCryptoAssetsBulkEditBody,
   ApplyCryptoAssetsBulkEditResponse,
+  PreviewCryptoDepositProviderAssignmentBody,
+  ApplyCryptoDepositProviderAssignmentBody,
+  PreviewCryptoDepositProviderAssignmentResponse,
+  ApplyCryptoDepositProviderAssignmentResponse,
   SaveCryptoAssetReceivingWalletBody,
   SaveCryptoAssetReceivingWalletParams,
   SaveCryptoNetworkReceivingWalletBody,
@@ -4291,6 +4295,173 @@ router.post("/admin/crypto-assets/reconcile-customer-deposits", requireOwner, as
 router.post("/admin/crypto-assets", requireOperator, async (req, res, next) => {
   try { const input = cryptoInput(req.body, false); const row = await db.transaction(async (tx) => { await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`); await verifyCatalogPath(tx, input.logoObjectPath, "crypto-asset-logos"); const [created] = await tx.insert(cryptoAssetsTable).values({ ...input, code: String(input.code).toUpperCase(), enabled: input.enabled ?? true } as never).returning(); return created; }); res.status(201).json(outputCryptoAsset(row)); } catch (e) { next(isUniqueViolation(e) ? new ApiError("CRYPTO_ASSET_EXISTS", "Crypto asset already exists.", 409) : e); }
 });
+type DepositProviderAssignmentTarget = "none" | "manual" | "whitebit";
+type DepositProviderAssignmentPair = {
+  asset: typeof cryptoAssetsTable.$inferSelect;
+  network: typeof cryptoAssetNetworksTable.$inferSelect;
+};
+
+function reviewDepositProviderAssignments(
+  pairs: DepositProviderAssignmentPair[],
+  target: DepositProviderAssignmentTarget,
+  capabilities: Awaited<ReturnType<typeof getWhitebitCapabilities>> | null,
+  eligibility: Awaited<ReturnType<typeof createCustomerDepositEligibilityContext>> | null,
+) {
+  const sorted = [...pairs].sort((a, b) => a.network.id.localeCompare(b.network.id));
+  const routes = sorted.map(({ asset, network }) => {
+    const active = asset.enabled && asset.lifecycle !== "deprecated" &&
+      network.enabled && network.lifecycle !== "deprecated" && network.executionMode === "manual";
+    const capability = target === "whitebit" && capabilities
+      ? matchWhitebitCapability(capabilities, asset.code, network.networkCode) : null;
+    const currentWhitebitReady = target === "whitebit" && network.depositProvider === "whitebit" &&
+      eligibility && isCustomerDepositEligible(asset, network, eligibility);
+    const walletReady = hasUsableSavedReceivingWallet(network);
+    const status = target === "whitebit" && !capability ? "unsupported" as const
+      : !active || target === "whitebit" && !currentWhitebitReady ||
+        target === "manual" && !walletReady
+        ? "requires_configuration" as const : "supported" as const;
+    const reason = status === "unsupported"
+      ? "WhiteBIT does not advertise deposit support for this exact Asset + Network."
+      : !active
+        ? "Route or asset is disabled, deprecated, or not configured for Manual Swap execution."
+        : target === "whitebit" && network.depositProvider !== "whitebit"
+          ? "Assigning WhiteBIT clears any old proof. Verify address-creation permission for this exact route before enabling Customer Deposits."
+          : target === "whitebit" && !currentWhitebitReady
+            ? "This route needs a current WhiteBIT address-permission proof and enabled, verified provider before Customer Deposits can be enabled."
+          : target === "manual" && !walletReady
+            ? "Save a valid Manual Receiving Address and any required memo before enabling Customer Deposits."
+            : target === "none"
+              ? "Customer Deposits will be disabled."
+            : network.depositProvider !== target
+              ? "Assignment is supported. Customer Deposits will stay off until separately enabled after configuration."
+              : "Exact route is supported; the existing Customer Deposits setting is preserved where valid.";
+    const customerDepositsAfter = Boolean(
+      active && network.customerDepositsEnabled && network.depositProvider === target &&
+      (target === "manual" && walletReady || target === "whitebit" && currentWhitebitReady),
+    );
+    return {
+      networkId: network.id,
+      assetCode: asset.code,
+      networkCode: network.networkCode,
+      currentProvider: network.depositProvider,
+      status,
+      reason,
+      customerDepositsAfter,
+    };
+  });
+  const reviewToken = createHash("sha256").update(JSON.stringify({
+    target,
+    routes,
+    rows: sorted.map(({ asset, network }) => ({
+      assetId: asset.id, assetCode: asset.code, assetEnabled: asset.enabled, assetLifecycle: asset.lifecycle,
+      networkId: network.id, networkCode: network.networkCode, networkEnabled: network.enabled,
+      networkLifecycle: network.lifecycle, executionMode: network.executionMode,
+      depositProvider: network.depositProvider, customerDepositsEnabled: network.customerDepositsEnabled,
+      manualWalletTrackingEnabled: network.manualWalletTrackingEnabled,
+      requiresMemo: network.requiresMemo, sharedDepositAddress: network.sharedDepositAddress,
+      sharedDepositMemo: network.sharedDepositMemo,
+    })),
+  })).digest("hex");
+  return { reviewToken, routes };
+}
+
+async function loadDepositProviderAssignmentPairs(
+  executor: Pick<typeof db, "select">,
+  networkIds: string[],
+  lock: boolean,
+): Promise<DepositProviderAssignmentPair[]> {
+  const query = executor.select({ asset: cryptoAssetsTable, network: cryptoAssetNetworksTable })
+    .from(cryptoAssetNetworksTable)
+    .innerJoin(cryptoAssetsTable, eq(cryptoAssetsTable.id, cryptoAssetNetworksTable.assetId))
+    .where(inArray(cryptoAssetNetworksTable.id, networkIds));
+  const pairs = lock ? await query.for("update") : await query;
+  if (pairs.length !== networkIds.length) {
+    throw new ApiError("CRYPTO_ASSET_NETWORK_NOT_FOUND", "One or more exact Asset + Network routes were not found.", 404);
+  }
+  return pairs;
+}
+
+function assertUniqueDepositProviderRouteIds(ids: string[]) {
+  if (new Set(ids).size !== ids.length) {
+    throw new ApiError("VALIDATION_ERROR", "Duplicate network IDs are not allowed.", 400);
+  }
+}
+
+router.post("/admin/crypto-networks/deposit-provider/preview", requireOwner, async (req, res, next) => {
+  try {
+    const input = PreviewCryptoDepositProviderAssignmentBody.parse(req.body);
+    assertUniqueDepositProviderRouteIds(input.networkIds);
+    const capabilities = input.depositProvider === "whitebit"
+      ? await getWhitebitCapabilities().catch(() => {
+        throw new ApiError("WHITEBIT_CAPABILITIES_UNAVAILABLE", "WhiteBIT capabilities are unavailable; no assignment can be reviewed.", 503);
+      }) : null;
+    const eligibility = capabilities ? await createCustomerDepositEligibilityContext() : null;
+    const pairs = await loadDepositProviderAssignmentPairs(db, input.networkIds, false);
+    res.json(PreviewCryptoDepositProviderAssignmentResponse.parse(
+      reviewDepositProviderAssignments(pairs, input.depositProvider, capabilities, eligibility),
+    ));
+  } catch (error) { next(error); }
+});
+
+router.post("/admin/crypto-networks/deposit-provider/apply", requireOwner, async (req, res, next) => {
+  try {
+    const input = ApplyCryptoDepositProviderAssignmentBody.parse(req.body);
+    assertUniqueDepositProviderRouteIds(input.networkIds);
+    const capabilities = input.depositProvider === "whitebit"
+      ? await getWhitebitCapabilities().catch(() => {
+        throw new ApiError("WHITEBIT_CAPABILITIES_UNAVAILABLE", "WhiteBIT capabilities are unavailable; no assignment was applied.", 503);
+      }) : null;
+    const eligibility = capabilities ? await createCustomerDepositEligibilityContext() : null;
+    const actor = res.locals.operator as OperatorAuthorization;
+    const result = await db.transaction(async tx => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('rook:whitebit:credentials', 0))`);
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
+      if (eligibility) await assertCustomerDepositEligibilityContextCurrent(tx, eligibility);
+      const pairs = await loadDepositProviderAssignmentPairs(tx, input.networkIds, true);
+      const review = reviewDepositProviderAssignments(pairs, input.depositProvider, capabilities, eligibility);
+      if (review.reviewToken !== input.reviewToken) {
+        throw new ApiError("CRYPTO_PROVIDER_REVIEW_CHANGED", "Routes or capabilities changed since review. Review again before applying.", 409);
+      }
+      if (review.routes.some(route => route.status === "unsupported")) {
+        throw new ApiError("WHITEBIT_ROUTE_UNSUPPORTED", "One or more selected exact routes are not supported by WhiteBIT. Deselect them and review again.", 422);
+      }
+      const changed = pairs.filter(({ network }) => network.depositProvider !== input.depositProvider);
+      await invalidateWhitebitDepositRouteProofsForRoutes(tx, changed.map(({ network }) => network.id));
+      for (const { network } of pairs) {
+        const reviewed = review.routes.find(route => route.networkId === network.id)!;
+        await tx.update(cryptoAssetNetworksTable).set({
+          depositProvider: input.depositProvider,
+          customerDepositsEnabled: reviewed.customerDepositsAfter,
+        }).where(eq(cryptoAssetNetworksTable.id, network.id));
+      }
+      const updated = await tx.select().from(cryptoAssetNetworksTable)
+        .where(inArray(cryptoAssetNetworksTable.id, input.networkIds));
+      await tx.insert(operatorAuditLogsTable).values({
+        action: "crypto_deposit_provider.bulk_assigned",
+        actorClerkUserId: getOperatorActorUserId(req),
+        targetOperatorId: actor.id,
+        targetEmail: actor.email,
+        requestId: String(req.id),
+        details: {
+          depositProvider: input.depositProvider,
+          changes: pairs.map(({ network }) => ({
+            networkId: network.id,
+            providerBefore: network.depositProvider,
+            providerAfter: input.depositProvider,
+            customerDepositsBefore: network.customerDepositsEnabled,
+            customerDepositsAfter: review.routes.find(route => route.networkId === network.id)!.customerDepositsAfter,
+          })),
+        },
+      });
+      return ApplyCryptoDepositProviderAssignmentResponse.parse({
+        routes: review.routes,
+        networks: updated.map(network => outputCryptoNetwork(network)),
+      });
+    });
+    res.json(result);
+  } catch (error) { next(error); }
+});
+
 router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, next) => {
   try {
     const rawEdits = (

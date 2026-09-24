@@ -17,6 +17,9 @@ test('operators manage fiat currencies, reusable methods, and their attachments'
   }, {
     id: 'usdt', code: 'USDT', name: 'Tether', decimals: 6, enabled: true,
     createdAt: now, updatedAt: now,
+  }, {
+    id: 'xmr', code: 'XMR', name: 'Monero', decimals: 12, enabled: true,
+    createdAt: now, updatedAt: now,
   }];
   let cryptoNetworks = [{
     id: 'btc-bitcoin', assetId: 'btc', networkCode: 'BTC', networkName: 'Bitcoin',
@@ -34,6 +37,13 @@ test('operators manage fiat currencies, reusable methods, and their attachments'
     id: 'usdt-erc20', assetId: 'usdt', networkCode: 'ERC20', networkName: 'Ethereum',
     decimals: 6, enabled: true, customerDepositsEnabled: false,
     requiresMemo: false, requiredConfirmations: 12, confirmationGuidance: null,
+    explorerUrlTemplate: null, depositInstructions: null, depositWarning: null,
+    sharedDepositAddress: '', sharedDepositMemo: null, createdAt: now, updatedAt: now,
+  }, {
+    id: 'xmr-xmr', assetId: 'xmr', networkCode: 'XMR', networkName: 'Monero',
+    decimals: 12, enabled: true, customerDepositsEnabled: false,
+    depositProvider: 'whitebit', manualWalletTrackingEnabled: true,
+    requiresMemo: false, requiredConfirmations: 10, confirmationGuidance: null,
     explorerUrlTemplate: null, depositInstructions: null, depositWarning: null,
     sharedDepositAddress: '', sharedDepositMemo: null, createdAt: now, updatedAt: now,
   }];
@@ -194,6 +204,32 @@ test('operators manage fiat currencies, reusable methods, and their attachments'
     cryptoNetworks = cryptoNetworks.map(network => network.id === id ? { ...network, ...data, updatedAt: now } : network);
     return route.fulfill({ contentType: 'application/json', body: JSON.stringify(cryptoNetworks.find(network => network.id === id)) });
   });
+  await page.route('**/api/admin/crypto-networks/deposit-provider/preview', route => {
+    const input = route.request().postDataJSON() as { networkIds: string[]; depositProvider: string };
+    const routes = input.networkIds.map(id => {
+      const network = cryptoNetworks.find(candidate => candidate.id === id)!;
+      const asset = cryptoAssets.find(candidate => candidate.id === network.assetId)!;
+      const supported = input.depositProvider !== 'whitebit' || id === 'xmr-xmr' || id === 'usdt-trc20';
+      return {
+        networkId: id, assetCode: asset.code, networkCode: network.networkCode,
+        currentProvider: network.depositProvider ?? 'manual',
+        status: supported ? id === 'usdt-trc20' ? 'requires_configuration' : 'supported' : 'unsupported',
+        reason: supported ? 'Review this exact route.' : 'WhiteBIT does not support this route.',
+        customerDepositsAfter: false,
+      };
+    });
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ reviewToken: 'a'.repeat(64), routes }) });
+  });
+  await page.route('**/api/admin/crypto-networks/deposit-provider/apply', route => {
+    const input = route.request().postDataJSON() as { networkIds: string[]; depositProvider: string };
+    cryptoNetworks = cryptoNetworks.map(network => input.networkIds.includes(network.id)
+      ? { ...network, depositProvider: input.depositProvider, customerDepositsEnabled: false }
+      : network);
+    return route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ routes: input.networkIds.map(networkId => ({ networkId })), networks: cryptoNetworks.filter(network => input.networkIds.includes(network.id)) }),
+    });
+  });
 
   await page.goto('/admin/currencies');
   await expect(page.getByRole('heading', { name: 'Currencies & Payment Methods' })).toBeVisible();
@@ -323,6 +359,25 @@ test('operators manage fiat currencies, reusable methods, and their attachments'
   await expect(page.getByLabel('Tether, USDT, on TRC20')).toBeVisible();
   await expect(page.getByLabel('Tether, USDT, on ERC20')).toBeVisible();
   await expect(page.getByText('Not configured').first()).toBeVisible();
+  await catalogSearch.fill('XMR');
+  await expect(page.getByTestId('button-edit-crypto-network-xmr-xmr')).toBeVisible();
+  await expect(page.getByText('Deposit Provider: WhiteBIT')).toBeVisible();
+  await expect(page.getByText('Manual fallback: Not configured (optional)')).toBeVisible();
+  await catalogSearch.clear();
+  await page.getByLabel('Select Monero for catalog actions').check();
+  await page.getByTestId('catalog-bulk-actions-networks').getByRole('button', { name: 'Assign Deposit Provider' }).click();
+  const providerDialog = page.getByTestId('bulk-deposit-provider-dialog');
+  await expect(providerDialog).toBeVisible();
+  await providerDialog.getByRole('button', { name: 'Select All Supported' }).click();
+  await expect(providerDialog.getByLabel('Select USDT TRC20')).toBeChecked();
+  await expect(providerDialog.getByLabel('Select XMR XMR')).toBeChecked();
+  await expect(providerDialog.getByLabel('Select BTC BTC')).not.toBeChecked();
+  await providerDialog.getByRole('button', { name: 'Review Changes' }).click();
+  await expect(providerDialog.getByTestId('bulk-deposit-provider-review')).toContainText('XMR · XMR');
+  await providerDialog.getByRole('button', { name: 'Confirm Assignment' }).click();
+  await expect(providerDialog).toHaveCount(0);
+  expect(cryptoNetworks.find(network => network.id === 'usdt-trc20')?.depositProvider).toBe('whitebit');
+  expect(cryptoNetworks.find(network => network.id === 'xmr-xmr')?.manualWalletTrackingEnabled).toBe(true);
 
   await page.getByRole('button', { name: /Payment Methods/ }).click();
   await page.getByLabel('Select Bank transfer for catalog actions').check();

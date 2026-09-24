@@ -84,6 +84,10 @@ import type {
   CryptoAssetsBulkEditInput,
   CryptoAssetsBulkEditResponse,
   CryptoCustomerDepositReconciliation,
+  CryptoDepositProviderAssignmentApply,
+  CryptoDepositProviderAssignmentInput,
+  CryptoDepositProviderAssignmentPreview,
+  CryptoDepositProviderAssignmentResult,
   CryptoNetwork,
   CryptoNetworkCustomerDepositsUpdate,
   CryptoNetworkInput,
@@ -7457,6 +7461,148 @@ export const useApplyCryptoAssetsBulkEdit = <TError = ErrorType<ApiError>,
         TContext
       > => {
       return useMutation(getApplyCryptoAssetsBulkEditMutationOptions(options));
+    }
+
+export const getPreviewCryptoDepositProviderAssignmentUrl = () => {
+
+
+
+
+  return `/api/admin/crypto-networks/deposit-provider/preview`
+}
+
+/**
+ * @summary Review exact Asset + Network provider assignments without creating addresses
+ */
+export const previewCryptoDepositProviderAssignment = async (cryptoDepositProviderAssignmentInput: CryptoDepositProviderAssignmentInput, options?: Parameters<typeof customFetch>[1]): Promise<CryptoDepositProviderAssignmentPreview> => {
+
+  return customFetch<CryptoDepositProviderAssignmentPreview>(getPreviewCryptoDepositProviderAssignmentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(cryptoDepositProviderAssignmentInput)
+  }
+);}
+
+
+
+
+
+export const getPreviewCryptoDepositProviderAssignmentMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewCryptoDepositProviderAssignment>>, TError,{data: BodyType<CryptoDepositProviderAssignmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewCryptoDepositProviderAssignment>>, TError,{data: BodyType<CryptoDepositProviderAssignmentInput>}, TContext> => {
+
+const mutationKey = ['previewCryptoDepositProviderAssignment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewCryptoDepositProviderAssignment>>, {data: BodyType<CryptoDepositProviderAssignmentInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  previewCryptoDepositProviderAssignment(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PreviewCryptoDepositProviderAssignmentMutationResult = NonNullable<Awaited<ReturnType<typeof previewCryptoDepositProviderAssignment>>>
+    export type PreviewCryptoDepositProviderAssignmentMutationBody = BodyType<CryptoDepositProviderAssignmentInput>
+    export type PreviewCryptoDepositProviderAssignmentMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Review exact Asset + Network provider assignments without creating addresses
+ */
+export const usePreviewCryptoDepositProviderAssignment = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewCryptoDepositProviderAssignment>>, TError,{data: BodyType<CryptoDepositProviderAssignmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof previewCryptoDepositProviderAssignment>>,
+        TError,
+        {data: BodyType<CryptoDepositProviderAssignmentInput>},
+        TContext
+      > => {
+      return useMutation(getPreviewCryptoDepositProviderAssignmentMutationOptions(options));
+    }
+
+export const getApplyCryptoDepositProviderAssignmentUrl = () => {
+
+
+
+
+  return `/api/admin/crypto-networks/deposit-provider/apply`
+}
+
+/**
+ * @summary Atomically assign providers to reviewed exact routes; preserve tracking and manual wallets
+ */
+export const applyCryptoDepositProviderAssignment = async (cryptoDepositProviderAssignmentApply: CryptoDepositProviderAssignmentApply, options?: Parameters<typeof customFetch>[1]): Promise<CryptoDepositProviderAssignmentResult> => {
+
+  return customFetch<CryptoDepositProviderAssignmentResult>(getApplyCryptoDepositProviderAssignmentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(cryptoDepositProviderAssignmentApply)
+  }
+);}
+
+
+
+
+
+export const getApplyCryptoDepositProviderAssignmentMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof applyCryptoDepositProviderAssignment>>, TError,{data: BodyType<CryptoDepositProviderAssignmentApply>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof applyCryptoDepositProviderAssignment>>, TError,{data: BodyType<CryptoDepositProviderAssignmentApply>}, TContext> => {
+
+const mutationKey = ['applyCryptoDepositProviderAssignment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof applyCryptoDepositProviderAssignment>>, {data: BodyType<CryptoDepositProviderAssignmentApply>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  applyCryptoDepositProviderAssignment(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApplyCryptoDepositProviderAssignmentMutationResult = NonNullable<Awaited<ReturnType<typeof applyCryptoDepositProviderAssignment>>>
+    export type ApplyCryptoDepositProviderAssignmentMutationBody = BodyType<CryptoDepositProviderAssignmentApply>
+    export type ApplyCryptoDepositProviderAssignmentMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Atomically assign providers to reviewed exact routes; preserve tracking and manual wallets
+ */
+export const useApplyCryptoDepositProviderAssignment = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof applyCryptoDepositProviderAssignment>>, TError,{data: BodyType<CryptoDepositProviderAssignmentApply>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof applyCryptoDepositProviderAssignment>>,
+        TError,
+        {data: BodyType<CryptoDepositProviderAssignmentApply>},
+        TContext
+      > => {
+      return useMutation(getApplyCryptoDepositProviderAssignmentMutationOptions(options));
     }
 
 export const getReconcileCryptoCustomerDepositsUrl = () => {

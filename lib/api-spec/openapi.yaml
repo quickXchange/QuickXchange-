@@ -2083,6 +2083,38 @@ paths:
         "422":
           description: Bulk edit would create invalid deposit configuration
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+  /admin/crypto-networks/deposit-provider/preview:
+    post:
+      operationId: previewCryptoDepositProviderAssignment
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      summary: Review exact Asset + Network provider assignments without creating addresses
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/CryptoDepositProviderAssignmentInput" } } }
+      responses:
+        "200":
+          description: Per-route capability and configuration review
+          content: { application/json: { schema: { $ref: "#/components/schemas/CryptoDepositProviderAssignmentPreview" } } }
+        "503":
+          description: WhiteBIT capability is unavailable
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+  /admin/crypto-networks/deposit-provider/apply:
+    post:
+      operationId: applyCryptoDepositProviderAssignment
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      summary: Atomically assign providers to reviewed exact routes; preserve tracking and manual wallets
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/CryptoDepositProviderAssignmentApply" } } }
+      responses:
+        "200":
+          description: Updated exact network routes
+          content: { application/json: { schema: { $ref: "#/components/schemas/CryptoDepositProviderAssignmentResult" } } }
+        "409":
+          description: Route or capability changed since review
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
   /admin/crypto-assets/reconcile-customer-deposits:
     post:
       operationId: reconcileCryptoCustomerDeposits
@@ -6271,6 +6303,61 @@ components:
         assets:
           type: array
           items: { $ref: "#/components/schemas/CryptoAsset" }
+        networks:
+          type: array
+          items: { $ref: "#/components/schemas/CryptoNetwork" }
+    CryptoDepositProviderAssignmentInput:
+      type: object
+      additionalProperties: false
+      required: [networkIds, depositProvider]
+      properties:
+        networkIds:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items: { type: string, pattern: '^[a-z0-9][a-z0-9-]{0,80}$' }
+        depositProvider: { type: string, enum: [none, manual, whitebit] }
+    CryptoDepositProviderAssignmentApply:
+      type: object
+      additionalProperties: false
+      required: [networkIds, depositProvider, reviewToken]
+      properties:
+        networkIds:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items: { type: string, pattern: '^[a-z0-9][a-z0-9-]{0,80}$' }
+        depositProvider: { type: string, enum: [none, manual, whitebit] }
+        reviewToken: { type: string, pattern: '^[a-f0-9]{64}$' }
+    CryptoDepositProviderAssignmentRoute:
+      type: object
+      additionalProperties: false
+      required: [networkId, assetCode, networkCode, currentProvider, status, reason, customerDepositsAfter]
+      properties:
+        networkId: { type: string }
+        assetCode: { type: string }
+        networkCode: { type: string }
+        currentProvider: { type: string }
+        status: { type: string, enum: [supported, unsupported, requires_configuration] }
+        reason: { type: string }
+        customerDepositsAfter: { type: boolean }
+    CryptoDepositProviderAssignmentPreview:
+      type: object
+      additionalProperties: false
+      required: [reviewToken, routes]
+      properties:
+        reviewToken: { type: string }
+        routes:
+          type: array
+          items: { $ref: "#/components/schemas/CryptoDepositProviderAssignmentRoute" }
+    CryptoDepositProviderAssignmentResult:
+      type: object
+      additionalProperties: false
+      required: [routes, networks]
+      properties:
+        routes:
+          type: array
+          items: { $ref: "#/components/schemas/CryptoDepositProviderAssignmentRoute" }
         networks:
           type: array
           items: { $ref: "#/components/schemas/CryptoNetwork" }
