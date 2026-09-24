@@ -68,6 +68,27 @@ function validBitcoinAddress(): string {
   }
   return "1".repeat(leadingZeroBytes) + encoded;
 }
+function validTronAddress(): string {
+  const payload = Buffer.concat([
+    Buffer.from([0x41]),
+    createHash("sha256").update(randomUUID()).digest().subarray(0, 20),
+  ]);
+  const checksum = createHash("sha256")
+    .update(createHash("sha256").update(payload).digest()).digest().subarray(0, 4);
+  const bytes = Buffer.concat([payload, checksum]);
+  const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  let number = BigInt(`0x${bytes.toString("hex")}`);
+  let encoded = "";
+  while (number > 0n) {
+    encoded = alphabet[Number(number % 58n)] + encoded;
+    number /= 58n;
+  }
+  let leadingZeroBytes = 0;
+  while (leadingZeroBytes < bytes.length && bytes[leadingZeroBytes] === 0) {
+    leadingZeroBytes += 1;
+  }
+  return "1".repeat(leadingZeroBytes) + encoded;
+}
 let orderAddress = validBitcoinAddress();
 const ownerClerkUserId = `whitebit-owner-${suffix}`;
 const ownerEmail = `whitebit-owner-${suffix}@example.test`;
@@ -699,6 +720,106 @@ test("idempotent replay returns one immutable final address", async () => {
   const second = await provisionTest({ orderId: `${orderId}-replay`, assetCode: "BTC", networkCode: "BITCOIN", manualAddress: "different-manual", manualMemo: "", chosenWhitebit: true });
   assert.equal(first.address, second.address);
   assert.equal(providerCalls, calls);
+});
+
+test("different Swap orders on the same route receive distinct WhiteBIT instructions", async () => {
+  providerCalls = 0;
+  const addresses = [validBitcoinAddress(), validBitcoinAddress()];
+  assert.notEqual(addresses[0], addresses[1]);
+  await mockAssets();
+  const assetsFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    if (String(input).endsWith("/api/v4/main-account/create-new-address")) {
+      const address = addresses[providerCalls];
+      providerCalls += 1;
+      providerPermissionCalls += 1;
+      assert.ok(address, "unexpected extra WhiteBIT address request");
+      return new Response(JSON.stringify({
+        account: { address, memo: `TAG-${providerCalls}` },
+      }), { status: 200 });
+    }
+    return assetsFetch(input, init);
+  };
+
+  try {
+    const firstOrderId = `${orderId}-distinct-first`;
+    const secondOrderId = `${orderId}-distinct-second`;
+    const first = await provisionTest({
+      orderId: firstOrderId, assetCode: "BTC", networkCode: "BITCOIN",
+      manualAddress: "manual-wallet", manualMemo: "", chosenWhitebit: true,
+    });
+    assert.equal(providerCalls, 1, "the first new order should make one provider request");
+    const second = await provisionTest({
+      orderId: secondOrderId, assetCode: "BTC", networkCode: "BITCOIN",
+      manualAddress: "manual-wallet", manualMemo: "", chosenWhitebit: true,
+    });
+    assert.equal(providerCalls, 2, "the second new order should make one additional provider request");
+    assert.equal(first.address, addresses[0]);
+    assert.equal(first.memo, "TAG-1");
+    assert.equal(second.address, addresses[1]);
+    assert.equal(second.memo, "TAG-2");
+    assert.notDeepEqual(
+      { address: first.address, memo: first.memo },
+      { address: second.address, memo: second.memo },
+    );
+
+    const [firstOrder] = await database.db.select().from(database.ordersTable)
+      .where(eq(database.ordersTable.id, firstOrderId)).limit(1);
+    const [secondOrder] = await database.db.select().from(database.ordersTable)
+      .where(eq(database.ordersTable.id, secondOrderId)).limit(1);
+    assert.ok(firstOrder);
+    assert.ok(secondOrder);
+    assert.deepEqual(
+      { address: firstOrder.depositAddress, memo: firstOrder.depositMemo },
+      { address: addresses[0], memo: "TAG-1" },
+      "first order should persist its WhiteBIT deposit instructions",
+    );
+    assert.deepEqual(
+      { address: secondOrder.depositAddress, memo: secondOrder.depositMemo },
+      { address: addresses[1], memo: "TAG-2" },
+      "second order should persist its WhiteBIT deposit instructions",
+    );
+    for (const [order, expectedAddress, expectedMemo] of [
+      [firstOrder, addresses[0], "TAG-1"],
+      [secondOrder, addresses[1], "TAG-2"],
+    ] as const) {
+      const funding = order.fundingDetailsSnapshot as { address?: string; memo?: string; status?: string };
+      const settlementFunding = (order.settlementSnapshot as { funding?: { address?: string; memo?: string; status?: string } }).funding;
+      assert.deepEqual(
+        { address: funding.address, memo: funding.memo, status: funding.status },
+        { address: expectedAddress, memo: expectedMemo, status: "ready" },
+        `order ${order.id} should freeze WhiteBIT instructions in funding details`,
+      );
+      assert.deepEqual(
+        { address: settlementFunding?.address, memo: settlementFunding?.memo, status: settlementFunding?.status },
+        { address: expectedAddress, memo: expectedMemo, status: "ready" },
+        `order ${order.id} should freeze WhiteBIT instructions in settlement snapshot`,
+      );
+    }
+
+    const callsAfterProvisioning = providerCalls;
+    const firstReplay = await provisionTest({
+      orderId: firstOrderId, assetCode: "BTC", networkCode: "BITCOIN",
+      manualAddress: "manual-wallet", manualMemo: "", chosenWhitebit: true,
+    });
+    const secondReplay = await provisionTest({
+      orderId: secondOrderId, assetCode: "BTC", networkCode: "BITCOIN",
+      manualAddress: "manual-wallet", manualMemo: "", chosenWhitebit: true,
+    });
+    assert.deepEqual(
+      { address: firstReplay.address, memo: firstReplay.memo },
+      { address: addresses[0], memo: "TAG-1" },
+      "first order replay should return its own frozen instructions",
+    );
+    assert.deepEqual(
+      { address: secondReplay.address, memo: secondReplay.memo },
+      { address: addresses[1], memo: "TAG-2" },
+      "second order replay should return its own frozen instructions",
+    );
+    assert.equal(providerCalls, callsAfterProvisioning, "replaying either order must not request another address");
+  } finally {
+    globalThis.fetch = assetsFetch;
+  }
 });
 
 test("a provider address already assigned to another order uses fallback", async () => {
@@ -1912,11 +2033,15 @@ test("actual signed exchange order replay allocates one WhiteBIT address", async
 });
 
 test("Manual USDT TRC20 to EUR accepts every absent refund representation", async () => {
+  const originalFetch = globalThis.fetch;
   await mockAssets("TRC20", "USDT");
   const networkId = "usdt-trc20";
   const [originalNetwork] = await database.db.select().from(database.cryptoAssetNetworksTable)
     .where(eq(database.cryptoAssetNetworksTable.id, networkId)).limit(1);
   if (!originalNetwork) throw new Error("Test catalog lacks USDT/TRC20.");
+  const [originalAsset] = await database.db.select().from(database.cryptoAssetsTable)
+    .where(eq(database.cryptoAssetsTable.id, originalNetwork.assetId)).limit(1);
+  if (!originalAsset) throw new Error("Test catalog lacks the USDT asset.");
   const ruleName = `Refund absence ${suffix}`;
   const createdOrderIds: string[] = [];
   try {
@@ -1928,6 +2053,22 @@ test("Manual USDT TRC20 to EUR accepts every absent refund representation", asyn
     await database.db.update(database.cryptoAssetsTable).set({ enabled: true })
       .where(eq(database.cryptoAssetsTable.id, originalNetwork.assetId));
     await seedWhitebitVerificationFixture("USDT", "TRC20");
+    const providerAddresses = [validTronAddress(), validTronAddress(), validTronAddress()];
+    assert.equal(new Set(providerAddresses).size, providerAddresses.length);
+    providerCalls = 0;
+    const providerFetch = globalThis.fetch;
+    globalThis.fetch = async (input, init) => {
+      if (String(input).endsWith("/api/v4/main-account/create-new-address")) {
+        const address = providerAddresses[providerCalls];
+        providerCalls += 1;
+        providerPermissionCalls += 1;
+        assert.ok(address, "unexpected extra WhiteBIT address request");
+        return new Response(JSON.stringify({
+          account: { address, memo: `TAG-${providerCalls}` },
+        }), { status: 200 });
+      }
+      return providerFetch(input, init);
+    };
     await database.db.insert(database.manualDeskPricingRulesTable).values({
       name: ruleName, sourceAsset: "USDT", targetAsset: "EUR",
       sourceNetwork: "TRC20", targetNetwork: "SEPA", markupBasisPoints: 0,
@@ -1974,14 +2115,57 @@ test("Manual USDT TRC20 to EUR accepts every absent refund representation", asyn
       });
       const responseText = await response.text();
       assert.ok([201, 202].includes(response.status), responseText);
-      const body = JSON.parse(responseText) as { id: string };
+      const body = JSON.parse(responseText) as {
+        id: string; depositAddress?: string; depositMemo?: string; fundingStatus?: string;
+      };
       createdOrderIds.push(body.id);
-      const [stored] = await database.db.select({
-        refundAddress: database.ordersTable.refundAddress, refundMemo: database.ordersTable.refundMemo,
-      }).from(database.ordersTable).where(eq(database.ordersTable.id, body.id)).limit(1);
-      assert.deepEqual(stored, { refundAddress: "", refundMemo: "" });
+      let stored: typeof database.ordersTable.$inferSelect | undefined;
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        [stored] = await database.db.select().from(database.ordersTable)
+          .where(eq(database.ordersTable.id, body.id)).limit(1);
+        if (stored?.fundingStatus === "ready_whitebit") break;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      assert.ok(stored);
+      assert.equal(providerCalls, index + 1, `new order ${index + 1} should make one provider request`);
+      assert.equal(stored.fundingStatus, "ready_whitebit");
+      assert.equal(stored.depositAddress, providerAddresses[index]);
+      assert.equal(stored.depositMemo, `TAG-${index + 1}`);
+      assert.equal(body.depositAddress, providerAddresses[index]);
+      assert.equal(body.depositMemo, `TAG-${index + 1}`);
+      const funding = stored.fundingDetailsSnapshot as { address?: string; memo?: string; status?: string };
+      const settlementFunding = (stored.settlementSnapshot as {
+        funding?: { address?: string; memo?: string; status?: string };
+      }).funding;
+      assert.deepEqual(
+        { address: funding.address, memo: funding.memo, status: funding.status },
+        { address: providerAddresses[index], memo: `TAG-${index + 1}`, status: "ready" },
+      );
+      assert.deepEqual(
+        { address: settlementFunding?.address, memo: settlementFunding?.memo, status: settlementFunding?.status },
+        { address: providerAddresses[index], memo: `TAG-${index + 1}`, status: "ready" },
+      );
+      const callsAfterCreate = providerCalls;
+      const replayResponse = await fetch(`${baseUrl}/api/exchange/orders`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(request),
+      });
+      const replayText = await replayResponse.text();
+      assert.equal(replayResponse.status, 200, replayText);
+      const replay = JSON.parse(replayText) as {
+        id: string; depositAddress?: string; depositMemo?: string; fundingStatus?: string;
+      };
+      assert.equal(replay.id, body.id);
+      assert.equal(replay.depositAddress, providerAddresses[index]);
+      assert.equal(replay.depositMemo, `TAG-${index + 1}`);
+      assert.equal(replay.fundingStatus, "ready_whitebit");
+      assert.equal(providerCalls, callsAfterCreate, "idempotent replay must not request another address");
+      assert.deepEqual(
+        { refundAddress: stored.refundAddress, refundMemo: stored.refundMemo },
+        { refundAddress: "", refundMemo: "" },
+      );
     }
   } finally {
+    globalThis.fetch = originalFetch;
     for (const id of createdOrderIds) {
       await pool.query("DELETE FROM whitebit_order_history_checkpoints WHERE order_address_id IN (SELECT id FROM whitebit_order_addresses WHERE order_id = $1)", [id]);
       await pool.query("DELETE FROM whitebit_order_addresses WHERE order_id = $1", [id]);
@@ -1996,5 +2180,7 @@ test("Manual USDT TRC20 to EUR accepts every absent refund representation", asyn
       sharedDepositMemo: originalNetwork.sharedDepositMemo, requiresMemo: originalNetwork.requiresMemo,
       manualWalletTrackingEnabled: originalNetwork.manualWalletTrackingEnabled,
     }).where(eq(database.cryptoAssetNetworksTable.id, networkId));
+    await database.db.update(database.cryptoAssetsTable).set({ enabled: originalAsset.enabled })
+      .where(eq(database.cryptoAssetsTable.id, originalAsset.id));
   }
 });
