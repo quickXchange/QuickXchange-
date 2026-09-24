@@ -424,7 +424,7 @@ test("credential rotation and provider disable cannot mismatch the claimed White
   }
 });
 
-test("webhook authentication falls back to the configured WhiteBIT API credentials", async () => {
+test("webhook authentication rejects trading API credentials without dedicated webhook credentials", async () => {
   const dedicatedKey = process.env.WHITEBIT_WEBHOOK_API_KEY;
   const dedicatedSecret = process.env.WHITEBIT_WEBHOOK_SECRET;
   delete process.env.WHITEBIT_WEBHOOK_API_KEY;
@@ -445,11 +445,43 @@ test("webhook authentication falls back to the configured WhiteBIT API credentia
       },
       body,
     });
-    assert.equal(response.status, 400);
+    assert.equal(response.status, 401);
   } finally {
     process.env.WHITEBIT_WEBHOOK_API_KEY = dedicatedKey;
     process.env.WHITEBIT_WEBHOOK_SECRET = dedicatedSecret;
   }
+});
+
+test("webhook authentication rejects trading API credentials even with dedicated webhook credentials", async () => {
+  const body = JSON.stringify({});
+  const payload = Buffer.from(body).toString("base64");
+  const tradingSignature = createHmac("sha512", process.env.WHITEBIT_API_SECRET!)
+    .update(payload).digest("hex");
+  const response = await fetch(`${baseUrl}/api/webhooks/whitebit`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-txc-apikey": process.env.WHITEBIT_API_KEY!,
+      "x-txc-payload": payload,
+      "x-txc-signature": tradingSignature,
+    },
+    body,
+  });
+  assert.equal(response.status, 401);
+
+  const dedicatedSignature = createHmac("sha512", process.env.WHITEBIT_WEBHOOK_SECRET!)
+    .update(payload).digest("hex");
+  const dedicatedResponse = await fetch(`${baseUrl}/api/webhooks/whitebit`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-txc-apikey": process.env.WHITEBIT_WEBHOOK_API_KEY!,
+      "x-txc-payload": payload,
+      "x-txc-signature": dedicatedSignature,
+    },
+    body,
+  });
+  assert.equal(dedicatedResponse.status, 400); // Signed, but the empty envelope is invalid.
 });
 
 test("capability loss after provider selection uses the exact manual fallback without provider call", async () => {

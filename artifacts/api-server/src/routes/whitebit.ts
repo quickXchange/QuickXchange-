@@ -1066,8 +1066,8 @@ whitebitPublicRouter.get("/whiteBIT-verification", (_req, res): void => {
 
 export const whitebitWebhookRouter: IRouter = Router();
 whitebitWebhookRouter.post("/webhooks/whitebit", async (req, res): Promise<void> => {
-  const webhookKey = process.env.WHITEBIT_WEBHOOK_API_KEY ?? process.env.WHITEBIT_API_KEY;
-  const webhookSecret = process.env.WHITEBIT_WEBHOOK_SECRET ?? process.env.WHITEBIT_API_SECRET;
+  const webhookKey = process.env.WHITEBIT_WEBHOOK_API_KEY;
+  const webhookSecret = process.env.WHITEBIT_WEBHOOK_SECRET;
   const contentType = req.get("content-type")?.split(";")[0].trim().toLowerCase();
   const raw = (req as typeof req & { rawBody?: Buffer }).rawBody;
   const payloadHeader = req.get("x-txc-payload");

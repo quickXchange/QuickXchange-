@@ -247,8 +247,8 @@ export async function whitebitSwapStatus() {
       lastCapabilitySyncAt: new Date(snapshot.fetchedAt).toISOString(),
       matchedRouteCount: matched,
       webhookReady: Boolean(
-        (process.env.WHITEBIT_WEBHOOK_API_KEY ?? process.env.WHITEBIT_API_KEY) &&
-        (process.env.WHITEBIT_WEBHOOK_SECRET ?? process.env.WHITEBIT_API_SECRET),
+        process.env.WHITEBIT_WEBHOOK_API_KEY &&
+        process.env.WHITEBIT_WEBHOOK_SECRET,
       ),
     };
   } catch (error) {
@@ -261,8 +261,8 @@ export async function whitebitSwapStatus() {
       lastCapabilitySyncAt: null,
       matchedRouteCount: 0,
       webhookReady: Boolean(
-        (process.env.WHITEBIT_WEBHOOK_API_KEY ?? process.env.WHITEBIT_API_KEY) &&
-        (process.env.WHITEBIT_WEBHOOK_SECRET ?? process.env.WHITEBIT_API_SECRET),
+        process.env.WHITEBIT_WEBHOOK_API_KEY &&
+        process.env.WHITEBIT_WEBHOOK_SECRET,
       ),
       error: error instanceof Error ? error.message : "WhiteBIT capabilities unavailable",
     };

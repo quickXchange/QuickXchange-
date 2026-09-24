@@ -3,6 +3,12 @@ name: WhiteBIT deposit integrity
 description: Durable identity, ledger, order-funding, and reconciliation rules for WhiteBIT deposits.
 ---
 
+WhiteBIT webhook authentication must use the webhook's own key and secret, never fall back to trading API credentials. The public domain-verification key is a third, independently scoped value.
+
+**Why:** WhiteBIT documents webhooks as separate entities with their own signing credentials. Accepting trading credentials for incoming events crosses a trust boundary and can mask missing webhook configuration.
+
+**How to apply:** Treat missing dedicated webhook credentials as not ready and reject deliveries until they are configured; do not change trading API configuration or publish the signing credentials through domain verification.
+
 Credit eligibility requires a stable WhiteBIT transaction or unique ID. When both appear over time, they are aliases for one deposit and must be locked and resolved together. Once credited, economic fields stay frozen; conflicting terminal replays are quarantined for review rather than changing history without a ledger adjustment.
 
 **Why:** WhiteBIT webhook and history records can expose different identifier combinations, corrected amounts, and network-qualified tickers. Treating each representation independently can double-credit or desynchronize the immutable balance ledger from customer history.
