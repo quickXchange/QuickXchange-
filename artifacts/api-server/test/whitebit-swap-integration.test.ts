@@ -75,11 +75,13 @@ async function migrateTestTables() {
   const migration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0073_whitebit_swap_order_addresses.sql"), "utf8");
   const catalogMigration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0074_whitebit_asset_catalog_mappings.sql"), "utf8");
   const providerMigration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0075_crypto_network_deposit_provider.sql"), "utf8");
+  const canceledStatusMigration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0120_whitebit_canceled_deposit_status.sql"), "utf8");
   await pool.query(baseMigration);
   await pool.query(migration);
   await pool.query(catalogMigration);
   await pool.query(providerMigration);
   await pool.query(migration);
+  await pool.query(canceledStatusMigration);
 }
 
 async function mockAssets(network = "BITCOIN", asset = "BTC") {
@@ -144,25 +146,29 @@ async function ownedLedgerEntries() {
   );
 }
 
-async function signedOrderWebhook(uniqueId: string, address = orderAddress, network = "BITCOIN", memo = "TAG-1") {
+let signedWebhookNonce = Date.now() * 1000;
+async function signedOrderWebhook(
+  uniqueId: string, address = orderAddress, network = "BITCOIN", memo = "TAG-1",
+  method = "deposit.processed", status = 3, deliveryTag = "first",
+) {
   const body = JSON.stringify({
-    method: "deposit.processed",
+    method,
     params: {
-      nonce: Date.now() + providerCalls + uniqueId.length,
+      nonce: ++signedWebhookNonce,
       address,
       ticker: "BTC",
       network,
       memo,
       amount: "1.25",
       fee: "0",
-      status: 3,
+      status,
       confirmations: 6,
       confirmationsRequired: 3,
       unique_id: uniqueId,
       transaction_id: `tx-${uniqueId}`,
       transactionHash: `hash-${uniqueId}`,
     },
-    id: runId(`delivery-${uniqueId}`),
+    id: runId(`delivery-${uniqueId}-${method}-${deliveryTag}`),
   });
   const payload = Buffer.from(body).toString("base64");
   const signature = createHmac("sha512", process.env.WHITEBIT_WEBHOOK_SECRET!)
@@ -814,6 +820,50 @@ test("signed WhiteBIT webhook attaches the exact Swap order without ledger credi
   const [row] = await database.db.select().from(database.ordersTable).where(eq(database.ordersTable.id, webhookOrderId));
   assert.equal(row.fundingProviderSource, "whitebit");
   assert.equal(row.depositAddress, claim.address);
+});
+
+test("canceled WhiteBIT deposit stays on its exact order without canceling another order", async () => {
+  const firstOrderId = `${orderId}-canceled-deposit`;
+  const otherOrderId = `${orderId}-unrelated-deposit`;
+  await insertProvisioningOrder(firstOrderId);
+  await insertProvisioningOrder(otherOrderId);
+  const firstAddress = `cancel-order-address-${suffix}`;
+  const otherAddress = `other-order-address-${suffix}`;
+  await database.db.insert(database.whitebitOrderAddressesTable).values([
+    { orderId: firstOrderId, ticker: "BTC", providerTicker: "BTC", network: "BITCOIN",
+      address: firstAddress, memo: "TAG-1", status: "ready" },
+    { orderId: otherOrderId, ticker: "BTC", providerTicker: "BTC", network: "BITCOIN",
+      address: otherAddress, memo: "TAG-1", status: "ready" },
+  ]);
+  await finalizeSwapFundingFromClaim(firstOrderId);
+  await finalizeSwapFundingFromClaim(otherOrderId);
+  const uniqueId = `cancel-order-${suffix}`;
+  assert.equal((await signedOrderWebhook(uniqueId, firstAddress, "BITCOIN", "TAG-1", "deposit.accepted", 15)).status, 200);
+  const [orderBefore] = await database.db.select().from(database.ordersTable).where(eq(database.ordersTable.id, firstOrderId));
+  const [otherBefore] = await database.db.select().from(database.ordersTable).where(eq(database.ordersTable.id, otherOrderId));
+  // A real provider identity on a different WhiteBIT address must not be
+  // interpreted as permission to cancel either order's deposit.
+  assert.equal((await signedOrderWebhook(uniqueId, otherAddress, "BITCOIN", "TAG-1", "deposit.canceled", 15, "wrong-order")).status, 200);
+  let [deposit] = await database.db.select().from(database.whitebitDepositsTable)
+    .where(eq(database.whitebitDepositsTable.uniqueId, uniqueId));
+  assert.equal(deposit.status, "accepted");
+  assert.equal(deposit.orderId, firstOrderId);
+  assert.equal((await signedOrderWebhook(uniqueId, firstAddress, "BITCOIN", "TAG-1", "deposit.canceled", 15)).status, 200);
+  assert.equal((await signedOrderWebhook(uniqueId, firstAddress, "BITCOIN", "TAG-1", "deposit.canceled", 15, "duplicate")).status, 200);
+  assert.equal((await signedOrderWebhook(uniqueId, firstAddress, "BITCOIN", "TAG-1", "deposit.processed", 3)).status, 200);
+  [deposit] = await database.db.select().from(database.whitebitDepositsTable)
+    .where(eq(database.whitebitDepositsTable.uniqueId, uniqueId));
+  assert.equal(deposit.status, "canceled");
+  assert.equal(deposit.orderId, firstOrderId);
+  assert.equal(deposit.creditedAt, null);
+  assert.equal((await database.db.select().from(database.whitebitDepositsTable)
+    .where(eq(database.whitebitDepositsTable.orderId, otherOrderId))).length, 0);
+  const [orderAfter] = await database.db.select().from(database.ordersTable).where(eq(database.ordersTable.id, firstOrderId));
+  const [otherAfter] = await database.db.select().from(database.ordersTable).where(eq(database.ordersTable.id, otherOrderId));
+  assert.equal(orderAfter.status, orderBefore.status);
+  assert.equal(orderAfter.manualSettlementState, orderBefore.manualSettlementState);
+  assert.equal(otherAfter.status, otherBefore.status);
+  assert.equal(otherAfter.manualSettlementState, otherBefore.manualSettlementState);
 });
 
 test("confirmed Swap deposit advances the real order and queues one exact Telegram payment notice", async () => {

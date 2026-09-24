@@ -15,6 +15,12 @@ Credit eligibility requires a stable WhiteBIT transaction or unique ID. When bot
 
 **How to apply:** Normalize provider tickers separately from the base asset/network request contract, lock every stable alias in deterministic order, credit once per immutable deposit row, and reconcile each address from offset zero to its high-water identity without requesting beyond the provider’s 10,000-record window.
 
+A WhiteBIT deposit cancellation ends only the identified funding attempt, not its associated order. Keep the deposit canceled on later webhook or history replays; do not automatically undo an already credited balance or cancel an order.
+
+**Why:** One order address may receive multiple independent funding attempts. An address-only cancellation could terminate the wrong attempt or order, while a late processed replay could wrongly restore and credit a canceled attempt.
+
+**How to apply:** Require an unambiguous provider ID or transaction hash on the exact address, asset, network, and memo before changing a deposit; retain the order link for audit, but leave the order open for other valid deposits.
+
 Manual Swap funding addresses use an order-scoped claim, not the customer deposit balance path. Persist the chosen funding source before the provider call, grant call ownership through a database claim-token compare-and-set, and freeze either the generated address or the exact snapshotted fallback as the order’s permanent assignment.
 
 **Why:** Process-local locks do not protect autoscaled instances. A replay racing an irreversible address request can otherwise trigger a second call, expose a fallback address, or mark the order unresolved while a successful provider response is still in flight.

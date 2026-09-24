@@ -5689,6 +5689,7 @@ export const WhitebitDepositStatus = {
   accepted: 'accepted',
   updated: 'updated',
   processed: 'processed',
+  canceled: 'canceled',
   unknown: 'unknown',
 } as const;
 
