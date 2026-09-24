@@ -7,6 +7,12 @@ On Replit managed production databases, Publish owns schema reconciliation. The 
 
 Treat a shorter production Drizzle history as history divergence, not proof of pending DDL, when the authoritative Publish schema diff is empty and production history is an exact prefix/subset of development. Data-only migrations still require independent postcondition checks because schema reconciliation cannot prove or apply their effects.
 
+A publish schema diff reporting no changes does not prove that handwritten PostgreSQL CHECK-constraint changes have propagated. Compare the named constraint definition in Development and Production before relying on Publish to carry such a migration.
+
+**Why:** The WhiteBIT deposit status constraint differed between the two databases even while the publish-time diff reported zero pending statements. A new application status would be rejected by Production if code were published first.
+
+**How to apply:** Preflight the exact catalog constraint and row compatibility read-only. If the diff omits a required constraint change, do not publish code that writes the new value until a supported, separately authorized schema application path is identified and verified.
+
 On port-probed deployment targets, bind a temporary fail-closed startup gate immediately and return HTTP 503 until migration succeeds. Release the port completely before starting the API, and never spawn another child after a shutdown signal.
 
 **Why:** Artifact publishing uses its own production run command. Development post-merge hooks are not implicit production release steps, so required data reconciliation can apply in development but never reach production. Conversely, managed Publish can apply schema without advancing a separate Drizzle journal; replaying that journal then fails on already-existing schema before reaching the required data change. Waiting to bind the configured port can also make the platform restart the container before reconciliation completes.
