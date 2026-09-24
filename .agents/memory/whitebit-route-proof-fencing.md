@@ -20,3 +20,9 @@ An old stored credential can shadow a different, working environment credential 
 **Why:** A live route probe and a signed balance check both received definitive authorization failures from the selected stored credential, while the alternate environment credential passed the same read-only check. Persisted verification describes a past test, not current provider acceptance.
 
 **How to apply:** Diagnose the selected credential source with a read-only signed request before attributing address failures to route permission. Switch sources only through the verified credential flow, and invalidate/re-prove exact routes before claiming live readiness. Never print keys or provider response bodies.
+
+Do not infer a WhiteBIT deposit-network alias from a human-readable Admin network name or a saved manual fallback address. In a September 2026 public capability snapshot, BTC deposits were advertised under `BTC`, not the Admin route code `BITCOIN`; some other active routes also lacked an exact match. Treat such routes as unsupported until an explicitly reviewed identity mapping is established.
+
+**Why:** Silently equating network names with provider identifiers would authorize deposits on an unverified route, while silently downgrading an operator's Enabled request conceals the mismatch.
+
+**How to apply:** Compare the live, read-only provider catalog to the exact Asset + Network row before enabling; show an unsupported result in previews and reject attempted enabling without changing persisted state. Recheck live capabilities because provider catalogs can change.

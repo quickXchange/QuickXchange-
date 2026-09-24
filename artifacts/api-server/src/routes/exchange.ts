@@ -5215,6 +5215,17 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
     const selectedForReadiness = await db.select().from(cryptoAssetNetworksTable)
       .where(inArray(cryptoAssetNetworksTable.id, input.networkIds));
     const selectedForReadinessById = new Map(selectedForReadiness.map(row => [row.id, row]));
+    const enablingWhitebit = requestedCustomerDepositsEnabled === true &&
+      selectedForReadiness.some(row =>
+        (input.preserveDepositProviders ? row.depositProvider : input.depositProvider ?? row.depositProvider) === "whitebit"
+      );
+    // Capability discovery is public and read-only. Never try address creation
+    // or silently fall back to a Manual Wallet when enabling a WhiteBIT route.
+    const whitebitCapabilities = enablingWhitebit
+      ? await getWhitebitCapabilities().catch(() => {
+          throw new ApiError("WHITEBIT_CAPABILITIES_UNAVAILABLE", "WhiteBIT deposit capabilities are unavailable. Customer Deposits were not enabled.", 503);
+        })
+      : null;
     const manualInputs = input.networkIds.flatMap(routeId => {
       const row = selectedForReadinessById.get(routeId);
       if (!row) return [];
@@ -5393,6 +5404,18 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
           );
         }
         const asset = assetById.get(network.assetId)!;
+        if (
+          customerDepositsEnabled &&
+          nextProvider === "whitebit" &&
+          whitebitCapabilities &&
+          !matchWhitebitCapability(whitebitCapabilities, asset.code, network.networkCode)
+        ) {
+          throw new ApiError(
+            "WHITEBIT_ROUTE_UNSUPPORTED",
+            `WhiteBIT does not advertise deposits for ${asset.code} · ${network.networkCode}. Customer Deposits were not enabled; choose an exact supported route or turn off Customer Deposits.`,
+            422,
+          );
+        }
         const eligible = isCustomerDepositEligible(
           asset,
           nextNetwork,
@@ -5402,6 +5425,15 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
           networkEnabled &&
           network.lifecycle !== "deprecated" &&
           network.executionMode === "manual";
+        if (input.networkIds.length === 1 && customerDepositsEnabled && !eligible) {
+          throw new ApiError(
+            "CRYPTO_DEPOSIT_VERIFICATION_REQUIRED",
+            nextProvider === "whitebit"
+              ? `Customer Deposits for ${asset.code} · ${network.networkCode} require an enabled WhiteBIT provider and a current address-permission proof for this exact route. No deposit settings were saved.`
+              : `Customer Deposits for ${asset.code} · ${network.networkCode} require an enabled Manual route, valid receiving address, and any required memo. No deposit settings were saved.`,
+            409,
+          );
+        }
         await tx.update(cryptoAssetNetworksTable).set({
           enabled: networkEnabled,
            depositProvider: nextProvider,

@@ -60,6 +60,22 @@ test("WhiteBIT create-address parser requires the documented nested account shap
   assert.equal(parseWhitebitAddressResponse({ address: "ADDR" }), null);
 });
 
+test("deposit capability uses exact asset and network codes, not display names or fallback wallets", () => {
+  const assets = parseWhitebitAssets({
+    BTC: { can_deposit: true, networks: { deposits: ["BTC"] } },
+    XMR: { can_deposit: true, networks: { deposits: ["XMR"] } },
+  });
+  assert.ok(assets);
+  const snapshot = { fetchedAt: Date.now(), assets };
+  assert.equal(matchWhitebitCapability(snapshot, "BTC", "BITCOIN"), null);
+  assert.equal(matchWhitebitCapability(snapshot, "BTC", "BTC")?.providerNetwork, "BTC");
+  assert.equal(matchWhitebitCapability(snapshot, "XMR", "XMR")?.providerNetwork, "XMR");
+  assert.equal(matchWhitebitCapability(snapshot, "XMR", "BITCOIN"), null);
+  assert.equal(isConfiguredYouSendCryptoNetwork({
+    enabled: true, depositProvider: "whitebit", customerDepositsEnabled: false,
+  }), false);
+});
+
 test("WhiteBIT asset identity keeps create requests base-ticker safe and parses provider network tickers", () => {
   assert.deepEqual(assetIdentity("USDT", "TRC20"), { ticker: "USDT", network: "TRC20", providerTicker: "USDT" });
   assert.deepEqual(assetIdentity("USDT_ETH", ""), { ticker: "USDT", network: "ERC20", providerTicker: "USDT_ETH" });
