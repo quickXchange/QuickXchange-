@@ -62,7 +62,11 @@ function validBitcoinAddress(): string {
     encoded = alphabet[Number(number % 58n)] + encoded;
     number /= 58n;
   }
-  return "1" + encoded;
+  let leadingZeroBytes = 0;
+  while (leadingZeroBytes < bytes.length && bytes[leadingZeroBytes] === 0) {
+    leadingZeroBytes += 1;
+  }
+  return "1".repeat(leadingZeroBytes) + encoded;
 }
 let orderAddress = validBitcoinAddress();
 const ownerClerkUserId = `whitebit-owner-${suffix}`;
