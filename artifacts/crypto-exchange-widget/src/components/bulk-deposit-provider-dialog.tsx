@@ -109,7 +109,8 @@ export function BulkDepositProviderDialog({
   };
 
   const confirm = async () => {
-    if (!review || review.routes.some(route => route.status === 'unsupported')) return;
+    if (!review || review.routes.some(route => route.status === 'unsupported' ||
+      route.currentProvider !== provider && route.customerDepositsAfter)) return;
     setError('');
     try {
       const result = await apply.mutateAsync({
@@ -129,6 +130,8 @@ export function BulkDepositProviderDialog({
   };
 
   const selectedUnsupported = review?.routes.filter(route => route.status === 'unsupported') ?? [];
+  const selectedDepositsEnabled = review?.routes.filter(route =>
+    route.currentProvider !== provider && route.customerDepositsAfter) ?? [];
 
   return (
     <div className="drawer-backdrop" onClick={event => event.target === event.currentTarget && onClose()}>
@@ -142,7 +145,7 @@ export function BulkDepositProviderDialog({
         </div>
         <div className="catalog-editor-scroll scrollbar-thin">
           <div className="admin-form admin-form-card catalog-editor-form space-y-4">
-            <p className="field-hint">Select exact Asset + Network routes. This changes only their Deposit Provider and any Customer Deposits availability that must be disabled for safety. Saved manual addresses, memos and Manual Wallet Tracking remain unchanged. It never creates a WhiteBIT address.</p>
+            <p className="field-hint">Select exact Asset + Network routes. This changes only their Deposit Provider. Turn off Customer Deposits in its own control before switching an enabled route. Saved manual addresses, memos and Manual Wallet Tracking remain unchanged. It never creates a WhiteBIT address.</p>
             <label><span className="field-label">Set Deposit Provider</span>
               <select data-testid="bulk-deposit-provider-target" value={provider} disabled={apply.isPending} onChange={event => { setProvider(event.target.value as Provider); setReview(null); }}>
                 <option value="whitebit">WhiteBIT</option>
@@ -158,7 +161,7 @@ export function BulkDepositProviderDialog({
                   <button type="button" className="button button-secondary" onClick={selectAllSupported}>Select All Supported</button>
                   <button type="button" className="button button-secondary" onClick={() => { setSelected(new Set()); setReview(null); }}>Clear All</button>
                 </div>
-                <p className="field-hint">{selected.size} selected. “Requires configuration” routes can be assigned, but their Customer Deposits stay off until configured and explicitly enabled. Unsupported WhiteBIT routes cannot be assigned.</p>
+                <p className="field-hint">{selected.size} selected. “Requires configuration” routes can be assigned after Customer Deposits are turned off in their own control. Unsupported WhiteBIT routes cannot be assigned.</p>
                 <input aria-label="Search Asset + Network routes" placeholder="Search asset or network (for example, XMR)" value={search} onChange={event => setSearch(event.target.value)} />
                 <div className="max-h-72 overflow-y-auto space-y-2" data-testid="bulk-deposit-provider-routes">
                   {filtered.map(network => {
@@ -186,11 +189,12 @@ export function BulkDepositProviderDialog({
                   <p className="text-xs text-muted-foreground">{route.reason} Customer Deposits: {route.customerDepositsAfter ? 'remain enabled' : 'disabled'}.</p>
                 </div>)}
                 {selectedUnsupported.length > 0 && <p role="alert" className="text-red-500">Deselect {selectedUnsupported.length} unsupported {selectedUnsupported.length === 1 ? 'route' : 'routes'} before applying.</p>}
+                {selectedDepositsEnabled.length > 0 && <p role="alert" className="text-red-500">Turn off Customer Deposits for {selectedDepositsEnabled.length} selected {selectedDepositsEnabled.length === 1 ? 'route' : 'routes'} in their own controls before switching providers. Then review again.</p>}
               </section>
             )}
             <div className="catalog-editor-actions">
               {review && <button type="button" onClick={() => setReview(null)}>Back</button>}
-              <button type="button" className="catalog-editor-primary" disabled={!catalogReview || !selected.size || reviewing || apply.isPending || selectedUnsupported.length > 0} onClick={() => void (review ? confirm() : reviewSelection())}>
+              <button type="button" className="catalog-editor-primary" disabled={!catalogReview || !selected.size || reviewing || apply.isPending || selectedUnsupported.length > 0 || selectedDepositsEnabled.length > 0} onClick={() => void (review ? confirm() : reviewSelection())}>
                 {reviewing || apply.isPending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                 {review ? 'Confirm Assignment' : 'Review Changes'}
               </button>

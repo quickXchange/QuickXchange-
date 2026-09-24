@@ -4309,6 +4309,8 @@ function reviewDepositProviderAssignments(
 ) {
   const sorted = [...pairs].sort((a, b) => a.network.id.localeCompare(b.network.id));
   const routes = sorted.map(({ asset, network }) => {
+    const switchingWithDepositsEnabled =
+      network.depositProvider !== target && network.customerDepositsEnabled;
     const active = asset.enabled && asset.lifecycle !== "deprecated" &&
       network.enabled && network.lifecycle !== "deprecated" && network.executionMode === "manual";
     const capability = target === "whitebit" && capabilities
@@ -4317,11 +4319,13 @@ function reviewDepositProviderAssignments(
       eligibility && isCustomerDepositEligible(asset, network, eligibility);
     const walletReady = hasUsableSavedReceivingWallet(network);
     const status = target === "whitebit" && !capability ? "unsupported" as const
-      : !active || target === "whitebit" && !currentWhitebitReady ||
+      : switchingWithDepositsEnabled || !active || target === "whitebit" && !currentWhitebitReady ||
         target === "manual" && !walletReady
         ? "requires_configuration" as const : "supported" as const;
     const reason = status === "unsupported"
       ? "WhiteBIT does not advertise deposit support for this exact Asset + Network."
+      : switchingWithDepositsEnabled
+        ? "Turn off Customer Deposits using its own control before switching this route's Deposit Provider."
       : !active
         ? "Route or asset is disabled, deprecated, or not configured for Manual Swap execution."
         : target === "whitebit" && network.depositProvider !== "whitebit"
@@ -4331,14 +4335,11 @@ function reviewDepositProviderAssignments(
           : target === "manual" && !walletReady
             ? "Save a valid Manual Receiving Address and any required memo before enabling Customer Deposits."
             : target === "none"
-              ? "Customer Deposits will be disabled."
+              ? "No deposit provider will be assigned."
             : network.depositProvider !== target
-              ? "Assignment is supported. Customer Deposits will stay off until separately enabled after configuration."
+              ? "Assignment is supported. Customer Deposits can be enabled separately after configuration."
               : "Exact route is supported; the existing Customer Deposits setting is preserved where valid.";
-    const customerDepositsAfter = Boolean(
-      active && network.customerDepositsEnabled && network.depositProvider === target &&
-      (target === "manual" && walletReady || target === "whitebit" && currentWhitebitReady),
-    );
+    const customerDepositsAfter = network.customerDepositsEnabled;
     return {
       networkId: network.id,
       assetCode: asset.code,
@@ -4425,13 +4426,14 @@ router.post("/admin/crypto-networks/deposit-provider/apply", requireOwner, async
       if (review.routes.some(route => route.status === "unsupported")) {
         throw new ApiError("WHITEBIT_ROUTE_UNSUPPORTED", "One or more selected exact routes are not supported by WhiteBIT. Deselect them and review again.", 422);
       }
+      if (pairs.some(({ network }) => network.depositProvider !== input.depositProvider && network.customerDepositsEnabled)) {
+        throw new ApiError("CRYPTO_PROVIDER_CUSTOMER_DEPOSITS_ENABLED", "Turn off Customer Deposits through its own control before changing the Deposit Provider.", 409);
+      }
       const changed = pairs.filter(({ network }) => network.depositProvider !== input.depositProvider);
       await invalidateWhitebitDepositRouteProofsForRoutes(tx, changed.map(({ network }) => network.id));
       for (const { network } of pairs) {
-        const reviewed = review.routes.find(route => route.networkId === network.id)!;
         await tx.update(cryptoAssetNetworksTable).set({
           depositProvider: input.depositProvider,
-          customerDepositsEnabled: reviewed.customerDepositsAfter,
         }).where(eq(cryptoAssetNetworksTable.id, network.id));
       }
       const updated = await tx.select().from(cryptoAssetNetworksTable)

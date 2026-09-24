@@ -14,6 +14,7 @@ export type AdminRoutePolicy = {
   permission?: PermissionKey;
   authenticatedOnly?: boolean;
   ownerOnly?: boolean;
+  readOnly?: boolean;
 };
 
 type PolicyMatcher = {
@@ -109,6 +110,8 @@ const POLICY_MATCHERS: readonly PolicyMatcher[] = [
   { method: "GET", pattern: /^\/admin\/crypto-networks$/, policy: P("crypto_networks.view") },
   { method: "POST", pattern: /^\/admin\/crypto-networks$/, policy: P("crypto_networks.manage") },
   { method: "POST", pattern: /^\/admin\/crypto-networks\/receiving-wallet\/preview$/, policy: P("receiving_wallets.manage", true) },
+  { method: "POST", pattern: /^\/admin\/crypto-networks\/deposit-provider\/preview$/, policy: { ...P("receiving_wallets.manage", true), readOnly: true } },
+  { method: "POST", pattern: /^\/admin\/crypto-networks\/deposit-provider\/apply$/, policy: P("receiving_wallets.manage", true) },
   { method: "PATCH", pattern: /^\/admin\/crypto-networks\/[^/]+\/customer-deposits$/, policy: P("receiving_wallets.manage", true) },
   { method: "PATCH", pattern: /^\/admin\/crypto-networks\/[^/]+$/, policy: P("crypto_networks.manage") },
   { method: "DELETE", pattern: /^\/admin\/crypto-networks\/[^/]+$/, policy: P("crypto_networks.manage") },
@@ -322,7 +325,7 @@ export const adminPolicy: RequestHandler = (req, res, next) => {
       !OWNER_ONLY_PERMISSION_KEYS.has(policy.permission) &&
       operator.effectivePermissions.includes(policy.permission))
   ) {
-    if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+    if (!policy.readOnly && ["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
       const permission = policy.permission;
       if (!permission) {
         next();

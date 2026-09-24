@@ -18,6 +18,7 @@ import {
 import { fiatCurrenciesTable, manualDeskPricingRulesTable } from "@workspace/db";
 import { isWhitebitSwapEnabled, matchWhitebitCapability, parseWhitebitAssets, resetWhitebitCapabilityCacheForTests, whitebitSwapStatus } from "../src/lib/whitebit-capabilities";
 import { configureOperatorAuthorizationForTests } from "../src/lib/operator-auth";
+import { adminPolicy } from "../src/lib/admin-policy";
 import { configureCustomerAuthorizationForTests } from "../src/lib/customer-auth";
 import { signOrderTrackingToken } from "../src/lib/order-access";
 import { activateWhitebitCredentials } from "../src/lib/provider-credentials";
@@ -106,6 +107,13 @@ const app = express();
 app.use(express.json({ verify: (request, _response, body) => {
   (request as express.Request & { rawBody?: Buffer }).rawBody = Buffer.from(body);
 } }));
+// Exercise the production policy for the two newly classified routes while
+// preserving the existing focused router fixtures for unrelated test cases.
+app.use("/api", (req, res, next) =>
+  req.path.startsWith("/admin/crypto-networks/deposit-provider/")
+    ? adminPolicy(req, res, next)
+    : next(),
+);
 app.use("/api", whitebitPublicRouter);
 app.use("/api", whitebitWebhookRouter);
 app.use("/api", whitebitOperatorRouter);
@@ -1889,8 +1897,13 @@ test("bulk provider assignment reviews exact capabilities, preserves tracking, a
   ];
   const ids = fixtureAssets.map(asset => `${asset.id}-route`);
   const unsupportedId = `${fixtureAssets[0].id}-unsupported`;
+  const operatorId = `bulk-operator-${suffix}`;
   const savedFetch = globalThis.fetch;
   try {
+    await database.db.insert(database.operatorsTable).values({
+      email: `${operatorId}@example.test`, clerkUserId: operatorId,
+      name: "Bulk permission test operator", role: "operator", status: "active",
+    });
     for (const asset of fixtureAssets) {
       await database.db.insert(database.cryptoAssetsTable).values({
         id: asset.id, code: asset.code, name: asset.code, decimals: 8, enabled: true,
@@ -1919,6 +1932,20 @@ test("bulk provider assignment reviews exact capabilities, preserves tracking, a
     const post = (path: string, body: object) => fetch(`${endpoint}/${path}`, {
       method: "POST", headers, body: JSON.stringify(body),
     });
+    for (const path of ["preview", "apply"]) {
+      const body = path === "preview"
+        ? { networkIds: ids, depositProvider: "whitebit" }
+        : { networkIds: ids, depositProvider: "whitebit", reviewToken: "a".repeat(64) };
+      const anonymous = await fetch(`${endpoint}/${path}`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+      });
+      assert.equal(anonymous.status, 401, `Anonymous ${path} must be denied`);
+      const operator = await fetch(`${endpoint}/${path}`, {
+        method: "POST", headers: { "content-type": "application/json", "x-test-operator": operatorId },
+        body: JSON.stringify(body),
+      });
+      assert.equal(operator.status, 403, `Non-owner ${path} must be denied`);
+    }
     const callsBefore = providerPermissionCalls;
     const unsafe = await post("preview", { networkIds: [...ids, unsupportedId], depositProvider: "whitebit" });
     assert.equal(unsafe.status, 200, await unsafe.clone().text());
@@ -1931,9 +1958,14 @@ test("bulk provider assignment reviews exact capabilities, preserves tracking, a
       networkIds: [...ids, unsupportedId], depositProvider: "whitebit", reviewToken: unsafeReview.reviewToken,
     });
     assert.equal(blocked.status, 422);
+    const [beforePreview] = await database.db.select().from(database.cryptoAssetNetworksTable)
+      .where(eq(database.cryptoAssetNetworksTable.id, ids[0]));
     const safe = await post("preview", { networkIds: ids, depositProvider: "whitebit" });
     assert.equal(safe.status, 200, await safe.clone().text());
     const review = await safe.json() as { reviewToken: string };
+    const [afterPreview] = await database.db.select().from(database.cryptoAssetNetworksTable)
+      .where(eq(database.cryptoAssetNetworksTable.id, ids[0]));
+    assert.deepEqual(afterPreview, beforePreview, "Preview must not modify route settings");
     const applied = await post("apply", {
       networkIds: ids, depositProvider: "whitebit", reviewToken: review.reviewToken,
     });
@@ -1981,9 +2013,35 @@ test("bulk provider assignment reviews exact capabilities, preserves tracking, a
     assert.equal(restored?.depositProvider, "manual");
     assert.equal(restored?.customerDepositsEnabled, false);
     assert.equal(providerPermissionCalls, callsBefore);
+
+    await database.db.update(database.cryptoAssetNetworksTable)
+      .set({ customerDepositsEnabled: true, sharedDepositAddress: "saved-manual-fallback" })
+      .where(eq(database.cryptoAssetNetworksTable.id, ids[0]));
+    const enabledPreviewResponse = await post("preview", {
+      networkIds: [ids[0]], depositProvider: "whitebit",
+    });
+    assert.equal(enabledPreviewResponse.status, 200);
+    const enabledPreview = await enabledPreviewResponse.json() as {
+      reviewToken: string; routes: Array<{ status: string; reason: string }>;
+    };
+    assert.equal(enabledPreview.routes[0]?.status, "requires_configuration");
+    assert.match(enabledPreview.routes[0]?.reason ?? "", /Turn off Customer Deposits/);
+    const enabledApply = await post("apply", {
+      networkIds: [ids[0]], depositProvider: "whitebit", reviewToken: enabledPreview.reviewToken,
+    });
+    assert.equal(enabledApply.status, 409);
+    const [unchanged] = await database.db.select().from(database.cryptoAssetNetworksTable)
+      .where(eq(database.cryptoAssetNetworksTable.id, ids[0]));
+    assert.equal(unchanged?.depositProvider, "manual");
+    assert.equal(unchanged?.customerDepositsEnabled, true);
+    assert.equal(unchanged?.sharedDepositAddress, "saved-manual-fallback");
+    assert.equal(unchanged?.manualWalletTrackingEnabled, true);
+    assert.equal(providerPermissionCalls, callsBefore);
   } finally {
     globalThis.fetch = savedFetch;
     resetWhitebitCapabilityCacheForTests();
+    await database.db.delete(database.operatorsTable)
+      .where(eq(database.operatorsTable.clerkUserId, operatorId));
     for (const id of [...ids, unsupportedId]) {
       await database.db.delete(database.cryptoAssetNetworksTable)
         .where(eq(database.cryptoAssetNetworksTable.id, id));

@@ -66,11 +66,22 @@ test("deposit provider options use the receiving-wallet Owner boundary", () => {
     classifyAdminRoute("PATCH", "/admin/crypto-networks/btc-bitcoin/customer-deposits"),
     { permission: "receiving_wallets.manage", ownerOnly: true },
   );
+  assert.deepEqual(
+    classifyAdminRoute("POST", "/admin/crypto-networks/deposit-provider/preview"),
+    { permission: "receiving_wallets.manage", ownerOnly: true, readOnly: true },
+  );
+  assert.deepEqual(
+    classifyAdminRoute("POST", "/admin/crypto-networks/deposit-provider/apply"),
+    { permission: "receiving_wallets.manage", ownerOnly: true },
+  );
+  assert.equal(classifyAdminRoute("POST", "/admin/crypto-networks/deposit-provider/unlisted"), undefined);
 });
 
 test("non-owner operators cannot preview, bulk apply, or toggle Customer Deposits", async () => {
   const paths = [
     ["POST", "/admin/crypto-networks/receiving-wallet/preview"],
+    ["POST", "/admin/crypto-networks/deposit-provider/preview"],
+    ["POST", "/admin/crypto-networks/deposit-provider/apply"],
     ["PUT", "/admin/crypto-networks/receiving-wallet"],
     ["PATCH", "/admin/crypto-networks/btc-bitcoin/customer-deposits"],
   ] as const;
