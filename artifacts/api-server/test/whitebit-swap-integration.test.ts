@@ -120,7 +120,7 @@ async function insertProvisioningOrder(
     },
     settlementSnapshot: { funding: { source: "whitebit", status: "provisioning", address: "", memo: "" } },
     providerState: "whitebit_provisioning", quoteId: "", clientRequestId: `${id}-request`,
-  }).onConflictDoNothing({ target: database.ordersTable.id });
+  }).onConflictDoNothing();
 }
 
 async function provisionTest(input: Parameters<typeof provisionSwapFundingAddress>[0]) {
@@ -519,17 +519,27 @@ test("capability loss after provider selection uses the exact manual fallback wi
 test("concurrent identical order requests make one provider call and never expose transient manual", async () => {
   providerCalls = 0;
   await mockAssets();
-  await database.db.update(database.cryptoAssetNetworksTable).set({
-    customerDepositsEnabled: true,
-    sharedDepositAddress: "fixture-manual-address",
-  }).where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
-  const results = await Promise.all([1, 2].map(() => provisionTest({
-    orderId: `${orderId}-concurrent`, assetCode: "BTC", networkCode: "BITCOIN",
-    manualAddress: "manual-wallet", manualMemo: "", chosenWhitebit: true,
-  })));
-  assert.equal(providerCalls, 1);
-  assert.ok(results.every((result) => result.source === "whitebit" || result.unresolved));
-  assert.ok(results.every((result) => result.address !== "manual-wallet"));
+  const [originalNetwork] = await database.db.select().from(database.cryptoAssetNetworksTable)
+    .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
+  assert.ok(originalNetwork);
+  try {
+    await database.db.update(database.cryptoAssetNetworksTable).set({
+      customerDepositsEnabled: true,
+      sharedDepositAddress: "1BoatSLRHtKNngkdXEeobR76b53LETtpyT",
+    }).where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
+    const results = await Promise.all([1, 2].map(() => provisionTest({
+      orderId: `${orderId}-concurrent`, assetCode: "BTC", networkCode: "BITCOIN",
+      manualAddress: "manual-wallet", manualMemo: "", chosenWhitebit: true,
+    })));
+    assert.equal(providerCalls, 1);
+    assert.ok(results.every((result) => result.source === "whitebit" || result.unresolved));
+    assert.ok(results.every((result) => result.address !== "manual-wallet"));
+  } finally {
+    await database.db.update(database.cryptoAssetNetworksTable).set({
+      customerDepositsEnabled: originalNetwork.customerDepositsEnabled,
+      sharedDepositAddress: originalNetwork.sharedDepositAddress,
+    }).where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
+  }
 });
 
 test("idempotent replay returns one immutable final address", async () => {
@@ -1294,7 +1304,7 @@ test("actual signed exchange order replay allocates one WhiteBIT address", async
   await mockAssets();
   await database.db.update(database.cryptoAssetNetworksTable).set({
     enabled: true, executionMode: "manual", customerDepositsEnabled: true,
-    depositProvider: "whitebit",
+    depositProvider: "whitebit", sharedDepositAddress: "",
   }).where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
   await database.db.update(database.cryptoAssetsTable).set({ enabled: true })
     .where(eq(database.cryptoAssetsTable.id, priorBtcNetwork?.assetId ?? ""));
@@ -1316,8 +1326,8 @@ test("actual signed exchange order replay allocates one WhiteBIT address", async
     }>;
   };
   const source = config.manualSettlementOptions.find((option) =>
-    option.kind === "crypto-network" && option.assetCode === "BTC" &&
-    option.routeNetwork.toUpperCase() === "BITCOIN" && (option.direction === "send" || option.direction === "both"));
+    option.id === "crypto:btc-bitcoin" && option.kind === "crypto-network" && option.assetCode === "BTC" &&
+    (option.direction === "send" || option.direction === "both"));
   const target = config.manualSettlementOptions.find((option) =>
     option.kind === "fiat-payment-method" && (option.direction === "receive" || option.direction === "both"));
   if (!source || !target) throw new Error(`Test catalog lacks a BTC/BITCOIN-to-fiat route: ${JSON.stringify(config.manualSettlementOptions.filter((option) => option.assetCode === "BTC" || option.assetCode === "EUR"))}`);
@@ -1325,7 +1335,7 @@ test("actual signed exchange order replay allocates one WhiteBIT address", async
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      type: "manual", fromAsset: "BTC", fromNetwork: "BITCOIN",
+      type: "manual", fromAsset: "BTC", fromNetwork: source.routeNetwork,
       toAsset: target.assetCode, toNetwork: target.routeNetwork, amount: 1,
       sourceSettlementOptionId: source.id, targetSettlementOptionId: target.id,
     }),
@@ -1427,7 +1437,7 @@ test("Manual USDT TRC20 to EUR accepts every absent refund representation", asyn
   try {
     await database.db.update(database.cryptoAssetNetworksTable).set({
       enabled: true, executionMode: "manual", customerDepositsEnabled: true,
-      depositProvider: "whitebit", sharedDepositAddress: `T${"1".repeat(33)}`, sharedDepositMemo: "",
+      depositProvider: "whitebit", sharedDepositAddress: "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb", sharedDepositMemo: "",
       requiresMemo: false,
     }).where(eq(database.cryptoAssetNetworksTable.id, networkId));
     await database.db.update(database.cryptoAssetsTable).set({ enabled: true })
