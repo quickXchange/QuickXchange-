@@ -828,20 +828,26 @@ test("a fallback qualifies only with a fresh proof for its exact monitored addre
   const [route] = await database.db.select().from(database.cryptoAssetNetworksTable)
     .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
   assert.ok(route);
+  // The WhiteBIT fixtures temporarily use BITCOIN; the existing Bitcoin monitor
+  // retains the original route code. Exercise this pure readiness check with
+  // that exact persisted monitoring identity without changing its configuration.
+  const monitoredRouteCode = priorBtcNetwork?.networkCode;
+  assert.ok(monitoredRouteCode);
   const [catalogAsset] = await database.db.select().from(database.cryptoAssetsTable)
     .where(eq(database.cryptoAssetsTable.id, route.assetId));
   const [network] = await database.db.select().from(database.blockchainMonitorNetworksTable)
-    .where(eq(database.blockchainMonitorNetworksTable.networkCode, route.networkCode));
+    .where(eq(database.blockchainMonitorNetworksTable.networkCode, monitoredRouteCode));
   const [asset] = await database.db.select().from(database.blockchainMonitorAssetsTable)
     .where(eq(database.blockchainMonitorAssetsTable.assetNetworkId, route.id));
   const [baseOrder] = await database.db.select().from(database.ordersTable)
     .where(eq(database.ordersTable.id, orderId));
   assert.ok(catalogAsset && network && asset && baseOrder);
+  assert.equal(asset.monitorNetworkId, network.id);
   const address = validBitcoinAddress();
   const now = new Date();
   const config = { endpoint: "http://127.0.0.1:1" }; // Never contacted; proof-only fixture.
   const exactRoute = {
-    ...route, enabled: true, executionMode: "manual", depositProvider: "whitebit",
+    ...route, networkCode: monitoredRouteCode, enabled: true, executionMode: "manual", depositProvider: "whitebit",
     sharedDepositAddress: address, sharedDepositMemo: null, requiresMemo: false,
   };
   const exactNetwork = {
@@ -1698,6 +1704,29 @@ test("actual signed exchange order replay allocates one WhiteBIT address", async
   }).where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
   await database.db.update(database.cryptoAssetsTable).set({ enabled: true })
     .where(eq(database.cryptoAssetsTable.id, priorBtcNetwork?.assetId ?? ""));
+  const ownerHeaders = {
+    "content-type": "application/json",
+    "x-test-operator": ownerClerkUserId,
+  };
+  const credentialTest = await fetch(`${baseUrl}/api/admin/providers/whitebit/credentials/test`, {
+    method: "POST", headers: ownerHeaders, body: "{}",
+  });
+  assert.equal(credentialTest.status, 200, await credentialTest.clone().text());
+  const permissionCallsBefore = providerPermissionCalls;
+  const permissionTest = await fetch(`${baseUrl}/api/admin/providers/whitebit/address-permission/verify`, {
+    method: "POST",
+    headers: ownerHeaders,
+    body: JSON.stringify({ networkId: "btc-bitcoin", confirmRealAddressCreation: true }),
+  });
+  assert.equal(permissionTest.status, 200, await permissionTest.clone().text());
+  assert.equal(providerPermissionCalls, permissionCallsBefore + 1);
+  const enableProvider = await fetch(`${baseUrl}/api/admin/providers/whitebit`, {
+    method: "PATCH",
+    headers: ownerHeaders,
+    body: JSON.stringify({ enabled: true }),
+  });
+  assert.equal(enableProvider.status, 200, await enableProvider.clone().text());
+  providerCalls = 0;
   await database.db.insert(fiatCurrenciesTable).values({
     code: "EUR", name: "Euro", network: "SEPA", precision: 2, enabled: true,
     lifecycle: "active", rateMode: "manual", manualRate: "100",
