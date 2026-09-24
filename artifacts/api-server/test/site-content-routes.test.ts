@@ -327,6 +327,62 @@ test("public site content serves the newest publication and redacts hidden page 
   assert.equal(individual.response.status, 404, individual.body);
 });
 
+test("a Review upload saves to the draft list and survives reload with legacy null ordering", { concurrency: false }, async () => {
+  const before = await request("/admin/social-trust", {}, operatorUser);
+  assert.equal(before.response.status, 200, before.body);
+  const uploadIntent = await request("/admin/social-trust/upload", {
+    method: "POST",
+    body: JSON.stringify({ contentType: "image/png" }),
+  }, operatorUser);
+  assert.equal(uploadIntent.response.status, 200, uploadIntent.body);
+  const { objectPath } = JSON.parse(uploadIntent.body) as { objectPath: string };
+  const bytes = await sharp({ create: { width: 3, height: 3, channels: 4, background: "#456789" } }).png().toBuffer();
+  objects.set(objectPath.replace(/^\/objects\//, "assets/"), { bytes, contentType: "image/png", deleted: false });
+
+  const created = await request("/admin/social-trust/items", {
+    method: "POST",
+    body: JSON.stringify({
+      group: "trust", name: `${TEST_MARKER}-review-save`,
+      href: "https://reviews.example.test/temporary", objectPath,
+      enabled: true, displayMode: "icon-only", appearance: "same",
+    }),
+  }, operatorUser);
+  assert.equal(created.response.status, 201, created.body);
+  const item = JSON.parse(created.body) as { id: string; group: string; objectPath: string };
+  socialTrustIds.add(item.id);
+  assert.equal(item.group, "trust");
+  assert.equal(item.objectPath, objectPath);
+
+  const persisted = await privilegedPool.query<{ group_name: string; object_path: string }>(
+    "select group_name, object_path from site_social_trust_links where id = $1", [item.id],
+  );
+  assert.deepEqual(persisted.rows[0], { group_name: "trust", object_path: objectPath });
+
+  const loaded = await request("/admin/social-trust", {}, operatorUser);
+  assert.equal(loaded.response.status, 200, loaded.body);
+  const findItem = (body: string) => (JSON.parse(body) as { items: Array<{ id: string; group: string; objectPath: string; enabled: boolean }> }).items.find((entry) => entry.id === item.id);
+  assert.equal(findItem(loaded.body)?.group, "trust");
+  assert.equal(findItem(loaded.body)?.objectPath, objectPath);
+  assert.equal(findItem(loaded.body)?.enabled, true);
+  const logo = await fetch(`${apiUrl}/admin/social-trust/items/${item.id}/preview`, { headers: { "x-test-clerk-user-id": operatorUser } });
+  assert.equal(logo.status, 200);
+  assert.deepEqual(Buffer.from(await logo.arrayBuffer()), bytes);
+
+  await privilegedPool.query("update site_social_trust_links set sort_order = null where id = $1", [item.id]);
+  const reloaded = await request("/admin/social-trust", {}, operatorUser);
+  assert.equal(reloaded.response.status, 200, reloaded.body);
+  assert.equal(findItem(reloaded.body)?.group, "trust");
+  const changed = await request(`/admin/social-trust/items/${item.id}`, {
+    method: "PATCH", body: JSON.stringify({ enabled: false }),
+  }, operatorUser);
+  assert.equal(changed.response.status, 200, changed.body);
+  const removed = await request(`/admin/social-trust/items/${item.id}`, { method: "DELETE" }, operatorUser);
+  assert.equal(removed.response.status, 204, removed.body);
+  const after = await request("/admin/social-trust", {}, operatorUser);
+  assert.equal(after.response.status, 200, after.body);
+  assert.equal(findItem(after.body), undefined);
+});
+
 test("social and trust drafts become public only through owner publication", { concurrency: false }, async () => {
   const originalDraftResponse = await request("/admin/social-trust", {}, operatorUser);
   assert.equal(originalDraftResponse.response.status, 200, originalDraftResponse.body);

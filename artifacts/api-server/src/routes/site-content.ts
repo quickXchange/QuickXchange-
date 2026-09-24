@@ -353,7 +353,7 @@ async function draftSocialTrust() {
     trustTitleVisible: normalizedSocialIconAppearance(settings?.trustAppearance).trustTitleVisible ?? true,
     trustTitleFontSize: normalizedSocialIconAppearance(settings?.trustAppearance).titleFontSize ?? 18,
     trustTitleAlignment: normalizedSocialIconAppearance(settings?.trustAppearance).titleAlignment ?? "left",
-    items,
+    items: items.map(omitNullSortOrder),
   };
 }
 
@@ -1388,7 +1388,7 @@ router.patch("/admin/social-trust/items/:id", requireOperator, async (req, res):
     return [updated];
   });
   if (!row) throw new ApiError("SOCIAL_TRUST_ITEM_NOT_FOUND", "Footer item not found.", 404);
-  res.json(UpdateAdminSocialTrustItemResponse.parse(row));
+  res.json(UpdateAdminSocialTrustItemResponse.parse(omitNullSortOrder(row)));
 });
 
 router.delete("/admin/social-trust/items/:id", requireOperator, async (req, res): Promise<void> => {

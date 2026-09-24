@@ -50,6 +50,8 @@ export function SocialTrustEditor() {
   const saveSocial = useUpdateAdminSocialMedia();
   const saveTitles = useUpdateAdminSocialTrustTitles();
   const [notice, setNotice] = useState<EditorNotice | null>(null);
+  const [createNotice, setCreateNotice] = useState<EditorNotice | null>(null);
+  const [itemNotices, setItemNotices] = useState<Record<string, EditorNotice>>({});
   const [titles, setTitles] = useState({ socialTitle: 'Stay connected with us', trustTitle: 'Share your feedback with us' });
   const [appearance, setAppearance] = useState<SocialIconAppearance>(DEFAULT_APPEARANCE);
   const [trustAppearance, setTrustAppearance] = useState<SocialIconAppearance>(DEFAULT_APPEARANCE);
@@ -82,35 +84,41 @@ export function SocialTrustEditor() {
   };
 
   const addItem = async () => {
-    if (!newItem.name.trim() || !newItem.href.trim()) return setNotice({ kind: 'error', text: 'Platform name and profile URL are required.' });
-    if (!newFiles.objectPath) return setNotice({ kind: 'error', text: 'Upload the icon that should appear on your website.' });
+    if (!newItem.name.trim() || !newItem.href.trim()) return setCreateNotice({ kind: 'error', text: 'Platform name and profile URL are required.' });
+    if (!newFiles.objectPath) return setCreateNotice({ kind: 'error', text: 'Upload the icon that should appear on your website.' });
+    setCreateNotice(null);
     try {
       const [objectPath, lightObjectPath, darkObjectPath] = await Promise.all([
         uploadOne(newFiles.objectPath),
         newFiles.lightObjectPath ? uploadOne(newFiles.lightObjectPath) : Promise.resolve(null),
         newFiles.darkObjectPath ? uploadOne(newFiles.darkObjectPath) : Promise.resolve(null),
       ]);
-      await create.mutateAsync({ data: {
+      const created = await create.mutateAsync({ data: {
         group: newItem.group, name: newItem.name.trim(), href: newItem.href.trim(),
         objectPath, lightObjectPath, darkObjectPath, appearance: lightObjectPath || darkObjectPath ? 'separate' : 'same',
         displayMode: newItem.displayMode, enabled: true,
       } });
+      queryClient.setQueryData<NonNullable<typeof query.data>>(getGetAdminSocialTrustQueryKey(), (current) =>
+        current ? { ...current, items: [...current.items, created] } : current);
       setNewItem((current) => ({ ...current, name: '', href: '' }));
       setNewFiles({});
-      setNotice({ kind: 'success', text: 'Social / review item saved as a draft. Publish the site snapshot when ready.' });
-      await queryClient.invalidateQueries({ queryKey: getGetAdminSocialTrustQueryKey() });
-    } catch (error) { setNotice({ kind: 'error', text: apiErrorText(error, 'Unable to save this item.') }); }
+      setCreateNotice({ kind: 'success', text: 'Item saved as a draft. It appears on the landing-page preview when Visible is on; publishing is a separate action.' });
+      void queryClient.invalidateQueries({ queryKey: getGetAdminSocialTrustQueryKey() });
+    } catch (error) { setCreateNotice({ kind: 'error', text: apiErrorText(error, 'Unable to save this item.') }); }
   };
 
   const saveItem = async (item: SocialTrustItem) => {
     const draft = drafts[item.id];
     if (!draft) return;
     try {
-      await update.mutateAsync({ id: item.id, data: draft });
+      setItemNotices((current) => { const next = { ...current }; delete next[item.id]; return next; });
+      const saved = await update.mutateAsync({ id: item.id, data: draft });
+      queryClient.setQueryData<NonNullable<typeof query.data>>(getGetAdminSocialTrustQueryKey(), (current) =>
+        current ? { ...current, items: current.items.map((entry) => entry.id === item.id ? saved : entry) } : current);
       setDrafts((current) => { const next = { ...current }; delete next[item.id]; return next; });
-      setNotice({ kind: 'success', text: 'Item saved as a draft.' });
-      await queryClient.invalidateQueries({ queryKey: getGetAdminSocialTrustQueryKey() });
-    } catch (error) { setNotice({ kind: 'error', text: apiErrorText(error, 'Unable to save this item.') }); }
+      setItemNotices((current) => ({ ...current, [item.id]: { kind: 'success', text: 'Changes saved as a draft.' } }));
+      void queryClient.invalidateQueries({ queryKey: getGetAdminSocialTrustQueryKey() });
+    } catch (error) { setItemNotices((current) => ({ ...current, [item.id]: { kind: 'error', text: apiErrorText(error, 'Unable to save this item.') } })); }
   };
 
   const changeGroupOrder = async (source: SocialTrustItem, target: SocialTrustItem) => {
@@ -216,6 +224,8 @@ export function SocialTrustEditor() {
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={appearance.socialTitleVisible ?? true} onChange={(e) => setAppearance({ ...appearance, socialTitleVisible: e.target.checked })} /> Show section title</label>
           <input className="admin-input w-full" value={titles.socialTitle} onChange={(e) => setTitles({ ...titles, socialTitle: e.target.value })} aria-label="Social Media section title" />
           <div className="grid grid-cols-2 gap-2">
+            <FieldNumber label="Title font size" value={appearance.titleFontSize ?? 18} min={12} max={40} onChange={(titleFontSize) => setAppearance({ ...appearance, titleFontSize })} />
+            <Select label="Title alignment" value={appearance.titleAlignment ?? 'left'} options={['left', 'center', 'right']} onChange={(titleAlignment) => setAppearance({ ...appearance, titleAlignment: titleAlignment as SocialIconAppearance['titleAlignment'] })} />
             <FieldNumber label="Icon size" value={appearance.iconSize} min={8} max={48} onChange={(iconSize) => setAppearance({ ...appearance, iconSize })} />
             <FieldNumber label="Circle size" value={appearance.circleSize} min={24} max={80} onChange={(circleSize) => setAppearance({ ...appearance, circleSize })} />
             <FieldNumber label="Icon spacing" value={appearance.spacing ?? 14} min={0} max={80} onChange={(spacing) => setAppearance({ ...appearance, spacing })} />
@@ -251,8 +261,9 @@ export function SocialTrustEditor() {
 
     <div className="panel space-y-4 p-5">
       <h3 className="font-semibold">Add social or review platform</h3>
+      {query.isError && <InlineNotice kind="error">Unable to load existing platforms: {apiErrorText(query.error, 'Please retry loading the list.')}</InlineNotice>}
       <div className="grid gap-3 sm:grid-cols-2">
-        <Select label="Section" value={newItem.group} options={['social', 'trust']} onChange={(group) => setNewItem({ ...newItem, group: group as 'social' | 'trust' })} />
+        <Select label="Section" value={newItem.group} options={['social', 'trust']} optionLabels={{ trust: 'Review' }} onChange={(group) => setNewItem({ ...newItem, group: group as 'social' | 'trust' })} />
         <Select label="Display mode" value={newItem.displayMode} options={['icon-only', 'icon-name']} onChange={(displayMode) => setNewItem({ ...newItem, displayMode: displayMode as 'icon-only' | 'icon-name' })} />
         <input className="admin-input w-full" value={newItem.name} onChange={(e) => setNewItem({ ...newItem, name: e.target.value })} placeholder="Platform name (admin identification)" aria-label="Platform Name" />
         <input className="admin-input w-full" value={newItem.href} onChange={(e) => setNewItem({ ...newItem, href: e.target.value })} placeholder="https://your-profile-url" aria-label="Social profile URL" />
@@ -260,7 +271,8 @@ export function SocialTrustEditor() {
       <div className="grid gap-3 sm:grid-cols-3">{([
         ['objectPath', 'Primary logo / icon (required)'], ['lightObjectPath', 'Optional light-mode logo'], ['darkObjectPath', 'Optional dark-mode logo'],
       ] as const).map(([key, label]) => <FilePicker key={key} label={label} value={newFiles[key]} onChange={(file) => setNewFiles((current) => ({ ...current, [key]: file }))} />)}</div>
-      <div className="flex flex-wrap gap-2"><button type="button" className="button button-primary" onClick={() => void addItem()} disabled={upload.isPending || create.isPending}><ImagePlus size={15} /> Save icon item</button><span className="self-center text-xs text-muted-foreground">Icon Only never shows the platform name beside the uploaded logo.</span></div>
+      <div className="flex flex-wrap gap-2"><button type="button" className="button button-primary" onClick={() => void addItem()} disabled={upload.isPending || create.isPending || query.isError || !query.data}><ImagePlus size={15} /> Save icon item</button><span className="self-center text-xs text-muted-foreground">Icon Only never shows the platform name beside the uploaded logo.</span></div>
+      {createNotice && <InlineNotice kind={createNotice.kind}>{createNotice.text}</InlineNotice>}
     </div>
 
     <div className="grid gap-3 md:grid-cols-2">
@@ -273,11 +285,14 @@ export function SocialTrustEditor() {
             if (source) void changeGroupOrder(source, item);
             dragId.current = null;
           }} className="rounded-lg border border-border bg-card p-3 space-y-2" data-testid={`card-social-trust-${item.id}`}>
-            <div className="flex items-center gap-2"><GripVertical size={16} className="cursor-grab text-muted-foreground" /><strong className="flex-1 truncate text-sm">{item.name}</strong>
+             <div className="flex items-center gap-2"><GripVertical size={16} className="cursor-grab text-muted-foreground" aria-label="Drag to reorder" />
+               {draft.objectPath && <img className="h-10 w-10 shrink-0 rounded object-contain" src={uploadedPreviews[draft.objectPath] ?? `${basePath}/api/admin/social-trust/items/${item.id}/preview?objectPath=${encodeURIComponent(draft.objectPath)}`} alt={`${draft.name} logo`} />}
+               <div className="min-w-0 flex-1"><strong className="block truncate text-sm">{draft.name}</strong><a className="block truncate text-xs text-muted-foreground underline" href={draft.href} target="_blank" rel="noopener noreferrer">{draft.href}</a></div>
               <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={draft.enabled} onChange={(e) => setDrafts({ ...drafts, [item.id]: { ...draft, enabled: e.target.checked } })} /> Visible</label>
-              <button type="button" className="button button-secondary h-7 px-2 text-xs" onClick={() => void saveItem(item)}><Save size={13} /></button>
-              <button type="button" className="button button-secondary h-7 px-2 text-xs text-destructive" onClick={() => remove.mutate({ id: item.id }, { onSuccess: () => void queryClient.invalidateQueries({ queryKey: getGetAdminSocialTrustQueryKey() }) })}><Trash2 size={13} /></button>
+               <button type="button" className="button button-secondary h-7 px-2 text-xs" aria-label={`Save changes to ${item.name}`} onClick={() => void saveItem(item)} disabled={!drafts[item.id] || update.isPending}><Save size={13} /> Save</button>
+               <button type="button" className="button button-secondary h-7 px-2 text-xs text-destructive" aria-label={`Delete ${item.name}`} onClick={() => remove.mutate({ id: item.id }, { onSuccess: () => void queryClient.invalidateQueries({ queryKey: getGetAdminSocialTrustQueryKey() }), onError: (error) => setItemNotices((current) => ({ ...current, [item.id]: { kind: 'error', text: apiErrorText(error, 'Unable to delete this item.') } })) })} disabled={remove.isPending}><Trash2 size={13} /> Delete</button>
             </div>
+             {itemNotices[item.id] && <InlineNotice kind={itemNotices[item.id].kind}>{itemNotices[item.id].text}</InlineNotice>}
             <div className="grid gap-2 sm:grid-cols-2">
               <input className="admin-input w-full" value={draft.name} onChange={(e) => setDrafts({ ...drafts, [item.id]: { ...draft, name: e.target.value } })} aria-label="Platform Name" />
               <input className="admin-input w-full" value={draft.href} onChange={(e) => setDrafts({ ...drafts, [item.id]: { ...draft, href: e.target.value } })} aria-label="Profile URL" />
@@ -318,8 +333,8 @@ export function SocialTrustEditor() {
 function FieldNumber({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (value: number) => void }) {
   return <label className="text-xs font-medium">{label}<input className="admin-input mt-1 w-full" type="number" min={min} max={max} value={value} onChange={(e) => onChange(Math.min(max, Math.max(min, Number(e.target.value))))} /></label>;
 }
-function Select({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
-  return <label className="text-xs font-medium">{label}<select className="admin-input mt-1 w-full" value={value} onChange={(e) => onChange(e.target.value)}>{options.map((option) => <option key={option} value={option}>{option.replace('-', ' ').replace(/^\w/, (letter) => letter.toUpperCase())}</option>)}</select></label>;
+function Select({ label, value, options, optionLabels, onChange }: { label: string; value: string; options: string[]; optionLabels?: Record<string, string>; onChange: (value: string) => void }) {
+  return <label className="text-xs font-medium">{label}<select className="admin-input mt-1 w-full" value={value} onChange={(e) => onChange(e.target.value)}>{options.map((option) => <option key={option} value={option}>{optionLabels?.[option] ?? option.replace('-', ' ').replace(/^\w/, (letter) => letter.toUpperCase())}</option>)}</select></label>;
 }
 function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return <label className="text-xs font-medium">{label}<input className="admin-input mt-1 h-9 w-full p-1" type="color" value={value} onChange={(e) => onChange(e.target.value)} /></label>;
