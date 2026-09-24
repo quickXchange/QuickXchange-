@@ -4196,15 +4196,29 @@ export type WhitebitProviderStatusState = typeof WhitebitProviderStatusState[key
 export const WhitebitProviderStatusState = {
   disabled: 'disabled',
   not_configured: 'not_configured',
+  verification_required: 'verification_required',
+  address_permission_required: 'address_permission_required',
   ready: 'ready',
   unavailable: 'unavailable',
 } as const;
+
+export interface WhitebitAddressPermissionProof {
+  networkId: string;
+  assetCode: string;
+  networkCode: string;
+  verifiedAt: string;
+}
 
 export interface WhitebitProviderStatus {
   provider: WhitebitProviderStatusProvider;
   enabled: boolean;
   explicitDisabled: boolean;
   credentialsReady: boolean;
+  credentialsVerified: boolean;
+  /** @nullable */
+  credentialsVerifiedAt: string | null;
+  addressPermissionVerified: boolean;
+  addressPermissionProof: WhitebitAddressPermissionProof | null;
   state: WhitebitProviderStatusState;
   /** @nullable */
   lastCapabilitySyncAt: string | null;
@@ -4266,6 +4280,22 @@ export interface WhitebitProviderTest {
   signedApiReachable: boolean;
   checkedAt: string;
   message: string;
+}
+
+export interface WhitebitProviderToggle {
+  enabled: boolean;
+}
+
+export interface WhitebitVerificationRoute {
+  networkId: string;
+  assetCode: string;
+  networkCode: string;
+}
+
+export interface WhitebitAddressPermissionInput {
+  /** @minLength 1 */
+  networkId: string;
+  confirmRealAddressCreation: boolean;
 }
 
 export interface QuickexCredentialInput {
@@ -6756,10 +6786,6 @@ page?: number;
  * @maximum 100
  */
 pageSize?: number;
-};
-
-export type UpdateWhitebitProviderStatusBody = {
-  enabled: boolean;
 };
 
 export type ListAdminActivityParams = {

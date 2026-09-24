@@ -22,8 +22,13 @@ import {
 import { requireCustomer } from "../lib/customer-auth";
 import { ApiError } from "../lib/api-error";
 import { requireOperator, requireOwner } from "../lib/operator-auth";
+import { customerDepositRouteConfigurationDigest } from "../lib/customer-deposit-eligibility";
 import { isWhitebitSwapEnabled, parseWhitebitCatalogAssets } from "../lib/whitebit-capabilities";
-import { getWhitebitCredentialStorageState, type WhitebitCredentials } from "../lib/provider-credentials";
+import {
+  getWhitebitCredentialStorageState,
+  whitebitCredentialFingerprint,
+  type WhitebitCredentials,
+} from "../lib/provider-credentials";
 import { updateOrderAndQueueStatusNotificationTx } from "../lib/customer-status-notifications";
 import { enqueueSwapTelegramNotification } from "../lib/telegram-swap-notifications";
 import { signedCryptoRouteId } from "../lib/manual-crypto";
@@ -257,6 +262,38 @@ export async function provisionSwapFundingAddress(input: {
         ? { apiKey: process.env.WHITEBIT_API_KEY, secretKey: process.env.WHITEBIT_API_SECRET }
         : undefined;
     if (!setting || setting.disabled || !credentialsReady) return { claim: undefined, row: undefined, disabled: true };
+    const credentialFingerprint = credentialSnapshot
+      ? whitebitCredentialFingerprint(credentialSnapshot)
+      : null;
+    if (
+      !credentialFingerprint ||
+      setting.credentialVerifiedFingerprint !== credentialFingerprint ||
+      !setting.credentialVerifiedAt
+    ) return { claim: undefined, row: undefined, disabled: true };
+    const [route] = await tx.select({
+      asset: cryptoAssetsTable,
+      network: cryptoAssetNetworksTable,
+    }).from(cryptoAssetNetworksTable)
+      .innerJoin(cryptoAssetsTable, eq(cryptoAssetNetworksTable.assetId, cryptoAssetsTable.id))
+      .where(and(
+        eq(cryptoAssetsTable.enabled, true),
+        eq(cryptoAssetNetworksTable.enabled, true),
+        eq(cryptoAssetNetworksTable.depositProvider, "whitebit"),
+        sql`upper(${cryptoAssetsTable.code}) = upper(${input.assetCode.trim()})`,
+        sql`upper(${cryptoAssetNetworksTable.networkCode}) = upper(${input.networkCode.trim()})`,
+        sql`${cryptoAssetsTable.lifecycle} <> 'deprecated'`,
+        sql`${cryptoAssetNetworksTable.lifecycle} <> 'deprecated'`,
+      )).for("update").limit(1);
+    if (!route) return { claim: undefined, row: undefined, disabled: true };
+    const routeDigest = customerDepositRouteConfigurationDigest(route.asset, route.network);
+    const hasCurrentRouteProof = (setting.depositRouteProofs ?? []).some((proof) =>
+      proof.networkId === route.network.id &&
+      proof.assetCode === route.asset.code.trim().toUpperCase() &&
+      proof.networkCode === route.network.networkCode.trim().toUpperCase() &&
+      proof.configurationDigest === routeDigest &&
+      proof.credentialFingerprint === credentialFingerprint
+    );
+    if (!hasCurrentRouteProof) return { claim: undefined, row: undefined, disabled: true };
     const [claim] = await tx.insert(whitebitOrderAddressesTable).values({
       orderId: input.orderId,
       ticker: input.assetCode.trim().toUpperCase(),

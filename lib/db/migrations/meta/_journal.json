@@ -827,6 +827,13 @@
       "when": 1790199087841,
       "tag": "0119_copy_legacy_trust_appearance",
       "breakpoints": true
+    },
+    {
+      "idx": 120,
+      "version": "7",
+      "when": 1790199088841,
+      "tag": "0120_whitebit_verification",
+      "breakpoints": true
     }
   ]
 }

@@ -252,10 +252,11 @@ import type {
   TelegramMiniAppSession,
   TelegramMiniAppSessionInput,
   UnsubscribeNewsletterParams,
-  UpdateWhitebitProviderStatusBody,
   WebsiteBranding,
   WebsiteBrandingSaveInput,
   WebsiteBrandingUpload,
+  WhitebitAddressPermissionInput,
+  WhitebitAddressPermissionProof,
   WhitebitAddressRecoveryInput,
   WhitebitAssetImportPreview,
   WhitebitAssetImportResult,
@@ -267,7 +268,9 @@ import type {
   WhitebitDepositAddressInput,
   WhitebitProviderStatus,
   WhitebitProviderTest,
+  WhitebitProviderToggle,
   WhitebitReconciliationResult,
+  WhitebitVerificationRoute,
   WhitebitWebhookEnvelope
 } from './api.schemas';
 
@@ -8721,6 +8724,77 @@ export function useGetWhitebitProviderStatus<TData = Awaited<ReturnType<typeof g
 
 
 
+export const getUpdateWhitebitProviderStatusUrl = () => {
+
+
+
+
+  return `/api/admin/providers/whitebit`
+}
+
+/**
+ * @summary Explicitly enable or disable WhiteBIT Swap address allocation
+ */
+export const updateWhitebitProviderStatus = async (whitebitProviderToggle: WhitebitProviderToggle, options?: Parameters<typeof customFetch>[1]): Promise<WhitebitProviderStatus> => {
+
+  return customFetch<WhitebitProviderStatus>(getUpdateWhitebitProviderStatusUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(whitebitProviderToggle)
+  }
+);}
+
+
+
+
+
+export const getUpdateWhitebitProviderStatusMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWhitebitProviderStatus>>, TError,{data: BodyType<WhitebitProviderToggle>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateWhitebitProviderStatus>>, TError,{data: BodyType<WhitebitProviderToggle>}, TContext> => {
+
+const mutationKey = ['updateWhitebitProviderStatus'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateWhitebitProviderStatus>>, {data: BodyType<WhitebitProviderToggle>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateWhitebitProviderStatus(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateWhitebitProviderStatusMutationResult = NonNullable<Awaited<ReturnType<typeof updateWhitebitProviderStatus>>>
+    export type UpdateWhitebitProviderStatusMutationBody = BodyType<WhitebitProviderToggle>
+    export type UpdateWhitebitProviderStatusMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Explicitly enable or disable WhiteBIT Swap address allocation
+ */
+export const useUpdateWhitebitProviderStatus = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWhitebitProviderStatus>>, TError,{data: BodyType<WhitebitProviderToggle>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateWhitebitProviderStatus>>,
+        TError,
+        {data: BodyType<WhitebitProviderToggle>},
+        TContext
+      > => {
+      return useMutation(getUpdateWhitebitProviderStatusMutationOptions(options));
+    }
+
 export const getGetWhitebitCredentialsUrl = () => {
 
 
@@ -8940,25 +9014,25 @@ export const useTestWhitebitCredentials = <TError = ErrorType<unknown>,
       return useMutation(getTestWhitebitCredentialsMutationOptions(options));
     }
 
-export const getUpdateWhitebitProviderStatusUrl = () => {
+export const getGetWhitebitVerificationRoutesUrl = () => {
 
 
 
 
-  return `/api/admin/providers/whitebit/credentials/test`
+  return `/api/admin/providers/whitebit/verification-routes`
 }
 
 /**
- * @summary Enable or disable WhiteBIT Swap address allocation
+ * @summary List exact configured WhiteBIT deposit routes available for permission verification
  */
-export const updateWhitebitProviderStatus = async (updateWhitebitProviderStatusBody: UpdateWhitebitProviderStatusBody, options?: Parameters<typeof customFetch>[1]): Promise<WhitebitProviderStatus> => {
+export const getWhitebitVerificationRoutes = async ( options?: Parameters<typeof customFetch>[1]): Promise<WhitebitVerificationRoute[]> => {
 
-  return customFetch<WhitebitProviderStatus>(getUpdateWhitebitProviderStatusUrl(),
+  return customFetch<WhitebitVerificationRoute[]>(getGetWhitebitVerificationRoutesUrl(),
   {
     ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(updateWhitebitProviderStatusBody)
+    method: 'GET'
+
+
   }
 );}
 
@@ -8966,11 +9040,88 @@ export const updateWhitebitProviderStatus = async (updateWhitebitProviderStatusB
 
 
 
-export const getUpdateWhitebitProviderStatusMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWhitebitProviderStatus>>, TError,{data: BodyType<UpdateWhitebitProviderStatusBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateWhitebitProviderStatus>>, TError,{data: BodyType<UpdateWhitebitProviderStatusBody>}, TContext> => {
+export const getGetWhitebitVerificationRoutesQueryKey = () => {
+    return [
+    `/api/admin/providers/whitebit/verification-routes`
+    ] as const;
+    }
 
-const mutationKey = ['updateWhitebitProviderStatus'];
+
+export const getGetWhitebitVerificationRoutesQueryOptions = <TData = Awaited<ReturnType<typeof getWhitebitVerificationRoutes>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWhitebitVerificationRoutes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWhitebitVerificationRoutesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWhitebitVerificationRoutes>>> = ({ signal }) => getWhitebitVerificationRoutes({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWhitebitVerificationRoutes>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWhitebitVerificationRoutesQueryResult = NonNullable<Awaited<ReturnType<typeof getWhitebitVerificationRoutes>>>
+export type GetWhitebitVerificationRoutesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List exact configured WhiteBIT deposit routes available for permission verification
+ */
+
+export function useGetWhitebitVerificationRoutes<TData = Awaited<ReturnType<typeof getWhitebitVerificationRoutes>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWhitebitVerificationRoutes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWhitebitVerificationRoutesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getVerifyWhitebitAddressPermissionUrl = () => {
+
+
+
+
+  return `/api/admin/providers/whitebit/address-permission/verify`
+}
+
+/**
+ * @summary Explicitly authorize one real provider address request for one exact route without enabling WhiteBIT
+ */
+export const verifyWhitebitAddressPermission = async (whitebitAddressPermissionInput: WhitebitAddressPermissionInput, options?: Parameters<typeof customFetch>[1]): Promise<WhitebitAddressPermissionProof> => {
+
+  return customFetch<WhitebitAddressPermissionProof>(getVerifyWhitebitAddressPermissionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(whitebitAddressPermissionInput)
+  }
+);}
+
+
+
+
+
+export const getVerifyWhitebitAddressPermissionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyWhitebitAddressPermission>>, TError,{data: BodyType<WhitebitAddressPermissionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof verifyWhitebitAddressPermission>>, TError,{data: BodyType<WhitebitAddressPermissionInput>}, TContext> => {
+
+const mutationKey = ['verifyWhitebitAddressPermission'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -8980,10 +9131,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateWhitebitProviderStatus>>, {data: BodyType<UpdateWhitebitProviderStatusBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof verifyWhitebitAddressPermission>>, {data: BodyType<WhitebitAddressPermissionInput>}> = (props) => {
           const {data} = props ?? {};
 
-          return  updateWhitebitProviderStatus(data,requestOptions)
+          return  verifyWhitebitAddressPermission(data,requestOptions)
         }
 
 
@@ -8993,22 +9144,22 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type UpdateWhitebitProviderStatusMutationResult = NonNullable<Awaited<ReturnType<typeof updateWhitebitProviderStatus>>>
-    export type UpdateWhitebitProviderStatusMutationBody = BodyType<UpdateWhitebitProviderStatusBody>
-    export type UpdateWhitebitProviderStatusMutationError = ErrorType<unknown>
+    export type VerifyWhitebitAddressPermissionMutationResult = NonNullable<Awaited<ReturnType<typeof verifyWhitebitAddressPermission>>>
+    export type VerifyWhitebitAddressPermissionMutationBody = BodyType<WhitebitAddressPermissionInput>
+    export type VerifyWhitebitAddressPermissionMutationError = ErrorType<unknown>
 
     /**
- * @summary Enable or disable WhiteBIT Swap address allocation
+ * @summary Explicitly authorize one real provider address request for one exact route without enabling WhiteBIT
  */
-export const useUpdateWhitebitProviderStatus = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWhitebitProviderStatus>>, TError,{data: BodyType<UpdateWhitebitProviderStatusBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+export const useVerifyWhitebitAddressPermission = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyWhitebitAddressPermission>>, TError,{data: BodyType<WhitebitAddressPermissionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
-        Awaited<ReturnType<typeof updateWhitebitProviderStatus>>,
+        Awaited<ReturnType<typeof verifyWhitebitAddressPermission>>,
         TError,
-        {data: BodyType<UpdateWhitebitProviderStatusBody>},
+        {data: BodyType<WhitebitAddressPermissionInput>},
         TContext
       > => {
-      return useMutation(getUpdateWhitebitProviderStatusMutationOptions(options));
+      return useMutation(getVerifyWhitebitAddressPermissionMutationOptions(options));
     }
 
 export const getGetOrdersXmlUrl = () => {

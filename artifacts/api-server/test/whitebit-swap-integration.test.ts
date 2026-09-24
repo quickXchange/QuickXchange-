@@ -16,7 +16,7 @@ import {
   whitebitOperatorRouter,
 } from "../src/routes/whitebit";
 import { fiatCurrenciesTable, manualDeskPricingRulesTable } from "@workspace/db";
-import { matchWhitebitCapability, parseWhitebitAssets, resetWhitebitCapabilityCacheForTests, whitebitSwapStatus } from "../src/lib/whitebit-capabilities";
+import { isWhitebitSwapEnabled, matchWhitebitCapability, parseWhitebitAssets, resetWhitebitCapabilityCacheForTests, whitebitSwapStatus } from "../src/lib/whitebit-capabilities";
 import { configureOperatorAuthorizationForTests } from "../src/lib/operator-auth";
 import { configureCustomerAuthorizationForTests } from "../src/lib/customer-auth";
 import { signOrderTrackingToken } from "../src/lib/order-access";
@@ -25,6 +25,8 @@ import exchangeConfigRouter from "../src/routes/exchange-config";
 import exchangeRouter from "../src/routes/exchange";
 import { isReadyManualFallbackWatch, registerManualBlockchainWatch } from "../src/lib/blockchain-monitoring/service";
 import { manualMonitoringNetworkConfigDigest, manualMonitoringProofFingerprint } from "../src/lib/manual-monitoring-readiness";
+import { customerDepositRouteConfigurationDigest } from "../src/lib/customer-deposit-eligibility";
+import { getWhitebitCredentialStorageState, whitebitCredentialFingerprint } from "../src/lib/provider-credentials";
 
 process.env.NODE_ENV = "test";
 process.env.WHITEBIT_API_KEY = `swap-key-${randomUUID()}`;
@@ -66,6 +68,7 @@ let orderAddress = validBitcoinAddress();
 const ownerClerkUserId = `whitebit-owner-${suffix}`;
 const ownerEmail = `whitebit-owner-${suffix}@example.test`;
 let providerCalls = 0;
+let providerPermissionCalls = 0;
 let baseUrl = "";
 let server: ReturnType<typeof app.listen>;
 let priorProviderSetting: typeof database.whitebitProviderSettingsTable.$inferSelect | null = null;
@@ -94,10 +97,12 @@ async function migrateTestTables() {
   const migration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0073_whitebit_swap_order_addresses.sql"), "utf8");
   const catalogMigration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0074_whitebit_asset_catalog_mappings.sql"), "utf8");
   const providerMigration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0075_crypto_network_deposit_provider.sql"), "utf8");
+  const verificationMigration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0120_whitebit_verification.sql"), "utf8");
   await pool.query(baseMigration);
   await pool.query(migration);
   await pool.query(catalogMigration);
   await pool.query(providerMigration);
+  await pool.query(verificationMigration);
   await pool.query(migration);
 }
 
@@ -110,8 +115,12 @@ async function mockAssets(network = "BITCOIN", asset = "BTC") {
         [asset]: { can_deposit: true, networks: { deposits: [network] }, confirmations: { [network]: 3 } },
       }), { status: 200 });
     }
+    if (url.endsWith("/api/v4/main-account/balance")) {
+      return new Response(JSON.stringify({ available: [], freeze: [] }), { status: 200 });
+    }
     if (url.endsWith("/api/v4/main-account/create-new-address")) {
       providerCalls += 1;
+      providerPermissionCalls += 1;
       return new Response(JSON.stringify({ account: { address: orderAddress, memo: "TAG-1" } }), { status: 200 });
     }
     return originalFetch(input, init);
@@ -144,14 +153,81 @@ async function insertProvisioningOrder(
   }).onConflictDoNothing();
 }
 
-async function provisionTest(input: Parameters<typeof provisionSwapFundingAddress>[0]) {
+async function seedWhitebitVerificationFixture(assetCode: string, networkCode: string) {
+  const stored = await getWhitebitCredentialStorageState();
+  const credentials = stored.status === "available" ? stored.credentials :
+    process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET
+      ? { apiKey: process.env.WHITEBIT_API_KEY, secretKey: process.env.WHITEBIT_API_SECRET }
+      : null;
+  if (!credentials) return null;
+  const routeRows = await database.db.select({
+    asset: database.cryptoAssetsTable,
+    network: database.cryptoAssetNetworksTable,
+  }).from(database.cryptoAssetNetworksTable)
+    .innerJoin(database.cryptoAssetsTable, eq(database.cryptoAssetNetworksTable.assetId, database.cryptoAssetsTable.id));
+  const exact = routeRows.find(({ asset, network }) =>
+    asset.code.trim().toUpperCase() === assetCode.trim().toUpperCase() &&
+    network.networkCode.trim().toUpperCase() === networkCode.trim().toUpperCase() &&
+    asset.enabled && network.enabled && network.depositProvider === "whitebit" &&
+    asset.lifecycle !== "deprecated" && network.lifecycle !== "deprecated"
+  );
+  if (!exact) return null;
+  const fingerprint = whitebitCredentialFingerprint(credentials);
+  const proof = {
+    networkId: exact.network.id,
+    assetCode: exact.asset.code.trim().toUpperCase(),
+    networkCode: exact.network.networkCode.trim().toUpperCase(),
+    configurationDigest: customerDepositRouteConfigurationDigest(exact.asset, exact.network),
+    credentialFingerprint: fingerprint,
+    verifiedAt: new Date().toISOString(),
+  };
+  await database.db.insert(database.whitebitProviderSettingsTable).values({
+    provider: "whitebit",
+    disabled: false,
+    depositRouteProofs: [proof],
+    credentialVerifiedFingerprint: fingerprint,
+    credentialVerifiedAt: new Date(),
+  }).onConflictDoUpdate({
+    target: database.whitebitProviderSettingsTable.provider,
+    set: {
+      disabled: false,
+      depositRouteProofs: [proof],
+      credentialVerifiedFingerprint: fingerprint,
+      credentialVerifiedAt: new Date(),
+    },
+  });
+  const status = await whitebitSwapStatus();
+  assert.equal(status.enabled, true, `mock fixture proof does not satisfy the WhiteBIT gate: ${JSON.stringify(status)}`);
+  return { credentials, exact };
+}
+
+async function provisionTest(
+  input: Parameters<typeof provisionSwapFundingAddress>[0],
+  expectEnabledProvider = true,
+) {
+  const fixture = expectEnabledProvider
+    ? await seedWhitebitVerificationFixture(input.assetCode, input.networkCode)
+    : null;
   await insertProvisioningOrder(
     input.orderId,
     input.manualAddress,
     input.manualMemo,
     input.manualFallbackUsable === false && Boolean(input.manualAddress.trim()),
   );
-  return provisionSwapFundingAddress(input);
+  const swapCapability = await isWhitebitSwapEnabled(input.assetCode, input.networkCode);
+  const result = await provisionSwapFundingAddress(input);
+  if (input.chosenWhitebit && fixture && result.source !== "whitebit") {
+    throw new Error(`WhiteBIT mock fixture proof was not accepted: ${JSON.stringify({
+      swapCapabilityAvailable: Boolean(swapCapability),
+      status: await whitebitSwapStatus(),
+      expectedProof: {
+        networkId: fixture.exact.network.id,
+        digest: customerDepositRouteConfigurationDigest(fixture.exact.asset, fixture.exact.network),
+        fingerprint: whitebitCredentialFingerprint(fixture.credentials),
+      },
+    })}`);
+  }
+  return result;
 }
 
 async function ownedLedgerEntries() {
@@ -216,6 +292,17 @@ before(async () => {
     .where(eq(database.cryptoAssetsTable.id, "usdt")).limit(1))[0] ?? null;
   priorWhitebitIntegration = (await database.db.select().from(database.providerIntegrationsTable)
     .where(eq(database.providerIntegrationsTable.provider, "whitebit")).limit(1))[0] ?? null;
+  if (priorBtcNetwork) {
+    await database.db.update(database.cryptoAssetNetworksTable).set({
+      enabled: true,
+      depositProvider: "whitebit",
+      networkCode: "BITCOIN",
+    }).where(eq(database.cryptoAssetNetworksTable.id, priorBtcNetwork.id));
+  }
+  if (priorBtcAsset) {
+    await database.db.update(database.cryptoAssetsTable).set({ enabled: true })
+      .where(eq(database.cryptoAssetsTable.id, priorBtcAsset.id));
+  }
   await database.db.insert(database.whitebitProviderSettingsTable)
     .values({ provider: "whitebit", disabled: false })
     .onConflictDoUpdate({ target: database.whitebitProviderSettingsTable.provider, set: { disabled: false } });
@@ -271,6 +358,9 @@ after(async () => {
     await database.db.update(database.whitebitProviderSettingsTable).set({
       disabled: priorProviderSetting.disabled,
       version: priorProviderSetting.version,
+      depositRouteProofs: priorProviderSetting.depositRouteProofs,
+      credentialVerifiedFingerprint: priorProviderSetting.credentialVerifiedFingerprint,
+      credentialVerifiedAt: priorProviderSetting.credentialVerifiedAt,
       updatedByOperatorId: priorProviderSetting.updatedByOperatorId,
       updatedAt: priorProviderSetting.updatedAt,
     }).where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
@@ -281,6 +371,7 @@ after(async () => {
   if (priorBtcNetwork) {
     await database.db.update(database.cryptoAssetNetworksTable).set({
       enabled: priorBtcNetwork.enabled,
+      networkCode: priorBtcNetwork.networkCode,
       executionMode: priorBtcNetwork.executionMode,
       customerDepositsEnabled: priorBtcNetwork.customerDepositsEnabled,
       depositProvider: priorBtcNetwork.depositProvider,
@@ -511,6 +602,7 @@ test("webhook authentication rejects trading API credentials even with dedicated
 });
 
 test("capability loss after provider selection uses the exact manual fallback without provider call", async () => {
+  await mockAssets();
   const parsed = parseWhitebitAssets({ BTC: { can_deposit: true, networks: { deposits: ["BITCOIN"] } } });
   assert.ok(parsed);
   assert.equal(matchWhitebitCapability({ fetchedAt: Date.now(), assets: parsed }, "BTC", "ERC20"), null);
@@ -518,6 +610,7 @@ test("capability loss after provider selection uses the exact manual fallback wi
     BTC: { can_deposit: true, networks: { deposits: ["BITCOIN"] } },
     INJ: { can_deposit: true, networks: {}, confirmations: { INJECTIVE: 1000 } },
   })?.map((asset) => asset.ticker), ["BTC"]);
+  await seedWhitebitVerificationFixture("BTC", "BITCOIN");
   const status = await whitebitSwapStatus();
   assert.equal(status.enabled, true);
   assert.equal(parseWhitebitAssets({ BTC: { can_deposit: true, networks: { deposits: "BITCOIN" } } }), null);
@@ -680,6 +773,7 @@ test("invalid WhiteBIT instructions never become a ready claim or exposed addres
   try {
     await database.db.update(database.cryptoAssetNetworksTable).set({ requiresMemo: true })
       .where(eq(database.cryptoAssetNetworksTable.id, route.id));
+    await seedWhitebitVerificationFixture("BTC", "BITCOIN");
     for (const [label, address, memo, fallback, expected] of [
       ["invalid-address", "not-a-bitcoin-address", "TAG-1", "manual-wallet", "manual-wallet"],
       ["missing-memo", validBitcoinAddress(), "", "manual-wallet", "manual-wallet"],
@@ -789,7 +883,7 @@ test("disabled provider uses fallback without a provider call", async () => {
   await database.db.update(database.whitebitProviderSettingsTable)
     .set({ disabled: true })
     .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
-  const result = await provisionTest({ orderId: toggleOrderId, assetCode: "BTC", networkCode: "BITCOIN", manualAddress: "manual", manualMemo: "", chosenWhitebit: true });
+  const result = await provisionTest({ orderId: toggleOrderId, assetCode: "BTC", networkCode: "BITCOIN", manualAddress: "manual", manualMemo: "", chosenWhitebit: true }, false);
   assert.equal(result.unresolved, false);
   assert.equal(result.address, "manual");
   assert.equal(providerCalls, 0);
@@ -1464,6 +1558,135 @@ test("public and Admin HTTP projections hide non-ready addresses and expose safe
 test("Convert and account deposit routes remain isolated", async () => {
   assert.equal(typeof whitebitOperatorRouter, "function");
   assert.equal(typeof whitebitWebhookRouter, "function");
+});
+
+test("WhiteBIT permission verification is explicit, private, and side-effect fenced", async () => {
+  await mockAssets();
+  const networkId = "btc-bitcoin";
+  await database.db.update(database.cryptoAssetNetworksTable).set({
+    enabled: true,
+    depositProvider: "whitebit",
+  }).where(eq(database.cryptoAssetNetworksTable.id, networkId));
+  await database.db.update(database.cryptoAssetsTable).set({ enabled: true })
+    .where(eq(database.cryptoAssetsTable.id, priorBtcNetwork?.assetId ?? ""));
+  await database.db.update(database.whitebitProviderSettingsTable)
+    .set({ depositRouteProofs: [] })
+    .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+
+  const ownerHeaders = {
+    "content-type": "application/json",
+    "x-test-operator": ownerClerkUserId,
+  };
+  const signedTest = await fetch(`${baseUrl}/api/admin/providers/whitebit/credentials/test`, {
+    method: "POST", headers: ownerHeaders, body: "{}",
+  });
+  assert.equal(signedTest.status, 200, await signedTest.clone().text());
+  const availableRoutes = await fetch(`${baseUrl}/api/admin/providers/whitebit/verification-routes`, {
+    headers: { "x-test-operator": ownerClerkUserId },
+  });
+  assert.equal(availableRoutes.status, 200);
+  const routeRows = await availableRoutes.json() as Array<{ networkId: string }>;
+  assert.ok(routeRows.some((route) => route.networkId === networkId));
+
+  const ordersBefore = await database.db.select().from(database.ordersTable);
+  const watchesBefore = await database.db.select()
+    .from(database.blockchainMonitorWatchesTable);
+  const routeBefore = await database.db.select().from(database.cryptoAssetNetworksTable)
+    .where(eq(database.cryptoAssetNetworksTable.id, networkId));
+  providerPermissionCalls = 0;
+  const missingConfirmation = await fetch(`${baseUrl}/api/admin/providers/whitebit/address-permission/verify`, {
+    method: "POST",
+    headers: ownerHeaders,
+    body: JSON.stringify({ networkId, confirmRealAddressCreation: false }),
+  });
+  assert.equal(missingConfirmation.status, 400);
+  assert.equal(providerPermissionCalls, 0);
+
+  const successfulMockFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    if (String(input).endsWith("/api/v4/main-account/create-new-address")) {
+      providerPermissionCalls += 1;
+      throw new Error("mocked ambiguous WhiteBIT timeout");
+    }
+    return successfulMockFetch(input, init);
+  };
+  const ambiguous = await fetch(`${baseUrl}/api/admin/providers/whitebit/address-permission/verify`, {
+    method: "POST",
+    headers: ownerHeaders,
+    body: JSON.stringify({ networkId, confirmRealAddressCreation: true }),
+  });
+  assert.equal(ambiguous.status, 500);
+  assert.equal(providerPermissionCalls, 1);
+  const [afterAmbiguousSetting] = await database.db.select()
+    .from(database.whitebitProviderSettingsTable)
+    .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+  assert.deepEqual(afterAmbiguousSetting?.depositRouteProofs, []);
+  globalThis.fetch = successfulMockFetch;
+  providerPermissionCalls = 0;
+
+  const permission = await fetch(`${baseUrl}/api/admin/providers/whitebit/address-permission/verify`, {
+    method: "POST",
+    headers: ownerHeaders,
+    body: JSON.stringify({ networkId, confirmRealAddressCreation: true }),
+  });
+  assert.equal(permission.status, 200, await permission.clone().text());
+  const proof = await permission.json() as Record<string, unknown>;
+  assert.deepEqual(Object.keys(proof).sort(), ["assetCode", "networkCode", "networkId", "verifiedAt"]);
+  assert.equal(proof.networkId, networkId);
+  assert.equal(JSON.stringify(proof).includes(orderAddress), false);
+  assert.equal(providerPermissionCalls, 1);
+  const ordersAfter = await database.db.select().from(database.ordersTable);
+  const watchesAfter = await database.db.select()
+    .from(database.blockchainMonitorWatchesTable);
+  const routeAfter = await database.db.select().from(database.cryptoAssetNetworksTable)
+    .where(eq(database.cryptoAssetNetworksTable.id, networkId));
+  assert.deepEqual(ordersAfter, ordersBefore);
+  assert.deepEqual(watchesAfter, watchesBefore);
+  assert.deepEqual(routeAfter, routeBefore);
+
+  const originalNetworkName = routeBefore[0]?.networkName;
+  assert.ok(originalNetworkName);
+  await database.db.update(database.cryptoAssetNetworksTable)
+    .set({ networkName: `${originalNetworkName} (changed)` })
+    .where(eq(database.cryptoAssetNetworksTable.id, networkId));
+  const staleStatusResponse = await fetch(`${baseUrl}/api/admin/providers/whitebit`, {
+    headers: { "x-test-operator": ownerClerkUserId },
+  });
+  assert.equal(staleStatusResponse.status, 200);
+  const staleStatus = await staleStatusResponse.json() as { addressPermissionVerified: boolean };
+  assert.equal(staleStatus.addressPermissionVerified, false);
+  assert.equal(await isWhitebitSwapEnabled("BTC", "BITCOIN"), null);
+  const staleEnable = await fetch(`${baseUrl}/api/admin/providers/whitebit`, {
+    method: "PATCH",
+    headers: ownerHeaders,
+    body: JSON.stringify({ enabled: true }),
+  });
+  assert.equal(staleEnable.status, 409);
+  await database.db.update(database.cryptoAssetNetworksTable)
+    .set({ networkName: originalNetworkName })
+    .where(eq(database.cryptoAssetNetworksTable.id, networkId));
+
+  const callsBeforeEnable = providerPermissionCalls;
+  const enabled = await fetch(`${baseUrl}/api/admin/providers/whitebit`, {
+    method: "PATCH",
+    headers: ownerHeaders,
+    body: JSON.stringify({ enabled: true }),
+  });
+  assert.equal(enabled.status, 200, await enabled.text());
+  assert.equal(providerPermissionCalls, callsBeforeEnable);
+  const [proofSettingBeforeDisable] = await database.db.select()
+    .from(database.whitebitProviderSettingsTable)
+    .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+  const disabled = await fetch(`${baseUrl}/api/admin/providers/whitebit`, {
+    method: "PATCH",
+    headers: ownerHeaders,
+    body: JSON.stringify({ enabled: false }),
+  });
+  assert.equal(disabled.status, 200, await disabled.text());
+  const [proofSettingAfterDisable] = await database.db.select()
+    .from(database.whitebitProviderSettingsTable)
+    .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+  assert.deepEqual(proofSettingAfterDisable?.depositRouteProofs, proofSettingBeforeDisable?.depositRouteProofs);
 });
 
 test("actual signed exchange order replay allocates one WhiteBIT address", async () => {

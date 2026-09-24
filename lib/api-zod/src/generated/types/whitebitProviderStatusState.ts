@@ -12,6 +12,8 @@ export type WhitebitProviderStatusState = typeof WhitebitProviderStatusState[key
 export const WhitebitProviderStatusState = {
   disabled: 'disabled',
   not_configured: 'not_configured',
+  verification_required: 'verification_required',
+  address_permission_required: 'address_permission_required',
   ready: 'ready',
   unavailable: 'unavailable',
 } as const;

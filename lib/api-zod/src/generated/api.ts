@@ -9451,9 +9451,51 @@ export const GetWhitebitProviderStatusResponse = zod.object({
   "enabled": zod.boolean(),
   "explicitDisabled": zod.boolean(),
   "credentialsReady": zod.boolean(),
-  "state": zod.enum(['disabled', 'not_configured', 'ready', 'unavailable']),
+  "credentialsVerified": zod.boolean(),
+  "credentialsVerifiedAt": zod.coerce.date().nullable(),
+  "addressPermissionVerified": zod.boolean(),
+  "addressPermissionProof": zod.union([zod.object({
+  "networkId": zod.string(),
+  "assetCode": zod.string(),
+  "networkCode": zod.string(),
+  "verifiedAt": zod.coerce.date()
+}),zod.null()]),
+  "state": zod.enum(['disabled', 'not_configured', 'verification_required', 'address_permission_required', 'ready', 'unavailable']),
   "lastCapabilitySyncAt": zod.coerce.date().nullable(),
   "matchedRouteCount": zod.number().int().min(getWhitebitProviderStatusResponseMatchedRouteCountMin),
+  "webhookReady": zod.boolean(),
+  "error": zod.string().optional()
+})
+
+
+/**
+ * @summary Explicitly enable or disable WhiteBIT Swap address allocation
+ */
+export const UpdateWhitebitProviderStatusBody = zod.object({
+  "enabled": zod.boolean()
+})
+
+export const updateWhitebitProviderStatusResponseMatchedRouteCountMin = 0;
+
+
+
+export const UpdateWhitebitProviderStatusResponse = zod.object({
+  "provider": zod.enum(['whitebit']),
+  "enabled": zod.boolean(),
+  "explicitDisabled": zod.boolean(),
+  "credentialsReady": zod.boolean(),
+  "credentialsVerified": zod.boolean(),
+  "credentialsVerifiedAt": zod.coerce.date().nullable(),
+  "addressPermissionVerified": zod.boolean(),
+  "addressPermissionProof": zod.union([zod.object({
+  "networkId": zod.string(),
+  "assetCode": zod.string(),
+  "networkCode": zod.string(),
+  "verifiedAt": zod.coerce.date()
+}),zod.null()]),
+  "state": zod.enum(['disabled', 'not_configured', 'verification_required', 'address_permission_required', 'ready', 'unavailable']),
+  "lastCapabilitySyncAt": zod.coerce.date().nullable(),
+  "matchedRouteCount": zod.number().int().min(updateWhitebitProviderStatusResponseMatchedRouteCountMin),
   "webhookReady": zod.boolean(),
   "error": zod.string().optional()
 })
@@ -9509,26 +9551,32 @@ export const TestWhitebitCredentialsResponse = zod.object({
 
 
 /**
- * @summary Enable or disable WhiteBIT Swap address allocation
+ * @summary List exact configured WhiteBIT deposit routes available for permission verification
  */
-export const UpdateWhitebitProviderStatusBody = zod.object({
-  "enabled": zod.boolean()
+export const GetWhitebitVerificationRoutesResponseItem = zod.object({
+  "networkId": zod.string(),
+  "assetCode": zod.string(),
+  "networkCode": zod.string()
+})
+export const GetWhitebitVerificationRoutesResponse = zod.array(GetWhitebitVerificationRoutesResponseItem)
+
+
+/**
+ * @summary Explicitly authorize one real provider address request for one exact route without enabling WhiteBIT
+ */
+
+
+
+export const VerifyWhitebitAddressPermissionBody = zod.object({
+  "networkId": zod.string().min(1),
+  "confirmRealAddressCreation": zod.boolean()
 })
 
-export const updateWhitebitProviderStatusResponseMatchedRouteCountMin = 0;
-
-
-
-export const UpdateWhitebitProviderStatusResponse = zod.object({
-  "provider": zod.enum(['whitebit']),
-  "enabled": zod.boolean(),
-  "explicitDisabled": zod.boolean(),
-  "credentialsReady": zod.boolean(),
-  "state": zod.enum(['disabled', 'not_configured', 'ready', 'unavailable']),
-  "lastCapabilitySyncAt": zod.coerce.date().nullable(),
-  "matchedRouteCount": zod.number().int().min(updateWhitebitProviderStatusResponseMatchedRouteCountMin),
-  "webhookReady": zod.boolean(),
-  "error": zod.string().optional()
+export const VerifyWhitebitAddressPermissionResponse = zod.object({
+  "networkId": zod.string(),
+  "assetCode": zod.string(),
+  "networkCode": zod.string(),
+  "verifiedAt": zod.coerce.date()
 })
 
 

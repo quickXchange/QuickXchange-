@@ -72,6 +72,8 @@ export const whitebitProviderSettingsTable = pgTable("whitebit_provider_settings
   provider: text("provider").primaryKey().default("whitebit"),
   disabled: boolean("disabled").notNull().default(true),
   version: integer("version").notNull().default(1),
+  credentialVerifiedFingerprint: text("credential_verified_fingerprint"),
+  credentialVerifiedAt: timestamp("credential_verified_at", { withTimezone: true }),
   depositRouteProofs: jsonb("deposit_route_proofs").$type<Array<{
     networkId: string;
     assetCode: string;

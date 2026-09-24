@@ -5918,7 +5918,9 @@ router.put("/admin/providers/whitebit/credentials", requireOwner, async (req, re
   try {
     const parsed = UpdateWhitebitCredentialsBody.safeParse(req.body);
     if (!parsed.success) throw new ApiError("VALIDATION_ERROR", parsed.error.message, 400);
-    await testWhitebitSignedConnection(parsed.data);
+    const signedTest = await testWhitebitSignedConnection(parsed.data);
+    const credentialVerifiedAt = new Date(signedTest.checkedAt);
+    const credentialVerifiedFingerprint = whitebitCredentialFingerprint(parsed.data);
     const actor = res.locals.operator;
     const saved = await activateWhitebitCredentials(
       parsed.data,
@@ -5941,6 +5943,8 @@ router.put("/admin/providers/whitebit/credentials", requireOwner, async (req, re
             disabled: true,
             version: (current?.version ?? 0) + 1,
             depositRouteProofs: [],
+            credentialVerifiedFingerprint,
+            credentialVerifiedAt,
             updatedByOperatorId: actor.id,
             updatedAt: new Date(),
           }).onConflictDoUpdate({
@@ -5949,6 +5953,8 @@ router.put("/admin/providers/whitebit/credentials", requireOwner, async (req, re
               disabled: true,
               version: sql`${whitebitProviderSettingsTable.version} + 1`,
               depositRouteProofs: [],
+              credentialVerifiedFingerprint,
+              credentialVerifiedAt,
               updatedByOperatorId: actor.id,
               updatedAt: new Date(),
             },
@@ -5978,7 +5984,217 @@ router.put("/admin/providers/whitebit/credentials", requireOwner, async (req, re
 
 router.post("/admin/providers/whitebit/credentials/test", requireOwner, async (_req, res, next) => {
   try {
-    res.json(TestWhitebitCredentialsResponse.parse(await testWhitebitSignedConnection()));
+    const stored = await getWhitebitCredentialStorageState();
+    const credentials = stored.status === "available" ? stored.credentials :
+      process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET
+        ? { apiKey: process.env.WHITEBIT_API_KEY, secretKey: process.env.WHITEBIT_API_SECRET }
+        : null;
+    if (!credentials) throw new ApiError("WHITEBIT_NOT_CONFIGURED", "WhiteBIT credentials are unavailable.", 503);
+    const result = await testWhitebitSignedConnection(credentials);
+    const fingerprint = whitebitCredentialFingerprint(credentials);
+    const verifiedAt = new Date(result.checkedAt);
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('rook:whitebit:credentials', 0))`);
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
+      const [currentCredential] = await tx.select({
+        updatedAt: providerIntegrationsTable.updatedAt,
+      }).from(providerIntegrationsTable)
+        .where(eq(providerIntegrationsTable.provider, "whitebit")).limit(1);
+      const expectedUpdatedAt = stored.status === "available" || stored.status === "unavailable"
+        ? stored.updatedAt
+        : null;
+      if (
+        expectedUpdatedAt === null ? Boolean(currentCredential) :
+          !currentCredential || currentCredential.updatedAt.getTime() !== expectedUpdatedAt.getTime()
+      ) {
+        throw new ApiError("WHITEBIT_CREDENTIAL_STATE_CHANGED", "WhiteBIT credentials changed during the signed test. Test the current credentials again.", 409);
+      }
+      const [current] = await tx.select({
+        version: whitebitProviderSettingsTable.version,
+        credentialVerifiedFingerprint: whitebitProviderSettingsTable.credentialVerifiedFingerprint,
+      })
+        .from(whitebitProviderSettingsTable)
+        .where(eq(whitebitProviderSettingsTable.provider, "whitebit")).limit(1);
+      await tx.insert(whitebitProviderSettingsTable).values({
+        provider: "whitebit",
+        disabled: true,
+        version: (current?.version ?? 0) + 1,
+        depositRouteProofs: [],
+        credentialVerifiedFingerprint: fingerprint,
+        credentialVerifiedAt: verifiedAt,
+        updatedAt: new Date(),
+      }).onConflictDoUpdate({
+        target: whitebitProviderSettingsTable.provider,
+        set: {
+          credentialVerifiedFingerprint: fingerprint,
+          credentialVerifiedAt: verifiedAt,
+          ...(current?.credentialVerifiedFingerprint === fingerprint
+            ? {}
+            : { depositRouteProofs: [], disabled: true }),
+          version: sql`${whitebitProviderSettingsTable.version} + 1`,
+          updatedAt: new Date(),
+        },
+      });
+    });
+    res.json(TestWhitebitCredentialsResponse.parse(result));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/admin/providers/whitebit/verification-routes", requireOwner, async (_req, res, next) => {
+  try {
+    const capabilities = await getWhitebitCapabilities();
+    const rows = await db.select({
+      asset: cryptoAssetsTable,
+      network: cryptoAssetNetworksTable,
+    }).from(cryptoAssetNetworksTable)
+      .innerJoin(cryptoAssetsTable, eq(cryptoAssetNetworksTable.assetId, cryptoAssetsTable.id))
+      .where(and(
+        eq(cryptoAssetsTable.enabled, true),
+        eq(cryptoAssetNetworksTable.enabled, true),
+        eq(cryptoAssetNetworksTable.depositProvider, "whitebit"),
+        sql`${cryptoAssetsTable.lifecycle} <> 'deprecated'`,
+        sql`${cryptoAssetNetworksTable.lifecycle} <> 'deprecated'`,
+      ));
+    res.json(rows.filter(({ asset, network }) =>
+      matchWhitebitCapability(capabilities, asset.code, network.networkCode)
+    ).map(({ asset, network }) => ({
+      networkId: network.id,
+      assetCode: asset.code,
+      networkCode: network.networkCode,
+    })));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/admin/providers/whitebit/address-permission/verify", requireOwner, async (req, res, next) => {
+  try {
+    if (
+      req.body?.confirmRealAddressCreation !== true ||
+      typeof req.body?.networkId !== "string" ||
+      !req.body.networkId.trim()
+    ) {
+      throw new ApiError(
+        "VALIDATION_ERROR",
+        "networkId and explicit confirmation of real address creation are required.",
+        400,
+      );
+    }
+    const stored = await getWhitebitCredentialStorageState();
+    const credentials = stored.status === "available" ? stored.credentials :
+      process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET
+        ? { apiKey: process.env.WHITEBIT_API_KEY, secretKey: process.env.WHITEBIT_API_SECRET }
+        : null;
+    if (!credentials) throw new ApiError("WHITEBIT_NOT_CONFIGURED", "WhiteBIT credentials are unavailable.", 503);
+    const credentialFingerprint = whitebitCredentialFingerprint(credentials);
+    const expectedCredentialUpdatedAt = stored.status === "available" || stored.status === "unavailable"
+      ? stored.updatedAt
+      : null;
+    const [setting] = await db.select().from(whitebitProviderSettingsTable)
+      .where(eq(whitebitProviderSettingsTable.provider, "whitebit")).limit(1);
+    if (
+      !setting ||
+      setting.credentialVerifiedFingerprint !== credentialFingerprint ||
+      !setting.credentialVerifiedAt
+    ) {
+      throw new ApiError("WHITEBIT_CREDENTIALS_UNVERIFIED", "Test the signed WhiteBIT credentials before checking address permission.", 409);
+    }
+    const capabilities = await getWhitebitCapabilities();
+    const [selected] = await db.select({
+      asset: cryptoAssetsTable,
+      network: cryptoAssetNetworksTable,
+    }).from(cryptoAssetNetworksTable)
+      .innerJoin(cryptoAssetsTable, eq(cryptoAssetNetworksTable.assetId, cryptoAssetsTable.id))
+      .where(and(
+        eq(cryptoAssetNetworksTable.id, req.body.networkId),
+        eq(cryptoAssetsTable.enabled, true),
+        eq(cryptoAssetNetworksTable.enabled, true),
+        eq(cryptoAssetNetworksTable.depositProvider, "whitebit"),
+        sql`${cryptoAssetsTable.lifecycle} <> 'deprecated'`,
+        sql`${cryptoAssetNetworksTable.lifecycle} <> 'deprecated'`,
+      )).limit(1);
+    if (!selected || !matchWhitebitCapability(capabilities, selected.asset.code, selected.network.networkCode)) {
+      throw new ApiError("WHITEBIT_ROUTE_NOT_ELIGIBLE", "The selected route is not an eligible enabled WhiteBIT route.", 409);
+    }
+    const routeDigest = customerDepositRouteConfigurationDigest(selected.asset, selected.network);
+    const verifiedAt = new Date().toISOString();
+    const result = await verifyWhitebitDepositAddressPermission(
+      selected.asset.code,
+      selected.network.networkCode,
+      credentials,
+    );
+    if (!result.address.trim() || (selected.network.requiresMemo && !result.memo?.trim())) {
+      throw new ApiError("WHITEBIT_ADDRESS_PERMISSION_UNVERIFIED", "WhiteBIT did not return a valid address permission result.", 502);
+    }
+    // The returned address and memo are deliberately discarded; only the fact of
+    // successful address creation is recorded.
+    const proof = {
+      networkId: selected.network.id,
+      assetCode: selected.asset.code.trim().toUpperCase(),
+      networkCode: selected.network.networkCode.trim().toUpperCase(),
+      configurationDigest: routeDigest,
+      credentialFingerprint,
+      verifiedAt,
+    };
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('rook:whitebit:credentials', 0))`);
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
+      const [currentCredential] = await tx.select({
+        updatedAt: providerIntegrationsTable.updatedAt,
+      }).from(providerIntegrationsTable)
+        .where(eq(providerIntegrationsTable.provider, "whitebit")).limit(1);
+      const credentialUnchanged = expectedCredentialUpdatedAt === null
+        ? !currentCredential
+        : Boolean(currentCredential &&
+          currentCredential.updatedAt.getTime() === expectedCredentialUpdatedAt.getTime());
+      if (!credentialUnchanged) {
+        throw new ApiError("WHITEBIT_CREDENTIAL_STATE_CHANGED", "WhiteBIT credentials changed during verification. Retry after retesting them.", 409);
+      }
+      const [currentRoute] = await tx.select({
+        asset: cryptoAssetsTable,
+        network: cryptoAssetNetworksTable,
+      }).from(cryptoAssetNetworksTable)
+        .innerJoin(cryptoAssetsTable, eq(cryptoAssetNetworksTable.assetId, cryptoAssetsTable.id))
+        .where(and(
+          eq(cryptoAssetNetworksTable.id, selected.network.id),
+          eq(cryptoAssetsTable.enabled, true),
+          eq(cryptoAssetNetworksTable.enabled, true),
+          eq(cryptoAssetNetworksTable.depositProvider, "whitebit"),
+          sql`${cryptoAssetsTable.lifecycle} <> 'deprecated'`,
+          sql`${cryptoAssetNetworksTable.lifecycle} <> 'deprecated'`,
+        )).for("update").limit(1);
+      if (
+        !currentRoute ||
+        customerDepositRouteConfigurationDigest(currentRoute.asset, currentRoute.network) !== routeDigest
+      ) {
+        throw new ApiError("WHITEBIT_ROUTE_CONFIGURATION_CHANGED", "The selected route changed during verification. No permission proof was saved.", 409);
+      }
+      const [currentSetting] = await tx.select().from(whitebitProviderSettingsTable)
+        .where(eq(whitebitProviderSettingsTable.provider, "whitebit")).limit(1);
+      if (
+        !currentSetting ||
+        currentSetting.credentialVerifiedFingerprint !== credentialFingerprint ||
+        !currentSetting.credentialVerifiedAt
+      ) {
+        throw new ApiError("WHITEBIT_CREDENTIALS_UNVERIFIED", "WhiteBIT credential verification changed during this operation.", 409);
+      }
+      const proofs = (currentSetting.depositRouteProofs ?? []).filter((existing) =>
+        existing.networkId !== proof.networkId
+      );
+      await tx.update(whitebitProviderSettingsTable).set({
+        depositRouteProofs: [...proofs, proof],
+        version: sql`${whitebitProviderSettingsTable.version} + 1`,
+        updatedAt: new Date(),
+      }).where(eq(whitebitProviderSettingsTable.provider, "whitebit"));
+    });
+    res.json({
+      networkId: proof.networkId,
+      assetCode: proof.assetCode,
+      networkCode: proof.networkCode,
+      verifiedAt: proof.verifiedAt,
+    });
   } catch (error) {
     next(error);
   }
@@ -6061,37 +6277,6 @@ router.patch("/admin/providers/whitebit", requireOwner, async (req, res, next) =
           row.network.networkCode,
         )
       );
-      const verifiedKeys = new Set<string>();
-      const verifiedAt = new Date().toISOString();
-      for (const candidate of exactCandidates) {
-        const route = `${candidate.asset.code.trim().toUpperCase()}/${candidate.network.networkCode.trim().toUpperCase()}`;
-        if (process.env.NODE_ENV === "test") {
-          verifiedKeys.add(route);
-          verification.verified.push(route);
-          continue;
-        }
-        try {
-          const address = await verifyWhitebitDepositAddressPermission(
-            candidate.asset.code,
-            candidate.network.networkCode,
-            verifiedCredentials,
-          );
-          if (candidate.network.requiresMemo && !address.memo?.trim()) {
-            throw new ApiError(
-              "WHITEBIT_ADDRESS_PERMISSION_UNVERIFIED",
-              `WhiteBIT did not return the required ${route} memo.`,
-              502,
-            );
-          }
-          verifiedKeys.add(route);
-          verification.verified.push(route);
-        } catch (error) {
-          verification.failed.push({
-            route,
-            reason: error instanceof ApiError ? error.code : "WHITEBIT_ADDRESS_VERIFICATION_FAILED",
-          });
-        }
-      }
       if (!credentialFingerprint) {
         throw new ApiError(
           "WHITEBIT_NOT_CONFIGURED",
@@ -6099,18 +6284,35 @@ router.patch("/admin/providers/whitebit", requireOwner, async (req, res, next) =
           503,
         );
       }
-      verifiedProofs = exactCandidates
-        .filter((candidate) => verifiedKeys.has(
-          `${candidate.asset.code.trim().toUpperCase()}/${candidate.network.networkCode.trim().toUpperCase()}`,
-        ))
-        .map((candidate) => ({
-          networkId: candidate.network.id,
-          assetCode: candidate.asset.code.trim().toUpperCase(),
-          networkCode: candidate.network.networkCode.trim().toUpperCase(),
-          configurationDigest: candidate.configurationDigest,
-          credentialFingerprint,
-          verifiedAt,
-        }));
+      const [setting] = await db.select().from(whitebitProviderSettingsTable)
+        .where(eq(whitebitProviderSettingsTable.provider, "whitebit")).limit(1);
+      if (
+        !setting ||
+        setting.credentialVerifiedFingerprint !== credentialFingerprint ||
+        !setting.credentialVerifiedAt
+      ) {
+        throw new ApiError(
+          "WHITEBIT_CREDENTIALS_UNVERIFIED",
+          "Test the signed WhiteBIT credentials before enabling the provider.",
+          409,
+        );
+      }
+      const candidateById = new Map(exactCandidates.map((candidate) => [
+        candidate.network.id,
+        candidate,
+      ]));
+      verifiedProofs = (setting.depositRouteProofs ?? []).filter((proof) => {
+        const candidate = candidateById.get(proof.networkId);
+        return Boolean(candidate &&
+          proof.credentialFingerprint === credentialFingerprint &&
+          proof.configurationDigest === candidate.configurationDigest &&
+          proof.assetCode === candidate.asset.code.trim().toUpperCase() &&
+          proof.networkCode === candidate.network.networkCode.trim().toUpperCase());
+      });
+      const verifiedKeys = new Set(verifiedProofs.map((proof) =>
+        `${proof.assetCode}/${proof.networkCode}`
+      ));
+      verification.verified = verifiedProofs.map((proof) => `${proof.assetCode}/${proof.networkCode}`);
       verifiedCapabilities = {
         fetchedAt: publicCapabilities.fetchedAt,
         assets: publicCapabilities.assets.flatMap((asset) => {
@@ -6131,8 +6333,8 @@ router.patch("/admin/providers/whitebit", requireOwner, async (req, res, next) =
       if (!verification.verified.length) {
         throw new ApiError(
           "WHITEBIT_NO_VERIFIED_DEPOSIT_ROUTES",
-          "WhiteBIT did not return a valid address for any configured route.",
-          502,
+          "Verify address-creation permission for at least one currently eligible route before enabling.",
+          409,
         );
       }
     }
@@ -6216,14 +6418,33 @@ router.patch("/admin/providers/whitebit", requireOwner, async (req, res, next) =
           );
         }
       }
-      const [current] = await tx.select({ version: whitebitProviderSettingsTable.version })
+      const [current] = await tx.select()
         .from(whitebitProviderSettingsTable)
         .where(eq(whitebitProviderSettingsTable.provider, "whitebit")).limit(1);
+      if (req.body.enabled) {
+        if (
+          !current ||
+          current.credentialVerifiedFingerprint !== credentialFingerprint ||
+          !current.credentialVerifiedAt ||
+          verifiedProofs.some((proof) => !(current.depositRouteProofs ?? []).some((saved) =>
+            saved.networkId === proof.networkId &&
+            saved.configurationDigest === proof.configurationDigest &&
+            saved.credentialFingerprint === proof.credentialFingerprint &&
+            saved.verifiedAt === proof.verifiedAt
+          ))
+        ) {
+          throw new ApiError(
+            "WHITEBIT_VERIFICATION_CHANGED",
+            "WhiteBIT verification proofs changed before enablement. Verify the routes again.",
+            409,
+          );
+        }
+      }
       await tx.insert(whitebitProviderSettingsTable).values({
         provider: "whitebit",
         disabled,
         version: (current?.version ?? 0) + 1,
-        depositRouteProofs: req.body.enabled ? verifiedProofs : [],
+        depositRouteProofs: req.body.enabled ? verifiedProofs : (current?.depositRouteProofs ?? []),
         updatedByOperatorId: operatorId,
         updatedAt: new Date(),
       }).onConflictDoUpdate({
@@ -6231,7 +6452,7 @@ router.patch("/admin/providers/whitebit", requireOwner, async (req, res, next) =
         set: {
           disabled,
           version: sql`${whitebitProviderSettingsTable.version} + 1`,
-          depositRouteProofs: req.body.enabled ? verifiedProofs : [],
+          depositRouteProofs: req.body.enabled ? verifiedProofs : (current?.depositRouteProofs ?? []),
           updatedByOperatorId: operatorId,
           updatedAt: new Date(),
         },

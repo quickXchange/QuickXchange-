@@ -1,11 +1,12 @@
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import {
   cryptoAssetNetworksTable,
   cryptoAssetsTable,
   db,
   whitebitProviderSettingsTable,
 } from "@workspace/db";
-import { getWhitebitCredentialStorageState } from "./provider-credentials";
+import { getWhitebitCredentialStorageState, whitebitCredentialFingerprint } from "./provider-credentials";
+import { customerDepositRouteConfigurationDigest } from "./customer-deposit-eligibility";
 
 export type WhitebitAssetCapability = {
   ticker: string;
@@ -212,6 +213,14 @@ export async function whitebitSwapStatus() {
   const storedCredentials = await getWhitebitCredentialStorageState();
   const credentialsReady = storedCredentials.status === "available" ||
     Boolean(process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET);
+  const activeCredentials = storedCredentials.status === "available"
+    ? storedCredentials.credentials
+    : process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET
+      ? { apiKey: process.env.WHITEBIT_API_KEY, secretKey: process.env.WHITEBIT_API_SECRET }
+      : null;
+  const credentialFingerprint = activeCredentials
+    ? whitebitCredentialFingerprint(activeCredentials)
+    : null;
   let setting: typeof whitebitProviderSettingsTable.$inferSelect | undefined;
   try {
     [setting] = await db.select().from(whitebitProviderSettingsTable)
@@ -222,28 +231,61 @@ export async function whitebitSwapStatus() {
     setting = undefined;
   }
   const disabled = setting?.disabled ?? true;
+  const credentialsVerified = Boolean(
+    credentialFingerprint &&
+    setting?.credentialVerifiedFingerprint === credentialFingerprint &&
+    setting?.credentialVerifiedAt,
+  );
+  let addressPermissionProof: {
+    networkId: string;
+    assetCode: string;
+    networkCode: string;
+    configurationDigest: string;
+    credentialFingerprint: string;
+    verifiedAt: string;
+  } | undefined;
   try {
     const snapshot = await getWhitebitCapabilities();
     const rows = await db.select({
-      assetCode: cryptoAssetsTable.code,
-      networkCode: cryptoAssetNetworksTable.networkCode,
-      assetEnabled: cryptoAssetsTable.enabled,
-      networkEnabled: cryptoAssetNetworksTable.enabled,
-      assetLifecycle: cryptoAssetsTable.lifecycle,
-      networkLifecycle: cryptoAssetNetworksTable.lifecycle,
+      asset: cryptoAssetsTable,
+      network: cryptoAssetNetworksTable,
     }).from(cryptoAssetNetworksTable)
       .innerJoin(cryptoAssetsTable, eq(cryptoAssetNetworksTable.assetId, cryptoAssetsTable.id));
     const matched = rows.filter((row) =>
-      row.assetEnabled && row.networkEnabled &&
-      row.assetLifecycle !== "deprecated" && row.networkLifecycle !== "deprecated" &&
-      matchWhitebitCapability(snapshot, row.assetCode, row.networkCode),
+      row.asset.enabled && row.network.enabled &&
+      row.asset.lifecycle !== "deprecated" && row.network.lifecycle !== "deprecated" &&
+      matchWhitebitCapability(snapshot, row.asset.code, row.network.networkCode),
     ).length;
+    if (credentialsVerified && credentialFingerprint) {
+      addressPermissionProof = (setting?.depositRouteProofs ?? []).find((proof) =>
+        proof.credentialFingerprint === credentialFingerprint &&
+        rows.some((row) =>
+          row.network.id === proof.networkId &&
+          row.network.depositProvider === "whitebit" &&
+          row.asset.enabled && row.network.enabled &&
+          row.asset.lifecycle !== "deprecated" && row.network.lifecycle !== "deprecated" &&
+          row.asset.code.trim().toUpperCase() === proof.assetCode &&
+          row.network.networkCode.trim().toUpperCase() === proof.networkCode &&
+          proof.configurationDigest === customerDepositRouteConfigurationDigest(row.asset, row.network) &&
+          matchWhitebitCapability(snapshot, row.asset.code, row.network.networkCode)
+        )
+      );
+    }
     return {
       provider: "whitebit" as const,
-      enabled: !disabled && credentialsReady,
+      enabled: !disabled && credentialsReady && credentialsVerified && Boolean(addressPermissionProof),
       explicitDisabled: disabled,
       credentialsReady,
-      state: disabled ? "disabled" as const : !credentialsReady ? "not_configured" as const : "ready" as const,
+      credentialsVerified,
+      credentialsVerifiedAt: credentialsVerified ? setting?.credentialVerifiedAt?.toISOString() ?? null : null,
+      addressPermissionVerified: Boolean(addressPermissionProof),
+      addressPermissionProof: addressPermissionProof ? {
+        networkId: addressPermissionProof.networkId,
+        assetCode: addressPermissionProof.assetCode,
+        networkCode: addressPermissionProof.networkCode,
+        verifiedAt: addressPermissionProof.verifiedAt,
+      } : null,
+      state: disabled ? "disabled" as const : !credentialsReady ? "not_configured" as const : !credentialsVerified ? "verification_required" as const : !addressPermissionProof ? "address_permission_required" as const : "ready" as const,
       lastCapabilitySyncAt: new Date(snapshot.fetchedAt).toISOString(),
       matchedRouteCount: matched,
       webhookReady: Boolean(
@@ -257,6 +299,10 @@ export async function whitebitSwapStatus() {
       enabled: false,
       explicitDisabled: disabled,
       credentialsReady,
+      credentialsVerified,
+      credentialsVerifiedAt: credentialsVerified ? setting?.credentialVerifiedAt?.toISOString() ?? null : null,
+      addressPermissionVerified: false,
+      addressPermissionProof: null,
       state: disabled ? "disabled" as const : "unavailable" as const,
       lastCapabilitySyncAt: null,
       matchedRouteCount: 0,
@@ -274,7 +320,43 @@ export async function isWhitebitSwapEnabled(assetCode: string, networkCode: stri
   if (!status.enabled) return null;
   try {
     const snapshot = await getWhitebitCapabilities();
-    return matchWhitebitCapability(snapshot, assetCode, networkCode);
+    const capability = matchWhitebitCapability(snapshot, assetCode, networkCode);
+    if (!capability) return null;
+    const stored = await getWhitebitCredentialStorageState();
+    const activeCredentials = stored.status === "available"
+      ? stored.credentials
+      : process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET
+        ? { apiKey: process.env.WHITEBIT_API_KEY, secretKey: process.env.WHITEBIT_API_SECRET }
+        : null;
+    const fingerprint = activeCredentials ? whitebitCredentialFingerprint(activeCredentials) : null;
+    const routeRows = await db.select({
+      asset: cryptoAssetsTable,
+      network: cryptoAssetNetworksTable,
+    }).from(cryptoAssetNetworksTable)
+      .innerJoin(cryptoAssetsTable, eq(cryptoAssetNetworksTable.assetId, cryptoAssetsTable.id))
+      .where(and(
+        eq(cryptoAssetsTable.enabled, true),
+        eq(cryptoAssetNetworksTable.enabled, true),
+        eq(cryptoAssetNetworksTable.depositProvider, "whitebit"),
+        sql`${cryptoAssetsTable.lifecycle} <> 'deprecated'`,
+        sql`${cryptoAssetNetworksTable.lifecycle} <> 'deprecated'`,
+        sql`upper(${cryptoAssetsTable.code}) = upper(${assetCode})`,
+        sql`upper(${cryptoAssetNetworksTable.networkCode}) = upper(${networkCode})`,
+      ));
+    if (!fingerprint || !routeRows.length) return null;
+    const [setting] = await db.select({ depositRouteProofs: whitebitProviderSettingsTable.depositRouteProofs })
+      .from(whitebitProviderSettingsTable)
+      .where(eq(whitebitProviderSettingsTable.provider, "whitebit"))
+      .limit(1);
+    return routeRows.some(({ asset, network }) =>
+      (setting?.depositRouteProofs ?? []).some((proof) =>
+        proof.networkId === network.id &&
+        proof.assetCode === asset.code.trim().toUpperCase() &&
+        proof.networkCode === network.networkCode.trim().toUpperCase() &&
+        proof.configurationDigest === customerDepositRouteConfigurationDigest(asset, network) &&
+        proof.credentialFingerprint === fingerprint
+      )
+    ) ? capability : null;
   } catch {
     return null;
   }

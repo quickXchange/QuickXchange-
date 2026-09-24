@@ -52,6 +52,7 @@ import {
   useGetWhitebitProviderStatus, getGetWhitebitProviderStatusQueryKey,
   useUpdateWhitebitProviderStatus, useGetWhitebitCredentials, getGetWhitebitCredentialsQueryKey,
   useUpdateWhitebitCredentials, useTestWhitebitCredentials,
+  useGetWhitebitVerificationRoutes, getGetWhitebitVerificationRoutesQueryKey, useVerifyWhitebitAddressPermission,
   useListManualDeskPricingRules, getListManualDeskPricingRulesQueryKey,
   useCreateManualDeskPricingRule, useUpdateManualDeskPricingRule, useBulkCreateManualDeskPricingRules,
   usePreviewManualDeskPricingRule, usePreviewManualDeskQuote, useDeleteManualDeskPricingRule, useBulkManualDeskPricingRules,
@@ -1037,8 +1038,12 @@ function AdminIntegrations() {
   const whitebitCredentialsQuery = useGetWhitebitCredentials({
     query: { queryKey: getGetWhitebitCredentialsQueryKey() },
   });
+  const whitebitRoutesQuery = useGetWhitebitVerificationRoutes({
+    query: { queryKey: getGetWhitebitVerificationRoutesQueryKey(), enabled: isOwner },
+  });
   const updateWhitebit = useUpdateWhitebitCredentials();
   const testWhitebit = useTestWhitebitCredentials();
+  const verifyWhitebitPermission = useVerifyWhitebitAddressPermission();
   const toggleWhitebit = useUpdateWhitebitProviderStatus();
 
   const [publicKey, setPublicKey] = useState('');
@@ -1052,6 +1057,9 @@ function AdminIntegrations() {
   const [whitebitSecretKey, setWhitebitSecretKey] = useState('');
   const [whitebitConfigurationOpen, setWhitebitConfigurationOpen] = useState(false);
   const [whitebitNotice, setWhitebitNotice] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
+  const [whitebitSelectedRouteKey, setWhitebitSelectedRouteKey] = useState('');
+  const [whitebitPermissionAcknowledged, setWhitebitPermissionAcknowledged] = useState(false);
+  const [whitebitPermissionConfirmationOpen, setWhitebitPermissionConfirmationOpen] = useState(false);
 
   const status = statusQuery.data;
   const pinIsValid = /^\d{4,8}$/.test(pin);
@@ -1110,6 +1118,16 @@ function AdminIntegrations() {
 
   const whitebitStatus = whitebitStatusQuery.data;
   const whitebitCredentials = whitebitCredentialsQuery.data;
+  const whitebitRoutes = whitebitRoutesQuery.data ?? [];
+  const whitebitSelectedRoute = whitebitRoutes.find((route) =>
+    `${route.networkId}:${route.assetCode}:${route.networkCode}` === whitebitSelectedRouteKey
+  );
+  const whitebitCanEnable = Boolean(
+    whitebitStatus?.credentialsVerified &&
+    whitebitStatus.credentialsVerifiedAt &&
+    whitebitStatus.addressPermissionVerified &&
+    whitebitStatus.addressPermissionProof
+  );
   const connectedCount = (isConfigured ? 1 : 0) + (whitebitCredentials?.configured ? 1 : 0);
   const isHealthy = isConfigured && remotelyAuth && reachability === 'reachable' && !blocked;
   const whitebitHealthy = Boolean(whitebitStatus?.enabled && whitebitStatus.state === 'ready');
@@ -1135,6 +1153,9 @@ function AdminIntegrations() {
     void queryClient.invalidateQueries({ queryKey: getGetWhitebitCredentialsQueryKey() });
     void queryClient.invalidateQueries({ queryKey: getGetWhitebitProviderStatusQueryKey() });
   };
+  const refreshWhitebitStatus = () => {
+    void queryClient.invalidateQueries({ queryKey: getGetWhitebitProviderStatusQueryKey() });
+  };
   const handleWhitebitUpdate = (event: React.FormEvent) => {
     event.preventDefault();
     if (!whitebitApiKey.trim() || !whitebitSecretKey.trim()) return;
@@ -1153,14 +1174,39 @@ function AdminIntegrations() {
   const handleWhitebitTest = () => {
     setWhitebitNotice(null);
     testWhitebit.mutate(undefined, {
-      onSuccess: (data) => setWhitebitNotice({ kind: data.ok ? 'success' : 'error', text: data.message }),
+      onSuccess: (data) => {
+        refreshWhitebitStatus();
+        setWhitebitNotice({ kind: data.ok ? 'success' : 'error', text: data.message });
+      },
       onError: (error) => setWhitebitNotice({ kind: 'error', text: apiErrorText(error, 'WhiteBIT signed API test failed.') }),
+    });
+  };
+  const handleWhitebitPermissionCheck = () => {
+    if (!whitebitSelectedRoute || !whitebitPermissionAcknowledged) return;
+    setWhitebitNotice(null);
+    verifyWhitebitPermission.mutate({
+      data: { networkId: whitebitSelectedRoute.networkId, confirmRealAddressCreation: true },
+    }, {
+      onSuccess: (proof) => {
+        setWhitebitPermissionConfirmationOpen(false);
+        setWhitebitPermissionAcknowledged(false);
+        refreshWhitebitStatus();
+        setWhitebitNotice({
+          kind: 'success',
+          text: `Address creation permission verified for ${proof.assetCode} on ${proof.networkCode}. WhiteBIT remains ${whitebitStatus?.explicitDisabled ? 'disabled' : 'enabled'}; this check did not change provider settings.`,
+        });
+      },
+      onError: (error) => {
+        setWhitebitPermissionConfirmationOpen(false);
+        setWhitebitNotice({ kind: 'error', text: apiErrorText(error, 'WhiteBIT address creation permission could not be verified.') });
+      },
     });
   };
   const handleWhitebitToggle = () => {
     if (!whitebitStatus) return;
+    if (whitebitStatus.explicitDisabled && !whitebitCanEnable) return;
     setWhitebitNotice(null);
-    toggleWhitebit.mutate({ data: { enabled: !whitebitStatus.enabled } }, {
+    toggleWhitebit.mutate({ data: { enabled: whitebitStatus.explicitDisabled } }, {
       onSuccess: () => refreshWhitebit(),
       onError: (error) => setWhitebitNotice({ kind: 'error', text: apiErrorText(error, 'WhiteBIT could not be enabled. Signed address creation permission is required.') }),
     });
@@ -1369,43 +1415,50 @@ function AdminIntegrations() {
                     <div className="min-w-0">
                       <h3 className="font-bold text-base flex items-center gap-2">
                         WhiteBIT
-                        {whitebitStatus?.enabled && <BadgeCheck size={14} className="text-primary shrink-0" />}
+                        {whitebitStatus && !whitebitStatus.explicitDisabled && <BadgeCheck size={14} className="text-primary shrink-0" />}
                       </h3>
                       <p className="text-[10px] text-muted-foreground font-mono mt-1 uppercase tracking-wider">Swap automated crypto deposit addresses only</p>
                     </div>
                   </div>
-                  <StatusPill status={whitebitStatus?.enabled ? 'verified' : whitebitCredentials?.configured ? 'verification required' : 'not configured'} />
+                   <StatusPill status={whitebitStatus && !whitebitStatus.explicitDisabled ? 'enabled' : 'disabled'} />
                 </div>
 
-                {whitebitStatusQuery.isLoading || whitebitCredentialsQuery.isLoading ? (
+                 {whitebitStatusQuery.isLoading || whitebitCredentialsQuery.isLoading ? (
                   <div className="p-5"><LoadingBlock rows={3} /></div>
-                ) : whitebitStatusQuery.isError || whitebitCredentialsQuery.isError ? (
-                  <div className="p-5"><ErrorState message="Could not load WhiteBIT integration status." retry={refreshWhitebit} /></div>
+                 ) : whitebitStatusQuery.isError || whitebitCredentialsQuery.isError ? (
+                   <div className="p-5"><ErrorState message="Could not load WhiteBIT integration status." retry={refreshWhitebit} /></div>
                 ) : (
                   <>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border/50">
-                      <div className="integration-provider-fact bg-card p-5">
-                        <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-2">Auth source</div>
-                        <div className="text-xs font-mono">{whitebitCredentials?.credentialSource === 'stored' ? 'Encrypted DB' : whitebitCredentials?.credentialSource === 'environment' ? 'Environment secrets' : 'Unconfigured'}</div>
-                      </div>
-                      <div className="integration-provider-fact bg-card p-5">
-                        <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-2">API key</div>
-                        <div className={cn("integration-status-value text-xs font-mono flex items-center gap-1", whitebitCredentials?.configured ? "tone-success" : "tone-error")}>
-                          {whitebitCredentials?.configured ? <><Check size={12}/> Present</> : <><X size={12}/> Missing</>}
-                        </div>
-                      </div>
-                      <div className="integration-provider-fact bg-card p-5">
-                        <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-2">Secret key</div>
-                        <div className={cn("integration-status-value text-xs font-mono flex items-center gap-1", whitebitCredentials?.configured ? "tone-success" : "tone-error")}>
-                          {whitebitCredentials?.configured ? <><Check size={12}/> Present</> : <><X size={12}/> Missing</>}
-                        </div>
-                      </div>
-                      <div className="integration-provider-fact bg-card p-5">
-                        <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-2">API status</div>
-                        <div className={cn("integration-status-value text-xs font-mono flex items-center gap-1", whitebitStatus?.enabled ? "tone-success" : "tone-warning")}>
-                          {whitebitStatus?.enabled ? <><Check size={12}/> On</> : <><Pause size={12}/> Off</>}
-                        </div>
-                      </div>
+                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-border/50">
+                       <div className="integration-provider-fact bg-card p-5" data-testid="status-whitebit-credentials-configured">
+                         <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-2">Credentials configured</div>
+                         <div className={cn("integration-status-value text-xs font-mono flex items-center gap-1", whitebitCredentials?.configured ? "tone-success" : "tone-error")}>
+                           {whitebitCredentials?.configured ? <><Check size={12}/> Configured</> : <><X size={12}/> Not configured</>}
+                         </div>
+                         <div className="mt-1 text-[10px] text-muted-foreground">Source: {whitebitCredentials?.credentialSource === 'stored' ? 'Encrypted DB' : whitebitCredentials?.credentialSource === 'environment' ? 'Environment secrets' : 'Unconfigured'}</div>
+                       </div>
+                       <div className="integration-provider-fact bg-card p-5" data-testid="status-whitebit-credentials-verified">
+                         <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-2">Credentials verified</div>
+                         <div className={cn("integration-status-value text-xs font-mono flex items-center gap-1", whitebitStatus?.credentialsVerified ? "tone-success" : "tone-warning")}>
+                           {whitebitStatus?.credentialsVerified ? <><Check size={12}/> Verified</> : <><Pause size={12}/> Not verified</>}
+                         </div>
+                         {whitebitStatus?.credentialsVerifiedAt && <div className="mt-1 text-[10px] text-muted-foreground">Last verified {new Date(whitebitStatus.credentialsVerifiedAt).toLocaleString()}</div>}
+                       </div>
+                       <div className="integration-provider-fact bg-card p-5" data-testid="status-whitebit-address-permission">
+                         <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-2">Address creation permission</div>
+                         <div className={cn("integration-status-value text-xs font-mono flex items-center gap-1", whitebitStatus?.addressPermissionVerified ? "tone-success" : "tone-warning")}>
+                           {whitebitStatus?.addressPermissionVerified ? <><Check size={12}/> Verified</> : <><Pause size={12}/> Not verified</>}
+                         </div>
+                         {whitebitStatus?.addressPermissionProof && <div className="mt-1 text-[10px] text-muted-foreground">
+                           {whitebitStatus.addressPermissionProof.assetCode} · {whitebitStatus.addressPermissionProof.networkCode} · {new Date(whitebitStatus.addressPermissionProof.verifiedAt).toLocaleString()}
+                         </div>}
+                       </div>
+                       <div className="integration-provider-fact bg-card p-5" data-testid="status-whitebit-provider-enabled">
+                         <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-2">Provider</div>
+                         <div className={cn("integration-status-value text-xs font-mono flex items-center gap-1", whitebitStatus && !whitebitStatus.explicitDisabled ? "tone-success" : "tone-warning")}>
+                           {whitebitStatus && !whitebitStatus.explicitDisabled ? <><Check size={12}/> Enabled</> : <><Pause size={12}/> Disabled</>}
+                         </div>
+                       </div>
                     </div>
                     <div className="integration-provider-health p-5 border-t border-border/50 bg-muted/10">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8">
@@ -1413,15 +1466,61 @@ function AdminIntegrations() {
                           <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Capability catalog</span>
                           <span className="integration-health-value tone-info font-mono text-xs">{whitebitStatus?.matchedRouteCount ?? 0} matching Admin routes</span>
                         </div>
-                        <div className="integration-health-item flex flex-col gap-1">
-                          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Address creation permission</span>
-                          <span className={cn("integration-health-value font-mono text-xs", whitebitStatus?.enabled ? "tone-success" : "tone-warning")}>
-                            {whitebitStatus?.enabled ? 'Verified' : 'Required before enabling'}
-                          </span>
-                        </div>
                       </div>
                       {whitebitStatus?.error && <div className="mt-4 p-3 bg-card border border-border/50 rounded-xl font-mono text-xs break-words">{whitebitStatus.error}</div>}
                     </div>
+                     {isOwner && <div className="border-t border-border/50 bg-amber-500/5 p-5">
+                       <div className="mb-4 rounded-xl border border-amber-500/30 bg-card p-4 text-xs leading-relaxed text-muted-foreground" data-testid="notice-whitebit-permission-limitation">
+                         <strong className="text-foreground">Important limitation:</strong> WhiteBIT has no non-mutating permission check implemented. The reliable check creates ONE real address for the selected exact asset and network. It does not place an order, enable/disable the provider, start a watch, or change wallet settings.
+                       </div>
+                       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                         <div>
+                           <label htmlFor="whitebit-verification-route" className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Exact asset and network to verify</label>
+                           <select
+                             id="whitebit-verification-route"
+                             data-testid="select-whitebit-verification-route"
+                             value={whitebitSelectedRouteKey}
+                             onChange={(event) => {
+                               setWhitebitSelectedRouteKey(event.target.value);
+                               setWhitebitPermissionAcknowledged(false);
+                             }}
+                             className="h-10 w-full rounded-xl border border-border bg-background px-3 text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                           >
+                             <option value="">Select an asset + network</option>
+                             {whitebitRoutes.map((route) => {
+                               const key = `${route.networkId}:${route.assetCode}:${route.networkCode}`;
+                               return <option key={key} value={key}>{route.assetCode} · {route.networkCode} (ID: {route.networkId})</option>;
+                             })}
+                           </select>
+                         </div>
+                         <button
+                           type="button"
+                           data-testid="button-open-whitebit-permission-confirmation"
+                           onClick={() => setWhitebitPermissionConfirmationOpen(true)}
+                           disabled={!canTestCredentials || !whitebitStatus?.credentialsVerified || !whitebitSelectedRoute || !whitebitPermissionAcknowledged || verifyWhitebitPermission.isPending}
+                           className="button button-secondary h-10 px-4 text-xs font-bold uppercase tracking-wider"
+                         >
+                           <ShieldCheck size={14} className="mr-2" /> Verify permission
+                         </button>
+                       </div>
+                       <label className="mt-4 flex items-start gap-3 text-xs leading-relaxed text-muted-foreground">
+                         <input
+                           type="checkbox"
+                           data-testid="checkbox-whitebit-real-address-consent"
+                           checked={whitebitPermissionAcknowledged}
+                           onChange={(event) => setWhitebitPermissionAcknowledged(event.target.checked)}
+                           disabled={!whitebitSelectedRoute}
+                           className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+                         />
+                         <span>I understand this test will create one real WhiteBIT deposit address for the selected asset and network. I explicitly authorize that address creation.</span>
+                       </label>
+                       {whitebitRoutesQuery.isLoading && <p className="mt-3 text-xs text-muted-foreground">Loading configured verification routes…</p>}
+                       {whitebitRoutesQuery.isError && <div className="mt-3 flex items-center gap-3 text-xs text-destructive">
+                         Could not load verification routes.
+                         <button type="button" className="underline" onClick={() => void queryClient.invalidateQueries({ queryKey: getGetWhitebitVerificationRoutesQueryKey() })}>Retry</button>
+                       </div>}
+                       {!whitebitRoutesQuery.isLoading && !whitebitRoutesQuery.isError && whitebitRoutes.length === 0 && <p className="mt-3 text-xs text-muted-foreground">No configured deposit routes are available to verify.</p>}
+                     </div>}
                     <div className="bg-card p-5 flex flex-wrap items-center justify-between gap-3 border-t border-border/50">
                       <div className="text-xs text-muted-foreground">Convert remains Quickex-only. WhiteBIT is used only for eligible Swap deposit addresses.</div>
                       <div className="flex flex-wrap gap-2">
@@ -1431,8 +1530,8 @@ function AdminIntegrations() {
                         {(canConfigureCredentials || canCreateCredentials) && <button type="button" onClick={() => setWhitebitConfigurationOpen(true)} className="button button-secondary h-9 px-4 text-xs font-bold uppercase tracking-wider">
                           <Key size={14} className="mr-2" /> Configure
                         </button>}
-                        {canConfigureCredentials && <button type="button" onClick={handleWhitebitToggle} disabled={toggleWhitebit.isPending || !whitebitCredentials?.configured} className="button button-primary h-9 px-4 text-xs font-bold uppercase tracking-wider" data-testid="button-toggle-whitebit-integration">
-                          {toggleWhitebit.isPending ? <Loader2 size={14} className="animate-spin mr-2" /> : <Power size={14} className="mr-2" />} {whitebitStatus?.enabled ? 'Turn off' : 'Turn on'}
+                         {canConfigureCredentials && <button type="button" onClick={handleWhitebitToggle} disabled={toggleWhitebit.isPending || (whitebitStatus?.explicitDisabled && !whitebitCanEnable)} className="button button-primary h-9 px-4 text-xs font-bold uppercase tracking-wider" data-testid="button-toggle-whitebit-integration">
+                          {toggleWhitebit.isPending ? <Loader2 size={14} className="animate-spin mr-2" /> : <Power size={14} className="mr-2" />} {whitebitStatus?.explicitDisabled ? 'Turn on' : 'Turn off'}
                         </button>}
                       </div>
                     </div>
@@ -1661,6 +1760,40 @@ function AdminIntegrations() {
                     {updateWhitebit.isPending ? <><Loader2 size={14} className="animate-spin mr-2" /> Validating</> : 'Validate and save securely'}
                   </button>
                 </form>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={whitebitPermissionConfirmationOpen} onOpenChange={setWhitebitPermissionConfirmationOpen}>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Confirm real WhiteBIT address creation</DialogTitle>
+                  <DialogDescription>
+                    This is a mutating permission check. It will create ONE real deposit address for {whitebitSelectedRoute ? `${whitebitSelectedRoute.assetCode} on ${whitebitSelectedRoute.networkCode} (network ID ${whitebitSelectedRoute.networkId})` : 'the selected route'}.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-xs leading-relaxed text-muted-foreground">
+                  No order will be placed. This check will not enable or disable WhiteBIT, start a watch, or change wallet settings. WhiteBIT stays in its current enabled/disabled state.
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setWhitebitPermissionConfirmationOpen(false)}
+                    disabled={verifyWhitebitPermission.isPending}
+                    className="button button-secondary h-10 px-4 text-xs font-bold uppercase tracking-wider"
+                    data-testid="button-cancel-whitebit-permission-check"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleWhitebitPermissionCheck}
+                    disabled={!whitebitStatus?.credentialsVerified || !whitebitSelectedRoute || !whitebitPermissionAcknowledged || verifyWhitebitPermission.isPending}
+                    className="button button-primary h-10 px-4 text-xs font-bold uppercase tracking-wider"
+                    data-testid="button-confirm-whitebit-real-address-creation"
+                  >
+                    {verifyWhitebitPermission.isPending ? <><Loader2 size={14} className="animate-spin mr-2" /> Creating and verifying</> : 'Create one real address and verify'}
+                  </button>
+                </div>
               </DialogContent>
             </Dialog>
 
@@ -6219,17 +6352,17 @@ function AdminProviders() {
        <div className="panel-heading provider-health-heading">
          <div><span className="section-kicker">SWAP DEPOSIT ADDRESS</span><h2>WhiteBIT</h2><p>Optional order-scoped crypto funding addresses. Convert and customer deposits remain unchanged.</p></div>
          {whitebitStatus && <div className="provider-health-actions">
-           <span className={cn('secure-badge provider-verified-badge', whitebitStatus.enabled ? 'text-emerald-400' : 'text-amber-300')}>
-            {whitebitStatus.enabled ? <Check size={14} /> : <Pause size={14} />} {(whitebitStatus.state || 'unknown').replace('_', ' ').toUpperCase()}
+           <span className={cn('secure-badge provider-verified-badge', !whitebitStatus.explicitDisabled ? 'text-emerald-400' : 'text-amber-300')}>
+            {!whitebitStatus.explicitDisabled ? <Check size={14} /> : <Pause size={14} />} {whitebitStatus.explicitDisabled ? 'DISABLED' : 'ENABLED'}
            </span>
            {isOwner && can('integrations.credentials.update') && <button
              className="button provider-diagnostics-button"
-             disabled={whitebitToggle.isPending || whitebit.isLoading}
-             onClick={() => whitebitToggle.mutate({ data: { enabled: !whitebitStatus.enabled } }, {
+             disabled={whitebitToggle.isPending || whitebit.isLoading || (whitebitStatus.explicitDisabled && (!whitebitStatus.credentialsVerified || !whitebitStatus.addressPermissionVerified))}
+             onClick={() => whitebitToggle.mutate({ data: { enabled: whitebitStatus.explicitDisabled } }, {
                onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetWhitebitProviderStatusQueryKey() }),
              })}
              data-testid="button-toggle-whitebit"
-           >{whitebitToggle.isPending ? <Loader2 className="spin" size={15} /> : <Power size={15} />} {whitebitStatus.enabled ? 'Turn off' : 'Turn on'}</button>}
+           >{whitebitToggle.isPending ? <Loader2 className="spin" size={15} /> : <Power size={15} />} {whitebitStatus.explicitDisabled ? 'Turn on' : 'Turn off'}</button>}
          </div>}
        </div>
        {whitebit.isLoading ? <div className="mt-6"><LoadingBlock rows={2} /></div> : whitebit.isError ? <ErrorState message="Could not load WhiteBIT status." retry={() => whitebit.refetch()} /> : whitebitStatus && <div className="provider-grid">

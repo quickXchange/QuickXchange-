@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { WhitebitAddressPermissionProof } from './whitebitAddressPermissionProof';
 import type { WhitebitProviderStatusProvider } from './whitebitProviderStatusProvider';
 import type { WhitebitProviderStatusState } from './whitebitProviderStatusState';
 
@@ -13,6 +14,11 @@ export interface WhitebitProviderStatus {
   enabled: boolean;
   explicitDisabled: boolean;
   credentialsReady: boolean;
+  credentialsVerified: boolean;
+  /** @nullable */
+  credentialsVerifiedAt: Date | null;
+  addressPermissionVerified: boolean;
+  addressPermissionProof: WhitebitAddressPermissionProof | null;
   state: WhitebitProviderStatusState;
   /** @nullable */
   lastCapabilitySyncAt: Date | null;

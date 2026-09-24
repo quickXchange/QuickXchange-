@@ -2395,6 +2395,23 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/WhitebitProviderStatus" }
+    patch:
+      operationId: updateWhitebitProviderStatus
+      tags: [admin]
+      summary: Explicitly enable or disable WhiteBIT Swap address allocation
+      security:
+        - OwnerSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WhitebitProviderToggle" }
+      responses:
+        "200":
+          description: Updated WhiteBIT status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WhitebitProviderStatus" }
   /admin/providers/whitebit/credentials:
     get:
       operationId: getWhitebitCredentials
@@ -2438,27 +2455,39 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/WhitebitProviderTest" }
-    patch:
-      operationId: updateWhitebitProviderStatus
+  /admin/providers/whitebit/verification-routes:
+    get:
+      operationId: getWhitebitVerificationRoutes
       tags: [admin]
-      summary: Enable or disable WhiteBIT Swap address allocation
+      summary: List exact configured WhiteBIT deposit routes available for permission verification
+      security:
+        - OwnerSession: []
+      responses:
+        "200":
+          description: Eligible asset and network choices
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WhitebitVerificationRoute" }
+  /admin/providers/whitebit/address-permission/verify:
+    post:
+      operationId: verifyWhitebitAddressPermission
+      tags: [admin]
+      summary: Explicitly authorize one real provider address request for one exact route without enabling WhiteBIT
       security:
         - OwnerSession: []
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [enabled]
-              properties:
-                enabled: { type: boolean }
+            schema: { $ref: "#/components/schemas/WhitebitAddressPermissionInput" }
       responses:
         "200":
-          description: Updated WhiteBIT status
+          description: Safe saved permission proof without the generated address
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/WhitebitProviderStatus" }
+              schema: { $ref: "#/components/schemas/WhitebitAddressPermissionProof" }
   /admin/orders.xml:
     get:
       operationId: getOrdersXml
@@ -6767,13 +6796,20 @@ components:
             $ref: "#/components/schemas/OneForgeRate"
     WhitebitProviderStatus:
       type: object
-      required: [provider, enabled, explicitDisabled, credentialsReady, state, lastCapabilitySyncAt, matchedRouteCount, webhookReady]
+      required: [provider, enabled, explicitDisabled, credentialsReady, credentialsVerified, credentialsVerifiedAt, addressPermissionVerified, addressPermissionProof, state, lastCapabilitySyncAt, matchedRouteCount, webhookReady]
       properties:
         provider: { type: string, enum: [whitebit] }
         enabled: { type: boolean }
         explicitDisabled: { type: boolean }
         credentialsReady: { type: boolean }
-        state: { type: string, enum: [disabled, not_configured, ready, unavailable] }
+        credentialsVerified: { type: boolean }
+        credentialsVerifiedAt: { type: [string, "null"], format: date-time }
+        addressPermissionVerified: { type: boolean }
+        addressPermissionProof:
+          anyOf:
+            - { $ref: "#/components/schemas/WhitebitAddressPermissionProof" }
+            - { type: "null" }
+        state: { type: string, enum: [disabled, not_configured, verification_required, address_permission_required, ready, unavailable] }
         lastCapabilitySyncAt: { type: [string, "null"], format: date-time }
         matchedRouteCount: { type: integer, minimum: 0 }
         webhookReady: { type: boolean }
@@ -6802,6 +6838,32 @@ components:
         signedApiReachable: { type: boolean }
         checkedAt: { type: string, format: date-time }
         message: { type: string }
+    WhitebitProviderToggle:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
+    WhitebitVerificationRoute:
+      type: object
+      required: [networkId, assetCode, networkCode]
+      properties:
+        networkId: { type: string }
+        assetCode: { type: string }
+        networkCode: { type: string }
+    WhitebitAddressPermissionInput:
+      type: object
+      required: [networkId, confirmRealAddressCreation]
+      properties:
+        networkId: { type: string, minLength: 1 }
+        confirmRealAddressCreation: { type: boolean }
+    WhitebitAddressPermissionProof:
+      type: object
+      required: [networkId, assetCode, networkCode, verifiedAt]
+      properties:
+        networkId: { type: string }
+        assetCode: { type: string }
+        networkCode: { type: string }
+        verifiedAt: { type: string, format: date-time }
     QuickexCredentialInput:
       type: object
       required: [publicKey, secretKey]

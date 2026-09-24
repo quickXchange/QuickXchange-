@@ -61,9 +61,13 @@ async function ensureWhitebitSchema(): Promise<void> {
   const migration0074 = await readFile(resolve(
     process.cwd(), "../../lib/db/migrations/0074_whitebit_asset_catalog_mappings.sql",
   ), "utf8");
+  const migration0120 = await readFile(resolve(
+    process.cwd(), "../../lib/db/migrations/0120_whitebit_verification.sql",
+  ), "utf8");
   await pool.query(migration0072);
   await pool.query(migration0073);
   await pool.query(migration0074);
+  await pool.query(migration0120);
   return;
   /*
   const result = await pool.query<{ present: string | null }>(
@@ -155,9 +159,9 @@ before(async () => {
   process.env.WHITEBIT_API_SECRET = "test-provider-secret";
   configureCustomerAuthorizationForTests({ getUserId: () => clerkUserId, getVerifiedEmail: () => `${suffix}@example.test` });
   configureOperatorAuthorizationForTests({ getUserId: (req) => req.get("x-test-operator") ?? null, getVerifiedEmail: () => `${suffix}@example.test` });
+  await ensureWhitebitSchema();
   priorProviderSetting = (await database.db.select().from(database.whitebitProviderSettingsTable)
     .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit")).limit(1))[0] ?? null;
-  await ensureWhitebitSchema();
   await database.db.insert(database.whitebitProviderSettingsTable)
     .values({ provider: "whitebit", disabled: false })
     .onConflictDoUpdate({ target: database.whitebitProviderSettingsTable.provider, set: { disabled: false } });
@@ -238,6 +242,9 @@ after(async () => {
     await database.db.update(database.whitebitProviderSettingsTable).set({
       disabled: priorProviderSetting.disabled,
       version: priorProviderSetting.version,
+      depositRouteProofs: priorProviderSetting.depositRouteProofs,
+      credentialVerifiedFingerprint: priorProviderSetting.credentialVerifiedFingerprint,
+      credentialVerifiedAt: priorProviderSetting.credentialVerifiedAt,
       updatedByOperatorId: priorProviderSetting.updatedByOperatorId,
       updatedAt: priorProviderSetting.updatedAt,
     }).where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
