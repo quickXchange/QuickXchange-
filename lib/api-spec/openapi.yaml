@@ -7521,7 +7521,7 @@ components:
         memo: { type: [string, "null"] }
         amount: { type: string }
         fee: { type: string }
-        status: { type: string, enum: [accepted, updated, processed, canceled, unknown] }
+        status: { type: string, enum: [accepted, updated, processed, unknown] }
         providerStatus: { type: [integer, "null"] }
         transactionHash: { type: [string, "null"] }
         confirmationsActual: { type: [integer, "null"] }

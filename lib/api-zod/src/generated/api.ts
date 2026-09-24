@@ -5003,7 +5003,7 @@ export const GetCustomerDepositsResponseItem = zod.object({
   "memo": zod.string().nullish(),
   "amount": zod.string(),
   "fee": zod.string(),
-  "status": zod.enum(['accepted', 'updated', 'processed', 'canceled', 'unknown']),
+  "status": zod.enum(['accepted', 'updated', 'processed', 'unknown']),
   "providerStatus": zod.number().int().nullish(),
   "transactionHash": zod.string().nullish(),
   "confirmationsActual": zod.number().int().nullish(),

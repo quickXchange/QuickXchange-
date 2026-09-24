@@ -28,9 +28,6 @@ function getDepositStatusInfo(deposit: WhitebitDeposit) {
   if (deposit.status === WhitebitDepositStatus.processed) {
     return { label: 'Credited', icon: <CheckCircle2 size={14} className="text-emerald-500" />, color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' };
   }
-  if (deposit.status === WhitebitDepositStatus.canceled) {
-    return { label: 'Canceled', icon: <XCircle size={14} className="text-rose-500" />, color: 'text-rose-500 bg-rose-500/10 border-rose-500/20' };
-  }
   if (deposit.status === WhitebitDepositStatus.accepted || deposit.status === WhitebitDepositStatus.updated) {
     return { label: 'Confirming', icon: <Clock size={14} className="text-amber-500" />, color: 'text-amber-500 bg-amber-500/10 border-amber-500/20' };
   }

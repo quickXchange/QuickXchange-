@@ -584,7 +584,6 @@ type NormalizedDeposit = {
 
 export async function processNormalizedDeposit(tx: WhitebitTransaction, input: NormalizedDeposit): Promise<boolean> {
   const stable = Boolean(input.transactionId || input.uniqueId);
-  const canceled = input.event === "deposit.canceled";
   const identity = stable
     ? providerIdentity({ transactionId: input.transactionId ?? undefined, uniqueId: input.uniqueId ?? undefined })
     : providerIdentity({}, input.envelopeId);
@@ -620,50 +619,6 @@ export async function processNormalizedDeposit(tx: WhitebitTransaction, input: N
   if (input.uniqueId) aliases.push(eq(whitebitDepositsTable.uniqueId, input.uniqueId));
   const aliasMatches = aliases.length ? await tx.select().from(whitebitDepositsTable).where(or(...aliases)).limit(2) : [];
   const aliased = aliasMatches[0];
-  const hashMatches = input.transactionHash
-    ? await tx.select().from(whitebitDepositsTable).where(and(
-        eq(whitebitDepositsTable.transactionHash, input.transactionHash),
-        eq(whitebitDepositsTable.address, input.address),
-        eq(whitebitDepositsTable.ticker, input.ticker),
-        eq(whitebitDepositsTable.network, input.network),
-        input.memo === null ? sql`${whitebitDepositsTable.memo} IS NULL` : eq(whitebitDepositsTable.memo, input.memo),
-      )).limit(2)
-    : [];
-  if (canceled) {
-    if (ambiguousMapping || aliasMatches.length > 1 || hashMatches.length > 1 ||
-        (aliased && hashMatches.length && aliased.id !== hashMatches[0].id)) return false;
-    const existing = aliased ?? hashMatches[0];
-    if (existing) {
-      if (existing.address !== input.address || existing.ticker !== input.ticker ||
-          existing.network !== input.network || existing.memo !== input.memo ||
-          (existing.transactionHash && input.transactionHash && existing.transactionHash !== input.transactionHash) ||
-          (existing.orderId && existing.orderId !== orderAddressRow?.orderId) ||
-          (existing.addressId && existing.addressId !== addressRow?.id) ||
-          existing.creditedAt || existing.status === "processed" || existing.status === "canceled") return false;
-      await tx.update(whitebitDepositsTable).set({
-        status: "canceled", providerStatus: input.status, envelopeId: input.envelopeId,
-        payloadDigest: input.payloadDigest, rawPayload: input.rawPayload, updatedAt: new Date(),
-      }).where(eq(whitebitDepositsTable.id, existing.id));
-      return false;
-    }
-    // A new cancellation needs a stable ID or an exact transaction hash.
-    // The address alone cannot distinguish multiple funding attempts.
-    if ((!stable && !input.transactionHash) || !addressRow && !orderAddressRow) return false;
-    await tx.insert(whitebitDepositsTable).values({
-      customerId: orderAddressRow ? null : addressRow?.customerId ?? null,
-      addressId: orderAddressRow ? null : addressRow?.id ?? null,
-      orderAddressId: orderAddressRow?.id ?? null, orderId: orderAddressRow?.orderId ?? null,
-      ticker: input.ticker, providerTicker: input.providerTicker, network: input.network,
-      address: input.address, memo: input.memo, amount: input.amount, fee: input.fee,
-      status: "canceled", providerStatus: input.status, transactionHash: input.transactionHash,
-      uniqueId: input.uniqueId, transactionId: input.transactionId, envelopeId: input.envelopeId,
-      payloadDigest: input.payloadDigest, providerIdentity: identity, rawPayload: input.rawPayload,
-    }).onConflictDoNothing({ target: whitebitDepositsTable.providerIdentity });
-    return false;
-  }
-  // A late update or history replay must not silently reinstate a canceled
-  // deposit under a newly supplied provider ID.
-  if (hashMatches.some((row) => row.status === "canceled")) return false;
   const [inserted] = aliased ? [undefined] : await tx.insert(whitebitDepositsTable).values({
     customerId: ambiguousMapping || orderAddressRow ? null : addressRow?.customerId ?? null,
     addressId: ambiguousMapping || orderAddressRow ? null : addressRow?.id ?? null,
@@ -682,7 +637,6 @@ export async function processNormalizedDeposit(tx: WhitebitTransaction, input: N
   const deposit = aliased ?? inserted ?? (await tx.select().from(whitebitDepositsTable)
     .where(eq(whitebitDepositsTable.providerIdentity, identity)).limit(1))[0];
   if (!deposit) return false;
-  if (deposit.status === "canceled") return false;
   if (deposit.creditedAt && (!decimalEqual(deposit.amount, input.amount) || !decimalEqual(deposit.fee, input.fee) ||
       deposit.ticker !== input.ticker || deposit.network !== input.network)) {
     await tx.update(whitebitDepositsTable).set({
@@ -1152,7 +1106,10 @@ whitebitWebhookRouter.post("/webhooks/whitebit", async (req, res): Promise<void>
        if (nonceReplay) throw new ApiError("WHITEBIT_NONCE_REPLAY", "Webhook nonce was already processed.", 409);
       const [delivery] = await tx.insert(whitebitWebhookDeliveriesTable).values({ envelopeId: id, nonce: n, method: event, payload: envelope, payloadDigest }).onConflictDoNothing({ target: whitebitWebhookDeliveriesTable.envelopeId }).returning();
       if (!delivery) return;
-       if (!["deposit.accepted", "deposit.updated", "deposit.processed", "deposit.canceled"].includes(event)) return;
+       // Retain the signed cancellation for audit without changing deposit
+       // state or requiring a Production schema migration.
+       if (event === "deposit.canceled") return;
+       if (!["deposit.accepted", "deposit.updated", "deposit.processed"].includes(event)) return;
       const address = typeof params.address === "string" ? params.address : "";
       const rawTicker = (typeof params.ticker === "string" ? params.ticker : typeof params.currency === "string" ? params.currency : "").trim().toUpperCase();
       const network = normalizedNetwork(params.network);

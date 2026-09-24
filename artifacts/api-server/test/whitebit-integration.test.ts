@@ -61,13 +61,9 @@ async function ensureWhitebitSchema(): Promise<void> {
   const migration0074 = await readFile(resolve(
     process.cwd(), "../../lib/db/migrations/0074_whitebit_asset_catalog_mappings.sql",
   ), "utf8");
-  const canceledStatusMigration = await readFile(resolve(
-    process.cwd(), "../../lib/db/migrations/0120_whitebit_canceled_deposit_status.sql",
-  ), "utf8");
   await pool.query(migration0072);
   await pool.query(migration0073);
   await pool.query(migration0074);
-  await pool.query(canceledStatusMigration);
   return;
   /*
   const result = await pool.query<{ present: string | null }>(
@@ -402,88 +398,66 @@ test("webhook transitions are idempotent and only terminal statuses credit once"
   assert.equal(ledger.length, 1);
 });
 
-test("signed cancellation is terminal and idempotent for the exact pending deposit", async () => {
+test("signed cancellation is audited and idempotent without changing a pending deposit", async () => {
   const uniqueId = runId("provider-cancel");
   const params = depositParams(uniqueId, 15);
   assert.equal((await webhook("deposit.accepted", runId("cancel-accepted"), params)).status, 200);
-  assert.equal((await webhook("deposit.canceled", runId("cancel-mismatch"), {
-    ...params, address: `other-${suffix}`,
-  })).status, 200);
-  let [deposit] = await database.db.select().from(database.whitebitDepositsTable)
+  const [before] = await database.db.select().from(database.whitebitDepositsTable)
     .where(eq(database.whitebitDepositsTable.uniqueId, uniqueId));
-  assert.equal(deposit.status, "accepted");
+  assert.equal(before.status, "accepted");
   const first = await webhook("deposit.canceled", runId("cancel-first"), params);
   assert.equal(first.status, 200, JSON.stringify(first.body));
   assert.equal((await webhook("deposit.canceled", runId("cancel-first"), params, nonce)).status, 200);
-  [deposit] = await database.db.select().from(database.whitebitDepositsTable)
-    .where(eq(database.whitebitDepositsTable.uniqueId, uniqueId));
-  const canceledAt = deposit.updatedAt.getTime();
-  assert.equal(deposit.status, "canceled");
-  assert.equal(deposit.creditedAt, null);
   assert.equal((await webhook("deposit.canceled", runId("cancel-second"), params)).status, 200);
-  assert.equal((await webhook("deposit.processed", runId("cancel-late-processed"), { ...params, status: 3 })).status, 200);
-  [deposit] = await database.db.select().from(database.whitebitDepositsTable)
+  const [after] = await database.db.select().from(database.whitebitDepositsTable)
     .where(eq(database.whitebitDepositsTable.uniqueId, uniqueId));
-  assert.equal(deposit.status, "canceled");
-  assert.equal(deposit.updatedAt.getTime(), canceledAt);
+  assert.equal(after.status, "accepted");
+  assert.equal(after.updatedAt.getTime(), before.updatedAt.getTime());
+  assert.equal(after.creditedAt, null);
+  const firstDelivery = await database.db.select().from(database.whitebitWebhookDeliveriesTable)
+    .where(eq(database.whitebitWebhookDeliveriesTable.envelopeId, runId("cancel-first")));
+  const secondDelivery = await database.db.select().from(database.whitebitWebhookDeliveriesTable)
+    .where(eq(database.whitebitWebhookDeliveriesTable.envelopeId, runId("cancel-second")));
+  assert.equal(firstDelivery.length, 1);
+  assert.equal(firstDelivery[0].method, "deposit.canceled");
+  assert.ok(firstDelivery[0].payloadDigest);
+  assert.equal(secondDelivery.length, 1);
   assert.equal((await database.db.select().from(database.whitebitLedgerEntriesTable)
-    .where(eq(database.whitebitLedgerEntriesTable.depositId, deposit.id))).length, 0);
+    .where(eq(database.whitebitLedgerEntriesTable.depositId, after.id))).length, 0);
 });
 
-test("hash-only cancellation matches one existing provisional deposit; credited deposits stay credited", async () => {
-  const provisional = { ...depositParams(runId("cancel-provisional-id"), 15) };
-  delete (provisional as Record<string, unknown>).uniqueId;
-  assert.equal((await webhook("deposit.accepted", runId("cancel-provisional"), provisional)).status, 200);
-  const canceledResponse = await webhook("deposit.canceled", runId("cancel-hash-only"), provisional);
-  assert.equal(canceledResponse.status, 200, JSON.stringify(canceledResponse.body));
-  const [canceled] = await database.db.select().from(database.whitebitDepositsTable)
-    .where(eq(database.whitebitDepositsTable.transactionHash, provisional.transactionHash));
-  assert.equal(canceled.status, "canceled");
-  assert.equal((await replayHistoryRecord({
-    ...provisional, unique_id: runId("cancel-late-stable"), status: 3,
-  })), false);
-  const [stillCanceled] = await database.db.select().from(database.whitebitDepositsTable)
-    .where(eq(database.whitebitDepositsTable.id, canceled.id));
-  assert.equal(stillCanceled.status, "canceled");
-
+test("a signed cancellation leaves an already credited deposit and ledger unchanged", async () => {
   const processedId = runId("cancel-processed-id");
   const processed = depositParams(processedId, 3);
   assert.equal((await webhook("deposit.processed", runId("cancel-processed"), processed)).status, 200);
+  const [before] = await database.db.select().from(database.whitebitDepositsTable)
+    .where(eq(database.whitebitDepositsTable.uniqueId, processedId));
   assert.equal((await webhook("deposit.canceled", runId("cancel-after-processed"), processed)).status, 200);
   const [credited] = await database.db.select().from(database.whitebitDepositsTable)
     .where(eq(database.whitebitDepositsTable.uniqueId, processedId));
   assert.equal(credited.status, "processed");
   assert.ok(credited.creditedAt);
+  assert.equal(credited.updatedAt.getTime(), before.updatedAt.getTime());
   assert.equal((await database.db.select().from(database.whitebitLedgerEntriesTable)
     .where(eq(database.whitebitLedgerEntriesTable.depositId, credited.id))).length, 1);
 });
 
-test("a hash-only cancellation can arrive first, but an identity-free one stays audit-only", async () => {
+test("cancellation without a deposit or valid deposit fields is still audited without a deposit write", async () => {
   const hashOnly = { ...depositParams(runId("cancel-first-hash-id"), 15) };
   delete (hashOnly as Record<string, unknown>).uniqueId;
   assert.equal((await webhook("deposit.canceled", runId("cancel-first-hash"), hashOnly)).status, 200);
-  const [canceled] = await database.db.select().from(database.whitebitDepositsTable)
-    .where(eq(database.whitebitDepositsTable.transactionHash, hashOnly.transactionHash));
-  assert.equal(canceled.status, "canceled");
-  assert.equal(canceled.customerId, customerId);
-  const canceledAt = canceled.updatedAt.getTime();
-  assert.equal((await webhook("deposit.canceled", runId("cancel-first-hash-duplicate"), hashOnly)).status, 200);
-  assert.equal(await replayHistoryRecord({ ...hashOnly, unique_id: runId("cancel-first-hash-stable"), status: 3 }), false);
-  const [unchanged] = await database.db.select().from(database.whitebitDepositsTable)
-    .where(eq(database.whitebitDepositsTable.id, canceled.id));
-  assert.equal(unchanged.updatedAt.getTime(), canceledAt);
-  assert.equal((await database.db.select().from(database.whitebitLedgerEntriesTable)
-    .where(eq(database.whitebitLedgerEntriesTable.depositId, canceled.id))).length, 0);
-
-  const noIdentity = { ...hashOnly };
-  delete (noIdentity as Record<string, unknown>).transactionHash;
-  assert.equal((await webhook("deposit.canceled", runId("cancel-no-identity"), noIdentity)).status, 200);
-  const deposits = await database.db.select().from(database.whitebitDepositsTable)
-    .where(eq(database.whitebitDepositsTable.envelopeId, runId("cancel-no-identity")));
-  assert.equal(deposits.length, 0);
+  assert.equal((await database.db.select().from(database.whitebitDepositsTable)
+    .where(eq(database.whitebitDepositsTable.transactionHash, hashOnly.transactionHash))).length, 0);
+  assert.equal((await webhook("deposit.canceled", runId("cancel-no-identity"), {})).status, 200);
+  const [audited] = await database.db.select().from(database.whitebitWebhookDeliveriesTable)
+    .where(eq(database.whitebitWebhookDeliveriesTable.envelopeId, runId("cancel-no-identity")));
+  assert.equal(audited.method, "deposit.canceled");
+  assert.ok(audited.payloadDigest);
+  assert.equal((await database.db.select().from(database.whitebitDepositsTable)
+    .where(eq(database.whitebitDepositsTable.envelopeId, runId("cancel-no-identity")))).length, 0);
 });
 
-test("invalid signature and unknown webhook method cannot cancel a deposit", async () => {
+test("invalid signature and unknown webhook method cannot create a deposit", async () => {
   const uniqueId = runId("cancel-unknown-id");
   const params = depositParams(uniqueId, 15);
   assert.equal((await webhook("unrecognized.event", runId("cancel-unknown"), params)).status, 200);
@@ -500,6 +474,8 @@ test("invalid signature and unknown webhook method cannot cancel a deposit", asy
     body,
   });
   assert.equal(response.status, 401);
+  assert.equal((await database.db.select().from(database.whitebitWebhookDeliveriesTable)
+    .where(eq(database.whitebitWebhookDeliveriesTable.envelopeId, runId("cancel-invalid")))).length, 0);
   assert.equal((await database.db.select().from(database.whitebitDepositsTable)
     .where(eq(database.whitebitDepositsTable.uniqueId, uniqueId))).length, 0);
 });

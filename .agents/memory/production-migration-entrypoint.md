@@ -9,7 +9,7 @@ Treat a shorter production Drizzle history as history divergence, not proof of p
 
 A publish schema diff reporting no changes does not prove that handwritten PostgreSQL CHECK-constraint changes have propagated. Compare the named constraint definition in Development and Production before relying on Publish to carry such a migration.
 
-**Why:** The WhiteBIT deposit status constraint differed between the two databases even while the publish-time diff reported zero pending statements. A new application status would be rejected by Production if code were published first.
+**Why:** A handwritten status constraint once differed between Development and Production even while the publish-time diff reported zero pending statements. A new application status could have been rejected by Production if code were published first.
 
 **How to apply:** Preflight the exact catalog constraint and row compatibility read-only. If the diff omits a required constraint change, do not publish code that writes the new value until a supported, separately authorized schema application path is identified and verified.
 

@@ -75,13 +75,11 @@ async function migrateTestTables() {
   const migration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0073_whitebit_swap_order_addresses.sql"), "utf8");
   const catalogMigration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0074_whitebit_asset_catalog_mappings.sql"), "utf8");
   const providerMigration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0075_crypto_network_deposit_provider.sql"), "utf8");
-  const canceledStatusMigration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0120_whitebit_canceled_deposit_status.sql"), "utf8");
   await pool.query(baseMigration);
   await pool.query(migration);
   await pool.query(catalogMigration);
   await pool.query(providerMigration);
   await pool.query(migration);
-  await pool.query(canceledStatusMigration);
 }
 
 async function mockAssets(network = "BITCOIN", asset = "BTC") {
@@ -822,7 +820,7 @@ test("signed WhiteBIT webhook attaches the exact Swap order without ledger credi
   assert.equal(row.depositAddress, claim.address);
 });
 
-test("canceled WhiteBIT deposit stays on its exact order without canceling another order", async () => {
+test("canceled WhiteBIT delivery is audited without changing either order or its deposit", async () => {
   const firstOrderId = `${orderId}-canceled-deposit`;
   const otherOrderId = `${orderId}-unrelated-deposit`;
   await insertProvisioningOrder(firstOrderId);
@@ -841,20 +839,21 @@ test("canceled WhiteBIT deposit stays on its exact order without canceling anoth
   assert.equal((await signedOrderWebhook(uniqueId, firstAddress, "BITCOIN", "TAG-1", "deposit.accepted", 15)).status, 200);
   const [orderBefore] = await database.db.select().from(database.ordersTable).where(eq(database.ordersTable.id, firstOrderId));
   const [otherBefore] = await database.db.select().from(database.ordersTable).where(eq(database.ordersTable.id, otherOrderId));
-  // A real provider identity on a different WhiteBIT address must not be
-  // interpreted as permission to cancel either order's deposit.
+  // The delivery is audited regardless of its address, but neither the
+  // original nor an unrelated order or deposit is changed by cancellation.
   assert.equal((await signedOrderWebhook(uniqueId, otherAddress, "BITCOIN", "TAG-1", "deposit.canceled", 15, "wrong-order")).status, 200);
   let [deposit] = await database.db.select().from(database.whitebitDepositsTable)
     .where(eq(database.whitebitDepositsTable.uniqueId, uniqueId));
   assert.equal(deposit.status, "accepted");
   assert.equal(deposit.orderId, firstOrderId);
+  const unchangedAt = deposit.updatedAt.getTime();
   assert.equal((await signedOrderWebhook(uniqueId, firstAddress, "BITCOIN", "TAG-1", "deposit.canceled", 15)).status, 200);
   assert.equal((await signedOrderWebhook(uniqueId, firstAddress, "BITCOIN", "TAG-1", "deposit.canceled", 15, "duplicate")).status, 200);
-  assert.equal((await signedOrderWebhook(uniqueId, firstAddress, "BITCOIN", "TAG-1", "deposit.processed", 3)).status, 200);
   [deposit] = await database.db.select().from(database.whitebitDepositsTable)
     .where(eq(database.whitebitDepositsTable.uniqueId, uniqueId));
-  assert.equal(deposit.status, "canceled");
+  assert.equal(deposit.status, "accepted");
   assert.equal(deposit.orderId, firstOrderId);
+  assert.equal(deposit.updatedAt.getTime(), unchangedAt);
   assert.equal(deposit.creditedAt, null);
   assert.equal((await database.db.select().from(database.whitebitDepositsTable)
     .where(eq(database.whitebitDepositsTable.orderId, otherOrderId))).length, 0);

@@ -15,11 +15,11 @@ Credit eligibility requires a stable WhiteBIT transaction or unique ID. When bot
 
 **How to apply:** Normalize provider tickers separately from the base asset/network request contract, lock every stable alias in deterministic order, credit once per immutable deposit row, and reconcile each address from offset zero to its high-water identity without requesting beyond the provider’s 10,000-record window.
 
-A WhiteBIT deposit cancellation ends only the identified funding attempt, not its associated order. Keep the deposit canceled on later webhook or history replays; do not automatically undo an already credited balance or cancel an order.
+A signed WhiteBIT `deposit.canceled` webhook is audit-only until Production has an approved deposit-status constraint change. It must not change a deposit, ledger, address, or order; the existing accepted/updated/processed and history evidence paths remain authoritative.
 
-**Why:** One order address may receive multiple independent funding attempts. An address-only cancellation could terminate the wrong attempt or order, while a late processed replay could wrongly restore and credit a canceled attempt.
+**Why:** Production's old WhiteBIT deposit constraint rejects `canceled`, and its managed Publish schema diff did not expose the handwritten CHECK change. Writing the new value would fail webhook delivery; treating an address-only cancellation as order-wide would also risk an unrelated funding attempt.
 
-**How to apply:** Require an unambiguous provider ID or transaction hash on the exact address, asset, network, and memo before changing a deposit; retain the order link for audit, but leave the order open for other valid deposits.
+**How to apply:** Verify webhook signature and envelope replay protection, persist the authenticated delivery, then acknowledge cancellation without deposit processing. Do not claim that audit-only cancellation blocks later authenticated processed/history evidence; that would require a separate approved lifecycle design.
 
 Manual Swap funding addresses use an order-scoped claim, not the customer deposit balance path. Persist the chosen funding source before the provider call, grant call ownership through a database claim-token compare-and-set, and freeze either the generated address or the exact snapshotted fallback as the order’s permanent assignment.
 
