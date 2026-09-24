@@ -68,3 +68,9 @@ WhiteBIT provisioning must lock credential state before provider state and carry
 **Why:** Re-reading credentials after claiming can race an Admin rotation or disable operation, causing the claim to be authorized under one state while the provider call uses another.
 
 **How to apply:** Acquire the credential advisory lock before the provider lock, read settings and persisted credentials through the same transaction, snapshot persisted-or-environment credentials, and pass that snapshot explicitly to the provider call.
+
+The order-address claim's provider ticker/network must equal the identity used in the actual address request, not just the canonical route identity. Provider enablement must likewise project verified route proofs onto provider asset/network pairs before filtering live capabilities.
+
+**Why:** A mapped route can create an address successfully yet fail exact-tuple webhook/history association if its preclaimed provider identity remains canonical. Filtering activation capabilities by canonical codes can also make a valid mapped proof appear unsupported.
+
+**How to apply:** Freeze both canonical and provider identities at quote/order creation, reject mismatched durable claims before any provider call, and keep canonical codes only for route/proof identity while using provider codes for calls and reconciliation.

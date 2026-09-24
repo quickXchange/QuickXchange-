@@ -841,6 +841,13 @@
       "when": 1790199089841,
       "tag": "0121_manual_wallet_tracking",
       "breakpoints": true
+    },
+    {
+      "idx": 122,
+      "version": "7",
+      "when": 1790291306315,
+      "tag": "0122_flowery_blacklash",
+      "breakpoints": true
     }
   ]
 }

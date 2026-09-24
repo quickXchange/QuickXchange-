@@ -23,7 +23,12 @@ import { requireCustomer } from "../lib/customer-auth";
 import { ApiError } from "../lib/api-error";
 import { requireOperator, requireOwner } from "../lib/operator-auth";
 import { customerDepositRouteConfigurationDigest } from "../lib/customer-deposit-eligibility";
-import { isWhitebitSwapEnabled, parseWhitebitCatalogAssets } from "../lib/whitebit-capabilities";
+import {
+  getWhitebitCapabilities,
+  matchWhitebitRouteCapability,
+  parseWhitebitCatalogAssets,
+  type WhitebitCapabilitySnapshot,
+} from "../lib/whitebit-capabilities";
 import {
   getWhitebitCredentialStorageState,
   whitebitCredentialFingerprint,
@@ -111,12 +116,37 @@ export async function verifyWhitebitDepositAddressPermission(
   ticker: string,
   network: string,
   candidate?: WhitebitCredentials,
+  mapping?: { whitebitAssetCode?: string | null; whitebitNetworkCode?: string | null },
 ) {
+  const providerTicker = mapping?.whitebitAssetCode?.trim().toUpperCase() || ticker.trim().toUpperCase();
+  const providerNetwork = mapping?.whitebitNetworkCode?.trim().toUpperCase() || network.trim().toUpperCase();
+  if (Boolean(mapping?.whitebitAssetCode) !== Boolean(mapping?.whitebitNetworkCode)) {
+    throw new ApiError(
+      "WHITEBIT_MAPPING_INVALID",
+      "Both WhiteBIT asset and network codes must be selected together.",
+      422,
+    );
+  }
+  const capabilities = await getWhitebitCapabilities();
+  const capability = matchWhitebitRouteCapability(
+    capabilities,
+    ticker,
+    network,
+    mapping?.whitebitAssetCode,
+    mapping?.whitebitNetworkCode,
+  );
+  if (!capability || capability.providerTicker !== providerTicker || capability.providerNetwork !== providerNetwork) {
+    throw new ApiError(
+      "WHITEBIT_ROUTE_UNSUPPORTED",
+      `WhiteBIT does not advertise deposits for ${providerTicker} · ${providerNetwork}.`,
+      422,
+    );
+  }
   const result = await whitebitPost<Record<string, unknown>>(
     "/api/v4/main-account/create-new-address",
     {
-      ticker,
-      network,
+      ticker: capability.providerTicker,
+      network: capability.providerNetwork,
     },
     candidate,
   );
@@ -147,6 +177,7 @@ async function validateOrderDepositInstructions(
   assetCode: string,
   networkCode: string,
   instructions: { address: string; memo: string | null },
+  mapping?: { whitebitAssetCode?: string | null; whitebitNetworkCode?: string | null },
 ): Promise<{ address: string; memo: string } | null> {
   const [order] = await db.select({
     sourceSettlementOptionId: ordersTable.sourceSettlementOptionId,
@@ -159,6 +190,18 @@ async function validateOrderDepositInstructions(
     order.fromNetwork.trim().toUpperCase() !== networkCode.trim().toUpperCase()
   ) return null;
   const funding = (order.fundingDetailsSnapshot ?? {}) as Record<string, unknown>;
+  const frozenWhitebitAssetCode =
+    typeof funding.whitebitAssetCode === "string"
+      ? funding.whitebitAssetCode.trim().toUpperCase()
+      : null;
+  const frozenWhitebitNetworkCode =
+    typeof funding.whitebitNetworkCode === "string"
+      ? funding.whitebitNetworkCode.trim().toUpperCase()
+      : null;
+  if (
+    frozenWhitebitAssetCode !== (mapping?.whitebitAssetCode?.trim().toUpperCase() || null) ||
+    frozenWhitebitNetworkCode !== (mapping?.whitebitNetworkCode?.trim().toUpperCase() || null)
+  ) return null;
   const routeId = signedCryptoRouteId({
     id: order.sourceSettlementOptionId ?? "",
     networkId: typeof funding.networkId === "string" ? funding.networkId : null,
@@ -171,7 +214,9 @@ async function validateOrderDepositInstructions(
     .innerJoin(cryptoAssetsTable, eq(cryptoAssetsTable.id, cryptoAssetNetworksTable.assetId))
     .where(eq(cryptoAssetNetworksTable.id, routeId)).limit(1);
   if (!exactRoute ||
-    exactRoute.assetCode.toUpperCase() !== assetCode.trim().toUpperCase()
+    exactRoute.assetCode.toUpperCase() !== assetCode.trim().toUpperCase() ||
+    (exactRoute.route.whitebitAssetCode ?? null) !== (mapping?.whitebitAssetCode ?? null) ||
+    (exactRoute.route.whitebitNetworkCode ?? null) !== (mapping?.whitebitNetworkCode ?? null)
   ) return null;
   const address = instructions.address.trim();
   const memo = instructions.memo?.trim() ?? "";
@@ -191,12 +236,21 @@ export async function provisionSwapFundingAddress(input: {
   orderId: string;
   assetCode: string;
   networkCode: string;
+  whitebitAssetCode?: string | null;
+  whitebitNetworkCode?: string | null;
   manualAddress: string;
   manualMemo: string;
   manualFallbackUsable?: boolean;
   chosenWhitebit: boolean;
   expectedClaimToken?: string;
 }) {
+  const whitebitAssetCode = input.whitebitAssetCode?.trim().toUpperCase() || null;
+  const whitebitNetworkCode = input.whitebitNetworkCode?.trim().toUpperCase() || null;
+  const requestedMappingIsComplete = Boolean(whitebitAssetCode) === Boolean(whitebitNetworkCode);
+  const whitebitMapping = {
+    whitebitAssetCode,
+    whitebitNetworkCode,
+  };
   const fallbackInstructions = input.manualFallbackUsable === false
     ? null
     : await validateOrderDepositInstructions(
@@ -204,6 +258,7 @@ export async function provisionSwapFundingAddress(input: {
         input.assetCode,
         input.networkCode,
         { address: input.manualAddress, memo: input.manualMemo },
+        whitebitMapping,
       );
   const manualFallbackAddress = fallbackInstructions?.address ?? "";
   const manualFallbackMemo = fallbackInstructions?.memo ?? "";
@@ -239,8 +294,21 @@ export async function provisionSwapFundingAddress(input: {
           ? current.manualFallbackMemo
           : "";
         const trackingEnabled = current.manualWalletTrackingEnabled !== false;
+        const snapshotWhitebitAssetCode =
+          typeof current.whitebitAssetCode === "string"
+            ? current.whitebitAssetCode.trim().toUpperCase()
+            : null;
+        const snapshotWhitebitNetworkCode =
+          typeof current.whitebitNetworkCode === "string"
+            ? current.whitebitNetworkCode.trim().toUpperCase()
+            : null;
         const routeMatchesSnapshot = Boolean(
           route &&
+          requestedMappingIsComplete &&
+          snapshotWhitebitAssetCode === whitebitAssetCode &&
+          snapshotWhitebitNetworkCode === whitebitNetworkCode &&
+          (route.network.whitebitAssetCode ?? null)?.trim().toUpperCase() === snapshotWhitebitAssetCode &&
+          (route.network.whitebitNetworkCode ?? null)?.trim().toUpperCase() === snapshotWhitebitNetworkCode &&
           route.asset.enabled &&
           route.asset.lifecycle !== "deprecated" &&
           route.network.enabled &&
@@ -304,7 +372,22 @@ export async function provisionSwapFundingAddress(input: {
   if (!input.chosenWhitebit) {
     return { source: "manual" as const, address: input.manualAddress, memo: input.manualMemo, unresolved: false };
   }
-  const capability = await isWhitebitSwapEnabled(input.assetCode, input.networkCode);
+  let capabilities: WhitebitCapabilitySnapshot | null = null;
+  try {
+    capabilities = await getWhitebitCapabilities();
+  } catch {
+    // An unavailable live catalog is never evidence that a mapped route is
+    // supported. The existing exact Manual fallback rules still apply.
+  }
+  const capability = requestedMappingIsComplete && capabilities
+    ? matchWhitebitRouteCapability(
+        capabilities,
+        input.assetCode,
+        input.networkCode,
+        whitebitAssetCode,
+        whitebitNetworkCode,
+      )
+    : null;
   if (!capability || !(await hasOrderAddressTable())) {
     const usedFallback = await fallback("WhiteBIT capability or address storage is unavailable.");
     return { source: "whitebit" as const, address: usedFallback ? input.manualAddress : null, memo: usedFallback ? input.manualMemo : null, unresolved: !usedFallback };
@@ -338,11 +421,22 @@ export async function provisionSwapFundingAddress(input: {
         ? fundingSnapshot.memo
         : "";
     const trackingEnabled = fundingSnapshot.manualWalletTrackingEnabled !== false;
+    const snapshotWhitebitAssetCode =
+      typeof fundingSnapshot.whitebitAssetCode === "string"
+        ? fundingSnapshot.whitebitAssetCode.trim().toUpperCase()
+        : null;
+    const snapshotWhitebitNetworkCode =
+      typeof fundingSnapshot.whitebitNetworkCode === "string"
+        ? fundingSnapshot.whitebitNetworkCode.trim().toUpperCase()
+        : null;
     if (
       routeId !== order.sourceSettlementOptionId?.replace(/^crypto:/, "") ||
       routeId !== fundingSnapshot.networkId ||
       order.fromAsset.trim().toUpperCase() !== input.assetCode.trim().toUpperCase() ||
       order.fromNetwork.trim().toUpperCase() !== input.networkCode.trim().toUpperCase() ||
+      !requestedMappingIsComplete ||
+      snapshotWhitebitAssetCode !== whitebitAssetCode ||
+      snapshotWhitebitNetworkCode !== whitebitNetworkCode ||
       fundingSnapshot.depositProvider !== "whitebit" ||
       fundingSnapshot.customerDepositsEnabled !== true
     ) return { claim: undefined, row: undefined, disabled: true };
@@ -388,7 +482,9 @@ export async function provisionSwapFundingAddress(input: {
       route.network.customerDepositsEnabled !== true ||
       route.network.manualWalletTrackingEnabled !== trackingEnabled ||
       route.network.sharedDepositAddress !== snapshotAddress ||
-      (route.network.sharedDepositMemo ?? "") !== snapshotMemo
+      (route.network.sharedDepositMemo ?? "") !== snapshotMemo ||
+      (route.network.whitebitAssetCode ?? null)?.trim().toUpperCase() !== snapshotWhitebitAssetCode ||
+      (route.network.whitebitNetworkCode ?? null)?.trim().toUpperCase() !== snapshotWhitebitNetworkCode
     ) return { claim: undefined, row: undefined, disabled: true };
     const routeDigest = customerDepositRouteConfigurationDigest(route.asset, route.network);
     const hasCurrentRouteProof = (setting.depositRouteProofs ?? []).some((proof) =>
@@ -420,6 +516,14 @@ export async function provisionSwapFundingAddress(input: {
       const usedFallback = await fallback("WhiteBIT address claim could not be created.");
       return { source: "whitebit" as const, address: usedFallback ? input.manualAddress : null, memo: usedFallback ? input.manualMemo : null, unresolved: !usedFallback };
     }
+  // The durable claim is also the webhook/history reconciliation identity.
+  // A conflicting legacy or replayed tuple must never request an address on
+  // a different provider network.
+  if (row.providerTicker !== capability.providerTicker || row.network !== capability.providerNetwork ||
+      row.ticker !== input.assetCode.trim().toUpperCase()) {
+    const usedFallback = await fallback("The WhiteBIT address claim does not match the frozen route mapping.");
+    return { source: "whitebit" as const, address: usedFallback ? input.manualAddress : null, memo: usedFallback ? input.manualMemo : null, unresolved: !usedFallback };
+  }
   if (row.status === "ready" && row.address) {
     return { source: "whitebit" as const, address: row.address, memo: row.memo ?? "", unresolved: false, confirmations: capability.requiredConfirmations };
   }
@@ -454,7 +558,7 @@ export async function provisionSwapFundingAddress(input: {
   }
   const parsedAddress = parseWhitebitAddressResponse(result);
   const validatedAddress = parsedAddress
-    ? await validateOrderDepositInstructions(input.orderId, input.assetCode, input.networkCode, parsedAddress)
+    ? await validateOrderDepositInstructions(input.orderId, input.assetCode, input.networkCode, parsedAddress, whitebitMapping)
     : null;
   if (!validatedAddress) {
     await finalizeClaimAndOrder(input.orderId, calling.id, {
@@ -785,7 +889,10 @@ export async function processNormalizedDeposit(tx: WhitebitTransaction, input: N
   if (await hasOrderAddressTable()) {
     orderRows = await tx.select().from(whitebitOrderAddressesTable).where(and(
       eq(whitebitOrderAddressesTable.address, input.address),
-      eq(whitebitOrderAddressesTable.ticker, input.ticker),
+      or(
+        eq(whitebitOrderAddressesTable.providerTicker, input.ticker),
+        eq(whitebitOrderAddressesTable.providerTicker, input.providerTicker),
+      ),
       eq(whitebitOrderAddressesTable.network, input.network),
       input.memo === null ? sql`${whitebitOrderAddressesTable.memo} IS NULL` : eq(whitebitOrderAddressesTable.memo, input.memo),
       eq(whitebitOrderAddressesTable.status, "ready"),
@@ -794,6 +901,8 @@ export async function processNormalizedDeposit(tx: WhitebitTransaction, input: N
   const orderAddressRow = orderRows.length === 1 ? orderRows[0] : undefined;
   const ambiguousMapping = orderRows.length > 1 || rows.length > 1 ||
     (rows.length === 1 && orderRows.length > 0);
+  const canonicalTicker = orderAddressRow && !ambiguousMapping
+    ? orderAddressRow.ticker : input.ticker;
   const terminal = input.event === "deposit.processed" && [3, 7].includes(Number(input.status));
   const lockAliases = [input.transactionId, input.uniqueId, input.transactionHash]
     .filter((value): value is string => Boolean(value)).sort();
@@ -811,7 +920,7 @@ export async function processNormalizedDeposit(tx: WhitebitTransaction, input: N
     addressId: ambiguousMapping || orderAddressRow ? null : addressRow?.id ?? null,
     orderAddressId: ambiguousMapping ? null : orderAddressRow?.id ?? null,
     orderId: ambiguousMapping ? null : orderAddressRow?.orderId ?? null,
-    ticker: input.ticker, providerTicker: input.providerTicker, network: input.network,
+    ticker: canonicalTicker, providerTicker: input.providerTicker, network: input.network,
     address: input.address, memo: input.memo, amount: input.amount, fee: input.fee,
     status: terminal ? "processed" : input.event === "deposit.accepted" ? "accepted" : "updated",
     providerStatus: input.status, transactionHash: input.transactionHash,
@@ -825,7 +934,7 @@ export async function processNormalizedDeposit(tx: WhitebitTransaction, input: N
     .where(eq(whitebitDepositsTable.providerIdentity, identity)).limit(1))[0];
   if (!deposit) return false;
   if (deposit.creditedAt && (!decimalEqual(deposit.amount, input.amount) || !decimalEqual(deposit.fee, input.fee) ||
-      deposit.ticker !== input.ticker || deposit.network !== input.network)) {
+      deposit.ticker !== canonicalTicker || deposit.network !== input.network)) {
     await tx.update(whitebitDepositsTable).set({
       conflict: "Terminal replay disagrees with immutable credited economic fields.",
       rawPayload: input.rawPayload, updatedAt: new Date(),
@@ -893,8 +1002,8 @@ export async function processNormalizedDeposit(tx: WhitebitTransaction, input: N
           "payment_received",
           {
             amount: nextAmount,
-            asset: input.ticker,
-            network: input.network,
+            asset: order.fromAsset,
+            network: order.fromNetwork,
           },
         );
       }

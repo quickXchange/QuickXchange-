@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import test from "node:test";
 import { assetIdentity, classifyWhitebitHttpStatus, historyRecords, isCreditEligible, parseWhitebitAddressResponse, verifyWhitebitSignature } from "../src/routes/whitebit";
-import { matchWhitebitCapability, parseWhitebitAssets, parseWhitebitCatalogAssets, shouldReserveWhitebitOrderFunding } from "../src/lib/whitebit-capabilities";
+import { matchWhitebitCapability, matchWhitebitRouteCapability, parseWhitebitAssets, parseWhitebitCatalogAssets, shouldReserveWhitebitOrderFunding } from "../src/lib/whitebit-capabilities";
 import { listDepositProviderOptions } from "../src/lib/deposit-provider-registry";
 import {
   canAcceptManualCryptoDeposit,
@@ -74,6 +74,29 @@ test("deposit capability uses exact asset and network codes, not display names o
   assert.equal(isConfiguredYouSendCryptoNetwork({
     enabled: true, depositProvider: "whitebit", customerDepositsEnabled: false,
   }), false);
+});
+
+test("WhiteBIT route mappings require exact canonical matches or an explicit advertised provider route", () => {
+  const assets = parseWhitebitAssets({
+    BTC: { can_deposit: true, networks: { deposits: ["BTC"] } },
+    AVAX: { can_deposit: true, networks: { deposits: ["CCHAIN", "XCHAIN"] } },
+  });
+  assert.ok(assets);
+  const snapshot = { fetchedAt: 1, assets: assets! };
+
+  // An unmapped exact internal route retains backwards-compatible behavior.
+  assert.equal(matchWhitebitRouteCapability(snapshot, "BTC", "BTC")?.providerNetwork, "BTC");
+  // BTC / BITCOIN is not inferred from a similar name.
+  assert.equal(matchWhitebitRouteCapability(snapshot, "BTC", "BITCOIN"), null);
+  assert.equal(matchWhitebitRouteCapability(snapshot, "BTC", "BITCOIN", "BTC", "BTC")?.providerNetwork, "BTC");
+
+  // AVAXC does not implicitly resolve to either of two provider networks.
+  assert.equal(matchWhitebitRouteCapability(snapshot, "AVAX", "AVAXC"), null);
+  assert.equal(matchWhitebitRouteCapability(snapshot, "AVAX", "AVAXC", "AVAX", "CCHAIN")?.providerNetwork, "CCHAIN");
+  assert.equal(matchWhitebitRouteCapability(snapshot, "AVAX", "AVAXC", "AVAX", "XCHAIN")?.providerNetwork, "XCHAIN");
+  assert.equal(matchWhitebitRouteCapability(snapshot, "AVAX", "AVAXC", "AVAX", "BSC"), null);
+  assert.equal(matchWhitebitRouteCapability(snapshot, "AVAX", "AVAXC", "AVAX", null), null);
+  assert.equal(matchWhitebitRouteCapability(snapshot, "AVAX", "AVAXC", null, "CCHAIN"), null);
 });
 
 test("WhiteBIT asset identity keeps create requests base-ticker safe and parses provider network tickers", () => {

@@ -3332,6 +3332,18 @@ export interface CryptoNetworkInput {
   decimals: number;
   executionMode?: CryptoNetworkInputExecutionMode;
   depositProvider?: CryptoNetworkInputDepositProvider;
+  /**
+     * @minLength 2
+     * @maxLength 16
+     * @nullable
+     */
+  whitebitAssetCode?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 32
+     * @nullable
+     */
+  whitebitNetworkCode?: string | null;
   lifecycle?: CryptoNetworkInputLifecycle;
   /**
      * @maxItems 20
@@ -3425,6 +3437,21 @@ export const CryptoDepositProviderAssignmentInputDepositProvider = {
   whitebit: 'whitebit',
 } as const;
 
+export interface WhitebitRouteMappingSelection {
+  /** @pattern ^[a-z0-9][a-z0-9-]{0,80}$ */
+  networkId: string;
+  /**
+     * @minLength 2
+     * @maxLength 16
+     */
+  assetCode: string;
+  /**
+     * @minLength 1
+     * @maxLength 32
+     */
+  networkCode: string;
+}
+
 export interface CryptoDepositProviderAssignmentInput {
   /**
      * @minItems 1
@@ -3433,6 +3460,8 @@ export interface CryptoDepositProviderAssignmentInput {
      */
   networkIds: string[];
   depositProvider: CryptoDepositProviderAssignmentInputDepositProvider;
+  /** @maxItems 500 */
+  whitebitMappings?: WhitebitRouteMappingSelection[];
 }
 
 export type CryptoDepositProviderAssignmentApplyDepositProvider = typeof CryptoDepositProviderAssignmentApplyDepositProvider[keyof typeof CryptoDepositProviderAssignmentApplyDepositProvider];
@@ -3454,6 +3483,8 @@ export interface CryptoDepositProviderAssignmentApply {
   depositProvider: CryptoDepositProviderAssignmentApplyDepositProvider;
   /** @pattern ^[a-f0-9]{64}$ */
   reviewToken: string;
+  /** @maxItems 500 */
+  whitebitMappings?: WhitebitRouteMappingSelection[];
 }
 
 export type CryptoDepositProviderAssignmentRouteStatus = typeof CryptoDepositProviderAssignmentRouteStatus[keyof typeof CryptoDepositProviderAssignmentRouteStatus];
@@ -3465,6 +3496,15 @@ export const CryptoDepositProviderAssignmentRouteStatus = {
   requires_configuration: 'requires_configuration',
 } as const;
 
+export type CryptoDepositProviderAssignmentRouteMappingStatus = typeof CryptoDepositProviderAssignmentRouteMappingStatus[keyof typeof CryptoDepositProviderAssignmentRouteMappingStatus];
+
+
+export const CryptoDepositProviderAssignmentRouteMappingStatus = {
+  supported: 'supported',
+  unsupported: 'unsupported',
+  mapping_required: 'mapping_required',
+} as const;
+
 export interface CryptoDepositProviderAssignmentRoute {
   networkId: string;
   assetCode: string;
@@ -3473,6 +3513,12 @@ export interface CryptoDepositProviderAssignmentRoute {
   status: CryptoDepositProviderAssignmentRouteStatus;
   reason: string;
   customerDepositsAfter: boolean;
+  /** @nullable */
+  whitebitAssetCode?: string | null;
+  /** @nullable */
+  whitebitNetworkCode?: string | null;
+  whitebitNetworkOptions?: string[];
+  mappingStatus?: CryptoDepositProviderAssignmentRouteMappingStatus;
 }
 
 export interface CryptoDepositProviderAssignmentPreview {
@@ -3638,6 +3684,18 @@ export interface CryptoNetworkReceivingWalletInput {
      * @maxLength 64
      */
   depositProvider?: string;
+  /**
+     * @minLength 2
+     * @maxLength 16
+     * @nullable
+     */
+  whitebitAssetCode?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 32
+     * @nullable
+     */
+  whitebitNetworkCode?: string | null;
   manualWalletTrackingEnabled?: boolean;
   customerDepositsEnabled?: boolean;
   preserveDepositProviders?: boolean;

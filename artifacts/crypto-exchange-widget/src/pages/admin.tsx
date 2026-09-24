@@ -100,7 +100,7 @@ import {
   useListBlockchainMonitoringMatches,
   useReviewBlockchainMonitoringMatch
 } from '@workspace/api-client-react';
-import type { Asset, Customer, Order, PublicOrderStatus, ApiError, QuickexRateMode, CustomerOrder, FiatCurrency, OneForgeProviderStatus, WhitebitProviderStatus, ManualDeskPricingRule, ManualDeskPricingRuleInput, ManualDeskPricingQuotePreviewInput, SettlementOption, PaymentMethod, PaymentMethodFieldDefinition, CryptoAsset, CryptoNetwork, OrderBulkMutationResponse, OrderBulkStatusInputManualSettlementState, AffiliateAccount, AffiliateSettings, AffiliatePayout, AffiliateOverview, AffiliateAccountPage, AffiliateCommission, AffiliateAccountDetail, AffiliateValuationReview, AffiliateReferral, AffiliateDashboard, ManualDeskPricingRulesBulkResponse, ManualDeskPricingRulesBulkPatch, BlockchainMonitoringNetwork, BlockchainMonitoringAsset, BlockchainMonitoringWatch, BlockchainMonitoringMatch, BlockchainMonitoringReviewInputDecision } from '@workspace/api-client-react';
+import type { Asset, Customer, Order, PublicOrderStatus, ApiError, QuickexRateMode, CustomerOrder, FiatCurrency, OneForgeProviderStatus, WhitebitProviderStatus, ManualDeskPricingRule, ManualDeskPricingRuleInput, ManualDeskPricingQuotePreviewInput, SettlementOption, PaymentMethod, PaymentMethodFieldDefinition, CryptoAsset, CryptoNetwork, CryptoDepositProviderAssignmentRoute, OrderBulkMutationResponse, OrderBulkStatusInputManualSettlementState, AffiliateAccount, AffiliateSettings, AffiliatePayout, AffiliateOverview, AffiliateAccountPage, AffiliateCommission, AffiliateAccountDetail, AffiliateValuationReview, AffiliateReferral, AffiliateDashboard, ManualDeskPricingRulesBulkResponse, ManualDeskPricingRulesBulkPatch, BlockchainMonitoringNetwork, BlockchainMonitoringAsset, BlockchainMonitoringWatch, BlockchainMonitoringMatch, BlockchainMonitoringReviewInputDecision } from '@workspace/api-client-react';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { CryptoIdentity, CryptoLogo, CryptoNetworkBadge, cryptoLogoFallbackUrls } from '@/components/crypto-identity';
@@ -7445,6 +7445,11 @@ function AdminCurrencies() {
                   </small>
                   <small>Customer Deposits: {item.customerDepositsEnabled ? 'Enabled' : 'Disabled'}</small>
                   <small>Manual Wallet Tracking: {item.manualWalletTrackingEnabled ? 'On' : 'Off'}</small>
+                  {item.depositProvider === 'whitebit' && (
+                    <small>
+                      WhiteBIT Mapping: {item.whitebitAssetCode || networkAsset?.code || '—'} · {item.whitebitNetworkCode || item.networkCode} — {item.whitebitNetworkCode ? 'Explicit selection' : 'Exact-code candidate; review live support in editor'}
+                    </small>
+                  )}
                 </>
               )}
             </span>
@@ -9500,6 +9505,8 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
     sharedDepositAddress: isNew ? '' : (network?.sharedDepositAddress || ''),
     sharedDepositMemo: isNew ? '' : (network?.sharedDepositMemo || ''),
     depositProvider: isNew ? 'manual' : (network?.depositProvider || 'manual'),
+    whitebitAssetCode: isNew ? '' : ((network as any)?.whitebitAssetCode || ''),
+    whitebitNetworkCode: isNew ? '' : ((network as any)?.whitebitNetworkCode || ''),
     manualWalletTrackingEnabled: isNew ? false : (network?.manualWalletTrackingEnabled ?? false),
     networkFamily: isNew ? '' : ((network as any)?.networkFamily || ''),
     executionMode: isNew ? 'manual' : ((network as any)?.executionMode || 'manual'),
@@ -9513,42 +9520,64 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
   const [monitoringReadiness, setMonitoringReadiness] = useState<CryptoNetwork['monitoringReadiness']>(
     isNew ? undefined : network?.monitoringReadiness,
   );
-  const [whitebitReview, setWhitebitReview] = useState<{ key: string; message: string | null } | null>(null);
+  const [whitebitMappingReview, setWhitebitMappingReview] = useState<{ key: string; route: CryptoDepositProviderAssignmentRoute | null } | null>(null);
   const selectedAsset = assetsQuery.data?.find((asset: CryptoAsset) => asset.id === form.assetId);
   const isWhitebitProvider = form.depositProvider === 'whitebit';
   const networkCode = form.networkCode.trim();
   const networkName = form.networkName.trim();
   const reviewedNetwork = network && network !== 'new' ? network : null;
-  const whitebitReviewKey = `${reviewedNetwork?.id || ''}:${form.depositProvider}:${form.customerDepositsEnabled}`;
+  const whitebitReviewKey = `${reviewedNetwork?.id || ''}:${form.depositProvider}:${form.whitebitAssetCode}:${form.whitebitNetworkCode}`;
   const needsWhitebitReview = Boolean(reviewedNetwork && isWhitebitProvider);
-  const whitebitReviewPending = needsWhitebitReview && whitebitReview?.key !== whitebitReviewKey;
-  const whitebitReviewMessage = needsWhitebitReview && whitebitReview?.key === whitebitReviewKey
-    ? whitebitReview.message : null;
+  const whitebitReviewPending = needsWhitebitReview && whitebitMappingReview?.key !== whitebitReviewKey;
+  const whitebitRouteReview = needsWhitebitReview && whitebitMappingReview?.key === whitebitReviewKey
+    ? whitebitMappingReview.route : null;
+  const whitebitMappingStatus = whitebitRouteReview?.mappingStatus;
+  const whitebitNetworkOptions = (whitebitRouteReview?.whitebitNetworkOptions || []) as string[];
+  const mappedWhitebitAssetCode = whitebitRouteReview?.whitebitAssetCode ||
+    form.whitebitAssetCode || selectedAsset?.code || '';
+  const selectedWhitebitNetworkCode = form.whitebitNetworkCode ||
+    (whitebitMappingStatus === 'supported' ? whitebitRouteReview?.whitebitNetworkCode || '' : '');
 
   useEffect(() => {
     if (!needsWhitebitReview || !reviewedNetwork) return;
     let cancelled = false;
     const routeId = reviewedNetwork.id;
+    const selectedMapping = form.whitebitNetworkCode.trim()
+      ? [{
+          networkId: routeId,
+          assetCode: (form.whitebitAssetCode.trim() || selectedAsset?.code || '').toUpperCase(),
+          networkCode: form.whitebitNetworkCode.trim().toUpperCase(),
+        }]
+      : undefined;
     void previewCryptoDepositProviderAssignment({
       networkIds: [routeId],
       depositProvider: 'whitebit',
+      ...(selectedMapping ? { whitebitMappings: selectedMapping } : {}),
     }).then(review => {
       if (cancelled) return;
       const route = review.routes.find(candidate => candidate.networkId === routeId);
-      setWhitebitReview({
+      setWhitebitMappingReview({
         key: whitebitReviewKey,
-        message: route?.status === 'supported'
-          ? null
-          : `${selectedAsset?.code || form.assetId} · ${form.networkCode}: ${route?.reason || 'WhiteBIT cannot confirm this exact deposit route.'} Customer Deposits cannot be enabled by saving this form.`,
+        route: route ?? null,
       });
     }).catch(() => {
-      if (!cancelled) setWhitebitReview({
+      if (!cancelled) setWhitebitMappingReview({
         key: whitebitReviewKey,
-        message: 'WhiteBIT capability could not be checked. Customer Deposits cannot be enabled until the route can be reviewed.',
+          route: {
+            networkId: routeId,
+            assetCode: selectedAsset?.code || form.assetId,
+            networkCode: form.networkCode,
+            currentProvider: 'whitebit',
+            status: 'unsupported',
+            reason: 'WhiteBIT capabilities could not be loaded.',
+            customerDepositsAfter: false,
+            mappingStatus: 'unsupported',
+            whitebitNetworkOptions: [],
+          },
       });
     });
     return () => { cancelled = true; };
-  }, [needsWhitebitReview, reviewedNetwork?.id, whitebitReviewKey, selectedAsset?.code, form.assetId, form.networkCode]);
+  }, [needsWhitebitReview, reviewedNetwork?.id, whitebitReviewKey, selectedAsset?.code, form.whitebitAssetCode, form.whitebitNetworkCode]);
 
   const buildNetworkMetadataPayload = () => {
     const generatedId = `${form.assetId}-${form.networkCode || form.networkName}`
@@ -9563,6 +9592,8 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
       sharedDepositAddress: _sharedDepositAddress,
       sharedDepositMemo: _sharedDepositMemo,
       depositProvider: _depositProvider,
+      whitebitAssetCode: _whitebitAssetCode,
+      whitebitNetworkCode: _whitebitNetworkCode,
       manualWalletTrackingEnabled: _manualWalletTrackingEnabled,
       ...networkMetadata
     } = form;
@@ -9585,8 +9616,9 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
     e.preventDefault();
     setError('');
     setSuccessNotice('');
-    if (needsWhitebitReview && form.customerDepositsEnabled && (whitebitReviewPending || whitebitReviewMessage)) {
-      setError(whitebitReviewMessage || 'Wait for the WhiteBIT route check before saving.');
+    if (needsWhitebitReview && form.customerDepositsEnabled &&
+      (whitebitReviewPending || whitebitMappingStatus !== 'supported')) {
+      setError(whitebitRouteReview?.reason || 'Choose a supported WhiteBIT network mapping and confirm this exact route before enabling Customer Deposits.');
       return;
     }
 
@@ -9611,6 +9643,10 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
             walletAddress: form.sharedDepositAddress.trim(),
             memo: form.sharedDepositMemo.trim() || null,
             depositProvider: form.depositProvider,
+            ...(isWhitebitProvider && (selectedWhitebitNetworkCode.trim() || network.whitebitNetworkCode) ? {
+              whitebitAssetCode: selectedWhitebitNetworkCode.trim() ? mappedWhitebitAssetCode || null : null,
+              whitebitNetworkCode: selectedWhitebitNetworkCode.trim() || null,
+            } : {}),
             manualWalletTrackingEnabled: form.manualWalletTrackingEnabled,
             networkEnabled: form.enabled,
             enabled: form.customerDepositsEnabled,
@@ -9622,6 +9658,10 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
           ...current,
           customerDepositsEnabled: savedNetwork?.customerDepositsEnabled === true,
           depositProvider: savedNetwork?.depositProvider ?? current.depositProvider,
+          whitebitAssetCode: savedNetwork?.whitebitAssetCode === undefined
+            ? current.whitebitAssetCode : (savedNetwork?.whitebitAssetCode || ''),
+          whitebitNetworkCode: savedNetwork?.whitebitNetworkCode === undefined
+            ? current.whitebitNetworkCode : (savedNetwork?.whitebitNetworkCode || ''),
           sharedDepositAddress: savedNetwork?.sharedDepositAddress ?? current.sharedDepositAddress,
           sharedDepositMemo: savedNetwork?.sharedDepositMemo ?? current.sharedDepositMemo,
           manualWalletTrackingEnabled: savedNetwork?.manualWalletTrackingEnabled ?? current.manualWalletTrackingEnabled,
@@ -9789,7 +9829,10 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
               </div>
               <label>
                  <span className="field-label">Deposit Provider</span>
-                  <select data-testid="network-wallet-provider" value={form.depositProvider} onChange={e => setForm({...form, depositProvider: e.target.value as 'none' | 'manual' | 'whitebit'})}>
+                  <select data-testid="network-wallet-provider" value={form.depositProvider} onChange={e => {
+                    setWhitebitMappingReview(null);
+                    setForm({...form, depositProvider: e.target.value as 'none' | 'manual' | 'whitebit'});
+                  }}>
                    <option value="none">None</option>
                    <option value="manual">Manual Wallet</option>
                    <option value="whitebit">WhiteBIT</option>
@@ -9798,6 +9841,46 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                    )}
                 </select>
               </label>
+              {isWhitebitProvider && (
+                <div className="space-y-2 rounded-lg border border-border p-3" data-testid="whitebit-route-mapping">
+                  <p className="field-hint">
+                    WhiteBIT Mapping — Internal route codes remain unchanged. Customer Deposits stay disabled until this exact mapping and provider readiness are valid.
+                  </p>
+                  <p className="text-sm">
+                    <strong>WhiteBIT Mapping Asset:</strong> {mappedWhitebitAssetCode || 'Loading'}
+                  </p>
+                  <label>
+                    <span className="field-label">WhiteBIT Network</span>
+                    <select
+                      data-testid="whitebit-network-mapping"
+                      value={selectedWhitebitNetworkCode}
+                      disabled={whitebitReviewPending || !whitebitRouteReview || !whitebitNetworkOptions.length}
+                      onChange={event => setForm(current => ({ ...current, whitebitNetworkCode: event.target.value }))}
+                    >
+                      <option value="">
+                        {whitebitReviewPending ? 'Loading advertised networks…' : whitebitMappingStatus === 'unsupported' ? 'No supported mapping' : 'Select an advertised network'}
+                      </option>
+                      {whitebitNetworkOptions.map(option => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <InlineNotice kind={whitebitMappingStatus === 'supported' ? 'success' : 'warning'}>
+                    <strong>Status: {whitebitReviewPending
+                      ? 'Checking'
+                      : whitebitMappingStatus === 'supported'
+                        ? 'Supported'
+                        : whitebitMappingStatus === 'unsupported'
+                          ? 'Unsupported'
+                          : 'Mapping Required'}</strong>
+                    {whitebitRouteReview?.reason && ` — ${whitebitRouteReview.reason}`}
+                    {whitebitReviewPending && ' Checking WhiteBIT capability catalog and exact route readiness.'}
+                  </InlineNotice>
+                  {whitebitNetworkOptions.length > 1 && whitebitMappingStatus === 'mapping_required' && (
+                    <p className="field-hint">Multiple WhiteBIT networks are advertised for this asset. Select the correct network explicitly; none is chosen automatically.</p>
+                  )}
+                </div>
+              )}
               <label>
                  <span className="field-label">{isWhitebitProvider ? 'Manual Receiving / Fallback Address' : 'Manual Receiving Address'}</span>
                  <input data-testid="network-wallet-address" value={form.sharedDepositAddress} onChange={e => setForm({...form, sharedDepositAddress: e.target.value})} placeholder="Receiving wallet address" />
@@ -9840,6 +9923,11 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                    className="w-auto h-auto"
                    data-testid="network-customer-deposits"
                    checked={form.customerDepositsEnabled}
+                    disabled={isWhitebitProvider && (
+                      whitebitReviewPending ||
+                      whitebitMappingStatus !== 'supported' ||
+                      whitebitRouteReview?.status !== 'supported'
+                    )}
                    onChange={event => setForm({ ...form, customerDepositsEnabled: event.target.checked })}
                  />
                  <span className="field-label !mb-0 text-sm font-bold">Public Swap visibility — Customer Deposits</span>
@@ -9847,13 +9935,6 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                <p className="field-hint">
                  Independent of provider selection, Manual Wallet Tracking, and monitoring readiness. Applies only to this exact Asset + Network route.
                </p>
-               {needsWhitebitReview && (
-                 <InlineNotice kind="warning">
-                   {whitebitReviewPending
-                     ? 'Checking WhiteBIT support and existing permission proof for this exact route…'
-                     : whitebitReviewMessage || 'This exact WhiteBIT route has current support and permission proof.'}
-                 </InlineNotice>
-               )}
                {monitoringReadiness && form.customerDepositsEnabled && (
                  <InlineNotice kind="warning">
                    Monitoring readiness: {monitoringReadiness.ready ? 'READY' : 'BLOCKED'}. Public visibility is a separate route setting.
@@ -9867,7 +9948,7 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
           )}
 
           <div className="network-drawer-actions catalog-editor-actions mt-4">
-            <button type="submit" className="catalog-editor-primary" disabled={createNetwork.isPending || saveReceivingWallet.isPending || whitebitReviewPending || (form.customerDepositsEnabled && Boolean(whitebitReviewMessage))}>
+            <button type="submit" className="catalog-editor-primary" disabled={createNetwork.isPending || saveReceivingWallet.isPending || whitebitReviewPending || (form.customerDepositsEnabled && isWhitebitProvider && (whitebitMappingStatus !== 'supported' || whitebitRouteReview?.status !== 'supported'))}>
               <Save size={16} />{isNew ? t('adminCatalog.save_network') : 'Save Deposit Route'}
             </button>
             {!isNew && (

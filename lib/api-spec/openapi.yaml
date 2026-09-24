@@ -6317,6 +6317,18 @@ components:
           maxItems: 500
           items: { type: string, pattern: '^[a-z0-9][a-z0-9-]{0,80}$' }
         depositProvider: { type: string, enum: [none, manual, whitebit] }
+        whitebitMappings:
+          type: array
+          maxItems: 500
+          items: { $ref: "#/components/schemas/WhitebitRouteMappingSelection" }
+    WhitebitRouteMappingSelection:
+      type: object
+      additionalProperties: false
+      required: [networkId, assetCode, networkCode]
+      properties:
+        networkId: { type: string, pattern: '^[a-z0-9][a-z0-9-]{0,80}$' }
+        assetCode: { type: string, minLength: 2, maxLength: 16 }
+        networkCode: { type: string, minLength: 1, maxLength: 32 }
     CryptoDepositProviderAssignmentApply:
       type: object
       additionalProperties: false
@@ -6329,6 +6341,10 @@ components:
           items: { type: string, pattern: '^[a-z0-9][a-z0-9-]{0,80}$' }
         depositProvider: { type: string, enum: [none, manual, whitebit] }
         reviewToken: { type: string, pattern: '^[a-f0-9]{64}$' }
+        whitebitMappings:
+          type: array
+          maxItems: 500
+          items: { $ref: "#/components/schemas/WhitebitRouteMappingSelection" }
     CryptoDepositProviderAssignmentRoute:
       type: object
       additionalProperties: false
@@ -6341,6 +6357,12 @@ components:
         status: { type: string, enum: [supported, unsupported, requires_configuration] }
         reason: { type: string }
         customerDepositsAfter: { type: boolean }
+        whitebitAssetCode: { type: [string, "null"] }
+        whitebitNetworkCode: { type: [string, "null"] }
+        whitebitNetworkOptions:
+          type: array
+          items: { type: string }
+        mappingStatus: { type: string, enum: [supported, unsupported, mapping_required] }
     CryptoDepositProviderAssignmentPreview:
       type: object
       additionalProperties: false
@@ -6392,6 +6414,8 @@ components:
         decimals: { type: number, minimum: 0, maximum: 30, multipleOf: 1 }
         executionMode: { type: string, enum: [catalog, manual, api], default: manual }
         depositProvider: { type: string, enum: [none, manual, whitebit], default: manual }
+        whitebitAssetCode: { type: [string, "null"], minLength: 2, maxLength: 16 }
+        whitebitNetworkCode: { type: [string, "null"], minLength: 1, maxLength: 32 }
         lifecycle: { type: string, enum: [active, restricted, deprecated], default: active }
         regions:
           type: array
@@ -6463,6 +6487,8 @@ components:
         walletAddress: { type: string, maxLength: 500 }
         memo: { type: [string, "null"], maxLength: 500 }
         depositProvider: { type: string, minLength: 1, maxLength: 64 }
+        whitebitAssetCode: { type: [string, "null"], minLength: 2, maxLength: 16 }
+        whitebitNetworkCode: { type: [string, "null"], minLength: 1, maxLength: 32 }
         manualWalletTrackingEnabled: { type: boolean }
         customerDepositsEnabled: { type: boolean }
         preserveDepositProviders: { type: boolean, default: false }

@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { CryptoDepositProviderAssignmentRouteMappingStatus } from './cryptoDepositProviderAssignmentRouteMappingStatus';
 import type { CryptoDepositProviderAssignmentRouteStatus } from './cryptoDepositProviderAssignmentRouteStatus';
 
 export interface CryptoDepositProviderAssignmentRoute {
@@ -15,4 +16,10 @@ export interface CryptoDepositProviderAssignmentRoute {
   status: CryptoDepositProviderAssignmentRouteStatus;
   reason: string;
   customerDepositsAfter: boolean;
+  /** @nullable */
+  whitebitAssetCode?: string | null;
+  /** @nullable */
+  whitebitNetworkCode?: string | null;
+  whitebitNetworkOptions?: string[];
+  mappingStatus?: CryptoDepositProviderAssignmentRouteMappingStatus;
 }

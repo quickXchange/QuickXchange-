@@ -1958,6 +1958,48 @@ test("bulk provider assignment reviews exact capabilities, preserves tracking, a
       networkIds: [...ids, unsupportedId], depositProvider: "whitebit", reviewToken: unsafeReview.reviewToken,
     });
     assert.equal(blocked.status, 422);
+    const mapping = [{
+      networkId: unsupportedId,
+      assetCode: fixtureAssets[0].code,
+      networkCode: fixtureAssets[0].networkCode,
+    }];
+    const candidateResponse = await post("preview", {
+      networkIds: [unsupportedId], depositProvider: "whitebit",
+    });
+    assert.equal(candidateResponse.status, 200);
+    const candidate = await candidateResponse.json() as {
+      routes: Array<{ mappingStatus: string; whitebitNetworkOptions: string[] }>;
+    };
+    assert.equal(candidate.routes[0]?.mappingStatus, "mapping_required");
+    assert.deepEqual(candidate.routes[0]?.whitebitNetworkOptions, [fixtureAssets[0].networkCode]);
+    const invalidMapping = await post("preview", {
+      networkIds: [unsupportedId], depositProvider: "whitebit",
+      whitebitMappings: [{ ...mapping[0], networkCode: "BITCOIN" }],
+    });
+    const invalidReview = await invalidMapping.json() as { routes: Array<{ status: string }> };
+    assert.equal(invalidReview.routes[0]?.status, "unsupported");
+    const mappedResponse = await post("preview", {
+      networkIds: [unsupportedId], depositProvider: "whitebit", whitebitMappings: mapping,
+    });
+    assert.equal(mappedResponse.status, 200);
+    const mappedReview = await mappedResponse.json() as {
+      reviewToken: string;
+      routes: Array<{ mappingStatus: string; customerDepositsAfter: boolean }>;
+    };
+    assert.equal(mappedReview.routes[0]?.mappingStatus, "supported");
+    assert.equal(mappedReview.routes[0]?.customerDepositsAfter, false);
+    const mappedApply = await post("apply", {
+      networkIds: [unsupportedId], depositProvider: "whitebit",
+      whitebitMappings: mapping, reviewToken: mappedReview.reviewToken,
+    });
+    assert.equal(mappedApply.status, 200, await mappedApply.clone().text());
+    const [mappedRoute] = await database.db.select().from(database.cryptoAssetNetworksTable)
+      .where(eq(database.cryptoAssetNetworksTable.id, unsupportedId));
+    assert.equal(mappedRoute?.networkCode, "NO-SUCH-NETWORK");
+    assert.equal(mappedRoute?.whitebitAssetCode, fixtureAssets[0].code);
+    assert.equal(mappedRoute?.whitebitNetworkCode, fixtureAssets[0].networkCode);
+    assert.equal(mappedRoute?.customerDepositsEnabled, false);
+    assert.equal(providerPermissionCalls, callsBefore, "Mapping must not generate an address");
     const [beforePreview] = await database.db.select().from(database.cryptoAssetNetworksTable)
       .where(eq(database.cryptoAssetNetworksTable.id, ids[0]));
     const safe = await post("preview", { networkIds: ids, depositProvider: "whitebit" });

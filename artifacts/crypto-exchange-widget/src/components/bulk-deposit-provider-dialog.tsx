@@ -33,6 +33,12 @@ export function BulkDepositProviderDialog({
   const [search, setSearch] = useState('');
   const [catalogReview, setCatalogReview] = useState<CryptoDepositProviderAssignmentPreview | null>(null);
   const [review, setReview] = useState<CryptoDepositProviderAssignmentPreview | null>(null);
+  const [whitebitMappingChoices, setWhitebitMappingChoices] = useState<Record<string, string>>(() =>
+    Object.fromEntries(networks.flatMap(network => {
+      const mapped = network.whitebitNetworkCode;
+      return mapped ? [[network.id, mapped]] : [];
+    })),
+  );
   const [loadingCatalog, setLoadingCatalog] = useState(true);
   const [reviewing, setReviewing] = useState(false);
   const [error, setError] = useState('');
@@ -49,6 +55,16 @@ export function BulkDepositProviderDialog({
     return !query || [asset?.code, asset?.name, network.networkCode, network.networkName, network.id]
       .some(value => value?.toLowerCase().includes(query));
   });
+  const selectedWhitebitMappings = useMemo(() => networks.flatMap(network => {
+    const networkCode = whitebitMappingChoices[network.id];
+    if (!networkCode) return [];
+    const route = statusById.get(network.id);
+    const assetCode = route?.whitebitAssetCode ||
+      network.whitebitAssetCode ||
+      assetById.get(network.assetId)?.code;
+    return assetCode ? [{ networkId: network.id, assetCode, networkCode }] : [];
+  }), [networks, whitebitMappingChoices, statusById, assetById]);
+  const mappingSignature = JSON.stringify(selectedWhitebitMappings);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,6 +79,9 @@ export function BulkDepositProviderDialog({
     void previewCryptoDepositProviderAssignment({
       networkIds: networks.map(network => network.id),
       depositProvider: provider,
+      ...(provider === 'whitebit' && selectedWhitebitMappings.length
+        ? { whitebitMappings: selectedWhitebitMappings }
+        : {}),
     }).then(response => {
       if (!cancelled) setCatalogReview(response);
     }).catch(cause => {
@@ -71,7 +90,7 @@ export function BulkDepositProviderDialog({
       if (!cancelled) setLoadingCatalog(false);
     });
     return () => { cancelled = true; };
-  }, [networks, provider]);
+  }, [networks, provider, mappingSignature]);
 
   const toggle = (id: string) => {
     setSelected(previous => {
@@ -86,7 +105,11 @@ export function BulkDepositProviderDialog({
 
   const selectAllSupported = () => {
     if (!catalogReview) return;
-    setSelected(new Set(catalogReview.routes.filter(route => route.status !== 'unsupported').map(route => route.networkId)));
+    setSelected(new Set(catalogReview.routes.filter(route =>
+      provider === 'whitebit'
+        ? route.mappingStatus === 'supported'
+        : route.status !== 'unsupported',
+    ).map(route => route.networkId)));
     setReview(null);
     setError('');
   };
@@ -99,6 +122,9 @@ export function BulkDepositProviderDialog({
       const result = await previewCryptoDepositProviderAssignment({
         networkIds: [...selected],
         depositProvider: provider,
+        ...(provider === 'whitebit' && selectedWhitebitMappings.length
+          ? { whitebitMappings: selectedWhitebitMappings.filter(mapping => selected.has(mapping.networkId)) }
+          : {}),
       });
       setReview(result);
     } catch (cause) {
@@ -110,11 +136,22 @@ export function BulkDepositProviderDialog({
 
   const confirm = async () => {
     if (!review || review.routes.some(route => route.status === 'unsupported' ||
-      route.currentProvider !== provider && route.customerDepositsAfter)) return;
+      route.customerDepositsAfter && (route.currentProvider !== provider ||
+        provider === 'whitebit' && selectedWhitebitMappings.some(mapping =>
+          mapping.networkId === route.networkId &&
+          (mapping.assetCode !== route.whitebitAssetCode || mapping.networkCode !== route.whitebitNetworkCode)
+        )))) return;
     setError('');
     try {
       const result = await apply.mutateAsync({
-        data: { networkIds: review.routes.map(route => route.networkId), depositProvider: provider, reviewToken: review.reviewToken },
+        data: {
+          networkIds: review.routes.map(route => route.networkId),
+          depositProvider: provider,
+          reviewToken: review.reviewToken,
+          ...(provider === 'whitebit' && selectedWhitebitMappings.length
+            ? { whitebitMappings: selectedWhitebitMappings.filter(mapping => review.routes.some(route => route.networkId === mapping.networkId)) }
+            : {}),
+        },
       });
       await Promise.all([
         client.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
@@ -129,9 +166,11 @@ export function BulkDepositProviderDialog({
     }
   };
 
-  const selectedUnsupported = review?.routes.filter(route => route.status === 'unsupported') ?? [];
+  const selectedUnsupported = review?.routes.filter(route => route.status === 'unsupported' ||
+    provider === 'whitebit' && route.mappingStatus !== 'supported') ?? [];
   const selectedDepositsEnabled = review?.routes.filter(route =>
-    route.currentProvider !== provider && route.customerDepositsAfter) ?? [];
+    route.customerDepositsAfter && (route.currentProvider !== provider ||
+      route.reason.includes('Turn off Customer Deposits'))) ?? [];
 
   return (
     <div className="drawer-backdrop" onClick={event => event.target === event.currentTarget && onClose()}>
@@ -161,20 +200,62 @@ export function BulkDepositProviderDialog({
                   <button type="button" className="button button-secondary" onClick={selectAllSupported}>Select All Supported</button>
                   <button type="button" className="button button-secondary" onClick={() => { setSelected(new Set()); setReview(null); }}>Clear All</button>
                 </div>
-                <p className="field-hint">{selected.size} selected. “Requires configuration” routes can be assigned after Customer Deposits are turned off in their own control. Unsupported WhiteBIT routes cannot be assigned.</p>
+                <p className="field-hint">{selected.size} selected. “Select All Supported” includes only WhiteBIT routes with a validated explicit or exact network mapping. Customer Deposits remain controlled separately. Unsupported or unresolved mappings cannot be applied.</p>
                 <input aria-label="Search Asset + Network routes" placeholder="Search asset or network (for example, XMR)" value={search} onChange={event => setSearch(event.target.value)} />
                 <div className="max-h-72 overflow-y-auto space-y-2" data-testid="bulk-deposit-provider-routes">
                   {filtered.map(network => {
                     const status = statusById.get(network.id);
                     const asset = assetById.get(network.assetId);
-                    return (
-                      <label key={network.id} className="flex items-start gap-3 rounded-lg border border-border p-3 text-sm">
+                      const mappingStatus = status?.mappingStatus;
+                      const mappingOptions = status?.whitebitNetworkOptions || [];
+                      const mappingAsset = status?.whitebitAssetCode ||
+                        network.whitebitAssetCode ||
+                        asset?.code || '—';
+                      const mappingValue = whitebitMappingChoices[network.id] ||
+                        network.whitebitNetworkCode ||
+                        (mappingStatus === 'supported' ? status?.whitebitNetworkCode : '') || '';
+                      return (
+                       <div key={network.id} className="rounded-lg border border-border p-3 text-sm">
+                        <div className="flex items-start gap-3">
                         <input type="checkbox" checked={selected.has(network.id)} disabled={apply.isPending} onChange={() => toggle(network.id)} aria-label={`Select ${asset?.code ?? network.assetId} ${network.networkCode}`} />
                         <span className="min-w-0"><strong>{asset?.code ?? network.assetId} · {network.networkCode}</strong>
                           <span className="block text-xs text-muted-foreground">{network.networkName} · Current: {network.depositProvider === 'whitebit' ? 'WhiteBIT' : network.depositProvider === 'manual' ? 'Manual Wallet' : 'None'}</span>
                           <span className="block text-xs">{status?.status === 'requires_configuration' ? 'Requires configuration' : status?.status === 'unsupported' ? 'Unsupported' : 'Supported'} — {status?.reason}</span>
+                          {provider === 'whitebit' && (
+                            <span className="block text-xs">
+                              WhiteBIT Mapping Asset: {mappingAsset} · Network: {mappingValue || (mappingStatus === 'mapping_required' ? 'Mapping Required' : '—')} · Status: {mappingStatus === 'supported' ? 'Supported' : mappingStatus === 'unsupported' ? 'Unsupported' : 'Mapping Required'}
+                            </span>
+                          )}
                         </span>
-                      </label>
+                        </div>
+                        {provider === 'whitebit' && mappingOptions.length > 0 && (
+                          <label className="mt-2 block pl-7">
+                            <span className="field-label">WhiteBIT Network for {asset?.code ?? network.assetId} · {network.networkCode}</span>
+                            <select
+                              aria-label={`WhiteBIT Network mapping for ${asset?.code ?? network.assetId} ${network.networkCode}`}
+                              value={mappingValue}
+                              disabled={apply.isPending}
+                              onChange={event => {
+                                setWhitebitMappingChoices(previous => {
+                                  const next = { ...previous };
+                                  if (event.target.value) next[network.id] = event.target.value;
+                                  else delete next[network.id];
+                                  return next;
+                                });
+                                setReview(null);
+                              }}
+                            >
+                              <option value="">
+                                {mappingOptions.length > 1 ? 'Choose explicitly; no network guessed' : 'Select advertised network'}
+                              </option>
+                              {mappingOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                            </select>
+                          </label>
+                        )}
+                        {provider === 'whitebit' && mappingOptions.length > 1 && mappingStatus === 'mapping_required' && (
+                          <p className="mt-2 pl-7 text-xs text-amber-500">Multiple provider networks are advertised. Choose the exact WhiteBIT network; none is selected automatically.</p>
+                        )}
+                       </div>
                     );
                   })}
                   {!filtered.length && <p className="text-sm text-muted-foreground">No routes match your search.</p>}
@@ -186,6 +267,9 @@ export function BulkDepositProviderDialog({
                 <h3 className="font-semibold">Review {review.routes.length} exact routes</h3>
                 {review.routes.map(route => <div key={route.networkId} className="border-t border-border pt-2">
                   <strong>{route.assetCode} · {route.networkCode}</strong> — {route.status === 'requires_configuration' ? 'Requires configuration' : route.status === 'unsupported' ? 'Unsupported' : 'Supported'}
+                  {provider === 'whitebit' && (
+                          <p>WhiteBIT Mapping Asset: {route.whitebitAssetCode || route.assetCode} · Network: {route.whitebitNetworkCode || 'Mapping Required'} · Status: {route.mappingStatus === 'supported' ? 'Supported' : route.mappingStatus === 'unsupported' ? 'Unsupported' : 'Mapping Required'}</p>
+                  )}
                   <p className="text-xs text-muted-foreground">{route.reason} Customer Deposits: {route.customerDepositsAfter ? 'remain enabled' : 'disabled'}.</p>
                 </div>)}
                 {selectedUnsupported.length > 0 && <p role="alert" className="text-red-500">Deselect {selectedUnsupported.length} unsupported {selectedUnsupported.length === 1 ? 'route' : 'routes'} before applying.</p>}

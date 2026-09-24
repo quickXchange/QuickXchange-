@@ -41,6 +41,18 @@ export interface CryptoNetworkInput {
   decimals: number;
   executionMode?: CryptoNetworkInputExecutionMode;
   depositProvider?: CryptoNetworkInputDepositProvider;
+  /**
+     * @minLength 2
+     * @maxLength 16
+     * @nullable
+     */
+  whitebitAssetCode?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 32
+     * @nullable
+     */
+  whitebitNetworkCode?: string | null;
   lifecycle?: CryptoNetworkInputLifecycle;
   /**
      * @maxItems 20

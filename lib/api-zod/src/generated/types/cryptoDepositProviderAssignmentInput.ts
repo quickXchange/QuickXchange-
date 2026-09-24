@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CryptoDepositProviderAssignmentInputDepositProvider } from './cryptoDepositProviderAssignmentInputDepositProvider';
+import type { WhitebitRouteMappingSelection } from './whitebitRouteMappingSelection';
 
 export interface CryptoDepositProviderAssignmentInput {
   /**
@@ -15,4 +16,6 @@ export interface CryptoDepositProviderAssignmentInput {
      */
   networkIds: string[];
   depositProvider: CryptoDepositProviderAssignmentInputDepositProvider;
+  /** @maxItems 500 */
+  whitebitMappings?: WhitebitRouteMappingSelection[];
 }

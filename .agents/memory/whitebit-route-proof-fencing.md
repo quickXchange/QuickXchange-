@@ -26,3 +26,9 @@ Do not infer a WhiteBIT deposit-network alias from a human-readable Admin networ
 **Why:** Silently equating network names with provider identifiers would authorize deposits on an unverified route, while silently downgrading an operator's Enabled request conceals the mismatch.
 
 **How to apply:** Compare the live, read-only provider catalog to the exact Asset + Network row before enabling; show an unsupported result in previews and reject attempted enabling without changing persisted state. Recheck live capabilities because provider catalogs can change.
+
+Keep canonical route identifiers independent of WhiteBIT's asset and deposit-network identifiers. An exact code match may remain implicit when confirmed by the live catalog; a different provider network requires explicit Owner selection from advertised deposit networks, and a different provider asset ticker requires a separately established asset link. A mapping edit is configuration change, not proof of address-creation permission.
+
+**Why:** In a full Development catalog review, Bitcoin and other legitimate routes used different provider network codes, while some assets advertised several plausible networks. Blind alias inference could provision on the wrong chain; treating a saved mapping as readiness would bypass permission verification.
+
+**How to apply:** Preserve canonical codes and keep monitoring identity separate. Fence active Customer Deposits while editing provider identities, invalidate route permission evidence on any mapping change, and compare a frozen quote mapping with the locked route before provisioning. Mapping review and saving must not create an address.

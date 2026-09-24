@@ -194,6 +194,23 @@ export function matchWhitebitCapability(
   };
 }
 
+/** Resolve an exact canonical route through an explicitly selected provider
+ * identity. Partial overrides never authorize a route. */
+export function matchWhitebitRouteCapability(
+  snapshot: WhitebitCapabilitySnapshot,
+  assetCode: string,
+  networkCode: string,
+  mappedAssetCode?: string | null,
+  mappedNetworkCode?: string | null,
+) {
+  if (Boolean(mappedAssetCode) !== Boolean(mappedNetworkCode)) return null;
+  return matchWhitebitCapability(
+    snapshot,
+    mappedAssetCode ?? assetCode,
+    mappedNetworkCode ?? networkCode,
+  );
+}
+
 export function shouldReserveWhitebitOrderFunding(
   status: {
     enabled: boolean;
@@ -254,7 +271,7 @@ export async function whitebitSwapStatus() {
     const matched = rows.filter((row) =>
       row.asset.enabled && row.network.enabled &&
       row.asset.lifecycle !== "deprecated" && row.network.lifecycle !== "deprecated" &&
-      matchWhitebitCapability(snapshot, row.asset.code, row.network.networkCode),
+      matchWhitebitRouteCapability(snapshot, row.asset.code, row.network.networkCode, row.network.whitebitAssetCode, row.network.whitebitNetworkCode),
     ).length;
     if (credentialsVerified && credentialFingerprint) {
       addressPermissionProof = (setting?.depositRouteProofs ?? []).find((proof) =>
@@ -267,7 +284,7 @@ export async function whitebitSwapStatus() {
           row.asset.code.trim().toUpperCase() === proof.assetCode &&
           row.network.networkCode.trim().toUpperCase() === proof.networkCode &&
           proof.configurationDigest === customerDepositRouteConfigurationDigest(row.asset, row.network) &&
-          matchWhitebitCapability(snapshot, row.asset.code, row.network.networkCode)
+          matchWhitebitRouteCapability(snapshot, row.asset.code, row.network.networkCode, row.network.whitebitAssetCode, row.network.whitebitNetworkCode)
         )
       );
     }
@@ -320,8 +337,6 @@ export async function isWhitebitSwapEnabled(assetCode: string, networkCode: stri
   if (!status.enabled) return null;
   try {
     const snapshot = await getWhitebitCapabilities();
-    const capability = matchWhitebitCapability(snapshot, assetCode, networkCode);
-    if (!capability) return null;
     const stored = await getWhitebitCredentialStorageState();
     const activeCredentials = stored.status === "available"
       ? stored.credentials
@@ -348,15 +363,16 @@ export async function isWhitebitSwapEnabled(assetCode: string, networkCode: stri
       .from(whitebitProviderSettingsTable)
       .where(eq(whitebitProviderSettingsTable.provider, "whitebit"))
       .limit(1);
-    return routeRows.some(({ asset, network }) =>
-      (setting?.depositRouteProofs ?? []).some((proof) =>
+    return routeRows.map(({ asset, network }) => ({
+      capability: matchWhitebitRouteCapability(snapshot, asset.code, network.networkCode, network.whitebitAssetCode, network.whitebitNetworkCode),
+      proved: (setting?.depositRouteProofs ?? []).some((proof) =>
         proof.networkId === network.id &&
         proof.assetCode === asset.code.trim().toUpperCase() &&
         proof.networkCode === network.networkCode.trim().toUpperCase() &&
         proof.configurationDigest === customerDepositRouteConfigurationDigest(asset, network) &&
         proof.credentialFingerprint === fingerprint
-      )
-    ) ? capability : null;
+      ),
+    })).find(row => row.proved && row.capability)?.capability ?? null;
   } catch {
     return null;
   }

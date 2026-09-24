@@ -8126,6 +8126,11 @@ export const applyCryptoAssetsBulkEditResponseNetworksItemOneDecimalsMultipleOf 
 
 export const applyCryptoAssetsBulkEditResponseNetworksItemOneExecutionModeDefault = `manual`;
 export const applyCryptoAssetsBulkEditResponseNetworksItemOneDepositProviderDefault = `manual`;
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneWhitebitAssetCodeMin = 2;
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneWhitebitAssetCodeMax = 16;
+
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneWhitebitNetworkCodeMax = 32;
+
 export const applyCryptoAssetsBulkEditResponseNetworksItemOneLifecycleDefault = `active`;
 export const applyCryptoAssetsBulkEditResponseNetworksItemOneRegionsItemMax = 32;
 
@@ -8179,6 +8184,8 @@ export const ApplyCryptoAssetsBulkEditResponse = zod.object({
   "decimals": zod.number().min(applyCryptoAssetsBulkEditResponseNetworksItemOneDecimalsMin).max(applyCryptoAssetsBulkEditResponseNetworksItemOneDecimalsMax).multipleOf(applyCryptoAssetsBulkEditResponseNetworksItemOneDecimalsMultipleOf),
   "executionMode": zod.enum(['catalog', 'manual', 'api']).default(applyCryptoAssetsBulkEditResponseNetworksItemOneExecutionModeDefault),
   "depositProvider": zod.enum(['none', 'manual', 'whitebit']).default(applyCryptoAssetsBulkEditResponseNetworksItemOneDepositProviderDefault),
+  "whitebitAssetCode": zod.string().min(applyCryptoAssetsBulkEditResponseNetworksItemOneWhitebitAssetCodeMin).max(applyCryptoAssetsBulkEditResponseNetworksItemOneWhitebitAssetCodeMax).nullish(),
+  "whitebitNetworkCode": zod.string().min(1).max(applyCryptoAssetsBulkEditResponseNetworksItemOneWhitebitNetworkCodeMax).nullish(),
   "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).default(applyCryptoAssetsBulkEditResponseNetworksItemOneLifecycleDefault),
   "regions": zod.array(zod.string().max(applyCryptoAssetsBulkEditResponseNetworksItemOneRegionsItemMax)).max(applyCryptoAssetsBulkEditResponseNetworksItemOneRegionsMax).optional(),
   "enabled": zod.boolean().default(applyCryptoAssetsBulkEditResponseNetworksItemOneEnabledDefault),
@@ -8214,11 +8221,24 @@ export const ApplyCryptoAssetsBulkEditResponse = zod.object({
 export const previewCryptoDepositProviderAssignmentBodyNetworkIdsItemRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,80}$');
 export const previewCryptoDepositProviderAssignmentBodyNetworkIdsMax = 500;
 
+export const previewCryptoDepositProviderAssignmentBodyWhitebitMappingsItemNetworkIdRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,80}$');
+export const previewCryptoDepositProviderAssignmentBodyWhitebitMappingsItemAssetCodeMin = 2;
+export const previewCryptoDepositProviderAssignmentBodyWhitebitMappingsItemAssetCodeMax = 16;
+
+export const previewCryptoDepositProviderAssignmentBodyWhitebitMappingsItemNetworkCodeMax = 32;
+
+export const previewCryptoDepositProviderAssignmentBodyWhitebitMappingsMax = 500;
+
 
 
 export const PreviewCryptoDepositProviderAssignmentBody = zod.object({
   "networkIds": zod.array(zod.string().regex(previewCryptoDepositProviderAssignmentBodyNetworkIdsItemRegExp)).min(1).max(previewCryptoDepositProviderAssignmentBodyNetworkIdsMax),
-  "depositProvider": zod.enum(['none', 'manual', 'whitebit'])
+  "depositProvider": zod.enum(['none', 'manual', 'whitebit']),
+  "whitebitMappings": zod.array(zod.object({
+  "networkId": zod.string().regex(previewCryptoDepositProviderAssignmentBodyWhitebitMappingsItemNetworkIdRegExp),
+  "assetCode": zod.string().min(previewCryptoDepositProviderAssignmentBodyWhitebitMappingsItemAssetCodeMin).max(previewCryptoDepositProviderAssignmentBodyWhitebitMappingsItemAssetCodeMax),
+  "networkCode": zod.string().min(1).max(previewCryptoDepositProviderAssignmentBodyWhitebitMappingsItemNetworkCodeMax)
+})).max(previewCryptoDepositProviderAssignmentBodyWhitebitMappingsMax).optional()
 })
 
 export const PreviewCryptoDepositProviderAssignmentResponse = zod.object({
@@ -8230,7 +8250,11 @@ export const PreviewCryptoDepositProviderAssignmentResponse = zod.object({
   "currentProvider": zod.string(),
   "status": zod.enum(['supported', 'unsupported', 'requires_configuration']),
   "reason": zod.string(),
-  "customerDepositsAfter": zod.boolean()
+  "customerDepositsAfter": zod.boolean(),
+  "whitebitAssetCode": zod.string().nullish(),
+  "whitebitNetworkCode": zod.string().nullish(),
+  "whitebitNetworkOptions": zod.array(zod.string()).optional(),
+  "mappingStatus": zod.enum(['supported', 'unsupported', 'mapping_required']).optional()
 }))
 })
 
@@ -8242,12 +8266,25 @@ export const applyCryptoDepositProviderAssignmentBodyNetworkIdsItemRegExp = new 
 export const applyCryptoDepositProviderAssignmentBodyNetworkIdsMax = 500;
 
 export const applyCryptoDepositProviderAssignmentBodyReviewTokenRegExp = new RegExp('^[a-f0-9]{64}$');
+export const applyCryptoDepositProviderAssignmentBodyWhitebitMappingsItemNetworkIdRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,80}$');
+export const applyCryptoDepositProviderAssignmentBodyWhitebitMappingsItemAssetCodeMin = 2;
+export const applyCryptoDepositProviderAssignmentBodyWhitebitMappingsItemAssetCodeMax = 16;
+
+export const applyCryptoDepositProviderAssignmentBodyWhitebitMappingsItemNetworkCodeMax = 32;
+
+export const applyCryptoDepositProviderAssignmentBodyWhitebitMappingsMax = 500;
+
 
 
 export const ApplyCryptoDepositProviderAssignmentBody = zod.object({
   "networkIds": zod.array(zod.string().regex(applyCryptoDepositProviderAssignmentBodyNetworkIdsItemRegExp)).min(1).max(applyCryptoDepositProviderAssignmentBodyNetworkIdsMax),
   "depositProvider": zod.enum(['none', 'manual', 'whitebit']),
-  "reviewToken": zod.string().regex(applyCryptoDepositProviderAssignmentBodyReviewTokenRegExp)
+  "reviewToken": zod.string().regex(applyCryptoDepositProviderAssignmentBodyReviewTokenRegExp),
+  "whitebitMappings": zod.array(zod.object({
+  "networkId": zod.string().regex(applyCryptoDepositProviderAssignmentBodyWhitebitMappingsItemNetworkIdRegExp),
+  "assetCode": zod.string().min(applyCryptoDepositProviderAssignmentBodyWhitebitMappingsItemAssetCodeMin).max(applyCryptoDepositProviderAssignmentBodyWhitebitMappingsItemAssetCodeMax),
+  "networkCode": zod.string().min(1).max(applyCryptoDepositProviderAssignmentBodyWhitebitMappingsItemNetworkCodeMax)
+})).max(applyCryptoDepositProviderAssignmentBodyWhitebitMappingsMax).optional()
 })
 
 export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneLogoObjectPathRegExp = new RegExp('^/objects/crypto-network-logos/[0-9a-f-]{36}$');
@@ -8266,6 +8303,11 @@ export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneDecimals
 
 export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneExecutionModeDefault = `manual`;
 export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneDepositProviderDefault = `manual`;
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneWhitebitAssetCodeMin = 2;
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneWhitebitAssetCodeMax = 16;
+
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneWhitebitNetworkCodeMax = 32;
+
 export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneLifecycleDefault = `active`;
 export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneRegionsItemMax = 32;
 
@@ -8303,7 +8345,11 @@ export const ApplyCryptoDepositProviderAssignmentResponse = zod.object({
   "currentProvider": zod.string(),
   "status": zod.enum(['supported', 'unsupported', 'requires_configuration']),
   "reason": zod.string(),
-  "customerDepositsAfter": zod.boolean()
+  "customerDepositsAfter": zod.boolean(),
+  "whitebitAssetCode": zod.string().nullish(),
+  "whitebitNetworkCode": zod.string().nullish(),
+  "whitebitNetworkOptions": zod.array(zod.string()).optional(),
+  "mappingStatus": zod.enum(['supported', 'unsupported', 'mapping_required']).optional()
 })),
   "networks": zod.array(zod.object({
   "logoObjectPath": zod.string().regex(applyCryptoDepositProviderAssignmentResponseNetworksItemOneLogoObjectPathRegExp).nullish(),
@@ -8315,6 +8361,8 @@ export const ApplyCryptoDepositProviderAssignmentResponse = zod.object({
   "decimals": zod.number().min(applyCryptoDepositProviderAssignmentResponseNetworksItemOneDecimalsMin).max(applyCryptoDepositProviderAssignmentResponseNetworksItemOneDecimalsMax).multipleOf(applyCryptoDepositProviderAssignmentResponseNetworksItemOneDecimalsMultipleOf),
   "executionMode": zod.enum(['catalog', 'manual', 'api']).default(applyCryptoDepositProviderAssignmentResponseNetworksItemOneExecutionModeDefault),
   "depositProvider": zod.enum(['none', 'manual', 'whitebit']).default(applyCryptoDepositProviderAssignmentResponseNetworksItemOneDepositProviderDefault),
+  "whitebitAssetCode": zod.string().min(applyCryptoDepositProviderAssignmentResponseNetworksItemOneWhitebitAssetCodeMin).max(applyCryptoDepositProviderAssignmentResponseNetworksItemOneWhitebitAssetCodeMax).nullish(),
+  "whitebitNetworkCode": zod.string().min(1).max(applyCryptoDepositProviderAssignmentResponseNetworksItemOneWhitebitNetworkCodeMax).nullish(),
   "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).default(applyCryptoDepositProviderAssignmentResponseNetworksItemOneLifecycleDefault),
   "regions": zod.array(zod.string().max(applyCryptoDepositProviderAssignmentResponseNetworksItemOneRegionsItemMax)).max(applyCryptoDepositProviderAssignmentResponseNetworksItemOneRegionsMax).optional(),
   "enabled": zod.boolean().default(applyCryptoDepositProviderAssignmentResponseNetworksItemOneEnabledDefault),
@@ -8472,6 +8520,11 @@ export const saveCryptoAssetReceivingWalletResponseOneDecimalsMultipleOf = 1;
 
 export const saveCryptoAssetReceivingWalletResponseOneExecutionModeDefault = `manual`;
 export const saveCryptoAssetReceivingWalletResponseOneDepositProviderDefault = `manual`;
+export const saveCryptoAssetReceivingWalletResponseOneWhitebitAssetCodeMin = 2;
+export const saveCryptoAssetReceivingWalletResponseOneWhitebitAssetCodeMax = 16;
+
+export const saveCryptoAssetReceivingWalletResponseOneWhitebitNetworkCodeMax = 32;
+
 export const saveCryptoAssetReceivingWalletResponseOneLifecycleDefault = `active`;
 export const saveCryptoAssetReceivingWalletResponseOneRegionsItemMax = 32;
 
@@ -8511,6 +8564,8 @@ export const SaveCryptoAssetReceivingWalletResponseItem = zod.object({
   "decimals": zod.number().min(saveCryptoAssetReceivingWalletResponseOneDecimalsMin).max(saveCryptoAssetReceivingWalletResponseOneDecimalsMax).multipleOf(saveCryptoAssetReceivingWalletResponseOneDecimalsMultipleOf),
   "executionMode": zod.enum(['catalog', 'manual', 'api']).default(saveCryptoAssetReceivingWalletResponseOneExecutionModeDefault),
   "depositProvider": zod.enum(['none', 'manual', 'whitebit']).default(saveCryptoAssetReceivingWalletResponseOneDepositProviderDefault),
+  "whitebitAssetCode": zod.string().min(saveCryptoAssetReceivingWalletResponseOneWhitebitAssetCodeMin).max(saveCryptoAssetReceivingWalletResponseOneWhitebitAssetCodeMax).nullish(),
+  "whitebitNetworkCode": zod.string().min(1).max(saveCryptoAssetReceivingWalletResponseOneWhitebitNetworkCodeMax).nullish(),
   "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).default(saveCryptoAssetReceivingWalletResponseOneLifecycleDefault),
   "regions": zod.array(zod.string().max(saveCryptoAssetReceivingWalletResponseOneRegionsItemMax)).max(saveCryptoAssetReceivingWalletResponseOneRegionsMax).optional(),
   "enabled": zod.boolean().default(saveCryptoAssetReceivingWalletResponseOneEnabledDefault),
@@ -8556,6 +8611,11 @@ export const getCryptoNetworksResponseOneDecimalsMultipleOf = 1;
 
 export const getCryptoNetworksResponseOneExecutionModeDefault = `manual`;
 export const getCryptoNetworksResponseOneDepositProviderDefault = `manual`;
+export const getCryptoNetworksResponseOneWhitebitAssetCodeMin = 2;
+export const getCryptoNetworksResponseOneWhitebitAssetCodeMax = 16;
+
+export const getCryptoNetworksResponseOneWhitebitNetworkCodeMax = 32;
+
 export const getCryptoNetworksResponseOneLifecycleDefault = `active`;
 export const getCryptoNetworksResponseOneRegionsItemMax = 32;
 
@@ -8595,6 +8655,8 @@ export const GetCryptoNetworksResponseItem = zod.object({
   "decimals": zod.number().min(getCryptoNetworksResponseOneDecimalsMin).max(getCryptoNetworksResponseOneDecimalsMax).multipleOf(getCryptoNetworksResponseOneDecimalsMultipleOf),
   "executionMode": zod.enum(['catalog', 'manual', 'api']).default(getCryptoNetworksResponseOneExecutionModeDefault),
   "depositProvider": zod.enum(['none', 'manual', 'whitebit']).default(getCryptoNetworksResponseOneDepositProviderDefault),
+  "whitebitAssetCode": zod.string().min(getCryptoNetworksResponseOneWhitebitAssetCodeMin).max(getCryptoNetworksResponseOneWhitebitAssetCodeMax).nullish(),
+  "whitebitNetworkCode": zod.string().min(1).max(getCryptoNetworksResponseOneWhitebitNetworkCodeMax).nullish(),
   "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).default(getCryptoNetworksResponseOneLifecycleDefault),
   "regions": zod.array(zod.string().max(getCryptoNetworksResponseOneRegionsItemMax)).max(getCryptoNetworksResponseOneRegionsMax).optional(),
   "enabled": zod.boolean().default(getCryptoNetworksResponseOneEnabledDefault),
@@ -8640,6 +8702,11 @@ export const createCryptoNetworkBodyDecimalsMultipleOf = 1;
 
 export const createCryptoNetworkBodyExecutionModeDefault = `manual`;
 export const createCryptoNetworkBodyDepositProviderDefault = `manual`;
+export const createCryptoNetworkBodyWhitebitAssetCodeMin = 2;
+export const createCryptoNetworkBodyWhitebitAssetCodeMax = 16;
+
+export const createCryptoNetworkBodyWhitebitNetworkCodeMax = 32;
+
 export const createCryptoNetworkBodyLifecycleDefault = `active`;
 export const createCryptoNetworkBodyRegionsItemMax = 32;
 
@@ -8678,6 +8745,8 @@ export const CreateCryptoNetworkBody = zod.object({
   "decimals": zod.number().min(createCryptoNetworkBodyDecimalsMin).max(createCryptoNetworkBodyDecimalsMax).multipleOf(createCryptoNetworkBodyDecimalsMultipleOf),
   "executionMode": zod.enum(['catalog', 'manual', 'api']).default(createCryptoNetworkBodyExecutionModeDefault),
   "depositProvider": zod.enum(['none', 'manual', 'whitebit']).default(createCryptoNetworkBodyDepositProviderDefault),
+  "whitebitAssetCode": zod.string().min(createCryptoNetworkBodyWhitebitAssetCodeMin).max(createCryptoNetworkBodyWhitebitAssetCodeMax).nullish(),
+  "whitebitNetworkCode": zod.string().min(1).max(createCryptoNetworkBodyWhitebitNetworkCodeMax).nullish(),
   "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).default(createCryptoNetworkBodyLifecycleDefault),
   "regions": zod.array(zod.string().max(createCryptoNetworkBodyRegionsItemMax)).max(createCryptoNetworkBodyRegionsMax).optional(),
   "enabled": zod.boolean().default(createCryptoNetworkBodyEnabledDefault),
@@ -8709,6 +8778,11 @@ export const createCryptoNetworkResponseOneDecimalsMultipleOf = 1;
 
 export const createCryptoNetworkResponseOneExecutionModeDefault = `manual`;
 export const createCryptoNetworkResponseOneDepositProviderDefault = `manual`;
+export const createCryptoNetworkResponseOneWhitebitAssetCodeMin = 2;
+export const createCryptoNetworkResponseOneWhitebitAssetCodeMax = 16;
+
+export const createCryptoNetworkResponseOneWhitebitNetworkCodeMax = 32;
+
 export const createCryptoNetworkResponseOneLifecycleDefault = `active`;
 export const createCryptoNetworkResponseOneRegionsItemMax = 32;
 
@@ -8748,6 +8822,8 @@ export const CreateCryptoNetworkResponse = zod.object({
   "decimals": zod.number().min(createCryptoNetworkResponseOneDecimalsMin).max(createCryptoNetworkResponseOneDecimalsMax).multipleOf(createCryptoNetworkResponseOneDecimalsMultipleOf),
   "executionMode": zod.enum(['catalog', 'manual', 'api']).default(createCryptoNetworkResponseOneExecutionModeDefault),
   "depositProvider": zod.enum(['none', 'manual', 'whitebit']).default(createCryptoNetworkResponseOneDepositProviderDefault),
+  "whitebitAssetCode": zod.string().min(createCryptoNetworkResponseOneWhitebitAssetCodeMin).max(createCryptoNetworkResponseOneWhitebitAssetCodeMax).nullish(),
+  "whitebitNetworkCode": zod.string().min(1).max(createCryptoNetworkResponseOneWhitebitNetworkCodeMax).nullish(),
   "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).default(createCryptoNetworkResponseOneLifecycleDefault),
   "regions": zod.array(zod.string().max(createCryptoNetworkResponseOneRegionsItemMax)).max(createCryptoNetworkResponseOneRegionsMax).optional(),
   "enabled": zod.boolean().default(createCryptoNetworkResponseOneEnabledDefault),
@@ -8789,6 +8865,11 @@ export const saveCryptoNetworkReceivingWalletBodyMemoMax = 500;
 
 export const saveCryptoNetworkReceivingWalletBodyDepositProviderMax = 64;
 
+export const saveCryptoNetworkReceivingWalletBodyWhitebitAssetCodeMin = 2;
+export const saveCryptoNetworkReceivingWalletBodyWhitebitAssetCodeMax = 16;
+
+export const saveCryptoNetworkReceivingWalletBodyWhitebitNetworkCodeMax = 32;
+
 export const saveCryptoNetworkReceivingWalletBodyPreserveDepositProvidersDefault = false;
 
 export const SaveCryptoNetworkReceivingWalletBody = zod.object({
@@ -8796,6 +8877,8 @@ export const SaveCryptoNetworkReceivingWalletBody = zod.object({
   "walletAddress": zod.string().max(saveCryptoNetworkReceivingWalletBodyWalletAddressMax),
   "memo": zod.string().max(saveCryptoNetworkReceivingWalletBodyMemoMax).nullish(),
   "depositProvider": zod.string().min(1).max(saveCryptoNetworkReceivingWalletBodyDepositProviderMax).optional(),
+  "whitebitAssetCode": zod.string().min(saveCryptoNetworkReceivingWalletBodyWhitebitAssetCodeMin).max(saveCryptoNetworkReceivingWalletBodyWhitebitAssetCodeMax).nullish(),
+  "whitebitNetworkCode": zod.string().min(1).max(saveCryptoNetworkReceivingWalletBodyWhitebitNetworkCodeMax).nullish(),
   "manualWalletTrackingEnabled": zod.boolean().optional(),
   "customerDepositsEnabled": zod.boolean().optional(),
   "preserveDepositProviders": zod.boolean().default(saveCryptoNetworkReceivingWalletBodyPreserveDepositProvidersDefault),
@@ -8819,6 +8902,11 @@ export const saveCryptoNetworkReceivingWalletResponseOneDecimalsMultipleOf = 1;
 
 export const saveCryptoNetworkReceivingWalletResponseOneExecutionModeDefault = `manual`;
 export const saveCryptoNetworkReceivingWalletResponseOneDepositProviderDefault = `manual`;
+export const saveCryptoNetworkReceivingWalletResponseOneWhitebitAssetCodeMin = 2;
+export const saveCryptoNetworkReceivingWalletResponseOneWhitebitAssetCodeMax = 16;
+
+export const saveCryptoNetworkReceivingWalletResponseOneWhitebitNetworkCodeMax = 32;
+
 export const saveCryptoNetworkReceivingWalletResponseOneLifecycleDefault = `active`;
 export const saveCryptoNetworkReceivingWalletResponseOneRegionsItemMax = 32;
 
@@ -8858,6 +8946,8 @@ export const SaveCryptoNetworkReceivingWalletResponseItem = zod.object({
   "decimals": zod.number().min(saveCryptoNetworkReceivingWalletResponseOneDecimalsMin).max(saveCryptoNetworkReceivingWalletResponseOneDecimalsMax).multipleOf(saveCryptoNetworkReceivingWalletResponseOneDecimalsMultipleOf),
   "executionMode": zod.enum(['catalog', 'manual', 'api']).default(saveCryptoNetworkReceivingWalletResponseOneExecutionModeDefault),
   "depositProvider": zod.enum(['none', 'manual', 'whitebit']).default(saveCryptoNetworkReceivingWalletResponseOneDepositProviderDefault),
+  "whitebitAssetCode": zod.string().min(saveCryptoNetworkReceivingWalletResponseOneWhitebitAssetCodeMin).max(saveCryptoNetworkReceivingWalletResponseOneWhitebitAssetCodeMax).nullish(),
+  "whitebitNetworkCode": zod.string().min(1).max(saveCryptoNetworkReceivingWalletResponseOneWhitebitNetworkCodeMax).nullish(),
   "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).default(saveCryptoNetworkReceivingWalletResponseOneLifecycleDefault),
   "regions": zod.array(zod.string().max(saveCryptoNetworkReceivingWalletResponseOneRegionsItemMax)).max(saveCryptoNetworkReceivingWalletResponseOneRegionsMax).optional(),
   "enabled": zod.boolean().default(saveCryptoNetworkReceivingWalletResponseOneEnabledDefault),
@@ -8900,6 +8990,11 @@ export const previewCryptoNetworkReceivingWalletBodyMemoMax = 500;
 
 export const previewCryptoNetworkReceivingWalletBodyDepositProviderMax = 64;
 
+export const previewCryptoNetworkReceivingWalletBodyWhitebitAssetCodeMin = 2;
+export const previewCryptoNetworkReceivingWalletBodyWhitebitAssetCodeMax = 16;
+
+export const previewCryptoNetworkReceivingWalletBodyWhitebitNetworkCodeMax = 32;
+
 export const previewCryptoNetworkReceivingWalletBodyPreserveDepositProvidersDefault = false;
 
 export const PreviewCryptoNetworkReceivingWalletBody = zod.object({
@@ -8907,6 +9002,8 @@ export const PreviewCryptoNetworkReceivingWalletBody = zod.object({
   "walletAddress": zod.string().max(previewCryptoNetworkReceivingWalletBodyWalletAddressMax),
   "memo": zod.string().max(previewCryptoNetworkReceivingWalletBodyMemoMax).nullish(),
   "depositProvider": zod.string().min(1).max(previewCryptoNetworkReceivingWalletBodyDepositProviderMax).optional(),
+  "whitebitAssetCode": zod.string().min(previewCryptoNetworkReceivingWalletBodyWhitebitAssetCodeMin).max(previewCryptoNetworkReceivingWalletBodyWhitebitAssetCodeMax).nullish(),
+  "whitebitNetworkCode": zod.string().min(1).max(previewCryptoNetworkReceivingWalletBodyWhitebitNetworkCodeMax).nullish(),
   "manualWalletTrackingEnabled": zod.boolean().optional(),
   "customerDepositsEnabled": zod.boolean().optional(),
   "preserveDepositProviders": zod.boolean().default(previewCryptoNetworkReceivingWalletBodyPreserveDepositProvidersDefault),
@@ -8930,6 +9027,11 @@ export const previewCryptoNetworkReceivingWalletResponseOneDecimalsMultipleOf = 
 
 export const previewCryptoNetworkReceivingWalletResponseOneExecutionModeDefault = `manual`;
 export const previewCryptoNetworkReceivingWalletResponseOneDepositProviderDefault = `manual`;
+export const previewCryptoNetworkReceivingWalletResponseOneWhitebitAssetCodeMin = 2;
+export const previewCryptoNetworkReceivingWalletResponseOneWhitebitAssetCodeMax = 16;
+
+export const previewCryptoNetworkReceivingWalletResponseOneWhitebitNetworkCodeMax = 32;
+
 export const previewCryptoNetworkReceivingWalletResponseOneLifecycleDefault = `active`;
 export const previewCryptoNetworkReceivingWalletResponseOneRegionsItemMax = 32;
 
@@ -8969,6 +9071,8 @@ export const PreviewCryptoNetworkReceivingWalletResponseItem = zod.object({
   "decimals": zod.number().min(previewCryptoNetworkReceivingWalletResponseOneDecimalsMin).max(previewCryptoNetworkReceivingWalletResponseOneDecimalsMax).multipleOf(previewCryptoNetworkReceivingWalletResponseOneDecimalsMultipleOf),
   "executionMode": zod.enum(['catalog', 'manual', 'api']).default(previewCryptoNetworkReceivingWalletResponseOneExecutionModeDefault),
   "depositProvider": zod.enum(['none', 'manual', 'whitebit']).default(previewCryptoNetworkReceivingWalletResponseOneDepositProviderDefault),
+  "whitebitAssetCode": zod.string().min(previewCryptoNetworkReceivingWalletResponseOneWhitebitAssetCodeMin).max(previewCryptoNetworkReceivingWalletResponseOneWhitebitAssetCodeMax).nullish(),
+  "whitebitNetworkCode": zod.string().min(1).max(previewCryptoNetworkReceivingWalletResponseOneWhitebitNetworkCodeMax).nullish(),
   "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).default(previewCryptoNetworkReceivingWalletResponseOneLifecycleDefault),
   "regions": zod.array(zod.string().max(previewCryptoNetworkReceivingWalletResponseOneRegionsItemMax)).max(previewCryptoNetworkReceivingWalletResponseOneRegionsMax).optional(),
   "enabled": zod.boolean().default(previewCryptoNetworkReceivingWalletResponseOneEnabledDefault),
@@ -9028,6 +9132,11 @@ export const updateCryptoNetworkCustomerDepositsResponseOneDecimalsMultipleOf = 
 
 export const updateCryptoNetworkCustomerDepositsResponseOneExecutionModeDefault = `manual`;
 export const updateCryptoNetworkCustomerDepositsResponseOneDepositProviderDefault = `manual`;
+export const updateCryptoNetworkCustomerDepositsResponseOneWhitebitAssetCodeMin = 2;
+export const updateCryptoNetworkCustomerDepositsResponseOneWhitebitAssetCodeMax = 16;
+
+export const updateCryptoNetworkCustomerDepositsResponseOneWhitebitNetworkCodeMax = 32;
+
 export const updateCryptoNetworkCustomerDepositsResponseOneLifecycleDefault = `active`;
 export const updateCryptoNetworkCustomerDepositsResponseOneRegionsItemMax = 32;
 
@@ -9067,6 +9176,8 @@ export const UpdateCryptoNetworkCustomerDepositsResponse = zod.object({
   "decimals": zod.number().min(updateCryptoNetworkCustomerDepositsResponseOneDecimalsMin).max(updateCryptoNetworkCustomerDepositsResponseOneDecimalsMax).multipleOf(updateCryptoNetworkCustomerDepositsResponseOneDecimalsMultipleOf),
   "executionMode": zod.enum(['catalog', 'manual', 'api']).default(updateCryptoNetworkCustomerDepositsResponseOneExecutionModeDefault),
   "depositProvider": zod.enum(['none', 'manual', 'whitebit']).default(updateCryptoNetworkCustomerDepositsResponseOneDepositProviderDefault),
+  "whitebitAssetCode": zod.string().min(updateCryptoNetworkCustomerDepositsResponseOneWhitebitAssetCodeMin).max(updateCryptoNetworkCustomerDepositsResponseOneWhitebitAssetCodeMax).nullish(),
+  "whitebitNetworkCode": zod.string().min(1).max(updateCryptoNetworkCustomerDepositsResponseOneWhitebitNetworkCodeMax).nullish(),
   "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).default(updateCryptoNetworkCustomerDepositsResponseOneLifecycleDefault),
   "regions": zod.array(zod.string().max(updateCryptoNetworkCustomerDepositsResponseOneRegionsItemMax)).max(updateCryptoNetworkCustomerDepositsResponseOneRegionsMax).optional(),
   "enabled": zod.boolean().default(updateCryptoNetworkCustomerDepositsResponseOneEnabledDefault),
@@ -9186,6 +9297,11 @@ export const updateCryptoNetworkResponseOneDecimalsMultipleOf = 1;
 
 export const updateCryptoNetworkResponseOneExecutionModeDefault = `manual`;
 export const updateCryptoNetworkResponseOneDepositProviderDefault = `manual`;
+export const updateCryptoNetworkResponseOneWhitebitAssetCodeMin = 2;
+export const updateCryptoNetworkResponseOneWhitebitAssetCodeMax = 16;
+
+export const updateCryptoNetworkResponseOneWhitebitNetworkCodeMax = 32;
+
 export const updateCryptoNetworkResponseOneLifecycleDefault = `active`;
 export const updateCryptoNetworkResponseOneRegionsItemMax = 32;
 
@@ -9225,6 +9341,8 @@ export const UpdateCryptoNetworkResponse = zod.object({
   "decimals": zod.number().min(updateCryptoNetworkResponseOneDecimalsMin).max(updateCryptoNetworkResponseOneDecimalsMax).multipleOf(updateCryptoNetworkResponseOneDecimalsMultipleOf),
   "executionMode": zod.enum(['catalog', 'manual', 'api']).default(updateCryptoNetworkResponseOneExecutionModeDefault),
   "depositProvider": zod.enum(['none', 'manual', 'whitebit']).default(updateCryptoNetworkResponseOneDepositProviderDefault),
+  "whitebitAssetCode": zod.string().min(updateCryptoNetworkResponseOneWhitebitAssetCodeMin).max(updateCryptoNetworkResponseOneWhitebitAssetCodeMax).nullish(),
+  "whitebitNetworkCode": zod.string().min(1).max(updateCryptoNetworkResponseOneWhitebitNetworkCodeMax).nullish(),
   "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).default(updateCryptoNetworkResponseOneLifecycleDefault),
   "regions": zod.array(zod.string().max(updateCryptoNetworkResponseOneRegionsItemMax)).max(updateCryptoNetworkResponseOneRegionsMax).optional(),
   "enabled": zod.boolean().default(updateCryptoNetworkResponseOneEnabledDefault),

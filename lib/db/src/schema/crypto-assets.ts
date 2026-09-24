@@ -56,6 +56,10 @@ export const cryptoAssetNetworksTable = pgTable(
     /** Address provisioning policy. Kept separate from executionMode for
      * backwards-compatible catalog/manual route semantics. */
     depositProvider: text("deposit_provider").notNull().default("manual"),
+    // Explicit WhiteBIT-only identity override. NULL means the exact canonical
+    // asset/network codes; never borrow blockchain monitoring identifiers.
+    whitebitAssetCode: text("whitebit_asset_code"),
+    whitebitNetworkCode: text("whitebit_network_code"),
     manualWalletTrackingEnabled: boolean("manual_wallet_tracking_enabled")
       .notNull()
       .default(true),

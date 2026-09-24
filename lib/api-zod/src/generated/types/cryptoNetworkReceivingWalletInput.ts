@@ -26,6 +26,18 @@ export interface CryptoNetworkReceivingWalletInput {
      * @maxLength 64
      */
   depositProvider?: string;
+  /**
+     * @minLength 2
+     * @maxLength 16
+     * @nullable
+     */
+  whitebitAssetCode?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 32
+     * @nullable
+     */
+  whitebitNetworkCode?: string | null;
   manualWalletTrackingEnabled?: boolean;
   customerDepositsEnabled?: boolean;
   preserveDepositProviders?: boolean;

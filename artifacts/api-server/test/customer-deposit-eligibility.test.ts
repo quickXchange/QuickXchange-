@@ -26,6 +26,8 @@ function network(overrides: Record<string, unknown> = {}) {
     networkName: "Bitcoin",
     networkFamily: "native",
     depositProvider: "manual",
+    whitebitAssetCode: null,
+    whitebitNetworkCode: null,
     requiresMemo: false,
     sharedDepositAddress: "",
     sharedDepositMemo: null,
@@ -176,6 +178,88 @@ test("proof-backed WhiteBIT XMR eligibility does not require a Manual fallback w
   };
   assert.equal(isCustomerDepositEligible(xmrAsset, xmrRoute, context), true);
   assert.equal(isCustomerDepositEligible(xmrAsset, xmrRoute, unavailable), false);
+});
+
+test("explicit WhiteBIT route mapping is catalog-checked and proof-bound while exact legacy routes remain valid", () => {
+  const capabilities = {
+    fetchedAt: 1,
+    assets: [
+      { ticker: "BTC", canDeposit: true as const, depositNetworks: ["BTC"], confirmations: { BTC: 2 } },
+      { ticker: "AVAX", canDeposit: true as const, depositNetworks: ["CCHAIN", "XCHAIN"], confirmations: {} },
+    ],
+  };
+  const baseContext: CustomerDepositEligibilityContext = {
+    whitebitReady: true,
+    whitebitProofs: new Map(),
+    whitebitCapabilities: capabilities,
+    credentialUpdatedAtMs: null,
+    providerSettingVersion: null,
+  };
+
+  const exactBtc = network({ depositProvider: "whitebit" });
+  const exactBtcDigest = customerDepositRouteConfigurationDigest(btcAsset, exactBtc);
+  assert.equal(isCustomerDepositEligible(btcAsset, exactBtc, {
+    ...baseContext,
+    whitebitProofs: new Map([[exactBtc.id, exactBtcDigest]]),
+  }), true);
+
+  const mappedBtc = network({
+    id: "btc-bitcoin",
+    networkCode: "BITCOIN",
+    depositProvider: "whitebit",
+    whitebitAssetCode: "BTC",
+    whitebitNetworkCode: "BTC",
+  });
+  const mappedBtcDigest = customerDepositRouteConfigurationDigest(btcAsset, mappedBtc);
+  assert.equal(mappedBtcDigest, customerDepositRouteConfigurationDigest(btcAsset, {
+    ...mappedBtc,
+    whitebitAssetCode: "btc",
+    whitebitNetworkCode: "btc",
+  }));
+  assert.notEqual(mappedBtcDigest, customerDepositRouteConfigurationDigest(btcAsset, {
+    ...mappedBtc,
+    whitebitNetworkCode: "BITCOIN",
+  }));
+  assert.equal(isCustomerDepositEligible(btcAsset, mappedBtc, {
+    ...baseContext,
+    whitebitProofs: new Map([[mappedBtc.id, mappedBtcDigest]]),
+  }), true);
+  // A proof captured for the previous route configuration cannot authorize
+  // the new explicit mapping.
+  assert.equal(isCustomerDepositEligible(btcAsset, mappedBtc, {
+    ...baseContext,
+    whitebitProofs: new Map([[mappedBtc.id, exactBtcDigest]]),
+  }), false);
+  assert.equal(isCustomerDepositEligible(btcAsset, {
+    ...mappedBtc,
+    whitebitNetworkCode: "NOT-ADVERTISED",
+  }, {
+    ...baseContext,
+    whitebitProofs: new Map([[mappedBtc.id, mappedBtcDigest]]),
+  }), false);
+  assert.equal(isCustomerDepositEligible(btcAsset, {
+    ...mappedBtc,
+    whitebitNetworkCode: null,
+  }, {
+    ...baseContext,
+    whitebitProofs: new Map([[mappedBtc.id, mappedBtcDigest]]),
+  }), false);
+
+  const avaxRoute = network({
+    id: "avax-avaxc",
+    networkCode: "AVAXC",
+    depositProvider: "whitebit",
+  });
+  assert.equal(isCustomerDepositEligible({ ...btcAsset, code: "AVAX" }, avaxRoute, {
+    ...baseContext,
+    whitebitProofs: new Map([[avaxRoute.id, customerDepositRouteConfigurationDigest({ ...btcAsset, code: "AVAX" }, avaxRoute)]]),
+  }), false);
+  const explicitAvax = { ...avaxRoute, whitebitAssetCode: "AVAX", whitebitNetworkCode: "CCHAIN" };
+  const explicitAvaxDigest = customerDepositRouteConfigurationDigest({ ...btcAsset, code: "AVAX" }, explicitAvax);
+  assert.equal(isCustomerDepositEligible({ ...btcAsset, code: "AVAX" }, explicitAvax, {
+    ...baseContext,
+    whitebitProofs: new Map([[explicitAvax.id, explicitAvaxDigest]]),
+  }), true);
 });
 
 test("stale eligibility contexts are rejected after credential or provider-state changes", () => {

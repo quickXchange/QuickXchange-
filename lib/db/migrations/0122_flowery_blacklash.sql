@@ -1,0 +1,2 @@
+ALTER TABLE "crypto_asset_networks" ADD COLUMN IF NOT EXISTS "whitebit_asset_code" text;--> statement-breakpoint
+ALTER TABLE "crypto_asset_networks" ADD COLUMN IF NOT EXISTS "whitebit_network_code" text;

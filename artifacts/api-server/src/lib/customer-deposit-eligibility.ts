@@ -10,7 +10,7 @@ import {
 import { eq, inArray, sql } from "drizzle-orm";
 import {
   getWhitebitCapabilities,
-  matchWhitebitCapability,
+  matchWhitebitRouteCapability,
   whitebitSwapStatus,
   type WhitebitCapabilitySnapshot,
 } from "./whitebit-capabilities";
@@ -29,6 +29,8 @@ type EligibilityNetwork = Pick<
   | "networkCode"
   | "networkName"
   | "networkFamily"
+  | "whitebitAssetCode"
+  | "whitebitNetworkCode"
   | "depositProvider"
   | "requiresMemo"
   | "sharedDepositAddress"
@@ -150,6 +152,8 @@ export function customerDepositRouteConfigurationDigest(
     | "networkCode"
     | "networkName"
     | "networkFamily"
+    | "whitebitAssetCode"
+    | "whitebitNetworkCode"
     | "depositProvider"
     | "requiresMemo"
     | "enabled"
@@ -168,6 +172,12 @@ export function customerDepositRouteConfigurationDigest(
     requiresMemo: network.requiresMemo,
     networkEnabled: network.enabled,
     networkLifecycle: network.lifecycle,
+    // Preserve legacy exact-route proofs; only explicit mapping overrides
+    // change the digest and invalidate old permission evidence.
+    ...(network.whitebitAssetCode && network.whitebitNetworkCode
+      ? { whitebitAssetCode: network.whitebitAssetCode.trim().toUpperCase(),
+          whitebitNetworkCode: network.whitebitNetworkCode.trim().toUpperCase() }
+      : {}),
   })).digest("hex");
 }
 
@@ -191,10 +201,12 @@ export function isCustomerDepositEligible(
     context.whitebitProofs.get(network.id) ===
       customerDepositRouteConfigurationDigest(asset, network)
   ) {
-    return Boolean(matchWhitebitCapability(
+    return Boolean(matchWhitebitRouteCapability(
       context.whitebitCapabilities,
       asset.code,
       network.networkCode,
+      network.whitebitAssetCode,
+      network.whitebitNetworkCode,
     ));
   }
   return false;

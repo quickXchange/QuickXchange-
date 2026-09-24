@@ -41,6 +41,12 @@ export type QuoteTicket = {
     funding?: {
       address: string; memo: string; requiresMemo: boolean; requiredConfirmations: number;
       confirmationGuidance: string; instructions: string; warning: string;
+      networkId?: string;
+      depositProvider?: string;
+      whitebitAssetCode?: string | null;
+      whitebitNetworkCode?: string | null;
+      customerDepositsEnabled?: boolean;
+      manualWalletTrackingEnabled?: boolean;
     };
   };
   requiredSettlementFields?: PaymentMethodFieldDefinition[];
