@@ -14,3 +14,9 @@ Signed-credential reachability, address-creation permission, and the operator's 
 **Why:** WhiteBIT's reliable address-permission check is mutating. An ordinary diagnostic or toggle must not silently create addresses or change customer deposit availability.
 
 **How to apply:** Use mocked provider responses for automated checks. Do not treat credential success or enabled state as evidence of address permission.
+
+An old stored credential can shadow a different, working environment credential while its previously saved verification still looks current. A failed address request is not proof that the account lacks unique-address permission if even a signed read-only request with the active credential is rejected.
+
+**Why:** A live route probe and a signed balance check both received definitive authorization failures from the selected stored credential, while the alternate environment credential passed the same read-only check. Persisted verification describes a past test, not current provider acceptance.
+
+**How to apply:** Diagnose the selected credential source with a read-only signed request before attributing address failures to route permission. Switch sources only through the verified credential flow, and invalidate/re-prove exact routes before claiming live readiness. Never print keys or provider response bodies.
