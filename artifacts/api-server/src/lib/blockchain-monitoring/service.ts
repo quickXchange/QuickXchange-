@@ -97,6 +97,11 @@ type JsonObject = Record<string, unknown>;
 const object = (value: unknown): JsonObject =>
   value && typeof value === "object" && !Array.isArray(value) ? value as JsonObject : {};
 const text = (value: unknown): string => typeof value === "string" ? value.trim() : "";
+export function isManualWalletTrackingEnabledForOrder(
+  order: Pick<typeof ordersTable.$inferSelect, "fundingDetailsSnapshot">,
+): boolean {
+  return object(order.fundingDetailsSnapshot).manualWalletTrackingEnabled !== false;
+}
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export type WatchRegistrationDiagnostic =
@@ -575,6 +580,12 @@ export async function registerManualBlockchainWatch(
   if (!resolved) return;
   const { order, route, catalogAsset, network, asset } = resolved;
   const funding = object(order.fundingDetailsSnapshot);
+  if (
+    !isManualWalletTrackingEnabledForOrder(order) ||
+    order.fundingProviderSource === "whitebit" &&
+      (order.providerState !== "whitebit_fallback" ||
+        text(funding.addressSource) !== "manual_fallback")
+  ) return;
   const rawAddress = text(funding.address) || order.depositAddress;
   const assetCode = text(funding.assetCode) || text(funding.asset) || order.fromAsset;
   const sourceRouteId = signedCryptoRouteId({

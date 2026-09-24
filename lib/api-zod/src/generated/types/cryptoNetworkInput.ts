@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { CryptoNetworkInputDepositProvider } from './cryptoNetworkInputDepositProvider';
 import type { CryptoNetworkInputExecutionMode } from './cryptoNetworkInputExecutionMode';
 import type { CryptoNetworkInputLifecycle } from './cryptoNetworkInputLifecycle';
 
@@ -39,6 +40,7 @@ export interface CryptoNetworkInput {
      */
   decimals: number;
   executionMode?: CryptoNetworkInputExecutionMode;
+  depositProvider?: CryptoNetworkInputDepositProvider;
   lifecycle?: CryptoNetworkInputLifecycle;
   /**
      * @maxItems 20
@@ -47,6 +49,7 @@ export interface CryptoNetworkInput {
   regions?: string[];
   enabled?: boolean;
   customerDepositsEnabled?: boolean;
+  manualWalletTrackingEnabled?: boolean;
   requiresMemo?: boolean;
   /**
      * @minimum 0

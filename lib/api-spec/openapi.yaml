@@ -6304,6 +6304,7 @@ components:
         networkFamily: { type: string, minLength: 1, maxLength: 64, default: native }
         decimals: { type: number, minimum: 0, maximum: 30, multipleOf: 1 }
         executionMode: { type: string, enum: [catalog, manual, api], default: manual }
+        depositProvider: { type: string, enum: [none, manual, whitebit], default: manual }
         lifecycle: { type: string, enum: [active, restricted, deprecated], default: active }
         regions:
           type: array
@@ -6311,6 +6312,7 @@ components:
           items: { type: string, maxLength: 32 }
         enabled: { type: boolean, default: true }
         customerDepositsEnabled: { type: boolean, default: false }
+        manualWalletTrackingEnabled: { type: boolean, default: true }
         requiresMemo: { type: boolean, default: false }
         requiredConfirmations: { type: number, minimum: 0, maximum: 10000, multipleOf: 1, default: 0 }
         confirmationGuidance: { type: [string, "null"], maxLength: 1000 }
@@ -6330,6 +6332,7 @@ components:
         networkFamily: { type: string, minLength: 1, maxLength: 64 }
         decimals: { type: number, minimum: 0, maximum: 30, multipleOf: 1 }
         executionMode: { type: string, enum: [catalog, manual, api] }
+        depositProvider: { type: string, enum: [none, manual, whitebit] }
         lifecycle: { type: string, enum: [active, restricted, deprecated] }
         regions:
           type: array
@@ -6337,6 +6340,7 @@ components:
           items: { type: string, maxLength: 32 }
         enabled: { type: boolean }
         customerDepositsEnabled: { type: boolean }
+        manualWalletTrackingEnabled: { type: boolean }
         requiresMemo: { type: boolean }
         requiredConfirmations: { type: number, minimum: 0, maximum: 10000, multipleOf: 1 }
         confirmationGuidance: { type: [string, "null"], maxLength: 1000 }
@@ -6348,13 +6352,15 @@ components:
     CryptoAssetReceivingWalletInput:
       type: object
       additionalProperties: false
-      required: [networkId, walletAddress, enabled, useForAllAssetsOnNetwork]
+      required: [networkId, walletAddress, useForAllAssetsOnNetwork]
       properties:
         networkId: { type: string, minLength: 1, maxLength: 80 }
         walletAddress: { type: string, maxLength: 500 }
         memo: { type: [string, "null"], maxLength: 500 }
-        depositProvider: { type: string, minLength: 1, maxLength: 64, default: manual }
-        enabled: { type: boolean }
+        depositProvider: { type: string, minLength: 1, maxLength: 64 }
+        manualWalletTrackingEnabled: { type: boolean }
+        customerDepositsEnabled: { type: boolean }
+        enabled: { type: boolean, deprecated: true }
         useForAllAssetsOnNetwork: { type: boolean }
     CryptoNetworkReceivingWalletInput:
       type: object
@@ -6370,6 +6376,8 @@ components:
         walletAddress: { type: string, maxLength: 500 }
         memo: { type: [string, "null"], maxLength: 500 }
         depositProvider: { type: string, minLength: 1, maxLength: 64 }
+        manualWalletTrackingEnabled: { type: boolean }
+        customerDepositsEnabled: { type: boolean }
         preserveDepositProviders: { type: boolean, default: false }
         networkEnabled: { type: boolean }
         enabled: { type: boolean }
@@ -6383,9 +6391,10 @@ components:
       allOf:
         - $ref: "#/components/schemas/CryptoNetworkInput"
         - type: object
-          required: [depositProvider, createdAt, updatedAt]
+          required: [depositProvider, manualWalletTrackingEnabled, createdAt, updatedAt]
           properties:
             depositProvider: { type: string, default: manual }
+            manualWalletTrackingEnabled: { type: boolean, default: true }
             createdAt: { type: string, format: date-time }
             updatedAt: { type: string, format: date-time }
             logoUrl: { type: string, readOnly: true }

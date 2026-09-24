@@ -6,7 +6,7 @@ export type WorkspaceConfigSnapshot = {
   source: { environment: "development"; exportedAt: string };
   objects?: Array<{ path: string; contentType: string; sha256: string; base64: string }>;
   cryptoAssets: Array<{ id: string; code: string; name: string; logoObjectPath: NullableString; decimals: number; lifecycle: string; enabled: boolean }>;
-  cryptoNetworks: Array<{ id: string; assetId: string; networkCode: string; networkName: string; logoObjectPath: NullableString; networkFamily: string; decimals: number; executionMode: string; depositProvider: string; lifecycle: string; regions: string[]; enabled: boolean; requiresMemo: boolean; requiredConfirmations: number; confirmationGuidance: NullableString; explorerUrlTemplate: NullableString; depositInstructions: NullableString; depositWarning: NullableString }>;
+  cryptoNetworks: Array<{ id: string; assetId: string; networkCode: string; networkName: string; logoObjectPath: NullableString; networkFamily: string; decimals: number; executionMode: string; depositProvider: string; manualWalletTrackingEnabled: boolean; lifecycle: string; regions: string[]; enabled: boolean; requiresMemo: boolean; requiredConfirmations: number; confirmationGuidance: NullableString; explorerUrlTemplate: NullableString; depositInstructions: NullableString; depositWarning: NullableString }>;
   fiatCurrencies: Array<{ id: string; code: string; name: string; flagObjectPath: NullableString; network: string; precision: number; lifecycle: string; regions: string[]; countries: string[]; enabled: boolean; rateMode: string; manualRate: NullableString }>;
   paymentMethods: Array<{ id: string; name: string; logoObjectPath: NullableString; description: NullableString; instructions: NullableString; family: string; executionMode: string; providerId: NullableString; lifecycle: string; regions: string[]; countries: string[]; requiresProviderConfiguration: boolean; enabled: boolean; canSend: boolean; canReceive: boolean; fieldDefinitions: JsonRecord[] }>;
   fiatCurrencyPaymentMethods: Array<{ fiatCode: string; paymentMethodId: string; enabled: boolean; canSend: boolean | null; canReceive: boolean | null; sendInstructions: NullableString; receiveInstructions: NullableString; minAmount: NullableString; maxAmount: NullableString; countries: string[] }>;
@@ -17,6 +17,39 @@ export type WorkspaceConfigSnapshot = {
   };
   landingBackground: { mode: "preset"; presetId: string; focalX: number; focalY: number; placements: JsonRecord } | null;
 };
+
+export type WorkspaceCryptoNetworkSnapshot = WorkspaceConfigSnapshot["cryptoNetworks"][number];
+
+/**
+ * Shared crypto-network projection for export, equality/diff, state hashing,
+ * and apply. Keeping the tracking flag in this one shape prevents a snapshot
+ * from silently losing an explicit OFF value between those stages.
+ */
+export function projectWorkspaceCryptoNetwork(
+  network: WorkspaceCryptoNetworkSnapshot,
+  mappedAssetId = network.assetId,
+): Omit<WorkspaceCryptoNetworkSnapshot, "id"> {
+  return {
+    assetId: mappedAssetId,
+    networkCode: network.networkCode,
+    networkName: network.networkName,
+    logoObjectPath: network.logoObjectPath,
+    networkFamily: network.networkFamily,
+    decimals: network.decimals,
+    executionMode: network.executionMode,
+    depositProvider: network.depositProvider,
+    manualWalletTrackingEnabled: network.manualWalletTrackingEnabled,
+    lifecycle: network.lifecycle,
+    regions: network.regions,
+    enabled: network.enabled,
+    requiresMemo: network.requiresMemo,
+    requiredConfirmations: network.requiredConfirmations,
+    confirmationGuidance: network.confirmationGuidance,
+    explorerUrlTemplate: network.explorerUrlTemplate,
+    depositInstructions: network.depositInstructions,
+    depositWarning: network.depositWarning,
+  };
+}
 
 function isRecord(value: unknown): value is JsonRecord {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -76,7 +109,17 @@ export function parseWorkspaceConfigSnapshot(value: unknown): WorkspaceConfigSna
   for (const page of value.site.publishedPages) {
     if (!isRecord(page) || !hasNonEmptyString(page, "pageKey") || !isRecord(page.content)) throw new Error("Invalid published site page.");
   }
-  return value as unknown as WorkspaceConfigSnapshot;
+  const cryptoNetworks = (value.cryptoNetworks as unknown[]).map((network) => {
+    if (!isRecord(network)) throw new Error("Invalid cryptoNetworks row.");
+    const manualWalletTrackingEnabled = network.manualWalletTrackingEnabled === undefined
+      ? true
+      : network.manualWalletTrackingEnabled;
+    if (typeof manualWalletTrackingEnabled !== "boolean") {
+      throw new Error("Invalid cryptoNetworks row.");
+    }
+    return { ...network, manualWalletTrackingEnabled };
+  });
+  return { ...value, cryptoNetworks } as unknown as WorkspaceConfigSnapshot;
 }
 
 /**

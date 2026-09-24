@@ -323,6 +323,93 @@ test('shows configuration unavailable before quote submission when no manual rou
   expect(quoteRequests).toBe(0);
 });
 
+test('Swap source choices require covered source IDs and keep receive-only crypto receive-only', async ({ page }) => {
+  const bnb = {
+    id: 'crypto:bnb-bep20',
+    assetId: 'bnb',
+    assetCode: 'BNB',
+    kind: 'crypto-network',
+    title: 'BNB BNB Smart Chain',
+    networkSlug: 'bnb-bep20',
+    networkTitle: 'BNB Smart Chain',
+    routeNetwork: 'BEP20',
+    direction: 'both',
+    customerDepositsEnabled: true,
+  };
+  const usdc = {
+    id: 'crypto:usdc-bep20',
+    assetId: 'usdc',
+    assetCode: 'USDC',
+    kind: 'crypto-network',
+    title: 'USDC BNB Smart Chain',
+    networkSlug: 'usdc-bep20',
+    networkTitle: 'BNB Smart Chain',
+    routeNetwork: 'BEP20',
+    direction: 'both',
+    customerDepositsEnabled: true,
+  };
+  const monero = {
+    id: 'crypto:xmr-monero',
+    assetId: 'xmr',
+    assetCode: 'XMR',
+    kind: 'crypto-network',
+    title: 'XMR Monero',
+    networkSlug: 'xmr-monero',
+    networkTitle: 'Monero',
+    routeNetwork: 'Monero',
+    direction: 'receive',
+    customerDepositsEnabled: false,
+  };
+  const configuredButUncovered = {
+    id: 'crypto:isolated-bep20',
+    assetId: 'isolated',
+    assetCode: 'ISOLATED',
+    kind: 'crypto-network',
+    title: 'Isolated BNB Smart Chain',
+    networkSlug: 'isolated-bep20',
+    networkTitle: 'BNB Smart Chain',
+    routeNetwork: 'BEP20',
+    direction: 'both',
+    customerDepositsEnabled: true,
+  };
+  const options = [bnb, usdc, monero, configuredButUncovered];
+  await page.route('**/api/exchange/config', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      ...exchangeConfig,
+      settlementOptions: options,
+      manualSettlementOptions: options,
+      manualRouteAvailability: {
+        available: true,
+        routes: [
+          { sourceSettlementOptionId: bnb.id, targetSettlementOptionId: monero.id },
+          { sourceSettlementOptionId: usdc.id, targetSettlementOptionId: monero.id },
+        ],
+        unavailableMessage: null,
+      },
+    }),
+  }));
+  await page.route('**/api/exchange/route-pricing**', route => route.abort());
+
+  await page.goto('/');
+  await expect(page.getByTestId('select-from-asset')).toHaveAttribute('data-value', bnb.id);
+
+  await page.getByTestId('select-from-asset').click();
+  await page.getByTestId('search-from-asset').fill('usdc');
+  await expect(page.getByTestId(`option-from-asset-${usdc.id}`)).toBeVisible();
+  await page.getByTestId('search-from-asset').fill('xmr');
+  await expect(page.getByTestId(`option-from-asset-${monero.id}`)).toHaveCount(0);
+  await page.getByTestId('search-from-asset').fill('isolated');
+  await expect(page.getByTestId(`option-from-asset-${configuredButUncovered.id}`)).toHaveCount(0);
+  await page.keyboard.press('Escape');
+
+  await chooseAsset(page, 'select-from-asset', usdc.id, 'usdc');
+  await chooseAsset(page, 'select-to-asset', monero.id, 'xmr');
+  await expect(page.getByTestId('select-from-asset')).toHaveAttribute('data-value', usdc.id);
+  await expect(page.getByTestId('select-to-asset')).toHaveAttribute('data-value', monero.id);
+});
+
 test('keeps standardized fiat payment fields complete, reachable, and submitted once', async ({ page }) => {
   const orderId = 'O987654321';
   const createdAt = new Date().toISOString();

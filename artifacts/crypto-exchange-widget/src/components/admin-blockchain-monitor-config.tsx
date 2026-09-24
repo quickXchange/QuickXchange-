@@ -10,8 +10,6 @@ import {
   useListBlockchainMonitoringAssets,
   useListBlockchainMonitoringSetupRoutes,
   useUpsertBlockchainMonitoringAsset,
-  useUpdateCryptoNetworkCustomerDeposits,
-  getGetCryptoNetworksQueryKey,
 } from '@workspace/api-client-react';
 import { apiErrorText } from '../App';
 import { InlineNotice } from '../App';
@@ -28,7 +26,6 @@ export function BlockchainMonitorConfig({ network, networkCode }: { network: Cry
   const updateNet = useUpdateBlockchainMonitoringNetwork();
   const testNet = useTestBlockchainMonitoringNetwork();
   const upsertAsset = useUpsertBlockchainMonitoringAsset();
-  const updateCustomerDeposits = useUpdateCryptoNetworkCustomerDeposits();
 
   const existingNet = monitorNetworks.data?.items.find(n => n.networkCode === networkCode);
   const existingAsset = monitorAssets.data?.items.find(a => a.assetNetworkId === network.id);
@@ -133,14 +130,6 @@ export function BlockchainMonitorConfig({ network, networkCode }: { network: Cry
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [customerDepositsEnabled, setCustomerDepositsEnabled] = useState(
-    network.customerDepositsEnabled === true,
-  );
-
-  useEffect(() => {
-    setCustomerDepositsEnabled(network.customerDepositsEnabled === true);
-  }, [network.id, network.customerDepositsEnabled]);
-
   const handleSaveNetwork = async () => {
     setError(''); setSuccess('');
     try {
@@ -197,23 +186,6 @@ export function BlockchainMonitorConfig({ network, networkCode }: { network: Cry
     }
   };
 
-  const handleCustomerDepositsChange = async (enabled: boolean) => {
-    if (enabled && !isReady) return;
-    setError('');
-    setSuccess('');
-    try {
-      const saved = await updateCustomerDeposits.mutateAsync({
-        id: network.id,
-        data: { enabled },
-      });
-      setCustomerDepositsEnabled(saved.customerDepositsEnabled === true);
-      await queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() });
-      setSuccess(`Customer Deposits ${saved.customerDepositsEnabled ? 'enabled' : 'disabled'} for ${network.id}.`);
-    } catch (err) {
-      setError(apiErrorText(err, 'Failed to update Customer Deposits.'));
-    }
-  };
-
   return (
     <section className="receiving-wallet-section mt-4 bg-muted/10 p-4 rounded-xl border border-border">
       <div className="panel-heading mb-4">
@@ -235,10 +207,6 @@ export function BlockchainMonitorConfig({ network, networkCode }: { network: Cry
                 <div className="flex justify-between items-center pb-2 border-b border-border/50">
                   <span className="text-muted-foreground font-medium">Asset Monitoring</span>
                   <span className={existingAsset?.enabled ? "text-emerald-500 font-semibold" : "text-muted-foreground font-semibold"}>{existingAsset?.enabled ? "Enabled" : "Disabled"}</span>
-                </div>
-                <div className="flex justify-between items-center pb-2 border-b border-border/50">
-                  <span className="text-muted-foreground font-medium">Customer Deposits</span>
-                  <span className={customerDepositsEnabled ? "text-emerald-500 font-semibold" : "text-muted-foreground font-semibold"}>{customerDepositsEnabled ? "Enabled" : "Disabled"}</span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b border-border/50">
                   <span className="text-muted-foreground font-medium">Provider</span>
@@ -281,36 +249,6 @@ export function BlockchainMonitorConfig({ network, networkCode }: { network: Cry
             </div>
           </div>
 
-          <div className="rounded-xl border border-border bg-card p-4">
-            <label className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                checked={customerDepositsEnabled}
-                onChange={event => handleCustomerDepositsChange(event.target.checked)}
-                disabled={updateCustomerDeposits.isPending || (!customerDepositsEnabled && !isReady)}
-                className="mt-0.5 rounded border-border bg-transparent"
-              />
-              <span>
-                <span className="block text-sm font-semibold">Enable Customer Deposits</span>
-                <span className="mt-1 block text-xs text-muted-foreground">
-                  Applies only to {network.id}. Network Monitor and Asset Monitoring remain independent.
-                </span>
-              </span>
-            </label>
-            {!isReady && !customerDepositsEnabled && (
-              <div className="mt-3 text-xs text-red-500">
-                Cannot enable while Readiness is BLOCKED: {uniqueReadinessReasons.join('; ')}.
-              </div>
-            )}
-          </div>
-
-          {!isReady && customerDepositsEnabled && (
-            <div className="mb-4">
-              <InlineNotice kind="error">
-                <strong>Customer deposits enabled while blockchain monitoring is not READY.</strong> New manual deposit activation remains blocked until all readiness requirements pass.
-              </InlineNotice>
-            </div>
-          )}
         </div>
         <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground border-b border-border/50 pb-2">Network Configuration</h3>
         

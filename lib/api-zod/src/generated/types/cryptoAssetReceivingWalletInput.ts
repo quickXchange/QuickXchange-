@@ -24,6 +24,9 @@ export interface CryptoAssetReceivingWalletInput {
      * @maxLength 64
      */
   depositProvider?: string;
-  enabled: boolean;
+  manualWalletTrackingEnabled?: boolean;
+  customerDepositsEnabled?: boolean;
+  /** @deprecated */
+  enabled?: boolean;
   useForAllAssetsOnNetwork: boolean;
 }

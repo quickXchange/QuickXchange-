@@ -8125,6 +8125,7 @@ export const applyCryptoAssetsBulkEditResponseNetworksItemOneDecimalsMax = 30;
 export const applyCryptoAssetsBulkEditResponseNetworksItemOneDecimalsMultipleOf = 1;
 
 export const applyCryptoAssetsBulkEditResponseNetworksItemOneExecutionModeDefault = `manual`;
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneDepositProviderDefault = `manual`;
 export const applyCryptoAssetsBulkEditResponseNetworksItemOneLifecycleDefault = `active`;
 export const applyCryptoAssetsBulkEditResponseNetworksItemOneRegionsItemMax = 32;
 
@@ -8132,6 +8133,7 @@ export const applyCryptoAssetsBulkEditResponseNetworksItemOneRegionsMax = 20;
 
 export const applyCryptoAssetsBulkEditResponseNetworksItemOneEnabledDefault = true;
 export const applyCryptoAssetsBulkEditResponseNetworksItemOneCustomerDepositsEnabledDefault = false;
+export const applyCryptoAssetsBulkEditResponseNetworksItemOneManualWalletTrackingEnabledDefault = true;
 export const applyCryptoAssetsBulkEditResponseNetworksItemOneRequiresMemoDefault = false;
 export const applyCryptoAssetsBulkEditResponseNetworksItemOneRequiredConfirmationsDefault = 0;
 export const applyCryptoAssetsBulkEditResponseNetworksItemOneRequiredConfirmationsMin = 0;
@@ -8151,6 +8153,7 @@ export const applyCryptoAssetsBulkEditResponseNetworksItemOneSharedDepositAddres
 export const applyCryptoAssetsBulkEditResponseNetworksItemOneSharedDepositMemoMax = 500;
 
 export const applyCryptoAssetsBulkEditResponseNetworksItemTwoDepositProviderDefault = `manual`;
+export const applyCryptoAssetsBulkEditResponseNetworksItemTwoManualWalletTrackingEnabledDefault = true;
 
 export const ApplyCryptoAssetsBulkEditResponse = zod.object({
   "assets": zod.array(zod.object({
@@ -8175,10 +8178,12 @@ export const ApplyCryptoAssetsBulkEditResponse = zod.object({
   "networkFamily": zod.string().min(1).max(applyCryptoAssetsBulkEditResponseNetworksItemOneNetworkFamilyMax).default(applyCryptoAssetsBulkEditResponseNetworksItemOneNetworkFamilyDefault),
   "decimals": zod.number().min(applyCryptoAssetsBulkEditResponseNetworksItemOneDecimalsMin).max(applyCryptoAssetsBulkEditResponseNetworksItemOneDecimalsMax).multipleOf(applyCryptoAssetsBulkEditResponseNetworksItemOneDecimalsMultipleOf),
   "executionMode": zod.enum(['catalog', 'manual', 'api']).default(applyCryptoAssetsBulkEditResponseNetworksItemOneExecutionModeDefault),
+  "depositProvider": zod.enum(['none', 'manual', 'whitebit']).default(applyCryptoAssetsBulkEditResponseNetworksItemOneDepositProviderDefault),
   "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).default(applyCryptoAssetsBulkEditResponseNetworksItemOneLifecycleDefault),
   "regions": zod.array(zod.string().max(applyCryptoAssetsBulkEditResponseNetworksItemOneRegionsItemMax)).max(applyCryptoAssetsBulkEditResponseNetworksItemOneRegionsMax).optional(),
   "enabled": zod.boolean().default(applyCryptoAssetsBulkEditResponseNetworksItemOneEnabledDefault),
   "customerDepositsEnabled": zod.boolean().default(applyCryptoAssetsBulkEditResponseNetworksItemOneCustomerDepositsEnabledDefault),
+  "manualWalletTrackingEnabled": zod.boolean().default(applyCryptoAssetsBulkEditResponseNetworksItemOneManualWalletTrackingEnabledDefault),
   "requiresMemo": zod.boolean().default(applyCryptoAssetsBulkEditResponseNetworksItemOneRequiresMemoDefault),
   "requiredConfirmations": zod.number().min(applyCryptoAssetsBulkEditResponseNetworksItemOneRequiredConfirmationsMin).max(applyCryptoAssetsBulkEditResponseNetworksItemOneRequiredConfirmationsMax).multipleOf(applyCryptoAssetsBulkEditResponseNetworksItemOneRequiredConfirmationsMultipleOf).default(applyCryptoAssetsBulkEditResponseNetworksItemOneRequiredConfirmationsDefault),
   "confirmationGuidance": zod.string().max(applyCryptoAssetsBulkEditResponseNetworksItemOneConfirmationGuidanceMax).nullish(),
@@ -8189,6 +8194,7 @@ export const ApplyCryptoAssetsBulkEditResponse = zod.object({
   "sharedDepositMemo": zod.string().max(applyCryptoAssetsBulkEditResponseNetworksItemOneSharedDepositMemoMax).nullish()
 }).and(zod.object({
   "depositProvider": zod.string().default(applyCryptoAssetsBulkEditResponseNetworksItemTwoDepositProviderDefault),
+  "manualWalletTrackingEnabled": zod.boolean().default(applyCryptoAssetsBulkEditResponseNetworksItemTwoManualWalletTrackingEnabledDefault),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "logoUrl": zod.string().optional(),
@@ -8299,7 +8305,6 @@ export const saveCryptoAssetReceivingWalletBodyWalletAddressMax = 500;
 
 export const saveCryptoAssetReceivingWalletBodyMemoMax = 500;
 
-export const saveCryptoAssetReceivingWalletBodyDepositProviderDefault = `manual`;
 export const saveCryptoAssetReceivingWalletBodyDepositProviderMax = 64;
 
 
@@ -8308,8 +8313,10 @@ export const SaveCryptoAssetReceivingWalletBody = zod.object({
   "networkId": zod.string().min(1).max(saveCryptoAssetReceivingWalletBodyNetworkIdMax),
   "walletAddress": zod.string().max(saveCryptoAssetReceivingWalletBodyWalletAddressMax),
   "memo": zod.string().max(saveCryptoAssetReceivingWalletBodyMemoMax).nullish(),
-  "depositProvider": zod.string().min(1).max(saveCryptoAssetReceivingWalletBodyDepositProviderMax).default(saveCryptoAssetReceivingWalletBodyDepositProviderDefault),
-  "enabled": zod.boolean(),
+  "depositProvider": zod.string().min(1).max(saveCryptoAssetReceivingWalletBodyDepositProviderMax).optional(),
+  "manualWalletTrackingEnabled": zod.boolean().optional(),
+  "customerDepositsEnabled": zod.boolean().optional(),
+  "enabled": zod.boolean().optional(),
   "useForAllAssetsOnNetwork": zod.boolean()
 })
 
@@ -8328,6 +8335,7 @@ export const saveCryptoAssetReceivingWalletResponseOneDecimalsMax = 30;
 export const saveCryptoAssetReceivingWalletResponseOneDecimalsMultipleOf = 1;
 
 export const saveCryptoAssetReceivingWalletResponseOneExecutionModeDefault = `manual`;
+export const saveCryptoAssetReceivingWalletResponseOneDepositProviderDefault = `manual`;
 export const saveCryptoAssetReceivingWalletResponseOneLifecycleDefault = `active`;
 export const saveCryptoAssetReceivingWalletResponseOneRegionsItemMax = 32;
 
@@ -8335,6 +8343,7 @@ export const saveCryptoAssetReceivingWalletResponseOneRegionsMax = 20;
 
 export const saveCryptoAssetReceivingWalletResponseOneEnabledDefault = true;
 export const saveCryptoAssetReceivingWalletResponseOneCustomerDepositsEnabledDefault = false;
+export const saveCryptoAssetReceivingWalletResponseOneManualWalletTrackingEnabledDefault = true;
 export const saveCryptoAssetReceivingWalletResponseOneRequiresMemoDefault = false;
 export const saveCryptoAssetReceivingWalletResponseOneRequiredConfirmationsDefault = 0;
 export const saveCryptoAssetReceivingWalletResponseOneRequiredConfirmationsMin = 0;
@@ -8354,6 +8363,7 @@ export const saveCryptoAssetReceivingWalletResponseOneSharedDepositAddressMax = 
 export const saveCryptoAssetReceivingWalletResponseOneSharedDepositMemoMax = 500;
 
 export const saveCryptoAssetReceivingWalletResponseTwoDepositProviderDefault = `manual`;
+export const saveCryptoAssetReceivingWalletResponseTwoManualWalletTrackingEnabledDefault = true;
 
 export const SaveCryptoAssetReceivingWalletResponseItem = zod.object({
   "logoObjectPath": zod.string().regex(saveCryptoAssetReceivingWalletResponseOneLogoObjectPathRegExp).nullish(),
@@ -8364,10 +8374,12 @@ export const SaveCryptoAssetReceivingWalletResponseItem = zod.object({
   "networkFamily": zod.string().min(1).max(saveCryptoAssetReceivingWalletResponseOneNetworkFamilyMax).default(saveCryptoAssetReceivingWalletResponseOneNetworkFamilyDefault),
   "decimals": zod.number().min(saveCryptoAssetReceivingWalletResponseOneDecimalsMin).max(saveCryptoAssetReceivingWalletResponseOneDecimalsMax).multipleOf(saveCryptoAssetReceivingWalletResponseOneDecimalsMultipleOf),
   "executionMode": zod.enum(['catalog', 'manual', 'api']).default(saveCryptoAssetReceivingWalletResponseOneExecutionModeDefault),
+  "depositProvider": zod.enum(['none', 'manual', 'whitebit']).default(saveCryptoAssetReceivingWalletResponseOneDepositProviderDefault),
   "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).default(saveCryptoAssetReceivingWalletResponseOneLifecycleDefault),
   "regions": zod.array(zod.string().max(saveCryptoAssetReceivingWalletResponseOneRegionsItemMax)).max(saveCryptoAssetReceivingWalletResponseOneRegionsMax).optional(),
   "enabled": zod.boolean().default(saveCryptoAssetReceivingWalletResponseOneEnabledDefault),
   "customerDepositsEnabled": zod.boolean().default(saveCryptoAssetReceivingWalletResponseOneCustomerDepositsEnabledDefault),
+  "manualWalletTrackingEnabled": zod.boolean().default(saveCryptoAssetReceivingWalletResponseOneManualWalletTrackingEnabledDefault),
   "requiresMemo": zod.boolean().default(saveCryptoAssetReceivingWalletResponseOneRequiresMemoDefault),
   "requiredConfirmations": zod.number().min(saveCryptoAssetReceivingWalletResponseOneRequiredConfirmationsMin).max(saveCryptoAssetReceivingWalletResponseOneRequiredConfirmationsMax).multipleOf(saveCryptoAssetReceivingWalletResponseOneRequiredConfirmationsMultipleOf).default(saveCryptoAssetReceivingWalletResponseOneRequiredConfirmationsDefault),
   "confirmationGuidance": zod.string().max(saveCryptoAssetReceivingWalletResponseOneConfirmationGuidanceMax).nullish(),
@@ -8378,6 +8390,7 @@ export const SaveCryptoAssetReceivingWalletResponseItem = zod.object({
   "sharedDepositMemo": zod.string().max(saveCryptoAssetReceivingWalletResponseOneSharedDepositMemoMax).nullish()
 }).and(zod.object({
   "depositProvider": zod.string().default(saveCryptoAssetReceivingWalletResponseTwoDepositProviderDefault),
+  "manualWalletTrackingEnabled": zod.boolean().default(saveCryptoAssetReceivingWalletResponseTwoManualWalletTrackingEnabledDefault),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "logoUrl": zod.string().optional(),
@@ -8406,6 +8419,7 @@ export const getCryptoNetworksResponseOneDecimalsMax = 30;
 export const getCryptoNetworksResponseOneDecimalsMultipleOf = 1;
 
 export const getCryptoNetworksResponseOneExecutionModeDefault = `manual`;
+export const getCryptoNetworksResponseOneDepositProviderDefault = `manual`;
 export const getCryptoNetworksResponseOneLifecycleDefault = `active`;
 export const getCryptoNetworksResponseOneRegionsItemMax = 32;
 
@@ -8413,6 +8427,7 @@ export const getCryptoNetworksResponseOneRegionsMax = 20;
 
 export const getCryptoNetworksResponseOneEnabledDefault = true;
 export const getCryptoNetworksResponseOneCustomerDepositsEnabledDefault = false;
+export const getCryptoNetworksResponseOneManualWalletTrackingEnabledDefault = true;
 export const getCryptoNetworksResponseOneRequiresMemoDefault = false;
 export const getCryptoNetworksResponseOneRequiredConfirmationsDefault = 0;
 export const getCryptoNetworksResponseOneRequiredConfirmationsMin = 0;
@@ -8432,6 +8447,7 @@ export const getCryptoNetworksResponseOneSharedDepositAddressMax = 500;
 export const getCryptoNetworksResponseOneSharedDepositMemoMax = 500;
 
 export const getCryptoNetworksResponseTwoDepositProviderDefault = `manual`;
+export const getCryptoNetworksResponseTwoManualWalletTrackingEnabledDefault = true;
 
 export const GetCryptoNetworksResponseItem = zod.object({
   "logoObjectPath": zod.string().regex(getCryptoNetworksResponseOneLogoObjectPathRegExp).nullish(),
@@ -8442,10 +8458,12 @@ export const GetCryptoNetworksResponseItem = zod.object({
   "networkFamily": zod.string().min(1).max(getCryptoNetworksResponseOneNetworkFamilyMax).default(getCryptoNetworksResponseOneNetworkFamilyDefault),
   "decimals": zod.number().min(getCryptoNetworksResponseOneDecimalsMin).max(getCryptoNetworksResponseOneDecimalsMax).multipleOf(getCryptoNetworksResponseOneDecimalsMultipleOf),
   "executionMode": zod.enum(['catalog', 'manual', 'api']).default(getCryptoNetworksResponseOneExecutionModeDefault),
+  "depositProvider": zod.enum(['none', 'manual', 'whitebit']).default(getCryptoNetworksResponseOneDepositProviderDefault),
   "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).default(getCryptoNetworksResponseOneLifecycleDefault),
   "regions": zod.array(zod.string().max(getCryptoNetworksResponseOneRegionsItemMax)).max(getCryptoNetworksResponseOneRegionsMax).optional(),
   "enabled": zod.boolean().default(getCryptoNetworksResponseOneEnabledDefault),
   "customerDepositsEnabled": zod.boolean().default(getCryptoNetworksResponseOneCustomerDepositsEnabledDefault),
+  "manualWalletTrackingEnabled": zod.boolean().default(getCryptoNetworksResponseOneManualWalletTrackingEnabledDefault),
   "requiresMemo": zod.boolean().default(getCryptoNetworksResponseOneRequiresMemoDefault),
   "requiredConfirmations": zod.number().min(getCryptoNetworksResponseOneRequiredConfirmationsMin).max(getCryptoNetworksResponseOneRequiredConfirmationsMax).multipleOf(getCryptoNetworksResponseOneRequiredConfirmationsMultipleOf).default(getCryptoNetworksResponseOneRequiredConfirmationsDefault),
   "confirmationGuidance": zod.string().max(getCryptoNetworksResponseOneConfirmationGuidanceMax).nullish(),
@@ -8456,6 +8474,7 @@ export const GetCryptoNetworksResponseItem = zod.object({
   "sharedDepositMemo": zod.string().max(getCryptoNetworksResponseOneSharedDepositMemoMax).nullish()
 }).and(zod.object({
   "depositProvider": zod.string().default(getCryptoNetworksResponseTwoDepositProviderDefault),
+  "manualWalletTrackingEnabled": zod.boolean().default(getCryptoNetworksResponseTwoManualWalletTrackingEnabledDefault),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "logoUrl": zod.string().optional(),
@@ -8484,6 +8503,7 @@ export const createCryptoNetworkBodyDecimalsMax = 30;
 export const createCryptoNetworkBodyDecimalsMultipleOf = 1;
 
 export const createCryptoNetworkBodyExecutionModeDefault = `manual`;
+export const createCryptoNetworkBodyDepositProviderDefault = `manual`;
 export const createCryptoNetworkBodyLifecycleDefault = `active`;
 export const createCryptoNetworkBodyRegionsItemMax = 32;
 
@@ -8491,6 +8511,7 @@ export const createCryptoNetworkBodyRegionsMax = 20;
 
 export const createCryptoNetworkBodyEnabledDefault = true;
 export const createCryptoNetworkBodyCustomerDepositsEnabledDefault = false;
+export const createCryptoNetworkBodyManualWalletTrackingEnabledDefault = true;
 export const createCryptoNetworkBodyRequiresMemoDefault = false;
 export const createCryptoNetworkBodyRequiredConfirmationsDefault = 0;
 export const createCryptoNetworkBodyRequiredConfirmationsMin = 0;
@@ -8520,10 +8541,12 @@ export const CreateCryptoNetworkBody = zod.object({
   "networkFamily": zod.string().min(1).max(createCryptoNetworkBodyNetworkFamilyMax).default(createCryptoNetworkBodyNetworkFamilyDefault),
   "decimals": zod.number().min(createCryptoNetworkBodyDecimalsMin).max(createCryptoNetworkBodyDecimalsMax).multipleOf(createCryptoNetworkBodyDecimalsMultipleOf),
   "executionMode": zod.enum(['catalog', 'manual', 'api']).default(createCryptoNetworkBodyExecutionModeDefault),
+  "depositProvider": zod.enum(['none', 'manual', 'whitebit']).default(createCryptoNetworkBodyDepositProviderDefault),
   "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).default(createCryptoNetworkBodyLifecycleDefault),
   "regions": zod.array(zod.string().max(createCryptoNetworkBodyRegionsItemMax)).max(createCryptoNetworkBodyRegionsMax).optional(),
   "enabled": zod.boolean().default(createCryptoNetworkBodyEnabledDefault),
   "customerDepositsEnabled": zod.boolean().default(createCryptoNetworkBodyCustomerDepositsEnabledDefault),
+  "manualWalletTrackingEnabled": zod.boolean().default(createCryptoNetworkBodyManualWalletTrackingEnabledDefault),
   "requiresMemo": zod.boolean().default(createCryptoNetworkBodyRequiresMemoDefault),
   "requiredConfirmations": zod.number().min(createCryptoNetworkBodyRequiredConfirmationsMin).max(createCryptoNetworkBodyRequiredConfirmationsMax).multipleOf(createCryptoNetworkBodyRequiredConfirmationsMultipleOf).default(createCryptoNetworkBodyRequiredConfirmationsDefault),
   "confirmationGuidance": zod.string().max(createCryptoNetworkBodyConfirmationGuidanceMax).nullish(),
@@ -8549,6 +8572,7 @@ export const createCryptoNetworkResponseOneDecimalsMax = 30;
 export const createCryptoNetworkResponseOneDecimalsMultipleOf = 1;
 
 export const createCryptoNetworkResponseOneExecutionModeDefault = `manual`;
+export const createCryptoNetworkResponseOneDepositProviderDefault = `manual`;
 export const createCryptoNetworkResponseOneLifecycleDefault = `active`;
 export const createCryptoNetworkResponseOneRegionsItemMax = 32;
 
@@ -8556,6 +8580,7 @@ export const createCryptoNetworkResponseOneRegionsMax = 20;
 
 export const createCryptoNetworkResponseOneEnabledDefault = true;
 export const createCryptoNetworkResponseOneCustomerDepositsEnabledDefault = false;
+export const createCryptoNetworkResponseOneManualWalletTrackingEnabledDefault = true;
 export const createCryptoNetworkResponseOneRequiresMemoDefault = false;
 export const createCryptoNetworkResponseOneRequiredConfirmationsDefault = 0;
 export const createCryptoNetworkResponseOneRequiredConfirmationsMin = 0;
@@ -8575,6 +8600,7 @@ export const createCryptoNetworkResponseOneSharedDepositAddressMax = 500;
 export const createCryptoNetworkResponseOneSharedDepositMemoMax = 500;
 
 export const createCryptoNetworkResponseTwoDepositProviderDefault = `manual`;
+export const createCryptoNetworkResponseTwoManualWalletTrackingEnabledDefault = true;
 
 export const CreateCryptoNetworkResponse = zod.object({
   "logoObjectPath": zod.string().regex(createCryptoNetworkResponseOneLogoObjectPathRegExp).nullish(),
@@ -8585,10 +8611,12 @@ export const CreateCryptoNetworkResponse = zod.object({
   "networkFamily": zod.string().min(1).max(createCryptoNetworkResponseOneNetworkFamilyMax).default(createCryptoNetworkResponseOneNetworkFamilyDefault),
   "decimals": zod.number().min(createCryptoNetworkResponseOneDecimalsMin).max(createCryptoNetworkResponseOneDecimalsMax).multipleOf(createCryptoNetworkResponseOneDecimalsMultipleOf),
   "executionMode": zod.enum(['catalog', 'manual', 'api']).default(createCryptoNetworkResponseOneExecutionModeDefault),
+  "depositProvider": zod.enum(['none', 'manual', 'whitebit']).default(createCryptoNetworkResponseOneDepositProviderDefault),
   "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).default(createCryptoNetworkResponseOneLifecycleDefault),
   "regions": zod.array(zod.string().max(createCryptoNetworkResponseOneRegionsItemMax)).max(createCryptoNetworkResponseOneRegionsMax).optional(),
   "enabled": zod.boolean().default(createCryptoNetworkResponseOneEnabledDefault),
   "customerDepositsEnabled": zod.boolean().default(createCryptoNetworkResponseOneCustomerDepositsEnabledDefault),
+  "manualWalletTrackingEnabled": zod.boolean().default(createCryptoNetworkResponseOneManualWalletTrackingEnabledDefault),
   "requiresMemo": zod.boolean().default(createCryptoNetworkResponseOneRequiresMemoDefault),
   "requiredConfirmations": zod.number().min(createCryptoNetworkResponseOneRequiredConfirmationsMin).max(createCryptoNetworkResponseOneRequiredConfirmationsMax).multipleOf(createCryptoNetworkResponseOneRequiredConfirmationsMultipleOf).default(createCryptoNetworkResponseOneRequiredConfirmationsDefault),
   "confirmationGuidance": zod.string().max(createCryptoNetworkResponseOneConfirmationGuidanceMax).nullish(),
@@ -8599,6 +8627,7 @@ export const CreateCryptoNetworkResponse = zod.object({
   "sharedDepositMemo": zod.string().max(createCryptoNetworkResponseOneSharedDepositMemoMax).nullish()
 }).and(zod.object({
   "depositProvider": zod.string().default(createCryptoNetworkResponseTwoDepositProviderDefault),
+  "manualWalletTrackingEnabled": zod.boolean().default(createCryptoNetworkResponseTwoManualWalletTrackingEnabledDefault),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "logoUrl": zod.string().optional(),
@@ -8631,6 +8660,8 @@ export const SaveCryptoNetworkReceivingWalletBody = zod.object({
   "walletAddress": zod.string().max(saveCryptoNetworkReceivingWalletBodyWalletAddressMax),
   "memo": zod.string().max(saveCryptoNetworkReceivingWalletBodyMemoMax).nullish(),
   "depositProvider": zod.string().min(1).max(saveCryptoNetworkReceivingWalletBodyDepositProviderMax).optional(),
+  "manualWalletTrackingEnabled": zod.boolean().optional(),
+  "customerDepositsEnabled": zod.boolean().optional(),
   "preserveDepositProviders": zod.boolean().default(saveCryptoNetworkReceivingWalletBodyPreserveDepositProvidersDefault),
   "networkEnabled": zod.boolean().optional(),
   "enabled": zod.boolean().optional()
@@ -8651,6 +8682,7 @@ export const saveCryptoNetworkReceivingWalletResponseOneDecimalsMax = 30;
 export const saveCryptoNetworkReceivingWalletResponseOneDecimalsMultipleOf = 1;
 
 export const saveCryptoNetworkReceivingWalletResponseOneExecutionModeDefault = `manual`;
+export const saveCryptoNetworkReceivingWalletResponseOneDepositProviderDefault = `manual`;
 export const saveCryptoNetworkReceivingWalletResponseOneLifecycleDefault = `active`;
 export const saveCryptoNetworkReceivingWalletResponseOneRegionsItemMax = 32;
 
@@ -8658,6 +8690,7 @@ export const saveCryptoNetworkReceivingWalletResponseOneRegionsMax = 20;
 
 export const saveCryptoNetworkReceivingWalletResponseOneEnabledDefault = true;
 export const saveCryptoNetworkReceivingWalletResponseOneCustomerDepositsEnabledDefault = false;
+export const saveCryptoNetworkReceivingWalletResponseOneManualWalletTrackingEnabledDefault = true;
 export const saveCryptoNetworkReceivingWalletResponseOneRequiresMemoDefault = false;
 export const saveCryptoNetworkReceivingWalletResponseOneRequiredConfirmationsDefault = 0;
 export const saveCryptoNetworkReceivingWalletResponseOneRequiredConfirmationsMin = 0;
@@ -8677,6 +8710,7 @@ export const saveCryptoNetworkReceivingWalletResponseOneSharedDepositAddressMax 
 export const saveCryptoNetworkReceivingWalletResponseOneSharedDepositMemoMax = 500;
 
 export const saveCryptoNetworkReceivingWalletResponseTwoDepositProviderDefault = `manual`;
+export const saveCryptoNetworkReceivingWalletResponseTwoManualWalletTrackingEnabledDefault = true;
 
 export const SaveCryptoNetworkReceivingWalletResponseItem = zod.object({
   "logoObjectPath": zod.string().regex(saveCryptoNetworkReceivingWalletResponseOneLogoObjectPathRegExp).nullish(),
@@ -8687,10 +8721,12 @@ export const SaveCryptoNetworkReceivingWalletResponseItem = zod.object({
   "networkFamily": zod.string().min(1).max(saveCryptoNetworkReceivingWalletResponseOneNetworkFamilyMax).default(saveCryptoNetworkReceivingWalletResponseOneNetworkFamilyDefault),
   "decimals": zod.number().min(saveCryptoNetworkReceivingWalletResponseOneDecimalsMin).max(saveCryptoNetworkReceivingWalletResponseOneDecimalsMax).multipleOf(saveCryptoNetworkReceivingWalletResponseOneDecimalsMultipleOf),
   "executionMode": zod.enum(['catalog', 'manual', 'api']).default(saveCryptoNetworkReceivingWalletResponseOneExecutionModeDefault),
+  "depositProvider": zod.enum(['none', 'manual', 'whitebit']).default(saveCryptoNetworkReceivingWalletResponseOneDepositProviderDefault),
   "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).default(saveCryptoNetworkReceivingWalletResponseOneLifecycleDefault),
   "regions": zod.array(zod.string().max(saveCryptoNetworkReceivingWalletResponseOneRegionsItemMax)).max(saveCryptoNetworkReceivingWalletResponseOneRegionsMax).optional(),
   "enabled": zod.boolean().default(saveCryptoNetworkReceivingWalletResponseOneEnabledDefault),
   "customerDepositsEnabled": zod.boolean().default(saveCryptoNetworkReceivingWalletResponseOneCustomerDepositsEnabledDefault),
+  "manualWalletTrackingEnabled": zod.boolean().default(saveCryptoNetworkReceivingWalletResponseOneManualWalletTrackingEnabledDefault),
   "requiresMemo": zod.boolean().default(saveCryptoNetworkReceivingWalletResponseOneRequiresMemoDefault),
   "requiredConfirmations": zod.number().min(saveCryptoNetworkReceivingWalletResponseOneRequiredConfirmationsMin).max(saveCryptoNetworkReceivingWalletResponseOneRequiredConfirmationsMax).multipleOf(saveCryptoNetworkReceivingWalletResponseOneRequiredConfirmationsMultipleOf).default(saveCryptoNetworkReceivingWalletResponseOneRequiredConfirmationsDefault),
   "confirmationGuidance": zod.string().max(saveCryptoNetworkReceivingWalletResponseOneConfirmationGuidanceMax).nullish(),
@@ -8701,6 +8737,7 @@ export const SaveCryptoNetworkReceivingWalletResponseItem = zod.object({
   "sharedDepositMemo": zod.string().max(saveCryptoNetworkReceivingWalletResponseOneSharedDepositMemoMax).nullish()
 }).and(zod.object({
   "depositProvider": zod.string().default(saveCryptoNetworkReceivingWalletResponseTwoDepositProviderDefault),
+  "manualWalletTrackingEnabled": zod.boolean().default(saveCryptoNetworkReceivingWalletResponseTwoManualWalletTrackingEnabledDefault),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "logoUrl": zod.string().optional(),
@@ -8734,6 +8771,8 @@ export const PreviewCryptoNetworkReceivingWalletBody = zod.object({
   "walletAddress": zod.string().max(previewCryptoNetworkReceivingWalletBodyWalletAddressMax),
   "memo": zod.string().max(previewCryptoNetworkReceivingWalletBodyMemoMax).nullish(),
   "depositProvider": zod.string().min(1).max(previewCryptoNetworkReceivingWalletBodyDepositProviderMax).optional(),
+  "manualWalletTrackingEnabled": zod.boolean().optional(),
+  "customerDepositsEnabled": zod.boolean().optional(),
   "preserveDepositProviders": zod.boolean().default(previewCryptoNetworkReceivingWalletBodyPreserveDepositProvidersDefault),
   "networkEnabled": zod.boolean().optional(),
   "enabled": zod.boolean().optional()
@@ -8754,6 +8793,7 @@ export const previewCryptoNetworkReceivingWalletResponseOneDecimalsMax = 30;
 export const previewCryptoNetworkReceivingWalletResponseOneDecimalsMultipleOf = 1;
 
 export const previewCryptoNetworkReceivingWalletResponseOneExecutionModeDefault = `manual`;
+export const previewCryptoNetworkReceivingWalletResponseOneDepositProviderDefault = `manual`;
 export const previewCryptoNetworkReceivingWalletResponseOneLifecycleDefault = `active`;
 export const previewCryptoNetworkReceivingWalletResponseOneRegionsItemMax = 32;
 
@@ -8761,6 +8801,7 @@ export const previewCryptoNetworkReceivingWalletResponseOneRegionsMax = 20;
 
 export const previewCryptoNetworkReceivingWalletResponseOneEnabledDefault = true;
 export const previewCryptoNetworkReceivingWalletResponseOneCustomerDepositsEnabledDefault = false;
+export const previewCryptoNetworkReceivingWalletResponseOneManualWalletTrackingEnabledDefault = true;
 export const previewCryptoNetworkReceivingWalletResponseOneRequiresMemoDefault = false;
 export const previewCryptoNetworkReceivingWalletResponseOneRequiredConfirmationsDefault = 0;
 export const previewCryptoNetworkReceivingWalletResponseOneRequiredConfirmationsMin = 0;
@@ -8780,6 +8821,7 @@ export const previewCryptoNetworkReceivingWalletResponseOneSharedDepositAddressM
 export const previewCryptoNetworkReceivingWalletResponseOneSharedDepositMemoMax = 500;
 
 export const previewCryptoNetworkReceivingWalletResponseTwoDepositProviderDefault = `manual`;
+export const previewCryptoNetworkReceivingWalletResponseTwoManualWalletTrackingEnabledDefault = true;
 
 export const PreviewCryptoNetworkReceivingWalletResponseItem = zod.object({
   "logoObjectPath": zod.string().regex(previewCryptoNetworkReceivingWalletResponseOneLogoObjectPathRegExp).nullish(),
@@ -8790,10 +8832,12 @@ export const PreviewCryptoNetworkReceivingWalletResponseItem = zod.object({
   "networkFamily": zod.string().min(1).max(previewCryptoNetworkReceivingWalletResponseOneNetworkFamilyMax).default(previewCryptoNetworkReceivingWalletResponseOneNetworkFamilyDefault),
   "decimals": zod.number().min(previewCryptoNetworkReceivingWalletResponseOneDecimalsMin).max(previewCryptoNetworkReceivingWalletResponseOneDecimalsMax).multipleOf(previewCryptoNetworkReceivingWalletResponseOneDecimalsMultipleOf),
   "executionMode": zod.enum(['catalog', 'manual', 'api']).default(previewCryptoNetworkReceivingWalletResponseOneExecutionModeDefault),
+  "depositProvider": zod.enum(['none', 'manual', 'whitebit']).default(previewCryptoNetworkReceivingWalletResponseOneDepositProviderDefault),
   "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).default(previewCryptoNetworkReceivingWalletResponseOneLifecycleDefault),
   "regions": zod.array(zod.string().max(previewCryptoNetworkReceivingWalletResponseOneRegionsItemMax)).max(previewCryptoNetworkReceivingWalletResponseOneRegionsMax).optional(),
   "enabled": zod.boolean().default(previewCryptoNetworkReceivingWalletResponseOneEnabledDefault),
   "customerDepositsEnabled": zod.boolean().default(previewCryptoNetworkReceivingWalletResponseOneCustomerDepositsEnabledDefault),
+  "manualWalletTrackingEnabled": zod.boolean().default(previewCryptoNetworkReceivingWalletResponseOneManualWalletTrackingEnabledDefault),
   "requiresMemo": zod.boolean().default(previewCryptoNetworkReceivingWalletResponseOneRequiresMemoDefault),
   "requiredConfirmations": zod.number().min(previewCryptoNetworkReceivingWalletResponseOneRequiredConfirmationsMin).max(previewCryptoNetworkReceivingWalletResponseOneRequiredConfirmationsMax).multipleOf(previewCryptoNetworkReceivingWalletResponseOneRequiredConfirmationsMultipleOf).default(previewCryptoNetworkReceivingWalletResponseOneRequiredConfirmationsDefault),
   "confirmationGuidance": zod.string().max(previewCryptoNetworkReceivingWalletResponseOneConfirmationGuidanceMax).nullish(),
@@ -8804,6 +8848,7 @@ export const PreviewCryptoNetworkReceivingWalletResponseItem = zod.object({
   "sharedDepositMemo": zod.string().max(previewCryptoNetworkReceivingWalletResponseOneSharedDepositMemoMax).nullish()
 }).and(zod.object({
   "depositProvider": zod.string().default(previewCryptoNetworkReceivingWalletResponseTwoDepositProviderDefault),
+  "manualWalletTrackingEnabled": zod.boolean().default(previewCryptoNetworkReceivingWalletResponseTwoManualWalletTrackingEnabledDefault),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "logoUrl": zod.string().optional(),
@@ -8846,6 +8891,7 @@ export const updateCryptoNetworkCustomerDepositsResponseOneDecimalsMax = 30;
 export const updateCryptoNetworkCustomerDepositsResponseOneDecimalsMultipleOf = 1;
 
 export const updateCryptoNetworkCustomerDepositsResponseOneExecutionModeDefault = `manual`;
+export const updateCryptoNetworkCustomerDepositsResponseOneDepositProviderDefault = `manual`;
 export const updateCryptoNetworkCustomerDepositsResponseOneLifecycleDefault = `active`;
 export const updateCryptoNetworkCustomerDepositsResponseOneRegionsItemMax = 32;
 
@@ -8853,6 +8899,7 @@ export const updateCryptoNetworkCustomerDepositsResponseOneRegionsMax = 20;
 
 export const updateCryptoNetworkCustomerDepositsResponseOneEnabledDefault = true;
 export const updateCryptoNetworkCustomerDepositsResponseOneCustomerDepositsEnabledDefault = false;
+export const updateCryptoNetworkCustomerDepositsResponseOneManualWalletTrackingEnabledDefault = true;
 export const updateCryptoNetworkCustomerDepositsResponseOneRequiresMemoDefault = false;
 export const updateCryptoNetworkCustomerDepositsResponseOneRequiredConfirmationsDefault = 0;
 export const updateCryptoNetworkCustomerDepositsResponseOneRequiredConfirmationsMin = 0;
@@ -8872,6 +8919,7 @@ export const updateCryptoNetworkCustomerDepositsResponseOneSharedDepositAddressM
 export const updateCryptoNetworkCustomerDepositsResponseOneSharedDepositMemoMax = 500;
 
 export const updateCryptoNetworkCustomerDepositsResponseTwoDepositProviderDefault = `manual`;
+export const updateCryptoNetworkCustomerDepositsResponseTwoManualWalletTrackingEnabledDefault = true;
 
 export const UpdateCryptoNetworkCustomerDepositsResponse = zod.object({
   "logoObjectPath": zod.string().regex(updateCryptoNetworkCustomerDepositsResponseOneLogoObjectPathRegExp).nullish(),
@@ -8882,10 +8930,12 @@ export const UpdateCryptoNetworkCustomerDepositsResponse = zod.object({
   "networkFamily": zod.string().min(1).max(updateCryptoNetworkCustomerDepositsResponseOneNetworkFamilyMax).default(updateCryptoNetworkCustomerDepositsResponseOneNetworkFamilyDefault),
   "decimals": zod.number().min(updateCryptoNetworkCustomerDepositsResponseOneDecimalsMin).max(updateCryptoNetworkCustomerDepositsResponseOneDecimalsMax).multipleOf(updateCryptoNetworkCustomerDepositsResponseOneDecimalsMultipleOf),
   "executionMode": zod.enum(['catalog', 'manual', 'api']).default(updateCryptoNetworkCustomerDepositsResponseOneExecutionModeDefault),
+  "depositProvider": zod.enum(['none', 'manual', 'whitebit']).default(updateCryptoNetworkCustomerDepositsResponseOneDepositProviderDefault),
   "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).default(updateCryptoNetworkCustomerDepositsResponseOneLifecycleDefault),
   "regions": zod.array(zod.string().max(updateCryptoNetworkCustomerDepositsResponseOneRegionsItemMax)).max(updateCryptoNetworkCustomerDepositsResponseOneRegionsMax).optional(),
   "enabled": zod.boolean().default(updateCryptoNetworkCustomerDepositsResponseOneEnabledDefault),
   "customerDepositsEnabled": zod.boolean().default(updateCryptoNetworkCustomerDepositsResponseOneCustomerDepositsEnabledDefault),
+  "manualWalletTrackingEnabled": zod.boolean().default(updateCryptoNetworkCustomerDepositsResponseOneManualWalletTrackingEnabledDefault),
   "requiresMemo": zod.boolean().default(updateCryptoNetworkCustomerDepositsResponseOneRequiresMemoDefault),
   "requiredConfirmations": zod.number().min(updateCryptoNetworkCustomerDepositsResponseOneRequiredConfirmationsMin).max(updateCryptoNetworkCustomerDepositsResponseOneRequiredConfirmationsMax).multipleOf(updateCryptoNetworkCustomerDepositsResponseOneRequiredConfirmationsMultipleOf).default(updateCryptoNetworkCustomerDepositsResponseOneRequiredConfirmationsDefault),
   "confirmationGuidance": zod.string().max(updateCryptoNetworkCustomerDepositsResponseOneConfirmationGuidanceMax).nullish(),
@@ -8896,6 +8946,7 @@ export const UpdateCryptoNetworkCustomerDepositsResponse = zod.object({
   "sharedDepositMemo": zod.string().max(updateCryptoNetworkCustomerDepositsResponseOneSharedDepositMemoMax).nullish()
 }).and(zod.object({
   "depositProvider": zod.string().default(updateCryptoNetworkCustomerDepositsResponseTwoDepositProviderDefault),
+  "manualWalletTrackingEnabled": zod.boolean().default(updateCryptoNetworkCustomerDepositsResponseTwoManualWalletTrackingEnabledDefault),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "logoUrl": zod.string().optional(),
@@ -8967,10 +9018,12 @@ export const UpdateCryptoNetworkBody = zod.object({
   "networkFamily": zod.string().min(1).max(updateCryptoNetworkBodyNetworkFamilyMax).optional(),
   "decimals": zod.number().min(updateCryptoNetworkBodyDecimalsMin).max(updateCryptoNetworkBodyDecimalsMax).multipleOf(updateCryptoNetworkBodyDecimalsMultipleOf).optional(),
   "executionMode": zod.enum(['catalog', 'manual', 'api']).optional(),
+  "depositProvider": zod.enum(['none', 'manual', 'whitebit']).optional(),
   "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).optional(),
   "regions": zod.array(zod.string().max(updateCryptoNetworkBodyRegionsItemMax)).max(updateCryptoNetworkBodyRegionsMax).optional(),
   "enabled": zod.boolean().optional(),
   "customerDepositsEnabled": zod.boolean().optional(),
+  "manualWalletTrackingEnabled": zod.boolean().optional(),
   "requiresMemo": zod.boolean().optional(),
   "requiredConfirmations": zod.number().min(updateCryptoNetworkBodyRequiredConfirmationsMin).max(updateCryptoNetworkBodyRequiredConfirmationsMax).multipleOf(updateCryptoNetworkBodyRequiredConfirmationsMultipleOf).optional(),
   "confirmationGuidance": zod.string().max(updateCryptoNetworkBodyConfirmationGuidanceMax).nullish(),
@@ -8996,6 +9049,7 @@ export const updateCryptoNetworkResponseOneDecimalsMax = 30;
 export const updateCryptoNetworkResponseOneDecimalsMultipleOf = 1;
 
 export const updateCryptoNetworkResponseOneExecutionModeDefault = `manual`;
+export const updateCryptoNetworkResponseOneDepositProviderDefault = `manual`;
 export const updateCryptoNetworkResponseOneLifecycleDefault = `active`;
 export const updateCryptoNetworkResponseOneRegionsItemMax = 32;
 
@@ -9003,6 +9057,7 @@ export const updateCryptoNetworkResponseOneRegionsMax = 20;
 
 export const updateCryptoNetworkResponseOneEnabledDefault = true;
 export const updateCryptoNetworkResponseOneCustomerDepositsEnabledDefault = false;
+export const updateCryptoNetworkResponseOneManualWalletTrackingEnabledDefault = true;
 export const updateCryptoNetworkResponseOneRequiresMemoDefault = false;
 export const updateCryptoNetworkResponseOneRequiredConfirmationsDefault = 0;
 export const updateCryptoNetworkResponseOneRequiredConfirmationsMin = 0;
@@ -9022,6 +9077,7 @@ export const updateCryptoNetworkResponseOneSharedDepositAddressMax = 500;
 export const updateCryptoNetworkResponseOneSharedDepositMemoMax = 500;
 
 export const updateCryptoNetworkResponseTwoDepositProviderDefault = `manual`;
+export const updateCryptoNetworkResponseTwoManualWalletTrackingEnabledDefault = true;
 
 export const UpdateCryptoNetworkResponse = zod.object({
   "logoObjectPath": zod.string().regex(updateCryptoNetworkResponseOneLogoObjectPathRegExp).nullish(),
@@ -9032,10 +9088,12 @@ export const UpdateCryptoNetworkResponse = zod.object({
   "networkFamily": zod.string().min(1).max(updateCryptoNetworkResponseOneNetworkFamilyMax).default(updateCryptoNetworkResponseOneNetworkFamilyDefault),
   "decimals": zod.number().min(updateCryptoNetworkResponseOneDecimalsMin).max(updateCryptoNetworkResponseOneDecimalsMax).multipleOf(updateCryptoNetworkResponseOneDecimalsMultipleOf),
   "executionMode": zod.enum(['catalog', 'manual', 'api']).default(updateCryptoNetworkResponseOneExecutionModeDefault),
+  "depositProvider": zod.enum(['none', 'manual', 'whitebit']).default(updateCryptoNetworkResponseOneDepositProviderDefault),
   "lifecycle": zod.enum(['active', 'restricted', 'deprecated']).default(updateCryptoNetworkResponseOneLifecycleDefault),
   "regions": zod.array(zod.string().max(updateCryptoNetworkResponseOneRegionsItemMax)).max(updateCryptoNetworkResponseOneRegionsMax).optional(),
   "enabled": zod.boolean().default(updateCryptoNetworkResponseOneEnabledDefault),
   "customerDepositsEnabled": zod.boolean().default(updateCryptoNetworkResponseOneCustomerDepositsEnabledDefault),
+  "manualWalletTrackingEnabled": zod.boolean().default(updateCryptoNetworkResponseOneManualWalletTrackingEnabledDefault),
   "requiresMemo": zod.boolean().default(updateCryptoNetworkResponseOneRequiresMemoDefault),
   "requiredConfirmations": zod.number().min(updateCryptoNetworkResponseOneRequiredConfirmationsMin).max(updateCryptoNetworkResponseOneRequiredConfirmationsMax).multipleOf(updateCryptoNetworkResponseOneRequiredConfirmationsMultipleOf).default(updateCryptoNetworkResponseOneRequiredConfirmationsDefault),
   "confirmationGuidance": zod.string().max(updateCryptoNetworkResponseOneConfirmationGuidanceMax).nullish(),
@@ -9046,6 +9104,7 @@ export const UpdateCryptoNetworkResponse = zod.object({
   "sharedDepositMemo": zod.string().max(updateCryptoNetworkResponseOneSharedDepositMemoMax).nullish()
 }).and(zod.object({
   "depositProvider": zod.string().default(updateCryptoNetworkResponseTwoDepositProviderDefault),
+  "manualWalletTrackingEnabled": zod.boolean().default(updateCryptoNetworkResponseTwoManualWalletTrackingEnabledDefault),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "logoUrl": zod.string().optional(),

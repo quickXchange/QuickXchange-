@@ -156,6 +156,67 @@ test("non-BSC routes require a fresh proof and exact provider compatibility befo
   })), true);
 });
 
+test("manual wallet tracking can be disabled without hiding an explicitly enabled route", () => {
+  const configuredRoute = {
+    id: "btc-bitcoin",
+    networkCode: "BTC",
+    networkName: "Bitcoin",
+    networkFamily: "bitcoin",
+    enabled: true,
+    depositProvider: "manual",
+    customerDepositsEnabled: true,
+    manualWalletTrackingEnabled: false,
+    sharedDepositAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+    requiresMemo: false,
+  } as const;
+
+  assert.equal(isManualCryptoCustomerSendReady(configuredRoute, new Map()), true);
+  assert.equal(isManualCryptoCustomerSendReady({
+    ...configuredRoute,
+    manualWalletTrackingEnabled: true,
+  }, new Map()), false);
+  assert.equal(isManualCryptoCustomerSendReady({
+    ...configuredRoute,
+    manualWalletTrackingEnabled: true,
+  }, new Map([["btc-bitcoin", "BTC"] ])), true);
+  assert.equal(isManualCryptoCustomerSendReady({
+    ...configuredRoute,
+    manualWalletTrackingEnabled: false,
+    sharedDepositAddress: "not-a-bitcoin-address",
+  }, new Map()), false);
+});
+
+test("WhiteBIT manual fallbacks require exact monitoring readiness only when tracking is enabled", () => {
+  const fallbackRoute = {
+    id: "btc-bitcoin",
+    networkCode: "BTC",
+    networkName: "Bitcoin",
+    networkFamily: "bitcoin",
+    enabled: true,
+    depositProvider: "whitebit",
+    customerDepositsEnabled: true,
+    manualWalletTrackingEnabled: true,
+    sharedDepositAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+    sharedDepositMemo: null,
+    requiresMemo: false,
+  } as const;
+
+  assert.equal(isManualCryptoCustomerSendReady(fallbackRoute, new Map()), false);
+  assert.equal(
+    isManualCryptoCustomerSendReady(fallbackRoute, new Map([["btc-bitcoin", "BTC"]])),
+    true,
+  );
+  assert.equal(isManualCryptoCustomerSendReady({
+    ...fallbackRoute,
+    manualWalletTrackingEnabled: false,
+  }, new Map()), true);
+  assert.equal(isManualCryptoCustomerSendReady({
+    ...fallbackRoute,
+    manualWalletTrackingEnabled: true,
+    sharedDepositAddress: "",
+  }, new Map()), true);
+});
+
 test("native and token identities are not interchangeable and malformed identities stay unavailable", () => {
   assert.equal(isManualMonitoringRuntimeReady(runtimeInput({
     identityKind: "native",

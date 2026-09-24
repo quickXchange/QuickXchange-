@@ -260,7 +260,10 @@ export function isManualCryptoCustomerSendReady(
     | "enabled"
     | "depositProvider"
     | "customerDepositsEnabled"
+    | "manualWalletTrackingEnabled"
     | "sharedDepositAddress"
+    | "sharedDepositMemo"
+    | "requiresMemo"
   >,
   readyManualMonitoringRoutes: ReadonlyMap<string, string>,
 ): boolean {
@@ -268,9 +271,12 @@ export function isManualCryptoCustomerSendReady(
   const configuredAddress = network.sharedDepositAddress.trim();
   if (
     configuredAddress &&
-    !isSyntacticallyValidManualWalletAddress(network, configuredAddress)
+    (!isSyntacticallyValidManualWalletAddress(network, configuredAddress) ||
+      network.requiresMemo &&
+        !isSyntacticallyValidManualWalletMemo(network, network.sharedDepositMemo ?? ""))
   ) return false;
-  return network.depositProvider !== "manual" ||
+  return !network.manualWalletTrackingEnabled ||
+    !configuredAddress ||
     readyManualMonitoringRoutes.get(network.id)?.trim().toUpperCase() ===
       network.networkCode.trim().toUpperCase();
 }
@@ -367,9 +373,19 @@ export function isConfiguredYouSendCryptoNetwork(
 
 export function canAcceptManualCryptoDeposit(network: typeof cryptoAssetNetworksTable.$inferSelect) {
   if (!isConfiguredYouSendCryptoNetwork(network)) return false;
+  const fallbackAddress = network.sharedDepositAddress.trim();
+  if (
+    fallbackAddress &&
+    (!isSyntacticallyValidManualWalletAddress(network, fallbackAddress) ||
+      network.requiresMemo &&
+        !isSyntacticallyValidManualWalletMemo(network, network.sharedDepositMemo ?? ""))
+  ) return false;
   if (network.depositProvider === "manual") {
-    return Boolean(network.sharedDepositAddress.trim()) &&
-      (!network.requiresMemo || Boolean(network.sharedDepositMemo?.trim()));
+    return isSyntacticallyValidManualWalletAddress(network, fallbackAddress) &&
+      (!network.requiresMemo || isSyntacticallyValidManualWalletMemo(
+        network,
+        network.sharedDepositMemo ?? "",
+      ));
   }
   return isRegisteredDepositProvider(network.depositProvider);
 }
@@ -378,7 +394,7 @@ export async function canAcceptReadyManualCryptoDeposit(
   network: typeof cryptoAssetNetworksTable.$inferSelect,
 ) {
   if (!canAcceptManualCryptoDeposit(network)) return false;
-  if (network.depositProvider !== "manual") return true;
+  if (!network.manualWalletTrackingEnabled || !network.sharedDepositAddress.trim()) return true;
   const ready = await listReadyManualMonitoringRoutes();
   return ready.get(network.id)?.trim().toUpperCase() === network.networkCode.trim().toUpperCase();
 }

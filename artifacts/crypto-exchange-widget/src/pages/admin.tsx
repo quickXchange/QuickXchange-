@@ -60,7 +60,6 @@ import {
   exportManualDeskRevenueCsv,
   useGetCryptoAssets, getGetCryptoAssetsQueryKey, useCreateCryptoAsset, useUpdateCryptoAsset, useDeleteCryptoAsset, useRequestCryptoAssetLogoUpload, useDeleteCryptoAssetLogoUpload,
   useGetCryptoNetworks, getGetCryptoNetworksQueryKey, useCreateCryptoNetwork, useUpdateCryptoNetwork, useDeleteCryptoNetwork, useRequestCryptoNetworkLogoUpload, useDeleteCryptoNetworkLogoUpload, useSaveCryptoNetworkReceivingWallet, usePreviewCryptoNetworkReceivingWallet, useReconcileCryptoCustomerDeposits,
-  useGetDepositProviderOptions, getGetDepositProviderOptionsQueryKey,
   useRequestFiatCurrencyFlagUpload, useDeleteFiatCurrencyFlagUpload,
   useGetOrder, getGetOrderQueryKey, useAssignOrder, useArchiveOrder, useRestoreOrder,
   useGetOrderAuditLog, getGetOrderAuditLogQueryKey,
@@ -9452,7 +9451,6 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
   const uploadNetworkLogo = useRequestCryptoNetworkLogoUpload();
   const deleteNetworkLogo = useDeleteCryptoNetworkLogoUpload();
   const assetsQuery = useGetCryptoAssets({ query: { queryKey: getGetCryptoAssetsQueryKey() } });
-  const providerOptionsQuery = useGetDepositProviderOptions({ query: { queryKey: getGetDepositProviderOptionsQueryKey() } });
 
   const isNew = network === 'new';
 
@@ -9473,6 +9471,7 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
     sharedDepositAddress: isNew ? '' : (network?.sharedDepositAddress || ''),
     sharedDepositMemo: isNew ? '' : (network?.sharedDepositMemo || ''),
     depositProvider: isNew ? 'manual' : (network?.depositProvider || 'manual'),
+    manualWalletTrackingEnabled: isNew ? false : (network?.manualWalletTrackingEnabled ?? false),
     networkFamily: isNew ? '' : ((network as any)?.networkFamily || ''),
     executionMode: isNew ? 'manual' : ((network as any)?.executionMode || 'manual'),
     lifecycle: isNew ? 'active' : ((network as any)?.lifecycle || 'active'),
@@ -9486,21 +9485,11 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
     isNew ? undefined : network?.monitoringReadiness,
   );
   const selectedAsset = assetsQuery.data?.find((asset: CryptoAsset) => asset.id === form.assetId);
-  const providerOptions = providerOptionsQuery.data || [];
-  const selectedProviderUnavailable = Boolean(
-    form.depositProvider !== 'manual' &&
-    form.depositProvider !== 'none' &&
-    !providerOptions.some(option => option.id === form.depositProvider),
-  );
-  const isApiProvider = form.depositProvider !== 'manual' && form.depositProvider !== 'none';
+  const isWhitebitProvider = form.depositProvider === 'whitebit';
   const networkCode = form.networkCode.trim();
   const networkName = form.networkName.trim();
 
-  const save = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccessNotice('');
-
+  const buildNetworkMetadataPayload = () => {
     const generatedId = `${form.assetId}-${form.networkCode || form.networkName}`
       .toLowerCase()
       .trim()
@@ -9513,9 +9502,10 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
       sharedDepositAddress: _sharedDepositAddress,
       sharedDepositMemo: _sharedDepositMemo,
       depositProvider: _depositProvider,
+      manualWalletTrackingEnabled: _manualWalletTrackingEnabled,
       ...networkMetadata
     } = form;
-    const payload = {
+    return {
       ...networkMetadata,
       logoObjectPath: logoObjectPath || null,
       id: isNew ? generatedId : form.id,
@@ -9528,8 +9518,15 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
       networkFamily: form.networkFamily.trim() || 'native',
       regions: form.regions.split(',').map((r: string) => r.trim()).filter(Boolean),
     };
+  };
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccessNotice('');
 
     if (isNew) {
+      const payload = buildNetworkMetadataPayload();
       if (!payload.id.trim() || !payload.assetId) {
         setError('Asset and Network Code are required.');
         return;
@@ -9542,47 +9539,68 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
         setError(apiErrorText(err, t('adminCatalog.failed_to_create_network')));
       }
     } else if (network) {
-      const { id: _id, assetId: _assetId, ...updates } = payload;
       try {
-        await updateNetwork.mutateAsync({ id: network.id, data: updates });
         const savedNetworks = await saveReceivingWallet.mutateAsync({
           data: {
             networkIds: [network.id],
             walletAddress: form.sharedDepositAddress.trim(),
             memo: form.sharedDepositMemo.trim() || null,
             depositProvider: form.depositProvider,
+            manualWalletTrackingEnabled: form.manualWalletTrackingEnabled,
             networkEnabled: form.enabled,
-             enabled: form.customerDepositsEnabled,
+            enabled: form.customerDepositsEnabled,
           },
         });
         const savedNetwork = savedNetworks[0];
         setMonitoringReadiness(savedNetwork?.monitoringReadiness);
-         setForm(current => ({
-           ...current,
-           customerDepositsEnabled: savedNetwork?.customerDepositsEnabled === true,
-         }));
-         if (savedNetwork) {
-           queryClient.setQueryData<CryptoNetwork[]>(
-             getGetCryptoNetworksQueryKey(),
-             current => current?.map(candidate => candidate.id === savedNetwork.id ? savedNetwork : candidate),
-           );
-         }
-         setSuccessNotice(
-           savedNetwork?.customerDepositsEnabled
-             ? 'Network saved successfully. Customer Deposits are enabled.'
-             : 'Network saved successfully. Customer Deposits remain disabled.',
-         );
-        commitNetworkLogoRef.current();
-        const previousPath = (network as any)?.logoObjectPath as string | undefined;
-        if (previousPath && previousPath !== logoObjectPath) void deleteNetworkLogo.mutateAsync({ id: previousPath.split('/').pop()! }).catch(() => undefined);
+        setForm(current => ({
+          ...current,
+          customerDepositsEnabled: savedNetwork?.customerDepositsEnabled === true,
+          manualWalletTrackingEnabled: savedNetwork?.manualWalletTrackingEnabled ?? current.manualWalletTrackingEnabled,
+        }));
+        if (savedNetwork) {
+          queryClient.setQueryData<CryptoNetwork[]>(
+            getGetCryptoNetworksQueryKey(),
+            current => current?.map(candidate => candidate.id === savedNetwork.id ? savedNetwork : candidate),
+          );
+        }
+        setSuccessNotice(
+          savedNetwork?.customerDepositsEnabled
+            ? 'Deposit route saved. Public Swap visibility is enabled for this route.'
+            : 'Deposit route saved. Public Swap visibility remains disabled for this route.',
+        );
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
           queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
         ]);
       } catch (err) {
-         setSuccessNotice('');
+        setSuccessNotice('');
         setError(apiErrorText(err, t('adminCatalog.failed_to_update_network')));
       }
+    }
+  };
+
+  const saveNetworkMetadata = async () => {
+    if (isNew || !network) return;
+    setError('');
+    setSuccessNotice('');
+    const payload = buildNetworkMetadataPayload();
+    const { id: _id, assetId: _assetId, ...updates } = payload;
+    try {
+      await updateNetwork.mutateAsync({ id: network.id, data: updates });
+      commitNetworkLogoRef.current();
+      const previousPath = (network as any)?.logoObjectPath as string | undefined;
+      if (previousPath && previousPath !== logoObjectPath) {
+        void deleteNetworkLogo.mutateAsync({ id: previousPath.split('/').pop()! }).catch(() => undefined);
+      }
+      setSuccessNotice('Network details saved. Deposit route settings are unchanged.');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
+      ]);
+    } catch (err) {
+      setSuccessNotice('');
+      setError(apiErrorText(err, t('adminCatalog.failed_to_update_network')));
     }
   };
 
@@ -9697,45 +9715,74 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
           <label><span className="field-label">{t('adminCatalog.deposit_warning')}</span><textarea rows={2} value={form.depositWarning} onChange={e => setForm({...form, depositWarning: e.target.value})} placeholder={t('adminCatalog.red_warning_text_if_necessary')} /></label>
 
           {!isNew && (
-            <section className="receiving-wallet-section" data-testid="network-receiving-wallet-section" aria-label="Manual Swap Receiving Wallet Address">
+             <section className="receiving-wallet-section" data-testid="network-receiving-wallet-section" aria-label="Deposit provider and Manual Wallet tracking">
               <div className="panel-heading mb-3">
-                <div><span className="section-kicker">Manual Swap</span><h2>Receiving Wallet Address</h2></div>
+                 <div><span className="section-kicker">Deposits</span><h2>Asset + Network Deposit Route</h2></div>
               </div>
               <label>
-                <span className="field-label">Provider Policy</span>
-                <select data-testid="network-wallet-provider" value={form.depositProvider} disabled={providerOptionsQuery.isLoading} onChange={e => setForm({...form, depositProvider: e.target.value})}>
-                  {selectedProviderUnavailable && <option value={form.depositProvider} disabled>{form.depositProvider} (not connected)</option>}
-                  {providerOptions.map(option => <option key={option.id} value={option.id} disabled={!option.implemented}>{option.label}</option>)}
+                 <span className="field-label">Deposit Provider</span>
+                  <select data-testid="network-wallet-provider" value={form.depositProvider} onChange={e => setForm({...form, depositProvider: e.target.value as 'none' | 'manual' | 'whitebit'})}>
+                   <option value="none">None</option>
+                   <option value="manual">Manual Wallet</option>
+                   <option value="whitebit">WhiteBIT</option>
+                   {form.depositProvider !== 'none' && form.depositProvider !== 'manual' && form.depositProvider !== 'whitebit' && (
+                     <option value={form.depositProvider} disabled>{form.depositProvider} (legacy provider)</option>
+                   )}
                 </select>
               </label>
               <label>
-                <span className="field-label">{isApiProvider ? 'Fallback Wallet Address' : 'Manual Address'}</span>
-                <input data-testid="network-wallet-address" value={form.sharedDepositAddress} onChange={e => setForm({...form, sharedDepositAddress: e.target.value})} placeholder="Receiving wallet address" />
+                 <span className="field-label">{isWhitebitProvider ? 'Manual Receiving / Fallback Address' : 'Manual Receiving Address'}</span>
+                 <input data-testid="network-wallet-address" value={form.sharedDepositAddress} onChange={e => setForm({...form, sharedDepositAddress: e.target.value})} placeholder="Receiving wallet address" />
+                 <span className="field-hint">
+                   {isWhitebitProvider
+                     ? 'Optional fallback for this exact Asset + Network. WhiteBIT is attempted first for new Swap orders.'
+                     : 'Used when Manual Wallet is selected for this exact Asset + Network.'}
+                 </span>
               </label>
               <label>
-                <span className="field-label">{isApiProvider ? 'Fallback Memo / Tag' : 'Memo / Tag'}</span>
+                 <span className="field-label">Memo / Tag <small>Optional</small></span>
                 <input data-testid="network-wallet-memo" value={form.sharedDepositMemo} onChange={e => setForm({...form, sharedDepositMemo: e.target.value})} placeholder="Optional memo or tag" />
               </label>
               <label className="catalog-editor-toggle">
                 <input
                   type="checkbox"
                   className="w-auto h-auto"
-                  data-testid="network-customer-deposits"
-                  checked={form.customerDepositsEnabled}
-                  onChange={event => setForm({ ...form, customerDepositsEnabled: event.target.checked })}
+                   data-testid="network-manual-wallet-tracking"
+                   checked={form.manualWalletTrackingEnabled}
+                   onChange={event => setForm({ ...form, manualWalletTrackingEnabled: event.target.checked })}
                 />
-                <span className="field-label !mb-0 text-sm font-bold">Enable Customer Deposits</span>
+                 <span className="field-label !mb-0 text-sm font-bold">Track Manual Wallet with Blockchain Monitoring</span>
               </label>
-              <p className="field-hint">
-                Applies only to this exact Asset + Network route. Enabling is blocked unless blockchain monitoring Readiness is READY. Network Monitor, Asset Monitoring, and provider assignments are not enabled automatically.
-              </p>
-              {monitoringReadiness && (
-                <InlineNotice kind={network?.customerDepositsEnabled === true ? 'success' : 'warning'}>
-                  {monitoringReadiness.code}: {monitoringReadiness.message}{' '}
-                  {network?.customerDepositsEnabled === true
-                    ? 'Customer deposits enabled.'
-                    : 'Wallet saved but Customer Deposits disabled.'}
-                </InlineNotice>
+               {form.manualWalletTrackingEnabled ? (
+                 <InlineNotice kind={monitoringReadiness?.ready === true ? 'success' : 'warning'}>
+                   <strong>{monitoringReadiness?.ready === true ? 'READY' : 'BLOCKED'}</strong>
+                   {monitoringReadiness?.message
+                     ? ` — ${monitoringReadiness.message}`
+                     : ' — Save the route to evaluate monitoring readiness.'}
+                   {isWhitebitProvider && ' WhiteBIT-generated addresses are not monitored; this setting applies to a Manual Fallback address.'}
+                 </InlineNotice>
+               ) : (
+                 <p className="field-hint">
+                   Manual — no automatic blockchain tracking{isWhitebitProvider ? '. This also applies to a Manual Fallback address.' : '.'}
+                 </p>
+               )}
+               <label className="catalog-editor-toggle">
+                 <input
+                   type="checkbox"
+                   className="w-auto h-auto"
+                   data-testid="network-customer-deposits"
+                   checked={form.customerDepositsEnabled}
+                   onChange={event => setForm({ ...form, customerDepositsEnabled: event.target.checked })}
+                 />
+                 <span className="field-label !mb-0 text-sm font-bold">Public Swap visibility — Customer Deposits</span>
+               </label>
+               <p className="field-hint">
+                 Independent of provider selection, Manual Wallet Tracking, and monitoring readiness. Applies only to this exact Asset + Network route.
+               </p>
+               {monitoringReadiness && form.customerDepositsEnabled && (
+                 <InlineNotice kind="warning">
+                   Monitoring readiness: {monitoringReadiness.ready ? 'READY' : 'BLOCKED'}. Public visibility is a separate route setting.
+                 </InlineNotice>
               )}
             </section>
           )}
@@ -9745,7 +9792,14 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
           )}
 
           <div className="network-drawer-actions catalog-editor-actions mt-4">
-            <button type="submit" className="catalog-editor-primary" disabled={createNetwork.isPending || updateNetwork.isPending || saveReceivingWallet.isPending}><Save size={16} />{t('adminCatalog.save_network')}</button>
+            <button type="submit" className="catalog-editor-primary" disabled={createNetwork.isPending || saveReceivingWallet.isPending}>
+              <Save size={16} />{isNew ? t('adminCatalog.save_network') : 'Save Deposit Route'}
+            </button>
+            {!isNew && (
+              <button type="button" className="button-secondary" onClick={() => void saveNetworkMetadata()} disabled={updateNetwork.isPending}>
+                <Save size={16} />Save Network Details
+              </button>
+            )}
             {!isNew && <button type="button" className="catalog-editor-danger" onClick={remove} disabled={deleteNetwork.isPending}><Trash2 size={15} />{t('adminCatalog.delete')}</button>}
           </div>
         </form>

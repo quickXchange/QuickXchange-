@@ -26,6 +26,8 @@ export interface CryptoNetworkReceivingWalletInput {
      * @maxLength 64
      */
   depositProvider?: string;
+  manualWalletTrackingEnabled?: boolean;
+  customerDepositsEnabled?: boolean;
   preserveDepositProviders?: boolean;
   networkEnabled?: boolean;
   enabled?: boolean;

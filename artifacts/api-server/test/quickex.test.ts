@@ -3815,16 +3815,36 @@ test("manual lifecycle enforces transitions and concurrency and writes an operat
     }, "PATCH", headers);
     assert.equal(enabledManualNetwork.status, 200);
     assert.equal(enabledManualNetwork.body.enabled, true);
-    assert.equal(enabledManualNetwork.body.customerDepositsEnabled, true);
+    assert.equal(enabledManualNetwork.body.customerDepositsEnabled, false);
     const [siblingAfterEnable] = await db.select().from(cryptoAssetNetworksTable)
       .where(eq(cryptoAssetNetworksTable.id, siblingNetworkId));
     assert.equal(siblingAfterEnable.enabled, true);
     assert.equal(siblingAfterEnable.customerDepositsEnabled, true);
+    const operatorWalletChange = await apiJson(
+      api.url,
+      `/admin/crypto-networks/${siblingNetworkId}`,
+      {
+        sharedDepositAddress: "0x0000000000000000000000000000000000000001",
+        sharedDepositMemo: "operator-memo",
+      },
+      "PATCH",
+      headers,
+    );
+    assert.equal(operatorWalletChange.status, 403);
+    assert.equal(operatorWalletChange.body.code, "OWNER_REQUIRED");
+    const [siblingAfterRejectedWalletChange] = await db.select()
+      .from(cryptoAssetNetworksTable)
+      .where(eq(cryptoAssetNetworksTable.id, siblingNetworkId));
+    assert.equal(
+      siblingAfterRejectedWalletChange.sharedDepositAddress,
+      "0x52908400098527886E0F7030069857D2E4169EE7",
+    );
+    assert.equal(siblingAfterRejectedWalletChange.sharedDepositMemo, null);
     const providerBypass = await apiJson(api.url, `/admin/crypto-networks/${networkId}`, {
       depositProvider: "none",
     }, "PATCH", headers);
-    assert.equal(providerBypass.status, 400);
-    assert.equal(providerBypass.body.code, "VALIDATION_ERROR");
+    assert.equal(providerBypass.status, 403);
+    assert.equal(providerBypass.body.code, "OWNER_REQUIRED");
   } finally {
     await api.close();
     await deleteOrderAuditLogsForMaintenance(orderId);
@@ -3877,17 +3897,17 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
   await db.insert(cryptoAssetNetworksTable).values([
     {
       id: networkAId, assetId: assetAId, networkCode: sharedCode,
-      networkName: "Bitcoin Shared A", decimals: 6, executionMode: "manual",
+      networkName: "Bitcoin Shared A", networkFamily: "bitcoin", decimals: 6, executionMode: "manual",
       depositProvider: "manual",
     },
     {
       id: networkBId, assetId: assetBId, networkCode: sharedCode,
-      networkName: "Bitcoin Shared B", decimals: 6, requiresMemo: true,
+      networkName: "Bitcoin Shared B", networkFamily: "bitcoin", decimals: 6, requiresMemo: true,
       executionMode: "manual", depositProvider: "manual",
     },
     {
       id: differentNetworkId, assetId: assetAId, networkCode: differentCode,
-      networkName: "Bitcoin", decimals: 6,
+      networkName: "Bitcoin", networkFamily: "bitcoin", decimals: 6,
       executionMode: "manual", depositProvider: "manual",
       sharedDepositAddress: "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9e75rs",
       sharedDepositMemo: "untouched-memo",
@@ -3919,7 +3939,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
 
     const connectedWhitebit = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
       networkId: networkAId, walletAddress: "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9e75rs", memo: "fallback-memo",
-      enabled: true, useForAllAssetsOnNetwork: false, depositProvider: "whitebit",
+      customerDepositsEnabled: false, useForAllAssetsOnNetwork: false, depositProvider: "whitebit",
     }, "PUT", headers);
     assert.equal(connectedWhitebit.status, 200);
     assert.equal(
@@ -3929,7 +3949,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
 
     const exact = await apiJson(api.url, `/admin/crypto-assets/${assetAId}/receiving-wallet`, {
       networkId: networkAId, walletAddress: "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9e75rs", memo: "exact-memo",
-      enabled: false, useForAllAssetsOnNetwork: false, depositProvider: "manual",
+      customerDepositsEnabled: false, useForAllAssetsOnNetwork: false, depositProvider: "manual",
     }, "PUT", headers);
     assert.equal(exact.status, 200);
     assert.deepEqual(exact.body.map((row: { id: string }) => row.id), [networkAId]);
@@ -3968,7 +3988,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     assert.equal(
       blockedMonitorApply.body.find((row: { id: string }) => row.id === networkBId)
         ?.customerDepositsEnabled,
-      false,
+      true,
     );
     assert.equal(
       (await db.select({ enabled: blockchainMonitorAssetsTable.enabled })
@@ -4042,6 +4062,45 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
       enabledSelectedConfig.manualSettlementOptions.find(option => option.id === `crypto:${differentNetworkId}`)?.direction,
       "receive",
     );
+    const trackingOffSave = await apiJson(
+      api.url,
+      `/admin/crypto-assets/${assetAId}/receiving-wallet`,
+      {
+        networkId: differentNetworkId,
+        walletAddress: "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9e75rs",
+        customerDepositsEnabled: true,
+        manualWalletTrackingEnabled: false,
+        depositProvider: "manual",
+        useForAllAssetsOnNetwork: false,
+      },
+      "PUT",
+      headers,
+    );
+    assert.equal(trackingOffSave.status, 200, JSON.stringify(trackingOffSave.body));
+    assert.equal(trackingOffSave.body[0]?.customerDepositsEnabled, true);
+    assert.equal(trackingOffSave.body[0]?.manualWalletTrackingEnabled, false);
+    assert.equal(
+      (await db.select().from(cryptoAssetNetworksTable)
+        .where(eq(cryptoAssetNetworksTable.id, differentNetworkId))
+        .then(([row]) => row?.customerDepositsEnabled)),
+      true,
+    );
+    const trackingOffDisable = await apiJson(
+      api.url,
+      `/admin/crypto-assets/${assetAId}/receiving-wallet`,
+      {
+        networkId: differentNetworkId,
+        walletAddress: "",
+        customerDepositsEnabled: false,
+        manualWalletTrackingEnabled: false,
+        depositProvider: "manual",
+        useForAllAssetsOnNetwork: false,
+      },
+      "PUT",
+      headers,
+    );
+    assert.equal(trackingOffDisable.status, 200, JSON.stringify(trackingOffDisable.body));
+    assert.equal(trackingOffDisable.body[0]?.customerDepositsEnabled, false);
     const tableSelectedBulk = await apiJson(api.url, "/admin/crypto-networks/receiving-wallet", {
       networkIds: [differentNetworkId],
       walletAddress: "",
@@ -6832,6 +6891,7 @@ test("manual pricing rules match deterministically, protect writes, and snapshot
   const restoreUsdtRoute = await enableManualRouteForTest("usdt-trc20", {
     customerDepositsEnabled: true,
     depositProvider: "whitebit",
+    manualWalletTrackingEnabled: false,
     sharedDepositAddress: "TBLc145ZDNs4LjPqQtuvqkEDjhesemTosd",
     sharedDepositMemo: null,
   });

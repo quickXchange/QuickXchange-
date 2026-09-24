@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { boundedBitcoinWatchScanRange, boundedWatchScanEnd, canApplyConfirmedMatchWatch, canResolveRegistrationGap, classifyWatchRegistrationIdentity, cursorAfterCapturedHead, deriveBlockchainMonitoringSetupStatus, evidenceWithinWatchCursor, exactAmountMatches, exactWatchMatchesOrderSnapshot, evidenceMeetsWatchTimeAndMemo, immutableIdentityMatches, isFinalitySatisfied, isTerminalBlockchainWatchOrder, MAX_CATCH_UP_RANGES_PER_WATCH_CYCLE, maxWatchCatchUpRanges, planBoundedWatchCatchUpRanges, processBoundedWatchCatchUpRanges, selectReadyBlockchainMonitoringSetupRoutes, selectWatchScanCursor, shouldRefreshStrictManualReadinessProof } from "../src/lib/blockchain-monitoring/service";
+import { boundedBitcoinWatchScanRange, boundedWatchScanEnd, canApplyConfirmedMatchWatch, canResolveRegistrationGap, classifyWatchRegistrationIdentity, cursorAfterCapturedHead, deriveBlockchainMonitoringSetupStatus, evidenceWithinWatchCursor, exactAmountMatches, exactWatchMatchesOrderSnapshot, evidenceMeetsWatchTimeAndMemo, immutableIdentityMatches, isFinalitySatisfied, isManualWalletTrackingEnabledForOrder, isTerminalBlockchainWatchOrder, MAX_CATCH_UP_RANGES_PER_WATCH_CYCLE, maxWatchCatchUpRanges, planBoundedWatchCatchUpRanges, processBoundedWatchCatchUpRanges, selectReadyBlockchainMonitoringSetupRoutes, selectWatchScanCursor, shouldRefreshStrictManualReadinessProof } from "../src/lib/blockchain-monitoring/service";
 import { canEnqueueSwapPaymentReceived } from "../src/lib/telegram-swap-notifications";
 import { signedCryptoRouteId } from "../src/lib/manual-crypto";
 import { classifyDatabasePoolError, databasePoolTelemetry, pool } from "@workspace/db";
@@ -61,6 +61,19 @@ test("Manual monitoring enforces chain timestamp boundary and actual memo", () =
   assert.equal(evidenceMeetsWatchTimeAndMemo(created, "2025-12-31T23:59:59.000Z", null, undefined), false);
   assert.equal(evidenceMeetsWatchTimeAndMemo(created, "2026-01-01T00:00:00.000Z", "123", undefined), false);
   assert.equal(evidenceMeetsWatchTimeAndMemo(created, "2026-01-01T00:00:00.000Z", "123", "123"), true);
+});
+
+test("watch registration policy is frozen on the order funding snapshot", () => {
+  assert.equal(isManualWalletTrackingEnabledForOrder({
+    fundingDetailsSnapshot: { manualWalletTrackingEnabled: false },
+  } as never), false);
+  assert.equal(isManualWalletTrackingEnabledForOrder({
+    fundingDetailsSnapshot: { manualWalletTrackingEnabled: true },
+  } as never), true);
+  assert.equal(isManualWalletTrackingEnabledForOrder({
+    fundingDetailsSnapshot: { manualWalletTrackingEnabled: false },
+    // A later current-route switch must not override the saved order decision.
+  } as never), false);
 });
 
 test("Manual monitoring applies configured finality and immutable identity", () => {

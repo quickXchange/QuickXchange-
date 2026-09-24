@@ -183,7 +183,7 @@ export function isCustomerDepositEligible(
   context: CustomerDepositEligibilityContext,
 ): boolean {
   if (network.depositProvider === "none") return false;
-  if (hasUsableSavedReceivingWallet(network)) return true;
+  if (network.depositProvider === "manual") return hasUsableSavedReceivingWallet(network);
   if (
     network.depositProvider === "whitebit" &&
     context.whitebitReady &&
@@ -203,13 +203,16 @@ export function isCustomerDepositEligible(
 export async function reconcileCryptoCustomerDepositEligibilityWithExecutor(
   executor: EligibilityExecutor,
   context: CustomerDepositEligibilityContext,
+  routeIds?: readonly string[],
 ) {
-    const rows = await executor.select({
+    const rowsQuery = executor.select({
       network: cryptoAssetNetworksTable,
       asset: cryptoAssetsTable,
     }).from(cryptoAssetNetworksTable)
-      .innerJoin(cryptoAssetsTable, eq(cryptoAssetNetworksTable.assetId, cryptoAssetsTable.id))
-      .for("update");
+      .innerJoin(cryptoAssetsTable, eq(cryptoAssetNetworksTable.assetId, cryptoAssetsTable.id));
+    const rows = await (routeIds
+      ? rowsQuery.where(inArray(cryptoAssetNetworksTable.id, [...routeIds])).for("update")
+      : rowsQuery.for("update"));
     // Reconciliation may revoke an enabled route when its funding proof becomes
     // invalid, but it must never override an Owner's explicit disabled state.
     const eligibleIds = new Set(rows
@@ -256,6 +259,37 @@ export async function invalidateWhitebitDepositRouteProofs(
     credentialUpdatedAtMs: null,
     providerSettingVersion: null,
   });
+}
+
+export async function invalidateWhitebitDepositRouteProofsForRoutes(
+  executor: EligibilityExecutor,
+  routeIds: readonly string[],
+  context?: CustomerDepositEligibilityContext,
+) {
+  const affectedIds = [...new Set(routeIds.filter(Boolean))];
+  if (!affectedIds.length) return;
+  const [setting] = await executor.select({
+    depositRouteProofs: whitebitProviderSettingsTable.depositRouteProofs,
+  }).from(whitebitProviderSettingsTable)
+    .where(eq(whitebitProviderSettingsTable.provider, "whitebit"))
+    .limit(1);
+  if (!setting) return;
+  const proofs = setting.depositRouteProofs ?? [];
+  const retained = proofs.filter((proof) => !affectedIds.includes(proof.networkId));
+  if (retained.length === proofs.length) return;
+  await executor.update(whitebitProviderSettingsTable).set({
+    depositRouteProofs: retained,
+    version: sql`${whitebitProviderSettingsTable.version} + 1`,
+    updatedAt: new Date(),
+  }).where(eq(whitebitProviderSettingsTable.provider, "whitebit"));
+  if (context) {
+    const whitebitProofs = new Map(context.whitebitProofs);
+    affectedIds.forEach((id) => whitebitProofs.delete(id));
+    await reconcileCryptoCustomerDepositEligibilityWithExecutor(executor, {
+      ...context,
+      whitebitProofs,
+    }, affectedIds);
+  }
 }
 
 export async function reconcileCryptoCustomerDepositEligibility() {

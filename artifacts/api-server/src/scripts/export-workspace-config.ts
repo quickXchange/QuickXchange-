@@ -8,6 +8,7 @@ import {
 } from "@workspace/db";
 import { desc, eq } from "drizzle-orm";
 import { getVerifiedStoredLogo } from "../lib/object-storage";
+import { projectWorkspaceCryptoNetwork } from "../lib/workspace-config-sync-helpers";
 
 const output = process.argv.find((value, index) => index > 1 && value !== "--");
 if (!output) throw new Error("Usage: export:workspace-config <output.json>");
@@ -43,7 +44,13 @@ const snapshot: any = {
   schemaVersion: 1,
   source: { environment: "development" as const, exportedAt: new Date().toISOString() },
   cryptoAssets: assets.map(({ id, code, name, logoObjectPath, decimals, lifecycle, enabled }) => ({ id, code, name, logoObjectPath, decimals, lifecycle, enabled })),
-  cryptoNetworks: networks.map(({ id, assetId, networkCode, networkName, logoObjectPath, networkFamily, decimals, executionMode, depositProvider, lifecycle, regions, enabled, requiresMemo, requiredConfirmations, confirmationGuidance, explorerUrlTemplate, depositInstructions, depositWarning }) => ({ id, assetId, networkCode, networkName, logoObjectPath, networkFamily, decimals, executionMode, depositProvider, lifecycle, regions, enabled, requiresMemo, requiredConfirmations, confirmationGuidance, explorerUrlTemplate, depositInstructions, depositWarning })),
+  cryptoNetworks: networks.map((network) => ({
+    id: network.id,
+    ...projectWorkspaceCryptoNetwork({
+      ...network,
+      manualWalletTrackingEnabled: network.manualWalletTrackingEnabled ?? true,
+    }),
+  })),
   fiatCurrencies: fiats.map(({ id, code, name, flagObjectPath, network, precision, lifecycle, regions, countries, enabled, rateMode, manualRate }) => ({ id, code, name, flagObjectPath, network, precision, lifecycle, regions, countries, enabled, rateMode, manualRate })),
   paymentMethods: methods.map(({ id, name, logoObjectPath, description, instructions, family, executionMode, providerId, lifecycle, regions, countries, requiresProviderConfiguration, enabled, canSend, canReceive, fieldDefinitions }) => ({ id, name, logoObjectPath, description, instructions, family, executionMode, providerId, lifecycle, regions, countries, requiresProviderConfiguration, enabled, canSend, canReceive, fieldDefinitions })),
   fiatCurrencyPaymentMethods: links.map(({ fiatCurrencyId, paymentMethodId, enabled, canSend, canReceive, sendInstructions, receiveInstructions, minAmount, maxAmount, countries }) => ({ fiatCode: fiatById.get(fiatCurrencyId) ?? "", paymentMethodId, enabled, canSend, canReceive, sendInstructions, receiveInstructions, minAmount, maxAmount, countries })),

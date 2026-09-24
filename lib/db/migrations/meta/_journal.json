@@ -834,6 +834,13 @@
       "when": 1790199088841,
       "tag": "0120_whitebit_verification",
       "breakpoints": true
+    },
+    {
+      "idx": 121,
+      "version": "7",
+      "when": 1790199089841,
+      "tag": "0121_manual_wallet_tracking",
+      "breakpoints": true
     }
   ]
 }

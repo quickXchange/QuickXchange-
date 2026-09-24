@@ -17,6 +17,7 @@ import {
 import {
   customerDepositEligibilityDeterminants,
   parseWorkspaceConfigSnapshot,
+  projectWorkspaceCryptoNetwork,
   reactivatePaymentMethodsForEnabledLinks,
   validateSnapshotReferences,
   type WorkspaceConfigSnapshot,
@@ -183,7 +184,13 @@ export async function calculate(snapshot: WorkspaceConfigSnapshot, executor: Exe
   const assetByCode = new Map(assets.map((a: any) => [code(a.code), a]));
   const assetMap = new Map<string, string>(snapshot.cryptoAssets.map((a) => [a.id, (assetByCode.get(code(a.code)) as any)?.id ?? a.id]));
   const assetProjection = (a: any) => ({ code: code(a.code), name: a.name, logoObjectPath: a.logoObjectPath, decimals: a.decimals, lifecycle: a.lifecycle, enabled: a.enabled });
-  const networkProjection = (n: any, mappedId: string) => ({ assetId: mappedId, networkCode: code(n.networkCode), networkName: n.networkName, logoObjectPath: n.logoObjectPath, networkFamily: n.networkFamily, decimals: n.decimals, executionMode: n.executionMode, depositProvider: n.depositProvider, lifecycle: n.lifecycle, regions: n.regions, enabled: n.enabled, requiresMemo: n.requiresMemo, requiredConfirmations: n.requiredConfirmations, confirmationGuidance: n.confirmationGuidance, explorerUrlTemplate: n.explorerUrlTemplate, depositInstructions: n.depositInstructions, depositWarning: n.depositWarning });
+  const networkProjection = (n: any, mappedId: string) => ({
+    ...projectWorkspaceCryptoNetwork({
+      ...n,
+      manualWalletTrackingEnabled: n.manualWalletTrackingEnabled ?? true,
+    }, mappedId),
+    networkCode: code(n.networkCode),
+  });
   const sourceAssets = snapshot.cryptoAssets.map(assetProjection);
   const targetAssets = assets.map(assetProjection);
   const assetChanged = new Set(snapshot.cryptoAssets.filter((a) => { const t = assetByCode.get(code(a.code)); return t && stable(assetProjection(a)) !== stable(assetProjection(t)); }).map((a) => code(a.code)));
@@ -328,7 +335,10 @@ router.post("/admin/workspace-config/apply", requireOwner, async (req, res, next
       for (const n of snapshot.cryptoNetworks) {
         const targetAssetId = assetMap.get(n.assetId)!;
         const existing = networks.find((x: any) => x.assetId === targetAssetId && code(x.networkCode) === code(n.networkCode));
-        const values = { assetId: targetAssetId, networkCode: n.networkCode, networkName: n.networkName, logoObjectPath: n.logoObjectPath, networkFamily: n.networkFamily, decimals: n.decimals, executionMode: n.executionMode, depositProvider: n.depositProvider, lifecycle: n.lifecycle, regions: n.regions, enabled: n.enabled, requiresMemo: n.requiresMemo, requiredConfirmations: n.requiredConfirmations, confirmationGuidance: n.confirmationGuidance, explorerUrlTemplate: n.explorerUrlTemplate, depositInstructions: n.depositInstructions, depositWarning: n.depositWarning };
+        const values = projectWorkspaceCryptoNetwork({
+          ...n,
+          manualWalletTrackingEnabled: n.manualWalletTrackingEnabled ?? true,
+        }, targetAssetId);
         if (existing) {
           sourceNetworkMap.set(n.id, existing.id);
           const sourceAsset = snapshot.cryptoAssets.find((asset) => asset.id === n.assetId);

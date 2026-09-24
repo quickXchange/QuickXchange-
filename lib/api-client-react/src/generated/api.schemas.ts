@@ -3282,6 +3282,15 @@ export const CryptoNetworkInputExecutionMode = {
   api: 'api',
 } as const;
 
+export type CryptoNetworkInputDepositProvider = typeof CryptoNetworkInputDepositProvider[keyof typeof CryptoNetworkInputDepositProvider];
+
+
+export const CryptoNetworkInputDepositProvider = {
+  none: 'none',
+  manual: 'manual',
+  whitebit: 'whitebit',
+} as const;
+
 export type CryptoNetworkInputLifecycle = typeof CryptoNetworkInputLifecycle[keyof typeof CryptoNetworkInputLifecycle];
 
 
@@ -3322,6 +3331,7 @@ export interface CryptoNetworkInput {
      */
   decimals: number;
   executionMode?: CryptoNetworkInputExecutionMode;
+  depositProvider?: CryptoNetworkInputDepositProvider;
   lifecycle?: CryptoNetworkInputLifecycle;
   /**
      * @maxItems 20
@@ -3330,6 +3340,7 @@ export interface CryptoNetworkInput {
   regions?: string[];
   enabled?: boolean;
   customerDepositsEnabled?: boolean;
+  manualWalletTrackingEnabled?: boolean;
   requiresMemo?: boolean;
   /**
      * @minimum 0
@@ -3393,6 +3404,7 @@ export type CryptoNetworkMonitoringReadiness = {
 
 export type CryptoNetwork = CryptoNetworkInput & {
   depositProvider: string;
+  manualWalletTrackingEnabled: boolean;
   createdAt: string;
   updatedAt: string;
   readonly logoUrl?: string;
@@ -3420,6 +3432,15 @@ export const CryptoNetworkUpdateExecutionMode = {
   catalog: 'catalog',
   manual: 'manual',
   api: 'api',
+} as const;
+
+export type CryptoNetworkUpdateDepositProvider = typeof CryptoNetworkUpdateDepositProvider[keyof typeof CryptoNetworkUpdateDepositProvider];
+
+
+export const CryptoNetworkUpdateDepositProvider = {
+  none: 'none',
+  manual: 'manual',
+  whitebit: 'whitebit',
 } as const;
 
 export type CryptoNetworkUpdateLifecycle = typeof CryptoNetworkUpdateLifecycle[keyof typeof CryptoNetworkUpdateLifecycle];
@@ -3458,6 +3479,7 @@ export interface CryptoNetworkUpdate {
      */
   decimals?: number;
   executionMode?: CryptoNetworkUpdateExecutionMode;
+  depositProvider?: CryptoNetworkUpdateDepositProvider;
   lifecycle?: CryptoNetworkUpdateLifecycle;
   /**
      * @maxItems 20
@@ -3466,6 +3488,7 @@ export interface CryptoNetworkUpdate {
   regions?: string[];
   enabled?: boolean;
   customerDepositsEnabled?: boolean;
+  manualWalletTrackingEnabled?: boolean;
   requiresMemo?: boolean;
   /**
      * @minimum 0
@@ -3519,7 +3542,10 @@ export interface CryptoAssetReceivingWalletInput {
      * @maxLength 64
      */
   depositProvider?: string;
-  enabled: boolean;
+  manualWalletTrackingEnabled?: boolean;
+  customerDepositsEnabled?: boolean;
+  /** @deprecated */
+  enabled?: boolean;
   useForAllAssetsOnNetwork: boolean;
 }
 
@@ -3543,6 +3569,8 @@ export interface CryptoNetworkReceivingWalletInput {
      * @maxLength 64
      */
   depositProvider?: string;
+  manualWalletTrackingEnabled?: boolean;
+  customerDepositsEnabled?: boolean;
   preserveDepositProviders?: boolean;
   networkEnabled?: boolean;
   enabled?: boolean;

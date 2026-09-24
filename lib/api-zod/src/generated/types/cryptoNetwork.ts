@@ -10,6 +10,7 @@ import type { CryptoNetworkMonitoringReadiness } from './cryptoNetworkMonitoring
 
 export type CryptoNetwork = CryptoNetworkInput & {
   depositProvider: string;
+  manualWalletTrackingEnabled: boolean;
   createdAt: Date;
   updatedAt: Date;
   readonly logoUrl?: string;

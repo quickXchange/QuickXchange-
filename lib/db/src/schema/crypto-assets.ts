@@ -56,6 +56,9 @@ export const cryptoAssetNetworksTable = pgTable(
     /** Address provisioning policy. Kept separate from executionMode for
      * backwards-compatible catalog/manual route semantics. */
     depositProvider: text("deposit_provider").notNull().default("manual"),
+    manualWalletTrackingEnabled: boolean("manual_wallet_tracking_enabled")
+      .notNull()
+      .default(true),
     lifecycle: text("lifecycle").notNull().default("active"),
     regions: jsonb("regions").$type<string[]>().notNull().default([]),
     enabled: boolean("enabled").notNull().default(true),

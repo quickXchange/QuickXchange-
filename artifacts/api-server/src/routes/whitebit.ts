@@ -31,7 +31,7 @@ import {
 } from "../lib/provider-credentials";
 import { updateOrderAndQueueStatusNotificationTx } from "../lib/customer-status-notifications";
 import { enqueueSwapTelegramNotification } from "../lib/telegram-swap-notifications";
-import { signedCryptoRouteId } from "../lib/manual-crypto";
+import { listReadyManualMonitoringRoutes, signedCryptoRouteId } from "../lib/manual-crypto";
 import { isSyntacticallyValidManualWalletAddress, isSyntacticallyValidManualWalletMemo } from "../lib/manual-wallet-validation";
 
 const api = "https://whitebit.com";
@@ -197,22 +197,85 @@ export async function provisionSwapFundingAddress(input: {
   chosenWhitebit: boolean;
   expectedClaimToken?: string;
 }) {
+  const fallbackInstructions = input.manualFallbackUsable === false
+    ? null
+    : await validateOrderDepositInstructions(
+        input.orderId,
+        input.assetCode,
+        input.networkCode,
+        { address: input.manualAddress, memo: input.manualMemo },
+      );
+  const manualFallbackAddress = fallbackInstructions?.address ?? "";
+  const manualFallbackMemo = fallbackInstructions?.memo ?? "";
+  const manualFallbackUsable = Boolean(fallbackInstructions);
   const fallback = async (reason: string) => {
-    const usable = input.manualFallbackUsable ?? Boolean(input.manualAddress.trim());
+    let usable = manualFallbackUsable;
     await db.transaction(async (tx) => {
-        const [order] = await tx.select().from(ordersTable).where(eq(ordersTable.id, input.orderId)).limit(1);
+        const [order] = await tx.select().from(ordersTable)
+          .where(eq(ordersTable.id, input.orderId))
+          .for("update")
+          .limit(1);
         if (!order) return;
         const current = (order.fundingDetailsSnapshot ?? (order.settlementSnapshot as Record<string, unknown> | null)?.funding ?? {}) as Record<string, unknown>;
+        const routeId = signedCryptoRouteId({
+          id: order.sourceSettlementOptionId ?? "",
+          networkId: typeof current.networkId === "string" ? current.networkId : null,
+        });
+        const [route] = await tx.select({
+          asset: cryptoAssetsTable,
+          network: cryptoAssetNetworksTable,
+        }).from(cryptoAssetNetworksTable)
+          .innerJoin(cryptoAssetsTable, eq(cryptoAssetNetworksTable.assetId, cryptoAssetsTable.id))
+          .where(and(
+            eq(cryptoAssetNetworksTable.id, routeId),
+            sql`upper(${cryptoAssetsTable.code}) = upper(${input.assetCode.trim()})`,
+          ))
+          .for("update")
+          .limit(1);
+        const fallbackAddress = typeof current.manualFallbackAddress === "string"
+          ? current.manualFallbackAddress
+          : "";
+        const fallbackMemo = typeof current.manualFallbackMemo === "string"
+          ? current.manualFallbackMemo
+          : "";
+        const trackingEnabled = current.manualWalletTrackingEnabled !== false;
+        const routeMatchesSnapshot = Boolean(
+          route &&
+          route.asset.enabled &&
+          route.asset.lifecycle !== "deprecated" &&
+          route.network.enabled &&
+          route.network.lifecycle !== "deprecated" &&
+          route.network.executionMode === "manual" &&
+          route.network.depositProvider === "whitebit" &&
+          route.network.customerDepositsEnabled &&
+          route.network.manualWalletTrackingEnabled === trackingEnabled &&
+          route.network.sharedDepositAddress === fallbackAddress &&
+          (route.network.sharedDepositMemo ?? "") === fallbackMemo &&
+          fallbackAddress === input.manualAddress &&
+          fallbackMemo === input.manualMemo &&
+          (!fallbackAddress ||
+            isSyntacticallyValidManualWalletAddress(route.network, fallbackAddress) &&
+              (!route.network.requiresMemo ||
+                isSyntacticallyValidManualWalletMemo(route.network, fallbackMemo))),
+        );
+        const readyManualRoutes = trackingEnabled && fallbackAddress
+          ? await listReadyManualMonitoringRoutes()
+          : undefined;
+        usable = usable &&
+          routeMatchesSnapshot &&
+          (!trackingEnabled || !fallbackAddress ||
+            readyManualRoutes?.get(routeId)?.trim().toUpperCase() ===
+              route!.network.networkCode.trim().toUpperCase());
         const funding = {
           ...current,
-          address: usable ? input.manualAddress : "",
-          memo: usable ? input.manualMemo : "",
+          address: usable ? fallbackAddress : "",
+          memo: usable ? fallbackMemo : "",
           source: "whitebit",
           selectedProvider: "whitebit",
           addressSource: usable ? "manual_fallback" : "unavailable",
           status: usable ? "manual_fallback" : "unavailable",
-          manualFallbackAddress: input.manualAddress,
-          manualFallbackMemo: input.manualMemo,
+          manualFallbackAddress: fallbackAddress,
+          manualFallbackMemo: fallbackMemo,
         };
         const settlement = { ...((order.settlementSnapshot ?? {}) as Record<string, unknown>), funding };
         await tx.update(whitebitOrderAddressesTable).set({
@@ -224,8 +287,8 @@ export async function provisionSwapFundingAddress(input: {
           sql`${whitebitOrderAddressesTable.status} IN ('claiming', 'calling')`,
         ));
         await tx.update(ordersTable).set({
-          depositAddress: usable ? input.manualAddress : "",
-          depositMemo: usable ? input.manualMemo : "",
+          depositAddress: usable ? fallbackAddress : "",
+          depositMemo: usable ? fallbackMemo : "",
           fundingStatus: usable ? "ready_manual" : "unresolved",
           fundingProviderError: reason,
           providerState: usable ? "whitebit_fallback" : "whitebit_address_unresolved",
@@ -251,6 +314,38 @@ export async function provisionSwapFundingAddress(input: {
     // Keep that order here to avoid a rotation/provisioning deadlock.
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('rook:whitebit:credentials', 0))`);
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
+    const [order] = await tx.select().from(ordersTable)
+      .where(eq(ordersTable.id, input.orderId))
+      .for("update")
+      .limit(1);
+    if (!order) return { claim: undefined, row: undefined, disabled: true };
+    const fundingSnapshot = (order.fundingDetailsSnapshot ??
+      (order.settlementSnapshot as Record<string, unknown> | null)?.funding ?? {}) as Record<string, unknown>;
+    const routeId = signedCryptoRouteId({
+      id: order.sourceSettlementOptionId ?? "",
+      networkId: typeof fundingSnapshot.networkId === "string"
+        ? fundingSnapshot.networkId
+        : null,
+    });
+    const snapshotAddress = typeof fundingSnapshot.manualFallbackAddress === "string"
+      ? fundingSnapshot.manualFallbackAddress
+      : typeof fundingSnapshot.address === "string"
+        ? fundingSnapshot.address
+        : "";
+    const snapshotMemo = typeof fundingSnapshot.manualFallbackMemo === "string"
+      ? fundingSnapshot.manualFallbackMemo
+      : typeof fundingSnapshot.memo === "string"
+        ? fundingSnapshot.memo
+        : "";
+    const trackingEnabled = fundingSnapshot.manualWalletTrackingEnabled !== false;
+    if (
+      routeId !== order.sourceSettlementOptionId?.replace(/^crypto:/, "") ||
+      routeId !== fundingSnapshot.networkId ||
+      order.fromAsset.trim().toUpperCase() !== input.assetCode.trim().toUpperCase() ||
+      order.fromNetwork.trim().toUpperCase() !== input.networkCode.trim().toUpperCase() ||
+      fundingSnapshot.depositProvider !== "whitebit" ||
+      fundingSnapshot.customerDepositsEnabled !== true
+    ) return { claim: undefined, row: undefined, disabled: true };
     const [setting] = await tx.select().from(whitebitProviderSettingsTable)
       .where(eq(whitebitProviderSettingsTable.provider, "whitebit")).limit(1);
     const storedCredentials = await getWhitebitCredentialStorageState(tx);
@@ -276,15 +371,25 @@ export async function provisionSwapFundingAddress(input: {
     }).from(cryptoAssetNetworksTable)
       .innerJoin(cryptoAssetsTable, eq(cryptoAssetNetworksTable.assetId, cryptoAssetsTable.id))
       .where(and(
+        eq(cryptoAssetNetworksTable.id, routeId),
         eq(cryptoAssetsTable.enabled, true),
         eq(cryptoAssetNetworksTable.enabled, true),
+        eq(cryptoAssetNetworksTable.executionMode, "manual"),
         eq(cryptoAssetNetworksTable.depositProvider, "whitebit"),
+        eq(cryptoAssetNetworksTable.customerDepositsEnabled, true),
         sql`upper(${cryptoAssetsTable.code}) = upper(${input.assetCode.trim()})`,
         sql`upper(${cryptoAssetNetworksTable.networkCode}) = upper(${input.networkCode.trim()})`,
         sql`${cryptoAssetsTable.lifecycle} <> 'deprecated'`,
         sql`${cryptoAssetNetworksTable.lifecycle} <> 'deprecated'`,
       )).for("update").limit(1);
     if (!route) return { claim: undefined, row: undefined, disabled: true };
+    if (
+      route.network.depositProvider !== "whitebit" ||
+      route.network.customerDepositsEnabled !== true ||
+      route.network.manualWalletTrackingEnabled !== trackingEnabled ||
+      route.network.sharedDepositAddress !== snapshotAddress ||
+      (route.network.sharedDepositMemo ?? "") !== snapshotMemo
+    ) return { claim: undefined, row: undefined, disabled: true };
     const routeDigest = customerDepositRouteConfigurationDigest(route.asset, route.network);
     const hasCurrentRouteProof = (setting.depositRouteProofs ?? []).some((proof) =>
       proof.networkId === route.network.id &&

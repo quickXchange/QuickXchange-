@@ -144,6 +144,10 @@ test("deposit provider registry exposes only selectable adapters and fallback po
 
 test("You Send visibility follows the explicit enabled state and provider assignment", () => {
   const whitebit = {
+    id: "btc-bitcoin",
+    networkCode: "BTC",
+    networkName: "Bitcoin",
+    networkFamily: "native",
     enabled: true,
     depositProvider: "whitebit",
     customerDepositsEnabled: false,
@@ -157,7 +161,7 @@ test("You Send visibility follows the explicit enabled state and provider assign
   } as never;
   const manualWithWallet = {
     ...manualWithoutWallet,
-    sharedDepositAddress: "configured-wallet",
+    sharedDepositAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
   } as never;
 
   assert.equal(isConfiguredYouSendCryptoNetwork(whitebit), false);

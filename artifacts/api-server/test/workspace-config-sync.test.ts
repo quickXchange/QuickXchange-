@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   customerDepositEligibilityDeterminants,
   parseWorkspaceConfigSnapshot,
+  projectWorkspaceCryptoNetwork,
   reactivatePaymentMethodsForEnabledLinks,
   validateSnapshotReferences,
   type WorkspaceConfigSnapshot,
@@ -33,6 +34,127 @@ test("accepts a development snapshot with a bounded object bundle", () => {
   const parsed = parseWorkspaceConfigSnapshot(snapshot());
   assert.equal(parsed.objects?.length, 1);
   assert.deepEqual(validateSnapshotReferences(parsed), []);
+});
+
+test("defaults legacy crypto network snapshots to manual wallet tracking enabled", () => {
+  const input = snapshot();
+  input.cryptoNetworks = [{
+    id: "btc-bitcoin",
+    assetId: "btc",
+    networkCode: "BTC",
+    networkName: "Bitcoin",
+    logoObjectPath: null,
+    networkFamily: "bitcoin",
+    decimals: 8,
+    executionMode: "manual",
+    depositProvider: "manual",
+    lifecycle: "active",
+    regions: [],
+    enabled: true,
+    requiresMemo: false,
+    requiredConfirmations: 1,
+    confirmationGuidance: null,
+    explorerUrlTemplate: null,
+    depositInstructions: null,
+    depositWarning: null,
+  } as (typeof input.cryptoNetworks)[number]];
+
+  const parsed = parseWorkspaceConfigSnapshot(input);
+
+  assert.equal(parsed.cryptoNetworks[0]?.manualWalletTrackingEnabled, true);
+});
+
+test("preserves an explicit manual wallet tracking OFF value in snapshots", () => {
+  const input = snapshot();
+  input.cryptoNetworks = [{
+    id: "btc-bitcoin",
+    assetId: "btc",
+    networkCode: "BTC",
+    networkName: "Bitcoin",
+    logoObjectPath: null,
+    networkFamily: "bitcoin",
+    decimals: 8,
+    executionMode: "manual",
+    depositProvider: "manual",
+    manualWalletTrackingEnabled: false,
+    lifecycle: "active",
+    regions: [],
+    enabled: true,
+    requiresMemo: false,
+    requiredConfirmations: 1,
+    confirmationGuidance: null,
+    explorerUrlTemplate: null,
+    depositInstructions: null,
+    depositWarning: null,
+  }];
+
+  const parsed = parseWorkspaceConfigSnapshot(input);
+
+  assert.equal(parsed.cryptoNetworks[0]?.manualWalletTrackingEnabled, false);
+});
+
+test("includes manual wallet tracking in crypto network export, comparison, hash, and apply projection", () => {
+  const network = {
+    id: "btc-bitcoin",
+    assetId: "btc",
+    networkCode: "BTC",
+    networkName: "Bitcoin",
+    logoObjectPath: null,
+    networkFamily: "bitcoin",
+    decimals: 8,
+    executionMode: "manual",
+    depositProvider: "manual",
+    manualWalletTrackingEnabled: false,
+    lifecycle: "active",
+    regions: [],
+    enabled: true,
+    requiresMemo: false,
+    requiredConfirmations: 1,
+    confirmationGuidance: null,
+    explorerUrlTemplate: null,
+    depositInstructions: null,
+    depositWarning: null,
+  };
+
+  const projection = projectWorkspaceCryptoNetwork(network, "btc-target");
+  const enabledProjection = projectWorkspaceCryptoNetwork({
+    ...network,
+    manualWalletTrackingEnabled: true,
+  }, "btc-target");
+
+  assert.equal(projection.manualWalletTrackingEnabled, false);
+  assert.equal(projection.assetId, "btc-target");
+  assert.notDeepEqual(projection, enabledProjection);
+});
+
+test("rejects invalid manual wallet tracking values in snapshots", () => {
+  const input = snapshot();
+  input.cryptoNetworks = [{
+    id: "btc-bitcoin",
+    assetId: "btc",
+    networkCode: "BTC",
+    networkName: "Bitcoin",
+    logoObjectPath: null,
+    networkFamily: "bitcoin",
+    decimals: 8,
+    executionMode: "manual",
+    depositProvider: "manual",
+    manualWalletTrackingEnabled: "false",
+    lifecycle: "active",
+    regions: [],
+    enabled: true,
+    requiresMemo: false,
+    requiredConfirmations: 1,
+    confirmationGuidance: null,
+    explorerUrlTemplate: null,
+    depositInstructions: null,
+    depositWarning: null,
+  } as unknown as (typeof input.cryptoNetworks)[number]];
+
+  assert.throws(
+    () => parseWorkspaceConfigSnapshot(input),
+    /Invalid cryptoNetworks row/,
+  );
 });
 
 test("rejects duplicate bundled object paths", () => {

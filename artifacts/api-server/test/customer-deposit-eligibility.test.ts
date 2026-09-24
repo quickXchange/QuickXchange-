@@ -145,6 +145,39 @@ test("WhiteBIT eligibility requires a durable proof for the exact route configur
   }, context), false);
 });
 
+test("proof-backed WhiteBIT XMR eligibility does not require a Manual fallback wallet", () => {
+  const xmrAsset = { code: "XMR", enabled: true, lifecycle: "active" };
+  const xmrRoute = network({
+    id: "xmr-monero",
+    networkCode: "XMR",
+    networkName: "Monero",
+    networkFamily: "monero",
+    depositProvider: "whitebit",
+    sharedDepositAddress: "",
+    sharedDepositMemo: null,
+  });
+  const context: CustomerDepositEligibilityContext = {
+    whitebitReady: true,
+    whitebitProofs: new Map([[
+      "xmr-monero",
+      customerDepositRouteConfigurationDigest(xmrAsset, xmrRoute),
+    ]]),
+    whitebitCapabilities: {
+      fetchedAt: Date.now(),
+      assets: [{
+        ticker: "XMR",
+        canDeposit: true,
+        depositNetworks: ["XMR"],
+        confirmations: { XMR: 10 },
+      }],
+    },
+    credentialUpdatedAtMs: null,
+    providerSettingVersion: null,
+  };
+  assert.equal(isCustomerDepositEligible(xmrAsset, xmrRoute, context), true);
+  assert.equal(isCustomerDepositEligible(xmrAsset, xmrRoute, unavailable), false);
+});
+
 test("stale eligibility contexts are rejected after credential or provider-state changes", () => {
   const context: CustomerDepositEligibilityContext = {
     ...unavailable,

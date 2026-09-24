@@ -1,5 +1,8 @@
 import { createHash, randomInt, randomUUID } from "node:crypto";
-import { registerManualBlockchainWatch } from "../lib/blockchain-monitoring/service";
+import {
+  isManualWalletTrackingEnabledForOrder,
+  registerManualBlockchainWatch,
+} from "../lib/blockchain-monitoring/service";
 import { Router, type IRouter, type Request } from "express";
 import { and, asc, count, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, ne, notInArray, or, sql } from "drizzle-orm";
 import {
@@ -152,7 +155,7 @@ import {
   createCustomerDepositEligibilityContext,
   customerDepositRouteConfigurationDigest,
   hasUsableSavedReceivingWallet,
-  invalidateWhitebitDepositRouteProofs,
+  invalidateWhitebitDepositRouteProofsForRoutes,
   isCustomerDepositEligible,
   reconcileCryptoCustomerDepositEligibility,
   reconcileCryptoCustomerDepositEligibilityWithExecutor,
@@ -168,7 +171,10 @@ import {
 } from "../lib/operator-auth";
 import type { PermissionKey } from "../lib/permissions";
 import { recordAdminMutationActivity } from "../lib/admin-policy";
-import { listConnectedDepositProviderOptions } from "../lib/deposit-provider-registry";
+import {
+  isRegisteredDepositProvider,
+  listDepositProviderOptions,
+} from "../lib/deposit-provider-registry";
 import { TERMINAL_ORDER_STATUSES } from "../lib/order-status";
 import {
   getCustomerActorUserId,
@@ -816,9 +822,12 @@ function settlementFieldsForRoute(
 
 function cryptoFundingSnapshot(network: typeof cryptoAssetNetworksTable.$inferSelect) {
   return {
+    networkId: network.id,
     address: network.sharedDepositAddress,
     memo: network.sharedDepositMemo ?? "",
     depositProvider: network.depositProvider,
+    customerDepositsEnabled: network.customerDepositsEnabled,
+    manualWalletTrackingEnabled: network.manualWalletTrackingEnabled,
     requiresMemo: network.requiresMemo,
     requiredConfirmations: network.requiredConfirmations,
     confirmationGuidance: network.confirmationGuidance ?? "",
@@ -2473,6 +2482,9 @@ async function createOrderFromInput(
   // idempotent adapter, where they can be recorded and safely fallback.
   const providerFundingCandidate = selectedDepositProvider === "whitebit";
   const providerUnavailable = selectedDepositProvider === "none";
+  const depositEligibilityContext = providerFundingCandidate
+    ? await createCustomerDepositEligibilityContext()
+    : undefined;
   const initialFunding = providerFundingCandidate
     ? {
         ...manualFunding,
@@ -2563,11 +2575,18 @@ async function createOrderFromInput(
     const [existing] = await tx.select().from(ordersTable)
       .where(eq(ordersTable.clientRequestId, input.clientRequestId)).limit(1);
     if (existing) return undefined;
-    if (
-      sourceSnapshot?.kind === "crypto-network" &&
-      selectedDepositProvider === "manual"
-    ) {
+    if (sourceSnapshot?.kind === "crypto-network") {
       const sourceRouteId = signedCryptoRouteId(sourceSnapshot);
+      if (providerFundingCandidate) {
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtextextended('rook:whitebit:credentials', 0))`,
+        );
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
+        await assertCustomerDepositEligibilityContextCurrent(
+          tx,
+          depositEligibilityContext!,
+        );
+      }
       const [catalog] = await tx.select({
         route: cryptoAssetNetworksTable,
         asset: cryptoAssetsTable,
@@ -2575,8 +2594,84 @@ async function createOrderFromInput(
         .innerJoin(cryptoAssetsTable, eq(cryptoAssetsTable.id, cryptoAssetNetworksTable.assetId))
         .where(and(
           eq(cryptoAssetNetworksTable.id, sourceRouteId),
-          eq(cryptoAssetsTable.code, sourceSnapshot.assetCode.toUpperCase()),
+          sql`upper(${cryptoAssetsTable.code}) = upper(${sourceSnapshot.assetCode.trim()})`,
         )).for("update").limit(1);
+      const fundingSnapshot = manualFunding as (typeof manualFunding & {
+        networkId?: string;
+        customerDepositsEnabled?: boolean;
+        manualWalletTrackingEnabled?: boolean;
+      }) | undefined;
+      const signedTrackingEnabled =
+        fundingSnapshot?.manualWalletTrackingEnabled !== false;
+      const requestedTrackingEnabled = (manualFunding as (typeof manualFunding & {
+        manualWalletTrackingEnabled?: boolean;
+      }) | undefined)?.manualWalletTrackingEnabled !== false;
+      if (
+        !catalog ||
+        sourceSnapshot.networkId !== sourceRouteId ||
+        fundingSnapshot?.networkId !== sourceRouteId ||
+        catalog.route.depositProvider !== selectedDepositProvider ||
+        catalog.route.sharedDepositAddress !== (manualFunding?.address ?? "") ||
+        (catalog.route.sharedDepositMemo ?? "") !== (manualFunding?.memo ?? "") ||
+        catalog.route.customerDepositsEnabled !==
+          (fundingSnapshot?.customerDepositsEnabled === true) ||
+        catalog.route.customerDepositsEnabled !== true ||
+        catalog.route.manualWalletTrackingEnabled !== signedTrackingEnabled ||
+        !catalog.asset.enabled ||
+        catalog.asset.lifecycle === "deprecated" ||
+        !catalog.route.enabled ||
+        catalog.route.lifecycle === "deprecated" ||
+        catalog.route.executionMode !== "manual" ||
+        (providerFundingCandidate &&
+          !isCustomerDepositEligible(
+            catalog.asset,
+            catalog.route,
+            depositEligibilityContext!,
+          ))
+      ) {
+        throw new ApiError(
+          "SETTLEMENT_OPTION_CHANGED",
+          "The selected crypto deposit route changed after this quote was issued. Refresh and try again.",
+          409,
+        );
+      }
+      if (
+        selectedDepositProvider === "manual" &&
+        (!isSyntacticallyValidManualWalletAddress(catalog.route, catalog.route.sharedDepositAddress) ||
+          catalog.route.requiresMemo &&
+            !isSyntacticallyValidManualWalletMemo(
+              catalog.route,
+              catalog.route.sharedDepositMemo ?? "",
+            ))
+      ) {
+        throw new ApiError(
+          "DESK_CRYPTO_DEPOSIT_UNAVAILABLE",
+          "The selected manual deposit wallet is no longer valid.",
+          409,
+        );
+      }
+      if (
+        providerFundingCandidate &&
+        catalog.route.sharedDepositAddress &&
+        (!isSyntacticallyValidManualWalletAddress(
+          catalog.route,
+          catalog.route.sharedDepositAddress,
+        ) ||
+          catalog.route.requiresMemo &&
+            !isSyntacticallyValidManualWalletMemo(
+              catalog.route,
+              catalog.route.sharedDepositMemo ?? "",
+            ))
+      ) {
+        throw new ApiError(
+          "DESK_CRYPTO_DEPOSIT_UNAVAILABLE",
+          "The selected manual fallback wallet is no longer valid.",
+          409,
+        );
+      }
+      if (requestedTrackingEnabled &&
+        (selectedDepositProvider === "manual" ||
+          providerFundingCandidate && Boolean(manualFunding?.address?.trim()))) {
       const networkCode = catalog?.route.networkCode ??
         (sourceSnapshot.networkCode ?? quote.fromNetwork).trim();
       const [monitorNetwork] = catalog
@@ -2633,7 +2728,7 @@ async function createOrderFromInput(
         route.enabled &&
         route.lifecycle !== "deprecated" &&
         route.executionMode === "manual" &&
-        route.depositProvider === "manual" &&
+        route.depositProvider === selectedDepositProvider &&
         route.customerDepositsEnabled &&
         isSyntacticallyValidManualWalletAddress(route, route.sharedDepositAddress) &&
         (!route.requiresMemo ||
@@ -2689,6 +2784,7 @@ async function createOrderFromInput(
           "The selected crypto deposit route is no longer ready. Refresh and try again.",
           409,
         );
+      }
       }
     }
     const [created] = await tx
@@ -2792,7 +2888,8 @@ async function createOrderFromInput(
     if (
       created.type === "manual" &&
       created.fundingProviderSource === "manual" &&
-      created.fundingStatus === "ready_manual"
+      created.fundingStatus === "ready_manual" &&
+      isManualWalletTrackingEnabledForOrder(created)
     ) {
       await tx.insert(blockchainMonitorRegistrationGapsTable).values({
         orderId: created.id,
@@ -2810,10 +2907,16 @@ async function createOrderFromInput(
     const [existing] = await db.select().from(ordersTable)
       .where(eq(ordersTable.clientRequestId, input.clientRequestId)).limit(1);
     if (!existing) throw new ApiError("IDEMPOTENCY_CONFLICT", "The existing order could not be loaded.", 409);
-    try {
-      await registerManualBlockchainWatch(existing.id, { freshCursor: true });
-    } catch (error) {
-      console.warn("Manual blockchain watch replay reconciliation failed", error);
+    if (
+      isManualWalletTrackingEnabledForOrder(existing) &&
+      (existing.fundingProviderSource === "manual" ||
+        existing.providerState === "whitebit_fallback")
+    ) {
+      try {
+        await registerManualBlockchainWatch(existing.id, { freshCursor: true });
+      } catch (error) {
+        console.warn("Manual blockchain watch replay reconciliation failed", error);
+      }
     }
     return existingOrderResult(existing, input, matchQuoteId);
   }
@@ -2822,10 +2925,15 @@ async function createOrderFromInput(
   // Registration is deliberately best-effort: an unconfigured network must
   // not make Manual Swap order creation fail. The immutable snapshot remains
   // in the order and can be registered by a later reconciliation pass.
-  try {
-    await registerManualBlockchainWatch(inserted.id, { freshCursor: true });
-  } catch (error) {
-    console.warn("Manual blockchain watch registration failed", error);
+  if (
+    isManualWalletTrackingEnabledForOrder(inserted) &&
+    inserted.fundingProviderSource === "manual"
+  ) {
+    try {
+      await registerManualBlockchainWatch(inserted.id, { freshCursor: true });
+    } catch (error) {
+      console.warn("Manual blockchain watch registration failed", error);
+    }
   }
   if (providerFundingCandidate && sourceSnapshot?.kind === "crypto-network" && manualFunding) {
     const [orderClaim] = await db.select({ claimToken: whitebitOrderAddressesTable.claimToken })
@@ -2848,6 +2956,7 @@ async function createOrderFromInput(
     const updated = await finalizeSwapFundingFromClaim(inserted.id);
     if (updated) finalOrder = updated;
     if (finalOrder.providerState === "whitebit_fallback" &&
+      isManualWalletTrackingEnabledForOrder(finalOrder) &&
       finalOrder.fundingStatus === "ready_manual") {
       try {
         await registerManualBlockchainWatch(finalOrder.id, { freshCursor: true });
@@ -4062,7 +4171,7 @@ function cryptoInput(body: unknown, network: boolean, update = false): JsonRecor
     throw new ApiError("VALIDATION_ERROR", "Invalid logo object path.", 400);
   }
   const allowed = network
-    ? ["id","assetId","networkCode","networkName","logoObjectPath","networkFamily","decimals","executionMode","lifecycle","regions","enabled","customerDepositsEnabled","requiresMemo","requiredConfirmations","confirmationGuidance","explorerUrlTemplate","depositInstructions","depositWarning","sharedDepositAddress","sharedDepositMemo"]
+    ? ["id","assetId","networkCode","networkName","logoObjectPath","networkFamily","decimals","executionMode","depositProvider","lifecycle","regions","enabled","customerDepositsEnabled","manualWalletTrackingEnabled","requiresMemo","requiredConfirmations","confirmationGuidance","explorerUrlTemplate","depositInstructions","depositWarning","sharedDepositAddress","sharedDepositMemo"]
     : ["id","code","name","logoObjectPath","decimals","lifecycle","enabled"];
   if (
     !Object.keys(value).every(k => allowed.includes(k)) ||
@@ -4080,9 +4189,13 @@ function cryptoInput(body: unknown, network: boolean, update = false): JsonRecor
   if (network) text("networkFamily", 64);
   text("lifecycle", 16);
   if (network) text("executionMode", 16);
+  if (network && value.depositProvider !== undefined &&
+      (typeof value.depositProvider !== "string" || !isRegisteredDepositProvider(value.depositProvider))) {
+    throw new ApiError("VALIDATION_ERROR", "Invalid deposit provider.", 400);
+  }
   if (value.id !== undefined && !/^[a-z0-9][a-z0-9-]*$/.test(String(value.id))) throw new ApiError("VALIDATION_ERROR", "Invalid ID.", 400);
   for (const key of ["decimals","requiredConfirmations"]) if (value[key] !== undefined && (!Number.isInteger(value[key]) || Number(value[key]) < 0 || Number(value[key]) > 100000)) throw new ApiError("VALIDATION_ERROR", `Invalid ${key}.`, 400);
-  for (const key of ["enabled","customerDepositsEnabled","requiresMemo"]) if (value[key] !== undefined && typeof value[key] !== "boolean") throw new ApiError("VALIDATION_ERROR", `Invalid ${key}.`, 400);
+  for (const key of ["enabled","customerDepositsEnabled","manualWalletTrackingEnabled","requiresMemo"]) if (value[key] !== undefined && typeof value[key] !== "boolean") throw new ApiError("VALIDATION_ERROR", `Invalid ${key}.`, 400);
   if (value.lifecycle !== undefined && !["active","restricted","deprecated"].includes(String(value.lifecycle))) throw new ApiError("VALIDATION_ERROR", "Invalid lifecycle.", 400);
   if (value.executionMode !== undefined && !["catalog","manual","api"].includes(String(value.executionMode))) throw new ApiError("VALIDATION_ERROR", "Invalid execution mode.", 400);
   if (value.regions !== undefined && (!Array.isArray(value.regions) || value.regions.some(item => typeof item !== "string" || item.length > 32))) throw new ApiError("VALIDATION_ERROR", "Invalid regions.", 400);
@@ -4209,8 +4322,31 @@ router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, ne
     if (new Set(networkIds).size !== networkIds.length) {
       throw new ApiError("VALIDATION_ERROR", "Duplicate crypto network IDs are not allowed.", 400);
     }
+    const selectedNetworkRows = networkIds.length
+      ? await db.select().from(cryptoAssetNetworksTable)
+        .where(inArray(cryptoAssetNetworksTable.id, networkIds))
+      : [];
+    const selectedNetworkById = new Map(selectedNetworkRows.map(network => [network.id, network]));
+    const assetEligibilityChanged = input.edits.some(edit =>
+      edit.enabled !== undefined || edit.lifecycle !== undefined,
+    );
+    const networkProofRouteIds = networkEdits.flatMap(network => {
+      const current = selectedNetworkById.get(network.networkId);
+      return current && (
+        network.enabled !== undefined && network.enabled !== current.enabled ||
+        network.lifecycle !== undefined && network.lifecycle !== current.lifecycle ||
+        network.requiresMemo !== undefined && network.requiresMemo !== current.requiresMemo
+      ) ? [network.networkId] : [];
+    });
+    const routeEligibilityChanged = networkProofRouteIds.length > 0;
+    const affectedEligibilityContext = assetEligibilityChanged || routeEligibilityChanged
+      ? await createCustomerDepositEligibilityContext()
+      : undefined;
     const result = await db.transaction(async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
+      if (affectedEligibilityContext) {
+        await assertCustomerDepositEligibilityContextCurrent(tx, affectedEligibilityContext);
+      }
       const assets = await tx.select().from(cryptoAssetsTable)
         .where(inArray(cryptoAssetsTable.id, assetIds))
         .for("update");
@@ -4278,16 +4414,23 @@ router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, ne
           }
         }
       }
-      const invalidatesProviderProofs = input.edits.some((edit) =>
-        edit.enabled !== undefined ||
-        edit.lifecycle !== undefined ||
-        (edit.networks ?? []).some((network) =>
-          network.enabled !== undefined ||
-          network.lifecycle !== undefined ||
-          network.requiresMemo !== undefined
-        )
-      );
-      if (invalidatesProviderProofs) await invalidateWhitebitDepositRouteProofs(tx);
+      const affectedAssetRoutes = assetEligibilityChanged
+        ? await tx.select({ id: cryptoAssetNetworksTable.id })
+          .from(cryptoAssetNetworksTable)
+          .where(inArray(cryptoAssetNetworksTable.assetId, assetIds))
+          .for("update")
+        : [];
+      const invalidatedRouteIds = [
+        ...networkProofRouteIds,
+        ...affectedAssetRoutes.map(route => route.id),
+      ];
+      if (invalidatedRouteIds.length) {
+        await invalidateWhitebitDepositRouteProofsForRoutes(
+          tx,
+          invalidatedRouteIds,
+          affectedEligibilityContext,
+        );
+      }
       for (const edit of input.edits) {
         const assetChanges: JsonRecord = {};
         for (const key of ["enabled", "lifecycle", "decimals"] as const) {
@@ -4324,7 +4467,7 @@ router.post("/admin/crypto-assets/bulk/apply", requireOwner, async (req, res, ne
             const currentAsset = assetById.get(edit.assetId);
             const nextAsset = { ...currentAsset, ...assetChanges };
             const nextNetwork = { ...currentNetwork, ...networkEdit };
-            networkChanges.customerDepositsEnabled = Boolean(
+            networkChanges.customerDepositsEnabled = currentNetwork.customerDepositsEnabled && Boolean(
               nextAsset.enabled &&
               nextAsset.lifecycle !== "deprecated" &&
               nextNetwork.enabled &&
@@ -4362,13 +4505,25 @@ router.patch("/admin/crypto-assets/:id", requireOperator, async (req, res, next)
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const input = cryptoInput(req.body, false, true);
+    const invalidatesProviderProofs = ["code", "enabled", "lifecycle"]
+      .some((key) => Object.hasOwn(input, key));
+    const eligibilityContext = invalidatesProviderProofs
+      ? await createCustomerDepositEligibilityContext()
+      : undefined;
     const row = await db.transaction(async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
       await verifyCatalogPath(tx, input.logoObjectPath, "crypto-asset-logos");
-      const invalidatesProviderProofs = ["code", "enabled", "lifecycle"]
-        .some((key) => Object.hasOwn(input, key));
-      if (invalidatesProviderProofs) {
-        await invalidateWhitebitDepositRouteProofs(tx);
+      if (eligibilityContext) {
+        await assertCustomerDepositEligibilityContextCurrent(tx, eligibilityContext);
+        const affectedRoutes = await tx.select({ id: cryptoAssetNetworksTable.id })
+          .from(cryptoAssetNetworksTable)
+          .where(eq(cryptoAssetNetworksTable.assetId, id))
+          .for("update");
+        await invalidateWhitebitDepositRouteProofsForRoutes(
+          tx,
+          affectedRoutes.map(route => route.id),
+          eligibilityContext,
+        );
       }
       const [updated] = await tx.update(cryptoAssetsTable)
         .set(input as never)
@@ -4381,12 +4536,50 @@ router.patch("/admin/crypto-assets/:id", requireOperator, async (req, res, next)
   } catch (e) { next(e); }
 });
 router.delete("/admin/crypto-assets/:id", requireOperator, async (req, res, next) => {
-  try { const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id; const row = await db.transaction(async (tx) => { await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`); await invalidateWhitebitDepositRouteProofs(tx); await tx.update(cryptoAssetNetworksTable).set({ customerDepositsEnabled: false }).where(eq(cryptoAssetNetworksTable.assetId, id)); return tx.delete(cryptoAssetsTable).where(eq(cryptoAssetsTable.id, id)).returning().then(([deleted]) => deleted); }); if (!row) throw new ApiError("CRYPTO_ASSET_NOT_FOUND", "Crypto asset not found.", 404); res.sendStatus(204); } catch (e) { next(e); }
+  try {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const row = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
+      const affectedRoutes = await tx.select({ id: cryptoAssetNetworksTable.id })
+        .from(cryptoAssetNetworksTable)
+        .where(eq(cryptoAssetNetworksTable.assetId, id))
+        .for("update");
+      await invalidateWhitebitDepositRouteProofsForRoutes(
+        tx,
+        affectedRoutes.map(route => route.id),
+      );
+      await tx.update(cryptoAssetNetworksTable)
+        .set({ customerDepositsEnabled: false })
+        .where(eq(cryptoAssetNetworksTable.assetId, id));
+      return tx.delete(cryptoAssetsTable)
+        .where(eq(cryptoAssetsTable.id, id))
+        .returning()
+        .then(([deleted]) => deleted);
+    });
+    if (!row) throw new ApiError("CRYPTO_ASSET_NOT_FOUND", "Crypto asset not found.", 404);
+    res.sendStatus(204);
+  } catch (e) { next(e); }
 });
 router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req, res, next) => {
   try {
     const { id: assetId } = SaveCryptoAssetReceivingWalletParams.parse(req.params);
     const input = SaveCryptoAssetReceivingWalletBody.parse(req.body);
+    if (
+      input.customerDepositsEnabled !== undefined &&
+      input.enabled !== undefined &&
+      input.customerDepositsEnabled !== input.enabled
+    ) {
+      throw new ApiError(
+        "VALIDATION_ERROR",
+        "customerDepositsEnabled and the legacy enabled field must match.",
+        400,
+      );
+    }
+    const requestedCustomerDepositsEnabled =
+      input.customerDepositsEnabled ?? input.enabled;
+    const explicitCustomerDepositIntent = input.customerDepositsEnabled === true;
+    const legacyEnabledIntent = input.customerDepositsEnabled === undefined &&
+      input.enabled !== undefined;
     const actor = res.locals.operator as OperatorAuthorization;
     const actorClerkUserId = getOperatorActorUserId(req);
     const eligibilityContext = await createCustomerDepositEligibilityContext();
@@ -4400,6 +4593,7 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
       networkCode: cryptoAssetNetworksTable.networkCode,
       sharedDepositAddress: cryptoAssetNetworksTable.sharedDepositAddress,
       sharedDepositMemo: cryptoAssetNetworksTable.sharedDepositMemo,
+      manualWalletTrackingEnabled: cryptoAssetNetworksTable.manualWalletTrackingEnabled,
     }).from(cryptoAssetNetworksTable).where(and(
       eq(cryptoAssetNetworksTable.id, input.networkId),
       eq(cryptoAssetNetworksTable.assetId, assetId),
@@ -4419,17 +4613,29 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
     const fallbackByRoute = await db.select({
       id: cryptoAssetNetworksTable.id,
       sharedDepositAddress: cryptoAssetNetworksTable.sharedDepositAddress,
+      manualWalletTrackingEnabled: cryptoAssetNetworksTable.manualWalletTrackingEnabled,
+      depositProvider: cryptoAssetNetworksTable.depositProvider,
     }).from(cryptoAssetNetworksTable)
       .where(inArray(cryptoAssetNetworksTable.id, affectedRouteIds));
-    const manualReadiness = input.depositProvider === "manual"
-      ? await prepareManualMonitoringReadiness(
-        affectedRouteIds.map(routeId => ({
+    const readinessRoutes = affectedRouteIds.flatMap(routeId => {
+      const fallback = fallbackByRoute.find(row => row.id === routeId);
+      const trackingEnabled = routeId === selectedRoute[0].id
+        ? input.manualWalletTrackingEnabled ?? fallback?.manualWalletTrackingEnabled
+        : fallback?.manualWalletTrackingEnabled;
+      const provider = routeId === selectedRoute[0].id
+        ? input.depositProvider ?? fallback?.depositProvider
+        : fallback?.depositProvider;
+      const address = input.walletAddress.trim() || fallback?.sharedDepositAddress || "";
+      return trackingEnabled && provider !== "none" && address
+        ? [{
           routeId,
-          address: input.walletAddress.trim() ||
-            fallbackByRoute.find(row => row.id === routeId)?.sharedDepositAddress || "",
+          address,
           memo: input.memo,
-        })),
-      )
+        }]
+        : [];
+    });
+    const manualReadiness = readinessRoutes.length
+      ? await prepareManualMonitoringReadiness(readinessRoutes)
       : new Map<string, ManualMonitoringReadiness>();
     const rows = await db.transaction(async (tx) => {
       await tx.execute(
@@ -4453,11 +4659,13 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
           404,
         );
       }
-      const availableProviders = await listConnectedDepositProviderOptions();
-      if (!availableProviders.some((provider) => provider.id === input.depositProvider)) {
+      if (
+        input.depositProvider !== undefined &&
+        !isRegisteredDepositProvider(input.depositProvider)
+      ) {
         throw new ApiError(
           "CRYPTO_DEPOSIT_PROVIDER_UNAVAILABLE",
-          "The selected deposit provider is not connected and enabled in API Integrations.",
+          "The selected deposit provider is not registered.",
           422,
         );
       }
@@ -4477,20 +4685,31 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
         .where(inArray(cryptoAssetsTable.id, [...new Set(affected.map(network => network.assetId))]));
       const assetById = new Map(affectedAssets.map(candidate => [candidate.id, candidate]));
       const fallbackMemo = input.memo?.trim() || "";
-      const providerChanged = input.depositProvider !== selected.depositProvider;
-      if (providerChanged) await invalidateWhitebitDepositRouteProofs(tx);
+      const providerChanged = input.depositProvider !== undefined &&
+        input.depositProvider !== selected.depositProvider;
       const effectiveEligibilityContext = providerChanged
         ? {
-            whitebitReady: false,
-            whitebitCapabilities: null,
-            whitebitProofs: new Map<string, string>(),
-            credentialUpdatedAtMs: null,
-            providerSettingVersion: null,
+            ...eligibilityContext,
+            whitebitProofs: new Map([...eligibilityContext.whitebitProofs]
+              .filter(([routeId]) => routeId !== selected.id)),
           }
         : eligibilityContext;
+      if (providerChanged) {
+        await invalidateWhitebitDepositRouteProofsForRoutes(
+          tx,
+          [selected.id],
+          eligibilityContext,
+        );
+      }
       for (const network of affected) {
         const fallbackAddress = input.walletAddress.trim() || network.sharedDepositAddress;
-        const nextProvider = network.id === selected.id ? input.depositProvider : network.depositProvider;
+        const nextProvider = network.id === selected.id
+          ? input.depositProvider ?? network.depositProvider
+          : network.depositProvider;
+        const manualWalletTrackingEnabled = network.id === selected.id &&
+          input.manualWalletTrackingEnabled !== undefined
+          ? input.manualWalletTrackingEnabled
+          : network.manualWalletTrackingEnabled;
         const nextNetwork = {
           ...network,
           depositProvider: nextProvider,
@@ -4498,7 +4717,7 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
           sharedDepositMemo: fallbackMemo || null,
         };
         const readiness = manualReadiness.get(network.id);
-        if (input.depositProvider === "manual" && readiness?.ready &&
+        if (manualWalletTrackingEnabled && readiness?.ready &&
             readiness.code !== "LEGACY_BEP20") {
           const [currentMonitor] = await tx.select().from(blockchainMonitorNetworksTable)
             .where(eq(blockchainMonitorNetworksTable.id, readiness.monitorNetworkId!))
@@ -4527,13 +4746,17 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
               head: currentMonitor.lastHead,
             })
             : undefined;
-          if (!currentFingerprint || currentFingerprint !== readiness.proofFingerprint) {
+          if (
+            !currentMonitor.enabled ||
+            !currentAsset.enabled ||
+            !currentFingerprint ||
+            currentFingerprint !== readiness.proofFingerprint
+          ) {
             readiness.code = "CONFIG_CHANGED_RETRY";
             readiness.message = "Monitoring configuration changed while saving; retry the save.";
             readiness.ready = false;
           } else {
             await tx.update(blockchainMonitorAssetsTable).set({
-              enabled: true,
               readinessProofFingerprint: currentFingerprint,
               readinessProofCapturedAt: currentMonitor.healthCheckedAt,
             }).where(and(
@@ -4543,29 +4766,40 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
           }
         }
         if (
+          explicitCustomerDepositIntent &&
           nextProvider !== "none" &&
           fallbackAddress &&
           !isSyntacticallyValidManualWalletAddress(nextNetwork, fallbackAddress)
         ) {
-          if (nextProvider !== "manual" || manualReadiness.get(network.id)?.code === "LEGACY_BEP20") throw new ApiError(
+          throw new ApiError(
             "CRYPTO_DEPOSIT_ADDRESS_INVALID",
             `The receiving address is invalid for ${network.networkCode}.`,
             422,
           );
         }
         if (
+          (explicitCustomerDepositIntent || nextProvider === "none") &&
           fallbackMemo &&
           !isSyntacticallyValidManualWalletMemo(nextNetwork, fallbackMemo)
         ) {
-          if (nextProvider !== "manual" || manualReadiness.get(network.id)?.code === "LEGACY_BEP20") throw new ApiError(
+          throw new ApiError(
             "CRYPTO_DEPOSIT_MEMO_INVALID",
             `The receiving memo or tag is invalid for ${network.networkCode}.`,
             422,
           );
         }
-        if (input.enabled && nextProvider === "manual" && !fallbackAddress && !manualReadiness.get(network.id)?.ready) {
-          // The address is still persisted, but customer deposits remain disabled.
-        } else if (input.enabled && nextProvider === "manual" && !fallbackAddress) {
+        if (explicitCustomerDepositIntent && fallbackAddress && network.requiresMemo && !fallbackMemo) {
+          throw new ApiError(
+            "CRYPTO_DEPOSIT_MEMO_REQUIRED",
+            `A memo or tag is required for the ${network.networkCode} manual fallback wallet.`,
+            422,
+          );
+        }
+        const publicIntent = network.id === selected.id &&
+          requestedCustomerDepositsEnabled !== undefined
+          ? requestedCustomerDepositsEnabled
+          : network.customerDepositsEnabled;
+        if (explicitCustomerDepositIntent && publicIntent && nextProvider === "manual" && !fallbackAddress) {
           throw new ApiError(
             "CRYPTO_DEPOSIT_ADDRESS_REQUIRED",
             "A valid receiving address is required before manual customer deposits can be enabled.",
@@ -4573,12 +4807,13 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
           );
         }
         if (
-          input.enabled &&
+          explicitCustomerDepositIntent &&
+          publicIntent &&
           nextProvider === "manual" &&
           network.requiresMemo &&
           !fallbackMemo
         ) {
-          if (manualReadiness.get(network.id)?.ready !== false) throw new ApiError(
+          throw new ApiError(
             "CRYPTO_DEPOSIT_MEMO_REQUIRED",
             `A memo or tag is required before ${network.networkCode} customer deposits can be enabled.`,
             422,
@@ -4588,12 +4823,17 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
           assetById.get(network.assetId) ?? asset,
           nextNetwork,
           effectiveEligibilityContext,
+        ) && Boolean(
+          assetById.get(network.assetId)?.enabled &&
+          assetById.get(network.assetId)?.lifecycle !== "deprecated" &&
+          network.enabled &&
+          network.lifecycle !== "deprecated" &&
+          network.executionMode === "manual",
         );
         if (
-          input.enabled &&
-          nextProvider !== "none" &&
-          !eligible &&
-          !(nextProvider === "manual" && manualReadiness.get(network.id)?.ready === false)
+          explicitCustomerDepositIntent &&
+          publicIntent &&
+          !eligible
         ) {
           throw new ApiError(
             "CRYPTO_DEPOSIT_VERIFICATION_REQUIRED",
@@ -4601,14 +4841,17 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
             422,
           );
         }
-        const nextEnabled = input.enabled &&
+        const nextEnabled = publicIntent &&
           eligible &&
-          (nextProvider !== "manual" || manualReadiness.get(network.id)?.ready === true);
+          (!legacyEnabledIntent || !manualWalletTrackingEnabled || readiness?.ready !== false);
         await tx.update(cryptoAssetNetworksTable).set({
           sharedDepositAddress: fallbackAddress,
           sharedDepositMemo: fallbackMemo || null,
           customerDepositsEnabled: nextEnabled,
-          ...(network.id === selected.id ? { depositProvider: input.depositProvider } : {}),
+          ...(network.id === selected.id ? {
+            depositProvider: nextProvider,
+            manualWalletTrackingEnabled,
+          } : {}),
         }).where(eq(cryptoAssetNetworksTable.id, network.id));
       }
       const updated = await tx.select().from(cryptoAssetNetworksTable)
@@ -4632,9 +4875,11 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
           affectedNetworkIds: updated.map(network => network.id),
           networkCode: selected.networkCode,
           providerBefore: selected.depositProvider,
-          providerAfter: input.depositProvider,
+          providerAfter: input.depositProvider ?? selected.depositProvider,
           enabledBefore: selected.customerDepositsEnabled,
           enabledAfter: updated.find(network => network.id === selected.id)?.customerDepositsEnabled ?? false,
+          manualWalletTrackingBefore: selected.manualWalletTrackingEnabled,
+          manualWalletTrackingAfter: updated.find(network => network.id === selected.id)?.manualWalletTrackingEnabled,
           addressBeforeFingerprint: fingerprint(selected.sharedDepositAddress),
           addressAfterFingerprint: fingerprint(input.walletAddress.trim() || selected.sharedDepositAddress),
           memoBeforeFingerprint: fingerprint(selected.sharedDepositMemo),
@@ -4663,7 +4908,7 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
           networkCode: selected.networkCode,
           affectedRows: updated.length,
           useForAllAssetsOnNetwork: input.useForAllAssetsOnNetwork,
-          enabled: input.enabled,
+          customerDepositsEnabled: requestedCustomerDepositsEnabled ?? "preserved",
         },
         "Saved crypto receiving wallet configuration",
       );
@@ -4675,6 +4920,14 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
 router.post("/admin/crypto-networks/receiving-wallet/preview", requireOwner, async (req, res, next) => {
   try {
     const input = PreviewCryptoNetworkReceivingWalletBody.parse(req.body);
+    if (
+      input.customerDepositsEnabled !== undefined &&
+      input.enabled !== undefined &&
+      input.customerDepositsEnabled !== input.enabled
+    ) {
+      throw new ApiError("VALIDATION_ERROR", "customerDepositsEnabled and enabled must match.", 400);
+    }
+    const eligibilityContext = await createCustomerDepositEligibilityContext();
     const selected = await db.select().from(cryptoAssetNetworksTable)
       .where(inArray(cryptoAssetNetworksTable.id, input.networkIds));
     if (selected.length !== input.networkIds.length) {
@@ -4685,15 +4938,21 @@ router.post("/admin/crypto-networks/receiving-wallet/preview", requireOwner, asy
       );
     }
     const selectedById = new Map(selected.map(network => [network.id, network]));
+    const selectedAssets = await db.select().from(cryptoAssetsTable)
+      .where(inArray(cryptoAssetsTable.id, [...new Set(selected.map(network => network.assetId))]));
+    const assetById = new Map(selectedAssets.map(asset => [asset.id, asset]));
     const manualInputs = input.networkIds.flatMap(routeId => {
       const network = selectedById.get(routeId)!;
       const provider = input.preserveDepositProviders
         ? network.depositProvider
         : input.depositProvider ?? network.depositProvider;
-      return provider === "manual"
+      const trackingEnabled = input.manualWalletTrackingEnabled ??
+        network.manualWalletTrackingEnabled;
+      const address = input.walletAddress.trim() || network.sharedDepositAddress;
+      return trackingEnabled && address
         ? [{
             routeId,
-            address: input.walletAddress.trim() || network.sharedDepositAddress,
+            address,
             memo: input.memo,
           }]
         : [];
@@ -4710,7 +4969,29 @@ router.post("/admin/crypto-networks/receiving-wallet/preview", requireOwner, asy
       const memo = input.memo?.trim() || null;
       let readiness = readinessById.get(routeId);
       const networkEnabled = input.networkEnabled ?? network.enabled;
-      if (input.enabled) {
+      const customerDepositsEnabled = input.customerDepositsEnabled ??
+        input.enabled ?? network.customerDepositsEnabled;
+      const prospectiveNetwork = {
+        ...network,
+        enabled: networkEnabled,
+        depositProvider: provider,
+        sharedDepositAddress: address,
+        sharedDepositMemo: memo,
+        manualWalletTrackingEnabled: input.manualWalletTrackingEnabled ??
+          network.manualWalletTrackingEnabled,
+        customerDepositsEnabled,
+      };
+      const asset = assetById.get(network.assetId);
+      const eligible = Boolean(
+        asset &&
+        asset.enabled &&
+        asset.lifecycle !== "deprecated" &&
+        networkEnabled &&
+        network.lifecycle !== "deprecated" &&
+        network.executionMode === "manual" &&
+        isCustomerDepositEligible(asset, prospectiveNetwork, eligibilityContext),
+      );
+      if (customerDepositsEnabled) {
         if (
           !networkEnabled ||
           network.lifecycle === "deprecated" ||
@@ -4723,27 +5004,19 @@ router.post("/admin/crypto-networks/receiving-wallet/preview", requireOwner, asy
             ready: false,
             networkCode: network.networkCode,
           };
-        } else if (provider !== "manual") {
+        } else if (!eligible) {
           readiness = {
             routeId,
             code: "PROVIDER_INCOMPATIBLE",
-            message: "Customer Deposits require the existing manual deposit provider for this route.",
+            message: "Customer Deposits require a valid wallet or exact verified provider route.",
             ready: false,
             networkCode: network.networkCode,
           };
-        } else if (readiness?.code === "LEGACY_BEP20") {
-          readiness = { ...readiness, ready: false };
         }
       }
       return outputCryptoNetwork({
-        ...network,
-        enabled: networkEnabled,
-        sharedDepositAddress: address,
-        sharedDepositMemo: memo,
-        depositProvider: provider,
-        customerDepositsEnabled: input.enabled
-          ? readiness?.ready === true
-          : false,
+        ...prospectiveNetwork,
+        customerDepositsEnabled: customerDepositsEnabled && eligible,
       }, readiness);
     });
     res.json(rows);
@@ -4754,6 +5027,15 @@ router.post("/admin/crypto-networks/receiving-wallet/preview", requireOwner, asy
 router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, res, next) => {
   try {
     const input = SaveCryptoNetworkReceivingWalletBody.parse(req.body);
+    if (
+      input.customerDepositsEnabled !== undefined &&
+      input.enabled !== undefined &&
+      input.customerDepositsEnabled !== input.enabled
+    ) {
+      throw new ApiError("VALIDATION_ERROR", "customerDepositsEnabled and enabled must match.", 400);
+    }
+    const requestedCustomerDepositsEnabled =
+      input.customerDepositsEnabled ?? input.enabled;
     const actor = res.locals.operator as OperatorAuthorization;
     const actorClerkUserId = getOperatorActorUserId(req);
     const eligibilityContext = await createCustomerDepositEligibilityContext();
@@ -4766,10 +5048,13 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
       const provider = input.preserveDepositProviders
         ? row.depositProvider
         : input.depositProvider ?? row.depositProvider;
-      return provider === "manual"
+      const trackingEnabled = input.manualWalletTrackingEnabled ??
+        row.manualWalletTrackingEnabled;
+      const address = input.walletAddress.trim() || row.sharedDepositAddress;
+      return trackingEnabled && provider !== "none" && address
         ? [{
             routeId,
-            address: input.walletAddress.trim() || row.sharedDepositAddress,
+            address,
             memo: input.memo,
           }]
         : [];
@@ -4793,15 +5078,14 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
           404,
         );
       }
-      const availableProviders = await listConnectedDepositProviderOptions();
        if (
          !input.preserveDepositProviders &&
          input.depositProvider &&
-         !availableProviders.some((provider) => provider.id === input.depositProvider)
+         !isRegisteredDepositProvider(input.depositProvider)
        ) {
         throw new ApiError(
           "CRYPTO_DEPOSIT_PROVIDER_UNAVAILABLE",
-          "The selected deposit provider is not connected and enabled in API Integrations.",
+           "The selected deposit provider is not registered.",
           422,
         );
       }
@@ -4816,17 +5100,24 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
       if (assetById.size !== new Set(selected.map(network => network.assetId)).size) {
         throw new ApiError("CRYPTO_ASSET_NOT_FOUND", "One or more parent assets were not found.", 404);
       }
-       const providerChanged = !input.preserveDepositProviders &&
-         Boolean(input.depositProvider) &&
+        const providerChanged = !input.preserveDepositProviders &&
+          input.depositProvider !== undefined &&
          selected.some(network => network.depositProvider !== input.depositProvider);
-      if (providerChanged) await invalidateWhitebitDepositRouteProofs(tx);
+       const invalidatedRouteIds = providerChanged
+         ? selected.filter(network => network.depositProvider !== input.depositProvider).map(network => network.id)
+         : [];
+       if (providerChanged) {
+         await invalidateWhitebitDepositRouteProofsForRoutes(
+           tx,
+           invalidatedRouteIds,
+           eligibilityContext,
+         );
+       }
       const effectiveEligibilityContext = providerChanged
         ? {
-            whitebitReady: false,
-            whitebitCapabilities: null,
-            whitebitProofs: new Map<string, string>(),
-            credentialUpdatedAtMs: null,
-            providerSettingVersion: null,
+             ...eligibilityContext,
+             whitebitProofs: new Map([...eligibilityContext.whitebitProofs]
+               .filter(([routeId]) => !invalidatedRouteIds.includes(routeId))),
           }
         : eligibilityContext;
       const memo = input.memo?.trim() || "";
@@ -4836,7 +5127,8 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
          const nextProvider = input.preserveDepositProviders
            ? network.depositProvider
            : input.depositProvider ?? network.depositProvider;
-         const customerDepositsEnabled = input.enabled ?? network.customerDepositsEnabled;
+          const customerDepositsEnabled = requestedCustomerDepositsEnabled ??
+            network.customerDepositsEnabled;
         const nextNetwork = {
           ...network,
           enabled: networkEnabled,
@@ -4845,7 +5137,7 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
           sharedDepositMemo: memo || null,
         };
          let readiness = manualReadiness.get(network.id);
-         if (input.enabled) {
+          if (customerDepositsEnabled) {
            if (
              !networkEnabled ||
              network.lifecycle === "deprecated" ||
@@ -4859,20 +5151,9 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
                networkCode: network.networkCode,
              };
              manualReadiness.set(network.id, readiness);
-           } else if (nextProvider !== "manual") {
-             readiness = {
-               routeId: network.id,
-               code: "PROVIDER_INCOMPATIBLE",
-               message: "Customer Deposits require the existing manual deposit provider for this route.",
-               ready: false,
-               networkCode: network.networkCode,
-             };
-             manualReadiness.set(network.id, readiness);
-           } else if (readiness?.code === "LEGACY_BEP20") {
-             readiness.ready = false;
            }
          }
-         if (nextProvider === "manual" && readiness?.ready &&
+          if (nextProvider !== "none" && readiness?.ready &&
             readiness.code !== "LEGACY_BEP20") {
           const [currentMonitor] = await tx.select().from(blockchainMonitorNetworksTable)
             .where(eq(blockchainMonitorNetworksTable.id, readiness.monitorNetworkId!))
@@ -4925,64 +5206,39 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
           address &&
           !isSyntacticallyValidManualWalletAddress(nextNetwork, address)
         ) {
-           if (nextProvider !== "manual" || manualReadiness.get(network.id)?.code === "LEGACY_BEP20") throw new ApiError(
+           throw new ApiError(
             "CRYPTO_DEPOSIT_ADDRESS_INVALID",
             `The receiving address is invalid for ${network.networkCode}.`,
             422,
           );
         }
         if (memo && !isSyntacticallyValidManualWalletMemo(nextNetwork, memo)) {
-           if (nextProvider !== "manual" || manualReadiness.get(network.id)?.code === "LEGACY_BEP20") throw new ApiError(
+           throw new ApiError(
             "CRYPTO_DEPOSIT_MEMO_INVALID",
             `The receiving memo or tag is invalid for ${network.networkCode}.`,
             422,
           );
         }
-         if (customerDepositsEnabled && nextProvider === "manual" && !address &&
-            manualReadiness.get(network.id)?.ready !== false) {
-          throw new ApiError(
-            "CRYPTO_DEPOSIT_ADDRESS_REQUIRED",
-            "A valid receiving address is required before manual customer deposits can be enabled.",
-            422,
-          );
-        }
-         if (customerDepositsEnabled && nextProvider === "manual" && network.requiresMemo && !memo) {
-          if (manualReadiness.get(network.id)?.ready !== false) throw new ApiError(
-            "CRYPTO_DEPOSIT_MEMO_REQUIRED",
-            `A memo or tag is required before ${network.networkCode} customer deposits can be enabled.`,
-            422,
-          );
-        }
+        const asset = assetById.get(network.assetId)!;
         const eligible = isCustomerDepositEligible(
-          assetById.get(network.assetId)!,
+          asset,
           nextNetwork,
           effectiveEligibilityContext,
-        );
-        if (
-          customerDepositsEnabled &&
-           nextProvider !== "none" &&
-          !eligible &&
-           !(nextProvider === "manual" && manualReadiness.get(network.id)?.ready === false)
-        ) {
-          throw new ApiError(
-            "CRYPTO_DEPOSIT_VERIFICATION_REQUIRED",
-            `Customer deposits cannot be enabled for ${network.networkCode} without a valid wallet or verified provider route.`,
-            422,
-          );
-        }
+        ) && asset.enabled &&
+          asset.lifecycle !== "deprecated" &&
+          networkEnabled &&
+          network.lifecycle !== "deprecated" &&
+          network.executionMode === "manual";
         await tx.update(cryptoAssetNetworksTable).set({
           enabled: networkEnabled,
            depositProvider: nextProvider,
           sharedDepositAddress: address,
           sharedDepositMemo: memo || null,
-           customerDepositsEnabled: networkEnabled &&
-             customerDepositsEnabled &&
-             eligible &&
-              nextProvider === "manual" &&
-              manualReadiness.get(network.id)?.ready === true &&
-              manualReadiness.get(network.id)?.code !== "LEGACY_BEP20" &&
-              network.lifecycle !== "deprecated" &&
-              network.executionMode === "manual",
+            customerDepositsEnabled: networkEnabled &&
+              customerDepositsEnabled &&
+              eligible,
+            manualWalletTrackingEnabled: input.manualWalletTrackingEnabled ??
+              network.manualWalletTrackingEnabled,
         }).where(eq(cryptoAssetNetworksTable.id, network.id));
       }
       const updated = await tx.select().from(cryptoAssetNetworksTable)
@@ -5002,7 +5258,7 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
              ? "preserved"
              : input.depositProvider ?? "preserved",
           networkEnabledAfter: input.networkEnabled ?? "preserved",
-          enabledAfter: input.enabled ?? "preserved",
+           customerDepositsEnabled: requestedCustomerDepositsEnabled ?? "preserved",
           changes: selected.map(before => {
             const after = updatedById.get(before.id);
             return {
@@ -5041,7 +5297,7 @@ router.get("/admin/crypto-networks", requireOperator, async (_req, res, next) =>
 });
 router.get("/admin/deposit-providers", requireOperator, async (_req, res, next) => {
   try {
-    res.json(await listConnectedDepositProviderOptions());
+    res.json(listDepositProviderOptions());
   } catch (error) {
     next(error);
   }
@@ -5059,24 +5315,26 @@ router.patch("/admin/crypto-networks/:id/customer-deposits", requireOwner, async
       throw new ApiError("CRYPTO_NETWORK_NOT_FOUND", "Crypto network not found.", 404);
     }
 
-    const readiness = input.enabled
+    const eligibilityContext = input.enabled && current.depositProvider === "whitebit"
+      ? await createCustomerDepositEligibilityContext()
+      : undefined;
+    const readiness = input.enabled &&
+      current.depositProvider === "manual" &&
+      current.manualWalletTrackingEnabled
       ? (await prepareManualMonitoringReadiness([{
           routeId: current.id,
           address: current.sharedDepositAddress,
           memo: current.sharedDepositMemo,
         }])).get(current.id)
       : undefined;
-    if (input.enabled && (!readiness?.ready || readiness.code === "LEGACY_BEP20")) {
-      throw new ApiError(
-        "CRYPTO_DEPOSIT_READINESS_BLOCKED",
-        readiness
-          ? `${readiness.code}: ${readiness.message}`
-          : "Monitoring readiness could not be verified for this exact route.",
-        409,
-      );
-    }
-
     const updated = await db.transaction(async (tx) => {
+      if (eligibilityContext) {
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtextextended('rook:whitebit:credentials', 0))`,
+        );
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
+        await assertCustomerDepositEligibilityContextCurrent(tx, eligibilityContext);
+      }
       const [locked] = await tx.select().from(cryptoAssetNetworksTable)
         .where(eq(cryptoAssetNetworksTable.id, id))
         .for("update")
@@ -5084,56 +5342,49 @@ router.patch("/admin/crypto-networks/:id/customer-deposits", requireOwner, async
       if (!locked) {
         throw new ApiError("CRYPTO_NETWORK_NOT_FOUND", "Crypto network not found.", 404);
       }
-      if (
-        input.enabled &&
-        (!locked.enabled ||
-          locked.lifecycle === "deprecated" ||
-          locked.executionMode !== "manual" ||
-          locked.depositProvider !== "manual")
-      ) {
+      if (input.enabled && (
+        !locked.enabled ||
+        locked.lifecycle === "deprecated" ||
+        locked.executionMode !== "manual" ||
+        locked.depositProvider === "none"
+      )) {
         throw new ApiError(
           "CRYPTO_DEPOSIT_ROUTE_BLOCKED",
-          "This exact Asset + Network route must be enabled, active, Manual, and use the manual deposit provider.",
+          "This exact Asset + Network route must be enabled, active, use Manual execution, and have a deposit provider selected.",
           409,
         );
       }
-      if (input.enabled && readiness) {
-        const [monitor] = await tx.select().from(blockchainMonitorNetworksTable)
-          .where(eq(blockchainMonitorNetworksTable.id, readiness.monitorNetworkId!))
-          .for("update")
-          .limit(1);
-        const [monitorAsset] = monitor
-          ? await tx.select().from(blockchainMonitorAssetsTable).where(and(
-              eq(blockchainMonitorAssetsTable.id, readiness.monitorAssetId!),
-              eq(blockchainMonitorAssetsTable.assetNetworkId, locked.id),
-            )).for("update").limit(1)
-          : [];
-        const config = monitor ? adapterConfig(monitor) : undefined;
-        const currentProof = monitor && monitorAsset && config &&
-          monitor.healthCheckedAt && monitor.lastHead
-          ? manualMonitoringProofFingerprint({
-              network: monitor,
-              asset: monitorAsset,
-              route: locked,
-              endpoint: config.endpoint,
-              apiKey: config.apiKey,
-              capturedAt: monitor.healthCheckedAt,
-              head: monitor.lastHead,
-            })
-          : undefined;
-        if (
-          !monitor?.enabled ||
-          !monitorAsset?.enabled ||
-          !currentProof ||
-          currentProof !== readiness.proofFingerprint ||
-          monitorAsset.readinessProofFingerprint !== currentProof
-        ) {
-          throw new ApiError(
-            "CRYPTO_DEPOSIT_READINESS_CHANGED",
-            "CONFIG_CHANGED_RETRY: Monitoring configuration changed while enabling this route. Refresh and try again.",
-            409,
-          );
-        }
+      const [asset] = await tx.select().from(cryptoAssetsTable)
+        .where(eq(cryptoAssetsTable.id, locked.assetId))
+        .limit(1);
+      if (!asset) {
+        throw new ApiError("CRYPTO_ASSET_NOT_FOUND", "Crypto asset not found.", 404);
+      }
+      if (input.enabled && (
+        !asset.enabled ||
+        asset.lifecycle === "deprecated"
+      )) {
+        throw new ApiError(
+          "CRYPTO_DEPOSIT_ROUTE_BLOCKED",
+          "The exact Asset + Network route must belong to an enabled, non-deprecated asset.",
+          409,
+        );
+      }
+      const eligibility = eligibilityContext ?? {
+        whitebitReady: false,
+        whitebitCapabilities: null,
+        whitebitProofs: new Map<string, string>(),
+        credentialUpdatedAtMs: null,
+        providerSettingVersion: null,
+      };
+      if (input.enabled && !isCustomerDepositEligible(asset, locked, eligibility)) {
+        throw new ApiError(
+          "CRYPTO_DEPOSIT_VERIFICATION_REQUIRED",
+          locked.depositProvider === "whitebit"
+            ? "This exact WhiteBIT route needs a current address-permission proof before customer deposits can be enabled."
+            : "A valid Manual Wallet address and required memo or tag must be saved before customer deposits can be enabled.",
+          409,
+        );
       }
       const [row] = await tx.update(cryptoAssetNetworksTable)
         .set({ customerDepositsEnabled: input.enabled })
@@ -5206,44 +5457,119 @@ router.patch("/admin/crypto-networks/:id", requireOperator, async (req, res, nex
         422,
       );
     }
+    const depositEligibilityKeys = [
+      "networkCode",
+      "networkName",
+      "networkFamily",
+      "depositProvider",
+      "requiresMemo",
+      "enabled",
+      "lifecycle",
+    ] as const;
+    const changesDepositEligibility = depositEligibilityKeys.some((key) =>
+      Object.hasOwn(input, key) && input[key] !== current[key]
+    );
+    const invalidatesProviderProofs =
+      changesDepositEligibility &&
+      (current.depositProvider === "whitebit" || input.depositProvider === "whitebit");
+    const eligibilityContext = invalidatesProviderProofs
+      ? await createCustomerDepositEligibilityContext()
+      : undefined;
     const row = await db.transaction(async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
+      if (eligibilityContext) {
+        await assertCustomerDepositEligibilityContextCurrent(tx, eligibilityContext);
+      }
       await verifyCatalogPath(tx, input.logoObjectPath, "crypto-network-logos");
       const [locked] = await tx.select().from(cryptoAssetNetworksTable)
         .where(eq(cryptoAssetNetworksTable.id, id))
         .for("update")
         .limit(1);
       if (!locked) throw new ApiError("CRYPTO_NETWORK_NOT_FOUND", "Crypto network not found.", 404);
-      const depositEligibilityKeys = [
-        "networkCode",
-        "networkName",
-        "networkFamily",
-        "depositProvider",
-        "requiresMemo",
-        "enabled",
-        "lifecycle",
-      ] as const;
-      const changesDepositEligibility = depositEligibilityKeys.some((key) =>
-        Object.hasOwn(input, key) && input[key] !== locked[key]
-      );
-      const invalidatesProviderProofs =
-        changesDepositEligibility &&
-        (locked.depositProvider === "whitebit" || input.depositProvider === "whitebit");
-      if (invalidatesProviderProofs) await invalidateWhitebitDepositRouteProofs(tx);
+      if (
+        Object.hasOwn(input, "depositProvider") &&
+        input.depositProvider !== locked.depositProvider
+      ) {
+        throw new ApiError(
+          "OWNER_REQUIRED",
+          "Deposit provider assignments must be changed through the Owner receiving-wallet workflow.",
+          403,
+        );
+      }
+      if (
+        Object.hasOwn(input, "manualWalletTrackingEnabled") &&
+        input.manualWalletTrackingEnabled !== locked.manualWalletTrackingEnabled
+      ) {
+        throw new ApiError(
+          "OWNER_REQUIRED",
+          "Manual Wallet Tracking must be changed through the Owner receiving-wallet workflow.",
+          403,
+        );
+      }
+      if (
+        Object.hasOwn(input, "sharedDepositAddress") &&
+        input.sharedDepositAddress !== locked.sharedDepositAddress ||
+        Object.hasOwn(input, "sharedDepositMemo") &&
+        (input.sharedDepositMemo ?? null) !== locked.sharedDepositMemo
+      ) {
+        throw new ApiError(
+          "OWNER_REQUIRED",
+          "Receiving wallet addresses and memos must be changed through the Owner receiving-wallet workflow.",
+          403,
+        );
+      }
+      if (
+        Object.hasOwn(input, "sharedDepositAddress") &&
+        input.sharedDepositAddress &&
+        !isSyntacticallyValidManualWalletAddress(
+          { ...locked, ...input },
+          String(input.sharedDepositAddress),
+        )
+      ) {
+        throw new ApiError(
+          "CRYPTO_DEPOSIT_ADDRESS_INVALID",
+          `The receiving address is invalid for ${locked.networkCode}.`,
+          422,
+        );
+      }
+      if (
+        Object.hasOwn(input, "sharedDepositMemo") &&
+        input.sharedDepositMemo &&
+        !isSyntacticallyValidManualWalletMemo(
+          { ...locked, ...input },
+          String(input.sharedDepositMemo),
+        )
+      ) {
+        throw new ApiError(
+          "CRYPTO_DEPOSIT_MEMO_INVALID",
+          `The receiving memo or tag is invalid for ${locked.networkCode}.`,
+          422,
+        );
+      }
+      if (eligibilityContext) {
+        await invalidateWhitebitDepositRouteProofsForRoutes(tx, [id], eligibilityContext);
+      }
       const nextNetwork = { ...locked, ...input };
       const [asset] = await tx.select().from(cryptoAssetsTable)
         .where(eq(cryptoAssetsTable.id, locked.assetId))
         .limit(1);
       if (!asset) throw new ApiError("CRYPTO_ASSET_NOT_FOUND", "Crypto asset not found.", 404);
+      const effectiveEligibilityContext = eligibilityContext
+        ? {
+            ...eligibilityContext,
+            whitebitProofs: new Map([...eligibilityContext.whitebitProofs]
+              .filter(([routeId]) => routeId !== id)),
+          }
+        : {
+            whitebitReady: false,
+            whitebitCapabilities: null,
+            whitebitProofs: new Map<string, string>(),
+            credentialUpdatedAtMs: null,
+            providerSettingVersion: null,
+          };
       const derivedCustomerDepositsEnabled = changesDepositEligibility
-        ? Boolean(
-            asset.enabled &&
-            asset.lifecycle !== "deprecated" &&
-            nextNetwork.enabled &&
-            nextNetwork.lifecycle !== "deprecated" &&
-            nextNetwork.depositProvider === "manual" &&
-            hasUsableSavedReceivingWallet(nextNetwork),
-          )
+        ? locked.customerDepositsEnabled &&
+          isCustomerDepositEligible(asset, nextNetwork, effectiveEligibilityContext)
         : locked.customerDepositsEnabled;
       const [updated] = await tx.update(cryptoAssetNetworksTable).set({
         ...input,
@@ -5259,7 +5585,19 @@ router.patch("/admin/crypto-networks/:id", requireOperator, async (req, res, nex
   } catch (e) { next(e); }
 });
 router.delete("/admin/crypto-networks/:id", requireOperator, async (req, res, next) => {
-  try { const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id; const row = await db.transaction(async (tx) => { await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`); await invalidateWhitebitDepositRouteProofs(tx); return tx.delete(cryptoAssetNetworksTable).where(eq(cryptoAssetNetworksTable.id, id)).returning().then(([deleted]) => deleted); }); if (!row) throw new ApiError("CRYPTO_NETWORK_NOT_FOUND", "Crypto network not found.", 404); res.sendStatus(204); } catch (e) { next(e); }
+  try {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const row = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
+      await invalidateWhitebitDepositRouteProofsForRoutes(tx, [id]);
+      return tx.delete(cryptoAssetNetworksTable)
+        .where(eq(cryptoAssetNetworksTable.id, id))
+        .returning()
+        .then(([deleted]) => deleted);
+    });
+    if (!row) throw new ApiError("CRYPTO_NETWORK_NOT_FOUND", "Crypto network not found.", 404);
+    res.sendStatus(204);
+  } catch (e) { next(e); }
 });
 
 function outputAttachment(row: typeof fiatCurrencyPaymentMethodsTable.$inferSelect) {
@@ -6053,6 +6391,7 @@ router.get("/admin/providers/whitebit/verification-routes", requireOwner, async 
       .where(and(
         eq(cryptoAssetsTable.enabled, true),
         eq(cryptoAssetNetworksTable.enabled, true),
+        eq(cryptoAssetNetworksTable.executionMode, "manual"),
         eq(cryptoAssetNetworksTable.depositProvider, "whitebit"),
         sql`${cryptoAssetsTable.lifecycle} <> 'deprecated'`,
         sql`${cryptoAssetNetworksTable.lifecycle} <> 'deprecated'`,
@@ -6111,6 +6450,7 @@ router.post("/admin/providers/whitebit/address-permission/verify", requireOwner,
         eq(cryptoAssetNetworksTable.id, req.body.networkId),
         eq(cryptoAssetsTable.enabled, true),
         eq(cryptoAssetNetworksTable.enabled, true),
+        eq(cryptoAssetNetworksTable.executionMode, "manual"),
         eq(cryptoAssetNetworksTable.depositProvider, "whitebit"),
         sql`${cryptoAssetsTable.lifecycle} <> 'deprecated'`,
         sql`${cryptoAssetNetworksTable.lifecycle} <> 'deprecated'`,
