@@ -29,6 +29,8 @@ import { isReadyManualFallbackWatch, registerManualBlockchainWatch } from "../sr
 import { manualMonitoringNetworkConfigDigest, manualMonitoringProofFingerprint } from "../src/lib/manual-monitoring-readiness";
 import { customerDepositRouteConfigurationDigest } from "../src/lib/customer-deposit-eligibility";
 import { getWhitebitCredentialStorageState, whitebitCredentialFingerprint } from "../src/lib/provider-credentials";
+import { runConfiguredWhitebitHistoryCycle } from "../src/lib/whitebit-history-worker";
+import { matchesFrozenWhitebitClaim } from "../src/lib/whitebit-history-match";
 
 process.env.NODE_ENV = "test";
 process.env.WHITEBIT_API_KEY = `swap-key-${randomUUID()}`;
@@ -132,11 +134,13 @@ async function migrateTestTables() {
   const catalogMigration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0074_whitebit_asset_catalog_mappings.sql"), "utf8");
   const providerMigration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0075_crypto_network_deposit_provider.sql"), "utf8");
   const verificationMigration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0120_whitebit_verification.sql"), "utf8");
+  const historyWorkerMigration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0123_dashing_yellowjacket.sql"), "utf8");
   await pool.query(baseMigration);
   await pool.query(migration);
   await pool.query(catalogMigration);
   await pool.query(providerMigration);
   await pool.query(verificationMigration);
+  await pool.query(historyWorkerMigration);
   await pool.query(migration);
 }
 
@@ -156,6 +160,9 @@ async function mockAssets(network = "BITCOIN", asset = "BTC") {
       providerCalls += 1;
       providerPermissionCalls += 1;
       return new Response(JSON.stringify({ account: { address: orderAddress, memo: "TAG-1" } }), { status: 200 });
+    }
+    if (url.startsWith("https://whitebit.com/")) {
+      throw new Error(`Unexpected WhiteBIT request in test mock: ${url}`);
     }
     return originalFetch(input, init);
   };
@@ -2311,6 +2318,121 @@ test("actual signed exchange order replay allocates one WhiteBIT address", async
     body: JSON.stringify({ ...request, refundAddress: "1BitcoinEaterAddressDontSendf59kuE" }),
   });
   assert.equal(mismatchResponse.status, 409, await mismatchResponse.text());
+});
+
+test("configured WhiteBIT history fallback confirms an exact pending Swap order", async () => {
+  const historyOrderId = `${orderId}-history-fallback`;
+  const previousEnabled = process.env.WHITEBIT_HISTORY_WORKER_ENABLED;
+  const previousSource = process.env.WHITEBIT_HISTORY_CREDENTIAL_SOURCE;
+  const [previousWorkerState] = await database.db.select()
+    .from(database.whitebitHistoryWorkerStateTable)
+    .where(eq(database.whitebitHistoryWorkerStateTable.id, 2)).limit(1);
+  let providerBalanceCalls = 0;
+  let providerHistoryCalls = 0;
+  let targetHistoryCalls = 0;
+
+  try {
+    await mockAssets();
+    const provisioned = await provisionTest({
+      orderId: historyOrderId,
+      assetCode: "BTC",
+      networkCode: "BITCOIN",
+      manualAddress: "manual-history-fallback",
+      manualMemo: "",
+      chosenWhitebit: true,
+    });
+    assert.equal(provisioned.source, "whitebit");
+    const [fundedOrder] = await database.db.select().from(database.ordersTable)
+      .where(eq(database.ordersTable.id, historyOrderId)).limit(1);
+    const [fundedClaim] = await database.db.select().from(database.whitebitOrderAddressesTable)
+      .where(eq(database.whitebitOrderAddressesTable.orderId, historyOrderId)).limit(1);
+    assert.ok(fundedOrder && fundedClaim);
+    assert.equal(matchesFrozenWhitebitClaim(fundedOrder, fundedClaim), true);
+
+    await database.db.delete(database.whitebitHistoryWorkerStateTable)
+      .where(eq(database.whitebitHistoryWorkerStateTable.id, 2));
+    process.env.WHITEBIT_HISTORY_WORKER_ENABLED = "true";
+    process.env.WHITEBIT_HISTORY_CREDENTIAL_SOURCE = "environment";
+    globalThis.fetch = async (input, init) => {
+      const url = String(input);
+      if (url === "https://whitebit.com/api/v4/main-account/balance") {
+        providerBalanceCalls += 1;
+        return new Response(JSON.stringify({ available: [], freeze: [] }), { status: 200 });
+      }
+      if (url === "https://whitebit.com/api/v4/main-account/history") {
+        providerHistoryCalls += 1;
+        const requestBody = JSON.parse(String(init?.body)) as { address?: string; ticker?: string };
+        if (requestBody.address !== provisioned.address) {
+          return new Response(JSON.stringify([]), { status: 200 });
+        }
+        targetHistoryCalls += 1;
+        assert.equal(requestBody.ticker, "BTC");
+        return new Response(JSON.stringify([{
+            address: provisioned.address,
+            ticker: "BTC",
+            network: "BITCOIN",
+            memo: "TAG-1",
+            amount: "1",
+            fee: "0",
+            status: 3,
+            unique_id: `history-fallback-${suffix}`,
+            transaction_id: `tx-history-fallback-${suffix}`,
+            transactionHash: `hash-history-fallback-${suffix}`,
+          }]), { status: 200 });
+      }
+      if (url.startsWith("https://whitebit.com/")) {
+        throw new Error(`Unexpected WhiteBIT request in history fixture: ${url}`);
+      }
+      return originalFetch(input, init);
+    };
+
+    await runConfiguredWhitebitHistoryCycle(historyOrderId);
+    const [confirmed] = await database.db.select().from(database.ordersTable)
+      .where(eq(database.ordersTable.id, historyOrderId)).limit(1);
+    assert.equal(confirmed?.status, "processing");
+    assert.equal(confirmed?.manualSettlementState, "funds_confirmed");
+    assert.equal(confirmed?.fundingStatus, "ready_whitebit");
+    const deposits = await database.db.select().from(database.whitebitDepositsTable)
+      .where(eq(database.whitebitDepositsTable.orderId, historyOrderId));
+    assert.equal(deposits.length, 1);
+    assert.equal(deposits[0]?.uniqueId, `history-fallback-${suffix}`);
+    assert.ok(providerBalanceCalls >= 1);
+    assert.ok(providerHistoryCalls >= targetHistoryCalls);
+    assert.equal(targetHistoryCalls, 1);
+
+    // The later signed webhook must use the canonical idempotent processor.
+    const lateWebhook = await signedOrderWebhook(
+      `history-fallback-${suffix}`, provisioned.address, "BITCOIN", "TAG-1",
+      "deposit.processed", 3, "after-history", "BTC", "1",
+    );
+    assert.equal(lateWebhook.status, 200);
+    const afterWebhook = await database.db.select().from(database.whitebitDepositsTable)
+      .where(eq(database.whitebitDepositsTable.orderId, historyOrderId));
+    assert.equal(afterWebhook.length, 1);
+    assert.equal(afterWebhook[0]?.id, deposits[0]?.id);
+
+    // A subsequent configured cycle must not replay the confirmed order.
+    await runConfiguredWhitebitHistoryCycle(historyOrderId);
+    const replayedDeposits = await database.db.select().from(database.whitebitDepositsTable)
+      .where(eq(database.whitebitDepositsTable.orderId, historyOrderId));
+    assert.equal(replayedDeposits.length, 1);
+    assert.equal(targetHistoryCalls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previousEnabled === undefined) delete process.env.WHITEBIT_HISTORY_WORKER_ENABLED;
+    else process.env.WHITEBIT_HISTORY_WORKER_ENABLED = previousEnabled;
+    if (previousSource === undefined) delete process.env.WHITEBIT_HISTORY_CREDENTIAL_SOURCE;
+    else process.env.WHITEBIT_HISTORY_CREDENTIAL_SOURCE = previousSource;
+    await database.db.delete(database.whitebitHistoryWorkerStateTable)
+      .where(eq(database.whitebitHistoryWorkerStateTable.id, 2));
+    if (previousWorkerState) {
+      await database.db.insert(database.whitebitHistoryWorkerStateTable).values(previousWorkerState)
+        .onConflictDoUpdate({
+          target: database.whitebitHistoryWorkerStateTable.id,
+          set: previousWorkerState,
+        });
+    }
+  }
 });
 
 test("Manual USDT TRC20 to EUR accepts every absent refund representation", async () => {

@@ -1,12 +1,14 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import {
   cryptoAssetNetworksTable,
   cryptoAssetsTable,
   db,
   whitebitProviderSettingsTable,
+  whitebitWebhookDeliveriesTable,
 } from "@workspace/db";
 import { getWhitebitCredentialStorageState, whitebitCredentialFingerprint } from "./provider-credentials";
 import { customerDepositRouteConfigurationDigest } from "./customer-deposit-eligibility";
+import { getWhitebitHistoryWorkerHealth } from "./whitebit-history-health";
 
 export type WhitebitAssetCapability = {
   ticker: string;
@@ -227,6 +229,9 @@ export function shouldReserveWhitebitOrderFunding(
 }
 
 export async function whitebitSwapStatus() {
+  const historyWorker = await getWhitebitHistoryWorkerHealth();
+  let signedWebhookDeliverySeen = false;
+  let lastSignedWebhookAt: string | null = null;
   const storedCredentials = await getWhitebitCredentialStorageState();
   const credentialsReady = storedCredentials.status === "available" ||
     Boolean(process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET);
@@ -262,6 +267,15 @@ export async function whitebitSwapStatus() {
     verifiedAt: string;
   } | undefined;
   try {
+    const [latestSignedWebhookDelivery] = await db.select({
+      receivedAt: whitebitWebhookDeliveriesTable.receivedAt,
+    }).from(whitebitWebhookDeliveriesTable)
+      .orderBy(desc(whitebitWebhookDeliveriesTable.receivedAt))
+      .limit(1);
+    if (latestSignedWebhookDelivery) {
+      signedWebhookDeliverySeen = true;
+      lastSignedWebhookAt = latestSignedWebhookDelivery.receivedAt.toISOString();
+    }
     const snapshot = await getWhitebitCapabilities();
     const rows = await db.select({
       asset: cryptoAssetsTable,
@@ -309,6 +323,9 @@ export async function whitebitSwapStatus() {
         process.env.WHITEBIT_WEBHOOK_API_KEY &&
         process.env.WHITEBIT_WEBHOOK_SECRET,
       ),
+      signedWebhookDeliverySeen,
+      lastSignedWebhookAt,
+      historyWorker,
     };
   } catch (error) {
     return {
@@ -327,6 +344,9 @@ export async function whitebitSwapStatus() {
         process.env.WHITEBIT_WEBHOOK_API_KEY &&
         process.env.WHITEBIT_WEBHOOK_SECRET,
       ),
+      signedWebhookDeliverySeen,
+      lastSignedWebhookAt,
+      historyWorker,
       error: error instanceof Error ? error.message : "WhiteBIT capabilities unavailable",
     };
   }

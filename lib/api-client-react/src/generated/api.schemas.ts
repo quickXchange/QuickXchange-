@@ -4373,6 +4373,44 @@ export interface WhitebitAddressPermissionProof {
   verifiedAt: string;
 }
 
+export type WhitebitHistoryWorkerHealthStatus = typeof WhitebitHistoryWorkerHealthStatus[keyof typeof WhitebitHistoryWorkerHealthStatus];
+
+
+export const WhitebitHistoryWorkerHealthStatus = {
+  disabled: 'disabled',
+  configuration_required: 'configuration_required',
+  starting: 'starting',
+  healthy: 'healthy',
+  stale: 'stale',
+  auth_error: 'auth_error',
+  error: 'error',
+} as const;
+
+/**
+ * @nullable
+ */
+export type WhitebitHistoryWorkerHealthCredentialSource = typeof WhitebitHistoryWorkerHealthCredentialSource[keyof typeof WhitebitHistoryWorkerHealthCredentialSource] | null;
+
+
+export const WhitebitHistoryWorkerHealthCredentialSource = {
+  stored: 'stored',
+  environment: 'environment',
+} as const;
+
+export interface WhitebitHistoryWorkerHealth {
+  status: WhitebitHistoryWorkerHealthStatus;
+  /** @nullable */
+  credentialSource: WhitebitHistoryWorkerHealthCredentialSource;
+  /** @nullable */
+  lastPollAt: string | null;
+  /** @nullable */
+  lastSuccessAt: string | null;
+  /** @nullable */
+  lastErrorAt: string | null;
+  /** @nullable */
+  lastError: string | null;
+}
+
 export interface WhitebitProviderStatus {
   provider: WhitebitProviderStatusProvider;
   enabled: boolean;
@@ -4389,6 +4427,10 @@ export interface WhitebitProviderStatus {
   /** @minimum 0 */
   matchedRouteCount: number;
   webhookReady: boolean;
+  signedWebhookDeliverySeen: boolean;
+  /** @nullable */
+  lastSignedWebhookAt: string | null;
+  historyWorker: WhitebitHistoryWorkerHealth;
   error?: string;
 }
 

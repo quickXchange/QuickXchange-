@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { Router, type IRouter } from "express";
-import { and, desc, eq, lte, or, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, lte, or, sql } from "drizzle-orm";
 import {
   db,
   customerProfilesTable,
@@ -68,6 +68,16 @@ async function credentials(override?: WhitebitCredentials): Promise<{ key: strin
   return { key, secret };
 }
 
+export class WhitebitProviderHttpError extends ApiError {
+  constructor(public readonly providerStatus: number, definitive: boolean) {
+    super(
+      definitive ? "WHITEBIT_PROVIDER_DEFINITIVE" : "WHITEBIT_PROVIDER_ERROR",
+      definitive ? "WhiteBIT rejected the request." : "WhiteBIT provider outcome is unknown.",
+      definitive ? 502 : 503,
+    );
+  }
+}
+
 async function whitebitPost<T>(path: string, params: Record<string, unknown>, override?: WhitebitCredentials): Promise<T> {
   const { key, secret } = await credentials(override);
   const nonceResult = await db.execute<{ last_nonce: string }>(sql`
@@ -90,15 +100,24 @@ async function whitebitPost<T>(path: string, params: Record<string, unknown>, ov
   });
   if (!response.ok) {
     const definitive = classifyWhitebitHttpStatus(response.status) === "definitive";
-    throw new ApiError(
-      definitive ? "WHITEBIT_PROVIDER_DEFINITIVE" : "WHITEBIT_PROVIDER_ERROR",
-      definitive ? "WhiteBIT rejected the address request." : "WhiteBIT provider outcome is unknown.",
-      definitive ? 502 : 503,
-    );
+    throw new WhitebitProviderHttpError(response.status, definitive);
   }
   const value: unknown = await response.json();
   if (!value || typeof value !== "object") throw new ApiError("WHITEBIT_INVALID_RESPONSE", "WhiteBIT returned an invalid response.", 502);
   return value as T;
+}
+
+/** The worker always provides its explicitly selected credential snapshot. */
+export async function whitebitOrderHistory(
+  claim: { providerTicker: string; address: string; memo: string | null },
+  credentialSnapshot: WhitebitCredentials,
+  limit = 20,
+): Promise<unknown> {
+  return whitebitPost("/api/v4/main-account/history", {
+    transactionMethod: 1, ticker: claim.providerTicker, address: claim.address,
+    ...(normalizeWhitebitMemo(claim.memo) ? { memo: normalizeWhitebitMemo(claim.memo) } : {}),
+    limit, offset: 0,
+  }, credentialSnapshot);
 }
 
 export async function testWhitebitSignedConnection(candidate?: WhitebitCredentials) {
@@ -876,7 +895,7 @@ export function historyRecords(value: unknown): Record<string, unknown>[] {
   return candidate.filter((row): row is Record<string, unknown> => !!row && typeof row === "object");
 }
 
-type NormalizedDeposit = {
+export type NormalizedDeposit = {
   address: string; ticker: string; providerTicker: string; network: string; memo: string | null;
   amount: string; fee: string; status: number | null; event: string;
   transactionHash: string | null; uniqueId: string | null; transactionId: string | null;
@@ -924,7 +943,36 @@ export async function processNormalizedDeposit(tx: WhitebitTransaction, input: N
   if (input.transactionId) aliases.push(eq(whitebitDepositsTable.transactionId, input.transactionId));
   if (input.uniqueId) aliases.push(eq(whitebitDepositsTable.uniqueId, input.uniqueId));
   const aliasMatches = aliases.length ? await tx.select().from(whitebitDepositsTable).where(or(...aliases)).limit(2) : [];
+  // A hash is not a unique transfer identity: multiple outputs can share a
+  // transaction. Quarantine different provider IDs on the same exact tuple
+  // rather than crediting a second deposit or merging distinct outputs.
+  const hashMatches = input.transactionHash ? await tx.select().from(whitebitDepositsTable)
+    .where(and(
+      eq(whitebitDepositsTable.transactionHash, input.transactionHash),
+      eq(whitebitDepositsTable.address, input.address),
+      eq(whitebitDepositsTable.network, input.network),
+      eq(whitebitDepositsTable.providerTicker, input.providerTicker),
+      eq(whitebitDepositsTable.amount, input.amount),
+      memo === null ? sql`${whitebitDepositsTable.memo} IS NULL` : eq(whitebitDepositsTable.memo, memo),
+      or(isNotNull(whitebitDepositsTable.uniqueId), isNotNull(whitebitDepositsTable.transactionId)),
+    )).limit(3) : [];
+  if (aliasMatches.length > 1 || hashMatches.length > 1 ||
+      (aliasMatches.length === 1 && hashMatches.length === 1 && aliasMatches[0]!.id !== hashMatches[0]!.id)) return false;
   const aliased = aliasMatches[0];
+  if (aliased && (
+    aliased.address !== input.address ||
+    aliased.ticker !== input.ticker ||
+    aliased.providerTicker !== input.providerTicker ||
+    aliased.network !== input.network ||
+    normalizeWhitebitMemo(aliased.memo) !== memo ||
+    aliased.orderId !== (orderAddressRow?.orderId ?? null)
+  )) return false;
+  if (!aliased && hashMatches.length) {
+    await tx.update(whitebitDepositsTable)
+      .set({ conflict: "Ambiguous provider IDs share one transaction hash and funding tuple; operator review required.", updatedAt: new Date() })
+      .where(eq(whitebitDepositsTable.id, hashMatches[0]!.id));
+    return false;
+  }
   const [inserted] = aliased ? [undefined] : await tx.insert(whitebitDepositsTable).values({
     customerId: ambiguousMapping || orderAddressRow ? null : addressRow?.customerId ?? null,
     addressId: ambiguousMapping || orderAddressRow ? null : addressRow?.id ?? null,
@@ -1028,22 +1076,29 @@ export async function processNormalizedDeposit(tx: WhitebitTransaction, input: N
   return Boolean(ledger);
 }
 
-export async function replayHistoryRecord(record: Record<string, unknown>): Promise<boolean> {
+export function normalizeWhitebitHistoryDeposit(record: Record<string, unknown>): NormalizedDeposit | null {
   const address = typeof record.address === "string" ? record.address : "";
   const rawTicker = (typeof record.ticker === "string" ? record.ticker : typeof record.currency === "string" ? record.currency : "").trim().toUpperCase();
   const network = normalizedNetwork(record.network);
   const asset = assetIdentity(rawTicker, network);
   const amount = decimal(record.amount, true);
   const fee = decimal(record.fee ?? "0", false);
-  if (!address || !asset.ticker || !amount || !fee || !hasStableIdentity(record)) return false;
+  if (!address || !asset.ticker || !amount || !fee || !hasStableIdentity(record)) return null;
   const uniqueId = typeof record.unique_id === "string" ? record.unique_id : typeof record.uniqueId === "string" ? record.uniqueId : null;
   const transactionId = typeof record.transaction_id === "string" ? record.transaction_id : typeof record.transactionId === "string" ? record.transactionId : null;
-  return db.transaction((tx) => processNormalizedDeposit(tx, {
+  const rawStatus = typeof record.status === "string" && /^\d+$/.test(record.status)
+    ? Number(record.status) : record.status;
+  return {
     address, ticker: asset.ticker, providerTicker: asset.providerTicker, network: asset.network,
-    memo: normalizeWhitebitMemo(record.memo), amount, fee, status: Number.isInteger(record.status) ? Number(record.status) : null,
+    memo: normalizeWhitebitMemo(record.memo), amount, fee, status: Number.isInteger(rawStatus) ? Number(rawStatus) : null,
     event: "deposit.processed", transactionHash: typeof record.transactionHash === "string" ? record.transactionHash : typeof record.transaction_hash === "string" ? record.transaction_hash : null,
     uniqueId, transactionId, rawPayload: record,
-  }));
+  };
+}
+
+export async function replayHistoryRecord(record: Record<string, unknown>): Promise<boolean> {
+  const normalized = normalizeWhitebitHistoryDeposit(record);
+  return normalized ? db.transaction((tx) => processNormalizedDeposit(tx, normalized)) : false;
 }
 
 function customerId(req: Parameters<typeof requireCustomer>[0], res: Parameters<typeof requireCustomer>[1]): Promise<string> {

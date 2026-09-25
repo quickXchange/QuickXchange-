@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { WhitebitAddressPermissionProof } from './whitebitAddressPermissionProof';
+import type { WhitebitHistoryWorkerHealth } from './whitebitHistoryWorkerHealth';
 import type { WhitebitProviderStatusProvider } from './whitebitProviderStatusProvider';
 import type { WhitebitProviderStatusState } from './whitebitProviderStatusState';
 
@@ -25,5 +26,9 @@ export interface WhitebitProviderStatus {
   /** @minimum 0 */
   matchedRouteCount: number;
   webhookReady: boolean;
+  signedWebhookDeliverySeen: boolean;
+  /** @nullable */
+  lastSignedWebhookAt: Date | null;
+  historyWorker: WhitebitHistoryWorkerHealth;
   error?: string;
 }

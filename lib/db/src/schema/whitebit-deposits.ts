@@ -100,6 +100,23 @@ export const whitebitOrderHistoryCheckpointsTable = pgTable("whitebit_order_hist
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [uniqueIndex("whitebit_order_history_checkpoint_address_uidx").on(table.orderAddressId)]);
 
+/** One fenced, observable lease for the order-only history poller. Never used by account deposits. */
+export const whitebitHistoryWorkerStateTable = pgTable("whitebit_history_worker_state", {
+  id: integer("id").primaryKey(),
+  leaseToken: uuid("lease_token"),
+  leaseUntil: timestamp("lease_until", { withTimezone: true }),
+  cursorOrderId: text("cursor_order_id"),
+  credentialSource: text("credential_source"),
+  lastPollAt: timestamp("last_poll_at", { withTimezone: true }),
+  lastSuccessAt: timestamp("last_success_at", { withTimezone: true }),
+  lastErrorAt: timestamp("last_error_at", { withTimezone: true }),
+  lastError: text("last_error"),
+  lastErrorCode: text("last_error_code"),
+  nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
+  failureCount: integer("failure_count").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const whitebitWebhookDeliveriesTable = pgTable(
   "whitebit_webhook_deliveries",
   {

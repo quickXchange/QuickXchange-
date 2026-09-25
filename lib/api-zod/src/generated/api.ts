@@ -9824,6 +9824,16 @@ export const GetWhitebitProviderStatusResponse = zod.object({
   "lastCapabilitySyncAt": zod.coerce.date().nullable(),
   "matchedRouteCount": zod.number().int().min(getWhitebitProviderStatusResponseMatchedRouteCountMin),
   "webhookReady": zod.boolean(),
+  "signedWebhookDeliverySeen": zod.boolean(),
+  "lastSignedWebhookAt": zod.coerce.date().nullable(),
+  "historyWorker": zod.object({
+  "status": zod.enum(['disabled', 'configuration_required', 'starting', 'healthy', 'stale', 'auth_error', 'error']),
+  "credentialSource": zod.union([zod.literal('stored'),zod.literal('environment'),zod.literal(null)]).nullable(),
+  "lastPollAt": zod.coerce.date().nullable(),
+  "lastSuccessAt": zod.coerce.date().nullable(),
+  "lastErrorAt": zod.coerce.date().nullable(),
+  "lastError": zod.string().nullable()
+}),
   "error": zod.string().optional()
 })
 
@@ -9857,6 +9867,16 @@ export const UpdateWhitebitProviderStatusResponse = zod.object({
   "lastCapabilitySyncAt": zod.coerce.date().nullable(),
   "matchedRouteCount": zod.number().int().min(updateWhitebitProviderStatusResponseMatchedRouteCountMin),
   "webhookReady": zod.boolean(),
+  "signedWebhookDeliverySeen": zod.boolean(),
+  "lastSignedWebhookAt": zod.coerce.date().nullable(),
+  "historyWorker": zod.object({
+  "status": zod.enum(['disabled', 'configuration_required', 'starting', 'healthy', 'stale', 'auth_error', 'error']),
+  "credentialSource": zod.union([zod.literal('stored'),zod.literal('environment'),zod.literal(null)]).nullable(),
+  "lastPollAt": zod.coerce.date().nullable(),
+  "lastSuccessAt": zod.coerce.date().nullable(),
+  "lastErrorAt": zod.coerce.date().nullable(),
+  "lastError": zod.string().nullable()
+}),
   "error": zod.string().optional()
 })
 

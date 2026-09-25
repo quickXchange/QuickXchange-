@@ -9,16 +9,14 @@
 - [Drizzle post-merge idempotency](drizzle-post-merge-idempotency.md) — new-table migrations must tolerate schema reconciliation running before migration history.
 - [Order-directory indexing](order-directory-indexing.md) — add large-table order indexes through a safe online path, not a regular transactional migration.
 - [Clerk verified-email authorization testing](clerk-verified-email-testing.md) — programmatic sign-in still needs a server-visible verified email for role linking.
-- [Exact Clerk test aliases](clerk-test-aliases.md) — browser-test stubs must alias exact JS exports so Clerk theme CSS subpaths still resolve normally.
-- [Clerk test email domains](clerk-test-email-domains.md) — programmatic Clerk test users may reject reserved test-only domains; use a unique accepted domain when matching operator email.
+- [Clerk test compatibility](clerk-test-aliases.md) — alias exact JS exports; [test email domains](clerk-test-email-domains.md) may reject reserved addresses.
 - [Customer notification outboxes](customer-notification-outboxes.md) — use monotonic status versions for events and claim tokens to fence reclaimable delivery work.
-- [Manual desk estimate boundaries](manual-desk-estimate-boundaries.md) — quantize in target atomic units and fail closed when the number contract cannot round-trip a value.
-- [Manual desk pricing audit snapshots](manual-desk-pricing-audit.md) — signed manual quotes must preserve exact rule terms and true per-leg market provenance.
+- [Manual desk numeric and audit boundaries](manual-desk-estimate-boundaries.md) — quantize exactly; preserve [signed pricing provenance](manual-desk-pricing-audit.md).
 - [Instant quote integrity](instant-quote-integrity.md) — submissions must consume the displayed signed quote; availability requires signed order capability.
 - [1Forge compact quote fields](oneforge-compact-quotes.md) — live quote payloads may use single-letter keys even when examples show long field names.
 - [Provider-sync write fencing](provider-sync-write-fencing.md) — renewal alone is insufficient; reconciliation writes must atomically prove the current unexpired lease token.
 - [Mutable configuration test fixtures](mutable-pricing-test-fixtures.md) — tests must tolerate operator-edited seed rows and populate only fields the current schema requires.
-- [Admin pricing previews](admin-pricing-previews.md) — pricing calculations may ignore funding availability only on operator-protected preview routes; public quotes must remain fail-closed.
+- [Admin pricing previews](admin-pricing-previews.md) — operator-only funding bypass; preserve [Any-side loading](wildcard-pricing-previews.md) and require concrete market routes.
 - [Optional exact path overrides](manual-pricing-global-fallback.md) — existing Swap pricing remains the fallback; direct and reciprocal exact rates are optional higher-priority overrides.
 - [Playwright query route mocks](playwright-query-route-mocks.md) — route mocks must account for query strings when endpoint contracts add required query parameters.
 - [Order detail round-trips](order-detail-roundtrips.md) — editable operational fields must survive detail response validation or unrelated saves can silently clear them.
@@ -35,7 +33,7 @@
 - [Affiliate accounting integrity](affiliate-accounting-integrity.md) — freeze attribution and terms at completion; keep reversals and provider refreshes durable and provider-wide.
 - [Append-only affiliate test cleanup](append-only-affiliate-test-cleanup.md) — ledger integration tests need the privileged test pool for narrowly scoped trigger-safe fixture removal.
 - [Authenticated public bundle boundaries](authenticated-public-bundles.md) — keep route screens lazy even when a shared auth runtime must remain eager for signed-in public UI.
-- [Viewport combobox overlays](viewport-combobox-overlays.md) — keep widget-anchored selectors and document bottom sheets on separate class/cascade and viewport contracts.
+- [Viewport combobox overlays](viewport-combobox-overlays.md) — separate selector and bottom-sheet contracts; [compact sizing](compact-selector-overlays.md) scrolls only results.
 - [Admin-driven settlement identities](admin-settlement-identities.md) — render fiat currency and payment-method identities separately from live Admin option data.
 - [Public image verification](public-image-verification.md) — fully decode private uploads before publication; metadata and magic bytes do not prove a safe image.
 - [Orval record constraint gaps](orval-record-constraints.md) — verify generated Zod for OpenAPI record limits and strictness; preserve explicit boundary parsers through codegen.
@@ -47,20 +45,18 @@
 - [Swap and Convert visual boundaries](swap-convert-visual-parity.md) — share the public shell, but keep each mode’s intentionally distinct Step 2 layout isolated.
 - [Amount-independent route rates](amount-independent-route-rates.md) — pre-amount Swap rates apply percentage markup but exclude fixed fees, which remain amount-dependent quote fees.
 - [Mobile widget scroll boundaries](mobile-widget-scroll-boundaries.md) — closed fixed-height widgets must chain vertical touch gestures to the page; only open selector lists should contain scrolling.
-- [Compact selector overlays](compact-selector-overlays.md) — phone and tablet Search cards size to content; only the results list grows and scrolls.
 - [Coinbase ticker coverage](coinbase-ticker-coverage.md) — discover supported USD products from Coinbase’s live catalog and render unsupported assets without fallback prices.
 - [Customer suspension boundaries](customer-suspension-boundaries.md) — guard every authenticated side-effect path, including routes that intentionally support anonymous users.
 - [Clerk email verification proof](clerk-email-verification-proof.md) — never replace mailbox proof with an administrative verified flag when backend initiation is unavailable.
-- [Wildcard pricing previews](wildcard-pricing-previews.md) — preserve Any sides when loading a rule; require a concrete route side before requesting a market quote.
 - [Catalog redesign parity](catalog-redesign-parity.md) — visual-only catalog redesigns must inventory existing per-tab utilities and e2e contracts before unifying their presentation.
 - [Crypto identity fallback](crypto-identity-fallback.md) — known asset symbols recover to centralized official logos; neutral fallback is reserved for genuinely unknown assets.
-- [Vite cache cleanup](vite-cache-cleanup.md) — restart running Vite workflows after deleting optimization caches or lazy routes can retain an inconsistent React graph.
-- [Workspace cache triage](workspace-cache-triage.md) — preserve caches that prevent expensive downloads or optimization; purge only inactive, safely rebuildable caches.
+- [Workspace cache triage](workspace-cache-triage.md) — purge only inactive rebuildable caches; [restart Vite after purges](vite-cache-cleanup.md).
 - [Customer dashboard summaries](customer-dashboard-summaries.md) — scope paginated counts honestly and group exact amounts by asset; never coerce or combine currencies.
 - [Stranded browser-test processes](stranded-browser-tests.md) — after browser-heavy validation, check for orphaned Playwright Chromium trees before diagnosing app slowness.
 - [Shared customer-area design](customer-area-design-system.md) — customer routes share one shell, theme, typography, and card language; never solve visual drift with route-only cosmetic layers.
 - [Stale TypeScript language servers](stale-typescript-language-servers.md) — prolonged editor slowness can come from an aged tsserver tree even when app load, disk, and browser processes are healthy.
 - [Artifact preview verification](artifact-preview-verification.md) — verify data-dependent UI through the routed artifact preview, not the raw Vite port.
+- [Multi-artifact build routing](multi-artifact-build-routing.md) — build each web artifact with its own trailing-slash base path; one shared root build environment can misverify outputs.
 - [Customer order detail projection](customer-order-detail-projection.md) — premium detail UIs must project only customer-safe fields that actually exist; never infer missing operational data.
 - [Global flag geometry](global-flag-geometry.md) — keep country flags under the last-loaded shared square-wrapper contract; legacy context rules can otherwise reshape them.
 - [Mobile swipe tables](mobile-swipe-tables.md) — preserve real tables on phones; the entire table scrolls horizontally with no frozen columns.
@@ -88,8 +84,7 @@
 - [Automatic catalog ordering](automatic-catalog-ordering.md) — operator-managed entities use enabled/active-first alphabetical order, never manual numeric order or silent fixed list caps.
 - [Admin permission boundaries](admin-permission-boundaries.md) — Admin APIs are deny-by-default; Owner-only sensitive actions cannot be delegated or restored through overrides.
 - [Provider support metadata](provider-support-metadata.md) — provider-only orders keep operational support data in a fenced sidecar with explicit result tags and safe projections.
-- [Resend sender domain verification](resend-sender-domain.md) — Contact Form delivery stays fail-closed until quickxchange.net is verified in the connected Resend account.
-- [Resend connector state validation](resend-connector-state-validation.md) — connector UI and directory state can disagree; validate the runtime credential with a read-only provider call before retrying email.
+- [Resend delivery readiness](resend-sender-domain.md) — require verified sender domain; [check actual credential](resend-connector-state-validation.md) rather than connector UI.
 - [Newsletter delivery integrity](newsletter-delivery-integrity.md) — publish enqueue is atomic, unsubscribe is terminal, and Read More links are parser-checked.
 - [WhiteBIT deposit integrity](whitebit-deposit-integrity.md) — alias all stable provider IDs, freeze credited economics, and reconcile within the provider’s bounded history window.
 - [Shared DB test isolation](shared-db-test-isolation.md) — privileged integration tests use development storage; never drop or truncate public tables.
@@ -115,8 +110,7 @@
 - [Customer cancellation boundary](customer-cancellation-boundary.md) — customer cancellation is stricter than Admin lifecycle control: manual Swap, awaiting funds, genuinely unpaid and pending only.
 - [Tracking URL token compatibility](tracking-url-token-compatibility.md) — emit `trackingToken` canonically, accept legacy `token`, and persist searched order IDs in the URL for refresh-safe tracking.
 - [Simplified settlement field editors](simplified-settlement-field-editors.md) — preserve saved keys and hidden metadata; generate keys only for genuinely new directional rows.
-- [Telegram search callback stability](telegram-search-callback-stability.md) — filtered option buttons must keep canonical indexes so stale messages cannot select a different route.
-- [Telegram wizard parity](telegram-wizard-parity.md) — match main-widget Swap source eligibility and parse callback payloads structurally, not by fragile offsets.
+- [Telegram wizard and callback parity](telegram-wizard-parity.md) — match Swap eligibility; [preserve canonical callback indexes](telegram-search-callback-stability.md).
 - [Telegram production data boundary](telegram-production-data-boundary.md) — live bot orders belong to production; Replit preview Admin reads a separate development database.
 - [Telegram refund omission](telegram-refund-omission.md) — Telegram never collects, displays, or submits refund destinations, including from legacy saved sessions.
 - [Live Admin order directories](live-admin-order-directories.md) — operator financial queues must bypass HTTP caches and refetch across mounts and reconnects.
@@ -138,22 +132,19 @@
 - [BSC payment evidence lookup](bsc-payment-evidence-lookup.md) — public BSC RPCs may reject broad token-log scans; discover the tx narrowly, then verify its receipt and canonical block by RPC.
 - [Recovery migration replay isolation](recovery-migration-replay-isolation.md) — obsolete evidence recoveries must not replay ahead of a current recovery or one mismatch can stop the monitoring worker.
 - [Deposit monitoring readiness](deposit-monitoring-readiness.md) — gate deposits with locked exact-route identity, stable config digests, and fresh health; unhealthy routes remain payout-only.
-- [Production migration entrypoint](production-migration-entrypoint.md) — managed Publish can align schema without advancing Drizzle history; verify data-only release postconditions separately.
+- [Production migration entrypoint](production-migration-entrypoint.md) — Publish may not advance Drizzle history; run [one-shot release jobs](production-one-shot-release-jobs.md) separately.
 - [Verified funding transaction identity](verified-funding-transaction-identity.md) — Manual Swap TxIDs come only from applied immutable observations and must remain separate from editable operational references.
 - [Environment-specific RPC secret overrides](rpc-secret-environment-overrides.md) — a changed shared RPC secret can remain shadowed by an environment override; validate the runtime value in every target environment.
 - [Bundled test worker cleanup](bundled-test-worker-cleanup.md) — bundled Node tests must avoid presentation transports and await child closure before deleting temporary output.
-- [TRON indexer identity boundaries](tron-contract-query-encoding.md) — serialize canonical identities only at provider requests and bind TRC20 evidence to exact receipt-log indexes.
-- [TRON native evidence verification](tron-native-evidence.md) — verify native transfers with exact raw transaction results and canonical blocks before persistence.
+- [TRON evidence identities](tron-contract-query-encoding.md) — bind TRC20 logs exactly; verify [native transfers](tron-native-evidence.md) against canonical blocks.
 - [Polygon USDT0 identity boundary](polygon-usdt0-identity.md) — Polygon’s former bridged USDT contract now identifies as USDT0; never persist it as USDT without a catalog decision.
 - [Ethereum strict readiness](ethereum-strict-readiness.md) — exact-route proofs refresh only for canonical ERC20 on chain 0x1; disabled API routes remain outside manual monitoring.
 - [UTXO reorg discovery windows](utxo-reorg-discovery-windows.md) — UTXO monitors must rewind bounded confirmation windows so replacement-chain deposits are discoverable.
 - [BSC legacy readiness boundary](bsc-legacy-readiness-boundary.md) — preserve the legacy exception only for enabled native BNB; every BEP20 token requires exact readiness proof.
 - [Signed crypto route identity](signed-crypto-route-identity.md) — resolve manual funding and monitoring by immutable route ID before deriving canonical network codes; display labels are not identifiers.
-- [Production one-shot release jobs](production-one-shot-release-jobs.md) — run database release commands as non-web scheduled jobs, never as autoscale web candidates or normal API startup.
 - [Provider settlement field validation](provider-settlement-field-validation.md) — reject the whole quote when any provider-declared settlement field is malformed; never silently drop it.
 - [Convert and monitoring boundary](convert-monitoring-boundary.md) — Quickex Convert execution and Manual Swap blockchain monitoring must remain runtime-independent.
 - [Playwright custom contexts](playwright-custom-contexts.md) — manually created browser contexts do not inherit standard page fixtures, routes, or base URLs.
 - [Bounded blockchain catch-up](bounded-blockchain-catch-up.md) — lagging EVM watches need multiple small ranges per cycle with end-to-end deadline, lease, fairness, and cursor fencing.
-- [Partner logo single-entry animation](partner-logo-single-entry-animation.md) — do not duplicate partner elements for a seamless marquee; animation copies made single published records appear twice.
-- [Trustpilot footer source](trustpilot-footer-source.md) — when the separate review URL is empty, preserve the existing published Partner Logo link as the footer trust fallback.
+- [Partner logo rendering](partner-logo-single-entry-animation.md) — avoid duplicate marquee records; preserve [Trustpilot footer fallback](trustpilot-footer-source.md).
 - [WhiteBIT recovery credential source](whitebit-recovery-credential-source.md) — read-only history previews must select credential provenance explicitly; stored and environment credentials can differ.

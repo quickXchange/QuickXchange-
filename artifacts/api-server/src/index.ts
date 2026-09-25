@@ -3,6 +3,7 @@ import { pool } from "@workspace/db";
 import { logger } from "./lib/logger";
 import { bootstrapQuickexCredentialVerification } from "./lib/quickex";
 import { startExchangeStatusNotificationWorker } from "./routes/exchange";
+import { startWhitebitHistoryWorker } from "./lib/whitebit-history-worker";
 import { validateObjectStorageConfiguration } from "./lib/object-storage";
 import { startBlogScheduler } from "./routes/blog";
 import { startNewsletterWorker } from "./lib/newsletter";
@@ -67,6 +68,7 @@ async function start() {
   const stopTelegramWorker = startTelegramNotificationWorker();
   const stopTelegramNewsWorker = startTelegramNewsWorker();
   const stopBlockchainMonitoringWorker = startBlockchainMonitoringWorker();
+  const stopWhitebitHistoryWorker = startWhitebitHistoryWorker();
   void setupTelegramCommands().catch((error) => logger.warn({ err: error }, "Telegram command setup failed"));
   let verificationTimer: ReturnType<typeof setTimeout> | undefined;
   const verifyQuickex = async (): Promise<boolean> => {
@@ -117,6 +119,7 @@ async function start() {
   server.on("close", stopTelegramWorker);
   server.on("close", stopTelegramNewsWorker);
   server.on("close", stopBlockchainMonitoringWorker);
+  server.on("close", stopWhitebitHistoryWorker);
   server.on("close", stopConvertWorker);
 
   let shuttingDown = false;

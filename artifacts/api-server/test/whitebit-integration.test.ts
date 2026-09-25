@@ -555,6 +555,26 @@ test("unique-only webhook is promoted by dual-ID history without a second ledger
   assert.equal(deposits[0]!.transactionId, runId("alias-tx"));
 });
 
+test("history and webhook with different stable IDs but the same exact hash tuple credit once", async () => {
+  const hash = runId("hash-bridge");
+  const first = runId("hash-bridge-first");
+  const second = runId("hash-bridge-second");
+  assert.equal(await replayHistoryRecord({
+    address, ticker, network, memo: null, amount: "1.25000000", fee: "0", status: 3,
+    unique_id: first, transactionHash: hash,
+  }), true);
+  assert.equal(await replayHistoryRecord({
+    address, ticker, network, memo: null, amount: "1.25", fee: "0", status: 3,
+    unique_id: second, transaction_id: runId("hash-bridge-tx"), transactionHash: hash,
+  }), false);
+  const deposits = await database.db.select().from(database.whitebitDepositsTable)
+    .where(eq(database.whitebitDepositsTable.transactionHash, hash));
+  assert.equal(deposits.length, 1);
+  const ledger = await database.db.select().from(database.whitebitLedgerEntriesTable)
+    .where(eq(database.whitebitLedgerEntriesTable.depositId, deposits[0]!.id));
+  assert.equal(ledger.length, 1);
+});
+
 test("ledger is append-only and rejects invalid amounts and destructive deletes", async () => {
   await assert.rejects(() => pool.query(
     "INSERT INTO whitebit_ledger_entries (customer_id, ticker, amount, source_key) VALUES ($1, 'BTC', -1, $2)",

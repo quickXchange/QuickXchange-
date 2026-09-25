@@ -6927,7 +6927,7 @@ components:
             $ref: "#/components/schemas/OneForgeRate"
     WhitebitProviderStatus:
       type: object
-      required: [provider, enabled, explicitDisabled, credentialsReady, credentialsVerified, credentialsVerifiedAt, addressPermissionVerified, addressPermissionProof, state, lastCapabilitySyncAt, matchedRouteCount, webhookReady]
+      required: [provider, enabled, explicitDisabled, credentialsReady, credentialsVerified, credentialsVerifiedAt, addressPermissionVerified, addressPermissionProof, state, lastCapabilitySyncAt, matchedRouteCount, webhookReady, signedWebhookDeliverySeen, lastSignedWebhookAt, historyWorker]
       properties:
         provider: { type: string, enum: [whitebit] }
         enabled: { type: boolean }
@@ -6944,7 +6944,21 @@ components:
         lastCapabilitySyncAt: { type: [string, "null"], format: date-time }
         matchedRouteCount: { type: integer, minimum: 0 }
         webhookReady: { type: boolean }
+        signedWebhookDeliverySeen: { type: boolean }
+        lastSignedWebhookAt: { type: ["string", "null"], format: date-time }
+        historyWorker:
+          $ref: "#/components/schemas/WhitebitHistoryWorkerHealth"
         error: { type: string }
+    WhitebitHistoryWorkerHealth:
+      type: object
+      required: [status, credentialSource, lastPollAt, lastSuccessAt, lastErrorAt, lastError]
+      properties:
+        status: { type: string, enum: [disabled, configuration_required, starting, healthy, stale, auth_error, error] }
+        credentialSource: { type: ["string", "null"], enum: [stored, environment, null] }
+        lastPollAt: { type: ["string", "null"], format: date-time }
+        lastSuccessAt: { type: ["string", "null"], format: date-time }
+        lastErrorAt: { type: ["string", "null"], format: date-time }
+        lastError: { type: ["string", "null"] }
     WhitebitCredentialInput:
       type: object
       required: [apiKey, secretKey]
