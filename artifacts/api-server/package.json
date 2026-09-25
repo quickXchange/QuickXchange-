@@ -23,7 +23,7 @@
     "export:workspace-config": "NODE_ENV=development WORKSPACE_CONFIG_EXPORT=1 esbuild ./src/scripts/export-workspace-config.ts --bundle --platform=node --format=cjs --external:pg-native --external:sharp '--external:@google-cloud/*' '--external:*.node' --outfile=./dist/export-workspace-config.cjs && WORKSPACE_CONFIG_EXPORT=1 node ./dist/export-workspace-config.cjs --",
     "blog:covers:regenerate": "esbuild ./src/scripts/regenerate-blog-covers.ts --bundle --platform=node --format=cjs --external:sharp '--external:@google-cloud/*' '--external:*.node' --external:pg-native --outfile=./dist/regenerate-blog-covers.cjs && node ./dist/regenerate-blog-covers.cjs",
     "test:api": "node ./test/run-api-isolated.mjs",
-    "test:api:raw": "NODE_ENV=test node ./test/run.mjs blockchain-monitoring-service.test.ts && NODE_ENV=test node ./test/run.mjs blockchain-monitoring-adapters.test.ts && NODE_ENV=test node ./test/run.mjs bitcoin-monitoring-adapters.test.ts && NODE_ENV=test node ./test/run.mjs manual-monitoring-readiness.test.ts && NODE_ENV=test node ./test/run.mjs watch-registration-integration.test.ts && NODE_ENV=test node ./test/run.mjs verified-funding-projection.test.ts && pnpm run test:revenue && pnpm run test:pricing-coverage && pnpm run test:manual-path && pnpm run test:quickex && pnpm run test:operators && pnpm run test:telegram && pnpm run test:affiliate && pnpm run test:landing-background && pnpm run test:object-storage && pnpm run test:site-content && pnpm run test:newsletter && pnpm run test:whitebit && pnpm -w run test:quote-browser",
+    "test:api:raw": "NODE_ENV=test node ./test/run.mjs blockchain-monitoring-service.test.ts && NODE_ENV=test node ./test/run.mjs blockchain-monitoring-adapters.test.ts && NODE_ENV=test node ./test/run.mjs bitcoin-monitoring-adapters.test.ts && NODE_ENV=test node ./test/run.mjs manual-monitoring-readiness.test.ts && NODE_ENV=test node ./test/run.mjs monero-address.test.ts && NODE_ENV=test node ./test/run.mjs watch-registration-integration.test.ts && NODE_ENV=test node ./test/run.mjs verified-funding-projection.test.ts && pnpm run test:revenue && pnpm run test:pricing-coverage && pnpm run test:manual-path && pnpm run test:quickex && pnpm run test:operators && pnpm run test:telegram && pnpm run test:affiliate && pnpm run test:landing-background && pnpm run test:object-storage && pnpm run test:site-content && pnpm run test:newsletter && pnpm run test:whitebit && pnpm -w run test:quote-browser",
     "test:whitebit": "NODE_ENV=test node ./test/run-whitebit-isolated.mjs"
   },
   "dependencies": {
@@ -34,6 +34,7 @@
     "sanitize-html": "^2.17.0",
     "undici": "^7.16.0",
     "@replit/connectors-sdk": "^0.4.1",
+    "@noble/hashes": "^2.4.0",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
     "cookie-parser": "^1.4.7",

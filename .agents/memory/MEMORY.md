@@ -151,3 +151,4 @@
 - [Activation timestamp precision](activation-timestamp-precision.md) — compare post-activation eligibility in PostgreSQL; JavaScript Date collapses distinct microsecond events.
 - [WhiteBIT explorer identity](whitebit-explorer-identity.md) — render only persisted chain hashes; frozen provider-network identity may need matching catalog metadata when an older route lacks an explorer template.
 - [WhiteBIT automatic mapping boundary](whitebit-auto-mapping-boundary.md) — public catalog identity never grants deposit permission; preserve live Manual routes and fence chain mismatches and stale proofs.
+- [Scoped pnpm installs](scoped-pnpm-installs.md) — the generic package installer targets the workspace root; use a filtered pnpm add for a leaf artifact dependency.

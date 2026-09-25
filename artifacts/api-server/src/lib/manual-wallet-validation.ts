@@ -1,5 +1,6 @@
 import { decodeBitcoinMainnetAddress } from "./blockchain-monitoring/bitcoin";
 import { normalizeTronAddress } from "./blockchain-monitoring/tron";
+import { isValidMoneroMainnetAddress } from "./monero-address";
 
 type ManualNetwork = {
   id: string;
@@ -44,6 +45,13 @@ export function isSyntacticallyValidManualWalletAddress(
   const address = rawAddress.trim();
   if (!address || address.length > 512 || /\s/.test(address)) return false;
   const keys = networkKeys(network);
+
+  // Only the configured Monero route can use Monero mainnet addresses.
+  if (network.networkCode.trim().toUpperCase() === "XMR") {
+    return (network.id === "xmr-monero" ||
+      /^(XMR|MONERO)$/i.test(network.networkFamily.trim())) &&
+      isValidMoneroMainnetAddress(address);
+  }
 
   // BNB is the existing canonical BNB Smart Chain route; do not derive
   // address syntax from WhiteBIT's separately selected network alias.

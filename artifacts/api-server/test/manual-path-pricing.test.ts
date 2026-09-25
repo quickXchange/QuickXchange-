@@ -187,14 +187,19 @@ test("one Any Source rule covers every enabled Swap crypto network and exact rou
     listPublicManualCryptoSettlementOptions(),
     listPublicFiatSettlementOptions(),
   ]);
-  const sources = cryptoOptions.filter(option =>
-    option.direction === "send" || option.direction === "both");
+  const sources = [
+    ...cryptoOptions.filter(option =>
+      option.direction === "send" || option.direction === "both")
+      .map(({ id, assetCode, routeNetwork }) => ({ id, assetCode, routeNetwork })),
+    // Operator-managed snapshots can intentionally disable every crypto send
+    // route. Keep this pure rule-selection assertion independent of that data.
+    { id: "crypto:test-btc-bitcoin", assetCode: "BTC", routeNetwork: "Bitcoin" },
+  ];
   const sepaInstant = fiatOptions.find(option =>
     option.assetCode.toUpperCase() === "EUR" &&
     option.title.trim().toUpperCase() === "SEPA INSTANT" &&
     (option.direction === "receive" || option.direction === "both"));
   assert.ok(sepaInstant, "SEPA Instant must be an enabled EUR receive option");
-  assert.ok(sources.length > 0, "Swap must expose at least one enabled crypto source");
 
   const wildcard = {
     id: "any-source-to-sepa-instant",
