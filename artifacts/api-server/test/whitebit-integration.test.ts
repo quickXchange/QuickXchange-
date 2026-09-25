@@ -11,7 +11,9 @@ import * as database from "@workspace/db";
 import { replayHistoryRecord, whitebitWebhookRouter, default as whitebitRouter, whitebitOperatorRouter } from "../src/routes/whitebit";
 import { configureCustomerAuthorizationForTests } from "../src/lib/customer-auth";
 import { configureOperatorAuthorizationForTests } from "../src/lib/operator-auth";
+import { assertIsolatedWhitebitDatabase } from "./assert-isolated-whitebit-database";
 
+assertIsolatedWhitebitDatabase();
 process.env.NODE_ENV = "test";
 process.env.WHITEBIT_WEBHOOK_API_KEY = `webhook-key-${randomUUID()}`;
 process.env.WHITEBIT_WEBHOOK_SECRET = `webhook-secret-${randomUUID()}`;

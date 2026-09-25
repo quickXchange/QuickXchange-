@@ -31,7 +31,9 @@ import { customerDepositRouteConfigurationDigest } from "../src/lib/customer-dep
 import { getWhitebitCredentialStorageState, whitebitCredentialFingerprint } from "../src/lib/provider-credentials";
 import { runConfiguredWhitebitHistoryCycle } from "../src/lib/whitebit-history-worker";
 import { matchesFrozenWhitebitClaim } from "../src/lib/whitebit-history-match";
+import { assertIsolatedWhitebitDatabase } from "./assert-isolated-whitebit-database";
 
+assertIsolatedWhitebitDatabase();
 process.env.NODE_ENV = "test";
 process.env.WHITEBIT_API_KEY = `swap-key-${randomUUID()}`;
 process.env.WHITEBIT_API_SECRET = `swap-secret-${randomUUID()}`;
@@ -249,20 +251,31 @@ async function seedWhitebitVerificationFixture(assetCode: string, networkCode: s
     credentialFingerprint: fingerprint,
     verifiedAt: new Date().toISOString(),
   };
-  await database.db.insert(database.whitebitProviderSettingsTable).values({
-    provider: "whitebit",
-    disabled: false,
-    depositRouteProofs: [proof],
-    credentialVerifiedFingerprint: fingerprint,
-    credentialVerifiedAt: new Date(),
-  }).onConflictDoUpdate({
-    target: database.whitebitProviderSettingsTable.provider,
-    set: {
+  await database.db.transaction(async tx => {
+    const [current] = await tx.select({
+      depositRouteProofs: database.whitebitProviderSettingsTable.depositRouteProofs,
+    }).from(database.whitebitProviderSettingsTable)
+      .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"))
+      .for("update");
+    const proofs = [
+      ...(current?.depositRouteProofs ?? []).filter(existing => existing.networkId !== proof.networkId),
+      proof,
+    ];
+    await tx.insert(database.whitebitProviderSettingsTable).values({
+      provider: "whitebit",
       disabled: false,
-      depositRouteProofs: [proof],
+      depositRouteProofs: proofs,
       credentialVerifiedFingerprint: fingerprint,
       credentialVerifiedAt: new Date(),
-    },
+    }).onConflictDoUpdate({
+      target: database.whitebitProviderSettingsTable.provider,
+      set: {
+        disabled: false,
+        depositRouteProofs: proofs,
+        credentialVerifiedFingerprint: fingerprint,
+        credentialVerifiedAt: new Date(),
+      },
+    });
   });
   const status = await whitebitSwapStatus();
   assert.equal(status.enabled, true, `mock fixture proof does not satisfy the WhiteBIT gate: ${JSON.stringify(status)}`);
@@ -393,6 +406,88 @@ before(async () => {
     server = app.listen(0, "127.0.0.1", () => resolve());
   });
   baseUrl = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+});
+
+test("BTC verification and exact-route network invalidation preserve an existing BNB proof", async () => {
+  await mockAssets();
+  const [original] = await database.db.select().from(database.whitebitProviderSettingsTable)
+    .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+  const [originalBtc] = await database.db.select().from(database.cryptoAssetNetworksTable)
+    .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
+  const [bnb] = await database.db.select({
+    asset: database.cryptoAssetsTable,
+    network: database.cryptoAssetNetworksTable,
+  }).from(database.cryptoAssetNetworksTable)
+    .innerJoin(database.cryptoAssetsTable, eq(database.cryptoAssetNetworksTable.assetId, database.cryptoAssetsTable.id))
+    .where(eq(database.cryptoAssetNetworksTable.id, "bnb-bnb"));
+  assert.ok(bnb, "isolated suite must contain its own synthetic BNB route");
+  const stored = await getWhitebitCredentialStorageState();
+  const credentials = stored.status === "available" ? stored.credentials : {
+    apiKey: process.env.WHITEBIT_API_KEY!,
+    secretKey: process.env.WHITEBIT_API_SECRET!,
+  };
+  const fingerprint = whitebitCredentialFingerprint(credentials);
+  const bnbProof = {
+    networkId: bnb.network.id,
+    assetCode: "BNB",
+    networkCode: "BNB",
+    configurationDigest: customerDepositRouteConfigurationDigest(bnb.asset, bnb.network),
+    credentialFingerprint: fingerprint,
+    verifiedAt: new Date().toISOString(),
+  };
+  try {
+    await database.db.update(database.whitebitProviderSettingsTable).set({
+      depositRouteProofs: [bnbProof],
+      credentialVerifiedFingerprint: fingerprint,
+      credentialVerifiedAt: new Date(),
+    }).where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+    await seedWhitebitVerificationFixture("BTC", "BITCOIN");
+    const [both] = await database.db.select({
+      proofs: database.whitebitProviderSettingsTable.depositRouteProofs,
+    }).from(database.whitebitProviderSettingsTable)
+      .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+    assert.deepEqual(new Set(both.proofs.map(proof => proof.networkId)), new Set(["bnb-bnb", "btc-bitcoin"]));
+    assert.deepEqual(both.proofs.find(proof => proof.networkId === "bnb-bnb"), bnbProof);
+
+    const verified = await fetch(`${baseUrl}/api/admin/providers/whitebit/credentials/test`, {
+      method: "POST", headers: { "x-test-operator": ownerClerkUserId },
+    });
+    assert.equal(verified.status, 200);
+    const [afterCredentialTest] = await database.db.select({
+      proofs: database.whitebitProviderSettingsTable.depositRouteProofs,
+    }).from(database.whitebitProviderSettingsTable)
+      .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+    assert.deepEqual(afterCredentialTest.proofs.find(proof => proof.networkId === "bnb-bnb"), bnbProof);
+
+    const updated = await fetch(`${baseUrl}/api/admin/crypto-networks/btc-bitcoin`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", "x-test-operator": ownerClerkUserId },
+      body: JSON.stringify({ networkName: "Bitcoin (isolated proof test)" }),
+    });
+    assert.equal(updated.status, 200, await updated.clone().text());
+    const [afterRouteUpdate] = await database.db.select({
+      proofs: database.whitebitProviderSettingsTable.depositRouteProofs,
+    }).from(database.whitebitProviderSettingsTable)
+      .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+    assert.deepEqual(afterRouteUpdate.proofs, [bnbProof]);
+  } finally {
+    await database.db.update(database.cryptoAssetNetworksTable)
+      .set({
+        networkName: originalBtc.networkName,
+        customerDepositsEnabled: originalBtc.customerDepositsEnabled,
+      })
+      .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
+    await database.db.update(database.whitebitProviderSettingsTable).set({
+      disabled: original.disabled,
+      version: original.version,
+      depositRouteProofs: original.depositRouteProofs,
+      credentialVerifiedFingerprint: original.credentialVerifiedFingerprint,
+      credentialVerifiedAt: original.credentialVerifiedAt,
+      updatedAt: original.updatedAt,
+    }).where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+    globalThis.fetch = originalFetch;
+    resetWhitebitCapabilityCacheForTests();
+  }
 });
 
 after(async () => {
