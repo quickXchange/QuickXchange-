@@ -15,7 +15,7 @@ import {
   whitebitCredentialSourceConfiguration,
   whitebitHistoricalReconciliationAllowed,
 } from "../src/lib/provider-credentials";
-import { whitebitHistoryWorkerConfiguration } from "../src/lib/whitebit-history-health";
+import { whitebitHistoryFreshAfter, whitebitHistoryWorkerConfiguration } from "../src/lib/whitebit-history-health";
 
 const secret = "unit-test-webhook-secret";
 
@@ -51,6 +51,7 @@ test("explicit environment source never reads stored credentials or allows a sto
     secret: process.env.WHITEBIT_API_SECRET,
     history: process.env.WHITEBIT_HISTORY_CREDENTIAL_SOURCE,
     enabled: process.env.WHITEBIT_HISTORY_WORKER_ENABLED,
+    freshAfter: process.env.WHITEBIT_HISTORY_FRESH_AFTER,
     approved: process.env.WHITEBIT_HISTORICAL_RECONCILIATION_APPROVED,
   };
   const restore = (key: string, value: string | undefined) => {
@@ -63,6 +64,7 @@ test("explicit environment source never reads stored credentials or allows a sto
     process.env.WHITEBIT_API_SECRET = "fixture-environment-secret";
     process.env.WHITEBIT_HISTORY_WORKER_ENABLED = "true";
     process.env.WHITEBIT_HISTORY_CREDENTIAL_SOURCE = "stored";
+    delete process.env.WHITEBIT_HISTORY_FRESH_AFTER;
     delete process.env.WHITEBIT_HISTORICAL_RECONCILIATION_APPROVED;
     const forbiddenStoredRead = { select: () => { throw new Error("Stored credentials were read"); } };
     const selected = await getSelectedWhitebitCredentialState(forbiddenStoredRead);
@@ -75,8 +77,12 @@ test("explicit environment source never reads stored credentials or allows a sto
     assert.equal(whitebitHistoryWorkerConfiguration().source, "environment");
     assert.equal(whitebitHistoryWorkerConfiguration().enabled, false);
     assert.equal(whitebitHistoricalReconciliationAllowed(), false);
-    process.env.WHITEBIT_HISTORICAL_RECONCILIATION_APPROVED = "true";
+    process.env.WHITEBIT_HISTORY_FRESH_AFTER = "2026-09-25T12:00:00.000Z";
+    assert.equal(whitebitHistoryFreshAfter()?.toISOString(), process.env.WHITEBIT_HISTORY_FRESH_AFTER);
     assert.equal(whitebitHistoryWorkerConfiguration().enabled, true);
+    assert.equal(whitebitHistoricalReconciliationAllowed(), false);
+    process.env.WHITEBIT_HISTORICAL_RECONCILIATION_APPROVED = "true";
+    assert.equal(whitebitHistoricalReconciliationAllowed(), true);
     delete process.env.WHITEBIT_API_KEY;
     assert.equal((await getSelectedWhitebitCredentialState(forbiddenStoredRead)).status, "absent");
   } finally {
@@ -85,6 +91,7 @@ test("explicit environment source never reads stored credentials or allows a sto
     restore("WHITEBIT_API_SECRET", original.secret);
     restore("WHITEBIT_HISTORY_CREDENTIAL_SOURCE", original.history);
     restore("WHITEBIT_HISTORY_WORKER_ENABLED", original.enabled);
+    restore("WHITEBIT_HISTORY_FRESH_AFTER", original.freshAfter);
     restore("WHITEBIT_HISTORICAL_RECONCILIATION_APPROVED", original.approved);
   }
 });

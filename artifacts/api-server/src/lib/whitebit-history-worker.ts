@@ -6,7 +6,7 @@ import {
 } from "@workspace/db";
 import { logger } from "./logger";
 import { getWhitebitCredentialStateForSource, whitebitCredentialFingerprint } from "./provider-credentials";
-import { whitebitHistoryWorkerConfiguration, type WhitebitHistoryCredentialSource } from "./whitebit-history-health";
+import { whitebitHistoryFreshAfter, whitebitHistoryWorkerConfiguration, type WhitebitHistoryCredentialSource } from "./whitebit-history-health";
 import { matchWhitebitHistoryForOrder, matchesFrozenWhitebitClaim } from "./whitebit-history-match";
 import {
   historyRecords, normalizeWhitebitMemo, processNormalizedDeposit,
@@ -91,19 +91,35 @@ export async function runWhitebitHistoryCycle(ports: WhitebitHistoryCyclePorts):
 async function acquireLease(source: WhitebitHistoryCredentialSource, stateId: number): Promise<Lease | null> {
   const token = randomUUID();
   const now = new Date();
+  const freshAfter = source === "environment" ? whitebitHistoryFreshAfter() : null;
+  if (source === "environment" && !freshAfter) {
+    throw new WhitebitHistoryWorkerError("ACTIVATION_BOUNDARY_UNAVAILABLE", "A fresh-order activation boundary is required.");
+  }
   const [row] = await db.insert(whitebitHistoryWorkerStateTable).values({
     id: stateId, activatedAt: sql`clock_timestamp()`, leaseToken: token, leaseUntil: new Date(now.getTime() + LEASE_MS),
     credentialSource: source, lastPollAt: now, updatedAt: now,
   }).onConflictDoUpdate({
     target: whitebitHistoryWorkerStateTable.id,
-    set: { activatedAt: sql`coalesce(${whitebitHistoryWorkerStateTable.activatedAt}, clock_timestamp())`,
-      leaseToken: token, leaseUntil: new Date(now.getTime() + LEASE_MS), credentialSource: source, lastPollAt: now, updatedAt: now },
+    set: {
+      activatedAt: freshAfter
+        ? sql`greatest(coalesce(${whitebitHistoryWorkerStateTable.activatedAt}, clock_timestamp()), ${freshAfter})`
+        : sql`coalesce(${whitebitHistoryWorkerStateTable.activatedAt}, clock_timestamp())`,
+      cursorOrderId: freshAfter
+        ? sql`case when ${whitebitHistoryWorkerStateTable.activatedAt} < ${freshAfter} then null else ${whitebitHistoryWorkerStateTable.cursorOrderId} end`
+        : sql`${whitebitHistoryWorkerStateTable.cursorOrderId}`,
+      nextAttemptAt: null,
+      lastError: null,
+      lastErrorCode: null,
+      lastErrorAt: null,
+      leaseToken: token, leaseUntil: new Date(now.getTime() + LEASE_MS), credentialSource: source, lastPollAt: now, updatedAt: now,
+    },
     setWhere: and(
       or(isNull(whitebitHistoryWorkerStateTable.leaseUntil), lt(whitebitHistoryWorkerStateTable.leaseUntil, sql`clock_timestamp()`)),
       or(
         isNull(whitebitHistoryWorkerStateTable.nextAttemptAt),
         lte(whitebitHistoryWorkerStateTable.nextAttemptAt, sql`clock_timestamp()`),
         sql`${whitebitHistoryWorkerStateTable.credentialSource} IS DISTINCT FROM ${source}`,
+        ...(freshAfter ? [lt(whitebitHistoryWorkerStateTable.activatedAt, freshAfter)] : []),
       ),
     ),
   }).returning({ cursor: whitebitHistoryWorkerStateTable.cursorOrderId, activatedAt: whitebitHistoryWorkerStateTable.activatedAt });

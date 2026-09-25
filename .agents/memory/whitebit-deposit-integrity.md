@@ -91,4 +91,4 @@ A WhiteBIT trading-credential source change must not promote proofs created unde
 
 **Why:** Admin verification, address provisioning, and order-history reads can otherwise use different trading accounts. A signed balance check proves the new credential works but does not prove access to old deposit addresses or make prior permission proofs transferable.
 
-**How to apply:** Make the operational source explicit and fail closed, check the same selected fingerprint at each proof/address boundary, turn off customer deposits for stale routes, and keep both scheduled and broad manual history replay gated until independently authorized. Signed webhooks retain their separate credential domain.
+**How to apply:** Make the operational source explicit and fail closed, check the same selected fingerprint at each proof/address boundary, and turn off customer deposits for stale routes. A worker re-enabled under a new identity needs a fresh persisted activation boundary that excludes earlier order and address creation timestamps; keep broad manual reconciliation separately gated. Signed webhooks retain their separate credential domain.

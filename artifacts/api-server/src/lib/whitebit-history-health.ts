@@ -1,6 +1,6 @@
 import { db, whitebitHistoryWorkerStateTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { whitebitCredentialSourceConfiguration, whitebitHistoricalReconciliationAllowed } from "./provider-credentials";
+import { whitebitCredentialSourceConfiguration } from "./provider-credentials";
 
 export type WhitebitHistoryCredentialSource = "stored" | "environment";
 
@@ -13,12 +13,19 @@ export type WhitebitHistoryWorkerHealth = {
   lastError: string | null;
 };
 
+/** An explicit environment identity may only poll orders created after this new boundary. */
+export function whitebitHistoryFreshAfter(): Date | null {
+  const value = process.env.WHITEBIT_HISTORY_FRESH_AFTER;
+  if (!value || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) return null;
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString() === value ? parsed : null;
+}
+
 export function whitebitHistoryWorkerConfiguration(): {
   enabled: boolean;
   source: WhitebitHistoryCredentialSource | null;
 } {
-  const enabled = process.env.WHITEBIT_HISTORY_WORKER_ENABLED === "true" &&
-    whitebitHistoricalReconciliationAllowed();
+  const enabled = process.env.WHITEBIT_HISTORY_WORKER_ENABLED === "true";
   const configured = process.env.WHITEBIT_HISTORY_CREDENTIAL_SOURCE;
   const canonical = whitebitCredentialSourceConfiguration();
   const configuredSource = configured === "stored" || configured === "environment" ? configured : null;
@@ -26,7 +33,9 @@ export function whitebitHistoryWorkerConfiguration(): {
       (canonical.explicit && (!configuredSource || configuredSource !== canonical.source))
     ? null
     : configuredSource;
-  return { enabled, source };
+  // Enabling the environment worker must not opt in to broad reconciliation.
+  // It instead requires a separate, immutable fresh-order activation boundary.
+  return { enabled: enabled && (source !== "environment" || Boolean(whitebitHistoryFreshAfter())), source };
 }
 
 export async function getWhitebitHistoryWorkerHealth(): Promise<WhitebitHistoryWorkerHealth> {
@@ -37,11 +46,17 @@ export async function getWhitebitHistoryWorkerHealth(): Promise<WhitebitHistoryW
   try {
     const [row] = await db.select().from(whitebitHistoryWorkerStateTable)
       .where(eq(whitebitHistoryWorkerStateTable.id, 1)).limit(1);
-    if (!row || row.credentialSource !== source) return { status: "starting", ...empty };
+    const freshAfter = source === "environment" ? whitebitHistoryFreshAfter() : null;
+    if (!row || row.credentialSource !== source ||
+      (freshAfter && (!row.activatedAt || row.activatedAt.getTime() < freshAfter.getTime()))) {
+      return { status: "starting", ...empty };
+    }
     return {
       status: row.lastErrorCode === "WHITEBIT_HISTORY_AUTH_REJECTED" ? "auth_error"
         : row.lastErrorCode ? "error"
-        : row.lastSuccessAt && Date.now() - row.lastSuccessAt.getTime() < 5 * 60_000 ? "healthy"
+        : row.lastSuccessAt && row.activatedAt &&
+            row.lastSuccessAt.getTime() >= row.activatedAt.getTime() &&
+            Date.now() - row.lastSuccessAt.getTime() < 5 * 60_000 ? "healthy"
         : "stale",
       credentialSource: source,
       lastPollAt: row.lastPollAt?.toISOString() ?? null,

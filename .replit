@@ -82,8 +82,9 @@ BSC_MONITOR_RPC_URL = "https://bsc.rpc.blxrbdn.com"
 [userenv.development]
 BSC_MONITOR_RPC_URL = "https://bsc-dataseed.binance.org/"
 WHITEBIT_HISTORY_CREDENTIAL_SOURCE = "environment"
-WHITEBIT_HISTORY_WORKER_ENABLED = "false"
+WHITEBIT_HISTORY_WORKER_ENABLED = "true"
 WHITEBIT_CREDENTIAL_SOURCE = "environment"
+WHITEBIT_HISTORY_FRESH_AFTER = "2026-09-25T12:04:16.109Z"
 
 [objectStorage]
 defaultBucketID = "replit-objstore-77d8e649-ef02-4a1f-8c20-21e842be9461"
