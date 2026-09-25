@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import test from "node:test";
-import { assetIdentity, classifyWhitebitHttpStatus, historyRecords, isCreditEligible, parseWhitebitAddressResponse, verifyWhitebitSignature } from "../src/routes/whitebit";
+import { assetIdentity, classifyWhitebitHttpStatus, historyRecords, isCreditEligible, normalizeWhitebitMemo, parseWhitebitAddressResponse, verifyWhitebitSignature } from "../src/routes/whitebit";
 import { matchWhitebitCapability, matchWhitebitRouteCapability, parseWhitebitAssets, parseWhitebitCatalogAssets, shouldReserveWhitebitOrderFunding } from "../src/lib/whitebit-capabilities";
 import { listDepositProviderOptions } from "../src/lib/deposit-provider-registry";
 import {
@@ -57,7 +57,17 @@ test("WhiteBIT credit policy is terminal-only and requires a known address", () 
 
 test("WhiteBIT create-address parser requires the documented nested account shape", () => {
   assert.deepEqual(parseWhitebitAddressResponse({ account: { address: "ADDR", memo: "MEMO" }, required: {} }), { address: "ADDR", memo: "MEMO" });
+  assert.deepEqual(parseWhitebitAddressResponse({ account: { address: "ADDR", memo: " \t " } }), { address: "ADDR", memo: null });
   assert.equal(parseWhitebitAddressResponse({ address: "ADDR" }), null);
+});
+
+test("WhiteBIT absent memo forms normalize together without weakening real tags", () => {
+  for (const value of [null, undefined, "", " ", "\t\n", "\u00a0"]) {
+    assert.equal(normalizeWhitebitMemo(value), null);
+  }
+  assert.equal(normalizeWhitebitMemo(" TAG-1 \t"), "TAG-1");
+  assert.notEqual(normalizeWhitebitMemo("TAG-1"), normalizeWhitebitMemo("tag-1"));
+  assert.notEqual(normalizeWhitebitMemo("TAG-1"), normalizeWhitebitMemo("TAG-2"));
 });
 
 test("deposit capability uses exact asset and network codes, not display names or fallback wallets", () => {

@@ -531,7 +531,7 @@ export async function provisionSwapFundingAddress(input: {
     return { source: "whitebit" as const, address: usedFallback ? input.manualAddress : null, memo: usedFallback ? input.manualMemo : null, unresolved: !usedFallback };
   }
   if (row.status === "ready" && row.address) {
-    return { source: "whitebit" as const, address: row.address, memo: row.memo ?? "", unresolved: false, confirmations: capability.requiredConfirmations };
+    return { source: "whitebit" as const, address: row.address, memo: normalizeWhitebitMemo(row.memo), unresolved: false, confirmations: capability.requiredConfirmations };
   }
   const expectedClaimToken = input.expectedClaimToken ?? (claim?.claimToken ?? row.claimToken);
   if (row.status !== "claiming" || !expectedClaimToken) return { source: "whitebit" as const, address: null, memo: null, unresolved: false };
@@ -578,7 +578,7 @@ export async function provisionSwapFundingAddress(input: {
    try {
      saved = await finalizeClaimAndOrder(input.orderId, calling.id, {
         address: validatedAddress.address,
-        memo: validatedAddress.memo,
+         memo: normalizeWhitebitMemo(validatedAddress.memo),
        status: "ready",
        providerError: null,
      });
@@ -598,7 +598,7 @@ export async function provisionSwapFundingAddress(input: {
      const usedFallback = await fallback("WhiteBIT address finalization was unavailable.");
      return fallbackResult(usedFallback);
    }
-   return { source: "whitebit" as const, address: saved.address, memo: saved.memo ?? "", unresolved: false, confirmations: capability.requiredConfirmations };
+    return { source: "whitebit" as const, address: saved.address, memo: normalizeWhitebitMemo(saved.memo), unresolved: false, confirmations: capability.requiredConfirmations };
 }
 
 function providerIdentity(record: Record<string, unknown>, envelopeId?: string): string {
@@ -643,13 +643,17 @@ function decimalEqual(left: string, right: string): boolean {
   return normalize(left) === normalize(right);
 }
 
+export function normalizeWhitebitMemo(value: unknown): string | null {
+  return typeof value === "string" ? value.trim() || null : null;
+}
+
 export function parseWhitebitAddressResponse(value: unknown): { address: string; memo: string | null } | null {
   if (!value || typeof value !== "object") return null;
   const account = (value as { account?: unknown }).account;
   if (!account || typeof account !== "object" || typeof (account as { address?: unknown }).address !== "string") return null;
   const address = (account as { address: string }).address.trim();
   if (!address) return null;
-  return { address, memo: typeof (account as { memo?: unknown }).memo === "string" ? (account as { memo: string }).memo : null };
+  return { address, memo: normalizeWhitebitMemo((account as { memo?: unknown }).memo) };
 }
 
 /**
@@ -699,10 +703,11 @@ async function finalizeSwapFundingFromClaimTx(tx: WhitebitTransaction, orderId: 
     let status: "ready_whitebit" | "ready_manual" | "unresolved";
     let source: "whitebit";
     if (claim.status === "ready" && claim.address) {
+      const memo = normalizeWhitebitMemo(claim.memo);
       funding = {
         ...current,
         address: claim.address,
-        memo: claim.memo ?? "",
+        memo,
         source: "whitebit",
         selectedProvider: "whitebit",
         addressSource: "live_api",
@@ -712,9 +717,9 @@ async function finalizeSwapFundingFromClaimTx(tx: WhitebitTransaction, orderId: 
       source = "whitebit";
     } else {
       const fallbackAddress = String(current.manualFallbackAddress ?? "");
-      const fallbackMemo = String(current.manualFallbackMemo ?? "");
+      const fallbackMemo = normalizeWhitebitMemo(current.manualFallbackMemo);
       const fallbackUsable = Boolean(fallbackAddress.trim()) &&
-        (!Boolean(current.requiresMemo) || Boolean(fallbackMemo.trim()));
+        (!Boolean(current.requiresMemo) || Boolean(fallbackMemo));
       funding = fallbackUsable
         ? {
             ...current,
@@ -728,7 +733,7 @@ async function finalizeSwapFundingFromClaimTx(tx: WhitebitTransaction, orderId: 
         : {
             ...current,
             address: "",
-            memo: "",
+            memo: null,
             source: "whitebit",
             selectedProvider: "whitebit",
             addressSource: "unavailable",
@@ -740,7 +745,7 @@ async function finalizeSwapFundingFromClaimTx(tx: WhitebitTransaction, orderId: 
     settlement.funding = funding;
     const [updated] = await tx.update(ordersTable).set({
       depositAddress: String(funding.address ?? ""),
-      depositMemo: String(funding.memo ?? ""),
+      depositMemo: normalizeWhitebitMemo(funding.memo) ?? "",
       fundingStatus: status,
       fundingProviderSource: source,
       fundingProviderError: status === "unresolved" ? "WhiteBIT address provisioning requires operator recovery." : claim.providerError,
@@ -880,29 +885,28 @@ type NormalizedDeposit = {
 };
 
 export async function processNormalizedDeposit(tx: WhitebitTransaction, input: NormalizedDeposit): Promise<boolean> {
+  const memo = normalizeWhitebitMemo(input.memo);
   const stable = Boolean(input.transactionId || input.uniqueId);
   const identity = stable
     ? providerIdentity({ transactionId: input.transactionId ?? undefined, uniqueId: input.uniqueId ?? undefined })
     : providerIdentity({}, input.envelopeId);
-  const rows = await tx.select().from(whitebitDepositAddressesTable).where(and(
+  const rows = (await tx.select().from(whitebitDepositAddressesTable).where(and(
     eq(whitebitDepositAddressesTable.address, input.address),
     eq(whitebitDepositAddressesTable.ticker, input.ticker),
     eq(whitebitDepositAddressesTable.network, input.network),
-    input.memo === null ? sql`${whitebitDepositAddressesTable.memo} IS NULL` : eq(whitebitDepositAddressesTable.memo, input.memo),
-  )).limit(2);
+  ))).filter((row) => normalizeWhitebitMemo(row.memo) === memo).slice(0, 2);
   const addressRow = rows.length === 1 ? rows[0] : undefined;
   let orderRows: typeof whitebitOrderAddressesTable.$inferSelect[] = [];
   if (await hasOrderAddressTable()) {
-    orderRows = await tx.select().from(whitebitOrderAddressesTable).where(and(
+    orderRows = (await tx.select().from(whitebitOrderAddressesTable).where(and(
       eq(whitebitOrderAddressesTable.address, input.address),
       or(
         eq(whitebitOrderAddressesTable.providerTicker, input.ticker),
         eq(whitebitOrderAddressesTable.providerTicker, input.providerTicker),
       ),
       eq(whitebitOrderAddressesTable.network, input.network),
-      input.memo === null ? sql`${whitebitOrderAddressesTable.memo} IS NULL` : eq(whitebitOrderAddressesTable.memo, input.memo),
       eq(whitebitOrderAddressesTable.status, "ready"),
-    )).limit(2);
+    ))).filter((row) => normalizeWhitebitMemo(row.memo) === memo).slice(0, 2);
   }
   const orderAddressRow = orderRows.length === 1 ? orderRows[0] : undefined;
   const ambiguousMapping = orderRows.length > 1 || rows.length > 1 ||
@@ -927,7 +931,7 @@ export async function processNormalizedDeposit(tx: WhitebitTransaction, input: N
     orderAddressId: ambiguousMapping ? null : orderAddressRow?.id ?? null,
     orderId: ambiguousMapping ? null : orderAddressRow?.orderId ?? null,
     ticker: canonicalTicker, providerTicker: input.providerTicker, network: input.network,
-    address: input.address, memo: input.memo, amount: input.amount, fee: input.fee,
+    address: input.address, memo, amount: input.amount, fee: input.fee,
     status: terminal ? "processed" : input.event === "deposit.accepted" ? "accepted" : "updated",
     providerStatus: input.status, transactionHash: input.transactionHash,
       confirmationsActual: input.confirmationsActual ?? null,
@@ -1036,7 +1040,7 @@ export async function replayHistoryRecord(record: Record<string, unknown>): Prom
   const transactionId = typeof record.transaction_id === "string" ? record.transaction_id : typeof record.transactionId === "string" ? record.transactionId : null;
   return db.transaction((tx) => processNormalizedDeposit(tx, {
     address, ticker: asset.ticker, providerTicker: asset.providerTicker, network: asset.network,
-    memo: typeof record.memo === "string" ? record.memo : null, amount, fee, status: Number.isInteger(record.status) ? Number(record.status) : null,
+    memo: normalizeWhitebitMemo(record.memo), amount, fee, status: Number.isInteger(record.status) ? Number(record.status) : null,
     event: "deposit.processed", transactionHash: typeof record.transactionHash === "string" ? record.transactionHash : typeof record.transaction_hash === "string" ? record.transaction_hash : null,
     uniqueId, transactionId, rawPayload: record,
   }));
@@ -1092,7 +1096,7 @@ router.post("/account/deposits/address", async (req, res): Promise<void> => {
     await db.update(whitebitDepositAddressesTable).set({ status: "unresolved", providerError: "WhiteBIT response did not contain an address.", updatedAt: new Date() }).where(eq(whitebitDepositAddressesTable.id, row.id));
     throw new ApiError("WHITEBIT_ADDRESS_UNRESOLVED", "WhiteBIT did not return a deposit address.", 502);
   }
-  const memo = parsedAddress?.memo ?? null;
+  const memo = normalizeWhitebitMemo(parsedAddress?.memo);
   const [saved] = await db.update(whitebitDepositAddressesTable).set({ address, memo, status: "ready", updatedAt: new Date() }).where(eq(whitebitDepositAddressesTable.id, row.id)).returning();
   res.status(201).json({ id: saved.id, ticker, network, address: saved.address, memo: saved.memo, status: saved.status });
 });
@@ -1206,7 +1210,7 @@ whitebitOperatorRouter.post("/admin/whitebit/reconcile", requireOwner, async (_r
     while (addressPages < maxPages) {
       const response = await whitebitPost<unknown>("/api/v4/main-account/history", {
         transactionMethod: 1, ticker: address.providerTicker,
-        address: address.address, ...(address.memo !== null ? { memo: address.memo } : {}),
+        address: address.address, ...(normalizeWhitebitMemo(address.memo) ? { memo: normalizeWhitebitMemo(address.memo) } : {}),
         limit, offset,
       });
       const page = historyRecords(response);
@@ -1260,7 +1264,7 @@ whitebitOperatorRouter.post("/admin/whitebit/reconcile", requireOwner, async (_r
       for (let pageNumber = 0; pageNumber < 20; pageNumber += 1) {
         const response = await whitebitPost<unknown>("/api/v4/main-account/history", {
           transactionMethod: 1, ticker: address.providerTicker, address: address.address,
-          ...(address.memo !== null ? { memo: address.memo } : {}), limit: 500, offset,
+          ...(normalizeWhitebitMemo(address.memo) ? { memo: normalizeWhitebitMemo(address.memo) } : {}), limit: 500, offset,
         });
         const page = historyRecords(response);
         const envelope = response && typeof response === "object" && !Array.isArray(response)
@@ -1318,7 +1322,7 @@ whitebitOperatorRouter.get("/admin/whitebit/balance", async (_req, res): Promise
 whitebitOperatorRouter.post("/admin/whitebit/recover-address", requireOwner, async (req, res): Promise<void> => {
   const id = typeof req.body?.id === "string" ? req.body.id : "";
   const address = typeof req.body?.address === "string" ? req.body.address : "";
-  const memo = typeof req.body?.memo === "string" ? req.body.memo : null;
+  const memo = normalizeWhitebitMemo(req.body?.memo);
   if (!id || !address) throw new ApiError("VALIDATION_ERROR", "Address recovery requires the address record id and confirmed provider address.", 400);
   const [row] = await db.update(whitebitDepositAddressesTable)
     .set({ address, memo, status: "ready", providerError: null, updatedAt: new Date() })
@@ -1330,7 +1334,7 @@ whitebitOperatorRouter.post("/admin/whitebit/recover-address", requireOwner, asy
 whitebitOperatorRouter.post("/admin/whitebit/recover-order-address", requireOwner, async (req, res): Promise<void> => {
   const id = typeof req.body?.id === "string" ? req.body.id : "";
   const address = typeof req.body?.address === "string" ? req.body.address.trim() : "";
-  const memo = typeof req.body?.memo === "string" ? req.body.memo : null;
+  const memo = normalizeWhitebitMemo(req.body?.memo);
   if (!id || !address) throw new ApiError("VALIDATION_ERROR", "Order address recovery requires the record id and confirmed provider address.", 400);
   const row = await db.transaction(async (tx) => {
     const [existing] = await tx.select().from(whitebitOrderAddressesTable)
@@ -1438,7 +1442,7 @@ whitebitWebhookRouter.post("/webhooks/whitebit", async (req, res): Promise<void>
       const transactionId = typeof params.transaction_id === "string" ? params.transaction_id : typeof params.transactionId === "string" ? params.transactionId : null;
       await processNormalizedDeposit(tx, {
         address, ticker: asset.ticker, providerTicker: asset.providerTicker, network: asset.network,
-        memo: typeof params.memo === "string" ? params.memo : null, amount, fee,
+        memo: normalizeWhitebitMemo(params.memo), amount, fee,
         status: Number.isInteger(params.status) ? Number(params.status) : null, event,
         transactionHash: typeof params.transactionHash === "string" ? params.transactionHash : null,
          confirmationsActual: Number.isInteger(params.confirmations) ? Number(params.confirmations) : null,

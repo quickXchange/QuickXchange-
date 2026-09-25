@@ -11,6 +11,7 @@ import {
   finalizeSwapFundingFromClaim,
   processNormalizedDeposit,
   provisionSwapFundingAddress,
+  replayHistoryRecord,
   whitebitPublicRouter,
   whitebitWebhookRouter,
   whitebitOperatorRouter,
@@ -301,18 +302,18 @@ async function ownedLedgerEntries() {
 
 let signedWebhookNonce = Date.now() * 1000;
 async function signedOrderWebhook(
-  uniqueId: string, address = orderAddress, network = "BITCOIN", memo = "TAG-1",
-  method = "deposit.processed", status = 3, deliveryTag = "first",
+  uniqueId: string, address = orderAddress, network = "BITCOIN", memo: string | null = "TAG-1",
+  method = "deposit.processed", status = 3, deliveryTag = "first", ticker = "BTC", amount = "1.25",
 ) {
   const body = JSON.stringify({
     method,
     params: {
       nonce: ++signedWebhookNonce,
       address,
-      ticker: "BTC",
+      ticker,
       network,
       memo,
-      amount: "1.25",
+      amount,
       fee: "0",
       status,
       confirmations: 6,
@@ -1335,6 +1336,73 @@ test("canceled WhiteBIT delivery is audited without changing either order or its
   assert.equal(orderAfter.manualSettlementState, orderBefore.manualSettlementState);
   assert.equal(otherAfter.status, otherBefore.status);
   assert.equal(otherAfter.manualSettlementState, otherBefore.manualSettlementState);
+});
+
+test("memo-less BNB/BEP20 claim matches null webhook and history memos but real tags stay exact", async () => {
+  const webhookOrderId = `${orderId}-bnb-empty-webhook`;
+  const historyOrderId = `${orderId}-bnb-empty-history`;
+  const taggedOrderId = `${orderId}-bnb-tagged`;
+  const webhookAddress = `bnb-webhook-${suffix}`;
+  const historyAddress = `bnb-history-${suffix}`;
+  const taggedAddress = `bnb-tagged-${suffix}`;
+  for (const id of [webhookOrderId, historyOrderId, taggedOrderId]) {
+    await insertProvisioningOrder(id);
+    await database.db.update(database.ordersTable).set({
+      fromAsset: "BNB", fromNetwork: "BNB", amount: "0.05",
+    }).where(eq(database.ordersTable.id, id));
+  }
+  await database.db.insert(database.whitebitOrderAddressesTable).values([
+    { orderId: webhookOrderId, ticker: "BNB", providerTicker: "BNB", network: "BEP20",
+      address: webhookAddress, memo: "", status: "ready" },
+    { orderId: historyOrderId, ticker: "BNB", providerTicker: "BNB", network: "BEP20",
+      address: historyAddress, memo: " \t ", status: "ready" },
+    { orderId: taggedOrderId, ticker: "BNB", providerTicker: "BNB", network: "BEP20",
+      address: taggedAddress, memo: "TAG-1", status: "ready" },
+  ]);
+  for (const id of [webhookOrderId, historyOrderId, taggedOrderId]) {
+    await finalizeSwapFundingFromClaim(id);
+  }
+  const [frozen] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, webhookOrderId));
+  assert.equal(frozen.depositMemo, "");
+  assert.equal((frozen.fundingDetailsSnapshot as { memo: unknown }).memo, null);
+  assert.equal((frozen.settlementSnapshot as { funding: { memo: unknown } }).funding.memo, null);
+
+  const webhookId = `bnb-null-webhook-${suffix}`;
+  const response = await signedOrderWebhook(webhookId, webhookAddress, "BEP20", null,
+    "deposit.processed", 3, "null-memo", "BNB", "0.05");
+  assert.equal(response.status, 200);
+  const [webhookDeposit] = await database.db.select().from(database.whitebitDepositsTable)
+    .where(eq(database.whitebitDepositsTable.uniqueId, webhookId));
+  assert.equal(webhookDeposit.orderId, webhookOrderId);
+  assert.equal(webhookDeposit.memo, null);
+  const [advancedWebhookOrder] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, webhookOrderId));
+  assert.equal(advancedWebhookOrder.manualSettlementState, "funds_confirmed");
+
+  const historyId = `bnb-null-history-${suffix}`;
+  await replayHistoryRecord({
+    address: historyAddress, ticker: "BNB", network: "BEP20", memo: null,
+    amount: "0.05", fee: "0", status: 3, transaction_id: historyId,
+  });
+  const [historyDeposit] = await database.db.select().from(database.whitebitDepositsTable)
+    .where(eq(database.whitebitDepositsTable.transactionId, historyId));
+  assert.equal(historyDeposit.orderId, historyOrderId);
+  const [advancedHistoryOrder] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, historyOrderId));
+  assert.equal(advancedHistoryOrder.manualSettlementState, "funds_confirmed");
+
+  const wrongTagId = `bnb-wrong-tag-${suffix}`;
+  await replayHistoryRecord({
+    address: taggedAddress, ticker: "BNB", network: "BEP20", memo: "TAG-2",
+    amount: "0.05", fee: "0", status: 3, transaction_id: wrongTagId,
+  });
+  const [wrongTagDeposit] = await database.db.select().from(database.whitebitDepositsTable)
+    .where(eq(database.whitebitDepositsTable.transactionId, wrongTagId));
+  assert.equal(wrongTagDeposit.orderId, null);
+  const [unadvancedOrder] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, taggedOrderId));
+  assert.equal(unadvancedOrder.manualSettlementState, "awaiting_funds");
 });
 
 test("confirmed Swap deposit advances the real order and queues one exact Telegram payment notice", async () => {
