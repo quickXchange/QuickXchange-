@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { and, eq, or, sql } from "drizzle-orm";
+import { eq, or, sql } from "drizzle-orm";
 import {
   db,
   ordersTable,
@@ -149,16 +149,13 @@ async function inspectSingleOrder(credentialSource: "stored" | "environment" = "
   const [claim] = await db.select().from(whitebitOrderAddressesTable)
     .where(eq(whitebitOrderAddressesTable.orderId, ORDER_ID)).limit(1);
   const frozen = assertFrozenOrder(order, claim);
-  const [otherOrders, otherClaims, accountAddresses] = await Promise.all([
-    db.select({ id: ordersTable.id }).from(ordersTable)
-      .where(eq(ordersTable.depositAddress, frozen.claim.address!)),
-    db.select({ orderId: whitebitOrderAddressesTable.orderId }).from(whitebitOrderAddressesTable)
+  const [claimsAtAddress, accountAddresses] = await Promise.all([
+    db.select({ id: whitebitOrderAddressesTable.id }).from(whitebitOrderAddressesTable)
       .where(eq(whitebitOrderAddressesTable.address, frozen.claim.address!)),
     db.select({ id: whitebitDepositAddressesTable.id }).from(whitebitDepositAddressesTable)
       .where(eq(whitebitDepositAddressesTable.address, frozen.claim.address!)),
   ]);
-  if (otherOrders.some((row) => row.id !== ORDER_ID) ||
-    otherClaims.length !== 1 || otherClaims[0]?.orderId !== ORDER_ID ||
+  if (claimsAtAddress.length !== 1 || claimsAtAddress[0]?.id !== frozen.claim.id ||
     accountAddresses.length) stop("frozen address is shared with another order or customer");
   const rows = await readOnlyHistory(frozen.claim.address!, "BNB", normalizeWhitebitMemo(frozen.claim.memo), credentialSource);
   // A unique order address should have precisely one deposit. Do not guess
@@ -179,7 +176,10 @@ async function inspectSingleOrder(credentialSource: "stored" | "environment" = "
     identity.network !== "BEP20" || memo !== normalizeWhitebitMemo(frozen.claim.memo) ||
     !amount || decimalUnits(amount) === null ||
     decimalUnits(amount) !== decimalUnits(frozen.order.amount) || decimalUnits(fee) === null ||
-    !transactionId || !transactionHash || !Number.isInteger(status) || ![3, 7].includes(status as number)) {
+    !transactionId || !transactionHash ||
+    !transactionId.startsWith("bfdbfb") || !transactionId.endsWith("80ce49") ||
+    !transactionHash.startsWith("0xa5ad") || !transactionHash.endsWith("8f5d2a") ||
+    !Number.isInteger(status) || ![3, 7].includes(status as number)) {
     stop("provider record does not prove the exact terminal funding tuple");
   }
   const providerCreatedAt = record.createdAt ?? record.created_at;
@@ -200,8 +200,16 @@ async function inspectSingleOrder(credentialSource: "stored" | "environment" = "
   const existing = await db.select().from(whitebitDepositsTable).where(or(...aliases));
   const alreadyApplied = existing.length === 1 &&
     existing[0]?.orderId === ORDER_ID &&
+    existing[0]?.orderAddressId === frozen.claim.id &&
     existing[0]?.status === "processed" &&
     existing[0]?.transactionId === transactionId &&
+    existing[0]?.transactionHash === transactionHash &&
+    existing[0]?.uniqueId === uniqueId &&
+    existing[0]?.ticker === "BNB" &&
+    existing[0]?.providerTicker === "BNB" &&
+    existing[0]?.network === "BEP20" &&
+    existing[0]?.address === frozen.claim.address &&
+    normalizeWhitebitMemo(existing[0]?.memo) === memo &&
     decimalUnits(existing[0]!.amount) === decimalUnits(amount) &&
     frozen.order.manualSettlementState === "funds_confirmed" &&
     frozen.order.status === "processing";
@@ -264,10 +272,8 @@ export async function applyWhitebitSingleOrderRecoveryAfterApproval(
       claim!.address !== inspected.address || normalizeWhitebitMemo(claim!.memo) !== inspected.memo) {
       stop("order or claim changed after provider history was read");
     }
-    const [otherOrders, otherClaims, otherAccounts, prior] = await Promise.all([
-      tx.select({ id: ordersTable.id }).from(ordersTable)
-        .where(eq(ordersTable.depositAddress, inspected.address)),
-      tx.select({ orderId: whitebitOrderAddressesTable.orderId }).from(whitebitOrderAddressesTable)
+    const [claimsAtAddress, otherAccounts, prior] = await Promise.all([
+      tx.select({ id: whitebitOrderAddressesTable.id }).from(whitebitOrderAddressesTable)
         .where(eq(whitebitOrderAddressesTable.address, inspected.address)),
       tx.select({ id: whitebitDepositAddressesTable.id }).from(whitebitDepositAddressesTable)
         .where(eq(whitebitDepositAddressesTable.address, inspected.address)),
@@ -282,8 +288,7 @@ export async function applyWhitebitSingleOrderRecoveryAfterApproval(
         ] : []),
       )),
     ]);
-    if (otherOrders.some((row) => row.id !== ORDER_ID) ||
-      otherClaims.length !== 1 || otherClaims[0]?.orderId !== ORDER_ID ||
+    if (claimsAtAddress.length !== 1 || claimsAtAddress[0]?.id !== claim!.id ||
       otherAccounts.length || prior.length) stop("deposit/address ownership changed");
     await processNormalizedDeposit(tx, {
       address: inspected.address, ticker: "BNB", providerTicker: "BNB",
@@ -297,7 +302,12 @@ export async function applyWhitebitSingleOrderRecoveryAfterApproval(
       .where(eq(whitebitDepositsTable.transactionId, inspected.transactionId)).limit(1);
     if (updated?.manualSettlementState !== "funds_confirmed" || updated.status !== "processing" ||
       deposit?.orderId !== ORDER_ID || deposit.status !== "processed" ||
-      deposit.orderAddressId !== claim!.id) stop("scoped funding transition did not complete");
+      deposit.orderAddressId !== claim!.id || deposit.transactionHash !== inspected.transactionHash ||
+      deposit.providerTicker !== "BNB" || deposit.network !== "BEP20" ||
+      deposit.address !== inspected.address || normalizeWhitebitMemo(deposit.memo) !== inspected.memo ||
+      decimalUnits(deposit.amount) !== decimalUnits(inspected.amount)) {
+      stop("scoped funding transition did not complete");
+    }
   });
   return { ...inspected.preview, alreadyApplied: true, rowsToInsert: [], rowsToUpdate: [] };
 }
