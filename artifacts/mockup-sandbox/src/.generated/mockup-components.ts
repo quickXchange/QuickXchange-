@@ -4,6 +4,8 @@ export const modules: ModuleMap = {
   "./components/mockups/exchange-widget/Current.tsx": () => import("../components/mockups/exchange-widget/Current.tsx"),
   "./components/mockups/exchange-widget/ModernConcept.tsx": () => import("../components/mockups/exchange-widget/ModernConcept.tsx"),
   "./components/mockups/exchange-widget/Refined.tsx": () => import("../components/mockups/exchange-widget/Refined.tsx"),
+  "./components/mockups/human-settlement-review/HumanSettlementReview.tsx": () => import("../components/mockups/human-settlement-review/HumanSettlementReview.tsx"),
+  "./components/mockups/human-settlement-review/SettlementControlRoom.tsx": () => import("../components/mockups/human-settlement-review/SettlementControlRoom.tsx"),
   "./components/mockups/order-details-redesign/Current.tsx": () => import("../components/mockups/order-details-redesign/Current.tsx"),
   "./components/mockups/order-details-redesign/DispatchBoard.tsx": () => import("../components/mockups/order-details-redesign/DispatchBoard.tsx"),
   "./components/mockups/order-details-redesign/Redesigned.tsx": () => import("../components/mockups/order-details-redesign/Redesigned.tsx"),
@@ -12,7 +14,5 @@ export const modules: ModuleMap = {
   "./components/mockups/swap-convert-redesign/ExchangeRailway.tsx": () => import("../components/mockups/swap-convert-redesign/ExchangeRailway.tsx"),
   "./components/mockups/swap-convert-redesign/Redesigned.tsx": () => import("../components/mockups/swap-convert-redesign/Redesigned.tsx"),
   "./components/mockups/swap-convert-redesign/StructuralReview.tsx": () => import("../components/mockups/swap-convert-redesign/StructuralReview.tsx"),
-  "./components/mockups/human-settlement-review/HumanSettlementReview.tsx": () => import("../components/mockups/human-settlement-review/HumanSettlementReview.tsx"),
-  "./components/mockups/human-settlement-review/SettlementControlRoom.tsx": () => import("../components/mockups/human-settlement-review/SettlementControlRoom.tsx"),
   "./components/mockups/templates/ArtDecoKeynotePoster--xOhV7/App.tsx": () => import("../components/mockups/templates/ArtDecoKeynotePoster--xOhV7/App.tsx")
 };
