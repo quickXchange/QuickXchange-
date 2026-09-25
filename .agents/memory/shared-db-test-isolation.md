@@ -20,3 +20,9 @@ Disposable database suites must create their own multi-route asset fixtures and 
 **Why:** A cloned Development catalog may not contain every route a regression expects, and the ordinary runtime database role cannot delete protected WhiteBIT address records during test cleanup. Either assumption can make a valid isolated test fail or hide its original assertion.
 
 **How to apply:** Give synthetic routes unique identities, clean up only their dependent records in foreign-key order with the privileged test connection where required, and preserve the primary assertion failure if cleanup also fails. Never loosen production privileges to make test teardown work.
+
+When cloning the Development database for a broad integration suite, retain its PostgreSQL ACLs in the disposable copy. The application connects through a restricted runtime role even when the clone is created by the database owner.
+
+**Why:** A full-data restore with `--no-acl` succeeds as the owner, but the test application then receives `permission denied` on ordinary tables; this is a test-clone defect, not an application permission regression.
+
+**How to apply:** Preserve grants in the dump and restore, block real provider calls in the isolated test process, and drop only the disposable database after the suite.

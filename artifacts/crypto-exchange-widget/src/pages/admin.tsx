@@ -6342,7 +6342,14 @@ function AdminProviders() {
   };
 
   const status = health.data;
-  const whitebitStatus = whitebit.data;
+  // A partial or outdated response must not present WhiteBIT as enabled or
+  // crash the whole Providers page. Keep its controls unavailable instead.
+  const whitebitStatus = whitebit.data &&
+    typeof whitebit.data.explicitDisabled === 'boolean' &&
+    whitebit.data.historyWorker &&
+    typeof whitebit.data.historyWorker.status === 'string'
+    ? whitebit.data
+    : null;
   const reconciliationWarning = quickexReconciliationWarning(status?.reconciliation, formatDate);
   return <AdminShell eyebrow={t('adminCore.operations_settings')} title={t('adminCore.provider_health')} requiredPermission="integrations.view">
     <div className="panel providers-panel provider-health-card rise-in">
@@ -6379,7 +6386,7 @@ function AdminProviders() {
            >{whitebitToggle.isPending ? <Loader2 className="spin" size={15} /> : <Power size={15} />} {whitebitStatus.explicitDisabled ? 'Turn on' : 'Turn off'}</button>}
          </div>}
        </div>
-       {whitebit.isLoading ? <div className="mt-6"><LoadingBlock rows={2} /></div> : whitebit.isError ? <ErrorState message="Could not load WhiteBIT status." retry={() => whitebit.refetch()} /> : whitebitStatus && <div className="provider-grid">
+        {whitebit.isLoading ? <div className="mt-6"><LoadingBlock rows={2} /></div> : whitebit.isError || !whitebitStatus ? <ErrorState message="Could not load WhiteBIT status." retry={() => whitebit.refetch()} /> : <div className="provider-grid">
          <div className="provider-config"><h3>Readiness</h3><div className="config-list">
            <div className="config-item provider-health-row provider-health-row--blue"><span className="provider-health-row-icon"><Key size={17} /></span><div><strong>Credentials Configured</strong><p>WhiteBIT API credentials are stored server-side.</p></div><span className={cn('config-status', whitebitStatus.credentialsReady ? 'configured' : 'missing')}>{whitebitStatus.credentialsReady ? <><Check size={13} /> Yes</> : <><X size={13} /> No</>}</span></div>
            <div className="config-item provider-health-row provider-health-row--blue"><span className="provider-health-row-icon"><ShieldCheck size={17} /></span><div><strong>Credentials Verified</strong><p>Current configured credentials have passed verification.</p></div><span className={cn('config-status', whitebitStatus.credentialsVerified ? 'configured' : 'missing')}>{whitebitStatus.credentialsVerified ? <><Check size={13} /> Yes</> : <><X size={13} /> No</>}</span></div>

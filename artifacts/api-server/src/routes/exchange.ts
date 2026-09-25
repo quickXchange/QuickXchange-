@@ -5562,7 +5562,7 @@ router.post("/admin/crypto-networks/receiving-wallet/preview", requireOwner, asy
             ready: false,
             networkCode: network.networkCode,
           };
-        } else if (!eligible) {
+        } else if (!eligible && !(provider === "manual" && readiness?.ready === false)) {
           readiness = {
             routeId,
             code: "PROVIDER_INCOMPATIBLE",

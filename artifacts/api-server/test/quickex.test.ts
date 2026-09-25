@@ -3988,7 +3988,7 @@ test("owner receiving-wallet updates validate, audit, and immediately gate exact
     assert.equal(
       blockedMonitorApply.body.find((row: { id: string }) => row.id === networkBId)
         ?.customerDepositsEnabled,
-      true,
+      false,
     );
     assert.equal(
       (await db.select({ enabled: blockchainMonitorAssetsTable.enabled })
@@ -6890,7 +6890,9 @@ test("manual pricing rules match deterministically, protect writes, and snapshot
   const email = `pricing-customer-${suffix}@example.test`;
   const restoreUsdtRoute = await enableManualRouteForTest("usdt-trc20", {
     customerDepositsEnabled: true,
-    depositProvider: "whitebit",
+    // Pricing only needs a sendable USDT fixture; it must not depend on a
+    // separate WhiteBIT address-permission proof.
+    depositProvider: "manual",
     manualWalletTrackingEnabled: false,
     sharedDepositAddress: "TBLc145ZDNs4LjPqQtuvqkEDjhesemTosd",
     sharedDepositMemo: null,
