@@ -1,0 +1,1 @@
+ALTER TABLE "whitebit_history_worker_state" ADD COLUMN IF NOT EXISTS "activated_at" timestamp with time zone;

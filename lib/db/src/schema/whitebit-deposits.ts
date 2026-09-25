@@ -103,6 +103,7 @@ export const whitebitOrderHistoryCheckpointsTable = pgTable("whitebit_order_hist
 /** One fenced, observable lease for the order-only history poller. Never used by account deposits. */
 export const whitebitHistoryWorkerStateTable = pgTable("whitebit_history_worker_state", {
   id: integer("id").primaryKey(),
+  activatedAt: timestamp("activated_at", { withTimezone: true }),
   leaseToken: uuid("lease_token"),
   leaseUntil: timestamp("lease_until", { withTimezone: true }),
   cursorOrderId: text("cursor_order_id"),

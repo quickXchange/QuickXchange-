@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import express from "express";
 import test, { after, before } from "node:test";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import * as database from "@workspace/db";
 import { createPrivilegedTestPool } from "@workspace/db/test-admin";
 import {
@@ -135,12 +135,14 @@ async function migrateTestTables() {
   const providerMigration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0075_crypto_network_deposit_provider.sql"), "utf8");
   const verificationMigration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0120_whitebit_verification.sql"), "utf8");
   const historyWorkerMigration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0123_dashing_yellowjacket.sql"), "utf8");
+  const activationMigration = await readFile(resolve(process.cwd(), "../../lib/db/migrations/0124_lively_gertrude_yorkes.sql"), "utf8");
   await pool.query(baseMigration);
   await pool.query(migration);
   await pool.query(catalogMigration);
   await pool.query(providerMigration);
   await pool.query(verificationMigration);
   await pool.query(historyWorkerMigration);
+  await pool.query(activationMigration);
   await pool.query(migration);
 }
 
@@ -2320,6 +2322,66 @@ test("actual signed exchange order replay allocates one WhiteBIT address", async
   assert.equal(mismatchResponse.status, 409, await mismatchResponse.text());
 });
 
+test("first activation and restart leave a pre-existing WhiteBIT fixture order untouched", async () => {
+  const historicalId = `${orderId}-history-before-activation`;
+  const previousEnabled = process.env.WHITEBIT_HISTORY_WORKER_ENABLED;
+  const previousSource = process.env.WHITEBIT_HISTORY_CREDENTIAL_SOURCE;
+  const [previousWorkerState] = await database.db.select().from(database.whitebitHistoryWorkerStateTable)
+    .where(eq(database.whitebitHistoryWorkerStateTable.id, 2)).limit(1);
+  let signedCalls = 0;
+  try {
+    await mockAssets();
+    const provisioned = await provisionTest({
+      orderId: historicalId, assetCode: "BTC", networkCode: "BITCOIN",
+      manualAddress: "manual-before-activation", manualMemo: "", chosenWhitebit: true,
+    });
+    assert.equal(provisioned.source, "whitebit");
+    const [historicalOrder] = await database.db.select().from(database.ordersTable)
+      .where(eq(database.ordersTable.id, historicalId)).limit(1);
+    const [historicalClaim] = await database.db.select().from(database.whitebitOrderAddressesTable)
+      .where(eq(database.whitebitOrderAddressesTable.orderId, historicalId)).limit(1);
+    assert.ok(historicalOrder && historicalClaim);
+    assert.equal(matchesFrozenWhitebitClaim(historicalOrder, historicalClaim), true);
+    await database.db.delete(database.whitebitHistoryWorkerStateTable)
+      .where(eq(database.whitebitHistoryWorkerStateTable.id, 2));
+    process.env.WHITEBIT_HISTORY_WORKER_ENABLED = "true";
+    process.env.WHITEBIT_HISTORY_CREDENTIAL_SOURCE = "environment";
+    globalThis.fetch = async (input, init) => {
+      if (String(input).startsWith("https://whitebit.com/")) {
+        signedCalls += 1;
+        throw new Error("Historical claim must never trigger a provider request.");
+      }
+      return originalFetch(input, init);
+    };
+    await runConfiguredWhitebitHistoryCycle(historicalId);
+    const [firstState] = await database.db.select().from(database.whitebitHistoryWorkerStateTable)
+      .where(eq(database.whitebitHistoryWorkerStateTable.id, 2)).limit(1);
+    assert.ok(firstState?.activatedAt);
+    assert.ok(historicalOrder.createdAt < firstState.activatedAt);
+    assert.ok(historicalClaim.createdAt < firstState.activatedAt);
+    await runConfiguredWhitebitHistoryCycle(historicalId);
+    const [restartedState] = await database.db.select().from(database.whitebitHistoryWorkerStateTable)
+      .where(eq(database.whitebitHistoryWorkerStateTable.id, 2)).limit(1);
+    assert.equal(restartedState?.activatedAt?.getTime(), firstState.activatedAt.getTime());
+    assert.equal(signedCalls, 0);
+    const [unchanged] = await database.db.select().from(database.ordersTable)
+      .where(eq(database.ordersTable.id, historicalId)).limit(1);
+    assert.equal(unchanged?.status, "awaiting funds");
+    assert.equal((await database.db.select().from(database.whitebitDepositsTable)
+      .where(eq(database.whitebitDepositsTable.orderId, historicalId))).length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previousEnabled === undefined) delete process.env.WHITEBIT_HISTORY_WORKER_ENABLED;
+    else process.env.WHITEBIT_HISTORY_WORKER_ENABLED = previousEnabled;
+    if (previousSource === undefined) delete process.env.WHITEBIT_HISTORY_CREDENTIAL_SOURCE;
+    else process.env.WHITEBIT_HISTORY_CREDENTIAL_SOURCE = previousSource;
+    await database.db.delete(database.whitebitHistoryWorkerStateTable)
+      .where(eq(database.whitebitHistoryWorkerStateTable.id, 2));
+    if (previousWorkerState) await database.db.insert(database.whitebitHistoryWorkerStateTable)
+      .values(previousWorkerState);
+  }
+});
+
 test("configured WhiteBIT history fallback confirms an exact pending Swap order", async () => {
   const historyOrderId = `${orderId}-history-fallback`;
   const previousEnabled = process.env.WHITEBIT_HISTORY_WORKER_ENABLED;
@@ -2327,11 +2389,27 @@ test("configured WhiteBIT history fallback confirms an exact pending Swap order"
   const [previousWorkerState] = await database.db.select()
     .from(database.whitebitHistoryWorkerStateTable)
     .where(eq(database.whitebitHistoryWorkerStateTable.id, 2)).limit(1);
+  const [previousRoute] = await database.db.select().from(database.cryptoAssetNetworksTable)
+    .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin")).limit(1);
   let providerBalanceCalls = 0;
   let providerHistoryCalls = 0;
   let targetHistoryCalls = 0;
+  let watchesBefore = 0;
 
   try {
+    await database.db.delete(database.whitebitHistoryWorkerStateTable)
+      .where(eq(database.whitebitHistoryWorkerStateTable.id, 2));
+    process.env.WHITEBIT_HISTORY_WORKER_ENABLED = "true";
+    process.env.WHITEBIT_HISTORY_CREDENTIAL_SOURCE = "environment";
+    // First activation has no fixture order. Freeze the boundary before creating one.
+    await runConfiguredWhitebitHistoryCycle(historyOrderId);
+    const [firstState] = await database.db.select().from(database.whitebitHistoryWorkerStateTable)
+      .where(eq(database.whitebitHistoryWorkerStateTable.id, 2)).limit(1);
+    assert.ok(firstState?.activatedAt);
+    // Model two PostgreSQL timestamps in the same millisecond. A JS Date
+    // rounds both to equality, while the DB still knows the order is newer.
+    await database.db.execute(sql`UPDATE whitebit_history_worker_state
+      SET activated_at = date_trunc('milliseconds', activated_at) WHERE id = 2`);
     await mockAssets();
     const provisioned = await provisionTest({
       orderId: historyOrderId,
@@ -2342,17 +2420,35 @@ test("configured WhiteBIT history fallback confirms an exact pending Swap order"
       chosenWhitebit: true,
     });
     assert.equal(provisioned.source, "whitebit");
+    await database.db.execute(sql`UPDATE exchange_orders SET created_at =
+      (SELECT activated_at + interval '500 microseconds' FROM whitebit_history_worker_state WHERE id = 2)
+      WHERE id = ${historyOrderId}`);
+    await database.db.execute(sql`UPDATE whitebit_order_addresses SET created_at =
+      (SELECT activated_at + interval '500 microseconds' FROM whitebit_history_worker_state WHERE id = 2)
+      WHERE order_id = ${historyOrderId}`);
     const [fundedOrder] = await database.db.select().from(database.ordersTable)
       .where(eq(database.ordersTable.id, historyOrderId)).limit(1);
     const [fundedClaim] = await database.db.select().from(database.whitebitOrderAddressesTable)
       .where(eq(database.whitebitOrderAddressesTable.orderId, historyOrderId)).limit(1);
     assert.ok(fundedOrder && fundedClaim);
     assert.equal(matchesFrozenWhitebitClaim(fundedOrder, fundedClaim), true);
+    assert.equal(fundedOrder.createdAt.getTime(), firstState.activatedAt.getTime());
+    assert.equal(fundedClaim.createdAt.getTime(), firstState.activatedAt.getTime());
+    const timestampProof = await pool.query<{ order_after: boolean; claim_after: boolean }>(
+      `SELECT o.created_at > s.activated_at AS order_after, c.created_at > s.activated_at AS claim_after
+       FROM exchange_orders o JOIN whitebit_order_addresses c ON c.order_id = o.id
+       JOIN whitebit_history_worker_state s ON s.id = 2 WHERE o.id = $1`, [historyOrderId],
+    );
+    assert.equal(timestampProof.rows[0]?.order_after, true);
+    assert.equal(timestampProof.rows[0]?.claim_after, true);
+    assert.ok(previousRoute);
+    watchesBefore = (await database.db.select({ id: database.blockchainMonitorWatchesTable.id })
+      .from(database.blockchainMonitorWatchesTable)
+      .where(eq(database.blockchainMonitorWatchesTable.orderId, historyOrderId))).length;
+    // A route switch after order creation cannot change its frozen WhiteBIT identity.
+    await database.db.update(database.cryptoAssetNetworksTable).set({ depositProvider: "manual" })
+      .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
 
-    await database.db.delete(database.whitebitHistoryWorkerStateTable)
-      .where(eq(database.whitebitHistoryWorkerStateTable.id, 2));
-    process.env.WHITEBIT_HISTORY_WORKER_ENABLED = "true";
-    process.env.WHITEBIT_HISTORY_CREDENTIAL_SOURCE = "environment";
     globalThis.fetch = async (input, init) => {
       const url = String(input);
       if (url === "https://whitebit.com/api/v4/main-account/balance") {
@@ -2387,6 +2483,9 @@ test("configured WhiteBIT history fallback confirms an exact pending Swap order"
     };
 
     await runConfiguredWhitebitHistoryCycle(historyOrderId);
+    const [afterRestart] = await database.db.select().from(database.whitebitHistoryWorkerStateTable)
+      .where(eq(database.whitebitHistoryWorkerStateTable.id, 2)).limit(1);
+    assert.equal(afterRestart?.activatedAt?.getTime(), firstState.activatedAt.getTime());
     const [confirmed] = await database.db.select().from(database.ordersTable)
       .where(eq(database.ordersTable.id, historyOrderId)).limit(1);
     assert.equal(confirmed?.status, "processing");
@@ -2399,6 +2498,9 @@ test("configured WhiteBIT history fallback confirms an exact pending Swap order"
     assert.ok(providerBalanceCalls >= 1);
     assert.ok(providerHistoryCalls >= targetHistoryCalls);
     assert.equal(targetHistoryCalls, 1);
+    assert.equal((await database.db.select({ id: database.blockchainMonitorWatchesTable.id })
+      .from(database.blockchainMonitorWatchesTable)
+      .where(eq(database.blockchainMonitorWatchesTable.orderId, historyOrderId))).length, watchesBefore);
 
     // The later signed webhook must use the canonical idempotent processor.
     const lateWebhook = await signedOrderWebhook(
@@ -2419,6 +2521,9 @@ test("configured WhiteBIT history fallback confirms an exact pending Swap order"
     assert.equal(targetHistoryCalls, 1);
   } finally {
     globalThis.fetch = originalFetch;
+    if (previousRoute) await database.db.update(database.cryptoAssetNetworksTable)
+      .set({ depositProvider: previousRoute.depositProvider })
+      .where(eq(database.cryptoAssetNetworksTable.id, previousRoute.id));
     if (previousEnabled === undefined) delete process.env.WHITEBIT_HISTORY_WORKER_ENABLED;
     else process.env.WHITEBIT_HISTORY_WORKER_ENABLED = previousEnabled;
     if (previousSource === undefined) delete process.env.WHITEBIT_HISTORY_CREDENTIAL_SOURCE;

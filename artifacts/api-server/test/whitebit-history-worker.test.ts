@@ -13,10 +13,13 @@ import {
 import { WhitebitProviderHttpError } from "../src/routes/whitebit";
 
 const leaseToken = "00000000-0000-4000-8000-000000000001";
+const activationBoundary = new Date("2026-09-24T00:00:00.000Z");
+const afterActivation = new Date("2026-09-24T00:00:01.000Z");
 
 function order(id = "O-WHITEBIT-TEST", status = "awaiting funds"): PendingWhitebitOrder {
   return {
     id,
+    createdAt: afterActivation,
     type: "manual",
     status,
     manualSettlementState: status === "awaiting funds" ? "awaiting_funds" : "funds_confirmed",
@@ -46,6 +49,7 @@ function claim(
 ): ReadyWhitebitClaim {
   return {
     orderId,
+    createdAt: afterActivation,
     status: "ready",
     ticker: "BTC",
     providerTicker: "BTC",
@@ -72,6 +76,11 @@ function historyRecord(overrides: Record<string, unknown> = {}): Record<string, 
 }
 
 type Candidate = { order: PendingWhitebitOrder; claim: ReadyWhitebitClaim };
+function postActivationClaim(candidate: Candidate, activatedAt: Date) {
+  return candidate.order.createdAt > activatedAt &&
+    candidate.claim.createdAt > activatedAt &&
+    matchesFrozenWhitebitClaim(candidate.order, candidate.claim);
+}
 type MockState = {
   orderStatus: "awaiting funds" | "processing" | "completed";
   settlement: "awaiting_funds" | "funds_confirmed" | "completed";
@@ -84,6 +93,7 @@ type MockState = {
 function fixture(options: {
   records?: Record<string, unknown>[];
   candidate?: Candidate;
+  activatedAt?: Date;
   history?: () => Promise<Record<string, unknown>[]>;
   onApply?: (state: MockState, candidate: Candidate, deposit: unknown) => Promise<void> | void;
 } = {}) {
@@ -107,9 +117,11 @@ function fixture(options: {
     leaseAvailable: true,
   };
   const ports: WhitebitHistoryCyclePorts = {
-    acquire: async () => calls.leaseAvailable ? { token: leaseToken, cursor: calls.leaseCursor } : null,
+    acquire: async () => calls.leaseAvailable
+      ? { token: leaseToken, cursor: calls.leaseCursor, activatedAt: options.activatedAt ?? activationBoundary } : null,
     renew: async () => true,
-    candidates: async () => state.orderStatus === "awaiting funds" ? [selected] as never : [],
+    candidates: async (_cursor, activatedAt) => state.orderStatus === "awaiting funds" &&
+      postActivationClaim(selected, activatedAt) ? [selected] as never : [],
     history: async () => {
       calls.histories += 1;
       return options.history ? options.history() : options.records ?? [historyRecord()];
@@ -315,12 +327,76 @@ test("WhiteBIT processing and completed orders are excluded from history candida
   }
 });
 
+test("historical orders and claims are excluded even if the other half is new", async () => {
+  for (const older of ["order", "claim"] as const) {
+    const selected = { order: order(), claim: claim() };
+    selected[older].createdAt = new Date(activationBoundary.getTime() - 1);
+    const mock = fixture({ candidate: selected });
+    assert.equal(await runWhitebitHistoryCycle(mock.ports), "success");
+    assert.equal(mock.calls.histories, 0);
+    assert.equal(mock.calls.applyCalls, 0);
+    assertNoAddressOrWatchCreation(mock.state);
+  }
+});
+
+test("a new frozen WhiteBIT order and claim are eligible after activation", async () => {
+  const mock = fixture();
+  assert.equal(await runWhitebitHistoryCycle(mock.ports), "success");
+  assert.equal(mock.calls.histories, 1);
+  assert.equal(mock.state.deposits.size, 1);
+  assertNoAddressOrWatchCreation(mock.state);
+});
+
+test("switching the current route WhiteBIT to Manual does not rewrite a new frozen WhiteBIT claim", async () => {
+  const currentRoute = { depositProvider: "whitebit" };
+  const mock = fixture();
+  currentRoute.depositProvider = "manual";
+  assert.equal(currentRoute.depositProvider, "manual");
+  assert.equal(await runWhitebitHistoryCycle(mock.ports), "success");
+  assert.equal(mock.calls.histories, 1);
+  assert.equal(mock.state.deposits.size, 1);
+  assertNoAddressOrWatchCreation(mock.state);
+});
+
+test("switching the current route Manual to WhiteBIT does not admit an old Manual order", async () => {
+  const selected = { order: order(), claim: claim() };
+  selected.order.fundingStatus = "ready_manual";
+  selected.order.fundingProviderSource = "manual";
+  const currentRoute = { depositProvider: "manual" };
+  currentRoute.depositProvider = "whitebit";
+  const mock = fixture({ candidate: selected });
+  assert.equal(currentRoute.depositProvider, "whitebit");
+  assert.equal(await runWhitebitHistoryCycle(mock.ports), "success");
+  assert.equal(mock.calls.histories, 0);
+  assert.equal(mock.calls.applyCalls, 0);
+  assertNoAddressOrWatchCreation(mock.state);
+});
+
+test("a monitoring-enabled network does not create watches or take over a frozen WhiteBIT claim", async () => {
+  const currentRoute = { manualWalletTrackingEnabled: true };
+  const mock = fixture();
+  assert.equal(currentRoute.manualWalletTrackingEnabled, true);
+  assert.equal(await runWhitebitHistoryCycle(mock.ports), "success");
+  assert.equal(mock.calls.histories, 1);
+  assert.equal(mock.state.monitorWatchCreations, 0);
+  assert.equal(mock.state.deposits.size, 1);
+});
+
+test("the recovered BNB order is excluded once its funds are confirmed", async () => {
+  const mock = fixture({ candidate: { order: order("O696531129", "processing"), claim: claim("O696531129") } });
+  assert.equal(await runWhitebitHistoryCycle(mock.ports), "success");
+  assert.equal(mock.calls.histories, 0);
+  assert.equal(mock.calls.applyCalls, 0);
+  assertNoAddressOrWatchCreation(mock.state);
+});
+
 test("WhiteBIT worker restart resumes from cursor and releases each lease for handoff", async () => {
   const mock = fixture({ records: [] });
   let leaseNumber = 0;
   mock.ports.acquire = async () => ({
     token: ++leaseNumber === 1 ? leaseToken : "00000000-0000-4000-8000-000000000002",
     cursor: mock.calls.leaseCursor,
+    activatedAt: activationBoundary,
   });
   const firstCycle = await runWhitebitHistoryCycle(mock.ports);
   assert.equal(firstCycle, "success");

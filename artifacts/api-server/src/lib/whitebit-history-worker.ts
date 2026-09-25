@@ -7,7 +7,7 @@ import {
 import { logger } from "./logger";
 import { getWhitebitCredentialStorageState, whitebitCredentialFingerprint } from "./provider-credentials";
 import { whitebitHistoryWorkerConfiguration, type WhitebitHistoryCredentialSource } from "./whitebit-history-health";
-import { matchWhitebitHistoryForOrder, matchesFrozenWhitebitClaim, type PendingWhitebitOrder, type ReadyWhitebitClaim } from "./whitebit-history-match";
+import { matchWhitebitHistoryForOrder, matchesFrozenWhitebitClaim } from "./whitebit-history-match";
 import {
   historyRecords, normalizeWhitebitMemo, processNormalizedDeposit,
   testWhitebitSignedConnection, WhitebitProviderHttpError, whitebitOrderHistory,
@@ -32,12 +32,12 @@ type Candidate = {
   order: typeof ordersTable.$inferSelect;
   claim: typeof whitebitOrderAddressesTable.$inferSelect;
 };
-type Lease = { token: string; cursor: string | null };
+type Lease = { token: string; cursor: string | null; activatedAt: Date };
 
 export type WhitebitHistoryCyclePorts = {
   acquire(): Promise<Lease | null>;
   renew(token: string): Promise<boolean>;
-  candidates(cursor: string | null): Promise<Candidate[]>;
+  candidates(cursor: string | null, activatedAt: Date): Promise<Candidate[]>;
   history(candidate: Candidate): Promise<Record<string, unknown>[]>;
   apply(token: string, candidate: Candidate, deposit: NormalizedDeposit): Promise<void>;
   advance(token: string, orderId: string): Promise<void>;
@@ -55,9 +55,11 @@ export async function runWhitebitHistoryCycle(ports: WhitebitHistoryCyclePorts):
   const lease = await ports.acquire();
   if (!lease) return "busy";
   try {
-    const candidates = await ports.candidates(lease.cursor);
+    const candidates = await ports.candidates(lease.cursor, lease.activatedAt);
     for (const candidate of candidates) {
       mustOwn(await ports.renew(lease.token));
+      // Timestamp eligibility is checked in PostgreSQL at full precision when
+      // selecting candidates, then checked again in the apply transaction.
       if (!matchesFrozenWhitebitClaim(candidate.order, candidate.claim)) {
         throw new WhitebitHistoryWorkerError("FROZEN_CLAIM_MISMATCH", "Frozen WhiteBIT order claim no longer matches its funding instructions.");
       }
@@ -90,11 +92,12 @@ async function acquireLease(source: WhitebitHistoryCredentialSource, stateId: nu
   const token = randomUUID();
   const now = new Date();
   const [row] = await db.insert(whitebitHistoryWorkerStateTable).values({
-    id: stateId, leaseToken: token, leaseUntil: new Date(now.getTime() + LEASE_MS),
+    id: stateId, activatedAt: sql`clock_timestamp()`, leaseToken: token, leaseUntil: new Date(now.getTime() + LEASE_MS),
     credentialSource: source, lastPollAt: now, updatedAt: now,
   }).onConflictDoUpdate({
     target: whitebitHistoryWorkerStateTable.id,
-    set: { leaseToken: token, leaseUntil: new Date(now.getTime() + LEASE_MS), credentialSource: source, lastPollAt: now, updatedAt: now },
+    set: { activatedAt: sql`coalesce(${whitebitHistoryWorkerStateTable.activatedAt}, clock_timestamp())`,
+      leaseToken: token, leaseUntil: new Date(now.getTime() + LEASE_MS), credentialSource: source, lastPollAt: now, updatedAt: now },
     setWhere: and(
       or(isNull(whitebitHistoryWorkerStateTable.leaseUntil), lt(whitebitHistoryWorkerStateTable.leaseUntil, sql`clock_timestamp()`)),
       or(
@@ -103,8 +106,10 @@ async function acquireLease(source: WhitebitHistoryCredentialSource, stateId: nu
         sql`${whitebitHistoryWorkerStateTable.credentialSource} IS DISTINCT FROM ${source}`,
       ),
     ),
-  }).returning({ cursor: whitebitHistoryWorkerStateTable.cursorOrderId });
-  return row ? { token, cursor: row.cursor } : null;
+  }).returning({ cursor: whitebitHistoryWorkerStateTable.cursorOrderId, activatedAt: whitebitHistoryWorkerStateTable.activatedAt });
+  if (!row) return null;
+  if (!row.activatedAt) throw new WhitebitHistoryWorkerError("ACTIVATION_BOUNDARY_UNAVAILABLE", "WhiteBIT activation boundary is unavailable.");
+  return { token, cursor: row.cursor, activatedAt: row.activatedAt };
 }
 
 async function renewLease(token: string, stateId: number): Promise<boolean> {
@@ -118,7 +123,10 @@ async function renewLease(token: string, stateId: number): Promise<boolean> {
   return Boolean(row);
 }
 
-async function candidatesAfter(cursor: string | null, testOrderId?: string) {
+async function candidatesAfter(cursor: string | null, stateId: number, testOrderId?: string) {
+  // Compare database timestamps at full precision, not driver-rounded JS Dates.
+  const persistedBoundary = sql`(SELECT ${whitebitHistoryWorkerStateTable.activatedAt}
+    FROM ${whitebitHistoryWorkerStateTable} WHERE ${whitebitHistoryWorkerStateTable.id} = ${stateId})`;
   return db.select({ order: ordersTable, claim: whitebitOrderAddressesTable })
     .from(whitebitOrderAddressesTable)
     .innerJoin(ordersTable, eq(ordersTable.id, whitebitOrderAddressesTable.orderId))
@@ -129,6 +137,8 @@ async function candidatesAfter(cursor: string | null, testOrderId?: string) {
       eq(ordersTable.fundingStatus, "ready_whitebit"),
       eq(ordersTable.fundingProviderSource, "whitebit"),
       eq(whitebitOrderAddressesTable.status, "ready"),
+      gt(ordersTable.createdAt, persistedBoundary),
+      gt(whitebitOrderAddressesTable.createdAt, persistedBoundary),
       ...(testOrderId ? [eq(ordersTable.id, testOrderId)] : []),
       ...(cursor ? [gt(ordersTable.id, cursor)] : []),
     )).orderBy(asc(ordersTable.id)).limit(BATCH_SIZE);
@@ -154,18 +164,21 @@ async function applyMatchedDeposit(
     }
     // The webhook and order-history processor share the same financial lock.
     await tx.execute(sql`select pg_advisory_xact_lock(78122341)`);
-    const [lease] = await tx.select({ id: whitebitHistoryWorkerStateTable.id })
+    const [lease] = await tx.select({ activatedAt: whitebitHistoryWorkerStateTable.activatedAt })
       .from(whitebitHistoryWorkerStateTable)
       .where(and(
         eq(whitebitHistoryWorkerStateTable.id, stateId),
         eq(whitebitHistoryWorkerStateTable.leaseToken, token),
         gt(whitebitHistoryWorkerStateTable.leaseUntil, sql`clock_timestamp()`),
       )).for("update").limit(1);
-    mustOwn(Boolean(lease));
+    mustOwn(Boolean(lease?.activatedAt));
+    const persistedBoundary = sql`(SELECT ${whitebitHistoryWorkerStateTable.activatedAt}
+      FROM ${whitebitHistoryWorkerStateTable} WHERE ${whitebitHistoryWorkerStateTable.id} = ${stateId})`;
     const [order] = await tx.select().from(ordersTable)
-      .where(eq(ordersTable.id, selected.order.id)).for("update").limit(1);
+      .where(and(eq(ordersTable.id, selected.order.id), gt(ordersTable.createdAt, persistedBoundary))).for("update").limit(1);
     const [claim] = await tx.select().from(whitebitOrderAddressesTable)
-      .where(eq(whitebitOrderAddressesTable.orderId, selected.order.id)).for("update").limit(1);
+      .where(and(eq(whitebitOrderAddressesTable.orderId, selected.order.id),
+        gt(whitebitOrderAddressesTable.createdAt, persistedBoundary))).for("update").limit(1);
     // A webhook may have completed this order while history was in flight.
     if (order?.status === "processing" && order.manualSettlementState === "funds_confirmed") return;
     if (!order || !claim || claim.id !== selected.claim.id ||
@@ -204,8 +217,8 @@ function productionPorts(source: WhitebitHistoryCredentialSource, testOrderId?: 
     acquire: () => acquireLease(source, stateId),
     renew: (token) => renewLease(token, stateId),
     candidates: async (cursor) => {
-      const rows = await candidatesAfter(cursor, testOrderId);
-      return rows.length || !cursor ? rows : candidatesAfter(null, testOrderId);
+      const rows = await candidatesAfter(cursor, stateId, testOrderId);
+      return rows.length || !cursor ? rows : candidatesAfter(null, stateId, testOrderId);
     },
     history: async (candidate) => {
       if (!credentialSnapshot) {

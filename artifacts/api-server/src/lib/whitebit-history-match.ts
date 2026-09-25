@@ -3,6 +3,7 @@ import { normalizeWhitebitHistoryDeposit, normalizeWhitebitMemo } from "../route
 
 export type PendingWhitebitOrder = {
   id: string;
+  createdAt: Date;
   type: string;
   status: string;
   manualSettlementState: string | null;
@@ -19,6 +20,7 @@ export type PendingWhitebitOrder = {
 
 export type ReadyWhitebitClaim = {
   orderId: string;
+  createdAt: Date;
   status: string;
   ticker: string;
   providerTicker: string;
