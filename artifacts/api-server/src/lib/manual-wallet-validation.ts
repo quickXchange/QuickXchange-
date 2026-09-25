@@ -45,7 +45,10 @@ export function isSyntacticallyValidManualWalletAddress(
   if (!address || address.length > 512 || /\s/.test(address)) return false;
   const keys = networkKeys(network);
 
-  if (/(ERC20|ETHEREUM|BEP20|BNB SMART|POLYGON|ARBITRUM|BASE|AVAXC|AVALANCHE C)/.test(keys)) {
+  // BNB is the existing canonical BNB Smart Chain route; do not derive
+  // address syntax from WhiteBIT's separately selected network alias.
+  if (network.networkCode.trim().toUpperCase() === "BNB" ||
+    /(ERC20|ETHEREUM|BEP20|BNB SMART|POLYGON|ARBITRUM|BASE|AVAXC|AVALANCHE C)/.test(keys)) {
     return /^0x[0-9a-fA-F]{40}$/.test(address);
   }
   if (/(TRC20|TRON)/.test(keys)) {

@@ -3407,6 +3407,11 @@ export const CryptoNetworkMonitoringReadinessCode = {
   LEGACY_BEP20: 'LEGACY_BEP20',
 } as const;
 
+export type CryptoNetworkWidgetReadiness = {
+  readonly ready: boolean;
+  readonly reason: string;
+};
+
 export type CryptoNetworkMonitoringReadiness = {
   readonly code: CryptoNetworkMonitoringReadinessCode;
   readonly message: string;
@@ -3417,6 +3422,8 @@ export type CryptoNetworkMonitoringReadiness = {
 export type CryptoNetwork = CryptoNetworkInput & {
   depositProvider: string;
   manualWalletTrackingEnabled: boolean;
+  readonly manualFallbackInvalid?: boolean;
+  readonly widgetReadiness?: CryptoNetworkWidgetReadiness;
   createdAt: string;
   updatedAt: string;
   readonly logoUrl?: string;
@@ -3674,6 +3681,8 @@ export interface CryptoNetworkReceivingWalletInput {
   networkIds: string[];
   /** @maxLength 500 */
   walletAddress: string;
+  /** Explicit Owner request to remove the saved address on one exact route. */
+  clearWalletAddress?: boolean;
   /**
      * @maxLength 500
      * @nullable

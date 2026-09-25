@@ -7,10 +7,13 @@
  */
 import type { CryptoNetworkInput } from './cryptoNetworkInput';
 import type { CryptoNetworkMonitoringReadiness } from './cryptoNetworkMonitoringReadiness';
+import type { CryptoNetworkWidgetReadiness } from './cryptoNetworkWidgetReadiness';
 
 export type CryptoNetwork = CryptoNetworkInput & {
   depositProvider: string;
   manualWalletTrackingEnabled: boolean;
+  readonly manualFallbackInvalid?: boolean;
+  readonly widgetReadiness?: CryptoNetworkWidgetReadiness;
   createdAt: Date;
   updatedAt: Date;
   readonly logoUrl?: string;

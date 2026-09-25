@@ -173,6 +173,10 @@ test("manual wallet tracking can be disabled without hiding an explicitly enable
   assert.equal(isManualCryptoCustomerSendReady(configuredRoute, new Map()), true);
   assert.equal(isManualCryptoCustomerSendReady({
     ...configuredRoute,
+    customerDepositsEnabled: false,
+  }, new Map()), false);
+  assert.equal(isManualCryptoCustomerSendReady({
+    ...configuredRoute,
     manualWalletTrackingEnabled: true,
   }, new Map()), false);
   assert.equal(isManualCryptoCustomerSendReady({
@@ -184,9 +188,13 @@ test("manual wallet tracking can be disabled without hiding an explicitly enable
     manualWalletTrackingEnabled: false,
     sharedDepositAddress: "not-a-bitcoin-address",
   }, new Map()), false);
+  assert.equal(isManualCryptoCustomerSendReady({
+    ...configuredRoute,
+    sharedDepositAddress: "",
+  }, new Map()), false);
 });
 
-test("WhiteBIT manual fallbacks require exact monitoring readiness only when tracking is enabled", () => {
+test("WhiteBIT route visibility does not depend on an optional manual fallback or its monitoring", () => {
   const fallbackRoute = {
     id: "btc-bitcoin",
     networkCode: "BTC",
@@ -201,7 +209,7 @@ test("WhiteBIT manual fallbacks require exact monitoring readiness only when tra
     requiresMemo: false,
   } as const;
 
-  assert.equal(isManualCryptoCustomerSendReady(fallbackRoute, new Map()), false);
+  assert.equal(isManualCryptoCustomerSendReady(fallbackRoute, new Map()), true);
   assert.equal(
     isManualCryptoCustomerSendReady(fallbackRoute, new Map([["btc-bitcoin", "BTC"]])),
     true,
@@ -214,6 +222,10 @@ test("WhiteBIT manual fallbacks require exact monitoring readiness only when tra
     ...fallbackRoute,
     manualWalletTrackingEnabled: true,
     sharedDepositAddress: "",
+  }, new Map()), true);
+  assert.equal(isManualCryptoCustomerSendReady({
+    ...fallbackRoute,
+    sharedDepositAddress: "invalid-fallback",
   }, new Map()), true);
 });
 
@@ -309,13 +321,13 @@ test("TRON receiving-address readiness requires a valid Base58Check checksum", (
   })), false);
 });
 
-test("an invalid configured TRON address blocks only its exact customer-send route", () => {
+test("an invalid configured TRON address blocks its Manual route but not an independent WhiteBIT route", () => {
   const shared = {
     networkCode: "TRC20",
     networkName: "TRON",
     networkFamily: "TRON",
     enabled: true,
-    depositProvider: "whitebit",
+    depositProvider: "manual",
     customerDepositsEnabled: true,
   } as const;
   const readyRoutes = new Map([
@@ -333,6 +345,40 @@ test("an invalid configured TRON address blocks only its exact customer-send rou
     id: "other-trc20",
     sharedDepositAddress: "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb",
   }, readyRoutes), true);
+  assert.equal(isManualCryptoCustomerSendReady({
+    ...shared,
+    id: "usdt-trc20",
+    depositProvider: "whitebit",
+    sharedDepositAddress: "T111111111111111111111111111111111",
+  }, readyRoutes), true);
+});
+
+test("canonical BNB and BEP20 routes validate BSC EVM addresses without provider aliases", () => {
+  const address = "0x3E00000000000000000000000000000000000001";
+  const bnb = { id: "bnb-bnb", networkCode: "BNB", networkName: "BNB", networkFamily: "native" };
+  const bep20 = { ...bnb, id: "bnb-bep20", networkCode: "BEP20", networkName: "BNB Smart Chain" };
+  assert.equal(isSyntacticallyValidManualWalletAddress(bnb, address), true);
+  assert.equal(isSyntacticallyValidManualWalletAddress(bep20, address), true);
+  assert.equal(isSyntacticallyValidManualWalletAddress(bnb, "bnb1invalid"), false);
+  assert.equal(isSyntacticallyValidManualWalletAddress(bnb, "not-an-address"), false);
+  assert.equal(isManualCryptoCustomerSendReady({
+    ...bnb,
+    enabled: true,
+    depositProvider: "manual",
+    customerDepositsEnabled: true,
+    manualWalletTrackingEnabled: false,
+    sharedDepositAddress: address,
+    requiresMemo: false,
+  }, new Map()), true);
+  assert.equal(isManualCryptoCustomerSendReady({
+    ...bep20,
+    enabled: true,
+    depositProvider: "manual",
+    customerDepositsEnabled: true,
+    manualWalletTrackingEnabled: true,
+    sharedDepositAddress: address,
+    requiresMemo: false,
+  }, new Map()), false);
 });
 
 test("TRON token identity requires a checksum-valid normalized address", () => {

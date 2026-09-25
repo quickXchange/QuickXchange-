@@ -16,6 +16,8 @@ export interface CryptoNetworkReceivingWalletInput {
   networkIds: string[];
   /** @maxLength 500 */
   walletAddress: string;
+  /** Explicit Owner request to remove the saved address on one exact route. */
+  clearWalletAddress?: boolean;
   /**
      * @maxLength 500
      * @nullable

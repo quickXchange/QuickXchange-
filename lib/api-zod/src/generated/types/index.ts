@@ -172,6 +172,7 @@ export * from './cryptoNetworkUpdate';
 export * from './cryptoNetworkUpdateDepositProvider';
 export * from './cryptoNetworkUpdateExecutionMode';
 export * from './cryptoNetworkUpdateLifecycle';
+export * from './cryptoNetworkWidgetReadiness';
 export * from './customer';
 export * from './customerActionResult';
 export * from './customerActionResultAccountStatus';

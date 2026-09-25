@@ -6485,6 +6485,7 @@ components:
           uniqueItems: true
           items: { type: string, minLength: 1, maxLength: 80 }
         walletAddress: { type: string, maxLength: 500 }
+        clearWalletAddress: { type: boolean, description: Explicit Owner request to remove the saved address on one exact route. }
         memo: { type: [string, "null"], maxLength: 500 }
         depositProvider: { type: string, minLength: 1, maxLength: 64 }
         whitebitAssetCode: { type: [string, "null"], minLength: 2, maxLength: 16 }
@@ -6508,6 +6509,14 @@ components:
           properties:
             depositProvider: { type: string, default: manual }
             manualWalletTrackingEnabled: { type: boolean, default: true }
+            manualFallbackInvalid: { type: boolean, readOnly: true }
+            widgetReadiness:
+              type: object
+              readOnly: true
+              required: [ready, reason]
+              properties:
+                ready: { type: boolean }
+                reason: { type: string }
             createdAt: { type: string, format: date-time }
             updatedAt: { type: string, format: date-time }
             logoUrl: { type: string, readOnly: true }

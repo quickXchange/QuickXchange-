@@ -8202,6 +8202,11 @@ export const ApplyCryptoAssetsBulkEditResponse = zod.object({
 }).and(zod.object({
   "depositProvider": zod.string().default(applyCryptoAssetsBulkEditResponseNetworksItemTwoDepositProviderDefault),
   "manualWalletTrackingEnabled": zod.boolean().default(applyCryptoAssetsBulkEditResponseNetworksItemTwoManualWalletTrackingEnabledDefault),
+  "manualFallbackInvalid": zod.boolean().optional(),
+  "widgetReadiness": zod.object({
+  "ready": zod.boolean(),
+  "reason": zod.string()
+}).optional(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "logoUrl": zod.string().optional(),
@@ -8379,6 +8384,11 @@ export const ApplyCryptoDepositProviderAssignmentResponse = zod.object({
 }).and(zod.object({
   "depositProvider": zod.string().default(applyCryptoDepositProviderAssignmentResponseNetworksItemTwoDepositProviderDefault),
   "manualWalletTrackingEnabled": zod.boolean().default(applyCryptoDepositProviderAssignmentResponseNetworksItemTwoManualWalletTrackingEnabledDefault),
+  "manualFallbackInvalid": zod.boolean().optional(),
+  "widgetReadiness": zod.object({
+  "ready": zod.boolean(),
+  "reason": zod.string()
+}).optional(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "logoUrl": zod.string().optional(),
@@ -8582,6 +8592,11 @@ export const SaveCryptoAssetReceivingWalletResponseItem = zod.object({
 }).and(zod.object({
   "depositProvider": zod.string().default(saveCryptoAssetReceivingWalletResponseTwoDepositProviderDefault),
   "manualWalletTrackingEnabled": zod.boolean().default(saveCryptoAssetReceivingWalletResponseTwoManualWalletTrackingEnabledDefault),
+  "manualFallbackInvalid": zod.boolean().optional(),
+  "widgetReadiness": zod.object({
+  "ready": zod.boolean(),
+  "reason": zod.string()
+}).optional(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "logoUrl": zod.string().optional(),
@@ -8673,6 +8688,11 @@ export const GetCryptoNetworksResponseItem = zod.object({
 }).and(zod.object({
   "depositProvider": zod.string().default(getCryptoNetworksResponseTwoDepositProviderDefault),
   "manualWalletTrackingEnabled": zod.boolean().default(getCryptoNetworksResponseTwoManualWalletTrackingEnabledDefault),
+  "manualFallbackInvalid": zod.boolean().optional(),
+  "widgetReadiness": zod.object({
+  "ready": zod.boolean(),
+  "reason": zod.string()
+}).optional(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "logoUrl": zod.string().optional(),
@@ -8840,6 +8860,11 @@ export const CreateCryptoNetworkResponse = zod.object({
 }).and(zod.object({
   "depositProvider": zod.string().default(createCryptoNetworkResponseTwoDepositProviderDefault),
   "manualWalletTrackingEnabled": zod.boolean().default(createCryptoNetworkResponseTwoManualWalletTrackingEnabledDefault),
+  "manualFallbackInvalid": zod.boolean().optional(),
+  "widgetReadiness": zod.object({
+  "ready": zod.boolean(),
+  "reason": zod.string()
+}).optional(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "logoUrl": zod.string().optional(),
@@ -8875,6 +8900,7 @@ export const saveCryptoNetworkReceivingWalletBodyPreserveDepositProvidersDefault
 export const SaveCryptoNetworkReceivingWalletBody = zod.object({
   "networkIds": zod.array(zod.string().min(1).max(saveCryptoNetworkReceivingWalletBodyNetworkIdsItemMax)).min(1).max(saveCryptoNetworkReceivingWalletBodyNetworkIdsMax),
   "walletAddress": zod.string().max(saveCryptoNetworkReceivingWalletBodyWalletAddressMax),
+  "clearWalletAddress": zod.boolean().optional().describe('Explicit Owner request to remove the saved address on one exact route.'),
   "memo": zod.string().max(saveCryptoNetworkReceivingWalletBodyMemoMax).nullish(),
   "depositProvider": zod.string().min(1).max(saveCryptoNetworkReceivingWalletBodyDepositProviderMax).optional(),
   "whitebitAssetCode": zod.string().min(saveCryptoNetworkReceivingWalletBodyWhitebitAssetCodeMin).max(saveCryptoNetworkReceivingWalletBodyWhitebitAssetCodeMax).nullish(),
@@ -8964,6 +8990,11 @@ export const SaveCryptoNetworkReceivingWalletResponseItem = zod.object({
 }).and(zod.object({
   "depositProvider": zod.string().default(saveCryptoNetworkReceivingWalletResponseTwoDepositProviderDefault),
   "manualWalletTrackingEnabled": zod.boolean().default(saveCryptoNetworkReceivingWalletResponseTwoManualWalletTrackingEnabledDefault),
+  "manualFallbackInvalid": zod.boolean().optional(),
+  "widgetReadiness": zod.object({
+  "ready": zod.boolean(),
+  "reason": zod.string()
+}).optional(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "logoUrl": zod.string().optional(),
@@ -9000,6 +9031,7 @@ export const previewCryptoNetworkReceivingWalletBodyPreserveDepositProvidersDefa
 export const PreviewCryptoNetworkReceivingWalletBody = zod.object({
   "networkIds": zod.array(zod.string().min(1).max(previewCryptoNetworkReceivingWalletBodyNetworkIdsItemMax)).min(1).max(previewCryptoNetworkReceivingWalletBodyNetworkIdsMax),
   "walletAddress": zod.string().max(previewCryptoNetworkReceivingWalletBodyWalletAddressMax),
+  "clearWalletAddress": zod.boolean().optional().describe('Explicit Owner request to remove the saved address on one exact route.'),
   "memo": zod.string().max(previewCryptoNetworkReceivingWalletBodyMemoMax).nullish(),
   "depositProvider": zod.string().min(1).max(previewCryptoNetworkReceivingWalletBodyDepositProviderMax).optional(),
   "whitebitAssetCode": zod.string().min(previewCryptoNetworkReceivingWalletBodyWhitebitAssetCodeMin).max(previewCryptoNetworkReceivingWalletBodyWhitebitAssetCodeMax).nullish(),
@@ -9089,6 +9121,11 @@ export const PreviewCryptoNetworkReceivingWalletResponseItem = zod.object({
 }).and(zod.object({
   "depositProvider": zod.string().default(previewCryptoNetworkReceivingWalletResponseTwoDepositProviderDefault),
   "manualWalletTrackingEnabled": zod.boolean().default(previewCryptoNetworkReceivingWalletResponseTwoManualWalletTrackingEnabledDefault),
+  "manualFallbackInvalid": zod.boolean().optional(),
+  "widgetReadiness": zod.object({
+  "ready": zod.boolean(),
+  "reason": zod.string()
+}).optional(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "logoUrl": zod.string().optional(),
@@ -9194,6 +9231,11 @@ export const UpdateCryptoNetworkCustomerDepositsResponse = zod.object({
 }).and(zod.object({
   "depositProvider": zod.string().default(updateCryptoNetworkCustomerDepositsResponseTwoDepositProviderDefault),
   "manualWalletTrackingEnabled": zod.boolean().default(updateCryptoNetworkCustomerDepositsResponseTwoManualWalletTrackingEnabledDefault),
+  "manualFallbackInvalid": zod.boolean().optional(),
+  "widgetReadiness": zod.object({
+  "ready": zod.boolean(),
+  "reason": zod.string()
+}).optional(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "logoUrl": zod.string().optional(),
@@ -9359,6 +9401,11 @@ export const UpdateCryptoNetworkResponse = zod.object({
 }).and(zod.object({
   "depositProvider": zod.string().default(updateCryptoNetworkResponseTwoDepositProviderDefault),
   "manualWalletTrackingEnabled": zod.boolean().default(updateCryptoNetworkResponseTwoManualWalletTrackingEnabledDefault),
+  "manualFallbackInvalid": zod.boolean().optional(),
+  "widgetReadiness": zod.object({
+  "ready": zod.boolean(),
+  "reason": zod.string()
+}).optional(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "logoUrl": zod.string().optional(),

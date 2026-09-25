@@ -8,6 +8,10 @@ import {
 } from "@workspace/db";
 import { isRegisteredDepositProvider } from "./deposit-provider-registry";
 import {
+  createCustomerDepositEligibilityContext,
+  isCustomerDepositEligible,
+} from "./customer-deposit-eligibility";
+import {
   isSyntacticallyValidManualWalletAddress,
   isSyntacticallyValidManualWalletMemo,
 } from "./manual-wallet-validation";
@@ -269,14 +273,16 @@ export function isManualCryptoCustomerSendReady(
 ): boolean {
   if (!isConfiguredYouSendCryptoNetwork(network)) return false;
   const configuredAddress = network.sharedDepositAddress.trim();
+  if (network.depositProvider === "manual" && !configuredAddress) return false;
   if (
     configuredAddress &&
+    network.depositProvider === "manual" &&
     (!isSyntacticallyValidManualWalletAddress(network, configuredAddress) ||
       network.requiresMemo &&
         !isSyntacticallyValidManualWalletMemo(network, network.sharedDepositMemo ?? ""))
   ) return false;
-  return !network.manualWalletTrackingEnabled ||
-    !configuredAddress ||
+  return network.depositProvider !== "manual" ||
+    !network.manualWalletTrackingEnabled ||
     readyManualMonitoringRoutes.get(network.id)?.trim().toUpperCase() ===
       network.networkCode.trim().toUpperCase();
 }
@@ -298,13 +304,18 @@ export async function listPublicManualCryptoSettlementOptions(): Promise<ManualC
     listManualCryptoNetworks(),
     listReadyManualMonitoringRoutes(),
   ]);
+  const whitebitContext = rows.some(({ network }) =>
+    network.depositProvider === "whitebit" && network.customerDepositsEnabled)
+    ? await createCustomerDepositEligibilityContext()
+    : null;
   return rows.filter(({ asset, network }) =>
     isManualCryptoRouteEligible(asset, network)
   ).map(({ asset, network }) => {
     const configuredForCustomerSend = isManualCryptoCustomerSendReady(
       network,
       readyManualMonitoringRoutes,
-    );
+    ) && (network.depositProvider !== "whitebit" ||
+      Boolean(whitebitContext && isCustomerDepositEligible(asset, network, whitebitContext)));
     return {
     id: `crypto:${network.id}`,
     assetId: asset.id,
@@ -375,6 +386,7 @@ export function canAcceptManualCryptoDeposit(network: typeof cryptoAssetNetworks
   if (!isConfiguredYouSendCryptoNetwork(network)) return false;
   const fallbackAddress = network.sharedDepositAddress.trim();
   if (
+    network.depositProvider === "manual" &&
     fallbackAddress &&
     (!isSyntacticallyValidManualWalletAddress(network, fallbackAddress) ||
       network.requiresMemo &&
@@ -394,7 +406,7 @@ export async function canAcceptReadyManualCryptoDeposit(
   network: typeof cryptoAssetNetworksTable.$inferSelect,
 ) {
   if (!canAcceptManualCryptoDeposit(network)) return false;
-  if (!network.manualWalletTrackingEnabled || !network.sharedDepositAddress.trim()) return true;
+  if (network.depositProvider !== "manual" || !network.manualWalletTrackingEnabled) return true;
   const ready = await listReadyManualMonitoringRoutes();
   return ready.get(network.id)?.trim().toUpperCase() === network.networkCode.trim().toUpperCase();
 }

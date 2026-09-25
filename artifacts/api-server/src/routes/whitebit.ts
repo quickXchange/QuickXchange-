@@ -263,6 +263,12 @@ export async function provisionSwapFundingAddress(input: {
   const manualFallbackAddress = fallbackInstructions?.address ?? "";
   const manualFallbackMemo = fallbackInstructions?.memo ?? "";
   const manualFallbackUsable = Boolean(fallbackInstructions);
+  const fallbackResult = (usedFallback: boolean) => ({
+    source: "whitebit" as const,
+    address: usedFallback ? manualFallbackAddress : null,
+    memo: usedFallback ? manualFallbackMemo : null,
+    unresolved: !usedFallback,
+  });
   const fallback = async (reason: string) => {
     let usable = manualFallbackUsable;
     await db.transaction(async (tx) => {
@@ -589,8 +595,8 @@ export async function provisionSwapFundingAddress(input: {
      };
    }
    if (!saved?.address) {
-     await fallback("WhiteBIT address finalization was unavailable.");
-     return { source: "whitebit" as const, address: input.manualFallbackUsable ? input.manualAddress : null, memo: input.manualFallbackUsable ? input.manualMemo : null, unresolved: !input.manualFallbackUsable };
+     const usedFallback = await fallback("WhiteBIT address finalization was unavailable.");
+     return fallbackResult(usedFallback);
    }
    return { source: "whitebit" as const, address: saved.address, memo: saved.memo ?? "", unresolved: false, confirmations: capability.requiredConfirmations };
 }

@@ -79,6 +79,7 @@ test("deposit capability uses exact asset and network codes, not display names o
 test("WhiteBIT route mappings require exact canonical matches or an explicit advertised provider route", () => {
   const assets = parseWhitebitAssets({
     BTC: { can_deposit: true, networks: { deposits: ["BTC"] } },
+    BNB: { can_deposit: true, networks: { deposits: ["BEP20"] } },
     AVAX: { can_deposit: true, networks: { deposits: ["CCHAIN", "XCHAIN"] } },
   });
   assert.ok(assets);
@@ -89,6 +90,8 @@ test("WhiteBIT route mappings require exact canonical matches or an explicit adv
   // BTC / BITCOIN is not inferred from a similar name.
   assert.equal(matchWhitebitRouteCapability(snapshot, "BTC", "BITCOIN"), null);
   assert.equal(matchWhitebitRouteCapability(snapshot, "BTC", "BITCOIN", "BTC", "BTC")?.providerNetwork, "BTC");
+  assert.equal(matchWhitebitRouteCapability(snapshot, "BNB", "BNB"), null);
+  assert.equal(matchWhitebitRouteCapability(snapshot, "BNB", "BNB", "BNB", "BEP20")?.providerNetwork, "BEP20");
 
   // AVAXC does not implicitly resolve to either of two provider networks.
   assert.equal(matchWhitebitRouteCapability(snapshot, "AVAX", "AVAXC"), null);

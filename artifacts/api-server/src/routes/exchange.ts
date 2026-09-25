@@ -254,6 +254,7 @@ import {
   findManualCryptoNetwork,
   findManualCryptoNetworkByIdForAsset,
   isManualMonitoringRuntimeReady,
+  listReadyManualMonitoringRoutes,
   listPublicManualCryptoSettlementOptions,
   manualCryptoRouteNetwork,
   signedCryptoRouteId,
@@ -2663,28 +2664,9 @@ async function createOrderFromInput(
           409,
         );
       }
-      if (
-        providerFundingCandidate &&
-        catalog.route.sharedDepositAddress &&
-        (!isSyntacticallyValidManualWalletAddress(
-          catalog.route,
-          catalog.route.sharedDepositAddress,
-        ) ||
-          catalog.route.requiresMemo &&
-            !isSyntacticallyValidManualWalletMemo(
-              catalog.route,
-              catalog.route.sharedDepositMemo ?? "",
-            ))
-      ) {
-        throw new ApiError(
-          "DESK_CRYPTO_DEPOSIT_UNAVAILABLE",
-          "The selected manual fallback wallet is no longer valid.",
-          409,
-        );
-      }
-      if (requestedTrackingEnabled &&
-        (selectedDepositProvider === "manual" ||
-          providerFundingCandidate && Boolean(manualFunding?.address?.trim()))) {
+      // A WhiteBIT fallback is optional. Provisioning validates it separately
+      // and leaves funding unresolved if WhiteBIT fails and the fallback is unusable.
+      if (requestedTrackingEnabled && selectedDepositProvider === "manual") {
       const networkCode = catalog?.route.networkCode ??
         (sourceSnapshot.networkCode ?? quote.fromNetwork).trim();
       const [monitorNetwork] = catalog
@@ -4255,9 +4237,13 @@ function outputCryptoAsset(row: typeof cryptoAssetsTable.$inferSelect) {
 function outputCryptoNetwork(
   row: typeof cryptoAssetNetworksTable.$inferSelect,
   monitoringReadiness?: ManualMonitoringReadiness,
+  widgetReadiness?: { ready: boolean; reason: string },
 ) {
   return {
     ...row,
+    manualFallbackInvalid: Boolean(row.sharedDepositAddress.trim()) &&
+      !isSyntacticallyValidManualWalletAddress(row, row.sharedDepositAddress),
+    ...(widgetReadiness ? { widgetReadiness } : {}),
     logoUrl: row.logoObjectPath ? `/api/storage${row.logoObjectPath}` : undefined,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -4270,6 +4256,51 @@ function outputCryptoNetwork(
         }
       : undefined,
   };
+}
+function widgetDepositReadiness(
+  asset: Pick<typeof cryptoAssetsTable.$inferSelect, "code" | "enabled" | "lifecycle">,
+  network: typeof cryptoAssetNetworksTable.$inferSelect,
+  context: Awaited<ReturnType<typeof createCustomerDepositEligibilityContext>>,
+  capabilities: Awaited<ReturnType<typeof getWhitebitCapabilities>> | null,
+  whitebitStatus: Awaited<ReturnType<typeof whitebitSwapStatus>> | null,
+  readyManualRoutes: ReadonlyMap<string, string>,
+): { ready: boolean; reason: string } {
+  const blocked = (reason: string) => ({ ready: false, reason });
+  if (!asset.enabled || asset.lifecycle === "deprecated" || !network.enabled ||
+    network.lifecycle === "deprecated" || network.executionMode !== "manual") {
+    return blocked("Asset or network is disabled, deprecated, or not a Manual Swap route");
+  }
+  if (network.depositProvider === "none") return blocked("Select a deposit provider");
+  if (network.depositProvider === "manual") {
+    if (!hasUsableSavedReceivingWallet(network)) return blocked("Manual Wallet address invalid/missing");
+    if (network.manualWalletTrackingEnabled &&
+      readyManualRoutes.get(network.id)?.trim().toUpperCase() !== network.networkCode.trim().toUpperCase()) {
+      return blocked("Blockchain Monitoring not ready for this exact Manual Wallet route");
+    }
+    return { ready: true, reason: "Manual Wallet is ready" };
+  }
+  if (network.depositProvider !== "whitebit") return blocked("Deposit provider unavailable");
+  if (!capabilities) return blocked("WhiteBIT capability catalog unavailable");
+  const providerAsset = (network.whitebitAssetCode || asset.code).trim().toUpperCase();
+  const advertised = capabilities.assets.find(row => row.ticker === providerAsset);
+  if (!advertised?.depositNetworks.length) return blocked("WhiteBIT asset has no advertised deposit networks");
+  if (!network.whitebitNetworkCode &&
+    !advertised.depositNetworks.includes(network.networkCode.trim().toUpperCase())) {
+    return blocked("WhiteBIT mapping missing");
+  }
+  if (!matchWhitebitRouteCapability(capabilities, asset.code, network.networkCode,
+    network.whitebitAssetCode, network.whitebitNetworkCode)) {
+    return blocked("Unsupported WhiteBIT network");
+  }
+  if (whitebitStatus?.explicitDisabled) return blocked("WhiteBIT provider disabled");
+  if (!whitebitStatus?.credentialsReady || !whitebitStatus?.credentialsVerified) {
+    return blocked("WhiteBIT credentials not ready or verified");
+  }
+  if (context.whitebitProofs.get(network.id) !== customerDepositRouteConfigurationDigest(asset, network)) {
+    return blocked("WhiteBIT permission verification required");
+  }
+  if (!context.whitebitReady) return blocked("WhiteBIT provider not ready");
+  return { ready: true, reason: "WhiteBIT route is ready" };
 }
 router.get("/admin/crypto-assets", requireOperator, async (_req, res, next) => {
   try {
@@ -5182,6 +5213,9 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
 router.post("/admin/crypto-networks/receiving-wallet/preview", requireOwner, async (req, res, next) => {
   try {
     const input = PreviewCryptoNetworkReceivingWalletBody.parse(req.body);
+    if (input.clearWalletAddress && (input.networkIds.length !== 1 || input.walletAddress.trim())) {
+      throw new ApiError("VALIDATION_ERROR", "Removing a saved address requires one exact route and an empty address field.", 400);
+    }
     const mappingProvided = input.whitebitAssetCode !== undefined || input.whitebitNetworkCode !== undefined;
     if (mappingProvided && (input.networkIds.length !== 1 ||
       Boolean(input.whitebitAssetCode) !== Boolean(input.whitebitNetworkCode))) {
@@ -5215,7 +5249,7 @@ router.post("/admin/crypto-networks/receiving-wallet/preview", requireOwner, asy
         : input.depositProvider ?? network.depositProvider;
       const trackingEnabled = input.manualWalletTrackingEnabled ??
         network.manualWalletTrackingEnabled;
-      const address = input.walletAddress.trim() || network.sharedDepositAddress;
+      const address = input.clearWalletAddress ? "" : input.walletAddress.trim() || network.sharedDepositAddress;
       return trackingEnabled && address
         ? [{
             routeId,
@@ -5227,12 +5261,17 @@ router.post("/admin/crypto-networks/receiving-wallet/preview", requireOwner, asy
     const readinessById = manualInputs.length
       ? await prepareManualMonitoringReadiness(manualInputs)
       : new Map<string, ManualMonitoringReadiness>();
+    const [capabilities, whitebitStatus, readyManualRoutes] = await Promise.all([
+      getWhitebitCapabilities().catch(() => null),
+      whitebitSwapStatus(),
+      listReadyManualMonitoringRoutes(),
+    ]);
     const rows = input.networkIds.map(routeId => {
       const network = selectedById.get(routeId)!;
       const provider = input.preserveDepositProviders
         ? network.depositProvider
         : input.depositProvider ?? network.depositProvider;
-      const address = input.walletAddress.trim() || network.sharedDepositAddress;
+      const address = input.clearWalletAddress ? "" : input.walletAddress.trim() || network.sharedDepositAddress;
       const memo = input.memo?.trim() || null;
       let readiness = readinessById.get(routeId);
       const networkEnabled = input.networkEnabled ?? network.enabled;
@@ -5258,7 +5297,9 @@ router.post("/admin/crypto-networks/receiving-wallet/preview", requireOwner, asy
         networkEnabled &&
         network.lifecycle !== "deprecated" &&
         network.executionMode === "manual" &&
-        isCustomerDepositEligible(asset, prospectiveNetwork, eligibilityContext),
+        isCustomerDepositEligible(asset, prospectiveNetwork, eligibilityContext) &&
+        (provider !== "manual" || !prospectiveNetwork.manualWalletTrackingEnabled ||
+          readiness?.ready === true),
       );
       if (customerDepositsEnabled) {
         if (
@@ -5286,7 +5327,13 @@ router.post("/admin/crypto-networks/receiving-wallet/preview", requireOwner, asy
       return outputCryptoNetwork({
         ...prospectiveNetwork,
         customerDepositsEnabled: customerDepositsEnabled && eligible,
-      }, readiness);
+      }, readiness, asset
+        ? widgetDepositReadiness(asset, prospectiveNetwork, eligibilityContext,
+            capabilities, whitebitStatus,
+            readiness?.ready
+              ? new Map([...readyManualRoutes, [routeId, network.networkCode]])
+              : readyManualRoutes)
+        : { ready: false, reason: "Parent asset missing" });
     });
     res.json(rows);
   } catch (error) {
@@ -5296,6 +5343,9 @@ router.post("/admin/crypto-networks/receiving-wallet/preview", requireOwner, asy
 router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, res, next) => {
   try {
     const input = SaveCryptoNetworkReceivingWalletBody.parse(req.body);
+    if (input.clearWalletAddress && (input.networkIds.length !== 1 || input.walletAddress.trim())) {
+      throw new ApiError("VALIDATION_ERROR", "Removing a saved address requires one exact route and an empty address field.", 400);
+    }
     const mappingProvided = input.whitebitAssetCode !== undefined || input.whitebitNetworkCode !== undefined;
     if (mappingProvided && (input.networkIds.length !== 1 ||
       Boolean(input.whitebitAssetCode) !== Boolean(input.whitebitNetworkCode))) {
@@ -5335,7 +5385,7 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
         : input.depositProvider ?? row.depositProvider;
       const trackingEnabled = input.manualWalletTrackingEnabled ??
         row.manualWalletTrackingEnabled;
-      const address = input.walletAddress.trim() || row.sharedDepositAddress;
+      const address = input.clearWalletAddress ? "" : input.walletAddress.trim() || row.sharedDepositAddress;
       return trackingEnabled && provider !== "none" && address
         ? [{
             routeId,
@@ -5414,7 +5464,7 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
         : eligibilityContext;
       const memo = input.memo?.trim() || "";
       for (const network of selected) {
-        const address = input.walletAddress.trim() || network.sharedDepositAddress;
+        const address = input.clearWalletAddress ? "" : input.walletAddress.trim() || network.sharedDepositAddress;
         const networkEnabled = input.networkEnabled ?? network.enabled;
          const nextProvider = input.preserveDepositProviders
            ? network.depositProvider
@@ -5429,6 +5479,8 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
           whitebitNetworkCode: mappingProvided ? input.whitebitNetworkCode ?? null : network.whitebitNetworkCode,
           sharedDepositAddress: address,
           sharedDepositMemo: memo || null,
+          manualWalletTrackingEnabled: input.manualWalletTrackingEnabled ??
+            network.manualWalletTrackingEnabled,
         };
          let readiness = manualReadiness.get(network.id);
           if (customerDepositsEnabled) {
@@ -5495,18 +5547,18 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
             ));
           }
         }
-        if (
-           nextProvider !== "none" &&
+         if (
+            nextProvider === "manual" &&
           address &&
           !isSyntacticallyValidManualWalletAddress(nextNetwork, address)
         ) {
            throw new ApiError(
             "CRYPTO_DEPOSIT_ADDRESS_INVALID",
-            `The receiving address is invalid for ${network.networkCode}.`,
+             "Manual Wallet address invalid/missing.",
             422,
           );
         }
-        if (memo && !isSyntacticallyValidManualWalletMemo(nextNetwork, memo)) {
+         if (nextProvider === "manual" && memo && !isSyntacticallyValidManualWalletMemo(nextNetwork, memo)) {
            throw new ApiError(
             "CRYPTO_DEPOSIT_MEMO_INVALID",
             `The receiving memo or tag is invalid for ${network.networkCode}.`,
@@ -5552,13 +5604,15 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
           asset.lifecycle !== "deprecated" &&
           networkEnabled &&
           network.lifecycle !== "deprecated" &&
-          network.executionMode === "manual";
+          network.executionMode === "manual" &&
+          (nextProvider !== "manual" || !nextNetwork.manualWalletTrackingEnabled ||
+            readiness?.ready === true);
         if (input.networkIds.length === 1 && customerDepositsEnabled && !eligible) {
           throw new ApiError(
             "CRYPTO_DEPOSIT_VERIFICATION_REQUIRED",
             nextProvider === "whitebit"
               ? `Customer Deposits for ${asset.code} · ${network.networkCode} require an enabled WhiteBIT provider and a current address-permission proof for this exact route. No deposit settings were saved.`
-              : `Customer Deposits for ${asset.code} · ${network.networkCode} require an enabled Manual route, valid receiving address, and any required memo. No deposit settings were saved.`,
+               : `Customer Deposits for ${asset.code} · ${network.networkCode} require a valid Manual Wallet address${nextNetwork.manualWalletTrackingEnabled ? " and ready Blockchain Monitoring" : ""}. No deposit settings were saved.`,
             409,
           );
         }
@@ -5613,7 +5667,23 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
       });
       return updated;
     });
-    res.json(rows.map(row => outputCryptoNetwork(row, manualReadiness.get(row.id))));
+    const [savedAssets, refreshedContext, capabilities, whitebitStatus, readyManualRoutes] = await Promise.all([
+      db.select({
+        id: cryptoAssetsTable.id, code: cryptoAssetsTable.code,
+        enabled: cryptoAssetsTable.enabled, lifecycle: cryptoAssetsTable.lifecycle,
+      }).from(cryptoAssetsTable).where(inArray(cryptoAssetsTable.id,
+        [...new Set(rows.map(row => row.assetId))])),
+      createCustomerDepositEligibilityContext(),
+      getWhitebitCapabilities().catch(() => null),
+      whitebitSwapStatus(),
+      listReadyManualMonitoringRoutes(),
+    ]);
+    const savedAssetsById = new Map(savedAssets.map(asset => [asset.id, asset]));
+    res.json(rows.map(row => outputCryptoNetwork(row, manualReadiness.get(row.id),
+      savedAssetsById.has(row.assetId)
+        ? widgetDepositReadiness(savedAssetsById.get(row.assetId)!, row, refreshedContext,
+            capabilities, whitebitStatus, readyManualRoutes)
+        : { ready: false, reason: "Parent asset missing" })));
   } catch (error) {
     next(error);
   }
@@ -5628,7 +5698,22 @@ router.get("/admin/crypto-networks", requireOperator, async (_req, res, next) =>
       asc(cryptoAssetNetworksTable.assetId),
       asc(cryptoAssetNetworksTable.id),
     );
-    res.json(rows.map(row => outputCryptoNetwork(row)));
+    const assets = await db.select({
+      id: cryptoAssetsTable.id, code: cryptoAssetsTable.code,
+      enabled: cryptoAssetsTable.enabled, lifecycle: cryptoAssetsTable.lifecycle,
+    }).from(cryptoAssetsTable);
+    const assetsById = new Map(assets.map(asset => [asset.id, asset]));
+    const [context, capabilities, whitebitStatus, readyManualRoutes] = await Promise.all([
+      createCustomerDepositEligibilityContext(),
+      getWhitebitCapabilities().catch(() => null),
+      whitebitSwapStatus(),
+      listReadyManualMonitoringRoutes(),
+    ]);
+    res.json(rows.map(row => outputCryptoNetwork(row, undefined,
+      assetsById.has(row.assetId)
+        ? widgetDepositReadiness(assetsById.get(row.assetId)!, row, context, capabilities,
+            whitebitStatus, readyManualRoutes)
+        : { ready: false, reason: "Parent asset missing" })));
   } catch (e) { next(e); }
 });
 router.get("/admin/deposit-providers", requireOperator, async (_req, res, next) => {
@@ -5719,6 +5804,14 @@ router.patch("/admin/crypto-networks/:id/customer-deposits", requireOwner, async
           locked.depositProvider === "whitebit"
             ? "This exact WhiteBIT route needs a current address-permission proof before customer deposits can be enabled."
             : "A valid Manual Wallet address and required memo or tag must be saved before customer deposits can be enabled.",
+          409,
+        );
+      }
+      if (input.enabled && locked.depositProvider === "manual" &&
+        locked.manualWalletTrackingEnabled && !readiness?.ready) {
+        throw new ApiError(
+          "CRYPTO_DEPOSIT_MONITORING_REQUIRED",
+          readiness?.message || "Blockchain Monitoring must be ready for this exact Manual Wallet route.",
           409,
         );
       }

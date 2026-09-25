@@ -99,7 +99,7 @@
 - [Pricing adjustment directions](pricing-adjustment-directions.md) — model markup and customer benefit explicitly; never represent customer benefit as an ambiguous negative fee.
 - [Settlement-option pricing wildcards](settlement-option-pricing-wildcards.md) — a missing option ID is authoritative Any; exact two-option routes override wildcard routes.
 - [Provider-neutral network bulk edits](provider-neutral-network-bulk-edits.md) — Bulk Edit applies network settings regardless of provider; provider assignment stays in API Integrations.
-- [You Send crypto authority](automatic-customer-deposit-eligibility.md) — selector visibility follows enabled Admin routes and explicit provider assignments; runtime funding validation stays separate.
+- [You Send crypto authority](automatic-customer-deposit-eligibility.md) — explicit Admin intent plus exact-route Manual wallet or WhiteBIT proof gates public send visibility.
 - [WhiteBIT route proof fencing](whitebit-route-proof-fencing.md) — proofs fence WhiteBIT operational verification, not Admin-configured selector visibility.
 - [Popular-pair ranking boundaries](landing-shortcut-loading.md) — rank products separately from valid orders, intersect live routes, and serve stale cached results during refresh.
 - [Unified Convert route resolution](convert-route-resolution.md) — every Convert surface derives exact directed routes from executable asset-network capabilities; live quotes remain authoritative.

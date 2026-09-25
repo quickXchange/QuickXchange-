@@ -59,7 +59,7 @@ import {
   useGetManualDeskRevenue, getGetManualDeskRevenueQueryKey,
   exportManualDeskRevenueCsv,
   useGetCryptoAssets, getGetCryptoAssetsQueryKey, useCreateCryptoAsset, useUpdateCryptoAsset, useDeleteCryptoAsset, useRequestCryptoAssetLogoUpload, useDeleteCryptoAssetLogoUpload,
-  useGetCryptoNetworks, getGetCryptoNetworksQueryKey, useCreateCryptoNetwork, useUpdateCryptoNetwork, useDeleteCryptoNetwork, useRequestCryptoNetworkLogoUpload, useDeleteCryptoNetworkLogoUpload, useSaveCryptoNetworkReceivingWallet, usePreviewCryptoNetworkReceivingWallet, previewCryptoDepositProviderAssignment, useReconcileCryptoCustomerDeposits,
+  useGetCryptoNetworks, getGetCryptoNetworksQueryKey, useCreateCryptoNetwork, useUpdateCryptoNetwork, useDeleteCryptoNetwork, useRequestCryptoNetworkLogoUpload, useDeleteCryptoNetworkLogoUpload, useSaveCryptoNetworkReceivingWallet, usePreviewCryptoNetworkReceivingWallet, previewCryptoNetworkReceivingWallet, previewCryptoDepositProviderAssignment, useReconcileCryptoCustomerDeposits,
   useRequestFiatCurrencyFlagUpload, useDeleteFiatCurrencyFlagUpload,
   useGetOrder, getGetOrderQueryKey, useAssignOrder, useArchiveOrder, useRestoreOrder,
   useGetOrderAuditLog, getGetOrderAuditLogQueryKey,
@@ -7444,6 +7444,13 @@ function AdminCurrencies() {
                     {item.sharedDepositAddress || (item.depositProvider === 'whitebit' ? 'Manual fallback: Not configured (optional)' : 'Not configured')}
                   </small>
                   <small>Customer Deposits: {item.customerDepositsEnabled ? 'Enabled' : 'Disabled'}</small>
+                  <small data-testid={`widget-readiness-${item.id}`}>
+                    Widget → Swap → You Send: {item.widgetReadiness?.ready ? 'Ready for Widget' : 'Cannot Enable'}
+                    {!item.widgetReadiness?.ready && ` — ${item.widgetReadiness?.reason || 'Readiness unavailable'}`}
+                  </small>
+                  {item.manualFallbackInvalid && item.depositProvider === 'whitebit' && (
+                    <small>Invalid Manual Fallback Address — WhiteBIT mapping is unaffected.</small>
+                  )}
                   <small>Manual Wallet Tracking: {item.manualWalletTrackingEnabled ? 'On' : 'Off'}</small>
                   {item.depositProvider === 'whitebit' && (
                     <small>
@@ -9521,6 +9528,9 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
     isNew ? undefined : network?.monitoringReadiness,
   );
   const [whitebitMappingReview, setWhitebitMappingReview] = useState<{ key: string; route: CryptoDepositProviderAssignmentRoute | null } | null>(null);
+  const [removeFallback, setRemoveFallback] = useState(false);
+  const [draftReadiness, setDraftReadiness] = useState<CryptoNetwork['widgetReadiness'] | null>(null);
+  const [draftFallbackInvalid, setDraftFallbackInvalid] = useState<boolean | null>(null);
   const selectedAsset = assetsQuery.data?.find((asset: CryptoAsset) => asset.id === form.assetId);
   const isWhitebitProvider = form.depositProvider === 'whitebit';
   const networkCode = form.networkCode.trim();
@@ -9537,6 +9547,40 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
     form.whitebitAssetCode || selectedAsset?.code || '';
   const selectedWhitebitNetworkCode = form.whitebitNetworkCode ||
     (whitebitMappingStatus === 'supported' ? whitebitRouteReview?.whitebitNetworkCode || '' : '');
+
+  useEffect(() => {
+    if (!reviewedNetwork) return;
+    let cancelled = false;
+    const timeout = window.setTimeout(() => {
+      void previewCryptoNetworkReceivingWallet({
+        networkIds: [reviewedNetwork.id],
+        walletAddress: form.sharedDepositAddress.trim(),
+        clearWalletAddress: removeFallback,
+        memo: form.sharedDepositMemo.trim() || null,
+        depositProvider: form.depositProvider,
+        ...(form.depositProvider === 'whitebit' && form.whitebitNetworkCode.trim()
+          ? {
+              whitebitAssetCode: (form.whitebitAssetCode.trim() || selectedAsset?.code || '').toUpperCase(),
+              whitebitNetworkCode: form.whitebitNetworkCode.trim().toUpperCase(),
+            }
+          : {}),
+        manualWalletTrackingEnabled: form.manualWalletTrackingEnabled,
+        networkEnabled: form.enabled,
+        customerDepositsEnabled: form.customerDepositsEnabled,
+      }).then(rows => {
+        if (!cancelled) {
+          setDraftReadiness(rows[0]?.widgetReadiness ?? null);
+          setDraftFallbackInvalid(rows[0]?.manualFallbackInvalid ?? null);
+        }
+      }).catch(() => {
+        if (!cancelled) setDraftReadiness({ ready: false, reason: 'Readiness preview unavailable' });
+      });
+    }, 250);
+    return () => { cancelled = true; window.clearTimeout(timeout); };
+  }, [reviewedNetwork?.id, form.sharedDepositAddress, form.sharedDepositMemo,
+    form.depositProvider, form.whitebitAssetCode, form.whitebitNetworkCode,
+    form.manualWalletTrackingEnabled, form.enabled, form.customerDepositsEnabled,
+    removeFallback, selectedAsset?.code]);
 
   useEffect(() => {
     if (!needsWhitebitReview || !reviewedNetwork) return;
@@ -9641,6 +9685,7 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
           data: {
             networkIds: [network.id],
             walletAddress: form.sharedDepositAddress.trim(),
+            clearWalletAddress: removeFallback,
             memo: form.sharedDepositMemo.trim() || null,
             depositProvider: form.depositProvider,
             ...(isWhitebitProvider && (selectedWhitebitNetworkCode.trim() || network.whitebitNetworkCode) ? {
@@ -9653,6 +9698,9 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
           },
         });
         const savedNetwork = savedNetworks[0];
+        setRemoveFallback(false);
+        setDraftReadiness(savedNetwork?.widgetReadiness ?? null);
+        setDraftFallbackInvalid(savedNetwork?.manualFallbackInvalid ?? null);
         setMonitoringReadiness(savedNetwork?.monitoringReadiness);
         setForm(current => ({
           ...current,
@@ -9881,14 +9929,44 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                   )}
                 </div>
               )}
+              {!isNew && (
+                <InlineNotice kind={(draftReadiness ?? network?.widgetReadiness)?.ready ? 'success' : 'warning'}>
+                  <strong data-testid="network-widget-readiness">
+                    Widget → Swap → You Send: {(draftReadiness ?? network?.widgetReadiness)?.ready
+                      ? 'Ready for Widget' : 'Cannot Enable'}
+                  </strong>
+                  {' — '}{(draftReadiness ?? network?.widgetReadiness)?.reason || 'Checking exact route readiness'}
+                  <span className="block text-sm">
+                    Customer Deposits is {form.customerDepositsEnabled ? 'ON' : 'OFF'}; only an eligible route with this control ON appears in You Send.
+                  </span>
+                </InlineNotice>
+              )}
               <label>
                  <span className="field-label">{isWhitebitProvider ? 'Manual Receiving / Fallback Address' : 'Manual Receiving Address'}</span>
-                 <input data-testid="network-wallet-address" value={form.sharedDepositAddress} onChange={e => setForm({...form, sharedDepositAddress: e.target.value})} placeholder="Receiving wallet address" />
+                 <input data-testid="network-wallet-address" value={form.sharedDepositAddress} onChange={e => {
+                   setRemoveFallback(false);
+                   setForm({...form, sharedDepositAddress: e.target.value});
+                 }} placeholder="Receiving wallet address" />
                  <span className="field-hint">
                    {isWhitebitProvider
                      ? 'Optional fallback for this exact Asset + Network. WhiteBIT is attempted first for new Swap orders.'
                      : 'Used when Manual Wallet is selected for this exact Asset + Network.'}
                  </span>
+                 {isWhitebitProvider && (draftFallbackInvalid ?? network?.manualFallbackInvalid) && (
+                   <span className="field-hint" role="alert">Invalid Manual Fallback Address — WhiteBIT mapping and readiness are evaluated independently.</span>
+                 )}
+                 {isWhitebitProvider && !isNew && network?.sharedDepositAddress && (
+                   <button type="button" className="button-secondary" onClick={() => {
+                     setRemoveFallback(!removeFallback);
+                     setForm(current => ({
+                       ...current,
+                       sharedDepositAddress: removeFallback ? network.sharedDepositAddress || '' : '',
+                     }));
+                   }}>
+                     {removeFallback ? 'Undo fallback removal' : 'Remove saved fallback'}
+                   </button>
+                 )}
+                 {removeFallback && <span className="field-hint">The saved fallback will be removed only when you select Save Deposit Route.</span>}
               </label>
               <label>
                  <span className="field-label">Memo / Tag <small>Optional</small></span>
