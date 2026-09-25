@@ -156,3 +156,4 @@
 - [Bounded blockchain catch-up](bounded-blockchain-catch-up.md) — lagging EVM watches need multiple small ranges per cycle with end-to-end deadline, lease, fairness, and cursor fencing.
 - [Partner logo single-entry animation](partner-logo-single-entry-animation.md) — do not duplicate partner elements for a seamless marquee; animation copies made single published records appear twice.
 - [Trustpilot footer source](trustpilot-footer-source.md) — when the separate review URL is empty, preserve the existing published Partner Logo link as the footer trust fallback.
+- [WhiteBIT recovery credential source](whitebit-recovery-credential-source.md) — read-only history previews must select credential provenance explicitly; stored and environment credentials can differ.

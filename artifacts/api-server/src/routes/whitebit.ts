@@ -313,8 +313,8 @@ export async function provisionSwapFundingAddress(input: {
           requestedMappingIsComplete &&
           snapshotWhitebitAssetCode === whitebitAssetCode &&
           snapshotWhitebitNetworkCode === whitebitNetworkCode &&
-          (route.network.whitebitAssetCode ?? null)?.trim().toUpperCase() === snapshotWhitebitAssetCode &&
-          (route.network.whitebitNetworkCode ?? null)?.trim().toUpperCase() === snapshotWhitebitNetworkCode &&
+          (route.network.whitebitAssetCode?.trim().toUpperCase() ?? null) === snapshotWhitebitAssetCode &&
+          (route.network.whitebitNetworkCode?.trim().toUpperCase() ?? null) === snapshotWhitebitNetworkCode &&
           route.asset.enabled &&
           route.asset.lifecycle !== "deprecated" &&
           route.network.enabled &&
@@ -489,8 +489,8 @@ export async function provisionSwapFundingAddress(input: {
       route.network.manualWalletTrackingEnabled !== trackingEnabled ||
       route.network.sharedDepositAddress !== snapshotAddress ||
       (route.network.sharedDepositMemo ?? "") !== snapshotMemo ||
-      (route.network.whitebitAssetCode ?? null)?.trim().toUpperCase() !== snapshotWhitebitAssetCode ||
-      (route.network.whitebitNetworkCode ?? null)?.trim().toUpperCase() !== snapshotWhitebitNetworkCode
+      (route.network.whitebitAssetCode?.trim().toUpperCase() ?? null) !== snapshotWhitebitAssetCode ||
+      (route.network.whitebitNetworkCode?.trim().toUpperCase() ?? null) !== snapshotWhitebitNetworkCode
     ) return { claim: undefined, row: undefined, disabled: true };
     const routeDigest = customerDepositRouteConfigurationDigest(route.asset, route.network);
     const hasCurrentRouteProof = (setting.depositRouteProofs ?? []).some((proof) =>
