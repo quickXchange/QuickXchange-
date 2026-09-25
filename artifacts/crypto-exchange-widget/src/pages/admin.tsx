@@ -6054,6 +6054,17 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
                {(order as typeof order & { verifiedFundingTransaction?: Parameters<typeof VerifiedTransaction>[0]["transaction"] }).verifiedFundingTransaction && (
                  <VerifiedTransaction transaction={(order as typeof order & { verifiedFundingTransaction?: Parameters<typeof VerifiedTransaction>[0]["transaction"] }).verifiedFundingTransaction} admin />
                )}
+                {order.whitebitProviderDepositId && (
+                  <div className="quickx-order-card rounded-xl border border-border p-4 shadow-sm" data-testid="admin-whitebit-provider-deposit-id">
+                    <div className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">WhiteBIT Provider Deposit ID</div>
+                    <div className="flex min-w-0 items-start gap-2">
+                      <code className="min-w-0 flex-1 break-all rounded-lg bg-muted/30 px-3 py-2 font-mono text-sm font-semibold text-foreground" title={order.whitebitProviderDepositId}>{order.whitebitProviderDepositId}</code>
+                      <button type="button" onClick={() => copyValue(order.whitebitProviderDepositId)} className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label="Copy full WhiteBIT provider deposit ID" title="Copy WhiteBIT provider deposit ID">
+                        <Copy size={14} aria-hidden="true" /> Copy
+                      </button>
+                    </div>
+                  </div>
+                )}
               {order.paymentDetailsApplicable && (
                 <div className="quickx-order-card border rounded-xl p-4 shadow-sm space-y-4" data-testid="admin-payment-details">
                   <div className="flex items-center justify-between gap-3">

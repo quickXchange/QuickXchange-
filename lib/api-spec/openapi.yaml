@@ -5157,6 +5157,9 @@ components:
         transactionHash: { type: ["string", "null"], maxLength: 500 }
         paymentReference: { type: ["string", "null"], maxLength: 500 }
         verifiedFundingTransaction: { $ref: "#/components/schemas/VerifiedFundingTransaction" }
+        whitebitProviderDepositId:
+          type: string
+          description: WhiteBIT provider transactionId or uniqueId for the matching deposit; this is a provider record ID, not a blockchain transaction hash.
         archivedAt: { type: ["string", "null"] }
         archivedBy: { type: ["string", "null"] }
         fromAsset: { type: string }

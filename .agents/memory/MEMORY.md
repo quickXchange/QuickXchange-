@@ -149,3 +149,4 @@
 - [Partner logo rendering](partner-logo-single-entry-animation.md) — avoid duplicate marquee records; preserve [Trustpilot footer fallback](trustpilot-footer-source.md).
 - [WhiteBIT recovery credential source](whitebit-recovery-credential-source.md) — read-only history previews must select credential provenance explicitly; stored and environment credentials can differ.
 - [Activation timestamp precision](activation-timestamp-precision.md) — compare post-activation eligibility in PostgreSQL; JavaScript Date collapses distinct microsecond events.
+- [WhiteBIT explorer identity](whitebit-explorer-identity.md) — render only persisted chain hashes; frozen provider-network identity may need matching catalog metadata when an older route lacks an explorer template.

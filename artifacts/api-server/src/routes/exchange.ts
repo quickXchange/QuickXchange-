@@ -215,7 +215,14 @@ import {
 import { buildAdminSummaryAnalytics } from "../lib/admin-summary";
 import { manualExternalProviderHealthPlaceholders } from "../lib/manual-operational-health";
 import { normalizeRefundFields } from "../lib/wallet-fields";
-import { buildVerifiedExplorerUrl, exposeLegacyTransactionHash } from "../lib/verified-funding";
+import {
+  buildVerifiedExplorerUrl,
+  exposeLegacyTransactionHash,
+} from "../lib/verified-funding";
+import {
+  getWhitebitProviderDepositId,
+  getWhitebitVerifiedFundingTransaction,
+} from "../lib/whitebit-verified-funding";
 import {
   findProviderManagedCustomerOrder,
   findProviderManagedOperatorOrder,
@@ -613,17 +620,17 @@ async function getVerifiedFundingTransaction(orderId: string) {
     ))
     .orderBy(desc(blockchainMonitorMatchesTable.appliedAt), desc(blockchainMonitorMatchesTable.updatedAt))
     .limit(1);
-  if (!row) return undefined;
-  const template = row.explorerUrlTemplate?.trim();
-  const explorerUrl = buildVerifiedExplorerUrl(template, row.transactionHash);
-  return {
-    transactionHash: row.transactionHash,
-    networkCode: row.networkCode,
-    networkName: row.networkName,
-    confirmations: row.confirmations,
-    detectedAt: (row.detectedAt ?? row.observedAt)?.toISOString() ?? null,
-    explorerUrl,
-  };
+  if (row) {
+    return {
+      transactionHash: row.transactionHash,
+      networkCode: row.networkCode,
+      networkName: row.networkName,
+      confirmations: row.confirmations,
+      detectedAt: (row.detectedAt ?? row.observedAt)?.toISOString() ?? null,
+      explorerUrl: buildVerifiedExplorerUrl(row.explorerUrlTemplate, row.transactionHash),
+    };
+  }
+  return getWhitebitVerifiedFundingTransaction(orderId);
 }
 
 function assertIdempotentOrderMatches(
@@ -1700,7 +1707,7 @@ router.get("/orders", requireOperator, async (req, res, next) => {
       rowsQueryMs,
       countQueryMs,
     }, "Order directory database queries completed");
-    const merged = await mergeOperatorOrderDirectory(rows.map(outputOrder), query);
+    const merged = await mergeOperatorOrderDirectory(rows.map((row) => outputOrder(row)), query);
     res.json(GetOrdersResponse.parse({
       items: merged.items,
       total: merged.total,
@@ -1720,11 +1727,13 @@ router.get("/orders/:id", requireOperator, async (req, res, next) => {
       (row ? outputOrder(row) : undefined);
     if (!result) throw new ApiError("ORDER_NOT_FOUND", "Order not found.", 404);
     const verifiedFunding = await getVerifiedFundingTransaction(id);
+    const whitebitProviderDepositId = await getWhitebitProviderDepositId(id);
     const [support] = await db.select().from(orderSupportMetadataTable)
       .where(eq(orderSupportMetadataTable.orderId, id)).limit(1);
     res.json(GetOrderResponse.parse({
       ...(support ? { ...result, ...outputSupportMetadata(support) } : result),
       verifiedFundingTransaction: verifiedFunding,
+      ...(whitebitProviderDepositId ? { whitebitProviderDepositId } : {}),
       transactionHash: row?.type === "manual" ? null : (support?.transactionHash ?? (result as { transactionHash?: string | null }).transactionHash ?? null),
     }));
   } catch (error) { next(error); }
@@ -3430,7 +3439,9 @@ router.post("/orders/:id/mark-paid", async (req, res, next) => {
       });
       return marked;
     });
-    res.json(MarkOrderPaidResponse.parse(outputCustomerOrder(updated, false)));
+    res.json(MarkOrderPaidResponse.parse(
+      outputCustomerOrder(updated, false, await getVerifiedFundingTransaction(updated.id)),
+    ));
   } catch (error) {
     next(error);
   }
@@ -3449,7 +3460,9 @@ router.post("/orders/:id/cancel", async (req, res, next) => {
       throw new ApiError("ORDER_ACCESS_DENIED", "Order access is required.", 403);
     }
     if (existing.manualSettlementState === "cancelled" && existing.status === "cancelled") {
-      res.json(CancelCustomerOrderResponse.parse(outputCustomerOrder(existing, false)));
+      res.json(CancelCustomerOrderResponse.parse(
+        outputCustomerOrder(existing, false, await getVerifiedFundingTransaction(existing.id)),
+      ));
       return;
     }
     if (existing.type !== "manual" || existing.manualSettlementState === "not_required") {
@@ -3509,7 +3522,9 @@ router.post("/orders/:id/cancel", async (req, res, next) => {
         409,
       );
     }
-    res.json(CancelCustomerOrderResponse.parse(outputCustomerOrder(updated, false)));
+    res.json(CancelCustomerOrderResponse.parse(
+      outputCustomerOrder(updated, false, await getVerifiedFundingTransaction(updated.id)),
+    ));
   } catch (error) {
     next(error);
   }

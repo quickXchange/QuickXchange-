@@ -439,9 +439,12 @@ export default function OrderDetail() {
                 <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Transaction ID</div>
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <code className="min-w-0 flex-1 truncate font-mono text-xs font-semibold" title={verifiedFundingTransaction.transactionHash}>
-                    {verifiedFundingTransaction.transactionHash.length > 18
-                      ? `${verifiedFundingTransaction.transactionHash.slice(0, 10)}…${verifiedFundingTransaction.transactionHash.slice(-8)}`
-                      : verifiedFundingTransaction.transactionHash}
+                    <span className="sm:hidden">
+                      {verifiedFundingTransaction.transactionHash.length > 18
+                        ? `${verifiedFundingTransaction.transactionHash.slice(0, 10)}…${verifiedFundingTransaction.transactionHash.slice(-8)}`
+                        : verifiedFundingTransaction.transactionHash}
+                    </span>
+                    <span className="hidden sm:inline">{verifiedFundingTransaction.transactionHash}</span>
                   </code>
                   <button
                     type="button"

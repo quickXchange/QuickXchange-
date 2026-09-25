@@ -1205,6 +1205,7 @@ export const CreateExchangeOrderResponse = zod.object({
   "detectedAt": zod.coerce.date().nullable(),
   "explorerUrl": zod.string().url().regex(createExchangeOrderResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
 }).optional(),
+  "whitebitProviderDepositId": zod.string().optional().describe('WhiteBIT provider transactionId or uniqueId for the matching deposit; this is a provider record ID, not a blockchain transaction hash.'),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -1520,6 +1521,7 @@ export const GetOrdersResponse = zod.object({
   "detectedAt": zod.coerce.date().nullable(),
   "explorerUrl": zod.string().url().regex(getOrdersResponseItemsItemVerifiedFundingTransactionExplorerUrlRegExp).optional()
 }).optional(),
+  "whitebitProviderDepositId": zod.string().optional().describe('WhiteBIT provider transactionId or uniqueId for the matching deposit; this is a provider record ID, not a blockchain transaction hash.'),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -1825,6 +1827,7 @@ export const CreateOrderResponse = zod.object({
   "detectedAt": zod.coerce.date().nullable(),
   "explorerUrl": zod.string().url().regex(createOrderResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
 }).optional(),
+  "whitebitProviderDepositId": zod.string().optional().describe('WhiteBIT provider transactionId or uniqueId for the matching deposit; this is a provider record ID, not a blockchain transaction hash.'),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -2103,6 +2106,7 @@ export const BulkUpdateOrderStatusResponse = zod.object({
   "detectedAt": zod.coerce.date().nullable(),
   "explorerUrl": zod.string().url().regex(bulkUpdateOrderStatusResponseResultsItemOrderVerifiedFundingTransactionExplorerUrlRegExp).optional()
 }).optional(),
+  "whitebitProviderDepositId": zod.string().optional().describe('WhiteBIT provider transactionId or uniqueId for the matching deposit; this is a provider record ID, not a blockchain transaction hash.'),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -2387,6 +2391,7 @@ export const BulkArchiveOrdersResponse = zod.object({
   "detectedAt": zod.coerce.date().nullable(),
   "explorerUrl": zod.string().url().regex(bulkArchiveOrdersResponseResultsItemOrderVerifiedFundingTransactionExplorerUrlRegExp).optional()
 }).optional(),
+  "whitebitProviderDepositId": zod.string().optional().describe('WhiteBIT provider transactionId or uniqueId for the matching deposit; this is a provider record ID, not a blockchain transaction hash.'),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -2670,6 +2675,7 @@ export const PermanentlyDeleteOrdersResponse = zod.object({
   "detectedAt": zod.coerce.date().nullable(),
   "explorerUrl": zod.string().url().regex(permanentlyDeleteOrdersResponseResultsItemOrderVerifiedFundingTransactionExplorerUrlRegExp).optional()
 }).optional(),
+  "whitebitProviderDepositId": zod.string().optional().describe('WhiteBIT provider transactionId or uniqueId for the matching deposit; this is a provider record ID, not a blockchain transaction hash.'),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -3054,6 +3060,7 @@ export const GetOrderResponse = zod.object({
   "detectedAt": zod.coerce.date().nullable(),
   "explorerUrl": zod.string().url().regex(getOrderResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
 }).optional(),
+  "whitebitProviderDepositId": zod.string().optional().describe('WhiteBIT provider transactionId or uniqueId for the matching deposit; this is a provider record ID, not a blockchain transaction hash.'),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -3360,6 +3367,7 @@ export const UpdateOrderResponse = zod.object({
   "detectedAt": zod.coerce.date().nullable(),
   "explorerUrl": zod.string().url().regex(updateOrderResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
 }).optional(),
+  "whitebitProviderDepositId": zod.string().optional().describe('WhiteBIT provider transactionId or uniqueId for the matching deposit; this is a provider record ID, not a blockchain transaction hash.'),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -3840,6 +3848,7 @@ export const AssignOrderResponse = zod.object({
   "detectedAt": zod.coerce.date().nullable(),
   "explorerUrl": zod.string().url().regex(assignOrderResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
 }).optional(),
+  "whitebitProviderDepositId": zod.string().optional().describe('WhiteBIT provider transactionId or uniqueId for the matching deposit; this is a provider record ID, not a blockchain transaction hash.'),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -4131,6 +4140,7 @@ export const UpdateOrderSupportToolsResponse = zod.object({
   "detectedAt": zod.coerce.date().nullable(),
   "explorerUrl": zod.string().url().regex(updateOrderSupportToolsResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
 }).optional(),
+  "whitebitProviderDepositId": zod.string().optional().describe('WhiteBIT provider transactionId or uniqueId for the matching deposit; this is a provider record ID, not a blockchain transaction hash.'),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -4401,6 +4411,7 @@ export const ArchiveOrderResponse = zod.object({
   "detectedAt": zod.coerce.date().nullable(),
   "explorerUrl": zod.string().url().regex(archiveOrderResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
 }).optional(),
+  "whitebitProviderDepositId": zod.string().optional().describe('WhiteBIT provider transactionId or uniqueId for the matching deposit; this is a provider record ID, not a blockchain transaction hash.'),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -4671,6 +4682,7 @@ export const RestoreOrderResponse = zod.object({
   "detectedAt": zod.coerce.date().nullable(),
   "explorerUrl": zod.string().url().regex(restoreOrderResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
 }).optional(),
+  "whitebitProviderDepositId": zod.string().optional().describe('WhiteBIT provider transactionId or uniqueId for the matching deposit; this is a provider record ID, not a blockchain transaction hash.'),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -10114,6 +10126,7 @@ export const ReconcileOrderResponse = zod.object({
   "detectedAt": zod.coerce.date().nullable(),
   "explorerUrl": zod.string().url().regex(reconcileOrderResponseOrderVerifiedFundingTransactionExplorerUrlRegExp).optional()
 }).optional(),
+  "whitebitProviderDepositId": zod.string().optional().describe('WhiteBIT provider transactionId or uniqueId for the matching deposit; this is a provider record ID, not a blockchain transaction hash.'),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),
@@ -11050,6 +11063,7 @@ export const CreateQuickexOrderResponse = zod.object({
   "detectedAt": zod.coerce.date().nullable(),
   "explorerUrl": zod.string().url().regex(createQuickexOrderResponseVerifiedFundingTransactionExplorerUrlRegExp).optional()
 }).optional(),
+  "whitebitProviderDepositId": zod.string().optional().describe('WhiteBIT provider transactionId or uniqueId for the matching deposit; this is a provider record ID, not a blockchain transaction hash.'),
   "archivedAt": zod.string().nullish(),
   "archivedBy": zod.string().nullish(),
   "fromAsset": zod.string(),

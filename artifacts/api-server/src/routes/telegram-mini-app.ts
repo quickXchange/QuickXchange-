@@ -9,6 +9,8 @@ import {
 import { verifyOrderTrackingToken } from "../lib/order-access";
 import { ApiError } from "../lib/api-error";
 import { createTelegramLinkChallenge } from "../lib/telegram-link";
+import { buildVerifiedExplorerUrl } from "../lib/verified-funding";
+import { getWhitebitVerifiedFundingTransaction } from "../lib/whitebit-verified-funding";
 
 const router: IRouter = Router();
 const SESSION_TTL_MS = 15 * 60_000;
@@ -140,17 +142,16 @@ async function verifiedFundingTransaction(orderId: string) {
       eq(ordersTable.type, "manual"),
     ))
     .orderBy(desc(blockchainMonitorMatchesTable.appliedAt), desc(blockchainMonitorMatchesTable.updatedAt)).limit(1);
-  if (!row) return undefined;
-  const template = row.explorerUrlTemplate?.trim();
-  return {
-    transactionHash: row.transactionHash,
-    networkCode: row.networkCode,
-    networkName: row.networkName,
-    confirmations: row.confirmations,
-    detectedAt: (row.detectedAt ?? row.observedAt)?.toISOString() ?? null,
-    explorerUrl: template && /^https:\/\//i.test(template) && /\{(?:tx|transactionHash)\}/i.test(template)
-      ? template.replace(/\{(?:tx|transactionHash)\}/gi, encodeURIComponent(row.transactionHash)) : undefined,
-  };
+   if (row) return {
+     transactionHash: row.transactionHash,
+     networkCode: row.networkCode,
+     networkName: row.networkName,
+     confirmations: row.confirmations,
+     detectedAt: (row.detectedAt ?? row.observedAt)?.toISOString() ?? null,
+     explorerUrl: buildVerifiedExplorerUrl(row.explorerUrlTemplate, row.transactionHash),
+   };
+
+    return getWhitebitVerifiedFundingTransaction(orderId);
 }
 export function quickexProjection(row: typeof quickexOrdersTable.$inferSelect, link: typeof telegramOrderLinksTable.$inferSelect) {
   const route = (row.route ?? {}) as { fromAsset?: string; fromNetwork?: string; toAsset?: string; toNetwork?: string };

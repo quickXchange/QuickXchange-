@@ -1753,6 +1753,8 @@ export interface Order {
      */
   paymentReference: string | null;
   verifiedFundingTransaction?: VerifiedFundingTransaction;
+  /** WhiteBIT provider transactionId or uniqueId for the matching deposit; this is a provider record ID, not a blockchain transaction hash. */
+  whitebitProviderDepositId?: string;
   /** @nullable */
   archivedAt?: string | null;
   /** @nullable */

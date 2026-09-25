@@ -111,6 +111,7 @@ import { SitePreviewProvider, useSitePreview } from '@/components/site-preview-c
 import { AdminPermissionsProvider, useAdminPermissions } from '@/lib/admin-permissions';
 import { convertOrderStatusStep, isConvertTerminalStatus } from '@/lib/convert-order-status';
 import { OrderCompletionSection } from '@/components/order-completion';
+import { VerifiedTransaction } from '@/components/verified-transaction';
 
 const AccountPage = lazy(() => import('./pages/account').then(module => ({ default: module.AccountPage })));
 const AccountOrdersPage = lazy(() => import('./pages/account').then(module => ({ default: module.AccountOrdersPage })));
@@ -1397,6 +1398,9 @@ function OrderStatusCard({
   const uncertain = /unknown|held|verification|review/.test(status) || order.outcomeUnknown;
   const completed = /complete|paid/.test(status);
   const depositActionable = Boolean(order.depositAddress) && !halted && !uncertain && !completed;
+  const verifiedFundingTransaction = (order as PublicOrderStatus & {
+    verifiedFundingTransaction?: Parameters<typeof VerifiedTransaction>[0]['transaction'];
+  }).verifiedFundingTransaction;
 
   const timeline = isManual
     ? ['Created', 'Processing', 'Done']
@@ -1567,6 +1571,12 @@ function OrderStatusCard({
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {verifiedFundingTransaction && (
+          <div className="mb-8">
+            <VerifiedTransaction transaction={verifiedFundingTransaction} />
           </div>
         )}
 
