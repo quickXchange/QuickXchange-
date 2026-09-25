@@ -8,7 +8,10 @@ import {
   whitebitDepositsTable,
   whitebitOrderAddressesTable,
 } from "@workspace/db";
-import { getWhitebitCredentialStorageState } from "./provider-credentials";
+import {
+  getWhitebitCredentialStateForSource,
+  whitebitCredentialSourceConfiguration,
+} from "./provider-credentials";
 import {
   assetIdentity,
   historyRecords,
@@ -69,12 +72,10 @@ async function readOnlyHistory(
   address: string, ticker: string, memo: string | null,
   credentialSource: "stored" | "environment",
 ): Promise<HistoryRow[]> {
-  const stored = await getWhitebitCredentialStorageState();
-  const credentials = credentialSource === "stored"
-    ? (stored.status === "available" ? stored.credentials : null)
-    : process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET
-      ? { apiKey: process.env.WHITEBIT_API_KEY, secretKey: process.env.WHITEBIT_API_SECRET }
-      : null;
+  const selected = await getWhitebitCredentialStateForSource(credentialSource);
+  const credentials = selected.status === "available" && selected.source === credentialSource
+    ? selected.credentials
+    : null;
   if (!credentials) stop("Development WhiteBIT credentials are unavailable");
   const [last] = await db.select({ nonce: whitebitApiNonceTable.lastNonce })
     .from(whitebitApiNonceTable).where(eq(whitebitApiNonceTable.id, 1)).limit(1);
@@ -133,7 +134,17 @@ export type WhitebitSingleOrderPreview = {
   conditionalNotifications: string;
 };
 
-async function inspectSingleOrder(credentialSource: "stored" | "environment" = "stored"): Promise<{
+function recoveryCredentialSource(requested?: "stored" | "environment") {
+  const configured = whitebitCredentialSourceConfiguration();
+  if (!configured.valid) stop("WHITEBIT_CREDENTIAL_SOURCE is invalid");
+  const source = configured.explicit ? configured.source : requested ?? "stored";
+  if (requested && configured.explicit && requested !== configured.source) {
+    stop("recovery credential source does not match WHITEBIT_CREDENTIAL_SOURCE");
+  }
+  return source ?? "stored";
+}
+
+async function inspectSingleOrder(requestedSource?: "stored" | "environment"): Promise<{
   preview: WhitebitSingleOrderPreview;
   record: HistoryRow;
   transactionId: string;
@@ -145,6 +156,7 @@ async function inspectSingleOrder(credentialSource: "stored" | "environment" = "
   fee: string;
   status: number;
 }> {
+  const credentialSource = recoveryCredentialSource(requestedSource);
   const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, ORDER_ID)).limit(1);
   const [claim] = await db.select().from(whitebitOrderAddressesTable)
     .where(eq(whitebitOrderAddressesTable.orderId, ORDER_ID)).limit(1);
@@ -245,7 +257,7 @@ async function inspectSingleOrder(credentialSource: "stored" | "environment" = "
 
 /** No database mutation, address creation, or broad reconciliation. */
 export async function previewWhitebitSingleOrderRecovery(
-  credentialSource: "stored" | "environment" = "stored",
+  credentialSource?: "stored" | "environment",
 ): Promise<WhitebitSingleOrderPreview> {
   return (await inspectSingleOrder(credentialSource)).preview;
 }
@@ -255,7 +267,7 @@ export async function previewWhitebitSingleOrderRecovery(
  * approval is required before wiring or invoking this scoped write path.
  */
 export async function applyWhitebitSingleOrderRecoveryAfterApproval(
-  credentialSource: "stored" | "environment" = "stored",
+  credentialSource?: "stored" | "environment",
 ) {
   const inspected = await inspectSingleOrder(credentialSource);
   if (inspected.preview.alreadyApplied) return inspected.preview;

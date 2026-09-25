@@ -9,8 +9,86 @@ import {
   isConfiguredYouSendCryptoNetwork,
   isManualMonitoringRuntimeReady,
 } from "../src/lib/manual-crypto";
+import {
+  getSelectedWhitebitCredentialState,
+  getWhitebitCredentialStateForSource,
+  whitebitCredentialSourceConfiguration,
+  whitebitHistoricalReconciliationAllowed,
+} from "../src/lib/provider-credentials";
+import { whitebitHistoryWorkerConfiguration } from "../src/lib/whitebit-history-health";
 
 const secret = "unit-test-webhook-secret";
+
+test("WhiteBIT credential source selector is explicit and canonical", () => {
+  const original = process.env.WHITEBIT_CREDENTIAL_SOURCE;
+  try {
+    delete process.env.WHITEBIT_CREDENTIAL_SOURCE;
+    assert.deepEqual(whitebitCredentialSourceConfiguration(), {
+      explicit: false, valid: true, source: null,
+    });
+    process.env.WHITEBIT_CREDENTIAL_SOURCE = "environment";
+    assert.deepEqual(whitebitCredentialSourceConfiguration(), {
+      explicit: true, valid: true, source: "environment",
+    });
+    process.env.WHITEBIT_CREDENTIAL_SOURCE = "stored";
+    assert.deepEqual(whitebitCredentialSourceConfiguration(), {
+      explicit: true, valid: true, source: "stored",
+    });
+    process.env.WHITEBIT_CREDENTIAL_SOURCE = "Environment";
+    assert.deepEqual(whitebitCredentialSourceConfiguration(), {
+      explicit: true, valid: false, source: null,
+    });
+  } finally {
+    if (original === undefined) delete process.env.WHITEBIT_CREDENTIAL_SOURCE;
+    else process.env.WHITEBIT_CREDENTIAL_SOURCE = original;
+  }
+});
+
+test("explicit environment source never reads stored credentials or allows a stored History Worker", async () => {
+  const original = {
+    source: process.env.WHITEBIT_CREDENTIAL_SOURCE,
+    key: process.env.WHITEBIT_API_KEY,
+    secret: process.env.WHITEBIT_API_SECRET,
+    history: process.env.WHITEBIT_HISTORY_CREDENTIAL_SOURCE,
+    enabled: process.env.WHITEBIT_HISTORY_WORKER_ENABLED,
+    approved: process.env.WHITEBIT_HISTORICAL_RECONCILIATION_APPROVED,
+  };
+  const restore = (key: string, value: string | undefined) => {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  };
+  try {
+    process.env.WHITEBIT_CREDENTIAL_SOURCE = "environment";
+    process.env.WHITEBIT_API_KEY = "fixture-environment-key";
+    process.env.WHITEBIT_API_SECRET = "fixture-environment-secret";
+    process.env.WHITEBIT_HISTORY_WORKER_ENABLED = "true";
+    process.env.WHITEBIT_HISTORY_CREDENTIAL_SOURCE = "stored";
+    delete process.env.WHITEBIT_HISTORICAL_RECONCILIATION_APPROVED;
+    const forbiddenStoredRead = { select: () => { throw new Error("Stored credentials were read"); } };
+    const selected = await getSelectedWhitebitCredentialState(forbiddenStoredRead);
+    assert.equal(selected.status, "available");
+    assert.equal(selected.source, "environment");
+    assert.equal(selected.status === "available" && selected.credentials.apiKey, "fixture-environment-key");
+    assert.equal((await getWhitebitCredentialStateForSource("stored", forbiddenStoredRead)).status, "unavailable");
+    assert.equal(whitebitHistoryWorkerConfiguration().source, null);
+    process.env.WHITEBIT_HISTORY_CREDENTIAL_SOURCE = "environment";
+    assert.equal(whitebitHistoryWorkerConfiguration().source, "environment");
+    assert.equal(whitebitHistoryWorkerConfiguration().enabled, false);
+    assert.equal(whitebitHistoricalReconciliationAllowed(), false);
+    process.env.WHITEBIT_HISTORICAL_RECONCILIATION_APPROVED = "true";
+    assert.equal(whitebitHistoryWorkerConfiguration().enabled, true);
+    delete process.env.WHITEBIT_API_KEY;
+    assert.equal((await getSelectedWhitebitCredentialState(forbiddenStoredRead)).status, "absent");
+  } finally {
+    restore("WHITEBIT_CREDENTIAL_SOURCE", original.source);
+    restore("WHITEBIT_API_KEY", original.key);
+    restore("WHITEBIT_API_SECRET", original.secret);
+    restore("WHITEBIT_HISTORY_CREDENTIAL_SOURCE", original.history);
+    restore("WHITEBIT_HISTORY_WORKER_ENABLED", original.enabled);
+    restore("WHITEBIT_HISTORICAL_RECONCILIATION_APPROVED", original.approved);
+  }
+});
+
 const raw = Buffer.from(JSON.stringify({
   method: "deposit.processed",
   params: { nonce: 1001, uniqueId: "deposit-1", status: 3 },

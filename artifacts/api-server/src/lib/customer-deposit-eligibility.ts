@@ -19,6 +19,7 @@ import {
   isSyntacticallyValidManualWalletMemo,
 } from "./manual-wallet-validation";
 import {
+  getSelectedWhitebitCredentialState,
   getWhitebitCredentialStorageState,
   whitebitCredentialFingerprint,
 } from "./provider-credentials";
@@ -62,6 +63,7 @@ export class CustomerDepositEligibilityStateChangedError extends Error {
 type EligibilityExecutor = Pick<typeof db, "select" | "update">;
 
 export async function createCustomerDepositEligibilityContext(): Promise<CustomerDepositEligibilityContext> {
+  const selected = await getSelectedWhitebitCredentialState();
   const stored = await getWhitebitCredentialStorageState();
   const [setting] = await db.select({
     depositRouteProofs: whitebitProviderSettingsTable.depositRouteProofs,
@@ -81,14 +83,7 @@ export async function createCustomerDepositEligibilityContext(): Promise<Custome
     credentialUpdatedAtMs,
     providerSettingVersion,
   });
-  const activeCredentials = stored.status === "available"
-    ? stored.credentials
-    : process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET
-      ? {
-          apiKey: process.env.WHITEBIT_API_KEY,
-          secretKey: process.env.WHITEBIT_API_SECRET,
-        }
-      : null;
+  const activeCredentials = selected.status === "available" ? selected.credentials : null;
   if (!activeCredentials) return unavailable();
   try {
     const status = await whitebitSwapStatus();

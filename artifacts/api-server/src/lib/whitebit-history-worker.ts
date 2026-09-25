@@ -5,7 +5,7 @@ import {
   whitebitOrderAddressesTable,
 } from "@workspace/db";
 import { logger } from "./logger";
-import { getWhitebitCredentialStorageState, whitebitCredentialFingerprint } from "./provider-credentials";
+import { getWhitebitCredentialStateForSource, whitebitCredentialFingerprint } from "./provider-credentials";
 import { whitebitHistoryWorkerConfiguration, type WhitebitHistoryCredentialSource } from "./whitebit-history-health";
 import { matchWhitebitHistoryForOrder, matchesFrozenWhitebitClaim } from "./whitebit-history-match";
 import {
@@ -153,11 +153,10 @@ async function applyMatchedDeposit(
       throw new WhitebitHistoryWorkerError("WORKER_DISABLED", "WhiteBIT history worker was disabled while history was in flight.");
     }
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('rook:whitebit:credentials', 0))`);
-    const stored = source === "stored" ? await getWhitebitCredentialStorageState(tx) : null;
-    const current = source === "stored"
-      ? stored?.status === "available" ? stored.credentials : null
-      : process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET
-        ? { apiKey: process.env.WHITEBIT_API_KEY, secretKey: process.env.WHITEBIT_API_SECRET } : null;
+    const credentialSelection = await getWhitebitCredentialStateForSource(source, tx);
+    const current = credentialSelection.status === "available" && credentialSelection.source === source
+      ? credentialSelection.credentials
+      : null;
     if (!current || whitebitCredentialFingerprint(current) !== expectedFingerprint ||
         whitebitHistoryWorkerConfiguration().source !== source) {
       throw new WhitebitHistoryWorkerError("CREDENTIAL_CHANGED", "Selected WhiteBIT credential changed while history was in flight.");
@@ -222,11 +221,10 @@ function productionPorts(source: WhitebitHistoryCredentialSource, testOrderId?: 
     },
     history: async (candidate) => {
       if (!credentialSnapshot) {
-        const stored = source === "stored" ? await getWhitebitCredentialStorageState() : null;
-        credentialSnapshot = source === "stored"
-          ? stored?.status === "available" ? stored.credentials : null
-          : process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET
-            ? { apiKey: process.env.WHITEBIT_API_KEY, secretKey: process.env.WHITEBIT_API_SECRET } : null;
+        const selected = await getWhitebitCredentialStateForSource(source);
+        credentialSnapshot = selected.status === "available" && selected.source === source
+          ? selected.credentials
+          : null;
         if (!credentialSnapshot) throw new WhitebitHistoryWorkerError("CREDENTIAL_UNAVAILABLE", "Selected WhiteBIT history credential is unavailable.");
         // A saved verification fingerprint alone is insufficient: a stale key
         // can still be rejected by WhiteBIT. Validate the selected snapshot.

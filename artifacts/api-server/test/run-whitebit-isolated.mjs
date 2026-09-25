@@ -122,6 +122,7 @@ try {
     WHITEBIT_ISOLATED_DATABASE: testDatabase,
     WHITEBIT_API_KEY: "isolated-test-key",
     WHITEBIT_API_SECRET: "isolated-test-secret",
+    WHITEBIT_CREDENTIAL_SOURCE: undefined,
     NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --import=${resolve("test/block-whitebit-network.mjs")}`.trim(),
   };
   const entries = [

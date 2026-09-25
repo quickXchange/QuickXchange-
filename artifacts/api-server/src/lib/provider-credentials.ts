@@ -30,6 +30,29 @@ export type WhitebitCredentials = {
   secretKey: string;
 };
 
+export type WhitebitCredentialSource = "stored" | "environment";
+
+export function whitebitCredentialSourceConfiguration(): {
+  explicit: boolean;
+  valid: boolean;
+  source: WhitebitCredentialSource | null;
+} {
+  const configured = process.env.WHITEBIT_CREDENTIAL_SOURCE;
+  if (configured === undefined) return { explicit: false, valid: true, source: null };
+  if (configured === "stored" || configured === "environment") {
+    return { explicit: true, valid: true, source: configured };
+  }
+  return { explicit: true, valid: false, source: null };
+}
+
+/** Switching trading accounts must not silently replay old account history. */
+export function whitebitHistoricalReconciliationAllowed(): boolean {
+  const selected = whitebitCredentialSourceConfiguration();
+  return selected.valid &&
+    (selected.source !== "environment" ||
+      process.env.WHITEBIT_HISTORICAL_RECONCILIATION_APPROVED === "true");
+}
+
 export type StoredQuickexCredentials = {
   credentials: QuickexCredentials;
   updatedAt: Date;
@@ -281,6 +304,66 @@ export async function getWhitebitCredentialStorageState(
   } catch {
     return { status: "unavailable" as const, updatedAt: row.updatedAt };
   }
+}
+
+/**
+ * Resolve the one credential identity used by WhiteBIT operational calls.
+ * An explicitly selected source never falls back. When unset, retain legacy
+ * stored-first selection with environment fallback.
+ */
+export async function getSelectedWhitebitCredentialState(
+  executor: { select: (...args: any[]) => any } = db,
+) {
+  const configuration = whitebitCredentialSourceConfiguration();
+  if (!configuration.valid) return { status: "unavailable" as const, source: null };
+  const stored = configuration.source === "environment"
+    ? null
+    : await getWhitebitCredentialStorageState(executor);
+  const environment = process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET
+    ? { apiKey: process.env.WHITEBIT_API_KEY, secretKey: process.env.WHITEBIT_API_SECRET }
+    : null;
+  if (configuration.source === "environment") {
+    return environment
+      ? { status: "available" as const, source: "environment" as const, credentials: environment }
+      : { status: "absent" as const, source: null };
+  }
+  if (configuration.source === "stored") {
+    return stored?.status === "available"
+      ? { ...stored, source: "stored" as const }
+      : stored?.status === "unavailable"
+        ? { ...stored, source: null }
+        : { status: "absent" as const, source: null };
+  }
+  if (stored?.status === "available") return { ...stored, source: "stored" as const };
+  if (environment) return { status: "available" as const, source: "environment" as const, credentials: environment };
+  if (stored?.status === "unavailable") return { ...stored, source: null };
+  return { status: "absent" as const, source: null };
+}
+
+/** Resolve a source-specific operational consumer while respecting the global
+ * selector whenever it is explicitly configured. */
+export async function getWhitebitCredentialStateForSource(
+  source: WhitebitCredentialSource,
+  executor: { select: (...args: any[]) => any } = db,
+) {
+  const configuration = whitebitCredentialSourceConfiguration();
+  if (!configuration.valid || (configuration.explicit && configuration.source !== source)) {
+    return { status: "unavailable" as const, source: null };
+  }
+  if (source === "environment") {
+    const credentials = process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET
+      ? { apiKey: process.env.WHITEBIT_API_KEY, secretKey: process.env.WHITEBIT_API_SECRET }
+      : null;
+    return credentials
+      ? { status: "available" as const, source, credentials }
+      : { status: "absent" as const, source: null };
+  }
+  const stored = await getWhitebitCredentialStorageState(executor);
+  return stored.status === "available"
+    ? { ...stored, source: "stored" as const }
+    : stored.status === "unavailable"
+      ? { ...stored, source: null }
+      : { status: "absent" as const, source: null };
 }
 
 export async function activateWhitebitCredentials(

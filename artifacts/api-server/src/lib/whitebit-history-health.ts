@@ -1,5 +1,6 @@
 import { db, whitebitHistoryWorkerStateTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { whitebitCredentialSourceConfiguration, whitebitHistoricalReconciliationAllowed } from "./provider-credentials";
 
 export type WhitebitHistoryCredentialSource = "stored" | "environment";
 
@@ -16,9 +17,15 @@ export function whitebitHistoryWorkerConfiguration(): {
   enabled: boolean;
   source: WhitebitHistoryCredentialSource | null;
 } {
-  const enabled = process.env.WHITEBIT_HISTORY_WORKER_ENABLED === "true";
+  const enabled = process.env.WHITEBIT_HISTORY_WORKER_ENABLED === "true" &&
+    whitebitHistoricalReconciliationAllowed();
   const configured = process.env.WHITEBIT_HISTORY_CREDENTIAL_SOURCE;
-  const source = configured === "stored" || configured === "environment" ? configured : null;
+  const canonical = whitebitCredentialSourceConfiguration();
+  const configuredSource = configured === "stored" || configured === "environment" ? configured : null;
+  const source = !canonical.valid ||
+      (canonical.explicit && (!configuredSource || configuredSource !== canonical.source))
+    ? null
+    : configuredSource;
   return { enabled, source };
 }
 

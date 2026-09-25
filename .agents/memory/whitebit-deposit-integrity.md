@@ -86,3 +86,9 @@ Keeping a Manual receiving address on a WhiteBIT route is not consent to use it 
 **Why:** Operators may retain saved addresses for reference while choosing provider-created deposit addresses. Implicit fallback could direct customers to an address the operator never authorized for that purpose. Disabling fallback must not erase the saved address.
 
 **How to apply:** Keep provider provisioning independent of fallback consent, omit opted-out addresses from signed customer snapshots, and require both frozen and live opt-in when handling provider failures or recovering unresolved claims. Existing orders without a frozen choice fail closed.
+
+A WhiteBIT trading-credential source change must not promote proofs created under a different credential identity. Keep old proof records as stale evidence, require an exact current identity and route digest for eligibility, and pause historical reconciliation separately from current-route permission checks.
+
+**Why:** Admin verification, address provisioning, and order-history reads can otherwise use different trading accounts. A signed balance check proves the new credential works but does not prove access to old deposit addresses or make prior permission proofs transferable.
+
+**How to apply:** Make the operational source explicit and fail closed, check the same selected fingerprint at each proof/address boundary, turn off customer deposits for stale routes, and keep both scheduled and broad manual history replay gated until independently authorized. Signed webhooks retain their separate credential domain.

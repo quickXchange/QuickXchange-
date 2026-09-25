@@ -6,7 +6,7 @@ import {
   whitebitProviderSettingsTable,
   whitebitWebhookDeliveriesTable,
 } from "@workspace/db";
-import { getWhitebitCredentialStorageState, whitebitCredentialFingerprint } from "./provider-credentials";
+import { getSelectedWhitebitCredentialState, whitebitCredentialFingerprint } from "./provider-credentials";
 import { customerDepositRouteConfigurationDigest } from "./customer-deposit-eligibility";
 import { getWhitebitHistoryWorkerHealth } from "./whitebit-history-health";
 
@@ -232,14 +232,9 @@ export async function whitebitSwapStatus() {
   const historyWorker = await getWhitebitHistoryWorkerHealth();
   let signedWebhookDeliverySeen = false;
   let lastSignedWebhookAt: string | null = null;
-  const storedCredentials = await getWhitebitCredentialStorageState();
-  const credentialsReady = storedCredentials.status === "available" ||
-    Boolean(process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET);
-  const activeCredentials = storedCredentials.status === "available"
-    ? storedCredentials.credentials
-    : process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET
-      ? { apiKey: process.env.WHITEBIT_API_KEY, secretKey: process.env.WHITEBIT_API_SECRET }
-      : null;
+  const selectedCredentials = await getSelectedWhitebitCredentialState();
+  const credentialsReady = selectedCredentials.status === "available";
+  const activeCredentials = credentialsReady ? selectedCredentials.credentials : null;
   const credentialFingerprint = activeCredentials
     ? whitebitCredentialFingerprint(activeCredentials)
     : null;
@@ -357,12 +352,8 @@ export async function isWhitebitSwapEnabled(assetCode: string, networkCode: stri
   if (!status.enabled) return null;
   try {
     const snapshot = await getWhitebitCapabilities();
-    const stored = await getWhitebitCredentialStorageState();
-    const activeCredentials = stored.status === "available"
-      ? stored.credentials
-      : process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET
-        ? { apiKey: process.env.WHITEBIT_API_KEY, secretKey: process.env.WHITEBIT_API_SECRET }
-        : null;
+    const selected = await getSelectedWhitebitCredentialState();
+    const activeCredentials = selected.status === "available" ? selected.credentials : null;
     const fingerprint = activeCredentials ? whitebitCredentialFingerprint(activeCredentials) : null;
     const routeRows = await db.select({
       asset: cryptoAssetsTable,

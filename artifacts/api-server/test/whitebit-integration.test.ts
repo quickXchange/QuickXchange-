@@ -731,9 +731,13 @@ test("reconciliation stops the array scan at the 10000-record provider boundary"
     { customerId, ticker: "LATER", providerTicker: "LATER", network: "TEST", address: laterAddress, status: "ready" },
   ]);
   const legalOffsets: number[] = [];
-  const page = Array.from({ length: 500 }, (_, index) => ({
+  // Keep these otherwise parseable records identity-less: replayHistoryRecord
+  // returns before opening a DB transaction when normalization finds no stable
+  // provider ID, so the 10,000-record boundary still exercises parsing/looping
+  // without issuing 10,000 deposit writes.
+  const page = Array.from({ length: 500 }, () => ({
     address: boundaryAddress, ticker: "BOUND", network: "TEST", amount: "0.00000001", fee: "0",
-    status: 3, unique_id: runId(`boundary-${index}`), transaction_id: runId(`boundary-tx-${index}`),
+    status: 3,
   }));
   globalThis.fetch = async (input, init) => {
     const url = String(input);
@@ -757,10 +761,20 @@ test("reconciliation stops the array scan at the 10000-record provider boundary"
     method: "POST", headers: { "x-test-operator": `owner-${suffix}` },
   });
   assert.equal(response.status, 200);
+  const result = await response.json() as {
+    pages: number;
+    records: number;
+    incompleteAddresses: Array<{ kind: string; id: string }>;
+  };
   assert.deepEqual(legalOffsets, Array.from({ length: 20 }, (_, index) => index * 500));
   assert.equal(legalOffsets.includes(10000), false);
+  assert.ok(result.pages >= 20);
+  assert.ok(result.records >= 10_000);
+  const [boundary] = await database.db.select().from(database.whitebitDepositAddressesTable)
+    .where(eq(database.whitebitDepositAddressesTable.address, boundaryAddress)).limit(1);
+  assert.ok(result.incompleteAddresses.some((item) => item.kind === "account" && item.id === boundary!.id));
   const [checkpoint] = await database.db.select().from(database.whitebitHistoryCheckpointsTable)
-    .where(eq(database.whitebitHistoryCheckpointsTable.addressId, (await database.db.select().from(database.whitebitDepositAddressesTable).where(eq(database.whitebitDepositAddressesTable.address, boundaryAddress)).limit(1))[0]!.id));
+    .where(eq(database.whitebitHistoryCheckpointsTable.addressId, boundary!.id));
   assert.equal(checkpoint, undefined);
   const [later] = await database.db.select().from(database.whitebitDepositsTable)
     .where(eq(database.whitebitDepositsTable.uniqueId, runId("later-boundary-id")));
@@ -775,9 +789,12 @@ test("object history envelopes also enforce the 10000-record ceiling", async () 
     { customerId, ticker: "OBJLATER", providerTicker: "OBJLATER", network: "TEST", address: laterAddress, status: "ready" },
   ]);
   const offsets: number[] = [];
-  const page = Array.from({ length: 500 }, (_, index) => ({
+  // Missing stable IDs take replayHistoryRecord's normalization early return,
+  // preserving coverage of parsing and all 20 pagination loops without
+  // inserting the 10,000 boundary records into the database.
+  const page = Array.from({ length: 500 }, () => ({
     address: boundaryAddress, ticker: "OBJBOUND", network: "TEST", amount: "0.00000001", fee: "0",
-    status: 3, unique_id: runId(`obj-boundary-${index}`), transaction_id: runId(`obj-boundary-tx-${index}`),
+    status: 3,
   }));
   globalThis.fetch = async (input, init) => {
     if (String(input).includes("whitebit.com/api/v4/main-account/history")) {
@@ -800,10 +817,18 @@ test("object history envelopes also enforce the 10000-record ceiling", async () 
     method: "POST", headers: { "x-test-operator": `owner-${suffix}` },
   });
   assert.equal(response.status, 200);
+  const result = await response.json() as {
+    pages: number;
+    records: number;
+    incompleteAddresses: Array<{ kind: string; id: string }>;
+  };
   assert.deepEqual(offsets, Array.from({ length: 20 }, (_, index) => index * 500));
   assert.equal(offsets.includes(10_000), false);
+  assert.ok(result.pages >= 20);
+  assert.ok(result.records >= 10_000);
   const [boundary] = await database.db.select().from(database.whitebitDepositAddressesTable)
     .where(eq(database.whitebitDepositAddressesTable.address, boundaryAddress)).limit(1);
+  assert.ok(result.incompleteAddresses.some((item) => item.kind === "account" && item.id === boundary!.id));
   const [checkpoint] = await database.db.select().from(database.whitebitHistoryCheckpointsTable)
     .where(eq(database.whitebitHistoryCheckpointsTable.addressId, boundary!.id));
   assert.equal(checkpoint, undefined);

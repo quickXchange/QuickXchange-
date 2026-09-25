@@ -30,7 +30,8 @@ import {
   type WhitebitCapabilitySnapshot,
 } from "../lib/whitebit-capabilities";
 import {
-  getWhitebitCredentialStorageState,
+  getSelectedWhitebitCredentialState,
+  whitebitHistoricalReconciliationAllowed,
   whitebitCredentialFingerprint,
   type WhitebitCredentials,
 } from "../lib/provider-credentials";
@@ -58,14 +59,11 @@ async function hasOrderAddressTable() {
 
 async function credentials(override?: WhitebitCredentials): Promise<{ key: string; secret: string }> {
   if (override) return { key: override.apiKey, secret: override.secretKey };
-  const stored = await getWhitebitCredentialStorageState();
-  if (stored.status === "available") {
-    return { key: stored.credentials.apiKey, secret: stored.credentials.secretKey };
+  const selected = await getSelectedWhitebitCredentialState();
+  if (selected.status !== "available") {
+    throw new ApiError("WHITEBIT_NOT_CONFIGURED", "WhiteBIT is not configured for the selected credential source.", 503);
   }
-  const key = process.env.WHITEBIT_API_KEY;
-  const secret = process.env.WHITEBIT_API_SECRET;
-  if (!key || !secret) throw new ApiError("WHITEBIT_NOT_CONFIGURED", "WhiteBIT is not configured.", 503);
-  return { key, secret };
+  return { key: selected.credentials.apiKey, secret: selected.credentials.secretKey };
 }
 
 export class WhitebitProviderHttpError extends ApiError {
@@ -471,14 +469,11 @@ export async function provisionSwapFundingAddress(input: {
     ) return { claim: undefined, row: undefined, disabled: true };
     const [setting] = await tx.select().from(whitebitProviderSettingsTable)
       .where(eq(whitebitProviderSettingsTable.provider, "whitebit")).limit(1);
-    const storedCredentials = await getWhitebitCredentialStorageState(tx);
-    const credentialsReady = storedCredentials.status === "available" ||
-      Boolean(process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET);
-    const credentialSnapshot: WhitebitCredentials | undefined = storedCredentials.status === "available"
-      ? storedCredentials.credentials
-      : process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET
-        ? { apiKey: process.env.WHITEBIT_API_KEY, secretKey: process.env.WHITEBIT_API_SECRET }
-        : undefined;
+    const selectedCredentials = await getSelectedWhitebitCredentialState(tx);
+    const credentialsReady = selectedCredentials.status === "available";
+    const credentialSnapshot: WhitebitCredentials | undefined = credentialsReady
+      ? selectedCredentials.credentials
+      : undefined;
     if (!setting || setting.disabled || !credentialsReady) return { claim: undefined, row: undefined, disabled: true };
     const credentialFingerprint = credentialSnapshot
       ? whitebitCredentialFingerprint(credentialSnapshot)
@@ -1377,6 +1372,9 @@ whitebitOperatorRouter.post("/admin/whitebit/assets/import", requireOwner, async
   res.status(201).json({ imported, skipped });
 });
 whitebitOperatorRouter.post("/admin/whitebit/reconcile", requireOwner, async (_req, res): Promise<void> => {
+  if (!whitebitHistoricalReconciliationAllowed()) {
+    throw new ApiError("WHITEBIT_HISTORY_APPROVAL_REQUIRED", "Historical WhiteBIT reconciliation is blocked for this selected credential source.", 409);
+  }
   const limit = 500;
   const maxPages = 100;
   let records = 0;

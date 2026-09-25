@@ -285,6 +285,7 @@ import {
 } from "../lib/whitebit-capabilities";
 import {
   activateWhitebitCredentials,
+  getSelectedWhitebitCredentialState,
   getWhitebitCredentialStorageState,
   whitebitCredentialFingerprint,
 } from "../lib/provider-credentials";
@@ -6674,18 +6675,19 @@ router.get("/admin/providers/whitebit", async (_req, res, next) => {
 
 router.get("/admin/providers/whitebit/credentials", async (_req, res, next) => {
   try {
-    const stored = await getWhitebitCredentialStorageState();
-    const environment = Boolean(process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET);
+    const selected = await getSelectedWhitebitCredentialState();
+    const stored = selected.source === "stored"
+      ? await getWhitebitCredentialStorageState()
+      : { status: "absent" as const };
     res.json(GetWhitebitCredentialsResponse.parse({
       provider: "whitebit",
-      configured: stored.status === "available" || environment,
-      credentialSource: stored.status === "available"
-        ? "stored"
-        : stored.status === "unavailable"
-          ? "unavailable"
-          : environment ? "environment" : "none",
+      configured: selected.status === "available",
+      credentialSource: selected.status === "available"
+        ? selected.source
+        : selected.status === "unavailable" ? "unavailable" : "none",
       canManage: res.locals.operator?.role === "owner",
-      updatedAt: stored.status === "available" || stored.status === "unavailable"
+      updatedAt: selected.source === "stored" &&
+          (stored.status === "available" || stored.status === "unavailable")
         ? stored.updatedAt.toISOString()
         : null,
     }));
@@ -6696,6 +6698,9 @@ router.get("/admin/providers/whitebit/credentials", async (_req, res, next) => {
 
 router.put("/admin/providers/whitebit/credentials", requireOwner, async (req, res, next) => {
   try {
+    if (process.env.WHITEBIT_CREDENTIAL_SOURCE === "environment") {
+      throw new ApiError("WHITEBIT_CREDENTIAL_SOURCE_LOCKED", "WhiteBIT trading credentials are selected from the environment. Admin-stored credentials cannot become active while this source is configured.", 409);
+    }
     const parsed = UpdateWhitebitCredentialsBody.safeParse(req.body);
     if (!parsed.success) throw new ApiError("VALIDATION_ERROR", parsed.error.message, 400);
     const signedTest = await testWhitebitSignedConnection(parsed.data);
@@ -6765,11 +6770,9 @@ router.put("/admin/providers/whitebit/credentials", requireOwner, async (req, re
 router.post("/admin/providers/whitebit/credentials/test", requireOwner, async (_req, res, next) => {
   try {
     const stored = await getWhitebitCredentialStorageState();
-    const credentials = stored.status === "available" ? stored.credentials :
-      process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET
-        ? { apiKey: process.env.WHITEBIT_API_KEY, secretKey: process.env.WHITEBIT_API_SECRET }
-        : null;
-    if (!credentials) throw new ApiError("WHITEBIT_NOT_CONFIGURED", "WhiteBIT credentials are unavailable.", 503);
+    const credentialSelection = await getSelectedWhitebitCredentialState();
+    const credentials = credentialSelection.status === "available" ? credentialSelection.credentials : null;
+    if (!credentials) throw new ApiError("WHITEBIT_NOT_CONFIGURED", "WhiteBIT credentials are unavailable for the selected source.", 503);
     const result = await testWhitebitSignedConnection(credentials);
     const fingerprint = whitebitCredentialFingerprint(credentials);
     const verifiedAt = new Date(result.checkedAt);
@@ -6788,6 +6791,12 @@ router.post("/admin/providers/whitebit/credentials/test", requireOwner, async (_
           !currentCredential || currentCredential.updatedAt.getTime() !== expectedUpdatedAt.getTime()
       ) {
         throw new ApiError("WHITEBIT_CREDENTIAL_STATE_CHANGED", "WhiteBIT credentials changed during the signed test. Test the current credentials again.", 409);
+      }
+      const currentSelection = await getSelectedWhitebitCredentialState(tx);
+      if (currentSelection.status !== "available" ||
+        currentSelection.source !== credentialSelection.source ||
+        whitebitCredentialFingerprint(currentSelection.credentials) !== fingerprint) {
+        throw new ApiError("WHITEBIT_CREDENTIAL_STATE_CHANGED", "The selected WhiteBIT credential source changed during the signed test. Test the current source again.", 409);
       }
       const [current] = await tx.select({
         version: whitebitProviderSettingsTable.version,
@@ -6808,9 +6817,9 @@ router.post("/admin/providers/whitebit/credentials/test", requireOwner, async (_
         set: {
           credentialVerifiedFingerprint: fingerprint,
           credentialVerifiedAt: verifiedAt,
-          ...(current?.credentialVerifiedFingerprint === fingerprint
-            ? {}
-            : { depositRouteProofs: [], disabled: true }),
+          // A changed identity makes every mismatched route proof stale. Do
+          // not globally disable unrelated routes or discard the old proof
+          // record; exact-route gates still require a matching fingerprint.
           version: sql`${whitebitProviderSettingsTable.version} + 1`,
           updatedAt: new Date(),
         },
@@ -6825,11 +6834,8 @@ router.post("/admin/providers/whitebit/credentials/test", requireOwner, async (_
 router.get("/admin/providers/whitebit/verification-routes", requireOwner, async (_req, res, next) => {
   try {
     const capabilities = await getWhitebitCapabilities();
-    const stored = await getWhitebitCredentialStorageState();
-    const credentials = stored.status === "available" ? stored.credentials :
-      process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET
-        ? { apiKey: process.env.WHITEBIT_API_KEY, secretKey: process.env.WHITEBIT_API_SECRET }
-        : null;
+    const selected = await getSelectedWhitebitCredentialState();
+    const credentials = selected.status === "available" ? selected.credentials : null;
     const fingerprint = credentials ? whitebitCredentialFingerprint(credentials) : null;
     const [setting] = await db.select({
       depositRouteProofs: whitebitProviderSettingsTable.depositRouteProofs,
@@ -6886,11 +6892,9 @@ router.post("/admin/providers/whitebit/address-permission/verify", requireOwner,
       );
     }
     const stored = await getWhitebitCredentialStorageState();
-    const credentials = stored.status === "available" ? stored.credentials :
-      process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET
-        ? { apiKey: process.env.WHITEBIT_API_KEY, secretKey: process.env.WHITEBIT_API_SECRET }
-        : null;
-    if (!credentials) throw new ApiError("WHITEBIT_NOT_CONFIGURED", "WhiteBIT credentials are unavailable.", 503);
+    const credentialSelection = await getSelectedWhitebitCredentialState();
+    const credentials = credentialSelection.status === "available" ? credentialSelection.credentials : null;
+    if (!credentials) throw new ApiError("WHITEBIT_NOT_CONFIGURED", "WhiteBIT credentials are unavailable for the selected source.", 503);
     const credentialFingerprint = whitebitCredentialFingerprint(credentials);
     const expectedCredentialUpdatedAt = stored.status === "available" || stored.status === "unavailable"
       ? stored.updatedAt
@@ -6964,12 +6968,10 @@ router.post("/admin/providers/whitebit/address-permission/verify", requireOwner,
         ? !credentialAtLock
         : Boolean(credentialAtLock &&
           credentialAtLock.updatedAt.getTime() === expectedCredentialUpdatedAt.getTime());
-      const envStillMatches = stored.status === "available" ||
-        Boolean(process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET &&
-          whitebitCredentialFingerprint({
-            apiKey: process.env.WHITEBIT_API_KEY,
-            secretKey: process.env.WHITEBIT_API_SECRET,
-          }) === credentialFingerprint);
+      const latestSelected = await getSelectedWhitebitCredentialState(tx);
+      const envStillMatches = latestSelected.status === "available" &&
+        latestSelected.source === credentialSelection.source &&
+        whitebitCredentialFingerprint(latestSelected.credentials) === credentialFingerprint;
       if (!credentialsStillMatch || !envStillMatches) {
         throw new ApiError("WHITEBIT_CREDENTIAL_STATE_CHANGED", "WhiteBIT credentials changed during verification. Retry after retesting them.", 409);
       }
@@ -6991,13 +6993,10 @@ router.post("/admin/providers/whitebit/address-permission/verify", requireOwner,
           ? !currentCredential
           : Boolean(currentCredential &&
             currentCredential.updatedAt.getTime() === expectedCredentialUpdatedAt.getTime());
-        const currentEnvFingerprint = process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET
-          ? whitebitCredentialFingerprint({
-              apiKey: process.env.WHITEBIT_API_KEY,
-              secretKey: process.env.WHITEBIT_API_SECRET,
-            })
-          : null;
-        return unchanged && (stored.status === "available" || currentEnvFingerprint === credentialFingerprint);
+        const latestSelected = await getSelectedWhitebitCredentialState(tx);
+        return unchanged && latestSelected.status === "available" &&
+          latestSelected.source === credentialSelection.source &&
+          whitebitCredentialFingerprint(latestSelected.credentials) === credentialFingerprint;
       };
       if (!(await credentialStateIsCurrent())) {
         throw new ApiError("WHITEBIT_CREDENTIAL_STATE_CHANGED", "WhiteBIT credentials changed during verification. Retry after retesting them.", 409);
@@ -7075,16 +7074,10 @@ router.patch("/admin/providers/whitebit", requireOwner, async (req, res, next) =
     const disabled = !req.body.enabled;
     const operatorId = getOperatorActorUserId(req);
     const storedBefore = await getWhitebitCredentialStorageState();
-    const verifiedCredentials = req.body.enabled && storedBefore.status === "available"
-      ? storedBefore.credentials
+    const selectedBefore = await getSelectedWhitebitCredentialState();
+    const activeCredentials = req.body.enabled && selectedBefore.status === "available"
+      ? selectedBefore.credentials
       : undefined;
-    const activeCredentials = verifiedCredentials ??
-      (process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET
-        ? {
-            apiKey: process.env.WHITEBIT_API_KEY,
-            secretKey: process.env.WHITEBIT_API_SECRET,
-          }
-        : undefined);
     const credentialFingerprint = activeCredentials
       ? whitebitCredentialFingerprint(activeCredentials)
       : null;
@@ -7253,6 +7246,18 @@ router.patch("/admin/providers/whitebit", requireOwner, async (req, res, next) =
           "WhiteBIT credentials changed during verification. Retry the operation.",
           409,
         );
+      }
+      if (req.body.enabled) {
+        const currentSelection = await getSelectedWhitebitCredentialState(tx);
+        if (currentSelection.status !== "available" ||
+          currentSelection.source !== selectedBefore.source ||
+          whitebitCredentialFingerprint(currentSelection.credentials) !== credentialFingerprint) {
+          throw new ApiError(
+            "WHITEBIT_CREDENTIAL_STATE_CHANGED",
+            "The selected WhiteBIT credential source changed during verification. Retry the operation.",
+            409,
+          );
+        }
       }
       if (req.body.enabled) {
         const currentConfiguredRows = await tx.select({
