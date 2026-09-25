@@ -10318,29 +10318,6 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
         <span className="field-label">Memo / Tag <small>Optional</small></span>
         <input data-testid="network-wallet-memo" value={form.sharedDepositMemo} onChange={e => setForm({...form, sharedDepositMemo: e.target.value})} placeholder="Optional memo or tag" />
       </label>
-      <label className="catalog-editor-toggle">
-        <input
-          type="checkbox"
-          className="w-auto h-auto"
-          data-testid="network-manual-wallet-tracking"
-          checked={form.manualWalletTrackingEnabled}
-          onChange={event => setForm({ ...form, manualWalletTrackingEnabled: event.target.checked })}
-        />
-        <span className="field-label !mb-0 text-sm font-bold">Track Manual Wallet with Blockchain Monitoring</span>
-      </label>
-      {form.manualWalletTrackingEnabled ? (
-        <InlineNotice kind={monitoringReadiness?.ready === true ? 'success' : 'warning'}>
-          <strong>{monitoringReadiness?.ready === true ? 'READY' : 'BLOCKED'}</strong>
-          {monitoringReadiness?.message
-            ? ` — ${monitoringReadiness.message}`
-            : ' — Save the route to evaluate monitoring readiness.'}
-          {isWhitebitProvider && ' WhiteBIT-generated addresses are not monitored; this setting applies to a Manual Fallback address.'}
-        </InlineNotice>
-      ) : (
-        <p className="field-hint">
-          Manual — no automatic blockchain tracking{isWhitebitProvider ? '. This also applies to a Manual Fallback address.' : '.'}
-        </p>
-      )}
     </>
   );
 
@@ -10348,10 +10325,15 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
     <div className="drawer-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <aside className="order-drawer network-drawer catalog-editor-drawer" role="dialog" aria-label={isNew ? t('adminCatalog.add_crypto_network') : t('adminCatalog.edit_crypto_network')} data-testid="crypto-network-drawer">
         <div className="drawer-head catalog-editor-head"><div className="catalog-editor-heading"><span className="catalog-editor-icon"><Network size={19} /></span><div><span className="section-kicker">{t('adminCatalog.configuration')}</span><h2>{isNew ? t('adminCatalog.add_crypto_network') : t('adminCatalog.edit_crypto_network')}</h2></div></div><button className="icon-button catalog-editor-close" onClick={onClose} aria-label={t('adminCatalog.close_crypto_network_drawer')}><X size={18} /></button></div>
-        <form className="admin-form admin-form-card drawer-edit network-drawer-form catalog-editor-form" onSubmit={save}>
+        <form className="admin-form admin-form-card drawer-edit network-drawer-form catalog-editor-form" onSubmit={event => {
+          event.preventDefault();
+          if (isNew) void save(event);
+        }}>
           {error && <InlineNotice kind="error">{error}</InlineNotice>}
           {successNotice && <InlineNotice kind="success" onDismiss={() => setSuccessNotice('')}>{successNotice}</InlineNotice>}
 
+          <section className="space-y-4 rounded-xl border border-border/70 p-4" aria-label="Network Details">
+            <div className="panel-heading"><div><span className="section-kicker">1 / Network</span><h2>Network Details</h2></div></div>
           <section className="catalog-editor-network-preview" aria-label={t('adminCatalog.network_asset_and_metadata_preview')}>
             <div>
               <span className="section-kicker">{t('adminCatalog.parent_asset')}</span>
@@ -10440,12 +10422,34 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
           <label><span className="field-label">{t('adminCatalog.explorer_url_template')}</span><input value={form.explorerUrlTemplate} onChange={e => setForm({...form, explorerUrlTemplate: e.target.value})} placeholder="https://explorer.com/tx/{tx}" /></label>
           <label><span className="field-label">{t('adminCatalog.deposit_instructions')}</span><textarea rows={2} value={form.depositInstructions} onChange={e => setForm({...form, depositInstructions: e.target.value})} placeholder={t('adminCatalog.shown_to_users_when_depositing')} /></label>
           <label><span className="field-label">{t('adminCatalog.deposit_warning')}</span><textarea rows={2} value={form.depositWarning} onChange={e => setForm({...form, depositWarning: e.target.value})} placeholder={t('adminCatalog.red_warning_text_if_necessary')} /></label>
+            <div className="flex flex-wrap gap-2">
+              {isNew ? (
+                <button type="submit" className="catalog-editor-primary" disabled={createNetwork.isPending}>
+                  <Save size={16} />{t('adminCatalog.save_network')}
+                </button>
+              ) : (
+                <button type="button" className="button-secondary" onClick={() => void saveNetworkMetadata()} disabled={updateNetwork.isPending}>
+                  <Save size={16} />Save Network Details
+                </button>
+              )}
+            </div>
+            {!isNew && <p className="field-hint">Network Details save separately. Deposit route, monitoring, and customer visibility are managed below.</p>}
+            {!isNew && (
+              <details className="rounded-lg border border-border/70 p-3">
+                <summary className="cursor-pointer text-sm font-semibold">Advanced: Delete network</summary>
+                <button type="button" className="catalog-editor-danger mt-3" onClick={remove} disabled={deleteNetwork.isPending}>
+                  <Trash2 size={15} />{t('adminCatalog.delete')}
+                </button>
+              </details>
+            )}
+          </section>
 
           {!isNew && (
              <section className="receiving-wallet-section" data-testid="network-receiving-wallet-section" aria-label="Deposit provider and Manual Wallet tracking">
               <div className="panel-heading mb-3">
-                 <div><span className="section-kicker">Deposits</span><h2>Asset + Network Deposit Route</h2></div>
+                  <div><span className="section-kicker">2 / Routing</span><h2>Deposit Provider</h2></div>
               </div>
+               <p className="field-hint">Choose the funding source for this Asset + Network. Saving a WhiteBIT setup keeps Customer Deposits OFF until separately enabled.</p>
               {savedRoute?.depositProvider === 'whitebit' && savedRoute.customerDepositsEnabled === true && (
                 <InlineNotice kind="warning">
                   This WhiteBIT route is live. Turn Customer Deposits OFF with its separate control before saving provider, mapping, or fallback changes.
@@ -10552,6 +10556,100 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                   )}
                 </div>
               )}
+             </section>
+           )}
+
+           {!isNew && (
+             <section className="receiving-wallet-section" aria-label="Manual Wallet / Fallback">
+               <div className="panel-heading mb-3">
+                 <div><span className="section-kicker">3 / Address</span><h2>Manual Wallet / Fallback</h2></div>
+               </div>
+               {isWhitebitProvider ? (
+                 <details className="rounded-lg border border-border p-3">
+                   <summary className="cursor-pointer font-semibold">
+                     Advanced: Manual fallback · {form.manualFallbackEnabled ? 'Opted in' : 'Opted out'}
+                   </summary>
+                   <p className="field-hint mt-3">WhiteBIT is attempted first. This saved address is used only if fallback is opted in and available.</p>
+                   <div className="mt-3 space-y-3">{manualFallbackFields}</div>
+                 </details>
+               ) : form.depositProvider === 'manual' ? (
+                 <div className="space-y-3">{manualFallbackFields}</div>
+               ) : form.sharedDepositAddress ? (
+                 <details className="rounded-lg border border-border p-3">
+                   <summary className="cursor-pointer font-semibold">Advanced: Stored inactive Manual Wallet</summary>
+                   <div className="mt-3 space-y-3">{manualFallbackFields}</div>
+                 </details>
+               ) : (
+                 <p className="field-hint">Choose Manual Wallet or WhiteBIT in Deposit Provider to configure a receiving address.</p>
+               )}
+             </section>
+           )}
+
+           {!isNew && (
+             <section className="receiving-wallet-section" aria-label="Blockchain Monitoring">
+               <div className="panel-heading mb-3">
+                 <div><span className="section-kicker">4 / Detection</span><h2>Blockchain Monitoring</h2></div>
+               </div>
+               {isWhitebitProvider || form.depositProvider === 'manual' || Boolean(form.sharedDepositAddress) ? (
+                 <details className="rounded-lg border border-border p-3">
+                   <summary className="cursor-pointer font-semibold">
+                     Advanced monitoring · {form.manualWalletTrackingEnabled ? 'Manual tracking ON' : 'Manual tracking OFF'}
+                   </summary>
+                   <div className="mt-3 space-y-3">
+                     <label className="catalog-editor-toggle">
+                       <input
+                         type="checkbox"
+                         className="w-auto h-auto"
+                         data-testid="network-manual-wallet-tracking"
+                         checked={form.manualWalletTrackingEnabled}
+                         onChange={event => setForm({ ...form, manualWalletTrackingEnabled: event.target.checked })}
+                       />
+                       <span className="field-label !mb-0 text-sm font-bold">Track Manual Wallet with Blockchain Monitoring</span>
+                     </label>
+                     {form.manualWalletTrackingEnabled ? (
+                       <InlineNotice kind={monitoringReadiness?.ready === true ? 'success' : 'warning'}>
+                         <strong>{monitoringReadiness?.ready === true ? 'READY' : 'BLOCKED'}</strong>
+                         {monitoringReadiness?.message
+                           ? ` — ${monitoringReadiness.message}`
+                           : ' — Save the route to evaluate monitoring readiness.'}
+                         {isWhitebitProvider && ' WhiteBIT-generated addresses are not monitored; this setting applies only to a Manual Fallback address.'}
+                       </InlineNotice>
+                     ) : (
+                       <p className="field-hint">Manual — no automatic blockchain tracking for the saved Manual Wallet.</p>
+                     )}
+                     {network && <BlockchainMonitorConfig network={network} networkCode={network.networkCode || networkCode} />}
+                   </div>
+                 </details>
+               ) : (
+                 <p className="field-hint">Manual Wallet monitoring is available when a Manual Wallet or fallback is configured.</p>
+               )}
+             </section>
+           )}
+
+           {!isNew && (
+             <div className="network-drawer-actions catalog-editor-actions">
+               <p className="field-hint w-full">Save changes to sections 2–4 before changing Customer Deposits. This does not save Network Details.</p>
+               {!isWhitebitProvider || !(savedRoute?.depositProvider === 'manual' && savedRoute.customerDepositsEnabled === true) ? (
+                 <button type="button" onClick={() => void save()} className="catalog-editor-primary" data-testid="button-save-deposit-route" disabled={depositRouteSaving || saveReceivingWallet.isPending || testWhitebitCredentials.isPending || verifyWhitebitPermission.isPending || whitebitReviewPending || (savedRoute?.depositProvider === 'whitebit' && savedRoute.customerDepositsEnabled === true)}>
+                   <Save size={16} />{isWhitebitProvider ? 'Save WhiteBIT setup (Customer Deposits OFF)' : 'Save Deposit Route'}
+                 </button>
+               ) : (
+                 isOwner && <button type="button" className="catalog-editor-primary" data-testid="button-confirm-whitebit-switch" disabled={depositRouteSaving || saveReceivingWallet.isPending || whitebitReviewPending} onClick={() => {
+                   if (window.confirm('Switch this active Manual Wallet route to WhiteBIT? The saved Manual address remains available, but Customer Deposits will turn OFF until you verify WhiteBIT and turn them ON separately.')) {
+                     void save(undefined, true);
+                   }
+                 }}>
+                   <Save size={16} />Switch to WhiteBIT (turn Customer Deposits OFF until verified)
+                 </button>
+               )}
+             </div>
+           )}
+
+           {!isNew && (
+             <section className="receiving-wallet-section" aria-label="Customer Deposits / Widget">
+               <div className="panel-heading mb-3">
+                 <div><span className="section-kicker">5 / Visibility</span><h2>Customer Deposits / Widget</h2></div>
+               </div>
               {!isNew && (
                  <InlineNotice kind={isWhitebitProvider ? (whitebitReadyForWidget ? 'success' : 'warning') : manualReadyForWidget ? 'success' : 'warning'}>
                   <strong data-testid="network-widget-readiness">
@@ -10581,13 +10679,6 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                   </span>
                 </InlineNotice>
               )}
-              {isWhitebitProvider ? (
-                <details className="rounded-lg border border-border p-3">
-                  <summary className="cursor-pointer font-semibold">Advanced / Manual Fallback</summary>
-                  <div className="mt-3 space-y-3">{manualFallbackFields}</div>
-                  {!isNew && network && <BlockchainMonitorConfig network={network} networkCode={network.networkCode || networkCode} />}
-                </details>
-              ) : manualFallbackFields}
               {persistedWhitebitRoute ? (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-3">
@@ -10634,32 +10725,6 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
               )}
             </section>
           )}
-
-          {!isNew && network && !isWhitebitProvider && (
-            <BlockchainMonitorConfig network={network} networkCode={network.networkCode || networkCode} />
-          )}
-
-          <div className="network-drawer-actions catalog-editor-actions mt-4">
-            {isNew || !isWhitebitProvider || !(savedRoute?.depositProvider === 'manual' && savedRoute.customerDepositsEnabled === true) ? (
-              <button type="submit" className="catalog-editor-primary" data-testid="button-save-deposit-route" disabled={createNetwork.isPending || depositRouteSaving || saveReceivingWallet.isPending || testWhitebitCredentials.isPending || verifyWhitebitPermission.isPending || whitebitReviewPending || (savedRoute?.depositProvider === 'whitebit' && savedRoute.customerDepositsEnabled === true)}>
-                <Save size={16} />{isNew ? t('adminCatalog.save_network') : isWhitebitProvider ? 'Save WhiteBIT setup (Customer Deposits OFF)' : 'Save Deposit Route'}
-              </button>
-            ) : (
-              isOwner && <button type="button" className="catalog-editor-primary" data-testid="button-confirm-whitebit-switch" disabled={depositRouteSaving || saveReceivingWallet.isPending || whitebitReviewPending} onClick={() => {
-                if (window.confirm('Switch this active Manual Wallet route to WhiteBIT? The saved Manual address remains available, but Customer Deposits will turn OFF until you verify WhiteBIT and turn them ON separately.')) {
-                  void save(undefined, true);
-                }
-              }}>
-                <Save size={16} />Switch to WhiteBIT (turn Customer Deposits OFF until verified)
-              </button>
-            )}
-            {!isNew && (
-              <button type="button" className="button-secondary" onClick={() => void saveNetworkMetadata()} disabled={updateNetwork.isPending}>
-                <Save size={16} />Save Network Details
-              </button>
-            )}
-            {!isNew && <button type="button" className="catalog-editor-danger" onClick={remove} disabled={deleteNetwork.isPending}><Trash2 size={15} />{t('adminCatalog.delete')}</button>}
-          </div>
         </form>
       </aside>
     </div>
