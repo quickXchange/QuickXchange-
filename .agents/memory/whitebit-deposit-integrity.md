@@ -74,3 +74,9 @@ The order-address claim's provider ticker/network must equal the identity used i
 **Why:** A mapped route can create an address successfully yet fail exact-tuple webhook/history association if its preclaimed provider identity remains canonical. Filtering activation capabilities by canonical codes can also make a valid mapped proof appear unsupported.
 
 **How to apply:** Freeze both canonical and provider identities at quote/order creation, reject mismatched durable claims before any provider call, and keep canonical codes only for route/proof identity while using provider codes for calls and reconciliation.
+
+Memo-less WhiteBIT BNB/BEP20 history may represent the memo as `null` even when a successful order-address claim stores an empty string. Treat those two absence representations consistently for exact-tuple matching; do not relax matching for nonempty memos.
+
+**Why:** A read-only provider history record for a processed deposit matched its generated order address, asset, and network, but a null history memo could not match the claim's empty-string memo. No deposit or order transition was recorded.
+
+**How to apply:** Normalize only blank/missing memos at the claim and evidence boundary, test both signed webhook and history paths, and keep the address plus provider asset/network uniqueness safeguards intact. A lack of stored webhook delivery does not prove the provider never sent one.
