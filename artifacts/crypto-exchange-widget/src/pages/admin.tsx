@@ -60,6 +60,7 @@ import {
   exportManualDeskRevenueCsv,
   useGetCryptoAssets, getGetCryptoAssetsQueryKey, useCreateCryptoAsset, useUpdateCryptoAsset, useDeleteCryptoAsset, useRequestCryptoAssetLogoUpload, useDeleteCryptoAssetLogoUpload,
   useGetCryptoNetworks, getGetCryptoNetworksQueryKey, useCreateCryptoNetwork, useUpdateCryptoNetwork, useDeleteCryptoNetwork, useRequestCryptoNetworkLogoUpload, useDeleteCryptoNetworkLogoUpload, useSaveCryptoNetworkReceivingWallet, usePreviewCryptoNetworkReceivingWallet, previewCryptoNetworkReceivingWallet, previewCryptoDepositProviderAssignment, useReconcileCryptoCustomerDeposits,
+  useGetDepositProviderOptions, getGetDepositProviderOptionsQueryKey,
   useRequestFiatCurrencyFlagUpload, useDeleteFiatCurrencyFlagUpload,
   useGetOrder, getGetOrderQueryKey, useAssignOrder, useArchiveOrder, useRestoreOrder,
   useGetOrderAuditLog, getGetOrderAuditLogQueryKey,
@@ -7435,7 +7436,24 @@ function AdminCurrencies() {
                 <span className="catalog-network-chips">
                   {assetNetworks.map((network: CryptoNetwork) => {
                     const networkLabel = network.networkCode || network.networkName;
-        return <span key={network.id} aria-label={t('adminCatalog.method_currency_on_network', { name: item.name, code: item.code, network: networkLabel })}>{networkLabel}</span>;
+                    const routeLabel = `${item.code} ${networkLabel}`;
+                    return can('crypto_networks.manage') ? (
+                      <button
+                        key={network.id}
+                        type="button"
+                        className="rounded-full border border-blue-500/20 bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-bold text-blue-500 hover:underline"
+                        aria-label={`Edit deposit route ${routeLabel}`}
+                        data-testid={`button-edit-deposit-route-${network.id}`}
+                        onClick={() => {
+                          setTab('networks');
+                          setDrawerNetwork(network);
+                        }}
+                      >
+                        {networkLabel}
+                      </button>
+                    ) : (
+                      <span key={network.id} aria-label={t('adminCatalog.method_currency_on_network', { name: item.name, code: item.code, network: networkLabel })}>{networkLabel}</span>
+                    );
                   })}
                   {!assetNetworks.length && <small>{t('adminCatalog.no_networks_configured')}</small>}
                 </span>
@@ -9487,6 +9505,7 @@ function BulkNetworkWalletDialog({
 
 function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; onClose: () => void }) {
   const { t } = useI18n();
+  const { isOwner } = useAdminPermissions();
   const queryClient = useQueryClient();
   const createNetwork = useCreateCryptoNetwork();
   const updateNetwork = useUpdateCryptoNetwork();
@@ -9495,6 +9514,20 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
   const uploadNetworkLogo = useRequestCryptoNetworkLogoUpload();
   const deleteNetworkLogo = useDeleteCryptoNetworkLogoUpload();
   const assetsQuery = useGetCryptoAssets({ query: { queryKey: getGetCryptoAssetsQueryKey() } });
+  const depositProviderOptionsQuery = useGetDepositProviderOptions({
+    query: { queryKey: getGetDepositProviderOptionsQueryKey() },
+  });
+  const whitebitVerificationRoutesQuery = useGetWhitebitVerificationRoutes({
+    query: { queryKey: getGetWhitebitVerificationRoutesQueryKey(), enabled: isOwner },
+  });
+  const whitebitStatusQuery = useGetWhitebitProviderStatus({
+    query: { queryKey: getGetWhitebitProviderStatusQueryKey(), enabled: isOwner },
+  });
+  const whitebitCredentialsQuery = useGetWhitebitCredentials({
+    query: { queryKey: getGetWhitebitCredentialsQueryKey(), enabled: isOwner },
+  });
+  const testWhitebitCredentials = useTestWhitebitCredentials();
+  const verifyWhitebitPermission = useVerifyWhitebitAddressPermission();
 
   const isNew = network === 'new';
 
@@ -9518,6 +9551,7 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
     whitebitAssetCode: isNew ? '' : ((network as any)?.whitebitAssetCode || ''),
     whitebitNetworkCode: isNew ? '' : ((network as any)?.whitebitNetworkCode || ''),
     manualWalletTrackingEnabled: isNew ? false : (network?.manualWalletTrackingEnabled ?? false),
+    manualFallbackEnabled: isNew ? false : (network?.manualFallbackEnabled ?? false),
     networkFamily: isNew ? '' : ((network as any)?.networkFamily || ''),
     executionMode: isNew ? 'manual' : ((network as any)?.executionMode || 'manual'),
     lifecycle: isNew ? 'active' : ((network as any)?.lifecycle || 'active'),
@@ -9527,6 +9561,8 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
   const commitNetworkLogoRef = useRef<() => void>(() => {});
   const [error, setError] = useState('');
   const [successNotice, setSuccessNotice] = useState('');
+  const [depositRouteSaving, setDepositRouteSaving] = useState(false);
+  const depositRouteSaveLockRef = useRef(false);
   const [monitoringReadiness, setMonitoringReadiness] = useState<CryptoNetwork['monitoringReadiness']>(
     isNew ? undefined : network?.monitoringReadiness,
   );
@@ -9535,6 +9571,14 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
   const [draftReadiness, setDraftReadiness] = useState<CryptoNetwork['widgetReadiness'] | null>(null);
   const [draftFallbackInvalid, setDraftFallbackInvalid] = useState<boolean | null>(null);
   const selectedAsset = assetsQuery.data?.find((asset: CryptoAsset) => asset.id === form.assetId);
+  const registeredDepositProviderOptions = depositProviderOptionsQuery.data || [];
+  const depositProviderOptions = registeredDepositProviderOptions.some(option => option.id === form.depositProvider)
+    ? registeredDepositProviderOptions
+    : [...registeredDepositProviderOptions, {
+        id: form.depositProvider,
+        label: `${form.depositProvider} (legacy provider; preserved)`,
+        implemented: false,
+      }];
   const isWhitebitProvider = form.depositProvider === 'whitebit';
   const networkCode = form.networkCode.trim();
   const networkName = form.networkName.trim();
@@ -9550,6 +9594,14 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
     form.whitebitAssetCode || selectedAsset?.code || '';
   const selectedWhitebitNetworkCode = form.whitebitNetworkCode ||
     (whitebitMappingStatus === 'supported' ? whitebitRouteReview?.whitebitNetworkCode || '' : '');
+  const whitebitCredentialSource = whitebitCredentialsQuery.data?.credentialSource;
+  const whitebitCredentialSourceDisclosure = whitebitCredentialSource === 'stored'
+    ? 'Signed checks use the backend-reported Admin-stored credentials.'
+    : whitebitCredentialSource === 'environment'
+      ? 'Signed checks use backend-reported environment credentials because no stored WhiteBIT credentials are active. The backend does not select environment credentials when stored credentials exist.'
+      : whitebitCredentialsQuery.isLoading
+        ? 'Checking the active WhiteBIT credential source…'
+        : 'The active credential source is not available here; an Owner must check configuration before verification.';
 
   useEffect(() => {
     if (!reviewedNetwork) return;
@@ -9568,6 +9620,7 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
             }
           : {}),
         manualWalletTrackingEnabled: form.manualWalletTrackingEnabled,
+        manualFallbackEnabled: form.manualFallbackEnabled,
         networkEnabled: form.enabled,
         customerDepositsEnabled: form.customerDepositsEnabled,
       }).then(rows => {
@@ -9582,7 +9635,7 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
     return () => { cancelled = true; window.clearTimeout(timeout); };
   }, [reviewedNetwork?.id, form.sharedDepositAddress, form.sharedDepositMemo,
     form.depositProvider, form.whitebitAssetCode, form.whitebitNetworkCode,
-    form.manualWalletTrackingEnabled, form.enabled, form.customerDepositsEnabled,
+    form.manualWalletTrackingEnabled, form.manualFallbackEnabled, form.enabled, form.customerDepositsEnabled,
     removeFallback, selectedAsset?.code]);
 
   useEffect(() => {
@@ -9642,6 +9695,7 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
       whitebitAssetCode: _whitebitAssetCode,
       whitebitNetworkCode: _whitebitNetworkCode,
       manualWalletTrackingEnabled: _manualWalletTrackingEnabled,
+      manualFallbackEnabled: _manualFallbackEnabled,
       ...networkMetadata
     } = form;
     return {
@@ -9657,6 +9711,95 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
       networkFamily: form.networkFamily.trim() || 'native',
       regions: form.regions.split(',').map((r: string) => r.trim()).filter(Boolean),
     };
+  };
+
+  const updateSavedRouteState = (savedNetwork: CryptoNetwork | undefined) => {
+    if (!savedNetwork) return;
+    setRemoveFallback(false);
+    setDraftReadiness(savedNetwork.widgetReadiness ?? null);
+    setDraftFallbackInvalid(savedNetwork.manualFallbackInvalid ?? null);
+    setMonitoringReadiness(savedNetwork.monitoringReadiness);
+    setForm(current => ({
+      ...current,
+      customerDepositsEnabled: savedNetwork.customerDepositsEnabled === true,
+      depositProvider: savedNetwork.depositProvider ?? current.depositProvider,
+      whitebitAssetCode: savedNetwork.whitebitAssetCode === undefined
+        ? current.whitebitAssetCode : (savedNetwork.whitebitAssetCode || ''),
+      whitebitNetworkCode: savedNetwork.whitebitNetworkCode === undefined
+        ? current.whitebitNetworkCode : (savedNetwork.whitebitNetworkCode || ''),
+      sharedDepositAddress: savedNetwork.sharedDepositAddress ?? current.sharedDepositAddress,
+      sharedDepositMemo: savedNetwork.sharedDepositMemo ?? current.sharedDepositMemo,
+      manualWalletTrackingEnabled: savedNetwork.manualWalletTrackingEnabled ?? current.manualWalletTrackingEnabled,
+      manualFallbackEnabled: savedNetwork.manualFallbackEnabled ?? false,
+    }));
+    queryClient.setQueryData<CryptoNetwork[]>(
+      getGetCryptoNetworksQueryKey(),
+      current => current?.map(candidate => candidate.id === savedNetwork.id ? savedNetwork : candidate),
+    );
+  };
+
+  const updateSavedRouteCustomerDeposits = async (savedNetwork: CryptoNetwork, enabled: boolean) => {
+    const mapping = savedNetwork.depositProvider === 'whitebit' ? savedNetwork.whitebitNetworkCode?.trim() : '';
+    const savedNetworks = await saveReceivingWallet.mutateAsync({
+      data: {
+        networkIds: [savedNetwork.id],
+        walletAddress: savedNetwork.sharedDepositAddress || '',
+        clearWalletAddress: false,
+        memo: savedNetwork.sharedDepositMemo || null,
+        depositProvider: savedNetwork.depositProvider,
+        ...(mapping ? {
+          whitebitAssetCode: savedNetwork.whitebitAssetCode || selectedAsset?.code || null,
+          whitebitNetworkCode: mapping,
+        } : {}),
+        manualWalletTrackingEnabled: savedNetwork.manualWalletTrackingEnabled,
+        manualFallbackEnabled: savedNetwork.manualFallbackEnabled ?? false,
+        networkEnabled: savedNetwork.enabled,
+        enabled,
+      },
+    });
+    return savedNetworks[0] ?? savedNetwork;
+  };
+
+  const refreshWhitebitRouteQueries = async () => {
+    const refreshed = await Promise.all([
+      whitebitVerificationRoutesQuery.refetch(),
+      whitebitStatusQuery.refetch(),
+      whitebitCredentialsQuery.refetch(),
+    ]);
+    const [routesResult, , credentialsResult] = refreshed;
+    if (routesResult.isError) throw routesResult.error;
+    if (credentialsResult.isError) throw credentialsResult.error;
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
+    ]);
+    return {
+      routes: routesResult.data || [],
+      credentials: credentialsResult.data,
+    };
+  };
+
+  const testActiveWhitebitCredentials = async () => {
+    const activeCredentials = await whitebitCredentialsQuery.refetch();
+    if (activeCredentials.isError) throw activeCredentials.error;
+    const credentialSource = activeCredentials.data?.credentialSource;
+    if (!activeCredentials.data?.configured || (credentialSource !== 'stored' && credentialSource !== 'environment')) {
+      throw new Error('A signed credential check was not run because no active WhiteBIT credential source is configured. Configure valid credentials and retry.');
+    }
+    const credentialSourceLabel = credentialSource === 'stored'
+      ? 'Admin-stored'
+      : 'backend-reported environment';
+    const signedCredentialTest = await testWhitebitCredentials.mutateAsync().catch(credentialError => {
+      throw new Error(`WhiteBIT ${credentialSourceLabel} signed balance check failed: ${apiErrorText(credentialError, 'The signed balance check was rejected')}. No verification address was requested. Confirm the active credential source and retry.`);
+    });
+    if (!signedCredentialTest.ok) {
+      throw new Error(`WhiteBIT ${credentialSourceLabel} signed balance check failed: ${signedCredentialTest.message}. No verification address was requested; verify the active credentials and retry.`);
+    }
+    const refreshed = await refreshWhitebitRouteQueries();
+    if (!refreshed.credentials?.configured || refreshed.credentials.credentialSource !== credentialSource) {
+      throw new Error('The active WhiteBIT credential source changed during the signed check. No verification address was requested; review credential configuration before retrying.');
+    }
+    return refreshed.routes;
   };
 
   const save = async (e: React.FormEvent) => {
@@ -9683,7 +9826,45 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
         setError(apiErrorText(err, t('adminCatalog.failed_to_create_network')));
       }
     } else if (network) {
+      if (depositRouteSaveLockRef.current) return;
+      depositRouteSaveLockRef.current = true;
+      setDepositRouteSaving(true);
+      let persistedWhitebitRoute: CryptoNetwork | undefined;
+      let preserveLiveWhitebitRoute = false;
+      let stagedCustomerDepositsOff = false;
       try {
+        const requestedCustomerDepositsEnabled = form.customerDepositsEnabled;
+        const currentLiveWhitebitRoute =
+          network.depositProvider === 'whitebit' && network.customerDepositsEnabled === true;
+        if (currentLiveWhitebitRoute && requestedCustomerDepositsEnabled) {
+          if (!isOwner) {
+            throw new Error('This WhiteBIT route is currently live. An Owner must preflight its signed credentials and exact-route proof before saving changes; the live route was left untouched.');
+          }
+          const preflightRoutes = await testActiveWhitebitCredentials();
+          const currentProofRoute = preflightRoutes.find(route =>
+            route.networkId === network.id &&
+            (!selectedAsset?.code || route.assetCode.trim().toUpperCase() === selectedAsset.code.trim().toUpperCase()) &&
+            route.networkCode.trim().toUpperCase() === network.networkCode.trim().toUpperCase(),
+          );
+          if (!currentProofRoute) {
+            throw new Error('The currently live WhiteBIT route could not be confirmed in the fresh verification catalog. No route changes were saved; retry when the catalog is available.');
+          }
+          const currentAssetCode = network.whitebitAssetCode || selectedAsset?.code || currentProofRoute.assetCode;
+          const requestedAssetCode = form.whitebitAssetCode.trim() || selectedAsset?.code || mappedWhitebitAssetCode;
+          const currentWhitebitNetworkCode = network.whitebitNetworkCode || network.networkCode;
+          const requestedWhitebitNetworkCode = selectedWhitebitNetworkCode || network.networkCode;
+          const sameMapping =
+            form.depositProvider === 'whitebit' &&
+            requestedAssetCode.trim().toUpperCase() === currentAssetCode.trim().toUpperCase() &&
+            requestedWhitebitNetworkCode.trim().toUpperCase() === currentWhitebitNetworkCode.trim().toUpperCase();
+          preserveLiveWhitebitRoute = sameMapping &&
+            form.enabled === (network.enabled ?? true) &&
+            currentProofRoute.proofCurrent;
+        }
+        const stageCustomerDepositsOff =
+          (isWhitebitProvider && !preserveLiveWhitebitRoute) ||
+          (currentLiveWhitebitRoute && !preserveLiveWhitebitRoute);
+        stagedCustomerDepositsOff = stageCustomerDepositsOff;
         const savedNetworks = await saveReceivingWallet.mutateAsync({
           data: {
             networkIds: [network.id],
@@ -9696,45 +9877,102 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
               whitebitNetworkCode: selectedWhitebitNetworkCode.trim() || null,
             } : {}),
             manualWalletTrackingEnabled: form.manualWalletTrackingEnabled,
+            manualFallbackEnabled: form.manualFallbackEnabled,
             networkEnabled: form.enabled,
-            enabled: form.customerDepositsEnabled,
+            enabled: stageCustomerDepositsOff ? false : requestedCustomerDepositsEnabled,
           },
         });
         const savedNetwork = savedNetworks[0];
-        setRemoveFallback(false);
-        setDraftReadiness(savedNetwork?.widgetReadiness ?? null);
-        setDraftFallbackInvalid(savedNetwork?.manualFallbackInvalid ?? null);
-        setMonitoringReadiness(savedNetwork?.monitoringReadiness);
-        setForm(current => ({
-          ...current,
-          customerDepositsEnabled: savedNetwork?.customerDepositsEnabled === true,
-          depositProvider: savedNetwork?.depositProvider ?? current.depositProvider,
-          whitebitAssetCode: savedNetwork?.whitebitAssetCode === undefined
-            ? current.whitebitAssetCode : (savedNetwork?.whitebitAssetCode || ''),
-          whitebitNetworkCode: savedNetwork?.whitebitNetworkCode === undefined
-            ? current.whitebitNetworkCode : (savedNetwork?.whitebitNetworkCode || ''),
-          sharedDepositAddress: savedNetwork?.sharedDepositAddress ?? current.sharedDepositAddress,
-          sharedDepositMemo: savedNetwork?.sharedDepositMemo ?? current.sharedDepositMemo,
-          manualWalletTrackingEnabled: savedNetwork?.manualWalletTrackingEnabled ?? current.manualWalletTrackingEnabled,
-        }));
-        if (savedNetwork) {
-          queryClient.setQueryData<CryptoNetwork[]>(
-            getGetCryptoNetworksQueryKey(),
-            current => current?.map(candidate => candidate.id === savedNetwork.id ? savedNetwork : candidate),
-          );
-        }
-        setSuccessNotice(
-          savedNetwork?.customerDepositsEnabled
-            ? 'Deposit route saved. Public Swap visibility is enabled for this route.'
-            : 'Deposit route saved. Public Swap visibility remains disabled for this route.',
-        );
+        persistedWhitebitRoute = savedNetwork;
+        updateSavedRouteState(savedNetwork);
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
           queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
         ]);
+        if (isWhitebitProvider) {
+          if (!savedNetwork) throw new Error('The route was saved, but the saved route details were not returned. Customer Deposits remain OFF.');
+          if (!requestedCustomerDepositsEnabled) {
+            setSuccessNotice('Deposit route saved with Customer Deposits OFF. No signed credential test or verification address request was made.');
+            return;
+          }
+          if (preserveLiveWhitebitRoute) {
+            if (savedNetwork.customerDepositsEnabled !== true) {
+              throw new Error('The server did not confirm that the preflighted WhiteBIT route remained enabled. Review route eligibility; no proof or credential settings were changed.');
+            }
+            await refreshWhitebitRouteQueries();
+            setSuccessNotice('Deposit route saved. The live route stayed enabled using its current exact proof; no verification address was created.');
+          } else {
+            if (!isOwner) {
+              setForm(current => ({ ...current, customerDepositsEnabled: false }));
+              setError('Deposit route saved with Customer Deposits OFF. Exact WhiteBIT proof lookup and real-address verification require an Owner; ask an Owner to save and verify this route.');
+              return;
+            }
+            const verificationRoutes = await testActiveWhitebitCredentials();
+            const exactVerificationRoute = (routes: typeof verificationRoutes) => routes.find(route =>
+              route.networkId === savedNetwork.id &&
+              (!selectedAsset?.code || route.assetCode.trim().toUpperCase() === selectedAsset.code.trim().toUpperCase()) &&
+              route.networkCode.trim().toUpperCase() === savedNetwork.networkCode.trim().toUpperCase(),
+            );
+            const routeBeforeVerification = exactVerificationRoute(verificationRoutes);
+            if (!routeBeforeVerification) {
+              throw new Error('The WhiteBIT route was saved with Customer Deposits OFF, but it is not currently eligible after the signed credential check. Check the exact mapping and route readiness; no verification address was created.');
+            }
+            let proofWasReused = routeBeforeVerification.proofCurrent;
+            if (!routeBeforeVerification.proofCurrent) {
+              const proof = await verifyWhitebitPermission.mutateAsync({
+                data: { networkId: savedNetwork.id, confirmRealAddressCreation: true },
+              }).catch(verificationError => {
+                throw new Error(`${apiErrorText(verificationError, 'WhiteBIT address permission verification failed')}. Customer Deposits remain OFF; check the exact route mapping and stored credential readiness before retrying.`);
+              });
+              const afterPermissionVerification = await refreshWhitebitRouteQueries();
+              if (!afterPermissionVerification.credentials?.configured ||
+                !['stored', 'environment'].includes(afterPermissionVerification.credentials.credentialSource)) {
+                throw new Error('The active WhiteBIT credential source became unavailable during route verification. Customer Deposits remain OFF.');
+              }
+              const verifiedRoute = exactVerificationRoute(afterPermissionVerification.routes);
+              if (!verifiedRoute?.proofCurrent ||
+                verifiedRoute.assetCode.trim().toUpperCase() !== routeBeforeVerification.assetCode.trim().toUpperCase() ||
+                proof.networkId !== savedNetwork.id ||
+                proof.assetCode.trim().toUpperCase() !== routeBeforeVerification.assetCode.trim().toUpperCase() ||
+                proof.networkCode.trim().toUpperCase() !== savedNetwork.networkCode.trim().toUpperCase()) {
+                throw new Error('WhiteBIT verification did not produce a current proof for this exact saved route. Customer Deposits remain OFF; check the route mapping and retry.');
+              }
+              proofWasReused = proof.reused;
+            }
+            const finalNetwork = await updateSavedRouteCustomerDeposits(savedNetwork, true);
+            if (finalNetwork.customerDepositsEnabled !== true) {
+              throw new Error('The server did not enable Customer Deposits after exact-route verification. The route remains OFF; review route eligibility.');
+            }
+            updateSavedRouteState(finalNetwork);
+            await refreshWhitebitRouteQueries();
+            setSuccessNotice(proofWasReused
+              ? 'Deposit route saved and verified using a reused current exact-route proof. No new verification address was created; Customer Deposits are enabled.'
+              : 'Deposit route saved and verified. One real WhiteBIT verification address was created for this exact route; Customer Deposits are enabled.');
+          }
+        } else {
+          if (stagedCustomerDepositsOff && requestedCustomerDepositsEnabled && savedNetwork) {
+            const finalNetwork = await updateSavedRouteCustomerDeposits(savedNetwork, true);
+            if (finalNetwork.customerDepositsEnabled !== true) {
+              throw new Error('The server did not enable Customer Deposits for this route. It remains OFF; review route eligibility.');
+            }
+            updateSavedRouteState(finalNetwork);
+          }
+          setSuccessNotice(
+            requestedCustomerDepositsEnabled
+              ? 'Deposit route saved. Public Swap visibility is enabled for this route.'
+              : 'Deposit route saved. Public Swap visibility remains disabled for this route.',
+          );
+        }
       } catch (err) {
         setSuccessNotice('');
+        if (persistedWhitebitRoute && stagedCustomerDepositsOff && !preserveLiveWhitebitRoute) {
+          await updateSavedRouteCustomerDeposits(persistedWhitebitRoute, false).catch(() => undefined);
+          setForm(current => ({ ...current, customerDepositsEnabled: false }));
+        }
         setError(apiErrorText(err, t('adminCatalog.failed_to_update_network')));
+      } finally {
+        depositRouteSaveLockRef.current = false;
+        setDepositRouteSaving(false);
       }
     }
   };
@@ -9884,18 +10122,25 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                     setWhitebitMappingReview(null);
                     setForm({...form, depositProvider: e.target.value as 'none' | 'manual' | 'whitebit'});
                   }}>
-                   <option value="none">None</option>
-                   <option value="manual">Manual Wallet</option>
-                   <option value="whitebit">WhiteBIT</option>
-                   {form.depositProvider !== 'none' && form.depositProvider !== 'manual' && form.depositProvider !== 'whitebit' && (
-                     <option value={form.depositProvider} disabled>{form.depositProvider} (legacy provider)</option>
-                   )}
+                    {depositProviderOptions.map(option => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}{option.implemented ? '' : ' (not implemented)'}
+                      </option>
+                    ))}
                 </select>
+                 {depositProviderOptionsQuery.isLoading && <span className="field-hint">Loading registered deposit providers…</span>}
+                 {depositProviderOptionsQuery.isError && <span className="field-hint" role="alert">Registered deposit providers could not be loaded. The current value is preserved.</span>}
               </label>
               {isWhitebitProvider && (
                 <div className="space-y-2 rounded-lg border border-border p-3" data-testid="whitebit-route-mapping">
                   <p className="field-hint">
                     WhiteBIT Mapping — Internal route codes remain unchanged. Customer Deposits stay disabled until this exact mapping and provider readiness are valid.
+                  </p>
+                  <p className="field-hint" data-testid="whitebit-real-address-disclosure">
+                    Save & verify first checks the signed connection with the backend-reported active credential source, then checks this exact route. If its proof is missing or stale, this click requests verification; the response may report a reused proof or one newly created real address. Any generated address is discarded and is not used for deposits.
+                  </p>
+                  <p className="field-hint" data-testid="whitebit-credential-source-disclosure">
+                    {whitebitCredentialSourceDisclosure}
                   </p>
                   <p className="text-sm">
                     <strong>WhiteBIT Mapping Asset:</strong> {mappedWhitebitAssetCode || 'Loading'}
@@ -9971,6 +10216,38 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                  )}
                  {removeFallback && <span className="field-hint">The saved fallback will be removed only when you select Save Deposit Route.</span>}
               </label>
+               {isWhitebitProvider && (
+                 <>
+                   <label className="catalog-editor-toggle" data-testid="whitebit-manual-fallback-toggle">
+                     <input
+                       type="checkbox"
+                       className="w-auto h-auto"
+                       data-testid="whitebit-manual-fallback-enabled"
+                       checked={form.manualFallbackEnabled}
+                       onChange={event => setForm(current => ({ ...current, manualFallbackEnabled: event.target.checked }))}
+                     />
+                     <span className="field-label !mb-0 text-sm font-bold">Enable saved Manual Wallet as WhiteBIT fallback</span>
+                   </label>
+                   <InlineNotice kind={
+                     form.manualFallbackEnabled &&
+                     Boolean(form.sharedDepositAddress.trim()) &&
+                     !removeFallback &&
+                     !(draftFallbackInvalid ?? network?.manualFallbackInvalid)
+                       ? 'success'
+                       : 'warning'
+                   }>
+                     <strong>Manual fallback: {form.manualFallbackEnabled ? 'OPTED IN' : 'OPTED OUT'}.</strong>
+                     {!form.manualFallbackEnabled
+                       ? ' The saved address remains stored, but is never exposed in a WhiteBIT order as fallback while this is OFF.'
+                       : !form.sharedDepositAddress.trim() || removeFallback
+                         ? ' No saved fallback address is available. This setting does not create or remove an address.'
+                         : (draftFallbackInvalid ?? network?.manualFallbackInvalid)
+                           ? ' The saved address is invalid and is not a usable fallback until corrected.'
+                           : ' The saved address may be used only as the opted-in fallback if WhiteBIT funding is unavailable.'}
+                     {' '}Turning this option OFF retains the saved address; use Remove saved fallback only to delete it.
+                   </InlineNotice>
+                 </>
+               )}
               <label>
                  <span className="field-label">Memo / Tag <small>Optional</small></span>
                 <input data-testid="network-wallet-memo" value={form.sharedDepositMemo} onChange={e => setForm({...form, sharedDepositMemo: e.target.value})} placeholder="Optional memo or tag" />
@@ -10029,8 +10306,8 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
           )}
 
           <div className="network-drawer-actions catalog-editor-actions mt-4">
-            <button type="submit" className="catalog-editor-primary" disabled={createNetwork.isPending || saveReceivingWallet.isPending || whitebitReviewPending || (form.customerDepositsEnabled && isWhitebitProvider && (whitebitMappingStatus !== 'supported' || whitebitRouteReview?.status !== 'supported'))}>
-              <Save size={16} />{isNew ? t('adminCatalog.save_network') : 'Save Deposit Route'}
+            <button type="submit" className="catalog-editor-primary" data-testid="button-save-deposit-route" disabled={createNetwork.isPending || depositRouteSaving || saveReceivingWallet.isPending || testWhitebitCredentials.isPending || verifyWhitebitPermission.isPending || whitebitReviewPending || (form.customerDepositsEnabled && isWhitebitProvider && (whitebitMappingStatus !== 'supported' || whitebitRouteReview?.status !== 'supported'))}>
+              <Save size={16} />{isNew ? t('adminCatalog.save_network') : isWhitebitProvider ? 'Save & verify WhiteBIT route' : 'Save Deposit Route'}
             </button>
             {!isNew && (
               <button type="button" className="button-secondary" onClick={() => void saveNetworkMetadata()} disabled={updateNetwork.isPending}>

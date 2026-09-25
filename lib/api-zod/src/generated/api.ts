@@ -8159,6 +8159,7 @@ export const applyCryptoAssetsBulkEditResponseNetworksItemOneSharedDepositMemoMa
 
 export const applyCryptoAssetsBulkEditResponseNetworksItemTwoDepositProviderDefault = `manual`;
 export const applyCryptoAssetsBulkEditResponseNetworksItemTwoManualWalletTrackingEnabledDefault = true;
+export const applyCryptoAssetsBulkEditResponseNetworksItemTwoManualFallbackEnabledDefault = false;
 
 export const ApplyCryptoAssetsBulkEditResponse = zod.object({
   "assets": zod.array(zod.object({
@@ -8202,6 +8203,7 @@ export const ApplyCryptoAssetsBulkEditResponse = zod.object({
 }).and(zod.object({
   "depositProvider": zod.string().default(applyCryptoAssetsBulkEditResponseNetworksItemTwoDepositProviderDefault),
   "manualWalletTrackingEnabled": zod.boolean().default(applyCryptoAssetsBulkEditResponseNetworksItemTwoManualWalletTrackingEnabledDefault),
+  "manualFallbackEnabled": zod.boolean().default(applyCryptoAssetsBulkEditResponseNetworksItemTwoManualFallbackEnabledDefault),
   "manualFallbackInvalid": zod.boolean().optional(),
   "widgetReadiness": zod.object({
   "ready": zod.boolean(),
@@ -8341,6 +8343,7 @@ export const applyCryptoDepositProviderAssignmentResponseNetworksItemOneSharedDe
 
 export const applyCryptoDepositProviderAssignmentResponseNetworksItemTwoDepositProviderDefault = `manual`;
 export const applyCryptoDepositProviderAssignmentResponseNetworksItemTwoManualWalletTrackingEnabledDefault = true;
+export const applyCryptoDepositProviderAssignmentResponseNetworksItemTwoManualFallbackEnabledDefault = false;
 
 export const ApplyCryptoDepositProviderAssignmentResponse = zod.object({
   "routes": zod.array(zod.object({
@@ -8384,6 +8387,7 @@ export const ApplyCryptoDepositProviderAssignmentResponse = zod.object({
 }).and(zod.object({
   "depositProvider": zod.string().default(applyCryptoDepositProviderAssignmentResponseNetworksItemTwoDepositProviderDefault),
   "manualWalletTrackingEnabled": zod.boolean().default(applyCryptoDepositProviderAssignmentResponseNetworksItemTwoManualWalletTrackingEnabledDefault),
+  "manualFallbackEnabled": zod.boolean().default(applyCryptoDepositProviderAssignmentResponseNetworksItemTwoManualFallbackEnabledDefault),
   "manualFallbackInvalid": zod.boolean().optional(),
   "widgetReadiness": zod.object({
   "ready": zod.boolean(),
@@ -8563,6 +8567,7 @@ export const saveCryptoAssetReceivingWalletResponseOneSharedDepositMemoMax = 500
 
 export const saveCryptoAssetReceivingWalletResponseTwoDepositProviderDefault = `manual`;
 export const saveCryptoAssetReceivingWalletResponseTwoManualWalletTrackingEnabledDefault = true;
+export const saveCryptoAssetReceivingWalletResponseTwoManualFallbackEnabledDefault = false;
 
 export const SaveCryptoAssetReceivingWalletResponseItem = zod.object({
   "logoObjectPath": zod.string().regex(saveCryptoAssetReceivingWalletResponseOneLogoObjectPathRegExp).nullish(),
@@ -8592,6 +8597,7 @@ export const SaveCryptoAssetReceivingWalletResponseItem = zod.object({
 }).and(zod.object({
   "depositProvider": zod.string().default(saveCryptoAssetReceivingWalletResponseTwoDepositProviderDefault),
   "manualWalletTrackingEnabled": zod.boolean().default(saveCryptoAssetReceivingWalletResponseTwoManualWalletTrackingEnabledDefault),
+  "manualFallbackEnabled": zod.boolean().default(saveCryptoAssetReceivingWalletResponseTwoManualFallbackEnabledDefault),
   "manualFallbackInvalid": zod.boolean().optional(),
   "widgetReadiness": zod.object({
   "ready": zod.boolean(),
@@ -8659,6 +8665,7 @@ export const getCryptoNetworksResponseOneSharedDepositMemoMax = 500;
 
 export const getCryptoNetworksResponseTwoDepositProviderDefault = `manual`;
 export const getCryptoNetworksResponseTwoManualWalletTrackingEnabledDefault = true;
+export const getCryptoNetworksResponseTwoManualFallbackEnabledDefault = false;
 
 export const GetCryptoNetworksResponseItem = zod.object({
   "logoObjectPath": zod.string().regex(getCryptoNetworksResponseOneLogoObjectPathRegExp).nullish(),
@@ -8688,6 +8695,7 @@ export const GetCryptoNetworksResponseItem = zod.object({
 }).and(zod.object({
   "depositProvider": zod.string().default(getCryptoNetworksResponseTwoDepositProviderDefault),
   "manualWalletTrackingEnabled": zod.boolean().default(getCryptoNetworksResponseTwoManualWalletTrackingEnabledDefault),
+  "manualFallbackEnabled": zod.boolean().default(getCryptoNetworksResponseTwoManualFallbackEnabledDefault),
   "manualFallbackInvalid": zod.boolean().optional(),
   "widgetReadiness": zod.object({
   "ready": zod.boolean(),
@@ -8831,6 +8839,7 @@ export const createCryptoNetworkResponseOneSharedDepositMemoMax = 500;
 
 export const createCryptoNetworkResponseTwoDepositProviderDefault = `manual`;
 export const createCryptoNetworkResponseTwoManualWalletTrackingEnabledDefault = true;
+export const createCryptoNetworkResponseTwoManualFallbackEnabledDefault = false;
 
 export const CreateCryptoNetworkResponse = zod.object({
   "logoObjectPath": zod.string().regex(createCryptoNetworkResponseOneLogoObjectPathRegExp).nullish(),
@@ -8860,6 +8869,7 @@ export const CreateCryptoNetworkResponse = zod.object({
 }).and(zod.object({
   "depositProvider": zod.string().default(createCryptoNetworkResponseTwoDepositProviderDefault),
   "manualWalletTrackingEnabled": zod.boolean().default(createCryptoNetworkResponseTwoManualWalletTrackingEnabledDefault),
+  "manualFallbackEnabled": zod.boolean().default(createCryptoNetworkResponseTwoManualFallbackEnabledDefault),
   "manualFallbackInvalid": zod.boolean().optional(),
   "widgetReadiness": zod.object({
   "ready": zod.boolean(),
@@ -8906,6 +8916,7 @@ export const SaveCryptoNetworkReceivingWalletBody = zod.object({
   "whitebitAssetCode": zod.string().min(saveCryptoNetworkReceivingWalletBodyWhitebitAssetCodeMin).max(saveCryptoNetworkReceivingWalletBodyWhitebitAssetCodeMax).nullish(),
   "whitebitNetworkCode": zod.string().min(1).max(saveCryptoNetworkReceivingWalletBodyWhitebitNetworkCodeMax).nullish(),
   "manualWalletTrackingEnabled": zod.boolean().optional(),
+  "manualFallbackEnabled": zod.boolean().optional().describe('Opt in to using this route\'s saved Manual Wallet if WhiteBIT funding is unavailable. The saved address is retained when disabled.'),
   "customerDepositsEnabled": zod.boolean().optional(),
   "preserveDepositProviders": zod.boolean().default(saveCryptoNetworkReceivingWalletBodyPreserveDepositProvidersDefault),
   "networkEnabled": zod.boolean().optional(),
@@ -8961,6 +8972,7 @@ export const saveCryptoNetworkReceivingWalletResponseOneSharedDepositMemoMax = 5
 
 export const saveCryptoNetworkReceivingWalletResponseTwoDepositProviderDefault = `manual`;
 export const saveCryptoNetworkReceivingWalletResponseTwoManualWalletTrackingEnabledDefault = true;
+export const saveCryptoNetworkReceivingWalletResponseTwoManualFallbackEnabledDefault = false;
 
 export const SaveCryptoNetworkReceivingWalletResponseItem = zod.object({
   "logoObjectPath": zod.string().regex(saveCryptoNetworkReceivingWalletResponseOneLogoObjectPathRegExp).nullish(),
@@ -8990,6 +9002,7 @@ export const SaveCryptoNetworkReceivingWalletResponseItem = zod.object({
 }).and(zod.object({
   "depositProvider": zod.string().default(saveCryptoNetworkReceivingWalletResponseTwoDepositProviderDefault),
   "manualWalletTrackingEnabled": zod.boolean().default(saveCryptoNetworkReceivingWalletResponseTwoManualWalletTrackingEnabledDefault),
+  "manualFallbackEnabled": zod.boolean().default(saveCryptoNetworkReceivingWalletResponseTwoManualFallbackEnabledDefault),
   "manualFallbackInvalid": zod.boolean().optional(),
   "widgetReadiness": zod.object({
   "ready": zod.boolean(),
@@ -9037,6 +9050,7 @@ export const PreviewCryptoNetworkReceivingWalletBody = zod.object({
   "whitebitAssetCode": zod.string().min(previewCryptoNetworkReceivingWalletBodyWhitebitAssetCodeMin).max(previewCryptoNetworkReceivingWalletBodyWhitebitAssetCodeMax).nullish(),
   "whitebitNetworkCode": zod.string().min(1).max(previewCryptoNetworkReceivingWalletBodyWhitebitNetworkCodeMax).nullish(),
   "manualWalletTrackingEnabled": zod.boolean().optional(),
+  "manualFallbackEnabled": zod.boolean().optional().describe('Opt in to using this route\'s saved Manual Wallet if WhiteBIT funding is unavailable. The saved address is retained when disabled.'),
   "customerDepositsEnabled": zod.boolean().optional(),
   "preserveDepositProviders": zod.boolean().default(previewCryptoNetworkReceivingWalletBodyPreserveDepositProvidersDefault),
   "networkEnabled": zod.boolean().optional(),
@@ -9092,6 +9106,7 @@ export const previewCryptoNetworkReceivingWalletResponseOneSharedDepositMemoMax 
 
 export const previewCryptoNetworkReceivingWalletResponseTwoDepositProviderDefault = `manual`;
 export const previewCryptoNetworkReceivingWalletResponseTwoManualWalletTrackingEnabledDefault = true;
+export const previewCryptoNetworkReceivingWalletResponseTwoManualFallbackEnabledDefault = false;
 
 export const PreviewCryptoNetworkReceivingWalletResponseItem = zod.object({
   "logoObjectPath": zod.string().regex(previewCryptoNetworkReceivingWalletResponseOneLogoObjectPathRegExp).nullish(),
@@ -9121,6 +9136,7 @@ export const PreviewCryptoNetworkReceivingWalletResponseItem = zod.object({
 }).and(zod.object({
   "depositProvider": zod.string().default(previewCryptoNetworkReceivingWalletResponseTwoDepositProviderDefault),
   "manualWalletTrackingEnabled": zod.boolean().default(previewCryptoNetworkReceivingWalletResponseTwoManualWalletTrackingEnabledDefault),
+  "manualFallbackEnabled": zod.boolean().default(previewCryptoNetworkReceivingWalletResponseTwoManualFallbackEnabledDefault),
   "manualFallbackInvalid": zod.boolean().optional(),
   "widgetReadiness": zod.object({
   "ready": zod.boolean(),
@@ -9202,6 +9218,7 @@ export const updateCryptoNetworkCustomerDepositsResponseOneSharedDepositMemoMax 
 
 export const updateCryptoNetworkCustomerDepositsResponseTwoDepositProviderDefault = `manual`;
 export const updateCryptoNetworkCustomerDepositsResponseTwoManualWalletTrackingEnabledDefault = true;
+export const updateCryptoNetworkCustomerDepositsResponseTwoManualFallbackEnabledDefault = false;
 
 export const UpdateCryptoNetworkCustomerDepositsResponse = zod.object({
   "logoObjectPath": zod.string().regex(updateCryptoNetworkCustomerDepositsResponseOneLogoObjectPathRegExp).nullish(),
@@ -9231,6 +9248,7 @@ export const UpdateCryptoNetworkCustomerDepositsResponse = zod.object({
 }).and(zod.object({
   "depositProvider": zod.string().default(updateCryptoNetworkCustomerDepositsResponseTwoDepositProviderDefault),
   "manualWalletTrackingEnabled": zod.boolean().default(updateCryptoNetworkCustomerDepositsResponseTwoManualWalletTrackingEnabledDefault),
+  "manualFallbackEnabled": zod.boolean().default(updateCryptoNetworkCustomerDepositsResponseTwoManualFallbackEnabledDefault),
   "manualFallbackInvalid": zod.boolean().optional(),
   "widgetReadiness": zod.object({
   "ready": zod.boolean(),
@@ -9372,6 +9390,7 @@ export const updateCryptoNetworkResponseOneSharedDepositMemoMax = 500;
 
 export const updateCryptoNetworkResponseTwoDepositProviderDefault = `manual`;
 export const updateCryptoNetworkResponseTwoManualWalletTrackingEnabledDefault = true;
+export const updateCryptoNetworkResponseTwoManualFallbackEnabledDefault = false;
 
 export const UpdateCryptoNetworkResponse = zod.object({
   "logoObjectPath": zod.string().regex(updateCryptoNetworkResponseOneLogoObjectPathRegExp).nullish(),
@@ -9401,6 +9420,7 @@ export const UpdateCryptoNetworkResponse = zod.object({
 }).and(zod.object({
   "depositProvider": zod.string().default(updateCryptoNetworkResponseTwoDepositProviderDefault),
   "manualWalletTrackingEnabled": zod.boolean().default(updateCryptoNetworkResponseTwoManualWalletTrackingEnabledDefault),
+  "manualFallbackEnabled": zod.boolean().default(updateCryptoNetworkResponseTwoManualFallbackEnabledDefault),
   "manualFallbackInvalid": zod.boolean().optional(),
   "widgetReadiness": zod.object({
   "ready": zod.boolean(),
@@ -9818,7 +9838,8 @@ export const GetWhitebitProviderStatusResponse = zod.object({
   "networkId": zod.string(),
   "assetCode": zod.string(),
   "networkCode": zod.string(),
-  "verifiedAt": zod.coerce.date()
+  "verifiedAt": zod.coerce.date(),
+  "reused": zod.boolean().describe('True when an already-current exact route proof was reused without creating another address.')
 }),zod.null()]),
   "state": zod.enum(['disabled', 'not_configured', 'verification_required', 'address_permission_required', 'ready', 'unavailable']),
   "lastCapabilitySyncAt": zod.coerce.date().nullable(),
@@ -9861,7 +9882,8 @@ export const UpdateWhitebitProviderStatusResponse = zod.object({
   "networkId": zod.string(),
   "assetCode": zod.string(),
   "networkCode": zod.string(),
-  "verifiedAt": zod.coerce.date()
+  "verifiedAt": zod.coerce.date(),
+  "reused": zod.boolean().describe('True when an already-current exact route proof was reused without creating another address.')
 }),zod.null()]),
   "state": zod.enum(['disabled', 'not_configured', 'verification_required', 'address_permission_required', 'ready', 'unavailable']),
   "lastCapabilitySyncAt": zod.coerce.date().nullable(),
@@ -9936,7 +9958,8 @@ export const TestWhitebitCredentialsResponse = zod.object({
 export const GetWhitebitVerificationRoutesResponseItem = zod.object({
   "networkId": zod.string(),
   "assetCode": zod.string(),
-  "networkCode": zod.string()
+  "networkCode": zod.string(),
+  "proofCurrent": zod.boolean().describe('Current exact-route proof for the selected credential identity and saved mapping.')
 })
 export const GetWhitebitVerificationRoutesResponse = zod.array(GetWhitebitVerificationRoutesResponseItem)
 
@@ -9956,7 +9979,8 @@ export const VerifyWhitebitAddressPermissionResponse = zod.object({
   "networkId": zod.string(),
   "assetCode": zod.string(),
   "networkCode": zod.string(),
-  "verifiedAt": zod.coerce.date()
+  "verifiedAt": zod.coerce.date(),
+  "reused": zod.boolean().describe('True when an already-current exact route proof was reused without creating another address.')
 })
 
 

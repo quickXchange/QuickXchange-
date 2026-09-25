@@ -80,3 +80,9 @@ Memo-less WhiteBIT BNB/BEP20 history may represent the memo as `null` even when 
 **Why:** A read-only provider history record for a processed deposit matched its generated order address, asset, and network, but a null history memo could not match the claim's empty-string memo. No deposit or order transition was recorded.
 
 **How to apply:** Normalize only blank/missing memos at the claim and evidence boundary, test both signed webhook and history paths, and keep the address plus provider asset/network uniqueness safeguards intact. A lack of stored webhook delivery does not prove the provider never sent one.
+
+Keeping a Manual receiving address on a WhiteBIT route is not consent to use it as a fallback. Fallback requires an explicit opt-in frozen with the order and still enabled on the exact current route; absence of either proof means no customer fallback instructions.
+
+**Why:** Operators may retain saved addresses for reference while choosing provider-created deposit addresses. Implicit fallback could direct customers to an address the operator never authorized for that purpose. Disabling fallback must not erase the saved address.
+
+**How to apply:** Keep provider provisioning independent of fallback consent, omit opted-out addresses from signed customer snapshots, and require both frozen and live opt-in when handling provider failures or recovering unresolved claims. Existing orders without a frozen choice fail closed.

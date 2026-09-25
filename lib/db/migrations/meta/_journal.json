@@ -862,6 +862,13 @@
       "when": 1790327651557,
       "tag": "0124_lively_gertrude_yorkes",
       "breakpoints": true
+    },
+    {
+      "idx": 125,
+      "version": "7",
+      "when": 1790328651557,
+      "tag": "0125_whitebit_manual_fallback_opt_in",
+      "breakpoints": true
     }
   ]
 }

@@ -11,4 +11,6 @@ export interface WhitebitAddressPermissionProof {
   assetCode: string;
   networkCode: string;
   verifiedAt: Date;
+  /** True when an already-current exact route proof was reused without creating another address. */
+  reused: boolean;
 }

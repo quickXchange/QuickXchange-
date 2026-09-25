@@ -827,15 +827,18 @@ function settlementFieldsForRoute(
 }
 
 function cryptoFundingSnapshot(network: typeof cryptoAssetNetworksTable.$inferSelect) {
+  const hideWhitebitFallback = network.depositProvider === "whitebit" &&
+    network.manualFallbackEnabled !== true;
   return {
     networkId: network.id,
-    address: network.sharedDepositAddress,
-    memo: network.sharedDepositMemo ?? "",
+    address: hideWhitebitFallback ? "" : network.sharedDepositAddress,
+    memo: hideWhitebitFallback ? "" : network.sharedDepositMemo ?? "",
     depositProvider: network.depositProvider,
     whitebitAssetCode: network.whitebitAssetCode,
     whitebitNetworkCode: network.whitebitNetworkCode,
     customerDepositsEnabled: network.customerDepositsEnabled,
     manualWalletTrackingEnabled: network.manualWalletTrackingEnabled,
+    manualFallbackEnabled: network.manualFallbackEnabled,
     requiresMemo: network.requiresMemo,
     requiredConfirmations: network.requiredConfirmations,
     confirmationGuidance: network.confirmationGuidance ?? "",
@@ -2498,8 +2501,8 @@ async function createOrderFromInput(
         ...manualFunding,
         address: "",
         memo: "",
-        manualFallbackAddress: manualFunding?.address ?? "",
-        manualFallbackMemo: manualFunding?.memo ?? "",
+        manualFallbackAddress: manualFunding?.manualFallbackEnabled === true ? manualFunding.address : "",
+        manualFallbackMemo: manualFunding?.manualFallbackEnabled === true ? manualFunding.memo : "",
         source: "whitebit",
         selectedProvider: "whitebit",
         addressSource: "unavailable",
@@ -2623,10 +2626,13 @@ async function createOrderFromInput(
         catalog.route.depositProvider !== selectedDepositProvider ||
         (providerFundingCandidate && (
           (catalog.route.whitebitAssetCode ?? null) !== (fundingSnapshot?.whitebitAssetCode ?? null) ||
-          (catalog.route.whitebitNetworkCode ?? null) !== (fundingSnapshot?.whitebitNetworkCode ?? null)
+          (catalog.route.whitebitNetworkCode ?? null) !== (fundingSnapshot?.whitebitNetworkCode ?? null) ||
+          catalog.route.manualFallbackEnabled !== (manualFunding?.manualFallbackEnabled === true)
         )) ||
-        catalog.route.sharedDepositAddress !== (manualFunding?.address ?? "") ||
-        (catalog.route.sharedDepositMemo ?? "") !== (manualFunding?.memo ?? "") ||
+        ((!providerFundingCandidate || catalog.route.manualFallbackEnabled) && (
+          catalog.route.sharedDepositAddress !== (manualFunding?.address ?? "") ||
+          (catalog.route.sharedDepositMemo ?? "") !== (manualFunding?.memo ?? "")
+        )) ||
         catalog.route.customerDepositsEnabled !==
           (fundingSnapshot?.customerDepositsEnabled === true) ||
         catalog.route.customerDepositsEnabled !== true ||
@@ -2942,6 +2948,7 @@ async function createOrderFromInput(
       whitebitNetworkCode: manualFunding.whitebitNetworkCode,
       manualAddress: manualFunding.address,
       manualMemo: manualFunding.memo,
+      manualFallbackEnabled: manualFunding.manualFallbackEnabled === true,
       manualFallbackUsable: Boolean(manualFunding.address?.trim()) &&
         (!manualFunding.requiresMemo || Boolean(manualFunding.memo?.trim())),
       chosenWhitebit: true,
@@ -5287,6 +5294,8 @@ router.post("/admin/crypto-networks/receiving-wallet/preview", requireOwner, asy
         sharedDepositMemo: memo,
         manualWalletTrackingEnabled: input.manualWalletTrackingEnabled ??
           network.manualWalletTrackingEnabled,
+        manualFallbackEnabled: input.manualFallbackEnabled ??
+          network.manualFallbackEnabled,
         customerDepositsEnabled,
       };
       const asset = assetById.get(network.assetId);
@@ -5481,6 +5490,8 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
           sharedDepositMemo: memo || null,
           manualWalletTrackingEnabled: input.manualWalletTrackingEnabled ??
             network.manualWalletTrackingEnabled,
+          manualFallbackEnabled: input.manualFallbackEnabled ??
+            network.manualFallbackEnabled,
         };
          let readiness = manualReadiness.get(network.id);
           if (customerDepositsEnabled) {
@@ -5629,6 +5640,8 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
               eligible,
             manualWalletTrackingEnabled: input.manualWalletTrackingEnabled ??
               network.manualWalletTrackingEnabled,
+             manualFallbackEnabled: input.manualFallbackEnabled ??
+               network.manualFallbackEnabled,
         }).where(eq(cryptoAssetNetworksTable.id, network.id));
       }
       const updated = await tx.select().from(cryptoAssetNetworksTable)
@@ -6812,6 +6825,18 @@ router.post("/admin/providers/whitebit/credentials/test", requireOwner, async (_
 router.get("/admin/providers/whitebit/verification-routes", requireOwner, async (_req, res, next) => {
   try {
     const capabilities = await getWhitebitCapabilities();
+    const stored = await getWhitebitCredentialStorageState();
+    const credentials = stored.status === "available" ? stored.credentials :
+      process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET
+        ? { apiKey: process.env.WHITEBIT_API_KEY, secretKey: process.env.WHITEBIT_API_SECRET }
+        : null;
+    const fingerprint = credentials ? whitebitCredentialFingerprint(credentials) : null;
+    const [setting] = await db.select({
+      depositRouteProofs: whitebitProviderSettingsTable.depositRouteProofs,
+      credentialVerifiedFingerprint: whitebitProviderSettingsTable.credentialVerifiedFingerprint,
+      credentialVerifiedAt: whitebitProviderSettingsTable.credentialVerifiedAt,
+    }).from(whitebitProviderSettingsTable)
+      .where(eq(whitebitProviderSettingsTable.provider, "whitebit")).limit(1);
     const rows = await db.select({
       asset: cryptoAssetsTable,
       network: cryptoAssetNetworksTable,
@@ -6831,6 +6856,16 @@ router.get("/admin/providers/whitebit/verification-routes", requireOwner, async 
       networkId: network.id,
       assetCode: asset.code,
       networkCode: network.networkCode,
+      proofCurrent: Boolean(fingerprint &&
+        setting?.credentialVerifiedFingerprint === fingerprint &&
+        setting.credentialVerifiedAt &&
+        (setting.depositRouteProofs ?? []).some(proof =>
+          proof.networkId === network.id &&
+          proof.assetCode === asset.code.trim().toUpperCase() &&
+          proof.networkCode === network.networkCode.trim().toUpperCase() &&
+          proof.configurationDigest === customerDepositRouteConfigurationDigest(asset, network) &&
+          proof.credentialFingerprint === fingerprint
+        )),
     })));
   } catch (error) {
     next(error);
@@ -6888,70 +6923,129 @@ router.post("/admin/providers/whitebit/address-permission/verify", requireOwner,
       selected.network.whitebitAssetCode, selected.network.whitebitNetworkCode)) {
       throw new ApiError("WHITEBIT_ROUTE_NOT_ELIGIBLE", "The selected route is not an eligible enabled WhiteBIT route.", 409);
     }
-    const routeDigest = customerDepositRouteConfigurationDigest(selected.asset, selected.network);
-    const verifiedAt = new Date().toISOString();
-    const result = await verifyWhitebitDepositAddressPermission(
-      selected.asset.code,
-      selected.network.networkCode,
-      credentials,
-      { whitebitAssetCode: selected.network.whitebitAssetCode, whitebitNetworkCode: selected.network.whitebitNetworkCode },
-    );
-    if (!result.address.trim() || (selected.network.requiresMemo && !result.memo?.trim())) {
-      throw new ApiError("WHITEBIT_ADDRESS_PERMISSION_UNVERIFIED", "WhiteBIT did not return a valid address permission result.", 502);
-    }
-    // The returned address and memo are deliberately discarded; only the fact of
-    // successful address creation is recorded.
-    const proof = {
-      networkId: selected.network.id,
-      assetCode: selected.asset.code.trim().toUpperCase(),
-      networkCode: selected.network.networkCode.trim().toUpperCase(),
-      configurationDigest: routeDigest,
-      credentialFingerprint,
-      verifiedAt,
-    };
-    await db.transaction(async (tx) => {
-      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('rook:whitebit:credentials', 0))`);
-      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
-      const [currentCredential] = await tx.select({
-        updatedAt: providerIntegrationsTable.updatedAt,
-      }).from(providerIntegrationsTable)
-        .where(eq(providerIntegrationsTable.provider, "whitebit")).limit(1);
-      const credentialUnchanged = expectedCredentialUpdatedAt === null
-        ? !currentCredential
-        : Boolean(currentCredential &&
-          currentCredential.updatedAt.getTime() === expectedCredentialUpdatedAt.getTime());
-      if (!credentialUnchanged) {
-        throw new ApiError("WHITEBIT_CREDENTIAL_STATE_CHANGED", "WhiteBIT credentials changed during verification. Retry after retesting them.", 409);
-      }
+    const outcome = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('rook:whitebit:address-permission:' || ${req.body.networkId}, 0))`);
       const [currentRoute] = await tx.select({
         asset: cryptoAssetsTable,
         network: cryptoAssetNetworksTable,
       }).from(cryptoAssetNetworksTable)
         .innerJoin(cryptoAssetsTable, eq(cryptoAssetNetworksTable.assetId, cryptoAssetsTable.id))
         .where(and(
-          eq(cryptoAssetNetworksTable.id, selected.network.id),
+          eq(cryptoAssetNetworksTable.id, req.body.networkId),
           eq(cryptoAssetsTable.enabled, true),
           eq(cryptoAssetNetworksTable.enabled, true),
+          eq(cryptoAssetNetworksTable.executionMode, "manual"),
           eq(cryptoAssetNetworksTable.depositProvider, "whitebit"),
           sql`${cryptoAssetsTable.lifecycle} <> 'deprecated'`,
           sql`${cryptoAssetNetworksTable.lifecycle} <> 'deprecated'`,
         )).for("update").limit(1);
-      if (
-        !currentRoute ||
-        customerDepositRouteConfigurationDigest(currentRoute.asset, currentRoute.network) !== routeDigest
-      ) {
-        throw new ApiError("WHITEBIT_ROUTE_CONFIGURATION_CHANGED", "The selected route changed during verification. No permission proof was saved.", 409);
+      if (!currentRoute || !matchWhitebitRouteCapability(
+        capabilities,
+        currentRoute.asset.code,
+        currentRoute.network.networkCode,
+        currentRoute.network.whitebitAssetCode,
+        currentRoute.network.whitebitNetworkCode,
+      )) {
+        throw new ApiError("WHITEBIT_ROUTE_NOT_ELIGIBLE", "The selected route is not an eligible enabled WhiteBIT route.", 409);
       }
+      const routeDigest = customerDepositRouteConfigurationDigest(currentRoute.asset, currentRoute.network);
       const [currentSetting] = await tx.select().from(whitebitProviderSettingsTable)
         .where(eq(whitebitProviderSettingsTable.provider, "whitebit")).limit(1);
-      if (
-        !currentSetting ||
+      if (!currentSetting ||
         currentSetting.credentialVerifiedFingerprint !== credentialFingerprint ||
-        !currentSetting.credentialVerifiedAt
-      ) {
+        !currentSetting.credentialVerifiedAt) {
+        throw new ApiError("WHITEBIT_CREDENTIALS_UNVERIFIED", "Test the signed WhiteBIT credentials before checking address permission.", 409);
+      }
+      const [credentialAtLock] = await tx.select({
+        updatedAt: providerIntegrationsTable.updatedAt,
+      }).from(providerIntegrationsTable)
+        .where(eq(providerIntegrationsTable.provider, "whitebit")).limit(1);
+      const credentialsStillMatch = expectedCredentialUpdatedAt === null
+        ? !credentialAtLock
+        : Boolean(credentialAtLock &&
+          credentialAtLock.updatedAt.getTime() === expectedCredentialUpdatedAt.getTime());
+      const envStillMatches = stored.status === "available" ||
+        Boolean(process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET &&
+          whitebitCredentialFingerprint({
+            apiKey: process.env.WHITEBIT_API_KEY,
+            secretKey: process.env.WHITEBIT_API_SECRET,
+          }) === credentialFingerprint);
+      if (!credentialsStillMatch || !envStillMatches) {
+        throw new ApiError("WHITEBIT_CREDENTIAL_STATE_CHANGED", "WhiteBIT credentials changed during verification. Retry after retesting them.", 409);
+      }
+      const existingProof = (currentSetting.depositRouteProofs ?? []).find(proof =>
+        proof.networkId === currentRoute.network.id &&
+        proof.assetCode === currentRoute.asset.code.trim().toUpperCase() &&
+        proof.networkCode === currentRoute.network.networkCode.trim().toUpperCase() &&
+        proof.configurationDigest === routeDigest &&
+        proof.credentialFingerprint === credentialFingerprint
+      );
+      if (existingProof) return { proof: existingProof, reused: true };
+
+      const credentialStateIsCurrent = async () => {
+        const [currentCredential] = await tx.select({
+          updatedAt: providerIntegrationsTable.updatedAt,
+        }).from(providerIntegrationsTable)
+          .where(eq(providerIntegrationsTable.provider, "whitebit")).limit(1);
+        const unchanged = expectedCredentialUpdatedAt === null
+          ? !currentCredential
+          : Boolean(currentCredential &&
+            currentCredential.updatedAt.getTime() === expectedCredentialUpdatedAt.getTime());
+        const currentEnvFingerprint = process.env.WHITEBIT_API_KEY && process.env.WHITEBIT_API_SECRET
+          ? whitebitCredentialFingerprint({
+              apiKey: process.env.WHITEBIT_API_KEY,
+              secretKey: process.env.WHITEBIT_API_SECRET,
+            })
+          : null;
+        return unchanged && (stored.status === "available" || currentEnvFingerprint === credentialFingerprint);
+      };
+      if (!(await credentialStateIsCurrent())) {
+        throw new ApiError("WHITEBIT_CREDENTIAL_STATE_CHANGED", "WhiteBIT credentials changed during verification. Retry after retesting them.", 409);
+      }
+      const result = await verifyWhitebitDepositAddressPermission(
+        currentRoute.asset.code,
+        currentRoute.network.networkCode,
+        credentials,
+        {
+          whitebitAssetCode: currentRoute.network.whitebitAssetCode,
+          whitebitNetworkCode: currentRoute.network.whitebitNetworkCode,
+        },
+      );
+      if (!result.address.trim() || (currentRoute.network.requiresMemo && !result.memo?.trim())) {
+        throw new ApiError("WHITEBIT_ADDRESS_PERMISSION_UNVERIFIED", "WhiteBIT did not return a valid address permission result.", 502);
+      }
+      if (!(await credentialStateIsCurrent())) {
+        throw new ApiError("WHITEBIT_CREDENTIAL_STATE_CHANGED", "WhiteBIT credentials changed during verification. No permission proof was saved.", 409);
+      }
+      const [credentialFence] = await tx.select({
+        updatedAt: providerIntegrationsTable.updatedAt,
+      }).from(providerIntegrationsTable)
+        .where(eq(providerIntegrationsTable.provider, "whitebit"))
+        .for("update")
+        .limit(1);
+      if (expectedCredentialUpdatedAt === null
+        ? Boolean(credentialFence)
+        : !credentialFence || credentialFence.updatedAt.getTime() !== expectedCredentialUpdatedAt.getTime()) {
+        throw new ApiError("WHITEBIT_CREDENTIAL_STATE_CHANGED", "WhiteBIT credentials changed during verification. No permission proof was saved.", 409);
+      }
+      const [settingToUpdate] = await tx.select().from(whitebitProviderSettingsTable)
+        .where(eq(whitebitProviderSettingsTable.provider, "whitebit"))
+        .for("update")
+        .limit(1);
+      if (!settingToUpdate ||
+        settingToUpdate.credentialVerifiedFingerprint !== credentialFingerprint ||
+        !settingToUpdate.credentialVerifiedAt) {
         throw new ApiError("WHITEBIT_CREDENTIALS_UNVERIFIED", "WhiteBIT credential verification changed during this operation.", 409);
       }
-      const proofs = (currentSetting.depositRouteProofs ?? []).filter((existing) =>
+      const proof = {
+        networkId: currentRoute.network.id,
+        assetCode: currentRoute.asset.code.trim().toUpperCase(),
+        networkCode: currentRoute.network.networkCode.trim().toUpperCase(),
+        configurationDigest: routeDigest,
+        credentialFingerprint,
+        verifiedAt: new Date().toISOString(),
+      };
+      const proofs = (settingToUpdate.depositRouteProofs ?? []).filter(existing =>
         existing.networkId !== proof.networkId
       );
       await tx.update(whitebitProviderSettingsTable).set({
@@ -6959,15 +7053,17 @@ router.post("/admin/providers/whitebit/address-permission/verify", requireOwner,
         version: sql`${whitebitProviderSettingsTable.version} + 1`,
         updatedAt: new Date(),
       }).where(eq(whitebitProviderSettingsTable.provider, "whitebit"));
+      return { proof, reused: false };
     });
-    res.json({
-      networkId: proof.networkId,
-      assetCode: proof.assetCode,
-      networkCode: proof.networkCode,
-      verifiedAt: proof.verifiedAt,
+    return res.json({
+      networkId: outcome.proof.networkId,
+      assetCode: outcome.proof.assetCode,
+      networkCode: outcome.proof.networkCode,
+      verifiedAt: outcome.proof.verifiedAt,
+      reused: outcome.reused,
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 

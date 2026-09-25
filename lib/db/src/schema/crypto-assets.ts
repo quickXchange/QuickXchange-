@@ -63,6 +63,9 @@ export const cryptoAssetNetworksTable = pgTable(
     manualWalletTrackingEnabled: boolean("manual_wallet_tracking_enabled")
       .notNull()
       .default(true),
+    manualFallbackEnabled: boolean("manual_fallback_enabled")
+      .notNull()
+      .default(false),
     lifecycle: text("lifecycle").notNull().default("active"),
     regions: jsonb("regions").$type<string[]>().notNull().default([]),
     enabled: boolean("enabled").notNull().default(true),

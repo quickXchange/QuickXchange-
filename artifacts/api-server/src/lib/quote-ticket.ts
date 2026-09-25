@@ -47,6 +47,7 @@ export type QuoteTicket = {
       whitebitNetworkCode?: string | null;
       customerDepositsEnabled?: boolean;
       manualWalletTrackingEnabled?: boolean;
+      manualFallbackEnabled?: boolean;
     };
   };
   requiredSettlementFields?: PaymentMethodFieldDefinition[];

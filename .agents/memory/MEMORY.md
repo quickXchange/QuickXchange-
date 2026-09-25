@@ -86,7 +86,7 @@
 - [Provider support metadata](provider-support-metadata.md) — provider-only orders keep operational support data in a fenced sidecar with explicit result tags and safe projections.
 - [Resend delivery readiness](resend-sender-domain.md) — require verified sender domain; [check actual credential](resend-connector-state-validation.md) rather than connector UI.
 - [Newsletter delivery integrity](newsletter-delivery-integrity.md) — publish enqueue is atomic, unsubscribe is terminal, and Read More links are parser-checked.
-- [WhiteBIT deposit integrity](whitebit-deposit-integrity.md) — alias all stable provider IDs, freeze credited economics, and reconcile within the provider’s bounded history window.
+- [WhiteBIT deposit integrity](whitebit-deposit-integrity.md) — alias stable IDs, freeze credited economics, and require explicit consent for saved-address fallback.
 - [Shared DB test isolation](shared-db-test-isolation.md) — singleton provider tests need a disposable database; fixture cleanup alone cannot protect Development proofs.
 - [Provider lifecycle test isolation](provider-lifecycle-test-isolation.md) — expire every cache layer and restore disabled provider settings around lifecycle tests.
 - [Bulk pricing conflict scope](bulk-pricing-conflict-scope.md) — validate changed pricing rules against the full catalog without making unrelated legacy conflicts block every bulk action.

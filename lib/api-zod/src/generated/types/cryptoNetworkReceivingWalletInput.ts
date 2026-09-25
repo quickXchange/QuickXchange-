@@ -41,6 +41,8 @@ export interface CryptoNetworkReceivingWalletInput {
      */
   whitebitNetworkCode?: string | null;
   manualWalletTrackingEnabled?: boolean;
+  /** Opt in to using this route's saved Manual Wallet if WhiteBIT funding is unavailable. The saved address is retained when disabled. */
+  manualFallbackEnabled?: boolean;
   customerDepositsEnabled?: boolean;
   preserveDepositProviders?: boolean;
   networkEnabled?: boolean;

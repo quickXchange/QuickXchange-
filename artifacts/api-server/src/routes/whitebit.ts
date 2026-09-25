@@ -259,6 +259,7 @@ export async function provisionSwapFundingAddress(input: {
   whitebitNetworkCode?: string | null;
   manualAddress: string;
   manualMemo: string;
+  manualFallbackEnabled?: boolean;
   manualFallbackUsable?: boolean;
   chosenWhitebit: boolean;
   expectedClaimToken?: string;
@@ -281,7 +282,7 @@ export async function provisionSwapFundingAddress(input: {
       );
   const manualFallbackAddress = fallbackInstructions?.address ?? "";
   const manualFallbackMemo = fallbackInstructions?.memo ?? "";
-  const manualFallbackUsable = Boolean(fallbackInstructions);
+  const manualFallbackUsable = input.manualFallbackEnabled === true && Boolean(fallbackInstructions);
   const fallbackResult = (usedFallback: boolean) => ({
     source: "whitebit" as const,
     address: usedFallback ? manualFallbackAddress : null,
@@ -342,6 +343,8 @@ export async function provisionSwapFundingAddress(input: {
           route.network.depositProvider === "whitebit" &&
           route.network.customerDepositsEnabled &&
           route.network.manualWalletTrackingEnabled === trackingEnabled &&
+          current.manualFallbackEnabled === true &&
+          route.network.manualFallbackEnabled === true &&
           route.network.sharedDepositAddress === fallbackAddress &&
           (route.network.sharedDepositMemo ?? "") === fallbackMemo &&
           fallbackAddress === input.manualAddress &&
@@ -367,8 +370,8 @@ export async function provisionSwapFundingAddress(input: {
           selectedProvider: "whitebit",
           addressSource: usable ? "manual_fallback" : "unavailable",
           status: usable ? "manual_fallback" : "unavailable",
-          manualFallbackAddress: fallbackAddress,
-          manualFallbackMemo: fallbackMemo,
+          manualFallbackAddress: usable ? fallbackAddress : "",
+          manualFallbackMemo: usable ? fallbackMemo : "",
         };
         const settlement = { ...((order.settlementSnapshot ?? {}) as Record<string, unknown>), funding };
         await tx.update(whitebitOrderAddressesTable).set({
@@ -446,6 +449,7 @@ export async function provisionSwapFundingAddress(input: {
         ? fundingSnapshot.memo
         : "";
     const trackingEnabled = fundingSnapshot.manualWalletTrackingEnabled !== false;
+    const fallbackEnabled = fundingSnapshot.manualFallbackEnabled === true;
     const snapshotWhitebitAssetCode =
       typeof fundingSnapshot.whitebitAssetCode === "string"
         ? fundingSnapshot.whitebitAssetCode.trim().toUpperCase()
@@ -506,8 +510,11 @@ export async function provisionSwapFundingAddress(input: {
       route.network.depositProvider !== "whitebit" ||
       route.network.customerDepositsEnabled !== true ||
       route.network.manualWalletTrackingEnabled !== trackingEnabled ||
-      route.network.sharedDepositAddress !== snapshotAddress ||
-      (route.network.sharedDepositMemo ?? "") !== snapshotMemo ||
+      (fallbackEnabled && (
+        route.network.manualFallbackEnabled !== true ||
+        route.network.sharedDepositAddress !== snapshotAddress ||
+        (route.network.sharedDepositMemo ?? "") !== snapshotMemo
+      )) ||
       (route.network.whitebitAssetCode?.trim().toUpperCase() ?? null) !== snapshotWhitebitAssetCode ||
       (route.network.whitebitNetworkCode?.trim().toUpperCase() ?? null) !== snapshotWhitebitNetworkCode
     ) return { claim: undefined, row: undefined, disabled: true };
@@ -737,13 +744,54 @@ async function finalizeSwapFundingFromClaimTx(tx: WhitebitTransaction, orderId: 
     } else {
       const fallbackAddress = String(current.manualFallbackAddress ?? "");
       const fallbackMemo = normalizeWhitebitMemo(current.manualFallbackMemo);
-      const fallbackUsable = Boolean(fallbackAddress.trim()) &&
+      const routeId = signedCryptoRouteId({
+        id: order.sourceSettlementOptionId ?? "",
+        networkId: typeof current.networkId === "string" ? current.networkId : null,
+      });
+      const [route] = await tx.select({
+        asset: cryptoAssetsTable,
+        network: cryptoAssetNetworksTable,
+      }).from(cryptoAssetNetworksTable)
+        .innerJoin(cryptoAssetsTable, eq(cryptoAssetsTable.id, cryptoAssetNetworksTable.assetId))
+        .where(and(
+          eq(cryptoAssetNetworksTable.id, routeId),
+          eq(cryptoAssetsTable.code, order.fromAsset),
+          eq(cryptoAssetNetworksTable.networkCode, order.fromNetwork ?? ""),
+        ))
+        .limit(1);
+      const routeFallbackCurrent = Boolean(
+        route &&
+        route.network.manualFallbackEnabled === true &&
+        route.network.depositProvider === "whitebit" &&
+        route.network.customerDepositsEnabled &&
+        route.network.enabled &&
+        route.asset.enabled &&
+        route.network.lifecycle !== "deprecated" &&
+        route.asset.lifecycle !== "deprecated" &&
+        route.network.manualWalletTrackingEnabled === (current.manualWalletTrackingEnabled !== false) &&
+        route.network.requiresMemo === Boolean(current.requiresMemo) &&
+        route.network.sharedDepositAddress === fallbackAddress &&
+        (route.network.sharedDepositMemo ?? "") === (current.manualFallbackMemo ?? "") &&
+        (route.network.whitebitAssetCode?.trim().toUpperCase() ?? null) ===
+          (typeof current.whitebitAssetCode === "string" ? current.whitebitAssetCode.trim().toUpperCase() : null) &&
+        (route.network.whitebitNetworkCode?.trim().toUpperCase() ?? null) ===
+          (typeof current.whitebitNetworkCode === "string" ? current.whitebitNetworkCode.trim().toUpperCase() : null) &&
+        isSyntacticallyValidManualWalletAddress(route.network, fallbackAddress) &&
+        (!fallbackMemo || isSyntacticallyValidManualWalletMemo(route.network, fallbackMemo)) &&
+        (!route.network.requiresMemo ||
+          (fallbackMemo !== null && fallbackMemo !== "" &&
+            isSyntacticallyValidManualWalletMemo(route.network, fallbackMemo)))
+      );
+      const fallbackUsable = current.manualFallbackEnabled === true &&
+        routeFallbackCurrent && Boolean(fallbackAddress.trim()) &&
         (!Boolean(current.requiresMemo) || Boolean(fallbackMemo));
       funding = fallbackUsable
         ? {
             ...current,
             address: fallbackAddress,
             memo: fallbackMemo,
+            manualFallbackAddress: fallbackAddress,
+            manualFallbackMemo: fallbackMemo,
             source: "whitebit",
             selectedProvider: "whitebit",
             addressSource: "manual_fallback",
@@ -753,6 +801,8 @@ async function finalizeSwapFundingFromClaimTx(tx: WhitebitTransaction, orderId: 
             ...current,
             address: "",
             memo: null,
+            manualFallbackAddress: "",
+            manualFallbackMemo: "",
             source: "whitebit",
             selectedProvider: "whitebit",
             addressSource: "unavailable",
@@ -1021,16 +1071,87 @@ export async function processNormalizedDeposit(tx: WhitebitTransaction, input: N
        : deposit.conflict,
     updatedAt: new Date(), rawPayload: input.rawPayload,
   }).where(eq(whitebitDepositsTable.id, deposit.id));
-  if (!ambiguousMapping && terminal && stable && orderAddressRow) {
+  const effectiveConfirmationsActual = input.confirmationsActual ?? deposit.confirmationsActual;
+  const effectiveConfirmationsRequired = input.confirmationsRequired ?? deposit.confirmationsRequired;
+  const confirmationsSafe = effectiveConfirmationsRequired == null
+    ? effectiveConfirmationsActual == null ||
+      (Number.isSafeInteger(effectiveConfirmationsActual) && effectiveConfirmationsActual >= 0)
+    : Number.isSafeInteger(effectiveConfirmationsRequired) &&
+      effectiveConfirmationsRequired >= 0 &&
+      effectiveConfirmationsActual != null &&
+      Number.isSafeInteger(effectiveConfirmationsActual) &&
+      effectiveConfirmationsActual >= effectiveConfirmationsRequired;
+  const detectedEvent = stable &&
+    (input.event === "deposit.accepted" || input.event === "deposit.updated");
+  if (!ambiguousMapping && (detectedEvent || terminal) && stable && orderAddressRow) {
     const [order] = await tx
       .select()
       .from(ordersTable)
       .where(eq(ordersTable.id, orderAddressRow.orderId))
       .limit(1);
-    if (
-      order?.type === "manual" &&
-      order.manualSettlementState === "awaiting_funds"
+    const exactReadyWhitebitSwap = order?.type === "manual" &&
+      order.fundingProviderSource === "whitebit" &&
+      order.fundingStatus === "ready_whitebit" &&
+      order.manualSettlementState === "awaiting_funds";
+    if (order && exactReadyWhitebitSwap && detectedEvent && order.status === "awaiting funds") {
+      await updateOrderAndQueueStatusNotificationTx(
+        tx,
+        order,
+        { status: "payment detected" },
+        and(
+          eq(ordersTable.status, "awaiting funds"),
+          eq(ordersTable.manualSettlementState, "awaiting_funds"),
+          eq(ordersTable.fundingProviderSource, "whitebit"),
+          eq(ordersTable.fundingStatus, "ready_whitebit"),
+        ),
+        {
+          action: "order.whitebit_deposit_detected",
+          actorType: "system",
+          details: {
+            provider: "whitebit",
+            depositId: deposit.id,
+            providerIdentity: identity,
+            transactionHash: input.transactionHash,
+          },
+        },
+      );
+    } else if (
+      exactReadyWhitebitSwap &&
+      order &&
+      terminal &&
+      confirmationsSafe &&
+      ["awaiting funds", "payment detected"].includes(order.status)
     ) {
+      const fundingSnapshot = order.fundingDetailsSnapshot &&
+        typeof order.fundingDetailsSnapshot === "object"
+        ? order.fundingDetailsSnapshot as Record<string, unknown>
+        : {};
+      const settlementSnapshot = order.settlementSnapshot &&
+        typeof order.settlementSnapshot === "object"
+        ? order.settlementSnapshot as Record<string, unknown>
+        : {};
+      const settlementFunding = settlementSnapshot.funding &&
+        typeof settlementSnapshot.funding === "object"
+        ? settlementSnapshot.funding as Record<string, unknown>
+        : {};
+      const configuredRequired =
+        fundingSnapshot.requiredConfirmations ?? settlementFunding.requiredConfirmations;
+      const configuredConfirmationsSafe = configuredRequired == null
+        ? true
+        : Number.isSafeInteger(configuredRequired) &&
+          Number(configuredRequired) >= 0 &&
+          // A provider's terminal processed status is itself finality evidence
+          // when it omits both counters. When counters are supplied, enforce
+          // the stricter of the provider and Admin-configured thresholds.
+          (effectiveConfirmationsActual == null && effectiveConfirmationsRequired == null
+            ? true
+            : effectiveConfirmationsActual != null &&
+              Number.isSafeInteger(effectiveConfirmationsActual) &&
+              effectiveConfirmationsActual >= Math.max(
+                Number(configuredRequired),
+                effectiveConfirmationsRequired ?? 0,
+              ));
+      if (!configuredConfirmationsSafe) return false;
       const now = new Date();
       const updated = await updateOrderAndQueueStatusNotificationTx(
         tx,
@@ -1041,7 +1162,15 @@ export async function processNormalizedDeposit(tx: WhitebitTransaction, input: N
           manualSettlementFundedAt: order.manualSettlementFundedAt ?? now,
           status: "processing",
         },
-        undefined,
+        and(
+          or(
+            eq(ordersTable.status, "awaiting funds"),
+            eq(ordersTable.status, "payment detected"),
+          ),
+          eq(ordersTable.manualSettlementState, "awaiting_funds"),
+          eq(ordersTable.fundingProviderSource, "whitebit"),
+          eq(ordersTable.fundingStatus, "ready_whitebit"),
+        ),
         {
           action: "order.deposit_confirmed",
           actorType: "system",

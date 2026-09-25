@@ -6491,6 +6491,7 @@ components:
         whitebitAssetCode: { type: [string, "null"], minLength: 2, maxLength: 16 }
         whitebitNetworkCode: { type: [string, "null"], minLength: 1, maxLength: 32 }
         manualWalletTrackingEnabled: { type: boolean }
+        manualFallbackEnabled: { type: boolean, description: Opt in to using this route's saved Manual Wallet if WhiteBIT funding is unavailable. The saved address is retained when disabled. }
         customerDepositsEnabled: { type: boolean }
         preserveDepositProviders: { type: boolean, default: false }
         networkEnabled: { type: boolean }
@@ -6505,10 +6506,11 @@ components:
       allOf:
         - $ref: "#/components/schemas/CryptoNetworkInput"
         - type: object
-          required: [depositProvider, manualWalletTrackingEnabled, createdAt, updatedAt]
+          required: [depositProvider, manualWalletTrackingEnabled, manualFallbackEnabled, createdAt, updatedAt]
           properties:
             depositProvider: { type: string, default: manual }
             manualWalletTrackingEnabled: { type: boolean, default: true }
+            manualFallbackEnabled: { type: boolean, default: false }
             manualFallbackInvalid: { type: boolean, readOnly: true }
             widgetReadiness:
               type: object
@@ -6990,11 +6992,12 @@ components:
         enabled: { type: boolean }
     WhitebitVerificationRoute:
       type: object
-      required: [networkId, assetCode, networkCode]
+      required: [networkId, assetCode, networkCode, proofCurrent]
       properties:
         networkId: { type: string }
         assetCode: { type: string }
         networkCode: { type: string }
+        proofCurrent: { type: boolean, description: Current exact-route proof for the selected credential identity and saved mapping. }
     WhitebitAddressPermissionInput:
       type: object
       required: [networkId, confirmRealAddressCreation]
@@ -7003,12 +7006,13 @@ components:
         confirmRealAddressCreation: { type: boolean }
     WhitebitAddressPermissionProof:
       type: object
-      required: [networkId, assetCode, networkCode, verifiedAt]
+      required: [networkId, assetCode, networkCode, verifiedAt, reused]
       properties:
         networkId: { type: string }
         assetCode: { type: string }
         networkCode: { type: string }
         verifiedAt: { type: string, format: date-time }
+        reused: { type: boolean, description: True when an already-current exact route proof was reused without creating another address. }
     QuickexCredentialInput:
       type: object
       required: [publicKey, secretKey]

@@ -3422,6 +3422,7 @@ export type CryptoNetworkMonitoringReadiness = {
 export type CryptoNetwork = CryptoNetworkInput & {
   depositProvider: string;
   manualWalletTrackingEnabled: boolean;
+  manualFallbackEnabled: boolean;
   readonly manualFallbackInvalid?: boolean;
   readonly widgetReadiness?: CryptoNetworkWidgetReadiness;
   createdAt: string;
@@ -3706,6 +3707,8 @@ export interface CryptoNetworkReceivingWalletInput {
      */
   whitebitNetworkCode?: string | null;
   manualWalletTrackingEnabled?: boolean;
+  /** Opt in to using this route's saved Manual Wallet if WhiteBIT funding is unavailable. The saved address is retained when disabled. */
+  manualFallbackEnabled?: boolean;
   customerDepositsEnabled?: boolean;
   preserveDepositProviders?: boolean;
   networkEnabled?: boolean;
@@ -4371,6 +4374,8 @@ export interface WhitebitAddressPermissionProof {
   assetCode: string;
   networkCode: string;
   verifiedAt: string;
+  /** True when an already-current exact route proof was reused without creating another address. */
+  reused: boolean;
 }
 
 export type WhitebitHistoryWorkerHealthStatus = typeof WhitebitHistoryWorkerHealthStatus[keyof typeof WhitebitHistoryWorkerHealthStatus];
@@ -4496,6 +4501,8 @@ export interface WhitebitVerificationRoute {
   networkId: string;
   assetCode: string;
   networkCode: string;
+  /** Current exact-route proof for the selected credential identity and saved mapping. */
+  proofCurrent: boolean;
 }
 
 export interface WhitebitAddressPermissionInput {

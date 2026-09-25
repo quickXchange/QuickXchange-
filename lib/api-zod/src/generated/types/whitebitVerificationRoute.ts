@@ -10,4 +10,6 @@ export interface WhitebitVerificationRoute {
   networkId: string;
   assetCode: string;
   networkCode: string;
+  /** Current exact-route proof for the selected credential identity and saved mapping. */
+  proofCurrent: boolean;
 }

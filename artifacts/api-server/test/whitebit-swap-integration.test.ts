@@ -410,6 +410,7 @@ before(async () => {
 
 test("BTC verification and exact-route network invalidation preserve an existing BNB proof", async () => {
   await mockAssets();
+  const assetFetch = globalThis.fetch;
   const [original] = await database.db.select().from(database.whitebitProviderSettingsTable)
     .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
   const [originalBtc] = await database.db.select().from(database.cryptoAssetNetworksTable)
@@ -421,6 +422,11 @@ test("BTC verification and exact-route network invalidation preserve an existing
     .innerJoin(database.cryptoAssetsTable, eq(database.cryptoAssetNetworksTable.assetId, database.cryptoAssetsTable.id))
     .where(eq(database.cryptoAssetNetworksTable.id, "bnb-bnb"));
   assert.ok(bnb, "isolated suite must contain its own synthetic BNB route");
+  const [originalBnbNetwork] = await database.db.select().from(database.cryptoAssetNetworksTable)
+    .where(eq(database.cryptoAssetNetworksTable.id, "bnb-bnb"));
+  const [originalBnbAsset] = await database.db.select().from(database.cryptoAssetsTable)
+    .where(eq(database.cryptoAssetsTable.id, bnb.asset.id));
+  assert.ok(originalBnbNetwork && originalBnbAsset);
   const stored = await getWhitebitCredentialStorageState();
   const credentials = stored.status === "available" ? stored.credentials : {
     apiKey: process.env.WHITEBIT_API_KEY!,
@@ -431,11 +437,42 @@ test("BTC verification and exact-route network invalidation preserve an existing
     networkId: bnb.network.id,
     assetCode: "BNB",
     networkCode: "BNB",
-    configurationDigest: customerDepositRouteConfigurationDigest(bnb.asset, bnb.network),
+    configurationDigest: customerDepositRouteConfigurationDigest(
+      { ...bnb.asset, enabled: true, lifecycle: "active" },
+      {
+        ...bnb.network,
+        enabled: true,
+        lifecycle: "active",
+        executionMode: "manual",
+        depositProvider: "whitebit",
+        networkCode: "BNB",
+        customerDepositsEnabled: true,
+        whitebitAssetCode: null,
+        whitebitNetworkCode: null,
+      },
+    ),
     credentialFingerprint: fingerprint,
     verifiedAt: new Date().toISOString(),
   };
   try {
+    globalThis.fetch = async (input, init) => String(input).endsWith("/api/v4/public/assets")
+      ? new Response(JSON.stringify({
+          BTC: { can_deposit: true, networks: { deposits: ["BITCOIN"] }, confirmations: { BITCOIN: 3 } },
+          BNB: { can_deposit: true, networks: { deposits: ["BNB"] }, confirmations: { BNB: 3 } },
+        }), { status: 200 })
+      : assetFetch(input, init);
+    await database.db.update(database.cryptoAssetNetworksTable).set({
+      enabled: true,
+      lifecycle: "active",
+      executionMode: "manual",
+      depositProvider: "whitebit",
+      networkCode: "BNB",
+      customerDepositsEnabled: true,
+      whitebitAssetCode: null,
+      whitebitNetworkCode: null,
+    }).where(eq(database.cryptoAssetNetworksTable.id, "bnb-bnb"));
+    await database.db.update(database.cryptoAssetsTable).set({ enabled: true, lifecycle: "active" })
+      .where(eq(database.cryptoAssetsTable.id, bnb.asset.id));
     await database.db.update(database.whitebitProviderSettingsTable).set({
       depositRouteProofs: [bnbProof],
       credentialVerifiedFingerprint: fingerprint,
@@ -448,6 +485,16 @@ test("BTC verification and exact-route network invalidation preserve an existing
       .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
     assert.deepEqual(new Set(both.proofs.map(proof => proof.networkId)), new Set(["bnb-bnb", "btc-bitcoin"]));
     assert.deepEqual(both.proofs.find(proof => proof.networkId === "bnb-bnb"), bnbProof);
+
+    const proofRoutesResponse = await fetch(`${baseUrl}/api/admin/providers/whitebit/verification-routes`, {
+      headers: { "x-test-operator": ownerClerkUserId },
+    });
+    assert.equal(proofRoutesResponse.status, 200, await proofRoutesResponse.clone().text());
+    const proofRoutes = await proofRoutesResponse.json() as Array<{
+      networkId: string; proofCurrent: boolean;
+    }>;
+    assert.equal(proofRoutes.find(route => route.networkId === "btc-bitcoin")?.proofCurrent, true);
+    assert.equal(proofRoutes.find(route => route.networkId === "bnb-bnb")?.proofCurrent, true);
 
     const verified = await fetch(`${baseUrl}/api/admin/providers/whitebit/credentials/test`, {
       method: "POST", headers: { "x-test-operator": ownerClerkUserId },
@@ -465,6 +512,15 @@ test("BTC verification and exact-route network invalidation preserve an existing
       body: JSON.stringify({ networkName: "Bitcoin (isolated proof test)" }),
     });
     assert.equal(updated.status, 200, await updated.clone().text());
+    const afterRouteUpdateResponse = await fetch(`${baseUrl}/api/admin/providers/whitebit/verification-routes`, {
+      headers: { "x-test-operator": ownerClerkUserId },
+    });
+    assert.equal(afterRouteUpdateResponse.status, 200, await afterRouteUpdateResponse.clone().text());
+    const afterRouteUpdateRoutes = await afterRouteUpdateResponse.json() as Array<{
+      networkId: string; proofCurrent: boolean;
+    }>;
+    assert.equal(afterRouteUpdateRoutes.find(route => route.networkId === "btc-bitcoin")?.proofCurrent, false);
+    assert.equal(afterRouteUpdateRoutes.find(route => route.networkId === "bnb-bnb")?.proofCurrent, true);
     const [afterRouteUpdate] = await database.db.select({
       proofs: database.whitebitProviderSettingsTable.depositRouteProofs,
     }).from(database.whitebitProviderSettingsTable)
@@ -477,6 +533,21 @@ test("BTC verification and exact-route network invalidation preserve an existing
         customerDepositsEnabled: originalBtc.customerDepositsEnabled,
       })
       .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
+    await database.db.update(database.cryptoAssetNetworksTable).set({
+      enabled: originalBnbNetwork.enabled,
+      lifecycle: originalBnbNetwork.lifecycle,
+      executionMode: originalBnbNetwork.executionMode,
+      depositProvider: originalBnbNetwork.depositProvider,
+      networkCode: originalBnbNetwork.networkCode,
+      customerDepositsEnabled: originalBnbNetwork.customerDepositsEnabled,
+      whitebitAssetCode: originalBnbNetwork.whitebitAssetCode,
+      whitebitNetworkCode: originalBnbNetwork.whitebitNetworkCode,
+    }).where(eq(database.cryptoAssetNetworksTable.id, "bnb-bnb"));
+    await database.db.update(database.cryptoAssetsTable).set({
+      enabled: originalBnbAsset.enabled,
+      lifecycle: originalBnbAsset.lifecycle,
+    })
+      .where(eq(database.cryptoAssetsTable.id, bnb.asset.id));
     await database.db.update(database.whitebitProviderSettingsTable).set({
       disabled: original.disabled,
       version: original.version,
@@ -785,9 +856,21 @@ test("capability loss after provider selection uses the exact manual fallback wi
   const before = providerCalls;
   const unresolvedOrderId = `${orderId}-capability-loss`;
   const fallbackAddress = validBitcoinAddress();
+  await insertProvisioningOrder(unresolvedOrderId, fallbackAddress);
+  await database.db.update(database.cryptoAssetNetworksTable)
+    .set({ manualFallbackEnabled: true })
+    .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
+  const [fallbackOrderBeforeProvision] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, unresolvedOrderId));
+  await database.db.update(database.ordersTable).set({
+    fundingDetailsSnapshot: {
+      ...(fallbackOrderBeforeProvision?.fundingDetailsSnapshot as Record<string, unknown>),
+      manualFallbackEnabled: true,
+    },
+  }).where(eq(database.ordersTable.id, unresolvedOrderId));
   const result = await provisionTest({
     orderId: unresolvedOrderId, assetCode: "BTC", networkCode: "BITCOIN",
-    manualAddress: fallbackAddress, manualMemo: "", chosenWhitebit: true,
+    manualAddress: fallbackAddress, manualMemo: "", manualFallbackEnabled: true, chosenWhitebit: true,
   }, false);
   assert.equal(result.unresolved, false);
   assert.equal(result.address, fallbackAddress);
@@ -943,9 +1026,22 @@ test("a provider address already assigned to another order uses fallback", async
   });
   assert.equal(first.address, orderAddress);
   const fallbackAddress = validBitcoinAddress();
+  const secondId = `${orderId}-unique-second`;
+  await insertProvisioningOrder(secondId, fallbackAddress);
+  await database.db.update(database.cryptoAssetNetworksTable)
+    .set({ manualFallbackEnabled: true })
+    .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
+  const [secondOrderBeforeProvision] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, secondId));
+  await database.db.update(database.ordersTable).set({
+    fundingDetailsSnapshot: {
+      ...(secondOrderBeforeProvision?.fundingDetailsSnapshot as Record<string, unknown>),
+      manualFallbackEnabled: true,
+    },
+  }).where(eq(database.ordersTable.id, secondId));
   const second = await provisionTest({
-    orderId: `${orderId}-unique-second`, assetCode: "BTC", networkCode: "BITCOIN",
-    manualAddress: fallbackAddress, manualMemo: "", chosenWhitebit: true,
+    orderId: secondId, assetCode: "BTC", networkCode: "BITCOIN",
+    manualAddress: fallbackAddress, manualMemo: "", manualFallbackEnabled: true, chosenWhitebit: true,
   });
   assert.equal(second.address, fallbackAddress);
   const [secondOrder] = await database.db.select().from(database.ordersTable)
@@ -960,7 +1056,19 @@ test("definitive provider rejection remains WhiteBIT-owned and uses the exact ma
   globalThis.fetch = async (input, init) => String(input).endsWith("/api/v4/main-account/create-new-address")
     ? new Response(JSON.stringify({ error: "rejected" }), { status: 403 }) : saved(input, init);
   const fallbackAddress = validBitcoinAddress();
-  const result = await provisionTest({ orderId: `${orderId}-reject`, assetCode: "BTC", networkCode: "BITCOIN", manualAddress: fallbackAddress, manualMemo: "", chosenWhitebit: true });
+  const rejectId = `${orderId}-reject`;
+  await insertProvisioningOrder(rejectId, fallbackAddress);
+  await database.db.update(database.cryptoAssetNetworksTable).set({ manualFallbackEnabled: true })
+    .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
+  const [rejectOrderBeforeProvision] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, rejectId));
+  await database.db.update(database.ordersTable).set({
+    fundingDetailsSnapshot: {
+      ...(rejectOrderBeforeProvision?.fundingDetailsSnapshot as Record<string, unknown>),
+      manualFallbackEnabled: true,
+    },
+  }).where(eq(database.ordersTable.id, rejectId));
+  const result = await provisionTest({ orderId: rejectId, assetCode: "BTC", networkCode: "BITCOIN", manualAddress: fallbackAddress, manualMemo: "", manualFallbackEnabled: true, chosenWhitebit: true });
   assert.equal(result.source, "whitebit");
   assert.equal(result.address, fallbackAddress);
   assert.equal(result.unresolved, false);
@@ -969,8 +1077,61 @@ test("definitive provider rejection remains WhiteBIT-owned and uses the exact ma
   assert.equal(rejectedOrder.fundingProviderSource, "whitebit");
   assert.equal(rejectedOrder.fundingStatus, "ready_manual");
   assert.equal(rejectedOrder.depositAddress, fallbackAddress);
-  assert.equal((rejectedOrder.fundingDetailsSnapshot as { addressSource?: string }).addressSource, "manual_fallback");
+  assert.equal((rejectedOrder.fundingDetailsSnapshot as { addressSource?: string; manualFallbackEnabled?: boolean }).addressSource, "manual_fallback");
+  assert.equal((rejectedOrder.fundingDetailsSnapshot as { manualFallbackEnabled?: boolean }).manualFallbackEnabled, true);
   assert.equal(((rejectedOrder.settlementSnapshot as { funding?: { addressSource?: string } }).funding)?.addressSource, "manual_fallback");
+  globalThis.fetch = saved;
+});
+
+test("WhiteBIT fallback fails closed without frozen and current exact-route opt-in", async () => {
+  await mockAssets();
+  const saved = globalThis.fetch;
+  globalThis.fetch = async (input, init) => String(input).endsWith("/api/v4/main-account/create-new-address")
+    ? new Response(JSON.stringify({ error: "rejected" }), { status: 403 }) : saved(input, init);
+  const fallbackAddress = validBitcoinAddress();
+  await database.db.update(database.cryptoAssetNetworksTable)
+    .set({ manualFallbackEnabled: true })
+    .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
+  await seedWhitebitVerificationFixture("BTC", "BITCOIN");
+
+  const legacyId = `${orderId}-fallback-legacy-snapshot`;
+  await insertProvisioningOrder(legacyId, fallbackAddress);
+  const legacy = await provisionSwapFundingAddress({
+    orderId: legacyId, assetCode: "BTC", networkCode: "BITCOIN",
+    manualAddress: fallbackAddress, manualMemo: "",
+    manualFallbackEnabled: true, manualFallbackUsable: true, chosenWhitebit: true,
+  });
+  assert.equal(legacy.unresolved, true);
+  assert.equal(legacy.address, null);
+  const [legacyOrder] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, legacyId));
+  assert.equal(legacyOrder.depositAddress, "");
+  assert.equal((legacyOrder.fundingDetailsSnapshot as { addressSource?: string }).addressSource, "unavailable");
+  assert.equal((legacyOrder.fundingDetailsSnapshot as { manualFallbackEnabled?: boolean }).manualFallbackEnabled, undefined);
+
+  const currentOptOutId = `${orderId}-fallback-current-opt-out`;
+  await insertProvisioningOrder(currentOptOutId, fallbackAddress);
+  await database.db.update(database.cryptoAssetNetworksTable)
+    .set({ manualFallbackEnabled: false })
+    .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
+  const [currentOptOutBefore] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, currentOptOutId));
+  await database.db.update(database.ordersTable).set({
+    fundingDetailsSnapshot: {
+      ...(currentOptOutBefore?.fundingDetailsSnapshot as Record<string, unknown>),
+      manualFallbackEnabled: true,
+    },
+  }).where(eq(database.ordersTable.id, currentOptOutId));
+  const currentOptOut = await provisionSwapFundingAddress({
+    orderId: currentOptOutId, assetCode: "BTC", networkCode: "BITCOIN",
+    manualAddress: fallbackAddress, manualMemo: "",
+    manualFallbackEnabled: true, manualFallbackUsable: true, chosenWhitebit: true,
+  });
+  assert.equal(currentOptOut.unresolved, true);
+  assert.equal(currentOptOut.address, null);
+  const [currentOptOutOrder] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, currentOptOutId));
+  assert.equal(currentOptOutOrder.depositAddress, "");
   globalThis.fetch = saved;
 });
 
@@ -983,10 +1144,22 @@ test("timeout falls back atomically and replay never recalls the provider", asyn
     return saved(input, init);
   };
   const fallbackAddress = validBitcoinAddress();
-  const result = await provisionTest({ orderId: `${orderId}-timeout`, assetCode: "BTC", networkCode: "BITCOIN", manualAddress: fallbackAddress, manualMemo: "", chosenWhitebit: true });
+  const timeoutId = `${orderId}-timeout`;
+  await insertProvisioningOrder(timeoutId, fallbackAddress);
+  await database.db.update(database.cryptoAssetNetworksTable).set({ manualFallbackEnabled: true })
+    .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
+  const [timeoutOrderBeforeProvision] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, timeoutId));
+  await database.db.update(database.ordersTable).set({
+    fundingDetailsSnapshot: {
+      ...(timeoutOrderBeforeProvision?.fundingDetailsSnapshot as Record<string, unknown>),
+      manualFallbackEnabled: true,
+    },
+  }).where(eq(database.ordersTable.id, timeoutId));
+  const result = await provisionTest({ orderId: timeoutId, assetCode: "BTC", networkCode: "BITCOIN", manualAddress: fallbackAddress, manualMemo: "", manualFallbackEnabled: true, chosenWhitebit: true });
   assert.equal(result.unresolved, false);
   assert.equal(result.address, fallbackAddress);
-  const replay = await provisionTest({ orderId: `${orderId}-timeout`, assetCode: "BTC", networkCode: "BITCOIN", manualAddress: fallbackAddress, manualMemo: "", chosenWhitebit: true });
+  const replay = await provisionTest({ orderId: timeoutId, assetCode: "BTC", networkCode: "BITCOIN", manualAddress: fallbackAddress, manualMemo: "", manualFallbackEnabled: true, chosenWhitebit: true });
   assert.equal(replay.unresolved, false);
   assert.equal(replay.address, null);
   assert.equal(calls, 1);
@@ -1006,26 +1179,41 @@ test("malformed provider response uses fallback, while an unusable required-memo
     : saved(input, init);
   const malformedId = `${orderId}-malformed`;
   const fallbackAddress = validBitcoinAddress();
+  await insertProvisioningOrder(malformedId, fallbackAddress);
+  await database.db.update(database.cryptoAssetNetworksTable).set({ manualFallbackEnabled: true })
+    .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
+  const [malformedOrderBeforeProvision] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, malformedId));
+  await database.db.update(database.ordersTable).set({
+    fundingDetailsSnapshot: {
+      ...(malformedOrderBeforeProvision?.fundingDetailsSnapshot as Record<string, unknown>),
+      manualFallbackEnabled: true,
+    },
+  }).where(eq(database.ordersTable.id, malformedId));
   const malformed = await provisionTest({
     orderId: malformedId, assetCode: "BTC", networkCode: "BITCOIN",
     manualAddress: fallbackAddress, manualMemo: "", manualFallbackUsable: true,
+    manualFallbackEnabled: true,
     chosenWhitebit: true,
   });
   assert.equal(malformed.unresolved, false);
   assert.equal(malformed.address, fallbackAddress);
 
   const noMemoId = `${orderId}-required-memo`;
-  await insertProvisioningOrder(noMemoId);
+  await insertProvisioningOrder(noMemoId, fallbackAddress, "", true);
+  await database.db.update(database.cryptoAssetNetworksTable).set({ manualFallbackEnabled: true })
+    .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
   await database.db.update(database.ordersTable).set({
     fundingDetailsSnapshot: {
       source: "whitebit", status: "provisioning", address: "", memo: "",
-      manualFallbackAddress: "memo-required-wallet", manualFallbackMemo: "",
+      manualFallbackAddress: fallbackAddress, manualFallbackMemo: "",
+      manualFallbackEnabled: true,
       requiresMemo: true,
     },
   }).where(eq(database.ordersTable.id, noMemoId));
   const unavailable = await provisionSwapFundingAddress({
     orderId: noMemoId, assetCode: "BTC", networkCode: "BITCOIN",
-    manualAddress: "memo-required-wallet", manualMemo: "",
+    manualAddress: fallbackAddress, manualMemo: "", manualFallbackEnabled: true,
     manualFallbackUsable: false, chosenWhitebit: true,
   });
   assert.equal(unavailable.unresolved, true);
@@ -1058,10 +1246,21 @@ test("invalid WhiteBIT instructions never become a ready claim or exposed addres
         : saved(input, init);
       const id = `${orderId}-${label}`;
       await insertProvisioningOrder(id, fallback, fallback ? "MANUAL-TAG" : "", true);
+      await database.db.update(database.cryptoAssetNetworksTable)
+        .set({ manualFallbackEnabled: true })
+        .where(eq(database.cryptoAssetNetworksTable.id, route.id));
+      const [orderBeforeProvision] = await database.db.select().from(database.ordersTable)
+        .where(eq(database.ordersTable.id, id));
+      await database.db.update(database.ordersTable).set({
+        fundingDetailsSnapshot: {
+          ...(orderBeforeProvision?.fundingDetailsSnapshot as Record<string, unknown>),
+          manualFallbackEnabled: true,
+        },
+      }).where(eq(database.ordersTable.id, id));
       const result = await provisionSwapFundingAddress({
         orderId: id, assetCode: "BTC", networkCode: "BITCOIN",
         manualAddress: fallback, manualMemo: fallback ? "MANUAL-TAG" : "",
-        manualFallbackUsable: Boolean(fallback), chosenWhitebit: true,
+        manualFallbackUsable: Boolean(fallback), manualFallbackEnabled: true, chosenWhitebit: true,
       });
       assert.equal(result.address, expected || null);
       assert.equal(result.unresolved, !expected);
@@ -1075,7 +1274,10 @@ test("invalid WhiteBIT instructions never become a ready claim or exposed addres
     }
   } finally {
     globalThis.fetch = saved;
-    await database.db.update(database.cryptoAssetNetworksTable).set({ requiresMemo: route.requiresMemo })
+    await database.db.update(database.cryptoAssetNetworksTable).set({
+      requiresMemo: route.requiresMemo,
+      manualFallbackEnabled: route.manualFallbackEnabled,
+    })
       .where(eq(database.cryptoAssetNetworksTable.id, route.id));
   }
 });
@@ -1084,6 +1286,16 @@ test("fallback without READY exact-route monitoring never creates an unsafe watc
   const id = `${orderId}-unready-fallback-watch`;
   const fallbackAddress = validBitcoinAddress();
   await insertProvisioningOrder(id, fallbackAddress, "", false, true);
+  await database.db.update(database.cryptoAssetNetworksTable).set({ manualFallbackEnabled: true })
+    .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
+  const [orderBeforeFallback] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, id));
+  await database.db.update(database.ordersTable).set({
+    fundingDetailsSnapshot: {
+      ...(orderBeforeFallback?.fundingDetailsSnapshot as Record<string, unknown>),
+      manualFallbackEnabled: true,
+    },
+  }).where(eq(database.ordersTable.id, id));
   await database.db.insert(database.whitebitOrderAddressesTable).values({
     orderId: id, ticker: "BTC", providerTicker: "BTC", network: "BITCOIN",
     status: "unresolved",
@@ -1188,7 +1400,18 @@ test("disabled provider uses fallback without a provider call", async () => {
     .set({ disabled: true })
     .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
   const fallbackAddress = validBitcoinAddress();
-  const result = await provisionTest({ orderId: toggleOrderId, assetCode: "BTC", networkCode: "BITCOIN", manualAddress: fallbackAddress, manualMemo: "", chosenWhitebit: true }, false);
+  await insertProvisioningOrder(toggleOrderId, fallbackAddress);
+  await database.db.update(database.cryptoAssetNetworksTable).set({ manualFallbackEnabled: true })
+    .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
+  const [toggleOrderBeforeProvision] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, toggleOrderId));
+  await database.db.update(database.ordersTable).set({
+    fundingDetailsSnapshot: {
+      ...(toggleOrderBeforeProvision?.fundingDetailsSnapshot as Record<string, unknown>),
+      manualFallbackEnabled: true,
+    },
+  }).where(eq(database.ordersTable.id, toggleOrderId));
+  const result = await provisionTest({ orderId: toggleOrderId, assetCode: "BTC", networkCode: "BITCOIN", manualAddress: fallbackAddress, manualMemo: "", manualFallbackEnabled: true, chosenWhitebit: true }, false);
   assert.equal(result.unresolved, false);
   assert.equal(result.address, fallbackAddress);
   assert.equal(providerCalls, 0);
@@ -1266,6 +1489,16 @@ test("stale calling replay resolves to fallback atomically and cannot later swit
   const staleOrderId = `${orderId}-stale-calling`;
   const fallbackAddress = validBitcoinAddress();
   await insertProvisioningOrder(staleOrderId, fallbackAddress);
+  await database.db.update(database.cryptoAssetNetworksTable).set({ manualFallbackEnabled: true })
+    .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
+  const [staleOrderBeforeFallback] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, staleOrderId));
+  await database.db.update(database.ordersTable).set({
+    fundingDetailsSnapshot: {
+      ...(staleOrderBeforeFallback?.fundingDetailsSnapshot as Record<string, unknown>),
+      manualFallbackEnabled: true,
+    },
+  }).where(eq(database.ordersTable.id, staleOrderId));
   const [claim] = await database.db.insert(database.whitebitOrderAddressesTable).values({
     orderId: staleOrderId, ticker: "BTC", providerTicker: "BTC", network: "BITCOIN",
     status: "calling", providerError: null,
@@ -1440,6 +1673,143 @@ test("canceled WhiteBIT delivery is audited without changing either order or its
   assert.equal(orderAfter.manualSettlementState, orderBefore.manualSettlementState);
   assert.equal(otherAfter.status, otherBefore.status);
   assert.equal(otherAfter.manualSettlementState, otherBefore.manualSettlementState);
+});
+
+test("WhiteBIT Swap deposit detection and finality advance without auto-completing payout", async () => {
+  const testOrderId = `${orderId}-deposit-finality`;
+  const address = `deposit-finality-address-${suffix}`;
+  const uniqueId = `deposit-finality-${suffix}`;
+  const transactionId = `deposit-finality-tx-${suffix}`;
+  await insertProvisioningOrder(testOrderId);
+  const [claim] = await database.db.insert(database.whitebitOrderAddressesTable).values({
+    orderId: testOrderId,
+    ticker: "BTC",
+    providerTicker: "BTC",
+    network: "BITCOIN",
+    address,
+    memo: "FINALITY-TAG",
+    status: "ready",
+  }).returning();
+  await finalizeSwapFundingFromClaim(testOrderId);
+
+  // Set the synthetic order's frozen Admin route threshold. Do not pre-edit
+  // either lifecycle status: the accepted event must cause Pending -> Detected.
+  const [readyOrder] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, testOrderId));
+  assert.equal(readyOrder.status, "awaiting funds");
+  assert.equal(readyOrder.fundingStatus, "ready_whitebit");
+  await database.db.update(database.ordersTable).set({
+    fundingDetailsSnapshot: {
+      ...(readyOrder.fundingDetailsSnapshot as Record<string, unknown>),
+      requiredConfirmations: 3,
+    },
+  }).where(eq(database.ordersTable.id, testOrderId));
+
+  let deliverySequence = 0;
+  async function deliver(
+    depositAddress: string,
+    idSuffix: string,
+    method: string,
+    status: number,
+    confirmations?: { actual: number; required: number },
+  ) {
+    const body = JSON.stringify({
+      method,
+      params: {
+        nonce: ++signedWebhookNonce,
+        address: depositAddress,
+        ticker: "BTC",
+        network: "BITCOIN",
+        memo: "FINALITY-TAG",
+        amount: "1.25",
+        fee: "0",
+        status,
+        unique_id: `${uniqueId}-${idSuffix}`,
+        transaction_id: `${transactionId}-${idSuffix}`,
+        transactionHash: `deposit-finality-hash-${suffix}-${idSuffix}`,
+        ...(confirmations ? {
+          confirmations: confirmations.actual,
+          confirmationsRequired: confirmations.required,
+        } : {}),
+      },
+      id: runId(`deposit-finality-delivery-${++deliverySequence}`),
+    });
+    const payload = Buffer.from(body).toString("base64");
+    const signature = createHmac("sha512", process.env.WHITEBIT_WEBHOOK_SECRET!)
+      .update(payload).digest("hex");
+    return fetch(`${baseUrl}/api/webhooks/whitebit`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-txc-apikey": process.env.WHITEBIT_WEBHOOK_API_KEY!,
+        "x-txc-payload": payload,
+        "x-txc-signature": signature,
+      },
+      body,
+    });
+  }
+  const accepted = await deliver(claim.address!, "stable", "deposit.accepted", 1);
+  assert.equal(accepted.status, 200, await accepted.text());
+  let [order] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, testOrderId));
+  assert.equal(order.status, "payment detected");
+  assert.equal(order.manualSettlementState, "awaiting_funds");
+
+  const underConfirmed = await deliver(claim.address!, "stable", "deposit.processed", 3, {
+    actual: 2,
+    required: 1,
+  });
+  assert.equal(underConfirmed.status, 200, await underConfirmed.text());
+  [order] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, testOrderId));
+  assert.equal(order.status, "payment detected");
+  assert.equal(order.manualSettlementState, "awaiting_funds");
+
+  const confirmed = await deliver(claim.address!, "stable", "deposit.processed", 3, {
+    actual: 3,
+    required: 1,
+  });
+  assert.equal(confirmed.status, 200, await confirmed.text());
+  [order] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, testOrderId));
+  assert.equal(order.status, "processing");
+  assert.equal(order.manualSettlementState, "funds_confirmed");
+  assert.equal(order.manualSettlementPaidAt, null);
+  assert.notEqual(order.status.toLowerCase(), "completed");
+  assert.notEqual(order.manualSettlementState, "completed");
+
+  const omittedCountsOrderId = `${orderId}-finality-omitted-counts`;
+  const omittedCountsAddress = `finality-omitted-counts-address-${suffix}`;
+  await insertProvisioningOrder(omittedCountsOrderId);
+  const [omittedCountsClaim] = await database.db.insert(database.whitebitOrderAddressesTable).values({
+    orderId: omittedCountsOrderId,
+    ticker: "BTC",
+    providerTicker: "BTC",
+    network: "BITCOIN",
+    address: omittedCountsAddress,
+    memo: "FINALITY-TAG",
+    status: "ready",
+  }).returning();
+  await finalizeSwapFundingFromClaim(omittedCountsOrderId);
+  const [omittedCountsReadyOrder] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, omittedCountsOrderId));
+  await database.db.update(database.ordersTable).set({
+    fundingDetailsSnapshot: {
+      ...(omittedCountsReadyOrder.fundingDetailsSnapshot as Record<string, unknown>),
+      requiredConfirmations: 3,
+    },
+  }).where(eq(database.ordersTable.id, omittedCountsOrderId));
+  const omittedCounts = await deliver(
+    omittedCountsClaim.address!,
+    "omitted-counts",
+    "deposit.processed",
+    3,
+  );
+  assert.equal(omittedCounts.status, 200, await omittedCounts.text());
+  const [omittedCountsOrder] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, omittedCountsOrderId));
+  assert.equal(omittedCountsOrder.status, "processing");
+  assert.equal(omittedCountsOrder.manualSettlementState, "funds_confirmed");
 });
 
 test("memo-less BNB/BEP20 claim matches null webhook and history memos but real tags stay exact", async () => {
@@ -2004,10 +2374,29 @@ test("WhiteBIT permission verification is explicit, private, and side-effect fen
   });
   assert.equal(permission.status, 200, await permission.clone().text());
   const proof = await permission.json() as Record<string, unknown>;
-  assert.deepEqual(Object.keys(proof).sort(), ["assetCode", "networkCode", "networkId", "verifiedAt"]);
+  assert.deepEqual(Object.keys(proof).sort(), ["assetCode", "networkCode", "networkId", "reused", "verifiedAt"]);
   assert.equal(proof.networkId, networkId);
+  assert.equal(proof.reused, false);
   assert.equal(JSON.stringify(proof).includes(orderAddress), false);
   assert.equal(providerPermissionCalls, 1);
+  await database.db.update(database.whitebitProviderSettingsTable)
+    .set({ depositRouteProofs: [] })
+    .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+  providerPermissionCalls = 0;
+  const concurrentPermissions = await Promise.all([1, 2].map(() => fetch(
+    `${baseUrl}/api/admin/providers/whitebit/address-permission/verify`,
+    {
+      method: "POST",
+      headers: ownerHeaders,
+      body: JSON.stringify({ networkId, confirmRealAddressCreation: true }),
+    },
+  )));
+  assert.deepEqual(concurrentPermissions.map(response => response.status), [200, 200]);
+  const concurrentProofs = await Promise.all(concurrentPermissions.map(response =>
+    response.json() as Promise<{ reused: boolean }>
+  ));
+  assert.deepEqual(concurrentProofs.map(row => row.reused).sort(), [false, true]);
+  assert.equal(providerPermissionCalls, 1, "route-locked concurrent tabs create only one verification address");
   const ordersAfter = await database.db.select().from(database.ordersTable);
   const watchesAfter = await database.db.select()
     .from(database.blockchainMonitorWatchesTable);
@@ -2270,9 +2659,14 @@ test("bulk provider assignment reviews exact capabilities, preserves tracking, a
 test("actual signed exchange order replay allocates one WhiteBIT address", async () => {
   providerCalls = 0;
   await mockAssets();
+  const [priorFallbackNetwork] = await database.db.select()
+    .from(database.cryptoAssetNetworksTable)
+    .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
+  const manualFallbackAddress = validBitcoinAddress();
   await database.db.update(database.cryptoAssetNetworksTable).set({
     enabled: true, executionMode: "manual", customerDepositsEnabled: true,
-    depositProvider: "whitebit", sharedDepositAddress: "",
+    depositProvider: "whitebit", sharedDepositAddress: manualFallbackAddress,
+    manualFallbackEnabled: true,
   }).where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
   await database.db.update(database.cryptoAssetsTable).set({ enabled: true })
     .where(eq(database.cryptoAssetsTable.id, priorBtcNetwork?.assetId ?? ""));
@@ -2291,7 +2685,8 @@ test("actual signed exchange order replay allocates one WhiteBIT address", async
     body: JSON.stringify({ networkId: "btc-bitcoin", confirmRealAddressCreation: true }),
   });
   assert.equal(permissionTest.status, 200, await permissionTest.clone().text());
-  assert.equal(providerPermissionCalls, permissionCallsBefore + 1);
+  const permissionProof = await permissionTest.json() as { reused: boolean };
+  assert.equal(providerPermissionCalls, permissionCallsBefore + (permissionProof.reused ? 0 : 1));
   const enableProvider = await fetch(`${baseUrl}/api/admin/providers/whitebit`, {
     method: "PATCH",
     headers: ownerHeaders,
@@ -2408,6 +2803,14 @@ test("actual signed exchange order replay allocates one WhiteBIT address", async
   assert.equal(thirdBody.depositAddress, orderAddress);
   assert.equal(thirdBody.fundingStatus, "ready_whitebit");
   assert.equal(providerCalls, 1);
+  const [fundedOrder] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, firstBody.id));
+  assert.ok(fundedOrder);
+  const frozenFunding = fundedOrder.fundingDetailsSnapshot as {
+    manualFallbackEnabled?: boolean; manualFallbackAddress?: string;
+  };
+  assert.equal(frozenFunding.manualFallbackEnabled, true);
+  assert.equal(frozenFunding.manualFallbackAddress, manualFallbackAddress);
   globalThis.fetch = quoteFetch;
   const mismatchResponse = await fetch(`${baseUrl}/api/exchange/orders`, {
     method: "POST",
@@ -2415,6 +2818,260 @@ test("actual signed exchange order replay allocates one WhiteBIT address", async
     body: JSON.stringify({ ...request, refundAddress: "1BitcoinEaterAddressDontSendf59kuE" }),
   });
   assert.equal(mismatchResponse.status, 409, await mismatchResponse.text());
+  await database.db.update(database.cryptoAssetNetworksTable)
+    .set({ manualFallbackEnabled: priorFallbackNetwork?.manualFallbackEnabled ?? false })
+    .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
+});
+
+test("actual BNB/BEP20 Swap creation assigns and confirms its own WhiteBIT deposit", async () => {
+  const routeId = "bnb-bnb";
+  const [originalRoute] = await database.db.select().from(database.cryptoAssetNetworksTable)
+    .where(eq(database.cryptoAssetNetworksTable.id, routeId));
+  assert.ok(originalRoute, "isolated suite must contain its synthetic BNB route");
+  const [originalAsset] = await database.db.select().from(database.cryptoAssetsTable)
+    .where(eq(database.cryptoAssetsTable.id, originalRoute.assetId));
+  assert.ok(originalAsset);
+  const [originalProviderSettings] = await database.db.select()
+    .from(database.whitebitProviderSettingsTable)
+    .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+  assert.ok(originalProviderSettings);
+
+  const ruleName = `BNB Swap end-to-end ${suffix}`;
+  const providerAddress = `0x22222222${suffix.replaceAll("-", "")}`;
+  const createAddressRequests: Array<{
+    request?: string; nonce?: number; ticker?: string; network?: string;
+  }> = [];
+  const ownerHeaders = {
+    "content-type": "application/json",
+    "x-test-operator": ownerClerkUserId,
+  };
+  await mockAssets("BEP20", "BNB");
+  const assetFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    if (String(input).endsWith("/api/v4/main-account/create-new-address")) {
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        request?: string; nonce?: number; ticker?: string; network?: string;
+      };
+      createAddressRequests.push(body);
+      return new Response(JSON.stringify({
+        account: { address: providerAddress, memo: "" },
+      }), { status: 200 });
+    }
+    return assetFetch(input, init);
+  };
+
+  try {
+    await database.db.update(database.cryptoAssetNetworksTable).set({
+      enabled: true,
+      lifecycle: "active",
+      executionMode: "manual",
+      depositProvider: "whitebit",
+      networkCode: "BNB",
+      customerDepositsEnabled: true,
+      whitebitAssetCode: "BNB",
+      whitebitNetworkCode: "BEP20",
+    }).where(eq(database.cryptoAssetNetworksTable.id, routeId));
+    await database.db.update(database.cryptoAssetsTable).set({
+      enabled: true,
+      lifecycle: "active",
+    }).where(eq(database.cryptoAssetsTable.id, originalAsset.id));
+    await database.db.insert(fiatCurrenciesTable).values({
+      code: "EUR", name: "Euro", network: "SEPA", precision: 2, enabled: true,
+      lifecycle: "active", rateMode: "manual", manualRate: "100",
+    }).onConflictDoNothing({ target: fiatCurrenciesTable.code });
+    await database.db.insert(manualDeskPricingRulesTable).values({
+      name: ruleName, sourceAsset: "BNB", targetAsset: "EUR",
+      sourceNetwork: "BNB", targetNetwork: "SEPA", markupBasisPoints: 0,
+      exactRate: "100", fixedFee: "0", enabled: true, priority: Math.abs(pricingPriority) + 10_000_000,
+    });
+    const verified = await fetch(`${baseUrl}/api/admin/providers/whitebit/credentials/test`, {
+      method: "POST",
+      headers: ownerHeaders,
+      body: "{}",
+    });
+    assert.equal(verified.status, 200, await verified.clone().text());
+    const permission = await fetch(`${baseUrl}/api/admin/providers/whitebit/address-permission/verify`, {
+      method: "POST",
+      headers: ownerHeaders,
+      body: JSON.stringify({ networkId: routeId, confirmRealAddressCreation: true }),
+    });
+    assert.equal(permission.status, 200, await permission.clone().text());
+    assert.equal(createAddressRequests[0]?.request, "/api/v4/main-account/create-new-address");
+    assert.equal(createAddressRequests[0]?.ticker, "BNB");
+    assert.equal(createAddressRequests[0]?.network, "BEP20");
+    const enabled = await fetch(`${baseUrl}/api/admin/providers/whitebit`, {
+      method: "PATCH",
+      headers: ownerHeaders,
+      body: JSON.stringify({ enabled: true }),
+    });
+    assert.equal(enabled.status, 200, await enabled.clone().text());
+
+    const configResponse = await fetch(`${baseUrl}/api/exchange/config`);
+    assert.equal(configResponse.status, 200, await configResponse.clone().text());
+    const config = await configResponse.json() as {
+      manualSettlementOptions: Array<{
+        id: string; kind: string; assetCode: string; routeNetwork: string; direction: string;
+      }>;
+    };
+    const source = config.manualSettlementOptions.find((option) =>
+      option.id === `crypto:${routeId}` && option.kind === "crypto-network" &&
+      option.assetCode === "BNB" && option.routeNetwork === "BNB" &&
+      ["send", "both"].includes(option.direction));
+    const target = config.manualSettlementOptions.find((option) =>
+      option.kind === "fiat-payment-method" && option.assetCode === "EUR" &&
+      option.routeNetwork === "SEPA" && ["receive", "both"].includes(option.direction));
+    if (!source || !target) {
+      throw new Error("API config should expose the exact BNB/BNB-to-EUR/SEPA route.");
+    }
+
+    const quoteResponse = await fetch(`${baseUrl}/api/exchange/quote`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        type: "manual",
+        fromAsset: "BNB",
+        fromNetwork: "BNB",
+        toAsset: "EUR",
+        toNetwork: "SEPA",
+        amount: 0.05,
+        sourceSettlementOptionId: source.id,
+        targetSettlementOptionId: target.id,
+      }),
+    });
+    assert.equal(quoteResponse.status, 200, await quoteResponse.clone().text());
+    const quote = await quoteResponse.json() as {
+      quoteId: string;
+      receiveAmount: number;
+      rate: number;
+      fee: number;
+      requiredSettlementFields?: Array<{ key: string; type?: string }>;
+    };
+    const settlementDetails = Object.fromEntries((quote.requiredSettlementFields ?? []).map((field) => [
+      field.key,
+      field.type === "email" ? `${suffix}@example.test` :
+        field.type === "account-iban" ? "DE89370400440532013000" : "BNB Swap end-to-end",
+    ]));
+    const clientRequestId = randomUUID();
+    const createOrder = await fetch(`${baseUrl}/api/exchange/orders`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        type: "manual",
+        fromAsset: "BNB",
+        fromNetwork: "BNB",
+        toAsset: "EUR",
+        toNetwork: "SEPA",
+        amount: 0.05,
+        receiveAmount: quote.receiveAmount,
+        rate: quote.rate,
+        fee: quote.fee,
+        quoteId: quote.quoteId,
+        clientRequestId,
+        customerEmail: `${suffix}@example.test`,
+        customerName: "BNB Swap end-to-end",
+        sourceSettlementOptionId: source.id,
+        targetSettlementOptionId: target.id,
+        settlementDetails,
+        refundAddress: "0x1111111111111111111111111111111111111111",
+      }),
+    });
+    assert.ok([201, 202].includes(createOrder.status), await createOrder.clone().text());
+    const created = await createOrder.json() as {
+      id: string; depositAddress?: string; fundingStatus?: string;
+    };
+    let order: typeof database.ordersTable.$inferSelect | undefined;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      [order] = await database.db.select().from(database.ordersTable)
+        .where(eq(database.ordersTable.id, created.id)).limit(1);
+      if (order?.fundingStatus === "ready_whitebit") break;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assert.ok(order, "API-created BNB order should be persisted");
+    assert.equal(order.fundingStatus, "ready_whitebit");
+    assert.equal(order.depositAddress, providerAddress);
+    assert.equal(createAddressRequests.length, 2);
+    assert.ok(createAddressRequests.every((request) =>
+      request.ticker === "BNB" && request.network === "BEP20"));
+
+    assert.equal(order.fromAsset, "BNB");
+    assert.equal(order.fromNetwork, "BNB");
+    assert.equal(order.status, "awaiting funds");
+    assert.equal(order.manualSettlementState, "awaiting_funds");
+    assert.equal(order.fundingProviderSource, "whitebit");
+    assert.equal(order.fundingStatus, "ready_whitebit");
+    assert.equal(order.depositAddress, providerAddress);
+    const funding = order.fundingDetailsSnapshot as {
+      whitebitAssetCode?: string; whitebitNetworkCode?: string;
+    };
+    assert.equal(funding.whitebitAssetCode, "BNB");
+    assert.equal(funding.whitebitNetworkCode, "BEP20");
+
+    const [claim] = await database.db.select().from(database.whitebitOrderAddressesTable)
+      .where(eq(database.whitebitOrderAddressesTable.orderId, created.id)).limit(1);
+    assert.ok(claim);
+    assert.equal(claim.status, "ready");
+    assert.equal(claim.ticker, "BNB");
+    assert.equal(claim.providerTicker, "BNB");
+    assert.equal(claim.network, "BEP20");
+    assert.equal(claim.address, providerAddress);
+
+    const uniqueId = `bnb-order-deposit-${suffix}`;
+    const accepted = await signedOrderWebhook(
+      uniqueId, providerAddress, "BEP20", "", "deposit.accepted", 1, "bnb-accepted", "BNB", "0.05",
+    );
+    assert.equal(accepted.status, 200, await accepted.clone().text());
+    [order] = await database.db.select().from(database.ordersTable)
+      .where(eq(database.ordersTable.id, created.id)).limit(1);
+    assert.ok(order);
+    assert.equal(order.status, "payment detected");
+    assert.equal(order.manualSettlementState, "awaiting_funds");
+
+    const processed = await signedOrderWebhook(
+      uniqueId, providerAddress, "BEP20", "", "deposit.processed", 3, "bnb-processed", "BNB", "0.05",
+    );
+    assert.equal(processed.status, 200, await processed.clone().text());
+    [order] = await database.db.select().from(database.ordersTable)
+      .where(eq(database.ordersTable.id, created.id)).limit(1);
+    assert.ok(order);
+    assert.equal(order.status, "processing");
+    assert.equal(order.manualSettlementState, "funds_confirmed");
+    assert.equal(order.manualSettlementPaidAt, null);
+    assert.notEqual(order.status.toLowerCase(), "completed");
+    assert.notEqual(order.manualSettlementState, "completed");
+
+    const [deposit] = await database.db.select().from(database.whitebitDepositsTable)
+      .where(eq(database.whitebitDepositsTable.uniqueId, uniqueId)).limit(1);
+    assert.equal(deposit.orderId, created.id);
+    assert.equal(deposit.network, "BEP20");
+  } finally {
+    await database.db.delete(manualDeskPricingRulesTable)
+      .where(eq(manualDeskPricingRulesTable.name, ruleName));
+    await database.db.update(database.cryptoAssetNetworksTable).set({
+      enabled: originalRoute.enabled,
+      lifecycle: originalRoute.lifecycle,
+      executionMode: originalRoute.executionMode,
+      depositProvider: originalRoute.depositProvider,
+      networkCode: originalRoute.networkCode,
+      customerDepositsEnabled: originalRoute.customerDepositsEnabled,
+      whitebitAssetCode: originalRoute.whitebitAssetCode,
+      whitebitNetworkCode: originalRoute.whitebitNetworkCode,
+    }).where(eq(database.cryptoAssetNetworksTable.id, routeId));
+    await database.db.update(database.cryptoAssetsTable).set({
+      enabled: originalAsset.enabled,
+      lifecycle: originalAsset.lifecycle,
+    }).where(eq(database.cryptoAssetsTable.id, originalAsset.id));
+    await database.db.update(database.whitebitProviderSettingsTable).set({
+      disabled: originalProviderSettings.disabled,
+      version: originalProviderSettings.version,
+      depositRouteProofs: originalProviderSettings.depositRouteProofs,
+      credentialVerifiedFingerprint: originalProviderSettings.credentialVerifiedFingerprint,
+      credentialVerifiedAt: originalProviderSettings.credentialVerifiedAt,
+      updatedByOperatorId: originalProviderSettings.updatedByOperatorId,
+      updatedAt: originalProviderSettings.updatedAt,
+    }).where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+    globalThis.fetch = originalFetch;
+    resetWhitebitCapabilityCacheForTests();
+  }
 });
 
 test("first activation and restart leave a pre-existing WhiteBIT fixture order untouched", async () => {

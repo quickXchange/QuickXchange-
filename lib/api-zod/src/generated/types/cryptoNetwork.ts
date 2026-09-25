@@ -12,6 +12,7 @@ import type { CryptoNetworkWidgetReadiness } from './cryptoNetworkWidgetReadines
 export type CryptoNetwork = CryptoNetworkInput & {
   depositProvider: string;
   manualWalletTrackingEnabled: boolean;
+  manualFallbackEnabled: boolean;
   readonly manualFallbackInvalid?: boolean;
   readonly widgetReadiness?: CryptoNetworkWidgetReadiness;
   createdAt: Date;
