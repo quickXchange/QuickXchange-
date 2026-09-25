@@ -23,8 +23,8 @@ import { resolveOrderVisual } from '@/lib/logo-catalog';
 import bbvaTransparentLogoUrl from '../../../../attached_assets/bbva-logo-transparent.png';
 import {
   normalizeSwapOrderStatus,
-  swapOrderStatusLabel,
-  swapOrderStatusStep,
+  orderTimelineLineWidthPercent,
+  projectSwapOrderTimeline,
   swapOrderStatusTerminal,
 } from '@/lib/swap-order-status';
 import {
@@ -160,29 +160,30 @@ export default function OrderDetail() {
     );
   }
 
-  const status = (publicStatus?.status || orderData.status || '').toLowerCase();
   const targetStatus = { ...orderData, ...(publicStatus || {}) };
+  const status = normalizeSwapOrderStatus(targetStatus.status);
   const isManualSwap = orderData.orderKind !== 'convert' && orderData.type === 'manual';
-  const canonicalSwapStatus = normalizeSwapOrderStatus(status);
+  const canonicalSwapStatus = status;
+  const swapTimeline = projectSwapOrderTimeline(targetStatus);
   const isCancelled = status === 'cancelled';
   const isRefunded = isManualSwap && canonicalSwapStatus === 'refunded';
   const isCompleted = isManualSwap
     ? canonicalSwapStatus === 'completed'
     : isConvertTerminalStatus(status) && ['completed'].includes(status);
   const isFailed = isManualSwap ? isCancelled || isRefunded || /failed|expired/.test(status) : isConvertTerminalStatus(status) && !isCompleted;
+  const currentStep = isManualSwap
+    ? swapTimeline.step
+    : convertOrderStatusStep(status) + 1;
   const isConfirming = isManualSwap
-    ? canonicalSwapStatus === 'funds_confirmed' || canonicalSwapStatus === 'confirming'
+    ? currentStep === 2 && !isFailed
     : !isCompleted && !isFailed && ['confirming', 'payment detected'].includes(status);
   const isProcessing = isManualSwap
-    ? canonicalSwapStatus === 'processing'
+    ? currentStep === 3 && !isFailed
     : !isCompleted && !isFailed && status === 'processing';
   const isPending = !isCompleted && !isFailed && !isProcessing && !isConfirming;
-  const currentStep = isManualSwap
-    ? swapOrderStatusStep(canonicalSwapStatus)
-    : convertOrderStatusStep(status) + 1;
 
   const showPaymentActions = isPending && !targetStatus?.customerMarkedPaidAt && !isFailed && targetStatus?.paymentDetailsApplicable;
-  const verifiedFundingTransaction = orderData.verifiedFundingTransaction;
+  const verifiedFundingTransaction = targetStatus.verifiedFundingTransaction;
 
   const sourcePaymentMethod = (targetStatus as any).sourcePaymentMethod;
   const sourceVisual = resolveOrderVisual(exchangeConfig?.settlementOptions, targetStatus, 'source');
@@ -206,14 +207,14 @@ export default function OrderDetail() {
 
   const statusPresentation = isManualSwap
     ? isCompleted
-      ? { label: swapOrderStatusLabel(canonicalSwapStatus), description: 'Your exchange has been completed successfully.', icon: CheckCircle2, tone: 'text-primary', surface: 'bg-primary/10' }
+      ? { label: swapTimeline.label, description: 'Your exchange has been completed successfully.', icon: CheckCircle2, tone: 'text-primary', surface: 'bg-primary/10' }
       : isFailed
-        ? { label: swapOrderStatusLabel(canonicalSwapStatus), description: 'This order is no longer active.', icon: XCircle, tone: 'text-destructive', surface: 'bg-destructive/10' }
+        ? { label: swapTimeline.label, description: 'This order is no longer active.', icon: XCircle, tone: 'text-destructive', surface: 'bg-destructive/10' }
         : isProcessing
-          ? { label: swapOrderStatusLabel(canonicalSwapStatus), description: 'Your payment was received and your order is being processed.', icon: RefreshCcw, tone: 'text-accent', surface: 'bg-accent/10' }
+          ? { label: swapTimeline.label, description: 'Your payment was received and your order is being processed.', icon: RefreshCcw, tone: 'text-accent', surface: 'bg-accent/10' }
           : isConfirming
-            ? { label: swapOrderStatusLabel(canonicalSwapStatus), description: 'Your payment has been detected and is confirming.', icon: Clock3, tone: 'text-amber-500', surface: 'bg-amber-500/10' }
-            : { label: swapOrderStatusLabel(canonicalSwapStatus), description: 'Complete the payment using the order-specific details below.', icon: Clock3, tone: 'text-secondary', surface: 'bg-secondary/10' }
+            ? { label: swapTimeline.label, description: 'Your payment has been detected and is confirming.', icon: Clock3, tone: 'text-amber-500', surface: 'bg-amber-500/10' }
+            : { label: swapTimeline.label, description: 'Complete the payment using the order-specific details below.', icon: Clock3, tone: 'text-secondary', surface: 'bg-secondary/10' }
     : isCompleted
      ? { label: isManualSwap ? 'Completed' : convertOrderStatusLabel(status), description: 'Your exchange has been completed successfully.', icon: CheckCircle2, tone: 'text-primary', surface: 'bg-primary/10' }
      : isFailed
@@ -312,7 +313,7 @@ export default function OrderDetail() {
       {!isFailed && <div className="mt-4 border-t border-border/50 pt-4">
       <div className="relative pt-2 pb-1">
         <div className="absolute top-[15px] left-[10%] right-[10%] h-[2px] bg-border z-0" />
-        <div className="absolute top-[15px] left-[10%] h-[2px] bg-gradient-to-r from-secondary via-primary to-accent z-0 transition-all duration-500" style={{ width: `${(Math.max(0, currentStep - 1) / 3) * 80}%` }} />
+        <div className="absolute top-[15px] left-[10%] h-[2px] bg-gradient-to-r from-secondary via-primary to-accent z-0 transition-all duration-500" style={{ width: `${orderTimelineLineWidthPercent(currentStep)}%` }} />
 
         <div className="flex justify-between relative z-10">
           {(isManualSwap ? ['Created', 'Detected', 'Processing', 'Done'] : ['Created', 'Confirming', 'Processing', 'Done']).map((label, idx) => {

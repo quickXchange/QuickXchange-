@@ -7,7 +7,7 @@
     "dev": "vite --config vite.config.ts --host 0.0.0.0",
     "build": "vite build --config vite.config.ts && node ../../scripts/verify-web-build.mjs .",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
-    "test": "tsx --test src/lib/session-expiry.test.ts",
+    "test": "tsx --test src/lib/session-expiry.test.ts src/lib/swap-order-status.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
