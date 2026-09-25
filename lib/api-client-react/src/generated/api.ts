@@ -264,6 +264,9 @@ import type {
   WhitebitAddressRecoveryInput,
   WhitebitAssetImportPreview,
   WhitebitAssetImportResult,
+  WhitebitAutoMappingApplyInput,
+  WhitebitAutoMappingPreview,
+  WhitebitAutoMappingPreviewInput,
   WhitebitBalance,
   WhitebitCredentialInput,
   WhitebitCredentialStatus,
@@ -7603,6 +7606,150 @@ export const useApplyCryptoDepositProviderAssignment = <TError = ErrorType<ApiEr
         TContext
       > => {
       return useMutation(getApplyCryptoDepositProviderAssignmentMutationOptions(options));
+    }
+
+export const getPreviewWhitebitAutomaticRouteMappingsUrl = () => {
+
+
+
+
+  return `/api/admin/crypto-networks/whitebit-auto-mapping/preview`
+}
+
+/**
+ * Reads the fresh public WhiteBIT catalog only. Existing mappings and WhiteBIT-provider routes with Customer Deposits enabled are protected. Exact identity metadata may be added to an eligible Manual-provider route even when Customer Deposits are enabled; this does not switch providers, change deposit flags, or modify addresses.
+ * @summary Preview safe WhiteBIT identities for every Asset + Network route
+ */
+export const previewWhitebitAutomaticRouteMappings = async (whitebitAutoMappingPreviewInput: WhitebitAutoMappingPreviewInput, options?: Parameters<typeof customFetch>[1]): Promise<WhitebitAutoMappingPreview> => {
+
+  return customFetch<WhitebitAutoMappingPreview>(getPreviewWhitebitAutomaticRouteMappingsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(whitebitAutoMappingPreviewInput)
+  }
+);}
+
+
+
+
+
+export const getPreviewWhitebitAutomaticRouteMappingsMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewWhitebitAutomaticRouteMappings>>, TError,{data: BodyType<WhitebitAutoMappingPreviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewWhitebitAutomaticRouteMappings>>, TError,{data: BodyType<WhitebitAutoMappingPreviewInput>}, TContext> => {
+
+const mutationKey = ['previewWhitebitAutomaticRouteMappings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewWhitebitAutomaticRouteMappings>>, {data: BodyType<WhitebitAutoMappingPreviewInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  previewWhitebitAutomaticRouteMappings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PreviewWhitebitAutomaticRouteMappingsMutationResult = NonNullable<Awaited<ReturnType<typeof previewWhitebitAutomaticRouteMappings>>>
+    export type PreviewWhitebitAutomaticRouteMappingsMutationBody = BodyType<WhitebitAutoMappingPreviewInput>
+    export type PreviewWhitebitAutomaticRouteMappingsMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Preview safe WhiteBIT identities for every Asset + Network route
+ */
+export const usePreviewWhitebitAutomaticRouteMappings = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewWhitebitAutomaticRouteMappings>>, TError,{data: BodyType<WhitebitAutoMappingPreviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof previewWhitebitAutomaticRouteMappings>>,
+        TError,
+        {data: BodyType<WhitebitAutoMappingPreviewInput>},
+        TContext
+      > => {
+      return useMutation(getPreviewWhitebitAutomaticRouteMappingsMutationOptions(options));
+    }
+
+export const getApplyWhitebitAutomaticRouteMappingsUrl = () => {
+
+
+
+
+  return `/api/admin/crypto-networks/whitebit-auto-mapping/apply`
+}
+
+/**
+ * Updates WhiteBIT identity fields only. It may annotate an eligible Manual-provider route while Customer Deposits are enabled, preserving provider assignment, deposit flags, and saved addresses. Stale permission proof is invalidated only for routes whose identity mapping changed; unrelated route proofs and credentials are preserved.
+ * @summary Atomically save only reviewed unique WhiteBIT identities
+ */
+export const applyWhitebitAutomaticRouteMappings = async (whitebitAutoMappingApplyInput: WhitebitAutoMappingApplyInput, options?: Parameters<typeof customFetch>[1]): Promise<WhitebitAutoMappingPreview> => {
+
+  return customFetch<WhitebitAutoMappingPreview>(getApplyWhitebitAutomaticRouteMappingsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(whitebitAutoMappingApplyInput)
+  }
+);}
+
+
+
+
+
+export const getApplyWhitebitAutomaticRouteMappingsMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof applyWhitebitAutomaticRouteMappings>>, TError,{data: BodyType<WhitebitAutoMappingApplyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof applyWhitebitAutomaticRouteMappings>>, TError,{data: BodyType<WhitebitAutoMappingApplyInput>}, TContext> => {
+
+const mutationKey = ['applyWhitebitAutomaticRouteMappings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof applyWhitebitAutomaticRouteMappings>>, {data: BodyType<WhitebitAutoMappingApplyInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  applyWhitebitAutomaticRouteMappings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApplyWhitebitAutomaticRouteMappingsMutationResult = NonNullable<Awaited<ReturnType<typeof applyWhitebitAutomaticRouteMappings>>>
+    export type ApplyWhitebitAutomaticRouteMappingsMutationBody = BodyType<WhitebitAutoMappingApplyInput>
+    export type ApplyWhitebitAutomaticRouteMappingsMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Atomically save only reviewed unique WhiteBIT identities
+ */
+export const useApplyWhitebitAutomaticRouteMappings = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof applyWhitebitAutomaticRouteMappings>>, TError,{data: BodyType<WhitebitAutoMappingApplyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof applyWhitebitAutomaticRouteMappings>>,
+        TError,
+        {data: BodyType<WhitebitAutoMappingApplyInput>},
+        TContext
+      > => {
+      return useMutation(getApplyWhitebitAutomaticRouteMappingsMutationOptions(options));
     }
 
 export const getReconcileCryptoCustomerDepositsUrl = () => {

@@ -112,6 +112,8 @@ const POLICY_MATCHERS: readonly PolicyMatcher[] = [
   { method: "POST", pattern: /^\/admin\/crypto-networks\/receiving-wallet\/preview$/, policy: P("receiving_wallets.manage", true) },
   { method: "POST", pattern: /^\/admin\/crypto-networks\/deposit-provider\/preview$/, policy: { ...P("receiving_wallets.manage", true), readOnly: true } },
   { method: "POST", pattern: /^\/admin\/crypto-networks\/deposit-provider\/apply$/, policy: P("receiving_wallets.manage", true) },
+  { method: "POST", pattern: /^\/admin\/crypto-networks\/whitebit-auto-mapping\/preview$/, policy: { ...P("receiving_wallets.manage", true), readOnly: true } },
+  { method: "POST", pattern: /^\/admin\/crypto-networks\/whitebit-auto-mapping\/apply$/, policy: P("receiving_wallets.manage", true) },
   { method: "PATCH", pattern: /^\/admin\/crypto-networks\/[^/]+\/customer-deposits$/, policy: P("receiving_wallets.manage", true) },
   { method: "PATCH", pattern: /^\/admin\/crypto-networks\/[^/]+$/, policy: P("crypto_networks.manage") },
   { method: "DELETE", pattern: /^\/admin\/crypto-networks\/[^/]+$/, policy: P("crypto_networks.manage") },

@@ -3541,6 +3541,72 @@ export interface CryptoDepositProviderAssignmentResult {
   networks: CryptoNetwork[];
 }
 
+export interface WhitebitAutoMappingPreviewInput { [key: string]: unknown }
+
+export interface WhitebitAutoMappingApplyInput {
+  /** @pattern ^[a-f0-9]{64}$ */
+  reviewToken: string;
+}
+
+export interface WhitebitAutoMappingCounts {
+  /** @minimum 0 */
+  total: number;
+  /** @minimum 0 */
+  automatic: number;
+  /** @minimum 0 */
+  eligibleToApply: number;
+  /** @minimum 0 */
+  ownerSelection: number;
+  /** @minimum 0 */
+  ambiguous: number;
+  /** @minimum 0 */
+  unsupported: number;
+  /** @minimum 0 */
+  existingMappings: number;
+  /** @minimum 0 */
+  protected: number;
+}
+
+export type WhitebitAutoMappingRouteStatus = typeof WhitebitAutoMappingRouteStatus[keyof typeof WhitebitAutoMappingRouteStatus];
+
+
+export const WhitebitAutoMappingRouteStatus = {
+  automatic: 'automatic',
+  owner_selection: 'owner_selection',
+  unsupported: 'unsupported',
+  existing_mapping: 'existing_mapping',
+  protected: 'protected',
+} as const;
+
+export interface WhitebitAutoMappingRoute {
+  networkId: string;
+  assetCode: string;
+  networkCode: string;
+  status: WhitebitAutoMappingRouteStatus;
+  ambiguous: boolean;
+  reason: string;
+  /** @nullable */
+  suggestedAssetCode?: string | null;
+  /** @nullable */
+  suggestedNetworkCode?: string | null;
+  options: string[];
+  willApply: boolean;
+  /** @nullable */
+  whitebitAssetCode: string | null;
+  /** @nullable */
+  whitebitNetworkCode: string | null;
+}
+
+export interface WhitebitAutoMappingPreview {
+  /** @pattern ^[a-f0-9]{64}$ */
+  reviewToken: string;
+  catalogFetchedAt: string;
+  counts: WhitebitAutoMappingCounts;
+  /** @minimum 0 */
+  updated: number;
+  routes: WhitebitAutoMappingRoute[];
+}
+
 export interface CryptoCustomerDepositReconciliation {
   /** @minimum 0 */
   enabled: number;

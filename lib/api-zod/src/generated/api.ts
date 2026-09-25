@@ -8419,6 +8419,129 @@ export const ApplyCryptoDepositProviderAssignmentResponse = zod.object({
 
 
 /**
+ * Reads the fresh public WhiteBIT catalog only. Existing mappings and WhiteBIT-provider routes with Customer Deposits enabled are protected. Exact identity metadata may be added to an eligible Manual-provider route even when Customer Deposits are enabled; this does not switch providers, change deposit flags, or modify addresses.
+ * @summary Preview safe WhiteBIT identities for every Asset + Network route
+ */
+export const PreviewWhitebitAutomaticRouteMappingsBody = zod.object({
+
+})
+
+export const previewWhitebitAutomaticRouteMappingsResponseReviewTokenRegExp = new RegExp('^[a-f0-9]{64}$');
+export const previewWhitebitAutomaticRouteMappingsResponseCountsTotalMin = 0;
+
+export const previewWhitebitAutomaticRouteMappingsResponseCountsAutomaticMin = 0;
+
+export const previewWhitebitAutomaticRouteMappingsResponseCountsEligibleToApplyMin = 0;
+
+export const previewWhitebitAutomaticRouteMappingsResponseCountsOwnerSelectionMin = 0;
+
+export const previewWhitebitAutomaticRouteMappingsResponseCountsAmbiguousMin = 0;
+
+export const previewWhitebitAutomaticRouteMappingsResponseCountsUnsupportedMin = 0;
+
+export const previewWhitebitAutomaticRouteMappingsResponseCountsExistingMappingsMin = 0;
+
+export const previewWhitebitAutomaticRouteMappingsResponseCountsProtectedMin = 0;
+
+export const previewWhitebitAutomaticRouteMappingsResponseUpdatedMin = 0;
+
+
+
+export const PreviewWhitebitAutomaticRouteMappingsResponse = zod.object({
+  "reviewToken": zod.string().regex(previewWhitebitAutomaticRouteMappingsResponseReviewTokenRegExp),
+  "catalogFetchedAt": zod.coerce.date(),
+  "counts": zod.object({
+  "total": zod.number().int().min(previewWhitebitAutomaticRouteMappingsResponseCountsTotalMin),
+  "automatic": zod.number().int().min(previewWhitebitAutomaticRouteMappingsResponseCountsAutomaticMin),
+  "eligibleToApply": zod.number().int().min(previewWhitebitAutomaticRouteMappingsResponseCountsEligibleToApplyMin),
+  "ownerSelection": zod.number().int().min(previewWhitebitAutomaticRouteMappingsResponseCountsOwnerSelectionMin),
+  "ambiguous": zod.number().int().min(previewWhitebitAutomaticRouteMappingsResponseCountsAmbiguousMin),
+  "unsupported": zod.number().int().min(previewWhitebitAutomaticRouteMappingsResponseCountsUnsupportedMin),
+  "existingMappings": zod.number().int().min(previewWhitebitAutomaticRouteMappingsResponseCountsExistingMappingsMin),
+  "protected": zod.number().int().min(previewWhitebitAutomaticRouteMappingsResponseCountsProtectedMin)
+}),
+  "updated": zod.number().int().min(previewWhitebitAutomaticRouteMappingsResponseUpdatedMin),
+  "routes": zod.array(zod.object({
+  "networkId": zod.string(),
+  "assetCode": zod.string(),
+  "networkCode": zod.string(),
+  "status": zod.enum(['automatic', 'owner_selection', 'unsupported', 'existing_mapping', 'protected']),
+  "ambiguous": zod.boolean(),
+  "reason": zod.string(),
+  "suggestedAssetCode": zod.string().nullish(),
+  "suggestedNetworkCode": zod.string().nullish(),
+  "options": zod.array(zod.string()),
+  "willApply": zod.boolean(),
+  "whitebitAssetCode": zod.string().nullable(),
+  "whitebitNetworkCode": zod.string().nullable()
+}))
+})
+
+
+/**
+ * Updates WhiteBIT identity fields only. It may annotate an eligible Manual-provider route while Customer Deposits are enabled, preserving provider assignment, deposit flags, and saved addresses. Stale permission proof is invalidated only for routes whose identity mapping changed; unrelated route proofs and credentials are preserved.
+ * @summary Atomically save only reviewed unique WhiteBIT identities
+ */
+export const applyWhitebitAutomaticRouteMappingsBodyReviewTokenRegExp = new RegExp('^[a-f0-9]{64}$');
+
+
+export const ApplyWhitebitAutomaticRouteMappingsBody = zod.object({
+  "reviewToken": zod.string().regex(applyWhitebitAutomaticRouteMappingsBodyReviewTokenRegExp)
+})
+
+export const applyWhitebitAutomaticRouteMappingsResponseReviewTokenRegExp = new RegExp('^[a-f0-9]{64}$');
+export const applyWhitebitAutomaticRouteMappingsResponseCountsTotalMin = 0;
+
+export const applyWhitebitAutomaticRouteMappingsResponseCountsAutomaticMin = 0;
+
+export const applyWhitebitAutomaticRouteMappingsResponseCountsEligibleToApplyMin = 0;
+
+export const applyWhitebitAutomaticRouteMappingsResponseCountsOwnerSelectionMin = 0;
+
+export const applyWhitebitAutomaticRouteMappingsResponseCountsAmbiguousMin = 0;
+
+export const applyWhitebitAutomaticRouteMappingsResponseCountsUnsupportedMin = 0;
+
+export const applyWhitebitAutomaticRouteMappingsResponseCountsExistingMappingsMin = 0;
+
+export const applyWhitebitAutomaticRouteMappingsResponseCountsProtectedMin = 0;
+
+export const applyWhitebitAutomaticRouteMappingsResponseUpdatedMin = 0;
+
+
+
+export const ApplyWhitebitAutomaticRouteMappingsResponse = zod.object({
+  "reviewToken": zod.string().regex(applyWhitebitAutomaticRouteMappingsResponseReviewTokenRegExp),
+  "catalogFetchedAt": zod.coerce.date(),
+  "counts": zod.object({
+  "total": zod.number().int().min(applyWhitebitAutomaticRouteMappingsResponseCountsTotalMin),
+  "automatic": zod.number().int().min(applyWhitebitAutomaticRouteMappingsResponseCountsAutomaticMin),
+  "eligibleToApply": zod.number().int().min(applyWhitebitAutomaticRouteMappingsResponseCountsEligibleToApplyMin),
+  "ownerSelection": zod.number().int().min(applyWhitebitAutomaticRouteMappingsResponseCountsOwnerSelectionMin),
+  "ambiguous": zod.number().int().min(applyWhitebitAutomaticRouteMappingsResponseCountsAmbiguousMin),
+  "unsupported": zod.number().int().min(applyWhitebitAutomaticRouteMappingsResponseCountsUnsupportedMin),
+  "existingMappings": zod.number().int().min(applyWhitebitAutomaticRouteMappingsResponseCountsExistingMappingsMin),
+  "protected": zod.number().int().min(applyWhitebitAutomaticRouteMappingsResponseCountsProtectedMin)
+}),
+  "updated": zod.number().int().min(applyWhitebitAutomaticRouteMappingsResponseUpdatedMin),
+  "routes": zod.array(zod.object({
+  "networkId": zod.string(),
+  "assetCode": zod.string(),
+  "networkCode": zod.string(),
+  "status": zod.enum(['automatic', 'owner_selection', 'unsupported', 'existing_mapping', 'protected']),
+  "ambiguous": zod.boolean(),
+  "reason": zod.string(),
+  "suggestedAssetCode": zod.string().nullish(),
+  "suggestedNetworkCode": zod.string().nullish(),
+  "options": zod.array(zod.string()),
+  "willApply": zod.boolean(),
+  "whitebitAssetCode": zod.string().nullable(),
+  "whitebitNetworkCode": zod.string().nullable()
+}))
+})
+
+
+/**
  * @summary Enable customer deposits only for networks with a usable saved wallet or working provider route
  */
 export const reconcileCryptoCustomerDepositsResponseEnabledMin = 0;

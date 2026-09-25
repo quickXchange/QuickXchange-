@@ -5,6 +5,16 @@ import { assetIdentity, classifyWhitebitHttpStatus, historyRecords, isCreditElig
 import { matchWhitebitCapability, matchWhitebitRouteCapability, parseWhitebitAssets, parseWhitebitCatalogAssets, shouldReserveWhitebitOrderFunding } from "../src/lib/whitebit-capabilities";
 import { listDepositProviderOptions } from "../src/lib/deposit-provider-registry";
 import {
+  classifyWhitebitAutoMapping,
+  isWhitebitRouteMappingPlausible,
+  plausibleWhitebitDepositNetworks,
+} from "../src/lib/whitebit-auto-mapping";
+import {
+  ApplyWhitebitAutomaticRouteMappingsBody,
+  PreviewWhitebitAutomaticRouteMappingsBody,
+  PreviewWhitebitAutomaticRouteMappingsResponse,
+} from "@workspace/api-zod";
+import {
   canAcceptManualCryptoDeposit,
   isConfiguredYouSendCryptoNetwork,
   isManualMonitoringRuntimeReady,
@@ -253,6 +263,131 @@ test("WhiteBIT catalog parser uses live withdraws/default and preserves memo and
   assert.deepEqual((asset.networks[0]?.metadata as { limits: unknown }).limits, {
     deposit: { min: "1", max: "100" }, withdraw: { min: "2" },
   });
+});
+
+test("automatic WhiteBIT route classification is exact, conservative, and non-mutating for protected routes", () => {
+  const catalog = parseWhitebitCatalogAssets({
+    BTC: { can_deposit: true, networks: { deposits: ["BTC"] } },
+    AVAX: { can_deposit: true, networks: { deposits: ["CCHAIN", "XCHAIN"] } },
+    USDC: { can_deposit: true, networks: { deposits: ["SOL", "BEP20"] } },
+    USDT: { can_deposit: true, networks: { deposits: ["ERC20", "TRC20", "POLYGON"] } },
+    BNB: { can_deposit: true, networks: { deposits: ["BEP20"] } },
+    XLM: { can_deposit: true, networks: { deposits: ["STELLAR"] } },
+    XRP: { can_deposit: true, networks: { deposits: ["XRP"] } },
+    DOT: { can_deposit: true, networks: { deposits: ["DOTASSETHUB"] } },
+  });
+  const route = (assetCode: string, networkCode: string, extra = {}) => ({
+    networkId: `${assetCode.toLowerCase()}-${networkCode.toLowerCase()}`,
+    assetCode,
+    networkCode,
+    assetEnabled: true,
+    assetLifecycle: "active",
+    networkEnabled: true,
+    networkLifecycle: "active",
+    executionMode: "manual",
+    depositProvider: "manual",
+    customerDepositsEnabled: false,
+    whitebitAssetCode: null,
+    whitebitNetworkCode: null,
+    ...extra,
+  });
+
+  assert.equal(classifyWhitebitAutoMapping(route("BTC", "BITCOIN"), catalog).suggestedNetworkCode, "BTC");
+  assert.equal(classifyWhitebitAutoMapping(route("XLM", "XLM"), catalog).suggestedNetworkCode, "STELLAR");
+  assert.equal(classifyWhitebitAutoMapping(route("XRP", "XRPL"), catalog).suggestedNetworkCode, "XRP");
+  assert.equal(classifyWhitebitAutoMapping(route("DOT", "DOT"), catalog).status, "unsupported");
+  const ambiguousBtcCatalog = parseWhitebitCatalogAssets({
+    BTC: { can_deposit: true, networks: { deposits: ["BTC", "BTC-LIGHTNING"] } },
+  });
+  const ambiguousBtc = classifyWhitebitAutoMapping(route("BTC", "BITCOIN"), ambiguousBtcCatalog);
+  assert.equal(ambiguousBtc.status, "owner_selection");
+  assert.equal(ambiguousBtc.willApply, false);
+  const ambiguousXlmCatalog = parseWhitebitCatalogAssets({
+    XLM: { can_deposit: true, networks: { deposits: ["STELLAR", "XLM-TEST"] } },
+  });
+  assert.equal(classifyWhitebitAutoMapping(route("XLM", "XLM"), ambiguousXlmCatalog).status, "unsupported");
+  const ambiguousXrpCatalog = parseWhitebitCatalogAssets({
+    XRP: { can_deposit: true, networks: { deposits: ["XRP", "XRPL-TEST"] } },
+  });
+  assert.equal(classifyWhitebitAutoMapping(route("XRP", "XRPL"), ambiguousXrpCatalog).status, "unsupported");
+  assert.equal(classifyWhitebitAutoMapping(route("AVAX", "AVAXC"), catalog).status, "owner_selection");
+  assert.deepEqual(classifyWhitebitAutoMapping(route("AVAX", "AVAXC"), catalog).options, ["CCHAIN"]);
+  assert.deepEqual(plausibleWhitebitDepositNetworks("AVAXC", ["CCHAIN", "XCHAIN"], "AVAX"), ["CCHAIN"]);
+  assert.equal(isWhitebitRouteMappingPlausible(
+    "avax-route", "AVAX", "AVAXC", "AVAX", "CCHAIN", ["CCHAIN", "XCHAIN"],
+  ), true);
+  assert.equal(isWhitebitRouteMappingPlausible(
+    "avax-route", "AVAX", "AVAXC", "AVAX", "XCHAIN", ["CCHAIN", "XCHAIN"],
+  ), false);
+  assert.equal(classifyWhitebitAutoMapping(route("USDC", "SPL"), catalog).status, "owner_selection");
+  assert.deepEqual(plausibleWhitebitDepositNetworks("AVAXC", ["CCHAIN", "XCHAIN", "ERC20"]), ["CCHAIN"]);
+  assert.deepEqual(plausibleWhitebitDepositNetworks("BASE", ["ERC20", "TRC20"]), []);
+  assert.equal(classifyWhitebitAutoMapping(route("USDT", "AVAXC"), catalog).status, "unsupported");
+  assert.equal(classifyWhitebitAutoMapping(route("USDT", "BASE"), catalog).status, "unsupported");
+  const usdt0Polygon = classifyWhitebitAutoMapping(route("USDT", "POLYGON", {
+    networkId: "usdt0-polygon",
+  }), catalog);
+  assert.equal(usdt0Polygon.status, "unsupported");
+  assert.equal(usdt0Polygon.willApply, false);
+  assert.match(usdt0Polygon.reason, /immutable token identity is USDT0, not USDT/);
+  assert.equal(isWhitebitRouteMappingPlausible(
+    "usdt0-polygon", "USDT", "POLYGON", "USDT", "POLYGON", ["POLYGON"],
+  ), false);
+  assert.equal(classifyWhitebitAutoMapping(route("USDT", "POLYGON"), catalog).status, "automatic");
+  const duplicateAssetCatalog = parseWhitebitCatalogAssets({
+    DUP: { can_deposit: true, networks: { deposits: ["ERC20"] } },
+    dup: { can_deposit: true, networks: { deposits: ["TRC20"] } },
+  });
+  const duplicateAsset = classifyWhitebitAutoMapping(route("DUP", "ERC20"), duplicateAssetCatalog);
+  assert.equal(duplicateAsset.status, "owner_selection");
+  assert.equal(duplicateAsset.ambiguous, true);
+  assert.deepEqual(duplicateAsset.options, ["ERC20"]);
+  assert.equal(classifyWhitebitAutoMapping(route("BTC", "BTC"), catalog).status, "automatic");
+  assert.equal(classifyWhitebitAutoMapping(route("BTC", "BITCOIN", {
+    whitebitAssetCode: "BTC", whitebitNetworkCode: "BTC",
+  }), catalog).status, "existing_mapping");
+  assert.equal(classifyWhitebitAutoMapping(route("BTC", "BTC", {
+    whitebitAssetCode: " ", whitebitNetworkCode: null,
+  }), catalog).status, "existing_mapping");
+  assert.equal(classifyWhitebitAutoMapping(route("BNB", "BNB", {
+    whitebitAssetCode: "BNB", whitebitNetworkCode: "BEP20", customerDepositsEnabled: true,
+    depositProvider: "whitebit",
+  }), catalog).status, "protected");
+  const customerEnabledExact = classifyWhitebitAutoMapping(route("BTC", "BTC", {
+    customerDepositsEnabled: true,
+    depositProvider: "whitebit",
+  }), catalog);
+  assert.equal(customerEnabledExact.status, "protected");
+  assert.equal(customerEnabledExact.willApply, false);
+  const manualCustomerEnabledExact = classifyWhitebitAutoMapping(route("USDC", "BEP20", {
+    customerDepositsEnabled: true,
+    depositProvider: "manual",
+  }), catalog);
+  assert.equal(manualCustomerEnabledExact.status, "automatic");
+  assert.equal(manualCustomerEnabledExact.willApply, true);
+  const disabledApiRoute = classifyWhitebitAutoMapping(route("BTC", "BTC", {
+    executionMode: "api", networkEnabled: false,
+  }), catalog);
+  assert.equal(disabledApiRoute.status, "automatic");
+  assert.equal(disabledApiRoute.willApply, false);
+});
+
+test("automatic WhiteBIT route API contracts accept safe preview and apply envelopes", () => {
+  assert.deepEqual(PreviewWhitebitAutomaticRouteMappingsBody.parse({}), {});
+  assert.deepEqual(ApplyWhitebitAutomaticRouteMappingsBody.parse({ reviewToken: "a".repeat(64) }), {
+    reviewToken: "a".repeat(64),
+  });
+  const preview = PreviewWhitebitAutomaticRouteMappingsResponse.parse({
+    reviewToken: "a".repeat(64),
+    catalogFetchedAt: new Date().toISOString(),
+    counts: {
+      total: 0, automatic: 0, eligibleToApply: 0, ownerSelection: 0, ambiguous: 0,
+      unsupported: 0, existingMappings: 0, protected: 0,
+    },
+    updated: 0,
+    routes: [],
+  });
+  assert.equal(preview.counts.total, 0);
 });
 
 test("enabled WhiteBIT keeps order funding ownership while capabilities are temporarily unavailable", () => {

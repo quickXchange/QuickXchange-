@@ -112,6 +112,17 @@ export function parseWhitebitCatalogAssets(value: unknown): WhitebitCatalogAsset
   return result;
 }
 
+/** Fetch a fresh, read-only public catalog for administrative route reviews. */
+export async function fetchWhitebitCatalogAssets(): Promise<WhitebitCatalogAsset[]> {
+  const response = await fetch("https://whitebit.com/api/v4/public/assets", {
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!response.ok) throw new Error(`WhiteBIT public catalog returned ${response.status}`);
+  const assets = parseWhitebitCatalogAssets(await response.json());
+  if (!assets.length) throw new Error("WhiteBIT public catalog response is malformed");
+  return assets;
+}
+
 const CAPABILITY_TTL_MS = 60_000;
 let cached: WhitebitCapabilitySnapshot | null = null;
 let refresh: Promise<WhitebitCapabilitySnapshot> | null = null;

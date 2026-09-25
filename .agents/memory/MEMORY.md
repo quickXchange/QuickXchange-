@@ -150,3 +150,4 @@
 - [WhiteBIT recovery credential source](whitebit-recovery-credential-source.md) — read-only history previews must select credential provenance explicitly; stored and environment credentials can differ.
 - [Activation timestamp precision](activation-timestamp-precision.md) — compare post-activation eligibility in PostgreSQL; JavaScript Date collapses distinct microsecond events.
 - [WhiteBIT explorer identity](whitebit-explorer-identity.md) — render only persisted chain hashes; frozen provider-network identity may need matching catalog metadata when an older route lacks an explorer template.
+- [WhiteBIT automatic mapping boundary](whitebit-auto-mapping-boundary.md) — public catalog identity never grants deposit permission; preserve live Manual routes and fence chain mismatches and stale proofs.

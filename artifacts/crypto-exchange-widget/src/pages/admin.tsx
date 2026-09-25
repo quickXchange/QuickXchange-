@@ -60,6 +60,7 @@ import {
   exportManualDeskRevenueCsv,
   useGetCryptoAssets, getGetCryptoAssetsQueryKey, useCreateCryptoAsset, useUpdateCryptoAsset, useDeleteCryptoAsset, useRequestCryptoAssetLogoUpload, useDeleteCryptoAssetLogoUpload,
   useGetCryptoNetworks, getGetCryptoNetworksQueryKey, useCreateCryptoNetwork, useUpdateCryptoNetwork, useDeleteCryptoNetwork, useRequestCryptoNetworkLogoUpload, useDeleteCryptoNetworkLogoUpload, useSaveCryptoNetworkReceivingWallet, usePreviewCryptoNetworkReceivingWallet, previewCryptoNetworkReceivingWallet, previewCryptoDepositProviderAssignment, useReconcileCryptoCustomerDeposits,
+  usePreviewWhitebitAutomaticRouteMappings, useApplyWhitebitAutomaticRouteMappings,
   useGetDepositProviderOptions, getGetDepositProviderOptionsQueryKey,
   useRequestFiatCurrencyFlagUpload, useDeleteFiatCurrencyFlagUpload,
   useGetOrder, getGetOrderQueryKey, useAssignOrder, useArchiveOrder, useRestoreOrder,
@@ -101,7 +102,7 @@ import {
   useListBlockchainMonitoringMatches,
   useReviewBlockchainMonitoringMatch
 } from '@workspace/api-client-react';
-import type { Asset, Customer, Order, PublicOrderStatus, ApiError, QuickexRateMode, CustomerOrder, FiatCurrency, OneForgeProviderStatus, WhitebitProviderStatus, ManualDeskPricingRule, ManualDeskPricingRuleInput, ManualDeskPricingQuotePreviewInput, SettlementOption, PaymentMethod, PaymentMethodFieldDefinition, CryptoAsset, CryptoNetwork, CryptoDepositProviderAssignmentRoute, OrderBulkMutationResponse, OrderBulkStatusInputManualSettlementState, AffiliateAccount, AffiliateSettings, AffiliatePayout, AffiliateOverview, AffiliateAccountPage, AffiliateCommission, AffiliateAccountDetail, AffiliateValuationReview, AffiliateReferral, AffiliateDashboard, ManualDeskPricingRulesBulkResponse, ManualDeskPricingRulesBulkPatch, BlockchainMonitoringNetwork, BlockchainMonitoringAsset, BlockchainMonitoringWatch, BlockchainMonitoringMatch, BlockchainMonitoringReviewInputDecision } from '@workspace/api-client-react';
+import type { Asset, Customer, Order, PublicOrderStatus, ApiError, QuickexRateMode, CustomerOrder, FiatCurrency, OneForgeProviderStatus, WhitebitProviderStatus, WhitebitAutoMappingPreview, ManualDeskPricingRule, ManualDeskPricingRuleInput, ManualDeskPricingQuotePreviewInput, SettlementOption, PaymentMethod, PaymentMethodFieldDefinition, CryptoAsset, CryptoNetwork, CryptoDepositProviderAssignmentRoute, OrderBulkMutationResponse, OrderBulkStatusInputManualSettlementState, AffiliateAccount, AffiliateSettings, AffiliatePayout, AffiliateOverview, AffiliateAccountPage, AffiliateCommission, AffiliateAccountDetail, AffiliateValuationReview, AffiliateReferral, AffiliateDashboard, ManualDeskPricingRulesBulkResponse, ManualDeskPricingRulesBulkPatch, BlockchainMonitoringNetwork, BlockchainMonitoringAsset, BlockchainMonitoringWatch, BlockchainMonitoringMatch, BlockchainMonitoringReviewInputDecision } from '@workspace/api-client-react';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { CryptoIdentity, CryptoLogo, CryptoNetworkBadge, cryptoLogoFallbackUrls } from '@/components/crypto-identity';
@@ -7063,7 +7064,13 @@ function AdminCurrencies() {
   const deleteCatalogMethodLogo = useDeletePaymentMethodLogoUpload();
   const deleteCatalogCurrencyFlag = useDeleteFiatCurrencyFlagUpload();
   const reconcileCustomerDeposits = useReconcileCryptoCustomerDeposits();
+  const previewWhitebitAutoMappings = usePreviewWhitebitAutomaticRouteMappings();
+  const applyWhitebitAutoMappings = useApplyWhitebitAutomaticRouteMappings();
   const depositReconciliationStarted = useRef(false);
+  const [whitebitAutoPreview, setWhitebitAutoPreview] = useState<WhitebitAutoMappingPreview | null>(null);
+  const [whitebitAutoApplied, setWhitebitAutoApplied] = useState(false);
+  const [whitebitAutoError, setWhitebitAutoError] = useState('');
+  const [whitebitAutoResult, setWhitebitAutoResult] = useState('');
 
   const [catalogSelected, setCatalogSelected] = useState<Record<'currencies' | 'methods' | 'assets' | 'networks', Set<string>>>({
     currencies: new Set(),
@@ -7119,6 +7126,43 @@ function AdminCurrencies() {
     setFilterLifecycle('all');
     setCatalogSelected(current => ({ ...current, [newTab]: new Set() }));
     setCatalogActionNotice(null);
+  };
+
+  const refreshWhitebitAutoMappingPreview = async () => {
+    setWhitebitAutoError('');
+    setWhitebitAutoResult('');
+    setWhitebitAutoApplied(false);
+    setWhitebitAutoPreview(null);
+    try {
+      const result = await previewWhitebitAutoMappings.mutateAsync({ data: {} });
+      setWhitebitAutoPreview(result);
+    } catch (error) {
+      setWhitebitAutoPreview(null);
+      setWhitebitAutoError(apiErrorText(error, 'Could not refresh the WhiteBIT public catalog.'));
+    }
+  };
+
+  const applyWhitebitAutoMappingPreview = async () => {
+    if (!whitebitAutoPreview || whitebitAutoApplied || !isOwner) return;
+    const eligible = whitebitAutoPreview.counts.eligibleToApply;
+    if (!window.confirm(`Apply ${eligible} automatically matched WhiteBIT route mapping${eligible === 1 ? '' : 's'}? Only safe exact matches will be saved. Customer deposit settings, provider assignments, addresses, and verification state will not change.`)) return;
+    setWhitebitAutoError('');
+    setWhitebitAutoResult('');
+    try {
+      const result = await applyWhitebitAutoMappings.mutateAsync({
+        data: { reviewToken: whitebitAutoPreview.reviewToken },
+      });
+      setWhitebitAutoPreview(null);
+      setWhitebitAutoApplied(true);
+      setWhitebitAutoResult(`${result.updated} route mapping${result.updated === 1 ? '' : 's'} applied.`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: getGetWhitebitVerificationRoutesQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
+      ]);
+    } catch (error) {
+      setWhitebitAutoError(apiErrorText(error, 'Could not apply the reviewed WhiteBIT route mappings. Refresh the catalog and review again.'));
+    }
   };
 
   const normalizedSearch = search.trim().toLowerCase();
@@ -7677,6 +7721,108 @@ function AdminCurrencies() {
             </>
           ) : null}
         </section>
+
+        {isOwner && tab === 'networks' && (
+          <section className="mb-5 space-y-3 rounded-lg border border-border bg-card p-4" data-testid="whitebit-auto-mapping">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <span className="section-kicker">WhiteBIT · Owner only</span>
+                <h2 className="text-lg font-semibold">Safe automatic route mapping</h2>
+                <p className="field-hint">
+                  Refresh reads the public WhiteBIT catalog and previews safe unique matches. WhiteBIT live ON routes are protected. Manual ON routes may receive unused WhiteBIT identity metadata only; their Manual provider, deposit flag, wallet, and proof are unchanged. No verification addresses are requested.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="button button-outline"
+                data-testid="button-refresh-whitebit-auto-mapping"
+                disabled={previewWhitebitAutoMappings.isPending || applyWhitebitAutoMappings.isPending}
+                onClick={() => void refreshWhitebitAutoMappingPreview()}
+              >
+                <RefreshCw size={15} className={`mr-2 ${previewWhitebitAutoMappings.isPending ? 'animate-spin' : ''}`} />
+                Refresh WhiteBIT catalog
+              </button>
+            </div>
+            {whitebitAutoError && <InlineNotice kind="error">{whitebitAutoError}</InlineNotice>}
+            {whitebitAutoResult && <InlineNotice kind="success">{whitebitAutoResult}</InlineNotice>}
+            {whitebitAutoPreview && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4 lg:grid-cols-8" data-testid="whitebit-auto-mapping-counts">
+                  {([
+                    ['Routes', whitebitAutoPreview.counts.total],
+                    ['Automatic', whitebitAutoPreview.counts.automatic],
+                    ['Eligible to apply', whitebitAutoPreview.counts.eligibleToApply],
+                    ['Owner selection', whitebitAutoPreview.counts.ownerSelection],
+                    ['Ambiguous', whitebitAutoPreview.counts.ambiguous],
+                    ['Unsupported', whitebitAutoPreview.counts.unsupported],
+                    ['Existing mappings', whitebitAutoPreview.counts.existingMappings],
+                    ['Protected', whitebitAutoPreview.counts.protected],
+                  ] as const).map(([label, count]) => (
+                    <div key={label} className="rounded-md border border-border/70 p-2">
+                      <span className="block text-muted-foreground">{label}</span>
+                      <strong className="text-base">{count}</strong>
+                    </div>
+                  ))}
+                </div>
+                <p className="field-hint">
+                  Public catalog refreshed {new Date(whitebitAutoPreview.catalogFetchedAt).toLocaleString()}. Review token applies only to this preview.
+                </p>
+                <div className="max-h-72 overflow-auto rounded-md border border-border">
+                  <table className="w-full text-left text-xs">
+                    <thead className="sticky top-0 bg-muted">
+                      <tr>
+                        <th className="p-2">Internal route</th>
+                        <th className="p-2">Status</th>
+                        <th className="p-2">WhiteBIT route</th>
+                        <th className="p-2">Review</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {whitebitAutoPreview.routes.map(route => (
+                        <tr key={route.networkId} className="border-t border-border/70">
+                          <td className="p-2 font-mono">{route.assetCode} · {route.networkCode}</td>
+                          <td className="p-2">
+                            {route.status === 'automatic' ? 'Automatic exact match'
+                              : route.status === 'owner_selection' ? 'Owner selection required'
+                                : route.status === 'unsupported' ? 'Unsupported'
+                                  : route.status === 'existing_mapping' ? 'Existing mapping preserved'
+                                    : 'Protected'}
+                          </td>
+                          <td className="p-2 font-mono">
+                            {route.whitebitAssetCode && route.whitebitNetworkCode
+                              ? `${route.whitebitAssetCode} · ${route.whitebitNetworkCode}`
+                              : route.suggestedAssetCode && route.suggestedNetworkCode
+                                ? `${route.suggestedAssetCode} · ${route.suggestedNetworkCode}`
+                                : route.options.length ? route.options.join(', ') : '—'}
+                          </td>
+                          <td className="p-2">
+                            {route.willApply ? 'Will apply' : route.reason}
+                            {route.ambiguous && <span className="ml-1 font-semibold text-amber-600">Ambiguous</span>}
+                          </td>
+                        </tr>
+                      ))}
+                      {!whitebitAutoPreview.routes.length && (
+                        <tr><td colSpan={4} className="p-3 text-muted-foreground">No asset/network routes were returned.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    className="button button-primary"
+                    data-testid="button-apply-whitebit-auto-mapping"
+                    disabled={applyWhitebitAutoMappings.isPending || whitebitAutoApplied || whitebitAutoPreview.counts.eligibleToApply === 0}
+                    onClick={() => void applyWhitebitAutoMappingPreview()}
+                  >
+                    {applyWhitebitAutoMappings.isPending ? 'Applying…' : whitebitAutoApplied ? 'Applied' : `Apply ${whitebitAutoPreview.counts.eligibleToApply} safe routes`}
+                  </button>
+                  <span className="field-hint">Apply saves reviewed unique identities only; it does not enable deposits or verify routes.</span>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
 
         <div className="catalog-table-container">
           <div className="catalog-directory-heading">
@@ -9600,11 +9746,19 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
   const whitebitRouteReview = needsWhitebitReview && whitebitMappingReview?.key === whitebitReviewKey
     ? whitebitMappingReview.route : null;
   const whitebitMappingStatus = whitebitRouteReview?.mappingStatus;
-  const whitebitNetworkOptions = (whitebitRouteReview?.whitebitNetworkOptions || []) as string[];
+  const requestedWhitebitNetworkOptions = (whitebitRouteReview?.whitebitNetworkOptions || []) as string[];
+  const whitebitAssetIdentity = (form.whitebitAssetCode.trim() || selectedAsset?.code || '').toUpperCase();
+  const whitebitNetworkOptions = requestedWhitebitNetworkOptions.filter(option =>
+    !(whitebitAssetIdentity === 'AVAXC' && option.trim().toUpperCase() === 'XCHAIN'),
+  );
   const mappedWhitebitAssetCode = whitebitRouteReview?.whitebitAssetCode ||
     form.whitebitAssetCode || selectedAsset?.code || '';
-  const selectedWhitebitNetworkCode = form.whitebitNetworkCode ||
+  const requestedSelectedWhitebitNetworkCode = form.whitebitNetworkCode ||
     (whitebitMappingStatus === 'supported' ? whitebitRouteReview?.whitebitNetworkCode || '' : '');
+  const selectedWhitebitNetworkCode = whitebitAssetIdentity === 'AVAXC' &&
+    requestedSelectedWhitebitNetworkCode.trim().toUpperCase() === 'XCHAIN'
+      ? ''
+      : requestedSelectedWhitebitNetworkCode;
   const whitebitCredentialSource = whitebitCredentialsQuery.data?.credentialSource;
   const whitebitExactPermissionProof = whitebitVerificationRoutesQuery.data?.find(route =>
     route.networkId === reviewedNetwork?.id &&
@@ -9613,8 +9767,25 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
     route.networkCode.trim().toUpperCase() === selectedWhitebitNetworkCode.trim().toUpperCase(),
   );
   const whitebitMappingValid = whitebitMappingStatus === 'supported' &&
-    whitebitRouteReview?.status === 'supported' &&
     Boolean(selectedWhitebitNetworkCode.trim());
+  const whitebitCapabilitySupported = whitebitMappingStatus === 'supported' || whitebitMappingStatus === 'mapping_required';
+  const whitebitMappingWasAutomatic = whitebitMappingValid && !form.whitebitNetworkCode.trim();
+  const whitebitSupportedLabel = whitebitReviewPending
+    ? 'Checking'
+    : !whitebitCapabilitySupported
+      ? 'Unsupported'
+      : whitebitMappingStatus === 'mapping_required'
+        ? 'Supported — Owner mapping required'
+        : whitebitMappingWasAutomatic
+          ? 'Supported — mapped automatically'
+          : 'Supported ✓';
+  const whitebitSupportReadinessLabel = whitebitReviewPending
+    ? 'Checking'
+    : whitebitMappingStatus === 'mapping_required'
+      ? 'Owner mapping required'
+      : whitebitMappingStatus === 'supported'
+        ? '✓ Yes'
+        : 'No';
   const whitebitCredentialSourceDisclosure = whitebitCredentialSource === 'stored'
     ? 'Signed checks use the backend-reported Admin-stored credentials.'
     : whitebitCredentialSource === 'environment'
@@ -10181,45 +10352,42 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                       ))}
                     </select>
                   </label>
-                  <InlineNotice kind={whitebitMappingStatus === 'supported' ? 'success' : 'warning'}>
-                    <strong>Status: {whitebitReviewPending
-                      ? 'Checking'
-                      : whitebitMappingStatus === 'supported'
-                        ? 'Supported'
-                        : whitebitMappingStatus === 'unsupported'
-                          ? 'Unsupported'
-                          : 'Mapping Required'}</strong>
+                  <InlineNotice kind={whitebitCapabilitySupported ? 'success' : 'warning'}>
+                    <strong>WhiteBIT: {whitebitSupportedLabel}</strong>
                     {whitebitRouteReview?.reason && ` — ${whitebitRouteReview.reason}`}
                     {whitebitReviewPending && ' Checking WhiteBIT capability catalog and exact route readiness.'}
                   </InlineNotice>
-                  <div className="grid gap-2 rounded-md border border-border/70 p-3 text-xs sm:grid-cols-2" data-testid="whitebit-route-readiness">
+                  <div className="grid gap-x-4 gap-y-1 rounded-md border border-border/70 p-3 text-xs sm:grid-cols-2" data-testid="whitebit-route-readiness">
                     <p>
-                      <strong>Supported by WhiteBIT:</strong>{' '}
-                      {whitebitReviewPending ? 'Checking' : whitebitMappingValid ? 'Yes' : 'No'}
+                      <strong>WhiteBIT Supported:</strong>{' '}
+                      {whitebitSupportReadinessLabel}
                     </p>
                     <p>
-                      <strong>Mapping:</strong>{' '}
-                      {whitebitReviewPending ? 'Checking' : whitebitMappingValid ? 'Valid' : 'Invalid or required'}
+                      <strong>Network Mapping:</strong>{' '}
+                      {whitebitReviewPending ? 'Checking' : whitebitMappingValid ? `✓ Valid${whitebitMappingWasAutomatic ? ' · automatic' : ''}` : whitebitMappingStatus === 'unsupported' ? 'Unsupported' : whitebitMappingStatus === 'mapping_required' ? 'Owner selection' : 'Owner selection required'}
                     </p>
                     <p>
                       <strong>Credentials:</strong>{' '}
-                      {!isOwner ? 'Owner verification required' : whitebitStatusQuery.isLoading
+                      {!isOwner ? 'Verify required' : whitebitStatusQuery.isLoading
                         ? 'Checking'
                         : whitebitStatusQuery.isError
                           ? 'Status unavailable'
-                        : whitebitStatusQuery.data?.credentialsVerified
-                          ? 'Verified'
-                          : 'Verification required'}
+                          : whitebitStatusQuery.data?.credentialsVerified
+                            ? '✓'
+                            : 'Verify required'}
                     </p>
                     <p>
-                      <strong>Address permission for this exact route:</strong>{' '}
-                      {!isOwner ? 'Owner verification required' : whitebitVerificationRoutesQuery.isLoading
+                      <strong>Permission:</strong>{' '}
+                      {!isOwner ? 'Verify required' : whitebitVerificationRoutesQuery.isLoading
                         ? 'Checking'
                         : whitebitVerificationRoutesQuery.isError
                           ? 'Status unavailable'
-                        : whitebitExactPermissionProof
-                          ? 'Verified'
-                          : 'Verification required'}
+                          : whitebitExactPermissionProof
+                            ? '✓'
+                            : 'Verify required'}
+                    </p>
+                    <p>
+                      <strong>Customer Deposits:</strong> {form.customerDepositsEnabled ? 'ON' : 'OFF'}
                     </p>
                   </div>
                   {whitebitNetworkOptions.length > 1 && whitebitMappingStatus === 'mapping_required' && (

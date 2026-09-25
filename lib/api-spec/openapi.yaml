@@ -2115,6 +2115,43 @@ paths:
         "409":
           description: Route or capability changed since review
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+  /admin/crypto-networks/whitebit-auto-mapping/preview:
+    post:
+      operationId: previewWhitebitAutomaticRouteMappings
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      summary: Preview safe WhiteBIT identities for every Asset + Network route
+      description: Reads the fresh public WhiteBIT catalog only. Existing mappings and WhiteBIT-provider routes with Customer Deposits enabled are protected. Exact identity metadata may be added to an eligible Manual-provider route even when Customer Deposits are enabled; this does not switch providers, change deposit flags, or modify addresses.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/WhitebitAutoMappingPreviewInput" } } }
+      responses:
+        "200":
+          description: Full route classification and review token
+          content: { application/json: { schema: { $ref: "#/components/schemas/WhitebitAutoMappingPreview" } } }
+        "503":
+          description: WhiteBIT public catalog is unavailable
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+  /admin/crypto-networks/whitebit-auto-mapping/apply:
+    post:
+      operationId: applyWhitebitAutomaticRouteMappings
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      summary: Atomically save only reviewed unique WhiteBIT identities
+      description: Updates WhiteBIT identity fields only. It may annotate an eligible Manual-provider route while Customer Deposits are enabled, preserving provider assignment, deposit flags, and saved addresses. Stale permission proof is invalidated only for routes whose identity mapping changed; unrelated route proofs and credentials are preserved.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/WhitebitAutoMappingApplyInput" } } }
+      responses:
+        "200":
+          description: Identity-only updates and per-route outcomes
+          content: { application/json: { schema: { $ref: "#/components/schemas/WhitebitAutoMappingPreview" } } }
+        "409":
+          description: Route rows or public catalog changed after review
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "503":
+          description: WhiteBIT public catalog is unavailable
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
   /admin/crypto-assets/reconcile-customer-deposits:
     post:
       operationId: reconcileCryptoCustomerDeposits
@@ -6386,6 +6423,59 @@ components:
         networks:
           type: array
           items: { $ref: "#/components/schemas/CryptoNetwork" }
+    WhitebitAutoMappingPreviewInput:
+      type: object
+      additionalProperties: false
+    WhitebitAutoMappingApplyInput:
+      type: object
+      additionalProperties: false
+      required: [reviewToken]
+      properties:
+        reviewToken: { type: string, pattern: '^[a-f0-9]{64}$' }
+    WhitebitAutoMappingCounts:
+      type: object
+      additionalProperties: false
+      required: [total, automatic, eligibleToApply, ownerSelection, ambiguous, unsupported, existingMappings, protected]
+      properties:
+        total: { type: integer, minimum: 0 }
+        automatic: { type: integer, minimum: 0 }
+        eligibleToApply: { type: integer, minimum: 0 }
+        ownerSelection: { type: integer, minimum: 0 }
+        ambiguous: { type: integer, minimum: 0 }
+        unsupported: { type: integer, minimum: 0 }
+        existingMappings: { type: integer, minimum: 0 }
+        protected: { type: integer, minimum: 0 }
+    WhitebitAutoMappingRoute:
+      type: object
+      additionalProperties: false
+      required: [networkId, assetCode, networkCode, status, ambiguous, reason, options, willApply, whitebitAssetCode, whitebitNetworkCode]
+      properties:
+        networkId: { type: string }
+        assetCode: { type: string }
+        networkCode: { type: string }
+        status: { type: string, enum: [automatic, owner_selection, unsupported, existing_mapping, protected] }
+        ambiguous: { type: boolean }
+        reason: { type: string }
+        suggestedAssetCode: { type: [string, "null"] }
+        suggestedNetworkCode: { type: [string, "null"] }
+        options:
+          type: array
+          items: { type: string }
+        willApply: { type: boolean }
+        whitebitAssetCode: { type: [string, "null"] }
+        whitebitNetworkCode: { type: [string, "null"] }
+    WhitebitAutoMappingPreview:
+      type: object
+      additionalProperties: false
+      required: [reviewToken, catalogFetchedAt, counts, updated, routes]
+      properties:
+        reviewToken: { type: string, pattern: '^[a-f0-9]{64}$' }
+        catalogFetchedAt: { type: string, format: date-time }
+        counts: { $ref: "#/components/schemas/WhitebitAutoMappingCounts" }
+        updated: { type: integer, minimum: 0 }
+        routes:
+          type: array
+          items: { $ref: "#/components/schemas/WhitebitAutoMappingRoute" }
     CryptoCustomerDepositReconciliation:
       type: object
       additionalProperties: false
