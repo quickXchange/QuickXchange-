@@ -14,3 +14,9 @@ Treat a proof fixture as an exact-route upsert, never as a replacement for the w
 **Why:** A singleton proof-array fixture can remove a different route's real permission proof; even apparently careful after-test restoration is ineffective if the suite is interrupted or another test snapshots already contaminated state.
 
 **How to apply:** Run the entire provider integration suite against a disposable database containing schema and synthetic data only; forbid live provider network calls, and compare shared Development state before and after. Keep route-scoped proof edits route-scoped inside the isolated suite.
+
+Disposable database suites must create their own multi-route asset fixtures and use the suite's privileged cleanup path for protected financial rows.
+
+**Why:** A cloned Development catalog may not contain every route a regression expects, and the ordinary runtime database role cannot delete protected WhiteBIT address records during test cleanup. Either assumption can make a valid isolated test fail or hide its original assertion.
+
+**How to apply:** Give synthetic routes unique identities, clean up only their dependent records in foreign-key order with the privileged test connection where required, and preserve the primary assertion failure if cleanup also fails. Never loosen production privileges to make test teardown work.

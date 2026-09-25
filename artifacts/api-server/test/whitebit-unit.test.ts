@@ -195,6 +195,8 @@ test("WhiteBIT route mappings require exact canonical matches or an explicit adv
   assert.equal(matchWhitebitRouteCapability(snapshot, "AVAX", "AVAXC", "AVAX", "BSC"), null);
   assert.equal(matchWhitebitRouteCapability(snapshot, "AVAX", "AVAXC", "AVAX", null), null);
   assert.equal(matchWhitebitRouteCapability(snapshot, "AVAX", "AVAXC", null, "CCHAIN"), null);
+  assert.equal(matchWhitebitRouteCapability(snapshot, "AVAX", "AVAXC", " ", "CCHAIN"), null);
+  assert.equal(matchWhitebitRouteCapability(snapshot, "AVAX", "AVAXC", "AVAX", " "), null);
 });
 
 test("WhiteBIT asset identity keeps create requests base-ticker safe and parses provider network tickers", () => {

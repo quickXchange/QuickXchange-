@@ -211,7 +211,7 @@ async function applyMatchedDeposit(
     if (claimsAtAddress.length !== 1 || claimsAtAddress[0]?.id !== claim.id || accountAtAddress.length) {
       throw new WhitebitHistoryWorkerError("ADDRESS_COLLISION", "Frozen address belongs to another funding claim.");
     }
-    if (deposit.address !== claim.address || deposit.ticker !== claim.ticker ||
+    if (deposit.address !== claim.address ||
         deposit.providerTicker !== claim.providerTicker || deposit.network !== claim.network ||
         normalizeWhitebitMemo(deposit.memo) !== normalizeWhitebitMemo(claim.memo)) {
       throw new WhitebitHistoryWorkerError("HISTORY_MISMATCH", "History record changed before application.");

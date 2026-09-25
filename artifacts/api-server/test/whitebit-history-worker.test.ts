@@ -26,6 +26,7 @@ function order(id = "O-WHITEBIT-TEST", status = "awaiting funds"): PendingWhiteb
     fundingStatus: "ready_whitebit",
     fundingProviderSource: "whitebit",
     fromAsset: "BTC",
+    fromNetwork: "BITCOIN",
     sourceSettlementOptionId: "crypto:btc-bitcoin",
     depositAddress: "bc1q-history-test",
     depositMemo: "TAG-1",
@@ -275,6 +276,67 @@ test("WhiteBIT history rejects wrong address, network, or asset without side eff
     assert.equal(mock.state.audits.size, 0);
     assertNoAddressOrWatchCreation(mock.state);
   }
+});
+
+test("WhiteBIT history supports a distinct frozen provider asset and memo network", async () => {
+  const mappedOrder = order();
+  mappedOrder.fromAsset = "USDQ";
+  mappedOrder.fromNetwork = "MEMOCHAIN";
+  mappedOrder.sourceSettlementOptionId = "crypto:usdq-memochain";
+  mappedOrder.depositAddress = "memo-chain-address";
+  mappedOrder.depositMemo = "TAG-USDQ-7";
+  mappedOrder.fundingDetailsSnapshot = {
+    networkId: "usdq-memochain",
+    whitebitAssetCode: "USDT_ETH",
+    whitebitNetworkCode: "ERC20",
+    selectedProvider: "whitebit",
+    addressSource: "live_api",
+    address: "memo-chain-address",
+    memo: "TAG-USDQ-7",
+  };
+  mappedOrder.settlementSnapshot = {
+    funding: { address: "memo-chain-address", memo: "TAG-USDQ-7" },
+  };
+  const mappedClaim = {
+    ...claim(mappedOrder.id, "TAG-USDQ-7"),
+    ticker: "USDQ",
+    providerTicker: "USDT_ETH",
+    network: "ERC20",
+    address: "memo-chain-address",
+  };
+  const record = historyRecord({
+    address: "memo-chain-address",
+    ticker: "USDT_ETH",
+    network: "ERC20",
+    memo: "TAG-USDQ-7",
+  });
+
+  assert.equal(matchesFrozenWhitebitClaim(mappedOrder, mappedClaim), true);
+  assert.equal(matchWhitebitHistoryForOrder(mappedOrder, mappedClaim, [record]).kind, "matched");
+  assert.equal(matchWhitebitHistoryForOrder(mappedOrder, mappedClaim, [historyRecord({
+    ...record, ticker: "OTHER_ETH",
+  })]).kind, "unsafe");
+  assert.equal(matchWhitebitHistoryForOrder(mappedOrder, { ...mappedClaim, providerTicker: "USDQ" }, [record]).kind, "unsafe");
+  assert.equal(matchWhitebitHistoryForOrder(mappedOrder, { ...mappedClaim, network: "MEMOCHAIN" }, [record]).kind, "unsafe");
+  const partialMappingOrder = {
+    ...mappedOrder,
+    fundingDetailsSnapshot: {
+      ...(mappedOrder.fundingDetailsSnapshot as Record<string, unknown>),
+      whitebitNetworkCode: null,
+    },
+  };
+  assert.equal(matchesFrozenWhitebitClaim(partialMappingOrder, mappedClaim), false);
+  assert.equal(matchWhitebitHistoryForOrder(mappedOrder, mappedClaim, [historyRecord({
+    ...record, memo: "TAG-OTHER",
+  })]).kind, "unsafe");
+
+  const mock = fixture({
+    candidate: { order: mappedOrder, claim: mappedClaim },
+    records: [record],
+  });
+  assert.equal(await runWhitebitHistoryCycle(mock.ports), "success");
+  assert.equal(mock.state.deposits.size, 1);
+  assertNoAddressOrWatchCreation(mock.state);
 });
 
 test("WhiteBIT history 401 and 403 failures are explicit and never apply deposits", async () => {

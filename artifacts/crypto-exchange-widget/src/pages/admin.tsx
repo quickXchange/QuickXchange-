@@ -9595,6 +9595,15 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
   const selectedWhitebitNetworkCode = form.whitebitNetworkCode ||
     (whitebitMappingStatus === 'supported' ? whitebitRouteReview?.whitebitNetworkCode || '' : '');
   const whitebitCredentialSource = whitebitCredentialsQuery.data?.credentialSource;
+  const whitebitExactPermissionProof = whitebitVerificationRoutesQuery.data?.find(route =>
+    route.networkId === reviewedNetwork?.id &&
+    route.proofCurrent &&
+    route.assetCode.trim().toUpperCase() === mappedWhitebitAssetCode.trim().toUpperCase() &&
+    route.networkCode.trim().toUpperCase() === selectedWhitebitNetworkCode.trim().toUpperCase(),
+  );
+  const whitebitMappingValid = whitebitMappingStatus === 'supported' &&
+    whitebitRouteReview?.status === 'supported' &&
+    Boolean(selectedWhitebitNetworkCode.trim());
   const whitebitCredentialSourceDisclosure = whitebitCredentialSource === 'stored'
     ? 'Signed checks use the backend-reported Admin-stored credentials.'
     : whitebitCredentialSource === 'environment'
@@ -10172,6 +10181,36 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                     {whitebitRouteReview?.reason && ` — ${whitebitRouteReview.reason}`}
                     {whitebitReviewPending && ' Checking WhiteBIT capability catalog and exact route readiness.'}
                   </InlineNotice>
+                  <div className="grid gap-2 rounded-md border border-border/70 p-3 text-xs sm:grid-cols-2" data-testid="whitebit-route-readiness">
+                    <p>
+                      <strong>Supported by WhiteBIT:</strong>{' '}
+                      {whitebitReviewPending ? 'Checking' : whitebitMappingValid ? 'Yes' : 'No'}
+                    </p>
+                    <p>
+                      <strong>Mapping:</strong>{' '}
+                      {whitebitReviewPending ? 'Checking' : whitebitMappingValid ? 'Valid' : 'Invalid or required'}
+                    </p>
+                    <p>
+                      <strong>Credentials:</strong>{' '}
+                      {!isOwner ? 'Owner verification required' : whitebitStatusQuery.isLoading
+                        ? 'Checking'
+                        : whitebitStatusQuery.isError
+                          ? 'Status unavailable'
+                        : whitebitStatusQuery.data?.credentialsVerified
+                          ? 'Verified'
+                          : 'Verification required'}
+                    </p>
+                    <p>
+                      <strong>Address permission for this exact route:</strong>{' '}
+                      {!isOwner ? 'Owner verification required' : whitebitVerificationRoutesQuery.isLoading
+                        ? 'Checking'
+                        : whitebitVerificationRoutesQuery.isError
+                          ? 'Status unavailable'
+                        : whitebitExactPermissionProof
+                          ? 'Verified'
+                          : 'Verification required'}
+                    </p>
+                  </div>
                   {whitebitNetworkOptions.length > 1 && whitebitMappingStatus === 'mapping_required' && (
                     <p className="field-hint">Multiple WhiteBIT networks are advertised for this asset. Select the correct network explicitly; none is chosen automatically.</p>
                   )}

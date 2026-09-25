@@ -10,6 +10,7 @@ export type PendingWhitebitOrder = {
   fundingStatus: string | null;
   fundingProviderSource: string | null;
   fromAsset: string;
+  fromNetwork: string;
   sourceSettlementOptionId: string | null;
   depositAddress: string | null;
   depositMemo: string | null;
@@ -43,6 +44,19 @@ function units(value: string): bigint | null {
 export function matchesFrozenWhitebitClaim(order: PendingWhitebitOrder, claim: ReadyWhitebitClaim): boolean {
   const funding = asRecord(order.fundingDetailsSnapshot);
   const settlement = asRecord(asRecord(order.settlementSnapshot).funding);
+  const mappingAsset = funding.whitebitAssetCode;
+  const mappingNetwork = funding.whitebitNetworkCode;
+  const hasMappingAsset = typeof mappingAsset === "string" && Boolean(mappingAsset.trim());
+  const hasMappingNetwork = typeof mappingNetwork === "string" && Boolean(mappingNetwork.trim());
+  const validMappingFields = (mappingAsset == null || hasMappingAsset) &&
+    (mappingNetwork == null || hasMappingNetwork) &&
+    hasMappingAsset === hasMappingNetwork;
+  const expectedProviderTicker = hasMappingAsset
+    ? (mappingAsset as string).trim().toUpperCase()
+    : order.fromAsset.trim().toUpperCase();
+  const expectedProviderNetwork = hasMappingNetwork
+    ? (mappingNetwork as string).trim().toUpperCase()
+    : order.fromNetwork.trim().toUpperCase();
   return order.id === claim.orderId &&
     order.type === "manual" &&
     order.status === "awaiting funds" &&
@@ -52,9 +66,10 @@ export function matchesFrozenWhitebitClaim(order: PendingWhitebitOrder, claim: R
     claim.status === "ready" &&
     Boolean(claim.address) &&
     claim.address === order.depositAddress &&
-    claim.ticker === order.fromAsset &&
-    (funding.whitebitAssetCode == null || claim.providerTicker === funding.whitebitAssetCode) &&
-    (funding.whitebitNetworkCode == null || claim.network === funding.whitebitNetworkCode) &&
+    validMappingFields &&
+    claim.ticker.trim().toUpperCase() === order.fromAsset.trim().toUpperCase() &&
+    claim.providerTicker.trim().toUpperCase() === expectedProviderTicker &&
+    claim.network.trim().toUpperCase() === expectedProviderNetwork &&
     funding.networkId === order.sourceSettlementOptionId?.replace(/^crypto:/, "") &&
     funding.selectedProvider === "whitebit" &&
     funding.addressSource === "live_api" &&
@@ -90,7 +105,6 @@ export function matchWhitebitHistoryForOrder(
     }
     if (deposit.status === null) return { kind: "unsafe", reason: "History record has an invalid provider status." };
     if (deposit.address !== claim.address ||
-        deposit.ticker !== claim.ticker ||
         deposit.providerTicker !== claim.providerTicker ||
         deposit.network !== claim.network ||
         normalizeWhitebitMemo(deposit.memo) !== normalizeWhitebitMemo(claim.memo)) {

@@ -8,6 +8,8 @@ import {
   getGetExchangeConfigQueryKey,
   getGetWhitebitVerificationRoutesQueryKey,
   getGetWhitebitProviderStatusQueryKey,
+  useGetWhitebitVerificationRoutes,
+  useGetWhitebitProviderStatus,
 } from '@workspace/api-client-react';
 import type {
   CryptoAsset,
@@ -29,6 +31,12 @@ export function BulkDepositProviderDialog({
   const client = useQueryClient();
   const apply = useApplyCryptoDepositProviderAssignment();
   const [provider, setProvider] = useState<Provider>('whitebit');
+  const whitebitVerificationRoutesQuery = useGetWhitebitVerificationRoutes({
+    query: { queryKey: getGetWhitebitVerificationRoutesQueryKey(), enabled: provider === 'whitebit' },
+  });
+  const whitebitProviderStatusQuery = useGetWhitebitProviderStatus({
+    query: { queryKey: getGetWhitebitProviderStatusQueryKey(), enabled: provider === 'whitebit' },
+  });
   const [selected, setSelected] = useState<Set<string>>(() => new Set(initialNetworkIds));
   const [search, setSearch] = useState('');
   const [catalogReview, setCatalogReview] = useState<CryptoDepositProviderAssignmentPreview | null>(null);
@@ -214,6 +222,14 @@ export function BulkDepositProviderDialog({
                       const mappingValue = whitebitMappingChoices[network.id] ||
                         network.whitebitNetworkCode ||
                         (mappingStatus === 'supported' ? status?.whitebitNetworkCode : '') || '';
+                      const whitebitMappingValid = status?.status === 'supported' &&
+                        mappingStatus === 'supported' && Boolean(mappingValue);
+                      const exactPermissionProof = whitebitVerificationRoutesQuery.data?.find(route =>
+                        route.networkId === network.id &&
+                        route.proofCurrent &&
+                        route.assetCode.trim().toUpperCase() === mappingAsset.trim().toUpperCase() &&
+                        route.networkCode.trim().toUpperCase() === mappingValue.trim().toUpperCase(),
+                      );
                       return (
                        <div key={network.id} className="rounded-lg border border-border p-3 text-sm">
                         <div className="flex items-start gap-3">
@@ -222,9 +238,16 @@ export function BulkDepositProviderDialog({
                           <span className="block text-xs text-muted-foreground">{network.networkName} · Current: {network.depositProvider === 'whitebit' ? 'WhiteBIT' : network.depositProvider === 'manual' ? 'Manual Wallet' : 'None'}</span>
                           <span className="block text-xs">{status?.status === 'requires_configuration' ? 'Requires configuration' : status?.status === 'unsupported' ? 'Unsupported' : 'Supported'} — {status?.reason}</span>
                           {provider === 'whitebit' && (
-                            <span className="block text-xs">
-                              WhiteBIT Mapping Asset: {mappingAsset} · Network: {mappingValue || (mappingStatus === 'mapping_required' ? 'Mapping Required' : '—')} · Status: {mappingStatus === 'supported' ? 'Supported' : mappingStatus === 'unsupported' ? 'Unsupported' : 'Mapping Required'}
-                            </span>
+                             <span className="mt-2 grid gap-1 rounded border border-border/70 p-2 text-xs sm:grid-cols-2" data-testid={`whitebit-readiness-${network.id}`}>
+                               <span><strong>WhiteBIT route support:</strong> {loadingCatalog ? 'Checking' : whitebitMappingValid ? 'Supported' : 'Not supported'}</span>
+                               <span><strong>Mapping:</strong> {loadingCatalog ? 'Checking' : whitebitMappingValid ? 'Valid' : mappingStatus === 'mapping_required' ? 'Required' : 'Invalid'}</span>
+                               <span><strong>Credentials:</strong> {whitebitProviderStatusQuery.isLoading ? 'Checking' : whitebitProviderStatusQuery.isError ? 'Status unavailable' : whitebitProviderStatusQuery.data?.credentialsVerified ? 'Verified' : 'Verification required'}</span>
+                               <span><strong>Address permission:</strong> {whitebitVerificationRoutesQuery.isLoading ? 'Checking' : whitebitVerificationRoutesQuery.isError ? 'Status unavailable' : exactPermissionProof ? 'Verified for this exact route' : 'Verification required'}</span>
+                               <span className="sm:col-span-2"><strong>Ready for Widget:</strong> {network.widgetReadiness?.ready === true ? 'Ready for Widget' : network.widgetReadiness?.ready === false ? 'Cannot Enable' : 'Not evaluated'}</span>
+                               <span className="sm:col-span-2">WhiteBIT Mapping Asset: {mappingAsset} · Network: {mappingValue || (mappingStatus === 'mapping_required' ? 'Mapping Required' : '—')}</span>
+                               {whitebitProviderStatusQuery.isError && <span role="alert" className="text-destructive sm:col-span-2">WhiteBIT credential verification status could not be loaded.</span>}
+                               {whitebitVerificationRoutesQuery.isError && <span role="alert" className="text-destructive sm:col-span-2">Exact-route permission status could not be loaded.</span>}
+                             </span>
                           )}
                         </span>
                         </div>

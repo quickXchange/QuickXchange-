@@ -2823,6 +2823,267 @@ test("actual signed exchange order replay allocates one WhiteBIT address", async
     .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
 });
 
+test("WhiteBIT provisions simultaneous same-asset routes with independent proofs and exact mapped memo identity", async () => {
+  const testAssetId = `whitebit-multiroute-${suffix}`;
+  const assetCode = `Q${suffix.replaceAll("-", "").slice(0, 10).toUpperCase()}`;
+  const mappedProviderAsset = `ALT${assetCode}`;
+  const erc20Id = `${testAssetId}-erc20`;
+  const trc20Id = `${testAssetId}-trc20`;
+  const routes = [
+    {
+      row: {
+        id: erc20Id, assetId: testAssetId, networkCode: "ERC20", networkName: "Ethereum",
+        networkFamily: "evm", decimals: 6,
+      },
+      providerAsset: mappedProviderAsset, providerNetwork: "MEMOCHAIN", requiresMemo: true,
+    },
+    {
+      row: {
+        id: trc20Id, assetId: testAssetId, networkCode: "TRC20", networkName: "Tron",
+        networkFamily: "tron", decimals: 6,
+      },
+      providerAsset: assetCode, providerNetwork: "TRC20", requiresMemo: false,
+    },
+  ];
+  const [originalProviderSettings] = await database.db.select()
+    .from(database.whitebitProviderSettingsTable)
+    .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit")).limit(1);
+  assert.ok(originalProviderSettings);
+  const originalFetch = globalThis.fetch;
+  const providerAddresses = [`0x${"a".repeat(40)}`, validTronAddress()];
+  const providerRequests: Array<{ ticker?: string; network?: string }> = [];
+  const orderIds = [randomUUID(), randomUUID()].map((id) => `O${id.replaceAll("-", "").slice(0, 20)}`);
+  let testFailure: unknown;
+
+  try {
+    await database.db.insert(database.cryptoAssetsTable).values({
+      id: testAssetId, code: assetCode, name: "WhiteBIT isolated multi-route test",
+      decimals: 6, enabled: true, lifecycle: "active",
+    });
+    for (const { row, providerAsset, providerNetwork, requiresMemo } of routes) {
+      await database.db.insert(database.cryptoAssetNetworksTable).values({
+        ...row,
+        enabled: true, lifecycle: "active", executionMode: "manual", depositProvider: "whitebit",
+        customerDepositsEnabled: true, manualWalletTrackingEnabled: false, requiresMemo,
+        whitebitAssetCode: providerAsset, whitebitNetworkCode: providerNetwork,
+      });
+    }
+
+    globalThis.fetch = async (input, init) => {
+      const url = String(input);
+      if (url.endsWith("/api/v4/public/assets")) {
+        return new Response(JSON.stringify({
+          [assetCode]: { can_deposit: true, networks: { deposits: ["TRC20"] } },
+          [mappedProviderAsset]: { can_deposit: true, networks: { deposits: ["MEMOCHAIN"] } },
+        }), { status: 200 });
+      }
+      if (url.endsWith("/api/v4/main-account/create-new-address")) {
+        const body = JSON.parse(String(init?.body ?? "{}")) as { ticker?: string; network?: string };
+        providerRequests.push({ ticker: body.ticker, network: body.network });
+        const index = body.network === "MEMOCHAIN" ? 0 : 1;
+        return new Response(JSON.stringify({
+          account: {
+            address: providerAddresses[index],
+            memo: index === 0 ? `TAG-${suffix.slice(0, 8)}` : "",
+          },
+        }), { status: 200 });
+      }
+      if (url.startsWith("https://whitebit.com/")) {
+        throw new Error(`Unexpected WhiteBIT request in mock: ${url}`);
+      }
+      return originalFetch(input, init);
+    };
+    resetWhitebitCapabilityCacheForTests();
+
+    assert.ok(await seedWhitebitVerificationFixture(assetCode, "ERC20"));
+    const [firstProofSetting] = await database.db.select({
+      proofs: database.whitebitProviderSettingsTable.depositRouteProofs,
+    }).from(database.whitebitProviderSettingsTable)
+      .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+    assert.ok(firstProofSetting);
+    const firstProof = firstProofSetting.proofs.find((proof) => proof.networkId === erc20Id);
+    assert.ok(firstProof);
+
+    assert.ok(await seedWhitebitVerificationFixture(assetCode, "TRC20"));
+    const [bothProofSetting] = await database.db.select({
+      proofs: database.whitebitProviderSettingsTable.depositRouteProofs,
+    }).from(database.whitebitProviderSettingsTable)
+      .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+    assert.ok(bothProofSetting);
+    const mappedProof = bothProofSetting.proofs.find((proof) => proof.networkId === erc20Id);
+    const trc20Proof = bothProofSetting.proofs.find((proof) => proof.networkId === trc20Id);
+    assert.deepEqual(mappedProof, firstProof, "proving a second route must preserve the first exact proof");
+    assert.ok(trc20Proof);
+
+    await database.db.update(database.whitebitProviderSettingsTable).set({
+      depositRouteProofs: bothProofSetting.proofs.filter((proof) => proof.networkId !== erc20Id),
+    }).where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+    // One exact proof can be removed without revoking the other USDT network.
+    const [remainingProofSetting] = await database.db.select({
+      proofs: database.whitebitProviderSettingsTable.depositRouteProofs,
+    }).from(database.whitebitProviderSettingsTable)
+      .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+    assert.ok(remainingProofSetting);
+    assert.deepEqual(remainingProofSetting.proofs.find((proof) => proof.networkId === trc20Id), trc20Proof);
+    assert.equal(remainingProofSetting.proofs.some((proof) => proof.networkId === erc20Id), false);
+    assert.equal(await isWhitebitSwapEnabled(assetCode, "ERC20"), null);
+    assert.deepEqual(await isWhitebitSwapEnabled(assetCode, "TRC20"), {
+      providerTicker: assetCode, providerNetwork: "TRC20", requiredConfirmations: null,
+    });
+    await database.db.update(database.whitebitProviderSettingsTable).set({
+      depositRouteProofs: bothProofSetting.proofs,
+    }).where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+
+    for (const [index, { row, providerAsset, providerNetwork, requiresMemo }] of routes.entries()) {
+      const memo = requiresMemo ? `TAG-${suffix.slice(0, 8)}` : "";
+      const funding = {
+        networkId: row.id,
+        depositProvider: "whitebit",
+        customerDepositsEnabled: true,
+        manualWalletTrackingEnabled: false,
+        manualFallbackEnabled: false,
+        manualFallbackAddress: "",
+        manualFallbackMemo: "",
+        requiresMemo,
+        whitebitAssetCode: providerAsset,
+        whitebitNetworkCode: providerNetwork,
+        selectedProvider: "whitebit",
+        source: "whitebit",
+        status: "provisioning",
+        address: "",
+        memo: "",
+      };
+      await database.db.insert(database.ordersTable).values({
+        id: orderIds[index]!,
+        type: "manual",
+        status: "awaiting funds",
+        fromAsset: assetCode,
+        fromNetwork: row.networkCode,
+        toAsset: "EUR",
+        toNetwork: "SEPA",
+        amount: "10",
+        receiveAmount: "10",
+        customerEmail: `${orderIds[index]}@example.test`,
+        customerName: "WhiteBIT isolated multi-route regression",
+        fundingStatus: "provisioning",
+        fundingProviderSource: "whitebit",
+        fundingDetailsSnapshot: funding,
+        settlementSnapshot: { funding },
+        provider: "Manual desk",
+        sourceSettlementOptionId: `crypto:${row.id}`,
+        manualSettlementState: "awaiting_funds",
+        providerState: "whitebit_provisioning",
+        quoteId: "",
+        clientRequestId: `${orderIds[index]}-request`,
+      });
+      const result = await provisionSwapFundingAddress({
+        orderId: orderIds[index]!,
+        assetCode,
+        networkCode: row.networkCode,
+        whitebitAssetCode: providerAsset,
+        whitebitNetworkCode: providerNetwork,
+        manualAddress: "",
+        manualMemo: "",
+        manualFallbackUsable: false,
+        chosenWhitebit: true,
+      });
+      assert.equal(result.unresolved, false);
+      assert.equal(result.address, providerAddresses[index]);
+      assert.equal(result.memo, memo || null);
+      const [order] = await database.db.select().from(database.ordersTable)
+        .where(eq(database.ordersTable.id, orderIds[index]!)).limit(1);
+      const [claim] = await database.db.select().from(database.whitebitOrderAddressesTable)
+        .where(eq(database.whitebitOrderAddressesTable.orderId, orderIds[index]!)).limit(1);
+      assert.ok(order && claim);
+      assert.equal(claim.ticker, assetCode);
+      assert.equal(claim.providerTicker, providerAsset);
+      assert.equal(claim.network, providerNetwork);
+      assert.equal(claim.memo, memo || null);
+      assert.equal(matchesFrozenWhitebitClaim(order, claim), true);
+
+      const webhook = await signedOrderWebhook(
+        `same-asset-route-${index}-${suffix}`,
+        claim.address!,
+        providerNetwork,
+        memo,
+        "deposit.processed",
+        3,
+        `same-asset-${index}`,
+        providerAsset,
+        "10",
+      );
+      assert.equal(webhook.status, 200, await webhook.clone().text());
+      const [fundedOrder] = await database.db.select().from(database.ordersTable)
+        .where(eq(database.ordersTable.id, orderIds[index]!)).limit(1);
+      assert.equal(fundedOrder?.manualSettlementState, "funds_confirmed");
+      const [deposit] = await database.db.select().from(database.whitebitDepositsTable)
+        .where(eq(database.whitebitDepositsTable.orderId, orderIds[index]!)).limit(1);
+      assert.equal(deposit?.ticker, assetCode);
+      assert.equal(deposit?.providerTicker, providerAsset);
+      assert.equal(deposit?.network, providerNetwork);
+      assert.equal(deposit?.memo, memo || null);
+    }
+    assert.deepEqual(providerRequests, [
+      { ticker: mappedProviderAsset, network: "MEMOCHAIN" },
+      { ticker: assetCode, network: "TRC20" },
+    ]);
+  } catch (error) {
+    testFailure = error;
+    throw error;
+  } finally {
+    let cleanupFailure: unknown;
+    try {
+      const cleanup = await pool.connect();
+      try {
+        await cleanup.query("BEGIN");
+        await cleanup.query(
+          `DELETE FROM whitebit_ledger_entries WHERE deposit_id IN (
+             SELECT id FROM whitebit_deposits WHERE order_id = ANY($1::text[])
+           )`,
+          [orderIds],
+        );
+        await cleanup.query(
+          `DELETE FROM whitebit_order_history_checkpoints WHERE order_address_id IN (
+             SELECT id FROM whitebit_order_addresses WHERE order_id = ANY($1::text[])
+           )`,
+          [orderIds],
+        );
+        await cleanup.query("DELETE FROM whitebit_deposits WHERE order_id = ANY($1::text[])", [orderIds]);
+        await cleanup.query("DELETE FROM whitebit_order_addresses WHERE order_id = ANY($1::text[])", [orderIds]);
+        await cleanup.query("DELETE FROM exchange_orders WHERE id = ANY($1::text[])", [orderIds]);
+        await cleanup.query(
+          "DELETE FROM whitebit_webhook_deliveries WHERE envelope_id LIKE $1",
+          [`%same-asset-route-%${suffix}%`],
+        );
+        await cleanup.query("DELETE FROM crypto_asset_networks WHERE asset_id = $1", [testAssetId]);
+        await cleanup.query("DELETE FROM crypto_assets WHERE id = $1", [testAssetId]);
+        await cleanup.query("COMMIT");
+      } catch (error) {
+        cleanupFailure = error;
+        await cleanup.query("ROLLBACK").catch(() => {});
+      } finally {
+        cleanup.release();
+      }
+    } catch (error) {
+      cleanupFailure ??= error;
+    }
+    try {
+      await database.db.update(database.whitebitProviderSettingsTable).set({
+        disabled: originalProviderSettings.disabled,
+        depositRouteProofs: originalProviderSettings.depositRouteProofs,
+        credentialVerifiedFingerprint: originalProviderSettings.credentialVerifiedFingerprint,
+        credentialVerifiedAt: originalProviderSettings.credentialVerifiedAt,
+        updatedAt: originalProviderSettings.updatedAt,
+      }).where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+    } catch (error) {
+      cleanupFailure ??= error;
+    }
+    globalThis.fetch = originalFetch;
+    resetWhitebitCapabilityCacheForTests();
+    if (cleanupFailure && testFailure === undefined) throw cleanupFailure;
+  }
+});
+
 test("actual BNB/BEP20 Swap creation assigns and confirms its own WhiteBIT deposit", async () => {
   const routeId = "bnb-bnb";
   const [originalRoute] = await database.db.select().from(database.cryptoAssetNetworksTable)

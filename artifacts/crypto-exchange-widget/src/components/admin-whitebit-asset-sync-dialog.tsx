@@ -6,7 +6,7 @@ import {
   getPreviewWhitebitAssetImportQueryKey,
   useImportWhitebitAssets,
   getGetCryptoAssetsQueryKey,
-  getGetCryptoNetworksQueryKey
+  getGetCryptoNetworksQueryKey,
 } from '@workspace/api-client-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Loader2, Check, AlertCircle, RefreshCw } from 'lucide-react';
@@ -260,6 +260,9 @@ export function AdminWhitebitAssetSyncDialog({ open, onOpenChange }: AdminWhiteb
                                         {net.confirmations != null && (
                                           <span className="text-muted-foreground">{t('adminCatalog.confirmations', { count: net.confirmations })}</span>
                                         )}
+                                        <span className={`basis-full font-medium ${net.canDeposit ? 'text-emerald-500' : 'text-muted-foreground'}`}>
+                                          WhiteBIT deposit support: {net.canDeposit ? 'Supported' : 'Not supported'}
+                                        </span>
                                       </div>
                                     ))}
                                   </div>

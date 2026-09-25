@@ -205,11 +205,23 @@ export function matchWhitebitRouteCapability(
   mappedAssetCode?: string | null,
   mappedNetworkCode?: string | null,
 ) {
-  if (Boolean(mappedAssetCode) !== Boolean(mappedNetworkCode)) return null;
+  const normalizeMapping = (value: string | null | undefined) => {
+    if (value == null) return null;
+    const normalized = value.trim().toUpperCase();
+    return normalized || null;
+  };
+  const mappedAsset = normalizeMapping(mappedAssetCode);
+  const mappedNetwork = normalizeMapping(mappedNetworkCode);
+  // A configured mapping is an atomic provider identity. Whitespace-only
+  // values and partial mappings must not silently fall back to canonical
+  // route codes.
+  if (Boolean(mappedAsset) !== Boolean(mappedNetwork) ||
+      ((mappedAssetCode != null || mappedNetworkCode != null) &&
+        (!mappedAsset || !mappedNetwork))) return null;
   return matchWhitebitCapability(
     snapshot,
-    mappedAssetCode ?? assetCode,
-    mappedNetworkCode ?? networkCode,
+    mappedAsset ?? assetCode,
+    mappedNetwork ?? networkCode,
   );
 }
 
