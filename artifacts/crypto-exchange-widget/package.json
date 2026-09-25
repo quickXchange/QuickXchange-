@@ -8,6 +8,7 @@
     "build": "vite build --config vite.config.ts && node ../../scripts/verify-web-build.mjs .",
     "serve": "node server.mjs",
     "test:access-gate": "node --test server.test.mjs",
+    "test:whitebit-route-state": "node test/run-whitebit-route-state.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

@@ -3,6 +3,7 @@ import { useGetAdminNotificationEmailTemplates, getGetAdminNotificationEmailTemp
 import type { NotificationEmailTemplate, NotificationEmailTemplateEventKind } from '@workspace/api-client-react';
 import '../admin-notifications-redesign.css';
 import { useI18n } from '../i18n/provider';
+import { getWhitebitRouteState, hasCurrentWhitebitPermissionProof, resolveWhitebitNetworkSelection } from './whitebit-route-state';
 import { lazy, Suspense, useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import type { ChangeEvent, ComponentProps, CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
@@ -9687,6 +9688,9 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
   const verifyWhitebitPermission = useVerifyWhitebitAddressPermission();
 
   const isNew = network === 'new';
+  const [savedRoute, setSavedRoute] = useState<CryptoNetwork | undefined>(
+    network && network !== 'new' ? network : undefined,
+  );
 
   const [form, setForm] = useState({
     id: isNew ? '' : (network?.id || ''),
@@ -9724,6 +9728,7 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
     isNew ? undefined : network?.monitoringReadiness,
   );
   const [whitebitMappingReview, setWhitebitMappingReview] = useState<{ key: string; route: CryptoDepositProviderAssignmentRoute | null } | null>(null);
+  const [whitebitCatalogUnavailable, setWhitebitCatalogUnavailable] = useState(false);
   const [removeFallback, setRemoveFallback] = useState(false);
   const [draftReadiness, setDraftReadiness] = useState<CryptoNetwork['widgetReadiness'] | null>(null);
   const [draftFallbackInvalid, setDraftFallbackInvalid] = useState<boolean | null>(null);
@@ -9753,22 +9758,65 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
   );
   const mappedWhitebitAssetCode = whitebitRouteReview?.whitebitAssetCode ||
     form.whitebitAssetCode || selectedAsset?.code || '';
-  const requestedSelectedWhitebitNetworkCode = form.whitebitNetworkCode ||
-    (whitebitMappingStatus === 'supported' ? whitebitRouteReview?.whitebitNetworkCode || '' : '');
+  const requestedSelectedWhitebitNetworkCode = resolveWhitebitNetworkSelection(
+    form.whitebitNetworkCode,
+    whitebitMappingStatus,
+    whitebitRouteReview?.whitebitNetworkCode || '',
+  );
   const selectedWhitebitNetworkCode = whitebitAssetIdentity === 'AVAXC' &&
     requestedSelectedWhitebitNetworkCode.trim().toUpperCase() === 'XCHAIN'
       ? ''
       : requestedSelectedWhitebitNetworkCode;
   const whitebitCredentialSource = whitebitCredentialsQuery.data?.credentialSource;
-  const whitebitExactPermissionProof = whitebitVerificationRoutesQuery.data?.find(route =>
-    route.networkId === reviewedNetwork?.id &&
-    route.proofCurrent &&
-    route.assetCode.trim().toUpperCase() === mappedWhitebitAssetCode.trim().toUpperCase() &&
-    route.networkCode.trim().toUpperCase() === selectedWhitebitNetworkCode.trim().toUpperCase(),
+  const persistedWhitebitRoute = savedRoute?.depositProvider === 'whitebit' ? savedRoute : null;
+  const whitebitExactPermissionProof = Boolean(
+    persistedWhitebitRoute?.whitebitAssetCode?.trim().toUpperCase() === mappedWhitebitAssetCode.trim().toUpperCase() &&
+    persistedWhitebitRoute?.whitebitNetworkCode?.trim().toUpperCase() === selectedWhitebitNetworkCode.trim().toUpperCase() &&
+    hasCurrentWhitebitPermissionProof(
+      whitebitVerificationRoutesQuery.data,
+      persistedWhitebitRoute?.id,
+      selectedAsset?.code,
+      persistedWhitebitRoute?.networkCode,
+    ),
   );
-  const whitebitMappingValid = whitebitMappingStatus === 'supported' &&
-    Boolean(selectedWhitebitNetworkCode.trim());
   const whitebitCapabilitySupported = whitebitMappingStatus === 'supported' || whitebitMappingStatus === 'mapping_required';
+  const whitebitCredentialSourceDisclosure = whitebitCredentialSource === 'stored'
+    ? 'Signed checks use the backend-reported Admin-stored credentials.'
+    : whitebitCredentialSource === 'environment'
+      ? 'Signed checks use backend-reported environment credentials because no stored WhiteBIT credentials are active. The backend does not select environment credentials when stored credentials exist.'
+      : whitebitCredentialsQuery.isLoading
+        ? 'Checking the active WhiteBIT credential source…'
+        : 'The active credential source is not available here; an Owner must check configuration before verification.';
+  const whitebitCredentialReady = Boolean(
+    whitebitCredentialsQuery.data?.configured &&
+    ['stored', 'environment'].includes(whitebitCredentialsQuery.data.credentialSource || '') &&
+    whitebitStatusQuery.data?.credentialsVerified,
+  );
+  const whitebitRouteState = getWhitebitRouteState({
+    mappingStatus: whitebitMappingStatus,
+    mappedAssetCode: mappedWhitebitAssetCode,
+    selectedNetworkCode: selectedWhitebitNetworkCode,
+    reviewPending: whitebitReviewPending,
+    catalogUnavailable: whitebitCatalogUnavailable,
+    persistedRoute: persistedWhitebitRoute ? {
+      depositProvider: persistedWhitebitRoute.depositProvider,
+      customerDepositsEnabled: persistedWhitebitRoute.customerDepositsEnabled === true,
+      whitebitAssetCode: persistedWhitebitRoute.whitebitAssetCode,
+      whitebitNetworkCode: persistedWhitebitRoute.whitebitNetworkCode,
+      widgetReady: persistedWhitebitRoute.widgetReadiness?.ready === true,
+    } : null,
+    exactPermissionProof: Boolean(whitebitExactPermissionProof),
+    credentialReady: whitebitCredentialReady,
+    owner: isOwner,
+    saving: depositRouteSaving,
+  });
+  const whitebitMappingValid = whitebitRouteState.mappingValid;
+  const whitebitReadyForWidget = whitebitRouteState.readyForWidget;
+  const manualReadyForWidget = Boolean(
+    savedRoute?.depositProvider === form.depositProvider &&
+    savedRoute?.customerDepositsEnabled &&
+    savedRoute?.widgetReadiness?.ready,
+  );
   const whitebitMappingWasAutomatic = whitebitMappingValid && !form.whitebitNetworkCode.trim();
   const whitebitSupportedLabel = whitebitReviewPending
     ? 'Checking'
@@ -9786,13 +9834,6 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
       : whitebitMappingStatus === 'supported'
         ? '✓ Yes'
         : 'No';
-  const whitebitCredentialSourceDisclosure = whitebitCredentialSource === 'stored'
-    ? 'Signed checks use the backend-reported Admin-stored credentials.'
-    : whitebitCredentialSource === 'environment'
-      ? 'Signed checks use backend-reported environment credentials because no stored WhiteBIT credentials are active. The backend does not select environment credentials when stored credentials exist.'
-      : whitebitCredentialsQuery.isLoading
-        ? 'Checking the active WhiteBIT credential source…'
-        : 'The active credential source is not available here; an Owner must check configuration before verification.';
 
   useEffect(() => {
     if (!reviewedNetwork) return;
@@ -9832,6 +9873,7 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
   useEffect(() => {
     if (!needsWhitebitReview || !reviewedNetwork) return;
     let cancelled = false;
+    setWhitebitCatalogUnavailable(false);
     const routeId = reviewedNetwork.id;
     const selectedMapping = form.whitebitNetworkCode.trim()
       ? [{
@@ -9846,26 +9888,17 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
       ...(selectedMapping ? { whitebitMappings: selectedMapping } : {}),
     }).then(review => {
       if (cancelled) return;
+      setWhitebitCatalogUnavailable(false);
       const route = review.routes.find(candidate => candidate.networkId === routeId);
       setWhitebitMappingReview({
         key: whitebitReviewKey,
         route: route ?? null,
       });
     }).catch(() => {
-      if (!cancelled) setWhitebitMappingReview({
-        key: whitebitReviewKey,
-          route: {
-            networkId: routeId,
-            assetCode: selectedAsset?.code || form.assetId,
-            networkCode: form.networkCode,
-            currentProvider: 'whitebit',
-            status: 'unsupported',
-            reason: 'WhiteBIT capabilities could not be loaded.',
-            customerDepositsAfter: false,
-            mappingStatus: 'unsupported',
-            whitebitNetworkOptions: [],
-          },
-      });
+      if (!cancelled) {
+        setWhitebitCatalogUnavailable(true);
+        setWhitebitMappingReview({ key: whitebitReviewKey, route: null });
+      }
     });
     return () => { cancelled = true; };
   }, [needsWhitebitReview, reviewedNetwork?.id, whitebitReviewKey, selectedAsset?.code, form.whitebitAssetCode, form.whitebitNetworkCode]);
@@ -9906,6 +9939,7 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
 
   const updateSavedRouteState = (savedNetwork: CryptoNetwork | undefined) => {
     if (!savedNetwork) return;
+    setSavedRoute(savedNetwork);
     setRemoveFallback(false);
     setDraftReadiness(savedNetwork.widgetReadiness ?? null);
     setDraftFallbackInvalid(savedNetwork.manualFallbackInvalid ?? null);
@@ -9930,7 +9964,6 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
   };
 
   const updateSavedRouteCustomerDeposits = async (savedNetwork: CryptoNetwork, enabled: boolean) => {
-    const mapping = savedNetwork.depositProvider === 'whitebit' ? savedNetwork.whitebitNetworkCode?.trim() : '';
     const savedNetworks = await saveReceivingWallet.mutateAsync({
       data: {
         networkIds: [savedNetwork.id],
@@ -9938,10 +9971,8 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
         clearWalletAddress: false,
         memo: savedNetwork.sharedDepositMemo || null,
         depositProvider: savedNetwork.depositProvider,
-        ...(mapping ? {
-          whitebitAssetCode: savedNetwork.whitebitAssetCode || selectedAsset?.code || null,
-          whitebitNetworkCode: mapping,
-        } : {}),
+        // This only changes the deposit switch. Re-sending the mapping would
+        // force a catalog fetch even for OFF, precisely when recovery may need it.
         manualWalletTrackingEnabled: savedNetwork.manualWalletTrackingEnabled,
         manualFallbackEnabled: savedNetwork.manualFallbackEnabled ?? false,
         networkEnabled: savedNetwork.enabled,
@@ -9993,15 +10024,82 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
     return refreshed.routes;
   };
 
-  const save = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const verifyWhitebitRoute = async () => {
+    if (!whitebitRouteState.canVerify || !persistedWhitebitRoute) return;
     setError('');
     setSuccessNotice('');
-    if (needsWhitebitReview && form.customerDepositsEnabled &&
-      (whitebitReviewPending || whitebitMappingStatus !== 'supported')) {
-      setError(whitebitRouteReview?.reason || 'Choose a supported WhiteBIT network mapping and confirm this exact route before enabling Customer Deposits.');
+    try {
+      const routes = await testActiveWhitebitCredentials();
+      const exactRoute = routes.find(route =>
+        route.networkId === persistedWhitebitRoute.id &&
+        route.assetCode.trim().toUpperCase() === (selectedAsset?.code || '').trim().toUpperCase() &&
+        route.networkCode.trim().toUpperCase() === persistedWhitebitRoute.networkCode.trim().toUpperCase(),
+      );
+      if (!exactRoute) {
+        throw new Error('WhiteBIT verification catalog unavailable for this exact Asset + Network route. Customer Deposits remain OFF.');
+      }
+      if (exactRoute.proofCurrent) {
+        setSuccessNotice('Current exact-route permission proof already exists. No verification address was requested.');
+        return;
+      }
+      const confirmed = window.confirm(
+        'WhiteBIT credentials passed the read-only signed check. Continue to request one real verification address for this exact Asset + Network route? A real address may be created and discarded; Customer Deposits will remain OFF until separately enabled.',
+      );
+      if (!confirmed) {
+        setSuccessNotice('WhiteBIT verification cancelled. Customer Deposits remain OFF.');
+        return;
+      }
+      const proof = await verifyWhitebitPermission.mutateAsync({
+        data: { networkId: persistedWhitebitRoute.id, confirmRealAddressCreation: true },
+      });
+      const refreshed = await refreshWhitebitRouteQueries();
+      if (!hasCurrentWhitebitPermissionProof(refreshed.routes, persistedWhitebitRoute.id, selectedAsset?.code, persistedWhitebitRoute.networkCode) ||
+        proof.networkId !== persistedWhitebitRoute.id ||
+        proof.assetCode.trim().toUpperCase() !== (selectedAsset?.code || '').trim().toUpperCase() ||
+        proof.networkCode.trim().toUpperCase() !== persistedWhitebitRoute.networkCode.trim().toUpperCase()) {
+        throw new Error('WhiteBIT did not return current permission proof for this exact Asset + Network route. Customer Deposits remain OFF.');
+      }
+      setSuccessNotice(proof.reused
+        ? 'Current exact-route permission proof confirmed. No new verification address was created; Customer Deposits remain OFF.'
+        : 'Exact-route permission verified. One real WhiteBIT verification address was created; Customer Deposits remain OFF.');
+    } catch (cause) {
+      setError(`${apiErrorText(cause, 'WhiteBIT signed credential check or address permission verification failed')}. Customer Deposits remain OFF.`);
+    }
+  };
+
+  const setWhitebitCustomerDeposits = async (enabled: boolean) => {
+    if (!persistedWhitebitRoute || depositRouteSaveLockRef.current) return;
+    if (enabled ? !whitebitRouteState.canEnable : !whitebitRouteState.canDisable) {
+      setError('Customer Deposits can be turned ON only after the saved WhiteBIT mapping, credentials, and exact-route permission proof are current.');
       return;
     }
+    depositRouteSaveLockRef.current = true;
+    setDepositRouteSaving(true);
+    setError('');
+    setSuccessNotice('');
+    try {
+      const updatedRoute = await updateSavedRouteCustomerDeposits(persistedWhitebitRoute, enabled);
+      if (updatedRoute.customerDepositsEnabled !== enabled) {
+        throw new Error(`The server did not confirm Customer Deposits ${enabled ? 'ON' : 'OFF'} for this route.`);
+      }
+      updateSavedRouteState(updatedRoute);
+      setSuccessNotice(`Customer Deposits turned ${enabled ? 'ON' : 'OFF'} for this Asset + Network route.`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
+      ]);
+    } catch (cause) {
+      setError(apiErrorText(cause, `Could not turn Customer Deposits ${enabled ? 'ON' : 'OFF'}.`));
+    } finally {
+      depositRouteSaveLockRef.current = false;
+      setDepositRouteSaving(false);
+    }
+  };
+
+  const save = async (e?: React.FormEvent, confirmManualSwitch = false) => {
+    e?.preventDefault();
+    setError('');
+    setSuccessNotice('');
 
     if (isNew) {
       const payload = buildNetworkMetadataPayload();
@@ -10018,63 +10116,64 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
       }
     } else if (network) {
       if (depositRouteSaveLockRef.current) return;
+      if (whitebitRouteState.saveBlockedByEnabledRoute) {
+        setError('Customer Deposits are currently ON for this WhiteBIT route. Turn them OFF with the separate control before saving route settings.');
+        return;
+      }
+      if (isWhitebitProvider && !whitebitRouteState.canSaveWhitebitRoute) {
+        setError(whitebitCatalogUnavailable
+          ? 'WhiteBIT catalog unavailable. The provider and mapping were not changed.'
+          : whitebitRouteReview?.reason || 'Choose a supported WhiteBIT network mapping before saving this route.');
+        return;
+      }
+      const switchingFromActiveManual = savedRoute?.depositProvider === 'manual' &&
+        savedRoute.customerDepositsEnabled === true && isWhitebitProvider;
+      if (switchingFromActiveManual && (!isOwner || !confirmManualSwitch)) {
+        setError(isOwner
+          ? 'Manual Wallet is currently active. Confirm the explicit switch action to turn Customer Deposits OFF and assign WhiteBIT.'
+          : 'Manual Wallet is currently active. An Owner must explicitly confirm switching to WhiteBIT; the active route was left unchanged.');
+        return;
+      }
       depositRouteSaveLockRef.current = true;
       setDepositRouteSaving(true);
-      let persistedWhitebitRoute: CryptoNetwork | undefined;
-      let preserveLiveWhitebitRoute = false;
-      let stagedCustomerDepositsOff = false;
       try {
         const requestedCustomerDepositsEnabled = form.customerDepositsEnabled;
-        const currentLiveWhitebitRoute =
-          network.depositProvider === 'whitebit' && network.customerDepositsEnabled === true;
-        if (currentLiveWhitebitRoute && requestedCustomerDepositsEnabled) {
-          if (!isOwner) {
-            throw new Error('This WhiteBIT route is currently live. An Owner must preflight its signed credentials and exact-route proof before saving changes; the live route was left untouched.');
-          }
-          const preflightRoutes = await testActiveWhitebitCredentials();
-          const currentProofRoute = preflightRoutes.find(route =>
-            route.networkId === network.id &&
-            (!selectedAsset?.code || route.assetCode.trim().toUpperCase() === selectedAsset.code.trim().toUpperCase()) &&
-            route.networkCode.trim().toUpperCase() === network.networkCode.trim().toUpperCase(),
-          );
-          if (!currentProofRoute) {
-            throw new Error('The currently live WhiteBIT route could not be confirmed in the fresh verification catalog. No route changes were saved; retry when the catalog is available.');
-          }
-          const currentAssetCode = network.whitebitAssetCode || selectedAsset?.code || currentProofRoute.assetCode;
-          const requestedAssetCode = form.whitebitAssetCode.trim() || selectedAsset?.code || mappedWhitebitAssetCode;
-          const currentWhitebitNetworkCode = network.whitebitNetworkCode || network.networkCode;
-          const requestedWhitebitNetworkCode = selectedWhitebitNetworkCode || network.networkCode;
-          const sameMapping =
-            form.depositProvider === 'whitebit' &&
-            requestedAssetCode.trim().toUpperCase() === currentAssetCode.trim().toUpperCase() &&
-            requestedWhitebitNetworkCode.trim().toUpperCase() === currentWhitebitNetworkCode.trim().toUpperCase();
-          preserveLiveWhitebitRoute = sameMapping &&
-            form.enabled === (network.enabled ?? true) &&
-            currentProofRoute.proofCurrent;
-        }
-        const stageCustomerDepositsOff =
-          (isWhitebitProvider && !preserveLiveWhitebitRoute) ||
-          (currentLiveWhitebitRoute && !preserveLiveWhitebitRoute);
-        stagedCustomerDepositsOff = stageCustomerDepositsOff;
+        const switchingFromActiveManual = savedRoute?.depositProvider === 'manual' &&
+          savedRoute.customerDepositsEnabled === true && isWhitebitProvider;
+        const stageCustomerDepositsOff = !isWhitebitProvider &&
+          network.depositProvider === 'whitebit' &&
+          network.customerDepositsEnabled === true;
+        const customerDepositsAfterSave = isWhitebitProvider || stageCustomerDepositsOff
+          ? false
+          : requestedCustomerDepositsEnabled;
         const savedNetworks = await saveReceivingWallet.mutateAsync({
           data: {
             networkIds: [network.id],
-            walletAddress: form.sharedDepositAddress.trim(),
-            clearWalletAddress: removeFallback,
-            memo: form.sharedDepositMemo.trim() || null,
+            walletAddress: switchingFromActiveManual
+              ? savedRoute?.sharedDepositAddress || ''
+              : form.sharedDepositAddress.trim(),
+            clearWalletAddress: switchingFromActiveManual ? false : removeFallback,
+            memo: switchingFromActiveManual
+              ? savedRoute?.sharedDepositMemo ?? null
+              : form.sharedDepositMemo.trim() || null,
             depositProvider: form.depositProvider,
             ...(isWhitebitProvider && (selectedWhitebitNetworkCode.trim() || network.whitebitNetworkCode) ? {
-              whitebitAssetCode: selectedWhitebitNetworkCode.trim() ? mappedWhitebitAssetCode || null : null,
-              whitebitNetworkCode: selectedWhitebitNetworkCode.trim() || null,
+              whitebitAssetCode: mappedWhitebitAssetCode || null,
+              whitebitNetworkCode: selectedWhitebitNetworkCode.trim() || network.whitebitNetworkCode || null,
             } : {}),
-            manualWalletTrackingEnabled: form.manualWalletTrackingEnabled,
-            manualFallbackEnabled: form.manualFallbackEnabled,
-            networkEnabled: form.enabled,
-            enabled: stageCustomerDepositsOff ? false : requestedCustomerDepositsEnabled,
+            manualWalletTrackingEnabled: switchingFromActiveManual
+              ? savedRoute?.manualWalletTrackingEnabled ?? false
+              : form.manualWalletTrackingEnabled,
+            manualFallbackEnabled: switchingFromActiveManual
+              ? savedRoute?.manualFallbackEnabled ?? false
+              : form.manualFallbackEnabled,
+            networkEnabled: switchingFromActiveManual
+              ? savedRoute?.enabled ?? true
+              : form.enabled,
+            enabled: customerDepositsAfterSave,
           },
         });
         const savedNetwork = savedNetworks[0];
-        persistedWhitebitRoute = savedNetwork;
         updateSavedRouteState(savedNetwork);
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
@@ -10082,71 +10181,17 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
         ]);
         if (isWhitebitProvider) {
           if (!savedNetwork) throw new Error('The route was saved, but the saved route details were not returned. Customer Deposits remain OFF.');
-          if (!requestedCustomerDepositsEnabled) {
-            setSuccessNotice('Deposit route saved with Customer Deposits OFF. No signed credential test or verification address request was made.');
-            return;
-          }
-          if (preserveLiveWhitebitRoute) {
-            if (savedNetwork.customerDepositsEnabled !== true) {
-              throw new Error('The server did not confirm that the preflighted WhiteBIT route remained enabled. Review route eligibility; no proof or credential settings were changed.');
-            }
-            await refreshWhitebitRouteQueries();
-            setSuccessNotice('Deposit route saved. The live route stayed enabled using its current exact proof; no verification address was created.');
-          } else {
-            if (!isOwner) {
-              setForm(current => ({ ...current, customerDepositsEnabled: false }));
-              setError('Deposit route saved with Customer Deposits OFF. Exact WhiteBIT proof lookup and real-address verification require an Owner; ask an Owner to save and verify this route.');
-              return;
-            }
-            const verificationRoutes = await testActiveWhitebitCredentials();
-            const exactVerificationRoute = (routes: typeof verificationRoutes) => routes.find(route =>
-              route.networkId === savedNetwork.id &&
-              (!selectedAsset?.code || route.assetCode.trim().toUpperCase() === selectedAsset.code.trim().toUpperCase()) &&
-              route.networkCode.trim().toUpperCase() === savedNetwork.networkCode.trim().toUpperCase(),
-            );
-            const routeBeforeVerification = exactVerificationRoute(verificationRoutes);
-            if (!routeBeforeVerification) {
-              throw new Error('The WhiteBIT route was saved with Customer Deposits OFF, but it is not currently eligible after the signed credential check. Check the exact mapping and route readiness; no verification address was created.');
-            }
-            let proofWasReused = routeBeforeVerification.proofCurrent;
-            if (!routeBeforeVerification.proofCurrent) {
-              const proof = await verifyWhitebitPermission.mutateAsync({
-                data: { networkId: savedNetwork.id, confirmRealAddressCreation: true },
-              }).catch(verificationError => {
-                throw new Error(`${apiErrorText(verificationError, 'WhiteBIT address permission verification failed')}. Customer Deposits remain OFF; check the exact route mapping and stored credential readiness before retrying.`);
-              });
-              const afterPermissionVerification = await refreshWhitebitRouteQueries();
-              if (!afterPermissionVerification.credentials?.configured ||
-                !['stored', 'environment'].includes(afterPermissionVerification.credentials.credentialSource)) {
-                throw new Error('The active WhiteBIT credential source became unavailable during route verification. Customer Deposits remain OFF.');
-              }
-              const verifiedRoute = exactVerificationRoute(afterPermissionVerification.routes);
-              if (!verifiedRoute?.proofCurrent ||
-                verifiedRoute.assetCode.trim().toUpperCase() !== routeBeforeVerification.assetCode.trim().toUpperCase() ||
-                proof.networkId !== savedNetwork.id ||
-                proof.assetCode.trim().toUpperCase() !== routeBeforeVerification.assetCode.trim().toUpperCase() ||
-                proof.networkCode.trim().toUpperCase() !== savedNetwork.networkCode.trim().toUpperCase()) {
-                throw new Error('WhiteBIT verification did not produce a current proof for this exact saved route. Customer Deposits remain OFF; check the route mapping and retry.');
-              }
-              proofWasReused = proof.reused;
-            }
-            const finalNetwork = await updateSavedRouteCustomerDeposits(savedNetwork, true);
-            if (finalNetwork.customerDepositsEnabled !== true) {
-              throw new Error('The server did not enable Customer Deposits after exact-route verification. The route remains OFF; review route eligibility.');
-            }
-            updateSavedRouteState(finalNetwork);
-            await refreshWhitebitRouteQueries();
-            setSuccessNotice(proofWasReused
-              ? 'Deposit route saved and verified using a reused current exact-route proof. No new verification address was created; Customer Deposits are enabled.'
-              : 'Deposit route saved and verified. One real WhiteBIT verification address was created for this exact route; Customer Deposits are enabled.');
-          }
+          setForm(current => ({ ...current, customerDepositsEnabled: false }));
+          setSuccessNotice('WhiteBIT route saved with Customer Deposits OFF. Verification and activation are separate actions.');
         } else {
-          if (stagedCustomerDepositsOff && requestedCustomerDepositsEnabled && savedNetwork) {
+          if (stageCustomerDepositsOff && requestedCustomerDepositsEnabled && savedNetwork) {
             const finalNetwork = await updateSavedRouteCustomerDeposits(savedNetwork, true);
             if (finalNetwork.customerDepositsEnabled !== true) {
               throw new Error('The server did not enable Customer Deposits for this route. It remains OFF; review route eligibility.');
             }
             updateSavedRouteState(finalNetwork);
+          } else if (savedNetwork) {
+            updateSavedRouteState(savedNetwork);
           }
           setSuccessNotice(
             requestedCustomerDepositsEnabled
@@ -10156,10 +10201,6 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
         }
       } catch (err) {
         setSuccessNotice('');
-        if (persistedWhitebitRoute && stagedCustomerDepositsOff && !preserveLiveWhitebitRoute) {
-          await updateSavedRouteCustomerDeposits(persistedWhitebitRoute, false).catch(() => undefined);
-          setForm(current => ({ ...current, customerDepositsEnabled: false }));
-        }
         setError(apiErrorText(err, t('adminCatalog.failed_to_update_network')));
       } finally {
         depositRouteSaveLockRef.current = false;
@@ -10204,6 +10245,97 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
       onError: (err) => setError(apiErrorText(err, t('adminCatalog.failed_to_delete_network')))
     });
   };
+
+  const manualFallbackFields = (
+    <>
+      <label>
+        <span className="field-label">{isWhitebitProvider ? 'Manual Receiving / Fallback Address' : 'Manual Receiving Address'}</span>
+        <input data-testid="network-wallet-address" value={form.sharedDepositAddress} onChange={e => {
+          setRemoveFallback(false);
+          setForm({...form, sharedDepositAddress: e.target.value});
+        }} placeholder="Receiving wallet address" />
+        <span className="field-hint">
+          {isWhitebitProvider
+            ? 'Optional fallback for this exact Asset + Network. WhiteBIT is attempted first for new Swap orders.'
+            : 'Used when Manual Wallet is selected for this exact Asset + Network.'}
+        </span>
+        {isWhitebitProvider && (draftFallbackInvalid ?? reviewedNetwork?.manualFallbackInvalid) && (
+          <span className="field-hint" role="alert">Invalid Manual Fallback Address — WhiteBIT mapping and readiness are evaluated independently.</span>
+        )}
+        {isWhitebitProvider && !isNew && network?.sharedDepositAddress && (
+          <button type="button" className="button-secondary" onClick={() => {
+            setRemoveFallback(!removeFallback);
+            setForm(current => ({
+              ...current,
+              sharedDepositAddress: removeFallback ? network.sharedDepositAddress || '' : '',
+            }));
+          }}>
+            {removeFallback ? 'Undo fallback removal' : 'Remove saved fallback'}
+          </button>
+        )}
+        {removeFallback && <span className="field-hint">The saved fallback will be removed only when you save the deposit route.</span>}
+      </label>
+      {isWhitebitProvider && (
+        <>
+          <label className="catalog-editor-toggle" data-testid="whitebit-manual-fallback-toggle">
+            <input
+              type="checkbox"
+              className="w-auto h-auto"
+              data-testid="whitebit-manual-fallback-enabled"
+              checked={form.manualFallbackEnabled}
+              onChange={event => setForm(current => ({ ...current, manualFallbackEnabled: event.target.checked }))}
+            />
+            <span className="field-label !mb-0 text-sm font-bold">Enable saved Manual Wallet as WhiteBIT fallback</span>
+          </label>
+          <InlineNotice kind={
+            form.manualFallbackEnabled &&
+            Boolean(form.sharedDepositAddress.trim()) &&
+            !removeFallback &&
+            !(draftFallbackInvalid ?? reviewedNetwork?.manualFallbackInvalid)
+              ? 'success'
+              : 'warning'
+          }>
+            <strong>Manual fallback: {form.manualFallbackEnabled ? 'OPTED IN' : 'OPTED OUT'}.</strong>
+            {!form.manualFallbackEnabled
+              ? ' The saved address remains stored, but is never exposed in a WhiteBIT order as fallback while this is OFF.'
+              : !form.sharedDepositAddress.trim() || removeFallback
+                ? ' No saved fallback address is available. This setting does not create or remove an address.'
+                : (draftFallbackInvalid ?? reviewedNetwork?.manualFallbackInvalid)
+                  ? ' The saved address is invalid and is not a usable fallback until corrected.'
+                  : ' The saved address may be used only as the opted-in fallback if WhiteBIT funding is unavailable.'}
+            {' '}Turning this option OFF retains the saved address; use Remove saved fallback only to delete it.
+          </InlineNotice>
+        </>
+      )}
+      <label>
+        <span className="field-label">Memo / Tag <small>Optional</small></span>
+        <input data-testid="network-wallet-memo" value={form.sharedDepositMemo} onChange={e => setForm({...form, sharedDepositMemo: e.target.value})} placeholder="Optional memo or tag" />
+      </label>
+      <label className="catalog-editor-toggle">
+        <input
+          type="checkbox"
+          className="w-auto h-auto"
+          data-testid="network-manual-wallet-tracking"
+          checked={form.manualWalletTrackingEnabled}
+          onChange={event => setForm({ ...form, manualWalletTrackingEnabled: event.target.checked })}
+        />
+        <span className="field-label !mb-0 text-sm font-bold">Track Manual Wallet with Blockchain Monitoring</span>
+      </label>
+      {form.manualWalletTrackingEnabled ? (
+        <InlineNotice kind={monitoringReadiness?.ready === true ? 'success' : 'warning'}>
+          <strong>{monitoringReadiness?.ready === true ? 'READY' : 'BLOCKED'}</strong>
+          {monitoringReadiness?.message
+            ? ` — ${monitoringReadiness.message}`
+            : ' — Save the route to evaluate monitoring readiness.'}
+          {isWhitebitProvider && ' WhiteBIT-generated addresses are not monitored; this setting applies to a Manual Fallback address.'}
+        </InlineNotice>
+      ) : (
+        <p className="field-hint">
+          Manual — no automatic blockchain tracking{isWhitebitProvider ? '. This also applies to a Manual Fallback address.' : '.'}
+        </p>
+      )}
+    </>
+  );
 
   return (
     <div className="drawer-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -10307,6 +10439,11 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
               <div className="panel-heading mb-3">
                  <div><span className="section-kicker">Deposits</span><h2>Asset + Network Deposit Route</h2></div>
               </div>
+              {savedRoute?.depositProvider === 'whitebit' && savedRoute.customerDepositsEnabled === true && (
+                <InlineNotice kind="warning">
+                  This WhiteBIT route is live. Turn Customer Deposits OFF with its separate control before saving provider, mapping, or fallback changes.
+                </InlineNotice>
+              )}
               <label>
                  <span className="field-label">Deposit Provider</span>
                   <select data-testid="network-wallet-provider" value={form.depositProvider} onChange={e => {
@@ -10325,10 +10462,10 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
               {isWhitebitProvider && (
                 <div className="space-y-2 rounded-lg border border-border p-3" data-testid="whitebit-route-mapping">
                   <p className="field-hint">
-                    WhiteBIT Mapping — Internal route codes remain unchanged. Customer Deposits stay disabled until this exact mapping and provider readiness are valid.
+                    Save the WhiteBIT provider and exact mapping first. Customer Deposits remain OFF until separately verified and enabled.
                   </p>
                   <p className="field-hint" data-testid="whitebit-real-address-disclosure">
-                    Save & verify first checks the signed connection with the backend-reported active credential source, then checks this exact route. If its proof is missing or stale, this click requests verification; the response may report a reused proof or one newly created real address. Any generated address is discarded and is not used for deposits.
+                    Verify WhiteBIT runs a read-only signed credential check, then asks for confirmation before requesting a real verification address. Customer Deposits stay OFF until separately enabled.
                   </p>
                   <p className="field-hint" data-testid="whitebit-credential-source-disclosure">
                     {whitebitCredentialSourceDisclosure}
@@ -10341,7 +10478,7 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                     <select
                       data-testid="whitebit-network-mapping"
                       value={selectedWhitebitNetworkCode}
-                      disabled={whitebitReviewPending || !whitebitRouteReview || !whitebitNetworkOptions.length}
+                      disabled={whitebitReviewPending || !whitebitRouteReview || !whitebitNetworkOptions.length || persistedWhitebitRoute?.customerDepositsEnabled === true}
                       onChange={event => setForm(current => ({ ...current, whitebitNetworkCode: event.target.value }))}
                     >
                       <option value="">
@@ -10352,19 +10489,22 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                       ))}
                     </select>
                   </label>
-                  <InlineNotice kind={whitebitCapabilitySupported ? 'success' : 'warning'}>
-                    <strong>WhiteBIT: {whitebitSupportedLabel}</strong>
-                    {whitebitRouteReview?.reason && ` — ${whitebitRouteReview.reason}`}
+                  <InlineNotice kind={whitebitMappingValid ? 'success' : 'warning'}>
+                    <strong>WhiteBIT: {whitebitCatalogUnavailable ? 'Catalog unavailable' : whitebitSupportedLabel}</strong>
+                     {whitebitRouteReview?.reason && ` — ${savedRoute?.depositProvider === 'manual' && savedRoute.customerDepositsEnabled && whitebitMappingValid
+                       ? 'Manual Wallet stays active until you explicitly switch. Switching assigns WhiteBIT with Customer Deposits OFF.'
+                       : whitebitRouteReview.reason}`}
                     {whitebitReviewPending && ' Checking WhiteBIT capability catalog and exact route readiness.'}
+                    {whitebitCatalogUnavailable && ' WhiteBIT support could not be determined; retry when the catalog is available.'}
                   </InlineNotice>
                   <div className="grid gap-x-4 gap-y-1 rounded-md border border-border/70 p-3 text-xs sm:grid-cols-2" data-testid="whitebit-route-readiness">
                     <p>
                       <strong>WhiteBIT Supported:</strong>{' '}
-                      {whitebitSupportReadinessLabel}
+                      {whitebitCatalogUnavailable ? 'Catalog unavailable' : whitebitSupportReadinessLabel}
                     </p>
                     <p>
                       <strong>Network Mapping:</strong>{' '}
-                      {whitebitReviewPending ? 'Checking' : whitebitMappingValid ? `✓ Valid${whitebitMappingWasAutomatic ? ' · automatic' : ''}` : whitebitMappingStatus === 'unsupported' ? 'Unsupported' : whitebitMappingStatus === 'mapping_required' ? 'Owner selection' : 'Owner selection required'}
+                      {whitebitReviewPending ? 'Checking' : whitebitCatalogUnavailable ? 'Catalog unavailable' : whitebitMappingValid ? `✓ ${mappedWhitebitAssetCode} · ${selectedWhitebitNetworkCode}${whitebitMappingWasAutomatic ? ' · automatic' : ''}` : whitebitMappingStatus === 'unsupported' ? 'Unsupported' : whitebitMappingStatus === 'mapping_required' ? 'Owner selection' : 'Owner selection required'}
                     </p>
                     <p>
                       <strong>Credentials:</strong>{' '}
@@ -10386,147 +10526,126 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                             ? '✓'
                             : 'Verify required'}
                     </p>
-                    <p>
-                      <strong>Customer Deposits:</strong> {form.customerDepositsEnabled ? 'ON' : 'OFF'}
-                    </p>
+                    <p><strong>Persisted Provider:</strong> {savedRoute?.depositProvider === 'whitebit' ? 'WhiteBIT' : savedRoute?.depositProvider === 'manual' ? 'Manual Wallet' : savedRoute?.depositProvider || 'None'}</p>
+                    <p><strong>Persisted Customer Deposits:</strong> {savedRoute?.customerDepositsEnabled ? 'ON' : 'OFF'}</p>
                   </div>
+                  {savedRoute?.depositProvider === 'manual' && savedRoute.customerDepositsEnabled === true && (
+                    <InlineNotice kind="warning">
+                      Currently active with Manual Wallet. Selecting WhiteBIT has not changed the saved route; switching will turn Customer Deposits OFF until WhiteBIT is verified and separately enabled.
+                    </InlineNotice>
+                  )}
                   {whitebitNetworkOptions.length > 1 && whitebitMappingStatus === 'mapping_required' && (
                     <p className="field-hint">Multiple WhiteBIT networks are advertised for this asset. Select the correct network explicitly; none is chosen automatically.</p>
+                  )}
+                  {whitebitRouteState.canVerify && !whitebitVerificationRoutesQuery.isLoading &&
+                    !whitebitVerificationRoutesQuery.isError && isOwner && (
+                    <button type="button" className="button-secondary" data-testid="button-verify-whitebit" disabled={testWhitebitCredentials.isPending || verifyWhitebitPermission.isPending} onClick={() => void verifyWhitebitRoute()}>
+                      {testWhitebitCredentials.isPending ? 'Checking signed credentials…' : verifyWhitebitPermission.isPending ? 'Verifying permission…' : 'Verify WhiteBIT'}
+                    </button>
                   )}
                 </div>
               )}
               {!isNew && (
-                <InlineNotice kind={(draftReadiness ?? network?.widgetReadiness)?.ready ? 'success' : 'warning'}>
+                 <InlineNotice kind={isWhitebitProvider ? (whitebitReadyForWidget ? 'success' : 'warning') : manualReadyForWidget ? 'success' : 'warning'}>
                   <strong data-testid="network-widget-readiness">
-                    Widget → Swap → You Send: {(draftReadiness ?? network?.widgetReadiness)?.ready
-                      ? 'Ready for Widget' : 'Cannot Enable'}
+                    Widget → Swap → You Send: {isWhitebitProvider
+                      ? whitebitReadyForWidget ? 'Ready for Widget' : 'Not ready for Widget'
+                      : manualReadyForWidget ? 'Ready for Widget' : 'Not ready for Widget'}
                   </strong>
-                  {' — '}{(draftReadiness ?? network?.widgetReadiness)?.reason || 'Checking exact route readiness'}
+                  {' — '}{isWhitebitProvider
+                    ? whitebitReadyForWidget
+                      ? 'Persisted WhiteBIT route, current exact permission proof, mapping, and backend readiness are confirmed.'
+                      : !persistedWhitebitRoute
+                        ? 'Save this WhiteBIT setup with Customer Deposits OFF first.'
+                        : persistedWhitebitRoute.customerDepositsEnabled !== true
+                          ? 'Turn Customer Deposits ON after WhiteBIT proof and provider readiness are confirmed.'
+                          : !whitebitExactPermissionProof
+                            ? 'Verify the persisted WhiteBIT mapping to obtain current exact-route permission proof.'
+                            : !whitebitMappingValid
+                              ? 'Choose a supported WhiteBIT mapping from the current catalog.'
+                              : persistedWhitebitRoute.widgetReadiness?.reason || 'Backend widget readiness is not confirmed.'
+                    : savedRoute?.depositProvider !== form.depositProvider
+                      ? 'Save the selected provider before its widget readiness can be confirmed.'
+                      : savedRoute?.widgetReadiness?.reason || 'Checking persisted exact route readiness'}
                   <span className="block text-sm">
-                    Customer Deposits is {form.customerDepositsEnabled ? 'ON' : 'OFF'}; only an eligible route with this control ON appears in You Send.
+                    {isWhitebitProvider
+                      ? `Persisted Customer Deposits is ${persistedWhitebitRoute?.customerDepositsEnabled ? 'ON' : 'OFF'}.`
+                      : `Persisted Customer Deposits is ${savedRoute?.customerDepositsEnabled ? 'ON' : 'OFF'}; only an eligible saved route appears in You Send.`}
                   </span>
                 </InlineNotice>
               )}
-              <label>
-                 <span className="field-label">{isWhitebitProvider ? 'Manual Receiving / Fallback Address' : 'Manual Receiving Address'}</span>
-                 <input data-testid="network-wallet-address" value={form.sharedDepositAddress} onChange={e => {
-                   setRemoveFallback(false);
-                   setForm({...form, sharedDepositAddress: e.target.value});
-                 }} placeholder="Receiving wallet address" />
-                 <span className="field-hint">
-                   {isWhitebitProvider
-                     ? 'Optional fallback for this exact Asset + Network. WhiteBIT is attempted first for new Swap orders.'
-                     : 'Used when Manual Wallet is selected for this exact Asset + Network.'}
-                 </span>
-                 {isWhitebitProvider && (draftFallbackInvalid ?? network?.manualFallbackInvalid) && (
-                   <span className="field-hint" role="alert">Invalid Manual Fallback Address — WhiteBIT mapping and readiness are evaluated independently.</span>
-                 )}
-                 {isWhitebitProvider && !isNew && network?.sharedDepositAddress && (
-                   <button type="button" className="button-secondary" onClick={() => {
-                     setRemoveFallback(!removeFallback);
-                     setForm(current => ({
-                       ...current,
-                       sharedDepositAddress: removeFallback ? network.sharedDepositAddress || '' : '',
-                     }));
-                   }}>
-                     {removeFallback ? 'Undo fallback removal' : 'Remove saved fallback'}
-                   </button>
-                 )}
-                 {removeFallback && <span className="field-hint">The saved fallback will be removed only when you select Save Deposit Route.</span>}
-              </label>
-               {isWhitebitProvider && (
-                 <>
-                   <label className="catalog-editor-toggle" data-testid="whitebit-manual-fallback-toggle">
-                     <input
-                       type="checkbox"
-                       className="w-auto h-auto"
-                       data-testid="whitebit-manual-fallback-enabled"
-                       checked={form.manualFallbackEnabled}
-                       onChange={event => setForm(current => ({ ...current, manualFallbackEnabled: event.target.checked }))}
-                     />
-                     <span className="field-label !mb-0 text-sm font-bold">Enable saved Manual Wallet as WhiteBIT fallback</span>
-                   </label>
-                   <InlineNotice kind={
-                     form.manualFallbackEnabled &&
-                     Boolean(form.sharedDepositAddress.trim()) &&
-                     !removeFallback &&
-                     !(draftFallbackInvalid ?? network?.manualFallbackInvalid)
-                       ? 'success'
-                       : 'warning'
-                   }>
-                     <strong>Manual fallback: {form.manualFallbackEnabled ? 'OPTED IN' : 'OPTED OUT'}.</strong>
-                     {!form.manualFallbackEnabled
-                       ? ' The saved address remains stored, but is never exposed in a WhiteBIT order as fallback while this is OFF.'
-                       : !form.sharedDepositAddress.trim() || removeFallback
-                         ? ' No saved fallback address is available. This setting does not create or remove an address.'
-                         : (draftFallbackInvalid ?? network?.manualFallbackInvalid)
-                           ? ' The saved address is invalid and is not a usable fallback until corrected.'
-                           : ' The saved address may be used only as the opted-in fallback if WhiteBIT funding is unavailable.'}
-                     {' '}Turning this option OFF retains the saved address; use Remove saved fallback only to delete it.
-                   </InlineNotice>
-                 </>
-               )}
-              <label>
-                 <span className="field-label">Memo / Tag <small>Optional</small></span>
-                <input data-testid="network-wallet-memo" value={form.sharedDepositMemo} onChange={e => setForm({...form, sharedDepositMemo: e.target.value})} placeholder="Optional memo or tag" />
-              </label>
-              <label className="catalog-editor-toggle">
-                <input
-                  type="checkbox"
-                  className="w-auto h-auto"
-                   data-testid="network-manual-wallet-tracking"
-                   checked={form.manualWalletTrackingEnabled}
-                   onChange={event => setForm({ ...form, manualWalletTrackingEnabled: event.target.checked })}
-                />
-                 <span className="field-label !mb-0 text-sm font-bold">Track Manual Wallet with Blockchain Monitoring</span>
-              </label>
-               {form.manualWalletTrackingEnabled ? (
-                 <InlineNotice kind={monitoringReadiness?.ready === true ? 'success' : 'warning'}>
-                   <strong>{monitoringReadiness?.ready === true ? 'READY' : 'BLOCKED'}</strong>
-                   {monitoringReadiness?.message
-                     ? ` — ${monitoringReadiness.message}`
-                     : ' — Save the route to evaluate monitoring readiness.'}
-                   {isWhitebitProvider && ' WhiteBIT-generated addresses are not monitored; this setting applies to a Manual Fallback address.'}
-                 </InlineNotice>
-               ) : (
-                 <p className="field-hint">
-                   Manual — no automatic blockchain tracking{isWhitebitProvider ? '. This also applies to a Manual Fallback address.' : '.'}
-                 </p>
-               )}
-               <label className="catalog-editor-toggle">
-                 <input
-                   type="checkbox"
-                   className="w-auto h-auto"
-                   data-testid="network-customer-deposits"
-                   checked={form.customerDepositsEnabled}
-                    disabled={isWhitebitProvider && (
-                      whitebitReviewPending ||
-                      whitebitMappingStatus !== 'supported' ||
-                      whitebitRouteReview?.status !== 'supported'
-                    )}
-                   onChange={event => setForm({ ...form, customerDepositsEnabled: event.target.checked })}
-                 />
-                 <span className="field-label !mb-0 text-sm font-bold">Public Swap visibility — Customer Deposits</span>
-               </label>
-               <p className="field-hint">
-                 Independent of provider selection, Manual Wallet Tracking, and monitoring readiness. Applies only to this exact Asset + Network route.
-               </p>
+              {isWhitebitProvider ? (
+                <details className="rounded-lg border border-border p-3">
+                  <summary className="cursor-pointer font-semibold">Advanced / Manual Fallback</summary>
+                  <div className="mt-3 space-y-3">{manualFallbackFields}</div>
+                  {!isNew && network && <BlockchainMonitorConfig network={network} networkCode={network.networkCode || networkCode} />}
+                </details>
+              ) : manualFallbackFields}
+              {persistedWhitebitRoute ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="field-label !mb-0">Customer Deposits — this Asset + Network</span>
+                    <button
+                      type="button"
+                      className={persistedWhitebitRoute.customerDepositsEnabled ? 'button-secondary' : 'catalog-editor-primary'}
+                      data-testid="network-customer-deposits"
+                      disabled={depositRouteSaving || !(persistedWhitebitRoute.customerDepositsEnabled
+                        ? whitebitRouteState.canDisable
+                        : whitebitRouteState.canEnable)}
+                      onClick={() => void setWhitebitCustomerDeposits(persistedWhitebitRoute.customerDepositsEnabled !== true)}
+                    >
+                      Turn Customer Deposits {persistedWhitebitRoute.customerDepositsEnabled ? 'OFF' : 'ON'}
+                    </button>
+                  </div>
+                  <p className="field-hint">Currently {persistedWhitebitRoute.customerDepositsEnabled ? 'ON' : 'OFF'}. Turning OFF remains available even if permission proof is stale.</p>
+                </div>
+              ) : !isWhitebitProvider && !persistedWhitebitRoute ? (
+                <label className="catalog-editor-toggle">
+                  <input
+                    type="checkbox"
+                    className="w-auto h-auto"
+                    data-testid="network-customer-deposits"
+                    checked={form.customerDepositsEnabled}
+                    onChange={event => setForm({ ...form, customerDepositsEnabled: event.target.checked })}
+                  />
+                  <span className="field-label !mb-0 text-sm font-bold">Public Swap visibility — Customer Deposits</span>
+                </label>
+              ) : (
+                <p className="field-hint">Save WhiteBIT setup with Customer Deposits OFF before activation controls are available.</p>
+              )}
+              {!isWhitebitProvider && (
+                <>
+                  <p className="field-hint">
+                    Independent of provider selection, Manual Wallet Tracking, and monitoring readiness. Applies only to this exact Asset + Network route.
+                  </p>
                {monitoringReadiness && form.customerDepositsEnabled && (
                  <InlineNotice kind="warning">
                    Monitoring readiness: {monitoringReadiness.ready ? 'READY' : 'BLOCKED'}. Public visibility is a separate route setting.
                  </InlineNotice>
+                )}
+                </>
               )}
             </section>
           )}
 
-          {!isNew && network && (
+          {!isNew && network && !isWhitebitProvider && (
             <BlockchainMonitorConfig network={network} networkCode={network.networkCode || networkCode} />
           )}
 
           <div className="network-drawer-actions catalog-editor-actions mt-4">
-            <button type="submit" className="catalog-editor-primary" data-testid="button-save-deposit-route" disabled={createNetwork.isPending || depositRouteSaving || saveReceivingWallet.isPending || testWhitebitCredentials.isPending || verifyWhitebitPermission.isPending || whitebitReviewPending || (form.customerDepositsEnabled && isWhitebitProvider && (whitebitMappingStatus !== 'supported' || whitebitRouteReview?.status !== 'supported'))}>
-              <Save size={16} />{isNew ? t('adminCatalog.save_network') : isWhitebitProvider ? 'Save & verify WhiteBIT route' : 'Save Deposit Route'}
-            </button>
+            {isNew || !isWhitebitProvider || !(savedRoute?.depositProvider === 'manual' && savedRoute.customerDepositsEnabled === true) ? (
+              <button type="submit" className="catalog-editor-primary" data-testid="button-save-deposit-route" disabled={createNetwork.isPending || depositRouteSaving || saveReceivingWallet.isPending || testWhitebitCredentials.isPending || verifyWhitebitPermission.isPending || whitebitReviewPending || (savedRoute?.depositProvider === 'whitebit' && savedRoute.customerDepositsEnabled === true)}>
+                <Save size={16} />{isNew ? t('adminCatalog.save_network') : isWhitebitProvider ? 'Save WhiteBIT setup (Customer Deposits OFF)' : 'Save Deposit Route'}
+              </button>
+            ) : (
+              isOwner && <button type="button" className="catalog-editor-primary" data-testid="button-confirm-whitebit-switch" disabled={depositRouteSaving || saveReceivingWallet.isPending || whitebitReviewPending} onClick={() => {
+                if (window.confirm('Switch this active Manual Wallet route to WhiteBIT? The saved Manual address remains available, but Customer Deposits will turn OFF until you verify WhiteBIT and turn them ON separately.')) {
+                  void save(undefined, true);
+                }
+              }}>
+                <Save size={16} />Switch to WhiteBIT (turn Customer Deposits OFF until verified)
+              </button>
+            )}
             {!isNew && (
               <button type="button" className="button-secondary" onClick={() => void saveNetworkMetadata()} disabled={updateNetwork.isPending}>
                 <Save size={16} />Save Network Details
