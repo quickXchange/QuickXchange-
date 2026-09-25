@@ -5,6 +5,7 @@ const {
   getWhitebitRouteState,
   hasCurrentWhitebitPermissionProof,
   resolveWhitebitNetworkSelection,
+  savedWhitebitMappingMatchesSelection,
 } = await import(process.env.WHITEBIT_ROUTE_STATE_MODULE);
 
 function state(overrides = {}) {
@@ -57,6 +58,45 @@ test('BNB/BNB persisted WhiteBIT ON with canonical BEP20 proof is ready; ordinar
   assert.equal(result.toggleAction, 'disable-deposits');
   assert.equal(result.canVerify, false);
   assert.equal(result.verifyAction, 'blocked');
+});
+
+test('canonical XMR/XMR without overrides retains its existing proof and never requests re-verification', () => {
+  const saved = {
+    depositProvider: 'whitebit',
+    customerDepositsEnabled: false,
+    whitebitAssetCode: null,
+    whitebitNetworkCode: null,
+    widgetReady: true,
+  };
+  const proofCurrent = hasCurrentWhitebitPermissionProof(
+    [{ networkId: 'xmr-monero', assetCode: 'XMR', networkCode: 'XMR', proofCurrent: true }],
+    'xmr-monero', 'XMR', 'XMR',
+  );
+  assert.equal(savedWhitebitMappingMatchesSelection(saved, 'XMR', 'XMR', 'XMR', 'XMR'), true);
+  assert.equal(savedWhitebitMappingMatchesSelection(saved, 'XMR', 'ERC20', 'XMR', 'XMR'), false);
+  assert.equal(savedWhitebitMappingMatchesSelection(saved, 'XMR', 'XMR', 'USDT', 'XMR'), false);
+  const off = state({
+    mappedAssetCode: 'XMR',
+    selectedNetworkCode: 'XMR',
+    canonicalAssetCode: 'XMR',
+    canonicalNetworkCode: 'XMR',
+    persistedRoute: saved,
+    exactPermissionProof: proofCurrent,
+  });
+  assert.equal(proofCurrent, true);
+  assert.equal(off.persistedMappingMatches, true);
+  assert.equal(off.proofMatchesSavedMapping, true);
+  assert.equal(off.canVerify, false);
+  assert.equal(off.canEnable, true);
+  assert.equal(off.readyForWidget, false);
+  assert.equal(state({
+    mappedAssetCode: 'XMR',
+    selectedNetworkCode: 'XMR',
+    canonicalAssetCode: 'XMR',
+    canonicalNetworkCode: 'XMR',
+    persistedRoute: { ...saved, customerDepositsEnabled: true },
+    exactPermissionProof: proofCurrent,
+  }).readyForWidget, true);
 });
 
 test('USDT/ERC20 is supported but requires Verify before it is ready or enabled', () => {

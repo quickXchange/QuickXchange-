@@ -12,6 +12,8 @@ export type WhitebitRouteStateInput = {
   mappingStatus: WhitebitMappingStatus;
   mappedAssetCode: string;
   selectedNetworkCode: string;
+  canonicalAssetCode?: string;
+  canonicalNetworkCode?: string;
   reviewPending: boolean;
   catalogUnavailable: boolean;
   persistedRoute: WhitebitPersistedRouteState;
@@ -22,6 +24,22 @@ export type WhitebitRouteStateInput = {
 };
 
 const normalize = (value: string | null | undefined) => value?.trim().toUpperCase() ?? '';
+
+export function savedWhitebitMappingMatchesSelection(
+  route: Pick<NonNullable<WhitebitPersistedRouteState>, 'depositProvider' | 'whitebitAssetCode' | 'whitebitNetworkCode'> | null,
+  mappedAssetCode: string,
+  selectedNetworkCode: string,
+  canonicalAssetCode?: string,
+  canonicalNetworkCode?: string,
+) {
+  return Boolean(
+    route?.depositProvider === 'whitebit' &&
+    normalize(mappedAssetCode) &&
+    normalize(selectedNetworkCode) &&
+    normalize(route.whitebitAssetCode || canonicalAssetCode) === normalize(mappedAssetCode) &&
+    normalize(route.whitebitNetworkCode || canonicalNetworkCode) === normalize(selectedNetworkCode),
+  );
+}
 
 export function hasCurrentWhitebitPermissionProof(
   routes: ReadonlyArray<{ networkId: string; assetCode: string; networkCode: string; proofCurrent: boolean }> | undefined,
@@ -55,10 +73,12 @@ export function getWhitebitRouteState(input: WhitebitRouteStateInput) {
     ? input.persistedRoute
     : null;
   const mappingValid = input.mappingStatus === 'supported' && Boolean(input.selectedNetworkCode.trim());
-  const persistedMappingMatches = Boolean(
-    persistedWhitebitRoute &&
-    normalize(persistedWhitebitRoute.whitebitAssetCode) === normalize(input.mappedAssetCode) &&
-    normalize(persistedWhitebitRoute.whitebitNetworkCode) === normalize(input.selectedNetworkCode),
+  const persistedMappingMatches = savedWhitebitMappingMatchesSelection(
+    persistedWhitebitRoute,
+    input.mappedAssetCode,
+    input.selectedNetworkCode,
+    input.canonicalAssetCode,
+    input.canonicalNetworkCode,
   );
   const proofMatchesSavedMapping = Boolean(input.exactPermissionProof && persistedMappingMatches);
   const routeEnabled = persistedWhitebitRoute?.customerDepositsEnabled === true;

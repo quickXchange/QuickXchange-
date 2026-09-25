@@ -3,7 +3,7 @@ import { useGetAdminNotificationEmailTemplates, getGetAdminNotificationEmailTemp
 import type { NotificationEmailTemplate, NotificationEmailTemplateEventKind } from '@workspace/api-client-react';
 import '../admin-notifications-redesign.css';
 import { useI18n } from '../i18n/provider';
-import { getWhitebitRouteState, hasCurrentWhitebitPermissionProof, resolveWhitebitNetworkSelection } from './whitebit-route-state';
+import { getWhitebitRouteState, hasCurrentWhitebitPermissionProof, resolveWhitebitNetworkSelection, savedWhitebitMappingMatchesSelection } from './whitebit-route-state';
 import { lazy, Suspense, useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import type { ChangeEvent, ComponentProps, CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
@@ -9725,6 +9725,15 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
     lifecycle: isNew ? 'active' : ((network as any)?.lifecycle || 'active'),
     regions: isNew ? '' : ((network as any)?.regions?.join(', ') || ''),
   });
+  useEffect(() => {
+    if (!network || network === 'new') return;
+    setSavedRoute(network);
+    // The WhiteBIT switch reflects the saved route, not an unsaved form draft.
+    setForm(previous => previous.depositProvider === 'whitebit' &&
+      previous.customerDepositsEnabled !== (network.customerDepositsEnabled === true)
+        ? { ...previous, customerDepositsEnabled: network.customerDepositsEnabled === true }
+        : previous);
+  }, [network]);
   const [logoObjectPath, setLogoObjectPath] = useState(isNew ? '' : ((network as any)?.logoObjectPath || ''));
   const commitNetworkLogoRef = useRef<() => void>(() => {});
   const [error, setError] = useState('');
@@ -9777,8 +9786,13 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
   const whitebitCredentialSource = whitebitCredentialsQuery.data?.credentialSource;
   const persistedWhitebitRoute = savedRoute?.depositProvider === 'whitebit' ? savedRoute : null;
   const whitebitExactPermissionProof = Boolean(
-    persistedWhitebitRoute?.whitebitAssetCode?.trim().toUpperCase() === mappedWhitebitAssetCode.trim().toUpperCase() &&
-    persistedWhitebitRoute?.whitebitNetworkCode?.trim().toUpperCase() === selectedWhitebitNetworkCode.trim().toUpperCase() &&
+    savedWhitebitMappingMatchesSelection(
+      persistedWhitebitRoute,
+      mappedWhitebitAssetCode,
+      selectedWhitebitNetworkCode,
+      selectedAsset?.code,
+      persistedWhitebitRoute?.networkCode,
+    ) &&
     hasCurrentWhitebitPermissionProof(
       whitebitVerificationRoutesQuery.data,
       persistedWhitebitRoute?.id,
@@ -9803,6 +9817,8 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
     mappingStatus: whitebitMappingStatus,
     mappedAssetCode: mappedWhitebitAssetCode,
     selectedNetworkCode: selectedWhitebitNetworkCode,
+    canonicalAssetCode: selectedAsset?.code,
+    canonicalNetworkCode: persistedWhitebitRoute?.networkCode,
     reviewPending: whitebitReviewPending,
     catalogUnavailable: whitebitCatalogUnavailable,
     persistedRoute: persistedWhitebitRoute ? {
