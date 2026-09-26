@@ -406,6 +406,8 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
   await expect(adminOrderInfo.locator('.quickx-field-label')).toHaveText(['User', 'Order ID', 'Sending Address', 'Created At', 'Rate']);
   await expect(adminOrderInfo.getByTitle('Copy Order ID')).toBeVisible();
   await expect(adminOrderInfo.getByTitle('Copy Sending Address')).toBeVisible();
+  expect(await adminOrderInfo.evaluate(element => element.nextElementSibling?.getAttribute('data-testid'))).toBe('exchange-details-card');
+  expect(await page.getByTestId('exchange-details-card').evaluate(element => element.nextElementSibling?.getAttribute('data-testid'))).toBe('admin-additional-payment-details');
   const adminAdditional = page.getByTestId('admin-additional-payment-details');
   await expect(adminAdditional).toContainText('Contact Email');
   await expect(adminAdditional).toContainText('Deposit Address');

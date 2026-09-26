@@ -922,27 +922,24 @@ function shortenDetailValue(value: string): string {
   return `${value.slice(0, 11)}…${value.slice(-8)}`;
 }
 
-function TransactionDetails({
-  fundingDetails,
-  settlementDetails,
-}: {
-  fundingDetails?: Record<string, unknown>;
-  settlementDetails?: Record<string, unknown>;
-}) {
-  const entries = [
+function customerPaymentRows(
+  fundingDetails?: Record<string, unknown>,
+  settlementDetails?: Record<string, unknown>,
+) {
+  return [
     ...Object.entries(fundingDetails ?? {}).map(([key, value]) => ({ id: `funding-${key}`, key, value: detailValue(value) })),
     ...Object.entries(settlementDetails ?? {}).map(([key, value]) => ({ id: `settlement-${key}`, key, value: detailValue(value) })),
   ].filter((entry): entry is { id: string; key: string; value: string } =>
-    entry.value !== null &&
-    isCustomerViewOrderPaymentDetail(entry.key));
+    entry.value !== null && isCustomerViewOrderPaymentDetail(entry.key));
+}
 
+function TransactionDetails({ entries }: {
+  entries: { id: string; key: string; value: string }[];
+}) {
   if (entries.length === 0) return null;
 
   return (
-    <section className="customer-card order-transaction-card mb-8" data-testid="transaction-details">
-      <div className="mb-5">
-        <h2 className="text-base font-semibold tracking-tight">Additional Payment Details</h2>
-      </div>
+    <section className="customer-card order-transaction-card mb-6" data-testid="transaction-details">
       <div className="grid grid-cols-1 gap-y-5 gap-x-6 sm:grid-cols-2 lg:grid-cols-3">
         {entries.map((entry) => (
           <div key={entry.id} className="flex min-w-0 flex-col gap-1.5">
@@ -1125,6 +1122,11 @@ function CustomerOrderView({ order, drawer = false }: { order: CustomerOrder; dr
     ['Created At', formatDate(order.createdAt, { dateStyle: 'medium', timeStyle: 'short' })],
     ['Rate', order.exchangeRate ? `1 ${order.fromAsset} = ${number(order.exchangeRate)} ${order.toAsset}` : 'Not available'],
   ]);
+  const paymentRows = customerPaymentRows({
+    ...order.fundingDetails,
+    transactionHash: order.transactionHash || order.fundingDetails?.transactionHash,
+    paymentReference: order.paymentReference || order.fundingDetails?.paymentReference,
+  }, order.settlementDetails);
 
   return (
     <div className="customer-order-detail-page w-full" data-testid="customer-order-detail">
@@ -1136,7 +1138,22 @@ function CustomerOrderView({ order, drawer = false }: { order: CustomerOrder; dr
         <OrderProgress stages={stages} />
       </div>
 
-      {drawer && <h3 className="customer-order-drawer-section-title">Exchange Details</h3>}
+      <h3 className="customer-order-drawer-section-title">Order Information</h3>
+      <section className="customer-card order-detail-grid mb-8 grid min-w-0 grid-cols-1 gap-0 min-[480px]:grid-cols-2" data-testid="customer-order-information">
+        {orderInfoRows.map(([label, value]) => (
+          <div className="order-detail-meta" key={label}>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
+            <div className="flex min-w-0 items-center gap-2">
+              <strong className="min-w-0 flex-1 truncate text-sm font-semibold" title={value}>{value}</strong>
+              {(label === 'Order ID' || (label === 'Sending Address' && sendingAddress)) && (
+                <InlineCopy text={value} label={label} />
+              )}
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <h3 className="customer-order-drawer-section-title">Exchange Details</h3>
       <section className="customer-card order-exchange-frame mb-8" data-testid="order-exchange-details">
         <div className="order-exchange-card">
           <div className="order-exchange-side" data-testid="order-exchange-sent">
@@ -1185,35 +1202,35 @@ function CustomerOrderView({ order, drawer = false }: { order: CustomerOrder; dr
         </div>
       </section>
 
-      <h3 className="customer-order-drawer-section-title">Order Information</h3>
-      <section className="customer-card order-detail-grid mb-8 grid min-w-0 grid-cols-1 gap-0 min-[480px]:grid-cols-2" data-testid="customer-order-information">
-        {orderInfoRows.map(([label, value]) => (
-          <div className="order-detail-meta" key={label}>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
-            <div className="flex min-w-0 items-center gap-2">
-              <strong className="min-w-0 flex-1 truncate text-sm font-semibold" title={value}>{value}</strong>
-              {(label === 'Order ID' || (label === 'Sending Address' && sendingAddress)) && (
-                <InlineCopy text={value} label={label} />
-              )}
-            </div>
+      <section className="mb-8" data-testid="customer-additional-payment-details">
+        <h3 className="customer-order-drawer-section-title">Additional Payment Details</h3>
+        {order.type === 'manual' && order.verifiedFundingTransaction && (
+          <div className="mb-6">
+            <VerifiedTransaction transaction={order.verifiedFundingTransaction} />
           </div>
-        ))}
+        )}
+        <TransactionDetails entries={paymentRows} />
+        {order.paymentDetailsApplicable && (
+          <PaymentDetailsCard
+            paymentDetails={order.paymentDetails}
+            paymentDetailsApplicable={order.paymentDetailsApplicable}
+            sourcePaymentMethod={order.sourcePaymentMethod}
+            customerMarkedPaidAt={order.customerMarkedPaidAt}
+            actionsDisabled={/complete|paid|fail|cancel|refund|expire/.test(normalizedStatus)}
+            onMarkPaid={() => markPaidMutation.mutate({ id: order.id }, {
+              onSuccess: () => {
+                void queryClient.invalidateQueries({ queryKey: getGetCustomerOrderQueryKey(order.id) });
+                void queryClient.invalidateQueries({ queryKey: getGetCustomerOrdersQueryKey() });
+              },
+            })}
+            markPaidPending={markPaidMutation.isPending}
+            supportHref={SUPPORT_TELEGRAM}
+          />
+        )}
+        {!paymentRows.length && !(order.type === 'manual' && order.verifiedFundingTransaction) && !order.paymentDetailsApplicable && (
+          <p className="customer-card mb-6 text-sm text-muted-foreground">No additional payment details available.</p>
+        )}
       </section>
-
-      {order.type === 'manual' && order.verifiedFundingTransaction && (
-        <div className="mb-6">
-          <VerifiedTransaction transaction={order.verifiedFundingTransaction} />
-        </div>
-      )}
-
-      <TransactionDetails
-        fundingDetails={{
-          ...order.fundingDetails,
-          transactionHash: order.transactionHash || order.fundingDetails?.transactionHash,
-          paymentReference: order.paymentReference || order.fundingDetails?.paymentReference,
-        }}
-        settlementDetails={order.settlementDetails}
-      />
 
       {order.customerSafeNote && (
         <div className="mb-6 flex items-start gap-4 rounded-xl border border-info/20 bg-info/10 p-5 text-sm text-info" data-testid="notice-customer-safe">
@@ -1241,24 +1258,6 @@ function CustomerOrderView({ order, drawer = false }: { order: CustomerOrder; dr
         <div className="mb-6 rounded-xl border border-destructive/20 bg-destructive/10 p-5 text-sm text-destructive">
           <strong className="mb-1 block font-mono">{t('account.exchangeStopped')}</strong> {t('account.exchangeStoppedDescription')}
         </div>
-      )}
-
-      {order.paymentDetailsApplicable && (
-        <PaymentDetailsCard
-          paymentDetails={order.paymentDetails}
-          paymentDetailsApplicable={order.paymentDetailsApplicable}
-          sourcePaymentMethod={order.sourcePaymentMethod}
-          customerMarkedPaidAt={order.customerMarkedPaidAt}
-          actionsDisabled={/complete|paid|fail|cancel|refund|expire/.test(normalizedStatus)}
-          onMarkPaid={() => markPaidMutation.mutate({ id: order.id }, {
-            onSuccess: () => {
-              void queryClient.invalidateQueries({ queryKey: getGetCustomerOrderQueryKey(order.id) });
-              void queryClient.invalidateQueries({ queryKey: getGetCustomerOrdersQueryKey() });
-            },
-          })}
-          markPaidPending={markPaidMutation.isPending}
-          supportHref={SUPPORT_TELEGRAM}
-        />
       )}
 
       <OrderCompletionSection

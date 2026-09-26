@@ -517,9 +517,11 @@ test('My Orders opens customer-safe Swap and Convert details in the Admin-style 
   await expect(orderInfo.locator('.order-detail-meta > span')).toHaveText(['User', 'Order ID', 'Sending Address', 'Created At', 'Rate']);
   await expect(orderInfo.getByRole('button', { name: 'Copy Order ID' })).toBeVisible();
   await expect(orderInfo.getByRole('button', { name: 'Copy Sending Address' })).toBeVisible();
+  expect(await orderInfo.evaluate(element => element.nextElementSibling?.textContent?.trim())).toBe('Exchange Details');
+  expect(await drawer.getByTestId('order-exchange-details').evaluate(element => element.nextElementSibling?.getAttribute('data-testid'))).toBe('customer-additional-payment-details');
   await expect(drawer.getByText('TRC20')).toBeVisible();
   const additionalDetails = drawer.getByTestId('transaction-details');
-  await expect(additionalDetails.getByRole('heading', { name: 'Additional Payment Details' })).toBeVisible();
+  await expect(drawer.getByTestId('customer-additional-payment-details').getByRole('heading', { name: 'Additional Payment Details' })).toBeVisible();
   await expect(additionalDetails).toContainText('Contact Email');
   await expect(additionalDetails).toContainText('Deposit Address');
   await expect(additionalDetails).toContainText('Transaction Hash');

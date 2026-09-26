@@ -5946,11 +5946,86 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
             targetOption={targetOption}
           />
 
+          <section className="space-y-4" data-testid="admin-additional-payment-details">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="quickx-section-label text-xs font-bold uppercase tracking-wider text-muted-foreground">Additional Payment Details</h4>
+              {visiblePaymentDetailRows.length > 0 && (
+                <button type="button" onClick={copyPaymentDetails} className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1" data-testid="button-copy-all-payment-details"><Copy size={12} /> Copy All</button>
+              )}
+            </div>
+            {visiblePaymentDetailRows.length > 0 && (
+              <div className="quickx-order-card border rounded-xl p-1 shadow-sm">
+                {visiblePaymentDetailRows.map(([lbl, val], idx) => (
+                  <div key={lbl} className={cn("flex items-center justify-between p-3", idx !== visiblePaymentDetailRows.length - 1 && "border-b border-border/50")}>
+                    <span className="quickx-field-label text-xs text-muted-foreground">{lbl}</span>
+                    <div className="flex items-center gap-2">
+                      <span className={cn("text-xs font-bold truncate max-w-[200px]", /bank name|payment description/i.test(lbl) ? "quickx-important-value" : "text-foreground")} title={val}>{val}</span>
+                      {!(lbl === 'Refund address' && val === 'Not provided') && <button type="button" onClick={() => copyValue(val)} className="text-muted-foreground hover:text-foreground"><Copy size={12} /></button>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {(order as typeof order & { verifiedFundingTransaction?: Parameters<typeof VerifiedTransaction>[0]["transaction"] }).verifiedFundingTransaction && (
+              <VerifiedTransaction transaction={(order as typeof order & { verifiedFundingTransaction?: Parameters<typeof VerifiedTransaction>[0]["transaction"] }).verifiedFundingTransaction} admin />
+            )}
+            {order.paymentDetailsApplicable && (
+              <div className="quickx-order-card border rounded-xl p-4 shadow-sm space-y-4" data-testid="admin-payment-details">
+                <div className="flex items-center justify-between gap-3">
+                  <h4 className="quickx-section-label text-xs font-bold uppercase tracking-wider text-muted-foreground">Payment Details / Payment Instructions</h4>
+                  {can(PermissionKey.ordersdetails) && !paymentDetailsEditing && (
+                    <button type="button" className="button button-secondary px-3 py-1.5 text-xs" onClick={() => setPaymentDetailsEditing(true)} data-testid="button-edit-payment-details">Edit</button>
+                  )}
+                </div>
+                {order.customerMarkedPaidAt && (
+                  <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400" data-testid="admin-customer-marked-paid">Customer marked paid: {exactDateTime(order.customerMarkedPaidAt)}</p>
+                )}
+                {can(PermissionKey.ordersdetails) && paymentDetailsEditing ? (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {([
+                      ['name', 'Name'], ['iban', 'IBAN'], ['bankName', 'Bank Name'], ['bicSwift', 'BIC / SWIFT'],
+                      ['paymentReference', 'Payment Description / Reference'], ['amount', 'Amount'],
+                    ] as const).map(([key, label]) => (
+                      <label key={key} className="space-y-1 text-xs font-semibold text-muted-foreground">
+                        <span>{label}</span>
+                        <input value={paymentDetailsDraft[key]} onChange={event => {
+                          setPaymentDetailsDraft(previous => ({ ...previous, [key]: event.target.value }));
+                          setPaymentDetailsDirty(true);
+                        }} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground" data-testid={`input-payment-details-${key}`} />
+                      </label>
+                    ))}
+                    <label className="space-y-1 text-xs font-semibold text-muted-foreground sm:col-span-2">
+                      <span>Custom Instructions / Note</span>
+                      <textarea value={paymentDetailsDraft.customInstructions} onChange={event => {
+                        setPaymentDetailsDraft(previous => ({ ...previous, customInstructions: event.target.value }));
+                        setPaymentDetailsDirty(true);
+                      }} rows={3} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground" data-testid="input-payment-details-custom-instructions" />
+                    </label>
+                    <div className="flex flex-wrap gap-2 sm:col-span-2">
+                      <button type="button" className="button button-primary px-4 py-2 text-xs" onClick={savePaymentDetails} disabled={updateOrder.isPending} data-testid="button-save-payment-details">Save</button>
+                      <button type="button" className="button button-secondary px-4 py-2 text-xs" onClick={clearPaymentDetails} disabled={updateOrder.isPending} data-testid="button-clear-payment-details">Clear</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2 text-sm">
+                    {Object.entries(paymentDetailsDraft).some(([, value]) => value.trim()) ? (
+                      Object.entries(paymentDetailsDraft).filter(([, value]) => value.trim()).map(([key, value]) => (
+                        <div key={key} className="flex justify-between gap-3 border-b border-border/50 py-2 last:border-0">
+                          <span className="text-muted-foreground">{humanKey(key)}</span><span className="whitespace-pre-wrap text-right font-medium">{value}</span>
+                        </div>
+                      ))
+                    ) : <span className="text-muted-foreground">No payment details configured.</span>}
+                  </div>
+                )}
+              </div>
+            )}
+            {!visiblePaymentDetailRows.length && !order.verifiedFundingTransaction && !order.paymentDetailsApplicable && (
+              <p className="quickx-order-card rounded-xl border p-4 text-sm text-muted-foreground">No additional payment details available.</p>
+            )}
+          </section>
+
           {/* Remaining existing fields */}
           <div className="space-y-6 pt-4 border-t border-border">
-               {(order as typeof order & { verifiedFundingTransaction?: Parameters<typeof VerifiedTransaction>[0]["transaction"] }).verifiedFundingTransaction && (
-                 <VerifiedTransaction transaction={(order as typeof order & { verifiedFundingTransaction?: Parameters<typeof VerifiedTransaction>[0]["transaction"] }).verifiedFundingTransaction} admin />
-               )}
                 {order.whitebitProviderDepositId && (
                   <div className="quickx-order-card rounded-xl border border-border p-4 shadow-sm" data-testid="admin-whitebit-provider-deposit-id">
                     <div className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">WhiteBIT Provider Deposit ID</div>
@@ -5962,76 +6037,6 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
                     </div>
                   </div>
                 )}
-              {order.paymentDetailsApplicable && (
-                <div className="quickx-order-card border rounded-xl p-4 shadow-sm space-y-4" data-testid="admin-payment-details">
-                  <div className="flex items-center justify-between gap-3">
-                    <h4 className="quickx-section-label text-xs font-bold uppercase tracking-wider text-muted-foreground">Payment Details / Payment Instructions</h4>
-                    {can(PermissionKey.ordersdetails) && !paymentDetailsEditing && (
-                      <button type="button" className="button button-secondary px-3 py-1.5 text-xs" onClick={() => setPaymentDetailsEditing(true)} data-testid="button-edit-payment-details">Edit</button>
-                    )}
-                  </div>
-                  {order.customerMarkedPaidAt && (
-                    <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400" data-testid="admin-customer-marked-paid">Customer marked paid: {exactDateTime(order.customerMarkedPaidAt)}</p>
-                  )}
-                  {can(PermissionKey.ordersdetails) && paymentDetailsEditing ? (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {([
-                        ['name', 'Name'], ['iban', 'IBAN'], ['bankName', 'Bank Name'], ['bicSwift', 'BIC / SWIFT'],
-                        ['paymentReference', 'Payment Description / Reference'], ['amount', 'Amount'],
-                      ] as const).map(([key, label]) => (
-                        <label key={key} className="space-y-1 text-xs font-semibold text-muted-foreground">
-                          <span>{label}</span>
-                          <input value={paymentDetailsDraft[key]} onChange={event => {
-                            setPaymentDetailsDraft(previous => ({ ...previous, [key]: event.target.value }));
-                            setPaymentDetailsDirty(true);
-                          }} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground" data-testid={`input-payment-details-${key}`} />
-                        </label>
-                      ))}
-                      <label className="space-y-1 text-xs font-semibold text-muted-foreground sm:col-span-2">
-                        <span>Custom Instructions / Note</span>
-                        <textarea value={paymentDetailsDraft.customInstructions} onChange={event => {
-                          setPaymentDetailsDraft(previous => ({ ...previous, customInstructions: event.target.value }));
-                          setPaymentDetailsDirty(true);
-                        }} rows={3} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground" data-testid="input-payment-details-custom-instructions" />
-                      </label>
-                      <div className="flex flex-wrap gap-2 sm:col-span-2">
-                        <button type="button" className="button button-primary px-4 py-2 text-xs" onClick={savePaymentDetails} disabled={updateOrder.isPending} data-testid="button-save-payment-details">Save</button>
-                        <button type="button" className="button button-secondary px-4 py-2 text-xs" onClick={clearPaymentDetails} disabled={updateOrder.isPending} data-testid="button-clear-payment-details">Clear</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-2 text-sm">
-                      {Object.entries(paymentDetailsDraft).some(([, value]) => value.trim()) ? (
-                        Object.entries(paymentDetailsDraft).filter(([, value]) => value.trim()).map(([key, value]) => (
-                          <div key={key} className="flex justify-between gap-3 border-b border-border/50 py-2 last:border-0">
-                            <span className="text-muted-foreground">{humanKey(key)}</span><span className="whitespace-pre-wrap text-right font-medium">{value}</span>
-                          </div>
-                        ))
-                      ) : <span className="text-muted-foreground">No payment details configured.</span>}
-                    </div>
-                  )}
-                </div>
-              )}
-             {/* Payment details not yet shown */}
-             {visiblePaymentDetailRows.length > 0 && (
-                <div data-testid="admin-additional-payment-details">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="quickx-section-label text-xs font-bold uppercase tracking-wider text-muted-foreground">Additional Payment Details</h4>
-                    <button type="button" onClick={copyPaymentDetails} className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1" data-testid="button-copy-all-payment-details"><Copy size={12} /> Copy All</button>
-                  </div>
-                  <div className="quickx-order-card border rounded-xl p-1 shadow-sm">
-                    {visiblePaymentDetailRows.map(([lbl, val], idx) => (
-                      <div key={lbl} className={cn("flex items-center justify-between p-3", idx !== visiblePaymentDetailRows.length - 1 && "border-b border-border/50")}>
-                         <span className="quickx-field-label text-xs text-muted-foreground">{lbl}</span>
-                         <div className="flex items-center gap-2">
-                            <span className={cn("text-xs font-bold truncate max-w-[200px]", /bank name|payment description/i.test(lbl) ? "quickx-important-value" : "text-foreground")} title={val}>{val}</span>
-                             {!(lbl === 'Refund address' && val === 'Not provided') && <button type="button" onClick={() => copyValue(val)} className="text-muted-foreground hover:text-foreground"><Copy size={12} /></button>}
-                         </div>
-                      </div>
-                    ))}
-                  </div>
-               </div>
-             )}
 
              {/* Manual Status Edit */}
              {order.type === 'manual' && manualLifecycle && manualStateOptions.length > 1 && !can(PermissionKey.orderssupport_tools) && (
