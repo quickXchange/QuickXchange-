@@ -43,7 +43,6 @@ export function OrderConfirmationPage() {
   const trackingToken = queryParams.get("trackingToken") || "";
   const provider = queryParams.get("provider") || "manual";
   const isQuickex = provider === "quickex";
-  const invoiceRequested = queryParams.get("invoice") === "1";
 
   const { t, formatNumber } = useI18n();
   const queryClient = useQueryClient();
@@ -580,9 +579,7 @@ export function OrderConfirmationPage() {
            </div>
         )}
 
-        {invoiceRequested && (
-          <OrderCompletionSection order={order} />
-        )}
+        <OrderCompletionSection order={order} />
 
         <div className="flex flex-col gap-3 pb-8">
           <Link href={`/status?order=${encodeURIComponent(order.id)}${trackingToken ? `&trackingToken=${encodeURIComponent(trackingToken)}` : ''}`} className="button button-primary h-14 rounded-2xl text-sm font-bold w-full shadow-[0_8px_24px_-8px_rgba(37,99,235,0.45),0_0_18px_-8px_rgba(6,182,212,0.45)] transition-all hover:shadow-[0_10px_30px_-8px_rgba(124,58,237,0.5),0_0_22px_-8px_rgba(6,182,212,0.55)]" data-testid="button-track-this-order">

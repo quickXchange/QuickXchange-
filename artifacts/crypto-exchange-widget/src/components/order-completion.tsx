@@ -1,4 +1,11 @@
-import { ArrowRight, CheckCircle2, Download, ExternalLink, FileText, Printer, ShieldCheck, Star } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Download, ExternalLink, FileText, Printer } from 'lucide-react';
+import { SiTrustpilot } from 'react-icons/si';
+import {
+  getGetPublishedSiteContentQueryKey,
+  getGetPublicNotificationSettingsQueryKey,
+  useGetPublishedSiteContent,
+  useGetPublicNotificationSettings,
+} from '@workspace/api-client-react';
 import type { CustomerOrder, ManualPublicOrderStatus, PublicOrderStatus } from '@workspace/api-client-react';
 import { basePath, number } from '@/components/shared-app-ui';
 import { OrderSettlementIdentity } from '@/components/order-settlement-identity';
@@ -73,19 +80,13 @@ async function buildInvoicePdf(order: CompletionOrder): Promise<Blob> {
     optionalOrderString(order, 'providerUpdatedAt') ||
     optionalOrderString(order, 'updatedAt');
   const paymentMethod = order.sourcePaymentMethod?.name || order.paymentDetails?.name || '—';
+  const sendRouteLabel = order.sourcePaymentMethod?.name || order.fromNetwork || 'Network unavailable';
   const receiveRouteLabel = isConvert ? order.toNetwork || 'Network unavailable' : order.toNetwork || paymentMethod;
   const logo = await loadInvoiceLogo();
 
   const escape = (value: string) => value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
   const text = (value: unknown) => escape(printable(value));
   const date = (value?: string | null) => value ? new Date(value).toLocaleString() : '—';
-  const transaction = order.verifiedFundingTransaction;
-  const wrap = (value: string, width = 66) => {
-    const result: string[] = [];
-    for (let offset = 0; offset < value.length; offset += width) result.push(value.slice(offset, offset + width));
-    return result.length > 0 ? result : ['—'];
-  };
-
   const stream = [
     '0.043 0.067 0.122 rg',
     '0 650 612 142 re f',
@@ -121,7 +122,7 @@ async function buildInvoicePdf(order: CompletionOrder): Promise<Blob> {
     '0.08 0.12 0.2 rg',
     '/F1 9 Tf',
     '46 619 Td',
-    `(${text('TRANSACTION SUMMARY')}) Tj`,
+    `(${text('EXCHANGE SUMMARY')}) Tj`,
     'ET',
     '0.965 0.976 0.992 rg',
     '36 516 250 82 re f',
@@ -140,7 +141,7 @@ async function buildInvoicePdf(order: CompletionOrder): Promise<Blob> {
     '0.39 0.46 0.57 rg',
     '/F1 9 Tf',
     '0 -18 Td',
-    `(${text(order.fromNetwork || 'Network unavailable')}) Tj`,
+    `(${text(sendRouteLabel)}) Tj`,
     '0.39 0.46 0.57 rg',
     '/F1 8 Tf',
     '290 43 Td',
@@ -182,11 +183,11 @@ async function buildInvoicePdf(order: CompletionOrder): Promise<Blob> {
     '0.39 0.46 0.57 rg',
     '/F1 8 Tf',
     '0 -28 Td',
-    `(${text('NETWORK')}) Tj`,
+    `(${text('NETWORK / PAYMENT METHOD')}) Tj`,
     '0.04 0.07 0.12 rg',
     '/F1 9 Tf',
     '0 -14 Td',
-    `(${text(order.fromNetwork || '—')}) Tj`,
+    `(${text(sendRouteLabel)}) Tj`,
     '0.39 0.46 0.57 rg',
     '/F1 8 Tf',
     '280 84 Td',
@@ -206,42 +207,13 @@ async function buildInvoicePdf(order: CompletionOrder): Promise<Blob> {
     '0.39 0.46 0.57 rg',
     '/F1 8 Tf',
     '0 -28 Td',
-    `(${text(isConvert ? 'STATUS' : 'EXCHANGE RATE')}) Tj`,
+    `(${text('EXCHANGE RATE')}) Tj`,
     '0.04 0.07 0.12 rg',
     '/F1 9 Tf',
     '0 -14 Td',
-    `(${text(isConvert ? 'Completed' : order.exchangeRate || '—')}) Tj`,
+    `(${text(order.exchangeRate || '—')}) Tj`,
     'ET',
   ];
-
-  if (transaction?.transactionHash) {
-    stream.push(
-      '0.92 0.95 0.98 rg',
-      '36 284 540 20 re f',
-      'BT',
-      '0.08 0.12 0.2 rg',
-      '/F1 9 Tf',
-      '46 291 Td',
-      `(${text('BLOCKCHAIN TRANSACTION')}) Tj`,
-      '0.39 0.46 0.57 rg',
-      '/F1 8 Tf',
-      '0 -28 Td',
-      `(${text('TRANSACTION ID')}) Tj`,
-      '0.04 0.07 0.12 rg',
-      '/F1 8 Tf',
-      '0 -14 Td',
-      ...wrap(transaction.transactionHash).flatMap(line => [`(${text(line)}) Tj`, '0 -12 Td']),
-      '0.39 0.46 0.57 rg',
-      '/F1 8 Tf',
-      '0 -8 Td',
-      `(${text(`NETWORK: ${transaction.networkName || transaction.networkCode}`)}) Tj`,
-      '0 -14 Td',
-      `(${text(`CONFIRMATIONS: ${transaction.confirmations}`)}) Tj`,
-      '0 -14 Td',
-      `(${text(`DETECTED: ${date(transaction.detectedAt)}`)}) Tj`,
-      'ET',
-    );
-  }
 
   stream.push(
     '0.043 0.067 0.122 rg',
@@ -296,6 +268,50 @@ async function buildInvoicePdf(order: CompletionOrder): Promise<Blob> {
   return new Blob(chunks as BlobPart[], { type: 'application/pdf' });
 }
 
+function trustpilotDestination(value?: string | null): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && /^(?:[a-z0-9-]+\.)*trustpilot\.com$/i.test(url.hostname)
+      ? url.toString()
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function CompletionReview({ configuredUrl }: { configuredUrl?: string | null }) {
+  const published = useGetPublishedSiteContent({
+    query: { queryKey: getGetPublishedSiteContentQueryKey(), staleTime: 60_000 },
+  });
+  const notifications = useGetPublicNotificationSettings({
+    query: { queryKey: getGetPublicNotificationSettingsQueryKey(), staleTime: 60_000 },
+  });
+  const site = published.data;
+  const configuredItem = site?.socialTrust?.items?.find(item =>
+    item.enabled && (/trustpilot/i.test(item.name) || Boolean(trustpilotDestination(item.href))));
+  const partner = site?.partnerLogos?.find(logo =>
+    logo.enabled && /trustpilot/i.test(logo.name) && logo.link);
+  const reviewUrl = [
+    configuredItem?.href,
+    notifications.data?.trustpilotReviewUrl,
+    configuredUrl,
+    partner?.link,
+  ].map(trustpilotDestination).find(Boolean);
+  if (!reviewUrl) return null;
+
+  return (
+    <a className="order-completion-review" href={reviewUrl} target="_blank" rel="noopener noreferrer" aria-label="Review us on Trustpilot" data-testid="link-trustpilot-review">
+      <span className="order-completion-review-icon"><SiTrustpilot aria-hidden="true" /></span>
+      <span className="order-completion-review-copy">
+        <span>Review us on <strong><SiTrustpilot aria-hidden="true" /> Trustpilot</strong></span>
+        <small>Share your experience with QuickXchange</small>
+      </span>
+      <ExternalLink size={16} aria-hidden="true" />
+    </a>
+  );
+}
+
 export function OrderCompletionSection({
   order,
   trustpilotUrl,
@@ -313,12 +329,11 @@ export function OrderCompletionSection({
     optionalOrderString(order, 'updatedAt');
   const paymentMethod = order.sourcePaymentMethod?.name || order.paymentDetails?.name || '—';
   const receiveRouteLabel = isConvert ? order.toNetwork || 'Network unavailable' : order.toNetwork || paymentMethod;
-  const transaction = order.verifiedFundingTransaction;
   const downloadPdf = async () => {
     const url = URL.createObjectURL(await buildInvoicePdf(order));
     const link = document.createElement('a');
     link.href = url;
-    link.download = `quickxchange-invoice-${order.id}.pdf`;
+    link.download = `quickxchange-receipt-${order.id}.pdf`;
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
   };
@@ -334,13 +349,6 @@ export function OrderCompletionSection({
         </div>
       </div>
       <div className="order-completion-actions">
-        {trustpilotUrl && (
-          <a className="order-completion-trustpilot" href={trustpilotUrl} target="_blank" rel="noreferrer" data-testid="link-trustpilot-review">
-            <Star className="trustpilot-star" size={20} fill="currentColor" />
-            <span><strong>Review us on Trustpilot</strong><small>Share your experience</small></span>
-            <ExternalLink size={15} />
-          </a>
-        )}
         <button type="button" className="order-completion-button" onClick={downloadPdf} data-testid="button-download-invoice">
           <Download size={16} /> Download PDF
         </button>
@@ -366,7 +374,7 @@ export function OrderCompletionSection({
             <OrderSettlementIdentity assetCode={order.fromAsset} routeLabel={order.fromNetwork} settlementOptionId={order.sourceSettlementOptionId} size="md" compact />
             <small>You Send</small>
             <strong>{number(order.amount)} {order.fromAsset}</strong>
-            <span>{order.fromNetwork || 'Network unavailable'}</span>
+            <span>{order.sourcePaymentMethod?.name || order.fromNetwork || 'Network unavailable'}</span>
           </div>
           <span className="order-invoice-route-arrow" aria-hidden="true"><ArrowRight size={18} /></span>
           <div>
@@ -381,33 +389,18 @@ export function OrderCompletionSection({
           <div><small>Order ID</small><strong className="order-invoice-break">{order.id}</strong></div>
           <div><small>Exchange Type</small><strong>{isConvert ? 'Convert' : 'Swap'}</strong></div>
           <div><small>Created Date</small><strong>{new Date(order.createdAt).toLocaleString()}</strong></div>
-          <div><small>{completedAt ? 'Completed Date' : 'Updated Date'}</small><strong>{completedAt ? new Date(completedAt).toLocaleString() : '—'}</strong></div>
-          {!isConvert && <div><small>Exchange Rate</small><strong>{order.exchangeRate || '—'}</strong></div>}
-          <div><small>Network</small><strong>{order.fromNetwork || '—'}</strong></div>
+          <div><small>Completed Date</small><strong>{completedAt ? new Date(completedAt).toLocaleString() : '—'}</strong></div>
+          <div><small>Exchange Rate</small><strong>{order.exchangeRate || '—'}</strong></div>
+          <div><small>Network / Payment Method</small><strong>{order.sourcePaymentMethod?.name || order.fromNetwork || '—'}</strong></div>
           <div><small>Status</small><strong className="order-invoice-completed"><CheckCircle2 size={14} /> Completed</strong></div>
         </div>
-        {transaction?.transactionHash && (
-          <>
-            <div className="order-invoice-section-title">Blockchain Transaction</div>
-            <div className="order-invoice-meta">
-              <div><small>Transaction ID</small><code>{transaction.transactionHash}</code></div>
-              <div><small>Network</small><strong>{transaction.networkName || transaction.networkCode}</strong></div>
-              <div><small>Confirmations</small><strong>{transaction.confirmations}</strong></div>
-              <div><small>Detected</small><strong>{transaction.detectedAt ? new Date(transaction.detectedAt).toLocaleString() : '—'}</strong></div>
-            </div>
-          </>
-        )}
-        {order.paymentReference && (
-          <div className="order-invoice-meta">
-            <div><small>Payment Reference</small><code>{order.paymentReference}</code></div>
-          </div>
-        )}
         <div className="order-invoice-footer">
           <strong>Thank you for choosing QuickXchange.</strong>
           <span>quickxchange.net</span>
           <span>@Quick_change_support</span>
         </div>
       </div>
+      <CompletionReview configuredUrl={trustpilotUrl} />
     </section>
   );
 }
