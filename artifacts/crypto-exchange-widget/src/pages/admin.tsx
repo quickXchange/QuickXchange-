@@ -1024,12 +1024,29 @@ function AdminResponsiveStyles() {
 }
 
 
+function ManualAddressRouteSummary() {
+  const routes = useGetCryptoNetworks({ query: { queryKey: getGetCryptoNetworksQueryKey() } });
+  if (routes.isLoading) return <p className="integration-manual-state">Loading Manual Address routes…</p>;
+  if (routes.isError || !routes.data) {
+    return <div className="integration-manual-state"><ErrorState message="Could not load Manual Address routes." retry={() => routes.refetch()} /></div>;
+  }
+  const assigned = routes.data.filter((route) => route.depositProvider === 'manual');
+  return (
+    <div className="integration-manual-summary" aria-label="Manual Address route summary">
+      <div><strong>{assigned.length}</strong><span>Assigned routes</span></div>
+      <div><strong>{assigned.filter((route) => route.customerDepositsEnabled).length}</strong><span>Customer deposits on</span></div>
+      <div><strong>{assigned.filter((route) => route.manualWalletTrackingEnabled).length}</strong><span>Tracking selected</span></div>
+      {assigned.length === 0 && <p>No asset and network route is assigned to Manual Address yet.</p>}
+    </div>
+  );
+}
+
 function ProviderIntegrationNavigation({ active }: { active: 'providers' | 'integrations' }) {
   const { t } = useI18n();
   return (
     <nav
       aria-label={`${t('adminShell.providers')} & ${t('adminShell.apiIntegrations')}`}
-      className="mb-6 flex gap-2 overflow-x-auto border-b border-border pb-2"
+      className="provider-section-nav"
     >
       {([
         { key: 'providers', href: '/admin/providers', label: t('adminCore.provider_health') },
@@ -1041,10 +1058,10 @@ function ProviderIntegrationNavigation({ active }: { active: 'providers' | 'inte
           aria-current={active === item.key ? 'page' : undefined}
           data-testid={`link-provider-section-${item.key}`}
           className={cn(
-            'inline-flex min-h-10 shrink-0 items-center rounded-lg px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+            'provider-section-link',
             active === item.key
-              ? 'bg-primary text-primary-foreground'
-              : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+              ? 'is-active'
+              : '',
           )}
         >
           {item.label}
@@ -1057,6 +1074,7 @@ function ProviderIntegrationNavigation({ active }: { active: 'providers' | 'inte
 function AdminIntegrations() {
   const { t } = useI18n();
   const { can, isOwner } = useAdminPermissions();
+  const canViewNetworks = can('crypto_networks.view');
   const canConfigureCredentials = isOwner && can('integrations.credentials.update');
   const canCreateCredentials = isOwner && can('integrations.credentials.create');
   const canTestCredentials = isOwner && can('integrations.credentials.test');
@@ -1171,15 +1189,16 @@ function AdminIntegrations() {
   const isWarning = isConfigured && !isHealthy && !isFailed;
   const whitebitWarning = Boolean(whitebitCredentials?.configured && !whitebitHealthy && !whitebitFailed);
   const warningCount = (isWarning ? 1 : 0) + (whitebitWarning ? 1 : 0);
-  const overviewValue = (value: number) => statusQuery.isLoading || whitebitCredentialsQuery.isLoading ? '—' : value;
+  // A count only describes the complete provider set when every contributing
+  // query succeeded. Failed/partial reads must never be presented as zero.
+  const credentialsKnown = statusQuery.isSuccess && Boolean(status) && whitebitCredentialsQuery.isSuccess && Boolean(whitebitCredentials);
+  const healthKnown = credentialsKnown && whitebitStatusQuery.isSuccess && Boolean(whitebitStatus);
+  const overviewValue = (value: number, known: boolean) => known ? value : '—';
   const refreshIntegration = () => {
     void statusQuery.refetch();
     void whitebitStatusQuery.refetch();
     void whitebitCredentialsQuery.refetch();
     void queryClient.invalidateQueries({ queryKey: getGetQuickexConfigQueryKey() });
-  };
-  const scrollToLogs = () => {
-    document.getElementById('api-activity-section')?.scrollIntoView({ behavior: 'smooth' });
   };
   const openConfiguration = () => setConfigurationOpen(true);
   const refreshWhitebit = () => {
@@ -1254,16 +1273,25 @@ function AdminIntegrations() {
     >
       <ProviderIntegrationNavigation active="integrations" />
       <div className="api-integrations-page space-y-6">
+        <div className="integration-intro">
+          <div>
+            <span className="integration-eyebrow">PROVIDER CONFIGURATION</span>
+            <h2>Connection settings</h2>
+            <p>Manage credentials and provider permissions here. For live readiness and worker diagnostics, use the health overview.</p>
+          </div>
+          <Link href="/admin/providers" className="button button-secondary integration-health-link" data-testid="link-integrations-health-overview">
+            <Activity size={15} /> Health overview <ArrowRight size={14} />
+          </Link>
+        </div>
+        <nav className="integration-provider-nav" aria-label="Integration providers">
+          <a href="#integration-quickex" data-testid="link-integration-quickex"><Zap size={16} /><span><strong>Quickex</strong><small>Convert orders</small></span></a>
+          <a href="#integration-whitebit" data-testid="link-integration-whitebit"><Network size={16} /><span><strong>WhiteBIT</strong><small>Swap addresses</small></span></a>
+          <a href="#integration-manual-address" data-testid="link-integration-manual-address"><WalletCards size={16} /><span><strong>Manual Address</strong><small>Per asset &amp; network</small></span></a>
+        </nav>
         <div className="admin-page-actions api-integrations-actions">
-          <button type="button" onClick={refreshIntegration} disabled={statusQuery.isFetching} className="button button-secondary whitespace-nowrap h-9 px-4 text-xs font-bold uppercase tracking-wider" data-testid="button-refresh-integrations">
-            <RefreshCw size={14} className={cn("mr-2", statusQuery.isFetching && "animate-spin")} />
+          <button type="button" onClick={refreshIntegration} disabled={statusQuery.isFetching || whitebitStatusQuery.isFetching || whitebitCredentialsQuery.isFetching} className="button button-secondary whitespace-nowrap h-9 px-4 text-xs font-bold uppercase tracking-wider" data-testid="button-refresh-integrations">
+            <RefreshCw size={14} className={cn("mr-2", (statusQuery.isFetching || whitebitStatusQuery.isFetching || whitebitCredentialsQuery.isFetching) && "animate-spin")} />
             {t('adminProviders.refresh')}</button>
-          <button type="button" onClick={scrollToLogs} className="button button-secondary whitespace-nowrap h-9 px-4 text-xs font-bold uppercase tracking-wider" data-testid="button-view-api-logs">
-            <Activity size={14} className="mr-2" />
-            {t('adminProviders.view_api_logs')}</button>
-          {(canConfigureCredentials || canCreateCredentials) && <button type="button" onClick={openConfiguration} className="button button-primary whitespace-nowrap h-9 px-4 text-xs font-bold uppercase tracking-wider" data-testid="button-add-integration">
-            <Zap size={14} className="mr-2" />
-            {t('adminProviders.add_integration')}</button>}
         </div>
         <div className="integration-summary-grid grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="metric-card integration-summary-card tone-connected">
@@ -1271,40 +1299,44 @@ function AdminIntegrations() {
               <div className="metric-icon-wrap"><Network size={16} /></div>
               <small>{t('adminProviders.connected_providers')}</small>
             </div>
-            <strong data-testid="integration-summary-connected">{overviewValue(connectedCount)}</strong>
+            <strong data-testid="integration-summary-connected">{overviewValue(connectedCount, credentialsKnown)}</strong>
           </div>
           <div className="metric-card integration-summary-card tone-healthy">
             <div className="metric-head">
               <div className="metric-icon-wrap !text-green-500 !bg-green-500/10"><CheckCircle size={16} /></div>
               <small>{t('adminProviders.healthy_connections')}</small>
             </div>
-            <strong data-testid="integration-summary-healthy">{overviewValue(healthyCount)}</strong>
+            <strong data-testid="integration-summary-healthy">{overviewValue(healthyCount, healthKnown)}</strong>
           </div>
           <div className="metric-card integration-summary-card tone-warning">
             <div className="metric-head">
               <div className="metric-icon-wrap !text-amber-500 !bg-amber-500/10"><CircleAlert size={16} /></div>
               <small>{t('adminProviders.warnings')}</small>
             </div>
-            <strong data-testid="integration-summary-warning">{overviewValue(warningCount)}</strong>
+            <strong data-testid="integration-summary-warning">{overviewValue(warningCount, healthKnown)}</strong>
           </div>
           <div className="metric-card integration-summary-card tone-failed">
             <div className="metric-head">
               <div className="metric-icon-wrap !text-destructive !bg-destructive/10"><Ban size={16} /></div>
               <small>{t('adminProviders.failed_connections')}</small>
             </div>
-            <strong data-testid="integration-summary-failed">{overviewValue(failedCount)}</strong>
+            <strong data-testid="integration-summary-failed">{overviewValue(failedCount, healthKnown)}</strong>
           </div>
         </div>
 
-        {statusQuery.isLoading ? (
-          <LoadingBlock rows={6} />
-        ) : statusQuery.isError ? (
-          <ErrorState message={t('adminProviders.load_provider_status_error')} retry={() => statusQuery.refetch()} />
-        ) : status ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="integration-content-grid grid grid-cols-1 gap-6">
 
-            <div className="lg:col-span-2 space-y-6 min-w-0">
-              <div className="panel integration-provider-card p-0 overflow-hidden border-border bg-card shadow-md">
+            <div className="space-y-6 min-w-0">
+              {statusQuery.isLoading ? (
+                <section id="integration-quickex" className="panel integration-provider-card p-5" aria-label="Quickex loading"><LoadingBlock rows={6} /></section>
+              ) : statusQuery.isError || !status ? (
+                <section id="integration-quickex" className="panel integration-provider-card p-5" aria-label="Quickex unavailable">
+                  <h3 className="mb-3 text-base font-bold">Quickex</h3>
+                  <ErrorState message={t('adminProviders.load_provider_status_error')} retry={() => statusQuery.refetch()} />
+                  <p className="mt-3 text-xs text-muted-foreground">Configuration is unavailable until the provider status can be read.</p>
+                </section>
+              ) : (
+              <div id="integration-quickex" className="panel integration-provider-card p-0 overflow-hidden border-border bg-card shadow-md">
                 <div className="integration-provider-header p-5 border-b border-border/50 bg-muted/20 flex flex-wrap justify-between items-center gap-4">
                   <div className="flex items-center gap-4">
                     <div className="integration-provider-mark w-12 h-12 rounded-xl bg-background border border-border flex items-center justify-center shadow-sm shrink-0">
@@ -1328,9 +1360,10 @@ function AdminIntegrations() {
                   </div>
                     <div className="integration-provider-fact bg-card p-5">
                     <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-2">{t('adminProviders.api_key')}</div>
-                      <div className={cn("integration-status-value text-xs font-mono flex items-center gap-1", status.apiKeyConfigured ? "tone-success" : "tone-warning")}>
-                      {status.apiKeyConfigured ? <><Check size={12}/> {t('adminProviders.present')}</> : <><X size={12}/> {t('adminProviders.missing')}</>}
+                      <div className={cn("integration-status-value text-xs font-mono flex items-center gap-1", status.apiKeyConfigured ? "tone-success" : "tone-neutral")}>
+                      {status.apiKeyConfigured ? <><Check size={12}/> {t('adminProviders.present')}</> : <>{t('adminCore.not_required')}</>}
                     </div>
+                    <div className="integration-fact-hint">Legacy compatibility · optional</div>
                   </div>
                     <div className="integration-provider-fact bg-card p-5">
                     <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-2">{t('adminProviders.public_key')}</div>
@@ -1437,10 +1470,14 @@ function AdminIntegrations() {
                   >
                     {connectionTest.isPending ? <Loader2 size={14} className="animate-spin mr-2" /> : <Activity size={14} className="mr-2" />}
                     {t('adminProviders.run_diagnostics')}</button>}
+                  {(canConfigureCredentials || canCreateCredentials) && <button type="button" onClick={openConfiguration} className="button button-primary h-9 px-4 text-xs font-bold uppercase tracking-wider" data-testid="button-add-integration">
+                    <Key size={14} className="mr-2" /> {status.credentialSource === 'none' ? t('adminProviders.add_quickex') : t('adminProviders.configure_quickex')}
+                  </button>}
                 </div>
               </div>
+              )}
 
-              <div className="panel integration-provider-card p-0 overflow-hidden border-border bg-card shadow-md" data-testid="whitebit-api-integration-card">
+              <div id="integration-whitebit" className="panel integration-provider-card p-0 overflow-hidden border-border bg-card shadow-md" data-testid="whitebit-api-integration-card">
                 <div className="integration-provider-header p-5 border-b border-border/50 bg-muted/20 flex flex-wrap justify-between items-center gap-4">
                   <div className="flex items-center gap-4">
                     <div className="integration-provider-mark w-12 h-12 rounded-xl bg-background border border-border flex items-center justify-center shadow-sm shrink-0">
@@ -1449,17 +1486,19 @@ function AdminIntegrations() {
                     <div className="min-w-0">
                       <h3 className="font-bold text-base flex items-center gap-2">
                         WhiteBIT
-                        {whitebitStatus && !whitebitStatus.explicitDisabled && <BadgeCheck size={14} className="text-primary shrink-0" />}
+                        {whitebitStatusQuery.isSuccess && whitebitStatus && !whitebitStatus.explicitDisabled && <BadgeCheck size={14} className="text-primary shrink-0" />}
                       </h3>
                       <p className="text-[10px] text-muted-foreground font-mono mt-1 uppercase tracking-wider">Swap automated crypto deposit addresses only</p>
                     </div>
                   </div>
-                   <StatusPill status={whitebitStatus && !whitebitStatus.explicitDisabled ? 'enabled' : 'disabled'} />
+                   {whitebitStatusQuery.isSuccess && whitebitStatus
+                     ? <StatusPill status={whitebitStatus.explicitDisabled ? 'disabled' : 'enabled'} />
+                     : <span className="integration-unknown-status">{whitebitStatusQuery.isLoading ? 'Loading status' : 'Status unavailable'}</span>}
                 </div>
 
                  {whitebitStatusQuery.isLoading || whitebitCredentialsQuery.isLoading ? (
                   <div className="p-5"><LoadingBlock rows={3} /></div>
-                 ) : whitebitStatusQuery.isError || whitebitCredentialsQuery.isError ? (
+                 ) : whitebitStatusQuery.isError || whitebitCredentialsQuery.isError || !whitebitStatus || !whitebitCredentials ? (
                    <div className="p-5"><ErrorState message="Could not load WhiteBIT integration status." retry={refreshWhitebit} /></div>
                 ) : (
                   <>
@@ -1586,71 +1625,23 @@ function AdminIntegrations() {
                   </InlineNotice>
                 </div>
               )}
-            </div>
-
-            <div className="lg:col-span-1 min-w-0">
-              <div className="panel integration-security-card p-0 overflow-hidden border-border bg-card shadow-md h-full flex flex-col">
-                <div className="p-5 border-b border-border bg-muted/20">
-                  <h3 className="font-bold text-sm uppercase tracking-wider flex items-center gap-2">
-                    <ShieldCheck size={14} className="integration-section-icon text-primary" />
-                    {t('adminProviders.access_amp_security')}</h3>
-                  <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                    {t('adminProviders.quickex_uses_least_privilege_signing_credentials_for')}</p>
-                </div>
-
-                <div className="p-5 flex flex-1 flex-col gap-5">
-                  <div className="integration-security-notice flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
-                    <ShieldCheck size={17} className="mt-0.5 shrink-0 text-primary" />
-                    <div className="min-w-0">
-                      <strong className="block text-xs font-bold uppercase tracking-wider">{t('adminProviders.api_security')}</strong>
-                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                        {t('adminProviders.credentials_are_sensitive_keep_permissions_limited_to')}</p>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3">
-                    <div className={cn("integration-security-row flex items-center justify-between gap-4 rounded-xl border border-border bg-muted/15 px-4 py-3", status.credentialSource === 'none' ? "tone-warning" : "tone-secure")}>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t('adminProviders.credential_storage')}</span>
-                      <span className="integration-security-value text-right font-mono text-xs">
-                        {status.credentialSource === 'environment'
-                          ? t('adminProviders.environment_secrets')
-                          : status.credentialSource === 'stored'
-                            ? t('adminProviders.encrypted_storage')
-                            : t('adminProviders.not_configured')}
-                      </span>
-                    </div>
-                    <div className="integration-security-row tone-permissions flex items-center justify-between gap-4 rounded-xl border border-border bg-muted/15 px-4 py-3">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t('adminProviders.permissions')}</span>
-                      <span className="integration-security-value text-right font-mono text-xs">{status.signedOrders ? t('adminProviders.signed_orders') : t('adminProviders.public_market_data')}</span>
-                    </div>
-                    <div className={cn("integration-security-row flex items-center justify-between gap-4 rounded-xl border border-border bg-muted/15 px-4 py-3", status.canManage ? "tone-management" : "tone-warning")}>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t('adminProviders.management')}</span>
-                      <span className="integration-security-value text-right font-mono text-xs">{status.canManage ? t('adminProviders.owner_enabled') : t('adminProviders.restricted')}</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-auto grid gap-2">
-                     {(canConfigureCredentials || canCreateCredentials) && <button
-                      type="button"
-                      onClick={openConfiguration}
-                      className="button button-primary integration-configure-button w-full h-10 text-xs font-bold uppercase tracking-wider"
-                    >
-                      <Key size={14} className="mr-2" />
-                      {status.credentialSource === 'none' ? t('adminProviders.add_quickex') : t('adminProviders.configure_quickex')}
-                   </button>}
-                    <button
-                      type="button"
-                      onClick={scrollToLogs}
-                      className="button button-secondary integration-view-logs-button w-full h-10 text-xs font-bold uppercase tracking-wider"
-                    >
-                      <Activity size={14} className="mr-2" />
-                      {t('adminProviders.view_logs')}</button>
+              <section id="integration-manual-address" className="panel integration-provider-card integration-manual-card" data-testid="manual-address-integration-card">
+                <div className="integration-manual-copy">
+                  <div className="integration-provider-mark"><WalletCards size={22} /></div>
+                  <div>
+                    <span className="integration-eyebrow">MANUAL FUNDING ROUTE</span>
+                    <h3>Manual Address</h3>
+                    <p>Receiving addresses are configured for each asset and network, not as a global integration. Open Crypto Networks to review or update a route.</p>
                   </div>
                 </div>
-              </div>
+                {canViewNetworks && <ManualAddressRouteSummary />}
+                {canViewNetworks
+                  ? <Link href="/admin/currencies?tab=networks" className="button button-secondary integration-manual-link" data-testid="link-manual-address-networks">Open Crypto Networks <ArrowRight size={14} /></Link>
+                  : <span className="integration-access-note">Crypto Networks access is required to view receiving addresses.</span>}
+              </section>
             </div>
 
-             <Dialog open={configurationOpen && (canConfigureCredentials || canCreateCredentials)} onOpenChange={setConfigurationOpen}>
+             {status && !statusQuery.isError && <Dialog open={configurationOpen && (canConfigureCredentials || canCreateCredentials)} onOpenChange={setConfigurationOpen}>
               <DialogContent className="max-w-2xl overflow-y-auto p-0">
                 <DialogHeader className="border-b border-border bg-muted/20 px-6 py-5 pr-14">
                   <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary">
@@ -1769,7 +1760,7 @@ function AdminIntegrations() {
                   )}
                 </div>
               </DialogContent>
-            </Dialog>
+            </Dialog>}
 
             <Dialog open={whitebitConfigurationOpen && (canConfigureCredentials || canCreateCredentials)} onOpenChange={setWhitebitConfigurationOpen}>
               <DialogContent className="max-w-xl overflow-y-auto p-0">
@@ -1831,26 +1822,7 @@ function AdminIntegrations() {
               </DialogContent>
             </Dialog>
 
-            <div id="api-activity-section" className="lg:col-span-3 mt-2 min-w-0">
-              <div className="panel integration-activity-card p-0 overflow-hidden border-border bg-card shadow-md">
-                <div className="p-4 border-b border-border bg-muted/20">
-                  <h3 className="font-bold text-sm uppercase tracking-wider flex items-center gap-2">
-                    <Database size={14} className="integration-section-icon text-primary" />
-                    {t('adminProviders.recent_api_activity')}</h3>
-                </div>
-                <div className="integration-activity-empty p-16 flex flex-col items-center justify-center text-center">
-                  <div className="integration-activity-empty-icon w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-5 border border-border/50">
-                    <Activity size={24} className="text-muted-foreground opacity-60" />
-                  </div>
-                  <h4 className="text-sm font-bold text-foreground uppercase tracking-wider mb-2">{t('adminProviders.no_recent_api_activity')}</h4>
-                  <p className="text-xs text-muted-foreground max-w-sm leading-relaxed">
-                    {t('adminProviders.detailed_api_telemetry_and_payload_logs_are')}</p>
-                </div>
-              </div>
-            </div>
-
           </div>
-        ) : null}
       </div>
     </AdminShell>
   );
@@ -6352,6 +6324,7 @@ function AdminCustomers() {
 function AdminProviders() {
   const { t, formatDate } = useI18n();
   const { can, isOwner } = useAdminPermissions();
+  const canViewNetworks = can('crypto_networks.view');
   const canTestCredentials = isOwner && can('integrations.credentials.test');
   const health = useGetQuickexCredentials({
     query: { queryKey: getGetQuickexCredentialsQueryKey(), refetchInterval: 30000 },
@@ -6384,8 +6357,9 @@ function AdminProviders() {
   const reconciliationWarning = quickexReconciliationWarning(status?.reconciliation, formatDate);
   return <AdminShell eyebrow={t('adminCore.operations_settings')} title={t('adminCore.provider_health')} requiredPermission="integrations.view">
     <ProviderIntegrationNavigation active="providers" />
+    <div className="provider-overview-intro"><div><span className="integration-eyebrow">LIVE OPERATIONS</span><h2>Provider readiness</h2><p>Connection checks and capabilities for Convert and Swap funding.</p></div><Link href="/admin/integrations" className="button button-secondary integration-health-link" data-testid="link-provider-configuration">Manage integrations <ArrowRight size={14} /></Link></div>
     <div className="panel providers-panel provider-health-card rise-in">
-      <div className="panel-heading provider-health-heading"><div><span className="section-kicker">{t('adminCore.exchange_integration')}</span><h2>{t('adminCore.connection_status')}</h2><p>{t('adminCore.credential_readiness_and_live_provider_capabilities')}</p></div><div className="provider-health-actions">{status && <span className="secure-badge provider-verified-badge"><BadgeCheck size={14} /> {status.mode.toUpperCase()}</span>}{canTestCredentials && <button className="button provider-diagnostics-button" disabled={connectionTest.isPending || health.isLoading} onClick={test} data-testid="button-test-provider">{connectionTest.isPending ? <Loader2 className="spin" size={15} /> : <Activity size={15} />} {connectionTest.isPending ? t('adminCore.running_diagnostics') : t('adminCore.run_diagnostics')}</button>}</div></div>
+      <div className="panel-heading provider-health-heading"><div><span className="section-kicker">CONVERT · QUICKEX</span><h2>Quickex</h2><p>{t('adminCore.credential_readiness_and_live_provider_capabilities')}</p></div><div className="provider-health-actions">{status && <span className="secure-badge provider-verified-badge"><BadgeCheck size={14} /> {status.mode.toUpperCase()}</span>}{canTestCredentials && <button className="button provider-diagnostics-button" disabled={connectionTest.isPending || health.isLoading} onClick={test} data-testid="button-test-provider">{connectionTest.isPending ? <Loader2 className="spin" size={15} /> : <Activity size={15} />} {connectionTest.isPending ? t('adminCore.running_diagnostics') : t('adminCore.run_diagnostics')}</button>}</div></div>
       {notice && <div className="mt-4"><InlineNotice kind={notice.kind} onDismiss={() => setNotice(null)}>{notice.text}</InlineNotice></div>}
       {reconciliationWarning && <div className="mt-4" data-testid="warning-provider-reconciliation"><InlineNotice kind="warning">{reconciliationWarning}</InlineNotice></div>}
       {health.isLoading ? <div className="mt-6"><LoadingBlock rows={3} /></div> : health.isError ? <ErrorState message={t('adminProviders.load_provider_configuration_error')} retry={() => health.refetch()} /> : status && <div className="provider-grid">
@@ -6405,7 +6379,7 @@ function AdminProviders() {
        <div className="panel-heading provider-health-heading">
          <div><span className="section-kicker">SWAP DEPOSIT ADDRESS</span><h2>WhiteBIT</h2><p>Optional order-scoped crypto funding addresses. Convert and customer deposits remain unchanged.</p></div>
          {whitebitStatus && <div className="provider-health-actions">
-           <span className={cn('secure-badge provider-verified-badge', !whitebitStatus.explicitDisabled ? 'text-emerald-400' : 'text-amber-300')}>
+           <span className={cn('secure-badge provider-verified-badge', whitebitStatus.explicitDisabled && 'is-disabled')}>
             {!whitebitStatus.explicitDisabled ? <Check size={14} /> : <Pause size={14} />} {whitebitStatus.explicitDisabled ? 'DISABLED' : 'ENABLED'}
            </span>
            {isOwner && can('integrations.credentials.update') && <button
@@ -6431,6 +6405,10 @@ function AdminProviders() {
            <div className="capability-item provider-health-row provider-health-row--magenta"><span className="provider-health-row-icon"><RefreshCw size={17} /></span><div><strong>Last capability check</strong><p>{whitebitStatus.lastCapabilitySyncAt ? formatDate(whitebitStatus.lastCapabilitySyncAt) : 'Unavailable'}</p></div><span className={cn('config-status', whitebitStatus.state === 'unavailable' ? 'failed' : 'verified')}>{whitebitStatus.state}</span></div>
          </div></div>
        </div>}
+     </div>
+     <div className="panel providers-panel provider-health-card provider-manual-health mt-6">
+       <div className="panel-heading provider-health-heading"><div><span className="section-kicker">SWAP · MANUAL ADDRESS</span><h2>Manual Address</h2><p>Per-asset and per-network receiving wallet configuration. Route counts are not a health check.</p></div>{canViewNetworks ? <Link href="/admin/currencies?tab=networks" className="button button-secondary integration-manual-link" data-testid="link-provider-manual-address-networks">Open Crypto Networks <ArrowRight size={14} /></Link> : <span className="integration-access-note">Crypto Networks access is required to view receiving addresses.</span>}</div>
+       {canViewNetworks && <ManualAddressRouteSummary />}
      </div>
   </AdminShell>;
 }
