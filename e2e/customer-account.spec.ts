@@ -459,6 +459,11 @@ test('My Orders opens customer-safe Swap and Convert details in the Admin-style 
   };
   const convert = { ...existingOrder, exchangeRate: '1.25', fundingDetails: {
     ...existingOrder.fundingDetails,
+    contactEmail: 'customer@example.test',
+    networkCode: 'must-not-show-network-code',
+    status: 'must-not-show-detail-status',
+    depositProvider: 'must-not-show-deposit-provider',
+    whitebitNetworkCode: 'must-not-show-whitebit-network-code',
     logoUrl: 'must-not-show-logo-url',
     addressSource: 'must-not-show-address-source',
     diagnostics: 'must-not-show-diagnostics',
@@ -508,8 +513,19 @@ test('My Orders opens customer-safe Swap and Convert details in the Admin-style 
   await expect(drawer.getByTestId('order-status-timeline')).toBeVisible();
   await expect(drawer.getByText('Exchange Details', { exact: true })).toBeVisible();
   await expect(drawer.getByText('Order Information', { exact: true })).toBeVisible();
-  await expect(drawer.getByText('Exchange rate', { exact: true })).toBeVisible();
-  await expect(drawer.getByTestId('transaction-details')).toBeVisible();
+  const orderInfo = drawer.getByTestId('customer-order-information');
+  await expect(orderInfo.locator('.order-detail-meta > span')).toHaveText(['User', 'Order ID', 'Sending Address', 'Created At', 'Rate']);
+  await expect(orderInfo.getByRole('button', { name: 'Copy Order ID' })).toBeVisible();
+  await expect(orderInfo.getByRole('button', { name: 'Copy Sending Address' })).toBeVisible();
+  await expect(drawer.getByText('TRC20')).toBeVisible();
+  const additionalDetails = drawer.getByTestId('transaction-details');
+  await expect(additionalDetails.getByRole('heading', { name: 'Additional Payment Details' })).toBeVisible();
+  await expect(additionalDetails).toContainText('Contact Email');
+  await expect(additionalDetails).toContainText('Deposit Address');
+  await expect(additionalDetails).toContainText('Transaction Hash');
+  for (const label of ['Network Code', 'Source', 'Status', 'Address Source', 'Deposit Provider', 'Selected Provider', 'WhiteBIT Network Code', 'Logo URL']) {
+    await expect(additionalDetails.getByText(label, { exact: true })).toHaveCount(0);
+  }
   const processingBadge = drawer.getByTestId('status-sending payout');
   const originalDark = await page.evaluate(() => document.documentElement.classList.contains('dark'));
   for (const dark of [false, true]) {
@@ -537,6 +553,7 @@ test('My Orders opens customer-safe Swap and Convert details in the Admin-style 
   for (const forbidden of [
     'Selected Provider', 'Address Source', 'Logo URL', 'Network ID',
     'must-not-show-logo-url', 'must-not-show-address-source',
+    'must-not-show-network-code', 'must-not-show-detail-status', 'must-not-show-deposit-provider', 'must-not-show-whitebit-network-code',
     'must-not-show-selected-provider', 'must-not-show-diagnostics', 'PX-2026-000004219',
   ]) {
     await expect(drawer.getByText(forbidden, { exact: true })).toHaveCount(0);

@@ -29,6 +29,7 @@ import { ExchangeModeSwitcher } from '@/components/exchange-surface';
 import { convertOrderStatusStep } from '@/lib/convert-order-status';
 import { OrderCompletionSection } from '@/components/order-completion';
 import { VerifiedTransaction } from '@/components/verified-transaction';
+import { isCustomerViewOrderPaymentDetail, viewOrderInformationRows, viewOrderPaymentDetailLabel } from '@/components/view-order-fields';
 
 type CustomerStatusGroup = 'pending' | 'processing' | 'completed' | 'failed';
 
@@ -928,36 +929,31 @@ function TransactionDetails({
   fundingDetails?: Record<string, unknown>;
   settlementDetails?: Record<string, unknown>;
 }) {
-  const customerSafeKeys = new Set([
-    'transactionhash', 'depositaddress', 'depositmemo', 'destinationaddress',
-    'paymentreference', 'refundaddress', 'refundmemo',
-  ]);
   const entries = [
     ...Object.entries(fundingDetails ?? {}).map(([key, value]) => ({ id: `funding-${key}`, key, value: detailValue(value) })),
     ...Object.entries(settlementDetails ?? {}).map(([key, value]) => ({ id: `settlement-${key}`, key, value: detailValue(value) })),
   ].filter((entry): entry is { id: string; key: string; value: string } =>
     entry.value !== null &&
-    customerSafeKeys.has(entry.key.replace(/[_\s-]/g, '').toLowerCase()));
+    isCustomerViewOrderPaymentDetail(entry.key));
 
   if (entries.length === 0) return null;
 
   return (
     <section className="customer-card order-transaction-card mb-8" data-testid="transaction-details">
       <div className="mb-5">
-        <span className="order-detail-eyebrow">Secure references</span>
-        <h2 className="text-base font-semibold tracking-tight">Transaction details</h2>
+        <h2 className="text-base font-semibold tracking-tight">Additional Payment Details</h2>
       </div>
       <div className="grid grid-cols-1 gap-y-5 gap-x-6 sm:grid-cols-2 lg:grid-cols-3">
         {entries.map((entry) => (
           <div key={entry.id} className="flex min-w-0 flex-col gap-1.5">
-            <span className="truncate text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              {entry.key.replace(/([A-Z])/g, ' $1').trim()}
-            </span>
+              <span className="truncate text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                {viewOrderPaymentDetailLabel(entry.key)}
+              </span>
             <div className="order-transaction-value">
               <strong className="min-w-0 flex-1 truncate font-mono text-xs" title={entry.value}>
                 {shortenDetailValue(entry.value)}
               </strong>
-              <InlineCopy text={entry.value} label={entry.key.replace(/([A-Z])/g, ' $1').trim()} />
+                <InlineCopy text={entry.value} label={viewOrderPaymentDetailLabel(entry.key)} />
             </div>
           </div>
         ))}
@@ -1087,6 +1083,7 @@ function CustomerOrderNotificationControl({ order }: { order: CustomerOrder }) {
 
 function CustomerOrderView({ order, drawer = false }: { order: CustomerOrder; drawer?: boolean }) {
   const { t, formatDate } = useI18n();
+  const { user } = useUser();
   const queryClient = useQueryClient();
   const statusGroup = customerStatusGroup(order.status);
   const publicNotificationSettings = useGetPublicNotificationSettings({
@@ -1119,6 +1116,15 @@ function CustomerOrderView({ order, drawer = false }: { order: CustomerOrder; dr
     active: isConvert ? currentStage !== 2 && !isFailed && index === currentStage : statusGroup !== 'completed' && !isFailed && index === currentStage,
     failed: isFailed && index === currentStage,
   }));
+  const fundingAddress = order.fundingDetails?.depositAddress || order.fundingDetails?.address;
+  const sendingAddress = typeof fundingAddress === 'string' && fundingAddress.trim() ? fundingAddress.trim() : null;
+  const orderInfoRows = viewOrderInformationRows([
+    ['User', user?.fullName?.trim() || user?.primaryEmailAddress?.emailAddress || 'Your account'],
+    ['Order ID', order.id],
+    ['Sending Address', sendingAddress || '—'],
+    ['Created At', formatDate(order.createdAt, { dateStyle: 'medium', timeStyle: 'short' })],
+    ['Rate', order.exchangeRate ? `1 ${order.fromAsset} = ${number(order.exchangeRate)} ${order.toAsset}` : 'Not available'],
+  ]);
 
   return (
     <div className="customer-order-detail-page w-full" data-testid="customer-order-detail">
@@ -1177,49 +1183,21 @@ function CustomerOrderView({ order, drawer = false }: { order: CustomerOrder; dr
             </strong>
           </div>
         </div>
-        {drawer && order.exchangeRate && (
-          <div className="customer-order-drawer-rate">
-            <span>Exchange rate</span>
-            <strong title={`1 ${order.fromAsset} = ${number(order.exchangeRate)} ${order.toAsset}`}>
-              1 {order.fromAsset} = {number(order.exchangeRate)} {order.toAsset}
-            </strong>
-          </div>
-        )}
       </section>
 
-      {drawer && <h3 className="customer-order-drawer-section-title">Order Information</h3>}
-      <section className="customer-card order-detail-grid mb-8 grid min-w-0 grid-cols-1 gap-0 min-[480px]:grid-cols-2">
-        <div className="order-detail-meta">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t('account.exchangeType')}</span>
-          <strong className="truncate text-sm font-semibold">{order.type === 'instant' ? t('convert.convert') : t('convert.swap')}</strong>
-        </div>
-        {order.rateMode && (
-          <div className="order-detail-meta">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t('account.rateMode')}</span>
-            <strong className="truncate text-sm font-semibold">{order.rateMode === 'FIXED' ? t('convert.fixedRate') : t('convert.floatingRate')}</strong>
+      <h3 className="customer-order-drawer-section-title">Order Information</h3>
+      <section className="customer-card order-detail-grid mb-8 grid min-w-0 grid-cols-1 gap-0 min-[480px]:grid-cols-2" data-testid="customer-order-information">
+        {orderInfoRows.map(([label, value]) => (
+          <div className="order-detail-meta" key={label}>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
+            <div className="flex min-w-0 items-center gap-2">
+              <strong className="min-w-0 flex-1 truncate text-sm font-semibold" title={value}>{value}</strong>
+              {(label === 'Order ID' || (label === 'Sending Address' && sendingAddress)) && (
+                <InlineCopy text={value} label={label} />
+              )}
+            </div>
           </div>
-        )}
-        <div className="order-detail-meta">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t('form.youSend')} · {t('affiliate.network')}</span>
-          <strong className="truncate text-sm font-semibold">{order.fromNetwork}</strong>
-        </div>
-        <div className="order-detail-meta">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t('form.youReceive')} · {t('affiliate.network')}</span>
-          <strong className="truncate text-sm font-semibold">{order.toNetwork}</strong>
-        </div>
-        <div className="order-detail-meta">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t('account.orderId')}</span>
-          <div className="-mr-1 flex items-center gap-2">
-            <strong className="flex-1 truncate font-mono text-sm" title={order.id}>{order.id}</strong>
-            <InlineCopy text={order.id} label={t('account.orderId')} />
-          </div>
-        </div>
-        <div className="order-detail-meta">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t('account.date')}</span>
-          <strong className="truncate text-sm font-semibold">
-            {formatDate(order.createdAt, { dateStyle: 'medium', timeStyle: 'short' })}
-          </strong>
-        </div>
+        ))}
       </section>
 
       {order.type === 'manual' && order.verifiedFundingTransaction && (

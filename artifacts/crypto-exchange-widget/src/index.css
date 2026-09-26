@@ -24034,22 +24034,6 @@ html:not(.dark) .order-deposit-network {
   font-weight: 700;
   color: hsl(var(--foreground));
 }
-.customer-order-drawer-rate {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 4px 12px;
-  margin: 0 12px 12px;
-  padding: 12px;
-  border: 1px solid hsl(var(--border));
-  border-radius: 10px;
-  background: hsl(var(--muted) / .4);
-  font-size: 12px;
-}
-.customer-order-drawer-rate span { color: hsl(var(--muted-foreground)); }
-.customer-order-drawer-rate strong { min-width: 0; overflow-wrap: anywhere; }
-
 /* The shared warning badge uses dark foreground text, which disappears on dark order surfaces. */
 html:not(.dark) .customer-order-detail-page .badge-warning {
   color: #7d450c;

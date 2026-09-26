@@ -21,6 +21,7 @@ import {
   Send, BellRing, Link as LinkIcon, Unplug, MessageSquare, CheckCircle2, XCircle, Bell, Settings2, Star, Code
 } from 'lucide-react';
 import { VerifiedTransaction } from '@/components/verified-transaction';
+import { isVisibleViewOrderPaymentDetail, viewOrderInformationRows } from '@/components/view-order-fields';
 import {
   SiAlipay, SiCashapp, SiMastercard, SiPaypal, SiPix, SiRevolut,
   SiVenmo, SiVisa, SiWise, SiZelle, SiTelegram
@@ -2383,7 +2384,7 @@ function AdminNotificationSettings() {
                     <span className="text-sm font-bold text-white">QuickXchange Bot</span>
                   </div>
 
-                  <div className="space-y-3">
+           <div className="space-y-3">
                     <h4 className="text-[15px] font-bold text-emerald-400 flex items-center gap-2">
                       <CheckCircle2 size={16} /> Order Payment Received
                     </h4>
@@ -5157,19 +5158,8 @@ const hiddenPaymentMetadataLabels = [
 
 function isHiddenPaymentMetadataLabel(label: string) {
   const normalized = label.trim().toLowerCase().replaceAll('_', ' ').replaceAll('-', ' ').replace(/\s+/g, ' ');
-  return hiddenPaymentMetadataLabels.some((hidden) => normalized === hidden || normalized.endsWith(` ${hidden}`));
-}
-
-const hiddenAdditionalPaymentDetailLabels = [
-  'warning',
-  'manual fallback enabled',
-  'customer deposits enabled',
-  'manual wallet tracking enabled',
-];
-
-function isHiddenAdditionalPaymentDetailLabel(label: string) {
-  const normalized = label.trim().toLowerCase().replace(/\s+/g, ' ');
-  return hiddenAdditionalPaymentDetailLabels.some((hidden) => normalized === hidden || normalized.endsWith(` ${hidden}`));
+  return hiddenPaymentMetadataLabels.some(hidden =>
+    normalized === hidden || (hidden !== 'address' && normalized.endsWith(` ${hidden}`)));
 }
 
 function OperationalSettlementCard({ order, side }: { order: Order; side: 'send' | 'receive' }) {
@@ -5719,7 +5709,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   const paymentDetailRows = detailRows
     .map(([label, value]) => [humanKey(label).replace(/\bTarget\b/gi, '').replace(/\s+/g, ' ').trim(), value] as [string, string])
     .filter(([label]) => Boolean(label));
-  const visiblePaymentDetailRows = paymentDetailRows.filter(([label]) => !isHiddenAdditionalPaymentDetailLabel(label));
+  const visiblePaymentDetailRows = paymentDetailRows.filter(([label]) => isVisibleViewOrderPaymentDetail(label));
 
   if (orderQuery.isLoading) return <div className="fixed inset-0 z-50 flex sm:justify-end bg-black/40 backdrop-blur-sm"><aside className="w-full sm:w-[480px] sm:max-w-full h-full bg-background border-l border-border flex flex-col shadow-2xl"><div className="p-12"><LoadingBlock rows={10} /></div></aside></div>;
   if (orderQuery.isError || !order) return <div className="fixed inset-0 z-50 flex sm:justify-end bg-black/40 backdrop-blur-sm"><aside className="w-full sm:w-[480px] sm:max-w-full h-full bg-background border-l border-border flex flex-col shadow-2xl"><div className="p-12"><ErrorState message="Error loading order" retry={() => orderQuery.refetch()} /></div></aside></div>;
@@ -5762,45 +5752,27 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   const receiveMethod = targetOption?.kind === 'fiat-payment-method' ? targetOption.title : targetOption?.networkTitle || targetOption?.routeNetwork || order.payoutMethod || order.toNetwork || 'Route unavailable';
   const orderAddress = order.destinationAddress || order.depositAddress || order.refundAddress || (typeof recordOf(order.fundingDetails).address === 'string' ? String(recordOf(order.fundingDetails).address) : '');
 
-  const providerDisplay = order.fundingProviderSource === 'whitebit'
-    ? 'WhiteBIT'
-    : order.fundingProviderSource === 'manual'
-      ? 'Manual Only'
-      : order.fundingProviderSource === 'none'
-        ? 'None'
-        : order.fundingProviderSource || '—';
-  const addressSourceMap: Record<string, string> = {
-    live_api: 'LIVE API',
-    manual_fallback: 'MANUAL FALLBACK',
-    manual_only: 'MANUAL ONLY',
-    unavailable: 'UNAVAILABLE'
-  };
-  const addressSourceDisplay = order.fundingAddressSource ? (addressSourceMap[order.fundingAddressSource] || order.fundingAddressSource) : '—';
-
-  const orderInfoRows: Array<[string, string, string?]> = [
+  const fundingAddress = recordOf(order.fundingDetails).address;
+  const orderInfoRows: Array<[string, string, string?]> = viewOrderInformationRows([
     ['User', order.customerName || order.customerEmail || 'Guest'],
     ['Order ID', order.id],
-    ['Sending Address', order.depositAddress || '—'],
-    ['Selected Provider', providerDisplay, 'order-funding-provider'],
-    ['Address Source', addressSourceDisplay, 'order-funding-source'],
+    ['Sending Address', order.depositAddress || (typeof fundingAddress === 'string' ? fundingAddress : '') || '—'],
     ['Created At', exactDateTime(order.createdAt)],
     ['Rate', order.finalRate ? `1 ${order.fromAsset} = ${number(order.finalRate)} ${order.toAsset}` : 'Not available'],
-  ];
+  ]);
 
   const copyPaymentDetails = () => {
     const rows: Array<[string, string]> = [
-      ['Send status', currentStep === 0 ? 'Awaiting customer deposit' : 'Deposit confirmed'],
       ['Send amount', `${number(order.amount)} ${order.fromAsset}`],
       ['Send method / network', sendMethod],
       ['Send estimated arrival', 'Not available'],
       ...(order.totalCommission ? [['Provider fee', `${number(order.totalCommission)} ${order.fromAsset}`] as [string, string]] : []),
       ...(order.depositAddress ? [['Deposit address', order.depositAddress] as [string, string]] : []),
-      ['Receive status', currentStep >= 3 ? 'Payout complete' : 'Awaiting payout'],
       ['Receive amount', `${number(order.receiveAmount)} ${order.toAsset}`],
       ['Receive method / network', receiveMethod],
       ['Receive estimated arrival', 'Not available'],
       ...(order.destinationAddress ? [['Destination address', order.destinationAddress] as [string, string]] : []),
-      ...paymentDetailRows.filter(([label, value]) => !(label === 'Refund address' && value === 'Not provided')),
+      ...visiblePaymentDetailRows.filter(([label, value]) => !(label === 'Refund address' && value === 'Not provided')),
     ];
     const text = rows
       .filter((row, index) => rows.findIndex(([label, value]) => label === row[0] && value === row[1]) === index)
@@ -5816,7 +5788,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
     setNotice({ kind: 'success', text: 'Order information copied.' });
   };
   const copyOrderInfo = async () => {
-    const normalizedPaymentRows = paymentDetailRows.map(([label, value]) => ({
+    const normalizedPaymentRows = visiblePaymentDetailRows.map(([label, value]) => ({
       label: label.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(),
       value,
     }));
@@ -5950,7 +5922,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
           </div>
 
           {/* 4. Order Information */}
-          <div className="space-y-3">
+           <div className="space-y-3" data-testid="admin-order-information">
              <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-bold text-foreground">Order Information</h3>
                 <button type="button" onClick={copyOrderInfoAll} className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"><Copy size={12} /> Copy All</button>
@@ -6042,7 +6014,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
               )}
              {/* Payment details not yet shown */}
              {visiblePaymentDetailRows.length > 0 && (
-               <div>
+                <div data-testid="admin-additional-payment-details">
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="quickx-section-label text-xs font-bold uppercase tracking-wider text-muted-foreground">Additional Payment Details</h4>
                     <button type="button" onClick={copyPaymentDetails} className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1" data-testid="button-copy-all-payment-details"><Copy size={12} /> Copy All</button>

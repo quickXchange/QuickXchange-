@@ -38,6 +38,16 @@ const quickexOrder = {
   providerCreatedAt: '2025-06-10T09:15:00.000Z',
   providerUpdatedAt: '2025-06-10T09:30:00.000Z',
   providerCompleted: false,
+  fundingDetails: {
+    networkCode: 'must-not-show-network-code',
+    source: 'must-not-show-source',
+    status: 'must-not-show-detail-status',
+    addressSource: 'must-not-show-address-source',
+    depositProvider: 'must-not-show-deposit-provider',
+    selectedProvider: 'must-not-show-selected-provider',
+    whitebitNetworkCode: 'must-not-show-whitebit-network-code',
+    logoUrl: 'must-not-show-logo-url',
+  },
   createdAt: '2025-06-10T09:16:00.000Z',
 };
 
@@ -392,6 +402,20 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
   await expect(page.getByTestId('order-status-progression')).toBeVisible();
   await expect(page.getByTestId('order-details-drawer')).toContainText('Sending Address');
   await expect(page.getByTestId('order-details-drawer')).toContainText('Destination Memo / Tag');
+  const adminOrderInfo = page.getByTestId('admin-order-information');
+  await expect(adminOrderInfo.locator('.quickx-field-label')).toHaveText(['User', 'Order ID', 'Sending Address', 'Created At', 'Rate']);
+  await expect(adminOrderInfo.getByTitle('Copy Order ID')).toBeVisible();
+  await expect(adminOrderInfo.getByTitle('Copy Sending Address')).toBeVisible();
+  const adminAdditional = page.getByTestId('admin-additional-payment-details');
+  await expect(adminAdditional).toContainText('Contact Email');
+  await expect(adminAdditional).toContainText('Deposit Address');
+  await expect(adminAdditional).toContainText('Destination Memo / Tag');
+  for (const label of ['Network Code', 'Source', 'Status', 'Address Source', 'Deposit Provider', 'Selected Provider', 'WhiteBIT Network Code', 'Logo URL']) {
+    await expect(adminAdditional.getByText(label, { exact: true })).toHaveCount(0);
+  }
+  for (const value of ['must-not-show-network-code', 'must-not-show-source', 'must-not-show-detail-status', 'must-not-show-address-source', 'must-not-show-deposit-provider', 'must-not-show-selected-provider', 'must-not-show-whitebit-network-code', 'must-not-show-logo-url']) {
+    await expect(adminAdditional.getByText(value, { exact: true })).toHaveCount(0);
+  }
   await expect(page.getByText('Quote ID')).toHaveCount(0);
   await expect(page.getByTestId('order-details-drawer')).toContainText('Assigned to:operator@example.test');
   await expect(page.getByTestId('order-details-drawer')).toBeVisible();
