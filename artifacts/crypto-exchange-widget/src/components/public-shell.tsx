@@ -120,6 +120,9 @@ type RenderableSocialItem = Pick<SocialTrustItem, 'id' | 'name' | 'href'> & {
   defaultAssetPath?: string | null;
 };
 
+const isTrustpilotItem = (item: Pick<RenderableSocialItem, 'name' | 'href'>) =>
+  /trustpilot/i.test(item.name) || /^https?:\/\/(?:www\.)?trustpilot\.com(?:\/|$)/i.test(item.href);
+
 const LEGACY_SOCIAL_FIELDS = [
   ['telegramUrl', 'Telegram'],
   ['instagramUrl', 'Instagram'],
@@ -164,6 +167,7 @@ function footerSocialPlatformIcon(item: RenderableSocialItem) {
 
 function FooterSocialIcon({ item, preview, isDark }: { item: RenderableSocialItem; preview: ReturnType<typeof useSitePreview>; isDark: boolean }) {
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  if (isTrustpilotItem(item)) return <SiTrustpilot className="qx-footer-social-svg" style={{ width: '100%', height: '100%' }} aria-hidden="true" />;
   const selectedPath = item.appearance === 'separate'
     ? (isDark ? item.darkObjectPath || item.objectPath : item.lightObjectPath || item.objectPath)
     : item.objectPath;
@@ -175,7 +179,6 @@ function FooterSocialIcon({ item, preview, isDark }: { item: RenderableSocialIte
         : `${basePath}/api/storage/objects/social-trust-icons/${objectPath.split('/').pop()}`)
     : item.defaultAssetPath || null;
   if (src && failedSrc !== src) return <img src={src} alt="" className="qx-footer-social-image" style={{ width: '100%', height: '100%', objectFit: 'contain' }} loading="lazy" onError={() => setFailedSrc(src)} />;
-  if (item.name.toLocaleLowerCase().includes('trustpilot')) return <SiTrustpilot className="qx-footer-social-svg text-emerald-500" style={{ width: '100%', height: '100%' }} aria-hidden="true" />;
   const Icon = footerSocialPlatformIcon(item);
   return Icon ? <span className="qx-footer-social-svg" style={{ width: '100%', height: '100%' }}>{Icon}</span> : <Link2 className="qx-footer-social-svg" style={{ width: '100%', height: '100%' }} aria-hidden="true" />;
 }
@@ -247,9 +250,9 @@ function FooterSocialLinksDataDriven({ socialTrust, socialItems, trustItems, pre
       {showSocialTitle && <h3 className="font-semibold text-foreground" style={{ fontSize: `${style.titleFontSize ?? 18}px`, textAlign: (style.titleAlignment ?? style.alignment ?? 'left') as CSSProperties['textAlign'] }}>{socialTrust?.socialTitle ?? 'Stay connected with us'}</h3>}
       <div className="qx-footer-social-links" style={{ gap: `${style.spacing ?? 14}px`, justifyContent: socialJustify }}>
         {allSocialItems.map((item) => (
-          <a key={item.id} href={item.href} target="_blank" rel="noreferrer noopener" aria-label={item.name} data-testid={`link-published-social-${item.id}`} className={`qx-footer-social-link qx-social-hover-${style.hoverAnimation ?? 'lift'}`} style={{ ...appearanceStyle, width: item.displayMode === 'icon-name' ? 'auto' : `${circleSize}px`, height: `${circleSize}px`, flexBasis: item.displayMode === 'icon-name' ? 'auto' : `${circleSize}px`, padding: item.displayMode === 'icon-name' ? '0 10px' : 0, borderRadius: radius, borderColor: style.borderColor, backgroundColor: style.backgroundColor }}>
+           <a key={item.id} href={item.href} target="_blank" rel="noreferrer noopener" aria-label={isTrustpilotItem(item) ? 'Trustpilot' : item.name} data-testid={`link-published-social-${item.id}`} className={`qx-footer-social-link qx-social-hover-${style.hoverAnimation ?? 'lift'}${isTrustpilotItem(item) ? ' qx-footer-trustpilot-social' : ''}`} style={{ ...appearanceStyle, width: item.displayMode === 'icon-name' ? 'auto' : `${circleSize}px`, height: `${circleSize}px`, flexBasis: item.displayMode === 'icon-name' ? 'auto' : `${circleSize}px`, padding: item.displayMode === 'icon-name' ? '0 10px' : 0, borderRadius: radius, borderColor: style.borderColor, backgroundColor: style.backgroundColor }}>
             <span style={{ display: 'flex', flex: 'none', width: `${iconSize}px`, height: `${iconSize}px`, alignItems: 'center', justifyContent: 'center' }}><FooterSocialIcon item={item} preview={preview} isDark={isDark} /></span>
-            {item.displayMode === 'icon-name' && <span className="ml-2 text-xs">{item.name}</span>}
+             {item.displayMode === 'icon-name' && <span className="ml-2 text-xs">{isTrustpilotItem(item) ? 'Trustpilot' : item.name}</span>}
           </a>
         ))}
       </div>
@@ -259,11 +262,13 @@ function FooterSocialLinksDataDriven({ socialTrust, socialItems, trustItems, pre
         {(trustStyle.trustTitleVisible ?? socialTrust?.trustTitleVisible ?? true) && <h3 className="font-semibold text-foreground" style={{ fontSize: `${trustStyle.titleFontSize ?? socialTrust?.trustTitleFontSize ?? 18}px`, textAlign: (trustStyle.titleAlignment ?? socialTrust?.trustTitleAlignment ?? 'left') as CSSProperties['textAlign'] }}>{socialTrust?.trustTitle ?? 'Share your feedback with us'}</h3>}
         <div style={trustContainerStyle}>
           {renderedTrustItems.map((item) => (
-            <a key={item.id} href={item.href} target="_blank" rel="noreferrer noopener" aria-label={item.name} data-testid={`link-published-trust-${item.id}`} className="group flex items-center gap-2 text-foreground transition-colors">
-              <span className="flex shrink-0 items-center justify-center overflow-hidden rounded-md" style={{ width: `${Math.max(90, Math.min(220, (trustStyle.logoSize ?? 76) * 2))}px`, height: `${Math.max(44, Math.min(80, (trustStyle.circleSize ?? 42) + 12))}px`, padding: '5px', background: item.id === 'legacy-trustpilot' ? '#ffffff' : trustStyle.container === 'none' ? 'transparent' : trustStyle.backgroundColor ?? '#ffffff', border: item.id === 'legacy-trustpilot' ? '1px solid #dce3ed' : trustStyle.container === 'none' ? 'none' : `${trustStyle.borderThickness ?? 1}px solid ${trustStyle.borderColor ?? '#dce3ed'}`, boxShadow: trustStyle.container === 'glow' ? `0 0 ${(trustStyle.glowIntensity ?? 0) * 0.2}px ${trustStyle.glowColor ?? '#38bdf8'}` : undefined }}>
-                <span className="flex h-full w-full items-center justify-center"><FooterSocialIcon item={item} preview={preview} isDark={isDark} /></span>
+             <a key={item.id} href={item.href} target="_blank" rel="noreferrer noopener" aria-label={isTrustpilotItem(item) ? 'Trustpilot' : item.name} data-testid={`link-published-trust-${item.id}`} className={cn('group flex items-center gap-2 text-foreground transition-colors', isTrustpilotItem(item) && 'qx-footer-trustpilot-link')}>
+               <span className="flex shrink-0 items-center justify-center overflow-hidden rounded-md" style={{ width: `${Math.max(90, Math.min(220, (trustStyle.logoSize ?? 76) * 2))}px`, height: `${Math.max(44, Math.min(80, (trustStyle.circleSize ?? 42) + 12))}px`, padding: '5px', background: isTrustpilotItem(item) ? '#ffffff' : trustStyle.container === 'none' ? 'transparent' : trustStyle.backgroundColor ?? '#ffffff', border: isTrustpilotItem(item) ? '1px solid #dce3ed' : trustStyle.container === 'none' ? 'none' : `${trustStyle.borderThickness ?? 1}px solid ${trustStyle.borderColor ?? '#dce3ed'}`, boxShadow: trustStyle.container === 'glow' ? `0 0 ${(trustStyle.glowIntensity ?? 0) * 0.2}px ${trustStyle.glowColor ?? '#38bdf8'}` : undefined }}>
+                 {isTrustpilotItem(item)
+                   ? <span className="qx-trustpilot-brand" aria-hidden="true"><SiTrustpilot /><span>Trustpilot</span></span>
+                   : <span className="flex h-full w-full items-center justify-center"><FooterSocialIcon item={item} preview={preview} isDark={isDark} /></span>}
               </span>
-              {item.displayMode === 'icon-name' && <span className="text-xs font-medium">{item.name}</span>}
+               {item.displayMode === 'icon-name' && !isTrustpilotItem(item) && <span className="text-xs font-medium">{item.name}</span>}
             </a>
           ))}
         </div>
@@ -571,6 +576,10 @@ function PublicHeader() {
       closeTestId="button-close-site-menu"
     >
        <nav className="qx-mobile-nav" aria-label={t('public.mobileNav')}>
+           <div className="qx-mobile-theme-setting">
+             <span className="qx-mobile-theme-label">{t('header.appearance')}</span>
+             <ThemeToggle testIdPrefix="mobile" />
+           </div>
           {publicNavigationGroups.map((group) => (
             <div key={group.title} className="qx-mobile-group">
               {group.direct ? (
@@ -644,6 +653,7 @@ function PublicPartnerLogosWrapper({ logos, settings, preview }: { logos: Partne
         assetUrls={preview.assetUrls}
         getLogoUrl={(logo, path) => preview.assetUrls?.[path] ?? (preview.active ? `${basePath}/api/admin/partner-logos/${logo.id}/preview${path !== logo.objectPath ? '?objectPath=' + encodeURIComponent(path) : ''}` : publishedPartnerLogoUrl(path))}
         forcePaused={paused}
+        brandTrustpilotGreen
       />
     </section>
   );

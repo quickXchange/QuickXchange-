@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { cn } from './shared-app-ui';
 import { useAppTheme } from '../theme';
+import { SiTrustpilot } from 'react-icons/si';
 
 const PRESET_SPEED: Record<Exclude<PartnerLogoSettings['speed'], 'custom'>, number> = {
   'very-slow': 6,
@@ -79,9 +80,10 @@ interface PartnerLogosProps {
   };
   className?: string;
   forcePaused?: boolean;
+  brandTrustpilotGreen?: boolean;
 }
 
-export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewState, className, forcePaused }: PartnerLogosProps) {
+export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewState, className, forcePaused, brandTrustpilotGreen = false }: PartnerLogosProps) {
   const isDarkApp = useAppTheme();
   const isDark = previewState?.theme ? previewState.theme === 'dark' : isDarkApp;
   
@@ -202,7 +204,9 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
 
       // Every image occupies the same centered content box, regardless of its
       // intrinsic dimensions. object-fit preserves the original proportions.
-      const content = <img src={src} alt={logo.name} className={imgClass} style={{ width: maxW, height: maxW * 0.6, objectFit: 'contain' }} loading={shouldAnimate ? 'eager' : 'lazy'} draggable={false} />;
+      const content = brandTrustpilotGreen && /trustpilot/i.test(logo.name)
+        ? <span className="partner-logo-trustpilot" style={{ width: maxW, height: maxW * 0.6, fontSize: `${Math.min(18, Math.max(11, maxW / 7))}px` }} role={logo.link ? undefined : 'img'} aria-label={logo.link ? undefined : logo.name} aria-hidden={logo.link ? true : undefined}><SiTrustpilot />Trustpilot</span>
+        : <img src={src} alt={logo.name} className={imgClass} style={{ width: maxW, height: maxW * 0.6, objectFit: 'contain' }} loading={shouldAnimate ? 'eager' : 'lazy'} draggable={false} />;
 
       return (
         <div key={logo.id} className={cardClass} style={{ width: motionSlotWidth, height: motionHeight, boxSizing: 'border-box' }}>
@@ -214,7 +218,7 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
         </div>
       );
     });
-  }, [logos, isDark, settings, maxW, motionSlotWidth, motionHeight, shouldAnimate, getLogoSrc]);
+  }, [logos, isDark, settings, maxW, motionSlotWidth, motionHeight, shouldAnimate, getLogoSrc, brandTrustpilotGreen]);
 
   // Landing-page partners are always a single row, including when a saved
   // legacy layout requested columns or wrapping.
