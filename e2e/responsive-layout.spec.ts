@@ -730,13 +730,18 @@ test('admin data views remain usable on phones', async ({ page }) => {
     { path: '/admin/affiliates', selector: '.affiliate-table', label: 'Affiliates' },
     { path: '/admin/payouts', selector: '.payout-queue-table', label: 'Payout queue' },
     { path: '/admin/revenue', selector: '[data-testid="table-revenue"]', label: 'Revenue' },
-    { path: '/admin/customers', selector: '[data-testid="table-customers"]', label: 'Customers' },
   ] as const;
 
   for (const table of tables) {
     await page.goto(table.path);
     await expectSwipeableAdminTable(page, table.selector, table.label);
   }
+
+  await page.goto('/admin/customers');
+  await expect(page.getByTestId('users-mobile-cards')).toBeVisible();
+  await expect(page.getByTestId('table-customers')).toBeHidden();
+  const usersWidth = await page.evaluate(() => ({ document: document.documentElement.scrollWidth, viewport: innerWidth }));
+  expect(usersWidth.document).toBeLessThanOrEqual(usersWidth.viewport + 1);
 
   await page.goto('/admin/orders');
   await expectSwipeableAdminTable(page, '[data-testid="table-orders"]', 'Orders');

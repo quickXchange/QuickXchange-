@@ -16336,3 +16336,189 @@ html:not(.dark) .admin-shell.admin-redesign .admin-header-avatar {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Keep the existing Users surfaces, but let their content reflow safely. */
+.admin-shell.admin-redesign .customers-panel,
+.admin-shell.admin-redesign .admin-customer-area {
+  min-width: 0;
+}
+
+.admin-shell.admin-redesign .customer-list-cards {
+  display: none;
+}
+
+.admin-shell.admin-redesign .customer-profile-header > :first-child,
+.admin-shell.admin-redesign .customer-profile-header > :first-child > :last-child {
+  min-width: 0;
+}
+
+.admin-shell.admin-redesign .customer-profile-meta > span:first-child,
+.admin-shell.admin-redesign .customer-profile-tabs dl dd {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.admin-shell.admin-redesign .customer-profile-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.admin-shell.admin-redesign .customer-profile-action:hover:not(:disabled) {
+  transform: none;
+}
+
+.customer-admin-dialog {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.customer-admin-dialog-header,
+.customer-admin-dialog-actions {
+  flex: none;
+}
+
+.customer-admin-dialog-form {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.customer-admin-dialog-form > .customer-admin-dialog-body,
+.customer-admin-dialog > .customer-admin-dialog-body {
+  display: grid;
+  gap: 16px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.customer-admin-dialog-form > .customer-admin-dialog-actions,
+.customer-admin-dialog > .customer-admin-dialog-actions {
+  flex-wrap: wrap;
+  padding: 14px 22px calc(14px + env(safe-area-inset-bottom));
+  border-top: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+}
+
+.customer-admin-dialog .customer-admin-dialog-title-group :is(h2, p),
+.customer-admin-dialog-body :is(p, strong, span) {
+  overflow-wrap: anywhere;
+}
+
+.customer-password-confirmation {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 13px;
+  background: hsl(var(--muted));
+  font-size: 12px;
+}
+
+.customer-password-confirmation span {
+  color: hsl(var(--muted-foreground));
+}
+
+@media (max-width: 820px) {
+  .admin-shell.admin-redesign .customers-panel .customer-desktop-table {
+    display: none;
+  }
+
+  .admin-shell.admin-redesign .customers-panel .customer-list-cards {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .admin-shell.admin-redesign .customer-mobile-card {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    gap: 15px;
+    padding: 15px;
+    border: 1px solid hsl(var(--border));
+    border-radius: 13px;
+    color: hsl(var(--foreground));
+    background: hsl(var(--card));
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .admin-shell.admin-redesign .customer-mobile-card:hover,
+  .admin-shell.admin-redesign .customer-mobile-card:focus-visible {
+    border-color: hsl(var(--primary) / .6);
+    outline-offset: 2px;
+  }
+
+  .admin-shell.admin-redesign .customer-mobile-card-header {
+    display: flex;
+    min-width: 0;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .admin-shell.admin-redesign .customer-mobile-card-header .customer-cell {
+    flex: 1 1 180px;
+  }
+
+  .admin-shell.admin-redesign .customer-mobile-card .customer-cell strong,
+  .admin-shell.admin-redesign .customer-mobile-card .customer-cell small {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  .admin-shell.admin-redesign .customer-mobile-card-info {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    padding-top: 12px;
+    border-top: 1px solid hsl(var(--border));
+  }
+
+  .admin-shell.admin-redesign .customer-mobile-card-info > span {
+    display: grid;
+    min-width: 0;
+    gap: 4px;
+  }
+
+  .admin-shell.admin-redesign .customer-mobile-card-info small {
+    color: hsl(var(--muted-foreground));
+    font-size: 10px;
+  }
+
+  .admin-shell.admin-redesign .customer-mobile-card-info strong {
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 620px) {
+  .customer-admin-dialog-form > .customer-admin-dialog-body,
+  .customer-admin-dialog > .customer-admin-dialog-body {
+    padding: 17px;
+  }
+
+  .customer-admin-dialog-form > .customer-admin-dialog-actions,
+  .customer-admin-dialog > .customer-admin-dialog-actions {
+    padding-inline: 17px;
+  }
+}
+
+@media (max-width: 360px) {
+  .admin-shell.admin-redesign .customer-mobile-card-info {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

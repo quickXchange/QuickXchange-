@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useLocation, useParams } from 'wouter';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import * as TabsPrimitive from '@radix-ui/react-tabs';
@@ -81,6 +81,12 @@ export function AdminCustomerProfile() {
   // Forms
   const [editForm, setEditForm] = useState({ firstName: '', lastName: '', country: '', role: '', customReferralCode: '', referralRate: '' });
   const [passwordForm, setPasswordForm] = useState({ password: '', confirm: '' });
+  const [passwordConfirmStep, setPasswordConfirmStep] = useState(false);
+  const [editError, setEditError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const editInFlight = useRef(false);
+  const passwordInFlight = useRef(false);
+  const confirmInFlight = useRef(false);
 
   const [actionNotice, setActionNotice] = useState<{ kind: 'success' | 'error', text: string } | null>(null);
 
@@ -90,6 +96,7 @@ export function AdminCustomerProfile() {
 
   const handleEditOpen = () => {
     if (customer) {
+      setEditError('');
       setEditForm({
         firstName: customer.firstName || '',
         lastName: customer.lastName || '',
@@ -104,13 +111,16 @@ export function AdminCustomerProfile() {
 
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (editInFlight.current) return;
+    editInFlight.current = true;
+    setEditError('');
     setActionNotice(null);
     updateMutation.mutate({
       id,
       data: {
-        firstName: editForm.firstName || undefined,
-        lastName: editForm.lastName || undefined,
-        country: editForm.country || undefined,
+        firstName: editForm.firstName.trim(),
+        lastName: editForm.lastName.trim(),
+        country: editForm.country.trim(),
         role: editForm.role || undefined,
         referralCode: editForm.customReferralCode && editForm.customReferralCode !== customer?.affiliateCode
           ? editForm.customReferralCode.toUpperCase()
@@ -120,44 +130,68 @@ export function AdminCustomerProfile() {
           : undefined,
       }
     }, {
-      onSuccess: () => {
+      onSuccess: (updated) => {
+        queryClient.setQueryData(getGetAdminCustomerQueryKey(id), updated);
         setEditOpen(false);
         invalidateQueries();
         setActionNotice({ kind: 'success', text: t('adminCustomer.updateSuccess') });
       },
-      onError: (err) => setActionNotice({ kind: 'error', text: apiErrorText(err, t('adminCustomer.updateError')) })
+      onError: (err) => setEditError(apiErrorText(err, t('adminCustomer.updateError'))),
+      onSettled: () => { editInFlight.current = false; },
     });
   };
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setActionNotice(null);
+    if (passwordInFlight.current) return;
+    setPasswordError('');
     if (passwordForm.password !== passwordForm.confirm) {
-      setActionNotice({ kind: 'error', text: t('adminCustomer.passwordMismatch') });
+      setPasswordError(t('adminCustomer.passwordMismatch'));
       return;
     }
     if (passwordForm.password.length < 12) {
-      setActionNotice({ kind: 'error', text: t('adminCustomer.passwordLength') });
+      setPasswordError(t('adminCustomer.passwordLength'));
       return;
     }
+    if (!passwordConfirmStep) {
+      setPasswordConfirmStep(true);
+      return;
+    }
+    passwordInFlight.current = true;
+    setActionNotice(null);
     resetPasswordMutation.mutate({ id, data: { temporaryPassword: passwordForm.password } }, {
       onSuccess: () => {
         setPasswordOpen(false);
+        setPasswordConfirmStep(false);
         setPasswordForm({ password: '', confirm: '' });
+        invalidateQueries();
         setActionNotice({ kind: 'success', text: t('adminCustomer.passwordSuccess') });
       },
-      onError: (err) => setActionNotice({ kind: 'error', text: apiErrorText(err, t('adminCustomer.passwordError')) })
+      onError: (err) => setPasswordError(apiErrorText(err, t('adminCustomer.passwordError'))),
+      onSettled: () => { passwordInFlight.current = false; },
     });
   };
 
   const handleConfirmEmail = () => {
+    if (confirmInFlight.current || customer?.emailVerified) return;
+    confirmInFlight.current = true;
     setActionNotice(null);
     confirmEmailMutation.mutate({ id }, {
-      onSuccess: () => {
-        invalidateQueries();
-        setActionNotice({ kind: 'success', text: t('adminCustomer.emailSuccess') });
+      onSuccess: async () => {
+        try {
+          const refreshed = await customerQuery.refetch();
+          invalidateQueries();
+          setActionNotice(refreshed.data?.emailVerified
+            ? { kind: 'success', text: t('adminCustomer.emailSuccess') }
+            : { kind: 'error', text: t('adminCustomer.emailError') });
+        } finally {
+          confirmInFlight.current = false;
+        }
       },
-      onError: (err) => setActionNotice({ kind: 'error', text: apiErrorText(err, t('adminCustomer.emailError')) })
+      onError: (err) => {
+        confirmInFlight.current = false;
+        setActionNotice({ kind: 'error', text: apiErrorText(err, t('adminCustomer.emailError')) });
+      },
     });
   };
 
@@ -261,7 +295,7 @@ export function AdminCustomerProfile() {
                      {t('adminCustomer.markEmailConfirmed')}
                   </button>
                 )}
-                <button className="button customer-profile-action customer-profile-action--reset" onClick={() => setPasswordOpen(true)} data-testid="action-reset-password">
+                <button className="button customer-profile-action customer-profile-action--reset" onClick={() => { setPasswordError(''); setPasswordConfirmStep(false); setPasswordForm({ password: '', confirm: '' }); setPasswordOpen(true); }} data-testid="action-reset-password">
                   <RotateCcw size={12} className="mr-1.5" /> {t('adminCustomer.resetPassword')}
                 </button>
                 <button className="button customer-profile-action customer-profile-action--edit" onClick={handleEditOpen} data-testid="action-edit-profile">
@@ -520,7 +554,7 @@ export function AdminCustomerProfile() {
       </div>
 
       {/* Edit Customer Dialog */}
-      <DialogPrimitive.Root open={editOpen} onOpenChange={setEditOpen}>
+       <DialogPrimitive.Root open={editOpen} onOpenChange={(open) => { if (!updateMutation.isPending) setEditOpen(open); }}>
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="customer-admin-dialog-overlay" />
           <DialogPrimitive.Content className="customer-admin-dialog customer-edit-dialog">
@@ -532,12 +566,14 @@ export function AdminCustomerProfile() {
                   <DialogPrimitive.Description>{t('adminCustomer.editCustomerDescription')} </DialogPrimitive.Description>
                 </div>
               </div>
-              <DialogPrimitive.Close className="customer-admin-dialog-close" aria-label={t('adminCustomer.closeEdit')}>
+               <DialogPrimitive.Close className="customer-admin-dialog-close" disabled={updateMutation.isPending} aria-label={t('adminCustomer.closeEdit')}>
                 <X size={17} />
               </DialogPrimitive.Close>
             </div>
 
-            <form onSubmit={handleEditSubmit} className="customer-admin-dialog-form">
+             <form onSubmit={handleEditSubmit} className="customer-admin-dialog-form">
+               <div className="customer-admin-dialog-body">
+               {editError && <InlineNotice kind="error" onDismiss={() => setEditError('')}>{editError}</InlineNotice>}
               <div className="customer-edit-grid">
                 <div className="customer-dialog-field">
                   <label htmlFor="edit-firstname">{t('adminCustomer.firstName')} </label>
@@ -624,6 +660,7 @@ export function AdminCustomerProfile() {
                   </div>
                 </div>
               </section>
+               </div>
 
               <div className="customer-admin-dialog-actions">
                 <DialogPrimitive.Close asChild>
@@ -640,7 +677,11 @@ export function AdminCustomerProfile() {
       </DialogPrimitive.Root>
 
       {/* Password Reset Dialog */}
-      <DialogPrimitive.Root open={passwordOpen} onOpenChange={setPasswordOpen}>
+       <DialogPrimitive.Root open={passwordOpen} onOpenChange={(open) => {
+         if (resetPasswordMutation.isPending) return;
+         setPasswordOpen(open);
+         if (!open) { setPasswordForm({ password: '', confirm: '' }); setPasswordConfirmStep(false); setPasswordError(''); }
+       }}>
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="customer-admin-dialog-overlay" />
           <DialogPrimitive.Content className="customer-admin-dialog customer-password-dialog">
@@ -652,17 +693,19 @@ export function AdminCustomerProfile() {
                   <DialogPrimitive.Description>{t('adminCustomer.resetPasswordDescription')} </DialogPrimitive.Description>
                 </div>
               </div>
-              <DialogPrimitive.Close className="customer-admin-dialog-close" aria-label={t('adminCustomer.closeReset')}>
+               <DialogPrimitive.Close className="customer-admin-dialog-close" disabled={resetPasswordMutation.isPending} aria-label={t('adminCustomer.closeReset')}>
                 <X size={17} />
               </DialogPrimitive.Close>
             </div>
 
             <form onSubmit={handlePasswordSubmit} className="customer-admin-dialog-form">
               <div className="customer-admin-dialog-body space-y-4">
+                {passwordError && <InlineNotice kind="error" onDismiss={() => setPasswordError('')}>{passwordError}</InlineNotice>}
                 <p className="text-sm text-muted-foreground">
-                {t('adminCustomer.resetPasswordHelp')}
+                {passwordConfirmStep ? t('adminCustomer.resetPasswordDescription') : t('adminCustomer.resetPasswordHelp')}
                 </p>
 
+                {!passwordConfirmStep && <>
                 <div className="customer-dialog-field">
                   <label htmlFor="reset-password">{t('adminCustomer.newPassword')} </label>
                   <input
@@ -671,7 +714,7 @@ export function AdminCustomerProfile() {
                     required
                     className="customer-dialog-control font-mono"
                     value={passwordForm.password}
-                    onChange={(e) => setPasswordForm(f => ({ ...f, password: e.target.value }))}
+                     onChange={(e) => { setPasswordConfirmStep(false); setPasswordForm(f => ({ ...f, password: e.target.value })); }}
                     data-testid="input-reset-password"
                   />
                 </div>
@@ -683,19 +726,25 @@ export function AdminCustomerProfile() {
                     required
                     className="customer-dialog-control font-mono"
                     value={passwordForm.confirm}
-                    onChange={(e) => setPasswordForm(f => ({ ...f, confirm: e.target.value }))}
+                     onChange={(e) => { setPasswordConfirmStep(false); setPasswordForm(f => ({ ...f, confirm: e.target.value })); }}
                     data-testid="input-reset-confirm"
                   />
                 </div>
+                </>}
+                {passwordConfirmStep && <div className="customer-password-confirmation" role="status">
+                  <strong>{customer?.email}</strong>
+                  <span>{t('adminCustomer.resetPasswordHelp')}</span>
+                </div>}
               </div>
 
               <div className="customer-admin-dialog-actions">
+                {passwordConfirmStep && <button type="button" className="button customer-dialog-secondary" disabled={resetPasswordMutation.isPending} onClick={() => setPasswordConfirmStep(false)} data-testid="button-back-reset">{t('common.back')}</button>}
                 <DialogPrimitive.Close asChild>
                   <button type="button" className="button customer-dialog-secondary" disabled={resetPasswordMutation.isPending} data-testid="button-cancel-reset">{t('adminCustomer.cancel')} </button>
                 </DialogPrimitive.Close>
-                <button type="submit" className="button customer-dialog-primary" disabled={resetPasswordMutation.isPending || !passwordForm.password || !passwordForm.confirm} data-testid="button-submit-reset">
+                <button type="submit" className="button customer-dialog-primary" disabled={resetPasswordMutation.isPending || (!passwordConfirmStep && (!passwordForm.password || !passwordForm.confirm))} data-testid="button-submit-reset">
                   {resetPasswordMutation.isPending ? <Loader2 size={16} className="animate-spin mr-2" /> : <RotateCcw size={16} className="mr-2" />}
-                  {t('adminCustomer.setPassword')}
+                  {passwordConfirmStep ? t('adminCustomer.setPassword') : t('common.continue')}
                 </button>
               </div>
             </form>

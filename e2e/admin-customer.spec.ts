@@ -53,6 +53,7 @@ test.describe('Admin Customer Profile', () => {
   test.beforeEach(async ({ page }) => {
     await page.route('**/api/healthz', async route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ status: 'ok' }) }));
     await page.route('**/api/exchange/config', async route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ assets: [], fiatCurrencies: [], settlementOptions: [], manualRouteAvailability: { available: true, routes: [], unavailableMessage: null }, providers: [], feePercent: 0 }) }));
+    await page.route('**/api/account/affiliate/attribution', async route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ status: 'no_referral' }) }));
     await page.route(/\/api\/admin\/customers/, async (route) => {
       const url = route.request().url();
       if (url.includes('/referrals')) {
@@ -118,6 +119,84 @@ test.describe('Admin Customer Profile', () => {
     await page.click('data-testid=button-cancel-suspend');
     
     await expect(page.locator('data-testid=button-confirm-suspend')).toBeHidden();
+  });
+
+  test('Users directory keeps information reachable at desktop, tablet and mobile widths', async ({ page }) => {
+    for (const width of [1280, 960, 768, 390, 320]) {
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto('/admin/customers');
+      const row = page.getByTestId('row-customer-CUST-123');
+      const card = page.getByTestId('user-card-CUST-123');
+      if (width <= 820) {
+        await expect(card).toBeVisible();
+        await expect(card).toContainText('test@example.com');
+        await expect(row).toBeHidden();
+      } else {
+        await expect(row).toBeVisible();
+        await expect(card).toBeHidden();
+      }
+      const geometry = await page.evaluate(() => ({
+        documentWidth: document.documentElement.scrollWidth,
+        viewportWidth: innerWidth,
+      }));
+      expect(geometry.documentWidth).toBeLessThanOrEqual(geometry.viewportWidth + 1);
+    }
+    await page.getByTestId('user-card-CUST-123').click();
+    await expect(page).toHaveURL('/admin/customers/CUST-123');
+  });
+
+  test('edit and password dialogs keep their controls reachable on smaller screens', async ({ page }) => {
+    let resets = 0;
+    await page.route('**/api/admin/customers/CUST-123/password-reset', async route => {
+      resets++;
+      await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ id: 'CUST-123', action: 'password_reset', accountStatus: 'active', refreshedAt: new Date().toISOString() }) });
+    });
+    for (const width of [1024, 768, 390, 320]) {
+      await page.setViewportSize({ width, height: 680 });
+      await page.goto('/admin/customers/CUST-123');
+      await page.getByTestId('action-edit-profile').click();
+      await expect(page.getByTestId('button-save-edit')).toBeInViewport();
+      const edit = await page.locator('.customer-edit-dialog').boundingBox();
+      expect(edit!.x).toBeGreaterThanOrEqual(0);
+      expect(edit!.x + edit!.width).toBeLessThanOrEqual(width + 1);
+      await page.getByTestId('button-cancel-edit').click();
+      await page.getByTestId('action-reset-password').click();
+      await page.getByTestId('input-reset-password').fill('newpassword123');
+      await page.getByTestId('input-reset-confirm').fill('newpassword123');
+      await page.getByTestId('button-submit-reset').click();
+      await expect(page.getByTestId('button-back-reset')).toBeVisible();
+      expect(resets).toBe(0);
+      await expect(page.getByTestId('button-submit-reset')).toBeInViewport();
+      if (width === 320) {
+        await page.getByTestId('button-submit-reset').click();
+        await expect(page.getByTestId('button-submit-reset')).toBeHidden();
+        expect(resets).toBe(1);
+      } else {
+        await page.getByTestId('button-cancel-reset').click();
+      }
+    }
+  });
+
+  test('email confirmation changes status only after proof is reflected by the API', async ({ page }) => {
+    let confirmed = false;
+    let submissions = 0;
+    await page.route(/\/api\/admin\/customers\/CUST-123(?:\/email-confirm)?(?:\?.*)?$/, async route => {
+      if (route.request().method() === 'POST') {
+        submissions++;
+        confirmed = true;
+        await route.fulfill({ contentType: 'application/json', body: JSON.stringify({
+          id: 'CUST-123', action: 'email_confirm', accountStatus: 'active', refreshedAt: new Date().toISOString(),
+        }) });
+      } else {
+        await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ...mockCustomer, emailVerified: confirmed }) });
+      }
+    });
+    await page.goto('/admin/customers/CUST-123');
+    await expect(page.locator('.customer-profile-badge--unconfirmed')).toBeVisible();
+    await page.getByTestId('action-confirm-email').click();
+    await expect(page.locator('.customer-profile-badge--confirmed')).toBeVisible();
+    await expect(page.getByTestId('action-confirm-email')).toBeHidden();
+    expect(submissions).toBe(1);
   });
 
   test('User Details Danger Zone stays usable on desktop and mobile', async ({ page }) => {

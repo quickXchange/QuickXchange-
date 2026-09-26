@@ -6199,7 +6199,8 @@ function AdminCustomers() {
       </div>
     </div>
     <div className="admin-customer-area panel customers-panel rise-in">
-      {customers.isError ? <ErrorState message={t('adminCore.load_customers_error')} retry={() => customers.refetch()} /> : customers.isLoading ? <LoadingBlock rows={6} /> : !customers.data?.items.length ? <div className="table-empty" data-testid="empty-customers"><Users size={20} /><strong>{t('adminCore.no_customers_found')}</strong></div> : <div className="w-full relative group">
+      {customers.isError ? <ErrorState message={t('adminCore.load_customers_error')} retry={() => customers.refetch()} /> : customers.isLoading ? <LoadingBlock rows={6} /> : !customers.data?.items.length ? <div className="table-empty" data-testid="empty-customers"><Users size={20} /><strong>{t('adminCore.no_customers_found')}</strong></div> : <>
+      <div className="w-full relative group customer-desktop-table">
         <div className="swipeable-scroll-hint" aria-hidden="true" />
         <div className="table-wrap" onScroll={(e) => {
           const target = e.target as HTMLElement;
@@ -6232,7 +6233,27 @@ function AdminCustomers() {
         </tr>)}</tbody>
       </table>
         </div>
-      </div>}
+      </div>
+      <div className="customer-list-cards" data-testid="users-mobile-cards">
+        {customers.data.items.map((customer) => <button
+          type="button"
+          className="customer-mobile-card"
+          key={customer.id}
+          onClick={() => setLocation(`/admin/customers/${encodeURIComponent(customer.id)}`)}
+          data-testid={`user-card-${customer.id}`}
+        >
+          <span className="customer-mobile-card-header">
+            <span className="customer-cell"><span className="avatar">{customer.name?.slice(0, 1) || customer.email.slice(0, 1).toUpperCase()}</span><span><strong>{customer.name || customer.email}</strong><small>{customer.name ? customer.email : t('adminCore.no_name_provided')}</small></span></span>
+            <StatusPill status={customer.status || 'Active'} />
+          </span>
+          <span className="customer-mobile-card-info">
+            <span><small>{t('adminCore.orders')}</small><strong>{number(customer.ordersCount, 0)}</strong></span>
+            <span><small>{t('adminCore.volume')}</small><strong>{money(customer.volume)}</strong></span>
+            <span><small>{t('adminCore.last_activity')}</small><strong>{ago(customer.lastActivity)}</strong></span>
+          </span>
+        </button>)}
+      </div>
+      </>}
       <div className="panel-footer"><span>{t('adminCore.showing')}{customers.data?.total || 0} {t('adminCore.records')}</span></div>
     </div>
   </AdminShell>;
