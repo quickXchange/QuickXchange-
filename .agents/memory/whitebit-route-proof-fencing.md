@@ -32,3 +32,9 @@ Keep canonical route identifiers independent of WhiteBIT's asset and deposit-net
 **Why:** In a full Development catalog review, Bitcoin and other legitimate routes used different provider network codes, while some assets advertised several plausible networks. Blind alias inference could provision on the wrong chain; treating a saved mapping as readiness would bypass permission verification.
 
 **How to apply:** Preserve canonical codes and keep monitoring identity separate. Fence active Customer Deposits while editing provider identities, invalidate route permission evidence on any mapping change, and compare a frozen quote mapping with the locked route before provisioning. Mapping review and saving must not create an address.
+
+Before advising an Owner that a Production route can be enabled, inspect the proof array in Production for that exact route ID after all configuration saves, not merely the provider's global switch or a matching proof in Development. Recheck after any receiving-wallet or mapping edit. Even an implicit canonical mapping changed to explicit identical codes can remove the old exact-route proof while leaving the global switch administratively on.
+
+**Why:** Proofs live in each environment's separate provider settings, and a mapping write can eagerly prune a route's proof. A provider-level proof for another asset does not authorize this route. An earlier point-in-time readiness assessment therefore does not survive a later mapping save.
+
+**How to apply:** Compare the Production proof's route ID, canonical asset/network codes, configuration digest, and active credential fingerprint against the current Production route. Distinguish the stored provider on/off flag from runtime readiness. If the exact proof is absent, stop: code cannot safely recognize a proof that is not present, and a Development proof cannot silently cross the environment boundary.
