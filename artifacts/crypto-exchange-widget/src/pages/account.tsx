@@ -506,17 +506,21 @@ export function AccountPage() {
                     {loadedOrders.slice(0, 10).map(order => (
                           <tr key={order.id} className="hover:bg-muted/40 transition-colors" data-testid={`customer-order-${order.id}`}>
                             <td className="customer-order-route-cell px-5 py-4 whitespace-nowrap">
-                              <div className="customer-order-route flex items-center gap-2">
+                               <div className="customer-order-route">
                                 <OrderSettlementIdentity assetCode={order.fromAsset} routeLabel={order.fromNetwork} settlementOptionId={order.sourceSettlementOptionId} size="sm" compact className="customer-order-asset-identity" />
-                                <ArrowRight size={14} className="text-muted-foreground/60 shrink-0" />
+                                 <ArrowRight size={16} className="customer-order-route-arrow text-muted-foreground/60" />
                                 <OrderSettlementIdentity assetCode={order.toAsset} routeLabel={order.toNetwork} settlementOptionId={order.targetSettlementOptionId} size="sm" compact className="customer-order-asset-identity" />
                               </div>
                             </td>
-                            <td className="px-5 py-4 font-mono text-sm font-semibold whitespace-nowrap">
-                              <span>{number(order.amount)}</span> <span className="text-muted-foreground text-xs ml-0.5">{order.fromAsset}</span>
+                             <td className="customer-order-amount-cell px-5 py-4 font-mono text-sm font-semibold whitespace-nowrap">
+                               <span className="customer-order-amount-value" title={`${number(order.amount)} ${order.fromAsset}`}>
+                                 <span>{number(order.amount)}</span> <span className="text-muted-foreground text-xs ml-0.5">{order.fromAsset}</span>
+                               </span>
                             </td>
-                            <td className="px-5 py-4 font-mono text-sm font-bold text-foreground whitespace-nowrap">
-                              <span>{number(order.receiveAmount)}</span> <span className="text-muted-foreground text-xs ml-0.5">{order.toAsset}</span>
+                             <td className="customer-order-amount-cell px-5 py-4 font-mono text-sm font-bold text-foreground whitespace-nowrap">
+                               <span className="customer-order-amount-value" title={`${number(order.receiveAmount)} ${order.toAsset}`}>
+                                 <span>{number(order.receiveAmount)}</span> <span className="text-muted-foreground text-xs ml-0.5">{order.toAsset}</span>
+                               </span>
                             </td>
                             <td className="px-5 py-4 whitespace-nowrap">
                               <div className="scale-95 origin-left inline-block"><StatusPill status={order.status} customerFacing /></div>
@@ -682,17 +686,21 @@ export function AccountOrdersPage() {
                     {filteredItems?.map(order => (
                       <tr key={order.id} className="hover:bg-muted/30 transition-colors" data-testid={`customer-order-${order.id}`}>
                         <td className="customer-order-route-cell px-5 py-4 whitespace-nowrap">
-                          <div className="customer-order-route flex items-center gap-2">
+                           <div className="customer-order-route">
                             <OrderSettlementIdentity assetCode={order.fromAsset} routeLabel={order.fromNetwork} settlementOptionId={order.sourceSettlementOptionId} size="sm" compact className="customer-order-asset-identity" />
-                            <ArrowRight size={14} className="text-muted-foreground shrink-0" />
+                             <ArrowRight size={16} className="customer-order-route-arrow text-muted-foreground" />
                             <OrderSettlementIdentity assetCode={order.toAsset} routeLabel={order.toNetwork} settlementOptionId={order.targetSettlementOptionId} size="sm" compact className="customer-order-asset-identity" />
                           </div>
                         </td>
-                        <td className="px-5 py-4 font-mono text-sm font-semibold">
-                          <span>{number(order.amount)}</span> <span>{order.fromAsset}</span>
+                         <td className="customer-order-amount-cell px-5 py-4 font-mono text-sm font-semibold">
+                           <span className="customer-order-amount-value" title={`${number(order.amount)} ${order.fromAsset}`}>
+                             <span>{number(order.amount)}</span> <span>{order.fromAsset}</span>
+                           </span>
                         </td>
-                        <td className="px-5 py-4 font-mono text-sm font-semibold text-primary">
-                          <span>{number(order.receiveAmount)}</span> <span>{order.toAsset}</span>
+                         <td className="customer-order-amount-cell px-5 py-4 font-mono text-sm font-semibold text-primary">
+                           <span className="customer-order-amount-value" title={`${number(order.receiveAmount)} ${order.toAsset}`}>
+                             <span>{number(order.receiveAmount)}</span> <span>{order.toAsset}</span>
+                           </span>
                         </td>
                         <td className="px-5 py-4">
                           <StatusPill status={order.status} customerFacing />

@@ -362,7 +362,7 @@ test('customers can review, reload, inspect, and claim their orders', async ({ p
   expect(visibleRouteIdentity.labels.map(label => label.text)).toEqual(expect.arrayContaining(['BTC', 'Bitcoin', 'USDT', 'TRC20', 'Tether']));
   expect(visibleRouteIdentity.labels.every(label => label.textOverflow === 'clip')).toBe(true);
   expect(visibleRouteIdentity.labels.every(label => label.overflow === 'visible')).toBe(true);
-  expect(visibleRouteIdentity.labels.every(label => label.whiteSpace === 'nowrap')).toBe(true);
+  expect(visibleRouteIdentity.labels.every(label => label.whiteSpace === 'normal')).toBe(true);
   expect(visibleRouteIdentity.routeScrollWidth).toBeLessThanOrEqual(visibleRouteIdentity.routeClientWidth);
   await expect(page.getByText('0.250000000000000001', { exact: true })).toBeVisible();
   await expect(page.getByText('operator@example.test')).toHaveCount(0);
@@ -445,6 +445,110 @@ test('customers can review, reload, inspect, and claim their orders', async ({ p
   await expect(page.getByTestId('customer-order-detail')).toBeVisible();
   await expect(page.getByTestId('button-cancel-order')).toHaveCount(0);
   await expect(page.getByTestId('modal-cancel-order')).toHaveCount(0);
+});
+
+test('order history keeps exchange and amount tracks aligned across tabs and widths', async ({ page }, testInfo) => {
+  const sepaOption = {
+    ...settlementOptions[0],
+    id: 'fiat:eur-sepa-instant',
+    assetId: 'eur',
+    assetCode: 'EUR',
+    routeNetwork: 'SEPA Instant',
+    kind: 'fiat-payment-method',
+    title: 'SEPA Instant',
+  };
+  const swapOrders = [
+    {
+      ...existingOrder,
+      id: 'QX-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      type: 'manual',
+      fromAsset: 'USDT',
+      fromNetwork: 'TRC20',
+      sourceSettlementOptionId: 'crypto:usdt-trc20',
+      toAsset: 'EUR',
+      toNetwork: 'SEPA Instant',
+      targetSettlementOptionId: sepaOption.id,
+    },
+    {
+      ...existingOrder,
+      id: 'QX-bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      type: 'manual',
+      sourceSettlementOptionId: 'crypto:btc-bitcoin',
+      toAsset: 'EUR',
+      toNetwork: 'SEPA Instant',
+      targetSettlementOptionId: sepaOption.id,
+    },
+  ];
+  const items = [existingOrder, ...swapOrders];
+  await page.route('**/api/exchange/config', route => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify({
+      assets: [],
+      fiatCurrencies: [],
+      settlementOptions: [...settlementOptions, sepaOption],
+      manualSettlementOptions: [...settlementOptions, sepaOption],
+      instantSettlementOptions: [],
+      manualRouteAvailability: { available: false, routes: [], unavailableMessage: null },
+      providers: [],
+      feePercent: 0.5,
+    }),
+  }));
+  await page.route(/\/api\/account\/orders(?:\?|$)/, route => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify({ items, total: items.length, page: 1, pageSize: 15, refreshUnavailable: false }),
+  }));
+  await page.goto('/account/orders');
+  const table = page.getByTestId('customer-order-history');
+
+  for (const width of [1440, 1024, 768, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const [tab, expectedCount] of [['all', 3], ['swap', 2], ['convert', 1]] as const) {
+      await page.getByTestId(`tab-${tab}`).click();
+      await expect(table.locator('tbody tr')).toHaveCount(expectedCount);
+      const layout = await table.evaluate(element => {
+        const rows = Array.from(element.querySelectorAll<HTMLTableRowElement>('tbody tr'));
+        const rect = (node: Element) => node.getBoundingClientRect();
+        return {
+          tableDisplay: getComputedStyle(element).tableLayout,
+          pageOverflow: document.documentElement.scrollWidth > window.innerWidth,
+          scrollable: element.parentElement!.scrollWidth > element.parentElement!.clientWidth,
+          rows: rows.map(row => {
+            const route = row.querySelector<HTMLElement>('.customer-order-route')!;
+            const sides = Array.from(route.querySelectorAll<HTMLElement>(':scope > .customer-order-asset-identity'));
+            const arrow = route.querySelector<SVGElement>('.customer-order-route-arrow')!;
+            const amounts = Array.from(row.querySelectorAll<HTMLElement>('.customer-order-amount-cell'));
+            return {
+              columns: [rect(sides[0]).left, rect(arrow).left, rect(sides[1]).left, ...amounts.map(amount => rect(amount).left)],
+              routeWidth: rect(route).width,
+              routeOverflow: route.scrollWidth > route.clientWidth,
+              logos: sides.map(side => {
+                const logo = side.querySelector<HTMLElement>(':scope > :first-child')!;
+                const copy = side.querySelector<HTMLElement>(':scope > :last-child')!;
+                return { width: rect(logo).width, height: rect(logo).height, textWidth: rect(copy).width };
+              }),
+            };
+          }),
+        };
+      });
+      expect(layout.tableDisplay).toBe('fixed');
+      expect(layout.pageOverflow, `${width}px ${tab} page overflow`).toBe(false);
+      if (width < 1080) expect(layout.scrollable, `${width}px ${tab} horizontal table`).toBe(true);
+      for (const row of layout.rows) {
+        expect(row.routeWidth).toBe(352);
+        expect(row.routeOverflow).toBe(false);
+        expect(row.logos).toEqual([
+          { width: 28, height: 28, textWidth: 124 },
+          { width: 28, height: 28, textWidth: 124 },
+        ]);
+        for (let column = 0; column < row.columns.length; column++) {
+          expect(row.columns[column], `${width}px ${tab} aligned column ${column}`).toBeCloseTo(layout.rows[0].columns[column], 0);
+        }
+      }
+      if (width === 1440 && tab === 'all') {
+        await page.screenshot({ path: testInfo.outputPath('order-history-aligned-desktop.png') });
+      }
+    }
+  }
 });
 
 test('customer order details translate provider states into clear public progress labels', async ({ page }) => {
