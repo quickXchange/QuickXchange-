@@ -24049,6 +24049,19 @@ html:not(.dark) .order-deposit-network {
 }
 .customer-order-drawer-rate span { color: hsl(var(--muted-foreground)); }
 .customer-order-drawer-rate strong { min-width: 0; overflow-wrap: anywhere; }
+
+/* The shared warning badge uses dark foreground text, which disappears on dark order surfaces. */
+html:not(.dark) .customer-order-detail-page .badge-warning {
+  color: #7d450c;
+  background: #fff4db;
+  border-color: #d2a957;
+}
+.dark .customer-order-detail-page .badge-warning {
+  color: #ffd58d;
+  background: #3d2d17;
+  border-color: #a57232;
+}
+
 .customer-order-drawer .customer-order-detail-page > :is(.mb-8, .mb-6) { margin-bottom: 24px; }
 .customer-order-drawer .order-exchange-card { gap: 8px; padding: 12px; }
 .customer-order-drawer .order-exchange-side { padding: 6px; }
