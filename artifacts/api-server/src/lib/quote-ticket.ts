@@ -243,6 +243,60 @@ export function signQuoteTicket(ticket: QuoteTicket): string {
   return `${encoded}.${signature(encoded)}`;
 }
 
+function verifiedQuoteTicketPayload(quoteId: string): QuoteTicket {
+  const [encoded, supplied, extra] = quoteId.split(".");
+  if (!encoded || !supplied || extra) invalid("QUOTE_INVALID", "The quote ticket is invalid.");
+  const calculated = signature(encoded);
+  const suppliedBuffer = Buffer.from(supplied, "utf8");
+  const calculatedBuffer = Buffer.from(calculated, "utf8");
+  if (
+    suppliedBuffer.length !== calculatedBuffer.length ||
+    !timingSafeEqual(suppliedBuffer, calculatedBuffer)
+  ) {
+    invalid("QUOTE_INVALID", "The quote ticket is invalid.");
+  }
+  let value: unknown;
+  try {
+    value = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8"));
+  } catch {
+    invalid("QUOTE_INVALID", "The quote ticket is invalid.");
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    invalid("QUOTE_INVALID", "The quote ticket is invalid.");
+  }
+  const ticket = value as QuoteTicket;
+  if (
+    ![1, 2].includes(ticket.v) ||
+    !["instant", "manual"].includes(ticket.type) ||
+    ![ticket.fromAsset, ticket.fromNetwork, ticket.toAsset, ticket.toNetwork]
+      .every((entry) => typeof entry === "string" && entry.length > 0) ||
+    !Number.isFinite(ticket.amount) ||
+    !Number.isFinite(ticket.receiveAmount) ||
+    !Number.isFinite(ticket.rate) ||
+    !Number.isFinite(ticket.fee) ||
+    !Number.isFinite(ticket.expiresAt) ||
+    (ticket.rateMode !== undefined && !["FLOATING", "FIXED"].includes(ticket.rateMode)) ||
+    typeof ticket.provider !== "string" ||
+    ticket.provider.length === 0 ||
+    (ticket.requiredSettlementFields !== undefined &&
+      !validRequiredSettlementFields(ticket.requiredSettlementFields)) ||
+    (ticket.settlementSnapshot !== undefined &&
+      !validSettlementSnapshot(ticket.settlementSnapshot))
+  ) {
+    invalid("QUOTE_INVALID", "The quote ticket is invalid.");
+  }
+  return ticket;
+}
+
+/**
+ * Verifies a stored quote ticket only for projecting its original customer
+ * field labels. Unlike verifyQuoteTicket, this read-only path intentionally
+ * skips expiry and order matching; it must never authorize order creation.
+ */
+export function verifyQuoteTicketForHistory(quoteId: string): QuoteTicket {
+  return verifiedQuoteTicketPayload(quoteId);
+}
+
 function invalid(
   code: "QUOTE_INVALID" | "QUOTE_EXPIRED" | "QUOTE_MISMATCH",
   message: string,
@@ -344,42 +398,7 @@ export function verifyQuoteTicket(
      "sourceSettlementOptionId" | "targetSettlementOptionId"
   >,
 ): QuoteTicket {
-  const [encoded, supplied, extra] = quoteId.split(".");
-  if (!encoded || !supplied || extra) invalid("QUOTE_INVALID", "The quote ticket is invalid.");
-  const calculated = signature(encoded);
-  const suppliedBuffer = Buffer.from(supplied, "utf8");
-  const calculatedBuffer = Buffer.from(calculated, "utf8");
-  if (
-    suppliedBuffer.length !== calculatedBuffer.length ||
-    !timingSafeEqual(suppliedBuffer, calculatedBuffer)
-  ) {
-    invalid("QUOTE_INVALID", "The quote ticket is invalid.");
-  }
-  let value: unknown;
-  try {
-    value = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8"));
-  } catch {
-    invalid("QUOTE_INVALID", "The quote ticket is invalid.");
-  }
-  if (!value || typeof value !== "object") invalid("QUOTE_INVALID", "The quote ticket is invalid.");
-  const ticket = value as QuoteTicket;
-  if (ticket.requiredSettlementFields !== undefined &&
-    !validRequiredSettlementFields(ticket.requiredSettlementFields)) {
-    invalid("QUOTE_INVALID", "The quote contains invalid settlement field metadata.");
-  }
-  if (
-    ![1, 2].includes(ticket.v) ||
-    !["instant", "manual"].includes(ticket.type) ||
-    !Number.isFinite(ticket.amount) ||
-    !Number.isFinite(ticket.receiveAmount) ||
-    !Number.isFinite(ticket.rate) ||
-    !Number.isFinite(ticket.fee) ||
-    !Number.isFinite(ticket.expiresAt) ||
-    (ticket.rateMode !== undefined && !["FLOATING", "FIXED"].includes(ticket.rateMode)) ||
-    typeof ticket.provider !== "string"
-  ) {
-    invalid("QUOTE_INVALID", "The quote ticket is invalid.");
-  }
+  const ticket = verifiedQuoteTicketPayload(quoteId);
   if (ticket.expiresAt <= Date.now()) invalid("QUOTE_EXPIRED", "The quote has expired.");
   for (const field of ["type", "fromAsset", "fromNetwork", "toAsset", "toNetwork", "amount"] as const) {
     if (ticket[field] !== expected[field]) {

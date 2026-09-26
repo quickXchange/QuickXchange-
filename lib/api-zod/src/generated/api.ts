@@ -1216,6 +1216,11 @@ export const CreateExchangeOrderResponse = zod.object({
   "receiveAmount": zod.string().regex(createExchangeOrderResponseReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
   "customerEmail": zod.string(),
   "customerName": zod.string().optional(),
+  "step2Details": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "value": zod.string()
+})).optional(),
   "customerRegistered": zod.boolean().describe('True when the order is owned by a registered customer account.'),
   "destinationAddress": zod.string().optional(),
   "destinationMemo": zod.string().optional(),
@@ -1535,6 +1540,11 @@ export const GetOrdersResponse = zod.object({
   "receiveAmount": zod.string().regex(getOrdersResponseItemsItemReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
   "customerEmail": zod.string(),
   "customerName": zod.string().optional(),
+  "step2Details": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "value": zod.string()
+})).optional(),
   "customerRegistered": zod.boolean().describe('True when the order is owned by a registered customer account.'),
   "destinationAddress": zod.string().optional(),
   "destinationMemo": zod.string().optional(),
@@ -1841,6 +1851,11 @@ export const CreateOrderResponse = zod.object({
   "receiveAmount": zod.string().regex(createOrderResponseReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
   "customerEmail": zod.string(),
   "customerName": zod.string().optional(),
+  "step2Details": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "value": zod.string()
+})).optional(),
   "customerRegistered": zod.boolean().describe('True when the order is owned by a registered customer account.'),
   "destinationAddress": zod.string().optional(),
   "destinationMemo": zod.string().optional(),
@@ -2120,6 +2135,11 @@ export const BulkUpdateOrderStatusResponse = zod.object({
   "receiveAmount": zod.string().regex(bulkUpdateOrderStatusResponseResultsItemOrderReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
   "customerEmail": zod.string(),
   "customerName": zod.string().optional(),
+  "step2Details": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "value": zod.string()
+})).optional(),
   "customerRegistered": zod.boolean().describe('True when the order is owned by a registered customer account.'),
   "destinationAddress": zod.string().optional(),
   "destinationMemo": zod.string().optional(),
@@ -2405,6 +2425,11 @@ export const BulkArchiveOrdersResponse = zod.object({
   "receiveAmount": zod.string().regex(bulkArchiveOrdersResponseResultsItemOrderReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
   "customerEmail": zod.string(),
   "customerName": zod.string().optional(),
+  "step2Details": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "value": zod.string()
+})).optional(),
   "customerRegistered": zod.boolean().describe('True when the order is owned by a registered customer account.'),
   "destinationAddress": zod.string().optional(),
   "destinationMemo": zod.string().optional(),
@@ -2689,6 +2714,11 @@ export const PermanentlyDeleteOrdersResponse = zod.object({
   "receiveAmount": zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
   "customerEmail": zod.string(),
   "customerName": zod.string().optional(),
+  "step2Details": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "value": zod.string()
+})).optional(),
   "customerRegistered": zod.boolean().describe('True when the order is owned by a registered customer account.'),
   "destinationAddress": zod.string().optional(),
   "destinationMemo": zod.string().optional(),
@@ -3074,6 +3104,11 @@ export const GetOrderResponse = zod.object({
   "receiveAmount": zod.string().regex(getOrderResponseReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
   "customerEmail": zod.string(),
   "customerName": zod.string().optional(),
+  "step2Details": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "value": zod.string()
+})).optional(),
   "customerRegistered": zod.boolean().describe('True when the order is owned by a registered customer account.'),
   "destinationAddress": zod.string().optional(),
   "destinationMemo": zod.string().optional(),
@@ -3381,6 +3416,11 @@ export const UpdateOrderResponse = zod.object({
   "receiveAmount": zod.string().regex(updateOrderResponseReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
   "customerEmail": zod.string(),
   "customerName": zod.string().optional(),
+  "step2Details": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "value": zod.string()
+})).optional(),
   "customerRegistered": zod.boolean().describe('True when the order is owned by a registered customer account.'),
   "destinationAddress": zod.string().optional(),
   "destinationMemo": zod.string().optional(),
@@ -3584,6 +3624,11 @@ export const MarkOrderPaidResponse = zod.object({
   "receiveAmount": zod.string().regex(markOrderPaidResponseReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
   "refundAddress": zod.string().optional(),
   "refundMemo": zod.string().optional(),
+  "step2Details": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "value": zod.string()
+})).optional(),
   "rateMode": zod.enum(['FLOATING', 'FIXED']).optional(),
   "outcomeUnknown": zod.boolean(),
   "refreshUnavailable": zod.boolean(),
@@ -3688,6 +3733,11 @@ export const CancelCustomerOrderResponse = zod.object({
   "receiveAmount": zod.string().regex(cancelCustomerOrderResponseReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
   "refundAddress": zod.string().optional(),
   "refundMemo": zod.string().optional(),
+  "step2Details": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "value": zod.string()
+})).optional(),
   "rateMode": zod.enum(['FLOATING', 'FIXED']).optional(),
   "outcomeUnknown": zod.boolean(),
   "refreshUnavailable": zod.boolean(),
@@ -3862,6 +3912,11 @@ export const AssignOrderResponse = zod.object({
   "receiveAmount": zod.string().regex(assignOrderResponseReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
   "customerEmail": zod.string(),
   "customerName": zod.string().optional(),
+  "step2Details": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "value": zod.string()
+})).optional(),
   "customerRegistered": zod.boolean().describe('True when the order is owned by a registered customer account.'),
   "destinationAddress": zod.string().optional(),
   "destinationMemo": zod.string().optional(),
@@ -4154,6 +4209,11 @@ export const UpdateOrderSupportToolsResponse = zod.object({
   "receiveAmount": zod.string().regex(updateOrderSupportToolsResponseReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
   "customerEmail": zod.string(),
   "customerName": zod.string().optional(),
+  "step2Details": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "value": zod.string()
+})).optional(),
   "customerRegistered": zod.boolean().describe('True when the order is owned by a registered customer account.'),
   "destinationAddress": zod.string().optional(),
   "destinationMemo": zod.string().optional(),
@@ -4425,6 +4485,11 @@ export const ArchiveOrderResponse = zod.object({
   "receiveAmount": zod.string().regex(archiveOrderResponseReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
   "customerEmail": zod.string(),
   "customerName": zod.string().optional(),
+  "step2Details": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "value": zod.string()
+})).optional(),
   "customerRegistered": zod.boolean().describe('True when the order is owned by a registered customer account.'),
   "destinationAddress": zod.string().optional(),
   "destinationMemo": zod.string().optional(),
@@ -4696,6 +4761,11 @@ export const RestoreOrderResponse = zod.object({
   "receiveAmount": zod.string().regex(restoreOrderResponseReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
   "customerEmail": zod.string(),
   "customerName": zod.string().optional(),
+  "step2Details": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "value": zod.string()
+})).optional(),
   "customerRegistered": zod.boolean().describe('True when the order is owned by a registered customer account.'),
   "destinationAddress": zod.string().optional(),
   "destinationMemo": zod.string().optional(),
@@ -4930,6 +5000,11 @@ export const GetCustomerOrdersResponse = zod.object({
   "receiveAmount": zod.string().regex(getCustomerOrdersResponseItemsItemReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
   "refundAddress": zod.string().optional(),
   "refundMemo": zod.string().optional(),
+  "step2Details": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "value": zod.string()
+})).optional(),
   "rateMode": zod.enum(['FLOATING', 'FIXED']).optional(),
   "outcomeUnknown": zod.boolean(),
   "refreshUnavailable": zod.boolean(),
@@ -5095,6 +5170,11 @@ export const ClaimCustomerOrderResponse = zod.object({
   "receiveAmount": zod.string().regex(claimCustomerOrderResponseReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
   "refundAddress": zod.string().optional(),
   "refundMemo": zod.string().optional(),
+  "step2Details": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "value": zod.string()
+})).optional(),
   "rateMode": zod.enum(['FLOATING', 'FIXED']).optional(),
   "outcomeUnknown": zod.boolean(),
   "refreshUnavailable": zod.boolean(),
@@ -5190,6 +5270,11 @@ export const GetCustomerOrderResponse = zod.object({
   "receiveAmount": zod.string().regex(getCustomerOrderResponseReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
   "refundAddress": zod.string().optional(),
   "refundMemo": zod.string().optional(),
+  "step2Details": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "value": zod.string()
+})).optional(),
   "rateMode": zod.enum(['FLOATING', 'FIXED']).optional(),
   "outcomeUnknown": zod.boolean(),
   "refreshUnavailable": zod.boolean(),
@@ -10263,6 +10348,11 @@ export const ReconcileOrderResponse = zod.object({
   "receiveAmount": zod.string().regex(reconcileOrderResponseOrderReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
   "customerEmail": zod.string(),
   "customerName": zod.string().optional(),
+  "step2Details": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "value": zod.string()
+})).optional(),
   "customerRegistered": zod.boolean().describe('True when the order is owned by a registered customer account.'),
   "destinationAddress": zod.string().optional(),
   "destinationMemo": zod.string().optional(),
@@ -11200,6 +11290,11 @@ export const CreateQuickexOrderResponse = zod.object({
   "receiveAmount": zod.string().regex(createQuickexOrderResponseReceiveAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
   "customerEmail": zod.string(),
   "customerName": zod.string().optional(),
+  "step2Details": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "value": zod.string()
+})).optional(),
   "customerRegistered": zod.boolean().describe('True when the order is owned by a registered customer account.'),
   "destinationAddress": zod.string().optional(),
   "destinationMemo": zod.string().optional(),

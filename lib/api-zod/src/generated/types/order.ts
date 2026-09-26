@@ -18,6 +18,7 @@ import type { OrderSettlementSnapshot } from './orderSettlementSnapshot';
 import type { OrderSupportStatus } from './orderSupportStatus';
 import type { QuickexRateMode } from './quickexRateMode';
 import type { SourcePaymentMethod } from './sourcePaymentMethod';
+import type { Step2CustomerDetail } from './step2CustomerDetail';
 import type { VerifiedFundingTransaction } from './verifiedFundingTransaction';
 
 export interface Order {
@@ -60,6 +61,7 @@ export interface Order {
   receiveAmount: ExactDecimal;
   customerEmail: string;
   customerName?: string;
+  step2Details?: Step2CustomerDetail[];
   /** True when the order is owned by a registered customer account. */
   customerRegistered: boolean;
   destinationAddress?: string;

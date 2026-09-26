@@ -29,7 +29,7 @@ import { ExchangeModeSwitcher } from '@/components/exchange-surface';
 import { convertOrderStatusStep } from '@/lib/convert-order-status';
 import { OrderCompletionSection } from '@/components/order-completion';
 import { VerifiedTransaction } from '@/components/verified-transaction';
-import { isCustomerViewOrderPaymentDetail, viewOrderInformationRows, viewOrderPaymentDetailLabel } from '@/components/view-order-fields';
+import { viewOrderInformationRows, viewOrderStep2Rows } from '@/components/view-order-fields';
 
 type CustomerStatusGroup = 'pending' | 'processing' | 'completed' | 'failed';
 
@@ -905,57 +905,32 @@ function InlineCopy({
   );
 }
 
-function detailValue(value: unknown): string | null {
-  if (value === null || value === undefined) return null;
-  if (typeof value === 'string') return value.trim() || null;
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  try {
-    const serialized = JSON.stringify(value);
-    return serialized === '{}' || serialized === '[]' ? null : serialized;
-  } catch {
-    return null;
-  }
-}
-
 function shortenDetailValue(value: string): string {
   if (value.length <= 30) return value;
   return `${value.slice(0, 11)}…${value.slice(-8)}`;
 }
 
-function customerPaymentRows(
-  fundingDetails?: Record<string, unknown>,
-  settlementDetails?: Record<string, unknown>,
-) {
-  return [
-    ...Object.entries(fundingDetails ?? {}).map(([key, value]) => ({ id: `funding-${key}`, key, value: detailValue(value) })),
-    ...Object.entries(settlementDetails ?? {}).map(([key, value]) => ({ id: `settlement-${key}`, key, value: detailValue(value) })),
-  ].filter((entry): entry is { id: string; key: string; value: string } =>
-    entry.value !== null && isCustomerViewOrderPaymentDetail(entry.key));
-}
-
-function TransactionDetails({ entries }: {
-  entries: { id: string; key: string; value: string }[];
+function CustomerStep2Details({ entries }: {
+  entries: { key: string; label: string; value: string }[];
 }) {
-  if (entries.length === 0) return null;
-
   return (
-    <section className="customer-card order-transaction-card mb-6" data-testid="transaction-details">
+    <div className="customer-card order-transaction-card mb-6" data-testid="customer-step2-details">
       <div className="grid grid-cols-1 gap-y-5 gap-x-6 sm:grid-cols-2 lg:grid-cols-3">
         {entries.map((entry) => (
-          <div key={entry.id} className="flex min-w-0 flex-col gap-1.5">
+          <div key={entry.key} className="flex min-w-0 flex-col gap-1.5">
               <span className="truncate text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                {viewOrderPaymentDetailLabel(entry.key)}
+                {entry.label}
               </span>
             <div className="order-transaction-value">
               <strong className="min-w-0 flex-1 truncate font-mono text-xs" title={entry.value}>
                 {shortenDetailValue(entry.value)}
               </strong>
-                <InlineCopy text={entry.value} label={viewOrderPaymentDetailLabel(entry.key)} />
+                <InlineCopy text={entry.value} label={entry.label} />
             </div>
           </div>
         ))}
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -1122,11 +1097,7 @@ function CustomerOrderView({ order, drawer = false }: { order: CustomerOrder; dr
     ['Created At', formatDate(order.createdAt, { dateStyle: 'medium', timeStyle: 'short' })],
     ['Rate', order.exchangeRate ? `1 ${order.fromAsset} = ${number(order.exchangeRate)} ${order.toAsset}` : 'Not available'],
   ]);
-  const paymentRows = customerPaymentRows({
-    ...order.fundingDetails,
-    transactionHash: order.transactionHash || order.fundingDetails?.transactionHash,
-    paymentReference: order.paymentReference || order.fundingDetails?.paymentReference,
-  }, order.settlementDetails);
+  const step2Rows = viewOrderStep2Rows(order.step2Details);
 
   return (
     <div className="customer-order-detail-page w-full" data-testid="customer-order-detail">
@@ -1204,13 +1175,27 @@ function CustomerOrderView({ order, drawer = false }: { order: CustomerOrder; dr
 
       <section className="mb-8" data-testid="customer-additional-payment-details">
         <h3 className="customer-order-drawer-section-title">Additional Payment Details</h3>
-        {order.type === 'manual' && order.verifiedFundingTransaction && (
-          <div className="mb-6">
-            <VerifiedTransaction transaction={order.verifiedFundingTransaction} />
-          </div>
-        )}
-        <TransactionDetails entries={paymentRows} />
-        {order.paymentDetailsApplicable && (
+        {step2Rows.length > 0
+          ? <CustomerStep2Details entries={step2Rows} />
+          : <p className="customer-card mb-6 text-sm text-muted-foreground">No Step 2 details saved for this order.</p>}
+      </section>
+
+      {(order.verifiedFundingTransaction || (order.type !== 'manual' && order.transactionHash)) && (
+        <section className="mb-8" data-testid="customer-transaction-details">
+          <h3 className="customer-order-drawer-section-title">Transaction Details</h3>
+          {order.verifiedFundingTransaction
+            ? <VerifiedTransaction transaction={order.verifiedFundingTransaction} />
+            : <div className="customer-card flex min-w-0 items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Transaction ID</span>
+                  <strong className="block truncate font-mono text-xs" title={order.transactionHash}>{order.transactionHash}</strong>
+                </div>
+                <InlineCopy text={order.transactionHash!} label="Transaction ID" />
+              </div>}
+        </section>
+      )}
+
+      {order.paymentDetailsApplicable && (
           <PaymentDetailsCard
             paymentDetails={order.paymentDetails}
             paymentDetailsApplicable={order.paymentDetailsApplicable}
@@ -1226,11 +1211,7 @@ function CustomerOrderView({ order, drawer = false }: { order: CustomerOrder; dr
             markPaidPending={markPaidMutation.isPending}
             supportHref={SUPPORT_TELEGRAM}
           />
-        )}
-        {!paymentRows.length && !(order.type === 'manual' && order.verifiedFundingTransaction) && !order.paymentDetailsApplicable && (
-          <p className="customer-card mb-6 text-sm text-muted-foreground">No additional payment details available.</p>
-        )}
-      </section>
+      )}
 
       {order.customerSafeNote && (
         <div className="mb-6 flex items-start gap-4 rounded-xl border border-info/20 bg-info/10 p-5 text-sm text-info" data-testid="notice-customer-safe">

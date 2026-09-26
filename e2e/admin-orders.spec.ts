@@ -4,6 +4,7 @@ const quickexOrder = {
   id: 'QX-11111111-1111-4111-8111-111111111111',
   type: 'instant',
   status: 'sending payout',
+  transactionHash: `0x${'b'.repeat(64)}`,
   recordVersion: 3,
   fromAsset: 'BTC',
   fromNetwork: 'Bitcoin',
@@ -48,6 +49,12 @@ const quickexOrder = {
     whitebitNetworkCode: 'must-not-show-whitebit-network-code',
     logoUrl: 'must-not-show-logo-url',
   },
+  step2Details: [
+    { key: 'contactEmail', label: 'Contact Email', value: 'named-guest@example.test' },
+    { key: 'destinationMemo', label: 'Destination Memo / Tag', value: 'destination-memo-needle' },
+    { key: 'source_custom_iban', label: 'Customer IBAN', value: 'DE89 3704 0044 0532 0130 00' },
+    { key: 'funding_status', label: 'Status', value: 'must-not-show-detail-status' },
+  ],
   createdAt: '2025-06-10T09:16:00.000Z',
 };
 
@@ -410,8 +417,13 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
   expect(await page.getByTestId('exchange-details-card').evaluate(element => element.nextElementSibling?.getAttribute('data-testid'))).toBe('admin-additional-payment-details');
   const adminAdditional = page.getByTestId('admin-additional-payment-details');
   await expect(adminAdditional).toContainText('Contact Email');
-  await expect(adminAdditional).toContainText('Deposit Address');
+  await expect(adminAdditional).toContainText('Customer IBAN');
   await expect(adminAdditional).toContainText('Destination Memo / Tag');
+  await expect(adminAdditional).not.toContainText('Deposit Address');
+  await expect(adminAdditional).not.toContainText('Transaction Hash');
+  await expect(page.getByTestId('admin-transaction-details')).toContainText(quickexOrder.transactionHash);
+  await expect(adminAdditional).not.toContainText(quickexOrder.transactionHash);
+  expect(await adminAdditional.evaluate(element => element.nextElementSibling?.getAttribute('data-testid'))).toBe('admin-transaction-details');
   for (const label of ['Network Code', 'Source', 'Status', 'Address Source', 'Deposit Provider', 'Selected Provider', 'WhiteBIT Network Code', 'Logo URL']) {
     await expect(adminAdditional.getByText(label, { exact: true })).toHaveCount(0);
   }

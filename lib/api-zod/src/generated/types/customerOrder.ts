@@ -11,6 +11,7 @@ import type { ExactDecimal } from './exactDecimal';
 import type { OrderPaymentDetails } from './orderPaymentDetails';
 import type { QuickexRateMode } from './quickexRateMode';
 import type { SourcePaymentMethod } from './sourcePaymentMethod';
+import type { Step2CustomerDetail } from './step2CustomerDetail';
 import type { VerifiedFundingTransaction } from './verifiedFundingTransaction';
 
 export interface CustomerOrder {
@@ -27,6 +28,7 @@ export interface CustomerOrder {
   receiveAmount: ExactDecimal;
   refundAddress?: string;
   refundMemo?: string;
+  step2Details?: Step2CustomerDetail[];
   rateMode?: QuickexRateMode;
   outcomeUnknown: boolean;
   refreshUnavailable: boolean;

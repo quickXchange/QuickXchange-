@@ -58,7 +58,7 @@
 - [Stale TypeScript language servers](stale-typescript-language-servers.md) — prolonged editor slowness can come from an aged tsserver tree even when app load, disk, and browser processes are healthy.
 - [Artifact preview verification](artifact-preview-verification.md) — verify data-dependent UI through the routed artifact preview, not the raw Vite port.
 - [Multi-artifact build routing](multi-artifact-build-routing.md) — build each web artifact with its own trailing-slash base path; one shared root build environment can misverify outputs.
-- [Customer order detail projection](customer-order-detail-projection.md) — premium detail UIs must project only customer-safe fields that actually exist; never infer missing operational data.
+- [Customer order detail projection](customer-order-detail-projection.md) — Additional Payment Details uses saved Step 2 field provenance, not flattened metadata or today's Admin configuration.
 - [Global flag geometry](global-flag-geometry.md) — keep country flags under the last-loaded shared square-wrapper contract; legacy context rules can otherwise reshape them.
 - [Mobile swipe tables](mobile-swipe-tables.md) — preserve real tables on phones; the entire table scrolls horizontally with no frozen columns.
 - [Shared Admin search isolation](admin-search-isolation.md) — shared search geometry must stay isolated from generic Admin input and mobile toolbar sizing rules.

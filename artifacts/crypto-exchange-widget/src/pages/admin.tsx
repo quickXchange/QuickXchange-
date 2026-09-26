@@ -21,7 +21,7 @@ import {
   Send, BellRing, Link as LinkIcon, Unplug, MessageSquare, CheckCircle2, XCircle, Bell, Settings2, Star, Code
 } from 'lucide-react';
 import { VerifiedTransaction } from '@/components/verified-transaction';
-import { isVisibleViewOrderPaymentDetail, viewOrderInformationRows } from '@/components/view-order-fields';
+import { viewOrderInformationRows, viewOrderStep2Rows } from '@/components/view-order-fields';
 import {
   SiAlipay, SiCashapp, SiMastercard, SiPaypal, SiPix, SiRevolut,
   SiVenmo, SiVisa, SiWise, SiZelle, SiTelegram
@@ -5679,37 +5679,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
 
   const copyValue = (val?: string | null) => { if (val) navigator.clipboard.writeText(val); };
 
-  const getUniqueDetailRows = () => {
-    if (!order) return [];
-    const snapshot = recordOf(order.settlementSnapshot);
-    const route = recordOf(snapshot.route);
-    const details = recordOf(order.settlementDetails);
-    const sendAliases = ['send', 'source', 'from', 'funding'];
-    const receiveAliases = ['receive', 'target', 'to', 'payout', 'destination'];
-    const sendDynamic = sendAliases.flatMap((key) => [...flattenDetails(snapshot[key]), ...flattenDetails(route[key]), ...flattenDetails(details[key])]);
-    const receiveDynamic = receiveAliases.flatMap((key) => [...flattenDetails(snapshot[key]), ...flattenDetails(route[key]), ...flattenDetails(details[key])]);
-    const claimed = new Set([...sendAliases, ...receiveAliases]);
-    const sharedDynamic = Object.entries(details).filter(([key]) => !claimed.has(key)).flatMap(([key, value]) => flattenDetails(value, humanKey(key)));
-    const fundingDynamic = order.fundingDetails ? flattenDetails(order.fundingDetails) : [];
-    const rawRows: Array<[string, string | undefined | null]> = [
-      ['Contact email', order.customerEmail], ['Destination address', order.destinationAddress], ['Destination memo / tag', order.destinationMemo],
-      ['Deposit address', order.depositAddress], ['Deposit memo / tag', order.depositMemo], ['Refund address', order.refundAddress],
-      ['Refund memo / tag', order.refundMemo], ...sendDynamic, ...receiveDynamic, ...sharedDynamic, ...fundingDynamic,
-    ];
-    const hiddenLabels = new Set(['incoming tx ref', 'incoming transaction reference', 'outgoing tx ref', 'outgoing transaction reference', 'customer safe note', 'internal note', 'note', 'order id', 'provider order id']);
-    const validRows = rawRows.filter((row): row is [string, string] =>
-      (row[0] === 'Refund address' || Boolean(row[1]))
-      && !hiddenLabels.has(row[0].trim().toLowerCase())
-      && !isHiddenPaymentMetadataLabel(row[0]));
-    const seen = new Set<string>();
-    return validRows.filter(([k, v]) => { const key = `${k.toLowerCase()}:${v}`; if (seen.has(key)) return false; seen.add(key); return true; })
-      .map(([label, value]) => [label, label === 'Refund address' && !value?.trim() ? 'Not provided' : value] as [string, string]);
-  };
-  const detailRows = getUniqueDetailRows();
-  const paymentDetailRows = detailRows
-    .map(([label, value]) => [humanKey(label).replace(/\bTarget\b/gi, '').replace(/\s+/g, ' ').trim(), value] as [string, string])
-    .filter(([label]) => Boolean(label));
-  const visiblePaymentDetailRows = paymentDetailRows.filter(([label]) => isVisibleViewOrderPaymentDetail(label));
+  const step2Rows = viewOrderStep2Rows(order?.step2Details);
 
   if (orderQuery.isLoading) return <div className="fixed inset-0 z-50 flex sm:justify-end bg-black/40 backdrop-blur-sm"><aside className="w-full sm:w-[480px] sm:max-w-full h-full bg-background border-l border-border flex flex-col shadow-2xl"><div className="p-12"><LoadingBlock rows={10} /></div></aside></div>;
   if (orderQuery.isError || !order) return <div className="fixed inset-0 z-50 flex sm:justify-end bg-black/40 backdrop-blur-sm"><aside className="w-full sm:w-[480px] sm:max-w-full h-full bg-background border-l border-border flex flex-col shadow-2xl"><div className="p-12"><ErrorState message="Error loading order" retry={() => orderQuery.refetch()} /></div></aside></div>;
@@ -5762,22 +5732,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   ]);
 
   const copyPaymentDetails = () => {
-    const rows: Array<[string, string]> = [
-      ['Send amount', `${number(order.amount)} ${order.fromAsset}`],
-      ['Send method / network', sendMethod],
-      ['Send estimated arrival', 'Not available'],
-      ...(order.totalCommission ? [['Provider fee', `${number(order.totalCommission)} ${order.fromAsset}`] as [string, string]] : []),
-      ...(order.depositAddress ? [['Deposit address', order.depositAddress] as [string, string]] : []),
-      ['Receive amount', `${number(order.receiveAmount)} ${order.toAsset}`],
-      ['Receive method / network', receiveMethod],
-      ['Receive estimated arrival', 'Not available'],
-      ...(order.destinationAddress ? [['Destination address', order.destinationAddress] as [string, string]] : []),
-      ...visiblePaymentDetailRows.filter(([label, value]) => !(label === 'Refund address' && value === 'Not provided')),
-    ];
-    const text = rows
-      .filter((row, index) => rows.findIndex(([label, value]) => label === row[0] && value === row[1]) === index)
-      .map(([label, value]) => `${label}: ${value}`)
-      .join('\n');
+    const text = step2Rows.map(({ label, value }) => `${label}: ${value}`).join('\n');
     if (!text) return;
     navigator.clipboard.writeText(text);
     setNotice({ kind: 'success', text: 'Payment details copied.' });
@@ -5788,7 +5743,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
     setNotice({ kind: 'success', text: 'Order information copied.' });
   };
   const copyOrderInfo = async () => {
-    const normalizedPaymentRows = visiblePaymentDetailRows.map(([label, value]) => ({
+    const normalizedPaymentRows = step2Rows.map(({ label, value }) => ({
       label: label.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(),
       value,
     }));
@@ -5949,26 +5904,40 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
           <section className="space-y-4" data-testid="admin-additional-payment-details">
             <div className="flex items-center justify-between mb-3">
               <h4 className="quickx-section-label text-xs font-bold uppercase tracking-wider text-muted-foreground">Additional Payment Details</h4>
-              {visiblePaymentDetailRows.length > 0 && (
+              {step2Rows.length > 0 && (
                 <button type="button" onClick={copyPaymentDetails} className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1" data-testid="button-copy-all-payment-details"><Copy size={12} /> Copy All</button>
               )}
             </div>
-            {visiblePaymentDetailRows.length > 0 && (
+            {step2Rows.length > 0 ? (
               <div className="quickx-order-card border rounded-xl p-1 shadow-sm">
-                {visiblePaymentDetailRows.map(([lbl, val], idx) => (
-                  <div key={lbl} className={cn("flex items-center justify-between p-3", idx !== visiblePaymentDetailRows.length - 1 && "border-b border-border/50")}>
+                {step2Rows.map(({ key, label: lbl, value: val }, idx) => (
+                  <div key={key} className={cn("flex items-center justify-between p-3", idx !== step2Rows.length - 1 && "border-b border-border/50")}>
                     <span className="quickx-field-label text-xs text-muted-foreground">{lbl}</span>
                     <div className="flex items-center gap-2">
                       <span className={cn("text-xs font-bold truncate max-w-[200px]", /bank name|payment description/i.test(lbl) ? "quickx-important-value" : "text-foreground")} title={val}>{val}</span>
-                      {!(lbl === 'Refund address' && val === 'Not provided') && <button type="button" onClick={() => copyValue(val)} className="text-muted-foreground hover:text-foreground"><Copy size={12} /></button>}
+                      <button type="button" onClick={() => copyValue(val)} className="text-muted-foreground hover:text-foreground" aria-label={`Copy ${lbl}`}><Copy size={12} /></button>
                     </div>
                   </div>
                 ))}
               </div>
-            )}
-            {(order as typeof order & { verifiedFundingTransaction?: Parameters<typeof VerifiedTransaction>[0]["transaction"] }).verifiedFundingTransaction && (
-              <VerifiedTransaction transaction={(order as typeof order & { verifiedFundingTransaction?: Parameters<typeof VerifiedTransaction>[0]["transaction"] }).verifiedFundingTransaction} admin />
-            )}
+            ) : <p className="quickx-order-card rounded-xl border p-4 text-sm text-muted-foreground">No Step 2 details saved for this order.</p>}
+          </section>
+
+          {(order.verifiedFundingTransaction || (order.type !== 'manual' && order.transactionHash)) && (
+            <section className="space-y-4" data-testid="admin-transaction-details">
+              <h4 className="quickx-section-label text-xs font-bold uppercase tracking-wider text-muted-foreground">Transaction Details</h4>
+              {order.verifiedFundingTransaction
+                ? <VerifiedTransaction transaction={order.verifiedFundingTransaction} admin />
+                : <div className="quickx-order-card flex items-center justify-between gap-3 rounded-xl border p-4">
+                    <div className="min-w-0">
+                      <span className="quickx-field-label text-xs text-muted-foreground">Transaction ID</span>
+                      <strong className="block truncate font-mono text-xs" title={order.transactionHash ?? ''}>{order.transactionHash}</strong>
+                    </div>
+                    <button type="button" onClick={() => copyValue(order.transactionHash)} aria-label="Copy Transaction ID" className="text-muted-foreground hover:text-foreground"><Copy size={12} /></button>
+                  </div>}
+            </section>
+          )}
+
             {order.paymentDetailsApplicable && (
               <div className="quickx-order-card border rounded-xl p-4 shadow-sm space-y-4" data-testid="admin-payment-details">
                 <div className="flex items-center justify-between gap-3">
@@ -6019,10 +5988,6 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
                 )}
               </div>
             )}
-            {!visiblePaymentDetailRows.length && !order.verifiedFundingTransaction && !order.paymentDetailsApplicable && (
-              <p className="quickx-order-card rounded-xl border p-4 text-sm text-muted-foreground">No additional payment details available.</p>
-            )}
-          </section>
 
           {/* Remaining existing fields */}
           <div className="space-y-6 pt-4 border-t border-border">

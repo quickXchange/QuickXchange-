@@ -15,6 +15,7 @@ const existingOrder = {
   refreshUnavailable: false,
   statusNotificationsEnabled: false,
   createdAt: '2026-08-23T12:00:00.000Z',
+  transactionHash: `0x${'a'.repeat(64)}`,
   fundingDetails: {
     transactionHash: '0x82f1234567890123456789012345678900009ac2',
     depositAddress: 'bc1q4exampledepositaddress0000000000000000',
@@ -29,6 +30,12 @@ const existingOrder = {
     selectedProvider: 'should-not-show-selected-provider',
     networkId: 'should-not-show-network-id',
   },
+  step2Details: [
+    { key: 'contactEmail', label: 'Contact Email', value: 'customer@example.test' },
+    { key: 'destinationAddress', label: 'Receiving Address', value: 'TQxExampleDestinationAddress000000000000' },
+    { key: 'source_custom_iban', label: 'Beneficiary IBAN', value: 'DE89 3704 0044 0532 0130 00' },
+    { key: 'funding_status', label: 'Status', value: 'should-not-show-internal-status' },
+  ],
   provider: 'must-not-render-provider',
   destinationAddress: 'must-not-render-wallet',
   note: 'must-not-render-note',
@@ -389,13 +396,15 @@ test('customers can review, reload, inspect, and claim their orders', async ({ p
   await expect(page.getByTestId('order-status-timeline')).toBeVisible();
   await expect(page.getByTestId('order-exchange-details')).toBeVisible();
   await expect(page.getByTestId('order-exchange-details')).toHaveClass(/customer-card/);
-  await expect(page.getByTestId('transaction-details')).toBeVisible();
-  await expect(page.getByTitle(existingOrder.fundingDetails.transactionHash)).toBeVisible();
+  await expect(page.getByTestId('customer-step2-details')).toBeVisible();
+  await expect(page.getByTitle(existingOrder.fundingDetails.transactionHash)).toHaveCount(0);
+  await expect(page.getByTestId('customer-transaction-details')).toContainText(existingOrder.transactionHash);
+  await expect(page.getByTestId('customer-additional-payment-details')).not.toContainText(existingOrder.transactionHash);
   for (const label of ['Source', 'Confirmation Guidelines', 'Required Confirmations', 'Selected Provider', 'Network ID']) {
-    await expect(page.getByTestId('transaction-details').getByText(new RegExp(`^${label}$`, 'i'))).toHaveCount(0);
+    await expect(page.getByTestId('customer-step2-details').getByText(new RegExp(`^${label}$`, 'i'))).toHaveCount(0);
   }
   for (const value of ['should-not-show-source', 'should-not-show-guidelines', 'should-not-show-selected-provider', 'should-not-show-network-id']) {
-    await expect(page.getByTestId('transaction-details').getByText(value, { exact: true })).toHaveCount(0);
+    await expect(page.getByTestId('customer-step2-details').getByText(value, { exact: true })).toHaveCount(0);
   }
   await expect(page.getByText('Payment Reference', { exact: true })).toHaveCount(0);
   await expect(page.getByTestId('nav--account-orders')).toHaveClass(/customer-sidebar-link-active/);
@@ -520,11 +529,16 @@ test('My Orders opens customer-safe Swap and Convert details in the Admin-style 
   expect(await orderInfo.evaluate(element => element.nextElementSibling?.textContent?.trim())).toBe('Exchange Details');
   expect(await drawer.getByTestId('order-exchange-details').evaluate(element => element.nextElementSibling?.getAttribute('data-testid'))).toBe('customer-additional-payment-details');
   await expect(drawer.getByText('TRC20')).toBeVisible();
-  const additionalDetails = drawer.getByTestId('transaction-details');
+  const additionalDetails = drawer.getByTestId('customer-step2-details');
   await expect(drawer.getByTestId('customer-additional-payment-details').getByRole('heading', { name: 'Additional Payment Details' })).toBeVisible();
   await expect(additionalDetails).toContainText('Contact Email');
-  await expect(additionalDetails).toContainText('Deposit Address');
-  await expect(additionalDetails).toContainText('Transaction Hash');
+  await expect(additionalDetails).toContainText('Receiving Address');
+  await expect(additionalDetails).toContainText('Beneficiary IBAN');
+  await expect(additionalDetails).not.toContainText('Deposit Address');
+  await expect(additionalDetails).not.toContainText('Transaction Hash');
+  await expect(additionalDetails).not.toContainText('should-not-show-internal-status');
+  await expect(drawer.getByTestId('customer-transaction-details')).toContainText(existingOrder.transactionHash);
+  expect(await drawer.getByTestId('customer-additional-payment-details').evaluate(element => element.nextElementSibling?.getAttribute('data-testid'))).toBe('customer-transaction-details');
   for (const label of ['Network Code', 'Source', 'Status', 'Address Source', 'Deposit Provider', 'Selected Provider', 'WhiteBIT Network Code', 'Logo URL']) {
     await expect(additionalDetails.getByText(label, { exact: true })).toHaveCount(0);
   }

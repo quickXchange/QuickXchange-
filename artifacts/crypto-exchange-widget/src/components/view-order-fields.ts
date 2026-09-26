@@ -26,21 +26,20 @@ const hiddenPaymentDetailLabels = [
   'selected provider', 'whitebit network code', 'logo url',
   'warning', 'manual fallback enabled', 'customer deposits enabled',
   'manual wallet tracking enabled',
+  'transaction id', 'transaction hash', 'txid', 'confirmations', 'detected time',
+  'detected at', 'explorer', 'explorer url', 'deposit address', 'deposit memo',
+  'network id', 'quote id', 'order id', 'tracking token',
 ];
 
 export function isVisibleViewOrderPaymentDetail(label: string): boolean {
   const normalized = normalizeLabel(label);
-  return !hiddenPaymentDetailLabels.some(hidden => normalized === hidden || normalized.endsWith(` ${hidden}`));
+  return !hiddenPaymentDetailLabels.some(hidden => normalized === hidden || normalized.endsWith(` ${hidden}`))
+    && !/\b(?:internal|monitoring|provider)\b/.test(normalized);
 }
 
-const customerPaymentDetailKeys = new Set([
-  'contactemail', 'transactionhash', 'txid', 'depositaddress', 'depositmemo',
-  'deposittag', 'destinationaddress', 'destinationmemo', 'destinationtag',
-  'paymentreference', 'refundaddress', 'refundmemo', 'refundtag',
-  'sendingaddress', 'receivingaddress', 'memo', 'tag', 'explorerlink',
-]);
-
-export function isCustomerViewOrderPaymentDetail(key: string): boolean {
-  return isVisibleViewOrderPaymentDetail(key)
-    && customerPaymentDetailKeys.has(normalizeLabel(key).replace(/\s/g, ''));
+export function viewOrderStep2Rows(rows: readonly { key: string; label: string; value: string }[] | undefined) {
+  return (rows ?? []).filter(row =>
+    typeof row.key === 'string' && typeof row.label === 'string' && typeof row.value === 'string'
+    && Boolean(row.label.trim()) && Boolean(row.value.trim())
+    && isVisibleViewOrderPaymentDetail(row.key) && isVisibleViewOrderPaymentDetail(row.label));
 }

@@ -3,6 +3,7 @@ import {
   isManualWalletTrackingEnabledForOrder,
   registerManualBlockchainWatch,
 } from "../lib/blockchain-monitoring/service";
+import { projectManualOrderStep2Details } from "../lib/step2-details";
 import { Router, type IRouter, type Request } from "express";
 import { and, asc, count, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, ne, notInArray, or, sql } from "drizzle-orm";
 import {
@@ -476,6 +477,7 @@ function outputOrder(row: typeof ordersTable.$inferSelect) {
     paymentDetailsApplicable: isApplicablePaymentDetailsOrder(row),
     sourcePaymentMethod: outputSourcePaymentMethod(row),
     customerMarkedPaidAt: row.customerMarkedPaidAt?.toISOString() ?? null,
+     step2Details: projectManualOrderStep2Details(row),
   };
   // JSONB is untrusted persisted data: validate it before exposing it on the
   // operator order representation rather than treating a historical blob as
@@ -588,6 +590,7 @@ function outputCustomerOrder(
      paymentDetailsApplicable: isApplicablePaymentDetailsOrder(row),
       sourcePaymentMethod: outputSourcePaymentMethod(row),
      customerMarkedPaidAt: row.customerMarkedPaidAt?.toISOString() ?? null,
+      step2Details: projectManualOrderStep2Details(row),
      verifiedFundingTransaction: verifiedFunding ?? undefined,
     completedAt: completed ? row.updatedAt.toISOString() : null,
     exchangeRate,

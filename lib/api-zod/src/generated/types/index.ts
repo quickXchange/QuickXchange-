@@ -528,6 +528,7 @@ export * from './socialTrustItemUpdateDisplayMode';
 export * from './socialTrustItemUpdateGroup';
 export * from './socialTrustTitlesInput';
 export * from './sourcePaymentMethod';
+export * from './step2CustomerDetail';
 export * from './teamMember';
 export * from './teamMemberInvite';
 export * from './teamMemberRole';

@@ -5182,6 +5182,13 @@ components:
         nextVersion: { type: number }
         details: { type: object, additionalProperties: true }
         createdAt: { type: string }
+    Step2CustomerDetail:
+      type: object
+      required: [key, label, value]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        value: { type: string }
     Order:
       type: object
       required: [id, type, status, recordVersion, assignedOperatorId, supportStatus, sendingStatus, receivingStatus, sentAmountOverride, receiveAmountOverride, exchangeRateOverride, networkFeeAmount, transactionHash, paymentReference, fromAsset, toAsset, amount, receiveAmount, customerEmail, customerRegistered, createdAt, updatedAt, provider, outcomeUnknown, providerClaimedDepositAmount, providerExpectedReceiveAmount, providerPaidAmount, providerCreatedAt, providerUpdatedAt, providerCompleted, trackingToken]
@@ -5214,6 +5221,9 @@ components:
         receiveAmount: { $ref: "#/components/schemas/ExactDecimal" }
         customerEmail: { type: string }
         customerName: { type: string }
+        step2Details:
+          type: array
+          items: { $ref: "#/components/schemas/Step2CustomerDetail" }
         customerRegistered:
           type: boolean
           description: True when the order is owned by a registered customer account.
@@ -5748,6 +5758,9 @@ components:
         receiveAmount: { $ref: "#/components/schemas/ExactDecimal" }
         refundAddress: { type: string }
         refundMemo: { type: string }
+        step2Details:
+          type: array
+          items: { $ref: "#/components/schemas/Step2CustomerDetail" }
         rateMode: { $ref: "#/components/schemas/QuickexRateMode" }
         outcomeUnknown: { type: boolean }
         refreshUnavailable: { type: boolean }

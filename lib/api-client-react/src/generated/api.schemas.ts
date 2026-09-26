@@ -1490,6 +1490,12 @@ export interface VerifiedFundingTransaction {
   explorerUrl?: string;
 }
 
+export interface Step2CustomerDetail {
+  key: string;
+  label: string;
+  value: string;
+}
+
 export type OrderFundingStatus = typeof OrderFundingStatus[keyof typeof OrderFundingStatus];
 
 
@@ -1767,6 +1773,7 @@ export interface Order {
   receiveAmount: ExactDecimal;
   customerEmail: string;
   customerName?: string;
+  step2Details?: Step2CustomerDetail[];
   /** True when the order is owned by a registered customer account. */
   customerRegistered: boolean;
   destinationAddress?: string;
@@ -2440,6 +2447,7 @@ export interface CustomerOrder {
   receiveAmount: ExactDecimal;
   refundAddress?: string;
   refundMemo?: string;
+  step2Details?: Step2CustomerDetail[];
   rateMode?: QuickexRateMode;
   outcomeUnknown: boolean;
   refreshUnavailable: boolean;

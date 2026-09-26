@@ -1,6 +1,7 @@
 import { and, desc, eq } from "drizzle-orm";
 import { db, ordersTable, quickexOrdersTable } from "@workspace/db";
 import { signOrderTrackingToken } from "./order-access";
+import { projectStep2Details } from "./step2-details";
 
 type Route = {
   fromAsset: string;
@@ -23,6 +24,7 @@ type Addresses = {
   refundMemo?: string;
   depositAddress?: string;
   depositMemo?: string;
+  settlementDetails?: unknown;
 };
 
 function exactDecimalString(value: string | number): string {
@@ -45,7 +47,7 @@ function optionalExactDecimalString(value: string | number | null | undefined) {
   return value === null || value === undefined ? null : exactDecimalString(value);
 }
 
-function operatorRecord(row: typeof quickexOrdersTable.$inferSelect) {
+export function operatorRecord(row: typeof quickexOrdersTable.$inferSelect) {
   const route = row.route as Route;
   const amounts = row.amounts as Amounts;
   const addresses = row.addresses as Addresses;
@@ -79,6 +81,19 @@ function operatorRecord(row: typeof quickexOrdersTable.$inferSelect) {
     destinationMemo: addresses.destinationMemo || undefined,
     refundAddress: addresses.refundAddress || undefined,
     refundMemo: addresses.refundMemo || undefined,
+    step2Details: projectStep2Details({
+      // Quickex stores the current owner ID but not whether it came from
+      // authenticated creation or a later guest-order claim, so it is not
+      // reliable provenance for hiding the customer's original contact.
+      customerEmail: row.customerEmail,
+      customerName: row.customerName,
+      destinationAddress: addresses.destinationAddress,
+      destinationMemo: addresses.destinationMemo,
+      refundAddress: addresses.refundAddress,
+      refundMemo: addresses.refundMemo,
+      settlementDetails: addresses.settlementDetails,
+      quoteId: row.quoteId,
+    }),
     depositAddress: addresses.depositAddress || undefined,
     depositMemo: addresses.depositMemo || undefined,
     provider: "Quickex",
@@ -101,7 +116,7 @@ function operatorRecord(row: typeof quickexOrdersTable.$inferSelect) {
   };
 }
 
-function customerRecord(row: typeof quickexOrdersTable.$inferSelect) {
+export function customerRecord(row: typeof quickexOrdersTable.$inferSelect) {
   const route = row.route as Route;
   const amounts = row.amounts as Amounts;
   const addresses = row.addresses as Addresses;
@@ -120,6 +135,16 @@ function customerRecord(row: typeof quickexOrdersTable.$inferSelect) {
     refreshUnavailable: false,
     refundAddress: addresses.refundAddress || undefined,
     refundMemo: addresses.refundMemo || undefined,
+    step2Details: projectStep2Details({
+      customerEmail: row.customerEmail,
+      customerName: row.customerName,
+      destinationAddress: addresses.destinationAddress,
+      destinationMemo: addresses.destinationMemo,
+      refundAddress: addresses.refundAddress,
+      refundMemo: addresses.refundMemo,
+      settlementDetails: addresses.settlementDetails,
+      quoteId: row.quoteId,
+    }),
     statusNotificationsEnabled: false,
     trackingToken: signOrderTrackingToken(row.legacyOrderId),
     createdAt: row.createdAt.toISOString(),
