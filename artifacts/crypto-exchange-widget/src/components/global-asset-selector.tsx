@@ -197,11 +197,15 @@ export function GlobalAssetSelector<TOption extends GlobalAssetSelectorOption>({
     if (preserveOpenGeometry) return;
 
     window.addEventListener('resize', updateOverlayAnchor);
+    window.addEventListener('scroll', updateOverlayAnchor, { passive: true });
     window.visualViewport?.addEventListener('resize', updateOverlayAnchor);
+    window.visualViewport?.addEventListener('scroll', updateOverlayAnchor);
 
     return () => {
       window.removeEventListener('resize', updateOverlayAnchor);
+      window.removeEventListener('scroll', updateOverlayAnchor);
       window.visualViewport?.removeEventListener('resize', updateOverlayAnchor);
+      window.visualViewport?.removeEventListener('scroll', updateOverlayAnchor);
     };
   }, [open, preserveOpenGeometry]);
 

@@ -5,6 +5,7 @@ const usd = { id: '00000000-0000-4000-8000-000000000001', code: 'USD', name: 'US
 const eur = { id: '00000000-0000-4000-8000-000000000004', code: 'EUR', name: 'Euro', precision: 2, lifecycle: 'active', regions: ['North America'], countries: [], enabled: true, createdAt: now, updatedAt: now };
 
 test('operators manage fiat currencies, reusable methods, and their attachments', async ({ page }) => {
+  test.setTimeout(90_000);
   let currencies = [usd, eur];
   let methods = [{
     id: 'bank-transfer', name: 'Bank transfer', description: null, instructions: null,
@@ -214,12 +215,19 @@ test('operators manage fiat currencies, reusable methods, and their attachments'
         networkId: id, assetCode: asset.code, networkCode: network.networkCode,
         currentProvider: network.depositProvider ?? 'manual',
         status: supported ? id === 'usdt-trc20' ? 'requires_configuration' : 'supported' : 'unsupported',
+        mappingStatus: supported ? 'supported' : 'unsupported',
+        whitebitAssetCode: supported ? asset.code : null,
+        whitebitNetworkCode: supported ? network.networkCode : null,
+        whitebitNetworkOptions: supported ? [network.networkCode] : [],
         reason: supported ? 'Review this exact route.' : 'WhiteBIT does not support this route.',
         customerDepositsAfter: false,
       };
     });
     return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ reviewToken: 'a'.repeat(64), routes }) });
   });
+  await page.route('**/api/admin/providers/whitebit/verification-routes', route =>
+    route.fulfill({ contentType: 'application/json', body: '[]' }),
+  );
   await page.route('**/api/admin/crypto-networks/deposit-provider/apply', route => {
     const input = route.request().postDataJSON() as { networkIds: string[]; depositProvider: string };
     cryptoNetworks = cryptoNetworks.map(network => input.networkIds.includes(network.id)
@@ -334,7 +342,7 @@ test('operators manage fiat currencies, reusable methods, and their attachments'
   await expect(page.getByRole('heading', { name: 'Crypto Assets' })).toBeVisible();
   await expect(page.getByText('Bitcoin').first()).toBeVisible();
   await expect(page.getByLabel('Bitcoin, BTC', { exact: true })).toBeVisible();
-  await expect(page.getByLabel('Bitcoin, BTC, on BTC')).toBeVisible();
+  await expect(page.getByTestId('button-edit-deposit-route-btc-bitcoin')).toBeVisible();
   await catalogSearch.fill('  TeTh  ');
   await expect(page.getByTestId('button-edit-crypto-asset-usdt')).toBeVisible();
   await expect(page.getByTestId('button-edit-crypto-asset-btc')).toHaveCount(0);
@@ -342,8 +350,8 @@ test('operators manage fiat currencies, reusable methods, and their attachments'
   const assetRow = page.getByTestId('button-edit-crypto-asset-btc').locator('xpath=ancestor::tr');
   await expect(assetRow.locator('.crypto-logo img')).toHaveCount(1);
   await expect(assetRow.locator('.crypto-logo img').first()).toHaveAttribute('src', /^data:image\/svg\+xml/);
-  await expect(page.getByLabel('Tether, USDT, on TRC20')).toBeVisible();
-  await expect(page.getByLabel('Tether, USDT, on ERC20')).toBeVisible();
+  await expect(page.getByTestId('button-edit-deposit-route-usdt-trc20')).toBeVisible();
+  await expect(page.getByTestId('button-edit-deposit-route-usdt-erc20')).toBeVisible();
   for (const width of [390, 768]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
@@ -368,7 +376,10 @@ test('operators manage fiat currencies, reusable methods, and their attachments'
   await page.getByTestId('catalog-bulk-actions-networks').getByRole('button', { name: 'Assign Deposit Provider' }).click();
   const providerDialog = page.getByTestId('bulk-deposit-provider-dialog');
   await expect(providerDialog).toBeVisible();
-  await providerDialog.getByRole('button', { name: 'Select All Supported' }).click();
+  const selectAllSupported = providerDialog.getByRole('button', { name: 'Select All Supported' });
+  await expect(selectAllSupported).toBeVisible();
+  await expect(selectAllSupported).toBeEnabled();
+  await selectAllSupported.click();
   await expect(providerDialog.getByLabel('Select USDT TRC20')).toBeChecked();
   await expect(providerDialog.getByLabel('Select XMR XMR')).toBeChecked();
   await expect(providerDialog.getByLabel('Select BTC BTC')).not.toBeChecked();

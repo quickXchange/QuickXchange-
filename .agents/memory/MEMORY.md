@@ -19,6 +19,7 @@
 - [Admin pricing previews](admin-pricing-previews.md) — operator-only funding bypass; preserve [Any-side loading](wildcard-pricing-previews.md) and require concrete market routes.
 - [Optional exact path overrides](manual-pricing-global-fallback.md) — existing Swap pricing remains the fallback; direct and reciprocal exact rates are optional higher-priority overrides.
 - [Playwright query route mocks](playwright-query-route-mocks.md) — route mocks must account for query strings when endpoint contracts add required query parameters.
+- [Browser fixture contract completeness](browser-fixture-contracts.md) — mock every privileged dialog dependency with its full current response shape, not just the endpoint under test.
 - [Order detail round-trips](order-detail-roundtrips.md) — editable operational fields must survive detail response validation or unrelated saves can silently clear them.
 - [Provider-create idempotency](provider-create-idempotency.md) — claim full requests durably before irreversible provider calls; never reconcile by similarity.
 - [Quickex address preflight](quickex-address-preflight.md) — documented validation routes may return isolated 403s; signed order creation remains the authoritative address gate.
