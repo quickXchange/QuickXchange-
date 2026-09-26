@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { useQueryClient } from '@tanstack/react-query';
 import { SignIn, SignUp, UserProfile, useUser } from '@clerk/react';
 import {
-  ArrowRight, Filter, Mail, Loader2, FileText, Search, UserRound, ArrowLeft, ArrowUpRight, ArrowDownLeft, CheckCircle2, LayoutList, Bell, Copy, Check, Link2, ShieldCheck
+  ArrowRight, Filter, Mail, Loader2, FileText, Search, UserRound, ArrowLeft, ArrowUpRight, ArrowDownLeft, CheckCircle2, LayoutList, Bell, Copy, Check, Link2, ShieldCheck, X
 } from 'lucide-react';
 import {
   useGetCustomerOrders, getGetCustomerOrdersQueryKey,
@@ -558,6 +559,14 @@ export function AccountOrdersPage() {
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<'all' | 'swap' | 'convert'>('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const lastViewedOrderId = useRef<string | null>(null);
+  const viewButton = useRef<HTMLButtonElement | null>(null);
+  const viewOrder = (id: string, button: HTMLButtonElement) => {
+    lastViewedOrderId.current = id;
+    viewButton.current = button;
+    setSelectedOrderId(id);
+  };
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
@@ -592,6 +601,7 @@ export function AccountOrdersPage() {
   });
 
   return (
+    <>
     <CustomerShell>
       <CustomerPageHeader
         title={t('account.orderHistory')}
@@ -709,7 +719,7 @@ export function AccountOrdersPage() {
                           {formatDate(order.createdAt, { dateStyle: 'medium', timeStyle: 'short' })}
                         </td>
                         <td className="px-5 py-4 text-right">
-                          <Link href={`/account/orders/${order.id}`} className="button button-secondary h-8 px-3 text-xs rounded-lg font-semibold border border-border" aria-label={`${t('customerPortal.view')} ${order.id}`} data-testid={`view-order-${order.id}`}>{t('customerPortal.view')}</Link>
+                          <button type="button" onClick={event => viewOrder(order.id, event.currentTarget)} className="button button-secondary h-8 px-3 text-xs rounded-lg font-semibold border border-border" aria-label={`${t('customerPortal.view')} ${order.id}`} data-testid={`view-order-${order.id}`}>{t('customerPortal.view')}</button>
                         </td>
                       </tr>
                     ))}
@@ -749,6 +759,16 @@ export function AccountOrdersPage() {
         )}
       </div>
     </CustomerShell>
+    <CustomerOrderDrawer
+      id={selectedOrderId ?? lastViewedOrderId.current}
+      open={selectedOrderId !== null}
+      onOpenChange={open => { if (!open) setSelectedOrderId(null); }}
+      onCloseAutoFocus={event => {
+        event.preventDefault();
+        viewButton.current?.focus();
+      }}
+    />
+    </>
   );
 }
 
@@ -901,14 +921,6 @@ function shortenDetailValue(value: string): string {
   return `${value.slice(0, 11)}…${value.slice(-8)}`;
 }
 
-const hiddenTransactionDetailKeys = new Set([
-  'source',
-  'confirmation guidelines',
-  'required confirmations',
-  'selected provider',
-  'network id',
-]);
-
 function TransactionDetails({
   fundingDetails,
   settlementDetails,
@@ -916,12 +928,16 @@ function TransactionDetails({
   fundingDetails?: Record<string, unknown>;
   settlementDetails?: Record<string, unknown>;
 }) {
+  const customerSafeKeys = new Set([
+    'transactionhash', 'depositaddress', 'depositmemo', 'destinationaddress',
+    'paymentreference', 'refundaddress', 'refundmemo',
+  ]);
   const entries = [
     ...Object.entries(fundingDetails ?? {}).map(([key, value]) => ({ id: `funding-${key}`, key, value: detailValue(value) })),
     ...Object.entries(settlementDetails ?? {}).map(([key, value]) => ({ id: `settlement-${key}`, key, value: detailValue(value) })),
   ].filter((entry): entry is { id: string; key: string; value: string } =>
     entry.value !== null &&
-    !hiddenTransactionDetailKeys.has(entry.key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]/g, ' ').trim().toLowerCase().replace(/\s+/g, ' ')));
+    customerSafeKeys.has(entry.key.replace(/[_\s-]/g, '').toLowerCase()));
 
   if (entries.length === 0) return null;
 
@@ -1069,7 +1085,7 @@ function CustomerOrderNotificationControl({ order }: { order: CustomerOrder }) {
   );
 }
 
-function CustomerOrderView({ order }: { order: CustomerOrder }) {
+function CustomerOrderView({ order, drawer = false }: { order: CustomerOrder; drawer?: boolean }) {
   const { t, formatDate } = useI18n();
   const queryClient = useQueryClient();
   const statusGroup = customerStatusGroup(order.status);
@@ -1106,6 +1122,7 @@ function CustomerOrderView({ order }: { order: CustomerOrder }) {
 
   return (
     <div className="customer-order-detail-page w-full" data-testid="customer-order-detail">
+      {drawer && <h3 className="customer-order-drawer-section-title">{t('customerPortal.status')}</h3>}
       <div className="mb-4">
         <StatusPill status={order.status} customerFacing />
       </div>
@@ -1113,6 +1130,7 @@ function CustomerOrderView({ order }: { order: CustomerOrder }) {
         <OrderProgress stages={stages} />
       </div>
 
+      {drawer && <h3 className="customer-order-drawer-section-title">Exchange Details</h3>}
       <section className="customer-card order-exchange-frame mb-8" data-testid="order-exchange-details">
         <div className="order-exchange-card">
           <div className="order-exchange-side" data-testid="order-exchange-sent">
@@ -1159,8 +1177,17 @@ function CustomerOrderView({ order }: { order: CustomerOrder }) {
             </strong>
           </div>
         </div>
+        {drawer && order.exchangeRate && (
+          <div className="customer-order-drawer-rate">
+            <span>Exchange rate</span>
+            <strong title={`1 ${order.fromAsset} = ${number(order.exchangeRate)} ${order.toAsset}`}>
+              1 {order.fromAsset} = {number(order.exchangeRate)} {order.toAsset}
+            </strong>
+          </div>
+        )}
       </section>
 
+      {drawer && <h3 className="customer-order-drawer-section-title">Order Information</h3>}
       <section className="customer-card order-detail-grid mb-8 grid min-w-0 grid-cols-1 gap-0 min-[480px]:grid-cols-2">
         <div className="order-detail-meta">
           <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t('account.exchangeType')}</span>
@@ -1193,12 +1220,6 @@ function CustomerOrderView({ order }: { order: CustomerOrder }) {
             {formatDate(order.createdAt, { dateStyle: 'medium', timeStyle: 'short' })}
           </strong>
         </div>
-        {order.type === 'manual' && order.manualSettlementState && (
-          <div className="order-detail-meta">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t('account.manualStatus')}</span>
-            <strong className="truncate text-sm font-semibold capitalize">{order.manualSettlementState.replace(/_/g, ' ')}</strong>
-          </div>
-        )}
       </section>
 
       {order.type === 'manual' && order.verifiedFundingTransaction && (
@@ -1208,7 +1229,11 @@ function CustomerOrderView({ order }: { order: CustomerOrder }) {
       )}
 
       <TransactionDetails
-        fundingDetails={order.fundingDetails}
+        fundingDetails={{
+          ...order.fundingDetails,
+          transactionHash: order.transactionHash || order.fundingDetails?.transactionHash,
+          paymentReference: order.paymentReference || order.fundingDetails?.paymentReference,
+        }}
         settlementDetails={order.settlementDetails}
       />
 
@@ -1265,6 +1290,116 @@ function CustomerOrderView({ order }: { order: CustomerOrder }) {
 
       <CustomerOrderNotificationControl order={order} />
     </div>
+  );
+}
+
+function CustomerOrderDrawer({
+  id,
+  open,
+  onOpenChange,
+  onCloseAutoFocus,
+}: {
+  id: string | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCloseAutoFocus: (event: Event) => void;
+}) {
+  const { t, formatDate } = useI18n();
+  const [copied, setCopied] = useState(false);
+  const order = useGetCustomerOrder(id || '', {
+    query: {
+      queryKey: getGetCustomerOrderQueryKey(id || ''),
+      enabled: open && !!id,
+      refetchIntervalInBackground: true,
+      refetchOnWindowFocus: 'always',
+      refetchInterval: (query: any) => {
+        const current = query.state.data;
+        if (!current) return 3000;
+        if (/complete|paid|fail|cancel|refund|expire/i.test(current.status || '')) return false;
+        return 3000;
+      },
+    },
+  });
+  const copyInfo = async () => {
+    if (!order.data) return;
+    const current = order.data;
+    const text = (value: unknown) => typeof value === 'string' && value.trim() ? value.trim() : null;
+    const funding = current.fundingDetails ?? {};
+    const settlement = current.settlementDetails ?? {};
+    const payment = current.paymentDetailsApplicable ? current.paymentDetails : undefined;
+    const optional = (label: string, value: unknown) => {
+      const safeValue = text(value);
+      return safeValue ? [`${label}: ${safeValue}`] : [];
+    };
+    const lines = [
+      `Order ID: ${current.id}`,
+      `Created: ${formatDate(current.createdAt, { dateStyle: 'medium', timeStyle: 'short' })}`,
+      `You Send: ${number(current.amount)} ${current.fromAsset}${current.fromNetwork ? ` (${current.fromNetwork})` : ''}`,
+      `You Receive: ${number(current.receiveAmount)} ${current.toAsset}${current.toNetwork ? ` (${current.toNetwork})` : ''}`,
+      ...(current.exchangeRate ? [`Exchange rate: 1 ${current.fromAsset} = ${number(current.exchangeRate)} ${current.toAsset}`] : []),
+      ...optional('Transaction ID', current.verifiedFundingTransaction?.transactionHash || current.transactionHash || funding.transactionHash),
+      ...optional('Deposit address', funding.depositAddress),
+      ...optional('Deposit memo', funding.depositMemo),
+      ...optional('Destination address', settlement.destinationAddress),
+      ...optional('Bank name', payment?.bankName),
+      ...optional('Name', payment?.name),
+      ...optional('IBAN', payment?.iban),
+      ...optional('BIC / SWIFT', payment?.bicSwift),
+      ...optional('Payment reference', current.paymentReference || funding.paymentReference || payment?.paymentReference),
+      ...optional('Payment instructions', payment?.customInstructions),
+    ];
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'));
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="customer-order-drawer-backdrop" data-testid="customer-order-drawer-backdrop" />
+        <DialogPrimitive.Content
+          className="customer-order-drawer"
+          data-testid="customer-order-drawer"
+          onCloseAutoFocus={onCloseAutoFocus}
+        >
+          <header className="customer-order-drawer-header">
+            <div className="min-w-0">
+              <DialogPrimitive.Title className="text-lg font-bold tracking-tight">View order</DialogPrimitive.Title>
+              <DialogPrimitive.Description className="mt-1 truncate text-xs text-muted-foreground">
+                {id || t('account.orderHistory')}
+              </DialogPrimitive.Description>
+            </div>
+            <DialogPrimitive.Close className="customer-order-drawer-close" aria-label="Close order details" data-testid="button-close-customer-order-drawer">
+              <X size={18} aria-hidden="true" />
+            </DialogPrimitive.Close>
+          </header>
+          <div className="customer-order-drawer-scroll" data-testid="customer-order-drawer-scroll">
+            {order.isLoading ? (
+              <LoadingBlock rows={6} />
+            ) : order.isError ? (
+              <ErrorState message={t('account.loadOrderError')} retry={() => order.refetch()} />
+            ) : !order.data ? (
+              <ErrorState message={t('account.orderNotFound')} />
+            ) : (
+              <CustomerOrderView order={order.data} drawer />
+            )}
+          </div>
+          <footer className="customer-order-drawer-footer">
+            <button type="button" onClick={copyInfo} disabled={!order.data} className="button button-secondary" data-testid="button-copy-customer-order-info">
+              {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+              {copied ? t('actions.copied') : 'Copy Info'}
+            </button>
+            <DialogPrimitive.Close className="button button-primary" data-testid="button-close-customer-order-footer">
+              Close
+            </DialogPrimitive.Close>
+          </footer>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
 

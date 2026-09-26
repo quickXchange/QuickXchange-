@@ -447,6 +447,151 @@ test('customers can review, reload, inspect, and claim their orders', async ({ p
   await expect(page.getByTestId('modal-cancel-order')).toHaveCount(0);
 });
 
+test('My Orders opens customer-safe Swap and Convert details in the Admin-style drawer', async ({ page }) => {
+  const paymentOption = {
+    ...settlementOptions[0],
+    id: 'fiat:eur-sepa',
+    assetId: 'eur',
+    assetCode: 'EUR',
+    routeNetwork: 'SEPA',
+    kind: 'fiat-payment-method',
+    title: 'SEPA Instant',
+  };
+  const convert = { ...existingOrder, exchangeRate: '1.25', fundingDetails: {
+    ...existingOrder.fundingDetails,
+    logoUrl: 'must-not-show-logo-url',
+    addressSource: 'must-not-show-address-source',
+    diagnostics: 'must-not-show-diagnostics',
+  } };
+  const swap = {
+    ...claimedOrder,
+    toAsset: 'BTC',
+    toNetwork: 'Bitcoin',
+    sourceSettlementOptionId: paymentOption.id,
+    targetSettlementOptionId: 'crypto:btc-bitcoin',
+    exchangeRate: '0.00002',
+    fundingDetails: { transactionHash: '0x123example', selectedProvider: 'must-not-show-selected-provider' },
+  };
+  await page.route('**/api/exchange/config', route => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify({
+      assets: [],
+      fiatCurrencies: [],
+      settlementOptions: [...settlementOptions, paymentOption],
+      manualSettlementOptions: [...settlementOptions, paymentOption],
+      instantSettlementOptions: settlementOptions,
+      manualRouteAvailability: { available: false, routes: [], unavailableMessage: null },
+      providers: [],
+      feePercent: 0.5,
+    }),
+  }));
+  await page.route(/\/api\/account\/orders(?:\?|$)/, route => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify({ items: [convert, swap], total: 2, page: 1, pageSize: 15, refreshUnavailable: false }),
+  }));
+  await page.route(/\/api\/account\/orders\/QX-[^/?]+$/, route => {
+    const id = route.request().url().split('/').pop();
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify(id === convert.id ? convert : swap) });
+  });
+  await page.goto('/account/orders');
+  const drawer = page.getByTestId('customer-order-drawer');
+  const table = page.getByTestId('customer-order-history');
+  const referralNotice = page.getByTestId('affiliate-referral-capture-status');
+  if (await referralNotice.isVisible()) {
+    await referralNotice.getByRole('button', { name: 'Dismiss referral status' }).click({ timeout: 1000 }).catch(() => {});
+  }
+
+  await page.getByTestId(`view-order-${convert.id}`).click();
+  await expect(page).toHaveURL(/\/account\/orders$/);
+  await expect(drawer).toBeVisible();
+  await expect(table).toBeVisible();
+  await expect(drawer.getByTestId('order-status-timeline')).toBeVisible();
+  await expect(drawer.getByText('Exchange Details', { exact: true })).toBeVisible();
+  await expect(drawer.getByText('Order Information', { exact: true })).toBeVisible();
+  await expect(drawer.getByText('Exchange rate', { exact: true })).toBeVisible();
+  await expect(drawer.getByTestId('transaction-details')).toBeVisible();
+  await expect(drawer.getByTestId('button-copy-customer-order-info')).toBeVisible();
+  for (const forbidden of [
+    'Selected Provider', 'Address Source', 'Logo URL', 'Network ID',
+    'must-not-show-logo-url', 'must-not-show-address-source',
+    'must-not-show-selected-provider', 'must-not-show-diagnostics', 'PX-2026-000004219',
+  ]) {
+    await expect(drawer.getByText(forbidden, { exact: true })).toHaveCount(0);
+  }
+  await drawer.evaluate(async element => {
+    await Promise.all(element.getAnimations().map(animation => animation.finished));
+  });
+  const desktopGeometry = await drawer.evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    return { left: rect.left, right: rect.right, width: rect.width, viewport: innerWidth };
+  });
+  expect(desktopGeometry.width).toBe(480);
+  expect(desktopGeometry.right).toBe(desktopGeometry.viewport);
+  expect(desktopGeometry.left).toBe(desktopGeometry.viewport - 480);
+  if (await referralNotice.isVisible()) {
+    await referralNotice.getByRole('button', { name: 'Dismiss referral status' }).click({ timeout: 1000 }).catch(() => {});
+  }
+
+  for (const width of [768, 390, 320]) {
+    await page.setViewportSize({ width, height: 740 });
+    const geometry = await drawer.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const scroll = element.querySelector<HTMLElement>('.customer-order-drawer-scroll')!;
+      const footer = element.querySelector<HTMLElement>('.customer-order-drawer-footer')!;
+      return {
+        width: rect.width, right: rect.right, viewport: innerWidth,
+        pageOverflow: document.documentElement.scrollWidth > innerWidth,
+        drawerOverflow: scroll.scrollWidth > scroll.clientWidth,
+        scrollable: scroll.scrollHeight > scroll.clientHeight,
+        footerBottom: footer.getBoundingClientRect().bottom,
+      };
+    });
+    expect(geometry.width).toBe(Math.min(width, 480));
+    expect(geometry.right).toBe(width);
+    expect(geometry.pageOverflow).toBe(false);
+    expect(geometry.drawerOverflow).toBe(false);
+    expect(geometry.scrollable).toBe(true);
+    expect(geometry.footerBottom).toBeLessThanOrEqual(741);
+    if (width === 320) {
+      if (await referralNotice.isVisible()) {
+        await referralNotice.getByRole('button', { name: 'Dismiss referral status' }).click({ timeout: 1000 }).catch(() => {});
+      }
+      await page.getByTestId('customer-order-drawer-scroll').evaluate(element => { element.scrollTop = element.scrollHeight; });
+      await expect(drawer.getByTestId('button-copy-customer-order-info')).toBeVisible();
+    }
+  }
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await drawer.getByTestId('button-copy-customer-order-info').click();
+  const copiedInfo = await page.evaluate(() => navigator.clipboard.readText());
+  expect(copiedInfo).toContain('Transaction ID:');
+  expect(copiedInfo).not.toMatch(/Selected Provider|Address Source|Logo URL|WhiteBIT|diagnostics|PX-2026-000004219/i);
+  await page.getByTestId('button-close-customer-order-drawer').click();
+  await expect(drawer).toBeHidden();
+  await expect(table).toBeVisible();
+  if (await referralNotice.isVisible()) {
+    await referralNotice.getByRole('button', { name: 'Dismiss referral status' }).click({ timeout: 1000 }).catch(() => {});
+  }
+
+  await page.getByTestId('tab-swap').click();
+  await page.getByTestId(`view-order-${swap.id}`).click();
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByText('SEPA Instant')).toBeVisible();
+  const methodLogo = drawer.locator('.order-exchange-identity .payment-method-logo').first();
+  await expect(methodLogo).toBeVisible();
+  expect(await methodLogo.evaluate(element => getComputedStyle(element).borderRadius)).toBe('50%');
+  await expect(drawer.getByText('must-not-show-selected-provider')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(drawer).toBeHidden();
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.getByTestId(`view-order-${swap.id}`).click();
+  await drawer.evaluate(async element => {
+    await Promise.all(element.getAnimations().map(animation => animation.finished));
+  });
+  await page.mouse.click(400, 300);
+  await expect(drawer).toBeHidden();
+  await expect(page).toHaveURL(/\/account\/orders$/);
+});
+
 test('order history keeps exchange and amount tracks aligned across tabs and widths', async ({ page }, testInfo) => {
   const sepaOption = {
     ...settlementOptions[0],
