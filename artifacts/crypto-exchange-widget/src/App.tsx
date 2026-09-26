@@ -1660,6 +1660,7 @@ const ADMIN_TOP_LEVEL_HEADER_LABELS: Record<string, string> = {
 
 function isAdminNavigationItemActive(href: string, pathname: string) {
   return pathname === href ||
+    (href === '/admin/providers' && pathname === '/admin/integrations') ||
     (href === '/admin/orders' && pathname.startsWith('/admin/orders/')) ||
     (href === '/admin/customers' && pathname.startsWith('/admin/customers/')) ||
     (href === '/admin/affiliates' && pathname.startsWith('/admin/affiliates/'));
@@ -1737,9 +1738,8 @@ export function AdminShell({ children, title, eyebrow, action, subtitle, titleIc
       title: t('adminShell.configuration'),
       items: [
         { href: '/admin/appearance', label: 'Appearance', testId: 'appearance', icon: ImageIcon, requiredPermission: 'site_settings.view' },
-        { href: '/admin/providers', label: t('adminShell.providers'), testId: 'providers', icon: Settings, requiredPermission: 'integrations.view' },
+        { href: '/admin/providers', label: `${t('adminShell.providers')} & ${t('adminShell.apiIntegrations')}`, testId: 'providers', icon: Settings, requiredPermission: 'integrations.view' },
         { href: '/admin/landing-background', label: t('adminShell.backgroundStudio'), testId: 'landing-background', icon: ImageIcon, requiredPermission: 'site_settings.view' },
-        { href: '/admin/integrations', label: t('adminShell.apiIntegrations'), testId: 'api integrations', icon: Network, requiredPermission: 'integrations.view' },
         { href: '/admin/notification-settings', label: 'Notification Settings', testId: 'notification-settings', icon: Bell, requiredPermission: 'site_settings.manage', ownerOnly: true },
         { href: '/admin/currencies', label: t('adminShell.currenciesMethods'), testId: 'currency and methods', icon: Landmark, requiredPermission: ['currencies.view', 'payment_methods.view', 'crypto_assets.view', 'crypto_networks.view'] },
         { href: '/admin/pricing', label: t('adminShell.manualPricing'), testId: 'manual pricing', icon: TrendingUp, requiredPermission: 'pricing.view' },

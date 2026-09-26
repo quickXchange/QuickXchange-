@@ -1024,6 +1024,36 @@ function AdminResponsiveStyles() {
 }
 
 
+function ProviderIntegrationNavigation({ active }: { active: 'providers' | 'integrations' }) {
+  const { t } = useI18n();
+  return (
+    <nav
+      aria-label={`${t('adminShell.providers')} & ${t('adminShell.apiIntegrations')}`}
+      className="mb-6 flex gap-2 overflow-x-auto border-b border-border pb-2"
+    >
+      {([
+        { key: 'providers', href: '/admin/providers', label: t('adminCore.provider_health') },
+        { key: 'integrations', href: '/admin/integrations', label: t('adminShell.apiIntegrations') },
+      ] as const).map((item) => (
+        <Link
+          key={item.key}
+          href={item.href}
+          aria-current={active === item.key ? 'page' : undefined}
+          data-testid={`link-provider-section-${item.key}`}
+          className={cn(
+            'inline-flex min-h-10 shrink-0 items-center rounded-lg px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+            active === item.key
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+          )}
+        >
+          {item.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
 function AdminIntegrations() {
   const { t } = useI18n();
   const { can, isOwner } = useAdminPermissions();
@@ -1222,6 +1252,7 @@ function AdminIntegrations() {
       subtitle={t('adminProviders.connect_configure_and_monitor_external_exchange_and')}
       requiredPermission="integrations.view"
     >
+      <ProviderIntegrationNavigation active="integrations" />
       <div className="api-integrations-page space-y-6">
         <div className="admin-page-actions api-integrations-actions">
           <button type="button" onClick={refreshIntegration} disabled={statusQuery.isFetching} className="button button-secondary whitespace-nowrap h-9 px-4 text-xs font-bold uppercase tracking-wider" data-testid="button-refresh-integrations">
@@ -6352,6 +6383,7 @@ function AdminProviders() {
     : null;
   const reconciliationWarning = quickexReconciliationWarning(status?.reconciliation, formatDate);
   return <AdminShell eyebrow={t('adminCore.operations_settings')} title={t('adminCore.provider_health')} requiredPermission="integrations.view">
+    <ProviderIntegrationNavigation active="providers" />
     <div className="panel providers-panel provider-health-card rise-in">
       <div className="panel-heading provider-health-heading"><div><span className="section-kicker">{t('adminCore.exchange_integration')}</span><h2>{t('adminCore.connection_status')}</h2><p>{t('adminCore.credential_readiness_and_live_provider_capabilities')}</p></div><div className="provider-health-actions">{status && <span className="secure-badge provider-verified-badge"><BadgeCheck size={14} /> {status.mode.toUpperCase()}</span>}{canTestCredentials && <button className="button provider-diagnostics-button" disabled={connectionTest.isPending || health.isLoading} onClick={test} data-testid="button-test-provider">{connectionTest.isPending ? <Loader2 className="spin" size={15} /> : <Activity size={15} />} {connectionTest.isPending ? t('adminCore.running_diagnostics') : t('adminCore.run_diagnostics')}</button>}</div></div>
       {notice && <div className="mt-4"><InlineNotice kind={notice.kind} onDismiss={() => setNotice(null)}>{notice.text}</InlineNotice></div>}
