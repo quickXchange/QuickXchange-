@@ -4,6 +4,12 @@ import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { ChevronDown } from 'lucide-react';
 import { useI18n } from '@/i18n';
 import { UniversalSearchSheet } from './universal-search-sheet';
+import {
+  normalizeSelectorSearchValue,
+  selectorOptionMatchesQuery,
+} from './selector-search';
+
+export { normalizeSelectorSearchValue, selectorOptionMatchesQuery } from './selector-search';
 
 export type GlobalAssetSelectorCategory = 'crypto' | 'fiat' | 'payment-method';
 
@@ -12,20 +18,6 @@ export type GlobalAssetSelectorOption = {
   category: GlobalAssetSelectorCategory;
   searchText: string;
 };
-
-export function normalizeSelectorSearchValue(value: string): string {
-  return value
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase()
-    .trim();
-}
-
-export function selectorOptionMatchesQuery(searchText: string, query: string): boolean {
-  const normalizedQuery = normalizeSelectorSearchValue(query);
-  return !normalizedQuery
-    || normalizeSelectorSearchValue(searchText).includes(normalizedQuery);
-}
 
 type GlobalAssetSelectorProps<TOption extends GlobalAssetSelectorOption> = {
   value: string;

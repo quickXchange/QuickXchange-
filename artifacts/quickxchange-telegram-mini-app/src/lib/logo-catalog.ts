@@ -130,16 +130,20 @@ export function resolveOrderVisual(
   const projectedBadge = text(isSource ? (logos.fromNetwork || logos.fromFlag) : (logos.toNetwork || logos.toFlag));
 
   const isPayment = option?.kind === 'payment-method' || option?.kind === 'fiat-payment-method' || Boolean(paymentMethod);
+  const paymentFallbacks = getFallbackPaymentLogos(
+    option?.title || text(paymentMethod?.name),
+    option?.paymentMethodId || text(paymentMethod?.paymentMethodId) || option?.id,
+  );
+  const assetFallbacks = getFallbackCryptoLogos(asset);
+  const storedFallbacks = isPayment
+    ? [paymentLogo, projectedLogo, ...paymentFallbacks]
+    : [projectedLogo, ...assetFallbacks];
+  const logoUrl = option?.logoUrl || paymentLogo || projectedLogo;
 
   return {
-    logoUrl: option?.logoUrl || paymentLogo || projectedLogo,
-    fallbackSrcs: isPayment
-      ? getFallbackPaymentLogos(
-          option?.title || text(paymentMethod?.name),
-          option?.paymentMethodId || text(paymentMethod?.paymentMethodId) || option?.id,
-        )
-      : getFallbackCryptoLogos(asset),
-    badgeUrl: option?.kind === 'crypto-network' ? option.networkLogoUrl : option?.flagUrl || projectedBadge,
+    logoUrl,
+    fallbackSrcs: Array.from(new Set(storedFallbacks.filter((source): source is string => Boolean(source) && source !== logoUrl))),
+    badgeUrl: option?.kind === 'crypto-network' ? option.networkLogoUrl || projectedBadge : option?.flagUrl || projectedBadge,
     badgeVariant: option?.kind === 'crypto-network' ? 'network' : 'flag',
     variant: isPayment ? 'payment' : 'asset',
     fallback: getLogoFallbackText(

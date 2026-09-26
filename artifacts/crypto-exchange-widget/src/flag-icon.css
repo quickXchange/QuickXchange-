@@ -70,16 +70,17 @@ html.dark .logo-avatar {
   image-rendering: auto;
 }
 
-/* High-contrast brand-aware surface for uploaded payment/bank logos */
+/* Payment artwork owns its pixels. Keep only the circular edge on the wrapper;
+ * transparent uploads must show the surface behind the avatar, never a mat. */
 .logo-avatar-payment,
 .logo-avatar-bank {
-  background-color: #ffffff !important;
+  background-color: transparent !important;
   border: 1px solid rgba(0, 0, 0, 0.08) !important;
 }
 
 html.dark .logo-avatar-payment,
 html.dark .logo-avatar-bank {
-  background-color: #ffffff !important;
+  background-color: transparent !important;
   border: 1px solid rgba(255, 255, 255, 0.15) !important;
 }
 
@@ -144,7 +145,7 @@ html.dark .logo-avatar-bank {
 
 .logo-avatar-payment .logo-avatar-fallback,
 .logo-avatar-bank .logo-avatar-fallback {
-  color: #1a1a1a;
+  color: hsl(var(--foreground));
   font-size: 0.58em;
   font-weight: 850;
 }

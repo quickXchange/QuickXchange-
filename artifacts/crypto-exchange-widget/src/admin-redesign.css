@@ -16522,3 +16522,56 @@ html:not(.dark) .admin-shell.admin-redesign .admin-header-avatar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Keep View Order exchange artwork on one centered, circular image surface. */
+.quickx-view-order .quickx-exchange-card :is(.admin-crypto-logo, .admin-payment-logo-stack) {
+  box-sizing: border-box;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  max-width: 40px !important;
+  max-height: 40px !important;
+  flex: 0 0 40px !important;
+  aspect-ratio: 1 / 1 !important;
+  border-radius: 50% !important;
+  overflow: visible;
+  background: transparent;
+  box-shadow: none;
+}
+
+.quickx-view-order .quickx-exchange-card .admin-payment-logo-stack > .payment-method-logo,
+.quickx-view-order .quickx-exchange-card .admin-crypto-logo {
+  display: inline-grid !important;
+  place-items: center;
+  overflow: hidden !important;
+  border-radius: 50% !important;
+}
+
+.quickx-view-order .quickx-exchange-card .admin-payment-logo-stack > .payment-method-logo {
+  width: 40px !important;
+  height: 40px !important;
+}
+
+.quickx-view-order .quickx-exchange-card .logo-avatar-img {
+  object-fit: contain !important;
+  object-position: center !important;
+  background: transparent !important;
+}
+
+.quickx-view-order .quickx-exchange-card .crypto-network-badge {
+  gap: 3px;
+}
+
+@media (max-width: 640px) {
+  .quickx-view-order .quickx-exchange-card :is(.admin-crypto-logo, .admin-payment-logo-stack),
+  .quickx-view-order .quickx-exchange-card .admin-payment-logo-stack > .payment-method-logo {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    max-width: 36px !important;
+    max-height: 36px !important;
+    flex-basis: 36px !important;
+  }
+}

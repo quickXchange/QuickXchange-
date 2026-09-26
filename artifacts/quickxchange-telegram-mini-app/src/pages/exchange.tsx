@@ -18,36 +18,7 @@ import { cn } from '@/lib/utils';
 import { useHapticFeedback } from '@/lib/hooks';
 import { MiniAppLogo } from '@/components/mini-app-logo';
 import { getFallbackPaymentLogos, getFallbackCryptoLogos, getLogoFallbackText } from '@/lib/logo-catalog';
-
-export function normalizeExchangeSearchValue(value: string): string {
-  return value
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase()
-    .trim();
-}
-
-type ExchangeSearchOption = {
-  title?: string | null;
-  assetCode?: string | null;
-  routeNetwork?: string | null;
-  paymentMethodId?: string | null;
-};
-
-export function exchangeOptionMatchesSearch(
-  option: ExchangeSearchOption,
-  query: string,
-): boolean {
-  const normalizedQuery = normalizeExchangeSearchValue(query);
-  if (!normalizedQuery) return true;
-
-  return [
-    option.title,
-    option.assetCode,
-    option.routeNetwork,
-    option.paymentMethodId,
-  ].some(value => value != null && normalizeExchangeSearchValue(String(value)).includes(normalizedQuery));
-}
+import { exchangeOptionMatchesSearch } from '@/lib/exchange-search';
 
 export default function Exchange() {
   const [, setLocation] = useLocation();
@@ -114,11 +85,13 @@ export default function Exchange() {
         title: o.title,
         assetCode: o.assetCode,
         routeNetwork: o.routeNetwork,
+        networkTitle: o.networkTitle,
         logoUrl: o.logoUrl,
         networkLogoUrl: o.networkLogoUrl,
         flagUrl: o.flagUrl,
         kind: o.kind,
         paymentMethodId: o.paymentMethodId,
+        searchAliases: [o.title, o.assetCode, o.routeNetwork, o.networkTitle, o.paymentMethodId].filter((value): value is string => Boolean(value)),
         executionMode: o.executionMode,
         original: o
       }));
@@ -145,10 +118,12 @@ export default function Exchange() {
           title: inst.fullName || inst.currencyFriendlyTitle || inst.currencyTitle,
           assetCode: inst.currencyTitle,
           routeNetwork: inst.networkTitle,
+          networkTitle: inst.networkTitle,
           logoUrl: configured?.logoUrl || (inst.currencyLogoLink && !inst.currencyLogoLink.endsWith('/generic.svg') ? inst.currencyLogoLink : undefined),
           networkLogoUrl: configured?.networkLogoUrl,
           flagUrl: configured?.flagUrl,
           kind: 'crypto-network',
+          searchAliases: [inst.currencyFriendlyTitle],
           executionMode: 'api',
           original: inst
         });
@@ -173,11 +148,13 @@ export default function Exchange() {
           title: o.title,
           assetCode: o.assetCode,
           routeNetwork: o.routeNetwork,
+          networkTitle: o.networkTitle,
           logoUrl: o.logoUrl,
           networkLogoUrl: o.networkLogoUrl,
           flagUrl: o.flagUrl,
           kind: o.kind,
           paymentMethodId: o.paymentMethodId,
+          searchAliases: [o.title, o.assetCode, o.routeNetwork, o.networkTitle, o.paymentMethodId].filter((value): value is string => Boolean(value)),
           executionMode: o.executionMode,
           original: o
         }));
@@ -211,10 +188,12 @@ export default function Exchange() {
           title: inst.fullName || inst.currencyFriendlyTitle || inst.currencyTitle,
           assetCode: inst.currencyTitle,
           routeNetwork: inst.networkTitle,
+          networkTitle: inst.networkTitle,
           logoUrl: configured?.logoUrl || (inst.currencyLogoLink && !inst.currencyLogoLink.endsWith('/generic.svg') ? inst.currencyLogoLink : undefined),
           networkLogoUrl: configured?.networkLogoUrl,
           flagUrl: configured?.flagUrl,
           kind: 'crypto-network',
+          searchAliases: [inst.currencyFriendlyTitle],
           executionMode: 'api',
           original: inst
         });
@@ -227,20 +206,14 @@ export default function Exchange() {
     let list = sourceOpts;
     if (sourceFilter === 'crypto') list = list.filter(o => o.kind === 'crypto-network');
     if (sourceFilter === 'fiat') list = list.filter(o => o.kind !== 'crypto-network');
-    if (mode === 'swap') return list.filter(o => exchangeOptionMatchesSearch(o, sourceSearch));
-    if (!sourceSearch) return list;
-    const query = sourceSearch.toLowerCase();
-    return list.filter(o => o.title.toLowerCase().includes(query) || o.assetCode.toLowerCase().includes(query) || (o.routeNetwork || '').toLowerCase().includes(query));
+    return list.filter(o => exchangeOptionMatchesSearch(o, sourceSearch));
   }, [sourceOpts, sourceSearch, sourceFilter, mode]);
 
   const filteredTargetOpts = useMemo(() => {
     let list = targetOpts;
     if (targetFilter === 'crypto') list = list.filter(o => o.kind === 'crypto-network');
     if (targetFilter === 'fiat') list = list.filter(o => o.kind !== 'crypto-network');
-    if (mode === 'swap') return list.filter(o => exchangeOptionMatchesSearch(o, targetSearch));
-    if (!targetSearch) return list;
-    const query = targetSearch.toLowerCase();
-    return list.filter(o => o.title.toLowerCase().includes(query) || o.assetCode.toLowerCase().includes(query) || (o.routeNetwork || '').toLowerCase().includes(query));
+    return list.filter(o => exchangeOptionMatchesSearch(o, targetSearch));
   }, [targetOpts, targetSearch, targetFilter, mode]);
 
   useEffect(() => {
@@ -681,6 +654,7 @@ export default function Exchange() {
                 placeholder="0"
               />
               <button
+                data-testid="source-selector-trigger"
                 onClick={() => setShowSourceSelector(true)}
                 className="flex items-center space-x-2 bg-secondary/10 hover:bg-secondary/20 border border-secondary/20 transition-all px-3.5 py-2 rounded-2xl shrink-0 active:scale-95"
               >
@@ -724,6 +698,7 @@ export default function Exchange() {
                 placeholder="0"
               />
               <button
+                data-testid="target-selector-trigger"
                 onClick={() => setShowTargetSelector(true)}
                 className="flex items-center space-x-2 bg-primary/10 hover:bg-primary/20 border border-primary/20 transition-all px-3.5 py-2 rounded-2xl shrink-0 active:scale-95"
               >

@@ -93,7 +93,7 @@ export function OrderSettlementIdentity({
           logoUrl={paymentOption.logoUrl}
           flagUrl={(paymentOption as SettlementOption & { flagUrl?: string | null }).flagUrl}
           className="order-settlement-payment-logo"
-          preferTransparentBbvaArtwork={summaryLogoArtwork}
+          preferTransparentBbvaArtwork={summaryLogoArtwork && !paymentOption.logoUrl}
         />
         <span className="order-settlement-copy">
           <strong>{methodName}</strong>
@@ -110,6 +110,7 @@ export function OrderSettlementIdentity({
         name={paymentOption.title}
         network={paymentOption.routeNetwork || paymentOption.networkTitle || paymentOption.networkSlug}
         logoUrl={paymentOption.logoUrl}
+        logoFit="contain"
         networkLogoUrl={(paymentOption as SettlementOption & { networkLogoUrl?: string | null }).networkLogoUrl}
         size={size}
         compact={compact}
@@ -142,6 +143,7 @@ export function OrderSettlementIdentity({
       symbol={assetCode}
       network={routeLabel || undefined}
       networkLogoUrl={paymentOption ? (paymentOption as SettlementOption & { networkLogoUrl?: string | null }).networkLogoUrl : undefined}
+      logoFit="contain"
       size={size}
       compact={compact}
       preferSymbolLogo={!compact}

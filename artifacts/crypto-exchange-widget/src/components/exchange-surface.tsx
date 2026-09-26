@@ -36,7 +36,15 @@ import { CryptoIdentity, CryptoLogo, CryptoNetworkBadge, cryptoLogoFallbackUrls 
 import type { OfficialCryptoBySymbol } from '@/components/crypto-identity';
 import { useI18n } from '@/i18n';
 import { trackEvent } from '@/lib/analytics';
-import { GlobalAssetSelector, type GlobalAssetSelectorOption } from '@/components/global-asset-selector';
+import {
+  GlobalAssetSelector,
+  type GlobalAssetSelectorOption,
+} from '@/components/global-asset-selector';
+import {
+  normalizeSelectorSearchValue,
+  selectorOptionMatchesQuery,
+  settlementOptionSearchText,
+} from '@/components/selector-search';
 import { UniversalSearchSheet } from '@/components/universal-search-sheet';
 import { FiatCurrencyFlag, isFiatCurrencyCode } from '@/components/fiat-flag';
 import { getUniqueSettlementOptions } from '@/components/settlement-option-utils';
@@ -140,7 +148,7 @@ export function SettlementOptionCombobox({
   }, [mobileContainedMenu]);
 
   const selected = options.find(option => sameSettlementOptionId(option.id, value)) || (allowAny ? undefined : options[0]);
-  const normalizedQuery = query.trim().toLowerCase();
+  const normalizedQuery = normalizeSelectorSearchValue(query);
 
   const hasCategories = options.length > 0;
 
@@ -171,27 +179,12 @@ export function SettlementOptionCombobox({
         : option.paymentMethodId
           ? 'payment-method'
           : 'fiat',
-      searchText: (
+      searchText: settlementOptionSearchText(
+        option,
         option.kind === 'crypto-network'
-          ? [
-              option.assetCode,
-              option.title,
-              option.networkTitle,
-              option.networkSlug,
-              option.routeNetwork,
-              officialCryptoBySymbol?.get(option.assetCode.trim().toUpperCase())?.name,
-            ]
-          : option.paymentMethodId
-            ? [
-                option.assetCode,
-                option.title,
-                option.paymentMethodId,
-              ]
-            : [
-                option.assetCode,
-                option.title,
-              ]
-      ).filter(Boolean).join(' ').toLowerCase(),
+          ? officialCryptoBySymbol?.get(option.assetCode.trim().toUpperCase())?.name
+          : undefined,
+      ),
       settlementOption: option,
     })));
     return list;
@@ -204,7 +197,7 @@ export function SettlementOptionCombobox({
           ? option.settlementOption.kind === 'fiat-payment-method'
           : option.category === category
       ));
-    return matchesCategory && (!normalizedQuery || option.searchText.includes(normalizedQuery));
+    return matchesCategory && selectorOptionMatchesQuery(option.searchText, normalizedQuery);
   });
 
   const availableCategories = useMemo(() => {

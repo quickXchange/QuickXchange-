@@ -4497,7 +4497,7 @@ function OrderRouteLogo({ order, side, options }: {
     <span className="order-route-logo-frame" title={displayName}>
       {isPaymentMethod
         ? <PaymentMethodLogo name={displayName} logoUrl={option?.logoUrl} className="admin-payment-logo-stack" />
-        : <AdminCryptoLogo symbol={asset} logoUrl={option?.logoUrl} size="sm" />}
+        : <AdminCryptoLogo symbol={asset} logoUrl={option?.logoUrl} size="sm" fit="contain" />}
     </span>
   );
 }
@@ -4532,7 +4532,7 @@ function SettlementRouteSide({ order, side, options }: {
     <span className="order-route-logo-frame">
       {isPaymentMethod
         ? <AdminPaymentLogo name={displayName} currencyCode={asset} logoUrl={option?.logoUrl} />
-        : <AdminCryptoLogo symbol={asset} logoUrl={option?.logoUrl} size="sm" />}
+        : <AdminCryptoLogo symbol={asset} logoUrl={option?.logoUrl} size="sm" fit="contain" />}
     </span>
     <span className="order-route-copy">
       <strong>{displayName}</strong>
@@ -5394,6 +5394,9 @@ function ExchangeDetailsCard({
     const asset = sending ? order.fromAsset : order.toAsset;
     const amount = sending ? order.amount : order.receiveAmount;
     const paymentMethod = option?.kind === 'fiat-payment-method';
+    const snapshot = recordOf(order.settlementSnapshot);
+    const sideSnapshot = recordOf(snapshot[sending ? 'source' : 'target']);
+    const snapshotLogoUrl = typeof sideSnapshot.logoUrl === 'string' ? sideSnapshot.logoUrl : undefined;
     return (
       <div className={cn(
         'min-w-0 rounded-xl border p-3',
@@ -5405,10 +5408,10 @@ function ExchangeDetailsCard({
         <div className="mt-2 flex min-w-0 items-center gap-2">
           <span className="shrink-0">
             {paymentMethod
-              ? <AdminPaymentLogo name={option?.title || method} currencyCode={asset} logoUrl={option?.logoUrl} />
+              ? <AdminPaymentLogo name={option?.title || method} currencyCode={asset} logoUrl={option?.logoUrl || snapshotLogoUrl} />
               : isFiatCurrencyCode(asset)
                 ? <FiatCurrencyFlag code={asset} flagUrl={option?.flagUrl} variant="admin" />
-                : <AdminCryptoLogo symbol={asset} logoUrl={option?.logoUrl} size="md" />}
+                : <AdminCryptoLogo symbol={asset} logoUrl={option?.logoUrl || snapshotLogoUrl} size="md" fit="contain" />}
           </span>
           <div className="min-w-0">
             <strong className="quickx-important-value block truncate text-[13px] font-black" title={`${number(amount)} ${asset}`}>{number(amount)} {asset}</strong>

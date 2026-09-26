@@ -3,6 +3,7 @@ import {
   GlobalAssetSelector,
   type GlobalAssetSelectorOption,
 } from '@/components/global-asset-selector';
+import { convertInstrumentSearchText } from '@/components/selector-search';
 import { ArrowDownUp, ArrowRight, Loader2, ShieldCheck, Zap, Mail, Menu, TrendingUp, Wallet, AlertCircle, ChevronLeft } from 'lucide-react';
 import {
   getGetQuickexConfigQueryKey,
@@ -31,13 +32,6 @@ const errorText = (error: unknown, fallback: string) => {
   return fallback;
 };
 
-const normalizedInstrumentParts = (option: QuickexInstrument) => [
-  option.currencyTitle,
-  option.currencyFriendlyTitle,
-  option.fullName,
-  option.networkTitle,
-].map(part => part?.trim().toLowerCase() || '');
-
 type ConvertGlobalSelectorOption = GlobalAssetSelectorOption & {
   instrument: QuickexInstrument;
 };
@@ -61,17 +55,10 @@ function ConvertAssetCombobox({
 
   const mappedOptions = useMemo(() => {
     return options.map((option): ConvertGlobalSelectorOption => {
-      const searchText = [
-        option.currencyTitle,
-        option.networkTitle,
-        option.fullName,
-        option.currencyFriendlyTitle
-      ].filter(Boolean).join(' ').toLowerCase();
-
       return {
         id: option.slug,
         category: 'crypto' as const,
-        searchText,
+        searchText: convertInstrumentSearchText(option),
         instrument: option,
       };
     });

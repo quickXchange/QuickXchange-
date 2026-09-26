@@ -143,13 +143,12 @@ export function PaymentMethodLogo({
     : brand === 'ziraat'
       ? `${basePath}/payment-methods/ziraat-bank-logo.jpg`
       : null;
-  const sourceKey = brand === 'sepa' || brand === 'ziraat'
-    ? (preferBrandIcon
-      ? [brandfetchUrl, bundledUrl, logoUrl, fallbackRemoteUrl]
-      : [logoUrl, bundledUrl, brandfetchUrl, fallbackRemoteUrl]).filter(Boolean).join('\0')
-    : (preferBrandIcon
-      ? [brandfetchUrl, presentationLogoUrl, logoUrl, fallbackRemoteUrl]
-      : [preferTransparentBbvaArtwork ? presentationLogoUrl : logoUrl, presentationLogoUrl, brandfetchUrl, fallbackRemoteUrl]).filter(Boolean).join('\0');
+  const bundledFallback = brand === 'sepa' || brand === 'ziraat' ? bundledUrl : presentationLogoUrl;
+  const sourceKey = [
+    logoUrl,
+    ...(preferBrandIcon ? [brandfetchUrl, bundledFallback] : [bundledFallback, brandfetchUrl]),
+    fallbackRemoteUrl,
+  ].filter(Boolean).join('\0');
   const imageSources = useMemo(() => Array.from(new Set(sourceKey.split('\0').filter(Boolean))), [sourceKey]);
   const logoType = /\b(?:bank|bbva|n26|bunq|commerzbank|caixabank|ziraat|zirrat|icard|bnp|ing)\b/iu.test(name)
     ? 'bank'

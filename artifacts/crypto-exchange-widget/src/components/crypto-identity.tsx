@@ -11,6 +11,7 @@ type CryptoIdentityProps = {
   logoUrl?: string | null;
   networkLogoUrl?: string | null;
   logoFallbackUrls?: string[];
+  logoFit?: 'cover' | 'contain';
   size?: 'sm' | 'md' | 'lg';
   compact?: boolean;
   preferSymbolLogo?: boolean;
@@ -164,9 +165,10 @@ export function CryptoLogo({
   logoUrl,
   logoFallbackUrls = [],
   size = 'md',
+  fit = 'cover',
   preferSymbolLogo = false,
   className = '',
-}: Pick<CryptoIdentityProps, 'symbol' | 'logoUrl' | 'logoFallbackUrls' | 'size' | 'preferSymbolLogo' | 'className'>) {
+}: Pick<CryptoIdentityProps, 'symbol' | 'logoUrl' | 'logoFallbackUrls' | 'size' | 'preferSymbolLogo' | 'className'> & { fit?: 'cover' | 'contain' }) {
   const catalog = useContext(CryptoCatalogContext);
   const { symbol: normalizedSymbol, sources } = useMemo(
     () => resolveCryptoLogoSources({ symbol, logoUrl, logoFallbackUrls, catalog: preferSymbolLogo ? [] : catalog }),
@@ -179,7 +181,7 @@ export function CryptoLogo({
       fallback={normalizedSymbol.slice(0, 1) || '¤'}
       size={size}
       type="crypto"
-      fit="cover"
+      fit={fit}
       data-symbol={normalizedSymbol}
       aria-hidden={true}
       className={`crypto-logo ${className}`.trim()}
@@ -220,6 +222,7 @@ export function CryptoNetworkBadge({
           size="badge"
           type="network"
           fit="contain"
+          className="network-logo-badge"
           aria-hidden={true}
         />
       )}
@@ -235,6 +238,7 @@ export function CryptoIdentity({
   networkLogoUrl,
   logoUrl,
   logoFallbackUrls,
+  logoFit = 'cover',
   size = 'md',
   compact = false,
   preferSymbolLogo = false,
@@ -254,7 +258,7 @@ export function CryptoIdentity({
 
   return (
     <span className={`crypto-identity ${compact ? 'crypto-identity-compact' : ''} ${className}`.trim()} aria-label={accessibleName} data-testid={testId}>
-      <CryptoLogo symbol={normalizedSymbol} logoUrl={displayLogoUrl} logoFallbackUrls={logoFallbackUrls} size={size} preferSymbolLogo={preferSymbolLogo} />
+      <CryptoLogo symbol={normalizedSymbol} logoUrl={displayLogoUrl} logoFallbackUrls={logoFallbackUrls} size={size} fit={logoFit} preferSymbolLogo={preferSymbolLogo} />
       <span className="crypto-identity-copy">
         <span className="crypto-identity-primary">
           <strong>{normalizedSymbol}</strong>
