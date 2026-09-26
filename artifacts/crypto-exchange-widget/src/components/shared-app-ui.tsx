@@ -92,7 +92,7 @@ export function PaymentDetailsCard({
                       <div className="relative flex items-center justify-center w-20 h-20 mb-4">
                         <div className="absolute inset-0 rounded-full border-[3px] border-transparent border-t-cyan-400/80 border-r-blue-500/50 animate-[spin_3s_linear_infinite] motion-reduce:animate-none" />
                         <div className="absolute inset-1 rounded-full border-[3px] border-transparent border-b-blue-400/60 border-l-purple-400/40 animate-[spin_4s_linear_infinite_reverse] motion-reduce:animate-none" />
-                        <div className="w-14 h-14 bg-background rounded-full shadow-sm flex items-center justify-center overflow-hidden border border-border p-1 relative z-10">
+                         <div className="w-14 h-14 rounded-full flex items-center justify-center overflow-hidden relative z-10">
                           {sourcePaymentMethod ? (
                             <PaymentMethodLogo
                               name={sourcePaymentMethod.name}

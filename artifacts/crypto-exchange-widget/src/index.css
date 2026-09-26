@@ -234,6 +234,7 @@
 .order-invoice-route .order-settlement-identity { float: right; width: 2.5rem; height: 2.5rem; overflow: hidden; border: 1px solid hsl(var(--primary) / .22); border-radius: 50%; background: transparent; padding: 0; }
 .order-invoice-route .order-settlement-copy, .order-invoice-route .crypto-identity-copy, .order-invoice-route .crypto-network-badge { display: none; }
 .order-invoice-route .order-settlement-identity :is(.crypto-logo, .payment-method-logo, .fiat-currency-flag) { width: 100%; height: 100%; aspect-ratio: 1; border-radius: 50%; background: transparent; object-fit: contain; }
+.order-invoice-route .order-settlement-identity .payment-method-logo.logo-avatar { border: 0 !important; box-shadow: none !important; }
 .order-invoice-route-arrow { display: grid; width: 2rem; height: 2rem; place-items: center; border: 1px solid hsl(var(--primary) / .25); border-radius: 50%; color: hsl(var(--primary)); background: hsl(var(--background)); }
 .order-invoice-route span { display: block; margin-top: .35rem; color: hsl(var(--muted-foreground)); font-size: .7rem; font-weight: 500; }
 .order-invoice-section-title { margin: 0 1.25rem; border-top: 1px solid hsl(var(--border)); padding-top: 1rem; color: hsl(var(--foreground)); font-size: .68rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
@@ -20208,8 +20209,7 @@ html:not(.dark) .frontend-drawer-nav .qx-menu-row.owner-access.active {
     font-size: 1rem;
   }
 
-  .order-settlement-payment-logo,
-  .order-settlement-payment-logo > .payment-method-logo {
+  .order-settlement-payment-logo {
     width: 2.5rem !important;
     height: 2.5rem !important;
     min-width: 2.5rem !important;
@@ -20223,8 +20223,18 @@ html:not(.dark) .frontend-drawer-nav .qx-menu-row.owner-access.active {
     background: transparent !important;
   }
 
-  .order-settlement-identity-sm .order-settlement-payment-logo,
-  .order-settlement-identity-sm .order-settlement-payment-logo > .payment-method-logo {
+  /* The stack is a sizing hook only. The shared avatar is the sole circular
+   * presentation and must never inherit the old unclipped order override. */
+  .order-settlement-payment-logo > .payment-method-logo {
+    width: 100% !important;
+    height: 100% !important;
+    aspect-ratio: 1 / 1 !important;
+    overflow: hidden !important;
+    border-radius: 50% !important;
+    background: transparent !important;
+  }
+
+  .order-settlement-identity-sm .order-settlement-payment-logo {
     width: 1.75rem !important;
     height: 1.75rem !important;
     min-width: 1.75rem !important;
@@ -20234,8 +20244,7 @@ html:not(.dark) .frontend-drawer-nav .qx-menu-row.owner-access.active {
     flex-basis: 1.75rem !important;
   }
 
-  .order-settlement-identity-lg .order-settlement-payment-logo,
-  .order-settlement-identity-lg .order-settlement-payment-logo > .payment-method-logo {
+  .order-settlement-identity-lg .order-settlement-payment-logo {
     width: 3rem !important;
     height: 3rem !important;
     min-width: 3rem !important;

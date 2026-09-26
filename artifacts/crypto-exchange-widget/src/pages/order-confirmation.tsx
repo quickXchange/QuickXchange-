@@ -348,7 +348,7 @@ export function OrderConfirmationPage() {
                    <div className="order-exchange-summary-logo order-exchange-summary-logo-send w-12 h-12 [&_.order-settlement-copy]:hidden [&_.crypto-identity-copy]:hidden flex items-center justify-center overflow-hidden rounded-full shrink-0 group-hover/send:border-cyan-500/40 transition-colors relative [&_.crypto-network-badge]:hidden">
                      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-cyan-500/10 to-blue-500/10 opacity-0 group-hover/send:opacity-100 transition-opacity pointer-events-none" />
                      <div className="relative z-10 flex items-center justify-center w-full h-full">
-                       <OrderSettlementIdentity assetCode={order.fromAsset} routeLabel={order.fromNetwork} settlementOptionId={order.sourceSettlementOptionId} size="md" compact={true} summaryLogoArtwork />
+                       <OrderSettlementIdentity assetCode={order.fromAsset} routeLabel={order.fromNetwork} settlementOptionId={order.sourceSettlementOptionId} size="md" compact={true} />
                      </div>
                    </div>
                    <div className="flex flex-col justify-center min-w-0 flex-1">
@@ -367,7 +367,7 @@ export function OrderConfirmationPage() {
                    <div className="order-exchange-summary-logo order-exchange-summary-logo-receive w-12 h-12 [&_.order-settlement-copy]:hidden [&_.crypto-identity-copy]:hidden flex items-center justify-center overflow-hidden rounded-full shrink-0 group-hover/recv:border-purple-500/40 transition-colors relative [&_.crypto-network-badge]:hidden">
                      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-500/10 to-purple-500/10 opacity-0 group-hover/recv:opacity-100 transition-opacity pointer-events-none" />
                      <div className="relative z-10 flex items-center justify-center w-full h-full">
-                       <OrderSettlementIdentity assetCode={order.toAsset} routeLabel={order.toNetwork} settlementOptionId={order.targetSettlementOptionId} size="md" compact={true} summaryLogoArtwork />
+                       <OrderSettlementIdentity assetCode={order.toAsset} routeLabel={order.toNetwork} settlementOptionId={order.targetSettlementOptionId} size="md" compact={true} />
                      </div>
                    </div>
                    <div className="flex flex-col justify-center min-w-0 flex-1">

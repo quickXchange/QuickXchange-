@@ -1,3 +1,5 @@
+import bbvaTransparentLogoUrl from '../../../../attached_assets/bbva-logo-transparent.png';
+
 type SettlementOptionLike = {
   id?: string;
   assetCode?: string;
@@ -138,11 +140,18 @@ export function resolveOrderVisual(
   const storedFallbacks = isPayment
     ? [paymentLogo, projectedLogo, ...paymentFallbacks]
     : [projectedLogo, ...assetFallbacks];
-  const logoUrl = option?.logoUrl || paymentLogo || projectedLogo;
+  const configuredLogoUrl = option?.logoUrl || paymentLogo || projectedLogo;
+  const isBbva = isPayment && /\bbbva\b/i.test(
+    [option?.title, option?.paymentMethodId, text(paymentMethod?.name), option?.id].filter(Boolean).join(' ')
+  );
+  const logoUrl = isBbva ? bbvaTransparentLogoUrl : configuredLogoUrl;
 
   return {
     logoUrl,
-    fallbackSrcs: Array.from(new Set(storedFallbacks.filter((source): source is string => Boolean(source) && source !== logoUrl))),
+    fallbackSrcs: Array.from(new Set(
+      (isBbva ? paymentFallbacks : [configuredLogoUrl, ...storedFallbacks])
+        .filter((source): source is string => Boolean(source) && source !== logoUrl)
+    )),
     badgeUrl: option?.kind === 'crypto-network' ? option.networkLogoUrl || projectedBadge : option?.flagUrl || projectedBadge,
     badgeVariant: option?.kind === 'crypto-network' ? 'network' : 'flag',
     variant: isPayment ? 'payment' : 'asset',

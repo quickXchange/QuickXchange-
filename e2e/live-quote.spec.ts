@@ -1863,6 +1863,82 @@ test('tracking clears stale results and keeps failures customer-safe', async ({ 
   await expect(page.getByText(/Quickex|SECRET_STATE|secret provider state|raw upstream/i)).toHaveCount(0);
 });
 
+test('BBVA order artwork has one transparent circular presentation in both themes and widths', async ({ page }, testInfo) => {
+  const orderId = 'QX-33333333-3333-4333-8333-333333333333';
+  const bbvaOption = {
+    id: 'eur-bbva', assetId: 'eur-fiat', assetCode: 'EUR', kind: 'fiat-payment-method',
+    title: 'BBVA', paymentMethodId: 'bbva', routeNetwork: 'BBVA', direction: 'both',
+    logoUrl: '/api/storage/objects/payment-method-logos/opaque-bbva-fixture',
+  };
+  await page.route('**/api/exchange/config', route => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify({
+      ...exchangeConfig,
+      settlementOptions: [...exchangeConfig.settlementOptions, bbvaOption],
+      manualSettlementOptions: [...exchangeConfig.manualSettlementOptions, bbvaOption],
+    }),
+  }));
+  await page.route('**/api/quickex/orders/*/status*', route => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify({
+      id: orderId, type: 'manual', status: 'awaiting funds', manualSettlementState: 'awaiting_funds',
+      fromAsset: 'EUR', fromNetwork: 'BBVA', sourceSettlementOptionId: bbvaOption.id,
+      toAsset: 'BTC', toNetwork: 'Bitcoin', targetSettlementOptionId: 'btc-bitcoin',
+      amount: 100, receiveAmount: 0.001, rateMode: 'FLOATING',
+      depositAddress: 'test-deposit-address', createdAt: new Date().toISOString(),
+      outcomeUnknown: false,
+    }),
+  }));
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`/status?order=${orderId}&token=tracking-token-bbva`);
+  const summary = page.getByTestId('track-order-exchange-summary');
+  const logo = page.getByTestId('track-order-exchange-sent').locator('.payment-method-logo');
+  const image = logo.locator('img.logo-avatar-img');
+  await expect(summary).toBeVisible();
+  await expect(image).toHaveAttribute('src', /bbva-logo-transparent/);
+  await expect.poll(() => image.evaluate(img => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+
+  for (const theme of ['light', 'dark'] as const) {
+    // The desktop header can be translated outside the viewport while a
+    // tracked order is scrolled into view. Exercise its real React handler.
+    await page.getByTestId(`button-theme-${theme}`).first().dispatchEvent('click');
+    await expect(page.locator('html')).toHaveClass(theme === 'dark' ? /dark/ : /^(?!.*dark)/);
+    await expect(image).toHaveAttribute('src', theme === 'dark' ? /bbva-logo-white-transparent/ : /bbva-logo-transparent/);
+    for (const width of [390, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      const geometry = await logo.evaluate(element => {
+        const image = element.querySelector<HTMLImageElement>('img')!;
+        const avatarStyle = getComputedStyle(element);
+        const imageStyle = getComputedStyle(image);
+        const canvas = document.createElement('canvas');
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        const context = canvas.getContext('2d')!;
+        context.drawImage(image, 0, 0);
+        return {
+          avatarRadius: avatarStyle.borderRadius,
+          avatarOverflow: avatarStyle.overflow,
+          avatarWidth: element.getBoundingClientRect().width,
+          imageFit: imageStyle.objectFit,
+          imageBackground: imageStyle.backgroundColor,
+          imageCornerAlpha: context.getImageData(0, 0, 1, 1).data[3],
+          imageSrc: image.src,
+        };
+      });
+      expect(geometry.avatarRadius).toBe('50%');
+      expect(geometry.avatarOverflow).toBe('hidden');
+      expect(geometry.avatarWidth).toBeGreaterThan(0);
+      expect(geometry.imageFit).toBe('contain');
+      expect(geometry.imageBackground).toBe('rgba(0, 0, 0, 0)');
+      expect(geometry.imageCornerAlpha).toBe(0);
+      expect(geometry.imageSrc).not.toContain('opaque-bbva-fixture');
+      await summary.screenshot({ path: testInfo.outputPath(`bbva-${theme}-${width}.png`) });
+    }
+    await page.setViewportSize({ width: 1280, height: 900 });
+  }
+});
+
 test('quote expiry disables submission and refreshes safely', async ({ page }) => {
   let quoteRequests = 0;
   let orderRequests = 0;

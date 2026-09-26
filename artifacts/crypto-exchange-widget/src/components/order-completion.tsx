@@ -363,14 +363,14 @@ export function OrderCompletionSection({
         </div>
         <div className="order-invoice-route">
           <div>
-            <OrderSettlementIdentity assetCode={order.fromAsset} routeLabel={order.fromNetwork} settlementOptionId={order.sourceSettlementOptionId} size="md" compact summaryLogoArtwork />
+            <OrderSettlementIdentity assetCode={order.fromAsset} routeLabel={order.fromNetwork} settlementOptionId={order.sourceSettlementOptionId} size="md" compact />
             <small>You Send</small>
             <strong>{number(order.amount)} {order.fromAsset}</strong>
             <span>{order.fromNetwork || 'Network unavailable'}</span>
           </div>
           <span className="order-invoice-route-arrow" aria-hidden="true"><ArrowRight size={18} /></span>
           <div>
-            <OrderSettlementIdentity assetCode={order.toAsset} routeLabel={order.toNetwork} settlementOptionId={order.targetSettlementOptionId} size="md" compact summaryLogoArtwork />
+            <OrderSettlementIdentity assetCode={order.toAsset} routeLabel={order.toNetwork} settlementOptionId={order.targetSettlementOptionId} size="md" compact />
             <small>You Receive</small>
             <strong>{number(order.receiveAmount)} {order.toAsset}</strong>
             <span>{receiveRouteLabel}</span>

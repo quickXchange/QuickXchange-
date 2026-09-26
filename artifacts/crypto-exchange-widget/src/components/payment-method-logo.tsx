@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
 import { SiAlipay, SiCashapp, SiN26, SiPaypal, SiPix, SiRevolut, SiVenmo, SiVisa, SiWise, SiZelle } from 'react-icons/si';
-import bbvaLogoUrl from '../../../../attached_assets/bbva-logo-png_seeklogo-474433_1788988228546.png';
 import bbvaTransparentLogoUrl from '../../../../attached_assets/bbva-logo-transparent.png';
+import bbvaWhiteLogoUrl from '../../../../attached_assets/bbva-logo-white-transparent.png';
 import { getBrandfetchLogoUrl } from '@/lib/brandfetch';
 import { LogoAvatar } from '@/components/logo-avatar';
 import { FiatCurrencyFlag } from '@/components/fiat-flag';
+import { useAppTheme } from '@/theme';
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
 const cn = (...classes: Array<string | false | undefined>) => classes.filter(Boolean).join(' ');
@@ -48,7 +49,7 @@ export const PAYMENT_METHOD_LOGO_DOMAINS: Array<[RegExp, string]> = [
 ];
 
 export const PAYMENT_METHOD_OFFICIAL_LOGOS: Array<[RegExp, string]> = [
-  [/\bbbva\b/i, bbvaLogoUrl],
+  [/\bbbva\b/i, bbvaTransparentLogoUrl],
   [/\bi\s*card\b/i, 'https://cdn.icard.com/icard.com/img/common/logo.png?53'],
 ];
 
@@ -86,7 +87,6 @@ export function PaymentMethodLogo({
   className,
   priority = true,
   preferBrandIcon = false,
-  preferTransparentBbvaArtwork = false,
 }: {
   name: string;
   logoUrl?: string | null;
@@ -96,8 +96,8 @@ export function PaymentMethodLogo({
   className?: string;
   priority?: boolean;
   preferBrandIcon?: boolean;
-  preferTransparentBbvaArtwork?: boolean;
 }) {
+  const isDark = useAppTheme();
   const normalized = name.toLowerCase();
   const visualProfile = PAYMENT_METHOD_VISUAL_PROFILES.find(([pattern]) => pattern.test(name))?.[1];
   let logo: React.ReactNode = null;
@@ -128,9 +128,6 @@ export function PaymentMethodLogo({
   else if (normalized === 'pix' || normalized.includes(' pix')) { logo = <SiPix color="#32BCAD" />; brand = 'pix'; }
 
   const officialLogoUrl = PAYMENT_METHOD_OFFICIAL_LOGOS.find(([pattern]) => pattern.test(name))?.[1];
-  const presentationLogoUrl = preferTransparentBbvaArtwork && brand === 'bbva'
-    ? bbvaTransparentLogoUrl
-    : officialLogoUrl;
   const remoteDomain = PAYMENT_METHOD_LOGO_DOMAINS.find(([pattern]) => pattern.test(name))?.[1];
   const brandfetchUrl = remoteDomain ? getBrandfetchLogoUrl(remoteDomain, { type: 'icon' }) : null;
   const fallbackRemoteUrl = remoteDomain
@@ -143,9 +140,11 @@ export function PaymentMethodLogo({
     : brand === 'ziraat'
       ? `${basePath}/payment-methods/ziraat-bank-logo.jpg`
       : null;
-  const bundledFallback = brand === 'sepa' || brand === 'ziraat' ? bundledUrl : presentationLogoUrl;
+  const bundledFallback = brand === 'sepa' || brand === 'ziraat' ? bundledUrl : officialLogoUrl;
   const sourceKey = [
-    logoUrl,
+    // The current BBVA catalog upload is an opaque square; never fall back to
+    // that artwork when the transparent bundled logo cannot load.
+    ...(brand === 'bbva' ? [isDark ? bbvaWhiteLogoUrl : bbvaTransparentLogoUrl] : [logoUrl]),
     ...(preferBrandIcon ? [brandfetchUrl, bundledFallback] : [bundledFallback, brandfetchUrl]),
     fallbackRemoteUrl,
   ].filter(Boolean).join('\0');

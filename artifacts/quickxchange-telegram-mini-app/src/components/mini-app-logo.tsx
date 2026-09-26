@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useGetWebsiteBranding, getGetWebsiteBrandingQueryKey } from '@workspace/api-client-react';
 import { cn } from '@/lib/utils';
+import bbvaTransparentLogoUrl from '../../../../attached_assets/bbva-logo-transparent.png';
+import bbvaWhiteLogoUrl from '../../../../attached_assets/bbva-logo-white-transparent.png';
 
 export type MiniAppLogoSize = 'small' | 'normal' | 'medium' | 'large';
 
@@ -41,8 +43,16 @@ export function MiniAppLogo({
   variant?: 'asset' | 'payment';
   className?: string;
 }) {
+  const isBbva = (src || logoUrl) === bbvaTransparentLogoUrl;
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
+  useEffect(() => {
+    if (!isBbva) return;
+    const observer = new MutationObserver(() => setIsDark(document.documentElement.classList.contains('dark')));
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, [isBbva]);
   const sources = Array.from(new Set(
-    [src || logoUrl, ...fallbackSrcs]
+    [isBbva && isDark ? bbvaWhiteLogoUrl : src || logoUrl, ...fallbackSrcs]
       .map(normalizeMiniAppImageUrl)
       .filter((value): value is string => Boolean(value)),
   ));
@@ -74,7 +84,7 @@ export function MiniAppLogo({
             src={currentSrc}
             alt={alt}
             className={cn(
-              'block max-h-[90%] max-w-[90%] object-contain object-center',
+              'block max-h-[90%] max-w-[90%] bg-transparent object-contain object-center',
               classes.image,
             )}
             onError={() => setSourceIndex(index => index + 1)}
