@@ -324,6 +324,7 @@ test('customers can review, reload, inspect, and claim their orders', async ({ p
   await page.setViewportSize({ width: 1280, height: 900 });
 
   await expect(page.getByTestId('customer-order-history')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Cancel Order' })).toHaveCount(0);
   const customerVisualContract = await page.locator('.customer-shell').evaluate((shell) => {
     const shellStyle = getComputedStyle(shell);
     const cards = Array.from(shell.querySelectorAll<HTMLElement>('.customer-card'));
@@ -378,6 +379,8 @@ test('customers can review, reload, inspect, and claim their orders', async ({ p
   await page.getByRole('link', { name: /QX-3333/ }).click();
   await expect(page).toHaveURL(/\/account\/orders\/QX-33333333/);
   await expect(page.getByTestId('customer-order-detail')).toBeVisible();
+  await expect(page.getByTestId('button-cancel-order')).toHaveCount(0);
+  await expect(page.getByTestId('modal-cancel-order')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: '9,007,199,254,740,993.123456789012345678 USDT' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Back to account' })).toHaveCount(0);
   await expect(page.getByTestId('order-detail-actions')).toHaveCount(0);
@@ -438,6 +441,10 @@ test('customers can review, reload, inspect, and claim their orders', async ({ p
   await expect(page.getByTestId('notice-success')).toContainText('Order added to your account');
   await expect.poll(() => claimRequest).toEqual({ orderId: claimedOrder.id });
   await expect(page.getByTestId(`customer-order-${claimedOrder.id}`)).toBeVisible();
+  await page.goto(`/account/orders/${claimedOrder.id}`);
+  await expect(page.getByTestId('customer-order-detail')).toBeVisible();
+  await expect(page.getByTestId('button-cancel-order')).toHaveCount(0);
+  await expect(page.getByTestId('modal-cancel-order')).toHaveCount(0);
 });
 
 test('customer order details translate provider states into clear public progress labels', async ({ page }) => {
@@ -465,5 +472,7 @@ test('customer order details translate provider states into clear public progres
     status = providerStatus;
     await page.goto(`/account/orders/${orderId}`);
     await expect(page.getByTestId(`status-${providerStatus}`)).toHaveText(publicLabel);
+    await expect(page.getByTestId('button-cancel-order')).toHaveCount(0);
+    await expect(page.getByTestId('modal-cancel-order')).toHaveCount(0);
   }
 });

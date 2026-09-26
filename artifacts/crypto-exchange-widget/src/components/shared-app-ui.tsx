@@ -1,7 +1,7 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { PaymentMethodLogo } from '@/components/payment-method-logo';
 import { useState, type ReactNode } from 'react';
-import { AlertTriangle, Check, CircleAlert, RefreshCw, ShieldCheck, X, Copy } from 'lucide-react';
+import { Check, CircleAlert, RefreshCw, ShieldCheck, X, Copy } from 'lucide-react';
 import type { ApiError, OrderPaymentDetails, SourcePaymentMethod } from '@workspace/api-client-react';
 import { useI18n } from '@/i18n';
 
@@ -18,76 +18,6 @@ export const getPublicObjectUrl = (path: string | null | undefined) => {
 };
 
 export const cn = (...classes: Array<string | false | undefined>) => classes.filter(Boolean).join(' ');
-
-export function CancelOrderAction({
-  onConfirm,
-  pending = false,
-  errorMessage,
-  triggerClassName,
-}: {
-  onConfirm: () => void;
-  pending?: boolean;
-  errorMessage?: string | null;
-  triggerClassName?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
-      <DialogPrimitive.Trigger asChild>
-        <button
-          type="button"
-          className={cn(
-            'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-destructive/35 bg-destructive/5 px-5 text-sm font-bold text-destructive transition hover:border-destructive/55 hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50',
-            triggerClassName,
-          )}
-          data-testid="button-cancel-order"
-        >
-          <X size={17} />
-          Cancel Order
-        </button>
-      </DialogPrimitive.Trigger>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-[90] bg-slate-950/55 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 motion-reduce:animate-none" />
-        <DialogPrimitive.Content
-          className="fixed left-1/2 top-1/2 z-[91] w-[calc(100vw-32px)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-3xl border border-destructive/20 bg-card p-6 text-card-foreground shadow-[0_24px_80px_rgba(15,23,42,0.32)] focus:outline-none sm:p-8 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 motion-reduce:animate-none"
-          data-testid="modal-cancel-order"
-        >
-          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl border border-destructive/20 bg-destructive/10 text-destructive shadow-[0_0_32px_rgba(239,68,68,0.12)]">
-            <AlertTriangle size={25} />
-          </div>
-          <DialogPrimitive.Title className="mt-5 text-center text-xl font-bold">
-            Are you sure you want to cancel this order?
-          </DialogPrimitive.Title>
-          <DialogPrimitive.Description className="mt-2 text-center text-sm leading-relaxed text-muted-foreground">
-            This order will remain available in your history and tracking.
-          </DialogPrimitive.Description>
-          {errorMessage && (
-            <p className="mt-4 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-center text-sm text-destructive" role="alert">
-              {errorMessage}
-            </p>
-          )}
-          <div className="mt-7 grid gap-3 sm:grid-cols-2">
-            <DialogPrimitive.Close asChild>
-              <button type="button" className="button button-secondary min-h-12 rounded-xl" disabled={pending} data-testid="button-keep-order">
-                Keep Order
-              </button>
-            </DialogPrimitive.Close>
-            <button
-              type="button"
-              className="inline-flex min-h-12 items-center justify-center rounded-xl bg-destructive px-5 text-sm font-bold text-destructive-foreground shadow-[0_12px_30px_rgba(239,68,68,0.22)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={onConfirm}
-              disabled={pending}
-              data-testid="button-confirm-cancel-order"
-            >
-              {pending ? <RefreshCw size={17} className="mr-2 animate-spin motion-reduce:animate-none" /> : null}
-              {pending ? 'Cancelling…' : 'Cancel Order'}
-            </button>
-          </div>
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
-  );
-}
 
 /** Customer-safe payment instructions. Keep this allowlist in one place so
  * internal order fields never accidentally become public payment details. */

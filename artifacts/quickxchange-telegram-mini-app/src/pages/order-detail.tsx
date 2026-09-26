@@ -4,8 +4,7 @@ import {
   useGetTelegramMiniAppOrder, getGetTelegramMiniAppOrderQueryKey,
   useGetPublicOrderStatus, getGetPublicOrderStatusQueryKey,
   useGetExchangeConfig, getGetExchangeConfigQueryKey,
-  useMarkOrderPaid,
-  useCancelCustomerOrder
+  useMarkOrderPaid
 } from '@workspace/api-client-react';
 import { useAuth, useAuthHeaders } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
@@ -83,7 +82,6 @@ export default function OrderDetail() {
   );
 
   const markPaid = useMarkOrderPaid({ request: { headers } });
-  const cancelOrder = useCancelCustomerOrder({ request: { headers } });
 
   const [copied, setCopied] = useState<string | null>(null);
   const handleCopy = (text: string) => {
@@ -107,21 +105,6 @@ export default function OrderDetail() {
     } catch (err: any) {
       haptic.notification('error');
       alert(err.message || 'Failed to update order');
-    }
-  };
-
-  const handleCancel = async () => {
-    if (!orderId || !trackingToken) return;
-    haptic.impact('heavy');
-    try {
-      await cancelOrder.mutateAsync({ id: orderId, data: { trackingToken } });
-      haptic.notification('success');
-      queryClient.invalidateQueries({ queryKey: getGetPublicOrderStatusQueryKey(orderId, { trackingToken }) });
-      queryClient.invalidateQueries({ queryKey: getGetTelegramMiniAppOrderQueryKey(orderId) });
-      queryClient.invalidateQueries({ queryKey: ['listTelegramMiniAppOrders'] });
-    } catch (err: any) {
-      haptic.notification('error');
-      alert(err.message || 'Failed to cancel order');
     }
   };
 
@@ -534,21 +517,13 @@ export default function OrderDetail() {
                 )}
 
                 {showPaymentActions && (
-                  <div className="flex gap-2 pt-3">
+                  <div className="pt-3">
                     <Button
                       onClick={handleMarkPaid}
                       disabled={markPaid.isPending || (!paymentElements || paymentElements.length === 0)}
-                      className="flex-1 h-11 rounded-xl bg-gradient-to-r from-primary to-accent hover:opacity-90 text-white font-bold border-0 shadow-[0_4px_14px_-4px_hsl(var(--primary)/0.5)] active:scale-95 transition-all disabled:opacity-50"
+                      className="w-full h-11 rounded-xl bg-gradient-to-r from-primary to-accent hover:opacity-90 text-white font-bold border-0 shadow-[0_4px_14px_-4px_hsl(var(--primary)/0.5)] active:scale-95 transition-all disabled:opacity-50"
                     >
                       {markPaid.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : (isCryptoDeposit ? 'I Have Sent Crypto' : 'Mark as Paid')}
-                    </Button>
-                    <Button
-                      onClick={handleCancel}
-                      disabled={cancelOrder.isPending}
-                      variant="outline"
-                      className="h-11 px-4 rounded-xl bg-transparent border-white/10 hover:bg-white/5 text-muted-foreground font-semibold active:scale-95 transition-all disabled:opacity-50"
-                    >
-                      Cancel
                     </Button>
                   </div>
                 )}

@@ -5,8 +5,8 @@ import {
   useGetPublicOrderStatus,
   useGetQuickexOrderStatus,
   getGetPublicOrderStatusQueryKey,
-  getGetQuickexOrderStatusQueryKey
-  , useMarkOrderPaid, useCancelCustomerOrder
+  getGetQuickexOrderStatusQueryKey,
+  useMarkOrderPaid,
 } from "@workspace/api-client-react";
 import type { ApiError, ManualPublicOrderStatus } from "@workspace/api-client-react";
 import { PublicShell } from "@/components/public-shell";
@@ -14,7 +14,7 @@ import {
   CircleAlert, RefreshCw, Loader2, Copy, Network, Check, ArrowRight, ShieldCheck, CheckCircle2, XCircle, Clock3, ArrowDown
 } from "lucide-react";
 import { useI18n } from "@/i18n";
-import { CancelOrderAction, cn, PaymentDetailsCard, publicApiErrorText, SUPPORT_TELEGRAM } from "@/components/shared-app-ui";
+import { cn, PaymentDetailsCard, SUPPORT_TELEGRAM } from "@/components/shared-app-ui";
 import { OrderSettlementIdentity } from "@/components/order-settlement-identity";
 import { OrderCompletionSection } from "@/components/order-completion";
 import { QRCodeSVG } from "qrcode.react";
@@ -48,8 +48,6 @@ export function OrderConfirmationPage() {
   const { t, formatNumber } = useI18n();
   const queryClient = useQueryClient();
   const markPaidMutation = useMarkOrderPaid();
-  const cancelOrderMutation = useCancelCustomerOrder();
-  const [cancelError, setCancelError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [showQR, setShowQR] = useState(false);
 
@@ -113,21 +111,6 @@ export function OrderConfirmationPage() {
     });
   };
 
-  const cancelOrder = () => {
-    setCancelError(null);
-    cancelOrderMutation.mutate({
-      id,
-      data: trackingToken ? { trackingToken } : undefined,
-    }, {
-      onSuccess: (updated) => {
-        queryClient.setQueryData(getGetPublicOrderStatusQueryKey(id, trackingParams), updated);
-      },
-      onError: (error) => {
-        setCancelError(publicApiErrorText(error, 'This order can no longer be cancelled.'));
-      },
-    });
-  };
-
   useEffect(() => {
     document.title = order
       ? `${order.id} · Order Created · QuickXchange`
@@ -173,8 +156,6 @@ export function OrderConfirmationPage() {
   const halted = /refund|expire|fail|cancel/.test(status);
   const uncertain = /unknown|held|verification|review/.test(status) || order.outcomeUnknown;
   const completed = /complete|paid/.test(status);
-  const canCustomerCancel = !isQuickex && isManual && mss === 'awaiting_funds' &&
-    !order.customerMarkedPaidAt && !halted && !uncertain && !completed && !/process|paid/.test(status);
 
   const isCancelled = status === 'cancelled';
   const isConfirming = isManual
@@ -622,16 +603,6 @@ export function OrderConfirmationPage() {
                START ANOTHER CONVERSION
              </Link>
           </div>
-          {canCustomerCancel && (
-            <div className="mt-2 border-t border-border/50 pt-4">
-              <CancelOrderAction
-                onConfirm={cancelOrder}
-                pending={cancelOrderMutation.isPending}
-                errorMessage={cancelError}
-                triggerClassName="w-full sm:w-auto rounded-2xl bg-destructive/5 text-destructive border-destructive/20 hover:bg-destructive/10"
-              />
-            </div>
-          )}
         </div>
       </main>
     </PublicShell>

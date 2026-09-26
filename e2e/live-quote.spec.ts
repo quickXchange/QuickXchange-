@@ -909,6 +909,8 @@ test('requires crypto refund details for a crypto-to-fiat Swap and surfaces inva
   await expect(page.getByTestId('status-order-confirmation')).toHaveText('Pending');
   await expect(page.getByTestId('form-exchange')).toHaveCount(0);
   await expect(page.getByTestId('text-order-id')).toHaveText(orderId);
+  await expect(page.getByTestId('button-cancel-order')).toHaveCount(0);
+  await expect(page.getByTestId('modal-cancel-order')).toHaveCount(0);
 });
 
 test('submits a USDT TRC20 to EUR payment method Swap without refund details', async ({ page }) => {
@@ -1225,6 +1227,7 @@ test('uses dedicated Quickex Convert routes and submits both wallet directions',
   await expect(page.getByTestId('status-order-confirmation')).toHaveText('AWAITING FUNDS');
   await expect(page.getByTestId('convert-step-quote')).toHaveCount(0);
   await expect(page.getByTestId('text-order-id')).toHaveText(instantOrderId);
+  await expect(page.getByTestId('button-cancel-order')).toHaveCount(0);
 });
 
 test('opens Convert and offers the working Swap calculator when provider configuration is empty', async ({
