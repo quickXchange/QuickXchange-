@@ -2,11 +2,7 @@ import { useState, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Check, X, Search } from 'lucide-react';
 import {
-  useListBlockchainMonitoringRegistrationGaps,
-  useActivateBlockchainMonitoringRegistrationGap,
   useListBlockchainMonitoringWatches,
-  useListBlockchainMonitoringMatches,
-  useReviewBlockchainMonitoringMatch,
   useListBlockchainMonitoringSetupRoutes,
   useEnableAllReadyBlockchainMonitoringRoutes,
   useEnableSelectedBlockchainMonitoringRoutes,
@@ -14,7 +10,6 @@ import {
   getListBlockchainMonitoringNetworksQueryKey,
   getListBlockchainMonitoringAssetsQueryKey,
   BlockchainMonitoringWatch,
-  BlockchainMonitoringMatch,
   BlockchainMonitoringSetupRoute
 } from '@workspace/api-client-react';
 import { cn, ErrorState, LoadingBlock, exactDateTime, InlineNotice, apiErrorText } from '../App';
@@ -36,9 +31,7 @@ export function OperationsMonitors({ showSetup = true }: { showSetup?: boolean }
   const [search, setSearch] = useState('');
   const [selectedRouteIds, setSelectedRouteIds] = useState<Set<string>>(new Set());
 
-  const gapsQuery = useListBlockchainMonitoringRegistrationGaps({ query: { queryKey: ['listBlockchainMonitoringRegistrationGaps'] } });
   const watchesQuery = useListBlockchainMonitoringWatches({ state: 'active', limit: 50 }, { query: { queryKey: ['listBlockchainMonitoringWatches', 'active'] } });
-  const matchesQuery = useListBlockchainMonitoringMatches({ state: 'needs_review', limit: 50 }, { query: { queryKey: ['listBlockchainMonitoringMatches', 'needs_review'] } });
   const setupRoutesQuery = useListBlockchainMonitoringSetupRoutes({
     query: {
       queryKey: getListBlockchainMonitoringSetupRoutesQueryKey(),
@@ -46,28 +39,8 @@ export function OperationsMonitors({ showSetup = true }: { showSetup?: boolean }
     },
   });
 
-  const activateGap = useActivateBlockchainMonitoringRegistrationGap();
-  const reviewMatch = useReviewBlockchainMonitoringMatch();
   const enableAllReady = useEnableAllReadyBlockchainMonitoringRoutes();
   const enableSelected = useEnableSelectedBlockchainMonitoringRoutes();
-
-  const handleActivateGap = (orderId: string) => {
-    if (!window.confirm(`Activate gap for order ${orderId}?`)) return;
-    activateGap.mutate({ orderId }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['listBlockchainMonitoringRegistrationGaps'] });
-      }
-    });
-  };
-
-  const handleReviewMatch = (matchId: string, decision: 'approve' | 'reject') => {
-    if (!window.confirm(`Are you sure you want to ${decision} this match?`)) return;
-    reviewMatch.mutate({ id: matchId, data: { decision } }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['listBlockchainMonitoringMatches', 'needs_review'] });
-      }
-    });
-  };
 
   const handleEnableAllReady = () => {
     if (!window.confirm("Are you sure you want to enable all ready setup routes?")) return;
@@ -343,89 +316,6 @@ export function OperationsMonitors({ showSetup = true }: { showSetup?: boolean }
           </div>
         )}
       </div>}
-
-      {/* Matches */}
-      <div className="panel pending-panel rise-in rise-delay-2 mt-4">
-        <div className="panel-heading">
-          <div><span className="section-kicker">Review</span><h2>Matches Pending Review</h2></div>
-        </div>
-        {matchesQuery.isLoading ? <LoadingBlock rows={3} /> : matchesQuery.isError ? <ErrorState message="Could not load matches" retry={() => matchesQuery.refetch()} /> : (
-          <div className="w-full relative group">
-            <div className="overflow-x-auto">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Order</th>
-                    <th>Watch</th>
-                    <th>Observation</th>
-                    <th>Confirmations</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(matchesQuery.data?.items || []).length === 0 ? (
-                    <tr><td colSpan={5} className="text-center py-4 text-muted-foreground">No matches need review</td></tr>
-                  ) : (matchesQuery.data?.items || []).map((m: BlockchainMonitoringMatch) => (
-                    <tr key={m.id}>
-                      <td><code className="text-xs">{m.orderId}</code></td>
-                      <td><code className="text-xs">{m.watchId}</code></td>
-                      <td><code className="text-xs">{m.observationId}</code></td>
-                      <td>{m.confirmations} / {m.confirmationsRequired}</td>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <button className="button button-primary button-sm" onClick={() => handleReviewMatch(m.id, 'approve')}>Approve</button>
-                          <button className="button button-secondary button-sm text-destructive" onClick={() => handleReviewMatch(m.id, 'reject')}>Reject</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Gaps */}
-      <div className="panel pending-panel rise-in rise-delay-2 mt-4">
-        <div className="panel-heading">
-          <div><span className="section-kicker">System</span><h2>Registration Gaps</h2></div>
-        </div>
-        {gapsQuery.isLoading ? <LoadingBlock rows={3} /> : gapsQuery.isError ? <ErrorState message="Could not load gaps" retry={() => gapsQuery.refetch()} /> : (
-          <div className="w-full relative group">
-            <div className="overflow-x-auto">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Order</th>
-                    <th>Network</th>
-                    <th>Asset</th>
-                    <th>Address</th>
-                    <th>Reason</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(gapsQuery.data?.items || []).length === 0 ? (
-                    <tr><td colSpan={6} className="text-center py-4 text-muted-foreground">No registration gaps</td></tr>
-                  ) : (gapsQuery.data?.items || []).map((gap: any) => (
-                    <tr key={gap.order || gap.orderId}>
-                      <td><code className="text-xs">{gap.order || gap.orderId}</code></td>
-                      <td>{gap.network || gap.networkId}</td>
-                      <td>{gap.asset || gap.assetId}</td>
-                      <td><code className="text-xs">{gap.address || gap.receivingAddress}</code></td>
-                      <td className="text-destructive text-sm">{gap.reason}</td>
-                      <td>
-                        <button className="button button-secondary button-sm" onClick={() => handleActivateGap(gap.order || gap.orderId)}>Retry Registration</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </div>
 
       {/* Watches */}
       <div className="panel pending-panel rise-in rise-delay-2 mt-4">

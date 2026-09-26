@@ -172,10 +172,11 @@ test('operators view product-specific overview analytics and inclusive UTC range
   await expect(page.getByTestId('metric-total-volume')).toContainText('Missing rates for BTC. Only 10 of 14 valued.');
   await expect(page.locator('[data-testid^="metric-"]')).toHaveCount(8);
   await expect(page.getByTestId('metric-total-profit')).toContainText('$12.34');
-  await expect(page.getByTestId('overview-operational-health')).toContainText('API status');
-  await expect(page.getByTestId('status-provider-health')).toHaveAccessibleName(/1Forge rates: Healthy/);
-  await expect(page.getByTestId('status-provider-health')).toContainText(/Updated (?:Mar 3|3 Mar)/);
-  await expect(page.getByTestId('status-catalog-health')).toHaveCount(0);
+  await expect(page.getByTestId('overview-operational-health')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Matches Pending Review' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Registration Gaps' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Manual Swap Blockchain Monitoring' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Blockchain Watches' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Top Trading Pairs' })).toBeVisible();
   await expect(page.getByText('USD/BTC')).toBeVisible();
   const topCurrenciesPanel = page.getByRole('heading', { name: 'Top Currencies' })
@@ -240,8 +241,11 @@ test('operators view product-specific overview analytics and inclusive UTC range
   await expect(page.getByText('Convert completed')).toBeVisible();
   await expect(page.getByTestId('metric-total-orders')).toContainText('7');
   await expect(page.getByTestId('metric-total-profit')).toContainText('Not tracked');
-  await expect(page.getByTestId('status-provider-health')).toHaveAccessibleName(/Quickex provider: Healthy/);
-  await expect(page.getByTestId('status-catalog-health')).toHaveAccessibleName(/Quickex catalog: Healthy/);
+  await expect(page.getByTestId('overview-operational-health')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Matches Pending Review' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Registration Gaps' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Manual Swap Blockchain Monitoring' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Blockchain Watches' })).toBeVisible();
   await expect(page.getByTestId('warning-quickex-reconciliation')).toContainText('3 consecutive failures');
   await expect(page.getByTestId('warning-quickex-reconciliation')).toContainText('affiliate completion or reversal credits may be delayed');
   await expect(page.getByRole('heading', { name: 'Live Exchange Activity' })).toBeVisible();
@@ -261,6 +265,9 @@ test('operators view product-specific overview analytics and inclusive UTC range
   )).toBe(true);
 
   await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByTestId('overview-operational-health')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Matches Pending Review' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Registration Gaps' })).toHaveCount(0);
   const mobileMenuButton = page.getByTestId('button-admin-mobile-menu');
   await expect(mobileMenuButton).toBeVisible();
   await expect(page.locator('.admin-sidebar')).toBeHidden();
@@ -289,49 +296,4 @@ test('operators view product-specific overview analytics and inclusive UTC range
   await page.getByTestId('link-mobile-admin-orders').click();
   await expect(page).toHaveURL(/\/admin\/orders$/);
   await expect(mobileNavigation).toBeHidden();
-});
-
-test('overview exposes stale, unavailable, and refreshing provider context accessibly', async ({ page }) => {
-  let state: 'stale' | 'unavailable' | 'syncing' = 'stale';
-
-  await page.route(/\/api\/admin\/summary(?:\?|$)/, async (route) => {
-    const url = new URL(route.request().url());
-    const product = url.searchParams.get('product') as 'swap' | 'convert';
-    const response = summary(product);
-    response.operationalHealth.providerFreshness = {
-      state,
-      syncing: state === 'syncing',
-      lastFailedAt: '2025-03-03T11:50:00.000Z',
-    };
-    response.operationalHealth.catalog = {
-      ageMs: state === 'unavailable' ? null : 3_600_000,
-      stale: state !== 'syncing',
-      lastFailureAt: '2025-03-03T11:50:00.000Z',
-    };
-    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(response) });
-  });
-  await page.route(/\/api\/orders(?:\?|$)/, route => route.fulfill({
-    contentType: 'application/json',
-    body: JSON.stringify({ items: [], total: 0, page: 1, pageSize: 6 }),
-  }));
-  await page.route(/\/api\/admin\/manual-desk-revenue(?:\?|$)/, route => route.fulfill({
-    contentType: 'application/json',
-    body: JSON.stringify({ normalizedTotals: [] }),
-  }));
-  await page.route('**/api/healthz', route => route.fulfill({
-    contentType: 'application/json',
-    body: JSON.stringify({ status: 'ok' }),
-  }));
-
-  await page.goto('/admin');
-  await expect(page.getByTestId('status-provider-health')).toHaveAccessibleName(/1Forge rates: Stale.*Last failure/);
-
-  state = 'unavailable';
-  await page.getByTestId('button-overview-convert').click();
-  await expect(page.getByTestId('status-provider-health')).toHaveAccessibleName(/Quickex provider: Unavailable.*Last failure/);
-  await expect(page.getByTestId('status-catalog-health')).toHaveAccessibleName(/Quickex catalog: Unavailable.*Last failure/);
-
-  state = 'syncing';
-  await page.getByTestId('button-overview-swap').click();
-  await expect(page.getByTestId('status-provider-health')).toHaveAccessibleName(/1Forge rates: Refreshing.*Last failure/);
 });

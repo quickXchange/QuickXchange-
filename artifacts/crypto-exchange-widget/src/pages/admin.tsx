@@ -3609,59 +3609,6 @@ function AdminOverview() {
   const reconciliationWarning = product === 'convert'
     ? quickexReconciliationWarning(data?.operationalHealth.quickexReconciliation, formatDate)
     : null;
-  const providerFreshness = data?.operationalHealth.providerFreshness;
-  const catalogHealth = data?.operationalHealth.catalog;
-  const providerState = providerFreshness?.syncing || providerFreshness?.state === 'syncing'
-    ? 'refreshing'
-    : providerFreshness?.state === 'healthy'
-      ? 'healthy'
-      : providerFreshness?.state === 'stale'
-        ? 'stale'
-        : 'unavailable';
-  const catalogState = providerFreshness?.syncing
-    ? 'refreshing'
-    : catalogHealth?.ageMs === null
-      ? 'unavailable'
-      : catalogHealth?.stale
-        ? 'stale'
-        : 'healthy';
-  const healthStateLabel = (state: 'healthy' | 'stale' | 'refreshing' | 'unavailable') => (
-    state === 'healthy'
-      ? t('adminCore.healthy')
-      : state === 'stale'
-        ? t('adminCore.stale')
-        : state === 'refreshing'
-          ? t('adminCore.refreshing')
-          : t('adminCore.unavailable')
-  );
-  const healthStateClasses = (state: 'healthy' | 'stale' | 'refreshing' | 'unavailable') => (
-    state === 'healthy'
-      ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400'
-      : state === 'refreshing'
-        ? 'border-blue-500/20 bg-blue-500/5 text-blue-600 dark:text-blue-400'
-        : state === 'stale'
-          ? 'border-amber-500/20 bg-amber-500/5 text-amber-600 dark:text-amber-400'
-          : 'border-red-500/20 bg-red-500/5 text-red-600 dark:text-red-400'
-  );
-  const providerName = product === 'swap' ? t('adminCore.oneforge_rates') : t('adminCore.quickex_provider');
-  const providerUpdated = providerFreshness?.lastSucceededAt
-    ? `${t('adminCore.updated')} ${overviewHealthTime(providerFreshness.lastSucceededAt, formatDate)}`
-    : null;
-  const providerFailure = providerFreshness?.lastFailedAt
-    ? `${t('adminCore.last_failure')} ${overviewHealthTime(providerFreshness.lastFailedAt, formatDate)}`
-    : null;
-  const providerAccessibleName = [
-    `${providerName}: ${healthStateLabel(providerState)}`,
-    providerUpdated,
-    providerFailure,
-  ].filter(Boolean).join('. ');
-  const catalogFailure = catalogHealth?.lastFailureAt
-    ? `${t('adminCore.last_failure')} ${overviewHealthTime(catalogHealth.lastFailureAt, formatDate)}`
-    : null;
-  const catalogAccessibleName = [
-    `${t('adminCore.quickex_catalog')}: ${healthStateLabel(catalogState)}`,
-    catalogFailure,
-  ].filter(Boolean).join('. ');
 
   return (
     <AdminShell eyebrow={t('adminCore.operations_command_center')} title={t('adminCore.overview')} subtitle={t('adminCore.real_time_exchange_operations_and_performance')} requiredPermission="statistics.view">
@@ -3726,60 +3673,10 @@ function AdminOverview() {
             </div>
           </section>
 
-          <section className="panel rise-in" data-testid="overview-operational-health" aria-labelledby="overview-operational-health-title">
-            <div className="overview-section-heading">
-              <div>
-                <span className="section-kicker">{t('adminCore.live_operations')}</span>
-                <h2 id="overview-operational-health-title">{t('adminCore.api_status')}</h2>
-              </div>
-              <small>{t('adminCore.performance_queues_and_system_health')}</small>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
-              <div className={cn('rounded-xl border p-3', healthStateClasses('healthy'))}>
-                <span className="block text-[10px] font-bold uppercase tracking-wider opacity-75">{t('adminCore.api_status')}</span>
-                <strong className="mt-1 block text-sm text-foreground">{t('adminCore.healthy')}</strong>
-              </div>
-              <div
-                className={cn('rounded-xl border p-3', healthStateClasses(providerState))}
-                data-testid="status-provider-health"
-                aria-label={providerAccessibleName}
-              >
-                <span className="block text-[10px] font-bold uppercase tracking-wider opacity-75">{providerName}</span>
-                <strong className="mt-1 block text-sm text-foreground">{healthStateLabel(providerState)}</strong>
-                {(providerUpdated || providerFailure) && (
-                  <small className="mt-1 block text-[10px] leading-snug text-muted-foreground">
-                    {[providerUpdated, providerFailure].filter(Boolean).join(' · ')}
-                  </small>
-                )}
-              </div>
-              {product === 'convert' && (
-                <div
-                  className={cn('rounded-xl border p-3', healthStateClasses(catalogState))}
-                  data-testid="status-catalog-health"
-                  aria-label={catalogAccessibleName}
-                >
-                  <span className="block text-[10px] font-bold uppercase tracking-wider opacity-75">{t('adminCore.quickex_catalog')}</span>
-                  <strong className="mt-1 block text-sm text-foreground">{healthStateLabel(catalogState)}</strong>
-                  {catalogFailure && <small className="mt-1 block text-[10px] leading-snug text-muted-foreground">{catalogFailure}</small>}
-                </div>
-              )}
-              <div className="rounded-xl border border-border bg-muted/20 p-3">
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t('adminCore.unresolved_orders')}</span>
-                <strong className="mt-1 block text-sm text-foreground">{number(data?.operationalHealth.unresolvedOrders, 0)}</strong>
-              </div>
-              <div className="rounded-xl border border-border bg-muted/20 p-3">
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t('adminCore.notifications_pending')}</span>
-                <strong className="mt-1 block text-sm text-foreground">{number(data?.operationalHealth.notificationsPending, 0)}</strong>
-                <small className="mt-1 block text-[10px] text-muted-foreground">
-                  {t('adminCore.notifications_failed')}: {number(data?.operationalHealth.notificationsFailed, 0)}
-                </small>
-              </div>
-            </div>
-            {isOwner && (
-              <div className="mt-3 rounded-xl border border-border bg-muted/20 p-4" data-testid="overview-build-identity">
-                <div className="mb-3 flex items-center gap-2">
-                  <Database size={16} className="text-primary" aria-hidden="true" />
-                  <strong className="text-sm text-foreground">System / Deployment diagnostics</strong>
+          {isOwner && (
+            <section className="panel rise-in" data-testid="overview-build-identity" aria-labelledby="overview-diagnostics-title">
+                <div className="overview-section-heading">
+                  <div><span className="section-kicker">Owner tools</span><h2 id="overview-diagnostics-title">System / Deployment diagnostics</h2></div>
                 </div>
                 <div className="grid gap-3 text-xs sm:grid-cols-2">
                   {[
@@ -3850,9 +3747,8 @@ function AdminOverview() {
                     </div>
                   )}
                 </div>
-              </div>
-            )}
-          </section>
+            </section>
+          )}
 
           {/* Metrics Grid */}
           <div className="overview-metrics overview-kpi-grid grid grid-cols-2 md:grid-cols-4 gap-4 rise-in">
