@@ -699,7 +699,7 @@ export function AdminAffiliatesOverviewPage() {
     >
       <div className="affiliate-redesign">
         <div className="affiliate-page-actions affiliate-header-actions-inner">
-          <Link href="/admin/affiliate-payouts" className="button button-secondary affiliate-header-button" data-testid="link-view-affiliate-payouts">
+          <Link href="/admin/payouts" className="button button-secondary affiliate-header-button" data-testid="link-view-affiliate-payouts">
             <HandCoins size={15} /> <span>{t('affiliate.viewPayouts')}</span>
           </Link>
           <button type="button" className="button button-primary affiliate-header-button" onClick={goToInvite} data-testid="button-add-affiliate">
@@ -872,7 +872,7 @@ export function AdminAffiliatesOverviewPage() {
                             <Link href={`/admin/affiliates/${account.id}`} className="affiliate-icon-action" aria-label={t('affiliate.viewAccount')} title={t('affiliate.viewAffiliate')} data-testid={`link-view-affiliate-${account.id}`}><Eye size={15} /></Link>
                             <details className="affiliate-more-menu">
                               <summary aria-label={t('affiliate.moreActions', { code: account.code })} data-testid={`button-more-affiliate-${account.id}`}><MoreVertical size={15} /></summary>
-                              <div><Link href={`/admin/affiliates/${account.id}`}><Eye size={14} /> {t('affiliate.viewAccount')}</Link><Link href="/admin/affiliate-payouts"><HandCoins size={14} /> {t('affiliate.viewPayouts')}</Link></div>
+                              <div><Link href={`/admin/affiliates/${account.id}`}><Eye size={14} /> {t('affiliate.viewAccount')}</Link><Link href="/admin/payouts"><HandCoins size={14} /> {t('affiliate.viewPayouts')}</Link></div>
                             </details>
                           </div>
                         </td>
@@ -1022,7 +1022,7 @@ export function AdminAffiliatePayoutsPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const params = useMemo(() => ({ page, pageSize: AFFILIATE_HISTORY_PAGE_SIZE }), [page]);
-  const queue = useGetAffiliatePayoutQueue(params, { query: { queryKey: getGetAffiliatePayoutQueueQueryKey(params) } });
+  const queue = useGetAffiliatePayoutQueue(params, { query: { queryKey: getGetAffiliatePayoutQueueQueryKey(params), refetchOnMount: 'always', refetchOnWindowFocus: true, retry: 1 } });
   const transition = useTransitionAffiliatePayout();
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [transitionError, setTransitionError] = useState('');
@@ -1069,7 +1069,9 @@ export function AdminAffiliatePayoutsPage() {
       {transitionSuccess && <div className="notice notice-success mb-4"><Check size={16} />{transitionSuccess}</div>}
 
       <div className="card-panel">
-        {queue.isLoading ? <div className="p-6"><LoadingBlock rows={4} /></div> : queue.isError ? <div className="p-6"><ErrorState /></div> : (
+        {queue.isLoading ? <div className="p-6" data-testid="loading-admin-payouts"><LoadingBlock rows={4} /></div> : queue.isError ? <div className="p-6" data-testid="error-admin-payouts"><ErrorState retry={() => void queue.refetch()} /></div> : !payouts.length ? (
+          <div className="table-empty border-t-0 rounded-none" data-testid="empty-admin-payouts"><HandCoins /><p>{t('affiliate.noPayoutRequests')}</p></div>
+        ) : (
           <div className="w-full relative group">
             <div className="swipeable-scroll-hint" aria-hidden="true" />
             <div className="table-wrap" onScroll={(e) => {
@@ -1181,7 +1183,6 @@ export function AdminAffiliatePayoutsPage() {
                 })}
               </tbody>
             </table>
-            {!queue.data?.length && <div className="table-empty border-t-0 rounded-none"><HandCoins /><p>{t('affiliate.noPendingPayouts')}</p></div>}
           </div>
           </div>
         )}

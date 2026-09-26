@@ -397,6 +397,62 @@ test('operators navigate affiliate directory, ledger, and mocked payout transiti
   await expect(page.getByTestId('link-mobile-admin-affiliate-settings')).toBeVisible();
 });
 
+test('Affiliate Payouts link loads the real queue route across widths and after refresh', async ({ page }) => {
+  await mockAffiliateApis(page);
+  let queueRequests = 0;
+  await page.route(/\/api\/admin\/affiliate\/payouts(?:\?.*)?$/, async route => {
+    queueRequests++;
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify([payout]) });
+  });
+  for (const width of [1280, 768, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto('/admin/affiliates');
+    const link = page.getByTestId('link-view-affiliate-payouts');
+    await expect(link).toBeVisible();
+    await link.click();
+    await expect(page).toHaveURL('/admin/payouts');
+    await expect(page.getByTestId(`row-payout-${payoutId}`)).toBeVisible();
+    const bounds = await page.evaluate(() => {
+      const wrapper = document.querySelector('.payout-queue-table')?.parentElement;
+      return {
+        documentWidth: document.documentElement.scrollWidth,
+        viewportWidth: innerWidth,
+        scrollWidth: wrapper?.scrollWidth ?? 0,
+        clientWidth: wrapper?.clientWidth ?? 0,
+      };
+    });
+    expect(bounds.documentWidth).toBeLessThanOrEqual(bounds.viewportWidth + 1);
+    if (width === 390) expect(bounds.scrollWidth).toBeGreaterThan(bounds.clientWidth);
+  }
+  const beforeReload = queueRequests;
+  await page.reload();
+  await expect(page.getByTestId(`row-payout-${payoutId}`)).toBeVisible();
+  expect(queueRequests).toBeGreaterThan(beforeReload);
+  await page.goto('/admin/affiliates');
+  await expect(page.getByTestId(`row-account-${accountId}`).getByRole('link', { name: 'View Payouts' })).toHaveAttribute('href', '/admin/payouts');
+});
+
+test('Payout queue distinguishes empty, error, and recovered data', async ({ page }) => {
+  await mockAffiliateApis(page);
+  let response: 'empty' | 'error' | 'data' = 'empty';
+  await page.route(/\/api\/admin\/affiliate\/payouts(?:\?.*)?$/, async route => {
+    if (response === 'error') {
+      await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ code: 'SERVICE_UNAVAILABLE', message: 'Unavailable' }) });
+    } else {
+      await route.fulfill({ contentType: 'application/json', body: JSON.stringify(response === 'empty' ? [] : [payout]) });
+    }
+  });
+  await page.goto('/admin/payouts');
+  await expect(page.getByTestId('empty-admin-payouts')).toContainText('No payout requests yet');
+  response = 'error';
+  await page.reload();
+  await expect(page.getByTestId('error-admin-payouts')).toBeVisible();
+  await expect(page.getByTestId('empty-admin-payouts')).toHaveCount(0);
+  response = 'data';
+  await page.getByTestId('button-retry').click();
+  await expect(page.getByTestId(`row-payout-${payoutId}`)).toBeVisible();
+});
+
 test('operators submit valuation and settings forms to mocked affiliate APIs', async ({ page }) => {
   await mockAffiliateApis(page);
   let settingsRequest: unknown;
