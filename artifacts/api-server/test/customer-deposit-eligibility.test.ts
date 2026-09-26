@@ -3,13 +3,57 @@ import test from "node:test";
 import {
   customerDepositEligibilityContextMatchesState,
   customerDepositRouteConfigurationDigest,
+  customerDepositRouteProofMatchesConfiguration,
   hasUsableSavedReceivingWallet,
   isCustomerDepositEligible,
+  whitebitRouteMappingChanged,
   type CustomerDepositEligibilityContext,
 } from "../src/lib/customer-deposit-eligibility";
 
 const btcAsset = { code: "BTC", enabled: true, lifecycle: "active" };
 const ethAsset = { code: "ETH", enabled: true, lifecycle: "active" };
+
+test("canonical XMR mapping saves retain both legacy proof digests while real mapping changes do not", () => {
+  const xmrAsset = { code: "XMR", enabled: true, lifecycle: "active" };
+  const implicit = network({
+    id: "xmr-monero",
+    networkCode: "XMR",
+    networkName: "Monero",
+    networkFamily: "xmr",
+    depositProvider: "whitebit",
+  });
+  const explicit = { ...implicit, whitebitAssetCode: " xmr ", whitebitNetworkCode: "XMR" };
+  const implicitDigest = customerDepositRouteConfigurationDigest(xmrAsset, implicit);
+  const explicitDigest = customerDepositRouteConfigurationDigest(xmrAsset, explicit);
+  assert.notEqual(implicitDigest, explicitDigest, "existing explicit proofs keep their original digest");
+  assert.equal(whitebitRouteMappingChanged("XMR", "XMR", null, null, "xmr", "XMR"), false);
+  assert.equal(customerDepositRouteProofMatchesConfiguration(implicitDigest, xmrAsset, explicit), true);
+  assert.equal(customerDepositRouteProofMatchesConfiguration(explicitDigest, xmrAsset, implicit), true);
+  const context: CustomerDepositEligibilityContext = {
+    whitebitReady: true,
+    whitebitCapabilities: {
+      fetchedAt: 1,
+      assets: [{ ticker: "XMR", canDeposit: true, depositNetworks: ["XMR"], confirmations: {} }],
+    },
+    whitebitProofs: new Map([[explicit.id, implicitDigest]]),
+    credentialUpdatedAtMs: null,
+    providerSettingVersion: null,
+  };
+  assert.equal(isCustomerDepositEligible(xmrAsset, explicit, context), true);
+  const fallbackEdit = {
+    ...explicit,
+    manualFallbackEnabled: true,
+    sharedDepositAddress: "a-valid-looking-fallback-is-not-proof",
+  };
+  assert.equal(customerDepositRouteProofMatchesConfiguration(implicitDigest, xmrAsset, fallbackEdit), true);
+  assert.equal(isCustomerDepositEligible(xmrAsset, fallbackEdit, context), true);
+  const changed = { ...explicit, whitebitNetworkCode: "OTHER" };
+  assert.equal(whitebitRouteMappingChanged("XMR", "XMR", null, null, "XMR", "OTHER"), true);
+  assert.equal(customerDepositRouteProofMatchesConfiguration(implicitDigest, xmrAsset, changed), false);
+  assert.equal(customerDepositRouteProofMatchesConfiguration(explicitDigest, xmrAsset, changed), false);
+  assert.equal(isCustomerDepositEligible(xmrAsset, changed, context), false);
+  assert.equal(whitebitRouteMappingChanged("XMR", "XMR", null, null, "XMR", null), true);
+});
 
 const unavailable: CustomerDepositEligibilityContext = {
   whitebitReady: false,

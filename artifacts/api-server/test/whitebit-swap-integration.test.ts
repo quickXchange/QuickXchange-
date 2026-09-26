@@ -562,6 +562,225 @@ test("BTC verification and exact-route network invalidation preserve an existing
   }
 });
 
+test("receiving-wallet updates retain canonical and unrelated WhiteBIT proofs", async () => {
+  const savedFetch = globalThis.fetch;
+  const [originalSetting] = await database.db.select().from(database.whitebitProviderSettingsTable)
+    .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit")).limit(1);
+  const [originalBtcRoute] = await database.db.select().from(database.cryptoAssetNetworksTable)
+    .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin")).limit(1);
+  assert.ok(originalSetting && originalBtcRoute);
+  const [originalBtcAsset] = await database.db.select().from(database.cryptoAssetsTable)
+    .where(eq(database.cryptoAssetsTable.id, originalBtcRoute.assetId)).limit(1);
+  assert.ok(originalBtcAsset);
+
+  let xmrAssetCreated = false;
+  let xmrRouteCreated = false;
+  let originalXmrAsset: typeof database.cryptoAssetsTable.$inferSelect | undefined;
+  let originalXmrRoute: typeof database.cryptoAssetNetworksTable.$inferSelect | undefined;
+  let xmrAssetId = "";
+  let xmrRouteId = "";
+  const fingerprint = whitebitCredentialFingerprint({
+    apiKey: process.env.WHITEBIT_API_KEY!,
+    secretKey: process.env.WHITEBIT_API_SECRET!,
+  });
+  try {
+    const [existingXmrAsset] = await database.db.select().from(database.cryptoAssetsTable)
+      .where(eq(database.cryptoAssetsTable.code, "XMR")).limit(1);
+    if (existingXmrAsset) {
+      originalXmrAsset = existingXmrAsset;
+      xmrAssetId = existingXmrAsset.id;
+    } else {
+      xmrAssetId = `proof-xmr-${suffix}`;
+      xmrAssetCreated = true;
+      await database.db.insert(database.cryptoAssetsTable).values({
+        id: xmrAssetId, code: "XMR", name: "Monero proof test", decimals: 12,
+        enabled: true, lifecycle: "active",
+      });
+    }
+    const xmrRoutes = await database.db.select().from(database.cryptoAssetNetworksTable)
+      .where(eq(database.cryptoAssetNetworksTable.assetId, xmrAssetId));
+    const existingXmrRoute = xmrRoutes.find(route => route.networkCode === "XMR");
+    if (existingXmrRoute) {
+      originalXmrRoute = existingXmrRoute;
+      xmrRouteId = existingXmrRoute.id;
+    } else {
+      xmrRouteId = `proof-xmr-xmr-${suffix}`;
+      xmrRouteCreated = true;
+      await database.db.insert(database.cryptoAssetNetworksTable).values({
+        id: xmrRouteId, assetId: xmrAssetId, networkCode: "XMR", networkName: "Monero",
+        decimals: 12, executionMode: "manual", depositProvider: "whitebit",
+        manualWalletTrackingEnabled: false, lifecycle: "active", enabled: true,
+        customerDepositsEnabled: false, sharedDepositAddress: "",
+      });
+    }
+    await database.db.update(database.cryptoAssetsTable).set({ enabled: true, lifecycle: "active" })
+      .where(eq(database.cryptoAssetsTable.id, xmrAssetId));
+    await database.db.update(database.cryptoAssetNetworksTable).set({
+      enabled: true, lifecycle: "active", executionMode: "manual", depositProvider: "whitebit",
+      whitebitAssetCode: null, whitebitNetworkCode: null, manualWalletTrackingEnabled: false,
+      customerDepositsEnabled: false, sharedDepositAddress: "",
+    }).where(eq(database.cryptoAssetNetworksTable.id, xmrRouteId));
+    await database.db.update(database.cryptoAssetsTable).set({ enabled: true, lifecycle: "active" })
+      .where(eq(database.cryptoAssetsTable.id, originalBtcAsset.id));
+    await database.db.update(database.cryptoAssetNetworksTable).set({
+      enabled: true, lifecycle: "active", executionMode: "manual", depositProvider: "whitebit",
+      networkCode: "BITCOIN", whitebitAssetCode: null, whitebitNetworkCode: null,
+      manualWalletTrackingEnabled: false, customerDepositsEnabled: false,
+    }).where(eq(database.cryptoAssetNetworksTable.id, originalBtcRoute.id));
+
+    globalThis.fetch = async (input, init) => {
+      const url = String(input);
+      if (url.endsWith("/api/v4/public/assets")) {
+        return new Response(JSON.stringify({
+          XMR: { can_deposit: true, networks: { deposits: ["XMR"] }, confirmations: { XMR: 3 } },
+          BTC: { can_deposit: true, networks: { deposits: ["BTC"] }, confirmations: { BTC: 3 } },
+        }), { status: 200 });
+      }
+      if (url.startsWith("https://whitebit.com/")) {
+        throw new Error(`Unexpected WhiteBIT request in proof-mapping test: ${url}`);
+      }
+      return savedFetch(input, init);
+    };
+    resetWhitebitCapabilityCacheForTests();
+
+    const [xmrAsset] = await database.db.select().from(database.cryptoAssetsTable)
+      .where(eq(database.cryptoAssetsTable.id, xmrAssetId));
+    const [xmrRoute] = await database.db.select().from(database.cryptoAssetNetworksTable)
+      .where(eq(database.cryptoAssetNetworksTable.id, xmrRouteId));
+    const [btcAsset] = await database.db.select().from(database.cryptoAssetsTable)
+      .where(eq(database.cryptoAssetsTable.id, originalBtcAsset.id));
+    const [btcRoute] = await database.db.select().from(database.cryptoAssetNetworksTable)
+      .where(eq(database.cryptoAssetNetworksTable.id, originalBtcRoute.id));
+    assert.ok(xmrAsset && xmrRoute && btcAsset && btcRoute);
+    const xmrProof = {
+      networkId: xmrRoute.id, assetCode: "XMR", networkCode: "XMR",
+      configurationDigest: customerDepositRouteConfigurationDigest(xmrAsset, xmrRoute),
+      credentialFingerprint: fingerprint, verifiedAt: new Date().toISOString(),
+    };
+    const btcProof = {
+      networkId: btcRoute.id, assetCode: "BTC", networkCode: "BITCOIN",
+      configurationDigest: customerDepositRouteConfigurationDigest(btcAsset, btcRoute),
+      credentialFingerprint: fingerprint, verifiedAt: new Date().toISOString(),
+    };
+    await database.db.update(database.whitebitProviderSettingsTable).set({
+      depositRouteProofs: [xmrProof, btcProof],
+      credentialVerifiedFingerprint: fingerprint,
+      credentialVerifiedAt: new Date(),
+    }).where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+
+    const headers = { "content-type": "application/json", "x-test-operator": ownerClerkUserId };
+    const saveWallet = (networkId: string, walletAddress: string, mapping?: {
+      assetCode: string; networkCode: string;
+    }) => fetch(`${baseUrl}/api/admin/crypto-networks/receiving-wallet`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({
+        networkIds: [networkId],
+        walletAddress,
+        ...(mapping ? {
+          whitebitAssetCode: mapping.assetCode,
+          whitebitNetworkCode: mapping.networkCode,
+        } : {}),
+      }),
+    });
+    const readProofRoutes = async () => {
+      const response = await fetch(`${baseUrl}/api/admin/providers/whitebit/verification-routes`, {
+        headers: { "x-test-operator": ownerClerkUserId },
+      });
+      assert.equal(response.status, 200, await response.clone().text());
+      return response.json() as Promise<Array<{ networkId: string; proofCurrent: boolean }>>;
+    };
+
+    const canonicalResponse = await saveWallet(xmrRoute.id, "xmr-fallback-wallet", {
+      assetCode: "XMR", networkCode: "XMR",
+    });
+    assert.equal(canonicalResponse.status, 200, await canonicalResponse.clone().text());
+    let [saved] = await database.db.select({
+      proofs: database.whitebitProviderSettingsTable.depositRouteProofs,
+    }).from(database.whitebitProviderSettingsTable)
+      .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+    assert.deepEqual(saved.proofs.find(proof => proof.networkId === xmrRoute.id), xmrProof);
+    let proofRoutes = await readProofRoutes();
+    assert.equal(proofRoutes.find(route => route.networkId === xmrRoute.id)?.proofCurrent, true);
+
+    const fallbackResponse = await saveWallet(xmrRoute.id, "updated-xmr-fallback-wallet");
+    assert.equal(fallbackResponse.status, 200, await fallbackResponse.clone().text());
+    [saved] = await database.db.select({
+      proofs: database.whitebitProviderSettingsTable.depositRouteProofs,
+    }).from(database.whitebitProviderSettingsTable)
+      .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+    assert.deepEqual(saved.proofs.find(proof => proof.networkId === xmrRoute.id), xmrProof);
+    proofRoutes = await readProofRoutes();
+    assert.equal(proofRoutes.find(route => route.networkId === xmrRoute.id)?.proofCurrent, true);
+
+    const changedMappingResponse = await saveWallet(btcRoute.id, "", {
+      assetCode: "BTC", networkCode: "BTC",
+    });
+    assert.equal(changedMappingResponse.status, 200, await changedMappingResponse.clone().text());
+    [saved] = await database.db.select({
+      proofs: database.whitebitProviderSettingsTable.depositRouteProofs,
+    }).from(database.whitebitProviderSettingsTable)
+      .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+    assert.equal(saved.proofs.some(proof => proof.networkId === btcRoute.id), false);
+    assert.deepEqual(saved.proofs.find(proof => proof.networkId === xmrRoute.id), xmrProof);
+    proofRoutes = await readProofRoutes();
+    assert.equal(proofRoutes.find(route => route.networkId === btcRoute.id)?.proofCurrent, false);
+    assert.equal(proofRoutes.find(route => route.networkId === xmrRoute.id)?.proofCurrent, true);
+  } finally {
+    globalThis.fetch = savedFetch;
+    resetWhitebitCapabilityCacheForTests();
+    await database.db.update(database.whitebitProviderSettingsTable).set({
+      disabled: originalSetting.disabled,
+      depositRouteProofs: originalSetting.depositRouteProofs,
+      credentialVerifiedFingerprint: originalSetting.credentialVerifiedFingerprint,
+      credentialVerifiedAt: originalSetting.credentialVerifiedAt,
+    }).where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+    if (originalXmrRoute) {
+      await database.db.update(database.cryptoAssetNetworksTable).set({
+        enabled: originalXmrRoute.enabled,
+        lifecycle: originalXmrRoute.lifecycle,
+        executionMode: originalXmrRoute.executionMode,
+        depositProvider: originalXmrRoute.depositProvider,
+        whitebitAssetCode: originalXmrRoute.whitebitAssetCode,
+        whitebitNetworkCode: originalXmrRoute.whitebitNetworkCode,
+        manualWalletTrackingEnabled: originalXmrRoute.manualWalletTrackingEnabled,
+        manualFallbackEnabled: originalXmrRoute.manualFallbackEnabled,
+        customerDepositsEnabled: originalXmrRoute.customerDepositsEnabled,
+        sharedDepositAddress: originalXmrRoute.sharedDepositAddress,
+        sharedDepositMemo: originalXmrRoute.sharedDepositMemo,
+      }).where(eq(database.cryptoAssetNetworksTable.id, xmrRouteId));
+    } else if (xmrRouteCreated) {
+      await database.db.delete(database.cryptoAssetNetworksTable)
+        .where(eq(database.cryptoAssetNetworksTable.id, xmrRouteId));
+    }
+    if (originalXmrAsset) {
+      await database.db.update(database.cryptoAssetsTable).set({
+        enabled: originalXmrAsset.enabled, lifecycle: originalXmrAsset.lifecycle,
+      }).where(eq(database.cryptoAssetsTable.id, xmrAssetId));
+    } else if (xmrAssetCreated) {
+      await database.db.delete(database.cryptoAssetsTable)
+        .where(eq(database.cryptoAssetsTable.id, xmrAssetId));
+    }
+    await database.db.update(database.cryptoAssetsTable).set({
+      enabled: originalBtcAsset.enabled, lifecycle: originalBtcAsset.lifecycle,
+    }).where(eq(database.cryptoAssetsTable.id, originalBtcAsset.id));
+    await database.db.update(database.cryptoAssetNetworksTable).set({
+      enabled: originalBtcRoute.enabled,
+      lifecycle: originalBtcRoute.lifecycle,
+      executionMode: originalBtcRoute.executionMode,
+      depositProvider: originalBtcRoute.depositProvider,
+      networkCode: originalBtcRoute.networkCode,
+      whitebitAssetCode: originalBtcRoute.whitebitAssetCode,
+      whitebitNetworkCode: originalBtcRoute.whitebitNetworkCode,
+      manualWalletTrackingEnabled: originalBtcRoute.manualWalletTrackingEnabled,
+      manualFallbackEnabled: originalBtcRoute.manualFallbackEnabled,
+      customerDepositsEnabled: originalBtcRoute.customerDepositsEnabled,
+      sharedDepositAddress: originalBtcRoute.sharedDepositAddress,
+      sharedDepositMemo: originalBtcRoute.sharedDepositMemo,
+    }).where(eq(database.cryptoAssetNetworksTable.id, originalBtcRoute.id));
+  }
+});
+
 after(async () => {
   globalThis.fetch = originalFetch;
   resetWhitebitCapabilityCacheForTests();

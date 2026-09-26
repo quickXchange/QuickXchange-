@@ -7,7 +7,7 @@ import {
   whitebitWebhookDeliveriesTable,
 } from "@workspace/db";
 import { getSelectedWhitebitCredentialState, whitebitCredentialFingerprint } from "./provider-credentials";
-import { customerDepositRouteConfigurationDigest } from "./customer-deposit-eligibility";
+import { customerDepositRouteProofMatchesConfiguration } from "./customer-deposit-eligibility";
 import { getWhitebitHistoryWorkerHealth } from "./whitebit-history-health";
 
 export type WhitebitAssetCapability = {
@@ -315,7 +315,7 @@ export async function whitebitSwapStatus() {
           row.asset.lifecycle !== "deprecated" && row.network.lifecycle !== "deprecated" &&
           row.asset.code.trim().toUpperCase() === proof.assetCode &&
           row.network.networkCode.trim().toUpperCase() === proof.networkCode &&
-          proof.configurationDigest === customerDepositRouteConfigurationDigest(row.asset, row.network) &&
+          customerDepositRouteProofMatchesConfiguration(proof.configurationDigest, row.asset, row.network) &&
           matchWhitebitRouteCapability(snapshot, row.asset.code, row.network.networkCode, row.network.whitebitAssetCode, row.network.whitebitNetworkCode)
         )
       );
@@ -403,7 +403,7 @@ export async function isWhitebitSwapEnabled(assetCode: string, networkCode: stri
         proof.networkId === network.id &&
         proof.assetCode === asset.code.trim().toUpperCase() &&
         proof.networkCode === network.networkCode.trim().toUpperCase() &&
-        proof.configurationDigest === customerDepositRouteConfigurationDigest(asset, network) &&
+        customerDepositRouteProofMatchesConfiguration(proof.configurationDigest, asset, network) &&
         proof.credentialFingerprint === fingerprint
       ),
     })).find(row => row.proved && row.capability)?.capability ?? null;

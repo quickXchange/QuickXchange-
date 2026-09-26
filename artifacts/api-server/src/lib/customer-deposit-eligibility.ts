@@ -176,6 +176,74 @@ export function customerDepositRouteConfigurationDigest(
   })).digest("hex");
 }
 
+const normalizeWhitebitCode = (value: string | null | undefined) =>
+  value?.trim().toUpperCase() || "";
+
+function effectiveWhitebitMapping(
+  assetCode: string,
+  networkCode: string,
+  mappedAssetCode: string | null | undefined,
+  mappedNetworkCode: string | null | undefined,
+): string {
+  const asset = normalizeWhitebitCode(mappedAssetCode);
+  const network = normalizeWhitebitCode(mappedNetworkCode);
+  // A partial override is never equivalent to a complete canonical route.
+  if (Boolean(asset) !== Boolean(network)) {
+    return JSON.stringify(["partial", asset, network]);
+  }
+  return JSON.stringify([
+    "complete",
+    asset || normalizeWhitebitCode(assetCode),
+    network || normalizeWhitebitCode(networkCode),
+  ]);
+}
+
+export function whitebitRouteMappingChanged(
+  assetCode: string,
+  networkCode: string,
+  beforeAssetCode: string | null | undefined,
+  beforeNetworkCode: string | null | undefined,
+  afterAssetCode: string | null | undefined,
+  afterNetworkCode: string | null | undefined,
+): boolean {
+  return effectiveWhitebitMapping(assetCode, networkCode, beforeAssetCode, beforeNetworkCode) !==
+    effectiveWhitebitMapping(assetCode, networkCode, afterAssetCode, afterNetworkCode);
+}
+
+/**
+ * Existing proofs were issued with either the implicit or the explicit
+ * canonical digest. Both represent the same provider identity; keep both
+ * readable without rewriting stored evidence or accepting a changed mapping.
+ */
+export function customerDepositRouteProofMatchesConfiguration(
+  proofDigest: string | null | undefined,
+  asset: EligibilityAsset,
+  network: Parameters<typeof customerDepositRouteConfigurationDigest>[1],
+): boolean {
+  if (!proofDigest) return false;
+  if (proofDigest === customerDepositRouteConfigurationDigest(asset, network)) return true;
+  const assetCode = normalizeWhitebitCode(asset.code);
+  const networkCode = normalizeWhitebitCode(network.networkCode);
+  const mappedAsset = normalizeWhitebitCode(network.whitebitAssetCode);
+  const mappedNetwork = normalizeWhitebitCode(network.whitebitNetworkCode);
+  if (mappedAsset && mappedNetwork &&
+      mappedAsset === assetCode && mappedNetwork === networkCode) {
+    return proofDigest === customerDepositRouteConfigurationDigest(asset, {
+      ...network,
+      whitebitAssetCode: null,
+      whitebitNetworkCode: null,
+    });
+  }
+  if (!mappedAsset && !mappedNetwork) {
+    return proofDigest === customerDepositRouteConfigurationDigest(asset, {
+      ...network,
+      whitebitAssetCode: assetCode,
+      whitebitNetworkCode: networkCode,
+    });
+  }
+  return false;
+}
+
 export function hasUsableSavedReceivingWallet(network: EligibilityNetwork): boolean {
   if (!isSyntacticallyValidManualWalletAddress(network, network.sharedDepositAddress)) return false;
   return !network.requiresMemo ||
@@ -193,8 +261,9 @@ export function isCustomerDepositEligible(
     network.depositProvider === "whitebit" &&
     context.whitebitReady &&
     context.whitebitCapabilities &&
-    context.whitebitProofs.get(network.id) ===
-      customerDepositRouteConfigurationDigest(asset, network)
+    customerDepositRouteProofMatchesConfiguration(
+      context.whitebitProofs.get(network.id), asset, network,
+    )
   ) {
     return Boolean(matchWhitebitRouteCapability(
       context.whitebitCapabilities,

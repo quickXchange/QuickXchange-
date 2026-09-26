@@ -22,7 +22,7 @@ import {
 import { requireCustomer } from "../lib/customer-auth";
 import { ApiError } from "../lib/api-error";
 import { requireOperator, requireOwner } from "../lib/operator-auth";
-import { customerDepositRouteConfigurationDigest } from "../lib/customer-deposit-eligibility";
+import { customerDepositRouteProofMatchesConfiguration } from "../lib/customer-deposit-eligibility";
 import {
   getWhitebitCapabilities,
   matchWhitebitRouteCapability,
@@ -513,12 +513,11 @@ export async function provisionSwapFundingAddress(input: {
       (route.network.whitebitAssetCode?.trim().toUpperCase() ?? null) !== snapshotWhitebitAssetCode ||
       (route.network.whitebitNetworkCode?.trim().toUpperCase() ?? null) !== snapshotWhitebitNetworkCode
     ) return { claim: undefined, row: undefined, disabled: true };
-    const routeDigest = customerDepositRouteConfigurationDigest(route.asset, route.network);
     const hasCurrentRouteProof = (setting.depositRouteProofs ?? []).some((proof) =>
       proof.networkId === route.network.id &&
       proof.assetCode === route.asset.code.trim().toUpperCase() &&
       proof.networkCode === route.network.networkCode.trim().toUpperCase() &&
-      proof.configurationDigest === routeDigest &&
+      customerDepositRouteProofMatchesConfiguration(proof.configurationDigest, route.asset, route.network) &&
       proof.credentialFingerprint === credentialFingerprint
     );
     if (!hasCurrentRouteProof) return { claim: undefined, row: undefined, disabled: true };
