@@ -453,7 +453,7 @@ test('Payout queue distinguishes empty, error, and recovered data', async ({ pag
   await expect(page.getByTestId(`row-payout-${payoutId}`)).toBeVisible();
 });
 
-test('operators submit valuation and settings forms to mocked affiliate APIs', async ({ page }) => {
+test('operators submit valuation and settings forms to mocked affiliate APIs', async ({ page }, testInfo) => {
   await mockAffiliateApis(page);
   let settingsRequest: unknown;
   let valuationRequest: unknown;
@@ -482,9 +482,50 @@ test('operators submit valuation and settings forms to mocked affiliate APIs', a
   await expect(queueSearch).toHaveValue('');
   await expect(page.getByTestId('input-commission-rate')).toHaveValue('0.075');
   await expect(page.getByTestId('input-payout-minimum')).toHaveValue('100');
+  const providerToggle = page.getByTestId('button-toggle-affiliate-providers');
+  await expect(providerToggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByTestId('toggle-quickex-integration')).toBeHidden();
+  await providerToggle.click();
+  await expect(providerToggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByTestId('toggle-quickex-integration')).toBeChecked();
+  await page.getByTestId('toggle-manual-adjustments').uncheck({ force: true });
+  await providerToggle.click();
+  await expect(page.getByTestId('toggle-manual-adjustments')).toBeHidden();
+  await providerToggle.click();
+  await expect(page.getByTestId('toggle-manual-adjustments')).not.toBeChecked();
   await page.getByTestId('input-commission-rate').fill('0.080');
   await page.getByTestId('btn-save-settings').click();
-  await expect.poll(() => settingsRequest).toMatchObject({ commissionRate: '0.080', payoutMinimumUsd: '100' });
+  await expect.poll(() => settingsRequest).toMatchObject({
+    commissionRate: '0.080', payoutMinimumUsd: '100', quickexEnabled: true, manualEnabled: false,
+  });
+  for (const width of [320, 390, 768, 1024, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    const layout = await page.locator('.affiliate-program-settings').evaluate(card => {
+      const header = card.querySelector<HTMLElement>('.affiliate-settings-header')!;
+      const title = header.querySelector<HTMLElement>('h2')!;
+      const groups = Array.from(card.querySelectorAll<HTMLElement>('.affiliate-settings-section'));
+      return {
+        cardWidth: card.getBoundingClientRect().width,
+        headerOverflow: header.scrollWidth > header.clientWidth,
+        titleOverflow: title.scrollWidth > title.clientWidth,
+        groupsStacked: groups[1].getBoundingClientRect().top > groups[0].getBoundingClientRect().bottom,
+        documentOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      };
+    });
+    expect(layout.cardWidth).toBeLessThanOrEqual(width);
+    expect(layout.headerOverflow).toBe(false);
+    expect(layout.titleOverflow).toBe(false);
+    expect(layout.groupsStacked).toBe(true);
+    expect(layout.documentOverflow).toBe(false);
+    await expect(providerToggle).toHaveAttribute('aria-expanded', 'true');
+    if (width === 390 || width === 1280) {
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.screenshot({ path: testInfo.outputPath(`affiliate-settings-${width}-dark.png`) });
+      await page.evaluate(() => document.documentElement.classList.remove('dark'));
+      await page.screenshot({ path: testInfo.outputPath(`affiliate-settings-${width}-light.png`) });
+      await page.evaluate(() => document.documentElement.classList.add('dark'));
+    }
+  }
 
   await page.getByTestId(`btn-approve-${reviewId}`).click();
   await page.getByTestId('input-confirm-usd').fill('123.456789');

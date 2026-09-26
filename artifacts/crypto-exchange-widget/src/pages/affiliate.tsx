@@ -1253,10 +1253,10 @@ export function AdminAffiliateSettingsPage() {
       subtitle={t('affiliate.settingsSubtitle')}
       requiredPermission="affiliates.manage"
     >
-      <div className="mt-4 flex flex-col gap-8 max-w-[1440px]">
+      <div className="affiliate-settings-page mt-4 flex w-full max-w-[960px] min-w-0 flex-col gap-4">
         <AffiliateProgramSettingsCard />
-          <AffiliateValuationQueue />
-          <AffiliateHelpCard />
+        <AffiliateValuationQueue />
+        <AffiliateHelpCard />
       </div>
     </AdminShell>
   );
@@ -1279,6 +1279,7 @@ function AffiliateProgramSettingsCard() {
   const [isModified, setIsModified] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [providersOpen, setProvidersOpen] = useState(false);
 
   useEffect(() => {
     if (settingsQuery.data) {
@@ -1343,13 +1344,13 @@ function AffiliateProgramSettingsCard() {
   if (settingsQuery.isError) return <div className="p-6 bg-card border border-border rounded-[18px]"><ErrorState /></div>;
 
   return (
-    <div className="bg-card border border-border/60 rounded-[18px] shadow-sm overflow-hidden relative">
+    <div className="affiliate-program-settings bg-card border border-border/60 rounded-[18px] shadow-sm overflow-hidden relative min-w-0">
       <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#13DDF4] via-[#087BFF] to-[#7A2CFF]"></div>
 
-      <div className="p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/50 bg-muted/5">
+      <div className="affiliate-settings-header p-4 sm:p-5 flex flex-col gap-3 border-b border-border/50 bg-muted/5">
         <div className="flex flex-col min-w-0">
-          <div className="flex items-center gap-3 mb-1">
-            <h3 className="font-bold text-lg text-foreground">{t('affiliate.programSettings')}</h3>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1 min-w-0">
+            <h2 className="font-bold text-lg leading-snug text-foreground min-w-0 break-words">{t('affiliate.programSettings')}</h2>
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider bg-primary/10 text-primary border border-primary/20">
               v{settingsQuery.data?.version || 0}
             </span>
@@ -1361,7 +1362,7 @@ function AffiliateProgramSettingsCard() {
           </div>
            <p className="text-[13px] text-muted-foreground">{t('affiliate.settingsDescription')}</p>
         </div>
-        <div className="affiliate-settings-actions flex flex-wrap items-center gap-3 shrink-0 md:justify-end">
+        <div className="affiliate-settings-actions flex flex-wrap items-center gap-2 min-w-0">
            {success && <span className="text-success text-[12px] font-bold flex items-center gap-1.5"><Check size={14} /> {t('affiliate.saved')}</span>}
            <a href="#valuation-guide" data-testid="link-affiliate-documentation" className="button button-ghost h-10 px-4 rounded-xl text-[12px] uppercase tracking-wider font-bold text-primary hover:bg-primary/10">
              <FileText size={14} /> {t('affiliate.viewDocumentation')}
@@ -1375,7 +1376,10 @@ function AffiliateProgramSettingsCard() {
 
       {error && <div className="m-5 sm:m-6 notice notice-error"><X size={16} />{error}</div>}
 
-      <div className="admin-form-grid p-5 sm:p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 bg-background">
+      <div className="affiliate-settings-fields p-4 sm:p-5 bg-background">
+        <section className="affiliate-settings-section" aria-labelledby="affiliate-referral-heading">
+          <h3 id="affiliate-referral-heading" className="text-sm font-bold text-foreground">Referral</h3>
+          <div className="affiliate-settings-stack">
         <div className="admin-form-card affiliate-setting-card affiliate-setting-card--purple">
           <div className="flex flex-col h-full">
             <div className="affiliate-setting-card__heading">
@@ -1393,44 +1397,6 @@ function AffiliateProgramSettingsCard() {
                 <option value="true">{t('affiliate.enabled')}</option>
                 <option value="false">{t('affiliate.disabled')}</option>
               </select>
-            </div>
-          </div>
-        </div>
-
-        <div className="admin-form-card affiliate-setting-card affiliate-setting-card--blue">
-          <div className="flex justify-between items-start mb-4">
-            <div className="pr-2">
-              <div className="affiliate-setting-card__heading">
-                <span className="affiliate-setting-card__icon"><Network size={16} /></span>
-                <h4 className="font-semibold text-sm text-foreground">{t('affiliate.quickexIntegration')}</h4>
-              </div>
-              <p className="text-[11px] text-muted-foreground leading-relaxed">{t('affiliate.quickexIntegrationState', { state: form.quickexEnabled ? t('affiliate.enabledLower') : t('affiliate.disabledLower') })}</p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className={cn('text-[10px] font-bold', form.quickexEnabled ? 'affiliate-setting-card__value' : 'text-muted-foreground')}>{form.quickexEnabled ? t('affiliate.on') : t('affiliate.off')}</span>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" className="sr-only peer" checked={form.quickexEnabled || false} onChange={e => handleChange({ quickexEnabled: e.target.checked })} data-testid="toggle-quickex-integration" />
-                <div className="affiliate-setting-card__toggle w-10 h-5.5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all"></div>
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <div className="admin-form-card affiliate-setting-card affiliate-setting-card--magenta">
-          <div className="flex justify-between items-start mb-4">
-            <div className="pr-2">
-              <div className="affiliate-setting-card__heading">
-                <span className="affiliate-setting-card__icon"><FileText size={16} /></span>
-                <h4 className="font-semibold text-sm text-foreground">{t('affiliate.manualAdjustments')}</h4>
-              </div>
-              <p className="text-[11px] text-muted-foreground leading-relaxed">{t('affiliate.manualAdjustmentsDescription')}</p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className={cn('text-[10px] font-bold', form.manualEnabled ? 'affiliate-setting-card__value' : 'text-muted-foreground')}>{form.manualEnabled ? t('affiliate.on') : t('affiliate.off')}</span>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" className="sr-only peer" checked={form.manualEnabled || false} onChange={e => handleChange({ manualEnabled: e.target.checked })} data-testid="toggle-manual-adjustments" />
-                <div className="affiliate-setting-card__toggle w-10 h-5.5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all"></div>
-              </label>
             </div>
           </div>
         </div>
@@ -1471,7 +1437,61 @@ function AffiliateProgramSettingsCard() {
             <span className="affiliate-setting-card__value absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold uppercase">USD</span>
           </div>
         </div>
+          </div>
+          <button
+            type="button"
+            className="affiliate-settings-provider-toggle button button-secondary w-full min-w-0 justify-between rounded-xl px-4 py-3 text-sm font-semibold"
+            aria-expanded={providersOpen}
+            aria-controls="affiliate-provider-settings"
+            onClick={() => setProvidersOpen(open => !open)}
+            data-testid="button-toggle-affiliate-providers"
+          >
+            <span className="flex min-w-0 items-center gap-2"><Network size={16} className="shrink-0" />Provider Settings</span>
+            <ChevronDown size={16} className={cn('shrink-0 transition-transform', providersOpen && 'rotate-180')} />
+          </button>
+          <div id="affiliate-provider-settings" className="affiliate-settings-stack" hidden={!providersOpen}>
+            <div className="admin-form-card affiliate-setting-card affiliate-setting-card--blue">
+              <div className="flex justify-between items-start gap-3">
+                <div className="min-w-0">
+                  <div className="affiliate-setting-card__heading">
+                    <span className="affiliate-setting-card__icon"><Network size={16} /></span>
+                    <h4 className="font-semibold text-sm text-foreground">{t('affiliate.quickexIntegration')}</h4>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">{t('affiliate.quickexIntegrationState', { state: form.quickexEnabled ? t('affiliate.enabledLower') : t('affiliate.disabledLower') })}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={cn('text-[10px] font-bold', form.quickexEnabled ? 'affiliate-setting-card__value' : 'text-muted-foreground')}>{form.quickexEnabled ? t('affiliate.on') : t('affiliate.off')}</span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" className="sr-only peer" checked={form.quickexEnabled || false} onChange={e => handleChange({ quickexEnabled: e.target.checked })} data-testid="toggle-quickex-integration" />
+                    <div className="affiliate-setting-card__toggle w-10 h-5.5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all"></div>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div className="admin-form-card affiliate-setting-card affiliate-setting-card--magenta">
+              <div className="flex justify-between items-start gap-3">
+                <div className="min-w-0">
+                  <div className="affiliate-setting-card__heading">
+                    <span className="affiliate-setting-card__icon"><FileText size={16} /></span>
+                    <h4 className="font-semibold text-sm text-foreground">{t('affiliate.manualAdjustments')}</h4>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">{t('affiliate.manualAdjustmentsDescription')}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={cn('text-[10px] font-bold', form.manualEnabled ? 'affiliate-setting-card__value' : 'text-muted-foreground')}>{form.manualEnabled ? t('affiliate.on') : t('affiliate.off')}</span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" className="sr-only peer" checked={form.manualEnabled || false} onChange={e => handleChange({ manualEnabled: e.target.checked })} data-testid="toggle-manual-adjustments" />
+                    <div className="affiliate-setting-card__toggle w-10 h-5.5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all"></div>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
+        <section className="affiliate-settings-section" aria-labelledby="affiliate-payout-heading">
+          <h3 id="affiliate-payout-heading" className="text-sm font-bold text-foreground">Payout Rules</h3>
+          <div className="affiliate-settings-stack">
         <div className="admin-form-card affiliate-setting-card affiliate-setting-card--teal">
           <div className="affiliate-setting-card__heading">
             <span className="affiliate-setting-card__icon"><HandCoins size={16} /></span>
@@ -1484,7 +1504,7 @@ function AffiliateProgramSettingsCard() {
           </div>
         </div>
 
-        <div className="admin-form-card affiliate-setting-card affiliate-setting-card--violet lg:col-span-2">
+        <div className="admin-form-card affiliate-setting-card affiliate-setting-card--violet">
           <div className="affiliate-setting-card__heading">
             <span className="affiliate-setting-card__icon"><ShieldCheck size={16} /></span>
             <h4 className="font-semibold text-sm text-foreground">{t('affiliate.transactionCap')}</h4>
@@ -1496,7 +1516,8 @@ function AffiliateProgramSettingsCard() {
             <span className="affiliate-setting-card__value absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold uppercase">USD</span>
           </div>
         </div>
-
+          </div>
+        </section>
       </div>
     </div>
   );
