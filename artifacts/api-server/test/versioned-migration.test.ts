@@ -186,6 +186,74 @@ test("versioned migration upgrades a populated legacy order table safely", async
       migrationsTable: "__drizzle_migrations",
     });
 
+    await client.query(`
+      INSERT INTO exchange_customers (id, name, email) VALUES
+        ('customer-unprofiled', 'Same Name', 'unprofiled@example.test'),
+        ('customer-ambiguous', 'Same Name', 'ambiguous@example.test'),
+        ('customer-conflicting-profile', 'Profile Conflict', 'profile-conflict@example.test'),
+        ('customer-profile-owner', 'Profile Owner', 'profile-owner@example.test'),
+        ('customer-profile-target', 'Profile Target', 'profile-target@example.test'),
+        ('customer-guest', 'Guest Customer', 'guest@example.test');
+      INSERT INTO customer_profiles (customer_id, clerk_user_id) VALUES
+        ('customer-conflicting-profile', 'clerk-existing-profile'),
+        ('customer-profile-owner', 'clerk-already-linked');
+      INSERT INTO exchange_orders (
+        id, type, status, from_asset, to_asset, amount, receive_amount,
+        customer_email, provider, customer_clerk_user_id
+      ) VALUES
+        ('unprofiled-signed-in', 'manual', 'completed', 'BTC', 'USD', '1', '10',
+         'unprofiled@example.test', 'Manual desk', 'clerk-unprofiled'),
+        ('ambiguous-signed-in-a', 'manual', 'completed', 'BTC', 'USD', '1', '10',
+         'ambiguous@example.test', 'Manual desk', 'clerk-ambiguous-a'),
+        ('ambiguous-signed-in-b', 'manual', 'completed', 'BTC', 'USD', '1', '10',
+         'ambiguous@example.test', 'Manual desk', 'clerk-ambiguous-b'),
+        ('conflicting-profile-order', 'manual', 'completed', 'BTC', 'USD', '1', '10',
+         'profile-conflict@example.test', 'Manual desk', 'clerk-incoming'),
+        ('already-profile-linked-order', 'manual', 'completed', 'BTC', 'USD', '1', '10',
+         'profile-target@example.test', 'Manual desk', 'clerk-already-linked'),
+        ('legacy-guest-order', 'manual', 'completed', 'BTC', 'USD', '1', '10',
+         'guest@example.test', 'Manual desk', NULL);
+    `);
+    const signedInBackfill = await readFile(
+      resolve(process.cwd(), "../../lib/db/migrations/0127_backfill_unprofiled_clerk_orders.sql"),
+      "utf8",
+    );
+    await client.query(signedInBackfill);
+    const ownershipAfterFirstBackfill = await client.query(
+      `SELECT id, customer_id FROM exchange_orders
+       WHERE id = ANY($1::text[]) ORDER BY id`,
+      [[
+        "unprofiled-signed-in",
+        "ambiguous-signed-in-a",
+        "ambiguous-signed-in-b",
+        "conflicting-profile-order",
+        "already-profile-linked-order",
+        "legacy-guest-order",
+      ]],
+    );
+    assert.deepEqual(ownershipAfterFirstBackfill.rows, [
+      { id: "already-profile-linked-order", customer_id: null },
+      { id: "ambiguous-signed-in-a", customer_id: null },
+      { id: "ambiguous-signed-in-b", customer_id: null },
+      { id: "conflicting-profile-order", customer_id: null },
+      { id: "legacy-guest-order", customer_id: null },
+      { id: "unprofiled-signed-in", customer_id: "customer-unprofiled" },
+    ]);
+    await client.query(signedInBackfill);
+    const ownershipAfterSecondBackfill = await client.query(
+      `SELECT id, customer_id FROM exchange_orders
+       WHERE id = ANY($1::text[]) ORDER BY id`,
+      [[
+        "unprofiled-signed-in",
+        "ambiguous-signed-in-a",
+        "ambiguous-signed-in-b",
+        "conflicting-profile-order",
+        "already-profile-linked-order",
+        "legacy-guest-order",
+      ]],
+    );
+    assert.deepEqual(ownershipAfterSecondBackfill.rows, ownershipAfterFirstBackfill.rows);
+
     const columns = await client.query<{ column_name: string }>(
       `SELECT column_name FROM information_schema.columns
        WHERE table_schema = $1 AND table_name = 'exchange_orders'`,
@@ -388,6 +456,7 @@ test("versioned migration upgrades a populated legacy order table safely", async
         [
           "exchange_orders_created_at_id_idx",
           "exchange_orders_customer_created_at_id_idx",
+          "exchange_orders_customer_id_created_at_id_idx",
           "exchange_orders_status_created_at_id_idx",
         ],
       ],

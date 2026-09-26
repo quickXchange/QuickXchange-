@@ -1367,6 +1367,8 @@ export const getOrdersQueryTargetSettlementOptionIdMax = 200;
 
 export const getOrdersQueryCustomerEmailMax = 320;
 
+export const getOrdersQueryCustomerIdMax = 200;
+
 export const getOrdersQueryCreatedFromRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$');
 export const getOrdersQueryCreatedToRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$');
 export const getOrdersQueryMinAmountMin = 0;
@@ -1397,6 +1399,7 @@ export const GetOrdersQueryParams = zod.object({
   "sourceSettlementOptionId": zod.coerce.string().max(getOrdersQuerySourceSettlementOptionIdMax).optional().describe('Exact payment method or crypto network used to send.'),
   "targetSettlementOptionId": zod.coerce.string().max(getOrdersQueryTargetSettlementOptionIdMax).optional().describe('Exact payment method or crypto network used to receive.'),
   "customerEmail": zod.coerce.string().max(getOrdersQueryCustomerEmailMax).optional().describe('Case-insensitive partial customer email match.'),
+  "customerId": zod.coerce.string().min(1).max(getOrdersQueryCustomerIdMax).optional().describe('Exact immutable exchange customer ID. When supplied, results are restricted to that customer.'),
   "rateMode": zod.enum(['FLOATING', 'FIXED']).optional(),
   "outcomeUnknown": zod.enum(['true', 'false']).optional(),
   "createdFrom": zod.coerce.string().regex(getOrdersQueryCreatedFromRegExp).optional(),

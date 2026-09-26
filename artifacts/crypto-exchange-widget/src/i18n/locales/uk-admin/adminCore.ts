@@ -71,11 +71,11 @@ const adminCore = {
   "refresh_failed": "Не вдалося оновити дані.",
   "saved_orders_are_shown_below_try_again": "Нижче показано збережені заявки. Спробуйте оновити дані ще раз, перш ніж виконувати дії.",
   "no_recent_orders_found": "Останніх заявок не знайдено.",
-  "operations_crm": "ОПЕРАЦІЇ / CRM",
-  "customers": "Клієнти",
+  "operations_crm": "ОПЕРАЦІЇ / КОРИСТУВАЧІ",
+  "customers": "Користувачі",
   "search_by_name_or_email": "Пошук за ім’ям або email…",
-  "no_customers_found": "Клієнтів не знайдено.",
-  "customer": "Клієнт",
+  "no_customers_found": "Користувачів не знайдено.",
+  "customer": "Користувач",
   "orders": "Заявки",
   "volume": "Обсяг",
   "last_activity": "Остання активність",
@@ -120,7 +120,7 @@ const adminCore = {
   "load_recent_orders_error": "Не вдалося завантажити останні заявки.",
   "open_order_named": "Відкрити заявку {{id}}",
   "view_order_named": "Переглянути заявку {{id}}",
-  "load_customers_error": "Не вдалося завантажити список клієнтів.",
+  "load_customers_error": "Не вдалося завантажити список користувачів.",
   "partial_valuation_detail": "Відсутні курси для {{currencies}}. Оцінено лише {{valued}} з {{total}}."
 };
 

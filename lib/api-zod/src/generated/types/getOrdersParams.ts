@@ -41,6 +41,12 @@ targetSettlementOptionId?: string;
  * @maxLength 320
  */
 customerEmail?: string;
+/**
+ * Exact immutable exchange customer ID. When supplied, results are restricted to that customer.
+ * @minLength 1
+ * @maxLength 200
+ */
+customerId?: string;
 rateMode?: QuickexRateMode;
 outcomeUnknown?: GetOrdersOutcomeUnknown;
 /**

@@ -138,6 +138,7 @@ type DirectoryQuery = {
   sourceSettlementOptionId?: string;
   targetSettlementOptionId?: string;
   customerEmail?: string;
+  customerId?: string;
   rateMode?: string;
   outcomeUnknown?: string;
   createdFrom?: string;
@@ -184,7 +185,9 @@ export async function mergeOperatorOrderDirectory(
   manualItems: Array<Record<string, any>>,
   query: DirectoryQuery,
 ) {
-  const providerItems = (await db.select().from(quickexOrdersTable))
+  // Quickex rows have no exchange_customers ID. Never append provider orders
+  // to an ID-scoped result; their email/name are not ownership proof.
+  const providerItems = query.customerId ? [] : (await db.select().from(quickexOrdersTable))
     .map(operatorRecord)
     .filter(row => matches(row, query));
   const direction = query.sortDirection === "asc" ? 1 : -1;

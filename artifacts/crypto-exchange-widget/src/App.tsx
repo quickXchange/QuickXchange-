@@ -1641,7 +1641,7 @@ const ADMIN_TOP_LEVEL_HEADER_LABELS: Record<string, string> = {
   '/admin': 'OPERATIONS / COMMAND CENTER',
   '/admin/orders': 'OPERATIONS / ORDERS',
   '/admin/revenue': 'FINANCE / REVENUE',
-  '/admin/customers': 'CUSTOMER MANAGEMENT',
+  '/admin/customers': 'USER MANAGEMENT',
   '/admin/affiliates': 'AFFILIATE PROGRAM',
   '/admin/payouts': 'FINANCE / PAYOUTS',
   '/admin/affiliate-settings': 'SYSTEM / CONFIGURATION',

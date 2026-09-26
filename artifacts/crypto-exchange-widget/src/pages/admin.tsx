@@ -12,7 +12,7 @@ import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/reac
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import {
-  ArrowDownUp, ArrowRight, BadgeCheck, Banknote, Check, ChevronDown, ChevronLeft,
+  ArrowDownUp, ArrowLeft, ArrowRight, BadgeCheck, Banknote, Check, ChevronDown, ChevronLeft,
   Calculator, CircleAlert, Clock3, Copy, Download, FileText, Filter, Globe2, Pencil, Play, Power,
   LayoutDashboard, Loader2, Mail, Menu, MoreHorizontal, Archive, ArchiveRestore,
   RefreshCw, RotateCcw, Save, ShieldCheck, TrendingUp, UserRound, Users,
@@ -4723,6 +4723,8 @@ function AdminOrders() {
   const [, setLocation] = useLocation();
   const currentQueryClient = useQueryClient();
   const query = new URLSearchParams(window.location.search);
+  // This is the immutable exchange_customers ID, never an email/name search.
+  const customerId = query.get('customerId') || undefined;
   const initialType = query.get('type');
   const initialCreatedFrom = query.get('createdFrom')?.slice(0, 10) ?? '';
   const initialCreatedTo = query.get('createdTo')?.slice(0, 10) ?? '';
@@ -4745,8 +4747,8 @@ function AdminOrders() {
   const [maxAmount, setMaxAmount] = useState('');
   const [search, setSearch] = useState('');
   const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc');
-  const [archiveView, setArchiveView] = useState<'active' | 'archived'>(
-    query.get('archived') === 'archived' ? 'archived' : 'active',
+  const [archiveView, setArchiveView] = useState<'active' | 'archived' | 'all'>(
+    customerId ? 'all' : query.get('archived') === 'archived' ? 'archived' : 'active',
   );
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -4770,12 +4772,13 @@ function AdminOrders() {
   const [debouncedMax, setDebouncedMax] = useState(maxAmount);
   useEffect(() => { const t = setTimeout(() => { setDebouncedMin(minAmount); setDebouncedMax(maxAmount); }, 450); return () => clearTimeout(t); }, [minAmount, maxAmount]);
 
-  const filtersKey = JSON.stringify({ status, type, archiveView, providerState, fromAsset, fromNetwork, toAsset, toNetwork, sendMethodId, receiveMethodId, debouncedCustomerEmail, rateMode, outcomeUnknown, createdFrom, createdTo, debouncedMin, debouncedMax, debouncedSearch, sortDirection, pageSize });
+  const filtersKey = JSON.stringify({ customerId, status, type, archiveView, providerState, fromAsset, fromNetwork, toAsset, toNetwork, sendMethodId, receiveMethodId, debouncedCustomerEmail, rateMode, outcomeUnknown, createdFrom, createdTo, debouncedMin, debouncedMax, debouncedSearch, sortDirection, pageSize });
   useEffect(() => { setPage(1); }, [filtersKey]);
 
   const params = useMemo(() => ({
+    customerId,
     status: status || undefined,
-    type: type || undefined,
+    type: customerId ? undefined : type || undefined,
     archived: archiveView,
     providerState: providerState || undefined,
     fromAsset: fromAsset || undefined,
@@ -4795,7 +4798,7 @@ function AdminOrders() {
     sortDirection: sortDirection || undefined,
     page,
     pageSize
-  }), [status, type, archiveView, providerState, fromAsset, fromNetwork, toAsset, toNetwork, sendMethodId, receiveMethodId, debouncedCustomerEmail, rateMode, outcomeUnknown, createdFrom, createdTo, debouncedMin, debouncedMax, debouncedSearch, sortDirection, page, pageSize]);
+  }), [customerId, status, type, archiveView, providerState, fromAsset, fromNetwork, toAsset, toNetwork, sendMethodId, receiveMethodId, debouncedCustomerEmail, rateMode, outcomeUnknown, createdFrom, createdTo, debouncedMin, debouncedMax, debouncedSearch, sortDirection, page, pageSize]);
 
   const orders = useGetOrders(params, {
     query: {
@@ -5003,21 +5006,26 @@ function AdminOrders() {
 
   return <AdminShell eyebrow={t('adminOrders.operations_orders')} title={t('adminOrders.all_orders')} requiredPermission="orders.view">
     <div className="admin-orders-page">
+    {customerId && <div className="panel admin-user-orders-scope" data-testid="orders-user-scope">
+      <div className="min-w-0"><strong>{t('adminShell.customers')} · {t('adminOrders.all_orders')}</strong><span data-testid="orders-user-id">{customerId}</span></div>
+      <button type="button" className="button button-secondary" onClick={() => setLocation(`/admin/customers/${encodeURIComponent(customerId)}`)}><ArrowLeft size={15} />{t('common.back')}</button>
+    </div>}
     {exportError && <InlineNotice kind="error" onDismiss={() => setExportError('')}><strong>{t('adminOrders.export_failed')}</strong><p>{exportError}</p><button className="button button-secondary mt-3" onClick={handleExport}><RefreshCw size={14} />{t('adminOrders.try_again')}</button></InlineNotice>}
     {bulkNotice && <div className="mb-4" data-testid="notice-bulk-result"><InlineNotice kind={bulkNotice.kind} onDismiss={() => setBulkNotice(null)}>{bulkNotice.text}</InlineNotice></div>}
     {orders.data?.refreshUnavailable && <div className="mb-4"><InlineNotice kind="warning"><strong>{t('adminOrders.provider_refresh_unavailable')}</strong><p>{t('adminOrders.latest_status_could_not_be_fetched_from')}</p></InlineNotice></div>}
 
     <div className="orders-view-controls mb-4">
-      <div className="product-switch" role="tablist" aria-label={t('adminOrders.order_type')}>
+      {!customerId && <div className="product-switch" role="tablist" aria-label={t('adminOrders.order_type')}>
         <button type="button" role="tab" aria-selected={type === 'manual'} className={cn(type === 'manual' && 'active')} onClick={() => selectOrderType('manual')} data-testid="tab-orders-swap">{t('adminOrders.swap')}</button>
         <button type="button" role="tab" aria-selected={type === 'instant'} className={cn(type === 'instant' && 'active')} onClick={() => selectOrderType('instant')} data-testid="tab-orders-convert">{t('adminOrders.convert')}</button>
-      </div>
+      </div>}
       <div className="orders-archive-actions">
         <div className="archive-switch" role="tablist" aria-label={t('adminOrders.archive_view')}>
+          {customerId && <button type="button" role="tab" aria-selected={archiveView === 'all'} className={cn(archiveView === 'all' && 'active')} onClick={() => setArchiveView('all')} data-testid="tab-orders-all">{t('adminOrders.all_orders')}</button>}
           <button type="button" role="tab" aria-selected={archiveView === 'active'} className={cn(archiveView === 'active' && 'active')} onClick={() => setArchiveView('active')} data-testid="tab-orders-active">{t('adminOrders.active_orders')}</button>
           <button type="button" role="tab" aria-selected={archiveView === 'archived'} className={cn(archiveView === 'archived' && 'active')} onClick={() => setArchiveView('archived')} data-testid="tab-orders-archived"><Archive size={14} /> {t('adminOrders.archived_orders')}</button>
         </div>
-        {can('orders.export') && (
+        {!customerId && can('orders.export') && (
           <button type="button" onClick={handleExport} disabled={isExporting} className="orders-export-button" data-testid="button-export">
             {isExporting ? <Loader2 className="spin" size={14} /> : <Download size={14} />}
             {isExporting ? t('adminOrders.preparing') : t('adminOrders.export_xml')}
@@ -5065,9 +5073,9 @@ function AdminOrders() {
             <span className="bulk-actions-count" data-testid="bulk-selected-count"><Check size={14} /> {selectedOrders.length} {selectedOrders.length === 1 ? t('adminOrders.order_selected') : t('adminOrders.orders_selected')}</span>
             {can('orders.status') && <>
               <div className="bulk-actions-divider" />
-              <button type="button" onClick={() => { setBulkStatus(''); setBulkDialog('status'); }} disabled={type === 'instant' || archiveView === 'archived' || commonStatuses.length === 0} title={type === 'instant' ? t('adminOrders.convert_statuses_provider_synchronized') : commonStatuses.length === 0 ? t('adminOrders.selected_orders_no_shared_later_status') : undefined} data-testid="button-bulk-status"><RefreshCw size={14} /> {t('adminOrders.change_status_2')}</button>
+              <button type="button" onClick={() => { setBulkStatus(''); setBulkDialog('status'); }} disabled={type === 'instant' || archiveView !== 'active' || commonStatuses.length === 0} title={type === 'instant' ? t('adminOrders.convert_statuses_provider_synchronized') : commonStatuses.length === 0 ? t('adminOrders.selected_orders_no_shared_later_status') : undefined} data-testid="button-bulk-status"><RefreshCw size={14} /> {t('adminOrders.change_status_2')}</button>
             </>}
-            {can(PermissionKey.ordersarchive) && <>
+            {archiveView !== 'all' && can(PermissionKey.ordersarchive) && <>
               <div className="bulk-actions-divider" />
               {archiveView === 'active'
                 ? <button type="button" onClick={() => setBulkDialog('archive')} data-testid="button-bulk-archive"><Archive size={14} /> Archive Selected</button>
@@ -5085,7 +5093,7 @@ function AdminOrders() {
       </>}
 
       {orders.isError ? <ErrorState message={t('adminOrders.load_order_queue_error')} retry={() => orders.refetch()} /> :
-        <RedesignedOrderTable orders={visibleOrders} options={settlementOptions} type={type} loading={orders.isLoading} onSelectOrder={openOrder} selectedIds={selectedIds} onToggleOrder={toggleOrder} onToggleAll={toggleAll} archived={archiveView === 'archived'} canArchive={can(PermissionKey.ordersarchive)} canEditStatus={can('orders.status')} onChangeArchive={changeOrderArchive} onDeletePermanently={requestPermanentDelete} />}
+        <RedesignedOrderTable orders={visibleOrders} options={settlementOptions} type={type} loading={orders.isLoading} onSelectOrder={openOrder} selectedIds={selectedIds} onToggleOrder={toggleOrder} onToggleAll={toggleAll} archived={archiveView === 'archived'} canArchive={archiveView !== 'all' && can(PermissionKey.ordersarchive)} canEditStatus={archiveView !== 'all' && can('orders.status')} onChangeArchive={changeOrderArchive} onDeletePermanently={requestPermanentDelete} />}
 
       <div className="panel-footer flex justify-between items-center bg-muted/10 p-4 border-t border-border">
         <div className="flex items-center gap-3">

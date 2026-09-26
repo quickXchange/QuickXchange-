@@ -285,7 +285,7 @@ export function AdminCustomerProfile() {
 
               <div className="flex-1 p-6 relative">
                 <TabsPrimitive.Content value="details" className="outline-none" data-testid="content-user-details">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="customer-profile-details-grid">
                     <div className="space-y-6">
                       <div>
                         <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">{t('adminCustomer.personalInformation')} </h3>
@@ -337,29 +337,32 @@ export function AdminCustomerProfile() {
                         </dl>
                       </div>
 
-                      <div className="mt-8 p-4 border border-destructive/20 bg-destructive/5 rounded-xl">
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-destructive mb-2 flex items-center gap-1.5"><ShieldAlert size={14} /> {t('adminCustomer.dangerZone')} </h3>
-                        <p className="text-xs text-muted-foreground mb-4">
+                      <div className="customer-danger-zone">
+                        <h3 className="customer-danger-heading"><ShieldAlert size={16} /> {t('adminCustomer.dangerZone')}</h3>
+                        <p className="customer-danger-description">
                           {t('adminCustomer.dangerDescription')}
                         </p>
+                        <div className="customer-danger-actions">
                         {customer.accountStatus === 'suspended' ? (
-                          <button className="button border border-border hover:bg-muted bg-card text-sm h-9" onClick={handleActivate} disabled={activateMutation.isPending} data-testid="action-activate-user">
-                             {activateMutation.isPending ? <Loader2 size={14} className="animate-spin mr-2" /> : <ShieldCheck size={14} className="mr-2" />} {t('adminCustomer.activateUser')}
+                          <button type="button" className="button customer-danger-action customer-danger-action--activate" onClick={handleActivate} disabled={activateMutation.isPending} data-testid="action-activate-user">
+                             {activateMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <ShieldCheck size={15} />} <span>{t('adminCustomer.activateUser')}</span>
                           </button>
                         ) : (
-                          <button className="button bg-destructive text-destructive-foreground hover:bg-destructive/90 text-sm h-9" onClick={() => setSuspendOpen(true)} data-testid="action-suspend-user">
-                            <ShieldAlert size={14} className="mr-2" /> {t('adminCustomer.suspendUser')}
+                          <button type="button" className="button customer-danger-action customer-danger-action--suspend" onClick={() => setSuspendOpen(true)} data-testid="action-suspend-user">
+                            <ShieldAlert size={15} /> <span>{t('adminCustomer.suspendUser')}</span>
                           </button>
                         )}
                         <button
-                          className="button border border-border hover:bg-muted bg-card text-sm h-9 ml-2"
+                          type="button"
+                          className="button customer-danger-action customer-danger-action--revoke"
                           onClick={() => setRevokeSessionsOpen(true)}
                           disabled={revokeSessionsMutation.isPending}
                           data-testid="action-revoke-all-sessions"
                         >
-                          {revokeSessionsMutation.isPending ? <Loader2 size={14} className="animate-spin mr-2" /> : <RotateCcw size={14} className="mr-2" />}
-                          {t('adminCustomer.revokeAllSessions')}
+                          {revokeSessionsMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <RotateCcw size={15} />}
+                          <span>{t('adminCustomer.revokeAllSessions')}</span>
                         </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -367,11 +370,11 @@ export function AdminCustomerProfile() {
 
                 <TabsPrimitive.Content value="stats" className="outline-none" data-testid="content-stats">
                   <div className="customer-profile-stats">
-                    <div className="customer-stat-card customer-stat-card--cyan" data-testid="stat-total-orders">
+                    <button type="button" className="customer-stat-card customer-stat-card--cyan customer-stat-card--link" onClick={() => setLocation(`/admin/orders?customerId=${encodeURIComponent(customer.id)}`)} data-testid="stat-total-orders" aria-label={`${t('adminCustomer.totalOrders')}: ${formatNumber(customer.totalOrders || 0)}. ${t('adminOrders.all_orders')}`}>
                       <span className="customer-stat-icon"><ArrowRightLeft size={17} /></span>
                       <strong>{formatNumber(customer.totalOrders || 0)}</strong>
-                      <small>{t('adminCustomer.totalOrders')} </small>
-                    </div>
+                      <small>{t('adminCustomer.totalOrders')} <ArrowRightLeft size={11} aria-hidden="true" /></small>
+                    </button>
                     <div className="customer-stat-card customer-stat-card--green" data-testid="stat-done-orders">
                       <span className="customer-stat-icon"><CircleCheckBig size={17} /></span>
                       <strong>{formatNumber(customer.doneOrders || 0)}</strong>

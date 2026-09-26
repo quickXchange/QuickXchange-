@@ -158,6 +158,7 @@ import {
   blockchainMonitorRegistrationGapsTable,
 } from "@workspace/db";
 import { ApiError } from "../lib/api-error";
+import { customerOrderScope } from "../lib/customer-order-scope";
 import {
   assertCustomerDepositEligibilityContextCurrent,
   createCustomerDepositEligibilityContext,
@@ -322,34 +323,39 @@ async function ensureSeed() {
   const existing = await db.select({ id: ordersTable.id }).from(ordersTable).limit(1);
   if (existing.length === 0) {
     const now = new Date();
-    await db.insert(ordersTable).values([
-      {
-        id: "QX-10482", type: "crypto", status: "processing", fromAsset: "BTC",
-        toAsset: "USDT", amount: "0.18", receiveAmount: "11942.10",
-        customerEmail: "sarah.chen@example.com", customerName: "Sarah Chen",
-        destinationAddress: "TX9f...82kL", provider: "ChangeNOW",
-        note: "Network confirmation pending", createdAt: new Date(now.getTime() - 12 * 60 * 1000),
-      },
-      {
-        id: "QX-10481", type: "manual", status: "pending", fromAsset: "EUR",
-        toAsset: "USDT", amount: "2500", receiveAmount: "2678.44",
-        customerEmail: "marco.rossi@example.com", customerName: "Marco Rossi",
-        paymentMethod: "SEPA transfer", payoutMethod: "TRC-20",
-        provider: "Manual desk", note: "Awaiting payment proof", createdAt: new Date(now.getTime() - 48 * 60 * 1000),
-      },
-      {
-        id: "QX-10480", type: "onramp", status: "completed", fromAsset: "USD",
-        toAsset: "BTC", amount: "800", receiveAmount: "0.0121",
-        customerEmail: "alex.johnson@example.com", customerName: "Alex Johnson",
-        paymentMethod: "Card", provider: "Transak", providerReference: "TR-88219",
-        createdAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
-      },
-    ]);
-    await db.insert(customersTable).values([
-      { id: "cus-sarah", name: "Sarah Chen", email: "sarah.chen@example.com", ordersCount: 8, volume: "24800", lastActivity: new Date(now.getTime() - 12 * 60 * 1000) },
-      { id: "cus-marco", name: "Marco Rossi", email: "marco.rossi@example.com", ordersCount: 3, volume: "7100", lastActivity: new Date(now.getTime() - 48 * 60 * 1000) },
-      { id: "cus-alex", name: "Alex Johnson", email: "alex.johnson@example.com", ordersCount: 14, volume: "42300", lastActivity: new Date(now.getTime() - 2 * 60 * 60 * 1000) },
-    ]);
+    await db.transaction(async (tx) => {
+      await tx.insert(customersTable).values([
+        { id: "cus-sarah", name: "Sarah Chen", email: "sarah.chen@example.com", ordersCount: 8, volume: "24800", lastActivity: new Date(now.getTime() - 12 * 60 * 1000) },
+        { id: "cus-marco", name: "Marco Rossi", email: "marco.rossi@example.com", ordersCount: 3, volume: "7100", lastActivity: new Date(now.getTime() - 48 * 60 * 1000) },
+        { id: "cus-alex", name: "Alex Johnson", email: "alex.johnson@example.com", ordersCount: 14, volume: "42300", lastActivity: new Date(now.getTime() - 2 * 60 * 60 * 1000) },
+      ]);
+      await tx.insert(ordersTable).values([
+        {
+          id: "QX-10482", type: "crypto", status: "processing", fromAsset: "BTC",
+          toAsset: "USDT", amount: "0.18", receiveAmount: "11942.10",
+          customerId: "cus-sarah",
+          customerEmail: "sarah.chen@example.com", customerName: "Sarah Chen",
+          destinationAddress: "TX9f...82kL", provider: "ChangeNOW",
+          note: "Network confirmation pending", createdAt: new Date(now.getTime() - 12 * 60 * 1000),
+        },
+        {
+          id: "QX-10481", type: "manual", status: "pending", fromAsset: "EUR",
+          toAsset: "USDT", amount: "2500", receiveAmount: "2678.44",
+          customerId: "cus-marco",
+          customerEmail: "marco.rossi@example.com", customerName: "Marco Rossi",
+          paymentMethod: "SEPA transfer", payoutMethod: "TRC-20",
+          provider: "Manual desk", note: "Awaiting payment proof", createdAt: new Date(now.getTime() - 48 * 60 * 1000),
+        },
+        {
+          id: "QX-10480", type: "onramp", status: "completed", fromAsset: "USD",
+          toAsset: "BTC", amount: "800", receiveAmount: "0.0121",
+          customerId: "cus-alex",
+          customerEmail: "alex.johnson@example.com", customerName: "Alex Johnson",
+          paymentMethod: "Card", provider: "Transak", providerReference: "TR-88219",
+          createdAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+        },
+      ]);
+    });
   }
   seeded = true;
 }
@@ -1591,7 +1597,20 @@ router.get("/orders", requireOperator, async (req, res, next) => {
     }
     await ensureSeed();
     const providerFreshness = { state: "unavailable" as const, syncing: false };
-    const filters = [eq(ordersTable.type, "manual")];
+    // A user-scoped directory covers every exchange order counted on that
+    // user's Stats card. The ordinary directory keeps its Swap-only default.
+    const filters = query.customerId ? [] : [eq(ordersTable.type, "manual")];
+    if (query.customerId) {
+      const [customer] = await db
+        .select({ id: customersTable.id })
+        .from(customersTable)
+        .where(eq(customersTable.id, query.customerId))
+        .limit(1);
+      if (!customer) {
+        throw new ApiError("CUSTOMER_NOT_FOUND", "Customer not found.", 404);
+      }
+      filters.push(customerOrderScope(customer.id));
+    }
     if (query.status === "active") {
       // Pseudo-filter: every order still moving (not completed/refunded/expired/failed/cancelled).
       filters.push(notInArray(ordersTable.status, [...TERMINAL_ORDER_STATUSES]));
@@ -2818,7 +2837,7 @@ async function createOrderFromInput(
       .onConflictDoNothing({ target: ordersTable.clientRequestId })
       .returning();
     if (!created) return undefined;
-    await tx.insert(customersTable).values({
+    const [customer] = await tx.insert(customersTable).values({
       id: `cus-${randomUUID()}`,
       name: intent.customerName,
       email: intent.customerEmail,
@@ -2832,7 +2851,13 @@ async function createOrderFromInput(
         volume: sql`${customersTable.volume} + ${intent.amount}`,
         lastActivity: createdAt,
       },
-    });
+    }).returning({ id: customersTable.id });
+    if (!customer) {
+      throw new ApiError("CUSTOMER_PERSISTENCE_FAILED", "Could not associate the order with its customer.", 500);
+    }
+    await tx.update(ordersTable)
+      .set({ customerId: customer.id })
+      .where(eq(ordersTable.id, created.id));
     await tx.insert(orderAuditLogsTable).values({
       orderId: created.id,
       action: "order.created",

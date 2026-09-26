@@ -76,6 +76,7 @@ export const ordersTable = pgTable("exchange_orders", {
     amount: numeric("amount").notNull(),
     receiveAmount: numeric("receive_amount").notNull(),
     customerEmail: text("customer_email").notNull(),
+    customerId: text("customer_id").references(() => customersTable.id, { onDelete: "set null" }),
     customerName: text("customer_name").notNull().default("Guest"),
     destinationAddress: text("destination_address").notNull().default(""),
     destinationMemo: text("destination_memo").notNull().default(""),
@@ -152,6 +153,11 @@ export const ordersTable = pgTable("exchange_orders", {
     index("exchange_orders_status_created_at_id_idx").on(table.status, table.createdAt, table.id),
     index("exchange_orders_customer_created_at_id_idx").on(
       table.customerClerkUserId,
+      table.createdAt,
+      table.id,
+    ),
+    index("exchange_orders_customer_id_created_at_id_idx").on(
+      table.customerId,
       table.createdAt,
       table.id,
     ),

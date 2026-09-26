@@ -7659,6 +7659,7 @@ test("online order-directory indexes build and verify on a populated table", asy
         id text PRIMARY KEY,
         status text NOT NULL,
         customer_clerk_user_id text,
+        customer_id text,
         created_at timestamp with time zone NOT NULL
       )
     `);
@@ -7698,6 +7699,12 @@ test("online order-directory indexes build and verify on a populated table", asy
       {
         indexName: "exchange_orders_customer_created_at_id_idx",
         columns: ["customer_clerk_user_id", "created_at", "id"],
+        ready: true,
+        valid: true,
+      },
+      {
+        indexName: "exchange_orders_customer_id_created_at_id_idx",
+        columns: ["customer_id", "created_at", "id"],
         ready: true,
         valid: true,
       },

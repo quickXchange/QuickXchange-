@@ -2693,6 +2693,133 @@ html:not(.dark) .admin-shell.admin-redesign .pricing-table tbody tr:hover td {
 }
 
 /* CRM customer profile uses semantic surfaces in both themes. */
+.admin-shell.admin-redesign .customer-profile-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 32px;
+  min-width: 0;
+}
+
+.admin-shell.admin-redesign .customer-profile-details-grid > * {
+  min-width: 0;
+}
+
+.admin-shell.admin-redesign .customer-danger-zone {
+  min-width: 0;
+  margin-top: 24px;
+  padding: 18px;
+  border: 1px solid hsl(var(--destructive) / 0.25);
+  border-radius: 14px;
+  background: hsl(var(--destructive) / 0.055);
+}
+
+.admin-shell.admin-redesign .customer-danger-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  color: hsl(var(--destructive));
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.admin-shell.admin-redesign .customer-danger-heading svg,
+.admin-shell.admin-redesign .customer-danger-action svg {
+  flex: none;
+}
+
+.admin-shell.admin-redesign .customer-danger-description {
+  margin: 0 0 16px;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.admin-shell.admin-redesign .customer-danger-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  min-width: 0;
+}
+
+.admin-shell.admin-redesign .customer-danger-action {
+  flex: 1 1 150px;
+  min-width: 0;
+  min-height: 42px;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.admin-shell.admin-redesign .customer-danger-action span {
+  min-width: 0;
+}
+
+.admin-shell.admin-redesign .customer-danger-action--suspend {
+  border-color: hsl(var(--destructive) / 0.75);
+  background: hsl(var(--destructive));
+  color: hsl(var(--destructive-foreground));
+}
+
+.admin-shell.admin-redesign .customer-danger-action--suspend:hover:not(:disabled) {
+  background: hsl(var(--destructive) / 0.85);
+}
+
+.admin-shell.admin-redesign .customer-danger-action--activate:hover:not(:disabled),
+.admin-shell.admin-redesign .customer-danger-action--revoke:hover:not(:disabled) {
+  border-color: hsl(var(--primary) / 0.48);
+  background: hsl(var(--muted));
+}
+
+.admin-shell.admin-redesign .customer-danger-action:focus-visible,
+.admin-shell.admin-redesign .customer-stat-card--link:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 3px;
+}
+
+.admin-shell.admin-redesign .admin-user-orders-scope {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 14px 18px;
+  border-color: hsl(var(--primary) / 0.32);
+  background: hsl(var(--primary) / 0.06);
+}
+
+.admin-shell.admin-redesign .admin-user-orders-scope > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.admin-shell.admin-redesign .admin-user-orders-scope strong {
+  font-size: 13px;
+}
+
+.admin-shell.admin-redesign .admin-user-orders-scope span {
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
 .admin-shell.admin-redesign .customer-profile-header {
   display: flex;
   align-items: center;
@@ -2898,6 +3025,19 @@ html:not(.dark) .admin-shell.admin-redesign .pricing-table tbody tr:hover td {
   transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
 
+.admin-shell.admin-redesign .customer-stat-card--link {
+  width: 100%;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.admin-shell.admin-redesign .customer-stat-card--link small {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
 .admin-shell.admin-redesign .customer-stat-card:hover {
   border-color: rgba(var(--customer-stat-rgb), 0.52);
   box-shadow: 0 12px 30px -19px rgba(var(--customer-stat-rgb), 0.98), 0 0 18px -13px rgba(var(--customer-stat-rgb), 0.9);
@@ -3095,6 +3235,13 @@ html:not(.dark) .admin-shell.admin-redesign .pricing-table tbody tr:hover td {
   text-align: center;
 }
 
+@media (max-width: 1150px) {
+  .admin-shell.admin-redesign .customer-profile-details-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+}
+
 @media (max-width: 900px) {
   .admin-shell.admin-redesign .customer-profile-header {
     align-items: flex-start;
@@ -3122,6 +3269,14 @@ html:not(.dark) .admin-shell.admin-redesign .pricing-table tbody tr:hover td {
 }
 
 @media (max-width: 460px) {
+  .admin-shell.admin-redesign .customer-danger-zone {
+    padding: 16px;
+  }
+
+  .admin-shell.admin-redesign .customer-danger-action {
+    flex-basis: 100%;
+  }
+
   .admin-shell.admin-redesign .customer-profile-header {
     padding: 16px;
   }

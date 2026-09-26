@@ -423,6 +423,13 @@ paths:
           schema:
             type: string
             maxLength: 320
+        - name: customerId
+          in: query
+          description: Exact immutable exchange customer ID. When supplied, results are restricted to that customer.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
         - name: rateMode
           in: query
           schema:

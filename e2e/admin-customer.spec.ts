@@ -119,4 +119,65 @@ test.describe('Admin Customer Profile', () => {
     
     await expect(page.locator('data-testid=button-confirm-suspend')).toBeHidden();
   });
+
+  test('User Details Danger Zone stays usable on desktop and mobile', async ({ page }) => {
+    for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
+      await page.setViewportSize(viewport);
+      await page.goto('/admin/customers/CUST-123');
+      const zone = page.locator('.customer-danger-zone');
+      const suspend = page.getByTestId('action-suspend-user');
+      const revoke = page.getByTestId('action-revoke-all-sessions');
+      await expect(zone).toBeVisible();
+      await expect(suspend).toBeVisible();
+      await expect(revoke).toBeVisible();
+
+      const bounds = await page.evaluate(() => {
+        const zone = document.querySelector('.customer-danger-zone')!.getBoundingClientRect();
+        const buttons = [...document.querySelectorAll('.customer-danger-actions button')].map(button => button.getBoundingClientRect());
+        return {
+          pageWidth: document.documentElement.scrollWidth,
+          viewportWidth: window.innerWidth,
+          zone: { left: zone.left, right: zone.right },
+          buttons: buttons.map(({ left, right, top, bottom }) => ({ left, right, top, bottom })),
+        };
+      });
+      expect(bounds.pageWidth).toBeLessThanOrEqual(bounds.viewportWidth + 1);
+      expect(bounds.zone.left).toBeGreaterThanOrEqual(0);
+      expect(bounds.zone.right).toBeLessThanOrEqual(bounds.viewportWidth + 1);
+      for (const button of bounds.buttons) {
+        expect(button.left).toBeGreaterThanOrEqual(bounds.zone.left);
+        expect(button.right).toBeLessThanOrEqual(bounds.zone.right + 1);
+      }
+      const [first, second] = bounds.buttons;
+      expect(second.left >= first.right + 7 || second.top >= first.bottom + 7).toBe(true);
+      await suspend.click();
+      await expect(page.getByTestId('button-cancel-suspend')).toBeVisible();
+      await page.getByTestId('button-cancel-suspend').click();
+    }
+  });
+
+  test('Total Orders opens the ID-scoped order directory', async ({ page }) => {
+    await page.route(/\/api\/orders(?:\?.*)?$/, async route => {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [], total: 0, page: 1, pageSize: 20,
+          refreshUnavailable: false, providerFreshness: { state: 'unavailable', syncing: false },
+        }),
+      });
+    });
+    await page.goto('/admin/customers/CUST-123');
+    await page.getByTestId('tab-stats').click();
+    const request = page.waitForRequest(request => {
+      if (!request.url().includes('/api/orders?')) return false;
+      const params = new URL(request.url()).searchParams;
+      return params.get('customerId') === 'CUST-123' && params.get('archived') === 'all';
+    });
+    await page.getByTestId('stat-total-orders').click();
+    await request;
+    await expect(page).toHaveURL(/\/admin\/orders\?customerId=CUST-123$/);
+    await expect(page.getByTestId('orders-user-id')).toHaveText('CUST-123');
+    await expect(page.getByTestId('tab-orders-all')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByTestId('button-export')).toHaveCount(0);
+  });
 });

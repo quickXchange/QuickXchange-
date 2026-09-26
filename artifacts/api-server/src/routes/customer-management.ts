@@ -15,6 +15,7 @@ import {
   customerManagementAuditLogsTable, customerProfilesTable, customersTable, db, ordersTable,
 } from "@workspace/db";
 import { ApiError } from "../lib/api-error";
+import { customerOrderScope } from "../lib/customer-order-scope";
 import { requireOperator, requireOwner } from "../lib/operator-auth";
 
 const router: IRouter = Router();
@@ -60,7 +61,7 @@ async function findCustomer(id: string): Promise<CustomerContext> {
   const [profile] = await db.select().from(customerProfilesTable).where(eq(customerProfilesTable.customerId, id)).limit(1);
   if (profile?.clerkUserId) return { customer, profile, clerkUserId: profile.clerkUserId };
   const [order] = await db.select({ clerkUserId: ordersTable.customerClerkUserId }).from(ordersTable)
-    .where(and(eq(ordersTable.customerEmail, customer.email), sql`${ordersTable.customerClerkUserId} is not null`))
+    .where(and(customerOrderScope(id), sql`${ordersTable.customerClerkUserId} is not null`))
     .orderBy(desc(ordersTable.createdAt)).limit(1);
   return { customer, profile, clerkUserId: order?.clerkUserId ?? null };
 }
@@ -89,7 +90,7 @@ function volumeRows(rows: Array<{ asset: string; amount: string | null }>) {
 async function outputDetail(ctx: CustomerContext) {
   const clerkId = ctx.clerkUserId;
   const identity = clerkId ? await clerkIdentity(clerkId) : null;
-  const orderWhere = clerkId ? eq(ordersTable.customerClerkUserId, clerkId) : eq(ordersTable.customerEmail, ctx.customer.email);
+  const orderWhere = customerOrderScope(ctx.customer.id);
   const [totals] = await db.select({
     total: count(), done: sql<number>`count(*) filter (where lower(${ordersTable.status}) = 'completed')`,
   }).from(ordersTable).where(orderWhere);
