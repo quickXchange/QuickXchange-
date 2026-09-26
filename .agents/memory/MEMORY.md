@@ -84,6 +84,7 @@
 - [Asset-network wallet identity](asset-network-wallet-identity.md) — receiving wallets are selected by immutable asset-network row ID; sharing derives only from its exact configured network code.
 - [Automatic catalog ordering](automatic-catalog-ordering.md) — operator-managed entities use enabled/active-first alphabetical order, never manual numeric order or silent fixed list caps.
 - [Admin permission boundaries](admin-permission-boundaries.md) — Admin APIs are deny-by-default; Owner-only sensitive actions cannot be delegated or restored through overrides.
+- [Affiliate provider scope](affiliate-provider-scope.md) — Program Settings groups only affiliate provider toggles; keep global provider integrations and permissions separate.
 - [Provider support metadata](provider-support-metadata.md) — provider-only orders keep operational support data in a fenced sidecar with explicit result tags and safe projections.
 - [Resend delivery readiness](resend-sender-domain.md) — require verified sender domain; [check actual credential](resend-connector-state-validation.md) rather than connector UI.
 - [Newsletter delivery integrity](newsletter-delivery-integrity.md) — publish enqueue is atomic, unsubscribe is terminal, and Read More links are parser-checked.

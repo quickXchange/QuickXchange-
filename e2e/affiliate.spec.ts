@@ -471,7 +471,6 @@ test('operators submit valuation and settings forms to mocked affiliate APIs', a
   });
 
   await page.goto('/admin/affiliate-settings');
-  await page.getByRole('button', { name: 'Dark', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Valuation Review Queue' })).toBeVisible();
   const queueSearch = page.getByTestId('input-queue-search');
   await expect(queueSearch).toHaveAttribute('type', 'search');
@@ -520,10 +519,10 @@ test('operators submit valuation and settings forms to mocked affiliate APIs', a
     await expect(providerToggle).toHaveAttribute('aria-expanded', 'true');
     if (width === 390 || width === 1280) {
       await page.evaluate(() => window.scrollTo(0, 0));
-      await page.screenshot({ path: testInfo.outputPath(`affiliate-settings-${width}-dark.png`) });
-      await page.evaluate(() => document.documentElement.classList.remove('dark'));
       await page.screenshot({ path: testInfo.outputPath(`affiliate-settings-${width}-light.png`) });
-      await page.evaluate(() => document.documentElement.classList.add('dark'));
+      await page.getByRole('button', { name: 'Dark', exact: true }).click();
+      await page.screenshot({ path: testInfo.outputPath(`affiliate-settings-${width}-dark.png`) });
+      await page.getByRole('button', { name: 'Light', exact: true }).click();
     }
   }
 

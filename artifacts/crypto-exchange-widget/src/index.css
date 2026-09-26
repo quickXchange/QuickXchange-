@@ -14596,6 +14596,15 @@ html:not(.dark) .affiliate-setting-card__control {
   line-height: 1.4;
 }
 
+.affiliate-settings-subheading {
+  margin: 0.125rem 0 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .affiliate-settings-stack[hidden] {
   display: none !important;
 }

@@ -1378,8 +1378,9 @@ function AffiliateProgramSettingsCard() {
 
       <div className="affiliate-settings-fields p-4 sm:p-5 bg-background">
         <section className="affiliate-settings-section" aria-labelledby="affiliate-referral-heading">
-          <h3 id="affiliate-referral-heading" className="text-sm font-bold text-foreground">Referral</h3>
+          <h3 id="affiliate-referral-heading" className="text-sm font-bold text-foreground">{t('affiliate.referralSection')}</h3>
           <div className="affiliate-settings-stack">
+        <h4 className="affiliate-settings-subheading">{t('affiliate.referralSettingsGroup')}</h4>
         <div className="admin-form-card affiliate-setting-card affiliate-setting-card--purple">
           <div className="flex flex-col h-full">
             <div className="affiliate-setting-card__heading">
@@ -1401,6 +1402,7 @@ function AffiliateProgramSettingsCard() {
           </div>
         </div>
 
+        <h4 className="affiliate-settings-subheading">{t('affiliate.referralConfigurationGroup')}</h4>
         <div className="admin-form-card affiliate-setting-card affiliate-setting-card--cyan">
           <div className="affiliate-setting-card__heading">
             <span className="affiliate-setting-card__icon"><DollarSign size={16} /></span>
@@ -1446,7 +1448,7 @@ function AffiliateProgramSettingsCard() {
             onClick={() => setProvidersOpen(open => !open)}
             data-testid="button-toggle-affiliate-providers"
           >
-            <span className="flex min-w-0 items-center gap-2"><Network size={16} className="shrink-0" />Provider Settings</span>
+            <span className="flex min-w-0 items-center gap-2"><Network size={16} className="shrink-0" />{t('affiliate.providerSettingsGroup')}</span>
             <ChevronDown size={16} className={cn('shrink-0 transition-transform', providersOpen && 'rotate-180')} />
           </button>
           <div id="affiliate-provider-settings" className="affiliate-settings-stack" hidden={!providersOpen}>
@@ -1490,7 +1492,7 @@ function AffiliateProgramSettingsCard() {
         </section>
 
         <section className="affiliate-settings-section" aria-labelledby="affiliate-payout-heading">
-          <h3 id="affiliate-payout-heading" className="text-sm font-bold text-foreground">Payout Rules</h3>
+          <h3 id="affiliate-payout-heading" className="text-sm font-bold text-foreground">{t('affiliate.payoutRulesSection')}</h3>
           <div className="affiliate-settings-stack">
         <div className="admin-form-card affiliate-setting-card affiliate-setting-card--teal">
           <div className="affiliate-setting-card__heading">
