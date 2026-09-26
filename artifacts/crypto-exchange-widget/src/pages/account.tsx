@@ -894,6 +894,14 @@ function shortenDetailValue(value: string): string {
   return `${value.slice(0, 11)}…${value.slice(-8)}`;
 }
 
+const hiddenTransactionDetailKeys = new Set([
+  'source',
+  'confirmation guidelines',
+  'required confirmations',
+  'selected provider',
+  'network id',
+]);
+
 function TransactionDetails({
   fundingDetails,
   settlementDetails,
@@ -904,7 +912,9 @@ function TransactionDetails({
   const entries = [
     ...Object.entries(fundingDetails ?? {}).map(([key, value]) => ({ id: `funding-${key}`, key, value: detailValue(value) })),
     ...Object.entries(settlementDetails ?? {}).map(([key, value]) => ({ id: `settlement-${key}`, key, value: detailValue(value) })),
-  ].filter((entry): entry is { id: string; key: string; value: string } => entry.value !== null);
+  ].filter((entry): entry is { id: string; key: string; value: string } =>
+    entry.value !== null &&
+    !hiddenTransactionDetailKeys.has(entry.key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]/g, ' ').trim().toLowerCase().replace(/\s+/g, ' ')));
 
   if (entries.length === 0) return null;
 

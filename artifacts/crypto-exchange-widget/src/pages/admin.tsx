@@ -5152,6 +5152,18 @@ function isHiddenPaymentMetadataLabel(label: string) {
   return hiddenPaymentMetadataLabels.some((hidden) => normalized === hidden || normalized.endsWith(` ${hidden}`));
 }
 
+const hiddenAdditionalPaymentDetailLabels = [
+  'warning',
+  'manual fallback enabled',
+  'customer deposits enabled',
+  'manual wallet tracking enabled',
+];
+
+function isHiddenAdditionalPaymentDetailLabel(label: string) {
+  const normalized = label.trim().toLowerCase().replace(/\s+/g, ' ');
+  return hiddenAdditionalPaymentDetailLabels.some((hidden) => normalized === hidden || normalized.endsWith(` ${hidden}`));
+}
+
 function OperationalSettlementCard({ order, side }: { order: Order; side: 'send' | 'receive' }) {
   const { t } = useI18n();
   const send = side === 'send';
@@ -5696,6 +5708,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   const paymentDetailRows = detailRows
     .map(([label, value]) => [humanKey(label).replace(/\bTarget\b/gi, '').replace(/\s+/g, ' ').trim(), value] as [string, string])
     .filter(([label]) => Boolean(label));
+  const visiblePaymentDetailRows = paymentDetailRows.filter(([label]) => !isHiddenAdditionalPaymentDetailLabel(label));
 
   if (orderQuery.isLoading) return <div className="fixed inset-0 z-50 flex sm:justify-end bg-black/40 backdrop-blur-sm"><aside className="w-full sm:w-[480px] sm:max-w-full h-full bg-background border-l border-border flex flex-col shadow-2xl"><div className="p-12"><LoadingBlock rows={10} /></div></aside></div>;
   if (orderQuery.isError || !order) return <div className="fixed inset-0 z-50 flex sm:justify-end bg-black/40 backdrop-blur-sm"><aside className="w-full sm:w-[480px] sm:max-w-full h-full bg-background border-l border-border flex flex-col shadow-2xl"><div className="p-12"><ErrorState message="Error loading order" retry={() => orderQuery.refetch()} /></div></aside></div>;
@@ -6017,15 +6030,15 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
                 </div>
               )}
              {/* Payment details not yet shown */}
-             {paymentDetailRows.length > 0 && (
+             {visiblePaymentDetailRows.length > 0 && (
                <div>
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="quickx-section-label text-xs font-bold uppercase tracking-wider text-muted-foreground">Additional Payment Details</h4>
                     <button type="button" onClick={copyPaymentDetails} className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1" data-testid="button-copy-all-payment-details"><Copy size={12} /> Copy All</button>
                   </div>
                   <div className="quickx-order-card border rounded-xl p-1 shadow-sm">
-                    {paymentDetailRows.map(([lbl, val], idx) => (
-                      <div key={lbl} className={cn("flex items-center justify-between p-3", idx !== paymentDetailRows.length - 1 && "border-b border-border/50")}>
+                    {visiblePaymentDetailRows.map(([lbl, val], idx) => (
+                      <div key={lbl} className={cn("flex items-center justify-between p-3", idx !== visiblePaymentDetailRows.length - 1 && "border-b border-border/50")}>
                          <span className="quickx-field-label text-xs text-muted-foreground">{lbl}</span>
                          <div className="flex items-center gap-2">
                             <span className={cn("text-xs font-bold truncate max-w-[200px]", /bank name|payment description/i.test(lbl) ? "quickx-important-value" : "text-foreground")} title={val}>{val}</span>

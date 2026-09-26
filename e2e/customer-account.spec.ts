@@ -19,10 +19,15 @@ const existingOrder = {
     transactionHash: '0x82f1234567890123456789012345678900009ac2',
     depositAddress: 'bc1q4exampledepositaddress0000000000000000',
     paymentReference: '',
+    source: 'should-not-show-source',
+    confirmationGuidelines: 'should-not-show-guidelines',
+    requiredConfirmations: 3,
   },
   settlementDetails: {
     destinationAddress: 'TQxExampleDestinationAddress000000000000',
     providerReference: 'PX-2026-000004219',
+    selectedProvider: 'should-not-show-selected-provider',
+    networkId: 'should-not-show-network-id',
   },
   provider: 'must-not-render-provider',
   destinationAddress: 'must-not-render-wallet',
@@ -383,6 +388,12 @@ test('customers can review, reload, inspect, and claim their orders', async ({ p
   await expect(page.getByTestId('order-exchange-details')).toHaveClass(/customer-card/);
   await expect(page.getByTestId('transaction-details')).toBeVisible();
   await expect(page.getByTitle(existingOrder.fundingDetails.transactionHash)).toBeVisible();
+  for (const label of ['Source', 'Confirmation Guidelines', 'Required Confirmations', 'Selected Provider', 'Network ID']) {
+    await expect(page.getByTestId('transaction-details').getByText(new RegExp(`^${label}$`, 'i'))).toHaveCount(0);
+  }
+  for (const value of ['should-not-show-source', 'should-not-show-guidelines', 'should-not-show-selected-provider', 'should-not-show-network-id']) {
+    await expect(page.getByTestId('transaction-details').getByText(value, { exact: true })).toHaveCount(0);
+  }
   await expect(page.getByText('Payment Reference', { exact: true })).toHaveCount(0);
   await expect(page.getByTestId('nav--account-orders')).toHaveClass(/customer-sidebar-link-active/);
   await expect(page.getByTestId('customer-order-notifications')).toBeVisible();
