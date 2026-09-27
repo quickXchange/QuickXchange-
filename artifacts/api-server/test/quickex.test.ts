@@ -3435,14 +3435,16 @@ test("manual pricing bulk actions update safe rules and report skipped conflicts
         priority: priority + 1,
       },
     ]);
-    scaleIds = Array.from({ length: 37 }, () => randomUUID());
+    scaleIds = Array.from({ length: 60 }, () => randomUUID());
     await db.insert(manualDeskPricingRulesTable).values(scaleIds.map((id, index) => ({
       id,
       ...baseRule,
       name: `Bulk scale ${index} ${suffix}`,
       sourceAsset: `SCALE-${index}-${suffix.slice(0, 8)}`,
       sourceNetwork: `SCALE-${index}-${suffix.slice(0, 8)}`,
-      sourceSettlementOptionId: null,
+      sourceSettlementOptionId: index === 1 || index === 3 ? `fiat:unavailable-source-${suffix}` : null,
+      targetSettlementOptionId: index === 2 || index === 3 ? `fiat:unavailable-target-${suffix}` :
+        index === 4 ? null : target.id,
       markupBasisPoints: 200 + index,
       priority: priority - 100 - index,
     })));
@@ -3484,16 +3486,20 @@ test("manual pricing bulk actions update safe rules and report skipped conflicts
       assert.equal(after.minAmount, before.minAmount);
       assert.equal(after.maxAmount, before.maxAmount);
     }
-    // One 37-rule commission edit must persist every requested field and leave
-    // every unchecked pricing/route field exactly as it was in the database.
+    // A 60-rule commission edit includes retired source/target options and a
+    // read-only legacy route. None of their stored selectors may be rewritten.
     const scaleSuccess = await apiJson(api.url, "/admin/manual-desk-pricing-rules/bulk", {
       action: "edit",
       items: scaleIds.map(id => ({ id, version: id === scaleIds[0] ? 2 : 1 })),
-      patch: { markupBasisPoints: 100, adjustmentDirection: "MARKUP" },
+      patch: { markupBasisPoints: 200, adjustmentDirection: "MARKUP" },
     }, "POST", headers);
     assert.equal(scaleSuccess.status, 200, JSON.stringify(scaleSuccess.body));
-    assert.equal(scaleSuccess.body.updatedIds.length, 37);
+    assert.equal(scaleSuccess.body.updatedIds.length, 60);
     assert.deepEqual(scaleSuccess.body.skipped, []);
+    assert.equal((scaleSuccess.body.items as Array<{ id: string; readOnly: boolean }>)
+      .find(item => item.id === scaleIds[4])?.readOnly, true);
+    assert.equal(scaleSuccess.body.diagnostics.orphanRules
+      .filter((rule: { ruleId: string }) => scaleIds.slice(1, 4).includes(rule.ruleId)).length, 3);
     const afterSuccess = await db.select().from(manualDeskPricingRulesTable)
       .where(inArray(manualDeskPricingRulesTable.id, scaleIds));
     for (const after of afterSuccess) {
@@ -3503,13 +3509,38 @@ test("manual pricing bulk actions update safe rules and report skipped conflicts
       const { updatedAt: _afterTimestamp, version: _afterVersion, markupBasisPoints: _afterPercentage,
         adjustmentDirection: _afterDirection, ...afterUnchanged } = after;
       assert.deepEqual(afterUnchanged, beforeUnchanged);
-      assert.equal(after.markupBasisPoints, 100);
+      assert.equal(after.markupBasisPoints, 200);
       assert.equal(after.adjustmentDirection, "MARKUP");
       assert.equal(after.version, after.id === scaleIds[0] ? 3 : 2);
     }
     assert.equal((scaleSuccess.body.items as Array<{ id: string; markupBasisPoints: number; adjustmentDirection: string }>)
       .filter(item => scaleIds.includes(item.id))
-      .every(item => item.markupBasisPoints === 100 && item.adjustmentDirection === "MARKUP"), true);
+      .every(item => item.markupBasisPoints === 200 && item.adjustmentDirection === "MARKUP"), true);
+    // A route-changing edit still rejects a selected unavailable route, with
+    // its saved human-readable source and target rather than only an ID.
+    const routeEdit = await apiJson(api.url, "/admin/manual-desk-pricing-rules/bulk", {
+      action: "edit",
+      items: [{ id: scaleIds[0], version: 3 }, { id: scaleIds[1], version: 2 }],
+      patch: { sourceSettlementOptionId: source.id },
+    }, "POST", headers);
+    assert.equal(routeEdit.status, 422);
+    assert.match(String(routeEdit.body.error), new RegExp(scaleIds[1]));
+    assert.match(String(routeEdit.body.error), new RegExp(`SCALE-1-${suffix.slice(0, 8)}.*→.*${target.assetCode}`));
+    const [routeEditUnchanged] = await db.select().from(manualDeskPricingRulesTable)
+      .where(eq(manualDeskPricingRulesTable.id, scaleIds[0]));
+    assert.equal(routeEditUnchanged.version, 3);
+    assert.equal(routeEditUnchanged.sourceSettlementOptionId, null);
+    // Unrelated non-route edits likewise do not require a retired option to be selectable.
+    const feeEdit = await apiJson(api.url, "/admin/manual-desk-pricing-rules/bulk", {
+      action: "edit",
+      items: [{ id: scaleIds[2], version: 2 }],
+      patch: { fixedFee: "4" },
+    }, "POST", headers);
+    assert.equal(feeEdit.status, 200, JSON.stringify(feeEdit.body));
+    const [feeRow] = await db.select().from(manualDeskPricingRulesTable)
+      .where(eq(manualDeskPricingRulesTable.id, scaleIds[2]));
+    assert.equal(Number(feeRow.fixedFee), 4);
+    assert.equal(feeRow.targetSettlementOptionId, `fiat:unavailable-target-${suffix}`);
     const missingId = randomUUID();
     const missingResponse = await apiJson(api.url, "/admin/manual-desk-pricing-rules/bulk", {
       action: "edit",
@@ -3520,7 +3551,7 @@ test("manual pricing bulk actions update safe rules and report skipped conflicts
     assert.match(String(missingResponse.body.error), new RegExp(missingId));
     const [stillUnchanged] = await db.select().from(manualDeskPricingRulesTable)
       .where(eq(manualDeskPricingRulesTable.id, scaleIds[0]));
-    assert.equal(stillUnchanged.markupBasisPoints, 100);
+    assert.equal(stillUnchanged.markupBasisPoints, 200);
     assert.equal(stillUnchanged.adjustmentDirection, "MARKUP");
     assert.equal(stillUnchanged.version, 3);
 

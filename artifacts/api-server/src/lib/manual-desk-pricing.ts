@@ -754,6 +754,12 @@ function isLegacyReadOnly(row: ManualDeskPricingRule): boolean {
   return outputManualPricingRule(row).legacyAmbiguous;
 }
 
+function bulkRuleDescription(row: ManualDeskPricingRule): string {
+  const side = (asset: string | null, method: string | null, network: string | null, optionId: string | null) =>
+    [asset, method || network].filter(Boolean).join(" / ") || optionId || "Any";
+  return `Rule "${row.name}" (${side(row.sourceAsset, row.paymentMethod, row.sourceNetwork, row.sourceSettlementOptionId)} → ${side(row.targetAsset, row.payoutMethod, row.targetNetwork, row.targetSettlementOptionId)}, ID ${row.id})`;
+}
+
 export async function bulkUpdateManualPricingRules(
   items: readonly ManualPricingBulkItem[],
   action: ManualPricingBulkAction,
@@ -766,6 +772,22 @@ export async function bulkUpdateManualPricingRules(
   if (action === "edit" && (!patch || Object.keys(patch).length === 0)) {
     throw new ApiError("VALIDATION_ERROR", "Bulk edit requires at least one field.", 400);
   }
+  const commissionOnly = action === "edit" && Object.keys(patch ?? {}).every(
+    (key) => key === "markupBasisPoints" || key === "adjustmentDirection",
+  );
+  if (commissionOnly) {
+    if (patch?.markupBasisPoints !== undefined &&
+        (!Number.isInteger(patch.markupBasisPoints) || patch.markupBasisPoints < 0 || patch.markupBasisPoints > 10000)) {
+      throw new ApiError("VALIDATION_ERROR", "Percentage must be between 0% and 100%.", 400);
+    }
+    if (patch?.adjustmentDirection !== undefined &&
+        patch.adjustmentDirection !== "MARKUP" && patch.adjustmentDirection !== "GIVE_MORE") {
+      throw new ApiError("VALIDATION_ERROR", "Adjustment direction must be MARKUP or GIVE_MORE.", 400);
+    }
+  }
+  const routeChanged = action === "edit" && Object.keys(patch ?? {}).some((key) =>
+    ["sourceSettlementOptionId", "targetSettlementOptionId", "sourceCryptoAssetId",
+      "targetCryptoAssetId", "sourceAsset", "targetAsset", "sourceNetwork", "targetNetwork"].includes(key));
   try {
     return await db.transaction(async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(350035)`);
@@ -795,7 +817,7 @@ export async function bulkUpdateManualPricingRules(
           });
           continue;
         }
-        if (action !== "delete" && isLegacyReadOnly(row)) {
+        if (action !== "delete" && !commissionOnly && isLegacyReadOnly(row)) {
           skipped.push({
             id: row.id,
             code: "MANUAL_PRICING_RULE_READ_ONLY",
@@ -804,7 +826,10 @@ export async function bulkUpdateManualPricingRules(
           });
           continue;
         }
-        if (settlementOptionIds && [row.sourceSettlementOptionId, row.targetSettlementOptionId]
+        // A stored, now-unavailable option is not a reason to reject a field-only edit.
+        // Route edits and enable/disable retain their existing availability gate.
+        if (settlementOptionIds && (action !== "edit" || routeChanged) &&
+            [row.sourceSettlementOptionId, row.targetSettlementOptionId]
           .some((id) => id !== null && !settlementOptionIds.has(id.toUpperCase()))) {
           skipped.push({
             id: row.id,
@@ -820,7 +845,9 @@ export async function bulkUpdateManualPricingRules(
       // must not leave an operator's multi-selection partially commissioned.
       if (action === "edit" && skipped.length) {
         const first = skipped[0];
-        throw new ApiError(first.code, `Rule ${first.id}: ${first.reason}`, first.code.endsWith("CONFLICT") ? 409 : 422);
+        const row = selected.find(({ item }) => item.id === first.id)?.row;
+        throw new ApiError(first.code, `${row ? bulkRuleDescription(row) : `Rule ID ${first.id}`}: ${first.reason}`,
+          first.code.endsWith("CONFLICT") ? 409 : 422);
       }
       if (action === "delete") {
         if (eligible.length > 0) {
@@ -875,20 +902,27 @@ export async function bulkUpdateManualPricingRules(
           if (targetSelectorChanged) {
             TARGET_PRICING_SELECTOR_KEYS.forEach((key) => changedKeys.add(key));
           }
-          let combined: ManualPricingWrite;
-          try {
-            combined = normalizedWrite({ ...rowAsWrite(row), ...canonicalPatch });
-          } catch (error) {
-            if (error instanceof ApiError) {
-              throw new ApiError(error.code, `Rule ${row.id}: ${error.message}`, error.status);
+          let values: Partial<ManualPricingWrite>;
+          if (commissionOnly) {
+            // Validated scalar columns can be written without revalidating or
+            // normalizing historical route selectors that are not being edited.
+            values = canonicalPatch;
+          } else {
+            let combined: ManualPricingWrite;
+            try {
+              combined = normalizedWrite({ ...rowAsWrite(row), ...canonicalPatch });
+            } catch (error) {
+              if (error instanceof ApiError) {
+                throw new ApiError(error.code, `${bulkRuleDescription(row)}: ${error.message}`, error.status);
+              }
+              throw error;
             }
-            throw error;
+            values = action === "edit"
+              ? Object.fromEntries([...changedKeys].map((key) => [
+                key, combined[key as keyof ManualPricingWrite],
+              ]))
+              : combined;
           }
-          const values: Partial<ManualPricingWrite> = action === "edit"
-            ? Object.fromEntries([...changedKeys].map((key) => [
-              key, combined[key as keyof ManualPricingWrite],
-            ]))
-            : combined;
           if (action === "enable") values.enabled = true;
           if (action === "disable") values.enabled = false;
           const proposed = { ...row, ...values, version: row.version + 1, updatedAt: new Date() };
@@ -909,7 +943,7 @@ export async function bulkUpdateManualPricingRules(
             if (conflict) {
               if (action === "edit") {
                 throw new ApiError("MANUAL_PRICING_RULE_CONFLICT",
-                  `Rule ${row.id}: Overlaps rule ${conflict.id} at the same priority and selector specificity.`, 409);
+                  `${bulkRuleDescription(row)}: Overlaps rule ${conflict.id} at the same priority and selector specificity.`, 409);
               }
               skipped.push({
                 id: row.id,
@@ -938,18 +972,18 @@ export async function bulkUpdateManualPricingRules(
             const cause = error as { cause?: { code?: string; constraint?: string } };
             if (cause.cause?.code === "23505") {
               throw new ApiError("MANUAL_PRICING_RULE_CONFLICT",
-                `Rule ${row.id}: Database unique constraint ${cause.cause.constraint ?? "conflict"} rejected this update.`, 409);
+                `${bulkRuleDescription(row)}: Database unique constraint ${cause.cause.constraint ?? "conflict"} rejected this update.`, 409);
             }
             if (cause.cause?.code && /^[A-Z0-9]{5}$/.test(cause.cause.code)) {
               throw new ApiError("MANUAL_PRICING_RULE_UPDATE_FAILED",
-                `Rule ${row.id}: Database rejected the update (${cause.cause.code}${cause.cause.constraint ? `, ${cause.cause.constraint}` : ""}).`, 422);
+                `${bulkRuleDescription(row)}: Database rejected the update (${cause.cause.code}${cause.cause.constraint ? `, ${cause.cause.constraint}` : ""}).`, 422);
             }
             throw error;
           }
           if (persisted.length === 0) {
             if (action === "edit") {
               throw new ApiError("MANUAL_PRICING_RULE_VERSION_CONFLICT",
-                `Rule ${row.id}: The pricing rule changed while the bulk update was being applied.`, 409);
+                `${bulkRuleDescription(row)}: The pricing rule changed while the bulk update was being applied.`, 409);
             }
             const [latest] = await tx.select({ version: manualDeskPricingRulesTable.version })
               .from(manualDeskPricingRulesTable)
