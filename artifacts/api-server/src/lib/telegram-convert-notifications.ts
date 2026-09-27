@@ -154,9 +154,9 @@ export async function convertTelegramRecipientIsCurrent(
     linked.chatCustomerClerkUserId &&
     linked.customerClerkUserId !== linked.chatCustomerClerkUserId
   ) return false;
-  return eventKind === "completed"
-    ? linked.status === "completed"
-    : ["processing", "completed"].includes(linked.status);
+  // These are customer lifecycle status alerts, not Convert deposit
+  // instructions. Historical queued rows are intentionally no longer sent.
+  return eventKind !== "payment_received" && eventKind !== "completed";
 }
 
 function routeLabel(asset: string, network: string): string {

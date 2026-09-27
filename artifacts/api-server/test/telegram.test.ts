@@ -24,7 +24,8 @@ import { normalizeRefundFields } from "../src/lib/manual-wallet-validation";
 import { quickexProjection, telegramAccountLinkRelativeUrl, validateTelegramMiniAppInitData, verifyTelegramMiniAppSession } from "../src/routes/telegram-mini-app";
 import { enqueueSwapTelegramNotification, formatSwapTelegramNotification } from "../src/lib/telegram-swap-notifications";
 import { buildCustomerStatusNotificationContent } from "../src/lib/customer-status-notifications";
-import { validateNotificationTemplateVariables } from "../src/routes/notification-settings";
+import { adminTelegramTestFailureReason, telegramHealthReport, validateNotificationTemplateVariables } from "../src/routes/notification-settings";
+import { sanitizeTelegramFailureReason, TelegramApiError, validateTelegramBotIdentity } from "../src/lib/telegram-api";
 import {
   convertTelegramStatusLabel,
   formatConvertTelegramNotification,
@@ -468,7 +469,7 @@ test("Admin Telegram links are one-time and bind the verified private chat ident
 
   const challenge = await createAdminTelegramLinkChallenge(ownerId);
   try {
-    const linked = await consumeAdminTelegramLinkChallenge(challenge.token, chatId, "admin_operator");
+    const linked = await consumeAdminTelegramLinkChallenge(challenge.token, chatId, "admin_operator", async () => {});
     assert.equal(linked.adminTelegramChatId, chatId);
     assert.equal(linked.adminTelegramUsername, "admin_operator");
     assert.equal(linked.telegramEnabled, true);
@@ -497,6 +498,105 @@ test("Admin Telegram links are one-time and bind the verified private chat ident
       }).where(eq(notificationSettingsTable.id, "global"));
     }
   }
+});
+
+test("Admin Telegram link identity uses Telegram getMe username and rejects a mismatched configured bot", () => {
+  assert.deepEqual(validateTelegramBotIdentity({
+    id: 123456,
+    is_bot: true,
+    username: "ActualQuickXBot",
+  }, "ActualQuickXBot"), {
+    id: 123456,
+    is_bot: true,
+    username: "ActualQuickXBot",
+  });
+  assert.throws(() => validateTelegramBotIdentity({
+    id: 123456,
+    is_bot: true,
+    username: "DifferentQuickXBot",
+  }, "ActualQuickXBot"), /does not match TELEGRAM_BOT_USERNAME/);
+  assert.throws(() => validateTelegramBotIdentity({ id: 123456, is_bot: false, username: "not_a_bot" }), /invalid bot identity/);
+});
+
+test("Admin Telegram challenge remains pending when the private-chat delivery handshake fails", async () => {
+  const ownerId = `owner-handshake-${randomUUID()}`;
+  const privateChatId = `private-${randomUUID()}`;
+  const [original] = await db.select().from(notificationSettingsTable)
+    .where(eq(notificationSettingsTable.id, "global"))
+    .limit(1);
+  if (!original) await db.insert(notificationSettingsTable).values({ id: "global" });
+  const challenge = await createAdminTelegramLinkChallenge(ownerId);
+  let sendAttempts = 0;
+  try {
+    await assert.rejects(() => consumeAdminTelegramLinkChallenge(
+      challenge.token,
+      privateChatId,
+      "owner_user",
+      async () => {
+        sendAttempts += 1;
+        throw new Error("Telegram send was rejected");
+      },
+    ), /Telegram send was rejected/);
+    const [pending] = await db.select().from(adminTelegramLinkChallengesTable)
+      .where(eq(adminTelegramLinkChallengesTable.id, challenge.id)).limit(1);
+    const [settings] = await db.select().from(notificationSettingsTable)
+      .where(eq(notificationSettingsTable.id, "global")).limit(1);
+    assert.equal(pending?.consumedAt, null);
+    assert.equal(pending?.connectedChatId, null);
+    assert.notEqual(settings?.adminTelegramChatId, privateChatId);
+    assert.equal(sendAttempts, 1);
+
+    let invalidLinkSendAttempts = 0;
+    await assert.rejects(() => consumeAdminTelegramLinkChallenge(
+      "not-a-valid-token",
+      privateChatId,
+      "owner_user",
+      async () => { invalidLinkSendAttempts += 1; },
+    ), AdminTelegramLinkChallengeError);
+    assert.equal(invalidLinkSendAttempts, 0);
+  } finally {
+    await db.delete(adminTelegramLinkChallengesTable)
+      .where(eq(adminTelegramLinkChallengesTable.createdBy, ownerId));
+    if (original) {
+      await db.update(notificationSettingsTable).set({
+        adminTelegramChatId: original.adminTelegramChatId,
+        adminTelegramUsername: original.adminTelegramUsername,
+        telegramEnabled: original.telegramEnabled,
+      }).where(eq(notificationSettingsTable.id, "global"));
+    } else {
+      await db.delete(notificationSettingsTable).where(eq(notificationSettingsTable.id, "global"));
+    }
+  }
+});
+
+test("Admin Telegram test delivery exposes only the exact safe Telegram provider reason", () => {
+  const previousToken = process.env.TELEGRAM_BOT_TOKEN;
+  process.env.TELEGRAM_BOT_TOKEN = "123456:secret-token-for-test";
+  try {
+    const error = new TelegramApiError("sendMessage", "Forbidden: bot was blocked by the user");
+    assert.equal(adminTelegramTestFailureReason(error), "Forbidden: bot was blocked by the user");
+    assert.equal(
+      sanitizeTelegramFailureReason(new Error("request https://api.telegram.org/bot123456:secret-token-for-test/sendMessage")),
+      "request [url]",
+    );
+  } finally {
+    if (previousToken === undefined) delete process.env.TELEGRAM_BOT_TOKEN;
+    else process.env.TELEGRAM_BOT_TOKEN = previousToken;
+  }
+});
+
+test("Owner Telegram health projection reports expected webhook health without chat IDs or tokens", () => {
+  const matching = telegramHealthReport(true, "ActualQuickXBot", "https://quickchange.exchange/api/telegram/webhook", null);
+  assert.equal(matching.webhookUrlMatchesExpected, true);
+  assert.equal(matching.botUsername, "ActualQuickXBot");
+  assert.equal("chatId" in matching, false);
+  assert.equal(JSON.stringify(matching).includes("secret-token"), false);
+  const mismatch = telegramHealthReport(true, "ActualQuickXBot", "https://wrong.example/telegram/webhook", "Webhook delivery failed");
+  assert.equal(mismatch.webhookUrlMatchesExpected, false);
+  assert.equal(mismatch.lastWebhookError, "Webhook delivery failed");
+  const unconfigured = telegramHealthReport(false, null, undefined, null, "Telegram bot is not configured.");
+  assert.equal(unconfigured.webhookUrlMatchesExpected, false);
+  assert.equal(unconfigured.botIdentityError, "Telegram bot is not configured.");
 });
 
 test("Telegram wizard builds exact route bodies from persisted selections", () => {

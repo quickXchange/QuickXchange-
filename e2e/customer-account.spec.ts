@@ -408,7 +408,14 @@ test('customers can review, reload, inspect, and claim their orders', async ({ p
   }
   await expect(page.getByText('Payment Reference', { exact: true })).toHaveCount(0);
   await expect(page.getByTestId('nav--account-orders')).toHaveClass(/customer-sidebar-link-active/);
-  await expect(page.getByTestId('customer-order-notifications')).toBeVisible();
+  const notificationArea = page.getByTestId('customer-order-notifications');
+  await expect(notificationArea).toBeVisible();
+  await expect(notificationArea.getByRole('heading')).toHaveText('Email status notifications');
+  await expect(notificationArea).toContainText('Email only');
+  await expect(notificationArea.getByRole('switch')).toHaveCount(1);
+  await expect(notificationArea.locator('input[type="tel"]')).toHaveCount(0);
+  await expect(notificationArea.locator('a[href*="telegram"], a[href*="t.me"], a[href*="/telegram/connect"]')).toHaveCount(0);
+  await expect(notificationArea.getByRole('button', { name: /telegram/i })).toHaveCount(0);
   await expect(page.getByTestId('switch-order-notifications')).not.toBeChecked();
 
   for (const width of [320, 360, 375, 390, 412, 430]) {
@@ -439,7 +446,7 @@ test('customers can review, reload, inspect, and claim their orders', async ({ p
   await expect.poll(() => notificationRequest).toEqual({ enabled: true });
   await expect(page.getByTestId('switch-order-notifications')).toBeChecked();
   await expect(page.getByTestId('notice-success')).toContainText(
-    'Status notifications are on for this order',
+    'Email status notifications are on for this order',
   );
   await page.reload();
   await expect(page.getByTestId('switch-order-notifications')).toBeChecked();

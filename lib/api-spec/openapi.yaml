@@ -4274,6 +4274,17 @@ paths:
       security: [{ OwnerSession: [] }]
       responses:
         "200": { description: One-time Telegram bot link, content: { application/json: { schema: { $ref: "#/components/schemas/AdminTelegramLink" } } } }
+        "502": { description: Configured Telegram bot identity could not be verified, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /admin/notification-settings/telegram-health:
+    get:
+      operationId: getAdminNotificationTelegramHealth
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      summary: Read-only Telegram bot and webhook health
+      responses:
+        "200":
+          description: Configured bot identity and webhook status without credentials or chat identifiers
+          content: { application/json: { schema: { $ref: "#/components/schemas/AdminTelegramHealth" } } }
   /admin/notification-settings/telegram-link/{id}:
     get:
       operationId: getAdminNotificationTelegramLink
@@ -8400,3 +8411,13 @@ components:
       properties:
         status: { type: string, enum: [pending, connected, expired] }
         settings: { $ref: "#/components/schemas/NotificationSettings" }
+    AdminTelegramHealth:
+      type: object
+      required: [configured, botUsername, expectedWebhookUrl, webhookUrlMatchesExpected, lastWebhookError, botIdentityError]
+      properties:
+        configured: { type: boolean }
+        botUsername: { type: ["string", "null"] }
+        expectedWebhookUrl: { type: string, format: uri }
+        webhookUrlMatchesExpected: { type: boolean }
+        lastWebhookError: { type: ["string", "null"] }
+        botIdentityError: { type: ["string", "null"] }

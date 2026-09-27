@@ -15,6 +15,7 @@ export type TranslationGroup =
   | 'convert'
   | 'orderStatus'
   | 'account'
+  | 'emailNotifications'
   | 'notFound'
   | 'affiliate'
   | 'selectors'

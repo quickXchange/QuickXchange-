@@ -16807,6 +16807,19 @@ export const CreateAdminNotificationTelegramLinkResponse = zod.object({
 })
 
 
+/**
+ * @summary Read-only Telegram bot and webhook health
+ */
+export const GetAdminNotificationTelegramHealthResponse = zod.object({
+  "configured": zod.boolean(),
+  "botUsername": zod.string().nullable(),
+  "expectedWebhookUrl": zod.string().url(),
+  "webhookUrlMatchesExpected": zod.boolean(),
+  "lastWebhookError": zod.string().nullable(),
+  "botIdentityError": zod.string().nullable()
+})
+
+
 export const GetAdminNotificationTelegramLinkParams = zod.object({
   "id": zod.string().uuid()
 })

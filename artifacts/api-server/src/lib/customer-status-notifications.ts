@@ -36,7 +36,7 @@ import { getCustomerVerifiedEmail } from "./customer-auth";
 import { logger } from "./logger";
 import { signOrderTrackingToken } from "./order-access";
 import { adminEmailEventEnabled, adminTelegramEventEnabled, customerEmailEventEnabled } from "./notification-policy";
-import { sendResendRequest } from "./resend";
+import { ResendRequestError, resendResponseError, sendResendRequest } from "./resend";
 
 const MAX_DELIVERY_ATTEMPTS = 5;
 const DELIVERY_CLAIM_LEASE_MS = 5 * 60 * 1000;
@@ -76,6 +76,7 @@ export type CustomerStatusNotification = {
   paymentMethod?: string;
   completedAt?: Date | null;
   fundedAt?: Date | null;
+  paymentEvidenceExists?: boolean;
   template?: NotificationEmailTemplate;
   transactionHash?: string;
   paymentReference?: string;
@@ -444,7 +445,14 @@ export function buildCustomerStatusNotificationContent(
     notification.toAsset,
     notification.toNetwork || notification.receiveMethod,
   ].filter(Boolean).join(" · ");
-  const sendLabel = notification.eventKind === "order_created" ? "You Send" : "You Sent";
+  const unpaidManualFailure = notification.orderType === "manual" &&
+    notification.eventKind === "failed_cancelled" &&
+    notification.paymentEvidenceExists !== true;
+  const sendLabel = notification.eventKind === "order_created"
+    ? "You Send"
+    : unpaidManualFailure
+      ? "You Planned to Send"
+      : "You Sent";
   const receiveLabel = notification.eventKind === "completed" ? "You Received" : "You Receive";
   const detailsItems: { label: string; value: string; valueColor?: string; icon?: string }[] = [];
 
@@ -520,6 +528,7 @@ export function buildCustomerStatusNotificationContent(
     `Order: ${notification.orderId}`,
     notification.adminRecipient ? `Customer: ${notification.customerName || "Guest"}` : "",
     `Exchange: ${route}`,
+    `${sendLabel}: ${notification.amount} ${notification.fromAsset}`,
     `New status: ${status}`,
     paymentMethod ? `Payment method: ${paymentMethod}` : "",
     notification.transactionHash ? `Transaction ID: ${notification.transactionHash}` : "",
@@ -730,7 +739,8 @@ async function sendCustomerStatusNotification(
     return;
   }
   const content = buildCustomerStatusNotificationContent(notification);
-  const fromAddress = "QuickXchange <support@quickchange.exchange>";
+  const fromAddress = process.env.CUSTOMER_NOTIFICATION_FROM_EMAIL?.trim() ||
+    "QuickXchange <support@quickchange.exchange>";
   const response = await sendResendRequest("/emails", {
     method: "POST",
     headers: {
@@ -746,10 +756,17 @@ async function sendCustomerStatusNotification(
     },
   });
   if (!response.ok) {
-    throw new Error(
-      `Resend rejected customer status notification delivery with HTTP ${response.status}.`,
-    );
+    throw await resendResponseError(response);
   }
+}
+
+function notificationDeliveryErrorCode(error: unknown): string {
+  if (error instanceof ResendRequestError) return error.code;
+  if (error instanceof Error) {
+    const name = error.name.replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 80);
+    return name || "DeliveryError";
+  }
+  return "DeliveryError";
 }
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -761,6 +778,7 @@ type ConvertAmounts = {
   receiveAmount: string;
   expectedReceiveAmount?: string | null;
   paidAmount?: string | null;
+  providerPaidAmount?: string | null;
 };
 type ConvertNotificationPayload = {
   route?: ConvertRoute;
@@ -787,6 +805,8 @@ export async function enqueueConvertEmailNotification(
   eventKind: "order_created" | "payment_received" | "processing" | "completed" | "failed_cancelled",
   evidenceKey = "",
 ) {
+  const amounts = order.amounts as ConvertAmounts;
+  if (eventKind === "payment_received" && !positiveConvertAmount(amounts.providerPaidAmount)) return;
   const enabled = await tx.select().from(notificationSettingsTable)
     .where(eq(notificationSettingsTable.id, "global")).limit(1);
   if (!customerEmailDeliveryEnabled() ||
@@ -882,7 +902,7 @@ export async function processConvertNotificationOutbox(limit = 25): Promise<numb
     const payload = claimed.payload as ConvertNotificationPayload;
     const route = payload.route ?? order.route as ConvertRoute;
     const amounts = payload.amounts ?? order.amounts as ConvertAmounts;
-    const paidAmount = positiveConvertAmount(amounts.paidAmount);
+    const paidAmount = positiveConvertAmount(amounts.providerPaidAmount);
     if (claimed.eventKind === "payment_received" && !paidAmount) {
       await db.update(convertNotificationOutboxTable).set({
         deliveryStatus: "suppressed",
@@ -921,6 +941,8 @@ export async function processConvertNotificationOutbox(limit = 25): Promise<numb
     try {
       await sendCustomerStatusNotification(notification);
       const [done] = await db.update(convertNotificationOutboxTable).set({
+        // "delivered" is the existing outbox terminal state: a 2xx means the
+        // provider accepted the request, not that it reached a recipient's inbox.
         deliveryStatus: "delivered", deliveredAt: new Date(), claimToken: null, claimExpiresAt: null, lastErrorCode: "",
       }).where(activeClaim).returning({ id: convertNotificationOutboxTable.id });
       if (done) delivered++;
@@ -929,7 +951,7 @@ export async function processConvertNotificationOutbox(limit = 25): Promise<numb
       await db.update(convertNotificationOutboxTable).set({
         deliveryStatus: exhausted ? "failed" : "pending",
         nextAttemptAt: new Date(Date.now() + retryDelayMs(claimed.attemptCount)),
-        claimToken: null, claimExpiresAt: null, lastErrorCode: error instanceof Error ? error.name : "DeliveryError",
+        claimToken: null, claimExpiresAt: null, lastErrorCode: notificationDeliveryErrorCode(error),
       }).where(activeClaim);
     }
   }
@@ -1026,6 +1048,30 @@ export async function updateOrderAndQueueStatusNotificationTx(
       : ["failed", "cancelled", "canceled", "refunded"].includes(updated.status.toLowerCase())
         ? "failed_cancelled" as const
         : "processing" as const;
+    const paymentEvidenceRequired = eventKind !== "failed_cancelled";
+    let hasPaymentEvidence = !paymentEvidenceRequired;
+    if (
+      paymentEvidenceRequired &&
+      updated.type === "manual" &&
+      updated.status.toLowerCase() !== "awaiting funds"
+    ) {
+      const [whitebitPayment] = await tx.select({ id: whitebitDepositsTable.id })
+        .from(whitebitDepositsTable)
+        .where(and(
+          eq(whitebitDepositsTable.orderId, updated.id),
+          eq(whitebitDepositsTable.status, "processed"),
+        ))
+        .limit(1);
+      const [blockchainPayment] = whitebitPayment ? [] : await tx
+        .select({ id: blockchainMonitorMatchesTable.id })
+        .from(blockchainMonitorMatchesTable)
+        .where(and(
+          eq(blockchainMonitorMatchesTable.orderId, updated.id),
+          eq(blockchainMonitorMatchesTable.state, "applied"),
+        ))
+        .limit(1);
+      hasPaymentEvidence = Boolean(whitebitPayment || blockchainPayment);
+    }
     const eventEnabled = customerEmailEventEnabled(notificationSettings, eventKind);
     if (
       customerEmailDeliveryEnabled() &&
@@ -1034,6 +1080,7 @@ export async function updateOrderAndQueueStatusNotificationTx(
       updated.type === "manual" &&
       updated.customerEmail.trim() &&
       updated.statusNotificationsEnabled &&
+      hasPaymentEvidence &&
       eventEnabled
     ) {
       await tx
@@ -1063,59 +1110,41 @@ export async function updateOrderAndQueueStatusNotificationTx(
     if (
       updated.type === "manual" &&
       statusChanged &&
-      (adminEmailEventEnabled(notificationSettings, eventKind) ||
-        adminTelegramEventEnabled(notificationSettings, eventKind)) &&
       updated.status.toLowerCase() !== "awaiting funds"
     ) {
-      const [whitebitPayment] = await tx.select({ id: whitebitDepositsTable.id })
-        .from(whitebitDepositsTable)
-        .where(and(
-          eq(whitebitDepositsTable.orderId, updated.id),
-          eq(whitebitDepositsTable.status, "processed"),
-        ))
-        .limit(1);
-      const [blockchainPayment] = whitebitPayment ? [] : await tx
-        .select({ id: blockchainMonitorMatchesTable.id })
-        .from(blockchainMonitorMatchesTable)
-        .where(and(
-          eq(blockchainMonitorMatchesTable.orderId, updated.id),
-          eq(blockchainMonitorMatchesTable.state, "applied"),
-        ))
-        .limit(1);
-      if (whitebitPayment || blockchainPayment) {
       const lifecycleEvent = updated.status.toLowerCase() === "completed"
-          ? "completed"
-          : ["failed", "cancelled", "canceled", "refunded"].includes(updated.status.toLowerCase())
-            ? "failed_cancelled"
-            : "processing";
-        if (
-          adminEmailEventEnabled(notificationSettings, lifecycleEvent) &&
-          notificationSettings?.adminNotificationEmail
-        ) {
-          await tx.insert(customerStatusNotificationEventsTable).values({
-            orderId: updated.id,
-            customerClerkUserId: `admin:${notificationSettings.adminNotificationEmail.toLowerCase()}`,
-            fromStatus: current.status,
-            toStatus: updated.status,
-            statusVersion: updated.statusVersion,
-            eventKind: lifecycleEvent,
-            recipientEmail: notificationSettings.adminNotificationEmail,
-            adminRecipient: true,
-            evidenceKey: `lifecycle:${updated.id}:${updated.statusVersion}`,
-          }).onConflictDoNothing({
-            target: [
-              customerStatusNotificationEventsTable.orderId,
-              customerStatusNotificationEventsTable.eventKind,
-              customerStatusNotificationEventsTable.statusVersion,
-              customerStatusNotificationEventsTable.channel,
-              customerStatusNotificationEventsTable.recipientEmail,
-              customerStatusNotificationEventsTable.evidenceKey,
-            ],
-          });
-        }
-        if (lifecycleEvent !== "completed") {
-          await enqueueAdminSwapTelegramLifecycleNotification(tx, updated, lifecycleEvent);
-        }
+        ? "completed" as const
+        : ["failed", "cancelled", "canceled", "refunded"].includes(updated.status.toLowerCase())
+          ? "failed_cancelled" as const
+          : "processing" as const;
+      if (
+        hasPaymentEvidence &&
+        adminEmailEventEnabled(notificationSettings, lifecycleEvent) &&
+        notificationSettings?.adminNotificationEmail
+      ) {
+        await tx.insert(customerStatusNotificationEventsTable).values({
+          orderId: updated.id,
+          customerClerkUserId: `admin:${notificationSettings.adminNotificationEmail.toLowerCase()}`,
+          fromStatus: current.status,
+          toStatus: updated.status,
+          statusVersion: updated.statusVersion,
+          eventKind: lifecycleEvent,
+          recipientEmail: notificationSettings.adminNotificationEmail,
+          adminRecipient: true,
+          evidenceKey: `lifecycle:${updated.id}:${updated.statusVersion}`,
+        }).onConflictDoNothing({
+          target: [
+            customerStatusNotificationEventsTable.orderId,
+            customerStatusNotificationEventsTable.eventKind,
+            customerStatusNotificationEventsTable.statusVersion,
+            customerStatusNotificationEventsTable.channel,
+            customerStatusNotificationEventsTable.recipientEmail,
+            customerStatusNotificationEventsTable.evidenceKey,
+          ],
+        });
+      }
+      if (lifecycleEvent === "failed_cancelled" || lifecycleEvent === "processing") {
+        await enqueueAdminSwapTelegramLifecycleNotification(tx, updated, lifecycleEvent);
       }
     }
     if (
@@ -1277,6 +1306,7 @@ export async function processCustomerStatusNotificationOutbox(
           claimed.recipientEmail.trim().toLowerCase(),
       );
     let authoritativePaymentExists = true;
+    let paymentEvidenceExists = false;
     // Manual Swap transaction identity comes only from applied blockchain
     // evidence below, never from the editable operational order field.
     let transactionHash: string | undefined;
@@ -1332,10 +1362,11 @@ export async function processCustomerStatusNotificationOutbox(
         fundedAt = whitebitPayment.creditedAt ?? fundedAt;
       }
 
-      if (claimed.adminRecipient || claimed.eventKind === "payment_received") {
-        authoritativePaymentExists = blockchainManualOrder
-          ? Boolean(blockchainPayment)
-          : Boolean(whitebitPayment || blockchainPayment);
+      paymentEvidenceExists = blockchainManualOrder
+        ? Boolean(blockchainPayment)
+        : Boolean(whitebitPayment || blockchainPayment);
+      if (claimed.eventKind !== "failed_cancelled") {
+        authoritativePaymentExists = paymentEvidenceExists;
       }
     }
     if (
@@ -1407,6 +1438,7 @@ export async function processCustomerStatusNotificationOutbox(
       createdAt: order.createdAt,
       completedAt: order.status.toLowerCase() === "completed" ? order.updatedAt : null,
       fundedAt,
+      paymentEvidenceExists,
       receiveMethod: order.payoutMethod,
       paymentMethod: order.paymentMethod,
       eventKind: claimed.eventKind,
@@ -1448,6 +1480,8 @@ export async function processCustomerStatusNotificationOutbox(
       const [completed] = await db
         .update(customerStatusNotificationEventsTable)
         .set({
+          // A 2xx is provider acceptance only; the outbox's historical
+          // "delivered" label does not assert mailbox delivery.
           deliveryStatus: "delivered",
           deliveredAt: new Date(),
           claimToken: null,
@@ -1466,14 +1500,14 @@ export async function processCustomerStatusNotificationOutbox(
           nextAttemptAt: new Date(Date.now() + retryDelayMs(claimed.attemptCount)),
           claimToken: null,
           claimExpiresAt: null,
-          lastErrorCode: error instanceof Error ? error.name : "DeliveryError",
+          lastErrorCode: notificationDeliveryErrorCode(error),
         })
         .where(activeClaim)
         .returning({ id: customerStatusNotificationEventsTable.id });
       if (released) {
         logger.warn(
           {
-            err: error,
+            lastErrorCode: notificationDeliveryErrorCode(error),
             notificationEventId: claimed.id,
             orderId: claimed.orderId,
             attemptCount: claimed.attemptCount,

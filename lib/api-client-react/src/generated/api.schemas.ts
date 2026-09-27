@@ -6845,6 +6845,18 @@ export interface AdminTelegramLinkStatus {
   settings?: NotificationSettings;
 }
 
+export interface AdminTelegramHealth {
+  configured: boolean;
+  /** @nullable */
+  botUsername: string | null;
+  expectedWebhookUrl: string;
+  webhookUrlMatchesExpected: boolean;
+  /** @nullable */
+  lastWebhookError: string | null;
+  /** @nullable */
+  botIdentityError: string | null;
+}
+
 export type PageParameter = number;
 
 export type PageSizeParameter = number;

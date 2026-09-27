@@ -2,6 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import {
   db,
   ordersTable,
+  quickexOrdersTable,
   telegramChatsTable,
   telegramNotificationOutboxTable,
   telegramOrderLinksTable,
@@ -52,6 +53,38 @@ export type SwapTelegramNotificationPayload = {
   transactionHash?: string;
   explorerUrl?: string;
 };
+
+export async function isCustomerTelegramLifecycleStatusOutboxRow(
+  chatId: string,
+  orderId: string,
+  eventKind: string,
+  payload: { adminRecipient?: boolean; orderKind?: string },
+): Promise<boolean> {
+  if (eventKind !== "status" || payload.adminRecipient === true) return false;
+  let orderKind = payload.orderKind;
+  if (!["manual", "swap", "convert"].includes(orderKind ?? "")) {
+    const [link] = await db.select({ orderKind: telegramOrderLinksTable.orderKind })
+      .from(telegramOrderLinksTable)
+      .where(and(
+        eq(telegramOrderLinksTable.chatId, chatId),
+        eq(telegramOrderLinksTable.orderId, orderId),
+      ))
+      .limit(1);
+    orderKind = link?.orderKind;
+  }
+  if (["manual", "swap", "convert"].includes(orderKind ?? "")) return true;
+  if (orderKind) return false;
+  const [manualOrder] = await db.select({ type: ordersTable.type })
+    .from(ordersTable)
+    .where(eq(ordersTable.id, orderId))
+    .limit(1);
+  if (manualOrder?.type === "manual") return true;
+  const [convertOrder] = await db.select({ id: quickexOrdersTable.legacyOrderId })
+    .from(quickexOrdersTable)
+    .where(eq(quickexOrdersTable.legacyOrderId, orderId))
+    .limit(1);
+  return Boolean(convertOrder);
+}
 
 export type VerifiedManualTransaction = {
   transactionHash: string;
@@ -277,22 +310,27 @@ export async function enqueueSwapTelegramNotification(
         deliveredAt: new Date(),
       })
       .onConflictDoNothing();
-    const inserted = await tx
-      .insert(telegramNotificationOutboxTable)
-      .values({
-        chatId: link.chatId,
-        orderId: order.id,
-        statusVersion: eventKind === "payment_received" ? 0 : order.statusVersion,
-        eventKind,
-        payload,
-      })
-      .onConflictDoNothing()
-      .returning({ id: telegramNotificationOutboxTable.id });
-    queued += inserted.length;
+    // Customer Telegram remains the transactional/manual-order channel for
+    // deposit instructions. Customer lifecycle state updates are email-only;
+    // Admin lifecycle alerts are enqueued independently below.
+    if (eventKind === "order_created") {
+      const inserted = await tx
+        .insert(telegramNotificationOutboxTable)
+        .values({
+          chatId: link.chatId,
+          orderId: order.id,
+          statusVersion: order.statusVersion,
+          eventKind,
+          payload,
+        })
+        .onConflictDoNothing()
+        .returning({ id: telegramNotificationOutboxTable.id });
+      queued += inserted.length;
+    }
   }
-  // The configured admin destination is deliberately independent of customer
-  // order links. This is only reached by authoritative payment evidence or a
-  // later terminal lifecycle enqueue, never by order creation.
+  // The configured Admin destination is independent of customer order links.
+  // Payment and completion alerts require durable evidence; customer lifecycle
+  // notices are email-only, while failed/cancelled Admin alerts are neutral.
   if (
     settings?.adminTelegramChatId &&
     adminTelegramEventEnabled(settings, eventKind)
@@ -350,22 +388,24 @@ export async function enqueueAdminSwapTelegramLifecycleNotification(
   ) {
     return 0;
   }
-  const [whitebitPayment] = await tx.select({ id: whitebitDepositsTable.id })
-    .from(whitebitDepositsTable)
-    .where(and(
-      eq(whitebitDepositsTable.orderId, order.id),
-      eq(whitebitDepositsTable.status, "processed"),
-    ))
-    .limit(1);
-  const [blockchainPayment] = whitebitPayment ? [] : await tx
-    .select({ id: blockchainMonitorMatchesTable.id })
-    .from(blockchainMonitorMatchesTable)
-    .where(and(
-      eq(blockchainMonitorMatchesTable.orderId, order.id),
-      eq(blockchainMonitorMatchesTable.state, "applied"),
-    ))
-    .limit(1);
-  if (!whitebitPayment && !blockchainPayment) return 0;
+  if (eventKind !== "failed_cancelled") {
+    const [whitebitPayment] = await tx.select({ id: whitebitDepositsTable.id })
+      .from(whitebitDepositsTable)
+      .where(and(
+        eq(whitebitDepositsTable.orderId, order.id),
+        eq(whitebitDepositsTable.status, "processed"),
+      ))
+      .limit(1);
+    const [blockchainPayment] = whitebitPayment ? [] : await tx
+      .select({ id: blockchainMonitorMatchesTable.id })
+      .from(blockchainMonitorMatchesTable)
+      .where(and(
+        eq(blockchainMonitorMatchesTable.orderId, order.id),
+        eq(blockchainMonitorMatchesTable.state, "applied"),
+      ))
+      .limit(1);
+    if (!whitebitPayment && !blockchainPayment) return 0;
+  }
   const inserted = await tx.insert(telegramNotificationOutboxTable).values({
     chatId: settings.adminTelegramChatId,
     orderId: order.id,
@@ -432,18 +472,11 @@ export async function swapTelegramRecipientIsCurrent(
   ) {
     return false;
   }
-  if (eventKind === "completed") return linked.status === "completed";
-  if (eventKind === "processing") return linked.status === "processing";
-  if (eventKind === "failed_cancelled") {
-    return ["failed", "cancelled", "canceled", "refunded"].includes(linked.status.toLowerCase());
-  }
-  const [deposit] = await db.select({ id: whitebitDepositsTable.id }).from(whitebitDepositsTable)
-    .where(and(eq(whitebitDepositsTable.orderId, orderId), eq(whitebitDepositsTable.status, "processed"))).limit(1);
-  if (deposit) return true;
-  const [blockchainMatch] = await db.select({ id: blockchainMonitorMatchesTable.id })
-    .from(blockchainMonitorMatchesTable)
-    .where(and(eq(blockchainMonitorMatchesTable.orderId, orderId), eq(blockchainMonitorMatchesTable.state, "applied"))).limit(1);
-  return Boolean(blockchainMatch);
+  // Existing customer lifecycle outbox rows (including rows created before
+  // lifecycle alerts became email-only) must not be sent by the worker.
+  // Customer order-created messages and deposit instructions use their
+  // dedicated order_created delivery branch instead.
+  return eventKind === "order_created";
 }
 
 export async function adminSwapTelegramRecipientIsCurrent(
@@ -468,6 +501,7 @@ export async function adminSwapTelegramRecipientIsCurrent(
     .limit(1);
   if (!order || order.type !== "manual") return false;
   if (eventKind === "order_created") return true;
+  if (eventKind === "failed_cancelled") return true;
   const [deposit] = await db.select({ id: whitebitDepositsTable.id })
     .from(whitebitDepositsTable)
     .where(and(

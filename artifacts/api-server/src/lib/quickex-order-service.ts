@@ -11,8 +11,8 @@ import { signOrderTrackingToken, verifyOrderTrackingToken } from "./order-access
 import { assertExecutableQuickexRoute } from "./provider-capabilities";
 import { normalizeRefundFields } from "./wallet-fields";
 import { validateSettlementDetails } from "./payment-methods";
-import { enqueueConvertTelegramMilestones } from "./telegram-convert-notifications";
 import { enqueueConvertEmailNotification } from "./customer-status-notifications";
+import { enqueueConvertAdminNotification } from "./convert-admin-notifications";
 
 type CreateInput = {
   fromAsset: string; fromNetwork: string; toAsset: string; toNetwork: string;
@@ -24,7 +24,7 @@ type CreateInput = {
   customerClerkUserId?: string;
 };
 type Route = { fromAsset: string; fromNetwork: string; toAsset: string; toNetwork: string; rateMode: QuickexRateMode };
-type Amounts = { amount: string; receiveAmount: string; claimedDepositAmount?: string | null; expectedReceiveAmount?: string | null; paidAmount?: string | null };
+type Amounts = { amount: string; receiveAmount: string; claimedDepositAmount?: string | null; expectedReceiveAmount?: string | null; paidAmount?: string | null; providerPaidAmount?: string | null };
 type Addresses = {
   destinationAddress: string; destinationMemo?: string; refundAddress: string; refundMemo?: string;
   depositAddress?: string; depositMemo?: string; depositQrData?: string;
@@ -353,12 +353,37 @@ export async function createQuickexConvertOrder(input: CreateInput) {
       .where(eq(quickexOrdersTable.legacyOrderId, intent.legacyOrderId));
     throw error;
   }
+  let createPaidAmount = positiveProviderAmount(
+    (result.order as typeof result.order & { paidAmount?: string | null }).paidAmount,
+  );
+  if (!createPaidAmount && ["processing", "completed"].includes(mapQuickexState(result.order.state))) {
+    try {
+      // The create response often omits paidAmount. For an immediately advanced
+      // order, only enrich it from the exact provider order in the list snapshot.
+      const listed = await listQuickexOrders();
+      const providerOrder = result.order.providerOrderId
+        ? listed.find(item => String(item.orderId) === result.order.providerOrderId)
+        : result.order.providerReference
+          ? listed.find(item => item.providerReference === result.order.providerReference)
+          : undefined;
+      if (providerOrder && mapQuickexState(providerOrder.state, providerOrder.completed) === mapQuickexState(result.order.state)) {
+        createPaidAmount = positiveProviderAmount(providerOrder.paidAmount);
+      }
+    } catch {
+      // Without explicit list evidence, keep the initial projection unpaid.
+    }
+  }
   const providerProjection = {
     providerOrderId: result.order.providerOrderId ?? "",
     providerReference: result.order.providerReference ?? String(result.order.orderId),
     status: mapQuickexState(result.order.state),
     providerState: result.order.state ?? "",
-    amounts: { amount: String(input.amount), receiveAmount: result.order.amountToGet ?? result.quote.amountToGet },
+    amounts: {
+      amount: String(input.amount),
+      receiveAmount: result.order.amountToGet ?? result.quote.amountToGet,
+      paidAmount: createPaidAmount,
+      providerPaidAmount: createPaidAmount,
+    },
     addresses: { ...base.addresses, depositAddress: result.order.depositAddress, depositMemo: result.order.depositMemo ?? "" },
     outcomeUnknown: false,
     updatedAt: new Date(),
@@ -369,7 +394,31 @@ export async function createQuickexConvertOrder(input: CreateInput) {
       const [updated] = await tx.update(quickexOrdersTable).set({
         ...providerProjection,
       }).where(eq(quickexOrdersTable.legacyOrderId, intent.legacyOrderId)).returning();
-      if (updated) await enqueueConvertEmailNotification(tx, updated, "created", "order_created");
+      if (updated) {
+        await enqueueConvertEmailNotification(tx, updated, "created", "order_created");
+        if (createPaidAmount) {
+          await enqueueConvertEmailNotification(
+            tx, updated, "awaiting funds", "payment_received", `paid:${createPaidAmount}`,
+          );
+          await enqueueConvertAdminNotification(
+            tx, updated, "awaiting funds", "payment_received", `paid:${createPaidAmount}`,
+          );
+        }
+        const immediateEvent = updated.status === "completed"
+          ? "completed" as const
+          : ["failed", "cancelled", "canceled", "refunded", "reversed", "expired"].includes(updated.status.toLowerCase())
+            ? "failed_cancelled" as const
+            : updated.status === "processing" ? "processing" as const : undefined;
+        if (immediateEvent) {
+          await enqueueConvertAdminNotification(
+            tx,
+            updated,
+            "awaiting funds",
+            immediateEvent,
+            `lifecycle:${updated.status}`,
+          );
+        }
+      }
       return [updated];
     });
     providerSnapshotCache = undefined;
@@ -431,10 +480,11 @@ export async function reconcileQuickexOrder(row: typeof quickexOrdersTable.$infe
 }) {
       const amounts = row.amounts as Amounts;
       const nextStatus = mapQuickexState(match.state ?? undefined, match.completed);
-      const providerConfirmsPayment = nextStatus === "processing" || nextStatus === "completed";
-      const paidAmount = positiveProviderAmount(match.paidAmount)
-        ?? (providerConfirmsPayment ? positiveProviderAmount(match.claimedDepositAmount) : null)
-        ?? positiveProviderAmount(amounts.paidAmount);
+      const providerPaidAmount = positiveProviderAmount(match.paidAmount)
+        ?? positiveProviderAmount(amounts.providerPaidAmount);
+      // Status and claimedDepositAmount are not proof of funds. Keep both
+      // customer and Admin payment notifications backed only by paidAmount.
+      const paidAmount = providerPaidAmount;
       const actualReceiveAmount = positiveProviderAmount(match.amountToWithdrawFact);
       const expectedReceiveAmount = positiveProviderAmount(match.amountToGet)
         ?? positiveProviderAmount(amounts.expectedReceiveAmount);
@@ -446,6 +496,7 @@ export async function reconcileQuickexOrder(row: typeof quickexOrdersTable.$infe
          claimedDepositAmount: match.claimedDepositAmount,
          expectedReceiveAmount,
          paidAmount,
+          providerPaidAmount,
        };
        const nextProviderOrderId = String(match.orderId);
        const nextProviderState = match.state ?? "";
@@ -510,26 +561,36 @@ export async function reconcileQuickexOrder(row: typeof quickexOrdersTable.$infe
              payload: { customerClerkUserId: persisted.customerClerkUserId, snapshot },
            }).onConflictDoNothing();
          }
-          if (positiveProviderAmount(nextAmounts.paidAmount) &&
-            !positiveProviderAmount(amounts.paidAmount)) {
+          const paidEvidenceArrived = positiveProviderAmount(nextAmounts.providerPaidAmount) &&
+            !positiveProviderAmount(amounts.providerPaidAmount);
+          if (paidEvidenceArrived) {
             await enqueueConvertEmailNotification(
               tx, persisted, row.status, "payment_received",
-              `paid:${nextAmounts.paidAmount}`,
+              `paid:${nextAmounts.providerPaidAmount}`,
             );
-          }
-          if (
-            persisted.status === "processing" && row.status !== "processing" ||
-            persisted.status === "completed" && row.status !== "completed"
-          ) {
-            await enqueueConvertTelegramMilestones(tx, persisted);
+             await enqueueConvertAdminNotification(
+               tx, persisted, row.status, "payment_received",
+               `paid:${nextAmounts.providerPaidAmount}`,
+             );
           }
           const lifecycleEvent = persisted.status === "completed"
             ? "completed" as const
             : ["failed", "cancelled", "canceled", "refunded", "reversed", "expired"].includes(persisted.status.toLowerCase())
               ? "failed_cancelled" as const
               : persisted.status === "processing" ? "processing" as const : undefined;
-          if (lifecycleEvent && persisted.status !== row.status) {
-            await enqueueConvertEmailNotification(tx, persisted, row.status, lifecycleEvent);
+          const lifecycleIsPaid = ["processing", "completed"].includes(persisted.status) &&
+            positiveProviderAmount(nextAmounts.providerPaidAmount);
+          if (lifecycleEvent && (persisted.status !== row.status || lifecycleIsPaid)) {
+            if (persisted.status !== row.status) {
+              await enqueueConvertEmailNotification(tx, persisted, row.status, lifecycleEvent);
+            }
+            await enqueueConvertAdminNotification(
+              tx,
+              persisted,
+              row.status,
+              lifecycleEvent,
+              `lifecycle:${persisted.status}`,
+            );
           }
          return persisted;
        });

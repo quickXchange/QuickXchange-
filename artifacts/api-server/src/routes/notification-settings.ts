@@ -9,38 +9,87 @@ import { adminTelegramLinkChallengesTable, db, notificationSettingsTable } from 
 import { requireOwner } from "../lib/operator-auth";
 import { ApiError } from "../lib/api-error";
 import { createAdminTelegramLinkChallenge } from "../lib/admin-telegram-link";
-import { sendTelegramMessage, telegramEnabled } from "../lib/telegram-api";
+import { getTelegramBotIdentity, getTelegramWebhookInfo, sendTelegramMessage, sanitizeTelegramFailureReason, TelegramApiError, telegramEnabled } from "../lib/telegram-api";
 import {
   buildCustomerStatusNotificationContent,
   DEFAULT_NOTIFICATION_EMAIL_TEMPLATES,
   NOTIFICATION_TEMPLATE_VARIABLES,
 } from "../lib/customer-status-notifications";
-import { sendResendRequest } from "../lib/resend";
+import { ResendRequestError, resendResponseError, sendResendRequest } from "../lib/resend";
 
 const router = Router();
+const expectedTelegramWebhookUrl = "https://quickchange.exchange/api/telegram/webhook";
+
+export function adminTelegramTestFailureReason(error: unknown) {
+  return error instanceof TelegramApiError ? error.safeReason : sanitizeTelegramFailureReason(error);
+}
+
+export function telegramHealthReport(
+  configured: boolean,
+  botUsername: string | null,
+  webhookUrl: string | undefined,
+  lastWebhookError: string | null,
+  botIdentityError: string | null = null,
+) {
+  return {
+    configured,
+    botUsername,
+    expectedWebhookUrl: expectedTelegramWebhookUrl,
+    webhookUrlMatchesExpected: configured && webhookUrl === expectedTelegramWebhookUrl,
+    lastWebhookError,
+    botIdentityError,
+  };
+}
 
 async function getSettings() {
   let [settings] = await db.select().from(notificationSettingsTable).where(eq(notificationSettingsTable.id, "global")).limit(1);
   if (!settings) {
-    [settings] = await db.insert(notificationSettingsTable).values({ id: "global" }).returning();
+    await db.insert(notificationSettingsTable).values({ id: "global" }).onConflictDoNothing();
+    [settings] = await db.select().from(notificationSettingsTable).where(eq(notificationSettingsTable.id, "global")).limit(1);
   }
+  if (!settings) throw new ApiError("NOTIFICATION_SETTINGS_NOT_FOUND", "Notification settings are unavailable.", 503);
   return settings;
 }
 
 async function emailProviderRejectionMessage(response: Response) {
-  let providerMessage = "";
-  try {
-    const body = await response.json() as { message?: unknown };
-    providerMessage = typeof body.message === "string" ? body.message : "";
-  } catch {
-    // Keep the safe fallback when the provider does not return JSON.
-  }
-  if (/domain.+not verified|not verified.+domain/i.test(providerMessage)) {
+  const reason = (await resendResponseError(response)).message;
+  if (/domain.+not verified|not verified.+domain/i.test(reason)) {
     return "Resend rejected the message because quickchange.exchange is not verified. Verify quickchange.exchange in Resend, then retry.";
   }
-  return providerMessage
-    ? `Resend rejected the message: ${providerMessage.slice(0, 300)}`
-    : "The email provider rejected the test message.";
+  return `Resend rejected the test message: ${reason}`;
+}
+
+async function sendAdminTestEmail(
+  req: import("express").Request,
+  recipient: string,
+  content: { subject: string; text: string; html: string },
+): Promise<void> {
+  let response: Response;
+  try {
+    response = await sendResendRequest("/emails", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: {
+        to: [recipient],
+        from: process.env.CUSTOMER_NOTIFICATION_FROM_EMAIL?.trim() || "QuickXchange <support@quickchange.exchange>",
+        ...content,
+      },
+    });
+  } catch (error) {
+    const reason = error instanceof ResendRequestError ? error.message : "Resend request failed before receiving a response.";
+    req.log?.warn({ reason }, "Admin test email request failed");
+    throw new ApiError("ADMIN_EMAIL_TEST_FAILED", reason, 502);
+  }
+  if (!response.ok) {
+    const reason = await emailProviderRejectionMessage(response);
+    req.log?.warn({ reason }, "Admin test email was rejected by provider");
+    throw new ApiError("ADMIN_EMAIL_TEST_FAILED", reason, 502);
+  }
+  const accepted = await response.json().catch(() => null) as { id?: unknown } | null;
+  if (typeof accepted?.id !== "string" || !accepted.id) {
+    req.log?.warn("Admin test email provider response did not contain a message ID");
+    throw new ApiError("ADMIN_EMAIL_TEST_FAILED", "Resend did not confirm acceptance with a message ID.", 502);
+  }
 }
 
 router.get("/admin/notification-settings", requireOwner, async (_req, res) => {
@@ -67,8 +116,15 @@ router.put("/admin/notification-settings", requireOwner, async (req, res) => {
   if (parsed.data.trustpilotReviewUrl && !/^https:\/\/(?:www\.)?trustpilot\.com\//i.test(parsed.data.trustpilotReviewUrl)) {
     throw new ApiError("INVALID_NOTIFICATION_SETTINGS", "Trustpilot URL must be on trustpilot.com.", 400);
   }
+  const current = await getSettings();
+  if (parsed.data.telegramEnabled && !current.adminTelegramChatId) {
+    throw new ApiError("ADMIN_TELEGRAM_NOT_CONNECTED", "Connect a Telegram chat before enabling Admin Telegram notifications.", 400);
+  }
+  // Only the verified Telegram /start challenge may assign a chat ID. A stale
+  // settings form must never replace or restore a disconnected chat.
+  const { adminTelegramChatId: _ignoredChatId, ...safeSettings } = parsed.data;
   const [settings] = await db.update(notificationSettingsTable)
-    .set({ ...parsed.data, updatedBy: res.locals.operator.id, updatedAt: new Date() })
+    .set({ ...safeSettings, updatedBy: res.locals.operator.id, updatedAt: new Date() })
     .where(eq(notificationSettingsTable.id, "global"))
     .returning();
   if (!settings) throw new ApiError("NOTIFICATION_SETTINGS_NOT_FOUND", "Notification settings are not initialized.", 404);
@@ -80,21 +136,12 @@ router.post("/admin/notification-settings/test-email", requireOwner, async (req,
   if (!settings.adminNotificationEmail) {
     throw new ApiError("ADMIN_EMAIL_NOT_CONFIGURED", "Save an Admin notification email before sending a test.", 400);
   }
-  const response = await sendResendRequest("/emails", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: {
-      to: [settings.adminNotificationEmail],
-      from: process.env.CUSTOMER_NOTIFICATION_FROM_EMAIL?.trim() || "QuickXchange <support@quickchange.exchange>",
-      subject: "QuickXchange Admin notification test",
-      text: "Your QuickXchange Admin email notifications are connected and ready.",
-      html: '<div style="font-family:Arial,sans-serif;padding:24px"><h2>QuickXchange Admin notification test</h2><p>Your Admin email notifications are connected and ready.</p></div>',
-    },
+  await sendAdminTestEmail(req, settings.adminNotificationEmail, {
+    subject: "QuickXchange Admin notification test",
+    text: "This is a real QuickXchange email delivery test. Resend accepting this request does not confirm inbox placement.",
+    html: '<div style="font-family:Arial,sans-serif;padding:24px"><h2>QuickXchange Admin notification test</h2><p>This is a real email delivery test. Please confirm it appears in your mailbox.</p></div>',
   });
-  if (!response.ok) {
-    throw new ApiError("ADMIN_EMAIL_TEST_FAILED", await emailProviderRejectionMessage(response), 502);
-  }
-  res.json({ success: true, message: `Test email sent to ${settings.adminNotificationEmail}.` });
+  res.json({ success: true, message: `Resend accepted the test email for ${settings.adminNotificationEmail}. Check that mailbox and spam folder to confirm delivery.` });
 });
 
 router.post("/admin/notification-settings/test-telegram", requireOwner, async (_req, res) => {
@@ -106,12 +153,15 @@ router.post("/admin/notification-settings/test-telegram", requireOwner, async (_
     throw new ApiError("ADMIN_TELEGRAM_UNAVAILABLE", "The Telegram bot is not configured.", 502);
   }
   try {
-    await sendTelegramMessage(
+    const accepted = await sendTelegramMessage(
       settings.adminTelegramChatId,
       "<b>QuickXchange Admin notification test</b>\n\nYour Admin Telegram notifications are connected and ready.",
     );
-  } catch {
-    throw new ApiError("ADMIN_TELEGRAM_TEST_FAILED", "Telegram rejected the test message.", 502);
+    if (!accepted) throw new Error("Telegram did not confirm delivery.");
+  } catch (error) {
+    const reason = adminTelegramTestFailureReason(error);
+    _req.log?.warn({ reason }, "Admin Telegram test delivery failed");
+    throw new ApiError("ADMIN_TELEGRAM_TEST_FAILED", reason, 502);
   }
   res.json({ success: true, message: "Test Telegram message sent." });
 });
@@ -120,13 +170,43 @@ router.post("/admin/notification-settings/telegram-link", requireOwner, async (_
   if (!telegramEnabled()) {
     throw new ApiError("ADMIN_TELEGRAM_UNAVAILABLE", "The Telegram bot is not configured.", 502);
   }
+  let identity;
+  try {
+    identity = await getTelegramBotIdentity();
+  } catch (error) {
+    throw new ApiError("ADMIN_TELEGRAM_BOT_INVALID", sanitizeTelegramFailureReason(error), 502);
+  }
   const challenge = await createAdminTelegramLinkChallenge(res.locals.operator.id);
-  const botUsername = process.env.TELEGRAM_BOT_USERNAME?.trim().replace(/^@/, "") || "QuickXchangeNetBot";
   res.json({
     id: challenge.id,
-    botUrl: `https://t.me/${botUsername}?start=admin_${challenge.token}`,
+    botUrl: `https://t.me/${identity.username}?start=admin_${challenge.token}`,
     expiresAt: challenge.expiresAt,
   });
+});
+
+router.get("/admin/notification-settings/telegram-health", requireOwner, async (_req, res) => {
+  if (!telegramEnabled()) {
+    res.json(telegramHealthReport(false, null, undefined, null, "Telegram bot is not configured."));
+    return;
+  }
+  let botUsername: string | null = null;
+  let webhookUrl: string | undefined;
+  let lastWebhookError: string | null = null;
+  let botIdentityError: string | null = null;
+  try {
+    const identity = await getTelegramBotIdentity();
+    botUsername = identity.username;
+  } catch (error) {
+    botIdentityError = sanitizeTelegramFailureReason(error);
+  }
+  try {
+    const info = await getTelegramWebhookInfo();
+    webhookUrl = info?.url;
+    if (info?.last_error_message) lastWebhookError = sanitizeTelegramFailureReason(info.last_error_message);
+  } catch (error) {
+    lastWebhookError = sanitizeTelegramFailureReason(error);
+  }
+  res.json(telegramHealthReport(true, botUsername, webhookUrl, lastWebhookError, botIdentityError));
 });
 
 router.get("/admin/notification-settings/telegram-link/:id", requireOwner, async (req, res) => {
@@ -237,19 +317,12 @@ router.post("/admin/notification-settings/email-templates/test", requireOwner, a
     trustpilotUrl: settings.trustpilotReviewUrl,
     template: parsed.data,
   });
-  const response = await sendResendRequest("/emails", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: {
-      to: [settings.adminNotificationEmail],
-      from: process.env.CUSTOMER_NOTIFICATION_FROM_EMAIL?.trim() || "QuickXchange <support@quickchange.exchange>",
-      subject: `[Preview] ${content.subject}`,
-      text: content.text,
-      html: content.html,
-    },
+  await sendAdminTestEmail(req, settings.adminNotificationEmail, {
+    subject: `[Preview] ${content.subject}`,
+    text: content.text,
+    html: content.html,
   });
-  if (!response.ok) throw new ApiError("ADMIN_EMAIL_TEST_FAILED", await emailProviderRejectionMessage(response), 502);
-  res.json({ success: true, message: `Template test email sent to ${settings.adminNotificationEmail}.` });
+  res.json({ success: true, message: `Resend accepted the template test email for ${settings.adminNotificationEmail}. Check that mailbox to confirm delivery.` });
 });
 
 export default router;

@@ -82,6 +82,7 @@ import {
   useTestAdminNotificationTelegram,
   useCreateAdminNotificationTelegramLink,
   useGetAdminNotificationTelegramLink, getGetAdminNotificationTelegramLinkQueryKey,
+  useGetAdminNotificationTelegramHealth, getGetAdminNotificationTelegramHealthQueryKey,
   useDisconnectAdminNotificationTelegram,
   useGetAffiliatePayoutQueue, getGetAffiliatePayoutQueueQueryKey,
   useTransitionAffiliatePayout,
@@ -1836,6 +1837,9 @@ function AdminIntegrations() {
 function AdminNotificationSettings() {
   const { isOwner } = useAdminPermissions();
   const queryClient = useQueryClient();
+  const telegramHealth = useGetAdminNotificationTelegramHealth({
+    query: { queryKey: getGetAdminNotificationTelegramHealthQueryKey(), enabled: isOwner, staleTime: 30_000, refetchOnMount: 'always' },
+  });
   const query = useGetAdminNotificationSettings({
     query: { queryKey: getGetAdminNotificationSettingsQueryKey() },
   });
@@ -2022,13 +2026,14 @@ function AdminNotificationSettings() {
     });
   };
 
-  const Toggle = ({ checked, onChange }: { checked: boolean, onChange: (v: boolean) => void }) => (
+  const Toggle = ({ checked, onChange, disabled = false }: { checked: boolean, onChange: (v: boolean) => void, disabled?: boolean }) => (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
       className="qx-notif-toggle"
       data-state={checked ? 'checked' : 'unchecked'}
+      disabled={disabled}
       onClick={() => onChange(!checked)}
     >
       <span className="qx-notif-toggle-thumb" />
@@ -2207,12 +2212,15 @@ function AdminNotificationSettings() {
                     <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input className="qx-notif-input qx-notif-input-icon" placeholder="admin@quickchange.exchange" value={String(draft.adminNotificationEmail ?? '')} onChange={e => set('adminNotificationEmail', e.target.value)} />
                   </div>
-                  {Boolean(draft.adminNotificationEmail) && <div className="mt-2 text-[10px] text-emerald-400 flex items-center gap-1"><Check size={11} /> Email configured</div>}
+                  {Boolean(query.data?.adminNotificationEmail) && <div className="mt-2 text-[10px] text-slate-400 flex items-center gap-1"><Check size={11} /> Email address saved (delivery not yet tested)</div>}
+                  {String(draft.adminNotificationEmail ?? '').trim() !== String(query.data?.adminNotificationEmail ?? '').trim() && (
+                    <p className="mt-2 text-[10px] text-amber-300">Save this address before sending a test email.</p>
+                  )}
                   <div className="mt-3 flex items-center justify-between">
                     <button className="text-xs text-slate-300 hover:text-white flex items-center gap-1" onClick={save} disabled={update.isPending}>
                       <Save size={12} /> Save
                     </button>
-                    <button className="text-xs text-blue-400 hover:text-blue-300 ml-auto flex items-center gap-1" onClick={handleTestEmail} disabled={testEmail.isPending || !draft.adminNotificationEmail}>
+                    <button className="text-xs text-blue-400 hover:text-blue-300 ml-auto flex items-center gap-1" onClick={handleTestEmail} disabled={testEmail.isPending || update.isPending || !query.data?.adminNotificationEmail || String(draft.adminNotificationEmail ?? '').trim() !== String(query.data?.adminNotificationEmail ?? '').trim()}>
                       {testEmail.isPending ? <RefreshCw size={12} className="animate-spin" /> : <Play size={12} />} Send Test Email
                     </button>
                   </div>
@@ -2232,10 +2240,23 @@ function AdminNotificationSettings() {
                     <SiTelegram size={16} className="text-blue-400" />
                     Telegram Notifications
                   </h3>
-                   <Toggle checked={Boolean(draft.telegramEnabled)} onChange={v => set('telegramEnabled', v)} />
+                   <Toggle checked={Boolean(draft.telegramEnabled && hasTgConnection)} onChange={v => set('telegramEnabled', v)} disabled={!hasTgConnection} />
                 </div>
                 <div className="qx-notif-card-body pt-2">
-                  <p className="text-[11px] text-slate-400 mb-3">Send notifications to this Telegram chat</p>
+                  <p className="text-[11px] text-slate-400 mb-3">Connect the bot in a private chat, then enable and save the events you want to receive.</p>
+                  {telegramHealth.isError && (
+                    <p className="mb-2 text-[10px] text-amber-300" role="alert">Could not check the Telegram bot or webhook. Try again before connecting.</p>
+                  )}
+                  {telegramHealth.data && (
+                    <div className="mb-3 space-y-1 text-[10px] text-slate-300" role="status">
+                      {telegramHealth.data.botUsername && <p>Verified bot: @{telegramHealth.data.botUsername}</p>}
+                      {telegramHealth.data.botIdentityError && <p className="text-red-300">Bot verification failed: {telegramHealth.data.botIdentityError}</p>}
+                      {telegramHealth.data.configured && !telegramHealth.data.webhookUrlMatchesExpected && (
+                        <p className="text-amber-300">Telegram webhook is not set to {telegramHealth.data.expectedWebhookUrl}. New connection links cannot complete until it is configured.</p>
+                      )}
+                      {telegramHealth.data.lastWebhookError && <p className="text-red-300">Telegram webhook error: {telegramHealth.data.lastWebhookError}</p>}
+                    </div>
+                  )}
 
                   <div className="space-y-2 mb-2">
                     <label className="block">
@@ -2256,7 +2277,7 @@ function AdminNotificationSettings() {
 
                   {hasTgConnection ? (
                     <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
-                      <div className="text-[10px] text-emerald-400 flex items-center gap-1"><Check size={11} /> Telegram Connected</div>
+                      <div className="text-[10px] text-emerald-400 flex items-center gap-1"><Check size={11} /> Telegram chat linked — use Send Test Telegram to confirm delivery</div>
                       <div className="text-[10px] text-slate-400">Phone: {String(draft.adminNotificationPhone || 'Not provided')}</div>
                       {Boolean(draft.adminTelegramUsername) && <div className="text-[10px] text-slate-400">Username: @{String(draft.adminTelegramUsername)}</div>}
                       <div className="text-[10px] text-slate-400">Chat ID: ********{String(draft.adminTelegramChatId).slice(-4)}</div>
@@ -2268,10 +2289,11 @@ function AdminNotificationSettings() {
                       </div>
                     </div>
                   ) : (
-                    <button className="text-[11px] text-blue-400 hover:text-blue-300 mt-2 flex items-center gap-1 pt-1" onClick={handleConnectTg} disabled={createTgLink.isPending}>
+                    <button className="text-[11px] text-blue-400 hover:text-blue-300 mt-2 flex items-center gap-1 pt-1" onClick={handleConnectTg} disabled={createTgLink.isPending || Boolean(telegramHealth.data?.botIdentityError) || telegramHealth.data?.configured === false}>
                       <SiTelegram size={12} /> Connect Telegram
                     </button>
                   )}
+                  {!hasTgConnection && <p className="mt-2 text-[10px] text-amber-300">No Admin Telegram chat is linked. Telegram alerts cannot be sent until connection succeeds.</p>}
                   <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">Phone number is contact information only and is never used as a Telegram Chat ID.</p>
                   {testResult?.type === 'telegram' && (
                     <div className={cn("mt-2 text-[10px] flex items-center gap-1", testResult.success ? "text-emerald-400" : "text-red-400")}>

@@ -24,6 +24,12 @@ const en = {
     light: 'Light',
     dark: 'Dark',
   },
+  emailNotifications: {
+    title: 'Email status notifications',
+    description: 'Email only: receive status updates for this order at the verified email address on your account.',
+    on: 'Email status notifications are on for this order.',
+    off: 'Email status notifications are off for this order.',
+  },
   genericUi: { breadcrumbLabel:'breadcrumb', more:'More', close:'Close', previousSlide:'Previous slide', nextSlide:'Next slide', sidebarTitle:'Sidebar', mobileSidebarDescription:'Displays the mobile sidebar.', toggleSidebar:'Toggle Sidebar', loading:'Loading', paginationLabel:'pagination', goToPreviousPage:'Go to previous page', previous:'Previous', goToNextPage:'Go to next page', next:'Next', morePages:'More pages' },
   header: {
     exchange: 'Exchange',

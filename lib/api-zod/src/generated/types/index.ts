@@ -25,6 +25,7 @@ export * from './adminSummaryTopTradingPairsItem';
 export * from './adminSummaryValuation';
 export * from './adminSummaryValuationStatus';
 export * from './adminSwapDefaultPairResponse';
+export * from './adminTelegramHealth';
 export * from './adminTelegramLink';
 export * from './adminTelegramLinkStatus';
 export * from './adminTelegramLinkStatusStatus';

@@ -1764,10 +1764,15 @@ test("order lists preserve exact references, accept numeric-string IDs, and map 
   assert.equal(quickex.mapQuickexState("failed", true), "completed");
 });
 
-test("Convert reconciliation advances one order and queues each Telegram milestone once", async () => {
+test("Convert reconciliation emails customers but never queues customer Telegram status alerts", {
+  skip: process.env.API_TEST_DISPOSABLE_DATABASE !== "1" ||
+    process.env.NODE_ENV !== "test" || Boolean(process.env.REPLIT_DEPLOYMENT),
+}, async () => {
   const {
+    convertAdminNotificationOutboxTable,
     convertNotificationOutboxTable,
     db,
+    notificationSettingsTable,
     quickexOrdersTable,
     telegramChatsTable,
     telegramOrderLinksTable,
@@ -1776,8 +1781,49 @@ test("Convert reconciliation advances one order and queues each Telegram milesto
   const { reconcileQuickexOrder } = await import("../src/lib/quickex-order-service");
   const orderId = `QX-${randomUUID()}`;
   const chatId = `convert-milestone-${randomUUID()}`;
+  const adminEmail = `convert-admin-${randomUUID()}@example.test`;
+  const adminChat = `admin-${randomUUID()}`;
   const now = new Date();
+  const originalFetch = globalThis.fetch;
+  const originalResendKey = process.env.RESEND_API_KEY;
+  const originalTelegramToken = process.env.TELEGRAM_BOT_TOKEN;
+  const sendRequests: Array<{ url: string; headers: Headers }> = [];
+  const [originalSettings] = await db.select().from(notificationSettingsTable)
+    .where(eq(notificationSettingsTable.id, "global")).limit(1);
   try {
+    await db.insert(notificationSettingsTable).values({
+      id: "global",
+      adminNotificationsEnabled: true,
+      adminEmailEnabled: true,
+      telegramEnabled: true,
+      adminNotificationEmail: adminEmail,
+      adminTelegramChatId: adminChat,
+      adminEmailPaymentReceivedEnabled: true,
+      adminEmailProcessingEnabled: true,
+      adminEmailCompletedEnabled: true,
+      adminEmailFailedCancelledEnabled: true,
+      adminTelegramPaymentReceivedEnabled: true,
+      adminTelegramProcessingEnabled: true,
+      adminTelegramCompletedEnabled: true,
+      adminTelegramFailedCancelledEnabled: true,
+    }).onConflictDoUpdate({
+      target: notificationSettingsTable.id,
+      set: {
+        adminNotificationsEnabled: true,
+        adminEmailEnabled: true,
+        telegramEnabled: true,
+        adminNotificationEmail: adminEmail,
+        adminTelegramChatId: adminChat,
+        adminEmailPaymentReceivedEnabled: true,
+        adminEmailProcessingEnabled: true,
+        adminEmailCompletedEnabled: true,
+        adminEmailFailedCancelledEnabled: true,
+        adminTelegramPaymentReceivedEnabled: true,
+        adminTelegramProcessingEnabled: true,
+        adminTelegramCompletedEnabled: true,
+        adminTelegramFailedCancelledEnabled: true,
+      },
+    });
     const [created] = await db.insert(quickexOrdersTable).values({
       legacyOrderId: orderId,
       providerOrderId: "800",
@@ -1798,18 +1844,27 @@ test("Convert reconciliation advances one order and queues each Telegram milesto
     });
     const processing = await reconcileQuickexOrder(created, {
       orderId: 800, state: "received", completed: false,
-      claimedDepositAmount: "1.25", amountToGet: "100", amountToWithdrawFact: "1.25",
+      claimedDepositAmount: "1.25", paidAmount: "1.25", amountToGet: "100", amountToWithdrawFact: "1.25",
       createdAt: now.toISOString(), updatedAt: new Date(now.getTime() + 60_000).toISOString(),
     });
     assert.equal(processing?.status, "processing");
     await reconcileQuickexOrder(processing!, {
       orderId: 800, state: "received", completed: false,
-      claimedDepositAmount: "1.25", amountToGet: "100", amountToWithdrawFact: "1.25",
+      claimedDepositAmount: "1.25", paidAmount: "1.25", amountToGet: "100", amountToWithdrawFact: "1.25",
       createdAt: now.toISOString(), updatedAt: new Date(now.getTime() + 60_000).toISOString(),
     });
     const afterPayment = await db.select().from(telegramNotificationOutboxTable)
       .where(eq(telegramNotificationOutboxTable.orderId, orderId));
-    assert.equal(afterPayment.filter((event) => event.eventKind === "payment_received").length, 1);
+    assert.equal(afterPayment.length, 0, "Convert status transitions must not enqueue customer Telegram notices");
+    const adminAfterPayment = await db.select().from(convertAdminNotificationOutboxTable)
+      .where(eq(convertAdminNotificationOutboxTable.quickexOrderId, orderId));
+    assert.deepEqual(
+      adminAfterPayment.map((event) => `${event.eventKind}:${event.channel}`).sort(),
+      ["payment_received:email", "payment_received:telegram", "processing:email", "processing:telegram"],
+    );
+    assert.ok(adminAfterPayment.every((event) =>
+      event.channel === "email" ? event.recipient === adminEmail : event.recipient === adminChat
+    ), "Admin recipients are snapshotted from the exact saved settings");
     const emailAfterPayment = await db.select().from(convertNotificationOutboxTable)
       .where(eq(convertNotificationOutboxTable.quickexOrderId, orderId));
     assert.equal(emailAfterPayment.filter((event) => event.eventKind === "payment_received").length, 1);
@@ -1822,20 +1877,18 @@ test("Convert reconciliation advances one order and queues each Telegram milesto
     assert.equal(paymentPayload.providerUpdatedAt, new Date(now.getTime() + 60_000).toISOString());
     const completed = await reconcileQuickexOrder(processing!, {
       orderId: 800, state: "completed", completed: true,
-      claimedDepositAmount: "1.25", amountToGet: "100", amountToWithdrawFact: "99",
+      claimedDepositAmount: "1.25", paidAmount: "1.25", amountToGet: "100", amountToWithdrawFact: "99",
       createdAt: now.toISOString(), updatedAt: new Date(now.getTime() + 120_000).toISOString(),
     });
     assert.equal(completed?.status, "completed");
     await reconcileQuickexOrder(completed!, {
       orderId: 800, state: "completed", completed: true,
-      claimedDepositAmount: "1.25", amountToGet: "100", amountToWithdrawFact: "99",
+      claimedDepositAmount: "1.25", paidAmount: "1.25", amountToGet: "100", amountToWithdrawFact: "99",
       createdAt: now.toISOString(), updatedAt: new Date(now.getTime() + 120_000).toISOString(),
     });
     const events = await db.select().from(telegramNotificationOutboxTable)
       .where(eq(telegramNotificationOutboxTable.orderId, orderId));
-    assert.equal(events.filter((event) => event.eventKind === "payment_received").length, 1);
-    assert.equal(events.filter((event) => event.eventKind === "completed").length, 1);
-    assert.match(String(events.find((event) => event.eventKind === "payment_received")?.payload.receivedAmount), /1\.25/);
+    assert.equal(events.length, 0, "Neither payment_received nor completed customer Telegram alerts are queued");
     const emailEvents = await db.select().from(convertNotificationOutboxTable)
       .where(eq(convertNotificationOutboxTable.quickexOrderId, orderId));
     assert.equal(emailEvents.filter((event) => event.eventKind === "payment_received").length, 1);
@@ -1847,13 +1900,290 @@ test("Convert reconciliation advances one order and queues each Telegram milesto
     assert.equal(completedPayload.amounts?.paidAmount, "1.25");
     assert.equal(completedPayload.amounts?.receiveAmount, "99");
     assert.equal(completedPayload.providerUpdatedAt, new Date(now.getTime() + 120_000).toISOString());
+    const adminEvents = await db.select().from(convertAdminNotificationOutboxTable)
+      .where(eq(convertAdminNotificationOutboxTable.quickexOrderId, orderId));
+    assert.equal(adminEvents.filter((event) => event.eventKind === "completed").length, 2);
+    assert.equal(adminEvents.length, 6, "Repeated provider reconciliation does not duplicate Admin event identities");
+    process.env.RESEND_API_KEY = "re_test_convert_admin";
+    process.env.TELEGRAM_BOT_TOKEN = "123456:convert-admin-test-token";
+    globalThis.fetch = (async (input, init) => {
+      const url = String(input);
+      const headers = new Headers(init?.headers);
+      sendRequests.push({ url, headers });
+      return url.includes("api.telegram.org")
+        ? new Response(JSON.stringify({ ok: true, result: { message_id: sendRequests.length } }), { status: 200 })
+        : new Response(JSON.stringify({ id: `resend-${sendRequests.length}` }), { status: 200 });
+    }) as typeof fetch;
+    const { processConvertAdminNotificationOutbox } =
+      await import("../src/lib/convert-admin-notifications");
+    assert.equal(await processConvertAdminNotificationOutbox(10), 6);
+    const deliveredAdminEvents = await db.select().from(convertAdminNotificationOutboxTable)
+      .where(eq(convertAdminNotificationOutboxTable.quickexOrderId, orderId));
+    assert.ok(deliveredAdminEvents.every((event) => event.deliveryStatus === "delivered"));
+    const emailRequests = sendRequests.filter((request) => request.url.includes("api.resend.com"));
+    assert.equal(emailRequests.length, 3);
+    assert.ok(emailRequests.every((request) => request.headers.has("Idempotency-Key")));
+    assert.equal(sendRequests.filter((request) => request.url.includes("api.telegram.org")).length, 3);
   } finally {
+    globalThis.fetch = originalFetch;
+    if (originalResendKey === undefined) delete process.env.RESEND_API_KEY;
+    else process.env.RESEND_API_KEY = originalResendKey;
+    if (originalTelegramToken === undefined) delete process.env.TELEGRAM_BOT_TOKEN;
+    else process.env.TELEGRAM_BOT_TOKEN = originalTelegramToken;
+    await db.delete(convertAdminNotificationOutboxTable)
+      .where(eq(convertAdminNotificationOutboxTable.quickexOrderId, orderId));
     await db.delete(convertNotificationOutboxTable)
       .where(eq(convertNotificationOutboxTable.quickexOrderId, orderId));
     await db.delete(telegramNotificationOutboxTable).where(eq(telegramNotificationOutboxTable.orderId, orderId));
     await db.delete(telegramOrderLinksTable).where(eq(telegramOrderLinksTable.orderId, orderId));
     await db.delete(telegramChatsTable).where(eq(telegramChatsTable.chatId, chatId));
     await db.delete(quickexOrdersTable).where(eq(quickexOrdersTable.legacyOrderId, orderId));
+    if (originalSettings) {
+      await db.update(notificationSettingsTable).set(originalSettings)
+        .where(eq(notificationSettingsTable.id, "global"));
+    } else {
+      await db.delete(notificationSettingsTable).where(eq(notificationSettingsTable.id, "global"));
+    }
+  }
+});
+
+test("Convert unpaid cancellation queues neutral Admin alerts without payment claims", {
+  skip: process.env.API_TEST_DISPOSABLE_DATABASE !== "1" ||
+    process.env.NODE_ENV !== "test" || Boolean(process.env.REPLIT_DEPLOYMENT),
+}, async () => {
+  const {
+    convertAdminNotificationOutboxTable,
+    convertNotificationOutboxTable,
+    db,
+    notificationSettingsTable,
+    quickexOrdersTable,
+  } = await import("@workspace/db");
+  const { reconcileQuickexOrder } = await import("../src/lib/quickex-order-service");
+  const orderId = `QX-${randomUUID()}`;
+  const adminEmail = `convert-cancel-${randomUUID()}@example.test`;
+  const adminChat = `admin-cancel-${randomUUID()}`;
+  const now = new Date();
+  const [originalSettings] = await db.select().from(notificationSettingsTable)
+    .where(eq(notificationSettingsTable.id, "global")).limit(1);
+  try {
+    await db.insert(notificationSettingsTable).values({
+      id: "global",
+      adminNotificationsEnabled: true,
+      adminEmailEnabled: true,
+      telegramEnabled: true,
+      adminNotificationEmail: adminEmail,
+      adminTelegramChatId: adminChat,
+      adminEmailFailedCancelledEnabled: true,
+      adminTelegramFailedCancelledEnabled: true,
+    }).onConflictDoUpdate({
+      target: notificationSettingsTable.id,
+      set: {
+        adminNotificationsEnabled: true,
+        adminEmailEnabled: true,
+        telegramEnabled: true,
+        adminNotificationEmail: adminEmail,
+        adminTelegramChatId: adminChat,
+        adminEmailFailedCancelledEnabled: true,
+        adminTelegramFailedCancelledEnabled: true,
+      },
+    });
+    const [created] = await db.insert(quickexOrdersTable).values({
+      legacyOrderId: orderId,
+      providerOrderId: "801",
+      providerReference: "provider-reference-801",
+      customerEmail: `${orderId}@example.test`,
+      customerName: "Unpaid cancellation",
+      status: "awaiting funds",
+      providerState: "created",
+      route: { fromAsset: "BTC", fromNetwork: "Bitcoin", toAsset: "USDT", toNetwork: "TRC20", rateMode: "FLOATING" },
+      amounts: { amount: "1", receiveAmount: "90" },
+      addresses: { destinationAddress: "destination", destinationMemo: "", refundAddress: "refund", refundMemo: "" },
+      createdAt: now,
+      updatedAt: now,
+    }).returning();
+    const statusOnly = await reconcileQuickexOrder(created!, {
+      orderId: 801,
+      state: "received",
+    });
+    const claimedOnly = await reconcileQuickexOrder(statusOnly!, {
+      orderId: 801,
+      state: "received",
+      claimedDepositAmount: "1",
+    });
+    const paymentEventsBeforeCancellation = await db.select().from(convertNotificationOutboxTable)
+      .where(eq(convertNotificationOutboxTable.quickexOrderId, orderId));
+    assert.equal(paymentEventsBeforeCancellation.filter(event => event.eventKind === "payment_received").length, 0,
+      "A status and claimed deposit amount alone cannot queue customer Payment Received mail");
+    const adminEventsBeforeCancellation = await db.select().from(convertAdminNotificationOutboxTable)
+      .where(eq(convertAdminNotificationOutboxTable.quickexOrderId, orderId));
+    assert.equal(adminEventsBeforeCancellation.filter(event => ["payment_received", "processing"].includes(event.eventKind)).length, 0,
+      "A status and claimed deposit amount alone cannot queue paid Admin milestones");
+    const cancelled = await reconcileQuickexOrder(claimedOnly!, {
+      orderId: 801,
+      state: "cancelled",
+      claimedDepositAmount: "1",
+    });
+    assert.equal(cancelled?.status, "cancelled");
+    const events = await db.select().from(convertAdminNotificationOutboxTable)
+      .where(eq(convertAdminNotificationOutboxTable.quickexOrderId, orderId));
+    assert.deepEqual(events.map((event) => `${event.eventKind}:${event.channel}`).sort(), [
+      "failed_cancelled:email", "failed_cancelled:telegram",
+    ]);
+    assert.ok(events.every((event) =>
+      event.channel === "email" ? event.recipient === adminEmail : event.recipient === adminChat
+    ));
+    assert.ok(events.every((event) => !("paidAmount" in (event.payload as Record<string, unknown>))),
+      "Unpaid cancellation alert payload contains no payment claim");
+  } finally {
+    await db.delete(convertAdminNotificationOutboxTable)
+      .where(eq(convertAdminNotificationOutboxTable.quickexOrderId, orderId));
+    await db.delete(convertNotificationOutboxTable)
+      .where(eq(convertNotificationOutboxTable.quickexOrderId, orderId));
+    await db.delete(quickexOrdersTable).where(eq(quickexOrdersTable.legacyOrderId, orderId));
+    if (originalSettings) {
+      await db.update(notificationSettingsTable).set(originalSettings)
+        .where(eq(notificationSettingsTable.id, "global"));
+    } else {
+      await db.delete(notificationSettingsTable).where(eq(notificationSettingsTable.id, "global"));
+    }
+  }
+});
+
+test("Convert paid milestones use provider paidAmount and recover late processing/completed evidence", {
+  skip: process.env.API_TEST_DISPOSABLE_DATABASE !== "1" ||
+    process.env.NODE_ENV !== "test" || Boolean(process.env.REPLIT_DEPLOYMENT),
+}, async () => {
+  const {
+    convertAdminNotificationOutboxTable,
+    convertNotificationOutboxTable,
+    db,
+    notificationSettingsTable,
+    quickexOrdersTable,
+  } = await import("@workspace/db");
+  const { reconcileQuickexOrder } = await import("../src/lib/quickex-order-service");
+  const orderId = `QX-${randomUUID()}`;
+  const completedOrderId = `QX-${randomUUID()}`;
+  const adminEmail = `convert-late-${randomUUID()}@example.test`;
+  const adminChat = `admin-late-${randomUUID()}`;
+  const now = new Date();
+  const [originalSettings] = await db.select().from(notificationSettingsTable)
+    .where(eq(notificationSettingsTable.id, "global")).limit(1);
+  try {
+    await db.insert(notificationSettingsTable).values({
+      id: "global",
+      adminNotificationsEnabled: true,
+      adminEmailEnabled: true,
+      telegramEnabled: true,
+      adminNotificationEmail: adminEmail,
+      adminTelegramChatId: adminChat,
+      adminEmailPaymentReceivedEnabled: true,
+      adminEmailProcessingEnabled: true,
+      adminEmailCompletedEnabled: true,
+      adminTelegramPaymentReceivedEnabled: true,
+      adminTelegramProcessingEnabled: true,
+      adminTelegramCompletedEnabled: true,
+      customerEmailPaymentReceivedEnabled: true,
+    }).onConflictDoUpdate({
+      target: notificationSettingsTable.id,
+      set: {
+        adminNotificationsEnabled: true,
+        adminEmailEnabled: true,
+        telegramEnabled: true,
+        adminNotificationEmail: adminEmail,
+        adminTelegramChatId: adminChat,
+        adminEmailPaymentReceivedEnabled: true,
+        adminEmailProcessingEnabled: true,
+        adminEmailCompletedEnabled: true,
+        adminTelegramPaymentReceivedEnabled: true,
+        adminTelegramProcessingEnabled: true,
+        adminTelegramCompletedEnabled: true,
+        customerEmailPaymentReceivedEnabled: true,
+      },
+    });
+    const [created] = await db.insert(quickexOrdersTable).values({
+      legacyOrderId: orderId,
+      providerOrderId: "802",
+      providerReference: "provider-reference-802",
+      customerEmail: `${orderId}@example.test`,
+      status: "awaiting funds",
+      providerState: "created",
+      route: { fromAsset: "BTC", fromNetwork: "Bitcoin", toAsset: "USDT", toNetwork: "TRC20", rateMode: "FLOATING" },
+      amounts: { amount: "1", receiveAmount: "90" },
+      addresses: { destinationAddress: "destination", destinationMemo: "", refundAddress: "refund", refundMemo: "" },
+      createdAt: now,
+      updatedAt: now,
+    }).returning();
+    const statusOnly = await reconcileQuickexOrder(created!, { orderId: 802, state: "received" });
+    const claimedOnly = await reconcileQuickexOrder(statusOnly!, {
+      orderId: 802, state: "received", claimedDepositAmount: "1",
+    });
+    assert.equal((claimedOnly?.amounts as { paidAmount?: string | null }).paidAmount ?? null, null);
+    assert.equal((await db.select().from(convertNotificationOutboxTable)
+      .where(eq(convertNotificationOutboxTable.quickexOrderId, orderId)))
+      .filter(event => event.eventKind === "payment_received").length, 0);
+    assert.equal((await db.select().from(convertAdminNotificationOutboxTable)
+      .where(eq(convertAdminNotificationOutboxTable.quickexOrderId, orderId)))
+      .filter(event => ["payment_received", "processing"].includes(event.eventKind)).length, 0);
+
+    const paid = await reconcileQuickexOrder(claimedOnly!, {
+      orderId: 802, state: "received", claimedDepositAmount: "1", paidAmount: "1",
+    });
+    await reconcileQuickexOrder(paid!, {
+      orderId: 802, state: "received", claimedDepositAmount: "1", paidAmount: "1",
+    });
+    const customerPaidEvents = await db.select().from(convertNotificationOutboxTable)
+      .where(eq(convertNotificationOutboxTable.quickexOrderId, orderId));
+    assert.equal(customerPaidEvents.filter(event => event.eventKind === "payment_received").length, 1);
+    assert.equal(
+      (customerPaidEvents.find(event => event.eventKind === "payment_received")?.payload as {
+        amounts?: { providerPaidAmount?: string };
+      }).amounts?.providerPaidAmount,
+      "1",
+    );
+    const adminPaidEvents = await db.select().from(convertAdminNotificationOutboxTable)
+      .where(eq(convertAdminNotificationOutboxTable.quickexOrderId, orderId));
+    assert.deepEqual(adminPaidEvents.map(event => `${event.eventKind}:${event.channel}`).sort(), [
+      "payment_received:email", "payment_received:telegram", "processing:email", "processing:telegram",
+    ]);
+
+    const [initialCompleted] = await db.insert(quickexOrdersTable).values({
+      legacyOrderId: completedOrderId,
+      providerOrderId: "803",
+      providerReference: "provider-reference-803",
+      customerEmail: `${completedOrderId}@example.test`,
+      status: "completed",
+      providerState: "created",
+      route: { fromAsset: "BTC", fromNetwork: "Bitcoin", toAsset: "USDT", toNetwork: "TRC20", rateMode: "FLOATING" },
+      amounts: { amount: "1", receiveAmount: "90", paidAmount: "1", providerPaidAmount: "1" },
+      addresses: { destinationAddress: "destination", destinationMemo: "", refundAddress: "refund", refundMemo: "" },
+      createdAt: now,
+      updatedAt: now,
+    }).returning();
+    await reconcileQuickexOrder(initialCompleted!, {
+      orderId: 803, state: "completed", completed: true, paidAmount: "1",
+    });
+    const initialCompletedAdminEvents = await db.select().from(convertAdminNotificationOutboxTable)
+      .where(eq(convertAdminNotificationOutboxTable.quickexOrderId, completedOrderId));
+    assert.deepEqual(initialCompletedAdminEvents.map(event => `${event.eventKind}:${event.channel}`).sort(), [
+      "completed:email", "completed:telegram",
+    ], "An initially completed projection with explicit provider payment evidence queues Admin completion");
+  } finally {
+    await db.delete(convertAdminNotificationOutboxTable)
+      .where(eq(convertAdminNotificationOutboxTable.quickexOrderId, orderId));
+    await db.delete(convertAdminNotificationOutboxTable)
+      .where(eq(convertAdminNotificationOutboxTable.quickexOrderId, completedOrderId));
+    await db.delete(convertNotificationOutboxTable)
+      .where(eq(convertNotificationOutboxTable.quickexOrderId, orderId));
+    await db.delete(convertNotificationOutboxTable)
+      .where(eq(convertNotificationOutboxTable.quickexOrderId, completedOrderId));
+    await db.delete(quickexOrdersTable).where(eq(quickexOrdersTable.legacyOrderId, orderId));
+    await db.delete(quickexOrdersTable).where(eq(quickexOrdersTable.legacyOrderId, completedOrderId));
+    if (originalSettings) {
+      await db.update(notificationSettingsTable).set(originalSettings)
+        .where(eq(notificationSettingsTable.id, "global"));
+    } else {
+      await db.delete(notificationSettingsTable).where(eq(notificationSettingsTable.id, "global"));
+    }
   }
 });
 
@@ -2813,6 +3143,7 @@ test("Quickex namespace owns signed quotes, orders, tracking, and idempotency", 
       id: "provider-reference-800",
       state: "received",
       completed: false,
+      paidAmount: "1",
       amountToWithdrawFact: "1",
       destinationAddress: input.destinationAddress,
       refundAddress: input.refundAddress,
@@ -2826,7 +3157,7 @@ test("Quickex namespace owns signed quotes, orders, tracking, and idempotency", 
     assert.equal((await processingStatus.json() as Record<string, unknown>).status, "processing");
     const paymentEvents = await db.select().from(telegramNotificationOutboxTable)
       .where(eq(telegramNotificationOutboxTable.orderId, String(created.body.id)));
-    assert.equal(paymentEvents.filter((event) => event.eventKind === "payment_received").length, 1);
+    assert.equal(paymentEvents.length, 0, "Convert customers receive lifecycle emails only");
     await db.update(providerSyncStatesTable).set({
       nextAttemptAt: new Date(Date.now() - 1),
     }).where(eq(providerSyncStatesTable.provider, "quickex-order-reconciliation"));
@@ -2837,6 +3168,7 @@ test("Quickex namespace owns signed quotes, orders, tracking, and idempotency", 
       id: "provider-reference-800",
       state: "completed",
       completed: true,
+      paidAmount: "1",
       amountToWithdrawFact: "98.75",
       destinationAddress: input.destinationAddress,
       refundAddress: input.refundAddress,
@@ -2853,8 +3185,7 @@ test("Quickex namespace owns signed quotes, orders, tracking, and idempotency", 
     assert.equal(statusBody.refreshUnavailable, false);
     const completedEvents = await db.select().from(telegramNotificationOutboxTable)
       .where(eq(telegramNotificationOutboxTable.orderId, String(created.body.id)));
-    assert.equal(completedEvents.filter((event) => event.eventKind === "payment_received").length, 1);
-    assert.equal(completedEvents.filter((event) => event.eventKind === "completed").length, 1);
+    assert.equal(completedEvents.length, 0, "Completion does not add customer Telegram status alerts");
     await db.update(providerSyncStatesTable).set({
       nextAttemptAt: new Date(Date.now() - 1),
     }).where(eq(providerSyncStatesTable.provider, "quickex-order-reconciliation"));
@@ -2865,8 +3196,7 @@ test("Quickex namespace owns signed quotes, orders, tracking, and idempotency", 
     assert.equal(replay.status, 200);
     const replayEvents = await db.select().from(telegramNotificationOutboxTable)
       .where(eq(telegramNotificationOutboxTable.orderId, String(created.body.id)));
-    assert.equal(replayEvents.filter((event) => event.eventKind === "payment_received").length, 1);
-    assert.equal(replayEvents.filter((event) => event.eventKind === "completed").length, 1);
+    assert.equal(replayEvents.length, 0, "Reconciliation replay leaves the customer Telegram outbox empty");
     const [refreshed] = await db.select().from(quickexOrdersTable)
       .where(eq(quickexOrdersTable.legacyOrderId, String(created.body.id)));
     assert.equal(refreshed?.providerOrderId, "800");

@@ -50,6 +50,7 @@ export * from "./telegram-news";
 export * from "./blockchain-monitoring";
 export * from "./notification-settings";
 export * from "./convert-notification-outbox";
+export * from "./convert-admin-notification-outbox";
 export * from "./swap-default-pair";
 export * from "./convert-default-pair";
 

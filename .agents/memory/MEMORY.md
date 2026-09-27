@@ -1,16 +1,13 @@
-- [OpenAPI integer compatibility](openapi-zod-runtime.md) — verify generated integer validators against the installed Zod runtime after schema changes.
-- [OpenAPI query timestamps](openapi-query-timestamps.md) — date-time query parameters can generate server-only Date validators; keep HTTP query contracts string-based and validate calendar semantics.
-- [Quickex V2 signing](quickex-signing.md) — signed health checks must omit query parameters even though Quickex docs show pagination examples.
-- [Quickex egress restrictions](quickex-egress-restrictions.md) — public V2 endpoints can block server egress while remaining healthy elsewhere; fail closed rather than proxying financial quotes.
-- [Quickex pair-rate-limit fallback](quickex-pair-rate-limit-fallback.md) — a pair-catalog 429 may broaden selectors only when live quotes remain the authoritative route gate.
-- [Quickex instrument mapping](quickex-instrument-mapping.md) — use catalog network titles; rate responses embed reduced instrument objects.
-- [Quickex order payload](quickex-order-payload.md) — omit `markup` on order create unless `referrerId` is sent; create returns a UUID id while the order list shows a numeric one.
+- [OpenAPI validator edges](openapi-zod-runtime.md) — check [query timestamps](openapi-query-timestamps.md) and [record constraints](orval-record-constraints.md) after codegen.
+- [Quickex V2 calls](quickex-signing.md) — omit signed query params; mind [egress](quickex-egress-restrictions.md) and [429 fallback](quickex-pair-rate-limit-fallback.md).
+- [Quickex catalog/order quirks](quickex-instrument-mapping.md) — rate objects omit titles; see [order payload](quickex-order-payload.md) for markup and IDs.
 - [Drizzle migration paths](drizzle-migration-paths.md) — keep `out` package-relative so later migration generations can load prior snapshots.
 - [Drizzle post-merge idempotency](drizzle-post-merge-idempotency.md) — new-table migrations must tolerate schema reconciliation running before migration history.
 - [Order-directory indexing](order-directory-indexing.md) — add large-table order indexes through a safe online path, not a regular transactional migration.
 - [Clerk verified-email authorization testing](clerk-verified-email-testing.md) — programmatic sign-in still needs a server-visible verified email for role linking.
 - [Clerk test compatibility](clerk-test-aliases.md) — alias exact JS exports; [test email domains](clerk-test-email-domains.md) may reject reserved addresses.
 - [Customer notification outboxes](customer-notification-outboxes.md) — use monotonic status versions for events and claim tokens to fence reclaimable delivery work.
+- [Customer email-only status](customer-email-only-status.md) — lifecycle alerts use email; preserve Telegram bot transactions but suppress customer status messages.
 - [Manual desk numeric and audit boundaries](manual-desk-estimate-boundaries.md) — quantize exactly; preserve [signed pricing provenance](manual-desk-pricing-audit.md).
 - [Instant quote integrity](instant-quote-integrity.md) — submissions must consume the displayed signed quote; availability requires signed order capability.
 - [1Forge compact quote fields](oneforge-compact-quotes.md) — live quote payloads may use single-letter keys even when examples show long field names.
@@ -18,15 +15,13 @@
 - [Mutable configuration test fixtures](mutable-pricing-test-fixtures.md) — tests must tolerate operator-edited seed rows and populate only fields the current schema requires.
 - [Admin pricing previews](admin-pricing-previews.md) — operator-only funding bypass; preserve [Any-side loading](wildcard-pricing-previews.md) and require concrete market routes.
 - [Optional exact path overrides](manual-pricing-global-fallback.md) — existing Swap pricing remains the fallback; direct and reciprocal exact rates are optional higher-priority overrides.
-- [Playwright query route mocks](playwright-query-route-mocks.md) — match query strings and concrete resource IDs so status fixtures cannot intercept bulk mutations.
-- [Browser fixture contract completeness](browser-fixture-contracts.md) — mock every privileged dialog dependency with its full current response shape, not just the endpoint under test.
+- [Browser route mocks](playwright-query-route-mocks.md) — match query/ID; cover [full fixture contracts](browser-fixture-contracts.md) and [custom contexts](playwright-custom-contexts.md).
 - [Order detail round-trips](order-detail-roundtrips.md) — editable operational fields must survive detail response validation or unrelated saves can silently clear them.
-- [Provider-create idempotency](provider-create-idempotency.md) — claim full requests durably before irreversible provider calls; never reconcile by similarity.
+- [Provider-create idempotency](provider-create-idempotency.md) — claim before create; [replay before capability gates](provider-idempotency-ordering.md).
 - [Quickex address preflight](quickex-address-preflight.md) — documented validation routes may return isolated 403s; signed order creation remains the authoritative address gate.
 - [Convert tracking capabilities](convert-tracking-capabilities.md) — random QX UUID IDs support paste-only tracking; short Manual IDs still require signed tokens.
 - [Convert directory compatibility](convert-directory-compatibility.md) — normalize legacy Quickex JSON amounts and nullable metadata at the admin API boundary.
 - [Direct manual status jumps](direct-manual-status-jumps.md) — forward jumps record crossed milestone times once and emit only the selected final customer status.
-- [Provider idempotency ordering](provider-idempotency-ordering.md) — replay durable requests before checking live provider capability; gate only new side effects.
 - [Regional batch fencing](regional-batch-fencing.md) — reviewed regional mutations must recheck current membership inside each write transaction.
 - [Visual overhaul class contracts](visual-overhaul-class-contracts.md) — audit rendered class contracts and real responsive widths before replacing a shared stylesheet.
 - [Dual crypto route availability](dual-crypto-route-availability.md) — enabled mapped networks may support manual Swap and provider Convert simultaneously; catalog-only remains non-executable.
@@ -37,7 +32,6 @@
 - [Viewport combobox overlays](viewport-combobox-overlays.md) — separate selector and bottom-sheet contracts; [compact sizing](compact-selector-overlays.md) scrolls only results.
 - [Admin-driven settlement identities](admin-settlement-identities.md) — render fiat currency and payment-method identities separately from live Admin option data.
 - [Public image verification](public-image-verification.md) — fully decode private uploads before publication; metadata and magic bytes do not prove a safe image.
-- [Orval record constraint gaps](orval-record-constraints.md) — verify generated Zod for OpenAPI record limits and strictness; preserve explicit boundary parsers through codegen.
 - [Edge-safe background blur](edge-safe-background-blur.md) — avoid box overscan for cover images; duplicate filter edges so blur cannot fade or shift focal framing.
 - [Layered mobile CSS overrides](layered-mobile-css-overrides.md) — important declarations inside cascade layers can defeat later unlayered fixes; change the layered source rule.
 - [Payment field ticket compatibility](payment-field-ticket-compatibility.md) — signed settlement snapshots must accept every field type allowed by the public payment-field contract.
@@ -45,7 +39,7 @@
 - [Instant widget mode switching](instant-widget-mode-switching.md) — keep heavy mode trees mounted and precomposited; switch only lightweight layer state and defer nonvisual work.
 - [Swap and Convert visual boundaries](swap-convert-visual-parity.md) — share the public shell, but keep each mode’s intentionally distinct Step 2 layout isolated.
 - [Amount-independent route rates](amount-independent-route-rates.md) — pre-amount Swap rates apply percentage markup but exclude fixed fees, which remain amount-dependent quote fees.
-- [Mobile widget scroll boundaries](mobile-widget-scroll-boundaries.md) — closed fixed-height widgets must chain vertical touch gestures to the page; only open selector lists should contain scrolling.
+- [Mobile widget scroll boundaries](mobile-widget-scroll-boundaries.md) — closed widgets chain page scroll; [selector overlays](viewport-combobox-overlays.md) scroll only results.
 - [Coinbase ticker coverage](coinbase-ticker-coverage.md) — discover supported USD products from Coinbase’s live catalog and render unsupported assets without fallback prices.
 - [Customer suspension boundaries](customer-suspension-boundaries.md) — guard every authenticated side-effect path, including routes that intentionally support anonymous users.
 - [Clerk email verification proof](clerk-email-verification-proof.md) — never replace mailbox proof with an administrative verified flag when backend initiation is unavailable.
@@ -130,7 +124,7 @@
 - [Canonical EVM event signatures](canonical-evm-event-signatures.md) — verify event topics independently; tests that copy a wrong constant can validate a detector that never matches chain logs.
 - [Blockchain monitoring route identities](blockchain-monitoring-route-identities.md) — never infer native/token identity from network family; bulk setup enables only explicit identities.
 - [Issuer-verified bridged tokens](issuer-verified-bridged-tokens.md) — leave bridged token routes incomplete when issuer protocol lists do not verify the deployment.
-- [Payment-backed Admin notifications](payment-backed-admin-notifications.md) — gate every Admin lifecycle channel on durable payment evidence, never on another notification event.
+- [Payment-backed Admin notifications](payment-backed-admin-notifications.md) — financial milestones require proof; unpaid failure alerts must stay neutral.
 - [BSC payment evidence lookup](bsc-payment-evidence-lookup.md) — public BSC RPCs may reject broad token-log scans; discover the tx narrowly, then verify its receipt and canonical block by RPC.
 - [Recovery migration replay isolation](recovery-migration-replay-isolation.md) — obsolete evidence recoveries must not replay ahead of a current recovery or one mismatch can stop the monitoring worker.
 - [Deposit monitoring readiness](deposit-monitoring-readiness.md) — gate deposits with locked exact-route identity, stable config digests, and fresh health; unhealthy routes remain payout-only.
@@ -146,7 +140,6 @@
 - [Signed crypto route identity](signed-crypto-route-identity.md) — resolve manual funding and monitoring by immutable route ID before deriving canonical network codes; display labels are not identifiers.
 - [Provider settlement field validation](provider-settlement-field-validation.md) — reject the whole quote when any provider-declared settlement field is malformed; never silently drop it.
 - [Convert and monitoring boundary](convert-monitoring-boundary.md) — Quickex Convert execution and Manual Swap blockchain monitoring must remain runtime-independent.
-- [Playwright custom contexts](playwright-custom-contexts.md) — manually created browser contexts do not inherit standard page fixtures, routes, or base URLs.
 - [Drawer browser verification](drawer-browser-verification.md) — wait for entrance animations before geometry checks, and dismiss delayed global notices before clicking behind a drawer.
 - [Bounded blockchain catch-up](bounded-blockchain-catch-up.md) — lagging EVM watches need multiple small ranges per cycle with end-to-end deadline, lease, fairness, and cursor fencing.
 - [Partner logo rendering](partner-logo-single-entry-animation.md) — avoid duplicate marquee records; preserve [Trustpilot footer fallback](trustpilot-footer-source.md).

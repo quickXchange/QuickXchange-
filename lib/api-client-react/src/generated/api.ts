@@ -28,6 +28,7 @@ import type {
   AdminSitePage,
   AdminSummary,
   AdminSwapDefaultPairResponse,
+  AdminTelegramHealth,
   AdminTelegramLink,
   AdminTelegramLinkStatus,
   AdminWebsiteBranding,
@@ -19522,7 +19523,7 @@ export const createAdminNotificationTelegramLink = async ( options?: Parameters<
 
 
 
-export const getCreateAdminNotificationTelegramLinkMutationOptions = <TError = ErrorType<unknown>,
+export const getCreateAdminNotificationTelegramLinkMutationOptions = <TError = ErrorType<ApiError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAdminNotificationTelegramLink>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof createAdminNotificationTelegramLink>>, TError,void, TContext> => {
 
@@ -19551,9 +19552,9 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type CreateAdminNotificationTelegramLinkMutationResult = NonNullable<Awaited<ReturnType<typeof createAdminNotificationTelegramLink>>>
 
-    export type CreateAdminNotificationTelegramLinkMutationError = ErrorType<unknown>
+    export type CreateAdminNotificationTelegramLinkMutationError = ErrorType<ApiError>
 
-    export const useCreateAdminNotificationTelegramLink = <TError = ErrorType<unknown>,
+    export const useCreateAdminNotificationTelegramLink = <TError = ErrorType<ApiError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAdminNotificationTelegramLink>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createAdminNotificationTelegramLink>>,
@@ -19563,6 +19564,83 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getCreateAdminNotificationTelegramLinkMutationOptions(options));
     }
+
+export const getGetAdminNotificationTelegramHealthUrl = () => {
+
+
+
+
+  return `/api/admin/notification-settings/telegram-health`
+}
+
+/**
+ * @summary Read-only Telegram bot and webhook health
+ */
+export const getAdminNotificationTelegramHealth = async ( options?: Parameters<typeof customFetch>[1]): Promise<AdminTelegramHealth> => {
+
+  return customFetch<AdminTelegramHealth>(getGetAdminNotificationTelegramHealthUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminNotificationTelegramHealthQueryKey = () => {
+    return [
+    `/api/admin/notification-settings/telegram-health`
+    ] as const;
+    }
+
+
+export const getGetAdminNotificationTelegramHealthQueryOptions = <TData = Awaited<ReturnType<typeof getAdminNotificationTelegramHealth>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminNotificationTelegramHealth>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminNotificationTelegramHealthQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminNotificationTelegramHealth>>> = ({ signal }) => getAdminNotificationTelegramHealth({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminNotificationTelegramHealth>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminNotificationTelegramHealthQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminNotificationTelegramHealth>>>
+export type GetAdminNotificationTelegramHealthQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Read-only Telegram bot and webhook health
+ */
+
+export function useGetAdminNotificationTelegramHealth<TData = Awaited<ReturnType<typeof getAdminNotificationTelegramHealth>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminNotificationTelegramHealth>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminNotificationTelegramHealthQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetAdminNotificationTelegramLinkUrl = (id: string,) => {
 

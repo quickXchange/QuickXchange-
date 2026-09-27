@@ -4,6 +4,53 @@ const api = () => token() ? `https://api.telegram.org/bot${token()}` : null;
 
 export type TelegramButton = { text: string; callback_data?: string; url?: string; web_app?: { url: string } };
 
+export function sanitizeTelegramFailureReason(reason: unknown): string {
+  const secret = token();
+  let safe = reason instanceof Error ? reason.message : String(reason ?? "");
+  if (secret) safe = safe.replaceAll(secret, "[redacted]");
+  safe = safe
+    .replace(/bot\d+:[A-Za-z0-9_-]+/gi, "bot[redacted]")
+    .replace(/https?:\/\/\S+/gi, "[url]")
+    .replace(/[\r\n\t]+/g, " ")
+    .trim();
+  return safe.slice(0, 300) || "Telegram request failed.";
+}
+
+export class TelegramApiError extends Error {
+  readonly safeReason: string;
+  constructor(method: string, reason: unknown) {
+    const safeReason = sanitizeTelegramFailureReason(reason);
+    super(`Telegram ${method} failed: ${safeReason}`);
+    this.name = "TelegramApiError";
+    this.safeReason = safeReason;
+  }
+}
+
+export class TelegramBotIdentityError extends Error {
+  constructor(message = "Telegram bot identity could not be verified. Check TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_USERNAME, then retry.") {
+    super(message);
+    this.name = "TelegramBotIdentityError";
+  }
+}
+
+export type TelegramBotIdentity = { id: number; is_bot: true; username: string };
+
+export function validateTelegramBotIdentity(
+  value: unknown,
+  expectedUsername = process.env.TELEGRAM_BOT_USERNAME?.trim().replace(/^@/, ""),
+): TelegramBotIdentity {
+  if (!value || typeof value !== "object") throw new TelegramBotIdentityError();
+  const identity = value as Partial<TelegramBotIdentity>;
+  if (identity.is_bot !== true || typeof identity.id !== "number" || !Number.isSafeInteger(identity.id) || typeof identity.username !== "string"
+    || !/^[A-Za-z0-9_]{5,32}$/.test(identity.username)) {
+    throw new TelegramBotIdentityError("Telegram returned an invalid bot identity. Verify that TELEGRAM_BOT_TOKEN belongs to a bot, then retry.");
+  }
+  if (expectedUsername && identity.username.toLowerCase() !== expectedUsername.toLowerCase()) {
+    throw new TelegramBotIdentityError("The Telegram bot token does not match TELEGRAM_BOT_USERNAME. Update the bot configuration, then retry.");
+  }
+  return { id: identity.id, is_bot: true, username: identity.username };
+}
+
 export function escapeTelegramHtml(value: unknown): string {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -23,19 +70,40 @@ export async function telegramCall<T>(
 ): Promise<T | undefined> {
   const base = api();
   if (!base) return undefined;
-  const response = await fetch(`${base}/${method}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(10_000),
-  });
-  const payload = await response.json() as { ok?: boolean; result?: T; description?: string };
-  if (!response.ok || !payload.ok) throw new Error(`Telegram ${method} failed: ${payload.description ?? response.status}`);
-  return payload.result;
+  try {
+    const response = await fetch(`${base}/${method}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10_000),
+    });
+    const payload = await response.json() as { ok?: boolean; result?: T; description?: string };
+    if (!response.ok || !payload.ok) throw new TelegramApiError(method, payload.description ?? `HTTP ${response.status}`);
+    return payload.result;
+  } catch (error) {
+    if (error instanceof TelegramApiError) throw error;
+    throw new TelegramApiError(method, error);
+  }
 }
 
 export function telegramEnabled() {
   return Boolean(token());
+}
+
+export async function getTelegramBotIdentity(): Promise<TelegramBotIdentity> {
+  if (!telegramEnabled()) {
+    throw new TelegramBotIdentityError("Telegram bot is not configured. Set TELEGRAM_BOT_TOKEN, then retry.");
+  }
+  try {
+    return validateTelegramBotIdentity(await telegramCall("getMe", {}));
+  } catch (error) {
+    if (error instanceof TelegramBotIdentityError) throw error;
+    throw new TelegramBotIdentityError("Telegram could not verify the configured bot token. Check TELEGRAM_BOT_TOKEN and retry.");
+  }
+}
+
+export async function getTelegramWebhookInfo() {
+  return telegramCall<{ url?: string; last_error_message?: string }>("getWebhookInfo", {});
 }
 
 export async function sendTelegramMessage(

@@ -13,6 +13,7 @@ import {
 import { getQuickexInstrumentCacheHealth, getQuickexInstruments } from "./quickex";
 import { logger } from "./logger";
 import { processConvertNotificationOutbox } from "./customer-status-notifications";
+import { processConvertAdminNotificationOutbox } from "./convert-admin-notifications";
 
 /** The only route-layer boundary for the independent Convert provider. */
 export const isConvertOrderType = (type: string): type is "instant" => type === "instant";
@@ -35,6 +36,7 @@ export function startConvertReconciliationWorker(): () => void {
     if (convertWorkerInFlight) return;
     convertWorkerInFlight = (async () => {
       await processConvertNotificationOutbox();
+      await processConvertAdminNotificationOutbox();
       await reconcilePendingConvertOrders();
     })().catch(error => {
       logger.warn({

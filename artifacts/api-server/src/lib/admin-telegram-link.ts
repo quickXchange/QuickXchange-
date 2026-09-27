@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import {
   adminTelegramLinkChallengesTable,
   db,
@@ -36,13 +36,36 @@ export async function consumeAdminTelegramLinkChallenge(
   token: string,
   chatId: string,
   username: string,
+  verifyDelivery: () => Promise<void>,
 ) {
   return db.transaction(async (tx) => {
     const now = new Date();
+    const tokenHash = hashToken(token);
+    // Keep the challenge locked while the provider handshake is attempted. Invalid,
+    // expired, or already-consumed links never trigger an outbound message.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${tokenHash}))`);
+    const [existing] = await tx.select({ id: adminTelegramLinkChallengesTable.id })
+      .from(adminTelegramLinkChallengesTable)
+      .where(and(
+        eq(adminTelegramLinkChallengesTable.tokenHash, tokenHash),
+        gt(adminTelegramLinkChallengesTable.expiresAt, now),
+        isNull(adminTelegramLinkChallengesTable.consumedAt),
+      ))
+      .limit(1);
+    if (!existing) throw new AdminTelegramLinkChallengeError();
+    const [existingSettings] = await tx.select({ id: notificationSettingsTable.id })
+      .from(notificationSettingsTable)
+      .where(eq(notificationSettingsTable.id, "global"))
+      .limit(1);
+    if (!existingSettings) throw new AdminTelegramLinkChallengeError("Notification settings are not initialized.");
+
+    // Delivery acceptance is the handshake. The challenge and settings only become
+    // connected after Telegram has accepted this private-chat send.
+    await verifyDelivery();
     const [challenge] = await tx.update(adminTelegramLinkChallengesTable)
       .set({ consumedAt: now, connectedChatId: chatId })
       .where(and(
-        eq(adminTelegramLinkChallengesTable.tokenHash, hashToken(token)),
+        eq(adminTelegramLinkChallengesTable.tokenHash, tokenHash),
         gt(adminTelegramLinkChallengesTable.expiresAt, now),
         isNull(adminTelegramLinkChallengesTable.consumedAt),
       ))

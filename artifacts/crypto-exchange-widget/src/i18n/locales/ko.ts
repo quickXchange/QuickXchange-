@@ -8,6 +8,7 @@ const ko = {
     accountHolderName:'예금주명', ibanNumber:'IBAN 번호', paymentDescription:'결제 설명', telegramOrWhatsapp:'Telegram 또는 WhatsApp', contactEmailLabel:'연락처 이메일',
   } },
   common: { brand:'QuickXchange', loading:'불러오는 중…', error:'문제가 발생했습니다', retry:'다시 시도', close:'닫기', back:'뒤로', next:'다음', yes:'예', no:'아니요', secure:'안전함', available:'사용 가능', unavailable:'사용 불가', light:'라이트', dark:'다크' },
+  emailNotifications: { title:'이메일 상태 알림', description:'이메일만 사용: 이 주문의 상태 업데이트가 계정의 인증된 이메일 주소로 전송됩니다.', on:'이 주문의 이메일 상태 알림이 켜져 있습니다.', off:'이 주문의 이메일 상태 알림이 꺼져 있습니다.' },
   genericUi: { breadcrumbLabel:'이동 경로', more:'더 보기', close:'닫기', previousSlide:'이전 슬라이드', nextSlide:'다음 슬라이드', sidebarTitle:'사이드바', mobileSidebarDescription:'모바일 사이드바를 표시합니다.', toggleSidebar:'사이드바 전환', loading:'불러오는 중', paginationLabel:'페이지 탐색', goToPreviousPage:'이전 페이지로 이동', previous:'이전', goToNextPage:'다음 페이지로 이동', next:'다음', morePages:'더 많은 페이지' },
   header: { exchange:'환전', trackOrder:'주문 조회', affiliateProgram:'제휴 프로그램', account:'계정', operations:'운영', appearance:'화면 설정', selectLanguage:'언어 선택' },
   language: { title:'언어', description:'QuickXchange에서 사용할 언어를 선택하세요.', current:'현재 언어: {{language}}', changed:'언어가 {{language}}(으)로 변경되었습니다' },

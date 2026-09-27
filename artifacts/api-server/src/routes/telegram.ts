@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request } from "express";
 import { and, eq, gt, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { db, ordersTable, quickexOrdersTable, telegramChatsTable, telegramNotificationOutboxTable, telegramOrderLinksTable, telegramProcessedUpdatesTable, telegramWizardSessionsTable } from "@workspace/db";
-import { editTelegramMessage, formatTelegramOrderId, sendTelegramMessage, sendTelegramPhoto, telegramCall, telegramEnabled, type TelegramButton } from "../lib/telegram-api";
+import { editTelegramMessage, formatTelegramOrderId, sanitizeTelegramFailureReason, sendTelegramMessage, sendTelegramPhoto, telegramCall, telegramEnabled, type TelegramButton } from "../lib/telegram-api";
 import { languageButtons, localeOf, t, type TelegramLocale } from "../lib/telegram-localization";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -15,6 +15,7 @@ import { logger } from "../lib/logger";
 import {
   adminSwapTelegramRecipientIsCurrent,
   formatSwapTelegramNotification,
+  isCustomerTelegramLifecycleStatusOutboxRow,
   swapTelegramStatusLabel,
   swapTelegramRecipientIsCurrent,
   type SwapTelegramEventKind,
@@ -1106,12 +1107,20 @@ router.post("/telegram/webhook", async (req: Request, res) => {
           if (message.text.startsWith("/start admin_")) {
             const token = message.text.trim().slice("/start admin_".length);
             try {
-              await consumeAdminTelegramLinkChallenge(token, chatId, from?.username?.trim() ?? "");
-              await sendTelegramMessage(chatId, "✅ <b>Telegram Connected</b>\n\nThis private chat will now receive enabled QuickXchange Admin notifications.");
+              await consumeAdminTelegramLinkChallenge(
+                token,
+                chatId,
+                from?.username?.trim() ?? "",
+                async () => {
+                  const accepted = await sendTelegramMessage(chatId, "✅ <b>Telegram Connected</b>\n\nThis private chat will now receive enabled QuickXchange Admin notifications.");
+                  if (!accepted) throw new Error("Telegram did not confirm delivery. Check the bot token and retry the connection link.");
+                },
+              );
             } catch (error) {
               if (error instanceof AdminTelegramLinkChallengeError) {
                 await sendTelegramMessage(chatId, "This Admin connection link has expired or was already used. Create a new link in Notification Settings.");
               } else {
+                req.log?.warn({ reason: sanitizeTelegramFailureReason(error) }, "Admin Telegram connection handshake failed");
                 throw error;
               }
             }
@@ -1365,7 +1374,23 @@ export function startTelegramNotificationWorker(): () => void {
          const payload = claimed.payload as { status?: string; eventKind?: string; requiresDeposit?: boolean; trackingToken?: string; depositAddress?: string; depositMemo?: string; orderKind?: string };
         const [noticeChat] = await db.select({ locale: telegramChatsTable.locale }).from(telegramChatsTable).where(eq(telegramChatsTable.chatId, claimed.chatId)).limit(1);
         const noticeLocale = localeOf(noticeChat?.locale);
-        if (claimed.eventKind === "order_created") {
+        if (await isCustomerTelegramLifecycleStatusOutboxRow(
+          claimed.chatId,
+          claimed.orderId,
+          claimed.eventKind,
+          payload,
+        )) {
+          await db.update(telegramNotificationOutboxTable).set({
+            deliveryStatus: "suppressed",
+            lastError: "Customer lifecycle status updates are delivered by email.",
+            claimToken: null,
+            claimExpiresAt: null,
+          }).where(and(
+            eq(telegramNotificationOutboxTable.id, claimed.id),
+            eq(telegramNotificationOutboxTable.claimToken, claimToken),
+          ));
+          continue;
+        } else if (claimed.eventKind === "order_created") {
           const adminRecipient = Boolean((payload as { adminRecipient?: boolean }).adminRecipient);
           if (adminRecipient) {
             const eventKind = "order_created" as SwapTelegramEventKind;
@@ -1420,9 +1445,12 @@ export function startTelegramNotificationWorker(): () => void {
               )
             : await swapTelegramRecipientIsCurrent(claimed.chatId, claimed.orderId, eventKind);
           if (!recipientIsCurrent) {
+            const customerLifecycleEmailOnly = !adminRecipient;
             await db.update(telegramNotificationOutboxTable).set({
-              deliveryStatus: "failed",
-              lastError: "Telegram order link or current order state is no longer valid.",
+              deliveryStatus: customerLifecycleEmailOnly ? "suppressed" : "failed",
+              lastError: customerLifecycleEmailOnly
+                ? "Customer lifecycle status updates are delivered by email."
+                : "Telegram order link or current order state is no longer valid.",
               claimToken: null,
               claimExpiresAt: null,
             }).where(and(

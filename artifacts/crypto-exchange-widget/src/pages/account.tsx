@@ -23,7 +23,7 @@ import { useI18n } from '../i18n/provider';
 import { CustomerShell, CustomerPageHeader, ThemeToggle } from '@/components/customer/CustomerShell';
 import { CustomerStatCard } from '@/components/customer/CustomerStatCard';
 import { LanguageSelector } from '@/components/language-selector';
-import { basePath, cn, ErrorState, InlineNotice, LoadingBlock, number, publicApiErrorText, StatusPill, PaymentDetailsCard, SUPPORT_TELEGRAM } from '@/components/shared-app-ui';
+import { basePath, cn, ErrorState, InlineNotice, LoadingBlock, number, publicApiErrorText, StatusPill, PaymentDetailsCard, SUPPORT_EMAIL } from '@/components/shared-app-ui';
 import { PublicShell } from '@/components/public-shell';
 import { ExchangeModeSwitcher } from '@/components/exchange-surface';
 import { convertOrderStatusStep } from '@/lib/convert-order-status';
@@ -987,8 +987,8 @@ function CustomerOrderNotificationControl({ order }: { order: CustomerOrder }) {
         setNotice({
           kind: 'success',
           text: preference.statusNotificationsEnabled
-            ? t('account.notificationsOn')
-            : t('account.notificationsOff'),
+            ? t('emailNotifications.on')
+            : t('emailNotifications.off'),
         });
       },
       onError: (error) => {
@@ -1008,9 +1008,9 @@ function CustomerOrderNotificationControl({ order }: { order: CustomerOrder }) {
             <Bell size={18} aria-hidden="true" />
           </div>
           <div>
-            <h2 className="text-base font-semibold tracking-tight">{t('account.statusNotifications')}</h2>
+            <h2 className="text-base font-semibold tracking-tight">{t('emailNotifications.title')}</h2>
             <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-              {t('account.notificationsDescription')}
+              {t('emailNotifications.description')}
             </p>
           </div>
         </div>
@@ -1209,7 +1209,7 @@ function CustomerOrderView({ order, drawer = false }: { order: CustomerOrder; dr
               },
             })}
             markPaidPending={markPaidMutation.isPending}
-            supportHref={SUPPORT_TELEGRAM}
+            supportHref={`mailto:${SUPPORT_EMAIL}`}
           />
       )}
 
