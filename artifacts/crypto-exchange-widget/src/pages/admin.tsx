@@ -8297,10 +8297,8 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
     sourceSettlementOptionId: pricingRuleSelectionId(rule, 'source'),
     targetSettlementOptionId: pricingRuleSelectionId(rule, 'target'),
     exactRate: rule?.exactRate || '',
-    expectedSettlementMinutes: rule?.expectedSettlementMinutes?.toString() || '',
     operatorInstructions: rule?.operatorInstructions || '',
     customerInstructions: rule?.customerInstructions || '',
-    priority: String(rule?.priority ?? 0),
     enabled: rule?.enabled ?? true,
   });
   const [error, setError] = useState('');
@@ -8383,7 +8381,7 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
     markupBasisPoints: rule?.markupBasisPoints ?? 0,
     exactRate: form.exactRate.trim() || null,
     fixedFee: rule?.fixedFee ?? null,
-    priority: Number(form.priority) || 0,
+    priority: rule?.priority ?? 0,
     enabled: form.enabled,
     minAmount: rule?.minAmount ?? null,
     maxAmount: rule?.maxAmount ?? null,
@@ -8496,10 +8494,10 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
       fixedFee: rule?.fixedFee ?? null,
       minAmount: editingPath ? minimumQuantity.trim() || null : rule?.minAmount ?? null,
       maxAmount: editingPath ? maximumQuantity.trim() || null : rule?.maxAmount ?? null,
-      expectedSettlementMinutes: parseInt(form.expectedSettlementMinutes) || null,
+      expectedSettlementMinutes: rule?.expectedSettlementMinutes ?? null,
       operatorInstructions: form.operatorInstructions.trim() || null,
       customerInstructions: form.customerInstructions.trim() || null,
-      priority: Number(form.priority),
+      priority: rule?.priority ?? 0,
       enabled: form.enabled,
     });
     const payload = payloadFor(sourceOpt, targetOpt);
@@ -8510,7 +8508,7 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
         code === 'MANUAL_PRICING_RULE_VERSION_CONFLICT'
           ? 'This rule changed since you opened it. Close, refresh, and try again with the latest version.'
           : code === 'MANUAL_PRICING_RULE_CONFLICT'
-            ? 'Another rule with the same priority overlaps this route. Change the priority or make the source and target more specific.'
+            ? 'Another rule overlaps this route. Make the source and target more specific.'
             : apiErrorText(err, t('adminPricing.could_not_save_this_pricing_rule')),
       );
     };
@@ -8622,11 +8620,6 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
           </div>
           {quantityError && <p id="pricing-quantity-error" className="pricing-quantity-error" role="alert" data-testid="pricing-quantity-error">{quantityError}</p>}
         </section>}
-
-        <div className="admin-form-grid pricing-form-grid">
-          <label className="pricing-rule-field"><span className="field-label">{t('adminPricing.expected_settlement_min')}</span><input type="number" value={form.expectedSettlementMinutes} onChange={event => set('expectedSettlementMinutes', event.target.value)} placeholder={t('adminPricing.e_g_60')} disabled={rule?.readOnly} data-testid="input-pricing-time" /></label>
-          <label className="pricing-rule-field"><span className="field-label">{t('adminPricing.priority')}</span><input type="number" required value={form.priority} onChange={event => set('priority', event.target.value)} disabled={rule?.readOnly} data-testid="input-pricing-priority" /></label>
-        </div>
 
         <label className="admin-form-field admin-form-field-full pricing-rule-field pricing-rule-field-full"><span className="field-label">{t('adminPricing.operator_instructions')}</span><textarea value={form.operatorInstructions} onChange={event => set('operatorInstructions', event.target.value)} disabled={rule?.readOnly} data-testid="input-pricing-op-inst" /></label>
         <label className="admin-form-field admin-form-field-full pricing-rule-field pricing-rule-field-full"><span className="field-label">{t('adminPricing.customer_instructions')}</span><textarea value={form.customerInstructions} onChange={event => set('customerInstructions', event.target.value)} disabled={rule?.readOnly} data-testid="input-pricing-cust-inst" /></label>
@@ -8795,10 +8788,8 @@ function BulkPricingRuleDrawer({
     fixedFee: '', applyFixedFee: false,
     minAmount: '', applyMinAmount: false,
     maxAmount: '', applyMaxAmount: false,
-    expectedSettlementMinutes: '', applyTime: false,
     operatorInstructions: '', applyOpInst: false,
     customerInstructions: '', applyCustInst: false,
-    priority: '', applyPriority: false,
     sourceSettlementOptionId: '', applySource: false,
     targetSettlementOptionId: '', applyTarget: false,
   });
@@ -8863,27 +8854,6 @@ function BulkPricingRuleDrawer({
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       return;
-    }
-
-    if (form.applyPriority) {
-       const p = Number(form.priority);
-       if (!Number.isInteger(p) || p < -1000000 || p > 1000000) {
-          setError('Priority must be an integer between -1000000 and 1000000.'); return;
-       }
-       patch.priority = p;
-    }
-
-    if (form.applyTime) {
-       const tStr = form.expectedSettlementMinutes.trim();
-       if (tStr) {
-          const m = parseInt(tStr, 10);
-          if (!Number.isInteger(m) || m < 1 || m > 10080) {
-             setError('Settlement Minutes must be an integer between 1 and 10080, or left blank to clear.'); return;
-          }
-          patch.expectedSettlementMinutes = m;
-       } else {
-          patch.expectedSettlementMinutes = null;
-       }
     }
 
     if (form.applyOpInst) patch.operatorInstructions = form.operatorInstructions.trim() || null;
@@ -8988,17 +8958,6 @@ function BulkPricingRuleDrawer({
           <div className="amount-pricing-bulk">
             <label className="amount-pricing-apply"><input type="checkbox" checked={applyAmountPricing} onChange={event => setApplyAmountPricing(event.target.checked)} data-testid="apply-amount-based-pricing" /> Amount-Based Pricing <small>Apply this configuration to all {rules.length} selected rules</small></label>
             {applyAmountPricing && <AmountBasedPricingEditor prefix="bulk" tiers={amountTiers} onTiersChange={setAmountTiers} />}
-          </div>
-
-          <div className="admin-form-grid pricing-form-grid bulk-form-grid">
-             <label className="pricing-rule-field">
-                <span className="field-label flex items-center gap-2"><input type="checkbox" checked={form.applyTime} onChange={() => toggleApply('applyTime')} data-testid="apply-time"/> Settlement Mins</span>
-                <input type="number" value={form.expectedSettlementMinutes} onChange={e => { set('expectedSettlementMinutes', e.target.value); set('applyTime', true); }} disabled={!form.applyTime} data-testid="input-bulk-time" placeholder="Leave blank to clear" />
-             </label>
-             <label className="pricing-rule-field">
-                <span className="field-label flex items-center gap-2"><input type="checkbox" checked={form.applyPriority} onChange={() => toggleApply('applyPriority')} data-testid="apply-priority"/> Priority</span>
-                <input type="number" required={form.applyPriority} value={form.priority} onChange={e => { set('priority', e.target.value); set('applyPriority', true); }} disabled={!form.applyPriority} data-testid="input-bulk-priority" />
-             </label>
           </div>
 
           <label className="admin-form-field admin-form-field-full pricing-rule-field pricing-rule-field-full">
@@ -9242,7 +9201,7 @@ function AdminManualPricing() {
     <PricingPreview testRule={testRule} rules={pricingRules} />
     <div className="pricing-layout">
       <div className="panel pricing-rules-panel">
-        <div className="pricing-directory-head"><div><span className="section-kicker">{t('adminPricing.rule_directory')}</span><h2>{t('adminPricing.pricing_rules')}<span>({filtered.length})</span></h2><p>{t('adminPricing.set_commissions_priority_and_availability_for_each')}</p></div></div>
+        <div className="pricing-directory-head"><div><span className="section-kicker">{t('adminPricing.rule_directory')}</span><h2>{t('adminPricing.pricing_rules')}<span>({filtered.length})</span></h2></div></div>
         <div className="pricing-filters flex items-center gap-2">
           <div className="flex-1 min-w-[200px]">
             <AdminSearch
@@ -9281,7 +9240,7 @@ function AdminManualPricing() {
             }}>
               <table className="data-table pricing-table" data-testid="table-pricing-rules"><thead><tr>
                 <th className="pricing-select-column"><input type="checkbox" ref={el => { if (el) el.indeterminate = someFilteredRulesSelected && !allFilteredRulesSelected; }} checked={allFilteredRulesSelected} onChange={() => { if (allFilteredRulesSelected) setSelectedRuleIds(c => c.filter(id => !filteredRuleIds.includes(id))); else setSelectedRuleIds(c => [...new Set([...c, ...filteredRuleIds])]); }} aria-label="Select all filtered pricing rules" data-testid="checkbox-select-visible-pricing" /></th>
-                <th>{t('adminPricing.rule')}</th><th>{t('adminPricing.route_2')}</th><th>Pricing</th><th>{t('adminPricing.priority')}</th><th>{t('adminPricing.specificity')}</th><th>{t('adminPricing.status')}</th><th>{t('adminPricing.actions')}</th><th>{t('adminPricing.test')}</th>
+                <th>{t('adminPricing.rule')}</th><th>{t('adminPricing.route_2')}</th><th>Pricing</th><th>{t('adminPricing.specificity')}</th><th>{t('adminPricing.status')}</th><th>{t('adminPricing.actions')}</th><th>{t('adminPricing.test')}</th>
               </tr></thead><tbody>{visibleRules.map(rule => {
                 const option = optionForRule(rule);
                 return <tr key={rule.id} data-testid={`pricing-rule-${rule.id}`} className={cn(rule.missingSettlementOptionIds.length > 0 && 'pricing-rule-orphan')}>
@@ -9289,7 +9248,6 @@ function AdminManualPricing() {
                   <td><div className="pricing-rule-identity"><AdminPaymentLogo name={option?.title || option?.networkTitle || rule.name} currencyCode={option?.assetCode} logoUrl={option?.logoUrl} />{option?.kind === 'fiat-payment-method' ? <PaymentMethodCopy methodName={option.title || option.networkTitle || rule.name} currencyCode={option.assetCode} /> : <span><strong>{compactRuleLabel(rule)}</strong><small>{rule.name}</small></span>}</div>{rule.missingSettlementOptionIds.length > 0 && <small className="pricing-orphan-warning" data-testid={`pricing-orphan-${rule.id}`}>{t('adminPricing.missing_option')}{rule.missingSettlementOptionIds.join(', ')}</small>}</td>
                   <td className="pricing-selector"><div className="pricing-route"><span className="pricing-route-icon"><ArrowRight size={14} /></span><span>{pricingSelectorLabel(rule, settlementOptions)}</span></div></td>
                   <td data-testid={`pricing-rule-pricing-${rule.id}`}><strong className="pricing-commission">{rule.amountBasedPricingEnabled && rule.amountBasedPricingTiers?.length ? `Range pricing · ${rule.amountBasedPricingTiers.length} ${rule.amountBasedPricingTiers.length === 1 ? 'range' : 'ranges'}` : 'Base pricing'}</strong><small className="pricing-base-fallback">{rule.amountBasedPricingEnabled && rule.amountBasedPricingTiers?.length ? 'Base fallback: ' : 'Base: '}{rule.adjustmentDirection === 'GIVE_MORE' ? 'Give more ' : 'Markup '}{(rule.markupBasisPoints / 100).toFixed(2)}% · {formatFixedFee(rule.fixedFee, option?.assetCode)}</small></td>
-                  <td className="pricing-number font-mono">{rule.priority}</td>
                   <td><span className="secure-badge pricing-specificity">{rule.specificity} / 8</span></td>
                   <td><StatusPill status={rule.enabled ? 'Enabled' : 'Disabled'} /></td>
                   <td><div className="pricing-actions"><button className="pricing-action-button pricing-edit-action" onClick={() => setDrawer(rule)} data-testid={`button-edit-pricing-${rule.id}`}><Pencil size={12} />{t('adminPricing.edit')}</button><button className={cn('pricing-action-button', rule.enabled && 'danger')} onClick={() => toggle(rule)} disabled={update.isPending || remove.isPending} data-testid={`button-toggle-pricing-${rule.id}`}><Power size={12} />{rule.enabled ? t('adminPricing.disable') : t('adminPricing.enable')}</button><button className="pricing-delete-action" onClick={() => removeRule(rule)} disabled={remove.isPending || update.isPending} data-testid={`button-delete-pricing-${rule.id}`} aria-label={t('adminPricing.delete_rule_named', { name: rule.name })}><X size={12} /></button></div></td>
