@@ -1705,6 +1705,7 @@ html:not(.dark) .admin-shell.admin-redesign .admin-orders-page .status-badge-pro
 .admin-shell.admin-redesign .pricing-route-icon { display: grid; place-items: center; width: 18px; height: 18px; flex: 0 0 18px; border-radius: 50%; color: hsl(var(--primary)); background: hsl(var(--primary) / .08); }
 .admin-shell.admin-redesign .pricing-route-icon .fiat-currency-flag { width: 18px; height: 18px; }
 .admin-shell.admin-redesign .pricing-commission { font-size: 11px; color: hsl(var(--foreground)); }
+.admin-shell.admin-redesign .pricing-base-fallback { display: block; color: hsl(var(--muted-foreground)); font-size: 9px; white-space: nowrap; }
 .admin-shell.admin-redesign .pricing-number { text-align: center; font-size: 11px; }
 .admin-shell.admin-redesign .pricing-specificity { min-width: 48px; justify-content: center; border-radius: 6px; color: hsl(var(--primary)); background: hsl(var(--primary) / .1); }
 .admin-shell.admin-redesign .pricing-actions { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
@@ -8469,7 +8470,7 @@ html:not(.dark) .admin-shell.admin-redesign .currencies-redesign .catalog-table 
 }
 .pricing-drawer .amount-pricing-table {
   width: 100%;
-  min-width: 480px;
+  min-width: 640px;
   border-collapse: collapse;
   text-align: left;
 }
@@ -8565,7 +8566,8 @@ html:not(.dark) .admin-shell.admin-redesign .currencies-redesign .catalog-table 
   color: hsl(var(--muted-foreground));
   cursor: pointer;
 }
-.amount-range-modal-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.amount-range-modal-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+.amount-range-modal-fields label:has(select) { grid-column: 1 / -1; }
 .amount-range-modal-fields label {
   display: grid;
   gap: 6px;

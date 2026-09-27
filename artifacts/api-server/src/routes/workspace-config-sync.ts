@@ -48,6 +48,7 @@ const pricingTiersProjection = (tiers: any[] | null | undefined) =>
     maxAmount: tier.maxAmount,
     percentage: tier.percentage,
     direction: tier.direction,
+    ...(tier.fixedFee === undefined ? {} : { fixedFee: tier.fixedFee }),
   }));
 const ruleProjection = (r: any) => ({ name: r.name, sourceAsset: r.sourceAsset, targetAsset: r.targetAsset, sourceCryptoAssetId: r.sourceCryptoAssetId, targetCryptoAssetId: r.targetCryptoAssetId, sourceNetwork: r.sourceNetwork, targetNetwork: r.targetNetwork, paymentMethod: r.paymentMethod, payoutMethod: r.payoutMethod, sourceSettlementOptionId: r.sourceSettlementOptionId, targetSettlementOptionId: r.targetSettlementOptionId, minAmount: r.minAmount, maxAmount: r.maxAmount, operatorInstructions: r.operatorInstructions, customerInstructions: r.customerInstructions, expectedSettlementMinutes: r.expectedSettlementMinutes, markupBasisPoints: r.markupBasisPoints, adjustmentDirection: r.adjustmentDirection, amountBasedPricingEnabled: r.amountBasedPricingEnabled ?? false, amountBasedPricingTiers: pricingTiersProjection(r.amountBasedPricingTiers), fixedFee: r.fixedFee, exactRate: r.exactRate, priority: r.priority, enabled: r.enabled });
 

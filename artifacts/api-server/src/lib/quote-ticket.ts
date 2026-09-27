@@ -358,7 +358,8 @@ function financiallyConsistent(
   const amount = dec(String(ticket.amount));
   const source = dec(snapshot.reference.source.unitsPerUsd);
   const target = dec(snapshot.reference.target.unitsPerUsd);
-  const fixed = snapshot.rule.fixedFee === null ? { c: 0n, s: 0 } : dec(snapshot.rule.fixedFee);
+  const effectiveFixedFee = selectedTier?.fixedFee ?? snapshot.rule.fixedFee;
+  const fixed = effectiveFixedFee === null ? { c: 0n, s: 0 } : dec(effectiveFixedFee);
   if (!amount || !source || !target || !fixed) return false;
   const precision = snapshot.targetPrecision;
   const scale = 10n ** BigInt(precision);

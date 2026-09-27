@@ -46,7 +46,7 @@ const amountRules = Array.from({ length: 2 }, (_, index) => ({
   createdAt: now, updatedAt: now,
 }));
 
-async function mockAmountPricing(page: Page, initialRules = amountRules) {
+async function mockAmountPricing(page: Page, initialRules: any[] = amountRules) {
   let rules = structuredClone(initialRules);
   const singleRequests: any[] = [];
   const bulkRequests: any[] = [];
@@ -83,19 +83,21 @@ async function mockAmountPricing(page: Page, initialRules = amountRules) {
   return { singleRequests, bulkRequests };
 }
 
-async function addRange(page: Page, prefix: 'single' | 'bulk', min: string, max: string | null, percent: string, direction = 'MARKUP') {
+async function addRange(page: Page, prefix: 'single' | 'bulk', min: string, max: string | null, percent: string, direction = 'MARKUP', fixedFee = '0') {
   await page.getByTestId(`${prefix}-add-amount-range`).click();
   const modal = page.getByTestId(`${prefix}-amount-range-modal`);
   await modal.getByTestId(`${prefix}-range-min`).fill(min);
   if (max === null) await modal.getByTestId(`${prefix}-range-no-limit`).check();
   else await modal.getByTestId(`${prefix}-range-max`).fill(max);
   await modal.getByTestId(`${prefix}-range-percentage`).fill(percent);
+  await expect(modal.getByTestId(`${prefix}-range-fixed-fee`)).toHaveValue('0');
+  await modal.getByTestId(`${prefix}-range-fixed-fee`).fill(fixedFee);
   await modal.getByTestId(`${prefix}-range-direction`).selectOption(direction);
   await modal.getByTestId(`${prefix}-save-amount-range`).click();
   return modal;
 }
 
-test('single fee-range table supports modal add, edit, delete, overlaps, unsorted boundaries and empty base fallback on mobile', async ({ page }) => {
+test('single fee-range table supports three disjoint ranges, exact fixed fees, edit, delete and overlaps on mobile', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const { singleRequests } = await mockAmountPricing(page, [
     { ...amountRules[0], amountBasedPricingEnabled: false, amountBasedPricingTiers: [] },
@@ -105,48 +107,141 @@ test('single fee-range table supports modal add, edit, delete, overlaps, unsorte
   const drawer = page.getByTestId('pricing-rule-drawer');
   await expect(drawer).toBeVisible();
   await expect(drawer.getByTestId('single-amount-pricing-editor')).toBeVisible();
-  await expect(drawer.getByTestId('single-amount-range-table').locator('th')).toHaveText(['Min', 'Max', 'Percentage', 'Direction', 'Actions']);
+  await expect(drawer.getByTestId('single-amount-range-table').locator('th')).toHaveText(['Min', 'Max', 'Fixed', 'Percentage', 'Direction', 'Actions']);
   await expect(drawer.getByTestId('single-amount-pricing-enabled')).toHaveCount(0);
+  for (const field of ['select-pricing-direction', 'input-pricing-markup', 'input-pricing-fixed-fee', 'input-pricing-min', 'input-pricing-max']) {
+    await expect(drawer.getByTestId(field)).toHaveCount(0);
+  }
   await expect(drawer.getByTestId('single-amount-pricing-editor')).toContainText('Base price applies');
-  await addRange(page, 'single', '800', '20000', '3');
+  await addRange(page, 'single', '800', '20000', '3', 'MARKUP', '0.00000017');
   await page.getByTestId('single-add-amount-range').click();
   const modal = page.getByTestId('single-amount-range-modal');
   await modal.getByTestId('single-range-min').fill('700');
   await modal.getByTestId('single-range-max').fill('900');
   await modal.getByTestId('single-range-percentage').fill('1');
+  await modal.getByTestId('single-range-fixed-fee').fill('');
+  await modal.getByTestId('single-save-amount-range').click();
+  await expect(modal.getByTestId('single-amount-validation')).toContainText('Fixed Fee');
+  await modal.getByTestId('single-range-fixed-fee').fill('0');
   await modal.getByTestId('single-save-amount-range').click();
   await expect(modal.getByTestId('single-amount-validation')).toContainText('overlap');
   expect(singleRequests).toHaveLength(0);
-  await modal.getByTestId('single-range-min').fill('300');
+  await modal.getByTestId('single-range-min').fill('200');
   await modal.getByTestId('single-range-max').fill('800');
   await modal.getByTestId('single-save-amount-range').click();
   await expect(modal).toHaveCount(0);
-  await expect(drawer.getByTestId('single-amount-range-1')).toContainText('300');
+  await expect(drawer.getByTestId('single-amount-range-1')).toContainText('200');
   await drawer.getByTestId('single-edit-amount-range-1').click();
   await modal.getByTestId('single-range-percentage').fill('2');
+  await modal.getByTestId('single-range-fixed-fee').fill('0.0000000003');
   await modal.getByTestId('single-range-direction').selectOption('GIVE_MORE');
   await modal.getByTestId('single-save-amount-range').click();
-  await expect(drawer.getByTestId('single-amount-range-1')).toContainText('Markdown');
-  await drawer.getByTestId('single-delete-amount-range-1').click();
-  await addRange(page, 'single', '300', '800', '1');
-  await expect(drawer.getByTestId('single-amount-range-1')).toContainText('Markup');
+  await expect(drawer.getByTestId('single-amount-range-1')).toContainText('Give more (customer bonus)');
+  await expect(drawer.getByTestId('single-amount-range-1')).toContainText('0.0000000003');
+  await addRange(page, 'single', '20000', null, '1', 'MARKUP', '0.5');
+  await expect(drawer.getByTestId('single-amount-range-2')).toContainText('No Limit');
+  await drawer.getByTestId('single-delete-amount-range-2').click();
+  await addRange(page, 'single', '20000', null, '1', 'MARKUP', '0.5');
   expect(await drawer.evaluate(element => element.getBoundingClientRect().width <= window.innerWidth)).toBe(true);
   await drawer.getByTestId('button-save-pricing-rule').click();
   await expect.poll(() => singleRequests.length).toBe(1);
   expect(singleRequests[0]).toMatchObject({
     version: 1, name: amountRules[0].name,
     amountBasedPricingEnabled: true,
-    amountBasedPricingTiers: [storedTiers[1], storedTiers[0]],
+    markupBasisPoints: 75, adjustmentDirection: 'MARKUP', fixedFee: null, minAmount: null, maxAmount: null,
+    amountBasedPricingTiers: [
+      { ...storedTiers[1], fixedFee: '0.00000017' },
+      { minAmount: '200', maxAmount: '800', percentage: '2', fixedFee: '0.0000000003', direction: 'GIVE_MORE' },
+      { minAmount: '20000', maxAmount: null, percentage: '1', fixedFee: '0.5', direction: 'MARKUP' },
+    ],
   });
   await expect(drawer).toHaveCount(0);
 
   await page.getByTestId(`button-edit-pricing-${amountRules[0].id}`).click();
-  await drawer.getByTestId('single-delete-amount-range-1').click();
-  await drawer.getByTestId('single-delete-amount-range-0').click();
+  for (let index = 2; index >= 0; index--) await drawer.getByTestId(`single-delete-amount-range-${index}`).click();
   await expect(drawer.getByTestId('single-amount-pricing-editor')).toContainText('Base price applies');
   await drawer.getByTestId('button-save-pricing-rule').click();
   await expect.poll(() => singleRequests.length).toBe(2);
   expect(singleRequests[1]).toMatchObject({ amountBasedPricingEnabled: false, amountBasedPricingTiers: [] });
+});
+
+test('legacy tier inherits the rule base fee visually, but remains property-free unless edited', async ({ page }) => {
+  const rule = { ...amountRules[0], fixedFee: '0.01234567', minAmount: '15', maxAmount: '90000', adjustmentDirection: 'GIVE_MORE' };
+  const { singleRequests } = await mockAmountPricing(page, [rule]);
+  await page.goto('/admin/pricing');
+  await page.getByTestId(`button-edit-pricing-${rule.id}`).click();
+  const drawer = page.getByTestId('pricing-rule-drawer');
+  await expect(drawer.getByTestId('single-amount-range-0').locator('td').nth(2)).toHaveText('0.01234567');
+  await drawer.getByTestId('single-edit-amount-range-0').click();
+  const modal = page.getByTestId('single-amount-range-modal');
+  await expect(modal.getByTestId('single-range-fixed-fee')).toHaveValue('0.01234567');
+  await modal.getByTestId('single-close-amount-range').click();
+  await drawer.getByTestId('button-save-pricing-rule').click();
+  await expect.poll(() => singleRequests.length).toBe(1);
+  expect(singleRequests[0]).toMatchObject({
+    markupBasisPoints: 75, adjustmentDirection: 'GIVE_MORE', fixedFee: '0.01234567', minAmount: '15', maxAmount: '90000',
+    amountBasedPricingTiers: storedTiers,
+  });
+  expect(singleRequests[0].amountBasedPricingTiers[0]).not.toHaveProperty('fixedFee');
+  await page.getByTestId(`button-edit-pricing-${rule.id}`).click();
+  await drawer.getByTestId('single-edit-amount-range-0').click();
+  await expect(modal.getByTestId('single-range-fixed-fee')).toHaveValue('0.01234567');
+  await modal.getByTestId('single-save-amount-range').click();
+  await drawer.getByTestId('button-save-pricing-rule').click();
+  await expect.poll(() => singleRequests.length).toBe(2);
+  expect(singleRequests[1].amountBasedPricingTiers[0].fixedFee).toBe('0.01234567');
+  expect(singleRequests[1].amountBasedPricingTiers[1]).not.toHaveProperty('fixedFee');
+});
+
+test('preview uses the quote-matched rule and the lower tier at a shared 1000 boundary; unknown rules show actual fees neutrally', async ({ page }) => {
+  const baseRule = { ...amountRules[0], amountBasedPricingEnabled: false, amountBasedPricingTiers: [] };
+  const competingRule = {
+    ...amountRules[1], name: 'Quoted bonus route', fixedFee: '0.09',
+    amountBasedPricingTiers: [
+      { minAmount: '200', maxAmount: '1000', percentage: '2.375', direction: 'GIVE_MORE', fixedFee: '0.003' },
+      { minAmount: '1000', maxAmount: '2000', percentage: '4', direction: 'MARKUP', fixedFee: '0.01' },
+    ],
+  };
+  await mockAmountPricing(page, [baseRule, competingRule]);
+  await page.route('**/api/admin/manual-desk-pricing-rules/preview', route =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify(baseRule) }));
+  let quotes = 0;
+  await page.route('**/api/admin/manual-desk-pricing-rules/quote-preview', route => {
+    expect(route.request().postDataJSON().amount).toBe('1000');
+    const quoteNumber = ++quotes;
+    const unknown = quoteNumber === 2;
+    const base = quoteNumber === 3;
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify({
+      pricingRuleId: unknown ? 'unknown-rule' : base ? baseRule.id : competingRule.id,
+      pricingRuleName: unknown ? 'External quote rule' : base ? baseRule.name : competingRule.name,
+      fromAsset: 'USD', toAsset: 'EUR', baseRate: 1.1, finalRate: 1.12, rate: 1.12,
+      markupBasisPoints: 75, adjustmentDirection: base ? 'MARKUP' : 'GIVE_MORE',
+      grossMarketAmount: 1100, percentageCommission: 26.125, fixedCommission: 0.003,
+      totalFee: 26.128, receiveAmount: 1126.128,
+    }) });
+  });
+  await page.goto('/admin/pricing');
+  const row = page.getByTestId(`pricing-rule-pricing-${competingRule.id}`);
+  await expect(row).toContainText('Range pricing · 2 ranges');
+  await expect(row).toContainText('Base fallback: Markup 0.75%');
+  await expect(row).not.toContainText('Give more 2.375%');
+  await page.getByTestId(`button-test-pricing-${baseRule.id}`).click();
+  await page.getByTestId('button-preview-pricing').click();
+  const result = page.getByTestId('pricing-preview-result');
+  await expect(result).toContainText('Quoted bonus route');
+  await expect(page.getByTestId('pricing-preview-percentage')).toContainText('+2.375%');
+  await expect(page.getByTestId('pricing-preview-commission')).toContainText('Customer bonus');
+  await expect(page.getByTestId('pricing-preview-commission')).not.toContainText('0%');
+  await page.getByTestId('button-preview-pricing').click();
+  await expect(result).toContainText('External quote rule');
+  await expect(page.getByTestId('pricing-preview-percentage')).toContainText('See quote fee');
+  await expect(page.getByTestId('pricing-preview-percentage')).not.toContainText('0%');
+  await expect(page.getByTestId('pricing-preview-commission')).toContainText('Percentage fee / bonus');
+  await expect(page.getByTestId('pricing-preview-commission')).toContainText('26.125');
+  await page.getByTestId('button-preview-pricing').click();
+  await expect(result).toContainText(baseRule.name);
+  await expect(page.getByTestId('pricing-preview-percentage')).toContainText('−0.75%');
+  await expect(page.getByTestId('pricing-preview-commission')).toContainText('Commission');
 });
 
 test('editing another field does not reactivate ranges stored on a disabled rule', async ({ page }) => {
@@ -193,15 +288,23 @@ test('bulk edit omits unchecked amount fields, then applies checked tiers to eac
   expect(await drawer.evaluate(element => element.getBoundingClientRect().width <= window.innerWidth)).toBe(true);
   await drawer.getByTestId('apply-amount-based-pricing').check();
   await expect(drawer.getByTestId('bulk-amount-pricing-enabled')).toHaveCount(0);
+  await expect(drawer.getByTestId('bulk-amount-range-table').locator('th')).toHaveText(['Min', 'Max', 'Fixed', 'Percentage', 'Direction', 'Actions']);
+  await expect(drawer.getByTestId('input-bulk-fixed-fee')).toBeVisible();
+  await expect(drawer.getByTestId('input-bulk-min')).toBeVisible();
+  await expect(drawer.getByTestId('input-bulk-max')).toBeVisible();
   await addRange(page, 'bulk', '300', '800', '1');
-  await addRange(page, 'bulk', '800', '20000', '3');
+  await addRange(page, 'bulk', '800', '20000', '3', 'GIVE_MORE', '0.00000004');
   await drawer.getByTestId('button-save-bulk-pricing').click();
   await expect.poll(() => bulkRequests.length).toBe(2);
   expect(bulkRequests[1].items).toEqual(amountRules.map(rule => ({ id: rule.id, version: 2 })));
   expect(bulkRequests[1].patch).toEqual({
     amountBasedPricingEnabled: true,
-    amountBasedPricingTiers: storedTiers,
+    amountBasedPricingTiers: [
+      { ...storedTiers[0], fixedFee: '0' },
+      { ...storedTiers[1], fixedFee: '0.00000004', direction: 'GIVE_MORE' },
+    ],
   });
+  expect(bulkRequests[1].patch).not.toHaveProperty('fixedFee');
   await expect(drawer).toHaveCount(0);
 
   await page.getByTestId('checkbox-select-visible-pricing').check();
@@ -343,7 +446,7 @@ test('operators use canonical settlement options for pricing, preview, and legac
           targetNetwork: null,
           paymentMethod: null,
           payoutMethod: null,
-          markupBasisPoints: 50,
+          markupBasisPoints: 0,
         });
       } else if (input.name === 'Any source to BTC') {
         expect(input).toMatchObject({
@@ -355,8 +458,8 @@ test('operators use canonical settlement options for pricing, preview, and legac
           targetNetwork: 'Bitcoin',
           paymentMethod: null,
           payoutMethod: null,
-          markupBasisPoints: 125,
-          fixedFee: '0.0001',
+          markupBasisPoints: 0,
+          fixedFee: null,
         });
       } else {
         expect(input).toMatchObject({
@@ -369,13 +472,16 @@ test('operators use canonical settlement options for pricing, preview, and legac
           paymentMethod: null,
           payoutMethod: null,
         });
-        expect(input.markupBasisPoints).toBe(
-          input.name === 'Exact USD to EUR route'
-            ? 600
-            : input.name === 'Fractional USD to EUR route'
-              ? 60
-              : -1,
-        );
+        expect(input.markupBasisPoints).toBe(0);
+        expect(input.adjustmentDirection).toBe('MARKUP');
+        expect(input.fixedFee).toBeNull();
+        expect(input.minAmount).toBeNull();
+        expect(input.maxAmount).toBeNull();
+        if (input.name === 'Exact USD to EUR route') {
+          expect(input.amountBasedPricingTiers).toEqual([
+            { minAmount: '200', maxAmount: '500', percentage: '1.5', fixedFee: '0.0042', direction: 'MARKUP' },
+          ]);
+        }
       }
       const created = { ...input, id: `00000000-0000-4000-8000-${String(rules.length + 101).padStart(12, '0')}`, version: 1, specificity: 2, missingSettlementOptionIds: [], createdAt: now, updatedAt: now };
       rules = [...rules, created];
@@ -505,16 +611,16 @@ test('operators use canonical settlement options for pricing, preview, and legac
   await page.getByTestId('input-pricing-enabled').check();
   await page.getByTestId('button-close-pricing-drawer').click();
   await page.getByTestId('button-add-pricing-rule').click();
-  await expect(page.getByTestId('input-pricing-time')).toHaveCount(0);
-  await expect(page.getByTestId('input-pricing-priority')).toHaveCount(0);
+  await expect(page.getByTestId('input-pricing-time')).toBeVisible();
+  await expect(page.getByTestId('input-pricing-priority')).toBeVisible();
   const pricingFieldGeometry = await page.evaluate(() => {
     const source = document.querySelector<HTMLElement>('[data-testid="select-pricing-source"]')!.getBoundingClientRect();
     const target = document.querySelector<HTMLElement>('[data-testid="select-pricing-target"]')!.getBoundingClientRect();
-    const markup = document.querySelector<HTMLElement>('[data-testid="input-pricing-markup"]')!.getBoundingClientRect();
+    const rate = document.querySelector<HTMLElement>('[data-testid="input-pricing-exact-rate"]')!.getBoundingClientRect();
     return {
       sourceWidth: source.width,
       targetWidth: target.width,
-      markupWidth: markup.width,
+      rateWidth: rate.width,
       sourceHeight: source.height,
       targetHeight: target.height,
       sideBySide: Math.abs(source.top - target.top) <= 1,
@@ -524,8 +630,8 @@ test('operators use canonical settlement options for pricing, preview, and legac
     source: Math.round(pricingFieldGeometry.sourceWidth),
     target: Math.round(pricingFieldGeometry.targetWidth),
   }).toEqual({
-    source: Math.round(pricingFieldGeometry.markupWidth),
-    target: Math.round(pricingFieldGeometry.markupWidth),
+    source: Math.round(pricingFieldGeometry.rateWidth),
+    target: Math.round(pricingFieldGeometry.rateWidth),
   });
   expect(Math.abs(pricingFieldGeometry.sourceHeight - pricingFieldGeometry.targetHeight)).toBeLessThanOrEqual(1);
   expect(pricingFieldGeometry.sideBySide).toBe(true);
@@ -534,7 +640,8 @@ test('operators use canonical settlement options for pricing, preview, and legac
   await page.getByTestId('option-pricing-source-usd-bank').click();
   await page.getByTestId('select-pricing-target').click();
   await page.getByTestId('option-pricing-target-eur-bank').click();
-  await page.getByTestId('input-pricing-markup').fill('6');
+  await expect(page.getByTestId('input-pricing-markup')).toHaveCount(0);
+  await addRange(page, 'single', '200', '500', '1.5', 'MARKUP', '0.0042');
   await page.getByTestId('button-save-pricing-rule').click();
   await expect.poll(() => rules.find(rule => rule.name === 'Exact USD to EUR route')?.id).toBeTruthy();
   const exactRuleId = rules.find(rule => rule.name === 'Exact USD to EUR route')!.id;
@@ -546,7 +653,6 @@ test('operators use canonical settlement options for pricing, preview, and legac
   await page.getByTestId('option-pricing-source-usd-bank').click();
   await page.getByTestId('select-pricing-target').click();
   await page.getByTestId('option-pricing-target-eur-bank').click();
-  await page.getByTestId('input-pricing-markup').fill('0.6');
   await page.getByTestId('button-save-pricing-rule').click();
   await expect.poll(() => rules.find(rule => rule.name === 'Fractional USD to EUR route')?.id).toBeTruthy();
   const fractionalRuleId = rules.find(rule => rule.name === 'Fractional USD to EUR route')!.id;
@@ -555,7 +661,6 @@ test('operators use canonical settlement options for pricing, preview, and legac
   await page.getByTestId('button-add-pricing-rule').click();
   await page.getByTestId('input-pricing-name').fill('Global fallback');
   await expect(page.getByTestId('button-save-pricing-rule')).toBeEnabled();
-  await page.getByTestId('input-pricing-markup').fill('0.5');
   await page.getByTestId('button-save-pricing-rule').click();
   await expect.poll(() => rules.find(rule => rule.name === 'Global fallback')?.id).toBeTruthy();
   const globalFallbackRuleId = rules.at(-1).id;
@@ -725,14 +830,14 @@ test('operators use canonical settlement options for pricing, preview, and legac
 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.getByTestId(`button-edit-pricing-${rules[0].id}`).click();
-  await expect(page.getByTestId('input-pricing-markup')).toHaveValue('0.75');
+  await expect(page.getByTestId('input-pricing-markup')).toHaveCount(0);
   await page.getByTestId('button-close-pricing-drawer').click();
   await page.getByTestId(`button-edit-pricing-${rules[1].id}`).click();
-  await expect(page.getByTestId('input-pricing-markup')).toBeDisabled();
+  await expect(page.getByTestId('input-pricing-markup')).toHaveCount(0);
   await expect(page.getByTestId('button-save-pricing-rule')).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole('dialog', { name: 'Edit pricing rule' })).toBeVisible();
-  await expect(page.getByTestId('input-pricing-markup')).toBeDisabled();
+  await expect(page.getByTestId('input-pricing-markup')).toHaveCount(0);
   await page.getByTestId('button-close-pricing-drawer').click();
 
   await page.getByTestId('button-add-pricing-rule').click();
@@ -965,11 +1070,11 @@ test('Price a route selectors stay inside the Live Preview card at supported wid
     const fieldGeometry = await page.evaluate(() => {
       const source = document.querySelector<HTMLElement>('[data-testid="select-pricing-source"]')!.getBoundingClientRect();
       const target = document.querySelector<HTMLElement>('[data-testid="select-pricing-target"]')!.getBoundingClientRect();
-      const markup = document.querySelector<HTMLElement>('[data-testid="input-pricing-markup"]')!.getBoundingClientRect();
+      const rate = document.querySelector<HTMLElement>('[data-testid="input-pricing-exact-rate"]')!.getBoundingClientRect();
       return {
         sourceWidth: source.width,
         targetWidth: target.width,
-        markupWidth: markup.width,
+        markupWidth: rate.width,
         sourceHeight: source.height,
         targetHeight: target.height,
         sameRow: Math.abs(source.top - target.top) <= 1,

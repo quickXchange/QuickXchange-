@@ -117,7 +117,8 @@ test("workspace snapshots preserve amount tiers and existing manual pricing rout
     adjustmentDirection: "MARKUP",
     amountBasedPricingEnabled: true,
     amountBasedPricingTiers: [
-      { minAmount: "0", maxAmount: null, percentage: "1.005", direction: "GIVE_MORE" },
+      { minAmount: "0", maxAmount: "100", percentage: "1.005", direction: "GIVE_MORE", fixedFee: "0.025" },
+      { minAmount: "100", maxAmount: null, percentage: "2", direction: "MARKUP" },
     ],
     fixedFee: "0.10",
     exactRate: null,
@@ -136,6 +137,8 @@ test("workspace snapshots preserve amount tiers and existing manual pricing rout
   assert.equal(restored.targetAsset, rule.targetAsset);
   assert.equal(restored.amountBasedPricingEnabled, true);
   assert.deepEqual(restored.amountBasedPricingTiers, rule.amountBasedPricingTiers);
+  assert.equal(restored.amountBasedPricingTiers?.[0]?.fixedFee, "0.025");
+  assert.equal(Object.hasOwn(restored.amountBasedPricingTiers?.[1] ?? {}, "fixedFee"), false);
 });
 
 test("legacy workspace snapshots default amount pricing to disabled and empty tiers", () => {

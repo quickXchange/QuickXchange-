@@ -41,6 +41,7 @@ export type ManualPricingTier = {
   maxAmount: string | null;
   percentage: string;
   direction: "MARKUP" | "GIVE_MORE";
+  fixedFee?: string;
 };
 
 type ExactDecimal = { coefficient: bigint; scale: number };
@@ -93,13 +94,16 @@ export function validateManualPricingTiers(
         typeof tier.minAmount !== "string" ||
         !(tier.maxAmount === null || typeof tier.maxAmount === "string") ||
         typeof tier.percentage !== "string" ||
+        (tier.fixedFee !== undefined && typeof tier.fixedFee !== "string") ||
         (tier.direction !== "MARKUP" && tier.direction !== "GIVE_MORE")) {
       throw new ApiError("VALIDATION_ERROR", `Amount tier ${index + 1} is invalid.`, 400);
     }
     const min = exactDecimal(tier.minAmount);
     const max = tier.maxAmount === null ? null : exactDecimal(tier.maxAmount);
     const percentage = exactDecimal(tier.percentage);
-    if (!min || (tier.maxAmount !== null && !max) || !percentage) {
+    const fixedFee = tier.fixedFee === undefined ? undefined : exactDecimal(tier.fixedFee);
+    if (!min || (tier.maxAmount !== null && !max) || !percentage ||
+        (tier.fixedFee !== undefined && !fixedFee)) {
       throw new ApiError("VALIDATION_ERROR", `Amount tier ${index + 1} must use exact non-negative decimals.`, 400);
     }
     if (max && compareExactDecimals(max, min) <= 0) {

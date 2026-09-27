@@ -3318,7 +3318,7 @@ test("manual pricing bulk actions update safe rules and report skipped conflicts
       adjustmentDirection: "GIVE_MORE",
       amountBasedPricingEnabled: true,
       amountBasedPricingTiers: [
-        { minAmount: "0", maxAmount: null, percentage: "1.25", direction: "GIVE_MORE" },
+        { minAmount: "0", maxAmount: null, percentage: "1.25", direction: "GIVE_MORE", fixedFee: "0.025" },
       ],
       exactRate: "1.1",
       fixedFee: null,
@@ -7472,7 +7472,7 @@ test("manual pricing rules match deterministically, protect writes, and snapshot
       exactRate: "0.9",
       amountBasedPricingEnabled: true,
       amountBasedPricingTiers: [
-        { minAmount: "0", maxAmount: null, percentage: "1.005", direction: "MARKUP" },
+        { minAmount: "0", maxAmount: null, percentage: "1.005", direction: "MARKUP", fixedFee: "0.25" },
       ],
     }).returning();
     const created = { status: 201, body: createdRow };
@@ -7600,16 +7600,16 @@ test("manual pricing rules match deterministically, protect writes, and snapshot
     assert.equal(quote.body.pricingRuleId, created.body.id);
     assert.equal(quote.body.grossMarketAmount, 90);
     assert.equal(quote.body.percentageCommission, 0.91);
-    assert.equal(quote.body.fixedCommission, 0.1);
-    assert.equal(quote.body.totalFee, 1.01);
-    assert.equal(quote.body.receiveAmount, 88.99);
+    assert.equal(quote.body.fixedCommission, 0.25);
+    assert.equal(quote.body.totalFee, 1.16);
+    assert.equal(quote.body.receiveAmount, 88.84);
     const signedPayload = JSON.parse(
       Buffer.from(String(quote.body.quoteId).split(".")[0], "base64url").toString("utf8"),
     ) as Record<string, any>;
     assert.equal(signedPayload.pricingSnapshot.rule.amountBasedPricingEnabled, true);
     assert.deepEqual(
       signedPayload.pricingSnapshot.rule.selectedAmountBasedPricingTier,
-      { minAmount: "0", maxAmount: null, percentage: "1.005", direction: "MARKUP" },
+      { minAmount: "0", maxAmount: null, percentage: "1.005", direction: "MARKUP", fixedFee: "0.25" },
     );
     const ticketExpected = {
       type: "manual" as const,
@@ -7623,6 +7623,39 @@ test("manual pricing rules match deterministically, protect writes, and snapshot
       sourceSettlementOptionId: pricingRoute.sourceSettlementOptionId,
       targetSettlementOptionId: pricingRoute.targetSettlementOptionId,
     };
+    const {
+      fixedFee: _tierFixedFee,
+      ...legacySelectedTier
+    } = signedPayload.pricingSnapshot.rule.selectedAmountBasedPricingTier;
+    const legacyInheritedFee = {
+      ...signedPayload,
+      receiveAmount: 88.99,
+      rate: 0.8899,
+      fee: 1.01,
+      fixedCommission: 0.1,
+      totalFee: 1.01,
+      pricingSnapshot: {
+        ...signedPayload.pricingSnapshot,
+        rule: {
+          ...signedPayload.pricingSnapshot.rule,
+          amountBasedPricingTiers: [legacySelectedTier],
+          selectedAmountBasedPricingTier: legacySelectedTier,
+        },
+        amounts: {
+          ...signedPayload.pricingSnapshot.amounts,
+          fixedCommission: "0.1",
+          totalFee: "1.01",
+          receiveAmount: "88.99",
+          finalRate: "0.8899",
+        },
+      },
+    };
+    assert.equal(
+      tickets.verifyQuoteTicket(
+        tickets.signQuoteTicket(legacyInheritedFee), ticketExpected,
+      ).pricingSnapshot?.amounts.fixedCommission,
+      "0.1",
+    );
     const mismatchedTier = {
       ...signedPayload,
       pricingSnapshot: {
@@ -7756,16 +7789,16 @@ test("manual pricing rules match deterministically, protect writes, and snapshot
     assert.equal(ordered.body.pricingRuleId, created.body.id);
     assert.equal(ordered.body.pricingRuleVersion, created.body.version);
     assert.equal(ordered.body.percentageCommission, "0.91");
-    assert.equal(ordered.body.totalCommission, "1.01");
+    assert.equal(ordered.body.totalCommission, "1.16");
     assert.equal(ordered.body.pricingSnapshot.rule.markupBasisPoints, 200);
     assert.equal(ordered.body.pricingSnapshot.rule.amountBasedPricingEnabled, true);
     assert.deepEqual(ordered.body.pricingSnapshot.rule.selectedAmountBasedPricingTier, {
-      minAmount: "0", maxAmount: null, percentage: "1.005", direction: "MARKUP",
+      minAmount: "0", maxAmount: null, percentage: "1.005", direction: "MARKUP", fixedFee: "0.25",
     });
     assert.equal(ordered.body.pricingSnapshot.rule.fixedFee, "0.100000000000000000");
     assert.equal(ordered.body.pricingSnapshot.reference.source.unitsPerUsd, "1");
     assert.equal(ordered.body.pricingSnapshot.reference.target.unitsPerUsd, "0.9");
-    assert.equal(ordered.body.pricingSnapshot.amounts.totalFee, "1.01");
+    assert.equal(ordered.body.pricingSnapshot.amounts.totalFee, "1.16");
 
     const revalidationQuote = await apiJson(api.url, "/exchange/quote", {
       type: "manual", fromAsset: "USD", fromNetwork: "Bank transfer",
@@ -8443,6 +8476,139 @@ test("owner order operations enforce assignment, archive, versions, and immutabl
     await deleteOrderAuditLogsForMaintenance(orderId);
     await db.delete(ordersTable).where(eq(ordersTable.id, orderId));
     await db.delete(operatorsTable).where(inArray(operatorsTable.id, [owner.id, assigned.id, other.id]));
+    await api.close();
+  }
+});
+
+test("workspace config previews and hashes fee-only tier changes", async () => {
+  const { db, operatorsTable, manualDeskPricingRulesTable } = await import("@workspace/db");
+  const operatorAuth = await import("../src/lib/operator-auth");
+  const suffix = randomUUID();
+  const ownerUserId = `user-workspace-owner-${suffix}`;
+  const ruleId = randomUUID();
+  const [owner] = await db.insert(operatorsTable).values({
+    email: `workspace-owner-${suffix}@example.test`,
+    clerkUserId: ownerUserId,
+    role: "owner",
+    status: "active",
+  }).returning();
+  operatorAuth.configureOperatorAuthorizationForTests({
+    getUserId: (req) => req.get("x-test-clerk-user-id") ?? null,
+    getVerifiedEmail: () => null,
+  });
+  const api = await startApi();
+  const headers = { "x-test-clerk-user-id": ownerUserId };
+  const originalTier = {
+    minAmount: "0",
+    maxAmount: null,
+    percentage: "1",
+    direction: "MARKUP" as const,
+    fixedFee: "0.10",
+  };
+  const updatedTier = { ...originalTier, fixedFee: "0.20" };
+  const snapshotWithTiers = (tiers: Array<{
+    minAmount: string;
+    maxAmount: string | null;
+    percentage: string;
+    direction: "MARKUP" | "GIVE_MORE";
+    fixedFee?: string;
+  }>) => ({
+    schemaVersion: 1,
+    source: { environment: "development", exportedAt: "2026-09-19T00:00:00.000Z" },
+    cryptoAssets: [],
+    cryptoNetworks: [],
+    fiatCurrencies: [],
+    paymentMethods: [],
+    fiatCurrencyPaymentMethods: [],
+    manualDeskPricingRules: [{
+      id: ruleId,
+      name: "Workspace fee tier fixture",
+      sourceAsset: null,
+      targetAsset: null,
+      sourceCryptoAssetId: null,
+      targetCryptoAssetId: null,
+      sourceNetwork: null,
+      targetNetwork: null,
+      paymentMethod: null,
+      payoutMethod: null,
+      sourceSettlementOptionId: null,
+      targetSettlementOptionId: null,
+      minAmount: null,
+      maxAmount: null,
+      operatorInstructions: null,
+      customerInstructions: null,
+      expectedSettlementMinutes: null,
+      markupBasisPoints: 100,
+      adjustmentDirection: "MARKUP",
+      amountBasedPricingEnabled: true,
+      amountBasedPricingTiers: tiers,
+      fixedFee: null,
+      exactRate: null,
+      priority: -900000,
+      enabled: false,
+    }],
+    site: { publishedPages: [], publication: null },
+    landingBackground: null,
+  });
+  try {
+    await db.insert(manualDeskPricingRulesTable).values({
+      id: ruleId,
+      name: "Workspace fee tier fixture",
+      markupBasisPoints: 100,
+      adjustmentDirection: "MARKUP",
+      amountBasedPricingEnabled: true,
+      amountBasedPricingTiers: [originalTier],
+      priority: -900000,
+      enabled: false,
+    });
+
+    const legacySnapshot = snapshotWithTiers([{
+      minAmount: "0",
+      maxAmount: null,
+      percentage: "1",
+      direction: "MARKUP",
+    }]);
+    const legacyPreview = await apiJson(
+      api.url, "/admin/workspace-config/preview", legacySnapshot, "POST", headers,
+    );
+    assert.equal(legacyPreview.status, 200, JSON.stringify(legacyPreview.body));
+    assert.equal((legacyPreview.body.counts as any).manualDeskPricingRules.counts.update, 1);
+
+    const changedSnapshot = snapshotWithTiers([updatedTier]);
+    const preview = await apiJson(
+      api.url, "/admin/workspace-config/preview", changedSnapshot, "POST", headers,
+    );
+    assert.equal(preview.status, 200, JSON.stringify(preview.body));
+    assert.equal((preview.body.counts as any).manualDeskPricingRules.counts.update, 1);
+    assert.equal(preview.body.stateHash, legacyPreview.body.stateHash);
+
+    await db.update(manualDeskPricingRulesTable)
+      .set({ amountBasedPricingTiers: [updatedTier] })
+      .where(eq(manualDeskPricingRulesTable.id, ruleId));
+    const afterFeeChange = await apiJson(
+      api.url, "/admin/workspace-config/preview", changedSnapshot, "POST", headers,
+    );
+    assert.equal(afterFeeChange.status, 200, JSON.stringify(afterFeeChange.body));
+    assert.equal((afterFeeChange.body.counts as any).manualDeskPricingRules.counts.unchanged, 1);
+    assert.notEqual(afterFeeChange.body.stateHash, preview.body.stateHash);
+
+    const staleApply = await apiJson(
+      api.url,
+      "/admin/workspace-config/apply",
+      {
+        confirmation: "WORKSPACE_CONFIG_APPLY",
+        snapshot: changedSnapshot,
+        expectedStateHash: preview.body.stateHash,
+      },
+      "POST",
+      headers,
+    );
+    assert.equal(staleApply.status, 409);
+    assert.equal(staleApply.body.code, "WORKSPACE_CONFIG_CHANGED");
+  } finally {
+    await db.delete(manualDeskPricingRulesTable)
+      .where(eq(manualDeskPricingRulesTable.id, ruleId));
+    await db.delete(operatorsTable).where(eq(operatorsTable.id, owner.id));
     await api.close();
   }
 });

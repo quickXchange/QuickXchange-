@@ -79,6 +79,15 @@ test("amount tiers reject overlaps, empty enabled sets, and invalid amounts or r
   assert.throws(() => validateManualPricingTiers(true, [
     { minAmount: "300", maxAmount: "800", percentage: "1", direction: "INVALID" as never },
   ]), /is invalid/);
+  assert.throws(() => validateManualPricingTiers(true, [
+    { minAmount: "300", maxAmount: "800", percentage: "1", direction: "MARKUP", fixedFee: "-0.01" },
+  ]), /exact non-negative decimals/);
+  assert.throws(() => validateManualPricingTiers(true, [
+    { minAmount: "300", maxAmount: "800", percentage: "1", direction: "MARKUP", fixedFee: "1e2" },
+  ]), /exact non-negative decimals/);
+  assert.throws(() => validateManualPricingTiers(true, [
+    { minAmount: "300", maxAmount: "800", percentage: "1", direction: "MARKUP", fixedFee: "1.1234567890123456789" },
+  ]), /exact non-negative decimals/);
 });
 
 test("exact path rate scales target atomic units once", async () => {
@@ -126,6 +135,39 @@ test("amount tier percentages affect live estimate math and preserve regular fal
     exactRate: "1", markupBasisPoints: 60, adjustmentDirection: "MARKUP",
   });
   assert.equal(fallback.exact.percentageCommission, "0.9");
+});
+
+test("amount tier fixed fees override only selected ranges and preserve legacy fallback", async () => {
+  const tiers = [
+    { minAmount: "100", maxAmount: "200", percentage: "1", direction: "MARKUP" as const, fixedFee: "0" },
+    { minAmount: "300", maxAmount: "400", percentage: "1", direction: "MARKUP" as const },
+  ];
+  validateManualPricingTiers(true, tiers);
+  const noFeeTier = selectManualPricingTier(tiers, "150")!;
+  const zeroFeeQuote = await getManualDeskEstimate({
+    sourceCurrency: "EUR", targetCurrency: "XMR", targetPrecision: 2, amount: 150,
+    exactRate: "1", markupBasisPoints: 900, adjustmentDirection: noFeeTier.direction,
+    percentage: noFeeTier.percentage, fixedFee: noFeeTier.fixedFee ?? "0.75",
+  });
+  assert.equal(zeroFeeQuote.exact.fixedCommission, "0");
+  assert.equal(zeroFeeQuote.exact.percentageCommission, "1.5");
+
+  const legacyTier = selectManualPricingTier(tiers, "350")!;
+  const inheritedFeeQuote = await getManualDeskEstimate({
+    sourceCurrency: "EUR", targetCurrency: "XMR", targetPrecision: 2, amount: 350,
+    exactRate: "1", markupBasisPoints: 900, adjustmentDirection: legacyTier.direction,
+    percentage: legacyTier.percentage, fixedFee: legacyTier.fixedFee ?? "0.75",
+  });
+  assert.equal(inheritedFeeQuote.exact.fixedCommission, "0.75");
+  assert.equal(inheritedFeeQuote.exact.totalFee, "4.25");
+
+  assert.equal(selectManualPricingTier(tiers, "250"), undefined);
+  const gapQuote = await getManualDeskEstimate({
+    sourceCurrency: "EUR", targetCurrency: "XMR", targetPrecision: 2, amount: 250,
+    exactRate: "1", markupBasisPoints: 100, adjustmentDirection: "MARKUP", fixedFee: "0.75",
+  });
+  assert.equal(gapQuote.exact.fixedCommission, "0.75");
+  assert.equal(gapQuote.exact.percentageCommission, "2.5");
 });
 
 test("asset selectors match every network and outrank Any", () => {

@@ -14,4 +14,5 @@ export interface ManualDeskPricingAmountTier {
   maxAmount: ExactDecimal | null;
   percentage: NonNegativeExactDecimal;
   direction: ManualDeskPricingAmountTierDirection;
+  fixedFee?: NonNegativeExactDecimal;
 }

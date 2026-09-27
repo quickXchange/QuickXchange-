@@ -5727,6 +5727,7 @@ components:
           oneOf: [{ $ref: "#/components/schemas/ExactDecimal" }, { type: "null" }]
         percentage: { $ref: "#/components/schemas/NonNegativeExactDecimal" }
         direction: { type: string, enum: [MARKUP, GIVE_MORE] }
+        fixedFee: { $ref: "#/components/schemas/NonNegativeExactDecimal" }
     ManualPricingCoveragePair:
       type: object
       additionalProperties: false

@@ -1110,7 +1110,7 @@ async function buildQuoteTicket(
     markupBasisPoints: rule.markupBasisPoints,
     adjustmentDirection: effectiveDirection,
     percentage: selectedTier?.percentage,
-    fixedFee: rule.fixedFee,
+    fixedFee: selectedTier?.fixedFee ?? rule.fixedFee,
     exactRate: rule.exactRate,
   });
   if (targetOption?.kind === "fiat-payment-method") {
@@ -1650,7 +1650,7 @@ router.post("/admin/manual-desk-pricing-rules/quote-preview", requireOperator, a
       markupBasisPoints: rule.markupBasisPoints,
       adjustmentDirection: effectiveDirection,
       percentage: selectedTier?.percentage,
-      fixedFee: rule.fixedFee,
+      fixedFee: selectedTier?.fixedFee ?? rule.fixedFee,
       exactRate: rule.exactRate,
     });
     const baseRate = rule.exactRate != null
