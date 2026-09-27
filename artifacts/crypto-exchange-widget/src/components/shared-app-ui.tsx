@@ -7,6 +7,8 @@ import { useI18n } from '@/i18n';
 
 export const SUPPORT_TELEGRAM = 'https://t.me/Quick_change_support';
 export const TELEGRAM_BOT_URL = 'https://t.me/QuickXchangeNetBot';
+// Telegram's Main Mini App deep link uses the same configured bot identity.
+export const TELEGRAM_MINI_APP_DEEP_LINK = `${TELEGRAM_BOT_URL}?startapp`;
 export const SUPPORT_EMAIL = 'support@quickchange.exchange';
 export const SUPPORT_HOURS = '24/7 Support';
 export const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');

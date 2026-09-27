@@ -1,5 +1,6 @@
 import { ArrowRight, Send, Zap, Package, FileText, User, PenTool, Globe, MessageSquare, Paperclip, Smile, Mic, Bell, RefreshCw, Rocket, Headphones } from 'lucide-react';
-import { basePath, TELEGRAM_BOT_URL } from '@/components/shared-app-ui';
+import { basePath, TELEGRAM_BOT_URL, TELEGRAM_MINI_APP_DEEP_LINK } from '@/components/shared-app-ui';
+import { TelegramMiniAppShowcase } from '@/components/telegram-mini-app-showcase';
 
 export function TelegramBotPromo() {
   return (
@@ -151,6 +152,9 @@ export function TelegramBotPromo() {
           {/* Subtle phone shadow/glow */}
           <div className="qx-telegram-phone-glow pointer-events-none absolute z-0" />
         </div>
+      </div>
+      <div className="relative z-10 -mx-3 mt-12 border-t border-blue-200/60 pt-12 dark:border-blue-300/15 sm:mx-0 md:mt-16 md:pt-16">
+        <TelegramMiniAppShowcase miniAppHref={TELEGRAM_MINI_APP_DEEP_LINK} />
       </div>
     </section>
   );
