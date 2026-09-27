@@ -2001,11 +2001,12 @@ function AdminNotificationSettings() {
     });
   };
 
-  const Toggle = ({ checked, onChange, disabled = false }: { checked: boolean, onChange: (v: boolean) => void, disabled?: boolean }) => (
+  const Toggle = ({ checked, onChange, disabled = false, label }: { checked: boolean, onChange: (v: boolean) => void, disabled?: boolean, label?: string }) => (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-label={label}
       className="qx-notif-toggle"
       data-state={checked ? 'checked' : 'unchecked'}
       disabled={disabled}
@@ -2021,7 +2022,7 @@ function AdminNotificationSettings() {
     { key: 'customerEmailOrderCreatedEnabled', title: 'Order Created', icon: <FileText size={16} />, color: 'text-blue-400', message: 'We have received your order and it is now waiting for payment.', status: 'Waiting for payment', state: 'bg-muted text-foreground' },
     { key: 'customerEmailPaymentReceivedEnabled', title: 'Payment Received', icon: <Banknote size={16} />, color: 'text-emerald-400', message: 'Your payment has been detected and is now being processed.', status: 'Payment Received', state: 'bg-emerald-500/20 text-emerald-400' },
     { key: 'customerEmailProcessingEnabled', title: 'Processing', icon: <Settings2 size={16} />, color: 'text-purple-400', message: 'We are now processing your exchange. You will receive another update soon.', status: 'Processing', state: 'bg-purple-500/20 text-purple-400' },
-    { key: 'customerEmailCompletedEnabled', title: 'Completed / Done', icon: <CheckCircle2 size={16} />, color: 'text-cyan-400', message: 'Your exchange is completed! Thank you for using QuickXchange!', status: 'Completed', state: 'bg-cyan-500/20 text-cyan-400' },
+    { key: 'customerEmailCompletedEnabled', title: 'Completed / Done', icon: <CheckCircle2 size={16} />, color: 'text-emerald-400', message: 'Your exchange is completed! Thank you for using QuickXchange!', status: 'Completed', state: 'bg-emerald-500/20 text-emerald-400' },
     { key: 'customerEmailFailedCancelledEnabled', title: 'Failed / Cancelled', icon: <XCircle size={16} />, color: 'text-red-400', message: 'Your exchange has failed or been cancelled.', status: 'Failed / Cancelled', state: 'bg-red-500/20 text-red-400' }
   ];
 
@@ -2054,15 +2055,15 @@ function AdminNotificationSettings() {
 
   return (
     <AdminShell eyebrow="Operations console" title="Notification Settings" requiredPermission="site_settings.manage">
-      <div className="qx-notif-page p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+      <div className="qx-notif-page max-w-7xl mx-auto">
+        <div className="qx-notif-topbar flex flex-col sm:flex-row sm:items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">Notification Settings</h1>
             <p className="text-sm text-slate-400">Control when and how you receive notifications</p>
           </div>
           <div className="flex items-center gap-4">
             {saveMessage && (
-              <span className={cn("text-sm font-medium", saveMessage.includes('Unable') || saveMessage.includes('Failed') ? "text-red-400" : "text-emerald-400")}>
+              <span role="status" className={cn("qx-notif-status text-xs font-medium", saveMessage.includes('Unable') || saveMessage.includes('Failed') ? "is-error" : "")}>
                 {saveMessage}
               </span>
             )}
@@ -2073,8 +2074,8 @@ function AdminNotificationSettings() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
-          <div className="space-y-6">
+        <div className="qx-notif-layout">
+          <div>
 
             {/* Admin Notifications Matrix */}
             <div className="qx-notif-card">
@@ -2087,6 +2088,8 @@ function AdminNotificationSettings() {
                   <p className="text-xs text-slate-400 mt-1">Choose which events should trigger notifications.</p>
                 </div>
                 <button
+                  type="button"
+                  aria-pressed={Boolean(draft.adminNotificationsEnabled)}
                   className={cn(
                     "flex items-center gap-2 px-3 py-1.5 rounded-full border transition-colors cursor-pointer",
                     draft.adminNotificationsEnabled
@@ -2121,8 +2124,8 @@ function AdminNotificationSettings() {
                           </div>
                         </div>
                       </td>
-                      <td><Toggle checked={Boolean(draft.adminEmailOrderCreatedEnabled)} onChange={v => set('adminEmailOrderCreatedEnabled', v)} /></td>
-                      <td><Toggle checked={Boolean(draft.adminTelegramOrderCreatedEnabled)} onChange={v => set('adminTelegramOrderCreatedEnabled', v)} /></td>
+                      <td><Toggle label="New order admin email" checked={Boolean(draft.adminEmailOrderCreatedEnabled)} onChange={v => set('adminEmailOrderCreatedEnabled', v)} /></td>
+                      <td><Toggle label="New order admin Telegram" checked={Boolean(draft.adminTelegramOrderCreatedEnabled)} onChange={v => set('adminTelegramOrderCreatedEnabled', v)} /></td>
                     </tr>
                     <tr>
                       <td>
@@ -2131,8 +2134,8 @@ function AdminNotificationSettings() {
                           <span className="text-sm font-medium text-white block">Payment Received</span>
                         </div>
                       </td>
-                      <td><Toggle checked={Boolean(draft.adminEmailPaymentReceivedEnabled)} onChange={v => set('adminEmailPaymentReceivedEnabled', v)} /></td>
-                      <td><Toggle checked={Boolean(draft.adminTelegramPaymentReceivedEnabled)} onChange={v => set('adminTelegramPaymentReceivedEnabled', v)} /></td>
+                      <td><Toggle label="Payment received admin email" checked={Boolean(draft.adminEmailPaymentReceivedEnabled)} onChange={v => set('adminEmailPaymentReceivedEnabled', v)} /></td>
+                      <td><Toggle label="Payment received admin Telegram" checked={Boolean(draft.adminTelegramPaymentReceivedEnabled)} onChange={v => set('adminTelegramPaymentReceivedEnabled', v)} /></td>
                     </tr>
                     <tr>
                       <td>
@@ -2141,8 +2144,8 @@ function AdminNotificationSettings() {
                           <span className="text-sm font-medium text-white block">Order Processing</span>
                         </div>
                       </td>
-                      <td><Toggle checked={Boolean(draft.adminEmailProcessingEnabled)} onChange={v => set('adminEmailProcessingEnabled', v)} /></td>
-                      <td><Toggle checked={Boolean(draft.adminTelegramProcessingEnabled)} onChange={v => set('adminTelegramProcessingEnabled', v)} /></td>
+                      <td><Toggle label="Order processing admin email" checked={Boolean(draft.adminEmailProcessingEnabled)} onChange={v => set('adminEmailProcessingEnabled', v)} /></td>
+                      <td><Toggle label="Order processing admin Telegram" checked={Boolean(draft.adminTelegramProcessingEnabled)} onChange={v => set('adminTelegramProcessingEnabled', v)} /></td>
                     </tr>
                     <tr>
                       <td>
@@ -2151,8 +2154,8 @@ function AdminNotificationSettings() {
                           <span className="text-sm font-medium text-white block">Order Completed</span>
                         </div>
                       </td>
-                      <td><Toggle checked={Boolean(draft.adminEmailCompletedEnabled)} onChange={v => set('adminEmailCompletedEnabled', v)} /></td>
-                      <td><Toggle checked={Boolean(draft.adminTelegramCompletedEnabled)} onChange={v => set('adminTelegramCompletedEnabled', v)} /></td>
+                      <td><Toggle label="Order completed admin email" checked={Boolean(draft.adminEmailCompletedEnabled)} onChange={v => set('adminEmailCompletedEnabled', v)} /></td>
+                      <td><Toggle label="Order completed admin Telegram" checked={Boolean(draft.adminTelegramCompletedEnabled)} onChange={v => set('adminTelegramCompletedEnabled', v)} /></td>
                     </tr>
                     <tr>
                       <td>
@@ -2161,8 +2164,8 @@ function AdminNotificationSettings() {
                           <span className="text-sm font-medium text-white block">Order Failed / Cancelled</span>
                         </div>
                       </td>
-                      <td><Toggle checked={Boolean(draft.adminEmailFailedCancelledEnabled)} onChange={v => set('adminEmailFailedCancelledEnabled', v)} /></td>
-                      <td><Toggle checked={Boolean(draft.adminTelegramFailedCancelledEnabled)} onChange={v => set('adminTelegramFailedCancelledEnabled', v)} /></td>
+                      <td><Toggle label="Order failed or cancelled admin email" checked={Boolean(draft.adminEmailFailedCancelledEnabled)} onChange={v => set('adminEmailFailedCancelledEnabled', v)} /></td>
+                      <td><Toggle label="Order failed or cancelled admin Telegram" checked={Boolean(draft.adminTelegramFailedCancelledEnabled)} onChange={v => set('adminTelegramFailedCancelledEnabled', v)} /></td>
                     </tr>
                   </tbody>
                 </table>
@@ -2170,7 +2173,8 @@ function AdminNotificationSettings() {
             </div>
 
             {/* Config Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="qx-notif-channels">
+              <div className="qx-notif-channel-stack">
               {/* Admin Email */}
               <div className="qx-notif-card">
                 <div className="qx-notif-card-header border-b-0 pb-0">
@@ -2178,7 +2182,7 @@ function AdminNotificationSettings() {
                     <Mail size={16} className="text-slate-400" />
                     Admin Email
                   </h3>
-                   <Toggle checked={Boolean(draft.adminEmailEnabled)} onChange={v => set('adminEmailEnabled', v)} />
+                   <Toggle label="Admin email notifications" checked={Boolean(draft.adminEmailEnabled)} onChange={v => set('adminEmailEnabled', v)} />
                 </div>
                 <div className="qx-notif-card-body pt-2">
                   <p className="text-[11px] text-slate-400 mb-3">Receive notifications at this email address</p>
@@ -2192,20 +2196,36 @@ function AdminNotificationSettings() {
                     <p className="mt-2 text-[10px] text-amber-300">Save this address before sending a test email.</p>
                   )}
                   <div className="mt-3 flex items-center justify-between">
-                    <button className="text-xs text-slate-300 hover:text-white flex items-center gap-1" onClick={save} disabled={update.isPending}>
+                    <button className="qx-notif-btn qx-notif-btn-secondary flex items-center gap-1" onClick={save} disabled={update.isPending}>
                       <Save size={12} /> Save
                     </button>
-                    <button className="text-xs text-blue-400 hover:text-blue-300 ml-auto flex items-center gap-1" onClick={handleTestEmail} disabled={testEmail.isPending || update.isPending || !query.data?.adminNotificationEmail || String(draft.adminNotificationEmail ?? '').trim() !== String(query.data?.adminNotificationEmail ?? '').trim()}>
+                    <button className="qx-notif-btn qx-notif-btn-secondary ml-auto flex items-center gap-1" onClick={handleTestEmail} disabled={testEmail.isPending || update.isPending || !query.data?.adminNotificationEmail || String(draft.adminNotificationEmail ?? '').trim() !== String(query.data?.adminNotificationEmail ?? '').trim()}>
                       {testEmail.isPending ? <RefreshCw size={12} className="animate-spin" /> : <Play size={12} />} Send Test Email
                     </button>
                   </div>
                   {testResult?.type === 'email' && (
-                    <span className={cn("mt-2 text-[10px] flex items-center gap-1", testResult.success ? "text-emerald-400" : "text-red-400")}>
+                    <span role="status" className={cn("qx-notif-status mt-2 text-[10px] flex items-center gap-1", testResult.success ? "" : "is-error")}>
                       {testResult.success ? <Check size={12} /> : <X size={12} />}
                       {testResult.message}
                     </span>
                   )}
                 </div>
+              </div>
+
+              {/* Trustpilot */}
+              <div className="qx-notif-card">
+                <div className="qx-notif-card-header border-b-0 pb-0">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Star size={16} className="text-emerald-400" />
+                    Trustpilot
+                  </h3>
+                </div>
+                <div className="qx-notif-card-body pt-2">
+                  <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Trustpilot Review URL</label>
+                  <p className="text-[11px] text-slate-400 mb-3">Shown to customers only after Completed / Done.</p>
+                  <input className="qx-notif-input" placeholder="https://www.trustpilot.com/review/..." value={String(draft.trustpilotReviewUrl ?? '')} onChange={e => set('trustpilotReviewUrl', e.target.value)} />
+                </div>
+              </div>
               </div>
 
               {/* Telegram Notifications */}
@@ -2215,7 +2235,7 @@ function AdminNotificationSettings() {
                     <SiTelegram size={16} className="text-blue-400" />
                     Telegram Notifications
                   </h3>
-                   <Toggle checked={Boolean(draft.telegramEnabled && hasTgConnection)} onChange={v => set('telegramEnabled', v)} disabled={!hasTgConnection} />
+                   <Toggle label="Admin Telegram notifications" checked={Boolean(draft.telegramEnabled && hasTgConnection)} onChange={v => set('telegramEnabled', v)} disabled={!hasTgConnection} />
                 </div>
                 <div className="qx-notif-card-body pt-2">
                   <p className="text-[11px] text-slate-400 mb-3">Connect the bot in a private chat, then enable and save the events you want to receive.</p>
@@ -2257,41 +2277,27 @@ function AdminNotificationSettings() {
                       {Boolean(draft.adminTelegramUsername) && <div className="text-[10px] text-slate-400">Username: @{String(draft.adminTelegramUsername)}</div>}
                       <div className="text-[10px] text-slate-400">Chat ID: ********{String(draft.adminTelegramChatId).slice(-4)}</div>
                       <div className="flex items-center justify-between gap-2">
-                        <button className="text-[11px] text-red-400 hover:text-red-300" onClick={handleDisconnectTg} disabled={disconnectTg.isPending}>Disconnect</button>
-                        <button className="text-[11px] text-blue-400 hover:text-blue-300 flex items-center gap-1" onClick={handleTestTg} disabled={testTelegram.isPending}>
+                        <button className="qx-notif-btn qx-notif-btn-outline text-red-400" onClick={handleDisconnectTg} disabled={disconnectTg.isPending}>Disconnect</button>
+                        <button className="qx-notif-btn qx-notif-btn-secondary flex items-center gap-1" onClick={handleTestTg} disabled={testTelegram.isPending}>
                           {testTelegram.isPending ? <RefreshCw size={10} className="animate-spin" /> : <Play size={10} />} Send Test Telegram
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <button className="text-[11px] text-blue-400 hover:text-blue-300 mt-2 flex items-center gap-1 pt-1" onClick={handleConnectTg} disabled={createTgLink.isPending || Boolean(telegramHealth.data?.botIdentityError) || telegramHealth.data?.configured === false}>
+                    <button className="qx-notif-btn qx-notif-btn-secondary mt-2 flex items-center gap-1" onClick={handleConnectTg} disabled={createTgLink.isPending || Boolean(telegramHealth.data?.botIdentityError) || telegramHealth.data?.configured === false}>
                       <SiTelegram size={12} /> Connect Telegram
                     </button>
                   )}
                   {!hasTgConnection && <p className="mt-2 text-[10px] text-amber-300">No Admin Telegram chat is linked. Telegram alerts cannot be sent until connection succeeds.</p>}
                   <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">Phone number is contact information only and is never used as a Telegram Chat ID.</p>
                   {testResult?.type === 'telegram' && (
-                    <div className={cn("mt-2 text-[10px] flex items-center gap-1", testResult.success ? "text-emerald-400" : "text-red-400")}>
+                    <div role="status" className={cn("qx-notif-status mt-2 text-[10px] flex items-center gap-1", testResult.success ? "" : "is-error")}>
                       {testResult.success ? <Check size={11} /> : <X size={11} />}{testResult.message}
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Trustpilot */}
-              <div className="qx-notif-card">
-                <div className="qx-notif-card-header border-b-0 pb-0">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Star size={16} className="text-emerald-400" />
-                    Trustpilot
-                  </h3>
-                </div>
-                <div className="qx-notif-card-body pt-2">
-                  <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Trustpilot Review URL</label>
-                  <p className="text-[11px] text-slate-400 mb-3">Shown to customers only after Completed / Done.</p>
-                  <input className="qx-notif-input" placeholder="https://www.trustpilot.com/review/..." value={String(draft.trustpilotReviewUrl ?? '')} onChange={e => set('trustpilotReviewUrl', e.target.value)} />
-                </div>
-              </div>
             </div>
 
             {/* Customer Email Notifications */}
@@ -2313,20 +2319,20 @@ function AdminNotificationSettings() {
                   </button>
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold text-slate-300">Master Switch</span>
-                    <Toggle checked={Boolean(draft.emailEnabled)} onChange={v => set('emailEnabled', v)} />
+                    <Toggle label="Customer email notifications" checked={Boolean(draft.emailEnabled)} onChange={v => set('emailEnabled', v)} />
                   </div>
                 </div>
               </div>
               <div className="qx-notif-card-body">
                 <div className="qx-preview-grid">
                   {customerEmailExamples.map((ex, i) => (
-                    <div key={i} className={cn("qx-preview-card flex flex-col transition-all duration-300", !draft[ex.key] && "opacity-50 grayscale")}>
+                    <div key={i} className={cn("qx-preview-card flex flex-col transition-all duration-300", !draft[ex.key] && "opacity-60")}>
                       <div className="flex items-center justify-between mb-4">
                         <span className="text-xs font-semibold text-slate-300">{ex.title}</span>
-                        <Toggle checked={Boolean(draft[ex.key])} onChange={v => set(ex.key, v)} />
+                        <Toggle label={`${ex.title} customer email`} checked={Boolean(draft[ex.key])} onChange={v => set(ex.key, v)} />
                       </div>
 
-                      <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-800 flex-1 flex flex-col">
+                      <div className="qx-email-sample flex-1 flex flex-col">
                         <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-800">
                           <div className="w-6 h-6 rounded bg-blue-500/20 flex items-center justify-center">
                             <span className="text-blue-400 font-bold text-[10px]">QX</span>
@@ -2349,13 +2355,13 @@ function AdminNotificationSettings() {
                           </div>
                         </div>
 
-                        <button className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-bold transition-colors">
+                        <div className="qx-notif-sample-action w-full">
                           View Order →
-                        </button>
+                        </div>
                         {ex.key === 'customerEmailCompletedEnabled' && (
                           <div className="mt-2 grid gap-2">
-                            <div className="w-full py-2 text-center border border-slate-700 text-slate-200 rounded text-xs font-semibold">Download Invoice</div>
-                            <div className="w-full py-2 text-center bg-emerald-500/15 text-emerald-400 rounded text-xs font-semibold">Review us on Trustpilot</div>
+                            <div className="qx-notif-sample-action is-secondary w-full">Download Invoice / PDF</div>
+                            <div className="qx-notif-sample-action is-success w-full">Review us on Trustpilot</div>
                           </div>
                         )}
                       </div>
@@ -2368,16 +2374,16 @@ function AdminNotificationSettings() {
           </div>
 
           {/* Admin Telegram Preview */}
-          <div className="hidden lg:block">
-            <div className="qx-notif-card sticky top-6">
-              <div className="qx-notif-card-header bg-slate-900/80 justify-center">
+          <div className="qx-telegram-sample">
+            <div className="qx-notif-card">
+              <div className="qx-notif-card-header">
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <SiTelegram size={16} className="text-blue-400" />
                   Telegram Notification (Admin)
                 </h3>
               </div>
-              <div className="qx-notif-card-body bg-[#0E1629] p-4">
-                <div className="bg-[#1C2438] rounded-xl p-4 border border-slate-700/50 shadow-lg">
+              <div className="qx-notif-card-body">
+                <div className="qx-telegram-message rounded-xl">
                   <div className="flex items-center gap-2 mb-4">
                     <div className="w-6 h-6 rounded bg-blue-500 flex items-center justify-center">
                       <span className="text-white font-bold text-[10px]">QX</span>
@@ -2414,9 +2420,9 @@ function AdminNotificationSettings() {
                       </div>
                     </div>
 
-                    <button className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2 mt-4">
+                    <div className="qx-notif-sample-action w-full mt-4">
                       Open Order
-                    </button>
+                    </div>
                     <div className="text-right text-[10px] text-slate-500 mt-1">14:32</div>
                   </div>
                 </div>
@@ -2429,7 +2435,7 @@ function AdminNotificationSettings() {
 
       {/* Email Templates Editor Dialog */}
       <Dialog open={isTemplatesOpen} onOpenChange={setIsTemplatesOpen}>
-        <DialogContent className="max-w-5xl bg-[#030712] border-slate-800 text-slate-200 p-0 overflow-hidden shadow-2xl">
+        <DialogContent className="qx-notif-dialog p-0">
           <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
             <div>
               <DialogTitle className="text-lg font-bold text-white flex items-center gap-2">
@@ -2442,7 +2448,7 @@ function AdminNotificationSettings() {
             </div>
             <div className="flex items-center gap-3">
               {testResult?.type === 'template' && (
-                <span className={cn("text-xs font-medium", testResult.success ? "text-emerald-400" : "text-red-400")}>
+                <span role="status" className={cn("text-xs font-medium", testResult.success ? "text-emerald-400" : "text-red-400")}>
                   {testResult.message}
                 </span>
               )}
@@ -2478,40 +2484,40 @@ function AdminNotificationSettings() {
             <div className="qx-template-sidebar p-4 bg-slate-900/20">
               <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 px-2">Events</h4>
               <div className="space-y-1">
-                <div className="qx-template-item" data-active={selectedTemplateKind === 'order_created'} onClick={() => setSelectedTemplateKind('order_created')}>
+                <button type="button" className="qx-template-item block w-full text-left" data-active={selectedTemplateKind === 'order_created'} onClick={() => setSelectedTemplateKind('order_created')}>
                   <div className="text-sm font-bold text-slate-200">Order Created</div>
                   <div className="text-[10px] text-slate-500 mt-1">Awaiting funds notification</div>
-                </div>
-                <div className="qx-template-item" data-active={selectedTemplateKind === 'payment_received'} onClick={() => setSelectedTemplateKind('payment_received')}>
+                </button>
+                <button type="button" className="qx-template-item block w-full text-left" data-active={selectedTemplateKind === 'payment_received'} onClick={() => setSelectedTemplateKind('payment_received')}>
                   <div className="text-sm font-bold text-slate-200">Payment Received</div>
                   <div className="text-[10px] text-slate-500 mt-1">Authoritative deposit confirmed</div>
-                </div>
-                <div className="qx-template-item" data-active={selectedTemplateKind === 'processing'} onClick={() => setSelectedTemplateKind('processing')}>
+                </button>
+                <button type="button" className="qx-template-item block w-full text-left" data-active={selectedTemplateKind === 'processing'} onClick={() => setSelectedTemplateKind('processing')}>
                   <div className="text-sm font-bold text-slate-200">Order Processing</div>
                   <div className="text-[10px] text-slate-500 mt-1">Execution has begun</div>
-                </div>
-                <div className="qx-template-item" data-active={selectedTemplateKind === 'completed'} onClick={() => setSelectedTemplateKind('completed')}>
+                </button>
+                <button type="button" className="qx-template-item block w-full text-left" data-active={selectedTemplateKind === 'completed'} onClick={() => setSelectedTemplateKind('completed')}>
                   <div className="text-sm font-bold text-slate-200">Order Completed</div>
                   <div className="text-[10px] text-slate-500 mt-1">Funds successfully dispatched</div>
-                </div>
-                <div className="qx-template-item" data-active={selectedTemplateKind === 'failed_cancelled'} onClick={() => setSelectedTemplateKind('failed_cancelled')}>
+                </button>
+                <button type="button" className="qx-template-item block w-full text-left" data-active={selectedTemplateKind === 'failed_cancelled'} onClick={() => setSelectedTemplateKind('failed_cancelled')}>
                   <div className="text-sm font-bold text-slate-200">Failed / Cancelled</div>
                   <div className="text-[10px] text-slate-500 mt-1">Order aborted or failed</div>
-                </div>
+                </button>
               </div>
 
               <div className="mt-8 px-2">
                 <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Available Variables</h4>
                 <div className="flex flex-wrap gap-2">
                   {variables.map(v => (
-                    <span
+                    <button type="button"
                       key={v}
                       className="qx-variable-badge"
                       title="Click to copy"
                       onClick={() => navigator.clipboard.writeText(v)}
                     >
                       {v}
-                    </span>
+                    </button>
                   ))}
                 </div>
                 <p className="text-[10px] text-slate-500 mt-3 leading-relaxed">
@@ -2580,7 +2586,7 @@ function AdminNotificationSettings() {
             {/* Preview */}
             <div className="qx-template-preview p-6 bg-slate-900/10">
               <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Preview</h4>
-              <div className="bg-white rounded-lg p-6 shadow-xl text-slate-900">
+              <div className="qx-template-email bg-white rounded-lg text-slate-900">
                 <div className="flex justify-center mb-6 border-b pb-6 border-slate-200">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded bg-blue-600 flex items-center justify-center">
@@ -2614,7 +2620,7 @@ function AdminNotificationSettings() {
 
                 {activeTemplate.buttonText && (
                   <div className="mb-8">
-                    <span className="inline-block bg-blue-600 text-white font-bold text-sm px-6 py-3 rounded-lg">
+                    <span className="qx-notif-sample-action">
                       {activeTemplate.buttonText}
                     </span>
                   </div>
