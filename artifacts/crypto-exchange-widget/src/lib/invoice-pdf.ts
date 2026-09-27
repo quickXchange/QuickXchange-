@@ -244,3 +244,12 @@ export async function buildInvoicePdf(invoice: InvoiceSnapshot): Promise<Blob> {
   const bytes = await doc.save();
   return new Blob([new Uint8Array(bytes)], { type: 'application/pdf' });
 }
+
+export async function downloadInvoicePdf(invoice: InvoiceSnapshot): Promise<void> {
+  const url = URL.createObjectURL(await buildInvoicePdf(invoice));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `quickxchange-invoice-${invoice.id}.pdf`;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+}

@@ -18,6 +18,17 @@ export type InvoiceSnapshot = {
   receivingFields: Array<{ label: string; value: string }>;
 };
 
+export function isCompletedInvoiceOrder(
+  order: Pick<InvoiceOrder, 'type' | 'status' | 'outcomeUnknown'> & { refreshUnavailable?: boolean },
+  refreshWarning = false,
+): boolean {
+  const completed = order.type === 'manual'
+    ? /^(?:completed|complete|done|finished)$/i.test(order.status.trim())
+    : /^(?:completed|done)$/i.test(order.status.trim());
+  return completed && !order.outcomeUnknown &&
+    (order.type !== 'manual' || (!order.refreshUnavailable && !refreshWarning));
+}
+
 const meaningful = (value: unknown): string | undefined =>
   typeof value === 'string' && value.trim() ? value.trim() : undefined;
 
@@ -26,13 +37,17 @@ const meaningful = (value: unknown): string | undefined =>
  * In particular, never flatten paymentDetails, settlementDetails or provider data.
  */
 export function invoiceSnapshot(order: InvoiceOrder): InvoiceSnapshot {
-  const details = order.step2Details ?? [];
+  // Provider Convert projections differ by viewing surface. Do not let
+  // optional/custom historical data appear in one party's invoice but not
+  // the other's; no provider fee or custom field is inferred here.
+  const details = order.type === 'manual' ? order.step2Details ?? [] : [];
   const receivingFields = details.flatMap(({ label, value }) => {
     const safeLabel = meaningful(label);
     const safeValue = meaningful(value);
     return safeLabel && safeValue ? [{ label: safeLabel, value: safeValue }] : [];
   });
-  const paymentMethod = meaningful(order.sourcePaymentMethod?.name);
+  const paymentMethod = order.type === 'manual'
+    ? meaningful(order.sourcePaymentMethod?.name) : undefined;
   if (paymentMethod && !receivingFields.some(field =>
     /^(?:payment method|bank)$/i.test(field.label) && field.value === paymentMethod)) {
     receivingFields.unshift({ label: 'Payment Method', value: paymentMethod });
@@ -47,10 +62,10 @@ export function invoiceSnapshot(order: InvoiceOrder): InvoiceSnapshot {
     receiveAmount: String(order.receiveAmount),
     sendNetwork: meaningful(order.fromNetwork),
     receiveMethod: meaningful(order.toNetwork),
-    rate: meaningful(order.exchangeRate),
+    rate: order.type === 'manual' ? meaningful(order.exchangeRate) : undefined,
     createdAt: order.createdAt,
     completedAt: meaningful(order.completedAt),
-    fee: order.receiptFee && /^(?:(?!0(?:\.0+)?$)\d+(?:\.\d+)?)$/.test(order.receiptFee.amount)
+    fee: order.type === 'manual' && order.receiptFee && /^(?:(?!0(?:\.0+)?$)\d+(?:\.\d+)?)$/.test(order.receiptFee.amount)
       ? { amount: order.receiptFee.amount, asset: order.receiptFee.asset }
       : undefined,
     receivingFields,

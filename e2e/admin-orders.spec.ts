@@ -1,4 +1,8 @@
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { expect, test } from '@playwright/test';
+
+const run = promisify(execFile);
 
 const quickexOrder = {
   id: 'QX-11111111-1111-4111-8111-111111111111',
@@ -88,6 +92,49 @@ const manualOrder = {
   createdAt: '2025-06-12T10:00:00.000Z',
 };
 
+const manualInvoiceProjection = {
+  id: manualOrder.id,
+  type: 'manual',
+  status: 'completed',
+  outcomeUnknown: false,
+  refreshUnavailable: false,
+  fromAsset: 'USDT',
+  fromNetwork: 'BEP20',
+  toAsset: 'EUR',
+  toNetwork: 'SEPA transfer',
+  amount: '10',
+  receiveAmount: '8.33',
+  exchangeRate: '0.833',
+  receiptFee: { amount: '0.17', asset: 'EUR' },
+  step2Details: [
+    { key: 'iban', label: 'IBAN', value: 'DE89370400440532013000' },
+    { key: 'accountHolder', label: 'Account Holder', value: 'Alex Example' },
+    { key: 'receivingMemo', label: 'Receiving Memo / Tag', value: 'Customer 12' },
+  ],
+  createdAt: '2025-06-12T10:00:00.000Z',
+  completedAt: '2025-06-12T11:00:00.000Z',
+};
+
+const quickexInvoiceProjection = {
+  id: quickexOrder.id,
+  type: 'instant',
+  status: 'completed',
+  outcomeUnknown: false,
+  refreshUnavailable: false,
+  fromAsset: 'BTC',
+  fromNetwork: 'Bitcoin',
+  toAsset: 'USDT',
+  toNetwork: 'TRC20',
+  amount: '0.1',
+  receiveAmount: '6100',
+  exchangeRate: '61000',
+  // Provider Convert fees and custom details must not leak into the invoice.
+  receiptFee: { amount: '0.17', asset: 'USDT' },
+  step2Details: [{ key: 'provider_internal', label: 'Provider Internal', value: 'provider-only-field-needle' }],
+  createdAt: '2025-06-10T09:16:00.000Z',
+  completedAt: '2025-06-10T10:00:00.000Z',
+};
+
 const secondManualOrder = {
   ...manualOrder,
   id: 'QX-33333333-3333-4333-8333-333333333333',
@@ -100,13 +147,39 @@ const secondManualOrder = {
 };
 
 test('operators can filter, inspect, and page through guest orders', async ({ page }) => {
+  test.setTimeout(90_000);
   const orderRequests: URL[] = [];
   let bulkStatusPayload: Record<string, unknown> | undefined;
   let bulkArchivePayload: Record<string, unknown> | undefined;
   let bulkDeletePayload: Record<string, unknown> | undefined;
   const permanentlyDeletedOrderIds = new Set<string>();
   let manualStatusPayload: Record<string, unknown> | undefined;
-  let manualDetailOrder = { ...manualOrder, assignedOperatorId: 'operator-1', archivedAt: null, archivedBy: null };
+  const customerStatusRequests: URL[] = [];
+  let quickexDetailOrder = {
+    ...quickexOrder,
+    trackingToken: 'quickex-track-capability-1234567890',
+    assignedOperatorId: 'operator-1',
+    archivedAt: null,
+    archivedBy: null,
+  };
+  let manualDetailOrder = {
+    ...manualOrder,
+    amount: '10',
+    receiveAmount: '8.33',
+    fromAsset: 'USDT',
+    fromNetwork: 'BEP20',
+    toAsset: 'EUR',
+    toNetwork: 'SEPA transfer',
+    exchangeRate: '0.833',
+    receiptFee: { amount: '0.17', asset: 'EUR' },
+    step2Details: manualInvoiceProjection.step2Details,
+    transactionHash: `0x${'c'.repeat(64)}`,
+    providerReference: 'manual-provider-internal-needle',
+    trackingToken: 'manual-track-capability-1234567890',
+    assignedOperatorId: 'operator-1',
+    archivedAt: null,
+    archivedBy: null,
+  };
   const reconciliationAttempts = [
     { id: 'audit-accepted', outcome: 'accepted', operatorId: 'operator-1', operator: 'operator@example.test', requestId: 'request-accepted', createdAt: '2025-06-12T12:00:00.000Z' },
     { id: 'audit-conflict', outcome: 'conflict', operatorId: 'operator-1', operator: 'operator@example.test', requestId: 'request-conflict', createdAt: '2025-06-12T11:00:00.000Z' },
@@ -292,7 +365,19 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ ...quickexOrder, recordVersion: 3, assignedOperatorId: 'operator-1', archivedAt: null, archivedBy: null }),
+      body: JSON.stringify({ ...quickexDetailOrder, recordVersion: 3 }),
+    });
+  });
+  await page.route(new RegExp(`/api/(?:quickex/)?orders/(?:${manualOrder.id}|${quickexOrder.id})/status(?:\\?|$)`), async (route) => {
+    const url = new URL(route.request().url());
+    customerStatusRequests.push(url);
+    const projection = url.pathname.includes('/quickex/')
+      ? quickexInvoiceProjection
+      : manualInvoiceProjection;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(projection),
     });
   });
   await page.route(`**/api/orders/${manualOrder.id}/audit-log`, async (route) => {
@@ -406,6 +491,7 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
 
   await page.getByTestId(`row-order-${quickexOrder.id}`).click();
   await expect(page).toHaveURL(new RegExp(`/admin/orders/${quickexOrder.id}\\?type=instant$`));
+  await expect(page.getByTestId('button-admin-download-invoice')).toHaveCount(0);
   await expect(page.getByTestId('order-status-progression')).toBeVisible();
   await expect(page.getByTestId('order-details-drawer')).toContainText('Sending Address');
   await expect(page.getByTestId('order-details-drawer')).toContainText('Destination Memo / Tag');
@@ -591,8 +677,107 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
   }
   await page.getByTestId(`row-order-${manualOrder.id}`).click();
   await expect(page.getByTestId('order-details-drawer')).toBeVisible();
+  await expect(page.getByTestId('button-admin-download-invoice')).toHaveCount(0);
   await page.getByTestId('button-close-order-drawer').click();
   await expect(page.getByTestId('table-orders')).toBeVisible();
+
+  manualDetailOrder = {
+    ...manualDetailOrder,
+    status: 'completed',
+    manualSettlementState: 'completed',
+  };
+  await page.reload();
+  // A global affiliate status notice can overlap the Admin tabs when mocked
+  // affiliate requests fail; it is unrelated to the drawer journey under test.
+  await page.addStyleTag({ content: '[data-testid="affiliate-referral-capture-status"] { pointer-events: none !important; }' });
+  await page.getByTestId(`row-order-${manualOrder.id}`).click();
+  const manualInvoiceButton = page.getByTestId('button-admin-download-invoice');
+  await expect(manualInvoiceButton).toBeVisible();
+  const manualDownloadPromise = page.waitForEvent('download');
+  await manualInvoiceButton.click();
+  const manualDownload = await manualDownloadPromise;
+  expect(manualDownload.suggestedFilename()).toBe(`quickxchange-invoice-${manualInvoiceProjection.id}.pdf`);
+  const manualPdfPath = await manualDownload.path();
+  expect(manualPdfPath).not.toBeNull();
+  const [{ stdout: manualPdf }, { stdout: manualPdfInfo }] = await Promise.all([
+    run('pdftotext', ['-layout', manualPdfPath!, '-']),
+    run('pdfinfo', [manualPdfPath!]),
+  ]);
+  expect(manualPdfInfo).toMatch(/Page size:\s+595[.\d]* x 841[.\d]* pts \(A4\)/);
+  expect(manualPdfInfo).toMatch(/Pages:\s+1\b/);
+  for (const text of [
+    'Exchange USDT to EUR',
+    '10 USDT',
+    '8.33 EUR',
+    'IBAN',
+    'DE89370400440532013000',
+    'Account Holder',
+    'Alex Example',
+    'Receiving Memo / Tag',
+    'Customer 12',
+    '0.17 EUR',
+  ]) {
+    expect(manualPdf.toLowerCase()).toContain(text.toLowerCase());
+  }
+  for (const text of [
+    'manual-provider-internal-needle',
+    'provider-reference',
+    'provider_internal',
+    'transaction id',
+    manualDetailOrder.transactionHash,
+  ]) {
+    expect(manualPdf.toLowerCase()).not.toContain(text.toLowerCase());
+  }
+  await expect.poll(() => customerStatusRequests.some((url) =>
+    url.pathname === `/api/orders/${manualInvoiceProjection.id}/status` &&
+    url.searchParams.get('trackingToken') === 'manual-track-capability-1234567890',
+  )).toBe(true);
+  await page.getByTestId('button-close-order-drawer').click();
+
+  quickexDetailOrder = { ...quickexDetailOrder, status: 'completed', outcomeUnknown: false, providerCompleted: true };
+  await page.getByTestId('tab-orders-convert').click();
+  await expect(page.getByTestId('tab-orders-convert')).toHaveAttribute('aria-selected', 'true');
+  await page.getByTestId(`row-order-${quickexOrder.id}`).click();
+  const convertInvoiceButton = page.getByTestId('button-admin-download-invoice');
+  await expect(convertInvoiceButton).toBeVisible();
+  const convertDownloadPromise = page.waitForEvent('download');
+  await convertInvoiceButton.click();
+  const convertDownload = await convertDownloadPromise;
+  expect(convertDownload.suggestedFilename()).toBe(`quickxchange-invoice-${quickexInvoiceProjection.id}.pdf`);
+  const convertPdfPath = await convertDownload.path();
+  expect(convertPdfPath).not.toBeNull();
+  const [{ stdout: convertPdf }, { stdout: convertPdfInfo }] = await Promise.all([
+    run('pdftotext', ['-layout', convertPdfPath!, '-']),
+    run('pdfinfo', [convertPdfPath!]),
+  ]);
+  expect(convertPdfInfo).toMatch(/Page size:\s+595[.\d]* x 841[.\d]* pts \(A4\)/);
+  expect(convertPdfInfo).toMatch(/Pages:\s+1\b/);
+  for (const text of [
+    'Exchange BTC to USDT',
+    '0.1 BTC',
+    '6100 USDT',
+  ]) {
+    expect(convertPdf.toLowerCase()).toContain(text.toLowerCase());
+  }
+  for (const text of [
+    'Fee',
+    '0.17 USDT',
+    'PAYMENT / RECEIVING INFORMATION',
+    'provider-only-field-needle',
+    'provider-reference',
+    'provider internal',
+    'transaction id',
+    quickexOrder.transactionHash,
+  ]) {
+    expect(convertPdf.toLowerCase()).not.toContain(text.toLowerCase());
+  }
+  await expect.poll(() => customerStatusRequests.some((url) =>
+    url.pathname === `/api/quickex/orders/${quickexInvoiceProjection.id}/status` &&
+    url.searchParams.get('trackingToken') === 'quickex-track-capability-1234567890',
+  )).toBe(true);
+  await page.getByTestId('button-close-order-drawer').click();
+
+  await page.getByTestId('tab-orders-swap').click();
   await page.getByTestId('tab-orders-archived').click();
   await expect.poll(() => orderRequests.some((url) => url.searchParams.get('archived') === 'archived')).toBe(true);
   await page.getByTestId('checkbox-select-all-orders').check();

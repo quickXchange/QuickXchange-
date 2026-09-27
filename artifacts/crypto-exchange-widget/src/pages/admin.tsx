@@ -65,7 +65,7 @@ import {
   usePreviewWhitebitAutomaticRouteMappings, useApplyWhitebitAutomaticRouteMappings,
   useGetDepositProviderOptions, getGetDepositProviderOptionsQueryKey,
   useRequestFiatCurrencyFlagUpload, useDeleteFiatCurrencyFlagUpload,
-  useGetOrder, getGetOrderQueryKey, useAssignOrder, useArchiveOrder, useRestoreOrder,
+  useGetOrder, getGetOrderQueryKey, getPublicOrderStatus, getQuickexOrderStatus, useAssignOrder, useArchiveOrder, useRestoreOrder,
   useGetOrderAuditLog, getGetOrderAuditLogQueryKey,
   useBulkUpdateOrderStatus, useBulkArchiveOrders, usePermanentlyDeleteOrders,
   useCaptureAffiliateReferral, getCaptureAffiliateReferralQueryKey,
@@ -117,6 +117,8 @@ import { AdminCryptoAssetsBulkEditDialog } from '../components/admin-crypto-asse
 import { BulkDepositProviderDialog } from '../components/bulk-deposit-provider-dialog';
 import { OrderSupportToolsSection } from '../components/admin-order-support-tools';
 import { convertOrderStatusLabel, convertOrderStatusStep, normalizeConvertOrderStatus } from '../lib/convert-order-status';
+import { downloadInvoicePdf } from '../lib/invoice-pdf';
+import { invoiceSnapshot, isCompletedInvoiceOrder } from '../lib/invoice-snapshot';
 
 type AppBuildInfo = {
   buildId: string;
@@ -5478,6 +5480,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   const [notice, setNotice] = useState<{ kind: 'error' | 'success' | 'warning'; text: string } | null>(null);
   const [reconciliationNotice, setReconciliationNotice] = useState<{ kind: 'error' | 'success' | 'warning'; text: string } | null>(null);
   const [copyInfoCopied, setCopyInfoCopied] = useState(false);
+  const [invoicePending, setInvoicePending] = useState(false);
   const [paymentDetailsDraft, setPaymentDetailsDraft] = useState({
     name: '', iban: '', bankName: '', bicSwift: '', paymentReference: '', amount: '', customInstructions: '',
   });
@@ -5680,6 +5683,28 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   const copyValue = (val?: string | null) => { if (val) navigator.clipboard.writeText(val); };
 
   const step2Rows = viewOrderStep2Rows(order?.step2Details);
+  const downloadOrderInvoice = async () => {
+    if (!order || !isCompletedInvoiceOrder(order) || invoicePending) return;
+    setInvoicePending(true);
+    setNotice(null);
+    try {
+      if (!order.trackingToken) throw new Error('The order tracking capability is unavailable.');
+      // Use the customer-facing saved-order projection. Never generate an
+      // invoice from the Admin detail's provider or support-tool fields.
+      const safeOrder = order.type === 'manual'
+        ? await getPublicOrderStatus(order.id, { trackingToken: order.trackingToken })
+        : await getQuickexOrderStatus(order.id, { trackingToken: order.trackingToken });
+      if (safeOrder.id !== order.id || safeOrder.type !== order.type ||
+          !isCompletedInvoiceOrder(safeOrder)) {
+        throw new Error('The order is no longer confirmed as completed.');
+      }
+      await downloadInvoicePdf(invoiceSnapshot(safeOrder));
+    } catch {
+      setNotice({ kind: 'error', text: 'The invoice could not be generated. Reload the order and try again.' });
+    } finally {
+      setInvoicePending(false);
+    }
+  };
 
   if (orderQuery.isLoading) return <div className="fixed inset-0 z-50 flex sm:justify-end bg-black/40 backdrop-blur-sm"><aside className="w-full sm:w-[480px] sm:max-w-full h-full bg-background border-l border-border flex flex-col shadow-2xl"><div className="p-12"><LoadingBlock rows={10} /></div></aside></div>;
   if (orderQuery.isError || !order) return <div className="fixed inset-0 z-50 flex sm:justify-end bg-black/40 backdrop-blur-sm"><aside className="w-full sm:w-[480px] sm:max-w-full h-full bg-background border-l border-border flex flex-col shadow-2xl"><div className="p-12"><ErrorState message="Error loading order" retry={() => orderQuery.refetch()} /></div></aside></div>;
@@ -5836,7 +5861,15 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
                   <strong className="text-foreground">{activeOperators.find(o => o.id === order.assignedOperatorId)?.email || 'Unassigned'}</strong>
                )}
             </div>
-            <div className="flex items-center gap-2">
+             <div className="flex items-center gap-2">
+               {isCompletedInvoiceOrder(order) && (
+                 <button type="button" onClick={downloadOrderInvoice} disabled={invoicePending}
+                   className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary/30 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/10 disabled:opacity-50"
+                   data-testid="button-admin-download-invoice">
+                   {invoicePending ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+                   {invoicePending ? 'Preparing PDF…' : 'Download Invoice PDF'}
+                 </button>
+               )}
                {hasSettingsAccess && (
                  <button type="button" onClick={() => setShowSettings(true)} className="p-2 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground border border-transparent hover:border-border transition-all" title="Order Settings" data-testid="button-order-settings">
                    <Settings size={16} />

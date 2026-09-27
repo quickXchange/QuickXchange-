@@ -7,22 +7,8 @@ import {
   useGetPublishedSiteContent,
   useGetPublicNotificationSettings,
 } from '@workspace/api-client-react';
-import { buildInvoicePdf } from '@/lib/invoice-pdf';
-import { invoiceSnapshot, type InvoiceOrder } from '@/lib/invoice-snapshot';
-
-function isCompletedConvert(order: InvoiceOrder): boolean {
-  return order.type === 'instant' &&
-    /^(?:completed|done)$/i.test(order.status.trim()) &&
-    !order.outcomeUnknown;
-}
-
-export function isCompletedManualSwap(order: InvoiceOrder, refreshWarning = false): boolean {
-  return order.type === 'manual' &&
-    /^(?:completed|complete|done|finished)$/i.test(order.status.trim()) &&
-    !order.outcomeUnknown &&
-    !order.refreshUnavailable &&
-    !refreshWarning;
-}
+import { buildInvoicePdf, downloadInvoicePdf } from '@/lib/invoice-pdf';
+import { invoiceSnapshot, isCompletedInvoiceOrder, type InvoiceOrder } from '@/lib/invoice-snapshot';
 
 function trustpilotDestination(value?: string | null): string | null {
   if (!value) return null;
@@ -80,19 +66,14 @@ export function OrderCompletionSection({
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const isConvert = order.type === 'instant';
-  if (isConvert ? !isCompletedConvert(order) : !isCompletedManualSwap(order, refreshWarning)) return null;
+  if (!isCompletedInvoiceOrder(order, refreshWarning)) return null;
 
   const invoice = invoiceSnapshot(order);
   const downloadPdf = async () => {
     setExporting(true);
     setExportError(null);
     try {
-      const url = URL.createObjectURL(await buildInvoicePdf(invoice));
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `quickxchange-invoice-${order.id}.pdf`;
-      link.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+      await downloadInvoicePdf(invoice);
     } catch {
       setExportError('The invoice could not be generated. Please try again.');
     } finally {
