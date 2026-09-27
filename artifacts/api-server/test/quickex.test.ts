@@ -3288,6 +3288,7 @@ test("manual pricing bulk actions update safe rules and report skipped conflicts
   const ids = [randomUUID(), randomUUID()];
   const apiCreatedIds: string[] = [];
     let scaleIds: string[] = [];
+  const canonicalCollisionId = randomUUID();
   try {
     const config = await (await fetch(`${api.url}/exchange/config`)).json() as {
       settlementOptions: Array<{
@@ -3300,6 +3301,7 @@ test("manual pricing bulk actions update safe rules and report skipped conflicts
     const source = sources[0];
     const target = config.settlementOptions.find(option =>
       (option.direction === "receive" || option.direction === "both") &&
+      option.id.startsWith("fiat:") &&
       option.id !== source?.id);
     const alternateSource = sources.find(option =>
       option.id !== source?.id && option.id !== target?.id);
@@ -3433,16 +3435,29 @@ test("manual pricing bulk actions update safe rules and report skipped conflicts
         priority: priority + 1,
       },
     ]);
-    scaleIds = Array.from({ length: 20 }, () => randomUUID());
+    scaleIds = Array.from({ length: 37 }, () => randomUUID());
     await db.insert(manualDeskPricingRulesTable).values(scaleIds.map((id, index) => ({
       id,
       ...baseRule,
       name: `Bulk scale ${index} ${suffix}`,
       sourceAsset: `SCALE-${index}-${suffix.slice(0, 8)}`,
       sourceNetwork: `SCALE-${index}-${suffix.slice(0, 8)}`,
+      sourceSettlementOptionId: null,
       markupBasisPoints: 200 + index,
       priority: priority - 100 - index,
     })));
+    // Matches what happened in production: a legacy Any-source row would be
+    // canonicalized onto an already-occupied selector if bulk edit wrote the
+    // entire rule instead of only the requested commission columns.
+    await db.insert(manualDeskPricingRulesTable).values({
+      id: canonicalCollisionId,
+      ...baseRule,
+      name: `Canonical collision ${suffix}`,
+      sourceAsset: null,
+      sourceNetwork: null,
+      sourceSettlementOptionId: null,
+      priority: priority - 100,
+    });
     const beforeScale = await db.select().from(manualDeskPricingRulesTable)
       .where(inArray(manualDeskPricingRulesTable.id, scaleIds));
     await db.update(manualDeskPricingRulesTable)
@@ -3453,21 +3468,15 @@ test("manual pricing bulk actions update safe rules and report skipped conflicts
       items: scaleIds.map(id => ({ id, version: 1 })),
       patch: { markupBasisPoints: 777 },
     }, "POST", headers);
-    assert.equal(scaleResponse.status, 200, JSON.stringify(scaleResponse.body));
-    assert.equal(scaleResponse.body.updatedIds.length, 19);
-    assert.equal(scaleResponse.body.skipped.length, 1);
-    assert.equal(scaleResponse.body.skipped[0].id, scaleIds[0]);
+    assert.equal(scaleResponse.status, 409, JSON.stringify(scaleResponse.body));
+    assert.match(String(scaleResponse.body.error), new RegExp(scaleIds[0]));
+    assert.match(String(scaleResponse.body.error), /changed after it was opened/);
     const afterScale = await db.select().from(manualDeskPricingRulesTable)
       .where(inArray(manualDeskPricingRulesTable.id, scaleIds));
     for (const after of afterScale) {
       const before = beforeScale.find(row => row.id === after.id)!;
-      if (after.id === scaleIds[0]) {
-        assert.equal(after.version, 2);
-        assert.equal(after.markupBasisPoints, before.markupBasisPoints);
-      } else {
-        assert.equal(after.version, 2);
-        assert.equal(after.markupBasisPoints, 777);
-      }
+      assert.equal(after.version, after.id === scaleIds[0] ? 2 : 1);
+      assert.equal(after.markupBasisPoints, before.markupBasisPoints);
       assert.equal(after.exactRate, before.exactRate);
       assert.equal(after.priority, before.priority);
       assert.equal(after.sourceAsset, before.sourceAsset);
@@ -3475,6 +3484,45 @@ test("manual pricing bulk actions update safe rules and report skipped conflicts
       assert.equal(after.minAmount, before.minAmount);
       assert.equal(after.maxAmount, before.maxAmount);
     }
+    // One 37-rule commission edit must persist every requested field and leave
+    // every unchecked pricing/route field exactly as it was in the database.
+    const scaleSuccess = await apiJson(api.url, "/admin/manual-desk-pricing-rules/bulk", {
+      action: "edit",
+      items: scaleIds.map(id => ({ id, version: id === scaleIds[0] ? 2 : 1 })),
+      patch: { markupBasisPoints: 100, adjustmentDirection: "MARKUP" },
+    }, "POST", headers);
+    assert.equal(scaleSuccess.status, 200, JSON.stringify(scaleSuccess.body));
+    assert.equal(scaleSuccess.body.updatedIds.length, 37);
+    assert.deepEqual(scaleSuccess.body.skipped, []);
+    const afterSuccess = await db.select().from(manualDeskPricingRulesTable)
+      .where(inArray(manualDeskPricingRulesTable.id, scaleIds));
+    for (const after of afterSuccess) {
+      const before = beforeScale.find(row => row.id === after.id)!;
+      const { updatedAt: _beforeTimestamp, version: _beforeVersion, markupBasisPoints: _beforePercentage,
+        adjustmentDirection: _beforeDirection, ...beforeUnchanged } = before;
+      const { updatedAt: _afterTimestamp, version: _afterVersion, markupBasisPoints: _afterPercentage,
+        adjustmentDirection: _afterDirection, ...afterUnchanged } = after;
+      assert.deepEqual(afterUnchanged, beforeUnchanged);
+      assert.equal(after.markupBasisPoints, 100);
+      assert.equal(after.adjustmentDirection, "MARKUP");
+      assert.equal(after.version, after.id === scaleIds[0] ? 3 : 2);
+    }
+    assert.equal((scaleSuccess.body.items as Array<{ id: string; markupBasisPoints: number; adjustmentDirection: string }>)
+      .filter(item => scaleIds.includes(item.id))
+      .every(item => item.markupBasisPoints === 100 && item.adjustmentDirection === "MARKUP"), true);
+    const missingId = randomUUID();
+    const missingResponse = await apiJson(api.url, "/admin/manual-desk-pricing-rules/bulk", {
+      action: "edit",
+      items: [{ id: scaleIds[0], version: 3 }, { id: missingId, version: 1 }],
+      patch: { markupBasisPoints: 200, adjustmentDirection: "GIVE_MORE" },
+    }, "POST", headers);
+    assert.equal(missingResponse.status, 422);
+    assert.match(String(missingResponse.body.error), new RegExp(missingId));
+    const [stillUnchanged] = await db.select().from(manualDeskPricingRulesTable)
+      .where(eq(manualDeskPricingRulesTable.id, scaleIds[0]));
+    assert.equal(stillUnchanged.markupBasisPoints, 100);
+    assert.equal(stillUnchanged.adjustmentDirection, "MARKUP");
+    assert.equal(stillUnchanged.version, 3);
 
     const bulk = (body: Record<string, unknown>) =>
       apiJson(api.url, "/admin/manual-desk-pricing-rules/bulk", body, "POST", headers);
@@ -3536,33 +3584,32 @@ test("manual pricing bulk actions update safe rules and report skipped conflicts
       patch: { minAmount: "10", maxAmount: "1" },
     });
     assert.equal(response.status, 400);
+    assert.match(String(response.body.error), new RegExp(ids[0]));
+    assert.match(String(response.body.error), /Minimum amount cannot exceed maximum amount/);
     const afterInvalid = await db.select().from(manualDeskPricingRulesTable)
       .where(eq(manualDeskPricingRulesTable.id, ids[0]));
     assert.equal(afterInvalid[0]?.priority, editPriority);
     assert.equal(afterInvalid[0]?.version, 4);
 
-    // Changing the second source onto the first creates an overlap; only the
-    // affected candidate is skipped.
+    // A conflicting selected rule rejects the whole edit.
     response = await bulk({
       action: "edit",
       items: [{ id: ids[0], version: 4 }, { id: ids[1], version: 5 }],
       patch: { sourceSettlementOptionId: source.id },
     });
-    assert.equal(response.status, 200);
-    assert.deepEqual(response.body.updatedIds, [ids[0]]);
-    assert.equal(response.body.skipped[0].id, ids[1]);
-    assert.equal(response.body.skipped[0].code, "MANUAL_PRICING_RULE_CONFLICT");
+    assert.equal(response.status, 409);
+    assert.match(String(response.body.error), new RegExp(ids[1]));
     const afterConflict = await db.select().from(manualDeskPricingRulesTable)
       .where(inArray(manualDeskPricingRulesTable.id, ids));
     assert.deepEqual(afterConflict.sort((left, right) => left.id.localeCompare(right.id))
       .map(row => [row.id, row.sourceSettlementOptionId, row.version]).sort((left, right) =>
         String(left[0]).localeCompare(String(right[0]))), [
-      [ids[0], source.id, 5], [ids[1], alternateSource.id, 5],
+      [ids[0], source.id, 4], [ids[1], alternateSource.id, 5],
     ].sort((left, right) => String(left[0]).localeCompare(String(right[0]))));
 
     response = await bulk({
       action: "delete",
-      items: ids.map(id => ({ id, version: 5 })),
+      items: [{ id: ids[0], version: 4 }, { id: ids[1], version: 5 }],
     });
     assert.equal(response.status, 200);
     assert.deepEqual(response.body.affectedIds, ids);
@@ -3570,7 +3617,7 @@ test("manual pricing bulk actions update safe rules and report skipped conflicts
       ids.includes(String((item as { id: string }).id))), false);
   } finally {
     await db.delete(manualDeskPricingRulesTable)
-      .where(inArray(manualDeskPricingRulesTable.id, [...ids, ...scaleIds, ...apiCreatedIds]));
+      .where(inArray(manualDeskPricingRulesTable.id, [...ids, ...scaleIds, canonicalCollisionId, ...apiCreatedIds]));
     await db.delete(operatorsTable).where(eq(operatorsTable.id, operator.id));
     await api.close();
   }

@@ -816,6 +816,12 @@ export async function bulkUpdateManualPricingRules(
         }
         eligible.push({ item, row });
       }
+      // Edits are all-or-nothing. In particular, an invalid ID or stale version
+      // must not leave an operator's multi-selection partially commissioned.
+      if (action === "edit" && skipped.length) {
+        const first = skipped[0];
+        throw new ApiError(first.code, `Rule ${first.id}: ${first.reason}`, first.code.endsWith("CONFLICT") ? 409 : 422);
+      }
       if (action === "delete") {
         if (eligible.length > 0) {
           await tx.delete(manualDeskPricingRulesTable)
@@ -824,6 +830,11 @@ export async function bulkUpdateManualPricingRules(
         updatedIds.push(...eligible.map(({ row }) => row.id));
       } else {
         const finalRows = new Map(rows.map((row) => [row.id, row]));
+        const pendingWrites: Array<{
+          row: ManualDeskPricingRule;
+          proposed: ManualDeskPricingRule;
+          values: Partial<ManualPricingWrite>;
+        }> = [];
         for (const { row } of eligible) {
           const canonicalPatch: ManualPricingBulkPatch & {
             paymentMethod?: string | null;
@@ -837,32 +848,45 @@ export async function bulkUpdateManualPricingRules(
             Object.prototype.hasOwnProperty.call(canonicalPatch, "targetSettlementOptionId")
               ? canonicalPatch.targetSettlementOptionId
               : row.targetSettlementOptionId;
-          if (!resultingSourceOptionId) {
+          const sourceSelectorChanged = action === "edit" && [
+            "sourceSettlementOptionId", "sourceCryptoAssetId", "sourceAsset", "sourceNetwork",
+          ].some((key) => Object.prototype.hasOwnProperty.call(canonicalPatch, key));
+          const targetSelectorChanged = action === "edit" && [
+            "targetSettlementOptionId", "targetCryptoAssetId", "targetAsset", "targetNetwork",
+          ].some((key) => Object.prototype.hasOwnProperty.call(canonicalPatch, key));
+          if (sourceSelectorChanged && !resultingSourceOptionId) {
             const sourceNetwork = normalized(canonicalPatch.sourceNetwork ?? row.sourceNetwork);
             const sourceAsset = normalized(canonicalPatch.sourceAsset ?? row.sourceAsset);
             if (sourceNetwork !== ALL_NETWORKS_PRICING_SELECTOR || sourceAsset === null) {
               for (const key of SOURCE_PRICING_SELECTOR_KEYS) canonicalPatch[key] = null;
             }
           }
-          if (!resultingTargetOptionId) {
+          if (targetSelectorChanged && !resultingTargetOptionId) {
             const targetNetwork = normalized(canonicalPatch.targetNetwork ?? row.targetNetwork);
             const targetAsset = normalized(canonicalPatch.targetAsset ?? row.targetAsset);
             if (targetNetwork !== ALL_NETWORKS_PRICING_SELECTOR || targetAsset === null) {
               for (const key of TARGET_PRICING_SELECTOR_KEYS) canonicalPatch[key] = null;
             }
           }
-          const combined = normalizedWrite({ ...rowAsWrite(row), ...canonicalPatch });
           const changedKeys = new Set(Object.keys(canonicalPatch));
-          if (changedKeys.has("sourceSettlementOptionId")) {
+          if (sourceSelectorChanged) {
             SOURCE_PRICING_SELECTOR_KEYS.forEach((key) => changedKeys.add(key));
           }
-          if (changedKeys.has("targetSettlementOptionId")) {
+          if (targetSelectorChanged) {
             TARGET_PRICING_SELECTOR_KEYS.forEach((key) => changedKeys.add(key));
+          }
+          let combined: ManualPricingWrite;
+          try {
+            combined = normalizedWrite({ ...rowAsWrite(row), ...canonicalPatch });
+          } catch (error) {
+            if (error instanceof ApiError) {
+              throw new ApiError(error.code, `Rule ${row.id}: ${error.message}`, error.status);
+            }
+            throw error;
           }
           const values: Partial<ManualPricingWrite> = action === "edit"
             ? Object.fromEntries([...changedKeys].map((key) => [
-              key,
-              combined[key as keyof ManualPricingWrite],
+              key, combined[key as keyof ManualPricingWrite],
             ]))
             : combined;
           if (action === "enable") values.enabled = true;
@@ -883,6 +907,10 @@ export async function bulkUpdateManualPricingRules(
                 overlap(otherWrite, candidate);
             });
             if (conflict) {
+              if (action === "edit") {
+                throw new ApiError("MANUAL_PRICING_RULE_CONFLICT",
+                  `Rule ${row.id}: Overlaps rule ${conflict.id} at the same priority and selector specificity.`, 409);
+              }
               skipped.push({
                 id: row.id,
                 code: "MANUAL_PRICING_RULE_CONFLICT",
@@ -892,15 +920,37 @@ export async function bulkUpdateManualPricingRules(
               continue;
             }
           }
-          const persisted = await tx.update(manualDeskPricingRulesTable).set({
-            ...rowAsWrite(proposed),
-            version: proposed.version,
-            updatedAt: proposed.updatedAt,
-          }).where(and(
-            eq(manualDeskPricingRulesTable.id, row.id),
-            eq(manualDeskPricingRulesTable.version, row.version),
-          )).returning({ id: manualDeskPricingRulesTable.id });
+          pendingWrites.push({ row, proposed, values });
+          finalRows.set(row.id, proposed);
+        }
+        for (const { row, proposed, values } of pendingWrites) {
+          let persisted: Array<{ id: string }>;
+          try {
+            persisted = await tx.update(manualDeskPricingRulesTable).set({
+              ...values,
+              version: proposed.version,
+              updatedAt: proposed.updatedAt,
+            }).where(and(
+              eq(manualDeskPricingRulesTable.id, row.id),
+              eq(manualDeskPricingRulesTable.version, row.version),
+            )).returning({ id: manualDeskPricingRulesTable.id });
+          } catch (error) {
+            const cause = error as { cause?: { code?: string; constraint?: string } };
+            if (cause.cause?.code === "23505") {
+              throw new ApiError("MANUAL_PRICING_RULE_CONFLICT",
+                `Rule ${row.id}: Database unique constraint ${cause.cause.constraint ?? "conflict"} rejected this update.`, 409);
+            }
+            if (cause.cause?.code && /^[A-Z0-9]{5}$/.test(cause.cause.code)) {
+              throw new ApiError("MANUAL_PRICING_RULE_UPDATE_FAILED",
+                `Rule ${row.id}: Database rejected the update (${cause.cause.code}${cause.cause.constraint ? `, ${cause.cause.constraint}` : ""}).`, 422);
+            }
+            throw error;
+          }
           if (persisted.length === 0) {
+            if (action === "edit") {
+              throw new ApiError("MANUAL_PRICING_RULE_VERSION_CONFLICT",
+                `Rule ${row.id}: The pricing rule changed while the bulk update was being applied.`, 409);
+            }
             const [latest] = await tx.select({ version: manualDeskPricingRulesTable.version })
               .from(manualDeskPricingRulesTable)
               .where(eq(manualDeskPricingRulesTable.id, row.id))
@@ -913,7 +963,6 @@ export async function bulkUpdateManualPricingRules(
             });
             continue;
           }
-          finalRows.set(row.id, proposed);
           updatedIds.push(row.id);
         }
       }

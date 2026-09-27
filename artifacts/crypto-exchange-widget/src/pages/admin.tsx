@@ -8909,12 +8909,7 @@ function BulkPricingRuleDrawer({
     }, {
       onSuccess: (data) => onSuccess(data, 'edit'),
       onError: (err) => {
-        const code = apiErrorData(err)?.code;
-        if (code?.includes('CONFLICT')) {
-           setError('Some rules changed in another session or conflict with existing routes. Refresh and try again.');
-        } else {
-           setError(apiErrorText(err, 'Could not bulk edit rules.'));
-        }
+        setError(apiErrorText(err, 'Could not bulk edit rules.'));
       }
     });
   };
@@ -9106,9 +9101,11 @@ function AdminManualPricing() {
       .map(item => `${selectedRuleNames.get(item.id) || item.id}: ${item.reason}`)
       .join('; ');
     setSuccessMsg(
-      `${updatedCount} rule${updatedCount === 1 ? '' : 's'} updated successfully. ` +
+      `${updatedCount} rule${updatedCount === 1 ? '' : 's'} updated successfully.` +
+      (skippedCount ? ' ' : '') +
+      (skippedCount ?
       `${skippedCount} rule${skippedCount === 1 ? '' : 's'} skipped.` +
-      (skippedDetails ? ` ${skippedDetails}` : ''),
+      (skippedDetails ? ` ${skippedDetails}` : '') : ''),
     );
   };
 

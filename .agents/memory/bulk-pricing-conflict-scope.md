@@ -3,11 +3,11 @@ name: Bulk pricing conflict scope
 description: How bulk pricing mutations isolate stale or conflicting rules without re-litigating unrelated legacy ambiguity.
 ---
 
-Bulk pricing edits update every safe selected rule and report stale, read-only, missing, or genuinely conflicting rules individually. Changes that do not affect matching, such as fees, must not trigger route-overlap validation.
+Bulk pricing edits are atomic across the selected rules: reject the whole edit with the offending rule ID and reason if any selected rule is missing, stale, read-only, or conflicting. Changes that do not affect matching, such as fees, must not trigger route-overlap validation.
 
-**Why:** Operator-managed catalogs can contain pre-existing legacy ambiguity, and one stale rule should not block commission changes for the rest of a large selection.
+**Why:** Operator-managed catalogs can contain pre-existing legacy ambiguity. Canonicalizing and rewriting unrelated legacy selectors during a commission edit can collide with an existing unique route, while silently skipping a selected rule leaves a supposedly uniform batch only partly changed.
 
-**How to apply:** Hold the pricing advisory lock, validate and compare versions per rule, and use guarded writes whose affected-row result is checked. Only selector/priority changes run ambiguity checks; return updated IDs and structured skips.
+**How to apply:** Hold the pricing advisory lock, validate and compare versions for the entire edit selection before writing, update only explicitly requested columns, and use guarded transactional writes whose affected-row result is checked. Only selector/priority changes run ambiguity checks. Other bulk actions may still return updated IDs and structured skips.
 
 Bulk creation is different from editing selected rows: expand the requested one-to-many route set first, then atomically upsert by exact source option, target option, and priority. An existing exact route is updated with the submitted settings rather than duplicated.
 
