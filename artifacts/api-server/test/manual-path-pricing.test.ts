@@ -27,41 +27,58 @@ after(async () => {
   await pool.end();
 });
 
-test("amount tiers use exact inclusive/exclusive boundaries, gaps, and unbounded final ranges", () => {
+test("amount tiers allow arbitrary bounded ranges, gaps, unsorted input, and shared boundaries", () => {
   const tiers = [
-    { minAmount: "0", maxAmount: "600", percentage: "1", direction: "MARKUP" as const },
-    { minAmount: "600", maxAmount: null, percentage: "2", direction: "GIVE_MORE" as const },
+    { minAmount: "1000", maxAmount: "20000", percentage: "3", direction: "GIVE_MORE" as const },
+    { minAmount: "300", maxAmount: "800", percentage: "1", direction: "MARKUP" as const },
   ];
   validateManualPricingTiers(true, tiers);
-  assert.equal(selectManualPricingTier(tiers, "0"), tiers[0]);
-  assert.equal(selectManualPricingTier(tiers, "600"), tiers[0]);
-  assert.equal(selectManualPricingTier(tiers, "600.000000000000000001"), tiers[1]);
-  assert.equal(selectManualPricingTier(tiers, "999999999999999999999999999999"), tiers[1]);
+  assert.equal(selectManualPricingTier(tiers, "299"), undefined);
+  assert.equal(selectManualPricingTier(tiers, "300"), tiers[1]);
+  assert.equal(selectManualPricingTier(tiers, "800"), tiers[1]);
+  assert.equal(selectManualPricingTier(tiers, "800.000000000000000001"), undefined);
+  assert.equal(selectManualPricingTier(tiers, "1000"), tiers[0]);
+  assert.equal(selectManualPricingTier(tiers, "20000"), tiers[0]);
+  assert.equal(selectManualPricingTier(tiers, "20000.000000000000000001"), undefined);
 
-  const gap = [
-    { minAmount: "0", maxAmount: "100", percentage: "1", direction: "MARKUP" as const },
-    { minAmount: "200", maxAmount: null, percentage: "3", direction: "MARKUP" as const },
+  // Preserve the established shared-edge policy: the preceding maximum is
+  // inclusive and the next minimum is exclusive, regardless of array order.
+  const shared = [
+    { minAmount: "600", maxAmount: null, percentage: "2", direction: "GIVE_MORE" as const },
+    { minAmount: "0", maxAmount: "600", percentage: "1", direction: "MARKUP" as const },
   ];
-  validateManualPricingTiers(true, gap);
-  assert.equal(selectManualPricingTier(gap, "150"), undefined);
+  validateManualPricingTiers(true, shared);
+  assert.equal(selectManualPricingTier(shared, "0"), shared[1]);
+  assert.equal(selectManualPricingTier(shared, "600"), shared[1]);
+  assert.equal(selectManualPricingTier(shared, "600.000000000000000001"), shared[0]);
 });
 
-test("amount tiers reject overlaps, malformed ordering, empty enabled sets, and invalid rates", () => {
+test("amount tiers reject overlaps, empty enabled sets, and invalid amounts or rates", () => {
   assert.throws(() => validateManualPricingTiers(true, []), /requires at least one tier/);
+  validateManualPricingTiers(false, []);
   assert.throws(() => validateManualPricingTiers(true, [
-    { minAmount: "0", maxAmount: "600", percentage: "1", direction: "MARKUP" },
-    { minAmount: "599.999999999999999999", maxAmount: null, percentage: "2", direction: "MARKUP" },
+    { minAmount: "300", maxAmount: "800", percentage: "1", direction: "MARKUP" },
+    { minAmount: "799.999999999999999999", maxAmount: "2000", percentage: "2", direction: "MARKUP" },
   ]), /cannot overlap/);
   assert.throws(() => validateManualPricingTiers(true, [
-    { minAmount: "0", maxAmount: null, percentage: "1", direction: "MARKUP" },
-    { minAmount: "600", maxAmount: null, percentage: "2", direction: "MARKUP" },
-  ]), /Only the last amount tier/);
+    { minAmount: "300", maxAmount: null, percentage: "1", direction: "MARKUP" },
+    { minAmount: "600", maxAmount: null, percentage: "2", direction: "GIVE_MORE" },
+  ]), /cannot overlap/);
   assert.throws(() => validateManualPricingTiers(true, [
-    { minAmount: "0", maxAmount: null, percentage: "100", direction: "MARKUP" },
+    { minAmount: "1", maxAmount: "1", percentage: "1", direction: "MARKUP" },
+  ]), /maximum must exceed its minimum/);
+  assert.throws(() => validateManualPricingTiers(true, [
+    { minAmount: "-1", maxAmount: "10", percentage: "1", direction: "MARKUP" },
+  ]), /exact non-negative decimals/);
+  assert.throws(() => validateManualPricingTiers(true, [
+    { minAmount: "300", maxAmount: "800", percentage: "100", direction: "MARKUP" },
   ]), /outside the allowed range/);
   assert.throws(() => validateManualPricingTiers(true, [
-    { minAmount: "0", maxAmount: null, percentage: "100.01", direction: "GIVE_MORE" },
+    { minAmount: "300", maxAmount: "800", percentage: "100.01", direction: "GIVE_MORE" },
   ]), /outside the allowed range/);
+  assert.throws(() => validateManualPricingTiers(true, [
+    { minAmount: "300", maxAmount: "800", percentage: "1", direction: "INVALID" as never },
+  ]), /is invalid/);
 });
 
 test("exact path rate scales target atomic units once", async () => {
@@ -101,9 +118,9 @@ test("amount tier percentages affect live estimate math and preserve regular fal
   assert.equal(upper.exact.receiveAmount, "612.01");
 
   assert.equal(selectManualPricingTier([
-    { minAmount: "0", maxAmount: "100", percentage: "1", direction: "MARKUP" },
-    { minAmount: "200", maxAmount: null, percentage: "3", direction: "MARKUP" },
-  ], "150"), undefined);
+    { minAmount: "100", maxAmount: "200", percentage: "1", direction: "MARKUP" },
+    { minAmount: "300", maxAmount: "400", percentage: "3", direction: "MARKUP" },
+  ], "250"), undefined);
   const fallback = await getManualDeskEstimate({
     sourceCurrency: "EUR", targetCurrency: "XMR", targetPrecision: 2, amount: 150,
     exactRate: "1", markupBasisPoints: 60, adjustmentDirection: "MARKUP",

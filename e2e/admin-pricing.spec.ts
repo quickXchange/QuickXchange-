@@ -29,7 +29,7 @@ const config = {
 
 const amountTier = (minAmount: string, maxAmount: string | null, percentage: string) =>
   ({ minAmount, maxAmount, percentage, direction: 'MARKUP' });
-const storedTiers = [amountTier('0', '600', '1'), amountTier('600', null, '3')];
+const storedTiers = [amountTier('300', '800', '1'), amountTier('800', '20000', '3')];
 const amountRules = Array.from({ length: 2 }, (_, index) => ({
   id: `00000000-0000-4000-8000-${String(index + 701).padStart(12, '0')}`,
   name: `Amount route ${index + 1}`,
@@ -83,7 +83,19 @@ async function mockAmountPricing(page: Page, initialRules = amountRules) {
   return { singleRequests, bulkRequests };
 }
 
-test('amount tiers in Edit Pricing Rule validate overlap, warn about fallback gaps, and save exact strings on mobile', async ({ page }) => {
+async function addRange(page: Page, prefix: 'single' | 'bulk', min: string, max: string | null, percent: string, direction = 'MARKUP') {
+  await page.getByTestId(`${prefix}-add-amount-range`).click();
+  const modal = page.getByTestId(`${prefix}-amount-range-modal`);
+  await modal.getByTestId(`${prefix}-range-min`).fill(min);
+  if (max === null) await modal.getByTestId(`${prefix}-range-no-limit`).check();
+  else await modal.getByTestId(`${prefix}-range-max`).fill(max);
+  await modal.getByTestId(`${prefix}-range-percentage`).fill(percent);
+  await modal.getByTestId(`${prefix}-range-direction`).selectOption(direction);
+  await modal.getByTestId(`${prefix}-save-amount-range`).click();
+  return modal;
+}
+
+test('single fee-range table supports modal add, edit, delete, overlaps, unsorted boundaries and empty base fallback on mobile', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const { singleRequests } = await mockAmountPricing(page, [
     { ...amountRules[0], amountBasedPricingEnabled: false, amountBasedPricingTiers: [] },
@@ -93,34 +105,64 @@ test('amount tiers in Edit Pricing Rule validate overlap, warn about fallback ga
   const drawer = page.getByTestId('pricing-rule-drawer');
   await expect(drawer).toBeVisible();
   await expect(drawer.getByTestId('single-amount-pricing-editor')).toBeVisible();
-  await drawer.getByTestId('single-amount-pricing-enabled').check();
-  await drawer.getByTestId('single-add-amount-tier').click();
-  await drawer.getByTestId('single-amount-no-limit-0').uncheck();
-  await drawer.getByTestId('single-amount-max-0').fill('600');
-  await drawer.getByTestId('single-amount-percentage-0').fill('1');
-  await drawer.getByTestId('single-add-amount-tier').click();
-  await drawer.getByTestId('single-amount-min-1').fill('500');
-  await drawer.getByTestId('single-amount-percentage-1').fill('3');
-  await expect(drawer.getByTestId('single-amount-no-limit-1')).toBeChecked();
-  await expect(drawer.getByTestId('single-amount-validation')).toContainText('overlap');
-  await drawer.getByTestId('button-save-pricing-rule').click();
+  await expect(drawer.getByTestId('single-amount-range-table').locator('th')).toHaveText(['Min', 'Max', 'Percentage', 'Direction', 'Actions']);
+  await expect(drawer.getByTestId('single-amount-pricing-enabled')).toHaveCount(0);
+  await expect(drawer.getByTestId('single-amount-pricing-editor')).toContainText('Base price applies');
+  await addRange(page, 'single', '800', '20000', '3');
+  await page.getByTestId('single-add-amount-range').click();
+  const modal = page.getByTestId('single-amount-range-modal');
+  await modal.getByTestId('single-range-min').fill('700');
+  await modal.getByTestId('single-range-max').fill('900');
+  await modal.getByTestId('single-range-percentage').fill('1');
+  await modal.getByTestId('single-save-amount-range').click();
+  await expect(modal.getByTestId('single-amount-validation')).toContainText('overlap');
   expect(singleRequests).toHaveLength(0);
-
-  await drawer.getByTestId('single-amount-min-1').fill('700');
-  await expect(drawer.getByTestId('single-amount-validation')).toHaveCount(0);
-  await expect(drawer.getByTestId('single-amount-gap-warning')).toContainText('Base pricing applies');
-  await drawer.getByTestId('single-amount-min-1').fill('600');
-  await expect(drawer.getByTestId('single-amount-gap-warning')).toHaveCount(0);
+  await modal.getByTestId('single-range-min').fill('300');
+  await modal.getByTestId('single-range-max').fill('800');
+  await modal.getByTestId('single-save-amount-range').click();
+  await expect(modal).toHaveCount(0);
+  await expect(drawer.getByTestId('single-amount-range-1')).toContainText('300');
+  await drawer.getByTestId('single-edit-amount-range-1').click();
+  await modal.getByTestId('single-range-percentage').fill('2');
+  await modal.getByTestId('single-range-direction').selectOption('GIVE_MORE');
+  await modal.getByTestId('single-save-amount-range').click();
+  await expect(drawer.getByTestId('single-amount-range-1')).toContainText('Markdown');
+  await drawer.getByTestId('single-delete-amount-range-1').click();
+  await addRange(page, 'single', '300', '800', '1');
+  await expect(drawer.getByTestId('single-amount-range-1')).toContainText('Markup');
   expect(await drawer.evaluate(element => element.getBoundingClientRect().width <= window.innerWidth)).toBe(true);
   await drawer.getByTestId('button-save-pricing-rule').click();
   await expect.poll(() => singleRequests.length).toBe(1);
   expect(singleRequests[0]).toMatchObject({
     version: 1, name: amountRules[0].name,
     amountBasedPricingEnabled: true,
+    amountBasedPricingTiers: [storedTiers[1], storedTiers[0]],
+  });
+  await expect(drawer).toHaveCount(0);
+
+  await page.getByTestId(`button-edit-pricing-${amountRules[0].id}`).click();
+  await drawer.getByTestId('single-delete-amount-range-1').click();
+  await drawer.getByTestId('single-delete-amount-range-0').click();
+  await expect(drawer.getByTestId('single-amount-pricing-editor')).toContainText('Base price applies');
+  await drawer.getByTestId('button-save-pricing-rule').click();
+  await expect.poll(() => singleRequests.length).toBe(2);
+  expect(singleRequests[1]).toMatchObject({ amountBasedPricingEnabled: false, amountBasedPricingTiers: [] });
+});
+
+test('editing another field does not reactivate ranges stored on a disabled rule', async ({ page }) => {
+  const { singleRequests } = await mockAmountPricing(page, [
+    { ...amountRules[0], amountBasedPricingEnabled: false, amountBasedPricingTiers: storedTiers },
+  ]);
+  await page.goto('/admin/pricing');
+  await page.getByTestId(`button-edit-pricing-${amountRules[0].id}`).click();
+  const drawer = page.getByTestId('pricing-rule-drawer');
+  await expect(drawer.getByTestId('single-amount-pricing-editor')).toContainText('Base price applies');
+  await drawer.getByTestId('button-save-pricing-rule').click();
+  await expect.poll(() => singleRequests.length).toBe(1);
+  expect(singleRequests[0]).toMatchObject({
+    amountBasedPricingEnabled: false,
     amountBasedPricingTiers: storedTiers,
   });
-  expect(singleRequests[0].amountBasedPricingTiers[0].minAmount).toBe('0');
-  await expect(drawer).toHaveCount(0);
 });
 
 test('bulk edit omits unchecked amount fields, then applies checked tiers to each selected rule', async ({ page }) => {
@@ -150,14 +192,9 @@ test('bulk edit omits unchecked amount fields, then applies checked tiers to eac
   await expect(drawer).toBeVisible();
   expect(await drawer.evaluate(element => element.getBoundingClientRect().width <= window.innerWidth)).toBe(true);
   await drawer.getByTestId('apply-amount-based-pricing').check();
-  await drawer.getByTestId('bulk-amount-pricing-enabled').check();
-  await drawer.getByTestId('bulk-add-amount-tier').click();
-  await drawer.getByTestId('bulk-amount-no-limit-0').uncheck();
-  await drawer.getByTestId('bulk-amount-max-0').fill('600');
-  await drawer.getByTestId('bulk-amount-percentage-0').fill('1');
-  await drawer.getByTestId('bulk-add-amount-tier').click();
-  await drawer.getByTestId('bulk-amount-percentage-1').fill('3');
-  await expect(drawer.getByTestId('bulk-amount-min-1')).toHaveValue('600');
+  await expect(drawer.getByTestId('bulk-amount-pricing-enabled')).toHaveCount(0);
+  await addRange(page, 'bulk', '300', '800', '1');
+  await addRange(page, 'bulk', '800', '20000', '3');
   await drawer.getByTestId('button-save-bulk-pricing').click();
   await expect.poll(() => bulkRequests.length).toBe(2);
   expect(bulkRequests[1].items).toEqual(amountRules.map(rule => ({ id: rule.id, version: 2 })));
@@ -166,6 +203,13 @@ test('bulk edit omits unchecked amount fields, then applies checked tiers to eac
     amountBasedPricingTiers: storedTiers,
   });
   await expect(drawer).toHaveCount(0);
+
+  await page.getByTestId('checkbox-select-visible-pricing').check();
+  await page.getByTestId('button-bulk-edit').click();
+  await drawer.getByTestId('apply-amount-based-pricing').check();
+  await drawer.getByTestId('button-save-bulk-pricing').click();
+  await expect.poll(() => bulkRequests.length).toBe(3);
+  expect(bulkRequests[2].patch).toEqual({ amountBasedPricingEnabled: false, amountBasedPricingTiers: [] });
 });
 
 test('Select All bulk fee editing submits every filtered rule and reports partial results', async ({ page }) => {

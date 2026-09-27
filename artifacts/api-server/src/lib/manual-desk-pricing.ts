@@ -102,10 +102,6 @@ export function validateManualPricingTiers(
     if (!min || (tier.maxAmount !== null && !max) || !percentage) {
       throw new ApiError("VALIDATION_ERROR", `Amount tier ${index + 1} must use exact non-negative decimals.`, 400);
     }
-    if ((index === 0 && min.coefficient !== 0n) ||
-        (index > 0 && min.coefficient === 0n)) {
-      throw new ApiError("VALIDATION_ERROR", "The first amount tier must start at zero; later tiers must start above zero.", 400);
-    }
     if (max && compareExactDecimals(max, min) <= 0) {
       throw new ApiError("VALIDATION_ERROR", `Amount tier ${index + 1} maximum must exceed its minimum.`, 400);
     }
@@ -114,22 +110,22 @@ export function validateManualPricingTiers(
           percentage.coefficient === 100n * 10n ** BigInt(percentage.scale))) {
       throw new ApiError("VALIDATION_ERROR", `Amount tier ${index + 1} percentage is outside the allowed range for ${tier.direction}.`, 400);
     }
-    if ((index < tiers.length - 1 && max === null) ||
-        (index === tiers.length - 1 && max !== null)) {
-      throw new ApiError("VALIDATION_ERROR", "Only the last amount tier may have No Limit.", 400);
-    }
-    return { min, max };
+    return { min: min!, max: tier.maxAmount === null ? null : max! };
   });
-  for (let index = 1; index < parsed.length; index++) {
-    const previous = parsed[index - 1]!;
-    const current = parsed[index]!;
-    if (!previous.max || compareExactDecimals(current.min, previous.min) <= 0) {
-      throw new ApiError("VALIDATION_ERROR", "Amount tiers must be strictly ordered.", 400);
-    }
-    // The prior maximum is inclusive and the next minimum is exclusive, so a
-    // shared boundary is valid while any smaller next minimum overlaps.
-    if (compareExactDecimals(current.min, previous.max) < 0) {
-      throw new ApiError("VALIDATION_ERROR", "Amount tiers cannot overlap.", 400);
+  for (let leftIndex = 0; leftIndex < parsed.length; leftIndex++) {
+    const left = parsed[leftIndex]!;
+    for (let rightIndex = leftIndex + 1; rightIndex < parsed.length; rightIndex++) {
+      const right = parsed[rightIndex]!;
+      // Ranges which only meet at one endpoint are valid. The preceding
+      // range owns that shared endpoint; all intersections with positive
+      // width are ambiguous and must be rejected.
+      const leftExtendsPastRightMin = left.max === null ||
+        compareExactDecimals(left.max, right.min) > 0;
+      const rightExtendsPastLeftMin = right.max === null ||
+        compareExactDecimals(right.max, left.min) > 0;
+      if (leftExtendsPastRightMin && rightExtendsPastLeftMin) {
+        throw new ApiError("VALIDATION_ERROR", "Amount tiers cannot overlap.", 400);
+      }
     }
   }
 }
@@ -140,14 +136,25 @@ export function selectManualPricingTier(
 ): ManualPricingTier | undefined {
   const value = quoteAmountDecimal(amount);
   if (!value) return undefined;
-  return tiers.find((tier, index) => {
+  const parsed = tiers.map((tier) => {
     const min = exactDecimal(tier.minAmount);
     const max = tier.maxAmount === null ? null : exactDecimal(tier.maxAmount);
-    if (!min || (tier.maxAmount !== null && !max)) return false;
-    const lowerCompare = compareExactDecimals(value, min);
-    return (index === 0 && min.coefficient === 0n ? lowerCompare >= 0 : lowerCompare > 0) &&
-      (max === null || (max !== undefined && compareExactDecimals(value, max) <= 0));
+    if (!min || (tier.maxAmount !== null && !max)) return undefined;
+    return { tier, min, max: max ?? null };
   });
+  const matches = parsed.flatMap((range) => {
+    if (!range) return [];
+    const { tier, min, max } = range;
+    const hasPrecedingSharedBoundary = parsed.some((other) =>
+      other && other !== range && other.max !== null &&
+      compareExactDecimals(other.max, min) === 0);
+    const lowerCompare = compareExactDecimals(value, min);
+    return (hasPrecedingSharedBoundary ? lowerCompare > 0 : lowerCompare >= 0) &&
+      (max === null || compareExactDecimals(value, max) <= 0)
+      ? [tier]
+      : [];
+  });
+  return matches.length === 1 ? matches[0] : undefined;
 }
 
 function normalized(value: string | null | undefined): string | null {
