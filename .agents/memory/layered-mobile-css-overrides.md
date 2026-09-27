@@ -14,3 +14,9 @@ For compact variants of globally fixed-size logo wrappers, overriding `width` an
 **Why:** A carousel-specific 26px logo rule appeared partly successful—the width and artwork changed—but an important 48px minimum height kept the wrapper taller than its 44px card.
 
 **How to apply:** Override width, height, min-width, min-height, max-width, max-height, flex basis, padding, and overflow together in the owning cascade layer. Confirm the wrapper and artwork bounding boxes, not only visible clipping.
+
+For mobile drawer buttons, verify the computed flex basis as well as the visible height: a fixed height can hide a retained large flex basis that still reserves vertical space in a column. Check computed gradients in both themes too; the shared Admin Light Mode button surface can replace a branded gradient through important declarations even when the drawer's normal rule looks more specific.
+
+**Why:** A compact route action measured 48px tall but still carried a 280px flex basis; its Light Mode gradient also disappeared under the global Admin button contract.
+
+**How to apply:** Use a phone-width computed-style check on the actual class chain, then compare with a tablet width to ensure a mobile-only correction leaves larger layouts untouched.
