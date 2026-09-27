@@ -2,6 +2,7 @@
 import { useGetAdminNotificationEmailTemplates, getGetAdminNotificationEmailTemplatesQueryKey, useUpdateAdminNotificationEmailTemplates, useTestAdminNotificationEmailTemplate } from '@workspace/api-client-react';
 import type { NotificationEmailTemplate, NotificationEmailTemplateEventKind } from '@workspace/api-client-react';
 import '../admin-notifications-redesign.css';
+import '../network-drawer-redesign.css';
 import { useI18n } from '../i18n/provider';
 import { getWhitebitRouteState, hasCurrentWhitebitPermissionProof, resolveWhitebitNetworkSelection, savedWhitebitMappingMatchesSelection } from './whitebit-route-state';
 import { lazy, Suspense, useEffect, useMemo, useState, useRef, useCallback } from 'react';
@@ -10265,7 +10266,7 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
 
   return (
     <div className="drawer-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <aside className="order-drawer network-drawer catalog-editor-drawer" role="dialog" aria-label={isNew ? t('adminCatalog.add_crypto_network') : t('adminCatalog.edit_crypto_network')} data-testid="crypto-network-drawer">
+      <aside className={`order-drawer network-drawer catalog-editor-drawer${isNew ? '' : ' qx-network-editor'}`} role="dialog" aria-label={isNew ? t('adminCatalog.add_crypto_network') : t('adminCatalog.edit_crypto_network')} data-testid="crypto-network-drawer">
         <div className="drawer-head catalog-editor-head"><div className="catalog-editor-heading"><span className="catalog-editor-icon"><Network size={19} /></span><div><span className="section-kicker">{t('adminCatalog.configuration')}</span><h2>{isNew ? t('adminCatalog.add_crypto_network') : t('adminCatalog.edit_crypto_network')}</h2></div></div><button className="icon-button catalog-editor-close" onClick={onClose} aria-label={t('adminCatalog.close_crypto_network_drawer')}><X size={18} /></button></div>
         <form className="admin-form admin-form-card drawer-edit network-drawer-form catalog-editor-form" onSubmit={event => {
           event.preventDefault();
@@ -10274,7 +10275,46 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
           {error && <InlineNotice kind="error">{error}</InlineNotice>}
           {successNotice && <InlineNotice kind="success" onDismiss={() => setSuccessNotice('')}>{successNotice}</InlineNotice>}
 
-          <section className="space-y-4 rounded-xl border border-border/70 p-4" aria-label="Network Details">
+          {!isNew && (
+            <section className="qx-route-overview" aria-label="Saved network route at a glance">
+              <div className="qx-route-overview-head">
+                <div>
+                  <span className="qx-overline">Saved route / operational snapshot</span>
+                  <h3>{selectedAsset?.code || savedRoute?.assetId || 'Asset'} <span aria-hidden="true">/</span> {savedRoute?.networkCode || networkCode || 'Network'}</h3>
+                  <p>{savedRoute?.networkName || networkName || 'Network name not set'}</p>
+                </div>
+              </div>
+              <div className="qx-route-state-grid">
+                <div className="qx-route-state" data-tone={savedRoute?.widgetReadiness?.ready === true ? 'success' : savedRoute?.widgetReadiness?.ready === false ? 'danger' : undefined}>
+                  <small>Widget readiness</small>
+                  <strong data-testid="network-saved-readiness">{savedRoute?.widgetReadiness?.ready === true ? 'READY' : savedRoute?.widgetReadiness?.ready === false ? 'BLOCKED' : 'Not evaluated'}</strong>
+                </div>
+                <div className="qx-route-state" data-tone={savedRoute?.enabled ? 'success' : 'warning'}>
+                  <small>Network</small>
+                  <strong data-testid="network-saved-enabled">{savedRoute?.enabled ? 'Enabled' : 'Disabled'}</strong>
+                </div>
+                <div className="qx-route-state">
+                  <small>Saved provider</small>
+                  <strong data-testid="network-saved-provider">{savedRoute?.depositProvider === 'whitebit' ? 'WhiteBIT' : savedRoute?.depositProvider === 'manual' ? 'Manual Wallet' : savedRoute?.depositProvider || 'None'}</strong>
+                </div>
+                <div className="qx-route-state" data-tone={savedRoute?.customerDepositsEnabled ? 'success' : 'warning'}>
+                  <small>Customer Deposits</small>
+                  <strong data-testid="network-saved-deposits">{savedRoute?.customerDepositsEnabled ? 'ON' : 'OFF'}</strong>
+                </div>
+              </div>
+              <p className="qx-route-overview-note">
+                {savedRoute?.depositProvider === 'whitebit'
+                  ? `Saved WhiteBIT mapping: ${savedRoute.whitebitAssetCode || 'Not set'} · ${savedRoute.whitebitNetworkCode || 'Not set'}. `
+                  : ''}
+                {savedRoute?.widgetReadiness?.ready === false && savedRoute.widgetReadiness.reason
+                  ? `Readiness: ${savedRoute.widgetReadiness.reason}. `
+                  : ''}
+                These are saved values, not a preview of unsaved changes. Network details, deposit route, and Customer Deposits have separate save controls below.
+              </p>
+            </section>
+          )}
+
+          <section className={`${isNew ? 'space-y-4 ' : 'qx-network-section '}rounded-xl border border-border/70 p-4`} aria-label="Network Details">
             <div className="panel-heading"><div><span className="section-kicker">1 / Network</span><h2>Network Details</h2></div></div>
           <section className="catalog-editor-network-preview" aria-label={t('adminCatalog.network_asset_and_metadata_preview')}>
             <div>
@@ -10366,12 +10406,12 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
           <label><span className="field-label">{t('adminCatalog.deposit_warning')}</span><textarea rows={2} value={form.depositWarning} onChange={e => setForm({...form, depositWarning: e.target.value})} placeholder={t('adminCatalog.red_warning_text_if_necessary')} /></label>
             <div className="flex flex-wrap gap-2">
               {isNew ? (
-                <button type="submit" className="catalog-editor-primary" disabled={createNetwork.isPending}>
-                  <Save size={16} />{t('adminCatalog.save_network')}
+                 <button type="submit" className="catalog-editor-primary" disabled={createNetwork.isPending} aria-busy={createNetwork.isPending}>
+                   {createNetwork.isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}{createNetwork.isPending ? 'Saving…' : t('adminCatalog.save_network')}
                 </button>
               ) : (
-                <button type="button" className="button-secondary" onClick={() => void saveNetworkMetadata()} disabled={updateNetwork.isPending}>
-                  <Save size={16} />Save Network Details
+                 <button type="button" className="button-secondary" onClick={() => void saveNetworkMetadata()} disabled={updateNetwork.isPending} aria-busy={updateNetwork.isPending}>
+                   {updateNetwork.isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}{updateNetwork.isPending ? 'Saving…' : 'Save Network Details'}
                 </button>
               )}
             </div>
@@ -10379,15 +10419,15 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
             {!isNew && (
               <details className="rounded-lg border border-border/70 p-3">
                 <summary className="cursor-pointer text-sm font-semibold">Advanced: Delete network</summary>
-                <button type="button" className="catalog-editor-danger mt-3" onClick={remove} disabled={deleteNetwork.isPending}>
-                  <Trash2 size={15} />{t('adminCatalog.delete')}
+                 <button type="button" className="catalog-editor-danger mt-3" onClick={remove} disabled={deleteNetwork.isPending} aria-busy={deleteNetwork.isPending}>
+                   {deleteNetwork.isPending ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}{deleteNetwork.isPending ? 'Deleting…' : t('adminCatalog.delete')}
                 </button>
               </details>
             )}
           </section>
 
           {!isNew && (
-             <section className="receiving-wallet-section" data-testid="network-receiving-wallet-section" aria-label="Deposit provider and Manual Wallet tracking">
+             <section className="receiving-wallet-section qx-network-section" data-testid="network-receiving-wallet-section" aria-label="Deposit provider and Manual Wallet tracking">
               <div className="panel-heading mb-3">
                   <div><span className="section-kicker">2 / Routing</span><h2>Deposit Provider</h2></div>
               </div>
@@ -10413,7 +10453,7 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                  {depositProviderOptionsQuery.isError && <span className="field-hint" role="alert">Registered deposit providers could not be loaded. The current value is preserved.</span>}
               </label>
               {isWhitebitProvider && (
-                <div className="space-y-2 rounded-lg border border-border p-3" data-testid="whitebit-route-mapping">
+                <div className="qx-whitebit-mapping rounded-lg border border-border p-3" data-testid="whitebit-route-mapping">
                   <p className="field-hint">
                     Save the WhiteBIT provider and exact mapping first. Customer Deposits remain OFF until separately verified and enabled.
                   </p>
@@ -10492,8 +10532,9 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                   )}
                   {whitebitRouteState.canVerify && !whitebitVerificationRoutesQuery.isLoading &&
                     !whitebitVerificationRoutesQuery.isError && isOwner && (
-                    <button type="button" className="button-secondary" data-testid="button-verify-whitebit" disabled={testWhitebitCredentials.isPending || verifyWhitebitPermission.isPending} onClick={() => void verifyWhitebitRoute()}>
-                      {testWhitebitCredentials.isPending ? 'Checking signed credentials…' : verifyWhitebitPermission.isPending ? 'Verifying permission…' : 'Verify WhiteBIT'}
+                     <button type="button" className="button-secondary" data-testid="button-verify-whitebit" disabled={testWhitebitCredentials.isPending || verifyWhitebitPermission.isPending} aria-busy={testWhitebitCredentials.isPending || verifyWhitebitPermission.isPending} onClick={() => void verifyWhitebitRoute()}>
+                       {(testWhitebitCredentials.isPending || verifyWhitebitPermission.isPending) && <Loader2 size={15} className="animate-spin" />}
+                       {testWhitebitCredentials.isPending ? 'Checking signed credentials…' : verifyWhitebitPermission.isPending ? 'Verifying permission…' : 'Verify WhiteBIT'}
                     </button>
                   )}
                 </div>
@@ -10502,7 +10543,7 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
            )}
 
            {!isNew && (
-             <section className="receiving-wallet-section" aria-label="Manual Wallet / Fallback">
+             <section className="receiving-wallet-section qx-network-section" aria-label="Manual Wallet / Fallback">
                <div className="panel-heading mb-3">
                  <div><span className="section-kicker">3 / Address</span><h2>Manual Wallet / Fallback</h2></div>
                </div>
@@ -10528,7 +10569,7 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
            )}
 
            {!isNew && (
-             <section className="receiving-wallet-section" aria-label="Blockchain Monitoring">
+             <section className="receiving-wallet-section qx-network-section" aria-label="Blockchain Monitoring">
                <div className="panel-heading mb-3">
                  <div><span className="section-kicker">4 / Detection</span><h2>Blockchain Monitoring</h2></div>
                </div>
@@ -10559,7 +10600,9 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                      ) : (
                        <p className="field-hint">Manual — no automatic blockchain tracking for the saved Manual Wallet.</p>
                      )}
-                     {network && <BlockchainMonitorConfig network={network} networkCode={network.networkCode || networkCode} />}
+                     <div className="qx-monitor-config">
+                       {network && <BlockchainMonitorConfig network={network} networkCode={network.networkCode || networkCode} />}
+                     </div>
                    </div>
                  </details>
                ) : (
@@ -10569,26 +10612,26 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
            )}
 
            {!isNew && (
-             <div className="network-drawer-actions catalog-editor-actions">
+             <div className="network-drawer-actions catalog-editor-actions qx-route-actions">
                <p className="field-hint w-full">Save changes to sections 2–4 before changing Customer Deposits. This does not save Network Details.</p>
                {!isWhitebitProvider || !(savedRoute?.depositProvider === 'manual' && savedRoute.customerDepositsEnabled === true) ? (
-                 <button type="button" onClick={() => void save()} className="catalog-editor-primary" data-testid="button-save-deposit-route" disabled={depositRouteSaving || saveReceivingWallet.isPending || testWhitebitCredentials.isPending || verifyWhitebitPermission.isPending || whitebitReviewPending || (savedRoute?.depositProvider === 'whitebit' && savedRoute.customerDepositsEnabled === true)}>
-                   <Save size={16} />{isWhitebitProvider ? 'Save WhiteBIT setup (Customer Deposits OFF)' : 'Save Deposit Route'}
+                  <button type="button" onClick={() => void save()} className="catalog-editor-primary" data-testid="button-save-deposit-route" disabled={depositRouteSaving || saveReceivingWallet.isPending || testWhitebitCredentials.isPending || verifyWhitebitPermission.isPending || whitebitReviewPending || (savedRoute?.depositProvider === 'whitebit' && savedRoute.customerDepositsEnabled === true)} aria-busy={depositRouteSaving}>
+                    {depositRouteSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}{depositRouteSaving ? 'Saving deposit route…' : isWhitebitProvider ? 'Save WhiteBIT setup (Customer Deposits OFF)' : 'Save Deposit Route'}
                  </button>
                ) : (
-                 isOwner && <button type="button" className="catalog-editor-primary" data-testid="button-confirm-whitebit-switch" disabled={depositRouteSaving || saveReceivingWallet.isPending || whitebitReviewPending} onClick={() => {
+                  isOwner && <button type="button" className="catalog-editor-primary" data-testid="button-confirm-whitebit-switch" disabled={depositRouteSaving || saveReceivingWallet.isPending || whitebitReviewPending} aria-busy={depositRouteSaving} onClick={() => {
                    if (window.confirm('Switch this active Manual Wallet route to WhiteBIT? The saved Manual address remains available, but Customer Deposits will turn OFF until you verify WhiteBIT and turn them ON separately.')) {
                      void save(undefined, true);
                    }
                  }}>
-                   <Save size={16} />Switch to WhiteBIT (turn Customer Deposits OFF until verified)
+                    {depositRouteSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}{depositRouteSaving ? 'Switching to WhiteBIT…' : 'Switch to WhiteBIT (turn Customer Deposits OFF until verified)'}
                  </button>
                )}
              </div>
            )}
 
            {!isNew && (
-             <section className="receiving-wallet-section" aria-label="Customer Deposits / Widget">
+             <section className="receiving-wallet-section qx-network-section" aria-label="Customer Deposits / Widget">
                <div className="panel-heading mb-3">
                  <div><span className="section-kicker">5 / Visibility</span><h2>Customer Deposits / Widget</h2></div>
                </div>
@@ -10632,9 +10675,11 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                       disabled={depositRouteSaving || !(persistedWhitebitRoute.customerDepositsEnabled
                         ? whitebitRouteState.canDisable
                         : whitebitRouteState.canEnable)}
+                      aria-busy={depositRouteSaving}
                       onClick={() => void setWhitebitCustomerDeposits(persistedWhitebitRoute.customerDepositsEnabled !== true)}
                     >
-                      Turn Customer Deposits {persistedWhitebitRoute.customerDepositsEnabled ? 'OFF' : 'ON'}
+                      {depositRouteSaving && <Loader2 size={15} className="animate-spin" />}
+                      {depositRouteSaving ? 'Updating Customer Deposits…' : `Turn Customer Deposits ${persistedWhitebitRoute.customerDepositsEnabled ? 'OFF' : 'ON'}`}
                     </button>
                   </div>
                   <p className="field-hint">Currently {persistedWhitebitRoute.customerDepositsEnabled ? 'ON' : 'OFF'}. Turning OFF remains available even if permission proof is stale.</p>
