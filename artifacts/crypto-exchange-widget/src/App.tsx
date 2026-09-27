@@ -73,7 +73,7 @@ import {
   useGetPublishedSiteContent, getGetPublishedSiteContentQueryKey
   , useGetPublicNotificationSettings, getGetPublicNotificationSettingsQueryKey
 } from '@workspace/api-client-react';
-import type { Asset, Customer, Order, PublicOrderStatus, ApiError, QuickexRateMode, CustomerOrder, FiatCurrency, OneForgeProviderStatus, ManualDeskPricingRule, ManualDeskPricingRuleInput, SettlementOption, PaymentMethod, PaymentMethodFieldDefinition, CryptoAsset, CryptoNetwork, OrderBulkMutationResponse, OrderBulkStatusInputManualSettlementState, FiatCurrencyPaymentMethodBulkPreview, FiatCurrencyPaymentMethodBulkApplyResult, AffiliateAccount, AffiliateSettings, AffiliatePayout, AffiliateOverview, AffiliateAccountPage, AffiliateCommission, AffiliateAccountDetail, AffiliateValuationReview, AffiliateReferral, AffiliateDashboard, SitePageKey, PermissionKey } from '@workspace/api-client-react';
+import type { Asset, Customer, Order, PublicOrderStatus, ApiError, QuickexRateMode, CustomerOrder, FiatCurrency, OneForgeProviderStatus, ManualDeskPricingRule, ManualDeskPricingRuleInput, SettlementOption, PaymentMethod, PaymentMethodFieldDefinition, CryptoAsset, CryptoNetwork, OrderBulkMutationResponse, OrderBulkStatusInputManualSettlementState, FiatCurrencyPaymentMethodBulkPreview, FiatCurrencyPaymentMethodBulkApplyResult, AffiliateAccount, AffiliateSettings, AffiliatePayout, AffiliateOverview, AffiliateAccountPage, AffiliateCommission, AffiliateAccountDetail, AffiliateValuationReview, AffiliateReferral, AffiliateDashboard, SitePageKey, PermissionKey, SocialTrustConfig } from '@workspace/api-client-react';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
 import { ErrorBoundary } from '@/components/error-boundary';
 import NotFound from '@/pages/not-found';
@@ -81,6 +81,7 @@ import { PUBLIC_PAGE_REGISTRY } from '@/lib/public-page-registry';
 import { ExchangeModeSwitcher, FiatCurrencyFlag, PaymentMethodLogo } from '@/components/exchange-surface';
 import { ExchangeInformationCard } from '@/components/exchange-information-card';
 import { PublicShell } from '@/components/public-shell';
+import { CommunitySection } from '@/components/community-section';
 import { SideDrawer } from '@/components/side-drawer';
 import { AdminHeader } from '@/components/admin-header';
 export { PublicShell } from '@/components/public-shell';
@@ -544,7 +545,7 @@ const PaymentTickerSequence = memo(function PaymentTickerSequence({
   );
 });
 
-function LandingSections({ getMode }: { getMode: () => 'swap' | 'convert' }) {
+function LandingSections({ getMode, socialTrust, showCommunity }: { getMode: () => 'swap' | 'convert'; socialTrust?: Pick<SocialTrustConfig, 'items'> | null; showCommunity: boolean }) {
   const { t } = useI18n();
   const marketAssets = useMemo(() => [
     'BTC', 'ETH', 'USDT', 'SOL', 'BNB', 'XRP', 'ADA',
@@ -981,6 +982,8 @@ function LandingSections({ getMode }: { getMode: () => 'swap' | 'convert' }) {
         </div>
       </section>
 
+      {showCommunity && <CommunitySection socialTrust={socialTrust} />}
+
       {/* CTA */}
       <section className="cta-section relative mt-24 mb-12">
         <div className="cta-bg-glow absolute inset-0 bg-gradient-to-t from-primary/10 to-transparent pointer-events-none rounded-3xl" />
@@ -997,7 +1000,7 @@ function LandingSections({ getMode }: { getMode: () => 'swap' | 'convert' }) {
   );
 }
 
-function DeferredLandingSections({ getMode }: { getMode: () => 'swap' | 'convert' }) {
+function DeferredLandingSections({ getMode, socialTrust, showCommunity }: { getMode: () => 'swap' | 'convert'; socialTrust?: Pick<SocialTrustConfig, 'items'> | null; showCommunity: boolean }) {
   const [visible, setVisible] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -1019,7 +1022,7 @@ function DeferredLandingSections({ getMode }: { getMode: () => 'swap' | 'convert
 
   return (
     <div ref={sentinelRef}>
-      {visible ? <LandingSections getMode={getMode} /> : null}
+      {visible ? <LandingSections getMode={getMode} socialTrust={socialTrust} showCommunity={showCommunity} /> : null}
     </div>
   );
 }
@@ -1211,7 +1214,11 @@ function ConfiguredExchangePage({ pageKey }: { pageKey: SitePageKey }) {
             <LiveMarketSection />
           </Suspense>
         )}
-        <DeferredLandingSections getMode={getActiveMode} />
+        <DeferredLandingSections
+          getMode={getActiveMode}
+          socialTrust={preview.active && preview.socialTrust ? preview.socialTrust : published.data?.socialTrust}
+          showCommunity={pageKey === 'home'}
+        />
       </PublicShell>
     </LiveLandingBackground>
   );

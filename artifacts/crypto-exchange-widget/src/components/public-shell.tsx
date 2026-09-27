@@ -3,10 +3,12 @@ import type { CSSProperties, ReactNode } from 'react';
 import { useUser } from '@clerk/react';
 import { ArrowRight, ChevronDown, CircleUserRound, Gauge, Globe2, Handshake, House, Menu, Moon, Search, ShieldCheck, Sun, X, Link2, Pause, Play, Mail, Clock3 } from 'lucide-react';
 import {
+  SiCoinmarketcap,
   SiDiscord,
   SiFacebook,
   SiGithub,
   SiInstagram,
+  SiMedium,
   SiReddit,
   SiTelegram,
   SiTiktok,
@@ -150,7 +152,9 @@ function footerSocialAppearance(socialTrust?: SocialTrustConfig): CSSProperties 
 
 function footerSocialPlatformIcon(item: RenderableSocialItem) {
   const identity = `${item.name} ${item.href}`.toLocaleLowerCase();
-  const Icon = identity.includes('instagram') ? SiInstagram
+  const Icon = identity.includes('coinmarketcap') ? SiCoinmarketcap
+    : identity.includes('medium') ? SiMedium
+    : identity.includes('instagram') ? SiInstagram
     : identity.includes('twitter') || identity.includes('x.com') || /\bx\b/.test(item.name.toLocaleLowerCase()) ? SiX
     : identity.includes('facebook') || identity.includes('fb.com') ? SiFacebook
     : identity.includes('linkedin') ? FaLinkedinIn
@@ -165,9 +169,9 @@ function footerSocialPlatformIcon(item: RenderableSocialItem) {
   return Icon ? <Icon className="qx-footer-social-svg" aria-hidden="true" /> : null;
 }
 
-function FooterSocialIcon({ item, preview, isDark }: { item: RenderableSocialItem; preview: ReturnType<typeof useSitePreview>; isDark: boolean }) {
+export function FooterSocialIcon({ item, preview, isDark, preferUploadedTrustpilot = false }: { item: RenderableSocialItem; preview: ReturnType<typeof useSitePreview>; isDark: boolean; preferUploadedTrustpilot?: boolean }) {
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
-  if (isTrustpilotItem(item)) return <SiTrustpilot className="qx-footer-social-svg" style={{ width: '100%', height: '100%' }} aria-hidden="true" />;
+  if (isTrustpilotItem(item) && !preferUploadedTrustpilot) return <SiTrustpilot className="qx-footer-social-svg" style={{ width: '100%', height: '100%' }} aria-hidden="true" />;
   const selectedPath = item.appearance === 'separate'
     ? (isDark ? item.darkObjectPath || item.objectPath : item.lightObjectPath || item.objectPath)
     : item.objectPath;
@@ -179,6 +183,7 @@ function FooterSocialIcon({ item, preview, isDark }: { item: RenderableSocialIte
         : `${basePath}/api/storage/objects/social-trust-icons/${objectPath.split('/').pop()}`)
     : item.defaultAssetPath || null;
   if (src && failedSrc !== src) return <img src={src} alt="" className="qx-footer-social-image" style={{ width: '100%', height: '100%', objectFit: 'contain' }} loading="lazy" onError={() => setFailedSrc(src)} />;
+  if (isTrustpilotItem(item)) return <SiTrustpilot className="qx-footer-social-svg" style={{ width: '100%', height: '100%' }} aria-hidden="true" />;
   const Icon = footerSocialPlatformIcon(item);
   return Icon ? <span className="qx-footer-social-svg" style={{ width: '100%', height: '100%' }}>{Icon}</span> : <Link2 className="qx-footer-social-svg" style={{ width: '100%', height: '100%' }} aria-hidden="true" />;
 }
@@ -321,6 +326,12 @@ function automaticNameOrder(left: { name: string; href?: string; id: string; ena
     || left.name.localeCompare(right.name)
     || (left.href ?? '').localeCompare(right.href ?? '')
     || left.id.localeCompare(right.id);
+}
+
+export function orderedPublishedSocialItems(socialTrust?: Pick<SocialTrustConfig, 'items'> | null): SocialTrustItem[] {
+  return [...(socialTrust?.items ?? [])]
+    .filter(item => item.enabled && item.group === 'social')
+    .sort((a, b) => (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER) || automaticNameOrder(a, b));
 }
 
 function hiddenManagedPageHrefs(pages: Array<{ pageKey: string; content: Record<string, unknown> }> = []): Set<string> {
@@ -721,9 +732,7 @@ export function PublicShell({ children }: { children: ReactNode }) {
   const partnerLogos = (preview.active && preview.partnerLogos ? preview.partnerLogos : (published.data?.partnerLogos ?? []))
     .filter((logo) => logo.enabled);
 
-  const socialItems = (socialTrust?.items ?? [])
-    .filter(i => i.enabled && i.group === 'social')
-    .sort((a, b) => (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER) || automaticNameOrder(a, b));
+  const socialItems = orderedPublishedSocialItems(socialTrust);
   const trustItems = (socialTrust?.items ?? []).filter(i => i.enabled && i.group === 'trust')
     .sort((a, b) => (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER) || automaticNameOrder(a, b));
   const telegramSupportUrl = (socialTrust?.items ?? []).find((item) =>
