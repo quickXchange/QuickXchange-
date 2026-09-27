@@ -24,6 +24,7 @@ let customerAuth: typeof import("../src/lib/customer-auth");
 let customerNotifications: typeof import("../src/lib/customer-status-notifications");
 let operatorRoutes: typeof import("../src/routes/operators");
 let quoteTickets: typeof import("../src/lib/quote-ticket");
+let orderAccess: typeof import("../src/lib/order-access");
 const deliveredCustomerNotifications: import(
   "../src/lib/customer-status-notifications"
 ).CustomerStatusNotification[] = [];
@@ -330,6 +331,7 @@ before(async () => {
   customerNotifications = await import("../src/lib/customer-status-notifications");
   operatorRoutes = await import("../src/routes/operators");
   quoteTickets = await import("../src/lib/quote-ticket");
+  orderAccess = await import("../src/lib/order-access");
   operatorAuth.configureOperatorAuthorizationForTests({
     getUserId: (req) => req.get("x-test-clerk-user-id") ?? null,
     getVerifiedEmail: (userId) => verifiedEmails.get(userId) ?? null,
@@ -1372,6 +1374,7 @@ test("customer history is session-owned, paged, and strictly customer-safe", asy
       "refreshUnavailable",
       "status",
       "statusNotificationsEnabled",
+      "step2Details",
       "toAsset",
       "toNetwork",
       "trackingToken",
@@ -1413,6 +1416,160 @@ test("customer history is session-owned, paged, and strictly customer-safe", asy
   assert.equal(publiclyTracked.status, 200);
   assert.equal(Object.hasOwn(publiclyTracked.body ?? {}, "customerClerkUserId"), false);
   assert.equal(Object.hasOwn(publiclyTracked.body ?? {}, "customerEmail"), false);
+});
+
+test("completed manual receipt projection exposes only token-authorized Step 2 and exact frozen fee", async () => {
+  const customer = `user_receipt_projection_${randomUUID()}`;
+  const receiptOrder = await seedOrder({
+    customerClerkUserId: customer,
+    status: "completed",
+  });
+  const missingFeeOrder = await seedOrder({
+    customerClerkUserId: customer,
+    status: "done",
+  });
+  const quoteRequest = manualOrderRequest("receipt-projection");
+  const quote = quoteTickets.verifyQuoteTicketForHistory(quoteRequest.quoteId);
+  assert.ok(quote.pricingSnapshot);
+  const pricingSnapshot = {
+    ...quote.pricingSnapshot,
+    rule: {
+      ...quote.pricingSnapshot.rule,
+      adjustmentDirection: "MARKUP" as const,
+      markupBasisPoints: 100,
+    },
+    context: {
+      ...quote.pricingSnapshot.context,
+      sourceAsset: "EUR",
+      targetAsset: "USDT",
+      sourceNetwork: "SEPA",
+      targetNetwork: "TRC20",
+    },
+    amounts: {
+      ...quote.pricingSnapshot.amounts,
+      grossMarketAmount: "450",
+      percentageCommission: "4.5",
+      fixedCommission: "0",
+      totalFee: "4.5",
+      receiveAmount: "445.5",
+      finalRate: "0.99",
+    },
+  };
+  const receiptQuoteId = quoteTickets.signQuoteTicket({
+    ...quote,
+    amount: 450,
+    receiveAmount: 445.5,
+    rate: 0.99,
+    fee: 4.5,
+    grossMarketAmount: 450,
+    percentageCommission: 4.5,
+    fixedCommission: 0,
+    totalFee: 4.5,
+    pricingSnapshot,
+  });
+  const persistedPricing = {
+    amount: "450",
+    receiveAmount: "445.5",
+    paymentMethod: "BANK TRANSFER",
+    payoutMethod: "WALLET",
+    pricingRuleId: quote.pricingRuleId,
+    pricingRuleVersion: quote.pricingRuleVersion,
+    pricingRuleName: quote.pricingRuleName,
+    grossMarketAmount: "450",
+    percentageCommission: "4.5",
+    fixedCommission: "0",
+    totalCommission: "4.5",
+    finalRate: "0.99",
+    quoteId: receiptQuoteId,
+    pricingSnapshot,
+  };
+  const saveReceiptPricing = async (
+    orderId: string,
+    overrides: Partial<typeof persistedPricing> = {},
+  ) => {
+    await database.db.update(database.ordersTable)
+      .set({ ...persistedPricing, ...overrides })
+      .where(eq(database.ordersTable.id, orderId));
+  };
+  await saveReceiptPricing(receiptOrder.id);
+  await database.db.update(database.ordersTable)
+    .set({
+      settlementSnapshot: {
+        requiredFields: [
+          { key: "destinationIban", label: "Receiving IBAN", type: "account-iban" },
+          { key: "internalProviderId", label: "Selected Provider", type: "short-text" },
+        ],
+      },
+      customerDetailsSnapshot: {
+        destinationAddress: "DE89370400440532013000",
+        settlementDetails: {
+          destinationIban: "DE89370400440532013000",
+          internalProviderId: "must-not-appear",
+          unconfiguredField: "must-not-appear",
+        },
+      },
+    })
+    .where(eq(database.ordersTable.id, receiptOrder.id));
+
+  const commissionMismatchOrder = await seedOrder({ status: "completed" });
+  await saveReceiptPricing(commissionMismatchOrder.id, { totalCommission: "4.4" });
+  const quoteAmountMismatchOrder = await seedOrder({ status: "completed" });
+  await saveReceiptPricing(quoteAmountMismatchOrder.id, { amount: "451" });
+  const snapshotMismatchOrder = await seedOrder({ status: "completed" });
+  await saveReceiptPricing(snapshotMismatchOrder.id, {
+    totalCommission: "4.6",
+    pricingSnapshot: {
+      ...pricingSnapshot,
+      amounts: { ...pricingSnapshot.amounts, totalFee: "4.6" },
+    },
+  });
+
+  const withoutToken = await request(`/orders/${receiptOrder.id}/status`);
+  assert.equal(withoutToken.status, 200);
+  assert.equal(Object.hasOwn(withoutToken.body ?? {}, "step2Details"), false);
+  assert.equal(Object.hasOwn(withoutToken.body ?? {}, "receiptFee"), false);
+
+  const trackingToken = orderAccess.signOrderTrackingToken(receiptOrder.id);
+  const withToken = await request(
+    `/orders/${receiptOrder.id}/status?trackingToken=${encodeURIComponent(trackingToken)}`,
+  );
+  assert.equal(withToken.status, 200);
+  assert.deepEqual(withToken.body?.receiptFee, { amount: "4.5", asset: "USDT" });
+  assert.deepEqual(withToken.body?.step2Details, [
+    { key: "name", label: "Name", value: "Private Customer" },
+    { key: "destinationAddress", label: "Receiving Address", value: "DE89370400440532013000" },
+    { key: "destinationMemo", label: "Receiving Memo / Tag", value: "private-destination-memo" },
+    { key: "refundAddress", label: "Refund Address", value: "private-refund-wallet" },
+    { key: "refundMemo", label: "Refund Memo / Tag", value: "private-refund-memo" },
+    { key: "destinationIban", label: "Receiving IBAN", value: "DE89370400440532013000" },
+  ]);
+  assert.equal(JSON.stringify(withToken.body).includes("must-not-appear"), false);
+  assert.equal(Object.hasOwn(withToken.body ?? {}, "pricingSnapshot"), false);
+  assert.equal(Object.hasOwn(withToken.body ?? {}, "customerDetailsSnapshot"), false);
+
+  const customerDetail = await request(`/account/orders/${receiptOrder.id}`, {}, customer);
+  assert.equal(customerDetail.status, 200);
+  assert.deepEqual(customerDetail.body?.receiptFee, { amount: "4.5", asset: "USDT" });
+
+  const feeMissing = await request(
+    `/orders/${missingFeeOrder.id}/status?trackingToken=${encodeURIComponent(orderAccess.signOrderTrackingToken(missingFeeOrder.id))}`,
+  );
+  assert.equal(feeMissing.status, 200);
+  assert.equal(Object.hasOwn(feeMissing.body ?? {}, "receiptFee"), false);
+  assert.equal(Object.hasOwn(feeMissing.body ?? {}, "pricingSnapshot"), false);
+
+  for (const mismatchOrder of [
+    commissionMismatchOrder,
+    quoteAmountMismatchOrder,
+    snapshotMismatchOrder,
+  ]) {
+    const mismatchStatus = await request(
+      `/orders/${mismatchOrder.id}/status?trackingToken=${encodeURIComponent(orderAccess.signOrderTrackingToken(mismatchOrder.id))}`,
+    );
+    assert.equal(mismatchStatus.status, 200);
+    assert.equal(Object.hasOwn(mismatchStatus.body ?? {}, "receiptFee"), false);
+    assert.equal(Object.hasOwn(mismatchStatus.body ?? {}, "pricingSnapshot"), false);
+  }
 });
 
 test("customer history unions owned manual and Convert orders with shared pagination and isolation", async () => {

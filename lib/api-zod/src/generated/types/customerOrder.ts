@@ -10,6 +10,7 @@ import type { CustomerOrderSettlementDetails } from './customerOrderSettlementDe
 import type { ExactDecimal } from './exactDecimal';
 import type { OrderPaymentDetails } from './orderPaymentDetails';
 import type { QuickexRateMode } from './quickexRateMode';
+import type { ReceiptFee } from './receiptFee';
 import type { SourcePaymentMethod } from './sourcePaymentMethod';
 import type { Step2CustomerDetail } from './step2CustomerDetail';
 import type { VerifiedFundingTransaction } from './verifiedFundingTransaction';
@@ -29,6 +30,7 @@ export interface CustomerOrder {
   refundAddress?: string;
   refundMemo?: string;
   step2Details?: Step2CustomerDetail[];
+  receiptFee?: ReceiptFee;
   rateMode?: QuickexRateMode;
   outcomeUnknown: boolean;
   refreshUnavailable: boolean;

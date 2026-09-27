@@ -13,7 +13,9 @@ import type { PublicOrderStatusFundingSource } from './publicOrderStatusFundingS
 import type { PublicOrderStatusFundingStatus } from './publicOrderStatusFundingStatus';
 import type { PublicOrderStatusSettlementDetails } from './publicOrderStatusSettlementDetails';
 import type { QuickexRateMode } from './quickexRateMode';
+import type { ReceiptFee } from './receiptFee';
 import type { SourcePaymentMethod } from './sourcePaymentMethod';
+import type { Step2CustomerDetail } from './step2CustomerDetail';
 
 export interface PublicOrderStatus {
   id: string;
@@ -31,6 +33,8 @@ export interface PublicOrderStatus {
   depositMemo?: string;
   refundAddress?: string;
   refundMemo?: string;
+  step2Details?: Step2CustomerDetail[];
+  receiptFee?: ReceiptFee;
   rateMode?: QuickexRateMode;
   outcomeUnknown: boolean;
   refreshUnavailable: boolean;

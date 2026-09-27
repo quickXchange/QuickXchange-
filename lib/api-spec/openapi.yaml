@@ -5189,6 +5189,12 @@ components:
         key: { type: string }
         label: { type: string }
         value: { type: string }
+    ReceiptFee:
+      type: object
+      required: [amount, asset]
+      properties:
+        amount: { $ref: "#/components/schemas/ExactDecimal" }
+        asset: { type: string }
     Order:
       type: object
       required: [id, type, status, recordVersion, assignedOperatorId, supportStatus, sendingStatus, receivingStatus, sentAmountOverride, receiveAmountOverride, exchangeRateOverride, networkFeeAmount, transactionHash, paymentReference, fromAsset, toAsset, amount, receiveAmount, customerEmail, customerRegistered, createdAt, updatedAt, provider, outcomeUnknown, providerClaimedDepositAmount, providerExpectedReceiveAmount, providerPaidAmount, providerCreatedAt, providerUpdatedAt, providerCompleted, trackingToken]
@@ -5705,6 +5711,10 @@ components:
         depositMemo: { type: string }
         refundAddress: { type: string }
         refundMemo: { type: string }
+        step2Details:
+          type: array
+          items: { $ref: "#/components/schemas/Step2CustomerDetail" }
+        receiptFee: { $ref: "#/components/schemas/ReceiptFee" }
         rateMode: { $ref: "#/components/schemas/QuickexRateMode" }
         outcomeUnknown: { type: boolean }
         refreshUnavailable: { type: boolean }
@@ -5761,6 +5771,7 @@ components:
         step2Details:
           type: array
           items: { $ref: "#/components/schemas/Step2CustomerDetail" }
+        receiptFee: { $ref: "#/components/schemas/ReceiptFee" }
         rateMode: { $ref: "#/components/schemas/QuickexRateMode" }
         outcomeUnknown: { type: boolean }
         refreshUnavailable: { type: boolean }

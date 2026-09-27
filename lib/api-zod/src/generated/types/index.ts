@@ -474,6 +474,7 @@ export * from './quote';
 export * from './quoteInput';
 export * from './quoteInputType';
 export * from './quoteType';
+export * from './receiptFee';
 export * from './revenueFromParameter';
 export * from './revenueGroupByParameter';
 export * from './revenueReportingCurrencyParameter';

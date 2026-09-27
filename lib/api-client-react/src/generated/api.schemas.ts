@@ -1940,6 +1940,11 @@ export interface OrderAuditEvent {
   createdAt: string;
 }
 
+export interface ReceiptFee {
+  amount: ExactDecimal;
+  asset: string;
+}
+
 export interface ManualDeskPricingSelectorProperties {
   /**
      * @minLength 1
@@ -2398,6 +2403,8 @@ export interface PublicOrderStatus {
   depositMemo?: string;
   refundAddress?: string;
   refundMemo?: string;
+  step2Details?: Step2CustomerDetail[];
+  receiptFee?: ReceiptFee;
   rateMode?: QuickexRateMode;
   outcomeUnknown: boolean;
   refreshUnavailable: boolean;
@@ -2448,6 +2455,7 @@ export interface CustomerOrder {
   refundAddress?: string;
   refundMemo?: string;
   step2Details?: Step2CustomerDetail[];
+  receiptFee?: ReceiptFee;
   rateMode?: QuickexRateMode;
   outcomeUnknown: boolean;
   refreshUnavailable: boolean;

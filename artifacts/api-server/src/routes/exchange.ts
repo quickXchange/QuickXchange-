@@ -203,6 +203,7 @@ import { adminEmailEventEnabled, customerEmailEventEnabled } from "../lib/notifi
 import {
   signQuoteTicket,
   verifyQuoteTicket,
+  verifyQuoteTicketForHistory,
   type QuoteTicket,
 } from "../lib/quote-ticket";
 import {
@@ -504,6 +505,87 @@ function isApplicablePaymentDetailsOrder(row: typeof ordersTable.$inferSelect): 
     snapshot?.target?.kind === "crypto-network";
 }
 
+function outputReceiptFee(row: typeof ordersTable.$inferSelect) {
+  if (row.type !== "manual" ||
+      !/^(?:completed|complete|done|finished)$/i.test(row.status.trim()) ||
+      !row.pricingSnapshot ||
+      !row.quoteId) {
+    return undefined;
+  }
+
+  const parsedSnapshot = CreateExchangeOrderResponse.shape.pricingSnapshot.safeParse(row.pricingSnapshot);
+  if (!parsedSnapshot.success || !parsedSnapshot.data) return undefined;
+
+  const snapshot = parsedSnapshot.data;
+  const canonicalDecimal = (value: unknown) => {
+    if (typeof value !== "string" || !/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(value)) return undefined;
+    const [whole, fraction = ""] = value.split(".");
+    const normalizedFraction = fraction.replace(/0+$/, "");
+    return `${whole}${normalizedFraction ? `.${normalizedFraction}` : ""}`;
+  };
+  const feeAmount = canonicalDecimal(snapshot.amounts.totalFee);
+  const persistedCommission = canonicalDecimal(row.totalCommission ?? undefined);
+  const orderReceiveAmount = canonicalDecimal(row.receiveAmount);
+  const snapshotReceiveAmount = canonicalDecimal(snapshot.amounts.receiveAmount);
+  const feeIsPositive = feeAmount !== undefined && !/^0(?:\.0*)?$/.test(feeAmount);
+  const normalizeContextValue = (value: string | null | undefined) =>
+    (value ?? "").trim().toUpperCase();
+
+  if (!feeIsPositive ||
+      persistedCommission !== feeAmount ||
+      !orderReceiveAmount ||
+      orderReceiveAmount !== snapshotReceiveAmount ||
+      normalizeContextValue(snapshot.context.sourceAsset) !== normalizeContextValue(row.fromAsset) ||
+      normalizeContextValue(snapshot.context.targetAsset) !== normalizeContextValue(row.toAsset) ||
+      normalizeContextValue(snapshot.context.sourceNetwork) !== normalizeContextValue(row.fromNetwork) ||
+      normalizeContextValue(snapshot.context.targetNetwork) !== normalizeContextValue(row.toNetwork) ||
+      normalizeContextValue(snapshot.context.paymentMethod) !== normalizeContextValue(row.paymentMethod) ||
+      normalizeContextValue(snapshot.context.payoutMethod) !== normalizeContextValue(row.payoutMethod)) {
+    return undefined;
+  }
+
+  let ticket: QuoteTicket;
+  try {
+    ticket = verifyQuoteTicketForHistory(row.quoteId);
+  } catch {
+    return undefined;
+  }
+  const ticketSnapshotResult = ticket.pricingSnapshot
+    ? CreateExchangeOrderResponse.shape.pricingSnapshot.safeParse(ticket.pricingSnapshot)
+    : undefined;
+  const decimalMatches = (left: unknown, right: unknown) => {
+    const leftValue = canonicalDecimal(typeof left === "number" ? String(left) : left);
+    const rightValue = canonicalDecimal(typeof right === "number" ? String(right) : right);
+    return leftValue !== undefined && leftValue === rightValue;
+  };
+  if (ticket.type !== "manual" ||
+      !ticketSnapshotResult?.success ||
+      !ticketSnapshotResult.data ||
+      JSON.stringify(ticketSnapshotResult.data) !== JSON.stringify(snapshot) ||
+      !decimalMatches(ticket.amount, row.amount) ||
+      !decimalMatches(ticket.receiveAmount, row.receiveAmount) ||
+      !decimalMatches(ticket.totalFee, snapshot.amounts.totalFee) ||
+      !decimalMatches(ticket.fee, snapshot.amounts.totalFee) ||
+      !decimalMatches(ticket.grossMarketAmount, row.grossMarketAmount) ||
+      !decimalMatches(ticket.percentageCommission, row.percentageCommission) ||
+      !decimalMatches(ticket.fixedCommission, row.fixedCommission) ||
+      ticket.pricingRuleId !== row.pricingRuleId ||
+      ticket.pricingRuleVersion !== row.pricingRuleVersion ||
+      ticket.pricingRuleName !== row.pricingRuleName ||
+      normalizeContextValue(ticket.fromAsset) !== normalizeContextValue(row.fromAsset) ||
+      normalizeContextValue(ticket.fromNetwork) !== normalizeContextValue(row.fromNetwork) ||
+      normalizeContextValue(ticket.toAsset) !== normalizeContextValue(row.toAsset) ||
+      normalizeContextValue(ticket.toNetwork) !== normalizeContextValue(row.toNetwork) ||
+      normalizeContextValue(ticket.paymentMethod) !== normalizeContextValue(row.paymentMethod) ||
+      normalizeContextValue(ticket.payoutMethod) !== normalizeContextValue(row.payoutMethod) ||
+      (ticket.sourceSettlementOptionId ?? null) !== (row.sourceSettlementOptionId ?? null) ||
+      (ticket.targetSettlementOptionId ?? null) !== (row.targetSettlementOptionId ?? null)) {
+    return undefined;
+  }
+
+  return { amount: snapshot.amounts.totalFee, asset: snapshot.context.targetAsset };
+}
+
 function hasCustomerPaymentDetails(details: unknown): boolean {
   if (!details || typeof details !== "object" || Array.isArray(details)) return false;
   const value = details as Record<string, unknown>;
@@ -591,6 +673,7 @@ function outputCustomerOrder(
       sourcePaymentMethod: outputSourcePaymentMethod(row),
      customerMarkedPaidAt: row.customerMarkedPaidAt?.toISOString() ?? null,
       step2Details: projectManualOrderStep2Details(row),
+       receiptFee: outputReceiptFee(row),
      verifiedFundingTransaction: verifiedFunding ?? undefined,
     completedAt: completed ? row.updatedAt.toISOString() : null,
     exchangeRate,
@@ -2125,6 +2208,10 @@ router.get("/orders/:id/status", async (req, res, next) => {
            ? row.depositMemo || undefined : undefined,
          refundAddress: canViewDeposit ? row.refundAddress || undefined : undefined,
          refundMemo: canViewDeposit ? row.refundMemo || undefined : undefined,
+         step2Details: canViewDeposit && row.type === "manual"
+           ? projectManualOrderStep2Details(row)
+           : undefined,
+         receiptFee: canViewDeposit ? outputReceiptFee(row) : undefined,
         manualSettlementState: row.type === "manual" ? row.manualSettlementState : undefined,
         customerSafeNote: row.type === "manual" ? row.customerSafeNote || undefined : undefined,
         fundingStatus: row.type === "manual" ? row.fundingStatus : undefined,

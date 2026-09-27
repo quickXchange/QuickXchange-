@@ -2887,6 +2887,7 @@ export const GetPublicOrderStatusQueryParams = zod.object({
 
 export const getPublicOrderStatusResponseOneAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getPublicOrderStatusResponseOneReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const getPublicOrderStatusResponseOneReceiptFeeAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getPublicOrderStatusResponseOneCustomerSafeNoteMax = 2000;
 
 export const getPublicOrderStatusResponseOnePaymentDetailsNameMax = 500;
@@ -2933,6 +2934,15 @@ export const GetPublicOrderStatusResponse = zod.object({
   "depositMemo": zod.string().optional(),
   "refundAddress": zod.string().optional(),
   "refundMemo": zod.string().optional(),
+  "step2Details": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "value": zod.string()
+})).optional(),
+  "receiptFee": zod.object({
+  "amount": zod.string().regex(getPublicOrderStatusResponseOneReceiptFeeAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "asset": zod.string()
+}).optional(),
   "rateMode": zod.enum(['FLOATING', 'FIXED']).optional(),
   "outcomeUnknown": zod.boolean(),
   "refreshUnavailable": zod.boolean(),
@@ -3580,6 +3590,7 @@ export const MarkOrderPaidBody = zod.object({
 
 export const markOrderPaidResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const markOrderPaidResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const markOrderPaidResponseReceiptFeeAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const markOrderPaidResponseCustomerSafeNoteMax = 2000;
 
 export const markOrderPaidResponsePaymentDetailsNameMax = 500;
@@ -3629,6 +3640,10 @@ export const MarkOrderPaidResponse = zod.object({
   "label": zod.string(),
   "value": zod.string()
 })).optional(),
+  "receiptFee": zod.object({
+  "amount": zod.string().regex(markOrderPaidResponseReceiptFeeAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "asset": zod.string()
+}).optional(),
   "rateMode": zod.enum(['FLOATING', 'FIXED']).optional(),
   "outcomeUnknown": zod.boolean(),
   "refreshUnavailable": zod.boolean(),
@@ -3689,6 +3704,7 @@ export const CancelCustomerOrderBody = zod.object({
 
 export const cancelCustomerOrderResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const cancelCustomerOrderResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const cancelCustomerOrderResponseReceiptFeeAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const cancelCustomerOrderResponseCustomerSafeNoteMax = 2000;
 
 export const cancelCustomerOrderResponsePaymentDetailsNameMax = 500;
@@ -3738,6 +3754,10 @@ export const CancelCustomerOrderResponse = zod.object({
   "label": zod.string(),
   "value": zod.string()
 })).optional(),
+  "receiptFee": zod.object({
+  "amount": zod.string().regex(cancelCustomerOrderResponseReceiptFeeAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "asset": zod.string()
+}).optional(),
   "rateMode": zod.enum(['FLOATING', 'FIXED']).optional(),
   "outcomeUnknown": zod.boolean(),
   "refreshUnavailable": zod.boolean(),
@@ -4947,6 +4967,7 @@ export const GetCustomerOrdersQueryParams = zod.object({
 
 export const getCustomerOrdersResponseItemsItemAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getCustomerOrdersResponseItemsItemReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const getCustomerOrdersResponseItemsItemReceiptFeeAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getCustomerOrdersResponseItemsItemCustomerSafeNoteMax = 2000;
 
 export const getCustomerOrdersResponseItemsItemPaymentDetailsNameMax = 500;
@@ -5005,6 +5026,10 @@ export const GetCustomerOrdersResponse = zod.object({
   "label": zod.string(),
   "value": zod.string()
 })).optional(),
+  "receiptFee": zod.object({
+  "amount": zod.string().regex(getCustomerOrdersResponseItemsItemReceiptFeeAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "asset": zod.string()
+}).optional(),
   "rateMode": zod.enum(['FLOATING', 'FIXED']).optional(),
   "outcomeUnknown": zod.boolean(),
   "refreshUnavailable": zod.boolean(),
@@ -5126,6 +5151,7 @@ export const ClaimCustomerOrderBody = zod.object({
 
 export const claimCustomerOrderResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const claimCustomerOrderResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const claimCustomerOrderResponseReceiptFeeAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const claimCustomerOrderResponseCustomerSafeNoteMax = 2000;
 
 export const claimCustomerOrderResponsePaymentDetailsNameMax = 500;
@@ -5175,6 +5201,10 @@ export const ClaimCustomerOrderResponse = zod.object({
   "label": zod.string(),
   "value": zod.string()
 })).optional(),
+  "receiptFee": zod.object({
+  "amount": zod.string().regex(claimCustomerOrderResponseReceiptFeeAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "asset": zod.string()
+}).optional(),
   "rateMode": zod.enum(['FLOATING', 'FIXED']).optional(),
   "outcomeUnknown": zod.boolean(),
   "refreshUnavailable": zod.boolean(),
@@ -5226,6 +5256,7 @@ export const GetCustomerOrderParams = zod.object({
 
 export const getCustomerOrderResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getCustomerOrderResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const getCustomerOrderResponseReceiptFeeAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getCustomerOrderResponseCustomerSafeNoteMax = 2000;
 
 export const getCustomerOrderResponsePaymentDetailsNameMax = 500;
@@ -5275,6 +5306,10 @@ export const GetCustomerOrderResponse = zod.object({
   "label": zod.string(),
   "value": zod.string()
 })).optional(),
+  "receiptFee": zod.object({
+  "amount": zod.string().regex(getCustomerOrderResponseReceiptFeeAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "asset": zod.string()
+}).optional(),
   "rateMode": zod.enum(['FLOATING', 'FIXED']).optional(),
   "outcomeUnknown": zod.boolean(),
   "refreshUnavailable": zod.boolean(),
@@ -11477,6 +11512,7 @@ export const GetQuickexOrderStatusQueryParams = zod.object({
 
 export const getQuickexOrderStatusResponseAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getQuickexOrderStatusResponseReceiveAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const getQuickexOrderStatusResponseReceiptFeeAmountRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getQuickexOrderStatusResponseCustomerSafeNoteMax = 2000;
 
 export const getQuickexOrderStatusResponsePaymentDetailsNameMax = 500;
@@ -11519,6 +11555,15 @@ export const GetQuickexOrderStatusResponse = zod.object({
   "depositMemo": zod.string().optional(),
   "refundAddress": zod.string().optional(),
   "refundMemo": zod.string().optional(),
+  "step2Details": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "value": zod.string()
+})).optional(),
+  "receiptFee": zod.object({
+  "amount": zod.string().regex(getQuickexOrderStatusResponseReceiptFeeAmountRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "asset": zod.string()
+}).optional(),
   "rateMode": zod.enum(['FLOATING', 'FIXED']).optional(),
   "outcomeUnknown": zod.boolean(),
   "refreshUnavailable": zod.boolean(),
