@@ -8,6 +8,7 @@ import adminPricing from './uk-admin/adminPricing';
 import adminStaff from './uk-admin/adminStaff';
 
 const uk = {
+  policyAcceptance: { text: 'Я приймаю {terms} та {aml}.', terms: 'Умови та положення', aml: 'Політику AML/KYC' },
   ...{ public: {
     paymentMethod:'Спосіб оплати', openNavigation:'Відкрити меню навігації', closeNavigation:'Закрити меню навігації',
     waitEstimateSubmit:'Зачекайте на розрахунок суми отримання, перш ніж надсилати цей запит оператору.', quoteExpiredReview:'Термін дії котирування минув. Перевірте оновлену суму, перш ніж продовжити.',

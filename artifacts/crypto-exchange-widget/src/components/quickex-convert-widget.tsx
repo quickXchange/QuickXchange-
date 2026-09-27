@@ -14,6 +14,7 @@ import {
 } from '@workspace/api-client-react';
 import type { ApiError, QuickexInstrument, QuickexRateMode } from '@workspace/api-client-react';
 import { CryptoIdentity } from '@/components/crypto-identity';
+import { OrderPolicyAcceptance } from '@/components/order-policy-acceptance';
 import { trackEvent } from '@/lib/analytics';
 import { useI18n } from '@/i18n/provider';
 import { useLocation, useSearch } from 'wouter';
@@ -832,19 +833,7 @@ export function QuickexConvertWidget({
                   </div>
                 </div>
 
-                <div className="order-terms convert-terms-card mt-2 flex items-start gap-3">
-                   <input
-                     type="checkbox"
-                     id="convert-terms"
-                     required
-                     checked={termsAccepted}
-                     onChange={e => setTermsAccepted(e.target.checked)}
-                     className="mt-1 w-[18px] h-[18px] rounded border-border text-primary focus:ring-primary/20 shrink-0"
-                   />
-                   <label htmlFor="convert-terms" className="text-[14px] font-medium text-foreground leading-relaxed cursor-pointer select-none">
-                     {t('convert.terms')}
-                   </label>
-                </div>
+                <OrderPolicyAcceptance id="convert-terms" checked={termsAccepted} onChange={setTermsAccepted} />
 
                 {notice && (
                   <div className={`p-4 rounded-xl text-sm font-medium flex items-start gap-3 border ${notice.kind === 'error' ? 'bg-destructive/10 text-destructive border-destructive/20' : 'bg-success/10 text-success border-success/20'}`} data-testid="convert-notice">

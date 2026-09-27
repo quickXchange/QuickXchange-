@@ -1,5 +1,6 @@
 import type { TranslationDictionary } from '../types';
 const ko = {
+  policyAcceptance: { text: '저는 {terms} 및 {aml}에 동의합니다.', terms: '이용약관', aml: 'AML/KYC 정책' },
   ...{ public: {
     paymentMethod:'결제 수단', openNavigation:'탐색 메뉴 열기', closeNavigation:'탐색 메뉴 닫기',
     waitEstimateSubmit:'데스크 요청을 제출하기 전에 수령 예상 금액을 기다려 주세요.', quoteExpiredReview:'견적이 만료되었습니다. 계속하기 전에 갱신된 금액을 확인하세요.',

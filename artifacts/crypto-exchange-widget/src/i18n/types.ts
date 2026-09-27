@@ -4,6 +4,7 @@ export type Locale = (typeof SUPPORTED_LOCALES)[number];
 export type TranslationParams = Record<string, string | number>;
 export type TranslationGroup =
   | 'common'
+  | 'policyAcceptance'
   | 'genericUi'
   | 'header'
   | 'language'

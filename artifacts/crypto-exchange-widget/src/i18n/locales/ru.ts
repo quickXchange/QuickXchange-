@@ -1,5 +1,6 @@
 import type { TranslationDictionary } from '../types';
 const ru = {
+  policyAcceptance: { text: 'Я принимаю {terms} и {aml}.', terms: 'Условия и положения', aml: 'Политику AML/KYC' },
   ...{ public: {
     paymentMethod:'Способ оплаты', openNavigation:'Открыть меню навигации', closeNavigation:'Закрыть меню навигации',
     waitEstimateSubmit:'Дождитесь расчёта суммы получения, прежде чем отправлять запрос оператору.', quoteExpiredReview:'Срок действия котировки истёк. Проверьте обновлённую сумму, прежде чем продолжить.',

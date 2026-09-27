@@ -1,6 +1,7 @@
 import type { TranslationDictionary } from '../types';
 
 const en = {
+  policyAcceptance: { text: 'I accept the {terms} and the {aml}.', terms: 'Terms & Conditions', aml: 'AML/KYC Policy' },
   ...{ public: {
     paymentMethod:'Payment Method', openNavigation:'Open navigation menu', closeNavigation:'Close navigation menu', mobileNav:'Mobile navigation',
     waitEstimateSubmit:'Wait for the receive estimate before submitting this desk request.', quoteExpiredReview:'Your quote expired. Review the refreshed amount before continuing.',

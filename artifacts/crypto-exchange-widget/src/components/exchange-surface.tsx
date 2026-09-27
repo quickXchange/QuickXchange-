@@ -30,6 +30,7 @@ import {
 
 import { getBrandfetchLogoUrl } from '@/lib/brandfetch';
 import { QuickexConvertWidget } from '@/components/quickex-convert-widget';
+import { OrderPolicyAcceptance } from '@/components/order-policy-acceptance';
 import { QuickXchangeOverlayHeader } from '@/components/quickxchange-overlay';
 import { LogoAvatar } from '@/components/logo-avatar';
 import { CryptoIdentity, CryptoLogo, CryptoNetworkBadge, cryptoLogoFallbackUrls } from '@/components/crypto-identity';
@@ -1693,19 +1694,7 @@ export function ManualSwapWidget({
                   </div>
                 </div>}
 
-                <div className="order-terms convert-terms-card mt-2 flex items-start gap-3">
-                   <input
-                     type="checkbox"
-                     id="swap-terms"
-                     required
-                     checked={termsAccepted}
-                     onChange={e => setTermsAccepted(e.target.checked)}
-                     className="mt-1 w-[18px] h-[18px] rounded border-border text-primary focus:ring-primary/20 shrink-0"
-                   />
-                   <label htmlFor="swap-terms" className="text-[14px] font-medium text-foreground leading-relaxed cursor-pointer select-none">
-                     {t('swap.terms')}
-                   </label>
-                </div>
+                <OrderPolicyAcceptance id="swap-terms" checked={termsAccepted} onChange={setTermsAccepted} />
 
                 <div className="order-actions convert-order-actions mt-2 flex flex-col gap-4">
                   <button

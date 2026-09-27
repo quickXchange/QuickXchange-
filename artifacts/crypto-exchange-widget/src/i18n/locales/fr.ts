@@ -1,5 +1,6 @@
 import type { TranslationDictionary } from '../types';
 const fr = {
+  policyAcceptance: { text: 'J’accepte les {terms} et la {aml}.', terms: 'Conditions générales', aml: 'Politique AML/KYC' },
   ...{ public: {
     paymentMethod:'Mode de paiement', openNavigation:'Ouvrir le menu de navigation', closeNavigation:'Fermer le menu de navigation',
     waitEstimateSubmit:'Attendez l’estimation du montant reçu avant d’envoyer cette demande au comptoir.', quoteExpiredReview:'Votre devis a expiré. Vérifiez le montant actualisé avant de continuer.',

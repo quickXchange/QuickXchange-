@@ -1,0 +1,36 @@
+.public-shell .order-terms.policy-acceptance .policy-acceptance__copy {
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.public-shell .order-terms.policy-acceptance .policy-acceptance__copy label {
+  font: inherit;
+}
+
+.public-shell .order-terms.policy-acceptance .policy-acceptance__copy a {
+  color: hsl(var(--primary));
+  font: inherit;
+  font-weight: 750;
+  text-decoration: underline;
+  text-decoration-color: hsl(var(--primary) / .55);
+  text-underline-offset: 3px;
+  border-radius: 3px;
+}
+
+.public-shell .order-terms.policy-acceptance .policy-acceptance__copy a:hover {
+  color: hsl(267 72% 58%);
+  text-decoration-color: currentColor;
+}
+
+.public-shell .order-terms.policy-acceptance .policy-acceptance__copy a:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 3px;
+}
+
+@media (max-width: 640px) {
+  .public-shell .order-terms.policy-acceptance .policy-acceptance__copy {
+    font-size: 11.5px;
+    line-height: 1.25;
+  }
+}
