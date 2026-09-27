@@ -14,6 +14,8 @@ export type InvoiceSnapshot = {
   rate?: string;
   createdAt: string;
   completedAt?: string;
+  transactionHash?: string;
+  transactionLabel?: string;
   fee?: { amount: string; asset: string };
   receivingFields: Array<{ label: string; value: string }>;
 };
@@ -31,6 +33,9 @@ export function isCompletedInvoiceOrder(
 
 const meaningful = (value: unknown): string | undefined =>
   typeof value === 'string' && value.trim() ? value.trim() : undefined;
+
+const meaningfulDate = (value: unknown): string | undefined =>
+  value instanceof Date && !Number.isNaN(value.getTime()) ? value.toISOString() : meaningful(value);
 
 /**
  * Only fields already projected from this order's saved snapshot are included.
@@ -64,7 +69,14 @@ export function invoiceSnapshot(order: InvoiceOrder): InvoiceSnapshot {
     receiveMethod: meaningful(order.toNetwork),
     rate: order.type === 'manual' ? meaningful(order.exchangeRate) : undefined,
     createdAt: order.createdAt,
-    completedAt: meaningful(order.completedAt),
+    completedAt: meaningfulDate(order.completedAt),
+    // Manual public tracking intentionally omits blockchain evidence. Only a
+    // verified customer projection may identify its incoming funding transfer.
+    transactionHash: order.type === 'manual'
+      ? ('verifiedFundingTransaction' in order
+        ? meaningful(order.verifiedFundingTransaction?.transactionHash) : undefined)
+      : meaningful(order.transactionHash),
+    transactionLabel: order.type === 'manual' ? 'Funding transaction ID' : 'Transaction ID',
     fee: order.type === 'manual' && order.receiptFee && /^(?:(?!0(?:\.0+)?$)\d+(?:\.\d+)?)$/.test(order.receiptFee.amount)
       ? { amount: order.receiptFee.amount, asset: order.receiptFee.asset }
       : undefined,

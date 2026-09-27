@@ -7174,7 +7174,7 @@ function AdminCurrencies() {
     if (activeQuery.isLoading) {
       return (
         <tr>
-          <td colSpan={8} className="text-center py-12 text-slate-400">
+          <td colSpan={tab === 'networks' ? 4 : 8} className="text-center py-12 text-slate-400">
             <Loader2 className="animate-spin mx-auto mb-2" size={24} />
             {t('adminCatalog.loading_catalog')}</td>
         </tr>
@@ -7184,7 +7184,7 @@ function AdminCurrencies() {
     if (activeQuery.isError) {
       return (
         <tr>
-          <td colSpan={8} className="text-center py-12 text-red-400">
+          <td colSpan={tab === 'networks' ? 4 : 8} className="text-center py-12 text-red-400">
             <CircleAlert className="mx-auto mb-2" size={24} />
             {t('adminCatalog.failed_to_load_catalog_data_please_try')}</td>
         </tr>
@@ -7194,7 +7194,7 @@ function AdminCurrencies() {
     if (paginatedData.length === 0) {
       return (
         <tr>
-          <td colSpan={8} className="text-center py-12 text-slate-500">
+          <td colSpan={tab === 'networks' ? 4 : 8} className="text-center py-12 text-slate-500">
             <Archive className="mx-auto mb-2 opacity-50" size={24} />
             {t('adminCatalog.no')}{tab} {t('adminCatalog.match_your_filters')}</td>
         </tr>
@@ -7238,7 +7238,7 @@ function AdminCurrencies() {
             ) : isAst ? (
               <AdminCryptoIdentity symbol={item.code} name={item.name} logoUrl={item.logoUrl} size="md" compact />
             ) : (
-              <span>
+              <span className="catalog-network-identity">
                 <AdminCryptoIdentity
                   symbol={symbol}
                   name={networkAsset?.name || item.networkName}
@@ -7248,7 +7248,6 @@ function AdminCurrencies() {
                   size="md"
                   compact
                 />
-                <small className="catalog-row-id">{item.id}</small>
               </span>
             )}
           </td>
@@ -7282,39 +7281,17 @@ function AdminCurrencies() {
                   {!assetNetworks.length && <small>{t('adminCatalog.no_networks_configured')}</small>}
                 </span>
               )}
-              {isNet && (
-                <>
-                  <small>Deposit Provider: {item.depositProvider === 'whitebit' ? 'WhiteBIT' : item.depositProvider === 'manual' ? 'Manual Wallet' : 'None'}</small>
-                  <small className={item.sharedDepositAddress ? 'font-mono' : undefined}>
-                    {item.sharedDepositAddress || (item.depositProvider === 'whitebit' ? 'Manual fallback: Not configured (optional)' : 'Not configured')}
-                  </small>
-                  <small>Customer Deposits: {item.customerDepositsEnabled ? 'Enabled' : 'Disabled'}</small>
-                  <small data-testid={`widget-readiness-${item.id}`}>
-                    Widget → Swap → You Send: {item.widgetReadiness?.ready ? 'Ready for Widget' : 'Cannot Enable'}
-                    {!item.widgetReadiness?.ready && ` — ${item.widgetReadiness?.reason || 'Readiness unavailable'}`}
-                  </small>
-                  {item.manualFallbackInvalid && item.depositProvider === 'whitebit' && (
-                    <small>Invalid Manual Fallback Address — WhiteBIT mapping is unaffected.</small>
-                  )}
-                  <small>Manual Wallet Tracking: {item.manualWalletTrackingEnabled ? 'On' : 'Off'}</small>
-                  {item.depositProvider === 'whitebit' && (
-                    <small>
-                      WhiteBIT Mapping: {item.whitebitAssetCode || networkAsset?.code || '—'} · {item.whitebitNetworkCode || item.networkCode} — {item.whitebitNetworkCode ? 'Explicit selection' : 'Exact-code candidate; review live support in editor'}
-                    </small>
-                  )}
-                </>
-              )}
             </span>
           </td>
-          <td data-label="Region">{item.regions ? item.regions.join(', ') || 'Global' : t('adminCatalog.global')}</td>
-          <td data-label="Precision">{precision}</td>
-          <td data-label="Lifecycle"><span className={`lifecycle-badge lifecycle-${String(lifecycle).toLowerCase()}`}>{lifecycle}</span></td>
-          <td data-label="Status">
+          {!isNet && <td data-label="Region">{item.regions ? item.regions.join(', ') || 'Global' : t('adminCatalog.global')}</td>}
+          {!isNet && <td data-label="Precision">{precision}</td>}
+          {!isNet && <td data-label="Lifecycle"><span className={`lifecycle-badge lifecycle-${String(lifecycle).toLowerCase()}`}>{lifecycle}</span></td>}
+          {!isNet && <td data-label="Status">
             <div className={`status-badge ${item.enabled ? 'active' : 'disabled'}`}>
               <div className="status-dot"></div>
               {item.enabled ? t('adminCatalog.active') : t('adminCatalog.disabled')}
             </div>
-          </td>
+          </td>}
           <td data-label="Actions">
              {canManageCurrent && <div className="flex items-center gap-2">
           <button type="button" aria-label={t('adminCatalog.edit_item_named', { name })} data-testid={`button-edit-${isCur ? `currency-${item.code}` : isMeth ? `method-${item.id}` : isAst ? `crypto-asset-${item.id}` : `crypto-network-${item.id}`}`} className="action-button catalog-row-edit-action" onClick={() => {
@@ -7692,16 +7669,16 @@ function AdminCurrencies() {
                 hint.style.pointerEvents = target.scrollLeft > 10 ? 'none' : 'auto';
               }
             }}>
-            <table className="catalog-table">
+            <table className={`catalog-table${tab === 'networks' ? ' catalog-network-table' : ''}`}>
               <thead>
                 <tr>
                   <th className="w-10">{canManageCurrent && <input type="checkbox" aria-label={t('adminCatalog.select_all_visible_tab', { tab: pageTitle })} className="rounded border-border bg-transparent" checked={allVisibleCatalogSelected} onChange={e => toggleAllVisibleCatalogItems(e.target.checked)} />}</th>
                   <th>{tab === 'methods' ? t('adminCatalog.method') : tab === 'assets' ? t('adminCatalog.asset') : tab === 'networks' ? t('adminCatalog.asset_network') : t('adminCatalog.currency')}</th>
                   <th>{t('adminCatalog.name')}</th>
-                  <th>{t('adminCatalog.region')}</th>
-                  <th>{t('adminCatalog.precision')}</th>
-                  <th>{t('adminCatalog.lifecycle')}</th>
-                  <th>{t('adminCatalog.status')}</th>
+                  {tab !== 'networks' && <th>{t('adminCatalog.region')}</th>}
+                  {tab !== 'networks' && <th>{t('adminCatalog.precision')}</th>}
+                  {tab !== 'networks' && <th>{t('adminCatalog.lifecycle')}</th>}
+                  {tab !== 'networks' && <th>{t('adminCatalog.status')}</th>}
                   <th className="w-24">{t('adminCatalog.actions')}</th>
                 </tr>
               </thead>
@@ -9204,7 +9181,7 @@ function AdminManualPricing() {
       <div className="panel pricing-rules-panel">
         <div className="pricing-directory-head"><div><span className="section-kicker">{t('adminPricing.rule_directory')}</span><h2>{t('adminPricing.pricing_rules')}<span>({filtered.length})</span></h2></div></div>
         <div className="pricing-filters flex items-center gap-2">
-          <div className="flex-1 min-w-[200px]">
+          <div className="pricing-search">
             <AdminSearch
               value={search}
               onChange={setSearch}

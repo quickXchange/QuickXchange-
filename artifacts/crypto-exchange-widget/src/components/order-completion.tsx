@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CheckCircle2, Download, ExternalLink, Printer } from 'lucide-react';
 import { SiTrustpilot } from 'react-icons/si';
 import {
@@ -66,6 +66,20 @@ export function OrderCompletionSection({
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const isConvert = order.type === 'instant';
+  useEffect(() => {
+    if (!isCompletedInvoiceOrder(order, refreshWarning)) return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('invoice') !== '1') return;
+    // Consume the one-time email action before starting, so refetches and
+    // remounts cannot trigger duplicate downloads.
+    url.searchParams.delete('invoice');
+    window.history.replaceState(window.history.state, '', url);
+    setExporting(true);
+    setExportError(null);
+    void downloadInvoicePdf(invoiceSnapshot(order))
+      .catch(() => setExportError('The receipt could not be generated. Please try again.'))
+      .finally(() => setExporting(false));
+  }, [order, refreshWarning]);
   if (!isCompletedInvoiceOrder(order, refreshWarning)) return null;
 
   const invoice = invoiceSnapshot(order);
@@ -75,7 +89,7 @@ export function OrderCompletionSection({
     try {
       await downloadInvoicePdf(invoice);
     } catch {
-      setExportError('The invoice could not be generated. Please try again.');
+      setExportError('The receipt could not be generated. Please try again.');
     } finally {
       setExporting(false);
     }

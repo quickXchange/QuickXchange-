@@ -20,6 +20,7 @@ import {
   orderAuditLogsTable,
   ordersTable,
   notificationSettingsTable,
+  sitePublicationRevisionsTable,
   socialTrustLinksTable,
   whitebitDepositsTable,
   blockchainMonitorMatchesTable,
@@ -331,6 +332,31 @@ function safeHttpsUrl(value: string | null | undefined): string {
   }
 }
 
+function trustpilotDestination(value: string | null | undefined): string {
+  const href = safeHttpsUrl(value);
+  if (!href) return "";
+  const host = new URL(href).hostname;
+  return /^(?:[a-z0-9-]+\.)*trustpilot\.com$/i.test(host) ? href : "";
+}
+
+export function resolveCompletedReviewUrl(
+  publication: Pick<typeof sitePublicationRevisionsTable.$inferSelect, "socialTrust" | "partnerLogos"> | null | undefined,
+  configuredUrl: string | null | undefined,
+): string {
+  const published = publication?.socialTrust?.items?.find((item) =>
+    item.enabled && !item.removedAt &&
+    (/trustpilot/i.test(item.name) || Boolean(trustpilotDestination(item.href))) &&
+    Boolean(trustpilotDestination(item.href)));
+  if (published) return trustpilotDestination(published.href);
+  const configured = trustpilotDestination(configuredUrl);
+  if (configured) return configured;
+  const partner = publication?.partnerLogos?.find((item) =>
+    item.enabled && !item.removedAt &&
+    (/trustpilot/i.test(item.name) || Boolean(trustpilotDestination(item.link))) &&
+    Boolean(trustpilotDestination(item.link)));
+  return trustpilotDestination(partner?.link);
+}
+
 function socialLinkFor(
   links: CustomerStatusNotification["socialLinks"],
   platform: string,
@@ -367,9 +393,11 @@ export function buildCustomerStatusNotificationContent(
       ? `${base}/status?order=${encodeURIComponent(notification.orderId)}&trackingToken=${encodeURIComponent(signOrderTrackingToken(notification.orderId))}`
       : `${base}/account/orders/${encodeURIComponent(notification.orderId)}`;
   const invoiceUrl = orderUrl ? `${orderUrl}${orderUrl.includes("?") ? "&" : "?"}invoice=1` : "";
-  const reviewUrl = safeHttpsUrl(
-    notification.trustpilotUrl?.trim() || process.env.TRUSTPILOT_REVIEW_URL?.trim(),
-  );
+  const completed = notification.eventKind === "completed" &&
+    /^(?:done|completed)$/i.test(notification.status.trim()) &&
+    Boolean(notification.completedAt);
+  const reviewUrl = completed && !notification.adminRecipient
+    ? trustpilotDestination(notification.trustpilotUrl) : "";
   const configuredTemplate = notification.template ||
     notificationTemplateForEvent(undefined, notification.eventKind);
   const values = {
@@ -386,7 +414,7 @@ export function buildCustomerStatusNotificationContent(
     completedDate: notification.completedAt?.toISOString() || "",
     orderUrl,
     invoiceUrl,
-    trustpilotUrl: notification.eventKind === "completed" ? reviewUrl : "",
+    trustpilotUrl: reviewUrl,
   };
   const configuredHeading = interpolateTemplate(configuredTemplate.heading, values, true);
   const configuredMessage = interpolateTemplate(configuredTemplate.message, values, true);
@@ -537,8 +565,8 @@ export function buildCustomerStatusNotificationContent(
       ? `Confirmations: ${notification.confirmations} / ${notification.confirmationsRequired}`
       : "",
     notification.eventKind === "completed" ? `Completion date: ${notification.completedAt?.toISOString() || notification.createdAt.toISOString()}` : "",
-    notification.eventKind === "completed" && !notification.adminRecipient && invoiceUrl ? `Invoice: ${invoiceUrl}` : "",
-    notification.eventKind === "completed" && !notification.adminRecipient && reviewUrl ? `Review us on Trustpilot: ${reviewUrl}` : "",
+    completed && !notification.adminRecipient && invoiceUrl ? `Download PDF: ${invoiceUrl}` : "",
+    reviewUrl ? `Rate your experience on Trustpilot: ${reviewUrl}` : "",
     "",
     interpolateTemplate(configuredTemplate.footerText, values),
   ].filter((line, index, lines) => line || (index > 0 && lines[index - 1])).join("\n");
@@ -548,8 +576,16 @@ export function buildCustomerStatusNotificationContent(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark light">
+  <meta name="supported-color-schemes" content="dark light">
   <title>QuickXchange</title>
   <style type="text/css">
+    @media (prefers-color-scheme: light) {
+      .qx-email-logo-dark { display:none !important; }
+      .qx-email-logo-light { display:block !important; height:36px !important; max-height:none !important; }
+      .qx-email-logo-light-footer { height:25px !important; }
+      .qx-email-logo-surface { display:inline-block !important; background-color:#ffffff !important; padding:5px 10px !important; border-radius:8px !important; }
+    }
     @media screen and (max-width: 600px) {
       .stack-col { display: block !important; width: 100% !important; padding: 0 0 16px 0 !important; }
       .text-center { text-align: center !important; }
@@ -563,11 +599,13 @@ export function buildCustomerStatusNotificationContent(
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background-color:#050b14;">
 
       <!-- Header -->
-      <tr><td style="padding-bottom:32px;">
+      <tr><td style="padding-bottom:32px;vertical-align:middle;">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
           <tr>
             <td style="vertical-align:middle;">
-              ${base ? `<img src="${escapeHtml(base)}/brand/quickxchange-header-dark.png" alt="QuickXchange" height="28" style="display:block;border:none;max-width:200px;outline:none;text-decoration:none;" />` : `<span style="font-size:20px;font-weight:700;color:#ffffff;letter-spacing:0.2px;">QuickXchange</span>`}
+               <div class="qx-email-logo-surface" style="display:inline-block;background-color:#050b14;">
+               ${base ? `<img class="qx-email-logo-dark" src="${escapeHtml(base)}/brand/quickxchange-header-dark.png" alt="QuickXchange" height="28" style="display:block;border:none;max-width:200px;outline:none;text-decoration:none;" /><img class="qx-email-logo-light" src="${escapeHtml(base)}/brand/quickxchange-header-light.png" alt="QuickXchange" height="0" style="display:none;height:0;max-height:0;overflow:hidden;border:none;max-width:225px;outline:none;text-decoration:none;" />` : `<span style="font-size:20px;font-weight:700;color:#ffffff;letter-spacing:0.2px;">QuickXchange</span>`}
+               </div>
             </td>
             <td style="vertical-align:middle;text-align:right;">
               <div style="font-size:9px;font-weight:600;color:#94a3b8;letter-spacing:1px;line-height:1.4;text-transform:uppercase;">
@@ -662,14 +700,14 @@ export function buildCustomerStatusNotificationContent(
       <!-- Buttons -->
       <tr><td style="padding:16px 0 24px 0;text-align:center;">
         ${orderUrl ? `<a href="${escapeHtml(orderUrl)}" style="display:inline-block;background-color:#06b6d4;background:linear-gradient(90deg, #06b6d4, #3b82f6, #7c3aed);color:#ffffff;font-weight:600;font-size:15px;padding:14px 28px;border-radius:9999px;text-decoration:none;">${buttonText} &rarr;</a>` : ""}
-        ${notification.eventKind === "completed" && !notification.adminRecipient && invoiceUrl ? `<a href="${escapeHtml(invoiceUrl)}" style="display:inline-block;background-color:transparent;color:#ffffff;font-weight:600;font-size:15px;padding:13px 28px;border-radius:9999px;text-decoration:none;border:1px solid #06b6d4;margin-left:12px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;margin-top:-2px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Download Invoice</a>` : ""}
+         ${completed && !notification.adminRecipient && invoiceUrl ? `<a href="${escapeHtml(invoiceUrl)}" style="display:inline-block;background-color:#111c3a;color:#ffffff;font-weight:600;font-size:15px;padding:13px 28px;border-radius:9999px;text-decoration:none;border:1px solid #7c3aed;margin:8px 0 0 12px;">Download PDF</a>` : ""}
       </td></tr>
 
       <tr><td style="text-align:center;font-size:12px;color:#94a3b8;padding-bottom:32px;">
         ${footerText}
       </td></tr>
 
-      ${notification.eventKind === "completed" && !notification.adminRecipient && reviewUrl ? `
+       ${reviewUrl ? `
       <!-- Trustpilot -->
       <tr><td style="padding-bottom:32px;">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:rgba(34,197,94,0.05);border:1px solid rgba(34,197,94,0.2);border-radius:12px;">
@@ -678,11 +716,11 @@ export function buildCustomerStatusNotificationContent(
               <svg width="22" height="22" viewBox="0 0 24 24" fill="#4ade80" stroke="#4ade80" stroke-width="1.5" style="display:block;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
             </td>
             <td style="padding:16px 0;vertical-align:middle;">
-              <div style="font-size:14px;font-weight:600;color:#ffffff;margin-bottom:2px;">Enjoyed our service?</div>
-              <div style="font-size:12px;color:#94a3b8;">Your feedback helps us grow!</div>
+               <div style="font-size:14px;font-weight:600;color:#ffffff;margin-bottom:2px;">Rate your experience on Trustpilot</div>
+               <div style="font-size:12px;color:#94a3b8;">Your feedback helps other customers.</div>
             </td>
             <td style="padding:16px;text-align:right;vertical-align:middle;">
-              <a href="${escapeHtml(reviewUrl)}" style="display:inline-block;padding:8px 16px;background-color:transparent;border:1px solid #4ade80;color:#4ade80;text-decoration:none;border-radius:8px;font-size:12px;font-weight:600;">Review us on Trustpilot</a>
+               <a href="${escapeHtml(reviewUrl)}" style="display:inline-block;padding:8px 16px;background-color:#00b67a;border:1px solid #00b67a;color:#ffffff;text-decoration:none;border-radius:8px;font-size:12px;font-weight:600;">Rate on Trustpilot</a>
             </td>
           </tr>
         </table>
@@ -694,8 +732,8 @@ export function buildCustomerStatusNotificationContent(
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
           <tr>
             <td width="48%" class="stack-col text-center" style="vertical-align:top;padding-right:16px;">
-              <div style="margin-bottom:12px;">
-                ${base ? `<img src="${escapeHtml(base)}/brand/quickxchange-header-dark.png" alt="QuickXchange" height="20" style="display:block;border:none;max-width:200px;outline:none;text-decoration:none;margin:0 auto;" />` : `<span style="font-size:16px;font-weight:700;color:#ffffff;letter-spacing:0.2px;">QuickXchange</span>`}
+               <div class="qx-email-logo-surface" style="margin-bottom:12px;background-color:#050b14;">
+                 ${base ? `<img class="qx-email-logo-dark" src="${escapeHtml(base)}/brand/quickxchange-header-dark.png" alt="QuickXchange" height="20" style="display:block;border:none;max-width:200px;outline:none;text-decoration:none;margin:0 auto;" /><img class="qx-email-logo-light qx-email-logo-light-footer" src="${escapeHtml(base)}/brand/quickxchange-header-light.png" alt="QuickXchange" height="0" style="display:none;height:0;max-height:0;overflow:hidden;border:none;max-width:180px;outline:none;text-decoration:none;margin:0 auto;" />` : `<span style="font-size:16px;font-weight:700;color:#ffffff;letter-spacing:0.2px;">QuickXchange</span>`}
               </div>
               <div style="font-size:8px;color:#06b6d4;font-weight:700;letter-spacing:1px;margin-bottom:12px;text-transform:uppercase;">YOUR CRYPTO EXCHANGE PARTNER</div>
               <div style="font-size:11px;color:#94a3b8;line-height:1.5;">Fast. Secure. Global. Exchange, convert and move your crypto with confidence.</div>
@@ -1420,11 +1458,22 @@ export async function processCustomerStatusNotificationOutbox(
       ))
       .orderBy(asc(socialTrustLinksTable.createdAt));
 
+    // Email and the public completion screen use the same published Site
+    // Content destination. A saved Admin notification URL is the fallback.
+    const [publishedReviewSettings] = claimed.eventKind === "completed" && !claimed.adminRecipient
+      ? await db.select({
+          socialTrust: sitePublicationRevisionsTable.socialTrust,
+          partnerLogos: sitePublicationRevisionsTable.partnerLogos,
+        }).from(sitePublicationRevisionsTable)
+          .orderBy(desc(sitePublicationRevisionsTable.version)).limit(1)
+      : [];
     const notification: CustomerStatusNotification = {
       eventId: claimed.id,
       customerClerkUserId: claimed.customerClerkUserId,
       recipientEmail,
-      trustpilotUrl: notificationSettings?.trustpilotReviewUrl ?? "",
+      trustpilotUrl: claimed.eventKind === "completed" && !claimed.adminRecipient
+        ? resolveCompletedReviewUrl(publishedReviewSettings, notificationSettings?.trustpilotReviewUrl)
+        : "",
       customerName: order.customerName,
       orderId: order.id,
       fromStatus: claimed.fromStatus,

@@ -128,7 +128,7 @@ export async function buildInvoicePdf(invoice: InvoiceSnapshot): Promise<Blob> {
 
   section('PAYMENT DETAILS', 106);
   const details = [
-    ['Paid', 'Yes'],
+    ['Status', 'Completed'],
     ['Payment / Completed Date', dateTime(invoice.completedAt)],
     ['Order ID', invoice.id],
     ['Exchange Type', invoice.exchangeType],
@@ -228,6 +228,30 @@ export async function buildInvoicePdf(invoice: InvoiceSnapshot): Promise<Blob> {
         y -= 4;
       } while (offset < valueLines.length);
     }
+  }
+
+  if (invoice.transactionHash) {
+    section('TRANSACTION DETAILS', 55);
+    const label = invoice.transactionLabel || 'Transaction ID';
+    const valueLines = wrapped(invoice.transactionHash, regular, 9, CONTENT_WIDTH - 200);
+    let offset = 0;
+    do {
+      const capacity = Math.floor((y - 83 - 11) / 13);
+      if (capacity < 2) {
+        drawPage();
+        continue;
+      }
+      const count = Math.min(capacity, valueLines.length - offset);
+      const height = Math.max(29, count * 13 + 11);
+      lines(page, offset ? `${label} (continued)` : label,
+        MARGIN + 12, y - 3, 145, bold, 7.5, MUTED, 11);
+      lines(page, valueLines.slice(offset, offset + count).join('\n'),
+        MARGIN + 187, y - 3, CONTENT_WIDTH - 200, regular, 9, DARK, 13);
+      offset += count;
+      y -= height;
+      rule(page, y);
+      y -= 4;
+    } while (offset < valueLines.length);
   }
 
   doc.getPages().forEach((printedPage, index) => {

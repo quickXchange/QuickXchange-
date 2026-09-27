@@ -23,7 +23,7 @@ import { adminEmailEventEnabled, adminTelegramEventEnabled, customerEmailEventEn
 import { normalizeRefundFields } from "../src/lib/manual-wallet-validation";
 import { quickexProjection, telegramAccountLinkRelativeUrl, validateTelegramMiniAppInitData, verifyTelegramMiniAppSession } from "../src/routes/telegram-mini-app";
 import { enqueueSwapTelegramNotification, formatSwapTelegramNotification } from "../src/lib/telegram-swap-notifications";
-import { buildCustomerStatusNotificationContent } from "../src/lib/customer-status-notifications";
+import { buildCustomerStatusNotificationContent, resolveCompletedReviewUrl } from "../src/lib/customer-status-notifications";
 import { adminTelegramTestFailureReason, telegramHealthReport, validateNotificationTemplateVariables } from "../src/routes/notification-settings";
 import { sanitizeTelegramFailureReason, TelegramApiError, validateTelegramBotIdentity } from "../src/lib/telegram-api";
 import {
@@ -371,9 +371,22 @@ test("Customer lifecycle emails render premium event-specific content from safe 
     });
     assert.match(completed.html, /You Received/);
     assert.match(completed.html, /SEPA-REF-123/);
-    assert.match(completed.html, /Download Invoice/);
+    assert.match(completed.html, /Download PDF/);
     assert.match(completed.html, /invoice=1/);
-    assert.match(completed.html, /Review us on Trustpilot/);
+    assert.match(completed.html, /account\/orders\/QX-EMAIL-001\?invoice=1/);
+    assert.match(completed.html, /Rate your experience on Trustpilot/);
+    assert.match(completed.html, /quickxchange-header-light\.png/);
+    assert.match(completed.html, /quickxchange-header-dark\.png/);
+    assert.doesNotMatch(payment.html, /Rate your experience on Trustpilot/);
+    const notDone = buildCustomerStatusNotificationContent({
+      ...baseNotification,
+      eventKind: "completed",
+      status: "processing",
+      completedAt: new Date("2026-09-21T12:15:00.000Z"),
+      trustpilotUrl: "https://www.trustpilot.com/evaluate/quickchange.exchange",
+    });
+    assert.doesNotMatch(notDone.html, /Rate your experience on Trustpilot/);
+    assert.doesNotMatch(notDone.html, /Download PDF/);
   } finally {
     if (previousPublicAppUrl === undefined) {
       delete process.env.PUBLIC_APP_URL;
@@ -417,13 +430,33 @@ test("Convert lifecycle emails use Quickex data without Swap settlement claims",
     assert.match(completed.html, /TRC20/);
     assert.match(completed.html, /quickex-reference-800/);
     assert.match(completed.html, /invoice=1/);
-    assert.match(completed.html, /Review us on Trustpilot/);
+    assert.match(completed.html, /trackingToken=[^"&]+&amp;invoice=1/);
+    assert.match(completed.html, /Rate your experience on Trustpilot/);
     assert.doesNotMatch(completed.html, /Confirmations/);
     assert.doesNotMatch(completed.html, /Transaction Hash/);
   } finally {
     if (previousPublicAppUrl === undefined) delete process.env.PUBLIC_APP_URL;
     else process.env.PUBLIC_APP_URL = previousPublicAppUrl;
   }
+});
+
+test("completed reviews prefer published Trustpilot content and reject untrusted links", () => {
+  const publication = {
+    socialTrust: { items: [
+      { name: "Trustpilot", enabled: true, removedAt: null, href: "https://www.trustpilot.com/evaluate/published" },
+      { name: "Trustpilot", enabled: false, removedAt: null, href: "https://www.trustpilot.com/evaluate/disabled" },
+    ] },
+    partnerLogos: [
+      { name: "Trustpilot", enabled: true, removedAt: null, link: "https://www.trustpilot.com/evaluate/partner" },
+    ],
+  } as unknown as Parameters<typeof resolveCompletedReviewUrl>[0];
+  assert.equal(resolveCompletedReviewUrl(publication, "https://www.trustpilot.com/evaluate/settings"),
+    "https://www.trustpilot.com/evaluate/published");
+  assert.equal(resolveCompletedReviewUrl({ ...publication!, socialTrust: null },
+    "https://www.trustpilot.com/evaluate/settings"), "https://www.trustpilot.com/evaluate/settings");
+  assert.equal(resolveCompletedReviewUrl({ ...publication!, socialTrust: null },
+    "https://example.com/redirect"), "https://www.trustpilot.com/evaluate/partner");
+  assert.equal(resolveCompletedReviewUrl(null, "https://trustpilot.com.evil.example/review"), "");
 });
 
 test("Admin and customer notification channel gates remain independent", () => {
