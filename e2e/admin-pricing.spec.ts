@@ -106,6 +106,10 @@ test('single fee-range table supports three disjoint ranges, exact fixed fees, e
   await page.getByTestId(`button-edit-pricing-${amountRules[0].id}`).click();
   const drawer = page.getByTestId('pricing-rule-drawer');
   await expect(drawer).toBeVisible();
+  await expect(drawer.getByTestId('pricing-mode-path')).toBeChecked();
+  await expect(drawer.getByTestId('single-amount-pricing-editor')).toHaveCount(0);
+  await drawer.getByTestId('pricing-mode-range').check();
+  await expect(drawer.getByTestId('pricing-path-quantities')).toHaveCount(0);
   await expect(drawer.getByTestId('single-amount-pricing-editor')).toBeVisible();
   await expect(drawer.getByTestId('single-amount-range-table').locator('th')).toHaveText(['Min', 'Max', 'Fixed', 'Percentage', 'Direction', 'Actions']);
   await expect(drawer.getByTestId('single-amount-pricing-enabled')).toHaveCount(0);
@@ -114,6 +118,10 @@ test('single fee-range table supports three disjoint ranges, exact fixed fees, e
   }
   await expect(drawer.getByTestId('single-amount-pricing-editor')).toContainText('Base price applies');
   await addRange(page, 'single', '800', '20000', '3', 'MARKUP', '0.00000017');
+  await drawer.getByTestId('pricing-mode-path').check();
+  await expect(drawer.getByTestId('single-amount-pricing-editor')).toHaveCount(0);
+  await drawer.getByTestId('pricing-mode-range').check();
+  await expect(drawer.getByTestId('single-amount-range-0')).toContainText('0.00000017');
   await page.getByTestId('single-add-amount-range').click();
   const modal = page.getByTestId('single-amount-range-modal');
   await modal.getByTestId('single-range-min').fill('700');
@@ -158,6 +166,7 @@ test('single fee-range table supports three disjoint ranges, exact fixed fees, e
   await expect(drawer).toHaveCount(0);
 
   await page.getByTestId(`button-edit-pricing-${amountRules[0].id}`).click();
+  await drawer.getByTestId('pricing-mode-range').check();
   for (let index = 2; index >= 0; index--) await drawer.getByTestId(`single-delete-amount-range-${index}`).click();
   await expect(drawer.getByTestId('single-amount-pricing-editor')).toContainText('Base price applies');
   await drawer.getByTestId('button-save-pricing-rule').click();
@@ -171,6 +180,7 @@ test('legacy tier inherits the rule base fee visually, but remains property-free
   await page.goto('/admin/pricing');
   await page.getByTestId(`button-edit-pricing-${rule.id}`).click();
   const drawer = page.getByTestId('pricing-rule-drawer');
+  await drawer.getByTestId('pricing-mode-range').check();
   await expect(drawer.getByTestId('single-amount-range-0').locator('td').nth(2)).toHaveText('0.01234567');
   await drawer.getByTestId('single-edit-amount-range-0').click();
   const modal = page.getByTestId('single-amount-range-modal');
@@ -184,6 +194,7 @@ test('legacy tier inherits the rule base fee visually, but remains property-free
   });
   expect(singleRequests[0].amountBasedPricingTiers[0]).not.toHaveProperty('fixedFee');
   await page.getByTestId(`button-edit-pricing-${rule.id}`).click();
+  await drawer.getByTestId('pricing-mode-range').check();
   await drawer.getByTestId('single-edit-amount-range-0').click();
   await expect(modal.getByTestId('single-range-fixed-fee')).toHaveValue('0.01234567');
   await modal.getByTestId('single-save-amount-range').click();
@@ -251,6 +262,7 @@ test('editing another field does not reactivate ranges stored on a disabled rule
   await page.goto('/admin/pricing');
   await page.getByTestId(`button-edit-pricing-${amountRules[0].id}`).click();
   const drawer = page.getByTestId('pricing-rule-drawer');
+  await drawer.getByTestId('pricing-mode-range').check();
   await expect(drawer.getByTestId('single-amount-pricing-editor')).toContainText('Base price applies');
   await drawer.getByTestId('button-save-pricing-rule').click();
   await expect.poll(() => singleRequests.length).toBe(1);
@@ -258,6 +270,94 @@ test('editing another field does not reactivate ranges stored on a disabled rule
     amountBasedPricingEnabled: false,
     amountBasedPricingTiers: storedTiers,
   });
+});
+
+test('single rule editors stay exclusive; path quantities independently save, clear and reopen without touching ranges', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const rule = { ...amountRules[0], minAmount: '15.000000000000000001', maxAmount: '90000' };
+  const { singleRequests } = await mockAmountPricing(page, [rule]);
+  await page.goto('/admin/pricing');
+  await page.getByTestId('button-add-pricing-rule').click();
+  let drawer = page.getByTestId('pricing-rule-drawer');
+  await expect(drawer.getByTestId('pricing-mode-range')).toBeChecked();
+  await expect(drawer.getByTestId('single-amount-pricing-editor')).toBeVisible();
+  await expect(drawer.getByTestId('pricing-path-quantities')).toHaveCount(0);
+  await drawer.getByTestId('button-close-pricing-drawer').click();
+
+  await page.getByTestId(`button-edit-pricing-${rule.id}`).click();
+  drawer = page.getByTestId('pricing-rule-drawer');
+  await expect(drawer.getByTestId('pricing-mode-path')).toBeChecked();
+  await expect(drawer.getByTestId('single-amount-pricing-editor')).toHaveCount(0);
+  const min = drawer.getByTestId('input-pricing-minimum-quantity');
+  const max = drawer.getByTestId('input-pricing-maximum-quantity');
+  await expect(min).toHaveValue(rule.minAmount);
+  await expect(max).toHaveValue(rule.maxAmount);
+  for (const field of ['input-pricing-name', 'select-pricing-source', 'select-pricing-target', 'input-pricing-exact-rate', 'input-pricing-time', 'input-pricing-priority', 'input-pricing-op-inst', 'input-pricing-cust-inst', 'input-pricing-enabled']) {
+    await expect(drawer.getByTestId(field)).toBeVisible();
+  }
+  expect(await drawer.evaluate(element => element.getBoundingClientRect().width <= window.innerWidth)).toBe(true);
+
+  await min.fill('16.000000000000000001');
+  await max.fill('');
+  await drawer.getByTestId('pricing-mode-range').check();
+  await expect(drawer.getByTestId('pricing-path-quantities')).toHaveCount(0);
+  await expect(drawer.getByTestId('single-amount-range-0')).toBeVisible();
+  await drawer.getByTestId('pricing-mode-path').check();
+  await expect(min).toHaveValue('16.000000000000000001');
+  await expect(max).toHaveValue('');
+  await drawer.getByTestId('button-save-pricing-rule').click();
+  await expect.poll(() => singleRequests.length).toBe(1);
+  expect(singleRequests[0]).toMatchObject({
+    minAmount: '16.000000000000000001', maxAmount: null,
+    amountBasedPricingEnabled: true, amountBasedPricingTiers: storedTiers,
+  });
+
+  await page.getByTestId(`button-edit-pricing-${rule.id}`).click();
+  drawer = page.getByTestId('pricing-rule-drawer');
+  await expect(drawer.getByTestId('input-pricing-minimum-quantity')).toHaveValue('16.000000000000000001');
+  await expect(drawer.getByTestId('input-pricing-maximum-quantity')).toHaveValue('');
+  await drawer.getByTestId('input-pricing-minimum-quantity').fill('');
+  await drawer.getByTestId('input-pricing-maximum-quantity').fill('95000');
+  await drawer.getByTestId('button-save-pricing-rule').click();
+  await expect.poll(() => singleRequests.length).toBe(2);
+  expect(singleRequests[1]).toMatchObject({ minAmount: null, maxAmount: '95000', amountBasedPricingTiers: storedTiers });
+  await page.getByTestId(`button-edit-pricing-${rule.id}`).click();
+  await expect(drawer.getByTestId('input-pricing-minimum-quantity')).toHaveValue('');
+  await expect(drawer.getByTestId('input-pricing-maximum-quantity')).toHaveValue('95000');
+});
+
+test('invalid path quantity decimals and reversed limits block save; range save keeps rule limits', async ({ page }) => {
+  const rule = { ...amountRules[0], minAmount: '15', maxAmount: '90000', amountBasedPricingEnabled: false, amountBasedPricingTiers: storedTiers };
+  const { singleRequests } = await mockAmountPricing(page, [rule]);
+  await page.goto('/admin/pricing');
+  await page.getByTestId(`button-edit-pricing-${rule.id}`).click();
+  const drawer = page.getByTestId('pricing-rule-drawer');
+  const min = drawer.getByTestId('input-pricing-minimum-quantity');
+  const max = drawer.getByTestId('input-pricing-maximum-quantity');
+  for (const invalid of ['0', '-1', '1e4', '1.1234567890123456789', '123456789012345678901']) {
+    await min.fill(invalid);
+    await drawer.getByTestId('button-save-pricing-rule').click();
+    await expect(drawer.getByTestId('pricing-quantity-error')).toContainText('positive decimal');
+    expect(singleRequests).toHaveLength(0);
+  }
+  await min.fill('90001');
+  await max.fill('90000');
+  await drawer.getByTestId('button-save-pricing-rule').click();
+  await expect(drawer.getByTestId('pricing-quantity-error')).toContainText('must not exceed');
+  expect(singleRequests).toHaveLength(0);
+  await min.fill('30');
+  await max.fill('90');
+  await drawer.getByTestId('pricing-mode-range').check();
+  await expect(drawer.getByTestId('input-pricing-minimum-quantity')).toHaveCount(0);
+  await drawer.getByTestId('button-save-pricing-rule').click();
+  await expect.poll(() => singleRequests.length).toBe(1);
+  expect(singleRequests[0]).toMatchObject({ minAmount: '15', maxAmount: '90000', amountBasedPricingEnabled: false, amountBasedPricingTiers: storedTiers });
+  await page.getByTestId(`button-edit-pricing-${rule.id}`).click();
+  await expect(drawer.getByTestId('pricing-mode-path')).toBeChecked();
+  await drawer.getByTestId('input-pricing-name').fill('Updated without enabling stored tiers');
+  await drawer.getByTestId('button-save-pricing-rule').click();
+  await expect.poll(() => singleRequests.length).toBe(2);
+  expect(singleRequests[1]).toMatchObject({ name: 'Updated without enabling stored tiers', minAmount: '15', maxAmount: '90000', amountBasedPricingEnabled: false, amountBasedPricingTiers: storedTiers });
 });
 
 test('bulk edit omits unchecked amount fields, then applies checked tiers to each selected rule', async ({ page }) => {

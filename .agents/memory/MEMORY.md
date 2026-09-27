@@ -40,6 +40,7 @@
 - [Swap and Convert visual boundaries](swap-convert-visual-parity.md) — share the public shell, but keep each mode’s intentionally distinct Step 2 layout isolated.
 - [Amount-independent route rates](amount-independent-route-rates.md) — pre-amount Swap rates apply percentage markup but exclude fixed fees, which remain amount-dependent quote fees.
 - [Legacy range fee inheritance](legacy-range-fee-inheritance.md) — missing per-range fixed fees retain the rule's base fee; explicit zero replaces it without changing gaps.
+- [Manual pricing editor modes](manual-pricing-editor-modes.md) — Adding Range and Edit Path are exclusive editing views, not destructive alternatives to saved pricing data.
 - [Mobile widget scroll boundaries](mobile-widget-scroll-boundaries.md) — closed widgets chain page scroll; [selector overlays](viewport-combobox-overlays.md) scroll only results.
 - [Coinbase ticker coverage](coinbase-ticker-coverage.md) — discover supported USD products from Coinbase’s live catalog and render unsupported assets without fallback prices.
 - [Customer suspension boundaries](customer-suspension-boundaries.md) — guard every authenticated side-effect path, including routes that intentionally support anonymous users.

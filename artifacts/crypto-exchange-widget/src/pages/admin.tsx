@@ -8503,6 +8503,10 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
     enabled: rule?.enabled ?? true,
   });
   const [error, setError] = useState('');
+  const [editorMode, setEditorMode] = useState<'range' | 'path'>(rule ? 'path' : 'range');
+  const [minimumQuantity, setMinimumQuantity] = useState(rule?.minAmount ?? '');
+  const [maximumQuantity, setMaximumQuantity] = useState(rule?.maxAmount ?? '');
+  const [quantityError, setQuantityError] = useState('');
   const [amountTiers, setAmountTiers] = useState<AmountPricingTier[]>(() =>
     rule?.amountBasedPricingEnabled ? rule.amountBasedPricingTiers ?? [] : []);
   const [amountRangesChanged, setAmountRangesChanged] = useState(false);
@@ -8512,6 +8516,7 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
   };
   const [sourceMode, setSourceMode] = useState<'single' | 'multiple'>('single');
   const [targetMode, setTargetMode] = useState<'single' | 'multiple'>('single');
+  const isSingleRoute = !!rule || (sourceMode === 'single' && targetMode === 'single');
   const [sourceSelections, setSourceSelections] = useState<string[]>([]);
   const [targetSelections, setTargetSelections] = useState<string[]>([]);
   const reciprocalRate = (value: string) => {
@@ -8597,7 +8602,22 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
   const save = (event: React.FormEvent) => {
     event.preventDefault();
     setError('');
-    const amountValidation = inspectAmountTiers(amountTiers);
+    const editingPath = isSingleRoute && editorMode === 'path';
+    setQuantityError('');
+    if (editingPath) {
+      const min = minimumQuantity.trim();
+      const max = maximumQuantity.trim();
+      const validQuantity = (value: string) => /^(?=.{1,39}$)(?:0|[1-9]\d{0,19})(?:\.\d{1,18})?$/.test(value) && isGreaterThanExact(value, '0');
+      if ((min && !validQuantity(min)) || (max && !validQuantity(max))) {
+        setQuantityError('Enter a positive decimal with at most 20 whole digits and 18 fractional digits.');
+        return;
+      }
+      if (min && max && isGreaterThanExact(min, max)) {
+        setQuantityError('Minimum Quantity must not exceed Maximum Quantity.');
+        return;
+      }
+    }
+    const amountValidation = editingPath ? '' : inspectAmountTiers(amountTiers);
     if (amountValidation) {
       setError(amountValidation);
       return;
@@ -8661,8 +8681,8 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
        targetSettlementOptionId: isAssetPricingOption(selectedTarget) ? null : selectedTarget?.id ?? null,
       markupBasisPoints: rule?.markupBasisPoints ?? 0,
       adjustmentDirection: rule?.adjustmentDirection ?? 'MARKUP',
-      amountBasedPricingEnabled: amountTiers.length > 0,
-      amountBasedPricingTiers: (!amountRangesChanged && !rule?.amountBasedPricingEnabled
+      amountBasedPricingEnabled: editingPath ? rule?.amountBasedPricingEnabled ?? false : amountTiers.length > 0,
+      amountBasedPricingTiers: editingPath ? rule?.amountBasedPricingTiers ?? [] : (!amountRangesChanged && !rule?.amountBasedPricingEnabled
         ? rule?.amountBasedPricingTiers ?? []
         : amountTiers).map(tier => ({
         minAmount: tier.minAmount.trim(),
@@ -8673,8 +8693,8 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
       })),
       exactRate: form.exactRate.trim() || null,
       fixedFee: rule?.fixedFee ?? null,
-      minAmount: rule?.minAmount ?? null,
-      maxAmount: rule?.maxAmount ?? null,
+      minAmount: editingPath ? minimumQuantity.trim() || null : rule?.minAmount ?? null,
+      maxAmount: editingPath ? maximumQuantity.trim() || null : rule?.maxAmount ?? null,
       expectedSettlementMinutes: parseInt(form.expectedSettlementMinutes) || null,
       operatorInstructions: form.operatorInstructions.trim() || null,
       customerInstructions: form.customerInstructions.trim() || null,
@@ -8756,6 +8776,19 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
             {projectedUncoveredRoutes.length > 3 ? `; and ${projectedUncoveredRoutes.length - 3} more.` : '.'}
           </InlineNotice>
         )}
+        {isSingleRoute && <fieldset className="pricing-editor-mode" data-testid="pricing-editor-mode">
+          <legend>Pricing editor</legend>
+          <div className="pricing-editor-mode-options">
+            <label className={editorMode === 'range' ? 'is-selected' : ''}>
+              <input type="radio" name="pricing-editor-mode" value="range" checked={editorMode === 'range'} onChange={() => setEditorMode('range')} data-testid="pricing-mode-range" />
+              <span>Adding Range</span>
+            </label>
+            <label className={editorMode === 'path' ? 'is-selected' : ''}>
+              <input type="radio" name="pricing-editor-mode" value="path" checked={editorMode === 'path'} onChange={() => setEditorMode('path')} data-testid="pricing-mode-path" />
+              <span>Edit Path</span>
+            </label>
+          </div>
+        </fieldset>}
 
         <label className="admin-form-field admin-form-field-full pricing-rule-field pricing-rule-field-full"><span className="field-label">{t('adminPricing.rule_name')}</span><input required maxLength={200} value={form.name} onChange={event => set('name', event.target.value)} disabled={rule?.readOnly} data-testid="input-pricing-name" /></label>
 
@@ -8775,7 +8808,19 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
         <div className="admin-form-grid pricing-form-grid">
         <label className="pricing-rule-field"><span className="field-label">Exact path rate <small>base conversion rate</small></span><input inputMode="decimal" value={form.exactRate} onChange={event => set('exactRate', event.target.value)} placeholder="Example: 1 EUR = 4 XMR → 4" disabled={rule?.readOnly} data-testid="input-pricing-exact-rate" />{form.exactRate && <small className="text-muted-foreground">Selected path: 1 {projectedSourceOption?.assetCode || 'source'} = {form.exactRate} {projectedTargetOption?.assetCode || 'target'} · Reverse: 1 {projectedTargetOption?.assetCode || 'target'} = {reciprocalRate(form.exactRate)} {projectedSourceOption?.assetCode || 'source'}</small>}<small className="text-muted-foreground">The rate applies to all enabled networks for selected crypto assets.</small></label>
         </div>
-        <AmountBasedPricingEditor prefix="single" tiers={amountTiers} onTiersChange={updateAmountTiers} disabled={rule?.readOnly} inheritedFixedFee={rule?.fixedFee} />
+        {(!isSingleRoute || editorMode === 'range') &&
+          <AmountBasedPricingEditor prefix="single" tiers={amountTiers} onTiersChange={updateAmountTiers} disabled={rule?.readOnly} inheritedFixedFee={rule?.fixedFee} />}
+        {isSingleRoute && editorMode === 'path' && <section className="pricing-path-quantities" aria-label="Path quantity limits" data-testid="pricing-path-quantities">
+          <div className="pricing-path-quantities-heading">
+            <h3>Path quantity limits</h3>
+            <p>Optional rule-level limits. Amount ranges are not changed here.</p>
+          </div>
+          <div className="admin-form-grid pricing-form-grid">
+            <label className="pricing-rule-field"><span className="field-label">Minimum Quantity</span><input type="text" inputMode="decimal" value={minimumQuantity} onChange={event => { setMinimumQuantity(event.target.value); setQuantityError(''); }} placeholder="No minimum" disabled={rule?.readOnly} aria-invalid={!!quantityError} aria-describedby={quantityError ? 'pricing-quantity-error' : undefined} data-testid="input-pricing-minimum-quantity" /></label>
+            <label className="pricing-rule-field"><span className="field-label">Maximum Quantity</span><input type="text" inputMode="decimal" value={maximumQuantity} onChange={event => { setMaximumQuantity(event.target.value); setQuantityError(''); }} placeholder="No maximum" disabled={rule?.readOnly} aria-invalid={!!quantityError} aria-describedby={quantityError ? 'pricing-quantity-error' : undefined} data-testid="input-pricing-maximum-quantity" /></label>
+          </div>
+          {quantityError && <p id="pricing-quantity-error" className="pricing-quantity-error" role="alert" data-testid="pricing-quantity-error">{quantityError}</p>}
+        </section>}
 
         <div className="admin-form-grid pricing-form-grid">
           <label className="pricing-rule-field"><span className="field-label">{t('adminPricing.expected_settlement_min')}</span><input type="number" value={form.expectedSettlementMinutes} onChange={event => set('expectedSettlementMinutes', event.target.value)} placeholder={t('adminPricing.e_g_60')} disabled={rule?.readOnly} data-testid="input-pricing-time" /></label>
