@@ -320,6 +320,49 @@ export const UpdateAdminSwapDefaultPairResponse = zod.object({
 
 
 /**
+ * @summary Get the persisted public Convert default pair
+ */
+export const GetAdminConvertDefaultPairResponse = zod.object({
+  "pair": zod.union([zod.object({
+  "fromAsset": zod.string(),
+  "fromNetwork": zod.string(),
+  "toAsset": zod.string(),
+  "toNetwork": zod.string()
+}),zod.null()])
+})
+
+
+/**
+ * @summary Save a currently supported directed Convert default pair
+ */
+export const updateAdminConvertDefaultPairBodyFromAssetMax = 32;
+
+export const updateAdminConvertDefaultPairBodyFromNetworkMax = 80;
+
+export const updateAdminConvertDefaultPairBodyToAssetMax = 32;
+
+export const updateAdminConvertDefaultPairBodyToNetworkMax = 80;
+
+
+
+export const UpdateAdminConvertDefaultPairBody = zod.object({
+  "fromAsset": zod.string().min(1).max(updateAdminConvertDefaultPairBodyFromAssetMax),
+  "fromNetwork": zod.string().min(1).max(updateAdminConvertDefaultPairBodyFromNetworkMax),
+  "toAsset": zod.string().min(1).max(updateAdminConvertDefaultPairBodyToAssetMax),
+  "toNetwork": zod.string().min(1).max(updateAdminConvertDefaultPairBodyToNetworkMax)
+})
+
+export const UpdateAdminConvertDefaultPairResponse = zod.object({
+  "pair": zod.union([zod.object({
+  "fromAsset": zod.string(),
+  "fromNetwork": zod.string(),
+  "toAsset": zod.string(),
+  "toNetwork": zod.string()
+}),zod.null()])
+})
+
+
+/**
  * @summary Get cached popular Convert and Swap routes
  */
 export const getPopularExchangePairsResponseConvertItemOrderCountMin = 0;
@@ -11075,7 +11118,13 @@ export const GetQuickexConfigResponse = zod.object({
   "fromNetwork": zod.string(),
   "toAsset": zod.string(),
   "toNetwork": zod.string()
-}))
+})),
+  "defaultConvertPair": zod.object({
+  "fromAsset": zod.string(),
+  "fromNetwork": zod.string(),
+  "toAsset": zod.string(),
+  "toNetwork": zod.string()
+}).optional()
 })
 
 

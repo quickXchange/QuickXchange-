@@ -13,8 +13,26 @@ import {
   type QuickexPair,
   type QuickexRateMode,
 } from "./quickex";
+import { getEffectiveQuickexConvertDefaultPair } from "./quickex-convert-default-pair";
 
 const QUICKEX_PROVIDER_ID = "quickex";
+type QuickexPublicConfigSourceValue = {
+  provider: "Quickex";
+  instruments: QuickexInstrument[];
+  pairs: ExecutableQuickexRoute[];
+  signedOrders: boolean;
+};
+let quickexPublicConfigTestSource:
+  (() => Promise<QuickexPublicConfigSourceValue>) | undefined;
+
+export function configureQuickexPublicConfigSourceForTests(
+  source: (() => Promise<QuickexPublicConfigSourceValue>) | undefined,
+): void {
+  if (process.env.NODE_ENV !== "test") {
+    throw new Error("Quickex public config test sources require NODE_ENV=test.");
+  }
+  quickexPublicConfigTestSource = source;
+}
 const QUICKEX_NETWORK_TITLE_ALIASES: Readonly<Record<string, readonly string[]>> = {
   "btc-bitcoin": ["Bitcoin", "BTC"],
   "eth-ethereum": ["Ethereum", "ERC20"],
@@ -284,6 +302,14 @@ export async function listPublicProviderSettlementOptions(
 }
 
 export async function getQuickexPublicCapabilityConfig() {
+  if (process.env.NODE_ENV === "test" && quickexPublicConfigTestSource) {
+    const config = await quickexPublicConfigTestSource();
+    const defaultConvertPair = await getEffectiveQuickexConvertDefaultPair(config.pairs);
+    return {
+      ...config,
+      ...(defaultConvertPair ? { defaultConvertPair } : {}),
+    };
+  }
   const credentialStatus = await getQuickexCredentialStatus();
   if (!credentialStatus.configured) {
     return { provider: "Quickex" as const, instruments: [], pairs: [], signedOrders: false };
@@ -315,11 +341,13 @@ export async function getQuickexPublicCapabilityConfig() {
     allowed.has(`${item.currencyTitle.toUpperCase()}\0${item.networkTitle.toUpperCase()}`) &&
     participating.has(capabilityKey(item.currencyTitle, item.networkTitle))
   );
+  const defaultConvertPair = await getEffectiveQuickexConvertDefaultPair(routes);
   return {
     provider: "Quickex" as const,
     instruments: publicInstruments,
     pairs: routes,
     signedOrders: routes.length > 0,
+    ...(defaultConvertPair ? { defaultConvertPair } : {}),
   };
 }
 

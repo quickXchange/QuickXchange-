@@ -580,3 +580,140 @@ test('default Swap pair selectors only offer directed routes and save settlement
     targetSettlementOptionId: xrpOption.id,
   });
 });
+
+test('default Convert selectors use Quickex directed pairs and save route fields independently of Swap', async ({ page }) => {
+  const instruments = [
+    { currencyTitle: 'DOGE', networkTitle: 'Dogecoin', slug: 'doge-dogecoin', instrumentType: 'crypto', fullName: 'Dogecoin', currencyFriendlyTitle: 'Dogecoin' },
+    { currencyTitle: 'BTC', networkTitle: 'Bitcoin', slug: 'btc-bitcoin', instrumentType: 'crypto', fullName: 'Bitcoin', currencyFriendlyTitle: 'Bitcoin' },
+    { currencyTitle: 'USDT', networkTitle: 'TRC20', slug: 'usdt-trc20', instrumentType: 'crypto', fullName: 'Tether', currencyFriendlyTitle: 'Tether' },
+    { currencyTitle: 'XRP', networkTitle: 'XRP Ledger', slug: 'xrp-xrpl', instrumentType: 'crypto', fullName: 'XRP', currencyFriendlyTitle: 'XRP' },
+    { currencyTitle: 'ISO', networkTitle: 'Isolated', slug: 'iso-isolated', instrumentType: 'crypto', fullName: 'Isolated', currencyFriendlyTitle: 'Isolated' },
+    { currencyTitle: 'USD', networkTitle: 'Fiat', slug: 'usd-fiat', instrumentType: 'fiat', fullName: 'US Dollar', currencyFriendlyTitle: 'US Dollar' },
+  ];
+  const quickexPairs = [
+    { fromAsset: 'DOGE', fromNetwork: 'Dogecoin', toAsset: 'USDT', toNetwork: 'TRC20' },
+    { fromAsset: 'BTC', fromNetwork: 'Bitcoin', toAsset: 'USDT', toNetwork: 'TRC20' },
+    { fromAsset: 'BTC', fromNetwork: 'Bitcoin', toAsset: 'XRP', toNetwork: 'XRP Ledger' },
+  ];
+  const swapOptions = [
+    { id: 'fiat:usd-bank', assetId: 'usd', assetCode: 'USD', kind: 'fiat-payment-method', title: 'Bank transfer', routeNetwork: 'Bank transfer', direction: 'both' },
+    { id: 'crypto:btc-bitcoin', assetId: 'btc', assetCode: 'BTC', kind: 'crypto-network', title: 'Bitcoin', routeNetwork: 'Bitcoin', direction: 'both' },
+  ];
+  const savedSwapPair = {
+    sourceSettlementOptionId: 'fiat:usd-bank',
+    targetSettlementOptionId: 'crypto:btc-bitcoin',
+  };
+  let savedConvertPair = {
+    fromAsset: 'DOGE',
+    fromNetwork: 'Dogecoin',
+    toAsset: 'USDT',
+    toNetwork: 'TRC20',
+  };
+  let submittedConvertPair: Record<string, unknown> | undefined;
+
+  await page.route('**/api/admin/authorization', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      member: { id: 'operator-e2e', email: 'operator@example.test', role: 'owner', status: 'active' },
+      owner: true,
+      effectivePermissions: [],
+      catalog: [],
+    }),
+  }));
+  await page.route('**/api/admin/fiat-currencies', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify([usd, eur]),
+  }));
+  await page.route('**/api/admin/payment-methods', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify([]),
+  }));
+  await page.route('**/api/admin/fiat-currency-payment-methods', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify([]),
+  }));
+  await page.route('**/api/admin/crypto-assets', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify([]),
+  }));
+  await page.route('**/api/admin/crypto-networks', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify([]),
+  }));
+  await page.route('**/api/admin/providers/oneforge', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ provider: '1Forge', configured: true, state: 'healthy', fetchedAt: now, ageMs: 4000, rates: [] }),
+  }));
+  await page.route('**/api/admin/providers/whitebit/verification-routes', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: '[]',
+  }));
+  await page.route('**/api/exchange/config', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      assets: [],
+      fiatCurrencies: [],
+      settlementOptions: swapOptions,
+      manualSettlementOptions: swapOptions,
+      manualRouteAvailability: {
+        available: true,
+        routes: [
+          { sourceSettlementOptionId: 'fiat:usd-bank', targetSettlementOptionId: 'crypto:btc-bitcoin' },
+          { sourceSettlementOptionId: 'crypto:btc-bitcoin', targetSettlementOptionId: 'fiat:usd-bank' },
+        ],
+        unavailableMessage: null,
+      },
+      providers: [],
+    }),
+  }));
+  await page.route('**/api/quickex/config', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ provider: 'Quickex', signedOrders: true, instruments, pairs: quickexPairs }),
+  }));
+  await page.route('**/api/admin/convert-default-pair', async route => {
+    if (route.request().method() === 'PUT') {
+      submittedConvertPair = route.request().postDataJSON() as Record<string, unknown>;
+      savedConvertPair = submittedConvertPair as typeof savedConvertPair;
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ pair: savedConvertPair }),
+    });
+  });
+  await page.route('**/api/admin/swap-default-pair', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ pair: savedSwapPair }),
+  }));
+
+  await page.goto('/admin/currencies');
+  const convertPanel = page.getByTestId('admin-convert-default-pair');
+  const source = convertPanel.getByTestId('select-default-convert-send');
+  const target = convertPanel.getByTestId('select-default-convert-receive');
+  const swapPanel = page.getByTestId('admin-swap-default-pair');
+  await expect(convertPanel).toBeVisible();
+  await expect(source).toHaveValue('doge-dogecoin');
+  await expect(target).toHaveValue('usdt-trc20');
+  await expect(source.locator('option').evaluateAll(options => options.map(option => (option as HTMLOptionElement).value)))
+    .resolves.toEqual(['doge-dogecoin', 'btc-bitcoin']);
+  await expect(target.locator('option').evaluateAll(options => options.map(option => (option as HTMLOptionElement).value)))
+    .resolves.toEqual(['usdt-trc20']);
+
+  await source.selectOption('btc-bitcoin');
+  await expect(target).toHaveValue('usdt-trc20');
+  await expect(target.locator('option').evaluateAll(options => options.map(option => (option as HTMLOptionElement).value)))
+    .resolves.toEqual(['usdt-trc20', 'xrp-xrpl']);
+  await target.selectOption('usdt-trc20');
+  await convertPanel.getByTestId('button-save-default-convert-pair').click();
+  await expect.poll(() => submittedConvertPair).toEqual({
+    fromAsset: 'BTC',
+    fromNetwork: 'Bitcoin',
+    toAsset: 'USDT',
+    toNetwork: 'TRC20',
+  });
+  await expect(source).toHaveValue('btc-bitcoin');
+  await expect(target).toHaveValue('usdt-trc20');
+  await expect(swapPanel.getByTestId('select-default-swap-send')).toHaveValue('fiat:usd-bank');
+  await expect(swapPanel.getByTestId('select-default-swap-receive')).toHaveValue('crypto:btc-bitcoin');
+});

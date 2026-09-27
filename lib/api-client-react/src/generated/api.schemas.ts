@@ -4956,6 +4956,34 @@ export interface QuickexConfig {
   signedOrders: boolean;
   instruments: QuickexInstrument[];
   pairs: QuickexPair[];
+  defaultConvertPair?: QuickexPair;
+}
+
+export interface ConvertDefaultPairInput {
+  /**
+     * @minLength 1
+     * @maxLength 32
+     */
+  fromAsset: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  fromNetwork: string;
+  /**
+     * @minLength 1
+     * @maxLength 32
+     */
+  toAsset: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  toNetwork: string;
+}
+
+export interface AdminConvertDefaultPairResponse {
+  pair: QuickexPair | null;
 }
 
 /**

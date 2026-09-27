@@ -91,6 +91,42 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }
+  /admin/convert-default-pair:
+    get:
+      operationId: getAdminConvertDefaultPair
+      tags: [admin]
+      summary: Get the persisted public Convert default pair
+      responses:
+        "200":
+          description: Persisted Convert pair, if one has been chosen
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminConvertDefaultPairResponse" }
+    put:
+      operationId: updateAdminConvertDefaultPair
+      tags: [admin]
+      summary: Save a currently supported directed Convert default pair
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ConvertDefaultPairInput" }
+      responses:
+        "200":
+          description: Saved Convert default pair
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminConvertDefaultPairResponse" }
+        "400":
+          description: Invalid request shape
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "409":
+          description: Pair is not currently supported by Quickex
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
   /exchange/popular-pairs:
     get:
       operationId: getPopularExchangePairs
@@ -7441,6 +7477,25 @@ components:
         pairs:
           type: array
           items: { $ref: "#/components/schemas/QuickexPair" }
+        defaultConvertPair:
+          $ref: "#/components/schemas/QuickexPair"
+    ConvertDefaultPairInput:
+      type: object
+      required: [fromAsset, fromNetwork, toAsset, toNetwork]
+      properties:
+        fromAsset: { type: string, minLength: 1, maxLength: 32 }
+        fromNetwork: { type: string, minLength: 1, maxLength: 80 }
+        toAsset: { type: string, minLength: 1, maxLength: 32 }
+        toNetwork: { type: string, minLength: 1, maxLength: 80 }
+      additionalProperties: false
+    AdminConvertDefaultPairResponse:
+      type: object
+      required: [pair]
+      properties:
+        pair:
+          oneOf:
+            - $ref: "#/components/schemas/QuickexPair"
+            - type: "null"
     QuickexPair:
       type: object
       required: [fromAsset, fromNetwork, toAsset, toNetwork]

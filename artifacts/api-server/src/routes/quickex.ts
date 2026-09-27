@@ -46,7 +46,9 @@ const invalid = (res: import("express").Response, result: { error: { message: st
 
 router.get("/config", async (_req, res): Promise<void> => {
   const config = GetQuickexConfigResponse.parse(await getQuickexPublicCapabilityConfig());
-  res.setHeader("cache-control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
+  // The default route is operator-controlled state and must not remain stale on
+  // a new visit behind browser, CDN, or shared-proxy HTTP caches.
+  res.setHeader("cache-control", "no-store");
   res.json(config);
 });
 router.get("/pairs", async (req, res): Promise<void> => {

@@ -95,6 +95,26 @@ const instantExchangeConfig = {
   ],
 };
 
+const convertDefaultPairConfig = (defaultConvertPair: {
+  fromAsset: string;
+  fromNetwork: string;
+  toAsset: string;
+  toNetwork: string;
+}) => ({
+  provider: 'Quickex',
+  signedOrders: true,
+  instruments: [
+    { currencyTitle: 'DOGE', networkTitle: 'Dogecoin', slug: 'doge-dogecoin', instrumentType: 'crypto', fullName: 'Dogecoin', currencyFriendlyTitle: 'Dogecoin', precisionDecimals: 8, requiresMemo: false },
+    { currencyTitle: 'BTC', networkTitle: 'Bitcoin', slug: 'btc-bitcoin', instrumentType: 'crypto', fullName: 'Bitcoin', currencyFriendlyTitle: 'Bitcoin', precisionDecimals: 8, requiresMemo: false },
+    { currencyTitle: 'USDT', networkTitle: 'TRC20', slug: 'usdt-trc20', instrumentType: 'crypto', fullName: 'Tether', currencyFriendlyTitle: 'Tether', precisionDecimals: 6, requiresMemo: false },
+  ],
+  pairs: [
+    { fromAsset: 'DOGE', fromNetwork: 'Dogecoin', toAsset: 'USDT', toNetwork: 'TRC20' },
+    { fromAsset: 'BTC', fromNetwork: 'Bitcoin', toAsset: 'USDT', toNetwork: 'TRC20' },
+  ],
+  defaultConvertPair,
+});
+
 const standardFiatFields = [
   { key: 'name', type: 'account-name', label: 'Name', direction: 'both', required: true, min: 2, max: 140 },
   { key: 'bank_detail', type: 'account-number', label: 'Bank detail (IBAN or account number)', direction: 'both', required: true, min: 2, max: 64 },
@@ -475,6 +495,75 @@ test('falls back to the first eligible directed pair when the configured public 
   await expect(page.getByTestId('form-exchange')).toBeVisible();
   await expect(page.getByTestId('select-from-asset')).toHaveAttribute('data-value', 'eur-fiat');
   await expect(page.getByTestId('select-to-asset')).toHaveAttribute('data-value', 'btc-bitcoin');
+});
+
+test('uses the directed Convert default across mode switches while keeping Convert choices and Swap independent', async ({ page }) => {
+  await page.route('**/api/exchange/config', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      ...exchangeConfig,
+      defaultSwapPair: { sourceSettlementOptionId: 'usd-fiat', targetSettlementOptionId: 'eur-fiat' },
+    }),
+  }));
+  await page.route('**/api/quickex/config', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(convertDefaultPairConfig({
+      fromAsset: 'BTC',
+      fromNetwork: 'Bitcoin',
+      toAsset: 'USDT',
+      toNetwork: 'TRC20',
+    })),
+  }));
+
+  await page.goto('/');
+  await page.getByTestId('button-mode-select-instant').click();
+  await expect(page.getByTestId('convert-select-from-asset')).toHaveAttribute('data-value', 'btc-bitcoin');
+  await expect(page.getByTestId('convert-select-to-asset')).toHaveAttribute('data-value', 'usdt-trc20');
+
+  await page.getByTestId('button-mode-select-manual').click();
+  await expect(page.getByTestId('select-from-asset')).toHaveAttribute('data-value', 'usd-fiat');
+  await expect(page.getByTestId('select-to-asset')).toHaveAttribute('data-value', 'eur-fiat');
+
+  await page.getByTestId('button-mode-select-instant').click();
+  await expect(page.getByTestId('convert-select-from-asset')).toHaveAttribute('data-value', 'btc-bitcoin');
+  await expect(page.getByTestId('convert-select-to-asset')).toHaveAttribute('data-value', 'usdt-trc20');
+  await page.getByTestId('convert-select-from-asset').click();
+  await page.getByTestId('search-convert-from-asset').fill('doge');
+  await page.getByTestId('option-convert-from-asset-doge-dogecoin').click();
+  await expect(page.getByTestId('convert-select-from-asset')).toHaveAttribute('data-value', 'doge-dogecoin');
+  await expect(page.getByTestId('convert-select-to-asset')).toHaveAttribute('data-value', 'usdt-trc20');
+
+  await page.getByTestId('button-mode-select-manual').click();
+  await expect(page.getByTestId('select-from-asset')).toHaveAttribute('data-value', 'usd-fiat');
+  await expect(page.getByTestId('select-to-asset')).toHaveAttribute('data-value', 'eur-fiat');
+  await page.getByTestId('button-mode-select-instant').click();
+  await expect(page.getByTestId('convert-select-from-asset')).toHaveAttribute('data-value', 'doge-dogecoin');
+  await expect(page.getByTestId('convert-select-to-asset')).toHaveAttribute('data-value', 'usdt-trc20');
+});
+
+test('falls back to the first valid directed Convert pair when the configured default is stale', async ({ page }) => {
+  await page.route('**/api/exchange/config', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(exchangeConfig),
+  }));
+  await page.route('**/api/quickex/config', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(convertDefaultPairConfig({
+      fromAsset: 'BTC',
+      fromNetwork: 'Bitcoin',
+      toAsset: 'DOGE',
+      toNetwork: 'Dogecoin',
+    })),
+  }));
+
+  await page.goto('/');
+  await page.getByTestId('button-mode-select-instant').click();
+  await expect(page.getByTestId('convert-select-from-asset')).toHaveAttribute('data-value', 'doge-dogecoin');
+  await expect(page.getByTestId('convert-select-to-asset')).toHaveAttribute('data-value', 'usdt-trc20');
 });
 
 test('keeps standardized fiat payment fields complete, reachable, and submitted once', async ({ page }) => {
@@ -2014,7 +2103,10 @@ test('quote expiry disables submission and refreshes safely', async ({ page }) =
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(exchangeConfig),
+      body: JSON.stringify({
+        ...exchangeConfig,
+        defaultSwapPair: { sourceSettlementOptionId: 'usd-fiat', targetSettlementOptionId: 'btc-bitcoin' },
+      }),
     });
   });
 

@@ -14,4 +14,5 @@ export interface QuickexConfig {
   signedOrders: boolean;
   instruments: QuickexInstrument[];
   pairs: QuickexPair[];
+  defaultConvertPair?: QuickexPair;
 }

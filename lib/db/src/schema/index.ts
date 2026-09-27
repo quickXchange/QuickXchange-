@@ -51,6 +51,7 @@ export * from "./blockchain-monitoring";
 export * from "./notification-settings";
 export * from "./convert-notification-outbox";
 export * from "./swap-default-pair";
+export * from "./convert-default-pair";
 
 export const ordersTable = pgTable("exchange_orders", {
     id: text("id").primaryKey(),

@@ -85,8 +85,8 @@ export function AdminSwapDefaultPair({ canManage }: { canManage: boolean }) {
   };
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm" aria-label="Featured / Default Widget Pair" data-testid="admin-swap-default-pair">
-      <h2 className="text-base font-bold text-foreground">Featured / Default Widget Pair</h2>
+    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm" aria-label="Swap Default Widget Pair" data-testid="admin-swap-default-pair">
+      <h2 className="text-base font-bold text-foreground">Swap Default Widget Pair</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Choose the pair visitors see when Swap first opens. All other available pairs remain selectable.
       </p>

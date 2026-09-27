@@ -22,6 +22,7 @@ import type {
 import type {
   AdminActivityPage,
   AdminAuthorization,
+  AdminConvertDefaultPairResponse,
   AdminCustomerUpdate,
   AdminLandingBackground,
   AdminSitePage,
@@ -78,6 +79,7 @@ import type {
   ContactSubmission,
   ContactSubmissionInput,
   ContactSubmissionReceipt,
+  ConvertDefaultPairInput,
   CryptoAsset,
   CryptoAssetInput,
   CryptoAssetReceivingWalletInput,
@@ -612,6 +614,154 @@ export const useUpdateAdminSwapDefaultPair = <TError = ErrorType<ApiError>,
         TContext
       > => {
       return useMutation(getUpdateAdminSwapDefaultPairMutationOptions(options));
+    }
+
+export const getGetAdminConvertDefaultPairUrl = () => {
+
+
+
+
+  return `/api/admin/convert-default-pair`
+}
+
+/**
+ * @summary Get the persisted public Convert default pair
+ */
+export const getAdminConvertDefaultPair = async ( options?: Parameters<typeof customFetch>[1]): Promise<AdminConvertDefaultPairResponse> => {
+
+  return customFetch<AdminConvertDefaultPairResponse>(getGetAdminConvertDefaultPairUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminConvertDefaultPairQueryKey = () => {
+    return [
+    `/api/admin/convert-default-pair`
+    ] as const;
+    }
+
+
+export const getGetAdminConvertDefaultPairQueryOptions = <TData = Awaited<ReturnType<typeof getAdminConvertDefaultPair>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminConvertDefaultPair>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminConvertDefaultPairQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminConvertDefaultPair>>> = ({ signal }) => getAdminConvertDefaultPair({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminConvertDefaultPair>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminConvertDefaultPairQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminConvertDefaultPair>>>
+export type GetAdminConvertDefaultPairQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the persisted public Convert default pair
+ */
+
+export function useGetAdminConvertDefaultPair<TData = Awaited<ReturnType<typeof getAdminConvertDefaultPair>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminConvertDefaultPair>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminConvertDefaultPairQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateAdminConvertDefaultPairUrl = () => {
+
+
+
+
+  return `/api/admin/convert-default-pair`
+}
+
+/**
+ * @summary Save a currently supported directed Convert default pair
+ */
+export const updateAdminConvertDefaultPair = async (convertDefaultPairInput: ConvertDefaultPairInput, options?: Parameters<typeof customFetch>[1]): Promise<AdminConvertDefaultPairResponse> => {
+
+  return customFetch<AdminConvertDefaultPairResponse>(getUpdateAdminConvertDefaultPairUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(convertDefaultPairInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateAdminConvertDefaultPairMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminConvertDefaultPair>>, TError,{data: BodyType<ConvertDefaultPairInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAdminConvertDefaultPair>>, TError,{data: BodyType<ConvertDefaultPairInput>}, TContext> => {
+
+const mutationKey = ['updateAdminConvertDefaultPair'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAdminConvertDefaultPair>>, {data: BodyType<ConvertDefaultPairInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateAdminConvertDefaultPair(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAdminConvertDefaultPairMutationResult = NonNullable<Awaited<ReturnType<typeof updateAdminConvertDefaultPair>>>
+    export type UpdateAdminConvertDefaultPairMutationBody = BodyType<ConvertDefaultPairInput>
+    export type UpdateAdminConvertDefaultPairMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Save a currently supported directed Convert default pair
+ */
+export const useUpdateAdminConvertDefaultPair = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminConvertDefaultPair>>, TError,{data: BodyType<ConvertDefaultPairInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAdminConvertDefaultPair>>,
+        TError,
+        {data: BodyType<ConvertDefaultPairInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateAdminConvertDefaultPairMutationOptions(options));
     }
 
 export const getGetPopularExchangePairsUrl = () => {

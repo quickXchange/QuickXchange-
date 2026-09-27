@@ -250,8 +250,33 @@ export function QuickexConvertWidget({
           destinationNetwork: urlDestNetwork || undefined,
           openSelector: urlOpen || undefined,
         });
-      } else if (!fromOptions.some(item => item.slug === fromSlug)) {
-        setFromSlug(fromOptions[0].slug);
+      } else {
+        // Both mode trees remain mounted. Hydrate Convert from its own directed
+        // pair catalog once; switching tabs or refreshing config must not reset
+        // a visitor's subsequent choice.
+        const choices = [config.data?.defaultConvertPair, ...(config.data?.pairs ?? [])];
+        const initialPair = choices.find(pair => pair &&
+          fromOptions.some(item =>
+            instrumentKey(item.currencyTitle, item.networkTitle) === instrumentKey(pair.fromAsset, pair.fromNetwork)
+          ) &&
+          cryptoInstruments.some(item =>
+            instrumentKey(item.currencyTitle, item.networkTitle) === instrumentKey(pair.toAsset, pair.toNetwork)
+          ) &&
+          config.data?.pairs.some(available =>
+            instrumentKey(available.fromAsset, available.fromNetwork) === instrumentKey(pair.fromAsset, pair.fromNetwork) &&
+            instrumentKey(available.toAsset, available.toNetwork) === instrumentKey(pair.toAsset, pair.toNetwork)
+          )
+        );
+        const source = fromOptions.find(item => initialPair &&
+          instrumentKey(item.currencyTitle, item.networkTitle) === instrumentKey(initialPair.fromAsset, initialPair.fromNetwork)
+        );
+        const target = cryptoInstruments.find(item => initialPair &&
+          instrumentKey(item.currencyTitle, item.networkTitle) === instrumentKey(initialPair.toAsset, initialPair.toNetwork)
+        );
+        if (source && target) {
+          setFromSlug(source.slug);
+          setToSlug(target.slug);
+        }
       }
       setUrlAssetInitialized(true);
       return;
@@ -260,7 +285,7 @@ export function QuickexConvertWidget({
     if (!fromOptions.some(item => item.slug === fromSlug)) {
       setFromSlug(fromOptions[0].slug);
     }
-  }, [fromOptions, fromSlug, searchString, urlAssetInitialized]);
+  }, [config.data, cryptoInstruments, fromOptions, fromSlug, searchString, urlAssetInitialized]);
 
   useEffect(() => {
     if (!marketRequest || !fromOptions.length) return;

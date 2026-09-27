@@ -1,12 +1,19 @@
 import { Router, type IRouter } from "express";
 import {
   GetAdminSwapDefaultPairResponse,
+  GetAdminConvertDefaultPairResponse,
   GetExchangeConfigResponse,
   UpdateAdminSwapDefaultPairBody,
   UpdateAdminSwapDefaultPairResponse,
+  UpdateAdminConvertDefaultPairBody,
 } from "@workspace/api-zod";
 import { listEnabledFiatCurrencies } from "../lib/fiat-currencies";
 import { ApiError } from "../lib/api-error";
+import {
+  getPersistedQuickexConvertDefaultPair,
+  savePersistedQuickexConvertDefaultPair,
+} from "../lib/quickex-convert-default-pair";
+import { getQuickexPublicCapabilityConfig } from "../lib/provider-capabilities";
 import {
   getEffectiveSwapDefaultPair,
   getPersistedSwapDefaultPair,
@@ -116,6 +123,44 @@ router.put("/admin/swap-default-pair", async (req, res): Promise<void> => {
   await savePersistedSwapDefaultPair(pair);
   res.setHeader("cache-control", "no-store");
   res.json(UpdateAdminSwapDefaultPairResponse.parse({ pair }));
+});
+
+router.get("/admin/convert-default-pair", async (_req, res): Promise<void> => {
+  const pair = await getPersistedQuickexConvertDefaultPair();
+  res.setHeader("cache-control", "no-store");
+  res.json(GetAdminConvertDefaultPairResponse.parse({ pair }));
+});
+
+router.put("/admin/convert-default-pair", async (req, res): Promise<void> => {
+  const input = UpdateAdminConvertDefaultPairBody.safeParse(req.body);
+  const bodyKeys = req.body && typeof req.body === "object" && !Array.isArray(req.body)
+    ? Object.keys(req.body)
+    : [];
+  const requiredKeys = ["fromAsset", "fromNetwork", "toAsset", "toNetwork"];
+  if (
+    !input.success ||
+    bodyKeys.length !== requiredKeys.length ||
+    requiredKeys.some(key => !bodyKeys.includes(key))
+  ) {
+    throw new ApiError("VALIDATION_ERROR", "The default Convert pair body is invalid.", 400);
+  }
+  const config = await getQuickexPublicCapabilityConfig();
+  const pair = input.data;
+  if (!config.pairs.some((available) =>
+    available.fromAsset === pair.fromAsset &&
+    available.fromNetwork === pair.fromNetwork &&
+    available.toAsset === pair.toAsset &&
+    available.toNetwork === pair.toNetwork
+  )) {
+    throw new ApiError(
+      "CONVERT_DEFAULT_PAIR_UNAVAILABLE",
+      "The selected directed pair is not currently available for public Convert.",
+      409,
+    );
+  }
+  await savePersistedQuickexConvertDefaultPair(pair);
+  res.setHeader("cache-control", "no-store");
+  res.json(GetAdminConvertDefaultPairResponse.parse({ pair }));
 });
 
 export default router;

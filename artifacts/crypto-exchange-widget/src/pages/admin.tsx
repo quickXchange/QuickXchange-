@@ -120,6 +120,7 @@ import { convertOrderStatusLabel, convertOrderStatusStep, normalizeConvertOrderS
 import { downloadInvoicePdf } from '../lib/invoice-pdf';
 import { invoiceSnapshot, isCompletedInvoiceOrder } from '../lib/invoice-snapshot';
 import { AdminSwapDefaultPair } from '../components/admin-swap-default-pair';
+import { AdminConvertDefaultPair } from '../components/admin-convert-default-pair';
 
 type AppBuildInfo = {
   buildId: string;
@@ -7588,7 +7589,12 @@ function AdminCurrencies() {
            </button>}
         </div>
 
-        {can('currencies.view') && <AdminSwapDefaultPair canManage={can('currencies.manage')} />}
+        {can('currencies.view') && (
+          <div className="grid gap-4">
+            <AdminSwapDefaultPair canManage={can('currencies.manage')} />
+            <AdminConvertDefaultPair canManage={can('currencies.manage')} />
+          </div>
+        )}
 
         <div className="metrics-grid">
           <div className="metric-card">

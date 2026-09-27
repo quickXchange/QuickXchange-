@@ -9,6 +9,7 @@
 export * from './adminActivityEvent';
 export * from './adminActivityPage';
 export * from './adminAuthorization';
+export * from './adminConvertDefaultPairResponse';
 export * from './adminCustomerUpdate';
 export * from './adminLandingBackground';
 export * from './adminSitePage';
@@ -138,6 +139,7 @@ export * from './catalogImageUploadInputContentType';
 export * from './contactSubmission';
 export * from './contactSubmissionInput';
 export * from './contactSubmissionReceipt';
+export * from './convertDefaultPairInput';
 export * from './cryptoAsset';
 export * from './cryptoAssetBulkEdit';
 export * from './cryptoAssetBulkEditLifecycle';
