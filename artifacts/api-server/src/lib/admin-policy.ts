@@ -76,6 +76,8 @@ const POLICY_MATCHERS: readonly PolicyMatcher[] = [
   { method: "POST", pattern: /^\/admin\/customers\/[^/]+\/(password-reset|sessions-revoke|email-confirm|suspend|activate)$/, policy: P("customers.edit", true) },
 
   { method: "GET", pattern: /^\/admin\/fiat-currencies$/, policy: P("currencies.view") },
+  { method: "GET", pattern: /^\/admin\/swap-default-pair$/, policy: P("currencies.view") },
+  { method: "PUT", pattern: /^\/admin\/swap-default-pair$/, policy: P("currencies.manage") },
   { method: "POST", pattern: /^\/admin\/fiat-currencies$/, policy: P("currencies.manage") },
   { method: "PATCH", pattern: /^\/admin\/fiat-currencies\/[^/]+$/, policy: P("currencies.manage") },
   { method: "DELETE", pattern: /^\/admin\/fiat-currencies\/[^/]+$/, policy: P("currencies.manage") },

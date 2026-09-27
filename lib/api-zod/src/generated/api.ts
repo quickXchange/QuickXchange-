@@ -89,6 +89,10 @@ export const getExchangeConfigResponseInstantSettlementOptionsItemFieldsItemRequ
 
 export const getExchangeConfigResponseInstantSettlementOptionsItemFieldsItemRequiredWhenEqualsTwoMax = 50;
 
+export const getExchangeConfigResponseDefaultSwapPairSourceSettlementOptionIdMax = 200;
+
+export const getExchangeConfigResponseDefaultSwapPairTargetSettlementOptionIdMax = 200;
+
 
 
 export const GetExchangeConfigResponse = zod.object({
@@ -262,7 +266,56 @@ export const GetExchangeConfigResponse = zod.object({
 }),
   "providers": zod.array(zod.string()),
   "feePercent": zod.number().describe('Legacy global-fallback percentage. Actual manual desk pricing is returned by the quote endpoint.'),
-  "manualPricingMessage": zod.string().optional().describe('Current public explanation; feePercent is retained only for legacy clients.')
+  "manualPricingMessage": zod.string().optional().describe('Current public explanation; feePercent is retained only for legacy clients.'),
+  "defaultSwapPair": zod.object({
+  "sourceSettlementOptionId": zod.string().min(1).max(getExchangeConfigResponseDefaultSwapPairSourceSettlementOptionIdMax),
+  "targetSettlementOptionId": zod.string().min(1).max(getExchangeConfigResponseDefaultSwapPairTargetSettlementOptionIdMax)
+}).optional()
+})
+
+
+/**
+ * @summary Get the persisted public Swap default pair
+ */
+export const getAdminSwapDefaultPairResponsePairOneSourceSettlementOptionIdMax = 200;
+
+export const getAdminSwapDefaultPairResponsePairOneTargetSettlementOptionIdMax = 200;
+
+
+
+export const GetAdminSwapDefaultPairResponse = zod.object({
+  "pair": zod.union([zod.object({
+  "sourceSettlementOptionId": zod.string().min(1).max(getAdminSwapDefaultPairResponsePairOneSourceSettlementOptionIdMax),
+  "targetSettlementOptionId": zod.string().min(1).max(getAdminSwapDefaultPairResponsePairOneTargetSettlementOptionIdMax)
+}),zod.null()])
+})
+
+
+/**
+ * @summary Save an eligible public Manual Swap default pair
+ */
+export const updateAdminSwapDefaultPairBodyOneSourceSettlementOptionIdMax = 200;
+
+export const updateAdminSwapDefaultPairBodyOneTargetSettlementOptionIdMax = 200;
+
+
+
+export const UpdateAdminSwapDefaultPairBody = zod.object({
+  "sourceSettlementOptionId": zod.string().min(1).max(updateAdminSwapDefaultPairBodyOneSourceSettlementOptionIdMax),
+  "targetSettlementOptionId": zod.string().min(1).max(updateAdminSwapDefaultPairBodyOneTargetSettlementOptionIdMax)
+})
+
+export const updateAdminSwapDefaultPairResponsePairSourceSettlementOptionIdMax = 200;
+
+export const updateAdminSwapDefaultPairResponsePairTargetSettlementOptionIdMax = 200;
+
+
+
+export const UpdateAdminSwapDefaultPairResponse = zod.object({
+  "pair": zod.object({
+  "sourceSettlementOptionId": zod.string().min(1).max(updateAdminSwapDefaultPairResponsePairSourceSettlementOptionIdMax),
+  "targetSettlementOptionId": zod.string().min(1).max(updateAdminSwapDefaultPairResponsePairTargetSettlementOptionIdMax)
+})
 })
 
 

@@ -61,6 +61,7 @@ try {
     ...process.env,
     NODE_ENV: "test",
     DATABASE_URL: testUrl.toString(),
+    API_TEST_DISPOSABLE_DATABASE: "1",
     NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --import=${resolve("test/block-whitebit-network.mjs")}`.trim(),
   };
   const command = process.argv.length > 2

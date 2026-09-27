@@ -26,6 +26,7 @@ import type {
   AdminLandingBackground,
   AdminSitePage,
   AdminSummary,
+  AdminSwapDefaultPairResponse,
   AdminTelegramLink,
   AdminTelegramLinkStatus,
   AdminWebsiteBranding,
@@ -226,6 +227,7 @@ import type {
   QuoteInput,
   ReviewAffiliateValuationBody,
   RunBlogAutomationBody,
+  SavedAdminSwapDefaultPairResponse,
   ScheduleAdminBlogArticleBody,
   SearchAffiliateCommissionsParams,
   SiteContentDraftInput,
@@ -241,6 +243,7 @@ import type {
   SocialTrustItemInput,
   SocialTrustItemUpdate,
   SocialTrustTitlesInput,
+  SwapDefaultPairInput,
   TeamMember,
   TeamMemberInvite,
   TeamMemberUpdate,
@@ -462,6 +465,154 @@ export function useGetExchangeConfig<TData = Awaited<ReturnType<typeof getExchan
 
 
 
+
+export const getGetAdminSwapDefaultPairUrl = () => {
+
+
+
+
+  return `/api/admin/swap-default-pair`
+}
+
+/**
+ * @summary Get the persisted public Swap default pair
+ */
+export const getAdminSwapDefaultPair = async ( options?: Parameters<typeof customFetch>[1]): Promise<AdminSwapDefaultPairResponse> => {
+
+  return customFetch<AdminSwapDefaultPairResponse>(getGetAdminSwapDefaultPairUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminSwapDefaultPairQueryKey = () => {
+    return [
+    `/api/admin/swap-default-pair`
+    ] as const;
+    }
+
+
+export const getGetAdminSwapDefaultPairQueryOptions = <TData = Awaited<ReturnType<typeof getAdminSwapDefaultPair>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminSwapDefaultPair>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminSwapDefaultPairQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminSwapDefaultPair>>> = ({ signal }) => getAdminSwapDefaultPair({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminSwapDefaultPair>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminSwapDefaultPairQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminSwapDefaultPair>>>
+export type GetAdminSwapDefaultPairQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the persisted public Swap default pair
+ */
+
+export function useGetAdminSwapDefaultPair<TData = Awaited<ReturnType<typeof getAdminSwapDefaultPair>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminSwapDefaultPair>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminSwapDefaultPairQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateAdminSwapDefaultPairUrl = () => {
+
+
+
+
+  return `/api/admin/swap-default-pair`
+}
+
+/**
+ * @summary Save an eligible public Manual Swap default pair
+ */
+export const updateAdminSwapDefaultPair = async (swapDefaultPairInput: SwapDefaultPairInput, options?: Parameters<typeof customFetch>[1]): Promise<SavedAdminSwapDefaultPairResponse> => {
+
+  return customFetch<SavedAdminSwapDefaultPairResponse>(getUpdateAdminSwapDefaultPairUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(swapDefaultPairInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateAdminSwapDefaultPairMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminSwapDefaultPair>>, TError,{data: BodyType<SwapDefaultPairInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAdminSwapDefaultPair>>, TError,{data: BodyType<SwapDefaultPairInput>}, TContext> => {
+
+const mutationKey = ['updateAdminSwapDefaultPair'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAdminSwapDefaultPair>>, {data: BodyType<SwapDefaultPairInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateAdminSwapDefaultPair(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAdminSwapDefaultPairMutationResult = NonNullable<Awaited<ReturnType<typeof updateAdminSwapDefaultPair>>>
+    export type UpdateAdminSwapDefaultPairMutationBody = BodyType<SwapDefaultPairInput>
+    export type UpdateAdminSwapDefaultPairMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Save an eligible public Manual Swap default pair
+ */
+export const useUpdateAdminSwapDefaultPair = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminSwapDefaultPair>>, TError,{data: BodyType<SwapDefaultPairInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAdminSwapDefaultPair>>,
+        TError,
+        {data: BodyType<SwapDefaultPairInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateAdminSwapDefaultPairMutationOptions(options));
+    }
 
 export const getGetPopularExchangePairsUrl = () => {
 

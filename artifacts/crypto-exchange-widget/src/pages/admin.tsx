@@ -119,6 +119,7 @@ import { OrderSupportToolsSection } from '../components/admin-order-support-tool
 import { convertOrderStatusLabel, convertOrderStatusStep, normalizeConvertOrderStatus } from '../lib/convert-order-status';
 import { downloadInvoicePdf } from '../lib/invoice-pdf';
 import { invoiceSnapshot, isCompletedInvoiceOrder } from '../lib/invoice-snapshot';
+import { AdminSwapDefaultPair } from '../components/admin-swap-default-pair';
 
 type AppBuildInfo = {
   buildId: string;
@@ -7586,6 +7587,8 @@ function AdminCurrencies() {
             </div>
            </button>}
         </div>
+
+        {can('currencies.view') && <AdminSwapDefaultPair canManage={can('currencies.manage')} />}
 
         <div className="metrics-grid">
           <div className="metric-card">

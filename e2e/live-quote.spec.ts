@@ -410,6 +410,73 @@ test('Swap source choices require covered source IDs and keep receive-only crypt
   await expect(page.getByTestId('select-to-asset')).toHaveAttribute('data-value', monero.id);
 });
 
+test('uses the configured public Swap pair and keeps a visitor selection after config refetch', async ({ page }) => {
+  const routes = [
+    { sourceSettlementOptionId: 'usd-fiat', targetSettlementOptionId: 'eur-fiat' },
+    { sourceSettlementOptionId: 'usd-fiat', targetSettlementOptionId: 'btc-bitcoin' },
+    { sourceSettlementOptionId: 'eur-fiat', targetSettlementOptionId: 'xrp-xrpl' },
+    { sourceSettlementOptionId: 'btc-bitcoin', targetSettlementOptionId: 'eur-fiat' },
+  ];
+  let configRequests = 0;
+  await page.route('**/api/exchange/config', route => {
+    configRequests += 1;
+    const defaultSwapPair = configRequests === 1
+      ? { sourceSettlementOptionId: 'eur-fiat', targetSettlementOptionId: 'xrp-xrpl' }
+      : { sourceSettlementOptionId: 'btc-bitcoin', targetSettlementOptionId: 'eur-fiat' };
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        ...exchangeConfig,
+        defaultSwapPair,
+        manualRouteAvailability: { available: true, routes, unavailableMessage: null },
+      }),
+    });
+  });
+  await page.route('**/api/exchange/route-pricing**', route => route.abort());
+
+  await page.goto('/');
+  await expect(page.getByTestId('form-exchange')).toBeVisible();
+  await expect(page.getByTestId('select-from-asset')).toHaveAttribute('data-value', 'eur-fiat');
+  await expect(page.getByTestId('select-to-asset')).toHaveAttribute('data-value', 'xrp-xrpl');
+
+  await chooseAsset(page, 'select-from-asset', 'usd-fiat', 'usd');
+  await chooseAsset(page, 'select-to-asset', 'btc-bitcoin', 'bitcoin');
+  await expect(page.getByTestId('select-from-asset')).toHaveAttribute('data-value', 'usd-fiat');
+  await expect(page.getByTestId('select-to-asset')).toHaveAttribute('data-value', 'btc-bitcoin');
+
+  const requestsBeforeRefetch = configRequests;
+  await page.evaluate(async () => {
+    const { queryClient } = await import('/src/App.tsx');
+    await queryClient.refetchQueries({ queryKey: ['/api/exchange/config'] });
+  });
+  await expect.poll(() => configRequests).toBeGreaterThan(requestsBeforeRefetch);
+  await expect(page.getByTestId('select-from-asset')).toHaveAttribute('data-value', 'usd-fiat');
+  await expect(page.getByTestId('select-to-asset')).toHaveAttribute('data-value', 'btc-bitcoin');
+});
+
+test('falls back to the first eligible directed pair when the configured public default is stale', async ({ page }) => {
+  const routes = [
+    { sourceSettlementOptionId: 'eur-fiat', targetSettlementOptionId: 'btc-bitcoin' },
+    { sourceSettlementOptionId: 'usd-fiat', targetSettlementOptionId: 'xrp-xrpl' },
+  ];
+  await page.route('**/api/exchange/config', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      ...exchangeConfig,
+      defaultSwapPair: { sourceSettlementOptionId: 'usd-fiat', targetSettlementOptionId: 'btc-bitcoin' },
+      manualRouteAvailability: { available: true, routes, unavailableMessage: null },
+    }),
+  }));
+  await page.route('**/api/exchange/route-pricing**', route => route.abort());
+
+  await page.goto('/');
+  await expect(page.getByTestId('form-exchange')).toBeVisible();
+  await expect(page.getByTestId('select-from-asset')).toHaveAttribute('data-value', 'eur-fiat');
+  await expect(page.getByTestId('select-to-asset')).toHaveAttribute('data-value', 'btc-bitcoin');
+});
+
 test('keeps standardized fiat payment fields complete, reachable, and submitted once', async ({ page }) => {
   const orderId = 'O987654321';
   const createdAt = new Date().toISOString();

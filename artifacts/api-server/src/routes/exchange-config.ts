@@ -1,11 +1,18 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
-import { GetExchangeConfigResponse } from "@workspace/api-zod";
-import { db, manualDeskPricingRulesTable } from "@workspace/db";
+import {
+  GetAdminSwapDefaultPairResponse,
+  GetExchangeConfigResponse,
+  UpdateAdminSwapDefaultPairBody,
+  UpdateAdminSwapDefaultPairResponse,
+} from "@workspace/api-zod";
 import { listEnabledFiatCurrencies } from "../lib/fiat-currencies";
-import { evaluateManualPricingCoverage } from "../lib/manual-desk-pricing";
-import { listPublicManualCryptoSettlementOptions } from "../lib/manual-crypto";
-import { listPublicFiatSettlementOptions } from "../lib/payment-methods";
+import { ApiError } from "../lib/api-error";
+import {
+  getEffectiveSwapDefaultPair,
+  getPersistedSwapDefaultPair,
+  getPublicManualSwapCoverage,
+  savePersistedSwapDefaultPair,
+} from "../lib/manual-swap-default-pair";
 import {
   convertProviderLabel,
   listConvertSettlementOptions,
@@ -17,20 +24,16 @@ router.get("/exchange/config", async (_req, res, next) => {
   try {
     const [
       fiatCurrencies,
-      manualCryptoOptions,
-      manualFiatOptions,
-      pricingRules,
+      swapData,
       instantOptions,
     ] = await Promise.all([
       listEnabledFiatCurrencies(),
-      listPublicManualCryptoSettlementOptions(),
-      listPublicFiatSettlementOptions(),
-      db.select().from(manualDeskPricingRulesTable)
-        .where(eq(manualDeskPricingRulesTable.enabled, true)),
+      getPublicManualSwapCoverage(),
       listConvertSettlementOptions({
         cacheOnly: process.env.NODE_ENV !== "test",
       }),
     ]);
+    const { cryptoOptions: manualCryptoOptions, fiatOptions: manualFiatOptions, coverage } = swapData;
     const fiatAssets = fiatCurrencies.map((currency) => ({
       id: currency.id,
       code: currency.code,
@@ -40,10 +43,7 @@ router.get("/exchange/config", async (_req, res, next) => {
       requiresMemo: false,
       precision: currency.precision,
     }));
-    const coverage = evaluateManualPricingCoverage(
-      pricingRules,
-      [...manualCryptoOptions, ...manualFiatOptions],
-    );
+    const defaultSwapPair = await getEffectiveSwapDefaultPair(coverage.coveredRoutes);
     const manualAssets = manualCryptoOptions.map((option) => ({
       id: option.networkSlug,
       code: option.assetCode,
@@ -69,6 +69,7 @@ router.get("/exchange/config", async (_req, res, next) => {
           ? null
           : "Manual Swap is temporarily unavailable because no routes are configured.",
       },
+      ...(defaultSwapPair ? { defaultSwapPair } : {}),
       providers: instantOptions.length
         ? ["Manual desk", convertProviderLabel()]
         : ["Manual desk"],
@@ -79,6 +80,42 @@ router.get("/exchange/config", async (_req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+router.get("/admin/swap-default-pair", async (_req, res): Promise<void> => {
+  const pair = await getPersistedSwapDefaultPair();
+  res.setHeader("cache-control", "no-store");
+  res.json(GetAdminSwapDefaultPairResponse.parse({ pair }));
+});
+
+router.put("/admin/swap-default-pair", async (req, res): Promise<void> => {
+  const input = UpdateAdminSwapDefaultPairBody.safeParse(req.body);
+  const bodyKeys = req.body && typeof req.body === "object" && !Array.isArray(req.body)
+    ? Object.keys(req.body)
+    : [];
+  if (
+    !input.success ||
+    bodyKeys.length !== 2 ||
+    !bodyKeys.includes("sourceSettlementOptionId") ||
+    !bodyKeys.includes("targetSettlementOptionId")
+  ) {
+    throw new ApiError("VALIDATION_ERROR", "The default Swap pair body is invalid.", 400);
+  }
+  const { coverage } = await getPublicManualSwapCoverage();
+  const pair = input.data;
+  if (!coverage.coveredRoutes.some((route) =>
+    route.sourceSettlementOptionId === pair.sourceSettlementOptionId &&
+    route.targetSettlementOptionId === pair.targetSettlementOptionId
+  )) {
+    throw new ApiError(
+      "SWAP_DEFAULT_PAIR_UNAVAILABLE",
+      "The selected directed pair is not currently available for public Manual Swap.",
+      409,
+    );
+  }
+  await savePersistedSwapDefaultPair(pair);
+  res.setHeader("cache-control", "no-store");
+  res.json(UpdateAdminSwapDefaultPairResponse.parse({ pair }));
 });
 
 export default router;

@@ -761,6 +761,7 @@ export function ManualSwapWidget({
 
   const [fromId, setFromId] = useState('');
   const [toId, setToId] = useState('');
+  const [initialSelectionApplied, setInitialSelectionApplied] = useState(false);
   const [marketSwapRequest, setMarketSwapRequest] = useState<MarketSwapSelection | null>(() => {
     const params = new URLSearchParams(window.location.search);
     const sourceSettlementOptionId = params.get('sourceOption');
@@ -870,9 +871,22 @@ export function ManualSwapWidget({
     if (available) {
       setFromId(marketSwapRequest.sourceSettlementOptionId);
       setToId(marketSwapRequest.targetSettlementOptionId);
+      setInitialSelectionApplied(true);
     }
     setMarketSwapRequest(null);
   }, [availableManualRoutes, config.data, marketSwapRequest]);
+  useEffect(() => {
+    if (!config.data || initialSelectionApplied || marketSwapRequest) return;
+    const configured = config.data.defaultSwapPair;
+    const initialPair = availableManualRoutes.find(route =>
+      route.sourceSettlementOptionId === configured?.sourceSettlementOptionId &&
+      route.targetSettlementOptionId === configured?.targetSettlementOptionId
+    ) || availableManualRoutes[0];
+    if (!initialPair) return;
+    setFromId(initialPair.sourceSettlementOptionId);
+    setToId(initialPair.targetSettlementOptionId);
+    setInitialSelectionApplied(true);
+  }, [config.data, availableManualRoutes, initialSelectionApplied, marketSwapRequest]);
   const availableSourceIds = useMemo(
     () => new Set(availableManualRoutes.map(route => route.sourceSettlementOptionId)),
     [availableManualRoutes],
@@ -937,17 +951,19 @@ export function ManualSwapWidget({
   // Keep the two legs canonical when a route or mode changes. A stale target
   // must never remain addressable in the form or be sent to the quote API.
   useEffect(() => {
+    if (!initialSelectionApplied || marketSwapRequest) return;
     if (fromOptions.length && !fromOptions.some(option => option.id === fromId)) {
       setFromId(fromOptions[0].id);
     }
-  }, [fromOptions, fromId]);
+  }, [fromOptions, fromId, initialSelectionApplied, marketSwapRequest]);
   useEffect(() => {
+    if (!initialSelectionApplied || marketSwapRequest) return;
     const validTarget = toOptions.find(option => option.id === toId);
     if (toOptions.length && !validTarget) {
       setToId(toOptions[0].id);
       invalidateQuote();
     }
-  }, [toOptions, toId]);
+  }, [toOptions, toId, initialSelectionApplied, marketSwapRequest]);
 
   const settlementFieldConfigurationKey = JSON.stringify([
     fromOption?.fields || [],
@@ -987,23 +1003,6 @@ export function ManualSwapWidget({
     setQuoteStatus('idle');
     setQuoteError('');
   };
-
-  const initializedForConfig = useRef(false);
-  useEffect(() => {
-    if (!config.data || initializedForConfig.current) return;
-    initializedForConfig.current = true;
-
-    const fiatOptions = allOptions.filter(o => o.kind === 'fiat-payment-method');
-    const cryptoOptions = allOptions.filter(o => o.kind === 'crypto-network');
-
-    if (fiatOptions.length > 0 && cryptoOptions.length > 0) {
-      setFromId(fiatOptions[0]?.id || '');
-      setToId(cryptoOptions[0]?.id || '');
-    } else if (cryptoOptions.length > 1) {
-      setFromId(cryptoOptions[0]?.id || '');
-      setToId(cryptoOptions[1]?.id || '');
-    }
-  }, [config.data, allOptions]);
 
   useEffect(() => {
     const parsedAmount = Number(amount);

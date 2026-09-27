@@ -8,6 +8,7 @@
 import type { Asset } from './asset';
 import type { ManualRouteAvailability } from './manualRouteAvailability';
 import type { SettlementOption } from './settlementOption';
+import type { SwapDefaultPair } from './swapDefaultPair';
 
 export interface ExchangeConfig {
   assets: Asset[];
@@ -26,4 +27,5 @@ export interface ExchangeConfig {
   feePercent: number;
   /** Current public explanation; feePercent is retained only for legacy clients. */
   manualPricingMessage?: string;
+  defaultSwapPair?: SwapDefaultPair;
 }

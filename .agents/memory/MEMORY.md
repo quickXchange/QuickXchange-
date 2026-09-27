@@ -156,3 +156,4 @@
 - [WhiteBIT automatic mapping boundary](whitebit-auto-mapping-boundary.md) — public catalog identity never grants deposit permission; preserve live Manual routes and fence chain mismatches and stale proofs.
 - [Scoped pnpm installs](scoped-pnpm-installs.md) — the generic package installer targets the workspace root; use a filtered pnpm add for a leaf artifact dependency.
 - [Completed-order invoice boundary](completed-order-receipt-boundary.md) — use safe historical fields and verified fees; PDF/print omit blockchain evidence while normal View Order retains it.
+- [Swap first-load selection ownership](swap-first-load-selection.md) — one initialization path must own the pair; a second legacy effect can overwrite saved defaults or market requests.

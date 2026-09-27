@@ -417,3 +417,166 @@ test('operators manage fiat currencies, reusable methods, and their attachments'
   await page.getByRole('button', { name: /Currencies/ }).click();
   await expect(page.getByTestId('button-edit-currency-EUR')).toBeVisible();
 });
+
+test('default Swap pair selectors only offer directed routes and save settlement option IDs', async ({ page }) => {
+  const usdOption = {
+    id: 'fiat:usd-bank',
+    assetId: 'usd',
+    assetCode: 'USD',
+    kind: 'fiat-payment-method',
+    title: 'Bank transfer',
+    routeNetwork: 'Bank transfer',
+    direction: 'both',
+  };
+  const btcOption = {
+    id: 'crypto:btc-bitcoin',
+    assetId: 'btc',
+    assetCode: 'BTC',
+    kind: 'crypto-network',
+    title: 'Bitcoin',
+    routeNetwork: 'Bitcoin',
+    direction: 'both',
+  };
+  const xrpOption = {
+    id: 'crypto:xrp-xrpl',
+    assetId: 'xrp',
+    assetCode: 'XRP',
+    kind: 'crypto-network',
+    title: 'XRP',
+    routeNetwork: 'XRP Ledger',
+    direction: 'both',
+  };
+  const unavailableOption = {
+    id: 'crypto:isolated',
+    assetId: 'isolated',
+    assetCode: 'ISO',
+    kind: 'crypto-network',
+    title: 'Isolated asset',
+    routeNetwork: 'Isolated',
+    direction: 'both',
+  };
+  const routes = [
+    { sourceSettlementOptionId: usdOption.id, targetSettlementOptionId: btcOption.id },
+    { sourceSettlementOptionId: btcOption.id, targetSettlementOptionId: xrpOption.id },
+  ];
+  const options = [usdOption, btcOption, xrpOption, unavailableOption];
+  let savedPair: { sourceSettlementOptionId: string; targetSettlementOptionId: string } | null = null;
+  let submittedPair: Record<string, unknown> | undefined;
+
+  await page.route('**/api/admin/authorization', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      member: { id: 'operator-e2e', email: 'operator@example.test', role: 'owner', status: 'active' },
+      owner: true,
+      effectivePermissions: [],
+      catalog: [],
+    }),
+  }));
+  await page.route('**/api/admin/fiat-currencies', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify([usd, eur]),
+  }));
+  await page.route('**/api/admin/payment-methods', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify([{
+      id: 'bank-transfer',
+      name: 'Bank transfer',
+      description: null,
+      instructions: null,
+      enabled: true,
+      canSend: true,
+      canReceive: true,
+      fieldDefinitions: [],
+      createdAt: now,
+      updatedAt: now,
+    }]),
+  }));
+  await page.route('**/api/admin/fiat-currency-payment-methods', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify([]),
+  }));
+  await page.route('**/api/admin/crypto-assets', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify([
+      { id: 'btc', code: 'BTC', name: 'Bitcoin', decimals: 8, enabled: true, createdAt: now, updatedAt: now },
+      { id: 'xrp', code: 'XRP', name: 'XRP', decimals: 6, enabled: true, createdAt: now, updatedAt: now },
+      { id: 'isolated', code: 'ISO', name: 'Isolated asset', decimals: 8, enabled: true, createdAt: now, updatedAt: now },
+    ]),
+  }));
+  await page.route('**/api/admin/crypto-networks', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify([
+      { id: 'btc-bitcoin', assetId: 'btc', networkCode: 'BTC', networkName: 'Bitcoin', decimals: 8, enabled: true, customerDepositsEnabled: false, requiresMemo: false, requiredConfirmations: 2, createdAt: now, updatedAt: now },
+      { id: 'xrp-xrpl', assetId: 'xrp', networkCode: 'XRP', networkName: 'XRP Ledger', decimals: 6, enabled: true, customerDepositsEnabled: false, requiresMemo: false, requiredConfirmations: 2, createdAt: now, updatedAt: now },
+      { id: 'isolated', assetId: 'isolated', networkCode: 'ISO', networkName: 'Isolated', decimals: 8, enabled: true, customerDepositsEnabled: false, requiresMemo: false, requiredConfirmations: 2, createdAt: now, updatedAt: now },
+    ]),
+  }));
+  await page.route('**/api/admin/providers/oneforge', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      provider: '1Forge',
+      configured: true,
+      state: 'healthy',
+      fetchedAt: now,
+      ageMs: 4000,
+      rates: [{ currency: 'USD', unitsPerUsd: '1' }, { currency: 'EUR', unitsPerUsd: '0.85' }],
+    }),
+  }));
+  await page.route('**/api/exchange/config', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      assets: [],
+      fiatCurrencies: [],
+      settlementOptions: options,
+      manualSettlementOptions: options,
+      manualRouteAvailability: { available: true, routes, unavailableMessage: null },
+      providers: [],
+    }),
+  }));
+  await page.route('**/api/admin/swap-default-pair', async route => {
+    if (route.request().method() === 'PUT') {
+      submittedPair = route.request().postDataJSON() as Record<string, unknown>;
+      savedPair = submittedPair as typeof savedPair;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ pair: savedPair }),
+      });
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ pair: savedPair }),
+    });
+  });
+
+  await page.goto('/admin/currencies');
+  const panel = page.getByTestId('admin-swap-default-pair');
+  const source = panel.getByTestId('select-default-swap-send');
+  const target = panel.getByTestId('select-default-swap-receive');
+  await expect(panel).toBeVisible();
+  await expect(source).toHaveValue(usdOption.id);
+  await expect(target).toHaveValue(btcOption.id);
+  await expect(source.locator('option').evaluateAll(options => options.map(option => (option as HTMLOptionElement).value)))
+    .resolves.toEqual([usdOption.id, btcOption.id]);
+  await expect(target.locator('option').evaluateAll(options => options.map(option => (option as HTMLOptionElement).value)))
+    .resolves.toEqual([btcOption.id]);
+
+  await source.selectOption(btcOption.id);
+  await expect(target).toHaveValue(xrpOption.id);
+  await expect(target.locator('option').evaluateAll(options => options.map(option => (option as HTMLOptionElement).value)))
+    .resolves.toEqual([xrpOption.id]);
+  await panel.getByTestId('button-save-default-swap-pair').click();
+  await expect.poll(() => submittedPair).toEqual({
+    sourceSettlementOptionId: btcOption.id,
+    targetSettlementOptionId: xrpOption.id,
+  });
+});

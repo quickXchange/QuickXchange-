@@ -982,6 +982,19 @@ export interface ManualRouteAvailability {
   unavailableMessage: string | null;
 }
 
+export interface SwapDefaultPair {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  sourceSettlementOptionId: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  targetSettlementOptionId: string;
+}
+
 export interface ExchangeConfig {
   assets: Asset[];
   fiatCurrencies: string[];
@@ -999,6 +1012,17 @@ export interface ExchangeConfig {
   feePercent: number;
   /** Current public explanation; feePercent is retained only for legacy clients. */
   manualPricingMessage?: string;
+  defaultSwapPair?: SwapDefaultPair;
+}
+
+export type SwapDefaultPairInput = SwapDefaultPair;
+
+export interface AdminSwapDefaultPairResponse {
+  pair: SwapDefaultPair | null;
+}
+
+export interface SavedAdminSwapDefaultPairResponse {
+  pair: SwapDefaultPair;
 }
 
 export type PopularExchangePairSideKind = typeof PopularExchangePairSideKind[keyof typeof PopularExchangePairSideKind];

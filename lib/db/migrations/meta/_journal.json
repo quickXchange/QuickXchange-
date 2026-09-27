@@ -883,6 +883,13 @@
       "when": 1790437999133,
       "tag": "0127_backfill_unprofiled_clerk_orders",
       "breakpoints": true
+    },
+    {
+      "idx": 128,
+      "version": "7",
+      "when": 1790437999134,
+      "tag": "0128_public_swap_default_pair",
+      "breakpoints": true
     }
   ]
 }

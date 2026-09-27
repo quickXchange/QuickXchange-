@@ -52,6 +52,45 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ExchangeConfig"
+  /admin/swap-default-pair:
+    get:
+      operationId: getAdminSwapDefaultPair
+      tags: [admin]
+      summary: Get the persisted public Swap default pair
+      responses:
+        "200":
+          description: Persisted pair, if one has been chosen
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSwapDefaultPairResponse"
+    put:
+      operationId: updateAdminSwapDefaultPair
+      tags: [admin]
+      summary: Save an eligible public Manual Swap default pair
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SwapDefaultPairInput"
+      responses:
+        "200":
+          description: Saved default pair
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedAdminSwapDefaultPairResponse"
+        "400":
+          description: Invalid request shape
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "409":
+          description: Pair is not currently eligible for public Manual Swap
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
   /exchange/popular-pairs:
     get:
       operationId: getPopularExchangePairs
@@ -4794,6 +4833,33 @@ components:
         manualPricingMessage:
           type: string
           description: Current public explanation; feePercent is retained only for legacy clients.
+        defaultSwapPair:
+          $ref: "#/components/schemas/SwapDefaultPair"
+    SwapDefaultPair:
+      type: object
+      additionalProperties: false
+      required: [sourceSettlementOptionId, targetSettlementOptionId]
+      properties:
+        sourceSettlementOptionId: { type: string, minLength: 1, maxLength: 200 }
+        targetSettlementOptionId: { type: string, minLength: 1, maxLength: 200 }
+    SwapDefaultPairInput:
+      allOf:
+        - $ref: "#/components/schemas/SwapDefaultPair"
+    AdminSwapDefaultPairResponse:
+      type: object
+      additionalProperties: false
+      required: [pair]
+      properties:
+        pair:
+          oneOf:
+            - $ref: "#/components/schemas/SwapDefaultPair"
+            - type: "null"
+    SavedAdminSwapDefaultPairResponse:
+      type: object
+      additionalProperties: false
+      required: [pair]
+      properties:
+        pair: { $ref: "#/components/schemas/SwapDefaultPair" }
     PopularExchangePairSide:
       type: object
       additionalProperties: false
