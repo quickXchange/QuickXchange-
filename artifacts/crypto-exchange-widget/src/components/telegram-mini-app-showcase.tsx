@@ -28,7 +28,7 @@ export function TelegramMiniAppShowcase({ miniAppHref }: TelegramMiniAppShowcase
   const logoUrl = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/brand/quickxchange-telegram-bot-logo.jpg`;
 
   return (
-    <section id="telegram-mini-app" className="qx-mini-showcase" aria-labelledby="qx-mini-title" data-testid="section-telegram-mini-app-showcase">
+    <article id="telegram-mini-app" className="qx-mini-showcase" aria-labelledby="qx-mini-title" data-testid="section-telegram-mini-app-showcase">
       <div className="qx-mini-layout">
         <div className="qx-mini-content">
           <div className="qx-mini-eyebrow"><Send size={13} strokeWidth={2.5} aria-hidden="true" /> TELEGRAM MINI APP</div>
@@ -50,12 +50,6 @@ export function TelegramMiniAppShowcase({ miniAppHref }: TelegramMiniAppShowcase
             ))}
           </ul>
 
-          <div className="qx-mini-actions">
-            <a className="qx-mini-cta" href={miniAppHref} target="_blank" rel="noopener noreferrer" data-testid="link-open-telegram-mini-app">
-              Open Mini App <ArrowUpRight size={18} strokeWidth={2.2} aria-hidden="true" />
-            </a>
-            <span className="qx-mini-actions-note">Opens in Telegram</span>
-          </div>
         </div>
 
         <figure className="qx-mini-visual" aria-label="Illustrative preview of the QuickXchange Telegram Mini App exchange screen">
@@ -104,7 +98,13 @@ export function TelegramMiniAppShowcase({ miniAppHref }: TelegramMiniAppShowcase
           </div>
           <figcaption className="qx-mini-caption">Illustrative preview · rates appear in the app</figcaption>
         </figure>
+        <div className="qx-mini-actions">
+          <a className="qx-mini-cta" href={miniAppHref} target="_blank" rel="noopener noreferrer" data-testid="link-open-telegram-mini-app">
+            Open Mini App <ArrowUpRight size={18} strokeWidth={2.2} aria-hidden="true" />
+          </a>
+          <span className="qx-mini-actions-note">Opens in Telegram</span>
+        </div>
       </div>
-    </section>
+    </article>
   );
 }
