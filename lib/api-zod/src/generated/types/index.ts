@@ -280,6 +280,8 @@ export * from './listBlockchainMonitoringWatchesParams';
 export * from './listBlockchainMonitoringWatchesState';
 export * from './listBlogArticlesParams';
 export * from './listContactSubmissionsParams';
+export * from './manualDeskPricingAmountTier';
+export * from './manualDeskPricingAmountTierDirection';
 export * from './manualDeskPricingPreviewInput';
 export * from './manualDeskPricingQuotePreview';
 export * from './manualDeskPricingQuotePreviewAdjustmentDirection';

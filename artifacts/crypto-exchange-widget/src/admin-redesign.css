@@ -8426,6 +8426,165 @@ html:not(.dark) .admin-shell.admin-redesign .currencies-redesign .catalog-table 
 
 .pricing-drawer .pricing-rule-enabled input { accent-color: #168bff; }
 
+/* Amount tiers belong to the existing pricing drawer, not a separate workflow. */
+.pricing-drawer .amount-pricing-section {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid hsl(var(--primary) / .24);
+  border-radius: 16px;
+  background: hsl(var(--primary) / .045);
+}
+.pricing-drawer .amount-pricing-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+.pricing-drawer .amount-pricing-heading > div { min-width: 0; }
+.pricing-drawer .amount-pricing-heading h3 {
+  margin: 2px 0 4px;
+  color: hsl(var(--foreground));
+  font-size: 16px;
+  font-weight: 750;
+}
+.pricing-drawer .amount-pricing-heading p,
+.pricing-drawer .amount-pricing-boundary,
+.pricing-drawer .amount-pricing-empty {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  line-height: 1.55;
+}
+.pricing-drawer .amount-pricing-enable,
+.pricing-drawer .amount-pricing-apply {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: hsl(var(--foreground));
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+.pricing-drawer .amount-pricing-enable { flex: 0 0 auto; padding-top: 5px; }
+.pricing-drawer .amount-pricing-enable input,
+.pricing-drawer .amount-pricing-apply input,
+.pricing-drawer .amount-pricing-no-limit input { accent-color: hsl(var(--primary)); }
+.pricing-drawer .amount-pricing-content { display: grid; gap: 12px; margin-top: 18px; }
+.pricing-drawer .amount-pricing-boundary {
+  padding: 9px 12px;
+  border-left: 2px solid hsl(var(--primary) / .6);
+  background: hsl(var(--card) / .65);
+}
+.pricing-drawer .amount-pricing-empty {
+  padding: 18px 12px;
+  border: 1px dashed hsl(var(--border));
+  border-radius: 10px;
+  text-align: center;
+}
+.pricing-drawer .amount-pricing-tier {
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  background: hsl(var(--card));
+}
+.pricing-drawer .amount-pricing-tier-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin-bottom: 11px;
+}
+.pricing-drawer .amount-pricing-tier-head strong { color: hsl(var(--foreground)); font-size: 12px; }
+.pricing-drawer .amount-pricing-tier-head span { color: hsl(var(--muted-foreground)); font-size: 11px; }
+.pricing-drawer .amount-pricing-tier-head button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  padding: 4px;
+  border: 0;
+  background: none;
+  color: hsl(var(--destructive));
+  font-size: 11px;
+  cursor: pointer;
+}
+.pricing-drawer .amount-pricing-tier-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.pricing-drawer .amount-pricing-tier-grid label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+  color: hsl(var(--muted-foreground));
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .035em;
+}
+.pricing-drawer .amount-pricing-tier-grid label small { font-weight: 500; }
+.pricing-drawer .amount-pricing-tier-grid :is(input:not([type="checkbox"]), select) {
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 9px;
+  outline: none;
+  background: hsl(var(--input));
+  color: hsl(var(--foreground));
+  font-size: 12px;
+  font-weight: 500;
+}
+.pricing-drawer .amount-pricing-tier-grid :is(input:not([type="checkbox"]), select):focus-visible,
+.pricing-drawer .amount-pricing-add:focus-visible,
+.pricing-drawer .amount-pricing-tier-head button:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+.pricing-drawer .amount-pricing-tier-grid input:disabled { opacity: .55; }
+.pricing-drawer .amount-pricing-no-limit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+.pricing-drawer .amount-pricing-add {
+  width: fit-content;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px dashed hsl(var(--primary) / .5);
+  border-radius: 9px;
+  background: hsl(var(--primary) / .075);
+  color: hsl(var(--primary));
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+.pricing-drawer .amount-pricing-add:hover { background: hsl(var(--primary) / .14); }
+.pricing-drawer .amount-pricing-error,
+.pricing-drawer .amount-pricing-warning {
+  margin: 0;
+  padding: 9px 11px;
+  border-radius: 9px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.pricing-drawer .amount-pricing-error { background: hsl(var(--destructive) / .1); color: hsl(var(--destructive)); }
+.pricing-drawer .amount-pricing-warning { background: hsl(var(--warning, 38 92% 48%) / .12); color: hsl(var(--foreground)); }
+.pricing-drawer .amount-pricing-bulk { display: grid; gap: 11px; }
+.pricing-drawer .amount-pricing-apply { flex-wrap: wrap; }
+.pricing-drawer .amount-pricing-apply small { color: hsl(var(--muted-foreground)); font-size: 11px; font-weight: 500; }
+@media (max-width: 640px) {
+  .pricing-drawer .amount-pricing-section { padding: 14px; }
+  .pricing-drawer .amount-pricing-heading { flex-wrap: wrap; }
+  .pricing-drawer .amount-pricing-tier-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
 .pricing-rule-actions {
   display: flex;
   justify-content: flex-end;

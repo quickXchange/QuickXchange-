@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 const now = '2026-08-26T00:00:00.000Z';
 const options = [
@@ -25,6 +26,147 @@ const config = {
   providers: ['Manual desk'],
   feePercent: 0.6,
 };
+
+const amountTier = (minAmount: string, maxAmount: string | null, percentage: string) =>
+  ({ minAmount, maxAmount, percentage, direction: 'MARKUP' });
+const storedTiers = [amountTier('0', '600', '1'), amountTier('600', null, '3')];
+const amountRules = Array.from({ length: 2 }, (_, index) => ({
+  id: `00000000-0000-4000-8000-${String(index + 701).padStart(12, '0')}`,
+  name: `Amount route ${index + 1}`,
+  sourceAsset: null, targetAsset: null, sourceNetwork: null, targetNetwork: null,
+  sourceCryptoAssetId: null, targetCryptoAssetId: null,
+  paymentMethod: null, payoutMethod: null,
+  sourceSettlementOptionId: 'usd-bank', targetSettlementOptionId: 'eur-bank',
+  markupBasisPoints: 75, adjustmentDirection: 'MARKUP',
+  exactRate: '1.1', fixedFee: null, minAmount: null, maxAmount: null,
+  operatorInstructions: null, customerInstructions: null, expectedSettlementMinutes: null,
+  amountBasedPricingEnabled: true, amountBasedPricingTiers: storedTiers,
+  priority: 100 + index, enabled: true, version: 1, specificity: 2,
+  missingSettlementOptionIds: [], readOnly: false, legacyAmbiguous: false,
+  createdAt: now, updatedAt: now,
+}));
+
+async function mockAmountPricing(page: Page, initialRules = amountRules) {
+  let rules = structuredClone(initialRules);
+  const singleRequests: any[] = [];
+  const bulkRequests: any[] = [];
+  await page.route('**/api/exchange/config', route =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify(config) }));
+  await page.route('**/api/admin/providers/oneforge', route =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ provider: '1Forge', configured: true, state: 'healthy', fetchedAt: now, ageMs: 3000, rates: [] }) }));
+  await page.route('**/api/admin/manual-desk-pricing-rules/bulk', async route => {
+    const input = route.request().postDataJSON();
+    bulkRequests.push(input);
+    rules = rules.map(rule => input.items.some((item: { id: string }) => item.id === rule.id)
+      ? { ...rule, ...input.patch, version: rule.version + 1 }
+      : rule);
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify({
+      items: rules, action: 'edit',
+      affectedIds: input.items.map((item: { id: string }) => item.id),
+      updatedIds: input.items.map((item: { id: string }) => item.id),
+      skipped: [],
+      diagnostics: { hasEnabledAnyToAnyFallback: false, orphanRules: [], uncoveredRoutes: [] },
+    }) });
+  });
+  await page.route('**/api/admin/manual-desk-pricing-rules', route =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({
+      items: rules, diagnostics: { hasEnabledAnyToAnyFallback: false, orphanRules: [], uncoveredRoutes: [] },
+    }) }));
+  await page.route('**/api/admin/manual-desk-pricing-rules/*', route => {
+    if (route.request().url().endsWith('/bulk')) return route.fallback();
+    const input = route.request().postDataJSON();
+    singleRequests.push(input);
+    const id = route.request().url().split('/').at(-1);
+    rules = rules.map(rule => rule.id === id ? { ...rule, ...input, version: rule.version + 1 } : rule);
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify(rules.find(rule => rule.id === id)) });
+  });
+  return { singleRequests, bulkRequests };
+}
+
+test('amount tiers in Edit Pricing Rule validate overlap, warn about fallback gaps, and save exact strings on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const { singleRequests } = await mockAmountPricing(page, [
+    { ...amountRules[0], amountBasedPricingEnabled: false, amountBasedPricingTiers: [] },
+  ]);
+  await page.goto('/admin/pricing');
+  await page.getByTestId(`button-edit-pricing-${amountRules[0].id}`).click();
+  const drawer = page.getByTestId('pricing-rule-drawer');
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByTestId('single-amount-pricing-editor')).toBeVisible();
+  await drawer.getByTestId('single-amount-pricing-enabled').check();
+  await drawer.getByTestId('single-add-amount-tier').click();
+  await drawer.getByTestId('single-amount-no-limit-0').uncheck();
+  await drawer.getByTestId('single-amount-max-0').fill('600');
+  await drawer.getByTestId('single-amount-percentage-0').fill('1');
+  await drawer.getByTestId('single-add-amount-tier').click();
+  await drawer.getByTestId('single-amount-min-1').fill('500');
+  await drawer.getByTestId('single-amount-percentage-1').fill('3');
+  await expect(drawer.getByTestId('single-amount-no-limit-1')).toBeChecked();
+  await expect(drawer.getByTestId('single-amount-validation')).toContainText('overlap');
+  await drawer.getByTestId('button-save-pricing-rule').click();
+  expect(singleRequests).toHaveLength(0);
+
+  await drawer.getByTestId('single-amount-min-1').fill('700');
+  await expect(drawer.getByTestId('single-amount-validation')).toHaveCount(0);
+  await expect(drawer.getByTestId('single-amount-gap-warning')).toContainText('Base pricing applies');
+  await drawer.getByTestId('single-amount-min-1').fill('600');
+  await expect(drawer.getByTestId('single-amount-gap-warning')).toHaveCount(0);
+  expect(await drawer.evaluate(element => element.getBoundingClientRect().width <= window.innerWidth)).toBe(true);
+  await drawer.getByTestId('button-save-pricing-rule').click();
+  await expect.poll(() => singleRequests.length).toBe(1);
+  expect(singleRequests[0]).toMatchObject({
+    version: 1, name: amountRules[0].name,
+    amountBasedPricingEnabled: true,
+    amountBasedPricingTiers: storedTiers,
+  });
+  expect(singleRequests[0].amountBasedPricingTiers[0].minAmount).toBe('0');
+  await expect(drawer).toHaveCount(0);
+});
+
+test('bulk edit omits unchecked amount fields, then applies checked tiers to each selected rule', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const { bulkRequests } = await mockAmountPricing(page);
+  await page.goto('/admin/pricing');
+  await expect(page.getByTestId(`pricing-rule-${amountRules[0].id}`)).toBeVisible();
+  await page.getByTestId('checkbox-select-visible-pricing').check();
+  await page.getByTestId('button-bulk-edit').click();
+  const drawer = page.getByTestId('bulk-pricing-rule-drawer');
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByTestId('apply-amount-based-pricing')).not.toBeChecked();
+  await expect(drawer.getByTestId('bulk-amount-pricing-editor')).toHaveCount(0);
+  await drawer.getByTestId('apply-markup').check();
+  await drawer.getByTestId('input-bulk-markup').fill('2.50');
+  await drawer.getByTestId('button-save-bulk-pricing').click();
+  await expect.poll(() => bulkRequests.length).toBe(1);
+  expect(bulkRequests[0].items).toEqual(amountRules.map(rule => ({ id: rule.id, version: 1 })));
+  expect(bulkRequests[0].patch).toEqual({ markupBasisPoints: 250, adjustmentDirection: 'MARKUP' });
+  expect(bulkRequests[0].patch).not.toHaveProperty('amountBasedPricingEnabled');
+  expect(bulkRequests[0].patch).not.toHaveProperty('amountBasedPricingTiers');
+
+  await expect(drawer).toHaveCount(0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByTestId('checkbox-select-visible-pricing').check();
+  await page.getByTestId('button-bulk-edit').click();
+  await expect(drawer).toBeVisible();
+  expect(await drawer.evaluate(element => element.getBoundingClientRect().width <= window.innerWidth)).toBe(true);
+  await drawer.getByTestId('apply-amount-based-pricing').check();
+  await drawer.getByTestId('bulk-amount-pricing-enabled').check();
+  await drawer.getByTestId('bulk-add-amount-tier').click();
+  await drawer.getByTestId('bulk-amount-no-limit-0').uncheck();
+  await drawer.getByTestId('bulk-amount-max-0').fill('600');
+  await drawer.getByTestId('bulk-amount-percentage-0').fill('1');
+  await drawer.getByTestId('bulk-add-amount-tier').click();
+  await drawer.getByTestId('bulk-amount-percentage-1').fill('3');
+  await expect(drawer.getByTestId('bulk-amount-min-1')).toHaveValue('600');
+  await drawer.getByTestId('button-save-bulk-pricing').click();
+  await expect.poll(() => bulkRequests.length).toBe(2);
+  expect(bulkRequests[1].items).toEqual(amountRules.map(rule => ({ id: rule.id, version: 2 })));
+  expect(bulkRequests[1].patch).toEqual({
+    amountBasedPricingEnabled: true,
+    amountBasedPricingTiers: storedTiers,
+  });
+  await expect(drawer).toHaveCount(0);
+});
 
 test('Select All bulk fee editing submits every filtered rule and reports partial results', async ({ page }) => {
   const rules = Array.from({ length: 20 }, (_, index) => ({

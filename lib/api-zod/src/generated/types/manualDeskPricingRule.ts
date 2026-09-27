@@ -22,4 +22,19 @@ export type ManualDeskPricingRule = ManualDeskPricingRuleInput & {
   readonly missingSettlementOptionIds: readonly string[];
   createdAt: string;
   updatedAt: string;
-};
+} & Required<Pick<ManualDeskPricingRuleInput & {
+  id: string;
+  /** @minimum 1 */
+  version: number;
+  /**
+     * @minimum 0
+     * @maximum 8
+     */
+  specificity: number;
+  readonly legacyAmbiguous?: boolean;
+  readonly readOnly?: boolean;
+  /** Settlement option selectors which no longer exist in the current public manual catalog. */
+  readonly missingSettlementOptionIds: readonly string[];
+  createdAt: string;
+  updatedAt: string;
+}, 'amountBasedPricingEnabled' | 'amountBasedPricingTiers'>>;

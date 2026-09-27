@@ -93,6 +93,86 @@ test("preserves an explicit manual wallet tracking OFF value in snapshots", () =
   assert.equal(parsed.cryptoNetworks[0]?.manualWalletTrackingEnabled, false);
 });
 
+test("workspace snapshots preserve amount tiers and existing manual pricing route identity", () => {
+  const input = snapshot();
+  const rule: WorkspaceConfigSnapshot["manualDeskPricingRules"][number] = {
+    id: "8e6f84f6-1dd0-4c2c-a04a-d6861c872f00",
+    name: "USD to EUR tiered",
+    sourceAsset: "USD",
+    targetAsset: "EUR",
+    sourceCryptoAssetId: null,
+    targetCryptoAssetId: null,
+    sourceNetwork: "BANK TRANSFER",
+    targetNetwork: "SEPA",
+    paymentMethod: "BANK TRANSFER",
+    payoutMethod: "WALLET",
+    sourceSettlementOptionId: "fiat-payment-method:usd-bank-transfer",
+    targetSettlementOptionId: "fiat-payment-method:eur-sepa",
+    minAmount: null,
+    maxAmount: null,
+    operatorInstructions: null,
+    customerInstructions: null,
+    expectedSettlementMinutes: null,
+    markupBasisPoints: 200,
+    adjustmentDirection: "MARKUP",
+    amountBasedPricingEnabled: true,
+    amountBasedPricingTiers: [
+      { minAmount: "0", maxAmount: null, percentage: "1.005", direction: "GIVE_MORE" },
+    ],
+    fixedFee: "0.10",
+    exactRate: null,
+    priority: 10,
+    enabled: true,
+  };
+  input.manualDeskPricingRules = [rule];
+
+  const parsed = parseWorkspaceConfigSnapshot(input);
+  const restored = parsed.manualDeskPricingRules[0]!;
+
+  assert.equal(restored.id, rule.id);
+  assert.equal(restored.sourceSettlementOptionId, rule.sourceSettlementOptionId);
+  assert.equal(restored.targetSettlementOptionId, rule.targetSettlementOptionId);
+  assert.equal(restored.sourceAsset, rule.sourceAsset);
+  assert.equal(restored.targetAsset, rule.targetAsset);
+  assert.equal(restored.amountBasedPricingEnabled, true);
+  assert.deepEqual(restored.amountBasedPricingTiers, rule.amountBasedPricingTiers);
+});
+
+test("legacy workspace snapshots default amount pricing to disabled and empty tiers", () => {
+  const input = snapshot();
+  const legacyRule: WorkspaceConfigSnapshot["manualDeskPricingRules"][number] = {
+    id: "8e6f84f6-1dd0-4c2c-a04a-d6861c872f00",
+    name: "Legacy pricing rule",
+    sourceAsset: null,
+    targetAsset: null,
+    sourceCryptoAssetId: null,
+    targetCryptoAssetId: null,
+    sourceNetwork: null,
+    targetNetwork: null,
+    paymentMethod: null,
+    payoutMethod: null,
+    sourceSettlementOptionId: null,
+    targetSettlementOptionId: null,
+    minAmount: null,
+    maxAmount: null,
+    operatorInstructions: null,
+    customerInstructions: null,
+    expectedSettlementMinutes: null,
+    markupBasisPoints: 60,
+    adjustmentDirection: "MARKUP",
+    fixedFee: null,
+    exactRate: null,
+    priority: -10,
+    enabled: true,
+  };
+  input.manualDeskPricingRules = [legacyRule];
+
+  const restored = parseWorkspaceConfigSnapshot(input).manualDeskPricingRules[0]!;
+
+  assert.equal(restored.amountBasedPricingEnabled, false);
+  assert.deepEqual(restored.amountBasedPricingTiers, []);
+});
+
 test("includes manual wallet tracking in crypto network export, comparison, hash, and apply projection", () => {
   const network = {
     id: "btc-bitcoin",

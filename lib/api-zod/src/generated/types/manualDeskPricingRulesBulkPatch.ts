@@ -6,7 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ExactDecimal } from './exactDecimal';
+import type { ManualDeskPricingAmountTier } from './manualDeskPricingAmountTier';
 import type { ManualDeskPricingRulesBulkPatchAdjustmentDirection } from './manualDeskPricingRulesBulkPatchAdjustmentDirection';
+import type { NonNegativeExactDecimal } from './nonNegativeExactDecimal';
 import type { PositiveExactDecimal } from './positiveExactDecimal';
 
 export interface ManualDeskPricingRulesBulkPatch {
@@ -16,6 +18,8 @@ export interface ManualDeskPricingRulesBulkPatch {
      */
   markupBasisPoints?: number;
   adjustmentDirection?: ManualDeskPricingRulesBulkPatchAdjustmentDirection;
+  amountBasedPricingEnabled?: boolean;
+  amountBasedPricingTiers?: ManualDeskPricingAmountTier[];
   /**
      * @minimum -1000000
      * @maximum 1000000
@@ -48,7 +52,7 @@ export interface ManualDeskPricingRulesBulkPatch {
   exactRate?: PositiveExactDecimal | null;
   fixedFee?: ExactDecimal | null;
   minAmount?: ExactDecimal | null;
-  maxAmount?: ExactDecimal | null;
+  maxAmount?: NonNegativeExactDecimal | null;
   /**
      * @minimum 1
      * @maximum 10080

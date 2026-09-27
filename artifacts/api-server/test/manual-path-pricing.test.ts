@@ -16,13 +16,52 @@ import {
   ALL_NETWORKS_PRICING_SELECTOR,
   matchManualDeskPricingRule,
   reciprocalExactRate,
+  selectManualPricingTier,
   selectManualPricingRule,
+  validateManualPricingTiers,
 } from "../src/lib/manual-desk-pricing";
 import { listPublicManualCryptoSettlementOptions } from "../src/lib/manual-crypto";
 import { listPublicFiatSettlementOptions } from "../src/lib/payment-methods";
 
 after(async () => {
   await pool.end();
+});
+
+test("amount tiers use exact inclusive/exclusive boundaries, gaps, and unbounded final ranges", () => {
+  const tiers = [
+    { minAmount: "0", maxAmount: "600", percentage: "1", direction: "MARKUP" as const },
+    { minAmount: "600", maxAmount: null, percentage: "2", direction: "GIVE_MORE" as const },
+  ];
+  validateManualPricingTiers(true, tiers);
+  assert.equal(selectManualPricingTier(tiers, "0"), tiers[0]);
+  assert.equal(selectManualPricingTier(tiers, "600"), tiers[0]);
+  assert.equal(selectManualPricingTier(tiers, "600.000000000000000001"), tiers[1]);
+  assert.equal(selectManualPricingTier(tiers, "999999999999999999999999999999"), tiers[1]);
+
+  const gap = [
+    { minAmount: "0", maxAmount: "100", percentage: "1", direction: "MARKUP" as const },
+    { minAmount: "200", maxAmount: null, percentage: "3", direction: "MARKUP" as const },
+  ];
+  validateManualPricingTiers(true, gap);
+  assert.equal(selectManualPricingTier(gap, "150"), undefined);
+});
+
+test("amount tiers reject overlaps, malformed ordering, empty enabled sets, and invalid rates", () => {
+  assert.throws(() => validateManualPricingTiers(true, []), /requires at least one tier/);
+  assert.throws(() => validateManualPricingTiers(true, [
+    { minAmount: "0", maxAmount: "600", percentage: "1", direction: "MARKUP" },
+    { minAmount: "599.999999999999999999", maxAmount: null, percentage: "2", direction: "MARKUP" },
+  ]), /cannot overlap/);
+  assert.throws(() => validateManualPricingTiers(true, [
+    { minAmount: "0", maxAmount: null, percentage: "1", direction: "MARKUP" },
+    { minAmount: "600", maxAmount: null, percentage: "2", direction: "MARKUP" },
+  ]), /Only the last amount tier/);
+  assert.throws(() => validateManualPricingTiers(true, [
+    { minAmount: "0", maxAmount: null, percentage: "100", direction: "MARKUP" },
+  ]), /outside the allowed range/);
+  assert.throws(() => validateManualPricingTiers(true, [
+    { minAmount: "0", maxAmount: null, percentage: "100.01", direction: "GIVE_MORE" },
+  ]), /outside the allowed range/);
 });
 
 test("exact path rate scales target atomic units once", async () => {
@@ -36,6 +75,40 @@ test("exact path rate scales target atomic units once", async () => {
   });
   assert.equal(quote.exact.grossMarketAmount, "4");
   assert.equal(quote.grossMarketAmount, 4);
+});
+
+test("amount tier percentages affect live estimate math and preserve regular fallback", async () => {
+  const tiers = [
+    { minAmount: "0", maxAmount: "600", percentage: "1", direction: "MARKUP" as const },
+    { minAmount: "600", maxAmount: null, percentage: "2", direction: "GIVE_MORE" as const },
+  ];
+  const lowerTier = selectManualPricingTier(tiers, "600")!;
+  const lower = await getManualDeskEstimate({
+    sourceCurrency: "EUR", targetCurrency: "XMR", targetPrecision: 2, amount: 600,
+    exactRate: "1", markupBasisPoints: 60,
+    adjustmentDirection: lowerTier.direction, percentage: lowerTier.percentage,
+  });
+  assert.equal(lower.exact.percentageCommission, "6");
+  assert.equal(lower.exact.receiveAmount, "594");
+
+  const upperTier = selectManualPricingTier(tiers, "600.01")!;
+  const upper = await getManualDeskEstimate({
+    sourceCurrency: "EUR", targetCurrency: "XMR", targetPrecision: 2, amount: 600.01,
+    exactRate: "1", markupBasisPoints: 60,
+    adjustmentDirection: upperTier.direction, percentage: upperTier.percentage,
+  });
+  assert.equal(upper.exact.percentageCommission, "12");
+  assert.equal(upper.exact.receiveAmount, "612.01");
+
+  assert.equal(selectManualPricingTier([
+    { minAmount: "0", maxAmount: "100", percentage: "1", direction: "MARKUP" },
+    { minAmount: "200", maxAmount: null, percentage: "3", direction: "MARKUP" },
+  ], "150"), undefined);
+  const fallback = await getManualDeskEstimate({
+    sourceCurrency: "EUR", targetCurrency: "XMR", targetPrecision: 2, amount: 150,
+    exactRate: "1", markupBasisPoints: 60, adjustmentDirection: "MARKUP",
+  });
+  assert.equal(fallback.exact.percentageCommission, "0.9");
 });
 
 test("asset selectors match every network and outrank Any", () => {
@@ -404,6 +477,94 @@ test("bulk transitions from legacy partial wildcards canonicalize both Any sides
       assert.equal(row.targetAsset, null);
       assert.equal(row.targetNetwork, null);
       assert.equal(row.payoutMethod, null);
+    }
+  } finally {
+    await db.delete(manualDeskPricingRulesTable)
+      .where(inArray(manualDeskPricingRulesTable.id, ids));
+  }
+});
+
+test("bulk tier edits preserve omitted tier data and atomically apply explicit configuration", async () => {
+  const ids = Array.from({ length: 60 }, () => randomUUID());
+  const originalTiers = ids.map((_, index) => index % 2 === 0
+    ? [{ minAmount: "0", maxAmount: null, percentage: "1.25", direction: "GIVE_MORE" as const }]
+    : [{ minAmount: "0", maxAmount: "10", percentage: "0.5", direction: "MARKUP" as const },
+      { minAmount: "10", maxAmount: null, percentage: "1.5", direction: "MARKUP" as const }]);
+  const optInTiers = [
+    { minAmount: "0", maxAmount: "600", percentage: "1", direction: "MARKUP" as const },
+    { minAmount: "600", maxAmount: null, percentage: "2", direction: "GIVE_MORE" as const },
+  ];
+  try {
+    await db.insert(manualDeskPricingRulesTable).values(ids.map((id, index) => ({
+      id,
+      name: `bulk tier fixture ${index}`,
+      markupBasisPoints: 60,
+      priority: 910000 + index,
+      enabled: true,
+      amountBasedPricingEnabled: index % 2 === 0,
+      amountBasedPricingTiers: originalTiers[index]!,
+    })));
+
+    const one = await bulkUpdateManualPricingRules(
+      [{ id: ids[0]!, version: 1 }],
+      "edit",
+      { markupBasisPoints: 75 },
+    );
+    assert.deepEqual(one.updatedIds, [ids[0]]);
+    const afterOne = await db.select().from(manualDeskPricingRulesTable)
+      .where(eq(manualDeskPricingRulesTable.id, ids[0]!));
+    assert.equal(afterOne[0]?.amountBasedPricingEnabled, true);
+    assert.deepEqual(afterOne[0]?.amountBasedPricingTiers, originalTiers[0]);
+
+    const versions = await db.select({
+      id: manualDeskPricingRulesTable.id,
+      version: manualDeskPricingRulesTable.version,
+    }).from(manualDeskPricingRulesTable)
+      .where(inArray(manualDeskPricingRulesTable.id, ids));
+    const allItems = versions.map(({ id, version }) => ({ id, version }));
+    const omitted = await bulkUpdateManualPricingRules(allItems, "edit", {
+      adjustmentDirection: "GIVE_MORE",
+    });
+    assert.equal(omitted.updatedIds.length, 60);
+    const afterOmission = await db.select().from(manualDeskPricingRulesTable)
+      .where(inArray(manualDeskPricingRulesTable.id, ids));
+    for (const row of afterOmission) {
+      const index = ids.indexOf(row.id);
+      assert.equal(row.amountBasedPricingEnabled, index % 2 === 0);
+      assert.deepEqual(row.amountBasedPricingTiers, originalTiers[index]);
+    }
+
+    const optInVersions = afterOmission.map(({ id, version }) => ({ id, version }));
+    const applied = await bulkUpdateManualPricingRules(optInVersions, "edit", {
+      amountBasedPricingEnabled: true,
+      amountBasedPricingTiers: optInTiers,
+    });
+    assert.equal(applied.updatedIds.length, 60);
+    const optedIn = await db.select().from(manualDeskPricingRulesTable)
+      .where(inArray(manualDeskPricingRulesTable.id, ids));
+    for (const row of optedIn) {
+      assert.equal(row.amountBasedPricingEnabled, true);
+      assert.deepEqual(row.amountBasedPricingTiers, optInTiers);
+    }
+
+    const beforeStale = optedIn.map(({ id, version, amountBasedPricingTiers }) => ({
+      id, version, amountBasedPricingTiers,
+    }));
+    const staleItems = optedIn.map(({ id, version }) => ({ id, version }));
+    staleItems[0] = { id: staleItems[0]!.id, version: staleItems[0]!.version - 1 };
+    await assert.rejects(
+      bulkUpdateManualPricingRules(staleItems, "edit", {
+        amountBasedPricingEnabled: false,
+        amountBasedPricingTiers: [],
+      }),
+      { code: "MANUAL_PRICING_RULE_VERSION_CONFLICT" },
+    );
+    const afterStale = await db.select().from(manualDeskPricingRulesTable)
+      .where(inArray(manualDeskPricingRulesTable.id, ids));
+    for (const row of afterStale) {
+      const before = beforeStale.find(item => item.id === row.id)!;
+      assert.equal(row.version, before.version);
+      assert.deepEqual(row.amountBasedPricingTiers, before.amountBasedPricingTiers);
     }
   } finally {
     await db.delete(manualDeskPricingRulesTable)

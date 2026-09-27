@@ -1565,6 +1565,21 @@ export const OrderPricingSnapshotRuleAdjustmentDirection = {
   GIVE_MORE: 'GIVE_MORE',
 } as const;
 
+export type ManualDeskPricingAmountTierDirection = typeof ManualDeskPricingAmountTierDirection[keyof typeof ManualDeskPricingAmountTierDirection];
+
+
+export const ManualDeskPricingAmountTierDirection = {
+  MARKUP: 'MARKUP',
+  GIVE_MORE: 'GIVE_MORE',
+} as const;
+
+export interface ManualDeskPricingAmountTier {
+  minAmount: NonNegativeExactDecimal;
+  maxAmount: ExactDecimal | null;
+  percentage: NonNegativeExactDecimal;
+  direction: ManualDeskPricingAmountTierDirection;
+}
+
 /**
  * Whether the effective exact path was directly configured or synthesized as the reciprocal.
  */
@@ -1694,6 +1709,9 @@ export type OrderPricingSnapshotRule = {
      */
   markupBasisPoints: number;
   adjustmentDirection: OrderPricingSnapshotRuleAdjustmentDirection;
+  amountBasedPricingEnabled?: boolean;
+  amountBasedPricingTiers?: ManualDeskPricingAmountTier[];
+  selectedAmountBasedPricingTier?: ManualDeskPricingAmountTier | null;
   /** Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically. */
   exactRate?: PositiveExactDecimal | null;
   /** Whether the effective exact path was directly configured or synthesized as the reciprocal. */
@@ -2066,6 +2084,8 @@ export type ManualDeskPricingRuleInput = ManualDeskPricingSelectorProperties & (
      */
   markupBasisPoints: number;
   adjustmentDirection?: ManualDeskPricingRuleInputAdjustmentDirection;
+  amountBasedPricingEnabled?: boolean;
+  amountBasedPricingTiers?: ManualDeskPricingAmountTier[];
   /** Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically. */
   exactRate?: PositiveExactDecimal | null;
   fixedFee?: ExactDecimal | null;
@@ -2123,7 +2143,22 @@ export type ManualDeskPricingRule = ManualDeskPricingRuleInput & {
   readonly missingSettlementOptionIds: readonly string[];
   createdAt: string;
   updatedAt: string;
-};
+} & Required<Pick<ManualDeskPricingRuleInput & {
+  id: string;
+  /** @minimum 1 */
+  version: number;
+  /**
+     * @minimum 0
+     * @maximum 8
+     */
+  specificity: number;
+  readonly legacyAmbiguous?: boolean;
+  readonly readOnly?: boolean;
+  /** Settlement option selectors which no longer exist in the current public manual catalog. */
+  readonly missingSettlementOptionIds: readonly string[];
+  createdAt: string;
+  updatedAt: string;
+}, 'amountBasedPricingEnabled' | 'amountBasedPricingTiers'>>;
 
 export interface ManualDeskPricingRulesCreateBatchResult {
   items: ManualDeskPricingRule[];
@@ -2146,6 +2181,8 @@ export interface ManualDeskPricingRulesBulkPatch {
      */
   markupBasisPoints?: number;
   adjustmentDirection?: ManualDeskPricingRulesBulkPatchAdjustmentDirection;
+  amountBasedPricingEnabled?: boolean;
+  amountBasedPricingTiers?: ManualDeskPricingAmountTier[];
   /**
      * @minimum -1000000
      * @maximum 1000000
@@ -2178,7 +2215,7 @@ export interface ManualDeskPricingRulesBulkPatch {
   exactRate?: PositiveExactDecimal | null;
   fixedFee?: ExactDecimal | null;
   minAmount?: ExactDecimal | null;
-  maxAmount?: ExactDecimal | null;
+  maxAmount?: NonNegativeExactDecimal | null;
   /**
      * @minimum 1
      * @maximum 10080

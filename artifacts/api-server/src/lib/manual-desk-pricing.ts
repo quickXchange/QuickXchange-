@@ -36,6 +36,119 @@ export type ManualPricingSelector = typeof MANUAL_PRICING_SELECTOR_KEYS[number];
 export type ManualPricingContext =
   Partial<Record<ManualPricingSelector, string | null | undefined>>;
 export const ALL_NETWORKS_PRICING_SELECTOR = "__ALL_NETWORKS__";
+export type ManualPricingTier = {
+  minAmount: string;
+  maxAmount: string | null;
+  percentage: string;
+  direction: "MARKUP" | "GIVE_MORE";
+};
+
+type ExactDecimal = { coefficient: bigint; scale: number };
+function exactDecimal(value: string): ExactDecimal | undefined {
+  const match = /^(0|[1-9][0-9]{0,19})(?:\.([0-9]{1,18}))?$/.exec(value);
+  if (!match) return undefined;
+  return { coefficient: BigInt(`${match[1]}${match[2] ?? ""}`), scale: (match[2] ?? "").length };
+}
+
+function compareExactDecimals(left: ExactDecimal, right: ExactDecimal): number {
+  const scale = Math.max(left.scale, right.scale);
+  const a = left.coefficient * 10n ** BigInt(scale - left.scale);
+  const b = right.coefficient * 10n ** BigInt(scale - right.scale);
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+function quoteAmountDecimal(value: string | number): ExactDecimal | undefined {
+  const text = String(value);
+  const plain = /^(0|[1-9][0-9]*)(?:\.([0-9]+))?$/.exec(text);
+  if (plain) {
+    const fraction = plain[2] ?? "";
+    return { coefficient: BigInt(`${plain[1]}${fraction}`), scale: fraction.length };
+  }
+  const exponential = /^([0-9]+)(?:\.([0-9]+))?[eE]([+-]?\d+)$/.exec(text);
+  if (!exponential) return undefined;
+  const exponent = Number(exponential[3]);
+  if (!Number.isInteger(exponent) || Math.abs(exponent) > 100) return undefined;
+  const fraction = exponential[2] ?? "";
+  let coefficient = BigInt(`${exponential[1]}${fraction}`);
+  let scale = fraction.length - exponent;
+  if (scale < 0) {
+    coefficient *= 10n ** BigInt(-scale);
+    scale = 0;
+  }
+  return { coefficient, scale };
+}
+
+export function validateManualPricingTiers(
+  enabled: boolean,
+  tiers: readonly ManualPricingTier[],
+) {
+  if (typeof enabled !== "boolean" || !Array.isArray(tiers)) {
+    throw new ApiError("VALIDATION_ERROR", "Amount-based pricing configuration is invalid.", 400);
+  }
+  if (enabled && tiers.length === 0) {
+    throw new ApiError("VALIDATION_ERROR", "Enabled amount-based pricing requires at least one tier.", 400);
+  }
+  const parsed = tiers.map((tier, index) => {
+    if (!tier || typeof tier !== "object" ||
+        typeof tier.minAmount !== "string" ||
+        !(tier.maxAmount === null || typeof tier.maxAmount === "string") ||
+        typeof tier.percentage !== "string" ||
+        (tier.direction !== "MARKUP" && tier.direction !== "GIVE_MORE")) {
+      throw new ApiError("VALIDATION_ERROR", `Amount tier ${index + 1} is invalid.`, 400);
+    }
+    const min = exactDecimal(tier.minAmount);
+    const max = tier.maxAmount === null ? null : exactDecimal(tier.maxAmount);
+    const percentage = exactDecimal(tier.percentage);
+    if (!min || (tier.maxAmount !== null && !max) || !percentage) {
+      throw new ApiError("VALIDATION_ERROR", `Amount tier ${index + 1} must use exact non-negative decimals.`, 400);
+    }
+    if ((index === 0 && min.coefficient !== 0n) ||
+        (index > 0 && min.coefficient === 0n)) {
+      throw new ApiError("VALIDATION_ERROR", "The first amount tier must start at zero; later tiers must start above zero.", 400);
+    }
+    if (max && compareExactDecimals(max, min) <= 0) {
+      throw new ApiError("VALIDATION_ERROR", `Amount tier ${index + 1} maximum must exceed its minimum.`, 400);
+    }
+    if (percentage.coefficient > 100n * 10n ** BigInt(percentage.scale) ||
+        (tier.direction === "MARKUP" &&
+          percentage.coefficient === 100n * 10n ** BigInt(percentage.scale))) {
+      throw new ApiError("VALIDATION_ERROR", `Amount tier ${index + 1} percentage is outside the allowed range for ${tier.direction}.`, 400);
+    }
+    if ((index < tiers.length - 1 && max === null) ||
+        (index === tiers.length - 1 && max !== null)) {
+      throw new ApiError("VALIDATION_ERROR", "Only the last amount tier may have No Limit.", 400);
+    }
+    return { min, max };
+  });
+  for (let index = 1; index < parsed.length; index++) {
+    const previous = parsed[index - 1]!;
+    const current = parsed[index]!;
+    if (!previous.max || compareExactDecimals(current.min, previous.min) <= 0) {
+      throw new ApiError("VALIDATION_ERROR", "Amount tiers must be strictly ordered.", 400);
+    }
+    // The prior maximum is inclusive and the next minimum is exclusive, so a
+    // shared boundary is valid while any smaller next minimum overlaps.
+    if (compareExactDecimals(current.min, previous.max) < 0) {
+      throw new ApiError("VALIDATION_ERROR", "Amount tiers cannot overlap.", 400);
+    }
+  }
+}
+
+export function selectManualPricingTier(
+  tiers: readonly ManualPricingTier[],
+  amount: string | number,
+): ManualPricingTier | undefined {
+  const value = quoteAmountDecimal(amount);
+  if (!value) return undefined;
+  return tiers.find((tier, index) => {
+    const min = exactDecimal(tier.minAmount);
+    const max = tier.maxAmount === null ? null : exactDecimal(tier.maxAmount);
+    if (!min || (tier.maxAmount !== null && !max)) return false;
+    const lowerCompare = compareExactDecimals(value, min);
+    return (index === 0 && min.coefficient === 0n ? lowerCompare >= 0 : lowerCompare > 0) &&
+      (max === null || (max !== undefined && compareExactDecimals(value, max) <= 0));
+  });
+}
 
 function normalized(value: string | null | undefined): string | null {
   const result = value?.trim().toUpperCase();
@@ -393,6 +506,8 @@ export type ManualPricingWrite = {
   targetSettlementOptionId?: string | null;
   markupBasisPoints: number;
   adjustmentDirection?: "MARKUP" | "GIVE_MORE";
+  amountBasedPricingEnabled?: boolean;
+  amountBasedPricingTiers?: ManualPricingTier[];
   fixedFee?: string | null;
   exactRate?: string | null;
   minAmount?: string | null;
@@ -422,6 +537,12 @@ function normalizedWrite(input: ManualPricingWrite) {
   if (adjustmentDirection !== "MARKUP" && adjustmentDirection !== "GIVE_MORE") {
     throw new ApiError("VALIDATION_ERROR", "Adjustment direction must be MARKUP or GIVE_MORE.", 400);
   }
+  const amountBasedPricingEnabled = input.amountBasedPricingEnabled ?? false;
+  const amountBasedPricingTiers = input.amountBasedPricingTiers ?? [];
+  if (typeof amountBasedPricingEnabled !== "boolean" || !Array.isArray(amountBasedPricingTiers)) {
+    throw new ApiError("VALIDATION_ERROR", "Amount-based pricing configuration is invalid.", 400);
+  }
+  validateManualPricingTiers(amountBasedPricingEnabled, amountBasedPricingTiers);
   const exactDecimal = /^(?:0|[1-9][0-9]{0,19})(?:\.[0-9]{1,18})?$/;
   const exactRate = input.exactRate == null ? null : input.exactRate;
   if (exactRate !== null && (
@@ -518,6 +639,8 @@ function normalizedWrite(input: ManualPricingWrite) {
     name,
     fixedFee,
     adjustmentDirection,
+    amountBasedPricingEnabled,
+    amountBasedPricingTiers,
     exactRate,
   };
 }
@@ -703,7 +826,8 @@ export async function upsertManualPricingRules(inputs: ManualPricingWrite[]) {
 export type ManualPricingBulkAction = "enable" | "disable" | "delete" | "edit";
 export type ManualPricingBulkItem = { id: string; version: number };
 export type ManualPricingBulkPatch = Partial<Pick<ManualPricingWrite,
-  "markupBasisPoints" | "adjustmentDirection" | "priority" | "sourceSettlementOptionId" |
+  "markupBasisPoints" | "adjustmentDirection" | "amountBasedPricingEnabled" |
+  "amountBasedPricingTiers" | "priority" | "sourceSettlementOptionId" |
   "targetSettlementOptionId" | "exactRate" | "fixedFee" | "minAmount" |
   "maxAmount" | "expectedSettlementMinutes" | "operatorInstructions" |
   "customerInstructions" | "sourceAsset" | "targetAsset" | "sourceNetwork" |
@@ -738,6 +862,8 @@ function rowAsWrite(row: ManualDeskPricingRule): ManualPricingWrite {
     targetSettlementOptionId: row.targetSettlementOptionId,
     markupBasisPoints: row.markupBasisPoints,
     adjustmentDirection: row.adjustmentDirection as "MARKUP" | "GIVE_MORE",
+    amountBasedPricingEnabled: row.amountBasedPricingEnabled,
+    amountBasedPricingTiers: row.amountBasedPricingTiers,
     fixedFee: row.fixedFee,
     exactRate: row.exactRate,
     minAmount: row.minAmount,
@@ -773,7 +899,8 @@ export async function bulkUpdateManualPricingRules(
     throw new ApiError("VALIDATION_ERROR", "Bulk edit requires at least one field.", 400);
   }
   const commissionOnly = action === "edit" && Object.keys(patch ?? {}).every(
-    (key) => key === "markupBasisPoints" || key === "adjustmentDirection",
+    (key) => key === "markupBasisPoints" || key === "adjustmentDirection" ||
+      key === "amountBasedPricingEnabled" || key === "amountBasedPricingTiers",
   );
   if (commissionOnly) {
     if (patch?.markupBasisPoints !== undefined &&
@@ -906,6 +1033,10 @@ export async function bulkUpdateManualPricingRules(
           if (commissionOnly) {
             // Validated scalar columns can be written without revalidating or
             // normalizing historical route selectors that are not being edited.
+            validateManualPricingTiers(
+              canonicalPatch.amountBasedPricingEnabled ?? row.amountBasedPricingEnabled,
+              canonicalPatch.amountBasedPricingTiers ?? row.amountBasedPricingTiers,
+            );
             values = canonicalPatch;
           } else {
             let combined: ManualPricingWrite;

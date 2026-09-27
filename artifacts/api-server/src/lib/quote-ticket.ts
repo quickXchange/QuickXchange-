@@ -1,6 +1,11 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { PaymentMethodFieldDefinition } from "@workspace/db";
 import { QuickexApiError, type QuickexQuote, type QuickexRateMode } from "./quickex";
+import {
+  selectManualPricingTier,
+  validateManualPricingTiers,
+  type ManualPricingTier,
+} from "./manual-desk-pricing";
 
 export type QuoteTicket = {
   v: 1 | 2;
@@ -79,6 +84,9 @@ export type QuoteTicket = {
       };
       markupBasisPoints: number;
       adjustmentDirection: "MARKUP" | "GIVE_MORE";
+      amountBasedPricingEnabled?: boolean;
+      amountBasedPricingTiers?: ManualPricingTier[];
+      selectedAmountBasedPricingTier?: ManualPricingTier | null;
       exactRate?: string | null;
       effectiveRateSource?: "direct" | "reciprocal";
       configuredSelectors?: Record<string, string | null>;
@@ -344,7 +352,9 @@ function financiallyConsistent(
   snapshot: NonNullable<QuoteTicket["pricingSnapshot"]>,
   canonical: (value: unknown) => boolean,
 ) {
-  const adjustmentDirection = snapshot.rule.adjustmentDirection ?? "MARKUP";
+  const selectedTier = snapshot.rule.selectedAmountBasedPricingTier ?? null;
+  const adjustmentDirection = selectedTier?.direction ??
+    snapshot.rule.adjustmentDirection ?? "MARKUP";
   const amount = dec(String(ticket.amount));
   const source = dec(snapshot.reference.source.unitsPerUsd);
   const target = dec(snapshot.reference.target.unitsPerUsd);
@@ -354,9 +364,16 @@ function financiallyConsistent(
   const scale = 10n ** BigInt(precision);
   const gross = (amount.c * target.c * (10n ** BigInt(source.s)) * scale) /
     (source.c * (10n ** BigInt(amount.s + target.s)));
+  const tierPercentage = selectedTier ? dec(selectedTier.percentage) : undefined;
+  if (selectedTier && !tierPercentage) return false;
+  const percentageNumerator = tierPercentage?.c ?? BigInt(snapshot.rule.markupBasisPoints);
+  const percentageDenominator = tierPercentage
+    ? 100n * 10n ** BigInt(tierPercentage.s)
+    : 10_000n;
+  const percentageProduct = gross * percentageNumerator;
   const percentage = adjustmentDirection === "GIVE_MORE"
-    ? (gross * BigInt(snapshot.rule.markupBasisPoints)) / 10_000n
-    : (gross * BigInt(snapshot.rule.markupBasisPoints) + 9_999n) / 10_000n;
+    ? percentageProduct / percentageDenominator
+    : (percentageProduct + percentageDenominator - 1n) / percentageDenominator;
   const fixedAtomic = (fixed.c * scale + (10n ** BigInt(fixed.s)) - 1n) /
     (10n ** BigInt(fixed.s));
   const total = adjustmentDirection === "GIVE_MORE"
@@ -477,8 +494,9 @@ export function verifyQuoteTicket(
       snapshot.targetPrecision < 0 ||
       snapshot.targetPrecision > 8 ||
       snapshot.rounding.grossMarketAmount !== "truncate" ||
-      snapshot.rounding.percentageCommission !==
-        ((snapshot.rule.adjustmentDirection ?? "MARKUP") === "GIVE_MORE" ? "floor" : "ceil") ||
+       snapshot.rounding.percentageCommission !==
+         ((snapshot.rule.selectedAmountBasedPricingTier?.direction ??
+           snapshot.rule.adjustmentDirection ?? "MARKUP") === "GIVE_MORE" ? "floor" : "ceil") ||
       snapshot.rounding.fixedCommission !== "ceil" ||
       snapshot.rounding.finalRate !== "truncate" ||
       snapshot.rounding.finalRateScale !== 30 ||
@@ -521,6 +539,20 @@ export function verifyQuoteTicket(
       normalize(snapshot.context.payoutMethod) !== normalize(ticket.payoutMethod)
     ) {
       invalid("QUOTE_INVALID", "The manual quote pricing snapshot is invalid.");
+    }
+    const tiersEnabled = snapshot.rule.amountBasedPricingEnabled ?? false;
+    const tiers = snapshot.rule.amountBasedPricingTiers ?? [];
+    const selectedTier = snapshot.rule.selectedAmountBasedPricingTier ?? null;
+    try {
+      validateManualPricingTiers(tiersEnabled, tiers);
+    } catch {
+      invalid("QUOTE_INVALID", "The manual quote amount-tier snapshot is invalid.");
+    }
+    const expectedTier = tiersEnabled
+      ? selectManualPricingTier(tiers, ticket.amount)
+      : undefined;
+    if (JSON.stringify(expectedTier ?? null) !== JSON.stringify(selectedTier)) {
+      invalid("QUOTE_INVALID", "The selected amount tier does not match the signed quote amount.");
     }
     if (!financiallyConsistent(ticket, snapshot, canonicalDecimal)) {
       invalid("QUOTE_INVALID", "The manual quote pricing snapshot is financially inconsistent.");

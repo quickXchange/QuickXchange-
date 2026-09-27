@@ -113,6 +113,13 @@ function parsePositiveDecimal(value: unknown): DecimalValue | undefined {
   return { coefficient, scale };
 }
 
+function parseNonNegativeDecimal(value: unknown): DecimalValue | undefined {
+  const parsed = parsePositiveDecimal(value);
+  if (parsed) return parsed;
+  if (typeof value !== "string" || !/^0(?:\.0*)?$/.test(value)) return undefined;
+  return { coefficient: 0n, scale: 0 };
+}
+
 function validateRates(value: unknown): ValidatedRates {
   if (!value || typeof value !== "object" || Array.isArray(value)) unavailable();
   const rates: ValidatedRates = {};
@@ -574,6 +581,7 @@ export async function getManualDeskEstimate(input: {
   amount: number;
   markupBasisPoints?: number;
   adjustmentDirection?: "MARKUP" | "GIVE_MORE";
+  percentage?: string;
   fixedFee?: string | null;
   exactRate?: string | null;
 }) {
@@ -643,9 +651,18 @@ export async function getManualDeskEstimate(input: {
   const markupBasisPoints = input.markupBasisPoints ?? 60;
   if (!Number.isInteger(markupBasisPoints) ||
       markupBasisPoints < 0 || markupBasisPoints > 10_000) unavailable();
+  let percentageNumerator = BigInt(markupBasisPoints);
+  let percentageDenominator = 10_000n;
+  if (input.percentage !== undefined) {
+    const percentage = parseNonNegativeDecimal(input.percentage);
+    if (!percentage) unavailable();
+    percentageNumerator = percentage.coefficient;
+    percentageDenominator = 100n * 10n ** BigInt(percentage.scale);
+  }
+  const feeNumerator = grossAtomicUnits * percentageNumerator;
   const percentageFeeAtomicUnits = input.adjustmentDirection === "GIVE_MORE"
-    ? (grossAtomicUnits * BigInt(markupBasisPoints)) / 10_000n
-    : (grossAtomicUnits * BigInt(markupBasisPoints) + 9_999n) / 10_000n;
+    ? feeNumerator / percentageDenominator
+    : (feeNumerator + percentageDenominator - 1n) / percentageDenominator;
   const parsedFixedFee = input.fixedFee == null
     ? { coefficient: 0n, scale: 0 }
     : parsePositiveDecimal(input.fixedFee) ??

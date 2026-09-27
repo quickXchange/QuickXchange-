@@ -1425,6 +1425,8 @@ export function ManualSwapWidget({
                       <strong className="reference-rate-value">
                         {currentQuote
                           ? <>1 {fromOption.assetCode} = <span>{formatSwapRate(currentQuote.rate)} {toOption.assetCode}</span></>
+                          : Number(amount) > 0
+                            ? <span>{quoteStatus === 'error' ? 'Rate unavailable' : 'Checking rate...'}</span>
                           : routePricing.data
                             ? <>1 {fromOption.assetCode} = <span>{formatSwapRate(routePricing.data.rate)} {toOption.assetCode}</span></>
                             : <>1 {fromOption.assetCode} = <span>-- {toOption.assetCode}</span></>}

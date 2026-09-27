@@ -25,6 +25,7 @@ import {
 import { invalidatePopularExchangePairsCache } from "../lib/popular-exchange-pairs";
 import { invalidateWhitebitDepositRouteProofs } from "../lib/customer-deposit-eligibility";
 import { invalidateManualDeskFiatRateCache } from "../lib/manual-desk-rates";
+import { validateManualPricingTiers } from "../lib/manual-desk-pricing";
 
 type Executor = any;
 type Action = "add" | "update" | "softDisable" | "unchanged";
@@ -41,7 +42,14 @@ const code = (v: string) => v.trim().toUpperCase();
 const fiatProjection = (f: any) => ({ code: code(f.code), name: f.name, flagObjectPath: f.flagObjectPath, network: f.network, precision: f.precision, lifecycle: f.lifecycle, regions: f.regions, countries: f.countries, enabled: f.enabled, rateMode: f.rateMode, manualRate: f.manualRate });
 const methodProjection = (m: any) => ({ id: m.id, name: m.name, logoObjectPath: m.logoObjectPath, description: m.description, instructions: m.instructions, family: m.family, executionMode: m.executionMode, providerId: m.providerId, lifecycle: m.lifecycle, regions: m.regions, countries: m.countries, requiresProviderConfiguration: m.requiresProviderConfiguration, enabled: m.enabled, canSend: m.canSend, canReceive: m.canReceive, fieldDefinitions: m.fieldDefinitions });
 const linkProjection = (l: any) => ({ enabled: l.enabled, canSend: l.canSend, canReceive: l.canReceive, sendInstructions: l.sendInstructions, receiveInstructions: l.receiveInstructions, minAmount: l.minAmount, maxAmount: l.maxAmount, countries: l.countries });
-const ruleProjection = (r: any) => ({ name: r.name, sourceAsset: r.sourceAsset, targetAsset: r.targetAsset, sourceCryptoAssetId: r.sourceCryptoAssetId, targetCryptoAssetId: r.targetCryptoAssetId, sourceNetwork: r.sourceNetwork, targetNetwork: r.targetNetwork, paymentMethod: r.paymentMethod, payoutMethod: r.payoutMethod, sourceSettlementOptionId: r.sourceSettlementOptionId, targetSettlementOptionId: r.targetSettlementOptionId, minAmount: r.minAmount, maxAmount: r.maxAmount, operatorInstructions: r.operatorInstructions, customerInstructions: r.customerInstructions, expectedSettlementMinutes: r.expectedSettlementMinutes, markupBasisPoints: r.markupBasisPoints, adjustmentDirection: r.adjustmentDirection, fixedFee: r.fixedFee, exactRate: r.exactRate, priority: r.priority, enabled: r.enabled });
+const pricingTiersProjection = (tiers: any[] | null | undefined) =>
+  (tiers ?? []).map((tier) => ({
+    minAmount: tier.minAmount,
+    maxAmount: tier.maxAmount,
+    percentage: tier.percentage,
+    direction: tier.direction,
+  }));
+const ruleProjection = (r: any) => ({ name: r.name, sourceAsset: r.sourceAsset, targetAsset: r.targetAsset, sourceCryptoAssetId: r.sourceCryptoAssetId, targetCryptoAssetId: r.targetCryptoAssetId, sourceNetwork: r.sourceNetwork, targetNetwork: r.targetNetwork, paymentMethod: r.paymentMethod, payoutMethod: r.payoutMethod, sourceSettlementOptionId: r.sourceSettlementOptionId, targetSettlementOptionId: r.targetSettlementOptionId, minAmount: r.minAmount, maxAmount: r.maxAmount, operatorInstructions: r.operatorInstructions, customerInstructions: r.customerInstructions, expectedSettlementMinutes: r.expectedSettlementMinutes, markupBasisPoints: r.markupBasisPoints, adjustmentDirection: r.adjustmentDirection, amountBasedPricingEnabled: r.amountBasedPricingEnabled ?? false, amountBasedPricingTiers: pricingTiersProjection(r.amountBasedPricingTiers), fixedFee: r.fixedFee, exactRate: r.exactRate, priority: r.priority, enabled: r.enabled });
 
 function remapSettlementOptionId(
   value: string | null,
@@ -58,8 +66,18 @@ function parse(body: unknown): WorkspaceConfigSnapshot {
   let parsed: WorkspaceConfigSnapshot;
   try {
     parsed = parseWorkspaceConfigSnapshot(body);
+    for (const rule of parsed.manualDeskPricingRules) {
+      validateManualPricingTiers(
+        rule.amountBasedPricingEnabled ?? false,
+        rule.amountBasedPricingTiers ?? [],
+      );
+    }
   } catch (error) {
-    throw new ApiError("INVALID_WORKSPACE_CONFIG", error instanceof Error ? error.message : "Invalid workspace configuration.", 400);
+    throw new ApiError(
+      "INVALID_WORKSPACE_CONFIG",
+      error instanceof Error ? error.message : "Invalid workspace configuration.",
+      400,
+    );
   }
   const errors = validateSnapshotReferences(parsed);
   if (errors.length) throw new ApiError("INVALID_WORKSPACE_CONFIG", errors.join("; "), 400);
@@ -406,7 +424,7 @@ router.post("/admin/workspace-config/apply", requireOwner, async (req, res, next
       for (const row of links) if (row.enabled && !snapshot.fiatCurrencyPaymentMethods.some((l) => `${fiatMap.get(code(l.fiatCode))}:${l.paymentMethodId}` === `${row.fiatCurrencyId}:${row.paymentMethodId}`)) await tx.update(fiatCurrencyPaymentMethodsTable).set({ enabled: false }).where(eq(fiatCurrencyPaymentMethodsTable.id, row.id));
       const rules = await tx.select().from(manualDeskPricingRulesTable);
       for (const r of snapshot.manualDeskPricingRules) {
-        const values = { name: r.name, sourceAsset: r.sourceAsset, targetAsset: r.targetAsset, sourceCryptoAssetId: r.sourceCryptoAssetId ? assetMap.get(r.sourceCryptoAssetId) : null, targetCryptoAssetId: r.targetCryptoAssetId ? assetMap.get(r.targetCryptoAssetId) : null, sourceNetwork: r.sourceNetwork, targetNetwork: r.targetNetwork, paymentMethod: r.paymentMethod, payoutMethod: r.payoutMethod, sourceSettlementOptionId: remapSettlementOptionId(r.sourceSettlementOptionId, sourceNetworkMap, sourceFiatMap), targetSettlementOptionId: remapSettlementOptionId(r.targetSettlementOptionId, sourceNetworkMap, sourceFiatMap), minAmount: r.minAmount, maxAmount: r.maxAmount, operatorInstructions: r.operatorInstructions, customerInstructions: r.customerInstructions, expectedSettlementMinutes: r.expectedSettlementMinutes, markupBasisPoints: r.markupBasisPoints, adjustmentDirection: r.adjustmentDirection, fixedFee: r.fixedFee, exactRate: r.exactRate, priority: r.priority, enabled: r.enabled };
+        const values = { name: r.name, sourceAsset: r.sourceAsset, targetAsset: r.targetAsset, sourceCryptoAssetId: r.sourceCryptoAssetId ? assetMap.get(r.sourceCryptoAssetId) : null, targetCryptoAssetId: r.targetCryptoAssetId ? assetMap.get(r.targetCryptoAssetId) : null, sourceNetwork: r.sourceNetwork, targetNetwork: r.targetNetwork, paymentMethod: r.paymentMethod, payoutMethod: r.payoutMethod, sourceSettlementOptionId: remapSettlementOptionId(r.sourceSettlementOptionId, sourceNetworkMap, sourceFiatMap), targetSettlementOptionId: remapSettlementOptionId(r.targetSettlementOptionId, sourceNetworkMap, sourceFiatMap), minAmount: r.minAmount, maxAmount: r.maxAmount, operatorInstructions: r.operatorInstructions, customerInstructions: r.customerInstructions, expectedSettlementMinutes: r.expectedSettlementMinutes, markupBasisPoints: r.markupBasisPoints, adjustmentDirection: r.adjustmentDirection, amountBasedPricingEnabled: r.amountBasedPricingEnabled ?? false, amountBasedPricingTiers: r.amountBasedPricingTiers ?? [], fixedFee: r.fixedFee, exactRate: r.exactRate, priority: r.priority, enabled: r.enabled };
         const existing = rules.find((x: any) => x.id === r.id);
         if (existing) {
           if (stable(ruleProjection(existing)) !== stable(ruleProjection(values))) {

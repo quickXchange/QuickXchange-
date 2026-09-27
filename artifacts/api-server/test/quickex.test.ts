@@ -3316,6 +3316,10 @@ test("manual pricing bulk actions update safe rules and report skipped conflicts
       targetSettlementOptionId: target.id,
       markupBasisPoints: 275,
       adjustmentDirection: "GIVE_MORE",
+      amountBasedPricingEnabled: true,
+      amountBasedPricingTiers: [
+        { minAmount: "0", maxAmount: null, percentage: "1.25", direction: "GIVE_MORE" },
+      ],
       exactRate: "1.1",
       fixedFee: null,
       priority: -900000,
@@ -3328,11 +3332,15 @@ test("manual pricing bulk actions update safe rules and report skipped conflicts
     apiCreatedIds.push(String(createdViaApi.body.id));
     assert.equal(createdViaApi.body.adjustmentDirection, "GIVE_MORE");
     assert.equal(createdViaApi.body.markupBasisPoints, 275);
+    assert.equal(createdViaApi.body.amountBasedPricingEnabled, true);
+    assert.deepEqual(createdViaApi.body.amountBasedPricingTiers, apiRulePayload.amountBasedPricingTiers);
     assert.equal(createdViaApi.body.version, 1);
     const createdRow = (await db.select().from(manualDeskPricingRulesTable)
       .where(eq(manualDeskPricingRulesTable.id, createdViaApi.body.id)))[0];
     assert.equal(createdRow?.adjustmentDirection, "GIVE_MORE");
     assert.equal(createdRow?.markupBasisPoints, 275);
+    assert.equal(createdRow?.amountBasedPricingEnabled, true);
+    assert.deepEqual(createdRow?.amountBasedPricingTiers, apiRulePayload.amountBasedPricingTiers);
     const editedViaApi = await apiJson(
       api.url, `/admin/manual-desk-pricing-rules/${createdViaApi.body.id}`, {
         ...apiRulePayload,
@@ -3392,6 +3400,7 @@ test("manual pricing bulk actions update safe rules and report skipped conflicts
       .where(eq(manualDeskPricingRulesTable.id, createdViaApi.body.id)))[0];
     assert.equal(persistedEdit?.adjustmentDirection, "GIVE_MORE");
     assert.equal(persistedEdit?.markupBasisPoints, 325);
+    assert.deepEqual(persistedEdit?.amountBasedPricingTiers, apiRulePayload.amountBasedPricingTiers);
     assert.equal(persistedEdit?.version, 4);
     const existingPriorities = new Set(
       (await db.select({ priority: manualDeskPricingRulesTable.priority })
@@ -3447,6 +3456,13 @@ test("manual pricing bulk actions update safe rules and report skipped conflicts
         index === 4 ? null : target.id,
       markupBasisPoints: 200 + index,
       priority: priority - 100 - index,
+      amountBasedPricingEnabled: index % 2 === 0,
+      amountBasedPricingTiers: [{
+        minAmount: "0",
+        maxAmount: null,
+        percentage: `${index + 1}`,
+        direction: index % 2 === 0 ? "MARKUP" : "GIVE_MORE",
+      }],
     })));
     // Matches what happened in production: a legacy Any-source row would be
     // canonicalized onto an already-occupied selector if bulk edit wrote the
@@ -3646,6 +3662,27 @@ test("manual pricing bulk actions update safe rules and report skipped conflicts
     assert.deepEqual(response.body.affectedIds, ids);
     assert.equal((response.body.items as Array<unknown>).some(item =>
       ids.includes(String((item as { id: string }).id))), false);
+
+    const latestScaleRows = await db.select().from(manualDeskPricingRulesTable)
+      .where(inArray(manualDeskPricingRulesTable.id, scaleIds));
+    const tiersForAll = [
+      { minAmount: "0", maxAmount: "600", percentage: "1", direction: "MARKUP" },
+      { minAmount: "600", maxAmount: null, percentage: "2", direction: "GIVE_MORE" },
+    ];
+    const explicitTierEdit = await bulk({
+      action: "edit",
+      items: latestScaleRows.map(({ id, version }) => ({ id, version })),
+      patch: { amountBasedPricingEnabled: true, amountBasedPricingTiers: tiersForAll },
+    });
+    assert.equal(explicitTierEdit.status, 200, JSON.stringify(explicitTierEdit.body));
+    assert.equal(explicitTierEdit.body.updatedIds.length, 60);
+    assert.ok((explicitTierEdit.body.items as Array<Record<string, any>>)
+      .filter(item => scaleIds.includes(String(item.id)))
+      .every(item => {
+        assert.equal(item.amountBasedPricingEnabled, true);
+        assert.deepEqual(item.amountBasedPricingTiers, tiersForAll);
+        return true;
+      }));
   } finally {
     await db.delete(manualDeskPricingRulesTable)
       .where(inArray(manualDeskPricingRulesTable.id, [...ids, ...scaleIds, canonicalCollisionId, ...apiCreatedIds]));
@@ -7370,6 +7407,10 @@ test("manual pricing rules match deterministically, protect writes, and snapshot
     };
     assert.ok(seededCatalog.items.some(rule =>
       rule.name === "Global 0.6% fallback" && rule.markupBasisPoints === 60));
+    const seededFallback = seededCatalog.items.find(rule =>
+      rule.name === "Global 0.6% fallback");
+    assert.equal(seededFallback?.amountBasedPricingEnabled, false);
+    assert.deepEqual(seededFallback?.amountBasedPricingTiers, []);
     assert.equal(seededCatalog.diagnostics.hasEnabledAnyToAnyFallback, true);
     for (const orphan of seededCatalog.diagnostics.orphanRules) {
       const flaggedRule = seededCatalog.items.find((rule) => rule.id === orphan.ruleId);
@@ -7429,6 +7470,10 @@ test("manual pricing rules match deterministically, protect writes, and snapshot
       ...routeRule,
       ...pricingRoute,
       exactRate: "0.9",
+      amountBasedPricingEnabled: true,
+      amountBasedPricingTiers: [
+        { minAmount: "0", maxAmount: null, percentage: "1.005", direction: "MARKUP" },
+      ],
     }).returning();
     const created = { status: 201, body: createdRow };
     ruleIds.push(createdRow.id);
@@ -7554,13 +7599,18 @@ test("manual pricing rules match deterministically, protect writes, and snapshot
     assert.equal(quote.status, 200);
     assert.equal(quote.body.pricingRuleId, created.body.id);
     assert.equal(quote.body.grossMarketAmount, 90);
-    assert.equal(quote.body.percentageCommission, 1.8);
+    assert.equal(quote.body.percentageCommission, 0.91);
     assert.equal(quote.body.fixedCommission, 0.1);
-    assert.equal(quote.body.totalFee, 1.9);
-    assert.equal(quote.body.receiveAmount, 88.1);
+    assert.equal(quote.body.totalFee, 1.01);
+    assert.equal(quote.body.receiveAmount, 88.99);
     const signedPayload = JSON.parse(
       Buffer.from(String(quote.body.quoteId).split(".")[0], "base64url").toString("utf8"),
     ) as Record<string, any>;
+    assert.equal(signedPayload.pricingSnapshot.rule.amountBasedPricingEnabled, true);
+    assert.deepEqual(
+      signedPayload.pricingSnapshot.rule.selectedAmountBasedPricingTier,
+      { minAmount: "0", maxAmount: null, percentage: "1.005", direction: "MARKUP" },
+    );
     const ticketExpected = {
       type: "manual" as const,
       fromAsset: "USD",
@@ -7573,12 +7623,32 @@ test("manual pricing rules match deterministically, protect writes, and snapshot
       sourceSettlementOptionId: pricingRoute.sourceSettlementOptionId,
       targetSettlementOptionId: pricingRoute.targetSettlementOptionId,
     };
+    const mismatchedTier = {
+      ...signedPayload,
+      pricingSnapshot: {
+        ...signedPayload.pricingSnapshot,
+        rule: {
+          ...signedPayload.pricingSnapshot.rule,
+          amountBasedPricingTiers: [
+            { minAmount: "0", maxAmount: "100", percentage: "1", direction: "MARKUP" },
+            { minAmount: "100", maxAmount: null, percentage: "2", direction: "GIVE_MORE" },
+          ],
+          selectedAmountBasedPricingTier: {
+            minAmount: "100", maxAmount: null, percentage: "2", direction: "GIVE_MORE",
+          },
+        },
+      },
+    };
+    assert.throws(
+      () => tickets.verifyQuoteTicket(tickets.signQuoteTicket(mismatchedTier), ticketExpected),
+      { code: "QUOTE_INVALID" },
+    );
     const contradictoryRounding = {
       ...signedPayload,
       pricingSnapshot: {
         ...signedPayload.pricingSnapshot,
         rule: { ...signedPayload.pricingSnapshot.rule, adjustmentDirection: "GIVE_MORE" },
-        rounding: { ...signedPayload.pricingSnapshot.rounding, percentageCommission: "ceil" },
+        rounding: { ...signedPayload.pricingSnapshot.rounding, percentageCommission: "floor" },
       },
     };
     assert.throws(
@@ -7685,13 +7755,42 @@ test("manual pricing rules match deterministically, protect writes, and snapshot
     orderId = String(ordered.body.id);
     assert.equal(ordered.body.pricingRuleId, created.body.id);
     assert.equal(ordered.body.pricingRuleVersion, created.body.version);
-    assert.equal(ordered.body.percentageCommission, "1.8");
-    assert.equal(ordered.body.totalCommission, "1.9");
+    assert.equal(ordered.body.percentageCommission, "0.91");
+    assert.equal(ordered.body.totalCommission, "1.01");
     assert.equal(ordered.body.pricingSnapshot.rule.markupBasisPoints, 200);
+    assert.equal(ordered.body.pricingSnapshot.rule.amountBasedPricingEnabled, true);
+    assert.deepEqual(ordered.body.pricingSnapshot.rule.selectedAmountBasedPricingTier, {
+      minAmount: "0", maxAmount: null, percentage: "1.005", direction: "MARKUP",
+    });
     assert.equal(ordered.body.pricingSnapshot.rule.fixedFee, "0.100000000000000000");
     assert.equal(ordered.body.pricingSnapshot.reference.source.unitsPerUsd, "1");
     assert.equal(ordered.body.pricingSnapshot.reference.target.unitsPerUsd, "0.9");
-    assert.equal(ordered.body.pricingSnapshot.amounts.totalFee, "1.9");
+    assert.equal(ordered.body.pricingSnapshot.amounts.totalFee, "1.01");
+
+    const revalidationQuote = await apiJson(api.url, "/exchange/quote", {
+      type: "manual", fromAsset: "USD", fromNetwork: "Bank transfer",
+      toAsset: "EUR", toNetwork: "SEPA", amount: 100,
+      paymentMethod: "bank transfer", payoutMethod: "wallet",
+      ...pricingRoute,
+    });
+    assert.equal(revalidationQuote.status, 200);
+    await db.update(manualDeskPricingRulesTable).set({
+      amountBasedPricingTiers: [
+        { minAmount: "0", maxAmount: null, percentage: "3", direction: "MARKUP" },
+      ],
+      version: created.body.version + 1,
+    }).where(eq(manualDeskPricingRulesTable.id, created.body.id));
+    const staleTierQuote = await apiJson(api.url, "/orders", {
+      type: "manual", fromAsset: "USD", fromNetwork: "Bank transfer",
+      toAsset: "EUR", toNetwork: "SEPA", amount: 100,
+      quoteId: revalidationQuote.body.quoteId,
+      customerEmail: email, clientRequestId: requestIdForTest(937),
+      paymentMethod: "bank transfer", payoutMethod: "wallet",
+      settlementDetails: settlementDetailsFixture(revalidationQuote.body.requiredSettlementFields),
+      ...pricingRoute,
+    });
+    assert.equal(staleTierQuote.status, 409);
+    assert.equal(staleTierQuote.body.code, "MANUAL_QUOTE_CONFIGURATION_CHANGED");
   } finally {
     if (orderId) await db.delete(ordersTable).where(eq(ordersTable.id, orderId));
     await db.delete(customersTable).where(eq(customersTable.email, email));

@@ -1,6 +1,7 @@
 import {
   boolean,
   integer,
+  jsonb,
   numeric,
   pgTable,
   text,
@@ -32,6 +33,13 @@ export const manualDeskPricingRulesTable = pgTable("manual_desk_pricing_rules", 
   markupBasisPoints: integer("markup_basis_points").notNull(),
   adjustmentDirection: text("adjustment_direction").notNull().default("MARKUP"),
   fixedFee: numeric("fixed_fee", { precision: 38, scale: 18 }),
+  amountBasedPricingEnabled: boolean("amount_based_pricing_enabled").notNull().default(false),
+  amountBasedPricingTiers: jsonb("amount_based_pricing_tiers").$type<Array<{
+    minAmount: string;
+    maxAmount: string | null;
+    percentage: string;
+    direction: "MARKUP" | "GIVE_MORE";
+  }>>().notNull().default([]),
   /** Optional exact base rate, expressed as target units per source unit. */
   exactRate: numeric("exact_rate", { precision: 78, scale: 36 }),
   priority: integer("priority").notNull().default(0),

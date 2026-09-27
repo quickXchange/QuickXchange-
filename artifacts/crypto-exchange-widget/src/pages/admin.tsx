@@ -8183,6 +8183,8 @@ const pricingRuleInput = (rule: ManualDeskPricingRule, enabled = rule.enabled): 
   targetSettlementOptionId: rule.targetSettlementOptionId,
   markupBasisPoints: rule.markupBasisPoints,
   adjustmentDirection: rule.adjustmentDirection || 'MARKUP',
+  amountBasedPricingEnabled: rule.amountBasedPricingEnabled ?? false,
+  amountBasedPricingTiers: rule.amountBasedPricingTiers ?? [],
   exactRate: rule.exactRate ?? null,
   fixedFee: rule.fixedFee,
   priority: rule.priority,
@@ -8193,6 +8195,114 @@ const pricingRuleInput = (rule: ManualDeskPricingRule, enabled = rule.enabled): 
   customerInstructions: rule.customerInstructions,
   expectedSettlementMinutes: rule.expectedSettlementMinutes,
 });
+
+type AmountPricingTier = {
+  minAmount: string;
+  maxAmount: string | null;
+  percentage: string;
+  direction: 'MARKUP' | 'GIVE_MORE';
+};
+
+const exactAmount = /^(0|[1-9]\d*)(?:\.\d+)?$/;
+
+function inspectAmountTiers(enabled: boolean, tiers: AmountPricingTier[]) {
+  if (!enabled) return { error: '', gaps: [] as string[] };
+  if (!tiers.length) return { error: 'Add at least one tier or turn off amount-based pricing.', gaps: [] as string[] };
+  const gaps: string[] = [];
+  for (let index = 0; index < tiers.length; index++) {
+    const tier = tiers[index];
+    const min = tier.minAmount.trim();
+    const max = tier.maxAmount?.trim() ?? null;
+    const percent = tier.percentage.trim();
+    if (!exactAmount.test(min) || (max !== null && !exactAmount.test(max))) {
+      return { error: `Tier ${index + 1}: amounts must be nonnegative decimal values. Use No Limit for an open maximum.`, gaps };
+    }
+    if (index === 0 && isGreaterThanExact(min, '0')) {
+      return { error: 'The first tier must start at 0 (inclusive).', gaps };
+    }
+    if (index > 0 && !isGreaterThanExact(min, '0')) {
+      return { error: `Tier ${index + 1}: minimum must be above 0.`, gaps };
+    }
+    if (max !== null && !isGreaterThanExact(max, min)) {
+      return { error: `Tier ${index + 1}: Max Amount must be greater than Min Amount.`, gaps };
+    }
+    if (!exactAmount.test(percent) || isGreaterThanExact(percent, '100') || (tier.direction === 'MARKUP' && !isGreaterThanExact('100', percent))) {
+      return { error: `Tier ${index + 1}: Percentage must be a nonnegative decimal from 0–100% (markup must be below 100%).`, gaps };
+    }
+    if (index > 0) {
+      const previous = tiers[index - 1];
+      if (previous.maxAmount === null) {
+        return { error: `Tier ${index} has No Limit; it must be the last tier.`, gaps };
+      }
+      const previousMax = previous.maxAmount.trim();
+      if (!isGreaterThanExact(min, previous.minAmount.trim())) {
+        return { error: `Tier ${index + 1}: minimum must be greater than the preceding tier's minimum.`, gaps };
+      }
+      if (isGreaterThanExact(previousMax, min)) {
+        return { error: `Tiers ${index} and ${index + 1} overlap. Set the next minimum at or above ${previousMax}.`, gaps };
+      }
+      if (isGreaterThanExact(min, previousMax)) gaps.push(`greater than ${previousMax} through ${min} (inclusive) uses base pricing`);
+    }
+  }
+  const last = tiers[tiers.length - 1];
+  if (last.maxAmount !== null) return { error: 'The last tier must use No Limit for its maximum.', gaps };
+  return { error: '', gaps };
+}
+
+function AmountBasedPricingEditor({
+  enabled, tiers, onEnabledChange, onTiersChange, disabled = false, prefix,
+}: {
+  enabled: boolean;
+  tiers: AmountPricingTier[];
+  onEnabledChange: (enabled: boolean) => void;
+  onTiersChange: (tiers: AmountPricingTier[]) => void;
+  disabled?: boolean;
+  prefix: 'single' | 'bulk';
+}) {
+  const validation = inspectAmountTiers(enabled, tiers);
+  const edit = (index: number, change: Partial<AmountPricingTier>) =>
+    onTiersChange(tiers.map((tier, position) => position === index ? { ...tier, ...change } : tier));
+  return <section className="amount-pricing-section" data-testid={`${prefix}-amount-pricing-editor`} aria-label="Amount-Based Pricing">
+    <div className="amount-pricing-heading">
+      <div>
+        <span className="section-kicker">Amount-Based Pricing</span>
+        <h3>Adjust by amount</h3>
+        <p>Each tier replaces the base percentage and direction for its amount range. Outside the tiers, base pricing applies.</p>
+      </div>
+      <label className="amount-pricing-enable">
+        <input type="checkbox" checked={enabled} onChange={event => onEnabledChange(event.target.checked)} disabled={disabled} data-testid={`${prefix}-amount-pricing-enabled`} />
+        <span>Enable</span>
+      </label>
+    </div>
+    {enabled && <div className="amount-pricing-content">
+      <p className="amount-pricing-boundary">First minimum is inclusive; later minimums are exclusive. Every maximum is inclusive. Example: 0–600 means ≤ 600; 600–No Limit means &gt; 600.</p>
+      {tiers.length === 0 && <p className="amount-pricing-empty">No tiers yet. Add a tier to set an amount range.</p>}
+      {tiers.map((tier, index) => <div className="amount-pricing-tier" key={index} data-testid={`${prefix}-amount-tier-${index}`}>
+        <div className="amount-pricing-tier-head"><strong>Tier {index + 1}</strong><span>{index === 0 ? 'Min inclusive · Max inclusive' : 'Min exclusive · Max inclusive'}</span>
+          {!disabled && <button type="button" onClick={() => {
+            const remaining = tiers.filter((_, position) => position !== index);
+            if (index === tiers.length - 1 && remaining.length) remaining[remaining.length - 1] = { ...remaining[remaining.length - 1], maxAmount: null };
+            onTiersChange(remaining);
+          }} aria-label={`Delete tier ${index + 1}`} data-testid={`${prefix}-delete-amount-tier-${index}`}><Trash2 size={14} /> Delete</button>}
+        </div>
+        <div className="amount-pricing-tier-grid">
+          <label>Min Amount<input inputMode="decimal" value={tier.minAmount} onChange={event => edit(index, { minAmount: event.target.value })} disabled={disabled} placeholder="0" data-testid={`${prefix}-amount-min-${index}`} /></label>
+          <label>Max Amount<input inputMode="decimal" value={tier.maxAmount ?? ''} onChange={event => edit(index, { maxAmount: event.target.value })} disabled={disabled || tier.maxAmount === null} placeholder={tier.maxAmount === null ? 'No Limit' : '600'} data-testid={`${prefix}-amount-max-${index}`} />
+            <span className="amount-pricing-no-limit"><input type="checkbox" checked={tier.maxAmount === null} onChange={event => edit(index, { maxAmount: event.target.checked ? null : '' })} disabled={disabled} data-testid={`${prefix}-amount-no-limit-${index}`} />No Limit</span>
+          </label>
+          <label>Percentage <small>%</small><input inputMode="decimal" value={tier.percentage} onChange={event => edit(index, { percentage: event.target.value })} disabled={disabled} placeholder="1" data-testid={`${prefix}-amount-percentage-${index}`} /></label>
+          <label>Direction<select value={tier.direction} onChange={event => edit(index, { direction: event.target.value as AmountPricingTier['direction'] })} disabled={disabled} data-testid={`${prefix}-amount-direction-${index}`}><option value="MARKUP">Markup (less for customer)</option><option value="GIVE_MORE">Give more (customer bonus)</option></select></label>
+        </div>
+      </div>)}
+      {!disabled && <button type="button" className="amount-pricing-add" onClick={() => onTiersChange([
+        ...tiers.map((tier, position) => position === tiers.length - 1 && tier.maxAmount === null ? { ...tier, maxAmount: '' } : tier),
+        { minAmount: tiers.length ? (tiers[tiers.length - 1].maxAmount ?? '') : '0', maxAmount: null, percentage: '', direction: 'MARKUP' },
+      ])} data-testid={`${prefix}-add-amount-tier`}>+ Add Tier</button>}
+      {validation.error && <p className="amount-pricing-error" role="alert" data-testid={`${prefix}-amount-validation`}>{validation.error}</p>}
+      {!validation.error && validation.gaps.length > 0 && <p className="amount-pricing-warning" role="status" data-testid={`${prefix}-amount-gap-warning`}><strong>Coverage gaps:</strong> {validation.gaps.join('; ')}. Base pricing applies in these ranges.</p>}
+    </div>}
+  </section>;
+}
 
 const pricingCoverageSelectorKeys = [
   'sourceAsset', 'targetAsset', 'sourceNetwork', 'targetNetwork',
@@ -8387,6 +8497,8 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
     enabled: rule?.enabled ?? true,
   });
   const [error, setError] = useState('');
+  const [amountEnabled, setAmountEnabled] = useState(rule?.amountBasedPricingEnabled ?? false);
+  const [amountTiers, setAmountTiers] = useState<AmountPricingTier[]>(() => rule?.amountBasedPricingTiers ?? []);
   const [sourceMode, setSourceMode] = useState<'single' | 'multiple'>('single');
   const [targetMode, setTargetMode] = useState<'single' | 'multiple'>('single');
   const [sourceSelections, setSourceSelections] = useState<string[]>([]);
@@ -8474,6 +8586,12 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
   const save = (event: React.FormEvent) => {
     event.preventDefault();
     setError('');
+    const amountValidation = inspectAmountTiers(amountEnabled, amountTiers);
+    if (amountValidation.error) {
+      setError(amountValidation.error);
+      return;
+    }
+    const tiersToSave = !amountEnabled && inspectAmountTiers(true, amountTiers).error ? [] : amountTiers;
     const sourceOpt = fromOptions.find(o => sameSettlementOptionId(o.id, form.sourceSettlementOptionId));
     const targetOpt = toOptions.find(o => sameSettlementOptionId(o.id, form.targetSettlementOptionId));
     const selectedSourceOptions = sourceMode === 'multiple'
@@ -8543,6 +8661,13 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
        targetSettlementOptionId: isAssetPricingOption(selectedTarget) ? null : selectedTarget?.id ?? null,
       markupBasisPoints,
       adjustmentDirection: form.adjustmentDirection as 'MARKUP' | 'GIVE_MORE',
+      amountBasedPricingEnabled: amountEnabled,
+      amountBasedPricingTiers: tiersToSave.map(tier => ({
+        minAmount: tier.minAmount.trim(),
+        maxAmount: tier.maxAmount?.trim() ?? null,
+        percentage: tier.percentage.trim(),
+        direction: tier.direction,
+      })),
       exactRate: form.exactRate.trim() || null,
       fixedFee: form.fixedFee.trim() || null,
       minAmount: form.minAmount.trim() || null,
@@ -8655,6 +8780,7 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
           <label className="pricing-rule-field"><span className="field-label">{t('adminPricing.min_amount')}</span><input inputMode="decimal" value={form.minAmount} onChange={event => set('minAmount', event.target.value)} placeholder="0.00" disabled={rule?.readOnly} data-testid="input-pricing-min" /></label>
           <label className="pricing-rule-field"><span className="field-label">{t('adminPricing.max_amount')}</span><input inputMode="decimal" value={form.maxAmount} onChange={event => set('maxAmount', event.target.value)} placeholder="0.00" disabled={rule?.readOnly} data-testid="input-pricing-max" /></label>
         </div>
+        <AmountBasedPricingEditor prefix="single" enabled={amountEnabled} tiers={amountTiers} onEnabledChange={setAmountEnabled} onTiersChange={setAmountTiers} disabled={rule?.readOnly} />
 
         {rule && (
           <div className="admin-form-grid pricing-form-grid">
@@ -8818,6 +8944,9 @@ function BulkPricingRuleDrawer({
   });
 
   const [error, setError] = useState('');
+  const [applyAmountPricing, setApplyAmountPricing] = useState(false);
+  const [amountEnabled, setAmountEnabled] = useState(false);
+  const [amountTiers, setAmountTiers] = useState<AmountPricingTier[]>([]);
   const set = <K extends keyof typeof form>(key: K, value: typeof form[K]) => setForm(c => ({ ...c, [key]: value }));
   const toggleApply = (key: keyof typeof form) => setForm(c => ({ ...c, [key]: !(c[key] as boolean) }));
 
@@ -8830,6 +8959,18 @@ function BulkPricingRuleDrawer({
     setError('');
 
     const patch: ManualDeskPricingRulesBulkPatch = {};
+    if (applyAmountPricing) {
+      const validation = inspectAmountTiers(amountEnabled, amountTiers);
+      if (validation.error) { setError(validation.error); return; }
+      const tiersToSave = !amountEnabled && inspectAmountTiers(true, amountTiers).error ? [] : amountTiers;
+      patch.amountBasedPricingEnabled = amountEnabled;
+      patch.amountBasedPricingTiers = tiersToSave.map(tier => ({
+        minAmount: tier.minAmount.trim(),
+        maxAmount: tier.maxAmount?.trim() ?? null,
+        percentage: tier.percentage.trim(),
+        direction: tier.direction,
+      }));
+    }
     if (form.applyMarkup) {
       const markupText = form.markupPercent.trim();
       if (!/^\d+(?:\.\d{1,2})?$/.test(markupText)) {
@@ -8923,7 +9064,7 @@ function BulkPricingRuleDrawer({
     });
   };
 
-  const hasAnyApply = Object.entries(form).some(([k, v]) => k.startsWith('apply') && v);
+  const hasAnyApply = applyAmountPricing || Object.entries(form).some(([k, v]) => k.startsWith('apply') && v);
 
   return createPortal(<div className="drawer-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
     <aside className="order-drawer pricing-drawer bulk-drawer" role="dialog" aria-modal="true" aria-label="Bulk edit rules" data-testid="bulk-pricing-rule-drawer">
@@ -8983,6 +9124,11 @@ function BulkPricingRuleDrawer({
                 <span className="field-label flex items-center gap-2"><input type="checkbox" checked={form.applyMaxAmount} onChange={() => toggleApply('applyMaxAmount')} data-testid="apply-max"/> Max Amount</span>
                 <input inputMode="decimal" value={form.maxAmount} onChange={e => { set('maxAmount', e.target.value); set('applyMaxAmount', true); }} disabled={!form.applyMaxAmount} data-testid="input-bulk-max" placeholder="Leave blank to clear" />
              </label>
+          </div>
+
+          <div className="amount-pricing-bulk">
+            <label className="amount-pricing-apply"><input type="checkbox" checked={applyAmountPricing} onChange={event => setApplyAmountPricing(event.target.checked)} data-testid="apply-amount-based-pricing" /> Amount-Based Pricing <small>Apply this configuration to all {rules.length} selected rules</small></label>
+            {applyAmountPricing && <AmountBasedPricingEditor prefix="bulk" enabled={amountEnabled} tiers={amountTiers} onEnabledChange={setAmountEnabled} onTiersChange={setAmountTiers} />}
           </div>
 
           <div className="admin-form-grid pricing-form-grid bulk-form-grid">

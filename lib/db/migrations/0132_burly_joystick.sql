@@ -1,0 +1,2 @@
+ALTER TABLE "manual_desk_pricing_rules" ADD COLUMN IF NOT EXISTS "amount_based_pricing_enabled" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "manual_desk_pricing_rules" ADD COLUMN IF NOT EXISTS "amount_based_pricing_tiers" jsonb DEFAULT '[]'::jsonb NOT NULL;

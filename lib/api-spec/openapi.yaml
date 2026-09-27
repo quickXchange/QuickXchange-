@@ -5475,6 +5475,14 @@ components:
                 targetSettlementOptionId: { type: [string, "null"] }
             markupBasisPoints: { type: number, minimum: 0, maximum: 10000, multipleOf: 1 }
             adjustmentDirection: { type: string, enum: [MARKUP, GIVE_MORE], default: MARKUP }
+            amountBasedPricingEnabled: { type: boolean }
+            amountBasedPricingTiers:
+              type: array
+              items: { $ref: "#/components/schemas/ManualDeskPricingAmountTier" }
+            selectedAmountBasedPricingTier:
+              oneOf:
+                - $ref: "#/components/schemas/ManualDeskPricingAmountTier"
+                - type: "null"
             exactRate:
               oneOf:
                 - $ref: "#/components/schemas/PositiveExactDecimal"
@@ -5563,6 +5571,11 @@ components:
             name: { type: string, minLength: 1, maxLength: 200 }
             markupBasisPoints: { type: number, minimum: 0, maximum: 10000, multipleOf: 1 }
             adjustmentDirection: { type: string, enum: [MARKUP, GIVE_MORE], default: MARKUP }
+            amountBasedPricingEnabled: { type: boolean, default: false }
+            amountBasedPricingTiers:
+              type: array
+              default: []
+              items: { $ref: "#/components/schemas/ManualDeskPricingAmountTier" }
             exactRate:
               oneOf:
                 - $ref: "#/components/schemas/PositiveExactDecimal"
@@ -5618,6 +5631,10 @@ components:
       properties:
         markupBasisPoints: { type: number, minimum: 0, maximum: 10000, multipleOf: 1 }
         adjustmentDirection: { type: string, enum: [MARKUP, GIVE_MORE] }
+        amountBasedPricingEnabled: { type: boolean }
+        amountBasedPricingTiers:
+          type: array
+          items: { $ref: "#/components/schemas/ManualDeskPricingAmountTier" }
         priority: { type: number, minimum: -1000000, maximum: 1000000, multipleOf: 1 }
         sourceCryptoAssetId: { type: ["string", "null"], minLength: 1, maxLength: 200 }
         targetCryptoAssetId: { type: ["string", "null"], minLength: 1, maxLength: 200 }
@@ -5630,7 +5647,7 @@ components:
         minAmount:
           oneOf: [{ $ref: "#/components/schemas/ExactDecimal" }, { type: "null" }]
         maxAmount:
-          oneOf: [{ $ref: "#/components/schemas/ExactDecimal" }, { type: "null" }]
+          oneOf: [{ $ref: "#/components/schemas/NonNegativeExactDecimal" }, { type: "null" }]
         expectedSettlementMinutes: { type: ["number", "null"], minimum: 1, maximum: 10080, multipleOf: 1 }
         operatorInstructions: { type: ["string", "null"], maxLength: 5000 }
         customerInstructions: { type: ["string", "null"], maxLength: 5000 }
@@ -5686,7 +5703,7 @@ components:
       allOf:
         - $ref: "#/components/schemas/ManualDeskPricingRuleInput"
         - type: object
-          required: [id, version, specificity, missingSettlementOptionIds, createdAt, updatedAt]
+          required: [id, version, specificity, missingSettlementOptionIds, createdAt, updatedAt, amountBasedPricingEnabled, amountBasedPricingTiers]
           properties:
             id: { type: string }
             version: { type: number, minimum: 1, multipleOf: 1 }
@@ -5700,6 +5717,16 @@ components:
               items: { type: string }
             createdAt: { type: string }
             updatedAt: { type: string }
+    ManualDeskPricingAmountTier:
+      type: object
+      additionalProperties: false
+      required: [minAmount, maxAmount, percentage, direction]
+      properties:
+        minAmount: { $ref: "#/components/schemas/NonNegativeExactDecimal" }
+        maxAmount:
+          oneOf: [{ $ref: "#/components/schemas/ExactDecimal" }, { type: "null" }]
+        percentage: { $ref: "#/components/schemas/NonNegativeExactDecimal" }
+        direction: { type: string, enum: [MARKUP, GIVE_MORE] }
     ManualPricingCoveragePair:
       type: object
       additionalProperties: false
