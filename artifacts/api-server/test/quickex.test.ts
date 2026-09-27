@@ -4080,6 +4080,7 @@ test("manual lifecycle enforces transitions and concurrency and writes an operat
     role: "operator", status: "active",
     permissionAllows: [
       "orders.status",
+      "orders.details",
       "orders.notes",
       "orders.complete",
       "orders.confirm_payment",
@@ -4143,8 +4144,32 @@ test("manual lifecycle enforces transitions and concurrency and writes an operat
     assert.equal(noteOnly.status, 200);
     assert.equal(noteOnly.body.incomingTransactionReference, "tx-in");
     assert.equal(noteOnly.body.outgoingTransactionReference, "");
+    const methodLabels = await apiJson(api.url, `/orders/${orderId}`, {
+      recordVersion: 2,
+      sendingPaymentMethodLabel: "Bank transfer",
+      receivingPaymentMethodLabel: "Mobile wallet",
+    }, "PATCH", headers);
+    assert.equal(methodLabels.status, 200, JSON.stringify(methodLabels.body));
+    assert.equal(methodLabels.body.sendingPaymentMethodLabel, "Bank transfer");
+    assert.equal(methodLabels.body.receivingPaymentMethodLabel, "Mobile wallet");
+    const reloaded = await fetch(`${api.url}/orders/${orderId}`, { headers });
+    assert.equal(reloaded.status, 200);
+    const reloadedOrder = await reloaded.json() as Record<string, unknown>;
+    assert.equal(reloadedOrder.sendingPaymentMethodLabel, "Bank transfer");
+    assert.equal(reloadedOrder.receivingPaymentMethodLabel, "Mobile wallet");
+    const [storedLabels] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
+    assert.equal(storedLabels.sendingPaymentMethodLabel, "Bank transfer");
+    assert.equal(storedLabels.receivingPaymentMethodLabel, "Mobile wallet");
+    assert.equal(storedLabels.manualSettlementState, "completed");
+    assert.equal(storedLabels.status, "completed");
+    assert.equal(storedLabels.sourceSettlementOptionId, null);
+    assert.equal(storedLabels.targetSettlementOptionId, null);
+    const staleMethodEdit = await apiJson(api.url, `/orders/${orderId}`, {
+      recordVersion: 2, sendingPaymentMethodLabel: "Wrong method",
+    }, "PATCH", headers);
+    assert.equal(staleMethodEdit.status, 409);
     const backward = await apiJson(api.url, `/orders/${orderId}`, {
-      recordVersion: 2, manualSettlementState: "payout_processing",
+      recordVersion: 3, manualSettlementState: "payout_processing",
     }, "PATCH", headers);
     assert.equal(backward.status, 422);
     const legacyNote = await apiJson(api.url, `/orders/${legacyOrderId}`, {

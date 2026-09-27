@@ -14,6 +14,16 @@ export interface OrderUpdate {
   status?: string;
   note?: string;
   providerReference?: string;
+  /**
+     * @maxLength 100
+     * @nullable
+     */
+  sendingPaymentMethodLabel?: string | null;
+  /**
+     * @maxLength 100
+     * @nullable
+     */
+  receivingPaymentMethodLabel?: string | null;
   manualSettlementState?: OrderUpdateManualSettlementState;
   /** @maxLength 500 */
   incomingTransactionReference?: string;

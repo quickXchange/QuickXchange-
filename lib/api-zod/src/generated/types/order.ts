@@ -90,6 +90,10 @@ export interface Order {
   fundingDetails?: OrderFundingDetails;
   paymentMethod?: string;
   payoutMethod?: string;
+  /** @nullable */
+  sendingPaymentMethodLabel?: string | null;
+  /** @nullable */
+  receivingPaymentMethodLabel?: string | null;
   provider: string;
   note?: string;
   providerReference?: string;

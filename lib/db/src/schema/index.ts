@@ -89,6 +89,8 @@ export const ordersTable = pgTable("exchange_orders", {
     depositMemo: text("deposit_memo").notNull().default(""),
     paymentMethod: text("payment_method").notNull().default(""),
     payoutMethod: text("payout_method").notNull().default(""),
+    sendingPaymentMethodLabel: text("sending_payment_method_label"),
+    receivingPaymentMethodLabel: text("receiving_payment_method_label"),
     pricingRuleId: uuid("pricing_rule_id"),
     pricingRuleVersion: integer("pricing_rule_version"),
     pricingRuleName: text("pricing_rule_name").notNull().default(""),

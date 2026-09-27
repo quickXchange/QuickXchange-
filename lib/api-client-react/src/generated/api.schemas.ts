@@ -1368,6 +1368,16 @@ export interface OrderUpdate {
   status?: string;
   note?: string;
   providerReference?: string;
+  /**
+     * @maxLength 100
+     * @nullable
+     */
+  sendingPaymentMethodLabel?: string | null;
+  /**
+     * @maxLength 100
+     * @nullable
+     */
+  receivingPaymentMethodLabel?: string | null;
   manualSettlementState?: OrderUpdateManualSettlementState;
   /** @maxLength 500 */
   incomingTransactionReference?: string;
@@ -1826,6 +1836,10 @@ export interface Order {
   fundingDetails?: OrderFundingDetails;
   paymentMethod?: string;
   payoutMethod?: string;
+  /** @nullable */
+  sendingPaymentMethodLabel?: string | null;
+  /** @nullable */
+  receivingPaymentMethodLabel?: string | null;
   provider: string;
   note?: string;
   providerReference?: string;

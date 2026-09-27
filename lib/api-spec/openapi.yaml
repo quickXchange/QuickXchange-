@@ -5151,6 +5151,8 @@ components:
         status: { type: string }
         note: { type: string }
         providerReference: { type: string }
+        sendingPaymentMethodLabel: { type: ["string", "null"], maxLength: 100 }
+        receivingPaymentMethodLabel: { type: ["string", "null"], maxLength: 100 }
         manualSettlementState:
           type: string
           enum: [awaiting_funds, funds_confirmed, payout_processing, payout_sent, completed, cancelled, failed, refunded]
@@ -5369,6 +5371,8 @@ components:
           additionalProperties: true
         paymentMethod: { type: string }
         payoutMethod: { type: string }
+        sendingPaymentMethodLabel: { type: ["string", "null"] }
+        receivingPaymentMethodLabel: { type: ["string", "null"] }
         provider: { type: string }
         note: { type: string }
         providerReference: { type: string }

@@ -5377,12 +5377,12 @@ function ExchangeDetailsCard({
   const reference = recordOf(pricingSnapshot.reference);
   const sourceReference = recordOf(reference.source);
   const targetReference = recordOf(reference.target);
-  const sendMethod = sourceOption?.kind === 'fiat-payment-method'
+  const sendMethod = order.sendingPaymentMethodLabel || (sourceOption?.kind === 'fiat-payment-method'
     ? sourceOption.title
-    : compactOrderNetworkCode(sourceOption?.routeNetwork, order.fromNetwork, sourceOption?.networkTitle) || order.paymentMethod || 'Route unavailable';
-  const receiveMethod = targetOption?.kind === 'fiat-payment-method'
+    : compactOrderNetworkCode(sourceOption?.routeNetwork, order.fromNetwork, sourceOption?.networkTitle) || order.paymentMethod || 'Route unavailable');
+  const receiveMethod = order.receivingPaymentMethodLabel || (targetOption?.kind === 'fiat-payment-method'
     ? targetOption.title
-    : compactOrderNetworkCode(targetOption?.routeNetwork, order.toNetwork, targetOption?.networkTitle) || order.payoutMethod || 'Route unavailable';
+    : compactOrderNetworkCode(targetOption?.routeNetwork, order.toNetwork, targetOption?.networkTitle) || order.payoutMethod || 'Route unavailable');
   const usdValue = (amount: string, unitsPerUsd: unknown) => {
     if (typeof unitsPerUsd !== 'string' || !/^\d+(?:\.\d+)?$/.test(amount) || !/^\d+(?:\.\d+)?$/.test(unitsPerUsd)) return null;
     const decimal = (value: string) => {
@@ -5432,6 +5432,7 @@ function ExchangeDetailsCard({
           <div className="min-w-0">
             <strong className="quickx-important-value block truncate text-[13px] font-black" title={`${number(amount)} ${asset}`}>{number(amount)} {asset}</strong>
             <span className="block truncate text-[10px] text-white/45">{usd || 'USD value unavailable'}</span>
+            <span className="block truncate text-[10px] text-white/70" title={method}>{method}</span>
           </div>
         </div>
       </div>
@@ -5498,7 +5499,6 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   const restore = useRestoreOrder();
   const reconcileOrder = useReconcileOrder();
 
-  const [manualState, setManualState] = useState('');
   const [assigneeId, setAssigneeId] = useState('');
   const [selfClaimedOperatorId, setSelfClaimedOperatorId] = useState('');
   const [notice, setNotice] = useState<{ kind: 'error' | 'success' | 'warning'; text: string } | null>(null);
@@ -5510,6 +5510,9 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   });
   const [paymentDetailsEditing, setPaymentDetailsEditing] = useState(false);
   const [paymentDetailsDirty, setPaymentDetailsDirty] = useState(false);
+  const [methodEditing, setMethodEditing] = useState(false);
+  const [methodDirty, setMethodDirty] = useState(false);
+  const [methodDraft, setMethodDraft] = useState({ sending: '', receiving: '' });
 
   const order = orderQuery.data;
   const settlementOptions = order?.type === 'manual'
@@ -5527,24 +5530,15 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
     if (opt === 'cancelled') return can('orders.cancel');
     return can('orders.status');
   });
-  const convertStatusOptions = ['awaiting funds', 'processing', 'completed', 'failed', 'cancelled', 'refunded', 'expired'].filter(status => {
-    if (status === normalizeConvertOrderStatus(order?.status)) return true;
-    if (status === 'completed') return can('orders.complete');
-    if (status === 'cancelled') return can('orders.cancel');
-    return can('orders.status');
-  });
-
   const canReconcile = order?.provider === 'Quickex' && Boolean(order.outcomeUnknown || order.status === 'verification required');
   const reconciliationAttempts = useGetOrderReconciliationAttempts(id, {
     query: { queryKey: getGetOrderReconciliationAttemptsQueryKey(id), enabled: canReconcile },
   });
 
-  const statusRef = useRef<HTMLDivElement>(null);
   const copyInfoTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!order) return;
-    setManualState(order.type === 'manual' ? (order.manualSettlementState || 'awaiting_funds') : normalizeConvertOrderStatus(order.status));
     setAssigneeId(order.assignedOperatorId || '');
     const details = order.paymentDetails || {};
     setPaymentDetailsDraft({
@@ -5554,6 +5548,8 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
     });
     setPaymentDetailsEditing(false);
     setPaymentDetailsDirty(false);
+    setMethodEditing(false);
+    setMethodDirty(false);
   }, [order?.id, order?.recordVersion]);
 
   useEffect(() => {
@@ -5569,30 +5565,14 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   }, []);
 
   const [supportToolsDirty, setSupportToolsDirty] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-
-  const handleBack = useCallback(() => {
-    if (supportToolsDirty || paymentDetailsDirty) {
-      if (!window.confirm("You have unsaved order changes. Discard them?")) return;
-    }
-    setSupportToolsDirty(false);
-    setShowSettings(false);
-  }, [supportToolsDirty, paymentDetailsDirty]);
-
-  const hasSettingsAccess = can(PermissionKey.orderssupport_tools) ||
-    can(PermissionKey.ordersarchive) ||
-    can('orders.status') ||
-    can('orders.complete') ||
-    can('orders.cancel');
-
   const handleClose = useCallback(() => {
-    if (supportToolsDirty || paymentDetailsDirty) {
+    if (supportToolsDirty || paymentDetailsDirty || methodDirty) {
       if (!window.confirm("You have unsaved order changes. Discard them?")) {
         return;
       }
     }
     onClose();
-  }, [onClose, supportToolsDirty, paymentDetailsDirty]);
+  }, [onClose, supportToolsDirty, paymentDetailsDirty, methodDirty]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -5603,14 +5583,14 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   }, [handleClose]);
 
   useEffect(() => {
-    if (!supportToolsDirty && !paymentDetailsDirty) return;
+    if (!supportToolsDirty && !paymentDetailsDirty && !methodDirty) return;
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = '';
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [supportToolsDirty, paymentDetailsDirty]);
+  }, [supportToolsDirty, paymentDetailsDirty, methodDirty]);
 
   const refresh = async () => {
     await Promise.all([
@@ -5627,13 +5607,14 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
     history.refetch();
   };
 
-  const save = () => {
+  const saveStatus = (nextStatus: string) => {
     if (!order) return;
     setNotice(null);
-    updateOrder.mutate({ id, data: { recordVersion: order.recordVersion, manualSettlementState: manualLifecycle ? manualState as any : undefined, status: order.type === 'manual' ? undefined : manualState } }, {
+    updateOrder.mutate({ id, data: { recordVersion: order.recordVersion, manualSettlementState: nextStatus as OrderBulkStatusInputManualSettlementState } }, {
       onSuccess: async (updated) => {
         if (!order.assignedOperatorId && updated.assignedOperatorId) setSelfClaimedOperatorId(updated.assignedOperatorId);
-        setNotice({ kind: 'success', text: t('adminOrders.order_changes_saved') });
+        currentQueryClient.setQueryData(getGetOrderQueryKey(id), updated);
+        setNotice({ kind: 'success', text: `Status updated to ${humanKey(nextStatus)}.` });
         await refresh();
       },
       onError: failed,
@@ -5769,6 +5750,39 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   const targetOption = resolveOrderSettlementOption(order, 'target', settlementOptions);
   const sendMethod = sourceOption?.kind === 'fiat-payment-method' ? sourceOption.title : sourceOption?.networkTitle || sourceOption?.routeNetwork || order.paymentMethod || order.fromNetwork || 'Route unavailable';
   const receiveMethod = targetOption?.kind === 'fiat-payment-method' ? targetOption.title : targetOption?.networkTitle || targetOption?.routeNetwork || order.payoutMethod || order.toNetwork || 'Route unavailable';
+  const startMethodEdit = () => {
+    setMethodDraft({
+      sending: order.sendingPaymentMethodLabel || sendMethod,
+      receiving: order.receivingPaymentMethodLabel || receiveMethod,
+    });
+    setMethodDirty(false);
+    setMethodEditing(true);
+  };
+  const saveMethods = () => {
+    if (!methodDraft.sending.trim() || !methodDraft.receiving.trim()) {
+      setNotice({ kind: 'error', text: 'Both payment-method labels are required.' });
+      return;
+    }
+    updateOrder.mutate({
+      id,
+      data: {
+        recordVersion: order.recordVersion,
+        sendingPaymentMethodLabel: methodDraft.sending.trim() === sendMethod && !order.sendingPaymentMethodLabel
+          ? null : methodDraft.sending.trim(),
+        receivingPaymentMethodLabel: methodDraft.receiving.trim() === receiveMethod && !order.receivingPaymentMethodLabel
+          ? null : methodDraft.receiving.trim(),
+      },
+    }, {
+      onSuccess: async updated => {
+        currentQueryClient.setQueryData(getGetOrderQueryKey(id), updated);
+        setMethodDirty(false);
+        setMethodEditing(false);
+        setNotice({ kind: 'success', text: 'Payment-method labels saved.' });
+        await refresh();
+      },
+      onError: failed,
+    });
+  };
   const orderAddress = order.destinationAddress || order.depositAddress || order.refundAddress || (typeof recordOf(order.fundingDetails).address === 'string' ? String(recordOf(order.fundingDetails).address) : '');
 
   const fundingAddress = recordOf(order.fundingDetails).address;
@@ -5840,12 +5854,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
         {/* 1. Header */}
         <header className="quickx-order-header flex-shrink-0 flex items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b">
           <div className="flex min-w-0 items-center gap-2">
-            {showSettings && (
-              <button type="button" onClick={handleBack} className="p-1 -ml-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Back" data-testid="button-back-settings">
-                <ChevronLeft size={18} />
-              </button>
-            )}
-            <h2 className="truncate text-lg font-bold tracking-tight text-foreground">{showSettings ? 'Order Settings' : 'View order'}</h2>
+            <h2 className="truncate text-lg font-bold tracking-tight text-foreground">View order</h2>
           </div>
           <button type="button" onClick={handleClose} className="p-2 -mr-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" data-testid="button-close-order-drawer" aria-label={t('adminOrders.close_order_details')} autoFocus>
             <X size={18} />
@@ -5856,13 +5865,10 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
         <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6 py-5 sm:py-6 space-y-8 scrollbar-thin">
           {notice && <InlineNotice kind={notice.kind} onDismiss={() => setNotice(null)}>{notice.text}</InlineNotice>}
           {order.archivedAt && <InlineNotice kind="warning"><strong>This order is archived.</strong> Restore it before changing assignment or settlement.</InlineNotice>}
-          {!showSettings ? (
-            <>
-
           {/* 2. Assignment & Actions */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border" data-testid="assign-order-section">
             <div className="flex items-center gap-2 text-sm">
-               <span className="quickx-secondary-label text-muted-foreground font-medium">Assigned to:</span>
+               <span className="quickx-secondary-label text-muted-foreground font-medium">Assign Order:</span>
                {can('orders.assign') && !can(PermissionKey.orderssupport_tools) ? (
                   <DropdownMenuPrimitive.Root>
                     <DropdownMenuPrimitive.Trigger className="font-bold text-primary hover:underline outline-none flex items-center gap-1" data-testid="select-order-assignee">
@@ -5894,13 +5900,32 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
                    {invoicePending ? 'Preparing PDF…' : 'Download Invoice PDF'}
                  </button>
                )}
-               {hasSettingsAccess && (
-                 <button type="button" onClick={() => setShowSettings(true)} className="p-2 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground border border-transparent hover:border-border transition-all" title="Order Settings" data-testid="button-order-settings">
-                   <Settings size={16} />
-                 </button>
-               )}
             </div>
           </div>
+
+          {(can(PermissionKey.orderssupport_tools) || can(PermissionKey.ordersarchive)) && (
+            <details className="quickx-order-card rounded-xl border p-3" data-testid="assign-order-options">
+              <summary className="cursor-pointer text-xs font-semibold text-foreground">Assign Order options</summary>
+              <div className="mt-4 space-y-5">
+                {can(PermissionKey.orderssupport_tools) && (
+                  <OrderSupportToolsSection
+                    order={order} activeOperators={activeOperators}
+                    refresh={refresh} onNotice={setNotice} onDirtyChange={setSupportToolsDirty}
+                  />
+                )}
+                {can(PermissionKey.ordersarchive) && (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-bold">Archive Order</h4>
+                    <p className="text-xs text-muted-foreground">Archiving hides the order from default views; it can be restored.</p>
+                    <button type="button" onClick={toggleArchive} disabled={archive.isPending || restore.isPending}
+                      className="button button-secondary" data-testid={order.archivedAt ? 'button-restore-order' : 'button-archive-order'}>
+                      {order.archivedAt ? 'Restore Order' : 'Archive Order'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </details>
+          )}
 
           {/* 3. Horizontal order-status progression */}
           <div className="w-full overflow-x-auto pb-1" data-testid="order-status-progression">
@@ -5933,6 +5958,24 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
             </div>
           </div>
 
+          {order.type === 'manual' && manualLifecycle && (
+            <div className="quickx-order-card quickx-manual-status border p-4 rounded-xl shadow-sm space-y-2" data-testid="order-status-editor">
+              <label htmlFor="order-manual-status" className="block text-xs font-bold uppercase text-foreground">Order Status</label>
+              {manualStateOptions.length > 1 && !order.archivedAt ? (
+                <>
+                  <select id="order-manual-status" value={normalizedManualStatus(order)}
+                    onChange={event => saveStatus(event.target.value)}
+                    disabled={updateOrder.isPending}
+                    className="w-full px-3 py-2 rounded-lg bg-background border border-border text-sm text-foreground"
+                    data-testid="select-edit-manual-state">
+                    {manualStateOptions.map(opt => <option key={opt} value={opt}>{humanKey(opt)}</option>)}
+                  </select>
+                  <p className="text-xs text-muted-foreground">Selecting a status saves it immediately.</p>
+                </>
+              ) : <strong className="text-sm text-foreground">{humanKey(normalizedManualStatus(order))}</strong>}
+            </div>
+          )}
+
           {/* 4. Order Information */}
            <div className="space-y-3" data-testid="admin-order-information">
              <div className="flex items-center justify-between mb-2">
@@ -5952,11 +5995,37 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
              </div>
           </div>
 
-          <ExchangeDetailsCard
-            order={order}
-            sourceOption={sourceOption}
-            targetOption={targetOption}
-          />
+          <div className="space-y-3">
+            <ExchangeDetailsCard order={order} sourceOption={sourceOption} targetOption={targetOption} />
+            {order.type === 'manual' && can(PermissionKey.ordersdetails) && !order.archivedAt && (
+              <div className="quickx-order-card border rounded-xl p-4 space-y-3" data-testid="order-payment-method-editor">
+                <div className="flex items-center justify-between gap-3">
+                  <h4 className="text-xs font-bold uppercase text-foreground">Order Payment Methods</h4>
+                  {!methodEditing && <button type="button" onClick={startMethodEdit} className="button button-secondary px-3 py-1.5 text-xs" data-testid="button-edit-order">Edit</button>}
+                </div>
+                {methodEditing ? <>
+                  {([['sending', 'Sending Payment Method'], ['receiving', 'Receiving Payment Method']] as const).map(([key, label]) => (
+                    <label key={key} className="block space-y-1 text-xs font-medium text-muted-foreground">
+                      <span>{label}</span>
+                      <input value={methodDraft[key]} maxLength={100} onChange={event => {
+                        setMethodDraft(current => ({ ...current, [key]: event.target.value }));
+                        setMethodDirty(true);
+                      }} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+                        data-testid={`input-${key}-payment-method`} />
+                    </label>
+                  ))}
+                  <p className="text-xs text-muted-foreground">These are order display labels. Payment instructions and the agreed settlement route do not change.</p>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={saveMethods} disabled={updateOrder.isPending} className="button button-primary px-3 py-2 text-xs" data-testid="button-save-order-methods">Save</button>
+                    <button type="button" onClick={() => { setMethodEditing(false); setMethodDirty(false); }} className="button button-secondary px-3 py-2 text-xs">Cancel</button>
+                  </div>
+                </> : <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div><span className="block text-muted-foreground">Sending Payment Method</span><strong>{order.sendingPaymentMethodLabel || sendMethod}</strong></div>
+                  <div><span className="block text-muted-foreground">Receiving Payment Method</span><strong>{order.receivingPaymentMethodLabel || receiveMethod}</strong></div>
+                </div>}
+              </div>
+            )}
+          </div>
 
           <section className="space-y-4" data-testid="admin-additional-payment-details">
             <div className="flex items-center justify-between mb-3">
@@ -6060,21 +6129,6 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
                   </div>
                 )}
 
-             {/* Manual Status Edit */}
-             {order.type === 'manual' && manualLifecycle && manualStateOptions.length > 1 && !can(PermissionKey.orderssupport_tools) && (
-               <div ref={statusRef} className="quickx-order-card quickx-manual-status border p-4 rounded-xl shadow-sm space-y-3">
-                 <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">Update Manual Status</h4>
-                 <div className="flex gap-2">
-                   <select value={manualState} onChange={e => setManualState(e.target.value)} disabled={Boolean(order.archivedAt) || manualStateOptions.length <= 1} className="flex-1 px-3 py-2 rounded-lg bg-background border border-border text-sm text-foreground focus:outline-none focus:border-primary" data-testid="select-edit-manual-state">
-                     {manualStateOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                   </select>
-                   <button type="button" onClick={save} disabled={updateOrder.isPending || Boolean(order.archivedAt)} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-bold shadow-sm hover:opacity-90 disabled:opacity-50" data-testid="button-save-order">
-                     {updateOrder.isPending ? "Saving..." : "Save"}
-                   </button>
-                 </div>
-               </div>
-             )}
-
              {/* Reconcile */}
              {canReconcile && (
                 <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-xl space-y-3">
@@ -6121,55 +6175,10 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
                 </div>
              )}
           </div>
-            </>
-          ) : (
-            <div className="space-y-6">
-              {can(PermissionKey.orderssupport_tools) && (
-                <OrderSupportToolsSection
-                  order={order}
-                  activeOperators={activeOperators}
-                  refresh={refresh}
-                  onNotice={setNotice}
-                  onDirtyChange={setSupportToolsDirty}
-                />
-              )}
-              {order.type !== 'manual' && convertStatusOptions.length > 0 && (
-                <div ref={statusRef} className="quickx-order-card quickx-manual-status border p-4 rounded-xl shadow-sm space-y-3">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">Update Convert Status</h4>
-                  <div className="flex gap-2">
-                    <select value={manualState} onChange={e => setManualState(e.target.value)} disabled={Boolean(order.archivedAt)} className="flex-1 px-3 py-2 rounded-lg bg-background border border-border text-sm text-foreground focus:outline-none focus:border-primary" data-testid="select-edit-convert-status">
-                      {convertStatusOptions.map(opt => <option key={opt} value={opt}>{convertOrderStatusLabel(opt)}</option>)}
-                    </select>
-                    <button type="button" onClick={save} disabled={updateOrder.isPending || Boolean(order.archivedAt)} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-bold shadow-sm hover:opacity-90 disabled:opacity-50" data-testid="button-save-convert-status">
-                      {updateOrder.isPending ? "Saving..." : "Save"}
-                    </button>
-                  </div>
-                </div>
-              )}
-              {can(PermissionKey.ordersarchive) && (
-                <div className="quickx-order-card border p-5 rounded-xl shadow-sm space-y-4">
-                  <div>
-                    <h4 className="text-sm font-bold tracking-tight text-foreground">Archive Order</h4>
-                    <p className="text-xs text-muted-foreground mt-1">Archiving an order hides it from default views. It can be restored later.</p>
-                  </div>
-                  <button onClick={toggleArchive} disabled={archive.isPending || restore.isPending} className="flex items-center justify-center w-full sm:w-auto px-4 py-2 gap-2 rounded-md bg-muted hover:bg-muted/80 text-foreground text-sm font-medium transition-colors" data-testid={order.archivedAt ? 'button-restore-order' : 'button-archive-order'}>
-                    {order.archivedAt ? <ArchiveRestore size={16} /> : <Archive size={16} />}
-                    {order.archivedAt ? 'Restore Order' : 'Archive Order'}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
         </div>
         <footer className="quickx-order-footer flex shrink-0 items-center gap-3 border-t px-4 sm:px-6 py-4">
-          {!showSettings ? (
-            <>
               <button type="button" onClick={copyOrderInfo} className="button button-secondary flex-1" data-testid="button-copy-order-info"><Copy size={14} /> {copyInfoCopied ? 'Copied ✓' : 'Copy Info'}</button>
               <button type="button" onClick={handleClose} className="button button-primary flex-1" data-testid="button-close-footer">Close</button>
-            </>
-          ) : (
-            <button type="button" onClick={handleBack} className="button button-primary flex-1" data-testid="button-done-settings">Done</button>
-          )}
         </footer>
       </aside>
     </div>

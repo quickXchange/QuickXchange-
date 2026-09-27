@@ -3243,6 +3243,8 @@ function requireOrderPatchPermissions(
     status?: string;
     note?: string;
     providerReference?: string;
+    sendingPaymentMethodLabel?: string | null;
+    receivingPaymentMethodLabel?: string | null;
   },
   manualInput: {
     manualSettlementState?: string;
@@ -3268,6 +3270,7 @@ function requireOrderPatchPermissions(
     manualInput.outgoingTransactionReference !== undefined;
   if (operationalChanged) required.add("orders.status");
   if (manualInput.paymentDetails !== undefined) required.add("orders.details");
+  if (input.sendingPaymentMethodLabel !== undefined || input.receivingPaymentMethodLabel !== undefined) required.add("orders.details");
   if (!required.size && operator.role !== "owner") {
     throw new ApiError(
       "PERMISSION_ACCESS_DENIED",
@@ -3676,6 +3679,21 @@ router.patch("/orders/:id", requireOperator, async (req, res, next) => {
     if (!existing) {
       throw new ApiError("ORDER_NOT_FOUND", "Order not found.", 404);
     }
+    const updatesMethodLabels = input.sendingPaymentMethodLabel !== undefined ||
+      input.receivingPaymentMethodLabel !== undefined;
+    if (updatesMethodLabels) {
+      if (existing.type !== "manual" || existing.archivedAt) {
+        throw new ApiError("ORDER_METHOD_EDIT_UNAVAILABLE",
+          "Only active Manual Swap orders allow payment-method label corrections.", 409);
+      }
+      if (input.recordVersion === undefined) {
+        throw new ApiError("ORDER_UPDATE_CONFLICT", "recordVersion is required for payment-method edits.", 409);
+      }
+      if ([input.sendingPaymentMethodLabel, input.receivingPaymentMethodLabel]
+        .some(label => label !== undefined && label !== null && !label.trim())) {
+        throw new ApiError("VALIDATION_ERROR", "Payment-method labels cannot be blank. Clear an override with null.", 400);
+      }
+    }
     if (existing.type === "manual" && (input.status !== undefined || manualInput.manualSettlementState !== undefined)) {
       const [hold] = await db.select({ id: blockchainMonitorMatchesTable.id }).from(blockchainMonitorMatchesTable)
         .where(and(eq(blockchainMonitorMatchesTable.orderId, existing.id), eq(blockchainMonitorMatchesTable.state, "needs_review"))).limit(1);
@@ -3787,6 +3805,10 @@ router.patch("/orders/:id", requireOperator, async (req, res, next) => {
       ...(input.status ? { status: input.status } : {}),
       ...(input.note !== undefined ? { note: input.note } : {}),
       ...(input.providerReference !== undefined ? { providerReference: input.providerReference } : {}),
+      ...(input.sendingPaymentMethodLabel !== undefined
+        ? { sendingPaymentMethodLabel: input.sendingPaymentMethodLabel?.trim() ?? null } : {}),
+      ...(input.receivingPaymentMethodLabel !== undefined
+        ? { receivingPaymentMethodLabel: input.receivingPaymentMethodLabel?.trim() ?? null } : {}),
       ...(operatorClaimsUnassignedOrder ? { assignedOperatorId: operator.id } : {}),
       ...(stateChanged ? {
         manualSettlementState: state, manualSettlementStateUpdatedAt: now, status: manualStatus(state),
@@ -3810,6 +3832,16 @@ router.patch("/orders/:id", requireOperator, async (req, res, next) => {
         requestId: req.id == null ? null : String(req.id),
         details: {
           operatorClaimedUnassignedOrder: operatorClaimsUnassignedOrder,
+          ...(updatesMethodLabels ? {
+            methodLabelChanges: {
+              ...(input.sendingPaymentMethodLabel !== undefined ? {
+                sending: { from: existing.sendingPaymentMethodLabel, to: input.sendingPaymentMethodLabel?.trim() ?? null },
+              } : {}),
+              ...(input.receivingPaymentMethodLabel !== undefined ? {
+                receiving: { from: existing.receivingPaymentMethodLabel, to: input.receivingPaymentMethodLabel?.trim() ?? null },
+              } : {}),
+            },
+          } : {}),
           ...(stateChanged
             ? manualTransitionDetails(existing.manualSettlementState, state)
             : {}),
