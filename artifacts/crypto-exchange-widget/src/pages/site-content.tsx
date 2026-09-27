@@ -70,6 +70,7 @@ import { LivePreviewFrame } from '../components/live-preview-frame';
 import { PRIVACY_NOTICE_SECTIONS, TERMS_NOTICE_SECTIONS } from '../lib/legal-page-content';
 import { useAdminPermissions } from '../lib/admin-permissions';
 import { SocialTrustEditor as SocialTrustEditorV2 } from '../components/social-trust-editor';
+import './site-content-admin.css';
 
 const WIDGET_EXCHANGE_INFORMATION_KEY = 'widget-exchange-information' as SitePageKey;
 const SITE_CONTENT_EDITOR_SECTIONS = [
@@ -259,8 +260,9 @@ function PublishSnapshotButton({ setNotice }: { setNotice: (notice: Notice) => v
   return <button type="button" className="button button-primary" disabled={publish.isPending} onClick={onPublish} data-testid="button-publish-site-section">{publish.isPending ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />} Publish</button>;
 }
 
-function DraftEditor() {
-  const [pageKey, setPageKey] = useState<SitePageKey>('home');
+function DraftEditor({ scope = 'pages' }: { scope?: 'pages' | 'other' }) {
+  const [pageKey, setPageKey] = useState<SitePageKey>(scope === 'other' ? WIDGET_EXCHANGE_INFORMATION_KEY : 'home');
+  const availablePages = scope === 'other' ? [WIDGET_EXCHANGE_INFORMATION_KEY] : SITE_PAGE_KEYS.filter((key) => key !== WIDGET_EXCHANGE_INFORMATION_KEY);
   const page = useGetAdminSiteContent(pageKey, { query: { queryKey: getGetAdminSiteContentQueryKey(pageKey), staleTime: 0 } });
   const save = useSaveAdminSitePage();
   const publish = usePublishAdminSitePage();
@@ -421,8 +423,19 @@ function DraftEditor() {
 
   return (
     <section className="space-y-6" data-testid="site-content-editor">
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Editable public pages">
-        {SITE_PAGE_KEYS.map((key) => <button key={key} type="button" role="tab" aria-selected={pageKey === key} className={cn('button h-9 px-3 text-xs', pageKey === key ? 'button-primary' : 'button-secondary')} onClick={() => {
+      <div className="sc-section-head">
+        <h2>{scope === 'other' ? 'Widget exchange information' : 'Public pages'}</h2>
+        <p>{scope === 'other' ? 'Edit the information card below the exchange widget. Save a draft, check the preview, then publish this page separately.' : 'Choose a page, edit its content, and review the private preview before publishing. Each page has its own draft and publication.'}</p>
+      </div>
+      <div className="sc-page-tabs" role="tablist" aria-label={scope === 'other' ? 'Other editable site content' : 'Editable public pages'}>
+        {availablePages.map((key) => <button key={key} type="button" role="tab" id={`site-page-tab-${key}`} aria-controls="site-page-editor-panel" aria-selected={pageKey === key} tabIndex={pageKey === key ? 0 : -1} className={cn('button h-9 px-3 text-xs', pageKey === key ? 'button-primary' : 'button-secondary')} onKeyDown={(event) => {
+          if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft' && event.key !== 'Home' && event.key !== 'End') return;
+          event.preventDefault();
+          const index = availablePages.indexOf(key);
+          const next = event.key === 'Home' ? 0 : event.key === 'End' ? availablePages.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + availablePages.length) % availablePages.length;
+          document.getElementById(`site-page-tab-${availablePages[next]}`)?.focus();
+          document.getElementById(`site-page-tab-${availablePages[next]}`)?.click();
+        }} onClick={() => {
           if (key === pageKey) return;
           if (dirtyRef.current && !window.confirm('Discard unsaved page changes?')) return;
           loadedPageRef.current = null;
@@ -431,9 +444,9 @@ function DraftEditor() {
           setPageKey(key);
         }} data-testid={`tab-site-page-${key}`}>{PAGE_LABELS[key]}</button>)}
       </div>
-      {page.isLoading ? <LoadingBlock rows={8} /> : (
-        <div className="grid gap-6 xl:grid-cols-2">
-          <div className="panel p-5">
+      {page.isLoading ? <LoadingBlock rows={8} /> : page.isError ? <div className="panel p-6" role="alert"><h3 className="font-bold">Unable to load this page</h3><p className="mt-2 text-sm text-muted-foreground">{apiErrorText(page.error, 'Please try again.')}</p><button type="button" className="button button-secondary mt-4" onClick={() => void page.refetch()}>Retry</button></div> : (
+        <div className="sc-editor-grid" id="site-page-editor-panel" role="tabpanel" aria-labelledby={`site-page-tab-${pageKey}`}>
+          <div className="panel sc-editor-card">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-bold">{PAGE_LABELS[pageKey]} draft</h2>
@@ -768,7 +781,7 @@ function DraftEditor() {
             )}
 
             {notice && <div className="mt-4"><InlineNotice kind={notice.kind}>{notice.text}</InlineNotice></div>}
-            <div className="mt-4 flex flex-wrap gap-3">
+            <div className="sc-action-row mt-4">
               <button type="button" className="button button-secondary" onClick={() => setPreview((value) => !value)} data-testid="button-preview-site-content"><Eye size={15} /> {preview ? 'Close preview' : 'Preview draft'}</button>
               <button type="button" className="button button-secondary" disabled={save.isPending} onClick={() => submit(false)} data-testid="button-save-site-content"><Save size={15} /> Save draft</button>
               <button type="button" className="button button-primary" disabled={save.isPending || publish.isPending} onClick={() => submit(true)} data-testid="button-publish-site-content">{save.isPending || publish.isPending ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />} Publish</button>
@@ -787,7 +800,7 @@ function DraftEditor() {
                }} />
             </div>
           ) : (
-            <div className="panel flex min-h-[420px] items-center justify-center p-8 text-center text-sm text-muted-foreground"><Eye size={18} className="mr-2" /> Preview stays private until an owner publishes it.</div>
+            <div className="panel sc-preview-placeholder text-sm text-muted-foreground"><Eye size={22} /><strong className="text-foreground">Your private preview</strong><span>Review the draft before an owner publishes this page.</span></div>
           )}
         </div>
       )}
@@ -822,21 +835,24 @@ function NavigationEditor() {
   }, [editing, query.data]);
 
   return <section className="space-y-5" data-testid="site-navigation-editor">
-    <div className="panel grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-6">
-      <input className="admin-input lg:col-span-2" placeholder="Label" value={editing.label} onChange={(e) => setEditing({ ...editing, label: e.target.value })} data-testid="input-navigation-label" />
-      <input className="admin-input lg:col-span-2" placeholder="URL" value={editing.href} onChange={(e) => setEditing({ ...editing, href: e.target.value })} data-testid="input-navigation-href" />
-      <button type="button" className="button button-primary" onClick={persist} disabled={save.isPending} data-testid="button-save-navigation"><Save size={15} /> Save draft</button>
+    <div className="sc-section-head"><h2>Navigation links</h2><p>Control where links appear across the header, footer, and widget menu. Save drafts here, then publish the site snapshot to go live.</p></div>
+    <div className="panel sc-navigation-form">
+      <div className="sc-navigation-fields">
+      <label className="text-xs font-semibold">Link label<input className="admin-input mt-2 w-full" placeholder="Label" value={editing.label} onChange={(e) => setEditing({ ...editing, label: e.target.value })} data-testid="input-navigation-label" /></label>
+      <label className="text-xs font-semibold">Destination URL<input className="admin-input mt-2 w-full" placeholder="URL" value={editing.href} onChange={(e) => setEditing({ ...editing, href: e.target.value })} data-testid="input-navigation-href" /></label>
+      </div>
+      <div className="sc-navigation-options">
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={editing.enabled} onChange={(e) => setEditing({ ...editing, enabled: e.target.checked })} data-testid="input-navigation-enabled" /> Enabled</label>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={editing.header} onChange={(e) => setEditing({ ...editing, header: e.target.checked })} data-testid="input-navigation-header" /> Header</label>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={editing.footer} onChange={(e) => setEditing({ ...editing, footer: e.target.checked })} data-testid="input-navigation-footer" /> Footer</label>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={editing.widget} onChange={(e) => setEditing({ ...editing, widget: e.target.checked })} data-testid="input-navigation-widget" /> Widget menu</label>
-      {notice && <div className="sm:col-span-2 lg:col-span-6"><InlineNotice kind={notice.kind}>{notice.text}</InlineNotice></div>}
-      <div className="sm:col-span-2 lg:col-span-6 mt-2">
-        <div className="flex flex-wrap gap-2">
+      </div>
+      <div className="sc-navigation-actions">
+          <button type="button" className="button button-primary" onClick={persist} disabled={save.isPending} data-testid="button-save-navigation"><Save size={15} /> Save draft</button>
           <button type="button" className="button button-secondary" onClick={() => setPreview((value) => !value)}><Eye size={15} /> {preview ? 'Close preview' : 'Preview draft'}</button>
           <PublishSnapshotButton setNotice={setNotice} />
-        </div>
       </div>
+      {notice && <InlineNotice kind={notice.kind}>{notice.text}</InlineNotice>}
     </div>
     {preview && (
       <div className="panel p-0 h-[600px]">
@@ -846,7 +862,7 @@ function NavigationEditor() {
         }} />
       </div>
     )}
-    <div className="panel divide-y divide-border overflow-hidden">{query.isLoading ? <LoadingBlock rows={4} /> : [...(query.data ?? [])].sort(automaticNavigationOrder).map((link) => <div className="flex flex-wrap items-center gap-3 p-4" key={link.id} data-testid={`row-navigation-${link.id}`}><span className="min-w-[130px] flex-1 font-semibold">{link.label}</span><code className="min-w-[180px] flex-[2] text-xs text-muted-foreground">{link.href}</code><span className="text-xs text-muted-foreground">{[link.header && 'header', link.footer && 'footer', link.widget && 'widget', link.enabled && 'enabled'].filter(Boolean).join(' · ') || 'disabled'}</span><button type="button" className="button button-secondary h-8 px-2 text-xs" onClick={() => setEditing(link)} data-testid={`button-edit-navigation-${link.id}`}>Edit</button><button type="button" className="button button-secondary h-8 px-2 text-xs text-destructive" onClick={() => remove.mutate({ id: link.id }, { onSuccess: () => { setNotice({ kind: 'success', text: 'Navigation removal saved as a draft. Publish the site snapshot to make it public.' }); void queryClient.invalidateQueries({ queryKey: getListAdminNavigationQueryKey() }); }, onError: (error) => setNotice({ kind: 'error', text: apiErrorText(error, 'Unable to remove navigation draft.') }) })} data-testid={`button-remove-navigation-${link.id}`}><Trash2 size={14} /></button></div>)}</div>
+    <div className="panel divide-y divide-border overflow-hidden">{query.isLoading ? <LoadingBlock rows={4} /> : [...(query.data ?? [])].sort(automaticNavigationOrder).map((link) => <div className="sc-navigation-row" key={link.id} data-testid={`row-navigation-${link.id}`}><span className="font-semibold">{link.label}</span><code className="text-xs text-muted-foreground">{link.href}</code><span className="text-xs text-muted-foreground">{[link.header && 'header', link.footer && 'footer', link.widget && 'widget', link.enabled && 'enabled'].filter(Boolean).join(' · ') || 'disabled'}</span><button type="button" className="button button-secondary h-8 px-2 text-xs" onClick={() => setEditing(link)} data-testid={`button-edit-navigation-${link.id}`}>Edit</button><button type="button" className="button button-secondary h-8 px-2 text-xs text-destructive" onClick={() => remove.mutate({ id: link.id }, { onSuccess: () => { setNotice({ kind: 'success', text: 'Navigation removal saved as a draft. Publish the site snapshot to make it public.' }); void queryClient.invalidateQueries({ queryKey: getListAdminNavigationQueryKey() }); }, onError: (error) => setNotice({ kind: 'error', text: apiErrorText(error, 'Unable to remove navigation draft.') }) })} data-testid={`button-remove-navigation-${link.id}`} aria-label={`Remove ${link.label}`}><Trash2 size={14} /></button></div>)}</div>
   </section>;
 }
 
@@ -1073,6 +1089,7 @@ function PartnerLogosEditor() {
   };
 
   return <section className="space-y-5" data-testid="partner-logos-editor">
+    <div className="sc-section-head"><h2>Partner logos</h2><p>Add and arrange partner artwork for the public site. Save each change as a draft and publish the site snapshot when it is ready.</p></div>
     <div className="panel flex flex-wrap items-center gap-3 p-5">
       <label className="button button-secondary cursor-pointer"><ImagePlus size={15} /> Choose logo<input className="sr-only" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={(e) => setFile(e.target.files?.[0] ?? null)} data-testid="input-partner-logo-file" /></label>
       <span className="flex-1 text-sm text-muted-foreground">{file?.name || 'PNG, JPEG, WebP, or SVG'}</span>
@@ -1749,6 +1766,7 @@ function ContactInbox() {
   const [preview, setPreview] = useState(false);
   const content = contactPage.data?.draft?.content ?? contactPage.data?.published?.content;
   return <section className="space-y-5" data-testid="contact-inbox">
+    <div className="sc-section-head"><h2>Contact</h2><p>Review messages submitted through the public contact page. To edit that page’s text or layout, use the Contact Us page in Pages.</p></div>
     <div className="panel flex flex-wrap items-center gap-3 p-5">
       <Inbox className="text-primary" />
       <div className="min-w-0 flex-1"><h2 className="font-bold">Operator contact inbox</h2><p className="text-sm text-muted-foreground">Validated public contact requests are stored separately and visible to operators.</p></div>
@@ -1833,7 +1851,8 @@ export function PublicContactPage() {
 export function AdminSiteContentPage() {
   const { can, isOwner } = useAdminPermissions();
   const canManage = can('site_settings.manage');
-  const [tab, setTab] = useState<'pages' | 'navigation' | 'logos' | 'social-trust' | 'inbox'>('pages');
+  const managementTabs = ['pages', 'navigation', 'logos', 'social-trust', 'trust', 'inbox', 'other'] as const;
+  const [tab, setTab] = useState<(typeof managementTabs)[number]>('pages');
   const draftNavigation = useListAdminNavigation({ query: { queryKey: getListAdminNavigationQueryKey(), staleTime: 0 } });
   const draftLogos = useListAdminPartnerLogos({ query: { queryKey: getListAdminPartnerLogosQueryKey(), staleTime: 0 } });
   const draftSocialTrust = useGetAdminSocialTrust({ query: { queryKey: getGetAdminSocialTrustQueryKey(), staleTime: 0 } });
@@ -1907,17 +1926,23 @@ export function AdminSiteContentPage() {
   };
 
   return <AdminShell eyebrow="CONTENT MANAGEMENT" title="Public site content" subtitle="Draft, preview, publish, and manage the public experience without changing exchange logic." requiredPermission="site_settings.view">
-    <section className="panel mb-6 flex flex-col gap-4 border-primary/30 bg-primary/5 p-5 lg:flex-row lg:items-center lg:justify-between" data-testid="site-publication-status">
+    <div className="site-content-admin">
+    <div className="sc-intro">
+      <div><span className="sc-overline">QUICKXCHANGE / SITE SETTINGS</span><h2>Site content workspace</h2><p>Make changes carefully. Every section keeps a private draft until you choose to publish it.</p></div>
+      <span className="sc-workspace-tag">Operator workspace</span>
+    </div>
+    <section className="panel sc-publication" data-testid="site-publication-status">
       <div>
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="font-bold">Navigation and partner-logo publication</h2>
-          <span className={cn('rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wider', hasPublicationChanges ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300' : 'bg-success/15 text-success')}>{hasPublicationChanges ? 'Unpublished changes' : publishedVersion ? `Published v${publishedVersion}` : 'Published state current'}</span>
+          <h3>Site snapshot publication</h3>
+          <span className="sc-status" data-pending={hasPublicationChanges}>{hasPublicationChanges ? 'Unpublished changes' : publishedVersion ? `Published v${publishedVersion}` : 'Published state current'}</span>
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p>
           {publicationDataReady
             ? `Published state: ${publishedNavigation.data?.length ?? 0} navigation links and ${publishedLogos.data?.length ?? 0} partner logos. ${publishedVersion ? `Last published v${publishedVersion}.` : 'The current version is not exposed by the read API.'}`
             : 'Checking the current published snapshot…'}
         </p>
+        <p className="sc-publication-rule">Navigation, partner logos, social media, and feedback / trust go live together in this snapshot. Pages and Other are published individually in their editors.</p>
         {publicationNotice && <div className="mt-3"><InlineNotice kind={publicationNotice.kind}>{publicationNotice.text}</InlineNotice></div>}
       </div>
        {isOwner && canManage && <button type="button" className="button button-primary shrink-0" disabled={publish.isPending || !publicationDataReady || !hasPublicationChanges} onClick={publishSnapshot} data-testid="button-publish-site-snapshot">
@@ -1925,11 +1950,21 @@ export function AdminSiteContentPage() {
         {publish.isPending ? 'Publishing…' : 'Publish site snapshot'}
        </button>}
     </section>
-    <div className="mb-6 flex flex-wrap gap-2" role="tablist" aria-label="Site management areas">
-      {([['pages', 'Pages'], ['navigation', 'Navigation'], ['logos', 'Partner logos'], ['social-trust', 'Social Media'], ['inbox', 'Contact inbox']] as const).map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={tab === value} className={cn('button', tab === value ? 'button-primary' : 'button-secondary')} onClick={() => setTab(value)} data-testid={`tab-site-management-${value}`}>{value === 'pages' ? <Save size={15} /> : value === 'navigation' ? <Link2 size={15} /> : value === 'logos' ? <ImagePlus size={15} /> : value === 'social-trust' ? <Share2 size={15} /> : <Inbox size={15} />}{label}</button>)}
+    <div className="sc-main-tabs" role="tablist" aria-label="Site management areas">
+      {([['pages', 'Pages'], ['navigation', 'Navigation'], ['logos', 'Partner Logos'], ['social-trust', 'Social Media'], ['trust', 'Feedback / Trust'], ['inbox', 'Contact'], ['other', 'Other']] as const).map(([value, label]) => <button key={value} type="button" role="tab" id={`site-management-tab-${value}`} aria-controls="site-management-panel" aria-selected={tab === value} tabIndex={tab === value ? 0 : -1} className="button" onKeyDown={(event) => {
+        if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft' && event.key !== 'Home' && event.key !== 'End') return;
+        event.preventDefault();
+        const index = managementTabs.indexOf(value);
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? managementTabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + managementTabs.length) % managementTabs.length;
+        setTab(managementTabs[next]);
+        document.getElementById(`site-management-tab-${managementTabs[next]}`)?.focus();
+      }} onClick={() => setTab(value)} data-testid={`tab-site-management-${value}`}>{value === 'pages' || value === 'other' ? <Save size={15} aria-hidden="true" /> : value === 'navigation' ? <Link2 size={15} aria-hidden="true" /> : value === 'logos' ? <ImagePlus size={15} aria-hidden="true" /> : value === 'social-trust' || value === 'trust' ? <Share2 size={15} aria-hidden="true" /> : <Inbox size={15} aria-hidden="true" />}{label}</button>)}
     </div>
+    <div id="site-management-panel" role="tabpanel" aria-labelledby={`site-management-tab-${tab}`}>
      {canManage
-       ? (tab === 'pages' ? <DraftEditor /> : tab === 'navigation' ? <NavigationEditor /> : tab === 'logos' ? <PartnerLogosEditor /> : tab === 'social-trust' ? <SocialTrustEditorV2 /> : <ContactInbox />)
+       ? (tab === 'pages' ? <DraftEditor key="pages" scope="pages" /> : tab === 'navigation' ? <NavigationEditor /> : tab === 'logos' ? <PartnerLogosEditor /> : tab === 'social-trust' ? <div className="sc-social-editor"><div className="sc-section-head"><h2>Social media</h2><p>Manage official channels, artwork, and placement. Save changes as drafts, then publish the site snapshot.</p></div><SocialTrustEditorV2 key="social" view="social" /></div> : tab === 'trust' ? <div className="sc-social-editor"><div className="sc-section-head"><h2>Feedback / Trust</h2><p>Curate review platforms and trust marks. Save changes as drafts, then publish the site snapshot.</p></div><SocialTrustEditorV2 key="trust" view="trust" /></div> : tab === 'inbox' ? <div className="sc-contact-editor"><ContactInbox /></div> : <DraftEditor key="other" scope="other" />)
        : <section className="panel p-6 text-sm text-muted-foreground" data-testid="site-content-read-only">You have view-only access to site settings.</section>}
+    </div>
+    </div>
    </AdminShell>;
 }

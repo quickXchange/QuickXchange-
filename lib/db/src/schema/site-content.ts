@@ -88,6 +88,7 @@ export type SocialIconAppearance = {
   glowColor: string;
   glowIntensity: number;
   iconOpacity: number;
+  depthIntensity?: number;
   spacing?: number;
   alignment?: "left" | "center" | "right";
   hoverAnimation?: "none" | "lift" | "scale" | "glow";

@@ -402,11 +402,12 @@ test("social and trust drafts become public only through owner publication", { c
       glowColor: string;
       glowIntensity: number;
       iconOpacity: number;
+      depthIntensity: number;
     };
     trustAppearance: {
       iconSize: number; logoSize: number; circleSize: number; borderThickness: number;
       radiusMode: "circle" | "rounded" | "square"; backgroundColor: string; borderColor: string;
-      glowColor: string; glowIntensity: number; iconOpacity: number; spacing?: number; layout?: string;
+      glowColor: string; glowIntensity: number; iconOpacity: number; depthIntensity: number; spacing?: number; layout?: string;
       alignment?: string;
     };
   };
@@ -520,8 +521,8 @@ test("social and trust drafts become public only through owner publication", { c
       xUrl: string | null;
       facebookUrl: string | null;
       telegramUrl: string | null;
-      appearance: typeof appearance;
-      trustAppearance: typeof trustAppearance;
+      appearance: typeof appearance & { depthIntensity: number };
+      trustAppearance: typeof trustAppearance & { depthIntensity: number };
       items: Array<{ id: string; href: string; displayMode: string; sortOrder: number }>;
     };
   }).socialTrust;
@@ -529,8 +530,8 @@ test("social and trust drafts become public only through owner publication", { c
   assert.equal(configured.xUrl, "https://x.com/quickxchange");
   assert.equal(configured.facebookUrl, "https://facebook.com/quickxchange");
   assert.equal(configured.telegramUrl, "https://t.me/quickxchange");
-  assert.deepEqual(configured.appearance, appearance);
-  assert.deepEqual(configured.trustAppearance, trustAppearance);
+  assert.deepEqual(configured.appearance, { ...appearance, depthIntensity: 45 });
+  assert.deepEqual(configured.trustAppearance, { ...trustAppearance, depthIntensity: 45 });
   const configuredItem = configured.items.find((candidate) => candidate.id === item.id);
   assert.equal(configuredItem?.href, "https://community.example.test/exact/path?from=footer");
   assert.equal(configuredItem?.displayMode, "icon-only");

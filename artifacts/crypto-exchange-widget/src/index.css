@@ -9449,33 +9449,6 @@ html.dark .sign-in-page .sign-in-affiliate-card input {
   }
 }
 
-/* Convert Step 1 no longer contains a rate card, so its active shell should
-   close around the remaining controls instead of reserving the shared height. */
-.public-shell .exchange-mode-viewport:has(
-  > .exchange-mode-layer.active-layer
-  > .exchange-card.redesigned-widget.convert-widget-step-1
-) {
-  height: auto !important;
-  min-height: 0 !important;
-  max-height: none !important;
-}
-
-.public-shell .exchange-mode-viewport
-  > .exchange-mode-layer.active-layer:has(
-    > .exchange-card.redesigned-widget.convert-widget-step-1
-  ) {
-  position: relative;
-  height: auto !important;
-}
-
-.public-shell .exchange-mode-viewport
-  > .exchange-mode-layer.active-layer
-  > .exchange-card.redesigned-widget.convert-widget-step-1 {
-  height: auto !important;
-  min-height: 0 !important;
-  max-height: none !important;
-}
-
 /* Swap Step 2 responsive polish. Keep desktop presentation unchanged while
    tightening the mobile/tablet summary, fields, and in-flow action row. */
 @media (max-width: 1023px) {
@@ -22417,34 +22390,6 @@ html:not(.dark) .oc-btn-secondary:hover {
   }
 }
 
-@media (max-width: 520px) {
-  .public-shell .exchange-mode-viewport:has(
-    > .exchange-mode-layer.active-layer
-    > .exchange-card.redesigned-widget.convert-widget-unavailable
-  ) {
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
-  }
-
-  .public-shell .exchange-mode-viewport
-    > .exchange-mode-layer.active-layer:has(
-      > .exchange-card.redesigned-widget.convert-widget-unavailable
-    ) {
-    height: auto !important;
-  }
-
-  .public-shell .exchange-mode-viewport
-    > .exchange-mode-layer.active-layer
-    > .exchange-card.redesigned-widget.convert-widget-unavailable {
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
-    padding: 16px !important;
-    justify-content: flex-start;
-  }
-}
-
 /* --- MEGA MENU --- */
 .qx-mega-nav {
   display: none;
@@ -24209,4 +24154,167 @@ html .public-shell .public-landing-page :is(
     .our-trust .stat-icon,
     .our-trust .author-avatar
   ) { transition: none; }
+}
+
+/* Widget shell and Step 2: fixed exterior, independent field scrollport, visible
+   consent/action dock. These rules intentionally follow historical widget rules. */
+.public-shell .exchange-mode-viewport,
+#customer-exchange .customer-exchange-region.public-shell .exchange-mode-viewport {
+  height: var(--exchange-shell-height) !important;
+  min-height: var(--exchange-shell-height) !important;
+  max-height: var(--exchange-shell-height) !important;
+}
+
+.public-shell .exchange-mode-viewport > .exchange-mode-layer,
+.public-shell .exchange-mode-viewport > .exchange-mode-layer.active-layer {
+  position: absolute !important;
+  inset: 0;
+  height: 100% !important;
+  min-height: 0;
+}
+
+.public-shell .exchange-mode-viewport > .exchange-mode-layer > .exchange-card.redesigned-widget {
+  height: var(--exchange-shell-height) !important;
+  min-height: var(--exchange-shell-height) !important;
+  max-height: var(--exchange-shell-height) !important;
+  overflow: hidden !important;
+}
+
+.public-shell .exchange-card.redesigned-widget:is(.swap-widget-step-2, .convert-widget-step-2) {
+  min-height: 0;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-2 > .swap-step-panel.swap-fulfillment-step,
+.public-shell .exchange-card.redesigned-widget.convert-widget-step-2 .convert-step-panel {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: hidden !important;
+}
+
+.public-shell .exchange-card.redesigned-widget.convert-widget-step-2 .convert-widget-form-viewport {
+  display: flex;
+  flex: 1 1 auto !important;
+  flex-direction: column;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.public-shell .exchange-card.swap-widget-step-2 .swap-step2-summary,
+.public-shell .exchange-card.swap-widget-step-2 .swap-step2-rate-row,
+.public-shell .exchange-card.convert-widget-step-2 .convert-route-summary,
+.public-shell .exchange-card.convert-widget-step-2 .convert-expired-quote {
+  flex-shrink: 0;
+}
+
+.public-shell .exchange-card.swap-widget-step-2 .swap-step2-fields,
+.public-shell .exchange-card.redesigned-widget.convert-widget-step-2 .convert-order-details-content {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain;
+  scroll-padding-block: 14px;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.public-shell .exchange-card.swap-widget-step-2 .swap-step2-fields {
+  display: grid !important;
+  padding-bottom: 12px;
+}
+
+.public-shell .exchange-card.redesigned-widget.convert-widget-step-2 .convert-order-details-content {
+  padding: 2px 4px 12px 1px;
+}
+
+.public-shell .exchange-card.swap-widget-step-2 .swap-step2-footer,
+.public-shell .exchange-card.convert-widget-step-2 .convert-step2-footer {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding-top: 9px;
+  border-top: 1px solid hsl(var(--border) / 0.55);
+  background: hsl(var(--card));
+}
+
+.public-shell .exchange-card.swap-widget-step-2 .swap-step2-footer .order-terms,
+.public-shell .exchange-card.convert-widget-step-2 .convert-step2-footer .order-terms {
+  width: 100%;
+  min-width: 0;
+  margin: 0 !important;
+  padding: 8px 10px !important;
+  border: 1px solid hsl(var(--border) / 0.72);
+  border-radius: 11px;
+  background: hsl(var(--muted) / 0.32);
+}
+
+.public-shell .exchange-card:is(.swap-widget-step-2, .convert-widget-step-2)
+  :is(.swap-step2-footer, .convert-step2-footer) .order-actions {
+  width: 100%;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.public-shell .exchange-card.swap-widget-step-2 .swap-step2-footer .widget-primary-submit,
+.public-shell .exchange-card.convert-widget-step-2 .convert-step2-footer .widget-primary-submit {
+  width: 100%;
+  height: 50px !important;
+  min-height: 50px !important;
+  margin: 0 !important;
+  border-radius: 13px !important;
+}
+
+.public-shell .exchange-card.swap-widget-step-2 > .notice,
+.public-shell .exchange-card.swap-widget-step-2 > .inline-notice,
+.public-shell .exchange-card.convert-widget-step-2 .convert-step2-footer [data-testid="convert-notice"] {
+  flex: 0 0 auto;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+@media (max-width: 639px) {
+  .public-shell .exchange-card.swap-widget-step-2 .swap-step2-footer,
+  .public-shell .exchange-card.convert-widget-step-2 .convert-step2-footer {
+    gap: 6px;
+    padding-top: 6px;
+  }
+  .public-shell .exchange-card.swap-widget-step-2 .swap-step2-footer .widget-primary-submit,
+  .public-shell .exchange-card.convert-widget-step-2 .convert-step2-footer .widget-primary-submit {
+    height: 46px !important;
+    min-height: 46px !important;
+  }
+}
+
+/* A terminal availability notice is not an exchange step. Let its short card
+   close naturally on phones instead of reserving an empty order form. */
+@media (max-width: 520px) {
+  .public-shell .exchange-mode-viewport:has(
+    > .exchange-mode-layer.active-layer > .exchange-card.convert-widget-unavailable
+  ) {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+
+  .public-shell .exchange-mode-viewport
+    > .exchange-mode-layer.active-layer:has(> .exchange-card.convert-widget-unavailable) {
+    position: relative !important;
+    height: auto !important;
+  }
+
+  .public-shell .exchange-mode-viewport
+    > .exchange-mode-layer.active-layer > .exchange-card.convert-widget-unavailable {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    padding: 16px !important;
+    justify-content: flex-start;
+  }
 }

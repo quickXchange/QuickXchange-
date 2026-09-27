@@ -3,21 +3,9 @@ import type { CSSProperties, ReactNode } from 'react';
 import { useUser } from '@clerk/react';
 import { ArrowRight, ChevronDown, CircleUserRound, Gauge, Globe2, Handshake, House, Menu, Moon, Search, ShieldCheck, Sun, X, Link2, Pause, Play, Mail, Clock3 } from 'lucide-react';
 import {
-  SiCoinmarketcap,
-  SiDiscord,
-  SiFacebook,
-  SiGithub,
-  SiInstagram,
-  SiMedium,
-  SiReddit,
   SiTelegram,
-  SiTiktok,
   SiTrustpilot,
-  SiWhatsapp,
-  SiX,
-  SiYoutube,
 } from 'react-icons/si';
-import { FaLinkedinIn } from 'react-icons/fa6';
 import { Link, useLocation } from 'wouter';
 import { useGetOperators, getGetOperatorsQueryKey, useGetPublishedSiteContent, getGetPublishedSiteContentQueryKey, useGetPublicNotificationSettings } from '@workspace/api-client-react';
 import type { PartnerLogo, SiteNavLink, SocialIconAppearance, SocialTrustConfig, SocialTrustItem } from '@workspace/api-client-react';
@@ -34,6 +22,7 @@ import type { PartnerLogoSettings, PartnerLogoExtended } from './partner-logos';
 import { DesktopMegaMenu, NAVIGATION_DATA } from '@/components/mega-menu';
 import type { NavGroup } from '@/components/mega-menu';
 import { TelegramSupportButton } from '@/components/telegram-support-button';
+import { SocialBrandMark, socialBrandKind } from '@/components/social-brand-mark';
 import './social-trust-footer.css';
 
 const COMPANY_FOOTER_LINKS = [
@@ -135,7 +124,7 @@ const LEGACY_SOCIAL_FIELDS = [
 function footerSocialAppearance(socialTrust?: SocialTrustConfig): CSSProperties {
   const appearance = (socialTrust as (SocialTrustConfig & { appearance?: Record<string, unknown> }) | undefined)?.appearance;
   const number = (key: string, fallback: number, min: number, max: number) => {
-    const value = typeof appearance?.[key] === 'number' ? appearance[key] as number : fallback;
+    const value = typeof appearance?.[key] === 'number' && Number.isFinite(appearance[key]) ? appearance[key] as number : fallback;
     return Math.min(max, Math.max(min, value));
   };
   const color = (key: string, fallback: string) => {
@@ -146,32 +135,20 @@ function footerSocialAppearance(socialTrust?: SocialTrustConfig): CSSProperties 
     '--qx-social-border-width': `${number('borderThickness', 1, 0, 8)}px`,
     '--qx-social-glow': color('glowColor', '#38bdf8'),
     '--qx-social-glow-intensity': `${number('glowIntensity', 0, 0, 100) / 100}`,
+    '--qx-social-depth': `${number('depthIntensity', 45, 0, 100) / 100}`,
     '--qx-social-opacity': `${number('iconOpacity', 100, 0, 100) / 100}`,
   } as CSSProperties;
 }
 
 function footerSocialPlatformIcon(item: RenderableSocialItem) {
-  const identity = `${item.name} ${item.href}`.toLocaleLowerCase();
-  const Icon = identity.includes('coinmarketcap') ? SiCoinmarketcap
-    : identity.includes('medium') ? SiMedium
-    : identity.includes('instagram') ? SiInstagram
-    : identity.includes('twitter') || identity.includes('x.com') || /\bx\b/.test(item.name.toLocaleLowerCase()) ? SiX
-    : identity.includes('facebook') || identity.includes('fb.com') ? SiFacebook
-    : identity.includes('linkedin') ? FaLinkedinIn
-    : identity.includes('youtube') || identity.includes('youtu.be') ? SiYoutube
-    : identity.includes('tiktok') ? SiTiktok
-    : identity.includes('telegram') || identity.includes('t.me') ? SiTelegram
-    : identity.includes('whatsapp') || identity.includes('wa.me') ? SiWhatsapp
-    : identity.includes('discord') ? SiDiscord
-    : identity.includes('reddit') ? SiReddit
-    : identity.includes('github') ? SiGithub
-    : null;
-  return Icon ? <Icon className="qx-footer-social-svg" aria-hidden="true" /> : null;
+  return <span className={`qx-footer-brand-mark qx-footer-brand-${socialBrandKind(item)}`} aria-hidden="true">
+    <SocialBrandMark item={item} />
+  </span>;
 }
 
 export function FooterSocialIcon({ item, preview, isDark, preferUploadedTrustpilot = false }: { item: RenderableSocialItem; preview: ReturnType<typeof useSitePreview>; isDark: boolean; preferUploadedTrustpilot?: boolean }) {
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
-  if (isTrustpilotItem(item) && !preferUploadedTrustpilot) return <SiTrustpilot className="qx-footer-social-svg" style={{ width: '100%', height: '100%' }} aria-hidden="true" />;
+  if (isTrustpilotItem(item) && !preferUploadedTrustpilot && !item.objectPath && !item.defaultAssetPath) return footerSocialPlatformIcon(item);
   const selectedPath = item.appearance === 'separate'
     ? (isDark ? item.darkObjectPath || item.objectPath : item.lightObjectPath || item.objectPath)
     : item.objectPath;
@@ -183,9 +160,7 @@ export function FooterSocialIcon({ item, preview, isDark, preferUploadedTrustpil
         : `${basePath}/api/storage/objects/social-trust-icons/${objectPath.split('/').pop()}`)
     : item.defaultAssetPath || null;
   if (src && failedSrc !== src) return <img src={src} alt="" className="qx-footer-social-image" style={{ width: '100%', height: '100%', objectFit: 'contain' }} loading="lazy" onError={() => setFailedSrc(src)} />;
-  if (isTrustpilotItem(item)) return <SiTrustpilot className="qx-footer-social-svg" style={{ width: '100%', height: '100%' }} aria-hidden="true" />;
-  const Icon = footerSocialPlatformIcon(item);
-  return Icon ? <span className="qx-footer-social-svg" style={{ width: '100%', height: '100%' }}>{Icon}</span> : <Link2 className="qx-footer-social-svg" style={{ width: '100%', height: '100%' }} aria-hidden="true" />;
+  return footerSocialPlatformIcon(item);
 }
 
 function FooterSocialLinksDataDriven({ socialTrust, socialItems, trustItems, preview, trustpilotUrl, trustpilotIsConfigured, trustpilotPartner }: {
@@ -207,10 +182,22 @@ function FooterSocialLinksDataDriven({ socialTrust, socialItems, trustItems, pre
   const appearanceStyle = footerSocialAppearance(socialTrust);
   const style = (socialTrust?.appearance ?? {}) as SocialIconAppearance & Record<string, unknown>;
   const trustStyle = (socialTrust?.trustAppearance ?? {}) as SocialIconAppearance & Record<string, unknown>;
-  const circleSize = Math.min(80, Math.max(24, style.circleSize ?? 42));
-  const iconSize = Math.min(circleSize, Math.max(8, style.iconSize ?? circleSize * ((style.logoSize ?? 76) / 100)));
-  const radius = style.radiusMode === 'square' ? '0px' : style.radiusMode === 'rounded' ? '12px' : '999px';
+  const bounded = (value: unknown, fallback: number, min: number, max: number) =>
+    typeof value === 'number' && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+  const circleSize = bounded(style.circleSize, 42, 24, 80);
+  const iconSize = bounded(style.iconSize, 20, 8, 48);
+  const spacing = bounded(style.spacing, 14, 0, 80);
+  const desktopGap = Math.min(spacing, 6);
+  const count = Math.max(1, allSocialItems.length);
   const socialJustify = style.alignment === 'center' ? 'center' : style.alignment === 'right' ? 'flex-end' : 'flex-start';
+  const socialRowStyle = {
+    '--qx-footer-circle-size': `${circleSize}px`,
+    '--qx-footer-icon-size': `${Math.min(iconSize, circleSize - 8)}px`,
+    '--qx-footer-spacing': `${spacing}px`,
+    '--qx-footer-cell-share': `calc(${100 / count}% - ${desktopGap * (count - 1) / count}px)`,
+    justifyContent: socialJustify,
+  } as CSSProperties;
+  const radius = style.radiusMode === 'square' ? '0px' : style.radiusMode === 'rounded' ? '12px' : '999px';
   const trustLayout = trustStyle.layout ?? 'horizontal';
   const trustJustify = trustLayout === 'centered' || trustStyle.alignment === 'center' ? 'center'
     : trustStyle.alignment === 'right' ? 'flex-end' : 'flex-start';
@@ -253,11 +240,10 @@ function FooterSocialLinksDataDriven({ socialTrust, socialItems, trustItems, pre
     <div className="flex flex-col gap-3" aria-label="Social connections">
       {allSocialItems.length > 0 && <>
       {showSocialTitle && <h3 className="font-semibold text-foreground" style={{ fontSize: `${style.titleFontSize ?? 18}px`, textAlign: (style.titleAlignment ?? style.alignment ?? 'left') as CSSProperties['textAlign'] }}>{socialTrust?.socialTitle ?? 'Stay connected with us'}</h3>}
-      <div className="qx-footer-social-links" style={{ gap: `${style.spacing ?? 14}px`, justifyContent: socialJustify }}>
+      <div className="qx-footer-social-links" style={socialRowStyle}>
         {allSocialItems.map((item) => (
-           <a key={item.id} href={item.href} target="_blank" rel="noreferrer noopener" aria-label={isTrustpilotItem(item) ? 'Trustpilot' : item.name} data-testid={`link-published-social-${item.id}`} className={`qx-footer-social-link qx-social-hover-${style.hoverAnimation ?? 'lift'}${isTrustpilotItem(item) ? ' qx-footer-trustpilot-social' : ''}`} style={{ ...appearanceStyle, width: item.displayMode === 'icon-name' ? 'auto' : `${circleSize}px`, height: `${circleSize}px`, flexBasis: item.displayMode === 'icon-name' ? 'auto' : `${circleSize}px`, padding: item.displayMode === 'icon-name' ? '0 10px' : 0, borderRadius: radius, borderColor: style.borderColor, backgroundColor: style.backgroundColor }}>
-            <span style={{ display: 'flex', flex: 'none', width: `${iconSize}px`, height: `${iconSize}px`, alignItems: 'center', justifyContent: 'center' }}><FooterSocialIcon item={item} preview={preview} isDark={isDark} /></span>
-             {item.displayMode === 'icon-name' && <span className="ml-2 text-xs">{isTrustpilotItem(item) ? 'Trustpilot' : item.name}</span>}
+            <a key={item.id} href={item.href} target="_blank" rel="noreferrer noopener" aria-label={isTrustpilotItem(item) ? 'Trustpilot' : item.name} title={item.name} data-testid={`link-published-social-${item.id}`} className={`qx-footer-social-link qx-social-hover-${style.hoverAnimation ?? 'lift'}${isTrustpilotItem(item) ? ' qx-footer-trustpilot-social' : ''}`} style={{ ...appearanceStyle, borderRadius: radius, borderColor: style.borderColor === '#dce3ed' ? undefined : style.borderColor, backgroundColor: style.backgroundColor === '#ffffff' ? undefined : style.backgroundColor }}>
+             <span className="qx-footer-social-mark"><FooterSocialIcon item={item} preview={preview} isDark={isDark} preferUploadedTrustpilot /></span>
           </a>
         ))}
       </div>
@@ -799,7 +785,7 @@ export function PublicShell({ children }: { children: ReactNode }) {
                 Fast. Secure. Global. Exchange, convert and move your crypto with confidence.
               </p>
               {hasSocial && (
-                <div className="mt-2">
+                <div className="mt-2 qx-footer-social-panel">
                   <FooterSocialLinksDataDriven
                     socialTrust={socialTrust as SocialTrustConfig | undefined}
                     socialItems={socialItems}

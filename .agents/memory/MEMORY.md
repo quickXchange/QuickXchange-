@@ -153,3 +153,4 @@
 - [Scoped pnpm installs](scoped-pnpm-installs.md) — the generic package installer targets the workspace root; use a filtered pnpm add for a leaf artifact dependency.
 - [Completed-order invoice boundary](completed-order-receipt-boundary.md) — use safe historical fields and verified fees; PDF/print omit blockchain evidence while normal View Order retains it.
 - [Swap first-load selection ownership](swap-first-load-selection.md) — one initialization path must own the pair; a second legacy effect can overwrite saved defaults or market requests.
+- [Split Site Content editors](split-site-content-editors.md) — isolated tabs must not reuse draft state or overwrite the hidden half of shared settings.

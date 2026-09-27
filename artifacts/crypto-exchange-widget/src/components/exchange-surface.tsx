@@ -1537,7 +1537,7 @@ export function ManualSwapWidget({
                 </div>
               )}
 
-              <div className="order-details-content swap-step2-fields">
+              <div className="order-details-content swap-step2-fields" aria-label="Swap settlement details">
                 {isFiatToCryptoSwap && (
                   <div className="order-detail-field order-detail-field--email flex flex-col gap-1.5">
                     <label htmlFor="swap-email" className="text-[13px] font-semibold text-muted-foreground">
@@ -1694,6 +1694,8 @@ export function ManualSwapWidget({
                   </div>
                 </div>}
 
+              </div>
+              <div className="swap-step2-footer">
                 <OrderPolicyAcceptance id="swap-terms" checked={termsAccepted} onChange={setTermsAccepted} />
 
                 <div className="order-actions convert-order-actions mt-2 flex flex-col gap-4">

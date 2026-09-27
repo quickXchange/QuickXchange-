@@ -53,6 +53,11 @@ export interface SocialIconAppearance {
   iconOpacity: number;
   /**
      * @minimum 0
+     * @maximum 100
+     */
+  depthIntensity?: number;
+  /**
+     * @minimum 0
      * @maximum 80
      */
   spacing?: number;

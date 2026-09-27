@@ -737,7 +737,7 @@ export function QuickexConvertWidget({
                 </div>
               )}
 
-              <div className="order-details-content convert-order-details-content flex flex-col gap-4">
+              <div className="order-details-content convert-order-details-content flex flex-col gap-4" aria-label="Convert wallet and contact details">
                 {/* Destination */}
                 <div className="order-detail-field order-detail-field--destination flex flex-col gap-1.5">
                   <label htmlFor="convert-destination" className="text-[13px] font-semibold text-muted-foreground">
@@ -833,14 +833,15 @@ export function QuickexConvertWidget({
                   </div>
                 </div>
 
-                <OrderPolicyAcceptance id="convert-terms" checked={termsAccepted} onChange={setTermsAccepted} />
-
+              </div>
+              <div className="convert-step2-footer">
                 {notice && (
                   <div className={`p-4 rounded-xl text-sm font-medium flex items-start gap-3 border ${notice.kind === 'error' ? 'bg-destructive/10 text-destructive border-destructive/20' : 'bg-success/10 text-success border-success/20'}`} data-testid="convert-notice">
                     <AlertCircle size={16} className="shrink-0 mt-0.5" />
                     <span>{notice.text}</span>
                   </div>
                 )}
+                <OrderPolicyAcceptance id="convert-terms" checked={termsAccepted} onChange={setTermsAccepted} />
 
                 <div className="order-actions convert-order-actions mt-2 flex flex-col gap-4">
                   <button

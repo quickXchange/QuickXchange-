@@ -12899,6 +12899,11 @@ export const getPublishedSiteContentResponseSocialTrustAppearanceIconOpacityMin 
 export const getPublishedSiteContentResponseSocialTrustAppearanceIconOpacityMax = 100;
 export const getPublishedSiteContentResponseSocialTrustAppearanceIconOpacityMultipleOf = 1;
 
+export const getPublishedSiteContentResponseSocialTrustAppearanceDepthIntensityDefault = 45;
+export const getPublishedSiteContentResponseSocialTrustAppearanceDepthIntensityMin = 0;
+export const getPublishedSiteContentResponseSocialTrustAppearanceDepthIntensityMax = 100;
+export const getPublishedSiteContentResponseSocialTrustAppearanceDepthIntensityMultipleOf = 1;
+
 export const getPublishedSiteContentResponseSocialTrustAppearanceSpacingMin = 0;
 export const getPublishedSiteContentResponseSocialTrustAppearanceSpacingMax = 80;
 
@@ -12934,6 +12939,11 @@ export const getPublishedSiteContentResponseSocialTrustTrustAppearanceGlowIntens
 export const getPublishedSiteContentResponseSocialTrustTrustAppearanceIconOpacityMin = 0;
 export const getPublishedSiteContentResponseSocialTrustTrustAppearanceIconOpacityMax = 100;
 export const getPublishedSiteContentResponseSocialTrustTrustAppearanceIconOpacityMultipleOf = 1;
+
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceDepthIntensityDefault = 45;
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceDepthIntensityMin = 0;
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceDepthIntensityMax = 100;
+export const getPublishedSiteContentResponseSocialTrustTrustAppearanceDepthIntensityMultipleOf = 1;
 
 export const getPublishedSiteContentResponseSocialTrustTrustAppearanceSpacingMin = 0;
 export const getPublishedSiteContentResponseSocialTrustTrustAppearanceSpacingMax = 80;
@@ -13065,6 +13075,7 @@ export const GetPublishedSiteContentResponse = zod.object({
   "glowColor": zod.string().regex(getPublishedSiteContentResponseSocialTrustAppearanceGlowColorRegExp),
   "glowIntensity": zod.number().min(getPublishedSiteContentResponseSocialTrustAppearanceGlowIntensityMin).max(getPublishedSiteContentResponseSocialTrustAppearanceGlowIntensityMax).multipleOf(getPublishedSiteContentResponseSocialTrustAppearanceGlowIntensityMultipleOf),
   "iconOpacity": zod.number().min(getPublishedSiteContentResponseSocialTrustAppearanceIconOpacityMin).max(getPublishedSiteContentResponseSocialTrustAppearanceIconOpacityMax).multipleOf(getPublishedSiteContentResponseSocialTrustAppearanceIconOpacityMultipleOf),
+  "depthIntensity": zod.number().min(getPublishedSiteContentResponseSocialTrustAppearanceDepthIntensityMin).max(getPublishedSiteContentResponseSocialTrustAppearanceDepthIntensityMax).multipleOf(getPublishedSiteContentResponseSocialTrustAppearanceDepthIntensityMultipleOf).default(getPublishedSiteContentResponseSocialTrustAppearanceDepthIntensityDefault),
   "spacing": zod.number().int().min(getPublishedSiteContentResponseSocialTrustAppearanceSpacingMin).max(getPublishedSiteContentResponseSocialTrustAppearanceSpacingMax).optional(),
   "alignment": zod.enum(['left', 'center', 'right']).optional(),
   "hoverAnimation": zod.enum(['none', 'lift', 'scale', 'glow']).optional(),
@@ -13088,6 +13099,7 @@ export const GetPublishedSiteContentResponse = zod.object({
   "glowColor": zod.string().regex(getPublishedSiteContentResponseSocialTrustTrustAppearanceGlowColorRegExp),
   "glowIntensity": zod.number().min(getPublishedSiteContentResponseSocialTrustTrustAppearanceGlowIntensityMin).max(getPublishedSiteContentResponseSocialTrustTrustAppearanceGlowIntensityMax).multipleOf(getPublishedSiteContentResponseSocialTrustTrustAppearanceGlowIntensityMultipleOf),
   "iconOpacity": zod.number().min(getPublishedSiteContentResponseSocialTrustTrustAppearanceIconOpacityMin).max(getPublishedSiteContentResponseSocialTrustTrustAppearanceIconOpacityMax).multipleOf(getPublishedSiteContentResponseSocialTrustTrustAppearanceIconOpacityMultipleOf),
+  "depthIntensity": zod.number().min(getPublishedSiteContentResponseSocialTrustTrustAppearanceDepthIntensityMin).max(getPublishedSiteContentResponseSocialTrustTrustAppearanceDepthIntensityMax).multipleOf(getPublishedSiteContentResponseSocialTrustTrustAppearanceDepthIntensityMultipleOf).default(getPublishedSiteContentResponseSocialTrustTrustAppearanceDepthIntensityDefault),
   "spacing": zod.number().int().min(getPublishedSiteContentResponseSocialTrustTrustAppearanceSpacingMin).max(getPublishedSiteContentResponseSocialTrustTrustAppearanceSpacingMax).optional(),
   "alignment": zod.enum(['left', 'center', 'right']).optional(),
   "hoverAnimation": zod.enum(['none', 'lift', 'scale', 'glow']).optional(),
@@ -15461,6 +15473,11 @@ export const publishSitePublicationResponseSocialTrustAppearanceIconOpacityMin =
 export const publishSitePublicationResponseSocialTrustAppearanceIconOpacityMax = 100;
 export const publishSitePublicationResponseSocialTrustAppearanceIconOpacityMultipleOf = 1;
 
+export const publishSitePublicationResponseSocialTrustAppearanceDepthIntensityDefault = 45;
+export const publishSitePublicationResponseSocialTrustAppearanceDepthIntensityMin = 0;
+export const publishSitePublicationResponseSocialTrustAppearanceDepthIntensityMax = 100;
+export const publishSitePublicationResponseSocialTrustAppearanceDepthIntensityMultipleOf = 1;
+
 export const publishSitePublicationResponseSocialTrustAppearanceSpacingMin = 0;
 export const publishSitePublicationResponseSocialTrustAppearanceSpacingMax = 80;
 
@@ -15496,6 +15513,11 @@ export const publishSitePublicationResponseSocialTrustTrustAppearanceGlowIntensi
 export const publishSitePublicationResponseSocialTrustTrustAppearanceIconOpacityMin = 0;
 export const publishSitePublicationResponseSocialTrustTrustAppearanceIconOpacityMax = 100;
 export const publishSitePublicationResponseSocialTrustTrustAppearanceIconOpacityMultipleOf = 1;
+
+export const publishSitePublicationResponseSocialTrustTrustAppearanceDepthIntensityDefault = 45;
+export const publishSitePublicationResponseSocialTrustTrustAppearanceDepthIntensityMin = 0;
+export const publishSitePublicationResponseSocialTrustTrustAppearanceDepthIntensityMax = 100;
+export const publishSitePublicationResponseSocialTrustTrustAppearanceDepthIntensityMultipleOf = 1;
 
 export const publishSitePublicationResponseSocialTrustTrustAppearanceSpacingMin = 0;
 export const publishSitePublicationResponseSocialTrustTrustAppearanceSpacingMax = 80;
@@ -15587,6 +15609,7 @@ export const PublishSitePublicationResponse = zod.object({
   "glowColor": zod.string().regex(publishSitePublicationResponseSocialTrustAppearanceGlowColorRegExp),
   "glowIntensity": zod.number().min(publishSitePublicationResponseSocialTrustAppearanceGlowIntensityMin).max(publishSitePublicationResponseSocialTrustAppearanceGlowIntensityMax).multipleOf(publishSitePublicationResponseSocialTrustAppearanceGlowIntensityMultipleOf),
   "iconOpacity": zod.number().min(publishSitePublicationResponseSocialTrustAppearanceIconOpacityMin).max(publishSitePublicationResponseSocialTrustAppearanceIconOpacityMax).multipleOf(publishSitePublicationResponseSocialTrustAppearanceIconOpacityMultipleOf),
+  "depthIntensity": zod.number().min(publishSitePublicationResponseSocialTrustAppearanceDepthIntensityMin).max(publishSitePublicationResponseSocialTrustAppearanceDepthIntensityMax).multipleOf(publishSitePublicationResponseSocialTrustAppearanceDepthIntensityMultipleOf).default(publishSitePublicationResponseSocialTrustAppearanceDepthIntensityDefault),
   "spacing": zod.number().int().min(publishSitePublicationResponseSocialTrustAppearanceSpacingMin).max(publishSitePublicationResponseSocialTrustAppearanceSpacingMax).optional(),
   "alignment": zod.enum(['left', 'center', 'right']).optional(),
   "hoverAnimation": zod.enum(['none', 'lift', 'scale', 'glow']).optional(),
@@ -15610,6 +15633,7 @@ export const PublishSitePublicationResponse = zod.object({
   "glowColor": zod.string().regex(publishSitePublicationResponseSocialTrustTrustAppearanceGlowColorRegExp),
   "glowIntensity": zod.number().min(publishSitePublicationResponseSocialTrustTrustAppearanceGlowIntensityMin).max(publishSitePublicationResponseSocialTrustTrustAppearanceGlowIntensityMax).multipleOf(publishSitePublicationResponseSocialTrustTrustAppearanceGlowIntensityMultipleOf),
   "iconOpacity": zod.number().min(publishSitePublicationResponseSocialTrustTrustAppearanceIconOpacityMin).max(publishSitePublicationResponseSocialTrustTrustAppearanceIconOpacityMax).multipleOf(publishSitePublicationResponseSocialTrustTrustAppearanceIconOpacityMultipleOf),
+  "depthIntensity": zod.number().min(publishSitePublicationResponseSocialTrustTrustAppearanceDepthIntensityMin).max(publishSitePublicationResponseSocialTrustTrustAppearanceDepthIntensityMax).multipleOf(publishSitePublicationResponseSocialTrustTrustAppearanceDepthIntensityMultipleOf).default(publishSitePublicationResponseSocialTrustTrustAppearanceDepthIntensityDefault),
   "spacing": zod.number().int().min(publishSitePublicationResponseSocialTrustTrustAppearanceSpacingMin).max(publishSitePublicationResponseSocialTrustTrustAppearanceSpacingMax).optional(),
   "alignment": zod.enum(['left', 'center', 'right']).optional(),
   "hoverAnimation": zod.enum(['none', 'lift', 'scale', 'glow']).optional(),
@@ -16021,6 +16045,11 @@ export const getAdminSocialTrustResponseAppearanceIconOpacityMin = 0;
 export const getAdminSocialTrustResponseAppearanceIconOpacityMax = 100;
 export const getAdminSocialTrustResponseAppearanceIconOpacityMultipleOf = 1;
 
+export const getAdminSocialTrustResponseAppearanceDepthIntensityDefault = 45;
+export const getAdminSocialTrustResponseAppearanceDepthIntensityMin = 0;
+export const getAdminSocialTrustResponseAppearanceDepthIntensityMax = 100;
+export const getAdminSocialTrustResponseAppearanceDepthIntensityMultipleOf = 1;
+
 export const getAdminSocialTrustResponseAppearanceSpacingMin = 0;
 export const getAdminSocialTrustResponseAppearanceSpacingMax = 80;
 
@@ -16056,6 +16085,11 @@ export const getAdminSocialTrustResponseTrustAppearanceGlowIntensityMultipleOf =
 export const getAdminSocialTrustResponseTrustAppearanceIconOpacityMin = 0;
 export const getAdminSocialTrustResponseTrustAppearanceIconOpacityMax = 100;
 export const getAdminSocialTrustResponseTrustAppearanceIconOpacityMultipleOf = 1;
+
+export const getAdminSocialTrustResponseTrustAppearanceDepthIntensityDefault = 45;
+export const getAdminSocialTrustResponseTrustAppearanceDepthIntensityMin = 0;
+export const getAdminSocialTrustResponseTrustAppearanceDepthIntensityMax = 100;
+export const getAdminSocialTrustResponseTrustAppearanceDepthIntensityMultipleOf = 1;
 
 export const getAdminSocialTrustResponseTrustAppearanceSpacingMin = 0;
 export const getAdminSocialTrustResponseTrustAppearanceSpacingMax = 80;
@@ -16103,6 +16137,7 @@ export const GetAdminSocialTrustResponse = zod.object({
   "glowColor": zod.string().regex(getAdminSocialTrustResponseAppearanceGlowColorRegExp),
   "glowIntensity": zod.number().min(getAdminSocialTrustResponseAppearanceGlowIntensityMin).max(getAdminSocialTrustResponseAppearanceGlowIntensityMax).multipleOf(getAdminSocialTrustResponseAppearanceGlowIntensityMultipleOf),
   "iconOpacity": zod.number().min(getAdminSocialTrustResponseAppearanceIconOpacityMin).max(getAdminSocialTrustResponseAppearanceIconOpacityMax).multipleOf(getAdminSocialTrustResponseAppearanceIconOpacityMultipleOf),
+  "depthIntensity": zod.number().min(getAdminSocialTrustResponseAppearanceDepthIntensityMin).max(getAdminSocialTrustResponseAppearanceDepthIntensityMax).multipleOf(getAdminSocialTrustResponseAppearanceDepthIntensityMultipleOf).default(getAdminSocialTrustResponseAppearanceDepthIntensityDefault),
   "spacing": zod.number().int().min(getAdminSocialTrustResponseAppearanceSpacingMin).max(getAdminSocialTrustResponseAppearanceSpacingMax).optional(),
   "alignment": zod.enum(['left', 'center', 'right']).optional(),
   "hoverAnimation": zod.enum(['none', 'lift', 'scale', 'glow']).optional(),
@@ -16126,6 +16161,7 @@ export const GetAdminSocialTrustResponse = zod.object({
   "glowColor": zod.string().regex(getAdminSocialTrustResponseTrustAppearanceGlowColorRegExp),
   "glowIntensity": zod.number().min(getAdminSocialTrustResponseTrustAppearanceGlowIntensityMin).max(getAdminSocialTrustResponseTrustAppearanceGlowIntensityMax).multipleOf(getAdminSocialTrustResponseTrustAppearanceGlowIntensityMultipleOf),
   "iconOpacity": zod.number().min(getAdminSocialTrustResponseTrustAppearanceIconOpacityMin).max(getAdminSocialTrustResponseTrustAppearanceIconOpacityMax).multipleOf(getAdminSocialTrustResponseTrustAppearanceIconOpacityMultipleOf),
+  "depthIntensity": zod.number().min(getAdminSocialTrustResponseTrustAppearanceDepthIntensityMin).max(getAdminSocialTrustResponseTrustAppearanceDepthIntensityMax).multipleOf(getAdminSocialTrustResponseTrustAppearanceDepthIntensityMultipleOf).default(getAdminSocialTrustResponseTrustAppearanceDepthIntensityDefault),
   "spacing": zod.number().int().min(getAdminSocialTrustResponseTrustAppearanceSpacingMin).max(getAdminSocialTrustResponseTrustAppearanceSpacingMax).optional(),
   "alignment": zod.enum(['left', 'center', 'right']).optional(),
   "hoverAnimation": zod.enum(['none', 'lift', 'scale', 'glow']).optional(),
@@ -16184,6 +16220,11 @@ export const updateAdminSocialTrustTitlesResponseAppearanceIconOpacityMin = 0;
 export const updateAdminSocialTrustTitlesResponseAppearanceIconOpacityMax = 100;
 export const updateAdminSocialTrustTitlesResponseAppearanceIconOpacityMultipleOf = 1;
 
+export const updateAdminSocialTrustTitlesResponseAppearanceDepthIntensityDefault = 45;
+export const updateAdminSocialTrustTitlesResponseAppearanceDepthIntensityMin = 0;
+export const updateAdminSocialTrustTitlesResponseAppearanceDepthIntensityMax = 100;
+export const updateAdminSocialTrustTitlesResponseAppearanceDepthIntensityMultipleOf = 1;
+
 export const updateAdminSocialTrustTitlesResponseAppearanceSpacingMin = 0;
 export const updateAdminSocialTrustTitlesResponseAppearanceSpacingMax = 80;
 
@@ -16219,6 +16260,11 @@ export const updateAdminSocialTrustTitlesResponseTrustAppearanceGlowIntensityMul
 export const updateAdminSocialTrustTitlesResponseTrustAppearanceIconOpacityMin = 0;
 export const updateAdminSocialTrustTitlesResponseTrustAppearanceIconOpacityMax = 100;
 export const updateAdminSocialTrustTitlesResponseTrustAppearanceIconOpacityMultipleOf = 1;
+
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceDepthIntensityDefault = 45;
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceDepthIntensityMin = 0;
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceDepthIntensityMax = 100;
+export const updateAdminSocialTrustTitlesResponseTrustAppearanceDepthIntensityMultipleOf = 1;
 
 export const updateAdminSocialTrustTitlesResponseTrustAppearanceSpacingMin = 0;
 export const updateAdminSocialTrustTitlesResponseTrustAppearanceSpacingMax = 80;
@@ -16266,6 +16312,7 @@ export const UpdateAdminSocialTrustTitlesResponse = zod.object({
   "glowColor": zod.string().regex(updateAdminSocialTrustTitlesResponseAppearanceGlowColorRegExp),
   "glowIntensity": zod.number().min(updateAdminSocialTrustTitlesResponseAppearanceGlowIntensityMin).max(updateAdminSocialTrustTitlesResponseAppearanceGlowIntensityMax).multipleOf(updateAdminSocialTrustTitlesResponseAppearanceGlowIntensityMultipleOf),
   "iconOpacity": zod.number().min(updateAdminSocialTrustTitlesResponseAppearanceIconOpacityMin).max(updateAdminSocialTrustTitlesResponseAppearanceIconOpacityMax).multipleOf(updateAdminSocialTrustTitlesResponseAppearanceIconOpacityMultipleOf),
+  "depthIntensity": zod.number().min(updateAdminSocialTrustTitlesResponseAppearanceDepthIntensityMin).max(updateAdminSocialTrustTitlesResponseAppearanceDepthIntensityMax).multipleOf(updateAdminSocialTrustTitlesResponseAppearanceDepthIntensityMultipleOf).default(updateAdminSocialTrustTitlesResponseAppearanceDepthIntensityDefault),
   "spacing": zod.number().int().min(updateAdminSocialTrustTitlesResponseAppearanceSpacingMin).max(updateAdminSocialTrustTitlesResponseAppearanceSpacingMax).optional(),
   "alignment": zod.enum(['left', 'center', 'right']).optional(),
   "hoverAnimation": zod.enum(['none', 'lift', 'scale', 'glow']).optional(),
@@ -16289,6 +16336,7 @@ export const UpdateAdminSocialTrustTitlesResponse = zod.object({
   "glowColor": zod.string().regex(updateAdminSocialTrustTitlesResponseTrustAppearanceGlowColorRegExp),
   "glowIntensity": zod.number().min(updateAdminSocialTrustTitlesResponseTrustAppearanceGlowIntensityMin).max(updateAdminSocialTrustTitlesResponseTrustAppearanceGlowIntensityMax).multipleOf(updateAdminSocialTrustTitlesResponseTrustAppearanceGlowIntensityMultipleOf),
   "iconOpacity": zod.number().min(updateAdminSocialTrustTitlesResponseTrustAppearanceIconOpacityMin).max(updateAdminSocialTrustTitlesResponseTrustAppearanceIconOpacityMax).multipleOf(updateAdminSocialTrustTitlesResponseTrustAppearanceIconOpacityMultipleOf),
+  "depthIntensity": zod.number().min(updateAdminSocialTrustTitlesResponseTrustAppearanceDepthIntensityMin).max(updateAdminSocialTrustTitlesResponseTrustAppearanceDepthIntensityMax).multipleOf(updateAdminSocialTrustTitlesResponseTrustAppearanceDepthIntensityMultipleOf).default(updateAdminSocialTrustTitlesResponseTrustAppearanceDepthIntensityDefault),
   "spacing": zod.number().int().min(updateAdminSocialTrustTitlesResponseTrustAppearanceSpacingMin).max(updateAdminSocialTrustTitlesResponseTrustAppearanceSpacingMax).optional(),
   "alignment": zod.enum(['left', 'center', 'right']).optional(),
   "hoverAnimation": zod.enum(['none', 'lift', 'scale', 'glow']).optional(),
@@ -16343,6 +16391,11 @@ export const updateAdminSocialMediaBodyAppearanceIconOpacityMin = 0;
 export const updateAdminSocialMediaBodyAppearanceIconOpacityMax = 100;
 export const updateAdminSocialMediaBodyAppearanceIconOpacityMultipleOf = 1;
 
+export const updateAdminSocialMediaBodyAppearanceDepthIntensityDefault = 45;
+export const updateAdminSocialMediaBodyAppearanceDepthIntensityMin = 0;
+export const updateAdminSocialMediaBodyAppearanceDepthIntensityMax = 100;
+export const updateAdminSocialMediaBodyAppearanceDepthIntensityMultipleOf = 1;
+
 export const updateAdminSocialMediaBodyAppearanceSpacingMin = 0;
 export const updateAdminSocialMediaBodyAppearanceSpacingMax = 80;
 
@@ -16379,6 +16432,11 @@ export const updateAdminSocialMediaBodyTrustAppearanceIconOpacityMin = 0;
 export const updateAdminSocialMediaBodyTrustAppearanceIconOpacityMax = 100;
 export const updateAdminSocialMediaBodyTrustAppearanceIconOpacityMultipleOf = 1;
 
+export const updateAdminSocialMediaBodyTrustAppearanceDepthIntensityDefault = 45;
+export const updateAdminSocialMediaBodyTrustAppearanceDepthIntensityMin = 0;
+export const updateAdminSocialMediaBodyTrustAppearanceDepthIntensityMax = 100;
+export const updateAdminSocialMediaBodyTrustAppearanceDepthIntensityMultipleOf = 1;
+
 export const updateAdminSocialMediaBodyTrustAppearanceSpacingMin = 0;
 export const updateAdminSocialMediaBodyTrustAppearanceSpacingMax = 80;
 
@@ -16406,6 +16464,7 @@ export const UpdateAdminSocialMediaBody = zod.object({
   "glowColor": zod.string().regex(updateAdminSocialMediaBodyAppearanceGlowColorRegExp),
   "glowIntensity": zod.number().min(updateAdminSocialMediaBodyAppearanceGlowIntensityMin).max(updateAdminSocialMediaBodyAppearanceGlowIntensityMax).multipleOf(updateAdminSocialMediaBodyAppearanceGlowIntensityMultipleOf),
   "iconOpacity": zod.number().min(updateAdminSocialMediaBodyAppearanceIconOpacityMin).max(updateAdminSocialMediaBodyAppearanceIconOpacityMax).multipleOf(updateAdminSocialMediaBodyAppearanceIconOpacityMultipleOf),
+  "depthIntensity": zod.number().min(updateAdminSocialMediaBodyAppearanceDepthIntensityMin).max(updateAdminSocialMediaBodyAppearanceDepthIntensityMax).multipleOf(updateAdminSocialMediaBodyAppearanceDepthIntensityMultipleOf).default(updateAdminSocialMediaBodyAppearanceDepthIntensityDefault),
   "spacing": zod.number().int().min(updateAdminSocialMediaBodyAppearanceSpacingMin).max(updateAdminSocialMediaBodyAppearanceSpacingMax).optional(),
   "alignment": zod.enum(['left', 'center', 'right']).optional(),
   "hoverAnimation": zod.enum(['none', 'lift', 'scale', 'glow']).optional(),
@@ -16429,6 +16488,7 @@ export const UpdateAdminSocialMediaBody = zod.object({
   "glowColor": zod.string().regex(updateAdminSocialMediaBodyTrustAppearanceGlowColorRegExp),
   "glowIntensity": zod.number().min(updateAdminSocialMediaBodyTrustAppearanceGlowIntensityMin).max(updateAdminSocialMediaBodyTrustAppearanceGlowIntensityMax).multipleOf(updateAdminSocialMediaBodyTrustAppearanceGlowIntensityMultipleOf),
   "iconOpacity": zod.number().min(updateAdminSocialMediaBodyTrustAppearanceIconOpacityMin).max(updateAdminSocialMediaBodyTrustAppearanceIconOpacityMax).multipleOf(updateAdminSocialMediaBodyTrustAppearanceIconOpacityMultipleOf),
+  "depthIntensity": zod.number().min(updateAdminSocialMediaBodyTrustAppearanceDepthIntensityMin).max(updateAdminSocialMediaBodyTrustAppearanceDepthIntensityMax).multipleOf(updateAdminSocialMediaBodyTrustAppearanceDepthIntensityMultipleOf).default(updateAdminSocialMediaBodyTrustAppearanceDepthIntensityDefault),
   "spacing": zod.number().int().min(updateAdminSocialMediaBodyTrustAppearanceSpacingMin).max(updateAdminSocialMediaBodyTrustAppearanceSpacingMax).optional(),
   "alignment": zod.enum(['left', 'center', 'right']).optional(),
   "hoverAnimation": zod.enum(['none', 'lift', 'scale', 'glow']).optional(),
@@ -16471,6 +16531,11 @@ export const updateAdminSocialMediaResponseAppearanceIconOpacityMin = 0;
 export const updateAdminSocialMediaResponseAppearanceIconOpacityMax = 100;
 export const updateAdminSocialMediaResponseAppearanceIconOpacityMultipleOf = 1;
 
+export const updateAdminSocialMediaResponseAppearanceDepthIntensityDefault = 45;
+export const updateAdminSocialMediaResponseAppearanceDepthIntensityMin = 0;
+export const updateAdminSocialMediaResponseAppearanceDepthIntensityMax = 100;
+export const updateAdminSocialMediaResponseAppearanceDepthIntensityMultipleOf = 1;
+
 export const updateAdminSocialMediaResponseAppearanceSpacingMin = 0;
 export const updateAdminSocialMediaResponseAppearanceSpacingMax = 80;
 
@@ -16506,6 +16571,11 @@ export const updateAdminSocialMediaResponseTrustAppearanceGlowIntensityMultipleO
 export const updateAdminSocialMediaResponseTrustAppearanceIconOpacityMin = 0;
 export const updateAdminSocialMediaResponseTrustAppearanceIconOpacityMax = 100;
 export const updateAdminSocialMediaResponseTrustAppearanceIconOpacityMultipleOf = 1;
+
+export const updateAdminSocialMediaResponseTrustAppearanceDepthIntensityDefault = 45;
+export const updateAdminSocialMediaResponseTrustAppearanceDepthIntensityMin = 0;
+export const updateAdminSocialMediaResponseTrustAppearanceDepthIntensityMax = 100;
+export const updateAdminSocialMediaResponseTrustAppearanceDepthIntensityMultipleOf = 1;
 
 export const updateAdminSocialMediaResponseTrustAppearanceSpacingMin = 0;
 export const updateAdminSocialMediaResponseTrustAppearanceSpacingMax = 80;
@@ -16553,6 +16623,7 @@ export const UpdateAdminSocialMediaResponse = zod.object({
   "glowColor": zod.string().regex(updateAdminSocialMediaResponseAppearanceGlowColorRegExp),
   "glowIntensity": zod.number().min(updateAdminSocialMediaResponseAppearanceGlowIntensityMin).max(updateAdminSocialMediaResponseAppearanceGlowIntensityMax).multipleOf(updateAdminSocialMediaResponseAppearanceGlowIntensityMultipleOf),
   "iconOpacity": zod.number().min(updateAdminSocialMediaResponseAppearanceIconOpacityMin).max(updateAdminSocialMediaResponseAppearanceIconOpacityMax).multipleOf(updateAdminSocialMediaResponseAppearanceIconOpacityMultipleOf),
+  "depthIntensity": zod.number().min(updateAdminSocialMediaResponseAppearanceDepthIntensityMin).max(updateAdminSocialMediaResponseAppearanceDepthIntensityMax).multipleOf(updateAdminSocialMediaResponseAppearanceDepthIntensityMultipleOf).default(updateAdminSocialMediaResponseAppearanceDepthIntensityDefault),
   "spacing": zod.number().int().min(updateAdminSocialMediaResponseAppearanceSpacingMin).max(updateAdminSocialMediaResponseAppearanceSpacingMax).optional(),
   "alignment": zod.enum(['left', 'center', 'right']).optional(),
   "hoverAnimation": zod.enum(['none', 'lift', 'scale', 'glow']).optional(),
@@ -16576,6 +16647,7 @@ export const UpdateAdminSocialMediaResponse = zod.object({
   "glowColor": zod.string().regex(updateAdminSocialMediaResponseTrustAppearanceGlowColorRegExp),
   "glowIntensity": zod.number().min(updateAdminSocialMediaResponseTrustAppearanceGlowIntensityMin).max(updateAdminSocialMediaResponseTrustAppearanceGlowIntensityMax).multipleOf(updateAdminSocialMediaResponseTrustAppearanceGlowIntensityMultipleOf),
   "iconOpacity": zod.number().min(updateAdminSocialMediaResponseTrustAppearanceIconOpacityMin).max(updateAdminSocialMediaResponseTrustAppearanceIconOpacityMax).multipleOf(updateAdminSocialMediaResponseTrustAppearanceIconOpacityMultipleOf),
+  "depthIntensity": zod.number().min(updateAdminSocialMediaResponseTrustAppearanceDepthIntensityMin).max(updateAdminSocialMediaResponseTrustAppearanceDepthIntensityMax).multipleOf(updateAdminSocialMediaResponseTrustAppearanceDepthIntensityMultipleOf).default(updateAdminSocialMediaResponseTrustAppearanceDepthIntensityDefault),
   "spacing": zod.number().int().min(updateAdminSocialMediaResponseTrustAppearanceSpacingMin).max(updateAdminSocialMediaResponseTrustAppearanceSpacingMax).optional(),
   "alignment": zod.enum(['left', 'center', 'right']).optional(),
   "hoverAnimation": zod.enum(['none', 'lift', 'scale', 'glow']).optional(),

@@ -1,0 +1,208 @@
+/* Site Content has its own editorial workspace; never affects public pages. */
+.admin-shell.admin-redesign .site-content-admin {
+  --sc-line: hsl(var(--border) / .78);
+  --sc-tint: hsl(var(--primary) / .045);
+  min-width: 0;
+  max-width: 1480px;
+  margin-inline: auto;
+  padding-bottom: 64px;
+  color: hsl(var(--foreground));
+}
+.admin-shell.admin-redesign .site-content-admin *,
+.admin-shell.admin-redesign .site-content-admin *::before,
+.admin-shell.admin-redesign .site-content-admin *::after { box-sizing: border-box; }
+.admin-shell.admin-redesign .site-content-admin :is(section, article, div, form) { min-width: 0; }
+.admin-shell.admin-redesign .site-content-admin .sc-intro {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 18px;
+  margin: 3px 0 24px;
+}
+.admin-shell.admin-redesign .site-content-admin .sc-overline {
+  display: block; margin-bottom: 8px; color: hsl(var(--primary));
+  font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+}
+.admin-shell.admin-redesign .site-content-admin .sc-intro h2 {
+  margin: 0; font-family: var(--font-marketing), var(--font-sans); font-size: clamp(23px, 2.4vw, 32px);
+  font-weight: 800; letter-spacing: -.035em; line-height: 1.12;
+}
+.admin-shell.admin-redesign .site-content-admin .sc-intro p,
+.admin-shell.admin-redesign .site-content-admin .sc-section-head p {
+  max-width: 68ch; margin: 8px 0 0; color: hsl(var(--muted-foreground));
+  font-size: 13px; line-height: 1.55;
+}
+.admin-shell.admin-redesign .site-content-admin .sc-workspace-tag {
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 11px;
+  border: 1px solid hsl(var(--primary) / .19); border-radius: 9px;
+  background: hsl(var(--primary) / .06); color: hsl(var(--primary));
+  font-size: 11px; font-weight: 750; white-space: nowrap;
+}
+.admin-shell.admin-redesign .site-content-admin .sc-workspace-tag::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+}
+.admin-shell.admin-redesign .site-content-admin .panel {
+  border: 1px solid var(--sc-line);
+  border-radius: 14px;
+  background: hsl(var(--card));
+  box-shadow: 0 5px 24px -18px hsl(var(--foreground) / .22);
+}
+.admin-shell.admin-redesign .site-content-admin .sc-publication.panel {
+  position: relative; display: flex; align-items: center; justify-content: space-between;
+  gap: 22px; padding: 20px 24px; margin-bottom: 24px;
+  border-color: hsl(var(--primary) / .22);
+  background: linear-gradient(112deg, hsl(var(--primary) / .08), hsl(var(--card)) 52%, hsl(264 72% 55% / .035));
+  overflow: hidden;
+}
+.admin-shell.admin-redesign .site-content-admin .sc-publication::before {
+  content: ""; position: absolute; inset: 0 auto 0 0; width: 3px;
+  background: linear-gradient(#13aee5, #6054d9);
+}
+.admin-shell.admin-redesign .site-content-admin .sc-publication h3 {
+  margin: 0; font-size: 15px; font-weight: 800; letter-spacing: -.01em;
+}
+.admin-shell.admin-redesign .site-content-admin .sc-publication p {
+  margin: 6px 0 0; color: hsl(var(--muted-foreground)); font-size: 12px; line-height: 1.5;
+}
+.admin-shell.admin-redesign .site-content-admin .sc-publication .sc-publication-rule {
+  color: hsl(var(--foreground) / .77);
+}
+.admin-shell.admin-redesign .site-content-admin .sc-status {
+  display: inline-flex; align-items: center; padding: 4px 9px; border-radius: 99px;
+  background: hsl(var(--success) / .11); color: hsl(var(--success));
+  font-size: 10px; font-weight: 800; letter-spacing: .03em; white-space: nowrap;
+}
+.admin-shell.admin-redesign .site-content-admin .sc-status[data-pending="true"] {
+  background: hsl(var(--warning) / .13); color: hsl(var(--warning));
+}
+.admin-shell.admin-redesign .site-content-admin .sc-main-tabs {
+  display: flex; flex-wrap: wrap; gap: 5px; width: 100%; padding: 5px;
+  margin: 0 0 23px; border: 1px solid var(--sc-line); border-radius: 12px;
+  background: hsl(var(--muted) / .44);
+}
+.admin-shell.admin-redesign .site-content-admin .sc-main-tabs > button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 38px; width: auto; padding: 8px 13px; border: 1px solid transparent;
+  border-radius: 8px; background: transparent; box-shadow: none;
+  color: hsl(var(--muted-foreground)); font-size: 12px; font-weight: 700;
+  white-space: nowrap; transition: color .18s ease, background-color .18s ease;
+}
+.admin-shell.admin-redesign .site-content-admin .sc-main-tabs > button:hover {
+  background: hsl(var(--card) / .64); color: hsl(var(--foreground));
+}
+.admin-shell.admin-redesign .site-content-admin .sc-main-tabs > button[aria-selected="true"] {
+  border-color: hsl(var(--border) / .7); background: hsl(var(--card));
+  color: hsl(var(--primary)); box-shadow: 0 2px 7px hsl(var(--foreground) / .07);
+}
+.admin-shell.admin-redesign .site-content-admin :is(button, input, textarea, select, a):focus-visible {
+  outline: 2px solid hsl(var(--primary)); outline-offset: 2px;
+}
+.admin-shell.admin-redesign .site-content-admin .sc-section-head {
+  margin: 0 0 18px; padding: 0 1px;
+}
+.admin-shell.admin-redesign .site-content-admin .sc-section-head h2 {
+  margin: 0; font-family: var(--font-marketing), var(--font-sans);
+  font-size: 20px; font-weight: 800; letter-spacing: -.025em;
+}
+.admin-shell.admin-redesign .site-content-admin .sc-page-tabs {
+  display: flex; flex-wrap: wrap; gap: 6px; padding: 6px; margin-bottom: 18px;
+  border: 1px solid var(--sc-line); border-radius: 11px; background: hsl(var(--card));
+}
+.admin-shell.admin-redesign .site-content-admin .sc-page-tabs > button {
+  width: auto; min-height: 34px; padding: 6px 11px; border: 1px solid transparent;
+  border-radius: 7px; background: transparent; box-shadow: none;
+  color: hsl(var(--muted-foreground)); font-size: 11px; font-weight: 700;
+}
+.admin-shell.admin-redesign .site-content-admin .sc-page-tabs > button[aria-selected="true"] {
+  border-color: hsl(var(--primary) / .2); background: hsl(var(--primary) / .1);
+  color: hsl(var(--primary));
+}
+.admin-shell.admin-redesign .site-content-admin .sc-page-tabs > button:hover:not([aria-selected="true"]) {
+  background: hsl(var(--muted) / .65); color: hsl(var(--foreground));
+}
+.admin-shell.admin-redesign .site-content-admin .sc-editor-grid {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 17px;
+}
+@media (min-width: 1250px) {
+  .admin-shell.admin-redesign .site-content-admin .sc-editor-grid {
+    grid-template-columns: minmax(0, 1.13fr) minmax(0, .87fr);
+  }
+}
+.admin-shell.admin-redesign .site-content-admin .sc-editor-card.panel { padding: 20px; }
+.admin-shell.admin-redesign .site-content-admin .sc-editor-card :is(input:not([type="checkbox"]):not([type="file"]), textarea, select),
+.admin-shell.admin-redesign .site-content-admin :is(.admin-input, input:not([type="checkbox"]):not([type="file"]), textarea, select) {
+  max-width: 100%; min-width: 0;
+}
+.admin-shell.admin-redesign .site-content-admin .admin-input {
+  min-height: 38px; border-radius: 8px; border-color: var(--sc-line);
+  background: hsl(var(--background) / .7); font-size: 12px;
+}
+.admin-shell.admin-redesign .site-content-admin textarea.admin-input { padding-block: 10px; line-height: 1.5; }
+.admin-shell.admin-redesign .site-content-admin input[type="checkbox"] { accent-color: hsl(var(--primary)); }
+.admin-shell.admin-redesign .site-content-admin .button {
+  display: inline-flex; width: auto; min-height: 34px; max-width: 100%;
+  align-items: center; justify-content: center; gap: 6px; padding: 7px 12px;
+  border-radius: 8px; font-size: 12px; font-weight: 750; line-height: 1.2;
+  white-space: normal; text-align: center;
+}
+.admin-shell.admin-redesign .site-content-admin .button.button-secondary {
+  border: 1px solid var(--sc-line); background: hsl(var(--card));
+  color: hsl(var(--foreground)); box-shadow: none;
+}
+.admin-shell.admin-redesign .site-content-admin .button.button-secondary:hover {
+  border-color: hsl(var(--primary) / .4); background: hsl(var(--primary) / .06);
+}
+.admin-shell.admin-redesign .site-content-admin .button.button-primary {
+  border: 1px solid hsl(var(--primary) / .42); background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground)); box-shadow: 0 4px 12px -8px hsl(var(--primary));
+}
+.admin-shell.admin-redesign .site-content-admin .button:disabled { opacity: .5; cursor: not-allowed; }
+.admin-shell.admin-redesign .site-content-admin .sc-preview-placeholder.panel {
+  display: flex; min-height: 300px; align-items: center; justify-content: center;
+  flex-direction: column; gap: 12px; padding: 28px; text-align: center;
+  background: repeating-linear-gradient(-45deg, hsl(var(--muted) / .18), hsl(var(--muted) / .18) 1px, transparent 1px, transparent 12px), hsl(var(--card));
+}
+.admin-shell.admin-redesign .site-content-admin .sc-preview-placeholder svg { color: hsl(var(--primary)); }
+.admin-shell.admin-redesign .site-content-admin :is(code, a, p) { overflow-wrap: anywhere; }
+.admin-shell.admin-redesign .site-content-admin .sc-editor-card .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.admin-shell.admin-redesign .site-content-admin .sc-action-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding-top: 15px; border-top: 1px solid var(--sc-line);
+}
+.admin-shell.admin-redesign .site-content-admin .sc-navigation-form.panel {
+  display: flex; flex-direction: column; gap: 15px; padding: 20px;
+}
+.admin-shell.admin-redesign .site-content-admin .sc-navigation-fields {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
+}
+.admin-shell.admin-redesign .site-content-admin .sc-navigation-options {
+  display: flex; flex-wrap: wrap; gap: 10px 22px; padding: 12px 0;
+  border-block: 1px solid var(--sc-line);
+}
+.admin-shell.admin-redesign .site-content-admin .sc-navigation-actions {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+.admin-shell.admin-redesign .site-content-admin .sc-navigation-row {
+  display: grid; grid-template-columns: minmax(100px, 1fr) minmax(120px, 1.5fr) minmax(100px, 1fr) auto auto;
+  align-items: center; gap: 12px; padding: 12px 16px;
+}
+.admin-shell.admin-redesign .site-content-admin .sc-navigation-row > * { min-width: 0; }
+.admin-shell.admin-redesign .site-content-admin .sc-navigation-row code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-shell.admin-redesign .site-content-admin .sc-social-editor .panel,
+.admin-shell.admin-redesign .site-content-admin .sc-contact-editor .panel { min-width: 0; }
+.admin-shell.admin-redesign .site-content-admin .sc-social-editor :is(.grid, .flex) { min-width: 0; }
+.admin-shell.admin-redesign .site-content-admin .sc-social-editor input { min-width: 0; max-width: 100%; }
+@media (max-width: 767px) {
+  .admin-shell.admin-redesign .site-content-admin .sc-publication.panel { align-items: stretch; flex-direction: column; padding: 18px; }
+  .admin-shell.admin-redesign .site-content-admin .sc-main-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-shell.admin-redesign .site-content-admin .sc-main-tabs > button { justify-content: flex-start; white-space: normal; text-align: left; }
+  .admin-shell.admin-redesign .site-content-admin .sc-editor-card.panel { padding: 15px; }
+  .admin-shell.admin-redesign .site-content-admin .sc-editor-card .grid-cols-2,
+  .admin-shell.admin-redesign .site-content-admin .sc-navigation-fields { grid-template-columns: minmax(0, 1fr); }
+  .admin-shell.admin-redesign .site-content-admin .sc-navigation-row { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .admin-shell.admin-redesign .site-content-admin .sc-navigation-row code,
+  .admin-shell.admin-redesign .site-content-admin .sc-navigation-row > span:nth-of-type(2) { grid-column: 1 / -1; grid-row: auto; }
+  .admin-shell.admin-redesign .site-content-admin .sc-navigation-row > button { grid-row: 1; }
+}
+@media (max-width: 440px) {
+  .admin-shell.admin-redesign .site-content-admin .sc-main-tabs { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .admin-shell.admin-redesign .site-content-admin .sc-main-tabs > button { padding-inline: 7px; font-size: 11px; }
+  .admin-shell.admin-redesign .site-content-admin .sc-page-tabs > button { flex: 1 1 auto; }
+}

@@ -217,6 +217,7 @@ const DEFAULT_SOCIAL_ICON_APPEARANCE = {
   glowColor: "#6366f1",
   glowIntensity: 0,
   iconOpacity: 100,
+  depthIntensity: 45,
 };
 
 const DEFAULT_PARTNER_LOGO_SETTINGS: PartnerLogoSettings = {
@@ -297,6 +298,7 @@ function normalizedSocialIconAppearance(value: unknown) {
     borderThickness: [0, 8],
     glowIntensity: [0, 100],
     iconOpacity: [0, 100],
+    depthIntensity: [0, 100],
     spacing: [0, 80],
     titleFontSize: [12, 40],
     trustTitleFontSize: [12, 40],
@@ -468,10 +470,12 @@ router.get("/site-content", async (_req, res): Promise<void> => {
   const socialTrust: SiteSocialTrustSnapshot = publication?.socialTrust
     ? {
       ...publication.socialTrust,
+      appearance: normalizedSocialIconAppearance(publication.socialTrust.appearance),
       trustAppearance: publication.socialTrust.trustAppearance ?? publication.socialTrust.appearance,
       items: [...publication.socialTrust.items],
     }
     : { ...DEFAULT_SOCIAL_TRUST, items: [] };
+  socialTrust.trustAppearance = normalizedSocialIconAppearance(socialTrust.trustAppearance ?? socialTrust.appearance);
   socialTrust.items = socialTrust.items
     .filter((item) => item.enabled && !item.removedAt && isSafeSiteLink(item.href))
     .map((item) => ({ ...item, displayMode: item.displayMode ?? "icon-only", appearance: item.appearance ?? "auto", sortOrder: item.sortOrder ?? 0 }))

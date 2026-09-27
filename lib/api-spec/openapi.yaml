@@ -7779,6 +7779,7 @@ components:
         glowColor: { type: string, pattern: '^#[0-9a-fA-F]{6}$' }
         glowIntensity: { type: number, multipleOf: 1, minimum: 0, maximum: 100 }
         iconOpacity: { type: number, multipleOf: 1, minimum: 0, maximum: 100 }
+        depthIntensity: { type: number, multipleOf: 1, minimum: 0, maximum: 100, default: 45 }
         spacing: { type: integer, minimum: 0, maximum: 80 }
         alignment: { type: string, enum: [left, center, right] }
         hoverAnimation: { type: string, enum: [none, lift, scale, glow] }

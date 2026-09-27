@@ -212,11 +212,37 @@ test("social and trust items are custom, image-backed, and URL constrained", () 
   const settings = UpdateAdminSocialMediaBody.parse({
     instagramUrl: null, xUrl: null, facebookUrl: null, telegramUrl: null, trustAppearance,
   });
-  assert.deepEqual(settings.trustAppearance, trustAppearance);
+  assert.deepEqual(settings.trustAppearance, { ...trustAppearance, depthIntensity: 45 });
   assert.throws(() => UpdateAdminSocialMediaBody.parse({
     instagramUrl: null, xUrl: null, facebookUrl: null, telegramUrl: null,
     trustAppearance: { ...trustAppearance, spacing: 81 },
   }));
+});
+
+test("social appearance depth intensity is bounded and backwards compatible", () => {
+  const legacyAppearance = {
+    iconSize: 20, logoSize: 76, circleSize: 42, borderThickness: 1, radiusMode: "circle",
+    backgroundColor: "#ffffff", borderColor: "#dce3ed", glowColor: "#38bdf8", glowIntensity: 0, iconOpacity: 100,
+  };
+  const legacySettings = UpdateAdminSocialMediaBody.parse({
+    instagramUrl: null, xUrl: null, facebookUrl: null, telegramUrl: null,
+    appearance: legacyAppearance,
+  });
+  assert.equal(legacySettings.appearance?.depthIntensity, 45);
+
+  for (const depthIntensity of [0, 45, 100]) {
+    const settings = UpdateAdminSocialMediaBody.parse({
+      instagramUrl: null, xUrl: null, facebookUrl: null, telegramUrl: null,
+      appearance: { ...legacyAppearance, depthIntensity },
+    });
+    assert.equal(settings.appearance?.depthIntensity, depthIntensity);
+  }
+  for (const depthIntensity of [-1, 101, 1.5]) {
+    assert.throws(() => UpdateAdminSocialMediaBody.parse({
+      instagramUrl: null, xUrl: null, facebookUrl: null, telegramUrl: null,
+      appearance: { ...legacyAppearance, depthIntensity },
+    }));
+  }
 });
 
 test("contact submission contract rejects missing and oversized fields", () => {
