@@ -220,6 +220,8 @@ test('customers can review, reload, inspect, and claim their orders', async ({ p
   await expect(statsRegion).toBeVisible();
   await expect(recentRegion).toBeVisible();
   await expect(page.getByTestId('button-mode-select-manual')).toBeVisible();
+  await expect(page.locator('.customer-shell a[href*="/account/deposits"]')).toHaveCount(0);
+  await expect(page.getByTestId('customer-dashboard-stats')).not.toContainText('Deposits');
 
   const desktopWidgetBox = await exchangeRegion.boundingBox();
   const desktopActiveWidgetBox = await activeWidget.boundingBox();
@@ -320,6 +322,7 @@ test('customers can review, reload, inspect, and claim their orders', async ({ p
       await page.getByTestId('button-mobile-menu').click();
       const drawer = page.locator('[data-customer-drawer]');
       await expect(drawer).toBeVisible();
+      await expect(drawer.locator('a[href*="/account/deposits"]')).toHaveCount(0);
       await expect(drawer.locator('[data-testid="link-customer-brand"] img')).toHaveAttribute('src', /quick-change-logo\.png$/);
       const drawerBackground = await drawer.locator('.bg-card').first().evaluate(
         element => getComputedStyle(element).backgroundColor,

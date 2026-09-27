@@ -1,10 +1,8 @@
 import crypto from "node:crypto";
 import { Router, type IRouter } from "express";
-import { and, desc, eq, isNotNull, lte, or, sql } from "drizzle-orm";
+import { and, eq, isNotNull, lte, or, sql } from "drizzle-orm";
 import {
   db,
-  customerProfilesTable,
-  customersTable,
   whitebitDepositAddressesTable,
   whitebitHistoryCheckpointsTable,
   whitebitOrderHistoryCheckpointsTable,
@@ -19,7 +17,6 @@ import {
   whitebitAssetMappingsTable,
   whitebitNetworkMappingsTable,
 } from "@workspace/db";
-import { requireCustomer } from "../lib/customer-auth";
 import { ApiError } from "../lib/api-error";
 import { requireOperator, requireOwner } from "../lib/operator-auth";
 import { customerDepositRouteProofMatchesConfiguration } from "../lib/customer-deposit-eligibility";
@@ -1223,79 +1220,6 @@ export async function replayHistoryRecord(record: Record<string, unknown>): Prom
   const normalized = normalizeWhitebitHistoryDeposit(record);
   return normalized ? db.transaction((tx) => processNormalizedDeposit(tx, normalized)) : false;
 }
-
-function customerId(req: Parameters<typeof requireCustomer>[0], res: Parameters<typeof requireCustomer>[1]): Promise<string> {
-  const clerkId = res.locals.customerClerkUserId as string;
-  return db.select({ id: customersTable.id }).from(customersTable)
-    .innerJoin(customerProfilesTable, eq(customerProfilesTable.customerId, customersTable.id))
-    .where(eq(customerProfilesTable.clerkUserId, clerkId)).limit(1)
-    .then(([row]) => {
-      if (!row) throw new ApiError("CUSTOMER_NOT_FOUND", "Customer profile not found.", 404);
-      return row.id;
-    });
-}
-
-const router: IRouter = Router();
-router.use("/account", requireCustomer);
-
-router.post("/account/deposits/address", async (req, res): Promise<void> => {
-  const ticker = typeof req.body?.ticker === "string" ? req.body.ticker.trim().toUpperCase() : "";
-  const network = typeof req.body?.network === "string" ? req.body.network.trim().toUpperCase() : "";
-  if (!ticker || ticker.length > 32 || network.length > 64) throw new ApiError("VALIDATION_ERROR", "Ticker and network are required.", 400);
-  const providerTicker = ticker;
-  const id = await customerId(req, res);
-  const [existing] = await db.select().from(whitebitDepositAddressesTable)
-    .where(and(eq(whitebitDepositAddressesTable.customerId, id), eq(whitebitDepositAddressesTable.ticker, ticker), eq(whitebitDepositAddressesTable.network, network))).limit(1);
-  if (existing?.status === "ready" || existing?.status === "pending") {
-    res.status(200).json({ id: existing.id, ticker, network, address: existing.address, memo: existing.memo, status: existing.status });
-    return;
-  }
-  const [claim] = await db.insert(whitebitDepositAddressesTable).values({ customerId: id, ticker, providerTicker, network, status: "provisioning" })
-    .onConflictDoNothing({ target: [whitebitDepositAddressesTable.customerId, whitebitDepositAddressesTable.ticker, whitebitDepositAddressesTable.network] }).returning();
-  const row = claim ?? (await db.select().from(whitebitDepositAddressesTable).where(and(eq(whitebitDepositAddressesTable.customerId, id), eq(whitebitDepositAddressesTable.ticker, ticker), eq(whitebitDepositAddressesTable.network, network))).limit(1))[0];
-  if (!row) throw new ApiError("WHITEBIT_ADDRESS_UNAVAILABLE", "The deposit address could not be reserved.", 503);
-  if (!claim && row.status === "provisioning") {
-    throw new ApiError("WHITEBIT_ADDRESS_PROVISIONING", "A deposit address request is already being resolved.", 409);
-  }
-  if (row.status !== "provisioning") {
-    res.json({ id: row.id, ticker, network, address: row.address, memo: row.memo, status: row.status });
-    return;
-  }
-  let result: Record<string, unknown>;
-  try {
-    result = await whitebitPost<Record<string, unknown>>("/api/v4/main-account/create-new-address", { ticker, ...(network ? { network } : {}) });
-  } catch (error) {
-    await db.update(whitebitDepositAddressesTable).set({ status: "unresolved", providerError: "Provider outcome is unknown; operator reconciliation required.", updatedAt: new Date() }).where(eq(whitebitDepositAddressesTable.id, row.id));
-    throw error;
-  }
-  const parsedAddress = parseWhitebitAddressResponse(result);
-  const address = parsedAddress?.address ?? null;
-  if (!address) {
-    await db.update(whitebitDepositAddressesTable).set({ status: "unresolved", providerError: "WhiteBIT response did not contain an address.", updatedAt: new Date() }).where(eq(whitebitDepositAddressesTable.id, row.id));
-    throw new ApiError("WHITEBIT_ADDRESS_UNRESOLVED", "WhiteBIT did not return a deposit address.", 502);
-  }
-  const memo = normalizeWhitebitMemo(parsedAddress?.memo);
-  const [saved] = await db.update(whitebitDepositAddressesTable).set({ address, memo, status: "ready", updatedAt: new Date() }).where(eq(whitebitDepositAddressesTable.id, row.id)).returning();
-  res.status(201).json({ id: saved.id, ticker, network, address: saved.address, memo: saved.memo, status: saved.status });
-});
-
-router.get("/account/deposits", async (req, res): Promise<void> => {
-  const id = await customerId(req, res);
-  const rows = await db.select().from(whitebitDepositsTable).where(and(
-    eq(whitebitDepositsTable.customerId, id),
-    sql`${whitebitDepositsTable.providerIdentity} NOT LIKE 'provisional:%'`,
-  )).orderBy(desc(whitebitDepositsTable.createdAt)).limit(100);
-  res.json(rows);
-});
-
-router.get("/account/balances", async (req, res): Promise<void> => {
-  const id = await customerId(req, res);
-  const rows = await db.select({ ticker: whitebitLedgerEntriesTable.ticker, balance: sql<string>`coalesce(sum(${whitebitLedgerEntriesTable.amount}), 0)::text` })
-    .from(whitebitLedgerEntriesTable).where(eq(whitebitLedgerEntriesTable.customerId, id)).groupBy(whitebitLedgerEntriesTable.ticker);
-  res.json(rows);
-});
-
-export default router;
 
 export const whitebitOperatorRouter: IRouter = Router();
 

@@ -988,41 +988,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
-  /account/deposits/address:
-    post:
-      operationId: createCustomerDepositAddress
-      tags: [deposits]
-      summary: Get or provision the signed-in customer's WhiteBIT deposit address
-      security: [{ CustomerSession: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/WhitebitDepositAddressInput" }
-      responses:
-        "200": { description: Existing address, content: { application/json: { schema: { $ref: "#/components/schemas/WhitebitDepositAddress" } } } }
-        "201": { description: Newly provisioned address, content: { application/json: { schema: { $ref: "#/components/schemas/WhitebitDepositAddress" } } } }
-        "401": { description: Customer authentication is required, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
-  /account/deposits:
-    get:
-      operationId: getCustomerDeposits
-      tags: [deposits]
-      summary: List deposits credited or awaiting confirmation for the signed-in customer
-      security: [{ CustomerSession: [] }]
-      responses:
-        "200":
-          description: Deposit history
-          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/WhitebitDeposit" } } } }
-  /account/balances:
-    get:
-      operationId: getCustomerBalances
-      tags: [deposits]
-      summary: Get internal balances derived from the immutable ledger
-      security: [{ CustomerSession: [] }]
-      responses:
-        "200":
-          description: Internal balances
-          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/WhitebitBalance" } } } }
   /account/orders/claim:
     post:
       operationId: claimCustomerOrder
@@ -7993,12 +7958,6 @@ components:
       properties:
         imported: { type: array, items: { type: string } }
         skipped: { type: array, items: { type: string } }
-    WhitebitDepositAddressInput:
-      type: object
-      required: [ticker]
-      properties:
-        ticker: { type: string, minLength: 1, maxLength: 32 }
-        network: { type: [string, "null"], maxLength: 64 }
     WhitebitDepositAddress:
       type: object
       required: [id, ticker, network, address, memo, status]
@@ -8009,29 +7968,6 @@ components:
         address: { type: [string, "null"] }
         memo: { type: [string, "null"] }
         status: { type: string, enum: [ready, pending, provisioning, unresolved, failed, error] }
-    WhitebitDeposit:
-      type: object
-      required: [id, ticker, amount, fee, status, address, createdAt]
-      properties:
-        id: { type: string, format: uuid }
-        ticker: { type: string }
-        network: { type: [string, "null"] }
-        address: { type: string }
-        memo: { type: [string, "null"] }
-        amount: { type: string }
-        fee: { type: string }
-        status: { type: string, enum: [accepted, updated, processed, unknown] }
-        providerStatus: { type: [integer, "null"] }
-        transactionHash: { type: [string, "null"] }
-        confirmationsActual: { type: [integer, "null"] }
-        confirmationsRequired: { type: [integer, "null"] }
-        createdAt: { type: string, format: date-time }
-    WhitebitBalance:
-      type: object
-      required: [ticker, balance]
-      properties:
-        ticker: { type: string }
-        balance: { type: string }
     WhitebitReconciliationResult:
       type: object
       required: [pages, records, credited]

@@ -85,6 +85,7 @@
 - [Resend delivery readiness](resend-sender-domain.md) — require verified sender domain; [check actual credential](resend-connector-state-validation.md) rather than connector UI.
 - [Newsletter delivery integrity](newsletter-delivery-integrity.md) — publish enqueue is atomic, unsubscribe is terminal, and Read More links are parser-checked.
 - [WhiteBIT deposit integrity](whitebit-deposit-integrity.md) — alias stable IDs, freeze credited economics, and require explicit consent for saved-address fallback.
+- [Standalone deposit retirement](standalone-deposit-retirement.md) — removing the customer deposit panel must not strand historical addresses, credits, or order funding.
 - [Shared DB test isolation](shared-db-test-isolation.md) — singleton provider tests need a disposable database; fixture cleanup alone cannot protect Development proofs.
 - [Provider lifecycle test isolation](provider-lifecycle-test-isolation.md) — expire every cache layer and restore disabled provider settings around lifecycle tests.
 - [Bulk pricing conflict scope](bulk-pricing-conflict-scope.md) — validate changed pricing rules against the full catalog without making unrelated legacy conflicts block every bulk action.

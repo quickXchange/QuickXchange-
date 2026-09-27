@@ -8,7 +8,7 @@ import test, { after, before } from "node:test";
 import { and, eq, sql } from "drizzle-orm";
 import { createPrivilegedTestPool } from "@workspace/db/test-admin";
 import * as database from "@workspace/db";
-import { replayHistoryRecord, whitebitWebhookRouter, default as whitebitRouter, whitebitOperatorRouter } from "../src/routes/whitebit";
+import { replayHistoryRecord, whitebitWebhookRouter, whitebitOperatorRouter } from "../src/routes/whitebit";
 import { configureCustomerAuthorizationForTests } from "../src/lib/customer-auth";
 import { configureOperatorAuthorizationForTests } from "../src/lib/operator-auth";
 import { assertIsolatedWhitebitDatabase } from "./assert-isolated-whitebit-database";
@@ -37,14 +37,12 @@ app.use(express.json({ verify: (req, _res, buffer) => {
   (req as express.Request & { rawBody?: Buffer }).rawBody = Buffer.from(buffer);
 } }));
 app.use("/api", whitebitWebhookRouter);
-app.use("/api", whitebitRouter);
 app.use("/api", whitebitOperatorRouter);
 app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   res.status((error as { status?: number }).status ?? 500).json({ error: String(error) });
 });
 let baseUrl = "";
 let nonce = 1_000_000_000_000 + Number.parseInt(suffix.replaceAll("-", "").slice(0, 10), 16);
-let providerCreateCalls = 0;
 let reconciliationRun = 0;
 let priorProviderSetting: typeof database.whitebitProviderSettingsTable.$inferSelect | null = null;
 const reconciliationRecords = Array.from({ length: 501 }, (_, index) => ({
@@ -184,11 +182,6 @@ before(async () => {
   });
   globalThis.fetch = async (input, init) => {
     const url = String(input);
-    if (url.includes("whitebit.com/api/v4/main-account/create-new-address")) {
-      providerCreateCalls += 1;
-      if (providerCreateCalls === 1) return new Response(JSON.stringify({ account: { address: `generated-${suffix}`, memo: null } }), { status: 200 });
-      throw new Error("unexpected duplicate provider call");
-    }
     if (url.includes("whitebit.com/api/v4/main-account/history")) {
       const request = JSON.parse(String(init?.body ?? "{}")) as { offset?: number; limit?: number; address?: string };
       if (request.address !== address) return new Response(JSON.stringify([]), { status: 200 });
@@ -594,37 +587,20 @@ test("ledger is append-only and rejects invalid amounts and destructive deletes"
   await assert.rejects(() => pool.query("DELETE FROM exchange_customers WHERE id = $1", [customerId]));
 });
 
-test("authenticated address provisioning converges concurrent requests to one provider call", async () => {
-  providerCreateCalls = 0;
-  const responses = await Promise.all(["ETH", "ETH"].map((network) => fetch(`${baseUrl}/api/account/deposits/address`, {
-    method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ ticker: "TEST", network }),
-  })));
-  assert.equal(providerCreateCalls, 1);
-  assert.ok(responses.some((response) => response.status === 201));
-});
-
-test("ambiguous provider timeout stays unresolved and blocks automatic retry", async () => {
-  const timeoutAddress = `timeout-${suffix}`;
-  globalThis.fetch = async (input, init) => {
-    const url = String(input);
-    if (url.includes("whitebit.com/api/v4/main-account/create-new-address")) throw new Error("provider timeout");
-    return originalFetch(input, init);
-  };
-  const first = await fetch(`${baseUrl}/api/account/deposits/address`, {
-    method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ ticker: "TIME", network: timeoutAddress }),
-  });
-  assert.equal(first.status, 500);
-  globalThis.fetch = originalFetch;
-  const second = await fetch(`${baseUrl}/api/account/deposits/address`, {
-    method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ ticker: "TIME", network: timeoutAddress }),
-  });
-  assert.equal(second.status, 200);
-  const [row] = await database.db.select().from(database.whitebitDepositAddressesTable)
-    .where(eq(database.whitebitDepositAddressesTable.ticker, "TIME"));
-  assert.equal(row?.status, "unresolved");
+test("standalone customer deposit and balance routes are unavailable", async () => {
+  const requests: Array<{ path: string; method?: string; body?: string }> = [
+    { path: "/api/account/deposits/address", method: "POST", body: JSON.stringify({ ticker: "TEST", network: "ETH" }) },
+    { path: "/api/account/deposits" },
+    { path: "/api/account/balances" },
+  ];
+  for (const request of requests) {
+    const response = await fetch(`${baseUrl}${request.path}`, {
+      method: request.method,
+      headers: request.body ? { "content-type": "application/json" } : undefined,
+      body: request.body,
+    });
+    assert.equal(response.status, 404, `${request.method ?? "GET"} ${request.path} should not be registered`);
+  }
 });
 
 test("owner recovery endpoint rejects operator and permits explicit owner action", async () => {

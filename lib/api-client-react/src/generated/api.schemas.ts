@@ -6076,19 +6076,6 @@ export interface WhitebitAssetImportResult {
   skipped: string[];
 }
 
-export interface WhitebitDepositAddressInput {
-  /**
-     * @minLength 1
-     * @maxLength 32
-     */
-  ticker: string;
-  /**
-     * @maxLength 64
-     * @nullable
-     */
-  network?: string | null;
-}
-
 export type WhitebitDepositAddressStatus = typeof WhitebitDepositAddressStatus[keyof typeof WhitebitDepositAddressStatus];
 
 
@@ -6111,43 +6098,6 @@ export interface WhitebitDepositAddress {
   /** @nullable */
   memo: string | null;
   status: WhitebitDepositAddressStatus;
-}
-
-export type WhitebitDepositStatus = typeof WhitebitDepositStatus[keyof typeof WhitebitDepositStatus];
-
-
-export const WhitebitDepositStatus = {
-  accepted: 'accepted',
-  updated: 'updated',
-  processed: 'processed',
-  unknown: 'unknown',
-} as const;
-
-export interface WhitebitDeposit {
-  id: string;
-  ticker: string;
-  /** @nullable */
-  network?: string | null;
-  address: string;
-  /** @nullable */
-  memo?: string | null;
-  amount: string;
-  fee: string;
-  status: WhitebitDepositStatus;
-  /** @nullable */
-  providerStatus?: number | null;
-  /** @nullable */
-  transactionHash?: string | null;
-  /** @nullable */
-  confirmationsActual?: number | null;
-  /** @nullable */
-  confirmationsRequired?: number | null;
-  createdAt: string;
-}
-
-export interface WhitebitBalance {
-  ticker: string;
-  balance: string;
 }
 
 export interface WhitebitReconciliationResult {

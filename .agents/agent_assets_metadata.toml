@@ -112,3 +112,17 @@ mtime_ms = 1789834838565
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/eddaa423-df09-442a-a545-7d56227758ff/6635bd2c-8850-4d6c-85fe-ceac5c7cd4f7"
 storage_version_token = "1789834844984950"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "khagaHu600J3uLZOg7u7F"
+uri = "file://reports/QuickXchange-Manual-Testing-Guide.pdf"
+type = "pdf"
+title = "Complete Manual Testing Guide (PDF)"
+description = "56-page, source-based testing guide covering 171 scenarios across public, customer, Admin, Telegram and operational workflows."
+logical_id = "d9121d9c-f7e3-4eee-93ea-1b07c1be5ef6"
+content_hash = "sha256:380b6101f65d68b52d2007be4157bba99ba3abb695374774be89164aacf2060c"
+size = 1176766
+mtime_ms = 1790542344852
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/d9121d9c-f7e3-4eee-93ea-1b07c1be5ef6/ae3bac84-a3e5-4647-84f0-e2821f18889f"
+storage_version_token = "1790542350718784"
+content_type = "application/pdf"

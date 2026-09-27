@@ -13,7 +13,7 @@ import { requireOwner } from "../lib/operator-auth";
 import blogRouter from "./blog";
 import { adminPolicy } from "../lib/admin-policy";
 import teamMembersRouter from "./team-members";
-import whitebitRouter, { whitebitOperatorRouter, whitebitWebhookRouter } from "./whitebit";
+import { whitebitOperatorRouter, whitebitWebhookRouter } from "./whitebit";
 import telegramRouter from "./telegram";
 import telegramConnectRouter from "./telegram-connect";
 import telegramMiniAppRouter from "./telegram-mini-app";
@@ -27,7 +27,6 @@ import exchangeConfigRouter from "./exchange-config";
 const router: IRouter = Router();
 
 router.use(healthRouter);
-router.use(whitebitRouter);
 router.use(whitebitWebhookRouter);
 router.use(telegramRouter);
 router.use(telegramConnectRouter);

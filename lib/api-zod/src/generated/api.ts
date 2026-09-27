@@ -5486,61 +5486,6 @@ export const GetCustomerOrdersResponse = zod.object({
 
 
 /**
- * @summary Get or provision the signed-in customer's WhiteBIT deposit address
- */
-export const createCustomerDepositAddressBodyTickerMax = 32;
-
-export const createCustomerDepositAddressBodyNetworkMax = 64;
-
-
-
-export const CreateCustomerDepositAddressBody = zod.object({
-  "ticker": zod.string().min(1).max(createCustomerDepositAddressBodyTickerMax),
-  "network": zod.string().max(createCustomerDepositAddressBodyNetworkMax).nullish()
-})
-
-export const CreateCustomerDepositAddressResponse = zod.object({
-  "id": zod.string().uuid(),
-  "ticker": zod.string(),
-  "network": zod.string().nullable(),
-  "address": zod.string().nullable(),
-  "memo": zod.string().nullable(),
-  "status": zod.enum(['ready', 'pending', 'provisioning', 'unresolved', 'failed', 'error'])
-})
-
-
-/**
- * @summary List deposits credited or awaiting confirmation for the signed-in customer
- */
-export const GetCustomerDepositsResponseItem = zod.object({
-  "id": zod.string().uuid(),
-  "ticker": zod.string(),
-  "network": zod.string().nullish(),
-  "address": zod.string(),
-  "memo": zod.string().nullish(),
-  "amount": zod.string(),
-  "fee": zod.string(),
-  "status": zod.enum(['accepted', 'updated', 'processed', 'unknown']),
-  "providerStatus": zod.number().int().nullish(),
-  "transactionHash": zod.string().nullish(),
-  "confirmationsActual": zod.number().int().nullish(),
-  "confirmationsRequired": zod.number().int().nullish(),
-  "createdAt": zod.coerce.date()
-})
-export const GetCustomerDepositsResponse = zod.array(GetCustomerDepositsResponseItem)
-
-
-/**
- * @summary Get internal balances derived from the immutable ledger
- */
-export const GetCustomerBalancesResponseItem = zod.object({
-  "ticker": zod.string(),
-  "balance": zod.string()
-})
-export const GetCustomerBalancesResponse = zod.array(GetCustomerBalancesResponseItem)
-
-
-/**
  * @summary Add an eligible anonymous order using its private reference
  */
 export const claimCustomerOrderBodyOrderIdMax = 100;
