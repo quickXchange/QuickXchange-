@@ -11,6 +11,7 @@ import type { ManualSwapAddon, ManualSwapAddonInput } from '@workspace/api-clien
 import { AdminShell } from '../App';
 import { trimFeeDecimal } from '../components/swap-fee-breakdown';
 import { AdminSwapAddonPreview } from '../components/admin-swap-addon-preview';
+import { addonKeyFromText, validAddonKey } from '../lib/swap-addon-key';
 
 const blank: ManualSwapAddonInput = { name: '', key: '', description: '', fixedAmount: '0', feeCurrency: 'USD', enabled: true, displayOrder: 0, selectionRule: 'multiple', presentation: { group: '' } };
 const field = 'w-full rounded-lg border border-input bg-background px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary';
@@ -25,6 +26,7 @@ export function AdminSwapAddonsPage() {
   const saveFee = useUpdateManualSwapFeeConfig();
   const [editing, setEditing] = useState<ManualSwapAddon | 'new' | null>(null);
   const [form, setForm] = useState<ManualSwapAddonInput>(blank);
+  const [keyEdited, setKeyEdited] = useState(false);
   const [feeForm, setFeeForm] = useState({ enabled: false, percentage: '', fixedAmount: '', fixedCurrency: 'USD' });
   const [message, setMessage] = useState('');
   useEffect(() => {
@@ -39,11 +41,16 @@ export function AdminSwapAddonsPage() {
   const open = (item?: ManualSwapAddon) => {
     setMessage('');
     setEditing(item || 'new');
+    setKeyEdited(Boolean(item));
     setForm(item ? { name: item.name, key: item.key, description: item.description, fixedAmount: trimFeeDecimal(item.fixedAmount), feeCurrency: item.feeCurrency, enabled: item.enabled, displayOrder: item.displayOrder, selectionRule: item.selectionRule, presentation: { group: item.presentation.group } } : { ...blank, presentation: { group: '' } });
   };
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setMessage('');
+    if (!validAddonKey.test(form.key)) {
+      setMessage('Enter a key starting with a lowercase letter or number, using only lowercase letters, numbers, hyphens, and underscores (up to 100 characters).');
+      return;
+    }
     try {
       if (editing && editing !== 'new') await update.mutateAsync({ id: editing.id, data: form });
       else await create.mutateAsync({ data: form });
@@ -69,8 +76,8 @@ export function AdminSwapAddonsPage() {
       </section>
       <div className={editing ? 'grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.9fr)] xl:items-start' : ''}>
       {editing && <section className="panel p-5 min-w-0"><h2 className="font-bold text-lg mb-4">{editing === 'new' ? 'Add option' : `Edit ${editing.name}`}</h2><form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-        <label className="text-sm font-semibold">Name<input required maxLength={120} className={field} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} data-testid="input-addon-name"/></label>
-        <label className="text-sm font-semibold">Key<input required pattern="[a-z0-9][a-z0-9_-]*" maxLength={100} className={field} value={form.key} onChange={e => setForm(p => ({ ...p, key: e.target.value }))} data-testid="input-addon-key"/></label>
+        <label className="text-sm font-semibold">Name<input required maxLength={120} className={field} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value, key: editing === 'new' && !keyEdited ? addonKeyFromText(e.target.value) : p.key }))} data-testid="input-addon-name"/></label>
+        <label className="text-sm font-semibold">Key<input required pattern="[a-z0-9](?:[a-z0-9_]|-)*" maxLength={100} className={field} value={form.key} onChange={e => { setKeyEdited(true); setForm(p => ({ ...p, key: addonKeyFromText(e.target.value) })); }} autoCapitalize="off" spellCheck={false} data-testid="input-addon-key"/><small className="block font-normal text-muted-foreground">Generated from the name; you can edit it. Use lowercase letters, numbers, hyphens, or underscores.</small></label>
         <label className="text-sm font-semibold sm:col-span-2">Description<textarea maxLength={1000} className={field} value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} data-testid="input-addon-description"/></label>
         <label className="text-sm font-semibold">Price<input required inputMode="decimal" pattern="[0-9]+([.][0-9]+)?" className={field} value={form.fixedAmount} onChange={e => setForm(p => ({ ...p, fixedAmount: e.target.value }))} data-testid="input-addon-price"/></label>
         <label className="text-sm font-semibold">Currency<input required pattern="[A-Z0-9]{2,15}" className={field} value={form.feeCurrency} onChange={e => setForm(p => ({ ...p, feeCurrency: e.target.value.toUpperCase() }))} data-testid="input-addon-currency"/></label>
