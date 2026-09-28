@@ -34,9 +34,14 @@ test("Swap add-ons and exchange fee allow pricing viewers to read but require ma
     ["DELETE", "/admin/manual-swap-addons/example-id", "pricing.manage"],
     ["GET", "/admin/manual-swap-fee-config", "pricing.view"],
     ["PUT", "/admin/manual-swap-fee-config", "pricing.manage"],
+    ["POST", "/admin/manual-swap-fee-preview", "pricing.view"],
   ] as const;
   for (const [method, path, permission] of routes) {
-    assert.deepEqual(classifyAdminRoute(method, path), { permission, ownerOnly: false });
+    assert.deepEqual(classifyAdminRoute(method, path), {
+      permission,
+      ownerOnly: false,
+      ...(path === "/admin/manual-swap-fee-preview" ? { readOnly: true } : {}),
+    });
     for (const allowed of [false, true]) {
       const error = await new Promise<unknown>((resolve) => {
         adminPolicy(

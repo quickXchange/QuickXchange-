@@ -9,7 +9,7 @@ export const manualSwapAddonsTable = pgTable("manual_swap_addons", {
   feeCurrency: text("fee_currency").notNull(),
   enabled: boolean("enabled").notNull().default(true),
   selectionRule: text("selection_rule").notNull().default("multiple"),
-  presentation: jsonb("presentation").$type<{ group: string }>().notNull().default({ group: "" }),
+  presentation: jsonb("presentation").$type<{ group: string; displayOrder?: number }>().notNull().default({ group: "" }),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })

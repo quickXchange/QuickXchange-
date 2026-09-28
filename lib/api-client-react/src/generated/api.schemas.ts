@@ -1142,6 +1142,8 @@ export interface ManualSwapAddon {
   /** @pattern ^[A-Z0-9]{2,15}$ */
   feeCurrency: string;
   enabled: boolean;
+  /** @minimum 0 */
+  displayOrder: number;
   selectionRule: ManualSwapAddonSelectionRule;
   presentation: ManualSwapAddonPresentation;
 }
@@ -1178,6 +1180,8 @@ export interface ManualSwapAddonInput {
   /** @pattern ^[A-Z0-9]{2,15}$ */
   feeCurrency: string;
   enabled?: boolean;
+  /** @minimum 0 */
+  displayOrder?: number;
   selectionRule?: ManualSwapAddonInputSelectionRule;
   presentation?: ManualSwapAddonInputPresentation;
 }
@@ -1203,26 +1207,47 @@ export interface ManualSwapFeeConfigInput {
   fixedCurrency: string;
 }
 
-export type ManualSwapFeeQuoteSnapshotSelectedAddonsItem = {
-  id: string;
-  key: string;
-  name: string;
-  amount: NonNegativeExactDecimal;
-  currency: string;
-  targetAmount: NonNegativeExactDecimal;
-};
-
-export type ManualSwapFeeQuoteSnapshotExchangeFee = {
+export interface ManualSwapFeePreviewConfig {
   enabled: boolean;
-  /** @nullable */
+  /**
+     * @maxLength 39
+     * @nullable
+     * @pattern ^(?:|(?:0|[1-9][0-9]{0,19})(?:\.[0-9]{1,18})?)$
+     */
   percentage: string | null;
-  /** @nullable */
+  /**
+     * @maxLength 39
+     * @nullable
+     * @pattern ^(?:|(?:0|[1-9][0-9]{0,19})(?:\.[0-9]{1,18})?)$
+     */
   fixedAmount: string | null;
+  /** @pattern ^[A-Z0-9]{2,15}$ */
   fixedCurrency: string;
-  percentageAmount: NonNegativeExactDecimal;
-  fixedTargetAmount: NonNegativeExactDecimal;
-  totalAmount: NonNegativeExactDecimal;
-};
+}
+
+export interface ManualSwapFeePreviewInput {
+  /**
+     * @maximum 1000000000
+     * @exclusiveMinimum 0
+     */
+  exchangeAmount?: number;
+  /** @maxItems 50 */
+  addons?: ManualSwapAddonInput[];
+  /**
+     * @maxItems 50
+     * @items.minLength 1
+     * @items.maxLength 100
+     */
+  selectedAddonKeys?: string[];
+  feeConfig: ManualSwapFeePreviewConfig;
+}
+
+export type ManualSwapFeePreviewCurrency = typeof ManualSwapFeePreviewCurrency[keyof typeof ManualSwapFeePreviewCurrency];
+
+
+export const ManualSwapFeePreviewCurrency = {
+  USD: 'USD',
+} as const;
 
 export type PricingReferenceLegProvider = typeof PricingReferenceLegProvider[keyof typeof PricingReferenceLegProvider];
 
@@ -1253,6 +1278,27 @@ export interface PricingReferenceLeg {
   timestampKind: PricingReferenceLegTimestampKind;
 }
 
+export type ManualSwapFeeQuoteSnapshotSelectedAddonsItem = {
+  id: string;
+  key: string;
+  name: string;
+  amount: NonNegativeExactDecimal;
+  currency: string;
+  targetAmount: NonNegativeExactDecimal;
+};
+
+export type ManualSwapFeeQuoteSnapshotExchangeFee = {
+  enabled: boolean;
+  /** @nullable */
+  percentage: string | null;
+  /** @nullable */
+  fixedAmount: string | null;
+  fixedCurrency: string;
+  percentageAmount: NonNegativeExactDecimal;
+  fixedTargetAmount: NonNegativeExactDecimal;
+  totalAmount: NonNegativeExactDecimal;
+};
+
 export interface ManualSwapFeeQuoteSnapshot {
   selectedAddons: ManualSwapFeeQuoteSnapshotSelectedAddonsItem[];
   addonFee: NonNegativeExactDecimal;
@@ -1261,6 +1307,15 @@ export interface ManualSwapFeeQuoteSnapshot {
   existingPricingFee: NonNegativeExactDecimal;
   totalFees: NonNegativeExactDecimal;
   referenceLegs?: PricingReferenceLeg[];
+}
+
+export interface ManualSwapFeePreview {
+  exchangeAmount: number;
+  receiveAmount: number;
+  currency: ManualSwapFeePreviewCurrency;
+  feeSnapshot: ManualSwapFeeQuoteSnapshot;
+  feeConfig: ManualSwapFeePreviewConfig;
+  illustrativeOnly: true;
 }
 
 export type QuoteInputType = typeof QuoteInputType[keyof typeof QuoteInputType];

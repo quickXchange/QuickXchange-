@@ -143,6 +143,8 @@ import {
   GetManualSwapFeeConfigResponse,
   UpdateManualSwapFeeConfigBody,
   UpdateManualSwapFeeConfigResponse,
+  PreviewManualSwapFeesBody,
+  PreviewManualSwapFeesResponse,
 } from "@workspace/api-zod";
 import { databasePoolTelemetry } from "@workspace/db";
 import {
@@ -1660,10 +1662,15 @@ function outputManualSwapAddon(row: typeof manualSwapAddonsTable.$inferSelect) {
     fixedAmount: row.fixedAmount,
     feeCurrency: row.feeCurrency,
     enabled: row.enabled && row.deletedAt === null,
+    displayOrder: row.presentation.displayOrder ?? 0,
     selectionRule: row.selectionRule,
-    presentation: row.presentation,
+    presentation: { group: row.presentation.group },
   };
 }
+
+const manualSwapAddonDisplayOrder = sql<number>`
+  coalesce((${manualSwapAddonsTable.presentation} ->> 'displayOrder')::integer, 0)
+`;
 
 async function loadManualSwapFeeConfig() {
   const [config] = await db.select().from(manualSwapFeeConfigTable)
@@ -1689,7 +1696,11 @@ router.get("/exchange/manual-swap-addons", async (_req, res, next) => {
   try {
     const rows = await db.select().from(manualSwapAddonsTable)
       .where(and(eq(manualSwapAddonsTable.enabled, true), isNull(manualSwapAddonsTable.deletedAt)))
-      .orderBy(asc(manualSwapAddonsTable.name));
+      .orderBy(
+        asc(manualSwapAddonDisplayOrder),
+        asc(manualSwapAddonsTable.name),
+        asc(manualSwapAddonsTable.key),
+      );
     res.json(ListPublicManualSwapAddonsResponse.parse({
       items: rows.map(outputManualSwapAddon),
     }));
@@ -1702,7 +1713,11 @@ router.get("/admin/manual-swap-addons", requirePermission("pricing.view"), async
   try {
     const rows = await db.select().from(manualSwapAddonsTable)
       .where(isNull(manualSwapAddonsTable.deletedAt))
-      .orderBy(asc(manualSwapAddonsTable.name));
+      .orderBy(
+        asc(manualSwapAddonDisplayOrder),
+        asc(manualSwapAddonsTable.name),
+        asc(manualSwapAddonsTable.key),
+      );
     res.json(ListAdminManualSwapAddonsResponse.parse({
       items: rows.map(outputManualSwapAddon),
     }));
@@ -1722,7 +1737,10 @@ router.post("/admin/manual-swap-addons", requirePermission("pricing.manage"), as
       feeCurrency: input.feeCurrency.toUpperCase(),
       enabled: input.enabled,
       selectionRule: input.selectionRule,
-      presentation: { group: input.presentation?.group?.trim() ?? "" },
+      presentation: {
+        group: input.presentation?.group?.trim() ?? "",
+        displayOrder: input.displayOrder ?? 0,
+      },
     }).returning();
     const result = CreateManualSwapAddonResponse.parse(outputManualSwapAddon(row));
     recordAdminMutationActivity(req, res, {
@@ -1757,7 +1775,10 @@ router.patch("/admin/manual-swap-addons/:id", requirePermission("pricing.manage"
       feeCurrency: input.feeCurrency.toUpperCase(),
       enabled: input.enabled,
       selectionRule: input.selectionRule,
-      presentation: { group: input.presentation?.group?.trim() ?? "" },
+      presentation: {
+        group: input.presentation?.group?.trim() ?? existing.presentation.group,
+        displayOrder: input.displayOrder ?? existing.presentation.displayOrder ?? 0,
+      },
       updatedAt: new Date(),
     }).where(eq(manualSwapAddonsTable.id, id)).returning();
     const result = UpdateManualSwapAddonResponse.parse(outputManualSwapAddon(row));
@@ -1840,6 +1861,80 @@ router.put("/admin/manual-swap-fee-config", requirePermission("pricing.manage"),
       entityId: "default",
     });
     res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/admin/manual-swap-fee-preview", requirePermission("pricing.view"), async (req, res, next) => {
+  try {
+    const input = PreviewManualSwapFeesBody.parse(req.body);
+    const addons = input.addons ?? [];
+    const addonKeys = new Set<string>();
+    const catalog = addons.map((addon) => {
+      if (addonKeys.has(addon.key)) {
+        throw new ApiError("MANUAL_SWAP_ADDON_DUPLICATE", "Preview add-on keys must be unique.", 400);
+      }
+      addonKeys.add(addon.key);
+      return {
+        id: randomUUID(),
+        key: addon.key,
+        name: addon.name.trim(),
+        fixedAmount: addon.fixedAmount,
+        feeCurrency: addon.feeCurrency,
+        enabled: addon.enabled,
+        deletedAt: null,
+        selectionRule: addon.selectionRule,
+        presentation: { group: addon.presentation?.group?.trim() ?? "" },
+      };
+    });
+    const selectedAddons = validateManualSwapAddonSelection(
+      input.selectedAddonKeys ?? [],
+      catalog,
+    );
+    const additionalCurrencies = [...new Set([
+      "USD",
+      ...selectedAddons.map((addon) => addon.feeCurrency),
+      ...(input.feeConfig.enabled && input.feeConfig.fixedAmount !== null &&
+        input.feeConfig.fixedAmount !== ""
+        ? [input.feeConfig.fixedCurrency]
+        : []),
+    ].map((currency) => currency.toUpperCase()))];
+    const estimate = await getManualDeskEstimate({
+      sourceCurrency: "USD",
+      targetCurrency: "USD",
+      targetPrecision: 2,
+      amount: input.exchangeAmount,
+      markupBasisPoints: 0,
+      adjustmentDirection: "MARKUP",
+      exactRate: "1",
+      additionalCurrencies,
+    });
+    const feeAdjusted = applyManualSwapFees({
+      grossAmount: estimate.exact.grossMarketAmount,
+      legacyReceiveAmount: estimate.exact.receiveAmount,
+      legacyTotalFee: estimate.exact.totalFee,
+      amount: input.exchangeAmount,
+      targetCurrency: "USD",
+      targetPrecision: 2,
+      addons: selectedAddons.map((addon) => ({
+        id: addon.id,
+        key: addon.key,
+        name: addon.name,
+        fixedAmount: addon.fixedAmount,
+        feeCurrency: addon.feeCurrency,
+      })),
+      config: input.feeConfig,
+      references: estimate.exact.additionalReferences,
+    });
+    res.json(PreviewManualSwapFeesResponse.parse({
+      exchangeAmount: input.exchangeAmount,
+      receiveAmount: feeAdjusted.receiveAmount,
+      currency: "USD",
+      feeSnapshot: feeAdjusted.feeSnapshot,
+      feeConfig: input.feeConfig,
+      illustrativeOnly: true,
+    }));
   } catch (error) {
     next(error);
   }

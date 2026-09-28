@@ -175,6 +175,8 @@ import type {
   ManualSwapAddonsResponse,
   ManualSwapFeeConfig,
   ManualSwapFeeConfigInput,
+  ManualSwapFeePreview,
+  ManualSwapFeePreviewInput,
   MarkOrderPaidInput,
   NewsletterAnnouncement,
   NewsletterAnnouncementInput,
@@ -1443,6 +1445,78 @@ export const useUpdateManualSwapFeeConfig = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getUpdateManualSwapFeeConfigMutationOptions(options));
+    }
+
+export const getPreviewManualSwapFeesUrl = () => {
+
+
+
+
+  return `/api/admin/manual-swap-fee-preview`
+}
+
+/**
+ * Illustrative pricing preview only; this endpoint does not create a customer quote or order.
+ * @summary Preview unsaved Manual Swap add-on and exchange fees
+ */
+export const previewManualSwapFees = async (manualSwapFeePreviewInput: ManualSwapFeePreviewInput, options?: Parameters<typeof customFetch>[1]): Promise<ManualSwapFeePreview> => {
+
+  return customFetch<ManualSwapFeePreview>(getPreviewManualSwapFeesUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(manualSwapFeePreviewInput)
+  }
+);}
+
+
+
+
+
+export const getPreviewManualSwapFeesMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewManualSwapFees>>, TError,{data: BodyType<ManualSwapFeePreviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewManualSwapFees>>, TError,{data: BodyType<ManualSwapFeePreviewInput>}, TContext> => {
+
+const mutationKey = ['previewManualSwapFees'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewManualSwapFees>>, {data: BodyType<ManualSwapFeePreviewInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  previewManualSwapFees(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PreviewManualSwapFeesMutationResult = NonNullable<Awaited<ReturnType<typeof previewManualSwapFees>>>
+    export type PreviewManualSwapFeesMutationBody = BodyType<ManualSwapFeePreviewInput>
+    export type PreviewManualSwapFeesMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Preview unsaved Manual Swap add-on and exchange fees
+ */
+export const usePreviewManualSwapFees = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewManualSwapFees>>, TError,{data: BodyType<ManualSwapFeePreviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof previewManualSwapFees>>,
+        TError,
+        {data: BodyType<ManualSwapFeePreviewInput>},
+        TContext
+      > => {
+      return useMutation(getPreviewManualSwapFeesMutationOptions(options));
     }
 
 export const getGetLandingBackgroundUrl = () => {

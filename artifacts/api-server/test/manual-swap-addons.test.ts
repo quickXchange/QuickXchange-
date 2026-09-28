@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  CreateManualSwapAddonBody,
+  ListPublicManualSwapAddonsResponse,
+  PreviewManualSwapFeesBody,
+  PreviewManualSwapFeesResponse,
+} from "@workspace/api-zod";
+import {
   applyManualSwapFees,
   validateManualSwapAddonSelection,
   verifyManualSwapFeeSnapshot,
@@ -14,10 +20,49 @@ const addon = {
   fixedAmount: "1",
   feeCurrency: "EUR",
   enabled: true,
+  displayOrder: 10,
   deletedAt: null,
   selectionRule: "multiple",
-  presentation: { group: "" },
+  presentation: { group: "", displayOrder: 10 },
 };
+
+test("Manual Swap add-on display order is validated and backward-compatible in API contracts", () => {
+  const input = CreateManualSwapAddonBody.parse({
+    key: "priority",
+    name: "Priority processing",
+    fixedAmount: "1",
+    feeCurrency: "EUR",
+  });
+  assert.equal(input.displayOrder, undefined);
+  assert.equal(CreateManualSwapAddonBody.parse({
+    key: "priority",
+    name: "Priority processing",
+    fixedAmount: "1",
+    feeCurrency: "EUR",
+    displayOrder: 4,
+  }).displayOrder, 4);
+  assert.throws(() => CreateManualSwapAddonBody.parse({
+    key: "priority",
+    name: "Priority processing",
+    fixedAmount: "1",
+    feeCurrency: "EUR",
+    displayOrder: -1,
+  }));
+  assert.equal(ListPublicManualSwapAddonsResponse.parse({
+    items: [{
+      id: addon.id,
+      key: addon.key,
+      name: addon.name,
+      description: "",
+      fixedAmount: addon.fixedAmount,
+      feeCurrency: addon.feeCurrency,
+      enabled: true,
+      displayOrder: addon.displayOrder,
+      selectionRule: addon.selectionRule,
+      presentation: { group: addon.presentation.group },
+    }],
+  }).items[0]?.displayOrder, 10);
+});
 
 test("Manual Swap add-ons are opt-in and unavailable or forbidden options fail closed", () => {
   assert.deepEqual(validateManualSwapAddonSelection([], [addon]), []);
@@ -50,6 +95,104 @@ test("Manual Swap add-ons are opt-in and unavailable or forbidden options fail c
     ]),
     { code: "MANUAL_SWAP_ADDON_SELECTION_INVALID" },
   );
+});
+
+test("Manual Swap fee preview validates configuration and prices exchange fee components independently", () => {
+  const previewInput = PreviewManualSwapFeesBody.parse({
+    feeConfig: {
+      enabled: false,
+      percentage: "",
+      fixedAmount: null,
+      fixedCurrency: "USD",
+    },
+  });
+  assert.equal(previewInput.exchangeAmount, 1000);
+  assert.equal(previewInput.feeConfig.percentage, "");
+  assert.equal(previewInput.feeConfig.fixedAmount, null);
+  assert.throws(() => PreviewManualSwapFeesBody.parse({
+    exchangeAmount: 0,
+    feeConfig: { enabled: false, percentage: null, fixedAmount: null, fixedCurrency: "USD" },
+  }));
+  assert.throws(() => PreviewManualSwapFeesBody.parse({
+    exchangeAmount: 1_000_000_001,
+    feeConfig: { enabled: false, percentage: null, fixedAmount: null, fixedCurrency: "USD" },
+  }));
+
+  const applyPreview = (config: {
+    enabled: boolean; percentage: string | null; fixedAmount: string | null; fixedCurrency: string;
+  }, addons: Array<{ id: string; key: string; name: string; fixedAmount: string; feeCurrency: string }> = []) =>
+    applyManualSwapFees({
+      grossAmount: "1000",
+      legacyReceiveAmount: "1000",
+      legacyTotalFee: "0",
+      amount: 1000,
+      targetCurrency: "USD",
+      targetPrecision: 2,
+      addons,
+      config,
+      references: [{
+        currency: "USD",
+        unitsPerUsd: "1",
+        provider: "USD identity",
+        source: "identity",
+        observedAt: "2026-01-01T00:00:00.000Z",
+        timestampKind: "fetchedAt",
+      }],
+    });
+
+  const both = applyPreview(
+    { enabled: true, percentage: "1", fixedAmount: "2", fixedCurrency: "USD" },
+    [{
+      id: addon.id,
+      key: addon.key,
+      name: addon.name,
+      fixedAmount: "3",
+      feeCurrency: "USD",
+    }],
+  );
+  assert.equal(both.feeSnapshot.exchangeFee.percentageAmount, "10");
+  assert.equal(both.feeSnapshot.exchangeFee.fixedTargetAmount, "2");
+  assert.equal(both.feeSnapshot.addonFee, "3");
+  assert.equal(both.receiveAmountExact, "985");
+
+  const fixedOnly = applyPreview({
+    enabled: true, percentage: null, fixedAmount: "2", fixedCurrency: "USD",
+  });
+  assert.equal(fixedOnly.feeSnapshot.exchangeFee.totalAmount, "2");
+  assert.equal(fixedOnly.receiveAmountExact, "998");
+
+  const percentageOnly = applyPreview({
+    enabled: true, percentage: "1", fixedAmount: null, fixedCurrency: "USD",
+  });
+  assert.equal(percentageOnly.feeSnapshot.exchangeFee.totalAmount, "10");
+  assert.equal(percentageOnly.receiveAmountExact, "990");
+  const disabled = applyPreview({
+    enabled: false, percentage: "", fixedAmount: null, fixedCurrency: "USD",
+  });
+  assert.equal(disabled.receiveAmountExact, "1000");
+  assert.throws(() => applyPreview({
+    enabled: true, percentage: null, fixedAmount: "1001", fixedCurrency: "USD",
+  }), { code: "MANUAL_DESK_FEE_EXCEEDS_AMOUNT" });
+
+  const disabledResponse = PreviewManualSwapFeesResponse.parse({
+    exchangeAmount: 1000,
+    receiveAmount: disabled.receiveAmount,
+    currency: "USD",
+    feeSnapshot: disabled.feeSnapshot,
+    feeConfig: previewInput.feeConfig,
+    illustrativeOnly: true,
+  });
+  assert.equal(disabledResponse.feeConfig.enabled, false);
+  assert.equal(disabledResponse.feeConfig.percentage, "");
+  assert.equal(disabledResponse.feeConfig.fixedAmount, null);
+  assert.equal(PreviewManualSwapFeesResponse.parse({
+    exchangeAmount: 1000,
+    receiveAmount: both.receiveAmount,
+    currency: "USD",
+    feeSnapshot: both.feeSnapshot,
+    feeConfig: { enabled: true, percentage: "1", fixedAmount: "2", fixedCurrency: "USD" },
+    illustrativeOnly: true,
+  }).feeSnapshot.totalAdditionalFee, "15");
 });
 
 test("fees convert fixed amounts exactly, deduct only from receive, and snapshot references", () => {

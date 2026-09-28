@@ -21,7 +21,8 @@ import {
 import type { ApiError, OrderInput, PaymentMethodFieldDefinition, SettlementOption, SiteNavLink } from '@workspace/api-client-react';
 import type { ManualSwapFeeQuoteSnapshot } from '@workspace/api-client-react';
 import { getListPublicManualSwapAddonsQueryKey, useListPublicManualSwapAddons } from '@workspace/api-client-react';
-import { SwapFeeBreakdown, trimFeeDecimal } from '@/components/swap-fee-breakdown';
+import { SwapFeeBreakdown } from '@/components/swap-fee-breakdown';
+import { SwapAddonOptions } from '@/components/swap-addon-options';
 import { Link, useLocation } from 'wouter';
 import {
   ArrowDownUp, ArrowLeftRight, ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight,
@@ -1481,16 +1482,7 @@ export function ManualSwapWidget({
                 </div>
               )}
 
-              <section className="mt-4 space-y-3" aria-label="Optional Swap add-ons">
-                <div className="text-sm font-bold text-foreground">Optional add-ons</div>
-                {addons.isLoading ? <div className="skeleton h-16 rounded-xl"/> : addons.isError ?
-                  <div role="alert" className="text-sm text-destructive">Options are unavailable. <button type="button" onClick={() => addons.refetch()} className="underline" data-testid="button-retry-swap-addons">Retry</button></div> :
-                  availableAddons.length ? <div className="space-y-2">{availableAddons.map(item => <label key={item.key} className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-card/60 p-3 text-sm">
-                    <input type="checkbox" className="mt-1 accent-primary" checked={selectedKeys.includes(item.key)} disabled={item.selectionRule === 'none'} onChange={() => toggleAddon(item.key)} data-testid={`checkbox-swap-addon-${item.key}`}/>
-                    <span className="flex-1"><strong className="block text-foreground">{item.name}</strong>{item.description && <small className="text-muted-foreground">{item.description}</small>}{item.selectionRule === 'one' && <small className="block text-muted-foreground">Choose one in {item.presentation.group || 'this group'}</small>}</span>
-                    <span className="font-mono text-foreground whitespace-nowrap">{trimFeeDecimal(item.fixedAmount)} {item.feeCurrency}</span>
-                  </label>)}</div> : <p className="text-xs text-muted-foreground">No optional services are available for this swap.</p>}
-              </section>
+              <SwapAddonOptions options={availableAddons} selectedKeys={selectedKeys} onToggle={toggleAddon} isLoading={addons.isLoading} isError={addons.isError} onRetry={() => addons.refetch()}/>
               {currentQuote && toOption && <div className="mt-4"><SwapFeeBreakdown fees={currentQuote.manualSwapFees} currency={toOption.assetCode} receiveAmount={currentQuote.receiveAmount}/></div>}
 
               <div className="exchange-submit-wrap">

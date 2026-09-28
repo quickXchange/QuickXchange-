@@ -470,6 +470,8 @@ export const listPublicManualSwapAddonsResponseItemsItemDescriptionMax = 1000;
 
 export const listPublicManualSwapAddonsResponseItemsItemFixedAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const listPublicManualSwapAddonsResponseItemsItemFeeCurrencyRegExp = new RegExp('^[A-Z0-9]{2,15}$');
+export const listPublicManualSwapAddonsResponseItemsItemDisplayOrderMin = 0;
+
 export const listPublicManualSwapAddonsResponseItemsItemPresentationGroupMax = 100;
 
 
@@ -483,6 +485,7 @@ export const ListPublicManualSwapAddonsResponse = zod.object({
   "fixedAmount": zod.string().regex(listPublicManualSwapAddonsResponseItemsItemFixedAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "feeCurrency": zod.string().regex(listPublicManualSwapAddonsResponseItemsItemFeeCurrencyRegExp),
   "enabled": zod.boolean(),
+  "displayOrder": zod.number().int().min(listPublicManualSwapAddonsResponseItemsItemDisplayOrderMin),
   "selectionRule": zod.enum(['none', 'one', 'multiple']),
   "presentation": zod.object({
   "group": zod.string().max(listPublicManualSwapAddonsResponseItemsItemPresentationGroupMax)
@@ -501,6 +504,8 @@ export const listAdminManualSwapAddonsResponseItemsItemDescriptionMax = 1000;
 
 export const listAdminManualSwapAddonsResponseItemsItemFixedAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const listAdminManualSwapAddonsResponseItemsItemFeeCurrencyRegExp = new RegExp('^[A-Z0-9]{2,15}$');
+export const listAdminManualSwapAddonsResponseItemsItemDisplayOrderMin = 0;
+
 export const listAdminManualSwapAddonsResponseItemsItemPresentationGroupMax = 100;
 
 
@@ -514,6 +519,7 @@ export const ListAdminManualSwapAddonsResponse = zod.object({
   "fixedAmount": zod.string().regex(listAdminManualSwapAddonsResponseItemsItemFixedAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "feeCurrency": zod.string().regex(listAdminManualSwapAddonsResponseItemsItemFeeCurrencyRegExp),
   "enabled": zod.boolean(),
+  "displayOrder": zod.number().int().min(listAdminManualSwapAddonsResponseItemsItemDisplayOrderMin),
   "selectionRule": zod.enum(['none', 'one', 'multiple']),
   "presentation": zod.object({
   "group": zod.string().max(listAdminManualSwapAddonsResponseItemsItemPresentationGroupMax)
@@ -533,6 +539,8 @@ export const createManualSwapAddonBodyDescriptionMax = 1000;
 export const createManualSwapAddonBodyFixedAmountRegExp = new RegExp('^(?:0|[1-9][0-9]{0,19})(?:\\.[0-9]{1,18})?$');
 export const createManualSwapAddonBodyFeeCurrencyRegExp = new RegExp('^[A-Z0-9]{2,15}$');
 export const createManualSwapAddonBodyEnabledDefault = true;
+export const createManualSwapAddonBodyDisplayOrderMin = 0;
+
 export const createManualSwapAddonBodySelectionRuleDefault = `multiple`;
 export const createManualSwapAddonBodyPresentationGroupMax = 100;
 
@@ -545,6 +553,7 @@ export const CreateManualSwapAddonBody = zod.object({
   "fixedAmount": zod.string().regex(createManualSwapAddonBodyFixedAmountRegExp).describe('An exact non-negative decimal fitting the Manual Swap numeric(38,18) storage boundary.'),
   "feeCurrency": zod.string().regex(createManualSwapAddonBodyFeeCurrencyRegExp),
   "enabled": zod.boolean().default(createManualSwapAddonBodyEnabledDefault),
+  "displayOrder": zod.number().int().min(createManualSwapAddonBodyDisplayOrderMin).optional(),
   "selectionRule": zod.enum(['none', 'one', 'multiple']).default(createManualSwapAddonBodySelectionRuleDefault),
   "presentation": zod.object({
   "group": zod.string().max(createManualSwapAddonBodyPresentationGroupMax).optional()
@@ -558,6 +567,8 @@ export const createManualSwapAddonResponseDescriptionMax = 1000;
 
 export const createManualSwapAddonResponseFixedAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createManualSwapAddonResponseFeeCurrencyRegExp = new RegExp('^[A-Z0-9]{2,15}$');
+export const createManualSwapAddonResponseDisplayOrderMin = 0;
+
 export const createManualSwapAddonResponsePresentationGroupMax = 100;
 
 
@@ -570,6 +581,7 @@ export const CreateManualSwapAddonResponse = zod.object({
   "fixedAmount": zod.string().regex(createManualSwapAddonResponseFixedAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "feeCurrency": zod.string().regex(createManualSwapAddonResponseFeeCurrencyRegExp),
   "enabled": zod.boolean(),
+  "displayOrder": zod.number().int().min(createManualSwapAddonResponseDisplayOrderMin),
   "selectionRule": zod.enum(['none', 'one', 'multiple']),
   "presentation": zod.object({
   "group": zod.string().max(createManualSwapAddonResponsePresentationGroupMax)
@@ -592,6 +604,8 @@ export const updateManualSwapAddonBodyOneDescriptionMax = 1000;
 export const updateManualSwapAddonBodyOneFixedAmountRegExp = new RegExp('^(?:0|[1-9][0-9]{0,19})(?:\\.[0-9]{1,18})?$');
 export const updateManualSwapAddonBodyOneFeeCurrencyRegExp = new RegExp('^[A-Z0-9]{2,15}$');
 export const updateManualSwapAddonBodyOneEnabledDefault = true;
+export const updateManualSwapAddonBodyOneDisplayOrderMin = 0;
+
 export const updateManualSwapAddonBodyOneSelectionRuleDefault = `multiple`;
 export const updateManualSwapAddonBodyOnePresentationGroupMax = 100;
 
@@ -604,6 +618,7 @@ export const UpdateManualSwapAddonBody = zod.object({
   "fixedAmount": zod.string().regex(updateManualSwapAddonBodyOneFixedAmountRegExp).describe('An exact non-negative decimal fitting the Manual Swap numeric(38,18) storage boundary.'),
   "feeCurrency": zod.string().regex(updateManualSwapAddonBodyOneFeeCurrencyRegExp),
   "enabled": zod.boolean().default(updateManualSwapAddonBodyOneEnabledDefault),
+  "displayOrder": zod.number().int().min(updateManualSwapAddonBodyOneDisplayOrderMin).optional(),
   "selectionRule": zod.enum(['none', 'one', 'multiple']).default(updateManualSwapAddonBodyOneSelectionRuleDefault),
   "presentation": zod.object({
   "group": zod.string().max(updateManualSwapAddonBodyOnePresentationGroupMax).optional()
@@ -617,6 +632,8 @@ export const updateManualSwapAddonResponseDescriptionMax = 1000;
 
 export const updateManualSwapAddonResponseFixedAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const updateManualSwapAddonResponseFeeCurrencyRegExp = new RegExp('^[A-Z0-9]{2,15}$');
+export const updateManualSwapAddonResponseDisplayOrderMin = 0;
+
 export const updateManualSwapAddonResponsePresentationGroupMax = 100;
 
 
@@ -629,6 +646,7 @@ export const UpdateManualSwapAddonResponse = zod.object({
   "fixedAmount": zod.string().regex(updateManualSwapAddonResponseFixedAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "feeCurrency": zod.string().regex(updateManualSwapAddonResponseFeeCurrencyRegExp),
   "enabled": zod.boolean(),
+  "displayOrder": zod.number().int().min(updateManualSwapAddonResponseDisplayOrderMin),
   "selectionRule": zod.enum(['none', 'one', 'multiple']),
   "presentation": zod.object({
   "group": zod.string().max(updateManualSwapAddonResponsePresentationGroupMax)
@@ -650,6 +668,8 @@ export const deleteManualSwapAddonResponseDescriptionMax = 1000;
 
 export const deleteManualSwapAddonResponseFixedAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const deleteManualSwapAddonResponseFeeCurrencyRegExp = new RegExp('^[A-Z0-9]{2,15}$');
+export const deleteManualSwapAddonResponseDisplayOrderMin = 0;
+
 export const deleteManualSwapAddonResponsePresentationGroupMax = 100;
 
 
@@ -662,6 +682,7 @@ export const DeleteManualSwapAddonResponse = zod.object({
   "fixedAmount": zod.string().regex(deleteManualSwapAddonResponseFixedAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "feeCurrency": zod.string().regex(deleteManualSwapAddonResponseFeeCurrencyRegExp),
   "enabled": zod.boolean(),
+  "displayOrder": zod.number().int().min(deleteManualSwapAddonResponseDisplayOrderMin),
   "selectionRule": zod.enum(['none', 'one', 'multiple']),
   "presentation": zod.object({
   "group": zod.string().max(deleteManualSwapAddonResponsePresentationGroupMax)
@@ -710,6 +731,136 @@ export const UpdateManualSwapFeeConfigResponse = zod.object({
   "percentage": zod.union([zod.string().regex(updateManualSwapFeeConfigResponsePercentageOneRegExp).describe('An exact non-negative base-10 decimal value.'),zod.null()]),
   "fixedAmount": zod.union([zod.string().regex(updateManualSwapFeeConfigResponseFixedAmountOneRegExp).describe('An exact non-negative base-10 decimal value.'),zod.null()]),
   "fixedCurrency": zod.string().regex(updateManualSwapFeeConfigResponseFixedCurrencyRegExp)
+})
+
+
+/**
+ * Illustrative pricing preview only; this endpoint does not create a customer quote or order.
+ * @summary Preview unsaved Manual Swap add-on and exchange fees
+ */
+export const previewManualSwapFeesBodyExchangeAmountDefault = 1000;
+export const previewManualSwapFeesBodyExchangeAmountExclusiveMin = 0;
+export const previewManualSwapFeesBodyExchangeAmountMax = 1000000000;
+export const previewManualSwapFeesBodyExchangeAmountMultipleOf = 0.01;
+
+export const previewManualSwapFeesBodyAddonsItemKeyRegExp = new RegExp('^[a-z0-9][a-z0-9_-]{0,99}$');
+export const previewManualSwapFeesBodyAddonsItemNameMax = 120;
+
+export const previewManualSwapFeesBodyAddonsItemDescriptionMax = 1000;
+
+export const previewManualSwapFeesBodyAddonsItemFixedAmountRegExp = new RegExp('^(?:0|[1-9][0-9]{0,19})(?:\\.[0-9]{1,18})?$');
+export const previewManualSwapFeesBodyAddonsItemFeeCurrencyRegExp = new RegExp('^[A-Z0-9]{2,15}$');
+export const previewManualSwapFeesBodyAddonsItemEnabledDefault = true;
+export const previewManualSwapFeesBodyAddonsItemDisplayOrderMin = 0;
+
+export const previewManualSwapFeesBodyAddonsItemSelectionRuleDefault = `multiple`;
+export const previewManualSwapFeesBodyAddonsItemPresentationGroupMax = 100;
+
+export const previewManualSwapFeesBodyAddonsMax = 50;
+
+export const previewManualSwapFeesBodySelectedAddonKeysItemMax = 100;
+
+export const previewManualSwapFeesBodySelectedAddonKeysMax = 50;
+
+export const previewManualSwapFeesBodyFeeConfigPercentageMax = 39;
+
+
+export const previewManualSwapFeesBodyFeeConfigPercentageRegExp = new RegExp('^(?:|(?:0|[1-9][0-9]{0,19})(?:\\.[0-9]{1,18})?)$');
+export const previewManualSwapFeesBodyFeeConfigFixedAmountMax = 39;
+
+
+export const previewManualSwapFeesBodyFeeConfigFixedAmountRegExp = new RegExp('^(?:|(?:0|[1-9][0-9]{0,19})(?:\\.[0-9]{1,18})?)$');
+export const previewManualSwapFeesBodyFeeConfigFixedCurrencyRegExp = new RegExp('^[A-Z0-9]{2,15}$');
+
+
+export const PreviewManualSwapFeesBody = zod.object({
+  "exchangeAmount": zod.number().gt(previewManualSwapFeesBodyExchangeAmountExclusiveMin).max(previewManualSwapFeesBodyExchangeAmountMax).multipleOf(previewManualSwapFeesBodyExchangeAmountMultipleOf).default(previewManualSwapFeesBodyExchangeAmountDefault),
+  "addons": zod.array(zod.object({
+  "key": zod.string().regex(previewManualSwapFeesBodyAddonsItemKeyRegExp),
+  "name": zod.string().min(1).max(previewManualSwapFeesBodyAddonsItemNameMax),
+  "description": zod.string().max(previewManualSwapFeesBodyAddonsItemDescriptionMax).optional(),
+  "fixedAmount": zod.string().regex(previewManualSwapFeesBodyAddonsItemFixedAmountRegExp).describe('An exact non-negative decimal fitting the Manual Swap numeric(38,18) storage boundary.'),
+  "feeCurrency": zod.string().regex(previewManualSwapFeesBodyAddonsItemFeeCurrencyRegExp),
+  "enabled": zod.boolean().default(previewManualSwapFeesBodyAddonsItemEnabledDefault),
+  "displayOrder": zod.number().int().min(previewManualSwapFeesBodyAddonsItemDisplayOrderMin).optional(),
+  "selectionRule": zod.enum(['none', 'one', 'multiple']).default(previewManualSwapFeesBodyAddonsItemSelectionRuleDefault),
+  "presentation": zod.object({
+  "group": zod.string().max(previewManualSwapFeesBodyAddonsItemPresentationGroupMax).optional()
+}).optional()
+})).max(previewManualSwapFeesBodyAddonsMax).optional(),
+  "selectedAddonKeys": zod.array(zod.string().min(1).max(previewManualSwapFeesBodySelectedAddonKeysItemMax)).max(previewManualSwapFeesBodySelectedAddonKeysMax).optional(),
+  "feeConfig": zod.object({
+  "enabled": zod.boolean(),
+  "percentage": zod.string().max(previewManualSwapFeesBodyFeeConfigPercentageMax).regex(previewManualSwapFeesBodyFeeConfigPercentageRegExp).nullable(),
+  "fixedAmount": zod.string().max(previewManualSwapFeesBodyFeeConfigFixedAmountMax).regex(previewManualSwapFeesBodyFeeConfigFixedAmountRegExp).nullable(),
+  "fixedCurrency": zod.string().regex(previewManualSwapFeesBodyFeeConfigFixedCurrencyRegExp)
+})
+})
+
+export const previewManualSwapFeesResponseFeeSnapshotSelectedAddonsItemAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const previewManualSwapFeesResponseFeeSnapshotSelectedAddonsItemTargetAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const previewManualSwapFeesResponseFeeSnapshotAddonFeeRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const previewManualSwapFeesResponseFeeSnapshotExchangeFeePercentageAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const previewManualSwapFeesResponseFeeSnapshotExchangeFeeFixedTargetAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const previewManualSwapFeesResponseFeeSnapshotExchangeFeeTotalAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const previewManualSwapFeesResponseFeeSnapshotTotalAdditionalFeeRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const previewManualSwapFeesResponseFeeSnapshotExistingPricingFeeRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const previewManualSwapFeesResponseFeeSnapshotTotalFeesRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const previewManualSwapFeesResponseFeeSnapshotReferenceLegsItemUnitsPerUsdRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+
+export const previewManualSwapFeesResponseFeeConfigPercentageMax = 39;
+
+
+export const previewManualSwapFeesResponseFeeConfigPercentageRegExp = new RegExp('^(?:|(?:0|[1-9][0-9]{0,19})(?:\\.[0-9]{1,18})?)$');
+export const previewManualSwapFeesResponseFeeConfigFixedAmountMax = 39;
+
+
+export const previewManualSwapFeesResponseFeeConfigFixedAmountRegExp = new RegExp('^(?:|(?:0|[1-9][0-9]{0,19})(?:\\.[0-9]{1,18})?)$');
+export const previewManualSwapFeesResponseFeeConfigFixedCurrencyRegExp = new RegExp('^[A-Z0-9]{2,15}$');
+
+
+export const PreviewManualSwapFeesResponse = zod.object({
+  "exchangeAmount": zod.number(),
+  "receiveAmount": zod.number(),
+  "currency": zod.enum(['USD']),
+  "feeSnapshot": zod.object({
+  "selectedAddons": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "key": zod.string(),
+  "name": zod.string(),
+  "amount": zod.string().regex(previewManualSwapFeesResponseFeeSnapshotSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "currency": zod.string(),
+  "targetAmount": zod.string().regex(previewManualSwapFeesResponseFeeSnapshotSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+})),
+  "addonFee": zod.string().regex(previewManualSwapFeesResponseFeeSnapshotAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "exchangeFee": zod.object({
+  "enabled": zod.boolean(),
+  "percentage": zod.string().nullable(),
+  "fixedAmount": zod.string().nullable(),
+  "fixedCurrency": zod.string(),
+  "percentageAmount": zod.string().regex(previewManualSwapFeesResponseFeeSnapshotExchangeFeePercentageAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "fixedTargetAmount": zod.string().regex(previewManualSwapFeesResponseFeeSnapshotExchangeFeeFixedTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "totalAmount": zod.string().regex(previewManualSwapFeesResponseFeeSnapshotExchangeFeeTotalAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+}),
+  "totalAdditionalFee": zod.string().regex(previewManualSwapFeesResponseFeeSnapshotTotalAdditionalFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "existingPricingFee": zod.string().regex(previewManualSwapFeesResponseFeeSnapshotExistingPricingFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "totalFees": zod.string().regex(previewManualSwapFeesResponseFeeSnapshotTotalFeesRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "referenceLegs": zod.array(zod.object({
+  "currency": zod.string(),
+  "unitsPerUsd": zod.string().regex(previewManualSwapFeesResponseFeeSnapshotReferenceLegsItemUnitsPerUsdRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "provider": zod.enum(['1Forge', 'manual', 'Coinbase', 'USD identity', 'test adapter']),
+  "source": zod.string().min(1),
+  "observedAt": zod.coerce.date(),
+  "timestampKind": zod.enum(['upstreamObservedAt', 'fetchedAt'])
+})).optional()
+}),
+  "feeConfig": zod.object({
+  "enabled": zod.boolean(),
+  "percentage": zod.string().max(previewManualSwapFeesResponseFeeConfigPercentageMax).regex(previewManualSwapFeesResponseFeeConfigPercentageRegExp).nullable(),
+  "fixedAmount": zod.string().max(previewManualSwapFeesResponseFeeConfigFixedAmountMax).regex(previewManualSwapFeesResponseFeeConfigFixedAmountRegExp).nullable(),
+  "fixedCurrency": zod.string().regex(previewManualSwapFeesResponseFeeConfigFixedCurrencyRegExp)
+}),
+  "illustrativeOnly": zod.literal(true)
 })
 
 

@@ -110,6 +110,7 @@ const POLICY_MATCHERS: readonly PolicyMatcher[] = [
   { method: "DELETE", pattern: /^\/admin\/manual-swap-addons\/[^/]+$/, policy: P("pricing.manage") },
   { method: "GET", pattern: /^\/admin\/manual-swap-fee-config$/, policy: P("pricing.view") },
   { method: "PUT", pattern: /^\/admin\/manual-swap-fee-config$/, policy: P("pricing.manage") },
+  { method: "POST", pattern: /^\/admin\/manual-swap-fee-preview$/, policy: { ...P("pricing.view"), readOnly: true } },
   { method: "GET", pattern: /^\/admin\/crypto-assets$/, policy: P("crypto_assets.view") },
   { method: "POST", pattern: /^\/admin\/crypto-assets$/, policy: P("crypto_assets.manage") },
   { method: "POST", pattern: /^\/admin\/crypto-assets\/bulk\/apply$/, policy: P("receiving_wallets.manage", true) },

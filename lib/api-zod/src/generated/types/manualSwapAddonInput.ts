@@ -23,6 +23,8 @@ export interface ManualSwapAddonInput {
   /** @pattern ^[A-Z0-9]{2,15}$ */
   feeCurrency: string;
   enabled?: boolean;
+  /** @minimum 0 */
+  displayOrder?: number;
   selectionRule?: ManualSwapAddonInputSelectionRule;
   presentation?: ManualSwapAddonInputPresentation;
 }
