@@ -9171,7 +9171,13 @@ function AdminManualPricing() {
     )) return;
     if (!window.confirm(`Delete pricing rule “${rule.name}”? This cannot be undone.`)) return;
     remove.mutate({ id: rule.id }, {
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: getListManualDeskPricingRulesQueryKey() }),
+      onSuccess: () => {
+        setSelectedRuleIds(current => current.filter(id => id !== rule.id));
+        setTestRule(current => current?.id === rule.id ? null : current);
+        setDrawer(current => current !== 'new' && current?.id === rule.id ? null : current);
+        setSuccessMsg(`Pricing rule “${rule.name}” deleted.`);
+        queryClient.invalidateQueries({ queryKey: getListManualDeskPricingRulesQueryKey() });
+      },
       onError: err => setError(apiErrorText(err, t('adminPricing.could_not_delete_this_pricing_rule'))),
     });
   };
@@ -9232,7 +9238,7 @@ function AdminManualPricing() {
                   <td data-testid={`pricing-rule-pricing-${rule.id}`}><strong className="pricing-commission">{rule.amountBasedPricingEnabled && rule.amountBasedPricingTiers?.length ? `Range pricing · ${rule.amountBasedPricingTiers.length} ${rule.amountBasedPricingTiers.length === 1 ? 'range' : 'ranges'}` : 'Base pricing'}</strong><small className="pricing-base-fallback">{rule.amountBasedPricingEnabled && rule.amountBasedPricingTiers?.length ? 'Base fallback: ' : 'Base: '}{rule.adjustmentDirection === 'GIVE_MORE' ? 'Give more ' : 'Markup '}{(rule.markupBasisPoints / 100).toFixed(2)}% · {formatFixedFee(rule.fixedFee, option?.assetCode)}</small></td>
                   <td><span className="secure-badge pricing-specificity">{rule.specificity} / 8</span></td>
                   <td><StatusPill status={rule.enabled ? 'Enabled' : 'Disabled'} /></td>
-                  <td><div className="pricing-actions"><button className="pricing-action-button pricing-edit-action" onClick={() => setDrawer(rule)} data-testid={`button-edit-pricing-${rule.id}`}><Pencil size={12} />{t('adminPricing.edit')}</button><button className={cn('pricing-action-button', rule.enabled && 'danger')} onClick={() => toggle(rule)} disabled={update.isPending || remove.isPending} data-testid={`button-toggle-pricing-${rule.id}`}><Power size={12} />{rule.enabled ? t('adminPricing.disable') : t('adminPricing.enable')}</button><button className="pricing-delete-action" onClick={() => removeRule(rule)} disabled={remove.isPending || update.isPending} data-testid={`button-delete-pricing-${rule.id}`} aria-label={t('adminPricing.delete_rule_named', { name: rule.name })}><X size={12} /></button></div></td>
+                   <td><div className="pricing-actions"><button className="pricing-action-button pricing-edit-action" onClick={() => setDrawer(rule)} data-testid={`button-edit-pricing-${rule.id}`}><Pencil size={12} />{t('adminPricing.edit')}</button><button className={cn('pricing-action-button', rule.enabled && 'danger')} onClick={() => toggle(rule)} disabled={update.isPending || remove.isPending} data-testid={`button-toggle-pricing-${rule.id}`}><Power size={12} />{rule.enabled ? t('adminPricing.disable') : t('adminPricing.enable')}</button><button type="button" className="pricing-action-button pricing-delete-action" onClick={() => removeRule(rule)} disabled={remove.isPending || update.isPending} data-testid={`button-delete-pricing-${rule.id}`} aria-label={t('adminPricing.delete_rule_named', { name: rule.name })}><Trash2 size={12} />Delete</button></div></td>
                   <td><button className="pricing-action-button pricing-test-button" onClick={() => testPricingRule(rule)} data-testid={`button-test-pricing-${rule.id}`}><Play size={11} />{t('adminPricing.test')}</button></td>
                 </tr>;
               })}</tbody></table>

@@ -1756,8 +1756,10 @@ html:not(.dark) .admin-shell.admin-redesign .admin-orders-page .status-badge-pro
 .admin-shell.admin-redesign .pricing-action-button:hover { color: hsl(var(--foreground)); border-color: hsl(var(--primary) / .4); background: hsl(var(--primary) / .08); }
 .admin-shell.admin-redesign .pricing-action-button.danger { color: hsl(var(--destructive)); border-color: hsl(var(--destructive) / .18); }
 .admin-shell.admin-redesign .pricing-edit-action { color: hsl(var(--primary)); }
-.admin-shell.admin-redesign .pricing-delete-action { display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid transparent; border-radius: 7px; color: hsl(var(--muted-foreground)); background: transparent; opacity: .65; }
-.admin-shell.admin-redesign .pricing-delete-action:hover { opacity: 1; color: hsl(var(--destructive)); background: hsl(var(--destructive) / .1); }
+.admin-shell.admin-redesign .pricing-action-button.pricing-delete-action { gap: 4px; width: auto; padding: 0 8px; border-color: hsl(var(--destructive) / .3); color: hsl(var(--destructive)); background: hsl(var(--destructive) / .07); font-size: 9px; opacity: 1; }
+.admin-shell.admin-redesign .pricing-action-button.pricing-delete-action:hover:not(:disabled),
+.admin-shell.admin-redesign .pricing-action-button.pricing-delete-action:focus-visible { border-color: hsl(var(--destructive) / .6); color: hsl(var(--destructive)); background: hsl(var(--destructive) / .14); }
+.admin-shell.admin-redesign .pricing-action-button.pricing-delete-action:disabled { opacity: .5; cursor: not-allowed; }
 .admin-shell.admin-redesign .pricing-test-button { justify-content: center; color: hsl(var(--primary)); border-color: hsl(var(--primary) / .36); background: hsl(var(--primary) / .04); }
 .admin-shell.admin-redesign .pricing-test-button:hover { color: hsl(var(--primary-foreground)); background: hsl(var(--primary)); box-shadow: 0 4px 14px hsl(var(--primary) / .22); }
 .admin-shell.admin-redesign .pricing-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 7px 12px; border-top: 1px solid hsl(var(--border) / .45); color: hsl(var(--muted-foreground)); font-size: 10px; background: hsl(var(--muted) / .12); }
