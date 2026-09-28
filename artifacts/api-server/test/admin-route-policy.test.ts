@@ -26,6 +26,38 @@ test("every statically declared Admin route has a deny-by-default policy", async
   assert.deepEqual(missing, [], `Unclassified Admin routes:\n${missing.join("\n")}`);
 });
 
+test("Swap add-ons and exchange fee allow pricing viewers to read but require manage to edit", async () => {
+  const routes = [
+    ["GET", "/admin/manual-swap-addons", "pricing.view"],
+    ["POST", "/admin/manual-swap-addons", "pricing.manage"],
+    ["PATCH", "/admin/manual-swap-addons/example-id", "pricing.manage"],
+    ["DELETE", "/admin/manual-swap-addons/example-id", "pricing.manage"],
+    ["GET", "/admin/manual-swap-fee-config", "pricing.view"],
+    ["PUT", "/admin/manual-swap-fee-config", "pricing.manage"],
+  ] as const;
+  for (const [method, path, permission] of routes) {
+    assert.deepEqual(classifyAdminRoute(method, path), { permission, ownerOnly: false });
+    for (const allowed of [false, true]) {
+      const error = await new Promise<unknown>((resolve) => {
+        adminPolicy(
+          { method, path } as never,
+          {
+            locals: {
+              operator: {
+                role: "operator",
+                effectivePermissions: allowed ? [permission] : [],
+              },
+            },
+            once: () => {},
+          } as never,
+          resolve,
+        );
+      });
+      assert.equal(error === undefined, allowed, `${method} ${path} allowed=${allowed}`);
+    }
+  }
+});
+
 test("WhiteBIT integration routes use the intended permission boundaries", () => {
   assert.deepEqual(
     classifyAdminRoute("GET", "/admin/providers/whitebit"),
