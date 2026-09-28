@@ -1850,9 +1850,12 @@ export function ManualSwapWidget({
             <div className="swap-overlay" role="dialog" aria-modal="true" aria-label="Receiving method details" data-testid="swap-receiving-details-popup">
               <div className="swap-overlay-head">You Get <button type="button" onClick={() => setDetailsOpen(false)} aria-label="Close receiving details" data-testid="button-close-receiving-details"><X size={23} /></button></div>
               <div className="swap-overlay-body">
-                <div className="swap-detail-popup-route">
-                  <div><SwapRouteRecapIcon option={toOption} officialCryptoBySymbol={officialCryptoBySymbol} /><strong>{number(currentQuote.receiveAmount)} {toOption.assetCode}</strong></div>
-                  <div><span className="swap-summary-leg"><SwapRouteRecapIcon option={toOption} officialCryptoBySymbol={officialCryptoBySymbol} /></span><span>{toOption.title || settlementRouteName(toOption)}</span></div>
+                <div className="swap-detail-popup-receive" data-testid="swap-receiving-method-summary">
+                  <SwapRouteRecapIcon option={toOption} officialCryptoBySymbol={officialCryptoBySymbol} />
+                  <span className="swap-detail-popup-receive-copy">
+                    <strong>{number(currentQuote.receiveAmount)} {toOption.assetCode}</strong>
+                    <span>{toOption.title || settlementRouteName(toOption)}</span>
+                  </span>
                 </div>
                 <div className="swap-detail-popup-rows">
                   {toOption.kind === 'crypto-network' && <SwapPopupDetail label="Receiving Wallet Address" value={destinationAddress} testId="button-copy-destination-address" />}

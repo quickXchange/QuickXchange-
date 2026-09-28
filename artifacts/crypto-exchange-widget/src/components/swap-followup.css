@@ -251,18 +251,57 @@
   font-weight: 750;
 }
 
-.public-shell .exchange-card.swap-widget-flow .swap-addon-options-list,
-.public-shell .exchange-card.swap-widget-flow .swap-detail-popup-route {
+.public-shell .exchange-card.swap-widget-flow .swap-addon-options-list {
   display: grid;
   gap: 9px;
 }
 
 .public-shell .exchange-card.swap-widget-flow .swap-addon-options-list > :is(label, div),
-.public-shell .exchange-card.swap-widget-flow .swap-detail-popup-route > div {
+.public-shell .exchange-card.swap-widget-flow .swap-detail-popup-receive {
   border: 1px solid hsl(var(--border));
   border-radius: 13px;
   background: hsl(var(--background) / 0.58);
   padding: 12px;
+}
+
+.public-shell .exchange-card.swap-widget-flow .swap-detail-popup-receive {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-width: 0;
+  min-height: 74px;
+  border-color: hsl(var(--primary) / 0.25);
+  background: linear-gradient(120deg, hsl(var(--primary) / 0.08), hsl(var(--background) / 0.72) 60%, hsl(var(--secondary) / 0.06));
+  box-shadow: 0 8px 24px hsl(var(--foreground) / 0.04);
+}
+
+.public-shell .exchange-card.swap-widget-flow .swap-detail-popup-receive > .swap-route-recap-icon {
+  flex: 0 0 48px;
+}
+
+.public-shell .exchange-card.swap-widget-flow .swap-detail-popup-receive-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  text-align: left;
+}
+
+.public-shell .exchange-card.swap-widget-flow .swap-detail-popup-receive-copy strong {
+  color: hsl(var(--foreground));
+  font-size: clamp(16px, 4vw, 20px);
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.public-shell .exchange-card.swap-widget-flow .swap-detail-popup-receive-copy > span {
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .public-shell .exchange-card.swap-widget-flow .swap-addon-options-list > label {

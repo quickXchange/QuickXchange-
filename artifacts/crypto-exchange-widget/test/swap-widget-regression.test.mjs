@@ -23,6 +23,21 @@ test('Swap exposes three stages and a details-step back action', () => {
   assert.doesNotMatch(followupStyles, /reference-(?:amount-panel|title-row|swap-button)|widget-tabs-pill|form\.exchange-card\.redesigned-widget/);
 });
 
+test('receiving popup shows one method logo and amount without dropping configured details', () => {
+  const popupStart = surface.indexOf('data-testid="swap-receiving-details-popup"');
+  const popupEnd = surface.indexOf('{addonsPopupOpen &&', popupStart);
+  assert.ok(popupStart >= 0 && popupEnd > popupStart);
+  const popup = surface.slice(popupStart, popupEnd);
+  assert.equal(popup.match(/<SwapRouteRecapIcon option=\{toOption\}/g)?.length, 1);
+  assert.match(popup, /data-testid="swap-receiving-method-summary"/);
+  assert.match(popup, /number\(currentQuote\.receiveAmount\)\} \{toOption\.assetCode\}/);
+  assert.match(popup, /toOption\.title \|\| settlementRouteName\(toOption\)/);
+  assert.match(popup, /currentQuote\.requiredSettlementFields\?\.filter/);
+  assert.match(popup, /settlementDetails\[field\.key\] && <SwapPopupDetail/);
+  assert.match(popup, /destinationAddress/);
+  assert.match(popup, /destinationMemo/);
+});
+
 test('optional add-ons show selectable checked state and display-only information without a paid toggle', () => {
   assert.match(addonOptions, /checked=\{selected\} onChange=\{\(\) => onToggle\(item\.key\)\}/);
   assert.match(addonOptions, /data-selected=\{selected\}/);
