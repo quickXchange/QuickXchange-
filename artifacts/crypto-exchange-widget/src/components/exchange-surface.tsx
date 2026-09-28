@@ -1012,7 +1012,7 @@ export function ManualSwapWidget({
         selectedKeysSignature,
       ])
     : '';
-  const currentQuote = quotePreview?.requestKey === quoteRequestKey ? quotePreview : null;
+  const currentQuote = quoteStatus !== 'loading' && quotePreview?.requestKey === quoteRequestKey ? quotePreview : null;
   const quoteReady = Boolean(
     currentQuote &&
     !addons.isLoading &&
@@ -1529,9 +1529,32 @@ export function ManualSwapWidget({
                   </div>
                 )}
 
-                <SwapAddonOptions options={availableAddons} selectedKeys={selectedKeys} onToggle={toggleAddon} isLoading={addons.isLoading} isError={addons.isError} onRetry={() => addons.refetch()}/>
                 {currentQuote && toOption && <div className="mt-4"><SwapFeeBreakdown fees={currentQuote.manualSwapFees} currency={toOption.assetCode} receiveAmount={currentQuote.receiveAmount}/></div>}
                 {currentQuote && !currentQuote.manualSwapFees && <p role="alert" className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" data-testid="swap-fee-breakdown-unavailable">The server did not provide an itemized fee breakdown. Refresh the quote before continuing.</p>}
+              </div>
+
+              <div className="swap-quote-options-dock" data-testid="swap-additional-options-dock">
+                <SwapAddonOptions
+                  options={availableAddons.filter(item => item.enabled)}
+                  selectedKeys={selectedKeys}
+                  onToggle={toggleAddon}
+                  isLoading={addons.isLoading}
+                  isError={addons.isError}
+                  onRetry={() => addons.refetch()}
+                  compact
+                />
+                {selectedKeys.length > 0 && (
+                  <div className="swap-quote-options-summary" aria-live="polite" data-testid="swap-selected-addons-quote-summary">
+                    {quoteStatus === 'loading' || addons.isLoading
+                      ? <span className="text-muted-foreground">Updating your quote…</span>
+                      : quoteStatus === 'idle' && currentQuote && !addons.isError
+                        ? <>
+                            <span><small>You Receive</small><strong>{number(currentQuote.receiveAmount)} {toOption?.assetCode}</strong></span>
+                            <span><small>Total fees</small><strong>{currentQuote.manualSwapFees ? `${currentQuote.manualSwapFees.totalFees} ${toOption?.assetCode}` : 'Unavailable'}</strong></span>
+                          </>
+                        : <span className="text-muted-foreground">Your updated quote is not available yet.</span>}
+                  </div>
+                )}
               </div>
 
               <div className="exchange-submit-wrap">

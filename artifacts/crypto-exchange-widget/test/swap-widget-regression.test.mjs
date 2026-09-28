@@ -28,6 +28,29 @@ test('optional add-ons show selectable checked state and display-only informatio
   assert.match(addonOptions, /trimFeeDecimal\(item\.fixedAmount\)/);
 });
 
+test('Step 1 docks compact Additional Options between scrollable quote details and Continue', () => {
+  const stepOneStart = surface.indexOf('className="swap-step-panel swap-quote-step');
+  const stepOneEnd = surface.indexOf(') : step === 2', stepOneStart);
+  const stepOne = surface.slice(stepOneStart, stepOneEnd);
+  const scrollRegionEnd = stepOne.indexOf('\n              </div>\n\n              <div className="swap-quote-options-dock"');
+  const dockStart = stepOne.indexOf('data-testid="swap-additional-options-dock"');
+  const continueStart = stepOne.indexOf('data-testid="button-swap-continue"');
+  assert.ok(stepOneStart >= 0 && stepOneEnd > stepOneStart);
+  assert.ok(scrollRegionEnd >= 0);
+  assert.ok(scrollRegionEnd < dockStart && dockStart < continueStart);
+  assert.match(stepOne, /options=\{availableAddons\.filter\(item => item\.enabled\)\}/);
+  assert.match(stepOne, /compact\s*\/>/);
+  assert.match(stepOne, /selectedKeys\.length > 0/);
+  assert.match(stepOne, /quoteStatus === 'idle' && currentQuote/);
+  assert.match(stepOne, /currentQuote\.manualSwapFees\.totalFees/);
+  assert.match(surface, /quoteStatus !== 'loading' && quotePreview\?\.requestKey === quoteRequestKey/);
+  assert.match(addonOptions, /aria-label=\{compact \? 'Additional Options'/);
+  assert.match(addonOptions, /No add-ons are currently available/);
+  assert.match(styles, /\.swap-quote-scroll-region\s*\{[^}]*overflow-y: auto/s);
+  assert.match(styles, /\.swap-addon-options-list\s*\{[^}]*max-height: 174px;[^}]*overflow-y: auto/s);
+  assert.match(styles, /\.swap-quote-options-dock\s*\{[^}]*flex: 0 0 auto/s);
+});
+
 test('step two itemizes only the server fee snapshot and shows quote send, rate, and receive values', () => {
   assert.match(surface, /<SwapFeeBreakdown fees=\{currentQuote\.manualSwapFees\} currency=\{toOption\.assetCode\} receiveAmount=\{currentQuote\.receiveAmount\}\/>/);
   assert.match(surface, /swap-summary-send-amount/);

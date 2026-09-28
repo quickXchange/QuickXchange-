@@ -7,7 +7,7 @@ export type SwapAddonOption = Pick<ManualSwapAddon, 'key' | 'name' | 'descriptio
  * Options are rendered in the order supplied by the caller.
  */
 export function SwapAddonOptions({
-  options, selectedKeys, onToggle, isLoading, isError, onRetry, preview = false,
+  options, selectedKeys, onToggle, isLoading, isError, onRetry, preview = false, compact = false,
 }: {
   options: SwapAddonOption[];
   selectedKeys: string[];
@@ -16,12 +16,13 @@ export function SwapAddonOptions({
   isError?: boolean;
   onRetry?: () => void;
   preview?: boolean;
+  compact?: boolean;
 }) {
-  return <section className="mt-4 space-y-3" aria-label="Optional Swap add-ons">
-    <div className="text-sm font-bold text-foreground">Optional add-ons</div>
+  return <section className={`swap-addon-options${compact ? ' swap-addon-options-compact' : ''}${compact ? '' : ' mt-4 space-y-3'}`} aria-label={compact ? 'Additional Options' : 'Optional Swap add-ons'}>
+    <div className="text-sm font-bold text-foreground">{compact ? 'Additional Options' : 'Optional add-ons'}</div>
     {isLoading ? <div className="skeleton h-16 rounded-xl" aria-label="Loading optional add-ons"/> : isError ?
       <div role="alert" className="text-sm text-destructive">Options are unavailable. {onRetry && <button type="button" onClick={onRetry} className="underline" data-testid="button-retry-swap-addons">Retry</button>}</div> :
-      options.length ? <div className="space-y-2">{options.map(item => {
+      options.length ? <div className={compact ? 'swap-addon-options-list' : 'space-y-2'}>{options.map(item => {
         const informational = item.selectionRule === 'none';
         const selected = selectedKeys.includes(item.key);
         const content = <>
@@ -40,6 +41,6 @@ export function SwapAddonOptions({
               <input type="checkbox" className="mt-1 h-4 w-4 accent-primary" checked={selected} onChange={() => onToggle(item.key)} data-testid={`${preview ? 'checkbox-preview-swap-addon' : 'checkbox-swap-addon'}-${item.key}`}/>
               {content}
             </label>;
-      })}</div> : <p className="text-xs text-muted-foreground">No optional services are available for this swap.</p>}
+      })}</div> : <p className="text-xs text-muted-foreground">{compact ? 'No add-ons are currently available' : 'No optional services are available for this swap.'}</p>}
   </section>;
 }
