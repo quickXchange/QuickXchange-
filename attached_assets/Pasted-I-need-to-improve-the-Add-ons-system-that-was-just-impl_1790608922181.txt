@@ -1,0 +1,236 @@
+I need to improve the Add-ons system that was just implemented.
+
+The admin add-on management is working, but there are two important things missing:
+
+1. The user currently cannot actually choose the add-ons during the exchange.
+2. The admin has no way to preview how the add-ons will look to the user without leaving the admin panel and opening the actual exchange widget.
+
+Please add both.
+
+--------------------------------------------------
+1. USER-FACING ADD-ON SELECTION
+--------------------------------------------------
+
+In the existing exchange widget on the user panel and landing page, add an “Optional Add-ons” / “Additional Options” section.
+
+Only enabled add-ons created by the admin should appear.
+
+Each add-on must be selectable by the user.
+
+For example:
+
+Additional Options
+
+☐ Fast Payment
+   Faster processing
+   +$5
+
+☐ Payment with Comment
+   Add a comment to your payment
+   +$1
+
+☐ Payment via Company
+   Process payment through a company
+   +$3
+
+The user must be able to:
+
+- Select an add-on
+- Unselect an add-on
+- Select multiple add-ons if multiple selection is allowed
+- Continue without selecting any add-on
+
+Add-ons are OPTIONAL. Never automatically select or charge them unless the user explicitly chooses them.
+
+When the user selects an add-on, immediately update the exchange summary and total.
+
+For example:
+
+Exchange Amount        $1,000
+Exchange Fee             $12
+Fast Payment               $5
+Payment with Comment       $1
+--------------------------------
+Total Fees                $18
+Final Amount           $1,018
+
+When the user removes an add-on, its fee must immediately be removed from the calculation.
+
+The selected add-ons must also be saved with the exchange/order so the backend knows exactly which options the user selected.
+
+IMPORTANT:
+
+Do not trust the frontend to calculate the final fee.
+
+The backend must validate the selected add-ons against the currently enabled add-ons and calculate the actual fees server-side.
+
+--------------------------------------------------
+2. ADMIN PREVIEW
+--------------------------------------------------
+
+Add a live preview directly inside the admin Add-ons management page.
+
+I should NOT have to save an add-on, leave the admin panel, and open the exchange widget just to see how it looks.
+
+When creating or editing an add-on, show a “User Preview” section on the same page.
+
+The preview should look similar to the actual user exchange widget.
+
+For example:
+
+--------------------------------
+Additional Options
+
+☐ Fast Payment
+  Faster processing
+  +$5
+
+☐ Payment with Comment
+  Add a comment to your payment
+  +$1
+--------------------------------
+
+The preview should update LIVE while I edit:
+
+- Add-on name
+- Description
+- Price
+- Currency
+- Enabled/disabled status
+- Any other user-visible settings
+
+If I change the name from:
+
+“Fast Payment”
+
+to:
+
+“Priority Payment”
+
+the preview should immediately change to:
+
+☐ Priority Payment
+  Faster processing
+  +$5
+
+--------------------------------------------------
+3. PREVIEW THE FULL ADD-ON EXPERIENCE
+--------------------------------------------------
+
+The admin preview should allow me to actually interact with the add-ons.
+
+I should be able to click the checkbox/toggle in the preview and see the selected state.
+
+For example:
+
+☑ Fast Payment       +$5
+☐ Payment Comment    +$1
+
+Then the preview should show the updated fee summary:
+
+Exchange Amount       $1,000
+Exchange Fee             $12
+Fast Payment              $5
+--------------------------------
+Total Fees               $17
+Final Amount          $1,017
+
+This is a PREVIEW only.
+
+It must not create a real exchange or order.
+
+--------------------------------------------------
+4. ADD-ON DISPLAY SETTINGS
+--------------------------------------------------
+
+Give the admin control over how each add-on is displayed to users.
+
+At minimum:
+
+- Name
+- Description
+- Price/fee
+- Currency
+- Enabled/disabled
+- Display order
+
+Allow the admin to change the display order so I can control which add-on appears first.
+
+For example:
+
+1. Fast Payment
+2. Payment with Comment
+3. Payment via Company
+4. Gift Wrapping
+
+The user widget must follow this order.
+
+--------------------------------------------------
+5. EXCHANGE FEE PREVIEW
+--------------------------------------------------
+
+Also show the configured Exchange Fee in the admin preview.
+
+If the admin has configured:
+
+Percentage fee: 1%
+Fixed fee: $2
+
+The preview should show something like:
+
+Exchange Amount       $1,000
+Exchange Fee             $12
+Fast Payment               $5
+--------------------------------
+Total Fees                $17
+Final Amount           $1,017
+
+If percentage or fixed fee is disabled, the preview must reflect that.
+
+For example:
+
+Percentage: disabled
+Fixed fee: $2
+
+Exchange Fee: $2
+
+Or:
+
+Percentage: 1%
+Fixed fee: disabled
+
+Exchange Fee: $10
+
+--------------------------------------------------
+6. IMPORTANT: USE THE EXISTING EXCHANGE WIDGET
+--------------------------------------------------
+
+Do not create a completely separate exchange widget.
+
+Use the existing exchange widget and extend it with the optional add-on selection.
+
+The admin preview should reuse the same add-on UI/component/styles where possible so the preview matches what users actually see.
+
+The goal is:
+
+ADMIN PANEL
+   ↓
+Create/Edit Add-on
+   ↓
+See LIVE USER PREVIEW
+   ↓
+Save
+   ↓
+Enabled Add-on automatically appears in existing USER EXCHANGE WIDGET
+   ↓
+USER SELECTS OPTIONAL ADD-ON
+   ↓
+FEE UPDATES
+   ↓
+USER CONFIRMS EXCHANGE
+   ↓
+BACKEND VALIDATES ADD-ON + CALCULATES FINAL FEE
+   ↓
+ORDER STORES SELECTED ADD-ONS + FEES
+
+Do not rebuild the existing exchange system. Extend what is already there.
