@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import {
   useGetExchangeConfig, getGetExchangeConfigQueryKey,
   useGetExchangeRoutePricing, getGetExchangeRoutePricingQueryKey,
+  useListPublicManualSwapAddons, getListPublicManualSwapAddonsQueryKey,
   useCreateExchangeQuote,
   useCreateExchangeOrder,
   useGetQuickexConfig, getGetQuickexConfigQueryKey,
@@ -20,6 +21,79 @@ import { MiniAppLogo } from '@/components/mini-app-logo';
 import { getFallbackPaymentLogos, getFallbackCryptoLogos, getLogoFallbackText } from '@/lib/logo-catalog';
 import { exchangeOptionMatchesSearch } from '@/lib/exchange-search';
 import { createClientRequestId } from '@/lib/client-request-id';
+
+const EMPTY_MANUAL_SWAP_ADDONS: any[] = [];
+
+function formatFeeAmount(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const amount = String(value);
+  if (!amount.includes('.')) return amount;
+  return amount.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '');
+}
+
+function hasNonZeroFeeAmount(value: unknown): boolean {
+  return formatFeeAmount(value).replace('.', '').replace(/^0+/, '') !== '';
+}
+
+function ManualSwapFeeSummary({
+  fees,
+  targetAsset,
+  receiveAmount,
+}: {
+  fees?: any;
+  targetAsset?: string;
+  receiveAmount?: string | number;
+}) {
+  if (!fees) return null;
+  const exchangeFee = fees.exchangeFee;
+  return (
+    <div className="space-y-2 rounded-2xl border border-primary/15 bg-primary/[0.04] p-4">
+      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Optional exchange fees and add-ons are deducted from receive</p>
+      {hasNonZeroFeeAmount(fees.existingPricingFee) && (
+        <div className="flex items-center justify-between gap-3 text-[12px]">
+          <span className="text-muted-foreground">Existing pricing fee</span>
+          <span className="font-semibold">{formatFeeAmount(fees.existingPricingFee)} {targetAsset}</span>
+        </div>
+      )}
+      {exchangeFee && (
+        <div className="flex items-start justify-between gap-3 text-[12px]">
+          <span className="text-muted-foreground">Exchange fee</span>
+          <span className="text-right font-semibold">
+            {formatFeeAmount(exchangeFee.totalAmount)} {targetAsset}
+            {exchangeFee.fixedAmount !== null && exchangeFee.fixedAmount !== undefined && (
+              <span className="block text-[10px] font-medium text-muted-foreground">
+                Fixed component: {formatFeeAmount(exchangeFee.fixedAmount)} {exchangeFee.fixedCurrency}
+              </span>
+            )}
+          </span>
+        </div>
+      )}
+      {(fees.selectedAddons ?? []).map((addon: any) => (
+        <div key={addon.id || addon.key} className="flex items-start justify-between gap-3 text-[12px]">
+          <span className="text-muted-foreground">{addon.name}</span>
+          <span className="text-right font-semibold">
+            {formatFeeAmount(addon.amount)} {addon.currency}
+            {targetAsset && (
+              <span className="block text-[10px] font-medium text-muted-foreground">
+                {formatFeeAmount(addon.targetAmount)} {targetAsset} deducted
+              </span>
+            )}
+          </span>
+        </div>
+      ))}
+      <div className="flex items-center justify-between gap-3 border-t border-border/50 pt-2 text-[12px] font-bold">
+        <span>Total fees</span>
+        <span>{formatFeeAmount(fees.totalFees)} {targetAsset}</span>
+      </div>
+      {receiveAmount !== undefined && (
+        <div className="flex items-center justify-between gap-3 border-t border-border/50 pt-2 text-[12px] font-bold text-primary">
+          <span>Final receive</span>
+          <span>{formatFeeAmount(receiveAmount)} {targetAsset}</span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Exchange() {
   const [, setLocation] = useLocation();
@@ -39,6 +113,7 @@ export default function Exchange() {
     setSourceId('');
     setTargetId('');
     setAmount('100');
+    setSelectedAddonKeys([]);
     setErrorMsg('');
   };
 
@@ -49,6 +124,7 @@ export default function Exchange() {
   const [sourceId, setSourceId] = useState<string>('');
   const [targetId, setTargetId] = useState<string>('');
   const [amount, setAmount] = useState<string>('100');
+  const [selectedAddonKeys, setSelectedAddonKeys] = useState<string[]>([]);
 
   const [showSourceSelector, setShowSourceSelector] = useState(false);
   const [showTargetSelector, setShowTargetSelector] = useState(false);
@@ -78,6 +154,27 @@ export default function Exchange() {
   const { data: quickexConfig, isLoading: isQuickexConfigLoading } = useGetQuickexConfig({
     query: { queryKey: getGetQuickexConfigQueryKey(), staleTime: 60000, enabled: mode === 'convert' }
   });
+  const manualSwapAddonsQuery = useListPublicManualSwapAddons({
+    query: {
+      queryKey: getListPublicManualSwapAddonsQueryKey(),
+      enabled: mode === 'swap',
+      staleTime: 0,
+      refetchOnMount: 'always',
+    },
+  });
+  const manualSwapAddons = manualSwapAddonsQuery.data?.items ?? EMPTY_MANUAL_SWAP_ADDONS;
+  const selectedAddonKeySet = useMemo(() => new Set(selectedAddonKeys), [selectedAddonKeys]);
+  const addonSelectionMode = manualSwapAddons.some((addon) => addon.selectionRule === 'multiple')
+    ? 'multiple'
+    : manualSwapAddons.some((addon) => addon.selectionRule === 'one')
+      ? 'one'
+      : 'none';
+  const getAddonGroupSelectionRule = (group: string) => {
+    const groupAddons = manualSwapAddons.filter((addon) => addon.presentation.group === group);
+    if (groupAddons.some((addon) => addon.selectionRule === 'multiple')) return 'multiple';
+    if (groupAddons.some((addon) => addon.selectionRule === 'one')) return 'one';
+    return 'none';
+  };
 
   const sourceOpts = useMemo(() => {
     if (mode === 'swap') {
@@ -246,6 +343,19 @@ export default function Exchange() {
     orderRequestIdRef.current = createClientRequestId();
   }, [mode, sourceId, targetId, amount]);
 
+  useEffect(() => {
+    setQuoteData(null);
+    setErrorMsg('');
+  }, [selectedAddonKeys]);
+
+  useEffect(() => {
+    const availableKeys = new Set(manualSwapAddons.map((addon) => addon.key));
+    setSelectedAddonKeys((current) => {
+      const filtered = current.filter((key) => availableKeys.has(key));
+      return filtered.length === current.length ? current : filtered;
+    });
+  }, [manualSwapAddons]);
+
   const sourceOpt = sourceOpts.find(o => o.id === sourceId);
   const targetOpt = targetOpts.find(o => o.id === targetId);
 
@@ -292,21 +402,57 @@ export default function Exchange() {
         ];
       }),
   );
-  const receiveAmount = mode === 'swap'
-    ? (pricing ? parsedAmount * pricing.rate : 0)
-    : quoteData?.receiveAmount;
-  const quoteExpired = mode === 'convert' && Boolean(
+  const receiveAmount = quoteData?.receiveAmount;
+  const quoteExpired = Boolean(
     quoteData?.expiresAt && new Date(quoteData.expiresAt).getTime() <= quoteNow,
   );
 
   useEffect(() => {
-    if (mode !== 'convert' || !quoteData?.expiresAt) return undefined;
+    if (!quoteData?.expiresAt) return undefined;
     const timer = window.setInterval(() => setQuoteNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
-  }, [mode, quoteData?.expiresAt]);
+  }, [quoteData?.expiresAt]);
 
   useEffect(() => {
     const requestVersion = ++quoteRequestVersionRef.current;
+    if (
+      mode === 'swap' &&
+      step === 1 &&
+      sourceOpt &&
+      targetOpt &&
+      parsedAmount > 0 &&
+      !manualSwapAddonsQuery.isError
+    ) {
+      const timer = setTimeout(async () => {
+        setIsProcessing(true);
+        try {
+          const quote = await createQuote.mutateAsync({
+            data: {
+              type: 'manual',
+              fromAsset: sourceOpt.assetCode,
+              fromNetwork: sourceOpt.routeNetwork,
+              toAsset: targetOpt.assetCode,
+              toNetwork: targetOpt.routeNetwork,
+              amount: parsedAmount,
+              sourceSettlementOptionId: sourceOpt.id,
+              targetSettlementOptionId: targetOpt.id,
+              selectedAddOnKeys: selectedAddonKeys,
+            },
+          });
+          if (quoteRequestVersionRef.current !== requestVersion) return;
+          setQuoteData({ ...quote, type: 'manual', _selectedAddOnKeys: [...selectedAddonKeys] });
+          setQuoteNow(Date.now());
+          setErrorMsg('');
+        } catch (err: any) {
+          if (quoteRequestVersionRef.current !== requestVersion) return;
+          setErrorMsg(err.message || 'Failed to get quote');
+          setQuoteData(null);
+        } finally {
+          if (quoteRequestVersionRef.current === requestVersion) setIsProcessing(false);
+        }
+      }, 450);
+      return () => clearTimeout(timer);
+    }
     if (mode === 'convert' && step === 1 && sourceOpt && targetOpt && parsedAmount > 0) {
       const timer = setTimeout(async () => {
         setIsProcessing(true);
@@ -337,7 +483,36 @@ export default function Exchange() {
       return () => clearTimeout(timer);
     }
     return undefined;
-  }, [mode, step, sourceId, targetId, parsedAmount, sourceOpt, targetOpt, quoteRefreshNonce]);
+  }, [mode, step, sourceId, targetId, parsedAmount, sourceOpt, targetOpt, quoteRefreshNonce, selectedAddonKeys, manualSwapAddonsQuery.isError]);
+
+  const toggleAddon = (key: string) => {
+    const addon = manualSwapAddons.find((item) => item.key === key);
+    if (!addon || addon.selectionRule === 'none') return;
+    setSelectedAddonKeys((current) => {
+      if (current.includes(key)) return current.filter((item) => item !== key);
+      if (getAddonGroupSelectionRule(addon.presentation.group) === 'one') {
+        const groupKeys = manualSwapAddons
+          .filter((item) => item.presentation.group === addon.presentation.group)
+          .map((item) => item.key);
+        return [...current.filter((item) => !groupKeys.includes(item)), key];
+      }
+      return [...current, key];
+    });
+    setErrorMsg('');
+  };
+
+  const quoteMatchesCurrentSelection = Boolean(
+    quoteData &&
+    quoteData._selectedAddOnKeys?.length === selectedAddonKeys.length &&
+    selectedAddonKeys.every((key) => quoteData._selectedAddOnKeys.includes(key)) &&
+    quoteData.amount === parsedAmount &&
+    quoteData.fromAsset === sourceOpt?.assetCode &&
+    quoteData.fromNetwork === sourceOpt?.routeNetwork &&
+    quoteData.toAsset === targetOpt?.assetCode &&
+    quoteData.toNetwork === targetOpt?.routeNetwork &&
+    quoteData.sourceSettlementOptionId === sourceOpt?.id &&
+    quoteData.targetSettlementOptionId === targetOpt?.id
+  );
 
   const handleContinue = async () => {
     if (step === 1) {
@@ -347,8 +522,8 @@ export default function Exchange() {
       }
       if (parsedAmount <= 0) return;
 
-      const minAmount = mode === 'swap' ? pricing?.minAmount : quoteData?.minAmount;
-      const maxAmount = mode === 'swap' ? pricing?.maxAmount : quoteData?.maxAmount;
+      const minAmount = mode === 'swap' ? quoteData?.minAmount ?? pricing?.minAmount : quoteData?.minAmount;
+      const maxAmount = mode === 'swap' ? quoteData?.maxAmount ?? pricing?.maxAmount : quoteData?.maxAmount;
 
       if (minAmount && parsedAmount < minAmount) {
         setErrorMsg(`Minimum amount is ${minAmount}`);
@@ -372,31 +547,17 @@ export default function Exchange() {
         return;
       }
 
-      setErrorMsg('');
-      setIsProcessing(true);
-
-      try {
-        const quote = await createQuote.mutateAsync({
-          data: {
-            type: 'manual',
-            fromAsset: sourceOpt.assetCode,
-            fromNetwork: sourceOpt.routeNetwork,
-            toAsset: targetOpt.assetCode,
-            toNetwork: targetOpt.routeNetwork,
-            amount: parsedAmount,
-            sourceSettlementOptionId: sourceOpt.id,
-            targetSettlementOptionId: targetOpt.id
-          }
-        });
-        setQuoteData({ ...quote, type: 'manual' });
-        haptic.impact('medium');
-        setStep(2);
-      } catch (err: any) {
-        setErrorMsg(err.message || 'Failed to get quote');
-        haptic.notification('error');
-      } finally {
-        setIsProcessing(false);
+      if (manualSwapAddonsQuery.isError || !quoteMatchesCurrentSelection || quoteExpired) {
+        setErrorMsg(manualSwapAddonsQuery.isError
+          ? 'Optional add-ons could not be loaded. Retry before continuing.'
+          : quoteExpired
+            ? 'Quote expired. Refresh the quote before continuing.'
+            : 'Waiting for a quote for your current selection...');
+        return;
       }
+      setErrorMsg('');
+      haptic.impact('medium');
+      setStep(2);
     } else if (step === 2) {
       if (!sourceOpt || !targetOpt) return;
       // Validate fields
@@ -466,6 +627,13 @@ export default function Exchange() {
       setStep(3);
     } else if (step === 3) {
       if (!sourceOpt || !targetOpt) return;
+      if (mode === 'swap' && (!quoteMatchesCurrentSelection || quoteExpired)) {
+        setErrorMsg(quoteExpired
+          ? 'Quote expired. Refresh the quote before submitting.'
+          : 'The quote no longer matches your selected route, amount, or add-ons. Return to Swap and get a fresh quote.');
+        haptic.notification('error');
+        return;
+      }
       // Place Order
 
       setIsProcessing(true);
@@ -512,6 +680,7 @@ export default function Exchange() {
               amount: parsedAmount,
               quoteId: quoteData.quoteId,
               clientRequestId: orderRequestIdRef.current!,
+              selectedAddOnKeys: selectedAddonKeys,
               customerEmail: customerEmail.trim(),
               destinationAddress: destinationAddress || undefined,
               ...(refundAddress.trim() ? {
@@ -694,7 +863,9 @@ export default function Exchange() {
             <div className="flex items-center justify-between gap-4">
               <input
                 type="text"
-                value={receiveAmount ? receiveAmount.toFixed(6) : ''}
+                value={receiveAmount
+                  ? (mode === 'convert' ? receiveAmount.toFixed(6) : receiveAmount)
+                  : ''}
                 readOnly
                 className="bg-transparent text-[40px] font-bold w-full outline-none focus:ring-0 appearance-none text-foreground/80 tracking-tighter truncate"
                 placeholder="0"
@@ -721,9 +892,94 @@ export default function Exchange() {
 
           </div>
 
+          {mode === 'swap' && (
+            <div className="premium-card space-y-3 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-[13px] font-bold">Optional add-ons</h3>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                    {addonSelectionMode === 'none'
+                      ? 'No optional add-ons are currently available for selection.'
+                      : 'Choose optional add-ons according to the selection rules for each group.'}
+                  </p>
+                </div>
+                {selectedAddonKeys.length > 0 && (
+                  <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-bold text-primary">
+                    {selectedAddonKeys.length} selected
+                  </span>
+                )}
+              </div>
+              {manualSwapAddonsQuery.isLoading ? (
+                <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Loading optional add-ons...
+                </div>
+              ) : manualSwapAddonsQuery.isError ? (
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-destructive/20 bg-destructive/5 p-3">
+                  <span className="text-xs text-destructive">Could not load add-on availability.</span>
+                  <Button type="button" variant="outline" size="sm" onClick={() => manualSwapAddonsQuery.refetch()}>
+                    Retry
+                  </Button>
+                </div>
+              ) : manualSwapAddons.length > 0 ? (
+                <div className="space-y-2">
+                  {manualSwapAddons.map((addon) => {
+                    const checked = selectedAddonKeySet.has(addon.key);
+                    const groupSelectionRule = getAddonGroupSelectionRule(addon.presentation.group);
+                    const disabled = addon.selectionRule === 'none' || groupSelectionRule === 'none';
+                    return (
+                      <label
+                        key={addon.id}
+                        className={cn(
+                          'flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors',
+                          checked ? 'border-primary/40 bg-primary/[0.07]' : 'border-border/60 bg-background/40',
+                          disabled && 'cursor-not-allowed opacity-50',
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          name={`manual-swap-addon-${addon.presentation.group}`}
+                          checked={checked}
+                          disabled={disabled}
+                          onChange={() => toggleAddon(addon.key)}
+                          className="mt-0.5 accent-primary"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center justify-between gap-2 text-[13px] font-bold">
+                            <span>{addon.name}</span>
+                            <span className="shrink-0 text-primary">{formatFeeAmount(addon.fixedAmount)} {addon.feeCurrency}</span>
+                          </span>
+                          {addon.description && (
+                            <span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">{addon.description}</span>
+                          )}
+                          {addon.presentation.group && (
+                            <span className="mt-1.5 block text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                              {addon.presentation.group}
+                            </span>
+                          )}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="rounded-xl border border-border/50 bg-background/40 p-3 text-xs text-muted-foreground">
+                  No optional add-ons are currently available.
+                </p>
+              )}
+            </div>
+          )}
+
+          {mode === 'swap' && quoteData?.manualSwapFees && quoteMatchesCurrentSelection && (
+            <ManualSwapFeeSummary
+              fees={quoteData.manualSwapFees}
+              targetAsset={targetOpt?.assetCode}
+              receiveAmount={quoteData.receiveAmount}
+            />
+          )}
+
           <div className="pt-4 text-[13px] font-medium text-center text-muted-foreground/80">
-            {mode === 'swap' && pricing
-              ? `1 ${sourceOpt?.assetCode} = ${pricing.rate} ${targetOpt?.assetCode}`
+            {mode === 'swap' && quoteData && quoteMatchesCurrentSelection
+              ? `1 ${sourceOpt?.assetCode} = ${quoteData.rate} ${targetOpt?.assetCode}`
               : mode === 'convert' && quoteData
               ? `1 ${sourceOpt?.assetCode} = ${quoteData.rate} ${targetOpt?.assetCode}`
               : 'Select a valid pair and amount to see the rate'}
@@ -1000,6 +1256,15 @@ export default function Exchange() {
               <span className="text-[14px] font-semibold text-muted-foreground">Network Fee</span>
               <span className="text-[14px] font-bold">{quoteData?.fee || 'Included'}</span>
             </div>
+            {mode === 'swap' && (
+              <div className="border-b border-border/50 py-3">
+                <ManualSwapFeeSummary
+                  fees={quoteData?.manualSwapFees}
+                  targetAsset={targetOpt?.assetCode}
+                  receiveAmount={quoteData?.receiveAmount}
+                />
+              </div>
+            )}
             <div className="flex justify-between items-center py-3">
               <span className="text-[14px] font-semibold text-muted-foreground">Exchange Rate</span>
               <span className="text-[14px] font-bold bg-secondary/10 text-secondary px-2 py-1 rounded-lg">1 {sourceOpt?.assetCode} = {quoteData?.rate} {targetOpt?.assetCode}</span>
@@ -1027,7 +1292,14 @@ export default function Exchange() {
           <Button
             className="w-full h-[56px] rounded-2xl text-[17px] font-bold shadow-[0_8px_20px_-8px_hsl(var(--primary))] transition-transform active:scale-95 disabled:opacity-50 disabled:active:scale-100 illuminated-border"
             onClick={handleContinue}
-            disabled={isProcessing || isPricingLoading || quoteExpired || (mode === 'swap' && !pricing && step === 1) || (mode === 'convert' && !quoteData && step === 1)}
+            disabled={
+              isProcessing ||
+              isPricingLoading ||
+              quoteExpired ||
+              (mode === 'swap' && manualSwapAddonsQuery.isError && step === 1) ||
+              (mode === 'swap' && (!quoteMatchesCurrentSelection || isPricingLoading) && step === 1) ||
+              (mode === 'convert' && !quoteData && step === 1)
+            }
           >
             {isProcessing ? (
               <span className="flex items-center">

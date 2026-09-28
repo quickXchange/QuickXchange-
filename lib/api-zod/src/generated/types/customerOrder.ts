@@ -8,6 +8,7 @@
 import type { CustomerOrderFundingDetails } from './customerOrderFundingDetails';
 import type { CustomerOrderSettlementDetails } from './customerOrderSettlementDetails';
 import type { ExactDecimal } from './exactDecimal';
+import type { ManualSwapFeeQuoteSnapshot } from './manualSwapFeeQuoteSnapshot';
 import type { OrderPaymentDetails } from './orderPaymentDetails';
 import type { QuickexRateMode } from './quickexRateMode';
 import type { ReceiptFee } from './receiptFee';
@@ -31,6 +32,7 @@ export interface CustomerOrder {
   refundMemo?: string;
   step2Details?: Step2CustomerDetail[];
   receiptFee?: ReceiptFee;
+  manualSwapFees?: ManualSwapFeeQuoteSnapshot;
   rateMode?: QuickexRateMode;
   outcomeUnknown: boolean;
   refreshUnavailable: boolean;

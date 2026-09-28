@@ -431,6 +431,7 @@ async function getCachedRates(
 async function getUsdRates(
   sourceCurrency: string,
   targetCurrency: string,
+  additionalCurrencies: string[] = [],
 ): Promise<ValidatedRates> {
   if (adapterForTests) return safelyLoadAdapter(adapterForTests);
 
@@ -438,7 +439,7 @@ async function getUsdRates(
     (await listEnabledFiatCurrencies()).map(({ code }) => code.toUpperCase()),
   );
   fiatCurrencies.add("USD");
-  const currencies = [sourceCurrency, targetCurrency]
+  const currencies = [sourceCurrency, targetCurrency, ...additionalCurrencies]
     .map(currency => currency.toUpperCase());
   const needsFiatRates = currencies.some(
     currency => fiatCurrencies.has(currency) && currency !== "USD",
@@ -584,6 +585,7 @@ export async function getManualDeskEstimate(input: {
   percentage?: string;
   fixedFee?: string | null;
   exactRate?: string | null;
+  additionalCurrencies?: string[];
 }) {
   if (
     !Number.isFinite(input.amount) ||
@@ -596,11 +598,14 @@ export async function getManualDeskEstimate(input: {
   const exactBaseRate = input.exactRate == null ? undefined : parsePositiveDecimal(input.exactRate);
   if (!amount || (input.exactRate != null && !exactBaseRate)) unavailable();
   const rates = exactBaseRate ? undefined : await getUsdRates(input.sourceCurrency, input.targetCurrency);
+  const additionalRates = input.additionalCurrencies?.length
+    ? await getUsdRates(input.sourceCurrency, input.targetCurrency, input.additionalCurrencies)
+    : rates;
   const sourceUnitsPerUsd = rates?.[input.sourceCurrency.toUpperCase()] ??
     { coefficient: 1n, scale: 0, provider: "manual" as const };
   const targetUnitsPerUsd = rates?.[input.targetCurrency.toUpperCase()] ?? exactBaseRate;
   if (!targetUnitsPerUsd) unavailable();
-  const fiatCurrencies = exactBaseRate
+  const fiatCurrencies = exactBaseRate && !input.additionalCurrencies?.length
     ? new Set<string>()
     : new Set((await listEnabledFiatCurrencies()).map(({ code }) => code.toUpperCase()));
   const referenceLeg = (currency: string, rate: DecimalValue): {
@@ -637,6 +642,37 @@ export async function getManualDeskEstimate(input: {
     observedAt: rate.observedAt ?? new Date().toISOString(),
     timestampKind: rate.timestampKind ?? "fetchedAt",
   });
+  const additionalReferenceLeg = (currency: string, rate: DecimalValue) => ({
+    currency: currency.toUpperCase(),
+    unitsPerUsd: decimalToString(rate),
+    provider: currency.toUpperCase() === "USD"
+      ? "USD identity" as const
+      : rate.provider === "manual"
+        ? "manual" as const
+        : (adapterForTests || marketAdaptersForTests)
+          ? "test adapter" as const
+          : fiatCurrencies.has(currency.toUpperCase())
+            ? "1Forge" as const
+            : "Coinbase" as const,
+    source: currency.toUpperCase() === "USD"
+      ? "identity"
+      : rate.provider === "manual"
+        ? "manual"
+        : (adapterForTests || marketAdaptersForTests)
+          ? "test"
+          : fiatCurrencies.has(currency.toUpperCase())
+            ? "1Forge"
+            : "Coinbase exchange rates",
+    observedAt: rate.observedAt ?? new Date().toISOString(),
+    timestampKind: rate.timestampKind ?? "fetchedAt",
+  });
+  const additionalReferences = [...new Set((input.additionalCurrencies ?? [])
+    .map((currency) => currency.toUpperCase()))]
+    .map((currency) => {
+      const rate = additionalRates?.[currency];
+      if (!rate) unavailable();
+      return additionalReferenceLeg(currency, rate);
+    });
 
   const atomicScale = 10n ** BigInt(input.targetPrecision);
   const grossNumerator = exactBaseRate
@@ -739,6 +775,7 @@ export async function getManualDeskEstimate(input: {
       finalRate: finalRateExact,
       sourceReference: referenceLeg(input.sourceCurrency, sourceUnitsPerUsd),
       targetReference: referenceLeg(input.targetCurrency, targetUnitsPerUsd),
+      additionalReferences,
     },
   };
 }

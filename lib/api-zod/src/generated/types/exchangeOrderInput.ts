@@ -48,4 +48,10 @@ export interface ExchangeOrderInput {
   sourceSettlementOptionId?: string;
   targetSettlementOptionId?: string;
   settlementDetails?: SettlementDetails;
+  /**
+     * @maxItems 50
+     * @items.minLength 1
+     * @items.maxLength 100
+     */
+  selectedAddOnKeys?: string[];
 }

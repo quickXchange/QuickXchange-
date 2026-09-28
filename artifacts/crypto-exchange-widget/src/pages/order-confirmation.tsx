@@ -9,6 +9,8 @@ import {
   useMarkOrderPaid,
 } from "@workspace/api-client-react";
 import type { ApiError, ManualPublicOrderStatus } from "@workspace/api-client-react";
+import type { ManualSwapFeeQuoteSnapshot } from "@workspace/api-client-react";
+import { SwapFeeBreakdown } from "@/components/swap-fee-breakdown";
 import { PublicShell } from "@/components/public-shell";
 import {
   CircleAlert, RefreshCw, Loader2, Copy, Network, Check, ArrowRight, ShieldCheck, CheckCircle2, XCircle, Clock3, ArrowDown
@@ -94,6 +96,7 @@ export function OrderConfirmationPage() {
   const lookupErrorMessage = notFound ? t('orderStatus.notFound') : t('orderStatus.refreshFailed');
 
   const order = activeStatusQuery.data?.id === id ? activeStatusQuery.data : undefined;
+  const persistedFees = (order as (typeof order & { manualSwapFees?: ManualSwapFeeQuoteSnapshot }) | undefined)?.manualSwapFees;
   const manualOrder = !isQuickex ? order as ManualPublicOrderStatus | undefined : undefined;
 
   const handleCopy = (text: string) => {
@@ -385,6 +388,7 @@ export function OrderConfirmationPage() {
            </div>
 
            <div className="order-exchange-summary-meta divide-y divide-border/50 rounded-2xl border border-border bg-background/50 px-4">
+             {!isQuickex && persistedFees && <SwapFeeBreakdown fees={persistedFees} currency={order.toAsset} receiveAmount={order.receiveAmount}/>}
              {exchangeRate !== null && !isQuickex && (
                <div className="flex items-center justify-between gap-3 py-3 text-xs">
                  <span className="text-muted-foreground font-medium">Exchange Rate</span>

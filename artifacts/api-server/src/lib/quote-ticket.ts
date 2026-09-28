@@ -6,6 +6,10 @@ import {
   validateManualPricingTiers,
   type ManualPricingTier,
 } from "./manual-desk-pricing";
+import {
+  verifyManualSwapFeeSnapshot,
+  type ManualSwapFeeSnapshot,
+} from "./manual-swap-fees";
 
 export type QuoteTicket = {
   v: 1 | 2;
@@ -22,6 +26,8 @@ export type QuoteTicket = {
   payoutMethod?: string;
   sourceSettlementOptionId?: string;
   targetSettlementOptionId?: string;
+  selectedAddOnKeys?: string[];
+  manualSwapFees?: ManualSwapFeeSnapshot;
   settlementSnapshot?: {
     source: SettlementOptionSnapshot;
     target: SettlementOptionSnapshot;
@@ -120,10 +126,13 @@ export type QuoteTicket = {
       grossMarketAmount: string;
       percentageCommission: string;
       fixedCommission: string;
+      addonFee?: string;
+      exchangeFee?: string;
       totalFee: string;
       receiveAmount: string;
       finalRate: string;
     };
+    manualSwapFees?: ManualSwapFeeSnapshot;
   };
   minAmount?: number;
   maxAmount?: number;
@@ -393,12 +402,35 @@ function financiallyConsistent(
     values.grossMarketAmount !== atomic(gross, precision) ||
     values.percentageCommission !== atomic(percentage, precision) ||
     values.fixedCommission !== atomic(fixedAtomic, precision) ||
-    values.totalFee !== atomic(total, precision) ||
-    values.receiveAmount !== atomic(receive, precision) ||
-    values.finalRate !== finalRate
+    (!snapshot.manualSwapFees && (
+      values.totalFee !== atomic(total, precision) ||
+      values.receiveAmount !== atomic(receive, precision) ||
+      values.finalRate !== finalRate
+    ))
   ) return false;
+  if (snapshot.manualSwapFees) {
+    const adjusted = verifyManualSwapFeeSnapshot({
+      snapshot: snapshot.manualSwapFees,
+      grossAmount: atomic(gross, precision),
+      legacyReceiveAmount: atomic(receive, precision),
+      legacyTotalFee: atomic(total, precision),
+      amount: ticket.amount,
+      targetCurrency: snapshot.context.targetAsset,
+      targetPrecision: precision,
+    });
+    if (!adjusted ||
+        values.addonFee !== snapshot.manualSwapFees.addonFee ||
+        values.exchangeFee !== snapshot.manualSwapFees.exchangeFee.totalAmount ||
+        values.totalFee !== adjusted.totalFee ||
+        values.receiveAmount !== adjusted.receiveAmount ||
+        values.finalRate !== adjusted.rate) return false;
+  }
   return [values.grossMarketAmount, values.percentageCommission, values.fixedCommission,
     values.totalFee, values.receiveAmount, values.finalRate].every(canonical) &&
+    (!snapshot.manualSwapFees || (
+      canonical(values.addonFee) &&
+      canonical(values.exchangeFee)
+    )) &&
     Number(values.grossMarketAmount) === ticket.grossMarketAmount &&
     Number(values.percentageCommission) === ticket.percentageCommission &&
     Number(values.fixedCommission) === ticket.fixedCommission &&
@@ -413,7 +445,7 @@ export function verifyQuoteTicket(
     QuoteTicket,
     "type" | "fromAsset" | "fromNetwork" | "toAsset" | "toNetwork" | "amount" |
      "rateMode" | "paymentMethod" | "payoutMethod" |
-     "sourceSettlementOptionId" | "targetSettlementOptionId"
+      "sourceSettlementOptionId" | "targetSettlementOptionId" | "selectedAddOnKeys"
   >,
 ): QuoteTicket {
   const ticket = verifiedQuoteTicketPayload(quoteId);
@@ -424,6 +456,14 @@ export function verifyQuoteTicket(
     }
   }
   if (ticket.type === "manual") {
+    const signedAddOnKeys = ticket.selectedAddOnKeys ?? [];
+    const expectedAddOnKeys = expected.selectedAddOnKeys ?? [];
+    if (
+      JSON.stringify(signedAddOnKeys) !== JSON.stringify(expectedAddOnKeys) ||
+      new Set(signedAddOnKeys).size !== signedAddOnKeys.length
+    ) {
+      invalid("QUOTE_MISMATCH", "The selected Manual Swap add-ons do not match the quote.");
+    }
     if (ticket.v === 2) {
       if (
         !ticket.sourceSettlementOptionId ||
@@ -475,6 +515,13 @@ export function verifyQuoteTicket(
       !isRecord(snapshot.amounts)
     ) {
       invalid("QUOTE_INVALID", "The manual quote pricing snapshot is invalid.");
+    }
+    if (snapshot.manualSwapFees &&
+        (JSON.stringify(ticket.manualSwapFees) !== JSON.stringify(snapshot.manualSwapFees) ||
+         JSON.stringify(ticket.selectedAddOnKeys ?? []) !== JSON.stringify(
+           snapshot.manualSwapFees.selectedAddons.map((addon) => addon.key),
+         ))) {
+      invalid("QUOTE_INVALID", "The Manual Swap fee snapshot does not match its signed selections.");
     }
     if (
       snapshot.policyVersion !== "manual-desk-pricing-v1" ||

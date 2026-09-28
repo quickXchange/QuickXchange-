@@ -16,7 +16,8 @@ import {
   captureAffiliateReferral,
   useGetPublicNotificationSettings, getGetPublicNotificationSettingsQueryKey,
 } from '@workspace/api-client-react';
-import type { CustomerOrder } from '@workspace/api-client-react';
+import type { CustomerOrder, ManualSwapFeeQuoteSnapshot } from '@workspace/api-client-react';
+import { SwapFeeBreakdown } from '@/components/swap-fee-breakdown';
 import { Link, useLocation, useParams } from 'wouter';
 import { OrderSettlementIdentity } from '@/components/order-settlement-identity';
 import { useI18n } from '../i18n/provider';
@@ -1054,6 +1055,7 @@ function CustomerOrderNotificationControl({ order }: { order: CustomerOrder }) {
 }
 
 function CustomerOrderView({ order, drawer = false }: { order: CustomerOrder; drawer?: boolean }) {
+  const persistedFees = (order as CustomerOrder & { manualSwapFees?: ManualSwapFeeQuoteSnapshot }).manualSwapFees;
   const { t, formatDate } = useI18n();
   const { user } = useUser();
   const queryClient = useQueryClient();
@@ -1173,6 +1175,7 @@ function CustomerOrderView({ order, drawer = false }: { order: CustomerOrder; dr
         </div>
       </section>
 
+      {order.type === 'manual' && persistedFees && <div className="mb-8"><SwapFeeBreakdown fees={persistedFees} currency={order.toAsset} receiveAmount={order.receiveAmount}/></div>}
       <section className="mb-8" data-testid="customer-additional-payment-details">
         <h3 className="customer-order-drawer-section-title">Additional Payment Details</h3>
         {step2Rows.length > 0

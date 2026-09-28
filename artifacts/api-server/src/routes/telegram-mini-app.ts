@@ -6,6 +6,7 @@ import {
   blockchainMonitorMatchesTable, blockchainMonitorObservationsTable,
   blockchainMonitorAssetsTable, blockchainMonitorNetworksTable, cryptoAssetNetworksTable,
 } from "@workspace/db";
+import { CreateExchangeQuoteResponse } from "@workspace/api-zod";
 import { verifyOrderTrackingToken } from "../lib/order-access";
 import { ApiError } from "../lib/api-error";
 import { createTelegramLinkChallenge } from "../lib/telegram-link";
@@ -99,8 +100,12 @@ async function authenticated(req: { headers: { authorization?: string } }) {
   return { session, chat };
 }
 
-function manualProjection(row: typeof ordersTable.$inferSelect, link: typeof telegramOrderLinksTable.$inferSelect) {
+export function manualProjection(row: typeof ordersTable.$inferSelect, link: typeof telegramOrderLinksTable.$inferSelect) {
   const snapshot = row.settlementSnapshot as { source?: Record<string, unknown>; target?: Record<string, unknown> } | null;
+  const pricingSnapshot = row.pricingSnapshot as { manualSwapFees?: unknown } | null;
+  const parsedManualSwapFees = row.type === "manual" && pricingSnapshot?.manualSwapFees
+    ? CreateExchangeQuoteResponse.shape.manualSwapFees.safeParse(pricingSnapshot.manualSwapFees)
+    : undefined;
   const paymentApplicable = row.type === "manual" && snapshot?.source?.kind === "fiat-payment-method" && snapshot?.target?.kind === "crypto-network";
   const paymentDetails = paymentApplicable ? safePaymentDetails(row.paymentDetails) : undefined;
   return {
@@ -108,6 +113,7 @@ function manualProjection(row: typeof ordersTable.$inferSelect, link: typeof tel
     sourceSettlementOptionId: row.sourceSettlementOptionId || undefined, toAsset: row.toAsset, toNetwork: row.toNetwork || undefined,
     targetSettlementOptionId: row.targetSettlementOptionId || undefined,
     amount: row.amount, receiveAmount: row.receiveAmount, trackingToken: link.trackingToken,
+    manualSwapFees: parsedManualSwapFees?.success ? parsedManualSwapFees.data : undefined,
     networks: [row.fromNetwork, row.toNetwork].filter(Boolean),
     manualSettlementState: row.type === "manual" ? row.manualSettlementState : undefined,
     fundingStatus: row.type === "manual" ? row.fundingStatus : undefined,

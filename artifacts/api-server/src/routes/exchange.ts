@@ -10,6 +10,7 @@ import {
   CreateExchangeOrderBody,
   CreateExchangeOrderResponse,
   CreateExchangeQuoteBody,
+  CreateExchangeQuoteResponse,
   CreateFiatCurrencyBody,
   CreateFiatCurrencyResponse,
   CreateManualDeskPricingRuleBody,
@@ -130,6 +131,18 @@ import {
   MarkOrderPaidResponse,
   CancelCustomerOrderBody,
   CancelCustomerOrderResponse,
+  CreateManualSwapAddonBody,
+  CreateManualSwapAddonResponse,
+  ListAdminManualSwapAddonsResponse,
+  ListPublicManualSwapAddonsResponse,
+  UpdateManualSwapAddonBody,
+  UpdateManualSwapAddonParams,
+  UpdateManualSwapAddonResponse,
+  DeleteManualSwapAddonParams,
+  DeleteManualSwapAddonResponse,
+  GetManualSwapFeeConfigResponse,
+  UpdateManualSwapFeeConfigBody,
+  UpdateManualSwapFeeConfigResponse,
 } from "@workspace/api-zod";
 import { databasePoolTelemetry } from "@workspace/db";
 import {
@@ -157,6 +170,8 @@ import {
   blockchainMonitorNetworksTable,
   blockchainMonitorAssetsTable,
   blockchainMonitorRegistrationGapsTable,
+  manualSwapAddonsTable,
+  manualSwapFeeConfigTable,
 } from "@workspace/db";
 import { ApiError } from "../lib/api-error";
 import { customerOrderScope } from "../lib/customer-order-scope";
@@ -221,6 +236,10 @@ import {
   MAX_MANUAL_DESK_TARGET_PRECISION,
   refreshManualDeskRateProviderStatus,
 } from "../lib/manual-desk-rates";
+import {
+  applyManualSwapFees,
+  validateManualSwapAddonSelection,
+} from "../lib/manual-swap-fees";
 import { buildAdminSummaryAnalytics } from "../lib/admin-summary";
 import { manualExternalProviderHealthPlaceholders } from "../lib/manual-operational-health";
 import { normalizeRefundFields } from "../lib/wallet-fields";
@@ -624,6 +643,16 @@ const DEFAULT_SUPPORT = {
   assignedOperatorId: null, note: "",
 } as const;
 
+function outputManualSwapFees(row: typeof ordersTable.$inferSelect) {
+  if (row.type !== "manual" || !row.pricingSnapshot || typeof row.pricingSnapshot !== "object") {
+    return undefined;
+  }
+  const saved = (row.pricingSnapshot as { manualSwapFees?: unknown }).manualSwapFees;
+  if (!saved) return undefined;
+  const parsed = CreateExchangeQuoteResponse.shape.manualSwapFees.safeParse(saved);
+  return parsed.success ? parsed.data : undefined;
+}
+
 function outputCustomerOrder(
   row: typeof ordersTable.$inferSelect,
   refreshUnavailable: boolean,
@@ -675,6 +704,7 @@ function outputCustomerOrder(
      customerMarkedPaidAt: row.customerMarkedPaidAt?.toISOString() ?? null,
       step2Details: projectManualOrderStep2Details(row),
        receiptFee: outputReceiptFee(row),
+      manualSwapFees: outputManualSwapFees(row),
      verifiedFundingTransaction: verifiedFunding ?? undefined,
     completedAt: completed ? row.updatedAt.toISOString() : null,
     exchangeRate,
@@ -762,6 +792,7 @@ function assertIdempotentOrderMatches(
     rateMode?: "FLOATING" | "FIXED";
     sourceSettlementOptionId?: string;
     targetSettlementOptionId?: string;
+    selectedAddOnKeys?: string[];
     settlementDetails?: Record<string, unknown>;
   },
   matchQuoteId = true,
@@ -775,6 +806,10 @@ function assertIdempotentOrderMatches(
     }
     return JSON.stringify(value);
   };
+  const storedFeeSnapshot = row.pricingSnapshot && typeof row.pricingSnapshot === "object"
+    ? (row.pricingSnapshot as { manualSwapFees?: { selectedAddons?: Array<{ key?: string }> } }).manualSwapFees
+    : undefined;
+  const storedAddOnKeys = storedFeeSnapshot?.selectedAddons?.map((addon) => addon.key ?? "") ?? [];
   if (
     (matchQuoteId && row.quoteId !== input.quoteId) ||
     row.type !== input.type ||
@@ -795,6 +830,7 @@ function assertIdempotentOrderMatches(
      row.rateMode !== (input.rateMode ?? "") ||
     (row.sourceSettlementOptionId ?? undefined) !== input.sourceSettlementOptionId ||
     (row.targetSettlementOptionId ?? undefined) !== input.targetSettlementOptionId ||
+     canonicalJson(storedAddOnKeys) !== canonicalJson(input.selectedAddOnKeys ?? []) ||
      canonicalJson(row.settlementDetails ?? {}) !==
        canonicalJson(input.settlementDetails ?? {})
   ) {
@@ -1102,6 +1138,17 @@ async function buildQuoteTicket(
     : undefined;
   const effectiveDirection = selectedTier?.direction ??
     rule.adjustmentDirection as "MARKUP" | "GIVE_MORE";
+  const selectedAddOnKeys = input.selectedAddOnKeys ?? [];
+  const selectedAddons = await resolveSelectedManualSwapAddons(selectedAddOnKeys);
+  const additionalFeeConfig = await loadManualSwapFeeConfig();
+  const additionalCurrencies = selectedAddons.length || additionalFeeConfig.enabled
+    ? [...new Set([
+        route.fromAsset,
+        route.toAsset,
+        ...selectedAddons.map((addon) => addon.feeCurrency),
+        ...(additionalFeeConfig.enabled ? [additionalFeeConfig.fixedCurrency] : []),
+      ].map((currency) => currency.toUpperCase()))]
+    : [];
   const pricedEstimate = await getManualDeskEstimate({
     sourceCurrency: route.fromAsset,
     targetCurrency: route.toAsset,
@@ -1112,13 +1159,44 @@ async function buildQuoteTicket(
     percentage: selectedTier?.percentage,
     fixedFee: selectedTier?.fixedFee ?? rule.fixedFee,
     exactRate: rule.exactRate,
+    additionalCurrencies,
   });
+  const feeAdjusted = applyManualSwapFees({
+    grossAmount: pricedEstimate.exact.grossMarketAmount,
+    legacyReceiveAmount: pricedEstimate.exact.receiveAmount,
+    legacyTotalFee: pricedEstimate.exact.totalFee,
+    amount: input.amount,
+    targetCurrency: route.toAsset,
+    targetPrecision: route.targetPrecision,
+    addons: selectedAddons.map((addon) => ({
+      id: addon.id,
+      key: addon.key,
+      name: addon.name,
+      fixedAmount: addon.fixedAmount,
+      feeCurrency: addon.feeCurrency,
+    })),
+    config: additionalFeeConfig,
+    references: pricedEstimate.exact.additionalReferences,
+  });
+  const finalEstimate = {
+    ...pricedEstimate,
+    receiveAmount: feeAdjusted.receiveAmount,
+    totalFee: feeAdjusted.totalFee,
+    rate: feeAdjusted.rate,
+    fee: feeAdjusted.totalFee,
+    exact: {
+      ...pricedEstimate.exact,
+      totalFee: feeAdjusted.totalFeeExact,
+      receiveAmount: feeAdjusted.receiveAmountExact,
+      finalRate: feeAdjusted.rateExact,
+    },
+  };
   if (targetOption?.kind === "fiat-payment-method") {
     const targetMin = targetOption.minAmount == null ? undefined : Number(targetOption.minAmount);
     const targetMax = targetOption.maxAmount == null ? undefined : Number(targetOption.maxAmount);
     if (
-      targetMin !== undefined && pricedEstimate.receiveAmount < targetMin ||
-      targetMax !== undefined && pricedEstimate.receiveAmount > targetMax
+      targetMin !== undefined && finalEstimate.receiveAmount < targetMin ||
+      targetMax !== undefined && finalEstimate.receiveAmount > targetMax
     ) {
       throw new ApiError("MANUAL_AMOUNT_OUT_OF_RANGE", "The amount is outside this route's limits.", 422);
     }
@@ -1131,7 +1209,9 @@ async function buildQuoteTicket(
     toAsset: route.toAsset,
     toNetwork: route.toNetwork,
     amount: input.amount,
-    ...pricedEstimate,
+    ...finalEstimate,
+    selectedAddOnKeys,
+    manualSwapFees: feeAdjusted.feeSnapshot,
     paymentMethod: normalizeManualPricingSelectors(input).paymentMethod ?? "",
     payoutMethod: normalizeManualPricingSelectors(input).payoutMethod ?? "",
     sourceSettlementOptionId: sourceOption?.id,
@@ -1262,10 +1342,13 @@ async function buildQuoteTicket(
         grossMarketAmount: pricedEstimate.exact.grossMarketAmount,
         percentageCommission: pricedEstimate.exact.percentageCommission,
         fixedCommission: pricedEstimate.exact.fixedCommission,
-        totalFee: pricedEstimate.exact.totalFee,
-        receiveAmount: pricedEstimate.exact.receiveAmount,
-        finalRate: pricedEstimate.exact.finalRate,
+        addonFee: feeAdjusted.feeSnapshot.addonFee,
+        exchangeFee: feeAdjusted.feeSnapshot.exchangeFee.totalAmount,
+        totalFee: feeAdjusted.totalFeeExact,
+        receiveAmount: feeAdjusted.receiveAmountExact,
+        finalRate: feeAdjusted.rateExact,
       },
+      manualSwapFees: feeAdjusted.feeSnapshot,
     },
     expiresAt: Date.now() + 2 * 60 * 1000,
     provider: "Manual desk",
@@ -1563,6 +1646,200 @@ router.post("/exchange/quote", async (req, res, next) => {
       quoteId: signQuoteTicket(ticket),
       expiresAt: new Date(ticket.expiresAt).toISOString(),
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+function outputManualSwapAddon(row: typeof manualSwapAddonsTable.$inferSelect) {
+  return {
+    id: row.id,
+    key: row.key,
+    name: row.name,
+    description: row.description,
+    fixedAmount: row.fixedAmount,
+    feeCurrency: row.feeCurrency,
+    enabled: row.enabled && row.deletedAt === null,
+    selectionRule: row.selectionRule,
+    presentation: row.presentation,
+  };
+}
+
+async function loadManualSwapFeeConfig() {
+  const [config] = await db.select().from(manualSwapFeeConfigTable)
+    .where(eq(manualSwapFeeConfigTable.id, "default")).limit(1);
+  return config
+    ? {
+        enabled: config.enabled,
+        percentage: config.percentage,
+        fixedAmount: config.fixedAmount,
+        fixedCurrency: config.fixedCurrency,
+      }
+    : { enabled: false, percentage: null, fixedAmount: null, fixedCurrency: "USD" };
+}
+
+async function resolveSelectedManualSwapAddons(keys: string[]) {
+  if (keys.length === 0) return [];
+  const rows = await db.select().from(manualSwapAddonsTable)
+    .where(inArray(manualSwapAddonsTable.key, keys));
+  return validateManualSwapAddonSelection(keys, rows);
+}
+
+router.get("/exchange/manual-swap-addons", async (_req, res, next) => {
+  try {
+    const rows = await db.select().from(manualSwapAddonsTable)
+      .where(and(eq(manualSwapAddonsTable.enabled, true), isNull(manualSwapAddonsTable.deletedAt)))
+      .orderBy(asc(manualSwapAddonsTable.name));
+    res.json(ListPublicManualSwapAddonsResponse.parse({
+      items: rows.map(outputManualSwapAddon),
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/admin/manual-swap-addons", requirePermission("pricing.view"), async (_req, res, next) => {
+  try {
+    const rows = await db.select().from(manualSwapAddonsTable)
+      .where(isNull(manualSwapAddonsTable.deletedAt))
+      .orderBy(asc(manualSwapAddonsTable.name));
+    res.json(ListAdminManualSwapAddonsResponse.parse({
+      items: rows.map(outputManualSwapAddon),
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/admin/manual-swap-addons", requirePermission("pricing.manage"), async (req, res, next) => {
+  try {
+    const input = CreateManualSwapAddonBody.parse(req.body);
+    const [row] = await db.insert(manualSwapAddonsTable).values({
+      key: input.key,
+      name: input.name.trim(),
+      description: input.description?.trim() ?? "",
+      fixedAmount: input.fixedAmount,
+      feeCurrency: input.feeCurrency.toUpperCase(),
+      enabled: input.enabled,
+      selectionRule: input.selectionRule,
+      presentation: { group: input.presentation?.group?.trim() ?? "" },
+    }).returning();
+    const result = CreateManualSwapAddonResponse.parse(outputManualSwapAddon(row));
+    recordAdminMutationActivity(req, res, {
+      permission: "pricing.manage",
+      action: "manual_swap.addon.created",
+      entityId: row.id,
+    });
+    res.status(201).json(result);
+  } catch (error) {
+    if ((error as { code?: string })?.code === "23505") {
+      next(new ApiError("MANUAL_SWAP_ADDON_KEY_CONFLICT", "That add-on key is already in use.", 409));
+      return;
+    }
+    next(error);
+  }
+});
+
+router.patch("/admin/manual-swap-addons/:id", requirePermission("pricing.manage"), async (req, res, next) => {
+  try {
+    const { id } = UpdateManualSwapAddonParams.parse(req.params);
+    const input = UpdateManualSwapAddonBody.parse(req.body);
+    const [existing] = await db.select().from(manualSwapAddonsTable)
+      .where(eq(manualSwapAddonsTable.id, id)).limit(1);
+    if (!existing || existing.deletedAt) {
+      throw new ApiError("MANUAL_SWAP_ADDON_NOT_FOUND", "The Manual Swap add-on was not found.", 404);
+    }
+    const [row] = await db.update(manualSwapAddonsTable).set({
+      key: input.key,
+      name: input.name.trim(),
+      description: input.description?.trim() ?? "",
+      fixedAmount: input.fixedAmount,
+      feeCurrency: input.feeCurrency.toUpperCase(),
+      enabled: input.enabled,
+      selectionRule: input.selectionRule,
+      presentation: { group: input.presentation?.group?.trim() ?? "" },
+      updatedAt: new Date(),
+    }).where(eq(manualSwapAddonsTable.id, id)).returning();
+    const result = UpdateManualSwapAddonResponse.parse(outputManualSwapAddon(row));
+    recordAdminMutationActivity(req, res, {
+      permission: "pricing.manage",
+      action: "manual_swap.addon.updated",
+      entityId: row.id,
+    });
+    res.json(result);
+  } catch (error) {
+    if ((error as { code?: string })?.code === "23505") {
+      next(new ApiError("MANUAL_SWAP_ADDON_KEY_CONFLICT", "That add-on key is already in use.", 409));
+      return;
+    }
+    next(error);
+  }
+});
+
+router.delete("/admin/manual-swap-addons/:id", requirePermission("pricing.manage"), async (req, res, next) => {
+  try {
+    const { id } = DeleteManualSwapAddonParams.parse(req.params);
+    const [row] = await db.update(manualSwapAddonsTable).set({
+      enabled: false,
+      deletedAt: new Date(),
+      updatedAt: new Date(),
+    }).where(and(
+      eq(manualSwapAddonsTable.id, id),
+      isNull(manualSwapAddonsTable.deletedAt),
+    )).returning();
+    if (!row) throw new ApiError("MANUAL_SWAP_ADDON_NOT_FOUND", "The Manual Swap add-on was not found.", 404);
+    const result = DeleteManualSwapAddonResponse.parse(outputManualSwapAddon(row));
+    recordAdminMutationActivity(req, res, {
+      permission: "pricing.manage",
+      action: "manual_swap.addon.deleted",
+      entityId: row.id,
+    });
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/admin/manual-swap-fee-config", requirePermission("pricing.view"), async (_req, res, next) => {
+  try {
+    res.json(GetManualSwapFeeConfigResponse.parse(await loadManualSwapFeeConfig()));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.put("/admin/manual-swap-fee-config", requirePermission("pricing.manage"), async (req, res, next) => {
+  try {
+    const input = UpdateManualSwapFeeConfigBody.parse(req.body);
+    const [row] = await db.insert(manualSwapFeeConfigTable).values({
+      id: "default",
+      enabled: input.enabled,
+      percentage: input.percentage ?? null,
+      fixedAmount: input.fixedAmount ?? null,
+      fixedCurrency: input.fixedCurrency.toUpperCase(),
+      updatedAt: new Date(),
+    }).onConflictDoUpdate({
+      target: manualSwapFeeConfigTable.id,
+      set: {
+        enabled: input.enabled,
+        percentage: input.percentage ?? null,
+        fixedAmount: input.fixedAmount ?? null,
+        fixedCurrency: input.fixedCurrency.toUpperCase(),
+        updatedAt: new Date(),
+      },
+    }).returning();
+    const result = UpdateManualSwapFeeConfigResponse.parse({
+      enabled: row.enabled,
+      percentage: row.percentage,
+      fixedAmount: row.fixedAmount,
+      fixedCurrency: row.fixedCurrency,
+    });
+    recordAdminMutationActivity(req, res, {
+      permission: "pricing.manage",
+      action: "manual_swap.fee_config.updated",
+      entityId: "default",
+    });
+    res.json(result);
   } catch (error) {
     next(error);
   }
@@ -2236,6 +2513,7 @@ router.get("/orders/:id/status", async (req, res, next) => {
            ? projectManualOrderStep2Details(row)
            : undefined,
          receiptFee: canViewDeposit ? outputReceiptFee(row) : undefined,
+         manualSwapFees: canViewDeposit ? outputManualSwapFees(row) : undefined,
         manualSettlementState: row.type === "manual" ? row.manualSettlementState : undefined,
         customerSafeNote: row.type === "manual" ? row.customerSafeNote || undefined : undefined,
         fundingStatus: row.type === "manual" ? row.fundingStatus : undefined,

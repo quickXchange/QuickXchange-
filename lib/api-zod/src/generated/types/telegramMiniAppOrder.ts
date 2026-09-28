@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ManualSwapFeeQuoteSnapshot } from './manualSwapFeeQuoteSnapshot';
 import type { TelegramMiniAppOrderLogos } from './telegramMiniAppOrderLogos';
 import type { TelegramMiniAppOrderPaymentDetails } from './telegramMiniAppOrderPaymentDetails';
 import type { TelegramMiniAppOrderSettlementDetails } from './telegramMiniAppOrderSettlementDetails';
@@ -25,6 +26,7 @@ export interface TelegramMiniAppOrder {
   networks?: string[];
   amount: string;
   receiveAmount: string;
+  manualSwapFees?: ManualSwapFeeQuoteSnapshot;
   trackingToken: string;
   createdAt: Date;
   outcomeUnknown?: boolean;

@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ManualSwapFeeQuoteSnapshot } from './manualSwapFeeQuoteSnapshot';
 import type { PaymentMethodFieldDefinition } from './paymentMethodFieldDefinition';
 import type { QuickexRateMode } from './quickexRateMode';
 import type { QuoteType } from './quoteType';
@@ -39,4 +40,5 @@ export interface Quote {
   customerInstructions?: string;
   /** @minimum 1 */
   expectedSettlementMinutes?: number;
+  manualSwapFees?: ManualSwapFeeQuoteSnapshot;
 }

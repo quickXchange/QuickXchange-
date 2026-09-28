@@ -36,6 +36,7 @@ export * from "./exchange-operations";
 export * from "./crypto-assets";
 export * from "./fiat-currencies";
 export * from "./manual-desk-pricing-rules";
+export * from "./manual-swap-addons";
 export * from "./payment-methods";
 export * from "./quickex-orders";
 export * from "./affiliate";

@@ -140,6 +140,7 @@ const AdminIntegrations = lazy(() => import('./pages/admin').then(module => ({ d
 const AdminNotificationSettings = lazy(() => import('./pages/admin').then(module => ({ default: module.AdminNotificationSettings })));
 const AdminCurrencies = lazy(() => import('./pages/admin').then(module => ({ default: module.AdminCurrencies })));
 const AdminManualPricing = lazy(() => import('./pages/admin').then(module => ({ default: module.AdminManualPricing })));
+const AdminSwapAddonsPage = lazy(() => import('./pages/admin-swap-addons').then(module => ({ default: module.AdminSwapAddonsPage })));
 const AdminBlogPage = lazy(() => import('./pages/admin-blog').then(module => ({ default: module.AdminBlogPage })));
 const AdminBlogEditorPage = lazy(() => import('./pages/admin-blog-editor').then(module => ({ default: module.AdminBlogEditorPage })));
 const AdminBlogAutomationPage = lazy(() => import('./pages/admin-blog-automation').then(module => ({ default: module.AdminBlogAutomationPage })));
@@ -1658,6 +1659,7 @@ const ADMIN_TOP_LEVEL_HEADER_LABELS: Record<string, string> = {
   '/admin/notification-settings': 'SYSTEM / NOTIFICATIONS',
   '/admin/currencies': 'ASSETS / PAYMENT METHODS',
   '/admin/pricing': 'PRICING / ENGINE',
+  '/admin/swap-addons': 'PRICING / SWAP',
   '/admin/team': 'ADMINISTRATION / TEAM',
   '/admin/site-content': 'CONTENT / PUBLIC SITE',
   '/admin/blog': 'CONTENT / BLOG',
@@ -1749,6 +1751,7 @@ export function AdminShell({ children, title, eyebrow, action, subtitle, titleIc
         { href: '/admin/notification-settings', label: 'Notification Settings', testId: 'notification-settings', icon: Bell, requiredPermission: 'site_settings.manage', ownerOnly: true },
         { href: '/admin/currencies', label: t('adminShell.currenciesMethods'), testId: 'currency and methods', icon: Landmark, requiredPermission: ['currencies.view', 'payment_methods.view', 'crypto_assets.view', 'crypto_networks.view'] },
         { href: '/admin/pricing', label: t('adminShell.manualPricing'), testId: 'manual pricing', icon: TrendingUp, requiredPermission: 'pricing.view' },
+        { href: '/admin/swap-addons', label: 'Swap Order Add-ons', testId: 'swap-addons', icon: HandCoins, requiredPermission: 'pricing.view' },
         { href: '/admin/team', label: t('adminShell.staff'), testId: 'team', icon: Key, requiredPermission: ['team.members.view', 'team.roles.view', 'team.activity.view'] },
         { href: '/admin/site-content', label: 'Site content', testId: 'site-content', icon: FileText, requiredPermission: 'site_settings.view' },
         { href: '/admin/blog', label: 'Blog', testId: 'blog', icon: Newspaper, requiredPermission: 'blog.view' },
@@ -2395,6 +2398,7 @@ const AdminIntegrationsRoute = authorizedAdminRoute(AdminIntegrations);
 const AdminNotificationSettingsRoute = authorizedAdminRoute(AdminNotificationSettings);
 const AdminCurrenciesRoute = authorizedAdminRoute(AdminCurrencies);
 const AdminManualPricingRoute = authorizedAdminRoute(AdminManualPricing);
+const AdminSwapAddonsRoute = authorizedAdminRoute(AdminSwapAddonsPage);
 const AdminLandingBackgroundStudioRoute = authorizedAdminRoute(AdminLandingBackgroundStudio);
 const AdminAppearanceRoute = authorizedAdminRoute(AdminAppearancePage);
 const AdminTeamRoute = authorizedAdminRoute(AdminTeamPage);
@@ -2716,6 +2720,7 @@ function ClerkProviderWithRoutes() {
             <Route path="/admin/notification-settings" component={AdminNotificationSettingsRoute} />
             <Route path="/admin/currencies" component={AdminCurrenciesRoute} />
             <Route path="/admin/pricing" component={AdminManualPricingRoute} />
+            <Route path="/admin/swap-addons" component={AdminSwapAddonsRoute} />
             <Route path="/admin/appearance" component={AdminAppearanceRoute} />
             <Route path="/admin/landing-background" component={AdminLandingBackgroundStudioRoute} />
             <Route path="/admin/team" component={AdminTeamRoute} />

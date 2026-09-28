@@ -170,6 +170,105 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }
+  /exchange/manual-swap-addons:
+    get:
+      operationId: listPublicManualSwapAddons
+      tags: [exchange]
+      summary: List enabled optional Manual Swap add-ons
+      responses:
+        "200":
+          description: Public add-on catalog
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ManualSwapAddonsResponse" }
+  /admin/manual-swap-addons:
+    get:
+      operationId: listAdminManualSwapAddons
+      tags: [admin]
+      security: [{ OperatorSession: [] }]
+      summary: List Manual Swap add-ons for pricing operators
+      responses:
+        "200":
+          description: Add-on catalog including disabled records
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ManualSwapAddonsResponse" }
+    post:
+      operationId: createManualSwapAddon
+      tags: [admin]
+      security: [{ OperatorSession: [] }]
+      summary: Create a Manual Swap add-on
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ManualSwapAddonInput" }
+      responses:
+        "201":
+          description: Created add-on
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ManualSwapAddon" }
+  /admin/manual-swap-addons/{id}:
+    patch:
+      operationId: updateManualSwapAddon
+      tags: [admin]
+      security: [{ OperatorSession: [] }]
+      summary: Update a Manual Swap add-on
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ManualSwapAddonUpdate" }
+      responses:
+        "200":
+          description: Updated add-on
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ManualSwapAddon" }
+    delete:
+      operationId: deleteManualSwapAddon
+      tags: [admin]
+      security: [{ OperatorSession: [] }]
+      summary: Disable a Manual Swap add-on without changing historical order snapshots
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Disabled add-on
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ManualSwapAddon" }
+  /admin/manual-swap-fee-config:
+    get:
+      operationId: getManualSwapFeeConfig
+      tags: [admin]
+      security: [{ OperatorSession: [] }]
+      summary: Read the optional additional Manual Swap exchange fee
+      responses:
+        "200":
+          description: Current additional fee settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ManualSwapFeeConfig" }
+    put:
+      operationId: updateManualSwapFeeConfig
+      tags: [admin]
+      security: [{ OperatorSession: [] }]
+      summary: Configure the optional additional Manual Swap exchange fee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ManualSwapFeeConfigInput" }
+      responses:
+        "200":
+          description: Saved fee settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ManualSwapFeeConfig" }
   /landing-background:
     get:
       operationId: getLandingBackground
@@ -4947,6 +5046,120 @@ components:
       type: string
       pattern: '^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$'
       description: An exact non-negative base-10 decimal value.
+    ManualSwapConfigDecimal:
+      type: string
+      pattern: '^(?:0|[1-9][0-9]{0,19})(?:\.[0-9]{1,18})?$'
+      description: An exact non-negative decimal fitting the Manual Swap numeric(38,18) storage boundary.
+    ManualSwapAddon:
+      type: object
+      required: [id, key, name, description, fixedAmount, feeCurrency, enabled, selectionRule, presentation]
+      properties:
+        id: { type: string, format: uuid }
+        key: { type: string, pattern: '^[a-z0-9][a-z0-9_-]{0,99}$' }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 1000 }
+        fixedAmount: { $ref: "#/components/schemas/NonNegativeExactDecimal" }
+        feeCurrency: { type: string, pattern: '^[A-Z0-9]{2,15}$' }
+        enabled: { type: boolean }
+        selectionRule: { type: string, enum: [none, one, multiple] }
+        presentation:
+          type: object
+          additionalProperties: false
+          required: [group]
+          properties:
+            group: { type: string, maxLength: 100 }
+    ManualSwapAddonsResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ManualSwapAddon" }
+    ManualSwapAddonInput:
+      type: object
+      required: [key, name, fixedAmount, feeCurrency]
+      properties:
+        key: { type: string, pattern: '^[a-z0-9][a-z0-9_-]{0,99}$' }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 1000 }
+        fixedAmount: { $ref: "#/components/schemas/ManualSwapConfigDecimal" }
+        feeCurrency: { type: string, pattern: '^[A-Z0-9]{2,15}$' }
+        enabled: { type: boolean, default: true }
+        selectionRule: { type: string, enum: [none, one, multiple], default: multiple }
+        presentation:
+          type: object
+          additionalProperties: false
+          properties:
+            group: { type: string, maxLength: 100 }
+    ManualSwapAddonUpdate:
+      allOf:
+        - $ref: "#/components/schemas/ManualSwapAddonInput"
+      description: Full replacement of editable add-on fields. Stable key remains immutable.
+    ManualSwapFeeConfig:
+      type: object
+      required: [enabled, percentage, fixedAmount, fixedCurrency]
+      properties:
+        enabled: { type: boolean }
+        percentage:
+          oneOf:
+            - $ref: "#/components/schemas/NonNegativeExactDecimal"
+            - type: "null"
+        fixedAmount:
+          oneOf:
+            - $ref: "#/components/schemas/NonNegativeExactDecimal"
+            - type: "null"
+        fixedCurrency: { type: string, pattern: '^[A-Z0-9]{2,15}$' }
+    ManualSwapFeeConfigInput:
+      type: object
+      required: [enabled, fixedCurrency]
+      properties:
+        enabled: { type: boolean }
+        percentage:
+          oneOf:
+            - $ref: "#/components/schemas/ManualSwapConfigDecimal"
+            - type: "null"
+        fixedAmount:
+          oneOf:
+            - $ref: "#/components/schemas/ManualSwapConfigDecimal"
+            - type: "null"
+        fixedCurrency: { type: string, pattern: '^[A-Z0-9]{2,15}$' }
+    ManualSwapFeeQuoteSnapshot:
+      type: object
+      additionalProperties: false
+      required: [selectedAddons, addonFee, exchangeFee, totalAdditionalFee, existingPricingFee, totalFees]
+      properties:
+        selectedAddons:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, key, name, amount, currency, targetAmount]
+            properties:
+              id: { type: string, format: uuid }
+              key: { type: string }
+              name: { type: string }
+              amount: { $ref: "#/components/schemas/NonNegativeExactDecimal" }
+              currency: { type: string }
+              targetAmount: { $ref: "#/components/schemas/NonNegativeExactDecimal" }
+        addonFee: { $ref: "#/components/schemas/NonNegativeExactDecimal" }
+        exchangeFee:
+          type: object
+          additionalProperties: false
+          required: [enabled, percentage, fixedAmount, fixedCurrency, percentageAmount, fixedTargetAmount, totalAmount]
+          properties:
+            enabled: { type: boolean }
+            percentage: { type: ["string", "null"] }
+            fixedAmount: { type: ["string", "null"] }
+            fixedCurrency: { type: string }
+            percentageAmount: { $ref: "#/components/schemas/NonNegativeExactDecimal" }
+            fixedTargetAmount: { $ref: "#/components/schemas/NonNegativeExactDecimal" }
+            totalAmount: { $ref: "#/components/schemas/NonNegativeExactDecimal" }
+        totalAdditionalFee: { $ref: "#/components/schemas/NonNegativeExactDecimal" }
+        existingPricingFee: { $ref: "#/components/schemas/NonNegativeExactDecimal" }
+        totalFees: { $ref: "#/components/schemas/NonNegativeExactDecimal" }
+        referenceLegs:
+          type: array
+          items: { $ref: "#/components/schemas/PricingReferenceLeg" }
     QuoteInput:
       type: object
       required: [type, fromAsset, fromNetwork, toAsset, toNetwork, amount]
@@ -4964,6 +5177,11 @@ components:
         payoutMethod: { type: string, maxLength: 100 }
         sourceSettlementOptionId: { type: string, minLength: 1, maxLength: 200 }
         targetSettlementOptionId: { type: string, minLength: 1, maxLength: 200 }
+        selectedAddOnKeys:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 100 }
     Quote:
       type: object
       required: [quoteId, type, fromAsset, fromNetwork, toAsset, toNetwork, amount, receiveAmount, rate, fee, expiresAt, provider]
@@ -4999,6 +5217,7 @@ components:
           items: { $ref: "#/components/schemas/PaymentMethodFieldDefinition" }
         customerInstructions: { type: string }
         expectedSettlementMinutes: { type: number, minimum: 1, multipleOf: 1 }
+        manualSwapFees: { $ref: "#/components/schemas/ManualSwapFeeQuoteSnapshot" }
     OrderInput:
       type: object
       required: [type, fromAsset, fromNetwork, toAsset, toNetwork, amount, quoteId, clientRequestId]
@@ -5032,6 +5251,11 @@ components:
         sourceSettlementOptionId: { type: string }
         targetSettlementOptionId: { type: string }
         settlementDetails: { $ref: "#/components/schemas/SettlementDetails" }
+        selectedAddOnKeys:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 100 }
     ExchangeOrderInput:
       type: object
       required: [type, fromAsset, fromNetwork, toAsset, toNetwork, amount, quoteId, clientRequestId]
@@ -5068,6 +5292,11 @@ components:
         sourceSettlementOptionId: { type: string }
         targetSettlementOptionId: { type: string }
         settlementDetails: { $ref: "#/components/schemas/SettlementDetails" }
+        selectedAddOnKeys:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 100 }
     QuickexOrderInput:
       type: object
       required:
@@ -5415,6 +5644,7 @@ components:
       required: [policyVersion, rule, context, reference, targetPrecision, rounding, amounts]
       properties:
         policyVersion: { type: string, enum: [manual-desk-pricing-v1] }
+        manualSwapFees: { $ref: "#/components/schemas/ManualSwapFeeQuoteSnapshot" }
         rule:
           type: object
           additionalProperties: false
@@ -5511,6 +5741,8 @@ components:
             grossMarketAmount: { $ref: "#/components/schemas/ExactDecimal" }
             percentageCommission: { $ref: "#/components/schemas/ExactDecimal" }
             fixedCommission: { $ref: "#/components/schemas/ExactDecimal" }
+            addonFee: { $ref: "#/components/schemas/NonNegativeExactDecimal" }
+            exchangeFee: { $ref: "#/components/schemas/NonNegativeExactDecimal" }
             totalFee: { $ref: "#/components/schemas/ExactDecimal" }
             receiveAmount: { $ref: "#/components/schemas/ExactDecimal" }
             finalRate: { $ref: "#/components/schemas/ExactDecimal" }
@@ -5825,6 +6057,7 @@ components:
           type: array
           items: { $ref: "#/components/schemas/Step2CustomerDetail" }
         receiptFee: { $ref: "#/components/schemas/ReceiptFee" }
+        manualSwapFees: { $ref: "#/components/schemas/ManualSwapFeeQuoteSnapshot" }
         rateMode: { $ref: "#/components/schemas/QuickexRateMode" }
         outcomeUnknown: { type: boolean }
         refreshUnavailable: { type: boolean }
@@ -5882,6 +6115,7 @@ components:
           type: array
           items: { $ref: "#/components/schemas/Step2CustomerDetail" }
         receiptFee: { $ref: "#/components/schemas/ReceiptFee" }
+        manualSwapFees: { $ref: "#/components/schemas/ManualSwapFeeQuoteSnapshot" }
         rateMode: { $ref: "#/components/schemas/QuickexRateMode" }
         outcomeUnknown: { type: boolean }
         refreshUnavailable: { type: boolean }
@@ -8037,6 +8271,7 @@ components:
         networks: { type: array, items: { type: string } }
         amount: { type: string }
         receiveAmount: { type: string }
+        manualSwapFees: { $ref: "#/components/schemas/ManualSwapFeeQuoteSnapshot" }
         trackingToken: { type: string }
         createdAt: { type: string, format: date-time }
         outcomeUnknown: { type: boolean }

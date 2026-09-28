@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ManualSwapFeeQuoteSnapshot } from './manualSwapFeeQuoteSnapshot';
 import type { OrderPricingSnapshotAmounts } from './orderPricingSnapshotAmounts';
 import type { OrderPricingSnapshotContext } from './orderPricingSnapshotContext';
 import type { OrderPricingSnapshotPolicyVersion } from './orderPricingSnapshotPolicyVersion';
@@ -14,6 +15,7 @@ import type { OrderPricingSnapshotRule } from './orderPricingSnapshotRule';
 
 export interface OrderPricingSnapshot {
   policyVersion: OrderPricingSnapshotPolicyVersion;
+  manualSwapFees?: ManualSwapFeeQuoteSnapshot;
   rule: OrderPricingSnapshotRule;
   context: OrderPricingSnapshotContext;
   reference: OrderPricingSnapshotReference;

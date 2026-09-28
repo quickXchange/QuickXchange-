@@ -31,6 +31,17 @@ import {
   isConvertTerminalStatus,
 } from '@/lib/convert-order-status';
 
+function formatFeeAmount(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const amount = String(value);
+  if (!amount.includes('.')) return amount;
+  return amount.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '');
+}
+
+function hasNonZeroFeeAmount(value: unknown): boolean {
+  return formatFeeAmount(value).replace('.', '').replace(/^0+/, '') !== '';
+}
+
 export default function OrderDetail() {
   const [, params] = useRoute('/orders/:id');
   const [, setLocation] = useLocation();
@@ -179,6 +190,9 @@ export default function OrderDetail() {
   const parsedReceiveAmount = Number(targetStatus.receiveAmount);
   const exchangeRate = Number.isFinite(parsedSendAmount) && parsedSendAmount > 0 && Number.isFinite(parsedReceiveAmount)
     ? parsedReceiveAmount / parsedSendAmount
+    : null;
+  const manualSwapFees = isManualSwap
+    ? (targetStatus as any).pricingSnapshot?.manualSwapFees || (targetStatus as any).manualSwapFees
     : null;
 
   const statusPresentation = isManualSwap
@@ -390,6 +404,53 @@ export default function OrderDetail() {
               <div className="flex items-center justify-between gap-3 py-2.5 text-[11px]">
                 <span className="text-muted-foreground">Exchange Rate</span>
                 <span className="font-mono font-semibold text-right">1 {targetStatus.fromAsset} = {exchangeRate.toLocaleString(undefined, { maximumFractionDigits: 8 })} {targetStatus.toAsset}</span>
+              </div>
+            )}
+            {isManualSwap && manualSwapFees && (
+              <div className="space-y-2 py-3" data-testid="manual-swap-fee-breakdown">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Optional exchange fees and add-ons are deducted from receive</p>
+                {hasNonZeroFeeAmount(manualSwapFees.existingPricingFee) && (
+                  <div className="flex items-center justify-between gap-3 text-[11px]">
+                    <span className="text-muted-foreground">Existing pricing fee</span>
+                    <span className="font-semibold">{formatFeeAmount(manualSwapFees.existingPricingFee)} {targetStatus.toAsset}</span>
+                  </div>
+                )}
+                <div className="flex items-start justify-between gap-3 text-[11px]">
+                  <span className="text-muted-foreground">Exchange fee</span>
+                  <span className="text-right font-semibold">
+                    {formatFeeAmount(manualSwapFees.exchangeFee?.totalAmount)} {targetStatus.toAsset}
+                    {manualSwapFees.exchangeFee?.fixedAmount !== null &&
+                      manualSwapFees.exchangeFee?.fixedAmount !== undefined && (
+                      <span className="block text-[10px] font-medium text-muted-foreground">
+                        Fixed component: {formatFeeAmount(manualSwapFees.exchangeFee.fixedAmount)} {manualSwapFees.exchangeFee.fixedCurrency}
+                      </span>
+                    )}
+                  </span>
+                </div>
+                {(manualSwapFees.selectedAddons || []).map((addon: any) => (
+                  <div key={addon.id || addon.key} className="flex items-start justify-between gap-3 text-[11px]">
+                    <span className="text-muted-foreground">{addon.name}</span>
+                    <span className="text-right font-semibold">
+                      {formatFeeAmount(addon.amount)} {addon.currency}
+                      <span className="block text-[10px] font-medium text-muted-foreground">
+                        {formatFeeAmount(addon.targetAmount)} {targetStatus.toAsset} deducted
+                      </span>
+                    </span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between gap-3 border-t border-border/50 pt-2 text-[11px] font-bold">
+                  <span>Total fees</span>
+                  <span>{formatFeeAmount(manualSwapFees.totalFees)} {targetStatus.toAsset}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 border-t border-border/50 pt-2 text-[11px] font-bold text-primary">
+                  <span>Final receive</span>
+                  <span>{formatFeeAmount(targetStatus.receiveAmount)} {targetStatus.toAsset}</span>
+                </div>
+              </div>
+            )}
+            {isManualSwap && !manualSwapFees && (
+              <div className="py-2.5 text-[11px] text-muted-foreground" data-testid="manual-swap-fee-breakdown-unavailable">
+                Fee breakdown is not available in the saved order details.
               </div>
             )}
             <div className="flex items-center justify-between gap-3 py-2.5 text-[11px]">

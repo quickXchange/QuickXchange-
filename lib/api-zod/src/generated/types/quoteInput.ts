@@ -35,4 +35,10 @@ export interface QuoteInput {
      * @maxLength 200
      */
   targetSettlementOptionId?: string;
+  /**
+     * @maxItems 50
+     * @items.minLength 1
+     * @items.maxLength 100
+     */
+  selectedAddOnKeys?: string[];
 }

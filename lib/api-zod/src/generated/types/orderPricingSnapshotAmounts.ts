@@ -6,11 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ExactDecimal } from './exactDecimal';
+import type { NonNegativeExactDecimal } from './nonNegativeExactDecimal';
 
 export type OrderPricingSnapshotAmounts = {
   grossMarketAmount: ExactDecimal;
   percentageCommission: ExactDecimal;
   fixedCommission: ExactDecimal;
+  addonFee?: NonNegativeExactDecimal;
+  exchangeFee?: NonNegativeExactDecimal;
   totalFee: ExactDecimal;
   receiveAmount: ExactDecimal;
   finalRate: ExactDecimal;

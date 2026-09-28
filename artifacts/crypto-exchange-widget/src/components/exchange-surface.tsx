@@ -18,7 +18,10 @@ import {
   useGetQuickexConfig,
   useGetPublishedNavigation,
 } from '@workspace/api-client-react';
-import type { ApiError, PaymentMethodFieldDefinition, SettlementOption, SiteNavLink } from '@workspace/api-client-react';
+import type { ApiError, OrderInput, PaymentMethodFieldDefinition, SettlementOption, SiteNavLink } from '@workspace/api-client-react';
+import type { ManualSwapFeeQuoteSnapshot } from '@workspace/api-client-react';
+import { getListPublicManualSwapAddonsQueryKey, useListPublicManualSwapAddons } from '@workspace/api-client-react';
+import { SwapFeeBreakdown, trimFeeDecimal } from '@/components/swap-fee-breakdown';
 import { Link, useLocation } from 'wouter';
 import {
   ArrowDownUp, ArrowLeftRight, ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight,
@@ -759,6 +762,31 @@ export function ManualSwapWidget({
   }, [quickexConfig.data?.instruments]);
   const orderMutation = useCreateOrder();
   const quoteMutation = useCreateExchangeQuote();
+  const addons = useListPublicManualSwapAddons({ query: { queryKey: getListPublicManualSwapAddonsQueryKey(), staleTime: 30_000 } });
+  const [selectedAddOnKeys, setSelectedAddOnKeys] = useState<string[]>([]);
+  const availableAddons = addons.data?.items || [];
+  const selectedKeys = selectedAddOnKeys.filter(key => availableAddons.some(item => item.key === key && item.enabled)).sort();
+  const selectedKeysSignature = JSON.stringify(selectedKeys);
+  const toggleAddon = (key: string) => {
+    const item = availableAddons.find(option => option.key === key);
+    if (!item || item.selectionRule === 'none') return;
+    const groupOf = (option: typeof item) => option.presentation.group.trim().toLowerCase() || 'default';
+    const group = groupOf(item);
+    setSelectedAddOnKeys(previous => {
+      if (previous.includes(key)) return previous.filter(value => value !== key);
+      // The server treats a group containing a "one" option as exclusive,
+      // regardless of the other options' individual selection rules.
+      const remaining = previous.filter(value => !availableAddons.some(option =>
+        option.key === value &&
+        groupOf(option) === group &&
+        (item.selectionRule === 'one' || option.selectionRule === 'one')
+      ));
+      return [...remaining, key];
+    });
+    setStep(1);
+    setTermsAccepted(false);
+    setQuotePreview(null);
+  };
 
   const [fromId, setFromId] = useState('');
   const [toId, setToId] = useState('');
@@ -812,6 +840,7 @@ export function ManualSwapWidget({
     requiredSettlementFields?: PaymentMethodFieldDefinition[];
     customerInstructions?: string;
     expectedSettlementMinutes?: number;
+    manualSwapFees?: ManualSwapFeeQuoteSnapshot;
   } | null>(null);
   const [quoteStatus, setQuoteStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [quoteError, setQuoteError] = useState('');
@@ -977,11 +1006,14 @@ export function ManualSwapWidget({
         toOption.id,
         amount,
          settlementFieldConfigurationKey,
+        selectedKeysSignature,
       ])
     : '';
   const currentQuote = quotePreview?.requestKey === quoteRequestKey ? quotePreview : null;
   const quoteReady = Boolean(
     currentQuote &&
+    !addons.isLoading &&
+    !addons.isError &&
     quoteStatus === 'idle' &&
     (!currentQuote.expiresAt || new Date(currentQuote.expiresAt).getTime() > Date.now())
   );
@@ -1008,6 +1040,8 @@ export function ManualSwapWidget({
   useEffect(() => {
     const parsedAmount = Number(amount);
     const canQuote = Boolean(fromOption && toOption)
+      && !addons.isLoading
+      && !addons.isError
       && fromOption?.id !== toOption?.id
       && Number.isFinite(parsedAmount)
       && parsedAmount > 0;
@@ -1035,6 +1069,7 @@ export function ManualSwapWidget({
           amount: parsedAmount,
           sourceSettlementOptionId: fromOption.id,
           targetSettlementOptionId: toOption.id,
+          selectedAddOnKeys: selectedKeys,
         },
       }, {
         onSuccess: (quote) => {
@@ -1056,6 +1091,7 @@ export function ManualSwapWidget({
             requiredSettlementFields: quote.requiredSettlementFields,
             customerInstructions: quote.customerInstructions,
             expectedSettlementMinutes: quote.expectedSettlementMinutes,
+            manualSwapFees: quote.manualSwapFees,
           });
           setQuoteStatus('idle');
           setQuoteError('');
@@ -1081,6 +1117,8 @@ export function ManualSwapWidget({
     toOption?.id,
     quoteRequestKey,
     quoteRefreshCounter,
+    addons.isLoading,
+    addons.isError,
   ]);
 
   const swap = () => {
@@ -1235,7 +1273,8 @@ export function ManualSwapWidget({
         settlementDetails: Object.keys(parsedDetails).length > 0 ? parsedDetails : undefined,
         note: !isFiatToCryptoSwap ? (note || undefined) : undefined,
         quoteId: currentQuote.quoteId,
-      }
+        selectedAddOnKeys: selectedKeys,
+      } as OrderInput & { selectedAddOnKeys: string[] }
     }, {
       onSuccess: (order) => {
         if (order.status === 'failed' && !order.outcomeUnknown) {
@@ -1442,6 +1481,18 @@ export function ManualSwapWidget({
                 </div>
               )}
 
+              <section className="mt-4 space-y-3" aria-label="Optional Swap add-ons">
+                <div className="text-sm font-bold text-foreground">Optional add-ons</div>
+                {addons.isLoading ? <div className="skeleton h-16 rounded-xl"/> : addons.isError ?
+                  <div role="alert" className="text-sm text-destructive">Options are unavailable. <button type="button" onClick={() => addons.refetch()} className="underline" data-testid="button-retry-swap-addons">Retry</button></div> :
+                  availableAddons.length ? <div className="space-y-2">{availableAddons.map(item => <label key={item.key} className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-card/60 p-3 text-sm">
+                    <input type="checkbox" className="mt-1 accent-primary" checked={selectedKeys.includes(item.key)} disabled={item.selectionRule === 'none'} onChange={() => toggleAddon(item.key)} data-testid={`checkbox-swap-addon-${item.key}`}/>
+                    <span className="flex-1"><strong className="block text-foreground">{item.name}</strong>{item.description && <small className="text-muted-foreground">{item.description}</small>}{item.selectionRule === 'one' && <small className="block text-muted-foreground">Choose one in {item.presentation.group || 'this group'}</small>}</span>
+                    <span className="font-mono text-foreground whitespace-nowrap">{trimFeeDecimal(item.fixedAmount)} {item.feeCurrency}</span>
+                  </label>)}</div> : <p className="text-xs text-muted-foreground">No optional services are available for this swap.</p>}
+              </section>
+              {currentQuote && toOption && <div className="mt-4"><SwapFeeBreakdown fees={currentQuote.manualSwapFees} currency={toOption.assetCode} receiveAmount={currentQuote.receiveAmount}/></div>}
+
               <div className="exchange-submit-wrap">
                 <button type="button" className="button button-primary widget-primary-submit group" disabled={!canContinue} onClick={continueToDetails} data-testid="button-swap-continue">
                   {t('actions.continue')}
@@ -1451,6 +1502,7 @@ export function ManualSwapWidget({
             </div>
           ) : step === 2 && quoteReady && currentQuote ? (
             <div ref={stepPanelRef} className="swap-step-panel swap-fulfillment-step animate-in fade-in slide-in-from-right-4 duration-300" data-testid="swap-step-wallets" tabIndex={-1}>
+              <SwapFeeBreakdown fees={currentQuote.manualSwapFees} currency={toOption.assetCode} receiveAmount={currentQuote.receiveAmount}/>
               <div className="swap-step2-summary" data-testid="swap-wallet-quote-summary">
                 <button
                   type="button"

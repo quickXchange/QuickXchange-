@@ -21,7 +21,7 @@ import { AdminTelegramLinkChallengeError, consumeAdminTelegramLinkChallenge, cre
 import { buildCreatePayload, buildQuotePayload, buildTelegramConvertOptions, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, shouldAskDestination, telegramAssetNetworkKey, telegramFieldSkipIndex, withoutTelegramRefundFields } from "../src/lib/telegram-wizard";
 import { adminEmailEventEnabled, adminTelegramEventEnabled, customerEmailEventEnabled } from "../src/lib/notification-policy";
 import { normalizeRefundFields } from "../src/lib/manual-wallet-validation";
-import { quickexProjection, telegramAccountLinkRelativeUrl, validateTelegramMiniAppInitData, verifyTelegramMiniAppSession } from "../src/routes/telegram-mini-app";
+import { manualProjection, quickexProjection, telegramAccountLinkRelativeUrl, validateTelegramMiniAppInitData, verifyTelegramMiniAppSession } from "../src/routes/telegram-mini-app";
 import { enqueueSwapTelegramNotification, formatSwapTelegramNotification } from "../src/lib/telegram-swap-notifications";
 import { buildCustomerStatusNotificationContent, resolveCompletedReviewUrl } from "../src/lib/customer-status-notifications";
 import { adminTelegramTestFailureReason, telegramHealthReport, validateNotificationTemplateVariables } from "../src/routes/notification-settings";
@@ -63,6 +63,71 @@ test("Telegram Mini App Convert projection exposes only persisted provider depos
   assert.equal(projected.depositQrData, "bitcoin:provider-deposit?amount=25");
   assert.equal(projected.depositStatus, "awaiting funds");
   assert.deepEqual(projected.settlementDetails, { accountReference: "REF-42" });
+});
+
+test("Telegram Mini App Manual Swap projection exposes only validated saved fee snapshots", () => {
+  const manualSwapFees = {
+    selectedAddons: [{
+      id: "8ca90db0-5d87-4f17-96c2-5102720b936f",
+      key: "priority",
+      name: "Priority processing",
+      amount: "1",
+      currency: "USD",
+      targetAmount: "1",
+    }],
+    addonFee: "1",
+    exchangeFee: {
+      enabled: false,
+      percentage: null,
+      fixedAmount: null,
+      fixedCurrency: "USD",
+      percentageAmount: "0",
+      fixedTargetAmount: "0",
+      totalAmount: "0",
+    },
+    totalAdditionalFee: "1",
+    referenceLegs: [],
+  };
+  const row = {
+    id: "manual-order",
+    type: "manual",
+    status: "pending",
+    fromAsset: "USD",
+    fromNetwork: "USD",
+    sourceSettlementOptionId: "source",
+    toAsset: "BTC",
+    toNetwork: "Bitcoin",
+    targetSettlementOptionId: "target",
+    amount: "10",
+    receiveAmount: "9",
+    trackingToken: "tracking",
+    settlementSnapshot: { source: { kind: "fiat-payment-method" }, target: { kind: "crypto-network" } },
+    pricingSnapshot: { manualSwapFees },
+    paymentDetails: null,
+    customerMarkedPaidAt: null,
+    createdAt: new Date("2025-01-01T00:00:00.000Z"),
+    outcomeUnknown: false,
+    manualSettlementState: "awaiting_customer",
+    fundingStatus: "provisioning",
+    fundingProviderSource: "manual",
+    depositAddress: null,
+    depositMemo: null,
+    settlementDetails: null,
+    customerSafeNote: null,
+  } as never;
+  const link = {
+    orderId: "manual-order",
+    orderKind: "manual",
+    trackingToken: "verified-owner-tracking-token",
+  } as never;
+  const projection = manualProjection(row, link);
+  assert.deepEqual(projection.manualSwapFees, manualSwapFees);
+
+  const invalidSnapshot = manualProjection({
+    ...row,
+    pricingSnapshot: { manualSwapFees: { ...manualSwapFees, addonFee: "-1" } },
+  } as never, link);
+  assert.equal(invalidSnapshot.manualSwapFees, undefined);
 });
 
 test("Telegram Mini App initData validates authentic user data", () => {

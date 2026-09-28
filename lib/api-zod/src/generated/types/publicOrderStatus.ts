@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ExactDecimal } from './exactDecimal';
+import type { ManualSwapFeeQuoteSnapshot } from './manualSwapFeeQuoteSnapshot';
 import type { OrderPaymentDetails } from './orderPaymentDetails';
 import type { ProviderFreshness } from './providerFreshness';
 import type { PublicOrderStatusFundingDetails } from './publicOrderStatusFundingDetails';
@@ -35,6 +36,7 @@ export interface PublicOrderStatus {
   refundMemo?: string;
   step2Details?: Step2CustomerDetail[];
   receiptFee?: ReceiptFee;
+  manualSwapFees?: ManualSwapFeeQuoteSnapshot;
   rateMode?: QuickexRateMode;
   outcomeUnknown: boolean;
   refreshUnavailable: boolean;

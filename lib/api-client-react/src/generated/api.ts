@@ -169,6 +169,12 @@ import type {
   ManualDeskPricingRulesCreateBatchResult,
   ManualDeskRevenueReport,
   ManualPublicOrderStatus,
+  ManualSwapAddon,
+  ManualSwapAddonInput,
+  ManualSwapAddonUpdate,
+  ManualSwapAddonsResponse,
+  ManualSwapFeeConfig,
+  ManualSwapFeeConfigInput,
   MarkOrderPaidInput,
   NewsletterAnnouncement,
   NewsletterAnnouncementInput,
@@ -922,6 +928,522 @@ export function useGetExchangeRoutePricing<TData = Awaited<ReturnType<typeof get
 
 
 
+
+export const getListPublicManualSwapAddonsUrl = () => {
+
+
+
+
+  return `/api/exchange/manual-swap-addons`
+}
+
+/**
+ * @summary List enabled optional Manual Swap add-ons
+ */
+export const listPublicManualSwapAddons = async ( options?: Parameters<typeof customFetch>[1]): Promise<ManualSwapAddonsResponse> => {
+
+  return customFetch<ManualSwapAddonsResponse>(getListPublicManualSwapAddonsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPublicManualSwapAddonsQueryKey = () => {
+    return [
+    `/api/exchange/manual-swap-addons`
+    ] as const;
+    }
+
+
+export const getListPublicManualSwapAddonsQueryOptions = <TData = Awaited<ReturnType<typeof listPublicManualSwapAddons>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPublicManualSwapAddons>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPublicManualSwapAddonsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPublicManualSwapAddons>>> = ({ signal }) => listPublicManualSwapAddons({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPublicManualSwapAddons>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPublicManualSwapAddonsQueryResult = NonNullable<Awaited<ReturnType<typeof listPublicManualSwapAddons>>>
+export type ListPublicManualSwapAddonsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List enabled optional Manual Swap add-ons
+ */
+
+export function useListPublicManualSwapAddons<TData = Awaited<ReturnType<typeof listPublicManualSwapAddons>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPublicManualSwapAddons>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPublicManualSwapAddonsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListAdminManualSwapAddonsUrl = () => {
+
+
+
+
+  return `/api/admin/manual-swap-addons`
+}
+
+/**
+ * @summary List Manual Swap add-ons for pricing operators
+ */
+export const listAdminManualSwapAddons = async ( options?: Parameters<typeof customFetch>[1]): Promise<ManualSwapAddonsResponse> => {
+
+  return customFetch<ManualSwapAddonsResponse>(getListAdminManualSwapAddonsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAdminManualSwapAddonsQueryKey = () => {
+    return [
+    `/api/admin/manual-swap-addons`
+    ] as const;
+    }
+
+
+export const getListAdminManualSwapAddonsQueryOptions = <TData = Awaited<ReturnType<typeof listAdminManualSwapAddons>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAdminManualSwapAddons>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAdminManualSwapAddonsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAdminManualSwapAddons>>> = ({ signal }) => listAdminManualSwapAddons({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAdminManualSwapAddons>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAdminManualSwapAddonsQueryResult = NonNullable<Awaited<ReturnType<typeof listAdminManualSwapAddons>>>
+export type ListAdminManualSwapAddonsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List Manual Swap add-ons for pricing operators
+ */
+
+export function useListAdminManualSwapAddons<TData = Awaited<ReturnType<typeof listAdminManualSwapAddons>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAdminManualSwapAddons>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAdminManualSwapAddonsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateManualSwapAddonUrl = () => {
+
+
+
+
+  return `/api/admin/manual-swap-addons`
+}
+
+/**
+ * @summary Create a Manual Swap add-on
+ */
+export const createManualSwapAddon = async (manualSwapAddonInput: ManualSwapAddonInput, options?: Parameters<typeof customFetch>[1]): Promise<ManualSwapAddon> => {
+
+  return customFetch<ManualSwapAddon>(getCreateManualSwapAddonUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(manualSwapAddonInput)
+  }
+);}
+
+
+
+
+
+export const getCreateManualSwapAddonMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createManualSwapAddon>>, TError,{data: BodyType<ManualSwapAddonInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createManualSwapAddon>>, TError,{data: BodyType<ManualSwapAddonInput>}, TContext> => {
+
+const mutationKey = ['createManualSwapAddon'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createManualSwapAddon>>, {data: BodyType<ManualSwapAddonInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createManualSwapAddon(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateManualSwapAddonMutationResult = NonNullable<Awaited<ReturnType<typeof createManualSwapAddon>>>
+    export type CreateManualSwapAddonMutationBody = BodyType<ManualSwapAddonInput>
+    export type CreateManualSwapAddonMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a Manual Swap add-on
+ */
+export const useCreateManualSwapAddon = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createManualSwapAddon>>, TError,{data: BodyType<ManualSwapAddonInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createManualSwapAddon>>,
+        TError,
+        {data: BodyType<ManualSwapAddonInput>},
+        TContext
+      > => {
+      return useMutation(getCreateManualSwapAddonMutationOptions(options));
+    }
+
+export const getUpdateManualSwapAddonUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/manual-swap-addons/${id}`
+}
+
+/**
+ * @summary Update a Manual Swap add-on
+ */
+export const updateManualSwapAddon = async (id: string,
+    manualSwapAddonUpdate: ManualSwapAddonUpdate, options?: Parameters<typeof customFetch>[1]): Promise<ManualSwapAddon> => {
+
+  return customFetch<ManualSwapAddon>(getUpdateManualSwapAddonUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(manualSwapAddonUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateManualSwapAddonMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateManualSwapAddon>>, TError,{id: string;data: BodyType<ManualSwapAddonUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateManualSwapAddon>>, TError,{id: string;data: BodyType<ManualSwapAddonUpdate>}, TContext> => {
+
+const mutationKey = ['updateManualSwapAddon'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateManualSwapAddon>>, {id: string;data: BodyType<ManualSwapAddonUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateManualSwapAddon(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateManualSwapAddonMutationResult = NonNullable<Awaited<ReturnType<typeof updateManualSwapAddon>>>
+    export type UpdateManualSwapAddonMutationBody = BodyType<ManualSwapAddonUpdate>
+    export type UpdateManualSwapAddonMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a Manual Swap add-on
+ */
+export const useUpdateManualSwapAddon = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateManualSwapAddon>>, TError,{id: string;data: BodyType<ManualSwapAddonUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateManualSwapAddon>>,
+        TError,
+        {id: string;data: BodyType<ManualSwapAddonUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateManualSwapAddonMutationOptions(options));
+    }
+
+export const getDeleteManualSwapAddonUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/manual-swap-addons/${id}`
+}
+
+/**
+ * @summary Disable a Manual Swap add-on without changing historical order snapshots
+ */
+export const deleteManualSwapAddon = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<ManualSwapAddon> => {
+
+  return customFetch<ManualSwapAddon>(getDeleteManualSwapAddonUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteManualSwapAddonMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteManualSwapAddon>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteManualSwapAddon>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteManualSwapAddon'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteManualSwapAddon>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteManualSwapAddon(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteManualSwapAddonMutationResult = NonNullable<Awaited<ReturnType<typeof deleteManualSwapAddon>>>
+
+    export type DeleteManualSwapAddonMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Disable a Manual Swap add-on without changing historical order snapshots
+ */
+export const useDeleteManualSwapAddon = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteManualSwapAddon>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteManualSwapAddon>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteManualSwapAddonMutationOptions(options));
+    }
+
+export const getGetManualSwapFeeConfigUrl = () => {
+
+
+
+
+  return `/api/admin/manual-swap-fee-config`
+}
+
+/**
+ * @summary Read the optional additional Manual Swap exchange fee
+ */
+export const getManualSwapFeeConfig = async ( options?: Parameters<typeof customFetch>[1]): Promise<ManualSwapFeeConfig> => {
+
+  return customFetch<ManualSwapFeeConfig>(getGetManualSwapFeeConfigUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetManualSwapFeeConfigQueryKey = () => {
+    return [
+    `/api/admin/manual-swap-fee-config`
+    ] as const;
+    }
+
+
+export const getGetManualSwapFeeConfigQueryOptions = <TData = Awaited<ReturnType<typeof getManualSwapFeeConfig>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getManualSwapFeeConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetManualSwapFeeConfigQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getManualSwapFeeConfig>>> = ({ signal }) => getManualSwapFeeConfig({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getManualSwapFeeConfig>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetManualSwapFeeConfigQueryResult = NonNullable<Awaited<ReturnType<typeof getManualSwapFeeConfig>>>
+export type GetManualSwapFeeConfigQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Read the optional additional Manual Swap exchange fee
+ */
+
+export function useGetManualSwapFeeConfig<TData = Awaited<ReturnType<typeof getManualSwapFeeConfig>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getManualSwapFeeConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetManualSwapFeeConfigQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateManualSwapFeeConfigUrl = () => {
+
+
+
+
+  return `/api/admin/manual-swap-fee-config`
+}
+
+/**
+ * @summary Configure the optional additional Manual Swap exchange fee
+ */
+export const updateManualSwapFeeConfig = async (manualSwapFeeConfigInput: ManualSwapFeeConfigInput, options?: Parameters<typeof customFetch>[1]): Promise<ManualSwapFeeConfig> => {
+
+  return customFetch<ManualSwapFeeConfig>(getUpdateManualSwapFeeConfigUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(manualSwapFeeConfigInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateManualSwapFeeConfigMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateManualSwapFeeConfig>>, TError,{data: BodyType<ManualSwapFeeConfigInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateManualSwapFeeConfig>>, TError,{data: BodyType<ManualSwapFeeConfigInput>}, TContext> => {
+
+const mutationKey = ['updateManualSwapFeeConfig'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateManualSwapFeeConfig>>, {data: BodyType<ManualSwapFeeConfigInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateManualSwapFeeConfig(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateManualSwapFeeConfigMutationResult = NonNullable<Awaited<ReturnType<typeof updateManualSwapFeeConfig>>>
+    export type UpdateManualSwapFeeConfigMutationBody = BodyType<ManualSwapFeeConfigInput>
+    export type UpdateManualSwapFeeConfigMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Configure the optional additional Manual Swap exchange fee
+ */
+export const useUpdateManualSwapFeeConfig = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateManualSwapFeeConfig>>, TError,{data: BodyType<ManualSwapFeeConfigInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateManualSwapFeeConfig>>,
+        TError,
+        {data: BodyType<ManualSwapFeeConfigInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateManualSwapFeeConfigMutationOptions(options));
+    }
 
 export const getGetLandingBackgroundUrl = () => {
 

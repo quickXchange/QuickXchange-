@@ -123,6 +123,7 @@ import { downloadInvoicePdf } from '../lib/invoice-pdf';
 import { invoiceSnapshot, isCompletedInvoiceOrder } from '../lib/invoice-snapshot';
 import { AdminSwapDefaultPair } from '../components/admin-swap-default-pair';
 import { AdminConvertDefaultPair } from '../components/admin-convert-default-pair';
+import { SwapFeeBreakdown } from '../components/swap-fee-breakdown';
 
 import { CatalogImageUploadField } from '../components/catalog-image-upload-field';
 import { useAdminPermissions } from '../lib/admin-permissions';
@@ -5279,6 +5280,9 @@ function ExchangeDetailsCard({
           </strong>
         </div>
       </div>
+      {order.type === 'manual' && order.pricingSnapshot?.manualSwapFees && (
+        <div className="mt-3"><SwapFeeBreakdown fees={order.pricingSnapshot.manualSwapFees} currency={order.toAsset} receiveAmount={order.receiveAmount}/></div>
+      )}
     </section>
   );
 }

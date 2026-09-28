@@ -1107,6 +1107,162 @@ export type ExactDecimal = string;
  */
 export type NonNegativeExactDecimal = string;
 
+/**
+ * An exact non-negative decimal fitting the Manual Swap numeric(38,18) storage boundary.
+ * @pattern ^(?:0|[1-9][0-9]{0,19})(?:\.[0-9]{1,18})?$
+ */
+export type ManualSwapConfigDecimal = string;
+
+export type ManualSwapAddonSelectionRule = typeof ManualSwapAddonSelectionRule[keyof typeof ManualSwapAddonSelectionRule];
+
+
+export const ManualSwapAddonSelectionRule = {
+  none: 'none',
+  one: 'one',
+  multiple: 'multiple',
+} as const;
+
+export type ManualSwapAddonPresentation = {
+  /** @maxLength 100 */
+  group: string;
+};
+
+export interface ManualSwapAddon {
+  id: string;
+  /** @pattern ^[a-z0-9][a-z0-9_-]{0,99}$ */
+  key: string;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  name: string;
+  /** @maxLength 1000 */
+  description: string;
+  fixedAmount: NonNegativeExactDecimal;
+  /** @pattern ^[A-Z0-9]{2,15}$ */
+  feeCurrency: string;
+  enabled: boolean;
+  selectionRule: ManualSwapAddonSelectionRule;
+  presentation: ManualSwapAddonPresentation;
+}
+
+export interface ManualSwapAddonsResponse {
+  items: ManualSwapAddon[];
+}
+
+export type ManualSwapAddonInputSelectionRule = typeof ManualSwapAddonInputSelectionRule[keyof typeof ManualSwapAddonInputSelectionRule];
+
+
+export const ManualSwapAddonInputSelectionRule = {
+  none: 'none',
+  one: 'one',
+  multiple: 'multiple',
+} as const;
+
+export type ManualSwapAddonInputPresentation = {
+  /** @maxLength 100 */
+  group?: string;
+};
+
+export interface ManualSwapAddonInput {
+  /** @pattern ^[a-z0-9][a-z0-9_-]{0,99}$ */
+  key: string;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  name: string;
+  /** @maxLength 1000 */
+  description?: string;
+  fixedAmount: ManualSwapConfigDecimal;
+  /** @pattern ^[A-Z0-9]{2,15}$ */
+  feeCurrency: string;
+  enabled?: boolean;
+  selectionRule?: ManualSwapAddonInputSelectionRule;
+  presentation?: ManualSwapAddonInputPresentation;
+}
+
+/**
+ * Full replacement of editable add-on fields. Stable key remains immutable.
+ */
+export type ManualSwapAddonUpdate = ManualSwapAddonInput;
+
+export interface ManualSwapFeeConfig {
+  enabled: boolean;
+  percentage: NonNegativeExactDecimal | null;
+  fixedAmount: NonNegativeExactDecimal | null;
+  /** @pattern ^[A-Z0-9]{2,15}$ */
+  fixedCurrency: string;
+}
+
+export interface ManualSwapFeeConfigInput {
+  enabled: boolean;
+  percentage?: ManualSwapConfigDecimal | null;
+  fixedAmount?: ManualSwapConfigDecimal | null;
+  /** @pattern ^[A-Z0-9]{2,15}$ */
+  fixedCurrency: string;
+}
+
+export type ManualSwapFeeQuoteSnapshotSelectedAddonsItem = {
+  id: string;
+  key: string;
+  name: string;
+  amount: NonNegativeExactDecimal;
+  currency: string;
+  targetAmount: NonNegativeExactDecimal;
+};
+
+export type ManualSwapFeeQuoteSnapshotExchangeFee = {
+  enabled: boolean;
+  /** @nullable */
+  percentage: string | null;
+  /** @nullable */
+  fixedAmount: string | null;
+  fixedCurrency: string;
+  percentageAmount: NonNegativeExactDecimal;
+  fixedTargetAmount: NonNegativeExactDecimal;
+  totalAmount: NonNegativeExactDecimal;
+};
+
+export type PricingReferenceLegProvider = typeof PricingReferenceLegProvider[keyof typeof PricingReferenceLegProvider];
+
+
+export const PricingReferenceLegProvider = {
+  '1Forge': '1Forge',
+  manual: 'manual',
+  Coinbase: 'Coinbase',
+  USD_identity: 'USD identity',
+  test_adapter: 'test adapter',
+} as const;
+
+export type PricingReferenceLegTimestampKind = typeof PricingReferenceLegTimestampKind[keyof typeof PricingReferenceLegTimestampKind];
+
+
+export const PricingReferenceLegTimestampKind = {
+  upstreamObservedAt: 'upstreamObservedAt',
+  fetchedAt: 'fetchedAt',
+} as const;
+
+export interface PricingReferenceLeg {
+  currency: string;
+  unitsPerUsd: ExactDecimal;
+  provider: PricingReferenceLegProvider;
+  /** @minLength 1 */
+  source: string;
+  observedAt: string;
+  timestampKind: PricingReferenceLegTimestampKind;
+}
+
+export interface ManualSwapFeeQuoteSnapshot {
+  selectedAddons: ManualSwapFeeQuoteSnapshotSelectedAddonsItem[];
+  addonFee: NonNegativeExactDecimal;
+  exchangeFee: ManualSwapFeeQuoteSnapshotExchangeFee;
+  totalAdditionalFee: NonNegativeExactDecimal;
+  existingPricingFee: NonNegativeExactDecimal;
+  totalFees: NonNegativeExactDecimal;
+  referenceLegs?: PricingReferenceLeg[];
+}
+
 export type QuoteInputType = typeof QuoteInputType[keyof typeof QuoteInputType];
 
 
@@ -1142,6 +1298,12 @@ export interface QuoteInput {
      * @maxLength 200
      */
   targetSettlementOptionId?: string;
+  /**
+     * @maxItems 50
+     * @items.minLength 1
+     * @items.maxLength 100
+     */
+  selectedAddOnKeys?: string[];
 }
 
 export type QuoteType = typeof QuoteType[keyof typeof QuoteType];
@@ -1182,6 +1344,7 @@ export interface Quote {
   customerInstructions?: string;
   /** @minimum 1 */
   expectedSettlementMinutes?: number;
+  manualSwapFees?: ManualSwapFeeQuoteSnapshot;
 }
 
 export type OrderInputType = typeof OrderInputType[keyof typeof OrderInputType];
@@ -1226,6 +1389,12 @@ export interface OrderInput {
   sourceSettlementOptionId?: string;
   targetSettlementOptionId?: string;
   settlementDetails?: SettlementDetails;
+  /**
+     * @maxItems 50
+     * @items.minLength 1
+     * @items.maxLength 100
+     */
+  selectedAddOnKeys?: string[];
 }
 
 export type ExchangeOrderInputType = typeof ExchangeOrderInputType[keyof typeof ExchangeOrderInputType];
@@ -1275,6 +1444,12 @@ export interface ExchangeOrderInput {
   sourceSettlementOptionId?: string;
   targetSettlementOptionId?: string;
   settlementDetails?: SettlementDetails;
+  /**
+     * @maxItems 50
+     * @items.minLength 1
+     * @items.maxLength 100
+     */
+  selectedAddOnKeys?: string[];
 }
 
 export type QuickexOrderInputType = typeof QuickexOrderInputType[keyof typeof QuickexOrderInputType];
@@ -1592,35 +1767,6 @@ export const OrderPricingSnapshotRuleEffectiveRateSource = {
   reciprocal: 'reciprocal',
 } as const;
 
-export type PricingReferenceLegProvider = typeof PricingReferenceLegProvider[keyof typeof PricingReferenceLegProvider];
-
-
-export const PricingReferenceLegProvider = {
-  '1Forge': '1Forge',
-  manual: 'manual',
-  Coinbase: 'Coinbase',
-  USD_identity: 'USD identity',
-  test_adapter: 'test adapter',
-} as const;
-
-export type PricingReferenceLegTimestampKind = typeof PricingReferenceLegTimestampKind[keyof typeof PricingReferenceLegTimestampKind];
-
-
-export const PricingReferenceLegTimestampKind = {
-  upstreamObservedAt: 'upstreamObservedAt',
-  fetchedAt: 'fetchedAt',
-} as const;
-
-export interface PricingReferenceLeg {
-  currency: string;
-  unitsPerUsd: ExactDecimal;
-  provider: PricingReferenceLegProvider;
-  /** @minLength 1 */
-  source: string;
-  observedAt: string;
-  timestampKind: PricingReferenceLegTimestampKind;
-}
-
 export type OrderPricingSnapshotReferenceExecutionProvider = typeof OrderPricingSnapshotReferenceExecutionProvider[keyof typeof OrderPricingSnapshotReferenceExecutionProvider];
 
 
@@ -1755,6 +1901,8 @@ export type OrderPricingSnapshotAmounts = {
   grossMarketAmount: ExactDecimal;
   percentageCommission: ExactDecimal;
   fixedCommission: ExactDecimal;
+  addonFee?: NonNegativeExactDecimal;
+  exchangeFee?: NonNegativeExactDecimal;
   totalFee: ExactDecimal;
   receiveAmount: ExactDecimal;
   finalRate: ExactDecimal;
@@ -1762,6 +1910,7 @@ export type OrderPricingSnapshotAmounts = {
 
 export interface OrderPricingSnapshot {
   policyVersion: OrderPricingSnapshotPolicyVersion;
+  manualSwapFees?: ManualSwapFeeQuoteSnapshot;
   rule: OrderPricingSnapshotRule;
   context: OrderPricingSnapshotContext;
   reference: OrderPricingSnapshotReference;
@@ -2481,6 +2630,7 @@ export interface PublicOrderStatus {
   refundMemo?: string;
   step2Details?: Step2CustomerDetail[];
   receiptFee?: ReceiptFee;
+  manualSwapFees?: ManualSwapFeeQuoteSnapshot;
   rateMode?: QuickexRateMode;
   outcomeUnknown: boolean;
   refreshUnavailable: boolean;
@@ -2532,6 +2682,7 @@ export interface CustomerOrder {
   refundMemo?: string;
   step2Details?: Step2CustomerDetail[];
   receiptFee?: ReceiptFee;
+  manualSwapFees?: ManualSwapFeeQuoteSnapshot;
   rateMode?: QuickexRateMode;
   outcomeUnknown: boolean;
   refreshUnavailable: boolean;
@@ -6184,6 +6335,7 @@ export interface TelegramMiniAppOrder {
   networks?: string[];
   amount: string;
   receiveAmount: string;
+  manualSwapFees?: ManualSwapFeeQuoteSnapshot;
   trackingToken: string;
   createdAt: string;
   outcomeUnknown?: boolean;
