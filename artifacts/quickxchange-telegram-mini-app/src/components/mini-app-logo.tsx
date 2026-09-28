@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useGetWebsiteBranding, getGetWebsiteBrandingQueryKey } from '@workspace/api-client-react';
 import { cn } from '@/lib/utils';
-import { getCachedPaymentLogoFit, measurePaymentLogoFit, type PaymentLogoFit } from '@/lib/payment-logo-fit';
+import { fitKnownPaymentMark, getCachedPaymentLogoFit, measurePaymentLogoFit, type PaymentLogoFit } from '@/lib/payment-logo-fit';
 import type { MiniAppVisual } from '@/lib/logo-catalog';
 import bbvaTransparentLogoUrl from '../../../../attached_assets/bbva-logo-transparent.png';
 import bbvaWhiteLogoUrl from '../../../../attached_assets/bbva-logo-white-transparent.png';
@@ -97,6 +97,9 @@ export function MiniAppLogo({
   const logoFit = displayedSrc
     ? (measuredFit?.src === displayedSrc ? measuredFit.fit : getCachedPaymentLogoFit(displayedSrc))
     : undefined;
+  const displayedFit = variant === 'payment'
+    ? fitKnownPaymentMark(logoFit ?? { scale: 0.92, x: 0, y: 0, artworkAspect: 1 }, fallbackSrcs)
+    : logoFit;
 
   return (
     <span className={cn(
@@ -118,7 +121,7 @@ export function MiniAppLogo({
               'block h-full w-full max-h-full max-w-full bg-transparent object-contain object-center',
             )}
             style={{
-              transform: `translate(${logoFit?.x ?? 0}%, ${logoFit?.y ?? 0}%) scale(${logoFit?.scale ?? 0.92})`,
+              transform: `translate(${displayedFit?.x ?? 0}%, ${displayedFit?.y ?? 0}%) scale(${displayedFit?.scale ?? 0.92})`,
             }}
             onLoad={event => {
               const fit = measurePaymentLogoFit(displayedSrc, event.currentTarget);

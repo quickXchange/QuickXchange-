@@ -68,3 +68,15 @@ test('order resolver logo and network badge reach the rendered images', () => {
   assert.match(markup, /src="\/api\/storage\/objects\/admin-btc\.svg"/);
   assert.match(markup, /src="\/api\/storage\/objects\/admin-tron\.svg"/);
 });
+
+test('saved payment method identity reaches the shared order, recent order, and detail logo fit', () => {
+  const visual = resolveOrderVisual([], {
+    fromAsset: 'EUR',
+    fromNetwork: 'WISE',
+    sourcePaymentMethod: { name: 'Wise', logoUrl: '/objects/wise-upload.png' },
+  }, 'source');
+  const markup = renderToStaticMarkup(createElement(MiniAppLogo, { ...visual, alt: 'EUR', size: 'medium' }));
+  assert.equal(visual.variant, 'payment');
+  assert.match(markup, /src="\/api\/storage\/objects\/wise-upload\.png"/);
+  assert.match(markup, /scale\(1\.26\)/);
+});
