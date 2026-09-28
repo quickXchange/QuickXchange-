@@ -8579,12 +8579,12 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
             <div className="pricing-rule-field"><span className="field-label">{t('adminPricing.source_option')}{!rule && <span className="pricing-select-mode"><button type="button" className={sourceMode === 'single' ? 'active' : ''} onClick={() => setSourceMode('single')}>Single</button><button type="button" className={sourceMode === 'multiple' ? 'active' : ''} onClick={() => setSourceMode('multiple')}>Multiple</button></span>}</span>
                {sourceMode === 'multiple' && !rule
                  ? <PricingOptionMultiSelect values={sourceSelections} options={fromOptions} onChange={setSourceSelections} label="Source Options" testId="select-pricing-sources" />
-                 : <SettlementOptionCombobox value={form.sourceSettlementOptionId} options={fromOptions} onChange={id => set('sourceSettlementOptionId', id)} label={t('adminPricing.source_option')} testId="select-pricing-source" allowAny matchMenuWidth terminalPresentation searchPlaceholder="Search currencies or payment methods" searchAppearance="admin" mobileContainedMenu />}
+                  : <SettlementOptionCombobox value={form.sourceSettlementOptionId} options={fromOptions} onChange={id => set('sourceSettlementOptionId', id)} label={t('adminPricing.source_option')} testId="select-pricing-source" allowAny matchMenuWidth terminalPresentation searchPlaceholder="Search currencies or payment methods" searchAppearance="admin" />}
             </div>
             <div className="pricing-rule-field"><span className="field-label">{t('adminPricing.target_option')}{!rule && <span className="pricing-select-mode"><button type="button" className={targetMode === 'single' ? 'active' : ''} onClick={() => setTargetMode('single')}>Single</button><button type="button" className={targetMode === 'multiple' ? 'active' : ''} onClick={() => setTargetMode('multiple')}>Multiple</button></span>}</span>
                {targetMode === 'multiple' && !rule
                  ? <PricingOptionMultiSelect values={targetSelections} options={toOptions} onChange={setTargetSelections} label="Target Options" testId="select-pricing-targets" />
-                 : <SettlementOptionCombobox value={form.targetSettlementOptionId} options={toOptions} onChange={id => set('targetSettlementOptionId', id)} label={t('adminPricing.target_option')} testId="select-pricing-target" allowAny matchMenuWidth terminalPresentation searchPlaceholder="Search currencies or payment methods" searchAppearance="admin" mobileContainedMenu />}
+                  : <SettlementOptionCombobox value={form.targetSettlementOptionId} options={toOptions} onChange={id => set('targetSettlementOptionId', id)} label={t('adminPricing.target_option')} testId="select-pricing-target" allowAny matchMenuWidth terminalPresentation searchPlaceholder="Search currencies or payment methods" searchAppearance="admin" />}
             </div>
         </div>
 
