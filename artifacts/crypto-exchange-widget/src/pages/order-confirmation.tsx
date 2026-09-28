@@ -19,6 +19,7 @@ import { useI18n } from "@/i18n";
 import { cn, PaymentDetailsCard, SUPPORT_TELEGRAM } from "@/components/shared-app-ui";
 import { OrderSettlementIdentity } from "@/components/order-settlement-identity";
 import { OrderCompletionSection } from "@/components/order-completion";
+import { DepositDetailsModal } from "@/components/deposit-details-modal";
 import { QRCodeSVG } from "qrcode.react";
 import { convertOrderStatusLabel, convertOrderStatusStep, isConvertTerminalStatus } from "@/lib/convert-order-status";
 import { VerifiedTransaction } from "@/components/verified-transaction";
@@ -50,6 +51,7 @@ export function OrderConfirmationPage() {
   const queryClient = useQueryClient();
   const markPaidMutation = useMarkOrderPaid();
   const [copied, setCopied] = useState<string | null>(null);
+  const [depositOpen, setDepositOpen] = useState(false);
   const [showQR, setShowQR] = useState(false);
 
   const formatAmount = (value?: number | string) => {
@@ -227,7 +229,7 @@ export function OrderConfirmationPage() {
   const targetIdentity = order.toNetwork || order.toAsset;
   const fundingAddressSourceLabel = typeof fundingDetails?.addressSource === 'string'
     ? fundingDetails.addressSource === 'live_api'
-      ? 'Unique API address'
+      ? order.fundingSource === 'whitebit' ? 'WhiteBIT address' : 'Unique API address'
       : fundingDetails.addressSource === 'manual_fallback'
         ? 'Manual fallback address'
         : fundingDetails.addressSource === 'manual_only'
@@ -490,93 +492,93 @@ export function OrderConfirmationPage() {
                      </div>
                    )}
 
-                   {order.depositAddress && (
-                     !showQR ? (
-                       <button type="button" className="button button-primary w-full shadow-[0_4px_16px_-4px_rgba(59,130,246,0.4)] transition-all hover:shadow-[0_6px_24px_-6px_rgba(59,130,246,0.6)]" onClick={() => setShowQR(true)}>
-                          Show Deposit Details
-                       </button>
-                     ) : (
-                       <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
-                          <div className="flex items-center justify-between rounded-2xl bg-secondary/5 border border-secondary/15 p-4" data-testid="text-deposit-amount">
-                             <div>
-                               <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Send Exactly</p>
-                               <p className="font-mono text-xl font-bold">{order.amount} {order.fromAsset}</p>
-                             </div>
+                    {order.depositAddress && (
+                      isQuickex ? (
+                        !showQR ? (
+                          <button type="button" className="button button-primary w-full shadow-[0_4px_16px_-4px_rgba(59,130,246,0.4)] transition-all hover:shadow-[0_6px_24px_-6px_rgba(59,130,246,0.6)]" onClick={() => setShowQR(true)}>
+                            Show Deposit Details
+                          </button>
+                        ) : (
+                          <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                            <div className="flex items-center justify-between rounded-2xl bg-secondary/5 border border-secondary/15 p-4" data-testid="text-deposit-amount">
+                              <div>
+                                <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Send Exactly</p>
+                                <p className="font-mono text-xl font-bold">{order.amount} {order.fromAsset}</p>
+                              </div>
                               <span className="order-deposit-network text-xs font-bold rounded-full bg-secondary/10 text-secondary border border-secondary/20 px-3 py-1">
-                               {order.fromNetwork || 'Crypto'}
-                             </span>
-                          </div>
-
-                          <div className="mx-auto w-fit rounded-2xl bg-white p-4 shadow-[0_8px_28px_-12px_hsl(var(--primary)/0.5)] border border-border">
-                            <QRCodeSVG value={order.depositAddress} size={160} level="M" includeMargin={false} />
-                          </div>
-                          <p className="text-center text-xs font-semibold text-muted-foreground">Scan the deposit address</p>
-
-                          <div className="flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 text-xs leading-relaxed text-muted-foreground">
-                             <CircleAlert className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
-                             <span>Send only {order.fromAsset} on the {order.fromNetwork || 'shown'} network. Using another network may result in permanent loss.</span>
-                          </div>
-
-                          <div className="space-y-3">
-                             <div className="relative bg-secondary/5 rounded-2xl p-4 border border-border shadow-sm">
-                               <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center justify-between">
+                                {order.fromNetwork || 'Crypto'}
+                              </span>
+                            </div>
+                            <div className="mx-auto w-fit rounded-2xl bg-white p-4 shadow-[0_8px_28px_-12px_hsl(var(--primary)/0.5)] border border-border">
+                              <QRCodeSVG value={order.depositAddress} size={160} level="M" includeMargin={false} />
+                            </div>
+                            <p className="text-center text-xs font-semibold text-muted-foreground">Scan the deposit address</p>
+                            <div className="flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 text-xs leading-relaxed text-muted-foreground">
+                              <CircleAlert className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
+                              <span>Send only {order.fromAsset} on the {order.fromNetwork || 'shown'} network. Using another network may result in permanent loss.</span>
+                            </div>
+                            <div className="space-y-3">
+                              <div className="relative bg-secondary/5 rounded-2xl p-4 border border-border shadow-sm">
+                                <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center justify-between">
                                   Deposit Address
                                   {fundingAddressSourceLabel && (
                                     <span className="rounded-full bg-background border border-border px-2 py-0.5 text-[9px] text-muted-foreground lowercase normal-case">{fundingAddressSourceLabel}</span>
                                   )}
-                               </div>
-                               <div className="font-mono text-sm font-medium break-all pr-12">{order.depositAddress}</div>
-                               {depositActionable && (
-                                 <button onClick={() => handleCopy(order.depositAddress!)} className="absolute top-1/2 -translate-y-1/2 right-3 p-2.5 rounded-xl bg-background border border-border hover:bg-muted active:scale-95 transition-all text-muted-foreground shadow-sm" data-testid="button-copy-deposit">
-                                   {copied === order.depositAddress ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                                 </button>
-                               )}
-                             </div>
-
-                             {order.depositMemo && (
-                               <div className="relative bg-secondary/5 rounded-2xl p-4 border border-border shadow-sm">
-                                 <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
-                                   {depositActionable ? t('orderStatus.depositMemo') : t('orderStatus.depositMemoRecorded')}
-                                 </div>
-                                 <div className="font-mono text-sm font-bold break-all pr-12 text-amber-600 dark:text-amber-400">{order.depositMemo}</div>
-                                 {depositActionable && (
-                                   <button onClick={() => handleCopy(order.depositMemo!)} className="absolute top-1/2 -translate-y-1/2 right-3 p-2.5 rounded-xl bg-background border border-border hover:bg-muted active:scale-95 transition-all text-muted-foreground shadow-sm" data-testid="button-copy-deposit-memo">
-                                     {copied === order.depositMemo ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                                   </button>
-                                 )}
-                               </div>
-                             )}
+                                </div>
+                                <div className="font-mono text-sm font-medium break-all pr-12">{order.depositAddress}</div>
+                                {depositActionable && (
+                                  <button onClick={() => handleCopy(order.depositAddress!)} className="absolute top-1/2 -translate-y-1/2 right-3 p-2.5 rounded-xl bg-background border border-border hover:bg-muted active:scale-95 transition-all text-muted-foreground shadow-sm" data-testid="button-copy-deposit">
+                                    {copied === order.depositAddress ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                                  </button>
+                                )}
+                              </div>
+                              {order.depositMemo && (
+                                <div className="relative bg-secondary/5 rounded-2xl p-4 border border-border shadow-sm">
+                                  <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
+                                    {depositActionable ? t('orderStatus.depositMemo') : t('orderStatus.depositMemoRecorded')}
+                                  </div>
+                                  <div className="font-mono text-sm font-bold break-all pr-12 text-amber-600 dark:text-amber-400">{order.depositMemo}</div>
+                                  {depositActionable && (
+                                    <button onClick={() => handleCopy(order.depositMemo!)} className="absolute top-1/2 -translate-y-1/2 right-3 p-2.5 rounded-xl bg-background border border-border hover:bg-muted active:scale-95 transition-all text-muted-foreground shadow-sm" data-testid="button-copy-deposit-memo">
+                                      {copied === order.depositMemo ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            {(Boolean(fundingDetails?.warning) || Boolean(fundingDetails?.instructions) || Boolean(fundingDetails?.requiredConfirmations)) && (
+                              <div className="space-y-3 text-sm text-muted-foreground bg-secondary/5 p-4 rounded-2xl border border-border">
+                                {Boolean(fundingDetails?.warning) && (
+                                  <div className="flex gap-3 text-amber-500">
+                                    <CircleAlert size={16} className="shrink-0 mt-0.5" />
+                                    <p className="leading-relaxed">{String(fundingDetails?.warning)}</p>
+                                  </div>
+                                )}
+                                {Boolean(fundingDetails?.instructions) && (
+                                  <div className="flex gap-3 text-foreground/80">
+                                    <ShieldCheck size={16} className="shrink-0 mt-0.5 opacity-70" />
+                                    <p className="leading-relaxed">{String(fundingDetails?.instructions)}</p>
+                                  </div>
+                                )}
+                                {Boolean(fundingDetails?.requiredConfirmations) && (
+                                  <div className="flex gap-3 text-foreground/80">
+                                    <Network size={16} className="shrink-0 mt-0.5 text-primary/70" />
+                                    <p className="leading-relaxed">{t('orderStatus.requiresConfirmations', { count: String(fundingDetails?.requiredConfirmations) })}</p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            <button type="button" className="button button-secondary w-full" onClick={() => setShowQR(false)}>
+                              Hide QR
+                            </button>
                           </div>
-
-                          {(Boolean(fundingDetails?.warning) || Boolean(fundingDetails?.instructions) || Boolean(fundingDetails?.requiredConfirmations)) && (
-                             <div className="space-y-3 text-sm text-muted-foreground bg-secondary/5 p-4 rounded-2xl border border-border">
-                               {Boolean(fundingDetails?.warning) && (
-                                 <div className="flex gap-3 text-amber-500">
-                                   <CircleAlert size={16} className="shrink-0 mt-0.5" />
-                                   <p className="leading-relaxed">{String(fundingDetails?.warning)}</p>
-                                 </div>
-                               )}
-                               {Boolean(fundingDetails?.instructions) && (
-                                 <div className="flex gap-3 text-foreground/80">
-                                   <ShieldCheck size={16} className="shrink-0 mt-0.5 opacity-70" />
-                                   <p className="leading-relaxed">{String(fundingDetails?.instructions)}</p>
-                                 </div>
-                               )}
-                               {Boolean(fundingDetails?.requiredConfirmations) && (
-                                 <div className="flex gap-3 text-foreground/80">
-                                   <Network size={16} className="shrink-0 mt-0.5 text-primary/70" />
-                                   <p className="leading-relaxed">{t('orderStatus.requiresConfirmations', { count: String(fundingDetails?.requiredConfirmations) })}</p>
-                                 </div>
-                               )}
-                             </div>
-                          )}
-
-                          <button type="button" className="button button-secondary w-full" onClick={() => setShowQR(false)}>
-                            Hide QR
-                          </button>
-                       </div>
-                     )
-                   )}
+                        )
+                      ) : (
+                        <button type="button" className="button button-primary w-full shadow-[0_4px_16px_-4px_rgba(59,130,246,0.4)] transition-all hover:shadow-[0_6px_24px_-6px_rgba(59,130,246,0.6)]" onClick={() => setDepositOpen(true)} data-testid="button-show-deposit-details">
+                          Show Deposit Details
+                        </button>
+                      )
+                    )}
 
 
              </div>
@@ -606,6 +608,26 @@ export function OrderConfirmationPage() {
           </div>
         </div>
       </main>
+      {!isQuickex && order.depositAddress && (
+        <DepositDetailsModal
+          open={depositOpen}
+          onOpenChange={setDepositOpen}
+          amount={String(order.amount)}
+          asset={order.fromAsset}
+          network={order.fromNetwork}
+          settlementOptionId={order.sourceSettlementOptionId}
+          address={order.depositAddress}
+          memo={order.depositMemo}
+          orderId={order.id}
+          addressSourceLabel={fundingAddressSourceLabel}
+          warning={fundingDetails?.warning ? String(fundingDetails.warning) : null}
+          instructions={fundingDetails?.instructions ? String(fundingDetails.instructions) : null}
+          requiredConfirmations={fundingDetails?.requiredConfirmations ? t('orderStatus.requiresConfirmations', { count: String(fundingDetails.requiredConfirmations) }) : null}
+          copied={copied}
+          onCopy={handleCopy}
+          actionable={depositActionable}
+        />
+      )}
     </PublicShell>
   );
 }
