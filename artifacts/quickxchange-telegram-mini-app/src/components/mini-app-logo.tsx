@@ -2,16 +2,17 @@ import React, { useEffect, useState } from 'react';
 import { useGetWebsiteBranding, getGetWebsiteBrandingQueryKey } from '@workspace/api-client-react';
 import { cn } from '@/lib/utils';
 import { getCachedPaymentLogoFit, measurePaymentLogoFit, type PaymentLogoFit } from '@/lib/payment-logo-fit';
+import type { MiniAppVisual } from '@/lib/logo-catalog';
 import bbvaTransparentLogoUrl from '../../../../attached_assets/bbva-logo-transparent.png';
 import bbvaWhiteLogoUrl from '../../../../attached_assets/bbva-logo-white-transparent.png';
 
 export type MiniAppLogoSize = 'small' | 'normal' | 'medium' | 'large';
 
-const sizeClasses: Record<MiniAppLogoSize, { container: string; image: string; text: string; badge: string }> = {
-  small: { container: 'w-6 h-6', image: 'w-[90%] h-[90%]', text: 'text-[8px]', badge: 'w-2 h-2 -right-0.5 -bottom-0.5' },
-  normal: { container: 'w-8 h-8', image: 'w-[90%] h-[90%]', text: 'text-[9px]', badge: 'w-2.5 h-2.5 -right-0.5 -bottom-0.5' },
-  medium: { container: 'w-10 h-10', image: 'w-[90%] h-[90%]', text: 'text-[10px]', badge: 'w-2.5 h-2.5 -right-0.5 -bottom-0.5' },
-  large: { container: 'w-14 h-14', image: 'w-[90%] h-[90%]', text: 'text-xs', badge: 'w-3 h-3 -right-0.5 -bottom-0.5' },
+const sizeClasses: Record<MiniAppLogoSize, { container: string; text: string; badge: string }> = {
+  small: { container: 'size-6', text: 'text-[8px]', badge: 'size-2 -right-0.5 -bottom-0.5' },
+  normal: { container: 'size-8', text: 'text-[9px]', badge: 'size-2.5 -right-0.5 -bottom-0.5' },
+  medium: { container: 'size-10', text: 'text-[10px]', badge: 'size-2.5 -right-0.5 -bottom-0.5' },
+  large: { container: 'size-14', text: 'text-xs', badge: 'size-3 -right-0.5 -bottom-0.5' },
 };
 
 const compactLogoChecks = new Map<string, Promise<boolean>>();
@@ -93,7 +94,7 @@ export function MiniAppLogo({
   const currentSrc = sources[sourceIndex];
   const displayedSrc = compactLogo?.original === currentSrc && !unavailableCompactLogos.has(compactLogo.url)
     ? compactLogo.url : currentSrc;
-  const paymentFit = variant === 'payment' && displayedSrc
+  const logoFit = displayedSrc
     ? (measuredFit?.src === displayedSrc ? measuredFit.fit : getCachedPaymentLogoFit(displayedSrc))
     : undefined;
 
@@ -114,17 +115,15 @@ export function MiniAppLogo({
             src={displayedSrc}
             alt={alt}
             className={cn(
-              'block bg-transparent object-contain object-center',
-              variant === 'payment' ? 'h-full w-full max-h-full max-w-full' : 'max-h-[90%] max-w-[90%]',
-              variant !== 'payment' && classes.image,
+              'block h-full w-full max-h-full max-w-full bg-transparent object-contain object-center',
             )}
-            style={variant === 'payment' ? {
-              transform: `translate(${paymentFit?.x ?? 0}%, ${paymentFit?.y ?? 0}%) scale(${paymentFit?.scale ?? 0.92})`,
-            } : undefined}
+            style={{
+              transform: `translate(${logoFit?.x ?? 0}%, ${logoFit?.y ?? 0}%) scale(${logoFit?.scale ?? 0.92})`,
+            }}
             onLoad={event => {
+              const fit = measurePaymentLogoFit(displayedSrc, event.currentTarget);
+              setMeasuredFit({ src: displayedSrc, fit });
               if (variant === 'payment') {
-                const fit = measurePaymentLogoFit(displayedSrc, event.currentTarget);
-                setMeasuredFit({ src: displayedSrc, fit });
                 // A long wordmark cannot fill a small circle without cropping or distorting it.
                 // Prefer a square site icon when one of the existing fallbacks provides it.
                 if (!isBbva && displayedSrc === currentSrc && fit.artworkAspect > 2.2) {
@@ -165,6 +164,26 @@ export function MiniAppLogo({
           />
         </span>
       )}
+    </span>
+  );
+}
+
+export function MiniAppLogoPair({
+  source,
+  target,
+  sourceAlt,
+  targetAlt,
+}: {
+  source: MiniAppVisual;
+  target: MiniAppVisual;
+  sourceAlt: string;
+  targetAlt: string;
+}) {
+  const cryptoInFront = source.variant === 'payment' && target.variant !== 'payment';
+  return (
+    <span className="flex -space-x-2 shrink-0">
+      <MiniAppLogo {...source} alt={sourceAlt} size="medium" className={cryptoInFront ? undefined : 'z-10'} />
+      <MiniAppLogo {...target} alt={targetAlt} size="medium" className={cryptoInFront ? 'z-10' : undefined} />
     </span>
   );
 }

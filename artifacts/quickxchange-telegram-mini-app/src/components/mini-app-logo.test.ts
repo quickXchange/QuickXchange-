@@ -26,7 +26,8 @@ test('shared logo renderer keeps artwork circular, centered, contained, and dist
   assert.equal((markup.match(/<img\b/g) || []).length, 2);
   assert.match(markup, /src="\/api\/storage\/objects\/admin-bank\.svg"/);
   assert.match(markup, /src="\/api\/storage\/objects\/euro-flag\.svg"/);
-  assert.match(markup, /w-2\.5 h-2\.5/);
+  assert.match(markup, /size-10/);
+  assert.match(markup, /size-2\.5/);
 });
 
 test('order resolver logo and network badge reach the rendered images', () => {

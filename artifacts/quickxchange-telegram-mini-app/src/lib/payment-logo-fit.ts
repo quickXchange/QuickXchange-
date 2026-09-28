@@ -43,7 +43,8 @@ export function measurePaymentLogoFit(src: string, image: HTMLImageElement): Pay
   const cached = cachedFits.get(src);
   if (cached) return cached;
 
-  let fit = DEFAULT_FIT;
+  let fit: PaymentLogoFit = { ...DEFAULT_FIT, artworkAspect: image.naturalWidth && image.naturalHeight
+    ? image.naturalWidth / image.naturalHeight : 1 };
   if (image.naturalWidth && image.naturalHeight) {
     try {
       const canvas = document.createElement('canvas');
