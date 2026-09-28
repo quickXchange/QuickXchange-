@@ -53,3 +53,37 @@ test('extreme transparent padding has a bounded optical scale', () => {
   assert.equal(fit.x, 0);
   assert.equal(fit.y, 0);
 });
+
+test('a SEPA-style wordmark on a filled square fills the circular frame without cropping letters', () => {
+  const size = 96;
+  const pixels = new Uint8ClampedArray(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const index = (y * size + x) * 4;
+      pixels.set([32, 54, 124, 255], index);
+      if (x >= 9 && x < 87 && y >= 36 && y < 60) pixels.set([255, 255, 255, 255], index);
+    }
+  }
+  const fit = fitVisibleArtwork(pixels, size, size);
+  assert.ok(fit.scale > 1 && fit.scale <= 1.16);
+  assert.equal(fit.x, 0);
+  assert.equal(fit.y, 0);
+  assert.ok(.5 + (9 / 96 - .5) * fit.scale > .03);
+  assert.ok(.5 + (87 / 96 - .5) * fit.scale < .97);
+});
+
+test('solid-background icons with off-center content fit their mark without distorting it', () => {
+  const size = 96;
+  const pixels = new Uint8ClampedArray(size * size * 4);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const index = (y * size + x) * 4;
+    pixels.set([3, 180, 160, 255], index);
+    if (x >= 18 && x < 70 && y >= 18 && y < 73) pixels.set([255, 255, 255, 255], index);
+  }
+  const fit = fitVisibleArtwork(pixels, size, size);
+  assert.ok(fit.scale > 1);
+  assert.ok(fit.x > 0);
+  assert.ok(fit.y > 0);
+  assert.ok(.5 + fit.x / 100 + (18 / 96 - .5) * fit.scale > .03);
+  assert.ok(.5 + fit.y / 100 + (73 / 96 - .5) * fit.scale < .97);
+});

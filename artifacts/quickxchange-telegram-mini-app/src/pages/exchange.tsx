@@ -19,13 +19,15 @@ import { useHapticFeedback } from '@/lib/hooks';
 import { MiniAppLogo } from '@/components/mini-app-logo';
 import { getFallbackPaymentLogos, getFallbackCryptoLogos, getLogoFallbackText } from '@/lib/logo-catalog';
 import { exchangeOptionMatchesSearch } from '@/lib/exchange-search';
+import { createClientRequestId } from '@/lib/client-request-id';
 
 export default function Exchange() {
   const [, setLocation] = useLocation();
   const headers = useAuthHeaders();
   const haptic = useHapticFeedback();
   const quoteRequestVersionRef = useRef(0);
-  const orderRequestIdRef = useRef(crypto.randomUUID());
+  const orderRequestIdRef = useRef<string | null>(null);
+  if (orderRequestIdRef.current === null) orderRequestIdRef.current = createClientRequestId();
 
   const searchParams = new URLSearchParams(window.location.search);
   const mode = searchParams.get('mode') === 'swap' ? 'swap' : 'convert';
@@ -241,7 +243,7 @@ export default function Exchange() {
     setRefundMemo('');
     setSettlementFields({});
     setErrorMsg('');
-    orderRequestIdRef.current = crypto.randomUUID();
+    orderRequestIdRef.current = createClientRequestId();
   }, [mode, sourceId, targetId, amount]);
 
   const sourceOpt = sourceOpts.find(o => o.id === sourceId);
@@ -496,7 +498,7 @@ export default function Exchange() {
               ...(quoteData.requiredSettlementFields?.length
                 ? { settlementDetails: convertSettlementDetails() }
                 : {}),
-              clientRequestId: orderRequestIdRef.current
+              clientRequestId: orderRequestIdRef.current!
             }
           });
         } else {
@@ -509,7 +511,7 @@ export default function Exchange() {
               toNetwork: targetOpt.routeNetwork,
               amount: parsedAmount,
               quoteId: quoteData.quoteId,
-              clientRequestId: orderRequestIdRef.current,
+              clientRequestId: orderRequestIdRef.current!,
               customerEmail: customerEmail.trim(),
               destinationAddress: destinationAddress || undefined,
               ...(refundAddress.trim() ? {

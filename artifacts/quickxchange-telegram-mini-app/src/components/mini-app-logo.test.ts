@@ -5,6 +5,27 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { MiniAppLogo } from './mini-app-logo';
 import { resolveOrderVisual } from '../lib/logo-catalog';
 
+test('unresolved logos render their fallback before the catalog arrives', () => {
+  const markup = renderToStaticMarkup(createElement(MiniAppLogo, {
+    src: undefined,
+    fallback: 'EUR',
+    variant: 'payment',
+    size: 'medium',
+  }));
+  assert.match(markup, /EUR/);
+  assert.match(markup, /size-10/);
+  assert.doesNotMatch(markup, /<img/);
+});
+
+test('all context sizes retain equal width and height with a circular clipping frame', () => {
+  for (const [size, dimension] of [['small', 6], ['normal', 8], ['medium', 10], ['large', 14]] as const) {
+    const markup = renderToStaticMarkup(createElement(MiniAppLogo, { src: '/logo.svg', size }));
+    assert.match(markup, new RegExp(`size-${dimension}`));
+    assert.match(markup, /overflow-hidden rounded-full/);
+    assert.match(markup, /object-contain object-center/);
+  }
+});
+
 test('shared logo renderer keeps artwork circular, centered, contained, and distinct from its badge', () => {
   const markup = renderToStaticMarkup(createElement(MiniAppLogo, {
     src: '/api/storage/objects/admin-bank.svg',

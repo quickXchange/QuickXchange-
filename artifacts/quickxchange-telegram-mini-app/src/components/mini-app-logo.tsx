@@ -68,7 +68,7 @@ export function MiniAppLogo({
   className?: string;
 }) {
   const isBbva = (src || logoUrl) === bbvaTransparentLogoUrl;
-  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
+  const [isDark, setIsDark] = useState(() => typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
   useEffect(() => {
     if (!isBbva) return;
     const observer = new MutationObserver(() => setIsDark(document.documentElement.classList.contains('dark')));
@@ -92,7 +92,7 @@ export function MiniAppLogo({
   useEffect(() => setBadgeFailed(false), [normalizedBadge]);
 
   const currentSrc = sources[sourceIndex];
-  const displayedSrc = compactLogo?.original === currentSrc && !unavailableCompactLogos.has(compactLogo.url)
+  const displayedSrc = compactLogo !== null && compactLogo.original === currentSrc && !unavailableCompactLogos.has(compactLogo.url)
     ? compactLogo.url : currentSrc;
   const logoFit = displayedSrc
     ? (measuredFit?.src === displayedSrc ? measuredFit.fit : getCachedPaymentLogoFit(displayedSrc))
