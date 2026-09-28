@@ -8387,18 +8387,16 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
     setError('');
     const editingPath = isSingleRoute && editorMode === 'path';
     setQuantityError('');
-    if (editingPath) {
-      const min = minimumQuantity.trim();
-      const max = maximumQuantity.trim();
-      const validQuantity = (value: string) => /^(?=.{1,39}$)(?:0|[1-9]\d{0,19})(?:\.\d{1,18})?$/.test(value) && isGreaterThanExact(value, '0');
-      if ((min && !validQuantity(min)) || (max && !validQuantity(max))) {
-        setQuantityError('Enter a positive decimal with at most 20 whole digits and 18 fractional digits.');
-        return;
-      }
-      if (min && max && isGreaterThanExact(min, max)) {
-        setQuantityError('Minimum Quantity must not exceed Maximum Quantity.');
-        return;
-      }
+    const min = minimumQuantity.trim();
+    const max = maximumQuantity.trim();
+    const validQuantity = (value: string) => /^(?=.{1,39}$)(?:0|[1-9]\d{0,19})(?:\.\d{1,18})?$/.test(value) && isGreaterThanExact(value, '0');
+    if ((min && !validQuantity(min)) || (max && !validQuantity(max))) {
+      setQuantityError('Enter a positive decimal with at most 20 whole digits and 18 fractional digits.');
+      return;
+    }
+    if (min && max && isGreaterThanExact(min, max)) {
+      setQuantityError('Minimum Quantity must not exceed Maximum Quantity.');
+      return;
     }
     const amountValidation = editingPath ? '' : inspectAmountTiers(amountTiers);
     if (amountValidation) {
@@ -8476,8 +8474,8 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
       })),
       exactRate: form.exactRate.trim() || null,
       fixedFee: rule?.fixedFee ?? null,
-      minAmount: editingPath ? minimumQuantity.trim() || null : rule?.minAmount ?? null,
-      maxAmount: editingPath ? maximumQuantity.trim() || null : rule?.maxAmount ?? null,
+       minAmount: min || null,
+       maxAmount: max || null,
       expectedSettlementMinutes: rule?.expectedSettlementMinutes ?? null,
       operatorInstructions: form.operatorInstructions.trim() || null,
       customerInstructions: form.customerInstructions.trim() || null,
@@ -8593,17 +8591,17 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
         </div>
         {(!isSingleRoute || editorMode === 'range') &&
           <AmountBasedPricingEditor prefix="single" tiers={amountTiers} onTiersChange={updateAmountTiers} disabled={rule?.readOnly} inheritedFixedFee={rule?.fixedFee} />}
-        {isSingleRoute && editorMode === 'path' && <section className="pricing-path-quantities" aria-label="Path quantity limits" data-testid="pricing-path-quantities">
+        <section className="pricing-path-quantities" aria-label="Path quantity limits" data-testid="pricing-path-quantities">
           <div className="pricing-path-quantities-heading">
             <h3>Path quantity limits</h3>
-            <p>Optional rule-level limits. Amount ranges are not changed here.</p>
+            <p>Optional limits for the entire path. Individual amount ranges are set separately.</p>
           </div>
           <div className="admin-form-grid pricing-form-grid">
             <label className="pricing-rule-field"><span className="field-label">Minimum Quantity</span><input type="text" inputMode="decimal" value={minimumQuantity} onChange={event => { setMinimumQuantity(event.target.value); setQuantityError(''); }} placeholder="No minimum" disabled={rule?.readOnly} aria-invalid={!!quantityError} aria-describedby={quantityError ? 'pricing-quantity-error' : undefined} data-testid="input-pricing-minimum-quantity" /></label>
             <label className="pricing-rule-field"><span className="field-label">Maximum Quantity</span><input type="text" inputMode="decimal" value={maximumQuantity} onChange={event => { setMaximumQuantity(event.target.value); setQuantityError(''); }} placeholder="No maximum" disabled={rule?.readOnly} aria-invalid={!!quantityError} aria-describedby={quantityError ? 'pricing-quantity-error' : undefined} data-testid="input-pricing-maximum-quantity" /></label>
           </div>
           {quantityError && <p id="pricing-quantity-error" className="pricing-quantity-error" role="alert" data-testid="pricing-quantity-error">{quantityError}</p>}
-        </section>}
+        </section>
 
         <label className="admin-form-field admin-form-field-full pricing-rule-field pricing-rule-field-full"><span className="field-label">{t('adminPricing.operator_instructions')}</span><textarea value={form.operatorInstructions} onChange={event => set('operatorInstructions', event.target.value)} disabled={rule?.readOnly} data-testid="input-pricing-op-inst" /></label>
         <label className="admin-form-field admin-form-field-full pricing-rule-field pricing-rule-field-full"><span className="field-label">{t('adminPricing.customer_instructions')}</span><textarea value={form.customerInstructions} onChange={event => set('customerInstructions', event.target.value)} disabled={rule?.readOnly} data-testid="input-pricing-cust-inst" /></label>
