@@ -19,7 +19,7 @@ export function SwapAddonOptions({
   compact?: boolean;
 }) {
   return <section className={`swap-addon-options${compact ? ' swap-addon-options-compact' : ''}${compact ? '' : ' mt-4 space-y-3'}`} aria-label={compact ? 'Additional Options' : 'Optional Swap add-ons'}>
-    <div className="text-sm font-bold text-foreground">{compact ? 'Additional Options' : 'Optional add-ons'}</div>
+    <div className="text-sm font-bold text-foreground">{compact ? 'Available choices' : 'Optional add-ons'}</div>
     {isLoading ? <div className="skeleton h-16 rounded-xl" aria-label="Loading optional add-ons"/> : isError ?
       <div role="alert" className="text-sm text-destructive">Options are unavailable. {onRetry && <button type="button" onClick={onRetry} className="underline" data-testid="button-retry-swap-addons">Retry</button>}</div> :
       options.length ? <div className={compact ? 'swap-addon-options-list' : 'space-y-2'}>{options.map(item => {

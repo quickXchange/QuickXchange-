@@ -764,12 +764,23 @@ export function ManualSwapWidget({
   const orderMutation = useCreateOrder();
   const quoteMutation = useCreateExchangeQuote();
   const addons = useListPublicManualSwapAddons({ query: { queryKey: getListPublicManualSwapAddonsQueryKey(), staleTime: 30_000 } });
+  const [addonsOpen, setAddonsOpen] = useState(false);
   const [selectedAddOnKeys, setSelectedAddOnKeys] = useState<string[]>([]);
   const availableAddons = addons.data?.items || [];
   const selectedKeys = selectedAddOnKeys.filter(key => availableAddons.some(item =>
     item.key === key && item.enabled && item.selectionRule !== 'none'
   )).sort();
   const selectedKeysSignature = JSON.stringify(selectedKeys);
+  const changeAddonsOpen = (open: boolean) => {
+    setAddonsOpen(open);
+    if (!open) {
+      setSelectedAddOnKeys([]);
+      if (selectedKeys.length > 0) {
+        setTermsAccepted(false);
+        setQuotePreview(null);
+      }
+    }
+  };
   const toggleAddon = (key: string) => {
     const item = availableAddons.find(option => option.key === key);
     if (!item || item.selectionRule === 'none') return;
@@ -1534,15 +1545,29 @@ export function ManualSwapWidget({
               </div>
 
               <div className="swap-quote-options-dock" data-testid="swap-additional-options-dock">
-                <SwapAddonOptions
-                  options={availableAddons.filter(item => item.enabled)}
-                  selectedKeys={selectedKeys}
-                  onToggle={toggleAddon}
-                  isLoading={addons.isLoading}
-                  isError={addons.isError}
-                  onRetry={() => addons.refetch()}
-                  compact
-                />
+                <label className="swap-addons-disclosure" data-testid="swap-addons-disclosure">
+                  <input
+                    type="checkbox"
+                    checked={addonsOpen}
+                    onChange={event => changeAddonsOpen(event.target.checked)}
+                    data-testid="checkbox-swap-addons"
+                  />
+                  <span className="swap-addons-disclosure-text">
+                    <strong>Add-ons</strong>
+                    <small>{addonsOpen ? 'Choose an option below' : selectedKeys.length ? `${selectedKeys.length} selected` : 'Check to see optional choices'}</small>
+                  </span>
+                </label>
+                {addonsOpen && (
+                  <SwapAddonOptions
+                    options={availableAddons.filter(item => item.enabled)}
+                    selectedKeys={selectedKeys}
+                    onToggle={toggleAddon}
+                    isLoading={addons.isLoading}
+                    isError={addons.isError}
+                    onRetry={() => addons.refetch()}
+                    compact
+                  />
+                )}
                 {selectedKeys.length > 0 && (
                   <div className="swap-quote-options-summary" aria-live="polite" data-testid="swap-selected-addons-quote-summary">
                     {quoteStatus === 'loading' || addons.isLoading

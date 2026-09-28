@@ -28,7 +28,7 @@ test('optional add-ons show selectable checked state and display-only informatio
   assert.match(addonOptions, /trimFeeDecimal\(item\.fixedAmount\)/);
 });
 
-test('Step 1 docks compact Additional Options between scrollable quote details and Continue', () => {
+test('Step 1 docks an Add-ons checkbox that reveals Admin choices before Continue', () => {
   const stepOneStart = surface.indexOf('className="swap-step-panel swap-quote-step');
   const stepOneEnd = surface.indexOf(') : step === 2', stepOneStart);
   const stepOne = surface.slice(stepOneStart, stepOneEnd);
@@ -38,6 +38,11 @@ test('Step 1 docks compact Additional Options between scrollable quote details a
   assert.ok(stepOneStart >= 0 && stepOneEnd > stepOneStart);
   assert.ok(scrollRegionEnd >= 0);
   assert.ok(scrollRegionEnd < dockStart && dockStart < continueStart);
+  assert.match(stepOne, /data-testid="checkbox-swap-addons"/);
+  assert.match(stepOne, /checked=\{addonsOpen\}/);
+  assert.match(stepOne, /onChange=\{event => changeAddonsOpen\(event\.target\.checked\)\}/);
+  assert.match(stepOne, /\{addonsOpen && \(\s*<SwapAddonOptions/);
+  assert.match(surface, /if \(!open\) \{\s*setSelectedAddOnKeys\(\[\]\);\s*if \(selectedKeys\.length > 0\) \{\s*setTermsAccepted\(false\);\s*setQuotePreview\(null\)/);
   assert.match(stepOne, /options=\{availableAddons\.filter\(item => item\.enabled\)\}/);
   assert.match(stepOne, /compact\s*\/>/);
   assert.match(stepOne, /selectedKeys\.length > 0/);
@@ -49,6 +54,7 @@ test('Step 1 docks compact Additional Options between scrollable quote details a
   assert.match(styles, /\.swap-quote-scroll-region\s*\{[^}]*overflow-y: auto/s);
   assert.match(styles, /\.swap-addon-options-list\s*\{[^}]*max-height: 174px;[^}]*overflow-y: auto/s);
   assert.match(styles, /\.swap-quote-options-dock\s*\{[^}]*flex: 0 0 auto/s);
+  assert.match(styles, /\.swap-addons-disclosure\s*\{[^}]*min-height: 42px/s);
 });
 
 test('step two itemizes only the server fee snapshot and shows quote send, rate, and receive values', () => {

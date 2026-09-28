@@ -24225,12 +24225,52 @@ html .public-shell .public-landing-page :is(
   border-top: 1px solid hsl(var(--border) / 0.7);
 }
 
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-addons-disclosure {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  cursor: pointer;
+  border: 1px solid hsl(var(--border));
+  border-radius: 10px;
+  padding: 6px 10px;
+  background: hsl(var(--card) / 0.6);
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-addons-disclosure:focus-within {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-addons-disclosure input {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: hsl(var(--primary));
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-addons-disclosure-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1rem;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-addons-disclosure-text strong {
+  font-size: 0.78rem;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-addons-disclosure-text small {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.68rem;
+}
+
 .public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-addon-options-compact {
   display: flex;
   flex-direction: column;
   gap: 6px;
   min-height: 0;
-  margin: 0;
+  margin: 8px 0 0;
 }
 
 .public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-addon-options-compact > :first-child {
