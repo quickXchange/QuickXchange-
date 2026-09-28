@@ -2,22 +2,25 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 
-const [surface, addonOptions, feeBreakdown, styles, referenceStyles] = await Promise.all([
+const [surface, addonOptions, feeBreakdown, styles, followupStyles] = await Promise.all([
   readFile(new URL('../src/components/exchange-surface.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/swap-addon-options.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/swap-fee-breakdown.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/index.css', import.meta.url), 'utf8'),
-  readFile(new URL('../src/components/swap-reference.css', import.meta.url), 'utf8'),
+  readFile(new URL('../src/components/swap-followup.css', import.meta.url), 'utf8'),
 ]);
 
 test('Swap exposes three stages and a details-step back action', () => {
   assert.match(surface, /aria-label=\{`Step \$\{step\} of 3`\}/);
-  assert.match(surface, /step === 2 \? 'Receiving Method Details' : 'Summary'/);
+  assert.match(surface, /step === 2 \? <>Receiving <span>Details<\/span><\/> : <span>Summary<\/span>/);
   assert.match(surface, /onClick=\{\(\) => moveToStep\(1\)\}[\s\S]*?data-testid="swap-button-back"/);
   assert.match(surface, /data-testid="button-swap-next"/);
   assert.match(surface, /data-testid="swap-summary-step"/);
   assert.match(surface, /data-testid="button-swap-back"/);
-  assert.match(referenceStyles, /\.swap-progress-line span\s*\{/);
+  assert.match(surface, /className="reference-realtime-badge"/);
+  assert.match(surface, /Swap <span>Currencies<\/span>/);
+  assert.match(followupStyles, /\.swap-step2-progress-track\s*\{/);
+  assert.doesNotMatch(followupStyles, /reference-(?:amount-panel|title-row|swap-button)|widget-tabs-pill|form\.exchange-card\.redesigned-widget/);
 });
 
 test('optional add-ons show selectable checked state and display-only information without a paid toggle', () => {

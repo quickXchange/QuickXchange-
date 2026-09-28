@@ -1,5 +1,5 @@
 import { PaymentMethodLogo } from '@/components/payment-method-logo';
-import './swap-reference.css';
+import './swap-followup.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import { createPortal } from 'react-dom';
@@ -852,6 +852,18 @@ export function ManualSwapWidget({
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const stepPanelRef = useRef<HTMLDivElement>(null);
+  const widgetRef = useRef<HTMLFormElement>(null);
+  const revealWidgetTop = useCallback(() => {
+    const top = widgetRef.current?.getBoundingClientRect().top;
+    if (top !== undefined && top < 72) {
+      window.scrollBy({ top: top - 72, behavior: 'smooth' });
+    }
+  }, []);
+  useEffect(() => {
+    if (!addonsPopupOpen && !detailsOpen) return;
+    const frame = window.requestAnimationFrame(revealWidgetTop);
+    return () => window.cancelAnimationFrame(frame);
+  }, [addonsPopupOpen, detailsOpen, revealWidgetTop]);
   useEffect(() => {
     if (!addonsPopupOpen && !detailsOpen) return;
     const closeOnEscape = (event: globalThis.KeyboardEvent) => {
@@ -925,8 +937,9 @@ export function ManualSwapWidget({
     setStep(nextStep);
     window.requestAnimationFrame(() => {
       stepPanelRef.current?.focus({ preventScroll: true });
+      revealWidgetTop();
     });
-  }, []);
+  }, [revealWidgetTop]);
 
   const [, setLocation] = useLocation();
   const signedInCustomer = isCustomerLoaded && isSignedIn;
@@ -1452,7 +1465,7 @@ export function ManualSwapWidget({
   }
 
   return (
-    <form className={cn('exchange-card exchange-card-expanded redesigned-widget swap-widget-flow', `swap-widget-step-${step}`, step === 2 && 'swap-compact-step-2', selectorOpen && 'selector-panel-open')} onSubmit={submitExchange} data-testid="form-exchange" noValidate>
+    <form ref={widgetRef} className={cn('exchange-card exchange-card-expanded redesigned-widget swap-widget-flow', `swap-widget-step-${step}`, step === 2 && 'swap-compact-step-2', selectorOpen && 'selector-panel-open')} onSubmit={submitExchange} data-testid="form-exchange" noValidate>
       <div className="reference-header">
         <div className="reference-top-bar">
           <div className="widget-tabs-pill" role="group" aria-label={t('convert.exchangeType')}>
@@ -1473,14 +1486,24 @@ export function ManualSwapWidget({
               {t('swap.convert')}
             </button>
           </div>
+          <button type="button" className="reference-menu-btn" aria-label="Open navigation" data-testid="widget-menu-button" onClick={onOpenMenu}>
+            <Menu size={20} />
+          </button>
         </div>
 
         <div className="reference-title-row">
-          <h2>{step === 1 ? 'Swap Currencies' : step === 2 ? 'Receiving Method Details' : 'Summary'}</h2>
-          <button type="button" className="reference-menu-btn" aria-label="Open navigation" data-testid="widget-menu-button" onClick={onOpenMenu}><Menu size={20} /></button>
+          <h2>{step === 1 ? <>Swap <span>Currencies</span></> : step === 2 ? <>Receiving <span>Details</span></> : <span>Summary</span>}</h2>
+          {step === 1 ? (
+            <div className="reference-realtime-badge"><TrendingUp size={15} /> Real-time rate</div>
+          ) : (
+            <div className="swap-step2-progress" aria-label={`Step ${step} of 3`}>
+              <span>Step {step} of 3</span>
+              <span className="swap-step2-progress-track" aria-hidden="true">
+                <i className="is-active" /><i className="is-active" /><i className={step === 3 ? 'is-active' : ''} />
+              </span>
+            </div>
+          )}
         </div>
-        {step === 1 && <div className="swap-live-rate"><TrendingUp size={13} /> Real-time rate</div>}
-        <div className="swap-progress-line" aria-label={`Step ${step} of 3`}><span style={{ width: `${step * 100 / 3}%` }} /></div>
       </div>
 
       {manualRouteUnavailable && (
@@ -1554,7 +1577,7 @@ export function ManualSwapWidget({
                 </div>
 
                 {fromOption && toOption && (
-                  <div className="reference-rate-summary mt-4" data-testid="route-summary" aria-live="polite">
+                   <div className="reference-rate-summary swap-compact-rate mt-4" data-testid="route-summary" aria-live="polite">
                     <ArrowLeftRight size={18} className="reference-rate-icon" />
                     <div className="reference-rate-content">
                       <div className="reference-rate-text">

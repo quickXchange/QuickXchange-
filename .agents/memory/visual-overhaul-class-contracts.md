@@ -9,6 +9,12 @@ When replacing the shared visual system, inventory the class names still rendere
 
 **How to apply:** Before accepting a broad visual rewrite, compare rendered class contracts against defined selectors, then browser-test representative public and operator routes at phone, tablet, and desktop widths. Measure document scroll width, verify tables scroll only inside dedicated containers, and inspect fixed overlay positioning. When utility classes and component-layer media rules both control visibility, choose one breakpoint source of truth or test the exact threshold after CSS-layer compilation.
 
+For the public exchange widget, treat the established QuickXchange Step 1 visual language as protected when improving later Swap stages. Keep the gradient shell, glow, tabs, header, badge, cards, selectors, logos, arrow, and primary action; extend later stages with those existing design tokens instead of adding a new palette.
+
+**Why:** The user explicitly rejected a broad Swap restyle that replaced the original widget identity while accepting the cleaner receiving, summary, and popup arrangement.
+
+**How to apply:** Scope new styling to later-stage and popup classes. If a live rate or optional action is added to Step 1, make it compact within the existing visual rules. Compare Step 1 in both themes and verify the shared Swap/Convert outer footprint remains fixed.
+
 Treat a visually frozen component as a separate geometry contract when aligning the page around it. Unify outer containers and rhythm without editing that component's width, grid, or control selectors.
 
 **Why:** A landing-page cohesion pass can accidentally resize a working exchange widget when broad shell selectors and breakpoint overrides also match the widget's layout classes.
