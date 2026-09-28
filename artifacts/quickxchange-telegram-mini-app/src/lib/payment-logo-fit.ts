@@ -14,36 +14,6 @@ export function getCachedPaymentLogoFit(src: string) {
   return cachedFits.get(src);
 }
 
-// The external favicon endpoints do not permit canvas pixel reads. Their
-// conservative default fit leaves these verified compact marks undersized.
-// Identify them through the existing brand-domain fallback, not the image URL:
-// an Admin-uploaded image and an order snapshot then receive the same treatment.
-const BRAND_FIT: Array<[string, number]> = [
-  ['ing.com', 1.12],
-  ['wise.com', 1.37],
-  ['n26.com', 1.08],
-  ['bunq.com', 1.37],
-];
-
-export function fitKnownPaymentMark(
-  fit: PaymentLogoFit,
-  fallbackSrcs: Array<string | null | undefined>,
-): PaymentLogoFit {
-  // Transparent padding already measured and removed needs no additional zoom.
-  if (fit.scale > 1.16) return fit;
-  const brand = BRAND_FIT.find(([domain]) =>
-    fallbackSrcs.some(src => src?.includes(`domain_url=${encodeURIComponent(`https://${domain}`)}`)
-      || src?.includes(`/ip3/${domain}.ico`)));
-  if (!brand) return fit;
-  const multiplier = Math.min(brand[1], 1.26 / fit.scale);
-  return {
-    ...fit,
-    scale: fit.scale * multiplier,
-    x: fit.x * multiplier,
-    y: fit.y * multiplier,
-  };
-}
-
 function fitArtworkOnSolidBackground(pixels: Uint8ClampedArray, width: number, height: number): PaymentLogoFit | undefined {
   // Rounded-square logos often have an opaque brand-colored background. Alpha
   // describes the background, not the mark, so detect the common edge color

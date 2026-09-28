@@ -17,6 +17,8 @@ export type ManualSwapFeeSnapshot = {
     amount: string;
     currency: string;
     targetAmount: string;
+    selectionRule?: string;
+    selectionGroup?: string;
   }>;
   exchangeFee: {
     enabled: boolean;
@@ -153,7 +155,10 @@ export function applyManualSwapFees(input: {
   amount: number;
   targetCurrency: string;
   targetPrecision: number;
-  addons: Array<{ id: string; key: string; name: string; fixedAmount: string; feeCurrency: string }>;
+  addons: Array<{
+    id: string; key: string; name: string; fixedAmount: string; feeCurrency: string;
+    selectionRule?: string; selectionGroup?: string;
+  }>;
   config: { enabled: boolean; percentage: string | null; fixedAmount: string | null; fixedCurrency: string };
   references: FeeReference[];
 }) {
@@ -168,6 +173,8 @@ export function applyManualSwapFees(input: {
       id: addon.id, key: addon.key, name: addon.name,
       amount: addon.fixedAmount, currency: addon.feeCurrency,
       targetAmount: converted.exact,
+      ...(addon.selectionRule === undefined ? {} : { selectionRule: addon.selectionRule }),
+      ...(addon.selectionGroup === undefined ? {} : { selectionGroup: addon.selectionGroup }),
       atomic: converted.atomic,
     };
   });
@@ -260,6 +267,8 @@ export function verifyManualSwapFeeSnapshot(input: {
         name: addon.name,
         fixedAmount: addon.amount,
         feeCurrency: addon.currency,
+        selectionRule: addon.selectionRule,
+        selectionGroup: addon.selectionGroup,
       })),
       config: {
         enabled: input.snapshot.exchangeFee.enabled,
@@ -277,5 +286,69 @@ export function verifyManualSwapFeeSnapshot(input: {
     };
   } catch {
     return undefined;
+  }
+}
+
+function canonicalConfiguredDecimal(value: string | null): string | null {
+  if (value === null) return null;
+  if (!/^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/.test(value)) return value;
+  const [whole, fraction = ""] = value.split(".");
+  const normalizedFraction = fraction.replace(/0+$/, "");
+  return `${whole}${normalizedFraction ? `.${normalizedFraction}` : ""}`;
+}
+
+/**
+ * Check current catalog and fee settings against the signed quote. This only
+ * authorizes the original signed price; it never recalculates a replacement.
+ */
+export function assertManualSwapFeeConfigurationMatches(input: {
+  snapshot: ManualSwapFeeSnapshot;
+  selectedAddOnKeys: string[];
+  catalog: ManualSwapAddonOption[];
+  config: { enabled: boolean; percentage: string | null; fixedAmount: string | null; fixedCurrency: string };
+}): void {
+  const fail = (): never => {
+    throw new ApiError(
+      "MANUAL_QUOTE_CONFIGURATION_CHANGED",
+      "A selected Manual Swap add-on or fee setting changed after this quote was issued. Please request a new quote.",
+      409,
+    );
+  };
+
+  let selected: ManualSwapAddonOption[];
+  try {
+    selected = validateManualSwapAddonSelection(input.selectedAddOnKeys, input.catalog);
+  } catch {
+    return fail();
+  }
+
+  const signedAddons = input.snapshot.selectedAddons;
+  if (signedAddons.length !== selected.length ||
+      signedAddons.some((signed, index) => {
+        const current = selected[index];
+        return !current ||
+          signed.id !== current.id ||
+          signed.key !== current.key ||
+          signed.name !== current.name ||
+          canonicalConfiguredDecimal(signed.amount) !== canonicalConfiguredDecimal(current.fixedAmount) ||
+          signed.currency.trim().toUpperCase() !== current.feeCurrency.trim().toUpperCase() ||
+          (signed.selectionRule !== undefined && signed.selectionRule !== current.selectionRule) ||
+          (signed.selectionGroup !== undefined &&
+            signed.selectionGroup.trim().toLowerCase() !==
+              (current.presentation.group.trim().toLowerCase() || "default"));
+      })) {
+    return fail();
+  }
+
+  const signedFee = input.snapshot.exchangeFee;
+  const currentPercentage = input.config.enabled ? input.config.percentage : null;
+  const currentFixedAmount = input.config.enabled ? input.config.fixedAmount : null;
+  if (signedFee.enabled !== input.config.enabled ||
+      canonicalConfiguredDecimal(signedFee.percentage) !==
+        canonicalConfiguredDecimal(currentPercentage) ||
+      canonicalConfiguredDecimal(signedFee.fixedAmount) !==
+        canonicalConfiguredDecimal(currentFixedAmount) ||
+      signedFee.fixedCurrency.trim().toUpperCase() !== input.config.fixedCurrency.trim().toUpperCase()) {
+    return fail();
   }
 }

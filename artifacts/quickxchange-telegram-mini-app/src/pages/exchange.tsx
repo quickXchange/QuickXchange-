@@ -19,7 +19,10 @@ import { cn } from '@/lib/utils';
 import { useHapticFeedback } from '@/lib/hooks';
 import { MiniAppLogo } from '@/components/mini-app-logo';
 import { getFallbackPaymentLogos, getFallbackCryptoLogos, getLogoFallbackText } from '@/lib/logo-catalog';
-import { exchangeOptionMatchesSearch } from '@/lib/exchange-search';
+import {
+  exchangeSelectorEmptyMessage,
+  filterExchangeOptions,
+} from '@/lib/exchange-search';
 import { createClientRequestId } from '@/lib/client-request-id';
 
 const EMPTY_MANUAL_SWAP_ADDONS: any[] = [];
@@ -190,7 +193,10 @@ export default function Exchange() {
         flagUrl: o.flagUrl,
         kind: o.kind,
         paymentMethodId: o.paymentMethodId,
-        searchAliases: [o.title, o.assetCode, o.routeNetwork, o.networkTitle, o.paymentMethodId].filter((value): value is string => Boolean(value)),
+        searchAliases: o.kind === 'fiat-payment-method'
+          ? []
+          : [o.title, o.assetCode, o.routeNetwork, o.networkTitle, o.paymentMethodId]
+            .filter((value): value is string => Boolean(value)),
         executionMode: o.executionMode,
         original: o
       }));
@@ -253,7 +259,10 @@ export default function Exchange() {
           flagUrl: o.flagUrl,
           kind: o.kind,
           paymentMethodId: o.paymentMethodId,
-          searchAliases: [o.title, o.assetCode, o.routeNetwork, o.networkTitle, o.paymentMethodId].filter((value): value is string => Boolean(value)),
+          searchAliases: o.kind === 'fiat-payment-method'
+            ? []
+            : [o.title, o.assetCode, o.routeNetwork, o.networkTitle, o.paymentMethodId]
+              .filter((value): value is string => Boolean(value)),
           executionMode: o.executionMode,
           original: o
         }));
@@ -302,17 +311,11 @@ export default function Exchange() {
   }, [config, quickexConfig, mode, sourceId]);
 
   const filteredSourceOpts = useMemo(() => {
-    let list = sourceOpts;
-    if (sourceFilter === 'crypto') list = list.filter(o => o.kind === 'crypto-network');
-    if (sourceFilter === 'fiat') list = list.filter(o => o.kind !== 'crypto-network');
-    return list.filter(o => exchangeOptionMatchesSearch(o, sourceSearch));
+    return filterExchangeOptions(sourceOpts, sourceFilter, sourceSearch);
   }, [sourceOpts, sourceSearch, sourceFilter, mode]);
 
   const filteredTargetOpts = useMemo(() => {
-    let list = targetOpts;
-    if (targetFilter === 'crypto') list = list.filter(o => o.kind === 'crypto-network');
-    if (targetFilter === 'fiat') list = list.filter(o => o.kind !== 'crypto-network');
-    return list.filter(o => exchangeOptionMatchesSearch(o, targetSearch));
+    return filterExchangeOptions(targetOpts, targetFilter, targetSearch);
   }, [targetOpts, targetSearch, targetFilter, mode]);
 
   useEffect(() => {
@@ -1361,7 +1364,7 @@ export default function Exchange() {
                   <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mb-3">
                     <Search className="w-5 h-5 text-muted-foreground/50" />
                   </div>
-                  No matching options found.
+                  {exchangeSelectorEmptyMessage(showSourceSelector ? sourceFilter : targetFilter)}
                 </div>
               )}
               {(showSourceSelector ? filteredSourceOpts : filteredTargetOpts).map(o => (

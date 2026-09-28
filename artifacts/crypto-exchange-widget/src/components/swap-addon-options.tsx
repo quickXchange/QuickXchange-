@@ -21,10 +21,25 @@ export function SwapAddonOptions({
     <div className="text-sm font-bold text-foreground">Optional add-ons</div>
     {isLoading ? <div className="skeleton h-16 rounded-xl" aria-label="Loading optional add-ons"/> : isError ?
       <div role="alert" className="text-sm text-destructive">Options are unavailable. {onRetry && <button type="button" onClick={onRetry} className="underline" data-testid="button-retry-swap-addons">Retry</button>}</div> :
-      options.length ? <div className="space-y-2">{options.map(item => <label key={item.key} className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-card/60 p-3 text-sm">
-        <input type="checkbox" className="mt-1 accent-primary" checked={selectedKeys.includes(item.key)} disabled={item.selectionRule === 'none'} onChange={() => onToggle(item.key)} data-testid={`${preview ? 'checkbox-preview-swap-addon' : 'checkbox-swap-addon'}-${item.key}`}/>
-        <span className="flex-1"><strong className="block text-foreground">{item.name}</strong>{item.description && <small className="text-muted-foreground">{item.description}</small>}{item.selectionRule === 'one' && <small className="block text-muted-foreground">Choose one in {item.presentation.group || 'this group'}</small>}</span>
-        <span className="font-mono text-foreground whitespace-nowrap">{trimFeeDecimal(item.fixedAmount)} {item.feeCurrency}</span>
-      </label>)}</div> : <p className="text-xs text-muted-foreground">No optional services are available for this swap.</p>}
+      options.length ? <div className="space-y-2">{options.map(item => {
+        const informational = item.selectionRule === 'none';
+        const selected = selectedKeys.includes(item.key);
+        const content = <>
+          <span className="flex-1"><strong className="block text-foreground">{item.name}</strong>{item.description && <small className="text-muted-foreground">{item.description}</small>}{item.selectionRule === 'one' && <small className="block text-muted-foreground">Choose one in {item.presentation.group || 'this group'}</small>}</span>
+          {informational
+            ? <span className="whitespace-nowrap rounded-full border border-border bg-muted px-2 py-1 text-xs font-semibold text-muted-foreground">Information only</span>
+            : <span className="font-mono text-foreground whitespace-nowrap">{trimFeeDecimal(item.fixedAmount)} {item.feeCurrency}</span>}
+        </>;
+        return informational
+          ? <div key={item.key} className="flex items-start gap-3 rounded-xl border border-dashed border-border bg-muted/40 p-3 text-sm" data-testid={`${preview ? 'swap-addon-info-preview' : 'swap-addon-info'}-${item.key}`}>
+              <span className="mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded border border-muted-foreground/40 text-[10px] text-muted-foreground" aria-hidden="true">i</span>
+              {content}
+              <span className="sr-only">Informational only; not selectable and not charged.</span>
+            </div>
+          : <label key={item.key} data-selected={selected} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm transition-colors ${selected ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'border-border bg-card/60 hover:border-primary/50'} has-[:disabled]:cursor-not-allowed`}>
+              <input type="checkbox" className="mt-1 h-4 w-4 accent-primary" checked={selected} onChange={() => onToggle(item.key)} data-testid={`${preview ? 'checkbox-preview-swap-addon' : 'checkbox-swap-addon'}-${item.key}`}/>
+              {content}
+            </label>;
+      })}</div> : <p className="text-xs text-muted-foreground">No optional services are available for this swap.</p>}
   </section>;
 }

@@ -17,11 +17,15 @@ test('known crypto identities retain official fallbacks after a supplied URL fai
   assert.match(identity, /fallback=\{normalizedSymbol\.slice\(0, 1\) \|\| '¤'\}/);
 });
 
-test('customer order detail and tracking identities use catalog branding and intrinsic contain fit', async () => {
+test('customer order detail and tracking identities use current catalog branding and fit rules', async () => {
   const orderIdentity = await source('../src/components/order-settlement-identity.tsx');
+  const paymentLogo = await source('../src/components/payment-method-logo.tsx');
 
+  assert.match(orderIdentity, /const methodName = paymentMethodName\(paymentOption\)/);
+  assert.match(orderIdentity, /name=\{methodName\}\s+logoUrl=\{paymentOption\.logoUrl\}/);
   assert.match(orderIdentity, /logoUrl=\{paymentOption\.logoUrl\}/);
-  assert.match(orderIdentity, /preferTransparentBbvaArtwork=\{summaryLogoArtwork && !paymentOption\.logoUrl\}/);
+  assert.doesNotMatch(orderIdentity, /preferTransparentBbvaArtwork|summaryLogoArtwork/);
+  assert.match(paymentLogo, /brand === 'bbva' \? \[isDark \? bbvaWhiteLogoUrl : bbvaTransparentLogoUrl\] : \[logoUrl\]/);
   assert.equal((orderIdentity.match(/logoFit="contain"/g) || []).length, 2);
   assert.match(orderIdentity, /networkLogoUrl=\{paymentOption \?[\s\S]*?logoFit="contain"/);
 });
@@ -37,15 +41,32 @@ test('Admin View Order prefers canonical Admin branding and retains snapshots as
 
 test('shared and drawer logo rendering stays circular, centered, contain-fit, and size-consistent', async () => {
   const shared = await source('../src/flag-icon.css');
+  const siteStyles = await source('../src/index.css');
+  const paymentStyles = await source('../../../lib/payment-logo/src/styles.css');
   const adminStyles = await source('../src/admin-redesign.css');
 
   assert.match(shared, /\.logo-avatar\s*\{[^}]*place-items:\s*center[^}]*overflow:\s*hidden[^}]*border-radius:\s*50%/s);
   assert.match(shared, /\.logo-avatar-fit-contain\s*>\s*\.logo-avatar-img\s*\{[^}]*object-fit:\s*contain[^}]*\}/s);
-  assert.match(shared, /\.logo-avatar-payment,\s*\.logo-avatar-bank\s*\{[^}]*background-color:\s*transparent !important/s);
-  assert.match(shared, /html\.dark \.logo-avatar-payment,\s*html\.dark \.logo-avatar-bank\s*\{[^}]*background-color:\s*transparent !important/s);
-  assert.match(shared, /\.payment-method-logo-stack > \.payment-method-logo\.logo-avatar\s*\{[^}]*overflow:\s*hidden !important/s);
-  assert.match(shared, /\.payment-method-logo-stack > \.payment-method-logo\.logo-avatar > \.logo-avatar-img\s*\{[^}]*object-fit:\s*contain !important/s);
+  assert.match(siteStyles, /@import '@workspace\/payment-logo\/styles\.css'/);
+  assert.match(shared, /\.payment-method-logo-stack\s*\{[^}]*aspect-ratio:\s*1\s*\/\s*1/s);
+  assert.match(paymentStyles, /\.payment-logo-frame\s*\{[^}]*border-radius:\s*50%/s);
+  assert.match(paymentStyles, /\.payment-logo-frame > \.payment-logo-image\s*\{[^}]*object-fit:\s*contain/s);
+  assert.doesNotMatch(shared, /\.payment-method-logo-stack\s*>\s*\.payment-method-logo\.logo-avatar/);
   assert.match(shared, /\.crypto-network-badge\s*>\s*\.network-logo-badge\s*\{[^}]*width:\s*14px[^}]*height:\s*14px/s);
   assert.match(adminStyles, /\.quickx-view-order \.quickx-exchange-card :is\(\.admin-crypto-logo, \.admin-payment-logo-stack\)\s*\{[^}]*width:\s*40px[^}]*aspect-ratio:\s*1\s*\/\s*1/s);
   assert.match(adminStyles, /@media \(max-width:\s*640px\)\s*\{[\s\S]*?\.quickx-view-order \.quickx-exchange-card[\s\S]*?width:\s*36px/s);
+});
+
+test('website payment methods render through the shared measured logo in both themes', async () => {
+  const component = await source('../src/components/payment-method-logo.tsx');
+  const packageJson = JSON.parse(await source('../package.json'));
+
+  assert.equal(packageJson.devDependencies['@workspace/payment-logo'], 'workspace:*');
+  assert.match(component, /import \{ PaymentLogo \} from '@workspace\/payment-logo'/);
+  assert.match(component, /<PaymentLogo[\s\S]*?size="100%"/);
+  assert.match(component, /isDark \? bbvaWhiteLogoUrl : bbvaTransparentLogoUrl/);
+  assert.match(component, /brand === 'bbva' \? \[isDark \? bbvaWhiteLogoUrl : bbvaTransparentLogoUrl\] : \[logoUrl\]/);
+  assert.match(component, /<FiatCurrencyFlag code=\{badgeCode\} flagUrl=\{flagUrl\} variant=\{badgeVariant\} size="sm" \/>/);
+  assert.doesNotMatch(component, /PAYMENT_METHOD_VISUAL_PROFILES|logoScale|<LogoAvatar|className="payment-method-logo"/);
+  assert.ok(component.indexOf(': [logoUrl]') < component.indexOf('preferBrandIcon ? [brandfetchUrl, bundledFallback]'));
 });

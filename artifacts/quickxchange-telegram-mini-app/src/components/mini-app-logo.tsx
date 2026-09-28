@@ -1,10 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useGetWebsiteBranding, getGetWebsiteBrandingQueryKey } from '@workspace/api-client-react';
+import { PaymentLogo } from '@workspace/payment-logo';
 import { cn } from '@/lib/utils';
-import { fitKnownPaymentMark, getCachedPaymentLogoFit, measurePaymentLogoFit, type PaymentLogoFit } from '@/lib/payment-logo-fit';
+import { getCachedPaymentLogoFit, measurePaymentLogoFit, type PaymentLogoFit } from '@/lib/payment-logo-fit';
 import type { MiniAppVisual } from '@/lib/logo-catalog';
 import bbvaTransparentLogoUrl from '../../../../attached_assets/bbva-logo-transparent.png';
 import bbvaWhiteLogoUrl from '../../../../attached_assets/bbva-logo-white-transparent.png';
+
+// The component is also server-rendered in the unit tests, where CSS imports
+// are not supported by Node. In the browser this module loads the shared styles
+// once, alongside the shared renderer.
+if (typeof document !== 'undefined') void import('@workspace/payment-logo/styles.css');
 
 export type MiniAppLogoSize = 'small' | 'normal' | 'medium' | 'large';
 
@@ -14,28 +20,6 @@ const sizeClasses: Record<MiniAppLogoSize, { container: string; text: string; ba
   medium: { container: 'size-10', text: 'text-[10px]', badge: 'size-2.5 -right-0.5 -bottom-0.5' },
   large: { container: 'size-14', text: 'text-xs', badge: 'size-3 -right-0.5 -bottom-0.5' },
 };
-
-const compactLogoChecks = new Map<string, Promise<boolean>>();
-const unavailableCompactLogos = new Set<string>();
-
-async function findCompactPaymentLogo(sources: string[]): Promise<string | undefined> {
-  for (const source of sources) {
-    if (unavailableCompactLogos.has(source)) continue;
-    let check = compactLogoChecks.get(source);
-    if (!check) {
-      check = new Promise(resolve => {
-        const image = new Image();
-        image.onload = () => resolve(image.naturalWidth >= 32 && image.naturalHeight >= 32
-          && Math.max(image.naturalWidth / image.naturalHeight, image.naturalHeight / image.naturalWidth) < 1.6);
-        image.onerror = () => resolve(false);
-        image.src = source;
-      });
-      compactLogoChecks.set(source, check);
-    }
-    if (await check) return source;
-  }
-  return undefined;
-}
 
 export function normalizeMiniAppImageUrl(url?: string | null) {
   if (!url) return undefined;
@@ -85,21 +69,15 @@ export function MiniAppLogo({
   const [sourceIndex, setSourceIndex] = useState(0);
   const [badgeFailed, setBadgeFailed] = useState(false);
   const [measuredFit, setMeasuredFit] = useState<{ src: string; fit: PaymentLogoFit } | null>(null);
-  const [compactLogo, setCompactLogo] = useState<{ original: string; url: string } | null>(null);
   const classes = sizeClasses[size];
 
   useEffect(() => setSourceIndex(0), [sourceKey]);
   useEffect(() => setBadgeFailed(false), [normalizedBadge]);
 
   const currentSrc = sources[sourceIndex];
-  const displayedSrc = compactLogo !== null && compactLogo.original === currentSrc && !unavailableCompactLogos.has(compactLogo.url)
-    ? compactLogo.url : currentSrc;
-  const logoFit = displayedSrc
-    ? (measuredFit?.src === displayedSrc ? measuredFit.fit : getCachedPaymentLogoFit(displayedSrc))
+  const logoFit = currentSrc
+    ? (measuredFit?.src === currentSrc ? measuredFit.fit : getCachedPaymentLogoFit(currentSrc))
     : undefined;
-  const displayedFit = variant === 'payment'
-    ? fitKnownPaymentMark(logoFit ?? { scale: 0.92, x: 0, y: 0, artworkAspect: 1 }, fallbackSrcs)
-    : logoFit;
 
   return (
     <span className={cn(
@@ -113,37 +91,33 @@ export function MiniAppLogo({
           ? 'border-black/10 bg-transparent dark:border-white/15 dark:bg-transparent'
           : 'border-primary/10 bg-primary/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_0_14px_-10px_hsl(var(--primary))] dark:border-white/10 dark:bg-white/[0.055]',
       )}>
-        {displayedSrc ? (
+        {variant === 'payment' ? (
+          <PaymentLogo
+            sources={sources}
+            size="100%"
+            alt={alt}
+            className="!border-0"
+            fallback={(
+              <span className={cn('font-bold uppercase tracking-tight text-primary', classes.text)}>
+                {(fallback || '?').slice(0, 4)}
+              </span>
+            )}
+          />
+        ) : currentSrc ? (
           <img
-            src={displayedSrc}
+            src={currentSrc}
             alt={alt}
             className={cn(
               'block h-full w-full max-h-full max-w-full bg-transparent object-contain object-center',
             )}
             style={{
-              transform: `translate(${displayedFit?.x ?? 0}%, ${displayedFit?.y ?? 0}%) scale(${displayedFit?.scale ?? 0.92})`,
+              transform: `translate(${logoFit?.x ?? 0}%, ${logoFit?.y ?? 0}%) scale(${logoFit?.scale ?? 0.92})`,
             }}
             onLoad={event => {
-              const fit = measurePaymentLogoFit(displayedSrc, event.currentTarget);
-              setMeasuredFit({ src: displayedSrc, fit });
-              if (variant === 'payment') {
-                // A long wordmark cannot fill a small circle without cropping or distorting it.
-                // Prefer a square site icon when one of the existing fallbacks provides it.
-                if (!isBbva && displayedSrc === currentSrc && fit.artworkAspect > 2.2) {
-                  const icons = sources.filter(source => source !== currentSrc
-                    && (/google\.com\/s2\/favicons/.test(source) || /icons\.duckduckgo\.com\/ip3/.test(source)));
-                  void findCompactPaymentLogo(icons).then(url => {
-                    if (url) setCompactLogo({ original: currentSrc, url });
-                  });
-                }
-              }
+              const fit = measurePaymentLogoFit(currentSrc, event.currentTarget);
+              setMeasuredFit({ src: currentSrc, fit });
             }}
-            onError={() => {
-              if (displayedSrc !== currentSrc) {
-                unavailableCompactLogos.add(displayedSrc);
-                setCompactLogo(null);
-              } else setSourceIndex(index => index + 1);
-            }}
+            onError={() => setSourceIndex(index => index + 1)}
           />
         ) : (
           <span className={cn('font-bold uppercase tracking-tight text-primary', classes.text)}>

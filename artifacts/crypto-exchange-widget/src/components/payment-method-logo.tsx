@@ -1,9 +1,8 @@
-import { useMemo } from 'react';
 import { SiAlipay, SiCashapp, SiN26, SiPaypal, SiPix, SiRevolut, SiVenmo, SiVisa, SiWise, SiZelle } from 'react-icons/si';
+import { PaymentLogo } from '@workspace/payment-logo';
 import bbvaTransparentLogoUrl from '../../../../attached_assets/bbva-logo-transparent.png';
 import bbvaWhiteLogoUrl from '../../../../attached_assets/bbva-logo-white-transparent.png';
 import { getBrandfetchLogoUrl } from '@/lib/brandfetch';
-import { LogoAvatar } from '@/components/logo-avatar';
 import { FiatCurrencyFlag } from '@/components/fiat-flag';
 import { useAppTheme } from '@/theme';
 
@@ -53,31 +52,6 @@ export const PAYMENT_METHOD_OFFICIAL_LOGOS: Array<[RegExp, string]> = [
   [/\bi\s*card\b/i, 'https://cdn.icard.com/icard.com/img/common/logo.png?53'],
 ];
 
-export const PAYMENT_METHOD_VISUAL_PROFILES: Array<[
-  RegExp,
-  { brand: string; logoScale: number },
-]> = [
-  [/\bwio\b/i, { brand: 'wio', logoScale: 1.26 }],
-  [/perfect money/i, { brand: 'perfect-money', logoScale: 1.4 }],
-  [/\bswift\b/i, { brand: 'swift', logoScale: 1.24 }],
-  [/\bcapitalist\b/i, { brand: 'capitalist', logoScale: 1.18 }],
-  [/\brevolut\b/i, { brand: 'revolut', logoScale: 1.08 }],
-  [/\bwise\b/i, { brand: 'wise', logoScale: 1.08 }],
-  [/\bpaysera\b/i, { brand: 'paysera', logoScale: 1.1 }],
-  [/\bn26\b/i, { brand: 'n26', logoScale: 1.08 }],
-  [/\bbbva\b/i, { brand: 'bbva', logoScale: 1.4 }],
-  [/\bbunq\b/i, { brand: 'bunq', logoScale: 1.1 }],
-  [/\bqonto\b/i, { brand: 'qonto', logoScale: 1.08 }],
-  [/\bnickel\b/i, { brand: 'nickel', logoScale: 1.1 }],
-  [/\bsumup\b/i, { brand: 'sumup', logoScale: 1.08 }],
-  [/\b(?:zira+t|zirrat)\b/i, { brand: 'ziraat', logoScale: 1.08 }],
-  [/\bsepa\b/i, { brand: 'sepa', logoScale: 1.0 }],
-  [/\bbnp(?:\s+paribas)?\b/i, { brand: 'bnp-paribas', logoScale: 1.0 }],
-  [/\bicard\b/i, { brand: 'icard', logoScale: 1.0 }],
-  [/\bchaps\b/i, { brand: 'chaps', logoScale: 1.0 }],
-  [/\binterac\b/i, { brand: 'interac', logoScale: 1.0 }],
-];
-
 export function PaymentMethodLogo({
   name,
   logoUrl,
@@ -99,9 +73,8 @@ export function PaymentMethodLogo({
 }) {
   const isDark = useAppTheme();
   const normalized = name.toLowerCase();
-  const visualProfile = PAYMENT_METHOD_VISUAL_PROFILES.find(([pattern]) => pattern.test(name))?.[1];
   let logo: React.ReactNode = null;
-  let brand = visualProfile?.brand || 'generic';
+  let brand = 'generic';
   if (normalized.includes('bbva')) { brand = 'bbva'; }
   else if (normalized.includes('sepa')) { brand = 'sepa'; }
   else if (normalized.includes('ziraat') || normalized.includes('zirrat')) { brand = 'ziraat'; }
@@ -141,17 +114,13 @@ export function PaymentMethodLogo({
       ? `${basePath}/payment-methods/ziraat-bank-logo.jpg`
       : null;
   const bundledFallback = brand === 'sepa' || brand === 'ziraat' ? bundledUrl : officialLogoUrl;
-  const sourceKey = [
-    // The current BBVA catalog upload is an opaque square; never fall back to
-    // that artwork when the transparent bundled logo cannot load.
+  // BBVA's catalog upload is an opaque square. Use its verified transparent,
+  // theme-specific artwork instead; all other methods keep the API upload first.
+  const imageSources = Array.from(new Set([
     ...(brand === 'bbva' ? [isDark ? bbvaWhiteLogoUrl : bbvaTransparentLogoUrl] : [logoUrl]),
     ...(preferBrandIcon ? [brandfetchUrl, bundledFallback] : [bundledFallback, brandfetchUrl]),
     fallbackRemoteUrl,
-  ].filter(Boolean).join('\0');
-  const imageSources = useMemo(() => Array.from(new Set(sourceKey.split('\0').filter(Boolean))), [sourceKey]);
-  const logoType = /\b(?:bank|bbva|n26|bunq|commerzbank|caixabank|ziraat|zirrat|icard|bnp|ing)\b/iu.test(name)
-    ? 'bank'
-    : 'payment';
+  ].filter((source): source is string => Boolean(source))));
 
   if (!logo) {
     logo = name.trim().slice(0, 1).toUpperCase() || '¤';
@@ -162,15 +131,12 @@ export function PaymentMethodLogo({
       className={cn('payment-method-logo-stack', Boolean(badgeCode) && 'payment-method-logo-stack-badged', className)}
       aria-hidden="true"
     >
-      <LogoAvatar
+      <PaymentLogo
         sources={imageSources}
         fallback={logo}
-        type={logoType}
+        alt=""
         priority={priority}
-        brand={brand}
-        logoScale={visualProfile?.logoScale}
-        size="responsive"
-        className="payment-method-logo"
+        size="100%"
       />
       {badgeCode && <FiatCurrencyFlag code={badgeCode} flagUrl={flagUrl} variant={badgeVariant} size="sm" />}
     </span>

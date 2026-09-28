@@ -240,6 +240,7 @@ import {
 } from "../lib/manual-desk-rates";
 import {
   applyManualSwapFees,
+  assertManualSwapFeeConfigurationMatches,
   validateManualSwapAddonSelection,
 } from "../lib/manual-swap-fees";
 import { buildAdminSummaryAnalytics } from "../lib/admin-summary";
@@ -1176,6 +1177,8 @@ async function buildQuoteTicket(
       name: addon.name,
       fixedAmount: addon.fixedAmount,
       feeCurrency: addon.feeCurrency,
+      selectionRule: addon.selectionRule,
+      selectionGroup: addon.presentation.group.trim().toLowerCase() || "default",
     })),
     config: additionalFeeConfig,
     references: pricedEstimate.exact.additionalReferences,
@@ -1832,23 +1835,26 @@ router.get("/admin/manual-swap-fee-config", requirePermission("pricing.view"), a
 router.put("/admin/manual-swap-fee-config", requirePermission("pricing.manage"), async (req, res, next) => {
   try {
     const input = UpdateManualSwapFeeConfigBody.parse(req.body);
-    const [row] = await db.insert(manualSwapFeeConfigTable).values({
-      id: "default",
-      enabled: input.enabled,
-      percentage: input.percentage ?? null,
-      fixedAmount: input.fixedAmount ?? null,
-      fixedCurrency: input.fixedCurrency.toUpperCase(),
-      updatedAt: new Date(),
-    }).onConflictDoUpdate({
-      target: manualSwapFeeConfigTable.id,
-      set: {
+    const [row] = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('manual-swap-fee-config'))`);
+      return tx.insert(manualSwapFeeConfigTable).values({
+        id: "default",
         enabled: input.enabled,
         percentage: input.percentage ?? null,
         fixedAmount: input.fixedAmount ?? null,
         fixedCurrency: input.fixedCurrency.toUpperCase(),
         updatedAt: new Date(),
-      },
-    }).returning();
+      }).onConflictDoUpdate({
+        target: manualSwapFeeConfigTable.id,
+        set: {
+          enabled: input.enabled,
+          percentage: input.percentage ?? null,
+          fixedAmount: input.fixedAmount ?? null,
+          fixedCurrency: input.fixedCurrency.toUpperCase(),
+          updatedAt: new Date(),
+        },
+      }).returning();
+    });
     const result = UpdateManualSwapFeeConfigResponse.parse({
       enabled: row.enabled,
       percentage: row.percentage,
@@ -3116,6 +3122,35 @@ async function createOrderFromInput(
     const [existing] = await tx.select().from(ordersTable)
       .where(eq(ordersTable.clientRequestId, input.clientRequestId)).limit(1);
     if (existing) return undefined;
+    // Lock the signed fee inputs through insertion so an Admin change cannot
+    // race the comparison and authorize an obsolete add-on charge.
+    if (quote.type === "manual" && quote.manualSwapFees) {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('manual-swap-fee-config'))`);
+      const selectedAddOnKeys = quote.selectedAddOnKeys ?? [];
+      const catalog = selectedAddOnKeys.length
+        ? await tx.select().from(manualSwapAddonsTable)
+            .where(inArray(manualSwapAddonsTable.key, selectedAddOnKeys))
+            .orderBy(asc(manualSwapAddonsTable.key))
+            .for("update")
+        : [];
+      const [feeConfigRow] = await tx.select().from(manualSwapFeeConfigTable)
+        .where(eq(manualSwapFeeConfigTable.id, "default"))
+        .for("update")
+        .limit(1);
+      assertManualSwapFeeConfigurationMatches({
+        snapshot: quote.manualSwapFees,
+        selectedAddOnKeys,
+        catalog,
+        config: feeConfigRow
+          ? {
+              enabled: feeConfigRow.enabled,
+              percentage: feeConfigRow.percentage,
+              fixedAmount: feeConfigRow.fixedAmount,
+              fixedCurrency: feeConfigRow.fixedCurrency,
+            }
+          : { enabled: false, percentage: null, fixedAmount: null, fixedCurrency: "USD" },
+      });
+    }
     if (sourceSnapshot?.kind === "crypto-network") {
       const sourceRouteId = signedCryptoRouteId(sourceSnapshot);
       if (providerFundingCandidate) {

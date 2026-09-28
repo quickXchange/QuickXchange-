@@ -2,6 +2,7 @@
 @import 'tailwindcss';
 @import '@clerk/themes/shadcn.css';
 @import 'tw-animate-css';
+@import '@workspace/payment-logo/styles.css';
 
 @keyframes popular-pairs-scroll-left {
   from { transform: translate3d(0, 0, 0); }
@@ -58,7 +59,6 @@
   border-radius: 9999px !important;
 }
 
-.popular-swap-pair-payment-logo > .payment-method-logo,
 .popular-swap-pair-crypto-logo {
   width: 40px !important;
   height: 40px !important;
@@ -67,11 +67,6 @@
   max-width: 40px !important;
   max-height: 40px !important;
   border-radius: 50% !important;
-}
-
-.popular-swap-pair-payment-logo > .payment-method-logo > .logo-avatar-img {
-  padding: 0 !important;
-  object-fit: contain !important;
 }
 
 @media (max-width: 640px) {
@@ -3126,14 +3121,7 @@ html.dark .cl-modalContent .cl-cardBox {
     @apply text-muted-foreground font-mono text-[10px] font-bold;
   }
 
-  .payment-method-logo {
-    @apply w-11 h-11 rounded-full inline-grid place-items-center flex-none overflow-hidden bg-transparent text-primary border-0 shadow-none;
-    border-radius: 50% !important;
-  }
-  .payment-method-logo svg {
-    @apply w-7 h-7;
-  }
-  .payment-method-logo-image img, .crypto-logo img, .logo-avatar-img {
+  .crypto-logo img, .logo-avatar-img {
     @apply w-full h-full;
     object-fit: contain !important;
     border-radius: 50% !important;
@@ -3146,19 +3134,6 @@ html.dark .cl-modalContent .cl-cardBox {
     border-radius: 50% !important;
     background: transparent !important;
   }
-  .payment-method-logo[data-brand="wise"] { background: transparent; }
-  .payment-method-logo[data-brand="revolut"] { background: transparent; }
-  .payment-method-logo[data-brand="paypal"] { background: transparent; }
-  .payment-method-logo[data-brand="zelle"] { background: transparent; }
-  .payment-method-logo[data-brand="cashapp"] { background: transparent; }
-  .payment-method-logo[data-brand="venmo"] { background: transparent; }
-  .payment-method-logo[data-brand="visa"] { background: transparent; }
-  .payment-method-logo[data-brand="mastercard"] { background: transparent; }
-  .payment-method-logo[data-brand="alipay"] { background: transparent; }
-  .payment-method-logo[data-brand="pix"] { background: transparent; }
-  .payment-method-logo[data-brand="n26"] { background: transparent; }
-  .payment-method-logo[data-brand="sepa"] { background: transparent; border-color: transparent; }
-  .payment-method-logo-image[data-brand="sepa"] img { @apply w-6 h-auto; }
   .payment-method-logo-stack {
     @apply relative inline-flex w-12 h-12 flex-none items-center justify-center overflow-visible align-middle;
     isolation: isolate;
@@ -20640,7 +20615,7 @@ html:not(.dark) .public-shell .exchange-card.swap-widget-flow .swap-contained-se
 .public-shell .exchange-card.swap-widget-step-2 .swap-step2-progress-track {
   display: grid;
   width: 64px;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 4px;
 }
 
@@ -20823,6 +20798,28 @@ html:not(.dark) .public-shell .exchange-card.swap-widget-flow .swap-contained-se
 .public-shell .exchange-card.swap-widget-step-2 .swap-step2-equation > span:first-child {
   color: hsl(var(--foreground));
   font-weight: 800;
+}
+
+.public-shell .exchange-card.swap-widget-step-2 .swap-step2-summary-rate {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 7px 10px;
+  border: 1px solid hsl(var(--primary) / 0.18);
+  border-radius: 9px;
+  background: hsl(var(--primary) / 0.045);
+  color: hsl(var(--muted-foreground));
+  font-size: 10px;
+}
+
+.public-shell .exchange-card.swap-widget-step-2 .swap-step2-summary-rate strong {
+  min-width: 0;
+  color: hsl(var(--foreground));
+  text-align: right;
+  overflow-wrap: anywhere;
 }
 
 .public-shell .exchange-card.swap-widget-step-2 .swap-step2-rate-row {
@@ -24178,6 +24175,47 @@ html .public-shell .public-landing-page :is(
   min-height: var(--exchange-shell-height) !important;
   max-height: var(--exchange-shell-height) !important;
   overflow: hidden !important;
+}
+
+/* Swap Step 1 keeps the shared shell fixed while its quote content grows. Let
+   only the quote details scroll; the Continue action stays docked and hit-testable. */
+.public-shell .exchange-card.redesigned-widget.swap-widget-flow.swap-widget-step-1 {
+  display: flex !important;
+  flex-direction: column;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 > .reference-header,
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 > .notice,
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 > .inline-notice {
+  flex: 0 0 auto;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 > .swap-quote-step {
+  display: flex !important;
+  flex: 1 1 0% !important;
+  flex-direction: column;
+  width: 100%;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: hidden !important;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-quote-scroll-region {
+  flex: 1 1 0%;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-quote-step .exchange-submit-wrap {
+  flex: 0 0 auto;
+  padding-top: 12px;
 }
 
 .public-shell .exchange-card.redesigned-widget:is(.swap-widget-step-2, .convert-widget-step-2) {

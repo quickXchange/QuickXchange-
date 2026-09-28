@@ -85,6 +85,17 @@ let credentialActivations = 0;
 let originalFallbackRule: import("@workspace/db").ManualDeskPricingRule | undefined;
 const fallbackRuleId = "00000000-0000-4000-8000-000000000035";
 const privilegedTestPool = createPrivilegedTestPool();
+const isDisposableApiTestDatabase = (() => {
+  try {
+    const databaseName = new URL(process.env.DATABASE_URL ?? "").pathname.slice(1);
+    return process.env.API_TEST_DISPOSABLE_DATABASE === "1" &&
+      process.env.NODE_ENV === "test" &&
+      /^api_test_[a-f0-9]{16}$/.test(databaseName) &&
+      !process.env.REPLIT_DEPLOYMENT;
+  } catch {
+    return false;
+  }
+})();
 
 async function deleteOrderAuditLogsForMaintenance(orderId: string) {
   const client = await privilegedTestPool.connect();
@@ -6073,6 +6084,312 @@ test("manual order submission rejects a fiat route disabled after quoting", asyn
       .set({ enabled: true })
       .where(eq(fiatCurrenciesTable.code, "EUR"));
     manualDeskRates.invalidateManualDeskFiatRateCache();
+    await api.close();
+  }
+});
+
+test("Manual Swap add-on quote configuration is enforced at order creation and replay stays idempotent", {
+  skip: !isDisposableApiTestDatabase,
+}, async () => {
+  reset();
+  const {
+    customersTable,
+    db,
+    manualDeskPricingRulesTable,
+    manualSwapAddonsTable,
+    manualSwapFeeConfigTable,
+    operatorsTable,
+    ordersTable,
+  } = await import("@workspace/db");
+  const operatorAuth = await import("../src/lib/operator-auth");
+  const suffix = randomUUID();
+  const userId = `user_addon_quote_${suffix}`;
+  const [operator] = await db.insert(operatorsTable).values({
+    email: `addon-quote-${suffix}@example.test`,
+    clerkUserId: userId,
+    role: "operator",
+    status: "active",
+    permissionAllows: ["pricing.view", "pricing.manage"],
+  }).returning();
+  operatorAuth.configureOperatorAuthorizationForTests({
+    getUserId: req => req.get("x-test-clerk-user-id") ?? null,
+    getVerifiedEmail: () => null,
+  });
+  const api = await startApi();
+  const headers = { "x-test-clerk-user-id": userId };
+  const restoreFiat = await enableFiatOptionsForTest(row =>
+    row.currency.code === "EUR" || row.currency.code === "USD");
+  const [originalFeeConfig] = await db.select().from(manualSwapFeeConfigTable)
+    .where(eq(manualSwapFeeConfigTable.id, "default")).limit(1);
+  const email = `addon-customer-${suffix}@example.test`;
+  const orderIds: string[] = [];
+  let addonId: string | undefined;
+  let ruleId: string | undefined;
+  try {
+    const config = await (await fetch(`${api.url}/exchange/config`)).json() as {
+      manualSettlementOptions: Array<{
+        id: string; assetCode: string; routeNetwork: string; direction: string;
+      }>;
+    };
+    const source = config.manualSettlementOptions.find(option =>
+      option.assetCode === "EUR" && option.routeNetwork === "SEPA" &&
+      ["send", "both"].includes(option.direction));
+    const target = config.manualSettlementOptions.find(option =>
+      option.assetCode === "USD" && option.routeNetwork === "Bank transfer" &&
+      ["receive", "both"].includes(option.direction));
+    assert.ok(source && target);
+    ruleId = await createExactPathRule({
+      sourceAsset: "EUR",
+      targetAsset: "USD",
+      sourceNetwork: "SEPA",
+      targetNetwork: "Bank transfer",
+      sourceSettlementOptionId: source.id,
+      targetSettlementOptionId: target.id,
+      exactRate: "1",
+    });
+
+    const createdAddon = await apiJson(api.url, "/admin/manual-swap-addons", {
+      key: `test_${suffix.replaceAll("-", "").slice(0, 32)}`,
+      name: "Order integration add-on",
+      description: "",
+      fixedAmount: "3",
+      feeCurrency: "USD",
+      enabled: true,
+      selectionRule: "multiple",
+      displayOrder: 0,
+      presentation: { group: "test-group" },
+    }, "POST", headers);
+    assert.equal(createdAddon.status, 201, JSON.stringify(createdAddon.body));
+    addonId = String(createdAddon.body.id);
+    const addonKey = String(createdAddon.body.key);
+
+    const savedFeeConfig = await apiJson(api.url, "/admin/manual-swap-fee-config", {
+      enabled: true,
+      percentage: "1",
+      fixedAmount: "2",
+      fixedCurrency: "USD",
+    }, "PUT", headers);
+    assert.equal(savedFeeConfig.status, 200, JSON.stringify(savedFeeConfig.body));
+
+    const quoteInput = {
+      type: "manual",
+      fromAsset: "EUR",
+      fromNetwork: "SEPA",
+      toAsset: "USD",
+      toNetwork: "Bank transfer",
+      amount: 100,
+      sourceSettlementOptionId: source.id,
+      targetSettlementOptionId: target.id,
+      selectedAddOnKeys: [addonKey],
+    };
+    const quote = async () => {
+      const response = await apiJson(api.url, "/exchange/quote", quoteInput);
+      assert.equal(response.status, 200, JSON.stringify(response.body));
+      return response.body;
+    };
+    const settlementDetailsFor = (value: Record<string, unknown>) => Object.fromEntries(
+      ((value.requiredSettlementFields ?? []) as Array<{
+        key: string; type?: string; pattern?: string; min?: number; max?: number;
+      }>).map(field => [
+        field.key,
+        field.type === "email" ? email :
+          field.type === "account-iban" ? "DE89370400440532013000" :
+            field.type === "routing-number" ? "1234567890" :
+              field.type === "bank-code" ? "DEUTDEFF" :
+                field.type === "account-number" ? "12345678" :
+                  field.type === "phone" ? "+15555550100" : "Addon integration",
+      ]),
+    );
+    const createPayload = (ticket: Record<string, unknown>, requestId: string) => ({
+      ...quoteInput,
+      quoteId: ticket.quoteId,
+      clientRequestId: requestId,
+      customerEmail: email,
+      customerName: "Addon integration",
+      settlementDetails: settlementDetailsFor(ticket),
+    });
+    const updateAddon = async (overrides: Record<string, unknown>) => {
+      const response = await apiJson(api.url, `/admin/manual-swap-addons/${addonId}`, {
+        key: addonKey,
+        name: "Order integration add-on",
+        description: "",
+        fixedAmount: "3",
+        feeCurrency: "USD",
+        enabled: true,
+        selectionRule: "multiple",
+        displayOrder: 0,
+        presentation: { group: "test-group" },
+        ...overrides,
+      }, "PATCH", headers);
+      assert.equal(response.status, 200, JSON.stringify(response.body));
+    };
+
+    const disabledTicket = await quote();
+    await updateAddon({ enabled: false });
+    const disabledRequestId = randomUUID();
+    const disabledCreate = await apiJson(
+      api.url,
+      "/exchange/orders",
+      createPayload(disabledTicket, disabledRequestId),
+    );
+    assert.equal(disabledCreate.status, 409, JSON.stringify(disabledCreate.body));
+    assert.equal(disabledCreate.body.code, "MANUAL_QUOTE_CONFIGURATION_CHANGED");
+    assert.deepEqual(await db.select({ id: ordersTable.id }).from(ordersTable)
+      .where(eq(ordersTable.clientRequestId, disabledRequestId)), []);
+
+    await updateAddon({ enabled: true });
+    const repricedTicket = await quote();
+    await updateAddon({ fixedAmount: "4" });
+    const repricedRequestId = randomUUID();
+    const repricedCreate = await apiJson(
+      api.url,
+      "/exchange/orders",
+      createPayload(repricedTicket, repricedRequestId),
+    );
+    assert.equal(repricedCreate.status, 409, JSON.stringify(repricedCreate.body));
+    assert.equal(repricedCreate.body.code, "MANUAL_QUOTE_CONFIGURATION_CHANGED");
+    assert.deepEqual(await db.select({ id: ordersTable.id }).from(ordersTable)
+      .where(eq(ordersTable.clientRequestId, repricedRequestId)), []);
+
+    await updateAddon({ fixedAmount: "3" });
+    const currentTicket = await quote();
+    const currentRequestId = randomUUID();
+    const currentPayload = createPayload(currentTicket, currentRequestId);
+    const currentCreate = await apiJson(api.url, "/exchange/orders", currentPayload);
+    assert.equal(currentCreate.status, 201, JSON.stringify(currentCreate.body));
+    const orderId = String(currentCreate.body.id);
+    orderIds.push(orderId);
+    const [stored] = await db.select().from(ordersTable)
+      .where(eq(ordersTable.id, orderId)).limit(1);
+    assert.ok(stored);
+    const storedSnapshot = stored.pricingSnapshot as {
+      manualSwapFees?: {
+        selectedAddons?: Array<{ id: string; key: string; amount: string; currency: string }>;
+        totalFees?: string;
+      };
+    };
+    assert.deepEqual(
+      storedSnapshot.manualSwapFees,
+      currentTicket.manualSwapFees,
+    );
+    assert.deepEqual(
+      storedSnapshot.manualSwapFees?.selectedAddons?.map(item => item.key),
+      currentTicket.selectedAddOnKeys,
+    );
+    assert.deepEqual(storedSnapshot.manualSwapFees?.selectedAddons?.map(item => ({
+      id: item.id, key: item.key, currency: item.currency,
+    })), [{
+      id: addonId,
+      key: addonKey,
+      currency: "USD",
+    }]);
+    assertDecimalEqual(storedSnapshot.manualSwapFees?.selectedAddons?.[0]?.amount, "3");
+    assertDecimalEqual(stored.receiveAmount, String(currentTicket.receiveAmount));
+    assertDecimalEqual(stored.totalCommission, String(currentTicket.fee));
+    assert.ok(storedSnapshot.manualSwapFees?.totalFees);
+
+    await updateAddon({ enabled: false });
+    const replay = await apiJson(api.url, "/exchange/orders", currentPayload);
+    assert.equal(replay.status, 200, JSON.stringify(replay.body));
+    assert.equal(replay.body.id, orderId);
+
+    const zeroAddonQuoteInput = { ...quoteInput, selectedAddOnKeys: [] };
+    const zeroAddonQuoteResponse = await apiJson(
+      api.url,
+      "/exchange/quote",
+      zeroAddonQuoteInput,
+    );
+    assert.equal(zeroAddonQuoteResponse.status, 200, JSON.stringify(zeroAddonQuoteResponse.body));
+    const zeroAddonTicket = zeroAddonQuoteResponse.body;
+    const changedFeeConfig = await apiJson(api.url, "/admin/manual-swap-fee-config", {
+      enabled: true,
+      percentage: "2",
+      fixedAmount: "2",
+      fixedCurrency: "USD",
+    }, "PUT", headers);
+    assert.equal(changedFeeConfig.status, 200, JSON.stringify(changedFeeConfig.body));
+    const zeroAddonRequestId = randomUUID();
+    const staleZeroAddonCreate = await apiJson(api.url, "/exchange/orders", {
+      ...createPayload(zeroAddonTicket, zeroAddonRequestId),
+      selectedAddOnKeys: [],
+    });
+    assert.equal(staleZeroAddonCreate.status, 409, JSON.stringify(staleZeroAddonCreate.body));
+    assert.equal(staleZeroAddonCreate.body.code, "MANUAL_QUOTE_CONFIGURATION_CHANGED");
+    assert.deepEqual(await db.select({ id: ordersTable.id }).from(ordersTable)
+      .where(eq(ordersTable.clientRequestId, zeroAddonRequestId)), []);
+
+    const restoredFeeConfig = await apiJson(api.url, "/admin/manual-swap-fee-config", {
+      enabled: true,
+      percentage: "1",
+      fixedAmount: "2",
+      fixedCurrency: "USD",
+    }, "PUT", headers);
+    assert.equal(restoredFeeConfig.status, 200, JSON.stringify(restoredFeeConfig.body));
+    const unchangedZeroAddonQuoteResponse = await apiJson(
+      api.url,
+      "/exchange/quote",
+      zeroAddonQuoteInput,
+    );
+    assert.equal(
+      unchangedZeroAddonQuoteResponse.status,
+      200,
+      JSON.stringify(unchangedZeroAddonQuoteResponse.body),
+    );
+    const unchangedZeroAddonTicket = unchangedZeroAddonQuoteResponse.body;
+    const zeroAddonSnapshot = unchangedZeroAddonTicket.manualSwapFees as {
+      selectedAddons: unknown[];
+      addonFee: string;
+      exchangeFee: { totalAmount: string };
+    };
+    assert.deepEqual(zeroAddonSnapshot.selectedAddons, []);
+    assert.equal(zeroAddonSnapshot.addonFee, "0");
+    const zeroAddonCreateRequestId = randomUUID();
+    const unchangedZeroAddonCreate = await apiJson(api.url, "/exchange/orders", {
+      ...createPayload(unchangedZeroAddonTicket, zeroAddonCreateRequestId),
+      selectedAddOnKeys: [],
+    });
+    assert.equal(
+      unchangedZeroAddonCreate.status,
+      201,
+      JSON.stringify(unchangedZeroAddonCreate.body),
+    );
+    const zeroAddonOrderId = String(unchangedZeroAddonCreate.body.id);
+    orderIds.push(zeroAddonOrderId);
+    const [storedZeroAddonOrder] = await db.select().from(ordersTable)
+      .where(eq(ordersTable.id, zeroAddonOrderId)).limit(1);
+    assert.ok(storedZeroAddonOrder);
+    const storedZeroAddonSnapshot = storedZeroAddonOrder.pricingSnapshot as {
+      manualSwapFees?: {
+        selectedAddons?: unknown[];
+        addonFee?: string;
+        exchangeFee?: { totalAmount?: string };
+      };
+    };
+    assert.deepEqual(storedZeroAddonSnapshot.manualSwapFees?.selectedAddons, []);
+    assert.equal(storedZeroAddonSnapshot.manualSwapFees?.addonFee, "0");
+    assert.equal(
+      storedZeroAddonSnapshot.manualSwapFees?.exchangeFee?.totalAmount,
+      zeroAddonSnapshot.exchangeFee.totalAmount,
+    );
+    assertDecimalEqual(
+      storedZeroAddonOrder.totalCommission,
+      String(unchangedZeroAddonTicket.fee),
+    );
+  } finally {
+    if (orderIds.length) await db.delete(ordersTable).where(inArray(ordersTable.id, orderIds));
+    await db.delete(customersTable).where(eq(customersTable.email, email));
+    if (addonId) await db.delete(manualSwapAddonsTable).where(eq(manualSwapAddonsTable.id, addonId));
+    if (ruleId) await db.delete(manualDeskPricingRulesTable).where(eq(manualDeskPricingRulesTable.id, ruleId));
+    if (originalFeeConfig) {
+      const { id: _id, ...values } = originalFeeConfig;
+      await db.update(manualSwapFeeConfigTable).set(values)
+        .where(eq(manualSwapFeeConfigTable.id, "default"));
+    } else {
+      await db.delete(manualSwapFeeConfigTable)
+        .where(eq(manualSwapFeeConfigTable.id, "default"));
+    }
+    await db.delete(operatorsTable).where(eq(operatorsTable.id, operator.id));
+    await restoreFiat();
     await api.close();
   }
 });

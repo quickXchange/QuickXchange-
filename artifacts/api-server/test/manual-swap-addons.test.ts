@@ -8,6 +8,7 @@ import {
 } from "@workspace/api-zod";
 import {
   applyManualSwapFees,
+  assertManualSwapFeeConfigurationMatches,
   validateManualSwapAddonSelection,
   verifyManualSwapFeeSnapshot,
 } from "../src/lib/manual-swap-fees";
@@ -302,6 +303,112 @@ test("fees convert fixed amounts exactly, deduct only from receive, and snapshot
     targetCurrency: "USD",
     targetPrecision: 2,
   }), undefined);
+});
+
+test("Manual Swap order configuration validation rejects stale selected add-ons and fee settings", () => {
+  const config = {
+    enabled: true,
+    percentage: "2",
+    fixedAmount: "0.25",
+    fixedCurrency: "USD",
+  };
+  const snapshot = applyManualSwapFees({
+    grossAmount: "100",
+    legacyReceiveAmount: "95",
+    legacyTotalFee: "5",
+    amount: 10,
+    targetCurrency: "USD",
+    targetPrecision: 2,
+    addons: [{
+      id: addon.id,
+      key: addon.key,
+      name: addon.name,
+      fixedAmount: addon.fixedAmount,
+      feeCurrency: addon.feeCurrency,
+      selectionRule: addon.selectionRule,
+      selectionGroup: "default",
+    }],
+    config,
+    references: [
+      { currency: "EUR", unitsPerUsd: "2", provider: "manual", source: "test",
+        observedAt: "2026-01-01T00:00:00.000Z", timestampKind: "fetchedAt" },
+      { currency: "USD", unitsPerUsd: "1", provider: "USD identity", source: "identity",
+        observedAt: "2026-01-01T00:00:00.000Z", timestampKind: "fetchedAt" },
+    ],
+  }).feeSnapshot;
+  const validate = (
+    currentAddon = addon,
+    currentConfig = config,
+  ) => assertManualSwapFeeConfigurationMatches({
+    snapshot,
+    selectedAddOnKeys: ["priority"],
+    catalog: [currentAddon],
+    config: currentConfig,
+  });
+
+  assert.doesNotThrow(() => validate());
+  assert.throws(() => validate({ ...addon, enabled: false }), {
+    code: "MANUAL_QUOTE_CONFIGURATION_CHANGED",
+    status: 409,
+  });
+  assert.throws(() => validate({ ...addon, deletedAt: new Date() }), {
+    code: "MANUAL_QUOTE_CONFIGURATION_CHANGED",
+    status: 409,
+  });
+  assert.throws(() => assertManualSwapFeeConfigurationMatches({
+    snapshot,
+    selectedAddOnKeys: ["priority"],
+    catalog: [],
+    config,
+  }), {
+    code: "MANUAL_QUOTE_CONFIGURATION_CHANGED",
+    status: 409,
+  });
+  assert.throws(() => validate({ ...addon, fixedAmount: "1.01" }), {
+    code: "MANUAL_QUOTE_CONFIGURATION_CHANGED",
+    status: 409,
+  });
+  assert.throws(() => validate({ ...addon, feeCurrency: "USD" }), {
+    code: "MANUAL_QUOTE_CONFIGURATION_CHANGED",
+    status: 409,
+  });
+  assert.throws(() => validate({
+    ...addon,
+    id: "9ca90db0-5d87-4f17-96c2-5102720b936f",
+  }), {
+    code: "MANUAL_QUOTE_CONFIGURATION_CHANGED",
+    status: 409,
+  });
+  assert.throws(() => validate({
+    ...addon,
+    selectionRule: "one",
+    presentation: { group: "expedited", displayOrder: 10 },
+  }), {
+    code: "MANUAL_QUOTE_CONFIGURATION_CHANGED",
+    status: 409,
+  });
+  assert.throws(() => validate(addon, { ...config, fixedAmount: "0.5" }), {
+    code: "MANUAL_QUOTE_CONFIGURATION_CHANGED",
+    status: 409,
+  });
+
+  const emptySnapshot = applyManualSwapFees({
+    grossAmount: "100",
+    legacyReceiveAmount: "95",
+    legacyTotalFee: "5",
+    amount: 10,
+    targetCurrency: "USD",
+    targetPrecision: 2,
+    addons: [],
+    config: { enabled: false, percentage: null, fixedAmount: null, fixedCurrency: "USD" },
+    references: [],
+  }).feeSnapshot;
+  assert.doesNotThrow(() => assertManualSwapFeeConfigurationMatches({
+    snapshot: emptySnapshot,
+    selectedAddOnKeys: [],
+    catalog: [],
+    config: { enabled: false, percentage: null, fixedAmount: null, fixedCurrency: "USD" },
+  }));
 });
 
 test("30-place repeating final rates remain representable with fees off and on", () => {

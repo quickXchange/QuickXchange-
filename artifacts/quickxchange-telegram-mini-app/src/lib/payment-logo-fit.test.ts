@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { fitKnownPaymentMark, fitVisibleArtwork } from './payment-logo-fit';
+import { fitVisibleArtwork } from './payment-logo-fit';
 
 function imageWithArtwork(left: number, top: number, right: number, bottom: number) {
   const size = 96;
@@ -86,19 +86,4 @@ test('solid-background icons with off-center content fit their mark without dist
   assert.ok(fit.y > 0);
   assert.ok(.5 + fit.x / 100 + (18 / 96 - .5) * fit.scale > .03);
   assert.ok(.5 + fit.y / 100 + (73 / 96 - .5) * fit.scale < .97);
-});
-
-test('only the four identified payment marks gain a bounded optical zoom', () => {
-  const ordinary = { scale: .92, x: 0, y: 0, artworkAspect: 1 };
-  for (const domain of ['ing.com', 'wise.com', 'n26.com', 'bunq.com']) {
-    const fit = fitKnownPaymentMark(ordinary, [`https://www.google.com/s2/favicons?domain_url=https%3A%2F%2F${domain}&sz=256`]);
-    assert.ok(fit.scale > ordinary.scale && fit.scale <= 1.26, domain);
-    assert.equal(fit.x, 0);
-    assert.equal(fit.y, 0);
-  }
-  assert.strictEqual(fitKnownPaymentMark(ordinary, ['https://icons.duckduckgo.com/ip3/revolut.com.ico']), ordinary);
-  assert.strictEqual(fitKnownPaymentMark(ordinary, ['https://icons.duckduckgo.com/ip3/notwise.com.ico']), ordinary);
-  assert.strictEqual(fitKnownPaymentMark({ ...ordinary, scale: 1.8 }, ['https://icons.duckduckgo.com/ip3/wise.com.ico']).scale, 1.8);
-  const shifted = fitKnownPaymentMark({ ...ordinary, x: 2, y: -3 }, ['https://icons.duckduckgo.com/ip3/n26.com.ico']);
-  assert.ok(shifted.x > 2 && shifted.y < -3, 'centering offset grows with the artwork');
 });

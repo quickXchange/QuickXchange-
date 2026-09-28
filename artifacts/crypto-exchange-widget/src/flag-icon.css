@@ -70,20 +70,6 @@ html.dark .logo-avatar {
   image-rendering: auto;
 }
 
-/* Payment artwork owns its pixels. Keep only the circular edge on the wrapper;
- * transparent uploads must show the surface behind the avatar, never a mat. */
-.logo-avatar-payment,
-.logo-avatar-bank {
-  background-color: transparent !important;
-  border: 1px solid rgba(0, 0, 0, 0.08) !important;
-}
-
-html.dark .logo-avatar-payment,
-html.dark .logo-avatar-bank {
-  background-color: transparent !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-}
-
 /* Fit Profiles */
 .logo-avatar-fit-cover > .logo-avatar-img {
   object-fit: cover !important;
@@ -143,13 +129,6 @@ html.dark .logo-avatar-bank {
   text-transform: uppercase;
 }
 
-.logo-avatar-payment .logo-avatar-fallback,
-.logo-avatar-bank .logo-avatar-fallback {
-  color: hsl(var(--foreground));
-  font-size: 0.58em;
-  font-weight: 850;
-}
-
 .logo-avatar-crypto .logo-avatar-fallback {
   color: hsl(var(--foreground));
 }
@@ -167,24 +146,6 @@ html.dark .logo-avatar-bank {
   overflow: visible !important;
   isolation: isolate;
   background: transparent !important;
-}
-
-/* Payment and bank artwork always renders through a circular 1:1 viewport.
- * Keep the stack overflow visible so currency badges and existing glows retain
- * their current geometry. */
-.payment-method-logo-stack > .payment-method-logo.logo-avatar {
-  aspect-ratio: 1 / 1 !important;
-  border-radius: 50% !important;
-  overflow: hidden !important;
-}
-
-.payment-method-logo-stack > .payment-method-logo.logo-avatar > .logo-avatar-img {
-  width: 100% !important;
-  height: 100% !important;
-  aspect-ratio: 1 / 1 !important;
-  border-radius: 50% !important;
-  object-fit: contain !important;
-  object-position: center !important;
 }
 
 .payment-method-logo-stack-badged > .fiat-currency-flag,

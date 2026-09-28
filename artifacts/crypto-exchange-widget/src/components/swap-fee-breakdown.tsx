@@ -14,10 +14,13 @@ export function SwapFeeBreakdown({ fees, currency, receiveAmount, illustrative =
   if (!fees) return null;
   return <section className="rounded-2xl border border-border bg-card/70 p-4 text-sm space-y-2" aria-label={illustrative ? 'Illustrative swap fee breakdown' : 'Swap fee breakdown'} data-testid="swap-fee-breakdown">
     <div className="font-bold text-foreground">{illustrative ? 'Illustrative fee breakdown' : 'Your quote, itemized'}</div>
-    {fees.selectedAddons.map(item => <div key={item.key} className="flex justify-between gap-4 text-muted-foreground" data-testid={`fee-addon-${item.key}`}>
-      <span>{item.name} <small>({trimFeeDecimal(item.amount)} {item.currency})</small></span>
-      <span className="font-mono whitespace-nowrap">{trimFeeDecimal(item.targetAmount)} {currency}</span>
-    </div>)}
+    <div className="font-semibold text-foreground">Selected add-ons · Add-on fees</div>
+    {fees.selectedAddons.length
+      ? fees.selectedAddons.map(item => <div key={item.key} className="flex justify-between gap-4 text-muted-foreground" data-testid={`fee-addon-${item.key}`}>
+          <span>{item.name} <small>({trimFeeDecimal(item.amount)} {item.currency})</small></span>
+          <span className="font-mono whitespace-nowrap">{trimFeeDecimal(item.targetAmount)} {currency}</span>
+        </div>)
+      : <div className="text-muted-foreground" data-testid="fee-addons-none">No add-ons selected</div>}
     {(fees.exchangeFee.enabled || illustrative) && <div className="flex justify-between gap-4 text-muted-foreground" data-testid="fee-exchange">
       <span>Exchange fee{fees.exchangeFee.percentage ? ` (${trimFeeDecimal(fees.exchangeFee.percentage)}%)` : ''}{fees.exchangeFee.fixedAmount ? ` + ${trimFeeDecimal(fees.exchangeFee.fixedAmount)} ${fees.exchangeFee.fixedCurrency}` : ''}</span>
       <span className="font-mono whitespace-nowrap">{trimFeeDecimal(fees.exchangeFee.totalAmount)} {currency}</span>

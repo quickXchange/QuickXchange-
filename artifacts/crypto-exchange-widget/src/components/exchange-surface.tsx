@@ -766,7 +766,9 @@ export function ManualSwapWidget({
   const addons = useListPublicManualSwapAddons({ query: { queryKey: getListPublicManualSwapAddonsQueryKey(), staleTime: 30_000 } });
   const [selectedAddOnKeys, setSelectedAddOnKeys] = useState<string[]>([]);
   const availableAddons = addons.data?.items || [];
-  const selectedKeys = selectedAddOnKeys.filter(key => availableAddons.some(item => item.key === key && item.enabled)).sort();
+  const selectedKeys = selectedAddOnKeys.filter(key => availableAddons.some(item =>
+    item.key === key && item.enabled && item.selectionRule !== 'none'
+  )).sort();
   const selectedKeysSignature = JSON.stringify(selectedKeys);
   const toggleAddon = (key: string) => {
     const item = availableAddons.find(option => option.key === key);
@@ -1136,6 +1138,7 @@ export function ManualSwapWidget({
   const canContinue = Boolean(
     quoteReady &&
     currentQuote &&
+    currentQuote.manualSwapFees &&
     fromOption &&
     toOption &&
     fromOption.id !== toOption.id &&
@@ -1193,6 +1196,12 @@ export function ManualSwapWidget({
       setNotice({
         kind: 'error',
         text: t('public.waitEstimateSubmit'),
+      }); return;
+    }
+    if (!currentQuote.manualSwapFees) {
+      setNotice({
+        kind: 'error',
+        text: 'The server did not provide an itemized fee breakdown for this quote. Refresh the quote before placing an order.',
       }); return;
     }
     if (currentQuote.expiresAt && new Date(currentQuote.expiresAt).getTime() <= Date.now()) {
@@ -1295,8 +1304,11 @@ export function ManualSwapWidget({
           : '';
         setLocation(`/order/${encodeURIComponent(order.id)}?provider=manual${trackingQuery}`);
       },
-      onError: (error) => {
+      onError: async (error) => {
         let parsedError: ApiError | null = null;
+        const errorStatus = error && typeof error === 'object' && 'status' in error
+          ? (error as { status?: unknown }).status
+          : undefined;
         if (error && typeof error === 'object' && 'data' in error) {
           const data = (error as { data?: unknown }).data;
           if (data && typeof data === 'object' && 'error' in data) {
@@ -1304,7 +1316,42 @@ export function ManualSwapWidget({
           }
         }
 
-        if (parsedError?.outcomeUnknown || parsedError?.code === 'verification-required') {
+        if (parsedError?.code === 'MANUAL_QUOTE_CONFIGURATION_CHANGED') {
+          if (errorStatus === 409) setClientRequestId(crypto.randomUUID());
+          setStep(1);
+          setTermsAccepted(false);
+          setQuotePreview(null);
+          setQuoteStatus('idle');
+          setQuoteError('');
+          setNotice({
+            kind: 'info',
+            text: 'Swap options or fees changed before your order was submitted. We are refreshing the available add-ons and quote; please review the updated fees before continuing.',
+          });
+          try {
+            const refreshedAddons = await addons.refetch();
+            if (refreshedAddons.isError) {
+              setNotice({
+                kind: 'error',
+                text: 'Swap terms changed, but current add-ons could not be loaded. Retry add-ons to review the current charges before continuing.',
+              });
+              return;
+            }
+            const freshItems = refreshedAddons.data?.items || [];
+            setSelectedAddOnKeys(previous => previous.filter(key =>
+              freshItems.some(item => item.key === key && item.enabled && item.selectionRule !== 'none')
+            ));
+            setQuoteRefreshCounter(counter => counter + 1);
+            setNotice({
+              kind: 'info',
+              text: 'Swap options or fees changed before your order was submitted. The available add-ons and quote have been refreshed; review the updated fees before continuing.',
+            });
+          } catch {
+            setNotice({
+              kind: 'error',
+              text: 'Swap terms changed, but current add-ons could not be loaded. Retry add-ons to review the current charges before continuing.',
+            });
+          }
+        } else if (parsedError?.outcomeUnknown || parsedError?.code === 'verification-required') {
           setNotice({
             kind: 'error',
             text: publicApiErrorText(error, t('errors.confirmationPending'), t),
@@ -1372,12 +1419,11 @@ export function ManualSwapWidget({
         <div className="reference-title-row">
           <h2>Swap <span>Currencies</span></h2>
           {step === 2 ? (
-            <div className="swap-step2-progress" aria-label="Step 2 of 3">
-              <span>Step 2 of 3</span>
+            <div className="swap-step2-progress" aria-label="Step 2 of 2">
+              <span>Step 2 of 2</span>
               <span className="swap-step2-progress-track" aria-hidden="true">
-                <i />
                 <i className="is-active" />
-                <i />
+                <i className="is-active" />
               </span>
             </div>
           ) : (
@@ -1394,7 +1440,8 @@ export function ManualSwapWidget({
 
           {step === 1 ? (
             <div ref={stepPanelRef} className="swap-step-panel swap-quote-step animate-in fade-in slide-in-from-bottom-4 duration-300" tabIndex={-1}>
-              <div className="convert-quote-flow exchange-flow-stack">
+              <div className="swap-quote-scroll-region">
+                <div className="convert-quote-flow exchange-flow-stack">
                 <div className="reference-amount-panel amount-stack">
                   <div className="reference-amount-header">
                     <span className="reference-amount-label">{t('swap.youSend')}</span>
@@ -1455,35 +1502,37 @@ export function ManualSwapWidget({
                     <p className="field-hint quote-error">{quoteError}</p>
                   )}
                 </div>
-              </div>
-
-              {fromOption && toOption && (
-                <div className="reference-rate-summary mt-4" data-testid="route-summary" aria-live="polite">
-                  <ArrowLeftRight size={18} className="reference-rate-icon" />
-                  <div className="reference-rate-content">
-                    <div className="reference-rate-text">
-                      <span className="reference-rate-label">Exchange Rate</span>
-                      <strong className="reference-rate-value">
-                        {currentQuote
-                          ? <>1 {fromOption.assetCode} = <span>{formatSwapRate(currentQuote.rate)} {toOption.assetCode}</span></>
-                          : Number(amount) > 0
-                            ? <span>{quoteStatus === 'error' ? 'Rate unavailable' : 'Checking rate...'}</span>
-                          : routePricing.data
-                            ? <>1 {fromOption.assetCode} = <span>{formatSwapRate(routePricing.data.rate)} {toOption.assetCode}</span></>
-                            : <>1 {fromOption.assetCode} = <span>-- {toOption.assetCode}</span></>}
-                      </strong>
-                    </div>
-                    {currentQuote?.expiresAt && (
-                      <div className="reference-rate-timer">
-                        <Clock3 size={14} /> <QuoteExpiryIndicator expiresAt={currentQuote.expiresAt} onExpire={handleQuoteExpire} />
-                      </div>
-                    )}
-                  </div>
                 </div>
-              )}
 
-              <SwapAddonOptions options={availableAddons} selectedKeys={selectedKeys} onToggle={toggleAddon} isLoading={addons.isLoading} isError={addons.isError} onRetry={() => addons.refetch()}/>
-              {currentQuote && toOption && <div className="mt-4"><SwapFeeBreakdown fees={currentQuote.manualSwapFees} currency={toOption.assetCode} receiveAmount={currentQuote.receiveAmount}/></div>}
+                {fromOption && toOption && (
+                  <div className="reference-rate-summary mt-4" data-testid="route-summary" aria-live="polite">
+                    <ArrowLeftRight size={18} className="reference-rate-icon" />
+                    <div className="reference-rate-content">
+                      <div className="reference-rate-text">
+                        <span className="reference-rate-label">Exchange Rate</span>
+                        <strong className="reference-rate-value">
+                          {currentQuote
+                            ? <>1 {fromOption.assetCode} = <span>{formatSwapRate(currentQuote.rate)} {toOption.assetCode}</span></>
+                            : Number(amount) > 0
+                              ? <span>{quoteStatus === 'error' ? 'Rate unavailable' : 'Checking rate...'}</span>
+                            : routePricing.data
+                              ? <>1 {fromOption.assetCode} = <span>{formatSwapRate(routePricing.data.rate)} {toOption.assetCode}</span></>
+                              : <>1 {fromOption.assetCode} = <span>-- {toOption.assetCode}</span></>}
+                        </strong>
+                      </div>
+                      {currentQuote?.expiresAt && (
+                        <div className="reference-rate-timer">
+                          <Clock3 size={14} /> <QuoteExpiryIndicator expiresAt={currentQuote.expiresAt} onExpire={handleQuoteExpire} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <SwapAddonOptions options={availableAddons} selectedKeys={selectedKeys} onToggle={toggleAddon} isLoading={addons.isLoading} isError={addons.isError} onRetry={() => addons.refetch()}/>
+                {currentQuote && toOption && <div className="mt-4"><SwapFeeBreakdown fees={currentQuote.manualSwapFees} currency={toOption.assetCode} receiveAmount={currentQuote.receiveAmount}/></div>}
+                {currentQuote && !currentQuote.manualSwapFees && <p role="alert" className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" data-testid="swap-fee-breakdown-unavailable">The server did not provide an itemized fee breakdown. Refresh the quote before continuing.</p>}
+              </div>
 
               <div className="exchange-submit-wrap">
                 <button type="button" className="button button-primary widget-primary-submit group" disabled={!canContinue} onClick={continueToDetails} data-testid="button-swap-continue">
@@ -1495,6 +1544,7 @@ export function ManualSwapWidget({
           ) : step === 2 && quoteReady && currentQuote ? (
             <div ref={stepPanelRef} className="swap-step-panel swap-fulfillment-step animate-in fade-in slide-in-from-right-4 duration-300" data-testid="swap-step-wallets" tabIndex={-1}>
               <SwapFeeBreakdown fees={currentQuote.manualSwapFees} currency={toOption.assetCode} receiveAmount={currentQuote.receiveAmount}/>
+              {!currentQuote.manualSwapFees && <p role="alert" className="mb-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" data-testid="swap-fee-breakdown-unavailable">The server did not provide an itemized fee breakdown. Return to the quote and refresh before placing an order.</p>}
               <div className="swap-step2-summary" data-testid="swap-wallet-quote-summary">
                 <button
                   type="button"
@@ -1503,8 +1553,7 @@ export function ManualSwapWidget({
                   data-testid="swap-button-back"
                   aria-label={t('swap.backToQuote')}
                 >
-                  <ArrowLeftRight size={13} strokeWidth={2.3} />
-                  <span>Change</span>
+                  <span>← Back</span>
                 </button>
 
                 <div className="swap-step2-route">
@@ -1562,6 +1611,10 @@ export function ManualSwapWidget({
                   <span data-testid="swap-summary-receive-amount">
                     {number(currentQuote.receiveAmount)} {toOption.assetCode}
                   </span>
+                </div>
+                <div className="swap-step2-summary-rate" data-testid="swap-summary-rate">
+                  <span>Exchange rate</span>
+                  <strong className="font-mono">1 {fromOption.assetCode} = {formatSwapRate(currentQuote.rate)} {toOption.assetCode}</strong>
                 </div>
               </div>
 
@@ -1745,7 +1798,7 @@ export function ManualSwapWidget({
                 <div className="order-actions convert-order-actions mt-2 flex flex-col gap-4">
                   <button
                     type="submit"
-                    disabled={orderMutation.isPending || !quoteReady || !termsAccepted || (!signedInCustomer && !email.trim())}
+                    disabled={orderMutation.isPending || !quoteReady || !currentQuote.manualSwapFees || !termsAccepted || (!signedInCustomer && !email.trim())}
                     className="button button-primary widget-primary-submit w-full h-[54px] rounded-xl text-[16px] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     data-testid="swap-button-submit"
                   >
