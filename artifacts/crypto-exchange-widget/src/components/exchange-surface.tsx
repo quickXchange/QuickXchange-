@@ -1,4 +1,5 @@
 import { PaymentMethodLogo } from '@/components/payment-method-logo';
+import './swap-reference.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import { createPortal } from 'react-dom';
@@ -26,7 +27,7 @@ import { SwapAddonOptions } from '@/components/swap-addon-options';
 import { Link, useLocation } from 'wouter';
 import {
   ArrowDownUp, ArrowLeftRight, ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight,
-  Clock3, Copy, CreditCard, FileText, Home, Landmark, Loader2, Mail, Menu,
+  Clock3, Copy, CreditCard, Eye, FileText, Home, Landmark, Loader2, Mail, Menu,
   MessageCircle, Package, Search, ShieldCheck, TrendingUp,
   UserRound, Users, WalletCards,
   X, Zap,
@@ -677,12 +678,20 @@ function SwapRouteRecapIcon({
       option.kind === 'fiat-payment-method' && 'swap-payment-method-icon',
     )}>
       {option.kind === 'crypto-network' ? (
-        <CryptoLogo
-          symbol={option.assetCode}
-          logoUrl={option.logoUrl}
-          logoFallbackUrls={cryptoLogoFallbackUrls(option.assetCode, officialCryptoBySymbol)}
-          size="lg"
-        />
+        <>
+          <CryptoLogo
+            symbol={option.assetCode}
+            logoUrl={option.logoUrl}
+            logoFallbackUrls={cryptoLogoFallbackUrls(option.assetCode, officialCryptoBySymbol)}
+            size="lg"
+          />
+          <CryptoNetworkBadge
+            className="swap-recap-network-badge"
+            network={settlementRouteName(option)}
+            assetSymbol={option.assetCode}
+            networkLogoUrl={(option as SettlementOption & { networkLogoUrl?: string | null }).networkLogoUrl}
+          />
+        </>
       ) : (
         <>
           <PaymentMethodLogo
@@ -695,6 +704,19 @@ function SwapRouteRecapIcon({
       )}
     </span>
   );
+}
+
+function SwapPopupDetail({ label, value, testId }: { label: string; value: string; testId: string }) {
+  const [copied, setCopied] = useState(false);
+  return <div className="swap-detail-popup-row">
+    <span>{label}</span><span>{value}</span>
+    <button type="button" aria-label={copied ? `Copied ${label}` : `Copy ${label}`} data-testid={testId} onClick={() => {
+      void navigator.clipboard?.writeText(value).then(() => {
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1600);
+      }).catch(() => setCopied(false));
+    }}>{copied ? <Check size={17} /> : <Copy size={17} />}<span className="sr-only" role="status">{copied ? `${label} copied` : ''}</span></button>
+  </div>;
 }
 
 function QuoteExpiryIndicator({ expiresAt, onExpire }: { expiresAt: string; onExpire: () => void }) {
@@ -765,6 +787,8 @@ export function ManualSwapWidget({
   const quoteMutation = useCreateExchangeQuote();
   const addons = useListPublicManualSwapAddons({ query: { queryKey: getListPublicManualSwapAddonsQueryKey(), staleTime: 30_000 } });
   const [addonsOpen, setAddonsOpen] = useState(false);
+  const [addonsPopupOpen, setAddonsPopupOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedAddOnKeys, setSelectedAddOnKeys] = useState<string[]>([]);
   const availableAddons = addons.data?.items || [];
   const selectedKeys = selectedAddOnKeys.filter(key => availableAddons.some(item =>
@@ -773,6 +797,7 @@ export function ManualSwapWidget({
   const selectedKeysSignature = JSON.stringify(selectedKeys);
   const changeAddonsOpen = (open: boolean) => {
     setAddonsOpen(open);
+    setAddonsPopupOpen(open);
     if (!open) {
       setSelectedAddOnKeys([]);
       if (selectedKeys.length > 0) {
@@ -797,7 +822,6 @@ export function ManualSwapWidget({
       ));
       return [...remaining, key];
     });
-    setStep(1);
     setTermsAccepted(false);
     setQuotePreview(null);
   };
@@ -825,9 +849,19 @@ export function ManualSwapWidget({
   const [refundAddress, setRefundAddress] = useState('');
   const [destinationMemo, setDestinationMemo] = useState('');
   const [refundMemo, setRefundMemo] = useState('');
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const stepPanelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!addonsPopupOpen && !detailsOpen) return;
+    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (detailsOpen) setDetailsOpen(false);
+      else changeAddonsOpen(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [addonsPopupOpen, detailsOpen, selectedKeysSignature]);
 
   useEffect(() => {
     setSettlementDetails({});
@@ -863,6 +897,8 @@ export function ManualSwapWidget({
 
   const handleQuoteExpire = useCallback(() => {
     setStep(1);
+    setAddonsPopupOpen(false);
+    setDetailsOpen(false);
     setTermsAccepted(false);
     setQuotePreview(null);
     setQuoteStatus('idle');
@@ -884,12 +920,11 @@ export function ManualSwapWidget({
   const [notice, setNotice] = useState<{ kind: 'error' | 'success' | 'info'; text: string; orderId?: string } | null>(null);
   const [clientRequestId, setClientRequestId] = useState(() => crypto.randomUUID());
 
-  const moveToStep = useCallback((nextStep: 1 | 2 | 3 | 4) => {
+  const moveToStep = useCallback((nextStep: 1 | 2 | 3) => {
     setNotice(null);
     setStep(nextStep);
     window.requestAnimationFrame(() => {
       stepPanelRef.current?.focus({ preventScroll: true });
-      stepPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   }, []);
 
@@ -1033,7 +1068,7 @@ export function ManualSwapWidget({
   );
 
   useEffect(() => {
-    if (step !== 2 || !currentQuote?.expiresAt) return;
+    if (step === 1 || !currentQuote?.expiresAt) return;
     const remaining = new Date(currentQuote.expiresAt).getTime() - Date.now();
     if (remaining <= 0) {
       handleQuoteExpire();
@@ -1045,6 +1080,8 @@ export function ManualSwapWidget({
 
   const invalidateQuote = () => {
     setStep(1);
+    setAddonsPopupOpen(false);
+    setDetailsOpen(false);
     setTermsAccepted(false);
     setQuotePreview(null);
     setQuoteStatus('idle');
@@ -1162,6 +1199,26 @@ export function ManualSwapWidget({
     if (!canContinue) return;
     moveToStep(2);
   };
+  const continueToSummary = () => {
+    if (!canContinue) {
+      setNotice({ kind: 'error', text: t('public.waitEstimateSubmit') });
+      return;
+    }
+    // Native constraints include the Admin-defined dynamic fields currently visible.
+    const fields = stepPanelRef.current?.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input, select, textarea');
+    for (const field of fields || []) {
+      if (!field.checkValidity()) {
+        field.reportValidity();
+        field.focus();
+        return;
+      }
+    }
+    if (!signedInCustomer && !email.trim()) {
+      setNotice({ kind: 'error', text: t('swap.contactEmail') });
+      return;
+    }
+    moveToStep(3);
+  };
 
   const changeFromAsset = (id: string) => {
     invalidateQuote();
@@ -1198,7 +1255,7 @@ export function ManualSwapWidget({
   };
   const submitExchange = (event: React.FormEvent) => {
     event.preventDefault();
-    if (step !== 2) return;
+    if (step !== 3) return;
     const parsed = Number(amount);
     if (!fromOption || !toOption || !parsed || parsed <= 0 || fromOption.id === toOption.id) {
       setNotice({ kind: 'error', text: t('swap.differentInstruments') }); return;
@@ -1395,7 +1452,7 @@ export function ManualSwapWidget({
   }
 
   return (
-    <form className={cn('exchange-card exchange-card-expanded redesigned-widget swap-widget-flow', `swap-widget-step-${step}`, step === 2 && 'swap-compact-step-2', selectorOpen && 'selector-panel-open')} onSubmit={submitExchange} data-testid="form-exchange">
+    <form className={cn('exchange-card exchange-card-expanded redesigned-widget swap-widget-flow', `swap-widget-step-${step}`, step === 2 && 'swap-compact-step-2', selectorOpen && 'selector-panel-open')} onSubmit={submitExchange} data-testid="form-exchange" noValidate>
       <div className="reference-header">
         <div className="reference-top-bar">
           <div className="widget-tabs-pill" role="group" aria-label={t('convert.exchangeType')}>
@@ -1416,33 +1473,14 @@ export function ManualSwapWidget({
               {t('swap.convert')}
             </button>
           </div>
-          <button
-            type="button"
-            className="reference-menu-btn"
-            aria-label="Open navigation"
-            data-testid="widget-menu-button"
-            onClick={onOpenMenu}
-          >
-            <Menu size={20} />
-          </button>
         </div>
 
         <div className="reference-title-row">
-          <h2>Swap <span>Currencies</span></h2>
-          {step === 2 ? (
-            <div className="swap-step2-progress" aria-label="Step 2 of 2">
-              <span>Step 2 of 2</span>
-              <span className="swap-step2-progress-track" aria-hidden="true">
-                <i className="is-active" />
-                <i className="is-active" />
-              </span>
-            </div>
-          ) : (
-            <div className="reference-realtime-badge">
-              <TrendingUp size={15} /> Real-time rate
-            </div>
-          )}
+          <h2>{step === 1 ? 'Swap Currencies' : step === 2 ? 'Receiving Method Details' : 'Summary'}</h2>
+          <button type="button" className="reference-menu-btn" aria-label="Open navigation" data-testid="widget-menu-button" onClick={onOpenMenu}><Menu size={20} /></button>
         </div>
+        {step === 1 && <div className="swap-live-rate"><TrendingUp size={13} /> Real-time rate</div>}
+        <div className="swap-progress-line" aria-label={`Step ${step} of 3`}><span style={{ width: `${step * 100 / 3}%` }} /></div>
       </div>
 
       {manualRouteUnavailable && (
@@ -1557,17 +1595,6 @@ export function ManualSwapWidget({
                     <small>{addonsOpen ? 'Choose an option below' : selectedKeys.length ? `${selectedKeys.length} selected` : 'Check to see optional choices'}</small>
                   </span>
                 </label>
-                {addonsOpen && (
-                  <SwapAddonOptions
-                    options={availableAddons.filter(item => item.enabled)}
-                    selectedKeys={selectedKeys}
-                    onToggle={toggleAddon}
-                    isLoading={addons.isLoading}
-                    isError={addons.isError}
-                    onRetry={() => addons.refetch()}
-                    compact
-                  />
-                )}
                 {selectedKeys.length > 0 && (
                   <div className="swap-quote-options-summary" aria-live="polite" data-testid="swap-selected-addons-quote-summary">
                     {quoteStatus === 'loading' || addons.isLoading
@@ -1591,97 +1618,6 @@ export function ManualSwapWidget({
             </div>
           ) : step === 2 && quoteReady && currentQuote ? (
             <div ref={stepPanelRef} className="swap-step-panel swap-fulfillment-step animate-in fade-in slide-in-from-right-4 duration-300" data-testid="swap-step-wallets" tabIndex={-1}>
-              <SwapFeeBreakdown fees={currentQuote.manualSwapFees} currency={toOption.assetCode} receiveAmount={currentQuote.receiveAmount}/>
-              {!currentQuote.manualSwapFees && <p role="alert" className="mb-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" data-testid="swap-fee-breakdown-unavailable">The server did not provide an itemized fee breakdown. Return to the quote and refresh before placing an order.</p>}
-              <div className="swap-step2-summary" data-testid="swap-wallet-quote-summary">
-                <button
-                  type="button"
-                  onClick={() => moveToStep(1)}
-                  className="swap-step2-change"
-                  data-testid="swap-button-back"
-                  aria-label={t('swap.backToQuote')}
-                >
-                  <span>← Back</span>
-                </button>
-
-                <div className="swap-step2-route">
-                  {fromOption && (
-                    <div className="swap-step2-party" data-testid="swap-summary-from-logo">
-                      <span className="swap-step2-party-icon">
-                        <SwapRouteRecapIcon option={fromOption} officialCryptoBySymbol={officialCryptoBySymbol} />
-                      </span>
-                      <strong>{fromOption.kind === 'crypto-network' ? fromOption.assetCode : fromOption.title}</strong>
-                      {fromOption.kind === 'crypto-network' ? (
-                        <CryptoNetworkBadge
-                          className="swap-step2-party-badge"
-                          network={settlementRouteName(fromOption)}
-                          assetSymbol={fromOption.assetCode}
-                          networkLogoUrl={(fromOption as SettlementOption & { networkLogoUrl?: string | null }).networkLogoUrl}
-                        />
-                      ) : (
-                        <span className="swap-step2-party-badge">{fromOption.assetCode}</span>
-                      )}
-                    </div>
-                  )}
-
-                  <span className="swap-step2-route-arrow">
-                    <ArrowRight size={24} strokeWidth={2.3} aria-hidden="true" />
-                  </span>
-
-                  {toOption && (
-                    <div className="swap-step2-party" data-testid="swap-summary-to-logo">
-                      <span className="swap-step2-party-icon">
-                        <SwapRouteRecapIcon option={toOption} officialCryptoBySymbol={officialCryptoBySymbol} />
-                      </span>
-                      <strong>{toOption.kind === 'crypto-network' ? toOption.assetCode : toOption.title}</strong>
-                      {toOption.kind === 'crypto-network' ? (
-                        <CryptoNetworkBadge
-                          className="swap-step2-party-badge"
-                          network={settlementRouteName(toOption)}
-                          assetSymbol={toOption.assetCode}
-                          networkLogoUrl={(toOption as SettlementOption & { networkLogoUrl?: string | null }).networkLogoUrl}
-                        />
-                      ) : (
-                        <span className="swap-step2-party-badge">
-                          <FiatCurrencyFlag code={toOption.assetCode} flagUrl={(toOption as SettlementOption & { flagUrl?: string | null }).flagUrl} size="sm" />
-                          {toOption.assetCode}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div className="swap-step2-equation font-mono">
-                  <span data-testid="swap-summary-send-amount">
-                    {number(Number(amount))} {fromOption.assetCode}
-                  </span>
-                  <span aria-hidden="true">≈</span>
-                  <span data-testid="swap-summary-receive-amount">
-                    {number(currentQuote.receiveAmount)} {toOption.assetCode}
-                  </span>
-                </div>
-                <div className="swap-step2-summary-rate" data-testid="swap-summary-rate">
-                  <span>Exchange rate</span>
-                  <strong className="font-mono">1 {fromOption.assetCode} = {formatSwapRate(currentQuote.rate)} {toOption.assetCode}</strong>
-                </div>
-              </div>
-
-              {currentQuote.expiresAt && (
-                <div className="swap-step2-rate-row">
-                  <span className="swap-step2-rate-icon" aria-hidden="true">
-                    <Clock3 size={18} />
-                  </span>
-                  <span className="swap-step2-rate-copy">
-                    <strong>{t('swap.rateReserved')}</strong>
-                    <small>Complete your details to proceed</small>
-                  </span>
-                  <span className="swap-step2-countdown">
-                    <Clock3 size={13} aria-hidden="true" />
-                    <QuoteExpiryIndicator expiresAt={currentQuote.expiresAt} onExpire={handleQuoteExpire} />
-                  </span>
-                </div>
-              )}
-
               <div className="order-details-content swap-step2-fields" aria-label="Swap settlement details">
                 {isFiatToCryptoSwap && (
                   <div className="order-detail-field order-detail-field--email flex flex-col gap-1.5">
@@ -1840,24 +1776,41 @@ export function ManualSwapWidget({
                 </div>}
 
               </div>
-              <div className="swap-step2-footer">
-                <OrderPolicyAcceptance id="swap-terms" checked={termsAccepted} onChange={setTermsAccepted} />
-
-                <div className="order-actions convert-order-actions mt-2 flex flex-col gap-4">
-                  <button
-                    type="submit"
-                    disabled={orderMutation.isPending || !quoteReady || !currentQuote.manualSwapFees || !termsAccepted || (!signedInCustomer && !email.trim())}
-                    className="button button-primary widget-primary-submit w-full h-[54px] rounded-xl text-[16px] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    data-testid="swap-button-submit"
-                  >
-                    {orderMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : null}
-                    {orderMutation.isPending ? t('swap.submitting') : t('swap.placeOrder')}
-                    {!orderMutation.isPending && <ArrowRight size={18} />}
+              <div className="swap-stage-actions">
+                <button type="button" className="swap-back-button" onClick={() => moveToStep(1)} data-testid="swap-button-back"><ChevronLeft size={18} /> Back</button>
+                <button type="button" className="swap-next-button" onClick={continueToSummary} data-testid="button-swap-next">Next <ArrowRight size={18} /></button>
+              </div>
+            </div>
+          ) : step === 3 && quoteReady && currentQuote && fromOption && toOption ? (
+            <div ref={stepPanelRef} className="swap-step-panel swap-summary-step" data-testid="swap-summary-step" tabIndex={-1}>
+              <div className="swap-summary-scroll">
+                <div className="swap-summary-card">
+                  <div className="swap-summary-leg" data-testid="swap-summary-from-logo">
+                    <SwapRouteRecapIcon option={fromOption} officialCryptoBySymbol={officialCryptoBySymbol} />
+                    <span><strong data-testid="swap-summary-send-amount">{number(Number(amount))} {fromOption.assetCode}</strong><small>{settlementAssetName(fromOption)} · {settlementRouteName(fromOption)}</small></span>
+                  </div>
+                  <ArrowRight className="swap-summary-arrow" size={19} aria-hidden="true" />
+                  <div className="swap-summary-leg" data-testid="swap-summary-to-logo">
+                    <SwapRouteRecapIcon option={toOption} officialCryptoBySymbol={officialCryptoBySymbol} />
+                    <span><strong data-testid="swap-summary-receive-amount">{number(currentQuote.receiveAmount)} {toOption.assetCode}</strong><small>{settlementAssetName(toOption)} · {settlementRouteName(toOption)}</small></span>
+                  </div>
+                  <button type="button" className="swap-summary-show" data-testid="button-swap-show-details" onClick={() => setDetailsOpen(true)}>
+                    Receiving Method Details <span className="inline-flex items-center gap-2"><Eye size={17} /> Show</span>
                   </button>
-                  <p className="swap-step2-security">
-                    <ShieldCheck size={14} aria-hidden="true" />
-                    <span>Your information is secure and encrypted</span>
-                  </p>
+                </div>
+                <div className="swap-summary-terms"><OrderPolicyAcceptance id="swap-terms" checked={termsAccepted} onChange={setTermsAccepted} /></div>
+                <div className="mt-3 text-xs text-muted-foreground" data-testid="swap-summary-rate">1 {fromOption.assetCode} = {formatSwapRate(currentQuote.rate)} {toOption.assetCode}</div>
+                <SwapFeeBreakdown fees={currentQuote.manualSwapFees} currency={toOption.assetCode} receiveAmount={currentQuote.receiveAmount} />
+                {selectedKeys.length > 0 && <div className="mt-2 text-xs" data-testid="swap-selected-addons-quote-summary">Selected add-ons: {availableAddons.filter(item => selectedKeys.includes(item.key)).map(item => item.name).join(', ')}</div>}
+              </div>
+              <div className="swap-summary-footer">
+                <button type="button" className="swap-addon-launch" onClick={() => changeAddonsOpen(true)} data-testid="button-swap-addons"><span className="inline-flex items-center gap-2"><Package size={17} /> Add-ons {selectedKeys.length > 0 && `(${selectedKeys.length})`}</span><ChevronRight size={17} /></button>
+                <div className="swap-stage-actions">
+                  <button type="button" className="swap-back-button" onClick={() => moveToStep(2)} data-testid="button-swap-back"><ChevronLeft size={18} /> Back</button>
+                  <button type="submit" disabled={orderMutation.isPending || !quoteReady || !currentQuote.manualSwapFees || !termsAccepted || (!signedInCustomer && !email.trim())} className="widget-primary-submit" data-testid="swap-button-submit">
+                    {orderMutation.isPending ? <Loader2 size={17} className="animate-spin" /> : <Check size={17} />}
+                    {orderMutation.isPending ? t('swap.submitting') : t('swap.placeOrder')}
+                  </button>
                 </div>
               </div>
             </div>
@@ -1867,6 +1820,34 @@ export function ManualSwapWidget({
               <button type="button" className="swap-step-back" onClick={() => moveToStep(1)} data-testid="button-swap-back">
                 <ChevronLeft size={17} /> {t('swap.backToQuote')}
               </button>
+            </div>
+          )}
+
+          {detailsOpen && currentQuote && toOption && (
+            <div className="swap-overlay" role="dialog" aria-modal="true" aria-label="Receiving method details" data-testid="swap-receiving-details-popup">
+              <div className="swap-overlay-head">You Get <button type="button" onClick={() => setDetailsOpen(false)} aria-label="Close receiving details" data-testid="button-close-receiving-details"><X size={23} /></button></div>
+              <div className="swap-overlay-body">
+                <div className="swap-detail-popup-route">
+                  <div><SwapRouteRecapIcon option={toOption} officialCryptoBySymbol={officialCryptoBySymbol} /><strong>{number(currentQuote.receiveAmount)} {toOption.assetCode}</strong></div>
+                  <div><span className="swap-summary-leg"><SwapRouteRecapIcon option={toOption} officialCryptoBySymbol={officialCryptoBySymbol} /></span><span>{toOption.title || settlementRouteName(toOption)}</span></div>
+                </div>
+                <div className="swap-detail-popup-rows">
+                  {toOption.kind === 'crypto-network' && <SwapPopupDetail label="Receiving Wallet Address" value={destinationAddress} testId="button-copy-destination-address" />}
+                  {toOption.kind === 'crypto-network' && Boolean(destinationMemo) && <SwapPopupDetail label="Destination memo" value={destinationMemo} testId="button-copy-destination-memo" />}
+                  {currentQuote.requiredSettlementFields?.filter(field => !field.requiredWhen || (Array.isArray(field.requiredWhen.equals) ? field.requiredWhen.equals.includes(settlementDetails[field.requiredWhen.fieldKey]) : field.requiredWhen.equals === settlementDetails[field.requiredWhen.fieldKey])).map(field => settlementDetails[field.key] && <SwapPopupDetail key={field.key} label={settlementFieldDisplayLabel(field, t)} value={settlementDetails[field.key]} testId={`button-copy-detail-${field.key}`} />)}
+                  {refundAddress && <SwapPopupDetail label="Refund address" value={refundAddress} testId="button-copy-refund-address" />}
+                  {refundMemo && <SwapPopupDetail label="Refund memo" value={refundMemo} testId="button-copy-refund-memo" />}
+                </div>
+              </div>
+            </div>
+          )}
+          {addonsPopupOpen && (
+            <div className="swap-overlay" role="dialog" aria-modal="true" aria-label="Add-ons" data-testid="swap-addons-popup">
+              <div className="swap-overlay-head">Add-ons <button type="button" onClick={() => changeAddonsOpen(false)} aria-label="Close add-ons and clear selection" data-testid="button-close-swap-addons"><X size={23} /></button></div>
+              <div className="swap-overlay-body">
+                <SwapAddonOptions options={availableAddons.filter(item => item.enabled)} selectedKeys={selectedKeys} onToggle={toggleAddon} isLoading={addons.isLoading} isError={addons.isError} onRetry={() => addons.refetch()} compact />
+              </div>
+              <div className="swap-overlay-footer"><button type="button" onClick={() => setAddonsPopupOpen(false)} data-testid="button-apply-swap-addons">Apply choices {selectedKeys.length ? `(${selectedKeys.length})` : ''}</button></div>
             </div>
           )}
 

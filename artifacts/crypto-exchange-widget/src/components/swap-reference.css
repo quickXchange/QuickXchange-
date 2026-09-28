@@ -1,0 +1,376 @@
+/* Swap's editorial payment flow. The shared exchange shell retains its size and Convert owns its styles. */
+.public-shell .exchange-card.swap-widget-flow {
+  --swap-panel: #111318;
+  --swap-inset: #0c0e12;
+  --swap-line: #292e38;
+  --swap-blue: #4a9af8;
+  position: relative;
+  padding: 18px !important;
+  background: #0c0e11;
+  border-color: #2b3038;
+  color: #f0f3f8;
+  touch-action: auto;
+}
+.public-shell .exchange-card.swap-widget-flow .reference-header {
+  flex: 0 0 auto;
+  padding: 0 0 12px;
+  background: transparent;
+}
+.public-shell .exchange-card.swap-widget-flow .reference-top-bar { padding: 0 0 18px; }
+.public-shell .exchange-card.swap-widget-flow .widget-tabs-pill { padding: 0; gap: 5px; background: transparent; }
+.public-shell .exchange-card.swap-widget-flow .widget-tabs-pill button { border-radius: 22px; min-height: 34px; padding: 5px 17px; }
+.public-shell .exchange-card.swap-widget-flow .widget-tabs-pill button.active { background: #182539; color: #dcecff; }
+.public-shell .exchange-card.swap-widget-flow .reference-title-row {
+  align-items: center;
+  padding: 21px 19px 17px;
+  border-radius: 18px 18px 0 0;
+  background: var(--swap-panel);
+}
+.public-shell .exchange-card.swap-widget-flow .reference-title-row h2 { font-size: 21px; font-weight: 500; letter-spacing: -.025em; color: #f1f3f8; }
+.public-shell .exchange-card.swap-widget-flow .reference-title-row h2 span { color: inherit; }
+.public-shell .exchange-card.swap-widget-flow .reference-title-row .reference-menu-btn { color: #f0f3f8; }
+.public-shell .exchange-card.swap-widget-flow .swap-progress-line {
+  height: 3px;
+  margin: 0 19px 0;
+  background: #202838;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.public-shell .exchange-card.swap-widget-flow .swap-progress-line span {
+  display: block;
+  height: 100%;
+  background: var(--swap-blue);
+  transition: transform .22s ease;
+  transform-origin: left;
+}
+.public-shell .exchange-card.swap-widget-flow .swap-live-rate {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  margin: 0 19px 9px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  background: #173044;
+  color: #83d9f7;
+  font-size: 11px;
+  font-weight: 600;
+}
+.public-shell .exchange-card.swap-widget-flow .swap-step-panel {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  width: 100%;
+  background: var(--swap-panel);
+  border-radius: 0 0 18px 18px;
+  padding: 14px 19px 18px;
+  overflow: hidden !important;
+}
+.public-shell .exchange-card.swap-widget-flow .swap-quote-scroll-region { padding: 12px 0; }
+.public-shell .exchange-card.swap-widget-flow .convert-quote-flow { gap: 0; }
+.public-shell .exchange-card.swap-widget-flow .reference-amount-panel {
+  background: var(--swap-inset);
+  border: 1px solid #181c24;
+  border-radius: 19px;
+  padding: 23px 17px;
+  box-shadow: none;
+}
+.public-shell .exchange-card.swap-widget-flow .reference-amount-header { margin: 0; }
+.public-shell .exchange-card.swap-widget-flow .reference-amount-label { color: #d8dbe3; font-size: 14px; font-weight: 500; }
+.public-shell .exchange-card.swap-widget-flow .reference-amount-body { gap: 8px; }
+.public-shell .exchange-card.swap-widget-flow .reference-amount-input { min-width: 0; font-size: clamp(18px, 5vw, 23px); color: #f5f7fb; background: transparent; }
+.public-shell .exchange-card.swap-widget-flow .swap-asset-trigger {
+  height: 62px !important;
+  min-width: 136px;
+  border: 1px solid var(--swap-line);
+  border-radius: 10px;
+  background: var(--swap-inset);
+  color: #eef3fa;
+}
+.public-shell .exchange-card.swap-widget-flow .reference-swap-divider { height: 11px; z-index: 1; }
+.public-shell .exchange-card.swap-widget-flow .reference-swap-button { background: var(--swap-inset); border: 1px solid var(--swap-line); color: #e7edf8; }
+.public-shell .exchange-card.swap-widget-flow .reference-amount-footer { color: #87909c; font-size: 11px; }
+.public-shell .exchange-card.swap-widget-flow .reference-rate-summary {
+  border-radius: 12px;
+  border-color: var(--swap-line);
+  background: #0e121a;
+  color: #e7f2ff;
+}
+.public-shell .exchange-card.swap-widget-flow .swap-quote-options-dock {
+  background: var(--swap-panel);
+  border: 0;
+  padding-top: 8px;
+}
+.public-shell .exchange-card.swap-widget-flow .swap-addons-disclosure,
+.public-shell .exchange-card.swap-widget-flow .swap-addon-launch {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 46px;
+  border: 1px solid #6b7280;
+  border-radius: 12px;
+  padding: 0 16px;
+  background: transparent;
+  color: #f0f3f8;
+  cursor: pointer;
+  font-size: 14px;
+}
+.public-shell .exchange-card.swap-widget-flow .swap-addons-disclosure input { accent-color: var(--swap-blue); }
+.public-shell .exchange-card.swap-widget-flow .swap-addons-disclosure small { display: none; }
+.public-shell .exchange-card.swap-widget-flow .exchange-submit-wrap { background: var(--swap-panel); }
+.public-shell .exchange-card.swap-widget-flow .widget-primary-submit,
+.public-shell .exchange-card.swap-widget-flow .swap-next-button {
+  background: #4a9af8;
+  color: #091322;
+  border-radius: 12px;
+  font-weight: 600;
+  box-shadow: none;
+}
+.public-shell .exchange-card.swap-widget-flow .widget-primary-submit:disabled { background: #2b2d32; color: #777a81; }
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-2 .swap-fulfillment-step,
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-step {
+  display: flex !important;
+  flex-direction: column;
+}
+.public-shell .exchange-card.swap-widget-flow .swap-step2-fields {
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto !important;
+  display: grid !important;
+  align-content: start;
+  gap: 12px;
+  padding: 16px 0 !important;
+  touch-action: auto;
+}
+.public-shell .exchange-card.swap-widget-flow .swap-step2-fields .order-detail-field { gap: 5px; }
+.public-shell .exchange-card.swap-widget-flow .swap-step2-fields .order-detail-field label { color: #e2e6ee; font-size: 14px; font-weight: 400; }
+.public-shell .exchange-card.swap-widget-flow .swap-step2-fields .order-detail-field :is(input, select, textarea) {
+  min-height: 45px;
+  height: 45px;
+  background: #0c0e12 !important;
+  border: 1px solid #292e38 !important;
+  border-radius: 9px;
+  color: #f0f4fa !important;
+  box-shadow: none;
+}
+.public-shell .exchange-card.swap-widget-flow .swap-step2-fields .swap-step2-input-shell > svg,
+.public-shell .exchange-card.swap-widget-flow .swap-step2-fields .relative > svg { display: none; }
+.public-shell .exchange-card.swap-widget-flow .swap-step2-fields :is(.swap-step2-input, .swap-step2-fields input) { padding-left: 12px !important; }
+.public-shell .exchange-card.swap-widget-flow .swap-stage-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 0 0 auto;
+  padding-top: 12px;
+}
+.public-shell .exchange-card.swap-widget-flow .swap-stage-actions button {
+  min-height: 47px;
+  border-radius: 12px;
+  padding: 0 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.public-shell .exchange-card.swap-widget-flow .swap-back-button {
+  color: #f3f5fa;
+  background: var(--swap-inset);
+  border: 1px solid var(--swap-line);
+}
+.public-shell .exchange-card.swap-widget-flow .swap-summary-scroll {
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 13px 0;
+}
+.public-shell .exchange-card.swap-widget-flow .swap-summary-card,
+.public-shell .exchange-card.swap-widget-flow .swap-summary-terms {
+  border: 1px solid var(--swap-line);
+  background: var(--swap-inset);
+  border-radius: 14px;
+  padding: 16px;
+}
+.public-shell .exchange-card.swap-widget-flow .swap-summary-leg { display: flex; align-items: center; gap: 10px; }
+.public-shell .exchange-card.swap-widget-flow .swap-summary-leg strong { display: block; font-size: 19px; font-weight: 600; }
+.public-shell .exchange-card.swap-widget-flow .swap-summary-leg small { display: block; color: #9ba2af; font-size: 12px; }
+.public-shell .exchange-card.swap-widget-flow .swap-summary-leg .swap-route-recap-icon { width: 36px; height: 36px; }
+.public-shell .exchange-card.swap-widget-flow .swap-route-recap-icon { position: relative; flex: 0 0 auto; border-radius: 50%; }
+.public-shell .exchange-card.swap-widget-flow .swap-route-recap-icon > .swap-recap-network-badge {
+  position: absolute;
+  right: -4px;
+  bottom: -3px;
+  z-index: 2;
+  width: 15px;
+  height: 15px;
+  border: 2px solid var(--swap-panel);
+  border-radius: 50%;
+}
+.public-shell .exchange-card.swap-widget-flow .swap-summary-arrow { margin: 4px 0 4px 8px; color: #e7edf6; }
+.public-shell .exchange-card.swap-widget-flow .swap-summary-show { display: flex; width: 100%; justify-content: space-between; align-items: center; margin-top: 12px; padding: 15px 2px 0; border-top: 1px solid var(--swap-line); color: #e9edf5; font-size: 13px; }
+.public-shell .exchange-card.swap-widget-flow .swap-summary-terms { margin-top: 10px; padding: 6px 12px; }
+.public-shell .exchange-card.swap-widget-flow .swap-summary-terms .order-terms { background: transparent; border: 0; color: #ecf0f6; }
+.public-shell .exchange-card.swap-widget-flow .swap-summary-footer { flex: 0 0 auto; display: grid; gap: 8px; padding-top: 9px; }
+.public-shell .exchange-card.swap-widget-flow .swap-summary-footer .swap-addon-launch { min-height: 45px; }
+.public-shell .exchange-card.swap-widget-flow .swap-summary-footer .swap-stage-actions { padding: 0; }
+.public-shell .exchange-card.swap-widget-flow .swap-summary-footer .widget-primary-submit { min-height: 47px; padding: 0 17px; display: inline-flex; align-items: center; gap: 8px; }
+.public-shell .exchange-card.swap-widget-flow .swap-overlay {
+  position: absolute;
+  z-index: 40;
+  inset: 70px 9px 9px;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 18px;
+  background: #0c0e11;
+  border: 1px solid var(--swap-line);
+  border-radius: 18px;
+  color: #f3f5fa;
+  box-shadow: 0 16px 40px rgb(0 0 0 / .25);
+}
+.public-shell .exchange-card.swap-widget-flow .swap-overlay-head { display: flex; align-items: center; justify-content: space-between; min-height: 44px; font-weight: 600; }
+.public-shell .exchange-card.swap-widget-flow .swap-overlay-head button { color: #f3f5fa; padding: 7px; }
+.public-shell .exchange-card.swap-widget-flow .swap-overlay-body { flex: 1; min-height: 0; overflow-y: auto; padding-top: 14px; }
+.public-shell .exchange-card.swap-widget-flow .swap-overlay-footer { flex: 0 0 auto; padding-top: 10px; }
+.public-shell .exchange-card.swap-widget-flow .swap-overlay-footer button { width: 100%; min-height: 46px; border-radius: 10px; background: var(--swap-blue); color: #071626; font-weight: 600; }
+.public-shell .exchange-card.swap-widget-flow .swap-addon-options-list { display: grid; gap: 9px; }
+.public-shell .exchange-card.swap-widget-flow .swap-addon-options-list > label,
+.public-shell .exchange-card.swap-widget-flow .swap-addon-options-list > div { background: #111318; border: 0; border-radius: 13px; padding: 15px; color: #f0f3f8; }
+.public-shell .exchange-card.swap-widget-flow .swap-addon-options-list small { color: #9399a5; line-height: 1.55; }
+.public-shell .exchange-card.swap-widget-flow .swap-addon-price { color: var(--swap-blue); background: #182437; border-radius: 30px; padding: 2px 7px; font-size: 12px; }
+.public-shell .exchange-card.swap-widget-flow .swap-addon-options-list input { accent-color: var(--swap-blue); }
+.public-shell .exchange-card.swap-widget-flow .swap-addon-options-list .swap-addon-native-checkbox {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.public-shell .exchange-card.swap-widget-flow .swap-addon-options-list > label { position: relative; align-items: center; }
+.public-shell .exchange-card.swap-widget-flow .swap-addon-options-list > label:focus-within { outline: 2px solid var(--swap-blue); outline-offset: 2px; }
+.public-shell .exchange-card.swap-widget-flow .swap-addon-icon {
+  display: grid;
+  flex: 0 0 35px;
+  width: 35px;
+  height: 35px;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--swap-inset);
+}
+.public-shell .exchange-card.swap-widget-flow .swap-addon-switch {
+  display: grid;
+  flex: 0 0 33px;
+  width: 33px;
+  height: 19px;
+  place-items: center end;
+  border-radius: 20px;
+  padding: 2px;
+  background: #596273;
+}
+.public-shell .exchange-card.swap-widget-flow .swap-addon-switch::before {
+  content: '';
+  grid-area: 1 / 1;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #171e28;
+}
+.public-shell .exchange-card.swap-widget-flow .swap-addon-options-list [data-selected="true"] .swap-addon-switch { background: var(--swap-blue); place-items: center start; }
+.public-shell .exchange-card.swap-widget-flow .swap-addon-switch svg { display: none; }
+.public-shell .exchange-card.swap-widget-flow .swap-detail-popup-route { display: grid; gap: 10px; }
+.public-shell .exchange-card.swap-widget-flow .swap-detail-popup-route > div { display: flex; align-items: center; gap: 9px; border: 1px solid var(--swap-line); padding: 12px; border-radius: 9px; }
+.public-shell .exchange-card.swap-widget-flow .swap-detail-popup-rows { margin-top: 20px; }
+.public-shell .exchange-card.swap-widget-flow .swap-detail-popup-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 9px; align-items: center; padding: 14px 0; border-top: 1px solid var(--swap-line); font-size: 12px; }
+.public-shell .exchange-card.swap-widget-flow .swap-detail-popup-row span:nth-child(2) { overflow-wrap: anywhere; }
+.public-shell .exchange-card.swap-widget-flow .swap-detail-popup-row button { padding: 4px; color: #e8edf6; }
+html:not(.dark) .public-shell .exchange-card.swap-widget-flow {
+  --swap-panel: #f2f5fb; --swap-inset: #fafcff; --swap-line: #d9e0ec; --swap-blue: #287df1;
+  background: #e9eef7; color: #15233b; border-color: #c8d6ea;
+}
+html:not(.dark) .public-shell .exchange-card.swap-widget-flow :is(.reference-title-row, .swap-step-panel, .swap-quote-options-dock, .exchange-submit-wrap) { color: #15233b; }
+html:not(.dark) .public-shell .exchange-card.swap-widget-flow :is(.reference-title-row h2, .reference-title-row h2 span, .reference-amount-label, .swap-summary-leg strong, .swap-summary-show, .swap-addons-disclosure, .swap-addon-launch, .swap-back-button) { color: #15233b; }
+html:not(.dark) .public-shell .exchange-card.swap-widget-flow :is(.reference-amount-input, .swap-step2-fields .order-detail-field :is(input, select, textarea)) { color: #15233b !important; }
+html:not(.dark) .public-shell .exchange-card.swap-widget-flow .swap-overlay { background: #f7f9fd; color: #15233b; }
+html:not(.dark) .public-shell .exchange-card.swap-widget-flow .swap-overlay-head button { color: #15233b; }
+html:not(.dark) .public-shell .exchange-card.swap-widget-flow .swap-addon-options-list > :is(label, div) { background: #edf2f9; color: #15233b; }
+html:not(.dark) .public-shell .exchange-card.swap-widget-flow .swap-asset-trigger { background: #fbfcff; color: #15233b; }
+html:not(.dark) .public-shell .exchange-card.swap-widget-flow .reference-rate-summary { background: #ebf2fc; color: #15233b; }
+html:not(.dark) .public-shell .exchange-card.swap-widget-flow .swap-step2-fields .order-detail-field label { color: #263951; }
+html:not(.dark) .public-shell .exchange-card.swap-widget-flow .swap-step2-fields .order-detail-field :is(input, select, textarea) { background: #fbfcff !important; }
+html:not(.dark) .public-shell .exchange-card.swap-widget-flow .swap-summary-card,
+html:not(.dark) .public-shell .exchange-card.swap-widget-flow .swap-summary-terms { color: #15233b; }
+html:not(.dark) .public-shell .exchange-card.swap-widget-flow .swap-addon-price { background: #dce9fc; }
+html:not(.dark) .public-shell .exchange-card.swap-widget-flow .swap-live-rate { background: #dceefd; color: #0d5a98; }
+html:not(.dark) .public-shell .exchange-card.swap-widget-flow .swap-detail-popup-row button,
+html:not(.dark) .public-shell .exchange-card.swap-widget-flow .swap-summary-arrow { color: #24496f; }
+html:not(.dark) .public-shell .exchange-card.swap-widget-flow .swap-back-button { background: #fbfcff; }
+@media (max-width: 520px) {
+  .public-shell .exchange-card.swap-widget-flow { padding: 9px !important; }
+  .public-shell .exchange-card.swap-widget-flow .reference-title-row { padding: 16px 17px 13px; }
+  .public-shell .exchange-card.swap-widget-flow .swap-step-panel { padding: 10px 17px 16px; }
+  .public-shell .exchange-card.swap-widget-flow .swap-overlay { inset: 70px 9px 9px; }
+}
+/* The legacy shared stylesheet is loaded later by the app entry. These ownership
+   selectors deliberately win its important widget defaults without touching Convert. */
+.public-shell form.exchange-card.redesigned-widget.swap-widget-flow {
+  padding: 12px !important;
+  background: #0c0e11 !important;
+}
+html:not(.dark) .public-shell form.exchange-card.redesigned-widget.swap-widget-flow { background: #e9eef7 !important; }
+.public-shell form.exchange-card.redesigned-widget.swap-widget-flow > .reference-header {
+  margin-bottom: 0 !important;
+  gap: 0 !important;
+  padding-bottom: 0 !important;
+}
+.public-shell form.exchange-card.redesigned-widget.swap-widget-flow .reference-top-bar { padding: 0 7px 14px !important; }
+.public-shell form.exchange-card.redesigned-widget.swap-widget-flow .reference-title-row {
+  padding: 18px 19px 16px !important;
+  background: var(--swap-panel) !important;
+}
+.public-shell form.exchange-card.redesigned-widget.swap-widget-flow .reference-title-row h2 {
+  font-size: 21px !important;
+  font-weight: 500 !important;
+}
+.public-shell form.exchange-card.redesigned-widget.swap-widget-flow > .swap-step-panel {
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  padding: 12px 19px 18px !important;
+  background: var(--swap-panel) !important;
+}
+.public-shell form.exchange-card.redesigned-widget.swap-widget-flow .convert-quote-flow { gap: 0 !important; }
+.public-shell form.exchange-card.redesigned-widget.swap-widget-flow .reference-amount-panel {
+  padding: 17px 15px !important;
+  background: var(--swap-inset) !important;
+}
+.public-shell form.exchange-card.redesigned-widget.swap-widget-flow .swap-step2-fields {
+  gap: 10px !important;
+  margin: 0 !important;
+  padding: 12px 0 !important;
+  align-content: start !important;
+}
+.public-shell form.exchange-card.redesigned-widget.swap-widget-flow .swap-step2-fields .order-detail-field > label {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: #e2e6ee !important;
+}
+.public-shell form.exchange-card.redesigned-widget.swap-widget-flow .swap-step2-fields .order-detail-field :is(input, select, textarea) {
+  min-height: 45px !important;
+  height: 45px !important;
+  padding: 0 12px !important;
+  border: 1px solid var(--swap-line) !important;
+  border-radius: 9px !important;
+  background: var(--swap-inset) !important;
+  color: #f0f4fa !important;
+  font-size: 14px !important;
+  box-shadow: none !important;
+}
+.public-shell form.exchange-card.redesigned-widget.swap-widget-flow .swap-step2-fields .order-detail-field textarea { min-height: 74px !important; height: 74px !important; padding-top: 11px !important; }
+.public-shell form.exchange-card.redesigned-widget.swap-widget-flow .swap-step2-fields .order-detail-field svg { display: none !important; }
+html:not(.dark) .public-shell form.exchange-card.redesigned-widget.swap-widget-flow .swap-step2-fields .order-detail-field > label { color: #263951 !important; }
+html:not(.dark) .public-shell form.exchange-card.redesigned-widget.swap-widget-flow .swap-step2-fields .order-detail-field :is(input,select,textarea) { color: #15233b !important; }
+@media (max-width: 520px) {
+  .public-shell .exchange-mode-viewport .exchange-mode-layer > form.exchange-card.redesigned-widget.swap-widget-flow {
+    padding: 9px !important;
+  }
+  .public-shell form.exchange-card.redesigned-widget.swap-widget-flow > .swap-step-panel { padding: 10px 17px 16px !important; }
+}

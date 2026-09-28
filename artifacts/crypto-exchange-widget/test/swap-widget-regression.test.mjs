@@ -2,21 +2,22 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 
-const [surface, addonOptions, feeBreakdown, styles] = await Promise.all([
+const [surface, addonOptions, feeBreakdown, styles, referenceStyles] = await Promise.all([
   readFile(new URL('../src/components/exchange-surface.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/swap-addon-options.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/swap-fee-breakdown.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/index.css', import.meta.url), 'utf8'),
+  readFile(new URL('../src/components/swap-reference.css', import.meta.url), 'utf8'),
 ]);
 
-test('Swap step two has a visible back action and accurate two-step progress', () => {
-  assert.match(surface, /aria-label="Step 2 of 2"[\s\S]*?<span>Step 2 of 2<\/span>/);
-  assert.match(surface, /data-testid="swap-button-back"[\s\S]*?<span>← Back<\/span>/);
+test('Swap exposes three stages and a details-step back action', () => {
+  assert.match(surface, /aria-label=\{`Step \$\{step\} of 3`\}/);
+  assert.match(surface, /step === 2 \? 'Receiving Method Details' : 'Summary'/);
   assert.match(surface, /onClick=\{\(\) => moveToStep\(1\)\}[\s\S]*?data-testid="swap-button-back"/);
-  const backStart = surface.lastIndexOf('<button', surface.indexOf('data-testid="swap-button-back"'));
-  const backEnd = surface.indexOf('</button>', backStart);
-  assert.doesNotMatch(surface.slice(backStart, backEnd), /ChevronLeft/);
-  assert.match(styles, /\.swap-step2-progress-track\s*\{[^}]*grid-template-columns: repeat\(2, 1fr\)/);
+  assert.match(surface, /data-testid="button-swap-next"/);
+  assert.match(surface, /data-testid="swap-summary-step"/);
+  assert.match(surface, /data-testid="button-swap-back"/);
+  assert.match(referenceStyles, /\.swap-progress-line span\s*\{/);
 });
 
 test('optional add-ons show selectable checked state and display-only information without a paid toggle', () => {
@@ -28,7 +29,7 @@ test('optional add-ons show selectable checked state and display-only informatio
   assert.match(addonOptions, /trimFeeDecimal\(item\.fixedAmount\)/);
 });
 
-test('Step 1 docks an Add-ons checkbox that reveals Admin choices before Continue', () => {
+test('Step 1 docks Add-ons and Continue while Admin choices live in the popup', () => {
   const stepOneStart = surface.indexOf('className="swap-step-panel swap-quote-step');
   const stepOneEnd = surface.indexOf(') : step === 2', stepOneStart);
   const stepOne = surface.slice(stepOneStart, stepOneEnd);
@@ -41,10 +42,12 @@ test('Step 1 docks an Add-ons checkbox that reveals Admin choices before Continu
   assert.match(stepOne, /data-testid="checkbox-swap-addons"/);
   assert.match(stepOne, /checked=\{addonsOpen\}/);
   assert.match(stepOne, /onChange=\{event => changeAddonsOpen\(event\.target\.checked\)\}/);
-  assert.match(stepOne, /\{addonsOpen && \(\s*<SwapAddonOptions/);
+  assert.match(surface, /\{addonsPopupOpen && \(\s*<div className="swap-overlay"/);
   assert.match(surface, /if \(!open\) \{\s*setSelectedAddOnKeys\(\[\]\);\s*if \(selectedKeys\.length > 0\) \{\s*setTermsAccepted\(false\);\s*setQuotePreview\(null\)/);
-  assert.match(stepOne, /options=\{availableAddons\.filter\(item => item\.enabled\)\}/);
-  assert.match(stepOne, /compact\s*\/>/);
+  assert.match(surface, /options=\{availableAddons\.filter\(item => item\.enabled\)\}/);
+  assert.match(surface, /onToggle=\{toggleAddon\}/);
+  assert.match(surface, /data-testid="button-apply-swap-addons"/);
+  assert.match(surface, /data-testid="button-close-swap-addons"/);
   assert.match(stepOne, /selectedKeys\.length > 0/);
   assert.match(stepOne, /quoteStatus === 'idle' && currentQuote/);
   assert.match(stepOne, /currentQuote\.manualSwapFees\.totalFees/);
@@ -57,7 +60,7 @@ test('Step 1 docks an Add-ons checkbox that reveals Admin choices before Continu
   assert.match(styles, /\.swap-addons-disclosure\s*\{[^}]*min-height: 42px/s);
 });
 
-test('step two itemizes only the server fee snapshot and shows quote send, rate, and receive values', () => {
+test('summary itemizes only server fees and shows quote send, rate, and receive values', () => {
   assert.match(surface, /<SwapFeeBreakdown fees=\{currentQuote\.manualSwapFees\} currency=\{toOption\.assetCode\} receiveAmount=\{currentQuote\.receiveAmount\}\/>/);
   assert.match(surface, /swap-summary-send-amount/);
   assert.match(surface, /swap-summary-rate/);
@@ -65,6 +68,8 @@ test('step two itemizes only the server fee snapshot and shows quote send, rate,
   assert.match(surface, /swap-summary-receive-amount/);
   assert.match(surface, /swap-fee-breakdown-unavailable/);
   assert.match(surface, /!currentQuote\.manualSwapFees/);
+  assert.match(surface, /data-testid="swap-receiving-details-popup"/);
+  assert.match(surface, /step !== 3\) return/);
   assert.match(feeBreakdown, /Selected add-ons · Add-on fees/);
   assert.match(feeBreakdown, /fees\.selectedAddons\.length/);
   assert.match(feeBreakdown, /No add-ons selected/);
@@ -87,4 +92,12 @@ test('back and stale-configuration recovery preserve user-entered fields and nev
   assert.match(recovery, /setQuoteRefreshCounter/);
   assert.doesNotMatch(recovery, /orderMutation\.mutate/);
   assert.doesNotMatch(recovery, /set(?:Amount|FromId|ToId|Email|Name|Note|SettlementDetails|DestinationAddress|RefundAddress|DestinationMemo|RefundMemo)\(/);
+});
+
+test('dynamic settlement fields are validated before Summary and preserved for submission', () => {
+  assert.match(surface, /stepPanelRef\.current\?\.querySelectorAll<[^>]+>\('input, select, textarea'\)/);
+  assert.match(surface, /field\.checkValidity\(\)/);
+  assert.match(surface, /field\.reportValidity\(\)/);
+  assert.match(surface, /currentQuote\?\.requiredSettlementFields\?\.filter/);
+  assert.match(surface, /settlementDetails: Object\.keys\(parsedDetails\)\.length > 0 \? parsedDetails : undefined/);
 });
