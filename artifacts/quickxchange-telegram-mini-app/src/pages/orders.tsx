@@ -109,8 +109,8 @@ export default function Orders() {
               <div className="premium-card p-4 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-all group">
                 <div className="flex items-center space-x-3.5 min-w-0">
                   <div className="flex -space-x-2 shrink-0">
-                    <MiniAppLogo {...sourceVisual} alt={order.fromAsset} size="medium" className="z-10" />
-                    <MiniAppLogo {...targetVisual} alt={order.toAsset} size="medium" />
+                    <MiniAppLogo {...sourceVisual} alt={order.fromAsset} size="medium" className={sourceVisual.variant === 'payment' && targetVisual.variant !== 'payment' ? undefined : 'z-10'} />
+                    <MiniAppLogo {...targetVisual} alt={order.toAsset} size="medium" className={sourceVisual.variant === 'payment' && targetVisual.variant !== 'payment' ? 'z-10' : undefined} />
                   </div>
                   <div className="flex flex-col min-w-0">
                     <div className="text-[10px] text-muted-foreground font-mono mb-0.5">#{order.id.slice(0, 8)}</div>

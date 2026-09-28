@@ -7,7 +7,7 @@
     "dev": "vite --config vite.config.ts --host 0.0.0.0",
     "build": "vite build --config vite.config.ts && node ../../scripts/verify-web-build.mjs .",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
-    "test": "tsx --test src/lib/session-expiry.test.ts src/lib/swap-order-status.test.ts src/lib/exchange-search.test.ts src/lib/logo-catalog.test.ts src/components/mini-app-logo.test.ts",
+    "test": "tsx --test src/lib/session-expiry.test.ts src/lib/swap-order-status.test.ts src/lib/exchange-search.test.ts src/lib/logo-catalog.test.ts src/lib/payment-logo-fit.test.ts src/components/mini-app-logo.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

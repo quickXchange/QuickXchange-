@@ -14,3 +14,9 @@ Known exception: an opaque BBVA catalog upload has a navy rectangle baked into e
 **Why:** A circular container clips only the external square boundary; it cannot remove the opaque square visible inside a contain-fitted image. The white variant uses the same BBVA mark silhouette and transparency, not a CSS filter.
 
 **How to apply:** Preserve other uploaded logos as authoritative unless their intrinsic artwork is independently found unsuitable. Report the retained opaque upload when explaining the BBVA exception.
+
+For the Telegram Mini App, Payment Method artwork may be optically enlarged and centered from its measured transparent-pixel bounds inside the shared circular renderer. This is a presentation-only exception to leaving unknown uploads unscaled; keep `object-fit: contain` and uniform scaling, and never alter uploaded files.
+
+**Why:** Arbitrary uploaded SVG/PNG logos with transparent internal whitespace looked tiny in Orders despite identically sized circles. Browser canvas reads of remote images may be blocked by CORS, so measurement must fail safely to centered containment.
+
+**How to apply:** Reuse the renderer across Orders, details, and Swap; cache measurements by image URL, measure only already-loaded artwork at a small resolution, and keep unreadable or fully transparent sources visible at a conservative scale in Light and Dark mode. Very wide wordmarks cannot fill a small circle while remaining whole: prefer a verified square favicon from the existing brand-domain fallback when one exists, rather than cropping or stretching the uploaded wordmark. Retain theme-specific source exceptions where a favicon would compromise contrast.

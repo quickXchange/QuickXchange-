@@ -21,6 +21,8 @@ test('shared logo renderer keeps artwork circular, centered, contained, and dist
   assert.doesNotMatch(markup, /\bbg-white\b|\bdark:bg-white\b/);
   assert.match(markup, /object-contain object-center/);
   assert.doesNotMatch(markup, /object-cover/);
+  assert.match(markup, /h-full w-full max-h-full max-w-full/);
+  assert.match(markup, /scale\(0\.92\)/);
   assert.equal((markup.match(/<img\b/g) || []).length, 2);
   assert.match(markup, /src="\/api\/storage\/objects\/admin-bank\.svg"/);
   assert.match(markup, /src="\/api\/storage\/objects\/euro-flag\.svg"/);
