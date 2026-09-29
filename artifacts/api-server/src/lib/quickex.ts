@@ -61,6 +61,7 @@ export type QuickexRateMode = "FLOATING" | "FIXED";
 export type QuickexQuote = {
   instrumentFrom: QuickexInstrument;
   instrumentTo: QuickexInstrument;
+  amountToGive?: string;
   amountToGet: string;
   price: string;
   updatedAt: number;
@@ -132,6 +133,7 @@ export class QuickexApiError extends Error {
   public readonly providerStatus?: number;
   public readonly retryable: boolean;
   public readonly outcomeUnknown: boolean;
+  public readonly providerExpectedClaimedAmount?: string;
   constructor(message: string, status?: number);
   constructor(
     code: QuickexErrorCode,
@@ -140,6 +142,7 @@ export class QuickexApiError extends Error {
     providerStatus?: number,
     retryable?: boolean,
     outcomeUnknown?: boolean,
+    providerExpectedClaimedAmount?: string,
   );
   constructor(
     codeOrMessage: QuickexErrorCode | string,
@@ -148,6 +151,7 @@ export class QuickexApiError extends Error {
     providerStatus?: number,
     retryable = false,
     outcomeUnknown = false,
+    providerExpectedClaimedAmount?: string,
   ) {
     const legacy = typeof messageOrStatus === "number" || messageOrStatus === undefined;
     const message = legacy ? codeOrMessage : messageOrStatus;
@@ -159,6 +163,7 @@ export class QuickexApiError extends Error {
     this.providerStatus = legacy ? undefined : providerStatus;
     this.retryable = legacy ? false : retryable;
     this.outcomeUnknown = legacy ? false : outcomeUnknown;
+    this.providerExpectedClaimedAmount = legacy ? undefined : providerExpectedClaimedAmount;
   }
 }
 
@@ -354,8 +359,35 @@ function providerErrorText(value: unknown, depth = 0): string {
   return "";
 }
 
-function classifyProvider(status: number, detail: string): QuickexApiError {
+function providerExpectedClaimedAmount(value: unknown): string | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const data = (value as Record<string, unknown>).data;
+  if (!data || typeof data !== "object" || Array.isArray(data)) return undefined;
+  const details = (data as Record<string, unknown>).details;
+  if (!details || typeof details !== "object" || Array.isArray(details)) return undefined;
+  const record = details as Record<string, unknown>;
+  const expected = record.expected;
+  if (record.field !== "claimedDepositAmount" ||
+    typeof expected !== "string" ||
+    !/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(expected) ||
+    !Number.isFinite(Number(expected)) ||
+    Number(expected) <= 0) return undefined;
+  return expected;
+}
+
+function classifyProvider(status: number, detail: string, body?: unknown): QuickexApiError {
   const text = detail.toLowerCase();
+  const safeReason = detail
+    .replace(/<[^>]*>/g, " ")
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 180);
+  const actionableReason = safeReason &&
+    !/[{}[\]]/.test(safeReason) &&
+    !/\b(stack|traceback|exception|internal server|sql|select\s+\*| at \w+\.)\b/i.test(safeReason)
+    ? safeReason
+    : "";
   if (status === 401 || /signature|api.?key|auth/.test(text))
     return new QuickexApiError("QUICKEX_AUTH", "Exchange service authorization failed.", 503, status);
   if (status === 403)
@@ -363,12 +395,21 @@ function classifyProvider(status: number, detail: string): QuickexApiError {
   if (status === 429) return new QuickexApiError("QUICKEX_RATE_LIMITED", "Exchange service is temporarily busy.", 429, status, true);
   if (/memo|tag/.test(text)) return new QuickexApiError("QUICKEX_INVALID_MEMO", "The destination or refund memo is invalid.", 400, status);
   if (/address/.test(text)) return new QuickexApiError("QUICKEX_INVALID_ADDRESS", "The destination or refund address is invalid.", 400, status);
-  if (/too small|min(imum)? amount/.test(text)) return new QuickexApiError("QUICKEX_AMOUNT_TOO_SMALL", "The amount is below the minimum for this route.", 400, status);
-  if (/too large|max(imum)? amount/.test(text)) return new QuickexApiError("QUICKEX_AMOUNT_TOO_LARGE", "The amount is above the maximum for this route.", 400, status);
+  const expectedClaimedAmount = providerExpectedClaimedAmount(body);
+  if (/too small|min(imum)? amount|below (?:the )?minimum/.test(text)) return new QuickexApiError("QUICKEX_AMOUNT_TOO_SMALL", actionableReason || "The amount is below the minimum for this route. Check the provider’s minimum amount and try again.", 400, status, false, false, expectedClaimedAmount);
+  if (/too large|max(imum)? amount|above (?:the )?maximum|exceed(?:s|ed)? (?:the )?(?:route )?maximum/.test(text)) return new QuickexApiError("QUICKEX_AMOUNT_TOO_LARGE", actionableReason || "The amount is above the maximum for this route. Check the provider’s maximum amount and try again.", 400, status, false, false, expectedClaimedAmount);
   if (/rate.?mode|fixed.?rate|floating.?rate/.test(text)) return new QuickexApiError("QUICKEX_RATE_MODE_UNAVAILABLE", "The requested rate type is unavailable for this route.", 422, status);
   if (/route|instrument|currency|network/.test(text)) return new QuickexApiError("QUICKEX_ROUTE_INVALID", "This exchange route is unavailable.", 422, status);
   if (status >= 500) return new QuickexApiError("QUICKEX_PROVIDER_UNAVAILABLE", "Exchange service is temporarily unavailable.", 503, status, true);
-  return new QuickexApiError("QUICKEX_VALIDATION", "The exchange service rejected the request.", 400, status, true);
+  return new QuickexApiError(
+    "QUICKEX_VALIDATION",
+    actionableReason
+      ? `The exchange service rejected the requested amount or route: ${actionableReason}`
+      : "The exchange service rejected the requested amount or route. Review the amount and selected networks, then try again.",
+    400,
+    status,
+    true,
+  );
 }
 
 async function readJson<T>(response: Response): Promise<T> {
@@ -380,7 +421,7 @@ async function readJson<T>(response: Response): Promise<T> {
     }
     throw new QuickexApiError("QUICKEX_MALFORMED_RESPONSE", "The exchange service returned an invalid response.", 502, response.status);
   }
-  if (!response.ok) throw classifyProvider(response.status, providerErrorText(parsed));
+  if (!response.ok) throw classifyProvider(response.status, providerErrorText(parsed), parsed);
   return parsed as T;
 }
 
@@ -837,11 +878,12 @@ function validateQuote(
   expectedTo?: QuickexInstrument,
   expectedRateMode?: QuickexRateMode,
 ): QuickexQuote {
-  const quote = value as Record<string, unknown>;
   const malformedQuote = () => new QuickexApiError(
     "QUICKEX_MALFORMED_RESPONSE",
     "The exchange service returned an invalid quote.",
   );
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw malformedQuote();
+  const quote = value as Record<string, unknown>;
   const settlementFieldTypes = new Set([
     "short-text", "long-text", "integer", "numeric", "decimal", "account-iban",
     "account-number", "account-name", "bank-code", "routing-number", "country-code",
@@ -923,7 +965,9 @@ function validateQuote(
       instrumentTo: validateQuotedInstrument(quote.instrumentTo, expectedTo),
       requiredSettlementFields,
     } as QuickexQuote;
-    if (!decimal(result.amountToGet) || !decimal(result.price) || !Number.isFinite(result.updatedAt) || !["FLOATING", "FIXED"].includes(result.rateMode) ||
+    if (!decimal(result.amountToGet) ||
+      (result.amountToGive !== undefined && !decimal(result.amountToGive)) ||
+      !decimal(result.price) || !Number.isFinite(result.updatedAt) || !["FLOATING", "FIXED"].includes(result.rateMode) ||
       (result.finalNetworkFeeAmount !== undefined && !decimal(result.finalNetworkFeeAmount)) ||
       (result.generalMinAmount !== undefined && !decimal(result.generalMinAmount)) ||
       (result.generalMaxAmount !== undefined && !decimal(result.generalMaxAmount))) throw new Error();
@@ -936,6 +980,143 @@ function validateQuote(
     );
   }
   return result;
+}
+
+export async function getQuickexQuoteByReceive(input: {
+  fromCurrency: string;
+  fromNetwork: string;
+  toCurrency: string;
+  toNetwork: string;
+  desiredReceiveAmount: number;
+  rateMode?: QuickexRateMode;
+}) {
+  if (!Number.isFinite(input.desiredReceiveAmount) || input.desiredReceiveAmount <= 0) {
+    throw new QuickexApiError("QUICKEX_VALIDATION", "A valid positive receive amount is required.", 400);
+  }
+  const rateMode = input.rateMode ?? "FLOATING";
+  const [instrumentFrom, instrumentTo] = await Promise.all([
+    resolveInstrument(input.fromCurrency, input.fromNetwork),
+    resolveInstrument(input.toCurrency, input.toNetwork),
+  ]);
+  // Quickex's amount currency semantics are ambiguous for same-ticker network
+  // routes; fail closed rather than risk treating the requested receive target
+  // as the send amount.
+  if (instrumentFrom.currencyTitle.toUpperCase() === instrumentTo.currencyTitle.toUpperCase()) {
+    throw new QuickexApiError(
+      "QUICKEX_ROUTE_INVALID",
+      "Receive-amount quotes are unavailable for routes that use the same currency on different networks.",
+      422,
+    );
+  }
+  const params = new URLSearchParams({
+    instrumentFromCurrencyTitle: instrumentFrom.currencyTitle,
+    instrumentFromNetworkTitle: instrumentFrom.networkTitle,
+    instrumentToCurrencyTitle: instrumentTo.currencyTitle,
+    instrumentToNetworkTitle: instrumentTo.networkTitle,
+    instrumentFromSlug: instrumentFrom.slug,
+    instrumentToSlug: instrumentTo.slug,
+    claimedDepositAmountCurrency: instrumentTo.currencyTitle,
+    claimedDepositAmount: String(input.desiredReceiveAmount),
+    rateMode,
+    exchangeType: "crypto",
+    markup: "0",
+  });
+  const { baseUrl, readTimeoutMs } = config();
+  let quote: QuickexQuote;
+  try {
+    quote = validateQuote(
+      await requestJson<unknown>(
+        `${baseUrl}/rates/public/one?${params}`,
+        { headers: { Accept: "application/json" } },
+        readTimeoutMs,
+        true,
+      ),
+      instrumentFrom,
+      instrumentTo,
+      rateMode,
+    );
+  } catch (error) {
+    if (!(error instanceof QuickexApiError) ||
+      !["QUICKEX_AMOUNT_TOO_SMALL", "QUICKEX_AMOUNT_TOO_LARGE"].includes(error.code)) {
+      throw error;
+    }
+    if (error.providerExpectedClaimedAmount) {
+      const tooSmall = error.code === "QUICKEX_AMOUNT_TOO_SMALL";
+      throw new QuickexApiError(
+        error.code,
+        tooSmall
+          ? `You Receive must be at least ${error.providerExpectedClaimedAmount} ${instrumentTo.currencyTitle}. Raise You Receive to meet Quickex’s minimum for this route.`
+          : `You Receive must be no more than ${error.providerExpectedClaimedAmount} ${instrumentTo.currencyTitle}. Lower You Receive to meet Quickex’s maximum for this route.`,
+        400,
+        error.providerStatus,
+      );
+    }
+    let actionableLimitError: QuickexApiError | undefined;
+    try {
+      const limits = new URLSearchParams(params);
+      limits.delete("claimedDepositAmount");
+      const limitsQuote = validateQuote(
+        await requestJson<unknown>(
+          `${baseUrl}/rates/public/one?${limits}`,
+          { headers: { Accept: "application/json" } },
+          readTimeoutMs,
+          true,
+        ),
+        instrumentFrom,
+        instrumentTo,
+        rateMode,
+      );
+      const tooSmall = error.code === "QUICKEX_AMOUNT_TOO_SMALL";
+      const limit = tooSmall ? limitsQuote.generalMinAmount : limitsQuote.generalMaxAmount;
+      if (limit && Number.isFinite(Number(limit))) {
+        actionableLimitError = new QuickexApiError(
+          error.code,
+          tooSmall
+            ? `Quickex requires you to send at least ${limit} ${input.fromCurrency} for this route. Raise You Receive to increase the source amount.`
+            : `Quickex allows you to send no more than ${limit} ${input.fromCurrency} for this route. Lower You Receive to reduce the source amount.`,
+          400,
+          error.providerStatus,
+        );
+      }
+    } catch {
+      // Preserve the actionable provider rejection when the follow-up lookup
+      // cannot safely provide authoritative route limits.
+    }
+    if (actionableLimitError) throw actionableLimitError;
+    throw error;
+  }
+  const amountToGive = Number(quote.amountToGive);
+  const amountToGet = Number(quote.amountToGet);
+  if (!quote.amountToGive || !Number.isFinite(amountToGive) || amountToGive <= 0 ||
+    !Number.isFinite(amountToGet) || amountToGet <= 0) {
+    throw new QuickexApiError(
+      "QUICKEX_MALFORMED_RESPONSE",
+      "The exchange service returned an invalid receive-amount quote.",
+    );
+  }
+  if (amountToGet !== input.desiredReceiveAmount) {
+    throw new QuickexApiError(
+      "QUICKEX_MALFORMED_RESPONSE",
+      "The exchange service did not quote the requested receive amount.",
+    );
+  }
+  const min = Number(quote.generalMinAmount);
+  const max = Number(quote.generalMaxAmount);
+  if (Number.isFinite(min) && amountToGive < min) {
+    throw new QuickexApiError(
+      "QUICKEX_AMOUNT_TOO_SMALL",
+      `The requested receive amount requires ${quote.amountToGive} ${input.fromCurrency}, below this route’s minimum of ${quote.generalMinAmount} ${input.fromCurrency}. Increase the receive amount.`,
+      400,
+    );
+  }
+  if (Number.isFinite(max) && amountToGive > max) {
+    throw new QuickexApiError(
+      "QUICKEX_AMOUNT_TOO_LARGE",
+      `The requested receive amount requires ${quote.amountToGive} ${input.fromCurrency}, above this route’s maximum of ${quote.generalMaxAmount} ${input.fromCurrency}. Decrease the receive amount.`,
+      400,
+    );
+  }
+  return quote;
 }
 
 export async function getQuickexQuote(input: { fromCurrency: string; fromNetwork: string; toCurrency: string; toNetwork: string; amount: number; rateMode?: QuickexRateMode }) {

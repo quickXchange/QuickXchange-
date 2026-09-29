@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import {
   CreateQuickexOrderBody, CreateQuickexOrderResponse, CreateQuickexQuoteBody,
+  CreateQuickexQuoteByReceiveBody, CreateQuickexQuoteByReceiveResponse,
   CreateQuickexQuoteResponse, GetQuickexConfigResponse, GetQuickexCredentialsResponse,
   GetQuickexPairsQueryParams, GetQuickexPairsResponse,
   GetQuickexDiagnosticsResponse, GetQuickexOrderStatusParams, GetQuickexOrderStatusResponse,
@@ -24,6 +25,7 @@ import { getCustomerActorUserId, getCustomerVerifiedEmail, requireActiveCustomer
 import { initializeAffiliateForOrder } from "../lib/affiliate-accounting";
 import {
   buildProviderQuoteTicket,
+  buildProviderQuoteTicketByReceive,
   getQuickexPublicCapabilityConfig,
   getQuickexPublicPairs,
   listExecutableProviderCapabilities,
@@ -65,6 +67,16 @@ router.post("/quote", async (req, res): Promise<void> => {
   if (input.type !== "instant") throw new ApiError("VALIDATION_ERROR", "Quickex only supports instant convert orders.", 400);
   const ticket = await buildProviderQuoteTicket(input);
   res.json(CreateQuickexQuoteResponse.parse({ ...ticket, quoteId: signQuoteTicket(ticket), expiresAt: new Date(ticket.expiresAt).toISOString() }));
+});
+router.post("/quote-by-receive", async (req, res): Promise<void> => {
+  const parsed = CreateQuickexQuoteByReceiveBody.safeParse(req.body);
+  if (!parsed.success) return invalid(res, parsed);
+  const ticket = await buildProviderQuoteTicketByReceive(parsed.data);
+  res.json(CreateQuickexQuoteByReceiveResponse.parse({
+    ...ticket,
+    quoteId: signQuoteTicket(ticket),
+    expiresAt: new Date(ticket.expiresAt).toISOString(),
+  }));
 });
 router.post("/create-order", async (req, res): Promise<void> => {
   const customerClerkUserId = getCustomerActorUserId(req);

@@ -169,6 +169,7 @@ import type {
   ManualDeskPricingRulesCreateBatchResult,
   ManualDeskRevenueReport,
   ManualPublicOrderStatus,
+  ManualReceiveQuoteInput,
   ManualSwapAddon,
   ManualSwapAddonInput,
   ManualSwapAddonUpdate,
@@ -238,6 +239,7 @@ import type {
   QuickexPair,
   QuickexProviderStatus,
   QuickexProviderTest,
+  QuickexReceiveQuoteInput,
   Quote,
   QuoteInput,
   ReviewAffiliateValuationBody,
@@ -2196,6 +2198,77 @@ export const useCreateExchangeQuote = <TError = ErrorType<ApiError>,
         TContext
       > => {
       return useMutation(getCreateExchangeQuoteMutationOptions(options));
+    }
+
+export const getCreateExchangeQuoteByReceiveUrl = () => {
+
+
+
+
+  return `/api/exchange/quote-by-receive`
+}
+
+/**
+ * @summary Calculate a Manual Swap quote for a desired receive amount
+ */
+export const createExchangeQuoteByReceive = async (manualReceiveQuoteInput: ManualReceiveQuoteInput, options?: Parameters<typeof customFetch>[1]): Promise<Quote> => {
+
+  return customFetch<Quote>(getCreateExchangeQuoteByReceiveUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(manualReceiveQuoteInput)
+  }
+);}
+
+
+
+
+
+export const getCreateExchangeQuoteByReceiveMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createExchangeQuoteByReceive>>, TError,{data: BodyType<ManualReceiveQuoteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createExchangeQuoteByReceive>>, TError,{data: BodyType<ManualReceiveQuoteInput>}, TContext> => {
+
+const mutationKey = ['createExchangeQuoteByReceive'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createExchangeQuoteByReceive>>, {data: BodyType<ManualReceiveQuoteInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createExchangeQuoteByReceive(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateExchangeQuoteByReceiveMutationResult = NonNullable<Awaited<ReturnType<typeof createExchangeQuoteByReceive>>>
+    export type CreateExchangeQuoteByReceiveMutationBody = BodyType<ManualReceiveQuoteInput>
+    export type CreateExchangeQuoteByReceiveMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Calculate a Manual Swap quote for a desired receive amount
+ */
+export const useCreateExchangeQuoteByReceive = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createExchangeQuoteByReceive>>, TError,{data: BodyType<ManualReceiveQuoteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createExchangeQuoteByReceive>>,
+        TError,
+        {data: BodyType<ManualReceiveQuoteInput>},
+        TContext
+      > => {
+      return useMutation(getCreateExchangeQuoteByReceiveMutationOptions(options));
     }
 
 export const getCreateExchangeOrderUrl = () => {
@@ -12038,6 +12111,77 @@ export const useCreateQuickexQuote = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getCreateQuickexQuoteMutationOptions(options));
+    }
+
+export const getCreateQuickexQuoteByReceiveUrl = () => {
+
+
+
+
+  return `/api/quickex/quote-by-receive`
+}
+
+/**
+ * @summary Create a Quickex Convert quote for a desired receive amount
+ */
+export const createQuickexQuoteByReceive = async (quickexReceiveQuoteInput: QuickexReceiveQuoteInput, options?: Parameters<typeof customFetch>[1]): Promise<Quote> => {
+
+  return customFetch<Quote>(getCreateQuickexQuoteByReceiveUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(quickexReceiveQuoteInput)
+  }
+);}
+
+
+
+
+
+export const getCreateQuickexQuoteByReceiveMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createQuickexQuoteByReceive>>, TError,{data: BodyType<QuickexReceiveQuoteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createQuickexQuoteByReceive>>, TError,{data: BodyType<QuickexReceiveQuoteInput>}, TContext> => {
+
+const mutationKey = ['createQuickexQuoteByReceive'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createQuickexQuoteByReceive>>, {data: BodyType<QuickexReceiveQuoteInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createQuickexQuoteByReceive(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateQuickexQuoteByReceiveMutationResult = NonNullable<Awaited<ReturnType<typeof createQuickexQuoteByReceive>>>
+    export type CreateQuickexQuoteByReceiveMutationBody = BodyType<QuickexReceiveQuoteInput>
+    export type CreateQuickexQuoteByReceiveMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a Quickex Convert quote for a desired receive amount
+ */
+export const useCreateQuickexQuoteByReceive = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createQuickexQuoteByReceive>>, TError,{data: BodyType<QuickexReceiveQuoteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createQuickexQuoteByReceive>>,
+        TError,
+        {data: BodyType<QuickexReceiveQuoteInput>},
+        TContext
+      > => {
+      return useMutation(getCreateQuickexQuoteByReceiveMutationOptions(options));
     }
 
 export const getCreateQuickexOrderUrl = () => {

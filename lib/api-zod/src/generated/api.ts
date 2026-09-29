@@ -1604,6 +1604,160 @@ export const CreateExchangeQuoteResponse = zod.object({
 
 
 /**
+ * @summary Calculate a Manual Swap quote for a desired receive amount
+ */
+export const createExchangeQuoteByReceiveBodyFromAssetMin = 2;
+
+
+export const createExchangeQuoteByReceiveBodyToAssetMin = 2;
+
+
+export const createExchangeQuoteByReceiveBodySourceSettlementOptionIdMax = 200;
+
+export const createExchangeQuoteByReceiveBodyTargetSettlementOptionIdMax = 200;
+
+export const createExchangeQuoteByReceiveBodySelectedAddOnKeysItemMax = 100;
+
+export const createExchangeQuoteByReceiveBodySelectedAddOnKeysMax = 50;
+
+export const createExchangeQuoteByReceiveBodyDesiredReceiveAmountExclusiveMin = 0;
+
+
+
+export const CreateExchangeQuoteByReceiveBody = zod.object({
+  "fromAsset": zod.string().min(createExchangeQuoteByReceiveBodyFromAssetMin),
+  "fromNetwork": zod.string().min(1),
+  "toAsset": zod.string().min(createExchangeQuoteByReceiveBodyToAssetMin),
+  "toNetwork": zod.string().min(1),
+  "sourceSettlementOptionId": zod.string().min(1).max(createExchangeQuoteByReceiveBodySourceSettlementOptionIdMax),
+  "targetSettlementOptionId": zod.string().min(1).max(createExchangeQuoteByReceiveBodyTargetSettlementOptionIdMax),
+  "selectedAddOnKeys": zod.array(zod.string().min(1).max(createExchangeQuoteByReceiveBodySelectedAddOnKeysItemMax)).max(createExchangeQuoteByReceiveBodySelectedAddOnKeysMax).optional(),
+  "desiredReceiveAmount": zod.number().gt(createExchangeQuoteByReceiveBodyDesiredReceiveAmountExclusiveMin)
+})
+
+export const createExchangeQuoteByReceiveResponsePricingRuleVersionMultipleOf = 1;
+
+export const createExchangeQuoteByReceiveResponseRequiredSettlementFieldsItemKeyRegExp = new RegExp('^[a-z][a-z0-9_]{0,63}$');
+export const createExchangeQuoteByReceiveResponseRequiredSettlementFieldsItemLabelMax = 100;
+
+export const createExchangeQuoteByReceiveResponseRequiredSettlementFieldsItemPlaceholderMax = 200;
+
+export const createExchangeQuoteByReceiveResponseRequiredSettlementFieldsItemHelpMax = 500;
+
+export const createExchangeQuoteByReceiveResponseRequiredSettlementFieldsItemOptionsItemValueMax = 200;
+
+export const createExchangeQuoteByReceiveResponseRequiredSettlementFieldsItemOptionsItemLabelMax = 200;
+
+export const createExchangeQuoteByReceiveResponseRequiredSettlementFieldsItemOptionsMax = 100;
+
+export const createExchangeQuoteByReceiveResponseRequiredSettlementFieldsItemPatternMax = 500;
+
+export const createExchangeQuoteByReceiveResponseRequiredSettlementFieldsItemRequiredWhenFieldKeyRegExp = new RegExp('^[a-z][a-z0-9_]{0,63}$');
+export const createExchangeQuoteByReceiveResponseRequiredSettlementFieldsItemRequiredWhenEqualsOneMax = 200;
+
+export const createExchangeQuoteByReceiveResponseRequiredSettlementFieldsItemRequiredWhenEqualsTwoItemMax = 200;
+
+export const createExchangeQuoteByReceiveResponseRequiredSettlementFieldsItemRequiredWhenEqualsTwoMax = 50;
+
+export const createExchangeQuoteByReceiveResponseExpectedSettlementMinutesMultipleOf = 1;
+
+export const createExchangeQuoteByReceiveResponseManualSwapFeesSelectedAddonsItemAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const createExchangeQuoteByReceiveResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const createExchangeQuoteByReceiveResponseManualSwapFeesAddonFeeRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const createExchangeQuoteByReceiveResponseManualSwapFeesExchangeFeePercentageAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const createExchangeQuoteByReceiveResponseManualSwapFeesExchangeFeeFixedTargetAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const createExchangeQuoteByReceiveResponseManualSwapFeesExchangeFeeTotalAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const createExchangeQuoteByReceiveResponseManualSwapFeesTotalAdditionalFeeRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const createExchangeQuoteByReceiveResponseManualSwapFeesExistingPricingFeeRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const createExchangeQuoteByReceiveResponseManualSwapFeesTotalFeesRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const createExchangeQuoteByReceiveResponseManualSwapFeesReferenceLegsItemUnitsPerUsdRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+
+
+
+export const CreateExchangeQuoteByReceiveResponse = zod.object({
+  "quoteId": zod.string(),
+  "type": zod.enum(['instant', 'manual']),
+  "fromAsset": zod.string(),
+  "fromNetwork": zod.string(),
+  "toAsset": zod.string(),
+  "toNetwork": zod.string(),
+  "amount": zod.number(),
+  "receiveAmount": zod.number(),
+  "rate": zod.number(),
+  "fee": zod.number(),
+  "minAmount": zod.number().optional(),
+  "maxAmount": zod.number().optional(),
+  "expiresAt": zod.string(),
+  "provider": zod.string(),
+  "rateMode": zod.enum(['FLOATING', 'FIXED']).optional(),
+  "grossMarketAmount": zod.number().optional(),
+  "percentageCommission": zod.number().optional(),
+  "fixedCommission": zod.number().optional(),
+  "totalFee": zod.number().optional(),
+  "pricingRuleId": zod.string().optional(),
+  "pricingRuleVersion": zod.number().min(1).multipleOf(createExchangeQuoteByReceiveResponsePricingRuleVersionMultipleOf).optional(),
+  "pricingRuleName": zod.string().optional(),
+  "sourceSettlementOptionId": zod.string().optional(),
+  "targetSettlementOptionId": zod.string().optional(),
+  "requiredSettlementFields": zod.array(zod.object({
+  "key": zod.string().regex(createExchangeQuoteByReceiveResponseRequiredSettlementFieldsItemKeyRegExp),
+  "type": zod.enum(['short-text', 'long-text', 'integer', 'numeric', 'decimal', 'account-iban', 'account-number', 'account-name', 'bank-code', 'routing-number', 'country-code', 'postal-address', 'phone', 'email', 'date', 'select', 'wallet-address', 'memo-tag', 'private-image', 'text', 'number', 'textarea']),
+  "direction": zod.enum(['send', 'receive', 'both']).optional(),
+  "emphasizedLabel": zod.boolean().optional(),
+  "label": zod.string().min(1).max(createExchangeQuoteByReceiveResponseRequiredSettlementFieldsItemLabelMax),
+  "placeholder": zod.string().max(createExchangeQuoteByReceiveResponseRequiredSettlementFieldsItemPlaceholderMax).optional(),
+  "enabled": zod.boolean().optional(),
+  "help": zod.string().max(createExchangeQuoteByReceiveResponseRequiredSettlementFieldsItemHelpMax).optional(),
+  "options": zod.array(zod.object({
+  "value": zod.string().max(createExchangeQuoteByReceiveResponseRequiredSettlementFieldsItemOptionsItemValueMax),
+  "label": zod.string().max(createExchangeQuoteByReceiveResponseRequiredSettlementFieldsItemOptionsItemLabelMax)
+})).max(createExchangeQuoteByReceiveResponseRequiredSettlementFieldsItemOptionsMax).optional(),
+  "required": zod.boolean().optional(),
+  "min": zod.number().optional(),
+  "max": zod.number().optional(),
+  "pattern": zod.string().max(createExchangeQuoteByReceiveResponseRequiredSettlementFieldsItemPatternMax).optional(),
+  "requiredWhen": zod.object({
+  "fieldKey": zod.string().regex(createExchangeQuoteByReceiveResponseRequiredSettlementFieldsItemRequiredWhenFieldKeyRegExp),
+  "equals": zod.union([zod.string().max(createExchangeQuoteByReceiveResponseRequiredSettlementFieldsItemRequiredWhenEqualsOneMax),zod.array(zod.string().max(createExchangeQuoteByReceiveResponseRequiredSettlementFieldsItemRequiredWhenEqualsTwoItemMax)).min(1).max(createExchangeQuoteByReceiveResponseRequiredSettlementFieldsItemRequiredWhenEqualsTwoMax)])
+}).optional()
+})).optional(),
+  "customerInstructions": zod.string().optional(),
+  "expectedSettlementMinutes": zod.number().min(1).multipleOf(createExchangeQuoteByReceiveResponseExpectedSettlementMinutesMultipleOf).optional(),
+  "manualSwapFees": zod.object({
+  "selectedAddons": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "key": zod.string(),
+  "name": zod.string(),
+  "amount": zod.string().regex(createExchangeQuoteByReceiveResponseManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "currency": zod.string(),
+  "targetAmount": zod.string().regex(createExchangeQuoteByReceiveResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+})),
+  "addonFee": zod.string().regex(createExchangeQuoteByReceiveResponseManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "exchangeFee": zod.object({
+  "enabled": zod.boolean(),
+  "percentage": zod.string().nullable(),
+  "fixedAmount": zod.string().nullable(),
+  "fixedCurrency": zod.string(),
+  "percentageAmount": zod.string().regex(createExchangeQuoteByReceiveResponseManualSwapFeesExchangeFeePercentageAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "fixedTargetAmount": zod.string().regex(createExchangeQuoteByReceiveResponseManualSwapFeesExchangeFeeFixedTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "totalAmount": zod.string().regex(createExchangeQuoteByReceiveResponseManualSwapFeesExchangeFeeTotalAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+}),
+  "totalAdditionalFee": zod.string().regex(createExchangeQuoteByReceiveResponseManualSwapFeesTotalAdditionalFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "existingPricingFee": zod.string().regex(createExchangeQuoteByReceiveResponseManualSwapFeesExistingPricingFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "totalFees": zod.string().regex(createExchangeQuoteByReceiveResponseManualSwapFeesTotalFeesRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "referenceLegs": zod.array(zod.object({
+  "currency": zod.string(),
+  "unitsPerUsd": zod.string().regex(createExchangeQuoteByReceiveResponseManualSwapFeesReferenceLegsItemUnitsPerUsdRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "provider": zod.enum(['1Forge', 'manual', 'Coinbase', 'USD identity', 'test adapter']),
+  "source": zod.string().min(1),
+  "observedAt": zod.coerce.date(),
+  "timestampKind": zod.enum(['upstreamObservedAt', 'fetchedAt'])
+})).optional()
+}).optional()
+})
+
+
+/**
  * @summary Create an exchange order using a server-fetched rate
  */
 export const createExchangeOrderBodyFromAssetMin = 2;
@@ -13170,6 +13324,150 @@ export const CreateQuickexQuoteResponse = zod.object({
   "referenceLegs": zod.array(zod.object({
   "currency": zod.string(),
   "unitsPerUsd": zod.string().regex(createQuickexQuoteResponseManualSwapFeesReferenceLegsItemUnitsPerUsdRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
+  "provider": zod.enum(['1Forge', 'manual', 'Coinbase', 'USD identity', 'test adapter']),
+  "source": zod.string().min(1),
+  "observedAt": zod.coerce.date(),
+  "timestampKind": zod.enum(['upstreamObservedAt', 'fetchedAt'])
+})).optional()
+}).optional()
+})
+
+
+/**
+ * @summary Create a Quickex Convert quote for a desired receive amount
+ */
+export const createQuickexQuoteByReceiveBodyFromAssetMin = 2;
+
+
+export const createQuickexQuoteByReceiveBodyToAssetMin = 2;
+
+
+export const createQuickexQuoteByReceiveBodyDesiredReceiveAmountExclusiveMin = 0;
+
+
+
+export const CreateQuickexQuoteByReceiveBody = zod.object({
+  "fromAsset": zod.string().min(createQuickexQuoteByReceiveBodyFromAssetMin),
+  "fromNetwork": zod.string().min(1),
+  "toAsset": zod.string().min(createQuickexQuoteByReceiveBodyToAssetMin),
+  "toNetwork": zod.string().min(1),
+  "desiredReceiveAmount": zod.number().gt(createQuickexQuoteByReceiveBodyDesiredReceiveAmountExclusiveMin),
+  "rateMode": zod.enum(['FLOATING', 'FIXED']).optional()
+})
+
+export const createQuickexQuoteByReceiveResponsePricingRuleVersionMultipleOf = 1;
+
+export const createQuickexQuoteByReceiveResponseRequiredSettlementFieldsItemKeyRegExp = new RegExp('^[a-z][a-z0-9_]{0,63}$');
+export const createQuickexQuoteByReceiveResponseRequiredSettlementFieldsItemLabelMax = 100;
+
+export const createQuickexQuoteByReceiveResponseRequiredSettlementFieldsItemPlaceholderMax = 200;
+
+export const createQuickexQuoteByReceiveResponseRequiredSettlementFieldsItemHelpMax = 500;
+
+export const createQuickexQuoteByReceiveResponseRequiredSettlementFieldsItemOptionsItemValueMax = 200;
+
+export const createQuickexQuoteByReceiveResponseRequiredSettlementFieldsItemOptionsItemLabelMax = 200;
+
+export const createQuickexQuoteByReceiveResponseRequiredSettlementFieldsItemOptionsMax = 100;
+
+export const createQuickexQuoteByReceiveResponseRequiredSettlementFieldsItemPatternMax = 500;
+
+export const createQuickexQuoteByReceiveResponseRequiredSettlementFieldsItemRequiredWhenFieldKeyRegExp = new RegExp('^[a-z][a-z0-9_]{0,63}$');
+export const createQuickexQuoteByReceiveResponseRequiredSettlementFieldsItemRequiredWhenEqualsOneMax = 200;
+
+export const createQuickexQuoteByReceiveResponseRequiredSettlementFieldsItemRequiredWhenEqualsTwoItemMax = 200;
+
+export const createQuickexQuoteByReceiveResponseRequiredSettlementFieldsItemRequiredWhenEqualsTwoMax = 50;
+
+export const createQuickexQuoteByReceiveResponseExpectedSettlementMinutesMultipleOf = 1;
+
+export const createQuickexQuoteByReceiveResponseManualSwapFeesSelectedAddonsItemAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const createQuickexQuoteByReceiveResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const createQuickexQuoteByReceiveResponseManualSwapFeesAddonFeeRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const createQuickexQuoteByReceiveResponseManualSwapFeesExchangeFeePercentageAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const createQuickexQuoteByReceiveResponseManualSwapFeesExchangeFeeFixedTargetAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const createQuickexQuoteByReceiveResponseManualSwapFeesExchangeFeeTotalAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const createQuickexQuoteByReceiveResponseManualSwapFeesTotalAdditionalFeeRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const createQuickexQuoteByReceiveResponseManualSwapFeesExistingPricingFeeRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const createQuickexQuoteByReceiveResponseManualSwapFeesTotalFeesRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const createQuickexQuoteByReceiveResponseManualSwapFeesReferenceLegsItemUnitsPerUsdRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+
+
+
+export const CreateQuickexQuoteByReceiveResponse = zod.object({
+  "quoteId": zod.string(),
+  "type": zod.enum(['instant', 'manual']),
+  "fromAsset": zod.string(),
+  "fromNetwork": zod.string(),
+  "toAsset": zod.string(),
+  "toNetwork": zod.string(),
+  "amount": zod.number(),
+  "receiveAmount": zod.number(),
+  "rate": zod.number(),
+  "fee": zod.number(),
+  "minAmount": zod.number().optional(),
+  "maxAmount": zod.number().optional(),
+  "expiresAt": zod.string(),
+  "provider": zod.string(),
+  "rateMode": zod.enum(['FLOATING', 'FIXED']).optional(),
+  "grossMarketAmount": zod.number().optional(),
+  "percentageCommission": zod.number().optional(),
+  "fixedCommission": zod.number().optional(),
+  "totalFee": zod.number().optional(),
+  "pricingRuleId": zod.string().optional(),
+  "pricingRuleVersion": zod.number().min(1).multipleOf(createQuickexQuoteByReceiveResponsePricingRuleVersionMultipleOf).optional(),
+  "pricingRuleName": zod.string().optional(),
+  "sourceSettlementOptionId": zod.string().optional(),
+  "targetSettlementOptionId": zod.string().optional(),
+  "requiredSettlementFields": zod.array(zod.object({
+  "key": zod.string().regex(createQuickexQuoteByReceiveResponseRequiredSettlementFieldsItemKeyRegExp),
+  "type": zod.enum(['short-text', 'long-text', 'integer', 'numeric', 'decimal', 'account-iban', 'account-number', 'account-name', 'bank-code', 'routing-number', 'country-code', 'postal-address', 'phone', 'email', 'date', 'select', 'wallet-address', 'memo-tag', 'private-image', 'text', 'number', 'textarea']),
+  "direction": zod.enum(['send', 'receive', 'both']).optional(),
+  "emphasizedLabel": zod.boolean().optional(),
+  "label": zod.string().min(1).max(createQuickexQuoteByReceiveResponseRequiredSettlementFieldsItemLabelMax),
+  "placeholder": zod.string().max(createQuickexQuoteByReceiveResponseRequiredSettlementFieldsItemPlaceholderMax).optional(),
+  "enabled": zod.boolean().optional(),
+  "help": zod.string().max(createQuickexQuoteByReceiveResponseRequiredSettlementFieldsItemHelpMax).optional(),
+  "options": zod.array(zod.object({
+  "value": zod.string().max(createQuickexQuoteByReceiveResponseRequiredSettlementFieldsItemOptionsItemValueMax),
+  "label": zod.string().max(createQuickexQuoteByReceiveResponseRequiredSettlementFieldsItemOptionsItemLabelMax)
+})).max(createQuickexQuoteByReceiveResponseRequiredSettlementFieldsItemOptionsMax).optional(),
+  "required": zod.boolean().optional(),
+  "min": zod.number().optional(),
+  "max": zod.number().optional(),
+  "pattern": zod.string().max(createQuickexQuoteByReceiveResponseRequiredSettlementFieldsItemPatternMax).optional(),
+  "requiredWhen": zod.object({
+  "fieldKey": zod.string().regex(createQuickexQuoteByReceiveResponseRequiredSettlementFieldsItemRequiredWhenFieldKeyRegExp),
+  "equals": zod.union([zod.string().max(createQuickexQuoteByReceiveResponseRequiredSettlementFieldsItemRequiredWhenEqualsOneMax),zod.array(zod.string().max(createQuickexQuoteByReceiveResponseRequiredSettlementFieldsItemRequiredWhenEqualsTwoItemMax)).min(1).max(createQuickexQuoteByReceiveResponseRequiredSettlementFieldsItemRequiredWhenEqualsTwoMax)])
+}).optional()
+})).optional(),
+  "customerInstructions": zod.string().optional(),
+  "expectedSettlementMinutes": zod.number().min(1).multipleOf(createQuickexQuoteByReceiveResponseExpectedSettlementMinutesMultipleOf).optional(),
+  "manualSwapFees": zod.object({
+  "selectedAddons": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "key": zod.string(),
+  "name": zod.string(),
+  "amount": zod.string().regex(createQuickexQuoteByReceiveResponseManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "currency": zod.string(),
+  "targetAmount": zod.string().regex(createQuickexQuoteByReceiveResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+})),
+  "addonFee": zod.string().regex(createQuickexQuoteByReceiveResponseManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "exchangeFee": zod.object({
+  "enabled": zod.boolean(),
+  "percentage": zod.string().nullable(),
+  "fixedAmount": zod.string().nullable(),
+  "fixedCurrency": zod.string(),
+  "percentageAmount": zod.string().regex(createQuickexQuoteByReceiveResponseManualSwapFeesExchangeFeePercentageAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "fixedTargetAmount": zod.string().regex(createQuickexQuoteByReceiveResponseManualSwapFeesExchangeFeeFixedTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "totalAmount": zod.string().regex(createQuickexQuoteByReceiveResponseManualSwapFeesExchangeFeeTotalAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+}),
+  "totalAdditionalFee": zod.string().regex(createQuickexQuoteByReceiveResponseManualSwapFeesTotalAdditionalFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "existingPricingFee": zod.string().regex(createQuickexQuoteByReceiveResponseManualSwapFeesExistingPricingFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "totalFees": zod.string().regex(createQuickexQuoteByReceiveResponseManualSwapFeesTotalFeesRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "referenceLegs": zod.array(zod.object({
+  "currency": zod.string(),
+  "unitsPerUsd": zod.string().regex(createQuickexQuoteByReceiveResponseManualSwapFeesReferenceLegsItemUnitsPerUsdRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),
   "provider": zod.enum(['1Forge', 'manual', 'Coinbase', 'USD identity', 'test adapter']),
   "source": zod.string().min(1),
   "observedAt": zod.coerce.date(),

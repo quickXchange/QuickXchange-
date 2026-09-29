@@ -146,4 +146,6 @@
 - [Swap first-load selection ownership](swap-first-load-selection.md) — one initialization path must own the pair; a second legacy effect can overwrite saved defaults or market requests.
 - [Split Site Content editors](split-site-content-editors.md) — isolated tabs must not reuse draft state or overwrite the hidden half of shared settings.
 - [Optional Manual Swap fee direction](optional-manual-swap-fee-direction.md) — preserve You Send; subtract selected add-ons and new exchange fees from You Receive.
+- [Manual receive-target quoting](manual-receive-target-quoting.md) — invert by bounded forward quotes; tier boundaries can reverse monotonicity, and only the final signed ticket is authoritative.
+- [Quickex receive-target quoting](quickex-receive-target-quoting.md) — target-currency input yields source `amountToGive`; preserve exactness and use validated provider limit details.
 - [Admin add-on key validation](admin-addon-key-validation.md) — HTML pattern rules can differ from server regex; generate readable keys and check the exact server contract before saves.

@@ -10,6 +10,7 @@ import {
   CreateExchangeOrderBody,
   CreateExchangeOrderResponse,
   CreateExchangeQuoteBody,
+  CreateExchangeQuoteByReceiveBody,
   CreateExchangeQuoteResponse,
   CreateFiatCurrencyBody,
   CreateFiatCurrencyResponse,
@@ -180,6 +181,11 @@ import {
   manualSwapFeeConfigTable,
 } from "@workspace/db";
 import { ApiError } from "../lib/api-error";
+import {
+  beforeManualReceiveDeadline,
+  effectiveManualReceiveTarget,
+  solveManualReceiveQuote,
+} from "../lib/manual-receive-quote";
 import { customerOrderScope } from "../lib/customer-order-scope";
 import {
   assertCustomerDepositEligibilityContextCurrent,
@@ -927,12 +933,18 @@ async function getManualRoutePricing(
   return {
     sourceSettlementOptionId,
     targetSettlementOptionId,
+    sourceOption,
+    targetOption,
     fromAsset: route.fromAsset,
     toAsset: route.toAsset,
     rate,
     minAmount: effectiveMinAmount,
     maxAmount: effectiveMaxAmount,
     pricingRuleName: rule.name,
+    amountBasedPricingEnabled: rule.amountBasedPricingEnabled,
+    amountBasedPricingTiers: rule.amountBasedPricingEnabled
+      ? rule.amountBasedPricingTiers
+      : [],
   };
 }
 type NormalizedRoute = Pick<
@@ -1093,6 +1105,7 @@ async function buildQuoteTicket(
   input: ParsedQuoteInput,
   normalizedRoute?: NormalizedRoute,
   skipFundingAvailability = false,
+  skipTargetAmountLimits = false,
 ): Promise<QuoteTicket> {
   const route = normalizedRoute ?? await normalizeExchangeRoute(input);
   let sourceOption: PublicSettlementOption | undefined;
@@ -1203,7 +1216,7 @@ async function buildQuoteTicket(
       finalRate: feeAdjusted.rateExact,
     },
   };
-  if (targetOption?.kind === "fiat-payment-method") {
+  if (!skipTargetAmountLimits && targetOption?.kind === "fiat-payment-method") {
     const targetMin = targetOption.minAmount == null ? undefined : Number(targetOption.minAmount);
     const targetMax = targetOption.maxAmount == null ? undefined : Number(targetOption.maxAmount);
     if (
@@ -1649,6 +1662,170 @@ router.post("/exchange/quote", async (req, res, next) => {
   try {
     const input = CreateExchangeQuoteBody.parse(req.body);
     const ticket = await buildQuoteTicket(input);
+    res.json({
+      ...ticket,
+      requiredSettlementFields: ticket.settlementSnapshot?.requiredFields,
+      customerInstructions: ticket.settlementSnapshot?.route.customerInstructions ?? undefined,
+      expectedSettlementMinutes:
+        ticket.settlementSnapshot?.route.expectedSettlementMinutes ?? undefined,
+      quoteId: signQuoteTicket(ticket),
+      expiresAt: new Date(ticket.expiresAt).toISOString(),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/exchange/quote-by-receive", async (req, res, next) => {
+  try {
+    const input = CreateExchangeQuoteByReceiveBody.parse(req.body);
+    // Bound the entire reverse-quote request, including route and reference
+    // lookups before the numeric solver begins.
+    const deadlineAt = Date.now() + 12_000;
+    const forwardInput = CreateExchangeQuoteBody.parse({
+      type: "manual",
+      fromAsset: input.fromAsset,
+      fromNetwork: input.fromNetwork,
+      toAsset: input.toAsset,
+      toNetwork: input.toNetwork,
+      amount: 1,
+      sourceSettlementOptionId: input.sourceSettlementOptionId,
+      targetSettlementOptionId: input.targetSettlementOptionId,
+      selectedAddOnKeys: input.selectedAddOnKeys,
+    });
+    const route = await beforeManualReceiveDeadline(
+      normalizeExchangeRoute(forwardInput),
+      deadlineAt,
+    );
+    const routePricing = await beforeManualReceiveDeadline(
+      getManualRoutePricing(
+        input.sourceSettlementOptionId,
+        input.targetSettlementOptionId,
+      ),
+      deadlineAt,
+    );
+    if (
+      routePricing.sourceOption.assetCode.toUpperCase() !== route.fromAsset.toUpperCase() ||
+      routePricing.sourceOption.routeNetwork.toUpperCase() !== route.fromNetwork.toUpperCase() ||
+      routePricing.targetOption.assetCode.toUpperCase() !== route.toAsset.toUpperCase() ||
+      routePricing.targetOption.routeNetwork.toUpperCase() !== route.toNetwork.toUpperCase()
+    ) {
+      throw new ApiError(
+        "SETTLEMENT_OPTION_INVALID",
+        "The selected settlement route does not match the requested assets and networks.",
+        422,
+      );
+    }
+
+    const targetOption = routePricing.targetOption;
+    const targetMinimum = targetOption.kind === "fiat-payment-method" &&
+      targetOption.minAmount != null ? Number(targetOption.minAmount) : undefined;
+    const targetMaximum = targetOption.kind === "fiat-payment-method" &&
+      targetOption.maxAmount != null ? Number(targetOption.maxAmount) : undefined;
+    const requiredReceiveAmount = effectiveManualReceiveTarget(
+      input.desiredReceiveAmount,
+      targetMinimum,
+      targetMaximum,
+    );
+    if (requiredReceiveAmount === undefined) {
+      throw new ApiError(
+        "MANUAL_RECEIVE_AMOUNT_UNAVAILABLE",
+        "No feasible quote can satisfy the requested receive amount within this route's limits.",
+        422,
+      );
+    }
+    const minimumSourceAmount = routePricing.minAmount ?? 1e-12;
+    if (
+      !Number.isFinite(minimumSourceAmount) || minimumSourceAmount <= 0 ||
+      (routePricing.maxAmount !== undefined &&
+        routePricing.maxAmount < minimumSourceAmount)
+    ) {
+      throw new ApiError(
+        "MANUAL_RECEIVE_AMOUNT_UNAVAILABLE",
+        "No feasible quote can satisfy the requested receive amount within this route's limits.",
+        422,
+      );
+    }
+
+    const tierBoundaries = routePricing.amountBasedPricingTiers.flatMap((tier) => [
+      Number(tier.minAmount),
+      tier.maxAmount === null ? undefined : Number(tier.maxAmount),
+    ].filter((value): value is number => value !== undefined));
+    const initialUpperAmount = Math.max(
+      minimumSourceAmount,
+      requiredReceiveAmount / Math.max(routePricing.rate, Number.MIN_VALUE),
+    );
+    const forwardTickets = new Map<number, { ticket: QuoteTicket; quotedAt: number }>();
+    const solution = await solveManualReceiveQuote({
+      desiredReceiveAmount: requiredReceiveAmount,
+      minAmount: minimumSourceAmount,
+      maxAmount: routePricing.maxAmount,
+      initialUpperAmount,
+      tierBoundaries,
+      receiveQuantum: 10 ** -route.targetPrecision,
+      maxAttempts: 44,
+      deadlineAt,
+      quote: async (amount) => {
+        const candidateInput = CreateExchangeQuoteBody.parse({
+          ...forwardInput,
+          amount,
+        });
+        try {
+          const ticket = await buildQuoteTicket(candidateInput, route, false, true);
+          forwardTickets.set(amount, { ticket, quotedAt: Date.now() });
+          return ticket.receiveAmount;
+        } catch (error) {
+          // Fixed/add-on fees can exceed the receive side at low source
+          // amounts. Treat that range as below target; all other pricing
+          // errors remain explicit and fail the request.
+          if (
+            error instanceof ApiError &&
+            error.code === "MANUAL_DESK_FEE_EXCEEDS_AMOUNT"
+          ) return 0;
+          throw error;
+        }
+      },
+    });
+    if (!solution || solution.receiveAmount < requiredReceiveAmount ||
+        (targetMaximum !== undefined && solution.receiveAmount > targetMaximum)) {
+      throw new ApiError(
+        "MANUAL_RECEIVE_AMOUNT_UNAVAILABLE",
+        "No feasible quote can satisfy the requested receive amount within this route's limits.",
+        422,
+      );
+    }
+
+    const finalQuote = forwardTickets.get(solution.amount);
+    if (!finalQuote) {
+      throw new ApiError(
+        "MANUAL_RECEIVE_QUOTE_STALE",
+        "The final forward quote is no longer available. Please request a new quote.",
+        503,
+      );
+    }
+    const ticket = finalQuote.ticket;
+    if (
+      ticket.amount !== solution.amount ||
+      ticket.receiveAmount < requiredReceiveAmount ||
+      (targetMaximum !== undefined && ticket.receiveAmount > targetMaximum)
+    ) {
+      throw new ApiError(
+        "MANUAL_RECEIVE_AMOUNT_UNAVAILABLE",
+        "The final forward quote does not satisfy the requested receive amount and route limits.",
+        422,
+      );
+    }
+    if (
+      Date.now() >= deadlineAt ||
+      Date.now() - finalQuote.quotedAt > 12_000 ||
+      ticket.expiresAt <= Date.now() + 30_000
+    ) {
+      throw new ApiError(
+        "MANUAL_RECEIVE_QUOTE_STALE",
+        "The final forward quote became stale before it could be returned. Please request a new quote.",
+        503,
+      );
+    }
     res.json({
       ...ticket,
       requiredSettlementFields: ticket.settlementSnapshot?.requiredFields,

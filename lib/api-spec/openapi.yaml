@@ -486,6 +486,54 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /exchange/quote-by-receive:
+    post:
+      operationId: createExchangeQuoteByReceive
+      tags: [exchange]
+      summary: Calculate a Manual Swap quote for a desired receive amount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ManualReceiveQuoteInput"
+      responses:
+        "200":
+          description: Signed Manual Swap quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+        "400":
+          description: Invalid quote request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: No feasible quote can satisfy the requested receive amount
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Provider rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: Provider returned an invalid response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Provider is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /exchange/orders:
     post:
       operationId: createExchangeOrder
@@ -3182,6 +3230,22 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Quote" }
+  /quickex/quote-by-receive:
+    post:
+      operationId: createQuickexQuoteByReceive
+      tags: [quickex]
+      summary: Create a Quickex Convert quote for a desired receive amount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/QuickexReceiveQuoteInput" }
+      responses:
+        "200":
+          description: Quote ticket
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Quote" }
   /quickex/create-order:
     post:
       operationId: createQuickexOrder
@@ -5286,6 +5350,32 @@ components:
           maxItems: 50
           uniqueItems: true
           items: { type: string, minLength: 1, maxLength: 100 }
+    ManualReceiveQuoteInput:
+      type: object
+      required: [fromAsset, fromNetwork, toAsset, toNetwork, sourceSettlementOptionId, targetSettlementOptionId, desiredReceiveAmount]
+      properties:
+        fromAsset: { type: string, minLength: 2 }
+        fromNetwork: { type: string, minLength: 1 }
+        toAsset: { type: string, minLength: 2 }
+        toNetwork: { type: string, minLength: 1 }
+        sourceSettlementOptionId: { type: string, minLength: 1, maxLength: 200 }
+        targetSettlementOptionId: { type: string, minLength: 1, maxLength: 200 }
+        selectedAddOnKeys:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 100 }
+        desiredReceiveAmount: { type: number, exclusiveMinimum: 0 }
+    QuickexReceiveQuoteInput:
+      type: object
+      required: [fromAsset, fromNetwork, toAsset, toNetwork, desiredReceiveAmount]
+      properties:
+        fromAsset: { type: string, minLength: 2 }
+        fromNetwork: { type: string, minLength: 1 }
+        toAsset: { type: string, minLength: 2 }
+        toNetwork: { type: string, minLength: 1 }
+        desiredReceiveAmount: { type: number, exclusiveMinimum: 0 }
+        rateMode: { $ref: "#/components/schemas/QuickexRateMode" }
     Quote:
       type: object
       required: [quoteId, type, fromAsset, fromNetwork, toAsset, toNetwork, amount, receiveAmount, rate, fee, expiresAt, provider]

@@ -9,6 +9,7 @@ import {
   getGetQuickexConfigQueryKey,
   useCreateQuickexOrder,
   useCreateQuickexQuote,
+  useCreateQuickexQuoteByReceive,
   useGetQuickexConfig,
   useValidateQuickexAddress,
 } from '@workspace/api-client-react';
@@ -28,7 +29,10 @@ type Notice = { kind: 'error' | 'success'; text: string };
 const errorText = (error: unknown, fallback: string) => {
   if (error && typeof error === 'object' && 'data' in error) {
     const data = (error as { data?: { error?: unknown } }).data;
-    if (typeof data?.error === 'string') return data.error.replace(/\bQUICKEX_\w+\b/g, '').replace(/Quickex/gi, 'exchange service');
+    if (typeof data?.error === 'string') {
+      const sanitized = data.error.replace(/\bQUICKEX_\w+\b/g, '').replace(/Quickex/gi, 'exchange service').trim();
+      return sanitized || data.error;
+    }
   }
   return fallback;
 };
@@ -126,6 +130,7 @@ export function QuickexConvertWidget({
     },
   });
   const quoteMutation = useCreateQuickexQuote();
+  const receiveQuoteMutation = useCreateQuickexQuoteByReceive();
   const validateAddress = useValidateQuickexAddress();
   const createOrder = useCreateQuickexOrder();
   const [fromSlug, setFromSlug] = useState('');
@@ -133,6 +138,8 @@ export function QuickexConvertWidget({
   const [urlAssetInitialized, setUrlAssetInitialized] = useState(false);
   const [toSlug, setToSlug] = useState('');
   const [amount, setAmount] = useState('');
+  const [receiveAmount, setReceiveAmount] = useState('');
+  const [activeAmountSide, setActiveAmountSide] = useState<'send' | 'receive'>('send');
   const [rateMode, setRateMode] = useState<QuickexRateMode>('FLOATING');
   const [fromSelectorOpen, setFromSelectorOpen] = useState(false);
   const [toSelectorOpen, setToSelectorOpen] = useState(false);
@@ -143,8 +150,9 @@ export function QuickexConvertWidget({
   const [refundMemo, setRefundMemo] = useState('');
   const [showRefundDetails, setShowRefundDetails] = useState(false);
   const [customerEmail, setCustomerEmail] = useState('');
-  const [quote, setQuote] = useState<{ id: string; receive: number; rate: number; expiresAt: string; minAmount?: number; maxAmount?: number } | null>(null);
+  const [quoteResult, setQuoteResult] = useState<{ id: string; amount: number; receive: number; rate: number; expiresAt: string; minAmount?: number; maxAmount?: number; requestKey: string } | null>(null);
   const [quoteError, setQuoteError] = useState('');
+  const [pendingQuoteKey, setPendingQuoteKey] = useState<string | null>(null);
   const [quoteRefreshKey, setQuoteRefreshKey] = useState(0);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
@@ -154,6 +162,10 @@ export function QuickexConvertWidget({
   const [createOutcomeUncertain, setCreateOutcomeUncertain] = useState(false);
   const requestId = useRef(crypto.randomUUID());
   const quoteRequestVersionRef = useRef(0);
+  const latestQuoteRequestKeyRef = useRef('');
+  const latestTranslateRef = useRef(t);
+  const autoRequoteGuardRef = useRef<{ requestKey: string; attempted: boolean } | null>(null);
+  const autoRequoteInFlightKeyRef = useRef<string | null>(null);
   const amountInputRef = useRef<HTMLInputElement>(null);
   const destinationAddressInputRef = useRef<HTMLInputElement>(null);
   const stepFocusPendingRef = useRef(false);
@@ -207,6 +219,21 @@ export function QuickexConvertWidget({
   }, [config.data?.pairs, cryptoInstruments, from, fromOptions, to]);
   const noReceiveRoutes = Boolean(from && pairOptions.length === 0);
   const configPending = !config.data && !config.isError;
+  const activeAmount = activeAmountSide === 'send' ? amount : receiveAmount;
+  const quoteRequestKey = JSON.stringify([
+    from?.slug ?? fromSlug,
+    from?.currencyTitle,
+    from?.networkTitle,
+    to?.slug ?? toSlug,
+    to?.currencyTitle,
+    to?.networkTitle,
+    rateMode,
+    activeAmountSide,
+    activeAmount,
+  ]);
+  latestQuoteRequestKeyRef.current = quoteRequestKey;
+  latestTranslateRef.current = t;
+  const quote = quoteResult?.requestKey === quoteRequestKey ? quoteResult : null;
   useEffect(() => {
     const handleMarketSelection = (event: Event) => {
       setMarketRequest((event as CustomEvent<MarketConvertSelection>).detail);
@@ -218,7 +245,7 @@ export function QuickexConvertWidget({
   useEffect(() => {
     setStep(1);
     setTermsAccepted(false);
-  }, [amount, fromSlug, toSlug, rateMode]);
+  }, [amount, receiveAmount, activeAmountSide, fromSlug, toSlug, rateMode]);
 
   useEffect(() => {
     if (!stepFocusPendingRef.current) return;
@@ -331,43 +358,73 @@ export function QuickexConvertWidget({
 
   useEffect(() => {
     const requestVersion = ++quoteRequestVersionRef.current;
-    setQuote(null);
+    if (autoRequoteInFlightKeyRef.current && autoRequoteInFlightKeyRef.current !== quoteRequestKey) {
+      autoRequoteInFlightKeyRef.current = null;
+    }
+    setQuoteResult(null);
     setQuoteError('');
-    const numericAmount = Number(amount);
-    if (!from || !to || !Number.isFinite(numericAmount) || numericAmount <= 0) return;
+    setPendingQuoteKey(null);
+    const numericAmount = Number(activeAmount);
+    if (!from || !to || !activeAmount.trim() || !Number.isFinite(numericAmount) || numericAmount <= 0) return;
     const timer = window.setTimeout(() => {
-      quoteMutation.mutate({
-        data: {
-          type: 'instant',
-          fromAsset: from.currencyTitle,
-          fromNetwork: from.networkTitle,
-          toAsset: to.currencyTitle,
-          toNetwork: to.networkTitle,
-          amount: numericAmount,
-          rateMode,
-        },
-      }, {
-        onSuccess: result => {
-          if (quoteRequestVersionRef.current !== requestVersion) return;
-          setQuote({
+      setPendingQuoteKey(quoteRequestKey);
+      const callbacks = {
+        onSuccess: (result: Awaited<ReturnType<typeof quoteMutation.mutateAsync>>) => {
+          if (quoteRequestVersionRef.current !== requestVersion || latestQuoteRequestKeyRef.current !== quoteRequestKey) return;
+          const expiresAt = new Date(result.expiresAt).getTime();
+          const wasAutoRequote = autoRequoteInFlightKeyRef.current === quoteRequestKey;
+          if (wasAutoRequote) autoRequoteInFlightKeyRef.current = null;
+          autoRequoteGuardRef.current = {
+            requestKey: quoteRequestKey,
+            attempted: wasAutoRequote && expiresAt <= Date.now(),
+          };
+          setPendingQuoteKey(null);
+          setQuoteResult({
             id: result.quoteId,
+            amount: result.amount,
             receive: result.receiveAmount,
             rate: result.rate,
             expiresAt: result.expiresAt,
             minAmount: result.minAmount,
             maxAmount: result.maxAmount,
+            requestKey: quoteRequestKey,
           });
           trackEvent('quote_displayed', { mode: 'convert', rate_type: rateMode.toLowerCase() });
         },
-        onError: error => {
-          if (quoteRequestVersionRef.current !== requestVersion) return;
-           setQuoteError(errorText(error, t('convert.quoteUnavailable')));
+        onError: (error: unknown) => {
+          if (quoteRequestVersionRef.current !== requestVersion || latestQuoteRequestKeyRef.current !== quoteRequestKey) return;
+          setPendingQuoteKey(null);
+          setQuoteError(errorText(error, latestTranslateRef.current('convert.quoteUnavailable')));
           trackEvent('quote_failed', { mode: 'convert', rate_type: rateMode.toLowerCase() });
         },
-      });
+      };
+      if (activeAmountSide === 'receive') {
+        receiveQuoteMutation.mutate({
+          data: {
+            fromAsset: from.currencyTitle,
+            fromNetwork: from.networkTitle,
+            toAsset: to.currencyTitle,
+            toNetwork: to.networkTitle,
+            desiredReceiveAmount: numericAmount,
+            rateMode,
+          },
+        }, callbacks);
+      } else {
+        quoteMutation.mutate({
+          data: {
+            type: 'instant',
+            fromAsset: from.currencyTitle,
+            fromNetwork: from.networkTitle,
+            toAsset: to.currencyTitle,
+            toNetwork: to.networkTitle,
+            amount: numericAmount,
+            rateMode,
+          },
+        }, callbacks);
+      }
     }, 450);
     return () => window.clearTimeout(timer);
-  }, [amount, from, to, rateMode, quoteRefreshKey]);
+  }, [activeAmount, activeAmountSide, from, to, rateMode, quoteRefreshKey, quoteRequestKey, quoteMutation.mutate, receiveQuoteMutation.mutate]);
 
   useEffect(() => {
     if (!quote) {
@@ -383,6 +440,15 @@ export function QuickexConvertWidget({
     const timeout = window.setTimeout(() => setQuoteExpired(true), remaining + 50);
     return () => window.clearTimeout(timeout);
   }, [quote]);
+
+  useEffect(() => {
+    if (step !== 1 || !quoteExpired || !quote || Date.now() < new Date(quote.expiresAt).getTime()) return;
+    const guard = autoRequoteGuardRef.current;
+    if (guard?.requestKey === quote.requestKey && guard.attempted) return;
+    autoRequoteGuardRef.current = { requestKey: quote.requestKey, attempted: true };
+    autoRequoteInFlightKeyRef.current = quote.requestKey;
+    setQuoteRefreshKey(key => key + 1);
+  }, [quote, quoteExpired, step]);
 
   const swap = () => {
     if (!reverseSelection) return false;
@@ -423,7 +489,7 @@ export function QuickexConvertWidget({
       createAttempted = true;
       const order = await createOrder.mutateAsync({ data: {
         type: 'instant', fromAsset: from.currencyTitle, fromNetwork: from.networkTitle,
-        toAsset: to.currencyTitle, toNetwork: to.networkTitle, amount: Number(amount),
+        toAsset: to.currencyTitle, toNetwork: to.networkTitle, amount: quote.amount,
         quoteId: quote.id, rateMode, destinationAddress: destinationAddress.trim(),
         destinationMemo: destinationMemo.trim() || undefined,
         ...(trimmedRefundAddress ? {
@@ -503,7 +569,7 @@ export function QuickexConvertWidget({
     );
   }
 
-  const quoting = quoteMutation.isPending;
+  const quoting = pendingQuoteKey === quoteRequestKey;
   const ready = Boolean(quote && !quoting && !quoteExpired && new Date(quote.expiresAt).getTime() > Date.now());
 
   return (
@@ -569,7 +635,12 @@ export function QuickexConvertWidget({
                     <span className="reference-amount-label">{t('swap.youSend')}</span>
                   </div>
                   <div className="reference-amount-body exchange-amount-row">
-                    <input ref={amountInputRef} aria-label={t('convert.youSend')} className="reference-amount-input" value={amount} onChange={event => setAmount(event.target.value)} inputMode="decimal" placeholder="0" data-testid="convert-input-amount" />
+                    <input ref={amountInputRef} aria-label={t('convert.youSend')} className={`reference-amount-input ${quoting ? 'quoting' : ''}`} value={activeAmountSide === 'send' ? amount : quote ? String(quote.amount) : ''} onChange={event => {
+                      setActiveAmountSide('send');
+                      setAmount(event.target.value);
+                      setQuoteResult(null);
+                      setQuoteError('');
+                    }} inputMode="decimal" placeholder="0" data-testid="convert-input-amount" />
                     {configPending ? (
                       <div className="convert-selector-skeleton skeleton" aria-label={t('common.loading')} />
                     ) : (
@@ -608,7 +679,12 @@ export function QuickexConvertWidget({
                     <span className="reference-amount-label">{t('swap.youReceive')}</span>
                   </div>
                   <div className="reference-amount-body exchange-amount-row">
-                    <input readOnly aria-label={t('convert.youReceive')} value={quote ? String(quote.receive) : ''} placeholder="0" data-testid="convert-input-receive-amount" className={`reference-amount-input ${quoting ? 'quoting' : !quote ? 'empty' : ''}`} />
+                    <input aria-label={t('convert.youReceive')} value={quote ? String(quote.receive) : activeAmountSide === 'receive' ? receiveAmount : ''} onChange={event => {
+                      setActiveAmountSide('receive');
+                      setReceiveAmount(event.target.value);
+                      setQuoteResult(null);
+                      setQuoteError('');
+                    }} inputMode="decimal" placeholder="0" data-testid="convert-input-receive-amount" className={`reference-amount-input ${quoting ? 'quoting' : !quote ? 'empty' : ''}`} />
                     {configPending ? (
                       <div className="convert-selector-skeleton skeleton" aria-label={t('common.loading')} />
                     ) : (
@@ -711,7 +787,7 @@ export function QuickexConvertWidget({
 
                   <div className="convert-route-summary-amounts font-mono">
                     <span className="convert-route-summary-amount convert-route-summary-amount--send font-bold text-foreground" data-testid="convert-summary-send-amount">
-                      {formatNum(Number(amount))} {from?.currencyTitle}
+                      {quote ? String(quote.amount) : activeAmountSide === 'send' && Number.isFinite(Number(amount)) ? formatNum(Number(amount)) : '—'} {from?.currencyTitle}
                     </span>
                     <span className="convert-route-summary-amount convert-route-summary-amount--receive truncate" data-testid="convert-summary-receive-amount">
                       {quote ? `≈${formatNum(quote.receive)}` : '—'} {to?.currencyTitle}
@@ -729,6 +805,7 @@ export function QuickexConvertWidget({
                     className="button button-secondary mt-3"
                     onClick={() => {
                       moveToStep(1);
+                      if (quote) autoRequoteGuardRef.current = { requestKey: quote.requestKey, attempted: true };
                       setQuoteRefreshKey(key => key + 1);
                     }}
                   >

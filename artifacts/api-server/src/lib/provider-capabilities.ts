@@ -8,6 +8,7 @@ import {
   getQuickexInstruments,
   getQuickexPairs,
   getQuickexQuote,
+  getQuickexQuoteByReceive,
   QuickexApiError,
   type QuickexInstrument,
   type QuickexPair,
@@ -64,6 +65,18 @@ type InstantRouteInput = {
   sourceSettlementOptionId?: string;
   targetSettlementOptionId?: string;
 };
+
+function canonicalUnsignedDecimal(value: string): string {
+  const [integer, fraction = ""] = value.split(".");
+  const trimmedFraction = fraction.replace(/0+$/, "");
+  return trimmedFraction ? `${integer}.${trimmedFraction}` : integer;
+}
+
+function safelyRoundTripsAsOrderAmount(providerAmount: string, amount: number): boolean {
+  const numericText = String(amount);
+  if (!/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(numericText)) return false;
+  return canonicalUnsignedDecimal(numericText) === canonicalUnsignedDecimal(providerAmount);
+}
 
 export type ProviderCapability = {
   providerId: typeof QUICKEX_PROVIDER_ID;
@@ -430,6 +443,62 @@ export async function buildProviderQuoteTicket(input: InstantRouteInput) {
     receiveAmount: Number(quote.amountToGet),
     rate: Number(quote.amountToGet) / input.amount,
     fee: Number(quote.finalNetworkFeeAmount ?? 0),
+    ...(quote.generalMinAmount !== undefined ? { minAmount: Number(quote.generalMinAmount) } : {}),
+    ...(quote.generalMaxAmount !== undefined ? { maxAmount: Number(quote.generalMaxAmount) } : {}),
+    sourceSettlementOptionId: `api:${source.providerId}:${source.networkId}`,
+    targetSettlementOptionId: `api:${target.providerId}:${target.networkId}`,
+    provider: "Quickex",
+    rateMode: quote.rateMode,
+    quickexQuote: quote,
+    requiredSettlementFields: quote.requiredSettlementFields ?? [],
+    expiresAt: Date.now() + 120_000,
+  };
+}
+
+export async function buildProviderQuoteTicketByReceive(input: Omit<InstantRouteInput, "amount"> & {
+  desiredReceiveAmount: number;
+}) {
+  const { source, target } = await assertExecutableQuickexRoute({
+    ...input,
+    amount: input.desiredReceiveAmount,
+  });
+  const quote = await getQuickexQuoteByReceive({
+    fromCurrency: source.assetCode,
+    fromNetwork: source.networkCode,
+    toCurrency: target.assetCode,
+    toNetwork: target.networkCode,
+    desiredReceiveAmount: input.desiredReceiveAmount,
+    rateMode: input.rateMode,
+  });
+  const amount = Number(quote.amountToGive);
+  const receiveAmount = Number(quote.amountToGet);
+  const rate = receiveAmount / amount;
+  if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(receiveAmount) ||
+    receiveAmount !== input.desiredReceiveAmount || !Number.isFinite(rate) || rate <= 0) {
+    throw new QuickexApiError(
+      "QUICKEX_MALFORMED_RESPONSE",
+      "The exchange service returned an invalid receive-amount quote.",
+    );
+  }
+  if (!safelyRoundTripsAsOrderAmount(quote.amountToGive!, amount)) {
+    throw new QuickexApiError(
+      "QUICKEX_MALFORMED_RESPONSE",
+      "The provider’s required send amount cannot be represented exactly by the numeric quote and order amount. Please choose a different receive amount.",
+    );
+  }
+  return {
+    v: 2 as const,
+    type: "instant" as const,
+    fromAsset: quote.instrumentFrom.currencyTitle,
+    fromNetwork: quote.instrumentFrom.networkTitle,
+    toAsset: quote.instrumentTo.currencyTitle,
+    toNetwork: quote.instrumentTo.networkTitle,
+    amount,
+    receiveAmount,
+    rate,
+    fee: Number(quote.finalNetworkFeeAmount ?? 0),
+    ...(quote.generalMinAmount !== undefined ? { minAmount: Number(quote.generalMinAmount) } : {}),
+    ...(quote.generalMaxAmount !== undefined ? { maxAmount: Number(quote.generalMaxAmount) } : {}),
     sourceSettlementOptionId: `api:${source.providerId}:${source.networkId}`,
     targetSettlementOptionId: `api:${target.providerId}:${target.networkId}`,
     provider: "Quickex",

@@ -18,7 +18,12 @@ type MockMode =
   | "mismatchedRateMode" | "catalogUnavailable" | "slowOrders" | "slowOrdersFailure"
   | "authHtml" | "validationForbidden" | "pairUnavailable" | "expandedCatalog"
   | "ambiguousEmpty" | "ambiguousPlausible" | "formatOnlyReject" | "noContent"
-  | "proofInvalidatedBeforeCreate";
+  | "proofInvalidatedBeforeCreate" | "receiveRejected" | "receiveUnderMin"
+  | "receiveOverMax" | "receiveMalformed" | "receiveWrongAmount"
+  | "receiveMismatchedRoute" | "receiveHighPrecision"
+  | "receiveProviderTooSmall" | "receiveProviderTooSmallFallbackFail"
+  | "receiveProviderRateLimited" | "receiveProviderDetailTooSmall"
+  | "receiveProviderDetailTooLarge" | "receiveProviderDetailInvalidExpected";
 
 const instrument = (
   currencyTitle: string,
@@ -52,6 +57,7 @@ const quote = {
     precisionDecimals: catalog[1].precisionDecimals,
   },
   amountToGet: "99.5000", price: "9950.00",
+  amountToGive: "1",
   updatedAt: 1_700_000_000_000, finalNetworkFeeAmount: "0.5", generalMinAmount: "0.001",
   generalMaxAmount: "10", rateMode: "FLOATING" as const,
 };
@@ -65,6 +71,8 @@ let addressValidationCalls = 0;
 let signedPublicKeys: string[] = [];
 let providerOrders: Record<string, unknown>[] = [];
 let requestedRateModes: string[] = [];
+let requestedClaimedCurrencies: string[] = [];
+let requestedClaimedAmounts: string[] = [];
 let createPayloads: Record<string, unknown>[] = [];
 let fiatRateCalls = 0;
 let cryptoRateCalls = 0;
@@ -504,12 +512,74 @@ async function mock(req: IncomingMessage, res: ServerResponse) {
     quoteCalls++;
     const requestedRateMode = url.searchParams.get("rateMode") ?? "";
     requestedRateModes.push(requestedRateMode);
+    requestedClaimedCurrencies.push(url.searchParams.get("claimedDepositAmountCurrency") ?? "");
+    requestedClaimedAmounts.push(url.searchParams.get("claimedDepositAmount") ?? "");
+    if (mode === "receiveRejected") {
+      return send(res, 400, { message: "Receive amount exceeds the route maximum of 75 USDT." });
+    }
+    if (mode === "receiveProviderRateLimited") {
+      return send(res, 429, { message: "Quickex is rate limited." });
+    }
+    if (["receiveProviderDetailTooSmall", "receiveProviderDetailTooLarge",
+      "receiveProviderDetailInvalidExpected"].includes(mode) &&
+      url.searchParams.has("claimedDepositAmount")) {
+      const tooSmall = mode !== "receiveProviderDetailTooLarge";
+      const expected = mode === "receiveProviderDetailTooSmall" ? "107.26"
+        : mode === "receiveProviderDetailTooLarge" ? "75.50" : "<script>";
+      return send(res, 422, {
+        status: tooSmall
+          ? "ERR_CLAIMED_DEPOSIT_AMOUNT_TOO_SMALL"
+          : "ERR_CLAIMED_DEPOSIT_AMOUNT_TOO_LARGE",
+        message: tooSmall
+          ? "Claimed Deposit Amount Too Small Error [imf]"
+          : "Claimed Deposit Amount Too Large Error [imf]",
+        data: {
+          localizedMessage: tooSmall ? "Provider minimum exceeded." : "Provider maximum exceeded.",
+          details: {
+            field: "claimedDepositAmount",
+            value: "0.00123550690135725",
+            expected,
+            expectedGeneral: "",
+          },
+        },
+      });
+    }
+    if (mode === "receiveProviderDetailInvalidExpected" &&
+      !url.searchParams.has("claimedDepositAmount")) {
+      return send(res, 503, { message: "provider internals" });
+    }
+    if ((mode === "receiveProviderTooSmall" || mode === "receiveProviderTooSmallFallbackFail") &&
+      url.searchParams.has("claimedDepositAmount")) {
+      return send(res, 400, { message: "Amount is too small; minimum amount is 0.001 BTC." });
+    }
+    if (mode === "receiveProviderTooSmallFallbackFail" &&
+      !url.searchParams.has("claimedDepositAmount")) {
+      return send(res, 503, { message: "provider internals" });
+    }
     if (mode === "rateRead" && quoteCalls === 1) return send(res, 429, { message: "later" });
     if (mode === "fiveHundred") return send(res, 502, { message: "upstream unavailable" });
     if (mode === "badJson") return send(res, 200, "{", true);
     if (mode === "badBody") return send(res, 200, { hello: "world" });
     const responseQuote = {
       ...quote,
+      ...(url.searchParams.get("claimedDepositAmountCurrency") === "USDT" ? {
+        amountToGive: mode === "receiveHighPrecision" ? "0.123456789123456789"
+          : mode === "receiveUnderMin" ? "0.0005"
+          : mode === "receiveOverMax" ? "11"
+            : mode === "receiveMalformed" ? "not-a-number" : "0.00123362",
+        amountToGet: mode === "receiveWrongAmount" ? "99.9"
+          : url.searchParams.get("claimedDepositAmount") ?? "100",
+        generalMinAmount: "0.001",
+        generalMaxAmount: "10",
+      } : {}),
+      ...(mode === "receiveMismatchedRoute" ? {
+        instrumentTo: {
+          ...catalog[0],
+          currencyTitle: "BTC",
+          networkTitle: "Bitcoin",
+          slug: "btc-btc",
+        },
+      } : {}),
       ...(mode === "expandedCatalog" ? {
         instrumentFrom: {
           ...providerOnlyInstrument,
@@ -627,7 +697,8 @@ async function mock(req: IncomingMessage, res: ServerResponse) {
 }
 function reset(next: MockMode = "ok") {
   mode = next; quoteCalls = 0; createCalls = 0; signedCalls = 0; providerOrders = [];
-  instrumentCalls = 0; addressValidationCalls = 0; requestedRateModes = []; createPayloads = []; signedPublicKeys = [];
+  instrumentCalls = 0; addressValidationCalls = 0; requestedRateModes = [];
+  requestedClaimedCurrencies = []; requestedClaimedAmounts = []; createPayloads = []; signedPublicKeys = [];
   fiatRateCalls = 0; cryptoRateCalls = 0; receivedOneForgeKeys = []; marketRateMode = "ok";
   expectedOneForgePairs = "AED/USD,USD/AED,DZD/USD,USD/DZD,EUR/USD,USD/EUR,GBP/USD,USD/GBP,KZT/USD,USD/KZT,TRY/USD,USD/TRY";
   process.env.QUICKEX_BASE_URL = baseUrl;
@@ -777,6 +848,167 @@ test("public catalog and quote work, and signed connection sends signed headers"
   assert.equal((await quickex.getQuickexQuote({ fromCurrency: "BTC", fromNetwork: "Bitcoin", toCurrency: "USDT", toNetwork: "TRC20", amount: 1 })).amountToGet, "99.5000");
   assert.equal((await quickex.testQuickexConnection()).ok, true);
   assert.equal(signedCalls, 1);
+});
+
+test("Quickex receive quotes request the target amount in both supported rate modes", async () => {
+  reset();
+  for (const rateMode of ["FLOATING", "FIXED"] as const) {
+    const received = await quickex.getQuickexQuoteByReceive({
+      fromCurrency: "BTC", fromNetwork: "Bitcoin",
+      toCurrency: "USDT", toNetwork: "TRC20",
+      desiredReceiveAmount: 100, rateMode,
+    });
+    assert.equal(received.amountToGive, "0.00123362");
+    assert.equal(received.amountToGet, "100");
+  }
+  assert.deepEqual(requestedClaimedCurrencies, ["USDT", "USDT"]);
+  assert.deepEqual(requestedClaimedAmounts, ["100", "100"]);
+  assert.deepEqual(requestedRateModes, ["FLOATING", "FIXED"]);
+});
+
+test("Quickex receive quotes enforce provider limits and reject malformed or misdirected data", async () => {
+  reset("receiveUnderMin");
+  await expectCode(() => quickex.getQuickexQuoteByReceive({
+    fromCurrency: "BTC", fromNetwork: "Bitcoin", toCurrency: "USDT", toNetwork: "TRC20",
+    desiredReceiveAmount: 100,
+  }), "QUICKEX_AMOUNT_TOO_SMALL");
+  reset("receiveOverMax");
+  await expectCode(() => quickex.getQuickexQuoteByReceive({
+    fromCurrency: "BTC", fromNetwork: "Bitcoin", toCurrency: "USDT", toNetwork: "TRC20",
+    desiredReceiveAmount: 100,
+  }), "QUICKEX_AMOUNT_TOO_LARGE");
+  reset("receiveMalformed");
+  await expectCode(() => quickex.getQuickexQuoteByReceive({
+    fromCurrency: "BTC", fromNetwork: "Bitcoin", toCurrency: "USDT", toNetwork: "TRC20",
+    desiredReceiveAmount: 100,
+  }), "QUICKEX_MALFORMED_RESPONSE");
+  reset("receiveWrongAmount");
+  await expectCode(() => quickex.getQuickexQuoteByReceive({
+    fromCurrency: "BTC", fromNetwork: "Bitcoin", toCurrency: "USDT", toNetwork: "TRC20",
+    desiredReceiveAmount: 100,
+  }), "QUICKEX_MALFORMED_RESPONSE");
+  reset("receiveMismatchedRoute");
+  await expectCode(() => quickex.getQuickexQuoteByReceive({
+    fromCurrency: "BTC", fromNetwork: "Bitcoin", toCurrency: "USDT", toNetwork: "TRC20",
+    desiredReceiveAmount: 100,
+  }), "QUICKEX_MALFORMED_RESPONSE");
+  reset();
+  await expectCode(() => quickex.getQuickexQuoteByReceive({
+    fromCurrency: "BTC", fromNetwork: "Bitcoin", toCurrency: "BTC", toNetwork: "Bitcoin",
+    desiredReceiveAmount: 100,
+  }), "QUICKEX_ROUTE_INVALID");
+});
+
+test("Quickex receive-side provider rejections return an actionable sanitized reason", async () => {
+  reset("receiveRejected");
+  await assert.rejects(
+    quickex.getQuickexQuoteByReceive({
+      fromCurrency: "BTC", fromNetwork: "Bitcoin", toCurrency: "USDT", toNetwork: "TRC20",
+      desiredReceiveAmount: 100,
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof quickex.QuickexApiError);
+      assert.equal(error.code, "QUICKEX_AMOUNT_TOO_LARGE");
+      assert.match(error.message, /maximum of 75 USDT/i);
+      assert.doesNotMatch(error.message, /<html|stack|traceback/i);
+      return true;
+    },
+  );
+  reset("receiveRejected");
+  await assert.rejects(
+    quickex.getQuickexQuote({
+      fromCurrency: "BTC", fromNetwork: "Bitcoin", toCurrency: "USDT", toNetwork: "TRC20",
+      amount: 1,
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof quickex.QuickexApiError);
+      assert.match(error.message, /maximum of 75 USDT/i);
+      return true;
+    },
+  );
+});
+
+test("Quickex receive-side limit rejections retry without amount and disclose source limits", async () => {
+  reset("receiveProviderTooSmall");
+  await assert.rejects(
+    quickex.getQuickexQuoteByReceive({
+      fromCurrency: "BTC", fromNetwork: "Bitcoin", toCurrency: "USDT", toNetwork: "TRC20",
+      desiredReceiveAmount: 100, rateMode: "FIXED",
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof quickex.QuickexApiError);
+      assert.equal(error.code, "QUICKEX_AMOUNT_TOO_SMALL");
+      assert.match(error.message, /at least 0\.001 BTC/i);
+      assert.match(error.message, /Raise You Receive/i);
+      return true;
+    },
+  );
+  assert.deepEqual(requestedClaimedCurrencies, ["USDT", "USDT"]);
+  assert.deepEqual(requestedClaimedAmounts, ["100", ""]);
+  assert.deepEqual(requestedRateModes, ["FIXED", "FIXED"]);
+
+  reset("receiveProviderTooSmallFallbackFail");
+  await assert.rejects(
+    quickex.getQuickexQuoteByReceive({
+      fromCurrency: "BTC", fromNetwork: "Bitcoin", toCurrency: "USDT", toNetwork: "TRC20",
+      desiredReceiveAmount: 100,
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof quickex.QuickexApiError);
+      assert.equal(error.code, "QUICKEX_AMOUNT_TOO_SMALL");
+      assert.match(error.message, /minimum amount is 0\.001 BTC/i);
+      return true;
+    },
+  );
+  assert.deepEqual(requestedClaimedAmounts, ["100", "", ""]);
+
+  reset("receiveProviderRateLimited");
+  await expectCode(() => quickex.getQuickexQuoteByReceive({
+    fromCurrency: "BTC", fromNetwork: "Bitcoin", toCurrency: "USDT", toNetwork: "TRC20",
+    desiredReceiveAmount: 100,
+  }), "QUICKEX_RATE_LIMITED");
+  assert.deepEqual(requestedClaimedAmounts, ["100"]);
+});
+
+test("Quickex receive-side provider expected limits use target currency without exposing data.value", async () => {
+  for (const [mode, code, expectedText] of [
+    ["receiveProviderDetailTooSmall", "QUICKEX_AMOUNT_TOO_SMALL", "at least 107.26 USDT"],
+    ["receiveProviderDetailTooLarge", "QUICKEX_AMOUNT_TOO_LARGE", "no more than 75.50 USDT"],
+  ] as const) {
+    reset(mode);
+    await assert.rejects(
+      quickex.getQuickexQuoteByReceive({
+        fromCurrency: "BTC", fromNetwork: "Bitcoin",
+        toCurrency: "USDT", toNetwork: "TRC20",
+        desiredReceiveAmount: 1,
+      }),
+      (error: unknown) => {
+        assert.ok(error instanceof quickex.QuickexApiError);
+        assert.equal(error.code, code);
+        assert.match(error.message, new RegExp(expectedText.replace(".", "\\."), "i"));
+        assert.doesNotMatch(error.message, /0\.00123550690135725/);
+        return true;
+      },
+    );
+    assert.deepEqual(requestedClaimedAmounts, ["1"], "valid provider expected limits avoid a second lookup");
+  }
+
+  reset("receiveProviderDetailInvalidExpected");
+  await assert.rejects(
+    quickex.getQuickexQuoteByReceive({
+      fromCurrency: "BTC", fromNetwork: "Bitcoin",
+      toCurrency: "USDT", toNetwork: "TRC20",
+      desiredReceiveAmount: 1,
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof quickex.QuickexApiError);
+      assert.equal(error.code, "QUICKEX_AMOUNT_TOO_SMALL");
+      assert.match(error.message, /Check the provider’s minimum amount/i);
+      assert.doesNotMatch(error.message, /0\.00123550690135725|<script>/i);
+      return true;
+    },
+  );
+  assert.deepEqual(requestedClaimedAmounts, ["1", "", ""]);
 });
 
 test("concurrent catalog cache misses collapse into one provider request", async () => {
@@ -2962,6 +3194,78 @@ async function instantQuote(url: string, rateMode: "FLOATING" | "FIXED" = "FLOAT
     rateMode,
   });
 }
+
+test("receive-target Convert quotes sign the provider send amount and create the matching order", async () => {
+  reset();
+  const api = await startApi();
+  const { cryptoAssetNetworksTable, db, quickexOrdersTable } = await import("@workspace/db");
+  const routeIds = ["btc-bitcoin", "usdt-trc20"];
+  const originals = await db.select().from(cryptoAssetNetworksTable)
+    .where(inArray(cryptoAssetNetworksTable.id, routeIds));
+  const clientRequestId = requestIdForTest(46);
+  try {
+    await db.update(cryptoAssetNetworksTable).set({ executionMode: "api", enabled: true })
+      .where(inArray(cryptoAssetNetworksTable.id, routeIds));
+    const response = await apiJson(api.url, "/quickex/quote-by-receive", {
+      fromAsset: "BTC", fromNetwork: "Bitcoin",
+      toAsset: "USDT", toNetwork: "TRC20",
+      desiredReceiveAmount: 100, rateMode: "FIXED",
+    });
+    assert.equal(response.status, 200);
+    assert.equal(response.body.amount, 0.00123362);
+    assert.equal(response.body.receiveAmount, 100);
+    assert.equal(response.body.minAmount, 0.001);
+    assert.equal(response.body.maxAmount, 10);
+    assert.equal(requestedClaimedCurrencies[0], "USDT");
+    assert.equal(requestedClaimedAmounts[0], "100");
+    assert.equal(requestedRateModes[0], "FIXED");
+    const signed = tickets.verifyQuoteTicket(String(response.body.quoteId), {
+      type: "instant", fromAsset: "BTC", fromNetwork: "Bitcoin",
+      toAsset: "USDT", toNetwork: "TRC20", amount: 0.00123362, rateMode: "FIXED",
+      sourceSettlementOptionId: String(response.body.sourceSettlementOptionId),
+      targetSettlementOptionId: String(response.body.targetSettlementOptionId),
+    });
+    assert.equal(signed.quickexQuote?.amountToGive, "0.00123362");
+    assert.equal(signed.quickexQuote?.amountToGet, "100");
+    const created = await apiJson(api.url, "/quickex/create-order", {
+      type: "instant",
+      fromAsset: "BTC", fromNetwork: "Bitcoin",
+      toAsset: "USDT", toNetwork: "TRC20",
+      amount: response.body.amount,
+      rateMode: "FIXED",
+      quoteId: response.body.quoteId,
+      sourceSettlementOptionId: response.body.sourceSettlementOptionId,
+      targetSettlementOptionId: response.body.targetSettlementOptionId,
+      destinationAddress: "receive-quote-destination",
+      refundAddress: "receive-quote-refund",
+      customerEmail: `receive-${randomUUID()}@example.test`,
+      clientRequestId,
+    });
+    assert.equal(created.status, 201);
+    assert.equal(createPayloads[0]?.claimedDepositAmount, "0.00123362");
+    assert.equal(
+      (createPayloads[0]?.claimedPublicRate as Record<string, unknown>).claimedAmountToReceive,
+      "100",
+    );
+    mode = "receiveHighPrecision";
+    assert.equal(String(Number("0.123456789123456789")), "0.12345678912345678");
+    const highPrecisionQuote = await apiJson(api.url, "/quickex/quote-by-receive", {
+      fromAsset: "BTC", fromNetwork: "Bitcoin",
+      toAsset: "USDT", toNetwork: "TRC20",
+      desiredReceiveAmount: 100, rateMode: "FIXED",
+    });
+    assert.equal(highPrecisionQuote.status, 502);
+    assert.match(String(highPrecisionQuote.body.error), /cannot be represented exactly/i);
+    assert.equal(createCalls, 1, "the high-precision quote must fail before an order can be created");
+  } finally {
+    await db.delete(quickexOrdersTable).where(eq(quickexOrdersTable.clientRequestId, clientRequestId));
+    for (const original of originals) {
+      await db.update(cryptoAssetNetworksTable).set(original)
+        .where(eq(cryptoAssetNetworksTable.id, original.id));
+    }
+    await api.close();
+  }
+});
 
 test("Quickex namespace owns signed quotes, orders, tracking, and idempotency", async () => {
   reset();

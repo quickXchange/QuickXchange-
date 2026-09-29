@@ -24666,3 +24666,156 @@ html .public-shell .public-landing-page :is(
     transform: translateX(-50%);
   }
 }
+
+/* Swap-only finishing surfaces: a docked option, a single compact rate, and
+   acceptance beside the persistent order actions. */
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-quote-options-dock {
+  min-width: 0;
+  padding-top: 8px;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-quote-options-dock .swap-addon-launch {
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid hsl(var(--primary) / 0.32);
+  border-radius: 12px;
+  background: linear-gradient(105deg, hsl(var(--primary) / 0.11), hsl(266 82% 60% / 0.08) 82%), hsl(var(--card));
+  color: hsl(var(--foreground));
+  box-shadow: inset 0 1px hsl(var(--foreground) / 0.06), 0 4px 14px -9px hsl(var(--primary) / 0.48);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.2;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-quote-options-dock .swap-addon-launch > span {
+  min-width: 0;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-quote-options-dock .swap-addon-launch svg {
+  flex: 0 0 auto;
+  color: hsl(var(--primary));
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-quote-options-dock .swap-addon-launch:hover {
+  border-color: hsl(var(--primary) / 0.65);
+  background-color: hsl(var(--primary) / 0.1);
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-quote-options-dock .swap-addon-launch:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-scroll > .swap-summary-rate {
+  display: flex;
+  min-width: 0;
+  min-height: 46px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 9px 12px;
+  border: 1px solid hsl(var(--primary) / 0.3);
+  border-radius: 13px;
+  background: linear-gradient(110deg, hsl(var(--primary) / 0.1), hsl(268 80% 62% / 0.08)), hsl(var(--card));
+  box-shadow: inset 0 1px hsl(var(--foreground) / 0.05);
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-rate-label {
+  display: inline-flex;
+  min-width: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-rate-label svg {
+  color: hsl(var(--primary));
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-rate-value {
+  min-width: 0;
+  color: hsl(var(--foreground));
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.35;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-footer {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-footer > .swap-summary-terms {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 9px 12px;
+  border: 1px solid hsl(var(--primary) / 0.22);
+  border-radius: 12px;
+  background: linear-gradient(105deg, hsl(var(--primary) / 0.07), hsl(268 80% 62% / 0.05)), hsl(var(--card));
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-footer .swap-summary-terms .policy-acceptance__copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+html:not(.dark) .public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-footer > .swap-summary-terms {
+  background: linear-gradient(105deg, hsl(var(--primary) / 0.055), hsl(268 80% 62% / 0.04)), hsl(var(--card)) !important;
+  border-color: hsl(var(--primary) / 0.2) !important;
+}
+
+@media (max-width: 520px) {
+  .public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-quote-options-dock .swap-addon-launch {
+    min-height: 40px;
+    padding: 7px 10px;
+  }
+
+  .public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-scroll > .swap-summary-rate {
+    min-height: 42px;
+    gap: 6px 10px;
+    padding: 8px 10px;
+  }
+
+  .public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-rate-label {
+    font-size: 10px;
+  }
+
+  .public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-rate-value {
+    font-size: 10.5px;
+  }
+
+  .public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-footer > .swap-summary-terms {
+    padding: 8px 10px;
+  }
+}
+
+@media (max-width: 380px) {
+  .public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-scroll > .swap-summary-rate {
+    flex-wrap: wrap;
+  }
+
+  .public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-rate-value {
+    flex: 1 1 100%;
+    text-align: left;
+  }
+}

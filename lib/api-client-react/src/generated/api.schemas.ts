@@ -1361,6 +1361,49 @@ export interface QuoteInput {
   selectedAddOnKeys?: string[];
 }
 
+export interface ManualReceiveQuoteInput {
+  /** @minLength 2 */
+  fromAsset: string;
+  /** @minLength 1 */
+  fromNetwork: string;
+  /** @minLength 2 */
+  toAsset: string;
+  /** @minLength 1 */
+  toNetwork: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  sourceSettlementOptionId: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  targetSettlementOptionId: string;
+  /**
+     * @maxItems 50
+     * @items.minLength 1
+     * @items.maxLength 100
+     */
+  selectedAddOnKeys?: string[];
+  /** @exclusiveMinimum 0 */
+  desiredReceiveAmount: number;
+}
+
+export interface QuickexReceiveQuoteInput {
+  /** @minLength 2 */
+  fromAsset: string;
+  /** @minLength 1 */
+  fromNetwork: string;
+  /** @minLength 2 */
+  toAsset: string;
+  /** @minLength 1 */
+  toNetwork: string;
+  /** @exclusiveMinimum 0 */
+  desiredReceiveAmount: number;
+  rateMode?: QuickexRateMode;
+}
+
 export type QuoteType = typeof QuoteType[keyof typeof QuoteType];
 
 
