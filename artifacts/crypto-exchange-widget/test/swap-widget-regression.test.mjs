@@ -38,11 +38,11 @@ test('receiving popup shows one method logo and amount without dropping configur
   assert.match(popup, /destinationMemo/);
 });
 
-test('Summary sections and action row use natural height and scoped spacing', () => {
+test('Summary fits the shared fixed shell with scoped spacing and visible actions', () => {
   assert.match(surface, /className="swap-summary-rate text-xs text-muted-foreground" data-testid="swap-summary-rate"/);
-  assert.match(styles, /\.exchange-mode-viewport:has\(> \.exchange-mode-layer\.active-layer > \.exchange-card\.swap-widget-step-3\)[\s\S]*?height: auto !important;/);
-  assert.match(styles, /\.swap-widget-step-3 > \.swap-step-panel\.swap-summary-step\s*\{[^}]*overflow: visible !important;/s);
-  assert.match(styles, /\.swap-widget-step-3 \.swap-summary-scroll\s*\{[^}]*gap: 10px;[^}]*overflow: visible !important;/s);
+  assert.match(styles, /\.exchange-mode-viewport,\s*#customer-exchange[\s\S]*?height: var\(--exchange-shell-height\) !important;/);
+  assert.match(styles, /\.swap-widget-step-3 > \.swap-step-panel\.swap-summary-step\s*\{[^}]*flex: 1 1 auto !important;[^}]*overflow: hidden !important;/s);
+  assert.match(styles, /\.swap-widget-step-3 \.swap-summary-scroll\s*\{[^}]*gap: 10px;[^}]*overflow-y: auto !important;/s);
   assert.match(styles, /\.swap-widget-step-3 \.swap-summary-footer \.swap-stage-actions\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1\.8fr\)/s);
   assert.match(styles, /\.swap-widget-step-3 \.swap-summary-footer \.widget-primary-submit:disabled\s*\{[^}]*opacity: 1;/s);
   assert.match(styles, /\.swap-widget-step-3 \.swap-summary-terms > \.order-terms\.policy-acceptance\s*\{[^}]*align-items: center !important;[^}]*margin: 0 !important;/s);
@@ -88,9 +88,10 @@ test('Step 1 docks required contact email and Continue while Add-ons remain avai
   assert.match(surface, /quoteStatus !== 'loading' && quotePreview\?\.requestKey === quoteRequestKey/);
   assert.match(addonOptions, /aria-label=\{compact \? 'Additional Options'/);
   assert.match(addonOptions, /No add-ons are currently available/);
-  assert.match(styles, /\.exchange-mode-viewport:has\(> \.exchange-mode-layer\.active-layer > \.exchange-card\.swap-widget-step-1\)[\s\S]*?height: auto !important;/);
-  assert.match(styles, /\.swap-quote-scroll-region\s*\{[^}]*overflow: visible;/s);
-  assert.match(styles, /> \.swap-quote-step\s*\{[^}]*flex: 0 0 auto !important;[^}]*overflow: visible !important;/s);
+  assert.match(styles, /@media \(max-width: 374px\)\s*\{\s*\.public-shell\s*\{\s*--exchange-shell-height: 640px;/);
+  assert.match(styles, /@media \(min-width: 768px\) and \(max-width: 903px\)\s*\{\s*\.public-shell\s*\{\s*--exchange-shell-height: 700px;/);
+  assert.match(styles, /\.swap-quote-scroll-region\s*\{[^}]*overflow-y: auto;/s);
+  assert.match(styles, /> \.swap-quote-step\s*\{[^}]*flex: 1 1 auto !important;[^}]*overflow: hidden !important;/s);
   assert.match(styles, /\.swap-addon-options-list\s*\{[^}]*max-height: 174px;[^}]*overflow-y: auto/s);
   assert.match(styles, /\.swap-quote-options-dock\s*\{[^}]*flex: 0 0 auto/s);
 });

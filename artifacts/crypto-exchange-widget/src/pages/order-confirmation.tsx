@@ -227,15 +227,6 @@ export function OrderConfirmationPage() {
 
   const sourceIdentity = order.sourcePaymentMethod?.name || order.fromNetwork || order.fromAsset;
   const targetIdentity = order.toNetwork || order.toAsset;
-  const fundingAddressSourceLabel = typeof fundingDetails?.addressSource === 'string'
-    ? fundingDetails.addressSource === 'live_api'
-      ? order.fundingSource === 'whitebit' ? 'WhiteBIT address' : 'Unique API address'
-      : fundingDetails.addressSource === 'manual_fallback'
-        ? 'Manual fallback address'
-        : fundingDetails.addressSource === 'manual_only'
-          ? 'Manual address'
-          : null
-    : null;
 
   return (
     <PublicShell>
@@ -519,11 +510,8 @@ export function OrderConfirmationPage() {
                             </div>
                             <div className="space-y-3">
                               <div className="relative bg-secondary/5 rounded-2xl p-4 border border-border shadow-sm">
-                                <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center justify-between">
+                                 <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
                                   Deposit Address
-                                  {fundingAddressSourceLabel && (
-                                    <span className="rounded-full bg-background border border-border px-2 py-0.5 text-[9px] text-muted-foreground lowercase normal-case">{fundingAddressSourceLabel}</span>
-                                  )}
                                 </div>
                                 <div className="font-mono text-sm font-medium break-all pr-12">{order.depositAddress}</div>
                                 {depositActionable && (
@@ -619,7 +607,6 @@ export function OrderConfirmationPage() {
           address={order.depositAddress}
           memo={order.depositMemo}
           orderId={order.id}
-          addressSourceLabel={fundingAddressSourceLabel}
           warning={fundingDetails?.warning ? String(fundingDetails.warning) : null}
           instructions={fundingDetails?.instructions ? String(fundingDetails.instructions) : null}
           requiredConfirmations={fundingDetails?.requiredConfirmations ? t('orderStatus.requiresConfirmations', { count: String(fundingDetails.requiredConfirmations) }) : null}

@@ -24149,8 +24149,22 @@ html .public-shell .public-landing-page :is(
   ) { transition: none; }
 }
 
-/* Widget shell and Step 2: fixed exterior, independent field scrollport, visible
-   consent/action dock. These rules intentionally follow historical widget rules. */
+/* Keep the measured Swap Step 1 footprint across modes and steps. At narrow
+   tablet widths its quote wraps to 700px; on phones it is 640px. */
+@media (max-width: 374px) {
+  .public-shell {
+    --exchange-shell-height: 640px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 903px) {
+  .public-shell {
+    --exchange-shell-height: 700px;
+  }
+}
+
+/* Fixed exterior with an independent overflow-only field scrollport and a
+   visible consent/action dock. These rules follow historical widget rules. */
 .public-shell .exchange-mode-viewport,
 #customer-exchange .customer-exchange-region.public-shell .exchange-mode-viewport {
   height: var(--exchange-shell-height) !important;
@@ -24173,28 +24187,6 @@ html .public-shell .public-landing-page :is(
   overflow: hidden !important;
 }
 
-/* Swap Step 1 grows with its content; the page scrolls instead of the form.
-   Other Swap steps and Convert retain their existing fixed-size shells. */
-.public-shell .exchange-mode-viewport:has(> .exchange-mode-layer.active-layer > .exchange-card.swap-widget-step-1),
-#customer-exchange .customer-exchange-region.public-shell .exchange-mode-viewport:has(> .exchange-mode-layer.active-layer > .exchange-card.swap-widget-step-1) {
-  height: auto !important;
-  min-height: 0 !important;
-  max-height: none !important;
-}
-
-.public-shell .exchange-mode-viewport > .exchange-mode-layer.active-layer:has(> .exchange-card.swap-widget-step-1) {
-  position: relative !important;
-  inset: auto;
-  height: auto !important;
-}
-
-.public-shell .exchange-mode-viewport > .exchange-mode-layer.active-layer > .exchange-card.redesigned-widget.swap-widget-step-1,
-#customer-exchange .customer-exchange-region.public-shell .exchange-mode-viewport > .exchange-mode-layer.active-layer > .exchange-card.redesigned-widget.swap-widget-step-1 {
-  height: auto !important;
-  min-height: 0 !important;
-  max-height: none !important;
-}
-
 .public-shell .exchange-card.redesigned-widget.swap-widget-flow.swap-widget-step-1 {
   display: flex !important;
   flex-direction: column;
@@ -24208,20 +24200,22 @@ html .public-shell .public-landing-page :is(
 
 .public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 > .swap-quote-step {
   display: flex !important;
-  flex: 0 0 auto !important;
+  flex: 1 1 auto !important;
   flex-direction: column;
   width: 100%;
   height: auto !important;
   min-height: 0 !important;
   max-height: none !important;
-  overflow: visible !important;
+  overflow: hidden !important;
 }
 
 .public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-quote-scroll-region {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   width: 100%;
   min-width: 0;
-  overflow: visible;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-quote-step .exchange-submit-wrap {
@@ -24512,50 +24506,29 @@ html .public-shell .public-landing-page :is(
   }
 }
 
-/* Step 3 owns its full content height. Only the page scrolls; cards and actions
-   never compete for a fixed-height internal scrollport. */
-.public-shell .exchange-mode-viewport:has(> .exchange-mode-layer.active-layer > .exchange-card.swap-widget-step-3),
-#customer-exchange .customer-exchange-region.public-shell .exchange-mode-viewport:has(> .exchange-mode-layer.active-layer > .exchange-card.swap-widget-step-3) {
-  height: auto !important;
-  min-height: 0 !important;
-  max-height: none !important;
-}
-
-.public-shell .exchange-mode-viewport > .exchange-mode-layer.active-layer:has(> .exchange-card.swap-widget-step-3) {
-  position: relative !important;
-  inset: auto;
-  height: auto !important;
-}
-
-.public-shell .exchange-mode-viewport > .exchange-mode-layer.active-layer > .exchange-card.redesigned-widget.swap-widget-step-3,
-#customer-exchange .customer-exchange-region.public-shell .exchange-mode-viewport > .exchange-mode-layer.active-layer > .exchange-card.redesigned-widget.swap-widget-step-3 {
-  height: auto !important;
-  min-height: 0 !important;
-  max-height: none !important;
-  justify-content: flex-start !important;
-}
-
 .public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 > .swap-step-panel.swap-summary-step {
   display: flex !important;
-  flex: 0 0 auto !important;
+  flex: 1 1 auto !important;
   flex-direction: column;
   width: 100%;
   height: auto !important;
   min-height: 0 !important;
   max-height: none !important;
   gap: 10px;
-  overflow: visible !important;
+  overflow: hidden !important;
 }
 
 .public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-scroll {
   display: grid;
-  flex: 0 0 auto !important;
+  flex: 1 1 auto !important;
   width: 100%;
   min-width: 0;
+  min-height: 0;
   align-content: start;
   gap: 10px;
   padding: 2px 0 0;
-  overflow: visible !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
 }
 
 .public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-scroll > * {
@@ -24662,6 +24635,13 @@ html .public-shell .public-landing-page :is(
 }
 
 @media (max-width: 520px) {
+  /* Four ordinary Convert fields fit without scrolling; longer sets retain
+     the existing field-only overflow while the footer stays in view. */
+  .public-shell .exchange-card.redesigned-widget.convert-widget-step-2 .convert-order-details-content {
+    gap: 5px !important;
+    padding-bottom: 6px;
+  }
+
   .public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-scroll,
   .public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 > .swap-step-panel.swap-summary-step,
   .public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-footer {

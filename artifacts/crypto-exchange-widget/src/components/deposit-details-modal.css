@@ -259,8 +259,6 @@
 .deposit-details-modal-field-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .deposit-details-modal-field-label { color: #68758b; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
 .dark .deposit-details-modal-field-label { color: #9daecc; }
-.deposit-details-modal-source { max-width: 100%; border-radius: 20px; border: 1px solid rgba(72, 95, 150, .17); padding: 3px 8px; color: #68758b; font-size: 10px; }
-.dark .deposit-details-modal-source { color: #a1aec6; }
 .deposit-details-modal-value-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; min-width: 0; }
 .deposit-details-modal-value { flex: 1; min-width: 0; color: inherit; font-family: var(--font-mono, monospace); font-size: 12px; font-weight: 650; line-height: 1.55; overflow-wrap: anywhere; word-break: break-all; user-select: all; }
 .deposit-details-modal-memo { color: #a15b0a; }

@@ -13,7 +13,9 @@ test('Swap deposit details open over the existing page using only frozen order v
   assert.match(page, /onClick=\{\(\) => setDepositOpen\(true\)\}/);
   assert.match(page, /\{!isQuickex && order\.depositAddress && \(\s*<DepositDetailsModal/);
   assert.match(page, /<DepositDetailsModal[\s\S]*?amount=\{String\(order\.amount\)\}[\s\S]*?asset=\{order\.fromAsset\}[\s\S]*?network=\{order\.fromNetwork\}[\s\S]*?address=\{order\.depositAddress\}[\s\S]*?memo=\{order\.depositMemo\}[\s\S]*?orderId=\{order\.id\}/);
-  assert.match(page, /addressSourceLabel=\{fundingAddressSourceLabel\}/);
+  assert.doesNotMatch(page, /fundingAddressSourceLabel|text-deposit-address-source|WhiteBIT address|Manual fallback address|Manual address/);
+  assert.doesNotMatch(modal, /addressSourceLabel|text-deposit-address-source|deposit-details-modal-source/);
+  assert.doesNotMatch(styles, /\.deposit-details-modal-source/);
   assert.match(page, /settlementOptionId=\{order\.sourceSettlementOptionId\}/);
   assert.match(modal, /<Dialog\.Portal>/);
   assert.match(modal, /<OrderSettlementIdentity assetCode=\{asset\} routeLabel=\{network\}/);

@@ -15,7 +15,6 @@ export type DepositDetailsModalProps = {
   address: string;
   memo?: string | null;
   orderId: string;
-  addressSourceLabel?: string | null;
   warning?: string | null;
   instructions?: string | null;
   requiredConfirmations?: string | null;
@@ -34,7 +33,6 @@ export function DepositDetailsModal({
   address,
   memo,
   orderId,
-  addressSourceLabel,
   warning,
   instructions,
   requiredConfirmations,
@@ -97,7 +95,6 @@ export function DepositDetailsModal({
               <div className="deposit-details-modal-field">
                 <div className="deposit-details-modal-field-head">
                   <span className="deposit-details-modal-field-label">Deposit address</span>
-                  {addressSourceLabel && <span className="deposit-details-modal-source" data-testid="text-deposit-address-source">{addressSourceLabel}</span>}
                 </div>
                 <div className="deposit-details-modal-value-row">
                   <code className="deposit-details-modal-value" data-testid="text-deposit-address">{address}</code>

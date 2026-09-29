@@ -1493,9 +1493,9 @@ test('shared Admin forms keep safe spacing and containment at every breakpoint',
 test('Swap and Convert primary forms fit without internal vertical scrolling', async ({ page }) => {
   test.setTimeout(120_000);
   const exchangeViewports = [
-    { name: 'narrow phone', width: 320, height: 900, expectedWidgetHeight: 660 },
+    { name: 'narrow phone', width: 320, height: 900, expectedWidgetHeight: 640 },
     { name: 'phone', width: 390, height: 900, expectedWidgetHeight: 640 },
-    { name: 'tablet', width: 768, height: 1000, expectedWidgetHeight: 670 },
+    { name: 'tablet', width: 768, height: 1000, expectedWidgetHeight: 700 },
     { name: 'tablet laptop', width: 1024, height: 1000, expectedWidgetHeight: 670 },
     { name: 'desktop', width: 1280, height: 1000, expectedWidgetHeight: 670 },
   ];
@@ -1560,9 +1560,7 @@ test('Swap and Convert primary forms fit without internal vertical scrolling', a
         `${viewport.name} ${mode.name} should not create an internal vertical scrollport (${JSON.stringify(fit)})`,
       ).not.toMatch(/auto|scroll/);
       expect(fit.cardHeight, `${viewport.name} ${mode.name} shell height`)
-        .toBeLessThanOrEqual(viewport.expectedWidgetHeight + 1);
-      expect(fit.cardHeight, `${viewport.name} ${mode.name} shell must not collapse`)
-        .toBeGreaterThanOrEqual(500);
+        .toBeCloseTo(viewport.expectedWidgetHeight, 0);
       expect(
         fit.contentScrollHeight,
         `${viewport.name} ${mode.name} content should fit its available height`,
