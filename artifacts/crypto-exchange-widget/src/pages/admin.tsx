@@ -117,6 +117,7 @@ import { AdminSearch } from '../components/admin-search';
 import { AdminWhitebitAssetSyncDialog } from '../components/admin-whitebit-asset-sync-dialog';
 import { AdminCryptoAssetsBulkEditDialog } from '../components/admin-crypto-assets-bulk-edit-dialog';
 import { AdminPaymentMethodBulkFieldsDialog } from '../components/admin-payment-method-bulk-fields-dialog';
+import { AdminPaymentMethodBulkDeleteDialog } from '../components/admin-payment-method-bulk-delete-dialog';
 import { BulkDepositProviderDialog } from '../components/bulk-deposit-provider-dialog';
 import { OrderSupportToolsSection } from '../components/admin-order-support-tools';
 import { convertOrderStatusLabel, convertOrderStatusStep, normalizeConvertOrderStatus } from '../lib/convert-order-status';
@@ -6791,6 +6792,7 @@ function AdminCurrencies() {
   const [syncWhitebitOpen, setSyncWhitebitOpen] = useState(false);
   const [bulkEditAssetsOpen, setBulkEditAssetsOpen] = useState(false);
   const [bulkMethodFieldsOpen, setBulkMethodFieldsOpen] = useState(false);
+  const [bulkDeleteMethodFieldsOpen, setBulkDeleteMethodFieldsOpen] = useState(false);
   const [bulkNetworkWalletOpen, setBulkNetworkWalletOpen] = useState(false);
   const [bulkDepositProviderOpen, setBulkDepositProviderOpen] = useState(false);
 
@@ -7654,6 +7656,8 @@ function AdminCurrencies() {
                   {tab === 'methods' && <>
                     <button type="button" disabled={catalogActionPending || catalogSelected.methods.size > 100} onClick={() => setBulkMethodFieldsOpen(true)} data-testid="button-bulk-edit-method-fields"><Pencil size={14} /> Bulk Edit Fields</button>
                     <div className="bulk-actions-divider" />
+                    <button type="button" className="bulk-actions-delete" disabled={catalogActionPending || catalogSelected.methods.size > 100} onClick={() => setBulkDeleteMethodFieldsOpen(true)} data-testid="button-bulk-delete-method-fields"><Trash2 size={14} /> Delete Fields</button>
+                    <div className="bulk-actions-divider" />
                   </>}
                   {isOwner && tab === 'assets' && (
                     <>
@@ -7809,6 +7813,16 @@ function AdminCurrencies() {
           setCatalogSelected(current => ({ ...current, methods: new Set() }));
           setBulkMethodFieldsOpen(false);
           setCatalogActionNotice({ kind: result.failed ? 'warning' : 'success', text: `Payment fields: ${result.updated} updated, ${result.skipped} skipped, ${result.failed} failed.` });
+        }}
+      />}
+      {bulkDeleteMethodFieldsOpen && canManageCurrent && tab === 'methods' && <AdminPaymentMethodBulkDeleteDialog
+        methodIds={Array.from(catalogSelected.methods)}
+        methods={methodsQuery.data || []}
+        onClose={() => setBulkDeleteMethodFieldsOpen(false)}
+        onApplied={result => {
+          setCatalogSelected(current => ({ ...current, methods: new Set() }));
+          setBulkDeleteMethodFieldsOpen(false);
+          setCatalogActionNotice({ kind: 'success', text: `${result.removedFields} field${result.removedFields === 1 ? '' : 's'} removed from ${result.affectedMethods} payment method${result.affectedMethods === 1 ? '' : 's'}.` });
         }}
       />}
       {bulkNetworkWalletOpen && networksQuery.data && (

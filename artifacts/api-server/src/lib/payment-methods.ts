@@ -325,6 +325,74 @@ export function verifyPaymentMethodBulkFieldsReview(
       )));
 }
 
+type PaymentMethodDeleteFieldsReviewPayload = {
+  v: 2;
+  expiresAt: number;
+  methodIds: string[];
+  fieldKeys: string[];
+  expectedUpdatedAtById: Record<string, string>;
+  fieldDefinitionsHashById: Record<string, string>;
+};
+
+function deleteFieldsReviewSignature(encoded: string): string {
+  return createHmac("sha256", paymentMethodFieldsReviewSecret())
+    .update(`payment-method-bulk-delete-fields:${encoded}`)
+    .digest("base64url");
+}
+
+export function signPaymentMethodBulkDeleteFieldsReview(
+  methodIds: string[],
+  fieldKeys: string[],
+  versions: Record<string, string | Date>,
+  fieldDefinitionsHashById: Record<string, string>,
+  now = Date.now(),
+): string {
+  const payload: PaymentMethodDeleteFieldsReviewPayload = {
+    v: 2,
+    expiresAt: now + PAYMENT_METHOD_FIELDS_REVIEW_TTL_MS,
+    methodIds: canonicalReviewIds(methodIds),
+    fieldKeys: [...fieldKeys].sort(),
+    expectedUpdatedAtById: canonicalReviewVersions(versions),
+    fieldDefinitionsHashById: Object.fromEntries(Object.keys(fieldDefinitionsHashById).sort()
+      .map(id => [id, fieldDefinitionsHashById[id]!])),
+  };
+  const encoded = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+  return `${encoded}.${deleteFieldsReviewSignature(encoded)}`;
+}
+
+export function verifyPaymentMethodBulkDeleteFieldsReview(
+  token: string,
+  methodIds: string[],
+  fieldKeys: string[],
+  versions: Record<string, string | Date>,
+  hashes?: Record<string, string>,
+  now = Date.now(),
+): boolean {
+  const [encoded, supplied, extra] = token.split(".");
+  if (!encoded || !supplied || extra) return false;
+  const expected = Buffer.from(deleteFieldsReviewSignature(encoded), "utf8");
+  const actual = Buffer.from(supplied, "utf8");
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return false;
+  let payload: PaymentMethodDeleteFieldsReviewPayload;
+  try {
+    payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as PaymentMethodDeleteFieldsReviewPayload;
+  } catch {
+    return false;
+  }
+  return payload?.v === 2 && typeof payload.expiresAt === "number" && payload.expiresAt > now &&
+    Array.isArray(payload.methodIds) && Array.isArray(payload.fieldKeys) &&
+    payload.expectedUpdatedAtById !== null && typeof payload.expectedUpdatedAtById === "object" &&
+    !Array.isArray(payload.expectedUpdatedAtById) &&
+    payload.fieldDefinitionsHashById !== null && typeof payload.fieldDefinitionsHashById === "object" &&
+    !Array.isArray(payload.fieldDefinitionsHashById) &&
+    stableJson(payload.methodIds) === stableJson(canonicalReviewIds(methodIds)) &&
+    stableJson(payload.fieldKeys) === stableJson([...fieldKeys].sort()) &&
+    stableJson(payload.expectedUpdatedAtById) === stableJson(canonicalReviewVersions(versions)) &&
+    (hashes === undefined || stableJson(payload.fieldDefinitionsHashById) === stableJson(
+      Object.fromEntries(Object.keys(hashes).sort().map(id => [id, hashes[id]!])),
+    ));
+}
+
 /**
  * Merges selected field definitions into a method without replacing unselected
  * definitions or metadata stored by older/newer server versions.

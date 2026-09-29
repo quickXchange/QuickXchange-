@@ -9075,6 +9075,58 @@ export const ApplyBulkPaymentMethodFieldsResponse = zod.object({
 })
 
 
+
+export const previewBulkDeletePaymentMethodFieldsBodyMethodIdsMax = 100;
+
+
+export const previewBulkDeletePaymentMethodFieldsBodyFieldKeysMax = 1000;
+
+
+
+export const PreviewBulkDeletePaymentMethodFieldsBody = zod.object({
+  "methodIds": zod.array(zod.string().min(1)).min(1).max(previewBulkDeletePaymentMethodFieldsBodyMethodIdsMax),
+  "fieldKeys": zod.array(zod.string().min(1)).min(1).max(previewBulkDeletePaymentMethodFieldsBodyFieldKeysMax)
+})
+
+
+
+
+export const PreviewBulkDeletePaymentMethodFieldsResponse = zod.object({
+  "targets": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "updatedAt": zod.coerce.date(),
+  "removed": zod.array(zod.string())
+})),
+  "affectedMethods": zod.number().int(),
+  "removedFields": zod.number().int(),
+  "reviewToken": zod.string().min(1)
+})
+
+
+
+export const applyBulkDeletePaymentMethodFieldsBodyOneMethodIdsMax = 100;
+
+
+export const applyBulkDeletePaymentMethodFieldsBodyOneFieldKeysMax = 1000;
+
+
+
+
+export const ApplyBulkDeletePaymentMethodFieldsBody = zod.object({
+  "methodIds": zod.array(zod.string().min(1)).min(1).max(applyBulkDeletePaymentMethodFieldsBodyOneMethodIdsMax),
+  "fieldKeys": zod.array(zod.string().min(1)).min(1).max(applyBulkDeletePaymentMethodFieldsBodyOneFieldKeysMax)
+}).and(zod.object({
+  "expectedUpdatedAtById": zod.record(zod.string(), zod.coerce.date()),
+  "reviewToken": zod.string().min(1)
+}))
+
+export const ApplyBulkDeletePaymentMethodFieldsResponse = zod.object({
+  "affectedMethods": zod.number().int(),
+  "removedFields": zod.number().int()
+})
+
+
 /**
  * @summary Delete an unattached payment-method logo upload
  */

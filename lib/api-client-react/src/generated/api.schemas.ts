@@ -4350,6 +4350,49 @@ export interface PaymentMethodBulkFieldsApplyResult {
   failed: number;
 }
 
+export interface PaymentMethodBulkDeleteFieldsInput {
+  /**
+     * @minItems 1
+     * @maxItems 100
+     * @items.minLength 1
+     */
+  methodIds: string[];
+  /**
+     * @minItems 1
+     * @maxItems 1000
+     * @items.minLength 1
+     */
+  fieldKeys: string[];
+}
+
+export type PaymentMethodBulkDeleteFieldsApplyInputExpectedUpdatedAtById = {[key: string]: string};
+
+export type PaymentMethodBulkDeleteFieldsApplyInput = PaymentMethodBulkDeleteFieldsInput & {
+  expectedUpdatedAtById: PaymentMethodBulkDeleteFieldsApplyInputExpectedUpdatedAtById;
+  /** @minLength 1 */
+  reviewToken: string;
+};
+
+export interface PaymentMethodBulkDeleteFieldsTarget {
+  id: string;
+  name: string;
+  updatedAt: string;
+  removed: string[];
+}
+
+export interface PaymentMethodBulkDeleteFieldsPreview {
+  targets: PaymentMethodBulkDeleteFieldsTarget[];
+  affectedMethods: number;
+  removedFields: number;
+  /** @minLength 1 */
+  reviewToken: string;
+}
+
+export interface PaymentMethodBulkDeleteFieldsResult {
+  affectedMethods: number;
+  removedFields: number;
+}
+
 export interface FiatCurrencyPaymentMethodInput {
   /** @pattern ^[0-9a-fA-F-]{36}$ */
   fiatCurrencyId: string;

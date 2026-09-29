@@ -88,6 +88,7 @@ const POLICY_MATCHERS: readonly PolicyMatcher[] = [
   { method: "GET", pattern: /^\/admin\/payment-methods$/, policy: P("payment_methods.view") },
   { method: "POST", pattern: /^\/admin\/payment-methods$/, policy: P("payment_methods.manage") },
   { method: "POST", pattern: /^\/admin\/payment-methods\/bulk-fields\/(preview|apply)$/, policy: P("payment_methods.manage") },
+  { method: "POST", pattern: /^\/admin\/payment-methods\/bulk-delete-fields\/(preview|apply)$/, policy: P("payment_methods.manage") },
   { method: "PATCH", pattern: /^\/admin\/payment-methods\/[^/]+$/, policy: P("payment_methods.manage") },
   { method: "DELETE", pattern: /^\/admin\/payment-methods\/[^/]+$/, policy: P("payment_methods.manage") },
   { method: "POST", pattern: /^\/admin\/payment-methods\/logo-upload$/, policy: P("payment_methods.manage") },

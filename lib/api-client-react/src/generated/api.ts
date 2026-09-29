@@ -215,6 +215,10 @@ import type {
   PartnerLogoSettings,
   PartnerLogoUpdate,
   PaymentMethod,
+  PaymentMethodBulkDeleteFieldsApplyInput,
+  PaymentMethodBulkDeleteFieldsInput,
+  PaymentMethodBulkDeleteFieldsPreview,
+  PaymentMethodBulkDeleteFieldsResult,
   PaymentMethodBulkFieldsApplyInput,
   PaymentMethodBulkFieldsApplyResult,
   PaymentMethodBulkFieldsPreview,
@@ -6986,6 +6990,136 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getApplyBulkPaymentMethodFieldsMutationOptions(options));
+    }
+
+export const getPreviewBulkDeletePaymentMethodFieldsUrl = () => {
+
+
+
+
+  return `/api/admin/payment-methods/bulk-delete-fields/preview`
+}
+
+export const previewBulkDeletePaymentMethodFields = async (paymentMethodBulkDeleteFieldsInput: PaymentMethodBulkDeleteFieldsInput, options?: Parameters<typeof customFetch>[1]): Promise<PaymentMethodBulkDeleteFieldsPreview> => {
+
+  return customFetch<PaymentMethodBulkDeleteFieldsPreview>(getPreviewBulkDeletePaymentMethodFieldsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(paymentMethodBulkDeleteFieldsInput)
+  }
+);}
+
+
+
+
+
+export const getPreviewBulkDeletePaymentMethodFieldsMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewBulkDeletePaymentMethodFields>>, TError,{data: BodyType<PaymentMethodBulkDeleteFieldsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewBulkDeletePaymentMethodFields>>, TError,{data: BodyType<PaymentMethodBulkDeleteFieldsInput>}, TContext> => {
+
+const mutationKey = ['previewBulkDeletePaymentMethodFields'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewBulkDeletePaymentMethodFields>>, {data: BodyType<PaymentMethodBulkDeleteFieldsInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  previewBulkDeletePaymentMethodFields(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PreviewBulkDeletePaymentMethodFieldsMutationResult = NonNullable<Awaited<ReturnType<typeof previewBulkDeletePaymentMethodFields>>>
+    export type PreviewBulkDeletePaymentMethodFieldsMutationBody = BodyType<PaymentMethodBulkDeleteFieldsInput>
+    export type PreviewBulkDeletePaymentMethodFieldsMutationError = ErrorType<ApiError>
+
+    export const usePreviewBulkDeletePaymentMethodFields = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewBulkDeletePaymentMethodFields>>, TError,{data: BodyType<PaymentMethodBulkDeleteFieldsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof previewBulkDeletePaymentMethodFields>>,
+        TError,
+        {data: BodyType<PaymentMethodBulkDeleteFieldsInput>},
+        TContext
+      > => {
+      return useMutation(getPreviewBulkDeletePaymentMethodFieldsMutationOptions(options));
+    }
+
+export const getApplyBulkDeletePaymentMethodFieldsUrl = () => {
+
+
+
+
+  return `/api/admin/payment-methods/bulk-delete-fields/apply`
+}
+
+export const applyBulkDeletePaymentMethodFields = async (paymentMethodBulkDeleteFieldsApplyInput: PaymentMethodBulkDeleteFieldsApplyInput, options?: Parameters<typeof customFetch>[1]): Promise<PaymentMethodBulkDeleteFieldsResult> => {
+
+  return customFetch<PaymentMethodBulkDeleteFieldsResult>(getApplyBulkDeletePaymentMethodFieldsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(paymentMethodBulkDeleteFieldsApplyInput)
+  }
+);}
+
+
+
+
+
+export const getApplyBulkDeletePaymentMethodFieldsMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof applyBulkDeletePaymentMethodFields>>, TError,{data: BodyType<PaymentMethodBulkDeleteFieldsApplyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof applyBulkDeletePaymentMethodFields>>, TError,{data: BodyType<PaymentMethodBulkDeleteFieldsApplyInput>}, TContext> => {
+
+const mutationKey = ['applyBulkDeletePaymentMethodFields'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof applyBulkDeletePaymentMethodFields>>, {data: BodyType<PaymentMethodBulkDeleteFieldsApplyInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  applyBulkDeletePaymentMethodFields(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApplyBulkDeletePaymentMethodFieldsMutationResult = NonNullable<Awaited<ReturnType<typeof applyBulkDeletePaymentMethodFields>>>
+    export type ApplyBulkDeletePaymentMethodFieldsMutationBody = BodyType<PaymentMethodBulkDeleteFieldsApplyInput>
+    export type ApplyBulkDeletePaymentMethodFieldsMutationError = ErrorType<ApiError>
+
+    export const useApplyBulkDeletePaymentMethodFields = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof applyBulkDeletePaymentMethodFields>>, TError,{data: BodyType<PaymentMethodBulkDeleteFieldsApplyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof applyBulkDeletePaymentMethodFields>>,
+        TError,
+        {data: BodyType<PaymentMethodBulkDeleteFieldsApplyInput>},
+        TContext
+      > => {
+      return useMutation(getApplyBulkDeletePaymentMethodFieldsMutationOptions(options));
     }
 
 export const getDeletePaymentMethodLogoUploadUrl = (id: string,) => {

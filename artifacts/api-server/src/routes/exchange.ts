@@ -95,6 +95,10 @@ import {
   PreviewBulkPaymentMethodFieldsResponse,
   ApplyBulkPaymentMethodFieldsBody,
   ApplyBulkPaymentMethodFieldsResponse,
+  PreviewBulkDeletePaymentMethodFieldsBody,
+  PreviewBulkDeletePaymentMethodFieldsResponse,
+  ApplyBulkDeletePaymentMethodFieldsBody,
+  ApplyBulkDeletePaymentMethodFieldsResponse,
   RequestPaymentMethodLogoUploadBody,
   RequestPaymentMethodLogoUploadResponse,
   DeletePaymentMethodLogoUploadParams,
@@ -297,9 +301,11 @@ import {
   listPublicFiatSettlementOptions,
   paymentMethodFieldDefinitionsHash,
   signPaymentMethodBulkFieldsReview,
+  signPaymentMethodBulkDeleteFieldsReview,
   validateSafeFieldDefinitions,
   validateSettlementDetails,
   verifyPaymentMethodBulkFieldsReview,
+  verifyPaymentMethodBulkDeleteFieldsReview,
 } from "../lib/payment-methods";
 import { paymentMethodBrandfetchLogoUrl } from "../lib/payment-method-brandfetch";
 import {
@@ -7480,6 +7486,88 @@ router.post("/admin/payment-methods/bulk-fields/apply", requireOperator, async (
       };
     });
     res.json(ApplyBulkPaymentMethodFieldsResponse.parse(result));
+  } catch (error) { next(error); }
+});
+
+type BulkDeleteFieldsInput = ReturnType<typeof PreviewBulkDeletePaymentMethodFieldsBody.parse>;
+
+function projectBulkDeletedFields(rows: BulkPaymentMethodFieldsRow[], input: BulkDeleteFieldsInput) {
+  const byId = new Map(rows.map(row => [row.id, row]));
+  if (input.methodIds.some(id => !byId.has(id))) {
+    throw new ApiError("PAYMENT_METHOD_BULK_DELETE_TARGET_MISSING", "One or more selected payment methods no longer exist. Review again.", 409);
+  }
+  const keys = new Set(input.fieldKeys);
+  return input.methodIds.map(id => {
+    const row = byId.get(id)!;
+    const removed = row.fieldDefinitions.filter(field => keys.has(field.key)).map(field => field.key);
+    const remaining = row.fieldDefinitions.filter(field => !keys.has(field.key));
+    const removedKeys = new Set(removed);
+    const dependent = remaining.find(field => field.requiredWhen && removedKeys.has(field.requiredWhen.fieldKey));
+    if (dependent) {
+      throw new ApiError("PAYMENT_METHOD_BULK_DELETE_DEPENDENCY",
+        `${row.name}: field ${dependent.key} depends on a selected field. Select the dependent field too, or leave its dependency in place.`, 409);
+    }
+    return { row, removed, remaining };
+  });
+}
+
+router.post("/admin/payment-methods/bulk-delete-fields/preview", requireOperator, async (req, res, next) => {
+  try {
+    const input = PreviewBulkDeletePaymentMethodFieldsBody.parse(req.body);
+    if (new Set(input.methodIds).size !== input.methodIds.length || new Set(input.fieldKeys).size !== input.fieldKeys.length) {
+      throw new ApiError("PAYMENT_METHOD_BULK_DELETE_INVALID", "Choose unique payment methods and field keys.", 409);
+    }
+    const rows = await db.select().from(paymentMethodsTable).where(inArray(paymentMethodsTable.id, input.methodIds));
+    const projected = projectBulkDeletedFields(rows, input);
+    const versions = Object.fromEntries(rows.map(row => [row.id, row.updatedAt]));
+    const hashes = Object.fromEntries(rows.map(row => [row.id, paymentMethodFieldDefinitionsHash(row.fieldDefinitions)]));
+    res.json(PreviewBulkDeletePaymentMethodFieldsResponse.parse({
+      targets: projected.map(({ row, removed }) => ({
+        id: row.id, name: row.name, updatedAt: row.updatedAt.toISOString(), removed,
+      })),
+      affectedMethods: projected.filter(item => item.removed.length > 0).length,
+      removedFields: projected.reduce((total, item) => total + item.removed.length, 0),
+      reviewToken: signPaymentMethodBulkDeleteFieldsReview(input.methodIds, input.fieldKeys, versions, hashes),
+    }));
+  } catch (error) { next(error); }
+});
+
+router.post("/admin/payment-methods/bulk-delete-fields/apply", requireOperator, async (req, res, next) => {
+  try {
+    const input = ApplyBulkDeletePaymentMethodFieldsBody.parse(req.body);
+    const expectedIds = Object.keys(input.expectedUpdatedAtById);
+    if (new Set(input.methodIds).size !== input.methodIds.length ||
+      new Set(input.fieldKeys).size !== input.fieldKeys.length ||
+      expectedIds.length !== input.methodIds.length ||
+      expectedIds.some(id => !input.methodIds.includes(id)) ||
+      !verifyPaymentMethodBulkDeleteFieldsReview(input.reviewToken, input.methodIds, input.fieldKeys, input.expectedUpdatedAtById)) {
+      throw new ApiError("PAYMENT_METHOD_BULK_DELETE_REVIEW_INVALID", "Selection or review has changed or expired. Review again.", 409);
+    }
+    const result = await db.transaction(async tx => {
+      const rows = await tx.select().from(paymentMethodsTable)
+        .where(inArray(paymentMethodsTable.id, input.methodIds))
+        .orderBy(asc(paymentMethodsTable.id)).for("update");
+      if (rows.length !== input.methodIds.length ||
+        rows.some(row => row.updatedAt.getTime() !== input.expectedUpdatedAtById[row.id]?.getTime())) {
+        throw new ApiError("PAYMENT_METHOD_BULK_DELETE_STALE", "One or more payment methods changed after review. Review again.", 409);
+      }
+      const hashes = Object.fromEntries(rows.map(row => [row.id, paymentMethodFieldDefinitionsHash(row.fieldDefinitions)]));
+      if (!verifyPaymentMethodBulkDeleteFieldsReview(input.reviewToken, input.methodIds, input.fieldKeys, input.expectedUpdatedAtById, hashes)) {
+        throw new ApiError("PAYMENT_METHOD_BULK_DELETE_STALE", "One or more field definitions changed after review. Review again.", 409);
+      }
+      const projected = projectBulkDeletedFields(rows, input);
+      for (const { row, removed, remaining } of projected) {
+        if (!removed.length) continue;
+        await tx.update(paymentMethodsTable)
+          .set({ fieldDefinitions: remaining, updatedAt: new Date() })
+          .where(eq(paymentMethodsTable.id, row.id));
+      }
+      return {
+        affectedMethods: projected.filter(item => item.removed.length > 0).length,
+        removedFields: projected.reduce((total, item) => total + item.removed.length, 0),
+      };
+    });
+    res.json(ApplyBulkDeletePaymentMethodFieldsResponse.parse(result));
   } catch (error) { next(error); }
 });
 

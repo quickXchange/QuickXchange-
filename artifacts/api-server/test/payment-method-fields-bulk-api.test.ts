@@ -504,3 +504,115 @@ test("bulk field apply rejects same-timestamp field changes without overwriting 
   assert.equal((after!.fieldDefinitions[0] as unknown as { operatorEdit?: string }).operatorEdit, "must survive");
   assert.equal(after!.fieldDefinitions[0]!.required, undefined);
 });
+
+test("bulk field deletion uses keys, preserves unrelated definitions, and fences stale reviews", { concurrency: false }, async () => {
+  const ids = [randomUUID(), randomUUID(), randomUUID()];
+  const table = database.paymentMethodsTable;
+  try {
+    await database.db.insert(table).values([
+      { id: ids[0], name: "Delete fields first", fieldDefinitions: [
+        { key: "keep", label: "Keep", type: "short-text", options: undefined, legacyMetadata: { preserve: true } },
+        { key: "iban_key", label: "IBAN", type: "account-iban", pattern: "^DE" },
+        { key: "description_key", label: "Description", type: "long-text" },
+      ] },
+      { id: ids[1], name: "Delete fields second", fieldDefinitions: [
+        { key: "keep", label: "Keep", type: "short-text", help: "Leave intact" },
+        { key: "iban_key", label: "Bank account", type: "account-iban" },
+      ] },
+      { id: ids[2], name: "Delete fields unaffected", fieldDefinitions: [
+        { key: "different_key", label: "IBAN", type: "short-text" },
+      ] },
+    ] as never);
+    const path = "/admin/payment-methods/bulk-delete-fields";
+    const selection = { methodIds: ids, fieldKeys: ["iban_key", "description_key"] };
+    const unauthorized = await request(`${path}/preview`, selection, "");
+    assert.notEqual(unauthorized.status, 200);
+    const preview = await request(`${path}/preview`, selection);
+    assert.equal(preview.status, 200);
+    assert.equal(preview.body.affectedMethods, 2);
+    assert.equal(preview.body.removedFields, 3);
+    const targets = preview.body.targets as { id: string; updatedAt: string; removed: string[] }[];
+    assert.deepEqual(targets.find(target => target.id === ids[2])?.removed, []);
+    const versions = Object.fromEntries(targets.map(target => [target.id, target.updatedAt]));
+    const alteredSelection = await request(`${path}/apply`, {
+      ...selection, fieldKeys: ["keep"], expectedUpdatedAtById: versions, reviewToken: preview.body.reviewToken,
+    });
+    assert.equal(alteredSelection.status, 409);
+    const [before] = await database.db.select().from(table).where(eq(table.id, ids[0]));
+    await database.db.update(table).set({
+      updatedAt: before!.updatedAt,
+      fieldDefinitions: [...before!.fieldDefinitions, { key: "concurrent", label: "Concurrent", type: "short-text" }] as never,
+    }).where(eq(table.id, ids[0]));
+    const stale = await request(`${path}/apply`, {
+      ...selection, expectedUpdatedAtById: versions, reviewToken: preview.body.reviewToken,
+    });
+    assert.equal(stale.status, 409);
+    const fresh = await request(`${path}/preview`, selection);
+    assert.equal(fresh.status, 200);
+    const reviewed = fresh.body.targets as { id: string; updatedAt: string }[];
+    const applied = await request(`${path}/apply`, {
+      ...selection,
+      expectedUpdatedAtById: Object.fromEntries(reviewed.map(target => [target.id, target.updatedAt])),
+      reviewToken: fresh.body.reviewToken,
+    });
+    assert.equal(applied.status, 200);
+    assert.equal(applied.body.affectedMethods, 2);
+    assert.equal(applied.body.removedFields, 3);
+    const remaining = await database.db.select().from(table).where(inArray(table.id, ids));
+    const first = remaining.find(row => row.id === ids[0])!;
+    assert.deepEqual(first.fieldDefinitions.map(field => field.key), ["keep", "concurrent"]);
+    assert.deepEqual((first.fieldDefinitions[0] as unknown as { legacyMetadata: unknown }).legacyMetadata, { preserve: true });
+    assert.deepEqual(remaining.find(row => row.id === ids[1])!.fieldDefinitions.map(field => field.key), ["keep"]);
+    assert.deepEqual(remaining.find(row => row.id === ids[2])!.fieldDefinitions.map(field => field.key), ["different_key"]);
+  } finally {
+    await database.db.delete(table).where(inArray(table.id, ids));
+  }
+});
+
+test("bulk field deletion refuses to orphan an unselected conditional field", { concurrency: false }, async () => {
+  const id = randomUUID();
+  const table = database.paymentMethodsTable;
+  try {
+    await database.db.insert(table).values({
+      id,
+      name: "Conditional delete target",
+      fieldDefinitions: [
+        { key: "choice", label: "Choice", type: "short-text" },
+        { key: "conditional", label: "Conditional", type: "short-text",
+          requiredWhen: { fieldKey: "choice", equals: "yes" } },
+      ],
+    } as never);
+    const rejected = await request("/admin/payment-methods/bulk-delete-fields/preview", {
+      methodIds: [id], fieldKeys: ["choice"],
+    });
+    assert.equal(rejected.status, 409);
+    const [untouched] = await database.db.select().from(table).where(eq(table.id, id));
+    assert.deepEqual(untouched!.fieldDefinitions.map(field => field.key), ["choice", "conditional"]);
+    const accepted = await request("/admin/payment-methods/bulk-delete-fields/preview", {
+      methodIds: [id], fieldKeys: ["choice", "conditional"],
+    });
+    assert.equal(accepted.status, 200);
+  } finally {
+    await database.db.delete(table).where(eq(table.id, id));
+  }
+});
+
+test("bulk field deletion requires payment-method management permission", { concurrency: false }, async () => {
+  const userId = `bulk-delete-viewer-${randomUUID()}`;
+  const email = `${userId}@example.test`;
+  verifiedEmails.set(userId, email);
+  const [viewer] = await database.db.insert(database.operatorsTable).values({
+    clerkUserId: userId, email, role: "operator", status: "active", permissionAllows: [],
+  }).returning();
+  try {
+    for (const path of ["preview", "apply"]) {
+      const denied = await request(`/admin/payment-methods/bulk-delete-fields/${path}`, {
+        methodIds: [methodIds[0]], fieldKeys: ["account_name"],
+      }, userId);
+      assert.equal(denied.status, 403);
+    }
+  } finally {
+    verifiedEmails.delete(userId);
+    await database.db.delete(database.operatorsTable).where(eq(database.operatorsTable.id, viewer!.id));
+  }
+});
