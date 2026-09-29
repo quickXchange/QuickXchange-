@@ -8958,6 +8958,7 @@ export const previewBulkPaymentMethodFieldsBodyFieldsMax = 50;
 
 
 
+
 export const PreviewBulkPaymentMethodFieldsBody = zod.object({
   "methodIds": zod.array(zod.string().min(1)).min(1).max(previewBulkPaymentMethodFieldsBodyMethodIdsMax),
   "fields": zod.array(zod.object({
@@ -8981,7 +8982,8 @@ export const PreviewBulkPaymentMethodFieldsBody = zod.object({
   "fieldKey": zod.string().regex(previewBulkPaymentMethodFieldsBodyFieldsItemRequiredWhenFieldKeyRegExp),
   "equals": zod.union([zod.string().max(previewBulkPaymentMethodFieldsBodyFieldsItemRequiredWhenEqualsOneMax),zod.array(zod.string().max(previewBulkPaymentMethodFieldsBodyFieldsItemRequiredWhenEqualsTwoItemMax)).min(1).max(previewBulkPaymentMethodFieldsBodyFieldsItemRequiredWhenEqualsTwoMax)])
 }).optional()
-})).min(1).max(previewBulkPaymentMethodFieldsBodyFieldsMax)
+})).min(1).max(previewBulkPaymentMethodFieldsBodyFieldsMax),
+  "changeExistingDirectionKeys": zod.array(zod.string().min(1)).optional()
 })
 
 
@@ -8995,7 +8997,8 @@ export const PreviewBulkPaymentMethodFieldsResponse = zod.object({
   "action": zod.enum(['update', 'skip']),
   "added": zod.array(zod.string()),
   "modified": zod.array(zod.string()),
-  "unchanged": zod.array(zod.string())
+  "unchanged": zod.array(zod.string()),
+  "directionMismatches": zod.array(zod.string())
 })),
   "updated": zod.number().int(),
   "skipped": zod.number().int(),
@@ -9034,6 +9037,7 @@ export const applyBulkPaymentMethodFieldsBodyOneFieldsMax = 50;
 
 
 
+
 export const ApplyBulkPaymentMethodFieldsBody = zod.object({
   "methodIds": zod.array(zod.string().min(1)).min(1).max(applyBulkPaymentMethodFieldsBodyOneMethodIdsMax),
   "fields": zod.array(zod.object({
@@ -9057,7 +9061,8 @@ export const ApplyBulkPaymentMethodFieldsBody = zod.object({
   "fieldKey": zod.string().regex(applyBulkPaymentMethodFieldsBodyOneFieldsItemRequiredWhenFieldKeyRegExp),
   "equals": zod.union([zod.string().max(applyBulkPaymentMethodFieldsBodyOneFieldsItemRequiredWhenEqualsOneMax),zod.array(zod.string().max(applyBulkPaymentMethodFieldsBodyOneFieldsItemRequiredWhenEqualsTwoItemMax)).min(1).max(applyBulkPaymentMethodFieldsBodyOneFieldsItemRequiredWhenEqualsTwoMax)])
 }).optional()
-})).min(1).max(applyBulkPaymentMethodFieldsBodyOneFieldsMax)
+})).min(1).max(applyBulkPaymentMethodFieldsBodyOneFieldsMax),
+  "changeExistingDirectionKeys": zod.array(zod.string().min(1)).optional()
 }).and(zod.object({
   "expectedUpdatedAtById": zod.record(zod.string(), zod.coerce.date()),
   "reviewToken": zod.string().min(1)

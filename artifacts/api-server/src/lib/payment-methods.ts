@@ -159,10 +159,26 @@ export type PaymentMethodFieldMergeSummary = {
   added: string[];
   modified: string[];
   unchanged: string[];
+  directionMismatches: string[];
 };
 
 function normalizedFieldLabel(label: string): string {
   return label.normalize("NFKC").trim().toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+function normalizedFieldIdentity(label: string): string {
+  const normalized = normalizedFieldLabel(label);
+  const aliases: Record<string, string> = {
+    name: "accountname",
+    accountname: "accountname",
+    iban: "accountiban",
+    accountiban: "accountiban",
+    paymentdescription: "paymentreference",
+    description: "paymentreference",
+    paymentreference: "paymentreference",
+    reference: "paymentreference",
+  };
+  return aliases[normalized] ?? normalized;
 }
 
 function directionsOverlap(
@@ -195,6 +211,8 @@ type PaymentMethodFieldsReviewPayload = {
   methodIds: string[];
   fieldsHash: string;
   expectedUpdatedAtById: Record<string, string>;
+  changeExistingDirectionKeys?: string[];
+  fieldDefinitionsHashById?: Record<string, string>;
 };
 
 function paymentMethodFieldsReviewSecret(): string {
@@ -230,11 +248,17 @@ function reviewFieldsHash(fields: PaymentMethodFieldDefinition[]): string {
   return createHash("sha256").update(stableJson(fields)).digest("base64url");
 }
 
+export function paymentMethodFieldDefinitionsHash(fields: PaymentMethodFieldDefinition[]): string {
+  return createHash("sha256").update(stableJson(fields)).digest("base64url");
+}
+
 export function signPaymentMethodBulkFieldsReview(
   methodIds: string[],
   fields: PaymentMethodFieldDefinition[],
   expectedUpdatedAtById: Record<string, string | Date>,
   now = Date.now(),
+  changeExistingDirectionKeys: string[] = [],
+  fieldDefinitionsHashById?: Record<string, string>,
 ): string {
   const payload: PaymentMethodFieldsReviewPayload = {
     v: 1,
@@ -242,6 +266,11 @@ export function signPaymentMethodBulkFieldsReview(
     methodIds: canonicalReviewIds(methodIds),
     fieldsHash: reviewFieldsHash(fields),
     expectedUpdatedAtById: canonicalReviewVersions(expectedUpdatedAtById),
+    changeExistingDirectionKeys: [...changeExistingDirectionKeys].sort(),
+    ...(fieldDefinitionsHashById
+      ? { fieldDefinitionsHashById: Object.fromEntries(Object.keys(fieldDefinitionsHashById).sort()
+        .map((id) => [id, fieldDefinitionsHashById[id]!])) }
+      : {}),
   };
   const encoded = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
   return `${encoded}.${fieldsReviewSignature(encoded)}`;
@@ -253,6 +282,8 @@ export function verifyPaymentMethodBulkFieldsReview(
   fields: PaymentMethodFieldDefinition[],
   expectedUpdatedAtById: Record<string, string | Date>,
   now = Date.now(),
+  changeExistingDirectionKeys: string[] = [],
+  fieldDefinitionsHashById?: Record<string, string>,
 ): boolean {
   const [encoded, supplied, extra] = token.split(".");
   if (!encoded || !supplied || extra) return false;
@@ -278,11 +309,20 @@ export function verifyPaymentMethodBulkFieldsReview(
     typeof payload.fieldsHash !== "string" ||
     !payload.expectedUpdatedAtById ||
     typeof payload.expectedUpdatedAtById !== "object" ||
-    Array.isArray(payload.expectedUpdatedAtById)
+    Array.isArray(payload.expectedUpdatedAtById) ||
+    (payload.fieldDefinitionsHashById !== undefined &&
+      (!payload.fieldDefinitionsHashById ||
+        typeof payload.fieldDefinitionsHashById !== "object" ||
+        Array.isArray(payload.fieldDefinitionsHashById)))
   ) return false;
   return stableJson(payload.methodIds) === stableJson(canonicalReviewIds(methodIds)) &&
     payload.fieldsHash === reviewFieldsHash(fields) &&
-    stableJson(payload.expectedUpdatedAtById) === stableJson(canonicalReviewVersions(expectedUpdatedAtById));
+    stableJson(payload.expectedUpdatedAtById) === stableJson(canonicalReviewVersions(expectedUpdatedAtById)) &&
+    stableJson(payload.changeExistingDirectionKeys ?? []) === stableJson([...changeExistingDirectionKeys].sort()) &&
+    (fieldDefinitionsHashById === undefined ||
+      stableJson(payload.fieldDefinitionsHashById) === stableJson(Object.fromEntries(
+        Object.keys(fieldDefinitionsHashById).sort().map((id) => [id, fieldDefinitionsHashById[id]!]),
+      )));
 }
 
 /**
@@ -292,52 +332,106 @@ export function verifyPaymentMethodBulkFieldsReview(
 export function mergePaymentMethodFieldDefinitions(
   current: PaymentMethodFieldDefinition[],
   selected: PaymentMethodFieldDefinition[],
+  changeExistingDirectionKeys: string[] = [],
 ): PaymentMethodFieldMergeSummary {
+  const selectedIdentities = new Set<string>();
+  for (const field of selected) {
+    const identity = normalizedFieldIdentity(field.label);
+    if (selectedIdentities.has(identity)) {
+      throw new ApiError(
+        "PAYMENT_METHOD_BULK_FIELDS_DUPLICATE_IDENTITY",
+        `Selected fields contain multiple aliases for ${field.label}. Select only one field for each semantic identity.`,
+        409,
+      );
+    }
+    selectedIdentities.add(identity);
+  }
+
   const definitions = current.map((field) => ({ ...field } as PaymentMethodFieldDefinition));
   const added: string[] = [];
   const modified: string[] = [];
   const unchanged: string[] = [];
+  const directionMismatches = new Set<string>();
   const matched = new Set<number>();
   const selectedMatches: Array<{
     sourceIndex: number;
     field: PaymentMethodFieldDefinition;
+    submittedCondition: boolean;
   }> = [];
   const additions: PaymentMethodFieldDefinition[] = [];
-  const keyAliases = new Map<string, string>();
+  const keyAliases = new Map<string, string[]>();
+  const overrideKeys = new Set(changeExistingDirectionKeys);
 
   for (const field of selected) {
-    const indexByKey = current.findIndex((existing, index) =>
-      !matched.has(index) &&
-      existing.key === field.key &&
-      directionsOverlap(existing.direction, field.direction));
-    const index = indexByKey >= 0 ? indexByKey : current.findIndex((existing, candidateIndex) =>
-      !matched.has(candidateIndex) &&
-      normalizedFieldLabel(existing.label) === normalizedFieldLabel(field.label) &&
-      directionsOverlap(existing.direction, field.direction));
-    if (index < 0) {
-      additions.push({ ...field });
-      added.push(field.key);
-      continue;
-    }
-
-    matched.add(index);
-    const previous = current[index]!;
-    if (
-      field.direction !== undefined &&
-      normalizedDirection(previous.direction) !== normalizedDirection(field.direction)
-    ) {
+    const identity = normalizedFieldIdentity(field.label);
+    const exactKeyIndexes = current.flatMap((existing, index) =>
+      !matched.has(index) && existing.key === field.key ? [index] : []);
+    const exactLabelIndexes = current.flatMap((existing, index) =>
+      !matched.has(index) && normalizedFieldLabel(existing.label) === normalizedFieldLabel(field.label)
+        ? [index] : []);
+    if (exactKeyIndexes.length > 1) {
       throw new ApiError(
-        "PAYMENT_METHOD_BULK_FIELDS_DIRECTION_CONFLICT",
-        `${field.label} has a different direction on this payment method. Keep its existing direction or edit the send and receive fields separately.`,
+        "PAYMENT_METHOD_BULK_FIELDS_DUPLICATE_IDENTITY",
+        `Field key ${field.key} is duplicated on this payment method.`,
         409,
       );
     }
-    // The stored key is the stable identity when a label match found a legacy
-    // field whose generated key differs from the selected definition.
-    const key = previous.key;
-    keyAliases.set(field.key, key);
-    const merged = { ...previous, ...field, key } as PaymentMethodFieldDefinition;
-    selectedMatches.push({ sourceIndex: index, field: merged });
+    const seedIndex = exactKeyIndexes[0] ?? exactLabelIndexes[0];
+    let groupIndexes: number[];
+    if (seedIndex !== undefined) {
+      const normalizedSeedLabel = normalizedFieldLabel(current[seedIndex]!.label);
+      groupIndexes = current.flatMap((existing, index) =>
+        !matched.has(index) && normalizedFieldLabel(existing.label) === normalizedSeedLabel ? [index] : []);
+    } else {
+      const aliasIndexes = current.flatMap((existing, index) =>
+        !matched.has(index) && normalizedFieldIdentity(existing.label) === identity ? [index] : []);
+      const aliasLabels = new Set(aliasIndexes.map((index) => normalizedFieldLabel(current[index]!.label)));
+      if (aliasLabels.size > 1) {
+        throw new ApiError(
+          "PAYMENT_METHOD_BULK_FIELDS_DUPLICATE_IDENTITY",
+          `${field.label} ambiguously matches multiple existing payment-method fields.`,
+          409,
+        );
+      }
+      groupIndexes = aliasIndexes;
+    }
+    if (seedIndex === undefined) {
+      if (!groupIndexes.length) {
+        additions.push({ ...field });
+        added.push(field.key);
+        continue;
+      }
+    }
+    for (const index of groupIndexes) {
+      matched.add(index);
+      const previous = current[index]!;
+      if (
+        field.direction !== undefined &&
+        normalizedDirection(previous.direction) !== normalizedDirection(field.direction)
+      ) directionMismatches.add(previous.key);
+      const key = previous.key;
+      const aliases = keyAliases.get(field.key) ?? [];
+      if (!aliases.includes(key)) aliases.push(key);
+      keyAliases.set(field.key, aliases);
+      const merged = {
+        ...previous,
+        ...field,
+        key,
+        direction: overrideKeys.has(field.key) ? field.direction : previous.direction,
+      } as PaymentMethodFieldDefinition;
+      if (Object.prototype.hasOwnProperty.call(previous, "hidden")) {
+        (merged as PaymentMethodFieldDefinition & { hidden?: unknown }).hidden =
+          (previous as PaymentMethodFieldDefinition & { hidden?: unknown }).hidden;
+      }
+      if (!overrideKeys.has(field.key) && !Object.prototype.hasOwnProperty.call(previous, "direction")) {
+        delete (merged as PaymentMethodFieldDefinition & { direction?: "send" | "receive" | "both" }).direction;
+      }
+      selectedMatches.push({
+        sourceIndex: index,
+        field: merged,
+        submittedCondition: Object.prototype.hasOwnProperty.call(field, "requiredWhen"),
+      });
+    }
   }
 
   // Keep the original slots occupied by selected fields, but place those
@@ -348,16 +442,32 @@ export function mergePaymentMethodFieldDefinitions(
     const raw = field as PaymentMethodFieldDefinition & {
       requiredWhen?: { fieldKey: string; equals: string | string[] };
     };
-    if (raw.requiredWhen && keyAliases.has(raw.requiredWhen.fieldKey)) {
+    const mappedKeys = raw.requiredWhen ? keyAliases.get(raw.requiredWhen.fieldKey) : undefined;
+    if (raw.requiredWhen && mappedKeys?.length) {
+      const selectedField = selected.find(({ key }) => key === raw.requiredWhen!.fieldKey);
+      const storedKey = selectedField && mappedKeys.includes(selectedField.key)
+        ? selectedField.key
+        : mappedKeys.length === 1
+          ? mappedKeys[0]!
+          : undefined;
+      if (!storedKey) {
+        throw new ApiError(
+          "PAYMENT_METHOD_BULK_FIELDS_DUPLICATE_IDENTITY",
+          `Conditional field reference ${raw.requiredWhen.fieldKey} maps to multiple stored fields.`,
+          409,
+        );
+      }
       raw.requiredWhen = {
         ...raw.requiredWhen,
-        fieldKey: keyAliases.get(raw.requiredWhen.fieldKey)!,
+        fieldKey: storedKey,
       };
     }
   };
-  selectedMatches.forEach(({ field }, selectedIndex) => {
+  selectedMatches.forEach(({ field, submittedCondition }, selectedIndex) => {
     const targetIndex = selectedSlots[selectedIndex]!;
-    rewriteConditionalFieldAlias(field);
+    // A preserved condition belongs to the stored field; only rewrite a
+    // condition explicitly submitted with this bulk edit.
+    if (submittedCondition) rewriteConditionalFieldAlias(field);
     const source = current[selectedMatches[selectedIndex]!.sourceIndex]!;
     if (
       stableJson(source) === stableJson(field) &&
@@ -371,11 +481,10 @@ export function mergePaymentMethodFieldDefinitions(
 
   for (let index = 0; index < definitions.length; index++) {
     const field = definitions[index]!;
-    const identity = normalizedFieldLabel(field.label);
     for (let candidateIndex = 0; candidateIndex < index; candidateIndex++) {
       const candidate = definitions[candidateIndex]!;
       if (
-        normalizedFieldLabel(candidate.label) === identity &&
+        normalizedFieldLabel(candidate.label) === normalizedFieldLabel(field.label) &&
         directionsOverlap(candidate.direction, field.direction)
       ) {
         throw new ApiError(
@@ -387,7 +496,13 @@ export function mergePaymentMethodFieldDefinitions(
     }
   }
 
-  return { fieldDefinitions: definitions, added, modified, unchanged };
+  return {
+    fieldDefinitions: definitions,
+    added,
+    modified,
+    unchanged,
+    directionMismatches: [...directionMismatches],
+  };
 }
 
 function fieldConditionMatches(

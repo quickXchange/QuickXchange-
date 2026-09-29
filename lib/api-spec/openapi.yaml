@@ -7317,6 +7317,10 @@ components:
           minItems: 1
           maxItems: 50
           items: { $ref: "#/components/schemas/PaymentMethodFieldDefinition" }
+        changeExistingDirectionKeys:
+          type: array
+          uniqueItems: true
+          items: { type: string, minLength: 1 }
     PaymentMethodBulkFieldsApplyInput:
       allOf:
         - $ref: "#/components/schemas/PaymentMethodBulkFieldsPreviewInput"
@@ -7332,7 +7336,7 @@ components:
     PaymentMethodBulkFieldsTarget:
       type: object
       additionalProperties: false
-      required: [id, name, updatedAt, action, added, modified, unchanged]
+      required: [id, name, updatedAt, action, added, modified, unchanged, directionMismatches]
       properties:
         id: { type: string }
         name: { type: string }
@@ -7345,6 +7349,9 @@ components:
           type: array
           items: { type: string }
         unchanged:
+          type: array
+          items: { type: string }
+        directionMismatches:
           type: array
           items: { type: string }
     PaymentMethodBulkFieldsPreview:

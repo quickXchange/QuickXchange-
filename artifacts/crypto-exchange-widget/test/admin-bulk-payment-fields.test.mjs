@@ -19,7 +19,14 @@ test('bulk fields are previewed before one atomic apply and both dependent cache
   const source = await readFile(new URL('../src/components/admin-payment-method-bulk-fields-dialog.tsx', import.meta.url), 'utf8');
   assert.match(source, /usePreviewBulkPaymentMethodFields\(\)/);
   assert.match(source, /useApplyBulkPaymentMethodFields\(\)/);
-  assert.match(source, /previewMutation\.mutateAsync\(\{ data: \{ methodIds: selectedIds, fields \} \}\)/);
+  assert.match(source, /previewMutation\.mutateAsync\(\{ data: \{ methodIds: selectedIds, fields, changeExistingDirectionKeys \} \}\)/);
+  assert.match(source, /signature = JSON\.stringify\(\{ methodIds: selectedIds, fields, changeExistingDirectionKeys:/);
+  assert.match(source, /changeExistingDirectionKeys,\s*expectedUpdatedAtById: Object\.fromEntries/);
+  assert.match(source, /input-bulk-field-change-existing-direction-/);
+  assert.match(source, /By default, this direction applies only to new fields/);
+  assert.match(source, /status-bulk-fields-direction-warning/);
+  assert.match(source, /currentReview\.targets\.filter\(target => target\.directionMismatches\.length > 0\)\.length/);
+  assert.match(source, /target\.directionMismatches\.map\(key => displayField/);
   assert.match(source, /expectedUpdatedAtById: Object\.fromEntries\(currentReview\.targets\.map/);
   assert.match(source, /reviewToken: currentReview\.reviewToken/);
   assert.match(source, /if \(!value\.reviewToken\) setError\('The server did not provide a review token/);

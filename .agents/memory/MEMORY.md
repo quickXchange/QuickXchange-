@@ -102,6 +102,7 @@
 - [Customer cancellation boundary](customer-cancellation-boundary.md) — no post-order customer cancel UI; the retained API's stricter eligibility and Admin cancellation remain separate.
 - [Tracking URL token compatibility](tracking-url-token-compatibility.md) — emit `trackingToken` canonically, accept legacy `token`, and persist searched order IDs in the URL for refresh-safe tracking.
 - [Simplified settlement field editors](simplified-settlement-field-editors.md) — preserve saved keys and hidden metadata; generate keys only for genuinely new directional rows.
+- [Bulk field review snapshots](bulk-field-review-snapshots.md) — signed previews must fence stored field changes, not just millisecond timestamps.
 - [Telegram wizard and callback parity](telegram-wizard-parity.md) — match Swap eligibility; [preserve canonical callback indexes](telegram-search-callback-stability.md).
 - [Telegram production data boundary](telegram-production-data-boundary.md) — live bot orders belong to production; Replit preview Admin reads a separate development database.
 - [Telegram refund omission](telegram-refund-omission.md) — Telegram never collects, displays, or submits refund destinations, including from legacy saved sessions.

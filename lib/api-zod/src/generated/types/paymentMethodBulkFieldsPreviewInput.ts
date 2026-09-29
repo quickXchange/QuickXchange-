@@ -19,4 +19,6 @@ export interface PaymentMethodBulkFieldsPreviewInput {
      * @maxItems 50
      */
   fields: PaymentMethodFieldDefinition[];
+  /** @items.minLength 1 */
+  changeExistingDirectionKeys?: string[];
 }

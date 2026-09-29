@@ -12,6 +12,10 @@ let operatorUserId = "";
 let methodIds: string[] = [];
 let orderingMethodId = "";
 let conditionalMethodId = "";
+let directionMethodIds: string[] = [];
+let overrideMethodId = "";
+let conditionalAliasMethodId = "";
+let sameTimestampMethodId = "";
 const verifiedEmails = new Map<string, string>();
 
 async function request(path: string, body: unknown, userId = operatorUserId) {
@@ -89,6 +93,57 @@ before(async () => {
       options: [{ value: "bank", label: "Bank" }],
     }],
   } as never);
+  directionMethodIds = [`bulk-fields-${suffix}-directions-one`, `bulk-fields-${suffix}-directions-two`];
+  await database.db.insert(database.paymentMethodsTable).values([
+    {
+      id: directionMethodIds[0],
+      name: "Bulk field direction target one",
+      fieldDefinitions: [
+        { key: "stored_name_one", type: "short-text", label: "Name", direction: "send", hidden: true },
+        { key: "stored_iban_one", type: "short-text", label: "IBAN", direction: "receive" },
+        { key: "stored_description_one", type: "short-text", label: "Payment Description" },
+        { key: "stored_reference_one", type: "account-number", label: "Payment Reference", direction: "both" },
+        { key: "unrelated_one", type: "short-text", label: "Unrelated" },
+      ],
+    },
+    {
+      id: directionMethodIds[1],
+      name: "Bulk field direction target two",
+      fieldDefinitions: [
+        { key: "stored_name_two", type: "short-text", label: "Account Name", direction: "receive" },
+        { key: "stored_iban_two", type: "short-text", label: "Account IBAN", direction: "send" },
+        { key: "stored_reference_two", type: "short-text", label: "Reference", direction: "both" },
+        { key: "unrelated_two", type: "short-text", label: "Unrelated" },
+      ],
+    },
+  ] as never);
+  overrideMethodId = `bulk-fields-${suffix}-direction-override`;
+  await database.db.insert(database.paymentMethodsTable).values({
+    id: overrideMethodId,
+    name: "Bulk field explicit direction override",
+    fieldDefinitions: [{ key: "override_name", type: "short-text", label: "Name", direction: "receive" }],
+  } as never);
+  conditionalAliasMethodId = `bulk-fields-${suffix}-conditional-alias-ambiguity`;
+  await database.db.insert(database.paymentMethodsTable).values({
+    id: conditionalAliasMethodId,
+    name: "Bulk field conditional alias ambiguity",
+    fieldDefinitions: [
+      { key: "alias_send", type: "short-text", label: "Name", direction: "send" },
+      { key: "alias_receive", type: "short-text", label: "Name", direction: "receive" },
+      {
+        key: "stored_guard",
+        type: "short-text",
+        label: "Stored guard",
+        requiredWhen: { fieldKey: "alias_receive", equals: "yes" },
+      },
+    ],
+  } as never);
+  sameTimestampMethodId = `bulk-fields-${suffix}-same-timestamp`;
+  await database.db.insert(database.paymentMethodsTable).values({
+    id: sameTimestampMethodId,
+    name: "Bulk field same timestamp safety",
+    fieldDefinitions: [{ key: "legacy_name", type: "short-text", label: "Name" }],
+  } as never);
 
   const { default: app } = await import("../src/app");
   const server = app.listen(0, "127.0.0.1");
@@ -104,7 +159,15 @@ after(async () => {
   if (closeApi) await closeApi();
   if (methodIds.length || orderingMethodId) {
     await database.db.delete(database.paymentMethodsTable)
-      .where(inArray(database.paymentMethodsTable.id, [...methodIds, orderingMethodId, conditionalMethodId]));
+      .where(inArray(database.paymentMethodsTable.id, [
+        ...methodIds,
+        orderingMethodId,
+        conditionalMethodId,
+        ...directionMethodIds,
+        overrideMethodId,
+        conditionalAliasMethodId,
+        sameTimestampMethodId,
+      ]));
   }
   if (operatorId) {
     await database.db.delete(database.operatorsTable)
@@ -176,6 +239,148 @@ test("bulk field API rewrites conditional references when a selected legacy fiel
   assert.equal(row!.fieldDefinitions[1]!.requiredWhen?.fieldKey, "legacy_choice");
 });
 
+test("selected semantic aliases are rejected and conditional references prefer an exact stored key", { concurrency: false }, async () => {
+  const duplicateAliases = await request("/admin/payment-methods/bulk-fields/preview", {
+    methodIds: [conditionalAliasMethodId],
+    fields: [
+      { key: "name", type: "account-name", label: "Name" },
+      { key: "account_name", type: "account-name", label: "Account Name" },
+    ],
+  });
+  assert.equal(duplicateAliases.status, 409);
+
+  const ambiguousCondition = await request("/admin/payment-methods/bulk-fields/preview", {
+    methodIds: [conditionalAliasMethodId],
+    fields: [
+      { key: "account_name", type: "account-name", label: "Name" },
+      {
+        key: "new_guard",
+        type: "short-text",
+        label: "New guard",
+        requiredWhen: { fieldKey: "account_name", equals: "yes" },
+      },
+    ],
+  });
+  assert.equal(ambiguousCondition.status, 409);
+
+  const fields = [
+    { key: "alias_send", type: "account-name", label: "Name", required: true },
+    {
+      key: "new_guard",
+      type: "short-text",
+      label: "New guard",
+      requiredWhen: { fieldKey: "alias_send", equals: "yes" },
+    },
+  ];
+  const preview = await request("/admin/payment-methods/bulk-fields/preview", {
+    methodIds: [conditionalAliasMethodId],
+    fields,
+  });
+  assert.equal(preview.status, 200, JSON.stringify(preview.body));
+  const target = (preview.body.targets as Array<{ updatedAt: string }>)[0]!;
+  const applied = await request("/admin/payment-methods/bulk-fields/apply", {
+    methodIds: [conditionalAliasMethodId],
+    fields,
+    expectedUpdatedAtById: { [conditionalAliasMethodId]: target.updatedAt },
+    reviewToken: preview.body.reviewToken,
+  });
+  assert.equal(applied.status, 200, JSON.stringify(applied.body));
+  const [row] = await database.db.select().from(database.paymentMethodsTable)
+    .where(eq(database.paymentMethodsTable.id, conditionalAliasMethodId));
+  assert.equal(row!.fieldDefinitions.find(({ key }) => key === "new_guard")!.requiredWhen?.fieldKey, "alias_send");
+  assert.equal(row!.fieldDefinitions.find(({ key }) => key === "stored_guard")!.requiredWhen?.fieldKey, "alias_receive");
+});
+
+test("bulk fields match semantic aliases across methods and preserve each stored direction, key, and unrelated field", { concurrency: false }, async () => {
+  const fields = [
+    { key: "name", type: "account-name", label: "Name", direction: "send", required: true },
+    { key: "iban", type: "account-iban", label: "IBAN", direction: "send", required: true },
+    { key: "payment_description", type: "short-text", label: "Payment Description", direction: "send", required: true },
+  ];
+  const preview = await request("/admin/payment-methods/bulk-fields/preview", {
+    methodIds: directionMethodIds,
+    fields,
+  });
+  assert.equal(preview.status, 200, JSON.stringify(preview.body));
+  const targets = preview.body.targets as Array<{
+    id: string;
+    updatedAt: string;
+    action: string;
+    directionMismatches: string[];
+  }>;
+  assert.ok(targets.every((target) => target.action === "update" && target.directionMismatches.length > 0));
+  const applied = await request("/admin/payment-methods/bulk-fields/apply", {
+    methodIds: directionMethodIds,
+    fields,
+    expectedUpdatedAtById: Object.fromEntries(targets.map(({ id, updatedAt }) => [id, updatedAt])),
+    reviewToken: preview.body.reviewToken,
+  });
+  assert.equal(applied.status, 200, JSON.stringify(applied.body));
+  const rows = await database.db.select().from(database.paymentMethodsTable)
+    .where(inArray(database.paymentMethodsTable.id, directionMethodIds));
+  for (const row of rows) {
+    assert.equal(row.fieldDefinitions.length, row.id === directionMethodIds[0] ? 5 : 4);
+    assert.deepEqual(row.fieldDefinitions.map(({ key }) => key), [
+      row.id === directionMethodIds[0] ? "stored_name_one" : "stored_name_two",
+      row.id === directionMethodIds[0] ? "stored_iban_one" : "stored_iban_two",
+      row.id === directionMethodIds[0] ? "stored_description_one" : "stored_reference_two",
+      ...(row.id === directionMethodIds[0] ? ["stored_reference_one"] : []),
+      row.id === directionMethodIds[0] ? "unrelated_one" : "unrelated_two",
+    ]);
+    assert.equal(row.fieldDefinitions[0]!.direction, row.id === directionMethodIds[0] ? "send" : "receive");
+    assert.equal(row.fieldDefinitions[1]!.direction, row.id === directionMethodIds[0] ? "receive" : "send");
+    assert.equal(row.fieldDefinitions[2]!.direction, row.id === directionMethodIds[0] ? undefined : "both");
+  }
+  const first = rows.find(({ id }) => id === directionMethodIds[0])!;
+  assert.equal((first.fieldDefinitions[0] as unknown as { hidden?: boolean }).hidden, true);
+  assert.equal(first.fieldDefinitions[3]!.label, "Payment Reference");
+  assert.equal(first.fieldDefinitions[3]!.type, "account-number");
+  assert.equal(first.fieldDefinitions[3]!.required, undefined);
+  assert.ok(rows.every((row) => row.fieldDefinitions.slice(0, 3).every(({ required }) => required === true)));
+});
+
+test("explicit direction changes are review-bound and safely applied", { concurrency: false }, async () => {
+  const fields = [{ key: "account_name", type: "account-name", label: "Name", direction: "send" }];
+  const invalidOverride = await request("/admin/payment-methods/bulk-fields/preview", {
+    methodIds: [overrideMethodId],
+    fields,
+    changeExistingDirectionKeys: ["not-selected"],
+  });
+  assert.equal(invalidOverride.status, 409);
+  const missingDirection = await request("/admin/payment-methods/bulk-fields/preview", {
+    methodIds: [overrideMethodId],
+    fields: [{ key: "account_name", type: "account-name", label: "Name" }],
+    changeExistingDirectionKeys: ["account_name"],
+  });
+  assert.equal(missingDirection.status, 409);
+  const preview = await request("/admin/payment-methods/bulk-fields/preview", {
+    methodIds: [overrideMethodId],
+    fields,
+    changeExistingDirectionKeys: ["account_name"],
+  });
+  assert.equal(preview.status, 200, JSON.stringify(preview.body));
+  const target = (preview.body.targets as Array<{ updatedAt: string }>)[0]!;
+  const tampered = await request("/admin/payment-methods/bulk-fields/apply", {
+    methodIds: [overrideMethodId],
+    fields,
+    expectedUpdatedAtById: { [overrideMethodId]: target.updatedAt },
+    reviewToken: preview.body.reviewToken,
+  });
+  assert.equal(tampered.status, 409);
+  const applied = await request("/admin/payment-methods/bulk-fields/apply", {
+    methodIds: [overrideMethodId],
+    fields,
+    changeExistingDirectionKeys: ["account_name"],
+    expectedUpdatedAtById: { [overrideMethodId]: target.updatedAt },
+    reviewToken: preview.body.reviewToken,
+  });
+  assert.equal(applied.status, 200, JSON.stringify(applied.body));
+  const [row] = await database.db.select().from(database.paymentMethodsTable)
+    .where(eq(database.paymentMethodsTable.id, overrideMethodId));
+  assert.equal(row!.fieldDefinitions[0]!.key, "override_name");
+  assert.equal(row!.fieldDefinitions[0]!.direction, "send");
+});
+
 test("bulk payment-method fields preview and apply atomically reject stale reviewed versions", { concurrency: false }, async () => {
   const fields = [{
     key: "account_name",
@@ -205,7 +410,7 @@ test("bulk payment-method fields preview and apply atomically reject stale revie
     methodIds,
     fields: [{ ...fields[0], direction: "send" }],
   });
-  assert.equal(directionConflict.status, 409);
+  assert.equal(directionConflict.status, 200);
 
   const duplicateIdentity = await request("/admin/payment-methods/bulk-fields/preview", {
     methodIds,
@@ -266,4 +471,36 @@ test("bulk payment-method fields preview and apply atomically reject stale revie
   assert.ok(updated.every((row) =>
     (row.fieldDefinitions[0] as unknown as { legacyMetadata?: { keep?: boolean } })
       .legacyMetadata?.keep === true));
+});
+
+test("bulk field apply rejects same-timestamp field changes without overwriting them", { concurrency: false }, async () => {
+  const fields = [{ key: "name", type: "account-name", label: "Name", required: true }];
+  const preview = await request("/admin/payment-methods/bulk-fields/preview", {
+    methodIds: [sameTimestampMethodId],
+    fields,
+  });
+  assert.equal(preview.status, 200, JSON.stringify(preview.body));
+  const target = (preview.body.targets as Array<{ updatedAt: string }>)[0]!;
+  const [before] = await database.db.select().from(database.paymentMethodsTable)
+    .where(eq(database.paymentMethodsTable.id, sameTimestampMethodId));
+  const concurrentlyChangedFields = [{
+    key: "legacy_name",
+    type: "short-text",
+    label: "Name",
+    operatorEdit: "must survive",
+  }];
+  await database.db.update(database.paymentMethodsTable)
+    .set({ fieldDefinitions: concurrentlyChangedFields as never, updatedAt: before!.updatedAt })
+    .where(eq(database.paymentMethodsTable.id, sameTimestampMethodId));
+  const applied = await request("/admin/payment-methods/bulk-fields/apply", {
+    methodIds: [sameTimestampMethodId],
+    fields,
+    expectedUpdatedAtById: { [sameTimestampMethodId]: target.updatedAt },
+    reviewToken: preview.body.reviewToken,
+  });
+  assert.equal(applied.status, 409);
+  const [after] = await database.db.select().from(database.paymentMethodsTable)
+    .where(eq(database.paymentMethodsTable.id, sameTimestampMethodId));
+  assert.equal((after!.fieldDefinitions[0] as unknown as { operatorEdit?: string }).operatorEdit, "must survive");
+  assert.equal(after!.fieldDefinitions[0]!.required, undefined);
 });

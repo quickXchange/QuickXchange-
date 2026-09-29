@@ -4304,6 +4304,8 @@ export interface PaymentMethodBulkFieldsPreviewInput {
      * @maxItems 50
      */
   fields: PaymentMethodFieldDefinition[];
+  /** @items.minLength 1 */
+  changeExistingDirectionKeys?: string[];
 }
 
 export type PaymentMethodBulkFieldsApplyInputExpectedUpdatedAtById = {[key: string]: string};
@@ -4330,6 +4332,7 @@ export interface PaymentMethodBulkFieldsTarget {
   added: string[];
   modified: string[];
   unchanged: string[];
+  directionMismatches: string[];
 }
 
 export interface PaymentMethodBulkFieldsPreview {

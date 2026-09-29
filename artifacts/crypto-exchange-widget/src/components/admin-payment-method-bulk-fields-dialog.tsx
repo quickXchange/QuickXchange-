@@ -31,6 +31,7 @@ export function AdminPaymentMethodBulkFieldsDialog({ methodIds, methods, onClose
   onApplied: (result: { updated: number; skipped: number; failed: number }) => void;
 }) {
   const [fields, setFields] = useState<Field[]>([]);
+  const [changeExistingDirectionKeys, setChangeExistingDirectionKeys] = useState<string[]>([]);
   const [preset, setPreset] = useState('Name');
   const [step, setStep] = useState<'edit' | 'review'>('edit');
   const [review, setReview] = useState<{ value: PaymentMethodBulkFieldsPreview; signature: string } | null>(null);
@@ -42,7 +43,7 @@ export function AdminPaymentMethodBulkFieldsDialog({ methodIds, methods, onClose
   const previewMutation = usePreviewBulkPaymentMethodFields();
   const applyMutation = useApplyBulkPaymentMethodFields();
   const selectedIds = [...methodIds].sort();
-  const signature = JSON.stringify({ methodIds: selectedIds, fields });
+  const signature = JSON.stringify({ methodIds: selectedIds, fields, changeExistingDirectionKeys: [...changeExistingDirectionKeys].sort() });
   latestSignature.current = signature;
   const currentReview = review?.signature === signature ? review.value : null;
   // Server diff entries are keys, not labels. Prefer the method's own stored
@@ -68,6 +69,9 @@ export function AdminPaymentMethodBulkFieldsDialog({ methodIds, methods, onClose
       (field.pattern !== undefined && (() => { try { new RegExp(field.pattern); return false; } catch { return true; } })())) || duplicate;
 
   const change = (index: number, patch: Partial<Field>) => {
+    if (patch.key !== undefined && patch.key !== fields[index]?.key) {
+      setChangeExistingDirectionKeys(previous => previous.filter(key => key !== fields[index]?.key));
+    }
     setFields(previous => previous.map((field, position) => position === index ? { ...field, ...patch } : field));
     setReview(null);
     setError('');
@@ -97,7 +101,7 @@ export function AdminPaymentMethodBulkFieldsDialog({ methodIds, methods, onClose
     setError('');
     setReview(null);
     try {
-      const value = await previewMutation.mutateAsync({ data: { methodIds: selectedIds, fields } });
+      const value = await previewMutation.mutateAsync({ data: { methodIds: selectedIds, fields, changeExistingDirectionKeys } });
       if (id === requestId.current && latestSignature.current === snapshot) {
         if (!value.reviewToken) setError('The server did not provide a review token. Refresh the preview before applying.');
         else {
@@ -120,6 +124,7 @@ export function AdminPaymentMethodBulkFieldsDialog({ methodIds, methods, onClose
       const payload = {
         methodIds: selectedIds,
         fields,
+        changeExistingDirectionKeys,
         expectedUpdatedAtById: Object.fromEntries(currentReview.targets.map(target => [target.id, target.updatedAt])),
         reviewToken: currentReview.reviewToken,
       };
@@ -175,7 +180,7 @@ export function AdminPaymentMethodBulkFieldsDialog({ methodIds, methods, onClose
                   <div className="flex items-center gap-1">
                     <button type="button" className="payment-method-remove-field" disabled={index === 0} onClick={() => move(index, -1)} aria-label={`Move ${field.label} up`} data-testid={`button-bulk-field-up-${index}`}><ArrowUp size={15} /></button>
                     <button type="button" className="payment-method-remove-field" disabled={index === fields.length - 1} onClick={() => move(index, 1)} aria-label={`Move ${field.label} down`} data-testid={`button-bulk-field-down-${index}`}><ArrowDown size={15} /></button>
-                    <button type="button" className="payment-method-remove-field" onClick={() => { setFields(previous => previous.filter((_, position) => position !== index)); setReview(null); }} aria-label={`Remove ${field.label}`} data-testid={`button-remove-bulk-field-${index}`}><Trash2 size={15} /></button>
+                    <button type="button" className="payment-method-remove-field" onClick={() => { setFields(previous => previous.filter((_, position) => position !== index)); setChangeExistingDirectionKeys(previous => previous.filter(key => key !== field.key)); setReview(null); }} aria-label={`Remove ${field.label}`} data-testid={`button-remove-bulk-field-${index}`}><Trash2 size={15} /></button>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -184,6 +189,7 @@ export function AdminPaymentMethodBulkFieldsDialog({ methodIds, methods, onClose
                   <label className="payment-method-field-label"><span>Placeholder</span><input className={inputClass} maxLength={200} value={field.placeholder || ''} onChange={event => change(index, { placeholder: event.target.value })} data-testid={`input-bulk-field-placeholder-${index}`} /></label>
                   <label className="payment-method-field-label"><span>Type</span><select className={inputClass} value={field.type} onChange={event => change(index, { type: event.target.value as Field['type'], options: event.target.value === 'select' ? [{ value: '', label: '' }] : undefined })} data-testid={`select-bulk-field-type-${index}`}>{fieldTypes.map(type => <option key={type} value={type}>{type}</option>)}</select></label>
                   <label className="payment-method-field-label"><span>Direction</span><select className={inputClass} value={field.direction || 'both'} onChange={event => change(index, { direction: event.target.value as Field['direction'] })} data-testid={`select-bulk-field-direction-${index}`}><option value="both">Both</option><option value="send">You Send</option><option value="receive">You Receive</option></select></label>
+                  <label className="payment-method-required-toggle self-center"><input type="checkbox" checked={changeExistingDirectionKeys.includes(field.key)} onChange={event => { setChangeExistingDirectionKeys(previous => event.target.checked ? [...previous, field.key] : previous.filter(key => key !== field.key)); setReview(null); setStep('edit'); }} data-testid={`input-bulk-field-change-existing-direction-${index}`} /><span>Also change existing fields to this direction</span></label>
                   <label className="payment-method-field-label"><span>Validation pattern (regex)</span><input className={inputClass} maxLength={500} value={field.pattern || ''} onChange={event => change(index, { pattern: event.target.value || undefined })} placeholder="Optional" data-testid={`input-bulk-field-pattern-${index}`} /></label>
                   <label className="payment-method-field-label"><span>Help text</span><input className={inputClass} maxLength={500} value={field.help || ''} onChange={event => change(index, { help: event.target.value || undefined })} data-testid={`input-bulk-field-help-${index}`} /></label>
                   <label className="payment-method-field-label"><span>Min value</span><input className={inputClass} type="number" value={field.min ?? ''} onChange={event => change(index, { min: event.target.value === '' ? undefined : Number(event.target.value) })} data-testid={`input-bulk-field-min-${index}`} /></label>
@@ -191,6 +197,7 @@ export function AdminPaymentMethodBulkFieldsDialog({ methodIds, methods, onClose
                   <label className="payment-method-field-label"><span>Required when field key</span><input className={inputClass} value={field.requiredWhen?.fieldKey || ''} placeholder="Optional field key" onChange={event => change(index, { requiredWhen: event.target.value ? { fieldKey: event.target.value, equals: field.requiredWhen?.equals || '' } : undefined })} data-testid={`input-bulk-field-required-when-key-${index}`} /></label>
                   {field.requiredWhen && <label className="payment-method-field-label"><span>Required when value equals</span><input className={inputClass} value={typeof field.requiredWhen.equals === 'string' ? field.requiredWhen.equals : field.requiredWhen.equals.join(', ')} onChange={event => change(index, { requiredWhen: { ...field.requiredWhen!, equals: event.target.value } })} data-testid={`input-bulk-field-required-when-value-${index}`} /></label>}
                 </div>
+                <p className="text-xs text-muted-foreground">By default, this direction applies only to new fields. Matched fields keep each payment method’s current direction.</p>
                 {field.type === 'select' && <div className="space-y-2">
                   <span className="text-sm font-medium">Select options</span>
                   {(field.options || []).map((option, optionIndex) => <div key={optionIndex} className="flex flex-wrap gap-2">
@@ -213,10 +220,15 @@ export function AdminPaymentMethodBulkFieldsDialog({ methodIds, methods, onClose
           <div className="payment-method-field-section-head"><div><h3>REVIEW CHANGES</h3><p>Server comparison for each selected method. Confirm this exact preview before applying.</p></div></div>
           {currentReview && <>
             <p className="text-sm font-medium" data-testid="text-bulk-fields-preview-counts">{currentReview.updated} to update · {currentReview.skipped} unchanged · {currentReview.failed} failed</p>
+            {currentReview.targets.some(target => target.directionMismatches.length > 0) && <div role="status" data-testid="status-bulk-fields-direction-warning" className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-foreground flex gap-2">
+              <CircleAlert size={17} className="shrink-0 text-amber-600 dark:text-amber-400" />
+              <span>{currentReview.targets.filter(target => target.directionMismatches.length > 0).length} selected payment method{currentReview.targets.filter(target => target.directionMismatches.length > 0).length === 1 ? '' : 's'} have fields with different existing directions. Existing directions are kept unless you checked “Also change existing fields” for that field. You can still apply these changes.</span>
+            </div>}
             <div className="space-y-2 max-h-[40dvh] overflow-y-auto">
               {currentReview.targets.map(target => <div key={target.id} className="rounded-lg border border-border bg-muted/20 p-3 text-sm" data-testid={`row-bulk-preview-${target.id}`}>
                 <div className="flex justify-between gap-2"><strong>{target.name}</strong><span className={target.action === 'update' ? 'text-primary' : 'text-muted-foreground'}>{target.action === 'update' ? 'Update' : 'No change'}</span></div>
                 <p className="text-muted-foreground break-words">Added: {target.added.map(key => displayField(target.id, key, 'added')).join(', ') || 'None'} · Modified: {target.modified.map(key => displayField(target.id, key, 'modified')).join(', ') || 'None'} · Unchanged: {target.unchanged.map(key => displayField(target.id, key, 'unchanged')).join(', ') || 'None'}</p>
+                {target.directionMismatches.length > 0 && <p className="mt-1 text-amber-700 dark:text-amber-300 break-words">Different direction: {target.directionMismatches.map(key => displayField(target.id, key, 'modified')).join(', ')}</p>}
               </div>)}
             </div>
           </>}

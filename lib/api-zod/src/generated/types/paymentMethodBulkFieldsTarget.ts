@@ -15,4 +15,5 @@ export interface PaymentMethodBulkFieldsTarget {
   added: string[];
   modified: string[];
   unchanged: string[];
+  directionMismatches: string[];
 }

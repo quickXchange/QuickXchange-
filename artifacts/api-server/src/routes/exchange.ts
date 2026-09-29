@@ -295,6 +295,7 @@ import {
   assignAutomaticPaymentMethodFieldKeys,
   mergePaymentMethodFieldDefinitions,
   listPublicFiatSettlementOptions,
+  paymentMethodFieldDefinitionsHash,
   signPaymentMethodBulkFieldsReview,
   validateSafeFieldDefinitions,
   validateSettlementDetails,
@@ -7287,11 +7288,14 @@ function validateBulkPaymentMethodFieldSelection(input: BulkPaymentMethodFieldsI
     !input.methodIds.length ||
     input.methodIds.length > 100 ||
     new Set(input.methodIds).size !== input.methodIds.length ||
-    !input.fields.length
+    !input.fields.length ||
+    new Set(input.changeExistingDirectionKeys ?? []).size !== (input.changeExistingDirectionKeys ?? []).length ||
+    (input.changeExistingDirectionKeys ?? []).some((key) =>
+      !input.fields.some((field) => field.key === key && field.direction !== undefined))
   ) {
     throw new ApiError(
       "PAYMENT_METHOD_BULK_FIELDS_INVALID",
-      "Select between 1 and 100 unique payment methods and at least one field.",
+      "Select between 1 and 100 unique payment methods and at least one field; direction overrides must be unique selected field keys with a direction.",
       409,
     );
   }
@@ -7312,7 +7316,11 @@ function projectBulkPaymentMethodFields(
 
   return input.methodIds.map((id) => {
     const row = rowsById.get(id)!;
-    const merge = mergePaymentMethodFieldDefinitions(row.fieldDefinitions, input.fields);
+    const merge = mergePaymentMethodFieldDefinitions(
+      row.fieldDefinitions,
+      input.fields,
+      input.changeExistingDirectionKeys ?? [],
+    );
     try {
       validateSafeFieldDefinitions(merge.fieldDefinitions);
     } catch (error) {
@@ -7339,9 +7347,13 @@ async function buildBulkPaymentMethodFieldsPreview(input: BulkPaymentMethodField
     added: merge.added,
     modified: merge.modified,
     unchanged: merge.unchanged,
+    directionMismatches: merge.directionMismatches,
   }));
   const expectedUpdatedAtById = Object.fromEntries(
     projected.map(({ row }) => [row.id, row.updatedAt]),
+  );
+  const fieldDefinitionsHashById = Object.fromEntries(
+    projected.map(({ row }) => [row.id, paymentMethodFieldDefinitionsHash(row.fieldDefinitions)]),
   );
   return {
     targets,
@@ -7352,6 +7364,9 @@ async function buildBulkPaymentMethodFieldsPreview(input: BulkPaymentMethodField
       input.methodIds,
       input.fields,
       expectedUpdatedAtById,
+      Date.now(),
+      input.changeExistingDirectionKeys ?? [],
+      fieldDefinitionsHashById,
     ),
   };
 }
@@ -7397,6 +7412,8 @@ router.post("/admin/payment-methods/bulk-fields/apply", requireOperator, async (
       input.methodIds,
       input.fields,
       input.expectedUpdatedAtById,
+      Date.now(),
+      input.changeExistingDirectionKeys ?? [],
     )) {
       throw new ApiError(
         "PAYMENT_METHOD_BULK_FIELDS_REVIEW_INVALID",
@@ -7425,6 +7442,25 @@ router.post("/admin/payment-methods/bulk-fields/apply", requireOperator, async (
         throw new ApiError(
           "PAYMENT_METHOD_BULK_FIELDS_STALE",
           "One or more payment methods changed after review. Preview the batch again.",
+          409,
+        );
+      }
+
+      const fieldDefinitionsHashById = Object.fromEntries(
+        rows.map((row) => [row.id, paymentMethodFieldDefinitionsHash(row.fieldDefinitions)]),
+      );
+      if (!verifyPaymentMethodBulkFieldsReview(
+        input.reviewToken,
+        input.methodIds,
+        input.fields,
+        input.expectedUpdatedAtById,
+        Date.now(),
+        input.changeExistingDirectionKeys ?? [],
+        fieldDefinitionsHashById,
+      )) {
+        throw new ApiError(
+          "PAYMENT_METHOD_BULK_FIELDS_REVIEW_INVALID",
+          "The reviewed payment-method fields, selection, or review token is invalid or expired. Preview the batch again.",
           409,
         );
       }
