@@ -17,6 +17,8 @@ export type ManualSwapFeeSnapshot = {
     amount: string;
     currency: string;
     targetAmount: string;
+    feeType?: "fixed" | "percentage";
+    percentage?: string | null;
     selectionRule?: string;
     selectionGroup?: string;
   }>;
@@ -41,11 +43,38 @@ export type ManualSwapAddonOption = {
   name: string;
   fixedAmount: string;
   feeCurrency: string;
+  feeType?: string;
+  percentage?: string | null;
   enabled: boolean;
   deletedAt: Date | null;
   selectionRule: string;
   presentation: { group: string };
 };
+
+export function assertManualSwapFixedFeeCurrencyAllowed(input: {
+  feeType: "fixed" | "percentage";
+  feeAmount: string;
+  feeCurrency: string;
+  existing?: {
+    feeType?: string;
+    fixedAmount: string;
+    feeCurrency: string;
+  };
+}): void {
+  if (input.feeType !== "fixed" || input.feeCurrency.trim().toUpperCase() === "USD") return;
+
+  const unchangedLegacyFixedFee = input.existing &&
+    (input.existing.feeType ?? "fixed") === "fixed" &&
+    canonicalConfiguredDecimal(input.feeAmount) === canonicalConfiguredDecimal(input.existing.fixedAmount) &&
+    input.feeCurrency.trim().toUpperCase() === input.existing.feeCurrency.trim().toUpperCase();
+  if (unchangedLegacyFixedFee) return;
+
+  throw new ApiError(
+    "MANUAL_SWAP_ADDON_CURRENCY_INVALID",
+    "Fixed Manual Swap add-ons must use USD unless preserving an unchanged legacy fee.",
+    400,
+  );
+}
 
 export function validateManualSwapAddonSelection(
   keys: string[],
@@ -60,6 +89,9 @@ export function validateManualSwapAddonSelection(
     if (!row || !row.enabled || row.deletedAt !== null) {
       throw new ApiError("MANUAL_SWAP_ADDON_UNAVAILABLE", "A selected Manual Swap add-on is unavailable.", 422);
     }
+    if (row.feeType !== undefined && row.feeType !== "fixed" && row.feeType !== "percentage") {
+      throw new ApiError("MANUAL_SWAP_FEE_INVALID", "A configured Manual Swap add-on fee type is invalid.", 422);
+    }
     return row;
   });
   const selectedPerGroup = new Map<string, number>();
@@ -67,6 +99,9 @@ export function validateManualSwapAddonSelection(
   for (const row of selected) {
     if (row.selectionRule === "none") {
       throw new ApiError("MANUAL_SWAP_ADDON_OPT_OUT", "This Manual Swap add-on cannot be selected.", 422);
+    }
+    if (row.feeType === "percentage" && row.percentage == null) {
+      throw new ApiError("MANUAL_SWAP_FEE_INVALID", "A configured Manual Swap percentage add-on is invalid.", 422);
     }
     const group = row.presentation.group.trim().toLowerCase() || "default";
     selectedPerGroup.set(group, (selectedPerGroup.get(group) ?? 0) + 1);
@@ -157,6 +192,7 @@ export function applyManualSwapFees(input: {
   targetPrecision: number;
   addons: Array<{
     id: string; key: string; name: string; fixedAmount: string; feeCurrency: string;
+    feeType?: "fixed" | "percentage"; percentage?: string | null;
     selectionRule?: string; selectionGroup?: string;
   }>;
   config: { enabled: boolean; percentage: string | null; fixedAmount: string | null; fixedCurrency: string };
@@ -165,22 +201,38 @@ export function applyManualSwapFees(input: {
   const precision = input.targetPrecision;
   const atomicScale = 10n ** BigInt(precision);
   const rates = referenceMap(input.references);
+  const gross = parseDecimal(input.grossAmount);
+  const grossAtomic = gross.coefficient * atomicScale / (10n ** BigInt(gross.scale));
   const selectedAddons = input.addons.map((addon) => {
-    const converted = convertToTarget(
-      addon.fixedAmount, addon.feeCurrency, input.targetCurrency, rates, precision,
-    );
+    const feeType = addon.feeType ?? "fixed";
+    const percentage = addon.percentage ?? null;
+    const configuredPercentage = feeType === "percentage" && percentage !== null
+      ? parseDecimal(percentage)
+      : { coefficient: 0n, scale: 0 };
+    const converted = feeType === "percentage"
+      ? {
+          atomic: ceilDiv(
+            grossAtomic * configuredPercentage.coefficient,
+            100n * (10n ** BigInt(configuredPercentage.scale)),
+          ),
+          exact: "",
+        }
+      : convertToTarget(
+          addon.fixedAmount, addon.feeCurrency, input.targetCurrency, rates, precision,
+        );
+    if (feeType === "percentage") converted.exact = decimalString(converted.atomic, precision);
     return {
       id: addon.id, key: addon.key, name: addon.name,
       amount: addon.fixedAmount, currency: addon.feeCurrency,
       targetAmount: converted.exact,
+      ...(addon.feeType === undefined ? {} : { feeType }),
+      ...(addon.percentage === undefined ? {} : { percentage }),
       ...(addon.selectionRule === undefined ? {} : { selectionRule: addon.selectionRule }),
       ...(addon.selectionGroup === undefined ? {} : { selectionGroup: addon.selectionGroup }),
       atomic: converted.atomic,
     };
   });
   const addonAtomic = selectedAddons.reduce((total, addon) => total + addon.atomic, 0n);
-  const gross = parseDecimal(input.grossAmount);
-  const grossAtomic = gross.coefficient * atomicScale / (10n ** BigInt(gross.scale));
   const percentage = input.config.enabled && input.config.percentage
     ? parseDecimal(input.config.percentage)
     : { coefficient: 0n, scale: 0 };
@@ -267,6 +319,8 @@ export function verifyManualSwapFeeSnapshot(input: {
         name: addon.name,
         fixedAmount: addon.amount,
         feeCurrency: addon.currency,
+        ...(addon.feeType === undefined ? {} : { feeType: addon.feeType }),
+        ...(addon.percentage === undefined ? {} : { percentage: addon.percentage }),
         selectionRule: addon.selectionRule,
         selectionGroup: addon.selectionGroup,
       })),
@@ -332,6 +386,10 @@ export function assertManualSwapFeeConfigurationMatches(input: {
           signed.name !== current.name ||
           canonicalConfiguredDecimal(signed.amount) !== canonicalConfiguredDecimal(current.fixedAmount) ||
           signed.currency.trim().toUpperCase() !== current.feeCurrency.trim().toUpperCase() ||
+          (signed.feeType !== undefined && signed.feeType !== current.feeType) ||
+          (signed.feeType === undefined && (current.feeType ?? "fixed") !== "fixed") ||
+          (signed.percentage !== undefined &&
+            canonicalConfiguredDecimal(signed.percentage) !== canonicalConfiguredDecimal(current.percentage ?? null)) ||
           (signed.selectionRule !== undefined && signed.selectionRule !== current.selectionRule) ||
           (signed.selectionGroup !== undefined &&
             signed.selectionGroup.trim().toLowerCase() !==

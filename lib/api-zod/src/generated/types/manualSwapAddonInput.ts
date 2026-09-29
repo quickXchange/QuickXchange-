@@ -5,8 +5,10 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ManualSwapAddonInputFeeType } from './manualSwapAddonInputFeeType';
 import type { ManualSwapAddonInputPresentation } from './manualSwapAddonInputPresentation';
 import type { ManualSwapAddonInputSelectionRule } from './manualSwapAddonInputSelectionRule';
+import type { ManualSwapAddonTranslations } from './manualSwapAddonTranslations';
 import type { ManualSwapConfigDecimal } from './manualSwapConfigDecimal';
 
 export interface ManualSwapAddonInput {
@@ -22,6 +24,9 @@ export interface ManualSwapAddonInput {
   fixedAmount: ManualSwapConfigDecimal;
   /** @pattern ^[A-Z0-9]{2,15}$ */
   feeCurrency: string;
+  feeType?: ManualSwapAddonInputFeeType;
+  percentage?: ManualSwapConfigDecimal | null;
+  translations?: ManualSwapAddonTranslations;
   enabled?: boolean;
   /** @minimum 0 */
   displayOrder?: number;

@@ -1,0 +1,788 @@
+I need you to implement a REAL functional Optional Add-ons system in my existing crypto exchange application.
+
+I am attaching TWO screenshots:
+
+1. WHITE SCREENSHOT = Admin Add-ons configuration UI reference.
+2. BLACK SCREENSHOT = Existing customer exchange widget reference.
+
+IMPORTANT:
+Do not add an explanation about add-ons inside the customer widget.
+Do not create a static/mockup implementation.
+Do not just display text describing the feature.
+
+I need you to inspect my existing codebase and IMPLEMENT the complete functionality.
+
+==================================================
+GOAL
+==================================================
+
+The complete flow must work like this:
+
+ADMIN
+→ creates an optional add-on
+→ configures its name, translations, fee, fee type, position and enabled status
+→ saves it
+
+CUSTOMER
+→ sees enabled add-ons in the existing exchange widget
+→ add-ons are OPTIONAL
+→ nothing is selected by default
+→ customer checks an add-on
+→ fee is calculated immediately
+→ total fees update
+→ "Final You Receive" decreases automatically
+→ customer can select multiple add-ons
+→ customer proceeds to the next step
+→ selected add-ons remain attached to the quote/order
+→ backend validates and recalculates the final fee
+
+==================================================
+1. FIRST INSPECT THE EXISTING CODE
+==================================================
+
+Before changing anything, inspect the existing project.
+
+Find:
+
+- current Admin panel
+- current Add-ons implementation, if one exists
+- current customer exchange widget
+- current exchange calculation
+- current exchange fee calculation
+- current quote calculation
+- current currency conversion logic
+- current exchange-rate logic
+- current multilingual/i18n system
+- current database/schema/models
+- current quote/order state
+- current next-step flow
+- current backend/API/server actions
+
+Reuse the existing architecture.
+
+If there is already an add-on implementation, FIX AND EXTEND IT.
+Do not create a duplicate add-on system.
+
+Do not rewrite unrelated exchange functionality.
+
+==================================================
+2. ADMIN ADD-ON
+==================================================
+
+Implement the Admin UI shown in the WHITE screenshot.
+
+Each add-on must have:
+
+- Key / Slug
+- Display Name
+- Fee
+- Fee Type
+- Position
+- Enabled
+- multilingual Title
+- multilingual Description
+
+Supported languages:
+
+- English
+- Russian
+- Arabic
+- Ukrainian
+
+Example:
+
+Key:
+fast_payment
+
+Display Name:
+Fast Payment
+
+Fee:
+3
+
+Fee Type:
+Fixed
+
+Position:
+0
+
+Enabled:
+true
+
+Translations:
+
+English:
+Title = Fast Payment
+Description = Process your exchange faster.
+
+Russian:
+Title = БЫСТРЫЙ ПЛАТЕЖ
+
+Arabic:
+Title = الدفع السريع
+
+Ukrainian:
+Title = Швидкий платіж
+
+Use the project's existing translation architecture if available.
+
+Do not hardcode customer-facing translations.
+
+==================================================
+3. FEE TYPE
+==================================================
+
+The Admin must have exactly two fee types:
+
+1. Percentage
+2. Fixed
+
+If:
+
+Fee = 1
+Type = Percentage
+
+then this means:
+
+1%
+
+NOT $1.
+
+Example:
+
+Exchange amount = $1,000
+Percentage = 1%
+
+Add-on fee = $10
+
+If:
+
+Fee = 3
+Type = Fixed
+
+then:
+
+Add-on fee = $3 USD.
+
+==================================================
+4. FIXED USD FEE
+==================================================
+
+Fixed fees are configured by Admin in USD.
+
+If receiving currency is USD:
+
+$3 fixed fee = $3.
+
+If receiving currency is not USD:
+
+use the EXISTING exchange-rate/conversion system in the application to convert the USD fee into the receiving currency.
+
+Do not create a new exchange-rate system.
+
+Reuse the existing conversion utilities/services.
+
+==================================================
+5. CUSTOMER WIDGET
+==================================================
+
+Use the BLACK screenshot as the customer UI reference.
+
+Add a real "Optional add-ons" section to the existing exchange widget.
+
+Example:
+
+Optional add-ons
+
+☐ Fast Payment                         +3 USD
+☐ Priority Processing                 +1%
+☐ Insurance                           +5 USD
+
+These must be real interactive checkboxes.
+
+They must come from the Admin configuration.
+
+Do NOT hardcode:
+
+Fast Payment
+$3
+1%
+
+The customer widget must load the real enabled add-ons from the backend/database.
+
+==================================================
+6. OPTIONAL = NOT SELECTED BY DEFAULT
+==================================================
+
+This is extremely important.
+
+When the customer opens the exchange widget:
+
+NO add-on should be selected automatically.
+
+Example:
+
+☐ Fast Payment +3 USD
+
+NOT:
+
+☑️ Fast Payment +3 USD
+
+If the customer selects nothing:
+
+Add-on fees = 0
+
+The existing exchange calculation remains unchanged.
+
+==================================================
+7. CHECKBOX CALCULATION
+==================================================
+
+When the customer selects:
+
+☑️ Fast Payment +3 USD
+
+the fee must be calculated immediately.
+
+No page refresh.
+
+No submit required.
+
+No navigation required.
+
+The UI must react immediately.
+
+When the customer unchecks it:
+
+☐ Fast Payment +3 USD
+
+the fee must immediately be removed.
+
+==================================================
+8. FINAL YOU RECEIVE MUST CHANGE
+==================================================
+
+This is the MOST IMPORTANT requirement.
+
+The add-on cannot simply display:
+
+Fast Payment +3 USD
+
+while keeping the same receiving amount.
+
+The fee must actually be deducted from what the customer receives.
+
+Example:
+
+Base Receive Amount:
+$1,000
+
+Existing Exchange Fees:
+$0
+
+Customer selects:
+
+Fast Payment:
+$3
+
+Then:
+
+Add-on Fees:
+$3
+
+Total Fees:
+$3
+
+Final You Receive:
+$997
+
+Formula:
+
+Final You Receive
+=
+Base Receive Amount
+-
+Existing Exchange Fees
+-
+Selected Add-on Fees
+
+==================================================
+9. MULTIPLE ADD-ONS
+==================================================
+
+The customer can select multiple add-ons.
+
+Example:
+
+☑️ Fast Payment              +$3
+☑️ Priority Processing       +1%
+☐ Insurance                 +$5
+
+For a $1,000 applicable amount:
+
+Fast Payment = $3
+Priority Processing = $10
+
+Total Add-on Fees = $13
+
+Final You Receive must decrease by $13.
+
+All selected add-ons must be included in the calculation.
+
+==================================================
+10. LIVE FEE BREAKDOWN
+==================================================
+
+Use the existing BLACK widget style.
+
+The breakdown should dynamically show:
+
+Illustrative fee breakdown
+
+Selected add-ons
+
+Fast Payment                         $3
+
+Exchange fee                         $0
+
+Additional add-on and exchange fees $3
+
+Total fees                           $3
+
+Final You Receive                  $997
+
+These values must be REAL dynamic values.
+
+Do not hardcode them.
+
+If nothing is selected:
+
+Selected add-ons
+
+No add-ons selected
+
+Add-on fees = $0
+
+The existing exchange calculation remains unchanged.
+
+==================================================
+11. PERCENTAGE MUST RECALCULATE
+==================================================
+
+If the customer changes the exchange amount, percentage add-ons must recalculate.
+
+Example:
+
+Amount = $1,000
+Fee = 1%
+
+Add-on = $10
+
+Customer changes amount:
+
+$2,000
+
+Add-on must automatically become:
+
+$20
+
+No refresh required.
+
+==================================================
+12. ADMIN CONTROLS CUSTOMER DATA
+==================================================
+
+If Admin changes:
+
+Fast Payment
+$3 → $5
+
+Customer widget must show:
+
+Fast Payment +$5
+
+and calculate $5.
+
+There must be NO hardcoded $3 in the customer code.
+
+If Admin changes:
+
+Fee:
+1%
+
+to:
+
+2%
+
+the customer widget must use 2%.
+
+If Admin changes the title:
+
+Fast Payment
+
+to:
+
+Express Payment
+
+the customer widget must show Express Payment.
+
+If Admin disables the add-on:
+
+it must disappear from the customer widget.
+
+==================================================
+13. POSITION
+==================================================
+
+Use Admin Position to determine customer display order.
+
+Example:
+
+Fast Payment = 0
+Priority = 1
+Insurance = 2
+
+Customer sees them in that order.
+==================================================
+14. MULTILINGUAL CUSTOMER DISPLAY
+==================================================
+
+The customer must see the Admin-configured translation based on the application's current language.
+
+English:
+Fast Payment
+
+Russian:
+Быстрый платеж
+
+Arabic:
+الدفع السريع
+
+Ukrainian:
+Швидкий платіж
+
+Do not hardcode these translations in the widget.
+
+==================================================
+15. NEXT STEP
+==================================================
+
+When the customer selects add-ons and clicks Next/Continue:
+
+the selected add-ons must remain part of the quote/order state.
+
+Example:
+
+selectedAddOns:
+[
+  "fast_payment",
+  "priority_processing"
+]
+
+The next step must know which add-ons were selected.
+
+Do not calculate the fee visually and then lose the data.
+
+If the customer goes back to the previous step, preserve the selections using the existing wizard/state architecture.
+
+==================================================
+16. BACKEND VALIDATION
+==================================================
+
+The frontend may calculate the fee for immediate UI feedback.
+
+BUT the backend must be the source of truth.
+
+When creating/updating a quote/order, backend must retrieve the actual Admin configuration and recalculate:
+
+- add-on exists
+- add-on is enabled
+- fee
+- fee type
+- selected add-ons
+- exchange amount
+- exchange rate
+- currency conversion
+- existing exchange fees
+- add-on fees
+- final receiving amount
+
+Do NOT trust a fee amount sent by the browser.
+
+A customer must not be able to manipulate frontend data and change:
+
+fee = 3
+
+into:
+
+fee = 0
+
+and have the backend accept it.
+
+==================================================
+17. DATABASE
+==================================================
+
+Inspect the existing database first.
+
+If an add-on model already exists, use it.
+
+If not, create one according to the project's existing conventions.
+
+It needs to support conceptually:
+
+id
+key/slug
+displayName
+fee
+feeType
+enabled
+position
+
+and translations:
+
+English:
+title
+description
+
+Russian:
+title
+description
+
+Arabic:
+title
+description
+
+Ukrainian:
+title
+description
+
+Do not create duplicate models if equivalent functionality already exists.
+
+==================================================
+18. ADMIN LIST
+==================================================
+
+The Admin should have a list similar to:
+
+Optional Add-ons
+
+Name                  Fee       Type          Order    Status
+
+Fast Payment          $3        Fixed         0        Enabled
+Priority Processing   1%        Percentage    1        Enabled
+Insurance             $5        Fixed         2        Disabled
+
+Admin actions:
+
+- Add option
+- Edit
+- Delete
+- Enable/Disable
+- Change position
+
+==================================================
+19. DO NOT BREAK EXISTING EXCHANGE LOGIC
+==================================================
+
+Do not rewrite unrelated exchange logic.
+
+Do not break:
+
+- exchange rates
+- currencies
+- wallets
+- existing exchange fees
+- quote creation
+- payment
+- checkout
+- order creation
+- authentication
+
+Integrate add-ons into the existing architecture.
+
+==================================================
+20. REMOVE THE CURRENT WRONG IMPLEMENTATION
+==================================================
+
+If the current implementation displays explanations such as:
+
+"Add-ons are optional..."
+"Fees are calculated..."
+"Select an option..."
+
+instead of providing actual controls, remove/replace that.
+
+I need actual interactive functionality.
+
+The customer must see real checkboxes.
+
+The customer must be able to select/unselect them.
+
+The calculation must change.
+
+The final receiving amount must change.
+
+==================================================
+21. TEST THESE CASES
+==================================================
+
+TEST 1:
+
+No add-on selected.
+
+Expected:
+Add-on fees = $0
+Existing final receive unchanged.
+
+TEST 2:
+
+Fixed fee:
+
+Fee = 3
+Type = Fixed
+
+Expected:
+Add-on fee = $3.
+
+Final receive decreases by $3.
+
+TEST 3:
+
+Percentage:
+
+Fee = 1
+Type = Percentage
+
+Amount = $1,000
+
+Expected:
+Add-on fee = $10.
+
+TEST 4:
+Uncheck add-on.
+
+Expected:
+Fee returns to $0.
+Final receive returns to previous value.
+
+TEST 5:
+
+Select multiple add-ons.
+
+Expected:
+All selected fees are added together.
+
+TEST 6:
+
+Disable an add-on in Admin.
+
+Expected:
+It disappears from customer widget.
+
+TEST 7:
+
+Change Admin fee from $3 to $5.
+
+Expected:
+Customer uses $5.
+
+TEST 8:
+
+Change language.
+
+Expected:
+Correct Admin translation appears.
+
+TEST 9:
+
+Change exchange amount.
+
+Expected:
+Percentage fee recalculates immediately.
+
+TEST 10:
+
+Use non-USD receiving currency.
+
+Expected:
+Fixed USD fee is converted using existing exchange-rate logic.
+
+TEST 11:
+
+Select add-on and click Next.
+
+Expected:
+Selection remains attached to quote/order.
+
+==================================================
+22. UI REQUIREMENT
+==================================================
+
+WHITE SCREENSHOT:
+
+Use this as the Admin UI reference.
+
+BLACK SCREENSHOT:
+
+Use this as the customer widget reference.
+
+Do not use the screenshots as static images.
+
+Build real:
+
+- inputs
+- dropdowns
+- toggles
+- checkboxes
+- calculations
+- state
+- database integration
+- API integration
+- validation
+
+==================================================
+23. FINAL REQUIREMENT
+==================================================
+
+Do not just explain what needs to be done.
+
+Actually inspect the repository and implement it.
+
+If something already exists, modify/fix it rather than creating a duplicate implementation.
+
+After implementation:
+
+- run the project
+- check for TypeScript errors
+- check for runtime errors
+- check database/API errors
+- test Admin creation
+- test customer selection
+- test percentage calculation
+- test fixed calculation
+- test multiple add-ons
+- test final receiving amount
+- test next-step persistence
+
+The final result must be a real working feature.
+
+The most important behavior is:
+
+ADMIN CONFIGURES ADD-ON
+↓
+CUSTOMER SEES IT
+↓
+CUSTOMER SELECTS IT
+↓
+FEE IS CALCULATED
+↓
+TOTAL FEES UPDATES
+↓
+FINAL YOU RECEIVE DECREASES
+↓
+SELECTION IS PRESERVED
+↓
+BACKEND VALIDATES EVERYTHING
+
+Do NOT implement this as explanatory text.

@@ -24,6 +24,7 @@ import type { ApiError, OrderInput, PaymentMethodFieldDefinition, Quote, Settlem
 import type { ManualSwapFeeQuoteSnapshot } from '@workspace/api-client-react';
 import { getListPublicManualSwapAddonsQueryKey, useListPublicManualSwapAddons } from '@workspace/api-client-react';
 import { SwapAddonOptions } from '@/components/swap-addon-options';
+import { SwapFeeBreakdown } from '@/components/swap-fee-breakdown';
 import { Link, useLocation } from 'wouter';
 import {
   ArrowDownUp, ArrowLeftRight, ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight,
@@ -786,26 +787,18 @@ export function ManualSwapWidget({
   const orderMutation = useCreateOrder();
   const quoteMutation = useCreateExchangeQuote();
   const receiveQuoteMutation = useCreateExchangeQuoteByReceive();
-  const addons = useListPublicManualSwapAddons({ query: { queryKey: getListPublicManualSwapAddonsQueryKey(), staleTime: 30_000 } });
-  const [addonsOpen, setAddonsOpen] = useState(false);
+  const addons = useListPublicManualSwapAddons({ query: { queryKey: getListPublicManualSwapAddonsQueryKey(), staleTime: 30_000, refetchInterval: 30_000 } });
   const [addonsPopupOpen, setAddonsPopupOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedAddOnKeys, setSelectedAddOnKeys] = useState<string[]>([]);
-  const availableAddons = addons.data?.items || [];
+  const availableAddons = [...(addons.data?.items || [])].sort((a, b) => a.displayOrder - b.displayOrder);
   const selectedKeys = selectedAddOnKeys.filter(key => availableAddons.some(item =>
     item.key === key && item.enabled && item.selectionRule !== 'none'
   )).sort();
   const selectedKeysSignature = JSON.stringify(selectedKeys);
   const changeAddonsOpen = (open: boolean) => {
-    setAddonsOpen(open);
+    if (open) void addons.refetch();
     setAddonsPopupOpen(open);
-    if (!open) {
-      setSelectedAddOnKeys([]);
-      if (selectedKeys.length > 0) {
-        setTermsAccepted(false);
-        setQuotePreview(null);
-      }
-    }
   };
   const toggleAddon = (key: string) => {
     const item = availableAddons.find(option => option.key === key);
@@ -1648,6 +1641,9 @@ export function ManualSwapWidget({
                 )}
 
                 {currentQuote && !currentQuote.manualSwapFees && <p role="alert" className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" data-testid="swap-fee-breakdown-unavailable">The server did not provide an itemized fee breakdown. Refresh the quote before continuing.</p>}
+                {currentQuote?.manualSwapFees && toOption && <div className="mt-4" data-testid="swap-signed-fee-breakdown">
+                  <SwapFeeBreakdown fees={currentQuote.manualSwapFees} currency={toOption.assetCode} receiveAmount={currentQuote.receiveAmount}/>
+                </div>}
               </div>
 
               <div className="swap-quote-options-dock" data-testid="swap-addons-dock">
@@ -1869,7 +1865,7 @@ export function ManualSwapWidget({
           )}
           {addonsPopupOpen && (
             <div className="swap-overlay" role="dialog" aria-modal="true" aria-label="Add-ons" data-testid="swap-addons-popup">
-              <div className="swap-overlay-head">Add-ons <button type="button" onClick={() => changeAddonsOpen(false)} aria-label="Close add-ons and clear selection" data-testid="button-close-swap-addons"><X size={23} /></button></div>
+              <div className="swap-overlay-head">Add-ons <button type="button" onClick={() => changeAddonsOpen(false)} aria-label="Close add-ons" data-testid="button-close-swap-addons"><X size={23} /></button></div>
               <div className="swap-overlay-body">
                 <SwapAddonOptions options={availableAddons.filter(item => item.enabled)} selectedKeys={selectedKeys} onToggle={toggleAddon} isLoading={addons.isLoading} isError={addons.isError} onRetry={() => addons.refetch()} compact />
               </div>

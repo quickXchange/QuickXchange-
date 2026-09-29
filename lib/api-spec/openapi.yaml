@@ -5218,7 +5218,7 @@ components:
       description: An exact non-negative decimal fitting the Manual Swap numeric(38,18) storage boundary.
     ManualSwapAddon:
       type: object
-      required: [id, key, name, description, fixedAmount, feeCurrency, enabled, displayOrder, selectionRule, presentation]
+      required: [id, key, name, description, fixedAmount, feeCurrency, feeType, percentage, translations, enabled, displayOrder, selectionRule, presentation]
       properties:
         id: { type: string, format: uuid }
         key: { type: string, pattern: '^[a-z0-9][a-z0-9_-]{0,99}$' }
@@ -5226,6 +5226,12 @@ components:
         description: { type: string, maxLength: 1000 }
         fixedAmount: { $ref: "#/components/schemas/NonNegativeExactDecimal" }
         feeCurrency: { type: string, pattern: '^[A-Z0-9]{2,15}$' }
+        feeType: { type: string, enum: [fixed, percentage] }
+        percentage:
+          type: ["string", "null"]
+          pattern: '^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$'
+          description: Human percentage value; 1 means 1 percent.
+        translations: { $ref: "#/components/schemas/ManualSwapAddonTranslations" }
         enabled: { type: boolean }
         displayOrder: { type: integer, minimum: 0 }
         selectionRule: { type: string, enum: [none, one, multiple] }
@@ -5242,6 +5248,20 @@ components:
         items:
           type: array
           items: { $ref: "#/components/schemas/ManualSwapAddon" }
+    ManualSwapAddonTranslations:
+      type: object
+      additionalProperties: false
+      properties:
+        en: { $ref: "#/components/schemas/ManualSwapAddonTranslation" }
+        ru: { $ref: "#/components/schemas/ManualSwapAddonTranslation" }
+        ar: { $ref: "#/components/schemas/ManualSwapAddonTranslation" }
+        uk: { $ref: "#/components/schemas/ManualSwapAddonTranslation" }
+    ManualSwapAddonTranslation:
+      type: object
+      additionalProperties: false
+      properties:
+        title: { type: string, maxLength: 120 }
+        description: { type: string, maxLength: 1000 }
     ManualSwapAddonInput:
       type: object
       required: [key, name, fixedAmount, feeCurrency]
@@ -5251,6 +5271,12 @@ components:
         description: { type: string, maxLength: 1000 }
         fixedAmount: { $ref: "#/components/schemas/ManualSwapConfigDecimal" }
         feeCurrency: { type: string, pattern: '^[A-Z0-9]{2,15}$' }
+        feeType: { type: string, enum: [fixed, percentage], default: fixed }
+        percentage:
+          oneOf:
+            - $ref: "#/components/schemas/ManualSwapConfigDecimal"
+            - type: "null"
+        translations: { $ref: "#/components/schemas/ManualSwapAddonTranslations" }
         enabled: { type: boolean, default: true }
         displayOrder: { type: integer, minimum: 0 }
         selectionRule: { type: string, enum: [none, one, multiple], default: multiple }
@@ -5351,6 +5377,8 @@ components:
               amount: { $ref: "#/components/schemas/NonNegativeExactDecimal" }
               currency: { type: string }
               targetAmount: { $ref: "#/components/schemas/NonNegativeExactDecimal" }
+              feeType: { type: string, enum: [fixed, percentage] }
+              percentage: { type: ["string", "null"] }
         addonFee: { $ref: "#/components/schemas/NonNegativeExactDecimal" }
         exchangeFee:
           type: object

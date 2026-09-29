@@ -7,6 +7,14 @@ export const manualSwapAddonsTable = pgTable("manual_swap_addons", {
   description: text("description").notNull().default(""),
   fixedAmount: numeric("fixed_amount", { precision: 38, scale: 18 }).notNull().default("0"),
   feeCurrency: text("fee_currency").notNull(),
+  feeType: text("fee_type").notNull().default("fixed"),
+  percentage: numeric("percentage", { precision: 38, scale: 18 }),
+  translations: jsonb("translations").$type<{
+    en?: { title?: string; description?: string };
+    ru?: { title?: string; description?: string };
+    ar?: { title?: string; description?: string };
+    uk?: { title?: string; description?: string };
+  }>().notNull().default({}),
   enabled: boolean("enabled").notNull().default(true),
   selectionRule: text("selection_rule").notNull().default("multiple"),
   presentation: jsonb("presentation").$type<{ group: string; displayOrder?: number }>().notNull().default({ group: "" }),

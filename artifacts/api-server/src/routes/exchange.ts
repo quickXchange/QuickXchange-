@@ -254,6 +254,7 @@ import {
 } from "../lib/manual-desk-rates";
 import {
   applyManualSwapFees,
+  assertManualSwapFixedFeeCurrencyAllowed,
   assertManualSwapFeeConfigurationMatches,
   validateManualSwapAddonSelection,
 } from "../lib/manual-swap-fees";
@@ -1175,7 +1176,7 @@ async function buildQuoteTicket(
     ? [...new Set([
         route.fromAsset,
         route.toAsset,
-        ...selectedAddons.map((addon) => addon.feeCurrency),
+        ...selectedAddons.filter((addon) => addon.feeType !== "percentage").map((addon) => addon.feeCurrency),
         ...(additionalFeeConfig.enabled ? [additionalFeeConfig.fixedCurrency] : []),
       ].map((currency) => currency.toUpperCase()))]
     : [];
@@ -1204,6 +1205,8 @@ async function buildQuoteTicket(
       name: addon.name,
       fixedAmount: addon.fixedAmount,
       feeCurrency: addon.feeCurrency,
+      feeType: (addon.feeType ?? "fixed") as "fixed" | "percentage",
+      percentage: addon.percentage,
       selectionRule: addon.selectionRule,
       selectionGroup: addon.presentation.group.trim().toLowerCase() || "default",
     })),
@@ -1857,6 +1860,9 @@ function outputManualSwapAddon(row: typeof manualSwapAddonsTable.$inferSelect) {
     description: row.description,
     fixedAmount: row.fixedAmount,
     feeCurrency: row.feeCurrency,
+    feeType: row.feeType as "fixed" | "percentage",
+    percentage: row.percentage,
+    translations: row.translations,
     enabled: row.enabled && row.deletedAt === null,
     displayOrder: row.presentation.displayOrder ?? 0,
     selectionRule: row.selectionRule,
@@ -1925,12 +1931,23 @@ router.get("/admin/manual-swap-addons", requirePermission("pricing.view"), async
 router.post("/admin/manual-swap-addons", requirePermission("pricing.manage"), async (req, res, next) => {
   try {
     const input = CreateManualSwapAddonBody.parse(req.body);
+    assertManualSwapFixedFeeCurrencyAllowed({
+      feeType: input.feeType ?? "fixed",
+      feeAmount: input.fixedAmount,
+      feeCurrency: input.feeCurrency,
+    });
+    if ((input.feeType ?? "fixed") === "percentage" && !input.percentage) {
+      throw new ApiError("MANUAL_SWAP_ADDON_PERCENTAGE_REQUIRED", "A percentage add-on requires a percentage value.", 400);
+    }
     const [row] = await db.insert(manualSwapAddonsTable).values({
       key: input.key,
       name: input.name.trim(),
       description: input.description?.trim() ?? "",
       fixedAmount: input.fixedAmount,
       feeCurrency: input.feeCurrency.toUpperCase(),
+      feeType: input.feeType ?? "fixed",
+      percentage: input.feeType === "percentage" ? input.percentage : null,
+      translations: input.translations ?? {},
       enabled: input.enabled,
       selectionRule: input.selectionRule,
       presentation: {
@@ -1963,12 +1980,24 @@ router.patch("/admin/manual-swap-addons/:id", requirePermission("pricing.manage"
     if (!existing || existing.deletedAt) {
       throw new ApiError("MANUAL_SWAP_ADDON_NOT_FOUND", "The Manual Swap add-on was not found.", 404);
     }
+    assertManualSwapFixedFeeCurrencyAllowed({
+      feeType: input.feeType ?? "fixed",
+      feeAmount: input.fixedAmount,
+      feeCurrency: input.feeCurrency,
+      existing,
+    });
+    if ((input.feeType ?? "fixed") === "percentage" && !input.percentage) {
+      throw new ApiError("MANUAL_SWAP_ADDON_PERCENTAGE_REQUIRED", "A percentage add-on requires a percentage value.", 400);
+    }
     const [row] = await db.update(manualSwapAddonsTable).set({
       key: input.key,
       name: input.name.trim(),
       description: input.description?.trim() ?? "",
       fixedAmount: input.fixedAmount,
       feeCurrency: input.feeCurrency.toUpperCase(),
+      feeType: input.feeType ?? "fixed",
+      percentage: input.feeType === "percentage" ? input.percentage : null,
+      translations: input.translations ?? existing.translations,
       enabled: input.enabled,
       selectionRule: input.selectionRule,
       presentation: {
@@ -2081,6 +2110,8 @@ router.post("/admin/manual-swap-fee-preview", requirePermission("pricing.view"),
         name: addon.name.trim(),
         fixedAmount: addon.fixedAmount,
         feeCurrency: addon.feeCurrency,
+        feeType: addon.feeType ?? "fixed",
+        percentage: addon.percentage ?? null,
         enabled: addon.enabled,
         deletedAt: null,
         selectionRule: addon.selectionRule,
@@ -2093,7 +2124,7 @@ router.post("/admin/manual-swap-fee-preview", requirePermission("pricing.view"),
     );
     const additionalCurrencies = [...new Set([
       "USD",
-      ...selectedAddons.map((addon) => addon.feeCurrency),
+      ...selectedAddons.filter((addon) => addon.feeType !== "percentage").map((addon) => addon.feeCurrency),
       ...(input.feeConfig.enabled && input.feeConfig.fixedAmount !== null &&
         input.feeConfig.fixedAmount !== ""
         ? [input.feeConfig.fixedCurrency]
@@ -2122,6 +2153,8 @@ router.post("/admin/manual-swap-fee-preview", requirePermission("pricing.view"),
         name: addon.name,
         fixedAmount: addon.fixedAmount,
         feeCurrency: addon.feeCurrency,
+        feeType: (addon.feeType ?? "fixed") as "fixed" | "percentage",
+        percentage: addon.percentage,
       })),
       config: input.feeConfig,
       references: estimate.exact.additionalReferences,

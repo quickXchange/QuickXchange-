@@ -5,8 +5,10 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ManualSwapAddonFeeType } from './manualSwapAddonFeeType';
 import type { ManualSwapAddonPresentation } from './manualSwapAddonPresentation';
 import type { ManualSwapAddonSelectionRule } from './manualSwapAddonSelectionRule';
+import type { ManualSwapAddonTranslations } from './manualSwapAddonTranslations';
 import type { NonNegativeExactDecimal } from './nonNegativeExactDecimal';
 
 export interface ManualSwapAddon {
@@ -23,6 +25,14 @@ export interface ManualSwapAddon {
   fixedAmount: NonNegativeExactDecimal;
   /** @pattern ^[A-Z0-9]{2,15}$ */
   feeCurrency: string;
+  feeType: ManualSwapAddonFeeType;
+  /**
+     * Human percentage value; 1 means 1 percent.
+     * @nullable
+     * @pattern ^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$
+     */
+  percentage: string | null;
+  translations: ManualSwapAddonTranslations;
   enabled: boolean;
   /** @minimum 0 */
   displayOrder: number;

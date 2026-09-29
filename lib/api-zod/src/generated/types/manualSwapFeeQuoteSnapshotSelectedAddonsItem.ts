@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ManualSwapFeeQuoteSnapshotSelectedAddonsItemFeeType } from './manualSwapFeeQuoteSnapshotSelectedAddonsItemFeeType';
 import type { NonNegativeExactDecimal } from './nonNegativeExactDecimal';
 
 export type ManualSwapFeeQuoteSnapshotSelectedAddonsItem = {
@@ -14,4 +15,7 @@ export type ManualSwapFeeQuoteSnapshotSelectedAddonsItem = {
   amount: NonNegativeExactDecimal;
   currency: string;
   targetAmount: NonNegativeExactDecimal;
+  feeType?: ManualSwapFeeQuoteSnapshotSelectedAddonsItemFeeType;
+  /** @nullable */
+  percentage?: string | null;
 };

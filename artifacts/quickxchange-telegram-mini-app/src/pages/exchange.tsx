@@ -38,14 +38,71 @@ function hasNonZeroFeeAmount(value: unknown): boolean {
   return formatFeeAmount(value).replace('.', '').replace(/^0+/, '') !== '';
 }
 
+type AddonLocale = 'en' | 'ru' | 'ar' | 'uk';
+
+function getAddonLocale(): AddonLocale {
+  const supportedLocales: AddonLocale[] = ['en', 'ru', 'ar', 'uk'];
+  const normalizeLocale = (value?: string | null): AddonLocale | undefined => {
+    const locale = value?.trim().toLowerCase().split(/[-_]/)[0];
+    return supportedLocales.find((supported) => supported === locale);
+  };
+
+  // A non-English document language is an explicit app-level override; "en"
+  // is the static HTML default, so don't let it mask the user's device locale.
+  const appLocale = typeof document !== 'undefined'
+    ? normalizeLocale(document.documentElement.dataset.locale || document.documentElement.dataset.language)
+      ?? (normalizeLocale(document.documentElement.lang) !== 'en'
+        ? normalizeLocale(document.documentElement.lang)
+        : undefined)
+    : undefined;
+  if (appLocale) return appLocale;
+
+  if (typeof window !== 'undefined') {
+    const telegramLocale = normalizeLocale(window.Telegram?.WebApp?.initDataUnsafe?.user?.language_code);
+    if (telegramLocale) return telegramLocale;
+  }
+
+  if (typeof navigator !== 'undefined') {
+    for (const language of navigator.languages ?? [navigator.language]) {
+      const locale = normalizeLocale(language);
+      if (locale) return locale;
+    }
+  }
+  return 'en';
+}
+
+function getLocalizedAddonText(addon: any, locale: AddonLocale) {
+  const translation = addon?.translations?.[locale];
+  return {
+    title: translation?.title || addon?.name || '',
+    description: translation?.description || addon?.description || '',
+  };
+}
+
+function getAddonFeeLabel(addon: any): string {
+  if (addon?.feeType === 'percentage') {
+    return addon.percentage === null || addon.percentage === undefined
+      ? 'Percentage fee'
+      : `${formatFeeAmount(addon.percentage)}%`;
+  }
+  if (addon?.feeType === 'fixed') {
+    return `${formatFeeAmount(addon.fixedAmount)} ${addon.feeCurrency || 'USD'}`;
+  }
+  return 'Fee details unavailable';
+}
+
 function ManualSwapFeeSummary({
   fees,
   targetAsset,
   receiveAmount,
+  addons,
+  locale,
 }: {
   fees?: any;
   targetAsset?: string;
   receiveAmount?: string | number;
+  addons?: any[];
+  locale: AddonLocale;
 }) {
   if (!fees) return null;
   const exchangeFee = fees.exchangeFee;
@@ -73,9 +130,18 @@ function ManualSwapFeeSummary({
       )}
       {(fees.selectedAddons ?? []).map((addon: any) => (
         <div key={addon.id || addon.key} className="flex items-start justify-between gap-3 text-[12px]">
-          <span className="text-muted-foreground">{addon.name}</span>
+          <span className="text-muted-foreground">
+            {getLocalizedAddonText(
+              addons?.find((item) => item.id === addon.id || item.key === addon.key) ?? addon,
+              locale,
+            ).title}
+          </span>
           <span className="text-right font-semibold">
-            {formatFeeAmount(addon.amount)} {addon.currency}
+            {addon.feeType === 'percentage'
+              ? addon.percentage === null || addon.percentage === undefined
+                ? 'Percentage fee'
+                : `${formatFeeAmount(addon.percentage)}%`
+              : `${formatFeeAmount(addon.amount)} ${addon.currency}`}
             {targetAsset && (
               <span className="block text-[10px] font-medium text-muted-foreground">
                 {formatFeeAmount(addon.targetAmount)} {targetAsset} deducted
@@ -166,6 +232,7 @@ export default function Exchange() {
     },
   });
   const manualSwapAddons = manualSwapAddonsQuery.data?.items ?? EMPTY_MANUAL_SWAP_ADDONS;
+  const addonLocale = getAddonLocale();
   const selectedAddonKeySet = useMemo(() => new Set(selectedAddonKeys), [selectedAddonKeys]);
   const addonSelectionMode = manualSwapAddons.some((addon) => addon.selectionRule === 'multiple')
     ? 'multiple'
@@ -931,6 +998,7 @@ export default function Exchange() {
                     const checked = selectedAddonKeySet.has(addon.key);
                     const groupSelectionRule = getAddonGroupSelectionRule(addon.presentation.group);
                     const disabled = addon.selectionRule === 'none' || groupSelectionRule === 'none';
+                    const localizedAddon = getLocalizedAddonText(addon, addonLocale);
                     return (
                       <label
                         key={addon.id}
@@ -950,11 +1018,11 @@ export default function Exchange() {
                         />
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center justify-between gap-2 text-[13px] font-bold">
-                            <span>{addon.name}</span>
-                            <span className="shrink-0 text-primary">{formatFeeAmount(addon.fixedAmount)} {addon.feeCurrency}</span>
+                            <span>{localizedAddon.title}</span>
+                            <span className="shrink-0 text-primary">{getAddonFeeLabel(addon)}</span>
                           </span>
-                          {addon.description && (
-                            <span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">{addon.description}</span>
+                          {localizedAddon.description && (
+                            <span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">{localizedAddon.description}</span>
                           )}
                           {addon.presentation.group && (
                             <span className="mt-1.5 block text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
@@ -979,6 +1047,8 @@ export default function Exchange() {
               fees={quoteData.manualSwapFees}
               targetAsset={targetOpt?.assetCode}
               receiveAmount={quoteData.receiveAmount}
+              addons={manualSwapAddons}
+              locale={addonLocale}
             />
           )}
 
@@ -1268,6 +1338,8 @@ export default function Exchange() {
                   fees={quoteData?.manualSwapFees}
                   targetAsset={targetOpt?.assetCode}
                   receiveAmount={quoteData?.receiveAmount}
+                  addons={manualSwapAddons}
+                  locale={addonLocale}
                 />
               </div>
             )}

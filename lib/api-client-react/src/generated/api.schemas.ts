@@ -1113,6 +1113,14 @@ export type NonNegativeExactDecimal = string;
  */
 export type ManualSwapConfigDecimal = string;
 
+export type ManualSwapAddonFeeType = typeof ManualSwapAddonFeeType[keyof typeof ManualSwapAddonFeeType];
+
+
+export const ManualSwapAddonFeeType = {
+  fixed: 'fixed',
+  percentage: 'percentage',
+} as const;
+
 export type ManualSwapAddonSelectionRule = typeof ManualSwapAddonSelectionRule[keyof typeof ManualSwapAddonSelectionRule];
 
 
@@ -1126,6 +1134,20 @@ export type ManualSwapAddonPresentation = {
   /** @maxLength 100 */
   group: string;
 };
+
+export interface ManualSwapAddonTranslation {
+  /** @maxLength 120 */
+  title?: string;
+  /** @maxLength 1000 */
+  description?: string;
+}
+
+export interface ManualSwapAddonTranslations {
+  en?: ManualSwapAddonTranslation;
+  ru?: ManualSwapAddonTranslation;
+  ar?: ManualSwapAddonTranslation;
+  uk?: ManualSwapAddonTranslation;
+}
 
 export interface ManualSwapAddon {
   id: string;
@@ -1141,6 +1163,14 @@ export interface ManualSwapAddon {
   fixedAmount: NonNegativeExactDecimal;
   /** @pattern ^[A-Z0-9]{2,15}$ */
   feeCurrency: string;
+  feeType: ManualSwapAddonFeeType;
+  /**
+     * Human percentage value; 1 means 1 percent.
+     * @nullable
+     * @pattern ^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$
+     */
+  percentage: string | null;
+  translations: ManualSwapAddonTranslations;
   enabled: boolean;
   /** @minimum 0 */
   displayOrder: number;
@@ -1151,6 +1181,14 @@ export interface ManualSwapAddon {
 export interface ManualSwapAddonsResponse {
   items: ManualSwapAddon[];
 }
+
+export type ManualSwapAddonInputFeeType = typeof ManualSwapAddonInputFeeType[keyof typeof ManualSwapAddonInputFeeType];
+
+
+export const ManualSwapAddonInputFeeType = {
+  fixed: 'fixed',
+  percentage: 'percentage',
+} as const;
 
 export type ManualSwapAddonInputSelectionRule = typeof ManualSwapAddonInputSelectionRule[keyof typeof ManualSwapAddonInputSelectionRule];
 
@@ -1179,6 +1217,9 @@ export interface ManualSwapAddonInput {
   fixedAmount: ManualSwapConfigDecimal;
   /** @pattern ^[A-Z0-9]{2,15}$ */
   feeCurrency: string;
+  feeType?: ManualSwapAddonInputFeeType;
+  percentage?: ManualSwapConfigDecimal | null;
+  translations?: ManualSwapAddonTranslations;
   enabled?: boolean;
   /** @minimum 0 */
   displayOrder?: number;
@@ -1249,6 +1290,14 @@ export const ManualSwapFeePreviewCurrency = {
   USD: 'USD',
 } as const;
 
+export type ManualSwapFeeQuoteSnapshotSelectedAddonsItemFeeType = typeof ManualSwapFeeQuoteSnapshotSelectedAddonsItemFeeType[keyof typeof ManualSwapFeeQuoteSnapshotSelectedAddonsItemFeeType];
+
+
+export const ManualSwapFeeQuoteSnapshotSelectedAddonsItemFeeType = {
+  fixed: 'fixed',
+  percentage: 'percentage',
+} as const;
+
 export type PricingReferenceLegProvider = typeof PricingReferenceLegProvider[keyof typeof PricingReferenceLegProvider];
 
 
@@ -1285,6 +1334,9 @@ export type ManualSwapFeeQuoteSnapshotSelectedAddonsItem = {
   amount: NonNegativeExactDecimal;
   currency: string;
   targetAmount: NonNegativeExactDecimal;
+  feeType?: ManualSwapFeeQuoteSnapshotSelectedAddonsItemFeeType;
+  /** @nullable */
+  percentage?: string | null;
 };
 
 export type ManualSwapFeeQuoteSnapshotExchangeFee = {

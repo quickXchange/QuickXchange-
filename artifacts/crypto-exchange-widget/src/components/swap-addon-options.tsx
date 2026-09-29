@@ -1,8 +1,14 @@
 import type { ManualSwapAddon } from '@workspace/api-client-react';
 import { trimFeeDecimal } from '@/components/swap-fee-breakdown';
 import { ArrowLeftRight, Check, Info, MessageCircle, Package, Zap } from 'lucide-react';
+import { useI18n } from '@/i18n';
 
-export type SwapAddonOption = Pick<ManualSwapAddon, 'key' | 'name' | 'description' | 'fixedAmount' | 'feeCurrency' | 'enabled' | 'selectionRule' | 'presentation'>;
+type SwapAddonTranslation = { title?: string; description?: string };
+export type SwapAddonOption = Pick<ManualSwapAddon, 'key' | 'name' | 'description' | 'fixedAmount' | 'feeCurrency' | 'enabled' | 'selectionRule' | 'presentation'> & {
+  feeType?: 'fixed' | 'percentage';
+  percentage?: string | null;
+  translations?: Partial<Record<'en' | 'ru' | 'ar' | 'uk', SwapAddonTranslation>>;
+};
 
 /** The same customer-facing selector is used for the live Swap and the Admin preview.
  * Options are rendered in the order supplied by the caller.
@@ -19,6 +25,7 @@ export function SwapAddonOptions({
   preview?: boolean;
   compact?: boolean;
 }) {
+  const { locale } = useI18n();
   return <section className={`swap-addon-options${compact ? ' swap-addon-options-compact' : ''}${compact ? '' : ' mt-4 space-y-3'}`} aria-label={compact ? 'Additional Options' : 'Optional Swap add-ons'}>
     {!compact && <div className="text-sm font-bold text-foreground">Optional add-ons</div>}
     {isLoading ? <div className="skeleton h-16 rounded-xl" aria-label="Loading optional add-ons"/> : isError ?
@@ -26,17 +33,25 @@ export function SwapAddonOptions({
       options.length ? <div className={compact ? 'swap-addon-options-list' : 'space-y-2'}>{options.map(item => {
         const informational = item.selectionRule === 'none';
         const selected = selectedKeys.includes(item.key);
-        const iconHint = `${item.key} ${item.name}`.toLowerCase();
+        const translation = ['en', 'ru', 'ar', 'uk'].includes(locale)
+          ? item.translations?.[locale as 'en' | 'ru' | 'ar' | 'uk']
+          : undefined;
+        const name = translation?.title?.trim() || item.name;
+        const description = translation?.description?.trim() || item.description;
+        const feeLabel = item.feeType === 'percentage'
+          ? `${trimFeeDecimal(item.percentage || '0')}%`
+          : `+${trimFeeDecimal(item.fixedAmount)} ${item.feeCurrency}`;
+        const iconHint = `${item.key} ${name}`.toLowerCase();
         const AddonIcon = /comment|note/.test(iconHint) ? MessageCircle
           : /company|business/.test(iconHint) ? Package
           : /one.time|single/.test(iconHint) ? ArrowLeftRight
           : Zap;
          const content = <>
            {compact && <span className="swap-addon-icon" aria-hidden="true">{informational ? <Info size={16} /> : <AddonIcon size={16} />}</span>}
-           <span className="flex-1"><strong className="block text-foreground">{item.name} {!informational && <span className="swap-addon-price">+{trimFeeDecimal(item.fixedAmount)} {item.feeCurrency}</span>}</strong>{item.description && <small className="text-muted-foreground">{item.description}</small>}{item.selectionRule === 'one' && <small className="block text-muted-foreground">Choose one in {item.presentation.group || 'this group'}</small>}</span>
+            <span className="flex-1"><strong className="block text-foreground">{name} {!informational && compact && <span className="swap-addon-price">{feeLabel}</span>}</strong>{description && <small className="text-muted-foreground">{description}</small>}{item.selectionRule === 'one' && <small className="block text-muted-foreground">Choose one in {item.presentation.group || 'this group'}</small>}</span>
           {informational
             ? <span className="whitespace-nowrap rounded-full border border-border bg-muted px-2 py-1 text-xs font-semibold text-muted-foreground">Information only</span>
-             : compact ? <span className="swap-addon-switch" aria-hidden="true">{selected && <Check size={12} />}</span> : <span className="font-mono text-foreground whitespace-nowrap">{trimFeeDecimal(item.fixedAmount)} {item.feeCurrency}</span>}
+              : compact ? <span className="swap-addon-switch" aria-hidden="true">{selected && <Check size={12} />}</span> : <span className="font-mono text-foreground whitespace-nowrap">{feeLabel}</span>}
         </>;
         return informational
           ? <div key={item.key} className="flex items-start gap-3 rounded-xl border border-dashed border-border bg-muted/40 p-3 text-sm" data-testid={`${preview ? 'swap-addon-info-preview' : 'swap-addon-info'}-${item.key}`}>

@@ -78,7 +78,8 @@ test('Swap keeps the quote in Step 1, contact details in Step 2, and the compact
   assert.match(stepOne, /data-testid="input-amount"/);
   assert.match(stepOne, /data-testid="input-receive-amount"/);
   assert.match(stepOne, /data-testid="route-summary"[\s\S]*?reference-rate-value/);
-  assert.doesNotMatch(stepOne, /SwapFeeBreakdown|checkbox-swap-addons|swap-addons-disclosure|swap-selected-addons-quote-summary/);
+  assert.match(stepOne, /<SwapFeeBreakdown fees=\{currentQuote\.manualSwapFees\} currency=\{toOption\.assetCode\} receiveAmount=\{currentQuote\.receiveAmount\}/);
+  assert.doesNotMatch(stepOne, /checkbox-swap-addons|swap-addons-disclosure|swap-selected-addons-quote-summary/);
   assert.match(stepOne.slice(addonsDockStart, continueStart), /<button[\s\S]*?onClick=\{\(\) => changeAddonsOpen\(true\)\}[\s\S]*?data-testid="button-swap-addons"/);
   assert.doesNotMatch(stepOne, /input-customer-email|id="swap-email"/);
   assert.ok(emailStart >= 0 && emailStart < receivingFieldsStart);
@@ -93,7 +94,7 @@ test('Swap keeps the quote in Step 1, contact details in Step 2, and the compact
   assert.equal(surface.match(/data-testid="button-swap-addons"/g)?.length, 1);
   assert.match(surface, /customerEmail: signedInCustomer \? undefined : email\.trim\(\)/);
   assert.match(surface, /\{addonsPopupOpen && \(\s*<div className="swap-overlay"/);
-  assert.match(surface, /if \(!open\) \{\s*setSelectedAddOnKeys\(\[\]\);\s*if \(selectedKeys\.length > 0\) \{\s*setTermsAccepted\(false\);\s*setQuotePreview\(null\)/);
+  assert.doesNotMatch(surface, /setSelectedAddOnKeys\(\[\]\)/);
   assert.match(surface, /options=\{availableAddons\.filter\(item => item\.enabled\)\}/);
   assert.match(surface, /onToggle=\{toggleAddon\}/);
   assert.match(surface, /data-testid="button-apply-swap-addons"/);
@@ -125,6 +126,9 @@ test('Summary hides fee itemization while preserving quote amounts, rate, and Te
   assert.match(feeBreakdown, /Selected add-ons · Add-on fees/);
   assert.match(feeBreakdown, /fees\.selectedAddons\.length/);
   assert.match(feeBreakdown, /No add-ons selected/);
+  assert.match(feeBreakdown, /item\.feeType === 'percentage' && item\.percentage != null[\s\S]*?trimFeeDecimal\(item\.percentage\).*?%/);
+  assert.match(feeBreakdown, /trimFeeDecimal\(item\.targetAmount\)\} \{currency\}/);
+  assert.match(feeBreakdown, /addon\?\.translations\?\.\[locale as 'en' \| 'ru' \| 'ar' \| 'uk'\]/);
 });
 
 test('back and stale-configuration recovery preserve user-entered fields and never create an order', () => {

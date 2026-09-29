@@ -470,6 +470,23 @@ export const listPublicManualSwapAddonsResponseItemsItemDescriptionMax = 1000;
 
 export const listPublicManualSwapAddonsResponseItemsItemFixedAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const listPublicManualSwapAddonsResponseItemsItemFeeCurrencyRegExp = new RegExp('^[A-Z0-9]{2,15}$');
+export const listPublicManualSwapAddonsResponseItemsItemPercentageRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const listPublicManualSwapAddonsResponseItemsItemTranslationsEnTitleMax = 120;
+
+export const listPublicManualSwapAddonsResponseItemsItemTranslationsEnDescriptionMax = 1000;
+
+export const listPublicManualSwapAddonsResponseItemsItemTranslationsRuTitleMax = 120;
+
+export const listPublicManualSwapAddonsResponseItemsItemTranslationsRuDescriptionMax = 1000;
+
+export const listPublicManualSwapAddonsResponseItemsItemTranslationsArTitleMax = 120;
+
+export const listPublicManualSwapAddonsResponseItemsItemTranslationsArDescriptionMax = 1000;
+
+export const listPublicManualSwapAddonsResponseItemsItemTranslationsUkTitleMax = 120;
+
+export const listPublicManualSwapAddonsResponseItemsItemTranslationsUkDescriptionMax = 1000;
+
 export const listPublicManualSwapAddonsResponseItemsItemDisplayOrderMin = 0;
 
 export const listPublicManualSwapAddonsResponseItemsItemPresentationGroupMax = 100;
@@ -484,6 +501,26 @@ export const ListPublicManualSwapAddonsResponse = zod.object({
   "description": zod.string().max(listPublicManualSwapAddonsResponseItemsItemDescriptionMax),
   "fixedAmount": zod.string().regex(listPublicManualSwapAddonsResponseItemsItemFixedAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "feeCurrency": zod.string().regex(listPublicManualSwapAddonsResponseItemsItemFeeCurrencyRegExp),
+  "feeType": zod.enum(['fixed', 'percentage']),
+  "percentage": zod.string().regex(listPublicManualSwapAddonsResponseItemsItemPercentageRegExp).nullable().describe('Human percentage value; 1 means 1 percent.'),
+  "translations": zod.object({
+  "en": zod.object({
+  "title": zod.string().max(listPublicManualSwapAddonsResponseItemsItemTranslationsEnTitleMax).optional(),
+  "description": zod.string().max(listPublicManualSwapAddonsResponseItemsItemTranslationsEnDescriptionMax).optional()
+}).optional(),
+  "ru": zod.object({
+  "title": zod.string().max(listPublicManualSwapAddonsResponseItemsItemTranslationsRuTitleMax).optional(),
+  "description": zod.string().max(listPublicManualSwapAddonsResponseItemsItemTranslationsRuDescriptionMax).optional()
+}).optional(),
+  "ar": zod.object({
+  "title": zod.string().max(listPublicManualSwapAddonsResponseItemsItemTranslationsArTitleMax).optional(),
+  "description": zod.string().max(listPublicManualSwapAddonsResponseItemsItemTranslationsArDescriptionMax).optional()
+}).optional(),
+  "uk": zod.object({
+  "title": zod.string().max(listPublicManualSwapAddonsResponseItemsItemTranslationsUkTitleMax).optional(),
+  "description": zod.string().max(listPublicManualSwapAddonsResponseItemsItemTranslationsUkDescriptionMax).optional()
+}).optional()
+}),
   "enabled": zod.boolean(),
   "displayOrder": zod.number().int().min(listPublicManualSwapAddonsResponseItemsItemDisplayOrderMin),
   "selectionRule": zod.enum(['none', 'one', 'multiple']),
@@ -504,6 +541,23 @@ export const listAdminManualSwapAddonsResponseItemsItemDescriptionMax = 1000;
 
 export const listAdminManualSwapAddonsResponseItemsItemFixedAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const listAdminManualSwapAddonsResponseItemsItemFeeCurrencyRegExp = new RegExp('^[A-Z0-9]{2,15}$');
+export const listAdminManualSwapAddonsResponseItemsItemPercentageRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const listAdminManualSwapAddonsResponseItemsItemTranslationsEnTitleMax = 120;
+
+export const listAdminManualSwapAddonsResponseItemsItemTranslationsEnDescriptionMax = 1000;
+
+export const listAdminManualSwapAddonsResponseItemsItemTranslationsRuTitleMax = 120;
+
+export const listAdminManualSwapAddonsResponseItemsItemTranslationsRuDescriptionMax = 1000;
+
+export const listAdminManualSwapAddonsResponseItemsItemTranslationsArTitleMax = 120;
+
+export const listAdminManualSwapAddonsResponseItemsItemTranslationsArDescriptionMax = 1000;
+
+export const listAdminManualSwapAddonsResponseItemsItemTranslationsUkTitleMax = 120;
+
+export const listAdminManualSwapAddonsResponseItemsItemTranslationsUkDescriptionMax = 1000;
+
 export const listAdminManualSwapAddonsResponseItemsItemDisplayOrderMin = 0;
 
 export const listAdminManualSwapAddonsResponseItemsItemPresentationGroupMax = 100;
@@ -518,6 +572,26 @@ export const ListAdminManualSwapAddonsResponse = zod.object({
   "description": zod.string().max(listAdminManualSwapAddonsResponseItemsItemDescriptionMax),
   "fixedAmount": zod.string().regex(listAdminManualSwapAddonsResponseItemsItemFixedAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "feeCurrency": zod.string().regex(listAdminManualSwapAddonsResponseItemsItemFeeCurrencyRegExp),
+  "feeType": zod.enum(['fixed', 'percentage']),
+  "percentage": zod.string().regex(listAdminManualSwapAddonsResponseItemsItemPercentageRegExp).nullable().describe('Human percentage value; 1 means 1 percent.'),
+  "translations": zod.object({
+  "en": zod.object({
+  "title": zod.string().max(listAdminManualSwapAddonsResponseItemsItemTranslationsEnTitleMax).optional(),
+  "description": zod.string().max(listAdminManualSwapAddonsResponseItemsItemTranslationsEnDescriptionMax).optional()
+}).optional(),
+  "ru": zod.object({
+  "title": zod.string().max(listAdminManualSwapAddonsResponseItemsItemTranslationsRuTitleMax).optional(),
+  "description": zod.string().max(listAdminManualSwapAddonsResponseItemsItemTranslationsRuDescriptionMax).optional()
+}).optional(),
+  "ar": zod.object({
+  "title": zod.string().max(listAdminManualSwapAddonsResponseItemsItemTranslationsArTitleMax).optional(),
+  "description": zod.string().max(listAdminManualSwapAddonsResponseItemsItemTranslationsArDescriptionMax).optional()
+}).optional(),
+  "uk": zod.object({
+  "title": zod.string().max(listAdminManualSwapAddonsResponseItemsItemTranslationsUkTitleMax).optional(),
+  "description": zod.string().max(listAdminManualSwapAddonsResponseItemsItemTranslationsUkDescriptionMax).optional()
+}).optional()
+}),
   "enabled": zod.boolean(),
   "displayOrder": zod.number().int().min(listAdminManualSwapAddonsResponseItemsItemDisplayOrderMin),
   "selectionRule": zod.enum(['none', 'one', 'multiple']),
@@ -538,6 +612,24 @@ export const createManualSwapAddonBodyDescriptionMax = 1000;
 
 export const createManualSwapAddonBodyFixedAmountRegExp = new RegExp('^(?:0|[1-9][0-9]{0,19})(?:\\.[0-9]{1,18})?$');
 export const createManualSwapAddonBodyFeeCurrencyRegExp = new RegExp('^[A-Z0-9]{2,15}$');
+export const createManualSwapAddonBodyFeeTypeDefault = `fixed`;
+export const createManualSwapAddonBodyPercentageOneRegExp = new RegExp('^(?:0|[1-9][0-9]{0,19})(?:\\.[0-9]{1,18})?$');
+export const createManualSwapAddonBodyTranslationsEnTitleMax = 120;
+
+export const createManualSwapAddonBodyTranslationsEnDescriptionMax = 1000;
+
+export const createManualSwapAddonBodyTranslationsRuTitleMax = 120;
+
+export const createManualSwapAddonBodyTranslationsRuDescriptionMax = 1000;
+
+export const createManualSwapAddonBodyTranslationsArTitleMax = 120;
+
+export const createManualSwapAddonBodyTranslationsArDescriptionMax = 1000;
+
+export const createManualSwapAddonBodyTranslationsUkTitleMax = 120;
+
+export const createManualSwapAddonBodyTranslationsUkDescriptionMax = 1000;
+
 export const createManualSwapAddonBodyEnabledDefault = true;
 export const createManualSwapAddonBodyDisplayOrderMin = 0;
 
@@ -552,6 +644,26 @@ export const CreateManualSwapAddonBody = zod.object({
   "description": zod.string().max(createManualSwapAddonBodyDescriptionMax).optional(),
   "fixedAmount": zod.string().regex(createManualSwapAddonBodyFixedAmountRegExp).describe('An exact non-negative decimal fitting the Manual Swap numeric(38,18) storage boundary.'),
   "feeCurrency": zod.string().regex(createManualSwapAddonBodyFeeCurrencyRegExp),
+  "feeType": zod.enum(['fixed', 'percentage']).default(createManualSwapAddonBodyFeeTypeDefault),
+  "percentage": zod.union([zod.string().regex(createManualSwapAddonBodyPercentageOneRegExp).describe('An exact non-negative decimal fitting the Manual Swap numeric(38,18) storage boundary.'),zod.null()]).optional(),
+  "translations": zod.object({
+  "en": zod.object({
+  "title": zod.string().max(createManualSwapAddonBodyTranslationsEnTitleMax).optional(),
+  "description": zod.string().max(createManualSwapAddonBodyTranslationsEnDescriptionMax).optional()
+}).optional(),
+  "ru": zod.object({
+  "title": zod.string().max(createManualSwapAddonBodyTranslationsRuTitleMax).optional(),
+  "description": zod.string().max(createManualSwapAddonBodyTranslationsRuDescriptionMax).optional()
+}).optional(),
+  "ar": zod.object({
+  "title": zod.string().max(createManualSwapAddonBodyTranslationsArTitleMax).optional(),
+  "description": zod.string().max(createManualSwapAddonBodyTranslationsArDescriptionMax).optional()
+}).optional(),
+  "uk": zod.object({
+  "title": zod.string().max(createManualSwapAddonBodyTranslationsUkTitleMax).optional(),
+  "description": zod.string().max(createManualSwapAddonBodyTranslationsUkDescriptionMax).optional()
+}).optional()
+}).optional(),
   "enabled": zod.boolean().default(createManualSwapAddonBodyEnabledDefault),
   "displayOrder": zod.number().int().min(createManualSwapAddonBodyDisplayOrderMin).optional(),
   "selectionRule": zod.enum(['none', 'one', 'multiple']).default(createManualSwapAddonBodySelectionRuleDefault),
@@ -567,6 +679,23 @@ export const createManualSwapAddonResponseDescriptionMax = 1000;
 
 export const createManualSwapAddonResponseFixedAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createManualSwapAddonResponseFeeCurrencyRegExp = new RegExp('^[A-Z0-9]{2,15}$');
+export const createManualSwapAddonResponsePercentageRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const createManualSwapAddonResponseTranslationsEnTitleMax = 120;
+
+export const createManualSwapAddonResponseTranslationsEnDescriptionMax = 1000;
+
+export const createManualSwapAddonResponseTranslationsRuTitleMax = 120;
+
+export const createManualSwapAddonResponseTranslationsRuDescriptionMax = 1000;
+
+export const createManualSwapAddonResponseTranslationsArTitleMax = 120;
+
+export const createManualSwapAddonResponseTranslationsArDescriptionMax = 1000;
+
+export const createManualSwapAddonResponseTranslationsUkTitleMax = 120;
+
+export const createManualSwapAddonResponseTranslationsUkDescriptionMax = 1000;
+
 export const createManualSwapAddonResponseDisplayOrderMin = 0;
 
 export const createManualSwapAddonResponsePresentationGroupMax = 100;
@@ -580,6 +709,26 @@ export const CreateManualSwapAddonResponse = zod.object({
   "description": zod.string().max(createManualSwapAddonResponseDescriptionMax),
   "fixedAmount": zod.string().regex(createManualSwapAddonResponseFixedAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "feeCurrency": zod.string().regex(createManualSwapAddonResponseFeeCurrencyRegExp),
+  "feeType": zod.enum(['fixed', 'percentage']),
+  "percentage": zod.string().regex(createManualSwapAddonResponsePercentageRegExp).nullable().describe('Human percentage value; 1 means 1 percent.'),
+  "translations": zod.object({
+  "en": zod.object({
+  "title": zod.string().max(createManualSwapAddonResponseTranslationsEnTitleMax).optional(),
+  "description": zod.string().max(createManualSwapAddonResponseTranslationsEnDescriptionMax).optional()
+}).optional(),
+  "ru": zod.object({
+  "title": zod.string().max(createManualSwapAddonResponseTranslationsRuTitleMax).optional(),
+  "description": zod.string().max(createManualSwapAddonResponseTranslationsRuDescriptionMax).optional()
+}).optional(),
+  "ar": zod.object({
+  "title": zod.string().max(createManualSwapAddonResponseTranslationsArTitleMax).optional(),
+  "description": zod.string().max(createManualSwapAddonResponseTranslationsArDescriptionMax).optional()
+}).optional(),
+  "uk": zod.object({
+  "title": zod.string().max(createManualSwapAddonResponseTranslationsUkTitleMax).optional(),
+  "description": zod.string().max(createManualSwapAddonResponseTranslationsUkDescriptionMax).optional()
+}).optional()
+}),
   "enabled": zod.boolean(),
   "displayOrder": zod.number().int().min(createManualSwapAddonResponseDisplayOrderMin),
   "selectionRule": zod.enum(['none', 'one', 'multiple']),
@@ -603,6 +752,24 @@ export const updateManualSwapAddonBodyOneDescriptionMax = 1000;
 
 export const updateManualSwapAddonBodyOneFixedAmountRegExp = new RegExp('^(?:0|[1-9][0-9]{0,19})(?:\\.[0-9]{1,18})?$');
 export const updateManualSwapAddonBodyOneFeeCurrencyRegExp = new RegExp('^[A-Z0-9]{2,15}$');
+export const updateManualSwapAddonBodyOneFeeTypeDefault = `fixed`;
+export const updateManualSwapAddonBodyOnePercentageOneRegExp = new RegExp('^(?:0|[1-9][0-9]{0,19})(?:\\.[0-9]{1,18})?$');
+export const updateManualSwapAddonBodyOneTranslationsEnTitleMax = 120;
+
+export const updateManualSwapAddonBodyOneTranslationsEnDescriptionMax = 1000;
+
+export const updateManualSwapAddonBodyOneTranslationsRuTitleMax = 120;
+
+export const updateManualSwapAddonBodyOneTranslationsRuDescriptionMax = 1000;
+
+export const updateManualSwapAddonBodyOneTranslationsArTitleMax = 120;
+
+export const updateManualSwapAddonBodyOneTranslationsArDescriptionMax = 1000;
+
+export const updateManualSwapAddonBodyOneTranslationsUkTitleMax = 120;
+
+export const updateManualSwapAddonBodyOneTranslationsUkDescriptionMax = 1000;
+
 export const updateManualSwapAddonBodyOneEnabledDefault = true;
 export const updateManualSwapAddonBodyOneDisplayOrderMin = 0;
 
@@ -617,6 +784,26 @@ export const UpdateManualSwapAddonBody = zod.object({
   "description": zod.string().max(updateManualSwapAddonBodyOneDescriptionMax).optional(),
   "fixedAmount": zod.string().regex(updateManualSwapAddonBodyOneFixedAmountRegExp).describe('An exact non-negative decimal fitting the Manual Swap numeric(38,18) storage boundary.'),
   "feeCurrency": zod.string().regex(updateManualSwapAddonBodyOneFeeCurrencyRegExp),
+  "feeType": zod.enum(['fixed', 'percentage']).default(updateManualSwapAddonBodyOneFeeTypeDefault),
+  "percentage": zod.union([zod.string().regex(updateManualSwapAddonBodyOnePercentageOneRegExp).describe('An exact non-negative decimal fitting the Manual Swap numeric(38,18) storage boundary.'),zod.null()]).optional(),
+  "translations": zod.object({
+  "en": zod.object({
+  "title": zod.string().max(updateManualSwapAddonBodyOneTranslationsEnTitleMax).optional(),
+  "description": zod.string().max(updateManualSwapAddonBodyOneTranslationsEnDescriptionMax).optional()
+}).optional(),
+  "ru": zod.object({
+  "title": zod.string().max(updateManualSwapAddonBodyOneTranslationsRuTitleMax).optional(),
+  "description": zod.string().max(updateManualSwapAddonBodyOneTranslationsRuDescriptionMax).optional()
+}).optional(),
+  "ar": zod.object({
+  "title": zod.string().max(updateManualSwapAddonBodyOneTranslationsArTitleMax).optional(),
+  "description": zod.string().max(updateManualSwapAddonBodyOneTranslationsArDescriptionMax).optional()
+}).optional(),
+  "uk": zod.object({
+  "title": zod.string().max(updateManualSwapAddonBodyOneTranslationsUkTitleMax).optional(),
+  "description": zod.string().max(updateManualSwapAddonBodyOneTranslationsUkDescriptionMax).optional()
+}).optional()
+}).optional(),
   "enabled": zod.boolean().default(updateManualSwapAddonBodyOneEnabledDefault),
   "displayOrder": zod.number().int().min(updateManualSwapAddonBodyOneDisplayOrderMin).optional(),
   "selectionRule": zod.enum(['none', 'one', 'multiple']).default(updateManualSwapAddonBodyOneSelectionRuleDefault),
@@ -632,6 +819,23 @@ export const updateManualSwapAddonResponseDescriptionMax = 1000;
 
 export const updateManualSwapAddonResponseFixedAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const updateManualSwapAddonResponseFeeCurrencyRegExp = new RegExp('^[A-Z0-9]{2,15}$');
+export const updateManualSwapAddonResponsePercentageRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const updateManualSwapAddonResponseTranslationsEnTitleMax = 120;
+
+export const updateManualSwapAddonResponseTranslationsEnDescriptionMax = 1000;
+
+export const updateManualSwapAddonResponseTranslationsRuTitleMax = 120;
+
+export const updateManualSwapAddonResponseTranslationsRuDescriptionMax = 1000;
+
+export const updateManualSwapAddonResponseTranslationsArTitleMax = 120;
+
+export const updateManualSwapAddonResponseTranslationsArDescriptionMax = 1000;
+
+export const updateManualSwapAddonResponseTranslationsUkTitleMax = 120;
+
+export const updateManualSwapAddonResponseTranslationsUkDescriptionMax = 1000;
+
 export const updateManualSwapAddonResponseDisplayOrderMin = 0;
 
 export const updateManualSwapAddonResponsePresentationGroupMax = 100;
@@ -645,6 +849,26 @@ export const UpdateManualSwapAddonResponse = zod.object({
   "description": zod.string().max(updateManualSwapAddonResponseDescriptionMax),
   "fixedAmount": zod.string().regex(updateManualSwapAddonResponseFixedAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "feeCurrency": zod.string().regex(updateManualSwapAddonResponseFeeCurrencyRegExp),
+  "feeType": zod.enum(['fixed', 'percentage']),
+  "percentage": zod.string().regex(updateManualSwapAddonResponsePercentageRegExp).nullable().describe('Human percentage value; 1 means 1 percent.'),
+  "translations": zod.object({
+  "en": zod.object({
+  "title": zod.string().max(updateManualSwapAddonResponseTranslationsEnTitleMax).optional(),
+  "description": zod.string().max(updateManualSwapAddonResponseTranslationsEnDescriptionMax).optional()
+}).optional(),
+  "ru": zod.object({
+  "title": zod.string().max(updateManualSwapAddonResponseTranslationsRuTitleMax).optional(),
+  "description": zod.string().max(updateManualSwapAddonResponseTranslationsRuDescriptionMax).optional()
+}).optional(),
+  "ar": zod.object({
+  "title": zod.string().max(updateManualSwapAddonResponseTranslationsArTitleMax).optional(),
+  "description": zod.string().max(updateManualSwapAddonResponseTranslationsArDescriptionMax).optional()
+}).optional(),
+  "uk": zod.object({
+  "title": zod.string().max(updateManualSwapAddonResponseTranslationsUkTitleMax).optional(),
+  "description": zod.string().max(updateManualSwapAddonResponseTranslationsUkDescriptionMax).optional()
+}).optional()
+}),
   "enabled": zod.boolean(),
   "displayOrder": zod.number().int().min(updateManualSwapAddonResponseDisplayOrderMin),
   "selectionRule": zod.enum(['none', 'one', 'multiple']),
@@ -668,6 +892,23 @@ export const deleteManualSwapAddonResponseDescriptionMax = 1000;
 
 export const deleteManualSwapAddonResponseFixedAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const deleteManualSwapAddonResponseFeeCurrencyRegExp = new RegExp('^[A-Z0-9]{2,15}$');
+export const deleteManualSwapAddonResponsePercentageRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
+export const deleteManualSwapAddonResponseTranslationsEnTitleMax = 120;
+
+export const deleteManualSwapAddonResponseTranslationsEnDescriptionMax = 1000;
+
+export const deleteManualSwapAddonResponseTranslationsRuTitleMax = 120;
+
+export const deleteManualSwapAddonResponseTranslationsRuDescriptionMax = 1000;
+
+export const deleteManualSwapAddonResponseTranslationsArTitleMax = 120;
+
+export const deleteManualSwapAddonResponseTranslationsArDescriptionMax = 1000;
+
+export const deleteManualSwapAddonResponseTranslationsUkTitleMax = 120;
+
+export const deleteManualSwapAddonResponseTranslationsUkDescriptionMax = 1000;
+
 export const deleteManualSwapAddonResponseDisplayOrderMin = 0;
 
 export const deleteManualSwapAddonResponsePresentationGroupMax = 100;
@@ -681,6 +922,26 @@ export const DeleteManualSwapAddonResponse = zod.object({
   "description": zod.string().max(deleteManualSwapAddonResponseDescriptionMax),
   "fixedAmount": zod.string().regex(deleteManualSwapAddonResponseFixedAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "feeCurrency": zod.string().regex(deleteManualSwapAddonResponseFeeCurrencyRegExp),
+  "feeType": zod.enum(['fixed', 'percentage']),
+  "percentage": zod.string().regex(deleteManualSwapAddonResponsePercentageRegExp).nullable().describe('Human percentage value; 1 means 1 percent.'),
+  "translations": zod.object({
+  "en": zod.object({
+  "title": zod.string().max(deleteManualSwapAddonResponseTranslationsEnTitleMax).optional(),
+  "description": zod.string().max(deleteManualSwapAddonResponseTranslationsEnDescriptionMax).optional()
+}).optional(),
+  "ru": zod.object({
+  "title": zod.string().max(deleteManualSwapAddonResponseTranslationsRuTitleMax).optional(),
+  "description": zod.string().max(deleteManualSwapAddonResponseTranslationsRuDescriptionMax).optional()
+}).optional(),
+  "ar": zod.object({
+  "title": zod.string().max(deleteManualSwapAddonResponseTranslationsArTitleMax).optional(),
+  "description": zod.string().max(deleteManualSwapAddonResponseTranslationsArDescriptionMax).optional()
+}).optional(),
+  "uk": zod.object({
+  "title": zod.string().max(deleteManualSwapAddonResponseTranslationsUkTitleMax).optional(),
+  "description": zod.string().max(deleteManualSwapAddonResponseTranslationsUkDescriptionMax).optional()
+}).optional()
+}),
   "enabled": zod.boolean(),
   "displayOrder": zod.number().int().min(deleteManualSwapAddonResponseDisplayOrderMin),
   "selectionRule": zod.enum(['none', 'one', 'multiple']),
@@ -750,6 +1011,24 @@ export const previewManualSwapFeesBodyAddonsItemDescriptionMax = 1000;
 
 export const previewManualSwapFeesBodyAddonsItemFixedAmountRegExp = new RegExp('^(?:0|[1-9][0-9]{0,19})(?:\\.[0-9]{1,18})?$');
 export const previewManualSwapFeesBodyAddonsItemFeeCurrencyRegExp = new RegExp('^[A-Z0-9]{2,15}$');
+export const previewManualSwapFeesBodyAddonsItemFeeTypeDefault = `fixed`;
+export const previewManualSwapFeesBodyAddonsItemPercentageOneRegExp = new RegExp('^(?:0|[1-9][0-9]{0,19})(?:\\.[0-9]{1,18})?$');
+export const previewManualSwapFeesBodyAddonsItemTranslationsEnTitleMax = 120;
+
+export const previewManualSwapFeesBodyAddonsItemTranslationsEnDescriptionMax = 1000;
+
+export const previewManualSwapFeesBodyAddonsItemTranslationsRuTitleMax = 120;
+
+export const previewManualSwapFeesBodyAddonsItemTranslationsRuDescriptionMax = 1000;
+
+export const previewManualSwapFeesBodyAddonsItemTranslationsArTitleMax = 120;
+
+export const previewManualSwapFeesBodyAddonsItemTranslationsArDescriptionMax = 1000;
+
+export const previewManualSwapFeesBodyAddonsItemTranslationsUkTitleMax = 120;
+
+export const previewManualSwapFeesBodyAddonsItemTranslationsUkDescriptionMax = 1000;
+
 export const previewManualSwapFeesBodyAddonsItemEnabledDefault = true;
 export const previewManualSwapFeesBodyAddonsItemDisplayOrderMin = 0;
 
@@ -781,6 +1060,26 @@ export const PreviewManualSwapFeesBody = zod.object({
   "description": zod.string().max(previewManualSwapFeesBodyAddonsItemDescriptionMax).optional(),
   "fixedAmount": zod.string().regex(previewManualSwapFeesBodyAddonsItemFixedAmountRegExp).describe('An exact non-negative decimal fitting the Manual Swap numeric(38,18) storage boundary.'),
   "feeCurrency": zod.string().regex(previewManualSwapFeesBodyAddonsItemFeeCurrencyRegExp),
+  "feeType": zod.enum(['fixed', 'percentage']).default(previewManualSwapFeesBodyAddonsItemFeeTypeDefault),
+  "percentage": zod.union([zod.string().regex(previewManualSwapFeesBodyAddonsItemPercentageOneRegExp).describe('An exact non-negative decimal fitting the Manual Swap numeric(38,18) storage boundary.'),zod.null()]).optional(),
+  "translations": zod.object({
+  "en": zod.object({
+  "title": zod.string().max(previewManualSwapFeesBodyAddonsItemTranslationsEnTitleMax).optional(),
+  "description": zod.string().max(previewManualSwapFeesBodyAddonsItemTranslationsEnDescriptionMax).optional()
+}).optional(),
+  "ru": zod.object({
+  "title": zod.string().max(previewManualSwapFeesBodyAddonsItemTranslationsRuTitleMax).optional(),
+  "description": zod.string().max(previewManualSwapFeesBodyAddonsItemTranslationsRuDescriptionMax).optional()
+}).optional(),
+  "ar": zod.object({
+  "title": zod.string().max(previewManualSwapFeesBodyAddonsItemTranslationsArTitleMax).optional(),
+  "description": zod.string().max(previewManualSwapFeesBodyAddonsItemTranslationsArDescriptionMax).optional()
+}).optional(),
+  "uk": zod.object({
+  "title": zod.string().max(previewManualSwapFeesBodyAddonsItemTranslationsUkTitleMax).optional(),
+  "description": zod.string().max(previewManualSwapFeesBodyAddonsItemTranslationsUkDescriptionMax).optional()
+}).optional()
+}).optional(),
   "enabled": zod.boolean().default(previewManualSwapFeesBodyAddonsItemEnabledDefault),
   "displayOrder": zod.number().int().min(previewManualSwapFeesBodyAddonsItemDisplayOrderMin).optional(),
   "selectionRule": zod.enum(['none', 'one', 'multiple']).default(previewManualSwapFeesBodyAddonsItemSelectionRuleDefault),
@@ -830,7 +1129,9 @@ export const PreviewManualSwapFeesResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(previewManualSwapFeesResponseFeeSnapshotSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(previewManualSwapFeesResponseFeeSnapshotSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(previewManualSwapFeesResponseFeeSnapshotSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(previewManualSwapFeesResponseFeeSnapshotAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -1576,7 +1877,9 @@ export const CreateExchangeQuoteResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(createExchangeQuoteResponseManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(createExchangeQuoteResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(createExchangeQuoteResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(createExchangeQuoteResponseManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -1730,7 +2033,9 @@ export const CreateExchangeQuoteByReceiveResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(createExchangeQuoteByReceiveResponseManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(createExchangeQuoteByReceiveResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(createExchangeQuoteByReceiveResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(createExchangeQuoteByReceiveResponseManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -2022,7 +2327,9 @@ export const CreateExchangeOrderResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(createExchangeOrderResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(createExchangeOrderResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(createExchangeOrderResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(createExchangeOrderResponsePricingSnapshotOneManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -2418,7 +2725,9 @@ export const GetOrdersResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(getOrdersResponseItemsItemPricingSnapshotOneManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(getOrdersResponseItemsItemPricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(getOrdersResponseItemsItemPricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(getOrdersResponseItemsItemPricingSnapshotOneManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -2806,7 +3115,9 @@ export const CreateOrderResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(createOrderResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(createOrderResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(createOrderResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(createOrderResponsePricingSnapshotOneManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -3162,7 +3473,9 @@ export const BulkUpdateOrderStatusResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -3524,7 +3837,9 @@ export const BulkArchiveOrdersResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -3885,7 +4200,9 @@ export const PermanentlyDeleteOrdersResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -4104,7 +4421,9 @@ export const GetPublicOrderStatusResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(getPublicOrderStatusResponseOneManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(getPublicOrderStatusResponseOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(getPublicOrderStatusResponseOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(getPublicOrderStatusResponseOneManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -4399,7 +4718,9 @@ export const GetOrderResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(getOrderResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(getOrderResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(getOrderResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(getOrderResponsePricingSnapshotOneManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -4789,7 +5110,9 @@ export const UpdateOrderResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(updateOrderResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(updateOrderResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(updateOrderResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(updateOrderResponsePricingSnapshotOneManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -4997,7 +5320,9 @@ export const MarkOrderPaidResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(markOrderPaidResponseManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(markOrderPaidResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(markOrderPaidResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(markOrderPaidResponseManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -5153,7 +5478,9 @@ export const CancelCustomerOrderResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(cancelCustomerOrderResponseManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(cancelCustomerOrderResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(cancelCustomerOrderResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(cancelCustomerOrderResponseManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -5451,7 +5778,9 @@ export const AssignOrderResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(assignOrderResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(assignOrderResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(assignOrderResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(assignOrderResponsePricingSnapshotOneManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -5820,7 +6149,9 @@ export const UpdateOrderSupportToolsResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(updateOrderSupportToolsResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(updateOrderSupportToolsResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(updateOrderSupportToolsResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(updateOrderSupportToolsResponsePricingSnapshotOneManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -6168,7 +6499,9 @@ export const ArchiveOrderResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(archiveOrderResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(archiveOrderResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(archiveOrderResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(archiveOrderResponsePricingSnapshotOneManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -6516,7 +6849,9 @@ export const RestoreOrderResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(restoreOrderResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(restoreOrderResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(restoreOrderResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(restoreOrderResponsePricingSnapshotOneManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -6755,7 +7090,9 @@ export const GetCustomerOrdersResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(getCustomerOrdersResponseItemsItemManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(getCustomerOrdersResponseItemsItemManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(getCustomerOrdersResponseItemsItemManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(getCustomerOrdersResponseItemsItemManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -6917,7 +7254,9 @@ export const ClaimCustomerOrderResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(claimCustomerOrderResponseManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(claimCustomerOrderResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(claimCustomerOrderResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(claimCustomerOrderResponseManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -7064,7 +7403,9 @@ export const GetCustomerOrderResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(getCustomerOrderResponseManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(getCustomerOrderResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(getCustomerOrderResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(getCustomerOrderResponseManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -12616,7 +12957,9 @@ export const ReconcileOrderResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(reconcileOrderResponseOrderPricingSnapshotOneManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(reconcileOrderResponseOrderPricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(reconcileOrderResponseOrderPricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(reconcileOrderResponseOrderPricingSnapshotOneManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -13395,7 +13738,9 @@ export const CreateQuickexQuoteResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(createQuickexQuoteResponseManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(createQuickexQuoteResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(createQuickexQuoteResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(createQuickexQuoteResponseManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -13539,7 +13884,9 @@ export const CreateQuickexQuoteByReceiveResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(createQuickexQuoteByReceiveResponseManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(createQuickexQuoteByReceiveResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(createQuickexQuoteByReceiveResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(createQuickexQuoteByReceiveResponseManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -13827,7 +14174,9 @@ export const CreateQuickexOrderResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(createQuickexOrderResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(createQuickexOrderResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(createQuickexOrderResponsePricingSnapshotOneManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(createQuickexOrderResponsePricingSnapshotOneManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -14056,7 +14405,9 @@ export const GetQuickexOrderStatusResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(getQuickexOrderStatusResponseManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(getQuickexOrderStatusResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(getQuickexOrderStatusResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(getQuickexOrderStatusResponseManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -18989,7 +19340,9 @@ export const ListTelegramMiniAppOrdersResponseItem = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(listTelegramMiniAppOrdersResponseManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(listTelegramMiniAppOrdersResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(listTelegramMiniAppOrdersResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(listTelegramMiniAppOrdersResponseManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -19092,7 +19445,9 @@ export const GetTelegramMiniAppOrderResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(getTelegramMiniAppOrderResponseManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(getTelegramMiniAppOrderResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(getTelegramMiniAppOrderResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(getTelegramMiniAppOrderResponseManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
@@ -19198,7 +19553,9 @@ export const LinkTelegramMiniAppOrderResponse = zod.object({
   "name": zod.string(),
   "amount": zod.string().regex(linkTelegramMiniAppOrderResponseManualSwapFeesSelectedAddonsItemAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "currency": zod.string(),
-  "targetAmount": zod.string().regex(linkTelegramMiniAppOrderResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.')
+  "targetAmount": zod.string().regex(linkTelegramMiniAppOrderResponseManualSwapFeesSelectedAddonsItemTargetAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
+  "feeType": zod.enum(['fixed', 'percentage']).optional(),
+  "percentage": zod.string().nullish()
 })),
   "addonFee": zod.string().regex(linkTelegramMiniAppOrderResponseManualSwapFeesAddonFeeRegExp).describe('An exact non-negative base-10 decimal value.'),
   "exchangeFee": zod.object({
