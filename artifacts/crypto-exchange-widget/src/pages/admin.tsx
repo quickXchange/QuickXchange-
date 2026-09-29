@@ -13,7 +13,7 @@ import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/reac
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import {
-  ArrowDownUp, ArrowLeft, ArrowRight, BadgeCheck, Banknote, Check, ChevronDown, ChevronLeft,
+  ArrowDownUp, ArrowLeft, ArrowRight, BadgeCheck, Banknote, Check, ChevronDown, ChevronLeft, Plus,
   Calculator, CircleAlert, Clock3, Copy, Download, FileText, Filter, Globe2, Pencil, Play, Power,
   LayoutDashboard, Loader2, Mail, Menu, MoreHorizontal, Archive, ArchiveRestore,
   RefreshCw, RotateCcw, Save, ShieldCheck, TrendingUp, UserRound, Users,
@@ -6279,8 +6279,8 @@ function PaymentMethodDynamicFields({ fields, setFields }: { fields: PaymentMeth
         </div>
         <DropdownMenuPrimitive.Root>
           <DropdownMenuPrimitive.Trigger asChild>
-            <button type="button" className="payment-method-add-field" data-testid={`button-add-field-${contextDir}`}>
-              + Add Field
+            <button type="button" className="payment-method-add-field" data-testid={`button-add-field-${contextDir}`} aria-label={`Add ${contextDir} field`}>
+              <Plus size={13} aria-hidden="true" /> Add Field <ChevronDown size={13} aria-hidden="true" />
             </button>
           </DropdownMenuPrimitive.Trigger>
           <DropdownMenuPrimitive.Portal>
@@ -6296,59 +6296,45 @@ function PaymentMethodDynamicFields({ fields, setFields }: { fields: PaymentMeth
       </div>
 
       <div className="payment-method-field-list">
-        {currentFields.map((field) => (
-          <div key={field.key} className="payment-method-field-row" data-testid={`row-${contextDir}-${field.key}`}>
-            <label className="payment-method-field-label">
-              <span>Field Name / Label</span>
-              <input
-                value={field.label}
-                onChange={e => updateField(field, contextDir, { label: e.target.value })}
-                className="payment-method-field-name-input"
-                placeholder="Field Name"
-                data-testid={`input-label-${contextDir}-${field.key}`}
-              />
-            </label>
-            <label className="payment-method-field-label">
-              <span>Placeholder</span>
-              <input
-                value={field.placeholder || ''}
-                onChange={e => updateField(field, contextDir, { placeholder: e.target.value || undefined })}
-                className="payment-method-field-name-input"
-                placeholder="Input placeholder"
-                data-testid={`input-placeholder-${contextDir}-${field.key}`}
-              />
-            </label>
-            <label className="payment-method-required-toggle">
-              <input
-                type="checkbox"
-                checked={field.enabled !== false}
-                onChange={e => updateField(field, contextDir, { enabled: e.target.checked })}
-                data-testid={`input-enabled-${contextDir}-${field.key}`}
-              />
-              <span>Enabled <strong>{field.enabled !== false ? "ON" : "OFF"}</strong></span>
-            </label>
-            <label className="payment-method-required-toggle" data-testid={`label-req-${contextDir}-${field.key}`}>
-              <input
-                type="checkbox"
-                checked={field.required !== false}
-                onChange={e => updateField(field, contextDir, { required: e.target.checked })}
-                data-testid={`input-req-${contextDir}-${field.key}`}
-              />
-              <span>Required <strong>{field.required !== false ? "ON" : "OFF"}</strong></span>
-            </label>
-            <button type="button" className="payment-method-remove-field" onClick={() => moveField(field, contextDir, -1)} aria-label="Move field up">↑</button>
-            <button type="button" className="payment-method-remove-field" onClick={() => moveField(field, contextDir, 1)} aria-label="Move field down">↓</button>
-            <button
-              type="button"
-              className="payment-method-remove-field"
-              onClick={() => removeField(field, contextDir)}
-              data-testid={`button-rem-${contextDir}-${field.key}`}
-              aria-label="Remove field"
-            >
-              <X size={15} />
-            </button>
-          </div>
-        ))}
+        {currentFields.map((field, index) => {
+          const isNew = field.key.startsWith("__auto__");
+          const metadata = field as PaymentMethodFieldDefinition & Record<string, unknown>;
+          const details = [
+            ["Pattern", metadata.pattern], ["Min", metadata.min], ["Max", metadata.max],
+            ["Min length", metadata.minLength], ["Max length", metadata.maxLength],
+            ["Options", metadata.options], ["Required when", metadata.requiredWhen],
+            ["Help", metadata.help], ["Help text", metadata.helpText],
+          ].filter(([, value]) => value !== undefined && value !== null && value !== "");
+          return (
+            <div key={field.key} className={cn("payment-method-field-row", isNew && "payment-method-field-row--new")} data-testid={`row-${contextDir}-${field.key}`}>
+              <div className="payment-method-field-row-head">
+                <span className="payment-method-field-row-title">Field {index + 1} <span className="payment-method-field-state">{isNew ? "New · auto key" : "Existing field"}</span></span>
+                <div className="payment-method-field-actions">
+                  <button type="button" className="payment-method-remove-field" onClick={() => moveField(field, contextDir, -1)} disabled={index === 0} aria-label={`Move ${field.label} up`} title="Move up" data-testid={`button-move-up-${contextDir}-${field.key}`}><ArrowLeft size={15} className="payment-method-arrow-up" /></button>
+                  <button type="button" className="payment-method-remove-field" onClick={() => moveField(field, contextDir, 1)} disabled={index === currentFields.length - 1} aria-label={`Move ${field.label} down`} title="Move down" data-testid={`button-move-down-${contextDir}-${field.key}`}><ArrowRight size={15} className="payment-method-arrow-down" /></button>
+                  <button type="button" className="payment-method-remove-field payment-method-remove-field--danger" onClick={() => removeField(field, contextDir)} data-testid={`button-rem-${contextDir}-${field.key}`} aria-label={`Remove ${field.label}`} title="Remove field"><Trash2 size={15} /></button>
+                </div>
+              </div>
+              <div className="payment-method-field-inputs">
+                <label className="payment-method-field-label"><span>Label</span><input value={field.label} onChange={e => updateField(field, contextDir, { label: e.target.value })} className="payment-method-field-name-input" placeholder="Field Name" data-testid={`input-label-${contextDir}-${field.key}`} /></label>
+                <label className="payment-method-field-label"><span>Placeholder</span><input value={field.placeholder || ''} onChange={e => updateField(field, contextDir, { placeholder: e.target.value || undefined })} className="payment-method-field-name-input" placeholder="Input placeholder" data-testid={`input-placeholder-${contextDir}-${field.key}`} /></label>
+              </div>
+              <div className="payment-method-field-metadata" aria-label="Read-only field identity">
+                <div><span>Field key</span><code data-testid={`text-key-${contextDir}-${field.key}`} title={field.key}>{isNew ? "Generated on save" : field.key}</code></div>
+                <div><span>Type</span><strong>{field.type.replaceAll("-", " ")}</strong></div>
+                <div><span>Direction</span><strong>{field.direction === "send" ? "You send" : field.direction === "receive" ? "You receive" : "Both"}</strong></div>
+              </div>
+              {details.length > 0 && <div className="payment-method-field-details" aria-label="Read-only validation and options">
+                {details.map(([name, value]) => <div key={String(name)}><span>{String(name)}</span><code>{typeof value === "string" ? value : JSON.stringify(value)}</code></div>)}
+              </div>}
+              {details.length === 0 && <span className="payment-method-field-no-rules">No custom validation or options</span>}
+              <div className="payment-method-field-switches">
+                <label className="payment-method-required-toggle"><input type="checkbox" checked={field.enabled !== false} onChange={e => updateField(field, contextDir, { enabled: e.target.checked })} data-testid={`input-enabled-${contextDir}-${field.key}`} /><span>Enabled <strong>{field.enabled !== false ? "ON" : "OFF"}</strong></span></label>
+                <label className="payment-method-required-toggle" data-testid={`label-req-${contextDir}-${field.key}`}><input type="checkbox" checked={field.required !== false} onChange={e => updateField(field, contextDir, { required: e.target.checked })} data-testid={`input-req-${contextDir}-${field.key}`} /><span>{field.required !== false ? "Required" : "Optional"}</span></label>
+              </div>
+            </div>
+          );
+        })}
         {currentFields.length === 0 && (
           <div className="payment-method-field-empty">
             <span>No required information configured.</span>
@@ -6361,14 +6347,14 @@ function PaymentMethodDynamicFields({ fields, setFields }: { fields: PaymentMeth
   return (
     <div className="payment-method-fields">
       {renderSection(
-        "YOU SEND — Required Information",
+        "YOU SEND — Fields",
         "This controls what information must be requested from the customer when this Payment Method is selected in You Send.",
         "send",
         sendFields,
         sendPresets
       )}
       {renderSection(
-        "YOU RECEIVE — Required Information",
+        "YOU RECEIVE — Fields",
         "This controls what information must be requested from the customer when this Payment Method is selected in You Receive.",
         "receive",
         receiveFields,
@@ -6466,13 +6452,13 @@ function PaymentMethodDrawer({ method, onClose }: { method?: any; onClose: () =>
   };
 
   return createPortal(<div className="drawer-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
-    <aside className="order-drawer catalog-editor-drawer" role="dialog" aria-label={method ? t('adminCatalog.edit_payment_method') : t('adminCatalog.add_payment_method')}>
+    <aside className="order-drawer catalog-editor-drawer payment-method-editor-drawer" role="dialog" aria-label={method ? t('adminCatalog.edit_payment_method') : t('adminCatalog.add_payment_method')}>
       <div className="drawer-head catalog-editor-head">
         <div className="catalog-editor-heading"><span className="catalog-editor-icon"><WalletCards size={19} /></span><div><span className="section-kicker">{t('adminCatalog.configuration')}</span><h2>{method ? t('adminCatalog.edit_payment_method') : t('adminCatalog.add_payment_method')}</h2></div></div>
         <button className="icon-button catalog-editor-close" onClick={onClose} aria-label={t('adminCatalog.close_payment_method_drawer')}><X size={18} /></button>
       </div>
       <div className="catalog-editor-scroll scrollbar-thin">
-        <form onSubmit={save} className="admin-form admin-form-card catalog-editor-form">
+        <form id="payment-method-editor-form" onSubmit={save} className="admin-form admin-form-card catalog-editor-form">
           {notice && <InlineNotice kind={notice.kind} onDismiss={() => setNotice(null)}>{notice.text}</InlineNotice>}
           <label><span className="field-label">{t('adminCatalog.internal_id')}<small>{t('adminCatalog.a_z_0_9_hyphens')}</small></span><input value={form.id} onChange={e => setForm(f => ({...f, id: e.target.value}))} required disabled={!!method} pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$" data-testid="input-pm-id" /></label>
           <label><span className="field-label">{t('adminCatalog.name')}</span><input value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} required data-testid="input-pm-name" /></label>
@@ -6537,10 +6523,13 @@ function PaymentMethodDrawer({ method, onClose }: { method?: any; onClose: () =>
 
           <PaymentMethodDynamicFields fields={fields} setFields={setFields} />
 
-          <button type="submit" disabled={isPending || !form.id || !form.name} className="catalog-editor-primary" data-testid="button-save-pm">
-            {isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}{isPending ? t('adminCatalog.saving') : t('adminCatalog.save_payment_method')}
-          </button>
         </form>
+      </div>
+      <div className="payment-method-editor-footer">
+        <button type="button" onClick={onClose} className="payment-method-editor-cancel" data-testid="button-cancel-pm"><X size={14} aria-hidden="true" />Cancel</button>
+        <button type="submit" form="payment-method-editor-form" disabled={isPending || !form.id || !form.name} className="catalog-editor-primary" data-testid="button-save-pm">
+          {isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}{isPending ? t('adminCatalog.saving') : t('adminCatalog.save_payment_method')}
+        </button>
       </div>
     </aside>
   </div>, document.body);
