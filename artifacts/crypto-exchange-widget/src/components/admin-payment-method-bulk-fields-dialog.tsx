@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ArrowDown, ArrowUp, CircleAlert, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { apiErrorText } from '../App';
+import { notifyAdminAction } from './admin-action-toast';
 
 type Field = PaymentMethodFieldDefinition;
 const fieldTypes: Field['type'][] = ['short-text', 'long-text', 'integer', 'numeric', 'decimal', 'account-iban', 'account-number', 'account-name', 'bank-code', 'routing-number', 'country-code', 'postal-address', 'phone', 'email', 'date', 'select', 'wallet-address', 'memo-tag', 'private-image', 'text', 'number', 'textarea'];
@@ -137,7 +138,9 @@ export function AdminPaymentMethodBulkFieldsDialog({ methodIds, methods, onClose
     } catch (cause) {
       setReview(null);
       setStep('edit');
-      setError(`${apiErrorText(cause, 'Could not apply the changes.')} This review is no longer valid. Review the current changes again before applying.`);
+      const message = apiErrorText(cause, 'Could not apply the changes.');
+      notifyAdminAction('error', message);
+      setError(`${message} This review is no longer valid. Review the current changes again before applying.`);
     } finally {
       setPending(false);
     }

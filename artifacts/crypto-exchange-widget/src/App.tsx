@@ -84,6 +84,7 @@ import { PublicShell } from '@/components/public-shell';
 import { CommunitySection } from '@/components/community-section';
 import { SideDrawer } from '@/components/side-drawer';
 import { AdminHeader } from '@/components/admin-header';
+import { AdminActionToastHost } from '@/components/admin-action-toast';
 export { PublicShell } from '@/components/public-shell';
 import {
   apiErrorData, basePath, cn, ErrorState, InlineNotice, LoadingBlock, neutralText,
@@ -2648,7 +2649,7 @@ function CryptoIdentityCatalog({ children }: { children: React.ReactNode }) {
 }
 
 function ClerkProviderWithRoutes() {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const isDark = useAppTheme();
   const { t } = useI18n();
   const preview = useSitePreview();
@@ -2733,6 +2734,7 @@ function ClerkProviderWithRoutes() {
             <Route path="/admin/newsletter" component={AdminNewsletterRoute} />
             <Route component={NotFound} />
             </Switch>
+            {location.startsWith('/admin') && <AdminActionToastHost />}
           </Suspense>
         </ErrorBoundary>
       </CryptoIdentityCatalog>

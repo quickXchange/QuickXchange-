@@ -11,6 +11,7 @@ import type { NewsletterSubscriberStatus } from '@workspace/api-client-react';
 import { AdminShell, apiErrorText, queryClient } from '@/App';
 import { cn, InlineNotice, LoadingBlock } from '@/components/shared-app-ui';
 import { useAdminPermissions } from '@/lib/admin-permissions';
+import { notifyAdminAction } from '@/components/admin-action-toast';
 
 const dateFormatter = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' });
 
@@ -29,15 +30,21 @@ export function AdminNewsletterPage() {
   const refresh = () => queryClient.invalidateQueries({ queryKey: getListNewsletterSubscribersQueryKey() });
   const mutateSubscriber = (id: string, status: NewsletterSubscriberStatus) => {
     updateSubscriber.mutate({ id, data: { status } }, {
-      onSuccess: refresh,
-      onError: (error) => setNotice({ kind: 'error', text: apiErrorText(error, 'Unable to update subscriber.') }),
+      onSuccess: () => {
+        void refresh();
+        notifyAdminAction('success', status === 'active' ? 'Newsletter subscriber enabled.' : 'Newsletter subscriber disabled.');
+      },
+      onError: (error) => notifyAdminAction('error', apiErrorText(error, 'Unable to update subscriber.')),
     });
   };
   const remove = (id: string) => {
     if (!window.confirm('Remove this subscriber? They will no longer receive newsletter emails.')) return;
     removeSubscriber.mutate({ id }, {
-      onSuccess: refresh,
-      onError: (error) => setNotice({ kind: 'error', text: apiErrorText(error, 'Unable to remove subscriber.') }),
+      onSuccess: () => {
+        void refresh();
+        notifyAdminAction('success', 'Newsletter subscriber removed.');
+      },
+      onError: (error) => notifyAdminAction('error', apiErrorText(error, 'Unable to remove subscriber.')),
     });
   };
   const publish = (event: React.FormEvent) => {
@@ -57,9 +64,9 @@ export function AdminNewsletterPage() {
     publishAnnouncement.mutate({ data: { title, description, readMorePath } }, {
       onSuccess: () => {
         setAnnouncement({ title: '', description: '', readMorePath: '' });
-        setNotice({ kind: 'success', text: 'Announcement queued for active subscribers.' });
+        notifyAdminAction('success', 'Newsletter announcement queued for active subscribers.');
       },
-      onError: (error) => setNotice({ kind: 'error', text: apiErrorText(error, 'Unable to publish announcement.') }),
+      onError: (error) => notifyAdminAction('error', apiErrorText(error, 'Unable to publish announcement.')),
     });
   };
 

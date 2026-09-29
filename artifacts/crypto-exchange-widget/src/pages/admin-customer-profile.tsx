@@ -18,6 +18,7 @@ import {
 import { AdminShell, ErrorState, LoadingBlock, InlineNotice, apiErrorText, FiatCurrencyFlag } from '../App';
 import { CryptoIdentity } from '../components/crypto-identity';
 import { useI18n } from '../i18n/provider';
+import { notifyAdminAction } from '@/components/admin-action-toast';
 
 const fiatAssets = new Set(['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'CHF', 'JPY']);
 
@@ -82,13 +83,10 @@ export function AdminCustomerProfile() {
   const [editForm, setEditForm] = useState({ firstName: '', lastName: '', country: '', role: '', customReferralCode: '', referralRate: '' });
   const [passwordForm, setPasswordForm] = useState({ password: '', confirm: '' });
   const [passwordConfirmStep, setPasswordConfirmStep] = useState(false);
-  const [editError, setEditError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const editInFlight = useRef(false);
   const passwordInFlight = useRef(false);
   const confirmInFlight = useRef(false);
-
-  const [actionNotice, setActionNotice] = useState<{ kind: 'success' | 'error', text: string } | null>(null);
 
   const invalidateQueries = () => {
     void queryClient.invalidateQueries({ queryKey: ['/api/admin/customers'] });
@@ -96,7 +94,6 @@ export function AdminCustomerProfile() {
 
   const handleEditOpen = () => {
     if (customer) {
-      setEditError('');
       setEditForm({
         firstName: customer.firstName || '',
         lastName: customer.lastName || '',
@@ -113,8 +110,6 @@ export function AdminCustomerProfile() {
     e.preventDefault();
     if (editInFlight.current) return;
     editInFlight.current = true;
-    setEditError('');
-    setActionNotice(null);
     updateMutation.mutate({
       id,
       data: {
@@ -134,9 +129,9 @@ export function AdminCustomerProfile() {
         queryClient.setQueryData(getGetAdminCustomerQueryKey(id), updated);
         setEditOpen(false);
         invalidateQueries();
-        setActionNotice({ kind: 'success', text: t('adminCustomer.updateSuccess') });
+        notifyAdminAction('success', t('adminCustomer.updateSuccess'));
       },
-      onError: (err) => setEditError(apiErrorText(err, t('adminCustomer.updateError'))),
+      onError: (err) => notifyAdminAction('error', apiErrorText(err, t('adminCustomer.updateError'))),
       onSettled: () => { editInFlight.current = false; },
     });
   };
@@ -158,16 +153,15 @@ export function AdminCustomerProfile() {
       return;
     }
     passwordInFlight.current = true;
-    setActionNotice(null);
     resetPasswordMutation.mutate({ id, data: { temporaryPassword: passwordForm.password } }, {
       onSuccess: () => {
         setPasswordOpen(false);
         setPasswordConfirmStep(false);
         setPasswordForm({ password: '', confirm: '' });
         invalidateQueries();
-        setActionNotice({ kind: 'success', text: t('adminCustomer.passwordSuccess') });
+        notifyAdminAction('success', t('adminCustomer.passwordSuccess'));
       },
-      onError: (err) => setPasswordError(apiErrorText(err, t('adminCustomer.passwordError'))),
+      onError: (err) => notifyAdminAction('error', apiErrorText(err, t('adminCustomer.passwordError'))),
       onSettled: () => { passwordInFlight.current = false; },
     });
   };
@@ -175,67 +169,62 @@ export function AdminCustomerProfile() {
   const handleConfirmEmail = () => {
     if (confirmInFlight.current || customer?.emailVerified) return;
     confirmInFlight.current = true;
-    setActionNotice(null);
     confirmEmailMutation.mutate({ id }, {
       onSuccess: async () => {
         try {
           const refreshed = await customerQuery.refetch();
           invalidateQueries();
-          setActionNotice(refreshed.data?.emailVerified
-            ? { kind: 'success', text: t('adminCustomer.emailSuccess') }
-            : { kind: 'error', text: t('adminCustomer.emailError') });
+          if (refreshed.data?.emailVerified) notifyAdminAction('success', t('adminCustomer.emailSuccess'));
+          else notifyAdminAction('error', t('adminCustomer.emailError'));
         } finally {
           confirmInFlight.current = false;
         }
       },
       onError: (err) => {
         confirmInFlight.current = false;
-        setActionNotice({ kind: 'error', text: apiErrorText(err, t('adminCustomer.emailError')) });
+        notifyAdminAction('error', apiErrorText(err, t('adminCustomer.emailError')));
       },
     });
   };
 
   const handleSuspend = () => {
-    setActionNotice(null);
     suspendMutation.mutate({ id }, {
       onSuccess: () => {
         setSuspendOpen(false);
         invalidateQueries();
-        setActionNotice({ kind: 'success', text: t('adminCustomer.suspendSuccess') });
+        notifyAdminAction('success', t('adminCustomer.suspendSuccess'));
       },
-      onError: (err) => setActionNotice({ kind: 'error', text: apiErrorText(err, t('adminCustomer.suspendError')) })
+      onError: (err) => notifyAdminAction('error', apiErrorText(err, t('adminCustomer.suspendError')))
     });
   };
 
   const handleActivate = () => {
-    setActionNotice(null);
     activateMutation.mutate({ id }, {
       onSuccess: () => {
         invalidateQueries();
-        setActionNotice({ kind: 'success', text: t('adminCustomer.activateSuccess') });
+        notifyAdminAction('success', t('adminCustomer.activateSuccess'));
       },
-      onError: (err) => setActionNotice({ kind: 'error', text: apiErrorText(err, t('adminCustomer.activateError')) })
+      onError: (err) => notifyAdminAction('error', apiErrorText(err, t('adminCustomer.activateError')))
     });
   };
 
   const handleRevokeSessions = () => {
-    setActionNotice(null);
     revokeSessionsMutation.mutate({ id }, {
       onSuccess: () => {
         setRevokeSessionsOpen(false);
-        setActionNotice({ kind: 'success', text: t('adminCustomer.revokeAllSessionsSuccess') });
+        notifyAdminAction('success', t('adminCustomer.revokeAllSessionsSuccess'));
       },
       onError: (err) => {
         const code = (err as { data?: { code?: string } })?.data?.code;
-        setActionNotice({
-          kind: 'error',
-          text: apiErrorText(
+        notifyAdminAction(
+          'error',
+          apiErrorText(
             err,
             code === 'CLERK_SESSION_REVOCATION_UNSUPPORTED'
               ? t('adminCustomer.revokeAllSessionsUnsupported')
               : t('adminCustomer.revokeAllSessionsError'),
           ),
-        });
+        );
       },
     });
   };
@@ -253,12 +242,6 @@ export function AdminCustomerProfile() {
       }
     >
       <div className="admin-customer-area rise-in space-y-6">
-        {actionNotice && (
-          <InlineNotice kind={actionNotice.kind} onDismiss={() => setActionNotice(null)}>
-            {actionNotice.text}
-          </InlineNotice>
-        )}
-
         {customerQuery.isError ? (
           <div className="panel p-6">
             <ErrorState message={t('adminCustomer.loadError')} retry={() => customerQuery.refetch()} />
@@ -573,7 +556,6 @@ export function AdminCustomerProfile() {
 
              <form onSubmit={handleEditSubmit} className="customer-admin-dialog-form">
                <div className="customer-admin-dialog-body">
-               {editError && <InlineNotice kind="error" onDismiss={() => setEditError('')}>{editError}</InlineNotice>}
               <div className="customer-edit-grid">
                 <div className="customer-dialog-field">
                   <label htmlFor="edit-firstname">{t('adminCustomer.firstName')} </label>

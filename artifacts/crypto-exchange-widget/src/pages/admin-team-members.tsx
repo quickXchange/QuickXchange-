@@ -24,6 +24,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useForm, Controller } from 'react-hook-form';
+import { notifyAdminAction } from '@/components/admin-action-toast';
 
 export function MembersList({ auth }: { auth: AdminAuthorization }) {
   const { data: members, isLoading, error } = useListTeamMembers();
@@ -35,7 +36,6 @@ export function MembersList({ auth }: { auth: AdminAuthorization }) {
   const [bulkRoleOpen, setBulkRoleOpen] = useState(false);
   const [bulkRoleId, setBulkRoleId] = useState('none');
   const [bulkPending, setBulkPending] = useState(false);
-  const [bulkNotice, setBulkNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
   const queryClient = useQueryClient();
   const reactivate = useReactivateTeamMember();
   const approve = useApproveOperator();
@@ -86,7 +86,6 @@ export function MembersList({ auth }: { auth: AdminAuthorization }) {
     if (!targets.length || bulkPending) return;
     if (action === 'delete' && !confirm(`Remove ${targets.length} selected team member${targets.length === 1 ? '' : 's'}?`)) return;
     setBulkPending(true);
-    setBulkNotice(null);
     let succeeded = 0;
     let failed = 0;
     for (const member of targets) {
@@ -105,16 +104,15 @@ export function MembersList({ auth }: { auth: AdminAuthorization }) {
       }
     }
     await refreshMembers();
-    setBulkNotice(failed
-      ? { kind: 'error', text: `${succeeded} updated; ${failed} could not be updated.` }
-      : { kind: 'success', text: `${succeeded} team member${succeeded === 1 ? '' : 's'} updated.` });
+    notifyAdminAction(failed ? 'error' : 'success', failed
+      ? `${succeeded} team members updated; ${failed} could not be updated.`
+      : `${succeeded} team member${succeeded === 1 ? '' : 's'} ${action === 'delete' ? 'removed' : action === 'disable' ? 'disabled' : 'enabled'} successfully.`);
     setBulkPending(false);
   };
 
   const applyBulkRole = async () => {
     if (!selectedMembers.length || bulkPending) return;
     setBulkPending(true);
-    setBulkNotice(null);
     let succeeded = 0;
     let failed = 0;
     for (const member of selectedMembers) {
@@ -135,9 +133,9 @@ export function MembersList({ auth }: { auth: AdminAuthorization }) {
     }
     await refreshMembers();
     setBulkRoleOpen(false);
-    setBulkNotice(failed
-      ? { kind: 'error', text: `${succeeded} roles assigned; ${failed} could not be updated.` }
-      : { kind: 'success', text: `Role assigned to ${succeeded} team member${succeeded === 1 ? '' : 's'}.` });
+    notifyAdminAction(failed ? 'error' : 'success', failed
+      ? `Role assigned to ${succeeded} team members; ${failed} could not be updated.`
+      : `Role assigned successfully to ${succeeded} team member${succeeded === 1 ? '' : 's'}.`);
     setBulkPending(false);
   };
 
@@ -166,7 +164,6 @@ export function MembersList({ auth }: { auth: AdminAuthorization }) {
           </div>
         </div>
       )}
-      {bulkNotice && <div className={`bulk-actions-notice mt-3 ${bulkNotice.kind === 'error' ? 'text-red-500' : 'text-emerald-500'}`}>{bulkNotice.text}</div>}
       <div className="table-wrap">
         <table className="admin-table w-full text-left text-sm">
           <thead>
@@ -273,8 +270,10 @@ function InviteMemberDialog({ open, onOpenChange, roles }: { open: boolean, onOp
     }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListTeamMembersQueryKey() });
+        notifyAdminAction('success', 'Team member invitation sent successfully.');
         onOpenChange(false);
-      }
+      },
+      onError: () => notifyAdminAction('error', 'Failed to send team member invitation.')
     });
   });
 
@@ -345,15 +344,33 @@ function MemberRow({ member, auth, roles, selected, onToggleSelected }: { member
 
   const handleSuspendToggle = () => {
     if (member.status === 'suspended') {
-      reactivate.mutate({ id: member.id }, { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListTeamMembersQueryKey() }) });
+      reactivate.mutate({ id: member.id }, {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListTeamMembersQueryKey() });
+          notifyAdminAction('success', `${member.name} reactivated successfully.`);
+        },
+        onError: () => notifyAdminAction('error', `Failed to reactivate ${member.name}.`)
+      });
     } else {
-      suspend.mutate({ id: member.id }, { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListTeamMembersQueryKey() }) });
+      suspend.mutate({ id: member.id }, {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListTeamMembersQueryKey() });
+          notifyAdminAction('success', `${member.name} suspended successfully.`);
+        },
+        onError: () => notifyAdminAction('error', `Failed to suspend ${member.name}.`)
+      });
     }
   };
 
   const handleRemove = () => {
     if (confirm(`Remove ${member.name} from the team?`)) {
-      remove.mutate({ id: member.id }, { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListTeamMembersQueryKey() }) });
+      remove.mutate({ id: member.id }, {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListTeamMembersQueryKey() });
+          notifyAdminAction('success', `${member.name} removed from the team.`);
+        },
+        onError: () => notifyAdminAction('error', `Failed to remove ${member.name} from the team.`)
+      });
     }
   };
 
@@ -490,8 +507,10 @@ function EditMemberDialog({ member, open, onOpenChange, roles, auth }: { member:
     }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListTeamMembersQueryKey() });
+        notifyAdminAction('success', `${member.name}'s permissions updated successfully.`);
         onOpenChange(false);
-      }
+      },
+      onError: () => notifyAdminAction('error', `Failed to update ${member.name}'s permissions.`)
     });
   });
 

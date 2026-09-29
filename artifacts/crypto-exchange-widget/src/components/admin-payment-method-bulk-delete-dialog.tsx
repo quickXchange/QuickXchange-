@@ -10,6 +10,7 @@ import type { PaymentMethod } from '@workspace/api-client-react';
 import { ArrowLeft, CircleAlert, ShieldCheck, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { apiErrorText } from '../App';
+import { notifyAdminAction } from './admin-action-toast';
 
 type Preview = {
   targets: { id: string; name: string; updatedAt: string; removed: string[] }[];
@@ -127,7 +128,9 @@ export function AdminPaymentMethodBulkDeleteDialog({ methodIds, methods, onClose
       setReview(null);
       setConfirmed(false);
       setStep('select');
-      setError(`${apiErrorText(cause, 'Could not delete fields.')} The review can no longer be used. Prepare a new review before trying again.`);
+      const message = apiErrorText(cause, 'Could not delete fields.');
+      notifyAdminAction('error', message);
+      setError(`${message} The review can no longer be used. Prepare a new review before trying again.`);
     } finally {
       setPending(false);
     }

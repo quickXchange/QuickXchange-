@@ -13,6 +13,7 @@ import {
 } from '@workspace/api-client-react';
 import { apiErrorText } from '../App';
 import { InlineNotice } from '../App';
+import { notifyAdminAction } from './admin-action-toast';
 
 export function BlockchainMonitorConfig({ network, networkCode }: { network: CryptoNetwork; networkCode: string }) {
   const queryClient = useQueryClient();
@@ -129,9 +130,8 @@ export function BlockchainMonitorConfig({ network, networkCode }: { network: Cry
   }, [existingAsset]);
 
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const handleSaveNetwork = async () => {
-    setError(''); setSuccess('');
+    setError('');
     try {
       const payload = {
         ...netForm,
@@ -145,20 +145,20 @@ export function BlockchainMonitorConfig({ network, networkCode }: { network: Cry
         await createNet.mutateAsync({ data: payload });
       }
       queryClient.invalidateQueries({ queryKey: ['listBlockchainMonitoringNetworks'] });
-      setSuccess('Monitor network saved.');
+      notifyAdminAction('success', 'Monitor network saved.');
     } catch (err) {
-      setError(apiErrorText(err, 'Failed to save monitor network.'));
+      notifyAdminAction('error', apiErrorText(err, 'Failed to save monitor network.'));
     }
   };
 
   const handleTestNetwork = async () => {
     if (!existingNet) return;
-    setError(''); setSuccess('');
+    setError('');
     try {
       const res = await testNet.mutateAsync({ id: existingNet.id });
-      setSuccess(`Connection test successful. Head: ${res.head}, latency: ${res.latencyMs}ms`);
+      notifyAdminAction('success', `Connection test successful. Head: ${res.head}, latency: ${res.latencyMs}ms`);
     } catch (err) {
-      setError(apiErrorText(err, 'Connection test failed.'));
+      notifyAdminAction('error', apiErrorText(err, 'Connection test failed.'));
     }
   };
 
@@ -167,7 +167,7 @@ export function BlockchainMonitorConfig({ network, networkCode }: { network: Cry
       setError('Please save the monitor network first.');
       return;
     }
-    setError(''); setSuccess('');
+    setError('');
     try {
       await upsertAsset.mutateAsync({
         data: {
@@ -180,9 +180,9 @@ export function BlockchainMonitorConfig({ network, networkCode }: { network: Cry
         }
       });
       queryClient.invalidateQueries({ queryKey: ['listBlockchainMonitoringAssets'] });
-      setSuccess('Asset monitoring configuration saved.');
+      notifyAdminAction('success', 'Asset monitoring configuration saved.');
     } catch (err) {
-      setError(apiErrorText(err, 'Failed to save asset configuration.'));
+      notifyAdminAction('error', apiErrorText(err, 'Failed to save asset configuration.'));
     }
   };
 
@@ -193,7 +193,6 @@ export function BlockchainMonitorConfig({ network, networkCode }: { network: Cry
       </div>
       
       {error && <InlineNotice kind="error">{error}</InlineNotice>}
-      {success && <InlineNotice kind="success">{success}</InlineNotice>}
 
       <div className="space-y-4">
         <div className="space-y-4 mb-6">

@@ -61,6 +61,7 @@
 - [Clerk environment operator relinking](clerk-environment-operator-relinking.md) — verified email may atomically replace a stale Clerk ID when operator data crosses isolated environments.
 - [Order confirmation presentation](order-confirmation-presentation.md) — keep deposit confirmation compact and mobile-first without weakening payment data or action contracts.
 - [Admin portal theme surfaces](admin-portal-theme-surfaces.md) — body-portaled Admin menus need explicit Light/Dark contracts and mobile selectors that beat legacy `:is()` specificity.
+- [Admin action feedback](admin-action-feedback.md) — action outcomes use one timed bottom toast; retain inline validation and review instructions where operators must act.
 - [Stale API build drift](stale-api-build-drift.md) — authorization schema errors can come from an old running server bundle after workspace code changes; compare current source before migrating.
 - [Admin order summary precision](admin-order-summary-precision.md) — abbreviate extreme amounts only in compact summaries; preserve exact decimals in details and clipboard actions.
 - [Operator catalog deletion persistence](operator-catalog-deletion-persistence.md) — initialize catalogs through one-time migrations; request paths must never recreate deleted Admin rows.

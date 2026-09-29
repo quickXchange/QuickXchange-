@@ -12,9 +12,10 @@ import {
   BlockchainMonitoringWatch,
   BlockchainMonitoringSetupRoute
 } from '@workspace/api-client-react';
-import { cn, ErrorState, LoadingBlock, exactDateTime, InlineNotice, apiErrorText } from '../App';
+import { cn, ErrorState, LoadingBlock, exactDateTime, apiErrorText } from '../App';
 import { useAdminPermissions } from '../lib/admin-permissions';
 import { CryptoLogo, cryptoLogoFallbackUrls } from './crypto-identity';
+import { notifyAdminAction } from './admin-action-toast';
 
 const setupStatusLabel: Record<BlockchainMonitoringSetupRoute['status'], string> = {
   ready: 'Ready',
@@ -26,7 +27,6 @@ const setupStatusLabel: Record<BlockchainMonitoringSetupRoute['status'], string>
 export function OperationsMonitors({ showSetup = true }: { showSetup?: boolean }) {
   const queryClient = useQueryClient();
   const { can } = useAdminPermissions();
-  const [setupNotice, setSetupNotice] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
 
   const [search, setSearch] = useState('');
   const [selectedRouteIds, setSelectedRouteIds] = useState<Set<string>>(new Set());
@@ -44,20 +44,16 @@ export function OperationsMonitors({ showSetup = true }: { showSetup?: boolean }
 
   const handleEnableAllReady = () => {
     if (!window.confirm("Are you sure you want to enable all ready setup routes?")) return;
-    setSetupNotice(null);
     enableAllReady.mutate(undefined, {
       onSuccess: (res) => {
         queryClient.invalidateQueries({ queryKey: getListBlockchainMonitoringSetupRoutesQueryKey() });
         queryClient.invalidateQueries({ queryKey: getListBlockchainMonitoringNetworksQueryKey() });
         queryClient.invalidateQueries({ queryKey: getListBlockchainMonitoringAssetsQueryKey() });
-        setSetupNotice({
-          kind: 'success',
-          message: `Enabled ${res.enabledRoutes} ready routes across ${res.enabledNetworks} networks. Skipped ${res.skippedRoutes} routes.`,
-        });
+        notifyAdminAction('success', `Enabled ${res.enabledRoutes} ready routes across ${res.enabledNetworks} networks. Skipped ${res.skippedRoutes} routes.`);
         setSelectedRouteIds(new Set());
       },
       onError: (err) => {
-        setSetupNotice({ kind: 'error', message: apiErrorText(err, 'Failed to enable ready routes.') });
+        notifyAdminAction('error', apiErrorText(err, 'Failed to enable ready routes.'));
       }
     });
   };
@@ -69,20 +65,16 @@ export function OperationsMonitors({ showSetup = true }: { showSetup?: boolean }
     });
     if (readySelectedIds.length === 0) return;
     if (!window.confirm(`Are you sure you want to enable ${readySelectedIds.length} selected ready route(s)?`)) return;
-    setSetupNotice(null);
     enableSelected.mutate({ data: { assetNetworkIds: readySelectedIds } }, {
       onSuccess: (res) => {
         queryClient.invalidateQueries({ queryKey: getListBlockchainMonitoringSetupRoutesQueryKey() });
         queryClient.invalidateQueries({ queryKey: getListBlockchainMonitoringNetworksQueryKey() });
         queryClient.invalidateQueries({ queryKey: getListBlockchainMonitoringAssetsQueryKey() });
-        setSetupNotice({
-          kind: 'success',
-          message: `Enabled ${res.enabledRoutes} ready routes across ${res.enabledNetworks} networks. Skipped ${res.skippedRoutes} routes.`,
-        });
+        notifyAdminAction('success', `Enabled ${res.enabledRoutes} ready routes across ${res.enabledNetworks} networks. Skipped ${res.skippedRoutes} routes.`);
         setSelectedRouteIds(new Set());
       },
       onError: (err) => {
-        setSetupNotice({ kind: 'error', message: apiErrorText(err, 'Failed to enable selected routes.') });
+        notifyAdminAction('error', apiErrorText(err, 'Failed to enable selected routes.'));
       }
     });
   };
@@ -224,7 +216,6 @@ export function OperationsMonitors({ showSetup = true }: { showSetup?: boolean }
             </div>
         </div>
 
-        {setupNotice && <InlineNotice kind={setupNotice.kind}>{setupNotice.message}</InlineNotice>}
         {setupRoutesQuery.isLoading ? <LoadingBlock rows={3} /> : setupRoutesQuery.isError ? <ErrorState message="Could not load setup routes" retry={() => setupRoutesQuery.refetch()} /> : (
           <div className="w-full relative group">
             <div className="overflow-x-auto">

@@ -20,6 +20,7 @@ import type {
   BlogAutomationSettingsInput 
 } from '@workspace/api-client-react';
 import { useAdminPermissions } from '@/lib/admin-permissions';
+import { notifyAdminAction } from '@/components/admin-action-toast';
 
 export function AdminBlogAutomationPage() {
   const { can } = useAdminPermissions();
@@ -35,7 +36,6 @@ export function AdminBlogAutomationPage() {
   const runAutomation = useRunBlogAutomation();
   const previewAutomation = usePreviewBlogAutomation();
 
-  const [settingsNotice, setSettingsNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
   const [sourcesNotice, setSourcesNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
   const [previewResult, setPreviewResult] = useState<any>(null);
 
@@ -86,10 +86,9 @@ export function AdminBlogAutomationPage() {
     }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetAdminBlogSettingsQueryKey() });
-        setSettingsNotice({ kind: 'success', text: 'Settings updated successfully' });
-        setTimeout(() => setSettingsNotice(null), 3000);
+        notifyAdminAction('success', 'Blog automation settings updated successfully.');
       },
-      onError: () => setSettingsNotice({ kind: 'error', text: 'Failed to update settings' })
+      onError: () => notifyAdminAction('error', 'Failed to update blog automation settings.')
     });
   };
 
@@ -120,6 +119,7 @@ export function AdminBlogAutomationPage() {
       setSourcesNotice({ kind: 'error', text: 'Name and URL are required' });
       return;
     }
+    setSourcesNotice(null);
 
     const payload = sourceForm as BlogAutomationSourceInput;
 
@@ -127,19 +127,19 @@ export function AdminBlogAutomationPage() {
       updateSource.mutate({ id: editingSourceId, data: payload }, {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListAdminBlogSourcesQueryKey() });
-          setSourcesNotice({ kind: 'success', text: 'Source updated' });
+          notifyAdminAction('success', 'Automation source updated successfully.');
           resetSourceForm();
         },
-        onError: () => setSourcesNotice({ kind: 'error', text: 'Failed to update source' })
+        onError: () => notifyAdminAction('error', 'Failed to update automation source.')
       });
     } else {
       createSource.mutate({ data: payload }, {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListAdminBlogSourcesQueryKey() });
-          setSourcesNotice({ kind: 'success', text: 'Source added' });
+          notifyAdminAction('success', 'Automation source added successfully.');
           resetSourceForm();
         },
-        onError: () => setSourcesNotice({ kind: 'error', text: 'Failed to add source' })
+        onError: () => notifyAdminAction('error', 'Failed to add automation source.')
       });
     }
   };
@@ -150,9 +150,9 @@ export function AdminBlogAutomationPage() {
     deleteSource.mutate({ id }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListAdminBlogSourcesQueryKey() });
-        setSourcesNotice({ kind: 'success', text: 'Source removed' });
+        notifyAdminAction('success', 'Automation source removed successfully.');
       },
-      onError: () => setSourcesNotice({ kind: 'error', text: 'Failed to remove source' })
+      onError: () => notifyAdminAction('error', 'Failed to remove automation source.')
     });
   };
 
@@ -161,9 +161,12 @@ export function AdminBlogAutomationPage() {
     
     runAutomation.mutate({ data: {} }, {
       onSuccess: (result) => {
-        alert(`Automation run complete. Status: ${result.status}`);
+        notifyAdminAction(result.status === 'failed' ? 'error' : 'success',
+          result.status === 'failed' ? `Blog automation failed${result.error ? `: ${result.error}` : '.'}` :
+          result.status === 'running' ? 'Blog automation started.' :
+          result.status === 'skipped' ? 'Blog automation skipped; no changes were made.' : 'Blog automation run completed.');
       },
-      onError: () => alert('Failed to run automation')
+      onError: () => notifyAdminAction('error', 'Failed to run blog automation.')
     });
   };
 
@@ -171,8 +174,11 @@ export function AdminBlogAutomationPage() {
     previewAutomation.mutate(undefined, {
       onSuccess: (result) => {
         setPreviewResult(result);
+        notifyAdminAction(result.status === 'failed' ? 'error' : 'success',
+          result.status === 'failed' ? `Blog automation preview failed${result.error ? `: ${result.error}` : '.'}` :
+          result.status === 'skipped' ? 'Blog automation preview skipped; no changes were made.' : 'Blog automation preview generated successfully.');
       },
-      onError: () => alert('Failed to preview automation')
+      onError: () => notifyAdminAction('error', 'Failed to generate blog automation preview.')
     });
   };
 
@@ -370,10 +376,6 @@ export function AdminBlogAutomationPage() {
               <Settings size={18} className="text-muted-foreground" />
               Automation Settings
             </h2>
-
-            {settingsNotice && (
-              <InlineNotice kind={settingsNotice.kind}>{settingsNotice.text}</InlineNotice>
-            )}
 
             {settingsQuery.isLoading ? (
               <LoadingBlock rows={4} />

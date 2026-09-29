@@ -126,6 +126,7 @@ import { invoiceSnapshot, isCompletedInvoiceOrder } from '../lib/invoice-snapsho
 import { AdminSwapDefaultPair } from '../components/admin-swap-default-pair';
 import { AdminConvertDefaultPair } from '../components/admin-convert-default-pair';
 import { SwapFeeBreakdown } from '../components/swap-fee-breakdown';
+import { notifyAdminAction } from '../components/admin-action-toast';
 
 import { CatalogImageUploadField } from '../components/catalog-image-upload-field';
 import { useAdminPermissions } from '../lib/admin-permissions';
@@ -1087,11 +1088,9 @@ function AdminIntegrations() {
   const [pinConfirmed, setPinConfirmed] = useState(false);
   const [configurationOpen, setConfigurationOpen] = useState(false);
   const [updateNotice, setUpdateNotice] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
-  const [testNotice, setTestNotice] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
   const [whitebitApiKey, setWhitebitApiKey] = useState('');
   const [whitebitSecretKey, setWhitebitSecretKey] = useState('');
   const [whitebitConfigurationOpen, setWhitebitConfigurationOpen] = useState(false);
-  const [whitebitNotice, setWhitebitNotice] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
   const [whitebitSelectedRouteKey, setWhitebitSelectedRouteKey] = useState('');
   const [whitebitPermissionAcknowledged, setWhitebitPermissionAcknowledged] = useState(false);
   const [whitebitPermissionConfirmationOpen, setWhitebitPermissionConfirmationOpen] = useState(false);
@@ -1123,26 +1122,19 @@ function AdminIntegrations() {
           setPinConfirmed(false);
           queryClient.invalidateQueries({ queryKey });
           queryClient.invalidateQueries({ queryKey: getGetQuickexConfigQueryKey() });
-          setUpdateNotice({ kind: 'success', text: t('adminProviders.quickex_signed_order_api_connected_real_exchange') });
+          notifyAdminAction('success', t('adminProviders.quickex_signed_order_api_connected_real_exchange'));
         },
         onError: (err) => {
-          setUpdateNotice({ kind: 'error', text: apiErrorText(err, t('adminProviders.failed_to_update_credentials_please_try_again')) });
+          notifyAdminAction('error', apiErrorText(err, t('adminProviders.failed_to_update_credentials_please_try_again')));
         }
       }
     );
   };
 
   const handleTest = () => {
-    setTestNotice(null);
     connectionTest.mutate(undefined, {
-      onSuccess: (data) => setTestNotice({
-        kind: data.ok ? 'success' : 'error',
-        text: data.message,
-      }),
-      onError: (error) => setTestNotice({
-        kind: 'error',
-        text: apiErrorText(error, t('adminProviders.failed_to_run_diagnostic_test')),
-      }),
+      onSuccess: (data) => notifyAdminAction(data.ok ? 'success' : 'error', data.message),
+      onError: (error) => notifyAdminAction('error', apiErrorText(error, t('adminProviders.failed_to_run_diagnostic_test'))),
     });
   };
 
@@ -1195,31 +1187,28 @@ function AdminIntegrations() {
   const handleWhitebitUpdate = (event: React.FormEvent) => {
     event.preventDefault();
     if (!whitebitApiKey.trim() || !whitebitSecretKey.trim()) return;
-    setWhitebitNotice(null);
     updateWhitebit.mutate({ data: { apiKey: whitebitApiKey.trim(), secretKey: whitebitSecretKey.trim() } }, {
       onSuccess: () => {
         setWhitebitApiKey('');
         setWhitebitSecretKey('');
         setWhitebitConfigurationOpen(false);
         refreshWhitebit();
-        setWhitebitNotice({ kind: 'success', text: 'WhiteBIT credentials were validated and stored securely. The API remains off until address creation permission is verified.' });
+        notifyAdminAction('success', 'WhiteBIT credentials were validated and stored securely. The API remains off until address creation permission is verified.');
       },
-      onError: (error) => setWhitebitNotice({ kind: 'error', text: apiErrorText(error, 'WhiteBIT rejected the credentials.') }),
+      onError: (error) => notifyAdminAction('error', apiErrorText(error, 'WhiteBIT rejected the credentials.')),
     });
   };
   const handleWhitebitTest = () => {
-    setWhitebitNotice(null);
     testWhitebit.mutate(undefined, {
       onSuccess: (data) => {
         refreshWhitebitStatus();
-        setWhitebitNotice({ kind: data.ok ? 'success' : 'error', text: data.message });
+        notifyAdminAction(data.ok ? 'success' : 'error', data.message);
       },
-      onError: (error) => setWhitebitNotice({ kind: 'error', text: apiErrorText(error, 'WhiteBIT signed API test failed.') }),
+      onError: (error) => notifyAdminAction('error', apiErrorText(error, 'WhiteBIT signed API test failed.')),
     });
   };
   const handleWhitebitPermissionCheck = () => {
     if (!whitebitSelectedRoute || !whitebitPermissionAcknowledged) return;
-    setWhitebitNotice(null);
     verifyWhitebitPermission.mutate({
       data: { networkId: whitebitSelectedRoute.networkId, confirmRealAddressCreation: true },
     }, {
@@ -1227,24 +1216,23 @@ function AdminIntegrations() {
         setWhitebitPermissionConfirmationOpen(false);
         setWhitebitPermissionAcknowledged(false);
         refreshWhitebitStatus();
-        setWhitebitNotice({
-          kind: 'success',
-          text: `Address creation permission verified for ${proof.assetCode} on ${proof.networkCode}. WhiteBIT remains ${whitebitStatus?.explicitDisabled ? 'disabled' : 'enabled'}; this check did not change provider settings.`,
-        });
+        notifyAdminAction('success', `Address creation permission verified for ${proof.assetCode} on ${proof.networkCode}. WhiteBIT remains ${whitebitStatus?.explicitDisabled ? 'disabled' : 'enabled'}; this check did not change provider settings.`);
       },
       onError: (error) => {
         setWhitebitPermissionConfirmationOpen(false);
-        setWhitebitNotice({ kind: 'error', text: apiErrorText(error, 'WhiteBIT address creation permission could not be verified.') });
+        notifyAdminAction('error', apiErrorText(error, 'WhiteBIT address creation permission could not be verified.'));
       },
     });
   };
   const handleWhitebitToggle = () => {
     if (!whitebitStatus) return;
     if (whitebitStatus.explicitDisabled && !whitebitCanEnable) return;
-    setWhitebitNotice(null);
     toggleWhitebit.mutate({ data: { enabled: whitebitStatus.explicitDisabled } }, {
-      onSuccess: () => refreshWhitebit(),
-      onError: (error) => setWhitebitNotice({ kind: 'error', text: apiErrorText(error, 'WhiteBIT could not be enabled. Signed address creation permission is required.') }),
+      onSuccess: () => {
+        refreshWhitebit();
+        notifyAdminAction('success', `WhiteBIT ${whitebitStatus.explicitDisabled ? 'enabled' : 'disabled'}.`);
+      },
+      onError: (error) => notifyAdminAction('error', apiErrorText(error, 'WhiteBIT could not be enabled. Signed address creation permission is required.')),
     });
   };
 
@@ -1596,19 +1584,6 @@ function AdminIntegrations() {
                 )}
               </div>
 
-              {whitebitNotice && (
-                <InlineNotice kind={whitebitNotice.kind} onDismiss={() => setWhitebitNotice(null)}>
-                  {whitebitNotice.text}
-                </InlineNotice>
-              )}
-
-              {testNotice && (
-                <div className="animate-in fade-in slide-in-from-top-2">
-                  <InlineNotice kind={testNotice.kind} onDismiss={() => setTestNotice(null)}>
-                    {testNotice.text}
-                  </InlineNotice>
-                </div>
-              )}
               <section id="integration-manual-address" className="panel integration-provider-card integration-manual-card" data-testid="manual-address-integration-card">
                 <div className="integration-manual-copy">
                   <div className="integration-provider-mark"><WalletCards size={22} /></div>
@@ -1835,8 +1810,6 @@ function AdminNotificationSettings() {
   const disconnectTg = useDisconnectAdminNotificationTelegram();
 
   const [draft, setDraft] = useState<Record<string, unknown> | null>(null);
-  const [saveMessage, setSaveMessage] = useState('');
-  const [testResult, setTestResult] = useState<{type: 'email' | 'telegram' | 'template', success: boolean, message: string} | null>(null);
   const [tgLinkId, setTgLinkId] = useState<string | null>(null);
 
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
@@ -1866,10 +1839,10 @@ function AdminNotificationSettings() {
       setDraft(tgLinkQuery.data.settings as unknown as Record<string, unknown>);
       queryClient.setQueryData(getGetAdminNotificationSettingsQueryKey(), tgLinkQuery.data.settings);
       setTgLinkId(null);
-      setSaveMessage('Telegram successfully connected.');
+      notifyAdminAction('success', 'Telegram successfully connected.');
     } else if (tgLinkQuery.data?.status === 'expired') {
       setTgLinkId(null);
-      setSaveMessage('Telegram connection link expired.');
+      notifyAdminAction('error', 'Telegram connection link expired.');
     }
   }, [tgLinkQuery.data, queryClient]);
 
@@ -1882,11 +1855,9 @@ function AdminNotificationSettings() {
 
   const set = (key: string, value: unknown) => {
     setDraft(current => current ? { ...current, [key]: value } : current);
-    setSaveMessage('');
   };
 
   const save = () => {
-    setSaveMessage('');
     update.mutate({ data: {
       adminNotificationsEnabled: Boolean(draft.adminNotificationsEnabled),
       adminEmailEnabled: Boolean(draft.adminEmailEnabled),
@@ -1924,27 +1895,24 @@ function AdminNotificationSettings() {
       onSuccess: (saved) => {
         setDraft({ ...saved });
         queryClient.setQueryData(getGetAdminNotificationSettingsQueryKey(), saved);
-        setSaveMessage('Settings saved successfully.');
+        notifyAdminAction('success', 'Settings saved successfully.');
       },
-      onError: () => setSaveMessage('Unable to save settings. Check the values and try again.'),
+      onError: () => notifyAdminAction('error', 'Unable to save settings. Check the values and try again.'),
     });
   };
 
   const saveTemplates = () => {
-    setTestResult(null);
     updateTemplates.mutate({ data: { items: templatesDraft } }, {
       onSuccess: (saved) => {
         setTemplatesDraft(saved.items);
         queryClient.setQueryData(getGetAdminNotificationEmailTemplatesQueryKey(), saved);
-        setTestResult({ type: 'template', success: true, message: 'Templates saved successfully.' });
+        notifyAdminAction('success', 'Templates saved successfully.');
       },
-      onError: (error) => setTestResult({ type: 'template', success: false, message: apiErrorText(error, 'Failed to save templates.') })
+      onError: (error) => notifyAdminAction('error', apiErrorText(error, 'Failed to save templates.'))
     });
   };
 
   const handleConnectTg = () => {
-    setSaveMessage('');
-    setTestResult(null);
     const popup = window.open('about:blank', '_blank');
     if (popup) popup.opener = null;
     createTgLink.mutate(undefined, {
@@ -1958,7 +1926,7 @@ function AdminNotificationSettings() {
       },
       onError: (error) => {
         popup?.close();
-        setTestResult({ type: 'telegram', success: false, message: apiErrorText(error, 'Failed to create connection link.') });
+        notifyAdminAction('error', apiErrorText(error, 'Failed to create connection link.'));
       }
     });
   };
@@ -1968,39 +1936,35 @@ function AdminNotificationSettings() {
       onSuccess: (settings) => {
         setDraft(settings as unknown as Record<string, unknown>);
         queryClient.setQueryData(getGetAdminNotificationSettingsQueryKey(), settings);
-        setSaveMessage('Telegram disconnected.');
-        setTestResult(null);
+        notifyAdminAction('success', 'Telegram disconnected.');
       },
       onError: (error) => {
-        setTestResult({ type: 'telegram', success: false, message: apiErrorText(error, 'Failed to disconnect Telegram.') });
+        notifyAdminAction('error', apiErrorText(error, 'Failed to disconnect Telegram.'));
       }
     });
   };
 
   const handleTestEmail = () => {
-    setTestResult(null);
     testEmail.mutate(undefined, {
-      onSuccess: (result) => setTestResult({ type: 'email', success: result.success, message: result.message }),
-      onError: (error) => setTestResult({ type: 'email', success: false, message: apiErrorText(error, 'Failed to send test email.') })
+      onSuccess: (result) => notifyAdminAction(result.success ? 'success' : 'error', result.message),
+      onError: (error) => notifyAdminAction('error', apiErrorText(error, 'Failed to send test email.'))
     });
   };
 
   const handleTestTg = () => {
-    setTestResult(null);
     testTelegram.mutate(undefined, {
-      onSuccess: (result) => setTestResult({ type: 'telegram', success: result.success, message: result.message }),
-      onError: (error) => setTestResult({ type: 'telegram', success: false, message: apiErrorText(error, 'Failed to send test Telegram.') })
+      onSuccess: (result) => notifyAdminAction(result.success ? 'success' : 'error', result.message),
+      onError: (error) => notifyAdminAction('error', apiErrorText(error, 'Failed to send test Telegram.'))
     });
   };
 
   const handleTestTemplate = (eventKind: string) => {
-    setTestResult(null);
     const templateToTest = templatesDraft.find(t => t.eventKind === eventKind);
     if (!templateToTest) return;
 
     testTemplate.mutate({ data: templateToTest }, {
-      onSuccess: (result) => setTestResult({ type: 'template', success: result.success, message: result.message }),
-      onError: (error) => setTestResult({ type: 'template', success: false, message: apiErrorText(error, 'Failed to send test email.') })
+      onSuccess: (result) => notifyAdminAction(result.success ? 'success' : 'error', result.message),
+      onError: (error) => notifyAdminAction('error', apiErrorText(error, 'Failed to send test email.'))
     });
   };
 
@@ -2065,11 +2029,6 @@ function AdminNotificationSettings() {
             <p className="text-sm text-slate-400">Control when and how you receive notifications</p>
           </div>
           <div className="flex items-center gap-4">
-            {saveMessage && (
-              <span role="status" className={cn("qx-notif-status text-xs font-medium", saveMessage.includes('Unable') || saveMessage.includes('Failed') ? "is-error" : "")}>
-                {saveMessage}
-              </span>
-            )}
             <button className="qx-notif-btn qx-notif-btn-primary" onClick={save} disabled={update.isPending}>
               {update.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               SAVE NOTIFICATION SETTINGS
@@ -2206,12 +2165,6 @@ function AdminNotificationSettings() {
                       {testEmail.isPending ? <RefreshCw size={12} className="animate-spin" /> : <Play size={12} />} Send Test Email
                     </button>
                   </div>
-                  {testResult?.type === 'email' && (
-                    <span role="status" className={cn("qx-notif-status mt-2 text-[10px] flex items-center gap-1", testResult.success ? "" : "is-error")}>
-                      {testResult.success ? <Check size={12} /> : <X size={12} />}
-                      {testResult.message}
-                    </span>
-                  )}
                 </div>
               </div>
 
@@ -2293,11 +2246,6 @@ function AdminNotificationSettings() {
                   )}
                   {!hasTgConnection && <p className="mt-2 text-[10px] text-amber-300">No Admin Telegram chat is linked. Telegram alerts cannot be sent until connection succeeds.</p>}
                   <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">Phone number is contact information only and is never used as a Telegram Chat ID.</p>
-                  {testResult?.type === 'telegram' && (
-                    <div role="status" className={cn("qx-notif-status mt-2 text-[10px] flex items-center gap-1", testResult.success ? "" : "is-error")}>
-                      {testResult.success ? <Check size={11} /> : <X size={11} />}{testResult.message}
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -2450,11 +2398,6 @@ function AdminNotificationSettings() {
               </DialogDescription>
             </div>
             <div className="flex items-center gap-3">
-              {testResult?.type === 'template' && (
-                <span role="status" className={cn("text-xs font-medium", testResult.success ? "text-emerald-400" : "text-red-400")}>
-                  {testResult.message}
-                </span>
-              )}
               <button
                 className="qx-notif-btn qx-notif-btn-secondary text-xs h-8 py-0"
                 type="button"
@@ -2655,7 +2598,6 @@ function StaffPage() {
   const removeMutation = useRemoveOperator();
 
   const [inviteEmail, setInviteEmail] = useState('');
-  const [notice, setNotice] = useState<{ kind: 'error' | 'success' | 'info'; text: string } | null>(null);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -2675,47 +2617,43 @@ function StaffPage() {
     e.preventDefault();
     const email = inviteEmail.trim();
     if (!email) return;
-    setNotice(null);
     inviteMutation.mutate({ data: { email } }, {
       onSuccess: () => {
-        setNotice({ kind: 'success', text: `Invitation created for ${email}. Approve access when they are ready to join.` });
+        notifyAdminAction('success', `Invitation created for ${email}. Approve access when they are ready to join.`);
         setInviteEmail('');
         invalidateStaff();
       },
-      onError: (err) => setNotice({ kind: 'error', text: apiErrorText(err, t('adminStaff.failed_to_send_invitation')) })
+      onError: (err) => notifyAdminAction('error', apiErrorText(err, t('adminStaff.failed_to_send_invitation')))
     });
   };
 
   const handleApprove = (id: string) => {
-    setNotice(null);
     approveMutation.mutate({ id }, {
       onSuccess: () => {
-        setNotice({ kind: 'success', text: t('adminStaff.operator_access_reactivated') });
+        notifyAdminAction('success', t('adminStaff.operator_access_reactivated'));
         invalidateStaff();
       },
-      onError: (err) => setNotice({ kind: 'error', text: apiErrorText(err, t('adminStaff.failed_to_reactivate_operator')) })
+      onError: (err) => notifyAdminAction('error', apiErrorText(err, t('adminStaff.failed_to_reactivate_operator')))
     });
   };
 
   const handleSuspend = (id: string) => {
-    setNotice(null);
     suspendMutation.mutate({ id }, {
       onSuccess: () => {
-        setNotice({ kind: 'success', text: t('adminStaff.operator_access_suspended') });
+        notifyAdminAction('success', t('adminStaff.operator_access_suspended'));
         invalidateStaff();
       },
-      onError: (err) => setNotice({ kind: 'error', text: apiErrorText(err, t('adminStaff.failed_to_suspend_operator')) })
+      onError: (err) => notifyAdminAction('error', apiErrorText(err, t('adminStaff.failed_to_suspend_operator')))
     });
   };
 
   const handleRemove = (id: string) => {
-    setNotice(null);
     removeMutation.mutate({ id }, {
       onSuccess: () => {
-        setNotice({ kind: 'success', text: t('adminStaff.operator_removed_permanently') });
+        notifyAdminAction('success', t('adminStaff.operator_removed_permanently'));
         invalidateStaff();
       },
-      onError: (err) => setNotice({ kind: 'error', text: apiErrorText(err, t('adminStaff.failed_to_remove_operator')) })
+      onError: (err) => notifyAdminAction('error', apiErrorText(err, t('adminStaff.failed_to_remove_operator')))
     });
   };
 
@@ -2819,11 +2757,6 @@ function StaffPage() {
         <div className="rise-in flex flex-col gap-4 md:gap-6">
           <p className="text-sm text-muted-foreground -mt-4 hidden md:block">{t('adminStaff.manage_your_operators_owners_and_access_permissions')}</p>
 
-          {notice && (
-            <InlineNotice kind={notice.kind} onDismiss={() => setNotice(null)}>
-              {notice.text}
-            </InlineNotice>
-          )}
 
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-4 staff-top-metrics">
             <div className="staff-metric-card col-span-1 !p-3 md:!p-4">
@@ -4595,7 +4528,6 @@ function AdminOrders() {
   const [rowArchiveDialog, setRowArchiveDialog] = useState<{ id: string; recordVersion: number; archived: boolean } | null>(null);
   const [rowDeleteDialog, setRowDeleteDialog] = useState<{ id: string; recordVersion: number } | null>(null);
   const [bulkStatus, setBulkStatus] = useState<OrderBulkStatusInputManualSettlementState | ''>('');
-  const [bulkNotice, setBulkNotice] = useState<{ kind: 'success' | 'error' | 'warning'; text: string } | null>(null);
 
   const [showFilters, setShowFilters] = useState(false);
 
@@ -4706,11 +4638,9 @@ function AdminOrders() {
       if (selected) next.add(id); else next.delete(id);
       return next;
     });
-    setBulkNotice(null);
   };
   const toggleAll = (selected: boolean) => {
     setSelectedIds(selected ? new Set(visibleOrders.map((order) => order.id)) : new Set());
-    setBulkNotice(null);
   };
   const refreshAfterBulk = async () => {
     await Promise.all([
@@ -4722,12 +4652,9 @@ function AdminOrders() {
     const succeeded = response.results.filter((result) => result.success);
     const failed = response.results.filter((result) => !result.success);
     const failureSummary = failed.slice(0, 3).map((result) => `${shortId(result.id)}: ${result.error || result.code || 'Could not update'}`).join(' · ');
-    setBulkNotice({
-      kind: failed.length ? (succeeded.length ? 'warning' : 'error') : 'success',
-      text: failed.length
-        ? `${succeeded.length} ${action}; ${failed.length} failed. ${failureSummary}`
-        : `${succeeded.length} ${action} successfully.`,
-    });
+    notifyAdminAction(failed.length ? 'error' : 'success', failed.length
+      ? `${succeeded.length} ${action}; ${failed.length} failed. ${failureSummary}`
+      : `${succeeded.length} ${action} successfully.`);
   };
   const applyBulkStatus = () => {
     if (!bulkStatus || !selectedOrders.length) return;
@@ -4742,7 +4669,7 @@ function AdminOrders() {
         setBulkStatus('');
         await refreshAfterBulk();
       },
-      onError: (error) => setBulkNotice({ kind: 'error', text: apiErrorText(error, t('adminOrders.the_selected_statuses_could_not_be_updated')) }),
+      onError: (error) => notifyAdminAction('error', apiErrorText(error, t('adminOrders.the_selected_statuses_could_not_be_updated'))),
     });
   };
   const applySingleArchive = () => {
@@ -4766,7 +4693,7 @@ function AdminOrders() {
       onError: (error) => {
         const action = rowArchiveDialog.archived ? 'archived' : 'restored';
         setRowArchiveDialog(null);
-        setBulkNotice({ kind: 'error', text: apiErrorText(error, `The order could not be ${action}.`) });
+        notifyAdminAction('error', apiErrorText(error, `The order could not be ${action}.`));
       },
     });
   };
@@ -4783,7 +4710,7 @@ function AdminOrders() {
         setBulkDialog(null);
         await refreshAfterBulk();
       },
-      onError: (error) => setBulkNotice({ kind: 'error', text: apiErrorText(error, archived ? 'The selected orders could not be archived.' : 'The selected orders could not be restored.') }),
+      onError: (error) => notifyAdminAction('error', apiErrorText(error, archived ? 'The selected orders could not be archived.' : 'The selected orders could not be restored.')),
     });
   };
 
@@ -4807,7 +4734,7 @@ function AdminOrders() {
       },
       onError: (error) => {
         setRowDeleteDialog(null);
-        setBulkNotice({ kind: 'error', text: apiErrorText(error, 'The archived orders could not be permanently deleted.') });
+        notifyAdminAction('error', apiErrorText(error, 'The archived orders could not be permanently deleted.'));
       },
     });
   };
@@ -4849,7 +4776,6 @@ function AdminOrders() {
       <button type="button" className="button button-secondary" onClick={() => setLocation(`/admin/customers/${encodeURIComponent(customerId)}`)}><ArrowLeft size={15} />{t('common.back')}</button>
     </div>}
     {exportError && <InlineNotice kind="error" onDismiss={() => setExportError('')}><strong>{t('adminOrders.export_failed')}</strong><p>{exportError}</p><button className="button button-secondary mt-3" onClick={handleExport}><RefreshCw size={14} />{t('adminOrders.try_again')}</button></InlineNotice>}
-    {bulkNotice && <div className="mb-4" data-testid="notice-bulk-result"><InlineNotice kind={bulkNotice.kind} onDismiss={() => setBulkNotice(null)}>{bulkNotice.text}</InlineNotice></div>}
     {orders.data?.refreshUnavailable && <div className="mb-4"><InlineNotice kind="warning"><strong>{t('adminOrders.provider_refresh_unavailable')}</strong><p>{t('adminOrders.latest_status_could_not_be_fetched_from')}</p></InlineNotice></div>}
 
     <div className="orders-view-controls mb-4">
@@ -5416,7 +5342,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   };
 
   const failed = (error: unknown) => {
-    setNotice({ kind: 'error', text: apiErrorText(error, t('adminOrders.this_action_is_not_allowed_or_the')) });
+    notifyAdminAction('error', apiErrorText(error, t('adminOrders.this_action_is_not_allowed_or_the')));
     orderQuery.refetch();
     history.refetch();
   };
@@ -5428,7 +5354,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
       onSuccess: async (updated) => {
         if (!order.assignedOperatorId && updated.assignedOperatorId) setSelfClaimedOperatorId(updated.assignedOperatorId);
         currentQueryClient.setQueryData(getGetOrderQueryKey(id), updated);
-        setNotice({ kind: 'success', text: `Status updated to ${humanKey(nextStatus)}.` });
+        notifyAdminAction('success', `Status updated to ${humanKey(nextStatus)}.`);
         await refresh();
       },
       onError: failed,
@@ -5445,7 +5371,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
       onSuccess: async () => {
         setPaymentDetailsEditing(false);
         setPaymentDetailsDirty(false);
-        setNotice({ kind: 'success', text: 'Payment details saved.' });
+        notifyAdminAction('success', 'Payment details saved.');
         await refresh();
       },
       onError: failed,
@@ -5462,7 +5388,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
         setPaymentDetailsDraft({ name: '', iban: '', bankName: '', bicSwift: '', paymentReference: '', amount: '', customInstructions: '' });
         setPaymentDetailsEditing(false);
         setPaymentDetailsDirty(false);
-        setNotice({ kind: 'success', text: 'Payment details cleared.' });
+        notifyAdminAction('success', 'Payment details cleared.');
         await refresh();
       },
       onError: failed,
@@ -5474,7 +5400,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
     setAssigneeId(newAssigneeId);
     setNotice(null);
     assignment.mutate({ id, data: { recordVersion: order.recordVersion, assigneeOperatorId: newAssigneeId || null } }, {
-      onSuccess: async () => { setNotice({ kind: 'success', text: newAssigneeId ? 'Order assignment updated.' : 'Order is now unassigned.' }); await refresh(); },
+      onSuccess: async () => { notifyAdminAction('success', newAssigneeId ? 'Order assignment updated.' : 'Order is now unassigned.'); await refresh(); },
       onError: failed
     });
   };
@@ -5483,7 +5409,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
     if (!order) return;
     setNotice(null);
     const action = order.archivedAt ? restore : archive;
-    action.mutate({ id, data: { recordVersion: order.recordVersion } }, { onSuccess: async () => { setNotice({ kind: 'success', text: order.archivedAt ? 'Order restored.' : 'Order archived.' }); await refresh(); }, onError: failed });
+    action.mutate({ id, data: { recordVersion: order.recordVersion } }, { onSuccess: async () => { notifyAdminAction('success', order.archivedAt ? 'Order restored.' : 'Order archived.'); await refresh(); }, onError: failed });
   };
 
   const reconcile = () => {
@@ -5519,7 +5445,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
       }
       await downloadInvoicePdf(invoiceSnapshot(safeOrder));
     } catch {
-      setNotice({ kind: 'error', text: 'The invoice could not be generated. Reload the order and try again.' });
+      notifyAdminAction('error', 'The invoice could not be generated. Reload the order and try again.');
     } finally {
       setInvoicePending(false);
     }
@@ -5591,7 +5517,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
         currentQueryClient.setQueryData(getGetOrderQueryKey(id), updated);
         setMethodDirty(false);
         setMethodEditing(false);
-        setNotice({ kind: 'success', text: 'Payment-method labels saved.' });
+        notifyAdminAction('success', 'Payment-method labels saved.');
         await refresh();
       },
       onError: failed,
@@ -5612,12 +5538,12 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
     const text = step2Rows.map(({ label, value }) => `${label}: ${value}`).join('\n');
     if (!text) return;
     navigator.clipboard.writeText(text);
-    setNotice({ kind: 'success', text: 'Payment details copied.' });
+    notifyAdminAction('success', 'Payment details copied.');
   };
   const copyOrderInfoAll = () => {
     const text = orderInfoRows.map(([lbl, val]) => `${lbl}: ${val}`).join('\n');
     navigator.clipboard.writeText(text);
-    setNotice({ kind: 'success', text: 'Order information copied.' });
+    notifyAdminAction('success', 'Order information copied.');
   };
   const copyOrderInfo = async () => {
     const normalizedPaymentRows = step2Rows.map(({ label, value }) => ({
@@ -5654,7 +5580,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
         copyInfoTimerRef.current = null;
       }, 1500);
     } catch {
-      setNotice({ kind: 'error', text: 'Could not copy payout information.' });
+      notifyAdminAction('error', 'Could not copy payout information.');
     }
   };
 
@@ -5724,7 +5650,9 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
                 {can(PermissionKey.orderssupport_tools) && (
                   <OrderSupportToolsSection
                     order={order} activeOperators={activeOperators}
-                    refresh={refresh} onNotice={setNotice} onDirtyChange={setSupportToolsDirty}
+                    refresh={refresh} onNotice={notice => notice.kind === 'warning'
+                      ? setNotice(notice)
+                      : notifyAdminAction(notice.kind, notice.text)} onDirtyChange={setSupportToolsDirty}
                   />
                 )}
                 {can(PermissionKey.ordersarchive) && (
@@ -6098,13 +6026,11 @@ function AdminProviders() {
   });
   const whitebitToggle = useUpdateWhitebitProviderStatus();
   const queryClient = useQueryClient();
-  const [notice, setNotice] = useState<{ kind: 'error' | 'success' | 'warning'; text: string } | null>(null);
 
   const test = () => {
-    setNotice(null);
     connectionTest.mutate(undefined, {
-      onSuccess: (data) => setNotice({ kind: data.ok ? 'success' : 'error', text: data.message }),
-      onError: (error) => setNotice({ kind: 'error', text: apiErrorText(error, t('adminCore.test_failed_to_run')) }),
+      onSuccess: (data) => notifyAdminAction(data.ok ? 'success' : 'error', data.message),
+      onError: (error) => notifyAdminAction('error', apiErrorText(error, t('adminCore.test_failed_to_run'))),
     });
   };
 
@@ -6123,7 +6049,6 @@ function AdminProviders() {
     <div className="provider-overview-intro"><div><span className="integration-eyebrow">LIVE OPERATIONS</span><h2>Provider readiness</h2><p>Connection checks and capabilities for Convert and Swap funding.</p></div><Link href="/admin/integrations" className="button button-secondary integration-health-link" data-testid="link-provider-configuration">Manage integrations <ArrowRight size={14} /></Link></div>
     <div className="panel providers-panel provider-health-card rise-in">
       <div className="panel-heading provider-health-heading"><div><span className="section-kicker">CONVERT · QUICKEX</span><h2>Quickex</h2><p>{t('adminCore.credential_readiness_and_live_provider_capabilities')}</p></div><div className="provider-health-actions">{status && <span className="secure-badge provider-verified-badge"><BadgeCheck size={14} /> {status.mode.toUpperCase()}</span>}{canTestCredentials && <button className="button provider-diagnostics-button" disabled={connectionTest.isPending || health.isLoading} onClick={test} data-testid="button-test-provider">{connectionTest.isPending ? <Loader2 className="spin" size={15} /> : <Activity size={15} />} {connectionTest.isPending ? t('adminCore.running_diagnostics') : t('adminCore.run_diagnostics')}</button>}</div></div>
-      {notice && <div className="mt-4"><InlineNotice kind={notice.kind} onDismiss={() => setNotice(null)}>{notice.text}</InlineNotice></div>}
       {reconciliationWarning && <div className="mt-4" data-testid="warning-provider-reconciliation"><InlineNotice kind="warning">{reconciliationWarning}</InlineNotice></div>}
       {health.isLoading ? <div className="mt-6"><LoadingBlock rows={3} /></div> : health.isError ? <ErrorState message={t('adminProviders.load_provider_configuration_error')} retry={() => health.refetch()} /> : status && <div className="provider-grid">
         <div className="provider-config"><h3>{t('adminCore.credentials')}</h3><div className="config-list">
@@ -6149,7 +6074,11 @@ function AdminProviders() {
              className="button provider-diagnostics-button"
              disabled={whitebitToggle.isPending || whitebit.isLoading || (whitebitStatus.explicitDisabled && (!whitebitStatus.credentialsVerified || !whitebitStatus.addressPermissionVerified))}
              onClick={() => whitebitToggle.mutate({ data: { enabled: whitebitStatus.explicitDisabled } }, {
-               onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetWhitebitProviderStatusQueryKey() }),
+                onSuccess: () => {
+                  queryClient.invalidateQueries({ queryKey: getGetWhitebitProviderStatusQueryKey() });
+                  notifyAdminAction('success', `WhiteBIT ${whitebitStatus.explicitDisabled ? 'enabled' : 'disabled'}.`);
+                },
+                onError: (error) => notifyAdminAction('error', apiErrorText(error, 'WhiteBIT status could not be updated.')),
              })}
              data-testid="button-toggle-whitebit"
            >{whitebitToggle.isPending ? <Loader2 className="spin" size={15} /> : <Power size={15} />} {whitebitStatus.explicitDisabled ? 'Turn on' : 'Turn off'}</button>}
@@ -6389,7 +6318,6 @@ function PaymentMethodDrawer({ method, onClose }: { method?: any; onClose: () =>
   const [form, setForm] = useState(initialForm);
   const [fields, setFields] = useState<PaymentMethodFieldDefinition[]>(method?.fieldDefinitions || []);
   const commitLogoRef = useRef<() => void>(() => {});
-  const [notice, setNotice] = useState<{ kind: 'error' | 'success', text: string } | null>(null);
 
   const createMutation = useCreatePaymentMethod();
   const updateMutation = useUpdatePaymentMethod();
@@ -6401,12 +6329,10 @@ function PaymentMethodDrawer({ method, onClose }: { method?: any; onClose: () =>
   useEffect(() => {
     setForm(initialForm());
     setFields(method?.fieldDefinitions || []);
-    setNotice(null);
   }, [initialForm, method]);
 
   const save = (e: React.FormEvent) => {
     e.preventDefault();
-    setNotice(null);
     const payload = {
       id: form.id.trim(),
       name: form.name.trim(),
@@ -6441,9 +6367,10 @@ function PaymentMethodDrawer({ method, onClose }: { method?: any; onClose: () =>
         });
         queryClient.invalidateQueries({ queryKey: getGetPaymentMethodsQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() });
+        notifyAdminAction('success', 'Payment method saved.');
         onClose();
       },
-      onError: (err: unknown) => setNotice({ kind: 'error', text: apiErrorText(err, t('adminCatalog.failed_to_save_payment_method')) })
+      onError: (err: unknown) => notifyAdminAction('error', apiErrorText(err, t('adminCatalog.failed_to_save_payment_method')))
     };
     if (method) {
       updateMutation.mutate({ id: method.id, data: payload }, opts);
@@ -6460,7 +6387,6 @@ function PaymentMethodDrawer({ method, onClose }: { method?: any; onClose: () =>
       </div>
       <div className="catalog-editor-scroll scrollbar-thin">
         <form id="payment-method-editor-form" onSubmit={save} className="admin-form admin-form-card catalog-editor-form">
-          {notice && <InlineNotice kind={notice.kind} onDismiss={() => setNotice(null)}>{notice.text}</InlineNotice>}
           <label><span className="field-label">{t('adminCatalog.internal_id')}<small>{t('adminCatalog.a_z_0_9_hyphens')}</small></span><input value={form.id} onChange={e => setForm(f => ({...f, id: e.target.value}))} required disabled={!!method} pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$" data-testid="input-pm-id" /></label>
           <label><span className="field-label">{t('adminCatalog.name')}</span><input value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} required data-testid="input-pm-name" /></label>
            <CatalogImageUploadField
@@ -6568,7 +6494,9 @@ function AttachmentItem({ att, pm, currencyCode, queryClient }: { att: any; pm: 
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetFiatCurrencyPaymentMethodsQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() });
-      }
+        notifyAdminAction('success', 'Payment method settings saved.');
+      },
+      onError: error => notifyAdminAction('error', apiErrorText(error, 'Could not save payment method settings.'))
     });
   };
 
@@ -6598,6 +6526,9 @@ function AttachmentItem({ att, pm, currencyCode, queryClient }: { att: any; pm: 
             detachMutation.mutate({ id: att.id }, { onSuccess: () => {
               queryClient.invalidateQueries({ queryKey: getGetFiatCurrencyPaymentMethodsQueryKey() });
               queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() });
+              notifyAdminAction('success', 'Payment method detached.');
+            }, onError: error => {
+              notifyAdminAction('error', apiErrorText(error, 'Could not detach payment method.'));
             }});
           }}>{t('adminCatalog.detach')}</button>
         </div>
@@ -6635,7 +6566,6 @@ function CurrencyDrawer({ currency, onClose }: { currency?: FiatCurrency; onClos
   const [flagObjectPath, setFlagObjectPath] = useState((currency as any)?.flagObjectPath || '');
   const commitFlagRef = useRef<() => void>(() => {});
   const [methodSearch, setMethodSearch] = useState('');
-  const [notice, setNotice] = useState<{ kind: 'error' | 'success', text: string } | null>(null);
 
   const createMutation = useCreateFiatCurrency();
   const updateMutation = useUpdateFiatCurrency();
@@ -6649,7 +6579,6 @@ function CurrencyDrawer({ currency, onClose }: { currency?: FiatCurrency; onClos
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setNotice(null);
     const payload = {
       code: code.toUpperCase().trim(),
       name: name.trim(),
@@ -6668,17 +6597,21 @@ function CurrencyDrawer({ currency, onClose }: { currency?: FiatCurrency; onClos
            commitFlagRef.current();
            const previousPath = (currency as any)?.flagObjectPath as string | undefined;
            if (previousPath && previousPath !== flagObjectPath) void deleteFlagMutation.mutateAsync({ id: previousPath.split('/').pop()! }).catch(() => undefined);
-           queryClient.invalidateQueries({ queryKey: getGetFiatCurrenciesQueryKey() }); onClose();
+            queryClient.invalidateQueries({ queryKey: getGetFiatCurrenciesQueryKey() });
+            notifyAdminAction('success', 'Fiat currency updated.');
+            onClose();
          },
-        onError: (err) => setNotice({ kind: 'error', text: apiErrorText(err, t('adminCatalog.failed_to_update_currency')) })
+        onError: (err) => notifyAdminAction('error', apiErrorText(err, t('adminCatalog.failed_to_update_currency')))
       });
     } else {
       createMutation.mutate({ data: payload }, {
          onSuccess: () => {
            commitFlagRef.current();
-           queryClient.invalidateQueries({ queryKey: getGetFiatCurrenciesQueryKey() }); onClose();
+            queryClient.invalidateQueries({ queryKey: getGetFiatCurrenciesQueryKey() });
+            notifyAdminAction('success', 'Fiat currency added.');
+            onClose();
          },
-        onError: (err) => setNotice({ kind: 'error', text: apiErrorText(err, t('adminCatalog.failed_to_create_currency')) })
+         onError: (err) => notifyAdminAction('error', apiErrorText(err, t('adminCatalog.failed_to_create_currency')))
       });
     }
   };
@@ -6700,7 +6633,6 @@ function CurrencyDrawer({ currency, onClose }: { currency?: FiatCurrency; onClos
 
         <div className="catalog-editor-scroll scrollbar-thin">
           <form onSubmit={handleSubmit} className="admin-form admin-form-card catalog-editor-form">
-            {notice && <InlineNotice kind={notice.kind} onDismiss={() => setNotice(null)}>{notice.text}</InlineNotice>}
             <div className="catalog-editor-identity-preview">
                <span className="catalog-editor-logo-preview">{code.length === 3 ? <FiatCurrencyFlag code={code.toUpperCase()} flagUrl={(currency as any)?.flagUrl} variant="admin" /> : <Landmark size={23} />}</span>
               <span><small>{t('adminCatalog.fiat_currency')}</small><strong>{name || 'Currency name'}</strong><em>{code.toUpperCase() || 'ISO'}</em></span>
@@ -6765,7 +6697,14 @@ function CurrencyDrawer({ currency, onClose }: { currency?: FiatCurrency; onClos
                   <button className="button button-secondary text-xs px-3" onClick={() => {
                     const sel = document.getElementById('attach-method-select') as HTMLSelectElement;
                     if (sel.value) {
-                      attachMutation.mutate({ data: { fiatCurrencyId: currency.id, paymentMethodId: sel.value, enabled: true } }, { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getGetFiatCurrencyPaymentMethodsQueryKey() }); sel.value = ''; } });
+                      attachMutation.mutate({ data: { fiatCurrencyId: currency.id, paymentMethodId: sel.value, enabled: true } }, {
+                        onSuccess: () => {
+                          queryClient.invalidateQueries({ queryKey: getGetFiatCurrencyPaymentMethodsQueryKey() });
+                          sel.value = '';
+                          notifyAdminAction('success', 'Payment method attached.');
+                        },
+                        onError: error => notifyAdminAction('error', apiErrorText(error, 'Could not attach payment method.')),
+                      });
                     }
                   }}>{t('adminCatalog.attach')}</button>
                 </div>
@@ -6842,7 +6781,6 @@ function AdminCurrencies() {
   const [whitebitAutoPreview, setWhitebitAutoPreview] = useState<WhitebitAutoMappingPreview | null>(null);
   const [whitebitAutoApplied, setWhitebitAutoApplied] = useState(false);
   const [whitebitAutoError, setWhitebitAutoError] = useState('');
-  const [whitebitAutoResult, setWhitebitAutoResult] = useState('');
 
   const [catalogSelected, setCatalogSelected] = useState<Record<'currencies' | 'methods' | 'assets' | 'networks', Set<string>>>({
     currencies: new Set(),
@@ -6851,7 +6789,6 @@ function AdminCurrencies() {
     networks: new Set(),
   });
   const [catalogActionPending, setCatalogActionPending] = useState(false);
-  const [catalogActionNotice, setCatalogActionNotice] = useState<{ kind: 'success' | 'warning' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     if (
@@ -6869,16 +6806,10 @@ function AdminCurrencies() {
           queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
           queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
         ]);
-        setCatalogActionNotice({
-          kind: 'success',
-          text: `${result.enabled} enabled / ${result.remainedDisabled} remained disabled.`,
-        });
+        notifyAdminAction('success', `${result.enabled} enabled / ${result.remainedDisabled} remained disabled.`);
       })
       .catch(error => {
-        setCatalogActionNotice({
-          kind: 'error',
-          text: apiErrorText(error, 'Failed to refresh customer deposit availability.'),
-        });
+        notifyAdminAction('error', apiErrorText(error, 'Failed to refresh customer deposit availability.'));
       });
   }, [
     tab,
@@ -6897,12 +6828,10 @@ function AdminCurrencies() {
     setFilterStatus('all');
     setFilterLifecycle('all');
     if (newTab !== 'methods') setCatalogSelected(current => ({ ...current, [newTab]: new Set() }));
-    setCatalogActionNotice(null);
   };
 
   const refreshWhitebitAutoMappingPreview = async () => {
     setWhitebitAutoError('');
-    setWhitebitAutoResult('');
     setWhitebitAutoApplied(false);
     setWhitebitAutoPreview(null);
     try {
@@ -6919,14 +6848,13 @@ function AdminCurrencies() {
     const eligible = whitebitAutoPreview.counts.eligibleToApply;
     if (!window.confirm(`Apply ${eligible} automatically matched WhiteBIT route mapping${eligible === 1 ? '' : 's'}? Only safe exact matches will be saved. Customer deposit settings, provider assignments, addresses, and verification state will not change.`)) return;
     setWhitebitAutoError('');
-    setWhitebitAutoResult('');
     try {
       const result = await applyWhitebitAutoMappings.mutateAsync({
         data: { reviewToken: whitebitAutoPreview.reviewToken },
       });
       setWhitebitAutoPreview(null);
       setWhitebitAutoApplied(true);
-      setWhitebitAutoResult(`${result.updated} route mapping${result.updated === 1 ? '' : 's'} applied.`);
+      notifyAdminAction('success', `${result.updated} route mapping${result.updated === 1 ? '' : 's'} applied.`);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
         queryClient.invalidateQueries({ queryKey: getGetWhitebitVerificationRoutesQueryKey() }),
@@ -7036,7 +6964,6 @@ function AdminCurrencies() {
       checked ? next.add(id) : next.delete(id);
       return { ...current, [section]: next };
     });
-    setCatalogActionNotice(null);
   };
 
   const toggleAllVisibleCatalogItems = (checked: boolean) => {
@@ -7045,7 +6972,6 @@ function AdminCurrencies() {
       paginatedData.forEach((item: any) => checked ? next.add(item.id) : next.delete(item.id));
       return { ...current, [tab]: next };
     });
-    setCatalogActionNotice(null);
   };
 
   const toggleAllFilteredMethods = (checked: boolean) => {
@@ -7054,7 +6980,6 @@ function AdminCurrencies() {
       filteredMethods.forEach(method => checked ? next.add(method.id) : next.delete(method.id));
       return { ...current, methods: next };
     });
-    setCatalogActionNotice(null);
   };
 
   const runCatalogAction = async (action: 'enable' | 'disable' | 'delete') => {
@@ -7063,7 +6988,6 @@ function AdminCurrencies() {
     if (action === 'delete' && !window.confirm(`Delete ${ids.length} selected ${tab === 'methods' ? 'payment methods' : tab}? This cannot be undone.`)) return;
 
     setCatalogActionPending(true);
-    setCatalogActionNotice(null);
     const enabled = action === 'enable';
     const childNetworkPathsByAsset = new Map(
       tab === 'assets'
@@ -7128,19 +7052,15 @@ function AdminCurrencies() {
       succeededIds.forEach(id => next.delete(id));
       return { ...current, [tab]: next };
     });
-    setCatalogActionNotice({
-      kind: failedCount ? 'error' : 'success',
-      text: failedCount
+    notifyAdminAction(failedCount ? 'error' : 'success', failedCount
         ? `${succeededIds.length} updated; ${failedCount} failed. Items still in use may need to be disabled instead of deleted.`
-        : `${succeededIds.length} ${action === 'enable' ? 'activated' : action === 'disable' ? 'disabled' : 'deleted'}.`,
-    });
+        : `${succeededIds.length} ${action === 'enable' ? 'activated' : action === 'disable' ? 'disabled' : 'deleted'}.`);
     setCatalogActionPending(false);
   };
 
   const deleteSingle = async (id: string) => {
     if (!window.confirm(`Delete this ${tab === 'methods' ? 'payment method' : tab}? This cannot be undone.`)) return;
     setCatalogActionPending(true);
-    setCatalogActionNotice(null);
     try {
       const item = (activeData || []).find((candidate: any) => candidate.id === id) as any;
       const childNetworkPaths = tab === 'assets'
@@ -7170,14 +7090,14 @@ function AdminCurrencies() {
       const queryKey = tab === 'currencies' ? getGetFiatCurrenciesQueryKey() : tab === 'methods' ? getGetPaymentMethodsQueryKey() : tab === 'assets' ? getGetCryptoAssetsQueryKey() : getGetCryptoNetworksQueryKey();
       await queryClient.invalidateQueries({ queryKey });
       await queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() });
-      setCatalogActionNotice({ kind: 'success', text: t('adminCatalog.item_deleted') });
+      notifyAdminAction('success', t('adminCatalog.item_deleted'));
       setCatalogSelected(current => {
         const next = new Set(current[tab]);
         next.delete(id);
         return { ...current, [tab]: next };
       });
     } catch (e) {
-      setCatalogActionNotice({ kind: 'error', text: t('adminCatalog.failed_to_delete_item') });
+      notifyAdminAction('error', t('adminCatalog.failed_to_delete_item'));
     } finally {
       setCatalogActionPending(false);
     }
@@ -7510,7 +7430,6 @@ function AdminCurrencies() {
               </button>
             </div>
             {whitebitAutoError && <InlineNotice kind="error">{whitebitAutoError}</InlineNotice>}
-            {whitebitAutoResult && <InlineNotice kind="success">{whitebitAutoResult}</InlineNotice>}
             {whitebitAutoPreview && (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4 lg:grid-cols-8" data-testid="whitebit-auto-mapping-counts">
@@ -7640,10 +7559,10 @@ function AdminCurrencies() {
             <span data-testid="text-method-selection-count">{catalogSelected.methods.size} selected across pages</span>
             <button type="button" className="text-primary hover:underline disabled:opacity-50" disabled={!filteredMethods.length} onClick={() => toggleAllFilteredMethods(true)} data-testid="button-select-all-filtered-methods">Select all {filteredMethods.length} filtered</button>
             <button type="button" className="text-primary hover:underline disabled:opacity-50" disabled={!filteredMethods.length || !filteredMethods.some(method => catalogSelected.methods.has(method.id))} onClick={() => toggleAllFilteredMethods(false)} data-testid="button-deselect-all-filtered-methods">Deselect filtered</button>
-            <button type="button" className="text-primary hover:underline disabled:opacity-50" disabled={!catalogSelected.methods.size} onClick={() => { setCatalogSelected(current => ({ ...current, methods: new Set() })); setCatalogActionNotice(null); }} data-testid="button-deselect-all-methods">Deselect all</button>
+            <button type="button" className="text-primary hover:underline disabled:opacity-50" disabled={!catalogSelected.methods.size} onClick={() => { setCatalogSelected(current => ({ ...current, methods: new Set() })); }} data-testid="button-deselect-all-methods">Deselect all</button>
             {catalogSelected.methods.size > 100 && <span role="status" className="text-destructive" data-testid="status-method-bulk-limit">Bulk fields supports up to 100 methods. Deselect some to continue.</span>}
           </div>}
-          {canManageCurrent && (selectedCatalogIdsOnPage.length > 0 || (tab === 'methods' && catalogSelected.methods.size > 0) || catalogActionNotice) && (
+          {canManageCurrent && (selectedCatalogIdsOnPage.length > 0 || (tab === 'methods' && catalogSelected.methods.size > 0)) && (
             <>
               {(selectedCatalogIdsOnPage.length > 0 || (tab === 'methods' && catalogSelected.methods.size > 0)) && <div className="bulk-actions-toolbar visible admin-list-bulk-toolbar" data-testid={`catalog-bulk-actions-${tab}`}>
                 <div className="bulk-actions-inner">
@@ -7676,13 +7595,6 @@ function AdminCurrencies() {
                   <button type="button" className="bulk-actions-delete" disabled={catalogActionPending || !selectedCatalogIdsOnPage.length} onClick={() => runCatalogAction('delete')}><Trash2 size={14} /> {t('adminCatalog.delete')}</button>
                 </div>
               </div>}
-              {catalogActionNotice && <div className={`bulk-actions-notice text-sm ${
-                catalogActionNotice.kind === 'error'
-                  ? 'text-red-500'
-                  : catalogActionNotice.kind === 'warning'
-                    ? 'text-amber-500'
-                    : 'text-emerald-500'
-              }`}>{catalogActionNotice.text}</div>}
             </>
           )}
           <div className="w-full relative group">
@@ -7776,10 +7688,7 @@ function AdminCurrencies() {
         <AssetDrawer
           asset={drawerAsset}
           onClose={() => setDrawerAsset(null)}
-          onWalletReconciled={(enabled, remainedDisabled) => setCatalogActionNotice({
-            kind: 'success',
-            text: `${enabled} enabled / ${remainedDisabled} remained disabled.`,
-          })}
+          onWalletReconciled={(enabled, remainedDisabled) => notifyAdminAction('success', `${enabled} enabled / ${remainedDisabled} remained disabled.`)}
         />
       )}
       {can('crypto_networks.manage') && currentDrawerNetwork && (
@@ -7802,6 +7711,7 @@ function AdminCurrencies() {
           onSuccess={() => {
             setCatalogSelected(prev => ({ ...prev, assets: new Set() }));
             setBulkEditAssetsOpen(false);
+            notifyAdminAction('success', 'Selected crypto assets updated.');
           }}
         />
       )}
@@ -7812,7 +7722,7 @@ function AdminCurrencies() {
         onApplied={result => {
           setCatalogSelected(current => ({ ...current, methods: new Set() }));
           setBulkMethodFieldsOpen(false);
-          setCatalogActionNotice({ kind: result.failed ? 'warning' : 'success', text: `Payment fields: ${result.updated} updated, ${result.skipped} skipped, ${result.failed} failed.` });
+          notifyAdminAction(result.failed ? 'error' : 'success', `Payment fields: ${result.updated} updated, ${result.skipped} skipped, ${result.failed} failed.`);
         }}
       />}
       {bulkDeleteMethodFieldsOpen && canManageCurrent && tab === 'methods' && <AdminPaymentMethodBulkDeleteDialog
@@ -7822,30 +7732,15 @@ function AdminCurrencies() {
         onApplied={result => {
           setCatalogSelected(current => ({ ...current, methods: new Set() }));
           setBulkDeleteMethodFieldsOpen(false);
-          setCatalogActionNotice({ kind: 'success', text: `${result.removedFields} field${result.removedFields === 1 ? '' : 's'} removed from ${result.affectedMethods} payment method${result.affectedMethods === 1 ? '' : 's'}.` });
+          notifyAdminAction('success', `${result.removedFields} field${result.removedFields === 1 ? '' : 's'} removed from ${result.affectedMethods} payment method${result.affectedMethods === 1 ? '' : 's'}.`);
         }}
       />}
       {bulkNetworkWalletOpen && networksQuery.data && (
         <BulkNetworkWalletDialog
           networks={networksQuery.data.filter((candidate: CryptoNetwork) => selectedCatalogIdsOnPage.includes(candidate.id))}
           onClose={() => setBulkNetworkWalletOpen(false)}
-          onSuccess={(savedNetworks) => {
+          onSuccess={() => {
             setCatalogSelected(prev => ({ ...prev, networks: new Set() }));
-            const readiness = savedNetworks
-              .map(saved => {
-                const status = saved.monitoringReadiness;
-                if (!status) return null;
-                return `${saved.networkName}: ${status.code} — ${status.message}${saved.customerDepositsEnabled === true ? ' Customer deposits enabled.' : ' Wallet saved but Customer Deposits disabled.'}`;
-              })
-              .filter(Boolean)
-              .join(' ');
-            if (readiness) {
-              const depositsEnabled = savedNetworks.every(saved => saved.customerDepositsEnabled === true);
-              setCatalogActionNotice({
-                kind: depositsEnabled ? 'success' : 'warning',
-                text: readiness,
-              });
-            }
             setBulkNetworkWalletOpen(false);
           }}
         />
@@ -7858,7 +7753,7 @@ function AdminCurrencies() {
           onClose={() => setBulkDepositProviderOpen(false)}
           onSuccess={(count) => {
             setCatalogSelected(prev => ({ ...prev, networks: new Set() }));
-            setCatalogActionNotice({ kind: 'success', text: `Deposit Provider assigned for ${count} exact Asset + Network ${count === 1 ? 'route' : 'routes'}. Manual Wallet Tracking and saved wallet fields were preserved.` });
+            notifyAdminAction('success', `Deposit Provider assigned for ${count} exact Asset + Network ${count === 1 ? 'route' : 'routes'}. Manual Wallet Tracking and saved wallet fields were preserved.`);
             setBulkDepositProviderOpen(false);
           }}
         />
@@ -8543,10 +8438,14 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
       enabled: form.enabled,
     });
     const payload = payloadFor(sourceOpt, targetOpt);
-    const success = () => { queryClient.invalidateQueries({ queryKey: getListManualDeskPricingRulesQueryKey() }); onClose(); };
+    const success = () => {
+      queryClient.invalidateQueries({ queryKey: getListManualDeskPricingRulesQueryKey() });
+      notifyAdminAction('success', rule ? `Pricing rule “${rule.name}” updated.` : 'Pricing rule added.');
+      onClose();
+    };
     const failure = (err: unknown) => {
       const code = apiErrorData(err)?.code;
-      setError(
+      notifyAdminAction('error',
         code === 'MANUAL_PRICING_RULE_VERSION_CONFLICT'
           ? 'This rule changed since you opened it. Close, refresh, and try again with the latest version.'
           : code === 'MANUAL_PRICING_RULE_CONFLICT'
@@ -8947,7 +8846,7 @@ function BulkPricingRuleDrawer({
     }, {
       onSuccess: (data) => onSuccess(data, 'edit'),
       onError: (err) => {
-        setError(apiErrorText(err, 'Could not bulk edit rules.'));
+        notifyAdminAction('error', apiErrorText(err, 'Could not bulk edit rules.'));
       }
     });
   };
@@ -9081,7 +8980,6 @@ function AdminManualPricing() {
   const [selectedRuleIds, setSelectedRuleIds] = useState<string[]>([]);
   const [testRule, setTestRule] = useState<ManualDeskPricingRule | null>(null);
   const [error, setError] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
   const [bulkEditDrawerOpen, setBulkEditDrawerOpen] = useState(false);
   const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
 
@@ -9098,12 +8996,6 @@ function AdminManualPricing() {
 
   useEffect(() => setPage(1), [search, status]);
   useEffect(() => setSelectedRuleIds([]), [search, status, pageSize]);
-
-  useEffect(() => {
-    if (!successMsg) return;
-    const timer = setTimeout(() => setSuccessMsg(''), 4000);
-    return () => clearTimeout(timer);
-  }, [successMsg]);
 
   useEffect(() => {
     // Prune selected IDs if they no longer exist in the catalog (e.g. after deletion)
@@ -9133,7 +9025,7 @@ function AdminManualPricing() {
     const skippedDetails = data.skipped
       .map(item => `${selectedRuleNames.get(item.id) || item.id}: ${item.reason}`)
       .join('; ');
-    setSuccessMsg(
+    notifyAdminAction(skippedCount ? 'error' : 'success',
       `${updatedCount} rule${updatedCount === 1 ? '' : 's'} updated successfully.` +
       (skippedCount ? ' ' : '') +
       (skippedCount ?
@@ -9148,7 +9040,6 @@ function AdminManualPricing() {
       return;
     }
     setError('');
-    setSuccessMsg('');
     bulkAction.mutate({
       data: {
         action,
@@ -9159,9 +9050,9 @@ function AdminManualPricing() {
       onError: (err) => {
         const code = apiErrorData(err)?.code;
         if (code?.includes('CONFLICT')) {
-           setError('Some rules changed in another session or conflict with existing routes. Refresh and try again.');
+           notifyAdminAction('error', 'Some rules changed in another session or conflict with existing routes. Refresh and try again.');
         } else {
-           setError(apiErrorText(err, `Could not ${action} rules.`));
+           notifyAdminAction('error', apiErrorText(err, `Could not ${action} rules.`));
         }
       }
     });
@@ -9169,7 +9060,6 @@ function AdminManualPricing() {
 
   const handleBulkDelete = () => {
     setError('');
-    setSuccessMsg('');
     bulkAction.mutate({
       data: {
         action: 'delete',
@@ -9178,7 +9068,7 @@ function AdminManualPricing() {
     }, {
       onSuccess: (data) => handleBulkActionSuccess(data, 'delete'),
       onError: (err) => {
-        setError(apiErrorText(err, `Could not delete rules.`));
+        notifyAdminAction('error', apiErrorText(err, `Could not delete rules.`));
       }
     });
   };
@@ -9234,8 +9124,11 @@ function AdminManualPricing() {
       rule.enabled ? `Disabling “${rule.name}”` : `Enabling “${rule.name}”`,
     )) return;
     update.mutate({ id: rule.id, data: { ...input, version: rule.version } }, {
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: getListManualDeskPricingRulesQueryKey() }),
-      onError: err => setError(apiErrorData(err)?.code?.toLowerCase().includes('conflict') ? 'The rule changed in another session. Refresh before trying again.' : apiErrorText(err, t('adminPricing.could_not_update_rule_status'))),
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListManualDeskPricingRulesQueryKey() });
+        notifyAdminAction('success', `Pricing rule ${rule.enabled ? 'disabled' : 'enabled'}.`);
+      },
+      onError: err => notifyAdminAction('error', apiErrorData(err)?.code?.toLowerCase().includes('conflict') ? 'The rule changed in another session. Refresh before trying again.' : apiErrorText(err, t('adminPricing.could_not_update_rule_status'))),
     });
   };
   const removeRule = (rule: ManualDeskPricingRule) => {
@@ -9253,17 +9146,16 @@ function AdminManualPricing() {
         setSelectedRuleIds(current => current.filter(id => id !== rule.id));
         setTestRule(current => current?.id === rule.id ? null : current);
         setDrawer(current => current !== 'new' && current?.id === rule.id ? null : current);
-        setSuccessMsg(`Pricing rule “${rule.name}” deleted.`);
+        notifyAdminAction('success', `Pricing rule “${rule.name}” deleted.`);
         queryClient.invalidateQueries({ queryKey: getListManualDeskPricingRulesQueryKey() });
       },
-      onError: err => setError(apiErrorText(err, t('adminPricing.could_not_delete_this_pricing_rule'))),
+      onError: err => notifyAdminAction('error', apiErrorText(err, t('adminPricing.could_not_delete_this_pricing_rule'))),
     });
   };
   return <AdminShell eyebrow={t('adminPricing.operations_pricing')} title={t('adminPricing.swap_pricing')} requiredPermission="pricing.view">
     <div className="admin-welcome"><p className="admin-subtitle">{t('adminPricing.deterministic_route_pricing_with_the_most_specific')}</p><div className="system-state"><span className={cn('live-dot', oneForge.data?.state !== 'healthy' && 'offline-dot')} /> {t('adminPricing.1forge')}{oneForge.isLoading ? t('adminPricing.checking') : oneForge.data?.state || 'unavailable'}{oneForge.data?.fetchedAt ? ` · ${ago(oneForge.data.fetchedAt)}` : ''}</div></div>
 
     {error && <InlineNotice kind="error" onDismiss={() => setError('')}>{error}</InlineNotice>}
-    {successMsg && <InlineNotice kind="success" onDismiss={() => setSuccessMsg('')}>{successMsg}</InlineNotice>}
     <PricingPreview testRule={testRule} rules={pricingRules} />
     <div className="pricing-layout">
       <div className="panel pricing-rules-panel">
@@ -9410,9 +9302,10 @@ function AssetDrawer({
       try {
         await createAsset.mutateAsync({ data: { ...form, logoObjectPath: logoObjectPath || null, decimals: Number(form.decimals) } as any });
         queryClient.invalidateQueries({ queryKey: getGetCryptoAssetsQueryKey() });
+        notifyAdminAction('success', 'Crypto asset added.');
         onClose();
       } catch (err) {
-        setError(apiErrorText(err, t('adminCatalog.failed_to_create_asset')));
+        notifyAdminAction('error', apiErrorText(err, t('adminCatalog.failed_to_create_asset')));
       }
     } else if (asset) {
       const { id: _id, ...updates } = form;
@@ -9426,9 +9319,10 @@ function AssetDrawer({
           queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
           queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
         ]);
+        notifyAdminAction('success', 'Crypto asset updated.');
         onClose();
       } catch (err) {
-        setError(apiErrorText(err, t('adminCatalog.failed_to_update_asset')));
+        notifyAdminAction('error', apiErrorText(err, t('adminCatalog.failed_to_update_asset')));
       }
     }
   };
@@ -9445,9 +9339,10 @@ function AssetDrawer({
           .filter(Boolean) as string[];
         void Promise.allSettled(childPaths.map(path => deleteAssetNetworkLogo.mutateAsync({ id: path.split('/').pop()! })));
         queryClient.invalidateQueries({ queryKey: getGetCryptoAssetsQueryKey() });
+        notifyAdminAction('success', 'Crypto asset deleted.');
         onClose();
       },
-      onError: (err) => setError(apiErrorText(err, t('adminCatalog.failed_to_delete_asset')))
+      onError: (err) => notifyAdminAction('error', apiErrorText(err, t('adminCatalog.failed_to_delete_asset')))
     });
   };
 
@@ -9546,8 +9441,9 @@ function BulkNetworkWalletDialog({
         queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
       ]);
       setSavedNetworks(saved);
+      notifyAdminAction('success', `Receiving wallet updated for ${saved.length} Asset + Network ${saved.length === 1 ? 'route' : 'routes'}.`);
     } catch (cause) {
-      setError(apiErrorText(cause, 'Failed to update the selected receiving wallets.'));
+      notifyAdminAction('error', apiErrorText(cause, 'Failed to update the selected receiving wallets.'));
     }
   };
   const resetPreview = () => {
@@ -9734,7 +9630,6 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
   const [logoObjectPath, setLogoObjectPath] = useState(isNew ? '' : ((network as any)?.logoObjectPath || ''));
   const commitNetworkLogoRef = useRef<() => void>(() => {});
   const [error, setError] = useState('');
-  const [successNotice, setSuccessNotice] = useState('');
   const [depositRouteSaving, setDepositRouteSaving] = useState(false);
   const depositRouteSaveLockRef = useRef(false);
   const [monitoringReadiness, setMonitoringReadiness] = useState<CryptoNetwork['monitoringReadiness']>(
@@ -10047,7 +9942,6 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
   const verifyWhitebitRoute = async () => {
     if (!whitebitRouteState.canVerify || !persistedWhitebitRoute) return;
     setError('');
-    setSuccessNotice('');
     try {
       const routes = await testActiveWhitebitCredentials();
       const exactRoute = routes.find(route =>
@@ -10059,14 +9953,13 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
         throw new Error('WhiteBIT verification catalog unavailable for this exact Asset + Network route. Customer Deposits remain OFF.');
       }
       if (exactRoute.proofCurrent) {
-        setSuccessNotice('Current exact-route permission proof already exists. No verification address was requested.');
+        notifyAdminAction('success', 'Current exact-route permission proof already exists. No verification address was requested.');
         return;
       }
       const confirmed = window.confirm(
         'WhiteBIT credentials passed the read-only signed check. Continue to request one real verification address for this exact Asset + Network route? A real address may be created and discarded; Customer Deposits will remain OFF until separately enabled.',
       );
       if (!confirmed) {
-        setSuccessNotice('WhiteBIT verification cancelled. Customer Deposits remain OFF.');
         return;
       }
       const proof = await verifyWhitebitPermission.mutateAsync({
@@ -10079,7 +9972,7 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
         proof.networkCode.trim().toUpperCase() !== persistedWhitebitRoute.networkCode.trim().toUpperCase()) {
         throw new Error('WhiteBIT did not return current permission proof for this exact Asset + Network route. Customer Deposits remain OFF.');
       }
-      setSuccessNotice(proof.reused
+      notifyAdminAction('success', proof.reused
         ? 'Current exact-route permission proof confirmed. No new verification address was created; Customer Deposits remain OFF.'
         : 'Exact-route permission verified. One real WhiteBIT verification address was created; Customer Deposits remain OFF.');
     } catch (cause) {
@@ -10096,20 +9989,19 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
     depositRouteSaveLockRef.current = true;
     setDepositRouteSaving(true);
     setError('');
-    setSuccessNotice('');
     try {
       const updatedRoute = await updateSavedRouteCustomerDeposits(persistedWhitebitRoute, enabled);
       if (updatedRoute.customerDepositsEnabled !== enabled) {
         throw new Error(`The server did not confirm Customer Deposits ${enabled ? 'ON' : 'OFF'} for this route.`);
       }
       updateSavedRouteState(updatedRoute);
-      setSuccessNotice(`Customer Deposits turned ${enabled ? 'ON' : 'OFF'} for this Asset + Network route.`);
+      notifyAdminAction('success', `Customer Deposits turned ${enabled ? 'ON' : 'OFF'} for this Asset + Network route.`);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
         queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
       ]);
     } catch (cause) {
-      setError(apiErrorText(cause, `Could not turn Customer Deposits ${enabled ? 'ON' : 'OFF'}.`));
+      notifyAdminAction('error', apiErrorText(cause, `Could not turn Customer Deposits ${enabled ? 'ON' : 'OFF'}.`));
     } finally {
       depositRouteSaveLockRef.current = false;
       setDepositRouteSaving(false);
@@ -10119,7 +10011,6 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
   const save = async (e?: React.FormEvent, confirmManualSwitch = false) => {
     e?.preventDefault();
     setError('');
-    setSuccessNotice('');
 
     if (isNew) {
       const payload = buildNetworkMetadataPayload();
@@ -10130,9 +10021,10 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
       try {
         await createNetwork.mutateAsync({ data: payload });
         await queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() });
+        notifyAdminAction('success', 'Crypto network added.');
         onClose();
       } catch (err) {
-        setError(apiErrorText(err, t('adminCatalog.failed_to_create_network')));
+        notifyAdminAction('error', apiErrorText(err, t('adminCatalog.failed_to_create_network')));
       }
     } else if (network) {
       if (depositRouteSaveLockRef.current) return;
@@ -10202,7 +10094,7 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
         if (isWhitebitProvider) {
           if (!savedNetwork) throw new Error('The route was saved, but the saved route details were not returned. Customer Deposits remain OFF.');
           setForm(current => ({ ...current, customerDepositsEnabled: false }));
-          setSuccessNotice('WhiteBIT route saved with Customer Deposits OFF. Verification and activation are separate actions.');
+          notifyAdminAction('success', 'WhiteBIT route saved with Customer Deposits OFF. Verification and activation are separate actions.');
         } else {
           if (stageCustomerDepositsOff && requestedCustomerDepositsEnabled && savedNetwork) {
             const finalNetwork = await updateSavedRouteCustomerDeposits(savedNetwork, true);
@@ -10213,15 +10105,14 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
           } else if (savedNetwork) {
             updateSavedRouteState(savedNetwork);
           }
-          setSuccessNotice(
+          notifyAdminAction('success',
             requestedCustomerDepositsEnabled
               ? 'Deposit route saved. Public Swap visibility is enabled for this route.'
               : 'Deposit route saved. Public Swap visibility remains disabled for this route.',
           );
         }
       } catch (err) {
-        setSuccessNotice('');
-        setError(apiErrorText(err, t('adminCatalog.failed_to_update_network')));
+        notifyAdminAction('error', apiErrorText(err, t('adminCatalog.failed_to_update_network')));
       } finally {
         depositRouteSaveLockRef.current = false;
         setDepositRouteSaving(false);
@@ -10232,7 +10123,6 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
   const saveNetworkMetadata = async () => {
     if (isNew || !network) return;
     setError('');
-    setSuccessNotice('');
     const payload = buildNetworkMetadataPayload();
     const { id: _id, assetId: _assetId, ...updates } = payload;
     try {
@@ -10242,14 +10132,13 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
       if (previousPath && previousPath !== logoObjectPath) {
         void deleteNetworkLogo.mutateAsync({ id: previousPath.split('/').pop()! }).catch(() => undefined);
       }
-      setSuccessNotice('Network details saved. Deposit route settings are unchanged.');
+      notifyAdminAction('success', 'Network details saved. Deposit route settings are unchanged.');
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
         queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
       ]);
     } catch (err) {
-      setSuccessNotice('');
-      setError(apiErrorText(err, t('adminCatalog.failed_to_update_network')));
+      notifyAdminAction('error', apiErrorText(err, t('adminCatalog.failed_to_update_network')));
     }
   };
 
@@ -10260,9 +10149,10 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
         const previousPath = (network as any)?.logoObjectPath as string | undefined;
         if (previousPath) void deleteNetworkLogo.mutateAsync({ id: previousPath.split('/').pop()! }).catch(() => undefined);
         queryClient.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() });
+        notifyAdminAction('success', 'Crypto network deleted.');
         onClose();
       },
-      onError: (err) => setError(apiErrorText(err, t('adminCatalog.failed_to_delete_network')))
+      onError: (err) => notifyAdminAction('error', apiErrorText(err, t('adminCatalog.failed_to_delete_network')))
     });
   };
 
@@ -10343,7 +10233,6 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
           if (isNew) void save(event);
         }}>
           {error && <InlineNotice kind="error">{error}</InlineNotice>}
-          {successNotice && <InlineNotice kind="success" onDismiss={() => setSuccessNotice('')}>{successNotice}</InlineNotice>}
 
           {!isNew && (
             <section className="qx-route-overview" aria-label="Saved network route at a glance">

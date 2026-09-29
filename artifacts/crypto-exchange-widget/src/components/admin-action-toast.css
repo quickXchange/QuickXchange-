@@ -1,0 +1,81 @@
+.admin-action-toast-viewport {
+  position: fixed;
+  left: 50%;
+  z-index: 5000;
+  width: min(420px, calc(100vw - 32px));
+  transform: translateX(-50%);
+  pointer-events: none;
+  transition: bottom 180ms ease;
+}
+
+.admin-action-toast {
+  --action-accent: #16a34a;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  min-height: 64px;
+  padding: 14px 42px 16px 16px;
+  border: 1px solid #d8e5dc;
+  border-radius: 14px;
+  background: #fff;
+  color: #17252e;
+  box-shadow: 0 16px 46px rgba(20, 33, 45, .18), 0 3px 12px rgba(20, 33, 45, .08);
+  pointer-events: auto;
+  animation: admin-toast-enter 280ms cubic-bezier(.2,.8,.2,1) both;
+}
+
+.admin-action-toast--error {
+  --action-accent: #dc2626;
+  border-color: #f2d6d6;
+}
+
+.admin-action-toast-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #e9f8ed;
+  color: var(--action-accent);
+}
+
+.admin-action-toast--error .admin-action-toast-icon { background: #fef0f0; }
+.admin-action-toast-message { flex: 1; min-width: 0; font-size: 14px; line-height: 1.45; font-weight: 600; overflow-wrap: anywhere; }
+.admin-action-toast-close { position: absolute; top: 14px; right: 12px; border: 0; background: transparent; color: #66747a; padding: 4px; border-radius: 6px; cursor: pointer; }
+.admin-action-toast-close:hover, .admin-action-toast-close:focus-visible { background: rgba(100, 116, 139, .12); outline-offset: 2px; }
+
+.admin-action-toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: var(--action-accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: admin-toast-progress 5s linear forwards;
+}
+
+html.dark .admin-action-toast { background: #17232d; border-color: #344b45; color: #f4f8f6; }
+html.dark .admin-action-toast--error { border-color: #684244; }
+html.dark .admin-action-toast-close { color: #b6c4c7; }
+
+@keyframes admin-toast-progress { to { transform: scaleX(1); } }
+@keyframes admin-toast-enter {
+  from { opacity: 0; transform: translateY(14px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 600px) {
+  .admin-action-toast-viewport { width: calc(100vw - 24px); }
+  .admin-action-toast { min-height: 60px; padding: 12px 40px 14px 13px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-action-toast { animation: none; }
+  .admin-action-toast-viewport { transition: none; }
+}

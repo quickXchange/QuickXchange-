@@ -9,6 +9,7 @@ import {
   type SwapDefaultPair,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { notifyAdminAction } from './admin-action-toast';
 
 function optionLabel(option: SettlementOption): string {
   return option.kind === 'crypto-network'
@@ -26,7 +27,6 @@ export function AdminSwapDefaultPair({ canManage }: { canManage: boolean }) {
   });
   const update = useUpdateAdminSwapDefaultPair();
   const [draft, setDraft] = useState<SwapDefaultPair | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
 
   const options = config.data?.manualSettlementOptions ?? [];
   const optionById = useMemo(() => new Map(options.map(option => [option.id, option])), [options]);
@@ -70,17 +70,16 @@ export function AdminSwapDefaultPair({ canManage }: { canManage: boolean }) {
 
   const save = async () => {
     if (!draft || !validDraft || !changed || update.isPending) return;
-    setNotice(null);
     try {
       await update.mutateAsync({ data: draft });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: getGetAdminSwapDefaultPairQueryKey() }),
         queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
       ]);
-      setNotice('Default Swap pair saved. New visitors will see this pair first.');
+      notifyAdminAction('success', 'Default Swap pair saved. New visitors will see this pair first.');
     } catch {
       await queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() });
-      setNotice('Could not save this pair. Check that it is still available and try again.');
+      notifyAdminAction('error', 'Could not save this pair. Check that it is still available and try again.');
     }
   };
 
@@ -119,7 +118,6 @@ export function AdminSwapDefaultPair({ canManage }: { canManage: boolean }) {
                     ? draft!.targetSettlementOptionId
                     : matching[0]?.targetSettlementOptionId ?? '';
                   setDraft({ sourceSettlementOptionId, targetSettlementOptionId });
-                  setNotice(null);
                 }}
               >
                 {!sources.length && <option value="">No available pair</option>}
@@ -137,7 +135,6 @@ export function AdminSwapDefaultPair({ canManage }: { canManage: boolean }) {
                   setDraft(current => current
                     ? { ...current, targetSettlementOptionId: event.target.value }
                     : current);
-                  setNotice(null);
                 }}
               >
                 {!targets.length && <option value="">No available pair</option>}
@@ -151,7 +148,6 @@ export function AdminSwapDefaultPair({ canManage }: { canManage: boolean }) {
               {update.isPending ? 'Saving…' : 'Save Default Pair'}
             </button>
           )}
-          {notice && <p className="mt-3 text-sm text-foreground" role="status">{notice}</p>}
         </>
       )}
     </section>

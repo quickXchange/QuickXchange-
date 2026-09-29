@@ -12,6 +12,7 @@ import { AdminShell } from '../App';
 import { trimFeeDecimal } from '../components/swap-fee-breakdown';
 import { AdminSwapAddonPreview } from '../components/admin-swap-addon-preview';
 import { addonKeyFromText, validAddonKey } from '../lib/swap-addon-key';
+import { notifyAdminAction } from '@/components/admin-action-toast';
 
 const blank: ManualSwapAddonInput = { name: '', key: '', description: '', fixedAmount: '0', feeCurrency: 'USD', enabled: true, displayOrder: 0, selectionRule: 'multiple', presentation: { group: '' } };
 const field = 'w-full rounded-lg border border-input bg-background px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary';
@@ -52,18 +53,19 @@ export function AdminSwapAddonsPage() {
       return;
     }
     try {
+      const updating = Boolean(editing && editing !== 'new');
       if (editing && editing !== 'new') await update.mutateAsync({ id: editing.id, data: form });
       else await create.mutateAsync({ data: form });
       await refresh();
       setEditing(null);
-      setMessage('Option saved.');
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not save option.'); }
+      notifyAdminAction('success', updating ? 'Swap add-on updated successfully.' : 'Swap add-on created successfully.');
+    } catch (error) { notifyAdminAction('error', error instanceof Error ? error.message : 'Could not save swap add-on.'); }
   };
   const deleteItem = async (item: ManualSwapAddon) => {
     if (!window.confirm(`Delete ${item.name}? Historical orders will retain their saved fees.`)) return;
     setMessage('');
-    try { await remove.mutateAsync({ id: item.id }); await refresh(); setMessage('Option deleted.'); }
-    catch (error) { setMessage(error instanceof Error ? error.message : 'Could not disable option.'); }
+    try { await remove.mutateAsync({ id: item.id }); await refresh(); notifyAdminAction('success', 'Swap add-on deleted successfully.'); }
+    catch (error) { notifyAdminAction('error', error instanceof Error ? error.message : 'Could not delete swap add-on.'); }
   };
   return <AdminShell title="Swap Order Add-ons" eyebrow="PRICING / SWAP" subtitle="Optional choices and additional exchange fees for Manual Swap only." requiredPermission="pricing.view">
     <div className="space-y-6">
@@ -90,7 +92,7 @@ export function AdminSwapAddonsPage() {
       <AdminSwapAddonPreview savedOptions={list.data?.items || []} draft={editing ? form : undefined} editingId={editing && editing !== 'new' ? editing.id : undefined} feeConfig={fee.data && !fee.isLoading && !fee.isError ? { enabled: feeForm.enabled, percentage: feeForm.enabled ? feeForm.percentage || null : null, fixedAmount: feeForm.enabled ? feeForm.fixedAmount || null : null, fixedCurrency: feeForm.fixedCurrency } : undefined} isLoading={list.isLoading} isError={list.isError} onRetry={() => list.refetch()} exchangeAmount={1000}/>
       </div>
       <section className="panel p-5 space-y-4"><div><h2 className="font-bold text-lg">Exchange Fee</h2><p className="text-sm text-muted-foreground">Additional to existing route pricing. The server calculates and displays the final quote.</p></div>
-        {fee.isLoading ? <div className="skeleton h-28 rounded-lg"/> : fee.isError ? <div role="alert">Could not load exchange fee. <button type="button" onClick={() => fee.refetch()} className="text-primary underline" data-testid="button-retry-exchange-fee">Retry</button></div> : <form className="grid gap-4 sm:grid-cols-3" onSubmit={async e => { e.preventDefault(); setMessage(''); try { await saveFee.mutateAsync({ data: { enabled: feeForm.enabled, percentage: feeForm.percentage || null, fixedAmount: feeForm.fixedAmount || null, fixedCurrency: feeForm.fixedCurrency } }); await qc.invalidateQueries({ queryKey: getGetManualSwapFeeConfigQueryKey() }); setMessage('Exchange fee saved.'); } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not save exchange fee.'); } }}>
+        {fee.isLoading ? <div className="skeleton h-28 rounded-lg"/> : fee.isError ? <div role="alert">Could not load exchange fee. <button type="button" onClick={() => fee.refetch()} className="text-primary underline" data-testid="button-retry-exchange-fee">Retry</button></div> : <form className="grid gap-4 sm:grid-cols-3" onSubmit={async e => { e.preventDefault(); setMessage(''); try { await saveFee.mutateAsync({ data: { enabled: feeForm.enabled, percentage: feeForm.percentage || null, fixedAmount: feeForm.fixedAmount || null, fixedCurrency: feeForm.fixedCurrency } }); await qc.invalidateQueries({ queryKey: getGetManualSwapFeeConfigQueryKey() }); notifyAdminAction('success', 'Manual Swap exchange fee saved successfully.'); } catch (error) { notifyAdminAction('error', error instanceof Error ? error.message : 'Could not save exchange fee.'); } }}>
           <label className="sm:col-span-3 flex items-center gap-2 font-semibold text-sm"><input type="checkbox" checked={feeForm.enabled} onChange={e => setFeeForm(p => ({ ...p, enabled: e.target.checked }))} data-testid="checkbox-exchange-fee-enabled"/> Enabled</label>
           <label className="text-sm font-semibold">Percentage (%)<input inputMode="decimal" pattern="[0-9]+([.][0-9]+)?" className={field} value={feeForm.percentage} onChange={e => setFeeForm(p => ({ ...p, percentage: e.target.value }))} data-testid="input-exchange-fee-percentage"/></label>
           <label className="text-sm font-semibold">Fixed amount<input inputMode="decimal" pattern="[0-9]+([.][0-9]+)?" className={field} value={feeForm.fixedAmount} onChange={e => setFeeForm(p => ({ ...p, fixedAmount: e.target.value }))} data-testid="input-exchange-fee-fixed"/></label>

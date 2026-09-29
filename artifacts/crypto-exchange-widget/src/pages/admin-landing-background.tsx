@@ -29,6 +29,7 @@ import { useI18n } from '../i18n/provider';
 import { BrandLogo } from '../components/brand-logo'
 import { useAppTheme } from '../theme';
 import { useAdminPermissions } from '../lib/admin-permissions';
+import { notifyAdminAction } from '@/components/admin-action-toast';
 
 const PRESETS = [
   { id: 'neon-orbit', nameKey: 'presetNeonOrbit' },
@@ -68,7 +69,6 @@ export function AdminLandingBackgroundStudio() {
 
   const [localCustomPreview, setLocalCustomPreview] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ status: 'idle' | 'uploading' | 'done' | 'error', message?: string }>({ status: 'idle' });
-  const [publishNotice, setPublishNotice] = useState<{ kind: 'success' | 'error', text: string } | null>(null);
   const [devicePreview, setDevicePreview] = useState<'desktop' | 'mobile'>('desktop');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -217,10 +217,12 @@ export function AdminLandingBackgroundStudio() {
       if (prevLocalPreview?.startsWith('blob:')) {
         URL.revokeObjectURL(prevLocalPreview);
       }
-      setUploadProgress({ status: 'done', message: t('adminBackground.uploadSuccess') });
+      setUploadProgress({ status: 'idle' });
+      notifyAdminAction('success', t('adminBackground.uploadSuccess'));
 
     } catch (err) {
-      setUploadProgress({ status: 'error', message: apiErrorText(err, t('adminBackground.uploadError')) });
+      setUploadProgress({ status: 'idle' });
+      notifyAdminAction('error', apiErrorText(err, t('adminBackground.uploadError')));
       // Revert the local preview so we don't display a blob we can't publish
       if (blobUrl.startsWith('blob:')) {
         URL.revokeObjectURL(blobUrl);
@@ -236,7 +238,6 @@ export function AdminLandingBackgroundStudio() {
     JSON.stringify(draft.placements || {}) !== JSON.stringify(currentBg?.placements || {});
 
   const handlePublish = () => {
-    setPublishNotice(null);
     const desktopPlacement = getLandingBackgroundPlacement(draft, 'desktop');
     const placements = Object.fromEntries(
       Object.entries(draft.placements || {}).map(([source, placement]) => [
@@ -259,7 +260,7 @@ export function AdminLandingBackgroundStudio() {
 
     publishMutation.mutate({ data: publishData }, {
       onSuccess: () => {
-        setPublishNotice({ kind: 'success', text: t('adminBackground.publishSuccess') });
+        notifyAdminAction('success', t('adminBackground.publishSuccess'));
         queryClient.invalidateQueries({ queryKey });
         queryClient.invalidateQueries({ queryKey: getGetLandingBackgroundQueryKey() });
       },
@@ -270,12 +271,9 @@ export function AdminLandingBackgroundStudio() {
         const is403 = errorRecord?.status === 403 ||
           errorRecord?.response?.status === 403 ||
           errorRecord?.message?.includes('403');
-        setPublishNotice({
-          kind: 'error',
-          text: is403
-            ? t('adminBackground.ownersOnly')
-            : apiErrorText(err, t('adminBackground.publishError'))
-        });
+        notifyAdminAction('error', is403
+          ? t('adminBackground.ownersOnly')
+          : apiErrorText(err, t('adminBackground.publishError')));
       }
     });
   };
@@ -562,7 +560,6 @@ export function AdminLandingBackgroundStudio() {
                         placements: { ...currentBg.placements }
                       });
                       setLocalCustomPreview(null);
-                      setPublishNotice(null);
                     }}
                     disabled={!hasChanges || publishMutation.isPending}
                   >
@@ -581,13 +578,6 @@ export function AdminLandingBackgroundStudio() {
                 </div>
               </div>
 
-              {publishNotice && (
-                <div className="animate-in fade-in slide-in-from-bottom-2" data-testid="publish-notice">
-                  <InlineNotice kind={publishNotice.kind} onDismiss={() => setPublishNotice(null)}>
-                    {publishNotice.text}
-                  </InlineNotice>
-                </div>
-              )}
             </div>
 
             {/* Right Column: Device Previews */}

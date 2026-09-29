@@ -9,6 +9,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { queryClient } from '@/App';
 import { getListAdminBlogArticlesQueryKey } from '@workspace/api-client-react';
 import { useAdminPermissions } from '@/lib/admin-permissions';
+import { notifyAdminAction } from '@/components/admin-action-toast';
 
 export function AdminBlogPage() {
   const { can } = useAdminPermissions();
@@ -29,19 +30,31 @@ export function AdminBlogPage() {
   const handleDelete = (id: string) => {
     if (!window.confirm('Delete this article? If it is published, consider unpublishing it first. Depending on backend policy, this may archive or permanently remove the article.')) return;
     deleteArticle.mutate({ id }, {
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: getListAdminBlogArticlesQueryKey() })
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListAdminBlogArticlesQueryKey() });
+        notifyAdminAction('success', 'Blog article deleted successfully.');
+      },
+      onError: () => notifyAdminAction('error', 'Failed to delete blog article.')
     });
   };
 
   const handlePublish = (id: string) => {
     publishArticle.mutate({ id }, {
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: getListAdminBlogArticlesQueryKey() })
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListAdminBlogArticlesQueryKey() });
+        notifyAdminAction('success', 'Blog article published successfully.');
+      },
+      onError: () => notifyAdminAction('error', 'Failed to publish blog article.')
     });
   };
 
   const handleUnpublish = (id: string) => {
     unpublishArticle.mutate({ id }, {
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: getListAdminBlogArticlesQueryKey() })
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListAdminBlogArticlesQueryKey() });
+        notifyAdminAction('success', 'Blog article returned to draft.');
+      },
+      onError: () => notifyAdminAction('error', 'Failed to unpublish blog article.')
     });
   };
 

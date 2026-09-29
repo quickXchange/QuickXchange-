@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useForm, Controller } from 'react-hook-form';
+import { notifyAdminAction } from '@/components/admin-action-toast';
 
 export function RolesList({ auth }: { auth: AdminAuthorization }) {
   const { data: roles, isLoading, error } = useListTeamRoles();
@@ -63,9 +64,11 @@ export function RolesList({ auth }: { auth: AdminAuthorization }) {
     if (!selectedRoles.length || selectedRoleInUse) return;
     if (!confirm(`Delete ${selectedRoles.length} selected role${selectedRoles.length === 1 ? '' : 's'}?`)) return;
     let failed = 0;
+    let succeeded = 0;
     for (const role of selectedRoles) {
       try {
         await deleteRole.mutateAsync({ id: role.id });
+        succeeded += 1;
       } catch {
         failed += 1;
       }
@@ -75,7 +78,9 @@ export function RolesList({ auth }: { auth: AdminAuthorization }) {
       queryClient.invalidateQueries({ queryKey: getListTeamRolesQueryKey() }),
       queryClient.invalidateQueries({ queryKey: getListTeamMembersQueryKey() }),
     ]);
-    if (failed) alert(`${failed} selected role${failed === 1 ? '' : 's'} could not be deleted.`);
+    notifyAdminAction(failed ? 'error' : 'success', failed
+      ? `${succeeded} role${succeeded === 1 ? '' : 's'} deleted; ${failed} could not be deleted.`
+      : `${succeeded} role${succeeded === 1 ? '' : 's'} deleted successfully.`);
   };
 
   return (
@@ -168,7 +173,7 @@ function RoleRow({ role, auth, selected, onToggleSelected }: { role: TeamRole; a
 
   const handleDelete = () => {
     if (role.usageCount > 0) {
-      alert(`Cannot delete ${role.name} because it is assigned to ${role.usageCount} member(s).`);
+      notifyAdminAction('error', `Cannot delete ${role.name} because it is assigned to ${role.usageCount} member(s).`);
       return;
     }
     if (confirm(`Delete the role "${role.name}"?`)) {
@@ -176,7 +181,9 @@ function RoleRow({ role, auth, selected, onToggleSelected }: { role: TeamRole; a
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListTeamRolesQueryKey() });
           queryClient.invalidateQueries({ queryKey: getListTeamMembersQueryKey() });
-        }
+          notifyAdminAction('success', `Role "${role.name}" deleted successfully.`);
+        },
+        onError: () => notifyAdminAction('error', `Failed to delete role "${role.name}".`)
       });
     }
   };
@@ -272,16 +279,20 @@ function RoleFormDialog({ open, onOpenChange, auth, role, mode }: { open: boolea
       createRole.mutate({ data }, {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListTeamRolesQueryKey() });
+          notifyAdminAction('success', 'Team role created successfully.');
           onOpenChange(false);
-        }
+        },
+        onError: () => notifyAdminAction('error', 'Failed to create team role.')
       });
     } else if (role) {
       updateRole.mutate({ id: role.id, data }, {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListTeamRolesQueryKey() });
           queryClient.invalidateQueries({ queryKey: getListTeamMembersQueryKey() });
+          notifyAdminAction('success', 'Team role updated successfully.');
           onOpenChange(false);
-        }
+        },
+        onError: () => notifyAdminAction('error', 'Failed to update team role.')
       });
     }
   });

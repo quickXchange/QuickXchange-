@@ -9,6 +9,7 @@ import {
   type QuickexInstrument,
   type QuickexPair,
 } from '@workspace/api-client-react';
+import { notifyAdminAction } from './admin-action-toast';
 
 const instrumentKey = (asset: string, network: string) =>
   `${asset.trim().toUpperCase()}\0${network.trim().toUpperCase()}`;
@@ -31,7 +32,6 @@ export function AdminConvertDefaultPair({ canManage }: { canManage: boolean }) {
   });
   const update = useUpdateAdminConvertDefaultPair();
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
 
   const instruments = useMemo(() => (config.data?.instruments ?? []).filter(instrument =>
     instrument.instrumentType.toLowerCase() === 'crypto' &&
@@ -80,7 +80,6 @@ export function AdminConvertDefaultPair({ canManage }: { canManage: boolean }) {
 
   const save = async () => {
     if (!selectedRoute || !changed || update.isPending) return;
-    setNotice(null);
     try {
       await update.mutateAsync({ data: {
         fromAsset: selectedRoute.fromAsset,
@@ -92,10 +91,10 @@ export function AdminConvertDefaultPair({ canManage }: { canManage: boolean }) {
         queryClient.invalidateQueries({ queryKey: getGetAdminConvertDefaultPairQueryKey() }),
         queryClient.invalidateQueries({ queryKey: getGetQuickexConfigQueryKey() }),
       ]);
-      setNotice('Default Convert pair saved. New visitors will see this pair first.');
+      notifyAdminAction('success', 'Default Convert pair saved. New visitors will see this pair first.');
     } catch {
       await queryClient.invalidateQueries({ queryKey: getGetQuickexConfigQueryKey() });
-      setNotice('Could not save this pair. Check that it is still available and try again.');
+      notifyAdminAction('error', 'Could not save this pair. Check that it is still available and try again.');
     }
   };
 
@@ -135,7 +134,6 @@ export function AdminConvertDefaultPair({ canManage }: { canManage: boolean }) {
                     ? target
                     : byKey.get(instrumentKey(compatible[0]?.toAsset ?? '', compatible[0]?.toNetwork ?? ''));
                   setDraft({ fromSlug: event.target.value, toSlug: nextTarget?.slug ?? '' });
-                  setNotice(null);
                 }}>
                 {!sourceOptions.length && <option value="">No available pair</option>}
                 {sourceOptions.map(item => <option key={item.slug} value={item.slug}>{label(item)}</option>)}
@@ -149,7 +147,6 @@ export function AdminConvertDefaultPair({ canManage }: { canManage: boolean }) {
                 disabled={!canManage || !targetOptions.length || !draft}
                 onChange={event => {
                   setDraft(current => current ? { ...current, toSlug: event.target.value } : current);
-                  setNotice(null);
                 }}>
                 {!targetOptions.length && <option value="">No available pair</option>}
                 {targetOptions.map(item => <option key={item.slug} value={item.slug}>{label(item)}</option>)}
@@ -160,7 +157,6 @@ export function AdminConvertDefaultPair({ canManage }: { canManage: boolean }) {
             onClick={save} disabled={!selectedRoute || !changed || update.isPending}>
             {update.isPending ? 'Saving…' : 'Save Default Pair'}
           </button>}
-          {notice && <p className="mt-3 text-sm text-foreground" role="status">{notice}</p>}
         </>
       )}
     </section>

@@ -21,6 +21,7 @@ import {
 } from '../App';
 import { Image as ImageIcon, Upload, Loader2, RotateCcw, Save, Smartphone, Monitor, Tablet } from 'lucide-react';
 import { useI18n } from '../i18n/provider';
+import { notifyAdminAction } from '@/components/admin-action-toast';
 
 type UploadStatus = { status: 'idle' | 'uploading' | 'done' | 'error', message?: string };
 
@@ -66,7 +67,6 @@ export function AdminAppearancePage() {
 
   const [localPreviews, setLocalPreviews] = useState<Record<string, string>>({});
   const [uploadProgress, setUploadProgress] = useState<Record<string, UploadStatus>>({});
-  const [notice, setNotice] = useState<{ kind: 'success' | 'error', text: string } | null>(null);
 
   useEffect(() => {
     if (branding) {
@@ -122,27 +122,25 @@ export function AdminAppearancePage() {
   }, [queryClient]);
 
   const handleSave = () => {
-    setNotice(null);
     saveMutation.mutate({ data: draft }, {
       onSuccess: () => {
-        setNotice({ kind: 'success', text: 'Brand assets saved successfully.' });
+        notifyAdminAction('success', 'Brand assets saved successfully.');
         invalidateQueries();
       },
       onError: (err: unknown) => {
-        setNotice({ kind: 'error', text: apiErrorText(err, 'Failed to save brand assets.') });
+        notifyAdminAction('error', apiErrorText(err, 'Failed to save brand assets.'));
       }
     });
   };
 
   const handleReset = () => {
-    setNotice(null);
     resetMutation.mutate(undefined, {
       onSuccess: () => {
-        setNotice({ kind: 'success', text: 'Brand assets reset to defaults.' });
+        notifyAdminAction('success', 'Brand assets reset to defaults.');
         invalidateQueries();
       },
       onError: (err: unknown) => {
-        setNotice({ kind: 'error', text: apiErrorText(err, 'Failed to reset brand assets.') });
+        notifyAdminAction('error', apiErrorText(err, 'Failed to reset brand assets.'));
       }
     });
   };
@@ -178,9 +176,11 @@ export function AdminAppearancePage() {
       if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
 
       setDraft(prev => ({ ...prev, [key]: uploadIntent.objectPath }));
-      setUploadProgress(p => ({ ...p, [key]: { status: 'done', message: 'Upload success' } }));
+      setUploadProgress(p => ({ ...p, [key]: { status: 'idle' } }));
+      notifyAdminAction('success', 'Brand image uploaded successfully.');
     } catch (err) {
-      setUploadProgress(p => ({ ...p, [key]: { status: 'error', message: apiErrorText(err, 'Upload error') } }));
+      setUploadProgress(p => ({ ...p, [key]: { status: 'idle' } }));
+      notifyAdminAction('error', apiErrorText(err, 'Failed to upload brand image.'));
       setLocalPreviews(p => {
         const next = { ...p };
         delete next[key];
@@ -604,13 +604,6 @@ export function AdminAppearancePage() {
                   </div>
                 </div>
               </div>
-
-              {/* Notice */}
-              {notice && (
-                <div className="animate-in fade-in duration-200">
-                  <InlineNotice kind={notice.kind}>{notice.text}</InlineNotice>
-                </div>
-              )}
 
               {/* Actions */}
               <div className="admin-form-card panel p-4 flex flex-col gap-3 sticky bottom-6 z-10 shadow-xl border-primary/10">

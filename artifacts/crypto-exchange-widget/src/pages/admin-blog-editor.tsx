@@ -16,6 +16,7 @@ import { Save, ChevronLeft, ImagePlus, Loader2 } from 'lucide-react';
 import { queryClient } from '@/App';
 import type { BlogArticleInput, BlogArticleInputStatus, ImageUploadInputContentType, BlogCitationInput } from '@workspace/api-client-react';
 import { useAdminPermissions } from '@/lib/admin-permissions';
+import { notifyAdminAction } from '@/components/admin-action-toast';
 
 export function AdminBlogEditorPage() {
   const { can } = useAdminPermissions();
@@ -147,8 +148,9 @@ export function AdminBlogEditorPage() {
         setFormData(prev => ({ ...prev, socialImagePath: intent.objectPath }));
         setLocalSocialImage(URL.createObjectURL(file));
       }
-    } catch (error) {
-      setNotice({ kind: 'error', text: 'Failed to upload image' });
+      notifyAdminAction('success', type === 'featured' ? 'Featured article image uploaded successfully.' : 'Social article image uploaded successfully.');
+    } catch {
+      notifyAdminAction('error', 'Failed to upload article image.');
     } finally {
       setUploadingImage(null);
       if (e.target) e.target.value = '';
@@ -199,22 +201,22 @@ export function AdminBlogEditorPage() {
         onSuccess: (newArticle) => {
           queryClient.invalidateQueries({ queryKey: getListAdminBlogArticlesQueryKey() });
           setLocation(`/admin/blog/edit/${newArticle.id}`);
-          setNotice({ kind: 'success', text: 'Article created successfully' });
+          notifyAdminAction('success', 'Article created successfully.');
         },
-        onError: () => setNotice({ kind: 'error', text: 'Failed to create article' })
+        onError: () => notifyAdminAction('error', 'Failed to create article.')
       });
     } else {
       updateMutation.mutate({ id, data: payload }, {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListAdminBlogArticlesQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetAdminBlogArticleQueryKey(id) });
-          setNotice({ kind: 'success', text: 'Article updated successfully' });
+          notifyAdminAction('success', 'Article updated successfully.');
         },
         onError: (error: any) => {
           if (error?.status === 409 || error?.response?.status === 409) {
-            setNotice({ kind: 'error', text: 'Conflict: This article was modified by another user or process. Please refresh and review changes before saving again.' });
+            notifyAdminAction('error', 'Conflict: This article was modified by another user or process. Please refresh and review changes before saving again.');
           } else {
-            setNotice({ kind: 'error', text: 'Failed to update article' });
+            notifyAdminAction('error', 'Failed to update article.');
           }
         }
       });
