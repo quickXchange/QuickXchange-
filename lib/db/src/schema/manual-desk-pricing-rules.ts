@@ -41,6 +41,7 @@ export const manualDeskPricingRulesTable = pgTable("manual_desk_pricing_rules", 
     direction: "MARKUP" | "GIVE_MORE";
     fixedFee?: string;
   }>>().notNull().default([]),
+  rangeOnlyPricing: boolean("range_only_pricing").notNull().default(false),
   /** Optional exact base rate, expressed as target units per source unit. */
   exactRate: numeric("exact_rate", { precision: 78, scale: 36 }),
   priority: integer("priority").notNull().default(0),

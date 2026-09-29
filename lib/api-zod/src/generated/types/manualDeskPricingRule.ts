@@ -37,4 +37,4 @@ export type ManualDeskPricingRule = ManualDeskPricingRuleInput & {
   readonly missingSettlementOptionIds: readonly string[];
   createdAt: string;
   updatedAt: string;
-}, 'amountBasedPricingEnabled' | 'amountBasedPricingTiers'>>;
+}, 'amountBasedPricingEnabled' | 'amountBasedPricingTiers' | 'rangeOnlyPricing'>>;

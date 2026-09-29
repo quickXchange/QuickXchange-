@@ -2065,6 +2065,7 @@ export const CreateExchangeOrderResponse = zod.object({
   "markupBasisPoints": zod.number().min(createExchangeOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMin).max(createExchangeOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(createExchangeOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(createExchangeOrderResponsePricingSnapshotOneRuleAdjustmentDirectionDefault),
   "amountBasedPricingEnabled": zod.boolean().optional(),
+  "rangeOnlyPricing": zod.boolean().optional(),
   "amountBasedPricingTiers": zod.array(zod.object({
   "minAmount": zod.string().regex(createExchangeOrderResponsePricingSnapshotOneRuleAmountBasedPricingTiersItemMinAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "maxAmount": zod.union([zod.string().regex(createExchangeOrderResponsePricingSnapshotOneRuleAmountBasedPricingTiersItemMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
@@ -2460,6 +2461,7 @@ export const GetOrdersResponse = zod.object({
   "markupBasisPoints": zod.number().min(getOrdersResponseItemsItemPricingSnapshotOneRuleMarkupBasisPointsMin).max(getOrdersResponseItemsItemPricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(getOrdersResponseItemsItemPricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(getOrdersResponseItemsItemPricingSnapshotOneRuleAdjustmentDirectionDefault),
   "amountBasedPricingEnabled": zod.boolean().optional(),
+  "rangeOnlyPricing": zod.boolean().optional(),
   "amountBasedPricingTiers": zod.array(zod.object({
   "minAmount": zod.string().regex(getOrdersResponseItemsItemPricingSnapshotOneRuleAmountBasedPricingTiersItemMinAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "maxAmount": zod.union([zod.string().regex(getOrdersResponseItemsItemPricingSnapshotOneRuleAmountBasedPricingTiersItemMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
@@ -2847,6 +2849,7 @@ export const CreateOrderResponse = zod.object({
   "markupBasisPoints": zod.number().min(createOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMin).max(createOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(createOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(createOrderResponsePricingSnapshotOneRuleAdjustmentDirectionDefault),
   "amountBasedPricingEnabled": zod.boolean().optional(),
+  "rangeOnlyPricing": zod.boolean().optional(),
   "amountBasedPricingTiers": zod.array(zod.object({
   "minAmount": zod.string().regex(createOrderResponsePricingSnapshotOneRuleAmountBasedPricingTiersItemMinAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "maxAmount": zod.union([zod.string().regex(createOrderResponsePricingSnapshotOneRuleAmountBasedPricingTiersItemMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
@@ -3202,6 +3205,7 @@ export const BulkUpdateOrderStatusResponse = zod.object({
   "markupBasisPoints": zod.number().min(bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMin).max(bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneRuleAdjustmentDirectionDefault),
   "amountBasedPricingEnabled": zod.boolean().optional(),
+  "rangeOnlyPricing": zod.boolean().optional(),
   "amountBasedPricingTiers": zod.array(zod.object({
   "minAmount": zod.string().regex(bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneRuleAmountBasedPricingTiersItemMinAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "maxAmount": zod.union([zod.string().regex(bulkUpdateOrderStatusResponseResultsItemOrderPricingSnapshotOneRuleAmountBasedPricingTiersItemMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
@@ -3563,6 +3567,7 @@ export const BulkArchiveOrdersResponse = zod.object({
   "markupBasisPoints": zod.number().min(bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMin).max(bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneRuleAdjustmentDirectionDefault),
   "amountBasedPricingEnabled": zod.boolean().optional(),
+  "rangeOnlyPricing": zod.boolean().optional(),
   "amountBasedPricingTiers": zod.array(zod.object({
   "minAmount": zod.string().regex(bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneRuleAmountBasedPricingTiersItemMinAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "maxAmount": zod.union([zod.string().regex(bulkArchiveOrdersResponseResultsItemOrderPricingSnapshotOneRuleAmountBasedPricingTiersItemMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
@@ -3923,6 +3928,7 @@ export const PermanentlyDeleteOrdersResponse = zod.object({
   "markupBasisPoints": zod.number().min(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMin).max(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneRuleAdjustmentDirectionDefault),
   "amountBasedPricingEnabled": zod.boolean().optional(),
+  "rangeOnlyPricing": zod.boolean().optional(),
   "amountBasedPricingTiers": zod.array(zod.object({
   "minAmount": zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneRuleAmountBasedPricingTiersItemMinAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "maxAmount": zod.union([zod.string().regex(permanentlyDeleteOrdersResponseResultsItemOrderPricingSnapshotOneRuleAmountBasedPricingTiersItemMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
@@ -4436,6 +4442,7 @@ export const GetOrderResponse = zod.object({
   "markupBasisPoints": zod.number().min(getOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMin).max(getOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(getOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(getOrderResponsePricingSnapshotOneRuleAdjustmentDirectionDefault),
   "amountBasedPricingEnabled": zod.boolean().optional(),
+  "rangeOnlyPricing": zod.boolean().optional(),
   "amountBasedPricingTiers": zod.array(zod.object({
   "minAmount": zod.string().regex(getOrderResponsePricingSnapshotOneRuleAmountBasedPricingTiersItemMinAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "maxAmount": zod.union([zod.string().regex(getOrderResponsePricingSnapshotOneRuleAmountBasedPricingTiersItemMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
@@ -4825,6 +4832,7 @@ export const UpdateOrderResponse = zod.object({
   "markupBasisPoints": zod.number().min(updateOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMin).max(updateOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(updateOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(updateOrderResponsePricingSnapshotOneRuleAdjustmentDirectionDefault),
   "amountBasedPricingEnabled": zod.boolean().optional(),
+  "rangeOnlyPricing": zod.boolean().optional(),
   "amountBasedPricingTiers": zod.array(zod.object({
   "minAmount": zod.string().regex(updateOrderResponsePricingSnapshotOneRuleAmountBasedPricingTiersItemMinAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "maxAmount": zod.union([zod.string().regex(updateOrderResponsePricingSnapshotOneRuleAmountBasedPricingTiersItemMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
@@ -5486,6 +5494,7 @@ export const AssignOrderResponse = zod.object({
   "markupBasisPoints": zod.number().min(assignOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMin).max(assignOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(assignOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(assignOrderResponsePricingSnapshotOneRuleAdjustmentDirectionDefault),
   "amountBasedPricingEnabled": zod.boolean().optional(),
+  "rangeOnlyPricing": zod.boolean().optional(),
   "amountBasedPricingTiers": zod.array(zod.object({
   "minAmount": zod.string().regex(assignOrderResponsePricingSnapshotOneRuleAmountBasedPricingTiersItemMinAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "maxAmount": zod.union([zod.string().regex(assignOrderResponsePricingSnapshotOneRuleAmountBasedPricingTiersItemMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
@@ -5854,6 +5863,7 @@ export const UpdateOrderSupportToolsResponse = zod.object({
   "markupBasisPoints": zod.number().min(updateOrderSupportToolsResponsePricingSnapshotOneRuleMarkupBasisPointsMin).max(updateOrderSupportToolsResponsePricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(updateOrderSupportToolsResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(updateOrderSupportToolsResponsePricingSnapshotOneRuleAdjustmentDirectionDefault),
   "amountBasedPricingEnabled": zod.boolean().optional(),
+  "rangeOnlyPricing": zod.boolean().optional(),
   "amountBasedPricingTiers": zod.array(zod.object({
   "minAmount": zod.string().regex(updateOrderSupportToolsResponsePricingSnapshotOneRuleAmountBasedPricingTiersItemMinAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "maxAmount": zod.union([zod.string().regex(updateOrderSupportToolsResponsePricingSnapshotOneRuleAmountBasedPricingTiersItemMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
@@ -6201,6 +6211,7 @@ export const ArchiveOrderResponse = zod.object({
   "markupBasisPoints": zod.number().min(archiveOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMin).max(archiveOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(archiveOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(archiveOrderResponsePricingSnapshotOneRuleAdjustmentDirectionDefault),
   "amountBasedPricingEnabled": zod.boolean().optional(),
+  "rangeOnlyPricing": zod.boolean().optional(),
   "amountBasedPricingTiers": zod.array(zod.object({
   "minAmount": zod.string().regex(archiveOrderResponsePricingSnapshotOneRuleAmountBasedPricingTiersItemMinAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "maxAmount": zod.union([zod.string().regex(archiveOrderResponsePricingSnapshotOneRuleAmountBasedPricingTiersItemMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
@@ -6548,6 +6559,7 @@ export const RestoreOrderResponse = zod.object({
   "markupBasisPoints": zod.number().min(restoreOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMin).max(restoreOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(restoreOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(restoreOrderResponsePricingSnapshotOneRuleAdjustmentDirectionDefault),
   "amountBasedPricingEnabled": zod.boolean().optional(),
+  "rangeOnlyPricing": zod.boolean().optional(),
   "amountBasedPricingTiers": zod.array(zod.object({
   "minAmount": zod.string().regex(restoreOrderResponsePricingSnapshotOneRuleAmountBasedPricingTiersItemMinAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "maxAmount": zod.union([zod.string().regex(restoreOrderResponsePricingSnapshotOneRuleAmountBasedPricingTiersItemMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
@@ -9446,6 +9458,7 @@ export const listManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsM
 
 export const listManualDeskPricingRulesResponseItemsItemOneTwoAdjustmentDirectionDefault = `MARKUP`;
 export const listManualDeskPricingRulesResponseItemsItemOneTwoAmountBasedPricingEnabledDefault = false;
+export const listManualDeskPricingRulesResponseItemsItemOneTwoRangeOnlyPricingDefault = false;
 export const listManualDeskPricingRulesResponseItemsItemOneTwoAmountBasedPricingTiersItemMinAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const listManualDeskPricingRulesResponseItemsItemOneTwoAmountBasedPricingTiersItemMaxAmountOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const listManualDeskPricingRulesResponseItemsItemOneTwoAmountBasedPricingTiersItemPercentageRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -9492,6 +9505,7 @@ export const ListManualDeskPricingRulesResponse = zod.object({
   "markupBasisPoints": zod.number().min(listManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMin).max(listManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMax).multipleOf(listManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMultipleOf),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(listManualDeskPricingRulesResponseItemsItemOneTwoAdjustmentDirectionDefault),
   "amountBasedPricingEnabled": zod.boolean().default(listManualDeskPricingRulesResponseItemsItemOneTwoAmountBasedPricingEnabledDefault),
+  "rangeOnlyPricing": zod.boolean().default(listManualDeskPricingRulesResponseItemsItemOneTwoRangeOnlyPricingDefault).describe('When enabled, only configured amount ranges apply their tier percentage and fixed fee; gaps use the exact base rate with no rule markup or fixed fee.'),
   "amountBasedPricingTiers": zod.array(zod.object({
   "minAmount": zod.string().regex(listManualDeskPricingRulesResponseItemsItemOneTwoAmountBasedPricingTiersItemMinAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "maxAmount": zod.union([zod.string().regex(listManualDeskPricingRulesResponseItemsItemOneTwoAmountBasedPricingTiersItemMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
@@ -9563,6 +9577,7 @@ export const createManualDeskPricingRuleBodyTwoMarkupBasisPointsMultipleOf = 1;
 
 export const createManualDeskPricingRuleBodyTwoAdjustmentDirectionDefault = `MARKUP`;
 export const createManualDeskPricingRuleBodyTwoAmountBasedPricingEnabledDefault = false;
+export const createManualDeskPricingRuleBodyTwoRangeOnlyPricingDefault = false;
 export const createManualDeskPricingRuleBodyTwoAmountBasedPricingTiersItemMinAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createManualDeskPricingRuleBodyTwoAmountBasedPricingTiersItemMaxAmountOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createManualDeskPricingRuleBodyTwoAmountBasedPricingTiersItemPercentageRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -9601,6 +9616,7 @@ export const CreateManualDeskPricingRuleBody = zod.object({
   "markupBasisPoints": zod.number().min(createManualDeskPricingRuleBodyTwoMarkupBasisPointsMin).max(createManualDeskPricingRuleBodyTwoMarkupBasisPointsMax).multipleOf(createManualDeskPricingRuleBodyTwoMarkupBasisPointsMultipleOf),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(createManualDeskPricingRuleBodyTwoAdjustmentDirectionDefault),
   "amountBasedPricingEnabled": zod.boolean().default(createManualDeskPricingRuleBodyTwoAmountBasedPricingEnabledDefault),
+  "rangeOnlyPricing": zod.boolean().default(createManualDeskPricingRuleBodyTwoRangeOnlyPricingDefault).describe('When enabled, only configured amount ranges apply their tier percentage and fixed fee; gaps use the exact base rate with no rule markup or fixed fee.'),
   "amountBasedPricingTiers": zod.array(zod.object({
   "minAmount": zod.string().regex(createManualDeskPricingRuleBodyTwoAmountBasedPricingTiersItemMinAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "maxAmount": zod.union([zod.string().regex(createManualDeskPricingRuleBodyTwoAmountBasedPricingTiersItemMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
@@ -9647,6 +9663,7 @@ export const createManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMultipleO
 
 export const createManualDeskPricingRuleResponseOneTwoAdjustmentDirectionDefault = `MARKUP`;
 export const createManualDeskPricingRuleResponseOneTwoAmountBasedPricingEnabledDefault = false;
+export const createManualDeskPricingRuleResponseOneTwoRangeOnlyPricingDefault = false;
 export const createManualDeskPricingRuleResponseOneTwoAmountBasedPricingTiersItemMinAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createManualDeskPricingRuleResponseOneTwoAmountBasedPricingTiersItemMaxAmountOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createManualDeskPricingRuleResponseOneTwoAmountBasedPricingTiersItemPercentageRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -9691,6 +9708,7 @@ export const CreateManualDeskPricingRuleResponse = zod.object({
   "markupBasisPoints": zod.number().min(createManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMin).max(createManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMax).multipleOf(createManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMultipleOf),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(createManualDeskPricingRuleResponseOneTwoAdjustmentDirectionDefault),
   "amountBasedPricingEnabled": zod.boolean().default(createManualDeskPricingRuleResponseOneTwoAmountBasedPricingEnabledDefault),
+  "rangeOnlyPricing": zod.boolean().default(createManualDeskPricingRuleResponseOneTwoRangeOnlyPricingDefault).describe('When enabled, only configured amount ranges apply their tier percentage and fixed fee; gaps use the exact base rate with no rule markup or fixed fee.'),
   "amountBasedPricingTiers": zod.array(zod.object({
   "minAmount": zod.string().regex(createManualDeskPricingRuleResponseOneTwoAmountBasedPricingTiersItemMinAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "maxAmount": zod.union([zod.string().regex(createManualDeskPricingRuleResponseOneTwoAmountBasedPricingTiersItemMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
@@ -9769,6 +9787,7 @@ export const BulkManualDeskPricingRulesBody = zod.object({
   "markupBasisPoints": zod.number().min(bulkManualDeskPricingRulesBodyPatchMarkupBasisPointsMin).max(bulkManualDeskPricingRulesBodyPatchMarkupBasisPointsMax).multipleOf(bulkManualDeskPricingRulesBodyPatchMarkupBasisPointsMultipleOf).optional(),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).optional(),
   "amountBasedPricingEnabled": zod.boolean().optional(),
+  "rangeOnlyPricing": zod.boolean().optional(),
   "amountBasedPricingTiers": zod.array(zod.object({
   "minAmount": zod.string().regex(bulkManualDeskPricingRulesBodyPatchAmountBasedPricingTiersItemMinAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "maxAmount": zod.union([zod.string().regex(bulkManualDeskPricingRulesBodyPatchAmountBasedPricingTiersItemMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
@@ -9819,6 +9838,7 @@ export const bulkManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsM
 
 export const bulkManualDeskPricingRulesResponseItemsItemOneTwoAdjustmentDirectionDefault = `MARKUP`;
 export const bulkManualDeskPricingRulesResponseItemsItemOneTwoAmountBasedPricingEnabledDefault = false;
+export const bulkManualDeskPricingRulesResponseItemsItemOneTwoRangeOnlyPricingDefault = false;
 export const bulkManualDeskPricingRulesResponseItemsItemOneTwoAmountBasedPricingTiersItemMinAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const bulkManualDeskPricingRulesResponseItemsItemOneTwoAmountBasedPricingTiersItemMaxAmountOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const bulkManualDeskPricingRulesResponseItemsItemOneTwoAmountBasedPricingTiersItemPercentageRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -9867,6 +9887,7 @@ export const BulkManualDeskPricingRulesResponse = zod.object({
   "markupBasisPoints": zod.number().min(bulkManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMin).max(bulkManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMax).multipleOf(bulkManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMultipleOf),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(bulkManualDeskPricingRulesResponseItemsItemOneTwoAdjustmentDirectionDefault),
   "amountBasedPricingEnabled": zod.boolean().default(bulkManualDeskPricingRulesResponseItemsItemOneTwoAmountBasedPricingEnabledDefault),
+  "rangeOnlyPricing": zod.boolean().default(bulkManualDeskPricingRulesResponseItemsItemOneTwoRangeOnlyPricingDefault).describe('When enabled, only configured amount ranges apply their tier percentage and fixed fee; gaps use the exact base rate with no rule markup or fixed fee.'),
   "amountBasedPricingTiers": zod.array(zod.object({
   "minAmount": zod.string().regex(bulkManualDeskPricingRulesResponseItemsItemOneTwoAmountBasedPricingTiersItemMinAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "maxAmount": zod.union([zod.string().regex(bulkManualDeskPricingRulesResponseItemsItemOneTwoAmountBasedPricingTiersItemMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
@@ -9947,6 +9968,7 @@ export const bulkCreateManualDeskPricingRulesBodyRulesItemTwoMarkupBasisPointsMu
 
 export const bulkCreateManualDeskPricingRulesBodyRulesItemTwoAdjustmentDirectionDefault = `MARKUP`;
 export const bulkCreateManualDeskPricingRulesBodyRulesItemTwoAmountBasedPricingEnabledDefault = false;
+export const bulkCreateManualDeskPricingRulesBodyRulesItemTwoRangeOnlyPricingDefault = false;
 export const bulkCreateManualDeskPricingRulesBodyRulesItemTwoAmountBasedPricingTiersItemMinAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const bulkCreateManualDeskPricingRulesBodyRulesItemTwoAmountBasedPricingTiersItemMaxAmountOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const bulkCreateManualDeskPricingRulesBodyRulesItemTwoAmountBasedPricingTiersItemPercentageRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -9988,6 +10010,7 @@ export const BulkCreateManualDeskPricingRulesBody = zod.object({
   "markupBasisPoints": zod.number().min(bulkCreateManualDeskPricingRulesBodyRulesItemTwoMarkupBasisPointsMin).max(bulkCreateManualDeskPricingRulesBodyRulesItemTwoMarkupBasisPointsMax).multipleOf(bulkCreateManualDeskPricingRulesBodyRulesItemTwoMarkupBasisPointsMultipleOf),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(bulkCreateManualDeskPricingRulesBodyRulesItemTwoAdjustmentDirectionDefault),
   "amountBasedPricingEnabled": zod.boolean().default(bulkCreateManualDeskPricingRulesBodyRulesItemTwoAmountBasedPricingEnabledDefault),
+  "rangeOnlyPricing": zod.boolean().default(bulkCreateManualDeskPricingRulesBodyRulesItemTwoRangeOnlyPricingDefault).describe('When enabled, only configured amount ranges apply their tier percentage and fixed fee; gaps use the exact base rate with no rule markup or fixed fee.'),
   "amountBasedPricingTiers": zod.array(zod.object({
   "minAmount": zod.string().regex(bulkCreateManualDeskPricingRulesBodyRulesItemTwoAmountBasedPricingTiersItemMinAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "maxAmount": zod.union([zod.string().regex(bulkCreateManualDeskPricingRulesBodyRulesItemTwoAmountBasedPricingTiersItemMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
@@ -10035,6 +10058,7 @@ export const bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisP
 
 export const bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoAdjustmentDirectionDefault = `MARKUP`;
 export const bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoAmountBasedPricingEnabledDefault = false;
+export const bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoRangeOnlyPricingDefault = false;
 export const bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoAmountBasedPricingTiersItemMinAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoAmountBasedPricingTiersItemMaxAmountOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoAmountBasedPricingTiersItemPercentageRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -10080,6 +10104,7 @@ export const BulkCreateManualDeskPricingRulesResponse = zod.object({
   "markupBasisPoints": zod.number().min(bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMin).max(bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMax).multipleOf(bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoMarkupBasisPointsMultipleOf),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoAdjustmentDirectionDefault),
   "amountBasedPricingEnabled": zod.boolean().default(bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoAmountBasedPricingEnabledDefault),
+  "rangeOnlyPricing": zod.boolean().default(bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoRangeOnlyPricingDefault).describe('When enabled, only configured amount ranges apply their tier percentage and fixed fee; gaps use the exact base rate with no rule markup or fixed fee.'),
   "amountBasedPricingTiers": zod.array(zod.object({
   "minAmount": zod.string().regex(bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoAmountBasedPricingTiersItemMinAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "maxAmount": zod.union([zod.string().regex(bulkCreateManualDeskPricingRulesResponseItemsItemOneTwoAmountBasedPricingTiersItemMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
@@ -11832,6 +11857,7 @@ export const previewManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMultiple
 
 export const previewManualDeskPricingRuleResponseOneTwoAdjustmentDirectionDefault = `MARKUP`;
 export const previewManualDeskPricingRuleResponseOneTwoAmountBasedPricingEnabledDefault = false;
+export const previewManualDeskPricingRuleResponseOneTwoRangeOnlyPricingDefault = false;
 export const previewManualDeskPricingRuleResponseOneTwoAmountBasedPricingTiersItemMinAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const previewManualDeskPricingRuleResponseOneTwoAmountBasedPricingTiersItemMaxAmountOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const previewManualDeskPricingRuleResponseOneTwoAmountBasedPricingTiersItemPercentageRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -11876,6 +11902,7 @@ export const PreviewManualDeskPricingRuleResponse = zod.object({
   "markupBasisPoints": zod.number().min(previewManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMin).max(previewManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMax).multipleOf(previewManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMultipleOf),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(previewManualDeskPricingRuleResponseOneTwoAdjustmentDirectionDefault),
   "amountBasedPricingEnabled": zod.boolean().default(previewManualDeskPricingRuleResponseOneTwoAmountBasedPricingEnabledDefault),
+  "rangeOnlyPricing": zod.boolean().default(previewManualDeskPricingRuleResponseOneTwoRangeOnlyPricingDefault).describe('When enabled, only configured amount ranges apply their tier percentage and fixed fee; gaps use the exact base rate with no rule markup or fixed fee.'),
   "amountBasedPricingTiers": zod.array(zod.object({
   "minAmount": zod.string().regex(previewManualDeskPricingRuleResponseOneTwoAmountBasedPricingTiersItemMinAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "maxAmount": zod.union([zod.string().regex(previewManualDeskPricingRuleResponseOneTwoAmountBasedPricingTiersItemMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
@@ -11984,6 +12011,7 @@ export const updateManualDeskPricingRuleBodyOneTwoMarkupBasisPointsMultipleOf = 
 
 export const updateManualDeskPricingRuleBodyOneTwoAdjustmentDirectionDefault = `MARKUP`;
 export const updateManualDeskPricingRuleBodyOneTwoAmountBasedPricingEnabledDefault = false;
+export const updateManualDeskPricingRuleBodyOneTwoRangeOnlyPricingDefault = false;
 export const updateManualDeskPricingRuleBodyOneTwoAmountBasedPricingTiersItemMinAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const updateManualDeskPricingRuleBodyOneTwoAmountBasedPricingTiersItemMaxAmountOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const updateManualDeskPricingRuleBodyOneTwoAmountBasedPricingTiersItemPercentageRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -12024,6 +12052,7 @@ export const UpdateManualDeskPricingRuleBody = zod.object({
   "markupBasisPoints": zod.number().min(updateManualDeskPricingRuleBodyOneTwoMarkupBasisPointsMin).max(updateManualDeskPricingRuleBodyOneTwoMarkupBasisPointsMax).multipleOf(updateManualDeskPricingRuleBodyOneTwoMarkupBasisPointsMultipleOf),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(updateManualDeskPricingRuleBodyOneTwoAdjustmentDirectionDefault),
   "amountBasedPricingEnabled": zod.boolean().default(updateManualDeskPricingRuleBodyOneTwoAmountBasedPricingEnabledDefault),
+  "rangeOnlyPricing": zod.boolean().default(updateManualDeskPricingRuleBodyOneTwoRangeOnlyPricingDefault).describe('When enabled, only configured amount ranges apply their tier percentage and fixed fee; gaps use the exact base rate with no rule markup or fixed fee.'),
   "amountBasedPricingTiers": zod.array(zod.object({
   "minAmount": zod.string().regex(updateManualDeskPricingRuleBodyOneTwoAmountBasedPricingTiersItemMinAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "maxAmount": zod.union([zod.string().regex(updateManualDeskPricingRuleBodyOneTwoAmountBasedPricingTiersItemMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
@@ -12072,6 +12101,7 @@ export const updateManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMultipleO
 
 export const updateManualDeskPricingRuleResponseOneTwoAdjustmentDirectionDefault = `MARKUP`;
 export const updateManualDeskPricingRuleResponseOneTwoAmountBasedPricingEnabledDefault = false;
+export const updateManualDeskPricingRuleResponseOneTwoRangeOnlyPricingDefault = false;
 export const updateManualDeskPricingRuleResponseOneTwoAmountBasedPricingTiersItemMinAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const updateManualDeskPricingRuleResponseOneTwoAmountBasedPricingTiersItemMaxAmountOneRegExp = new RegExp('^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const updateManualDeskPricingRuleResponseOneTwoAmountBasedPricingTiersItemPercentageRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -12116,6 +12146,7 @@ export const UpdateManualDeskPricingRuleResponse = zod.object({
   "markupBasisPoints": zod.number().min(updateManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMin).max(updateManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMax).multipleOf(updateManualDeskPricingRuleResponseOneTwoMarkupBasisPointsMultipleOf),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(updateManualDeskPricingRuleResponseOneTwoAdjustmentDirectionDefault),
   "amountBasedPricingEnabled": zod.boolean().default(updateManualDeskPricingRuleResponseOneTwoAmountBasedPricingEnabledDefault),
+  "rangeOnlyPricing": zod.boolean().default(updateManualDeskPricingRuleResponseOneTwoRangeOnlyPricingDefault).describe('When enabled, only configured amount ranges apply their tier percentage and fixed fee; gaps use the exact base rate with no rule markup or fixed fee.'),
   "amountBasedPricingTiers": zod.array(zod.object({
   "minAmount": zod.string().regex(updateManualDeskPricingRuleResponseOneTwoAmountBasedPricingTiersItemMinAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "maxAmount": zod.union([zod.string().regex(updateManualDeskPricingRuleResponseOneTwoAmountBasedPricingTiersItemMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
@@ -12628,6 +12659,7 @@ export const ReconcileOrderResponse = zod.object({
   "markupBasisPoints": zod.number().min(reconcileOrderResponseOrderPricingSnapshotOneRuleMarkupBasisPointsMin).max(reconcileOrderResponseOrderPricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(reconcileOrderResponseOrderPricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(reconcileOrderResponseOrderPricingSnapshotOneRuleAdjustmentDirectionDefault),
   "amountBasedPricingEnabled": zod.boolean().optional(),
+  "rangeOnlyPricing": zod.boolean().optional(),
   "amountBasedPricingTiers": zod.array(zod.object({
   "minAmount": zod.string().regex(reconcileOrderResponseOrderPricingSnapshotOneRuleAmountBasedPricingTiersItemMinAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "maxAmount": zod.union([zod.string().regex(reconcileOrderResponseOrderPricingSnapshotOneRuleAmountBasedPricingTiersItemMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),
@@ -13838,6 +13870,7 @@ export const CreateQuickexOrderResponse = zod.object({
   "markupBasisPoints": zod.number().min(createQuickexOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMin).max(createQuickexOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMax).multipleOf(createQuickexOrderResponsePricingSnapshotOneRuleMarkupBasisPointsMultipleOf),
   "adjustmentDirection": zod.enum(['MARKUP', 'GIVE_MORE']).default(createQuickexOrderResponsePricingSnapshotOneRuleAdjustmentDirectionDefault),
   "amountBasedPricingEnabled": zod.boolean().optional(),
+  "rangeOnlyPricing": zod.boolean().optional(),
   "amountBasedPricingTiers": zod.array(zod.object({
   "minAmount": zod.string().regex(createQuickexOrderResponsePricingSnapshotOneRuleAmountBasedPricingTiersItemMinAmountRegExp).describe('An exact non-negative base-10 decimal value.'),
   "maxAmount": zod.union([zod.string().regex(createQuickexOrderResponsePricingSnapshotOneRuleAmountBasedPricingTiersItemMaxAmountOneRegExp).describe('An exact base-10 decimal value. Consumers must not parse this as a binary floating-point number.'),zod.null()]),

@@ -282,6 +282,7 @@ import {
   matchManualDeskPricingRule,
   normalizeManualPricingSelectors,
   outputManualPricingRule,
+  resolveManualPricingTerms,
   selectManualPricingTier,
   updateManualPricingRule,
   bulkUpdateManualPricingRules,
@@ -933,8 +934,10 @@ async function getManualRoutePricing(
   const rate = await getManualDeskReferenceRate({
     sourceCurrency: route.fromAsset,
     targetCurrency: route.toAsset,
-    markupBasisPoints: rule.markupBasisPoints,
-    adjustmentDirection: rule.adjustmentDirection as "MARKUP" | "GIVE_MORE",
+    markupBasisPoints: rule.rangeOnlyPricing ? 0 : rule.markupBasisPoints,
+    adjustmentDirection: rule.rangeOnlyPricing
+      ? "MARKUP"
+      : rule.adjustmentDirection as "MARKUP" | "GIVE_MORE",
     exactRate: rule.exactRate,
   });
   return {
@@ -1163,11 +1166,8 @@ async function buildQuoteTicket(
   ) {
     throw new ApiError("MANUAL_AMOUNT_OUT_OF_RANGE", "The amount is outside this route's limits.", 422);
   }
-  const selectedTier = rule.amountBasedPricingEnabled
-    ? selectManualPricingTier(rule.amountBasedPricingTiers, input.amount)
-    : undefined;
-  const effectiveDirection = selectedTier?.direction ??
-    rule.adjustmentDirection as "MARKUP" | "GIVE_MORE";
+  const { selectedTier, adjustmentDirection: effectiveDirection, markupBasisPoints, percentage, fixedFee } =
+    resolveManualPricingTerms(rule, input.amount);
   const selectedAddOnKeys = input.selectedAddOnKeys ?? [];
   const selectedAddons = await resolveSelectedManualSwapAddons(selectedAddOnKeys);
   const additionalFeeConfig = await loadManualSwapFeeConfig();
@@ -1184,10 +1184,10 @@ async function buildQuoteTicket(
     targetCurrency: route.toAsset,
     targetPrecision: route.targetPrecision,
     amount: input.amount,
-    markupBasisPoints: rule.markupBasisPoints,
+    markupBasisPoints,
     adjustmentDirection: effectiveDirection,
-    percentage: selectedTier?.percentage,
-    fixedFee: selectedTier?.fixedFee ?? rule.fixedFee,
+    percentage,
+    fixedFee,
     exactRate: rule.exactRate,
     additionalCurrencies,
   });
@@ -1337,6 +1337,7 @@ async function buildQuoteTicket(
         adjustmentDirection: rule.adjustmentDirection as "MARKUP" | "GIVE_MORE",
         amountBasedPricingEnabled: rule.amountBasedPricingEnabled,
         amountBasedPricingTiers: rule.amountBasedPricingTiers,
+        rangeOnlyPricing: rule.rangeOnlyPricing,
         selectedAmountBasedPricingTier: selectedTier ?? null,
         fixedFee: rule.fixedFee ?? null,
         exactRate: rule.exactRate ?? null,
@@ -1510,6 +1511,7 @@ async function revalidateManualDeskQuoteRoute(quote: QuoteTicket): Promise<void>
       rule.markupBasisPoints !== signedRule.markupBasisPoints ||
       rule.adjustmentDirection !== (signedRule.adjustmentDirection ?? "MARKUP") ||
       rule.amountBasedPricingEnabled !== (signedRule.amountBasedPricingEnabled ?? false) ||
+      rule.rangeOnlyPricing !== (signedRule.rangeOnlyPricing ?? false) ||
       JSON.stringify(rule.amountBasedPricingTiers) !==
         JSON.stringify(signedRule.amountBasedPricingTiers ?? []) ||
       JSON.stringify(selectedTier ?? null) !==
@@ -2206,20 +2208,17 @@ router.post("/admin/manual-desk-pricing-rules/quote-preview", requireOperator, a
         rule.maxAmount != null && amount > Number(rule.maxAmount)) {
       throw new ApiError("AMOUNT_OUT_OF_RANGE", "The amount is outside this pricing rule's limits.", 422);
     }
-    const selectedTier = rule.amountBasedPricingEnabled
-      ? selectManualPricingTier(rule.amountBasedPricingTiers, input.amount)
-      : undefined;
-    const effectiveDirection = selectedTier?.direction ??
-      rule.adjustmentDirection as "MARKUP" | "GIVE_MORE";
+    const { selectedTier, adjustmentDirection: effectiveDirection, markupBasisPoints, percentage, fixedFee } =
+      resolveManualPricingTerms(rule, input.amount);
     const estimate = await getManualDeskEstimate({
       sourceCurrency: sourceCode,
       targetCurrency: targetCode,
       targetPrecision,
       amount,
-      markupBasisPoints: rule.markupBasisPoints,
+      markupBasisPoints,
       adjustmentDirection: effectiveDirection,
-      percentage: selectedTier?.percentage,
-      fixedFee: selectedTier?.fixedFee ?? rule.fixedFee,
+      percentage,
+      fixedFee,
       exactRate: rule.exactRate,
     });
     const baseRate = rule.exactRate != null
@@ -2233,7 +2232,7 @@ router.post("/admin/manual-desk-pricing-rules/quote-preview", requireOperator, a
       toAsset: targetCode,
       ...estimate,
       baseRate,
-      markupBasisPoints: rule.markupBasisPoints,
+      markupBasisPoints,
       adjustmentDirection: effectiveDirection,
       finalRate: estimate.rate,
       pricingRuleName: rule.name,

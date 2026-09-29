@@ -19,6 +19,7 @@ export interface ManualDeskPricingRulesBulkPatch {
   markupBasisPoints?: number;
   adjustmentDirection?: ManualDeskPricingRulesBulkPatchAdjustmentDirection;
   amountBasedPricingEnabled?: boolean;
+  rangeOnlyPricing?: boolean;
   amountBasedPricingTiers?: ManualDeskPricingAmountTier[];
   /**
      * @minimum -1000000

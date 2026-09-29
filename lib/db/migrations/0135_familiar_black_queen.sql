@@ -1,0 +1,1 @@
+ALTER TABLE "manual_desk_pricing_rules" ADD COLUMN "range_only_pricing" boolean DEFAULT false NOT NULL;

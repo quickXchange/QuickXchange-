@@ -26,6 +26,7 @@ export type OrderPricingSnapshotRule = {
   markupBasisPoints: number;
   adjustmentDirection: OrderPricingSnapshotRuleAdjustmentDirection;
   amountBasedPricingEnabled?: boolean;
+  rangeOnlyPricing?: boolean;
   amountBasedPricingTiers?: ManualDeskPricingAmountTier[];
   selectedAmountBasedPricingTier?: ManualDeskPricingAmountTier | null;
   /** Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically. */

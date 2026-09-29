@@ -5907,6 +5907,7 @@ components:
             markupBasisPoints: { type: number, minimum: 0, maximum: 10000, multipleOf: 1 }
             adjustmentDirection: { type: string, enum: [MARKUP, GIVE_MORE], default: MARKUP }
             amountBasedPricingEnabled: { type: boolean }
+            rangeOnlyPricing: { type: boolean }
             amountBasedPricingTiers:
               type: array
               items: { $ref: "#/components/schemas/ManualDeskPricingAmountTier" }
@@ -6005,6 +6006,10 @@ components:
             markupBasisPoints: { type: number, minimum: 0, maximum: 10000, multipleOf: 1 }
             adjustmentDirection: { type: string, enum: [MARKUP, GIVE_MORE], default: MARKUP }
             amountBasedPricingEnabled: { type: boolean, default: false }
+            rangeOnlyPricing:
+              type: boolean
+              default: false
+              description: "When enabled, only configured amount ranges apply their tier percentage and fixed fee; gaps use the exact base rate with no rule markup or fixed fee."
             amountBasedPricingTiers:
               type: array
               default: []
@@ -6065,6 +6070,7 @@ components:
         markupBasisPoints: { type: number, minimum: 0, maximum: 10000, multipleOf: 1 }
         adjustmentDirection: { type: string, enum: [MARKUP, GIVE_MORE] }
         amountBasedPricingEnabled: { type: boolean }
+        rangeOnlyPricing: { type: boolean }
         amountBasedPricingTiers:
           type: array
           items: { $ref: "#/components/schemas/ManualDeskPricingAmountTier" }
@@ -6136,7 +6142,7 @@ components:
       allOf:
         - $ref: "#/components/schemas/ManualDeskPricingRuleInput"
         - type: object
-          required: [id, version, specificity, missingSettlementOptionIds, createdAt, updatedAt, amountBasedPricingEnabled, amountBasedPricingTiers]
+          required: [id, version, specificity, missingSettlementOptionIds, createdAt, updatedAt, amountBasedPricingEnabled, amountBasedPricingTiers, rangeOnlyPricing]
           properties:
             id: { type: string }
             version: { type: number, minimum: 1, multipleOf: 1 }

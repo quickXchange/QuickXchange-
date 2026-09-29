@@ -134,6 +134,21 @@ export function validateManualPricingTiers(
   }
 }
 
+export function validateRangeOnlyPricing(
+  rangeOnlyPricing: boolean,
+  amountBasedPricingEnabled: boolean,
+  tiers: readonly ManualPricingTier[],
+) {
+  if (typeof rangeOnlyPricing !== "boolean" ||
+      (rangeOnlyPricing && (!amountBasedPricingEnabled || tiers.length === 0))) {
+    throw new ApiError(
+      "VALIDATION_ERROR",
+      "Range-only pricing requires enabled amount-based pricing with at least one tier.",
+      400,
+    );
+  }
+}
+
 export function selectManualPricingTier(
   tiers: readonly ManualPricingTier[],
   amount: string | number,
@@ -159,6 +174,31 @@ export function selectManualPricingTier(
       : [];
   });
   return matches.length === 1 ? matches[0] : undefined;
+}
+
+export function resolveManualPricingTerms(
+  rule: Pick<ManualDeskPricingRule,
+    "amountBasedPricingEnabled" | "amountBasedPricingTiers" | "rangeOnlyPricing" |
+    "markupBasisPoints" | "adjustmentDirection" | "fixedFee">,
+  amount: string | number,
+) {
+  const selectedTier = rule.amountBasedPricingEnabled
+    ? selectManualPricingTier(rule.amountBasedPricingTiers, amount)
+    : undefined;
+  const rangeOnlyPricing = rule.rangeOnlyPricing ?? false;
+  return {
+    selectedTier,
+    adjustmentDirection: rangeOnlyPricing
+      ? selectedTier?.direction ?? "MARKUP"
+      : selectedTier?.direction ?? rule.adjustmentDirection as "MARKUP" | "GIVE_MORE",
+    markupBasisPoints: rangeOnlyPricing ? 0 : rule.markupBasisPoints,
+    percentage: rangeOnlyPricing
+      ? selectedTier?.percentage ?? "0"
+      : selectedTier?.percentage,
+    fixedFee: rangeOnlyPricing
+      ? selectedTier?.fixedFee ?? "0"
+      : selectedTier?.fixedFee ?? rule.fixedFee,
+  };
 }
 
 function normalized(value: string | null | undefined): string | null {
@@ -519,6 +559,7 @@ export type ManualPricingWrite = {
   adjustmentDirection?: "MARKUP" | "GIVE_MORE";
   amountBasedPricingEnabled?: boolean;
   amountBasedPricingTiers?: ManualPricingTier[];
+  rangeOnlyPricing?: boolean;
   fixedFee?: string | null;
   exactRate?: string | null;
   minAmount?: string | null;
@@ -550,9 +591,11 @@ function normalizedWrite(input: ManualPricingWrite) {
   }
   const amountBasedPricingEnabled = input.amountBasedPricingEnabled ?? false;
   const amountBasedPricingTiers = input.amountBasedPricingTiers ?? [];
+  const rangeOnlyPricing = input.rangeOnlyPricing ?? false;
   if (typeof amountBasedPricingEnabled !== "boolean" || !Array.isArray(amountBasedPricingTiers)) {
     throw new ApiError("VALIDATION_ERROR", "Amount-based pricing configuration is invalid.", 400);
   }
+  validateRangeOnlyPricing(rangeOnlyPricing, amountBasedPricingEnabled, amountBasedPricingTiers);
   validateManualPricingTiers(amountBasedPricingEnabled, amountBasedPricingTiers);
   const exactDecimal = /^(?:0|[1-9][0-9]{0,19})(?:\.[0-9]{1,18})?$/;
   const exactRate = input.exactRate == null ? null : input.exactRate;
@@ -652,6 +695,7 @@ function normalizedWrite(input: ManualPricingWrite) {
     adjustmentDirection,
     amountBasedPricingEnabled,
     amountBasedPricingTiers,
+    rangeOnlyPricing,
     exactRate,
   };
 }
@@ -837,7 +881,7 @@ export async function upsertManualPricingRules(inputs: ManualPricingWrite[]) {
 export type ManualPricingBulkAction = "enable" | "disable" | "delete" | "edit";
 export type ManualPricingBulkItem = { id: string; version: number };
 export type ManualPricingBulkPatch = Partial<Pick<ManualPricingWrite,
-  "markupBasisPoints" | "adjustmentDirection" | "amountBasedPricingEnabled" |
+  "markupBasisPoints" | "adjustmentDirection" | "amountBasedPricingEnabled" | "rangeOnlyPricing" |
   "amountBasedPricingTiers" | "priority" | "sourceSettlementOptionId" |
   "targetSettlementOptionId" | "exactRate" | "fixedFee" | "minAmount" |
   "maxAmount" | "expectedSettlementMinutes" | "operatorInstructions" |
@@ -875,6 +919,7 @@ function rowAsWrite(row: ManualDeskPricingRule): ManualPricingWrite {
     adjustmentDirection: row.adjustmentDirection as "MARKUP" | "GIVE_MORE",
     amountBasedPricingEnabled: row.amountBasedPricingEnabled,
     amountBasedPricingTiers: row.amountBasedPricingTiers,
+    rangeOnlyPricing: row.rangeOnlyPricing,
     fixedFee: row.fixedFee,
     exactRate: row.exactRate,
     minAmount: row.minAmount,
@@ -911,7 +956,8 @@ export async function bulkUpdateManualPricingRules(
   }
   const commissionOnly = action === "edit" && Object.keys(patch ?? {}).every(
     (key) => key === "markupBasisPoints" || key === "adjustmentDirection" ||
-      key === "amountBasedPricingEnabled" || key === "amountBasedPricingTiers",
+      key === "amountBasedPricingEnabled" || key === "amountBasedPricingTiers" ||
+      key === "rangeOnlyPricing",
   );
   if (commissionOnly) {
     if (patch?.markupBasisPoints !== undefined &&
@@ -1048,7 +1094,24 @@ export async function bulkUpdateManualPricingRules(
               canonicalPatch.amountBasedPricingEnabled ?? row.amountBasedPricingEnabled,
               canonicalPatch.amountBasedPricingTiers ?? row.amountBasedPricingTiers,
             );
-            values = canonicalPatch;
+            const resultingAmountBasedPricingEnabled =
+              canonicalPatch.amountBasedPricingEnabled ?? row.amountBasedPricingEnabled;
+            const resultingRangeOnlyPricing = resultingAmountBasedPricingEnabled
+              ? canonicalPatch.rangeOnlyPricing ?? row.rangeOnlyPricing
+              : false;
+            try {
+              validateRangeOnlyPricing(
+                resultingRangeOnlyPricing,
+                resultingAmountBasedPricingEnabled,
+                canonicalPatch.amountBasedPricingTiers ?? row.amountBasedPricingTiers,
+              );
+            } catch (error) {
+              if (error instanceof ApiError) {
+                throw new ApiError(error.code, `${bulkRuleDescription(row)}: ${error.message}`, error.status);
+              }
+              throw error;
+            }
+            values = { ...canonicalPatch, rangeOnlyPricing: resultingRangeOnlyPricing };
           } else {
             let combined: ManualPricingWrite;
             try {
@@ -1060,7 +1123,11 @@ export async function bulkUpdateManualPricingRules(
               throw error;
             }
             values = action === "edit"
-              ? Object.fromEntries([...changedKeys].map((key) => [
+              ? Object.fromEntries([
+                ...(canonicalPatch.amountBasedPricingEnabled === false
+                  ? [...changedKeys, "rangeOnlyPricing"]
+                  : [...changedKeys]),
+              ].map((key) => [
                 key, combined[key as keyof ManualPricingWrite],
               ]))
               : combined;

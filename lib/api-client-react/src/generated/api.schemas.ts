@@ -1955,6 +1955,7 @@ export type OrderPricingSnapshotRule = {
   markupBasisPoints: number;
   adjustmentDirection: OrderPricingSnapshotRuleAdjustmentDirection;
   amountBasedPricingEnabled?: boolean;
+  rangeOnlyPricing?: boolean;
   amountBasedPricingTiers?: ManualDeskPricingAmountTier[];
   selectedAmountBasedPricingTier?: ManualDeskPricingAmountTier | null;
   /** Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically. */
@@ -2333,6 +2334,8 @@ export type ManualDeskPricingRuleInput = ManualDeskPricingSelectorProperties & (
   markupBasisPoints: number;
   adjustmentDirection?: ManualDeskPricingRuleInputAdjustmentDirection;
   amountBasedPricingEnabled?: boolean;
+  /** When enabled, only configured amount ranges apply their tier percentage and fixed fee; gaps use the exact base rate with no rule markup or fixed fee. */
+  rangeOnlyPricing?: boolean;
   amountBasedPricingTiers?: ManualDeskPricingAmountTier[];
   /** Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically. */
   exactRate?: PositiveExactDecimal | null;
@@ -2406,7 +2409,7 @@ export type ManualDeskPricingRule = ManualDeskPricingRuleInput & {
   readonly missingSettlementOptionIds: readonly string[];
   createdAt: string;
   updatedAt: string;
-}, 'amountBasedPricingEnabled' | 'amountBasedPricingTiers'>>;
+}, 'amountBasedPricingEnabled' | 'amountBasedPricingTiers' | 'rangeOnlyPricing'>>;
 
 export interface ManualDeskPricingRulesCreateBatchResult {
   items: ManualDeskPricingRule[];
@@ -2430,6 +2433,7 @@ export interface ManualDeskPricingRulesBulkPatch {
   markupBasisPoints?: number;
   adjustmentDirection?: ManualDeskPricingRulesBulkPatchAdjustmentDirection;
   amountBasedPricingEnabled?: boolean;
+  rangeOnlyPricing?: boolean;
   amountBasedPricingTiers?: ManualDeskPricingAmountTier[];
   /**
      * @minimum -1000000

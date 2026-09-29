@@ -92,6 +92,7 @@ export type QuoteTicket = {
       adjustmentDirection: "MARKUP" | "GIVE_MORE";
       amountBasedPricingEnabled?: boolean;
       amountBasedPricingTiers?: ManualPricingTier[];
+      rangeOnlyPricing?: boolean;
       selectedAmountBasedPricingTier?: ManualPricingTier | null;
       exactRate?: string | null;
       effectiveRateSource?: "direct" | "reciprocal";
@@ -367,7 +368,10 @@ function financiallyConsistent(
   const amount = dec(String(ticket.amount));
   const source = dec(snapshot.reference.source.unitsPerUsd);
   const target = dec(snapshot.reference.target.unitsPerUsd);
-  const effectiveFixedFee = selectedTier?.fixedFee ?? snapshot.rule.fixedFee;
+  const rangeOnlyPricing = snapshot.rule.rangeOnlyPricing ?? false;
+  const effectiveFixedFee = rangeOnlyPricing
+    ? selectedTier?.fixedFee ?? "0"
+    : selectedTier?.fixedFee ?? snapshot.rule.fixedFee;
   const fixed = effectiveFixedFee === null ? { c: 0n, s: 0 } : dec(effectiveFixedFee);
   if (!amount || !source || !target || !fixed) return false;
   const precision = snapshot.targetPrecision;
@@ -376,7 +380,9 @@ function financiallyConsistent(
     (source.c * (10n ** BigInt(amount.s + target.s)));
   const tierPercentage = selectedTier ? dec(selectedTier.percentage) : undefined;
   if (selectedTier && !tierPercentage) return false;
-  const percentageNumerator = tierPercentage?.c ?? BigInt(snapshot.rule.markupBasisPoints);
+  const percentageNumerator = rangeOnlyPricing && !selectedTier
+    ? 0n
+    : tierPercentage?.c ?? BigInt(snapshot.rule.markupBasisPoints);
   const percentageDenominator = tierPercentage
     ? 100n * 10n ** BigInt(tierPercentage.s)
     : 10_000n;
@@ -590,9 +596,13 @@ export function verifyQuoteTicket(
     }
     const tiersEnabled = snapshot.rule.amountBasedPricingEnabled ?? false;
     const tiers = snapshot.rule.amountBasedPricingTiers ?? [];
+    const rangeOnlyPricing = snapshot.rule.rangeOnlyPricing ?? false;
     const selectedTier = snapshot.rule.selectedAmountBasedPricingTier ?? null;
     try {
       validateManualPricingTiers(tiersEnabled, tiers);
+      if (rangeOnlyPricing && (!tiersEnabled || tiers.length === 0)) {
+        throw new Error("Range-only pricing requires amount tiers.");
+      }
     } catch {
       invalid("QUOTE_INVALID", "The manual quote amount-tier snapshot is invalid.");
     }

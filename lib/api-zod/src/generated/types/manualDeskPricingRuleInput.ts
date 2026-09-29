@@ -24,6 +24,8 @@ export type ManualDeskPricingRuleInput = ManualDeskPricingSelectorProperties & (
   markupBasisPoints: number;
   adjustmentDirection?: ManualDeskPricingRuleInputAdjustmentDirection;
   amountBasedPricingEnabled?: boolean;
+  /** When enabled, only configured amount ranges apply their tier percentage and fixed fee; gaps use the exact base rate with no rule markup or fixed fee. */
+  rangeOnlyPricing?: boolean;
   amountBasedPricingTiers?: ManualDeskPricingAmountTier[];
   /** Exact base rate (target units per source unit). Requires both concrete settlement option IDs; reciprocal paths are synthesized automatically. */
   exactRate?: PositiveExactDecimal | null;

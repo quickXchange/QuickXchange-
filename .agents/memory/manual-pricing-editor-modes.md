@@ -3,8 +3,10 @@ name: Manual pricing editor modes
 description: Interpretation of exclusive Admin modes for manual pricing paths and ranges.
 ---
 
-Adding Range and Edit Path are mutually exclusive editing views for a single manual pricing rule. Choosing one must not erase unsaved or persisted values owned by the other. Rule-level minimum and maximum quantity limits are shared across both views; individual tier boundaries belong to Adding Range only.
+Adding Range and Edit Path are mutually exclusive *active pricing modes* for a manual pricing rule. Save the chosen mode so it also controls customer quotes. Switching modes must not erase persisted values owned by the inactive mode. Rule-level minimum and maximum quantity limits are shared across both modes; individual tier boundaries belong to Adding Range only.
 
-**Why:** Removing the inactive mode's data would silently change customer pricing or route eligibility merely because an operator switched views. Operators also need to set path quantity limits while adding ranges, without confusing them with a tier's amount boundaries.
+The exact rate is the shared base conversion rate, including when Adding Range is active. In that mode, path markup and path fixed fees are inactive; a configured range's own percentage, direction, and fixed fee determine its pricing. Outside configured ranges, new range-only rules use the unadjusted base rate, not inactive path charges. Historical range rules retain their existing fallback and omitted-fee behavior until an operator explicitly saves the new mode.
 
-**How to apply:** Keep independent tier draft state, expose the same rule-level quantity controls in either view, and preserve inactive tier values. Route-level quantity limits continue to use the existing pricing rule boundaries; tier min/max amounts remain separate.
+**Why:** The operator clarified that the unselected mode must be off in the widget, but explicitly confirmed that Adding Range should keep using the exact base rate. Deleting inactive values or silently changing historical gap prices would misprice existing routes.
+
+**How to apply:** Preserve inactive fields, persist active mode separately from tier data, show the effective percentage/fee rather than an inactive path percentage, and enforce shared route quantity limits in either mode. Tier min/max amounts remain separate.

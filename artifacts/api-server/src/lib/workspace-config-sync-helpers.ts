@@ -10,7 +10,7 @@ export type WorkspaceConfigSnapshot = {
   fiatCurrencies: Array<{ id: string; code: string; name: string; flagObjectPath: NullableString; network: string; precision: number; lifecycle: string; regions: string[]; countries: string[]; enabled: boolean; rateMode: string; manualRate: NullableString }>;
   paymentMethods: Array<{ id: string; name: string; logoObjectPath: NullableString; description: NullableString; instructions: NullableString; family: string; executionMode: string; providerId: NullableString; lifecycle: string; regions: string[]; countries: string[]; requiresProviderConfiguration: boolean; enabled: boolean; canSend: boolean; canReceive: boolean; fieldDefinitions: JsonRecord[] }>;
   fiatCurrencyPaymentMethods: Array<{ fiatCode: string; paymentMethodId: string; enabled: boolean; canSend: boolean | null; canReceive: boolean | null; sendInstructions: NullableString; receiveInstructions: NullableString; minAmount: NullableString; maxAmount: NullableString; countries: string[] }>;
-  manualDeskPricingRules: Array<{ id: string; name: string; sourceAsset: NullableString; targetAsset: NullableString; sourceCryptoAssetId: NullableString; targetCryptoAssetId: NullableString; sourceNetwork: NullableString; targetNetwork: NullableString; paymentMethod: NullableString; payoutMethod: NullableString; sourceSettlementOptionId: NullableString; targetSettlementOptionId: NullableString; minAmount: NullableString; maxAmount: NullableString; operatorInstructions: NullableString; customerInstructions: NullableString; expectedSettlementMinutes: number | null; markupBasisPoints: number; adjustmentDirection: string; amountBasedPricingEnabled?: boolean; amountBasedPricingTiers?: Array<{ minAmount: string; maxAmount: string | null; percentage: string; direction: "MARKUP" | "GIVE_MORE"; fixedFee?: string }>; fixedFee: NullableString; exactRate: NullableString; priority: number; enabled: boolean }>;
+  manualDeskPricingRules: Array<{ id: string; name: string; sourceAsset: NullableString; targetAsset: NullableString; sourceCryptoAssetId: NullableString; targetCryptoAssetId: NullableString; sourceNetwork: NullableString; targetNetwork: NullableString; paymentMethod: NullableString; payoutMethod: NullableString; sourceSettlementOptionId: NullableString; targetSettlementOptionId: NullableString; minAmount: NullableString; maxAmount: NullableString; operatorInstructions: NullableString; customerInstructions: NullableString; expectedSettlementMinutes: number | null; markupBasisPoints: number; adjustmentDirection: string; amountBasedPricingEnabled?: boolean; amountBasedPricingTiers?: Array<{ minAmount: string; maxAmount: string | null; percentage: string; direction: "MARKUP" | "GIVE_MORE"; fixedFee?: string }>; rangeOnlyPricing?: boolean; fixedFee: NullableString; exactRate: NullableString; priority: number; enabled: boolean }>;
   site: {
     publishedPages: Array<{ pageKey: string; content: JsonRecord }>;
     publication: { navigation: JsonRecord[]; partnerLogos: JsonRecord[]; socialTrust: JsonRecord } | null;
@@ -127,10 +127,15 @@ export function parseWorkspaceConfigSnapshot(value: unknown): WorkspaceConfigSna
     const amountBasedPricingTiers = rule.amountBasedPricingTiers === undefined
       ? []
       : rule.amountBasedPricingTiers;
-    if (typeof amountBasedPricingEnabled !== "boolean" || !Array.isArray(amountBasedPricingTiers)) {
+    const rangeOnlyPricing = rule.rangeOnlyPricing === undefined
+      ? false
+      : rule.rangeOnlyPricing;
+    if (typeof amountBasedPricingEnabled !== "boolean" ||
+        typeof rangeOnlyPricing !== "boolean" ||
+        !Array.isArray(amountBasedPricingTiers)) {
       throw new Error("Invalid manualDeskPricingRules amount-based pricing configuration.");
     }
-    return { ...rule, amountBasedPricingEnabled, amountBasedPricingTiers };
+    return { ...rule, amountBasedPricingEnabled, amountBasedPricingTiers, rangeOnlyPricing };
   });
   return { ...value, cryptoNetworks, manualDeskPricingRules } as unknown as WorkspaceConfigSnapshot;
 }

@@ -16,7 +16,9 @@ import {
   ALL_NETWORKS_PRICING_SELECTOR,
   matchManualDeskPricingRule,
   reciprocalExactRate,
+  resolveManualPricingTerms,
   selectManualPricingTier,
+  validateRangeOnlyPricing,
   selectManualPricingRule,
   validateManualPricingTiers,
 } from "../src/lib/manual-desk-pricing";
@@ -88,6 +90,15 @@ test("amount tiers reject overlaps, empty enabled sets, and invalid amounts or r
   assert.throws(() => validateManualPricingTiers(true, [
     { minAmount: "300", maxAmount: "800", percentage: "1", direction: "MARKUP", fixedFee: "1.1234567890123456789" },
   ]), /exact non-negative decimals/);
+});
+
+test("range-only configuration requires a nonempty enabled tier configuration", () => {
+  assert.throws(() => validateRangeOnlyPricing(true, false, []), /requires enabled amount-based pricing/);
+  assert.throws(() => validateRangeOnlyPricing(true, true, []), /requires enabled amount-based pricing/);
+  validateRangeOnlyPricing(true, true, [
+    { minAmount: "0", maxAmount: null, percentage: "0", direction: "MARKUP" },
+  ]);
+  validateRangeOnlyPricing(false, false, []);
 });
 
 test("exact path rate scales target atomic units once", async () => {
@@ -168,6 +179,68 @@ test("amount tier fixed fees override only selected ranges and preserve legacy f
   });
   assert.equal(gapQuote.exact.fixedCommission, "0.75");
   assert.equal(gapQuote.exact.percentageCommission, "2.5");
+});
+
+test("range-only pricing applies tier terms on exact paths and removes markup and fees in gaps", async () => {
+  const tiers = [
+    { minAmount: "10", maxAmount: "20", percentage: "5", direction: "MARKUP" as const, fixedFee: "2" },
+    { minAmount: "30", maxAmount: "40", percentage: "3", direction: "GIVE_MORE" as const },
+  ];
+  const rangeOnlyRule = {
+    amountBasedPricingEnabled: true,
+    amountBasedPricingTiers: tiers,
+    rangeOnlyPricing: true,
+    markupBasisPoints: 900,
+    adjustmentDirection: "GIVE_MORE" as const,
+    fixedFee: "9",
+  };
+  const inRange = resolveManualPricingTerms(rangeOnlyRule, "10");
+  assert.equal(inRange.markupBasisPoints, 0);
+  assert.equal(inRange.percentage, "5");
+  assert.equal(inRange.fixedFee, "2");
+  assert.equal(inRange.adjustmentDirection, "MARKUP");
+  const rangeQuote = await getManualDeskEstimate({
+    sourceCurrency: "EUR", targetCurrency: "XMR", targetPrecision: 2, amount: 10,
+    exactRate: "2", ...inRange,
+  });
+  assert.equal(rangeQuote.exact.grossMarketAmount, "20");
+  assert.equal(rangeQuote.exact.percentageCommission, "1");
+  assert.equal(rangeQuote.exact.fixedCommission, "2");
+  assert.equal(rangeQuote.exact.receiveAmount, "17");
+
+  const missingTierFee = resolveManualPricingTerms(rangeOnlyRule, "30");
+  assert.equal(missingTierFee.fixedFee, "0");
+  assert.equal(missingTierFee.adjustmentDirection, "GIVE_MORE");
+  const missingFeeQuote = await getManualDeskEstimate({
+    sourceCurrency: "EUR", targetCurrency: "XMR", targetPrecision: 2, amount: 30,
+    exactRate: "2", ...missingTierFee,
+  });
+  assert.equal(missingFeeQuote.exact.fixedCommission, "0");
+  assert.equal(missingFeeQuote.exact.percentageCommission, "1.8");
+
+  const gap = resolveManualPricingTerms(rangeOnlyRule, "25");
+  assert.equal(gap.markupBasisPoints, 0);
+  assert.equal(gap.percentage, "0");
+  assert.equal(gap.fixedFee, "0");
+  const gapQuote = await getManualDeskEstimate({
+    sourceCurrency: "EUR", targetCurrency: "XMR", targetPrecision: 2, amount: 25,
+    exactRate: "2", ...gap,
+  });
+  assert.equal(gapQuote.exact.grossMarketAmount, "50");
+  assert.equal(gapQuote.exact.percentageCommission, "0");
+  assert.equal(gapQuote.exact.fixedCommission, "0");
+  assert.equal(gapQuote.exact.receiveAmount, "50");
+
+  const legacy = resolveManualPricingTerms({ ...rangeOnlyRule, rangeOnlyPricing: false }, "25");
+  assert.equal(legacy.markupBasisPoints, 900);
+  assert.equal(legacy.percentage, undefined);
+  assert.equal(legacy.fixedFee, "9");
+  const legacyGapQuote = await getManualDeskEstimate({
+    sourceCurrency: "EUR", targetCurrency: "XMR", targetPrecision: 2, amount: 25,
+    exactRate: "2", ...legacy,
+  });
+  assert.equal(legacyGapQuote.exact.percentageCommission, "4.5");
+  assert.equal(legacyGapQuote.exact.fixedCommission, "9");
 });
 
 test("asset selectors match every network and outrank Any", () => {
@@ -606,10 +679,29 @@ test("bulk tier edits preserve omitted tier data and atomically apply explicit c
       assert.deepEqual(row.amountBasedPricingTiers, optInTiers);
     }
 
-    const beforeStale = optedIn.map(({ id, version, amountBasedPricingTiers }) => ({
+    const rangeOnlyEnabled = await bulkUpdateManualPricingRules(
+      optedIn.map(({ id, version }) => ({ id, version })),
+      "edit",
+      { rangeOnlyPricing: true },
+    );
+    assert.equal(rangeOnlyEnabled.updatedIds.length, 60);
+    const beforeDisableTiers = await db.select().from(manualDeskPricingRulesTable)
+      .where(inArray(manualDeskPricingRulesTable.id, ids));
+    assert.ok(beforeDisableTiers.every((row) => row.rangeOnlyPricing));
+    const tiersDisabled = await bulkUpdateManualPricingRules(
+      beforeDisableTiers.map(({ id, version }) => ({ id, version })),
+      "edit",
+      { amountBasedPricingEnabled: false, amountBasedPricingTiers: [] },
+    );
+    assert.equal(tiersDisabled.updatedIds.length, 60);
+    const afterDisableTiers = await db.select().from(manualDeskPricingRulesTable)
+      .where(inArray(manualDeskPricingRulesTable.id, ids));
+    assert.ok(afterDisableTiers.every((row) => !row.amountBasedPricingEnabled && !row.rangeOnlyPricing));
+
+    const beforeStale = afterDisableTiers.map(({ id, version, amountBasedPricingTiers }) => ({
       id, version, amountBasedPricingTiers,
     }));
-    const staleItems = optedIn.map(({ id, version }) => ({ id, version }));
+    const staleItems = afterDisableTiers.map(({ id, version }) => ({ id, version }));
     staleItems[0] = { id: staleItems[0]!.id, version: staleItems[0]!.version - 1 };
     await assert.rejects(
       bulkUpdateManualPricingRules(staleItems, "edit", {

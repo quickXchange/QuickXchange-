@@ -8010,6 +8010,7 @@ const pricingRuleInput = (rule: ManualDeskPricingRule, enabled = rule.enabled): 
   adjustmentDirection: rule.adjustmentDirection || 'MARKUP',
   amountBasedPricingEnabled: rule.amountBasedPricingEnabled ?? false,
   amountBasedPricingTiers: rule.amountBasedPricingTiers ?? [],
+  rangeOnlyPricing: rule.rangeOnlyPricing ?? false,
   exactRate: rule.exactRate ?? null,
   fixedFee: rule.fixedFee,
   priority: rule.priority,
@@ -8121,7 +8122,7 @@ function AmountBasedPricingEditor({
         </tr>)}</tbody>
       </table>
     </div>
-    {!tiers.length && <p className="amount-pricing-empty">No ranges. Base price applies.</p>}
+    {!tiers.length && <p className="amount-pricing-empty">{prefix === 'single' ? 'No ranges yet. Add a range to use range pricing.' : 'No ranges. Base price applies.'}</p>}
     {editing !== null && createPortal(<div className="amount-range-modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) close(); }}>
       <div className="amount-range-modal" role="dialog" aria-modal="true" aria-label={editing === -1 ? 'Add Range' : 'Edit Range'} data-testid={`${prefix}-amount-range-modal`} onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); close(); } }}>
         <div className="amount-range-modal-head"><h3>{editing === -1 ? 'Add Range' : 'Edit Range'}</h3><button type="button" onClick={close} aria-label="Close range editor" data-testid={`${prefix}-close-amount-range`}><X size={17}/></button></div>
@@ -8321,21 +8322,23 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
     sourceSettlementOptionId: pricingRuleSelectionId(rule, 'source'),
     targetSettlementOptionId: pricingRuleSelectionId(rule, 'target'),
     exactRate: rule?.exactRate || '',
+    markupPercent: ((rule?.markupBasisPoints ?? 0) / 100).toString(),
+    adjustmentDirection: (rule?.adjustmentDirection ?? 'MARKUP') as 'MARKUP' | 'GIVE_MORE',
+    fixedFee: rule?.fixedFee ?? '',
     operatorInstructions: rule?.operatorInstructions || '',
     customerInstructions: rule?.customerInstructions || '',
     enabled: rule?.enabled ?? true,
   });
   const [error, setError] = useState('');
-  const [editorMode, setEditorMode] = useState<'range' | 'path'>(rule ? 'path' : 'range');
+  const [editorMode, setEditorMode] = useState<'range' | 'path'>(rule?.amountBasedPricingEnabled ? 'range' : 'path');
+  const [activateRangeOnly, setActivateRangeOnly] = useState(rule?.rangeOnlyPricing ?? false);
   const [minimumQuantity, setMinimumQuantity] = useState(rule?.minAmount ?? '');
   const [maximumQuantity, setMaximumQuantity] = useState(rule?.maxAmount ?? '');
   const [quantityError, setQuantityError] = useState('');
   const [amountTiers, setAmountTiers] = useState<AmountPricingTier[]>(() =>
-    rule?.amountBasedPricingEnabled ? rule.amountBasedPricingTiers ?? [] : []);
-  const [amountRangesChanged, setAmountRangesChanged] = useState(false);
+    rule?.amountBasedPricingTiers ?? []);
   const updateAmountTiers = (tiers: AmountPricingTier[]) => {
     setAmountTiers(tiers);
-    setAmountRangesChanged(true);
   };
   const [sourceMode, setSourceMode] = useState<'single' | 'multiple'>('single');
   const [targetMode, setTargetMode] = useState<'single' | 'multiple'>('single');
@@ -8402,13 +8405,13 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
     targetSettlementOptionId: isAssetPricingOption(projectedTargetOption) ? null : projectedTargetOption?.id ?? null,
     sourceCryptoAssetId: isAssetPricingOption(projectedSourceOption) ? projectedSourceOption?.assetId ?? null : null,
     targetCryptoAssetId: isAssetPricingOption(projectedTargetOption) ? projectedTargetOption?.assetId ?? null : null,
-    markupBasisPoints: rule?.markupBasisPoints ?? 0,
+    markupBasisPoints: Number(form.markupPercent) * 100,
     exactRate: form.exactRate.trim() || null,
-    fixedFee: rule?.fixedFee ?? null,
+    fixedFee: form.fixedFee.trim() || null,
     priority: rule?.priority ?? 0,
     enabled: form.enabled,
-    minAmount: rule?.minAmount ?? null,
-    maxAmount: rule?.maxAmount ?? null,
+    minAmount: minimumQuantity.trim() || null,
+    maxAmount: maximumQuantity.trim() || null,
     operatorInstructions: null,
     customerInstructions: null,
     expectedSettlementMinutes: null,
@@ -8425,7 +8428,21 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
   const save = (event: React.FormEvent) => {
     event.preventDefault();
     setError('');
-    const editingPath = isSingleRoute && editorMode === 'path';
+    const usingRanges = isSingleRoute ? editorMode === 'range' : amountTiers.length > 0;
+    const editingPath = !usingRanges;
+    const markup = form.markupPercent.trim();
+    const markupBasisPoints = Number(markup) * 100;
+    if (editingPath && (!/^(?:0|[1-9]\d{0,2})(?:\.\d{1,2})?$/.test(markup) ||
+        !Number.isInteger(markupBasisPoints) || markupBasisPoints > 10000 ||
+        (form.adjustmentDirection === 'MARKUP' && markupBasisPoints >= 10000))) {
+      setError('Path percentage must be between 0% and 100%, in increments of 0.01% (markup must be below 100%).');
+      return;
+    }
+    const fixedFee = form.fixedFee.trim();
+    if (editingPath && fixedFee && !/^(?:0|[1-9]\d{0,19})(?:\.\d{1,18})?$/.test(fixedFee)) {
+      setError('Path fixed fee must be a nonnegative decimal.');
+      return;
+    }
     setQuantityError('');
     const min = minimumQuantity.trim();
     const max = maximumQuantity.trim();
@@ -8438,9 +8455,13 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
       setQuantityError('Minimum Quantity must not exceed Maximum Quantity.');
       return;
     }
-    const amountValidation = editingPath ? '' : inspectAmountTiers(amountTiers);
+    const amountValidation = usingRanges ? inspectAmountTiers(amountTiers) : '';
     if (amountValidation) {
       setError(amountValidation);
+      return;
+    }
+    if (usingRanges && !amountTiers.length) {
+      setError('Add at least one range, or select Edit Path to use path pricing.');
       return;
     }
     const sourceOpt = fromOptions.find(o => sameSettlementOptionId(o.id, form.sourceSettlementOptionId));
@@ -8500,12 +8521,11 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
        targetCryptoAssetId: isAssetPricingOption(selectedTarget) ? selectedTarget?.assetId ?? null : null,
        sourceSettlementOptionId: isAssetPricingOption(selectedSource) ? null : selectedSource?.id ?? null,
        targetSettlementOptionId: isAssetPricingOption(selectedTarget) ? null : selectedTarget?.id ?? null,
-      markupBasisPoints: rule?.markupBasisPoints ?? 0,
-      adjustmentDirection: rule?.adjustmentDirection ?? 'MARKUP',
-      amountBasedPricingEnabled: editingPath ? rule?.amountBasedPricingEnabled ?? false : amountTiers.length > 0,
-      amountBasedPricingTiers: editingPath ? rule?.amountBasedPricingTiers ?? [] : (!amountRangesChanged && !rule?.amountBasedPricingEnabled
-        ? rule?.amountBasedPricingTiers ?? []
-        : amountTiers).map(tier => ({
+       markupBasisPoints: editingPath ? markupBasisPoints : rule?.markupBasisPoints ?? 0,
+       adjustmentDirection: editingPath ? form.adjustmentDirection : rule?.adjustmentDirection ?? 'MARKUP',
+       amountBasedPricingEnabled: usingRanges,
+       rangeOnlyPricing: usingRanges && (!rule || activateRangeOnly),
+       amountBasedPricingTiers: amountTiers.map(tier => ({
         minAmount: tier.minAmount.trim(),
         maxAmount: tier.maxAmount?.trim() ?? null,
         percentage: tier.percentage.trim(),
@@ -8513,7 +8533,7 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
         ...(tier.fixedFee !== undefined ? { fixedFee: tier.fixedFee.trim() } : {}),
       })),
       exactRate: form.exactRate.trim() || null,
-      fixedFee: rule?.fixedFee ?? null,
+       fixedFee: editingPath ? fixedFee || null : rule?.fixedFee ?? null,
        minAmount: min || null,
        maxAmount: max || null,
       expectedSettlementMinutes: rule?.expectedSettlementMinutes ?? null,
@@ -8601,7 +8621,7 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
           <legend>Pricing editor</legend>
           <div className="pricing-editor-mode-options">
             <label className={editorMode === 'range' ? 'is-selected' : ''}>
-              <input type="radio" name="pricing-editor-mode" value="range" checked={editorMode === 'range'} onChange={() => setEditorMode('range')} data-testid="pricing-mode-range" />
+              <input type="radio" name="pricing-editor-mode" value="range" checked={editorMode === 'range'} onChange={() => { setEditorMode('range'); setActivateRangeOnly(true); }} data-testid="pricing-mode-range" />
               <span>Adding Range</span>
             </label>
             <label className={editorMode === 'path' ? 'is-selected' : ''}>
@@ -8609,6 +8629,13 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
               <span>Edit Path</span>
             </label>
           </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {editorMode === 'range' ? activateRangeOnly || !rule ? 'Ranges set the active percentage and fee. Path markup and fee are saved but inactive; the exact rate and path quantity limits still apply.' : 'Legacy mixed pricing: ranges apply where present; outside them, path markup and fee still apply. Choose range-only below to turn those path charges off.' : 'Path markup and fee are active. Saved ranges are inactive until you select Adding Range and save.'}
+          </p>
+          {rule?.amountBasedPricingEnabled && !rule.rangeOnlyPricing && editorMode === 'range' && <label className="mt-3 flex items-start gap-2 text-sm">
+            <input type="checkbox" checked={activateRangeOnly} onChange={event => setActivateRangeOnly(event.target.checked)} data-testid="input-activate-range-only" />
+            <span>Use range-only pricing after saving (turn off path markup and fee, including outside ranges). Existing mixed pricing stays unchanged unless checked.</span>
+          </label>}
         </fieldset>}
 
         <label className="admin-form-field admin-form-field-full pricing-rule-field pricing-rule-field-full"><span className="field-label">{t('adminPricing.rule_name')}</span><input required maxLength={200} value={form.name} onChange={event => set('name', event.target.value)} disabled={rule?.readOnly} data-testid="input-pricing-name" /></label>
@@ -8629,8 +8656,16 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
         <div className="admin-form-grid pricing-form-grid">
         <label className="pricing-rule-field"><span className="field-label">Exact path rate <small>base conversion rate</small></span><input inputMode="decimal" value={form.exactRate} onChange={event => set('exactRate', event.target.value)} placeholder="Example: 1 EUR = 4 XMR → 4" disabled={rule?.readOnly} data-testid="input-pricing-exact-rate" />{form.exactRate && <small className="text-muted-foreground">Selected path: 1 {projectedSourceOption?.assetCode || 'source'} = {form.exactRate} {projectedTargetOption?.assetCode || 'target'} · Reverse: 1 {projectedTargetOption?.assetCode || 'target'} = {reciprocalRate(form.exactRate)} {projectedSourceOption?.assetCode || 'source'}</small>}<small className="text-muted-foreground">The rate applies to all enabled networks for selected crypto assets.</small></label>
         </div>
+        {isSingleRoute && editorMode === 'path' && <section className="pricing-path-quantities" aria-label="Path pricing">
+          <div className="pricing-path-quantities-heading"><h3>Path pricing</h3><p>Applied only while Edit Path is active.</p></div>
+          <div className="admin-form-grid pricing-form-grid">
+            <label className="pricing-rule-field"><span className="field-label">Percentage</span><input type="text" inputMode="decimal" value={form.markupPercent} onChange={event => set('markupPercent', event.target.value)} disabled={rule?.readOnly} data-testid="input-pricing-path-percentage" /></label>
+            <label className="pricing-rule-field"><span className="field-label">Direction</span><select value={form.adjustmentDirection} onChange={event => set('adjustmentDirection', event.target.value)} disabled={rule?.readOnly} data-testid="select-pricing-path-direction"><option value="MARKUP">Markup (less for customer)</option><option value="GIVE_MORE">Give more (customer bonus)</option></select></label>
+            <label className="pricing-rule-field"><span className="field-label">Fixed Fee (receive currency)</span><input type="text" inputMode="decimal" value={form.fixedFee} onChange={event => set('fixedFee', event.target.value)} placeholder="0" disabled={rule?.readOnly} data-testid="input-pricing-path-fixed-fee" /></label>
+          </div>
+        </section>}
         {(!isSingleRoute || editorMode === 'range') &&
-          <AmountBasedPricingEditor prefix="single" tiers={amountTiers} onTiersChange={updateAmountTiers} disabled={rule?.readOnly} inheritedFixedFee={rule?.fixedFee} />}
+          <AmountBasedPricingEditor prefix="single" tiers={amountTiers} onTiersChange={updateAmountTiers} disabled={rule?.readOnly} inheritedFixedFee="0" />}
         <section className="pricing-path-quantities" aria-label="Path quantity limits" data-testid="pricing-path-quantities">
           <div className="pricing-path-quantities-heading">
             <h3>Path quantity limits</h3>
@@ -8745,11 +8780,12 @@ function PricingPreview({ testRule, rules }: { testRule?: ManualDeskPricingRule 
   // previously loaded "Test" rule may be different from the rule that priced it.
   const pricedRule = rules.find(rule => rule.id === result?.pricingRuleId);
   const pricedTier = pricedRule && pricingTierAtAmount(pricedRule, '1000');
+  const rangeOnly = Boolean(pricedRule?.amountBasedPricingEnabled && pricedRule.rangeOnlyPricing);
   const pricedDirection = pricedRule
-    ? pricedTier?.direction ?? pricedRule.adjustmentDirection ?? 'MARKUP'
+    ? pricedTier?.direction ?? (rangeOnly ? 'MARKUP' : pricedRule.adjustmentDirection ?? 'MARKUP')
     : undefined;
   const pricedPercent = pricedRule
-    ? pricedTier?.percentage ?? String(pricedRule.markupBasisPoints / 100)
+    ? pricedTier?.percentage ?? (rangeOnly ? '0' : String(pricedRule.markupBasisPoints / 100))
     : undefined;
   const trustedPricing = Boolean(pricedRule && result?.adjustmentDirection === pricedDirection);
 
@@ -8835,6 +8871,7 @@ function BulkPricingRuleDrawer({
       const validation = inspectAmountTiers(amountTiers);
       if (validation) { setError(validation); return; }
       patch.amountBasedPricingEnabled = amountTiers.length > 0;
+      patch.rangeOnlyPricing = amountTiers.length > 0;
       patch.amountBasedPricingTiers = amountTiers.map(tier => ({
         minAmount: tier.minAmount.trim(),
         maxAmount: tier.maxAmount?.trim() ?? null,
@@ -8979,6 +9016,7 @@ function BulkPricingRuleDrawer({
 
           <div className="amount-pricing-bulk">
             <label className="amount-pricing-apply"><input type="checkbox" checked={applyAmountPricing} onChange={event => setApplyAmountPricing(event.target.checked)} data-testid="apply-amount-based-pricing" /> Amount-Based Pricing <small>Apply this configuration to all {rules.length} selected rules</small></label>
+            {applyAmountPricing && <p className="text-xs text-muted-foreground">{amountTiers.length ? 'Saving these ranges activates range-only pricing for every selected rule. Existing path markup and fees stay saved but are inactive; gaps use the unadjusted base rate.' : 'Saving without ranges switches the selected rules to path pricing.'}</p>}
             {applyAmountPricing && <AmountBasedPricingEditor prefix="bulk" tiers={amountTiers} onTiersChange={setAmountTiers} />}
           </div>
 
@@ -9275,7 +9313,12 @@ function AdminManualPricing() {
                   <td className="pricing-select-column"><input type="checkbox" checked={selectedRuleIds.includes(rule.id)} onChange={() => setSelectedRuleIds(current => current.includes(rule.id) ? current.filter(id => id !== rule.id) : [...current, rule.id])} aria-label={t('adminPricing.select_rule_named', { name: rule.name })} data-testid={`checkbox-pricing-${rule.id}`} /></td>
                   <td><div className="pricing-rule-identity"><AdminPaymentLogo name={option?.title || option?.networkTitle || rule.name} currencyCode={option?.assetCode} logoUrl={option?.logoUrl} />{option?.kind === 'fiat-payment-method' ? <PaymentMethodCopy methodName={option.title || option.networkTitle || rule.name} currencyCode={option.assetCode} /> : <span><strong>{compactRuleLabel(rule)}</strong><small>{rule.name}</small></span>}</div>{rule.missingSettlementOptionIds.length > 0 && <small className="pricing-orphan-warning" data-testid={`pricing-orphan-${rule.id}`}>{t('adminPricing.missing_option')}{rule.missingSettlementOptionIds.join(', ')}</small>}</td>
                   <td className="pricing-selector"><div className="pricing-route"><span className="pricing-route-icon"><ArrowRight size={14} /></span><span>{pricingSelectorLabel(rule, settlementOptions)}</span></div></td>
-                  <td data-testid={`pricing-rule-pricing-${rule.id}`}><strong className="pricing-commission">{rule.amountBasedPricingEnabled && rule.amountBasedPricingTiers?.length ? `Range pricing · ${rule.amountBasedPricingTiers.length} ${rule.amountBasedPricingTiers.length === 1 ? 'range' : 'ranges'}` : 'Base pricing'}</strong><small className="pricing-base-fallback">{rule.amountBasedPricingEnabled && rule.amountBasedPricingTiers?.length ? 'Base fallback: ' : 'Base: '}{rule.adjustmentDirection === 'GIVE_MORE' ? 'Give more ' : 'Markup '}{(rule.markupBasisPoints / 100).toFixed(2)}% · {formatFixedFee(rule.fixedFee, option?.assetCode)}</small></td>
+                   <td data-testid={`pricing-rule-pricing-${rule.id}`}>
+                     <strong className="pricing-commission">{rule.amountBasedPricingEnabled && rule.amountBasedPricingTiers?.length ? `Range pricing · ${rule.amountBasedPricingTiers.length} ${rule.amountBasedPricingTiers.length === 1 ? 'range' : 'ranges'}` : 'Path pricing'}</strong>
+                     {rule.amountBasedPricingEnabled && rule.amountBasedPricingTiers?.length && rule.rangeOnlyPricing
+                       ? <small className="pricing-base-fallback">{rule.amountBasedPricingTiers.map(tier => `${tier.minAmount}–${tier.maxAmount ?? '∞'}: ${tier.direction === 'GIVE_MORE' ? '+' : '−'}${tier.percentage}% · ${formatFixedFee(tier.fixedFee ?? '0', option?.assetCode)}`).join(' / ')} · Outside ranges: base rate, no markup or fee</small>
+                       : <small className="pricing-base-fallback">{rule.amountBasedPricingEnabled && rule.amountBasedPricingTiers?.length ? 'Legacy base fallback: ' : 'Path: '}{rule.adjustmentDirection === 'GIVE_MORE' ? 'Give more ' : 'Markup '}{(rule.markupBasisPoints / 100).toFixed(2)}% · {formatFixedFee(rule.fixedFee, option?.assetCode)}</small>}
+                   </td>
                   <td><span className="secure-badge pricing-specificity">{rule.specificity} / 8</span></td>
                   <td><StatusPill status={rule.enabled ? 'Enabled' : 'Disabled'} /></td>
                    <td><div className="pricing-actions"><button className="pricing-action-button pricing-edit-action" onClick={() => setDrawer(rule)} data-testid={`button-edit-pricing-${rule.id}`}><Pencil size={12} />{t('adminPricing.edit')}</button><button className={cn('pricing-action-button', rule.enabled && 'danger')} onClick={() => toggle(rule)} disabled={update.isPending || remove.isPending} data-testid={`button-toggle-pricing-${rule.id}`}><Power size={12} />{rule.enabled ? t('adminPricing.disable') : t('adminPricing.enable')}</button><button type="button" className="pricing-action-button pricing-delete-action" onClick={() => removeRule(rule)} disabled={remove.isPending || update.isPending} data-testid={`button-delete-pricing-${rule.id}`} aria-label={t('adminPricing.delete_rule_named', { name: rule.name })}><Trash2 size={12} />Delete</button></div></td>
