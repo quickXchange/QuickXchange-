@@ -47,4 +47,51 @@ test('order logo is retained as primary if no canonical catalog logo exists', ()
   assert.equal(visual.logoUrl, '/objects/order-btc.svg');
   assert.equal(visual.fallbackSrcs?.includes('/objects/order-btc.svg'), false);
   assert.equal(visual.badgeUrl, '/objects/tron.svg');
+  assert.equal(visual.network, 'TRC20');
+  assert.equal(visual.badgeVariant, 'network');
+});
+
+test('network identity is passed through for shared fallback badges when no logo is configured', () => {
+  const visual = resolveOrderVisual([{
+    id: 'usdt-ethereum',
+    assetCode: 'USDT',
+    routeNetwork: 'ERC20',
+    kind: 'crypto-network',
+    logoUrl: '/objects/usdt.svg',
+  }], {
+    fromAsset: 'USDT',
+    fromNetwork: 'ERC20',
+    sourceSettlementOptionId: 'usdt-ethereum',
+  }, 'source');
+
+  assert.equal(visual.badgeVariant, 'network');
+  assert.equal(visual.network, 'ERC20');
+  assert.equal(visual.badgeUrl, undefined);
+  assert.equal(visual.logoUrl, '/objects/usdt.svg');
+});
+
+test('fiat visuals do not invent a flag when no configured or stored flag exists', () => {
+  const visual = resolveOrderVisual([{
+    id: 'eur-sepa',
+    assetCode: 'EUR',
+    routeNetwork: 'SEPA',
+    kind: 'fiat-payment-method',
+  }], {
+    fromAsset: 'EUR',
+    fromNetwork: 'SEPA',
+    sourceSettlementOptionId: 'eur-sepa',
+  }, 'source');
+
+  assert.equal(visual.badgeVariant, 'flag');
+  assert.equal(visual.network, 'SEPA');
+  assert.equal(visual.badgeUrl, undefined);
+});
+
+test('orders without a current catalog row do not invent a network logo for EUR payment methods', () => {
+  const visual = resolveOrderVisual([], {
+    toAsset: 'EUR',
+    toNetwork: 'SEPA',
+  }, 'target');
+  assert.equal(visual.badgeVariant, 'flag');
+  assert.equal(visual.badgeUrl, undefined);
 });

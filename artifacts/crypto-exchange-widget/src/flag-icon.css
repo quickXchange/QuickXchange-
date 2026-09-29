@@ -186,15 +186,17 @@ html.dark .logo-avatar {
   --qx-avatar-size: 20px;
 }
 
-/* Network artwork may sit beside a text code; circularize the artwork only. */
-.crypto-network-badge > .network-logo-badge {
-  box-sizing: border-box !important;
-  display: block !important;
-  width: 14px !important;
-  height: 14px !important;
-  min-width: 14px !important;
-  min-height: 14px !important;
-  aspect-ratio: 1 / 1 !important;
+/* Website network artwork uses a shared, consistently sized circular badge. */
+.public-shell .exchange-card.swap-widget-flow .crypto-network-badge > .qx-network-badge,
+.order-exchange-identity .crypto-network-badge > .qx-network-badge,
+.customer-orders-table .customer-order-asset-identity .crypto-network-badge > .qx-network-badge,
+.order-confirmation-main .order-confirmation-summary-identity .crypto-network-badge > .qx-network-badge,
+.track-order-page .track-order-route .crypto-network-badge > .qx-network-badge {
+  --qx-network-badge-size: 16px !important;
+}
+
+.public-shell .exchange-card.swap-widget-flow .swap-recap-network-badge > .qx-network-badge {
+  --qx-network-badge-size: 20px !important;
 }
 
 /* Admin overrides for compact displays */

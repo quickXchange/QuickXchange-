@@ -59,11 +59,12 @@
 - [Mobile swipe tables](mobile-swipe-tables.md) — preserve real tables on phones; the entire table scrolls horizontally with no frozen columns.
 - [Shared Admin search isolation](admin-search-isolation.md) — shared search geometry must stay isolated from generic Admin input and mobile toolbar sizing rules.
 - [Admin order network labels](admin-convert-network-labels.md) — Convert and Swap crypto rows show concise route codes such as BEP20, not combined network titles.
-- [Stable exchange shell](stable-exchange-shell.md) — Swap and Convert share one fixed breakpoint footprint; longer steps scroll inside without resizing it.
+- [Stable exchange shell](stable-exchange-shell.md) — Swap Step 1 and Summary grow with the page; Step 2 fulfillment and Convert keep bounded field scrolling.
 - [Affiliate referral code compatibility](affiliate-referral-codes.md) — show compact codes without invalidating previously shared referral URLs or weakening immutable attribution.
 - [Tablet hero track balance](tablet-hero-track-balance.md) — cap fixed-widget tablet columns proportionally and stack dense right-rail groups when portrait widths make two-across content unreadable.
 - [Navigation surface boundaries](navigation-surface-boundaries.md) — public, Admin, and widget hamburgers own distinct menus; apply requested presentation changes only to named surfaces.
 - [Theme-safe brand logos](theme-safe-brand-logos.md) — payment and crypto logos keep official colors in every theme; theme only their surrounding surfaces.
+- [Cross-surface network badges](cross-surface-network-badges.md) — share badge artwork geometry across website and Mini App while preserving each host's layout and configured network source.
 - [Clerk environment operator relinking](clerk-environment-operator-relinking.md) — verified email may atomically replace a stale Clerk ID when operator data crosses isolated environments.
 - [Order confirmation presentation](order-confirmation-presentation.md) — keep deposit confirmation compact and mobile-first without weakening payment data or action contracts.
 - [Admin portal theme surfaces](admin-portal-theme-surfaces.md) — body-portaled Admin menus need explicit Light/Dark contracts and mobile selectors that beat legacy `:is()` specificity.

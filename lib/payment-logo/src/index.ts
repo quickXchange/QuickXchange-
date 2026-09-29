@@ -1,6 +1,8 @@
 import { createElement, useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode, SyntheticEvent } from 'react';
 
+export { NetworkBadge, resolveNetworkBadgeSource } from './network-badge';
+
 export type PaymentLogoFit = {
   scale: number;
   x: number;

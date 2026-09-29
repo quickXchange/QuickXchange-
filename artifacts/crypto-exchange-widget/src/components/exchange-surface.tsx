@@ -1210,6 +1210,12 @@ export function ManualSwapWidget({
 
   const continueToDetails = () => {
     if (!canContinue) return;
+    const emailField = stepPanelRef.current?.querySelector<HTMLInputElement>('#swap-email');
+    if (emailField && !emailField.checkValidity()) {
+      emailField.reportValidity();
+      emailField.focus();
+      return;
+    }
     moveToStep(2);
   };
   const continueToSummary = () => {
@@ -1601,35 +1607,29 @@ export function ManualSwapWidget({
                   </div>
                 )}
 
-                {currentQuote && toOption && <div className="mt-4"><SwapFeeBreakdown fees={currentQuote.manualSwapFees} currency={toOption.assetCode} receiveAmount={currentQuote.receiveAmount}/></div>}
                 {currentQuote && !currentQuote.manualSwapFees && <p role="alert" className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" data-testid="swap-fee-breakdown-unavailable">The server did not provide an itemized fee breakdown. Refresh the quote before continuing.</p>}
               </div>
 
-              <div className="swap-quote-options-dock" data-testid="swap-additional-options-dock">
-                <label className="swap-addons-disclosure" data-testid="swap-addons-disclosure">
-                  <input
-                    type="checkbox"
-                    checked={addonsOpen}
-                    onChange={event => changeAddonsOpen(event.target.checked)}
-                    data-testid="checkbox-swap-addons"
-                  />
-                  <span className="swap-addons-disclosure-text">
-                    <strong>Add-ons</strong>
-                    <small>{addonsOpen ? 'Choose an option below' : selectedKeys.length ? `${selectedKeys.length} selected` : 'Check to see optional choices'}</small>
-                  </span>
-                </label>
-                {selectedKeys.length > 0 && (
-                  <div className="swap-quote-options-summary" aria-live="polite" data-testid="swap-selected-addons-quote-summary">
-                    {quoteStatus === 'loading' || addons.isLoading
-                      ? <span className="text-muted-foreground">Updating your quote…</span>
-                      : quoteStatus === 'idle' && currentQuote && !addons.isError
-                        ? <>
-                            <span><small>You Receive</small><strong>{number(currentQuote.receiveAmount)} {toOption?.assetCode}</strong></span>
-                            <span><small>Total fees</small><strong>{currentQuote.manualSwapFees ? `${currentQuote.manualSwapFees.totalFees} ${toOption?.assetCode}` : 'Unavailable'}</strong></span>
-                          </>
-                        : <span className="text-muted-foreground">Your updated quote is not available yet.</span>}
+              <div className="swap-quote-options-dock" data-testid="swap-contact-email-dock">
+                <div className="order-detail-field order-detail-field--email flex flex-col gap-1.5">
+                  <label htmlFor="swap-email" className="text-[13px] font-semibold text-muted-foreground">
+                    Your Contact Email <span className="required-field-mark" aria-hidden="true">*</span> <span className="text-xs font-normal">(Required)</span>
+                  </label>
+                  <div className="relative">
+                    <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <input
+                      id="swap-email"
+                      type="email"
+                      required={!signedInCustomer}
+                      disabled={Boolean(signedInCustomer)}
+                      value={signedInCustomer ? user?.primaryEmailAddress?.emailAddress ?? '' : email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder={t('convert.emailPlaceholder')}
+                      data-testid="input-customer-email"
+                      className="font-sans text-[14px] w-full h-[54px] pl-11 pr-4 rounded-xl border border-border bg-card focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-colors shadow-sm disabled:cursor-not-allowed disabled:opacity-75"
+                    />
                   </div>
-                )}
+                </div>
               </div>
 
               <div className="exchange-submit-wrap">
@@ -1642,27 +1642,6 @@ export function ManualSwapWidget({
           ) : step === 2 && quoteReady && currentQuote ? (
             <div ref={stepPanelRef} className="swap-step-panel swap-fulfillment-step animate-in fade-in slide-in-from-right-4 duration-300" data-testid="swap-step-wallets" tabIndex={-1}>
               <div className="order-details-content swap-step2-fields" aria-label="Swap settlement details">
-                {isFiatToCryptoSwap && (
-                  <div className="order-detail-field order-detail-field--email flex flex-col gap-1.5">
-                    <label htmlFor="swap-email" className="text-[13px] font-semibold text-muted-foreground">
-                      Email Address <span className="required-field-mark" aria-hidden="true">*</span>
-                    </label>
-                    <div className="relative">
-                      <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                      <input
-                        id="swap-email"
-                        type="email"
-                        required={!signedInCustomer}
-                        disabled={Boolean(signedInCustomer)}
-                        value={signedInCustomer ? user?.primaryEmailAddress?.emailAddress ?? '' : email}
-                        onChange={(event) => setEmail(event.target.value)}
-                        placeholder="Enter your email address"
-                        data-testid="input-customer-email"
-                        className="font-sans text-[14px] w-full h-[54px] pl-11 pr-4 rounded-xl border border-border bg-card focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-colors shadow-sm disabled:cursor-not-allowed disabled:opacity-75"
-                      />
-                    </div>
-                  </div>
-                )}
                 {toOption?.kind === 'crypto-network' && (
                   <>
                     <div className="order-detail-field order-detail-field--destination">
@@ -1778,26 +1757,6 @@ export function ManualSwapWidget({
                   </div>
                 )}
 
-                {!isFiatToCryptoSwap && <div className="order-detail-field order-detail-field--email flex flex-col gap-1.5">
-                  <label htmlFor="swap-email" className="text-[13px] font-semibold text-muted-foreground">
-                    {t('convert.emailAddress')}
-                  </label>
-                  <div className="relative">
-                    <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                    <input
-                      id="swap-email"
-                      type="email"
-                      required={!signedInCustomer}
-                      disabled={Boolean(signedInCustomer)}
-                      value={signedInCustomer ? user?.primaryEmailAddress?.emailAddress ?? '' : email}
-                      onChange={(event) => setEmail(event.target.value)}
-                      placeholder={t('convert.emailPlaceholder')}
-                      data-testid="input-customer-email"
-                      className="font-sans text-[14px] w-full h-[54px] pl-11 pr-4 rounded-xl border border-border bg-card focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-colors shadow-sm disabled:cursor-not-allowed disabled:opacity-75"
-                    />
-                  </div>
-                </div>}
-
               </div>
               <div className="swap-stage-actions">
                 <button type="button" className="swap-back-button" onClick={() => moveToStep(1)} data-testid="swap-button-back"><ChevronLeft size={18} /> Back</button>
@@ -1822,9 +1781,9 @@ export function ManualSwapWidget({
                   </button>
                 </div>
                 <div className="swap-summary-terms"><OrderPolicyAcceptance id="swap-terms" checked={termsAccepted} onChange={setTermsAccepted} /></div>
-                <div className="mt-3 text-xs text-muted-foreground" data-testid="swap-summary-rate">1 {fromOption.assetCode} = {formatSwapRate(currentQuote.rate)} {toOption.assetCode}</div>
+                <div className="swap-summary-rate text-xs text-muted-foreground" data-testid="swap-summary-rate">1 {fromOption.assetCode} = {formatSwapRate(currentQuote.rate)} {toOption.assetCode}</div>
                 <SwapFeeBreakdown fees={currentQuote.manualSwapFees} currency={toOption.assetCode} receiveAmount={currentQuote.receiveAmount} />
-                {selectedKeys.length > 0 && <div className="mt-2 text-xs" data-testid="swap-selected-addons-quote-summary">Selected add-ons: {availableAddons.filter(item => selectedKeys.includes(item.key)).map(item => item.name).join(', ')}</div>}
+                {selectedKeys.length > 0 && <div className="swap-summary-selected-addons text-xs" data-testid="swap-selected-addons-quote-summary">Selected add-ons: {availableAddons.filter(item => selectedKeys.includes(item.key)).map(item => item.name).join(', ')}</div>}
               </div>
               <div className="swap-summary-footer">
                 <button type="button" className="swap-addon-launch" onClick={() => changeAddonsOpen(true)} data-testid="button-swap-addons"><span className="inline-flex items-center gap-2"><Package size={17} /> Add-ons {selectedKeys.length > 0 && `(${selectedKeys.length})`}</span><ChevronRight size={17} /></button>

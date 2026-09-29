@@ -19,12 +19,19 @@ test('unresolved logos render their fallback before the catalog arrives', () => 
   assert.doesNotMatch(markup, /<img/);
 });
 
-test('all context sizes retain equal width and height with a circular clipping frame', () => {
-  for (const [size, dimension] of [['small', 6], ['normal', 8], ['medium', 10], ['large', 14]] as const) {
-    const markup = renderToStaticMarkup(createElement(MiniAppLogo, { src: '/logo.svg', size }));
+test('all context sizes retain circular framing and scale their shared network badge', () => {
+  for (const [size, dimension, badgeSize] of [['small', 6, 10], ['normal', 8, 12], ['medium', 10, 14], ['large', 14, 18]] as const) {
+    const markup = renderToStaticMarkup(createElement(MiniAppLogo, {
+      src: '/logo.svg',
+      size,
+      network: 'TRC20',
+      badgeVariant: 'network',
+    }));
     assert.match(markup, new RegExp(`size-${dimension}`));
     assert.match(markup, /overflow-hidden rounded-full/);
     assert.match(markup, /object-contain object-center/);
+    assert.match(markup, new RegExp(`--qx-network-badge-size:${badgeSize}px`));
+    assert.match(markup, /qx-network-badge[^"]*!absolute -right-1 -bottom-1/);
   }
 });
 
@@ -51,7 +58,8 @@ test('shared logo renderer keeps artwork circular, centered, contained, and dist
   assert.match(markup, /src="\/api\/storage\/objects\/admin-bank\.svg"/);
   assert.match(markup, /src="\/api\/storage\/objects\/euro-flag\.svg"/);
   assert.match(markup, /size-10/);
-  assert.match(markup, /size-2\.5/);
+  assert.match(markup, /--qx-network-badge-size:14px/);
+  assert.match(markup, /!absolute -right-1 -bottom-1/);
 });
 
 test('order resolver logo and network badge reach the rendered images', () => {
@@ -70,6 +78,28 @@ test('order resolver logo and network badge reach the rendered images', () => {
   const markup = renderToStaticMarkup(createElement(MiniAppLogo, { ...visual, alt: 'BTC' }));
   assert.match(markup, /src="\/api\/storage\/objects\/admin-btc\.svg"/);
   assert.match(markup, /src="\/api\/storage\/objects\/admin-tron\.svg"/);
+  assert.equal(visual.network, 'TRC20');
+});
+
+test('shared network badge resolves known route networks and preserves configured source priority', () => {
+  const fallbackMarkup = renderToStaticMarkup(createElement(MiniAppLogo, {
+    src: '/asset-logo.svg',
+    network: 'ERC20',
+    badgeVariant: 'network',
+    size: 'large',
+  }));
+  assert.match(fallbackMarkup, /src="https:\/\/cdn\.jsdelivr\.net\/gh\/spothq\/cryptocurrency-icons@master\/128\/color\/eth\.png"/);
+  assert.match(fallbackMarkup, /--qx-network-badge-size:18px/);
+  assert.match(fallbackMarkup, /src="\/asset-logo\.svg"/);
+
+  const configuredMarkup = renderToStaticMarkup(createElement(MiniAppLogo, {
+    src: '/asset-logo.svg',
+    network: 'ERC20',
+    badgeSrc: '/objects/admin-network.png',
+    badgeVariant: 'network',
+  }));
+  assert.match(configuredMarkup, /src="\/api\/storage\/objects\/admin-network\.png"/);
+  assert.doesNotMatch(configuredMarkup, /color\/eth\.png/);
 });
 
 test('saved payment method identity reaches the shared order, recent order, and detail logo fit', () => {

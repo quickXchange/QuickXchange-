@@ -837,6 +837,7 @@ export default function Exchange() {
                   fallbackSrcs={sourceOpt?.kind === 'payment-method' || sourceOpt?.kind === 'fiat-payment-method' ? getFallbackPaymentLogos(sourceOpt?.title, sourceOpt?.paymentMethodId || sourceOpt?.id) : getFallbackCryptoLogos(sourceOpt?.assetCode)}
                   badgeSrc={sourceOpt?.kind === 'crypto-network' ? sourceOpt?.networkLogoUrl : sourceOpt?.flagUrl}
                   badgeVariant={sourceOpt?.kind === 'crypto-network' ? 'network' : 'flag'}
+                  network={sourceOpt?.routeNetwork}
                   variant={sourceOpt?.kind === 'payment-method' || sourceOpt?.kind === 'fiat-payment-method' ? 'payment' : 'asset'}
                   fallback={getLogoFallbackText(sourceOpt?.kind, sourceOpt?.title, sourceOpt?.assetCode)}
                   alt={sourceOpt?.title}
@@ -883,6 +884,7 @@ export default function Exchange() {
                   fallbackSrcs={targetOpt?.kind === 'payment-method' || targetOpt?.kind === 'fiat-payment-method' ? getFallbackPaymentLogos(targetOpt?.title, targetOpt?.paymentMethodId || targetOpt?.id) : getFallbackCryptoLogos(targetOpt?.assetCode)}
                   badgeSrc={targetOpt?.kind === 'crypto-network' ? targetOpt?.networkLogoUrl : targetOpt?.flagUrl}
                   badgeVariant={targetOpt?.kind === 'crypto-network' ? 'network' : 'flag'}
+                  network={targetOpt?.routeNetwork}
                   variant={targetOpt?.kind === 'payment-method' || targetOpt?.kind === 'fiat-payment-method' ? 'payment' : 'asset'}
                   fallback={getLogoFallbackText(targetOpt?.kind, targetOpt?.title, targetOpt?.assetCode)}
                   alt={targetOpt?.title}
@@ -999,6 +1001,7 @@ export default function Exchange() {
                 fallbackSrcs={targetOpt?.kind === 'payment-method' || targetOpt?.kind === 'fiat-payment-method' ? getFallbackPaymentLogos(targetOpt?.title, targetOpt?.paymentMethodId || targetOpt?.id) : getFallbackCryptoLogos(targetOpt?.assetCode)}
                 badgeSrc={targetOpt?.kind === 'crypto-network' ? targetOpt?.networkLogoUrl : targetOpt?.flagUrl}
                 badgeVariant={targetOpt?.kind === 'crypto-network' ? 'network' : 'flag'}
+                network={targetOpt?.routeNetwork}
                 variant={targetOpt?.kind === 'payment-method' || targetOpt?.kind === 'fiat-payment-method' ? 'payment' : 'asset'}
                 fallback={getLogoFallbackText(targetOpt?.kind, targetOpt?.title, targetOpt?.assetCode)}
                 alt={targetOpt?.title}
@@ -1228,14 +1231,14 @@ export default function Exchange() {
             <div className="flex justify-between items-center py-3 border-b border-border/50">
               <span className="text-[14px] font-semibold text-muted-foreground">You Send</span>
               <span className="flex items-center gap-2 font-bold text-[16px]">
-                <MiniAppLogo src={sourceOpt?.logoUrl} fallbackSrcs={sourceOpt?.kind === 'payment-method' || sourceOpt?.kind === 'fiat-payment-method' ? getFallbackPaymentLogos(sourceOpt?.title, sourceOpt?.paymentMethodId || sourceOpt?.id) : getFallbackCryptoLogos(sourceOpt?.assetCode)} badgeSrc={sourceOpt?.kind === 'crypto-network' ? sourceOpt?.networkLogoUrl : sourceOpt?.flagUrl} badgeVariant={sourceOpt?.kind === 'crypto-network' ? 'network' : 'flag'} variant={sourceOpt?.kind === 'payment-method' || sourceOpt?.kind === 'fiat-payment-method' ? 'payment' : 'asset'} fallback={getLogoFallbackText(sourceOpt?.kind, sourceOpt?.title, sourceOpt?.assetCode)} size="small" />
+                <MiniAppLogo src={sourceOpt?.logoUrl} fallbackSrcs={sourceOpt?.kind === 'payment-method' || sourceOpt?.kind === 'fiat-payment-method' ? getFallbackPaymentLogos(sourceOpt?.title, sourceOpt?.paymentMethodId || sourceOpt?.id) : getFallbackCryptoLogos(sourceOpt?.assetCode)} badgeSrc={sourceOpt?.kind === 'crypto-network' ? sourceOpt?.networkLogoUrl : sourceOpt?.flagUrl} badgeVariant={sourceOpt?.kind === 'crypto-network' ? 'network' : 'flag'} network={sourceOpt?.routeNetwork} variant={sourceOpt?.kind === 'payment-method' || sourceOpt?.kind === 'fiat-payment-method' ? 'payment' : 'asset'} fallback={getLogoFallbackText(sourceOpt?.kind, sourceOpt?.title, sourceOpt?.assetCode)} size="small" />
                 {amount} {sourceOpt?.assetCode}
               </span>
             </div>
             <div className="flex justify-between items-center py-3 border-b border-border/50">
               <span className="text-[14px] font-semibold text-muted-foreground">You Receive</span>
               <span className="flex items-center gap-2 font-bold text-[16px] text-primary">
-                <MiniAppLogo src={targetOpt?.logoUrl} fallbackSrcs={targetOpt?.kind === 'payment-method' || targetOpt?.kind === 'fiat-payment-method' ? getFallbackPaymentLogos(targetOpt?.title, targetOpt?.paymentMethodId || targetOpt?.id) : getFallbackCryptoLogos(targetOpt?.assetCode)} badgeSrc={targetOpt?.kind === 'crypto-network' ? targetOpt?.networkLogoUrl : targetOpt?.flagUrl} badgeVariant={targetOpt?.kind === 'crypto-network' ? 'network' : 'flag'} variant={targetOpt?.kind === 'payment-method' || targetOpt?.kind === 'fiat-payment-method' ? 'payment' : 'asset'} fallback={getLogoFallbackText(targetOpt?.kind, targetOpt?.title, targetOpt?.assetCode)} size="small" />
+                <MiniAppLogo src={targetOpt?.logoUrl} fallbackSrcs={targetOpt?.kind === 'payment-method' || targetOpt?.kind === 'fiat-payment-method' ? getFallbackPaymentLogos(targetOpt?.title, targetOpt?.paymentMethodId || targetOpt?.id) : getFallbackCryptoLogos(targetOpt?.assetCode)} badgeSrc={targetOpt?.kind === 'crypto-network' ? targetOpt?.networkLogoUrl : targetOpt?.flagUrl} badgeVariant={targetOpt?.kind === 'crypto-network' ? 'network' : 'flag'} network={targetOpt?.routeNetwork} variant={targetOpt?.kind === 'payment-method' || targetOpt?.kind === 'fiat-payment-method' ? 'payment' : 'asset'} fallback={getLogoFallbackText(targetOpt?.kind, targetOpt?.title, targetOpt?.assetCode)} size="small" />
                 {quoteData?.receiveAmount} {targetOpt?.assetCode}
               </span>
             </div>
@@ -1390,6 +1393,7 @@ export default function Exchange() {
                       fallbackSrcs={o.kind === 'payment-method' || o.kind === 'fiat-payment-method' ? getFallbackPaymentLogos(o.title, o.paymentMethodId || o.id) : getFallbackCryptoLogos(o.assetCode)}
                       badgeSrc={o.kind === 'crypto-network' ? o.networkLogoUrl : o.flagUrl}
                       badgeVariant={o.kind === 'crypto-network' ? 'network' : 'flag'}
+                      network={o.routeNetwork}
                       variant={o.kind === 'payment-method' || o.kind === 'fiat-payment-method' ? 'payment' : 'asset'}
                       fallback={getLogoFallbackText(o.kind, o.title, o.assetCode)}
                       alt={o.title}

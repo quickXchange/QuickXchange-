@@ -1,6 +1,7 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { Check, CircleAlert, Copy, Network, ShieldCheck, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { NetworkBadge } from '@workspace/payment-logo';
 import { OrderSettlementIdentity } from '@/components/order-settlement-identity';
 import './deposit-details-modal.css';
 
@@ -76,11 +77,12 @@ export function DepositDetailsModal({
                   settlementOptionId={settlementOptionId} size="lg" compact
                   className="deposit-details-modal-identity" />
                 {isNativeNetwork && (
-                  <span className="deposit-details-modal-native-network" aria-label={`${network} network`}>
+                  <NetworkBadge network={network} size={29}
+                    className="deposit-details-modal-native-network" ariaLabel={`${network} network`}>
                     <OrderSettlementIdentity assetCode={asset} routeLabel={network}
                       settlementOptionId={settlementOptionId} size="sm" compact
                       className="deposit-details-modal-native-identity" />
-                  </span>
+                  </NetworkBadge>
                 )}
               </div>
               <div className="deposit-details-modal-asset-name" data-testid="text-deposit-asset">{asset}</div>

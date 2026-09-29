@@ -105,9 +105,10 @@
   inset: 0;
   z-index: -1;
   border-radius: 50%;
-  background: conic-gradient(from 0deg, #13ddf4, #087bff, #7a2cff, #087bff, #13ddf4);
-  box-shadow: 0 0 13px rgba(8, 123, 255, .28);
-  animation: deposit-details-modal-ring 8s linear infinite;
+  background: conic-gradient(from 0deg, #087bff, #13ddf4, #7a2cff, #087bff);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+  animation: deposit-details-modal-ring 18s linear infinite;
   content: "";
 }
 .deposit-details-modal-artwork .deposit-details-modal-identity.crypto-identity {
@@ -164,6 +165,7 @@
   right: -7px;
   bottom: -3px;
   z-index: 1;
+  box-sizing: border-box;
   display: grid;
   place-items: center;
   width: 29px;
@@ -180,28 +182,21 @@
   border-color: #101829;
   background: #101829;
 }
-.deposit-details-modal-artwork .deposit-details-modal-identity .crypto-network-badge > .network-logo-badge.logo-avatar:not(.logo-avatar-responsive) {
-  --qx-avatar-size: 100%;
+.deposit-details-modal-artwork .deposit-details-modal-identity .crypto-network-badge > .qx-network-badge {
+  --qx-network-badge-size: 100% !important;
   width: 100% !important;
   height: 100% !important;
   min-width: 100% !important;
   min-height: 100% !important;
   max-width: 100% !important;
   max-height: 100% !important;
-  overflow: hidden;
-  border-radius: 50%;
 }
-.deposit-details-modal-artwork .deposit-details-modal-identity .crypto-network-badge .logo-avatar-img {
+.deposit-details-modal-artwork .deposit-details-modal-identity .crypto-network-badge .qx-network-badge-image {
   width: 100% !important;
   height: 100% !important;
-  object-fit: cover !important;
+  object-fit: contain !important;
 }
 .deposit-details-modal-artwork .deposit-details-modal-identity .crypto-network-badge > span:last-child { display: none; }
-.deposit-details-modal-artwork .deposit-details-modal-identity .crypto-network-badge:not(:has(.network-logo-badge)) > span:last-child {
-  display: block;
-  font-size: 8px;
-  line-height: 1;
-}
 .deposit-details-modal-native-network {
   position: absolute;
   right: -5px;

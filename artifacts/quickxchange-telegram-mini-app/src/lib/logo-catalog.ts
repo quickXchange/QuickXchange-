@@ -28,6 +28,7 @@ export type MiniAppVisual = {
   fallbackSrcs?: string[];
   badgeUrl?: string;
   badgeVariant?: 'network' | 'flag';
+  network?: string;
   variant?: 'asset' | 'payment';
   fallback?: string;
   label?: string;
@@ -132,6 +133,7 @@ export function resolveOrderVisual(
   const projectedBadge = text(isSource ? (logos.fromNetwork || logos.fromFlag) : (logos.toNetwork || logos.toFlag));
 
   const isPayment = option?.kind === 'payment-method' || option?.kind === 'fiat-payment-method' || Boolean(paymentMethod);
+  const isNetwork = option?.kind === 'crypto-network';
   const paymentFallbacks = getFallbackPaymentLogos(
     option?.title || text(paymentMethod?.name),
     option?.paymentMethodId || text(paymentMethod?.paymentMethodId) || option?.id,
@@ -152,8 +154,9 @@ export function resolveOrderVisual(
       (isBbva ? paymentFallbacks : [configuredLogoUrl, ...storedFallbacks])
         .filter((source): source is string => Boolean(source) && source !== logoUrl)
     )),
-    badgeUrl: option?.kind === 'crypto-network' ? option.networkLogoUrl || projectedBadge : option?.flagUrl || projectedBadge,
-    badgeVariant: option?.kind === 'crypto-network' ? 'network' : 'flag',
+    badgeUrl: isNetwork ? option?.networkLogoUrl || projectedBadge : option?.flagUrl || projectedBadge,
+    badgeVariant: isNetwork ? 'network' : 'flag',
+    network,
     variant: isPayment ? 'payment' : 'asset',
     fallback: getLogoFallbackText(
       isPayment ? 'fiat-payment-method' : option?.kind,

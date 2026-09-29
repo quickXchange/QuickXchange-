@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useGetWebsiteBranding, getGetWebsiteBrandingQueryKey } from '@workspace/api-client-react';
-import { PaymentLogo } from '@workspace/payment-logo';
+import { NetworkBadge, PaymentLogo } from '@workspace/payment-logo';
 import { cn } from '@/lib/utils';
 import { getCachedPaymentLogoFit, measurePaymentLogoFit, type PaymentLogoFit } from '@/lib/payment-logo-fit';
 import type { MiniAppVisual } from '@/lib/logo-catalog';
@@ -14,11 +14,11 @@ if (typeof document !== 'undefined') void import('@workspace/payment-logo/styles
 
 export type MiniAppLogoSize = 'small' | 'normal' | 'medium' | 'large';
 
-const sizeClasses: Record<MiniAppLogoSize, { container: string; text: string; badge: string }> = {
-  small: { container: 'size-6', text: 'text-[8px]', badge: 'size-2 -right-0.5 -bottom-0.5' },
-  normal: { container: 'size-8', text: 'text-[9px]', badge: 'size-2.5 -right-0.5 -bottom-0.5' },
-  medium: { container: 'size-10', text: 'text-[10px]', badge: 'size-2.5 -right-0.5 -bottom-0.5' },
-  large: { container: 'size-14', text: 'text-xs', badge: 'size-3 -right-0.5 -bottom-0.5' },
+const sizeClasses: Record<MiniAppLogoSize, { container: string; text: string; badge: number }> = {
+  small: { container: 'size-6', text: 'text-[8px]', badge: 10 },
+  normal: { container: 'size-8', text: 'text-[9px]', badge: 12 },
+  medium: { container: 'size-10', text: 'text-[10px]', badge: 14 },
+  large: { container: 'size-14', text: 'text-xs', badge: 18 },
 };
 
 export function normalizeMiniAppImageUrl(url?: string | null) {
@@ -32,6 +32,7 @@ export function MiniAppLogo({
   fallbackSrcs = [],
   badgeSrc,
   badgeUrl,
+  network,
   fallback,
   alt = '',
   size = 'normal',
@@ -44,6 +45,7 @@ export function MiniAppLogo({
   fallbackSrcs?: Array<string | null | undefined>;
   badgeSrc?: string | null;
   badgeUrl?: string | null;
+  network?: string | null;
   fallback?: string | null;
   alt?: string;
   size?: MiniAppLogoSize;
@@ -67,12 +69,10 @@ export function MiniAppLogo({
   const sourceKey = sources.join('\0');
   const normalizedBadge = normalizeMiniAppImageUrl(badgeSrc || badgeUrl);
   const [sourceIndex, setSourceIndex] = useState(0);
-  const [badgeFailed, setBadgeFailed] = useState(false);
   const [measuredFit, setMeasuredFit] = useState<{ src: string; fit: PaymentLogoFit } | null>(null);
   const classes = sizeClasses[size];
 
   useEffect(() => setSourceIndex(0), [sourceKey]);
-  useEffect(() => setBadgeFailed(false), [normalizedBadge]);
 
   const currentSrc = sources[sourceIndex];
   const logoFit = currentSrc
@@ -125,21 +125,14 @@ export function MiniAppLogo({
           </span>
         )}
       </span>
-      {normalizedBadge && !badgeFailed && (
-        <span className={cn(
-          'absolute overflow-hidden rounded-full border-2 border-background bg-background shadow-sm flex items-center justify-center',
-          classes.badge,
-        )}>
-          <img
-            src={normalizedBadge}
-            alt=""
-            className={cn(
-              'h-full w-full rounded-full object-contain object-center',
-              badgeVariant === 'network' && 'p-[1px]',
-            )}
-            onError={() => setBadgeFailed(true)}
-          />
-        </span>
+      {(badgeVariant === 'network' ? network || normalizedBadge : normalizedBadge) && (
+        <NetworkBadge
+          network={network}
+          src={normalizedBadge}
+          variant={badgeVariant}
+          size={classes.badge}
+          className="!absolute -right-1 -bottom-1"
+        />
       )}
     </span>
   );

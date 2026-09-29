@@ -16241,7 +16241,7 @@ html:not(.dark) .public-shell,
     font-size: 7px;
   }
 
-  .order-exchange-identity .crypto-network-badge span,
+  .order-exchange-identity .crypto-network-badge > span:last-child,
   .order-exchange-identity .crypto-identity-name {
     overflow: hidden;
     font-size: 8px;
@@ -19911,11 +19911,7 @@ html:not(.dark) .frontend-drawer-nav .qx-menu-row.owner-access.active {
     line-height: 1;
   }
 
-  .order-confirmation-main .order-confirmation-summary-identity .crypto-network-badge > img {
-    display: none;
-  }
-
-  .order-confirmation-main .order-confirmation-summary-identity .crypto-network-badge > span {
+  .order-confirmation-main .order-confirmation-summary-identity .crypto-network-badge > span:last-child {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -21331,13 +21327,13 @@ html:not(.dark) .public-shell .exchange-card.swap-widget-step-2 .swap-step2-fiel
   white-space: nowrap;
 }
 
-.convert-widget-step-2 .convert-route-summary-asset .crypto-network-badge > span {
+.convert-widget-step-2 .convert-route-summary-asset .crypto-network-badge > span:last-child {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.convert-widget-step-2 .convert-route-summary-asset .crypto-network-badge .logo-avatar {
+.convert-widget-step-2 .convert-route-summary-asset .crypto-network-badge .qx-network-badge {
   flex: 0 0 auto;
 }
 
@@ -24177,8 +24173,28 @@ html .public-shell .public-landing-page :is(
   overflow: hidden !important;
 }
 
-/* Swap Step 1 keeps the shared shell fixed while its quote content grows. Let
-   only the quote details scroll; the Continue action stays docked and hit-testable. */
+/* Swap Step 1 grows with its content; the page scrolls instead of the form.
+   Other Swap steps and Convert retain their existing fixed-size shells. */
+.public-shell .exchange-mode-viewport:has(> .exchange-mode-layer.active-layer > .exchange-card.swap-widget-step-1),
+#customer-exchange .customer-exchange-region.public-shell .exchange-mode-viewport:has(> .exchange-mode-layer.active-layer > .exchange-card.swap-widget-step-1) {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+}
+
+.public-shell .exchange-mode-viewport > .exchange-mode-layer.active-layer:has(> .exchange-card.swap-widget-step-1) {
+  position: relative !important;
+  inset: auto;
+  height: auto !important;
+}
+
+.public-shell .exchange-mode-viewport > .exchange-mode-layer.active-layer > .exchange-card.redesigned-widget.swap-widget-step-1,
+#customer-exchange .customer-exchange-region.public-shell .exchange-mode-viewport > .exchange-mode-layer.active-layer > .exchange-card.redesigned-widget.swap-widget-step-1 {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+}
+
 .public-shell .exchange-card.redesigned-widget.swap-widget-flow.swap-widget-step-1 {
   display: flex !important;
   flex-direction: column;
@@ -24192,30 +24208,30 @@ html .public-shell .public-landing-page :is(
 
 .public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 > .swap-quote-step {
   display: flex !important;
-  flex: 1 1 0% !important;
+  flex: 0 0 auto !important;
   flex-direction: column;
   width: 100%;
   height: auto !important;
   min-height: 0 !important;
   max-height: none !important;
-  overflow: hidden !important;
+  overflow: visible !important;
 }
 
 .public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-quote-scroll-region {
-  flex: 1 1 0%;
+  flex: 0 0 auto;
   width: 100%;
   min-width: 0;
-  min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior-y: contain;
-  scrollbar-width: thin;
-  -webkit-overflow-scrolling: touch;
+  overflow: visible;
 }
 
 .public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-quote-step .exchange-submit-wrap {
   flex: 0 0 auto;
-  padding-top: 12px;
+  margin-top: 0 !important;
+  padding-top: 10px;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-quote-step [data-testid="button-swap-continue"] {
+  margin-top: 0;
 }
 
 .public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-quote-options-dock {
@@ -24223,6 +24239,24 @@ html .public-shell .public-landing-page :is(
   min-height: 0;
   padding-top: 8px;
   border-top: 1px solid hsl(var(--border) / 0.7);
+}
+
+@media (max-width: 520px) {
+  .public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .reference-header {
+    margin-bottom: 12px;
+  }
+
+  .public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .convert-quote-flow {
+    gap: 12px;
+  }
+
+  .public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .reference-amount-panel {
+    padding-block: 10px;
+  }
+
+  .public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .reference-rate-summary {
+    margin-top: 10px;
+  }
 }
 
 .public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-addons-disclosure {
@@ -24475,5 +24509,145 @@ html .public-shell .public-landing-page :is(
     max-height: none !important;
     padding: 16px !important;
     justify-content: flex-start;
+  }
+}
+
+/* Step 3 owns its full content height. Only the page scrolls; cards and actions
+   never compete for a fixed-height internal scrollport. */
+.public-shell .exchange-mode-viewport:has(> .exchange-mode-layer.active-layer > .exchange-card.swap-widget-step-3),
+#customer-exchange .customer-exchange-region.public-shell .exchange-mode-viewport:has(> .exchange-mode-layer.active-layer > .exchange-card.swap-widget-step-3) {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+}
+
+.public-shell .exchange-mode-viewport > .exchange-mode-layer.active-layer:has(> .exchange-card.swap-widget-step-3) {
+  position: relative !important;
+  inset: auto;
+  height: auto !important;
+}
+
+.public-shell .exchange-mode-viewport > .exchange-mode-layer.active-layer > .exchange-card.redesigned-widget.swap-widget-step-3,
+#customer-exchange .customer-exchange-region.public-shell .exchange-mode-viewport > .exchange-mode-layer.active-layer > .exchange-card.redesigned-widget.swap-widget-step-3 {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  justify-content: flex-start !important;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 > .swap-step-panel.swap-summary-step {
+  display: flex !important;
+  flex: 0 0 auto !important;
+  flex-direction: column;
+  width: 100%;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  gap: 10px;
+  overflow: visible !important;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-scroll {
+  display: grid;
+  flex: 0 0 auto !important;
+  width: 100%;
+  min-width: 0;
+  align-content: start;
+  gap: 10px;
+  padding: 2px 0 0;
+  overflow: visible !important;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-scroll > * {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  border-radius: 16px;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-card,
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-terms,
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-scroll > [data-testid="swap-fee-breakdown"] {
+  padding: 12px;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-rate,
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-selected-addons {
+  padding: 10px 12px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card) / 0.7);
+  line-height: 1.35;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-footer {
+  display: grid;
+  width: 100%;
+  gap: 10px;
+  padding: 0;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-footer .swap-stage-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr);
+  width: 100%;
+  gap: 10px;
+  padding: 0;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-footer .swap-stage-actions button {
+  box-sizing: border-box !important;
+  display: inline-flex;
+  width: 100%;
+  height: 48px !important;
+  min-height: 48px !important;
+  max-height: 48px !important;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 !important;
+  padding: 0 12px !important;
+  border-radius: 14px;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-footer .swap-stage-actions button svg {
+  flex: 0 0 auto;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-footer .widget-primary-submit:not(:disabled) {
+  background: linear-gradient(105deg, #16dbe9 0%, #118bff 50%, #9e35f5 100%) !important;
+  color: #fff !important;
+  box-shadow: 0 6px 20px rgba(39, 93, 255, 0.28);
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-footer .widget-primary-submit:disabled {
+  background: linear-gradient(105deg, #40778e, #53527e) !important;
+  color: #e5eaf5 !important;
+  opacity: 1;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+@media (max-width: 520px) {
+  .public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-scroll,
+  .public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 > .swap-step-panel.swap-summary-step,
+  .public-shell .exchange-card.swap-widget-flow.swap-widget-step-3 .swap-summary-footer {
+    gap: 8px;
+  }
+
+  /* Keep the persistent help control accessible without covering the order action. */
+  body:has(.exchange-mode-layer.active-layer > .exchange-card.swap-widget-step-3)
+    [data-testid="telegram-support-button"] {
+    top: max(15px, env(safe-area-inset-top));
+    bottom: auto;
+    right: auto;
+    left: 50%;
+    z-index: 160;
+    width: 38px;
+    height: 38px;
+    transform: translateX(-50%);
   }
 }

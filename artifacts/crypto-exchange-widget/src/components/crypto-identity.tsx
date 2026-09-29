@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { SettlementOption } from '@workspace/api-client-react';
+import { NetworkBadge } from '@workspace/payment-logo';
 import { getBrandfetchLogoUrl } from '@/lib/brandfetch';
 import { LogoAvatar } from '@/components/logo-avatar';
 
@@ -189,13 +190,6 @@ export function CryptoLogo({
   );
 }
 
-const NETWORK_BADGE_LOGOS: ReadonlyMap<string, string> = new Map([
-  ['erc20', officialLogo('eth')], ['ethereum', officialLogo('eth')],
-  ['trc20', officialLogo('trx')], ['tron', officialLogo('trx')],
-  ['bep20', officialLogo('bnb')], ['bsc', officialLogo('bnb')], ['binancesmartchain', officialLogo('bnb')],
-  ['solana', officialLogo('sol')], ['polygon', officialLogo('matic')],
-]);
-
 export function CryptoNetworkBadge({
   network,
   assetSymbol,
@@ -211,21 +205,11 @@ export function CryptoNetworkBadge({
 }) {
   const code = clean(network);
   const isEquivalent = normalized(code) === normalized(assetSymbol);
-  const image = networkLogoUrl || logoUrl || NETWORK_BADGE_LOGOS.get(normalized(code));
+  const image = networkLogoUrl || logoUrl;
   if (!code || isEquivalent) return null;
   return (
     <span className={`crypto-network-badge ${className}`.trim()} title={code}>
-      {image && (
-        <LogoAvatar
-          sources={[image]}
-          fallback={code.slice(0, 1).toUpperCase()}
-          size="badge"
-          type="network"
-          fit="contain"
-          className="network-logo-badge"
-          aria-hidden={true}
-        />
-      )}
+      <NetworkBadge network={code} src={image} size={14} className="network-logo-badge" />
       <span>{code}</span>
     </span>
   );
