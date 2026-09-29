@@ -22,7 +22,6 @@ import {
 import type { ApiError, OrderInput, PaymentMethodFieldDefinition, SettlementOption, SiteNavLink } from '@workspace/api-client-react';
 import type { ManualSwapFeeQuoteSnapshot } from '@workspace/api-client-react';
 import { getListPublicManualSwapAddonsQueryKey, useListPublicManualSwapAddons } from '@workspace/api-client-react';
-import { SwapFeeBreakdown } from '@/components/swap-fee-breakdown';
 import { SwapAddonOptions } from '@/components/swap-addon-options';
 import { Link, useLocation } from 'wouter';
 import {
@@ -1782,8 +1781,6 @@ export function ManualSwapWidget({
                 </div>
                 <div className="swap-summary-terms"><OrderPolicyAcceptance id="swap-terms" checked={termsAccepted} onChange={setTermsAccepted} /></div>
                 <div className="swap-summary-rate text-xs text-muted-foreground" data-testid="swap-summary-rate">1 {fromOption.assetCode} = {formatSwapRate(currentQuote.rate)} {toOption.assetCode}</div>
-                <SwapFeeBreakdown fees={currentQuote.manualSwapFees} currency={toOption.assetCode} receiveAmount={currentQuote.receiveAmount} />
-                {selectedKeys.length > 0 && <div className="swap-summary-selected-addons text-xs" data-testid="swap-selected-addons-quote-summary">Selected add-ons: {availableAddons.filter(item => selectedKeys.includes(item.key)).map(item => item.name).join(', ')}</div>}
               </div>
               <div className="swap-summary-footer">
                 <button type="button" className="swap-addon-launch" onClick={() => changeAddonsOpen(true)} data-testid="button-swap-addons"><span className="inline-flex items-center gap-2"><Package size={17} /> Add-ons {selectedKeys.length > 0 && `(${selectedKeys.length})`}</span><ChevronRight size={17} /></button>

@@ -40,12 +40,13 @@ test('receiving popup shows one method logo and amount without dropping configur
 
 test('Summary sections and action row use natural height and scoped spacing', () => {
   assert.match(surface, /className="swap-summary-rate text-xs text-muted-foreground" data-testid="swap-summary-rate"/);
-  assert.match(surface, /className="swap-summary-selected-addons text-xs" data-testid="swap-selected-addons-quote-summary"/);
   assert.match(styles, /\.exchange-mode-viewport:has\(> \.exchange-mode-layer\.active-layer > \.exchange-card\.swap-widget-step-3\)[\s\S]*?height: auto !important;/);
   assert.match(styles, /\.swap-widget-step-3 > \.swap-step-panel\.swap-summary-step\s*\{[^}]*overflow: visible !important;/s);
   assert.match(styles, /\.swap-widget-step-3 \.swap-summary-scroll\s*\{[^}]*gap: 10px;[^}]*overflow: visible !important;/s);
   assert.match(styles, /\.swap-widget-step-3 \.swap-summary-footer \.swap-stage-actions\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1\.8fr\)/s);
   assert.match(styles, /\.swap-widget-step-3 \.swap-summary-footer \.widget-primary-submit:disabled\s*\{[^}]*opacity: 1;/s);
+  assert.match(styles, /\.swap-widget-step-3 \.swap-summary-terms > \.order-terms\.policy-acceptance\s*\{[^}]*align-items: center !important;[^}]*margin: 0 !important;/s);
+  assert.match(styles, /\.swap-widget-step-3 \.swap-summary-terms \.policy-acceptance input\[type="checkbox"\]\s*\{[^}]*align-self: center;/s);
 });
 
 test('optional add-ons show selectable checked state and display-only information without a paid toggle', () => {
@@ -94,14 +95,17 @@ test('Step 1 docks required contact email and Continue while Add-ons remain avai
   assert.match(styles, /\.swap-quote-options-dock\s*\{[^}]*flex: 0 0 auto/s);
 });
 
-test('summary itemizes only server fees and shows quote send, rate, and receive values', () => {
-  assert.match(surface, /<SwapFeeBreakdown fees=\{currentQuote\.manualSwapFees\} currency=\{toOption\.assetCode\} receiveAmount=\{currentQuote\.receiveAmount\}\s*\/>/);
-  assert.match(surface, /swap-summary-send-amount/);
-  assert.match(surface, /swap-summary-rate/);
-  assert.match(surface, /formatSwapRate\(currentQuote\.rate\)/);
-  assert.match(surface, /swap-summary-receive-amount/);
+test('Summary hides fee itemization while preserving quote amounts, rate, Terms, and Add-ons', () => {
+  const summary = surface.slice(surface.indexOf('className="swap-step-panel swap-summary-step"'), surface.indexOf('{detailsOpen &&'));
+  assert.doesNotMatch(summary, /SwapFeeBreakdown|swap-selected-addons-quote-summary|Your quote, itemized/);
+  assert.match(summary, /swap-summary-send-amount/);
+  assert.match(summary, /swap-summary-rate/);
+  assert.match(summary, /formatSwapRate\(currentQuote\.rate\)/);
+  assert.match(summary, /swap-summary-receive-amount/);
+  assert.match(summary, /OrderPolicyAcceptance id="swap-terms" checked=\{termsAccepted\} onChange=\{setTermsAccepted\}/);
+  assert.match(summary, /data-testid="button-swap-addons"/);
+  assert.match(summary, /!currentQuote\.manualSwapFees/);
   assert.match(surface, /swap-fee-breakdown-unavailable/);
-  assert.match(surface, /!currentQuote\.manualSwapFees/);
   assert.match(surface, /data-testid="swap-receiving-details-popup"/);
   assert.match(surface, /step !== 3\) return/);
   assert.match(feeBreakdown, /Selected add-ons · Add-on fees/);
