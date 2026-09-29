@@ -8775,6 +8775,147 @@ export const RequestPaymentMethodLogoUploadResponse = zod.object({
 })
 
 
+
+export const previewBulkPaymentMethodFieldsBodyMethodIdsMax = 100;
+
+export const previewBulkPaymentMethodFieldsBodyFieldsItemKeyRegExp = new RegExp('^[a-z][a-z0-9_]{0,63}$');
+export const previewBulkPaymentMethodFieldsBodyFieldsItemLabelMax = 100;
+
+export const previewBulkPaymentMethodFieldsBodyFieldsItemPlaceholderMax = 200;
+
+export const previewBulkPaymentMethodFieldsBodyFieldsItemHelpMax = 500;
+
+export const previewBulkPaymentMethodFieldsBodyFieldsItemOptionsItemValueMax = 200;
+
+export const previewBulkPaymentMethodFieldsBodyFieldsItemOptionsItemLabelMax = 200;
+
+export const previewBulkPaymentMethodFieldsBodyFieldsItemOptionsMax = 100;
+
+export const previewBulkPaymentMethodFieldsBodyFieldsItemPatternMax = 500;
+
+export const previewBulkPaymentMethodFieldsBodyFieldsItemRequiredWhenFieldKeyRegExp = new RegExp('^[a-z][a-z0-9_]{0,63}$');
+export const previewBulkPaymentMethodFieldsBodyFieldsItemRequiredWhenEqualsOneMax = 200;
+
+export const previewBulkPaymentMethodFieldsBodyFieldsItemRequiredWhenEqualsTwoItemMax = 200;
+
+export const previewBulkPaymentMethodFieldsBodyFieldsItemRequiredWhenEqualsTwoMax = 50;
+
+export const previewBulkPaymentMethodFieldsBodyFieldsMax = 50;
+
+
+
+export const PreviewBulkPaymentMethodFieldsBody = zod.object({
+  "methodIds": zod.array(zod.string().min(1)).min(1).max(previewBulkPaymentMethodFieldsBodyMethodIdsMax),
+  "fields": zod.array(zod.object({
+  "key": zod.string().regex(previewBulkPaymentMethodFieldsBodyFieldsItemKeyRegExp),
+  "type": zod.enum(['short-text', 'long-text', 'integer', 'numeric', 'decimal', 'account-iban', 'account-number', 'account-name', 'bank-code', 'routing-number', 'country-code', 'postal-address', 'phone', 'email', 'date', 'select', 'wallet-address', 'memo-tag', 'private-image', 'text', 'number', 'textarea']),
+  "direction": zod.enum(['send', 'receive', 'both']).optional(),
+  "emphasizedLabel": zod.boolean().optional(),
+  "label": zod.string().min(1).max(previewBulkPaymentMethodFieldsBodyFieldsItemLabelMax),
+  "placeholder": zod.string().max(previewBulkPaymentMethodFieldsBodyFieldsItemPlaceholderMax).optional(),
+  "enabled": zod.boolean().optional(),
+  "help": zod.string().max(previewBulkPaymentMethodFieldsBodyFieldsItemHelpMax).optional(),
+  "options": zod.array(zod.object({
+  "value": zod.string().max(previewBulkPaymentMethodFieldsBodyFieldsItemOptionsItemValueMax),
+  "label": zod.string().max(previewBulkPaymentMethodFieldsBodyFieldsItemOptionsItemLabelMax)
+})).max(previewBulkPaymentMethodFieldsBodyFieldsItemOptionsMax).optional(),
+  "required": zod.boolean().optional(),
+  "min": zod.number().optional(),
+  "max": zod.number().optional(),
+  "pattern": zod.string().max(previewBulkPaymentMethodFieldsBodyFieldsItemPatternMax).optional(),
+  "requiredWhen": zod.object({
+  "fieldKey": zod.string().regex(previewBulkPaymentMethodFieldsBodyFieldsItemRequiredWhenFieldKeyRegExp),
+  "equals": zod.union([zod.string().max(previewBulkPaymentMethodFieldsBodyFieldsItemRequiredWhenEqualsOneMax),zod.array(zod.string().max(previewBulkPaymentMethodFieldsBodyFieldsItemRequiredWhenEqualsTwoItemMax)).min(1).max(previewBulkPaymentMethodFieldsBodyFieldsItemRequiredWhenEqualsTwoMax)])
+}).optional()
+})).min(1).max(previewBulkPaymentMethodFieldsBodyFieldsMax)
+})
+
+
+
+
+export const PreviewBulkPaymentMethodFieldsResponse = zod.object({
+  "targets": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "updatedAt": zod.coerce.date(),
+  "action": zod.enum(['update', 'skip']),
+  "added": zod.array(zod.string()),
+  "modified": zod.array(zod.string()),
+  "unchanged": zod.array(zod.string())
+})),
+  "updated": zod.number().int(),
+  "skipped": zod.number().int(),
+  "failed": zod.number().int(),
+  "reviewToken": zod.string().min(1)
+})
+
+
+
+export const applyBulkPaymentMethodFieldsBodyOneMethodIdsMax = 100;
+
+export const applyBulkPaymentMethodFieldsBodyOneFieldsItemKeyRegExp = new RegExp('^[a-z][a-z0-9_]{0,63}$');
+export const applyBulkPaymentMethodFieldsBodyOneFieldsItemLabelMax = 100;
+
+export const applyBulkPaymentMethodFieldsBodyOneFieldsItemPlaceholderMax = 200;
+
+export const applyBulkPaymentMethodFieldsBodyOneFieldsItemHelpMax = 500;
+
+export const applyBulkPaymentMethodFieldsBodyOneFieldsItemOptionsItemValueMax = 200;
+
+export const applyBulkPaymentMethodFieldsBodyOneFieldsItemOptionsItemLabelMax = 200;
+
+export const applyBulkPaymentMethodFieldsBodyOneFieldsItemOptionsMax = 100;
+
+export const applyBulkPaymentMethodFieldsBodyOneFieldsItemPatternMax = 500;
+
+export const applyBulkPaymentMethodFieldsBodyOneFieldsItemRequiredWhenFieldKeyRegExp = new RegExp('^[a-z][a-z0-9_]{0,63}$');
+export const applyBulkPaymentMethodFieldsBodyOneFieldsItemRequiredWhenEqualsOneMax = 200;
+
+export const applyBulkPaymentMethodFieldsBodyOneFieldsItemRequiredWhenEqualsTwoItemMax = 200;
+
+export const applyBulkPaymentMethodFieldsBodyOneFieldsItemRequiredWhenEqualsTwoMax = 50;
+
+export const applyBulkPaymentMethodFieldsBodyOneFieldsMax = 50;
+
+
+
+
+export const ApplyBulkPaymentMethodFieldsBody = zod.object({
+  "methodIds": zod.array(zod.string().min(1)).min(1).max(applyBulkPaymentMethodFieldsBodyOneMethodIdsMax),
+  "fields": zod.array(zod.object({
+  "key": zod.string().regex(applyBulkPaymentMethodFieldsBodyOneFieldsItemKeyRegExp),
+  "type": zod.enum(['short-text', 'long-text', 'integer', 'numeric', 'decimal', 'account-iban', 'account-number', 'account-name', 'bank-code', 'routing-number', 'country-code', 'postal-address', 'phone', 'email', 'date', 'select', 'wallet-address', 'memo-tag', 'private-image', 'text', 'number', 'textarea']),
+  "direction": zod.enum(['send', 'receive', 'both']).optional(),
+  "emphasizedLabel": zod.boolean().optional(),
+  "label": zod.string().min(1).max(applyBulkPaymentMethodFieldsBodyOneFieldsItemLabelMax),
+  "placeholder": zod.string().max(applyBulkPaymentMethodFieldsBodyOneFieldsItemPlaceholderMax).optional(),
+  "enabled": zod.boolean().optional(),
+  "help": zod.string().max(applyBulkPaymentMethodFieldsBodyOneFieldsItemHelpMax).optional(),
+  "options": zod.array(zod.object({
+  "value": zod.string().max(applyBulkPaymentMethodFieldsBodyOneFieldsItemOptionsItemValueMax),
+  "label": zod.string().max(applyBulkPaymentMethodFieldsBodyOneFieldsItemOptionsItemLabelMax)
+})).max(applyBulkPaymentMethodFieldsBodyOneFieldsItemOptionsMax).optional(),
+  "required": zod.boolean().optional(),
+  "min": zod.number().optional(),
+  "max": zod.number().optional(),
+  "pattern": zod.string().max(applyBulkPaymentMethodFieldsBodyOneFieldsItemPatternMax).optional(),
+  "requiredWhen": zod.object({
+  "fieldKey": zod.string().regex(applyBulkPaymentMethodFieldsBodyOneFieldsItemRequiredWhenFieldKeyRegExp),
+  "equals": zod.union([zod.string().max(applyBulkPaymentMethodFieldsBodyOneFieldsItemRequiredWhenEqualsOneMax),zod.array(zod.string().max(applyBulkPaymentMethodFieldsBodyOneFieldsItemRequiredWhenEqualsTwoItemMax)).min(1).max(applyBulkPaymentMethodFieldsBodyOneFieldsItemRequiredWhenEqualsTwoMax)])
+}).optional()
+})).min(1).max(applyBulkPaymentMethodFieldsBodyOneFieldsMax)
+}).and(zod.object({
+  "expectedUpdatedAtById": zod.record(zod.string(), zod.coerce.date()),
+  "reviewToken": zod.string().min(1)
+}))
+
+export const ApplyBulkPaymentMethodFieldsResponse = zod.object({
+  "updated": zod.number().int(),
+  "skipped": zod.number().int(),
+  "failed": zod.number().int()
+})
+
+
 /**
  * @summary Delete an unattached payment-method logo upload
  */

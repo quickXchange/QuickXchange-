@@ -4249,6 +4249,61 @@ export type PaymentMethod = PaymentMethodInput & {
   updatedAt: string;
 }, 'family' | 'executionMode' | 'lifecycle' | 'regions' | 'countries' | 'requiresProviderConfiguration'>>;
 
+export interface PaymentMethodBulkFieldsPreviewInput {
+  /**
+     * @minItems 1
+     * @maxItems 100
+     * @items.minLength 1
+     */
+  methodIds: string[];
+  /**
+     * @minItems 1
+     * @maxItems 50
+     */
+  fields: PaymentMethodFieldDefinition[];
+}
+
+export type PaymentMethodBulkFieldsApplyInputExpectedUpdatedAtById = {[key: string]: string};
+
+export type PaymentMethodBulkFieldsApplyInput = PaymentMethodBulkFieldsPreviewInput & {
+  expectedUpdatedAtById: PaymentMethodBulkFieldsApplyInputExpectedUpdatedAtById;
+  /** @minLength 1 */
+  reviewToken: string;
+};
+
+export type PaymentMethodBulkFieldsTargetAction = typeof PaymentMethodBulkFieldsTargetAction[keyof typeof PaymentMethodBulkFieldsTargetAction];
+
+
+export const PaymentMethodBulkFieldsTargetAction = {
+  update: 'update',
+  skip: 'skip',
+} as const;
+
+export interface PaymentMethodBulkFieldsTarget {
+  id: string;
+  name: string;
+  updatedAt: string;
+  action: PaymentMethodBulkFieldsTargetAction;
+  added: string[];
+  modified: string[];
+  unchanged: string[];
+}
+
+export interface PaymentMethodBulkFieldsPreview {
+  targets: PaymentMethodBulkFieldsTarget[];
+  updated: number;
+  skipped: number;
+  failed: number;
+  /** @minLength 1 */
+  reviewToken: string;
+}
+
+export interface PaymentMethodBulkFieldsApplyResult {
+  updated: number;
+  skipped: number;
+  failed: number;
+}
+
 export interface FiatCurrencyPaymentMethodInput {
   /** @pattern ^[0-9a-fA-F-]{36}$ */
   fiatCurrencyId: string;

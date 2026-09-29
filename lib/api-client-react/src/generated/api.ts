@@ -214,6 +214,10 @@ import type {
   PartnerLogoSettings,
   PartnerLogoUpdate,
   PaymentMethod,
+  PaymentMethodBulkFieldsApplyInput,
+  PaymentMethodBulkFieldsApplyResult,
+  PaymentMethodBulkFieldsPreview,
+  PaymentMethodBulkFieldsPreviewInput,
   PaymentMethodInput,
   PaymentMethodLogoUpload,
   PaymentMethodLogoUploadInput,
@@ -6779,6 +6783,136 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getRequestPaymentMethodLogoUploadMutationOptions(options));
+    }
+
+export const getPreviewBulkPaymentMethodFieldsUrl = () => {
+
+
+
+
+  return `/api/admin/payment-methods/bulk-fields/preview`
+}
+
+export const previewBulkPaymentMethodFields = async (paymentMethodBulkFieldsPreviewInput: PaymentMethodBulkFieldsPreviewInput, options?: Parameters<typeof customFetch>[1]): Promise<PaymentMethodBulkFieldsPreview> => {
+
+  return customFetch<PaymentMethodBulkFieldsPreview>(getPreviewBulkPaymentMethodFieldsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(paymentMethodBulkFieldsPreviewInput)
+  }
+);}
+
+
+
+
+
+export const getPreviewBulkPaymentMethodFieldsMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewBulkPaymentMethodFields>>, TError,{data: BodyType<PaymentMethodBulkFieldsPreviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewBulkPaymentMethodFields>>, TError,{data: BodyType<PaymentMethodBulkFieldsPreviewInput>}, TContext> => {
+
+const mutationKey = ['previewBulkPaymentMethodFields'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewBulkPaymentMethodFields>>, {data: BodyType<PaymentMethodBulkFieldsPreviewInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  previewBulkPaymentMethodFields(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PreviewBulkPaymentMethodFieldsMutationResult = NonNullable<Awaited<ReturnType<typeof previewBulkPaymentMethodFields>>>
+    export type PreviewBulkPaymentMethodFieldsMutationBody = BodyType<PaymentMethodBulkFieldsPreviewInput>
+    export type PreviewBulkPaymentMethodFieldsMutationError = ErrorType<ApiError>
+
+    export const usePreviewBulkPaymentMethodFields = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewBulkPaymentMethodFields>>, TError,{data: BodyType<PaymentMethodBulkFieldsPreviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof previewBulkPaymentMethodFields>>,
+        TError,
+        {data: BodyType<PaymentMethodBulkFieldsPreviewInput>},
+        TContext
+      > => {
+      return useMutation(getPreviewBulkPaymentMethodFieldsMutationOptions(options));
+    }
+
+export const getApplyBulkPaymentMethodFieldsUrl = () => {
+
+
+
+
+  return `/api/admin/payment-methods/bulk-fields/apply`
+}
+
+export const applyBulkPaymentMethodFields = async (paymentMethodBulkFieldsApplyInput: PaymentMethodBulkFieldsApplyInput, options?: Parameters<typeof customFetch>[1]): Promise<PaymentMethodBulkFieldsApplyResult> => {
+
+  return customFetch<PaymentMethodBulkFieldsApplyResult>(getApplyBulkPaymentMethodFieldsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(paymentMethodBulkFieldsApplyInput)
+  }
+);}
+
+
+
+
+
+export const getApplyBulkPaymentMethodFieldsMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof applyBulkPaymentMethodFields>>, TError,{data: BodyType<PaymentMethodBulkFieldsApplyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof applyBulkPaymentMethodFields>>, TError,{data: BodyType<PaymentMethodBulkFieldsApplyInput>}, TContext> => {
+
+const mutationKey = ['applyBulkPaymentMethodFields'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof applyBulkPaymentMethodFields>>, {data: BodyType<PaymentMethodBulkFieldsApplyInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  applyBulkPaymentMethodFields(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApplyBulkPaymentMethodFieldsMutationResult = NonNullable<Awaited<ReturnType<typeof applyBulkPaymentMethodFields>>>
+    export type ApplyBulkPaymentMethodFieldsMutationBody = BodyType<PaymentMethodBulkFieldsApplyInput>
+    export type ApplyBulkPaymentMethodFieldsMutationError = ErrorType<ApiError>
+
+    export const useApplyBulkPaymentMethodFields = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof applyBulkPaymentMethodFields>>, TError,{data: BodyType<PaymentMethodBulkFieldsApplyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof applyBulkPaymentMethodFields>>,
+        TError,
+        {data: BodyType<PaymentMethodBulkFieldsApplyInput>},
+        TContext
+      > => {
+      return useMutation(getApplyBulkPaymentMethodFieldsMutationOptions(options));
     }
 
 export const getDeletePaymentMethodLogoUploadUrl = (id: string,) => {

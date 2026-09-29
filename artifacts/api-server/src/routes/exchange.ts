@@ -90,6 +90,10 @@ import {
   UpdatePaymentMethodBody,
   UpdatePaymentMethodResponse,
   DeletePaymentMethodParams,
+  PreviewBulkPaymentMethodFieldsBody,
+  PreviewBulkPaymentMethodFieldsResponse,
+  ApplyBulkPaymentMethodFieldsBody,
+  ApplyBulkPaymentMethodFieldsResponse,
   RequestPaymentMethodLogoUploadBody,
   RequestPaymentMethodLogoUploadResponse,
   DeletePaymentMethodLogoUploadParams,
@@ -283,9 +287,12 @@ import {
 } from "../lib/manual-desk-revenue";
 import {
   assignAutomaticPaymentMethodFieldKeys,
+  mergePaymentMethodFieldDefinitions,
   listPublicFiatSettlementOptions,
+  signPaymentMethodBulkFieldsReview,
   validateSafeFieldDefinitions,
   validateSettlementDetails,
+  verifyPaymentMethodBulkFieldsReview,
 } from "../lib/payment-methods";
 import { paymentMethodBrandfetchLogoUrl } from "../lib/payment-method-brandfetch";
 import {
@@ -7095,6 +7102,83 @@ async function buildBulkPaymentPreview(input: BulkPaymentInput) {
   };
 }
 
+type BulkPaymentMethodFieldsInput = ReturnType<typeof PreviewBulkPaymentMethodFieldsBody.parse>;
+type BulkPaymentMethodFieldsRow = typeof paymentMethodsTable.$inferSelect;
+
+function validateBulkPaymentMethodFieldSelection(input: BulkPaymentMethodFieldsInput): void {
+  if (
+    !input.methodIds.length ||
+    input.methodIds.length > 100 ||
+    new Set(input.methodIds).size !== input.methodIds.length ||
+    !input.fields.length
+  ) {
+    throw new ApiError(
+      "PAYMENT_METHOD_BULK_FIELDS_INVALID",
+      "Select between 1 and 100 unique payment methods and at least one field.",
+      409,
+    );
+  }
+}
+
+function projectBulkPaymentMethodFields(
+  rows: BulkPaymentMethodFieldsRow[],
+  input: BulkPaymentMethodFieldsInput,
+) {
+  const rowsById = new Map(rows.map((row) => [row.id, row]));
+  if (input.methodIds.some((id) => !rowsById.has(id))) {
+    throw new ApiError(
+      "PAYMENT_METHOD_BULK_FIELDS_TARGET_MISSING",
+      "One or more selected payment methods no longer exist.",
+      409,
+    );
+  }
+
+  return input.methodIds.map((id) => {
+    const row = rowsById.get(id)!;
+    const merge = mergePaymentMethodFieldDefinitions(row.fieldDefinitions, input.fields);
+    try {
+      validateSafeFieldDefinitions(merge.fieldDefinitions);
+    } catch (error) {
+      throw new ApiError(
+        "PAYMENT_METHOD_BULK_FIELDS_INVALID",
+        error instanceof Error ? error.message : "Merged payment method fields are invalid.",
+        409,
+      );
+    }
+    return { row, merge };
+  });
+}
+
+async function buildBulkPaymentMethodFieldsPreview(input: BulkPaymentMethodFieldsInput) {
+  validateBulkPaymentMethodFieldSelection(input);
+  const rows = await db.select().from(paymentMethodsTable)
+    .where(inArray(paymentMethodsTable.id, input.methodIds));
+  const projected = projectBulkPaymentMethodFields(rows, input);
+  const targets = projected.map(({ row, merge }) => ({
+    id: row.id,
+    name: row.name,
+    updatedAt: row.updatedAt.toISOString(),
+    action: merge.modified.length || merge.added.length ? "update" as const : "skip" as const,
+    added: merge.added,
+    modified: merge.modified,
+    unchanged: merge.unchanged,
+  }));
+  const expectedUpdatedAtById = Object.fromEntries(
+    projected.map(({ row }) => [row.id, row.updatedAt]),
+  );
+  return {
+    targets,
+    updated: targets.filter((target) => target.action === "update").length,
+    skipped: targets.filter((target) => target.action === "skip").length,
+    failed: 0,
+    reviewToken: signPaymentMethodBulkFieldsReview(
+      input.methodIds,
+      input.fields,
+      expectedUpdatedAtById,
+    ),
+  };
+}
+
 router.get("/admin/payment-methods", async (_req, res, next) => {
   try {
     const rows = await db.select().from(paymentMethodsTable)
@@ -7105,6 +7189,84 @@ router.get("/admin/payment-methods", async (_req, res, next) => {
         asc(paymentMethodsTable.id),
       );
     res.json(GetPaymentMethodsResponse.parse(rows.map(outputPaymentMethod)));
+  } catch (error) { next(error); }
+});
+
+router.post("/admin/payment-methods/bulk-fields/preview", requireOperator, async (req, res, next) => {
+  try {
+    const input = PreviewBulkPaymentMethodFieldsBody.parse(req.body);
+    const preview = await buildBulkPaymentMethodFieldsPreview(input);
+    res.json(PreviewBulkPaymentMethodFieldsResponse.parse(preview));
+  } catch (error) { next(error); }
+});
+
+router.post("/admin/payment-methods/bulk-fields/apply", requireOperator, async (req, res, next) => {
+  try {
+    const input = ApplyBulkPaymentMethodFieldsBody.parse(req.body);
+    validateBulkPaymentMethodFieldSelection(input);
+    const expectedIds = Object.keys(input.expectedUpdatedAtById);
+    if (
+      expectedIds.length !== input.methodIds.length ||
+      expectedIds.some((id) => !input.methodIds.includes(id))
+    ) {
+      throw new ApiError(
+        "PAYMENT_METHOD_BULK_FIELDS_REVIEW_INVALID",
+        "Every selected payment method must have exactly one reviewed version.",
+        409,
+      );
+    }
+    if (!verifyPaymentMethodBulkFieldsReview(
+      input.reviewToken,
+      input.methodIds,
+      input.fields,
+      input.expectedUpdatedAtById,
+    )) {
+      throw new ApiError(
+        "PAYMENT_METHOD_BULK_FIELDS_REVIEW_INVALID",
+        "The reviewed payment-method fields, selection, or review token is invalid or expired. Preview the batch again.",
+        409,
+      );
+    }
+
+    const result = await db.transaction(async (tx) => {
+      // Take every lock in one deterministic order, then verify every review
+      // version before projecting or writing any row.
+      const rows = await tx.select().from(paymentMethodsTable)
+        .where(inArray(paymentMethodsTable.id, input.methodIds))
+        .orderBy(asc(paymentMethodsTable.id))
+        .for("update");
+      if (rows.length !== input.methodIds.length) {
+        throw new ApiError(
+          "PAYMENT_METHOD_BULK_FIELDS_TARGET_MISSING",
+          "One or more selected payment methods no longer exist.",
+          409,
+        );
+      }
+      const stale = rows.some((row) =>
+        row.updatedAt.getTime() !== input.expectedUpdatedAtById[row.id]?.getTime());
+      if (stale) {
+        throw new ApiError(
+          "PAYMENT_METHOD_BULK_FIELDS_STALE",
+          "One or more payment methods changed after review. Preview the batch again.",
+          409,
+        );
+      }
+
+      const projected = projectBulkPaymentMethodFields(rows, input);
+      const changed = projected.filter(({ merge }) =>
+        merge.added.length > 0 || merge.modified.length > 0);
+      for (const { row, merge } of changed) {
+        await tx.update(paymentMethodsTable)
+          .set({ fieldDefinitions: merge.fieldDefinitions, updatedAt: new Date() })
+          .where(eq(paymentMethodsTable.id, row.id));
+      }
+      return {
+        updated: changed.length,
+        skipped: projected.length - changed.length,
+        failed: 0,
+      };
+    });
+    res.json(ApplyBulkPaymentMethodFieldsResponse.parse(result));
   } catch (error) { next(error); }
 });
 

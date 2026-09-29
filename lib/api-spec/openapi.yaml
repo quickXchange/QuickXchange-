@@ -1974,6 +1974,48 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/PaymentMethodLogoUpload" }
+  /admin/payment-methods/bulk-fields/preview:
+    post:
+      operationId: previewBulkPaymentMethodFields
+      tags: [admin]
+      security: [{ OperatorSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PaymentMethodBulkFieldsPreviewInput" }
+      responses:
+        "200":
+          description: Field changes reviewed for each selected payment method
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaymentMethodBulkFieldsPreview" }
+        "409":
+          description: Invalid selection or merged field definitions
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /admin/payment-methods/bulk-fields/apply:
+    post:
+      operationId: applyBulkPaymentMethodFields
+      tags: [admin]
+      security: [{ OperatorSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PaymentMethodBulkFieldsApplyInput" }
+      responses:
+        "200":
+          description: Atomic bulk field edit outcome
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaymentMethodBulkFieldsApplyResult" }
+        "409":
+          description: Selection is invalid or one or more reviewed versions are stale
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
   /admin/payment-methods/logo-upload/{id}:
     delete:
       operationId: deletePaymentMethodLogoUpload
@@ -7169,6 +7211,72 @@ components:
             logoUrl: { type: string, readOnly: true }
             createdAt: { type: string, format: date-time }
             updatedAt: { type: string, format: date-time }
+    PaymentMethodBulkFieldsPreviewInput:
+      type: object
+      additionalProperties: false
+      required: [methodIds, fields]
+      properties:
+        methodIds:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items: { type: string, minLength: 1 }
+        fields:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items: { $ref: "#/components/schemas/PaymentMethodFieldDefinition" }
+    PaymentMethodBulkFieldsApplyInput:
+      allOf:
+        - $ref: "#/components/schemas/PaymentMethodBulkFieldsPreviewInput"
+        - type: object
+          required: [expectedUpdatedAtById, reviewToken]
+          properties:
+            expectedUpdatedAtById:
+              type: object
+              additionalProperties:
+                type: string
+                format: date-time
+            reviewToken: { type: string, minLength: 1 }
+    PaymentMethodBulkFieldsTarget:
+      type: object
+      additionalProperties: false
+      required: [id, name, updatedAt, action, added, modified, unchanged]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        updatedAt: { type: string, format: date-time }
+        action: { type: string, enum: [update, skip] }
+        added:
+          type: array
+          items: { type: string }
+        modified:
+          type: array
+          items: { type: string }
+        unchanged:
+          type: array
+          items: { type: string }
+    PaymentMethodBulkFieldsPreview:
+      type: object
+      additionalProperties: false
+      required: [targets, updated, skipped, failed, reviewToken]
+      properties:
+        targets:
+          type: array
+          items: { $ref: "#/components/schemas/PaymentMethodBulkFieldsTarget" }
+        updated: { type: integer }
+        skipped: { type: integer }
+        failed: { type: integer }
+        reviewToken: { type: string, minLength: 1 }
+    PaymentMethodBulkFieldsApplyResult:
+      type: object
+      additionalProperties: false
+      required: [updated, skipped, failed]
+      properties:
+        updated: { type: integer }
+        skipped: { type: integer }
+        failed: { type: integer }
     FiatCurrencyPaymentMethodInput:
       type: object
       required: [fiatCurrencyId, paymentMethodId, enabled]

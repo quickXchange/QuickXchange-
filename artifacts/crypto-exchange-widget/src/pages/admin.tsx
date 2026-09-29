@@ -116,6 +116,7 @@ import { AdminShell, ago, apiErrorData, apiErrorText, cn, ErrorState, exactDateT
 import { AdminSearch } from '../components/admin-search';
 import { AdminWhitebitAssetSyncDialog } from '../components/admin-whitebit-asset-sync-dialog';
 import { AdminCryptoAssetsBulkEditDialog } from '../components/admin-crypto-assets-bulk-edit-dialog';
+import { AdminPaymentMethodBulkFieldsDialog } from '../components/admin-payment-method-bulk-fields-dialog';
 import { BulkDepositProviderDialog } from '../components/bulk-deposit-provider-dialog';
 import { OrderSupportToolsSection } from '../components/admin-order-support-tools';
 import { convertOrderStatusLabel, convertOrderStatusStep, normalizeConvertOrderStatus } from '../lib/convert-order-status';
@@ -6800,6 +6801,7 @@ function AdminCurrencies() {
   const [drawerNetwork, setDrawerNetwork] = useState<CryptoNetwork | 'new' | null>(initialCreate === 'network' ? 'new' : null);
   const [syncWhitebitOpen, setSyncWhitebitOpen] = useState(false);
   const [bulkEditAssetsOpen, setBulkEditAssetsOpen] = useState(false);
+  const [bulkMethodFieldsOpen, setBulkMethodFieldsOpen] = useState(false);
   const [bulkNetworkWalletOpen, setBulkNetworkWalletOpen] = useState(false);
   const [bulkDepositProviderOpen, setBulkDepositProviderOpen] = useState(false);
 
@@ -6903,7 +6905,7 @@ function AdminCurrencies() {
     setFilterRegion('all');
     setFilterStatus('all');
     setFilterLifecycle('all');
-    setCatalogSelected(current => ({ ...current, [newTab]: new Set() }));
+    if (newTab !== 'methods') setCatalogSelected(current => ({ ...current, [newTab]: new Set() }));
     setCatalogActionNotice(null);
   };
 
@@ -7031,6 +7033,7 @@ function AdminCurrencies() {
     && selectedCatalogIdsOnPage.length === paginatedData.length;
 
   useEffect(() => {
+    if (tab === 'methods') return;
     setCatalogSelected(current => current[tab].size === 0
       ? current
       : { ...current, [tab]: new Set() });
@@ -7050,6 +7053,15 @@ function AdminCurrencies() {
       const next = new Set(current[tab]);
       paginatedData.forEach((item: any) => checked ? next.add(item.id) : next.delete(item.id));
       return { ...current, [tab]: next };
+    });
+    setCatalogActionNotice(null);
+  };
+
+  const toggleAllFilteredMethods = (checked: boolean) => {
+    setCatalogSelected(current => {
+      const next = new Set(current.methods);
+      filteredMethods.forEach(method => checked ? next.add(method.id) : next.delete(method.id));
+      return { ...current, methods: next };
     });
     setCatalogActionNotice(null);
   };
@@ -7633,16 +7645,27 @@ function AdminCurrencies() {
             </button>
           </div>
 
-          {canManageCurrent && (selectedCatalogIdsOnPage.length > 0 || catalogActionNotice) && (
+          {canManageCurrent && tab === 'methods' && <div className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm text-muted-foreground" data-testid="method-selection-controls">
+            <span data-testid="text-method-selection-count">{catalogSelected.methods.size} selected across pages</span>
+            <button type="button" className="text-primary hover:underline disabled:opacity-50" disabled={!filteredMethods.length} onClick={() => toggleAllFilteredMethods(true)} data-testid="button-select-all-filtered-methods">Select all {filteredMethods.length} filtered</button>
+            <button type="button" className="text-primary hover:underline disabled:opacity-50" disabled={!filteredMethods.length || !filteredMethods.some(method => catalogSelected.methods.has(method.id))} onClick={() => toggleAllFilteredMethods(false)} data-testid="button-deselect-all-filtered-methods">Deselect filtered</button>
+            <button type="button" className="text-primary hover:underline disabled:opacity-50" disabled={!catalogSelected.methods.size} onClick={() => { setCatalogSelected(current => ({ ...current, methods: new Set() })); setCatalogActionNotice(null); }} data-testid="button-deselect-all-methods">Deselect all</button>
+            {catalogSelected.methods.size > 100 && <span role="status" className="text-destructive" data-testid="status-method-bulk-limit">Bulk fields supports up to 100 methods. Deselect some to continue.</span>}
+          </div>}
+          {canManageCurrent && (selectedCatalogIdsOnPage.length > 0 || (tab === 'methods' && catalogSelected.methods.size > 0) || catalogActionNotice) && (
             <>
-              {selectedCatalogIdsOnPage.length > 0 && <div className="bulk-actions-toolbar visible admin-list-bulk-toolbar" data-testid={`catalog-bulk-actions-${tab}`}>
+              {(selectedCatalogIdsOnPage.length > 0 || (tab === 'methods' && catalogSelected.methods.size > 0)) && <div className="bulk-actions-toolbar visible admin-list-bulk-toolbar" data-testid={`catalog-bulk-actions-${tab}`}>
                 <div className="bulk-actions-inner">
-                  <span className="bulk-actions-count"><Check size={14} /> {selectedCatalogIdsOnPage.length} {t('adminCatalog.selected')}</span>
+                  <span className="bulk-actions-count"><Check size={14} /> {tab === 'methods' ? catalogSelected.methods.size : selectedCatalogIdsOnPage.length} {t('adminCatalog.selected')}</span>
                   <div className="bulk-actions-divider" />
-                  <button type="button" disabled={catalogActionPending} onClick={() => runCatalogAction('enable')}><Power size={14} /> {t('adminCatalog.active')}</button>
+                  <button type="button" disabled={catalogActionPending || !selectedCatalogIdsOnPage.length} onClick={() => runCatalogAction('enable')}><Power size={14} /> {t('adminCatalog.active')}</button>
                   <div className="bulk-actions-divider" />
-                  <button type="button" disabled={catalogActionPending} onClick={() => runCatalogAction('disable')}><Power size={14} /> {t('adminCatalog.disabled')}</button>
+                  <button type="button" disabled={catalogActionPending || !selectedCatalogIdsOnPage.length} onClick={() => runCatalogAction('disable')}><Power size={14} /> {t('adminCatalog.disabled')}</button>
                   <div className="bulk-actions-divider" />
+                  {tab === 'methods' && <>
+                    <button type="button" disabled={catalogActionPending || catalogSelected.methods.size > 100} onClick={() => setBulkMethodFieldsOpen(true)} data-testid="button-bulk-edit-method-fields"><Pencil size={14} /> Bulk Edit Fields</button>
+                    <div className="bulk-actions-divider" />
+                  </>}
                   {isOwner && tab === 'assets' && (
                     <>
                       <button type="button" disabled={catalogActionPending} onClick={() => setBulkEditAssetsOpen(true)}><Pencil size={14} /> {t('adminCatalog.edit') || 'Edit'}</button>
@@ -7657,7 +7680,7 @@ function AdminCurrencies() {
                       <div className="bulk-actions-divider" />
                     </>
                   )}
-                  <button type="button" className="bulk-actions-delete" disabled={catalogActionPending} onClick={() => runCatalogAction('delete')}><Trash2 size={14} /> {t('adminCatalog.delete')}</button>
+                  <button type="button" className="bulk-actions-delete" disabled={catalogActionPending || !selectedCatalogIdsOnPage.length} onClick={() => runCatalogAction('delete')}><Trash2 size={14} /> {t('adminCatalog.delete')}</button>
                 </div>
               </div>}
               {catalogActionNotice && <div className={`bulk-actions-notice text-sm ${
@@ -7789,6 +7812,16 @@ function AdminCurrencies() {
           }}
         />
       )}
+      {bulkMethodFieldsOpen && <AdminPaymentMethodBulkFieldsDialog
+        methodIds={Array.from(catalogSelected.methods)}
+        methods={methodsQuery.data || []}
+        onClose={() => setBulkMethodFieldsOpen(false)}
+        onApplied={result => {
+          setCatalogSelected(current => ({ ...current, methods: new Set() }));
+          setBulkMethodFieldsOpen(false);
+          setCatalogActionNotice({ kind: result.failed ? 'warning' : 'success', text: `Payment fields: ${result.updated} updated, ${result.skipped} skipped, ${result.failed} failed.` });
+        }}
+      />}
       {bulkNetworkWalletOpen && networksQuery.data && (
         <BulkNetworkWalletDialog
           networks={networksQuery.data.filter((candidate: CryptoNetwork) => selectedCatalogIdsOnPage.includes(candidate.id))}
