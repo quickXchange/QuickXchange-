@@ -8305,8 +8305,8 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
     fixedFee: form.fixedFee.trim() || null,
     priority: rule?.priority ?? 0,
     enabled: form.enabled,
-    minAmount: minimumQuantity.trim() || null,
-    maxAmount: maximumQuantity.trim() || null,
+    minAmount: isSingleRoute && editorMode === 'range' && (!rule || activateRangeOnly) ? null : minimumQuantity.trim() || null,
+    maxAmount: isSingleRoute && editorMode === 'range' && (!rule || activateRangeOnly) ? null : maximumQuantity.trim() || null,
     operatorInstructions: null,
     customerInstructions: null,
     expectedSettlementMinutes: null,
@@ -8339,14 +8339,14 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
       return;
     }
     setQuantityError('');
-    const min = minimumQuantity.trim();
-    const max = maximumQuantity.trim();
+    const min = editingPath ? minimumQuantity.trim() : rule?.minAmount ?? '';
+    const max = editingPath ? maximumQuantity.trim() : rule?.maxAmount ?? '';
     const validQuantity = (value: string) => /^(?=.{1,39}$)(?:0|[1-9]\d{0,19})(?:\.\d{1,18})?$/.test(value) && isGreaterThanExact(value, '0');
-    if ((min && !validQuantity(min)) || (max && !validQuantity(max))) {
+    if (editingPath && ((min && !validQuantity(min)) || (max && !validQuantity(max)))) {
       setQuantityError('Enter a positive decimal with at most 20 whole digits and 18 fractional digits.');
       return;
     }
-    if (min && max && isGreaterThanExact(min, max)) {
+    if (editingPath && min && max && isGreaterThanExact(min, max)) {
       setQuantityError('Minimum Quantity must not exceed Maximum Quantity.');
       return;
     }
@@ -8529,7 +8529,7 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
             </label>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            {editorMode === 'range' ? activateRangeOnly || !rule ? 'Ranges set the active percentage and fee. Path markup and fee are saved but inactive; the exact rate and path quantity limits still apply.' : 'Legacy mixed pricing: ranges apply where present; outside them, path markup and fee still apply. Choose range-only below to turn those path charges off.' : 'Path markup and fee are active. Saved ranges are inactive until you select Adding Range and save.'}
+             {editorMode === 'range' ? activateRangeOnly || !rule ? 'Ranges set the active percentage and fee. The exact rate still applies; saved path markup, fee and quantity limits are inactive.' : 'Legacy mixed pricing: ranges apply where present; outside them, saved path markup, fee and quantity limits still apply. Choose range-only below to turn path charges and limits off.' : 'Path markup, fee and quantity limits are active. Saved ranges are inactive until you select Adding Range and save.'}
           </p>
           {rule?.amountBasedPricingEnabled && !rule.rangeOnlyPricing && editorMode === 'range' && <label className="mt-3 flex items-start gap-2 text-sm">
             <input type="checkbox" checked={activateRangeOnly} onChange={event => setActivateRangeOnly(event.target.checked)} data-testid="input-activate-range-only" />
@@ -8565,7 +8565,7 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
         </section>}
         {(!isSingleRoute || editorMode === 'range') &&
           <AmountBasedPricingEditor prefix="single" tiers={amountTiers} onTiersChange={updateAmountTiers} disabled={rule?.readOnly} inheritedFixedFee="0" />}
-        <section className="pricing-path-quantities" aria-label="Path quantity limits" data-testid="pricing-path-quantities">
+         {(!isSingleRoute || editorMode === 'path') && <section className="pricing-path-quantities" aria-label="Path quantity limits" data-testid="pricing-path-quantities">
           <div className="pricing-path-quantities-heading">
             <h3>Path quantity limits</h3>
             <p>Optional limits for the entire path. Individual amount ranges are set separately.</p>
@@ -8575,7 +8575,7 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
             <label className="pricing-rule-field"><span className="field-label">Maximum Quantity</span><input type="text" inputMode="decimal" value={maximumQuantity} onChange={event => { setMaximumQuantity(event.target.value); setQuantityError(''); }} placeholder="No maximum" disabled={rule?.readOnly} aria-invalid={!!quantityError} aria-describedby={quantityError ? 'pricing-quantity-error' : undefined} data-testid="input-pricing-maximum-quantity" /></label>
           </div>
           {quantityError && <p id="pricing-quantity-error" className="pricing-quantity-error" role="alert" data-testid="pricing-quantity-error">{quantityError}</p>}
-        </section>
+         </section>}
 
         <label className="admin-form-field admin-form-field-full pricing-rule-field pricing-rule-field-full"><span className="field-label">{t('adminPricing.operator_instructions')}</span><textarea value={form.operatorInstructions} onChange={event => set('operatorInstructions', event.target.value)} disabled={rule?.readOnly} data-testid="input-pricing-op-inst" /></label>
         <label className="admin-form-field admin-form-field-full pricing-rule-field pricing-rule-field-full"><span className="field-label">{t('adminPricing.customer_instructions')}</span><textarea value={form.customerInstructions} onChange={event => set('customerInstructions', event.target.value)} disabled={rule?.readOnly} data-testid="input-pricing-cust-inst" /></label>

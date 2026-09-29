@@ -869,7 +869,7 @@ function assertIdempotentOrderMatches(
 type ParsedQuoteInput = ReturnType<typeof CreateExchangeQuoteBody.parse>;
 
 function effectiveManualSourceLimits(
-  rule: { minAmount: string | null; maxAmount: string | null },
+  rule: { minAmount: string | null; maxAmount: string | null; rangeOnlyPricing: boolean },
   sourceOption?: PublicSettlementOption,
 ) {
   const sourceAttachmentMin = sourceOption?.kind === "fiat-payment-method" &&
@@ -877,11 +877,11 @@ function effectiveManualSourceLimits(
   const sourceAttachmentMax = sourceOption?.kind === "fiat-payment-method" &&
     sourceOption.maxAmount != null ? Number(sourceOption.maxAmount) : undefined;
   const sourceMinimums = [
-    rule.minAmount == null ? undefined : Number(rule.minAmount),
+    rule.rangeOnlyPricing || rule.minAmount == null ? undefined : Number(rule.minAmount),
     sourceAttachmentMin,
   ].filter((value): value is number => value !== undefined);
   const sourceMaximums = [
-    rule.maxAmount == null ? undefined : Number(rule.maxAmount),
+    rule.rangeOnlyPricing || rule.maxAmount == null ? undefined : Number(rule.maxAmount),
     sourceAttachmentMax,
   ].filter((value): value is number => value !== undefined);
   return {
@@ -1494,11 +1494,11 @@ async function revalidateManualDeskQuoteRoute(quote: QuoteTicket): Promise<void>
     const sourceOptionMax = source!.kind === "fiat-payment-method" &&
       source!.maxAmount != null ? Number(source!.maxAmount) : undefined;
     const currentMinimums = [
-      rule.minAmount == null ? undefined : Number(rule.minAmount),
+      rule.rangeOnlyPricing || rule.minAmount == null ? undefined : Number(rule.minAmount),
       sourceOptionMin,
     ].filter((value): value is number => value !== undefined);
     const currentMaximums = [
-      rule.maxAmount == null ? undefined : Number(rule.maxAmount),
+      rule.rangeOnlyPricing || rule.maxAmount == null ? undefined : Number(rule.maxAmount),
       sourceOptionMax,
     ].filter((value): value is number => value !== undefined);
     const currentMin = currentMinimums.length ? String(Math.max(...currentMinimums)) : null;
@@ -2204,8 +2204,8 @@ router.post("/admin/manual-desk-pricing-rules/quote-preview", requireOperator, a
         return Math.min(currency[0]?.precision ?? 2, MAX_MANUAL_DESK_TARGET_PRECISION);
       })();
     const amount = Number(input.amount);
-    if (rule.minAmount != null && amount < Number(rule.minAmount) ||
-        rule.maxAmount != null && amount > Number(rule.maxAmount)) {
+    if (!rule.rangeOnlyPricing && (rule.minAmount != null && amount < Number(rule.minAmount) ||
+        rule.maxAmount != null && amount > Number(rule.maxAmount))) {
       throw new ApiError("AMOUNT_OUT_OF_RANGE", "The amount is outside this pricing rule's limits.", 422);
     }
     const { selectedTier, adjustmentDirection: effectiveDirection, markupBasisPoints, percentage, fixedFee } =
