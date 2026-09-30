@@ -3,7 +3,6 @@ import { and, eq } from "drizzle-orm";
 import {
   TestAdminNotificationEmailTemplateBody,
   UpdateAdminNotificationEmailTemplatesBody,
-  UpdateAdminNotificationSettingsBody,
 } from "@workspace/api-zod";
 import { adminTelegramLinkChallengesTable, db, notificationSettingsTable } from "@workspace/db";
 import { requireOwner } from "../lib/operator-auth";
@@ -16,6 +15,7 @@ import {
   NOTIFICATION_TEMPLATE_VARIABLES,
 } from "../lib/customer-status-notifications";
 import { ResendRequestError, resendResponseError, sendResendRequest } from "../lib/resend";
+import { getNotificationSettings as getSettings, saveNotificationSettings } from "../lib/notification-settings-store";
 
 const router = Router();
 const expectedTelegramWebhookUrl = "https://quickchange.exchange/api/telegram/webhook";
@@ -39,16 +39,6 @@ export function telegramHealthReport(
     lastWebhookError,
     botIdentityError,
   };
-}
-
-async function getSettings() {
-  let [settings] = await db.select().from(notificationSettingsTable).where(eq(notificationSettingsTable.id, "global")).limit(1);
-  if (!settings) {
-    await db.insert(notificationSettingsTable).values({ id: "global" }).onConflictDoNothing();
-    [settings] = await db.select().from(notificationSettingsTable).where(eq(notificationSettingsTable.id, "global")).limit(1);
-  }
-  if (!settings) throw new ApiError("NOTIFICATION_SETTINGS_NOT_FOUND", "Notification settings are unavailable.", 503);
-  return settings;
 }
 
 async function emailProviderRejectionMessage(response: Response) {
@@ -103,31 +93,7 @@ router.get("/notification-settings/public", async (_req, res) => {
 });
 
 router.put("/admin/notification-settings", requireOwner, async (req, res) => {
-  const parsed = UpdateAdminNotificationSettingsBody.safeParse(req.body);
-  if (!parsed.success) {
-    throw new ApiError("INVALID_NOTIFICATION_SETTINGS", parsed.error.issues[0]?.message ?? "Invalid notification settings.", 400);
-  }
-  if (parsed.data.adminNotificationEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(parsed.data.adminNotificationEmail)) {
-    throw new ApiError("INVALID_NOTIFICATION_SETTINGS", "Enter a valid email address.", 400);
-  }
-  if (parsed.data.adminNotificationPhone && !/^\+?[0-9 ()-]{7,32}$/.test(parsed.data.adminNotificationPhone)) {
-    throw new ApiError("INVALID_NOTIFICATION_SETTINGS", "Enter a valid contact phone number.", 400);
-  }
-  if (parsed.data.trustpilotReviewUrl && !/^https:\/\/(?:www\.)?trustpilot\.com\//i.test(parsed.data.trustpilotReviewUrl)) {
-    throw new ApiError("INVALID_NOTIFICATION_SETTINGS", "Trustpilot URL must be on trustpilot.com.", 400);
-  }
-  const current = await getSettings();
-  if (parsed.data.telegramEnabled && !current.adminTelegramChatId) {
-    throw new ApiError("ADMIN_TELEGRAM_NOT_CONNECTED", "Connect a Telegram chat before enabling Admin Telegram notifications.", 400);
-  }
-  // Only the verified Telegram /start challenge may assign a chat ID. A stale
-  // settings form must never replace or restore a disconnected chat.
-  const { adminTelegramChatId: _ignoredChatId, ...safeSettings } = parsed.data;
-  const [settings] = await db.update(notificationSettingsTable)
-    .set({ ...safeSettings, updatedBy: res.locals.operator.id, updatedAt: new Date() })
-    .where(eq(notificationSettingsTable.id, "global"))
-    .returning();
-  if (!settings) throw new ApiError("NOTIFICATION_SETTINGS_NOT_FOUND", "Notification settings are not initialized.", 404);
+  const settings = await saveNotificationSettings(req.body, res.locals.operator.id);
   res.json(settings);
 });
 

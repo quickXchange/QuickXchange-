@@ -1895,9 +1895,10 @@ function AdminNotificationSettings() {
       onSuccess: (saved) => {
         setDraft({ ...saved });
         queryClient.setQueryData(getGetAdminNotificationSettingsQueryKey(), saved);
+        void query.refetch();
         notifyAdminAction('success', 'Settings saved successfully.');
       },
-      onError: () => notifyAdminAction('error', 'Unable to save settings. Check the values and try again.'),
+      onError: (error) => notifyAdminAction('error', apiErrorText(error, 'Unable to save notification settings.')),
     });
   };
 

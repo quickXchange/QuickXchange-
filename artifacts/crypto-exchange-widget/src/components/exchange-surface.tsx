@@ -12,8 +12,8 @@ import {
   getGetExchangeRoutePricingQueryKey,
   getGetQuickexConfigQueryKey,
   getGetPublishedNavigationQueryKey,
-  useCreateExchangeQuote,
-  useCreateExchangeQuoteByReceive,
+  createExchangeQuote,
+  createExchangeQuoteByReceive,
   useCreateOrder,
   useGetExchangeConfig,
   useGetExchangeRoutePricing,
@@ -25,6 +25,7 @@ import type { ManualSwapFeeQuoteSnapshot } from '@workspace/api-client-react';
 import { getListPublicManualSwapAddonsQueryKey, useListPublicManualSwapAddons } from '@workspace/api-client-react';
 import { SwapAddonOptions } from '@/components/swap-addon-options';
 import { SwapFeeBreakdown } from '@/components/swap-fee-breakdown';
+import { SwapQuoteRequest } from '@/lib/swap-quote-request';
 import { Link, useLocation } from 'wouter';
 import {
   ArrowDownUp, ArrowLeftRight, ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight,
@@ -785,8 +786,7 @@ export function ManualSwapWidget({
     return catalog;
   }, [quickexConfig.data?.instruments]);
   const orderMutation = useCreateOrder();
-  const quoteMutation = useCreateExchangeQuote();
-  const receiveQuoteMutation = useCreateExchangeQuoteByReceive();
+  const quoteRequest = useRef(new SwapQuoteRequest<Quote>());
   const addons = useListPublicManualSwapAddons({ query: { queryKey: getListPublicManualSwapAddonsQueryKey(), staleTime: 30_000, refetchInterval: 30_000 } });
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedAddOnKeys, setSelectedAddOnKeys] = useState<string[]>([]);
@@ -799,6 +799,7 @@ export function ManualSwapWidget({
   const toggleAddon = (key: string) => {
     const item = availableAddons.find(option => option.key === key);
     if (!item || item.selectionRule === 'none') return;
+    quoteRequest.current.cancel();
     const groupOf = (option: typeof item) => option.presentation.group.trim().toLowerCase() || 'default';
     const group = groupOf(item);
     setSelectedAddOnKeys(previous => {
@@ -830,6 +831,7 @@ export function ManualSwapWidget({
   const [amount, setAmount] = useState('');
   const [desiredReceiveAmount, setDesiredReceiveAmount] = useState('');
   const [activeAmountSide, setActiveAmountSide] = useState<'send' | 'receive'>('send');
+  const [focusedAmountSide, setFocusedAmountSide] = useState<'send' | 'receive' | null>(null);
   const [fromSelectorOpen, setFromSelectorOpen] = useState(false);
   const [toSelectorOpen, setToSelectorOpen] = useState(false);
   const selectorOpen = fromSelectorOpen || toSelectorOpen;
@@ -894,12 +896,17 @@ export function ManualSwapWidget({
     expectedSettlementMinutes?: number;
     manualSwapFees?: ManualSwapFeeQuoteSnapshot;
   } | null>(null);
-  const [quoteStatus, setQuoteStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [quoteStatus, setQuoteStatus] = useState<'idle' | 'debouncing' | 'loading' | 'error'>('idle');
+  const [cachedQuoteDisplay, setCachedQuoteDisplay] = useState<{ requestKey: string; quote: Quote } | null>(null);
+  const [showRateRefresh, setShowRateRefresh] = useState(false);
   const [quoteError, setQuoteError] = useState('');
   const [quoteRefreshCounter, setQuoteRefreshCounter] = useState(0);
   const [swapFlipped, setSwapFlipped] = useState(false);
 
   const handleQuoteExpire = useCallback(() => {
+    quoteRequest.current.cancel();
+    quoteRequest.current.clearCache();
+    setCachedQuoteDisplay(null);
     setStep(1);
     setDetailsOpen(false);
     setTermsAccepted(false);
@@ -1053,6 +1060,7 @@ export function ManualSwapWidget({
     toOption?.fields || [],
   ]);
   const quoteAmountInput = activeAmountSide === 'receive' ? desiredReceiveAmount : amount;
+  const selectedAddonConfigurationKey = JSON.stringify(availableAddons.filter(item => selectedKeys.includes(item.key)));
   const quoteRequestKey = fromOption && toOption
     ? JSON.stringify([
         'manual',
@@ -1063,12 +1071,14 @@ export function ManualSwapWidget({
         toOption.assetCode,
         toOption.routeNetwork,
         activeAmountSide,
-        quoteAmountInput,
+        Number(quoteAmountInput),
         settlementFieldConfigurationKey,
         selectedKeysSignature,
+        selectedAddonConfigurationKey,
       ])
     : '';
-  const currentQuote = quoteStatus !== 'loading' && quotePreview?.requestKey === quoteRequestKey ? quotePreview : null;
+  const currentQuote = quoteStatus === 'idle' && quotePreview?.requestKey === quoteRequestKey ? quotePreview : null;
+  const displayQuote = currentQuote || (cachedQuoteDisplay?.requestKey === quoteRequestKey ? cachedQuoteDisplay.quote : null);
   const quoteReady = Boolean(
     currentQuote &&
     !addons.isLoading &&
@@ -1076,11 +1086,11 @@ export function ManualSwapWidget({
     quoteStatus === 'idle' &&
     (!currentQuote.expiresAt || new Date(currentQuote.expiresAt).getTime() > Date.now())
   );
-  const sendAmountDisplay = currentQuote
-    ? String(currentQuote.amount)
+  const sendAmountDisplay = focusedAmountSide === 'send' || activeAmountSide === 'send' && !currentQuote ? amount : displayQuote
+    ? String(displayQuote.amount)
     : activeAmountSide === 'send' ? amount : '';
-  const receiveAmountDisplay = currentQuote
-    ? String(currentQuote.receiveAmount)
+  const receiveAmountDisplay = focusedAmountSide === 'receive' || activeAmountSide === 'receive' && !currentQuote ? desiredReceiveAmount : displayQuote
+    ? String(displayQuote.receiveAmount)
     : activeAmountSide === 'receive' ? desiredReceiveAmount : '';
 
   useEffect(() => {
@@ -1095,6 +1105,9 @@ export function ManualSwapWidget({
   }, [step, currentQuote?.expiresAt, handleQuoteExpire]);
 
   const invalidateQuote = () => {
+    // Fence callbacks synchronously, before React renders the newer input.
+    quoteRequest.current.cancel();
+    setCachedQuoteDisplay(null);
     setStep(1);
     setDetailsOpen(false);
     setTermsAccepted(false);
@@ -1115,87 +1128,62 @@ export function ManualSwapWidget({
       && parsedAmount > 0;
 
     if (!canQuote || !fromOption || !toOption) {
+      quoteRequest.current.cancel();
+      setCachedQuoteDisplay(null);
       setQuotePreview(null);
       setQuoteStatus('idle');
       setQuoteError('');
       return;
     }
 
-    let active = true;
     setQuotePreview(null);
-    setQuoteStatus('loading');
     setQuoteError('');
-    const timeout = window.setTimeout(() => {
-      const requestKey = quoteRequestKey;
-      const onSuccess = (quote: Quote) => {
-        if (!active) return;
-        setQuotePreview({
-          requestKey,
-          quoteId: quote.quoteId,
-          amount: quote.amount,
-          receiveAmount: quote.receiveAmount,
-          rate: quote.rate,
-          fee: quote.fee,
-          minAmount: quote.minAmount,
-          maxAmount: quote.maxAmount,
-          expiresAt: quote.expiresAt,
-          grossMarketAmount: quote.grossMarketAmount,
-          percentageCommission: quote.percentageCommission,
-          fixedCommission: quote.fixedCommission,
-          totalFee: quote.totalFee,
-          pricingRuleName: quote.pricingRuleName,
-          requiredSettlementFields: quote.requiredSettlementFields,
-          customerInstructions: quote.customerInstructions,
-          expectedSettlementMinutes: quote.expectedSettlementMinutes,
-          manualSwapFees: quote.manualSwapFees,
-        });
+    const requestKey = quoteRequestKey;
+    quoteRequest.current.schedule({
+      key: requestKey,
+      immediate: selectionChanged,
+      onPhase: setQuoteStatus,
+      onCached: quote => setCachedQuoteDisplay(quote ? { requestKey, quote } : null),
+      onSuccess: quote => {
+        setQuotePreview({ ...quote, requestKey });
         setQuoteStatus('idle');
         setQuoteError('');
         trackEvent('quote_displayed', { mode: 'swap' });
-      };
-      const onError = (error: unknown) => {
-        if (!active) return;
+      },
+      onError: error => {
         setQuotePreview(null);
         setQuoteStatus('error');
         setQuoteError(publicApiErrorText(error, t('swap.quoteUnavailable'), t));
         trackEvent('quote_failed', { mode: 'swap' });
-      };
-      if (activeAmountSide === 'receive') {
-        receiveQuoteMutation.mutate({
-          data: {
-            fromAsset: fromOption.assetCode,
-            fromNetwork: fromOption.routeNetwork,
-            toAsset: toOption.assetCode,
-            toNetwork: toOption.routeNetwork,
-            sourceSettlementOptionId: fromOption.id,
-            targetSettlementOptionId: toOption.id,
-            selectedAddOnKeys: selectedKeys,
-            desiredReceiveAmount: parsedAmount,
-          },
-        }, { onSuccess, onError });
-      } else {
-        quoteMutation.mutate({
-          data: {
-            type: 'manual',
-            fromAsset: fromOption.assetCode,
-            fromNetwork: fromOption.routeNetwork,
-            toAsset: toOption.assetCode,
-            toNetwork: toOption.routeNetwork,
-            amount: parsedAmount,
-            sourceSettlementOptionId: fromOption.id,
-            targetSettlementOptionId: toOption.id,
-            selectedAddOnKeys: selectedKeys,
-          },
-        }, { onSuccess, onError });
-      }
-    }, selectionChanged ? 0 : 450);
+      },
+      run: signal => activeAmountSide === 'receive'
+        ? createExchangeQuoteByReceive({
+          fromAsset: fromOption.assetCode,
+          fromNetwork: fromOption.routeNetwork,
+          toAsset: toOption.assetCode,
+          toNetwork: toOption.routeNetwork,
+          sourceSettlementOptionId: fromOption.id,
+          targetSettlementOptionId: toOption.id,
+          selectedAddOnKeys: selectedKeys,
+          desiredReceiveAmount: parsedAmount,
+        }, { signal })
+        : createExchangeQuote({
+          type: 'manual',
+          fromAsset: fromOption.assetCode,
+          fromNetwork: fromOption.routeNetwork,
+          toAsset: toOption.assetCode,
+          toNetwork: toOption.routeNetwork,
+          amount: parsedAmount,
+          sourceSettlementOptionId: fromOption.id,
+          targetSettlementOptionId: toOption.id,
+          selectedAddOnKeys: selectedKeys,
+        }, { signal }),
+    });
 
     return () => {
-      active = false;
-      window.clearTimeout(timeout);
+      quoteRequest.current.cancel();
     };
   }, [
-    quoteAmountInput,
     activeAmountSide,
     fromOption?.id,
     toOption?.id,
@@ -1204,6 +1192,14 @@ export function ManualSwapWidget({
     addons.isLoading,
     addons.isError,
   ]);
+
+  // Do not flash "Checking rate" during the debounce or very fast requests.
+  useEffect(() => {
+    setShowRateRefresh(false);
+    if (quoteStatus !== 'loading') return;
+    const timer = window.setTimeout(() => setShowRateRefresh(true), 150);
+    return () => window.clearTimeout(timer);
+  }, [quoteStatus, quoteRequestKey]);
 
   const swap = () => {
     if (!fromOption || !toOption || !canReverseRoute) return;
@@ -1268,17 +1264,22 @@ export function ManualSwapWidget({
   };
 
   const activateSendAmount = () => {
-    if (activeAmountSide === 'send') return;
-    if (currentQuote) setAmount(String(currentQuote.amount));
-    setActiveAmountSide('send');
-    invalidateQuote();
+    setFocusedAmountSide('send');
+    if (currentQuote && activeAmountSide !== 'send') setAmount(String(currentQuote.amount));
   };
 
   const activateReceiveAmount = () => {
-    if (activeAmountSide === 'receive') return;
-    if (currentQuote) setDesiredReceiveAmount(String(currentQuote.receiveAmount));
-    setActiveAmountSide('receive');
-    invalidateQuote();
+    setFocusedAmountSide('receive');
+    if (currentQuote && activeAmountSide !== 'receive') setDesiredReceiveAmount(String(currentQuote.receiveAmount));
+  };
+
+  const changeAmount = (side: 'send' | 'receive', value: string) => {
+    // Formatting-only edits (1000 -> 1000.0) keep the same request/ticket.
+    if (activeAmountSide !== side || Number(value) !== Number(quoteAmountInput)) invalidateQuote();
+    setActiveAmountSide(side);
+    if (side === 'send') setAmount(value);
+    else setDesiredReceiveAmount(value);
+    setNotice(null);
   };
 
   const handleSettlementDetailChange = (key: string, val: string) => {
@@ -1553,7 +1554,7 @@ export function ManualSwapWidget({
                     <span className="reference-amount-label">{t('swap.youSend')}</span>
                   </div>
                   <div className="reference-amount-body exchange-amount-row">
-                    <input id="amount" className="reference-amount-input" inputMode="decimal" value={sendAmountDisplay} onFocus={activateSendAmount} onChange={(event) => { invalidateQuote(); setActiveAmountSide('send'); setAmount(event.target.value); setNotice(null); }} placeholder="0" disabled={manualRouteUnavailable} data-testid="input-amount" />
+                    <input id="amount" className="reference-amount-input" inputMode="decimal" value={sendAmountDisplay} onFocus={activateSendAmount} onBlur={() => setFocusedAmountSide(null)} onChange={(event) => changeAmount('send', event.target.value)} placeholder="0" disabled={manualRouteUnavailable} data-testid="input-amount" />
                     <SettlementOptionCombobox value={fromOption?.id || ''} options={fromOptions} onChange={changeFromAsset} onOpenChange={setFromSelectorOpen} label={t('swap.sendMethod')} selectorTitle={t('swap.youSend')} testId="select-from-asset" variant="swap" officialCryptoBySymbol={officialCryptoBySymbol} />
                   </div>
                   <div className="reference-amount-footer">
@@ -1594,7 +1595,7 @@ export function ManualSwapWidget({
                     <span className="reference-amount-label">{t('swap.youReceive')}</span>
                   </div>
                   <div className="reference-amount-body exchange-amount-row">
-                    <input id="receive" className={`reference-amount-input ${quoteStatus === 'loading' ? 'quoting' : !currentQuote ? 'empty' : ''}`} inputMode="decimal" value={receiveAmountDisplay} onFocus={activateReceiveAmount} onChange={(event) => { invalidateQuote(); setActiveAmountSide('receive'); setDesiredReceiveAmount(event.target.value); setNotice(null); }} placeholder="0" disabled={manualRouteUnavailable} data-testid="input-receive-amount" />
+                    <input id="receive" className={`reference-amount-input ${showRateRefresh ? 'quoting' : !displayQuote ? 'empty' : ''}`} inputMode="decimal" value={receiveAmountDisplay} onFocus={activateReceiveAmount} onBlur={() => setFocusedAmountSide(null)} onChange={(event) => changeAmount('receive', event.target.value)} placeholder="0" disabled={manualRouteUnavailable} data-testid="input-receive-amount" />
                     <SettlementOptionCombobox value={toOption?.id || ''} options={toOptions} onChange={changeToAsset} onOpenChange={setToSelectorOpen} label={t('swap.receiveMethod')} selectorTitle={t('swap.youReceive')} testId="select-to-asset" variant="swap" officialCryptoBySymbol={officialCryptoBySymbol} />
                   </div>
                   <div className="reference-amount-footer">
@@ -1615,15 +1616,17 @@ export function ManualSwapWidget({
                     <ArrowLeftRight size={18} className="reference-rate-icon" />
                     <div className="reference-rate-content">
                       <div className="reference-rate-text">
-                        <span className="reference-rate-label">Exchange Rate</span>
+                        <span className="reference-rate-label">{currentQuote || !Number(quoteAmountInput) ? 'Exchange Rate' : displayQuote ? 'Recent quote · confirming' : 'Indicative rate'}</span>
                         <strong className="reference-rate-value">
-                          {currentQuote
-                            ? <>1 {fromOption.assetCode} = <span>{formatSwapRate(currentQuote.rate)} {toOption.assetCode}</span></>
-                            : Number(quoteAmountInput) > 0
-                              ? <span>{quoteStatus === 'error' ? 'Rate unavailable' : 'Checking rate...'}</span>
+                          {displayQuote
+                            ? <>1 {fromOption.assetCode} = <span>{formatSwapRate(displayQuote.rate)} {toOption.assetCode}</span></>
+                            : quoteStatus === 'error'
+                              ? <span>Rate unavailable</span>
                             : routePricing.data
                               ? <>1 {fromOption.assetCode} = <span>{formatSwapRate(routePricing.data.rate)} {toOption.assetCode}</span></>
-                              : <>1 {fromOption.assetCode} = <span>-- {toOption.assetCode}</span></>}
+                              : showRateRefresh
+                                ? <span>Checking rate...</span>
+                                : <>1 {fromOption.assetCode} = <span>-- {toOption.assetCode}</span></>}
                         </strong>
                       </div>
                       {currentQuote?.expiresAt && (
@@ -1647,8 +1650,8 @@ export function ManualSwapWidget({
                 {currentQuote?.manualSwapFees && toOption && <div className="mt-4" data-testid="swap-signed-fee-breakdown">
                   <SwapFeeBreakdown fees={currentQuote.manualSwapFees} currency={toOption.assetCode} receiveAmount={currentQuote.receiveAmount}/>
                 </div>}
-                {!currentQuote && Number(quoteAmountInput) > 0 && toOption && !addons.isError && !addons.isLoading && <div className="mt-4 rounded-xl border border-border bg-card/70 p-3 text-sm text-muted-foreground" role="status" data-testid="swap-addons-quote-status">
-                  {quoteStatus === 'error' ? quoteError : 'Updating fees and Final You Receive…'}
+                {!currentQuote && Number(quoteAmountInput) > 0 && toOption && !addons.isError && !addons.isLoading && (showRateRefresh || cachedQuoteDisplay || quoteStatus === 'error') && <div className="mt-4 rounded-xl border border-border bg-card/70 p-3 text-sm text-muted-foreground" role="status" data-testid="swap-addons-quote-status">
+                  {quoteStatus === 'error' ? quoteError : cachedQuoteDisplay ? 'Recent exact quote shown while confirming current fees and amounts…' : 'Confirming fees and final amounts…'}
                 </div>}
               </div>
 

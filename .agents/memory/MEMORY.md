@@ -15,6 +15,7 @@
 - [Optional exact path overrides](manual-pricing-global-fallback.md) — existing Swap pricing remains the fallback; direct and reciprocal exact rates are optional higher-priority overrides.
 - [Browser API fixtures](playwright-query-route-mocks.md) — match query/ID; cover [full contracts](browser-fixture-contracts.md) and [custom contexts](playwright-custom-contexts.md).
 - [Browser interaction checks](drawer-browser-verification.md) — wait for drawer animations; verify [touch](touch-carousel-verification.md) with genuine touch events.
+- [Browser input event verification](browser-input-event-verification.md) — test-runner fill helpers may clear and slowly retype; inspect events before diagnosing extra quote calls.
 - [Order detail round-trips](order-detail-roundtrips.md) — editable operational fields must survive detail response validation or unrelated saves can silently clear them.
 - [Provider-create idempotency](provider-create-idempotency.md) — claim before create; [replay before capability gates](provider-idempotency-ordering.md).
 - [Quickex address preflight](quickex-address-preflight.md) — documented validation routes may return isolated 403s; signed order creation remains the authoritative address gate.
@@ -63,6 +64,7 @@
 - [Order confirmation presentation](order-confirmation-presentation.md) — keep deposit confirmation compact and mobile-first without weakening payment data or action contracts.
 - [Admin portal theme surfaces](admin-portal-theme-surfaces.md) — body-portaled Admin menus need explicit Light/Dark contracts and mobile selectors that beat legacy `:is()` specificity.
 - [Admin action feedback](admin-action-feedback.md) — action outcomes use one timed bottom toast; retain inline validation and review instructions where operators must act.
+- [Notification settings activation](notification-settings-activation.md) — validate delivery only for effective channel activation; remembered master switches alone must not block all-events-OFF saves.
 - [Stale API build drift](stale-api-build-drift.md) — authorization schema errors can come from an old running server bundle after workspace code changes; compare current source before migrating.
 - [Admin order summary precision](admin-order-summary-precision.md) — abbreviate extreme amounts only in compact summaries; preserve exact decimals in details and clipboard actions.
 - [Operator catalog deletion persistence](operator-catalog-deletion-persistence.md) — initialize catalogs through one-time migrations; request paths must never recreate deleted Admin rows.
@@ -150,5 +152,6 @@
 - [Split Site Content editors](split-site-content-editors.md) — isolated tabs must not reuse draft state or overwrite the hidden half of shared settings.
 - [Optional Manual Swap fee direction](optional-manual-swap-fee-direction.md) — preserve You Send; subtract selected add-ons and new exchange fees from You Receive.
 - [Manual receive-target quoting](manual-receive-target-quoting.md) — invert by bounded forward quotes; tier boundaries can reverse monotonicity, and only the final signed ticket is authoritative.
+- [Swap quote responsiveness](swap-quote-responsiveness.md) — cache exact-input hints, never invert a prior net rate into a confirmed quote; focus alone must not re-quote.
 - [Quickex receive-target quoting](quickex-receive-target-quoting.md) — target-currency input yields source `amountToGive`; preserve exactness and use validated provider limit details.
 - [Admin add-on key validation](admin-addon-key-validation.md) — HTML pattern rules can differ from server regex; generate readable keys and check the exact server contract before saves.

@@ -103,7 +103,7 @@ test('Swap keeps the quote in Step 1, contact details in Step 2, and the compact
   assert.match(surface, /options=\{availableAddons\.filter\(item => item\.enabled\)\}/);
   assert.match(surface, /onToggle=\{toggleAddon\}/);
   assert.match(surface, /data-testid="swap-addons-quote-status"/);
-  assert.match(surface, /quoteStatus !== 'loading' && quotePreview\?\.requestKey === quoteRequestKey/);
+  assert.match(surface, /quoteStatus === 'idle' && quotePreview\?\.requestKey === quoteRequestKey/);
   assert.match(addonOptions, /aria-label="Optional Swap add-ons"/);
   assert.match(addonOptions, /No add-ons are currently available/);
   assert.match(followupStyles, /\.swap-addon-native-checkbox\s*\{[^}]*position: static;[^}]*opacity: 1;[^}]*accent-color:/s);
