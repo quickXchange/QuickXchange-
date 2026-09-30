@@ -796,6 +796,7 @@ export function ManualSwapWidget({
     item.key === key && item.enabled && item.selectionRule !== 'none'
   )).sort();
   const selectedKeysSignature = JSON.stringify(selectedKeys);
+  const lastSelectionQuotedRef = useRef(selectedKeysSignature);
   const changeAddonsOpen = (open: boolean) => {
     if (open) void addons.refetch();
     setAddonsPopupOpen(open);
@@ -1112,6 +1113,8 @@ export function ManualSwapWidget({
 
   useEffect(() => {
     const parsedAmount = Number(quoteAmountInput);
+    const selectionChanged = selectedKeysSignature !== lastSelectionQuotedRef.current;
+    lastSelectionQuotedRef.current = selectedKeysSignature;
     const canQuote = Boolean(fromOption && toOption)
       && !addons.isLoading
       && !addons.isError
@@ -1193,7 +1196,7 @@ export function ManualSwapWidget({
           },
         }, { onSuccess, onError });
       }
-    }, 450);
+    }, selectionChanged ? 0 : 450);
 
     return () => {
       active = false;
@@ -1865,9 +1868,18 @@ export function ManualSwapWidget({
           )}
           {addonsPopupOpen && (
             <div className="swap-overlay" role="dialog" aria-modal="true" aria-label="Add-ons" data-testid="swap-addons-popup">
-              <div className="swap-overlay-head">Add-ons <button type="button" onClick={() => changeAddonsOpen(false)} aria-label="Close add-ons" data-testid="button-close-swap-addons"><X size={23} /></button></div>
+              <div className="swap-overlay-head">Optional add-ons <button type="button" onClick={() => changeAddonsOpen(false)} aria-label="Close add-ons" data-testid="button-close-swap-addons"><X size={23} /></button></div>
               <div className="swap-overlay-body">
                 <SwapAddonOptions options={availableAddons.filter(item => item.enabled)} selectedKeys={selectedKeys} onToggle={toggleAddon} isLoading={addons.isLoading} isError={addons.isError} onRetry={() => addons.refetch()} compact />
+                {Number(quoteAmountInput) > 0 && toOption && !addons.isError && !addons.isLoading && (
+                  <div className="mt-4" aria-live="polite" aria-busy={!currentQuote && quoteStatus !== 'error'}>
+                    {currentQuote?.manualSwapFees
+                      ? <SwapFeeBreakdown fees={currentQuote.manualSwapFees} currency={toOption.assetCode} receiveAmount={currentQuote.receiveAmount} />
+                      : <div className="rounded-xl border border-border bg-card/70 p-3 text-sm text-muted-foreground" role="status" data-testid="swap-addons-quote-status">
+                          {quoteStatus === 'error' ? quoteError : 'Updating fees and Final You Receive…'}
+                        </div>}
+                  </div>
+                )}
               </div>
               <div className="swap-overlay-footer"><button type="button" onClick={() => setAddonsPopupOpen(false)} data-testid="button-apply-swap-addons">Apply choices {selectedKeys.length ? `(${selectedKeys.length})` : ''}</button></div>
             </div>

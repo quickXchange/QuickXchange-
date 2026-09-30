@@ -13,6 +13,7 @@ import { trimFeeDecimal } from '../components/swap-fee-breakdown';
 import { AdminSwapAddonPreview } from '../components/admin-swap-addon-preview';
 import { addonKeyFromText, validAddonKey } from '../lib/swap-addon-key';
 import { notifyAdminAction } from '@/components/admin-action-toast';
+import { useAdminPermissions } from '@/lib/admin-permissions';
 
 type Locale = 'en' | 'ru' | 'ar' | 'uk';
 type Translation = { title?: string; description?: string };
@@ -50,6 +51,8 @@ const label = 'block min-w-0 text-xs font-semibold text-muted-foreground';
 
 export function AdminSwapAddonsPage() {
   const qc = useQueryClient();
+  const { can } = useAdminPermissions();
+  const canManage = can('pricing.manage');
   const list = useListAdminManualSwapAddons();
   const fee = useGetManualSwapFeeConfig();
   const create = useCreateManualSwapAddon();
@@ -73,6 +76,7 @@ export function AdminSwapAddonsPage() {
     ]);
   };
   const open = (item?: ManualSwapAddon) => {
+    if (!canManage) return;
     setMessage('');
     setEditing(item || 'new');
     setEditorCollapsed(false);
@@ -81,6 +85,7 @@ export function AdminSwapAddonsPage() {
   };
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (!canManage) return;
     setMessage('');
     if (!validAddonKey.test(form.key)) {
       setMessage('Enter a key starting with a lowercase letter or number, using only lowercase letters, numbers, hyphens, and underscores (up to 100 characters).');
@@ -113,13 +118,14 @@ export function AdminSwapAddonsPage() {
     } catch (error) { notifyAdminAction('error', error instanceof Error ? error.message : 'Could not save swap add-on.'); }
   };
   const deleteItem = async (item: ManualSwapAddon) => {
+    if (!canManage) return;
     if (!window.confirm(`Delete ${item.name}? Historical orders will retain their saved fees.`)) return;
     setMessage('');
     try { await remove.mutateAsync({ id: item.id }); await refresh(); if (editing && editing !== 'new' && editing.id === item.id) setEditing(null); notifyAdminAction('success', 'Swap add-on deleted successfully.'); }
     catch (error) { notifyAdminAction('error', error instanceof Error ? error.message : 'Could not delete swap add-on.'); }
   };
   const toggleItem = async (item: ManualSwapAddon) => {
-    if (togglingId) return;
+    if (togglingId || !canManage) return;
     setTogglingId(item.id);
     setMessage('');
     try {
@@ -132,6 +138,10 @@ export function AdminSwapAddonsPage() {
         selectionRule: item.selectionRule, presentation: item.presentation,
       } });
       await refresh();
+      if (editing && editing !== 'new' && editing.id === item.id) {
+        setEditing({ ...editing, enabled: !item.enabled });
+        setForm(previous => ({ ...previous, enabled: !item.enabled }));
+      }
       notifyAdminAction('success', `Swap add-on ${item.enabled ? 'disabled' : 'enabled'} successfully.`);
     } catch (error) {
       notifyAdminAction('error', error instanceof Error ? error.message : 'Could not change add-on status.');
@@ -144,7 +154,7 @@ export function AdminSwapAddonsPage() {
       <section className="panel min-w-0 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4 sm:px-6">
           <div><h2 className="text-base font-bold text-foreground">Optional add-ons</h2><p className="mt-0.5 text-xs text-muted-foreground">Customers choose from enabled options before confirming a quote.</p></div>
-          <button type="button" onClick={() => open()} className="button button-primary inline-flex items-center gap-2 text-xs" data-testid="button-add-swap-option"><Plus size={15}/> Add option</button>
+          {canManage && <button type="button" onClick={() => open()} className="button button-primary inline-flex items-center gap-2 text-xs" data-testid="button-add-swap-option"><Plus size={15}/> Add option</button>}
         </div>
         <div className="px-4 py-2 sm:px-6">
           {list.isLoading ? <div className="skeleton my-3 h-24 rounded-lg"/> : list.isError ? <div role="alert" className="py-5 text-sm">Could not load options. <button type="button" onClick={() => list.refetch()} className="text-primary underline" data-testid="button-retry-swap-options">Retry</button></div> :
@@ -158,14 +168,14 @@ export function AdminSwapAddonsPage() {
                   <td className="whitespace-nowrap px-3 py-3 font-mono" data-testid={`text-addon-fee-${item.key}`}>{percentage ? `${record.percentage == null ? '—' : trimFeeDecimal(record.percentage)}%` : `${trimFeeDecimal(item.fixedAmount)} ${item.feeCurrency}`}</td>
                   <td className="whitespace-nowrap px-3 py-3">{percentage ? 'Percentage' : item.feeCurrency === 'USD' ? 'Fixed USD' : `Legacy fixed ${item.feeCurrency}`}</td>
                   <td className="px-3 py-3 font-mono">{item.displayOrder}</td>
-                  <td className="px-3 py-3"><button type="button" role="switch" aria-checked={item.enabled} aria-label={`${item.enabled ? 'Disable' : 'Enable'} ${item.name}`} disabled={Boolean(togglingId) || update.isPending} onClick={() => toggleItem(item)} className="inline-flex items-center gap-2 whitespace-nowrap disabled:opacity-40" data-testid={`switch-addon-enabled-${item.key}`}><span aria-hidden="true" className={`relative inline-block h-4 w-7 rounded-full transition-colors ${item.enabled ? 'bg-primary' : 'bg-muted-foreground/35'}`}><span className={`absolute top-0.5 h-3 w-3 rounded-full bg-background transition-transform ${item.enabled ? 'translate-x-3.5' : 'translate-x-0.5'}`}/></span><span>{item.enabled ? 'Enabled' : 'Disabled'}</span></button></td>
-                  <td className="px-3 py-3"><button type="button" className="inline-flex items-center gap-1 text-primary hover:underline" onClick={() => open(item)} data-testid={`button-edit-addon-${item.key}`}><Pencil size={13}/> Edit</button></td>
-                  <td className="py-3 pl-3"><button type="button" className="inline-flex items-center gap-1 text-destructive hover:underline disabled:opacity-40" disabled={remove.isPending || Boolean(togglingId)} onClick={() => deleteItem(item)} data-testid={`button-delete-addon-${item.key}`}><Trash2 size={13}/> Delete</button></td>
+                  <td className="px-3 py-3">{canManage ? <button type="button" role="switch" aria-checked={item.enabled} aria-label={`${item.enabled ? 'Disable' : 'Enable'} ${item.name}`} disabled={Boolean(togglingId) || update.isPending} onClick={() => toggleItem(item)} className="inline-flex items-center gap-2 whitespace-nowrap disabled:opacity-40" data-testid={`switch-addon-enabled-${item.key}`}><span aria-hidden="true" className={`relative inline-block h-4 w-7 rounded-full transition-colors ${item.enabled ? 'bg-primary' : 'bg-muted-foreground/35'}`}><span className={`absolute top-0.5 h-3 w-3 rounded-full bg-background transition-transform ${item.enabled ? 'translate-x-3.5' : 'translate-x-0.5'}`}/></span><span>{item.enabled ? 'Enabled' : 'Disabled'}</span></button> : item.enabled ? 'Enabled' : 'Disabled'}</td>
+                  <td className="px-3 py-3">{canManage && <button type="button" className="inline-flex items-center gap-1 text-primary hover:underline" onClick={() => open(item)} data-testid={`button-edit-addon-${item.key}`}><Pencil size={13}/> Edit</button>}</td>
+                  <td className="py-3 pl-3">{canManage && <button type="button" className="inline-flex items-center gap-1 text-destructive hover:underline disabled:opacity-40" disabled={remove.isPending || Boolean(togglingId)} onClick={() => deleteItem(item)} data-testid={`button-delete-addon-${item.key}`}><Trash2 size={13}/> Delete</button>}</td>
                 </tr>;
               })}</tbody></table></div>}
         </div>
       </section>
-      {editing && <section className="panel min-w-0 overflow-hidden" data-testid="card-addon-editor">
+      {editing && canManage && <section className="panel min-w-0 overflow-hidden" data-testid="card-addon-editor">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4 sm:px-6">
           <div><h2 className="text-base font-bold">{editing === 'new' ? 'New option' : `Edit ${editing.name}`}</h2><p className="mt-0.5 text-xs text-muted-foreground">Set the fee and the copy customers see in the swap widget.</p></div>
           <div className="flex items-center gap-3 text-xs">
@@ -196,14 +206,14 @@ export function AdminSwapAddonsPage() {
           <div className="flex flex-wrap gap-2 border-t border-border pt-4"><button type="submit" disabled={create.isPending || update.isPending} className="button button-primary" data-testid="button-save-addon">{create.isPending || update.isPending ? 'Saving…' : 'Save option'}</button><button type="button" onClick={() => setEditing(null)} className="button" data-testid="button-cancel-addon">Cancel</button></div>
         </form>}
       </section>}
-      <AdminSwapAddonPreview savedOptions={list.data?.items || []} draft={editing ? form : undefined} editingId={editing && editing !== 'new' ? editing.id : undefined} feeConfig={fee.data && !fee.isLoading && !fee.isError ? { enabled: feeForm.enabled, percentage: feeForm.enabled ? feeForm.percentage || null : null, fixedAmount: feeForm.enabled ? feeForm.fixedAmount || null : null, fixedCurrency: feeForm.fixedCurrency } : undefined} isLoading={list.isLoading} isError={list.isError} onRetry={() => list.refetch()} exchangeAmount={1000}/>
+      <AdminSwapAddonPreview savedOptions={list.data?.items || []} draft={canManage && editing ? form : undefined} editingId={canManage && editing && editing !== 'new' ? editing.id : undefined} feeConfig={fee.data && !fee.isLoading && !fee.isError ? { enabled: feeForm.enabled, percentage: feeForm.enabled ? feeForm.percentage || null : null, fixedAmount: feeForm.enabled ? feeForm.fixedAmount || null : null, fixedCurrency: feeForm.fixedCurrency } : undefined} isLoading={list.isLoading} isError={list.isError} onRetry={() => list.refetch()} exchangeAmount={1000}/>
       <details className="panel group p-5"><summary className="cursor-pointer list-none text-sm font-semibold text-foreground" data-testid="summary-exchange-fee-advanced"><span className="inline-flex items-center gap-2">Advanced · Exchange fee <ChevronDown size={15} className="transition-transform group-open:rotate-180"/></span><span className="mt-1 block text-xs font-normal text-muted-foreground">Additional to existing route pricing. The server calculates the final quote.</span></summary><div className="mt-5">
         {fee.isLoading ? <div className="skeleton h-28 rounded-lg"/> : fee.isError ? <div role="alert">Could not load exchange fee. <button type="button" onClick={() => fee.refetch()} className="text-primary underline" data-testid="button-retry-exchange-fee">Retry</button></div> : <form className="grid gap-4 sm:grid-cols-3" onSubmit={async e => { e.preventDefault(); setMessage(''); try { await saveFee.mutateAsync({ data: { enabled: feeForm.enabled, percentage: feeForm.percentage || null, fixedAmount: feeForm.fixedAmount || null, fixedCurrency: feeForm.fixedCurrency } }); await qc.invalidateQueries({ queryKey: getGetManualSwapFeeConfigQueryKey() }); notifyAdminAction('success', 'Manual Swap exchange fee saved successfully.'); } catch (error) { notifyAdminAction('error', error instanceof Error ? error.message : 'Could not save exchange fee.'); } }}>
-          <label className="sm:col-span-3 flex items-center gap-2 font-semibold text-sm"><input type="checkbox" checked={feeForm.enabled} onChange={e => setFeeForm(p => ({ ...p, enabled: e.target.checked }))} data-testid="checkbox-exchange-fee-enabled"/> Enabled</label>
-          <label className="text-sm font-semibold">Percentage (%)<input inputMode="decimal" pattern="[0-9]+([.][0-9]+)?" className={field} value={feeForm.percentage} onChange={e => setFeeForm(p => ({ ...p, percentage: e.target.value }))} data-testid="input-exchange-fee-percentage"/></label>
-          <label className="text-sm font-semibold">Fixed amount<input inputMode="decimal" pattern="[0-9]+([.][0-9]+)?" className={field} value={feeForm.fixedAmount} onChange={e => setFeeForm(p => ({ ...p, fixedAmount: e.target.value }))} data-testid="input-exchange-fee-fixed"/></label>
-          <label className="text-sm font-semibold">Fixed currency<input required pattern="[A-Z0-9]{2,15}" className={field} value={feeForm.fixedCurrency} onChange={e => setFeeForm(p => ({ ...p, fixedCurrency: e.target.value.toUpperCase() }))} data-testid="input-exchange-fee-currency"/></label>
-          <button type="submit" disabled={saveFee.isPending} className="button button-primary w-fit" data-testid="button-save-exchange-fee">Save exchange fee</button>
+          <label className="sm:col-span-3 flex items-center gap-2 font-semibold text-sm"><input type="checkbox" disabled={!canManage} checked={feeForm.enabled} onChange={e => setFeeForm(p => ({ ...p, enabled: e.target.checked }))} data-testid="checkbox-exchange-fee-enabled"/> Enabled</label>
+          <label className="text-sm font-semibold">Percentage (%)<input disabled={!canManage} inputMode="decimal" pattern="[0-9]+([.][0-9]+)?" className={field} value={feeForm.percentage} onChange={e => setFeeForm(p => ({ ...p, percentage: e.target.value }))} data-testid="input-exchange-fee-percentage"/></label>
+          <label className="text-sm font-semibold">Fixed amount<input disabled={!canManage} inputMode="decimal" pattern="[0-9]+([.][0-9]+)?" className={field} value={feeForm.fixedAmount} onChange={e => setFeeForm(p => ({ ...p, fixedAmount: e.target.value }))} data-testid="input-exchange-fee-fixed"/></label>
+          <label className="text-sm font-semibold">Fixed currency<input disabled={!canManage} required pattern="[A-Z0-9]{2,15}" className={field} value={feeForm.fixedCurrency} onChange={e => setFeeForm(p => ({ ...p, fixedCurrency: e.target.value.toUpperCase() }))} data-testid="input-exchange-fee-currency"/></label>
+          {canManage && <button type="submit" disabled={saveFee.isPending} className="button button-primary w-fit" data-testid="button-save-exchange-fee">Save exchange fee</button>}
         </form>}
        </div></details>
     </div>

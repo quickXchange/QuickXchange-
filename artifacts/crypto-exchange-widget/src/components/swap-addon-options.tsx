@@ -1,6 +1,6 @@
 import type { ManualSwapAddon } from '@workspace/api-client-react';
 import { trimFeeDecimal } from '@/components/swap-fee-breakdown';
-import { ArrowLeftRight, Check, Info, MessageCircle, Package, Zap } from 'lucide-react';
+import { ArrowLeftRight, Info, MessageCircle, Package, Zap } from 'lucide-react';
 import { useI18n } from '@/i18n';
 
 type SwapAddonTranslation = { title?: string; description?: string };
@@ -39,7 +39,7 @@ export function SwapAddonOptions({
         const name = translation?.title?.trim() || item.name;
         const description = translation?.description?.trim() || item.description;
         const feeLabel = item.feeType === 'percentage'
-          ? `${trimFeeDecimal(item.percentage || '0')}%`
+          ? `+${trimFeeDecimal(item.percentage || '0')}%`
           : `+${trimFeeDecimal(item.fixedAmount)} ${item.feeCurrency}`;
         const iconHint = `${item.key} ${name}`.toLowerCase();
         const AddonIcon = /comment|note/.test(iconHint) ? MessageCircle
@@ -51,7 +51,7 @@ export function SwapAddonOptions({
             <span className="flex-1"><strong className="block text-foreground">{name} {!informational && compact && <span className="swap-addon-price">{feeLabel}</span>}</strong>{description && <small className="text-muted-foreground">{description}</small>}{item.selectionRule === 'one' && <small className="block text-muted-foreground">Choose one in {item.presentation.group || 'this group'}</small>}</span>
           {informational
             ? <span className="whitespace-nowrap rounded-full border border-border bg-muted px-2 py-1 text-xs font-semibold text-muted-foreground">Information only</span>
-              : compact ? <span className="swap-addon-switch" aria-hidden="true">{selected && <Check size={12} />}</span> : <span className="font-mono text-foreground whitespace-nowrap">{feeLabel}</span>}
+            : !compact && <span className="font-mono text-foreground whitespace-nowrap">{feeLabel}</span>}
         </>;
         return informational
           ? <div key={item.key} className="flex items-start gap-3 rounded-xl border border-dashed border-border bg-muted/40 p-3 text-sm" data-testid={`${preview ? 'swap-addon-info-preview' : 'swap-addon-info'}-${item.key}`}>
