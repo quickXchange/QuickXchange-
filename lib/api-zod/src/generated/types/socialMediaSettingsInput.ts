@@ -24,8 +24,10 @@ export interface SocialMediaSettingsInput {
      */
   facebookUrl: string | null;
   /**
+     * Optional Telegram support username or t.me/telegram.me username URL; saved and published as https://t.me/{username}.
      * @maxLength 2048
      * @nullable
+     * @pattern ^(?: *| *@[A-Za-z][A-Za-z0-9_]{4,31} *| *https://(?:t\.me|telegram\.me)/[A-Za-z][A-Za-z0-9_]{4,31}/? *)$
      */
   telegramUrl: string | null;
   appearance?: SocialIconAppearance;

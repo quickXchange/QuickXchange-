@@ -38,6 +38,19 @@ const miniAppUrl = () => {
   const publicWebsite = website();
   return publicWebsite ? `${publicWebsite.replace(/\/+$/, "")}/telegram-mini-app/` : undefined;
 };
+const safeTelegramHttpsBase = (value?: string) => {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.username || url.password ||
+        /^(?:localhost|.*\.localhost|127(?:\.\d{1,3}){3}|\[?::1\]?)$/i.test(url.hostname)) return undefined;
+    url.search = "";
+    url.hash = "";
+    return url.toString().replace(/\/+$/, "");
+  } catch {
+    return undefined;
+  }
+};
 const html = (value: unknown) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 const baseUrl = () => `http://127.0.0.1:${process.env.PORT ?? "8080"}`;
 const adminOrderUrl = (orderId: string) => {
@@ -201,6 +214,9 @@ export function telegramTrackingTokenForOrder(orderId: string, candidate: unknow
 }
 export function telegramOrderLinkOwnedByChat(link: { chatId: string; orderId: string } | undefined, chatId: string, orderId: string) {
   return Boolean(link && link.chatId === chatId && link.orderId === orderId);
+}
+export function telegramTrackingFailureMessage(locale: TelegramLocale) {
+  return `${t(locale, "trackingUnresolved")}\n${t(locale, "trackingFallback")}`;
 }
 async function withTelegramChatLock<T>(chatId: string, handler: () => Promise<T>) {
   telegramAdvisoryChatKey(chatId);
@@ -660,6 +676,10 @@ async function sendOrders(chatId: string, locale: TelegramLocale) {
     const email = await getCustomerVerifiedEmail(linked.customerClerkUserId);
     await requireActiveCustomerIdentity(linked.customerClerkUserId, email);
     const owned = await getCustomerOrderHistory(linked.customerClerkUserId, 10);
+    if (await getCurrentTelegramCustomer(chatId) !== linked.customerClerkUserId) {
+      await sendTelegramMessage(chatId, telegramTrackingFailureMessage(locale));
+      return;
+    }
     if (!owned.length) { await sendTelegramMessage(chatId, t(locale, "noOrders")); return; }
     const buttons = owned.map(item => [{ text: `🔎 ${item.id}`, url: website() ? `${website()!.replace(/\/+$/, "")}/account/orders/${encodeURIComponent(item.id)}` : undefined, callback_data: website() ? undefined : "website_unavailable" }]);
     await sendTelegramMessage(chatId, owned.map(item => [
@@ -673,6 +693,10 @@ async function sendOrders(chatId: string, locale: TelegramLocale) {
   const lines: string[] = [];
   const buttons: TelegramButton[][] = [];
   for (const item of links) {
+    if (!validTrackingCapability(item.trackingToken, item.orderId)) {
+      lines.push(`${formatTelegramOrderId(item.orderId)}\n${t(locale, "status")}: <b>unavailable</b>`);
+      continue;
+    }
     const path = item.orderKind === "convert" ? "/api/quickex/orders" : "/api/orders";
     const response = await fetch(`${baseUrl()}${path}/${encodeURIComponent(item.orderId)}/status?trackingToken=${encodeURIComponent(item.trackingToken)}`);
     const result = await response.json() as Record<string, unknown>;
@@ -685,9 +709,13 @@ async function sendOrders(chatId: string, locale: TelegramLocale) {
     const callbackData = telegramOrderCallbackData(item.orderId);
     if (callbackData) buttons.push([{ text: `🔎 Track ${item.orderId}`, callback_data: callbackData }]);
   }
+  if (await getCurrentTelegramCustomer(chatId)) {
+    await sendTelegramMessage(chatId, telegramTrackingFailureMessage(locale));
+    return;
+  }
   await sendTelegramMessage(chatId, lines.join("\n"), buttons);
 }
-async function sendDepositInstructions(chatId: string, orderId: string, orderKind: string, trackingToken: string, known?: Record<string, unknown>) {
+async function sendDepositInstructions(chatId: string, orderId: string, orderKind: string, trackingToken: string, known?: Record<string, unknown>, locale: TelegramLocale = "en") {
   const status = known ?? await (async () => {
     const path = orderKind === "convert" ? "/api/quickex/orders" : "/api/orders";
     const response = await fetch(`${baseUrl()}${path}/${encodeURIComponent(orderId)}/status?trackingToken=${encodeURIComponent(trackingToken)}`);
@@ -695,34 +723,273 @@ async function sendDepositInstructions(chatId: string, orderId: string, orderKin
   })();
   const deposit = telegramDepositInstruction(status);
   if (!deposit) return;
-  const memo = deposit.memo ? `\n${html(t("en", "memo"))}: <code>${html(deposit.memo)}</code>` : "";
-  await sendTelegramPhoto(chatId, deposit.address, `${formatTelegramOrderId(orderId)}\n\n${t("en", "deposit")}:\n<code>${html(deposit.address)}</code>${memo}`);
+  const memo = deposit.memo ? `\n${html(t(locale, "memo"))}: <code>${html(deposit.memo)}</code>` : "";
+  await sendTelegramPhoto(chatId, deposit.address, `${formatTelegramOrderId(orderId)}\n\n${t(locale, "deposit")}:\n<code>${html(deposit.address)}</code>${memo}`);
 }
 
-/**
- * Resolve the customer-safe status contract from the local order index.  The
- * Telegram flow must not probe both status endpoints: doing so can turn a
- * valid capability into an ambiguous route and makes ownership failures
- * observable.  A linked order is authoritative; otherwise the id must exist
- * in exactly one order store.
- */
-async function resolveTelegramOrderKind(chatId: string, orderId: string) {
-  const [linked] = await db.select({ orderKind: telegramOrderLinksTable.orderKind })
-    .from(telegramOrderLinksTable)
-    .where(and(
-      eq(telegramOrderLinksTable.chatId, chatId),
-      eq(telegramOrderLinksTable.orderId, orderId),
-    ))
-    .limit(1);
-  if (linked) return linked.orderKind === "convert" ? "convert" : "swap";
-  const [convert, swap] = await Promise.all([
-    db.select({ id: quickexOrdersTable.legacyOrderId })
-      .from(quickexOrdersTable).where(eq(quickexOrdersTable.legacyOrderId, orderId)).limit(1),
-    db.select({ id: ordersTable.id })
-      .from(ordersTable).where(eq(ordersTable.id, orderId)).limit(1),
+export function telegramOrderIdCandidates(input: string): string[] | undefined {
+  const value = input.trim();
+  if (!value || value.length > 160 || /[\s\u0000-\u001f\u007f]/.test(value)) return undefined;
+  const digits = /^(?:[Oo])?(\d+)$/.exec(value);
+  if (!digits) return [value];
+  const numberText = digits[1];
+  const candidates = new Set([value, numberText, `O${numberText}`]);
+  if (numberText.length <= 9) candidates.add(`O${numberText.padStart(9, "0")}`);
+  return [...candidates];
+}
+
+function validTrackingCapability(token: string | undefined, orderId: string) {
+  try {
+    return verifyOrderTrackingToken(token, orderId);
+  } catch {
+    return false;
+  }
+}
+
+type ResolvedTelegramOrder = { orderId: string; orderKind: "convert" | "swap" };
+
+async function findTelegramOrderByCandidates(candidates: string[], customerClerkUserId?: string): Promise<ResolvedTelegramOrder | undefined> {
+  const manualWhere = customerClerkUserId
+    ? and(inArray(ordersTable.id, candidates), inArray(ordersTable.type, telegramManualOrderKinds), eq(ordersTable.customerClerkUserId, customerClerkUserId))
+    : and(inArray(ordersTable.id, candidates), inArray(ordersTable.type, telegramManualOrderKinds));
+  const convertWhere = customerClerkUserId
+    ? and(inArray(quickexOrdersTable.legacyOrderId, candidates), eq(quickexOrdersTable.customerClerkUserId, customerClerkUserId))
+    : inArray(quickexOrdersTable.legacyOrderId, candidates);
+  const [manual, converts] = await Promise.all([
+    db.select({ id: ordersTable.id }).from(ordersTable).where(manualWhere),
+    db.select({ id: quickexOrdersTable.legacyOrderId }).from(quickexOrdersTable).where(convertWhere),
   ]);
-  if (Boolean(convert.length) === Boolean(swap.length)) return undefined;
-  return convert.length ? "convert" : "swap";
+  const resolved = [
+    ...manual.map(row => ({ orderId: row.id, orderKind: "swap" as const })),
+    ...converts.map(row => ({ orderId: row.id, orderKind: "convert" as const })),
+  ];
+  return resolved.length === 1 ? resolved[0] : undefined;
+}
+
+async function getCurrentTelegramCustomer(chatId: string) {
+  const [chat] = await db.select({ customerClerkUserId: telegramChatsTable.clerkCustomerUserId })
+    .from(telegramChatsTable).where(eq(telegramChatsTable.chatId, chatId)).limit(1);
+  if (!chat?.customerClerkUserId) return undefined;
+  const email = await getCustomerVerifiedEmail(chat.customerClerkUserId);
+  await requireActiveCustomerIdentity(chat.customerClerkUserId, email);
+  return chat.customerClerkUserId;
+}
+
+async function telegramOrderLinkForChat(chatId: string, candidates: string[]) {
+  const links = await db.select().from(telegramOrderLinksTable).where(and(
+    eq(telegramOrderLinksTable.chatId, chatId),
+    inArray(telegramOrderLinksTable.orderId, candidates),
+  ));
+  return links.length === 1 ? links[0] : undefined;
+}
+
+export async function resolveTelegramCallbackOrder(chatId: string, orderId: string) {
+  const [link] = await db.select().from(telegramOrderLinksTable).where(and(
+    eq(telegramOrderLinksTable.chatId, chatId),
+    eq(telegramOrderLinksTable.orderId, orderId),
+  )).limit(1);
+  if (!telegramOrderLinkOwnedByChat(link, chatId, orderId)) return undefined;
+  return resolveTelegramTracking(chatId, orderId);
+}
+
+export async function saveTelegramTrackingLink(
+  chatId: string,
+  resolved: ResolvedTelegramOrder,
+  trackingToken: string,
+  expectedClerkUserId?: string,
+) {
+  return db.transaction(async tx => {
+    const [chat] = await tx.select({ clerkCustomerUserId: telegramChatsTable.clerkCustomerUserId })
+      .from(telegramChatsTable)
+      .where(eq(telegramChatsTable.chatId, chatId))
+      .for("update")
+      .limit(1);
+    if (!chat || (chat.clerkCustomerUserId ?? undefined) !== expectedClerkUserId ||
+        !validTrackingCapability(trackingToken, resolved.orderId)) return false;
+
+    const manualWhere = expectedClerkUserId
+      ? and(
+        eq(ordersTable.id, resolved.orderId),
+        inArray(ordersTable.type, telegramManualOrderKinds),
+        eq(ordersTable.customerClerkUserId, expectedClerkUserId),
+      )
+      : and(eq(ordersTable.id, resolved.orderId), inArray(ordersTable.type, telegramManualOrderKinds));
+    const convertWhere = expectedClerkUserId
+      ? and(
+        eq(quickexOrdersTable.legacyOrderId, resolved.orderId),
+        eq(quickexOrdersTable.customerClerkUserId, expectedClerkUserId),
+      )
+      : eq(quickexOrdersTable.legacyOrderId, resolved.orderId);
+    const [manual, converts] = await Promise.all([
+      tx.select({ id: ordersTable.id }).from(ordersTable).where(manualWhere).for("update").limit(1),
+      tx.select({ id: quickexOrdersTable.legacyOrderId }).from(quickexOrdersTable).where(convertWhere).for("update").limit(1),
+    ]);
+    const stillMatches = manual.length + converts.length === 1 &&
+      (resolved.orderKind === "swap" ? manual[0]?.id === resolved.orderId : converts[0]?.id === resolved.orderId);
+    if (!stillMatches) return false;
+
+    await tx.insert(telegramOrderLinksTable).values({
+      chatId,
+      orderId: resolved.orderId,
+      trackingToken,
+      orderKind: resolved.orderKind,
+    }).onConflictDoUpdate({
+      target: [telegramOrderLinksTable.chatId, telegramOrderLinksTable.orderId],
+      set: { trackingToken, orderKind: resolved.orderKind },
+    });
+    return true;
+  });
+}
+
+async function telegramStatusForCapability(resolved: ResolvedTelegramOrder, trackingToken: string) {
+  if (!validTrackingCapability(trackingToken, resolved.orderId)) return undefined;
+  const path = resolved.orderKind === "convert" ? "/api/quickex/orders" : "/api/orders";
+  const response = await fetch(`${baseUrl()}${path}/${encodeURIComponent(resolved.orderId)}/status?trackingToken=${encodeURIComponent(trackingToken)}`);
+  if (!response.ok) return undefined;
+  return await response.json() as Record<string, unknown>;
+}
+
+export async function resolveTelegramTracking(chatId: string, inputId: string, suppliedToken?: string) {
+  const candidates = telegramOrderIdCandidates(inputId);
+  if (!candidates) return undefined;
+
+  let customerClerkUserId: string | undefined;
+  try {
+    customerClerkUserId = await getCurrentTelegramCustomer(chatId);
+  } catch {
+    // Suspended/unverifiable linked identities get the same non-disclosing response as an unresolved order.
+    return undefined;
+  }
+
+  let resolved: ResolvedTelegramOrder | undefined;
+  let trackingToken = suppliedToken?.trim();
+  let usedStoredChatCapability = false;
+  if (customerClerkUserId) {
+    // Owner-scoped lookup precedes token generation and all order-detail reads.
+    resolved = await findTelegramOrderByCandidates(candidates, customerClerkUserId);
+    if (!resolved) return undefined;
+    if (trackingToken) {
+      if (!validTrackingCapability(trackingToken, resolved.orderId)) return undefined;
+    } else {
+      trackingToken = signOrderTrackingToken(resolved.orderId);
+    }
+  } else if (trackingToken) {
+    // A guest capability may resolve only exact local canonical IDs, and only after its signature is checked.
+    resolved = await findTelegramOrderByCandidates(candidates);
+    if (!resolved || !validTrackingCapability(trackingToken, resolved.orderId)) return undefined;
+  } else {
+    // ID-only guest tracking is limited to a valid capability already linked to this exact chat.
+    const link = await telegramOrderLinkForChat(chatId, candidates);
+    if (!link || !validTrackingCapability(link.trackingToken, link.orderId)) return undefined;
+    resolved = { orderId: link.orderId, orderKind: link.orderKind === "convert" ? "convert" : "swap" };
+    trackingToken = link.trackingToken;
+    usedStoredChatCapability = true;
+  }
+
+  if (!trackingToken || !resolved) return undefined;
+  const result = await telegramStatusForCapability(resolved, trackingToken);
+  if (!result) return undefined;
+
+  // Identity/ownership can change while the local status request is in flight.
+  try {
+    const currentCustomerClerkUserId = await getCurrentTelegramCustomer(chatId);
+    if (customerClerkUserId !== currentCustomerClerkUserId) return undefined;
+    if (customerClerkUserId) {
+      const stillOwned = await findTelegramOrderByCandidates([resolved.orderId], customerClerkUserId);
+      if (stillOwned?.orderId !== resolved.orderId || stillOwned.orderKind !== resolved.orderKind) return undefined;
+    } else {
+      const currentLink = await telegramOrderLinkForChat(chatId, [resolved.orderId]);
+      if (usedStoredChatCapability &&
+          (!currentLink || currentLink.orderKind !== resolved.orderKind ||
+            !validTrackingCapability(currentLink.trackingToken, resolved.orderId))) return undefined;
+      if (!validTrackingCapability(trackingToken, resolved.orderId)) return undefined;
+    }
+  } catch {
+    return undefined;
+  }
+  if (!await saveTelegramTrackingLink(chatId, resolved, trackingToken, customerClerkUserId)) return undefined;
+  return { ...resolved, trackingToken, result, customerClerkUserId };
+}
+
+async function telegramTrackingIdentityIsCurrent(
+  chatId: string,
+  tracked: { orderId: string; orderKind: "convert" | "swap"; trackingToken: string; customerClerkUserId?: string },
+) {
+  try {
+    const currentCustomerClerkUserId = await getCurrentTelegramCustomer(chatId);
+    if (tracked.customerClerkUserId !== currentCustomerClerkUserId) return false;
+    if (currentCustomerClerkUserId) {
+      const stillOwned = await findTelegramOrderByCandidates([tracked.orderId], currentCustomerClerkUserId);
+      return stillOwned?.orderId === tracked.orderId &&
+        stillOwned.orderKind === tracked.orderKind &&
+        validTrackingCapability(tracked.trackingToken, tracked.orderId);
+    }
+    const link = await telegramOrderLinkForChat(chatId, [tracked.orderId]);
+    return Boolean(link &&
+      link.orderKind === tracked.orderKind &&
+      validTrackingCapability(link.trackingToken, tracked.orderId) &&
+      validTrackingCapability(tracked.trackingToken, tracked.orderId));
+  } catch {
+    return false;
+  }
+}
+
+export function telegramTrackingCard(tracked: {
+  orderId: string;
+  orderKind: "convert" | "swap";
+  trackingToken: string;
+  customerClerkUserId?: string;
+  result: Record<string, unknown>;
+}, locale: TelegramLocale) {
+  const result = tracked.result;
+  const status = tracked.orderKind === "convert"
+    ? convertTelegramStatusLabel(String(result.status ?? ""))
+    : swapTelegramStatusLabel(String(result.status ?? ""));
+  const fromAsset = String(result.fromAsset ?? "");
+  const fromNetwork = String(result.fromNetwork ?? "");
+  const toAsset = String(result.toAsset ?? "");
+  const toNetwork = String(result.toNetwork ?? "");
+  const source = [fromAsset, fromNetwork].filter(Boolean).join(" · ");
+  const target = [toAsset, toNetwork].filter(Boolean).join(" · ");
+  const lines = [
+    `${t(locale, "order")} <code>${html(tracked.orderId)}</code>`,
+    `${t(locale, "type")}: <b>${html(t(locale, tracked.orderKind === "convert" ? "convert" : "swap"))}</b>`,
+    `${t(locale, "status")}: <b>${html(status)}</b>`,
+    `${t(locale, "source")}: <b>${html(result.amount)} ${html(source)}</b>`,
+    `${t(locale, "trackingReceive")}: <b>${html(result.receiveAmount)} ${html(target)}</b>`,
+  ];
+  const buttons: TelegramButton[][] = [];
+  const refresh = telegramOrderCallbackData(tracked.orderId);
+  if (refresh) buttons.push([{ text: t(locale, "refresh"), callback_data: refresh }]);
+  if (telegramDepositInstruction(result)) {
+    const deposit = refresh ? `deposit:${refresh.slice("order:".length)}` : undefined;
+    if (deposit && Buffer.byteLength(deposit, "utf8") <= 64) {
+      buttons.push([{ text: t(locale, "depositInstructions"), callback_data: deposit }]);
+    }
+  }
+  const site = safeTelegramHttpsBase(website());
+  if (site) {
+    const url = new URL(`${site}/status`);
+    url.searchParams.set("orderId", tracked.orderId);
+    url.searchParams.set("trackingToken", tracked.trackingToken);
+    buttons.push([{ text: t(locale, "viewOrder"), url: url.toString() }]);
+  }
+  const app = safeTelegramHttpsBase(miniAppUrl());
+  if (app) buttons.push([{ text: t(locale, "openMiniApp"), web_app: { url: `${app}/orders/${encodeURIComponent(tracked.orderId)}` } }]);
+  return { text: lines.join("\n"), buttons };
+}
+
+async function sendTelegramTrackingCard(
+  chatId: string,
+  locale: TelegramLocale,
+  tracked: Parameters<typeof telegramTrackingCard>[0],
+) {
+  if (!await telegramTrackingIdentityIsCurrent(chatId, tracked)) {
+    await sendTelegramMessage(chatId, telegramTrackingFailureMessage(locale));
+    return;
+  }
+  const card = telegramTrackingCard(tracked, locale);
+  await sendTelegramMessage(chatId, card.text, card.buttons);
 }
 type TelegramDbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -915,16 +1182,85 @@ function telegramReviewKeyboard(termsAccepted: boolean, locale: TelegramLocale):
     [{ text: `❌ ${t(locale, "cancel")}`, callback_data: "cancel" }],
   ];
 }
-async function handleText(chatId: string, locale: TelegramLocale, text: string) {
+export async function startTelegramTracking(chatId: string, locale: TelegramLocale) {
+  await saveSession(chatId, "track", {});
+  await sendTelegramMessage(chatId, t(locale, "tracking"));
+}
+
+export async function handleTelegramTrackingText(
+  chatId: string,
+  locale: TelegramLocale,
+  text: string,
+  sessionState: string,
+  sessionData: Record<string, unknown> = {},
+) {
+  if (sessionState === "track") {
+    const parts = text.trim().split(/\s+/);
+    const [id, trackingToken] = parts;
+    if (!id || parts.length > 2 || !telegramOrderIdCandidates(id)) {
+      await sendTelegramMessage(chatId, telegramTrackingFailureMessage(locale));
+      return true;
+    }
+    const tracked = await resolveTelegramTracking(chatId, id, trackingToken);
+    if (tracked) {
+      await saveSession(chatId, "idle", {});
+      await sendTelegramTrackingCard(chatId, locale, tracked);
+      return true;
+    }
+    if (!trackingToken) {
+      try {
+        if (!await getCurrentTelegramCustomer(chatId)) {
+          await saveSession(chatId, "trackToken", { trackingOrderId: id });
+          await sendTelegramMessage(chatId, t(locale, "trackingTokenPrompt"));
+          return true;
+        }
+      } catch {
+        await sendTelegramMessage(chatId, telegramTrackingFailureMessage(locale));
+        return true;
+      }
+    }
+    await sendTelegramMessage(chatId, telegramTrackingFailureMessage(locale));
+    return true;
+  }
+  if (sessionState === "trackToken") {
+    const id = String(sessionData.trackingOrderId ?? "");
+    const token = text.trim();
+    if (!id || !token || /\s/.test(token)) {
+      await saveSession(chatId, "idle", {});
+      await sendTelegramMessage(chatId, telegramTrackingFailureMessage(locale));
+      return true;
+    }
+    const tracked = await resolveTelegramTracking(chatId, id, token);
+    await saveSession(chatId, "idle", {});
+    if (!tracked) {
+      await sendTelegramMessage(chatId, telegramTrackingFailureMessage(locale));
+      return true;
+    }
+    await sendTelegramTrackingCard(chatId, locale, tracked);
+    return true;
+  }
+  return false;
+}
+export async function handleText(chatId: string, locale: TelegramLocale, text: string) {
   const command = text.trim().split(/\s+/)[0].toLowerCase();
   if (await blockUnresolvedCreateReplacement(chatId, command)) return;
   if (command === "/exchange") { await exchangeOptions(chatId, locale, "swap"); return; }
   if (command === "/convert") { await exchangeOptions(chatId, locale, "convert"); return; }
-  if (command === "/track") { await saveSession(chatId, "track", {}); await sendTelegramMessage(chatId, t(locale, "tracking")); return; }
+  if (command === "/track") {
+    const argumentsText = text.trim().slice(command.length).trim();
+    if (!argumentsText) {
+      await startTelegramTracking(chatId, locale);
+    } else {
+      await saveSession(chatId, "track", {});
+      await handleTelegramTrackingText(chatId, locale, argumentsText, "track");
+    }
+    return;
+  }
   if (command === "/orders") { await sendOrders(chatId, locale); return; }
   if (command === "/support") { await callback(chatId, locale, "support"); return; }
   if (command === "/language") { await sendTelegramMessage(chatId, t(locale, "language"), languageButtons()); return; }
   const session = await getSession(chatId);
+  if (session && await handleTelegramTrackingText(chatId, locale, text, session.state, session.data)) return;
   if (session?.state === "source") {
     const data = { ...session.data, sourceQuery: text.trim() };
     await saveSession(chatId, "source", data);
@@ -1012,24 +1348,6 @@ async function handleText(chatId: string, locale: TelegramLocale, text: string) 
     const data = { ...session.data, email: text.trim(), termsAccepted: false };
     await saveSession(chatId, "review", data);
     await sendTelegramMessage(chatId, telegramReviewMessage(data, locale), telegramReviewKeyboard(false, locale));
-    return;
-  }
-  if (session?.state === "track") {
-    const [id, trackingToken] = text.trim().split(/\s+/);
-    if (!id || !trackingToken) { await sendTelegramMessage(chatId, t(locale, "tracking")); return; }
-    const orderKind = await resolveTelegramOrderKind(chatId, id);
-    if (!orderKind) {
-      await sendTelegramMessage(chatId, `${t(locale, "unavailable")}: invalid or ambiguous order identifier`);
-      return;
-    }
-    const statusPath = orderKind === "convert" ? "/api/quickex/orders" : "/api/orders";
-    const response = await fetch(`${baseUrl()}${statusPath}/${encodeURIComponent(id)}/status?trackingToken=${encodeURIComponent(trackingToken)}`);
-    const result = await response.json() as Record<string, unknown>;
-    if (response.ok) {
-      await db.insert(telegramOrderLinksTable).values({ chatId, orderId: id, trackingToken, orderKind }).onConflictDoNothing();
-    }
-    await sendTelegramMessage(chatId, response.ok ? `<b>${t(locale, "order")}</b> <code>${html(id)}</code>\n${t(locale, "status")}: ${html(result.status)}\n${t(locale, "amount")}: ${html(result.amount)} ${html(result.fromAsset)} → ${html(result.receiveAmount)} ${html(result.toAsset)}` : `${t(locale, "unavailable")}: ${html(result.error ?? "invalid tracking capability")}`);
-    if (response.ok) await sendDepositInstructions(chatId, id, orderKind, trackingToken, result);
     return;
   }
   if (text.startsWith("/start")) { await mainMenu(chatId, locale); return; }
@@ -1174,7 +1492,7 @@ async function callback(chatId: string, locale: TelegramLocale, data: string, me
     }
     return;
   }
-  if (data === "track") { await saveSession(chatId, "track", {}); await sendTelegramMessage(chatId, t(locale, "tracking")); return; }
+  if (data === "track") { await startTelegramTracking(chatId, locale); return; }
   if (data === "support") { await sendTelegramMessage(chatId, `${t(locale, "supportText")}${process.env.TELEGRAM_SUPPORT_URL ? `\n${process.env.TELEGRAM_SUPPORT_URL}` : ""}`); return; }
   if (data === "website_unavailable") { await sendTelegramMessage(chatId, "The website is temporarily unavailable."); return; }
   if (data === "orders") {
@@ -1197,6 +1515,21 @@ async function callback(chatId: string, locale: TelegramLocale, data: string, me
     await mainMenu(chatId, locale);
     return;
   }
+  if (data.startsWith("deposit:id:")) {
+    const parsed = parseTelegramOrderCallback(`order:${data.slice("deposit:".length)}`);
+    if (!parsed || !("orderId" in parsed) || typeof parsed.orderId !== "string") return;
+    const tracked = await resolveTelegramCallbackOrder(chatId, parsed.orderId);
+    if (!tracked || !await telegramTrackingIdentityIsCurrent(chatId, tracked)) {
+      await sendTelegramMessage(chatId, telegramTrackingFailureMessage(locale));
+      return;
+    }
+    if (!telegramDepositInstruction(tracked.result)) {
+      await sendTelegramMessage(chatId, telegramTrackingFailureMessage(locale));
+      return;
+    }
+    await sendDepositInstructions(chatId, tracked.orderId, tracked.orderKind, tracked.trackingToken, tracked.result, locale);
+    return;
+  }
   if (data.startsWith("order:")) {
     const parsed = parseTelegramOrderCallback(data);
     if (!parsed) return;
@@ -1210,16 +1543,17 @@ async function callback(chatId: string, locale: TelegramLocale, data: string, me
         .limit(10);
       orderId = links[parsed.legacyIndex]?.orderId;
     }
-    if (orderId) {
-      const [link] = await db.select().from(telegramOrderLinksTable).where(and(
-        eq(telegramOrderLinksTable.chatId, chatId),
-        eq(telegramOrderLinksTable.orderId, orderId),
-      )).limit(1);
-      if (telegramOrderLinkOwnedByChat(link, chatId, orderId)) {
-        await sendDepositInstructions(chatId, link.orderId, link.orderKind, link.trackingToken);
-      }
+    if (!orderId) {
+      await sendTelegramMessage(chatId, telegramTrackingFailureMessage(locale));
+      return;
     }
-    await sendOrders(chatId, locale); return;
+    const tracked = await resolveTelegramCallbackOrder(chatId, orderId);
+    if (!tracked) {
+      await sendTelegramMessage(chatId, telegramTrackingFailureMessage(locale));
+      return;
+    }
+    await sendTelegramTrackingCard(chatId, locale, tracked);
+    return;
   }
   if (data === "cancel") { await saveSession(chatId, "idle", {}); await sendTelegramMessage(chatId, t(locale, "cancelled")); return; }
   if (data === "retry:create") {

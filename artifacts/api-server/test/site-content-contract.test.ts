@@ -16,6 +16,7 @@ import {
   UpdateAdminPartnerLogoSettingsBody,
   RequestWebsiteBrandingUploadBody,
   UpdateAdminSocialMediaBody,
+  normalizeTelegramSupportUrl,
 } from "@workspace/api-zod";
 import { buildContactSupportEmail } from "../src/lib/contact-support-email";
 import { isSafeSiteLink } from "../src/lib/site-content-policy";
@@ -94,6 +95,13 @@ test("site content contract accepts the registered pages and future slug-safe pa
   assert.equal(Object.hasOwn(publicContent.pages[0]!, "createdBy"), false);
   assert.equal(Object.hasOwn(publicContent.pages[0]!, "publishedBy"), false);
   assert.deepEqual(SaveAdminSitePageBody.parse({ content: {} }), { content: {} });
+
+  const { telegramUrl: _legacyTelegramUrl, ...legacySocialTrust } = payload.socialTrust;
+  const legacyPublication = GetPublishedSiteContentResponse.parse({
+    ...payload,
+    socialTrust: legacySocialTrust,
+  });
+  assert.equal(legacyPublication.socialTrust.telegramUrl, undefined);
 });
 
 test("partner logo appearance variants and layout settings are constrained", () => {
@@ -173,6 +181,40 @@ test("website branding contract constrains namespaced uploads and dimensions", (
 });
 
 test("social and trust items are custom, image-backed, and URL constrained", () => {
+  assert.equal(normalizeTelegramSupportUrl("@Quick_change_support"), "https://t.me/Quick_change_support");
+  assert.equal(normalizeTelegramSupportUrl("https://t.me/Quick_change_support/"), "https://t.me/Quick_change_support");
+  assert.equal(normalizeTelegramSupportUrl("https://telegram.me/Quick_change_support"), "https://t.me/Quick_change_support");
+  assert.equal(normalizeTelegramSupportUrl("  "), null);
+  assert.equal(normalizeTelegramSupportUrl(null), null);
+  for (const unsafe of [
+    "tg://resolve?domain=Quick_change_support",
+    "http://t.me/Quick_change_support",
+    "https://evil.example/Quick_change_support",
+    "https://t.me.evil.example/Quick_change_support",
+    "https://user@t.me/Quick_change_support",
+    "https://t.me:443/Quick_change_support",
+    "https://t.me/Quick_change_support?start=payload",
+    "https://t.me/Quick_change_support#fragment",
+    "https://t.me/+invite",
+    "https://t.me/Quick_change_support/123",
+    "https://t.me/mybot?start=payload",
+    "@shrt",
+    "@1invalid",
+    `@valid\u0000name`,
+  ]) {
+    assert.throws(() => normalizeTelegramSupportUrl(unsafe), unsafe);
+  }
+  assert.throws(() => normalizeTelegramSupportUrl(`@${"a".repeat(33)}`));
+  assert.equal(
+    UpdateAdminSocialMediaBody.parse({
+      instagramUrl: null, xUrl: null, facebookUrl: null, telegramUrl: "@Quick_change_support",
+    }).telegramUrl,
+    "@Quick_change_support",
+  );
+  assert.throws(() => UpdateAdminSocialMediaBody.parse({
+    instagramUrl: null, xUrl: null, facebookUrl: null, telegramUrl: "https://t.me/Quick_change_support?start=payload",
+  }));
+
   const input = CreateAdminSocialTrustItemBody.parse({
     group: "trust",
     name: "Any custom platform",

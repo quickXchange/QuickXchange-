@@ -12,7 +12,7 @@ import type { PartnerLogo, SiteNavLink, SocialIconAppearance, SocialTrustConfig,
 import { LanguageSelector } from '@/components/language-selector';
 import { useI18n } from '@/i18n';
 import { PUBLIC_PAGE_REGISTRY } from '../lib/public-page-registry';
-import { basePath, cn, SUPPORT_TELEGRAM, SUPPORT_EMAIL, SUPPORT_HOURS } from '@/components/shared-app-ui';
+import { basePath, cn, SUPPORT_EMAIL, SUPPORT_HOURS } from '@/components/shared-app-ui';
 import { SideDrawer } from '@/components/side-drawer';
 import { setAppTheme, useAppTheme } from '@/theme';
 import { useSitePreview } from './site-preview-context';
@@ -23,6 +23,11 @@ import { DesktopMegaMenu, NAVIGATION_DATA } from '@/components/mega-menu';
 import type { NavGroup } from '@/components/mega-menu';
 import { TelegramSupportButton } from '@/components/telegram-support-button';
 import { SocialBrandMark, socialBrandKind } from '@/components/social-brand-mark';
+import { usePublishedTelegramSupportUrl } from '@/lib/telegram-support';
+import {
+  resolveTelegramSupportForPublicShell,
+  resolveFooterTelegramSupportItems,
+} from '@/lib/telegram-support-value';
 import './social-trust-footer.css';
 
 const COMPANY_FOOTER_LINKS = [
@@ -163,7 +168,7 @@ export function FooterSocialIcon({ item, preview, isDark, preferUploadedTrustpil
   return footerSocialPlatformIcon(item);
 }
 
-function FooterSocialLinksDataDriven({ socialTrust, socialItems, trustItems, preview, trustpilotUrl, trustpilotIsConfigured, trustpilotPartner }: {
+function FooterSocialLinksDataDriven({ socialTrust, socialItems, trustItems, preview, trustpilotUrl, trustpilotIsConfigured, trustpilotPartner, supportUrl }: {
   socialTrust?: SocialTrustConfig;
   socialItems: SocialTrustItem[];
   trustItems: SocialTrustItem[];
@@ -171,14 +176,18 @@ function FooterSocialLinksDataDriven({ socialTrust, socialItems, trustItems, pre
   trustpilotUrl?: string | null;
   trustpilotIsConfigured: boolean;
   trustpilotPartner?: PartnerLogoExtended;
+  supportUrl?: string;
 }) {
   const isDark = useAppTheme();
+  const supportSocialItems = resolveFooterTelegramSupportItems(socialItems, supportUrl);
   const legacyItems: RenderableSocialItem[] = LEGACY_SOCIAL_FIELDS.flatMap(([field, name]) => {
-    const href = socialTrust?.[field];
-    if (!href || socialItems.some((item) => item.href === href)) return [];
+    const href = field === 'telegramUrl'
+      ? socialTrust?.telegramUrl ? supportUrl : null
+      : socialTrust?.[field];
+    if (!href || supportSocialItems.some((item) => item.href === href)) return [];
     return [{ id: `legacy-${field}`, name, href, objectPath: null }];
   });
-  const allSocialItems: RenderableSocialItem[] = [...socialItems, ...legacyItems];
+  const allSocialItems: RenderableSocialItem[] = [...supportSocialItems, ...legacyItems];
   const appearanceStyle = footerSocialAppearance(socialTrust);
   const style = (socialTrust?.appearance ?? {}) as SocialIconAppearance & Record<string, unknown>;
   const trustStyle = (socialTrust?.trustAppearance ?? {}) as SocialIconAppearance & Record<string, unknown>;
@@ -242,7 +251,7 @@ function FooterSocialLinksDataDriven({ socialTrust, socialItems, trustItems, pre
       {showSocialTitle && <h3 className="font-semibold text-foreground" style={{ fontSize: `${style.titleFontSize ?? 18}px`, textAlign: (style.titleAlignment ?? style.alignment ?? 'left') as CSSProperties['textAlign'] }}>{socialTrust?.socialTitle ?? 'Stay connected with us'}</h3>}
       <div className="qx-footer-social-links" style={socialRowStyle}>
         {allSocialItems.map((item) => (
-            <a key={item.id} href={item.href} target="_blank" rel="noreferrer noopener" aria-label={isTrustpilotItem(item) ? 'Trustpilot' : item.name} title={item.name} data-testid={`link-published-social-${item.id}`} className={`qx-footer-social-link qx-social-hover-${style.hoverAnimation ?? 'lift'}${isTrustpilotItem(item) ? ' qx-footer-trustpilot-social' : ''}`} style={{ ...appearanceStyle, borderRadius: radius, borderColor: style.borderColor === '#dce3ed' ? undefined : style.borderColor, backgroundColor: style.backgroundColor === '#ffffff' ? undefined : style.backgroundColor }}>
+            <a key={item.id} href={item.href || undefined} aria-disabled={!item.href} tabIndex={item.href ? undefined : -1} target="_blank" rel="noreferrer noopener" aria-label={isTrustpilotItem(item) ? 'Trustpilot' : item.name} title={item.name} data-testid={`link-published-social-${item.id}`} className={`qx-footer-social-link qx-social-hover-${style.hoverAnimation ?? 'lift'}${isTrustpilotItem(item) ? ' qx-footer-trustpilot-social' : ''}`} style={{ ...appearanceStyle, borderRadius: radius, borderColor: style.borderColor === '#dce3ed' ? undefined : style.borderColor, backgroundColor: style.backgroundColor === '#ffffff' ? undefined : style.backgroundColor }}>
              <span className="qx-footer-social-mark"><FooterSocialIcon item={item} preview={preview} isDark={isDark} preferUploadedTrustpilot /></span>
           </a>
         ))}
@@ -660,6 +669,13 @@ export function PublicShell({ children }: { children: ReactNode }) {
   const { t } = useI18n();
   const preview = useSitePreview();
   const published = useGetPublishedSiteContent({ query: { queryKey: getGetPublishedSiteContentQueryKey(), staleTime: 60_000 } });
+  const publishedTelegramSupportUrl = usePublishedTelegramSupportUrl();
+  const telegramSupportUrl = resolveTelegramSupportForPublicShell(
+    publishedTelegramSupportUrl,
+    preview.active,
+    Boolean(preview.socialTrust),
+    preview.telegramSupportPreview,
+  );
   const notificationSettings = useGetPublicNotificationSettings();
 
   const effectivePages = useMemo(() => {
@@ -721,17 +737,12 @@ export function PublicShell({ children }: { children: ReactNode }) {
   const socialItems = orderedPublishedSocialItems(socialTrust);
   const trustItems = (socialTrust?.items ?? []).filter(i => i.enabled && i.group === 'trust')
     .sort((a, b) => (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER) || automaticNameOrder(a, b));
-  const telegramSupportUrl = (socialTrust?.items ?? []).find((item) =>
-    item.enabled && normalizeFooterLabel(item.name) === 'telegram')?.href
-    ?? socialTrust?.telegramUrl
-    ?? SUPPORT_TELEGRAM;
-
   const trustpilotPartner = partnerLogos.find((logo) => logo.enabled && /trustpilot/i.test(logo.name) && logo.link);
   const trustpilotUrl = notificationSettings.data?.trustpilotReviewUrl || trustpilotPartner?.link || null;
   const hasConfiguredTrustpilot = (socialTrust?.items ?? []).some((item) =>
     item.enabled && (item.name.toLowerCase().includes('trustpilot') || item.href === trustpilotUrl),
   );
-  const hasSocial = Boolean(socialItems.length || socialTrust?.instagramUrl || socialTrust?.xUrl || socialTrust?.facebookUrl || trustItems.length || (trustpilotUrl && !hasConfiguredTrustpilot));
+  const hasSocial = Boolean(socialItems.length || socialTrust?.instagramUrl || socialTrust?.xUrl || socialTrust?.facebookUrl || socialTrust?.telegramUrl || trustItems.length || (trustpilotUrl && !hasConfiguredTrustpilot));
 
   const footerNavigationGroups = [
     { title: 'Company', links: companyFooterLinks, type: 'links' },
@@ -743,7 +754,7 @@ export function PublicShell({ children }: { children: ReactNode }) {
           <Clock3 size={15} />
           {SUPPORT_HOURS}
         </span>
-        <a href={telegramSupportUrl} target="_blank" rel="noreferrer noopener" className="public-footer-link hover:text-primary transition-colors flex items-center gap-2" data-testid="link-published-footer-support-telegram">
+        <a href={telegramSupportUrl} target="_blank" rel="noreferrer noopener" aria-disabled={!telegramSupportUrl} tabIndex={telegramSupportUrl ? undefined : -1} className="public-footer-link hover:text-primary transition-colors flex items-center gap-2" data-testid="link-published-footer-support-telegram">
           <SiTelegram size={14} className="opacity-80" />
           Telegram Support
         </a>
@@ -794,6 +805,7 @@ export function PublicShell({ children }: { children: ReactNode }) {
                     trustpilotUrl={trustpilotUrl}
                     trustpilotIsConfigured={hasConfiguredTrustpilot}
                     trustpilotPartner={trustpilotPartner}
+                    supportUrl={telegramSupportUrl}
                   />
                 </div>
               )}
@@ -831,7 +843,7 @@ export function PublicShell({ children }: { children: ReactNode }) {
         </div>
       </footer>
     </div>
-    <TelegramSupportButton />
+    <TelegramSupportButton supportUrl={telegramSupportUrl} />
   </div>;
 }
 

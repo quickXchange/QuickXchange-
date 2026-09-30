@@ -18690,6 +18690,8 @@ export const updateAdminSocialMediaBodyFacebookUrlMax = 2048;
 
 export const updateAdminSocialMediaBodyTelegramUrlMax = 2048;
 
+
+export const updateAdminSocialMediaBodyTelegramUrlRegExp = new RegExp('^(?: *| *@[A-Za-z][A-Za-z0-9_]{4,31} *| *https://(?:t\\.me|telegram\\.me)/[A-Za-z][A-Za-z0-9_]{4,31}/? *)$');
 export const updateAdminSocialMediaBodyAppearanceIconSizeMin = 8;
 export const updateAdminSocialMediaBodyAppearanceIconSizeMax = 48;
 export const updateAdminSocialMediaBodyAppearanceIconSizeMultipleOf = 1;
@@ -18778,7 +18780,7 @@ export const UpdateAdminSocialMediaBody = zod.object({
   "instagramUrl": zod.string().url().max(updateAdminSocialMediaBodyInstagramUrlMax).nullable(),
   "xUrl": zod.string().url().max(updateAdminSocialMediaBodyXUrlMax).nullable(),
   "facebookUrl": zod.string().url().max(updateAdminSocialMediaBodyFacebookUrlMax).nullable(),
-  "telegramUrl": zod.string().url().max(updateAdminSocialMediaBodyTelegramUrlMax).nullable(),
+  "telegramUrl": zod.string().max(updateAdminSocialMediaBodyTelegramUrlMax).regex(updateAdminSocialMediaBodyTelegramUrlRegExp).nullable().describe('Optional Telegram support username or t.me\/telegram.me username URL; saved and published as https:\/\/t.me\/{username}.'),
   "appearance": zod.object({
   "iconSize": zod.number().min(updateAdminSocialMediaBodyAppearanceIconSizeMin).max(updateAdminSocialMediaBodyAppearanceIconSizeMax).multipleOf(updateAdminSocialMediaBodyAppearanceIconSizeMultipleOf),
   "logoSize": zod.number().min(updateAdminSocialMediaBodyAppearanceLogoSizeMin).max(updateAdminSocialMediaBodyAppearanceLogoSizeMax).multipleOf(updateAdminSocialMediaBodyAppearanceLogoSizeMultipleOf),

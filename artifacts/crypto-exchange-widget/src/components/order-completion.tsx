@@ -9,6 +9,7 @@ import {
 } from '@workspace/api-client-react';
 import { buildInvoicePdf, downloadInvoicePdf } from '@/lib/invoice-pdf';
 import { invoiceSnapshot, isCompletedInvoiceOrder, type InvoiceOrder } from '@/lib/invoice-snapshot';
+import { usePublishedTelegramSupportUrl } from '@/lib/telegram-support';
 
 function trustpilotDestination(value?: string | null): string | null {
   if (!value) return null;
@@ -65,9 +66,10 @@ export function OrderCompletionSection({
 }) {
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const telegramSupportUrl = usePublishedTelegramSupportUrl();
   const isConvert = order.type === 'instant';
   useEffect(() => {
-    if (!isCompletedInvoiceOrder(order, refreshWarning)) return;
+    if (!telegramSupportUrl || !isCompletedInvoiceOrder(order, refreshWarning)) return;
     const url = new URL(window.location.href);
     if (url.searchParams.get('invoice') !== '1') return;
     // Consume the one-time email action before starting, so refetches and
@@ -76,18 +78,22 @@ export function OrderCompletionSection({
     window.history.replaceState(window.history.state, '', url);
     setExporting(true);
     setExportError(null);
-    void downloadInvoicePdf(invoiceSnapshot(order))
+    void downloadInvoicePdf(invoiceSnapshot(order), telegramSupportUrl)
       .catch(() => setExportError('The receipt could not be generated. Please try again.'))
       .finally(() => setExporting(false));
-  }, [order, refreshWarning]);
+  }, [order, refreshWarning, telegramSupportUrl]);
   if (!isCompletedInvoiceOrder(order, refreshWarning)) return null;
 
   const invoice = invoiceSnapshot(order);
   const downloadPdf = async () => {
+    if (!telegramSupportUrl) {
+      setExportError('Support details are still loading. Please try again.');
+      return;
+    }
     setExporting(true);
     setExportError(null);
     try {
-      await downloadInvoicePdf(invoice);
+      await downloadInvoicePdf(invoice, telegramSupportUrl);
     } catch {
       setExportError('The receipt could not be generated. Please try again.');
     } finally {
@@ -95,6 +101,10 @@ export function OrderCompletionSection({
     }
   };
   const printPdf = async () => {
+    if (!telegramSupportUrl) {
+      setExportError('Support details are still loading. Please try again.');
+      return;
+    }
     // Open synchronously on the click, before fetching fonts and building the
     // document. Otherwise browsers may block the PDF preview as a popup.
     const preview = window.open('', '_blank');
@@ -108,7 +118,7 @@ export function OrderCompletionSection({
     setExporting(true);
     setExportError(null);
     try {
-      const url = URL.createObjectURL(await buildInvoicePdf(invoice));
+      const url = URL.createObjectURL(await buildInvoicePdf(invoice, telegramSupportUrl));
       const frame = preview.document.createElement('iframe');
       frame.src = url;
       frame.title = `QuickXchange invoice ${invoice.id}`;
@@ -136,11 +146,11 @@ export function OrderCompletionSection({
         </div>
       </div>
       <div className="order-completion-actions">
-        <button type="button" className="order-completion-button" onClick={downloadPdf} disabled={exporting} data-testid="button-download-invoice">
-          <Download size={16} /> {exporting ? 'Preparing PDF…' : 'Download PDF'}
+        <button type="button" className="order-completion-button" onClick={downloadPdf} disabled={exporting || !telegramSupportUrl} data-testid="button-download-invoice">
+          <Download size={16} /> {!telegramSupportUrl ? 'Loading support details…' : exporting ? 'Preparing PDF…' : 'Download PDF'}
         </button>
-        <button type="button" className="order-completion-button secondary" onClick={printPdf} disabled={exporting} data-testid="button-print-invoice">
-          <Printer size={16} /> Print
+        <button type="button" className="order-completion-button secondary" onClick={printPdf} disabled={exporting || !telegramSupportUrl} data-testid="button-print-invoice">
+          <Printer size={16} /> {!telegramSupportUrl ? 'Loading support…' : 'Print'}
         </button>
       </div>
       {exportError && <p className="px-5 pb-4 text-sm text-destructive" role="alert">{exportError}</p>}

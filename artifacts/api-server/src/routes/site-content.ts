@@ -63,6 +63,8 @@ import {
   UpdateAdminSocialTrustTitlesResponse,
   UpdateAdminPartnerLogoSettingsBody,
   UpdateAdminPartnerLogoSettingsResponse,
+  InvalidTelegramSupportValueError,
+  normalizeTelegramSupportUrl,
 } from "@workspace/api-zod";
 import {
   contactSubmissionsTable,
@@ -337,6 +339,16 @@ function normalizedSocialUrl(value: string | null): string | null {
   return url.toString();
 }
 
+function historicalTelegramSupportUrl(value: string | null | undefined): string | null | undefined {
+  if (value == null) return value;
+  try {
+    return normalizeTelegramSupportUrl(value);
+  } catch (error) {
+    if (error instanceof InvalidTelegramSupportValueError) return null;
+    throw error;
+  }
+}
+
 async function draftSocialTrust() {
   const [settings] = await db.select().from(socialTrustSettingsTable).where(eq(socialTrustSettingsTable.id, "footer")).limit(1);
   const items = await db.select().from(socialTrustLinksTable)
@@ -348,7 +360,7 @@ async function draftSocialTrust() {
     instagramUrl: settings?.instagramUrl ?? DEFAULT_SOCIAL_TRUST.instagramUrl,
     xUrl: settings?.xUrl ?? DEFAULT_SOCIAL_TRUST.xUrl,
     facebookUrl: settings?.facebookUrl ?? DEFAULT_SOCIAL_TRUST.facebookUrl,
-    telegramUrl: settings?.telegramUrl ?? DEFAULT_SOCIAL_TRUST.telegramUrl,
+    telegramUrl: historicalTelegramSupportUrl(settings?.telegramUrl ?? DEFAULT_SOCIAL_TRUST.telegramUrl),
     appearance: normalizedSocialIconAppearance(settings?.appearance),
     trustAppearance: normalizedSocialIconAppearance(settings?.trustAppearance),
     socialTitleVisible: normalizedSocialIconAppearance(settings?.appearance).socialTitleVisible ?? true,
@@ -470,6 +482,7 @@ router.get("/site-content", async (_req, res): Promise<void> => {
   const socialTrust: SiteSocialTrustSnapshot = publication?.socialTrust
     ? {
       ...publication.socialTrust,
+      telegramUrl: historicalTelegramSupportUrl(publication.socialTrust.telegramUrl),
       appearance: normalizedSocialIconAppearance(publication.socialTrust.appearance),
       trustAppearance: publication.socialTrust.trustAppearance ?? publication.socialTrust.appearance,
       items: [...publication.socialTrust.items],
@@ -1004,7 +1017,7 @@ router.post("/admin/site-publication", requireOwner, async (_req, res): Promise<
       instagramUrl: socialTrustSettings?.instagramUrl ?? DEFAULT_SOCIAL_TRUST.instagramUrl,
       xUrl: socialTrustSettings?.xUrl ?? DEFAULT_SOCIAL_TRUST.xUrl,
       facebookUrl: socialTrustSettings?.facebookUrl ?? DEFAULT_SOCIAL_TRUST.facebookUrl,
-      telegramUrl: socialTrustSettings?.telegramUrl ?? DEFAULT_SOCIAL_TRUST.telegramUrl,
+      telegramUrl: historicalTelegramSupportUrl(socialTrustSettings?.telegramUrl ?? DEFAULT_SOCIAL_TRUST.telegramUrl),
       appearance: normalizedSocialIconAppearance(socialTrustSettings?.appearance),
       trustAppearance: normalizedSocialIconAppearance(socialTrustSettings?.trustAppearance),
       socialTitleVisible: normalizedSocialIconAppearance(socialTrustSettings?.appearance).socialTitleVisible ?? true,
@@ -1295,11 +1308,20 @@ router.put("/admin/social-trust", requireOperator, async (req, res): Promise<voi
 
 router.put("/admin/social-trust/social-media", requireOperator, async (req, res): Promise<void> => {
   const input = UpdateAdminSocialMediaBody.parse(req.body);
+  let telegramUrl: string | null;
+  try {
+    telegramUrl = normalizeTelegramSupportUrl(input.telegramUrl);
+  } catch (error) {
+    if (error instanceof InvalidTelegramSupportValueError) {
+      throw new ApiError("SOCIAL_MEDIA_TELEGRAM_SUPPORT_INVALID", error.message, 400);
+    }
+    throw error;
+  }
   const values = {
     instagramUrl: normalizedSocialUrl(input.instagramUrl),
     xUrl: normalizedSocialUrl(input.xUrl),
     facebookUrl: normalizedSocialUrl(input.facebookUrl),
-    telegramUrl: normalizedSocialUrl(input.telegramUrl),
+    telegramUrl,
     ...(input.appearance ? { appearance: normalizedSocialIconAppearance(input.appearance) } : {}),
     ...(input.trustAppearance ? { trustAppearance: normalizedSocialIconAppearance(input.trustAppearance) } : {}),
   };

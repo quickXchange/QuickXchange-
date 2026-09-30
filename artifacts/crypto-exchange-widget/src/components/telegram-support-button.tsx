@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { SiTelegram } from 'react-icons/si';
-import { SUPPORT_TELEGRAM } from '@/components/shared-app-ui';
 
-export function TelegramSupportButton() {
+export function TelegramSupportButton({ supportUrl }: { supportUrl: string | undefined }) {
   const [footerVisible, setFooterVisible] = useState(false);
 
   useEffect(() => {
@@ -19,7 +18,9 @@ export function TelegramSupportButton() {
 
   return (
     <a
-      href={SUPPORT_TELEGRAM}
+      href={supportUrl}
+      aria-disabled={!supportUrl}
+      tabIndex={supportUrl ? undefined : -1}
       target="_blank"
       rel="noreferrer noopener"
       aria-label="Telegram Support"

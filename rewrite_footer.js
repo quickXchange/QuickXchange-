@@ -3,7 +3,7 @@ const file = 'artifacts/crypto-exchange-widget/src/components/public-shell.tsx';
 let content = fs.readFileSync(file, 'utf8');
 
 const regex = /const hasSocial = Boolean\(socialItems.length(.|\n)*?<\/details>\n            <\/div>/m;
-const replacement = `const hasSocial = Boolean(socialItems.length || socialTrust?.instagramUrl || socialTrust?.xUrl || socialTrust?.facebookUrl || trustItems.length);
+const replacement = `const hasSocial = Boolean(socialItems.length || socialTrust?.instagramUrl || socialTrust?.xUrl || socialTrust?.facebookUrl || socialTrust?.telegramUrl || trustItems.length);
 
   const footerNavigationGroups = [
     { title: 'Company', links: companyFooterLinks, type: 'links' },
@@ -15,7 +15,7 @@ const replacement = `const hasSocial = Boolean(socialItems.length || socialTrust
           <Clock3 size={15} />
           {SUPPORT_HOURS}
         </span>
-        <a href={SUPPORT_TELEGRAM} target="_blank" rel="noreferrer noopener" className="public-footer-link hover:text-primary transition-colors flex items-center gap-2" data-testid="link-published-footer-support-telegram">
+        <a href={telegramSupportUrl} aria-disabled={!telegramSupportUrl} tabIndex={telegramSupportUrl ? undefined : -1} target="_blank" rel="noreferrer noopener" className="public-footer-link hover:text-primary transition-colors flex items-center gap-2" data-testid="link-published-footer-support-telegram">
           <SiTelegram size={14} className="opacity-80" />
           Telegram Support
         </a>
@@ -61,6 +61,7 @@ const replacement = `const hasSocial = Boolean(socialItems.length || socialTrust
                    <FooterSocialLinksDataDriven
                      socialTrust={socialTrust as SocialTrustConfig | undefined}
                      socialItems={socialItems}
+                     supportUrl={telegramSupportUrl}
                     trustItems={trustItems}
                     preview={preview}
                   />
@@ -90,6 +91,7 @@ const replacement = `const hasSocial = Boolean(socialItems.length || socialTrust
                    <FooterSocialLinksDataDriven
                      socialTrust={socialTrust as SocialTrustConfig | undefined}
                      socialItems={socialItems}
+                     supportUrl={telegramSupportUrl}
                     trustItems={trustItems}
                     preview={preview}
                   />

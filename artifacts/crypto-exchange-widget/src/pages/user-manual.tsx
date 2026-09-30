@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { PublicShell } from '../components/public-shell';
-import { basePath, cn, SUPPORT_TELEGRAM, SUPPORT_EMAIL } from '../components/shared-app-ui';
+import { basePath, cn, SUPPORT_EMAIL } from '../components/shared-app-ui';
 import { Link } from 'wouter';
 import { ShieldAlert, Info, AlertTriangle, BookOpen, Maximize2, PlayCircle, RotateCcw, X, ZoomIn } from 'lucide-react';
 import './user-manual.css';
+import { usePublishedTelegramSupportUrl } from '../lib/telegram-support';
 
 function useUserManualSEO() {
   useLayoutEffect(() => {
@@ -326,6 +327,7 @@ const TOC = [
 ];
 
 export function UserManualPage() {
+  const telegramSupportUrl = usePublishedTelegramSupportUrl();
   useUserManualSEO();
 
   return (
@@ -608,7 +610,7 @@ export function UserManualPage() {
               <h2>Support</h2>
               <p>If you encounter an issue not covered in this manual, our support team is available to assist you. Please have your Order ID and relevant transaction hashes ready before reaching out.</p>
               <ul>
-                <li><strong>Telegram Support:</strong> <a href={SUPPORT_TELEGRAM} target="_blank" rel="noopener noreferrer" className="user-manual-link" data-testid="link-manual-telegram">Open Telegram Chat</a></li>
+                <li><strong>Telegram Support:</strong> <a href={telegramSupportUrl} aria-disabled={!telegramSupportUrl} tabIndex={telegramSupportUrl ? undefined : -1} target="_blank" rel="noopener noreferrer" className="user-manual-link" data-testid="link-manual-telegram">Open Telegram Chat</a></li>
                 <li><strong>Email Support:</strong> <a href={`mailto:${SUPPORT_EMAIL}`} className="user-manual-link" data-testid="link-manual-email">{SUPPORT_EMAIL}</a></li>
               </ul>
               <p>Our representatives will never ask for your private keys, seed phrases, or passwords. Stay vigilant and ensure you are only communicating through our official channels.</p>

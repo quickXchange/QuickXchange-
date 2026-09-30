@@ -127,6 +127,7 @@ import { AdminSwapDefaultPair } from '../components/admin-swap-default-pair';
 import { AdminConvertDefaultPair } from '../components/admin-convert-default-pair';
 import { SwapFeeBreakdown } from '../components/swap-fee-breakdown';
 import { notifyAdminAction } from '../components/admin-action-toast';
+import { usePublishedTelegramSupportUrl } from '../lib/telegram-support';
 
 import { CatalogImageUploadField } from '../components/catalog-image-upload-field';
 import { useAdminPermissions } from '../lib/admin-permissions';
@@ -5218,6 +5219,7 @@ function ExchangeDetailsCard({
 
 function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   const { t } = useI18n();
+  const telegramSupportUrl = usePublishedTelegramSupportUrl();
   const { can } = useAdminPermissions();
   const currentQueryClient = useQueryClient();
   const orderQuery = useGetOrder(id, { query: {
@@ -5430,6 +5432,10 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
 
   const step2Rows = viewOrderStep2Rows(order?.step2Details);
   const downloadOrderInvoice = async () => {
+    if (!telegramSupportUrl) {
+      notifyAdminAction('error', 'Published support details are still loading. Try again in a moment.');
+      return;
+    }
     if (!order || !isCompletedInvoiceOrder(order) || invoicePending) return;
     setInvoicePending(true);
     setNotice(null);
@@ -5444,7 +5450,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
           !isCompletedInvoiceOrder(safeOrder)) {
         throw new Error('The order is no longer confirmed as completed.');
       }
-      await downloadInvoicePdf(invoiceSnapshot(safeOrder));
+      await downloadInvoicePdf(invoiceSnapshot(safeOrder), telegramSupportUrl);
     } catch {
       notifyAdminAction('error', 'The invoice could not be generated. Reload the order and try again.');
     } finally {
@@ -5634,11 +5640,11 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
             </div>
              <div className="flex items-center gap-2">
                {isCompletedInvoiceOrder(order) && (
-                 <button type="button" onClick={downloadOrderInvoice} disabled={invoicePending}
+                  <button type="button" onClick={downloadOrderInvoice} disabled={invoicePending || !telegramSupportUrl}
                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary/30 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/10 disabled:opacity-50"
                    data-testid="button-admin-download-invoice">
-                   {invoicePending ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
-                   {invoicePending ? 'Preparing PDF…' : 'Download Invoice PDF'}
+                    {invoicePending || !telegramSupportUrl ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+                    {!telegramSupportUrl ? 'Loading support details…' : invoicePending ? 'Preparing PDF…' : 'Download Invoice PDF'}
                  </button>
                )}
             </div>

@@ -5,7 +5,6 @@ import { Check, CircleAlert, RefreshCw, ShieldCheck, X, Copy } from 'lucide-reac
 import type { ApiError, OrderPaymentDetails, SourcePaymentMethod } from '@workspace/api-client-react';
 import { useI18n } from '@/i18n';
 
-export const SUPPORT_TELEGRAM = 'https://t.me/Quick_change_support';
 export const TELEGRAM_BOT_URL = 'https://t.me/QuickXchangeNetBot';
 export const SUPPORT_EMAIL = 'support@quickchange.exchange';
 export const SUPPORT_HOURS = '24/7 Support';
@@ -30,7 +29,7 @@ export function PaymentDetailsCard({
   markPaidPending = false,
   actionsDisabled = false,
   showPayNow = true,
-  supportHref = SUPPORT_TELEGRAM,
+  supportHref,
 }: {
   paymentDetails?: OrderPaymentDetails | null;
   paymentDetailsApplicable?: boolean;
@@ -134,7 +133,7 @@ export function PaymentDetailsCard({
                       ) : (
                         <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-5 text-center transition-colors hover:border-cyan-500/30 hover:bg-cyan-500/10" data-testid="payment-details-support-prompt">
                           <p className="text-sm font-medium text-cyan-800 dark:text-cyan-200 mb-4">Contact support to get details</p>
-                          <a className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-cyan-200 bg-white px-4 text-sm font-semibold text-cyan-700 shadow-sm transition-colors hover:bg-cyan-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-card dark:border-cyan-800/60 dark:bg-slate-900 dark:text-cyan-300 dark:hover:bg-cyan-950" href={supportHref} target="_blank" rel="noreferrer" data-testid="button-contact-support">Contact Support</a>
+                          <a className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-cyan-200 bg-white px-4 text-sm font-semibold text-cyan-700 shadow-sm transition-colors hover:bg-cyan-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-card dark:border-cyan-800/60 dark:bg-slate-900 dark:text-cyan-300 dark:hover:bg-cyan-950" href={supportHref} aria-disabled={!supportHref} tabIndex={supportHref ? undefined : -1} target="_blank" rel="noreferrer" data-testid="button-contact-support">Contact Support</a>
                         </div>
                       )}
                     </div>

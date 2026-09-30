@@ -24,13 +24,14 @@ import { useI18n } from '../i18n/provider';
 import { CustomerShell, CustomerPageHeader, ThemeToggle } from '@/components/customer/CustomerShell';
 import { CustomerStatCard } from '@/components/customer/CustomerStatCard';
 import { LanguageSelector } from '@/components/language-selector';
-import { basePath, cn, ErrorState, InlineNotice, LoadingBlock, number, publicApiErrorText, StatusPill, PaymentDetailsCard, SUPPORT_EMAIL } from '@/components/shared-app-ui';
+import { basePath, cn, ErrorState, InlineNotice, LoadingBlock, number, publicApiErrorText, StatusPill, PaymentDetailsCard } from '@/components/shared-app-ui';
 import { PublicShell } from '@/components/public-shell';
 import { ExchangeModeSwitcher } from '@/components/exchange-surface';
 import { convertOrderStatusStep } from '@/lib/convert-order-status';
 import { OrderCompletionSection } from '@/components/order-completion';
 import { VerifiedTransaction } from '@/components/verified-transaction';
 import { viewOrderInformationRows, viewOrderStep2Rows } from '@/components/view-order-fields';
+import { usePublishedTelegramSupportUrl } from '@/lib/telegram-support';
 
 type CustomerStatusGroup = 'pending' | 'processing' | 'completed' | 'failed';
 
@@ -1059,6 +1060,7 @@ function CustomerOrderView({ order, drawer = false }: { order: CustomerOrder; dr
   const { t, formatDate } = useI18n();
   const { user } = useUser();
   const queryClient = useQueryClient();
+  const telegramSupportUrl = usePublishedTelegramSupportUrl();
   const statusGroup = customerStatusGroup(order.status);
   const publicNotificationSettings = useGetPublicNotificationSettings({
     query: { queryKey: getGetPublicNotificationSettingsQueryKey(), staleTime: 60_000 },
@@ -1212,7 +1214,7 @@ function CustomerOrderView({ order, drawer = false }: { order: CustomerOrder; dr
               },
             })}
             markPaidPending={markPaidMutation.isPending}
-            supportHref={`mailto:${SUPPORT_EMAIL}`}
+            supportHref={telegramSupportUrl}
           />
       )}
 

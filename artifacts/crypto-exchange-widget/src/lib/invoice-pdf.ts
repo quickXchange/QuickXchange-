@@ -1,5 +1,6 @@
 import fontkit from '@pdf-lib/fontkit';
 import { PDFDocument, type PDFPage, type PDFFont, rgb } from 'pdf-lib';
+import { normalizeTelegramSupportUrl } from '@workspace/api-zod';
 import { basePath } from '@/components/shared-app-ui';
 import type { InvoiceSnapshot } from './invoice-snapshot';
 
@@ -77,7 +78,11 @@ function rule(page: PDFPage, y: number) {
  * financial and customer-entered values come only from the saved order
  * projection; this renderer never queries current pricing or payment config.
  */
-export async function buildInvoicePdf(invoice: InvoiceSnapshot): Promise<Blob> {
+export async function buildInvoicePdf(invoice: InvoiceSnapshot, supportTelegramUrl: string): Promise<Blob> {
+  const canonicalSupportUrl = normalizeTelegramSupportUrl(supportTelegramUrl);
+  if (!canonicalSupportUrl || canonicalSupportUrl !== supportTelegramUrl) {
+    throw new Error('A resolved Telegram support URL is required to generate this invoice.');
+  }
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
   const [regularBytes, boldBytes, logoBytes] = await Promise.all([
@@ -258,7 +263,7 @@ export async function buildInvoicePdf(invoice: InvoiceSnapshot): Promise<Blob> {
     printedPage.drawLine({ start: { x: MARGIN, y: 74 }, end: { x: PAGE_WIDTH - MARGIN, y: 74 }, thickness: .8, color: LINE });
     printedPage.drawText('Thank you for choosing QuickXchange.', { x: MARGIN, y: 55, font: bold, size: 8.5, color: DARK });
     printedPage.drawText('quickxchange.net', { x: MARGIN, y: 38, font: regular, size: 8, color: MUTED });
-    printedPage.drawText('@Quick_change_support', { x: MARGIN + 98, y: 38, font: regular, size: 8, color: MUTED });
+    printedPage.drawText(`Support: ${canonicalSupportUrl}`, { x: MARGIN + 98, y: 38, font: regular, size: 8, color: MUTED });
     const pageLabel = `${index + 1} / ${doc.getPageCount()}`;
     printedPage.drawText(pageLabel, {
       x: PAGE_WIDTH - MARGIN - regular.widthOfTextAtSize(pageLabel, 8),
@@ -269,8 +274,8 @@ export async function buildInvoicePdf(invoice: InvoiceSnapshot): Promise<Blob> {
   return new Blob([new Uint8Array(bytes)], { type: 'application/pdf' });
 }
 
-export async function downloadInvoicePdf(invoice: InvoiceSnapshot): Promise<void> {
-  const url = URL.createObjectURL(await buildInvoicePdf(invoice));
+export async function downloadInvoicePdf(invoice: InvoiceSnapshot, supportTelegramUrl: string): Promise<void> {
+  const url = URL.createObjectURL(await buildInvoicePdf(invoice, supportTelegramUrl));
   const link = document.createElement('a');
   link.href = url;
   link.download = `quickxchange-invoice-${invoice.id}.pdf`;

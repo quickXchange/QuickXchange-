@@ -155,3 +155,4 @@
 - [Swap quote responsiveness](swap-quote-responsiveness.md) — cache exact-input hints, never invert a prior net rate into a confirmed quote; focus alone must not re-quote.
 - [Quickex receive-target quoting](quickex-receive-target-quoting.md) — target-currency input yields source `amountToGive`; preserve exactness and use validated provider limit details.
 - [Admin add-on key validation](admin-addon-key-validation.md) — HTML pattern rules can differ from server regex; generate readable keys and check the exact server contract before saves.
+- [Website Telegram support scope](website-telegram-support-scope.md) — one published support destination; preserve other Telegram purposes and never activate stale defaults while loading.

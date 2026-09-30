@@ -441,6 +441,29 @@ test("social and trust drafts become public only through owner publication", { c
   }, operatorUser);
   assert.equal(invalidSocialMedia.response.status, 400);
 
+  const invalidTelegramSupport = await request("/admin/social-trust/social-media", {
+    method: "PUT",
+    body: JSON.stringify({
+      instagramUrl: null,
+      xUrl: null,
+      facebookUrl: null,
+      telegramUrl: "https://t.me/Quick_change_support?start=payload",
+    }),
+  }, operatorUser);
+  assert.equal(invalidTelegramSupport.response.status, 400);
+
+  const ownerTelegramSupport = await request("/admin/social-trust/social-media", {
+    method: "PUT",
+    body: JSON.stringify({
+      instagramUrl: null,
+      xUrl: null,
+      facebookUrl: null,
+      telegramUrl: "https://telegram.me/Quick_change_support/",
+    }),
+  }, ownerUser);
+  assert.equal(ownerTelegramSupport.response.status, 200, ownerTelegramSupport.body);
+  assert.equal((JSON.parse(ownerTelegramSupport.body) as { telegramUrl: string }).telegramUrl, "https://t.me/Quick_change_support");
+
   const invalidAppearance = await request("/admin/social-trust/social-media", {
     method: "PUT",
     body: JSON.stringify({
@@ -459,12 +482,13 @@ test("social and trust drafts become public only through owner publication", { c
       instagramUrl: "https://instagram.com/quickxchange",
       xUrl: "https://x.com/quickxchange",
       facebookUrl: "https://facebook.com/quickxchange",
-      telegramUrl: "https://t.me/quickxchange",
+      telegramUrl: "@Quick_change_support",
       appearance,
       trustAppearance,
     }),
   }, operatorUser);
   assert.equal(socialMedia.response.status, 200, socialMedia.body);
+  assert.equal((JSON.parse(socialMedia.body) as { telegramUrl: string }).telegramUrl, "https://t.me/Quick_change_support");
 
   const objectId = randomUUID();
   const lightObjectId = randomUUID();
@@ -529,7 +553,7 @@ test("social and trust drafts become public only through owner publication", { c
   assert.equal(configured.instagramUrl, "https://instagram.com/quickxchange");
   assert.equal(configured.xUrl, "https://x.com/quickxchange");
   assert.equal(configured.facebookUrl, "https://facebook.com/quickxchange");
-  assert.equal(configured.telegramUrl, "https://t.me/quickxchange");
+  assert.equal(configured.telegramUrl, "https://t.me/Quick_change_support");
   assert.deepEqual(configured.appearance, { ...appearance, depthIntensity: 45 });
   assert.deepEqual(configured.trustAppearance, { ...trustAppearance, depthIntensity: 45 });
   const configuredItem = configured.items.find((candidate) => candidate.id === item.id);
@@ -568,10 +592,23 @@ test("social and trust drafts become public only through owner publication", { c
   }, operatorUser);
   assert.equal(clearedSocialMedia.response.status, 200, clearedSocialMedia.body);
 
+  const stillPublished = await request("/site-content");
+  assert.equal(stillPublished.response.status, 200, stillPublished.body);
+  assert.equal(
+    (JSON.parse(stillPublished.body) as { socialTrust: { telegramUrl: string | null } }).socialTrust.telegramUrl,
+    "https://t.me/Quick_change_support",
+  );
+
   const removalPublication = await request("/admin/site-publication", { method: "POST" }, ownerUser);
   assert.equal(removalPublication.response.status, 201, removalPublication.body);
   const removalRevision = JSON.parse(removalPublication.body) as { id: string };
   publicationRevisionIds.add(removalRevision.id);
+  const removedSupportContact = await request("/site-content");
+  assert.equal(removedSupportContact.response.status, 200, removedSupportContact.body);
+  assert.equal(
+    (JSON.parse(removedSupportContact.body) as { socialTrust: { telegramUrl: string | null } }).socialTrust.telegramUrl,
+    originalDraft.telegramUrl,
+  );
   assert.equal((await fetch(`${apiUrl}/storage/objects/social-trust-icons/${objectId}`)).status, 404);
   assert.equal(objects.get(`assets/social-trust-icons/${objectId}`)?.deleted, true);
 });

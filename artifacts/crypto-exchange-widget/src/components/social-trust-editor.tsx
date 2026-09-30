@@ -15,6 +15,12 @@ import type { ImageUploadInputContentType, SocialIconAppearance, SocialTrustItem
 import { apiErrorText, queryClient } from '../App';
 import { basePath, InlineNotice } from './shared-app-ui';
 import { LivePreviewFrame } from './live-preview-frame';
+import {
+  normalizeTelegramSupportInput,
+  resolvePublishedTelegramSupportUrl,
+  telegramSupportHandle,
+} from '../lib/telegram-support';
+import type { TelegramSupportPreviewSnapshot } from '../lib/telegram-support-value';
 import './site-content-social.css';
 
 type SocialAppearanceWithDepth = SocialIconAppearance & { depthIntensity?: number };
@@ -54,6 +60,7 @@ export function SocialTrustEditor({ view = 'all' }: { view?: 'all' | 'social' | 
   const [createNotice, setCreateNotice] = useState<EditorNotice | null>(null);
   const [itemNotices, setItemNotices] = useState<Record<string, EditorNotice>>({});
   const [titles, setTitles] = useState({ socialTitle: 'Stay connected with us', trustTitle: 'Share your feedback with us' });
+  const [telegramUrl, setTelegramUrl] = useState('');
   const [appearance, setAppearance] = useState<SocialAppearanceWithDepth>({ ...DEFAULT_APPEARANCE, depthIntensity: 45 });
   const [trustAppearance, setTrustAppearance] = useState<SocialIconAppearance>(DEFAULT_APPEARANCE);
   const [initialized, setInitialized] = useState(false);
@@ -67,6 +74,7 @@ export function SocialTrustEditor({ view = 'all' }: { view?: 'all' | 'social' | 
   useEffect(() => {
     if (!query.data || initialized) return;
     setTitles({ socialTitle: query.data.socialTitle, trustTitle: query.data.trustTitle });
+    setTelegramUrl(query.data.telegramUrl ?? '');
     setAppearance({ ...DEFAULT_APPEARANCE, depthIntensity: 45, ...(query.data.appearance as SocialAppearanceWithDepth | undefined) });
     setTrustAppearance({ ...DEFAULT_APPEARANCE, ...query.data.trustAppearance });
     setInitialized(true);
@@ -144,6 +152,13 @@ export function SocialTrustEditor({ view = 'all' }: { view?: 'all' | 'social' | 
 
   const saveStyle = async () => {
     if (!query.data || !initialized) return;
+    const telegramInput = view === 'trust'
+      ? { value: null, error: null }
+      : normalizeTelegramSupportInput(telegramUrl);
+    if (telegramInput.error) {
+      setNotice({ kind: 'error', text: telegramInput.error });
+      return;
+    }
     try {
       // The endpoint accepts both sections. A split tab must never overwrite the other section
       // with stale local state (or with default values while the initial request is loading).
@@ -157,7 +172,8 @@ export function SocialTrustEditor({ view = 'all' }: { view?: 'all' | 'social' | 
         saveTitles.mutateAsync({ data: nextTitles }),
         saveSocial.mutateAsync({ data: {
           instagramUrl: latest.data.instagramUrl ?? null, xUrl: latest.data.xUrl ?? null,
-          facebookUrl: latest.data.facebookUrl ?? null, telegramUrl: latest.data.telegramUrl ?? null,
+          facebookUrl: latest.data.facebookUrl ?? null,
+          telegramUrl: view === 'trust' ? latest.data.telegramUrl ?? null : telegramInput.value,
           appearance: view === 'trust' ? latest.data.appearance : appearance,
           trustAppearance: view === 'social' ? latest.data.trustAppearance : trustAppearance,
         } }),
@@ -221,12 +237,20 @@ export function SocialTrustEditor({ view = 'all' }: { view?: 'all' | 'social' | 
     if (path && item.id !== 'preview-new-social-item') previewAssets[path] = `${basePath}/api/admin/social-trust/items/${item.id}/preview?objectPath=${encodeURIComponent(path)}`;
   }
   Object.assign(previewAssets, localPreview.assets, uploadedPreviews);
+  const telegramInput = normalizeTelegramSupportInput(telegramUrl);
+  const telegramSupportPreview: TelegramSupportPreviewSnapshot = !initialized || !query.data
+    ? { status: query.isError ? 'error' : 'unresolved' }
+    : telegramInput.error
+      ? { status: 'invalid' }
+      : telegramInput.value
+        ? { status: 'configured', value: telegramInput.value }
+        : { status: 'confirmed-empty' };
   const socialTrust = {
     socialTitle: titles.socialTitle, trustTitle: titles.trustTitle,
     instagramUrl: query.data?.instagramUrl ?? null,
     xUrl: query.data?.xUrl ?? null,
     facebookUrl: query.data?.facebookUrl ?? null,
-    telegramUrl: query.data?.telegramUrl ?? null,
+    telegramUrl: initialized ? telegramUrl.trim() || null : undefined,
     appearance, trustAppearance,
     socialTitleVisible: appearance.socialTitleVisible ?? true,
     trustTitleVisible: trustAppearance.trustTitleVisible ?? true,
@@ -234,6 +258,9 @@ export function SocialTrustEditor({ view = 'all' }: { view?: 'all' | 'social' | 
     trustTitleAlignment: trustAppearance.titleAlignment ?? 'left',
     items: previewItems,
   };
+  const telegramPreviewUrl = telegramInput.error
+    ? null
+    : telegramInput.value ?? resolvePublishedTelegramSupportUrl(null);
   return <section className="social-trust-editor" data-view={view} data-testid="social-trust-editor">
     <div className="st-panel">
       <div className="st-panel-head"><div><span className="st-kicker">01 / Section settings</span><h2>{heading}</h2><p>{description}</p></div></div>
@@ -246,6 +273,28 @@ export function SocialTrustEditor({ view = 'all' }: { view?: 'all' | 'social' | 
           {view === 'all' && <h3 className="st-section-label">Social Media <span>Icon controls</span></h3>}
           <div className="st-title-row"><label className="st-field-label">Section title<input className="admin-input w-full" value={titles.socialTitle} onChange={(e) => setTitles({ ...titles, socialTitle: e.target.value })} aria-label="Social Media section title" /></label>
           <label className="st-toggle"><input type="checkbox" checked={appearance.socialTitleVisible ?? true} onChange={(e) => setAppearance({ ...appearance, socialTitleVisible: e.target.checked })} /> Show title</label></div>
+          <label className="st-field-label mt-4 block">Telegram Support Username / URL
+            <input
+              className="admin-input mt-1 w-full"
+              value={telegramUrl}
+              onChange={(e) => setTelegramUrl(e.target.value)}
+              placeholder="@username or https://t.me/username"
+              aria-label="Telegram Support Username / URL"
+              aria-invalid={Boolean(telegramInput.error)}
+              aria-describedby="telegram-support-help telegram-support-error"
+              data-testid="input-telegram-support-url"
+            />
+          </label>
+          <p id="telegram-support-help" className="mt-1 text-xs text-muted-foreground">
+            Enter an @username or Telegram profile URL. A blank draft uses the historical default until you replace it and publish.
+          </p>
+          {telegramInput.error && <p id="telegram-support-error" className="mt-1 text-xs text-destructive" role="alert" data-testid="text-telegram-support-error">{telegramInput.error}</p>}
+          {telegramPreviewUrl && <p className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground" data-testid="telegram-support-destination-preview">
+            <span>Final destination{!telegramInput.value ? ' · historical default' : ''}:</span>
+            <a className="font-semibold text-primary underline underline-offset-2" href={telegramPreviewUrl} target="_blank" rel="noreferrer noopener">
+              {telegramSupportHandle(telegramPreviewUrl)}
+            </a>
+          </p>}
           <div className="st-control-group"><p className="st-control-title">Title & icon appearance</p><div className="st-controls">
             <FieldNumber label="Title font size" value={appearance.titleFontSize ?? 18} min={12} max={40} onChange={(titleFontSize) => setAppearance({ ...appearance, titleFontSize })} />
             <Select label="Title alignment" value={appearance.titleAlignment ?? 'left'} options={['left', 'center', 'right']} onChange={(titleAlignment) => setAppearance({ ...appearance, titleAlignment: titleAlignment as SocialIconAppearance['titleAlignment'] })} />
@@ -368,7 +417,7 @@ export function SocialTrustEditor({ view = 'all' }: { view?: 'all' | 'social' | 
 
     <div className="st-panel st-preview">
        <div className="st-panel-head"><div><span className="st-kicker">04 / Live preview</span><h3 className="flex items-center gap-2"><Eye size={16} /> {heading} footer preview</h3><p>Draft changes appear here before publishing. Switch device and theme in the preview toolbar.</p></div></div>
-       <div className="st-preview-frame"><LivePreviewFrame draftState={{ pageKey: 'home', socialTrust, assetUrls: previewAssets }} /></div>
+       <div className="st-preview-frame"><LivePreviewFrame draftState={{ pageKey: 'home', socialTrust, telegramSupportPreview, assetUrls: previewAssets }} /></div>
     </div>
   </section>;
 }

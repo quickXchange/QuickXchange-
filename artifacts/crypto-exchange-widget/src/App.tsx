@@ -88,7 +88,7 @@ import { AdminActionToastHost } from '@/components/admin-action-toast';
 export { PublicShell } from '@/components/public-shell';
 import {
   apiErrorData, basePath, cn, ErrorState, InlineNotice, LoadingBlock, neutralText,
-  number, PaymentDetailsCard, publicApiErrorText, shortId, StatusPill, SUPPORT_TELEGRAM,
+  number, PaymentDetailsCard, publicApiErrorText, shortId, StatusPill,
 } from '@/components/shared-app-ui';
 export {
   FiatCurrencyFlag, isFiatCurrencyCode, PaymentMethodCopy, PaymentMethodLogo, sameSettlementOptionId,
@@ -114,6 +114,7 @@ import { AdminPermissionsProvider, useAdminPermissions } from '@/lib/admin-permi
 import { convertOrderStatusStep, isConvertTerminalStatus } from '@/lib/convert-order-status';
 import { OrderCompletionSection } from '@/components/order-completion';
 import { VerifiedTransaction } from '@/components/verified-transaction';
+import { usePublishedTelegramSupportUrl } from '@/lib/telegram-support';
 
 const AccountPage = lazy(() => import('./pages/account').then(module => ({ default: module.AccountPage })));
 const AccountOrdersPage = lazy(() => import('./pages/account').then(module => ({ default: module.AccountOrdersPage })));
@@ -1396,6 +1397,7 @@ function OrderStatusCard({
   markPaidPending?: boolean;
 }) {
   const { t } = useI18n();
+  const telegramSupportUrl = usePublishedTelegramSupportUrl();
   const publicNotificationSettings = useGetPublicNotificationSettings({
     query: { queryKey: getGetPublicNotificationSettingsQueryKey(), staleTime: 60_000 },
   });
@@ -1525,7 +1527,7 @@ function OrderStatusCard({
             actionsDisabled={/cancel|fail|refund|expire|complete/i.test(order.status)}
             onMarkPaid={onMarkPaid}
             markPaidPending={markPaidPending}
-            supportHref={SUPPORT_TELEGRAM}
+            supportHref={telegramSupportUrl}
           />
         )}
 

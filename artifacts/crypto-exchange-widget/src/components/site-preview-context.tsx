@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { SiteNavLink, PartnerLogo, SocialTrustItem, WebsiteBranding } from '@workspace/api-client-react';
 import type { PartnerLogoSettings } from './partner-logos';
+import type { TelegramSupportPreviewSnapshot } from '@/lib/telegram-support-value';
 import { setTransientAppTheme } from '@/theme';
 
 export type SitePreviewState = {
@@ -33,6 +34,7 @@ export type SitePreviewState = {
       iconOpacity?: number;
     };
   };
+  telegramSupportPreview?: TelegramSupportPreviewSnapshot;
   branding?: WebsiteBranding;
 };
 

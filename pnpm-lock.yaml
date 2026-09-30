@@ -273,6 +273,9 @@ importers:
       '@clerk/themes':
         specifier: ^2.4.57
         version: 2.4.57(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@workspace/api-zod':
+        specifier: workspace:*
+        version: link:../../lib/api-zod
       dompurify:
         specifier: ^3.4.15
         version: 3.4.15

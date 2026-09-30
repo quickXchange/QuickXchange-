@@ -14,13 +14,14 @@ import {
   CircleAlert, RefreshCw, Loader2, Copy, Network, Check, ArrowRight, ShieldCheck, CheckCircle2, XCircle, Clock3, ArrowDown
 } from "lucide-react";
 import { useI18n } from "@/i18n";
-import { cn, PaymentDetailsCard, SUPPORT_TELEGRAM } from "@/components/shared-app-ui";
+import { cn, PaymentDetailsCard } from "@/components/shared-app-ui";
 import { OrderSettlementIdentity } from "@/components/order-settlement-identity";
 import { OrderCompletionSection } from "@/components/order-completion";
 import { DepositDetailsModal } from "@/components/deposit-details-modal";
 import { QRCodeSVG } from "qrcode.react";
 import { convertOrderStatusLabel, convertOrderStatusStep, isConvertTerminalStatus } from "@/lib/convert-order-status";
 import { VerifiedTransaction } from "@/components/verified-transaction";
+import { usePublishedTelegramSupportUrl } from "@/lib/telegram-support";
 
 const formatExactDateTime = (dateStr: string) => {
   const date = new Date(dateStr);
@@ -46,6 +47,7 @@ export function OrderConfirmationPage() {
   const isQuickex = provider === "quickex";
 
   const { t, formatNumber } = useI18n();
+  const telegramSupportUrl = usePublishedTelegramSupportUrl();
   const queryClient = useQueryClient();
   const markPaidMutation = useMarkOrderPaid();
   const [copied, setCopied] = useState<string | null>(null);
@@ -414,7 +416,7 @@ export function OrderConfirmationPage() {
             actionsDisabled={halted || completed}
             onMarkPaid={markPaid}
             markPaidPending={markPaidMutation.isPending}
-            supportHref={SUPPORT_TELEGRAM}
+            supportHref={telegramSupportUrl}
           />
         )}
 
