@@ -12,7 +12,6 @@ type PreviewAddon = ManualSwapAddonInput & {
 type SavedAddon = ManualSwapAddon & Pick<PreviewAddon, 'feeType' | 'percentage' | 'translations'>;
 type PreviewOption = Pick<ManualSwapAddon, 'key' | 'name' | 'description' | 'fixedAmount' | 'feeCurrency' | 'enabled' | 'selectionRule' | 'presentation' | 'displayOrder'> & Pick<PreviewAddon, 'feeType' | 'percentage' | 'translations'>;
 const decimal = /^(?:0|[1-9][0-9]{0,19})(?:\.[0-9]{1,18})?$/;
-const currencyCode = /^[A-Z0-9]{2,15}$/;
 const validAddon = (item: PreviewAddon, original?: ManualSwapAddon) =>
   /^[a-z0-9][a-z0-9_-]{0,99}$/.test(item.key) &&
   item.name.trim().length > 0 && item.name.length <= 120 &&
@@ -32,12 +31,11 @@ const validAddon = (item: PreviewAddon, original?: ManualSwapAddon) =>
  * signature matches the current editor state; late responses cannot revive stale fees.
  */
 export function AdminSwapAddonPreview({
-  savedOptions, draft, editingId, feeConfig, exchangeAmount = 1000, isLoading, isError, onRetry,
+  savedOptions, draft, editingId, exchangeAmount = 1000, isLoading, isError, onRetry,
 }: {
   savedOptions: ManualSwapAddon[];
   draft?: ManualSwapAddonInput;
   editingId?: string;
-  feeConfig?: ManualSwapFeePreviewConfig;
   exchangeAmount?: number;
   isLoading?: boolean;
   isError?: boolean;
@@ -122,12 +120,8 @@ export function AdminSwapAddonPreview({
   });
   const original = savedOptions.find(item => item.id === editingId);
   const draftValid = !extendedDraft || !extendedDraft.enabled || validAddon(extendedDraft, original);
-  const configValid = feeConfig && currencyCode.test(feeConfig.fixedCurrency) &&
-    (!feeConfig.enabled || (
-      (feeConfig.percentage === null || decimal.test(feeConfig.percentage)) &&
-      (feeConfig.fixedAmount === null || decimal.test(feeConfig.fixedAmount))
-    ));
-  const payload: ManualSwapFeePreviewInput | null = !isLoading && !isError && draftValid && configValid &&
+  const feeConfig: ManualSwapFeePreviewConfig = { enabled: false, percentage: null, fixedAmount: null, fixedCurrency: 'USD' };
+  const payload: ManualSwapFeePreviewInput | null = !isLoading && !isError && draftValid &&
     allOptions.length <= 50 && new Set(allOptions.map(item => item.key)).size === allOptions.length
     ? { exchangeAmount, addons: allOptions, selectedAddonKeys: selectedKeys, feeConfig }
     : null;
@@ -178,7 +172,6 @@ export function AdminSwapAddonPreview({
     {current ? <SwapFeeBreakdown fees={current.feeSnapshot} currency={current.currency} receiveAmount={new Intl.NumberFormat('en-US', { style: 'currency', currency: current.currency }).format(current.receiveAmount)} illustrative/> :
       <div className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground" data-testid="status-fee-preview-unavailable" role="status">
         {!draftValid ? 'Complete the draft option to calculate fees. Incomplete options are never sent to the server.' :
-          !configValid ? 'Complete the exchange fee settings to calculate fees.' :
           isLoading || isError ? 'Load options to calculate fees.' :
           error?.signature === signature ? <>Preview calculation failed: {error.message} <button type="button" onClick={() => setRetry(value => value + 1)} className="text-primary underline" data-testid="button-retry-fee-preview">Retry</button></> :
           <span className="block skeleton h-16 rounded-lg" aria-label="Calculating illustrative fees"/>}

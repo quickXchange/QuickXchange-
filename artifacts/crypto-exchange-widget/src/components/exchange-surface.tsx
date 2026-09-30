@@ -1635,9 +1635,14 @@ export function ManualSwapWidget({
                   </div>
                 )}
 
-                {(availableAddons.some(item => item.enabled) || addons.isLoading || addons.isError) && <div className="mt-4" data-testid="swap-addons-inline">
+                {(availableAddons.some(item => item.enabled) || addons.isLoading || addons.isError) && <details className="swap-addons-dropdown mt-4" data-testid="swap-addons-inline">
+                  <summary data-testid="button-swap-addons-dropdown">
+                    <span>Optional add-ons</span>
+                    <span className="swap-addons-dropdown-count">{addons.isLoading ? 'Loading…' : addons.isError ? 'Unavailable' : selectedKeys.length ? `${selectedKeys.length} selected` : 'Choose options'}</span>
+                    <ChevronDown size={17} aria-hidden="true" />
+                  </summary>
                   <SwapAddonOptions options={availableAddons.filter(item => item.enabled)} selectedKeys={selectedKeys} onToggle={toggleAddon} isLoading={addons.isLoading} isError={addons.isError} onRetry={() => addons.refetch()} compact />
-                </div>}
+                </details>}
                 {currentQuote && !currentQuote.manualSwapFees && <p role="alert" className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" data-testid="swap-fee-breakdown-unavailable">The server did not provide an itemized fee breakdown. Refresh the quote before continuing.</p>}
                 {currentQuote?.manualSwapFees && toOption && <div className="mt-4" data-testid="swap-signed-fee-breakdown">
                   <SwapFeeBreakdown fees={currentQuote.manualSwapFees} currency={toOption.assetCode} receiveAmount={currentQuote.receiveAmount}/>

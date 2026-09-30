@@ -37,12 +37,12 @@ export function SwapFeeBreakdown({ fees, currency, receiveAmount, illustrative =
           </div>;
         })
       : <div className="text-muted-foreground" data-testid="fee-addons-none">No add-ons selected</div>}
-    {(fees.exchangeFee.enabled || illustrative) && <div className="flex justify-between gap-4 text-muted-foreground" data-testid="fee-exchange">
+    {fees.exchangeFee.enabled && <div className="flex justify-between gap-4 text-muted-foreground" data-testid="fee-exchange">
       <span>Exchange fee{fees.exchangeFee.percentage ? ` (${trimFeeDecimal(fees.exchangeFee.percentage)}%)` : ''}{fees.exchangeFee.fixedAmount ? ` + ${trimFeeDecimal(fees.exchangeFee.fixedAmount)} ${fees.exchangeFee.fixedCurrency}` : ''}</span>
       <span className="font-mono whitespace-nowrap">{trimFeeDecimal(fees.exchangeFee.totalAmount)} {currency}</span>
     </div>}
     {fees.existingPricingFee && !/^0+(?:\.0+)?$/.test(fees.existingPricingFee) && <div className="flex justify-between gap-4 text-muted-foreground" data-testid="fee-existing-pricing"><span>Existing route pricing fee</span><span className="font-mono whitespace-nowrap">{trimFeeDecimal(fees.existingPricingFee)} {currency}</span></div>}
-    <div className="flex justify-between gap-4 border-t border-border pt-2 text-muted-foreground" data-testid="fee-additional-total"><span>Additional add-on and exchange fees</span><span className="font-mono whitespace-nowrap">{trimFeeDecimal(fees.totalAdditionalFee)} {currency}</span></div>
+    <div className="flex justify-between gap-4 border-t border-border pt-2 text-muted-foreground" data-testid="fee-additional-total"><span>Additional fees</span><span className="font-mono whitespace-nowrap">{trimFeeDecimal(fees.totalAdditionalFee)} {currency}</span></div>
     <div className="flex justify-between gap-4 font-semibold text-foreground" data-testid="fee-total"><span>Total fees</span><span className="font-mono whitespace-nowrap">{trimFeeDecimal(fees.totalFees)} {currency}</span></div>
     {receiveAmount !== undefined && <div className="flex justify-between gap-4 border-t border-border pt-2 font-bold text-foreground" data-testid="fee-final-receive"><span>Final You Receive</span><span className="font-mono">{receiveAmount}{illustrative ? '' : ` ${currency}`}</span></div>}
   </section>;

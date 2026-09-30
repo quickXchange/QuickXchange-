@@ -108,14 +108,14 @@ function ManualSwapFeeSummary({
   const exchangeFee = fees.exchangeFee;
   return (
     <div className="space-y-2 rounded-2xl border border-primary/15 bg-primary/[0.04] p-4">
-      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Optional exchange fees and add-ons are deducted from receive</p>
+      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Selected add-ons are deducted from receive</p>
       {hasNonZeroFeeAmount(fees.existingPricingFee) && (
         <div className="flex items-center justify-between gap-3 text-[12px]">
           <span className="text-muted-foreground">Existing pricing fee</span>
           <span className="font-semibold">{formatFeeAmount(fees.existingPricingFee)} {targetAsset}</span>
         </div>
       )}
-      {exchangeFee && (
+      {hasNonZeroFeeAmount(exchangeFee?.totalAmount) && (
         <div className="flex items-start justify-between gap-3 text-[12px]">
           <span className="text-muted-foreground">Exchange fee</span>
           <span className="text-right font-semibold">

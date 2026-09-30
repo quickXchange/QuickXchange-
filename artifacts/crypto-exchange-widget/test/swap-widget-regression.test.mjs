@@ -2,12 +2,13 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 
-const [surface, addonOptions, feeBreakdown, styles, followupStyles] = await Promise.all([
+const [surface, addonOptions, feeBreakdown, styles, followupStyles, adminAddons] = await Promise.all([
   readFile(new URL('../src/components/exchange-surface.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/swap-addon-options.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/swap-fee-breakdown.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/index.css', import.meta.url), 'utf8'),
   readFile(new URL('../src/components/swap-followup.css', import.meta.url), 'utf8'),
+  readFile(new URL('../src/pages/admin-swap-addons.tsx', import.meta.url), 'utf8'),
 ]);
 
 test('Swap exposes three stages and a details-step back action', () => {
@@ -56,6 +57,11 @@ test('optional add-ons show selectable checked state and display-only informatio
   assert.match(addonOptions, /Information only/);
   assert.match(addonOptions, /Informational only; not selectable and not charged/);
   assert.match(addonOptions, /trimFeeDecimal\(item\.fixedAmount\)/);
+  assert.match(surface, /<details className="swap-addons-dropdown mt-4" data-testid="swap-addons-inline">/);
+  assert.match(surface, /<summary data-testid="button-swap-addons-dropdown">/);
+  assert.match(surface, /selectedKeys\.length \? `\$\{selectedKeys\.length\} selected` : 'Choose options'/);
+  assert.match(styles, /\.swap-addons-dropdown\[open\] > summary svg/);
+  assert.doesNotMatch(adminAddons, /Advanced · Exchange fee|summary-exchange-fee-advanced|button-save-exchange-fee/);
 });
 
 test('Swap keeps the quote in Step 1, contact details in Step 2, and the compact rate in Summary', () => {
@@ -80,7 +86,7 @@ test('Swap keeps the quote in Step 1, contact details in Step 2, and the compact
   assert.match(stepOne, /data-testid="route-summary"[\s\S]*?reference-rate-value/);
   assert.match(stepOne, /<SwapFeeBreakdown fees=\{currentQuote\.manualSwapFees\} currency=\{toOption\.assetCode\} receiveAmount=\{currentQuote\.receiveAmount\}/);
   assert.match(stepOne, /<SwapAddonOptions options=\{availableAddons\.filter\(item => item\.enabled\)\} selectedKeys=\{selectedKeys\} onToggle=\{toggleAddon\}[\s\S]*?compact/);
-  assert.doesNotMatch(stepOne, /swap-addons-disclosure|swap-selected-addons-quote-summary|button-swap-addons/);
+  assert.doesNotMatch(stepOne, /swap-addons-disclosure|swap-selected-addons-quote-summary|button-swap-addons(?!-dropdown)/);
   assert.doesNotMatch(stepOne, /input-customer-email|id="swap-email"/);
   assert.ok(emailStart >= 0 && emailStart < receivingFieldsStart);
   assert.match(stepTwo, /type="email"\s+required=\{!signedInCustomer\}\s+disabled=\{Boolean\(signedInCustomer\)\}\s+value=\{signedInCustomer \? user\?\.primaryEmailAddress\?\.emailAddress \?\? '' : email\}\s+onChange=\{\(event\) => setEmail\(event\.target\.value\)\}/);

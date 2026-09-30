@@ -150,8 +150,6 @@ import {
   DeleteManualSwapAddonParams,
   DeleteManualSwapAddonResponse,
   GetManualSwapFeeConfigResponse,
-  UpdateManualSwapFeeConfigBody,
-  UpdateManualSwapFeeConfigResponse,
   PreviewManualSwapFeesBody,
   PreviewManualSwapFeesResponse,
 } from "@workspace/api-zod";
@@ -182,7 +180,6 @@ import {
   blockchainMonitorAssetsTable,
   blockchainMonitorRegistrationGapsTable,
   manualSwapAddonsTable,
-  manualSwapFeeConfigTable,
 } from "@workspace/db";
 import { ApiError } from "../lib/api-error";
 import {
@@ -1171,13 +1168,12 @@ async function buildQuoteTicket(
     resolveManualPricingTerms(rule, input.amount);
   const selectedAddOnKeys = input.selectedAddOnKeys ?? [];
   const selectedAddons = await resolveSelectedManualSwapAddons(selectedAddOnKeys);
-  const additionalFeeConfig = await loadManualSwapFeeConfig();
-  const additionalCurrencies = selectedAddons.length || additionalFeeConfig.enabled
+  const additionalFeeConfig = retiredManualSwapFeeConfig;
+  const additionalCurrencies = selectedAddons.length
     ? [...new Set([
         route.fromAsset,
         route.toAsset,
         ...selectedAddons.filter((addon) => addon.feeType !== "percentage").map((addon) => addon.feeCurrency),
-        ...(additionalFeeConfig.enabled ? [additionalFeeConfig.fixedCurrency] : []),
       ].map((currency) => currency.toUpperCase()))]
     : [];
   const pricedEstimate = await getManualDeskEstimate({
@@ -1874,18 +1870,11 @@ const manualSwapAddonDisplayOrder = sql<number>`
   coalesce((${manualSwapAddonsTable.presentation} ->> 'displayOrder')::integer, 0)
 `;
 
-async function loadManualSwapFeeConfig() {
-  const [config] = await db.select().from(manualSwapFeeConfigTable)
-    .where(eq(manualSwapFeeConfigTable.id, "default")).limit(1);
-  return config
-    ? {
-        enabled: config.enabled,
-        percentage: config.percentage,
-        fixedAmount: config.fixedAmount,
-        fixedCurrency: config.fixedCurrency,
-      }
-    : { enabled: false, percentage: null, fixedAmount: null, fixedCurrency: "USD" };
-}
+// Keep the zero-valued snapshot shape for historical order compatibility.
+// The separate exchange fee is retired; route pricing and selected add-ons remain.
+const retiredManualSwapFeeConfig = {
+  enabled: false, percentage: null, fixedAmount: null, fixedCurrency: "USD",
+} as const;
 
 async function resolveSelectedManualSwapAddons(keys: string[]) {
   if (keys.length === 0) return [];
@@ -2048,7 +2037,7 @@ router.delete("/admin/manual-swap-addons/:id", requirePermission("pricing.manage
 
 router.get("/admin/manual-swap-fee-config", requirePermission("pricing.view"), async (_req, res, next) => {
   try {
-    res.json(GetManualSwapFeeConfigResponse.parse(await loadManualSwapFeeConfig()));
+    res.json(GetManualSwapFeeConfigResponse.parse(retiredManualSwapFeeConfig));
   } catch (error) {
     next(error);
   }
@@ -2056,39 +2045,7 @@ router.get("/admin/manual-swap-fee-config", requirePermission("pricing.view"), a
 
 router.put("/admin/manual-swap-fee-config", requirePermission("pricing.manage"), async (req, res, next) => {
   try {
-    const input = UpdateManualSwapFeeConfigBody.parse(req.body);
-    const [row] = await db.transaction(async (tx) => {
-      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('manual-swap-fee-config'))`);
-      return tx.insert(manualSwapFeeConfigTable).values({
-        id: "default",
-        enabled: input.enabled,
-        percentage: input.percentage ?? null,
-        fixedAmount: input.fixedAmount ?? null,
-        fixedCurrency: input.fixedCurrency.toUpperCase(),
-        updatedAt: new Date(),
-      }).onConflictDoUpdate({
-        target: manualSwapFeeConfigTable.id,
-        set: {
-          enabled: input.enabled,
-          percentage: input.percentage ?? null,
-          fixedAmount: input.fixedAmount ?? null,
-          fixedCurrency: input.fixedCurrency.toUpperCase(),
-          updatedAt: new Date(),
-        },
-      }).returning();
-    });
-    const result = UpdateManualSwapFeeConfigResponse.parse({
-      enabled: row.enabled,
-      percentage: row.percentage,
-      fixedAmount: row.fixedAmount,
-      fixedCurrency: row.fixedCurrency,
-    });
-    recordAdminMutationActivity(req, res, {
-      permission: "pricing.manage",
-      action: "manual_swap.fee_config.updated",
-      entityId: "default",
-    });
-    res.json(result);
+    throw new ApiError("MANUAL_SWAP_EXCHANGE_FEE_RETIRED", "The separate Manual Swap exchange fee is no longer configurable.", 410);
   } catch (error) {
     next(error);
   }
@@ -2125,10 +2082,6 @@ router.post("/admin/manual-swap-fee-preview", requirePermission("pricing.view"),
     const additionalCurrencies = [...new Set([
       "USD",
       ...selectedAddons.filter((addon) => addon.feeType !== "percentage").map((addon) => addon.feeCurrency),
-      ...(input.feeConfig.enabled && input.feeConfig.fixedAmount !== null &&
-        input.feeConfig.fixedAmount !== ""
-        ? [input.feeConfig.fixedCurrency]
-        : []),
     ].map((currency) => currency.toUpperCase()))];
     const estimate = await getManualDeskEstimate({
       sourceCurrency: "USD",
@@ -2156,7 +2109,7 @@ router.post("/admin/manual-swap-fee-preview", requirePermission("pricing.view"),
         feeType: (addon.feeType ?? "fixed") as "fixed" | "percentage",
         percentage: addon.percentage,
       })),
-      config: input.feeConfig,
+      config: retiredManualSwapFeeConfig,
       references: estimate.exact.additionalReferences,
     });
     res.json(PreviewManualSwapFeesResponse.parse({
@@ -2164,7 +2117,7 @@ router.post("/admin/manual-swap-fee-preview", requirePermission("pricing.view"),
       receiveAmount: feeAdjusted.receiveAmount,
       currency: "USD",
       feeSnapshot: feeAdjusted.feeSnapshot,
-      feeConfig: input.feeConfig,
+      feeConfig: retiredManualSwapFeeConfig,
       illustrativeOnly: true,
     }));
   } catch (error) {
@@ -3348,7 +3301,6 @@ async function createOrderFromInput(
     // Lock the signed fee inputs through insertion so an Admin change cannot
     // race the comparison and authorize an obsolete add-on charge.
     if (quote.type === "manual" && quote.manualSwapFees) {
-      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('manual-swap-fee-config'))`);
       const selectedAddOnKeys = quote.selectedAddOnKeys ?? [];
       const catalog = selectedAddOnKeys.length
         ? await tx.select().from(manualSwapAddonsTable)
@@ -3356,22 +3308,11 @@ async function createOrderFromInput(
             .orderBy(asc(manualSwapAddonsTable.key))
             .for("update")
         : [];
-      const [feeConfigRow] = await tx.select().from(manualSwapFeeConfigTable)
-        .where(eq(manualSwapFeeConfigTable.id, "default"))
-        .for("update")
-        .limit(1);
       assertManualSwapFeeConfigurationMatches({
         snapshot: quote.manualSwapFees,
         selectedAddOnKeys,
         catalog,
-        config: feeConfigRow
-          ? {
-              enabled: feeConfigRow.enabled,
-              percentage: feeConfigRow.percentage,
-              fixedAmount: feeConfigRow.fixedAmount,
-              fixedCurrency: feeConfigRow.fixedCurrency,
-            }
-          : { enabled: false, percentage: null, fixedAmount: null, fixedCurrency: "USD" },
+        config: retiredManualSwapFeeConfig,
       });
     }
     if (sourceSnapshot?.kind === "crypto-network") {

@@ -6479,13 +6479,31 @@ test("Manual Swap add-on quote configuration is enforced at order creation and r
     assert.equal(duplicateAddon.status, 409, JSON.stringify(duplicateAddon.body));
     assert.equal(duplicateAddon.body.code, "MANUAL_SWAP_ADDON_KEY_CONFLICT");
 
-    const savedFeeConfig = await apiJson(api.url, "/admin/manual-swap-fee-config", {
+    const retiredFeeConfig = await apiJson(api.url, "/admin/manual-swap-fee-config", {
       enabled: true,
       percentage: "1",
       fixedAmount: "2",
       fixedCurrency: "USD",
     }, "PUT", headers);
-    assert.equal(savedFeeConfig.status, 200, JSON.stringify(savedFeeConfig.body));
+    assert.equal(retiredFeeConfig.status, 410, JSON.stringify(retiredFeeConfig.body));
+    const disabledFeeConfig = await apiJson(api.url, "/admin/manual-swap-fee-config", undefined, "GET", headers);
+    assert.equal(disabledFeeConfig.status, 200, JSON.stringify(disabledFeeConfig.body));
+    assert.equal(disabledFeeConfig.body.enabled, false);
+    const retiredPreview = await apiJson(api.url, "/admin/manual-swap-fee-preview", {
+      exchangeAmount: 1000,
+      addons: [],
+      selectedAddonKeys: [],
+      feeConfig: { enabled: true, percentage: "10", fixedAmount: "5", fixedCurrency: "USD" },
+    }, "POST", headers);
+    assert.equal(retiredPreview.status, 200, JSON.stringify(retiredPreview.body));
+    assert.equal(retiredPreview.body.feeSnapshot.exchangeFee.totalAmount, "0");
+    assert.equal(retiredPreview.body.feeConfig.enabled, false);
+    await db.insert(manualSwapFeeConfigTable).values({
+      id: "default", enabled: true, percentage: "1", fixedAmount: "2", fixedCurrency: "USD",
+    }).onConflictDoUpdate({
+      target: manualSwapFeeConfigTable.id,
+      set: { enabled: true, percentage: "1", fixedAmount: "2", fixedCurrency: "USD" },
+    });
 
     const quoteInput = {
       type: "manual",
@@ -6617,30 +6635,15 @@ test("Manual Swap add-on quote configuration is enforced at order creation and r
     );
     assert.equal(zeroAddonQuoteResponse.status, 200, JSON.stringify(zeroAddonQuoteResponse.body));
     const zeroAddonTicket = zeroAddonQuoteResponse.body;
-    const changedFeeConfig = await apiJson(api.url, "/admin/manual-swap-fee-config", {
-      enabled: true,
-      percentage: "2",
-      fixedAmount: "2",
-      fixedCurrency: "USD",
-    }, "PUT", headers);
-    assert.equal(changedFeeConfig.status, 200, JSON.stringify(changedFeeConfig.body));
+    assert.equal(zeroAddonTicket.manualSwapFees.exchangeFee.enabled, false);
+    assert.equal(zeroAddonTicket.manualSwapFees.exchangeFee.totalAmount, "0");
     const zeroAddonRequestId = randomUUID();
-    const staleZeroAddonCreate = await apiJson(api.url, "/exchange/orders", {
+    const zeroAddonCreate = await apiJson(api.url, "/exchange/orders", {
       ...createPayload(zeroAddonTicket, zeroAddonRequestId),
       selectedAddOnKeys: [],
     });
-    assert.equal(staleZeroAddonCreate.status, 409, JSON.stringify(staleZeroAddonCreate.body));
-    assert.equal(staleZeroAddonCreate.body.code, "MANUAL_QUOTE_CONFIGURATION_CHANGED");
-    assert.deepEqual(await db.select({ id: ordersTable.id }).from(ordersTable)
-      .where(eq(ordersTable.clientRequestId, zeroAddonRequestId)), []);
-
-    const restoredFeeConfig = await apiJson(api.url, "/admin/manual-swap-fee-config", {
-      enabled: true,
-      percentage: "1",
-      fixedAmount: "2",
-      fixedCurrency: "USD",
-    }, "PUT", headers);
-    assert.equal(restoredFeeConfig.status, 200, JSON.stringify(restoredFeeConfig.body));
+    assert.equal(zeroAddonCreate.status, 201, JSON.stringify(zeroAddonCreate.body));
+    orderIds.push(String(zeroAddonCreate.body.id));
     const unchangedZeroAddonQuoteResponse = await apiJson(
       api.url,
       "/exchange/quote",

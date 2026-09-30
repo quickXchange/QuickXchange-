@@ -24293,18 +24293,61 @@ html .public-shell .public-landing-page :is(
   font-size: 0.68rem;
 }
 
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-addons-dropdown {
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  background: hsl(var(--card) / 0.7);
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-addons-dropdown > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 12px;
+  cursor: pointer;
+  list-style: none;
+  color: hsl(var(--foreground));
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-addons-dropdown > summary::-webkit-details-marker {
+  display: none;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-addons-dropdown > summary:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-addons-dropdown > summary svg {
+  transition: transform 150ms ease;
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-addons-dropdown[open] > summary svg {
+  transform: rotate(180deg);
+}
+
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-addons-dropdown-count {
+  margin-left: auto;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
 .public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-addon-options-compact {
   display: flex;
   flex-direction: column;
   gap: 6px;
   min-height: 0;
-  margin: 8px 0 0;
+  margin: 0;
+  padding: 0 10px 10px;
 }
 
-.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-addon-options-compact > :first-child {
-  flex: 0 0 auto;
-  font-size: 0.78rem;
-  line-height: 1.1rem;
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-addons-dropdown .swap-addon-options-compact > :first-child {
+  display: none;
 }
 
 .public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .swap-addon-options-list {

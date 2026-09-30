@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, ChevronUp, Plus, Pencil, Trash2 } from 'lucide-react';
 import {
-  getGetManualSwapFeeConfigQueryKey, getListAdminManualSwapAddonsQueryKey, getListPublicManualSwapAddonsQueryKey,
-  useCreateManualSwapAddon, useDeleteManualSwapAddon, useGetManualSwapFeeConfig,
-  useListAdminManualSwapAddons, useUpdateManualSwapAddon, useUpdateManualSwapFeeConfig,
+  getListAdminManualSwapAddonsQueryKey, getListPublicManualSwapAddonsQueryKey,
+  useCreateManualSwapAddon, useDeleteManualSwapAddon,
+  useListAdminManualSwapAddons, useUpdateManualSwapAddon,
 } from '@workspace/api-client-react';
 import type { ManualSwapAddon, ManualSwapAddonInput } from '@workspace/api-client-react';
 import { AdminShell } from '../App';
@@ -54,21 +54,15 @@ export function AdminSwapAddonsPage() {
   const { can } = useAdminPermissions();
   const canManage = can('pricing.manage');
   const list = useListAdminManualSwapAddons();
-  const fee = useGetManualSwapFeeConfig();
   const create = useCreateManualSwapAddon();
   const update = useUpdateManualSwapAddon();
   const remove = useDeleteManualSwapAddon();
-  const saveFee = useUpdateManualSwapFeeConfig();
   const [editing, setEditing] = useState<ManualSwapAddon | 'new' | null>(null);
   const [editorCollapsed, setEditorCollapsed] = useState(false);
   const [form, setForm] = useState<AddonDraft>(blank);
   const [keyEdited, setKeyEdited] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [feeForm, setFeeForm] = useState({ enabled: false, percentage: '', fixedAmount: '', fixedCurrency: 'USD' });
   const [message, setMessage] = useState('');
-  useEffect(() => {
-    if (fee.data) setFeeForm({ enabled: fee.data.enabled, percentage: fee.data.percentage ? trimFeeDecimal(fee.data.percentage) : '', fixedAmount: fee.data.fixedAmount ? trimFeeDecimal(fee.data.fixedAmount) : '', fixedCurrency: fee.data.fixedCurrency });
-  }, [fee.data]);
   const refresh = async () => {
     await Promise.all([
       qc.invalidateQueries({ queryKey: getListAdminManualSwapAddonsQueryKey() }),
@@ -148,7 +142,7 @@ export function AdminSwapAddonsPage() {
     } finally { setTogglingId(null); }
   };
   const legacyFixed = editing && editing !== 'new' && form.feeType === 'fixed' && form.feeCurrency !== 'USD';
-  return <AdminShell title="Swap Order Add-ons" eyebrow="PRICING / SWAP" subtitle="Optional choices and additional exchange fees for Manual Swap only." requiredPermission="pricing.view">
+  return <AdminShell title="Swap Order Add-ons" eyebrow="PRICING / SWAP" subtitle="Optional choices for Manual Swap." requiredPermission="pricing.view">
     <div className="space-y-4 pb-8">
       {message && <p role="status" className="rounded-lg border border-border bg-muted p-3 text-sm" data-testid="status-swap-addons">{message}</p>}
       <section className="panel min-w-0 overflow-hidden">
@@ -206,16 +200,7 @@ export function AdminSwapAddonsPage() {
           <div className="flex flex-wrap gap-2 border-t border-border pt-4"><button type="submit" disabled={create.isPending || update.isPending} className="button button-primary" data-testid="button-save-addon">{create.isPending || update.isPending ? 'Saving…' : 'Save option'}</button><button type="button" onClick={() => setEditing(null)} className="button" data-testid="button-cancel-addon">Cancel</button></div>
         </form>}
       </section>}
-      <AdminSwapAddonPreview savedOptions={list.data?.items || []} draft={canManage && editing ? form : undefined} editingId={canManage && editing && editing !== 'new' ? editing.id : undefined} feeConfig={fee.data && !fee.isLoading && !fee.isError ? { enabled: feeForm.enabled, percentage: feeForm.enabled ? feeForm.percentage || null : null, fixedAmount: feeForm.enabled ? feeForm.fixedAmount || null : null, fixedCurrency: feeForm.fixedCurrency } : undefined} isLoading={list.isLoading} isError={list.isError} onRetry={() => list.refetch()} exchangeAmount={1000}/>
-      <details className="panel group p-5"><summary className="cursor-pointer list-none text-sm font-semibold text-foreground" data-testid="summary-exchange-fee-advanced"><span className="inline-flex items-center gap-2">Advanced · Exchange fee <ChevronDown size={15} className="transition-transform group-open:rotate-180"/></span><span className="mt-1 block text-xs font-normal text-muted-foreground">Additional to existing route pricing. The server calculates the final quote.</span></summary><div className="mt-5">
-        {fee.isLoading ? <div className="skeleton h-28 rounded-lg"/> : fee.isError ? <div role="alert">Could not load exchange fee. <button type="button" onClick={() => fee.refetch()} className="text-primary underline" data-testid="button-retry-exchange-fee">Retry</button></div> : <form className="grid gap-4 sm:grid-cols-3" onSubmit={async e => { e.preventDefault(); setMessage(''); try { await saveFee.mutateAsync({ data: { enabled: feeForm.enabled, percentage: feeForm.percentage || null, fixedAmount: feeForm.fixedAmount || null, fixedCurrency: feeForm.fixedCurrency } }); await qc.invalidateQueries({ queryKey: getGetManualSwapFeeConfigQueryKey() }); notifyAdminAction('success', 'Manual Swap exchange fee saved successfully.'); } catch (error) { notifyAdminAction('error', error instanceof Error ? error.message : 'Could not save exchange fee.'); } }}>
-          <label className="sm:col-span-3 flex items-center gap-2 font-semibold text-sm"><input type="checkbox" disabled={!canManage} checked={feeForm.enabled} onChange={e => setFeeForm(p => ({ ...p, enabled: e.target.checked }))} data-testid="checkbox-exchange-fee-enabled"/> Enabled</label>
-          <label className="text-sm font-semibold">Percentage (%)<input disabled={!canManage} inputMode="decimal" pattern="[0-9]+([.][0-9]+)?" className={field} value={feeForm.percentage} onChange={e => setFeeForm(p => ({ ...p, percentage: e.target.value }))} data-testid="input-exchange-fee-percentage"/></label>
-          <label className="text-sm font-semibold">Fixed amount<input disabled={!canManage} inputMode="decimal" pattern="[0-9]+([.][0-9]+)?" className={field} value={feeForm.fixedAmount} onChange={e => setFeeForm(p => ({ ...p, fixedAmount: e.target.value }))} data-testid="input-exchange-fee-fixed"/></label>
-          <label className="text-sm font-semibold">Fixed currency<input disabled={!canManage} required pattern="[A-Z0-9]{2,15}" className={field} value={feeForm.fixedCurrency} onChange={e => setFeeForm(p => ({ ...p, fixedCurrency: e.target.value.toUpperCase() }))} data-testid="input-exchange-fee-currency"/></label>
-          {canManage && <button type="submit" disabled={saveFee.isPending} className="button button-primary w-fit" data-testid="button-save-exchange-fee">Save exchange fee</button>}
-        </form>}
-       </div></details>
+      <AdminSwapAddonPreview savedOptions={list.data?.items || []} draft={canManage && editing ? form : undefined} editingId={canManage && editing && editing !== 'new' ? editing.id : undefined} isLoading={list.isLoading} isError={list.isError} onRetry={() => list.refetch()} exchangeAmount={1000}/>
     </div>
   </AdminShell>;
 }

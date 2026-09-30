@@ -408,14 +408,14 @@ export default function OrderDetail() {
             )}
             {isManualSwap && manualSwapFees && (
               <div className="space-y-2 py-3" data-testid="manual-swap-fee-breakdown">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Optional exchange fees and add-ons are deducted from receive</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Selected add-ons are deducted from receive</p>
                 {hasNonZeroFeeAmount(manualSwapFees.existingPricingFee) && (
                   <div className="flex items-center justify-between gap-3 text-[11px]">
                     <span className="text-muted-foreground">Existing pricing fee</span>
                     <span className="font-semibold">{formatFeeAmount(manualSwapFees.existingPricingFee)} {targetStatus.toAsset}</span>
                   </div>
                 )}
-                <div className="flex items-start justify-between gap-3 text-[11px]">
+                {hasNonZeroFeeAmount(manualSwapFees.exchangeFee?.totalAmount) && <div className="flex items-start justify-between gap-3 text-[11px]">
                   <span className="text-muted-foreground">Exchange fee</span>
                   <span className="text-right font-semibold">
                     {formatFeeAmount(manualSwapFees.exchangeFee?.totalAmount)} {targetStatus.toAsset}
@@ -426,7 +426,7 @@ export default function OrderDetail() {
                       </span>
                     )}
                   </span>
-                </div>
+                </div>}
                 {(manualSwapFees.selectedAddons || []).map((addon: any) => (
                   <div key={addon.id || addon.key} className="flex items-start justify-between gap-3 text-[11px]">
                     <span className="text-muted-foreground">{addon.name}</span>
