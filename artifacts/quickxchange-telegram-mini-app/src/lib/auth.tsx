@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, Re
 import { createTelegramMiniAppSession } from '@workspace/api-client-react';
 import type { WebApp } from '@/lib/telegram';
 import { clearTelegramSession, createIdempotentSessionExpiry, registerSessionExpiryHandler } from '@/lib/session-expiry';
+import { subscribeTelegramTheme } from '@/lib/telegram-theme';
 
 const TELEGRAM_INITIALIZATION_TIMEOUT_MS = 4_000;
 const TELEGRAM_INITIALIZATION_POLL_MS = 50;
@@ -96,16 +97,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const controller = new AbortController();
     let mounted = true;
+    let unsubscribeTheme: (() => void) | undefined;
     const init = async () => {
       const tg = await initializeTelegramWebApp(controller.signal);
       if (!mounted) return;
       if (tg) {
-        // Sync theme
-        if (tg.colorScheme === 'dark') {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
+        unsubscribeTheme = subscribeTelegramTheme(tg, document.documentElement);
       }
 
       const initData = tg?.initData ?? '';
@@ -149,6 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     init();
     return () => {
       mounted = false;
+      unsubscribeTheme?.();
       controller.abort();
     };
   }, [expireSession]);

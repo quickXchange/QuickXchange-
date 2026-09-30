@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRoute, useLocation } from 'wouter';
 import {
   useGetTelegramMiniAppOrder, getGetTelegramMiniAppOrderQueryKey,
   useGetPublicOrderStatus, getGetPublicOrderStatusQueryKey,
   useGetExchangeConfig, getGetExchangeConfigQueryKey,
+  getListTelegramMiniAppOrdersQueryKey,
   useMarkOrderPaid
 } from '@workspace/api-client-react';
 import { useAuth, useAuthHeaders } from '@/lib/auth';
@@ -16,13 +17,14 @@ import {
 import { cn } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { QRCodeSVG } from 'qrcode.react';
 import { MiniAppLogo } from '@/components/mini-app-logo';
 import { resolveOrderVisual } from '@/lib/logo-catalog';
 import {
   normalizeSwapOrderStatus,
   orderTimelineLineWidthPercent,
   projectSwapOrderTimeline,
+  swapOrderStatusCompleted,
+  swapOrderStatusFailed,
   swapOrderStatusTerminal,
 } from '@/lib/swap-order-status';
 import {
@@ -30,6 +32,8 @@ import {
   convertOrderStatusStep,
   isConvertTerminalStatus,
 } from '@/lib/convert-order-status';
+import { DepositDetailsModal } from '@/components/deposit-details-modal';
+import { isOrderDepositActionable } from '@/lib/deposit-actionability';
 
 function formatFeeAmount(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -80,9 +84,10 @@ export default function OrderDetail() {
         queryKey: getGetPublicOrderStatusQueryKey(orderId, { trackingToken: trackingToken || '' }),
         enabled: !!trackingToken,
         refetchOnWindowFocus: 'always',
+          refetchOnReconnect: 'always',
         refetchIntervalInBackground: true,
         refetchInterval: (query) => {
-          const status = query.state.data?.status?.toLowerCase() || '';
+          const status = query.state.data?.status || '';
           if (orderData?.orderKind !== 'convert' && swapOrderStatusTerminal(status)) return false;
           if (orderData?.orderKind === 'convert' && isConvertTerminalStatus(status)) return false;
           return 3000;
@@ -94,11 +99,19 @@ export default function OrderDetail() {
   const markPaid = useMarkOrderPaid({ request: { headers } });
 
   const [copied, setCopied] = useState<string | null>(null);
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(text);
-    haptic.selection();
-    setTimeout(() => setCopied(null), 2000);
+  const [depositModalOpen, setDepositModalOpen] = useState(false);
+  const handleCopy = async (text: string): Promise<boolean> => {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard access is unavailable.');
+      await navigator.clipboard.writeText(text);
+      setCopied(text);
+      haptic.selection();
+      setTimeout(() => setCopied(null), 2000);
+      return true;
+    } catch {
+      alert('Could not copy automatically. Please select and copy the value manually.');
+      return false;
+    }
   };
 
   const handleMarkPaid = async () => {
@@ -111,7 +124,7 @@ export default function OrderDetail() {
         old ? { ...old, customerMarkedPaidAt: new Date().toISOString() } : old
       );
       queryClient.invalidateQueries({ queryKey: getGetTelegramMiniAppOrderQueryKey(orderId) });
-      queryClient.invalidateQueries({ queryKey: ['listTelegramMiniAppOrders'] });
+      queryClient.invalidateQueries({ queryKey: getListTelegramMiniAppOrdersQueryKey() });
     } catch (err: any) {
       haptic.notification('error');
       alert(err.message || 'Failed to update order');
@@ -128,6 +141,37 @@ export default function OrderDetail() {
       }
     }
   };
+
+  const lastStatusRef = useRef<{ orderId: string; status: string }>({ orderId: '', status: '' });
+  useEffect(() => {
+    const freshStatus = publicStatus?.status ?? orderData?.status;
+    const normalizedStatus = normalizeSwapOrderStatus(freshStatus);
+    if (!orderId || !normalizedStatus) return;
+    if (lastStatusRef.current.orderId !== orderId) {
+      lastStatusRef.current = { orderId, status: normalizedStatus };
+      return;
+    }
+    if (lastStatusRef.current.status !== normalizedStatus) {
+      lastStatusRef.current.status = normalizedStatus;
+      void queryClient.invalidateQueries({ queryKey: getListTelegramMiniAppOrdersQueryKey() });
+    }
+  }, [orderData?.status, orderId, publicStatus?.status, queryClient]);
+
+  useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') {
+        if (trackingToken?.trim()) void refetchStatus();
+        void queryClient.invalidateQueries({ queryKey: getGetTelegramMiniAppOrderQueryKey(orderId) });
+        void queryClient.invalidateQueries({ queryKey: getListTelegramMiniAppOrdersQueryKey() });
+      }
+    };
+    window.addEventListener('online', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.removeEventListener('online', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, [orderId, queryClient, refetchStatus, trackingToken]);
 
   if (isOrderLoading) {
     return (
@@ -158,24 +202,24 @@ export default function OrderDetail() {
   const isManualSwap = orderData.orderKind !== 'convert' && orderData.type === 'manual';
   const canonicalSwapStatus = status;
   const swapTimeline = projectSwapOrderTimeline(targetStatus);
-  const isCancelled = status === 'cancelled';
-  const isRefunded = isManualSwap && canonicalSwapStatus === 'refunded';
+  const isCancelled = status === 'cancelled' || status === 'canceled';
+  const isConvertCompletionAlias = ['complete', 'finished', 'paid'].includes(status);
+  const convertDisplayLabel = isConvertCompletionAlias ? status.toUpperCase() : convertOrderStatusLabel(status);
   const isCompleted = isManualSwap
-    ? canonicalSwapStatus === 'completed'
-    : isConvertTerminalStatus(status) && ['completed'].includes(status);
-  const isFailed = isManualSwap ? isCancelled || isRefunded || /failed|expired/.test(status) : isConvertTerminalStatus(status) && !isCompleted;
+    ? swapOrderStatusCompleted(canonicalSwapStatus)
+    : isConvertTerminalStatus(status) && status === 'completed';
+  const isFailed = isManualSwap ? swapOrderStatusFailed(canonicalSwapStatus) : isConvertTerminalStatus(status) && !isCompleted;
   const currentStep = isManualSwap
     ? swapTimeline.step
-    : convertOrderStatusStep(status) + 1;
+    : isConvertCompletionAlias ? 3 : convertOrderStatusStep(status) + 1;
   const isConfirming = isManualSwap
     ? currentStep === 2 && !isFailed
-    : !isCompleted && !isFailed && ['confirming', 'payment detected'].includes(status);
+    : !isCompleted && !isFailed && convertDisplayLabel === 'CONFIRMING';
   const isProcessing = isManualSwap
     ? currentStep === 3 && !isFailed
-    : !isCompleted && !isFailed && status === 'processing';
-  const isPending = !isCompleted && !isFailed && !isProcessing && !isConfirming;
-
-  const showPaymentActions = isPending && !targetStatus?.customerMarkedPaidAt && !isFailed && targetStatus?.paymentDetailsApplicable;
+    : !isCompleted && !isFailed && convertDisplayLabel === 'PROCESSING';
+  const isAwaitingFunding = status === 'awaiting funds' || status === 'pending';
+  const showPaymentActions = isAwaitingFunding && !targetStatus?.customerMarkedPaidAt && targetStatus?.paymentDetailsApplicable;
   const verifiedFundingTransaction = targetStatus.verifiedFundingTransaction;
 
   const sourcePaymentMethod = (targetStatus as any).sourcePaymentMethod;
@@ -184,8 +228,18 @@ export default function OrderDetail() {
   const depositAsset = targetStatus.depositAsset || targetStatus.fromAsset;
   const depositNetwork = targetStatus.depositNetwork || targetStatus.fromNetwork;
   const depositAmount = targetStatus.depositAmount || targetStatus.amount;
-  const sourceIdentity = sourcePaymentMethod?.name || depositNetwork || depositAsset;
+  const depositAssetLabel = typeof depositAsset === 'string' ? depositAsset.trim() : '';
+  const depositNetworkLabel = typeof depositNetwork === 'string' ? depositNetwork.trim() : '';
+  const depositAmountLabel = depositAmount === null || depositAmount === undefined ? '' : String(depositAmount).trim();
   const isCryptoDeposit = Boolean(targetStatus.depositAddress);
+  const depositDetailsReady = Boolean(isCryptoDeposit && depositAssetLabel && depositNetworkLabel && depositAmountLabel);
+  const depositDetailsActionable = isOrderDepositActionable(
+    status,
+    depositDetailsReady,
+    targetStatus.customerMarkedPaidAt,
+    targetStatus.outcomeUnknown,
+  );
+  const sourceIdentity = sourcePaymentMethod?.name || depositNetworkLabel || depositAssetLabel;
   const parsedSendAmount = Number(depositAmount);
   const parsedReceiveAmount = Number(targetStatus.receiveAmount);
   const exchangeRate = Number.isFinite(parsedSendAmount) && parsedSendAmount > 0 && Number.isFinite(parsedReceiveAmount)
@@ -206,14 +260,14 @@ export default function OrderDetail() {
             ? { label: swapTimeline.label, description: 'Your payment has been detected and is confirming.', icon: Clock3, tone: 'text-amber-500', surface: 'bg-amber-500/10' }
             : { label: swapTimeline.label, description: 'Complete the payment using the order-specific details below.', icon: Clock3, tone: 'text-secondary', surface: 'bg-secondary/10' }
     : isCompleted
-     ? { label: isManualSwap ? 'Completed' : convertOrderStatusLabel(status), description: 'Your exchange has been completed successfully.', icon: CheckCircle2, tone: 'text-primary', surface: 'bg-primary/10' }
+     ? { label: convertDisplayLabel, description: 'Your exchange has been completed successfully.', icon: CheckCircle2, tone: 'text-primary', surface: 'bg-primary/10' }
      : isFailed
-       ? { label: isManualSwap ? (isCancelled ? 'Cancelled' : status === 'expired' ? 'Expired' : 'Failed') : convertOrderStatusLabel(status), description: 'This order is no longer active.', icon: XCircle, tone: 'text-destructive', surface: 'bg-destructive/10' }
+        ? { label: convertDisplayLabel, description: 'This order is no longer active.', icon: XCircle, tone: 'text-destructive', surface: 'bg-destructive/10' }
        : isProcessing
-        ? { label: 'Processing', description: 'Your payment is being processed for delivery.', icon: RefreshCcw, tone: 'text-accent', surface: 'bg-accent/10' }
+        ? { label: convertDisplayLabel, description: 'Your payment is being processed for delivery.', icon: RefreshCcw, tone: 'text-accent', surface: 'bg-accent/10' }
         : isConfirming
-          ? { label: convertOrderStatusLabel(status), description: 'Your payment has been detected and is confirming.', icon: Clock3, tone: 'text-amber-500', surface: 'bg-amber-500/10' }
-          : { label: convertOrderStatusLabel(status), description: 'Complete the payment using the order-specific details below.', icon: Clock3, tone: 'text-secondary', surface: 'bg-secondary/10' };
+           ? { label: convertDisplayLabel, description: 'Your payment has been detected and is confirming.', icon: Clock3, tone: 'text-amber-500', surface: 'bg-amber-500/10' }
+           : { label: convertDisplayLabel, description: isConvertCompletionAlias ? 'Waiting for the canonical completion status update.' : 'Complete the payment using the order-specific details below.', icon: Clock3, tone: 'text-secondary', surface: 'bg-secondary/10' };
   const StatusIcon = statusPresentation.icon;
   const paymentFieldLabels: Record<string, string> = {
     name: 'Name',
@@ -228,21 +282,10 @@ export default function OrderDetail() {
   };
 
   const paymentElements: React.ReactNode[] = [];
-  if (targetStatus.depositAddress) {
+  if (!targetStatus.depositAddress && targetStatus.depositMemo) {
     paymentElements.push(
-      <div key="depositAddress" className="group relative bg-black/20 dark:bg-white/5 rounded-xl p-3 border border-border/50 shadow-inner">
-        <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Deposit Address</div>
-        <div className="font-mono text-[13px] font-medium break-all pr-10">{targetStatus.depositAddress}</div>
-        <button onClick={() => handleCopy(targetStatus.depositAddress!)} className="absolute top-1/2 -translate-y-1/2 right-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 active:scale-95 transition-all text-muted-foreground">
-          {copied === targetStatus.depositAddress ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-        </button>
-      </div>
-    );
-  }
-  if (targetStatus.depositMemo) {
-    paymentElements.push(
-      <div key="depositMemo" className="group relative bg-black/20 dark:bg-white/5 rounded-xl p-3 border border-border/50 shadow-inner mt-2">
-        <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Memo / Tag (Required)</div>
+      <div key="depositMemo" className="group relative bg-black/20 dark:bg-white/5 rounded-xl p-3 border border-border/50 shadow-inner">
+        <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Memo / Tag</div>
         <div className="font-mono text-[13px] font-bold break-all pr-10 text-yellow-600 dark:text-yellow-400">{targetStatus.depositMemo}</div>
         <button onClick={() => handleCopy(targetStatus.depositMemo!)} className="absolute top-1/2 -translate-y-1/2 right-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 active:scale-95 transition-all text-muted-foreground">
           {copied === targetStatus.depositMemo ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
@@ -250,7 +293,6 @@ export default function OrderDetail() {
       </div>
     );
   }
-
   if (!targetStatus.depositAddress && targetStatus.paymentDetails && typeof targetStatus.paymentDetails === 'object') {
     for (const [key, value] of Object.entries(targetStatus.paymentDetails)) {
       if (value) {
@@ -516,24 +558,48 @@ export default function OrderDetail() {
                 <div>
                   <h3 className="font-bold text-[15px] tracking-tight">{isCryptoDeposit ? 'Crypto Deposit Details' : 'Payment Details'}</h3>
                   <p className="text-[11px] text-muted-foreground leading-tight">
-                    {isCryptoDeposit ? `Send exactly ${depositAmount} ${depositAsset}` : sourcePaymentMethod?.name || 'Use the assigned order instructions'}
+                    {isCryptoDeposit
+                      ? depositDetailsReady
+                        ? depositDetailsActionable
+                          ? `Send exactly ${depositAmountLabel} ${depositAssetLabel} on ${depositNetworkLabel}`
+                          : 'This order is not awaiting funds. No additional deposits should be sent.'
+                        : 'Deposit instructions are incomplete. Do not send funds yet.'
+                      : sourcePaymentMethod?.name || 'Use the assigned order instructions'}
                   </p>
                 </div>
               </div>
 
               <div className="space-y-3">
-                {isCryptoDeposit && (
+                {isCryptoDeposit && depositDetailsReady && (
                   <div className="flex items-center justify-between rounded-xl bg-secondary/[0.07] border border-secondary/15 p-3">
                     <div>
-                      <p className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground">Send Exactly</p>
-                      <p className="font-mono text-[17px] font-bold">{depositAmount} {depositAsset}</p>
+                      <p className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground">
+                        {depositDetailsActionable ? 'Send Exactly' : 'Order Deposit Amount'}
+                      </p>
+                      <p className="font-mono text-[17px] font-bold">{depositAmountLabel} {depositAssetLabel}</p>
                     </div>
                     <span className="text-[10px] font-bold rounded-full bg-secondary/10 text-secondary border border-secondary/20 px-2 py-1">
-                      {depositNetwork || 'Crypto'}
+                      {depositNetworkLabel}
                     </span>
                   </div>
                 )}
-                {paymentElements && paymentElements.length > 0 ? (
+                {isCryptoDeposit && depositDetailsReady ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setDepositModalOpen(true)}
+                    className="w-full h-11 rounded-xl border-primary/25 bg-primary/[0.05] text-primary font-bold text-xs"
+                  >
+                    View Deposit Details
+                  </Button>
+                ) : isCryptoDeposit ? (
+                  <div role="alert" className="rounded-xl border border-amber-500/25 bg-amber-500/[0.08] p-3 text-[11px] leading-relaxed text-amber-800 dark:text-amber-200">
+                    Deposit amount, asset, or network details are unavailable. Do not send funds; contact support for confirmation.
+                    {supportUrl && (
+                      <button type="button" onClick={openSupport} className="ml-1 font-bold underline">Contact support</button>
+                    )}
+                  </div>
+                ) : paymentElements.length > 0 ? (
                   paymentElements
                 ) : (
                   <div className="bg-black/20 rounded-xl p-4 text-center border border-white/5">
@@ -549,24 +615,11 @@ export default function OrderDetail() {
                   </div>
                 )}
 
-                {isCryptoDeposit && paymentElements.length > 0 && (
-                  <>
-                    <div className="mx-auto w-fit rounded-2xl bg-white p-3 shadow-[0_8px_28px_-12px_hsl(var(--primary)/0.5)]">
-                       <QRCodeSVG value={targetStatus.depositQrData || targetStatus.depositAddress!} size={136} level="M" />
-                    </div>
-                    <p className="text-center text-[10px] font-semibold text-muted-foreground">Scan the deposit address</p>
-                    <div className="flex items-start gap-2 rounded-xl bg-yellow-500/[0.08] border border-yellow-500/15 p-3 text-[11px] leading-relaxed text-muted-foreground">
-                      <AlertCircle className="w-4 h-4 shrink-0 text-yellow-500 mt-0.5" />
-                      <span>Send only {depositAsset} on the {depositNetwork || 'shown'} network. Using another network may result in permanent loss.</span>
-                    </div>
-                  </>
-                )}
-
                 {showPaymentActions && (
                   <div className="pt-3">
                     <Button
                       onClick={handleMarkPaid}
-                      disabled={markPaid.isPending || (!paymentElements || paymentElements.length === 0)}
+                      disabled={markPaid.isPending || (isCryptoDeposit ? !depositDetailsReady : paymentElements.length === 0)}
                       className="w-full h-11 rounded-xl bg-gradient-to-r from-primary to-accent hover:opacity-90 text-white font-bold border-0 shadow-[0_4px_14px_-4px_hsl(var(--primary)/0.5)] active:scale-95 transition-all disabled:opacity-50"
                     >
                       {markPaid.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : (isCryptoDeposit ? 'I Have Sent Crypto' : 'Mark as Paid')}
@@ -575,6 +628,25 @@ export default function OrderDetail() {
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {(isCompleted || isFailed) && isCryptoDeposit && (
+          <div className="premium-card p-4">
+            {depositDetailsReady ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDepositModalOpen(true)}
+                className="w-full h-11 rounded-xl border-border/60 bg-background/50 font-bold text-xs"
+              >
+                View Recorded Deposit Details
+              </Button>
+            ) : (
+              <p role="alert" className="text-center text-xs text-muted-foreground">
+                Recorded deposit details are incomplete. Contact support before relying on these instructions.
+              </p>
+            )}
           </div>
         )}
 
@@ -596,7 +668,7 @@ export default function OrderDetail() {
               haptic.selection();
               await refetchStatus();
               queryClient.invalidateQueries({ queryKey: getGetTelegramMiniAppOrderQueryKey(orderId) });
-              queryClient.invalidateQueries({ queryKey: ['listTelegramMiniAppOrders'] });
+              queryClient.invalidateQueries({ queryKey: getListTelegramMiniAppOrdersQueryKey() });
             }}
             disabled={isRefreshingStatus}
             className="h-11 rounded-xl border-primary/20 bg-primary/[0.05] text-primary font-bold text-[11px]"
@@ -615,6 +687,22 @@ export default function OrderDetail() {
           </Button>
         </div>
       </div>
+      {depositDetailsReady && targetStatus.depositAddress && (
+        <DepositDetailsModal
+          open={depositModalOpen}
+          onOpenChange={setDepositModalOpen}
+          amount={depositAmountLabel}
+          asset={depositAssetLabel}
+          network={depositNetworkLabel}
+          address={targetStatus.depositAddress}
+          qrData={(targetStatus as any).depositQrData}
+          memo={targetStatus.depositMemo}
+          orderId={orderId}
+          copied={copied}
+          onCopy={handleCopy}
+          actionable={depositDetailsActionable}
+        />
+      )}
     </div>
   );
 }

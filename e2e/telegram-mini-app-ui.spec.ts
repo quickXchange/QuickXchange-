@@ -226,8 +226,8 @@ test('authenticated Convert and Swap selectors search normalized aliases and net
   await expect(page.getByTestId('source-selector-trigger')).toBeVisible();
   await page.getByTestId('source-selector-trigger').click();
   await page.getByPlaceholder('Search by name, symbol, or network...').fill('  sep  ');
-  await expect(page.getByText('SEPA', { exact: true })).toBeVisible();
-  await expect(page.getByText('SEPA Instant', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'SEPA SEPA EUR · Payment Method', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'SEPA Instant SEPA Instant EUR · Payment Method', exact: true })).toBeVisible();
   const artwork = page.getByRole('button', { name: 'SEPA SEPA EUR · Payment Method' })
     .locator(`img[src="${uploaded}"]`);
   await expect(artwork).toBeVisible();
@@ -383,7 +383,11 @@ test('authenticated View Order renders the canonical uploaded logo in the shared
   }
   const badge = page.locator(`img[src="${networkLogo}"]`).first();
   await expect(badge).toBeVisible();
-  await expect(badge.locator('xpath=..')).toHaveClass(/w-2\.5 h-2\.5/);
+  await expect(badge.locator('xpath=..')).toHaveClass(/qx-network-badge/);
+  const badgeBounds = await badge.locator('xpath=..').boundingBox();
+  // The order summary uses MiniAppLogo's medium host size (14px badge).
+  expect(badgeBounds?.width).toBe(14);
+  expect(badgeBounds?.height).toBe(14);
   expect(authenticatedRequests.some(request =>
     request.url.includes(`/api/telegram/mini-app/orders/${orderId}`) &&
     request.authorization === `Bearer ${sessionToken}`,

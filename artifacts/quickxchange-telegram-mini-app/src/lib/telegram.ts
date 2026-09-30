@@ -84,6 +84,8 @@ export interface WebApp {
   setBackgroundColor(color: string): void;
   openLink(url: string, options?: any): void;
   openTelegramLink(url: string): void;
+  onEvent?(event: string, callback: () => void): void;
+  offEvent?(event: string, callback: () => void): void;
 }
 
 declare global {

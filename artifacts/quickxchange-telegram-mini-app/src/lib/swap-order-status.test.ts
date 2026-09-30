@@ -1,10 +1,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  normalizeSwapOrderStatus,
   orderTimelineLineWidthPercent,
   projectSwapOrderTimeline,
+  swapOrderStatusLabel,
   swapOrderStatusTerminal,
+  swapOrderStatusCompleted,
+  swapOrderStatusFailed,
 } from './swap-order-status';
+import {
+  convertOrderStatusLabel,
+  convertOrderStatusStep,
+  isConvertTerminalStatus,
+} from './convert-order-status';
+import { isOrderDepositActionable } from './deposit-actionability';
 
 // These statuses match the existing WhiteBIT finality and blockchain-monitoring
 // fixtures: detection is not settlement, and both funded paths enter processing.
@@ -49,4 +59,55 @@ test('a newly polled backend status advances the same timeline projection', () =
   assert.equal(projectSwapOrderTimeline({ ...initial, ...detected }).step, 2);
   assert.equal(projectSwapOrderTimeline({ ...initial, ...processing }).step, 3);
   assert.equal(projectSwapOrderTimeline({ ...initial, ...processing, status: 'completed' }).step, 4);
+});
+
+test('terminal aliases are normalized consistently and never look active', () => {
+  for (const [alias, label] of [
+    ['reversed', 'REFUNDED'],
+    ['overdue', 'EXPIRED'],
+  ] as const) {
+    assert.equal(swapOrderStatusLabel(alias), label);
+    assert.equal(swapOrderStatusTerminal(alias), true);
+  }
+  assert.equal(normalizeSwapOrderStatus('funds_confirmed'), 'funds confirmed');
+  for (const unsupportedSuccessAlias of ['complete', 'finished', 'paid']) {
+    assert.notEqual(swapOrderStatusLabel(unsupportedSuccessAlias), 'DONE');
+    assert.equal(swapOrderStatusCompleted(unsupportedSuccessAlias), false);
+    assert.equal(swapOrderStatusTerminal(unsupportedSuccessAlias), false);
+  }
+  assert.equal(swapOrderStatusFailed('reversed'), true);
+});
+
+test('Convert terminal aliases and progression match website labels without implying payment proof', () => {
+  for (const [alias, label] of [
+    ['reversed', 'REFUNDED'],
+    ['overdue', 'EXPIRED'],
+  ] as const) {
+    assert.equal(convertOrderStatusLabel(alias), label);
+    assert.equal(isConvertTerminalStatus(alias), true);
+  }
+  assert.equal(convertOrderStatusStep('awaiting_funds'), 0);
+  assert.equal(convertOrderStatusStep('payment_detected'), 1);
+  assert.equal(convertOrderStatusStep('processing'), 2);
+  assert.equal(convertOrderStatusStep('completed'), 3);
+  for (const unconfirmedAlias of ['paid', 'complete', 'finished']) {
+    assert.notEqual(convertOrderStatusLabel(unconfirmedAlias), 'DONE');
+    assert.equal(isConvertTerminalStatus(unconfirmedAlias), false);
+    assert.ok(convertOrderStatusStep(unconfirmedAlias) < 3);
+  }
+});
+
+test('deposit details are actionable only while awaiting funds with complete, unclaimed instructions', () => {
+  for (const status of ['awaiting funds', 'pending']) {
+    assert.equal(isOrderDepositActionable(status, true), true, status);
+    assert.equal(isOrderDepositActionable(status, false), false, `${status}: missing details`);
+    assert.equal(isOrderDepositActionable(status, true, 'customer-reported'), false, `${status}: reported paid`);
+    assert.equal(isOrderDepositActionable(status, true, undefined, true), false, `${status}: uncertain`);
+  }
+  for (const fundedOrStopped of [
+    'payment detected', 'confirming', 'processing', 'completed', 'failed', 'cancelled',
+    'refunded', 'expired', 'held', 'verification required',
+  ]) {
+    assert.equal(isOrderDepositActionable(fundedOrStopped, true), false, fundedOrStopped);
+  }
 });

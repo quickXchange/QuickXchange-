@@ -11,7 +11,12 @@ import { Button } from '@/components/ui/button';
 import { useHapticFeedback } from '@/lib/hooks';
 import { MiniAppBrandLogo, MiniAppLogoPair } from '@/components/mini-app-logo';
 import { resolveOrderVisual } from '@/lib/logo-catalog';
-import { swapOrderStatusLabel, swapOrderStatusTerminal } from '@/lib/swap-order-status';
+import {
+  swapOrderStatusCompleted,
+  swapOrderStatusFailed,
+  swapOrderStatusLabel,
+  swapOrderStatusTerminal,
+} from '@/lib/swap-order-status';
 import { convertOrderStatusLabel, isConvertTerminalStatus } from '@/lib/convert-order-status';
 
 export default function Home() {
@@ -27,6 +32,7 @@ export default function Home() {
       queryKey: getListTelegramMiniAppOrdersQueryKey(),
       enabled: Boolean(headers.Authorization),
       refetchOnWindowFocus: 'always',
+      refetchOnReconnect: 'always',
       refetchIntervalInBackground: true,
       refetchInterval: (query) => {
         const orders = query.state.data || [];
@@ -102,6 +108,16 @@ export default function Home() {
             ordersData.slice(0, 3).map((order: any) => {
               const sourceVisual = resolveOrderVisual(exchangeConfig?.settlementOptions, order, 'source');
               const targetVisual = resolveOrderVisual(exchangeConfig?.settlementOptions, order, 'target');
+              const isConvertOrder = order.orderKind === 'convert';
+              const statusLabel = isConvertOrder
+                ? convertOrderStatusLabel(order.status)
+                : swapOrderStatusLabel(order.status);
+              const isDone = isConvertOrder
+                ? statusLabel === 'DONE'
+                : swapOrderStatusCompleted(order.status);
+              const isFailed = isConvertOrder
+                ? isConvertTerminalStatus(order.status) && !isDone
+                : swapOrderStatusFailed(order.status);
               return <Link key={order.id} href={`/orders/${order.id}`} onClick={() => haptic.selection()}>
                 <div className="premium-card p-4 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors group">
                   <div className="flex items-center space-x-3 min-w-0">
@@ -123,11 +139,11 @@ export default function Home() {
                   </div>
                   <div className={cn(
                     "text-[10px] px-2.5 py-1 rounded-full font-bold tracking-widest uppercase shrink-0 shadow-sm ml-3",
-                    order.status === 'completed' || order.status === 'paid' ? "bg-primary/10 text-primary border border-primary/20" :
-                    order.status === 'failed' || order.status === 'cancelled' || order.status === 'expired' ? "bg-destructive/10 text-destructive border border-destructive/20" :
+                    isDone ? "bg-primary/10 text-primary border border-primary/20" :
+                    isFailed ? "bg-destructive/10 text-destructive border border-destructive/20" :
                     "bg-secondary/10 text-secondary border border-secondary/20"
                   )}>
-                     {order.orderKind === 'convert' ? convertOrderStatusLabel(order.status) : swapOrderStatusLabel(order.status)}
+                     {statusLabel}
                   </div>
                 </div>
               </Link>;

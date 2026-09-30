@@ -3,7 +3,9 @@ export const CONVERT_TERMINAL_STATUSES = [
   'failed',
   'cancelled',
   'refunded',
+  'reversed',
   'expired',
+  'overdue',
 ] as const;
 
 export function normalizeConvertOrderStatus(status: unknown): string {

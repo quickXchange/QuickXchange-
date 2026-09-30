@@ -6,11 +6,13 @@ import { Search } from 'lucide-react';
 import { useAuthHeaders } from '@/lib/auth';
 import { useLinkTelegramMiniAppOrder } from '@workspace/api-client-react';
 import { useHapticFeedback } from '@/lib/hooks';
+import { parseTrackingInput } from '@/lib/tracking-input';
 
 export default function Track() {
   const [, setLocation] = useLocation();
-  const [orderId, setOrderId] = useState('');
-  const [trackingToken, setTrackingToken] = useState('');
+  const initialTracking = parseTrackingInput(window.location.href);
+  const [orderId, setOrderId] = useState(initialTracking.orderId);
+  const [trackingToken, setTrackingToken] = useState(initialTracking.trackingToken);
   const [error, setError] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const headers = useAuthHeaders();
@@ -50,7 +52,7 @@ export default function Track() {
         </div>
         <h1 className="text-2xl font-bold tracking-tight">Track Order</h1>
         <p className="text-sm text-muted-foreground max-w-[260px] mx-auto">
-          Enter your order ID and signed tracking token to check its current status.
+          Paste your tracking link, or enter the order ID and signed tracking token.
         </p>
       </div>
 
@@ -61,7 +63,12 @@ export default function Track() {
           </label>
           <Input 
             value={orderId}
-            onChange={(e) => setOrderId(e.target.value)}
+            onChange={(e) => {
+              const parsed = parseTrackingInput(e.target.value);
+              setOrderId(parsed.orderId);
+              if (parsed.trackingToken) setTrackingToken(parsed.trackingToken);
+            }}
+            aria-label="Order ID or tracking link"
             placeholder="e.g. 123e4567-e89b-12d3..."
             className="bg-background/80 h-14 rounded-2xl border-white/10 focus-visible:ring-primary/50 text-[15px] shadow-inner font-mono"
           />
@@ -72,6 +79,7 @@ export default function Track() {
           </label>
           <Input
             value={trackingToken}
+            aria-label="Signed Tracking Token"
             onChange={(e) => setTrackingToken(e.target.value)}
             placeholder="Paste the token from your order confirmation"
             className="bg-background/80 h-14 rounded-2xl border-white/10 focus-visible:ring-primary/50 text-[13px] shadow-inner font-mono"

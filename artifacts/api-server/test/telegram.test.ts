@@ -14,11 +14,11 @@ import {
   telegramNotificationOutboxTable,
   telegramOrderLinksTable,
 } from "@workspace/db";
-import { DepositInstructionsPending, menu, shouldApplyUpdate, reconciliationClaimEligible, reconciliationWinnerTransition, telegramAdvisoryChatKey, telegramCreateRetryDecision, telegramCreatingOrderMessage, telegramCreationDeliveryDecision, telegramCreationOutboxPayload, telegramCreateState, telegramDepositInstruction, telegramInboxDisposition, telegramManualOrderKinds, telegramNextChatCursor, telegramOrderCreatedMessage, telegramOrderStatusMessage, telegramOutboxFailureDisposition, telegramPrivateUpdate, telegramRequiresDeposit, telegramSecretMatches, telegramUpdateIdValid, telegramWebhookDisposition } from "../src/routes/telegram";
+import { DepositInstructionsPending, menu, parseTelegramOrderCallback, shouldApplyUpdate, reconciliationClaimEligible, reconciliationWinnerTransition, telegramAdvisoryChatKey, telegramCreateActionBlocked, telegramCreateRetryDecision, telegramCreatingOrderMessage, telegramCreationDeliveryDecision, telegramCreationOutboxPayload, telegramCreateState, telegramDepositInstruction, telegramInboxDisposition, telegramManualOrderKinds, telegramNextChatCursor, telegramOrderCallbackData, telegramOrderLinkOwnedByChat, telegramOrderCreatedMessage, telegramOrderStatusMessage, telegramOutboxFailureDisposition, telegramPrivateUpdate, telegramRequiresDeposit, telegramSecretMatches, telegramTrackingTokenForOrder, telegramUpdateIdValid, telegramWebhookDisposition } from "../src/routes/telegram";
 import { localeOf, t } from "../src/lib/telegram-localization";
 import { consumeTelegramLinkChallenge, createTelegramLinkChallenge, hashTelegramLinkToken, TelegramLinkChallengeError, TelegramLinkConflictError } from "../src/lib/telegram-link";
 import { AdminTelegramLinkChallengeError, consumeAdminTelegramLinkChallenge, createAdminTelegramLinkChallenge } from "../src/lib/admin-telegram-link";
-import { buildCreatePayload, buildQuotePayload, buildTelegramConvertOptions, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, shouldAskDestination, telegramAssetNetworkKey, telegramFieldSkipIndex, withoutTelegramRefundFields } from "../src/lib/telegram-wizard";
+import { buildCreatePayload, buildQuoteByReceivePayload, buildQuotePayload, buildTelegramConvertOptions, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, nextSourceAmountForReceiveTarget, shouldAskDestination, telegramAssetNetworkKey, telegramCallbackIndexes, telegramFieldSkipIndex, toggleTelegramManualSwapAddonSelection, withoutTelegramRefundFields } from "../src/lib/telegram-wizard";
 import { adminEmailEventEnabled, adminTelegramEventEnabled, customerEmailEventEnabled } from "../src/lib/notification-policy";
 import { normalizeRefundFields } from "../src/lib/manual-wallet-validation";
 import { manualProjection, quickexProjection, telegramAccountLinkRelativeUrl, validateTelegramMiniAppInitData, verifyTelegramMiniAppSession } from "../src/routes/telegram-mini-app";
@@ -27,10 +27,12 @@ import { buildCustomerStatusNotificationContent, resolveCompletedReviewUrl } fro
 import { adminTelegramTestFailureReason, telegramHealthReport, validateNotificationTemplateVariables } from "../src/routes/notification-settings";
 import { sanitizeTelegramFailureReason, TelegramApiError, validateTelegramBotIdentity } from "../src/lib/telegram-api";
 import {
+  convertTelegramMilestoneKinds,
   convertTelegramStatusLabel,
   formatConvertTelegramNotification,
 } from "../src/lib/telegram-convert-notifications";
 import { updateOrderAndQueueStatusNotification } from "../src/lib/customer-status-notifications";
+import { signOrderTrackingToken, verifyOrderTrackingToken } from "../src/lib/order-access";
 
 test("Telegram Mini App Convert projection exposes only persisted provider deposit instructions", () => {
   const projected = quickexProjection({
@@ -86,6 +88,8 @@ test("Telegram Mini App Manual Swap projection exposes only validated saved fee 
       totalAmount: "0",
     },
     totalAdditionalFee: "1",
+    existingPricingFee: "0",
+    totalFees: "1",
     referenceLegs: [],
   };
   const row = {
@@ -731,6 +735,214 @@ test("Telegram wizard builds exact route bodies from persisted selections", () =
   assert.equal(shouldAskDestination("swap", target), true);
 });
 
+test("Telegram Swap and Convert use canonical reverse-quote contracts and frozen create identities", () => {
+  const source = { id: "canonical-source", assetCode: "BTC", routeNetwork: "Bitcoin", kind: "crypto-network" };
+  const target = { id: "canonical-target", assetCode: "USDT", routeNetwork: "TRC20", kind: "crypto-network" };
+  assert.deepEqual(buildQuoteByReceivePayload("swap", source, target, 250), {
+    fromAsset: "BTC",
+    fromNetwork: "Bitcoin",
+    toAsset: "USDT",
+    toNetwork: "TRC20",
+    sourceSettlementOptionId: "canonical-source",
+    targetSettlementOptionId: "canonical-target",
+    desiredReceiveAmount: 250,
+    rateMode: "FLOATING",
+  });
+  assert.deepEqual(buildQuoteByReceivePayload("convert", source, target, 250), {
+    fromAsset: "BTC",
+    fromNetwork: "Bitcoin",
+    toAsset: "USDT",
+    toNetwork: "TRC20",
+    desiredReceiveAmount: 250,
+    rateMode: "FLOATING",
+  });
+
+  const clientRequestId = randomUUID();
+  const data = { amount: 1.25, email: "customer@example.test", clientRequestId, quote: { quoteId: "canonical-quote" } };
+  const swapCreate = buildCreatePayload("swap", source, target, data);
+  const convertCreate = buildCreatePayload("convert", source, target, data);
+  assert.equal(swapCreate.type, "manual");
+  assert.equal(convertCreate.type, "instant");
+  assert.equal(swapCreate.clientRequestId, clientRequestId);
+  assert.equal(convertCreate.clientRequestId, clientRequestId);
+  assert.deepEqual(
+    buildCreatePayload("convert", source, target, data),
+    convertCreate,
+    "retries reuse the frozen request identity and canonical quote",
+  );
+});
+
+test("Telegram quote and create contracts preserve rate modes, settlement keys, and add-on selections", () => {
+  const source = { id: "canonical-source", assetCode: "BTC", routeNetwork: "Bitcoin", kind: "crypto-network" };
+  const target = { id: "canonical-target", assetCode: "USDT", routeNetwork: "TRC20", kind: "crypto-network" };
+  const selectedAddOnKeys = ["priority", "insurance"];
+  assert.deepEqual(
+    buildQuotePayload("swap", source, target, 2, "FLOATING", selectedAddOnKeys),
+    {
+      type: "manual",
+      fromAsset: "BTC",
+      fromNetwork: "Bitcoin",
+      toAsset: "USDT",
+      toNetwork: "TRC20",
+      sourceSettlementOptionId: "canonical-source",
+      targetSettlementOptionId: "canonical-target",
+      amount: 2,
+      rateMode: "FLOATING",
+      selectedAddOnKeys,
+    },
+  );
+  assert.deepEqual(
+    buildQuoteByReceivePayload("swap", source, target, 25, "FLOATING", selectedAddOnKeys),
+    {
+      fromAsset: "BTC",
+      fromNetwork: "Bitcoin",
+      toAsset: "USDT",
+      toNetwork: "TRC20",
+      sourceSettlementOptionId: "canonical-source",
+      targetSettlementOptionId: "canonical-target",
+      selectedAddOnKeys,
+      desiredReceiveAmount: 25,
+      rateMode: "FLOATING",
+    },
+  );
+  assert.deepEqual(
+    buildQuotePayload("convert", source, target, 2, "FIXED"),
+    {
+      type: "instant",
+      fromAsset: "BTC",
+      fromNetwork: "Bitcoin",
+      toAsset: "USDT",
+      toNetwork: "TRC20",
+      sourceSettlementOptionId: "canonical-source",
+      targetSettlementOptionId: "canonical-target",
+      amount: 2,
+      rateMode: "FIXED",
+    },
+  );
+
+  const fields = [
+    { key: "beneficiary_count", type: "integer" },
+    { key: "transfer_amount", type: "decimal" },
+    { key: "fee_percent", type: "number" },
+    { key: "bank_name", type: "short-text" },
+  ];
+  const convertCreate = buildCreatePayload("convert", source, target, {
+    amount: 2,
+    email: "convert@example.test",
+    destinationAddress: "provider-destination",
+    destinationMemo: "provider-memo",
+    clientRequestId: "convert-request",
+    rateMode: "FIXED",
+    quote: { quoteId: "convert-quote", rateMode: "FIXED", requiredSettlementFields: fields },
+    fields,
+    values: { beneficiary_count: "4", transfer_amount: "12.50", fee_percent: "1.25", bank_name: "Example Bank" },
+  });
+  assert.equal(convertCreate.destinationAddress, "provider-destination");
+  assert.equal(convertCreate.destinationMemo, "provider-memo");
+  assert.deepEqual(convertCreate.settlementDetails, {
+    beneficiary_count: 4,
+    transfer_amount: 12.5,
+    fee_percent: 1.25,
+    bank_name: "Example Bank",
+  });
+  assert.deepEqual(
+    [convertCreate.fromAsset, convertCreate.fromNetwork, convertCreate.toAsset, convertCreate.toNetwork],
+    ["BTC", "Bitcoin", "USDT", "TRC20"],
+  );
+  assert.equal("sourceSettlementOptionId" in convertCreate, false);
+  assert.equal("targetSettlementOptionId" in convertCreate, false);
+  assert.equal(convertCreate.rateMode, "FIXED");
+  assert.equal("selectedAddOnKeys" in convertCreate, false);
+
+  const manualCreate = buildCreatePayload("swap", source, target, {
+    amount: 2,
+    email: "swap@example.test",
+    clientRequestId: "swap-request",
+    rateMode: "FLOATING",
+    selectedAddOnKeys,
+    quote: { quoteId: "manual-quote", rateMode: "FLOATING", requiredSettlementFields: fields },
+    fields,
+    values: { beneficiary_count: "4", transfer_amount: "12.50", fee_percent: "1.25", bank_name: "Example Bank" },
+  });
+  assert.deepEqual(manualCreate.settlementDetails, {
+    beneficiary_count: 4,
+    transfer_amount: 12.5,
+    fee_percent: 1.25,
+    bank_name: "Example Bank",
+  });
+  assert.deepEqual(manualCreate.selectedAddOnKeys, selectedAddOnKeys);
+  assert.equal(manualCreate.sourceSettlementOptionId, source.id);
+  assert.equal(manualCreate.targetSettlementOptionId, target.id);
+  assert.equal(manualCreate.rateMode, "FLOATING");
+});
+
+test("Telegram Manual Swap add-on selection follows public group selection rules", () => {
+  const addons = [
+    { key: "priority", name: "Priority", selectionRule: "one" as const, presentation: { group: "speed" } },
+    { key: "express", name: "Express", selectionRule: "one" as const, presentation: { group: "speed" } },
+    { key: "standard", name: "Standard", selectionRule: "multiple" as const, presentation: { group: "speed" } },
+    { key: "cover", name: "Cover", selectionRule: "multiple" as const, presentation: { group: "extras" } },
+    { key: "gift", name: "Gift", selectionRule: "multiple" as const, presentation: { group: "extras" } },
+    { key: "disabled", name: "Disabled", selectionRule: "none" as const, presentation: { group: "extras" } },
+  ];
+  assert.deepEqual(toggleTelegramManualSwapAddonSelection([], "priority", addons), ["priority"]);
+  assert.deepEqual(toggleTelegramManualSwapAddonSelection(["priority"], "express", addons), ["express"]);
+  assert.deepEqual(toggleTelegramManualSwapAddonSelection(["standard"], "cover", addons), ["standard", "cover"]);
+  assert.deepEqual(toggleTelegramManualSwapAddonSelection(["priority"], "standard", addons), ["standard"]);
+  assert.deepEqual(toggleTelegramManualSwapAddonSelection(["cover"], "gift", addons), ["cover", "gift"]);
+  assert.deepEqual(toggleTelegramManualSwapAddonSelection(["cover"], "disabled", addons), ["cover"]);
+});
+
+test("Telegram order tracking callbacks are canonical, scoped, and safely parse legacy buttons", () => {
+  const callback = telegramOrderCallbackData("QX-123/abc");
+  assert.ok(callback);
+  assert.deepEqual(parseTelegramOrderCallback(callback), { orderId: "QX-123/abc" });
+  assert.deepEqual(parseTelegramOrderCallback("order:0"), { legacyIndex: 0 });
+  assert.deepEqual(parseTelegramOrderCallback("order:12"), { legacyIndex: 12 });
+  assert.equal(parseTelegramOrderCallback("order:-1"), undefined);
+  assert.equal(parseTelegramOrderCallback("order:1:extra"), undefined);
+  assert.equal(parseTelegramOrderCallback("order:id:bad==="), undefined);
+  assert.equal(telegramOrderCallbackData("x".repeat(100)), undefined);
+  assert.equal(
+    telegramOrderLinkOwnedByChat({ chatId: "private-chat", orderId: "QX-123" }, "private-chat", "QX-123"),
+    true,
+  );
+  assert.equal(
+    telegramOrderLinkOwnedByChat({ chatId: "another-chat", orderId: "QX-123" }, "private-chat", "QX-123"),
+    false,
+  );
+  assert.equal(
+    telegramOrderLinkOwnedByChat({ chatId: "private-chat", orderId: "other-order" }, "private-chat", "QX-123"),
+    false,
+  );
+  assert.equal(telegramOrderLinkOwnedByChat(undefined, "private-chat", "QX-123"), false);
+});
+
+test("Telegram successful order creation repairs an empty tracking capability without changing a valid one", () => {
+  const previous = process.env.SESSION_SECRET;
+  process.env.SESSION_SECRET = "telegram-test-session-secret";
+  try {
+    const repaired = telegramTrackingTokenForOrder("QX-track-1", "");
+    assert.ok(repaired);
+    assert.equal(verifyOrderTrackingToken(repaired, "QX-track-1"), true);
+    assert.equal(verifyOrderTrackingToken(repaired, "QX-track-2"), false);
+    const creationNotice = telegramCreationOutboxPayload(
+      "QX-track-1",
+      "convert",
+      { status: "awaiting", statusVersion: 1 },
+      repaired,
+      true,
+    );
+    assert.equal(creationNotice.trackingToken, repaired);
+    const existing = signOrderTrackingToken("QX-track-1");
+    assert.equal(telegramTrackingTokenForOrder("QX-track-1", ` ${existing} `), existing);
+    assert.notEqual(telegramTrackingTokenForOrder("QX-track-1", "invalid-capability"), "invalid-capability");
+  } finally {
+    if (previous === undefined) delete process.env.SESSION_SECRET;
+    else process.env.SESSION_SECRET = previous;
+  }
+});
+
 test("Telegram Convert omits absent refund fields for USDT TRC20 to fiat", () => {
   const source = { id: "send-usdt-trc20", assetCode: "USDT", routeNetwork: "TRC20", kind: "crypto-network" };
   const target = { id: "receive-eur", assetCode: "EUR", routeNetwork: "SEPA", kind: "fiat-payment-method" };
@@ -844,6 +1056,11 @@ test("Telegram optional-field Skip callback resolves the clicked field index", (
   assert.equal(telegramFieldSkipIndex("fieldskip:"), undefined);
   assert.equal(telegramFieldSkipIndex("fieldskip:-1"), undefined);
   assert.equal(telegramFieldSkipIndex("fieldskip:2:3"), undefined);
+  assert.deepEqual(telegramCallbackIndexes("fieldopt:0:12", "fieldopt", 2), [0, 12]);
+  assert.deepEqual(telegramCallbackIndexes("srcpage:3", "srcpage"), [3]);
+  assert.equal(telegramCallbackIndexes("fieldopt:0:2:3", "fieldopt", 2), undefined);
+  assert.equal(telegramCallbackIndexes("fieldopt:01:2", "fieldopt", 2), undefined);
+  assert.equal(telegramCallbackIndexes("fieldopt:9007199254740992:2", "fieldopt", 2), undefined);
 });
 
 test("Telegram option search covers currency, symbol, payment method, crypto, and network names", () => {
@@ -899,6 +1116,39 @@ test("Telegram update replay and reconciliation claims are winner-fenced", () =>
   assert.equal(reconciliationClaimEligible("reconciling", null, new Date()), false);
   assert.equal(reconciliationWinnerTransition(true, true), true);
   assert.equal(reconciliationWinnerTransition(false, true), false);
+});
+
+test("unresolved Telegram creates block session-replacing commands and callbacks", () => {
+  const clientRequestId = "frozen-create-request";
+  const session = {
+    state: "processing",
+    data: { clientRequestId, frozenCreateBody: { clientRequestId } },
+  };
+  const replacingActions = [
+    "/exchange",
+    "/convert",
+    "/track",
+    "mode:swap",
+    "mode:convert",
+    "track",
+    "cancel",
+    "retry:create",
+  ];
+
+  for (const pendingState of ["processing", "reconciling"]) {
+    session.state = pendingState;
+    for (const action of replacingActions) {
+      assert.equal(telegramCreateActionBlocked(session.state, action), true, `${pendingState} blocks ${action}`);
+      assert.equal(session.data.clientRequestId, clientRequestId);
+      assert.equal(session.data.frozenCreateBody.clientRequestId, clientRequestId);
+    }
+  }
+
+  for (const finalState of ["idle", "review", "expired"]) {
+    assert.equal(telegramCreateActionBlocked(finalState, "/exchange"), false);
+    assert.equal(telegramCreateActionBlocked(finalState, "cancel"), false);
+  }
+  assert.equal(telegramCreateActionBlocked("processing", "/orders"), false);
 });
 
 test("Telegram creation recovery preserves retry identity and durable delivery selection", () => {
@@ -979,6 +1229,9 @@ test("Swap Telegram payment and completion messages use stored event details", (
 });
 
 test("Convert Telegram milestone messages use canonical status labels and stored details", () => {
+  assert.deepEqual(convertTelegramMilestoneKinds("Completed"), ["payment_received", "completed"]);
+  assert.deepEqual(convertTelegramMilestoneKinds("PROCESSING"), ["payment_received"]);
+  assert.deepEqual(convertTelegramMilestoneKinds("failed"), []);
   assert.equal(convertTelegramStatusLabel("awaiting funds"), "AWAITING FUNDS");
   assert.equal(convertTelegramStatusLabel("processing"), "PROCESSING");
   assert.equal(convertTelegramStatusLabel("completed"), "DONE ✅");
@@ -1019,7 +1272,7 @@ test("Convert Telegram milestone messages use canonical status labels and stored
   assert.match(completed, /<b>Order ID<\/b>\n<code>QX-123<\/code>/);
 });
 
-test("real Manual Swap completion queues one stored Telegram completion snapshot", async () => {
+test("Manual Swap completion does not queue customer Telegram lifecycle notices", async () => {
   const id = `O${randomUUID().replaceAll("-", "").slice(0, 10)}`;
   const chatId = `92${Date.now()}`;
   await db.insert(ordersTable).values({
@@ -1065,32 +1318,15 @@ test("real Manual Swap completion queues one stored Telegram completion snapshot
 
     const notices = await db.select().from(telegramNotificationOutboxTable)
       .where(eq(telegramNotificationOutboxTable.orderId, id));
-    const completion = notices.filter((notice) => notice.eventKind === "completed");
-    const genericStatus = notices.filter((notice) => notice.eventKind === "status");
-    assert.equal(completion.length, 1);
-    assert.equal(genericStatus.length, 1);
-    assert.equal(genericStatus[0]?.deliveryStatus, "delivered");
-    assert.equal(completion[0]?.statusVersion, completed?.statusVersion);
-    assert.deepEqual(
-      {
-        sendAmount: completion[0]?.payload.sendAmount,
-        sendAsset: completion[0]?.payload.sendAsset,
-        sendMethod: completion[0]?.payload.sendMethod,
-        sendNetwork: completion[0]?.payload.sendNetwork,
-        receiveAmount: completion[0]?.payload.receiveAmount,
-        receiveAsset: completion[0]?.payload.receiveAsset,
-        receiveMethod: completion[0]?.payload.receiveMethod,
-      },
-      {
-        sendAmount: "20",
-        sendAsset: "USDT",
-        sendMethod: "USDT",
-        sendNetwork: "BEP20",
-        receiveAmount: "18.75",
-        receiveAsset: "EUR",
-        receiveMethod: "SEPA",
-      },
+    const customerLifecycleNotices = notices.filter((notice) =>
+      notice.chatId === chatId &&
+      ["payment_received", "processing", "completed", "failed_cancelled"].includes(notice.eventKind),
     );
+    assert.deepEqual(customerLifecycleNotices, []);
+    const customerStatusMarker = notices.find((notice) =>
+      notice.chatId === chatId && notice.eventKind === "status",
+    );
+    assert.equal(customerStatusMarker?.deliveryStatus, "delivered");
   } finally {
     await db.delete(telegramNotificationOutboxTable)
       .where(eq(telegramNotificationOutboxTable.orderId, id));
@@ -1103,7 +1339,7 @@ test("real Manual Swap completion queues one stored Telegram completion snapshot
   }
 });
 
-test("Manual payment Telegram outbox persists only the passed verified TxID and explorer", async () => {
+test("Manual payment receipt is not queued as a customer Telegram lifecycle notice", async () => {
   const id = `O${randomUUID().replaceAll("-", "").slice(0, 10)}`;
   const chatId = `93${Date.now()}`;
   const txHash = "0xverified-observation-payment";
@@ -1136,14 +1372,11 @@ test("Manual payment Telegram outbox persists only the passed verified TxID and 
       transactionHash: txHash,
       explorerUrlTemplate: "https://bscscan.com/tx/{tx}",
     }));
-    const [payment] = await db.select().from(telegramNotificationOutboxTable).where(and(
+    const paymentNotices = await db.select().from(telegramNotificationOutboxTable).where(and(
       eq(telegramNotificationOutboxTable.orderId, id),
       eq(telegramNotificationOutboxTable.eventKind, "payment_received"),
     ));
-    const payload = payment?.payload as { transactionHash?: string; explorerUrl?: string };
-    assert.equal(payload.transactionHash, txHash);
-    assert.equal(payload.explorerUrl, `https://bscscan.com/tx/${txHash}`);
-    assert.notEqual(payload.transactionHash, "0xeditable-order-field-must-be-ignored");
+    assert.equal(paymentNotices.some((notice) => notice.chatId === chatId), false);
   } finally {
     await db.delete(telegramNotificationOutboxTable).where(eq(telegramNotificationOutboxTable.orderId, id));
     await db.delete(telegramOrderLinksTable).where(eq(telegramOrderLinksTable.orderId, id));

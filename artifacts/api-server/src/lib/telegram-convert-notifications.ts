@@ -13,6 +13,14 @@ type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type QuickexOrderRow = typeof quickexOrdersTable.$inferSelect;
 type ConvertEventKind = "payment_received" | "completed";
 
+export function convertTelegramMilestoneKinds(status: string): ConvertEventKind[] {
+  switch (status.trim().toLowerCase()) {
+    case "processing": return ["payment_received"];
+    case "completed": return ["payment_received", "completed"];
+    default: return [];
+  }
+}
+
 export type ConvertNotificationPayload = {
   eventKind: ConvertEventKind;
   orderKind: "convert";
@@ -81,7 +89,8 @@ export async function enqueueConvertTelegramMilestones(
   // mistaken for provider-confirmed payment or completion. Reconciliation
   // removes this marker when the provider reports a new state.
   if (order.providerState.startsWith("admin_status_override:")) return 0;
-  if (!["processing", "completed"].includes(order.status.toLowerCase())) return 0;
+  const eventKinds = convertTelegramMilestoneKinds(order.status);
+  if (!eventKinds.length) return 0;
   const links = await tx
     .select({
       chatId: telegramOrderLinksTable.chatId,
@@ -100,9 +109,7 @@ export async function enqueueConvertTelegramMilestones(
       link.clerkCustomerUserId &&
       order.customerClerkUserId !== link.clerkCustomerUserId
     ) continue;
-    for (const eventKind of (order.status === "completed"
-      ? ["payment_received", "completed"] as const
-      : ["payment_received"] as const)) {
+    for (const eventKind of eventKinds) {
       const [existing] = await tx.select({ id: telegramNotificationOutboxTable.id })
         .from(telegramNotificationOutboxTable)
         .where(and(

@@ -34,6 +34,13 @@ const buildIdentifier =
 
 export default defineConfig({
   base: basePath,
+  // The fixture server and routed preview must not overwrite each other's
+  // optimized dependency metadata while running against the same artifact.
+  cacheDir: path.resolve(
+    import.meta.dirname,
+    'node_modules',
+    process.env.NODE_ENV === 'test' ? '.vite-e2e' : '.vite',
+  ),
   define: {
     __APP_BUILD_ID__: JSON.stringify(buildIdentifier),
   },

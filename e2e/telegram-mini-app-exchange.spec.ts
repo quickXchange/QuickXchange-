@@ -1,0 +1,348 @@
+import { expect, test, type Page, type TestInfo } from '@playwright/test';
+
+const miniApp = '/telegram-mini-app';
+const sessionToken = 'mini-app-exchange-e2e-session';
+const expiry = '2099-01-01T00:00:00.000Z';
+
+async function checkExchangeViewports(page: Page, info: TestInfo, step: string) {
+  for (const dark of [false, true]) {
+    await page.evaluate(value => document.documentElement.classList.toggle('dark', value), dark);
+    for (const width of [320, 360, 390, 430]) {
+      await page.setViewportSize({ width, height: 844 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      const outsideInputs = await page.locator('input:visible, select:visible').evaluateAll(inputs =>
+        inputs.filter(input => {
+          const rect = input.getBoundingClientRect();
+          return rect.left < -1 || rect.right > window.innerWidth + 1;
+        }).length,
+      );
+      expect(outsideInputs).toBe(0);
+      const actionBounds = await page.locator('.qx-sticky-action button').last().boundingBox();
+      const navigationBounds = await page.locator('.glass-nav').last().boundingBox();
+      expect(actionBounds).not.toBeNull();
+      expect(navigationBounds).not.toBeNull();
+      expect(actionBounds!.y).toBeGreaterThanOrEqual(0);
+      expect(actionBounds!.y + actionBounds!.height)
+        .toBeLessThanOrEqual(navigationBounds!.y);
+      await page.screenshot({ path: info.outputPath(`${step}-${width}-${dark ? 'dark' : 'light'}.png`), fullPage: true });
+    }
+  }
+}
+
+const quickexConfig = {
+  provider: 'Quickex',
+  signedOrders: true,
+  instruments: [
+    { currencyTitle: 'BTC', networkTitle: 'TRC20', slug: 'btc-trc20', instrumentType: 'crypto', fullName: 'Bitcoin', currencyFriendlyTitle: 'Bitcoin', precisionDecimals: 8, requiresMemo: false },
+    { currencyTitle: 'ETH', networkTitle: 'ERC20', slug: 'eth-erc20', instrumentType: 'crypto', fullName: 'Ethereum', currencyFriendlyTitle: 'Ethereum', precisionDecimals: 8, requiresMemo: false },
+  ],
+  pairs: [{ fromAsset: 'BTC', fromNetwork: 'TRC20', toAsset: 'ETH', toNetwork: 'ERC20' }],
+};
+
+function quote(mode: 'swap' | 'convert') {
+  return {
+    quoteId: `${mode}-quote-e2e`,
+    type: mode === 'swap' ? 'manual' : 'instant',
+    fromAsset: mode === 'swap' ? 'BTC' : 'BTC',
+    fromNetwork: mode === 'swap' ? 'TRC20' : 'TRC20',
+    toAsset: mode === 'swap' ? 'USDT' : 'ETH',
+    toNetwork: mode === 'swap' ? 'TRC20' : 'ERC20',
+    amount: 0.5,
+    receiveAmount: 20,
+    rate: 40,
+    fee: 0,
+    minAmount: 0.01,
+    maxAmount: 1000,
+    expiresAt: expiry,
+    ...(mode === 'swap' ? {
+      sourceSettlementOptionId: 'source-btc',
+      targetSettlementOptionId: 'target-usdt',
+      selectedAddOnKeys: [],
+      manualSwapFees: { existingPricingFee: 0, totalFees: 0, selectedAddons: [] },
+    } : {}),
+  };
+}
+
+function swapConfig() {
+  const options = [
+    { id: 'source-btc', assetId: 'btc', assetCode: 'BTC', routeNetwork: 'TRC20', kind: 'crypto-network', title: 'Bitcoin TRC20', direction: 'both', executionMode: 'manual', lifecycle: 'active', regions: [], countries: [] },
+    { id: 'target-usdt', assetId: 'usdt', assetCode: 'USDT', routeNetwork: 'TRC20', kind: 'crypto-network', title: 'Tether TRC20', direction: 'both', executionMode: 'manual', lifecycle: 'active', regions: [], countries: [] },
+  ];
+  return {
+    assets: [],
+    fiatCurrencies: [],
+    settlementOptions: options,
+    manualSettlementOptions: options,
+    manualRouteAvailability: {
+      available: true,
+      routes: [{ sourceSettlementOptionId: 'source-btc', targetSettlementOptionId: 'target-usdt' }],
+      unavailableMessage: null,
+    },
+    providers: [],
+    feePercent: 0,
+  };
+}
+
+async function mockTelegramSession(page: Page) {
+  await page.route('https://telegram.org/js/telegram-web-app.js', route =>
+    route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }),
+  );
+  await page.addInitScript(() => {
+    (window as any).Telegram = {
+      WebApp: {
+        initData: 'query_id=mini-app-exchange-e2e',
+        initDataUnsafe: { user: { id: 99, first_name: 'Exchange tester' } },
+        platform: 'web',
+        version: '7.0',
+        colorScheme: 'dark',
+        ready() {},
+        expand() {},
+        BackButton: { show() {}, hide() {}, onClick() {}, offClick() {} },
+        HapticFeedback: { impactOccurred() {}, notificationOccurred() {}, selectionChanged() {} },
+      },
+    };
+  });
+  await page.route('**/api/telegram/mini-app/session', route =>
+    route.fulfill({
+      status: 200,
+      json: {
+        token: sessionToken,
+        expiresAt: expiry,
+        user: { id: '99', displayName: 'Exchange tester' },
+        linkedAccount: false,
+      },
+    }),
+  );
+  await page.route('**/api/website/branding', route => route.fulfill({ status: 200, json: {} }));
+}
+
+test('Convert receive-target quoting honors fixed rate mode, requires policy acceptance, and omits refund data', async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
+  await page.clock.install({ time: new Date('2025-01-01T00:00:00.000Z') });
+  await mockTelegramSession(page);
+  const reverseQuotes: unknown[] = [];
+  const createdOrders: Array<Record<string, unknown>> = [];
+  let createAttempt = 0;
+  await page.route('**/api/quickex/config', route => route.fulfill({ status: 200, json: quickexConfig }));
+  const expiringQuote = { ...quote('convert'), expiresAt: '2025-01-01T00:01:00.000Z' };
+  await page.route('**/api/quickex/quote', route => route.fulfill({ status: 200, json: expiringQuote }));
+  await page.route('**/api/quickex/quote-by-receive', async route => {
+    reverseQuotes.push(route.request().postDataJSON());
+    await route.fulfill({ status: 200, json: expiringQuote });
+  });
+  await page.route('**/api/quickex/create-order', async route => {
+    createdOrders.push(route.request().postDataJSON());
+    createAttempt++;
+    if (createAttempt === 1) {
+      await route.fulfill({ status: 503, json: { message: 'Temporary provider response timeout' } });
+      return;
+    }
+    await route.fulfill({ status: 200, json: { id: 'convert-order-fixture', trackingToken: 'convert-tracking-fixture' } });
+  });
+  await page.route('**/api/telegram/mini-app/orders/link', route =>
+    route.fulfill({ status: 200, json: { linked: true } }),
+  );
+
+  await page.goto(`${miniApp}/exchange?mode=convert`);
+  await expect(page.getByTestId('convert-rate-floating')).toBeVisible();
+  await expect(page.getByTestId('source-selector-trigger')).toContainText('BTC');
+  await expect(page.getByTestId('target-selector-trigger')).toContainText('ETH');
+  await expect(page.getByTestId('input-receive-amount')).toBeEnabled();
+  await page.getByTestId('convert-rate-fixed').click();
+  await page.getByTestId('input-receive-amount').fill('20');
+  await page.clock.runFor(600);
+  await expect.poll(() => reverseQuotes.length).toBeGreaterThan(0);
+  expect(reverseQuotes.at(-1)).toMatchObject({
+    desiredReceiveAmount: 20,
+    fromAsset: 'BTC',
+    toAsset: 'ETH',
+    rateMode: 'FIXED',
+  });
+  await checkExchangeViewports(page, testInfo, 'convert-step1');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByPlaceholder('Enter wallet address').fill('mock-destination-wallet');
+  await page.getByPlaceholder('you@example.com').fill('customer@example.test');
+  await checkExchangeViewports(page, testInfo, 'convert-step2');
+  await page.getByRole('button', { name: 'Review Order' }).click();
+
+  await expect(page.getByTestId('telegram-exchange-policy-checkbox')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Terms & Conditions' })).toHaveAttribute('href', '/terms');
+  await expect(page.getByRole('link', { name: 'AML / KYC policy' })).toHaveAttribute('href', '/aml-kyc');
+  await expect(page.getByText(/refund address/i)).toHaveCount(0);
+  await checkExchangeViewports(page, testInfo, 'convert-step3');
+  await page.getByRole('button', { name: 'Place Order' }).click();
+  expect(createdOrders).toHaveLength(0);
+
+  await page.getByTestId('telegram-exchange-policy-checkbox').check();
+  await page.getByRole('button', { name: 'Place Order' }).click();
+  await expect.poll(() => createdOrders.length).toBe(1);
+  await expect(page.getByRole('status')).toContainText('Order submission may have been accepted');
+  await expect(page.getByRole('button', { name: 'Back' })).toBeDisabled();
+  await page.clock.fastForward(61_000);
+  await page.reload();
+  await expect(page.getByText('Quote expired')).toHaveCount(0);
+  await expect(page.getByRole('status')).toContainText('Order submission may have been accepted');
+  await page.getByRole('button', { name: 'Retry same order request' }).click();
+  await expect.poll(() => createdOrders.length).toBe(2);
+  await expect(page).toHaveURL(/\/orders\/convert-order-fixture$/);
+  expect(createdOrders[1].clientRequestId).toBe(createdOrders[0].clientRequestId);
+  expect(createdOrders[1]).toMatchObject({
+    amount: 0.5,
+    rateMode: 'FIXED',
+    destinationAddress: 'mock-destination-wallet',
+    customerEmail: 'customer@example.test',
+  });
+  expect(createdOrders[0]).not.toHaveProperty('refundAddress');
+  expect(createdOrders[0]).not.toHaveProperty('refundMemo');
+});
+
+test('Swap receive-target input uses the signed manual receive quote and order contains the exact quoted amounts', async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
+  await mockTelegramSession(page);
+  const reverseQuotes: unknown[] = [];
+  const createdOrders: Array<Record<string, unknown>> = [];
+  const swapQuote = {
+    ...quote('swap'),
+    requiredSettlementFields: [
+      { key: 'destination_address', label: 'Custom payout wallet', type: 'wallet-address', required: true },
+      { key: 'settlement_channel', label: 'Settlement channel', type: 'select', required: true, options: [{ value: 'bank', label: 'Bank' }, { value: 'card', label: 'Card' }] },
+      { key: 'memo', label: 'Conditional custom memo', type: 'memo-tag', requiredWhen: { fieldKey: 'settlement_channel', equals: 'bank' } },
+    ],
+  };
+  await page.route('**/api/exchange/config', route => route.fulfill({ status: 200, json: swapConfig() }));
+  await page.route('**/api/exchange/manual-swap-addons', route => route.fulfill({ status: 200, json: { items: [] } }));
+  await page.route('**/api/exchange/quote', route => route.fulfill({ status: 200, json: swapQuote }));
+  await page.route('**/api/exchange/route-pricing**', route =>
+    route.fulfill({ status: 200, json: { rate: 40, minAmount: 0.01, maxAmount: 1000 } }),
+  );
+  await page.route('**/api/exchange/quote-by-receive', async route => {
+    reverseQuotes.push(route.request().postDataJSON());
+    await route.fulfill({ status: 200, json: swapQuote });
+  });
+  await page.route('**/api/exchange/orders', async route => {
+    createdOrders.push(route.request().postDataJSON());
+    await route.fulfill({ status: 200, json: { id: 'swap-order-fixture', trackingToken: 'swap-tracking-fixture' } });
+  });
+  await page.route('**/api/telegram/mini-app/orders/link', route =>
+    route.fulfill({ status: 200, json: { linked: true } }),
+  );
+
+  await page.goto(`${miniApp}/exchange?mode=swap`);
+  await page.getByTestId('input-receive-amount').fill('20');
+  await expect.poll(() => reverseQuotes.length).toBeGreaterThan(0);
+  expect(reverseQuotes.at(-1)).toMatchObject({
+    desiredReceiveAmount: 20,
+    sourceSettlementOptionId: 'source-btc',
+    targetSettlementOptionId: 'target-usdt',
+    selectedAddOnKeys: [],
+  });
+  await checkExchangeViewports(page, testInfo, 'swap-step1');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByPlaceholder('Enter wallet address').fill('mock-destination-wallet');
+  await page.getByPlaceholder('Enter custom payout wallet').fill('mock-custom-admin-wallet');
+  await page.getByRole('combobox').selectOption('bank');
+  await page.getByPlaceholder('Enter conditional custom memo').fill('custom-bank-memo');
+  await page.getByPlaceholder('you@example.com').fill('customer@example.test');
+  await checkExchangeViewports(page, testInfo, 'swap-step2');
+  await page.getByRole('button', { name: 'Review Order' }).click();
+  await checkExchangeViewports(page, testInfo, 'swap-step3');
+  await page.getByTestId('telegram-exchange-policy-checkbox').check();
+  await page.getByRole('button', { name: 'Place Order' }).click();
+  await expect.poll(() => createdOrders.length).toBe(1);
+  expect(createdOrders[0]).toMatchObject({
+    amount: 0.5,
+    quoteId: 'swap-quote-e2e',
+    destinationAddress: 'mock-destination-wallet',
+    customerEmail: 'customer@example.test',
+    settlementDetails: {
+      destination_address: 'mock-custom-admin-wallet',
+      settlement_channel: 'bank',
+      memo: 'custom-bank-memo',
+    },
+  });
+  expect(createdOrders[0]).not.toHaveProperty('refundAddress');
+  expect(createdOrders[0]).not.toHaveProperty('refundMemo');
+});
+
+test('definitive Convert validation rejection releases recovery for a corrected new request', async ({ page }) => {
+  await mockTelegramSession(page);
+  const createdOrders: Array<Record<string, unknown>> = [];
+  await page.route('**/api/quickex/config', route => route.fulfill({ status: 200, json: quickexConfig }));
+  await page.route('**/api/quickex/quote', route => route.fulfill({ status: 200, json: quote('convert') }));
+  await page.route('**/api/quickex/quote-by-receive', route =>
+    route.fulfill({ status: 200, json: quote('convert') }),
+  );
+  await page.route('**/api/quickex/create-order', async route => {
+    createdOrders.push(route.request().postDataJSON());
+    if (createdOrders.length === 1) {
+      await route.fulfill({ status: 400, json: { message: 'Destination details failed validation' } });
+      return;
+    }
+    await route.fulfill({ status: 200, json: { id: 'corrected-convert-order', trackingToken: 'corrected-token' } });
+  });
+  await page.route('**/api/telegram/mini-app/orders/link', route =>
+    route.fulfill({ status: 200, json: { linked: true } }),
+  );
+
+  await page.goto(`${miniApp}/exchange?mode=convert`);
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByPlaceholder('Enter wallet address').fill('first-wallet');
+  await page.getByPlaceholder('you@example.com').fill('customer@example.test');
+  await page.getByRole('button', { name: 'Review Order' }).click();
+  await page.getByTestId('telegram-exchange-policy-checkbox').check();
+  await page.getByRole('button', { name: 'Place Order' }).click();
+  await expect.poll(() => createdOrders.length).toBe(1);
+  await expect(page.getByRole('status')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Back' })).toBeEnabled();
+
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByPlaceholder('Enter wallet address').fill('corrected-wallet');
+  await page.getByRole('button', { name: 'Review Order' }).click();
+  await page.getByRole('button', { name: 'Place Order' }).click();
+  await expect.poll(() => createdOrders.length).toBe(2);
+  await expect(page).toHaveURL(/\/orders\/corrected-convert-order$/);
+  expect(createdOrders[0].clientRequestId).not.toBe(createdOrders[1].clientRequestId);
+  expect(createdOrders[1].destinationAddress).toBe('corrected-wallet');
+});
+
+test('link failure persists the created order and reload retries linking without another create', async ({ page }) => {
+  await mockTelegramSession(page);
+  const createdOrders: Array<Record<string, unknown>> = [];
+  const linkRequests: Array<Record<string, unknown>> = [];
+  await page.route('**/api/quickex/config', route => route.fulfill({ status: 200, json: quickexConfig }));
+  await page.route('**/api/quickex/quote', route => route.fulfill({ status: 200, json: quote('convert') }));
+  await page.route('**/api/quickex/quote-by-receive', route =>
+    route.fulfill({ status: 200, json: quote('convert') }),
+  );
+  await page.route('**/api/quickex/create-order', async route => {
+    createdOrders.push(route.request().postDataJSON());
+    await route.fulfill({ status: 200, json: { id: 'link-recovery-order', trackingToken: 'link-recovery-token' } });
+  });
+  await page.route('**/api/telegram/mini-app/orders/link', async route => {
+    linkRequests.push(route.request().postDataJSON());
+    if (linkRequests.length === 1) {
+      await route.fulfill({ status: 503, json: { message: 'Temporary link failure' } });
+      return;
+    }
+    await route.fulfill({ status: 200, json: { linked: true } });
+  });
+
+  await page.goto(`${miniApp}/exchange?mode=convert`);
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByPlaceholder('Enter wallet address').fill('mock-destination-wallet');
+  await page.getByPlaceholder('you@example.com').fill('customer@example.test');
+  await page.getByRole('button', { name: 'Review Order' }).click();
+  await page.getByTestId('telegram-exchange-policy-checkbox').check();
+  await page.getByRole('button', { name: 'Place Order' }).click();
+  await expect.poll(() => createdOrders.length).toBe(1);
+  await expect.poll(() => linkRequests.length).toBe(1);
+  await expect(page.getByRole('status')).toContainText('order was created');
+
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Retry order linking' })).toBeVisible();
+  await page.getByRole('button', { name: 'Retry order linking' }).click();
+  await expect.poll(() => linkRequests.length).toBe(2);
+  await expect(page).toHaveURL(/\/orders\/link-recovery-order$/);
+  expect(createdOrders).toHaveLength(1);
+  expect(linkRequests[1]).toEqual(linkRequests[0]);
+});

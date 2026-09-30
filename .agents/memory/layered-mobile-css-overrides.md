@@ -20,3 +20,9 @@ For mobile drawer buttons, verify the computed flex basis as well as the visible
 **Why:** A compact route action measured 48px tall but still carried a 280px flex basis; its Light Mode gradient also disappeared under the global Admin button contract.
 
 **How to apply:** Use a phone-width computed-style check on the actual class chain, then compare with a tablet width to ensure a mobile-only correction leaves larger layouts untouched.
+
+For phone gutter changes, verify each section's left and right bounds and equal centering, not just the document's scroll width.
+
+**Why:** Overflow clipping can hide a negatively offset section while the document still reports no horizontal overflow. A retained layered parent max-width can also make a viewport-sized child wider but incorrectly centered.
+
+**How to apply:** Inspect the parent width, max-width, padding, and the child's computed margins together. Fix the owning parent rule before adding compensating offsets, then measure equal safe margins across common phone widths.

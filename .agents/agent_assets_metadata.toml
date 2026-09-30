@@ -126,3 +126,17 @@ mtime_ms = 1790542344852
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/d9121d9c-f7e3-4eee-93ea-1b07c1be5ef6/ae3bac84-a3e5-4647-84f0-e2821f18889f"
 storage_version_token = "1790542350718784"
 content_type = "application/pdf"
+
+[[outputs]]
+id = "nFU0Fh97GxB7UA8m6rVH8"
+uri = "file://docs/telegram-audit-report.md"
+type = "text"
+title = "Telegram audit and verification report"
+description = "Repairs, passing checks, the remaining Convert browser-test blocker, and native authenticated Telegram checks still required."
+logical_id = "c46ee5fd-01f4-432d-bbb8-663071132505"
+content_hash = "sha256:4570c3b5c1f6618b196b1b823d9648a1cc0dea8d647e687ff6c4c35b747b0f03"
+size = 7569
+mtime_ms = 1790807680096
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/c46ee5fd-01f4-432d-bbb8-663071132505/e42cb8dd-3000-4c8c-84b7-faf2ef19ebd2"
+storage_version_token = "1790807710438638"
+content_type = "text/markdown"

@@ -5,13 +5,15 @@ import {
   useGetExchangeRoutePricing, getGetExchangeRoutePricingQueryKey,
   useListPublicManualSwapAddons, getListPublicManualSwapAddonsQueryKey,
   useCreateExchangeQuote,
+  useCreateExchangeQuoteByReceive,
   useCreateExchangeOrder,
   useGetQuickexConfig, getGetQuickexConfigQueryKey,
   useCreateQuickexQuote,
+  useCreateQuickexQuoteByReceive,
   useCreateQuickexOrder,
   useLinkTelegramMiniAppOrder
 } from '@workspace/api-client-react';
-import { useAuthHeaders } from '@/lib/auth';
+import { useAuth, useAuthHeaders } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowDownUp, CheckCircle2, AlertCircle, ChevronDown, Loader2, X, Search } from 'lucide-react';
@@ -24,8 +26,22 @@ import {
   filterExchangeOptions,
 } from '@/lib/exchange-search';
 import { createClientRequestId } from '@/lib/client-request-id';
+import {
+  buildSettlementDetails,
+  isConvertDedicatedSettlementField,
+  isExchangeFieldRequired,
+  isExchangeFieldVisible,
+} from '@/lib/exchange-quote';
+import {
+  clearExchangeRecovery,
+  isDefinitiveCreateRejection,
+  persistExchangeRecovery,
+  readExchangeRecovery,
+  type ExchangeRecovery,
+} from '@/lib/exchange-recovery';
 
 const EMPTY_MANUAL_SWAP_ADDONS: any[] = [];
+const exchangeRecoveryStorage = () => window.sessionStorage;
 
 function formatFeeAmount(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -166,34 +182,80 @@ function ManualSwapFeeSummary({
 
 export default function Exchange() {
   const [, setLocation] = useLocation();
+  const { user: authenticatedUser, isLoading: isAuthLoading } = useAuth();
   const headers = useAuthHeaders();
   const haptic = useHapticFeedback();
+  const verifiedUserId = typeof authenticatedUser?.id === 'string' && authenticatedUser.id.trim()
+    ? authenticatedUser.id.trim()
+    : typeof authenticatedUser?.id === 'number' && Number.isSafeInteger(authenticatedUser.id)
+      ? String(authenticatedUser.id)
+      : null;
+  const [recoveryBootstrap, setRecoveryBootstrap] = useState<{
+    ownerId: string | null;
+    recovery: ExchangeRecovery | null;
+    error: string;
+    pending: boolean;
+  }>({
+    ownerId: null,
+    recovery: null,
+    error: '',
+    pending: true,
+  });
+  const recoveryIdentityChanged = recoveryBootstrap.ownerId !== null &&
+    recoveryBootstrap.ownerId !== verifiedUserId;
+  const recoveryRecord = verifiedUserId && recoveryBootstrap.ownerId === verifiedUserId && !recoveryBootstrap.error
+    ? recoveryBootstrap.recovery
+    : null;
+  const recoveryRecordRef = useRef<ExchangeRecovery | null>(recoveryRecord);
+  recoveryRecordRef.current = recoveryRecord;
+  const recoveryLoadError = !isAuthLoading
+    ? !verifiedUserId
+      ? 'A verified server-authenticated Telegram user is required to access exchange recovery. Pending recovery data has been preserved.'
+      : recoveryIdentityChanged
+        ? 'The authenticated account changed during exchange recovery. The pending order was preserved; sign back into its original verified account to continue.'
+        : recoveryBootstrap.ownerId === verifiedUserId
+          ? recoveryBootstrap.error
+          : ''
+    : '';
+  const recoveryBootstrapPending = isAuthLoading ||
+    (!recoveryLoadError && (!verifiedUserId || recoveryBootstrap.pending || recoveryBootstrap.ownerId !== verifiedUserId));
   const quoteRequestVersionRef = useRef(0);
-  const orderRequestIdRef = useRef<string | null>(null);
+  const orderRequestIdRef = useRef<string | null>(recoveryRecord?.requestId ?? null);
   if (orderRequestIdRef.current === null) orderRequestIdRef.current = createClientRequestId();
 
   const searchParams = new URLSearchParams(window.location.search);
-  const mode = searchParams.get('mode') === 'swap' ? 'swap' : 'convert';
+  const mode = recoveryRecord?.mode ?? (searchParams.get('mode') === 'swap' ? 'swap' : 'convert');
 
   const setMode = (newMode: 'swap' | 'convert') => {
+    if (createOutcomeUncertain) return;
     haptic.selection();
     setLocation(`/exchange?mode=${newMode}`);
     setStep(1);
     setSourceId('');
     setTargetId('');
     setAmount('100');
+    setDesiredReceiveAmount('');
+    setActiveAmountSide('send');
     setSelectedAddonKeys([]);
+    setTermsAccepted(false);
     setErrorMsg('');
   };
 
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(recoveryRecord ? 3 : 1);
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
   }, [step]);
-  const [sourceId, setSourceId] = useState<string>('');
-  const [targetId, setTargetId] = useState<string>('');
-  const [amount, setAmount] = useState<string>('100');
-  const [selectedAddonKeys, setSelectedAddonKeys] = useState<string[]>([]);
+  const [sourceId, setSourceId] = useState<string>(recoveryRecord?.sourceId ?? '');
+  const [targetId, setTargetId] = useState<string>(recoveryRecord?.targetId ?? '');
+  const routeSelectionKey = JSON.stringify([mode, sourceId, targetId]);
+  const [settledRouteSelectionKey, setSettledRouteSelectionKey] = useState<string | null>(null);
+  const [amount, setAmount] = useState<string>(recoveryRecord?.amount ?? '100');
+  const [desiredReceiveAmount, setDesiredReceiveAmount] = useState(recoveryRecord?.desiredReceiveAmount ?? '');
+  const [activeAmountSide, setActiveAmountSide] = useState<'send' | 'receive'>(recoveryRecord?.activeAmountSide ?? 'send');
+  const [rateMode, setRateMode] = useState<'FLOATING' | 'FIXED'>(recoveryRecord?.rateMode ?? 'FLOATING');
+  const [termsAccepted, setTermsAccepted] = useState(Boolean(recoveryRecord));
+  const [createOutcomeUncertain, setCreateOutcomeUncertain] = useState(Boolean(recoveryRecord));
+  const [selectedAddonKeys, setSelectedAddonKeys] = useState<string[]>(recoveryRecord?.selectedAddonKeys ?? []);
 
   const [showSourceSelector, setShowSourceSelector] = useState(false);
   const [showTargetSelector, setShowTargetSelector] = useState(false);
@@ -203,12 +265,47 @@ export default function Exchange() {
   const [targetFilter, setTargetFilter] = useState<'all'|'crypto'|'fiat'>('all');
 
   // Form state
-  const [destinationAddress, setDestinationAddress] = useState('');
-  const [destinationMemo, setDestinationMemo] = useState('');
-  const [refundAddress, setRefundAddress] = useState('');
-  const [refundMemo, setRefundMemo] = useState('');
-  const [customerEmail, setCustomerEmail] = useState('');
-  const [settlementFields, setSettlementFields] = useState<Record<string, string>>({});
+  const [destinationAddress, setDestinationAddress] = useState(recoveryRecord?.destinationAddress ?? '');
+  const [destinationMemo, setDestinationMemo] = useState(recoveryRecord?.destinationMemo ?? '');
+  const [customerEmail, setCustomerEmail] = useState(recoveryRecord?.customerEmail ?? '');
+  const [settlementFields, setSettlementFields] = useState<Record<string, string>>(recoveryRecord?.settlementFields ?? {});
+
+  useEffect(() => {
+    if (isAuthLoading || !verifiedUserId) return;
+    if (recoveryBootstrap.ownerId !== null && recoveryBootstrap.ownerId !== verifiedUserId) return;
+    if (recoveryBootstrap.ownerId === verifiedUserId && !recoveryBootstrap.pending) return;
+
+    try {
+      const recovery = readExchangeRecovery(exchangeRecoveryStorage(), verifiedUserId);
+      recoveryRecordRef.current = recovery;
+      orderRequestIdRef.current = recovery?.requestId ?? orderRequestIdRef.current;
+      if (recovery) {
+        setStep(3);
+        setSourceId(recovery.sourceId);
+        setTargetId(recovery.targetId);
+        setAmount(recovery.amount);
+        setDesiredReceiveAmount(recovery.desiredReceiveAmount);
+        setActiveAmountSide(recovery.activeAmountSide);
+        setRateMode(recovery.rateMode);
+        setTermsAccepted(true);
+        setCreateOutcomeUncertain(true);
+        setSelectedAddonKeys(recovery.selectedAddonKeys);
+        setDestinationAddress(recovery.destinationAddress);
+        setDestinationMemo(recovery.destinationMemo);
+        setCustomerEmail(recovery.customerEmail);
+        setSettlementFields(recovery.settlementFields);
+        setQuoteData(recovery.quoteData);
+      }
+      setRecoveryBootstrap({ ownerId: verifiedUserId, recovery, error: '', pending: false });
+    } catch (error) {
+      setRecoveryBootstrap({
+        ownerId: verifiedUserId,
+        recovery: null,
+        error: error instanceof Error ? error.message : 'Saved exchange recovery data could not be read.',
+        pending: false,
+      });
+    }
+  }, [isAuthLoading, verifiedUserId]);
 
   // Data hooks
   const { data: config, isLoading: isConfigLoading } = useGetExchangeConfig({
@@ -386,39 +483,55 @@ export default function Exchange() {
   }, [targetOpts, targetSearch, targetFilter, mode]);
 
   useEffect(() => {
+    if (recoveryBootstrapPending || recoveryLoadError || recoveryRecordRef.current) return;
     if ((mode === 'swap' && config) || (mode === 'convert' && quickexConfig)) {
       if (!sourceId && sourceOpts.length > 0) {
         setSourceId(sourceOpts[0].id);
       }
     }
-  }, [config, quickexConfig, sourceId, sourceOpts, mode]);
+  }, [config, quickexConfig, sourceId, sourceOpts, mode, recoveryBootstrapPending, recoveryLoadError]);
 
   useEffect(() => {
+    if (recoveryBootstrapPending || recoveryLoadError || recoveryRecordRef.current) return;
     if (sourceId && targetOpts.length > 0) {
       if (!targetOpts.find(o => o.id === targetId)) {
         setTargetId(targetOpts[0].id);
       }
     }
-  }, [sourceId, targetOpts, targetId]);
+  }, [sourceId, targetOpts, targetId, recoveryBootstrapPending, recoveryLoadError]);
 
   useEffect(() => {
-    // Reset quote and destination fields when route or amount changes
+    if (createOutcomeUncertain || recoveryRecordRef.current) {
+      setSettledRouteSelectionKey(routeSelectionKey);
+      return;
+    }
+    // Route changes invalidate quote-owned fields; amount edits retain entered
+    // receiving details while the fresh signed quote is fetched.
     setQuoteData(null);
+    setErrorMsg('');
+    setTermsAccepted(false);
+    orderRequestIdRef.current = createClientRequestId();
+    setSettledRouteSelectionKey(routeSelectionKey);
+  }, [mode, sourceId, targetId, routeSelectionKey]);
+
+  useEffect(() => {
+    if (createOutcomeUncertain || recoveryRecordRef.current) return;
     setDestinationAddress('');
     setDestinationMemo('');
-    setRefundAddress('');
-    setRefundMemo('');
     setSettlementFields({});
-    setErrorMsg('');
-    orderRequestIdRef.current = createClientRequestId();
-  }, [mode, sourceId, targetId, amount]);
+    setDesiredReceiveAmount('');
+    setActiveAmountSide('send');
+    setTermsAccepted(false);
+  }, [mode, sourceId, targetId]);
 
   useEffect(() => {
+    if (recoveryRecordRef.current) return;
     setQuoteData(null);
     setErrorMsg('');
   }, [selectedAddonKeys]);
 
   useEffect(() => {
+    if (recoveryRecordRef.current) return;
     const availableKeys = new Set(manualSwapAddons.map((addon) => addon.key));
     setSelectedAddonKeys((current) => {
       const filtered = current.filter((key) => availableKeys.has(key));
@@ -428,6 +541,13 @@ export default function Exchange() {
 
   const sourceOpt = sourceOpts.find(o => o.id === sourceId);
   const targetOpt = targetOpts.find(o => o.id === targetId);
+  const exchangeRouteReady = Boolean(
+    !recoveryBootstrapPending &&
+    !recoveryLoadError &&
+    settledRouteSelectionKey === routeSelectionKey &&
+    sourceOpt &&
+    targetOpt,
+  );
 
   // Pricing (Manual Swap Only)
   const { data: pricing, isLoading: isPricingLoading } = useGetExchangeRoutePricing(
@@ -439,40 +559,52 @@ export default function Exchange() {
     }
   );
 
-  const parsedAmount = parseFloat(amount) || 0;
+  const parsedAmount = parseFloat(activeAmountSide === 'send' ? amount : desiredReceiveAmount) || 0;
+  const quoteInputAmount = activeAmountSide === 'send' ? Number(amount) : Number(desiredReceiveAmount);
+
+  useEffect(() => {
+    if (recoveryRecordRef.current) return;
+    setQuoteData(null);
+    setErrorMsg('');
+    setTermsAccepted(false);
+  }, [quoteInputAmount, activeAmountSide, rateMode]);
 
   // Mutations
   const createQuote = useCreateExchangeQuote({ request: { headers } });
+  const createReceiveQuote = useCreateExchangeQuoteByReceive({ request: { headers } });
   const createOrder = useCreateExchangeOrder({ request: { headers } });
   const createQuickexQuote = useCreateQuickexQuote({ request: { headers } });
+  const createQuickexReceiveQuote = useCreateQuickexQuoteByReceive({ request: { headers } });
   const createQuickexOrder = useCreateQuickexOrder({ request: { headers } });
   const linkOrder = useLinkTelegramMiniAppOrder({ request: { headers } });
 
-  const [quoteData, setQuoteData] = useState<any>(null);
+  const [quoteData, setQuoteData] = useState<any>(recoveryRecord?.quoteData ?? null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [quoteNow, setQuoteNow] = useState(() => Date.now());
   const [quoteRefreshNonce, setQuoteRefreshNonce] = useState(0);
+  const saveRecovery = (recovery: ExchangeRecovery) => {
+    if (!verifiedUserId) throw new Error('A verified Telegram user is required to save exchange recovery safely.');
+    persistExchangeRecovery(exchangeRecoveryStorage(), recovery, verifiedUserId);
+    recoveryRecordRef.current = recovery;
+    setRecoveryBootstrap({ ownerId: verifiedUserId, recovery, error: '', pending: false });
+    setCreateOutcomeUncertain(true);
+  };
+  const removeRecovery = () => {
+    if (!verifiedUserId) throw new Error('The verified Telegram user is unavailable; saved recovery was preserved.');
+    clearExchangeRecovery(exchangeRecoveryStorage(), verifiedUserId);
+    recoveryRecordRef.current = null;
+    setRecoveryBootstrap({ ownerId: verifiedUserId, recovery: null, error: '', pending: false });
+    setCreateOutcomeUncertain(false);
+  };
   const convertFieldValues: Record<string, string> = {
     ...settlementFields,
     destinationAddress,
     destinationMemo,
-    refundAddress,
-    refundMemo,
   };
-  const convertSettlementDetails = () => Object.fromEntries(
-    (quoteData?.requiredSettlementFields ?? [])
-      .filter((field: any) => field.enabled !== false)
-      .map((field: any) => {
-        const rawValue = convertFieldValues[field.key] ?? '';
-        const numeric = ['number', 'integer', 'numeric', 'decimal'].includes(field.type);
-        return [
-          field.key,
-          numeric && rawValue !== '' ? Number(rawValue) : rawValue,
-        ];
-      }),
-  );
-  const receiveAmount = quoteData?.receiveAmount;
+  const convertDestinationMemoField = (quoteData?.requiredSettlementFields ?? [])
+    .find((field: any) => field.key === 'destinationMemo' && isExchangeFieldVisible(field, convertFieldValues));
+  const convertSettlementDetails = () => buildSettlementDetails(quoteData?.requiredSettlementFields ?? [], convertFieldValues);
   const quoteExpired = Boolean(
     quoteData?.expiresAt && new Date(quoteData.expiresAt).getTime() <= quoteNow,
   );
@@ -485,75 +617,89 @@ export default function Exchange() {
 
   useEffect(() => {
     const requestVersion = ++quoteRequestVersionRef.current;
+    if (exchangeRouteReady && !recoveryBootstrapPending && !recoveryLoadError &&
+      step === 1 && sourceOpt && targetOpt && Number.isFinite(quoteInputAmount) && quoteInputAmount > 0 &&
+      !(mode === 'swap' && manualSwapAddonsQuery.isError)) {
+      const timer = setTimeout(async () => {
+        setIsProcessing(true);
+        try {
+          const quote = mode === 'swap'
+            ? activeAmountSide === 'receive'
+              ? await createReceiveQuote.mutateAsync({
+                  data: {
+                    fromAsset: sourceOpt.assetCode,
+                    fromNetwork: sourceOpt.routeNetwork,
+                    toAsset: targetOpt.assetCode,
+                    toNetwork: targetOpt.routeNetwork,
+                    sourceSettlementOptionId: sourceOpt.id,
+                    targetSettlementOptionId: targetOpt.id,
+                    desiredReceiveAmount: quoteInputAmount,
+                    selectedAddOnKeys: selectedAddonKeys,
+                  },
+                })
+              : await createQuote.mutateAsync({
+                  data: {
+                    type: 'manual',
+                    fromAsset: sourceOpt.assetCode,
+                    fromNetwork: sourceOpt.routeNetwork,
+                    toAsset: targetOpt.assetCode,
+                    toNetwork: targetOpt.routeNetwork,
+                    amount: quoteInputAmount,
+                    sourceSettlementOptionId: sourceOpt.id,
+                    targetSettlementOptionId: targetOpt.id,
+                    selectedAddOnKeys: selectedAddonKeys,
+                  },
+                })
+            : activeAmountSide === 'receive'
+              ? await createQuickexReceiveQuote.mutateAsync({
+                  data: {
+                    fromAsset: sourceOpt.assetCode,
+                    fromNetwork: sourceOpt.routeNetwork,
+                    toAsset: targetOpt.assetCode,
+                    toNetwork: targetOpt.routeNetwork,
+                    desiredReceiveAmount: quoteInputAmount,
+                    rateMode,
+                  },
+                })
+              : await createQuickexQuote.mutateAsync({
+                  data: {
+                    type: 'instant',
+                    fromAsset: sourceOpt.assetCode,
+                    fromNetwork: sourceOpt.routeNetwork,
+                    toAsset: targetOpt.assetCode,
+                    toNetwork: targetOpt.routeNetwork,
+                    amount: quoteInputAmount,
+                    rateMode,
+                  },
+                });
+          if (quoteRequestVersionRef.current !== requestVersion) return;
+          setQuoteData({
+            ...quote,
+            type: mode === 'swap' ? 'manual' : 'instant',
+            _selectedAddOnKeys: [...selectedAddonKeys],
+            _amountSide: activeAmountSide,
+            _requestedAmount: quoteInputAmount,
+            _rateMode: rateMode,
+          });
+          setAmount(String(quote.amount));
+          if (activeAmountSide === 'send') setDesiredReceiveAmount(String(quote.receiveAmount));
+          setQuoteNow(Date.now());
+          setErrorMsg('');
+        } catch (err: any) {
+          if (quoteRequestVersionRef.current !== requestVersion) return;
+          setErrorMsg(err.message || 'Failed to get quote');
+          setQuoteData(null);
+        } finally {
+          if (quoteRequestVersionRef.current === requestVersion) setIsProcessing(false);
+        }
+      }, 450);
+      return () => clearTimeout(timer);
+    }
     if (
-      mode === 'swap' &&
-      step === 1 &&
-      sourceOpt &&
-      targetOpt &&
-      parsedAmount > 0 &&
-      !manualSwapAddonsQuery.isError
-    ) {
-      const timer = setTimeout(async () => {
-        setIsProcessing(true);
-        try {
-          const quote = await createQuote.mutateAsync({
-            data: {
-              type: 'manual',
-              fromAsset: sourceOpt.assetCode,
-              fromNetwork: sourceOpt.routeNetwork,
-              toAsset: targetOpt.assetCode,
-              toNetwork: targetOpt.routeNetwork,
-              amount: parsedAmount,
-              sourceSettlementOptionId: sourceOpt.id,
-              targetSettlementOptionId: targetOpt.id,
-              selectedAddOnKeys: selectedAddonKeys,
-            },
-          });
-          if (quoteRequestVersionRef.current !== requestVersion) return;
-          setQuoteData({ ...quote, type: 'manual', _selectedAddOnKeys: [...selectedAddonKeys] });
-          setQuoteNow(Date.now());
-          setErrorMsg('');
-        } catch (err: any) {
-          if (quoteRequestVersionRef.current !== requestVersion) return;
-          setErrorMsg(err.message || 'Failed to get quote');
-          setQuoteData(null);
-        } finally {
-          if (quoteRequestVersionRef.current === requestVersion) setIsProcessing(false);
-        }
-      }, 450);
-      return () => clearTimeout(timer);
-    }
-    if (mode === 'convert' && step === 1 && sourceOpt && targetOpt && parsedAmount > 0) {
-      const timer = setTimeout(async () => {
-        setIsProcessing(true);
-        try {
-          const res = await createQuickexQuote.mutateAsync({
-            data: {
-              type: 'instant',
-              fromAsset: sourceOpt.assetCode,
-              fromNetwork: sourceOpt.routeNetwork,
-              toAsset: targetOpt.assetCode,
-              toNetwork: targetOpt.routeNetwork,
-              amount: parsedAmount,
-              rateMode: 'FLOATING'
-            }
-          });
-          if (quoteRequestVersionRef.current !== requestVersion) return;
-          setQuoteData({ ...res, type: 'instant' });
-          setQuoteNow(Date.now());
-          setErrorMsg('');
-        } catch (err: any) {
-          if (quoteRequestVersionRef.current !== requestVersion) return;
-          setErrorMsg(err.message || 'Failed to get quote');
-          setQuoteData(null);
-        } finally {
-          if (quoteRequestVersionRef.current === requestVersion) setIsProcessing(false);
-        }
-      }, 450);
-      return () => clearTimeout(timer);
-    }
+      mode === 'swap' && manualSwapAddonsQuery.isError
+    ) setErrorMsg('Optional add-ons could not be loaded. Retry before continuing.');
     return undefined;
-  }, [mode, step, sourceId, targetId, parsedAmount, sourceOpt, targetOpt, quoteRefreshNonce, selectedAddonKeys, manualSwapAddonsQuery.isError]);
+  }, [mode, step, sourceId, targetId, quoteInputAmount, activeAmountSide, sourceOpt, targetOpt, quoteRefreshNonce, selectedAddonKeys, rateMode, manualSwapAddonsQuery.isError, recoveryBootstrapPending, recoveryLoadError, exchangeRouteReady]);
 
   const toggleAddon = (key: string) => {
     const addon = manualSwapAddons.find((item) => item.key === key);
@@ -575,13 +721,30 @@ export default function Exchange() {
     quoteData &&
     quoteData._selectedAddOnKeys?.length === selectedAddonKeys.length &&
     selectedAddonKeys.every((key) => quoteData._selectedAddOnKeys.includes(key)) &&
-    quoteData.amount === parsedAmount &&
+    (activeAmountSide === 'send' ? quoteData.amount === parsedAmount : quoteData._requestedAmount === quoteInputAmount) &&
     quoteData.fromAsset === sourceOpt?.assetCode &&
     quoteData.fromNetwork === sourceOpt?.routeNetwork &&
     quoteData.toAsset === targetOpt?.assetCode &&
     quoteData.toNetwork === targetOpt?.routeNetwork &&
     quoteData.sourceSettlementOptionId === sourceOpt?.id &&
-    quoteData.targetSettlementOptionId === targetOpt?.id
+    quoteData.targetSettlementOptionId === targetOpt?.id &&
+    quoteData._amountSide === activeAmountSide &&
+    quoteData._requestedAmount === quoteInputAmount &&
+    quoteData._rateMode === rateMode
+  );
+  const convertQuoteMatchesCurrentSelection = Boolean(
+    quoteData &&
+    quoteData.type === 'instant' &&
+    quoteData.fromAsset === sourceOpt?.assetCode &&
+    quoteData.fromNetwork === sourceOpt?.routeNetwork &&
+    quoteData.toAsset === targetOpt?.assetCode &&
+    quoteData.toNetwork === targetOpt?.routeNetwork &&
+    quoteData._amountSide === activeAmountSide &&
+    quoteData._requestedAmount === quoteInputAmount &&
+    quoteData._rateMode === rateMode &&
+    Number(quoteData.amount) > 0 &&
+    Number(quoteData.receiveAmount) > 0 &&
+    (activeAmountSide !== 'receive' || Number(quoteData.receiveAmount) === quoteInputAmount)
   );
 
   const handleContinue = async () => {
@@ -592,99 +755,75 @@ export default function Exchange() {
       }
       if (parsedAmount <= 0) return;
 
+      if (mode === 'convert' && (!convertQuoteMatchesCurrentSelection || quoteExpired)) {
+        setErrorMsg(quoteExpired ? 'Quote expired' : 'Waiting for a quote for your current selection...');
+        return;
+      }
+      if (mode === 'swap' && (!quoteMatchesCurrentSelection || (quoteExpired && !createOutcomeUncertain))) {
+        setErrorMsg(quoteExpired ? 'Quote expired. Refresh the quote before continuing.' : 'Waiting for a quote for your current selection...');
+        return;
+      }
+      const limitAmount = activeAmountSide === 'send' ? parsedAmount : Number(quoteData?.amount);
       const minAmount = mode === 'swap' ? quoteData?.minAmount ?? pricing?.minAmount : quoteData?.minAmount;
       const maxAmount = mode === 'swap' ? quoteData?.maxAmount ?? pricing?.maxAmount : quoteData?.maxAmount;
 
-      if (minAmount && parsedAmount < minAmount) {
+      if (minAmount && limitAmount < minAmount) {
         setErrorMsg(`Minimum amount is ${minAmount}`);
         haptic.notification('error');
         return;
       }
-      if (maxAmount && parsedAmount > maxAmount) {
+      if (maxAmount && limitAmount > maxAmount) {
         setErrorMsg(`Maximum amount is ${maxAmount}`);
         haptic.notification('error');
         return;
       }
 
-      if (mode === 'convert') {
-        if (!quoteData || quoteExpired) {
-          setErrorMsg(quoteExpired ? 'Quote expired' : 'Waiting for quote...');
-          return;
-        }
-        setErrorMsg('');
-        haptic.impact('medium');
-        setStep(2);
-        return;
-      }
-
-      if (manualSwapAddonsQuery.isError || !quoteMatchesCurrentSelection || quoteExpired) {
-        setErrorMsg(manualSwapAddonsQuery.isError
-          ? 'Optional add-ons could not be loaded. Retry before continuing.'
-          : quoteExpired
-            ? 'Quote expired. Refresh the quote before continuing.'
-            : 'Waiting for a quote for your current selection...');
-        return;
-      }
       setErrorMsg('');
       haptic.impact('medium');
       setStep(2);
     } else if (step === 2) {
       if (!sourceOpt || !targetOpt) return;
       // Validate fields
+      if (targetOpt.kind === 'crypto-network' && !destinationAddress.trim()) {
+        setErrorMsg('Destination address is required');
+        haptic.notification('warning');
+        return;
+      }
+      if (targetOpt.kind === 'crypto-network' && targetOpt.original.requiresMemo && !destinationMemo.trim()) {
+        setErrorMsg('Destination memo is required');
+        haptic.notification('warning');
+        return;
+      }
       if (mode === 'convert') {
-        if (!destinationAddress) {
+        if (!destinationAddress.trim()) {
           setErrorMsg('Destination address is required');
           haptic.notification('warning');
           return;
         }
-        if (targetOpt.original.requiresMemo && !destinationMemo) {
+        if (targetOpt.original.requiresMemo && !destinationMemo.trim()) {
           setErrorMsg('Destination memo is required');
           haptic.notification('warning');
           return;
         }
         for (const field of quoteData?.requiredSettlementFields ?? []) {
-          if (field.enabled === false) continue;
-          const condition = field.requiredWhen;
-          const visible = !condition || (Array.isArray(condition.equals)
-            ? condition.equals.includes(convertFieldValues[condition.fieldKey])
-            : convertFieldValues[condition.fieldKey] === condition.equals);
-          if (visible && field.required && !convertFieldValues[field.key]?.trim()) {
+          const visible = isExchangeFieldVisible(field, convertFieldValues);
+          if (visible && isExchangeFieldRequired(field) && !convertFieldValues[field.key]?.trim()) {
             setErrorMsg(`${field.label} is required`);
             haptic.notification('warning');
             return;
           }
         }
       } else {
-        if (targetOpt.kind === 'crypto-network' && !destinationAddress && !quoteData?.requiredSettlementFields?.some((f: any) => f.type === 'wallet-address' || f.key.includes('address'))) {
-          setErrorMsg('Destination address is required');
-          haptic.notification('warning');
-          return;
-        }
-
         if (quoteData?.requiredSettlementFields) {
           for (const field of quoteData.requiredSettlementFields) {
-              if (field.enabled === false) continue;
-            let isVisible = true;
-            if (field.requiredWhen) {
-              const { fieldKey, equals } = field.requiredWhen;
-              const matchVal = settlementFields[fieldKey];
-              const equalsArr = Array.isArray(equals) ? equals : [equals];
-              if (!equalsArr.includes(matchVal)) {
-                isVisible = false;
-              }
-            }
-            if (isVisible && field.required && !settlementFields[field.key]?.trim()) {
+            const isVisible = isExchangeFieldVisible(field, settlementFields);
+            if (isVisible && isExchangeFieldRequired(field) && !settlementFields[field.key]?.trim()) {
               setErrorMsg(`${field.label} is required`);
               haptic.notification('warning');
               return;
             }
           }
         }
-      }
-      if (refundAddress && sourceOpt.original.requiresMemo && !refundMemo) {
-        setErrorMsg('Refund memo is required if refund address is provided');
-        haptic.notification('warning');
-        return;
       }
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(customerEmail.trim())) {
         setErrorMsg('Enter a valid customer email');
@@ -696,28 +835,50 @@ export default function Exchange() {
       haptic.impact('medium');
       setStep(3);
     } else if (step === 3) {
-      if (!sourceOpt || !targetOpt) return;
-      if (mode === 'swap' && (!quoteMatchesCurrentSelection || quoteExpired)) {
+      const existingRecovery = recoveryRecordRef.current;
+      if (!existingRecovery && (!sourceOpt || !targetOpt)) return;
+      if (existingRecovery && existingRecovery.mode !== mode) {
+        setErrorMsg('The pending order request cannot be replaced. Retry its unchanged recovery action.');
+        return;
+      }
+      if (!existingRecovery && mode === 'swap' && (!quoteMatchesCurrentSelection || quoteExpired)) {
         setErrorMsg(quoteExpired
           ? 'Quote expired. Refresh the quote before submitting.'
           : 'The quote no longer matches your selected route, amount, or add-ons. Return to Swap and get a fresh quote.');
         haptic.notification('error');
         return;
       }
-      // Place Order
+      if (!existingRecovery && mode === 'convert' && (!convertQuoteMatchesCurrentSelection || quoteExpired)) {
+        setErrorMsg(quoteExpired
+          ? 'Quote expired. Refresh the quote before submitting.'
+          : 'The Convert quote no longer matches your selection. Refresh the quote before submitting.');
+        haptic.notification('error');
+        return;
+      }
+      if (!existingRecovery && !termsAccepted) {
+        setErrorMsg('Accept the Terms & Conditions and AML / KYC policy before placing your order.');
+        haptic.notification('warning');
+        return;
+      }
 
       setIsProcessing(true);
+      let createRequestInFlight = false;
       try {
-        let order;
-        if (mode === 'convert') {
-          if (quoteExpired) {
-            throw new Error('Quote expired. Refresh the quote before submitting.');
-          }
-          if (!quoteData?.quoteId || !quoteData?.fromAsset || !quoteData?.fromNetwork || !quoteData?.toAsset || !quoteData?.toNetwork || !quoteData?.amount) {
-            throw new Error('The current Convert quote is incomplete. Refresh the quote and try again.');
-          }
-          order = await createQuickexOrder.mutateAsync({
-            data: {
+        let order = existingRecovery?.phase === 'link-pending'
+          ? existingRecovery.order
+          : undefined;
+        let recovery = existingRecovery;
+
+        if (!order) {
+          let data: Record<string, unknown>;
+          if (existingRecovery) {
+            data = existingRecovery.data;
+          } else if (mode === 'convert') {
+            if (!quoteData?.quoteId || !quoteData?.fromAsset || !quoteData?.fromNetwork ||
+              !quoteData?.toAsset || !quoteData?.toNetwork || !quoteData?.amount) {
+              throw new Error('The current Convert quote is incomplete. Refresh the quote and try again.');
+            }
+            data = {
               type: 'instant',
               fromAsset: quoteData.fromAsset,
               fromNetwork: quoteData.fromNetwork,
@@ -726,56 +887,88 @@ export default function Exchange() {
               amount: quoteData.amount,
               customerEmail: customerEmail.trim(),
               quoteId: quoteData.quoteId,
-              rateMode: 'FLOATING',
+              rateMode,
               destinationAddress: destinationAddress.trim(),
               destinationMemo: destinationMemo.trim() || undefined,
-              ...(refundAddress.trim() ? {
-                refundAddress: refundAddress.trim(),
-                refundMemo: refundMemo.trim() || undefined,
-              } : {}),
               ...(quoteData.requiredSettlementFields?.length
                 ? { settlementDetails: convertSettlementDetails() }
                 : {}),
-              clientRequestId: orderRequestIdRef.current!
-            }
-          });
-        } else {
-          order = await createOrder.mutateAsync({
-            data: {
+              clientRequestId: orderRequestIdRef.current!,
+            };
+          } else {
+            const swapSettlementDetails = buildSettlementDetails(
+              quoteData?.requiredSettlementFields ?? [],
+              settlementFields,
+            );
+            data = {
               type: 'manual',
-              fromAsset: sourceOpt.assetCode,
-              fromNetwork: sourceOpt.routeNetwork,
-              toAsset: targetOpt.assetCode,
-              toNetwork: targetOpt.routeNetwork,
-              amount: parsedAmount,
+              fromAsset: sourceOpt!.assetCode,
+              fromNetwork: sourceOpt!.routeNetwork,
+              toAsset: targetOpt!.assetCode,
+              toNetwork: targetOpt!.routeNetwork,
+              amount: quoteData.amount,
               quoteId: quoteData.quoteId,
               clientRequestId: orderRequestIdRef.current!,
               selectedAddOnKeys: selectedAddonKeys,
               customerEmail: customerEmail.trim(),
-              destinationAddress: destinationAddress || undefined,
-              ...(refundAddress.trim() ? {
-                refundAddress: refundAddress.trim(),
-                refundMemo: refundMemo.trim() || undefined,
-              } : {}),
-              settlementDetails: Object.keys(settlementFields).length > 0 ? settlementFields : undefined,
-              sourceSettlementOptionId: sourceOpt.id,
-              targetSettlementOptionId: targetOpt.id
-            }
-          });
+              destinationAddress: destinationAddress.trim() || undefined,
+              destinationMemo: targetOpt!.kind === 'crypto-network' ? destinationMemo.trim() || undefined : undefined,
+              settlementDetails: Object.keys(swapSettlementDetails).length > 0 ? swapSettlementDetails : undefined,
+              sourceSettlementOptionId: sourceOpt!.id,
+              targetSettlementOptionId: targetOpt!.id,
+            };
+          }
+
+          recovery = existingRecovery ?? {
+            version: 1,
+            phase: 'create-pending',
+            mode,
+            requestId: orderRequestIdRef.current!,
+            data,
+            sourceId,
+            targetId,
+            amount,
+            desiredReceiveAmount,
+            activeAmountSide,
+            rateMode,
+            quoteData,
+            selectedAddonKeys,
+            destinationAddress,
+            destinationMemo,
+            customerEmail,
+            settlementFields,
+          };
+          if (!existingRecovery) saveRecovery(recovery);
+          createRequestInFlight = true;
+          order = mode === 'convert'
+            ? await createQuickexOrder.mutateAsync({ data: recovery.data as any })
+            : await createOrder.mutateAsync({ data: recovery.data as any });
+          createRequestInFlight = false;
+          recovery = {
+            ...recovery,
+            phase: 'link-pending',
+            order: { id: order.id, trackingToken: order.trackingToken },
+          };
+          saveRecovery(recovery);
         }
 
         haptic.notification('success');
 
         await linkOrder.mutateAsync({
           data: {
-            orderId: order.id,
-            trackingToken: order.trackingToken,
-            orderKind: mode === 'convert' ? 'convert' : (quoteData.type === 'manual' ? 'manual' : 'swap')
-          }
+            orderId: order!.id,
+            trackingToken: order!.trackingToken,
+            orderKind: mode === 'convert' ? 'convert' : 'manual',
+          },
         });
 
-        setLocation(`/orders/${order.id}`);
+        removeRecovery();
+        setLocation(`/orders/${order!.id}`);
       } catch (err: any) {
+        if (createRequestInFlight && isDefinitiveCreateRejection(err)) {
+          removeRecovery();
+          orderRequestIdRef.current = createClientRequestId();
+        }
         setErrorMsg(err.message || 'Failed to place order');
         haptic.notification('error');
       } finally {
@@ -785,12 +978,27 @@ export default function Exchange() {
   };
 
   const handleSwapAssets = () => {
+    if (createOutcomeUncertain) return;
     haptic.impact('light');
     setSourceId(targetId);
     setTargetId(sourceId);
   };
 
-  if ((mode === 'swap' && isConfigLoading) || (mode === 'convert' && isQuickexConfigLoading)) {
+  if (recoveryLoadError) {
+    return (
+      <div className="mx-auto max-w-md p-4 pt-8">
+        <p role="alert" className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+          {recoveryLoadError}
+        </p>
+      </div>
+    );
+  }
+
+  if (
+    recoveryBootstrapPending ||
+    (mode === 'swap' && isConfigLoading) ||
+    (mode === 'convert' && isQuickexConfigLoading)
+  ) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="relative">
@@ -804,8 +1012,7 @@ export default function Exchange() {
   return (
     <>
       <div className={cn(
-        "flex flex-col p-4 space-y-4 pt-6 max-w-md mx-auto w-full relative animate-in slide-in-from-bottom-4 duration-500",
-        step === 2 ? "pb-44" : "pb-24",
+        "qx-page-main flex flex-col p-4 space-y-4 pt-6 max-w-md mx-auto w-full relative animate-in slide-in-from-bottom-4 duration-500",
       )}>
 
 
@@ -817,6 +1024,7 @@ export default function Exchange() {
               mode === 'swap' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
             )}
             onClick={() => setMode('swap')}
+            disabled={createOutcomeUncertain}
           >
             Swap
           </button>
@@ -826,6 +1034,7 @@ export default function Exchange() {
               mode === 'convert' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
             )}
             onClick={() => setMode('convert')}
+            disabled={createOutcomeUncertain}
           >
             Convert
           </button>
@@ -839,10 +1048,12 @@ export default function Exchange() {
         {step > 1 && (
           <button
             onClick={() => {
+              if (createOutcomeUncertain) return;
               setStep((s) => s - 1 as any);
               haptic.selection();
             }}
             className="text-[13px] font-semibold text-muted-foreground hover:text-foreground transition-colors px-3 py-1 bg-white/5 rounded-full"
+            disabled={createOutcomeUncertain}
           >
             Back
           </button>
@@ -855,7 +1066,7 @@ export default function Exchange() {
           <span className="font-medium leading-tight">{errorMsg}</span>
         </div>
       )}
-      {quoteExpired && (
+      {quoteExpired && !createOutcomeUncertain && (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-700 dark:text-amber-300">
           <div className="flex items-start gap-2">
             <AlertCircle className="mt-0.5 h-[18px] w-[18px] shrink-0" />
@@ -882,22 +1093,48 @@ export default function Exchange() {
 
       {step === 1 && (
         <div className="space-y-2 relative">
+          {mode === 'convert' && (
+            <div className="flex rounded-xl border border-border/60 bg-muted/40 p-1" role="group" aria-label="Convert rate type">
+              {(['FLOATING', 'FIXED'] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  aria-pressed={rateMode === option}
+                  disabled={!exchangeRouteReady || createOutcomeUncertain}
+                  onClick={() => setRateMode(option)}
+                  className={cn(
+                    'flex-1 rounded-lg py-2 text-xs font-bold transition-colors',
+                    rateMode === option ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground',
+                  )}
+                  data-testid={`convert-rate-${option.toLowerCase()}`}
+                >
+                  {option === 'FIXED' ? 'Fixed rate' : 'Floating rate'}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="premium-card p-5 space-y-4">
             <div className="flex justify-between text-[13px] text-muted-foreground font-semibold uppercase tracking-wider">
               <span>You Send</span>
             </div>
             <div className="flex items-center justify-between gap-4">
               <input
-                type="number"
+                data-testid="input-send-amount"
+                aria-label="You Send amount"
+                type="text"
+                inputMode="decimal"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                disabled={!exchangeRouteReady || createOutcomeUncertain}
+                onChange={(e) => { setActiveAmountSide('send'); setAmount(e.target.value); }}
                 className="bg-transparent text-[40px] font-bold w-full outline-none focus:ring-0 appearance-none placeholder:text-muted/50 tracking-tighter"
                 placeholder="0"
               />
               <button
                 data-testid="source-selector-trigger"
+                aria-label="Choose asset to send"
+                disabled={createOutcomeUncertain}
                 onClick={() => setShowSourceSelector(true)}
-                className="flex items-center space-x-2 bg-secondary/10 hover:bg-secondary/20 border border-secondary/20 transition-all px-3.5 py-2 rounded-2xl shrink-0 active:scale-95"
+                className="qx-asset-trigger flex min-w-0 max-w-[48%] items-center gap-2 bg-secondary/10 hover:bg-secondary/20 border border-secondary/20 transition-all px-2.5 py-2 rounded-2xl shrink-0 active:scale-95"
               >
                 <MiniAppLogo
                   src={sourceOpt?.logoUrl}
@@ -909,8 +1146,22 @@ export default function Exchange() {
                   fallback={getLogoFallbackText(sourceOpt?.kind, sourceOpt?.title, sourceOpt?.assetCode)}
                   alt={sourceOpt?.title}
                   size="normal"
+                  className="shrink-0"
                 />
-                <span className="font-bold text-[15px]">{sourceOpt?.assetCode || 'Select'}</span>
+                <span className="qx-asset-copy flex min-w-0 flex-1 flex-col items-start leading-tight">
+                  <span className="qx-asset-primary max-w-full truncate text-left text-[13px] font-bold">
+                    {sourceOpt?.kind === 'payment-method' || sourceOpt?.kind === 'fiat-payment-method'
+                      ? sourceOpt.title
+                      : sourceOpt?.assetCode || 'Select'}
+                  </span>
+                  <span className="qx-asset-secondary max-w-full truncate text-left text-[10px] font-medium text-muted-foreground">
+                    {sourceOpt?.kind === 'crypto-network'
+                      ? sourceOpt.routeNetwork
+                      : sourceOpt?.kind === 'payment-method' || sourceOpt?.kind === 'fiat-payment-method'
+                        ? sourceOpt.assetCode
+                        : sourceOpt?.title}
+                  </span>
+                </span>
                 <ChevronDown className="w-4 h-4 text-secondary/70 stroke-[3px]" />
               </button>
             </div>
@@ -920,6 +1171,7 @@ export default function Exchange() {
           <div className="flex justify-center -my-[18px] relative z-20">
             <button
               onClick={handleSwapAssets}
+              disabled={createOutcomeUncertain}
               className="w-12 h-12 rounded-full bg-card border-[4px] border-background flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all shadow-lg active:scale-90"
             >
               <ArrowDownUp className="w-5 h-5 stroke-[2.5px]" />
@@ -933,18 +1185,22 @@ export default function Exchange() {
             </div>
             <div className="flex items-center justify-between gap-4">
               <input
+                data-testid="input-receive-amount"
+                aria-label="You Receive amount"
                 type="text"
-                value={receiveAmount
-                  ? (mode === 'convert' ? receiveAmount.toFixed(6) : receiveAmount)
-                  : ''}
-                readOnly
+                inputMode="decimal"
+                value={desiredReceiveAmount}
+                onChange={(e) => { setActiveAmountSide('receive'); setDesiredReceiveAmount(e.target.value); }}
+                disabled={!exchangeRouteReady || createOutcomeUncertain}
                 className="bg-transparent text-[40px] font-bold w-full outline-none focus:ring-0 appearance-none text-foreground/80 tracking-tighter truncate"
                 placeholder="0"
               />
               <button
                 data-testid="target-selector-trigger"
+                aria-label="Choose asset to receive"
+                disabled={createOutcomeUncertain}
                 onClick={() => setShowTargetSelector(true)}
-                className="flex items-center space-x-2 bg-primary/10 hover:bg-primary/20 border border-primary/20 transition-all px-3.5 py-2 rounded-2xl shrink-0 active:scale-95"
+                className="qx-asset-trigger flex min-w-0 max-w-[48%] items-center gap-2 bg-primary/10 hover:bg-primary/20 border border-primary/20 transition-all px-2.5 py-2 rounded-2xl shrink-0 active:scale-95"
               >
                 <MiniAppLogo
                   src={targetOpt?.logoUrl}
@@ -956,8 +1212,22 @@ export default function Exchange() {
                   fallback={getLogoFallbackText(targetOpt?.kind, targetOpt?.title, targetOpt?.assetCode)}
                   alt={targetOpt?.title}
                   size="normal"
+                  className="shrink-0"
                 />
-                <span className="font-bold text-[15px]">{targetOpt?.assetCode || 'Select'}</span>
+                <span className="qx-asset-copy flex min-w-0 flex-1 flex-col items-start leading-tight">
+                  <span className="qx-asset-primary max-w-full truncate text-left text-[13px] font-bold">
+                    {targetOpt?.kind === 'payment-method' || targetOpt?.kind === 'fiat-payment-method'
+                      ? targetOpt.title
+                      : targetOpt?.assetCode || 'Select'}
+                  </span>
+                  <span className="qx-asset-secondary max-w-full truncate text-left text-[10px] font-medium text-muted-foreground">
+                    {targetOpt?.kind === 'crypto-network'
+                      ? targetOpt.routeNetwork
+                      : targetOpt?.kind === 'payment-method' || targetOpt?.kind === 'fiat-payment-method'
+                        ? targetOpt.assetCode
+                        : targetOpt?.title}
+                  </span>
+                </span>
                 <ChevronDown className="w-4 h-4 text-primary/70 stroke-[3px]" />
               </button>
             </div>
@@ -1064,7 +1334,10 @@ export default function Exchange() {
 
       {step === 2 && (
         <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
-          <div className="premium-card p-5 space-y-5 animated-gradient-bg">
+          <div className={cn(
+            'premium-card p-5 space-y-5',
+            mode === 'swap' ? 'qx-swap-details' : 'animated-gradient-bg',
+          )}>
             <h3 className="font-bold text-lg flex items-center tracking-tight text-white drop-shadow-md">
               <MiniAppLogo
                 src={targetOpt?.logoUrl}
@@ -1090,88 +1363,42 @@ export default function Exchange() {
                   <Input
                     value={destinationAddress}
                     onChange={(e) => setDestinationAddress(e.target.value)}
+                    disabled={createOutcomeUncertain}
                     placeholder="Enter wallet address"
                     className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner font-mono text-white placeholder:text-white/50"
                   />
                 </div>
-                {targetOpt?.original?.requiresMemo && (
+                {(targetOpt?.original?.requiresMemo || convertDestinationMemoField) && (
                   <div className="space-y-2 mt-4">
                     <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">
-                      Destination Memo / Tag
+                      {convertDestinationMemoField?.label || 'Destination Memo / Tag'}
+                      {convertDestinationMemoField && isExchangeFieldRequired(convertDestinationMemoField) && ' *'}
                     </label>
                     <Input
                       value={destinationMemo}
                       onChange={(e) => setDestinationMemo(e.target.value)}
+                      disabled={createOutcomeUncertain}
                       placeholder="Enter memo"
                       className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner font-mono text-white placeholder:text-white/50"
                     />
                   </div>
                 )}
 
-                <div className="space-y-2 pt-4 border-t border-white/20">
-                  <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">
-                    Customer Email
-                  </label>
-                  <Input
-                    type="email"
-                    inputMode="email"
-                    autoComplete="email"
-                    value={customerEmail}
-                    onChange={(e) => setCustomerEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner text-white placeholder:text-white/50"
-                  />
-                  <p className="text-[12px] leading-relaxed text-white/60">
-                    Used for your Convert order confirmation and support.
-                  </p>
-                </div>
-
-                <div className="pt-4 border-t border-white/20 mt-6">
-                  <h4 className="text-[14px] font-bold text-white/90 mb-3">Optional Refund Details</h4>
-                  <div className="space-y-2">
-                    <label className="text-[13px] font-bold text-white/80 uppercase tracking-wider">
-                      Refund {sourceOpt.assetCode} Address
-                    </label>
-                    <Input
-                      value={refundAddress}
-                      onChange={(e) => setRefundAddress(e.target.value)}
-                      placeholder="Enter refund address (optional)"
-                      className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner font-mono text-white placeholder:text-white/50"
-                    />
-                  </div>
-                  {sourceOpt?.original?.requiresMemo && (
-                    <div className="space-y-2 mt-4">
-                      <label className="text-[13px] font-bold text-white/80 uppercase tracking-wider">
-                        Refund Memo / Tag
-                      </label>
-                      <Input
-                        value={refundMemo}
-                        onChange={(e) => setRefundMemo(e.target.value)}
-                        placeholder="Enter refund memo"
-                        className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner font-mono text-white placeholder:text-white/50"
-                      />
-                    </div>
-                  )}
-                </div>
                 {quoteData?.requiredSettlementFields
-                  ?.filter((field: any) => ![
-                    'destinationAddress', 'destinationMemo', 'refundAddress', 'refundMemo',
-                  ].includes(field.key))
+                  ?.filter((field: any) => !isConvertDedicatedSettlementField(field))
                   .map((field: any) => {
-                    const condition = field.requiredWhen;
-                    const visible = !condition || (Array.isArray(condition.equals)
-                      ? condition.equals.includes(settlementFields[condition.fieldKey])
-                      : settlementFields[condition.fieldKey] === condition.equals);
+                    const visible = isExchangeFieldVisible(field, { ...settlementFields, destinationAddress, destinationMemo });
                     if (!visible || field.enabled === false) return null;
                     return (
                       <div key={field.key} className="space-y-2 mt-4">
                         <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">
-                          {field.label} {field.required && <span className="text-white">*</span>}
+                          {field.label} {isExchangeFieldRequired(field) && <span className="text-white">*</span>}
                         </label>
                         {field.type === 'select' && field.options?.length ? (
                           <select
                             value={settlementFields[field.key] || ''}
-                            required={field.required}
+                            required={isExchangeFieldRequired(field)}
+                            disabled={createOutcomeUncertain}
                             onChange={(e) => setSettlementFields(prev => ({ ...prev, [field.key]: e.target.value }))}
                             className="w-full bg-black/20 h-14 rounded-2xl border border-white/20 px-3 text-[15px] text-white"
                           >
@@ -1183,7 +1410,8 @@ export default function Exchange() {
                         ) : (
                           <Input
                             value={settlementFields[field.key] || ''}
-                            required={field.required}
+                            required={isExchangeFieldRequired(field)}
+                            disabled={createOutcomeUncertain}
                             onChange={(e) => setSettlementFields(prev => ({ ...prev, [field.key]: e.target.value }))}
                             placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
                             type={field.type === 'email' ? 'email' : field.type === 'number' || field.type === 'integer' || field.type === 'numeric' || field.type === 'decimal' ? 'number' : 'text'}
@@ -1196,40 +1424,47 @@ export default function Exchange() {
               </>
             ) : (
               <>
-                {targetOpt?.kind === 'crypto-network' && !quoteData?.requiredSettlementFields?.some((f: any) => f.type === 'wallet-address' || f.key.includes('address')) && (
-                  <div className="space-y-2">
-                    <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">
-                      Destination {targetOpt.assetCode} Address
-                    </label>
-                    <Input
-                      value={destinationAddress}
-                      onChange={(e) => setDestinationAddress(e.target.value)}
-                      placeholder="Enter wallet address"
-                      className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner font-mono text-white placeholder:text-white/50"
-                    />
-                  </div>
+                {targetOpt?.kind === 'crypto-network' && (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">
+                        Destination {targetOpt.assetCode} Address
+                      </label>
+                      <Input
+                        value={destinationAddress}
+                        onChange={(e) => setDestinationAddress(e.target.value)}
+                        disabled={createOutcomeUncertain}
+                        placeholder="Enter wallet address"
+                        className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner font-mono text-white placeholder:text-white/50"
+                      />
+                    </div>
+                    {targetOpt.original.requiresMemo && (
+                      <div className="space-y-2 mt-4">
+                        <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">Destination Memo / Tag</label>
+                        <Input
+                          value={destinationMemo}
+                          onChange={(e) => setDestinationMemo(e.target.value)}
+                          disabled={createOutcomeUncertain}
+                          placeholder="Enter memo"
+                          className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner font-mono text-white placeholder:text-white/50"
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
-
-                {quoteData?.requiredSettlementFields && quoteData.requiredSettlementFields.map((field: any) => {
-                  let isVisible = true;
-                  if (field.requiredWhen) {
-                    const { fieldKey, equals } = field.requiredWhen;
-                    const matchVal = settlementFields[fieldKey];
-                    const equalsArr = Array.isArray(equals) ? equals : [equals];
-                    if (!equalsArr.includes(matchVal)) {
-                      isVisible = false;
-                    }
-                  }
-                  if (!isVisible || field.enabled === false) return null;
+                {quoteData?.requiredSettlementFields
+                  .map((field: any) => {
+                  if (!isExchangeFieldVisible(field, settlementFields)) return null;
 
                   return (
                     <div key={field.key} className="space-y-2 mt-4">
                       <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">
-                        {field.label} {field.required && <span className="text-white">*</span>}
+                        {field.label} {isExchangeFieldRequired(field) && <span className="text-white">*</span>}
                       </label>
                       {field.type === 'select' && field.options?.length ? (
                         <select
                           value={settlementFields[field.key] || ''}
+                          disabled={createOutcomeUncertain}
                           onChange={(e) => setSettlementFields(prev => ({...prev, [field.key]: e.target.value}))}
                           className="w-full bg-black/20 h-14 rounded-2xl border border-white/20 px-3 text-[15px] text-white"
                         >
@@ -1239,6 +1474,7 @@ export default function Exchange() {
                       ) : (
                         <Input
                           value={settlementFields[field.key] || ''}
+                          disabled={createOutcomeUncertain}
                           onChange={(e) => setSettlementFields(prev => ({...prev, [field.key]: e.target.value}))}
                           placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
                           type={field.type === 'email' ? 'email' : field.type === 'number' || field.type === 'integer' || field.type === 'numeric' || field.type === 'decimal' ? 'number' : 'text'}
@@ -1249,42 +1485,22 @@ export default function Exchange() {
                   );
                 })}
 
-                <div className="space-y-2 pt-4 border-t border-white/20">
-                  <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">
-                    Customer Email
-                  </label>
-                  <Input
-                    type="email"
-                    inputMode="email"
-                    autoComplete="email"
-                    value={customerEmail}
-                    onChange={(e) => setCustomerEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner text-white placeholder:text-white/50"
-                  />
-                </div>
-
-                {sourceOpt?.kind === 'crypto-network' && (
-                  <div className="pt-4 border-t border-white/20 mt-6">
-                    <h4 className="text-[14px] font-bold text-white/90 mb-3">Optional Refund Details</h4>
-                    <Input
-                      value={refundAddress}
-                      onChange={(e) => setRefundAddress(e.target.value)}
-                      placeholder={`Refund ${sourceOpt.assetCode} address (optional)`}
-                      className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner font-mono text-white placeholder:text-white/50"
-                    />
-                    {sourceOpt?.original?.requiresMemo && (
-                      <Input
-                        value={refundMemo}
-                        onChange={(e) => setRefundMemo(e.target.value)}
-                        placeholder="Refund memo / tag"
-                        className="mt-4 bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner font-mono text-white placeholder:text-white/50"
-                      />
-                    )}
-                  </div>
-                )}
               </>
             )}
+
+            <div className="space-y-2 pt-4 border-t border-white/20">
+              <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">Customer Email</label>
+              <Input
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                value={customerEmail}
+                onChange={(e) => setCustomerEmail(e.target.value)}
+                disabled={createOutcomeUncertain}
+                placeholder="you@example.com"
+                className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner text-white placeholder:text-white/50"
+              />
+            </div>
 
             {mode === 'swap' && (!quoteData?.requiredSettlementFields || quoteData.requiredSettlementFields.length === 0) && targetOpt?.kind !== 'crypto-network' && (
               <div className="bg-black/10 border border-white/10 rounded-2xl p-4 text-center">
@@ -1302,7 +1518,7 @@ export default function Exchange() {
               <span className="text-[14px] font-semibold text-muted-foreground">You Send</span>
               <span className="flex items-center gap-2 font-bold text-[16px]">
                 <MiniAppLogo src={sourceOpt?.logoUrl} fallbackSrcs={sourceOpt?.kind === 'payment-method' || sourceOpt?.kind === 'fiat-payment-method' ? getFallbackPaymentLogos(sourceOpt?.title, sourceOpt?.paymentMethodId || sourceOpt?.id) : getFallbackCryptoLogos(sourceOpt?.assetCode)} badgeSrc={sourceOpt?.kind === 'crypto-network' ? sourceOpt?.networkLogoUrl : sourceOpt?.flagUrl} badgeVariant={sourceOpt?.kind === 'crypto-network' ? 'network' : 'flag'} network={sourceOpt?.routeNetwork} variant={sourceOpt?.kind === 'payment-method' || sourceOpt?.kind === 'fiat-payment-method' ? 'payment' : 'asset'} fallback={getLogoFallbackText(sourceOpt?.kind, sourceOpt?.title, sourceOpt?.assetCode)} size="small" />
-                {amount} {sourceOpt?.assetCode}
+                {quoteData?.amount ?? amount} {sourceOpt?.assetCode}
               </span>
             </div>
             <div className="flex justify-between items-center py-3 border-b border-border/50">
@@ -1351,18 +1567,43 @@ export default function Exchange() {
 
           <div className="flex items-start text-[12px] text-muted-foreground px-3 pt-2 bg-primary/5 p-3 rounded-xl border border-primary/10">
             <CheckCircle2 className="w-[18px] h-[18px] mr-2.5 text-primary shrink-0 opacity-80" />
-            <span className="leading-snug">By placing this order, you agree to the terms of service and confirm the destination details are correct.</span>
+            <label htmlFor="telegram-exchange-policy-acceptance" className="leading-snug">
+              <input
+                id="telegram-exchange-policy-acceptance"
+                type="checkbox"
+                checked={termsAccepted}
+                disabled={createOutcomeUncertain}
+                onChange={(event) => setTermsAccepted(event.target.checked)}
+                className="mr-2 accent-primary"
+                data-testid="telegram-exchange-policy-checkbox"
+              />
+              I agree to the{' '}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary underline">Terms &amp; Conditions</a>
+              {' '}and acknowledge the{' '}
+              <a href="/aml-kyc" target="_blank" rel="noopener noreferrer" className="text-primary underline">AML / KYC policy</a>.
+              {' '}I confirm the destination details are correct.
+            </label>
           </div>
+          {createOutcomeUncertain && (
+            <p role="status" className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-700 dark:text-amber-300">
+              {recoveryRecord?.phase === 'link-pending'
+                ? 'The order was created. Retry only its Telegram linking step; do not submit another order.'
+                : 'Order submission may have been accepted. Retry only with this unchanged order request; editing, switching modes, or starting another order is disabled until its result is confirmed.'}
+            </p>
+          )}
         </div>
       )}
 
+      </div>
+
       <div className={cn(
+        "qx-sticky-action",
         step === 2
-          ? "fixed inset-x-0 bottom-[calc(60px+env(safe-area-inset-bottom))] z-40 border-t border-border/60 bg-background/95 px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.15)] backdrop-blur-xl"
+          ? "border-t border-border/60 bg-background/95 px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.15)] backdrop-blur-xl"
           : "pt-6",
       )}>
         <div className={cn(step === 2 && "mx-auto max-w-md")}>
-          {step === 2 && errorMsg && (
+          {step > 1 && errorMsg && (
             <p role="alert" className="mb-2 text-sm font-medium text-destructive">
               {errorMsg}
             </p>
@@ -1373,21 +1614,19 @@ export default function Exchange() {
             disabled={
               isProcessing ||
               isPricingLoading ||
-              quoteExpired ||
+              (quoteExpired && !createOutcomeUncertain) ||
               (mode === 'swap' && manualSwapAddonsQuery.isError && step === 1) ||
               (mode === 'swap' && (!quoteMatchesCurrentSelection || isPricingLoading) && step === 1) ||
-              (mode === 'convert' && !quoteData && step === 1)
+              (mode === 'convert' && (!convertQuoteMatchesCurrentSelection || isProcessing) && step === 1)
             }
           >
             {isProcessing ? (
               <span className="flex items-center">
                 <Loader2 className="w-5 h-5 mr-2 animate-spin" /> Processing...
               </span>
-            ) : step === 1 ? 'Continue' : step === 2 ? 'Review Order' : 'Place Order'}
+            ) : step === 1 ? 'Continue' : step === 2 ? 'Review Order' : recoveryRecord?.phase === 'link-pending' ? 'Retry order linking' : recoveryRecord ? 'Retry same order request' : 'Place Order'}
           </Button>
         </div>
-      </div>
-
       </div>
 
       {(showSourceSelector || showTargetSelector) && (

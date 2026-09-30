@@ -23,6 +23,18 @@ export type TelegramConvertInstrument = {
   requiresMemo?: boolean;
 };
 
+export type TelegramManualSwapAddon = {
+  key: string;
+  name: string;
+  description?: string;
+  fixedAmount?: string;
+  feeCurrency?: string;
+  feeType?: "fixed" | "percentage";
+  percentage?: string | null;
+  selectionRule: "none" | "one" | "multiple";
+  presentation: { group: string };
+};
+
 export type TelegramCanonicalSettlementOption = TelegramRouteOption & {
   assetId?: string;
   title?: string;
@@ -138,11 +150,16 @@ export function filterManualSourceOptions<T extends TelegramRouteOption & {
   );
 }
 
+export function telegramCallbackIndexes(data: string, prefix: string, indexCount = 1): number[] | undefined {
+  if (!/^[a-z]+$/.test(prefix) || !Number.isSafeInteger(indexCount) || indexCount < 1) return undefined;
+  const parts = data.split(":");
+  if (parts.length !== indexCount + 1 || parts[0] !== prefix) return undefined;
+  const indexes = parts.slice(1).map(part => /^(0|[1-9]\d*)$/.test(part) ? Number(part) : Number.NaN);
+  return indexes.every(Number.isSafeInteger) ? indexes : undefined;
+}
+
 export function telegramFieldSkipIndex(data: string): number | undefined {
-  const match = /^fieldskip:(0|[1-9]\d*)$/.exec(data);
-  if (!match) return undefined;
-  const index = Number(match[1]);
-  return Number.isSafeInteger(index) ? index : undefined;
+  return telegramCallbackIndexes(data, "fieldskip")?.[0];
 }
 
 export function nextSourceAmountForReceiveTarget(
@@ -179,16 +196,71 @@ export function buildQuotePayload(
   source: TelegramRouteOption,
   target: TelegramRouteOption,
   amount: number,
+  rateMode: "FLOATING" | "FIXED" = "FLOATING",
+  selectedAddOnKeys: string[] = [],
 ) {
   return {
     type: mode === "convert" ? "instant" : "manual",
     ...routeFields(source, target),
     amount,
-    rateMode: "FLOATING" as const,
+    rateMode,
     ...(mode === "swap"
-      ? { sourceSettlementOptionId: source.id, targetSettlementOptionId: target.id }
+      ? {
+          sourceSettlementOptionId: source.id,
+          targetSettlementOptionId: target.id,
+          ...(selectedAddOnKeys.length ? { selectedAddOnKeys } : {}),
+        }
       : {}),
   };
+}
+
+export function buildQuoteByReceivePayload(
+  mode: "swap" | "convert",
+  source: TelegramRouteOption,
+  target: TelegramRouteOption,
+  desiredReceiveAmount: number,
+  rateMode: "FLOATING" | "FIXED" = "FLOATING",
+  selectedAddOnKeys: string[] = [],
+) {
+  return {
+    fromAsset: source.assetCode,
+    fromNetwork: source.routeNetwork,
+    toAsset: target.assetCode,
+    toNetwork: target.routeNetwork,
+    ...(mode === "swap"
+      ? {
+          sourceSettlementOptionId: source.id,
+          targetSettlementOptionId: target.id,
+          ...(selectedAddOnKeys.length ? { selectedAddOnKeys } : {}),
+        }
+      : {}),
+    desiredReceiveAmount,
+    rateMode,
+  };
+}
+
+export function toggleTelegramManualSwapAddonSelection(
+  selectedKeys: string[],
+  key: string,
+  addons: TelegramManualSwapAddon[],
+) {
+  const addon = addons.find(item => item.key === key);
+  if (!addon || addon.selectionRule === "none") return selectedKeys;
+  if (selectedKeys.includes(key)) return selectedKeys.filter(item => item !== key);
+  const group = addon.presentation.group.trim().toLowerCase() || "default";
+  const singleSelectionKeys = new Set(addons
+    .filter(item =>
+      (item.presentation.group.trim().toLowerCase() || "default") === group &&
+      item.selectionRule === "one",
+    )
+    .map(item => item.key));
+  if (addon.selectionRule === "one") {
+    const groupKeys = new Set(addons
+      .filter(item => (item.presentation.group.trim().toLowerCase() || "default") === group)
+      .map(item => item.key));
+    return [...selectedKeys.filter(item => !groupKeys.has(item)), key];
+  }
+  return [...new Set([...selectedKeys.filter(item => !singleSelectionKeys.has(item)), key])];
 }
 
 export function shouldAskDestination(mode: "swap" | "convert", target: TelegramRouteOption) {
@@ -256,7 +328,27 @@ export function buildCreatePayload(
   data: Record<string, unknown>,
 ) {
   const quote = data.quote as Record<string, unknown> | undefined;
-  const route = routeFields(source, target);
+  const fields = (data.fields ?? quote?.requiredSettlementFields) as Array<{ key: string; type?: string }> | undefined;
+  const values = (data.values && typeof data.values === "object" && !Array.isArray(data.values)
+    ? data.values
+    : {}) as Record<string, unknown>;
+  const settlementDetails = Object.fromEntries(Object.entries(values).map(([key, value]) => {
+    const fieldType = fields?.find(field => field.key === key)?.type;
+    return [
+      key,
+      typeof value === "string" &&
+      value.trim() !== "" &&
+      ["integer", "numeric", "decimal", "number"].includes(fieldType ?? "")
+        ? Number(value)
+        : value,
+    ];
+  }));
+  const route = {
+    fromAsset: source.assetCode,
+    fromNetwork: source.routeNetwork,
+    toAsset: target.assetCode,
+    toNetwork: target.routeNetwork,
+  };
   const canonical = quote?.fromAsset && quote?.toAsset
     ? {
         fromAsset: quote.fromAsset,
@@ -274,15 +366,22 @@ export function buildCreatePayload(
     customerName: data.customerName,
     destinationAddress: data.destinationAddress,
     destinationMemo: data.destinationMemo,
-    ...(mode === "swap"
-      ? {
-          sourceSettlementOptionId: source.id,
-          targetSettlementOptionId: target.id,
-          settlementDetails: data.values,
-        }
-      : {}),
+    settlementDetails,
+    ...(mode === "swap" ? {
+      sourceSettlementOptionId: source.id,
+      targetSettlementOptionId: target.id,
+      selectedAddOnKeys: Array.isArray(data.selectedAddOnKeys)
+        ? data.selectedAddOnKeys
+        : [],
+    } : {}),
     quoteId: quote?.quoteId,
     clientRequestId: data.clientRequestId,
-    rateMode: "FLOATING" as const,
+    rateMode: quote?.rateMode === "FIXED"
+      ? "FIXED" as const
+      : quote?.rateMode === "FLOATING"
+        ? "FLOATING" as const
+        : data.rateMode === "FIXED"
+          ? "FIXED" as const
+          : "FLOATING" as const,
   };
 }

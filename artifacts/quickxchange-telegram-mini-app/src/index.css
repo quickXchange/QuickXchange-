@@ -146,7 +146,8 @@
 }
 
 .animated-gradient-bg {
-  background: linear-gradient(135deg, hsl(var(--secondary)/0.8), hsl(var(--primary)/0.8), hsl(var(--accent)/0.8));
+  color: #fff;
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
   background-size: 200% 200%;
   animation: gradient-shift 10s ease infinite;
 }
@@ -188,7 +189,12 @@
 }
 
 .premium-card:active {
-  transform: scale(0.98);
+  transform: none; /* no tap shift: forms must not move under the finger */
+}
+a.premium-card:active,
+.premium-card[role="button"]:active,
+.premium-card.cursor-pointer:active {
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.25);
 }
 
 /* Animated slow surfaces */
@@ -240,3 +246,64 @@
   box-shadow: 0 -4px 24px -8px rgba(0,0,0,0.5);
 }
 
+
+/* Layout hardening */
+html, body, #root { max-width: 100%; overflow-x: clip; }
+input, select, textarea { min-width: 0; max-width: 100%; font-size: 16px; }
+.premium-card { min-width: 0; }
+.premium-card input, .premium-card .flex > input { min-width: 0; }
+.animated-gradient-bg :is(h1,h2,h3,p,label,span,small) { color: inherit; }
+.animated-gradient-bg input { color: hsl(var(--foreground)); }
+.qx-page-main { padding-bottom: calc(144px + env(safe-area-inset-bottom)); }
+.qx-sticky-action {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(64px + env(safe-area-inset-bottom));
+  width: min(100%, 448px);
+  margin-inline: auto;
+  padding: 12px 16px;
+  border-top: 1px solid hsl(var(--border) / 0.6);
+  background: hsl(var(--background) / 0.96);
+  backdrop-filter: blur(16px);
+  z-index: 40;
+}
+@media (prefers-reduced-motion: reduce) { .premium-card { transition: none; } }
+
+/* Swap Step 2: neutral compact details (Convert keeps .animated-gradient-bg) */
+.qx-swap-details,
+.qx-swap-details.animated-gradient-bg {
+  background: hsl(var(--card));
+  background-image: none;
+  animation: none;
+  color: hsl(var(--card-foreground));
+  padding: 1rem;
+  gap: 0.75rem;
+}
+.qx-swap-details :is(h1,h2,h3,p,label,span,small,strong),
+.qx-swap-details .text-white,
+.qx-swap-details [class*="text-white/"] { color: inherit; }
+.qx-swap-details label,
+.qx-swap-details [class*="uppercase"] {
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+.qx-swap-details :is(input, select, textarea) {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--input));
+  height: 3rem;
+  border-radius: 1rem;
+  box-shadow: none;
+}
+.qx-swap-details :is(input, textarea)::placeholder { color: hsl(var(--muted-foreground)); }
+.qx-swap-details :is(input, select, textarea):focus-visible {
+  outline: none;
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.18);
+}
+.qx-swap-details [class*="drop-shadow"] { filter: none; }
+
+/* Stable shell height, natural scroll when content is long */
+.qx-page-main { min-height: calc(100dvh - 64px - env(safe-area-inset-bottom)); }

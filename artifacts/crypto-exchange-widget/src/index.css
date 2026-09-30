@@ -2401,8 +2401,9 @@ html.dark .cl-modalContent .cl-cardBox {
     }
 
     .public-shell .exchange-wrapper-wide {
-      width: calc(100% - 24px) !important;
-      max-width: calc(100% - 24px) !important;
+      /* The wrapper's phone padding already provides the edge gutter. */
+      width: 100% !important;
+      max-width: 100% !important;
       margin-inline: auto;
     }
 
@@ -23251,6 +23252,47 @@ html:not(.dark) .frontend-menu-drawer .qx-mobile-trigger[aria-expanded="true"] {
 
   .exchange-card {
     padding: 16px !important;
+  }
+
+  /* Landing gutter pass: one 10px edge margin. Blocks inside the wrapper
+     (which already owns 10px) must not add their own 1rem inset. */
+  .live-landing-background-root .public-shell .exchange-wrapper > .how-it-works-preview,
+  .live-landing-background-root .public-shell .exchange-wrapper > section.mx-auto,
+  .live-landing-background-root .public-shell .qx-telegram-promo,
+  .live-landing-background-root .public-shell .qx-premium-footer {
+    width: calc(100vw - 20px) !important;
+    max-width: calc(100vw - 20px) !important;
+    margin-inline: calc((100% - (100vw - 20px)) / 2) !important;
+    box-sizing: border-box !important;
+  }
+
+  .live-landing-background-root .public-shell .qx-telegram-promo {
+    padding: 20px !important;
+    border-radius: 2rem;
+  }
+
+  .live-landing-background-root .public-shell .qx-telegram-promo > .relative.z-10.grid {
+    gap: 1.75rem;
+  }
+
+  .live-landing-background-root .public-shell .market-neon-section {
+    padding-inline: 10px !important;
+  }
+
+  .live-landing-background-root .public-shell .popular-pairs-row > h3 {
+    padding-inline: 10px !important;
+  }
+
+  .live-landing-background-root .public-shell .cta-content {
+    padding: 32px 20px !important;
+  }
+
+  .live-landing-background-root .public-shell .qx-community-inner {
+    padding: 24px 18px !important;
+  }
+
+  .live-landing-background-root .public-shell .qx-premium-footer-inner {
+    padding-inline: 16px !important;
   }
 }
 

@@ -96,7 +96,8 @@ export function MiniAppLogo({
             sources={sources}
             size="100%"
             alt={alt}
-            className="!border-0"
+            className="!border-0 !bg-transparent"
+            imageClassName="!bg-transparent"
             fallback={(
               <span className={cn('font-bold uppercase tracking-tight text-primary', classes.text)}>
                 {(fallback || '?').slice(0, 4)}

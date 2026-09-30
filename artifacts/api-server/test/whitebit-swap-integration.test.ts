@@ -2099,7 +2099,7 @@ test("memo-less BNB/BEP20 claim matches null webhook and history memos but real 
   assert.equal(unadvancedOrder.manualSettlementState, "awaiting_funds");
 });
 
-test("confirmed Swap deposit advances the real order and queues one exact Telegram payment notice", async () => {
+test("confirmed Swap deposit advances the real order without customer Telegram lifecycle notices", async () => {
   const telegramOrderId = `${orderId}-telegram-payment`;
   const chatId = `91${Date.now()}`;
   const uniqueId = `telegram-payment-${suffix}`;
@@ -2164,22 +2164,12 @@ test("confirmed Swap deposit advances the real order and queues one exact Telegr
       .where(eq(database.telegramNotificationOutboxTable.orderId, telegramOrderId));
     const payments = notices.filter((notice) => notice.eventKind === "payment_received");
     const genericStatus = notices.filter((notice) => notice.eventKind === "status");
-    assert.equal(payments.length, 1);
+    // Customer lifecycle delivery is email-only, including WhiteBIT-funded swaps.
+    // Funding still advances the canonical order; Telegram retains the generic
+    // delivered synchronization marker, not a customer payment message.
+    assert.equal(payments.length, 0);
     assert.equal(genericStatus.length, 1);
     assert.equal(genericStatus[0]?.deliveryStatus, "delivered");
-    assert.equal(payments[0]?.statusVersion, 0);
-    assert.deepEqual(
-      {
-        receivedAmount: payments[0]?.payload.receivedAmount,
-        receivedAsset: payments[0]?.payload.receivedAsset,
-        receivedNetwork: payments[0]?.payload.receivedNetwork,
-      },
-      {
-        receivedAmount: "1.25",
-        receivedAsset: "BTC",
-        receivedNetwork: "BITCOIN",
-      },
-    );
   } finally {
     await database.db.delete(database.telegramNotificationOutboxTable)
       .where(eq(database.telegramNotificationOutboxTable.orderId, telegramOrderId));
