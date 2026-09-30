@@ -2,6 +2,7 @@
 - [Quickex signed calls](quickex-signing.md) — omit signed params; mind [egress](quickex-egress-restrictions.md) and [429s](quickex-pair-rate-limit-fallback.md).
 - [Quickex catalog/order quirks](quickex-instrument-mapping.md) — rates omit titles; [order payloads](quickex-order-payload.md) need markup and IDs.
 - [Drizzle migrations](drizzle-migration-paths.md) — preserve snapshot paths and [post-merge idempotency](drizzle-post-merge-idempotency.md).
+- [Drizzle constraint errors](drizzle-constraint-errors.md) — PostgreSQL error codes may live under nested causes, not on the thrown query error.
 - [Order-directory indexing](order-directory-indexing.md) — add large-table order indexes through a safe online path, not a regular transactional migration.
 - [Clerk test identity](clerk-verified-email-testing.md) — role linking needs verified email; alias [exports](clerk-test-aliases.md) and mind [test domains](clerk-test-email-domains.md).
 - [Customer status delivery](customer-notification-outboxes.md) — fence outboxes; [email-only alerts](customer-email-only-status.md) suppress Telegram status messages.

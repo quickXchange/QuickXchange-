@@ -6466,6 +6466,18 @@ test("Manual Swap add-on quote configuration is enforced at order creation and r
     assert.equal(createdAddon.status, 201, JSON.stringify(createdAddon.body));
     addonId = String(createdAddon.body.id);
     const addonKey = String(createdAddon.body.key);
+    const duplicateAddon = await apiJson(api.url, "/admin/manual-swap-addons", {
+      key: addonKey,
+      name: "Duplicate add-on",
+      fixedAmount: "3",
+      feeCurrency: "USD",
+      enabled: true,
+      selectionRule: "multiple",
+      displayOrder: 0,
+      presentation: { group: "test-group" },
+    }, "POST", headers);
+    assert.equal(duplicateAddon.status, 409, JSON.stringify(duplicateAddon.body));
+    assert.equal(duplicateAddon.body.code, "MANUAL_SWAP_ADDON_KEY_CONFLICT");
 
     const savedFeeConfig = await apiJson(api.url, "/admin/manual-swap-fee-config", {
       enabled: true,

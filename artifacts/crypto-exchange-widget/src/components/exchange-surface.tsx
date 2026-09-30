@@ -788,7 +788,6 @@ export function ManualSwapWidget({
   const quoteMutation = useCreateExchangeQuote();
   const receiveQuoteMutation = useCreateExchangeQuoteByReceive();
   const addons = useListPublicManualSwapAddons({ query: { queryKey: getListPublicManualSwapAddonsQueryKey(), staleTime: 30_000, refetchInterval: 30_000 } });
-  const [addonsPopupOpen, setAddonsPopupOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedAddOnKeys, setSelectedAddOnKeys] = useState<string[]>([]);
   const availableAddons = [...(addons.data?.items || [])].sort((a, b) => a.displayOrder - b.displayOrder);
@@ -797,10 +796,6 @@ export function ManualSwapWidget({
   )).sort();
   const selectedKeysSignature = JSON.stringify(selectedKeys);
   const lastSelectionQuotedRef = useRef(selectedKeysSignature);
-  const changeAddonsOpen = (open: boolean) => {
-    if (open) void addons.refetch();
-    setAddonsPopupOpen(open);
-  };
   const toggleAddon = (key: string) => {
     const item = availableAddons.find(option => option.key === key);
     if (!item || item.selectionRule === 'none') return;
@@ -857,20 +852,19 @@ export function ManualSwapWidget({
     }
   }, []);
   useEffect(() => {
-    if (!addonsPopupOpen && !detailsOpen) return;
+    if (!detailsOpen) return;
     const frame = window.requestAnimationFrame(revealWidgetTop);
     return () => window.cancelAnimationFrame(frame);
-  }, [addonsPopupOpen, detailsOpen, revealWidgetTop]);
+  }, [detailsOpen, revealWidgetTop]);
   useEffect(() => {
-    if (!addonsPopupOpen && !detailsOpen) return;
+    if (!detailsOpen) return;
     const closeOnEscape = (event: globalThis.KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      if (detailsOpen) setDetailsOpen(false);
-      else changeAddonsOpen(false);
+      setDetailsOpen(false);
     };
     document.addEventListener('keydown', closeOnEscape);
     return () => document.removeEventListener('keydown', closeOnEscape);
-  }, [addonsPopupOpen, detailsOpen, selectedKeysSignature]);
+  }, [detailsOpen]);
 
   useEffect(() => {
     setSettlementDetails({});
@@ -907,7 +901,6 @@ export function ManualSwapWidget({
 
   const handleQuoteExpire = useCallback(() => {
     setStep(1);
-    setAddonsPopupOpen(false);
     setDetailsOpen(false);
     setTermsAccepted(false);
     setQuotePreview(null);
@@ -1103,7 +1096,6 @@ export function ManualSwapWidget({
 
   const invalidateQuote = () => {
     setStep(1);
-    setAddonsPopupOpen(false);
     setDetailsOpen(false);
     setTermsAccepted(false);
     setQuotePreview(null);
@@ -1643,14 +1635,16 @@ export function ManualSwapWidget({
                   </div>
                 )}
 
+                {(availableAddons.some(item => item.enabled) || addons.isLoading || addons.isError) && <div className="mt-4" data-testid="swap-addons-inline">
+                  <SwapAddonOptions options={availableAddons.filter(item => item.enabled)} selectedKeys={selectedKeys} onToggle={toggleAddon} isLoading={addons.isLoading} isError={addons.isError} onRetry={() => addons.refetch()} compact />
+                </div>}
                 {currentQuote && !currentQuote.manualSwapFees && <p role="alert" className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" data-testid="swap-fee-breakdown-unavailable">The server did not provide an itemized fee breakdown. Refresh the quote before continuing.</p>}
                 {currentQuote?.manualSwapFees && toOption && <div className="mt-4" data-testid="swap-signed-fee-breakdown">
                   <SwapFeeBreakdown fees={currentQuote.manualSwapFees} currency={toOption.assetCode} receiveAmount={currentQuote.receiveAmount}/>
                 </div>}
-              </div>
-
-              <div className="swap-quote-options-dock" data-testid="swap-addons-dock">
-                <button type="button" className="swap-addon-launch" onClick={() => changeAddonsOpen(true)} data-testid="button-swap-addons"><span className="inline-flex items-center gap-2"><Package size={17} /> Add-ons {selectedKeys.length > 0 && `(${selectedKeys.length})`}</span><ChevronRight size={17} /></button>
+                {!currentQuote && Number(quoteAmountInput) > 0 && toOption && !addons.isError && !addons.isLoading && <div className="mt-4 rounded-xl border border-border bg-card/70 p-3 text-sm text-muted-foreground" role="status" data-testid="swap-addons-quote-status">
+                  {quoteStatus === 'error' ? quoteError : 'Updating fees and Final You Receive…'}
+                </div>}
               </div>
 
               <div className="exchange-submit-wrap">
@@ -1866,25 +1860,6 @@ export function ManualSwapWidget({
               </div>
             </div>
           )}
-          {addonsPopupOpen && (
-            <div className="swap-overlay" role="dialog" aria-modal="true" aria-label="Add-ons" data-testid="swap-addons-popup">
-              <div className="swap-overlay-head">Optional add-ons <button type="button" onClick={() => changeAddonsOpen(false)} aria-label="Close add-ons" data-testid="button-close-swap-addons"><X size={23} /></button></div>
-              <div className="swap-overlay-body">
-                <SwapAddonOptions options={availableAddons.filter(item => item.enabled)} selectedKeys={selectedKeys} onToggle={toggleAddon} isLoading={addons.isLoading} isError={addons.isError} onRetry={() => addons.refetch()} compact />
-                {Number(quoteAmountInput) > 0 && toOption && !addons.isError && !addons.isLoading && (
-                  <div className="mt-4" aria-live="polite" aria-busy={!currentQuote && quoteStatus !== 'error'}>
-                    {currentQuote?.manualSwapFees
-                      ? <SwapFeeBreakdown fees={currentQuote.manualSwapFees} currency={toOption.assetCode} receiveAmount={currentQuote.receiveAmount} />
-                      : <div className="rounded-xl border border-border bg-card/70 p-3 text-sm text-muted-foreground" role="status" data-testid="swap-addons-quote-status">
-                          {quoteStatus === 'error' ? quoteError : 'Updating fees and Final You Receive…'}
-                        </div>}
-                  </div>
-                )}
-              </div>
-              <div className="swap-overlay-footer"><button type="button" onClick={() => setAddonsPopupOpen(false)} data-testid="button-apply-swap-addons">Apply choices {selectedKeys.length ? `(${selectedKeys.length})` : ''}</button></div>
-            </div>
-          )}
-
           {notice && (
             <InlineNotice kind={notice.kind} onDismiss={() => setNotice(null)}>
               <div>{notice.text}</div>

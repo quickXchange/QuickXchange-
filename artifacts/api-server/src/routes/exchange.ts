@@ -1963,7 +1963,7 @@ router.post("/admin/manual-swap-addons", requirePermission("pricing.manage"), as
     });
     res.status(201).json(result);
   } catch (error) {
-    if ((error as { code?: string })?.code === "23505") {
+    if (isUniqueViolation(error)) {
       next(new ApiError("MANUAL_SWAP_ADDON_KEY_CONFLICT", "That add-on key is already in use.", 409));
       return;
     }
@@ -2014,7 +2014,7 @@ router.patch("/admin/manual-swap-addons/:id", requirePermission("pricing.manage"
     });
     res.json(result);
   } catch (error) {
-    if ((error as { code?: string })?.code === "23505") {
+    if (isUniqueViolation(error)) {
       next(new ApiError("MANUAL_SWAP_ADDON_KEY_CONFLICT", "That add-on key is already in use.", 409));
       return;
     }

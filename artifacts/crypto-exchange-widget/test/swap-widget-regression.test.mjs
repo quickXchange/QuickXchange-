@@ -25,7 +25,7 @@ test('Swap exposes three stages and a details-step back action', () => {
 
 test('receiving popup shows one method logo and amount without dropping configured details', () => {
   const popupStart = surface.indexOf('data-testid="swap-receiving-details-popup"');
-  const popupEnd = surface.indexOf('{addonsPopupOpen &&', popupStart);
+  const popupEnd = surface.indexOf('{notice && (', popupStart);
   assert.ok(popupStart >= 0 && popupEnd > popupStart);
   const popup = surface.slice(popupStart, popupEnd);
   assert.equal(popup.match(/<SwapRouteRecapIcon option=\{toOption\}/g)?.length, 1);
@@ -62,8 +62,8 @@ test('Swap keeps the quote in Step 1, contact details in Step 2, and the compact
   const stepOneStart = surface.indexOf('className="swap-step-panel swap-quote-step');
   const stepOneEnd = surface.indexOf(') : step === 2', stepOneStart);
   const stepOne = surface.slice(stepOneStart, stepOneEnd);
-  const addonsDockStart = stepOne.indexOf('data-testid="swap-addons-dock"');
-  const addonsButtonStart = stepOne.indexOf('data-testid="button-swap-addons"');
+  const addonsInlineStart = stepOne.indexOf('data-testid="swap-addons-inline"');
+  const breakdownStart = stepOne.indexOf('data-testid="swap-signed-fee-breakdown"');
   const continueStart = stepOne.indexOf('data-testid="button-swap-continue"');
   const stepTwoEnd = surface.indexOf(') : step === 3', stepOneEnd);
   const stepTwo = surface.slice(stepOneEnd, stepTwoEnd);
@@ -74,13 +74,13 @@ test('Swap keeps the quote in Step 1, contact details in Step 2, and the compact
   const receivingFieldsStart = stepTwo.indexOf('order-detail-field--destination');
   assert.ok(stepOneStart >= 0 && stepOneEnd > stepOneStart);
   assert.ok(stepTwoEnd > stepOneEnd && stepThreeEnd > stepThreeStart);
-  assert.ok(addonsDockStart >= 0 && addonsDockStart < addonsButtonStart && addonsButtonStart < continueStart);
+  assert.ok(addonsInlineStart >= 0 && addonsInlineStart < breakdownStart && breakdownStart < continueStart);
   assert.match(stepOne, /data-testid="input-amount"/);
   assert.match(stepOne, /data-testid="input-receive-amount"/);
   assert.match(stepOne, /data-testid="route-summary"[\s\S]*?reference-rate-value/);
   assert.match(stepOne, /<SwapFeeBreakdown fees=\{currentQuote\.manualSwapFees\} currency=\{toOption\.assetCode\} receiveAmount=\{currentQuote\.receiveAmount\}/);
-  assert.doesNotMatch(stepOne, /checkbox-swap-addons|swap-addons-disclosure|swap-selected-addons-quote-summary/);
-  assert.match(stepOne.slice(addonsDockStart, continueStart), /<button[\s\S]*?onClick=\{\(\) => changeAddonsOpen\(true\)\}[\s\S]*?data-testid="button-swap-addons"/);
+  assert.match(stepOne, /<SwapAddonOptions options=\{availableAddons\.filter\(item => item\.enabled\)\} selectedKeys=\{selectedKeys\} onToggle=\{toggleAddon\}[\s\S]*?compact/);
+  assert.doesNotMatch(stepOne, /swap-addons-disclosure|swap-selected-addons-quote-summary|button-swap-addons/);
   assert.doesNotMatch(stepOne, /input-customer-email|id="swap-email"/);
   assert.ok(emailStart >= 0 && emailStart < receivingFieldsStart);
   assert.match(stepTwo, /type="email"\s+required=\{!signedInCustomer\}\s+disabled=\{Boolean\(signedInCustomer\)\}\s+value=\{signedInCustomer \? user\?\.primaryEmailAddress\?\.emailAddress \?\? '' : email\}\s+onChange=\{\(event\) => setEmail\(event\.target\.value\)\}/);
@@ -91,23 +91,21 @@ test('Swap keeps the quote in Step 1, contact details in Step 2, and the compact
   assert.doesNotMatch(stepThree, /button-swap-addons|swap-compact-rate|reference-rate-value/);
   assert.match(stepThree, /<div className="swap-summary-footer">\s*<div className="swap-summary-terms"><OrderPolicyAcceptance id="swap-terms" checked=\{termsAccepted\} onChange=\{setTermsAccepted\} \/><\/div>\s*<div className="swap-stage-actions">/);
   assert.doesNotMatch(stepThree, /data-testid="button-swap-addons"/);
-  assert.equal(surface.match(/data-testid="button-swap-addons"/g)?.length, 1);
   assert.match(surface, /customerEmail: signedInCustomer \? undefined : email\.trim\(\)/);
-  assert.match(surface, /\{addonsPopupOpen && \(\s*<div className="swap-overlay"/);
+  assert.doesNotMatch(surface, /addonsPopupOpen|swap-addons-popup/);
   assert.doesNotMatch(surface, /setSelectedAddOnKeys\(\[\]\)/);
   assert.match(surface, /options=\{availableAddons\.filter\(item => item\.enabled\)\}/);
   assert.match(surface, /onToggle=\{toggleAddon\}/);
-  assert.match(surface, /data-testid="button-apply-swap-addons"/);
-  assert.match(surface, /data-testid="button-close-swap-addons"/);
+  assert.match(surface, /data-testid="swap-addons-quote-status"/);
   assert.match(surface, /quoteStatus !== 'loading' && quotePreview\?\.requestKey === quoteRequestKey/);
-  assert.match(addonOptions, /aria-label=\{compact \? 'Additional Options'/);
+  assert.match(addonOptions, /aria-label="Optional Swap add-ons"/);
   assert.match(addonOptions, /No add-ons are currently available/);
+  assert.match(followupStyles, /\.swap-addon-native-checkbox\s*\{[^}]*position: static;[^}]*opacity: 1;[^}]*accent-color:/s);
   assert.match(styles, /@media \(max-width: 374px\)\s*\{\s*\.public-shell\s*\{\s*--exchange-shell-height: 640px;/);
   assert.match(styles, /@media \(min-width: 768px\) and \(max-width: 903px\)\s*\{\s*\.public-shell\s*\{\s*--exchange-shell-height: 700px;/);
   assert.match(styles, /\.swap-quote-scroll-region\s*\{[^}]*overflow-y: auto;/s);
   assert.match(styles, /> \.swap-quote-step\s*\{[^}]*flex: 1 1 auto !important;[^}]*overflow: hidden !important;/s);
   assert.match(styles, /\.swap-addon-options-list\s*\{[^}]*max-height: 174px;[^}]*overflow-y: auto/s);
-  assert.match(styles, /\.swap-quote-options-dock\s*\{[^}]*flex: 0 0 auto/s);
 });
 
 test('Summary hides fee itemization while preserving quote amounts, rate, and Terms', () => {
