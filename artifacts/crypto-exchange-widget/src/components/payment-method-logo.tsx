@@ -54,9 +54,7 @@ export const PAYMENT_METHOD_OFFICIAL_LOGOS: Array<[RegExp, string]> = [
 
 export function PaymentMethodLogo({
   name,
-  logoUrl: configuredLogoUrl,
-  lightLogoUrl,
-  darkLogoUrl,
+  logoUrl,
   flagUrl,
   badgeCode,
   badgeVariant = 'badge',
@@ -66,8 +64,6 @@ export function PaymentMethodLogo({
 }: {
   name: string;
   logoUrl?: string | null;
-  lightLogoUrl?: string | null;
-  darkLogoUrl?: string | null;
   flagUrl?: string | null;
   badgeCode?: string | null;
   badgeVariant?: 'badge' | 'admin';
@@ -77,8 +73,6 @@ export function PaymentMethodLogo({
 }) {
   const isDark = useAppTheme();
   const normalized = name.toLowerCase();
-  const themeLogoUrl = isDark ? darkLogoUrl : lightLogoUrl;
-  const logoUrl = themeLogoUrl || configuredLogoUrl;
   let logo: React.ReactNode = null;
   let brand = 'generic';
   if (normalized.includes('bbva')) { brand = 'bbva'; }
@@ -135,8 +129,6 @@ export function PaymentMethodLogo({
   return (
     <span
       className={cn('payment-method-logo-stack', Boolean(badgeCode) && 'payment-method-logo-stack-badged', className)}
-      data-brand={brand}
-      data-theme-logo={themeLogoUrl ? (isDark ? 'dark' : 'light') : undefined}
       aria-hidden="true"
     >
       <PaymentLogo

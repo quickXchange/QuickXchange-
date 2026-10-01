@@ -24,7 +24,6 @@ import {
 } from 'lucide-react';
 import { cn, formatExactUsd, isGreaterThanExact, basePath, exactDateTime, ago, apiErrorText, LoadingBlock, ErrorState, PublicShell, shortId, AdminShell } from '../App';
 import { AdminSearch } from '../components/admin-search';
-import { AdminListPagination } from '../components/admin-list-pagination';
 import { useUser } from '@clerk/react';
 import { useI18n } from '../i18n/provider';
 import { CustomerShell, CustomerPageHeader } from '@/components/customer/CustomerShell';
@@ -601,6 +600,20 @@ function compactAffiliateCode(code: string) {
   return code.length > 13 ? `${code.slice(0, 5)}…${code.slice(-4)}` : code;
 }
 
+function affiliatePagination(currentPage: number, totalPages: number) {
+  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => String(index + 1));
+  const visible = Array.from(new Set([1, totalPages, currentPage - 1, currentPage, currentPage + 1]))
+    .filter(pageNumber => pageNumber >= 1 && pageNumber <= totalPages)
+    .sort((left, right) => left - right);
+  const items: string[] = [];
+  visible.forEach((pageNumber, index) => {
+    const previous = visible[index - 1];
+    if (previous && pageNumber - previous > 1) items.push(`ellipsis-${previous}`);
+    items.push(String(pageNumber));
+  });
+  return items;
+}
+
 export function AdminAffiliatesOverviewPage() {
   const { t, formatNumber, formatDate } = useI18n();
 
@@ -638,6 +651,8 @@ export function AdminAffiliatesOverviewPage() {
       };
     });
   }, [overview.data?.growth, period]);
+  const totalPages = Math.max(1, Math.ceil((accounts.data?.total ?? 0) / pageSize));
+  const pagination = affiliatePagination(page, totalPages);
   const visibleIds = accounts.data?.items.map(account => account.id) ?? [];
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedAccounts.has(id));
 
@@ -876,26 +891,24 @@ export function AdminAffiliatesOverviewPage() {
                 </div>
               )}
 
-              <AdminListPagination
-                page={page}
-                pageSize={pageSize}
-                total={accounts.isFetching ? undefined : accounts.data?.total}
-                itemCount={accounts.isFetching ? undefined : accounts.data?.items.length ?? 0}
-                onPageChange={setPage}
-                onPageSizeChange={size => {
-                  setPageSize(size);
-                  setSelectedAccounts(new Set());
-                }}
-                isLoading={accounts.isFetching}
-                testId="affiliate-accounts-pagination"
-                testIds={{
-                  pageSize: 'select-affiliates-page-size',
-                  page: `button-affiliate-page-${page}`,
-                  previous: 'button-affiliate-page-previous',
-                  next: 'button-affiliate-page-next',
-                  range: 'affiliate-accounts-range',
-                }}
-              />
+              <div className="affiliate-pagination">
+                <span>{t('affiliate.showingRange', { start: accounts.data?.total ? ((page - 1) * pageSize) + 1 : 0, end: Math.min(page * pageSize, accounts.data?.total ?? 0), total: accounts.data?.total ?? 0 })}</span>
+                <nav aria-label={t('affiliate.accountPagination')}>
+                  <button type="button" aria-label={t('affiliate.previousPage')} disabled={page <= 1} onClick={() => setPage(current => Math.max(1, current - 1))} data-testid="button-affiliate-page-previous">‹</button>
+                  {pagination.map(item => item.startsWith('ellipsis') ? <span className="affiliate-page-ellipsis" key={item}>…</span> : (
+                    <button type="button" className={page === Number(item) ? 'active' : ''} aria-current={page === Number(item) ? 'page' : undefined} onClick={() => setPage(Number(item))} key={item} data-testid={`button-affiliate-page-${item}`}>{item}</button>
+                  ))}
+                  <button type="button" aria-label={t('affiliate.nextPage')} disabled={page >= totalPages} onClick={() => setPage(current => Math.min(totalPages, current + 1))} data-testid="button-affiliate-page-next">›</button>
+                </nav>
+                <label>
+                  <span className="sr-only">{t('affiliate.perPageLabel')}</span>
+                  <select value={pageSize} onChange={event => { setPageSize(Number(event.target.value)); setPage(1); setSelectedAccounts(new Set()); }} data-testid="select-affiliates-page-size">
+                    <option value={10}>{t('affiliate.perPage', { count: 10 })}</option>
+                    <option value={25}>{t('affiliate.perPage', { count: 25 })}</option>
+                    <option value={50}>{t('affiliate.perPage', { count: 50 })}</option>
+                  </select>
+                </label>
+              </div>
             </>
           )}
         </section>
@@ -916,8 +929,7 @@ export function AdminAffiliateDetailPage() {
   const { t } = useI18n();
   const { id } = useParams();
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(AFFILIATE_HISTORY_PAGE_SIZE);
-  const params = useMemo(() => ({ page, pageSize }), [page, pageSize]);
+  const params = useMemo(() => ({ page, pageSize: AFFILIATE_HISTORY_PAGE_SIZE }), [page]);
   const accountQuery = useGetAffiliateAccount(id!, params, { query: { queryKey: getGetAffiliateAccountQueryKey(id!, params), enabled: !!id } });
   const commissions = accountQuery.data?.commissions ?? [];
 
@@ -999,17 +1011,7 @@ export function AdminAffiliateDetailPage() {
           {!account.commissions.length && <div className="table-empty border-t-0 rounded-none"><FileText /><p>{t('affiliate.noLedgerEntries')}</p></div>}
         </div>
         </div>
-        <AdminListPagination
-          page={page}
-          pageSize={pageSize}
-          itemCount={accountQuery.isFetching ? undefined : commissions.length}
-          hasNext={commissions.length === pageSize}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-          isLoading={accountQuery.isFetching}
-          testId="ledger-page"
-          testIds={{ pageSize: 'select-ledger-page-size', previous: 'ledger-page-previous', next: 'ledger-page-next' }}
-        />
+        <AffiliateHistoryPagination page={page} pageSize={AFFILIATE_HISTORY_PAGE_SIZE} itemCount={account.commissions.length} onPageChange={setPage} testId="ledger-page" />
       </div>
     </AdminShell>
   );
@@ -1019,8 +1021,7 @@ export function AdminAffiliatePayoutsPage() {
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(AFFILIATE_HISTORY_PAGE_SIZE);
-  const params = useMemo(() => ({ page, pageSize }), [page, pageSize]);
+  const params = useMemo(() => ({ page, pageSize: AFFILIATE_HISTORY_PAGE_SIZE }), [page]);
   const queue = useGetAffiliatePayoutQueue(params, { query: { queryKey: getGetAffiliatePayoutQueueQueryKey(params), refetchOnMount: 'always', refetchOnWindowFocus: true, retry: 1 } });
   const transition = useTransitionAffiliatePayout();
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -1185,17 +1186,7 @@ export function AdminAffiliatePayoutsPage() {
           </div>
           </div>
         )}
-        <AdminListPagination
-          page={page}
-          pageSize={pageSize}
-          itemCount={queue.isFetching ? undefined : payouts.length}
-          hasNext={payouts.length === pageSize}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-          isLoading={queue.isFetching}
-          testId="payout-queue-page"
-          testIds={{ pageSize: 'select-payout-queue-page-size', previous: 'payout-queue-page-previous', next: 'payout-queue-page-next' }}
-        />
+        <AffiliateHistoryPagination page={page} pageSize={AFFILIATE_HISTORY_PAGE_SIZE} itemCount={payouts.length} onPageChange={setPage} testId="payout-queue-page" />
       </div>
       {selectedPayout && (
         <div className="fixed inset-0 z-[120] flex justify-end bg-black/55 backdrop-blur-sm" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setSelectedPayout(null); }}>
@@ -1543,14 +1534,13 @@ function AffiliateValuationQueue() {
   const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
 
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(10);
   const reviewParams = useMemo(() => ({
     page,
     pageSize,
     state: filter === 'all' ? undefined : filter,
   }), [filter, page, pageSize]);
   const reviewsQuery = useGetAffiliateValuationReviews(reviewParams, { query: { queryKey: getGetAffiliateValuationReviewsQueryKey(reviewParams) } });
-  const overviewQuery = useGetAffiliateOverview({ query: { queryKey: getGetAffiliateOverviewQueryKey() } });
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmAction, setConfirmAction] = useState<{ id: string, type: 'approve' | 'reject' } | null>(null);
@@ -1586,7 +1576,6 @@ function AffiliateValuationQueue() {
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: getGetAffiliateValuationReviewsQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetAffiliateOverviewQueryKey() });
   };
 
   const pendingCount = reviews.filter(r => r.state === 'pending').length;
@@ -1611,10 +1600,8 @@ function AffiliateValuationQueue() {
     }
   };
 
-  const reviewTotal = filter === 'pending' && !search.trim()
-    ? (overviewQuery.data as { pendingReviews?: number } | undefined)?.pendingReviews
-    : undefined;
-  const reviewLoading = reviewsQuery.isFetching || (filter === 'pending' && !search.trim() && overviewQuery.isFetching);
+  const startIdx = filtered.length > 0 ? (page - 1) * pageSize + 1 : 0;
+  const endIdx = filtered.length > 0 ? startIdx + filtered.length - 1 : 0;
 
   return (
     <div className="bg-card border border-border/60 rounded-[18px] shadow-sm flex flex-col min-w-0">
@@ -1720,19 +1707,31 @@ function AffiliateValuationQueue() {
           </div>
           </div>
 
-          <AdminListPagination
-            page={page}
-            pageSize={pageSize}
-            total={reviewLoading ? undefined : reviewTotal}
-            itemCount={reviewLoading ? undefined : filtered.length}
-            hasNext={hasNextPage}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-            isLoading={reviewLoading}
-            className="p-4 sm:p-5 border-t border-border/50 bg-muted/5"
-            testId="affiliate-valuations-pagination"
-            testIds={{ pageSize: 'select-valuation-page-size', previous: 'valuation-page-previous', next: 'valuation-page-next' }}
-          />
+          {/* Pagination */}
+          <div className="p-4 sm:p-5 border-t border-border/50 flex flex-col sm:flex-row items-center justify-between gap-4 bg-muted/5">
+            <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 w-full sm:w-auto">
+              <span className="text-[12px] text-muted-foreground order-2 sm:order-1">{startIdx ? `${startIdx}–${endIdx}` : '0'}</span>
+              <div className="flex items-center gap-2 order-1 sm:order-2">
+                <select className="h-8 bg-input/40 border border-border rounded-lg text-[12px] px-2 pr-7 font-mono focus:outline-none cursor-pointer" value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}>
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('affiliate.pageUnit')}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button type="button" className="h-8 px-3 flex items-center justify-center rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-50 text-[12px] font-semibold" disabled={page === 1} onClick={() => setPage(p => p - 1)}>{t('affiliate.previous')}</button>
+
+              <div className="hidden sm:flex items-center gap-1">
+                <span className="w-8 h-8 rounded-lg text-[12px] font-mono bg-primary text-primary-foreground font-bold flex items-center justify-center">{page}</span>
+              </div>
+              <span className="sm:hidden text-[12px] px-2">{page}</span>
+
+              <button type="button" className="h-8 px-3 flex items-center justify-center rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-50 text-[12px] font-semibold" disabled={!hasNextPage} onClick={() => setPage(p => p + 1)}>{t('common.next')}</button>
+            </div>
+          </div>
         </>
       )}
 
@@ -1785,7 +1784,6 @@ function ValuationConfirmDialog({ review, actionType, onClose }: { review: Affil
     }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetAffiliateValuationReviewsQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getGetAffiliateOverviewQueryKey() });
         onClose();
       },
       onError: (err) => setError(apiErrorText(err, t('affiliate.submitReviewError')))

@@ -11,7 +11,6 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Loader2, Check, AlertCircle, RefreshCw } from 'lucide-react';
 import { AdminSearch } from './admin-search';
-import { AdminListPagination } from './admin-list-pagination';
 import type { WhitebitAssetImportCandidate } from '@workspace/api-client-react';
 
 interface AdminWhitebitAssetSyncDialogProps {
@@ -23,7 +22,7 @@ export function AdminWhitebitAssetSyncDialog({ open, onOpenChange }: AdminWhiteb
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(15);
   const [page, setPage] = useState(1);
   const [selectedTickers, setSelectedTickers] = useState<Set<string>>(new Set());
 
@@ -41,7 +40,7 @@ export function AdminWhitebitAssetSyncDialog({ open, onOpenChange }: AdminWhiteb
   useEffect(() => {
     if (open) {
       setSearchTerm('');
-      setPageSize(25);
+      setPageSize(15);
       setPage(1);
       setSelectedTickers(new Set());
       importMutation.reset();
@@ -180,6 +179,19 @@ export function AdminWhitebitAssetSyncDialog({ open, onOpenChange }: AdminWhiteb
                     placeholder={t('adminCatalog.searchMissingAssets')}
                   />
                 </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">{t('genericUi.perPageLabel')}</span>
+                  <select
+                    className="input py-1.5 h-auto text-sm w-auto pr-8"
+                    value={pageSize}
+                    onChange={e => {
+                      setPageSize(Number(e.target.value));
+                      setPage(1);
+                    }}
+                  >
+                    {[15, 25, 50, 100].map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
               </div>
 
               <div className="flex-1 overflow-auto">
@@ -273,16 +285,6 @@ export function AdminWhitebitAssetSyncDialog({ open, onOpenChange }: AdminWhiteb
         {/* Footer */}
         {previewQuery.data && !importMutation.isSuccess && (
           <div className="p-4 border-t border-border bg-muted/10 flex flex-wrap items-center justify-between gap-4">
-            <AdminListPagination
-              page={page}
-              pageSize={pageSize}
-              total={filteredCandidates.length}
-              onPageChange={setPage}
-              onPageSizeChange={size => { setPageSize(size); setPage(1); }}
-              testId="whitebit-asset-sync-pagination"
-              testIds={{ pageSize: 'select-whitebit-assets-page-size', previous: 'button-whitebit-assets-previous', next: 'button-whitebit-assets-next', range: 'text-whitebit-assets-range' }}
-              className="w-full"
-            />
             <div className="text-sm text-muted-foreground">
               {selectedTickers.size > 0
                 ? t('adminCatalog.selectedCount', { count: selectedTickers.size })
@@ -294,14 +296,40 @@ export function AdminWhitebitAssetSyncDialog({ open, onOpenChange }: AdminWhiteb
               </div>
             )}
             
-            <button
-              className="button button-primary"
-              disabled={selectedTickers.size === 0 || importMutation.isPending}
-              onClick={handleImport}
-            >
-              {importMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {importMutation.isPending ? t('adminCatalog.importing') : t('adminCatalog.importSelected')}
-            </button>
+            {filteredCandidates.length > 0 && (
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1">
+                  <button 
+                    className="button button-outline px-2 h-8"
+                    disabled={clampedPage <= 1}
+                    onClick={() => setPage(p => p - 1)}
+                    aria-label={t('genericUi.previous')}
+                  >
+                    {t('genericUi.previous')}
+                  </button>
+                  <span className="text-sm text-muted-foreground px-2">
+                    {clampedPage} / {totalPages}
+                  </span>
+                  <button 
+                    className="button button-outline px-2 h-8"
+                    disabled={clampedPage >= totalPages}
+                    onClick={() => setPage(p => p + 1)}
+                    aria-label={t('genericUi.next')}
+                  >
+                    {t('genericUi.next')}
+                  </button>
+                </div>
+                
+                <button
+                  className="button button-primary"
+                  disabled={selectedTickers.size === 0 || importMutation.isPending}
+                  onClick={handleImport}
+                >
+                  {importMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {importMutation.isPending ? t('adminCatalog.importing') : t('adminCatalog.importSelected')}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </DialogContent>

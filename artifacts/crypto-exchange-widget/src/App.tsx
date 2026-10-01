@@ -518,12 +518,7 @@ const fractionalUsdFormatter = new Intl.NumberFormat('en-US', {
 const formatMarketPrice = (price: number) =>
   (price < 1 ? fractionalUsdFormatter : compactUsdFormatter).format(price);
 
-type PaymentTickerMethod = {
-  name: string;
-  logoUrl?: string | null;
-  lightLogoUrl?: string | null;
-  darkLogoUrl?: string | null;
-};
+type PaymentTickerMethod = { name: string; logoUrl?: string | null };
 
 const PaymentTickerSequence = memo(function PaymentTickerSequence({
   methods,
@@ -543,8 +538,6 @@ const PaymentTickerSequence = memo(function PaymentTickerSequence({
           <PaymentMethodLogo
             name={method.name}
             logoUrl={method.logoUrl}
-            lightLogoUrl={method.lightLogoUrl}
-            darkLogoUrl={method.darkLogoUrl}
             className="payment-ticker-logo"
             priority={false}
           />
@@ -725,8 +718,6 @@ function LandingSections({ getMode, socialTrust, showCommunity }: { getMode: () 
       .map(option => ({
         name: option.title.replace(/\s+[A-Z]{3}$/u, ''),
         logoUrl: option.logoUrl,
-        lightLogoUrl: (option as typeof option & Pick<PaymentTickerMethod, 'lightLogoUrl'>).lightLogoUrl,
-        darkLogoUrl: (option as typeof option & Pick<PaymentTickerMethod, 'darkLogoUrl'>).darkLogoUrl,
       }));
     const featured = ['SEPA', 'Visa', 'Mastercard', 'Revolut', 'Paysera', 'N26', 'BBVA', 'Wise'];
     const byName = new Map(enabled.map(method => [method.name.toLocaleLowerCase(), method]));

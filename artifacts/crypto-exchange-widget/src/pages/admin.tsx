@@ -114,7 +114,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useIsMobile } from '@/hooks/use-mobile';
 import { AdminShell, ago, apiErrorData, apiErrorText, cn, ErrorState, exactDateTime, FiatCurrencyFlag, formatExactUsd, guestCustomerLabel, InlineNotice, isFiatCurrencyCode, isGreaterThanExact, LoadingBlock, money, number, PaymentMethodCopy, PaymentMethodLogo, providerLabel, queryClient, sameSettlementOptionId, SettlementOptionCombobox, shortId, StatusPill } from '../App';
 import { AdminSearch } from '../components/admin-search';
-import { AdminListPagination } from '../components/admin-list-pagination';
 import { AdminWhitebitAssetSyncDialog } from '../components/admin-whitebit-asset-sync-dialog';
 import { AdminCryptoAssetsBulkEditDialog } from '../components/admin-crypto-assets-bulk-edit-dialog';
 import { AdminPaymentMethodBulkFieldsDialog } from '../components/admin-payment-method-bulk-fields-dialog';
@@ -2712,6 +2711,17 @@ function StaffPage() {
   const paginated = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
   const pageOperatorIds = paginated.map(operator => operator.id);
   const allPageOperatorsSelected = pageOperatorIds.length > 0 && pageOperatorIds.every(id => selectedOperatorIds.has(id));
+  const visiblePages = (() => {
+    if (totalPages <= 5) return Array.from({ length: totalPages }, (_, index) => index + 1);
+    const pages = new Set([1, totalPages, safePage - 1, safePage, safePage + 1]);
+    const sorted = Array.from(pages).filter(value => value >= 1 && value <= totalPages).sort((a, b) => a - b);
+    const result: Array<number | string> = [];
+    sorted.forEach((value, index) => {
+      if (index > 0 && value - sorted[index - 1] > 1) result.push(`ellipsis-${value}`);
+      result.push(value);
+    });
+    return result;
+  })();
   const viewingOperator = allOperators.find(operator => operator.id === viewingOperatorId);
   const visibleAuditLogs = showAllAudit ? (auditLogs.data ?? []) : (auditLogs.data ?? []).slice(0, 5);
 
@@ -2982,15 +2992,62 @@ function StaffPage() {
           </div>
           </div>
 
-          <AdminListPagination
-            page={page}
-            pageSize={pageSize}
-            total={filtered.length}
-            itemCount={paginated.length}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-            status={filtered.length === 0 ? t('adminStaff.no_operators_to_show') : undefined}
-          />
+          <div className="staff-pagination">
+              <span className="text-xs text-muted-foreground">
+                {filtered.length === 0
+                  ? t('adminStaff.no_operators_to_show')
+                  : `Showing ${(safePage - 1) * pageSize + 1} to ${Math.min(safePage * pageSize, filtered.length)} of ${filtered.length} operators`}
+              </span>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    className="staff-page-btn"
+                    disabled={safePage === 1}
+                    onClick={() => setPage(safePage - 1)}
+                    aria-label={t('adminStaff.previous_page')}
+                  >
+                    <ChevronDown size={14} className="rotate-90" />
+                  </button>
+                  {visiblePages.map(item => typeof item === 'number' ? (
+                    <button
+                      type="button"
+                      key={item}
+                      className={`staff-page-btn ${safePage === item ? 'active' : ''}`}
+                      onClick={() => setPage(item)}
+                      aria-label={t('adminStaff.page_number', { page: item })}
+                      aria-current={safePage === item ? 'page' : undefined}
+                    >
+                       {item}
+                    </button>
+                  ) : (
+                    <span key={item} className="staff-page-ellipsis" aria-hidden="true">…</span>
+                  ))}
+                  <button
+                    type="button"
+                    className="staff-page-btn"
+                    disabled={safePage === totalPages}
+                    onClick={() => setPage(safePage + 1)}
+                    aria-label={t('adminStaff.next_page')}
+                  >
+                    <ChevronDown size={14} className="-rotate-90" />
+                  </button>
+                </div>
+                <div className="relative border-l border-[hsl(var(--staff-card-border))] pl-4">
+                  <select
+                    className="staff-select !pl-3 !pr-8 h-8 text-xs"
+                    value={pageSize}
+                    onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+                    aria-label={t('adminStaff.operators_per_page')}
+                  >
+                    <option value={10}>{t('adminStaff.10_per_page')}</option>
+                    <option value={25}>{t('adminStaff.25_per_page')}</option>
+                    <option value={50}>{t('adminStaff.50_per_page')}</option>
+                  </select>
+                  <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-6 items-start mt-2 pb-12">
@@ -4467,7 +4524,7 @@ function AdminOrders() {
     customerId ? 'all' : query.get('archived') === 'archived' ? 'archived' : 'active',
   );
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
+  const [pageSize, setPageSize] = useState(20);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [bulkDialog, setBulkDialog] = useState<'status' | 'archive' | 'restore' | 'delete' | null>(null);
   const [rowArchiveDialog, setRowArchiveDialog] = useState<{ id: string; recordVersion: number; archived: boolean } | null>(null);
@@ -4804,20 +4861,25 @@ function AdminOrders() {
       {orders.isError ? <ErrorState message={t('adminOrders.load_order_queue_error')} retry={() => orders.refetch()} /> :
         <RedesignedOrderTable orders={visibleOrders} options={settlementOptions} type={type} loading={orders.isLoading} onSelectOrder={openOrder} selectedIds={selectedIds} onToggleOrder={toggleOrder} onToggleAll={toggleAll} archived={archiveView === 'archived'} canArchive={archiveView !== 'all' && can(PermissionKey.ordersarchive)} canEditStatus={archiveView !== 'all' && can('orders.status')} onChangeArchive={changeOrderArchive} onDeletePermanently={requestPermanentDelete} />}
 
-      <AdminListPagination
-        page={page}
-        pageSize={pageSize}
-        total={orders.data?.total}
-        itemCount={orders.data?.items.length ?? 0}
-        isLoading={orders.isLoading}
-        hasNext={!!orders.data && page * pageSize < orders.data.total}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-        status={orders.isFetching && !orders.isLoading
-          ? <span className="refresh-label text-xs"><RefreshCw className="spin inline mr-1" size={12} /> {t('adminOrders.syncing')}</span>
-          : undefined}
-        testIds={{ pageSize: 'select-pagesize', previous: 'button-page-prev', next: 'button-page-next' }}
-      />
+      <div className="panel-footer flex justify-between items-center bg-muted/10 p-4 border-t border-border">
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-semibold text-muted-foreground">{t('adminOrders.showing')}{orders.data?.items.length || 0} {t('adminOrders.of')}{orders.data?.total || 0} {t('adminOrders.orders')}</span>
+          {orders.isFetching && !orders.isLoading && <span className="refresh-label text-xs"><RefreshCw className="spin inline mr-1" size={12} /> {t('adminOrders.syncing')}</span>}
+        </div>
+        <div className="flex items-center gap-2">
+          <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="text-xs !py-1 !pl-2 !pr-6 !h-8 !bg-background w-auto" data-testid="select-pagesize">
+            <option value={10}>{t('adminOrders.10_per_page')}</option>
+            <option value={20}>{t('adminOrders.20_per_page')}</option>
+            <option value={50}>{t('adminOrders.50_per_page')}</option>
+            <option value={100}>{t('adminOrders.100_per_page')}</option>
+          </select>
+          <div className="flex bg-background border border-border rounded-md overflow-hidden">
+            <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="px-3 py-1.5 hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed border-r border-border transition-colors text-xs font-bold" data-testid="button-page-prev">{t('adminOrders.prev')}</button>
+            <span className="px-3 py-1.5 text-xs font-bold font-mono bg-muted/30">{page}</span>
+            <button disabled={!orders.data || page * pageSize >= orders.data.total} onClick={() => setPage(p => p + 1)} className="px-3 py-1.5 hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed border-l border-border transition-colors text-xs font-bold" data-testid="button-page-next">{t('adminOrders.next')}</button>
+          </div>
+        </div>
+      </div>
     </div>
     {bulkDialog && <BulkOrderDialog kind={bulkDialog} count={selectedOrders.length} statuses={commonStatuses} selectedStatus={bulkStatus} pending={bulkStatusMutation.isPending || bulkArchiveMutation.isPending || permanentDeleteMutation.isPending} onStatusChange={setBulkStatus} onCancel={() => setBulkDialog(null)} onConfirm={bulkDialog === 'status' ? applyBulkStatus : bulkDialog === 'delete' ? () => applyPermanentDelete() : () => applyBulkArchive(bulkDialog === 'archive')} />}
     {rowArchiveDialog && <BulkOrderDialog kind={rowArchiveDialog.archived ? 'archive' : 'restore'} count={1} statuses={[]} selectedStatus="" pending={bulkArchiveMutation.isPending} onStatusChange={() => {}} onCancel={() => setRowArchiveDialog(null)} onConfirm={applySingleArchive} />}
@@ -5877,9 +5939,7 @@ function AdminCustomers() {
   const { t } = useI18n();
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
-  const params = useMemo(() => ({ search: search || undefined, page, pageSize }), [search, page, pageSize]);
+  const params = useMemo(() => ({ search: search || undefined }), [search]);
   const customers = useGetCustomers(params, { query: { queryKey: getGetCustomersQueryKey(params) } });
 
   return <AdminShell
@@ -5891,7 +5951,7 @@ function AdminCustomers() {
       <div className="customer-search">
         <AdminSearch
           value={search}
-          onChange={value => { setSearch(value); setPage(1); }}
+          onChange={setSearch}
           placeholder={t('adminCore.search_by_name_or_email')}
           debounceMs={300}
           testId="input-customer-search"
@@ -5954,15 +6014,7 @@ function AdminCustomers() {
         </button>)}
       </div>
       </>}
-      <AdminListPagination
-        page={page}
-        pageSize={pageSize}
-        total={customers.data?.total}
-        itemCount={customers.data?.items.length ?? 0}
-        isLoading={customers.isLoading}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-      />
+      <div className="panel-footer"><span>{t('adminCore.showing')}{customers.data?.total || 0} {t('adminCore.records')}</span></div>
     </div>
   </AdminShell>;
 }
@@ -6714,7 +6766,7 @@ function AdminCurrencies() {
   const [filterLifecycle, setFilterLifecycle] = useState('all');
 
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(15);
 
   const queryClient = useQueryClient();
   const updateCatalogCurrency = useUpdateFiatCurrency();
@@ -6890,13 +6942,14 @@ function AdminCurrencies() {
     : tab === 'assets' ? filteredAssets
     : filteredNetworks;
 
-  const activeQuery = tab === 'currencies' ? currenciesQuery : tab === 'methods' ? methodsQuery : tab === 'assets' ? assetsQuery : networksQuery;
   const totalPages = Math.ceil(visibleData.length / pageSize) || 1;
   const clampedPage = Math.min(page, totalPages);
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
   const paginatedData = visibleData.slice((clampedPage - 1) * pageSize, clampedPage * pageSize);
+
+  const activeQuery = tab === 'currencies' ? currenciesQuery : tab === 'methods' ? methodsQuery : tab === 'assets' ? assetsQuery : networksQuery;
 
   const selectedCatalogIds = catalogSelected[tab];
   const selectedCatalogIdsOnPage = paginatedData
@@ -7581,15 +7634,48 @@ function AdminCurrencies() {
           </div>
           </div>
 
-          <AdminListPagination
-            page={page}
-            pageSize={pageSize}
-            total={visibleData.length}
-            itemCount={paginatedData.length}
-            isLoading={activeQuery.isLoading}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-          />
+          <div className="pagination-bar border-t border-border">
+            <div className="text-sm text-muted-foreground">
+              {t('adminCatalog.showing')}{paginatedData.length > 0 ? (clampedPage - 1) * pageSize + 1 : 0} {t('adminCatalog.to')}{Math.min(clampedPage * pageSize, visibleData.length)} {t('adminCatalog.of')}{visibleData.length} {t('adminCatalog.entries')}</div>
+            <div className="flex items-center gap-6">
+              <div className="pagination-controls">
+                <button type="button" aria-label={t('adminCatalog.previous_page')} className="page-btn" disabled={clampedPage === 1} onClick={() => setPage(p => p - 1)}>{t('adminCatalog.lt')}</button>
+                {Array.from({ length: totalPages }).map((_, i) => {
+                  const p = i + 1;
+                  // Compact numbered pagination around current page
+                  if (p === 1 || p === totalPages || (p >= clampedPage - 1 && p <= clampedPage + 1)) {
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        aria-label={t('adminCatalog.page_number', { page: p })}
+                        aria-current={clampedPage === p ? 'page' : undefined}
+                        className={`page-btn ${clampedPage === p ? 'active' : ''}`}
+                        onClick={() => setPage(p)}
+                      >
+                        {p}
+                      </button>
+                    );
+                  }
+                  if (p === clampedPage - 2 || p === clampedPage + 2) {
+                    return <span key={i} className="text-muted-foreground px-1 self-end">...</span>;
+                  }
+                  return null;
+                })}
+                <button type="button" aria-label={t('adminCatalog.next_page')} className="page-btn" disabled={clampedPage === totalPages} onClick={() => setPage(p => p + 1)}>{t('adminCatalog.gt')}</button>
+              </div>
+              <select
+                className="bg-background border border-border text-foreground rounded-md p-1.5 text-sm outline-none"
+                value={pageSize}
+                onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+              >
+                <option value={15}>{t('adminCatalog.15_per_page')}</option>
+                <option value={25}>{t('adminCatalog.25_per_page')}</option>
+                <option value={50}>{t('adminCatalog.50_per_page')}</option>
+                <option value={100}>{t('adminCatalog.100_per_page')}</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -8897,7 +8983,7 @@ function AdminManualPricing() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(15);
   const [selectedRuleIds, setSelectedRuleIds] = useState<string[]>([]);
   const [testRule, setTestRule] = useState<ManualDeskPricingRule | null>(null);
   const [error, setError] = useState('');
@@ -9140,23 +9226,33 @@ function AdminManualPricing() {
               })}</tbody></table>
             </div>
           </div>
+          <div className="pricing-pagination">
+            <span className="pricing-pagination-range" data-testid="pricing-pagination-range">
+              {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filtered.length)} of {filtered.length}
+            </span>
+            <div className="pricing-pagination-controls">
+              <label className="pricing-page-size">
+                <span>Per page</span>
+                <select
+                  value={pageSize}
+                  onChange={event => {
+                    setPageSize(Number(event.target.value));
+                    setPage(1);
+                  }}
+                  aria-label="Pricing rules per page"
+                  data-testid="select-pricing-page-size"
+                >
+                  {[15, 25, 50, 100].map(value => <option key={value} value={value}>{value} per page</option>)}
+                </select>
+              </label>
+              <div className="pricing-page-navigation">
+                <button onClick={() => setPage(value => Math.max(1, value - 1))} disabled={currentPage === 1} aria-label={t('adminPricing.previous_pricing_rules_page')} data-testid="button-pricing-page-prev">‹</button>
+                {Array.from({ length: pageCount }, (_, index) => index + 1).map(value => <button key={value} className={cn(value === currentPage && 'active')} onClick={() => setPage(value)} data-testid={`button-pricing-page-${value}`}>{value}</button>)}
+                <button onClick={() => setPage(value => Math.min(pageCount, value + 1))} disabled={currentPage === pageCount} aria-label={t('adminPricing.next_pricing_rules_page')} data-testid="button-pricing-page-next">›</button>
+              </div>
+            </div>
+          </div>
         </>}
-          <AdminListPagination
-            page={page}
-            pageSize={pageSize}
-            total={filtered.length}
-            itemCount={visibleRules.length}
-            onPageChange={setPage}
-            onPageSizeChange={size => { setPageSize(size); setPage(1); }}
-            isLoading={rules.isLoading}
-            testIds={{
-              range: 'pricing-pagination-range',
-              pageSize: 'select-pricing-page-size',
-              page: 'button-pricing-page',
-              previous: 'button-pricing-page-prev',
-              next: 'button-pricing-page-next',
-            }}
-          />
       </div>
     </div>
     {drawer && <PricingRuleDrawer rule={drawer === 'new' ? undefined : drawer} rules={pricingRules} onClose={() => setDrawer(null)} />}
