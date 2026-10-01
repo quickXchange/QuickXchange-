@@ -1079,6 +1079,8 @@ export interface ExchangeRoutePricing {
   /** @exclusiveMinimum 0 */
   maxAmount?: number;
   pricingRuleName: string;
+  /** Opaque hash of the resolved route pricing configuration, excluding market reference rates. */
+  pricingConfigurationFingerprint?: string;
 }
 
 export type QuickexRateMode = typeof QuickexRateMode[keyof typeof QuickexRateMode];

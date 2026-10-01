@@ -133,3 +133,27 @@ test('identical pricing polls keep their semantic key while changed terms invali
   );
   assert.equal(getExchangePricingTermsKey(pricing, 'bank-eur', 'eur-sepa'), '');
 });
+
+test('quote pricing identity changes for tier-only and fixed-fee-only Admin edits', () => {
+  const pricing = {
+    sourceSettlementOptionId: 'crypto:usdt-trc20',
+    targetSettlementOptionId: 'fiat:eur:sepa-instant',
+    fromAsset: 'USDT',
+    toAsset: 'EUR',
+    rate: 0.845,
+    pricingRuleName: 'Configured path',
+    amountBasedPricingEnabled: true,
+    amountBasedPricingTiers: [{ minAmount: '0', maxAmount: '2000', fixedFee: '1' }],
+    pricingConfigurationFingerprint: 'financial-config-one',
+  };
+  const key = (value: typeof pricing) => getExchangePricingTermsKey(
+    value, pricing.sourceSettlementOptionId, pricing.targetSettlementOptionId,
+  );
+  const original = key(pricing);
+  assert.equal(key({ ...pricing, amountBasedPricingTiers: structuredClone(pricing.amountBasedPricingTiers) }), original);
+  assert.notEqual(key({
+    ...pricing, amountBasedPricingTiers: [{ minAmount: '0', maxAmount: '2000', fixedFee: '2' }],
+  }), original);
+  assert.notEqual(key({ ...pricing, pricingConfigurationFingerprint: 'financial-config-two' }), original);
+  assert.notEqual(key({ ...pricing, amountBasedPricingEnabled: false }), original);
+});

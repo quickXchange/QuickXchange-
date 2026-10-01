@@ -116,6 +116,104 @@ async function mockTelegramSession(page: Page) {
   await page.route('**/api/website/branding', route => route.fulfill({ status: 200, json: {} }));
 }
 
+test('live canonical USDT TRC20 to SEPA Instant EUR reverse quote populates send and finishes loading', async ({ page }) => {
+  test.skip(process.env.MINI_APP_LIVE_QUOTE_TESTS !== '1', 'Requires the routed development API and its real Admin-configured route.');
+  test.setTimeout(60_000);
+  await mockTelegramSession(page);
+  // Only Telegram bootstrap is mocked. All catalog/pricing/quote calls below
+  // go to the real canonical website API with the current Admin configuration.
+  const configResponse = await page.request.get('/api/exchange/config');
+  expect(configResponse.status()).toBe(200);
+  const config = await configResponse.json();
+  const source = config.manualSettlementOptions.find((option: any) =>
+    option.assetCode === 'USDT' && option.routeNetwork === 'TRC20');
+  const target = config.manualSettlementOptions.find((option: any) =>
+    option.assetCode === 'EUR' && option.title === 'SEPA Instant');
+  expect(source, 'The configured USDT/TRC20 source must exist').toBeTruthy();
+  expect(target, 'The configured SEPA Instant/EUR target must exist').toBeTruthy();
+  expect(config.manualRouteAvailability.routes.some((route: any) =>
+    route.sourceSettlementOptionId === source.id && route.targetSettlementOptionId === target.id)).toBe(true);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${miniApp}/exchange?mode=swap`);
+  await page.getByTestId('source-selector-trigger').click();
+  await page.getByPlaceholder('Search by name, symbol, or network...').fill('USDT');
+  await page.locator('button.group').filter({ hasText: 'USDT' }).filter({ hasText: 'TRC20' }).last().click();
+  await page.getByTestId('target-selector-trigger').click();
+  await page.getByPlaceholder('Search by name, symbol, or network...').fill('SEPA');
+  await page.locator('button.group').filter({ hasText: 'SEPA Instant' }).filter({ hasText: 'EUR' }).last().click();
+  await expect(page.getByTestId('text-exchange-rate')).not.toHaveText('Checking rate...');
+
+  const reverseResponse = page.waitForResponse(response => {
+    if (!response.url().endsWith('/api/exchange/quote-by-receive')) return false;
+    const body = response.request().postDataJSON();
+    return body.sourceSettlementOptionId === source.id &&
+      body.targetSettlementOptionId === target.id && body.desiredReceiveAmount === 1000;
+  });
+  await page.getByTestId('input-receive-amount').fill('1000');
+  const response = await reverseResponse;
+  expect(response.status(), 'The real reverse solver must return a quote, not exhaust its budget').toBe(200);
+  const serverQuote = await response.json();
+  expect(Number.isFinite(serverQuote.amount) && serverQuote.amount > 0).toBe(true);
+  expect(serverQuote.receiveAmount).toBeGreaterThanOrEqual(1000);
+  expect(serverQuote.sourceSettlementOptionId).toBe(source.id);
+  expect(serverQuote.targetSettlementOptionId).toBe(target.id);
+  await expect(page.getByTestId('input-send-amount')).toHaveValue(String(serverQuote.amount));
+  await expect(page.getByTestId('input-receive-amount')).toHaveValue('1000');
+  await expect(page.getByTestId('text-exchange-rate')).toHaveText(`1 USDT = ${serverQuote.rate} EUR`);
+  await expect(page.getByRole('button', { name: 'Continue', exact: true })).toBeEnabled();
+  await expect(page.getByText('Processing...', { exact: true })).toHaveCount(0);
+});
+
+test('Swap stalled transport and real-shaped budget errors both end quote loading', async ({ page }) => {
+  await mockTelegramSession(page);
+  await page.route('**/api/exchange/config', route => route.fulfill({ status: 200, json: swapConfig() }));
+  await page.route('**/api/exchange/manual-swap-addons', route => route.fulfill({ status: 200, json: { items: [] } }));
+  await page.route('**/api/exchange/route-pricing**', route => route.fulfill({
+    status: 200,
+    json: {
+      sourceSettlementOptionId: 'source-btc', targetSettlementOptionId: 'target-usdt',
+      fromAsset: 'BTC', toAsset: 'USDT', rate: 40, pricingRuleName: 'Failure-state fixture',
+    },
+  }));
+  let requests = 0;
+  await page.route('**/api/exchange/quote-by-receive', async route => {
+    requests++;
+    if (requests === 1) {
+      // Never respond: the browser watchdog, not a mocked quote, must settle.
+      await new Promise<void>(() => {});
+      return;
+    }
+    await route.fulfill({
+      status: 503,
+      json: {
+        code: 'MANUAL_RECEIVE_QUOTE_BUDGET_EXCEEDED',
+        error: 'The receive quote could not be solved within the bounded pricing time and attempt budget. Please try again.',
+      },
+    });
+  });
+  await page.goto(`${miniApp}/exchange?mode=swap`);
+  await expect(page.getByTestId('input-receive-amount')).toBeEnabled();
+  await page.clock.install();
+  const requestStarted = page.waitForRequest('**/api/exchange/quote-by-receive');
+  await page.getByTestId('input-receive-amount').fill('1000');
+  await page.clock.runFor(250);
+  await requestStarted;
+  await page.clock.runFor(20_100);
+  await expect(page.getByText('The quote request timed out. Please try again.')).toBeVisible();
+  await expect(page.getByTestId('text-exchange-rate')).toHaveText('Rate unavailable');
+  await expect(page.getByRole('button', { name: 'Continue', exact: true })).toBeDisabled();
+  await expect(page.getByText('Processing...', { exact: true })).toHaveCount(0);
+
+  await page.getByTestId('input-receive-amount').fill('1001');
+  await page.clock.runFor(250);
+  await expect(page.getByText(/could not be solved within the bounded pricing time/)).toBeVisible();
+  await expect(page.getByTestId('text-exchange-rate')).toHaveText('Rate unavailable');
+  await expect(page.getByRole('button', { name: 'Continue', exact: true })).toBeDisabled();
+  await expect(page.getByText('Processing...', { exact: true })).toHaveCount(0);
+  expect(requests).toBe(2);
+});
+
 test('Swap synchronizes authoritative quotes, rejects stale replies, and keeps mobile amount selectors symmetric', async ({ page }) => {
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 390, height: 844 });

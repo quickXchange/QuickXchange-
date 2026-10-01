@@ -456,7 +456,8 @@ export const GetExchangeRoutePricingResponse = zod.object({
   "rate": zod.number().gt(getExchangeRoutePricingResponseRateExclusiveMin),
   "minAmount": zod.number().min(getExchangeRoutePricingResponseMinAmountMin).optional(),
   "maxAmount": zod.number().gt(getExchangeRoutePricingResponseMaxAmountExclusiveMin).optional(),
-  "pricingRuleName": zod.string()
+  "pricingRuleName": zod.string(),
+  "pricingConfigurationFingerprint": zod.string().optional().describe('Opaque hash of the resolved route pricing configuration, excluding market reference rates.')
 })
 
 

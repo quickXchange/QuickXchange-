@@ -5230,6 +5230,9 @@ components:
         minAmount: { type: number, minimum: 0 }
         maxAmount: { type: number, exclusiveMinimum: 0 }
         pricingRuleName: { type: string }
+        pricingConfigurationFingerprint:
+          type: string
+          description: Opaque hash of the resolved route pricing configuration, excluding market reference rates.
     QuickexRateMode:
       type: string
       enum: [FLOATING, FIXED]

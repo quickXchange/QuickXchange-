@@ -8,3 +8,15 @@ Reverse Manual Swap quoting must reuse authoritative forward pricing, not invert
 **Why:** Fixed and selected add-on fees, target rounding, tier discontinuities, and independently refreshed reference rates defeat simple reciprocal arithmetic and naive global binary search. A rough estimate outside a cap does not prove that the exact capped boundary is infeasible.
 
 **How to apply:** When changing pricing, limits, or quote search, test feasible and impossible targets on both sides of tier boundaries, with very wide source limits and narrow fiat target maxima. Verify the final signed ticket against the requested receive target and route bounds before presenting it.
+
+Resolve stable route configuration once per reverse-search request and reuse it in the canonical forward oracle; never turn this into a cross-request Admin-configuration cache.
+
+**Why:** A production receive search exhausted its deadline while the same route passed quickly in Development. Rebuilding full settlement catalogs, matched rules, and selected add-ons for every numeric probe amplifies database latency and can consume the whole search budget without a pricing error.
+
+**How to apply:** Keep amount-dependent tier selection, canonical fees/rounding, funding checks, and final-ticket validation authoritative. Verify both request-context reuse and a real backend quote; mocked browser quote responses cannot prove server availability.
+
+Use semantic quote identities rather than refreshed option-object identity, and include hidden pricing configuration in invalidation.
+
+**Why:** Catalog refreshes can abort unchanged in-flight quotes, masking backend failures through repeated loading. A pre-amount rate intentionally excludes fixed fees, so rate equality alone does not prove financial configuration equality.
+
+**How to apply:** Fence edits synchronously, cancel superseded requests, and bound browser settlement independently of transport abort behavior. Identical polls must retain identity; fee-only and tier-only edits must change it.

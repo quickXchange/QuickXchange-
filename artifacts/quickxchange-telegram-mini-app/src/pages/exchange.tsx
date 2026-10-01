@@ -28,6 +28,7 @@ import {
   filterExchangeOptions,
 } from '@/lib/exchange-search';
 import { createClientRequestId } from '@/lib/client-request-id';
+import { runSwapQuoteRequest, SwapQuoteTimeoutError } from '@/lib/swap-quote-request';
 import {
   buildSettlementDetails,
   isConvertDedicatedSettlementField,
@@ -691,11 +692,13 @@ export default function Exchange() {
   // expiry), while passing a request-specific signal to the existing APIs.
   const createQuote = useMutation({
     mutationKey: ['createExchangeQuote'],
+    retry: false,
     mutationFn: ({ data, signal }: { data: Parameters<typeof requestSwapQuote>[0]; signal?: AbortSignal }) =>
       requestSwapQuote(data, { headers, signal }),
   });
   const createReceiveQuote = useMutation({
     mutationKey: ['createExchangeQuoteByReceive'],
+    retry: false,
     mutationFn: ({ data, signal }: { data: Parameters<typeof requestSwapReceiveQuote>[0]; signal?: AbortSignal }) =>
       requestSwapReceiveQuote(data, { headers, signal }),
   });
@@ -706,6 +709,7 @@ export default function Exchange() {
   const linkOrder = useLinkTelegramMiniAppOrder({ request: { headers } });
 
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isQuoteProcessing, setIsQuoteProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [quoteNow, setQuoteNow] = useState(() => Date.now());
   const [quoteRefreshNonce, setQuoteRefreshNonce] = useState(0);
@@ -718,7 +722,7 @@ export default function Exchange() {
     swapQuoteControllerRef.current = null;
     setQuoteData(null);
     setTermsAccepted(false);
-    setIsProcessing(false);
+    setIsQuoteProcessing(false);
     setErrorMsg('');
   };
   const editAmount = (side: 'send' | 'receive', value: string) => {
@@ -789,15 +793,15 @@ export default function Exchange() {
       const controller = mode === 'swap' ? new AbortController() : null;
       if (controller) {
         swapQuoteControllerRef.current = controller;
-        setIsProcessing(true);
+        setIsQuoteProcessing(true);
       }
       const timer = setTimeout(async () => {
         if (quoteRequestVersionRef.current !== requestVersion || controller?.signal.aborted) return;
-        setIsProcessing(true);
+        setIsQuoteProcessing(true);
         try {
           const quote = mode === 'swap'
-            ? activeAmountSide === 'receive'
-              ? await createReceiveQuote.mutateAsync({ data: {
+            ? await runSwapQuoteRequest(controller!, signal => activeAmountSide === 'receive'
+              ? createReceiveQuote.mutateAsync({ data: {
                   fromAsset: sourceOpt.assetCode,
                   fromNetwork: sourceOpt.routeNetwork,
                   toAsset: targetOpt.assetCode,
@@ -806,8 +810,8 @@ export default function Exchange() {
                   targetSettlementOptionId: targetOpt.id,
                   desiredReceiveAmount: quoteInputAmount,
                   selectedAddOnKeys: selectedAddonKeys,
-                }, signal: controller?.signal })
-              : await createQuote.mutateAsync({ data: {
+                }, signal })
+              : createQuote.mutateAsync({ data: {
                   type: 'manual',
                   fromAsset: sourceOpt.assetCode,
                   fromNetwork: sourceOpt.routeNetwork,
@@ -817,7 +821,7 @@ export default function Exchange() {
                   sourceSettlementOptionId: sourceOpt.id,
                   targetSettlementOptionId: targetOpt.id,
                   selectedAddOnKeys: selectedAddonKeys,
-                }, signal: controller?.signal })
+                }, signal }))
             : activeAmountSide === 'receive'
               ? await createQuickexReceiveQuote.mutateAsync({
                   data: {
@@ -862,12 +866,13 @@ export default function Exchange() {
           setQuoteNow(Date.now());
           setErrorMsg('');
         } catch (err: any) {
-          if (quoteRequestVersionRef.current !== requestVersion || controller?.signal.aborted) return;
+          if (quoteRequestVersionRef.current !== requestVersion ||
+              (controller?.signal.aborted && !(err instanceof SwapQuoteTimeoutError))) return;
           setErrorMsg(err.message || 'Failed to get quote');
           setQuoteData(null);
         } finally {
-          if (quoteRequestVersionRef.current === requestVersion && !controller?.signal.aborted) {
-            setIsProcessing(false);
+          if (quoteRequestVersionRef.current === requestVersion) {
+            setIsQuoteProcessing(false);
           }
           if (swapQuoteControllerRef.current === controller) swapQuoteControllerRef.current = null;
         }
@@ -881,7 +886,7 @@ export default function Exchange() {
         if (swapQuoteControllerRef.current === controller) swapQuoteControllerRef.current = null;
       };
     } else {
-      setIsProcessing(false);
+      setIsQuoteProcessing(false);
     }
     if (
       mode === 'swap' && manualSwapAddonsQuery.isError
@@ -894,8 +899,9 @@ export default function Exchange() {
     targetId,
     quoteInputAmount,
     activeAmountSide,
-    sourceOpt,
-    targetOpt,
+    // Route/input/configuration identity is serialized below. Option object
+    // identity can change during harmless catalog refreshes; it is not a new
+    // quote request and must not abort a pending canonical reverse quote.
     quoteRefreshNonce,
     selectedAddonKeys,
     selectedRouteTermsKey,
@@ -1515,7 +1521,8 @@ export default function Exchange() {
             sourceAsset={sourceOpt?.assetCode}
             targetAsset={targetOpt?.assetCode}
             rate={quoteExpired && parsedAmount > 0 ? null : authoritativeExchangeRate}
-            loading={isProcessing || (mode === 'swap' && isPricingLoading)}
+            loading={!errorMsg && (isQuoteProcessing ||
+              (mode === 'swap' && isPricingLoading && !quoteMatchesCurrentSelection))}
             error={Boolean(errorMsg)}
             unavailable={quoteExpired && parsedAmount > 0}
           />
@@ -1881,16 +1888,16 @@ export default function Exchange() {
             className="w-full h-[56px] rounded-2xl text-[17px] font-bold shadow-[0_8px_20px_-8px_hsl(var(--primary))] transition-transform active:scale-95 disabled:opacity-50 disabled:active:scale-100 illuminated-border"
             onClick={handleContinue}
             disabled={
-              isProcessing ||
+              isProcessing || (step === 1 && isQuoteProcessing) ||
               isPricingLoading ||
               (quoteExpired && !createOutcomeUncertain) ||
               (step > 1 && !recoveryRecord && !quoteMatchesCurrentSelectionForMode) ||
               (mode === 'swap' && manualSwapAddonsQuery.isError && step === 1) ||
               (mode === 'swap' && (!quoteMatchesCurrentSelection || isPricingLoading) && step === 1) ||
-              (mode === 'convert' && (!convertQuoteMatchesCurrentSelection || isProcessing) && step === 1)
+              (mode === 'convert' && (!convertQuoteMatchesCurrentSelection || isQuoteProcessing) && step === 1)
             }
           >
-            {isProcessing ? (
+            {isProcessing || (step === 1 && isQuoteProcessing) ? (
               <span className="flex items-center">
                 <Loader2 className="w-5 h-5 mr-2 animate-spin" /> Processing...
               </span>

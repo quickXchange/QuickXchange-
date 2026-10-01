@@ -161,6 +161,9 @@ export function getExchangePricingTermsKey(
     minAmount?: number;
     maxAmount?: number;
     pricingRuleName: string;
+    amountBasedPricingEnabled?: boolean;
+    amountBasedPricingTiers?: unknown;
+    pricingConfigurationFingerprint?: string;
   } | undefined,
   sourceId: string,
   targetId: string,
@@ -177,6 +180,9 @@ export function getExchangePricingTermsKey(
     pricing.minAmount ?? null,
     pricing.maxAmount ?? null,
     pricing.pricingRuleName,
+    pricing.amountBasedPricingEnabled ?? false,
+    pricing.amountBasedPricingTiers ?? [],
+    pricing.pricingConfigurationFingerprint ?? null,
   ]);
 }
 

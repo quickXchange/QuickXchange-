@@ -1,5 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
+const liveBaseURL = process.env.MINI_APP_LIVE_BASE_URL;
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
@@ -7,10 +9,10 @@ export default defineConfig({
   retries: 0,
   reporter: 'line',
   use: {
-    baseURL: 'http://127.0.0.1:4174',
+    baseURL: liveBaseURL || 'http://127.0.0.1:4174',
     headless: true,
   },
-  webServer: {
+  webServer: liveBaseURL ? undefined : {
     command:
       'pnpm --filter @workspace/quickxchange-telegram-mini-app exec vite --config vite.config.ts --host 127.0.0.1 --mode e2e',
     env: {

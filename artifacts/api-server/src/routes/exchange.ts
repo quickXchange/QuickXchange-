@@ -187,6 +187,7 @@ import {
   effectiveManualReceiveTarget,
   solveManualReceiveQuote,
 } from "../lib/manual-receive-quote";
+import { createRequestScopedManualReceiveContext } from "../lib/manual-receive-quote-context";
 import { customerOrderScope } from "../lib/customer-order-scope";
 import {
   assertCustomerDepositEligibilityContextCurrent,
@@ -266,6 +267,7 @@ import {
   getWhitebitProviderDepositId,
   getWhitebitVerifiedFundingTransaction,
 } from "../lib/whitebit-verified-funding";
+import { manualRoutePricingFingerprint } from "../lib/manual-route-pricing-fingerprint";
 import {
   findProviderManagedCustomerOrder,
   findProviderManagedOperatorOrder,
@@ -891,6 +893,7 @@ function effectiveManualSourceLimits(
 async function getManualRoutePricing(
   sourceSettlementOptionId: string,
   targetSettlementOptionId: string,
+  selectedAddOnKeys: string[] = [],
 ) {
   const options = [
     ...await listPublicFiatSettlementOptions(),
@@ -908,7 +911,7 @@ async function getManualRoutePricing(
   ) {
     throw new ApiError("SETTLEMENT_OPTION_INVALID", "The selected settlement route is unavailable.", 422);
   }
-  const normalizedInput = CreateExchangeQuoteBody.parse({
+  const route = await normalizeExchangeRoute(CreateExchangeQuoteBody.parse({
     type: "manual",
     fromAsset: sourceOption.assetCode,
     fromNetwork: sourceOption.routeNetwork,
@@ -917,8 +920,7 @@ async function getManualRoutePricing(
     amount: 1,
     sourceSettlementOptionId,
     targetSettlementOptionId,
-  });
-  const route = await normalizeExchangeRoute(normalizedInput);
+  }));
   const rule = await matchManualDeskPricingRule({
     sourceAsset: route.fromAsset,
     targetAsset: route.toAsset,
@@ -927,6 +929,7 @@ async function getManualRoutePricing(
     sourceSettlementOptionId,
     targetSettlementOptionId,
   });
+  const selectedAddons = await resolveSelectedManualSwapAddons(selectedAddOnKeys);
   const { effectiveMinAmount, effectiveMaxAmount } =
     effectiveManualSourceLimits(rule, sourceOption);
   const rate = await getManualDeskReferenceRate({
@@ -953,6 +956,19 @@ async function getManualRoutePricing(
     amountBasedPricingTiers: rule.amountBasedPricingEnabled
       ? rule.amountBasedPricingTiers
       : [],
+    pricingConfigurationFingerprint: manualRoutePricingFingerprint({
+      id: rule.id,
+      exactRate: rule.exactRate,
+      markupBasisPoints: rule.markupBasisPoints,
+      adjustmentDirection: rule.adjustmentDirection,
+      fixedFee: rule.fixedFee,
+      effectiveMinAmount,
+      effectiveMaxAmount,
+      rangeOnlyPricing: rule.rangeOnlyPricing,
+      amountBasedPricingEnabled: rule.amountBasedPricingEnabled,
+      amountBasedPricingTiers: rule.amountBasedPricingTiers,
+    }),
+    preparedContext: { sourceOption, targetOption, rule, selectedAddons },
   };
 }
 type NormalizedRoute = Pick<
@@ -963,6 +979,13 @@ type NormalizedRoute = Pick<
 type PublicSettlementOption =
   Awaited<ReturnType<typeof listPublicFiatSettlementOptions>>[number] |
   Awaited<ReturnType<typeof listPublicManualCryptoSettlementOptions>>[number];
+
+type PreparedManualQuoteContext = {
+  sourceOption: PublicSettlementOption;
+  targetOption: PublicSettlementOption;
+  rule: Awaited<ReturnType<typeof matchManualDeskPricingRule>>;
+  selectedAddons: Awaited<ReturnType<typeof resolveSelectedManualSwapAddons>>;
+};
 
 function settlementFieldsForSide(
   fields: Array<{
@@ -1114,6 +1137,7 @@ async function buildQuoteTicket(
   normalizedRoute?: NormalizedRoute,
   skipFundingAvailability = false,
   skipTargetAmountLimits = false,
+  preparedContext?: PreparedManualQuoteContext,
 ): Promise<QuoteTicket> {
   const route = normalizedRoute ?? await normalizeExchangeRoute(input);
   let sourceOption: PublicSettlementOption | undefined;
@@ -1125,12 +1149,17 @@ async function buildQuoteTicket(
     if (!input.sourceSettlementOptionId || !input.targetSettlementOptionId) {
       throw new ApiError("SETTLEMENT_OPTION_REQUIRED", "Both settlement option IDs are required.", 400);
     }
-    const options = [
-      ...await listPublicFiatSettlementOptions(),
-      ...await listPublicManualCryptoSettlementOptions(),
-    ];
-    sourceOption = options.find((option) => option.id === input.sourceSettlementOptionId);
-    targetOption = options.find((option) => option.id === input.targetSettlementOptionId);
+    if (preparedContext) {
+      sourceOption = preparedContext.sourceOption;
+      targetOption = preparedContext.targetOption;
+    } else {
+      const options = [
+        ...await listPublicFiatSettlementOptions(),
+        ...await listPublicManualCryptoSettlementOptions(),
+      ];
+      sourceOption = options.find((option) => option.id === input.sourceSettlementOptionId);
+      targetOption = options.find((option) => option.id === input.targetSettlementOptionId);
+    }
     if (
       !sourceOption || !targetOption ||
       sourceOption.assetCode !== route.fromAsset ||
@@ -1146,7 +1175,7 @@ async function buildQuoteTicket(
       throw new ApiError("SETTLEMENT_OPTION_INVALID", "The selected settlement route is unavailable.", 422);
     }
   }
-  const rule = await matchManualDeskPricingRule({
+  const rule = preparedContext?.rule ?? await matchManualDeskPricingRule({
     sourceAsset: route.fromAsset,
     targetAsset: route.toAsset,
     sourceNetwork: route.fromNetwork,
@@ -1167,7 +1196,8 @@ async function buildQuoteTicket(
   const { selectedTier, adjustmentDirection: effectiveDirection, markupBasisPoints, percentage, fixedFee } =
     resolveManualPricingTerms(rule, input.amount);
   const selectedAddOnKeys = input.selectedAddOnKeys ?? [];
-  const selectedAddons = await resolveSelectedManualSwapAddons(selectedAddOnKeys);
+  const selectedAddons = preparedContext?.selectedAddons ??
+    await resolveSelectedManualSwapAddons(selectedAddOnKeys);
   const additionalFeeConfig = retiredManualSwapFeeConfig;
   const additionalCurrencies = selectedAddons.length
     ? [...new Set([
@@ -1656,7 +1686,7 @@ router.get("/exchange/popular-pairs", async (_req, res, next) => {
 router.get("/exchange/route-pricing", async (req, res, next) => {
   try {
     const query = GetExchangeRoutePricingQueryParams.parse(req.query);
-    const pricing = await getManualRoutePricing(
+    const { preparedContext: _preparedContext, ...pricing } = await getManualRoutePricing(
       query.sourceSettlementOptionId,
       query.targetSettlementOptionId,
     );
@@ -1705,11 +1735,15 @@ router.post("/exchange/quote-by-receive", async (req, res, next) => {
       normalizeExchangeRoute(forwardInput),
       deadlineAt,
     );
-    const routePricing = await beforeManualReceiveDeadline(
+    const resolveRoutePricing = createRequestScopedManualReceiveContext(() =>
       getManualRoutePricing(
         input.sourceSettlementOptionId,
         input.targetSettlementOptionId,
+        input.selectedAddOnKeys,
       ),
+    );
+    const routePricing = await beforeManualReceiveDeadline(
+      resolveRoutePricing(),
       deadlineAt,
     );
     if (
@@ -1779,7 +1813,17 @@ router.post("/exchange/quote-by-receive", async (req, res, next) => {
           amount,
         });
         try {
-          const ticket = await buildQuoteTicket(candidateInput, route, false, true);
+          const preparedPricing = await beforeManualReceiveDeadline(
+            resolveRoutePricing(),
+            deadlineAt,
+          );
+          const ticket = await buildQuoteTicket(
+            candidateInput,
+            route,
+            false,
+            true,
+            preparedPricing.preparedContext,
+          );
           forwardTickets.set(amount, { ticket, quotedAt: Date.now() });
           return ticket.receiveAmount;
         } catch (error) {
