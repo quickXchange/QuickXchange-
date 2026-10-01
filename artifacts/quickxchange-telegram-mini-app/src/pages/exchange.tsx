@@ -29,6 +29,7 @@ import {
 } from '@/lib/exchange-search';
 import { createClientRequestId } from '@/lib/client-request-id';
 import { runSwapQuoteRequest, SwapQuoteTimeoutError } from '@/lib/swap-quote-request';
+import { createSwapQuoteTiming, type SwapQuoteTiming } from '@/lib/swap-quote-timing';
 import {
   buildSettlementDetails,
   isConvertDedicatedSettlementField,
@@ -693,14 +694,14 @@ export default function Exchange() {
   const createQuote = useMutation({
     mutationKey: ['createExchangeQuote'],
     retry: false,
-    mutationFn: ({ data, signal }: { data: Parameters<typeof requestSwapQuote>[0]; signal?: AbortSignal }) =>
-      requestSwapQuote(data, { headers, signal }),
+    mutationFn: ({ data, signal, traceId }: { data: Parameters<typeof requestSwapQuote>[0]; signal?: AbortSignal; traceId?: string }) =>
+      requestSwapQuote(data, { headers: { ...headers, ...(traceId ? { 'x-development-quote-id': traceId } : {}) }, signal }),
   });
   const createReceiveQuote = useMutation({
     mutationKey: ['createExchangeQuoteByReceive'],
     retry: false,
-    mutationFn: ({ data, signal }: { data: Parameters<typeof requestSwapReceiveQuote>[0]; signal?: AbortSignal }) =>
-      requestSwapReceiveQuote(data, { headers, signal }),
+    mutationFn: ({ data, signal, traceId }: { data: Parameters<typeof requestSwapReceiveQuote>[0]; signal?: AbortSignal; traceId?: string }) =>
+      requestSwapReceiveQuote(data, { headers: { ...headers, ...(traceId ? { 'x-development-quote-id': traceId } : {}) }, signal }),
   });
   const createOrder = useCreateExchangeOrder({ request: { headers } });
   const createQuickexQuote = useCreateQuickexQuote({ request: { headers } });
@@ -713,10 +714,17 @@ export default function Exchange() {
   const [errorMsg, setErrorMsg] = useState('');
   const [quoteNow, setQuoteNow] = useState(() => Date.now());
   const [quoteRefreshNonce, setQuoteRefreshNonce] = useState(0);
+  const swapQuoteInputAtRef = useRef<number | undefined>(undefined);
+  const swapQuoteTimingRef = useRef<SwapQuoteTiming | null>(null);
+  const swapQuotePaintRef = useRef<{ quoteId: string; timing: SwapQuoteTiming } | null>(null);
   // Fence at the input event, not just effect cleanup: a completed older
   // request must never write amounts between a new edit and React's next effect.
   const invalidateSwapQuote = () => {
     if (mode !== 'swap') return;
+    swapQuoteTimingRef.current?.finish('aborted');
+    swapQuoteTimingRef.current = null;
+    swapQuotePaintRef.current = null;
+    swapQuoteInputAtRef.current = undefined;
     quoteRequestVersionRef.current++;
     swapQuoteControllerRef.current?.abort();
     swapQuoteControllerRef.current = null;
@@ -728,6 +736,7 @@ export default function Exchange() {
   const editAmount = (side: 'send' | 'receive', value: string) => {
     if (side !== activeAmountSide || parseExchangeQuoteAmount(value) !== quoteInputAmount) {
       invalidateSwapQuote();
+      if (mode === 'swap') swapQuoteInputAtRef.current = performance.now();
     }
     setActiveAmountSide(side);
     if (side === 'send') setAmount(value);
@@ -786,11 +795,32 @@ export default function Exchange() {
   }, [quoteData?.expiresAt]);
 
   useEffect(() => {
+    const paint = swapQuotePaintRef.current;
+    if (!paint || paint.quoteId !== quoteData?.quoteId) return;
+    // The effect observes the committed controlled input. Two frames allow
+    // the browser to paint it; aborted/obsolete results never count as rendered.
+    let nextFrame = 0;
+    const frame = requestAnimationFrame(() => {
+      nextFrame = requestAnimationFrame(() => {
+        if (swapQuotePaintRef.current !== paint || swapQuoteTimingRef.current !== paint.timing) return;
+        paint.timing.rendered();
+        swapQuoteInputAtRef.current = undefined;
+      });
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      cancelAnimationFrame(nextFrame);
+    };
+  }, [quoteData?.quoteId]);
+
+  useEffect(() => {
     const requestVersion = ++quoteRequestVersionRef.current;
     if (exchangeRouteReady && !recoveryBootstrapPending && !recoveryLoadError &&
       step === 1 && sourceOpt && targetOpt && Number.isFinite(quoteInputAmount) && quoteInputAmount > 0 &&
       !(mode === 'swap' && manualSwapAddonsQuery.isError)) {
       const controller = mode === 'swap' ? new AbortController() : null;
+      const timing = mode === 'swap' ? createSwapQuoteTiming(swapQuoteInputAtRef.current) : null;
+      swapQuoteTimingRef.current = timing;
       if (controller) {
         swapQuoteControllerRef.current = controller;
         setIsQuoteProcessing(true);
@@ -798,6 +828,7 @@ export default function Exchange() {
       const timer = setTimeout(async () => {
         if (quoteRequestVersionRef.current !== requestVersion || controller?.signal.aborted) return;
         setIsQuoteProcessing(true);
+        timing?.requestStarted();
         try {
           const quote = mode === 'swap'
             ? await runSwapQuoteRequest(controller!, signal => activeAmountSide === 'receive'
@@ -810,7 +841,7 @@ export default function Exchange() {
                   targetSettlementOptionId: targetOpt.id,
                   desiredReceiveAmount: quoteInputAmount,
                   selectedAddOnKeys: selectedAddonKeys,
-                }, signal })
+                }, signal, traceId: timing?.traceId })
               : createQuote.mutateAsync({ data: {
                   type: 'manual',
                   fromAsset: sourceOpt.assetCode,
@@ -821,7 +852,7 @@ export default function Exchange() {
                   sourceSettlementOptionId: sourceOpt.id,
                   targetSettlementOptionId: targetOpt.id,
                   selectedAddOnKeys: selectedAddonKeys,
-                }, signal }))
+                }, signal, traceId: timing?.traceId }))
             : activeAmountSide === 'receive'
               ? await createQuickexReceiveQuote.mutateAsync({
                   data: {
@@ -845,6 +876,9 @@ export default function Exchange() {
                   },
                 });
           if (quoteRequestVersionRef.current !== requestVersion || controller?.signal.aborted) return;
+          timing?.responseReceived();
+          timing?.stateQueued();
+          if (timing) swapQuotePaintRef.current = { quoteId: quote.quoteId, timing };
           setQuoteData({
             ...quote,
             type: mode === 'swap' ? 'manual' : 'instant',
@@ -868,6 +902,8 @@ export default function Exchange() {
         } catch (err: any) {
           if (quoteRequestVersionRef.current !== requestVersion ||
               (controller?.signal.aborted && !(err instanceof SwapQuoteTimeoutError))) return;
+          timing?.responseReceived();
+          timing?.finish('error');
           setErrorMsg(err.message || 'Failed to get quote');
           setQuoteData(null);
         } finally {
@@ -878,6 +914,7 @@ export default function Exchange() {
         }
       }, mode === 'swap' ? 200 : 450);
       return () => {
+        timing?.finish('aborted');
         clearTimeout(timer);
         controller?.abort();
         if (controller && quoteRequestVersionRef.current === requestVersion) {

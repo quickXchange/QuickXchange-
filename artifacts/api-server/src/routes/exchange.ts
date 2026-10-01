@@ -244,12 +244,22 @@ import {
   verifyOrderTrackingToken,
 } from "../lib/order-access";
 import {
+  createManualDeskEstimateReferenceContext,
   getManualDeskEstimate,
   getManualDeskReferenceRate,
   invalidateManualDeskFiatRateCache,
   MAX_MANUAL_DESK_TARGET_PRECISION,
   refreshManualDeskRateProviderStatus,
+  type ManualDeskEstimateReferenceBasis,
 } from "../lib/manual-desk-rates";
+import {
+  completeDevelopmentQuoteTiming,
+  countStage,
+  isDevelopmentQuoteTimingEnabled,
+  runDevelopmentQuoteTiming,
+  sanitizeDevelopmentQuoteId,
+  timeStage,
+} from "../lib/development-quote-timing";
 import {
   applyManualSwapFees,
   assertManualSwapFixedFeeCurrencyAllowed,
@@ -985,6 +995,7 @@ type PreparedManualQuoteContext = {
   targetOption: PublicSettlementOption;
   rule: Awaited<ReturnType<typeof matchManualDeskPricingRule>>;
   selectedAddons: Awaited<ReturnType<typeof resolveSelectedManualSwapAddons>>;
+  referenceBasis?: ManualDeskEstimateReferenceBasis;
 };
 
 function settlementFieldsForSide(
@@ -1075,7 +1086,10 @@ async function normalizeExchangeRoute(input: ParsedQuoteInput): Promise<Normaliz
     throw new ApiError("MANUAL_SWAP_REQUIRED", "Only Manual desk swaps are available.", 422);
   }
 
-  const fiatAssets = await listEnabledFiatCurrencies();
+  const fiatAssets = await timeStage("fiat_catalog", async () => {
+    countStage("fiat_catalog_reads");
+    return listEnabledFiatCurrencies();
+  });
   const findFiat = (asset: string, network: string) =>
     fiatAssets.find(
       (instrument) =>
@@ -1217,6 +1231,7 @@ async function buildQuoteTicket(
     fixedFee,
     exactRate: rule.exactRate,
     additionalCurrencies,
+    referenceBasis: preparedContext?.referenceBasis,
   });
   const feeAdjusted = applyManualSwapFees({
     grossAmount: pricedEstimate.exact.grossMarketAmount,
@@ -1714,8 +1729,26 @@ router.post("/exchange/quote", async (req, res, next) => {
   }
 });
 
-router.post("/exchange/quote-by-receive", async (req, res, next) => {
-  try {
+router.post("/exchange/quote-by-receive", (req, res, next) =>
+  runDevelopmentQuoteTiming(
+    isDevelopmentQuoteTimingEnabled()
+      ? sanitizeDevelopmentQuoteId(req.get("x-development-quote-id"))
+      : undefined,
+    async () => {
+      const disconnectedRequest = Symbol("reverse quote request disconnected");
+      const ensureClientConnected = () => {
+        if (req.aborted || res.destroyed) throw disconnectedRequest;
+      };
+      const completeTiming = () => {
+        if (isDevelopmentQuoteTimingEnabled() && !res.headersSent) {
+          completeDevelopmentQuoteTiming(
+            (name, value) => res.setHeader(name, value),
+            (record, message) => req.log.info(record, message),
+          );
+        }
+      };
+      try {
+    ensureClientConnected();
     const input = CreateExchangeQuoteByReceiveBody.parse(req.body);
     // Bound the entire reverse-quote request, including route and reference
     // lookups before the numeric solver begins.
@@ -1731,21 +1764,29 @@ router.post("/exchange/quote-by-receive", async (req, res, next) => {
       targetSettlementOptionId: input.targetSettlementOptionId,
       selectedAddOnKeys: input.selectedAddOnKeys,
     });
-    const route = await beforeManualReceiveDeadline(
-      normalizeExchangeRoute(forwardInput),
-      deadlineAt,
+    ensureClientConnected();
+    const route = await timeStage("route_normalization", () =>
+      beforeManualReceiveDeadline(normalizeExchangeRoute(forwardInput), deadlineAt),
     );
-    const resolveRoutePricing = createRequestScopedManualReceiveContext(() =>
-      getManualRoutePricing(
-        input.sourceSettlementOptionId,
-        input.targetSettlementOptionId,
-        input.selectedAddOnKeys,
-      ),
+    ensureClientConnected();
+    const routePricing = await timeStage(
+      "route_config_prep",
+      async () => {
+        const resolveRoutePricing = createRequestScopedManualReceiveContext(() =>
+          getManualRoutePricing(
+            input.sourceSettlementOptionId,
+            input.targetSettlementOptionId,
+            input.selectedAddOnKeys,
+          ),
+        );
+        const routePricing = await beforeManualReceiveDeadline(
+          resolveRoutePricing(),
+          deadlineAt,
+        );
+        return routePricing;
+      },
     );
-    const routePricing = await beforeManualReceiveDeadline(
-      resolveRoutePricing(),
-      deadlineAt,
-    );
+    ensureClientConnected();
     if (
       routePricing.sourceOption.assetCode.toUpperCase() !== route.fromAsset.toUpperCase() ||
       routePricing.sourceOption.routeNetwork.toUpperCase() !== route.fromNetwork.toUpperCase() ||
@@ -1789,6 +1830,32 @@ router.post("/exchange/quote-by-receive", async (req, res, next) => {
       );
     }
 
+    const selectedAddons = routePricing.preparedContext.selectedAddons;
+    const additionalCurrencies = selectedAddons.length
+      ? [...new Set([
+          route.fromAsset,
+          route.toAsset,
+          ...selectedAddons
+            .filter((addon) => addon.feeType !== "percentage")
+            .map((addon) => addon.feeCurrency),
+        ].map((currency) => currency.toUpperCase()))]
+      : [];
+    ensureClientConnected();
+    const referenceBasis = await timeStage("pricing_reference_basis", async () => {
+      const referenceContext = createManualDeskEstimateReferenceContext();
+      return beforeManualReceiveDeadline(referenceContext.resolve({
+          sourceCurrency: route.fromAsset,
+          targetCurrency: route.toAsset,
+          exactRate: routePricing.preparedContext.rule.exactRate,
+          additionalCurrencies,
+        }), deadlineAt);
+    });
+    ensureClientConnected();
+    const preparedContext = {
+      ...routePricing.preparedContext,
+      referenceBasis,
+    };
+
     const tierBoundaries = routePricing.amountBasedPricingTiers.flatMap((tier) => [
       Number(tier.minAmount),
       tier.maxAmount === null ? undefined : Number(tier.maxAmount),
@@ -1798,46 +1865,49 @@ router.post("/exchange/quote-by-receive", async (req, res, next) => {
       requiredReceiveAmount / Math.max(routePricing.rate, Number.MIN_VALUE),
     );
     const forwardTickets = new Map<number, { ticket: QuoteTicket; quotedAt: number }>();
-    const solution = await solveManualReceiveQuote({
-      desiredReceiveAmount: requiredReceiveAmount,
-      minAmount: minimumSourceAmount,
-      maxAmount: routePricing.maxAmount,
-      initialUpperAmount,
-      tierBoundaries,
-      receiveQuantum: 10 ** -route.targetPrecision,
-      maxAttempts: 44,
-      deadlineAt,
-      quote: async (amount) => {
-        const candidateInput = CreateExchangeQuoteBody.parse({
-          ...forwardInput,
-          amount,
-        });
-        try {
-          const preparedPricing = await beforeManualReceiveDeadline(
-            resolveRoutePricing(),
-            deadlineAt,
-          );
-          const ticket = await buildQuoteTicket(
-            candidateInput,
-            route,
-            false,
-            true,
-            preparedPricing.preparedContext,
-          );
-          forwardTickets.set(amount, { ticket, quotedAt: Date.now() });
-          return ticket.receiveAmount;
-        } catch (error) {
-          // Fixed/add-on fees can exceed the receive side at low source
-          // amounts. Treat that range as below target; all other pricing
-          // errors remain explicit and fail the request.
-          if (
-            error instanceof ApiError &&
-            error.code === "MANUAL_DESK_FEE_EXCEEDS_AMOUNT"
-          ) return 0;
-          throw error;
-        }
-      },
-    });
+    ensureClientConnected();
+    const solution = await timeStage("solver", () =>
+      solveManualReceiveQuote({
+        desiredReceiveAmount: requiredReceiveAmount,
+        minAmount: minimumSourceAmount,
+        maxAmount: routePricing.maxAmount,
+        initialUpperAmount,
+        tierBoundaries,
+        receiveQuantum: 10 ** -route.targetPrecision,
+        maxAttempts: 44,
+        deadlineAt,
+        quote: async (amount) => {
+          ensureClientConnected();
+          countStage("probes");
+          const candidateInput = CreateExchangeQuoteBody.parse({
+            ...forwardInput,
+            amount,
+          });
+          try {
+            const ticket = await buildQuoteTicket(
+              candidateInput,
+              route,
+              false,
+              true,
+              preparedContext,
+            );
+            ensureClientConnected();
+            forwardTickets.set(amount, { ticket, quotedAt: Date.now() });
+            return ticket.receiveAmount;
+          } catch (error) {
+            // Fixed/add-on fees can exceed the receive side at low source
+            // amounts. Treat that range as below target; all other pricing
+            // errors remain explicit and fail the request.
+            if (
+              error instanceof ApiError &&
+              error.code === "MANUAL_DESK_FEE_EXCEEDS_AMOUNT"
+            ) return 0;
+            throw error;
+          }
+        },
+      }),
+    );
+    ensureClientConnected();
     if (!solution || solution.receiveAmount < requiredReceiveAmount ||
         (targetMaximum !== undefined && solution.receiveAmount > targetMaximum)) {
       throw new ApiError(
@@ -1878,6 +1948,8 @@ router.post("/exchange/quote-by-receive", async (req, res, next) => {
         503,
       );
     }
+    ensureClientConnected();
+    completeTiming();
     res.json({
       ...ticket,
       requiredSettlementFields: ticket.settlementSnapshot?.requiredFields,
@@ -1887,10 +1959,14 @@ router.post("/exchange/quote-by-receive", async (req, res, next) => {
       quoteId: signQuoteTicket(ticket),
       expiresAt: new Date(ticket.expiresAt).toISOString(),
     });
-  } catch (error) {
-    next(error);
-  }
-});
+      } catch (error) {
+        if (error === disconnectedRequest || req.aborted || res.destroyed) return;
+        completeTiming();
+        next(error);
+      }
+    },
+  ),
+);
 
 function outputManualSwapAddon(row: typeof manualSwapAddonsTable.$inferSelect) {
   return {

@@ -1,5 +1,6 @@
 import { ApiError } from "./api-error";
 import { listEnabledFiatCurrencies } from "./fiat-currencies";
+import { countStage, timeStage } from "./development-quote-timing";
 
 const DEFAULT_ONEFORGE_BASE_URL = "https://api.1forge.com";
 const DEFAULT_COINBASE_USD_RATES_URL = "https://api.coinbase.com/v2/exchange-rates?currency=USD";
@@ -19,6 +20,7 @@ type DecimalValue = {
 type ManualDeskRateValue = string | number;
 type ValidatedRates = Record<string, DecimalValue>;
 type RateCacheEntry = { value: ValidatedRates; expiresAt: number; fetchedAt: number };
+type EnabledFiatCurrencyRows = Awaited<ReturnType<typeof listEnabledFiatCurrencies>>;
 
 export type ManualDeskRateAdapter = () => Promise<Record<string, ManualDeskRateValue>>;
 export type ManualDeskMarketAdapters = {
@@ -182,7 +184,9 @@ async function safelyLoadAdapter(adapter: ManualDeskRateAdapter): Promise<Valida
   }
 }
 
-async function loadFiatRates(): Promise<ValidatedRates> {
+async function loadFiatRates(
+  quoteFiatCurrencyRows?: EnabledFiatCurrencyRows,
+): Promise<ValidatedRates> {
   if (marketAdaptersForTests) {
     return safelyLoadAdapter(marketAdaptersForTests.fiat);
   }
@@ -192,7 +196,7 @@ async function loadFiatRates(): Promise<ValidatedRates> {
       : DEFAULT_ONEFORGE_BASE_URL
   ).replace(/\/+$/, "");
   const url = new URL(`${baseUrl}/quotes`);
-  const enabled = await listEnabledFiatCurrencies();
+  const enabled = quoteFiatCurrencyRows ?? await loadQuoteFiatCurrencyRows();
   const manual = new Map<string, DecimalValue>();
   for (const row of enabled) {
     const code = row.code.toUpperCase();
@@ -283,7 +287,10 @@ async function loadFiatRates(): Promise<ValidatedRates> {
   }
 }
 
-async function loadCryptoRates(requestedCurrencies: string[] = []): Promise<ValidatedRates> {
+async function loadCryptoRates(
+  requestedCurrencies: string[] = [],
+  quoteFiatCurrencyRows?: EnabledFiatCurrencyRows,
+): Promise<ValidatedRates> {
   if (marketAdaptersForTests) {
     return safelyLoadAdapter(marketAdaptersForTests.crypto);
   }
@@ -304,7 +311,8 @@ async function loadCryptoRates(requestedCurrencies: string[] = []): Promise<Vali
       unavailable();
     }
     const fiatCurrencies = new Set(
-      (await listEnabledFiatCurrencies()).map(({ code }) => code.toUpperCase()),
+      (quoteFiatCurrencyRows ?? await loadQuoteFiatCurrencyRows())
+        .map(({ code }) => code.toUpperCase()),
     );
     fiatCurrencies.add("USD");
     const cryptoRates: Record<string, ManualDeskRateValue> = { USD: 1 };
@@ -375,7 +383,9 @@ async function loadCryptoRates(requestedCurrencies: string[] = []): Promise<Vali
 async function getCachedRates(
   market: "fiat" | "crypto",
   requiredCurrencies: string[] = [],
+  quoteFiatCurrencyRows?: EnabledFiatCurrencyRows,
 ): Promise<ValidatedRates> {
+  countStage("provider_cache_resolutions");
   const now = Date.now();
   const cached = market === "fiat" ? fiatCachedRates : cryptoCachedRates;
   const required = requiredCurrencies.map(currency => currency.toUpperCase());
@@ -388,7 +398,9 @@ async function getCachedRates(
   if (inFlight) return inFlight;
 
   const requestGeneration = market === "fiat" ? fiatCacheGeneration : 0;
-  const request = (market === "fiat" ? loadFiatRates() : loadCryptoRates(required))
+  const request = (market === "fiat"
+    ? loadFiatRates(quoteFiatCurrencyRows)
+    : loadCryptoRates(required, quoteFiatCurrencyRows))
       .then((rates) => {
         const fetchedAt = Date.now();
         const fetchedAtIso = new Date(fetchedAt).toISOString();
@@ -428,15 +440,29 @@ async function getCachedRates(
   return request;
 }
 
+async function loadQuoteFiatCurrencyRows(): Promise<EnabledFiatCurrencyRows> {
+  return timeStage("fiat_catalog", async () => {
+    countStage("fiat_catalog_reads");
+    return listEnabledFiatCurrencies();
+  });
+}
+
+async function loadQuoteFiatCurrencyCodes() {
+  return (await loadQuoteFiatCurrencyRows()).map(({ code }) => code.toUpperCase());
+}
+
 async function getUsdRates(
   sourceCurrency: string,
   targetCurrency: string,
   additionalCurrencies: string[] = [],
+  quoteFiatCurrencyRows?: EnabledFiatCurrencyRows,
 ): Promise<ValidatedRates> {
   if (adapterForTests) return safelyLoadAdapter(adapterForTests);
 
+  const enabledFiatCurrencyRows =
+    quoteFiatCurrencyRows ?? await loadQuoteFiatCurrencyRows();
   const fiatCurrencies = new Set(
-    (await listEnabledFiatCurrencies()).map(({ code }) => code.toUpperCase()),
+    enabledFiatCurrencyRows.map(({ code }) => code.toUpperCase()),
   );
   fiatCurrencies.add("USD");
   const currencies = [sourceCurrency, targetCurrency, ...additionalCurrencies]
@@ -447,21 +473,31 @@ async function getUsdRates(
   const needsCryptoRates = currencies.some(
     currency => !fiatCurrencies.has(currency),
   );
-  const [fiatRates, initialCryptoRates] = await Promise.all([
-    needsFiatRates ? getCachedRates("fiat") : Promise.resolve({ USD: { coefficient: 1n, scale: 0 } }),
-    needsCryptoRates ? getCachedRates("crypto", currencies.filter(currency => !fiatCurrencies.has(currency))) : Promise.resolve({ USD: { coefficient: 1n, scale: 0 } }),
-  ]);
-  const initialCryptoRateMap = initialCryptoRates as ValidatedRates;
-  // A concurrent request may have started a Coinbase-only refresh for a
-  // different asset. Ensure an XMR caller gets its narrowly-scoped fallback
-  // even when it joined that in-flight request.
-  const cryptoCurrencies = currencies.filter(currency => !fiatCurrencies.has(currency));
-  const cryptoRates: ValidatedRates = needsCryptoRates &&
-    cryptoCurrencies.some(currency => !initialCryptoRateMap[currency]) &&
-    cryptoCurrencies.includes("XMR")
-    ? await getCachedRates("crypto", cryptoCurrencies)
-    : initialCryptoRateMap;
-  return { ...fiatRates, ...cryptoRates };
+  return timeStage("provider_cache", async () => {
+    const [fiatRates, initialCryptoRates] = await Promise.all([
+      needsFiatRates
+        ? getCachedRates("fiat", [], quoteFiatCurrencyRows)
+        : Promise.resolve({ USD: { coefficient: 1n, scale: 0 } }),
+      needsCryptoRates
+        ? getCachedRates(
+          "crypto",
+          currencies.filter(currency => !fiatCurrencies.has(currency)),
+          quoteFiatCurrencyRows,
+        )
+        : Promise.resolve({ USD: { coefficient: 1n, scale: 0 } }),
+    ]);
+    const initialCryptoRateMap = initialCryptoRates as ValidatedRates;
+    // A concurrent request may have started a Coinbase-only refresh for a
+    // different asset. Ensure an XMR caller gets its narrowly-scoped fallback
+    // even when it joined that in-flight request.
+    const cryptoCurrencies = currencies.filter(currency => !fiatCurrencies.has(currency));
+    const cryptoRates: ValidatedRates = needsCryptoRates &&
+      cryptoCurrencies.some(currency => !initialCryptoRateMap[currency]) &&
+      cryptoCurrencies.includes("XMR")
+      ? await getCachedRates("crypto", cryptoCurrencies, quoteFiatCurrencyRows)
+      : initialCryptoRateMap;
+    return { ...fiatRates, ...cryptoRates };
+  });
 }
 
 export function getManualDeskRateProviderStatus() {
@@ -575,7 +611,7 @@ export async function getManualDeskReferenceRate(input: {
   return rate;
 }
 
-export async function getManualDeskEstimate(input: {
+type ManualDeskEstimateInput = {
   sourceCurrency: string;
   targetCurrency: string;
   targetPrecision: number;
@@ -586,7 +622,125 @@ export async function getManualDeskEstimate(input: {
   fixedFee?: string | null;
   exactRate?: string | null;
   additionalCurrencies?: string[];
-}) {
+  referenceBasis?: ManualDeskEstimateReferenceBasis;
+};
+
+export type ManualDeskEstimateReferenceInput = Pick<
+  ManualDeskEstimateInput,
+  "sourceCurrency" | "targetCurrency" | "exactRate" | "additionalCurrencies"
+>;
+
+export type ManualDeskEstimateReferenceBasis = object;
+
+export type ManualDeskEstimateReferenceContext = {
+  resolve: (input: ManualDeskEstimateReferenceInput) =>
+    Promise<ManualDeskEstimateReferenceBasis>;
+};
+
+type ResolvedManualDeskEstimateReferenceBasis = {
+  key: string;
+  exactBaseRate?: DecimalValue;
+  rates?: ValidatedRates;
+  additionalRates?: ValidatedRates;
+  sourceUnitsPerUsd: DecimalValue;
+  targetUnitsPerUsd: DecimalValue;
+  fiatCurrencies: Set<string>;
+};
+
+const resolvedReferenceBases = new WeakMap<
+  ManualDeskEstimateReferenceBasis,
+  ResolvedManualDeskEstimateReferenceBasis
+>();
+
+function referenceBasisKey(input: ManualDeskEstimateReferenceInput) {
+  const exactRate = input.exactRate == null
+    ? null
+    : parsePositiveDecimal(input.exactRate)
+      ? decimalToString(parsePositiveDecimal(input.exactRate)!)
+      : String(input.exactRate);
+  const additionalCurrencies = [...new Set((input.additionalCurrencies ?? [])
+    .map((currency) => currency.toUpperCase()))].sort();
+  return JSON.stringify([
+    input.sourceCurrency.toUpperCase(),
+    input.targetCurrency.toUpperCase(),
+    exactRate,
+    additionalCurrencies,
+  ]);
+}
+
+async function resolveManualDeskEstimateReferenceBasis(
+  input: ManualDeskEstimateReferenceInput,
+  key: string,
+): Promise<ManualDeskEstimateReferenceBasis> {
+  const exactBaseRate = input.exactRate == null
+    ? undefined
+    : parsePositiveDecimal(input.exactRate);
+  if (input.exactRate != null && !exactBaseRate) unavailable();
+
+  const additionalCurrencies = [...new Set((input.additionalCurrencies ?? [])
+    .map((currency) => currency.toUpperCase()))];
+  const fiatCurrencyRows = exactBaseRate && !additionalCurrencies.length
+    ? undefined
+    : await loadQuoteFiatCurrencyRows();
+  const fiatCurrencies = new Set(
+    (fiatCurrencyRows ?? []).map(({ code }) => code.toUpperCase()),
+  );
+  const rates = exactBaseRate
+    ? undefined
+    : await getUsdRates(
+      input.sourceCurrency,
+      input.targetCurrency,
+      [],
+      fiatCurrencyRows,
+    );
+  const additionalRates = additionalCurrencies.length
+    ? await getUsdRates(
+      input.sourceCurrency,
+      input.targetCurrency,
+      additionalCurrencies,
+      fiatCurrencyRows,
+    )
+    : rates;
+  const sourceUnitsPerUsd = rates?.[input.sourceCurrency.toUpperCase()] ??
+    { coefficient: 1n, scale: 0, provider: "manual" as const };
+  const targetUnitsPerUsd = rates?.[input.targetCurrency.toUpperCase()] ?? exactBaseRate;
+  if (!targetUnitsPerUsd) unavailable();
+
+  const basis = Object.freeze({});
+  resolvedReferenceBases.set(basis, {
+    key,
+    exactBaseRate,
+    rates,
+    additionalRates,
+    sourceUnitsPerUsd,
+    targetUnitsPerUsd,
+    fiatCurrencies,
+  });
+  return basis;
+}
+
+export function createManualDeskEstimateReferenceContext(
+  resolveBasis?: (
+    input: ManualDeskEstimateReferenceInput,
+  ) => Promise<ManualDeskEstimateReferenceBasis>,
+): ManualDeskEstimateReferenceContext {
+  const pending = new Map<string, Promise<ManualDeskEstimateReferenceBasis>>();
+  return {
+    resolve(input) {
+      const key = referenceBasisKey(input);
+      let basis = pending.get(key);
+      if (!basis) {
+        basis = resolveBasis
+          ? resolveBasis(input)
+          : resolveManualDeskEstimateReferenceBasis(input, key);
+        pending.set(key, basis);
+      }
+      return basis;
+    },
+  };
+}
+
+async function calculateManualDeskEstimate(input: ManualDeskEstimateInput) {
   if (
     !Number.isFinite(input.amount) ||
     input.amount <= 0 ||
@@ -597,17 +751,32 @@ export async function getManualDeskEstimate(input: {
   const amount = parsePositiveDecimal(input.amount);
   const exactBaseRate = input.exactRate == null ? undefined : parsePositiveDecimal(input.exactRate);
   if (!amount || (input.exactRate != null && !exactBaseRate)) unavailable();
-  const rates = exactBaseRate ? undefined : await getUsdRates(input.sourceCurrency, input.targetCurrency);
-  const additionalRates = input.additionalCurrencies?.length
-    ? await getUsdRates(input.sourceCurrency, input.targetCurrency, input.additionalCurrencies)
-    : rates;
-  const sourceUnitsPerUsd = rates?.[input.sourceCurrency.toUpperCase()] ??
+  const requestedBasisKey = referenceBasisKey(input);
+  const preparedBasis = input.referenceBasis
+    ? resolvedReferenceBases.get(input.referenceBasis)
+    : undefined;
+  const basis = preparedBasis?.key === requestedBasisKey
+    ? preparedBasis
+    : undefined;
+  const rates = basis
+    ? basis.rates
+    : exactBaseRate ? undefined : await getUsdRates(input.sourceCurrency, input.targetCurrency);
+  const additionalRates = basis
+    ? basis.additionalRates
+    : input.additionalCurrencies?.length
+      ? await getUsdRates(input.sourceCurrency, input.targetCurrency, input.additionalCurrencies)
+      : rates;
+  const sourceUnitsPerUsd = basis?.sourceUnitsPerUsd ??
+    rates?.[input.sourceCurrency.toUpperCase()] ??
     { coefficient: 1n, scale: 0, provider: "manual" as const };
-  const targetUnitsPerUsd = rates?.[input.targetCurrency.toUpperCase()] ?? exactBaseRate;
+  const targetUnitsPerUsd = basis?.targetUnitsPerUsd ??
+    rates?.[input.targetCurrency.toUpperCase()] ?? exactBaseRate;
   if (!targetUnitsPerUsd) unavailable();
-  const fiatCurrencies = exactBaseRate && !input.additionalCurrencies?.length
-    ? new Set<string>()
-    : new Set((await listEnabledFiatCurrencies()).map(({ code }) => code.toUpperCase()));
+  const fiatCurrencies = basis?.fiatCurrencies ?? (
+    exactBaseRate && !input.additionalCurrencies?.length
+      ? new Set<string>()
+      : new Set(await loadQuoteFiatCurrencyCodes())
+  );
   const referenceLeg = (currency: string, rate: DecimalValue): {
     currency: string; unitsPerUsd: string;
     provider: "1Forge" | "manual" | "Coinbase" | "USD identity" | "test adapter";
@@ -778,6 +947,10 @@ export async function getManualDeskEstimate(input: {
       additionalReferences,
     },
   };
+}
+
+export async function getManualDeskEstimate(input: ManualDeskEstimateInput) {
+  return timeStage("pricing", () => calculateManualDeskEstimate(input));
 }
 
 /**
