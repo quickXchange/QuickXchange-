@@ -540,6 +540,7 @@ const PaymentTickerSequence = memo(function PaymentTickerSequence({
             logoUrl={method.logoUrl}
             className="payment-ticker-logo"
             priority={false}
+            preferOfficialArtwork={/^(sepa|visa|mastercard)$/i.test(method.name)}
           />
           <span className="font-bold">{method.name}</span>
         </div>

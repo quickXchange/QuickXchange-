@@ -61,6 +61,7 @@ export function PaymentMethodLogo({
   className,
   priority = true,
   preferBrandIcon = false,
+  preferOfficialArtwork = false,
 }: {
   name: string;
   logoUrl?: string | null;
@@ -70,6 +71,7 @@ export function PaymentMethodLogo({
   className?: string;
   priority?: boolean;
   preferBrandIcon?: boolean;
+  preferOfficialArtwork?: boolean;
 }) {
   const isDark = useAppTheme();
   const normalized = name.toLowerCase();
@@ -86,10 +88,10 @@ export function PaymentMethodLogo({
   else if (normalized.includes('zelle')) { logo = <SiZelle color="#741AFC" />; brand = 'zelle'; }
   else if (normalized.includes('cash app')) { logo = <SiCashapp color="#00D632" />; brand = 'cashapp'; }
   else if (normalized.includes('venmo')) { logo = <SiVenmo color="#008CFF" />; brand = 'venmo'; }
-  else if (normalized.includes('visa')) { logo = <SiVisa color="#1434CB" />; brand = 'visa'; }
+   else if (normalized.includes('visa')) { logo = <SiVisa color={preferOfficialArtwork && isDark ? '#FFFFFF' : '#1434CB'} style={preferOfficialArtwork ? { width: 22, height: 22, flexShrink: 0 } : undefined} />; brand = 'visa'; }
   else if (normalized.includes('mastercard')) {
     logo = (
-      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={preferOfficialArtwork ? { width: 22, height: 22, flexShrink: 0 } : undefined}>
         <circle cx="8.5" cy="12" r="6.5" fill="#EB001B" />
         <circle cx="15.5" cy="12" r="6.5" fill="#F79E1B" />
         <path d="M12 6.52a6.5 6.5 0 0 1 0 10.96 6.5 6.5 0 0 1 0-10.96Z" fill="#FF5F00" />
@@ -116,7 +118,14 @@ export function PaymentMethodLogo({
   const bundledFallback = brand === 'sepa' || brand === 'ziraat' ? bundledUrl : officialLogoUrl;
   // BBVA's catalog upload is an opaque square. Use its verified transparent,
   // theme-specific artwork instead; all other methods keep the API upload first.
-  const imageSources = Array.from(new Set([
+   // The landing examples use the actual payment-rail marks, not potentially
+   // unrelated configured bank/payment-method uploads. Other surfaces retain
+   // their existing Admin-first source selection.
+   const imageSources = preferOfficialArtwork && (brand === 'visa' || brand === 'mastercard')
+     ? []
+     : preferOfficialArtwork && brand === 'sepa'
+       ? [bundledUrl!]
+       : Array.from(new Set([
     ...(brand === 'bbva' ? [isDark ? bbvaWhiteLogoUrl : bbvaTransparentLogoUrl] : [logoUrl]),
     ...(preferBrandIcon ? [brandfetchUrl, bundledFallback] : [bundledFallback, brandfetchUrl]),
     fallbackRemoteUrl,

@@ -26,3 +26,9 @@ When fitting artwork, an opaque or rounded-square brand background is not transp
 **Why:** Some configured Payment Method art has a wide mark on a filled square, while another is a transparent wide wordmark. Alpha-only fitting treats them as the same shape incorrectly. The Mini App's Exchange route also crashed on first load after a compact-icon guard assumed an image source existed.
 
 **How to apply:** Inspect the live catalog's available artwork in both themes and multiple mobile sizes; preserve the whole visible mark and use icon fallbacks only when the brand identity matches. In Dark Mode, sampled low-luminance transparent marks need a neutral light *circular* backing to remain legible; a glow alone proved insufficient. Other marks retain their transparent surface. Treat absent or failed sources as a normal render state.
+
+Landing-page Payment Route Examples must use recognizable SEPA, Visa, and Mastercard rail artwork rather than unrelated catalog uploads for those three examples. Keep this exception scoped to that presentation.
+
+**Why:** The Owner requested only these three incorrect example logos be corrected; changing uploaded logos globally would alter unrelated Admin-managed payment identities.
+
+**How to apply:** Prefer authentic rail artwork for those examples, with a legible Visa variant in each theme. Preserve Admin-first logo selection elsewhere.
