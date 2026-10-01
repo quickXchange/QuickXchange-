@@ -9,6 +9,7 @@ import {
   getManualRouteTargetIds,
   getQuickexConvertRoutes,
   parseExchangeQuoteAmount,
+  quickexQuoteMatchesRoute,
   resolveExchangeRouteSelection,
 } from './exchange-routes';
 
@@ -19,6 +20,26 @@ const manualOptions = [
   { id: 'disabled-source', direction: 'receive' },
   { id: 'disabled-target', direction: 'send' },
 ];
+
+test('Convert accepts canonical quote codes for mixed-case catalog network titles', () => {
+  const source = { assetCode: 'BTC', routeNetwork: 'BTC' };
+  const target = { assetCode: 'USDC', routeNetwork: 'Base' };
+  const quote = { fromAsset: 'BTC', fromNetwork: 'BTC', toAsset: 'USDC', toNetwork: 'BASE' };
+  assert.equal(quickexQuoteMatchesRoute(quote, source, target), true);
+  assert.equal(quickexQuoteMatchesRoute({
+    fromAsset: ' usdc ', fromNetwork: 'BASE', toAsset: 'BTC', toNetwork: 'btc',
+  }, target, source), true);
+});
+
+test('Convert quote matching rejects different networks, directions, and missing selections', () => {
+  const source = { assetCode: 'BTC', routeNetwork: 'BTC' };
+  const target = { assetCode: 'USDC', routeNetwork: 'Base' };
+  const quote = { fromAsset: 'BTC', fromNetwork: 'BTC', toAsset: 'USDC', toNetwork: 'BASE' };
+  assert.equal(quickexQuoteMatchesRoute({ ...quote, toNetwork: 'ERC20' }, source, target), false);
+  assert.equal(quickexQuoteMatchesRoute(quote, target, source), false);
+  assert.equal(quickexQuoteMatchesRoute(null, source, target), false);
+  assert.equal(quickexQuoteMatchesRoute(quote, undefined, target), false);
+});
 const manualRoutes = [
   { sourceSettlementOptionId: 'bank-eur', targetSettlementOptionId: 'btc-tron' },
   { sourceSettlementOptionId: 'bank-eur', targetSettlementOptionId: 'eur-sepa' },

@@ -74,6 +74,21 @@ export function quickexInstrumentKey(asset: string, network: string): string {
   return `${asset.trim().toUpperCase()}\0${network.trim().toUpperCase()}`;
 }
 
+export function quickexQuoteMatchesRoute(
+  quote: QuickexPairLike | null | undefined,
+  source: { assetCode: string; routeNetwork: string } | undefined,
+  target: { assetCode: string; routeNetwork: string } | undefined,
+): boolean {
+  if (!quote || !source || !target) return false;
+  // Catalog titles and signed quote codes can differ in casing. Compare the
+  // same exact asset/network identity used by the directed route resolver;
+  // never collapse different networks or substitute network aliases.
+  return quickexInstrumentKey(quote.fromAsset, quote.fromNetwork) ===
+    quickexInstrumentKey(source.assetCode, source.routeNetwork) &&
+    quickexInstrumentKey(quote.toAsset, quote.toNetwork) ===
+    quickexInstrumentKey(target.assetCode, target.routeNetwork);
+}
+
 export function getQuickexConvertRoutes<
   TInstrument extends QuickexInstrumentLike,
   TPair extends QuickexPairLike,

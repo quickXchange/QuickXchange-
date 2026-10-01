@@ -9,8 +9,8 @@ import {
   createExchangeQuoteByReceive as requestSwapReceiveQuote,
   useCreateExchangeOrder,
   useGetQuickexConfig, getGetQuickexConfigQueryKey,
-  useCreateQuickexQuote,
-  useCreateQuickexQuoteByReceive,
+  createQuickexQuote as requestConvertQuote,
+  createQuickexQuoteByReceive as requestConvertReceiveQuote,
   useCreateQuickexOrder,
   useLinkTelegramMiniAppOrder
 } from '@workspace/api-client-react';
@@ -52,6 +52,7 @@ import {
   getManualRouteTargetIds,
   getQuickexConvertRoutes,
   parseExchangeQuoteAmount,
+  quickexQuoteMatchesRoute,
   resolveExchangeRouteSelection,
 } from '@/lib/exchange-routes';
 
@@ -235,7 +236,7 @@ export default function Exchange() {
   const recoveryBootstrapPending = isAuthLoading ||
     (!recoveryLoadError && (!verifiedUserId || recoveryBootstrap.pending || recoveryBootstrap.ownerId !== verifiedUserId));
   const quoteRequestVersionRef = useRef(0);
-  const swapQuoteControllerRef = useRef<AbortController | null>(null);
+  const quoteRequestControllerRef = useRef<AbortController | null>(null);
   const orderRequestIdRef = useRef<string | null>(recoveryRecord?.requestId ?? null);
   if (orderRequestIdRef.current === null) orderRequestIdRef.current = createClientRequestId();
 
@@ -244,7 +245,7 @@ export default function Exchange() {
 
   const setMode = (newMode: 'swap' | 'convert') => {
     if (createOutcomeUncertain) return;
-    invalidateSwapQuote();
+    invalidateQuote();
     preserveDetailsOnNextRouteResetRef.current = false;
     haptic.selection();
     setLocation(`/exchange?mode=${newMode}`);
@@ -704,8 +705,18 @@ export default function Exchange() {
       requestSwapReceiveQuote(data, { headers: { ...headers, ...(traceId ? { 'x-development-quote-id': traceId } : {}) }, signal }),
   });
   const createOrder = useCreateExchangeOrder({ request: { headers } });
-  const createQuickexQuote = useCreateQuickexQuote({ request: { headers } });
-  const createQuickexReceiveQuote = useCreateQuickexQuoteByReceive({ request: { headers } });
+  const createQuickexQuote = useMutation({
+    mutationKey: ['createQuickexQuote'],
+    retry: false,
+    mutationFn: ({ data, signal }: { data: Parameters<typeof requestConvertQuote>[0]; signal: AbortSignal }) =>
+      requestConvertQuote(data, { headers, signal }),
+  });
+  const createQuickexReceiveQuote = useMutation({
+    mutationKey: ['createQuickexQuoteByReceive'],
+    retry: false,
+    mutationFn: ({ data, signal }: { data: Parameters<typeof requestConvertReceiveQuote>[0]; signal: AbortSignal }) =>
+      requestConvertReceiveQuote(data, { headers, signal }),
+  });
   const createQuickexOrder = useCreateQuickexOrder({ request: { headers } });
   const linkOrder = useLinkTelegramMiniAppOrder({ request: { headers } });
 
@@ -719,15 +730,14 @@ export default function Exchange() {
   const swapQuotePaintRef = useRef<{ quoteId: string; timing: SwapQuoteTiming } | null>(null);
   // Fence at the input event, not just effect cleanup: a completed older
   // request must never write amounts between a new edit and React's next effect.
-  const invalidateSwapQuote = () => {
-    if (mode !== 'swap') return;
+  const invalidateQuote = () => {
     swapQuoteTimingRef.current?.finish('aborted');
     swapQuoteTimingRef.current = null;
     swapQuotePaintRef.current = null;
     swapQuoteInputAtRef.current = undefined;
     quoteRequestVersionRef.current++;
-    swapQuoteControllerRef.current?.abort();
-    swapQuoteControllerRef.current = null;
+    quoteRequestControllerRef.current?.abort();
+    quoteRequestControllerRef.current = null;
     setQuoteData(null);
     setTermsAccepted(false);
     setIsQuoteProcessing(false);
@@ -735,7 +745,7 @@ export default function Exchange() {
   };
   const editAmount = (side: 'send' | 'receive', value: string) => {
     if (side !== activeAmountSide || parseExchangeQuoteAmount(value) !== quoteInputAmount) {
-      invalidateSwapQuote();
+      invalidateQuote();
       if (mode === 'swap') swapQuoteInputAtRef.current = performance.now();
     }
     setActiveAmountSide(side);
@@ -818,20 +828,18 @@ export default function Exchange() {
     if (exchangeRouteReady && !recoveryBootstrapPending && !recoveryLoadError &&
       step === 1 && sourceOpt && targetOpt && Number.isFinite(quoteInputAmount) && quoteInputAmount > 0 &&
       !(mode === 'swap' && manualSwapAddonsQuery.isError)) {
-      const controller = mode === 'swap' ? new AbortController() : null;
+      const controller = new AbortController();
       const timing = mode === 'swap' ? createSwapQuoteTiming(swapQuoteInputAtRef.current) : null;
       swapQuoteTimingRef.current = timing;
-      if (controller) {
-        swapQuoteControllerRef.current = controller;
-        setIsQuoteProcessing(true);
-      }
+      quoteRequestControllerRef.current = controller;
+      setIsQuoteProcessing(true);
       const timer = setTimeout(async () => {
         if (quoteRequestVersionRef.current !== requestVersion || controller?.signal.aborted) return;
         setIsQuoteProcessing(true);
         timing?.requestStarted();
         try {
-          const quote = mode === 'swap'
-            ? await runSwapQuoteRequest(controller!, signal => activeAmountSide === 'receive'
+          const quote = await runSwapQuoteRequest(controller, signal => mode === 'swap'
+            ? activeAmountSide === 'receive'
               ? createReceiveQuote.mutateAsync({ data: {
                   fromAsset: sourceOpt.assetCode,
                   fromNetwork: sourceOpt.routeNetwork,
@@ -852,9 +860,9 @@ export default function Exchange() {
                   sourceSettlementOptionId: sourceOpt.id,
                   targetSettlementOptionId: targetOpt.id,
                   selectedAddOnKeys: selectedAddonKeys,
-                }, signal, traceId: timing?.traceId }))
+                }, signal, traceId: timing?.traceId })
             : activeAmountSide === 'receive'
-              ? await createQuickexReceiveQuote.mutateAsync({
+              ? createQuickexReceiveQuote.mutateAsync({
                   data: {
                     fromAsset: sourceOpt.assetCode,
                     fromNetwork: sourceOpt.routeNetwork,
@@ -863,8 +871,9 @@ export default function Exchange() {
                     desiredReceiveAmount: quoteInputAmount,
                     rateMode,
                   },
+                  signal,
                 })
-              : await createQuickexQuote.mutateAsync({
+              : createQuickexQuote.mutateAsync({
                   data: {
                     type: 'instant',
                     fromAsset: sourceOpt.assetCode,
@@ -874,7 +883,8 @@ export default function Exchange() {
                     amount: quoteInputAmount,
                     rateMode,
                   },
-                });
+                  signal,
+                }));
           if (quoteRequestVersionRef.current !== requestVersion || controller?.signal.aborted) return;
           timing?.responseReceived();
           timing?.stateQueued();
@@ -910,17 +920,17 @@ export default function Exchange() {
           if (quoteRequestVersionRef.current === requestVersion) {
             setIsQuoteProcessing(false);
           }
-          if (swapQuoteControllerRef.current === controller) swapQuoteControllerRef.current = null;
+          if (quoteRequestControllerRef.current === controller) quoteRequestControllerRef.current = null;
         }
       }, mode === 'swap' ? 200 : 450);
       return () => {
         timing?.finish('aborted');
         clearTimeout(timer);
         controller?.abort();
-        if (controller && quoteRequestVersionRef.current === requestVersion) {
+        if (quoteRequestVersionRef.current === requestVersion) {
           quoteRequestVersionRef.current++;
         }
-        if (swapQuoteControllerRef.current === controller) swapQuoteControllerRef.current = null;
+        if (quoteRequestControllerRef.current === controller) quoteRequestControllerRef.current = null;
       };
     } else {
       setIsQuoteProcessing(false);
@@ -954,7 +964,7 @@ export default function Exchange() {
   const toggleAddon = (key: string) => {
     const addon = manualSwapAddons.find((item) => item.key === key);
     if (!addon || addon.selectionRule === 'none') return;
-    invalidateSwapQuote();
+    invalidateQuote();
     setSelectedAddonKeys((current) => {
       if (current.includes(key)) return current.filter((item) => item !== key);
       if (getAddonGroupSelectionRule(addon.presentation.group) === 'one') {
@@ -991,10 +1001,7 @@ export default function Exchange() {
     quoteData &&
     quoteData.type === 'instant' &&
     selectedRouteAvailable &&
-    quoteData.fromAsset === liveSourceOpt?.assetCode &&
-    quoteData.fromNetwork === liveSourceOpt?.routeNetwork &&
-    quoteData.toAsset === liveTargetOpt?.assetCode &&
-    quoteData.toNetwork === liveTargetOpt?.routeNetwork &&
+    quickexQuoteMatchesRoute(quoteData, liveSourceOpt, liveTargetOpt) &&
     quoteData._amountSide === activeAmountSide &&
     quoteData._requestedAmount === quoteInputAmount &&
     quoteData._rateMode === rateMode &&
@@ -1278,7 +1285,7 @@ export default function Exchange() {
 
   const handleSwapAssets = () => {
     if (createOutcomeUncertain) return;
-    if (sourceId !== targetId) invalidateSwapQuote();
+    if (sourceId !== targetId) invalidateQuote();
     haptic.impact('light');
     setSourceId(targetId);
     setTargetId(sourceId);
@@ -1364,9 +1371,25 @@ export default function Exchange() {
       </div>
 
       {errorMsg && (
-        <div className="bg-destructive/10 border border-destructive/20 text-destructive p-3.5 rounded-2xl flex items-start text-sm animate-in fade-in slide-in-from-top-2">
+        <div role="alert" className="bg-destructive/10 border border-destructive/20 text-destructive p-3.5 rounded-2xl flex items-start text-sm animate-in fade-in slide-in-from-top-2">
           <AlertCircle className="w-[18px] h-[18px] mt-[1px] mr-2 shrink-0 opacity-80" />
-          <span className="font-medium leading-tight">{errorMsg}</span>
+          <div className="min-w-0 flex-1 space-y-2">
+            <p className="font-medium leading-tight">{errorMsg}</p>
+            {step === 1 && mode === 'convert' && exchangeRouteReady &&
+              parsedAmount > 0 && !isQuoteProcessing && !createOutcomeUncertain && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    invalidateQuote();
+                    setQuoteRefreshNonce((nonce) => nonce + 1);
+                  }}
+                >
+                  Retry quote
+                </Button>
+              )}
+          </div>
         </div>
       )}
       {quoteExpired && !createOutcomeUncertain && (
@@ -2000,12 +2023,12 @@ export default function Exchange() {
                   key={o.id}
                   onClick={() => {
                     if (showSourceSelector) {
-                      if (o.id !== sourceId) invalidateSwapQuote();
+                      if (o.id !== sourceId) invalidateQuote();
                       setSourceId(o.id);
                       setShowSourceSelector(false);
                       setSourceSearch('');
                     } else {
-                      if (o.id !== targetId) invalidateSwapQuote();
+                      if (o.id !== targetId) invalidateQuote();
                       setTargetId(o.id);
                       setShowTargetSelector(false);
                       setTargetSearch('');

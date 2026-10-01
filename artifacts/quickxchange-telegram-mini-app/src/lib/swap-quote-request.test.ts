@@ -63,3 +63,27 @@ test('already-cancelled quotes never dispatch', async () => {
   }), { name: 'AbortError' });
   assert.equal(requests, 0);
 });
+
+test('Convert receive quotes preserve the provider source amount and exact receive target', async () => {
+  const controller = new AbortController();
+  const response = { amount: 0.01186565, receiveAmount: 1000, toNetwork: 'TRC20' };
+  const result = await runSwapQuoteRequest(controller, async signal => {
+    assert.equal(signal, controller.signal);
+    return response;
+  });
+  assert.equal(result, response);
+});
+
+test('superseded Convert work cannot delay a new quote or return a late result', async () => {
+  const oldController = new AbortController();
+  let deliverOld!: (value: string) => void;
+  const oldRequest = runSwapQuoteRequest(oldController, () => new Promise<string>(resolve => {
+    deliverOld = resolve;
+  }));
+  const oldRejected = assert.rejects(oldRequest, { name: 'AbortError' });
+  oldController.abort();
+  assert.equal(await runSwapQuoteRequest(new AbortController(), async () => 'latest'), 'latest');
+  await oldRejected;
+  deliverOld('obsolete');
+  await assert.rejects(oldRequest, { name: 'AbortError' });
+});
