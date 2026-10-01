@@ -4565,6 +4565,41 @@ paths:
         "200": { description: Template test email sent, content: { application/json: { schema: { $ref: "#/components/schemas/NotificationTestResult" } } } }
         "400": { description: Email or template is not configured, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
         "502": { description: Email provider rejected the test, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /admin/telegram/support-bot:
+    get:
+      operationId: getTelegramSupportBot
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      responses:
+        "200": { description: Support bot settings and safe connection status, content: { application/json: { schema: { $ref: "#/components/schemas/TelegramSupportBotResponse" } } } }
+    put:
+      operationId: updateTelegramSupportBot
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SupportBotSettingsInput" }
+      responses:
+        "200": { description: Updated support bot settings and status, content: { application/json: { schema: { $ref: "#/components/schemas/TelegramSupportBotResponse" } } } }
+        "400": { description: Invalid support bot settings, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /admin/telegram/support-bot/connection/check:
+    post:
+      operationId: checkTelegramSupportBotConnection
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      responses:
+        "200": { description: Read-only connection check, content: { application/json: { schema: { $ref: "#/components/schemas/TelegramSupportBotStatus" } } } }
+        "502": { description: Dedicated support bot connection could not be checked, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /admin/telegram/support-bot/connection/register:
+    post:
+      operationId: registerTelegramSupportBotWebhook
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      responses:
+        "200": { description: Support bot webhook registered, content: { application/json: { schema: { $ref: "#/components/schemas/TelegramSupportBotStatus" } } } }
+        "400": { description: Registration is unavailable outside trusted production deployment, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
   /notification-settings/public:
     get:
       operationId: getPublicNotificationSettings
@@ -9005,6 +9040,90 @@ components:
       properties:
         success: { type: boolean }
         message: { type: string }
+    TelegramSupportBotLocale:
+      type: string
+      enum: [en, fr, ar, es, de, ru, uk, ko]
+    TelegramSupportBotLocalizedText:
+      type: object
+      additionalProperties: { type: string }
+      propertyNames: { enum: [en, fr, ar, es, de, ru, uk, ko] }
+    TelegramSupportBotFaqTranslation:
+      type: object
+      additionalProperties: false
+      required: [question, answer, aliases]
+      properties:
+        question: { type: string, minLength: 1, maxLength: 200 }
+        answer: { type: string, minLength: 1, maxLength: 3500 }
+        aliases:
+          type: array
+          maxItems: 10
+          items: { type: string, minLength: 1, maxLength: 200 }
+    TelegramSupportBotCategory:
+      type: object
+      additionalProperties: false
+      required: [id, label, enabled]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 55, pattern: "^[a-z0-9][a-z0-9_-]*$" }
+        label: { $ref: "#/components/schemas/TelegramSupportBotLocalizedText" }
+        enabled: { type: boolean }
+    TelegramSupportBotFaq:
+      type: object
+      additionalProperties: false
+      required: [id, categoryId, approved, translations]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 55, pattern: "^[a-z0-9][a-z0-9_-]*$" }
+        categoryId: { type: string, minLength: 1, maxLength: 55 }
+        approved: { type: boolean }
+        translations:
+          type: object
+          additionalProperties: { $ref: "#/components/schemas/TelegramSupportBotFaqTranslation" }
+          propertyNames: { enum: [en, fr, ar, es, de, ru, uk, ko] }
+    SupportBotSettingsInput:
+      type: object
+      additionalProperties: false
+      required: [enabled, automaticRepliesEnabled, contactSupportEnabled, supportUrl, welcomeMessages, categories, faqs]
+      properties:
+        enabled: { type: boolean }
+        automaticRepliesEnabled: { type: boolean }
+        contactSupportEnabled: { type: boolean }
+        supportUrl:
+          type: ["string", "null"]
+          maxLength: 256
+          pattern: "^(?:https://(?:t\\.me|telegram\\.me)/[A-Za-z][A-Za-z0-9_]{4,31}/?|@?[A-Za-z][A-Za-z0-9_]{4,31}| *)$"
+          description: A Telegram support username or its username URL; bare usernames are normalized to the account URL. No other URL or destination is allowed.
+        welcomeMessages:
+          type: object
+          additionalProperties: { type: string, minLength: 1, maxLength: 1200 }
+          propertyNames: { enum: [en, fr, ar, es, de, ru, uk, ko] }
+        categories:
+          type: array
+          maxItems: 20
+          items: { $ref: "#/components/schemas/TelegramSupportBotCategory" }
+        faqs:
+          type: array
+          maxItems: 99
+          items: { $ref: "#/components/schemas/TelegramSupportBotFaq" }
+    TelegramSupportBotStatus:
+      type: object
+      additionalProperties: false
+      required: [tokenConfigured, webhookSecretConfigured, connected, botUsername, webhookUrl, webhookRegistered, registrationAllowed, lastCheckedAt, error]
+      properties:
+        tokenConfigured: { type: boolean }
+        webhookSecretConfigured: { type: boolean }
+        connected: { type: boolean }
+        botUsername: { type: ["string", "null"] }
+        webhookUrl: { type: ["string", "null"] }
+        webhookRegistered: { type: boolean }
+        registrationAllowed: { type: boolean }
+        lastCheckedAt: { type: ["string", "null"], format: date-time }
+        error: { type: ["string", "null"] }
+    TelegramSupportBotResponse:
+      type: object
+      additionalProperties: false
+      required: [settings, status]
+      properties:
+        settings: { $ref: "#/components/schemas/SupportBotSettingsInput" }
+        status: { $ref: "#/components/schemas/TelegramSupportBotStatus" }
     AdminTelegramLink:
       type: object
       required: [id, botUrl, expiresAt]

@@ -19999,6 +19999,219 @@ export const TestAdminNotificationEmailTemplateResponse = zod.object({
 })
 
 
+export const getTelegramSupportBotResponseSettingsSupportUrlMax = 256;
+
+
+export const getTelegramSupportBotResponseSettingsSupportUrlRegExp = new RegExp('^(?:https://(?:t\\.me|telegram\\.me)/[A-Za-z][A-Za-z0-9_]{4,31}/?|@?[A-Za-z][A-Za-z0-9_]{4,31}| *)$');
+export const getTelegramSupportBotResponseSettingsWelcomeMessagesMaxOne = 1200;
+
+export const getTelegramSupportBotResponseSettingsCategoriesItemIdMax = 55;
+
+
+export const getTelegramSupportBotResponseSettingsCategoriesItemIdRegExp = new RegExp('^[a-z0-9][a-z0-9_-]*$');
+export const getTelegramSupportBotResponseSettingsCategoriesMax = 20;
+
+export const getTelegramSupportBotResponseSettingsFaqsItemIdMax = 55;
+
+
+export const getTelegramSupportBotResponseSettingsFaqsItemIdRegExp = new RegExp('^[a-z0-9][a-z0-9_-]*$');
+export const getTelegramSupportBotResponseSettingsFaqsItemCategoryIdMax = 55;
+
+export const getTelegramSupportBotResponseSettingsFaqsItemTranslationsQuestionMax = 200;
+
+export const getTelegramSupportBotResponseSettingsFaqsItemTranslationsAnswerMax = 3500;
+
+export const getTelegramSupportBotResponseSettingsFaqsItemTranslationsAliasesItemMax = 200;
+
+export const getTelegramSupportBotResponseSettingsFaqsItemTranslationsAliasesMax = 10;
+
+export const getTelegramSupportBotResponseSettingsFaqsMax = 99;
+
+
+
+export const GetTelegramSupportBotResponse = zod.object({
+  "settings": zod.object({
+  "enabled": zod.boolean(),
+  "automaticRepliesEnabled": zod.boolean(),
+  "contactSupportEnabled": zod.boolean(),
+  "supportUrl": zod.string().max(getTelegramSupportBotResponseSettingsSupportUrlMax).regex(getTelegramSupportBotResponseSettingsSupportUrlRegExp).nullable().describe('A Telegram support username or its username URL; bare usernames are normalized to the account URL. No other URL or destination is allowed.'),
+  "welcomeMessages": zod.record(zod.string(), zod.string().min(1).max(getTelegramSupportBotResponseSettingsWelcomeMessagesMaxOne)),
+  "categories": zod.array(zod.object({
+  "id": zod.string().min(1).max(getTelegramSupportBotResponseSettingsCategoriesItemIdMax).regex(getTelegramSupportBotResponseSettingsCategoriesItemIdRegExp),
+  "label": zod.record(zod.string(), zod.string()),
+  "enabled": zod.boolean()
+})).max(getTelegramSupportBotResponseSettingsCategoriesMax),
+  "faqs": zod.array(zod.object({
+  "id": zod.string().min(1).max(getTelegramSupportBotResponseSettingsFaqsItemIdMax).regex(getTelegramSupportBotResponseSettingsFaqsItemIdRegExp),
+  "categoryId": zod.string().min(1).max(getTelegramSupportBotResponseSettingsFaqsItemCategoryIdMax),
+  "approved": zod.boolean(),
+  "translations": zod.record(zod.string(), zod.object({
+  "question": zod.string().min(1).max(getTelegramSupportBotResponseSettingsFaqsItemTranslationsQuestionMax),
+  "answer": zod.string().min(1).max(getTelegramSupportBotResponseSettingsFaqsItemTranslationsAnswerMax),
+  "aliases": zod.array(zod.string().min(1).max(getTelegramSupportBotResponseSettingsFaqsItemTranslationsAliasesItemMax)).max(getTelegramSupportBotResponseSettingsFaqsItemTranslationsAliasesMax)
+}))
+})).max(getTelegramSupportBotResponseSettingsFaqsMax)
+}),
+  "status": zod.object({
+  "tokenConfigured": zod.boolean(),
+  "webhookSecretConfigured": zod.boolean(),
+  "connected": zod.boolean(),
+  "botUsername": zod.string().nullable(),
+  "webhookUrl": zod.string().nullable(),
+  "webhookRegistered": zod.boolean(),
+  "registrationAllowed": zod.boolean(),
+  "lastCheckedAt": zod.coerce.date().nullable(),
+  "error": zod.string().nullable()
+})
+})
+
+
+export const updateTelegramSupportBotBodySupportUrlMax = 256;
+
+
+export const updateTelegramSupportBotBodySupportUrlRegExp = new RegExp('^(?:https://(?:t\\.me|telegram\\.me)/[A-Za-z][A-Za-z0-9_]{4,31}/?|@?[A-Za-z][A-Za-z0-9_]{4,31}| *)$');
+export const updateTelegramSupportBotBodyWelcomeMessagesMaxOne = 1200;
+
+export const updateTelegramSupportBotBodyCategoriesItemIdMax = 55;
+
+
+export const updateTelegramSupportBotBodyCategoriesItemIdRegExp = new RegExp('^[a-z0-9][a-z0-9_-]*$');
+export const updateTelegramSupportBotBodyCategoriesMax = 20;
+
+export const updateTelegramSupportBotBodyFaqsItemIdMax = 55;
+
+
+export const updateTelegramSupportBotBodyFaqsItemIdRegExp = new RegExp('^[a-z0-9][a-z0-9_-]*$');
+export const updateTelegramSupportBotBodyFaqsItemCategoryIdMax = 55;
+
+export const updateTelegramSupportBotBodyFaqsItemTranslationsQuestionMax = 200;
+
+export const updateTelegramSupportBotBodyFaqsItemTranslationsAnswerMax = 3500;
+
+export const updateTelegramSupportBotBodyFaqsItemTranslationsAliasesItemMax = 200;
+
+export const updateTelegramSupportBotBodyFaqsItemTranslationsAliasesMax = 10;
+
+export const updateTelegramSupportBotBodyFaqsMax = 99;
+
+
+
+export const UpdateTelegramSupportBotBody = zod.object({
+  "enabled": zod.boolean(),
+  "automaticRepliesEnabled": zod.boolean(),
+  "contactSupportEnabled": zod.boolean(),
+  "supportUrl": zod.string().max(updateTelegramSupportBotBodySupportUrlMax).regex(updateTelegramSupportBotBodySupportUrlRegExp).nullable().describe('A Telegram support username or its username URL; bare usernames are normalized to the account URL. No other URL or destination is allowed.'),
+  "welcomeMessages": zod.record(zod.string(), zod.string().min(1).max(updateTelegramSupportBotBodyWelcomeMessagesMaxOne)),
+  "categories": zod.array(zod.object({
+  "id": zod.string().min(1).max(updateTelegramSupportBotBodyCategoriesItemIdMax).regex(updateTelegramSupportBotBodyCategoriesItemIdRegExp),
+  "label": zod.record(zod.string(), zod.string()),
+  "enabled": zod.boolean()
+})).max(updateTelegramSupportBotBodyCategoriesMax),
+  "faqs": zod.array(zod.object({
+  "id": zod.string().min(1).max(updateTelegramSupportBotBodyFaqsItemIdMax).regex(updateTelegramSupportBotBodyFaqsItemIdRegExp),
+  "categoryId": zod.string().min(1).max(updateTelegramSupportBotBodyFaqsItemCategoryIdMax),
+  "approved": zod.boolean(),
+  "translations": zod.record(zod.string(), zod.object({
+  "question": zod.string().min(1).max(updateTelegramSupportBotBodyFaqsItemTranslationsQuestionMax),
+  "answer": zod.string().min(1).max(updateTelegramSupportBotBodyFaqsItemTranslationsAnswerMax),
+  "aliases": zod.array(zod.string().min(1).max(updateTelegramSupportBotBodyFaqsItemTranslationsAliasesItemMax)).max(updateTelegramSupportBotBodyFaqsItemTranslationsAliasesMax)
+}))
+})).max(updateTelegramSupportBotBodyFaqsMax)
+})
+
+export const updateTelegramSupportBotResponseSettingsSupportUrlMax = 256;
+
+
+export const updateTelegramSupportBotResponseSettingsSupportUrlRegExp = new RegExp('^(?:https://(?:t\\.me|telegram\\.me)/[A-Za-z][A-Za-z0-9_]{4,31}/?|@?[A-Za-z][A-Za-z0-9_]{4,31}| *)$');
+export const updateTelegramSupportBotResponseSettingsWelcomeMessagesMaxOne = 1200;
+
+export const updateTelegramSupportBotResponseSettingsCategoriesItemIdMax = 55;
+
+
+export const updateTelegramSupportBotResponseSettingsCategoriesItemIdRegExp = new RegExp('^[a-z0-9][a-z0-9_-]*$');
+export const updateTelegramSupportBotResponseSettingsCategoriesMax = 20;
+
+export const updateTelegramSupportBotResponseSettingsFaqsItemIdMax = 55;
+
+
+export const updateTelegramSupportBotResponseSettingsFaqsItemIdRegExp = new RegExp('^[a-z0-9][a-z0-9_-]*$');
+export const updateTelegramSupportBotResponseSettingsFaqsItemCategoryIdMax = 55;
+
+export const updateTelegramSupportBotResponseSettingsFaqsItemTranslationsQuestionMax = 200;
+
+export const updateTelegramSupportBotResponseSettingsFaqsItemTranslationsAnswerMax = 3500;
+
+export const updateTelegramSupportBotResponseSettingsFaqsItemTranslationsAliasesItemMax = 200;
+
+export const updateTelegramSupportBotResponseSettingsFaqsItemTranslationsAliasesMax = 10;
+
+export const updateTelegramSupportBotResponseSettingsFaqsMax = 99;
+
+
+
+export const UpdateTelegramSupportBotResponse = zod.object({
+  "settings": zod.object({
+  "enabled": zod.boolean(),
+  "automaticRepliesEnabled": zod.boolean(),
+  "contactSupportEnabled": zod.boolean(),
+  "supportUrl": zod.string().max(updateTelegramSupportBotResponseSettingsSupportUrlMax).regex(updateTelegramSupportBotResponseSettingsSupportUrlRegExp).nullable().describe('A Telegram support username or its username URL; bare usernames are normalized to the account URL. No other URL or destination is allowed.'),
+  "welcomeMessages": zod.record(zod.string(), zod.string().min(1).max(updateTelegramSupportBotResponseSettingsWelcomeMessagesMaxOne)),
+  "categories": zod.array(zod.object({
+  "id": zod.string().min(1).max(updateTelegramSupportBotResponseSettingsCategoriesItemIdMax).regex(updateTelegramSupportBotResponseSettingsCategoriesItemIdRegExp),
+  "label": zod.record(zod.string(), zod.string()),
+  "enabled": zod.boolean()
+})).max(updateTelegramSupportBotResponseSettingsCategoriesMax),
+  "faqs": zod.array(zod.object({
+  "id": zod.string().min(1).max(updateTelegramSupportBotResponseSettingsFaqsItemIdMax).regex(updateTelegramSupportBotResponseSettingsFaqsItemIdRegExp),
+  "categoryId": zod.string().min(1).max(updateTelegramSupportBotResponseSettingsFaqsItemCategoryIdMax),
+  "approved": zod.boolean(),
+  "translations": zod.record(zod.string(), zod.object({
+  "question": zod.string().min(1).max(updateTelegramSupportBotResponseSettingsFaqsItemTranslationsQuestionMax),
+  "answer": zod.string().min(1).max(updateTelegramSupportBotResponseSettingsFaqsItemTranslationsAnswerMax),
+  "aliases": zod.array(zod.string().min(1).max(updateTelegramSupportBotResponseSettingsFaqsItemTranslationsAliasesItemMax)).max(updateTelegramSupportBotResponseSettingsFaqsItemTranslationsAliasesMax)
+}))
+})).max(updateTelegramSupportBotResponseSettingsFaqsMax)
+}),
+  "status": zod.object({
+  "tokenConfigured": zod.boolean(),
+  "webhookSecretConfigured": zod.boolean(),
+  "connected": zod.boolean(),
+  "botUsername": zod.string().nullable(),
+  "webhookUrl": zod.string().nullable(),
+  "webhookRegistered": zod.boolean(),
+  "registrationAllowed": zod.boolean(),
+  "lastCheckedAt": zod.coerce.date().nullable(),
+  "error": zod.string().nullable()
+})
+})
+
+
+export const CheckTelegramSupportBotConnectionResponse = zod.object({
+  "tokenConfigured": zod.boolean(),
+  "webhookSecretConfigured": zod.boolean(),
+  "connected": zod.boolean(),
+  "botUsername": zod.string().nullable(),
+  "webhookUrl": zod.string().nullable(),
+  "webhookRegistered": zod.boolean(),
+  "registrationAllowed": zod.boolean(),
+  "lastCheckedAt": zod.coerce.date().nullable(),
+  "error": zod.string().nullable()
+})
+
+
+export const RegisterTelegramSupportBotWebhookResponse = zod.object({
+  "tokenConfigured": zod.boolean(),
+  "webhookSecretConfigured": zod.boolean(),
+  "connected": zod.boolean(),
+  "botUsername": zod.string().nullable(),
+  "webhookUrl": zod.string().nullable(),
+  "webhookRegistered": zod.boolean(),
+  "registrationAllowed": zod.boolean(),
+  "lastCheckedAt": zod.coerce.date().nullable(),
+  "error": zod.string().nullable()
+})
+
+
 /**
  * @summary Get customer-safe public notification settings
  */

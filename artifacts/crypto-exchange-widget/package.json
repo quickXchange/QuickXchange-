@@ -9,6 +9,7 @@
     "serve": "node server.mjs",
     "test:access-gate": "node --test server.test.mjs",
     "test:selector-search": "node test/run-selector-search.mjs",
+    "test:telegram-support-bot": "node test/run-telegram-support-bot.mjs",
     "test:telegram-support": "node test/run-telegram-support.mjs",
     "test:whitebit-route-state": "node test/run-whitebit-route-state.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"

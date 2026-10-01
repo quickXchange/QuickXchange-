@@ -264,6 +264,7 @@ import type {
   SocialTrustItemInput,
   SocialTrustItemUpdate,
   SocialTrustTitlesInput,
+  SupportBotSettingsInput,
   SwapDefaultPairInput,
   TeamMember,
   TeamMemberInvite,
@@ -279,6 +280,8 @@ import type {
   TelegramMiniAppOrderLinkInput,
   TelegramMiniAppSession,
   TelegramMiniAppSessionInput,
+  TelegramSupportBotResponse,
+  TelegramSupportBotStatus,
   UnsubscribeNewsletterParams,
   WebsiteBranding,
   WebsiteBrandingSaveInput,
@@ -20757,6 +20760,272 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getTestAdminNotificationEmailTemplateMutationOptions(options));
+    }
+
+export const getGetTelegramSupportBotUrl = () => {
+
+
+
+
+  return `/api/admin/telegram/support-bot`
+}
+
+export const getTelegramSupportBot = async ( options?: Parameters<typeof customFetch>[1]): Promise<TelegramSupportBotResponse> => {
+
+  return customFetch<TelegramSupportBotResponse>(getGetTelegramSupportBotUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTelegramSupportBotQueryKey = () => {
+    return [
+    `/api/admin/telegram/support-bot`
+    ] as const;
+    }
+
+
+export const getGetTelegramSupportBotQueryOptions = <TData = Awaited<ReturnType<typeof getTelegramSupportBot>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTelegramSupportBot>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTelegramSupportBotQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTelegramSupportBot>>> = ({ signal }) => getTelegramSupportBot({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTelegramSupportBot>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTelegramSupportBotQueryResult = NonNullable<Awaited<ReturnType<typeof getTelegramSupportBot>>>
+export type GetTelegramSupportBotQueryError = ErrorType<unknown>
+
+
+
+export function useGetTelegramSupportBot<TData = Awaited<ReturnType<typeof getTelegramSupportBot>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTelegramSupportBot>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTelegramSupportBotQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateTelegramSupportBotUrl = () => {
+
+
+
+
+  return `/api/admin/telegram/support-bot`
+}
+
+export const updateTelegramSupportBot = async (supportBotSettingsInput: SupportBotSettingsInput, options?: Parameters<typeof customFetch>[1]): Promise<TelegramSupportBotResponse> => {
+
+  return customFetch<TelegramSupportBotResponse>(getUpdateTelegramSupportBotUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(supportBotSettingsInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateTelegramSupportBotMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTelegramSupportBot>>, TError,{data: BodyType<SupportBotSettingsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateTelegramSupportBot>>, TError,{data: BodyType<SupportBotSettingsInput>}, TContext> => {
+
+const mutationKey = ['updateTelegramSupportBot'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTelegramSupportBot>>, {data: BodyType<SupportBotSettingsInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateTelegramSupportBot(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateTelegramSupportBotMutationResult = NonNullable<Awaited<ReturnType<typeof updateTelegramSupportBot>>>
+    export type UpdateTelegramSupportBotMutationBody = BodyType<SupportBotSettingsInput>
+    export type UpdateTelegramSupportBotMutationError = ErrorType<ApiError>
+
+    export const useUpdateTelegramSupportBot = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTelegramSupportBot>>, TError,{data: BodyType<SupportBotSettingsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateTelegramSupportBot>>,
+        TError,
+        {data: BodyType<SupportBotSettingsInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateTelegramSupportBotMutationOptions(options));
+    }
+
+export const getCheckTelegramSupportBotConnectionUrl = () => {
+
+
+
+
+  return `/api/admin/telegram/support-bot/connection/check`
+}
+
+export const checkTelegramSupportBotConnection = async ( options?: Parameters<typeof customFetch>[1]): Promise<TelegramSupportBotStatus> => {
+
+  return customFetch<TelegramSupportBotStatus>(getCheckTelegramSupportBotConnectionUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCheckTelegramSupportBotConnectionMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkTelegramSupportBotConnection>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof checkTelegramSupportBotConnection>>, TError,void, TContext> => {
+
+const mutationKey = ['checkTelegramSupportBotConnection'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof checkTelegramSupportBotConnection>>, void> = () => {
+
+
+          return  checkTelegramSupportBotConnection(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CheckTelegramSupportBotConnectionMutationResult = NonNullable<Awaited<ReturnType<typeof checkTelegramSupportBotConnection>>>
+
+    export type CheckTelegramSupportBotConnectionMutationError = ErrorType<ApiError>
+
+    export const useCheckTelegramSupportBotConnection = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkTelegramSupportBotConnection>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof checkTelegramSupportBotConnection>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getCheckTelegramSupportBotConnectionMutationOptions(options));
+    }
+
+export const getRegisterTelegramSupportBotWebhookUrl = () => {
+
+
+
+
+  return `/api/admin/telegram/support-bot/connection/register`
+}
+
+export const registerTelegramSupportBotWebhook = async ( options?: Parameters<typeof customFetch>[1]): Promise<TelegramSupportBotStatus> => {
+
+  return customFetch<TelegramSupportBotStatus>(getRegisterTelegramSupportBotWebhookUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRegisterTelegramSupportBotWebhookMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerTelegramSupportBotWebhook>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof registerTelegramSupportBotWebhook>>, TError,void, TContext> => {
+
+const mutationKey = ['registerTelegramSupportBotWebhook'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof registerTelegramSupportBotWebhook>>, void> = () => {
+
+
+          return  registerTelegramSupportBotWebhook(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegisterTelegramSupportBotWebhookMutationResult = NonNullable<Awaited<ReturnType<typeof registerTelegramSupportBotWebhook>>>
+
+    export type RegisterTelegramSupportBotWebhookMutationError = ErrorType<ApiError>
+
+    export const useRegisterTelegramSupportBotWebhook = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerTelegramSupportBotWebhook>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof registerTelegramSupportBotWebhook>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRegisterTelegramSupportBotWebhookMutationOptions(options));
     }
 
 export const getGetPublicNotificationSettingsUrl = () => {

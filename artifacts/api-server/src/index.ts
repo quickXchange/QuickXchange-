@@ -12,6 +12,7 @@ import { startTelegramNewsWorker } from "./lib/telegram-news";
 import { startBlockchainMonitoringWorker } from "./lib/blockchain-monitoring/service";
 import { startConvertReconciliationWorker } from "./lib/convert-provider-boundary";
 import { applyConfiguredCustomerNotificationRecovery } from "./lib/customer-status-notifications";
+import { startTelegramSupportBotWorker } from "./lib/telegram-support-bot-outbox";
 
 const rawPort = process.env["PORT"];
 
@@ -67,6 +68,7 @@ async function start() {
   const stopNewsletterWorker = startNewsletterWorker();
   const stopTelegramWorker = startTelegramNotificationWorker();
   const stopTelegramNewsWorker = startTelegramNewsWorker();
+  const stopTelegramSupportBotWorker = startTelegramSupportBotWorker();
   const stopBlockchainMonitoringWorker = startBlockchainMonitoringWorker();
   const stopWhitebitHistoryWorker = startWhitebitHistoryWorker();
   void setupTelegramCommands().catch((error) => logger.warn({ err: error }, "Telegram command setup failed"));
@@ -118,6 +120,7 @@ async function start() {
   server.on("close", stopNewsletterWorker);
   server.on("close", stopTelegramWorker);
   server.on("close", stopTelegramNewsWorker);
+  server.on("close", () => { void stopTelegramSupportBotWorker(); });
   server.on("close", stopBlockchainMonitoringWorker);
   server.on("close", stopWhitebitHistoryWorker);
   server.on("close", stopConvertWorker);
@@ -136,7 +139,7 @@ async function start() {
     }, 15_000);
     forceExit.unref();
 
-    server.close(async (error) => {
+    void stopTelegramSupportBotWorker().then(() => server.close(async (error) => {
       try {
         await pool.end();
       } catch (poolError) {
@@ -150,7 +153,7 @@ async function start() {
       }
       logger.info("Graceful shutdown completed");
       process.exit(0);
-    });
+    }));
   };
 
   process.once("SIGTERM", shutdown);

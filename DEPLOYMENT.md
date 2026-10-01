@@ -107,6 +107,39 @@ curl -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
 
 The endpoint returns `404` while the bot is disabled, so existing deployments
 can roll out this code before Telegram configuration is complete.
+
+### Separate QuickXchange Support Bot
+
+The Support Bot is independent of the Exchange Bot and Telegram Mini App.
+Its Owner-managed configuration lives under **Admin → Telegram → Support Bot**.
+Never replace `TELEGRAM_BOT_TOKEN` or reuse the Exchange Bot's credentials for it.
+
+- Add `TELEGRAM_SUPPORT_BOT_TOKEN` for a separate BotFather bot in project
+  **Secrets**, not in a form, source file, or database.
+- Add `TELEGRAM_SUPPORT_BOT_WEBHOOK_SECRET` in Secrets as well. Use a different,
+  strong webhook secret from the Exchange Bot and restart the API to reload it.
+- Configure the support account username/link, welcome translations, categories,
+  approved FAQs, and reply/contact switches in the Owner-only Admin editor.
+  FAQs are public support content: never put credentials, private order details,
+  or customer information in an answer.
+- **Check connection** verifies only the separate support credentials.
+  **Register webhook** is an explicit Owner action on the deployed production
+  server. It uses the trusted `PUBLIC_APP_URL` and the separate
+  `/api/telegram/support/webhook` endpoint. Registration is unavailable in the
+  development workspace; saving settings or starting the API does not register
+  a webhook or change an existing bot.
+- After rotating either support credential, explicitly register the Support
+  Bot webhook again on the deployed server. A connection check cannot verify
+  Telegram's stored webhook secret merely from a matching webhook URL.
+- The bot answers only approved questions/aliases. Human-support requests and
+  unmatched questions use the configured direct Telegram account contact.
+  No order lookup, financial execution, account linking, or AI-generated answer
+  is part of this bot.
+
+The Support Bot starts disabled/disconnected until configured. Support updates
+and delivery retries use their own persistence, not the Exchange Bot's inbox,
+order links, notification queues, or customer chat records.
+
 - `QUICKEX_BASE_URL`, `QUICKEX_READ_TIMEOUT_MS`,
   `QUICKEX_CREATE_TIMEOUT_MS`, `ONEFORGE_BASE_URL`,
   `COINBASE_USD_RATES_URL`, and `LOG_LEVEL`: optional operational overrides.

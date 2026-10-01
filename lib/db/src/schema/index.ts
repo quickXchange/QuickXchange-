@@ -48,6 +48,7 @@ export * from "./newsletter";
 export * from "./whitebit-deposits";
 export * from "./telegram";
 export * from "./telegram-news";
+export * from "./telegram-support-bot";
 export * from "./blockchain-monitoring";
 export * from "./notification-settings";
 export * from "./convert-notification-outbox";

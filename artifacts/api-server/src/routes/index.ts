@@ -23,6 +23,7 @@ import blockchainMonitoringRouter from "./blockchain-monitoring";
 import notificationSettingsRouter from "./notification-settings";
 import convertCompatibilityRouter from "./convert-compatibility";
 import exchangeConfigRouter from "./exchange-config";
+import telegramSupportBotRouter from "./telegram-support-bot";
 
 const router: IRouter = Router();
 
@@ -44,6 +45,7 @@ router.use(workspaceConfigSyncRouter);
 // Authenticate first, then enforce the centralized granular policy before any
 // Admin router can execute. Unmatched staff routes are deny-by-default.
 router.use(adminPolicy);
+router.use(telegramSupportBotRouter);
 router.use(convertCompatibilityRouter);
 router.use(exchangeConfigRouter);
 router.use(blockchainMonitoringRouter);

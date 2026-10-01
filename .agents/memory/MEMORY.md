@@ -98,6 +98,7 @@
 - [Published Site Content freshness](published-site-content-freshness.md) — public revision endpoints must revalidate on every load so Admin publishing is immediately visible.
 - [Asset all-networks pricing](asset-all-networks-pricing.md) — persist immutable crypto asset IDs; concrete network routes outrank asset rules, which outrank broad Any.
 - [Telegram financial order delivery](telegram-financial-order-delivery.md) — fence chat updates and keep order creation, reconciliation, and deposit delivery durable.
+- [Support delivery safety](telegram-support-delivery-safety.md) — expired callback acknowledgements cannot block replies; matching webhook URLs do not attest secrets.
 - [Optional refund destinations](optional-refund-destinations.md) — omission must never block an order; validate supplied crypto refunds against the sending network.
 - [Telegram shared identity](telegram-shared-identity.md) — link through website Clerk only; freeze ownership before create and atomically claim before storing Telegram capabilities.
 - [Official RSS CDN resolution](official-rss-cdn-resolution.md) — hardcoded publisher feeds may require runtime CDN resolution; direct validated-IP pinning can fail on managed egress.
@@ -122,9 +123,7 @@
 - [Canonical Manual Swap status](canonical-manual-swap-status.md) — customer surfaces use one backend status; operational settlement stages must not become competing public lifecycle states.
 - [Canonical Convert status](convert-status-synchronization.md) — all surfaces share Quickex lifecycle state; payment milestones require exact provider evidence and Convert-only outbox events.
 - [Monitoring gap cursor boundary](monitoring-gap-cursor-boundary.md) — delayed watch activation starts at a fresh chain head; never silently backdate it to capture earlier transfers.
-- [EVM event scanning](evm-receipt-scan-efficiency.md) — prefilter native receipts; independently verify [event signatures](canonical-evm-event-signatures.md).
-- [Blockchain monitoring route identities](blockchain-monitoring-route-identities.md) — never infer native/token identity from network family; bulk setup enables only explicit identities.
-- [Issuer-verified bridged tokens](issuer-verified-bridged-tokens.md) — leave bridged token routes incomplete when issuer protocol lists do not verify the deployment.
+- [Blockchain evidence reference](blockchain-evidence-reference.md) — EVM/TRON proofs, route IDs, bridged-token identities, Ethereum/BSC readiness, Polygon USDT0, and UTXO reorg windows.
 - [Payment-backed Admin notifications](payment-backed-admin-notifications.md) — financial milestones require proof; unpaid failure alerts must stay neutral.
 - [BSC payment evidence lookup](bsc-payment-evidence-lookup.md) — public BSC RPCs may reject broad token-log scans; discover the tx narrowly, then verify its receipt and canonical block by RPC.
 - [Recovery migration replay isolation](recovery-migration-replay-isolation.md) — obsolete evidence recoveries must not replay ahead of a current recovery or one mismatch can stop the monitoring worker.
@@ -133,11 +132,6 @@
 - [Verified funding transaction identity](verified-funding-transaction-identity.md) — Manual Swap TxIDs come only from applied immutable observations and must remain separate from editable operational references.
 - [Environment-specific RPC secret overrides](rpc-secret-environment-overrides.md) — a changed shared RPC secret can remain shadowed by an environment override; validate the runtime value in every target environment.
 - [Bundled test worker cleanup](bundled-test-worker-cleanup.md) — bundled Node tests must avoid presentation transports and await child closure before deleting temporary output.
-- [TRON evidence identities](tron-contract-query-encoding.md) — bind TRC20 logs exactly; verify [native transfers](tron-native-evidence.md) against canonical blocks.
-- [Polygon USDT0 identity boundary](polygon-usdt0-identity.md) — Polygon’s former bridged USDT contract now identifies as USDT0; never persist it as USDT without a catalog decision.
-- [Ethereum/BSC readiness](ethereum-strict-readiness.md) — strict canonical ERC20 proofs; [BSC native exception](bsc-legacy-readiness-boundary.md) must not cover BEP20 tokens.
-- [UTXO reorg discovery windows](utxo-reorg-discovery-windows.md) — UTXO monitors must rewind bounded confirmation windows so replacement-chain deposits are discoverable.
-- [Signed crypto route identity](signed-crypto-route-identity.md) — resolve manual funding and monitoring by immutable route ID before deriving canonical network codes; display labels are not identifiers.
 - [Provider settlement field validation](provider-settlement-field-validation.md) — reject the whole quote when any provider-declared settlement field is malformed; never silently drop it.
 - [Convert and monitoring boundary](convert-monitoring-boundary.md) — Quickex Convert execution and Manual Swap blockchain monitoring must remain runtime-independent.
 - [Bounded blockchain catch-up](bounded-blockchain-catch-up.md) — lagging EVM watches need multiple small ranges per cycle with end-to-end deadline, lease, fairness, and cursor fencing.

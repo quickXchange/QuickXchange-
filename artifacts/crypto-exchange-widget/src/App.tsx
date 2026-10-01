@@ -147,6 +147,7 @@ const AdminBlogPage = lazy(() => import('./pages/admin-blog').then(module => ({ 
 const AdminBlogEditorPage = lazy(() => import('./pages/admin-blog-editor').then(module => ({ default: module.AdminBlogEditorPage })));
 const AdminBlogAutomationPage = lazy(() => import('./pages/admin-blog-automation').then(module => ({ default: module.AdminBlogAutomationPage })));
 const AdminNewsletterPage = lazy(() => import('./pages/admin-newsletter').then(module => ({ default: module.AdminNewsletterPage })));
+const AdminTelegramSupportBotPage = lazy(() => import('./pages/admin-telegram-support-bot').then(module => ({ default: module.AdminTelegramSupportBotPage })));
 const OrderConfirmationPage = lazy(() => import('./pages/order-confirmation').then(module => ({ default: module.OrderConfirmationPage })));
 const AdminTeamPage = lazy(() => import('./pages/admin-team').then(module => ({ default: module.AdminTeamPage })));
 
@@ -1668,6 +1669,7 @@ const ADMIN_TOP_LEVEL_HEADER_LABELS: Record<string, string> = {
   '/admin/site-content': 'CONTENT / PUBLIC SITE',
   '/admin/blog': 'CONTENT / BLOG',
   '/admin/newsletter': 'CONTENT / NEWSLETTER',
+  '/admin/telegram/support-bot': 'TELEGRAM / SUPPORT BOT',
 };
 
 function isAdminNavigationItemActive(href: string, pathname: string) {
@@ -1744,6 +1746,12 @@ export function AdminShell({ children, title, eyebrow, action, subtitle, titleIc
         { href: '/admin/affiliates', label: t('adminShell.affiliates'), testId: 'affiliates', icon: Network, requiredPermission: 'affiliates.view' },
         { href: '/admin/payouts', label: t('adminShell.payouts'), testId: 'payouts', icon: HandCoins, requiredPermission: 'affiliates.view' },
         { href: '/admin/affiliate-settings', label: t('adminShell.programSettings'), testId: 'affiliate-settings', icon: Settings, requiredPermission: 'affiliates.view' },
+      ]
+    },
+    {
+      title: 'Telegram',
+      items: [
+        { href: '/admin/telegram/support-bot', label: 'Support Bot', testId: 'telegram-support-bot', icon: Bell, requiredPermission: 'site_settings.manage', ownerOnly: true },
       ]
     },
     {
@@ -2411,6 +2419,7 @@ const AdminBlogRoute = authorizedAdminRoute(AdminBlogPage);
 const AdminBlogEditorRoute = authorizedAdminRoute(AdminBlogEditorPage);
 const AdminBlogAutomationRoute = authorizedAdminRoute(AdminBlogAutomationPage);
 const AdminNewsletterRoute = authorizedAdminRoute(AdminNewsletterPage);
+const AdminTelegramSupportBotRoute = authorizedAdminRoute(AdminTelegramSupportBotPage);
 
 function ClerkQueryClientCacheInvalidator() {
   const { addListener } = useClerk();
@@ -2735,6 +2744,7 @@ function ClerkProviderWithRoutes() {
             <Route path="/admin/blog/edit/:id" component={AdminBlogEditorRoute} />
             <Route path="/admin/blog/automation" component={AdminBlogAutomationRoute} />
             <Route path="/admin/newsletter" component={AdminNewsletterRoute} />
+            <Route path="/admin/telegram/support-bot" component={AdminTelegramSupportBotRoute} />
             <Route component={NotFound} />
             </Switch>
             {location.startsWith('/admin') && <AdminActionToastHost />}

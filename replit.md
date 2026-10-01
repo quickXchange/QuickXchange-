@@ -37,6 +37,7 @@ Rook is a crypto exchange widget for transparent manual fiat orders, crypto conv
 - Manual fiat orders and provider-backed crypto/on-ramp orders share one operational order model so staff can filter and update them in one queue.
 - The XML feed is generated from the same order records used by the admin queue to avoid divergent exports.
 - Quickex credentials stay server-side; the admin Providers page exposes only configured/reachability status and never returns credential values.
+- The QuickXchange Support Bot is separate from the Exchange Bot/Mini App: its own Secrets, webhook, approved FAQs, and delivery persistence. Never replace Exchange Bot credentials or add financial/customer lookups to support replies.
 
 ## Product
 

@@ -7241,6 +7241,107 @@ export interface NotificationTestResult {
   message: string;
 }
 
+export type TelegramSupportBotLocale = typeof TelegramSupportBotLocale[keyof typeof TelegramSupportBotLocale];
+
+
+export const TelegramSupportBotLocale = {
+  en: 'en',
+  fr: 'fr',
+  ar: 'ar',
+  es: 'es',
+  de: 'de',
+  ru: 'ru',
+  uk: 'uk',
+  ko: 'ko',
+} as const;
+
+export type TelegramSupportBotLocalizedText = Partial<Record<'en' | 'fr' | 'ar' | 'es' | 'de' | 'ru' | 'uk' | 'ko', string>>;
+
+export interface TelegramSupportBotFaqTranslation {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  question: string;
+  /**
+     * @minLength 1
+     * @maxLength 3500
+     */
+  answer: string;
+  /**
+     * @maxItems 10
+     * @items.minLength 1
+     * @items.maxLength 200
+     */
+  aliases: string[];
+}
+
+export interface TelegramSupportBotCategory {
+  /**
+     * @minLength 1
+     * @maxLength 55
+     * @pattern ^[a-z0-9][a-z0-9_-]*$
+     */
+  id: string;
+  label: TelegramSupportBotLocalizedText;
+  enabled: boolean;
+}
+
+export interface TelegramSupportBotFaq {
+  /**
+     * @minLength 1
+     * @maxLength 55
+     * @pattern ^[a-z0-9][a-z0-9_-]*$
+     */
+  id: string;
+  /**
+     * @minLength 1
+     * @maxLength 55
+     */
+  categoryId: string;
+  approved: boolean;
+  translations: Partial<Record<'en' | 'fr' | 'ar' | 'es' | 'de' | 'ru' | 'uk' | 'ko', TelegramSupportBotFaqTranslation>>;
+}
+
+export interface SupportBotSettingsInput {
+  enabled: boolean;
+  automaticRepliesEnabled: boolean;
+  contactSupportEnabled: boolean;
+  /**
+     * A Telegram support username or its username URL; bare usernames are normalized to the account URL. No other URL or destination is allowed.
+     * @maxLength 256
+     * @nullable
+     * @pattern ^(?:https://(?:t\.me|telegram\.me)/[A-Za-z][A-Za-z0-9_]{4,31}/?|@?[A-Za-z][A-Za-z0-9_]{4,31}| *)$
+     */
+  supportUrl: string | null;
+  welcomeMessages: Partial<Record<'en' | 'fr' | 'ar' | 'es' | 'de' | 'ru' | 'uk' | 'ko', string>>;
+  /** @maxItems 20 */
+  categories: TelegramSupportBotCategory[];
+  /** @maxItems 99 */
+  faqs: TelegramSupportBotFaq[];
+}
+
+export interface TelegramSupportBotStatus {
+  tokenConfigured: boolean;
+  webhookSecretConfigured: boolean;
+  connected: boolean;
+  /** @nullable */
+  botUsername: string | null;
+  /** @nullable */
+  webhookUrl: string | null;
+  webhookRegistered: boolean;
+  registrationAllowed: boolean;
+  /** @nullable */
+  lastCheckedAt: string | null;
+  /** @nullable */
+  error: string | null;
+}
+
+export interface TelegramSupportBotResponse {
+  settings: SupportBotSettingsInput;
+  status: TelegramSupportBotStatus;
+}
+
 export interface AdminTelegramLink {
   id: string;
   botUrl: string;
