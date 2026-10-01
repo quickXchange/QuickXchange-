@@ -10318,7 +10318,7 @@ body > [data-radix-popper-content-wrapper]:has(> .catalog-network-multiselect-co
   background-color: hsl(var(--card));
 }
 
-.admin-shell.admin-redesign :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not(.admin-search-input) {
+.admin-shell.admin-redesign :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not(.admin-search-input):not(.admin-list-pagination-select) {
   min-height: 42px;
   border: 1px solid hsl(var(--border) / 0.84);
   border-radius: 12px;
@@ -10347,11 +10347,11 @@ body > [data-radix-popper-content-wrapper]:has(> .catalog-network-multiselect-co
   background-size: 5px 5px, 5px 5px;
 }
 
-.admin-shell.admin-redesign :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not(.admin-search-input):hover {
+.admin-shell.admin-redesign :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not(.admin-search-input):not(.admin-list-pagination-select):hover {
   border-color: hsl(var(--primary) / 0.42);
 }
 
-.admin-shell.admin-redesign :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not(.admin-search-input):focus {
+.admin-shell.admin-redesign :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not(.admin-search-input):not(.admin-list-pagination-select):focus {
   border-color: hsl(var(--primary) / 0.86);
   outline: none;
   background-color: hsl(var(--card));

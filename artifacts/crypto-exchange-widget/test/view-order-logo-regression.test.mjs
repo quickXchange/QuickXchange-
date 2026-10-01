@@ -70,3 +70,21 @@ test('website payment methods render through the shared measured logo in both th
   assert.doesNotMatch(component, /PAYMENT_METHOD_VISUAL_PROFILES|logoScale|<LogoAvatar|className="payment-method-logo"/);
   assert.ok(component.indexOf(': [logoUrl]') < component.indexOf('preferBrandIcon ? [brandfetchUrl, bundledFallback]'));
 });
+
+test('landing payment ticker uses un-clipped contain boxes and measured theme contrast', async () => {
+  const app = await source('../src/App.tsx');
+  const component = await source('../src/components/payment-method-logo.tsx');
+  const styles = await source('../src/index.css');
+  const paymentLogo = await source('../../../lib/payment-logo/src/index.ts');
+
+  assert.match(app, /<PaymentMethodLogo\s+name=\{method\.name\}\s+logoUrl=\{method\.logoUrl\}[\s\S]*?className="payment-ticker-logo"/);
+  assert.match(component, /const themeLogoUrl = isDark \? darkLogoUrl : lightLogoUrl/);
+  assert.match(component, /const logoUrl = themeLogoUrl \|\| configuredLogoUrl/);
+  assert.match(styles, /\.payment-method-logo-stack\.payment-ticker-logo\s*\{\s*overflow:\s*visible !important;\s*border-radius:\s*0 !important;/);
+  assert.match(styles, /\.payment-method-logo-stack\.payment-ticker-logo \.payment-logo-frame\s*\{[^}]*border-radius:\s*0 !important[^}]*overflow:\s*visible !important/s);
+  assert.match(styles, /\.payment-method-logo-stack\.payment-ticker-logo \.payment-logo-image\s*\{[^}]*object-fit:\s*contain !important[^}]*object-position:\s*center !important[^}]*transform:\s*none !important/s);
+  assert.match(styles, /\.dark \.payment-method-logo-stack\.payment-ticker-logo \.payment-logo-frame-low-luminance\s*\{[^}]*background:\s*#f5f6f8 !important/s);
+  assert.match(styles, /\.dark \.payment-method-logo-stack\.payment-ticker-logo\[data-brand="visa"\] \.payment-logo-fallback\s*\{\s*background:\s*#f5f6f8;/);
+  assert.match(styles, /html:not\(\.dark\).*payment-ticker-logo.*payment-logo-frame-high-luminance/s);
+  assert.match(paymentLogo, /fit\.transparentBackground && \(fit\.artworkLuminance \?\? 0\) >= 0\.82/);
+});

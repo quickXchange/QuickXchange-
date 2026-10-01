@@ -21,6 +21,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useForm, Controller } from 'react-hook-form';
 import { notifyAdminAction } from '@/components/admin-action-toast';
+import { AdminListPagination } from '@/components/admin-list-pagination';
 
 export function RolesList({ auth }: { auth: AdminAuthorization }) {
   const { data: roles, isLoading, error } = useListTeamRoles();
@@ -28,7 +29,7 @@ export function RolesList({ auth }: { auth: AdminAuthorization }) {
   const [editingRole, setEditingRole] = useState<TeamRole | null>(null);
   const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(() => new Set());
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(15);
+  const [pageSize, setPageSize] = useState(25);
   const queryClient = useQueryClient();
   const deleteRole = useDeleteTeamRole();
 
@@ -48,18 +49,6 @@ export function RolesList({ auth }: { auth: AdminAuthorization }) {
   const allVisibleSelected = visibleRoles.length > 0 && selectedRoles.length === visibleRoles.length;
   const someVisibleSelected = selectedRoles.length > 0;
   const selectedRoleInUse = selectedRoles.some(role => role.usageCount > 0);
-  const visiblePageItems = (() => {
-    if (pageCount <= 7) return Array.from({ length: pageCount }, (_, index) => index + 1);
-    const pages = new Set([1, pageCount, currentPage - 1, currentPage, currentPage + 1]);
-    const ordered = Array.from(pages).filter(value => value >= 1 && value <= pageCount).sort((a, b) => a - b);
-    const items: Array<number | string> = [];
-    ordered.forEach((value, index) => {
-      if (index > 0 && value - ordered[index - 1] > 1) items.push(`ellipsis-${value}`);
-      items.push(value);
-    });
-    return items;
-  })();
-
   const handleBulkDelete = async () => {
     if (!selectedRoles.length || selectedRoleInUse) return;
     if (!confirm(`Delete ${selectedRoles.length} selected role${selectedRoles.length === 1 ? '' : 's'}?`)) return;
@@ -141,19 +130,15 @@ export function RolesList({ auth }: { auth: AdminAuthorization }) {
           </tbody>
         </table>
       </div>
-      {roles.length > 0 && <div className="pricing-pagination team-roles-pagination">
-        <span className="pricing-pagination-range">{(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, roles.length)} of {roles.length}</span>
-        <div className="pricing-pagination-controls">
-          <div className="pricing-page-navigation">
-            <button type="button" onClick={() => setPage(value => Math.max(1, value - 1))} disabled={currentPage === 1} aria-label="Previous roles page">‹</button>
-            {visiblePageItems.map(item => typeof item === 'number'
-              ? <button type="button" key={item} className={cn(item === currentPage && 'active')} onClick={() => setPage(item)}>{item}</button>
-              : <span key={item} className="pricing-pagination-ellipsis" aria-hidden="true">…</span>)}
-            <button type="button" onClick={() => setPage(value => Math.min(pageCount, value + 1))} disabled={currentPage === pageCount} aria-label="Next roles page">›</button>
-          </div>
-          <label className="pricing-page-size"><span>Per page</span><select value={pageSize} onChange={event => { setPageSize(Number(event.target.value)); setPage(1); }} aria-label="Roles per page">{[15, 25, 50, 100].map(value => <option key={value} value={value}>{value} per page</option>)}</select></label>
-        </div>
-      </div>}
+      <AdminListPagination
+        page={page}
+        pageSize={pageSize}
+        total={roles.length}
+        onPageChange={setPage}
+        onPageSizeChange={size => { setPageSize(size); setPage(1); }}
+        testId="team-roles-pagination"
+        testIds={{ pageSize: 'select-team-roles-page-size', previous: 'button-team-roles-previous', next: 'button-team-roles-next' }}
+      />
       
       {createOpen && <RoleFormDialog open={createOpen} onOpenChange={setCreateOpen} auth={auth} mode="create" />}
       {editingRole && <RoleFormDialog open={Boolean(editingRole)} onOpenChange={open => { if (!open) setEditingRole(null); }} auth={auth} role={editingRole} mode="edit" />}

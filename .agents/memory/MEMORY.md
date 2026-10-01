@@ -54,6 +54,7 @@
 - [Global flag geometry](global-flag-geometry.md) — keep country flags under the last-loaded shared square-wrapper contract; legacy context rules can otherwise reshape them.
 - [Mobile swipe tables](mobile-swipe-tables.md) — preserve real tables on phones; the entire table scrolls horizontally with no frozen columns.
 - [Shared Admin search isolation](admin-search-isolation.md) — shared search geometry must stay isolated from generic Admin input and mobile toolbar sizing rules.
+- [Admin pagination boundaries](admin-pagination-boundaries.md) — never invent unavailable totals; isolate shared footers from legacy pagination and duplicated generic form styles.
 - [Admin order network labels](admin-convert-network-labels.md) — Convert and Swap crypto rows show concise route codes such as BEP20, not combined network titles.
 - [Stable exchange shell](stable-exchange-shell.md) — all Swap/Convert steps keep Step 1's responsive outer size; only overflowing fields scroll.
 - [Affiliate referral code compatibility](affiliate-referral-codes.md) — show compact codes without invalidating previously shared referral URLs or weakening immutable attribution.

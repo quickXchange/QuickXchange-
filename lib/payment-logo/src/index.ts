@@ -9,6 +9,7 @@ export type PaymentLogoFit = {
   y: number;
   artworkAspect: number;
   artworkLuminance?: number;
+  transparentBackground?: boolean;
   contrast: 'low' | 'normal' | 'unknown';
 };
 
@@ -256,6 +257,7 @@ function fitSolidBackgroundArtwork(
     y: ((height / 2 - (top + bottom + 1) / 2) / height) * scale * 100,
     artworkAspect: visibleWidth / visibleHeight,
     artworkLuminance,
+    transparentBackground: false,
     contrast: 'normal',
   };
 }
@@ -317,6 +319,7 @@ export function fitVisibleArtwork(
     y: ((height / 2 - (top + bottom + 1) / 2) / height) * scale * 100,
     artworkAspect: visibleWidth / visibleHeight,
     artworkLuminance,
+    transparentBackground,
     contrast: contrastForArtwork(artworkLuminance, transparentBackground),
   };
 }
@@ -439,6 +442,9 @@ export function PaymentLogo({
       className: [
         'payment-logo-frame',
         currentSource && fit.contrast === 'low' ? 'payment-logo-frame-low-luminance' : undefined,
+        currentSource && fit.transparentBackground && (fit.artworkLuminance ?? 0) >= 0.82
+          ? 'payment-logo-frame-high-luminance'
+          : undefined,
         className,
       ].filter(Boolean).join(' '),
       style: {

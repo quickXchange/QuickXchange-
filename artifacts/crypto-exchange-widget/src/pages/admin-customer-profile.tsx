@@ -19,6 +19,7 @@ import { AdminShell, ErrorState, LoadingBlock, InlineNotice, apiErrorText, FiatC
 import { CryptoIdentity } from '../components/crypto-identity';
 import { useI18n } from '../i18n/provider';
 import { notifyAdminAction } from '@/components/admin-action-toast';
+import { AdminListPagination } from '@/components/admin-list-pagination';
 
 const fiatAssets = new Set(['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'CHF', 'JPY']);
 
@@ -57,7 +58,8 @@ export function AdminCustomerProfile() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const [referralsPage, setReferralsPage] = useState(1);
-  const referralsParams = { page: referralsPage, pageSize: 25 };
+  const [referralsPageSize, setReferralsPageSize] = useState(25);
+  const referralsParams = { page: referralsPage, pageSize: referralsPageSize };
 
   const customerQuery = useGetAdminCustomer(id, { query: { queryKey: getGetAdminCustomerQueryKey(id), refetchInterval: 15000, refetchOnWindowFocus: true } });
   const referralsQuery = useGetAdminCustomerReferrals(id, referralsParams, { query: { queryKey: getGetAdminCustomerReferralsQueryKey(id, referralsParams), refetchInterval: 30000, refetchOnWindowFocus: true } });
@@ -459,13 +461,25 @@ export function AdminCustomerProfile() {
                   ) : referralsQuery.isError ? (
                     <ErrorState message={t('adminCustomer.referralsLoadError')} retry={() => referralsQuery.refetch()} />
                   ) : !referralsQuery.data?.items || referralsQuery.data.items.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-16 text-center" data-testid="empty-referred-users">
-                      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4 text-muted-foreground">
-                        <Users size={24} />
+                    <>
+                      <div className="flex flex-col items-center justify-center py-16 text-center" data-testid="empty-referred-users">
+                        <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4 text-muted-foreground">
+                          <Users size={24} />
+                        </div>
+                        <h3 className="text-lg font-bold mb-1">{t('adminCustomer.noReferredUsers')} </h3>
+                        <p className="text-sm text-muted-foreground">{t('adminCustomer.noReferredUsersDescription')} </p>
                       </div>
-                      <h3 className="text-lg font-bold mb-1">{t('adminCustomer.noReferredUsers')} </h3>
-                      <p className="text-sm text-muted-foreground">{t('adminCustomer.noReferredUsersDescription')} </p>
-                    </div>
+                      <AdminListPagination
+                        page={referralsPage}
+                        pageSize={referralsPageSize}
+                        total={referralsQuery.data?.total}
+                        onPageChange={setReferralsPage}
+                        onPageSizeChange={size => { setReferralsPageSize(size); setReferralsPage(1); }}
+                        isLoading={referralsQuery.isFetching}
+                        testId="customer-referrals-pagination"
+                        testIds={{ pageSize: 'select-referrals-page-size', previous: 'button-referrals-previous', next: 'button-referrals-next', range: 'text-referrals-range' }}
+                      />
+                    </>
                   ) : (
                     <div>
                       <div className="w-full relative group">
@@ -502,31 +516,16 @@ export function AdminCustomerProfile() {
                         </table>
                       </div>
                       </div>
-                      <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
-                        <span className="text-xs text-muted-foreground">
-                          {t('adminCustomer.pagination', { page: formatNumber(referralsQuery.data.page), total: formatNumber(referralsQuery.data.total) })}
-                        </span>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            className="button button-secondary"
-                            disabled={referralsPage <= 1 || referralsQuery.isFetching}
-                            onClick={() => setReferralsPage((page) => Math.max(1, page - 1))}
-                            data-testid="button-referrals-previous"
-                          >
-                            {t('adminCustomer.previous')}
-                          </button>
-                          <button
-                            type="button"
-                            className="button button-secondary"
-                            disabled={referralsPage * referralsQuery.data.pageSize >= referralsQuery.data.total || referralsQuery.isFetching}
-                            onClick={() => setReferralsPage((page) => page + 1)}
-                            data-testid="button-referrals-next"
-                          >
-                            {t('adminCustomer.next')}
-                          </button>
-                        </div>
-                      </div>
+                      <AdminListPagination
+                        page={referralsPage}
+                        pageSize={referralsPageSize}
+                        total={referralsQuery.data.total}
+                        onPageChange={setReferralsPage}
+                        onPageSizeChange={size => { setReferralsPageSize(size); setReferralsPage(1); }}
+                        isLoading={referralsQuery.isFetching}
+                        testId="customer-referrals-pagination"
+                        testIds={{ pageSize: 'select-referrals-page-size', previous: 'button-referrals-previous', next: 'button-referrals-next', range: 'text-referrals-range' }}
+                      />
                     </div>
                   )}
                 </TabsPrimitive.Content>

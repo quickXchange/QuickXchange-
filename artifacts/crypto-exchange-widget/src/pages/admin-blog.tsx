@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation } from 'wouter';
+import { Link, useLocation, useSearch } from 'wouter';
 import { useListAdminBlogArticles, useDeleteAdminBlogArticle, usePublishAdminBlogArticle, useUnpublishAdminBlogArticle } from '@workspace/api-client-react';
 import { AdminShell } from '@/App';
 import { cn, ErrorState, LoadingBlock, StatusPill } from '@/components/shared-app-ui';
@@ -10,18 +10,30 @@ import { queryClient } from '@/App';
 import { getListAdminBlogArticlesQueryKey } from '@workspace/api-client-react';
 import { useAdminPermissions } from '@/lib/admin-permissions';
 import { notifyAdminAction } from '@/components/admin-action-toast';
+import { AdminListPagination } from '@/components/admin-list-pagination';
 
 export function AdminBlogPage() {
   const { can } = useAdminPermissions();
   const canManage = can('blog.manage');
   const [location, setLocation] = useLocation();
-  const searchParams = new URLSearchParams(window.location.search);
-  const pageParam = searchParams.get('page');
-  const page = pageParam ? parseInt(pageParam, 10) : 1;
+  const urlSearch = useSearch();
+  const searchParams = new URLSearchParams(urlSearch);
+  const parsedPage = Number(searchParams.get('page'));
+  const page = Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+  const requestedPageSize = Number(searchParams.get('pageSize'));
+  const pageSize = [10, 25, 50, 100].includes(requestedPageSize) ? requestedPageSize : 25;
   const [search, setSearch] = useState('');
   const [openArticleMenuId, setOpenArticleMenuId] = useState<string | null>(null);
 
-  const params = { page, pageSize: 20 };
+  const updatePaginationUrl = (nextPage: number, nextPageSize?: number) => {
+    const nextSearchParams = new URLSearchParams(window.location.search);
+    const liveSize = Number(nextSearchParams.get('pageSize'));
+    nextSearchParams.set('page', String(nextPage));
+    nextSearchParams.set('pageSize', String(nextPageSize ?? ([10, 25, 50, 100].includes(liveSize) ? liveSize : pageSize)));
+    setLocation(`${location.split('?')[0]}?${nextSearchParams.toString()}`);
+  };
+
+  const params = { page, pageSize };
   const articles = useListAdminBlogArticles(params, { query: { queryKey: getListAdminBlogArticlesQueryKey(params), staleTime: 30_000 } });
   const deleteArticle = useDeleteAdminBlogArticle();
   const publishArticle = usePublishAdminBlogArticle();
@@ -67,8 +79,8 @@ export function AdminBlogPage() {
     }
   };
 
-  const filteredItems = articles.data?.items.filter(item => 
-    item.title.toLowerCase().includes(search.toLowerCase()) || 
+  const filteredItems = articles.data?.items.filter(item =>
+    item.title.toLowerCase().includes(search.toLowerCase()) ||
     item.slug.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -203,6 +215,16 @@ export function AdminBlogPage() {
               </tbody>
             </table>
           </div>
+          <AdminListPagination
+            page={page}
+            pageSize={pageSize}
+            total={articles.data?.total}
+            onPageChange={nextPage => updatePaginationUrl(nextPage)}
+            onPageSizeChange={nextPageSize => updatePaginationUrl(1, nextPageSize)}
+            isLoading={articles.isFetching}
+            testId="admin-blog-pagination"
+            testIds={{ pageSize: 'select-admin-blog-page-size', previous: 'button-admin-blog-previous', next: 'button-admin-blog-next', range: 'text-admin-blog-range' }}
+          />
         </div>
       )}
     </AdminShell>

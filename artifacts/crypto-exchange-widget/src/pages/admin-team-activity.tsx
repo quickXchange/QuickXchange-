@@ -1,23 +1,20 @@
 import { useState } from 'react';
 import {
-  Search, ShieldCheck
-} from 'lucide-react';
-import {
   useListAdminActivity
 } from '@workspace/api-client-react';
-import type { AdminAuthorization, AdminActivityEvent } from '@workspace/api-client-react';
+import type { AdminAuthorization } from '@workspace/api-client-react';
 
-import { cn, ErrorState, LoadingBlock, exactDateTime, shortId } from '../App';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { ErrorState, LoadingBlock, exactDateTime, shortId } from '../App';
+import { AdminListPagination } from '@/components/admin-list-pagination';
 
 export function ActivityLog({ auth }: { auth: AdminAuthorization }) {
   const [cursor, setCursor] = useState<string | undefined>(undefined);
   const [history, setHistory] = useState<string[]>([]);
-  const { data: page, isLoading, error, isFetching } = useListAdminActivity({ cursor, limit: 50 });
+  const [pageSize, setPageSize] = useState(50);
+  const { data: page, isLoading, error, isFetching } = useListAdminActivity({ cursor, limit: pageSize });
 
   const hasNextPage = !!page?.nextCursor;
-  const hasPrevPage = history.length > 0;
+  const currentPage = history.length + 1;
 
   const handleNext = () => {
     if (page?.nextCursor) {
@@ -35,6 +32,19 @@ export function ActivityLog({ auth }: { auth: AdminAuthorization }) {
     }
   };
 
+  const handlePageChange = (requestedPage: number) => {
+    if (requestedPage === currentPage - 1) {
+      handlePrev();
+    } else if (requestedPage === currentPage + 1) {
+      handleNext();
+    } else if (requestedPage >= 1 && requestedPage <= history.length) {
+      const nextHistory = history.slice(0, requestedPage - 1);
+      const previousCursor = history[requestedPage - 1];
+      setHistory(nextHistory);
+      setCursor(previousCursor === '' ? undefined : previousCursor);
+    }
+  };
+
   if (isLoading && !page) return <LoadingBlock />;
   if (error || !page) return <ErrorState message="Could not load activity log" />;
 
@@ -42,11 +52,6 @@ export function ActivityLog({ auth }: { auth: AdminAuthorization }) {
     <div className="panel p-0 flex flex-col">
       <div className="panel-heading px-6 py-4 flex items-center justify-between border-b border-border">
         <h2 className="text-base font-semibold">Activity Log</h2>
-        <div className="flex gap-2">
-           {/* Simple pagination controls */}
-           <Button variant="outline" size="sm" onClick={handlePrev} disabled={!hasPrevPage || isFetching}>Previous</Button>
-           <Button variant="outline" size="sm" onClick={handleNext} disabled={!hasNextPage || isFetching}>Next</Button>
-        </div>
       </div>
       
       <div className="table-wrap">
@@ -96,6 +101,21 @@ export function ActivityLog({ auth }: { auth: AdminAuthorization }) {
           </tbody>
         </table>
       </div>
+      <AdminListPagination
+        page={currentPage}
+        pageSize={pageSize}
+        onPageSizeChange={size => {
+          setPageSize(size);
+          setCursor(undefined);
+          setHistory([]);
+        }}
+        hasNext={hasNextPage}
+        itemCount={page.items.length}
+        onPageChange={handlePageChange}
+        isLoading={isFetching}
+        testId="admin-activity-pagination"
+        testIds={{ previous: 'button-activity-previous', next: 'button-activity-next', page: 'select-activity-page', range: 'text-activity-range' }}
+      />
     </div>
   );
 }
