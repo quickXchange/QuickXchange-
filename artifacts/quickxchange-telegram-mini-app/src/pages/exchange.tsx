@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
+import { useMutation } from '@tanstack/react-query';
 import {
   useGetExchangeConfig, getGetExchangeConfigQueryKey,
   useGetExchangeRoutePricing, getGetExchangeRoutePricingQueryKey,
   useListPublicManualSwapAddons, getListPublicManualSwapAddonsQueryKey,
-  useCreateExchangeQuote,
-  useCreateExchangeQuoteByReceive,
+  createExchangeQuote as requestSwapQuote,
+  createExchangeQuoteByReceive as requestSwapReceiveQuote,
   useCreateExchangeOrder,
   useGetQuickexConfig, getGetQuickexConfigQueryKey,
   useCreateQuickexQuote,
@@ -232,6 +233,7 @@ export default function Exchange() {
   const recoveryBootstrapPending = isAuthLoading ||
     (!recoveryLoadError && (!verifiedUserId || recoveryBootstrap.pending || recoveryBootstrap.ownerId !== verifiedUserId));
   const quoteRequestVersionRef = useRef(0);
+  const swapQuoteControllerRef = useRef<AbortController | null>(null);
   const orderRequestIdRef = useRef<string | null>(recoveryRecord?.requestId ?? null);
   if (orderRequestIdRef.current === null) orderRequestIdRef.current = createClientRequestId();
 
@@ -240,6 +242,7 @@ export default function Exchange() {
 
   const setMode = (newMode: 'swap' | 'convert') => {
     if (createOutcomeUncertain) return;
+    invalidateSwapQuote();
     preserveDetailsOnNextRouteResetRef.current = false;
     haptic.selection();
     setLocation(`/exchange?mode=${newMode}`);
@@ -684,8 +687,18 @@ export default function Exchange() {
   }, [quoteInputAmount, activeAmountSide, rateMode]);
 
   // Mutations
-  const createQuote = useCreateExchangeQuote({ request: { headers } });
-  const createReceiveQuote = useCreateExchangeQuoteByReceive({ request: { headers } });
+  // Keep quote errors in the session-aware mutation cache (including 401
+  // expiry), while passing a request-specific signal to the existing APIs.
+  const createQuote = useMutation({
+    mutationKey: ['createExchangeQuote'],
+    mutationFn: ({ data, signal }: { data: Parameters<typeof requestSwapQuote>[0]; signal?: AbortSignal }) =>
+      requestSwapQuote(data, { headers, signal }),
+  });
+  const createReceiveQuote = useMutation({
+    mutationKey: ['createExchangeQuoteByReceive'],
+    mutationFn: ({ data, signal }: { data: Parameters<typeof requestSwapReceiveQuote>[0]; signal?: AbortSignal }) =>
+      requestSwapReceiveQuote(data, { headers, signal }),
+  });
   const createOrder = useCreateExchangeOrder({ request: { headers } });
   const createQuickexQuote = useCreateQuickexQuote({ request: { headers } });
   const createQuickexReceiveQuote = useCreateQuickexQuoteByReceive({ request: { headers } });
@@ -696,6 +709,26 @@ export default function Exchange() {
   const [errorMsg, setErrorMsg] = useState('');
   const [quoteNow, setQuoteNow] = useState(() => Date.now());
   const [quoteRefreshNonce, setQuoteRefreshNonce] = useState(0);
+  // Fence at the input event, not just effect cleanup: a completed older
+  // request must never write amounts between a new edit and React's next effect.
+  const invalidateSwapQuote = () => {
+    if (mode !== 'swap') return;
+    quoteRequestVersionRef.current++;
+    swapQuoteControllerRef.current?.abort();
+    swapQuoteControllerRef.current = null;
+    setQuoteData(null);
+    setTermsAccepted(false);
+    setIsProcessing(false);
+    setErrorMsg('');
+  };
+  const editAmount = (side: 'send' | 'receive', value: string) => {
+    if (side !== activeAmountSide || parseExchangeQuoteAmount(value) !== quoteInputAmount) {
+      invalidateSwapQuote();
+    }
+    setActiveAmountSide(side);
+    if (side === 'send') setAmount(value);
+    else setDesiredReceiveAmount(value);
+  };
   useEffect(() => {
     if (createOutcomeUncertain || recoveryRecordRef.current || step !== 1) return;
     const refreshedState = clearQuotePreservingExchangeAmounts({
@@ -753,36 +786,38 @@ export default function Exchange() {
     if (exchangeRouteReady && !recoveryBootstrapPending && !recoveryLoadError &&
       step === 1 && sourceOpt && targetOpt && Number.isFinite(quoteInputAmount) && quoteInputAmount > 0 &&
       !(mode === 'swap' && manualSwapAddonsQuery.isError)) {
+      const controller = mode === 'swap' ? new AbortController() : null;
+      if (controller) {
+        swapQuoteControllerRef.current = controller;
+        setIsProcessing(true);
+      }
       const timer = setTimeout(async () => {
+        if (quoteRequestVersionRef.current !== requestVersion || controller?.signal.aborted) return;
         setIsProcessing(true);
         try {
           const quote = mode === 'swap'
             ? activeAmountSide === 'receive'
-              ? await createReceiveQuote.mutateAsync({
-                  data: {
-                    fromAsset: sourceOpt.assetCode,
-                    fromNetwork: sourceOpt.routeNetwork,
-                    toAsset: targetOpt.assetCode,
-                    toNetwork: targetOpt.routeNetwork,
-                    sourceSettlementOptionId: sourceOpt.id,
-                    targetSettlementOptionId: targetOpt.id,
-                    desiredReceiveAmount: quoteInputAmount,
-                    selectedAddOnKeys: selectedAddonKeys,
-                  },
-                })
-              : await createQuote.mutateAsync({
-                  data: {
-                    type: 'manual',
-                    fromAsset: sourceOpt.assetCode,
-                    fromNetwork: sourceOpt.routeNetwork,
-                    toAsset: targetOpt.assetCode,
-                    toNetwork: targetOpt.routeNetwork,
-                    amount: quoteInputAmount,
-                    sourceSettlementOptionId: sourceOpt.id,
-                    targetSettlementOptionId: targetOpt.id,
-                    selectedAddOnKeys: selectedAddonKeys,
-                  },
-                })
+              ? await createReceiveQuote.mutateAsync({ data: {
+                  fromAsset: sourceOpt.assetCode,
+                  fromNetwork: sourceOpt.routeNetwork,
+                  toAsset: targetOpt.assetCode,
+                  toNetwork: targetOpt.routeNetwork,
+                  sourceSettlementOptionId: sourceOpt.id,
+                  targetSettlementOptionId: targetOpt.id,
+                  desiredReceiveAmount: quoteInputAmount,
+                  selectedAddOnKeys: selectedAddonKeys,
+                }, signal: controller?.signal })
+              : await createQuote.mutateAsync({ data: {
+                  type: 'manual',
+                  fromAsset: sourceOpt.assetCode,
+                  fromNetwork: sourceOpt.routeNetwork,
+                  toAsset: targetOpt.assetCode,
+                  toNetwork: targetOpt.routeNetwork,
+                  amount: quoteInputAmount,
+                  sourceSettlementOptionId: sourceOpt.id,
+                  targetSettlementOptionId: targetOpt.id,
+                  selectedAddOnKeys: selectedAddonKeys,
+                }, signal: controller?.signal })
             : activeAmountSide === 'receive'
               ? await createQuickexReceiveQuote.mutateAsync({
                   data: {
@@ -805,7 +840,7 @@ export default function Exchange() {
                     rateMode,
                   },
                 });
-          if (quoteRequestVersionRef.current !== requestVersion) return;
+          if (quoteRequestVersionRef.current !== requestVersion || controller?.signal.aborted) return;
           setQuoteData({
             ...quote,
             type: mode === 'swap' ? 'manual' : 'instant',
@@ -827,14 +862,24 @@ export default function Exchange() {
           setQuoteNow(Date.now());
           setErrorMsg('');
         } catch (err: any) {
-          if (quoteRequestVersionRef.current !== requestVersion) return;
+          if (quoteRequestVersionRef.current !== requestVersion || controller?.signal.aborted) return;
           setErrorMsg(err.message || 'Failed to get quote');
           setQuoteData(null);
         } finally {
-          if (quoteRequestVersionRef.current === requestVersion) setIsProcessing(false);
+          if (quoteRequestVersionRef.current === requestVersion && !controller?.signal.aborted) {
+            setIsProcessing(false);
+          }
+          if (swapQuoteControllerRef.current === controller) swapQuoteControllerRef.current = null;
         }
-      }, 450);
-      return () => clearTimeout(timer);
+      }, mode === 'swap' ? 200 : 450);
+      return () => {
+        clearTimeout(timer);
+        controller?.abort();
+        if (controller && quoteRequestVersionRef.current === requestVersion) {
+          quoteRequestVersionRef.current++;
+        }
+        if (swapQuoteControllerRef.current === controller) swapQuoteControllerRef.current = null;
+      };
     } else {
       setIsProcessing(false);
     }
@@ -866,6 +911,7 @@ export default function Exchange() {
   const toggleAddon = (key: string) => {
     const addon = manualSwapAddons.find((item) => item.key === key);
     if (!addon || addon.selectionRule === 'none') return;
+    invalidateSwapQuote();
     setSelectedAddonKeys((current) => {
       if (current.includes(key)) return current.filter((item) => item !== key);
       if (getAddonGroupSelectionRule(addon.presentation.group) === 'one') {
@@ -1189,6 +1235,7 @@ export default function Exchange() {
 
   const handleSwapAssets = () => {
     if (createOutcomeUncertain) return;
+    if (sourceId !== targetId) invalidateSwapQuote();
     haptic.impact('light');
     setSourceId(targetId);
     setTargetId(sourceId);
@@ -1321,7 +1368,7 @@ export default function Exchange() {
       )}
 
       {step === 1 && (
-        <div className="space-y-2 relative">
+        <div className={cn("space-y-2 relative", mode === 'swap' && 'qx-swap-amounts')}>
           {mode === 'convert' && (
             <div className="flex rounded-xl border border-border/60 bg-muted/40 p-1" role="group" aria-label="Convert rate type">
               {(['FLOATING', 'FIXED'] as const).map((option) => (
@@ -1342,11 +1389,11 @@ export default function Exchange() {
               ))}
             </div>
           )}
-          <div className="premium-card p-5 space-y-4">
+          <div className="premium-card qx-swap-amount-card p-5 space-y-4">
             <div className="flex justify-between text-[13px] text-muted-foreground font-semibold uppercase tracking-wider">
               <span>You Send</span>
             </div>
-            <div className="flex items-center justify-between gap-4">
+            <div className="qx-swap-amount-row flex items-center justify-between gap-4">
               <input
                 data-testid="input-send-amount"
                 aria-label="You Send amount"
@@ -1354,7 +1401,7 @@ export default function Exchange() {
                 inputMode="decimal"
                 value={amount}
                 disabled={!exchangeRouteReady || createOutcomeUncertain}
-                onChange={(e) => { setActiveAmountSide('send'); setAmount(e.target.value); }}
+                onChange={(e) => editAmount('send', e.target.value)}
                 className="qx-exchange-amount bg-transparent font-bold w-full outline-none focus:ring-0 appearance-none placeholder:text-muted/50 tracking-tighter"
                 placeholder="0"
               />
@@ -1407,19 +1454,19 @@ export default function Exchange() {
             </button>
           </div>
 
-          <div className="premium-card p-5 space-y-4">
+          <div className="premium-card qx-swap-amount-card p-5 space-y-4">
             <div className="flex justify-between text-[13px] text-muted-foreground font-semibold uppercase tracking-wider">
               <span>You Receive</span>
               {isPricingLoading && <span className="animate-pulse text-primary">Fetching rate...</span>}
             </div>
-            <div className="flex items-center justify-between gap-4">
+            <div className="qx-swap-amount-row flex items-center justify-between gap-4">
               <input
                 data-testid="input-receive-amount"
                 aria-label="You Receive amount"
                 type="text"
                 inputMode="decimal"
                 value={desiredReceiveAmount}
-                onChange={(e) => { setActiveAmountSide('receive'); setDesiredReceiveAmount(e.target.value); }}
+                onChange={(e) => editAmount('receive', e.target.value)}
                 disabled={!exchangeRouteReady || createOutcomeUncertain}
                 className="qx-exchange-amount bg-transparent font-bold w-full outline-none focus:ring-0 appearance-none text-foreground/80 tracking-tighter truncate"
                 placeholder="0"
@@ -1462,6 +1509,16 @@ export default function Exchange() {
             </div>
 
           </div>
+
+          <ExchangeRateSummary
+            mode={mode}
+            sourceAsset={sourceOpt?.assetCode}
+            targetAsset={targetOpt?.assetCode}
+            rate={quoteExpired && parsedAmount > 0 ? null : authoritativeExchangeRate}
+            loading={isProcessing || (mode === 'swap' && isPricingLoading)}
+            error={Boolean(errorMsg)}
+            unavailable={quoteExpired && parsedAmount > 0}
+          />
 
           {mode === 'swap' && (
             <div className="premium-card space-y-3 p-4">
@@ -1541,25 +1598,6 @@ export default function Exchange() {
             </div>
           )}
 
-          {mode === 'swap' && quoteData?.manualSwapFees && quoteMatchesCurrentSelection && (
-            <ManualSwapFeeSummary
-              fees={quoteData.manualSwapFees}
-              targetAsset={targetOpt?.assetCode}
-              receiveAmount={quoteData.receiveAmount}
-              addons={manualSwapAddons}
-              locale={addonLocale}
-            />
-          )}
-
-          <ExchangeRateSummary
-            mode={mode}
-            sourceAsset={sourceOpt?.assetCode}
-            targetAsset={targetOpt?.assetCode}
-            rate={quoteExpired && parsedAmount > 0 ? null : authoritativeExchangeRate}
-            loading={isProcessing || (mode === 'swap' && isPricingLoading)}
-            error={Boolean(errorMsg)}
-            unavailable={quoteExpired && parsedAmount > 0}
-          />
         </div>
       )}
 
@@ -1918,10 +1956,12 @@ export default function Exchange() {
                   key={o.id}
                   onClick={() => {
                     if (showSourceSelector) {
+                      if (o.id !== sourceId) invalidateSwapQuote();
                       setSourceId(o.id);
                       setShowSourceSelector(false);
                       setSourceSearch('');
                     } else {
+                      if (o.id !== targetId) invalidateSwapQuote();
                       setTargetId(o.id);
                       setShowTargetSelector(false);
                       setTargetSearch('');

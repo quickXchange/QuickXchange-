@@ -116,6 +116,170 @@ async function mockTelegramSession(page: Page) {
   await page.route('**/api/website/branding', route => route.fulfill({ status: 200, json: {} }));
 }
 
+test('Swap synchronizes authoritative quotes, rejects stale replies, and keeps mobile amount selectors symmetric', async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockTelegramSession(page);
+  const source = {
+    ...swapConfig().manualSettlementOptions[0],
+    assetCode: 'USDT', title: 'Tether', assetId: 'usdt',
+  };
+  const sepa = {
+    ...swapConfig().manualSettlementOptions[1],
+    assetCode: 'EUR', title: 'SEPA Instant', assetId: 'eur',
+    kind: 'fiat-payment-method', routeNetwork: 'SEPA', paymentMethodId: 'sepa',
+  };
+  const paysera = { ...sepa, id: 'target-paysera', title: 'Paysera', routeNetwork: 'PAYSERA', paymentMethodId: 'paysera' };
+  const options = [source, sepa, paysera];
+  await page.route('**/api/exchange/config', route => route.fulfill({
+    status: 200,
+    json: {
+      ...swapConfig(),
+      settlementOptions: options,
+      manualSettlementOptions: options,
+      manualRouteAvailability: {
+        available: true, unavailableMessage: null,
+        routes: [sepa, paysera].map(target => ({
+          sourceSettlementOptionId: source.id, targetSettlementOptionId: target.id,
+        })),
+      },
+    },
+  }));
+  await page.route('**/api/exchange/manual-swap-addons', route => route.fulfill({
+    status: 200,
+    json: { items: [{
+      id: 'priority-addon', key: 'priority', name: 'Priority service',
+      description: 'Optional service', feeType: 'fixed', fixedAmount: 4,
+      feeCurrency: 'EUR', selectionRule: 'multiple', presentation: { group: 'Service' },
+    }] },
+  }));
+  await page.route('**/api/exchange/route-pricing**', route => {
+    const targetId = new URL(route.request().url()).searchParams.get('targetSettlementOptionId');
+    return route.fulfill({
+      status: 200,
+      json: {
+        sourceSettlementOptionId: source.id, targetSettlementOptionId: targetId,
+        fromAsset: 'USDT', toAsset: 'EUR', rate: 0.9, pricingRuleName: 'Server fixture',
+        minAmount: 1, maxAmount: 100000,
+      },
+    });
+  });
+  const reverseRequests: Array<Record<string, any>> = [];
+  const forwardRequests: Array<Record<string, any>> = [];
+  const cancelledRequests: string[] = [];
+  page.on('requestfailed', request => {
+    if (request.url().includes('/api/exchange/quote')) cancelledRequests.push(request.url());
+  });
+  let staleResponseReleased = false;
+  const serverQuote = (body: Record<string, any>, send: number, receive: number, rate: number) => ({
+    ...quote('swap'),
+    fromAsset: body.fromAsset, fromNetwork: body.fromNetwork,
+    toAsset: body.toAsset, toNetwork: body.toNetwork,
+    sourceSettlementOptionId: body.sourceSettlementOptionId,
+    targetSettlementOptionId: body.targetSettlementOptionId,
+    amount: send, receiveAmount: receive, rate,
+    selectedAddOnKeys: body.selectedAddOnKeys,
+    manualSwapFees: { existingPricingFee: 5, totalFees: 9, selectedAddons: [] },
+  });
+  await page.route('**/api/exchange/quote-by-receive', async route => {
+    const body = route.request().postDataJSON();
+    reverseRequests.push(body);
+    // Deliberately non-proportional prepared server amounts: the frontend must
+    // consume the signed response, never invert or extrapolate a local rate.
+    if (body.desiredReceiveAmount === 1100) {
+      await new Promise(resolve => setTimeout(resolve, 900));
+      try {
+        await route.fulfill({ status: 200, json: serverQuote(body, 1235, 1100, 0.93) });
+      } catch {
+        // Aborting this superseded request is the expected browser behavior.
+      } finally {
+        staleResponseReleased = true;
+      }
+      return;
+    }
+    const addon = body.selectedAddOnKeys.includes('priority');
+    const send = body.desiredReceiveAmount === 1000 ? 1125 : addon ? 2260 : 2240;
+    await route.fulfill({
+      status: 200,
+      json: serverQuote(body, send, body.desiredReceiveAmount, addon ? 0.95 : 0.94),
+    });
+  });
+  await page.route('**/api/exchange/quote', async route => {
+    const body = route.request().postDataJSON();
+    forwardRequests.push(body);
+    await route.fulfill({ status: 200, json: serverQuote(body, body.amount, 1065, 0.92) });
+  });
+
+  await page.goto(`${miniApp}/exchange?mode=swap`);
+  const sendInput = page.getByTestId('input-send-amount');
+  const receiveInput = page.getByTestId('input-receive-amount');
+  await expect(receiveInput).toBeEnabled();
+  await receiveInput.fill('1000');
+  await expect(sendInput).toHaveValue('1125');
+  await expect(receiveInput).toHaveValue('1000');
+  expect(reverseRequests.at(-1)).toMatchObject({
+    desiredReceiveAmount: 1000, sourceSettlementOptionId: source.id,
+    targetSettlementOptionId: sepa.id, selectedAddOnKeys: [],
+  });
+  await sendInput.fill('1200');
+  await expect(receiveInput).toHaveValue('1065');
+  await expect(page.getByTestId('text-exchange-rate')).toContainText('0.92');
+  expect(forwardRequests.at(-1)).toMatchObject({ amount: 1200 });
+
+  await receiveInput.fill('1100');
+  await expect.poll(() => reverseRequests.some(body => body.desiredReceiveAmount === 1100)).toBe(true);
+  await receiveInput.fill('2000');
+  await expect(sendInput).toHaveValue('2240');
+  await expect.poll(() => staleResponseReleased).toBe(true);
+  await expect(sendInput).toHaveValue('2240');
+  await expect(receiveInput).toHaveValue('2000');
+  expect(cancelledRequests.length).toBeGreaterThan(0);
+
+  await page.getByRole('checkbox').check();
+  await expect(sendInput).toHaveValue('2260');
+  expect(reverseRequests.at(-1)?.selectedAddOnKeys).toEqual(['priority']);
+  await expect(page.getByTestId('text-exchange-rate')).toContainText('0.95');
+  await expect(page.getByText('Selected add-ons are deducted from receive')).toHaveCount(0);
+  await expect(page.getByText('Existing pricing fee')).toHaveCount(0);
+  await expect(page.getByText('Total fees')).toHaveCount(0);
+  await expect(page.getByText('Final receive')).toHaveCount(0);
+  const rateCard = await page.getByTestId('exchange-rate-summary').boundingBox();
+  const addonsTitle = await page.getByRole('heading', { name: 'Optional add-ons' }).boundingBox();
+  expect(rateCard!.y + rateCard!.height).toBeLessThanOrEqual(addonsTitle!.y);
+
+  for (const name of ['SEPA Instant', 'Paysera']) {
+    if (name === 'Paysera') {
+      await page.getByTestId('target-selector-trigger').click();
+      await page.getByRole('button').filter({ hasText: 'Paysera' }).click();
+      await expect(page.getByTestId('target-selector-trigger')).toContainText(name);
+      await expect.poll(() => reverseRequests.at(-1)?.targetSettlementOptionId).toBe(paysera.id);
+      await expect(sendInput).toHaveValue('2260');
+    }
+    for (const width of [320, 360, 390, 430]) {
+      await page.setViewportSize({ width, height: 844 });
+      const geometry = await page.locator('.qx-swap-amounts').evaluate(container => {
+        const rect = (node: Element) => {
+          const bounds = node.getBoundingClientRect();
+          const style = getComputedStyle(node);
+          return {
+            width: bounds.width, height: bounds.height, padding: style.padding,
+            radius: style.borderRadius, align: style.alignItems,
+          };
+        };
+        return {
+          cards: Array.from(container.querySelectorAll('.qx-swap-amount-card')).map(rect),
+          selectors: Array.from(container.querySelectorAll('.qx-asset-trigger')).map(rect),
+          overflow: document.documentElement.scrollWidth > window.innerWidth,
+        };
+      });
+      expect(geometry.cards[0]).toEqual(geometry.cards[1]);
+      expect(geometry.selectors[0]).toEqual(geometry.selectors[1]);
+      expect(geometry.selectors[0]).toMatchObject({ width: 144, height: 56 });
+      expect(geometry.overflow).toBe(false);
+    }
+  }
+});
+
 test('Convert receive-target quoting honors fixed rate mode, requires policy acceptance, and omits refund data', async ({ page }, testInfo) => {
   test.setTimeout(90_000);
   await page.clock.install({ time: new Date('2025-01-01T00:00:00.000Z') });

@@ -308,6 +308,96 @@ input, select, textarea { min-width: 0; max-width: 100%; font-size: 16px; }
 /* Stable shell height, natural scroll when content is long */
 .qx-page-main { min-height: calc(100dvh - 64px - env(safe-area-inset-bottom)); }
 
+/* Swap amount geometry: applies only to the Swap step-1 amount cards. */
+.qx-swap-amounts .qx-swap-amount-card {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 124px;
+  min-height: 124px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.qx-swap-amounts .qx-swap-amount-card > * {
+  min-width: 0;
+  margin: 0;
+}
+.qx-swap-amounts .qx-swap-amount-card > :first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 18px;
+  line-height: 1.25;
+}
+.qx-swap-amounts .qx-swap-amount-card > :first-child > * {
+  min-width: 0;
+}
+.qx-swap-amounts .qx-swap-amount-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  min-height: 56px;
+}
+.qx-swap-amounts .qx-swap-amount-row .qx-exchange-amount {
+  box-sizing: border-box;
+  flex: 1 1 0%;
+  width: 0;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0;
+  font-size: clamp(24px, 8vw, 34px);
+  line-height: 1.1;
+}
+.qx-swap-amounts .qx-swap-amount-card .qx-asset-trigger {
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 144px;
+  width: 144px;
+  min-width: 144px;
+  max-width: 144px;
+  height: 56px;
+  min-height: 56px;
+  padding: 8px 10px;
+  gap: 8px;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.qx-swap-amounts .qx-swap-amount-card .qx-asset-trigger > span:first-child {
+  box-sizing: border-box;
+  flex: 0 0 32px;
+  width: 32px;
+  min-width: 32px;
+  max-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  max-height: 32px;
+}
+.qx-swap-amounts .qx-swap-amount-card .qx-asset-copy {
+  flex: 1 1 0%;
+  min-width: 0;
+  overflow: hidden;
+}
+.qx-swap-amounts .qx-swap-amount-card :is(.qx-asset-primary, .qx-asset-secondary) {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.qx-swap-amounts .qx-swap-amount-card .qx-asset-trigger > svg:last-child {
+  flex: 0 0 16px;
+  width: 16px;
+  min-width: 16px;
+  height: 16px;
+  min-height: 16px;
+}
+
 /* Exchange widget (scoped) */
 .qx-exchange-widget .qx-exchange-tabs { border-radius: 1rem; border: 1px solid hsl(var(--border) / 0.6); background: hsl(var(--muted) / 0.6); }
 .qx-exchange-widget .qx-exchange-heading { min-width: 0; overflow-wrap: anywhere; line-height: 1.2; }

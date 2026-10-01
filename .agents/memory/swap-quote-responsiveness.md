@@ -14,3 +14,9 @@ Input focus alone is not an amount edit. Preserve editable raw decimal text, but
 **Why:** Switching focus between You Send and You Receive used to trigger another quote before any amount changed, adding latency and overlapping work. Normalizing the visible input on every render also interferes with typing decimals.
 
 **How to apply:** Separate the focused input from the calculation direction. Debounce actual edits, abort superseded browser requests, and synchronously fence their callbacks at the input event; effect cleanup alone leaves a pre-render race.
+
+Telegram Mini App quote cancellation must preserve session-aware mutation error handling.
+
+**Why:** Calling the generated fetch functions directly bypasses the mutation cache that expires Telegram sessions and clears protected cached data on HTTP 401. Cancellation must not weaken that existing authentication boundary.
+
+**How to apply:** Pass a request-specific AbortSignal through a mutation while retaining the shared session-aware query client. Do not replace the mutation with an unobserved fetch when adding cancellation.
