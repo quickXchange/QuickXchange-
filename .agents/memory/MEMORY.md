@@ -140,7 +140,7 @@
 - [Provider settlement field validation](provider-settlement-field-validation.md) — reject the whole quote when any provider-declared settlement field is malformed; never silently drop it.
 - [Convert and monitoring boundary](convert-monitoring-boundary.md) — Quickex Convert execution and Manual Swap blockchain monitoring must remain runtime-independent.
 - [Bounded blockchain catch-up](bounded-blockchain-catch-up.md) — lagging EVM watches need multiple small ranges per cycle with end-to-end deadline, lease, fairness, and cursor fencing.
-- [Partner logo rendering](partner-logo-single-entry-animation.md) — avoid duplicate marquee records; preserve [Trustpilot footer fallback](trustpilot-footer-source.md).
+- [Partner marquee sizing](partner-logo-single-entry-animation.md) — never shrink to fit; repeat visuals, not records; preserve [Trustpilot fallback](trustpilot-footer-source.md).
 - [WhiteBIT recovery credential source](whitebit-recovery-credential-source.md) — read-only history previews must select credential provenance explicitly; stored and environment credentials can differ.
 - [Activation timestamp precision](activation-timestamp-precision.md) — compare post-activation eligibility in PostgreSQL; JavaScript Date collapses distinct microsecond events.
 - [WhiteBIT explorer identity](whitebit-explorer-identity.md) — render only persisted chain hashes; frozen provider-network identity may need matching catalog metadata when an older route lacks an explorer template.

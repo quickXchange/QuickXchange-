@@ -1,19 +1,19 @@
 ---
-name: Partner logo single-entry animation
-description: Why the partner strip must animate without rendering copies of published entries.
+name: Partner marquee presentation
+description: Count-independent readable partner logos and seamless visual repetition without duplicate source records.
 ---
 
-Each enabled partner entry should have one rendered logo. The old infinite-loop marquee appended a second copy of every logo, so the two published partners appeared twice despite having one record each.
+Partner logos must remain large and readable independently of partner count. Short lists still move continuously; fitting the whole list on screen is not a goal. Repeat the visual sequence when necessary for a seamless, equally spaced loop, but never duplicate Admin records.
 
-**Why:** Duplication was a rendering technique, not duplicate source data; deleting or merging records would have damaged operator-managed content without fixing the cause.
+**Why:** The Owner explicitly rejected the earlier shrink-to-fit/static-row approach because it made logos too small and stopped the marquee. This supersedes the older single-rendered-entry restriction. Source duplication and visual loop repetition are different; deleting source entries would damage operator-managed content.
 
-**How to apply:** Keep partner identities sourced from published Site Studio data. For continuous motion, wrap each single item only while it is completely outside the viewport rather than cloning it. Leave enough cycle length that a wrap cannot show a reset or an entirely empty strip. Explicitly created separate entries remain distinct.
+**How to apply:** Keep published Site Studio data authoritative. More partners extend the moving row, never reduce logo size. Keep visual copies out of the accessibility tree and keyboard sequence while retaining visible link behavior. Check equal spacing through the seam, swipe followed by automatic resume, and explicit Pause/Play separately.
 
 The shared Partners presentation is one level horizontal row with equal transparent slots, including Admin previews. Legacy layout/container choices must not reintroduce wrapping or opaque component-added cards.
 
 **Why:** The Owner requested a reusable presentation rule for current and future logos, not individual corrections to particular brands. Uploaded artwork and its own background must remain unchanged.
 
-**How to apply:** Use shared responsive sizing, preserve image aspect ratios and uploaded theme variants, keep fitting rows static, and use horizontal motion or native scrolling for overflow.
+**How to apply:** Preserve image aspect ratios and uploaded theme variants in equal-height transparent containers. Keep automatic movement even for short lists, while respecting reduced-motion preferences and intentional static Admin previews.
 
 Isolate DOM identities between imperatively positioned animation and static flex rendering.
 

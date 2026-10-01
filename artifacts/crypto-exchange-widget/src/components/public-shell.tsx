@@ -659,7 +659,7 @@ function PublicPartnerLogosWrapper({ logos, settings, preview }: { logos: Partne
       </div>
       <PartnerLogos 
         logos={logos} 
-        settings={settings}
+        settings={{ ...settings, animation: 'auto-scroll', manualInteraction: true, resumeAfterInteraction: true }}
         assetUrls={preview.assetUrls}
         getLogoUrl={(logo, path) => preview.assetUrls?.[path] ?? (preview.active ? `${basePath}/api/admin/partner-logos/${logo.id}/preview${path !== logo.objectPath ? '?objectPath=' + encodeURIComponent(path) : ''}` : publishedPartnerLogoUrl(path))}
         forcePaused={paused}
