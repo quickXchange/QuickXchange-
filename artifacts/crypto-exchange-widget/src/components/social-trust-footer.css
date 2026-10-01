@@ -205,3 +205,25 @@
     width: 100%;
   }
 }
+/* Trustpilot: bare mark on footer surface */
+.qx-feedback-trust { align-items: flex-start; }
+.qx-feedback-trust .qx-trustpilot-plate {
+  width: auto; height: auto; padding: 0; background: transparent; border: 0; box-shadow: none; border-radius: 0; overflow: visible;
+}
+.qx-footer-trustpilot-link { justify-content: flex-start; border-radius: 8px; padding: 2px 0; }
+.qx-footer-trustpilot-link .qx-trustpilot-brand { color: #008657; font-size: 15px; transition: transform 200ms ease, filter 200ms ease; }
+.dark .qx-footer-trustpilot-link .qx-trustpilot-brand { color: #00b67a; }
+.qx-footer-trustpilot-link:hover .qx-trustpilot-brand,
+.qx-footer-trustpilot-link:focus-visible .qx-trustpilot-brand {
+  transform: translateY(-1px);
+  filter: drop-shadow(0 0 6px rgb(0 182 122 / .45));
+}
+.qx-footer-trustpilot-link:focus-visible { outline: 2px solid hsl(var(--primary)); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .qx-footer-trustpilot-link .qx-trustpilot-brand { transition: none; transform: none !important; } }
+
+/* Phone footer nav: 2-col links, compact, no clipping */
+.qx-footer-nav-section { align-self: start; }
+@media (max-width: 639px) {
+  .qx-footer-nav-list > *, .qx-footer-nav-list a, .qx-footer-nav-list span { overflow-wrap: anywhere; line-height: 1.3; }
+}
+.qx-feedback-trust-row { justify-content: flex-start; background: transparent; border: 0; box-shadow: none; padding: 0; }

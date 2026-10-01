@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
 import { cn } from './shared-app-ui';
 import { useAppTheme } from '../theme';
 import { SiTrustpilot } from 'react-icons/si';
@@ -97,7 +97,19 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
   const drawMotionRef = useRef<() => void>(() => {});
   const activePointerRef = useRef<{ id: number; lastX: number; startX: number } | null>(null);
   const suppressClickRef = useRef(false);
+  const mouseMovedRef = useRef(false);
   
+  const [viewportWidth, setViewportWidth] = useState(0);
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const measure = () => setViewportWidth(el.clientWidth);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [logos.length]);
+
   // Responsive motion
   useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -154,11 +166,17 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
     e.preventDefault();
     const x = e.pageX - (containerRef.current?.offsetLeft || 0);
     const walk = (x - startX.current) * 2;
+    if (Math.abs(walk) > 8) mouseMovedRef.current = true;
     if (containerRef.current) containerRef.current.scrollLeft = scrollLeft.current - walk;
   };
 
   const handleMouseUp = () => {
     if (!settings.manualInteraction || motionEnabled) return;
+    if (mouseMovedRef.current) {
+      mouseMovedRef.current = false;
+      suppressClickRef.current = true;
+      window.setTimeout(() => { suppressClickRef.current = false; }, 0);
+    }
     setIsDragging(false);
     triggerInteraction();
   };
@@ -166,11 +184,7 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
   const isPaused = isHovered || isInteracting || isDragging || forcePaused;
 
   const getLogoSrc = (logo: PartnerLogoExtended) => {
-    let path = logo.objectPath;
-    if (logo.appearance === 'separate') {
-      if (isDark && logo.darkObjectPath) path = logo.darkObjectPath;
-      else if (!isDark && logo.lightObjectPath) path = logo.lightObjectPath;
-    }
+    const path = (isDark ? logo.darkObjectPath : logo.lightObjectPath) || logo.objectPath;
     return assetUrls?.[path] || getLogoUrl(logo, path);
   };
 
@@ -178,22 +192,33 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
   if (settings.size === 'small') maxW = 80;
   else if (settings.size === 'large') maxW = 180;
   else if (settings.size === 'custom') maxW = settings.customSize;
+  if (viewportWidth > 0 && viewportWidth < 640) maxW = Math.min(maxW, 96);
 
-  const gapClass = settings.spacing === 'compact' ? 'gap-4' : settings.spacing === 'wide' ? 'gap-12' : 'gap-8';
+  // Generic fit: shrink all logos equally so the current list fits one row on
+  // narrow screens; below a legibility floor, overflow scrolling takes over.
+  const slotPad = 16;
+  const fitGap = 12;
+  const fitCount = logos.filter((l) => l.enabled !== false).length;
+  if (viewportWidth > 0 && fitCount > 1 && viewportWidth < fitCount * (maxW + slotPad) + (fitCount - 1) * 32) {
+    const shrunk = Math.floor((viewportWidth - (fitCount - 1) * fitGap) / fitCount - slotPad);
+    if (shrunk >= 48) maxW = Math.min(maxW, shrunk);
+  }
+  const compactFit = maxW < (settings.size === 'small' ? 80 : settings.size === 'large' ? 180 : settings.size === 'custom' ? settings.customSize : 120);
+  const gapClass = compactFit ? 'gap-3' : settings.spacing === 'compact' ? 'gap-4' : settings.spacing === 'wide' ? 'gap-12' : 'gap-8';
   const justifyClass = settings.alignment === 'left' ? 'justify-start' : settings.alignment === 'right' ? 'justify-end' : 'justify-center';
-  const motionSlotWidth = maxW + (settings.container === 'none' ? 16 : 34);
-  const motionHeight = maxW * 0.6 + (settings.container === 'none' ? 16 : 34);
+  const motionSlotWidth = maxW + slotPad;
+  const motionHeight = maxW * 0.6 + slotPad;
 
   const items = useMemo(() => {
     const sorted = [...logos].filter((logo) => logo.enabled !== false);
     return sorted.map((logo) => {
       const src = getLogoSrc(logo);
-      const isAuto = logo.appearance === 'auto' || !logo.appearance;
+      const hasThemeVariant = !!(isDark ? logo.darkObjectPath : logo.lightObjectPath);
+      const isAuto = !hasThemeVariant && (logo.appearance === 'auto' || !logo.appearance);
       const cardClass = cn(
         'partner-logo-item shrink-0 flex items-center justify-center transition-all',
-        settings.container === 'subtle-card' && 'bg-muted/40 border border-border/50 rounded-xl p-4 hover:bg-muted/60',
-        settings.container === 'glow-card' && 'bg-card border border-primary/20 rounded-xl p-4 shadow-[0_0_15px_-3px_hsl(var(--primary)/0.15)] hover:shadow-[0_0_20px_-3px_hsl(var(--primary)/0.3)] hover:border-primary/40',
-        settings.container === 'none' && 'p-2',
+        // Equal transparent slots; saved container type adds no backdrop.
+        'p-2 rounded-lg bg-transparent hover:drop-shadow-[0_0_10px_hsl(var(--primary)/0.35)] focus-within:drop-shadow-[0_0_10px_hsl(var(--primary)/0.35)]',
       );
       const imgClass = cn(
         'block shrink-0 object-contain transition-all duration-300',
@@ -204,8 +229,8 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
 
       // Every image occupies the same centered content box, regardless of its
       // intrinsic dimensions. object-fit preserves the original proportions.
-      const content = brandTrustpilotGreen && /trustpilot/i.test(logo.name)
-        ? <span className="partner-logo-trustpilot" style={{ width: maxW, height: maxW * 0.6, fontSize: `${Math.min(18, Math.max(11, maxW / 7))}px` }} role={logo.link ? undefined : 'img'} aria-label={logo.link ? undefined : logo.name} aria-hidden={logo.link ? true : undefined}><SiTrustpilot />Trustpilot</span>
+      const content = brandTrustpilotGreen && !hasThemeVariant && /trustpilot/i.test(logo.name)
+        ? <span className="partner-logo-trustpilot" style={{ width: maxW, height: maxW * 0.6, maxWidth: '100%', overflow: 'hidden', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.25em', fontSize: `${Math.min(18, Math.max(8, maxW / 8.5))}px` }} role={logo.link ? undefined : 'img'} aria-label={logo.link ? undefined : logo.name} aria-hidden={logo.link ? true : undefined}><SiTrustpilot />Trustpilot</span>
         : <img src={src} alt={logo.name} className={imgClass} style={{ width: maxW, height: maxW * 0.6, objectFit: 'contain' }} loading={shouldAnimate ? 'eager' : 'lazy'} draggable={false} />;
 
       return (
@@ -223,8 +248,12 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
   // Landing-page partners are always a single row, including when a saved
   // legacy layout requested columns or wrapping.
   const isScrollable = true;
-  // A single small logo cannot cover a viewport without making visual copies.
-  const motionEnabled = isScrollable && shouldAnimate && items.length > 1;
+  const slotGap = compactFit ? 12 : settings.spacing === 'compact' ? 16 : settings.spacing === 'wide' ? 48 : 32;
+  const rowWidth = items.length * motionSlotWidth + Math.max(0, items.length - 1) * slotGap;
+  // Short lists that fit stay a level, evenly spaced static row; wrapping a
+  // short list would stagger it or leave gaps. Motion only serves overflow.
+  const fitsViewport = viewportWidth > 0 && rowWidth <= viewportWidth;
+  const motionEnabled = isScrollable && shouldAnimate && items.length > 1 && !fitsViewport;
 
   useEffect(() => {
     if (!motionEnabled) return;
@@ -232,7 +261,7 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
     const track = motionTrackRef.current;
     if (!viewport || !track) return;
     const slots = Array.from(track.children) as HTMLDivElement[];
-    const gap = settings.spacing === 'compact' ? 16 : settings.spacing === 'wide' ? 48 : 32;
+    const gap = slotGap;
     const draw = () => {
       // A full cycle reaches beyond both viewport edges. Each item wraps only
       // while completely offscreen, so no visual clone or reset is needed.
@@ -267,7 +296,7 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
       observer.disconnect();
       drawMotionRef.current = () => {};
     };
-  }, [motionEnabled, items.length, motionSlotWidth, settings.spacing, settings.direction, settings.speed, settings.customSpeed, isPaused]);
+  }, [motionEnabled, items.length, motionSlotWidth, slotGap, settings.direction, settings.speed, settings.customSpeed, isPaused]);
 
   const finishPointer = (e: React.PointerEvent<HTMLDivElement>) => {
     const active = activePointerRef.current;
@@ -295,7 +324,7 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
 
   const baseContainerClass = cn(
     'partner-logos-container w-full overflow-hidden no-scrollbar',
-    isScrollable && !motionEnabled && 'overflow-x-auto overscroll-x-contain touch-pan-y',
+    isScrollable && !motionEnabled && 'overflow-x-auto overscroll-x-contain',
     motionEnabled && 'touch-pan-y',
     isScrollable && settings.manualInteraction && 'cursor-grab',
     isDragging && 'cursor-grabbing',
@@ -363,7 +392,7 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
         data-layout={settings.layout}
       >
         {motionEnabled ? items.map((item, i) => (
-          <div key={item.key ?? i} className="absolute top-0 left-0 flex h-full items-center justify-center will-change-transform" style={{ width: motionSlotWidth }}>
+          <div key={`motion-${item.key ?? i}`} className="absolute top-0 left-0 flex h-full items-center justify-center will-change-transform" style={{ width: motionSlotWidth }}>
             {item}
           </div>
         )) : settings.layout === 'carousel' ? items.map((item, i) => (

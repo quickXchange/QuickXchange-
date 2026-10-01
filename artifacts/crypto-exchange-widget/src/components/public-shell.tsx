@@ -243,6 +243,10 @@ function FooterSocialLinksDataDriven({ socialTrust, socialItems, trustItems, pre
       displayMode: 'icon-only' as const,
     }] : []),
   ];
+  const hasTrustpilotRendered = renderedTrustItems.some(isTrustpilotItem);
+  const trustRowStyle: CSSProperties = hasTrustpilotRendered
+    ? { ...trustContainerStyle, justifyContent: 'flex-start', padding: 0, border: 'none', background: 'transparent', boxShadow: 'none' }
+    : trustContainerStyle;
   const showSocialTitle = (socialTrust?.socialTitleVisible ?? true)
     && !(renderedTrustItems.length > 0 && socialTrust?.socialTitle?.trim() === socialTrust?.trustTitle?.trim());
   return (
@@ -259,11 +263,11 @@ function FooterSocialLinksDataDriven({ socialTrust, socialItems, trustItems, pre
       </>}
       {renderedTrustItems.length > 0 && (
         <section className="qx-feedback-trust flex flex-col gap-2" aria-label="Feedback and reviews">
-        {(trustStyle.trustTitleVisible ?? socialTrust?.trustTitleVisible ?? true) && <h3 className="font-semibold text-foreground" style={{ fontSize: `${trustStyle.titleFontSize ?? socialTrust?.trustTitleFontSize ?? 18}px`, textAlign: (trustStyle.titleAlignment ?? socialTrust?.trustTitleAlignment ?? 'left') as CSSProperties['textAlign'] }}>{socialTrust?.trustTitle ?? 'Share your feedback with us'}</h3>}
-        <div style={trustContainerStyle}>
+        {(trustStyle.trustTitleVisible ?? socialTrust?.trustTitleVisible ?? true) && <h3 className="font-semibold text-foreground" style={{ fontSize: `${trustStyle.titleFontSize ?? socialTrust?.trustTitleFontSize ?? 18}px`, textAlign: (hasTrustpilotRendered ? 'left' : (trustStyle.titleAlignment ?? socialTrust?.trustTitleAlignment ?? 'left')) as CSSProperties['textAlign'] }}>{socialTrust?.trustTitle ?? 'Share your feedback with us'}</h3>}
+        <div className={cn(hasTrustpilotRendered && "qx-feedback-trust-row")} style={trustRowStyle}>
           {renderedTrustItems.map((item) => (
              <a key={item.id} href={item.href} target="_blank" rel="noreferrer noopener" aria-label={isTrustpilotItem(item) ? 'Trustpilot' : item.name} data-testid={`link-published-trust-${item.id}`} className={cn('group flex items-center gap-2 text-foreground transition-colors', isTrustpilotItem(item) && 'qx-footer-trustpilot-link')}>
-               <span className="flex shrink-0 items-center justify-center overflow-hidden rounded-md" style={{ width: `${Math.max(90, Math.min(220, (trustStyle.logoSize ?? 76) * 2))}px`, height: `${Math.max(44, Math.min(80, (trustStyle.circleSize ?? 42) + 12))}px`, padding: '5px', background: isTrustpilotItem(item) ? '#ffffff' : trustStyle.container === 'none' ? 'transparent' : trustStyle.backgroundColor ?? '#ffffff', border: isTrustpilotItem(item) ? '1px solid #dce3ed' : trustStyle.container === 'none' ? 'none' : `${trustStyle.borderThickness ?? 1}px solid ${trustStyle.borderColor ?? '#dce3ed'}`, boxShadow: trustStyle.container === 'glow' ? `0 0 ${(trustStyle.glowIntensity ?? 0) * 0.2}px ${trustStyle.glowColor ?? '#38bdf8'}` : undefined }}>
+               <span className={cn("flex shrink-0 items-center justify-center overflow-hidden rounded-md", isTrustpilotItem(item) && "qx-trustpilot-plate")} style={isTrustpilotItem(item) ? undefined : { width: `${Math.max(90, Math.min(220, (trustStyle.logoSize ?? 76) * 2))}px`, height: `${Math.max(44, Math.min(80, (trustStyle.circleSize ?? 42) + 12))}px`, padding: '5px', background: trustStyle.container === 'none' ? 'transparent' : trustStyle.backgroundColor ?? '#ffffff', border: trustStyle.container === 'none' ? 'none' : `${trustStyle.borderThickness ?? 1}px solid ${trustStyle.borderColor ?? '#dce3ed'}`, boxShadow: trustStyle.container === 'glow' ? `0 0 ${(trustStyle.glowIntensity ?? 0) * 0.2}px ${trustStyle.glowColor ?? '#38bdf8'}` : undefined }}>
                  {isTrustpilotItem(item)
                    ? <span className="qx-trustpilot-brand" aria-hidden="true"><SiTrustpilot /><span>Trustpilot</span></span>
                    : <span className="flex h-full w-full items-center justify-center"><FooterSocialIcon item={item} preview={preview} isDark={isDark} /></span>}
@@ -788,8 +792,8 @@ export function PublicShell({ children }: { children: ReactNode }) {
         </div>
 
         <div className="qx-premium-footer-inner">
-          <div className="grid grid-cols-1 gap-x-8 gap-y-10 mb-10 sm:grid-cols-2 sm:mb-12 lg:grid-cols-12">
-            <div className="flex flex-col items-start gap-5 sm:col-span-2 lg:col-span-4 lg:gap-6">
+          <div className="grid grid-cols-2 gap-x-5 gap-y-7 mb-8 sm:gap-x-8 sm:gap-y-10 sm:mb-12 lg:grid-cols-12">
+            <div className="flex flex-col items-start gap-5 col-span-2 lg:col-span-4 lg:gap-6">
               <BrandLogo />
               <p className="qx-footer-tagline">Your Crypto Exchange Partner</p>
               <p className="text-sm text-muted-foreground leading-relaxed max-w-sm">
@@ -812,9 +816,9 @@ export function PublicShell({ children }: { children: ReactNode }) {
             </div>
 
             {footerNavigationGroups.map((group) => (
-              <section key={group.title} className="flex flex-col gap-4 lg:col-span-2">
-                <h2 className="text-foreground text-xs font-bold tracking-widest uppercase">{group.title}</h2>
-                <div className="flex flex-col gap-2.5 text-sm text-muted-foreground" aria-label={`${group.title} footer links`}>
+              <section key={group.title} className="qx-footer-nav-section flex min-w-0 flex-col gap-2.5 sm:gap-4 lg:col-span-2">
+                <h2 className="text-foreground text-[11px] sm:text-xs font-bold tracking-widest uppercase">{group.title}</h2>
+                <div className="qx-footer-nav-list flex min-w-0 flex-col gap-2 text-[13px] sm:gap-2.5 sm:text-sm text-muted-foreground" aria-label={`${group.title} footer links`}>
                   {group.type === 'links'
                     ? <nav className="contents" aria-label={`${group.title} navigation`}><ConfiguredLinks links={group.links!} placement="footer" /></nav>
                     : group.content}
