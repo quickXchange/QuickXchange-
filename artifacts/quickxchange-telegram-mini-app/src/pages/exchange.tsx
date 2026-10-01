@@ -20,6 +20,7 @@ import { ArrowDownUp, CheckCircle2, AlertCircle, ChevronDown, Loader2, X, Search
 import { cn } from '@/lib/utils';
 import { useHapticFeedback } from '@/lib/hooks';
 import { MiniAppLogo } from '@/components/mini-app-logo';
+import { ExchangeRateSummary } from '@/components/exchange-rate-summary';
 import { getFallbackPaymentLogos, getFallbackCryptoLogos, getLogoFallbackText } from '@/lib/logo-catalog';
 import {
   exchangeSelectorEmptyMessage,
@@ -39,6 +40,17 @@ import {
   readExchangeRecovery,
   type ExchangeRecovery,
 } from '@/lib/exchange-recovery';
+import {
+  clearQuotePreservingExchangeAmounts,
+  findQuickexDefaultRoute,
+  getCanonicalManualRoutes,
+  getExchangePricingTermsKey,
+  getManualRouteSourceIds,
+  getManualRouteTargetIds,
+  getQuickexConvertRoutes,
+  parseExchangeQuoteAmount,
+  resolveExchangeRouteSelection,
+} from '@/lib/exchange-routes';
 
 const EMPTY_MANUAL_SWAP_ADDONS: any[] = [];
 const exchangeRecoveryStorage = () => window.sessionStorage;
@@ -228,12 +240,13 @@ export default function Exchange() {
 
   const setMode = (newMode: 'swap' | 'convert') => {
     if (createOutcomeUncertain) return;
+    preserveDetailsOnNextRouteResetRef.current = false;
     haptic.selection();
     setLocation(`/exchange?mode=${newMode}`);
     setStep(1);
     setSourceId('');
     setTargetId('');
-    setAmount('100');
+    setAmount('');
     setDesiredReceiveAmount('');
     setActiveAmountSide('send');
     setSelectedAddonKeys([]);
@@ -249,13 +262,16 @@ export default function Exchange() {
   const [targetId, setTargetId] = useState<string>(recoveryRecord?.targetId ?? '');
   const routeSelectionKey = JSON.stringify([mode, sourceId, targetId]);
   const [settledRouteSelectionKey, setSettledRouteSelectionKey] = useState<string | null>(null);
-  const [amount, setAmount] = useState<string>(recoveryRecord?.amount ?? '100');
+  const initializedSelectionModeRef = useRef<string | null>(null);
+  const [amount, setAmount] = useState<string>(recoveryRecord?.amount ?? '');
   const [desiredReceiveAmount, setDesiredReceiveAmount] = useState(recoveryRecord?.desiredReceiveAmount ?? '');
   const [activeAmountSide, setActiveAmountSide] = useState<'send' | 'receive'>(recoveryRecord?.activeAmountSide ?? 'send');
   const [rateMode, setRateMode] = useState<'FLOATING' | 'FIXED'>(recoveryRecord?.rateMode ?? 'FLOATING');
   const [termsAccepted, setTermsAccepted] = useState(Boolean(recoveryRecord));
   const [createOutcomeUncertain, setCreateOutcomeUncertain] = useState(Boolean(recoveryRecord));
   const [selectedAddonKeys, setSelectedAddonKeys] = useState<string[]>(recoveryRecord?.selectedAddonKeys ?? []);
+  const [quoteData, setQuoteData] = useState<any>(recoveryRecord?.quoteData ?? null);
+  const preserveDetailsOnNextRouteResetRef = useRef(false);
 
   const [showSourceSelector, setShowSourceSelector] = useState(false);
   const [showTargetSelector, setShowTargetSelector] = useState(false);
@@ -313,12 +329,24 @@ export default function Exchange() {
       queryKey: getGetExchangeConfigQueryKey(),
       staleTime: 0,
       refetchOnMount: 'always',
-      refetchOnWindowFocus: true,
+      refetchOnWindowFocus: 'always',
+      refetchOnReconnect: 'always',
+      refetchInterval: 30_000,
+      refetchIntervalInBackground: false,
     }
   });
 
   const { data: quickexConfig, isLoading: isQuickexConfigLoading } = useGetQuickexConfig({
-    query: { queryKey: getGetQuickexConfigQueryKey(), staleTime: 60000, enabled: mode === 'convert' }
+    query: {
+      queryKey: getGetQuickexConfigQueryKey(),
+      staleTime: 0,
+      enabled: mode === 'convert',
+      refetchOnMount: 'always',
+      refetchOnWindowFocus: 'always',
+      refetchOnReconnect: 'always',
+      refetchInterval: 30_000,
+      refetchIntervalInBackground: false,
+    }
   });
   const manualSwapAddonsQuery = useListPublicManualSwapAddons({
     query: {
@@ -326,6 +354,10 @@ export default function Exchange() {
       enabled: mode === 'swap',
       staleTime: 0,
       refetchOnMount: 'always',
+      refetchOnWindowFocus: 'always',
+      refetchOnReconnect: 'always',
+      refetchInterval: 30_000,
+      refetchIntervalInBackground: false,
     },
   });
   const manualSwapAddons = manualSwapAddonsQuery.data?.items ?? EMPTY_MANUAL_SWAP_ADDONS;
@@ -343,10 +375,49 @@ export default function Exchange() {
     return 'none';
   };
 
+  const manualRoutes = useMemo(
+    () => getCanonicalManualRoutes(
+      config?.manualRouteAvailability?.routes ?? [],
+      config?.manualSettlementOptions ?? [],
+    ),
+    [config],
+  );
+  const quickexRoutes = useMemo(
+    () => getQuickexConvertRoutes(quickexConfig?.instruments ?? [], quickexConfig?.pairs ?? []),
+    [quickexConfig],
+  );
+  const toConvertOption = (inst: any) => {
+    const configured = config?.settlementOptions?.find(option =>
+      option.kind === 'crypto-network' &&
+      option.assetCode.trim().toUpperCase() === inst.currencyTitle.trim().toUpperCase() &&
+      option.routeNetwork.trim().toUpperCase() === inst.networkTitle.trim().toUpperCase()
+    );
+    return {
+      id: inst.slug,
+      title: inst.fullName || inst.currencyFriendlyTitle || inst.currencyTitle,
+      assetCode: inst.currencyTitle,
+      routeNetwork: inst.networkTitle,
+      networkTitle: inst.networkTitle,
+      logoUrl: configured?.logoUrl || (inst.currencyLogoLink && !inst.currencyLogoLink.endsWith('/generic.svg') ? inst.currencyLogoLink : undefined),
+      networkLogoUrl: configured?.networkLogoUrl,
+      flagUrl: configured?.flagUrl,
+      kind: 'crypto-network',
+      searchAliases: [inst.currencyFriendlyTitle],
+      executionMode: 'api',
+      original: inst,
+    };
+  };
+
   const sourceOpts = useMemo(() => {
     if (mode === 'swap') {
       if (!config) return [];
-      return (config.manualSettlementOptions || []).filter(o => o.direction === 'send' || o.direction === 'both').map(o => ({
+      const availableSourceIds = getManualRouteSourceIds(manualRoutes);
+      return (config.manualSettlementOptions || [])
+        .filter(o =>
+          (o.direction === 'send' || o.direction === 'both') &&
+          availableSourceIds.has(o.id),
+        )
+        .map(o => ({
         id: o.id,
         title: o.title,
         assetCode: o.assetCode,
@@ -366,50 +437,26 @@ export default function Exchange() {
       }));
     } else {
       if (!quickexConfig) return [];
-      const sourceKeys = new Set(quickexConfig.pairs.map(pair =>
-        `${pair.fromAsset.trim().toUpperCase()}\0${pair.fromNetwork.trim().toUpperCase()}`
-      ));
+      const sourceIds = new Set(quickexRoutes.map(route => route.sourceId));
       const seen = new Set<string>();
       const list: any[] = [];
       quickexConfig.instruments.forEach(inst => {
         if (inst.instrumentType.toLowerCase() !== 'crypto' || !inst.currencyTitle || !inst.networkTitle) return;
+        if (!sourceIds.has(inst.slug)) return;
         const key = `${inst.currencyTitle.trim().toUpperCase()}\0${inst.networkTitle.trim().toUpperCase()}`;
-        if (!sourceKeys.has(key)) return;
         if (seen.has(key)) return;
         seen.add(key);
-        const configured = config?.settlementOptions?.find(option =>
-          option.kind === 'crypto-network' &&
-          option.assetCode.trim().toUpperCase() === inst.currencyTitle.trim().toUpperCase() &&
-          option.routeNetwork.trim().toUpperCase() === inst.networkTitle.trim().toUpperCase()
-        );
-        list.push({
-          id: inst.slug,
-          title: inst.fullName || inst.currencyFriendlyTitle || inst.currencyTitle,
-          assetCode: inst.currencyTitle,
-          routeNetwork: inst.networkTitle,
-          networkTitle: inst.networkTitle,
-          logoUrl: configured?.logoUrl || (inst.currencyLogoLink && !inst.currencyLogoLink.endsWith('/generic.svg') ? inst.currencyLogoLink : undefined),
-          networkLogoUrl: configured?.networkLogoUrl,
-          flagUrl: configured?.flagUrl,
-          kind: 'crypto-network',
-          searchAliases: [inst.currencyFriendlyTitle],
-          executionMode: 'api',
-          original: inst
-        });
+        list.push(toConvertOption(inst));
       });
       return list;
     }
-  }, [config, quickexConfig, mode]);
+  }, [config, manualRoutes, quickexConfig, quickexRoutes, mode]);
 
   const targetOpts = useMemo(() => {
     if (mode === 'swap') {
       if (!config) return [];
       if (!sourceId) return [];
-      const validTargets = new Set(
-        config.manualRouteAvailability.routes
-          .filter(r => r.sourceSettlementOptionId === sourceId)
-          .map(r => r.targetSettlementOptionId)
-      );
+      const validTargets = getManualRouteTargetIds(manualRoutes, sourceId);
       return (config.manualSettlementOptions || [])
         .filter(o => (o.direction === 'receive' || o.direction === 'both') && validTargets.has(o.id))
         .map(o => ({
@@ -432,47 +479,22 @@ export default function Exchange() {
         }));
     } else {
       if (!quickexConfig) return [];
-      const source = quickexConfig.instruments.find(inst => inst.slug === sourceId);
-      if (!source) return [];
-      const sourceKey = `${source.currencyTitle.trim().toUpperCase()}\0${source.networkTitle.trim().toUpperCase()}`;
-      const targetKeys = new Set(quickexConfig.pairs
-        .filter(pair =>
-          `${pair.fromAsset.trim().toUpperCase()}\0${pair.fromNetwork.trim().toUpperCase()}` === sourceKey
-        )
-        .map(pair =>
-          `${pair.toAsset.trim().toUpperCase()}\0${pair.toNetwork.trim().toUpperCase()}`
-        ));
+      const targetIds = new Set(quickexRoutes
+        .filter(route => route.sourceId === sourceId)
+        .map(route => route.targetId));
       const seen = new Set<string>();
       const list: any[] = [];
       quickexConfig.instruments.forEach(inst => {
         if (inst.instrumentType.toLowerCase() !== 'crypto' || !inst.currencyTitle || !inst.networkTitle) return;
+        if (!targetIds.has(inst.slug)) return;
         const key = `${inst.currencyTitle.trim().toUpperCase()}\0${inst.networkTitle.trim().toUpperCase()}`;
-        if (!targetKeys.has(key)) return;
         if (seen.has(key)) return;
         seen.add(key);
-        const configured = config?.settlementOptions?.find(option =>
-          option.kind === 'crypto-network' &&
-          option.assetCode.trim().toUpperCase() === inst.currencyTitle.trim().toUpperCase() &&
-          option.routeNetwork.trim().toUpperCase() === inst.networkTitle.trim().toUpperCase()
-        );
-        list.push({
-          id: inst.slug,
-          title: inst.fullName || inst.currencyFriendlyTitle || inst.currencyTitle,
-          assetCode: inst.currencyTitle,
-          routeNetwork: inst.networkTitle,
-          networkTitle: inst.networkTitle,
-          logoUrl: configured?.logoUrl || (inst.currencyLogoLink && !inst.currencyLogoLink.endsWith('/generic.svg') ? inst.currencyLogoLink : undefined),
-          networkLogoUrl: configured?.networkLogoUrl,
-          flagUrl: configured?.flagUrl,
-          kind: 'crypto-network',
-          searchAliases: [inst.currencyFriendlyTitle],
-          executionMode: 'api',
-          original: inst
-        });
+        list.push(toConvertOption(inst));
       });
       return list;
     }
-  }, [config, quickexConfig, mode, sourceId]);
+  }, [config, manualRoutes, quickexConfig, quickexRoutes, mode, sourceId]);
 
   const filteredSourceOpts = useMemo(() => {
     return filterExchangeOptions(sourceOpts, sourceFilter, sourceSearch);
@@ -482,23 +504,61 @@ export default function Exchange() {
     return filterExchangeOptions(targetOpts, targetFilter, targetSearch);
   }, [targetOpts, targetSearch, targetFilter, mode]);
 
-  useEffect(() => {
-    if (recoveryBootstrapPending || recoveryLoadError || recoveryRecordRef.current) return;
-    if ((mode === 'swap' && config) || (mode === 'convert' && quickexConfig)) {
-      if (!sourceId && sourceOpts.length > 0) {
-        setSourceId(sourceOpts[0].id);
-      }
+  const routeChoices = useMemo(
+    () => mode === 'swap'
+      ? manualRoutes.map(route => ({
+          sourceId: route.sourceSettlementOptionId,
+          targetId: route.targetSettlementOptionId,
+        }))
+      : quickexRoutes.map(route => ({ sourceId: route.sourceId, targetId: route.targetId })),
+    [manualRoutes, mode, quickexRoutes],
+  );
+  const preferredRoute = useMemo(() => {
+    if (mode === 'swap') {
+      return config?.defaultSwapPair
+        ? {
+            sourceId: config.defaultSwapPair.sourceSettlementOptionId,
+            targetId: config.defaultSwapPair.targetSettlementOptionId,
+          }
+        : undefined;
     }
-  }, [config, quickexConfig, sourceId, sourceOpts, mode, recoveryBootstrapPending, recoveryLoadError]);
+    const defaultRoute = findQuickexDefaultRoute(quickexRoutes, quickexConfig?.defaultConvertPair);
+    return defaultRoute
+      ? { sourceId: defaultRoute.sourceId, targetId: defaultRoute.targetId }
+      : undefined;
+  }, [config?.defaultSwapPair, mode, quickexConfig?.defaultConvertPair, quickexRoutes]);
 
   useEffect(() => {
-    if (recoveryBootstrapPending || recoveryLoadError || recoveryRecordRef.current) return;
-    if (sourceId && targetOpts.length > 0) {
-      if (!targetOpts.find(o => o.id === targetId)) {
-        setTargetId(targetOpts[0].id);
-      }
-    }
-  }, [sourceId, targetOpts, targetId, recoveryBootstrapPending, recoveryLoadError]);
+    if (
+      recoveryBootstrapPending ||
+      recoveryLoadError ||
+      recoveryRecordRef.current ||
+      createOutcomeUncertain ||
+      step !== 1 ||
+      (mode === 'swap' ? !config : !quickexConfig)
+    ) return;
+
+    const isFirstSelectionForMode = initializedSelectionModeRef.current !== mode;
+    const currentSelection = isFirstSelectionForMode ? null : { sourceId, targetId };
+    const nextSelection = resolveExchangeRouteSelection(routeChoices, currentSelection, preferredRoute);
+    initializedSelectionModeRef.current = mode;
+    const nextSourceId = nextSelection?.sourceId ?? '';
+    const nextTargetId = nextSelection?.targetId ?? '';
+    if (nextSourceId !== sourceId) setSourceId(nextSourceId);
+    if (nextTargetId !== targetId) setTargetId(nextTargetId);
+  }, [
+    config,
+    quickexConfig,
+    mode,
+    sourceId,
+    targetId,
+    routeChoices,
+    preferredRoute,
+    recoveryBootstrapPending,
+    recoveryLoadError,
+    createOutcomeUncertain,
+    step,
+  ]);
 
   useEffect(() => {
     if (createOutcomeUncertain || recoveryRecordRef.current) {
@@ -516,51 +576,105 @@ export default function Exchange() {
 
   useEffect(() => {
     if (createOutcomeUncertain || recoveryRecordRef.current) return;
+    if (preserveDetailsOnNextRouteResetRef.current) {
+      preserveDetailsOnNextRouteResetRef.current = false;
+      return;
+    }
     setDestinationAddress('');
     setDestinationMemo('');
     setSettlementFields({});
-    setDesiredReceiveAmount('');
-    setActiveAmountSide('send');
     setTermsAccepted(false);
   }, [mode, sourceId, targetId]);
 
   useEffect(() => {
-    if (recoveryRecordRef.current) return;
+    if (recoveryRecordRef.current || step !== 1) return;
     setQuoteData(null);
     setErrorMsg('');
   }, [selectedAddonKeys]);
 
   useEffect(() => {
-    if (recoveryRecordRef.current) return;
+    if (recoveryRecordRef.current || step !== 1 || mode !== 'swap') return;
     const availableKeys = new Set(manualSwapAddons.map((addon) => addon.key));
     setSelectedAddonKeys((current) => {
       const filtered = current.filter((key) => availableKeys.has(key));
       return filtered.length === current.length ? current : filtered;
     });
-  }, [manualSwapAddons]);
+  }, [manualSwapAddons, mode, step]);
 
-  const sourceOpt = sourceOpts.find(o => o.id === sourceId);
-  const targetOpt = targetOpts.find(o => o.id === targetId);
+  const liveSourceOpt = sourceOpts.find(o => o.id === sourceId);
+  const liveTargetOpt = targetOpts.find(o => o.id === targetId);
+  // Step 2/3 are quote-owned snapshots. Keep presenting the exact quoted pair
+  // even when a refreshed catalog no longer offers it; live options below are
+  // still used to validate whether the quote may advance.
+  const sourceOpt = step > 1
+    ? quoteData?._sourceOptionSnapshot ?? liveSourceOpt
+    : liveSourceOpt;
+  const targetOpt = step > 1
+    ? quoteData?._targetOptionSnapshot ?? liveTargetOpt
+    : liveTargetOpt;
+  const selectedRouteAvailable = Boolean(
+    liveSourceOpt &&
+    liveTargetOpt &&
+    routeChoices.some(route => route.sourceId === sourceId && route.targetId === targetId),
+  );
   const exchangeRouteReady = Boolean(
     !recoveryBootstrapPending &&
     !recoveryLoadError &&
     settledRouteSelectionKey === routeSelectionKey &&
-    sourceOpt &&
-    targetOpt,
+    selectedRouteAvailable,
   );
 
   // Pricing (Manual Swap Only)
   const { data: pricing, isLoading: isPricingLoading } = useGetExchangeRoutePricing(
     { sourceSettlementOptionId: sourceId, targetSettlementOptionId: targetId },
-    { query: {
-        enabled: mode === 'swap' && !!sourceId && !!targetId && step === 1,
-        queryKey: getGetExchangeRoutePricingQueryKey({ sourceSettlementOptionId: sourceId, targetSettlementOptionId: targetId })
-      }
+    {
+      request: { cache: 'no-store' },
+      query: {
+        enabled: mode === 'swap' && !!sourceId && !!targetId && !!liveSourceOpt && !!liveTargetOpt &&
+          manualRoutes.some(route =>
+            route.sourceSettlementOptionId === sourceId &&
+            route.targetSettlementOptionId === targetId,
+          ),
+        queryKey: getGetExchangeRoutePricingQueryKey({
+          sourceSettlementOptionId: sourceId,
+          targetSettlementOptionId: targetId,
+        }),
+        staleTime: 0,
+        refetchOnMount: 'always',
+        refetchOnWindowFocus: 'always',
+        refetchOnReconnect: 'always',
+        refetchInterval: 30_000,
+        refetchIntervalInBackground: false,
+      },
     }
   );
 
-  const parsedAmount = parseFloat(activeAmountSide === 'send' ? amount : desiredReceiveAmount) || 0;
-  const quoteInputAmount = activeAmountSide === 'send' ? Number(amount) : Number(desiredReceiveAmount);
+  const parsedAmount = parseExchangeQuoteAmount(activeAmountSide === 'send' ? amount : desiredReceiveAmount);
+  const quoteInputAmount = parsedAmount;
+  const selectedRouteTermsKey = useMemo(() => {
+    if (mode === 'swap') {
+      return JSON.stringify({
+        route: manualRoutes.find(route =>
+          route.sourceSettlementOptionId === sourceId &&
+          route.targetSettlementOptionId === targetId,
+        ) ?? null,
+        source: liveSourceOpt?.original ?? null,
+        target: liveTargetOpt?.original ?? null,
+      });
+    }
+    const route = quickexRoutes.find(item => item.sourceId === sourceId && item.targetId === targetId);
+    return JSON.stringify({
+      route: route?.pair ?? null,
+      source: liveSourceOpt?.original ?? null,
+      target: liveTargetOpt?.original ?? null,
+    });
+  }, [mode, manualRoutes, quickexRoutes, sourceId, targetId, liveSourceOpt, liveTargetOpt]);
+  const selectedPricingTermsKey = mode === 'swap'
+    ? getExchangePricingTermsKey(pricing, sourceId, targetId)
+    : '';
+  const selectedAddonsTermsKey = mode === 'swap'
+    ? JSON.stringify(manualSwapAddons.filter(addon => selectedAddonKeySet.has(addon.key)))
+    : '[]';
 
   useEffect(() => {
     if (recoveryRecordRef.current) return;
@@ -578,11 +692,30 @@ export default function Exchange() {
   const createQuickexOrder = useCreateQuickexOrder({ request: { headers } });
   const linkOrder = useLinkTelegramMiniAppOrder({ request: { headers } });
 
-  const [quoteData, setQuoteData] = useState<any>(recoveryRecord?.quoteData ?? null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [quoteNow, setQuoteNow] = useState(() => Date.now());
   const [quoteRefreshNonce, setQuoteRefreshNonce] = useState(0);
+  useEffect(() => {
+    if (createOutcomeUncertain || recoveryRecordRef.current || step !== 1) return;
+    const refreshedState = clearQuotePreservingExchangeAmounts({
+      amount,
+      desiredReceiveAmount,
+      activeAmountSide,
+    });
+    setAmount(refreshedState.amount);
+    setDesiredReceiveAmount(refreshedState.desiredReceiveAmount);
+    setActiveAmountSide(refreshedState.activeAmountSide);
+    setQuoteData(null);
+    setErrorMsg('');
+    setTermsAccepted(false);
+  }, [
+    selectedRouteTermsKey,
+    selectedPricingTermsKey,
+    selectedAddonsTermsKey,
+    step,
+    createOutcomeUncertain,
+  ]);
   const saveRecovery = (recovery: ExchangeRecovery) => {
     if (!verifiedUserId) throw new Error('A verified Telegram user is required to save exchange recovery safely.');
     persistExchangeRecovery(exchangeRecoveryStorage(), recovery, verifiedUserId);
@@ -677,9 +810,17 @@ export default function Exchange() {
             ...quote,
             type: mode === 'swap' ? 'manual' : 'instant',
             _selectedAddOnKeys: [...selectedAddonKeys],
+            _selectedAddOnSnapshots: mode === 'swap'
+              ? manualSwapAddons.filter((addon) => selectedAddonKeySet.has(addon.key))
+              : [],
+            _sourceOptionSnapshot: sourceOpt,
+            _targetOptionSnapshot: targetOpt,
             _amountSide: activeAmountSide,
             _requestedAmount: quoteInputAmount,
             _rateMode: rateMode,
+            _routeTermsKey: selectedRouteTermsKey,
+            _pricingTermsKey: selectedPricingTermsKey,
+            _addonsTermsKey: selectedAddonsTermsKey,
           });
           setAmount(String(quote.amount));
           if (activeAmountSide === 'send') setDesiredReceiveAmount(String(quote.receiveAmount));
@@ -694,12 +835,33 @@ export default function Exchange() {
         }
       }, 450);
       return () => clearTimeout(timer);
+    } else {
+      setIsProcessing(false);
     }
     if (
       mode === 'swap' && manualSwapAddonsQuery.isError
     ) setErrorMsg('Optional add-ons could not be loaded. Retry before continuing.');
     return undefined;
-  }, [mode, step, sourceId, targetId, quoteInputAmount, activeAmountSide, sourceOpt, targetOpt, quoteRefreshNonce, selectedAddonKeys, rateMode, manualSwapAddonsQuery.isError, recoveryBootstrapPending, recoveryLoadError, exchangeRouteReady]);
+  }, [
+    mode,
+    step,
+    sourceId,
+    targetId,
+    quoteInputAmount,
+    activeAmountSide,
+    sourceOpt,
+    targetOpt,
+    quoteRefreshNonce,
+    selectedAddonKeys,
+    selectedRouteTermsKey,
+    selectedPricingTermsKey,
+    selectedAddonsTermsKey,
+    rateMode,
+    manualSwapAddonsQuery.isError,
+    recoveryBootstrapPending,
+    recoveryLoadError,
+    exchangeRouteReady,
+  ]);
 
   const toggleAddon = (key: string) => {
     const addon = manualSwapAddons.find((item) => item.key === key);
@@ -719,33 +881,63 @@ export default function Exchange() {
 
   const quoteMatchesCurrentSelection = Boolean(
     quoteData &&
+    selectedRouteAvailable &&
     quoteData._selectedAddOnKeys?.length === selectedAddonKeys.length &&
     selectedAddonKeys.every((key) => quoteData._selectedAddOnKeys.includes(key)) &&
     (activeAmountSide === 'send' ? quoteData.amount === parsedAmount : quoteData._requestedAmount === quoteInputAmount) &&
-    quoteData.fromAsset === sourceOpt?.assetCode &&
-    quoteData.fromNetwork === sourceOpt?.routeNetwork &&
-    quoteData.toAsset === targetOpt?.assetCode &&
-    quoteData.toNetwork === targetOpt?.routeNetwork &&
-    quoteData.sourceSettlementOptionId === sourceOpt?.id &&
-    quoteData.targetSettlementOptionId === targetOpt?.id &&
+    quoteData.fromAsset === liveSourceOpt?.assetCode &&
+    quoteData.fromNetwork === liveSourceOpt?.routeNetwork &&
+    quoteData.toAsset === liveTargetOpt?.assetCode &&
+    quoteData.toNetwork === liveTargetOpt?.routeNetwork &&
+    quoteData.sourceSettlementOptionId === liveSourceOpt?.id &&
+    quoteData.targetSettlementOptionId === liveTargetOpt?.id &&
     quoteData._amountSide === activeAmountSide &&
     quoteData._requestedAmount === quoteInputAmount &&
-    quoteData._rateMode === rateMode
+    quoteData._rateMode === rateMode &&
+    quoteData._routeTermsKey === selectedRouteTermsKey &&
+    quoteData._pricingTermsKey === selectedPricingTermsKey &&
+    quoteData._addonsTermsKey === selectedAddonsTermsKey
   );
   const convertQuoteMatchesCurrentSelection = Boolean(
     quoteData &&
     quoteData.type === 'instant' &&
-    quoteData.fromAsset === sourceOpt?.assetCode &&
-    quoteData.fromNetwork === sourceOpt?.routeNetwork &&
-    quoteData.toAsset === targetOpt?.assetCode &&
-    quoteData.toNetwork === targetOpt?.routeNetwork &&
+    selectedRouteAvailable &&
+    quoteData.fromAsset === liveSourceOpt?.assetCode &&
+    quoteData.fromNetwork === liveSourceOpt?.routeNetwork &&
+    quoteData.toAsset === liveTargetOpt?.assetCode &&
+    quoteData.toNetwork === liveTargetOpt?.routeNetwork &&
     quoteData._amountSide === activeAmountSide &&
     quoteData._requestedAmount === quoteInputAmount &&
     quoteData._rateMode === rateMode &&
+    quoteData._routeTermsKey === selectedRouteTermsKey &&
     Number(quoteData.amount) > 0 &&
     Number(quoteData.receiveAmount) > 0 &&
     (activeAmountSide !== 'receive' || Number(quoteData.receiveAmount) === quoteInputAmount)
   );
+  const selectedServerPricing = mode === 'swap' &&
+    pricing?.sourceSettlementOptionId === sourceId &&
+    pricing?.targetSettlementOptionId === targetId
+    ? pricing
+    : undefined;
+  const authoritativeExchangeRate = mode === 'swap'
+    ? quoteMatchesCurrentSelection
+      ? quoteData?.rate
+      : selectedServerPricing?.rate
+    : convertQuoteMatchesCurrentSelection
+      ? quoteData?.rate
+      : undefined;
+  const quoteMatchesCurrentSelectionForMode = mode === 'swap'
+    ? quoteMatchesCurrentSelection
+    : convertQuoteMatchesCurrentSelection;
+
+  const returnToExchangeStep = () => {
+    if (!selectedRouteAvailable) preserveDetailsOnNextRouteResetRef.current = true;
+    setQuoteData(null);
+    setErrorMsg('');
+    setTermsAccepted(false);
+    setStep(1);
+    setQuoteRefreshNonce((nonce) => nonce + 1);
+  };
 
   const handleContinue = async () => {
     if (step === 1) {
@@ -767,12 +959,12 @@ export default function Exchange() {
       const minAmount = mode === 'swap' ? quoteData?.minAmount ?? pricing?.minAmount : quoteData?.minAmount;
       const maxAmount = mode === 'swap' ? quoteData?.maxAmount ?? pricing?.maxAmount : quoteData?.maxAmount;
 
-      if (minAmount && limitAmount < minAmount) {
+      if (minAmount !== null && minAmount !== undefined && limitAmount < minAmount) {
         setErrorMsg(`Minimum amount is ${minAmount}`);
         haptic.notification('error');
         return;
       }
-      if (maxAmount && limitAmount > maxAmount) {
+      if (maxAmount !== null && maxAmount !== undefined && limitAmount > maxAmount) {
         setErrorMsg(`Maximum amount is ${maxAmount}`);
         haptic.notification('error');
         return;
@@ -782,7 +974,22 @@ export default function Exchange() {
       haptic.impact('medium');
       setStep(2);
     } else if (step === 2) {
-      if (!sourceOpt || !targetOpt) return;
+      if (mode === 'swap' && (!quoteMatchesCurrentSelection || quoteExpired)) {
+        setErrorMsg(quoteExpired
+          ? 'Quote expired. Refresh the quote before continuing.'
+          : 'The selected Swap route, pricing, or add-ons changed. Return to Swap to review the current route and get an updated quote.');
+        return;
+      }
+      if (mode === 'convert' && (!convertQuoteMatchesCurrentSelection || quoteExpired)) {
+        setErrorMsg(quoteExpired
+          ? 'Quote expired. Refresh the quote before continuing.'
+          : 'The Convert route or quote changed. Return to Convert to review the current route and get an updated quote.');
+        return;
+      }
+      if (!sourceOpt || !targetOpt) {
+        setErrorMsg('The quoted route details are unavailable. Return to the exchange step and get a fresh quote.');
+        return;
+      }
       // Validate fields
       if (targetOpt.kind === 'crypto-network' && !destinationAddress.trim()) {
         setErrorMsg('Destination address is required');
@@ -836,7 +1043,6 @@ export default function Exchange() {
       setStep(3);
     } else if (step === 3) {
       const existingRecovery = recoveryRecordRef.current;
-      if (!existingRecovery && (!sourceOpt || !targetOpt)) return;
       if (existingRecovery && existingRecovery.mode !== mode) {
         setErrorMsg('The pending order request cannot be replaced. Retry its unchanged recovery action.');
         return;
@@ -844,15 +1050,19 @@ export default function Exchange() {
       if (!existingRecovery && mode === 'swap' && (!quoteMatchesCurrentSelection || quoteExpired)) {
         setErrorMsg(quoteExpired
           ? 'Quote expired. Refresh the quote before submitting.'
-          : 'The quote no longer matches your selected route, amount, or add-ons. Return to Swap and get a fresh quote.');
+          : 'The live Swap route, pricing, or selected add-ons changed. Return to Swap to review the current route and get a fresh quote.');
         haptic.notification('error');
         return;
       }
       if (!existingRecovery && mode === 'convert' && (!convertQuoteMatchesCurrentSelection || quoteExpired)) {
         setErrorMsg(quoteExpired
           ? 'Quote expired. Refresh the quote before submitting.'
-          : 'The Convert quote no longer matches your selection. Refresh the quote before submitting.');
+          : 'The live Convert route no longer matches this quote. Return to Convert to review the current route and get a fresh quote.');
         haptic.notification('error');
+        return;
+      }
+      if (!existingRecovery && (!sourceOpt || !targetOpt)) {
+        setErrorMsg('The quoted route details are unavailable. Return to the exchange step and get a fresh quote.');
         return;
       }
       if (!existingRecovery && !termsAccepted) {
@@ -1012,12 +1222,12 @@ export default function Exchange() {
   return (
     <>
       <div className={cn(
-        "qx-page-main flex flex-col p-4 space-y-4 pt-6 max-w-md mx-auto w-full relative animate-in slide-in-from-bottom-4 duration-500",
+        "qx-page-main qx-exchange-widget flex flex-col p-4 space-y-4 pt-6 max-w-md mx-auto w-full relative animate-in slide-in-from-bottom-4 duration-500",
       )}>
 
 
       {step === 1 && (
-        <div className="flex bg-muted/50 p-1 rounded-2xl mb-2 backdrop-blur-md border border-white/5 relative z-10">
+        <div className="qx-exchange-tabs flex bg-muted/50 p-1 rounded-2xl mb-2 backdrop-blur-md border border-white/5 relative z-10">
           <button
             className={cn(
               "flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-300",
@@ -1042,13 +1252,16 @@ export default function Exchange() {
       )}
 
       <div className="flex items-center justify-between mb-2 mt-2">
-        <h1 className="text-[22px] font-bold tracking-tight">
+        <h1 className="qx-exchange-heading text-[22px] font-bold tracking-tight">
           {step === 1 ? (mode === 'convert' ? 'Convert' : 'Swap') : step === 2 ? 'Details' : 'Review'}
         </h1>
         {step > 1 && (
           <button
             onClick={() => {
               if (createOutcomeUncertain) return;
+            if (step === 2 && !selectedRouteAvailable) {
+              preserveDetailsOnNextRouteResetRef.current = true;
+            }
               setStep((s) => s - 1 as any);
               haptic.selection();
             }}
@@ -1078,13 +1291,29 @@ export default function Exchange() {
                 variant="outline"
                 className="h-9 rounded-xl border-amber-500/40 text-xs font-bold"
                 onClick={() => {
-                  setQuoteData(null);
-                  setErrorMsg('');
-                  setStep(1);
-                  setQuoteRefreshNonce((nonce) => nonce + 1);
+                  returnToExchangeStep();
                 }}
               >
                 Refresh quote
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {step > 1 && quoteData && !recoveryRecordRef.current && !quoteMatchesCurrentSelectionForMode && (
+        <div role="alert" className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-700 dark:text-amber-300">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="mt-0.5 h-[18px] w-[18px] shrink-0" />
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">This quote is no longer current</p>
+              <p className="text-xs leading-relaxed">The live route, pricing, or selected add-on terms changed. Your entered details and quoted summary are preserved. Return to the exchange step to review the current route and get a fresh quote.</p>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 rounded-xl border-amber-500/40 text-xs font-bold"
+                onClick={returnToExchangeStep}
+              >
+                Back to route &amp; requote
               </Button>
             </div>
           </div>
@@ -1126,7 +1355,7 @@ export default function Exchange() {
                 value={amount}
                 disabled={!exchangeRouteReady || createOutcomeUncertain}
                 onChange={(e) => { setActiveAmountSide('send'); setAmount(e.target.value); }}
-                className="bg-transparent text-[40px] font-bold w-full outline-none focus:ring-0 appearance-none placeholder:text-muted/50 tracking-tighter"
+                className="qx-exchange-amount bg-transparent font-bold w-full outline-none focus:ring-0 appearance-none placeholder:text-muted/50 tracking-tighter"
                 placeholder="0"
               />
               <button
@@ -1192,7 +1421,7 @@ export default function Exchange() {
                 value={desiredReceiveAmount}
                 onChange={(e) => { setActiveAmountSide('receive'); setDesiredReceiveAmount(e.target.value); }}
                 disabled={!exchangeRouteReady || createOutcomeUncertain}
-                className="bg-transparent text-[40px] font-bold w-full outline-none focus:ring-0 appearance-none text-foreground/80 tracking-tighter truncate"
+                className="qx-exchange-amount bg-transparent font-bold w-full outline-none focus:ring-0 appearance-none text-foreground/80 tracking-tighter truncate"
                 placeholder="0"
               />
               <button
@@ -1322,13 +1551,15 @@ export default function Exchange() {
             />
           )}
 
-          <div className="pt-4 text-[13px] font-medium text-center text-muted-foreground/80">
-            {mode === 'swap' && quoteData && quoteMatchesCurrentSelection
-              ? `1 ${sourceOpt?.assetCode} = ${quoteData.rate} ${targetOpt?.assetCode}`
-              : mode === 'convert' && quoteData
-              ? `1 ${sourceOpt?.assetCode} = ${quoteData.rate} ${targetOpt?.assetCode}`
-              : 'Select a valid pair and amount to see the rate'}
-          </div>
+          <ExchangeRateSummary
+            mode={mode}
+            sourceAsset={sourceOpt?.assetCode}
+            targetAsset={targetOpt?.assetCode}
+            rate={quoteExpired && parsedAmount > 0 ? null : authoritativeExchangeRate}
+            loading={isProcessing || (mode === 'swap' && isPricingLoading)}
+            error={Boolean(errorMsg)}
+            unavailable={quoteExpired && parsedAmount > 0}
+          />
         </div>
       )}
 
@@ -1358,7 +1589,7 @@ export default function Exchange() {
               <>
                 <div className="space-y-2">
                   <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">
-                    Destination {targetOpt.assetCode} Address
+                    Destination {targetOpt?.assetCode} Address
                   </label>
                   <Input
                     value={destinationAddress}
@@ -1428,7 +1659,7 @@ export default function Exchange() {
                   <>
                     <div className="space-y-2">
                       <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">
-                        Destination {targetOpt.assetCode} Address
+                        Destination {targetOpt?.assetCode} Address
                       </label>
                       <Input
                         value={destinationAddress}
@@ -1554,7 +1785,7 @@ export default function Exchange() {
                   fees={quoteData?.manualSwapFees}
                   targetAsset={targetOpt?.assetCode}
                   receiveAmount={quoteData?.receiveAmount}
-                  addons={manualSwapAddons}
+                  addons={quoteData?._selectedAddOnSnapshots ?? manualSwapAddons}
                   locale={addonLocale}
                 />
               </div>
@@ -1615,6 +1846,7 @@ export default function Exchange() {
               isProcessing ||
               isPricingLoading ||
               (quoteExpired && !createOutcomeUncertain) ||
+              (step > 1 && !recoveryRecord && !quoteMatchesCurrentSelectionForMode) ||
               (mode === 'swap' && manualSwapAddonsQuery.isError && step === 1) ||
               (mode === 'swap' && (!quoteMatchesCurrentSelection || isPricingLoading) && step === 1) ||
               (mode === 'convert' && (!convertQuoteMatchesCurrentSelection || isProcessing) && step === 1)

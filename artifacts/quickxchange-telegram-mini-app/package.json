@@ -7,7 +7,7 @@
     "dev": "vite --config vite.config.ts --host 0.0.0.0",
     "build": "vite build --config vite.config.ts && node ../../scripts/verify-web-build.mjs .",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
-    "test": "NODE_OPTIONS='--experimental-loader=./src/test-asset-loader.mjs' tsx --test src/lib/*.test.ts src/components/mini-app-logo.test.ts src/index-css.test.ts",
+    "test": "NODE_OPTIONS='--experimental-loader=./src/test-asset-loader.mjs' tsx --test src/lib/*.test.ts src/components/mini-app-logo.test.ts src/components/exchange-rate-summary.test.ts src/index-css.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

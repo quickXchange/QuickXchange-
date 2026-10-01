@@ -307,3 +307,19 @@ input, select, textarea { min-width: 0; max-width: 100%; font-size: 16px; }
 
 /* Stable shell height, natural scroll when content is long */
 .qx-page-main { min-height: calc(100dvh - 64px - env(safe-area-inset-bottom)); }
+
+/* Exchange widget (scoped) */
+.qx-exchange-widget .qx-exchange-tabs { border-radius: 1rem; border: 1px solid hsl(var(--border) / 0.6); background: hsl(var(--muted) / 0.6); }
+.qx-exchange-widget .qx-exchange-heading { min-width: 0; overflow-wrap: anywhere; line-height: 1.2; }
+.qx-exchange-widget .qx-exchange-amount { min-width: 0; width: 100%; font-size: clamp(28px, 9vw, 40px); line-height: 1.1; }
+.qx-exchange-widget .qx-asset-trigger { max-width: 50%; }
+.qx-exchange-rate {
+  display: flex; align-items: center; gap: 0.75rem; min-width: 0;
+  padding: 0.75rem 1rem; border-radius: 1rem;
+  border: 1px solid hsl(var(--primary) / 0.2);
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--accent) / 0.06));
+}
+.qx-exchange-rate-icon { width: 18px; height: 18px; flex: none; color: hsl(var(--primary)); }
+.qx-exchange-rate-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.qx-exchange-rate-label { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
+.qx-exchange-rate-value { font-size: 14px; font-weight: 700; color: hsl(var(--foreground)); overflow-wrap: anywhere; }
