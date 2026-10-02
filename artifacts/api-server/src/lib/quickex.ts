@@ -15,6 +15,9 @@ import type { PaymentMethodFieldDefinition } from "@workspace/db";
 import { validateSafeFieldDefinitions } from "./payment-methods";
 
 const DEFAULT_BASE_URL = "https://quickex.io/api/v2";
+// Platform-owned Quickex attribution, separate from customer referral codes.
+// Set on the server before signing; callers cannot redirect partner rewards.
+const QUICKEX_REFERRER_ID = "aff_35637";
 const DEFAULT_READ_TIMEOUT_MS = 12_000;
 const DEFAULT_CREATE_TIMEOUT_MS = 15_000;
 const DEFAULT_CATALOG_TIMEOUT_MS = 5_000;
@@ -1224,6 +1227,9 @@ async function createQuickexOrderSerial(input: { fromCurrency: string; fromNetwo
   if (Number.isFinite(min) && input.amount < min) throw new QuickexApiError("QUICKEX_AMOUNT_TOO_SMALL", `Enter at least ${quote.generalMinAmount} ${input.fromCurrency} for this route.`, 400);
   if (Number.isFinite(max) && input.amount > max) throw new QuickexApiError("QUICKEX_AMOUNT_TOO_LARGE", `Enter no more than ${quote.generalMaxAmount} ${input.fromCurrency} for this route.`, 400);
   const payload: Record<string, unknown> = { instrumentFrom: { currencyTitle: quote.instrumentFrom.currencyTitle, networkTitle: quote.instrumentFrom.networkTitle }, instrumentTo: { currencyTitle: quote.instrumentTo.currencyTitle, networkTitle: quote.instrumentTo.networkTitle }, destinationAddress: input.destinationAddress, claimedDepositAmount: String(input.amount), claimedPublicRate: { price: quote.price, updatedAt: new Date(quote.updatedAt).toISOString(), claimedAmountToReceive: quote.amountToGet }, claimedNetworkFee: quote.finalNetworkFeeAmount, rateMode, locale: "en" };
+  // Quickex attributes completed exchanges through referrerId on order create.
+  // Do not introduce a markup: existing quotes use zero extra partner markup.
+  payload.referrerId = QUICKEX_REFERRER_ID;
   if (input.destinationMemo !== undefined) payload.destinationAddressMemo = input.destinationMemo;
   if (input.refundAddress) payload.refundAddress = input.refundAddress;
   if (input.refundAddress && input.refundMemo !== undefined) payload.refundAddressMemo = input.refundMemo;

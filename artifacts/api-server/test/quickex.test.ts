@@ -74,6 +74,7 @@ let requestedRateModes: string[] = [];
 let requestedClaimedCurrencies: string[] = [];
 let requestedClaimedAmounts: string[] = [];
 let createPayloads: Record<string, unknown>[] = [];
+let createSignatures: { timestamp: string; publicKey: string; signature: string }[] = [];
 let fiatRateCalls = 0;
 let cryptoRateCalls = 0;
 let receivedOneForgeKeys: string[] = [];
@@ -667,6 +668,11 @@ async function mock(req: IncomingMessage, res: ServerResponse) {
     assert.ok(req.headers["x-api-timestamp"]);
     assert.ok(req.headers["x-api-signature"]);
     createPayloads.push(await readRequestJson(req));
+    createSignatures.push({
+      timestamp: String(req.headers["x-api-timestamp"]),
+      publicKey: String(req.headers["x-api-public-key"]),
+      signature: String(req.headers["x-api-signature"]),
+    });
     if (mode === "auth") return send(res, 403, { message: "IP address signature rejected" });
     if (mode === "address") return send(res, 400, { status: "ERR_HTTP", message: "Http Exception", data: { address: "destination address is incorrect" } });
     if (mode === "memo") return send(res, 400, { message: "memo tag invalid" });
@@ -699,6 +705,7 @@ function reset(next: MockMode = "ok") {
   mode = next; quoteCalls = 0; createCalls = 0; signedCalls = 0; providerOrders = [];
   instrumentCalls = 0; addressValidationCalls = 0; requestedRateModes = [];
   requestedClaimedCurrencies = []; requestedClaimedAmounts = []; createPayloads = []; signedPublicKeys = [];
+  createSignatures = [];
   fiatRateCalls = 0; cryptoRateCalls = 0; receivedOneForgeKeys = []; marketRateMode = "ok";
   expectedOneForgePairs = "AED/USD,USD/AED,DZD/USD,USD/DZD,EUR/USD,USD/EUR,GBP/USD,USD/GBP,KZT/USD,USD/KZT,TRY/USD,USD/TRY";
   process.env.QUICKEX_BASE_URL = baseUrl;
@@ -1907,6 +1914,34 @@ test("order creation omits optional refund details when no refund wallet is supp
   await quickex.createQuickexOrder(withoutRefund);
   assert.equal("refundAddress" in (createPayloads[0] ?? {}), false);
   assert.equal("refundAddressMemo" in (createPayloads[0] ?? {}), false);
+});
+
+test("Convert orders carry server-owned Quickex referral attribution without changing pricing", async () => {
+  for (const rateMode of ["FLOATING", "FIXED"] as const) {
+    reset();
+    // Unknown caller-supplied attribution must never replace platform identity.
+    const request = {
+      ...input(),
+      rateMode,
+      quote: await quickex.getQuickexQuote({ ...input(), rateMode }),
+      referrerId: "aff_other",
+    };
+    const result = await quickex.createQuickexOrder(request);
+    const payload = createPayloads[0]!;
+    assert.equal(createCalls, 1);
+    assert.equal(payload.referrerId, "aff_35637");
+    const signed = createSignatures[0]!;
+    assert.equal(signed.publicKey, "test-public");
+    assert.equal(signed.signature, createHmac("sha256", "test-secret")
+      .update(`${signed.timestamp}${JSON.stringify(payload)}${signed.publicKey}`).digest("base64"));
+    assert.equal(payload.rateMode, rateMode);
+    assert.equal(Object.hasOwn(payload, "markup"), false);
+    assert.equal(payload.claimedDepositAmount, String(request.amount));
+    assert.equal(
+      (payload.claimedPublicRate as Record<string, unknown>).claimedAmountToReceive,
+      result.quote.amountToGet,
+    );
+  }
 });
 
 test("authorization and customer validation errors are safe and stable", async () => {
