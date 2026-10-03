@@ -17810,6 +17810,12 @@ body:has(.track-order-page) .public-footer a:hover {
   border-radius: 15px !important;
 }
 
+/* Center both Swap selectors against the amount card, not its lower body row.
+   Relative positioning preserves the input, footer and widget flow geometry. */
+.public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .reference-amount-body .swap-asset-trigger {
+  top: -2.25px;
+}
+
 .public-shell .exchange-card.redesigned-widget:is(.swap-widget-step-1, .convert-widget-step-1) .reference-amount-footer {
   padding-top: 5px;
   font-size: 10px;
@@ -17963,6 +17969,10 @@ body:has(.track-order-page) .public-footer a:hover {
 
   .public-shell .exchange-card.redesigned-widget:is(.swap-widget-step-1, .convert-widget-step-1) .reference-amount-footer {
     padding-top: 1px;
+  }
+
+  .public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .reference-amount-body .swap-asset-trigger {
+    top: -4.25px;
   }
 
   .public-shell .exchange-card.swap-widget-flow.swap-widget-step-1 .convert-quote-flow > .reference-swap-divider {
