@@ -4482,6 +4482,28 @@ export type PaymentMethod = PaymentMethodInput & {
   updatedAt: string;
 }, 'family' | 'executionMode' | 'lifecycle' | 'regions' | 'countries' | 'requiresProviderConfiguration'>>;
 
+export interface PaymentMethodBulkReserveInput {
+  /**
+     * @minItems 1
+     * @maxItems 1000
+     * @items.minLength 1
+     * @items.maxLength 200
+     */
+  methodIds: string[];
+  /** @pattern ^[0-9]{1,20}(\.[0-9]{1,18})?$ */
+  reserve: string;
+  /**
+     * @minItems 1
+     * @maxItems 10000
+     */
+  expectedAttachmentIds: string[];
+}
+
+export interface PaymentMethodBulkReserveResult {
+  updatedMethods: number;
+  updatedReserves: number;
+}
+
 export interface PaymentMethodBulkFieldsPreviewInput {
   /**
      * @minItems 1

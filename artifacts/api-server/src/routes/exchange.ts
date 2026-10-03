@@ -85,6 +85,8 @@ import {
   BulkCreateManualDeskPricingRulesBody,
   BulkCreateManualDeskPricingRulesResponse,
   GetPaymentMethodsResponse,
+  SetBulkPaymentMethodReserveBody,
+  SetBulkPaymentMethodReserveResponse,
   CreatePaymentMethodBody,
   CreatePaymentMethodResponse,
   UpdatePaymentMethodParams,
@@ -7540,6 +7542,65 @@ router.get("/admin/payment-methods", async (_req, res, next) => {
         asc(paymentMethodsTable.id),
       );
     res.json(GetPaymentMethodsResponse.parse(rows.map(outputPaymentMethod)));
+  } catch (error) { next(error); }
+});
+
+router.post("/admin/payment-methods/bulk-reserve", requireOwner, async (req, res, next) => {
+  try {
+    const input = SetBulkPaymentMethodReserveBody.strict().parse(req.body);
+    const operator = res.locals.operator as OperatorAuthorization;
+    if (new Set(input.methodIds).size !== input.methodIds.length ||
+        new Set(input.expectedAttachmentIds).size !== input.expectedAttachmentIds.length) {
+      throw new ApiError("INVALID_RESERVE_SELECTION", "Each selected method and currency attachment must appear only once.", 400);
+    }
+    const result = await db.transaction(async tx => {
+      const ids = [...input.methodIds].sort();
+      // Lock parent rows to prevent attachment inserts/deletes from changing the reviewed scope.
+      const methods = await tx.select().from(paymentMethodsTable)
+        .where(inArray(paymentMethodsTable.id, ids)).orderBy(asc(paymentMethodsTable.id)).for("update");
+      if (methods.length !== ids.length) throw new ApiError("PAYMENT_METHOD_NOT_FOUND", "One or more selected payment methods no longer exist.", 404);
+      const attachments = await tx.select().from(fiatCurrencyPaymentMethodsTable)
+        .where(inArray(fiatCurrencyPaymentMethodsTable.paymentMethodId, ids))
+        .orderBy(asc(fiatCurrencyPaymentMethodsTable.id)).for("update");
+      if (ids.some(id => !attachments.some(row => row.paymentMethodId === id))) {
+        throw new ApiError("RESERVE_CURRENCY_REQUIRED", "Every selected payment method must have at least one currency attached.", 400);
+      }
+      const actual = attachments.map(row => row.id).sort();
+      const expected = [...input.expectedAttachmentIds].sort();
+      if (actual.length !== expected.length || actual.some((id, index) => id !== expected[index])) {
+        throw new ApiError("RESERVE_SELECTION_CHANGED", "Currency attachments changed. Close and reopen Set Reserve to review the current selection.", 409);
+      }
+      const currencies = await tx.select().from(fiatCurrenciesTable)
+        .where(inArray(fiatCurrenciesTable.id, [...new Set(attachments.map(row => row.fiatCurrencyId))]))
+        .orderBy(asc(fiatCurrenciesTable.id)).for("share");
+      const reserves = new Map(currencies.map(currency => [
+        currency.id, normalizePaymentMethodReserve(input.reserve, currency.precision),
+      ]));
+      for (const attachment of attachments) {
+        const reserve = reserves.get(attachment.fiatCurrencyId);
+        if (reserve === undefined) throw new ApiError("FIAT_CURRENCY_NOT_FOUND", "Reserve currency no longer exists.", 409);
+        await tx.update(fiatCurrencyPaymentMethodsTable).set({ reserve })
+          .where(eq(fiatCurrencyPaymentMethodsTable.id, attachment.id));
+      }
+      await tx.insert(operatorAuditLogsTable).values({
+        action: "payment_method_reserve.bulk_updated",
+        actorClerkUserId: getOperatorActorUserId(req),
+        targetOperatorId: operator.id,
+        targetEmail: operator.email,
+        requestId: String(req.id),
+        details: {
+          methodIds: ids,
+          changes: attachments.map(row => ({
+            attachmentId: row.id, fiatCurrencyId: row.fiatCurrencyId,
+            paymentMethodId: row.paymentMethodId,
+            reserveBefore: row.reserve, reserveAfter: reserves.get(row.fiatCurrencyId),
+          })),
+        },
+      });
+      return { updatedMethods: methods.length, updatedReserves: attachments.length };
+    });
+    invalidateBestchangeFeed();
+    res.json(SetBulkPaymentMethodReserveResponse.parse(result));
   } catch (error) { next(error); }
 });
 

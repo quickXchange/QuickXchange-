@@ -20,3 +20,9 @@ For fiat destinations, the current Payment Method reserve in the receiving curre
 **Why:** The user requested currency-specific Payment Method reserves, automatic BestChange reuse without duplicate entry, and no order-driven balance changes.
 
 **How to apply:** Keep currency reserves independent and exact, omit zero-reserve destinations, invalidate older feed generations after committed reserve edits, and leave publication and pricing unchanged unless explicitly requested.
+
+Bulk Reserve applies the full entered amount separately to each selected Payment Method in its own configured currencies, never as a pooled total or a divided allocation.
+
+**Why:** The user explicitly required individual amounts with currencies preserved, including setting zero, and no changes to other Payment Method fields.
+
+**How to apply:** Preserve this meaning in bulk previews and mutations; never introduce currency conversion, allocation, or changes to unrelated settings.

@@ -9323,6 +9323,27 @@ export const RequestPaymentMethodLogoUploadResponse = zod.object({
 })
 
 
+export const setBulkPaymentMethodReserveBodyMethodIdsItemMax = 200;
+
+export const setBulkPaymentMethodReserveBodyMethodIdsMax = 1000;
+
+export const setBulkPaymentMethodReserveBodyReserveRegExp = new RegExp('^[0-9]{1,20}(\\.[0-9]{1,18})?$');
+export const setBulkPaymentMethodReserveBodyExpectedAttachmentIdsMax = 10000;
+
+
+
+export const SetBulkPaymentMethodReserveBody = zod.object({
+  "methodIds": zod.array(zod.string().min(1).max(setBulkPaymentMethodReserveBodyMethodIdsItemMax)).min(1).max(setBulkPaymentMethodReserveBodyMethodIdsMax),
+  "reserve": zod.string().regex(setBulkPaymentMethodReserveBodyReserveRegExp),
+  "expectedAttachmentIds": zod.array(zod.string().uuid()).min(1).max(setBulkPaymentMethodReserveBodyExpectedAttachmentIdsMax)
+})
+
+export const SetBulkPaymentMethodReserveResponse = zod.object({
+  "updatedMethods": zod.number().int(),
+  "updatedReserves": zod.number().int()
+})
+
+
 
 export const previewBulkPaymentMethodFieldsBodyMethodIdsMax = 100;
 

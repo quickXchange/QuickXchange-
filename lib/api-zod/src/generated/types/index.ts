@@ -458,6 +458,8 @@ export * from './paymentMethodBulkFieldsPreview';
 export * from './paymentMethodBulkFieldsPreviewInput';
 export * from './paymentMethodBulkFieldsTarget';
 export * from './paymentMethodBulkFieldsTargetAction';
+export * from './paymentMethodBulkReserveInput';
+export * from './paymentMethodBulkReserveResult';
 export * from './paymentMethodFieldDefinition';
 export * from './paymentMethodFieldDefinitionDirection';
 export * from './paymentMethodFieldDefinitionOptionsItem';

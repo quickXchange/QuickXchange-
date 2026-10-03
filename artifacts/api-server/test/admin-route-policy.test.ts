@@ -4,6 +4,17 @@ import { join } from "node:path";
 import test from "node:test";
 import { adminPolicy, classifyAdminRoute } from "../src/lib/admin-policy";
 
+test("bulk payment method reserve is Owner-only even with staff management overrides", async () => {
+  const path = "/admin/payment-methods/bulk-reserve";
+  assert.deepEqual(classifyAdminRoute("POST", path), { permission: "payment_methods.manage", ownerOnly: true });
+  const error = await new Promise<any>(resolve => adminPolicy(
+    { method: "POST", path } as never,
+    { locals: { operator: { role: "operator", effectivePermissions: ["payment_methods.manage"] } } } as never,
+    resolve,
+  ));
+  assert.ok(error, "An explicit staff permission must not bypass Owner-only authorization.");
+});
+
 test("every statically declared Admin route has a deny-by-default policy", async () => {
   const routesDirectory = join(process.cwd(), "src/routes");
   const routeFiles = (await readdir(routesDirectory)).filter((file) =>

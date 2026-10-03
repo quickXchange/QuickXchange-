@@ -21,7 +21,7 @@ import {
   LayoutDashboard, Loader2, Mail, Menu, MoreHorizontal, Archive, ArchiveRestore,
   RefreshCw, RotateCcw, Save, ShieldCheck, TrendingUp, UserRound, Users,
   X, Zap, Settings, Key, Activity, Network, LogOut, Moon, Sun, Eye, Pause, Trash2, UserCheck, Crown, Coins, Ban, CheckCircle,
-  CreditCard, ExternalLink, Database, HandCoins, Info, Landmark, ShoppingBag, Smartphone, WalletCards, CalendarDays,
+  CreditCard, ExternalLink, Database, HandCoins, Info, Landmark, ShoppingBag, Smartphone, Wallet, WalletCards, CalendarDays,
   Send, BellRing, Link as LinkIcon, Unplug, MessageSquare, CheckCircle2, XCircle, Bell, Settings2, Star, Code
 } from 'lucide-react';
 import { VerifiedTransaction } from '@/components/verified-transaction';
@@ -121,6 +121,7 @@ import { AdminWhitebitAssetSyncDialog } from '../components/admin-whitebit-asset
 import { AdminCryptoAssetsBulkEditDialog } from '../components/admin-crypto-assets-bulk-edit-dialog';
 import { AdminPaymentMethodBulkFieldsDialog } from '../components/admin-payment-method-bulk-fields-dialog';
 import { AdminPaymentMethodBulkDeleteDialog } from '../components/admin-payment-method-bulk-delete-dialog';
+import { AdminPaymentMethodBulkReserveDialog } from '../components/admin-payment-method-bulk-reserve-dialog';
 import { BulkDepositProviderDialog } from '../components/bulk-deposit-provider-dialog';
 import { OrderSupportToolsSection } from '../components/admin-order-support-tools';
 import { convertOrderStatusLabel, convertOrderStatusStep, normalizeConvertOrderStatus } from '../lib/convert-order-status';
@@ -6739,11 +6740,13 @@ function AdminCurrencies() {
   const [bulkEditAssetsOpen, setBulkEditAssetsOpen] = useState(false);
   const [bulkMethodFieldsOpen, setBulkMethodFieldsOpen] = useState(false);
   const [bulkDeleteMethodFieldsOpen, setBulkDeleteMethodFieldsOpen] = useState(false);
+  const [bulkReserveMethodIds, setBulkReserveMethodIds] = useState<string[] | null>(null);
   const [bulkNetworkWalletOpen, setBulkNetworkWalletOpen] = useState(false);
   const [bulkDepositProviderOpen, setBulkDepositProviderOpen] = useState(false);
 
   const currenciesQuery = useGetFiatCurrencies({ query: { queryKey: getGetFiatCurrenciesQueryKey() } });
   const methodsQuery = useGetPaymentMethods({ query: { queryKey: getGetPaymentMethodsQueryKey() } });
+  const methodReservesQuery = useGetFiatCurrencyPaymentMethods({ query: { queryKey: getGetFiatCurrencyPaymentMethodsQueryKey(), enabled: can('currencies.view') } });
   const assetsQuery = useGetCryptoAssets({ query: { queryKey: getGetCryptoAssetsQueryKey() } });
   const networksQuery = useGetCryptoNetworks({ query: { queryKey: getGetCryptoNetworksQueryKey() } });
   const currentDrawerNetwork = drawerNetwork === 'new'
@@ -7114,7 +7117,7 @@ function AdminCurrencies() {
     if (activeQuery.isLoading) {
       return (
         <tr>
-          <td colSpan={tab === 'networks' ? 4 : 8} className="text-center py-12 text-slate-400">
+          <td colSpan={tab === 'networks' ? 4 : tab === 'methods' ? 9 : 8} className="text-center py-12 text-slate-400">
             <Loader2 className="animate-spin mx-auto mb-2" size={24} />
             {t('adminCatalog.loading_catalog')}</td>
         </tr>
@@ -7124,7 +7127,7 @@ function AdminCurrencies() {
     if (activeQuery.isError) {
       return (
         <tr>
-          <td colSpan={tab === 'networks' ? 4 : 8} className="text-center py-12 text-red-400">
+          <td colSpan={tab === 'networks' ? 4 : tab === 'methods' ? 9 : 8} className="text-center py-12 text-red-400">
             <CircleAlert className="mx-auto mb-2" size={24} />
             {t('adminCatalog.failed_to_load_catalog_data_please_try')}</td>
         </tr>
@@ -7134,7 +7137,7 @@ function AdminCurrencies() {
     if (paginatedData.length === 0) {
       return (
         <tr>
-          <td colSpan={tab === 'networks' ? 4 : 8} className="text-center py-12 text-slate-500">
+          <td colSpan={tab === 'networks' ? 4 : tab === 'methods' ? 9 : 8} className="text-center py-12 text-slate-500">
             <Archive className="mx-auto mb-2 opacity-50" size={24} />
             {t('adminCatalog.no')}{tab} {t('adminCatalog.match_your_filters')}</td>
         </tr>
@@ -7223,6 +7226,12 @@ function AdminCurrencies() {
               )}
             </span>
           </td>
+          {isMeth && <td data-label="Reserve" data-testid={`method-reserve-${item.id}`}>
+            {!can('currencies.view') ? '—' : methodReservesQuery.isError ? 'Unavailable' : methodReservesQuery.isLoading ? 'Loading…' :
+              (methodReservesQuery.data ?? []).filter(row => row.paymentMethodId === item.id).map(row =>
+                <div key={row.id}>{row.reserve ?? '0'} {currenciesQuery.data?.find(currency => currency.id === row.fiatCurrencyId)?.code ?? 'Unknown currency'}</div>
+              )}
+          </td>}
           {!isNet && <td data-label="Region">{item.regions ? item.regions.join(', ') || 'Global' : t('adminCatalog.global')}</td>}
           {!isNet && <td data-label="Precision">{precision}</td>}
           {!isNet && <td data-label="Lifecycle"><span className={`lifecycle-badge lifecycle-${String(lifecycle).toLowerCase()}`}>{lifecycle}</span></td>}
@@ -7580,6 +7589,8 @@ function AdminCurrencies() {
                   <button type="button" disabled={catalogActionPending || !selectedCatalogIdsOnPage.length} onClick={() => runCatalogAction('disable')}><Power size={14} /> {t('adminCatalog.disabled')}</button>
                   <div className="bulk-actions-divider" />
                   {tab === 'methods' && <>
+                    {isOwner && <><button type="button" disabled={catalogActionPending || catalogSelected.methods.size > 1000 || !methodReservesQuery.data || methodReservesQuery.isFetching || !currenciesQuery.data}
+                      onClick={() => setBulkReserveMethodIds([...catalogSelected.methods])} data-testid="button-bulk-set-reserve"><Wallet size={14} /> Set Reserve</button><div className="bulk-actions-divider" /></>}
                     <button type="button" disabled={catalogActionPending || catalogSelected.methods.size > 100} onClick={() => setBulkMethodFieldsOpen(true)} data-testid="button-bulk-edit-method-fields"><Pencil size={14} /> Bulk Edit Fields</button>
                     <div className="bulk-actions-divider" />
                     <button type="button" className="bulk-actions-delete" disabled={catalogActionPending || catalogSelected.methods.size > 100} onClick={() => setBulkDeleteMethodFieldsOpen(true)} data-testid="button-bulk-delete-method-fields"><Trash2 size={14} /> Delete Fields</button>
@@ -7620,6 +7631,7 @@ function AdminCurrencies() {
                   <th className="w-10">{canManageCurrent && <input type="checkbox" aria-label={t('adminCatalog.select_all_visible_tab', { tab: pageTitle })} className="rounded border-border bg-transparent" checked={allVisibleCatalogSelected} onChange={e => toggleAllVisibleCatalogItems(e.target.checked)} />}</th>
                   <th>{tab === 'methods' ? t('adminCatalog.method') : tab === 'assets' ? t('adminCatalog.asset') : tab === 'networks' ? t('adminCatalog.asset_network') : t('adminCatalog.currency')}</th>
                   <th>{t('adminCatalog.name')}</th>
+                  {tab === 'methods' && <th>Reserve</th>}
                   {tab !== 'networks' && <th>{t('adminCatalog.region')}</th>}
                   {tab !== 'networks' && <th>{t('adminCatalog.precision')}</th>}
                   {tab !== 'networks' && <th>{t('adminCatalog.lifecycle')}</th>}
@@ -7722,6 +7734,17 @@ function AdminCurrencies() {
           }}
         />
       )}
+      {bulkReserveMethodIds && isOwner && tab === 'methods' && <AdminPaymentMethodBulkReserveDialog
+        methodIds={bulkReserveMethodIds}
+        methods={methodsQuery.data ?? []}
+        currencies={currenciesQuery.data ?? []}
+        attachments={methodReservesQuery.data ?? []}
+        onClose={() => setBulkReserveMethodIds(null)}
+        onApplied={() => {
+          setBulkReserveMethodIds(null);
+          setCatalogSelected(current => ({ ...current, methods: new Set() }));
+        }}
+      />}
       {bulkMethodFieldsOpen && <AdminPaymentMethodBulkFieldsDialog
         methodIds={Array.from(catalogSelected.methods)}
         methods={methodsQuery.data || []}

@@ -226,6 +226,8 @@ import type {
   PaymentMethodBulkFieldsApplyResult,
   PaymentMethodBulkFieldsPreview,
   PaymentMethodBulkFieldsPreviewInput,
+  PaymentMethodBulkReserveInput,
+  PaymentMethodBulkReserveResult,
   PaymentMethodInput,
   PaymentMethodLogoUpload,
   PaymentMethodLogoUploadInput,
@@ -6866,6 +6868,71 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getRequestPaymentMethodLogoUploadMutationOptions(options));
+    }
+
+export const getSetBulkPaymentMethodReserveUrl = () => {
+
+
+
+
+  return `/api/admin/payment-methods/bulk-reserve`
+}
+
+export const setBulkPaymentMethodReserve = async (paymentMethodBulkReserveInput: PaymentMethodBulkReserveInput, options?: Parameters<typeof customFetch>[1]): Promise<PaymentMethodBulkReserveResult> => {
+
+  return customFetch<PaymentMethodBulkReserveResult>(getSetBulkPaymentMethodReserveUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(paymentMethodBulkReserveInput)
+  }
+);}
+
+
+
+
+
+export const getSetBulkPaymentMethodReserveMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setBulkPaymentMethodReserve>>, TError,{data: BodyType<PaymentMethodBulkReserveInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setBulkPaymentMethodReserve>>, TError,{data: BodyType<PaymentMethodBulkReserveInput>}, TContext> => {
+
+const mutationKey = ['setBulkPaymentMethodReserve'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setBulkPaymentMethodReserve>>, {data: BodyType<PaymentMethodBulkReserveInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  setBulkPaymentMethodReserve(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetBulkPaymentMethodReserveMutationResult = NonNullable<Awaited<ReturnType<typeof setBulkPaymentMethodReserve>>>
+    export type SetBulkPaymentMethodReserveMutationBody = BodyType<PaymentMethodBulkReserveInput>
+    export type SetBulkPaymentMethodReserveMutationError = ErrorType<void>
+
+    export const useSetBulkPaymentMethodReserve = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setBulkPaymentMethodReserve>>, TError,{data: BodyType<PaymentMethodBulkReserveInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setBulkPaymentMethodReserve>>,
+        TError,
+        {data: BodyType<PaymentMethodBulkReserveInput>},
+        TContext
+      > => {
+      return useMutation(getSetBulkPaymentMethodReserveMutationOptions(options));
     }
 
 export const getPreviewBulkPaymentMethodFieldsUrl = () => {

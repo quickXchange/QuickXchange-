@@ -87,6 +87,7 @@ const POLICY_MATCHERS: readonly PolicyMatcher[] = [
   { method: "DELETE", pattern: /^\/admin\/fiat-currencies\/flag-upload\/[^/]+$/, policy: P("currencies.manage") },
   { method: "GET", pattern: /^\/admin\/payment-methods$/, policy: P("payment_methods.view") },
   { method: "POST", pattern: /^\/admin\/payment-methods$/, policy: P("payment_methods.manage") },
+  { method: "POST", pattern: /^\/admin\/payment-methods\/bulk-reserve$/, policy: P("payment_methods.manage", true) },
   { method: "POST", pattern: /^\/admin\/payment-methods\/bulk-fields\/(preview|apply)$/, policy: P("payment_methods.manage") },
   { method: "POST", pattern: /^\/admin\/payment-methods\/bulk-delete-fields\/(preview|apply)$/, policy: P("payment_methods.manage") },
   { method: "PATCH", pattern: /^\/admin\/payment-methods\/[^/]+$/, policy: P("payment_methods.manage") },
