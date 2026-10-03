@@ -998,6 +998,63 @@ type PreparedManualQuoteContext = {
   referenceBasis?: ManualDeskEstimateReferenceBasis;
 };
 
+/**
+ * Read-only export adapter. Uses the same route gates, pricing, fee arithmetic
+ * and payout limits as customer Swap quotes; never bypasses deposit readiness.
+ * Only this restricted projection can leave the financial quote boundary.
+ */
+export async function prepareBestchangeSwapQuotes(
+  sourceId: string, targetId: string, selectedAddOnKeys: string[],
+) {
+  const options = [...await listPublicFiatSettlementOptions(), ...await listPublicManualCryptoSettlementOptions()];
+  const sourceOption = options.find(option => option.id === sourceId);
+  const targetOption = options.find(option => option.id === targetId);
+  if (!sourceOption || !targetOption || sourceId === targetId ||
+      !["send", "both"].includes(sourceOption.direction) ||
+      !["receive", "both"].includes(targetOption.direction) ||
+      (sourceOption.kind !== "fiat-payment-method" && targetOption.kind !== "fiat-payment-method")) {
+    throw new ApiError("BESTCHANGE_ROUTE_UNAVAILABLE", "The selected Swap direction is unavailable.", 422);
+  }
+  const base = {
+    type: "manual" as const, fromAsset: sourceOption.assetCode, fromNetwork: sourceOption.routeNetwork,
+    toAsset: targetOption.assetCode, toNetwork: targetOption.routeNetwork,
+    sourceSettlementOptionId: sourceId, targetSettlementOptionId: targetId, selectedAddOnKeys,
+  };
+  const route = await normalizeExchangeRoute({ ...base, amount: 1 });
+  const rule = await matchManualDeskPricingRule({
+    sourceAsset: route.fromAsset, targetAsset: route.toAsset,
+    sourceNetwork: route.fromNetwork, targetNetwork: route.toNetwork,
+    sourceSettlementOptionId: sourceId, targetSettlementOptionId: targetId,
+  });
+  const selectedAddons = await resolveSelectedManualSwapAddons(selectedAddOnKeys);
+  const additionalCurrencies = selectedAddons.length ? [...new Set([
+    route.fromAsset, route.toAsset,
+    ...selectedAddons.filter(addon => addon.feeType !== "percentage").map(addon => addon.feeCurrency),
+  ].map(currency => currency.toUpperCase()))] : [];
+  const referenceBasis = await createManualDeskEstimateReferenceContext().resolve({
+    sourceCurrency: route.fromAsset, targetCurrency: route.toAsset,
+    exactRate: rule.exactRate, additionalCurrencies,
+  });
+  const context = { sourceOption, targetOption, rule, selectedAddons, referenceBasis };
+  return {
+    ...effectiveManualSourceLimits(rule, sourceOption),
+    targetPrecision: route.targetPrecision,
+    tiers: rule.amountBasedPricingEnabled ? rule.amountBasedPricingTiers : [],
+    rangeOnlyPricing: rule.rangeOnlyPricing,
+    quote: async (amount: number) => {
+      const ticket = await buildQuoteTicket({ ...base, amount }, route, false, false, context);
+      if (ticket.manualOrderCreationDisabled) {
+        throw new ApiError("BESTCHANGE_ROUTE_UNAVAILABLE", "Manual Swap order creation is unavailable.", 422);
+      }
+      const exact = (ticket as QuoteTicket & { exact?: { receiveAmount?: string } }).exact;
+      if (typeof exact?.receiveAmount !== "string") {
+        throw new ApiError("BESTCHANGE_RATE_UNAVAILABLE", "Exact Swap pricing is unavailable.", 503);
+      }
+      return exact.receiveAmount;
+    },
+  };
+}
+
 function settlementFieldsForSide(
   fields: Array<{
     key: string;

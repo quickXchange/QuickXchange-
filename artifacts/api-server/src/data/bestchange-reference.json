@@ -1,0 +1,3596 @@
+{
+  "documentationUrl": "https://www.bestchange.com/wiki/rates.html",
+  "currencyCodes": [
+    {
+      "code": "BTC",
+      "description": "Bitcoin (BTC)"
+    },
+    {
+      "code": "BTCLN",
+      "description": "Bitcoin LN (BTC)"
+    },
+    {
+      "code": "BTCBEP20",
+      "description": "Bitcoin BEP20 (BTCB)"
+    },
+    {
+      "code": "WBTC",
+      "description": "Wrapped BTC (WBTC)"
+    },
+    {
+      "code": "BCH",
+      "description": "Bitcoin Cash (BCH)"
+    },
+    {
+      "code": "BSV",
+      "description": "Bitcoin SV (BSV)"
+    },
+    {
+      "code": "ETH",
+      "description": "Ethereum (ETH)"
+    },
+    {
+      "code": "ETHBEP20",
+      "description": "Ethereum BEP20 (ETH)"
+    },
+    {
+      "code": "ETHARBTM",
+      "description": "Ethereum ARBITRUM (ETH)"
+    },
+    {
+      "code": "ETHOPTM",
+      "description": "Ethereum OPTIMISM (ETH)"
+    },
+    {
+      "code": "WETH",
+      "description": "Wrapped ETH (WETH)"
+    },
+    {
+      "code": "ETC",
+      "description": "Ethereum Classic (ETC)"
+    },
+    {
+      "code": "LTC",
+      "description": "Litecoin (LTC)"
+    },
+    {
+      "code": "XRP",
+      "description": "XRP (XRP)"
+    },
+    {
+      "code": "XMR",
+      "description": "Monero (XMR)"
+    },
+    {
+      "code": "DOGE",
+      "description": "Dogecoin (DOGE)"
+    },
+    {
+      "code": "POL",
+      "description": "Polygon (POL)"
+    },
+    {
+      "code": "DASH",
+      "description": "Dash (DASH)"
+    },
+    {
+      "code": "ZEC",
+      "description": "Zcash (ZEC)"
+    },
+    {
+      "code": "USDTERC20",
+      "description": "Tether ERC20 (USDT)"
+    },
+    {
+      "code": "USDTTRC20",
+      "description": "Tether TRC20 (USDT)"
+    },
+    {
+      "code": "USDTBEP20",
+      "description": "Tether BEP20 (USDT)"
+    },
+    {
+      "code": "USDTSOL",
+      "description": "Tether SOL (USDT)"
+    },
+    {
+      "code": "USDTPOLYGON",
+      "description": "Tether POLYGON (USDT)"
+    },
+    {
+      "code": "USDTTON",
+      "description": "Tether TON (USDT)"
+    },
+    {
+      "code": "USDTOPTM",
+      "description": "Tether OPTIMISM (USDT)"
+    },
+    {
+      "code": "USDTARBTM",
+      "description": "Tether ARBITRUM (USDT)"
+    },
+    {
+      "code": "USDTAVAXC",
+      "description": "Tether AVAXC (USDT)"
+    },
+    {
+      "code": "USDTOMNI",
+      "description": "Tether OMNI (USDT)"
+    },
+    {
+      "code": "USDTNEAR",
+      "description": "Tether NEAR (USDT)"
+    },
+    {
+      "code": "XAUTERC20",
+      "description": "Tether Gold ERC20 (XAUT)"
+    },
+    {
+      "code": "USDCERC20",
+      "description": "USDC ERC20 (USDC)"
+    },
+    {
+      "code": "USDCTRC20",
+      "description": "USDC TRC20 (USDC)"
+    },
+    {
+      "code": "USDCBEP20",
+      "description": "USDC BEP20 (USDC)"
+    },
+    {
+      "code": "USDCSOL",
+      "description": "USDC SOL (USDC)"
+    },
+    {
+      "code": "USDCPOLYGON",
+      "description": "USDC POLYGON (USDC)"
+    },
+    {
+      "code": "USDCARBTM",
+      "description": "USDC ARBITRUM (USDC)"
+    },
+    {
+      "code": "USDCOPTM",
+      "description": "USDC OPTIMISM (USDC)"
+    },
+    {
+      "code": "USDCAVAXC",
+      "description": "USDC AVAXC (USDC)"
+    },
+    {
+      "code": "USDCBASE",
+      "description": "USDC BASE (USDC)"
+    },
+    {
+      "code": "USDCNEAR",
+      "description": "USDC NEAR (USDC)"
+    },
+    {
+      "code": "TUSDERC20",
+      "description": "TrueUSD ERC20 (TUSD)"
+    },
+    {
+      "code": "TUSDTRC20",
+      "description": "TrueUSD TRC20 (TUSD)"
+    },
+    {
+      "code": "USDP",
+      "description": "Pax Dollar (USDP)"
+    },
+    {
+      "code": "USDS",
+      "description": "USDS (Dai) (USDS)"
+    },
+    {
+      "code": "BUSD",
+      "description": "Binance USD (BUSD)"
+    },
+    {
+      "code": "PYUSD",
+      "description": "PayPal USD (PYUSD)"
+    },
+    {
+      "code": "UUSD",
+      "description": "Utopia USD (UUSD)"
+    },
+    {
+      "code": "USDQERC20",
+      "description": "Quantoz ERC20 (USDQ)"
+    },
+    {
+      "code": "USDRERC20",
+      "description": "StablR USD ERC20 (USDR)"
+    },
+    {
+      "code": "XEM",
+      "description": "NEM (XEM)"
+    },
+    {
+      "code": "NEO",
+      "description": "NEO (NEO)"
+    },
+    {
+      "code": "EOS",
+      "description": "EOS (EOS)"
+    },
+    {
+      "code": "IOTA",
+      "description": "IOTA (IOTA)"
+    },
+    {
+      "code": "ADA",
+      "description": "Cardano (ADA)"
+    },
+    {
+      "code": "XLM",
+      "description": "Stellar (XLM)"
+    },
+    {
+      "code": "TRX",
+      "description": "TRON (TRX)"
+    },
+    {
+      "code": "WAVES",
+      "description": "Waves (WAVES)"
+    },
+    {
+      "code": "OMG",
+      "description": "OMG Network (OMG)"
+    },
+    {
+      "code": "XVG",
+      "description": "Verge (XVG)"
+    },
+    {
+      "code": "ZRX",
+      "description": "0x (ZRX)"
+    },
+    {
+      "code": "BNBBEP2",
+      "description": "BNB BEP2 (BNB)"
+    },
+    {
+      "code": "BNBBEP20",
+      "description": "BNB BEP20 (BNB)"
+    },
+    {
+      "code": "ICX",
+      "description": "ICON (ICX)"
+    },
+    {
+      "code": "PEPE",
+      "description": "Pepe (PEPE)"
+    },
+    {
+      "code": "BTT",
+      "description": "BitTorrent (BTT)"
+    },
+    {
+      "code": "BAT",
+      "description": "BAT (BAT)"
+    },
+    {
+      "code": "ONT",
+      "description": "Ontology (ONT)"
+    },
+    {
+      "code": "QTUM",
+      "description": "Qtum (QTUM)"
+    },
+    {
+      "code": "LINK",
+      "description": "Chainlink (LINK)"
+    },
+    {
+      "code": "ATOM",
+      "description": "Cosmos (ATOM)"
+    },
+    {
+      "code": "XTZ",
+      "description": "Tezos (XTZ)"
+    },
+    {
+      "code": "DOT",
+      "description": "Polkadot (DOT)"
+    },
+    {
+      "code": "UNI",
+      "description": "Uniswap (UNI)"
+    },
+    {
+      "code": "RVN",
+      "description": "Ravencoin (RVN)"
+    },
+    {
+      "code": "SOL",
+      "description": "Solana (SOL)"
+    },
+    {
+      "code": "VET",
+      "description": "VeChain (VET)"
+    },
+    {
+      "code": "SHIBERC20",
+      "description": "Shiba ERC20 (SHIB)"
+    },
+    {
+      "code": "SHIBBEP20",
+      "description": "Shiba BEP20 (SHIB)"
+    },
+    {
+      "code": "ALGO",
+      "description": "Algorand (ALGO)"
+    },
+    {
+      "code": "AVAX",
+      "description": "Avalanche (AVAX)"
+    },
+    {
+      "code": "YFI",
+      "description": "Yearn Finance (YFI)"
+    },
+    {
+      "code": "MANA",
+      "description": "Decentraland (MANA)"
+    },
+    {
+      "code": "LUNA",
+      "description": "Terra (LUNA)"
+    },
+    {
+      "code": "NEAR",
+      "description": "NEAR Protocol (NEAR)"
+    },
+    {
+      "code": "CRO",
+      "description": "Cronos (CRO)"
+    },
+    {
+      "code": "GRAM",
+      "description": "Gram (Toncoin) (GRAM)"
+    },
+    {
+      "code": "NOT",
+      "description": "Notcoin (NOT)"
+    },
+    {
+      "code": "CAKE",
+      "description": "PancakeSwap (CAKE)"
+    },
+    {
+      "code": "APT",
+      "description": "Aptos (APT)"
+    },
+    {
+      "code": "ARB",
+      "description": "Arbitrum (ARB)"
+    },
+    {
+      "code": "OP",
+      "description": "Optimism (OP)"
+    },
+    {
+      "code": "TRUMP",
+      "description": "Official Trump (TRUMP)"
+    },
+    {
+      "code": "SUI",
+      "description": "Sui (SUI)"
+    },
+    {
+      "code": "KAS",
+      "description": "Kaspa (KAS)"
+    },
+    {
+      "code": "FIL",
+      "description": "Filecoin (FIL)"
+    },
+    {
+      "code": "AAVE",
+      "description": "Aave (AAVE)"
+    },
+    {
+      "code": "ICP",
+      "description": "Internet Computer (ICP)"
+    },
+    {
+      "code": "PPUSD",
+      "description": "PayPal USD"
+    },
+    {
+      "code": "PPEUR",
+      "description": "PayPal EUR"
+    },
+    {
+      "code": "PPGBP",
+      "description": "PayPal GBP"
+    },
+    {
+      "code": "PPCAD",
+      "description": "PayPal CAD"
+    },
+    {
+      "code": "PPAUD",
+      "description": "PayPal AUD"
+    },
+    {
+      "code": "ADVCUSD",
+      "description": "Volet USD"
+    },
+    {
+      "code": "ADVCEUR",
+      "description": "Volet EUR"
+    },
+    {
+      "code": "SKLUSD",
+      "description": "Skrill USD"
+    },
+    {
+      "code": "SKLEUR",
+      "description": "Skrill EUR"
+    },
+    {
+      "code": "BKASHBDT",
+      "description": "bKash BDT"
+    },
+    {
+      "code": "NGDBDT",
+      "description": "Nagad BDT"
+    },
+    {
+      "code": "NTLRUSD",
+      "description": "Neteller USD"
+    },
+    {
+      "code": "NTLREUR",
+      "description": "Neteller EUR"
+    },
+    {
+      "code": "PSRUSD",
+      "description": "PaySera USD"
+    },
+    {
+      "code": "PSREUR",
+      "description": "PaySera EUR"
+    },
+    {
+      "code": "MNGUSD",
+      "description": "MoneyGo USD"
+    },
+    {
+      "code": "BPAYUSD",
+      "description": "BPay USD"
+    },
+    {
+      "code": "EPAYUSD",
+      "description": "Epay USD"
+    },
+    {
+      "code": "FPUSD",
+      "description": "FasaPay USD"
+    },
+    {
+      "code": "ZELLEUSD",
+      "description": "Zelle USD"
+    },
+    {
+      "code": "M10AZN",
+      "description": "M10 AZN"
+    },
+    {
+      "code": "BLIKPLN",
+      "description": "BLIK PLN"
+    },
+    {
+      "code": "ALPCNY",
+      "description": "Alipay CNY"
+    },
+    {
+      "code": "WCTCNY",
+      "description": "WeChat CNY"
+    },
+    {
+      "code": "EPPKR",
+      "description": "EasyPaisa PKR"
+    },
+    {
+      "code": "JCPKR",
+      "description": "JazzCash PKR"
+    },
+    {
+      "code": "PAYTMINR",
+      "description": "Paytm INR"
+    },
+    {
+      "code": "MPARS",
+      "description": "Mercado Pago ARS"
+    },
+    {
+      "code": "PIXBRBRL",
+      "description": "Pix BRL"
+    },
+    {
+      "code": "CPTSUSD",
+      "description": "Capitalist USD"
+    },
+    {
+      "code": "CPTSEUR",
+      "description": "Capitalist EUR"
+    },
+    {
+      "code": "CPTSRUB",
+      "description": "Capitalist RUB"
+    },
+    {
+      "code": "WMZ",
+      "description": "WebMoney WMZ"
+    },
+    {
+      "code": "WME",
+      "description": "WebMoney WME"
+    },
+    {
+      "code": "GMUAH",
+      "description": "Global24 UAH"
+    },
+    {
+      "code": "YAMRUB",
+      "description": "YooMoney RUB"
+    },
+    {
+      "code": "QWKZT",
+      "description": "QIWI KZT"
+    },
+    {
+      "code": "PNRUSD",
+      "description": "Payoneer USD"
+    },
+    {
+      "code": "PNREUR",
+      "description": "Payoneer EUR"
+    },
+    {
+      "code": "ZENEUR",
+      "description": "ZEN EUR"
+    },
+    {
+      "code": "IDAMD",
+      "description": "Idram AMD"
+    },
+    {
+      "code": "MWRUB",
+      "description": "Mobile Wallet RUB"
+    },
+    {
+      "code": "MWUAH",
+      "description": "Mobile Wallet UAH"
+    },
+    {
+      "code": "MWBYN",
+      "description": "Mobile Wallet BYN"
+    },
+    {
+      "code": "TRDUSD",
+      "description": "Cryptoexchange USD"
+    },
+    {
+      "code": "TRDEUR",
+      "description": "Cryptoexchange EUR"
+    },
+    {
+      "code": "CARDUSD",
+      "description": "Bank card USD"
+    },
+    {
+      "code": "CARDEUR",
+      "description": "Bank card EUR"
+    },
+    {
+      "code": "CARDGBP",
+      "description": "Bank card GBP"
+    },
+    {
+      "code": "CARDCNY",
+      "description": "Bank card CNY"
+    },
+    {
+      "code": "CARDSEK",
+      "description": "Bank card SEK"
+    },
+    {
+      "code": "CARDPLN",
+      "description": "Bank card PLN"
+    },
+    {
+      "code": "CARDMDL",
+      "description": "Bank card MDL"
+    },
+    {
+      "code": "CARDTRY",
+      "description": "Bank card TRY"
+    },
+    {
+      "code": "CARDRUB",
+      "description": "Bank card RUB"
+    },
+    {
+      "code": "CARDUAH",
+      "description": "Bank card UAH"
+    },
+    {
+      "code": "CARDBYN",
+      "description": "Bank card BYN"
+    },
+    {
+      "code": "CARDKZT",
+      "description": "Bank card KZT"
+    },
+    {
+      "code": "CARDAMD",
+      "description": "Bank card AMD"
+    },
+    {
+      "code": "CARDKGS",
+      "description": "Bank card KGS"
+    },
+    {
+      "code": "CARDCAD",
+      "description": "Bank card CAD"
+    },
+    {
+      "code": "CARDBGN",
+      "description": "Bank card BGN"
+    },
+    {
+      "code": "CARDHUF",
+      "description": "Bank card HUF"
+    },
+    {
+      "code": "CARDCZK",
+      "description": "Bank card CZK"
+    },
+    {
+      "code": "CARDNOK",
+      "description": "Bank card NOK"
+    },
+    {
+      "code": "CARDAZN",
+      "description": "Bank card AZN"
+    },
+    {
+      "code": "CARDGEL",
+      "description": "Bank card GEL"
+    },
+    {
+      "code": "CARDUZS",
+      "description": "Bank card UZS"
+    },
+    {
+      "code": "CARDTJS",
+      "description": "Bank card TJS"
+    },
+    {
+      "code": "CARDNGN",
+      "description": "Bank card NGN"
+    },
+    {
+      "code": "CARDINR",
+      "description": "Bank card INR"
+    },
+    {
+      "code": "CARDAED",
+      "description": "Bank card AED"
+    },
+    {
+      "code": "CARDRON",
+      "description": "Bank card RON"
+    },
+    {
+      "code": "CARDTHB",
+      "description": "Bank card THB"
+    },
+    {
+      "code": "CARDIDR",
+      "description": "Bank card IDR"
+    },
+    {
+      "code": "CARDBRL",
+      "description": "Bank card BRL"
+    },
+    {
+      "code": "CARDARS",
+      "description": "Bank card ARS"
+    },
+    {
+      "code": "CARDVND",
+      "description": "Bank card VND"
+    },
+    {
+      "code": "UPCNY",
+      "description": "UnionPay card CNY"
+    },
+    {
+      "code": "MIRCRUB",
+      "description": "Mir card RUB"
+    },
+    {
+      "code": "UZCUZS",
+      "description": "UZCARD card UZS"
+    },
+    {
+      "code": "HUMOUZS",
+      "description": "HUMO card UZS"
+    },
+    {
+      "code": "ELKGS",
+      "description": "Elcart card KGS"
+    },
+    {
+      "code": "WIREUSD",
+      "description": "Bank transfer USD"
+    },
+    {
+      "code": "WIREEUR",
+      "description": "Bank transfer EUR"
+    },
+    {
+      "code": "WIREGBP",
+      "description": "Bank transfer GBP"
+    },
+    {
+      "code": "WIRERUB",
+      "description": "Bank transfer RUB"
+    },
+    {
+      "code": "WIREUAH",
+      "description": "Bank transfer UAH"
+    },
+    {
+      "code": "WIREBYN",
+      "description": "Bank transfer BYN"
+    },
+    {
+      "code": "WIREKZT",
+      "description": "Bank transfer KZT"
+    },
+    {
+      "code": "WIREGEL",
+      "description": "Bank transfer GEL"
+    },
+    {
+      "code": "WIRECNY",
+      "description": "Bank transfer CNY"
+    },
+    {
+      "code": "WIRETRY",
+      "description": "Bank transfer TRY"
+    },
+    {
+      "code": "WIREPLN",
+      "description": "Bank transfer PLN"
+    },
+    {
+      "code": "WIRETHB",
+      "description": "Bank transfer THB"
+    },
+    {
+      "code": "WIREINR",
+      "description": "Bank transfer INR"
+    },
+    {
+      "code": "WIRENGN",
+      "description": "Bank transfer NGN"
+    },
+    {
+      "code": "WIREIDR",
+      "description": "Bank transfer IDR"
+    },
+    {
+      "code": "WIREBGN",
+      "description": "Bank transfer BGN"
+    },
+    {
+      "code": "WIREAED",
+      "description": "Bank transfer AED"
+    },
+    {
+      "code": "WIREJPY",
+      "description": "Bank transfer JPY"
+    },
+    {
+      "code": "WIREAUD",
+      "description": "Bank transfer AUD"
+    },
+    {
+      "code": "WIRECAD",
+      "description": "Bank transfer CAD"
+    },
+    {
+      "code": "WIREHKD",
+      "description": "Bank transfer HKD"
+    },
+    {
+      "code": "WIREVND",
+      "description": "Bank transfer VND"
+    },
+    {
+      "code": "WIREMYR",
+      "description": "Bank transfer MYR"
+    },
+    {
+      "code": "WIRENZD",
+      "description": "Bank transfer NZD"
+    },
+    {
+      "code": "WIREPKR",
+      "description": "Bank transfer PKR"
+    },
+    {
+      "code": "WIRERON",
+      "description": "Bank transfer RON"
+    },
+    {
+      "code": "WIREILS",
+      "description": "Bank transfer ILS"
+    },
+    {
+      "code": "WIREKRW",
+      "description": "Bank transfer KRW"
+    },
+    {
+      "code": "WIRESEK",
+      "description": "Bank transfer SEK"
+    },
+    {
+      "code": "WIREPHP",
+      "description": "Bank transfer PHP"
+    },
+    {
+      "code": "WIREBDT",
+      "description": "Bank transfer BDT"
+    },
+    {
+      "code": "WIREARS",
+      "description": "Bank transfer ARS"
+    },
+    {
+      "code": "WIRECZK",
+      "description": "Bank transfer CZK"
+    },
+    {
+      "code": "WIREMXN",
+      "description": "Bank transfer MXN"
+    },
+    {
+      "code": "WIREUYU",
+      "description": "Bank transfer UYU"
+    },
+    {
+      "code": "WIRECLP",
+      "description": "Bank transfer CLP"
+    },
+    {
+      "code": "SEPAEUR",
+      "description": "SEPA EUR"
+    },
+    {
+      "code": "ERIPBYN",
+      "description": "ERIP Raschet BYN"
+    },
+    {
+      "code": "SBPRUB",
+      "description": "SBP RUB"
+    },
+    {
+      "code": "UPIINR",
+      "description": "UPI INR"
+    },
+    {
+      "code": "CORPUSD",
+      "description": "Company details USD"
+    },
+    {
+      "code": "CORPEUR",
+      "description": "Company details EUR"
+    },
+    {
+      "code": "CORPCNY",
+      "description": "Company details CNY"
+    },
+    {
+      "code": "CORPRUB",
+      "description": "Company details RUB"
+    },
+    {
+      "code": "CORPUAH",
+      "description": "Company details UAH"
+    },
+    {
+      "code": "ATMQRTHB",
+      "description": "ATM QR code THB"
+    },
+    {
+      "code": "ATMQRBRL",
+      "description": "ATM QR code BRL"
+    },
+    {
+      "code": "ATMQRVND",
+      "description": "ATM QR code VND"
+    },
+    {
+      "code": "NFCRUB",
+      "description": "ATM NFC RUB"
+    },
+    {
+      "code": "REVBUSD",
+      "description": "Revolut USD"
+    },
+    {
+      "code": "REVBEUR",
+      "description": "Revolut EUR"
+    },
+    {
+      "code": "REVBGBP",
+      "description": "Revolut GBP"
+    },
+    {
+      "code": "WISEUSD",
+      "description": "Wise USD"
+    },
+    {
+      "code": "WISEEUR",
+      "description": "Wise EUR"
+    },
+    {
+      "code": "WISEGBP",
+      "description": "Wise GBP"
+    },
+    {
+      "code": "SBERRUB",
+      "description": "Sberbank RUB"
+    },
+    {
+      "code": "SBERQRUB",
+      "description": "Sberbank QR RUB"
+    },
+    {
+      "code": "TBRUB",
+      "description": "VTB RUB"
+    },
+    {
+      "code": "ACRUB",
+      "description": "Alfa-Bank RUB"
+    },
+    {
+      "code": "ACCRUB",
+      "description": "Alfa cash-in RUB"
+    },
+    {
+      "code": "RUSSTRUB",
+      "description": "Russian Standard RUB"
+    },
+    {
+      "code": "AVBRUB",
+      "description": "Avangard RUB"
+    },
+    {
+      "code": "TCSBRUB",
+      "description": "T-Bank RUB"
+    },
+    {
+      "code": "TCSBCRUB",
+      "description": "T-Bank cash-in RUB"
+    },
+    {
+      "code": "TCSBQRUB",
+      "description": "T-Bank QR RUB"
+    },
+    {
+      "code": "PSBRUB",
+      "description": "PSB RUB"
+    },
+    {
+      "code": "GPBRUB",
+      "description": "Gazprombank RUB"
+    },
+    {
+      "code": "RFBRUB",
+      "description": "Raiffeisen RUB"
+    },
+    {
+      "code": "RNKBRUB",
+      "description": "RNCB RUB"
+    },
+    {
+      "code": "OPNBRUB",
+      "description": "Openbank RUB"
+    },
+    {
+      "code": "POSTBRUB",
+      "description": "Post Bank RUB"
+    },
+    {
+      "code": "RSHBRUB",
+      "description": "RSHB RUB"
+    },
+    {
+      "code": "ROSBRUB",
+      "description": "Rosbank RUB"
+    },
+    {
+      "code": "MTSBRUB",
+      "description": "MTS Bank RUB"
+    },
+    {
+      "code": "HCBRUB",
+      "description": "Home Credit RUB"
+    },
+    {
+      "code": "OZONBRUB",
+      "description": "Ozon Bank RUB"
+    },
+    {
+      "code": "P24USD",
+      "description": "Privat 24 USD"
+    },
+    {
+      "code": "P24UAH",
+      "description": "Privat 24 UAH"
+    },
+    {
+      "code": "P24EUR",
+      "description": "Privat 24 EUR"
+    },
+    {
+      "code": "RFBUAH",
+      "description": "Raiffeisen UAH"
+    },
+    {
+      "code": "OSDBUAH",
+      "description": "Oschadbank UAH"
+    },
+    {
+      "code": "USBUAH",
+      "description": "UkrSibbank UAH"
+    },
+    {
+      "code": "PMBBUAH",
+      "description": "PUMB UAH"
+    },
+    {
+      "code": "MONOBUSD",
+      "description": "Monobank USD"
+    },
+    {
+      "code": "MONOBUAH",
+      "description": "Monobank UAH"
+    },
+    {
+      "code": "MONOBEUR",
+      "description": "Monobank EUR"
+    },
+    {
+      "code": "SNBUAH",
+      "description": "Sense Bank UAH"
+    },
+    {
+      "code": "OTPBUAH",
+      "description": "OTP Bank UAH"
+    },
+    {
+      "code": "ABUAH",
+      "description": "A-Bank UAH"
+    },
+    {
+      "code": "IZIBUAH",
+      "description": "Izibank UAH"
+    },
+    {
+      "code": "BLRBBYN",
+      "description": "Belarusbank BYN"
+    },
+    {
+      "code": "HLKBKZT",
+      "description": "HalykBank KZT"
+    },
+    {
+      "code": "BRBKZT",
+      "description": "Bereke Bank KZT"
+    },
+    {
+      "code": "FRTBKZT",
+      "description": "ForteBank KZT"
+    },
+    {
+      "code": "KSPBKZT",
+      "description": "Kaspi Bank KZT"
+    },
+    {
+      "code": "JSNBKZT",
+      "description": "Alatau City Bank KZT"
+    },
+    {
+      "code": "CCBKZT",
+      "description": "CenterCredit KZT"
+    },
+    {
+      "code": "ERSNBKZT",
+      "description": "Eurasian Bank KZT"
+    },
+    {
+      "code": "FFBKZT",
+      "description": "Freedom Bank KZT"
+    },
+    {
+      "code": "PREXARS",
+      "description": "Prex ARS"
+    },
+    {
+      "code": "PREXUYU",
+      "description": "Prex UYU"
+    },
+    {
+      "code": "PREXCLP",
+      "description": "Prex CLP"
+    },
+    {
+      "code": "WUUSD",
+      "description": "WU USD"
+    },
+    {
+      "code": "WUEUR",
+      "description": "WU EUR"
+    },
+    {
+      "code": "MGUSD",
+      "description": "MoneyGram USD"
+    },
+    {
+      "code": "MGEUR",
+      "description": "MoneyGram EUR"
+    },
+    {
+      "code": "RMTFUSD",
+      "description": "Ria USD"
+    },
+    {
+      "code": "RMTFEUR",
+      "description": "Ria EUR"
+    },
+    {
+      "code": "USTMUSD",
+      "description": "UNI USD"
+    },
+    {
+      "code": "USTMRUB",
+      "description": "UNI RUB"
+    },
+    {
+      "code": "GCMTUSD",
+      "description": "GC USD"
+    },
+    {
+      "code": "GCMTRUB",
+      "description": "GC RUB"
+    },
+    {
+      "code": "CASHUSD",
+      "description": "Cash USD"
+    },
+    {
+      "code": "CASHEUR",
+      "description": "Cash EUR"
+    },
+    {
+      "code": "CASHGBP",
+      "description": "Cash GBP"
+    },
+    {
+      "code": "CASHAED",
+      "description": "Cash AED"
+    },
+    {
+      "code": "CASHRUB",
+      "description": "Cash RUB"
+    },
+    {
+      "code": "CASHTRY",
+      "description": "Cash TRY"
+    },
+    {
+      "code": "CASHUAH",
+      "description": "Cash UAH"
+    },
+    {
+      "code": "CASHBYN",
+      "description": "Cash BYN"
+    },
+    {
+      "code": "CASHKZT",
+      "description": "Cash KZT"
+    },
+    {
+      "code": "CASHCOP",
+      "description": "Cash COP"
+    },
+    {
+      "code": "CASHPLN",
+      "description": "Cash PLN"
+    },
+    {
+      "code": "CASHILS",
+      "description": "Cash ILS"
+    },
+    {
+      "code": "CASHCZK",
+      "description": "Cash CZK"
+    },
+    {
+      "code": "CASHGEL",
+      "description": "Cash GEL"
+    },
+    {
+      "code": "CASHAMD",
+      "description": "Cash AMD"
+    },
+    {
+      "code": "CASHCAD",
+      "description": "Cash CAD"
+    },
+    {
+      "code": "CASHTHB",
+      "description": "Cash THB"
+    },
+    {
+      "code": "CASHAUD",
+      "description": "Cash AUD"
+    },
+    {
+      "code": "CASHNGN",
+      "description": "Cash NGN"
+    },
+    {
+      "code": "CASHBGN",
+      "description": "Cash BGN"
+    },
+    {
+      "code": "CASHAZN",
+      "description": "Cash AZN"
+    },
+    {
+      "code": "CASHMDL",
+      "description": "Cash MDL"
+    },
+    {
+      "code": "CASHCHF",
+      "description": "Cash CHF"
+    },
+    {
+      "code": "CASHRON",
+      "description": "Cash RON"
+    },
+    {
+      "code": "CASHIDR",
+      "description": "Cash IDR"
+    },
+    {
+      "code": "CASHCNY",
+      "description": "Cash CNY"
+    },
+    {
+      "code": "CASHMXN",
+      "description": "Cash MXN"
+    },
+    {
+      "code": "CASHSGD",
+      "description": "Cash SGD"
+    },
+    {
+      "code": "CASHKRW",
+      "description": "Cash KRW"
+    },
+    {
+      "code": "CASHBRL",
+      "description": "Cash BRL"
+    },
+    {
+      "code": "CASHINR",
+      "description": "Cash INR"
+    },
+    {
+      "code": "CASHJPY",
+      "description": "Cash JPY"
+    },
+    {
+      "code": "CASHARS",
+      "description": "Cash ARS"
+    },
+    {
+      "code": "CASHKGS",
+      "description": "Cash KGS"
+    },
+    {
+      "code": "CASHEGP",
+      "description": "Cash EGP"
+    },
+    {
+      "code": "CASHVND",
+      "description": "Cash VND"
+    },
+    {
+      "code": "CASHSAR",
+      "description": "Cash SAR"
+    }
+  ],
+  "cityCodes": [
+    {
+      "code": "ABDJN",
+      "description": "Abidjan, Cote D'Ivoire"
+    },
+    {
+      "code": "ABDB",
+      "description": "Abu Dhabi, United Arab Emirates"
+    },
+    {
+      "code": "ABJ",
+      "description": "Abuja, Nigeria"
+    },
+    {
+      "code": "CCR",
+      "description": "Accra, Ghana"
+    },
+    {
+      "code": "ADSBB",
+      "description": "Addis Ababa, Ethiopia"
+    },
+    {
+      "code": "ADLD",
+      "description": "Adelaide, Australia"
+    },
+    {
+      "code": "ADLER",
+      "description": "Adler, Russia"
+    },
+    {
+      "code": "AGRK",
+      "description": "Agarak, Armenia"
+    },
+    {
+      "code": "AKT",
+      "description": "Aktobe, Kazakhstan"
+    },
+    {
+      "code": "KHMS",
+      "description": "Al-Khums, Libya"
+    },
+    {
+      "code": "ALAN",
+      "description": "Alanya, Turkey"
+    },
+    {
+      "code": "LXNDR",
+      "description": "Alexandria, Egypt"
+    },
+    {
+      "code": "LGR",
+      "description": "Algeria, Algeria"
+    },
+    {
+      "code": "ALIC",
+      "description": "Alicante, Spain"
+    },
+    {
+      "code": "ALM",
+      "description": "Almaty, Kazakhstan"
+    },
+    {
+      "code": "LMTVS",
+      "description": "Almetyevsk, Russia"
+    },
+    {
+      "code": "AMST",
+      "description": "Amsterdam, Netherlands"
+    },
+    {
+      "code": "ANAPA",
+      "description": "Anapa, Russia"
+    },
+    {
+      "code": "ANKR",
+      "description": "Ankara, Turkey"
+    },
+    {
+      "code": "NSN",
+      "description": "Ansan, Korea"
+    },
+    {
+      "code": "ANTL",
+      "description": "Antalya, Turkey"
+    },
+    {
+      "code": "NTBS",
+      "description": "Antibes, France"
+    },
+    {
+      "code": "ANTR",
+      "description": "Antratsyt, Ukraine"
+    },
+    {
+      "code": "ANTW",
+      "description": "Antwerp, Belgium"
+    },
+    {
+      "code": "ARKH",
+      "description": "Arkhangelsk, Russia"
+    },
+    {
+      "code": "RKHZ",
+      "description": "Arkhyz, Russia"
+    },
+    {
+      "code": "RMVR",
+      "description": "Armavir, Russia"
+    },
+    {
+      "code": "SBST",
+      "description": "Asbest, Russia"
+    },
+    {
+      "code": "ASMR",
+      "description": "Asmara, Eritrea"
+    },
+    {
+      "code": "SSB",
+      "description": "Assab, Eritrea"
+    },
+    {
+      "code": "ASTN",
+      "description": "Astana, Kazakhstan"
+    },
+    {
+      "code": "ASTRA",
+      "description": "Astrakhan, Russia"
+    },
+    {
+      "code": "SNCN",
+      "description": "Asuncion, Paraguay"
+    },
+    {
+      "code": "ATH",
+      "description": "Athens, Greece"
+    },
+    {
+      "code": "TLNT",
+      "description": "Atlanta, United States"
+    },
+    {
+      "code": "BAKU",
+      "description": "Baku, Azerbaijan"
+    },
+    {
+      "code": "BLSHK",
+      "description": "Balashikha, Russia"
+    },
+    {
+      "code": "BALI",
+      "description": "Bali, Indonesia"
+    },
+    {
+      "code": "BMK",
+      "description": "Bamako, Mali"
+    },
+    {
+      "code": "BNGLR",
+      "description": "Bangalore, India"
+    },
+    {
+      "code": "BNGK",
+      "description": "Bangkok, Thailand"
+    },
+    {
+      "code": "BNLK",
+      "description": "Banja Luka, Bosnia and Herzegovina"
+    },
+    {
+      "code": "BNJL",
+      "description": "Banjul, Gambia"
+    },
+    {
+      "code": "BAR",
+      "description": "Bar, Montenegro"
+    },
+    {
+      "code": "BARC",
+      "description": "Barcelona, Spain"
+    },
+    {
+      "code": "BRNL",
+      "description": "Barnaul, Russia"
+    },
+    {
+      "code": "BSL",
+      "description": "Basel, Switzerland"
+    },
+    {
+      "code": "BTYM",
+      "description": "Bat Yam, Israel"
+    },
+    {
+      "code": "BATA",
+      "description": "Bata, Equatorial Guinea"
+    },
+    {
+      "code": "BTM",
+      "description": "Batumi, Georgia"
+    },
+    {
+      "code": "BEIJ",
+      "description": "Beijing, China"
+    },
+    {
+      "code": "BIR",
+      "description": "Beira, Mozambique"
+    },
+    {
+      "code": "BRT",
+      "description": "Beirut, Lebanon"
+    },
+    {
+      "code": "BLK",
+      "description": "Belek, Turkey"
+    },
+    {
+      "code": "BLGR",
+      "description": "Belgorod, Russia"
+    },
+    {
+      "code": "BEOG",
+      "description": "Belgrade, Serbia"
+    },
+    {
+      "code": "BNGHZ",
+      "description": "Benghazi, Libya"
+    },
+    {
+      "code": "BNDRM",
+      "description": "Benidorm, Spain"
+    },
+    {
+      "code": "BRDNK",
+      "description": "Berdiansk, Ukraine"
+    },
+    {
+      "code": "BRZVS",
+      "description": "Berezovsky, Russia"
+    },
+    {
+      "code": "BER",
+      "description": "Berlin, Germany"
+    },
+    {
+      "code": "BERNE",
+      "description": "Berne, Switzerland"
+    },
+    {
+      "code": "BLSTK",
+      "description": "Bialystok, Poland"
+    },
+    {
+      "code": "BRMN",
+      "description": "Birmingham, United Kingdom"
+    },
+    {
+      "code": "BSHK",
+      "description": "Bishkek, Kyrgyzstan"
+    },
+    {
+      "code": "BSS",
+      "description": "Bissau, Guinea-Bissau"
+    },
+    {
+      "code": "BYSK",
+      "description": "Biysk, Russia"
+    },
+    {
+      "code": "BLGVS",
+      "description": "Blagoveshchensk, Russia"
+    },
+    {
+      "code": "BBDLS",
+      "description": "Bobo-Dioulasso, Burkina Faso"
+    },
+    {
+      "code": "BDRM",
+      "description": "Bodrum, Turkey"
+    },
+    {
+      "code": "BGT",
+      "description": "Bogota, Colombia"
+    },
+    {
+      "code": "BSTN",
+      "description": "Boston, United States"
+    },
+    {
+      "code": "BRG",
+      "description": "Braga, Portugal"
+    },
+    {
+      "code": "BRSL",
+      "description": "Brasilia, Brazil"
+    },
+    {
+      "code": "BRSV",
+      "description": "Brasov, Romania"
+    },
+    {
+      "code": "BRAT",
+      "description": "Bratislava, Slovakia"
+    },
+    {
+      "code": "BRZVL",
+      "description": "Brazzaville, Congo"
+    },
+    {
+      "code": "BREMN",
+      "description": "Bremen, Germany"
+    },
+    {
+      "code": "BREST",
+      "description": "Brest, Belarus"
+    },
+    {
+      "code": "BRSB",
+      "description": "Brisbane, Australia"
+    },
+    {
+      "code": "BRNO",
+      "description": "Brno, Czech Republic"
+    },
+    {
+      "code": "BRUGS",
+      "description": "Bruges, Belgium"
+    },
+    {
+      "code": "BRUS",
+      "description": "Brussels, Belgium"
+    },
+    {
+      "code": "BRN",
+      "description": "Bryansk, Russia"
+    },
+    {
+      "code": "BHRT",
+      "description": "Bucharest, Romania"
+    },
+    {
+      "code": "BUD",
+      "description": "Budapest, Hungary"
+    },
+    {
+      "code": "BUDVA",
+      "description": "Budva, Montenegro"
+    },
+    {
+      "code": "BSAS",
+      "description": "Buenos Aires, Argentina"
+    },
+    {
+      "code": "BRGS",
+      "description": "Burgas, Bulgaria"
+    },
+    {
+      "code": "BURS",
+      "description": "Bursa, Turkey"
+    },
+    {
+      "code": "BDGSZ",
+      "description": "Bydgoszcz, Poland"
+    },
+    {
+      "code": "CAR",
+      "description": "Cairo, Egypt"
+    },
+    {
+      "code": "CLCTT",
+      "description": "Calcutta, India"
+    },
+    {
+      "code": "CLGR",
+      "description": "Calgary, Canada"
+    },
+    {
+      "code": "CANN",
+      "description": "Cannes, France"
+    },
+    {
+      "code": "CPTWN",
+      "description": "Cape Town, South Africa"
+    },
+    {
+      "code": "CRCS",
+      "description": "Caracas, Venezuela"
+    },
+    {
+      "code": "CSBLN",
+      "description": "Casablanca, Morocco"
+    },
+    {
+      "code": "CSCS",
+      "description": "Cascais, Portugal"
+    },
+    {
+      "code": "CATAN",
+      "description": "Catania, Italy"
+    },
+    {
+      "code": "CHNG",
+      "description": "Chang, Thailand"
+    },
+    {
+      "code": "CHNGC",
+      "description": "Changchun, China"
+    },
+    {
+      "code": "CHNGS",
+      "description": "Changsha, China"
+    },
+    {
+      "code": "CHEB",
+      "description": "Cheboksary, Russia"
+    },
+    {
+      "code": "CHEL",
+      "description": "Chelyabinsk, Russia"
+    },
+    {
+      "code": "CHNGD",
+      "description": "Chengdu, China"
+    },
+    {
+      "code": "CHNN",
+      "description": "Chennai, India"
+    },
+    {
+      "code": "CHRP",
+      "description": "Cherepovets, Russia"
+    },
+    {
+      "code": "CHERK",
+      "description": "Cherkasy, Ukraine"
+    },
+    {
+      "code": "CHRKS",
+      "description": "Cherkessk, Russia"
+    },
+    {
+      "code": "CHRN",
+      "description": "Chernihiv, Ukraine"
+    },
+    {
+      "code": "CHERN",
+      "description": "Chernivtsi, Ukraine"
+    },
+    {
+      "code": "CHCG",
+      "description": "Chicago, United States"
+    },
+    {
+      "code": "CHT",
+      "description": "Chita, Russia"
+    },
+    {
+      "code": "CHNGQ",
+      "description": "Chongqing, China"
+    },
+    {
+      "code": "CLGN",
+      "description": "Cologne, Germany"
+    },
+    {
+      "code": "CNKR",
+      "description": "Conakry, Guinea"
+    },
+    {
+      "code": "CONST",
+      "description": "Constanta, Romania"
+    },
+    {
+      "code": "CPNH",
+      "description": "Copenhagen, Denmark"
+    },
+    {
+      "code": "CTN",
+      "description": "Cotonou, Benin"
+    },
+    {
+      "code": "DNNG",
+      "description": "Da Nang, Vietnam"
+    },
+    {
+      "code": "DKR",
+      "description": "Dakar, Senegal"
+    },
+    {
+      "code": "DLLS",
+      "description": "Dallas, United States"
+    },
+    {
+      "code": "DRSSL",
+      "description": "Dar es Salaam, Tanzania"
+    },
+    {
+      "code": "DLH",
+      "description": "Delhi, India"
+    },
+    {
+      "code": "DJRB",
+      "description": "Djerba, Tunisia"
+    },
+    {
+      "code": "DJBT",
+      "description": "Djibouti, Djibouti"
+    },
+    {
+      "code": "DNPR",
+      "description": "Dnipro, Ukraine"
+    },
+    {
+      "code": "DOH",
+      "description": "Doha, Qatar"
+    },
+    {
+      "code": "DMBY",
+      "description": "Dombay, Russia"
+    },
+    {
+      "code": "DNT",
+      "description": "Donetsk, Ukraine"
+    },
+    {
+      "code": "DRTM",
+      "description": "Dortmund, Germany"
+    },
+    {
+      "code": "DRES",
+      "description": "Dresden, Germany"
+    },
+    {
+      "code": "DLA",
+      "description": "Duala, Cameroon"
+    },
+    {
+      "code": "DUBAI",
+      "description": "Dubai, United Arab Emirates"
+    },
+    {
+      "code": "DUBL",
+      "description": "Dublin, Ireland"
+    },
+    {
+      "code": "DBN",
+      "description": "Dubna, Russia"
+    },
+    {
+      "code": "DRBN",
+      "description": "Durban, South Africa"
+    },
+    {
+      "code": "DRRS",
+      "description": "Durres, Albania"
+    },
+    {
+      "code": "DUSH",
+      "description": "Dushanbe, Tajikistan"
+    },
+    {
+      "code": "DUSS",
+      "description": "Dusseldorf, Germany"
+    },
+    {
+      "code": "EDMNT",
+      "description": "Edmonton, Canada"
+    },
+    {
+      "code": "EKIB",
+      "description": "Ekibastuz, Kazakhstan"
+    },
+    {
+      "code": "LST",
+      "description": "Elista, Russia"
+    },
+    {
+      "code": "ESSN",
+      "description": "Essen, Germany"
+    },
+    {
+      "code": "FMGS",
+      "description": "Famagusta (Northern Cyprus), Cyprus"
+    },
+    {
+      "code": "FARO",
+      "description": "Faro, Portugal"
+    },
+    {
+      "code": "FLRNC",
+      "description": "Florence, Italy"
+    },
+    {
+      "code": "FRTMY",
+      "description": "Fort Myers, United States"
+    },
+    {
+      "code": "FRTLZ",
+      "description": "Fortaleza, Brazil"
+    },
+    {
+      "code": "FRAN",
+      "description": "Frankfurt, Germany"
+    },
+    {
+      "code": "FRTWN",
+      "description": "Freetown, Sierra Leone"
+    },
+    {
+      "code": "FNCH",
+      "description": "Funchal, Portugal"
+    },
+    {
+      "code": "GZP",
+      "description": "Gazipasa, Turkey"
+    },
+    {
+      "code": "GDN",
+      "description": "Gdansk, Poland"
+    },
+    {
+      "code": "GLND",
+      "description": "Gelendzhik, Russia"
+    },
+    {
+      "code": "GNV",
+      "description": "Geneva, Switzerland"
+    },
+    {
+      "code": "GNE",
+      "description": "Ghent, Belgium"
+    },
+    {
+      "code": "GIZ",
+      "description": "Giza, Egypt"
+    },
+    {
+      "code": "GCST",
+      "description": "Gold Coast, Australia"
+    },
+    {
+      "code": "GOMEL",
+      "description": "Gomel, Belarus"
+    },
+    {
+      "code": "GRNLT",
+      "description": "Gorno-Altaysk, Russia"
+    },
+    {
+      "code": "GRYCH",
+      "description": "Goryachevodsky, Russia"
+    },
+    {
+      "code": "GRDN",
+      "description": "Grodno, Belarus"
+    },
+    {
+      "code": "GRZ",
+      "description": "Grozny, Russia"
+    },
+    {
+      "code": "GUAN",
+      "description": "Guangzhou, China"
+    },
+    {
+      "code": "GTMLC",
+      "description": "Guatemala City, Guatemala"
+    },
+    {
+      "code": "GUAQ",
+      "description": "Guayaquil, Ecuador"
+    },
+    {
+      "code": "HRLM",
+      "description": "Haarlem, Netherlands"
+    },
+    {
+      "code": "HAG",
+      "description": "Hague, Netherlands"
+    },
+    {
+      "code": "HFA",
+      "description": "Haifa, Israel"
+    },
+    {
+      "code": "HIPHN",
+      "description": "Haiphong, Vietnam"
+    },
+    {
+      "code": "HLFX",
+      "description": "Halifax, Canada"
+    },
+    {
+      "code": "HAMB",
+      "description": "Hamburg, Germany"
+    },
+    {
+      "code": "HNGZH",
+      "description": "Hangzhou, China"
+    },
+    {
+      "code": "HNI",
+      "description": "Hanoi, Vietnam"
+    },
+    {
+      "code": "HNVR",
+      "description": "Hanover, Germany"
+    },
+    {
+      "code": "HRR",
+      "description": "Harare, Zimbabwe"
+    },
+    {
+      "code": "HRBN",
+      "description": "Harbin, China"
+    },
+    {
+      "code": "HVN",
+      "description": "Havana, Cuba"
+    },
+    {
+      "code": "HLSNK",
+      "description": "Helsinki, Finland"
+    },
+    {
+      "code": "HMLN",
+      "description": "Hmelnitskij, Ukraine"
+    },
+    {
+      "code": "HCHMN",
+      "description": "Ho Chi Minh City, Vietnam"
+    },
+    {
+      "code": "HGKG",
+      "description": "Hong Kong, China"
+    },
+    {
+      "code": "HUSTN",
+      "description": "Houston, United States"
+    },
+    {
+      "code": "HRGHD",
+      "description": "Hurghada, Egypt"
+    },
+    {
+      "code": "HYDRB",
+      "description": "Hyderabad, India"
+    },
+    {
+      "code": "IBZ",
+      "description": "Ibiza, Spain"
+    },
+    {
+      "code": "NCHN",
+      "description": "Incheon, Korea"
+    },
+    {
+      "code": "IRBIT",
+      "description": "Irbit, Russia"
+    },
+    {
+      "code": "IRK",
+      "description": "Irkutsk, Russia"
+    },
+    {
+      "code": "ISFHN",
+      "description": "Isfahan, Iran"
+    },
+    {
+      "code": "SHM",
+      "description": "Ishim, Russia"
+    },
+    {
+      "code": "SKL",
+      "description": "Isilkul, Russia"
+    },
+    {
+      "code": "STAM",
+      "description": "Istanbul, Turkey"
+    },
+    {
+      "code": "IVFR",
+      "description": "Ivano-Frankivsk, Ukraine"
+    },
+    {
+      "code": "VNV",
+      "description": "Ivanovo, Russia"
+    },
+    {
+      "code": "IZHV",
+      "description": "Izhevsk, Russia"
+    },
+    {
+      "code": "IZMR",
+      "description": "Izmir, Turkey"
+    },
+    {
+      "code": "JDDH",
+      "description": "Jeddah, Saudi Arabia"
+    },
+    {
+      "code": "JHNSB",
+      "description": "Johannesburg, South Africa"
+    },
+    {
+      "code": "KLCHN",
+      "description": "Kalachinsk, Russia"
+    },
+    {
+      "code": "KLNG",
+      "description": "Kaliningrad, Russia"
+    },
+    {
+      "code": "KLG",
+      "description": "Kaluga, Russia"
+    },
+    {
+      "code": "KMNRL",
+      "description": "Kamensk-Uralsky, Russia"
+    },
+    {
+      "code": "KMNPD",
+      "description": "Kamianets-Podilskyi, Ukraine"
+    },
+    {
+      "code": "KMNSK",
+      "description": "Kamianske, Ukraine"
+    },
+    {
+      "code": "KMPL",
+      "description": "Kampala, Uganda"
+    },
+    {
+      "code": "KMSHL",
+      "description": "Kamyshlov, Russia"
+    },
+    {
+      "code": "KANO",
+      "description": "Kano, Nigeria"
+    },
+    {
+      "code": "KRGN",
+      "description": "Karaganda, Kazakhstan"
+    },
+    {
+      "code": "KRLVR",
+      "description": "Karlovy Vary, Czech Republic"
+    },
+    {
+      "code": "KAUN",
+      "description": "Kaunas, Lithuania"
+    },
+    {
+      "code": "KZN",
+      "description": "Kazan, Russia"
+    },
+    {
+      "code": "KLWN",
+      "description": "Kelowna, Canada"
+    },
+    {
+      "code": "KMR",
+      "description": "Kemer, Turkey"
+    },
+    {
+      "code": "KEM",
+      "description": "Kemerovo, Russia"
+    },
+    {
+      "code": "KHAB",
+      "description": "Khabarovsk, Russia"
+    },
+    {
+      "code": "KHNTM",
+      "description": "Khanty-Mansiysk, Russia"
+    },
+    {
+      "code": "HRK",
+      "description": "Kharkov, Ukraine"
+    },
+    {
+      "code": "KHRTM",
+      "description": "Khartoum, Sudan"
+    },
+    {
+      "code": "KHERS",
+      "description": "Kherson, Ukraine"
+    },
+    {
+      "code": "KHMK",
+      "description": "Khimki, Russia"
+    },
+    {
+      "code": "KGL",
+      "description": "Kigali, Rwanda"
+    },
+    {
+      "code": "KNSHS",
+      "description": "Kinshasa, Congo"
+    },
+    {
+      "code": "KIROV",
+      "description": "Kirov, Russia"
+    },
+    {
+      "code": "KISH",
+      "description": "Kishinev, Moldova"
+    },
+    {
+      "code": "KSLVD",
+      "description": "Kislovodsk, Russia"
+    },
+    {
+      "code": "KGLM",
+      "description": "Kogalym, Russia"
+    },
+    {
+      "code": "KKSHT",
+      "description": "Kokshetau, Kazakhstan"
+    },
+    {
+      "code": "KSC",
+      "description": "Kosice, Slovakia"
+    },
+    {
+      "code": "KST",
+      "description": "Kostanay, Kazakhstan"
+    },
+    {
+      "code": "KOST",
+      "description": "Kostroma, Russia"
+    },
+    {
+      "code": "KOTOR",
+      "description": "Kotor, Montenegro"
+    },
+    {
+      "code": "KVL",
+      "description": "Kovel, Ukraine"
+    },
+    {
+      "code": "KRB",
+      "description": "Krabi, Thailand"
+    },
+    {
+      "code": "KRKW",
+      "description": "Krakow, Poland"
+    },
+    {
+      "code": "KRAM",
+      "description": "Kramatorsk, Ukraine"
+    },
+    {
+      "code": "KRSNP",
+      "description": "Krasnaya Polyana, Russia"
+    },
+    {
+      "code": "KRASN",
+      "description": "Krasnodar, Russia"
+    },
+    {
+      "code": "KRSNT",
+      "description": "Krasnoturinsk, Russia"
+    },
+    {
+      "code": "KRSK",
+      "description": "Krasnoyarsk, Russia"
+    },
+    {
+      "code": "KRMN",
+      "description": "Kremenchuk, Ukraine"
+    },
+    {
+      "code": "KRVR",
+      "description": "Krivoy Rog, Ukraine"
+    },
+    {
+      "code": "KROP",
+      "description": "Kropyvnytskyi, Ukraine"
+    },
+    {
+      "code": "KLLMP",
+      "description": "Kuala Lumpur, Malaysia"
+    },
+    {
+      "code": "KMS",
+      "description": "Kumasi, Ghana"
+    },
+    {
+      "code": "KRG",
+      "description": "Kurgan, Russia"
+    },
+    {
+      "code": "KURSK",
+      "description": "Kursk, Russia"
+    },
+    {
+      "code": "KIEV",
+      "description": "Kyiv, Ukraine"
+    },
+    {
+      "code": "KYT",
+      "description": "Kyoto, Japan"
+    },
+    {
+      "code": "KRN",
+      "description": "Kyrenia (Northern Cyprus), Cyprus"
+    },
+    {
+      "code": "LPZ",
+      "description": "La Paz, Bolivia"
+    },
+    {
+      "code": "LGS",
+      "description": "Lagos, Nigeria"
+    },
+    {
+      "code": "LARN",
+      "description": "Larnaca, Cyprus"
+    },
+    {
+      "code": "LASV",
+      "description": "Las Vegas, United States"
+    },
+    {
+      "code": "LSNN",
+      "description": "Lausanne, Switzerland"
+    },
+    {
+      "code": "LZIG",
+      "description": "Leipzig, Germany"
+    },
+    {
+      "code": "LSNY",
+      "description": "Lesnoy, Russia"
+    },
+    {
+      "code": "LTBRG",
+      "description": "Lethbridge, Canada"
+    },
+    {
+      "code": "LBRVL",
+      "description": "Libreville, Gabon"
+    },
+    {
+      "code": "LIMA",
+      "description": "Lima, Peru"
+    },
+    {
+      "code": "LIMAS",
+      "description": "Limassol, Cyprus"
+    },
+    {
+      "code": "LNZ",
+      "description": "Linz, Austria"
+    },
+    {
+      "code": "LPT",
+      "description": "Lipetsk, Russia"
+    },
+    {
+      "code": "LISB",
+      "description": "Lisbon, Portugal"
+    },
+    {
+      "code": "LVRP",
+      "description": "Liverpool, United Kingdom"
+    },
+    {
+      "code": "LJBLJ",
+      "description": "Ljubljana, Slovenia"
+    },
+    {
+      "code": "LBT",
+      "description": "Lobito, Angola"
+    },
+    {
+      "code": "LODZ",
+      "description": "Lodz, Poland"
+    },
+    {
+      "code": "LOME",
+      "description": "Lome, Togo"
+    },
+    {
+      "code": "LNDN",
+      "description": "London, United Kingdom"
+    },
+    {
+      "code": "LOSAN",
+      "description": "Los Angeles, United States"
+    },
+    {
+      "code": "LND",
+      "description": "Luanda, Angola"
+    },
+    {
+      "code": "LBLN",
+      "description": "Lublin, Poland"
+    },
+    {
+      "code": "LCRN",
+      "description": "Lucerne, Switzerland"
+    },
+    {
+      "code": "LGN",
+      "description": "Lugano, Switzerland"
+    },
+    {
+      "code": "LUH",
+      "description": "Luhansk, Ukraine"
+    },
+    {
+      "code": "LUTSK",
+      "description": "Lutsk, Ukraine"
+    },
+    {
+      "code": "LXMBR",
+      "description": "Luxembourg, Luxembourg"
+    },
+    {
+      "code": "LVOV",
+      "description": "Lvov, Ukraine"
+    },
+    {
+      "code": "LYON",
+      "description": "Lyon, France"
+    },
+    {
+      "code": "MST",
+      "description": "Maastricht, Netherlands"
+    },
+    {
+      "code": "MACAU",
+      "description": "Macau, China"
+    },
+    {
+      "code": "MADR",
+      "description": "Madrid, Spain"
+    },
+    {
+      "code": "MGNT",
+      "description": "Magnitogorsk, Russia"
+    },
+    {
+      "code": "MHKL",
+      "description": "Makhachkala, Russia"
+    },
+    {
+      "code": "MLB",
+      "description": "Malabo, Equatorial Guinea"
+    },
+    {
+      "code": "MLG",
+      "description": "Malaga, Spain"
+    },
+    {
+      "code": "MLLRC",
+      "description": "Mallorca, Spain"
+    },
+    {
+      "code": "MNG",
+      "description": "Managua, Nicaragua"
+    },
+    {
+      "code": "MANAM",
+      "description": "Manama, Bahrain"
+    },
+    {
+      "code": "MNCH",
+      "description": "Manchester, United Kingdom"
+    },
+    {
+      "code": "MPT",
+      "description": "Maputo, Mozambique"
+    },
+    {
+      "code": "MRBL",
+      "description": "Marbella, Spain"
+    },
+    {
+      "code": "MRJMP",
+      "description": "Marijampole, Lithuania"
+    },
+    {
+      "code": "MRPL",
+      "description": "Mariupol, Ukraine"
+    },
+    {
+      "code": "MARS",
+      "description": "Marseille, France"
+    },
+    {
+      "code": "MSSW",
+      "description": "Massawa, Eritrea"
+    },
+    {
+      "code": "MKK",
+      "description": "Mecca, Saudi Arabia"
+    },
+    {
+      "code": "MDL",
+      "description": "Medellin, Colombia"
+    },
+    {
+      "code": "MED",
+      "description": "Medina, Saudi Arabia"
+    },
+    {
+      "code": "MLBR",
+      "description": "Melbourne, Australia"
+    },
+    {
+      "code": "MELIT",
+      "description": "Melitopol, Ukraine"
+    },
+    {
+      "code": "MRS",
+      "description": "Mersin, Turkey"
+    },
+    {
+      "code": "CDMX",
+      "description": "Mexico City, Mexico"
+    },
+    {
+      "code": "MIAMI",
+      "description": "Miami, United States"
+    },
+    {
+      "code": "MILAN",
+      "description": "Milan, Italy"
+    },
+    {
+      "code": "MNRVD",
+      "description": "Mineralnye Vody, Russia"
+    },
+    {
+      "code": "MINSK",
+      "description": "Minsk, Belarus"
+    },
+    {
+      "code": "MSRT",
+      "description": "Misrata, Libya"
+    },
+    {
+      "code": "MGDSH",
+      "description": "Mogadishu, Somalia"
+    },
+    {
+      "code": "MGL",
+      "description": "Mogilev, Belarus"
+    },
+    {
+      "code": "MMBS",
+      "description": "Mombasa, Kenya"
+    },
+    {
+      "code": "MON",
+      "description": "Monaco, Monaco"
+    },
+    {
+      "code": "MNRV",
+      "description": "Monrovia, Liberia"
+    },
+    {
+      "code": "MNTVD",
+      "description": "Montevideo, Uruguay"
+    },
+    {
+      "code": "MNTPL",
+      "description": "Montpellier, France"
+    },
+    {
+      "code": "MNTR",
+      "description": "Montreal, Canada"
+    },
+    {
+      "code": "MNTRX",
+      "description": "Montreux, Switzerland"
+    },
+    {
+      "code": "MSMDS",
+      "description": "Mosamedish, Angola"
+    },
+    {
+      "code": "MSK",
+      "description": "Moscow, Russia"
+    },
+    {
+      "code": "MSTR",
+      "description": "Mostar, Bosnia and Herzegovina"
+    },
+    {
+      "code": "MUIN",
+      "description": "Mui Ne, Vietnam"
+    },
+    {
+      "code": "MKCH",
+      "description": "Mukachevo, Ukraine"
+    },
+    {
+      "code": "MMB",
+      "description": "Mumbai, India"
+    },
+    {
+      "code": "MUN",
+      "description": "Munich, Germany"
+    },
+    {
+      "code": "MRC",
+      "description": "Murcia, Spain"
+    },
+    {
+      "code": "MRMK",
+      "description": "Murmansk, Russia"
+    },
+    {
+      "code": "MYKL",
+      "description": "Mykolaiv, Ukraine"
+    },
+    {
+      "code": "NABCH",
+      "description": "Naberezhnye Chelny, Russia"
+    },
+    {
+      "code": "NCL",
+      "description": "Nacala, Mozambique"
+    },
+    {
+      "code": "NDR",
+      "description": "Nador, Morocco"
+    },
+    {
+      "code": "NRB",
+      "description": "Nairobi, Kenya"
+    },
+    {
+      "code": "NKHDK",
+      "description": "Nakhodka, Russia"
+    },
+    {
+      "code": "NLCHK",
+      "description": "Nalchik, Russia"
+    },
+    {
+      "code": "NNJN",
+      "description": "Nanjing, China"
+    },
+    {
+      "code": "NPLS",
+      "description": "Naples, Italy"
+    },
+    {
+      "code": "NFTYG",
+      "description": "Nefteyugansk, Russia"
+    },
+    {
+      "code": "NTNY",
+      "description": "Netanya, Israel"
+    },
+    {
+      "code": "NVNNM",
+      "description": "Nevinnomyssk, Russia"
+    },
+    {
+      "code": "NYC",
+      "description": "New York, United States"
+    },
+    {
+      "code": "NTRNG",
+      "description": "Nha Trang, Vietnam"
+    },
+    {
+      "code": "NMY",
+      "description": "Niamey, Niger"
+    },
+    {
+      "code": "NICE",
+      "description": "Nice, France"
+    },
+    {
+      "code": "NCS",
+      "description": "Nicosia, Cyprus"
+    },
+    {
+      "code": "NCSN",
+      "description": "Nicosia (Northern Cyprus), Cyprus"
+    },
+    {
+      "code": "NMS",
+      "description": "Nimes, France"
+    },
+    {
+      "code": "NISH",
+      "description": "Nish, Serbia"
+    },
+    {
+      "code": "NZKMS",
+      "description": "Nizhnekamsk, Russia"
+    },
+    {
+      "code": "NZHNV",
+      "description": "Nizhnevartovsk, Russia"
+    },
+    {
+      "code": "NNOV",
+      "description": "Nizhny Novgorod, Russia"
+    },
+    {
+      "code": "NZNTG",
+      "description": "Nizhny Tagil, Russia"
+    },
+    {
+      "code": "NDB",
+      "description": "Nouadhibou, Mauritania"
+    },
+    {
+      "code": "NKCHT",
+      "description": "Nouakchott, Mauritania"
+    },
+    {
+      "code": "NVSD",
+      "description": "Novi Sad, Serbia"
+    },
+    {
+      "code": "NVKZN",
+      "description": "Novokuznetsk, Russia"
+    },
+    {
+      "code": "NOVOR",
+      "description": "Novorossiysk, Russia"
+    },
+    {
+      "code": "NSK",
+      "description": "Novosibirsk, Russia"
+    },
+    {
+      "code": "NVRLS",
+      "description": "Novouralsk, Russia"
+    },
+    {
+      "code": "NYBRS",
+      "description": "Noyabrsk, Russia"
+    },
+    {
+      "code": "NRDZ",
+      "description": "Nurduz, Iran"
+    },
+    {
+      "code": "NRMBR",
+      "description": "Nuremberg, Germany"
+    },
+    {
+      "code": "ODS",
+      "description": "Odessa, Ukraine"
+    },
+    {
+      "code": "DNTSV",
+      "description": "Odintsovo, Russia"
+    },
+    {
+      "code": "OMSK",
+      "description": "Omsk, Russia"
+    },
+    {
+      "code": "ONN",
+      "description": "Onne, Nigeria"
+    },
+    {
+      "code": "OREN",
+      "description": "Orenburg, Russia"
+    },
+    {
+      "code": "ORLND",
+      "description": "Orlando, United States"
+    },
+    {
+      "code": "ORYOL",
+      "description": "Oryol, Russia"
+    },
+    {
+      "code": "OSK",
+      "description": "Osaka, Japan"
+    },
+    {
+      "code": "OSLO",
+      "description": "Oslo, Norway"
+    },
+    {
+      "code": "OTTW",
+      "description": "Ottawa, Canada"
+    },
+    {
+      "code": "UGDG",
+      "description": "Ouagadougou, Burkina Faso"
+    },
+    {
+      "code": "PLRM",
+      "description": "Palermo, Italy"
+    },
+    {
+      "code": "PNM",
+      "description": "Panama, Panama"
+    },
+    {
+      "code": "PNVZS",
+      "description": "Panevezys, Lithuania"
+    },
+    {
+      "code": "PAPH",
+      "description": "Paphos, Cyprus"
+    },
+    {
+      "code": "PARIS",
+      "description": "Paris, France"
+    },
+    {
+      "code": "PRM",
+      "description": "Parma, Italy"
+    },
+    {
+      "code": "PTTY",
+      "description": "Pattaya, Thailand"
+    },
+    {
+      "code": "PVLDR",
+      "description": "Pavlodar, Kazakhstan"
+    },
+    {
+      "code": "PENZA",
+      "description": "Penza, Russia"
+    },
+    {
+      "code": "PERM",
+      "description": "Perm, Russia"
+    },
+    {
+      "code": "PRVRL",
+      "description": "Pervouralsk, Russia"
+    },
+    {
+      "code": "PTRPL",
+      "description": "Petropavl, Kazakhstan"
+    },
+    {
+      "code": "PTRKM",
+      "description": "Petropavlovsk-Kamchatsky, Russia"
+    },
+    {
+      "code": "PTRVC",
+      "description": "Petrovac, Montenegro"
+    },
+    {
+      "code": "PTRS",
+      "description": "Petrozavodsk, Russia"
+    },
+    {
+      "code": "PHNG",
+      "description": "Pha-ngan, Thailand"
+    },
+    {
+      "code": "PHILD",
+      "description": "Philadelphia, United States"
+    },
+    {
+      "code": "PHQC",
+      "description": "Phu Quoc, Vietnam"
+    },
+    {
+      "code": "PHUK",
+      "description": "Phuket, Thailand"
+    },
+    {
+      "code": "PDGR",
+      "description": "Podgorica, Montenegro"
+    },
+    {
+      "code": "PNTNR",
+      "description": "Pointe Noire, Congo"
+    },
+    {
+      "code": "PLVSK",
+      "description": "Polevskoy, Russia"
+    },
+    {
+      "code": "POLT",
+      "description": "Poltava, Ukraine"
+    },
+    {
+      "code": "PRTPR",
+      "description": "Port-au-Prince, Haiti"
+    },
+    {
+      "code": "PRTGN",
+      "description": "Port-Gentil, Gabon"
+    },
+    {
+      "code": "PRT",
+      "description": "Porto, Portugal"
+    },
+    {
+      "code": "PZNN",
+      "description": "Poznan, Poland"
+    },
+    {
+      "code": "PRAG",
+      "description": "Prague, Czech Republic"
+    },
+    {
+      "code": "PRZ",
+      "description": "Przemysl, Poland"
+    },
+    {
+      "code": "PTGR",
+      "description": "Pyatigorsk, Russia"
+    },
+    {
+      "code": "PTYKH",
+      "description": "Pyt-Yakh, Russia"
+    },
+    {
+      "code": "QUEB",
+      "description": "Quebec, Canada"
+    },
+    {
+      "code": "QUITO",
+      "description": "Quito, Ecuador"
+    },
+    {
+      "code": "RBT",
+      "description": "Rabat, Morocco"
+    },
+    {
+      "code": "RSLKH",
+      "description": "Ras Al Khaimah, United Arab Emirates"
+    },
+    {
+      "code": "RDDR",
+      "description": "Red Deer, Canada"
+    },
+    {
+      "code": "RGN",
+      "description": "Regina, Canada"
+    },
+    {
+      "code": "RVD",
+      "description": "Revda, Russia"
+    },
+    {
+      "code": "RHO",
+      "description": "Rhodes, Greece"
+    },
+    {
+      "code": "RIGA",
+      "description": "Riga, Latvia"
+    },
+    {
+      "code": "RMN",
+      "description": "Rimini, Italy"
+    },
+    {
+      "code": "RDJNR",
+      "description": "Rio de Janeiro, Brazil"
+    },
+    {
+      "code": "ESHNL",
+      "description": "Rishon LeZion, Israel"
+    },
+    {
+      "code": "RIVNE",
+      "description": "Rivne, Ukraine"
+    },
+    {
+      "code": "RUH",
+      "description": "Riyadh, Saudi Arabia"
+    },
+    {
+      "code": "ROME",
+      "description": "Rome, Italy"
+    },
+    {
+      "code": "RSTV",
+      "description": "Rostov, Russia"
+    },
+    {
+      "code": "RSND",
+      "description": "Rostov-on-Don, Russia"
+    },
+    {
+      "code": "RTRD",
+      "description": "Rotterdam, Netherlands"
+    },
+    {
+      "code": "RST",
+      "description": "Rustavi, Georgia"
+    },
+    {
+      "code": "RZN",
+      "description": "Ryazan, Russia"
+    },
+    {
+      "code": "RBNSK",
+      "description": "Rybinsk, Russia"
+    },
+    {
+      "code": "RZSZW",
+      "description": "Rzeszow, Poland"
+    },
+    {
+      "code": "SCRMN",
+      "description": "Sacramento, United States"
+    },
+    {
+      "code": "SPB",
+      "description": "Saint Petersburg, Russia"
+    },
+    {
+      "code": "SNTRP",
+      "description": "Saint-Tropez, France"
+    },
+    {
+      "code": "SLVT",
+      "description": "Salavat, Russia"
+    },
+    {
+      "code": "SMR",
+      "description": "Samara, Russia"
+    },
+    {
+      "code": "SMBR",
+      "description": "Sambir, Ukraine"
+    },
+    {
+      "code": "SMSN",
+      "description": "Samsun, Turkey"
+    },
+    {
+      "code": "SAMUI",
+      "description": "Samui, Thailand"
+    },
+    {
+      "code": "SNFRN",
+      "description": "San Francisco, United States"
+    },
+    {
+      "code": "SNJS",
+      "description": "San Jose, Costa Rica"
+    },
+    {
+      "code": "SLDR",
+      "description": "San Salvador, Brazil"
+    },
+    {
+      "code": "SANTG",
+      "description": "Santiago, Dominican Republic"
+    },
+    {
+      "code": "SNTIG",
+      "description": "Santiago, Chile"
+    },
+    {
+      "code": "SANTD",
+      "description": "Santo Domingo, Dominican Republic"
+    },
+    {
+      "code": "SPL",
+      "description": "Sao Paulo, Brazil"
+    },
+    {
+      "code": "SARJV",
+      "description": "Sarajevo, Bosnia and Herzegovina"
+    },
+    {
+      "code": "SRND",
+      "description": "Saranda, Albania"
+    },
+    {
+      "code": "SRN",
+      "description": "Saransk, Russia"
+    },
+    {
+      "code": "SRT",
+      "description": "Saratov, Russia"
+    },
+    {
+      "code": "SSKTN",
+      "description": "Saskatoon, Canada"
+    },
+    {
+      "code": "SEAT",
+      "description": "Seattle, United States"
+    },
+    {
+      "code": "SKNDT",
+      "description": "Sekondi-Takoradi, Ghana"
+    },
+    {
+      "code": "SEOUL",
+      "description": "Seoul, Korea"
+    },
+    {
+      "code": "SRGPS",
+      "description": "Sergiev Posad, Russia"
+    },
+    {
+      "code": "SRV",
+      "description": "Serov, Russia"
+    },
+    {
+      "code": "SVSTP",
+      "description": "Sevastopol, Russia"
+    },
+    {
+      "code": "SVRD",
+      "description": "Severodvinsk, Russia"
+    },
+    {
+      "code": "SVL",
+      "description": "Seville, Spain"
+    },
+    {
+      "code": "SHNGH",
+      "description": "Shanghai, China"
+    },
+    {
+      "code": "SHRJH",
+      "description": "Sharjah, United Arab Emirates"
+    },
+    {
+      "code": "SRMLS",
+      "description": "Sharm El Sheikh, Egypt"
+    },
+    {
+      "code": "SHNZN",
+      "description": "Shenzhen, China"
+    },
+    {
+      "code": "SHPTS",
+      "description": "Sheptytskyi, Ukraine"
+    },
+    {
+      "code": "SHYM",
+      "description": "Shymkent, Kazakhstan"
+    },
+    {
+      "code": "SVDN",
+      "description": "Sievierodonetsk, Ukraine"
+    },
+    {
+      "code": "SIMF",
+      "description": "Simferopol, Russia"
+    },
+    {
+      "code": "SNGPR",
+      "description": "Singapore, Singapore"
+    },
+    {
+      "code": "SRS",
+      "description": "Sirius, Russia"
+    },
+    {
+      "code": "SKPJ",
+      "description": "Skopje, Macedonia"
+    },
+    {
+      "code": "SLV",
+      "description": "Sloviansk, Ukraine"
+    },
+    {
+      "code": "SMLNK",
+      "description": "Smolensk, Russia"
+    },
+    {
+      "code": "SOCHI",
+      "description": "Sochi, Russia"
+    },
+    {
+      "code": "SFA",
+      "description": "Sofia, Bulgaria"
+    },
+    {
+      "code": "SOYO",
+      "description": "Soyo, Angola"
+    },
+    {
+      "code": "STOS",
+      "description": "Stary Oskol, Russia"
+    },
+    {
+      "code": "STAV",
+      "description": "Stavropol, Russia"
+    },
+    {
+      "code": "STPNK",
+      "description": "Stepanakert, Armenia"
+    },
+    {
+      "code": "STRLT",
+      "description": "Sterlitamak, Russia"
+    },
+    {
+      "code": "STOCK",
+      "description": "Stockholm, Sweden"
+    },
+    {
+      "code": "STTGR",
+      "description": "Stuttgart, Germany"
+    },
+    {
+      "code": "SCR",
+      "description": "Sucre, Bolivia"
+    },
+    {
+      "code": "SDK",
+      "description": "Sudak, Russia"
+    },
+    {
+      "code": "SUMY",
+      "description": "Sumy, Ukraine"
+    },
+    {
+      "code": "SGT",
+      "description": "Surgut, Russia"
+    },
+    {
+      "code": "STMR",
+      "description": "Sutomore, Montenegro"
+    },
+    {
+      "code": "SDN",
+      "description": "Sydney, Australia"
+    },
+    {
+      "code": "SKTK",
+      "description": "Syktyvkar, Russia"
+    },
+    {
+      "code": "SZRN",
+      "description": "Syzran, Russia"
+    },
+    {
+      "code": "SZCZC",
+      "description": "Szczecin, Poland"
+    },
+    {
+      "code": "TGN",
+      "description": "Taganrog, Russia"
+    },
+    {
+      "code": "TALLN",
+      "description": "Tallinn, Estonia"
+    },
+    {
+      "code": "TAMB",
+      "description": "Tambov, Russia"
+    },
+    {
+      "code": "TNGR",
+      "description": "Tangier, Morocco"
+    },
+    {
+      "code": "TARA",
+      "description": "Tara, Russia"
+    },
+    {
+      "code": "TASHK",
+      "description": "Tashkent, Uzbekistan"
+    },
+    {
+      "code": "TVD",
+      "description": "Tavda, Russia"
+    },
+    {
+      "code": "TBIL",
+      "description": "Tbilisi, Georgia"
+    },
+    {
+      "code": "TGCGL",
+      "description": "Tegucigalpa, Honduras"
+    },
+    {
+      "code": "TEHR",
+      "description": "Tehran, Iran"
+    },
+    {
+      "code": "TLAV",
+      "description": "Tel Aviv, Israel"
+    },
+    {
+      "code": "TEMA",
+      "description": "Tema, Ghana"
+    },
+    {
+      "code": "TNRF",
+      "description": "Tenerife, Spain"
+    },
+    {
+      "code": "TERNO",
+      "description": "Ternopil, Ukraine"
+    },
+    {
+      "code": "THSSL",
+      "description": "Thessaloniki, Greece"
+    },
+    {
+      "code": "TCHV",
+      "description": "Tiachiv, Ukraine"
+    },
+    {
+      "code": "TNJN",
+      "description": "Tianjin, China"
+    },
+    {
+      "code": "TIRAN",
+      "description": "Tirana, Albania"
+    },
+    {
+      "code": "TRSPL",
+      "description": "Tiraspol, Moldova"
+    },
+    {
+      "code": "TVT",
+      "description": "Tivat, Montenegro"
+    },
+    {
+      "code": "TMSN",
+      "description": "Toamasina, Madagascar"
+    },
+    {
+      "code": "TBLSK",
+      "description": "Tobolsk, Russia"
+    },
+    {
+      "code": "TKO",
+      "description": "Tokyo, Japan"
+    },
+    {
+      "code": "TLTT",
+      "description": "Tolyatti, Russia"
+    },
+    {
+      "code": "TMSK",
+      "description": "Tomsk, Russia"
+    },
+    {
+      "code": "TRNT",
+      "description": "Toronto, Canada"
+    },
+    {
+      "code": "TRRVJ",
+      "description": "Torrevieja, Spain"
+    },
+    {
+      "code": "TYM",
+      "description": "Toyama, Japan"
+    },
+    {
+      "code": "TRIP",
+      "description": "Tripoli, Libya"
+    },
+    {
+      "code": "TULA",
+      "description": "Tula, Russia"
+    },
+    {
+      "code": "TUNIS",
+      "description": "Tunis, Tunisia"
+    },
+    {
+      "code": "TVER",
+      "description": "Tver, Russia"
+    },
+    {
+      "code": "TYUM",
+      "description": "Tyumen, Russia"
+    },
+    {
+      "code": "UFA",
+      "description": "Ufa, Russia"
+    },
+    {
+      "code": "ULNUD",
+      "description": "Ulan-Ude, Russia"
+    },
+    {
+      "code": "ULCN",
+      "description": "Ulcinj, Montenegro"
+    },
+    {
+      "code": "ULYA",
+      "description": "Ulyanovsk, Russia"
+    },
+    {
+      "code": "URAY",
+      "description": "Uray, Russia"
+    },
+    {
+      "code": "USSRY",
+      "description": "Ussuriysk, Russia"
+    },
+    {
+      "code": "UTR",
+      "description": "Utrecht, Netherlands"
+    },
+    {
+      "code": "UZHH",
+      "description": "Uzhhorod, Ukraine"
+    },
+    {
+      "code": "VALEN",
+      "description": "Valencia, Spain"
+    },
+    {
+      "code": "VLLTT",
+      "description": "Valletta, Malta"
+    },
+    {
+      "code": "VNCVR",
+      "description": "Vancouver, Canada"
+    },
+    {
+      "code": "VARN",
+      "description": "Varna, Bulgaria"
+    },
+    {
+      "code": "VRPSH",
+      "description": "Verkhnyaya Pyshma, Russia"
+    },
+    {
+      "code": "VRSLD",
+      "description": "Verkhnyaya Salda, Russia"
+    },
+    {
+      "code": "WIEN",
+      "description": "Vienna, Austria"
+    },
+    {
+      "code": "VILN",
+      "description": "Vilnius, Lithuania"
+    },
+    {
+      "code": "VINN",
+      "description": "Vinnytsia, Ukraine"
+    },
+    {
+      "code": "VTB",
+      "description": "Vitebsk, Belarus"
+    },
+    {
+      "code": "VLDKV",
+      "description": "Vladikavkaz, Russia"
+    },
+    {
+      "code": "VLAD",
+      "description": "Vladimir, Russia"
+    },
+    {
+      "code": "VVO",
+      "description": "Vladivostok, Russia"
+    },
+    {
+      "code": "VLR",
+      "description": "Vlora, Albania"
+    },
+    {
+      "code": "VLGD",
+      "description": "Volgograd, Russia"
+    },
+    {
+      "code": "VLGDA",
+      "description": "Vologda, Russia"
+    },
+    {
+      "code": "VORON",
+      "description": "Voronezh, Russia"
+    },
+    {
+      "code": "WLSB",
+      "description": "Walvis Bay, Namibia"
+    },
+    {
+      "code": "WARS",
+      "description": "Warsaw, Poland"
+    },
+    {
+      "code": "WSHNG",
+      "description": "Washington, United States"
+    },
+    {
+      "code": "WNNPG",
+      "description": "Winnipeg, Canada"
+    },
+    {
+      "code": "WRCL",
+      "description": "Wroclaw, Poland"
+    },
+    {
+      "code": "YKT",
+      "description": "Yakutsk, Russia"
+    },
+    {
+      "code": "YLT",
+      "description": "Yalta, Russia"
+    },
+    {
+      "code": "YND",
+      "description": "Yaounde, Cameroon"
+    },
+    {
+      "code": "YARS",
+      "description": "Yaroslavl, Russia"
+    },
+    {
+      "code": "EKB",
+      "description": "Yekaterinburg, Russia"
+    },
+    {
+      "code": "YLTS",
+      "description": "Yelets, Russia"
+    },
+    {
+      "code": "ERVN",
+      "description": "Yerevan, Armenia"
+    },
+    {
+      "code": "SSNTK",
+      "description": "Yessentuki, Russia"
+    },
+    {
+      "code": "YIW",
+      "description": "Yiwu, China"
+    },
+    {
+      "code": "YKHM",
+      "description": "Yokohama, Japan"
+    },
+    {
+      "code": "YOLA",
+      "description": "Yoshkar-Ola, Russia"
+    },
+    {
+      "code": "YZHNS",
+      "description": "Yuzhno-Sakhalinsk, Russia"
+    },
+    {
+      "code": "ZGRB",
+      "description": "Zagreb, Croatia"
+    },
+    {
+      "code": "ZAP",
+      "description": "Zaporizhia, Ukraine"
+    },
+    {
+      "code": "ZRGZ",
+      "description": "Zaragoza, Spain"
+    },
+    {
+      "code": "ZHLZN",
+      "description": "Zheleznovodsk, Russia"
+    },
+    {
+      "code": "ZHYTO",
+      "description": "Zhytomyr, Ukraine"
+    },
+    {
+      "code": "ZRCH",
+      "description": "Zurich, Switzerland"
+    }
+  ],
+  "exampleXml": "<?xml version=\"1.0\"?>\n<rates>\n  <item>\n    <from>USDTTRC20</from>\n    <to>TRX</to>\n    <in>1</in>\n    <out>30.593562</out>\n    <amount>572962.42</amount>\n    <minamount>3</minamount>\n    <maxamount>1000</maxamount>\n  </item>\n  <item>\n    <from>CASHUSD</from>\n    <to>USDCERC20</to>\n    <in>1</in>\n    <out>0.978</out>\n    <amount>2921.42</amount>\n    <minamount>2</minamount>\n    <maxamount>2000</maxamount>\n    <city>ANKR, DUBAI</city>\n  </item>\n  <item>\n    <from>BTC</from>\n    <to>ETH</to>\n    <in>1</in>\n    <out>24.90782568</out>\n    <amount>673.10</amount>\n    <minamount>0.0001</minamount>\n    <maxamount>0.42341216</maxamount>\n    <tofee>1%</tofee>\n    <param>manual, reg</param>\n  </item>\n  <item>\n    <from>BTC</from>\n    <to>CASHUSD</to>\n    <in>1</in>\n    <out>4342.352344</out>\n    <amount>31.90343295</amount>\n    <minamount>1.5</minamount>\n    <maxamount>1000</maxamount>\n    <city>ANKR</city>\n  </item>\n</rates>"
+}

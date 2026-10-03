@@ -48,6 +48,9 @@ import type {
   AffiliateSettingsInput,
   AffiliateValuationReview,
   ApiError,
+  BestchangeAdmin,
+  BestchangePreview,
+  BestchangeSettings,
   BindAffiliateReferrerBody,
   BlockchainMonitoringAsset,
   BlockchainMonitoringAssetInput,
@@ -21093,6 +21096,290 @@ export function useGetPublicNotificationSettings<TData = Awaited<ReturnType<type
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetPublicNotificationSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetBestchangeXmlUrl = () => {
+
+
+
+
+  return `/api/bestchange.xml`
+}
+
+/**
+ * @summary Public BestChange standard-format live Manual Swap rates
+ */
+export const getBestchangeXml = async ( options?: Parameters<typeof customFetch>[1]): Promise<string> => {
+
+  return customFetch<string>(getGetBestchangeXmlUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetBestchangeXmlQueryKey = () => {
+    return [
+    `/api/bestchange.xml`
+    ] as const;
+    }
+
+
+export const getGetBestchangeXmlQueryOptions = <TData = Awaited<ReturnType<typeof getBestchangeXml>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBestchangeXml>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetBestchangeXmlQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getBestchangeXml>>> = ({ signal }) => getBestchangeXml({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBestchangeXml>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetBestchangeXmlQueryResult = NonNullable<Awaited<ReturnType<typeof getBestchangeXml>>>
+export type GetBestchangeXmlQueryError = ErrorType<void>
+
+
+/**
+ * @summary Public BestChange standard-format live Manual Swap rates
+ */
+
+export function useGetBestchangeXml<TData = Awaited<ReturnType<typeof getBestchangeXml>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBestchangeXml>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetBestchangeXmlQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAdminBestchangeUrl = () => {
+
+
+
+
+  return `/api/admin/bestchange`
+}
+
+export const getAdminBestchange = async ( options?: Parameters<typeof customFetch>[1]): Promise<BestchangeAdmin> => {
+
+  return customFetch<BestchangeAdmin>(getGetAdminBestchangeUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminBestchangeQueryKey = () => {
+    return [
+    `/api/admin/bestchange`
+    ] as const;
+    }
+
+
+export const getGetAdminBestchangeQueryOptions = <TData = Awaited<ReturnType<typeof getAdminBestchange>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminBestchange>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminBestchangeQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminBestchange>>> = ({ signal }) => getAdminBestchange({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminBestchange>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminBestchangeQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminBestchange>>>
+export type GetAdminBestchangeQueryError = ErrorType<unknown>
+
+
+
+export function useGetAdminBestchange<TData = Awaited<ReturnType<typeof getAdminBestchange>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminBestchange>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminBestchangeQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateAdminBestchangeUrl = () => {
+
+
+
+
+  return `/api/admin/bestchange`
+}
+
+export const updateAdminBestchange = async (bestchangeSettings: BestchangeSettings, options?: Parameters<typeof customFetch>[1]): Promise<BestchangeSettings> => {
+
+  return customFetch<BestchangeSettings>(getUpdateAdminBestchangeUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(bestchangeSettings)
+  }
+);}
+
+
+
+
+
+export const getUpdateAdminBestchangeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminBestchange>>, TError,{data: BodyType<BestchangeSettings>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAdminBestchange>>, TError,{data: BodyType<BestchangeSettings>}, TContext> => {
+
+const mutationKey = ['updateAdminBestchange'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAdminBestchange>>, {data: BodyType<BestchangeSettings>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateAdminBestchange(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAdminBestchangeMutationResult = NonNullable<Awaited<ReturnType<typeof updateAdminBestchange>>>
+    export type UpdateAdminBestchangeMutationBody = BodyType<BestchangeSettings>
+    export type UpdateAdminBestchangeMutationError = ErrorType<void>
+
+    export const useUpdateAdminBestchange = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminBestchange>>, TError,{data: BodyType<BestchangeSettings>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAdminBestchange>>,
+        TError,
+        {data: BodyType<BestchangeSettings>},
+        TContext
+      > => {
+      return useMutation(getUpdateAdminBestchangeMutationOptions(options));
+    }
+
+export const getGetAdminBestchangePreviewUrl = () => {
+
+
+
+
+  return `/api/admin/bestchange/preview`
+}
+
+export const getAdminBestchangePreview = async ( options?: Parameters<typeof customFetch>[1]): Promise<BestchangePreview> => {
+
+  return customFetch<BestchangePreview>(getGetAdminBestchangePreviewUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminBestchangePreviewQueryKey = () => {
+    return [
+    `/api/admin/bestchange/preview`
+    ] as const;
+    }
+
+
+export const getGetAdminBestchangePreviewQueryOptions = <TData = Awaited<ReturnType<typeof getAdminBestchangePreview>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminBestchangePreview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminBestchangePreviewQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminBestchangePreview>>> = ({ signal }) => getAdminBestchangePreview({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminBestchangePreview>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminBestchangePreviewQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminBestchangePreview>>>
+export type GetAdminBestchangePreviewQueryError = ErrorType<unknown>
+
+
+
+export function useGetAdminBestchangePreview<TData = Awaited<ReturnType<typeof getAdminBestchangePreview>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminBestchangePreview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminBestchangePreviewQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

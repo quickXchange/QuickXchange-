@@ -5,6 +5,126 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type BestchangeDirectionParamsItem = typeof BestchangeDirectionParamsItem[keyof typeof BestchangeDirectionParamsItem];
+
+
+export const BestchangeDirectionParamsItem = {
+  manual: 'manual',
+  juridical: 'juridical',
+  verifying: 'verifying',
+  cardverify: 'cardverify',
+  otherin: 'otherin',
+  otherout: 'otherout',
+  reg: 'reg',
+  card2card: 'card2card',
+  delivery: 'delivery',
+  atm: 'atm',
+} as const;
+
+export interface BestchangeDirection {
+  id: string;
+  enabled: boolean;
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  sourceOptionId: string;
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  targetOptionId: string;
+  /**
+     * @minLength 1
+     * @maxLength 32
+     */
+  fromCode: string;
+  /**
+     * @minLength 1
+     * @maxLength 32
+     */
+  toCode: string;
+  /** @pattern ^[0-9]{1,12}(\.[0-9]{1,12})?$ */
+  reserve: string;
+  /** @pattern ^[0-9]{1,12}(\.[0-9]{1,12})?$ */
+  minAmount: string;
+  /** @pattern ^[0-9]{1,12}(\.[0-9]{1,12})?$ */
+  maxAmount: string;
+  /**
+     * @maxLength 14
+     * @pattern ^[0-9]{1,6}(\.[0-9]{1,6})?%?$
+     */
+  floating?: string;
+  /**
+     * @maxLength 13
+     * @pattern ^[0-9]{1,6}(\.[0-9]{1,6})?$
+     */
+  delay?: string;
+  /** @maxItems 10 */
+  params: BestchangeDirectionParamsItem[];
+  /**
+     * @maxItems 25
+     * @items.minLength 1
+     * @items.maxLength 12
+     */
+  cities: string[];
+  /**
+     * @maxItems 32
+     * @items.minLength 1
+     * @items.maxLength 100
+     */
+  selectedAddOnKeys: string[];
+  includeFeeTags: boolean;
+}
+
+export interface BestchangeSettings {
+  enabled: boolean;
+  /** @minimum 0 */
+  version: number;
+  /** @maxItems 50 */
+  directions: BestchangeDirection[];
+  updatedAt?: string;
+}
+
+export interface BestchangeCode {
+  code: string;
+  description: string;
+}
+
+export interface BestchangeOption {
+  id: string;
+  label: string;
+  assetCode: string;
+  network: string;
+  direction: string;
+  kind: string;
+}
+
+export interface BestchangeAdmin {
+  settings: BestchangeSettings;
+  options: BestchangeOption[];
+  currencyCodes: BestchangeCode[];
+  cityCodes: BestchangeCode[];
+  feedPath: string;
+  documentationUrl: string;
+  exampleXml: string;
+}
+
+export interface BestchangeDiagnostic {
+  id: string;
+  exported: boolean;
+  message: string;
+}
+
+export interface BestchangePreview {
+  xml: string;
+  generatedAt: string;
+  exportedCount: number;
+  diagnostics: BestchangeDiagnostic[];
+  enabled: boolean;
+  version: number;
+}
+
 export interface TelegramLinkInput {
   /**
      * @minLength 1

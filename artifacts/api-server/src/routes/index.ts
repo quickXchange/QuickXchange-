@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import exchangeRouter from "./exchange";
+import bestchangeRouter from "./bestchange";
 import quickexRouter from "./quickex";
 import operatorsRouter from "./operators";
 import affiliateRouter from "./affiliate";
@@ -45,6 +46,7 @@ router.use(workspaceConfigSyncRouter);
 // Authenticate first, then enforce the centralized granular policy before any
 // Admin router can execute. Unmatched staff routes are deny-by-default.
 router.use(adminPolicy);
+router.use(bestchangeRouter);
 router.use(telegramSupportBotRouter);
 router.use(convertCompatibilityRouter);
 router.use(exchangeConfigRouter);

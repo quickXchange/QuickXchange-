@@ -149,6 +149,7 @@ const AdminBlogAutomationPage = lazy(() => import('./pages/admin-blog-automation
 const AdminNewsletterPage = lazy(() => import('./pages/admin-newsletter').then(module => ({ default: module.AdminNewsletterPage })));
 const AdminTelegramSupportBotPage = lazy(() => import('./pages/admin-telegram-support-bot').then(module => ({ default: module.AdminTelegramSupportBotPage })));
 const OrderConfirmationPage = lazy(() => import('./pages/order-confirmation').then(module => ({ default: module.OrderConfirmationPage })));
+const AdminBestchangePage = lazy(() => import('./pages/admin-bestchange').then(module => ({ default: module.AdminBestchangePage })));
 const AdminTeamPage = lazy(() => import('./pages/admin-team').then(module => ({ default: module.AdminTeamPage })));
 
 const BlogPage = lazy(() => import('./pages/blog').then(module => ({ default: module.BlogPage })));
@@ -1666,6 +1667,7 @@ const ADMIN_TOP_LEVEL_HEADER_LABELS: Record<string, string> = {
   '/admin/pricing': 'PRICING / ENGINE',
   '/admin/swap-addons': 'PRICING / SWAP',
   '/admin/team': 'ADMINISTRATION / TEAM',
+  '/admin/bestchange': 'INTEGRATIONS / BESTCHANGE',
   '/admin/site-content': 'CONTENT / PUBLIC SITE',
   '/admin/blog': 'CONTENT / BLOG',
   '/admin/newsletter': 'CONTENT / NEWSLETTER',
@@ -1764,6 +1766,7 @@ export function AdminShell({ children, title, eyebrow, action, subtitle, titleIc
         { href: '/admin/currencies', label: t('adminShell.currenciesMethods'), testId: 'currency and methods', icon: Landmark, requiredPermission: ['currencies.view', 'payment_methods.view', 'crypto_assets.view', 'crypto_networks.view'] },
         { href: '/admin/pricing', label: t('adminShell.manualPricing'), testId: 'manual pricing', icon: TrendingUp, requiredPermission: 'pricing.view' },
         { href: '/admin/swap-addons', label: 'Swap Order Add-ons', testId: 'swap-addons', icon: HandCoins, requiredPermission: 'pricing.view' },
+        { href: '/admin/bestchange', label: 'BestChange XML', testId: 'bestchange', icon: FileText, requiredPermission: 'site_settings.manage', ownerOnly: true },
         { href: '/admin/team', label: t('adminShell.staff'), testId: 'team', icon: Key, requiredPermission: ['team.members.view', 'team.roles.view', 'team.activity.view'] },
         { href: '/admin/site-content', label: 'Site content', testId: 'site-content', icon: FileText, requiredPermission: 'site_settings.view' },
         { href: '/admin/blog', label: 'Blog', testId: 'blog', icon: Newspaper, requiredPermission: 'blog.view' },
@@ -2419,6 +2422,7 @@ const AdminBlogRoute = authorizedAdminRoute(AdminBlogPage);
 const AdminBlogEditorRoute = authorizedAdminRoute(AdminBlogEditorPage);
 const AdminBlogAutomationRoute = authorizedAdminRoute(AdminBlogAutomationPage);
 const AdminNewsletterRoute = authorizedAdminRoute(AdminNewsletterPage);
+const AdminBestchangeRoute = authorizedAdminRoute(AdminBestchangePage);
 const AdminTelegramSupportBotRoute = authorizedAdminRoute(AdminTelegramSupportBotPage);
 
 function ClerkQueryClientCacheInvalidator() {
@@ -2736,6 +2740,7 @@ function ClerkProviderWithRoutes() {
             <Route path="/admin/swap-addons" component={AdminSwapAddonsRoute} />
             <Route path="/admin/appearance" component={AdminAppearanceRoute} />
             <Route path="/admin/landing-background" component={AdminLandingBackgroundStudioRoute} />
+            <Route path="/admin/bestchange" component={AdminBestchangeRoute} />
             <Route path="/admin/team" component={AdminTeamRoute} />
             <Route path="/admin/staff"><Redirect to="/admin/team" /></Route>
             <Route path="/admin/site-content" component={AdminSiteContentRoute} />

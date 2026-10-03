@@ -20223,3 +20223,220 @@ export const getPublicNotificationSettingsResponseTrustpilotReviewUrlMax = 2048;
 export const GetPublicNotificationSettingsResponse = zod.object({
   "trustpilotReviewUrl": zod.string().max(getPublicNotificationSettingsResponseTrustpilotReviewUrlMax).nullable()
 })
+
+
+/**
+ * @summary Public BestChange standard-format live Manual Swap rates
+ */
+export const GetBestchangeXmlResponse = zod.unknown()
+
+
+export const getAdminBestchangeResponseSettingsVersionMin = 0;
+
+export const getAdminBestchangeResponseSettingsDirectionsItemSourceOptionIdMax = 160;
+
+export const getAdminBestchangeResponseSettingsDirectionsItemTargetOptionIdMax = 160;
+
+export const getAdminBestchangeResponseSettingsDirectionsItemFromCodeMax = 32;
+
+export const getAdminBestchangeResponseSettingsDirectionsItemToCodeMax = 32;
+
+export const getAdminBestchangeResponseSettingsDirectionsItemReserveRegExp = new RegExp('^[0-9]{1,12}(\\.[0-9]{1,12})?$');
+export const getAdminBestchangeResponseSettingsDirectionsItemMinAmountRegExp = new RegExp('^[0-9]{1,12}(\\.[0-9]{1,12})?$');
+export const getAdminBestchangeResponseSettingsDirectionsItemMaxAmountRegExp = new RegExp('^[0-9]{1,12}(\\.[0-9]{1,12})?$');
+export const getAdminBestchangeResponseSettingsDirectionsItemFloatingMax = 14;
+
+
+export const getAdminBestchangeResponseSettingsDirectionsItemFloatingRegExp = new RegExp('^[0-9]{1,6}(\\.[0-9]{1,6})?%?$');
+export const getAdminBestchangeResponseSettingsDirectionsItemDelayMax = 13;
+
+
+export const getAdminBestchangeResponseSettingsDirectionsItemDelayRegExp = new RegExp('^[0-9]{1,6}(\\.[0-9]{1,6})?$');
+export const getAdminBestchangeResponseSettingsDirectionsItemParamsMax = 10;
+
+export const getAdminBestchangeResponseSettingsDirectionsItemCitiesItemMax = 12;
+
+export const getAdminBestchangeResponseSettingsDirectionsItemCitiesMax = 25;
+
+export const getAdminBestchangeResponseSettingsDirectionsItemSelectedAddOnKeysItemMax = 100;
+
+export const getAdminBestchangeResponseSettingsDirectionsItemSelectedAddOnKeysMax = 32;
+
+export const getAdminBestchangeResponseSettingsDirectionsMax = 50;
+
+
+
+export const GetAdminBestchangeResponse = zod.object({
+  "settings": zod.object({
+  "enabled": zod.boolean(),
+  "version": zod.number().int().min(getAdminBestchangeResponseSettingsVersionMin),
+  "directions": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "enabled": zod.boolean(),
+  "sourceOptionId": zod.string().min(1).max(getAdminBestchangeResponseSettingsDirectionsItemSourceOptionIdMax),
+  "targetOptionId": zod.string().min(1).max(getAdminBestchangeResponseSettingsDirectionsItemTargetOptionIdMax),
+  "fromCode": zod.string().min(1).max(getAdminBestchangeResponseSettingsDirectionsItemFromCodeMax),
+  "toCode": zod.string().min(1).max(getAdminBestchangeResponseSettingsDirectionsItemToCodeMax),
+  "reserve": zod.string().regex(getAdminBestchangeResponseSettingsDirectionsItemReserveRegExp),
+  "minAmount": zod.string().regex(getAdminBestchangeResponseSettingsDirectionsItemMinAmountRegExp),
+  "maxAmount": zod.string().regex(getAdminBestchangeResponseSettingsDirectionsItemMaxAmountRegExp),
+  "floating": zod.string().max(getAdminBestchangeResponseSettingsDirectionsItemFloatingMax).regex(getAdminBestchangeResponseSettingsDirectionsItemFloatingRegExp).optional(),
+  "delay": zod.string().max(getAdminBestchangeResponseSettingsDirectionsItemDelayMax).regex(getAdminBestchangeResponseSettingsDirectionsItemDelayRegExp).optional(),
+  "params": zod.array(zod.enum(['manual', 'juridical', 'verifying', 'cardverify', 'otherin', 'otherout', 'reg', 'card2card', 'delivery', 'atm'])).max(getAdminBestchangeResponseSettingsDirectionsItemParamsMax),
+  "cities": zod.array(zod.string().min(1).max(getAdminBestchangeResponseSettingsDirectionsItemCitiesItemMax)).max(getAdminBestchangeResponseSettingsDirectionsItemCitiesMax),
+  "selectedAddOnKeys": zod.array(zod.string().min(1).max(getAdminBestchangeResponseSettingsDirectionsItemSelectedAddOnKeysItemMax)).max(getAdminBestchangeResponseSettingsDirectionsItemSelectedAddOnKeysMax),
+  "includeFeeTags": zod.boolean()
+})).max(getAdminBestchangeResponseSettingsDirectionsMax),
+  "updatedAt": zod.coerce.date().optional()
+}),
+  "options": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "assetCode": zod.string(),
+  "network": zod.string(),
+  "direction": zod.string(),
+  "kind": zod.string()
+})),
+  "currencyCodes": zod.array(zod.object({
+  "code": zod.string(),
+  "description": zod.string()
+})),
+  "cityCodes": zod.array(zod.object({
+  "code": zod.string(),
+  "description": zod.string()
+})),
+  "feedPath": zod.string(),
+  "documentationUrl": zod.string(),
+  "exampleXml": zod.string()
+})
+
+
+export const updateAdminBestchangeBodyVersionMin = 0;
+
+export const updateAdminBestchangeBodyDirectionsItemSourceOptionIdMax = 160;
+
+export const updateAdminBestchangeBodyDirectionsItemTargetOptionIdMax = 160;
+
+export const updateAdminBestchangeBodyDirectionsItemFromCodeMax = 32;
+
+export const updateAdminBestchangeBodyDirectionsItemToCodeMax = 32;
+
+export const updateAdminBestchangeBodyDirectionsItemReserveRegExp = new RegExp('^[0-9]{1,12}(\\.[0-9]{1,12})?$');
+export const updateAdminBestchangeBodyDirectionsItemMinAmountRegExp = new RegExp('^[0-9]{1,12}(\\.[0-9]{1,12})?$');
+export const updateAdminBestchangeBodyDirectionsItemMaxAmountRegExp = new RegExp('^[0-9]{1,12}(\\.[0-9]{1,12})?$');
+export const updateAdminBestchangeBodyDirectionsItemFloatingMax = 14;
+
+
+export const updateAdminBestchangeBodyDirectionsItemFloatingRegExp = new RegExp('^[0-9]{1,6}(\\.[0-9]{1,6})?%?$');
+export const updateAdminBestchangeBodyDirectionsItemDelayMax = 13;
+
+
+export const updateAdminBestchangeBodyDirectionsItemDelayRegExp = new RegExp('^[0-9]{1,6}(\\.[0-9]{1,6})?$');
+export const updateAdminBestchangeBodyDirectionsItemParamsMax = 10;
+
+export const updateAdminBestchangeBodyDirectionsItemCitiesItemMax = 12;
+
+export const updateAdminBestchangeBodyDirectionsItemCitiesMax = 25;
+
+export const updateAdminBestchangeBodyDirectionsItemSelectedAddOnKeysItemMax = 100;
+
+export const updateAdminBestchangeBodyDirectionsItemSelectedAddOnKeysMax = 32;
+
+export const updateAdminBestchangeBodyDirectionsMax = 50;
+
+
+
+export const UpdateAdminBestchangeBody = zod.object({
+  "enabled": zod.boolean(),
+  "version": zod.number().int().min(updateAdminBestchangeBodyVersionMin),
+  "directions": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "enabled": zod.boolean(),
+  "sourceOptionId": zod.string().min(1).max(updateAdminBestchangeBodyDirectionsItemSourceOptionIdMax),
+  "targetOptionId": zod.string().min(1).max(updateAdminBestchangeBodyDirectionsItemTargetOptionIdMax),
+  "fromCode": zod.string().min(1).max(updateAdminBestchangeBodyDirectionsItemFromCodeMax),
+  "toCode": zod.string().min(1).max(updateAdminBestchangeBodyDirectionsItemToCodeMax),
+  "reserve": zod.string().regex(updateAdminBestchangeBodyDirectionsItemReserveRegExp),
+  "minAmount": zod.string().regex(updateAdminBestchangeBodyDirectionsItemMinAmountRegExp),
+  "maxAmount": zod.string().regex(updateAdminBestchangeBodyDirectionsItemMaxAmountRegExp),
+  "floating": zod.string().max(updateAdminBestchangeBodyDirectionsItemFloatingMax).regex(updateAdminBestchangeBodyDirectionsItemFloatingRegExp).optional(),
+  "delay": zod.string().max(updateAdminBestchangeBodyDirectionsItemDelayMax).regex(updateAdminBestchangeBodyDirectionsItemDelayRegExp).optional(),
+  "params": zod.array(zod.enum(['manual', 'juridical', 'verifying', 'cardverify', 'otherin', 'otherout', 'reg', 'card2card', 'delivery', 'atm'])).max(updateAdminBestchangeBodyDirectionsItemParamsMax),
+  "cities": zod.array(zod.string().min(1).max(updateAdminBestchangeBodyDirectionsItemCitiesItemMax)).max(updateAdminBestchangeBodyDirectionsItemCitiesMax),
+  "selectedAddOnKeys": zod.array(zod.string().min(1).max(updateAdminBestchangeBodyDirectionsItemSelectedAddOnKeysItemMax)).max(updateAdminBestchangeBodyDirectionsItemSelectedAddOnKeysMax),
+  "includeFeeTags": zod.boolean()
+})).max(updateAdminBestchangeBodyDirectionsMax),
+  "updatedAt": zod.coerce.date().optional()
+})
+
+export const updateAdminBestchangeResponseVersionMin = 0;
+
+export const updateAdminBestchangeResponseDirectionsItemSourceOptionIdMax = 160;
+
+export const updateAdminBestchangeResponseDirectionsItemTargetOptionIdMax = 160;
+
+export const updateAdminBestchangeResponseDirectionsItemFromCodeMax = 32;
+
+export const updateAdminBestchangeResponseDirectionsItemToCodeMax = 32;
+
+export const updateAdminBestchangeResponseDirectionsItemReserveRegExp = new RegExp('^[0-9]{1,12}(\\.[0-9]{1,12})?$');
+export const updateAdminBestchangeResponseDirectionsItemMinAmountRegExp = new RegExp('^[0-9]{1,12}(\\.[0-9]{1,12})?$');
+export const updateAdminBestchangeResponseDirectionsItemMaxAmountRegExp = new RegExp('^[0-9]{1,12}(\\.[0-9]{1,12})?$');
+export const updateAdminBestchangeResponseDirectionsItemFloatingMax = 14;
+
+
+export const updateAdminBestchangeResponseDirectionsItemFloatingRegExp = new RegExp('^[0-9]{1,6}(\\.[0-9]{1,6})?%?$');
+export const updateAdminBestchangeResponseDirectionsItemDelayMax = 13;
+
+
+export const updateAdminBestchangeResponseDirectionsItemDelayRegExp = new RegExp('^[0-9]{1,6}(\\.[0-9]{1,6})?$');
+export const updateAdminBestchangeResponseDirectionsItemParamsMax = 10;
+
+export const updateAdminBestchangeResponseDirectionsItemCitiesItemMax = 12;
+
+export const updateAdminBestchangeResponseDirectionsItemCitiesMax = 25;
+
+export const updateAdminBestchangeResponseDirectionsItemSelectedAddOnKeysItemMax = 100;
+
+export const updateAdminBestchangeResponseDirectionsItemSelectedAddOnKeysMax = 32;
+
+export const updateAdminBestchangeResponseDirectionsMax = 50;
+
+
+
+export const UpdateAdminBestchangeResponse = zod.object({
+  "enabled": zod.boolean(),
+  "version": zod.number().int().min(updateAdminBestchangeResponseVersionMin),
+  "directions": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "enabled": zod.boolean(),
+  "sourceOptionId": zod.string().min(1).max(updateAdminBestchangeResponseDirectionsItemSourceOptionIdMax),
+  "targetOptionId": zod.string().min(1).max(updateAdminBestchangeResponseDirectionsItemTargetOptionIdMax),
+  "fromCode": zod.string().min(1).max(updateAdminBestchangeResponseDirectionsItemFromCodeMax),
+  "toCode": zod.string().min(1).max(updateAdminBestchangeResponseDirectionsItemToCodeMax),
+  "reserve": zod.string().regex(updateAdminBestchangeResponseDirectionsItemReserveRegExp),
+  "minAmount": zod.string().regex(updateAdminBestchangeResponseDirectionsItemMinAmountRegExp),
+  "maxAmount": zod.string().regex(updateAdminBestchangeResponseDirectionsItemMaxAmountRegExp),
+  "floating": zod.string().max(updateAdminBestchangeResponseDirectionsItemFloatingMax).regex(updateAdminBestchangeResponseDirectionsItemFloatingRegExp).optional(),
+  "delay": zod.string().max(updateAdminBestchangeResponseDirectionsItemDelayMax).regex(updateAdminBestchangeResponseDirectionsItemDelayRegExp).optional(),
+  "params": zod.array(zod.enum(['manual', 'juridical', 'verifying', 'cardverify', 'otherin', 'otherout', 'reg', 'card2card', 'delivery', 'atm'])).max(updateAdminBestchangeResponseDirectionsItemParamsMax),
+  "cities": zod.array(zod.string().min(1).max(updateAdminBestchangeResponseDirectionsItemCitiesItemMax)).max(updateAdminBestchangeResponseDirectionsItemCitiesMax),
+  "selectedAddOnKeys": zod.array(zod.string().min(1).max(updateAdminBestchangeResponseDirectionsItemSelectedAddOnKeysItemMax)).max(updateAdminBestchangeResponseDirectionsItemSelectedAddOnKeysMax),
+  "includeFeeTags": zod.boolean()
+})).max(updateAdminBestchangeResponseDirectionsMax),
+  "updatedAt": zod.coerce.date().optional()
+})
+
+
+export const GetAdminBestchangePreviewResponse = zod.object({
+  "xml": zod.string(),
+  "generatedAt": zod.coerce.date(),
+  "exportedCount": zod.number().int(),
+  "diagnostics": zod.array(zod.object({
+  "id": zod.string(),
+  "exported": zod.boolean(),
+  "message": zod.string()
+})),
+  "enabled": zod.boolean(),
+  "version": zod.number().int()
+})

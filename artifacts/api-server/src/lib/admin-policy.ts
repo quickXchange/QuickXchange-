@@ -173,6 +173,8 @@ const POLICY_MATCHERS: readonly PolicyMatcher[] = [
   { method: "GET", pattern: /^\/admin\/landing-background$/, policy: P("site_settings.view") },
   { method: "POST", pattern: /^\/admin\/landing-background(\/upload)?$/, policy: P("site_settings.manage", true) },
   { method: "GET", pattern: /^\/admin\/site-content$/, policy: P("site_settings.view") },
+  { method: "GET", pattern: /^\/admin\/bestchange(\/preview)?$/, policy: P("site_settings.view", true) },
+  { method: "PUT", pattern: /^\/admin\/bestchange$/, policy: P("site_settings.manage", true) },
   { method: "POST", pattern: /^\/admin\/site-content$/, policy: P("site_settings.manage") },
   { method: "GET", pattern: /^\/admin\/site-content\/[^/]+(\/preview)?$/, policy: P("site_settings.view") },
   { method: "PUT", pattern: /^\/admin\/site-content\/[^/]+$/, policy: P("site_settings.manage") },

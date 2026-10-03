@@ -4612,6 +4612,55 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/PublicNotificationSettings" }
 
+  /bestchange.xml:
+    get:
+      operationId: getBestchangeXml
+      tags: [exchange]
+      summary: Public BestChange standard-format live Manual Swap rates
+      responses:
+        "200":
+          description: XML rates; empty when publication is disabled
+          content:
+            application/xml:
+              schema: { type: string }
+        "503":
+          description: A fresh feed cannot currently be generated
+  /admin/bestchange:
+    get:
+      operationId: getAdminBestchange
+      tags: [admin]
+      responses:
+        "200":
+          description: Owner-only feed settings and public settlement catalog
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BestchangeAdmin" }
+    put:
+      operationId: updateAdminBestchange
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BestchangeSettings" }
+      responses:
+        "200":
+          description: Saved settings with a new version
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BestchangeSettings" }
+        "409":
+          description: Settings changed since this editor loaded them
+  /admin/bestchange/preview:
+    get:
+      operationId: getAdminBestchangePreview
+      tags: [admin]
+      responses:
+        "200":
+          description: Current XML and per-direction export diagnostics, including disabled-feed preview
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BestchangePreview" }
 components:
   parameters:
     Page:
@@ -4683,6 +4732,102 @@ components:
       name: __session
       description: Clerk owner session. The authenticated user must match the single active owner account in the server-side operator registry.
   schemas:
+    BestchangeDirection:
+      type: object
+      additionalProperties: false
+      required: [id, enabled, sourceOptionId, targetOptionId, fromCode, toCode, reserve, minAmount, maxAmount, params, cities, selectedAddOnKeys, includeFeeTags]
+      properties:
+        id: { type: string, format: uuid }
+        enabled: { type: boolean }
+        sourceOptionId: { type: string, minLength: 1, maxLength: 160 }
+        targetOptionId: { type: string, minLength: 1, maxLength: 160 }
+        fromCode: { type: string, minLength: 1, maxLength: 32 }
+        toCode: { type: string, minLength: 1, maxLength: 32 }
+        reserve: { type: string, pattern: '^[0-9]{1,12}(\.[0-9]{1,12})?$' }
+        minAmount: { type: string, pattern: '^[0-9]{1,12}(\.[0-9]{1,12})?$' }
+        maxAmount: { type: string, pattern: '^[0-9]{1,12}(\.[0-9]{1,12})?$' }
+        floating: { type: string, pattern: '^[0-9]{1,6}(\.[0-9]{1,6})?%?$', maxLength: 14 }
+        delay: { type: string, pattern: '^[0-9]{1,6}(\.[0-9]{1,6})?$', maxLength: 13 }
+        params:
+          type: array
+          maxItems: 10
+          uniqueItems: true
+          items: { type: string, enum: [manual, juridical, verifying, cardverify, otherin, otherout, reg, card2card, delivery, atm] }
+        cities:
+          type: array
+          maxItems: 25
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 12 }
+        selectedAddOnKeys:
+          type: array
+          maxItems: 32
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 100 }
+        includeFeeTags: { type: boolean }
+    BestchangeSettings:
+      type: object
+      additionalProperties: false
+      required: [enabled, version, directions]
+      properties:
+        enabled: { type: boolean }
+        version: { type: integer, minimum: 0 }
+        directions:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/BestchangeDirection" }
+        updatedAt: { type: string, format: date-time }
+    BestchangeCode:
+      type: object
+      required: [code, description]
+      properties:
+        code: { type: string }
+        description: { type: string }
+    BestchangeOption:
+      type: object
+      required: [id, label, assetCode, network, direction, kind]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        assetCode: { type: string }
+        network: { type: string }
+        direction: { type: string }
+        kind: { type: string }
+    BestchangeAdmin:
+      type: object
+      required: [settings, options, currencyCodes, cityCodes, feedPath, documentationUrl, exampleXml]
+      properties:
+        settings: { $ref: "#/components/schemas/BestchangeSettings" }
+        options:
+          type: array
+          items: { $ref: "#/components/schemas/BestchangeOption" }
+        currencyCodes:
+          type: array
+          items: { $ref: "#/components/schemas/BestchangeCode" }
+        cityCodes:
+          type: array
+          items: { $ref: "#/components/schemas/BestchangeCode" }
+        feedPath: { type: string }
+        documentationUrl: { type: string }
+        exampleXml: { type: string }
+    BestchangeDiagnostic:
+      type: object
+      required: [id, exported, message]
+      properties:
+        id: { type: string }
+        exported: { type: boolean }
+        message: { type: string }
+    BestchangePreview:
+      type: object
+      required: [xml, generatedAt, exportedCount, diagnostics, enabled, version]
+      properties:
+        xml: { type: string }
+        generatedAt: { type: string, format: date-time }
+        exportedCount: { type: integer }
+        diagnostics:
+          type: array
+          items: { $ref: "#/components/schemas/BestchangeDiagnostic" }
+        enabled: { type: boolean }
+        version: { type: integer }
     TelegramLinkInput:
       type: object
       required: [token]
