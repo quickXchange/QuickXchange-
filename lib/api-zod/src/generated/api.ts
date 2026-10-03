@@ -8807,6 +8807,10 @@ export const DeleteFiatCurrencyResponse = zod.void()
 /**
  * @summary List all payment methods
  */
+export const getPaymentMethodsResponseOneReservesItemFiatCurrencyIdRegExp = new RegExp('^[0-9a-fA-F-]{36}$');
+export const getPaymentMethodsResponseOneReservesItemReserveRegExp = new RegExp('^[0-9]{1,20}(\\.[0-9]{1,18})?$');
+export const getPaymentMethodsResponseOneReservesMax = 300;
+
 export const getPaymentMethodsResponseOneIdRegExp = new RegExp('^[a-z0-9]+(?:-[a-z0-9]+)*$');
 export const getPaymentMethodsResponseOneNameMax = 100;
 
@@ -8854,6 +8858,10 @@ export const getPaymentMethodsResponseOneFieldDefinitionsMax = 50;
 
 
 export const GetPaymentMethodsResponseItem = zod.object({
+  "reserves": zod.array(zod.object({
+  "fiatCurrencyId": zod.string().regex(getPaymentMethodsResponseOneReservesItemFiatCurrencyIdRegExp),
+  "reserve": zod.string().regex(getPaymentMethodsResponseOneReservesItemReserveRegExp)
+})).max(getPaymentMethodsResponseOneReservesMax).optional(),
   "id": zod.string().regex(getPaymentMethodsResponseOneIdRegExp),
   "name": zod.string().min(1).max(getPaymentMethodsResponseOneNameMax),
   "logoObjectPath": zod.string().nullish(),
@@ -8902,6 +8910,10 @@ export const GetPaymentMethodsResponse = zod.array(GetPaymentMethodsResponseItem
 /**
  * @summary Create a payment method
  */
+export const createPaymentMethodBodyReservesItemFiatCurrencyIdRegExp = new RegExp('^[0-9a-fA-F-]{36}$');
+export const createPaymentMethodBodyReservesItemReserveRegExp = new RegExp('^[0-9]{1,20}(\\.[0-9]{1,18})?$');
+export const createPaymentMethodBodyReservesMax = 300;
+
 export const createPaymentMethodBodyIdRegExp = new RegExp('^[a-z0-9]+(?:-[a-z0-9]+)*$');
 export const createPaymentMethodBodyNameMax = 100;
 
@@ -8949,6 +8961,10 @@ export const createPaymentMethodBodyFieldDefinitionsMax = 50;
 
 
 export const CreatePaymentMethodBody = zod.object({
+  "reserves": zod.array(zod.object({
+  "fiatCurrencyId": zod.string().regex(createPaymentMethodBodyReservesItemFiatCurrencyIdRegExp),
+  "reserve": zod.string().regex(createPaymentMethodBodyReservesItemReserveRegExp)
+})).max(createPaymentMethodBodyReservesMax).optional(),
   "id": zod.string().regex(createPaymentMethodBodyIdRegExp),
   "name": zod.string().min(1).max(createPaymentMethodBodyNameMax),
   "logoObjectPath": zod.string().nullish(),
@@ -8987,6 +9003,10 @@ export const CreatePaymentMethodBody = zod.object({
 }).optional()
 })).max(createPaymentMethodBodyFieldDefinitionsMax)
 })
+
+export const createPaymentMethodResponseOneReservesItemFiatCurrencyIdRegExp = new RegExp('^[0-9a-fA-F-]{36}$');
+export const createPaymentMethodResponseOneReservesItemReserveRegExp = new RegExp('^[0-9]{1,20}(\\.[0-9]{1,18})?$');
+export const createPaymentMethodResponseOneReservesMax = 300;
 
 export const createPaymentMethodResponseOneIdRegExp = new RegExp('^[a-z0-9]+(?:-[a-z0-9]+)*$');
 export const createPaymentMethodResponseOneNameMax = 100;
@@ -9035,6 +9055,10 @@ export const createPaymentMethodResponseOneFieldDefinitionsMax = 50;
 
 
 export const CreatePaymentMethodResponse = zod.object({
+  "reserves": zod.array(zod.object({
+  "fiatCurrencyId": zod.string().regex(createPaymentMethodResponseOneReservesItemFiatCurrencyIdRegExp),
+  "reserve": zod.string().regex(createPaymentMethodResponseOneReservesItemReserveRegExp)
+})).max(createPaymentMethodResponseOneReservesMax).optional(),
   "id": zod.string().regex(createPaymentMethodResponseOneIdRegExp),
   "name": zod.string().min(1).max(createPaymentMethodResponseOneNameMax),
   "logoObjectPath": zod.string().nullish(),
@@ -9083,6 +9107,10 @@ export const UpdatePaymentMethodParams = zod.object({
   "id": zod.coerce.string()
 })
 
+export const updatePaymentMethodBodyReservesItemFiatCurrencyIdRegExp = new RegExp('^[0-9a-fA-F-]{36}$');
+export const updatePaymentMethodBodyReservesItemReserveRegExp = new RegExp('^[0-9]{1,20}(\\.[0-9]{1,18})?$');
+export const updatePaymentMethodBodyReservesMax = 300;
+
 export const updatePaymentMethodBodyNameMax = 100;
 
 export const updatePaymentMethodBodyDescriptionMax = 2000;
@@ -9125,6 +9153,10 @@ export const updatePaymentMethodBodyFieldDefinitionsMax = 50;
 
 
 export const UpdatePaymentMethodBody = zod.object({
+  "reserves": zod.array(zod.object({
+  "fiatCurrencyId": zod.string().regex(updatePaymentMethodBodyReservesItemFiatCurrencyIdRegExp),
+  "reserve": zod.string().regex(updatePaymentMethodBodyReservesItemReserveRegExp)
+})).max(updatePaymentMethodBodyReservesMax).optional(),
   "name": zod.string().min(1).max(updatePaymentMethodBodyNameMax).optional(),
   "logoObjectPath": zod.string().nullish(),
   "description": zod.string().max(updatePaymentMethodBodyDescriptionMax).nullish(),
@@ -9162,6 +9194,10 @@ export const UpdatePaymentMethodBody = zod.object({
 }).optional()
 })).max(updatePaymentMethodBodyFieldDefinitionsMax).optional()
 })
+
+export const updatePaymentMethodResponseOneReservesItemFiatCurrencyIdRegExp = new RegExp('^[0-9a-fA-F-]{36}$');
+export const updatePaymentMethodResponseOneReservesItemReserveRegExp = new RegExp('^[0-9]{1,20}(\\.[0-9]{1,18})?$');
+export const updatePaymentMethodResponseOneReservesMax = 300;
 
 export const updatePaymentMethodResponseOneIdRegExp = new RegExp('^[a-z0-9]+(?:-[a-z0-9]+)*$');
 export const updatePaymentMethodResponseOneNameMax = 100;
@@ -9210,6 +9246,10 @@ export const updatePaymentMethodResponseOneFieldDefinitionsMax = 50;
 
 
 export const UpdatePaymentMethodResponse = zod.object({
+  "reserves": zod.array(zod.object({
+  "fiatCurrencyId": zod.string().regex(updatePaymentMethodResponseOneReservesItemFiatCurrencyIdRegExp),
+  "reserve": zod.string().regex(updatePaymentMethodResponseOneReservesItemReserveRegExp)
+})).max(updatePaymentMethodResponseOneReservesMax).optional(),
   "id": zod.string().regex(updatePaymentMethodResponseOneIdRegExp),
   "name": zod.string().min(1).max(updatePaymentMethodResponseOneNameMax),
   "logoObjectPath": zod.string().nullish(),
@@ -9494,6 +9534,8 @@ export const DeletePaymentMethodLogoUploadParams = zod.object({
 export const DeletePaymentMethodLogoUploadResponse = zod.void()
 
 
+export const getFiatCurrencyPaymentMethodsResponseOneReserveDefault = `0`;
+export const getFiatCurrencyPaymentMethodsResponseOneReserveRegExp = new RegExp('^[0-9]{1,20}(\\.[0-9]{1,18})?$');
 export const getFiatCurrencyPaymentMethodsResponseOneFiatCurrencyIdRegExp = new RegExp('^[0-9a-fA-F-]{36}$');
 export const getFiatCurrencyPaymentMethodsResponseOneMinAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const getFiatCurrencyPaymentMethodsResponseOneMaxAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -9504,6 +9546,7 @@ export const getFiatCurrencyPaymentMethodsResponseTwoIdRegExp = new RegExp('^[0-
 
 
 export const GetFiatCurrencyPaymentMethodsResponseItem = zod.object({
+  "reserve": zod.string().regex(getFiatCurrencyPaymentMethodsResponseOneReserveRegExp).default(getFiatCurrencyPaymentMethodsResponseOneReserveDefault),
   "fiatCurrencyId": zod.string().regex(getFiatCurrencyPaymentMethodsResponseOneFiatCurrencyIdRegExp),
   "paymentMethodId": zod.string(),
   "enabled": zod.boolean(),
@@ -9522,6 +9565,8 @@ export const GetFiatCurrencyPaymentMethodsResponseItem = zod.object({
 export const GetFiatCurrencyPaymentMethodsResponse = zod.array(GetFiatCurrencyPaymentMethodsResponseItem)
 
 
+export const createFiatCurrencyPaymentMethodBodyReserveDefault = `0`;
+export const createFiatCurrencyPaymentMethodBodyReserveRegExp = new RegExp('^[0-9]{1,20}(\\.[0-9]{1,18})?$');
 export const createFiatCurrencyPaymentMethodBodyFiatCurrencyIdRegExp = new RegExp('^[0-9a-fA-F-]{36}$');
 export const createFiatCurrencyPaymentMethodBodyMinAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createFiatCurrencyPaymentMethodBodyMaxAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -9531,6 +9576,7 @@ export const createFiatCurrencyPaymentMethodBodyCountriesMax = 300;
 
 
 export const CreateFiatCurrencyPaymentMethodBody = zod.object({
+  "reserve": zod.string().regex(createFiatCurrencyPaymentMethodBodyReserveRegExp).default(createFiatCurrencyPaymentMethodBodyReserveDefault),
   "fiatCurrencyId": zod.string().regex(createFiatCurrencyPaymentMethodBodyFiatCurrencyIdRegExp),
   "paymentMethodId": zod.string(),
   "enabled": zod.boolean(),
@@ -9543,6 +9589,8 @@ export const CreateFiatCurrencyPaymentMethodBody = zod.object({
   "countries": zod.array(zod.string().regex(createFiatCurrencyPaymentMethodBodyCountriesItemRegExp)).max(createFiatCurrencyPaymentMethodBodyCountriesMax).optional()
 })
 
+export const createFiatCurrencyPaymentMethodResponseOneReserveDefault = `0`;
+export const createFiatCurrencyPaymentMethodResponseOneReserveRegExp = new RegExp('^[0-9]{1,20}(\\.[0-9]{1,18})?$');
 export const createFiatCurrencyPaymentMethodResponseOneFiatCurrencyIdRegExp = new RegExp('^[0-9a-fA-F-]{36}$');
 export const createFiatCurrencyPaymentMethodResponseOneMinAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const createFiatCurrencyPaymentMethodResponseOneMaxAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -9553,6 +9601,7 @@ export const createFiatCurrencyPaymentMethodResponseTwoIdRegExp = new RegExp('^[
 
 
 export const CreateFiatCurrencyPaymentMethodResponse = zod.object({
+  "reserve": zod.string().regex(createFiatCurrencyPaymentMethodResponseOneReserveRegExp).default(createFiatCurrencyPaymentMethodResponseOneReserveDefault),
   "fiatCurrencyId": zod.string().regex(createFiatCurrencyPaymentMethodResponseOneFiatCurrencyIdRegExp),
   "paymentMethodId": zod.string(),
   "enabled": zod.boolean(),
@@ -9672,6 +9721,8 @@ export const ApplyBulkFiatCurrencyPaymentMethodsBody = zod.union([zod.unknown(),
 })).min(1).max(applyBulkFiatCurrencyPaymentMethodsBodyThreeItemsMax)
 }))
 
+export const applyBulkFiatCurrencyPaymentMethodsResponseResultsItemAttachmentOneReserveDefault = `0`;
+export const applyBulkFiatCurrencyPaymentMethodsResponseResultsItemAttachmentOneReserveRegExp = new RegExp('^[0-9]{1,20}(\\.[0-9]{1,18})?$');
 export const applyBulkFiatCurrencyPaymentMethodsResponseResultsItemAttachmentOneFiatCurrencyIdRegExp = new RegExp('^[0-9a-fA-F-]{36}$');
 export const applyBulkFiatCurrencyPaymentMethodsResponseResultsItemAttachmentOneMinAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const applyBulkFiatCurrencyPaymentMethodsResponseResultsItemAttachmentOneMaxAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -9686,6 +9737,7 @@ export const ApplyBulkFiatCurrencyPaymentMethodsResponse = zod.object({
   "fiatCurrencyId": zod.string(),
   "success": zod.boolean(),
   "attachment": zod.object({
+  "reserve": zod.string().regex(applyBulkFiatCurrencyPaymentMethodsResponseResultsItemAttachmentOneReserveRegExp).default(applyBulkFiatCurrencyPaymentMethodsResponseResultsItemAttachmentOneReserveDefault),
   "fiatCurrencyId": zod.string().regex(applyBulkFiatCurrencyPaymentMethodsResponseResultsItemAttachmentOneFiatCurrencyIdRegExp),
   "paymentMethodId": zod.string(),
   "enabled": zod.boolean(),
@@ -9714,6 +9766,7 @@ export const UpdateFiatCurrencyPaymentMethodParams = zod.object({
   "id": zod.coerce.string().regex(updateFiatCurrencyPaymentMethodPathIdRegExp)
 })
 
+export const updateFiatCurrencyPaymentMethodBodyReserveRegExp = new RegExp('^[0-9]{1,20}(\\.[0-9]{1,18})?$');
 export const updateFiatCurrencyPaymentMethodBodyMinAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const updateFiatCurrencyPaymentMethodBodyMaxAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const updateFiatCurrencyPaymentMethodBodyCountriesItemRegExp = new RegExp('^[A-Za-z]{2}$');
@@ -9722,6 +9775,7 @@ export const updateFiatCurrencyPaymentMethodBodyCountriesMax = 300;
 
 
 export const UpdateFiatCurrencyPaymentMethodBody = zod.object({
+  "reserve": zod.string().regex(updateFiatCurrencyPaymentMethodBodyReserveRegExp).optional(),
   "enabled": zod.boolean().optional(),
   "canSend": zod.boolean().nullish(),
   "canReceive": zod.boolean().nullish(),
@@ -9732,6 +9786,8 @@ export const UpdateFiatCurrencyPaymentMethodBody = zod.object({
   "countries": zod.array(zod.string().regex(updateFiatCurrencyPaymentMethodBodyCountriesItemRegExp)).max(updateFiatCurrencyPaymentMethodBodyCountriesMax).optional()
 })
 
+export const updateFiatCurrencyPaymentMethodResponseOneReserveDefault = `0`;
+export const updateFiatCurrencyPaymentMethodResponseOneReserveRegExp = new RegExp('^[0-9]{1,20}(\\.[0-9]{1,18})?$');
 export const updateFiatCurrencyPaymentMethodResponseOneFiatCurrencyIdRegExp = new RegExp('^[0-9a-fA-F-]{36}$');
 export const updateFiatCurrencyPaymentMethodResponseOneMinAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
 export const updateFiatCurrencyPaymentMethodResponseOneMaxAmountRegExp = new RegExp('^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$');
@@ -9742,6 +9798,7 @@ export const updateFiatCurrencyPaymentMethodResponseTwoIdRegExp = new RegExp('^[
 
 
 export const UpdateFiatCurrencyPaymentMethodResponse = zod.object({
+  "reserve": zod.string().regex(updateFiatCurrencyPaymentMethodResponseOneReserveRegExp).default(updateFiatCurrencyPaymentMethodResponseOneReserveDefault),
   "fiatCurrencyId": zod.string().regex(updateFiatCurrencyPaymentMethodResponseOneFiatCurrencyIdRegExp),
   "paymentMethodId": zod.string(),
   "enabled": zod.boolean(),
@@ -20277,7 +20334,7 @@ export const GetAdminBestchangeResponse = zod.object({
   "targetOptionId": zod.string().min(1).max(getAdminBestchangeResponseSettingsDirectionsItemTargetOptionIdMax),
   "fromCode": zod.string().min(1).max(getAdminBestchangeResponseSettingsDirectionsItemFromCodeMax),
   "toCode": zod.string().min(1).max(getAdminBestchangeResponseSettingsDirectionsItemToCodeMax),
-  "reserve": zod.string().regex(getAdminBestchangeResponseSettingsDirectionsItemReserveRegExp),
+  "reserve": zod.string().regex(getAdminBestchangeResponseSettingsDirectionsItemReserveRegExp).optional(),
   "minAmount": zod.string().regex(getAdminBestchangeResponseSettingsDirectionsItemMinAmountRegExp),
   "maxAmount": zod.string().regex(getAdminBestchangeResponseSettingsDirectionsItemMaxAmountRegExp),
   "floating": zod.string().max(getAdminBestchangeResponseSettingsDirectionsItemFloatingMax).regex(getAdminBestchangeResponseSettingsDirectionsItemFloatingRegExp).optional(),
@@ -20290,6 +20347,7 @@ export const GetAdminBestchangeResponse = zod.object({
   "updatedAt": zod.coerce.date().optional()
 }),
   "options": zod.array(zod.object({
+  "reserve": zod.string().optional(),
   "id": zod.string(),
   "label": zod.string(),
   "assetCode": zod.string(),
@@ -20356,7 +20414,7 @@ export const UpdateAdminBestchangeBody = zod.object({
   "targetOptionId": zod.string().min(1).max(updateAdminBestchangeBodyDirectionsItemTargetOptionIdMax),
   "fromCode": zod.string().min(1).max(updateAdminBestchangeBodyDirectionsItemFromCodeMax),
   "toCode": zod.string().min(1).max(updateAdminBestchangeBodyDirectionsItemToCodeMax),
-  "reserve": zod.string().regex(updateAdminBestchangeBodyDirectionsItemReserveRegExp),
+  "reserve": zod.string().regex(updateAdminBestchangeBodyDirectionsItemReserveRegExp).optional(),
   "minAmount": zod.string().regex(updateAdminBestchangeBodyDirectionsItemMinAmountRegExp),
   "maxAmount": zod.string().regex(updateAdminBestchangeBodyDirectionsItemMaxAmountRegExp),
   "floating": zod.string().max(updateAdminBestchangeBodyDirectionsItemFloatingMax).regex(updateAdminBestchangeBodyDirectionsItemFloatingRegExp).optional(),
@@ -20414,7 +20472,7 @@ export const UpdateAdminBestchangeResponse = zod.object({
   "targetOptionId": zod.string().min(1).max(updateAdminBestchangeResponseDirectionsItemTargetOptionIdMax),
   "fromCode": zod.string().min(1).max(updateAdminBestchangeResponseDirectionsItemFromCodeMax),
   "toCode": zod.string().min(1).max(updateAdminBestchangeResponseDirectionsItemToCodeMax),
-  "reserve": zod.string().regex(updateAdminBestchangeResponseDirectionsItemReserveRegExp),
+  "reserve": zod.string().regex(updateAdminBestchangeResponseDirectionsItemReserveRegExp).optional(),
   "minAmount": zod.string().regex(updateAdminBestchangeResponseDirectionsItemMinAmountRegExp),
   "maxAmount": zod.string().regex(updateAdminBestchangeResponseDirectionsItemMaxAmountRegExp),
   "floating": zod.string().max(updateAdminBestchangeResponseDirectionsItemFloatingMax).regex(updateAdminBestchangeResponseDirectionsItemFloatingRegExp).optional(),

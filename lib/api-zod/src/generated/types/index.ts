@@ -470,6 +470,7 @@ export * from './paymentMethodInputLifecycle';
 export * from './paymentMethodLogoUpload';
 export * from './paymentMethodLogoUploadInput';
 export * from './paymentMethodLogoUploadInputContentType';
+export * from './paymentMethodReserveInput';
 export * from './paymentMethodUpdate';
 export * from './paymentMethodUpdateExecutionMode';
 export * from './paymentMethodUpdateFamily';

@@ -1,4 +1,7 @@
 import { Router, type IRouter } from "express";
+import { fiatCurrencyPaymentMethodsTable } from "@workspace/db";
+import { getDestinationPaymentMethodReserve } from "../lib/payment-method-reserves";
+import { onBestchangeConfigurationChange } from "../lib/bestchange-cache-invalidation";
 import { and, eq } from "drizzle-orm";
 import {
   GetAdminBestchangeResponse, UpdateAdminBestchangeBody, UpdateAdminBestchangeResponse,
@@ -41,8 +44,12 @@ async function settings(): Promise<BestchangeSettings> {
     updatedAt: row.updatedAt.toISOString(),
   } : { enabled: false, version: 0, directions: [] };
 }
+onBestchangeConfigurationChange(invalidate);
 async function options() {
-  return [...await listPublicFiatSettlementOptions(), ...await listPublicManualCryptoSettlementOptions()];
+  const reserves = new Map((await db.select().from(fiatCurrencyPaymentMethodsTable))
+    .map(row => [`fiat:${row.fiatCurrencyId}:${row.paymentMethodId}`, plainDecimal(row.reserve)]));
+  return [...await listPublicFiatSettlementOptions(), ...await listPublicManualCryptoSettlementOptions()]
+    .map(option => ({ ...option, reserve: reserves.get(option.id) }));
 }
 function validateDirections(directions: BestchangeDirection[]) {
   const ids = new Set<string>();
@@ -74,8 +81,10 @@ function validateDirections(directions: BestchangeDirection[]) {
     }
   }
 }
-async function exportDirection(direction: BestchangeDirection): Promise<BestchangeItem> {
-  const live = await prepareBestchangeSwapQuotes(direction.sourceOptionId, direction.targetOptionId, direction.selectedAddOnKeys);
+async function exportDirection(
+  direction: BestchangeDirection, reserve: string, prepareQuotes = prepareBestchangeSwapQuotes,
+): Promise<BestchangeItem> {
+  const live = await prepareQuotes(direction.sourceOptionId, direction.targetOptionId, direction.selectedAddOnKeys);
   const min = Math.max(Number(direction.minAmount), live.effectiveMinAmount ?? 0);
   const max = Math.min(Number(direction.maxAmount), live.effectiveMaxAmount ?? Infinity);
   if (!(min > 0 && Number.isFinite(max) && max >= min)) throw new BestchangeExportError("The configured limits do not overlap the current Swap limits.");
@@ -87,7 +96,8 @@ async function exportDirection(direction: BestchangeDirection): Promise<Bestchan
   const maxReceive = quotes.find(quote => quote.amount === max)!.receive;
   return {
     from: direction.fromCode, to: direction.toCode, in: price.input, out: price.output,
-    amount: smallerDecimal(plainDecimal(direction.reserve), maxReceive),
+    amount: direction.targetOptionId.startsWith("fiat:")
+      ? plainDecimal(reserve) : smallerDecimal(plainDecimal(reserve), maxReceive),
     minamount: plainDecimal(min), maxamount: plainDecimal(max),
     ...(direction.includeFeeTags ? { fromfee: "0", tofee: "0" } : {}),
     ...(direction.floating !== undefined ? { floating: direction.floating } : {}),
@@ -96,19 +106,38 @@ async function exportDirection(direction: BestchangeDirection): Promise<Bestchan
     ...(direction.cities.length ? { city: direction.cities.join(", ") } : {}),
   };
 }
-async function generate(config: BestchangeSettings): Promise<BestchangePreview> {
+export async function generate(
+  config: BestchangeSettings, prepareQuotes = prepareBestchangeSwapQuotes,
+): Promise<BestchangePreview> {
   const items: Array<BestchangeItem | undefined> = Array(config.directions.length);
   const diagnostics: BestchangePreview["diagnostics"] = Array(config.directions.length);
+  // Read each destination once so every direction in this XML shares the same
+  // reserve, even if an operator saves while its pricing is being calculated.
+  const reserveByTarget = new Map<string, Promise<string | undefined>>();
   let cursor = 0;
   await Promise.all(Array.from({ length: Math.min(4, config.directions.length) }, async () => {
     while (cursor < config.directions.length) {
       const index = cursor++, direction = config.directions[index];
-      if (!direction.enabled || compareDecimal(direction.reserve, "0") === 0) {
-        diagnostics[index] = { id: direction.id, exported: false, message: direction.enabled ? "Zero reserve: not exported." : "Direction disabled." };
+      if (!direction.enabled) {
+        diagnostics[index] = { id: direction.id, exported: false, message: "Direction disabled." };
         continue;
       }
       try {
-        items[index] = await exportDirection(direction);
+        let reserve: string | undefined = direction.reserve ?? "0";
+        if (direction.targetOptionId.startsWith("fiat:")) {
+          let read = reserveByTarget.get(direction.targetOptionId);
+          if (!read) {
+            read = getDestinationPaymentMethodReserve(direction.targetOptionId);
+            reserveByTarget.set(direction.targetOptionId, read);
+          }
+          reserve = await read;
+        }
+        if (reserve === undefined) throw new BestchangeExportError("Destination Payment Method no longer exists.");
+        if (compareDecimal(reserve, "0") === 0) {
+          diagnostics[index] = { id: direction.id, exported: false, message: "Zero destination reserve: not exported." };
+          continue;
+        }
+        items[index] = await exportDirection(direction, reserve, prepareQuotes);
         diagnostics[index] = { id: direction.id, exported: true, message: "Live fee-inclusive Swap rate; conservative standard-format range pricing." };
       } catch (error) {
         diagnostics[index] = {
@@ -174,6 +203,7 @@ router.get("/admin/bestchange", requireOwner, async (_req, res, next) => {
       options: catalog.map(option => ({
         id: option.id, label: `${option.title} · ${option.assetCode} / ${option.routeNetwork}`,
         assetCode: option.assetCode, network: option.routeNetwork, direction: option.direction, kind: option.kind,
+        reserve: option.reserve,
       })),
       ...reference, feedPath: "/api/bestchange.xml",
     }));

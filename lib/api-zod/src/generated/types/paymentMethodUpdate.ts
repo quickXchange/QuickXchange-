@@ -6,11 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { PaymentMethodFieldDefinition } from './paymentMethodFieldDefinition';
+import type { PaymentMethodReserveInput } from './paymentMethodReserveInput';
 import type { PaymentMethodUpdateExecutionMode } from './paymentMethodUpdateExecutionMode';
 import type { PaymentMethodUpdateFamily } from './paymentMethodUpdateFamily';
 import type { PaymentMethodUpdateLifecycle } from './paymentMethodUpdateLifecycle';
 
 export interface PaymentMethodUpdate {
+  /** @maxItems 300 */
+  reserves?: PaymentMethodReserveInput[];
   /**
      * @minLength 1
      * @maxLength 100

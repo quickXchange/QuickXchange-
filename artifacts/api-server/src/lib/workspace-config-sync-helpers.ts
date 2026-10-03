@@ -1,3 +1,4 @@
+import { normalizePaymentMethodReserve } from "./payment-method-reserve-validation";
 type NullableString = string | null;
 type JsonRecord = Record<string, unknown>;
 
@@ -9,7 +10,7 @@ export type WorkspaceConfigSnapshot = {
   cryptoNetworks: Array<{ id: string; assetId: string; networkCode: string; networkName: string; logoObjectPath: NullableString; networkFamily: string; decimals: number; executionMode: string; depositProvider: string; manualWalletTrackingEnabled: boolean; lifecycle: string; regions: string[]; enabled: boolean; requiresMemo: boolean; requiredConfirmations: number; confirmationGuidance: NullableString; explorerUrlTemplate: NullableString; depositInstructions: NullableString; depositWarning: NullableString }>;
   fiatCurrencies: Array<{ id: string; code: string; name: string; flagObjectPath: NullableString; network: string; precision: number; lifecycle: string; regions: string[]; countries: string[]; enabled: boolean; rateMode: string; manualRate: NullableString }>;
   paymentMethods: Array<{ id: string; name: string; logoObjectPath: NullableString; description: NullableString; instructions: NullableString; family: string; executionMode: string; providerId: NullableString; lifecycle: string; regions: string[]; countries: string[]; requiresProviderConfiguration: boolean; enabled: boolean; canSend: boolean; canReceive: boolean; fieldDefinitions: JsonRecord[] }>;
-  fiatCurrencyPaymentMethods: Array<{ fiatCode: string; paymentMethodId: string; enabled: boolean; canSend: boolean | null; canReceive: boolean | null; sendInstructions: NullableString; receiveInstructions: NullableString; minAmount: NullableString; maxAmount: NullableString; countries: string[] }>;
+  fiatCurrencyPaymentMethods: Array<{ fiatCode: string; paymentMethodId: string; enabled: boolean; canSend: boolean | null; canReceive: boolean | null; sendInstructions: NullableString; receiveInstructions: NullableString; minAmount: NullableString; maxAmount: NullableString; reserve?: string; countries: string[] }>;
   manualDeskPricingRules: Array<{ id: string; name: string; sourceAsset: NullableString; targetAsset: NullableString; sourceCryptoAssetId: NullableString; targetCryptoAssetId: NullableString; sourceNetwork: NullableString; targetNetwork: NullableString; paymentMethod: NullableString; payoutMethod: NullableString; sourceSettlementOptionId: NullableString; targetSettlementOptionId: NullableString; minAmount: NullableString; maxAmount: NullableString; operatorInstructions: NullableString; customerInstructions: NullableString; expectedSettlementMinutes: number | null; markupBasisPoints: number; adjustmentDirection: string; amountBasedPricingEnabled?: boolean; amountBasedPricingTiers?: Array<{ minAmount: string; maxAmount: string | null; percentage: string; direction: "MARKUP" | "GIVE_MORE"; fixedFee?: string }>; rangeOnlyPricing?: boolean; fixedFee: NullableString; exactRate: NullableString; priority: number; enabled: boolean }>;
   site: {
     publishedPages: Array<{ pageKey: string; content: JsonRecord }>;
@@ -258,6 +259,11 @@ export function validateSnapshotReferences(snapshot: WorkspaceConfigSnapshot): s
     if (!fiatCodes.has(fiatCode)) errors.push(`Attachment ${fiatCode}:${link.paymentMethodId} references missing fiat code`);
     if (!methodIds.has(link.paymentMethodId)) errors.push(`Attachment ${fiatCode}:${link.paymentMethodId} references missing payment method`);
     const key = `${fiatCode}:${link.paymentMethodId}`;
+    if (link.reserve !== undefined) {
+      const currency = snapshot.fiatCurrencies.find(row => row.code.trim().toUpperCase() === fiatCode);
+      try { normalizePaymentMethodReserve(link.reserve, currency?.precision ?? 18); }
+      catch { errors.push(`Invalid nonnegative currency-precision reserve for ${key}`); }
+    }
     if (linkKeys.has(key)) errors.push(`Duplicate fiat/payment attachment: ${key}`);
     linkKeys.add(key);
   }

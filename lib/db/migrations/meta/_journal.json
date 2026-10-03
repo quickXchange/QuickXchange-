@@ -967,6 +967,13 @@
       "when": 1790986083950,
       "tag": "0139_dizzy_firelord",
       "breakpoints": true
+    },
+    {
+      "idx": 140,
+      "version": "7",
+      "when": 1791040169902,
+      "tag": "0140_tense_spot",
+      "breakpoints": true
     }
   ]
 }

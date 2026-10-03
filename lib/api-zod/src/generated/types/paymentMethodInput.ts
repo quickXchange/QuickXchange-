@@ -9,8 +9,11 @@ import type { PaymentMethodFieldDefinition } from './paymentMethodFieldDefinitio
 import type { PaymentMethodInputExecutionMode } from './paymentMethodInputExecutionMode';
 import type { PaymentMethodInputFamily } from './paymentMethodInputFamily';
 import type { PaymentMethodInputLifecycle } from './paymentMethodInputLifecycle';
+import type { PaymentMethodReserveInput } from './paymentMethodReserveInput';
 
 export interface PaymentMethodInput {
+  /** @maxItems 300 */
+  reserves?: PaymentMethodReserveInput[];
   /** @pattern ^[a-z0-9]+(?:-[a-z0-9]+)*$ */
   id: string;
   /**

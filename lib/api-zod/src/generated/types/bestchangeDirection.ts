@@ -31,7 +31,7 @@ export interface BestchangeDirection {
      */
   toCode: string;
   /** @pattern ^[0-9]{1,12}(\.[0-9]{1,12})?$ */
-  reserve: string;
+  reserve?: string;
   /** @pattern ^[0-9]{1,12}(\.[0-9]{1,12})?$ */
   minAmount: string;
   /** @pattern ^[0-9]{1,12}(\.[0-9]{1,12})?$ */

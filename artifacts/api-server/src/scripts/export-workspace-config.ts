@@ -1,4 +1,5 @@
 import { rename, writeFile } from "node:fs/promises";
+import { normalizePaymentMethodReserve } from "../lib/payment-method-reserve-validation";
 import { createHash } from "node:crypto";
 import {
   db, cryptoAssetsTable, cryptoAssetNetworksTable, fiatCurrenciesTable,
@@ -53,7 +54,7 @@ const snapshot: any = {
   })),
   fiatCurrencies: fiats.map(({ id, code, name, flagObjectPath, network, precision, lifecycle, regions, countries, enabled, rateMode, manualRate }) => ({ id, code, name, flagObjectPath, network, precision, lifecycle, regions, countries, enabled, rateMode, manualRate })),
   paymentMethods: methods.map(({ id, name, logoObjectPath, description, instructions, family, executionMode, providerId, lifecycle, regions, countries, requiresProviderConfiguration, enabled, canSend, canReceive, fieldDefinitions }) => ({ id, name, logoObjectPath, description, instructions, family, executionMode, providerId, lifecycle, regions, countries, requiresProviderConfiguration, enabled, canSend, canReceive, fieldDefinitions })),
-  fiatCurrencyPaymentMethods: links.map(({ fiatCurrencyId, paymentMethodId, enabled, canSend, canReceive, sendInstructions, receiveInstructions, minAmount, maxAmount, countries }) => ({ fiatCode: fiatById.get(fiatCurrencyId) ?? "", paymentMethodId, enabled, canSend, canReceive, sendInstructions, receiveInstructions, minAmount, maxAmount, countries })),
+  fiatCurrencyPaymentMethods: links.map(({ fiatCurrencyId, paymentMethodId, enabled, canSend, canReceive, sendInstructions, receiveInstructions, minAmount, maxAmount, reserve, countries }) => ({ fiatCode: fiatById.get(fiatCurrencyId) ?? "", paymentMethodId, enabled, canSend, canReceive, sendInstructions, receiveInstructions, minAmount, maxAmount, reserve: normalizePaymentMethodReserve(reserve, 18), countries })),
   manualDeskPricingRules: rules.map(({ id, name, sourceAsset, targetAsset, sourceCryptoAssetId, targetCryptoAssetId, sourceNetwork, targetNetwork, paymentMethod, payoutMethod, sourceSettlementOptionId, targetSettlementOptionId, minAmount, maxAmount, operatorInstructions, customerInstructions, expectedSettlementMinutes, markupBasisPoints, adjustmentDirection, amountBasedPricingEnabled, amountBasedPricingTiers, rangeOnlyPricing, fixedFee, exactRate, priority, enabled }) => ({ id, name, sourceAsset, targetAsset, sourceCryptoAssetId, targetCryptoAssetId, sourceNetwork, targetNetwork, paymentMethod, payoutMethod, sourceSettlementOptionId, targetSettlementOptionId, minAmount, maxAmount, operatorInstructions, customerInstructions, expectedSettlementMinutes, markupBasisPoints, adjustmentDirection, amountBasedPricingEnabled, amountBasedPricingTiers, rangeOnlyPricing, fixedFee, exactRate, priority, enabled })),
   site: {
     publishedPages: latestPages.map(({ pageKey, content }) => ({ pageKey, content })),

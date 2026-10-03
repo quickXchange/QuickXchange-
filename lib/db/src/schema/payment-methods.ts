@@ -1,5 +1,6 @@
 import {
   boolean,
+  check,
   jsonb,
   numeric,
   pgTable,
@@ -8,6 +9,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { fiatCurrenciesTable } from "./fiat-currencies";
@@ -101,6 +103,7 @@ export const fiatCurrencyPaymentMethodsTable = pgTable(
     receiveInstructions: text("receive_instructions"),
     minAmount: numeric("min_amount", { precision: 38, scale: 18 }),
     maxAmount: numeric("max_amount", { precision: 38, scale: 18 }),
+    reserve: numeric("reserve", { precision: 38, scale: 18 }).notNull().default("0"),
     countries: jsonb("countries").$type<string[]>().notNull().default([]),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
@@ -109,6 +112,7 @@ export const fiatCurrencyPaymentMethodsTable = pgTable(
       .$onUpdate(() => new Date()),
   },
   (table) => [
+    check("payment_method_reserve_nonnegative", sql`${table.reserve} >= 0 AND ${table.reserve} <> 'NaN'::numeric`),
     uniqueIndex("fiat_currency_payment_methods_currency_method_uidx").on(
       table.fiatCurrencyId,
       table.paymentMethodId,

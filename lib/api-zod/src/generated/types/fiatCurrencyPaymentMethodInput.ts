@@ -7,6 +7,8 @@
  */
 
 export interface FiatCurrencyPaymentMethodInput {
+  /** @pattern ^[0-9]{1,20}(\.[0-9]{1,18})?$ */
+  reserve?: string;
   /** @pattern ^[0-9a-fA-F-]{36}$ */
   fiatCurrencyId: string;
   paymentMethodId: string;

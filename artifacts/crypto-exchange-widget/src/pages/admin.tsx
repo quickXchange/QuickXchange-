@@ -1,4 +1,6 @@
 import { formatDisplayAmount } from '@workspace/amount-format';
+import { PaymentMethodReserveEditor } from '../components/payment-method-reserve-editor';
+import { getGetAdminBestchangeQueryKey, type PaymentMethodReserveInput } from '@workspace/api-client-react';
 
 import { useGetAdminNotificationEmailTemplates, getGetAdminNotificationEmailTemplatesQueryKey, useUpdateAdminNotificationEmailTemplates, useTestAdminNotificationEmailTemplate } from '@workspace/api-client-react';
 import type { NotificationEmailTemplate, NotificationEmailTemplateEventKind } from '@workspace/api-client-react';
@@ -6307,6 +6309,7 @@ function PaymentMethodDrawer({ method, onClose }: { method?: any; onClose: () =>
   }), [method]);
   const [form, setForm] = useState(initialForm);
   const [fields, setFields] = useState<PaymentMethodFieldDefinition[]>(method?.fieldDefinitions || []);
+  const [reserves, setReserves] = useState<PaymentMethodReserveInput[]>([]);
   const commitLogoRef = useRef<() => void>(() => {});
 
   const createMutation = useCreatePaymentMethod();
@@ -6340,6 +6343,7 @@ function PaymentMethodDrawer({ method, onClose }: { method?: any; onClose: () =>
       countries: form.countries.split(',').map((c: string) => c.trim().toUpperCase()).filter(Boolean),
       requiresProviderConfiguration: form.requiresProviderConfiguration,
       fieldDefinitions: fields,
+      reserves,
     };
     const opts = {
       onSuccess: (saved: any) => {
@@ -6356,6 +6360,8 @@ function PaymentMethodDrawer({ method, onClose }: { method?: any; onClose: () =>
             : [...current, saved];
         });
         queryClient.invalidateQueries({ queryKey: getGetPaymentMethodsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetFiatCurrencyPaymentMethodsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetAdminBestchangeQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() });
         notifyAdminAction('success', 'Payment method saved.');
         onClose();
@@ -6379,6 +6385,7 @@ function PaymentMethodDrawer({ method, onClose }: { method?: any; onClose: () =>
         <form id="payment-method-editor-form" onSubmit={save} className="admin-form admin-form-card catalog-editor-form">
           <label><span className="field-label">{t('adminCatalog.internal_id')}<small>{t('adminCatalog.a_z_0_9_hyphens')}</small></span><input value={form.id} onChange={e => setForm(f => ({...f, id: e.target.value}))} required disabled={!!method} pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$" data-testid="input-pm-id" /></label>
           <label><span className="field-label">{t('adminCatalog.name')}</span><input value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} required data-testid="input-pm-name" /></label>
+           <PaymentMethodReserveEditor methodId={method?.id} value={reserves} onChange={setReserves} disabled={isPending} />
            <CatalogImageUploadField
              label={t('adminCatalog.logo_upload')}
              namespace="payment-method"
@@ -6454,6 +6461,7 @@ function PaymentMethodDrawer({ method, onClose }: { method?: any; onClose: () =>
 
 function AttachmentItem({ att, pm, currencyCode, queryClient }: { att: any; pm: any; currencyCode: string; queryClient: any }) {
   const { t } = useI18n();
+  const [reserveEdited, setReserveEdited] = useState(false);
   const [form, setForm] = useState({
     enabled: att.enabled,
     canSend: att.canSend ?? pm?.canSend ?? true,
@@ -6462,6 +6470,7 @@ function AttachmentItem({ att, pm, currencyCode, queryClient }: { att: any; pm: 
     receiveInstructions: att.receiveInstructions || '',
     minAmount: att.minAmount?.toString() || '',
     maxAmount: att.maxAmount?.toString() || '',
+    reserve: att.reserve ?? '0',
     countries: att.countries?.join(', ') || ''
   });
   const updateAttachMutation = useUpdateFiatCurrencyPaymentMethod();
@@ -6478,11 +6487,14 @@ function AttachmentItem({ att, pm, currencyCode, queryClient }: { att: any; pm: 
         receiveInstructions: form.receiveInstructions || null,
         minAmount: form.minAmount ? form.minAmount : undefined,
         maxAmount: form.maxAmount ? form.maxAmount : undefined,
+        ...(reserveEdited ? { reserve: form.reserve } : {}),
         countries: form.countries.split(',').map((c: string) => c.trim().toUpperCase()).filter(Boolean)
       }
     }, {
       onSuccess: () => {
+        setReserveEdited(false);
         queryClient.invalidateQueries({ queryKey: getGetFiatCurrencyPaymentMethodsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetAdminBestchangeQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() });
         notifyAdminAction('success', 'Payment method settings saved.');
       },
@@ -6491,6 +6503,7 @@ function AttachmentItem({ att, pm, currencyCode, queryClient }: { att: any; pm: 
   };
 
   const hasChanges =
+    (reserveEdited && form.reserve !== (att.reserve ?? '0')) ||
     form.enabled !== att.enabled ||
     form.canSend !== (att.canSend ?? pm?.canSend ?? true) ||
     form.canReceive !== (att.canReceive ?? pm?.canReceive ?? true) ||
@@ -6502,6 +6515,10 @@ function AttachmentItem({ att, pm, currencyCode, queryClient }: { att: any; pm: 
 
   return (
     <div className="admin-form admin-form-section admin-form-card p-4 border border-border rounded-lg bg-muted/30">
+      <label><span className="field-label">Reserve <small>{currencyCode}</small></span>
+        <input type="text" inputMode="decimal" disabled={updateAttachMutation.isPending} value={reserveEdited ? form.reserve : att.reserve ?? '0'} onChange={event => { setReserveEdited(true); setForm(current => ({ ...current, reserve: event.target.value })); }} data-testid={`input-attachment-reserve-${currencyCode}`} />
+        <span className="field-hint">Informational payout capacity. Zero prevents BestChange advertising this receiving method. Orders do not change it.</span>
+      </label>
       <div className="flex justify-between items-start mb-3">
         <div className="admin-attachment-method">
           <AdminPaymentLogo name={pm?.name || att.paymentMethodId} currencyCode={currencyCode} logoUrl={pm?.logoUrl} />

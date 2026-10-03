@@ -182,6 +182,8 @@ import {
   manualSwapAddonsTable,
 } from "@workspace/db";
 import { ApiError } from "../lib/api-error";
+import { normalizePaymentMethodReserve, savePaymentMethodReserves, validateCurrencyReserve } from "../lib/payment-method-reserves";
+import { invalidateBestchangeFeed } from "../lib/bestchange-cache-invalidation";
 import {
   beforeManualReceiveDeadline,
   effectiveManualReceiveTarget,
@@ -7289,6 +7291,7 @@ router.delete("/admin/crypto-networks/:id", requireOperator, async (req, res, ne
 function outputAttachment(row: typeof fiatCurrencyPaymentMethodsTable.$inferSelect) {
   return {
     ...row,
+    reserve: normalizePaymentMethodReserve(row.reserve, 18),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -7724,6 +7727,7 @@ router.post("/admin/payment-methods/bulk-delete-fields/apply", requireOperator, 
 router.post("/admin/payment-methods", async (req, res, next) => {
   try {
     const input = CreatePaymentMethodBody.parse(assignAutomaticPaymentMethodFieldKeys(req.body));
+    const { reserves, ...values } = input;
     validateSafeFieldDefinitions(input.fieldDefinitions);
     if (input.logoObjectPath !== null && input.logoObjectPath !== undefined) {
       if (!/^\/objects\/payment-method-logos\/[0-9a-f-]+$/.test(input.logoObjectPath)) {
@@ -7734,13 +7738,20 @@ router.post("/admin/payment-methods", async (req, res, next) => {
         try { await verifyStoredLogo(input.logoObjectPath!); } catch {
           throw new ApiError("PAYMENT_METHOD_LOGO_INVALID", "Logo must be a PNG, JPEG, WebP, or safe SVG image no larger than 5 MB.", 400);
         }
-        const [row] = await tx.insert(paymentMethodsTable).values(input).returning();
+        const [row] = await tx.insert(paymentMethodsTable).values(values).returning();
+        await savePaymentMethodReserves(tx, row.id, reserves);
         return row;
       });
+      invalidateBestchangeFeed();
       res.status(201).json(CreatePaymentMethodResponse.parse(outputPaymentMethod(created)));
       return;
     }
-    const [created] = await db.insert(paymentMethodsTable).values(input).returning();
+    const created = await db.transaction(async tx => {
+      const [row] = await tx.insert(paymentMethodsTable).values(values).returning();
+      await savePaymentMethodReserves(tx, row.id, reserves);
+      return row;
+    });
+    invalidateBestchangeFeed();
     res.status(201).json(CreatePaymentMethodResponse.parse(outputPaymentMethod(created)));
   } catch (error) {
     next(isUniqueViolation(error)
@@ -7753,6 +7764,7 @@ router.patch("/admin/payment-methods/:id", async (req, res, next) => {
   try {
     const { id } = UpdatePaymentMethodParams.parse(req.params);
     const input = UpdatePaymentMethodBody.parse(assignAutomaticPaymentMethodFieldKeys(req.body));
+    const { reserves, ...values } = input;
     if (input.fieldDefinitions) validateSafeFieldDefinitions(input.fieldDefinitions);
     if (input.logoObjectPath !== null && input.logoObjectPath !== undefined) {
       if (!/^\/objects\/payment-method-logos\/[0-9a-f-]+$/.test(input.logoObjectPath)) {
@@ -7764,18 +7776,25 @@ router.patch("/admin/payment-methods/:id", async (req, res, next) => {
           throw new ApiError("PAYMENT_METHOD_LOGO_INVALID", "Logo must be a PNG, JPEG, WebP, or safe SVG image no larger than 5 MB.", 400);
         }
         const [row] = await tx.update(paymentMethodsTable)
-          .set({ ...input, updatedAt: new Date() })
+          .set({ ...values, updatedAt: new Date() })
           .where(eq(paymentMethodsTable.id, id)).returning();
+        if (row) await savePaymentMethodReserves(tx, id, reserves);
         return row;
       });
       if (!updated) throw new ApiError("PAYMENT_METHOD_NOT_FOUND", "Payment method not found.", 404);
+      invalidateBestchangeFeed();
       res.json(UpdatePaymentMethodResponse.parse(outputPaymentMethod(updated)));
       return;
     }
-    const [updated] = await db.update(paymentMethodsTable)
-      .set({ ...input, updatedAt: new Date() })
-      .where(eq(paymentMethodsTable.id, id)).returning();
+    const updated = await db.transaction(async tx => {
+      const [row] = await tx.update(paymentMethodsTable)
+        .set({ ...values, updatedAt: new Date() })
+        .where(eq(paymentMethodsTable.id, id)).returning();
+      if (row) await savePaymentMethodReserves(tx, id, reserves);
+      return row;
+    });
     if (!updated) throw new ApiError("PAYMENT_METHOD_NOT_FOUND", "Payment method not found.", 404);
+    invalidateBestchangeFeed();
     res.json(UpdatePaymentMethodResponse.parse(outputPaymentMethod(updated)));
   } catch (error) { next(error); }
 });
@@ -7873,7 +7892,9 @@ router.get("/admin/fiat-currency-payment-methods", async (_req, res, next) => {
 router.post("/admin/fiat-currency-payment-methods", async (req, res, next) => {
   try {
     const input = CreateFiatCurrencyPaymentMethodBody.parse(req.body);
+    input.reserve = await validateCurrencyReserve(db, input.fiatCurrencyId, input.reserve);
     const [created] = await db.insert(fiatCurrencyPaymentMethodsTable).values(input).returning();
+    invalidateBestchangeFeed();
     res.status(201).json(CreateFiatCurrencyPaymentMethodResponse.parse(outputAttachment(created)));
   } catch (error) {
     next(isUniqueViolation(error)
@@ -8010,10 +8031,16 @@ router.patch("/admin/fiat-currency-payment-methods/:id", async (req, res, next) 
   try {
     const { id } = UpdateFiatCurrencyPaymentMethodParams.parse(req.params);
     const input = UpdateFiatCurrencyPaymentMethodBody.parse(req.body);
+    if (input.reserve !== undefined) {
+      const [current] = await db.select().from(fiatCurrencyPaymentMethodsTable).where(eq(fiatCurrencyPaymentMethodsTable.id, id));
+      if (!current) throw new ApiError("PAYMENT_METHOD_ATTACHMENT_NOT_FOUND", "Attachment not found.", 404);
+      input.reserve = await validateCurrencyReserve(db, current.fiatCurrencyId, input.reserve);
+    }
     const [updated] = await db.update(fiatCurrencyPaymentMethodsTable)
       .set({ ...input, updatedAt: new Date() })
       .where(eq(fiatCurrencyPaymentMethodsTable.id, id)).returning();
     if (!updated) throw new ApiError("PAYMENT_METHOD_ATTACHMENT_NOT_FOUND", "Attachment not found.", 404);
+    invalidateBestchangeFeed();
     res.json(UpdateFiatCurrencyPaymentMethodResponse.parse(outputAttachment(updated)));
   } catch (error) { next(error); }
 });
@@ -8025,6 +8052,7 @@ router.delete("/admin/fiat-currency-payment-methods/:id", async (req, res, next)
       .where(eq(fiatCurrencyPaymentMethodsTable.id, id))
       .returning({ id: fiatCurrencyPaymentMethodsTable.id });
     if (!deleted) throw new ApiError("PAYMENT_METHOD_ATTACHMENT_NOT_FOUND", "Attachment not found.", 404);
+    invalidateBestchangeFeed();
     res.sendStatus(204);
   } catch (error) { next(error); }
 });

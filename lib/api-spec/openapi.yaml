@@ -4735,7 +4735,7 @@ components:
     BestchangeDirection:
       type: object
       additionalProperties: false
-      required: [id, enabled, sourceOptionId, targetOptionId, fromCode, toCode, reserve, minAmount, maxAmount, params, cities, selectedAddOnKeys, includeFeeTags]
+      required: [id, enabled, sourceOptionId, targetOptionId, fromCode, toCode, minAmount, maxAmount, params, cities, selectedAddOnKeys, includeFeeTags]
       properties:
         id: { type: string, format: uuid }
         enabled: { type: boolean }
@@ -4786,6 +4786,7 @@ components:
       type: object
       required: [id, label, assetCode, network, direction, kind]
       properties:
+        reserve: { type: string, readOnly: true }
         id: { type: string }
         label: { type: string }
         assetCode: { type: string }
@@ -7498,6 +7499,10 @@ components:
       type: object
       required: [id, name, enabled, canSend, canReceive, fieldDefinitions]
       properties:
+        reserves:
+          type: array
+          maxItems: 300
+          items: { $ref: "#/components/schemas/PaymentMethodReserveInput" }
         id: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
         name: { type: string, minLength: 1, maxLength: 100 }
         logoObjectPath: { type: ["string", "null"] }
@@ -7527,6 +7532,10 @@ components:
       type: object
       minProperties: 1
       properties:
+        reserves:
+          type: array
+          maxItems: 300
+          items: { $ref: "#/components/schemas/PaymentMethodReserveInput" }
         name: { type: string, minLength: 1, maxLength: 100 }
         logoObjectPath: { type: ["string", "null"] }
         description: { type: ["string", "null"], maxLength: 2000 }
@@ -7560,6 +7569,12 @@ components:
             logoUrl: { type: string, readOnly: true }
             createdAt: { type: string, format: date-time }
             updatedAt: { type: string, format: date-time }
+    PaymentMethodReserveInput:
+      type: object
+      required: [fiatCurrencyId, reserve]
+      properties:
+        fiatCurrencyId: { type: string, pattern: '^[0-9a-fA-F-]{36}$' }
+        reserve: { type: string, pattern: '^[0-9]{1,20}(\.[0-9]{1,18})?$' }
     PaymentMethodBulkFieldsPreviewInput:
       type: object
       additionalProperties: false
@@ -7693,6 +7708,7 @@ components:
       type: object
       required: [fiatCurrencyId, paymentMethodId, enabled]
       properties:
+        reserve: { type: string, pattern: '^[0-9]{1,20}(\.[0-9]{1,18})?$', default: "0" }
         fiatCurrencyId: { type: string, pattern: '^[0-9a-fA-F-]{36}$' }
         paymentMethodId: { type: string }
         enabled: { type: boolean }
@@ -7710,6 +7726,7 @@ components:
       type: object
       minProperties: 1
       properties:
+        reserve: { type: string, pattern: '^[0-9]{1,20}(\.[0-9]{1,18})?$' }
         enabled: { type: boolean }
         canSend: { type: ["boolean", "null"] }
         canReceive: { type: ["boolean", "null"] }

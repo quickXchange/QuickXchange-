@@ -7,6 +7,8 @@
  */
 
 export interface FiatCurrencyPaymentMethodUpdate {
+  /** @pattern ^[0-9]{1,20}(\.[0-9]{1,18})?$ */
+  reserve?: string;
   enabled?: boolean;
   /** @nullable */
   canSend?: boolean | null;

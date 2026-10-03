@@ -7,6 +7,7 @@
  */
 
 export interface BestchangeOption {
+  readonly reserve?: string;
   id: string;
   label: string;
   assetCode: string;

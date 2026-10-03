@@ -46,7 +46,7 @@ function validate(d: BestchangeDirection, options: BestchangeOption[]): string[]
   if (s && t && s.kind !== 'fiat-payment-method' && t.kind !== 'fiat-payment-method') e.push('At least one side must be fiat.');
   if (d.enabled && (!s || !t)) e.push('Enabled directions must use currently available Swap options.');
   if (!d.fromCode || !d.toCode) e.push('Choose official from/to currency codes.');
-  if (!dec.test(d.reserve)) e.push('Reserve must be a decimal number (0 disables export).');
+  if (t?.kind !== 'fiat-payment-method' && !dec.test(d.reserve ?? '0')) e.push('Reserve must be a decimal number (0 disables export).');
   for (const k of ['minAmount', 'maxAmount'] as const) {
     if (!dec.test(d[k]) || Number(d[k]) <= 0) e.push(`${k === 'minAmount' ? 'Min' : 'Max'} amount must be a positive decimal.`);
   }
@@ -113,7 +113,15 @@ function DirectionEditor({ d, i, options, currencyCodes, cityCodes, canManage, o
         <div className={lbl}>To code<CodePicker value={d.toCode} codes={currencyCodes} disabled={!canManage} onChange={v => onChange({ toCode: v })} testId={`bestchange-to-${i}`} /></div>
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        {([['reserve', 'Reserve (payout)'], ['minAmount', 'Min amount'], ['maxAmount', 'Max amount'], ['floating', 'Floating (min or %)'], ['delay', 'Delay (min)']] as const).map(([k, l]) => (
+        {options.find(option => option.id === d.targetOptionId)?.kind === 'fiat-payment-method'
+          ? <label className={lbl}>Reserve from Payment Methods
+              <input className={field} readOnly value={`${options.find(option => option.id === d.targetOptionId)?.reserve ?? '0'} ${options.find(option => option.id === d.targetOptionId)?.assetCode ?? ''}`} data-testid={`bestchange-reserve-${i}`} />
+              <span className="text-xs text-muted-foreground">Edit the destination method’s reserve in Payment Methods. Zero omits this direction.</span>
+            </label>
+          : <label className={lbl}>Crypto payout reserve
+              <input className={field} inputMode="decimal" disabled={!canManage} value={d.reserve ?? '0'} data-testid={`bestchange-reserve-${i}`} onChange={event => onChange({ reserve: event.target.value })} />
+            </label>}
+        {([['minAmount', 'Min amount'], ['maxAmount', 'Max amount'], ['floating', 'Floating (min or %)'], ['delay', 'Delay (min)']] as const).map(([k, l]) => (
           <label key={k} className={lbl}>{l}
             <input className={field} inputMode="decimal" disabled={!canManage} value={(d[k] as string | undefined) ?? ''} data-testid={`bestchange-${k}-${i}`}
               onChange={e => onChange({ [k]: e.target.value } as Partial<BestchangeDirection>)} />
@@ -234,7 +242,7 @@ export function AdminBestchangePage() {
                 <button className={btnPrimary} onClick={onSave} disabled={!dirty || save.isPending} data-testid="bestchange-save">{save.isPending ? 'Saving…' : 'Save changes'}</button>
               </div>
               {dirty && <p className="mt-2 text-xs text-amber-600">Unsaved changes. Preview and the public feed use the saved configuration only.</p>}
-              <p className="mt-3 text-sm text-muted-foreground">Reserve is an operator-declared public payout capacity, not a bank or wallet balance. The feed uses the live Swap engine with a conservative, fee-inclusive effective rate across your source range; classic BestChange XML has no stepped rates, so the worst rate in range is shown. Routes with tier gaps, unhealthy or unavailable status are omitted and explained below. To change fees, use Swap Pricing.</p>
+              <p className="mt-3 text-sm text-muted-foreground">Fiat payout reserves come automatically from the destination Payment Method and currency. Maintain them in Payment Methods; orders do not change reserves. Crypto payout reserves remain operator-declared. The feed uses the live Swap engine with a conservative, fee-inclusive effective rate across your source range; classic BestChange XML has no stepped rates, so the worst rate in range is shown. Routes with tier gaps, unhealthy or unavailable status are omitted and explained below. To change fees, use Swap Pricing.</p>
             </section>
 
             <section className={card}>

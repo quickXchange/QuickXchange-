@@ -45,7 +45,7 @@ export interface BestchangeDirection {
      */
   toCode: string;
   /** @pattern ^[0-9]{1,12}(\.[0-9]{1,12})?$ */
-  reserve: string;
+  reserve?: string;
   /** @pattern ^[0-9]{1,12}(\.[0-9]{1,12})?$ */
   minAmount: string;
   /** @pattern ^[0-9]{1,12}(\.[0-9]{1,12})?$ */
@@ -92,6 +92,7 @@ export interface BestchangeCode {
 }
 
 export interface BestchangeOption {
+  readonly reserve?: string;
   id: string;
   label: string;
   assetCode: string;
@@ -4338,7 +4339,16 @@ export const PaymentMethodInputLifecycle = {
   deprecated: 'deprecated',
 } as const;
 
+export interface PaymentMethodReserveInput {
+  /** @pattern ^[0-9a-fA-F-]{36}$ */
+  fiatCurrencyId: string;
+  /** @pattern ^[0-9]{1,20}(\.[0-9]{1,18})?$ */
+  reserve: string;
+}
+
 export interface PaymentMethodInput {
+  /** @maxItems 300 */
+  reserves?: PaymentMethodReserveInput[];
   /** @pattern ^[a-z0-9]+(?:-[a-z0-9]+)*$ */
   id: string;
   /**
@@ -4417,6 +4427,8 @@ export const PaymentMethodUpdateLifecycle = {
 } as const;
 
 export interface PaymentMethodUpdate {
+  /** @maxItems 300 */
+  reserves?: PaymentMethodReserveInput[];
   /**
      * @minLength 1
      * @maxLength 100
@@ -4572,6 +4584,8 @@ export interface PaymentMethodBulkDeleteFieldsResult {
 }
 
 export interface FiatCurrencyPaymentMethodInput {
+  /** @pattern ^[0-9]{1,20}(\.[0-9]{1,18})?$ */
+  reserve?: string;
   /** @pattern ^[0-9a-fA-F-]{36}$ */
   fiatCurrencyId: string;
   paymentMethodId: string;
@@ -4602,6 +4616,8 @@ export interface FiatCurrencyPaymentMethodInput {
 }
 
 export interface FiatCurrencyPaymentMethodUpdate {
+  /** @pattern ^[0-9]{1,20}(\.[0-9]{1,18})?$ */
+  reserve?: string;
   enabled?: boolean;
   /** @nullable */
   canSend?: boolean | null;

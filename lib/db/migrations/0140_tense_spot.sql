@@ -1,0 +1,2 @@
+ALTER TABLE "fiat_currency_payment_methods" ADD COLUMN "reserve" numeric(38, 18) DEFAULT '0' NOT NULL;--> statement-breakpoint
+ALTER TABLE "fiat_currency_payment_methods" ADD CONSTRAINT "payment_method_reserve_nonnegative" CHECK ("fiat_currency_payment_methods"."reserve" >= 0 AND "fiat_currency_payment_methods"."reserve" <> 'NaN'::numeric);

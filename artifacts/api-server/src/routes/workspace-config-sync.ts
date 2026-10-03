@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { normalizePaymentMethodReserve } from "../lib/payment-method-reserve-validation";
+import { invalidateBestchangeFeed } from "../lib/bestchange-cache-invalidation";
 import { createHash } from "node:crypto";
 import { desc, eq, sql } from "drizzle-orm";
 import {
@@ -41,7 +43,7 @@ const detail = (source: string[], target: string[], changed: Set<string>, disabl
 const code = (v: string) => v.trim().toUpperCase();
 const fiatProjection = (f: any) => ({ code: code(f.code), name: f.name, flagObjectPath: f.flagObjectPath, network: f.network, precision: f.precision, lifecycle: f.lifecycle, regions: f.regions, countries: f.countries, enabled: f.enabled, rateMode: f.rateMode, manualRate: f.manualRate });
 const methodProjection = (m: any) => ({ id: m.id, name: m.name, logoObjectPath: m.logoObjectPath, description: m.description, instructions: m.instructions, family: m.family, executionMode: m.executionMode, providerId: m.providerId, lifecycle: m.lifecycle, regions: m.regions, countries: m.countries, requiresProviderConfiguration: m.requiresProviderConfiguration, enabled: m.enabled, canSend: m.canSend, canReceive: m.canReceive, fieldDefinitions: m.fieldDefinitions });
-const linkProjection = (l: any) => ({ enabled: l.enabled, canSend: l.canSend, canReceive: l.canReceive, sendInstructions: l.sendInstructions, receiveInstructions: l.receiveInstructions, minAmount: l.minAmount, maxAmount: l.maxAmount, countries: l.countries });
+const linkProjection = (l: any) => ({ enabled: l.enabled, canSend: l.canSend, canReceive: l.canReceive, sendInstructions: l.sendInstructions, receiveInstructions: l.receiveInstructions, minAmount: l.minAmount, maxAmount: l.maxAmount, reserve: normalizePaymentMethodReserve(l.reserve ?? "0", 18), countries: l.countries });
 const pricingTiersProjection = (tiers: any[] | null | undefined) =>
   (tiers ?? []).map((tier) => ({
     minAmount: tier.minAmount,
@@ -249,7 +251,7 @@ export async function calculate(snapshot: WorkspaceConfigSnapshot, executor: Exe
   const linkChanged = new Set(snapshot.fiatCurrencyPaymentMethods.filter((l) => {
     const targetFiatId = fiats.find((f: any) => code(f.code) === code(l.fiatCode))?.id;
     const target = links.find((candidate: any) => candidate.fiatCurrencyId === targetFiatId && candidate.paymentMethodId === l.paymentMethodId);
-    return target && stable(linkProjection(l)) !== stable(linkProjection(target));
+    return target && stable(linkProjection({ ...l, reserve: l.reserve ?? target.reserve })) !== stable(linkProjection(target));
   }).map((l) => `${code(l.fiatCode)}:${l.paymentMethodId}`));
   const sourceFiatToTarget = new Map<string, string>(snapshot.fiatCurrencies.map((f) => [f.id, fiats.find((target: any) => code(target.code) === code(f.code))?.id ?? f.id]));
   const ruleChanged = new Set(snapshot.manualDeskPricingRules.filter((r) => {
@@ -423,7 +425,7 @@ router.post("/admin/workspace-config/apply", requireOwner, async (req, res, next
       const links = await tx.select().from(fiatCurrencyPaymentMethodsTable);
       for (const l of snapshot.fiatCurrencyPaymentMethods) {
         const fiatCurrencyId = fiatMap.get(code(l.fiatCode)); if (!fiatCurrencyId) continue;
-        const values = { fiatCurrencyId, paymentMethodId: l.paymentMethodId, enabled: l.enabled, canSend: l.canSend, canReceive: l.canReceive, sendInstructions: l.sendInstructions, receiveInstructions: l.receiveInstructions, minAmount: l.minAmount, maxAmount: l.maxAmount, countries: l.countries };
+        const values = { fiatCurrencyId, paymentMethodId: l.paymentMethodId, enabled: l.enabled, canSend: l.canSend, canReceive: l.canReceive, sendInstructions: l.sendInstructions, receiveInstructions: l.receiveInstructions, minAmount: l.minAmount, maxAmount: l.maxAmount, ...(l.reserve === undefined ? {} : { reserve: l.reserve }), countries: l.countries };
         const existing = links.find((x: any) => x.fiatCurrencyId === fiatCurrencyId && x.paymentMethodId === l.paymentMethodId);
         if (existing) await tx.update(fiatCurrencyPaymentMethodsTable).set(values).where(eq(fiatCurrencyPaymentMethodsTable.id, existing.id)); else await tx.insert(fiatCurrencyPaymentMethodsTable).values(values);
       }
@@ -472,6 +474,7 @@ router.post("/admin/workspace-config/apply", requireOwner, async (req, res, next
       return { counts: before.counts };
     });
     invalidatePopularExchangePairsCache();
+    invalidateBestchangeFeed();
     invalidateManualDeskFiatRateCache();
     res.setHeader("cache-control", "no-store");
     res.json({ ok: true, applied: true, objects: prepared.objects, ...result });
