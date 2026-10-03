@@ -1,3 +1,4 @@
+import { formatDisplayAmount } from "@workspace/amount-format";
 import { and, eq, inArray } from "drizzle-orm";
 import {
   db,
@@ -176,7 +177,13 @@ function escapeHtml(value: unknown): string {
     .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 }
 
-export function formatConvertTelegramNotification(payload: ConvertNotificationPayload): string {
+export function formatConvertTelegramNotification(rawPayload: ConvertNotificationPayload): string {
+  const payload = {
+    ...rawPayload,
+    sendAmount: formatDisplayAmount(rawPayload.sendAmount),
+    receiveAmount: formatDisplayAmount(rawPayload.receiveAmount),
+    receivedAmount: formatDisplayAmount(rawPayload.receivedAmount),
+  };
   if (payload.eventKind === "payment_received") {
     return [
       "✅ <b>Payment Received</b>", "",

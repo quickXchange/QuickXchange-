@@ -16,6 +16,9 @@
   },
   "references": [
     {
+      "path": "../../lib/amount-format"
+    },
+    {
       "path": "../../lib/api-client-react"
     }
   ]

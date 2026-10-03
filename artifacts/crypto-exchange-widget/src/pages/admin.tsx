@@ -1,3 +1,4 @@
+import { formatDisplayAmount } from '@workspace/amount-format';
 
 import { useGetAdminNotificationEmailTemplates, getGetAdminNotificationEmailTemplatesQueryKey, useUpdateAdminNotificationEmailTemplates, useTestAdminNotificationEmailTemplate } from '@workspace/api-client-react';
 import type { NotificationEmailTemplate, NotificationEmailTemplateEventKind } from '@workspace/api-client-react';
@@ -3625,26 +3626,8 @@ import { OperationsMonitors } from '../components/admin-operations-monitors';
 
 import { BlockchainMonitorConfig } from '../components/admin-blockchain-monitor-config';
 
-function formatRevenueDecimal(value: string, asset: string, exact: boolean) {
-  const match = value.trim().match(/^(-?)(\d+)(?:\.(\d+))?$/);
-  if (!match) return value;
-
-  const [, sign, integerPart, fractionPart = ''] = match;
-  const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  if (exact) return `${sign}${groupedInteger}${fractionPart ? `.${fractionPart}` : ''}`;
-
-  const scale = isFiatCurrencyCode(asset) ? 2 : 8;
-  const paddedFraction = fractionPart.padEnd(scale + 1, '0');
-  const retainedFraction = paddedFraction.slice(0, scale);
-  const roundingDigit = Number(paddedFraction[scale] || '0');
-  const scaledInteger = BigInt(`${integerPart}${retainedFraction}` || '0') + (roundingDigit >= 5 ? 1n : 0n);
-  const paddedResult = scaledInteger.toString().padStart(scale + 1, '0');
-  const roundedInteger = paddedResult.slice(0, -scale) || '0';
-  const roundedFraction = paddedResult.slice(-scale);
-  const groupedRoundedInteger = roundedInteger.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  const visibleFraction = isFiatCurrencyCode(asset) ? roundedFraction : roundedFraction.replace(/0+$/, '');
-
-  return `${sign}${groupedRoundedInteger}${visibleFraction ? `.${visibleFraction}` : ''}`;
+function formatRevenueDecimal(value: string, _asset: string, _exact: boolean) {
+  return formatDisplayAmount(value, { useGrouping: true }, 'en-US');
 }
 
 function AdminRevenue() {
@@ -8016,7 +7999,7 @@ function AmountBasedPricingEditor({
       <table className="amount-pricing-table" data-testid={`${prefix}-amount-range-table`}>
         <thead><tr><th>Min</th><th>Max</th><th>Fixed</th><th>Percentage</th><th>Direction</th><th>Actions</th></tr></thead>
         <tbody>{tiers.map((tier, index) => <tr key={index} data-testid={`${prefix}-amount-range-${index}`}>
-          <td>{tier.minAmount}</td><td>{tier.maxAmount ?? 'No Limit'}</td><td>{tier.fixedFee ?? inheritedFixedFee ?? '0'}</td><td>{tier.percentage}%</td><td>{tier.direction === 'MARKUP' ? 'Markup (less for customer)' : 'Give more (customer bonus)'}</td>
+          <td>{formatDisplayAmount(tier.minAmount)}</td><td>{tier.maxAmount == null ? 'No Limit' : formatDisplayAmount(tier.maxAmount)}</td><td>{formatDisplayAmount(tier.fixedFee ?? inheritedFixedFee ?? '0')}</td><td>{formatDisplayAmount(tier.percentage)}%</td><td>{tier.direction === 'MARKUP' ? 'Markup (less for customer)' : 'Give more (customer bonus)'}</td>
           <td><div className="amount-pricing-actions">
             <button type="button" onClick={() => open(index)} disabled={disabled} data-testid={`${prefix}-edit-amount-range-${index}`}>Edit</button>
             <button type="button" onClick={() => onTiersChange(tiers.filter((_, position) => position !== index))} disabled={disabled} data-testid={`${prefix}-delete-amount-range-${index}`}>Delete</button>
@@ -9215,8 +9198,8 @@ function AdminManualPricing() {
                    <td data-testid={`pricing-rule-pricing-${rule.id}`}>
                      <strong className="pricing-commission">{rule.amountBasedPricingEnabled && rule.amountBasedPricingTiers?.length ? `Range pricing · ${rule.amountBasedPricingTiers.length} ${rule.amountBasedPricingTiers.length === 1 ? 'range' : 'ranges'}` : 'Path pricing'}</strong>
                      {rule.amountBasedPricingEnabled && rule.amountBasedPricingTiers?.length && rule.rangeOnlyPricing
-                       ? <small className="pricing-base-fallback">{rule.amountBasedPricingTiers.map(tier => `${tier.minAmount}–${tier.maxAmount ?? '∞'}: ${tier.direction === 'GIVE_MORE' ? '+' : '−'}${tier.percentage}% · ${formatFixedFee(tier.fixedFee ?? '0', option?.assetCode)}`).join(' / ')} · Outside ranges: base rate, no markup or fee</small>
-                       : <small className="pricing-base-fallback">{rule.amountBasedPricingEnabled && rule.amountBasedPricingTiers?.length ? 'Legacy base fallback: ' : 'Path: '}{rule.adjustmentDirection === 'GIVE_MORE' ? 'Give more ' : 'Markup '}{(rule.markupBasisPoints / 100).toFixed(2)}% · {formatFixedFee(rule.fixedFee, option?.assetCode)}</small>}
+                       ? <small className="pricing-base-fallback">{rule.amountBasedPricingTiers.map(tier => `${formatDisplayAmount(tier.minAmount)}–${tier.maxAmount == null ? '∞' : formatDisplayAmount(tier.maxAmount)}: ${tier.direction === 'GIVE_MORE' ? '+' : '−'}${formatDisplayAmount(tier.percentage)}% · ${formatFixedFee(tier.fixedFee ?? '0', option?.assetCode)}`).join(' / ')} · Outside ranges: base rate, no markup or fee</small>
+                       : <small className="pricing-base-fallback">{rule.amountBasedPricingEnabled && rule.amountBasedPricingTiers?.length ? 'Legacy base fallback: ' : 'Path: '}{rule.adjustmentDirection === 'GIVE_MORE' ? 'Give more ' : 'Markup '}{formatDisplayAmount(rule.markupBasisPoints / 100)}% · {formatFixedFee(rule.fixedFee, option?.assetCode)}</small>}
                    </td>
                   <td><span className="secure-badge pricing-specificity">{rule.specificity} / 8</span></td>
                   <td><StatusPill status={rule.enabled ? 'Enabled' : 'Disabled'} /></td>

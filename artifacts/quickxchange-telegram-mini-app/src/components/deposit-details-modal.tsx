@@ -1,3 +1,4 @@
+import { formatDisplayAmount } from '@workspace/amount-format';
 import { useState } from 'react';
 import { AlertCircle, Check, Copy } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
@@ -67,7 +68,7 @@ export function DepositDetailsModal({
 
   const copy = async (value: string) => {
     const succeeded = await onCopy(value);
-    if (succeeded) setCopyAnnouncement(`${value === memo ? 'Memo' : 'Deposit address'} copied.`);
+    if (succeeded) setCopyAnnouncement(`${value === amount ? 'Exact amount' : value === memo ? 'Memo' : 'Deposit address'} copied.`);
     else setCopyAnnouncement('');
   };
 
@@ -88,11 +89,15 @@ export function DepositDetailsModal({
           <div className="min-h-0 space-y-4 overflow-y-auto overscroll-contain px-5 py-4 sm:px-6">
             <section className="rounded-2xl border border-primary/15 bg-primary/[0.04] p-4 text-center">
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                {actionable ? 'Send exactly' : 'Order deposit amount'}
+                {actionable ? 'Amount to send' : 'Order deposit amount'}
               </p>
               <p className="mt-1 break-words font-mono text-2xl font-extrabold text-foreground">
-                {amount} <span className="font-sans text-base text-primary">{asset}</span>
+                {formatDisplayAmount(amount)} <span className="font-sans text-base text-primary">{asset}</span>
               </p>
+              <button type="button" className="mt-2 text-xs font-semibold text-primary" onClick={() => void copy(amount)} data-testid="button-copy-deposit-amount">
+                {copied === amount ? 'Exact amount copied' : 'Copy exact amount'}
+              </button>
+              <p className="mt-1 text-xs text-muted-foreground">Shown rounded. Use the copied exact amount for payment.</p>
               {network && <p className="mt-1 text-xs font-semibold text-muted-foreground">{network}</p>}
             </section>
 
@@ -135,7 +140,7 @@ export function DepositDetailsModal({
             {actionable ? (
               <div className="flex items-start gap-2 rounded-xl border border-amber-500/25 bg-amber-500/[0.08] p-3 text-[11px] leading-relaxed text-amber-800 dark:text-amber-200">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>Payment instruction: send exactly {amount} {asset} on the {networkLabel} network.</span>
+                <span>Payment instruction: use the copied exact amount in {asset} on the {networkLabel} network.</span>
               </div>
             ) : (
               <div role="status" className="rounded-xl border border-amber-500/25 bg-amber-500/[0.08] p-3 text-center text-xs font-bold text-amber-800 dark:text-amber-200">

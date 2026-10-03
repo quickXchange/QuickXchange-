@@ -1,3 +1,4 @@
+import { formatAmountInputValue } from '@workspace/amount-format';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   GlobalAssetSelector,
@@ -140,6 +141,7 @@ export function QuickexConvertWidget({
   const [amount, setAmount] = useState('');
   const [receiveAmount, setReceiveAmount] = useState('');
   const [activeAmountSide, setActiveAmountSide] = useState<'send' | 'receive'>('send');
+  const [editingAmountSide, setEditingAmountSide] = useState<'send' | 'receive' | null>(null);
   const [rateMode, setRateMode] = useState<QuickexRateMode>('FLOATING');
   const [fromSelectorOpen, setFromSelectorOpen] = useState(false);
   const [toSelectorOpen, setToSelectorOpen] = useState(false);
@@ -635,7 +637,7 @@ export function QuickexConvertWidget({
                     <span className="reference-amount-label">{t('swap.youSend')}</span>
                   </div>
                   <div className="reference-amount-body exchange-amount-row">
-                    <input ref={amountInputRef} aria-label={t('convert.youSend')} className={`reference-amount-input ${quoting ? 'quoting' : ''}`} value={activeAmountSide === 'send' ? amount : quote ? String(quote.amount) : ''} onChange={event => {
+                    <input ref={amountInputRef} aria-label={t('convert.youSend')} className={`reference-amount-input ${quoting ? 'quoting' : ''}`} value={formatAmountInputValue(activeAmountSide === 'send' ? amount : quote ? String(quote.amount) : '', editingAmountSide === 'send')} onFocus={() => setEditingAmountSide('send')} onBlur={() => setEditingAmountSide(null)} onChange={event => {
                       setActiveAmountSide('send');
                       setAmount(event.target.value);
                       setQuoteResult(null);
@@ -679,7 +681,7 @@ export function QuickexConvertWidget({
                     <span className="reference-amount-label">{t('swap.youReceive')}</span>
                   </div>
                   <div className="reference-amount-body exchange-amount-row">
-                    <input aria-label={t('convert.youReceive')} value={quote ? String(quote.receive) : activeAmountSide === 'receive' ? receiveAmount : ''} onChange={event => {
+                    <input aria-label={t('convert.youReceive')} value={formatAmountInputValue(quote ? String(quote.receive) : activeAmountSide === 'receive' ? receiveAmount : '', editingAmountSide === 'receive')} onFocus={() => setEditingAmountSide('receive')} onBlur={() => setEditingAmountSide(null)} onChange={event => {
                       setActiveAmountSide('receive');
                       setReceiveAmount(event.target.value);
                       setQuoteResult(null);

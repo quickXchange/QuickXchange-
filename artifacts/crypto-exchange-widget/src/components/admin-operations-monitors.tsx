@@ -1,3 +1,4 @@
+import { formatDisplayAmount } from '@workspace/amount-format';
 import { useState, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Check, X, Search } from 'lucide-react';
@@ -334,7 +335,7 @@ export function OperationsMonitors({ showSetup = true }: { showSetup?: boolean }
                       <td><code className="text-xs">{w.orderId}</code></td>
                       <td>{w.monitorNetworkId}</td>
                       <td><code className="text-xs">{w.receivingAddress}</code></td>
-                      <td>{w.expectedAmount}</td>
+                      <td>{formatDisplayAmount(w.expectedAmount)}</td>
                       <td className="text-xs">{exactDateTime(w.createdAt)}</td>
                     </tr>
                   ))}

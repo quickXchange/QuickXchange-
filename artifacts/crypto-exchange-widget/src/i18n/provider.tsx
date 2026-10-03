@@ -1,3 +1,4 @@
+import { formatDisplayAmount } from '@workspace/amount-format';
 import {
   createContext,
   useCallback,
@@ -71,8 +72,8 @@ export function I18nProvider({ children }: PropsWithChildren) {
     [dictionary],
   );
   const formatNumber = useCallback(
-    (value: number, options?: Intl.NumberFormatOptions) =>
-      new Intl.NumberFormat(locale, options).format(value),
+    (value: number | string, options?: Intl.NumberFormatOptions) =>
+      formatDisplayAmount(value, options, locale),
     [locale],
   );
   const formatDate = useCallback(

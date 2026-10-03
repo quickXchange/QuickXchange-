@@ -49,6 +49,6 @@ export interface I18nContextValue {
   isLoading: boolean;
   setLocale: (locale: Locale) => Promise<void>;
   t: (key: string, params?: TranslationParams) => string;
-  formatNumber: (value: number, options?: Intl.NumberFormatOptions) => string;
+  formatNumber: (value: number | string, options?: Intl.NumberFormatOptions) => string;
   formatDate: (value: Date | number | string, options?: Intl.DateTimeFormatOptions) => string;
 }

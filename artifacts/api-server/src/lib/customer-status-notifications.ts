@@ -1,3 +1,4 @@
+import { formatDisplayAmount } from "@workspace/amount-format";
 import { randomUUID } from "node:crypto";
 import {
   and,
@@ -378,10 +379,10 @@ export function buildCustomerStatusNotificationContent(
 ): { subject: string; text: string; html: string } {
   const status = humanizeStatus(notification.status);
   const route = [
-    `${notification.amount} ${notification.fromAsset}`,
+    `${formatDisplayAmount(notification.amount)} ${notification.fromAsset}`,
     notification.fromNetwork ? `on ${notification.fromNetwork}` : "",
     "to",
-    `${notification.receiveAmount} ${notification.toAsset}`,
+    `${formatDisplayAmount(notification.receiveAmount)} ${notification.toAsset}`,
     notification.toNetwork ? `on ${notification.toNetwork}` : "",
   ].filter(Boolean).join(" ");
   const configuredBase = process.env.PUBLIC_APP_URL?.trim()?.replace(/\/+$/, "") || "";
@@ -403,10 +404,10 @@ export function buildCustomerStatusNotificationContent(
   const values = {
     customerName: notification.customerName || "Customer",
     orderId: notification.orderId,
-    sendAmount: notification.amount,
+    sendAmount: formatDisplayAmount(notification.amount),
     sendAsset: notification.fromAsset,
     sendNetwork: notification.fromNetwork,
-    receiveAmount: notification.receiveAmount,
+    receiveAmount: formatDisplayAmount(notification.receiveAmount),
     receiveAsset: notification.toAsset,
     receiveMethod: notification.receiveMethod || notification.toNetwork || notification.toAsset,
     status,
@@ -556,7 +557,7 @@ export function buildCustomerStatusNotificationContent(
     `Order: ${notification.orderId}`,
     notification.adminRecipient ? `Customer: ${notification.customerName || "Guest"}` : "",
     `Exchange: ${route}`,
-    `${sendLabel}: ${notification.amount} ${notification.fromAsset}`,
+    `${sendLabel}: ${formatDisplayAmount(notification.amount)} ${notification.fromAsset}`,
     `New status: ${status}`,
     paymentMethod ? `Payment method: ${paymentMethod}` : "",
     notification.transactionHash ? `Transaction ID: ${notification.transactionHash}` : "",
@@ -646,7 +647,7 @@ export function buildCustomerStatusNotificationContent(
               <td width="42%" style="text-align:center;vertical-align:middle;">
                 <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">${sendLabel}</div>
                 <div style="font-size:18px;font-weight:700;color:#ffffff;margin-bottom:4px;white-space:nowrap;">
-                  ${escapeHtml(notification.amount)} ${escapeHtml(notification.fromAsset)}
+                  ${escapeHtml(formatDisplayAmount(notification.amount))} ${escapeHtml(notification.fromAsset)}
                 </div>
                 <div style="font-size:12px;color:#94a3b8;">${escapeHtml(sendDescriptor)}</div>
               </td>
@@ -656,7 +657,7 @@ export function buildCustomerStatusNotificationContent(
               <td width="42%" style="text-align:center;vertical-align:middle;">
                 <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">${receiveLabel}</div>
                 <div style="font-size:18px;font-weight:700;color:#ffffff;margin-bottom:4px;white-space:nowrap;">
-                  ${escapeHtml(notification.receiveAmount)} ${escapeHtml(notification.toAsset)}
+                  ${escapeHtml(formatDisplayAmount(notification.receiveAmount))} ${escapeHtml(notification.toAsset)}
                 </div>
                 <div style="font-size:12px;color:#94a3b8;">${escapeHtml(receiveDescriptor)}</div>
               </td>

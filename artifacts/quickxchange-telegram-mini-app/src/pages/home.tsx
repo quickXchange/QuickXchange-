@@ -1,3 +1,4 @@
+import { formatDisplayAmount } from '@workspace/amount-format';
 import { Link } from 'wouter';
 import { useAuth, useAuthHeaders } from '@/lib/auth';
 import { ArrowLeftRight, CreditCard, Search, ArrowRight } from 'lucide-react';
@@ -126,7 +127,7 @@ export default function Home() {
                       <div className="text-[10px] text-muted-foreground font-mono mb-0.5">#{order.id.slice(0, 8)}</div>
                       <div className="font-bold text-[15px] flex items-center truncate">
                         <span className="text-[12px] text-muted-foreground mr-1">Send</span>
-                        <span className="truncate">{order.amount} {order.fromAsset}</span>
+                        <span className="truncate">{formatDisplayAmount(order.amount)} {order.fromAsset}</span>
                       </div>
                       <div className="font-bold text-[15px] flex items-center truncate text-primary mt-0.5">
                         <span className="text-[12px] text-muted-foreground mr-1">Receive</span>

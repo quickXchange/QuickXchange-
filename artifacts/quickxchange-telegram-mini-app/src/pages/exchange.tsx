@@ -1,3 +1,4 @@
+import { formatAmountInputValue, formatDisplayAmount } from '@workspace/amount-format';
 import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { useMutation } from '@tanstack/react-query';
@@ -61,13 +62,11 @@ const exchangeRecoveryStorage = () => window.sessionStorage;
 
 function formatFeeAmount(value: unknown): string {
   if (value === null || value === undefined) return '';
-  const amount = String(value);
-  if (!amount.includes('.')) return amount;
-  return amount.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '');
+  return formatDisplayAmount(String(value));
 }
 
 function hasNonZeroFeeAmount(value: unknown): boolean {
-  return formatFeeAmount(value).replace('.', '').replace(/^0+/, '') !== '';
+  return value !== null && value !== undefined && !/^0*(?:\.0*)?$/.test(String(value));
 }
 
 type AddonLocale = 'en' | 'ru' | 'ar' | 'uk';
@@ -272,6 +271,7 @@ export default function Exchange() {
   const [amount, setAmount] = useState<string>(recoveryRecord?.amount ?? '');
   const [desiredReceiveAmount, setDesiredReceiveAmount] = useState(recoveryRecord?.desiredReceiveAmount ?? '');
   const [activeAmountSide, setActiveAmountSide] = useState<'send' | 'receive'>(recoveryRecord?.activeAmountSide ?? 'send');
+  const [editingAmountSide, setEditingAmountSide] = useState<'send' | 'receive' | null>(null);
   const [rateMode, setRateMode] = useState<'FLOATING' | 'FIXED'>(recoveryRecord?.rateMode ?? 'FLOATING');
   const [termsAccepted, setTermsAccepted] = useState(Boolean(recoveryRecord));
   const [createOutcomeUncertain, setCreateOutcomeUncertain] = useState(Boolean(recoveryRecord));
@@ -1056,12 +1056,12 @@ export default function Exchange() {
       const maxAmount = mode === 'swap' ? quoteData?.maxAmount ?? pricing?.maxAmount : quoteData?.maxAmount;
 
       if (minAmount !== null && minAmount !== undefined && limitAmount < minAmount) {
-        setErrorMsg(`Minimum amount is ${minAmount}`);
+        setErrorMsg(`Minimum amount is ${formatDisplayAmount(minAmount)}`);
         haptic.notification('error');
         return;
       }
       if (maxAmount !== null && maxAmount !== undefined && limitAmount > maxAmount) {
-        setErrorMsg(`Maximum amount is ${maxAmount}`);
+        setErrorMsg(`Maximum amount is ${formatDisplayAmount(maxAmount)}`);
         haptic.notification('error');
         return;
       }
@@ -1465,7 +1465,9 @@ export default function Exchange() {
                 aria-label="You Send amount"
                 type="text"
                 inputMode="decimal"
-                value={amount}
+                value={formatAmountInputValue(amount, editingAmountSide === 'send')}
+                onFocus={() => setEditingAmountSide('send')}
+                onBlur={() => setEditingAmountSide(null)}
                 disabled={!exchangeRouteReady || createOutcomeUncertain}
                 onChange={(e) => editAmount('send', e.target.value)}
                 className="qx-exchange-amount bg-transparent font-bold w-full outline-none focus:ring-0 appearance-none placeholder:text-muted/50 tracking-tighter"
@@ -1531,7 +1533,9 @@ export default function Exchange() {
                 aria-label="You Receive amount"
                 type="text"
                 inputMode="decimal"
-                value={desiredReceiveAmount}
+                value={formatAmountInputValue(desiredReceiveAmount, editingAmountSide === 'receive')}
+                onFocus={() => setEditingAmountSide('receive')}
+                onBlur={() => setEditingAmountSide(null)}
                 onChange={(e) => editAmount('receive', e.target.value)}
                 disabled={!exchangeRouteReady || createOutcomeUncertain}
                 className="qx-exchange-amount bg-transparent font-bold w-full outline-none focus:ring-0 appearance-none text-foreground/80 tracking-tighter truncate"
@@ -1854,14 +1858,14 @@ export default function Exchange() {
               <span className="text-[14px] font-semibold text-muted-foreground">You Send</span>
               <span className="flex items-center gap-2 font-bold text-[16px]">
                 <MiniAppLogo src={sourceOpt?.logoUrl} fallbackSrcs={sourceOpt?.kind === 'payment-method' || sourceOpt?.kind === 'fiat-payment-method' ? getFallbackPaymentLogos(sourceOpt?.title, sourceOpt?.paymentMethodId || sourceOpt?.id) : getFallbackCryptoLogos(sourceOpt?.assetCode)} badgeSrc={sourceOpt?.kind === 'crypto-network' ? sourceOpt?.networkLogoUrl : sourceOpt?.flagUrl} badgeVariant={sourceOpt?.kind === 'crypto-network' ? 'network' : 'flag'} network={sourceOpt?.routeNetwork} variant={sourceOpt?.kind === 'payment-method' || sourceOpt?.kind === 'fiat-payment-method' ? 'payment' : 'asset'} fallback={getLogoFallbackText(sourceOpt?.kind, sourceOpt?.title, sourceOpt?.assetCode)} size="small" />
-                {quoteData?.amount ?? amount} {sourceOpt?.assetCode}
+                {formatDisplayAmount(quoteData?.amount ?? amount)} {sourceOpt?.assetCode}
               </span>
             </div>
             <div className="flex justify-between items-center py-3 border-b border-border/50">
               <span className="text-[14px] font-semibold text-muted-foreground">You Receive</span>
               <span className="flex items-center gap-2 font-bold text-[16px] text-primary">
                 <MiniAppLogo src={targetOpt?.logoUrl} fallbackSrcs={targetOpt?.kind === 'payment-method' || targetOpt?.kind === 'fiat-payment-method' ? getFallbackPaymentLogos(targetOpt?.title, targetOpt?.paymentMethodId || targetOpt?.id) : getFallbackCryptoLogos(targetOpt?.assetCode)} badgeSrc={targetOpt?.kind === 'crypto-network' ? targetOpt?.networkLogoUrl : targetOpt?.flagUrl} badgeVariant={targetOpt?.kind === 'crypto-network' ? 'network' : 'flag'} network={targetOpt?.routeNetwork} variant={targetOpt?.kind === 'payment-method' || targetOpt?.kind === 'fiat-payment-method' ? 'payment' : 'asset'} fallback={getLogoFallbackText(targetOpt?.kind, targetOpt?.title, targetOpt?.assetCode)} size="small" />
-                {quoteData?.receiveAmount} {targetOpt?.assetCode}
+                {formatDisplayAmount(quoteData?.receiveAmount)} {targetOpt?.assetCode}
               </span>
             </div>
             {targetOpt?.kind === 'crypto-network' && (
@@ -1882,7 +1886,7 @@ export default function Exchange() {
             )}
             <div className="flex justify-between items-center py-3 border-b border-border/50">
               <span className="text-[14px] font-semibold text-muted-foreground">Network Fee</span>
-              <span className="text-[14px] font-bold">{quoteData?.fee || 'Included'}</span>
+              <span className="text-[14px] font-bold">{quoteData?.fee ? formatDisplayAmount(quoteData.fee) : 'Included'}</span>
             </div>
             {mode === 'swap' && (
               <div className="border-b border-border/50 py-3">
@@ -1897,7 +1901,7 @@ export default function Exchange() {
             )}
             <div className="flex justify-between items-center py-3">
               <span className="text-[14px] font-semibold text-muted-foreground">Exchange Rate</span>
-              <span className="text-[14px] font-bold bg-secondary/10 text-secondary px-2 py-1 rounded-lg">1 {sourceOpt?.assetCode} = {quoteData?.rate} {targetOpt?.assetCode}</span>
+              <span className="text-[14px] font-bold bg-secondary/10 text-secondary px-2 py-1 rounded-lg">1 {sourceOpt?.assetCode} = {formatDisplayAmount(quoteData?.rate)} {targetOpt?.assetCode}</span>
             </div>
           </div>
 

@@ -1,3 +1,4 @@
+import { formatDisplayAmount } from '@workspace/amount-format';
 import { useState, useEffect } from 'react';
 import { Pencil, X, Save, RefreshCw } from 'lucide-react';
 import type { Order, OrderSupportToolsInput, Operator } from '@workspace/api-client-react';
@@ -423,7 +424,7 @@ function OverrideField({
         <div className="flex items-center gap-2">
           <button type="button" className={cn("flex min-w-0 items-center justify-between min-h-[32px] py-1.5 px-2.5 flex-1 bg-muted/30 border rounded-md group transition-colors", overrideValue !== null ? "border-amber-500/50 text-amber-600" : "border-transparent hover:border-border")} onClick={enableEdit} data-testid={`button-edit-${testId}`}>
             <span className={cn("min-w-0 flex-1 text-sm font-medium flex items-center gap-1.5 text-left", isHashOrRef ? "break-all" : "truncate")}>
-              {overrideValue !== null ? overrideValue : originalValue ? originalValue : <span className="text-muted-foreground italic">None</span>} 
+              {overrideValue !== null ? (isHashOrRef ? overrideValue : formatDisplayAmount(overrideValue)) : originalValue ? (isHashOrRef ? originalValue : formatDisplayAmount(originalValue)) : <span className="text-muted-foreground italic">None</span>}
               {(overrideValue !== null || originalValue) && currencyLabel && <span className="text-xs font-bold opacity-70">{currencyLabel}</span>}
             </span>
             <span className="opacity-0 group-hover:opacity-100 text-xs font-bold transition-opacity flex items-center gap-1">

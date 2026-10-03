@@ -1,3 +1,4 @@
+import { formatDisplayAmount } from '@workspace/amount-format';
 import {
   Area,
   AreaChart,
@@ -69,8 +70,8 @@ export function DashboardCharts({ data }: { data: any[] }) {
               </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
               <XAxis dataKey="displayDate" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} minTickGap={30} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={(val) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', notation: val >= 1000 ? 'compact' : 'standard', maximumFractionDigits: 1 }).format(val)} />
-              <RechartsTooltip cursor={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1, strokeDasharray: '3 3' }} contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px', fontSize: '12px', boxShadow: 'var(--shadow-card)' }} itemStyle={{ color: 'hsl(var(--primary))', fontWeight: 600 }} formatter={(value: number) => [new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(value), t('adminCharts.usdVolume')]} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={(val) => formatDisplayAmount(val, { style: 'currency', currency: 'USD', notation: val >= 1000 ? 'compact' : 'standard' }, locale)} />
+              <RechartsTooltip cursor={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1, strokeDasharray: '3 3' }} contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px', fontSize: '12px', boxShadow: 'var(--shadow-card)' }} itemStyle={{ color: 'hsl(var(--primary))', fontWeight: 600 }} formatter={(value: number) => [formatDisplayAmount(value, { style: 'currency', currency: 'USD' }, locale), t('adminCharts.usdVolume')]} />
               <Area isAnimationActive={false} type="monotone" dataKey="approximateUsdVolume" name={t('adminCharts.usdVolume')} stroke="url(#colorLine)" strokeWidth={3} fillOpacity={1} fill="url(#colorUsd)" />
             </AreaChart>
           </ResponsiveContainer>

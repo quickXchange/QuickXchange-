@@ -1,3 +1,4 @@
+import { formatDisplayAmount } from '@workspace/amount-format';
 import { useEffect, useRef, useState } from 'react';
 import { useRoute, useLocation } from 'wouter';
 import {
@@ -37,13 +38,11 @@ import { isOrderDepositActionable } from '@/lib/deposit-actionability';
 
 function formatFeeAmount(value: unknown): string {
   if (value === null || value === undefined) return '';
-  const amount = String(value);
-  if (!amount.includes('.')) return amount;
-  return amount.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '');
+  return formatDisplayAmount(String(value));
 }
 
 function hasNonZeroFeeAmount(value: unknown): boolean {
-  return formatFeeAmount(value).replace('.', '').replace(/^0+/, '') !== '';
+  return value !== null && value !== undefined && !/^0*(?:\.0*)?$/.test(String(value));
 }
 
 export default function OrderDetail() {
@@ -411,7 +410,7 @@ export default function OrderDetail() {
                 />
                 <div className="flex flex-col justify-center min-w-0">
                   <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.16em] leading-none mb-1.5">You Send</div>
-                  <div className="font-bold text-[17px] leading-none truncate">{targetStatus.amount} {targetStatus.fromAsset}</div>
+                  <div className="font-bold text-[17px] leading-none truncate">{formatDisplayAmount(targetStatus.amount)} {targetStatus.fromAsset}</div>
                   {sourceIdentity && sourceIdentity !== targetStatus.fromAsset && (
                     <span className="text-[10px] text-muted-foreground font-semibold mt-1 truncate">{sourceIdentity}</span>
                   )}
@@ -428,7 +427,7 @@ export default function OrderDetail() {
                 />
                 <div className="flex flex-col justify-center min-w-0">
                   <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.16em] leading-none mb-1.5">You Receive</div>
-                  <div className="font-bold text-[17px] leading-none text-primary truncate">{targetStatus.receiveAmount} {targetStatus.toAsset}</div>
+                  <div className="font-bold text-[17px] leading-none text-primary truncate">{formatDisplayAmount(targetStatus.receiveAmount)} {targetStatus.toAsset}</div>
                   {targetStatus.toNetwork && targetStatus.toNetwork !== targetStatus.toAsset && (
                     <span className="text-[10px] text-primary/70 font-semibold mt-1 truncate">{targetStatus.toNetwork}</span>
                   )}
@@ -445,7 +444,7 @@ export default function OrderDetail() {
             {exchangeRate !== null && (
               <div className="flex items-center justify-between gap-3 py-2.5 text-[11px]">
                 <span className="text-muted-foreground">Exchange Rate</span>
-                <span className="font-mono font-semibold text-right">1 {targetStatus.fromAsset} = {exchangeRate.toLocaleString(undefined, { maximumFractionDigits: 8 })} {targetStatus.toAsset}</span>
+                <span className="font-mono font-semibold text-right">1 {targetStatus.fromAsset} = {formatDisplayAmount(exchangeRate)} {targetStatus.toAsset}</span>
               </div>
             )}
             {isManualSwap && manualSwapFees && (
@@ -561,7 +560,7 @@ export default function OrderDetail() {
                     {isCryptoDeposit
                       ? depositDetailsReady
                         ? depositDetailsActionable
-                          ? `Send exactly ${depositAmountLabel} ${depositAssetLabel} on ${depositNetworkLabel}`
+                          ? `Amount to send: ${formatDisplayAmount(depositAmountLabel)} ${depositAssetLabel} on ${depositNetworkLabel}`
                           : 'This order is not awaiting funds. No additional deposits should be sent.'
                         : 'Deposit instructions are incomplete. Do not send funds yet.'
                       : sourcePaymentMethod?.name || 'Use the assigned order instructions'}
@@ -574,9 +573,9 @@ export default function OrderDetail() {
                   <div className="flex items-center justify-between rounded-xl bg-secondary/[0.07] border border-secondary/15 p-3">
                     <div>
                       <p className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground">
-                        {depositDetailsActionable ? 'Send Exactly' : 'Order Deposit Amount'}
+                        {depositDetailsActionable ? 'Amount to Send' : 'Order Deposit Amount'}
                       </p>
-                      <p className="font-mono text-[17px] font-bold">{depositAmountLabel} {depositAssetLabel}</p>
+                      <p className="font-mono text-[17px] font-bold">{formatDisplayAmount(depositAmountLabel)} {depositAssetLabel}</p>
                     </div>
                     <span className="text-[10px] font-bold rounded-full bg-secondary/10 text-secondary border border-secondary/20 px-2 py-1">
                       {depositNetworkLabel}

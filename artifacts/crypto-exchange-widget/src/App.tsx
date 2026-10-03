@@ -1,3 +1,4 @@
+import { formatDisplayAmount } from '@workspace/amount-format';
 import { lazy, memo, Suspense, useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback } from 'react';
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { createPortal } from 'react-dom';
@@ -275,7 +276,7 @@ const clerkAppearance = (isDark: boolean, branding?: any) => {
 
 export const money = (value?: number, currency = 'USD') => {
   if (value === undefined || Number.isNaN(value)) return '—';
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value);
+  return formatDisplayAmount(value, { style: 'currency', currency }, 'en-US');
 };
 export const ago = (date?: string) => {
   if (!date) return '—';
@@ -503,22 +504,8 @@ function ThemeToggle({ testIdPrefix = '' }: { testIdPrefix?: string } = {}) {
   );
 }
 
-const compactUsdFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-const fractionalUsdFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 4,
-});
-
 const formatMarketPrice = (price: number) =>
-  (price < 1 ? fractionalUsdFormatter : compactUsdFormatter).format(price);
+  formatDisplayAmount(price, { style: 'currency', currency: 'USD' }, 'en-US');
 
 type PaymentTickerMethod = { name: string; logoUrl?: string | null };
 

@@ -1,3 +1,4 @@
+import { formatDisplayAmount } from '@workspace/amount-format';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Check, CircleAlert, Copy, Network, ShieldCheck, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
@@ -85,10 +86,15 @@ export function DepositDetailsModal({
               </div>
               <div className="deposit-details-modal-asset-name" data-testid="text-deposit-asset">{asset}</div>
               {network && <div className="deposit-details-modal-network" data-testid="text-deposit-network">{network}</div>}
-              <div className="deposit-details-modal-send-label">Send exactly</div>
+              <div className="deposit-details-modal-send-label">Amount to send</div>
               <div className="deposit-details-modal-amount" data-testid="text-deposit-amount">
-                <span>{amount}</span> <span className="deposit-details-modal-amount-unit">{asset}</span>
+                <span>{formatDisplayAmount(amount)}</span> <span className="deposit-details-modal-amount-unit">{asset}</span>
               </div>
+              <button type="button" className="mt-2 inline-flex items-center gap-2 text-xs font-semibold text-primary" onClick={() => onCopy(amount)} data-testid="button-copy-deposit-amount">
+                {copied === amount ? <Check size={14} /> : <Copy size={14} />}
+                {copied === amount ? 'Exact amount copied' : 'Copy exact amount'}
+              </button>
+              <p className="mt-1 text-xs text-muted-foreground">Shown rounded. Use the copied exact amount for payment.</p>
             </div>
 
             <div className="deposit-details-modal-fields">

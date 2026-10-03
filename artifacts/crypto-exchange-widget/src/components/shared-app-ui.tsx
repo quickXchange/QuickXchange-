@@ -1,3 +1,4 @@
+import { formatDisplayAmount } from '@workspace/amount-format';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { PaymentMethodLogo } from '@/components/payment-method-logo';
 import { useState, type ReactNode } from 'react';
@@ -187,18 +188,8 @@ export function PaymentDetailsCard({
   );
 }
 
-export const number = (value?: number | string, digits?: number) => {
-  if (value === undefined) return '—';
-  if (typeof value === 'number') {
-    return new Intl.NumberFormat('en-US', { maximumFractionDigits: digits ?? 6 }).format(value);
-  }
-  const match = /^(-?)(\d+)(?:\.(\d+))?$/.exec(value);
-  if (!match) return value;
-  const [, sign, integer, fraction = ''] = match;
-  const groupedInteger = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  const visibleFraction = digits === undefined ? fraction : fraction.slice(0, digits);
-  return `${sign}${groupedInteger}${visibleFraction ? `.${visibleFraction}` : ``}`;
-};
+export const number = (value?: number | string, _digits?: number) =>
+  formatDisplayAmount(value, { useGrouping: true }, 'en-US');
 
 export const shortId = (id?: string) => id ? `${id.slice(0, 8)}…${id.slice(-4)}` : '—';
 export const neutralText = (value: string) => value

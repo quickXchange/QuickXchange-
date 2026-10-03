@@ -1,3 +1,4 @@
+import { formatDisplayAmount } from "@workspace/amount-format";
 import { and, eq, inArray } from "drizzle-orm";
 import {
   db,
@@ -535,8 +536,14 @@ function routeLabel(method: string, asset: string, network: string): string {
 }
 
 export function formatSwapTelegramNotification(
-  payload: SwapTelegramNotificationPayload,
+  rawPayload: SwapTelegramNotificationPayload,
 ): string {
+  const payload = {
+    ...rawPayload,
+    sendAmount: formatDisplayAmount(rawPayload.sendAmount),
+    receiveAmount: formatDisplayAmount(rawPayload.receiveAmount),
+    receivedAmount: formatDisplayAmount(rawPayload.receivedAmount),
+  };
   if (payload.eventKind === "order_created") {
     return [
       "<b>New Order Created</b>",

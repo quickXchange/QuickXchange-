@@ -1,3 +1,4 @@
+import { formatDisplayAmount } from '@workspace/amount-format';
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useLocation } from 'wouter';
 import {
@@ -35,10 +36,7 @@ type PairMarketData = {
 
 const formatRate = (value: number | null) => {
   if (value === null) return '—';
-  return new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: value < 1 ? 4 : 2,
-    maximumFractionDigits: value < 1 ? 6 : 2
-  }).format(value);
+  return formatDisplayAmount(value, { useGrouping: true }, 'en-US');
 };
 
 function PairCardRow({ pair, marketData, onConvert }: { pair: DeduplicatedPair; marketData: PairMarketData; onConvert: () => void }) {

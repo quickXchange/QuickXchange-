@@ -1,3 +1,4 @@
+import { formatDisplayAmount } from '@workspace/amount-format';
 import { useRef, useState } from 'react';
 import { useLocation, useParams } from 'wouter';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
@@ -37,15 +38,15 @@ function CustomerVolumeIdentity({ asset, fiatName }: { asset: string; fiatName?:
   return <CryptoIdentity symbol={symbol} size="md" className="customer-volume-identity" />;
 }
 
-function formatCustomerAssetAmount(value: number | string, asset: string, formatNumber: (value: number, options?: Intl.NumberFormatOptions) => string) {
+function formatCustomerAssetAmount(value: number | string, asset: string, formatNumber: (value: number | string, options?: Intl.NumberFormatOptions) => string) {
   const symbol = asset.trim().toUpperCase();
-  return `${formatNumber(Number(value), { minimumFractionDigits: fiatAssets.has(symbol) ? 2 : 0, maximumFractionDigits: fiatAssets.has(symbol) ? 2 : 8 })} ${symbol}`;
+  return `${formatNumber(value)} ${symbol}`;
 }
 
 export function AdminCustomerProfile() {
   const { t, locale, formatNumber, formatDate } = useI18n();
   const formatDateTime = (value: string | number | Date) => formatDate(value, { dateStyle: 'medium', timeStyle: 'short' });
-  const formatUsd = (value: number | string) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(Number(value));
+  const formatUsd = (value: number | string) => formatDisplayAmount(value, { style: 'currency', currency: 'USD' }, locale);
   const roleLabel = (role: string) => {
     if (role === 'customer') return t('adminCustomer.roleCustomer');
     if (role === 'affiliate') return t('adminCustomer.roleAffiliate');

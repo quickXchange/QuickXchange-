@@ -1,3 +1,4 @@
+import { formatDisplayAmount } from '@workspace/amount-format';
 import fontkit from '@pdf-lib/fontkit';
 import { PDFDocument, type PDFPage, type PDFFont, rgb } from 'pdf-lib';
 import { normalizeTelegramSupportUrl } from '@workspace/api-zod';
@@ -163,8 +164,8 @@ export async function buildInvoicePdf(invoice: InvoiceSnapshot, supportTelegramU
   y -= 36;
 
   const description = `Exchange ${invoice.fromAsset} to ${invoice.toAsset}`;
-  const sent = `${invoice.sendAmount} ${invoice.fromAsset}`;
-  const received = `${invoice.receiveAmount} ${invoice.toAsset}`;
+  const sent = `${formatDisplayAmount(invoice.sendAmount)} ${invoice.fromAsset}`;
+  const received = `${formatDisplayAmount(invoice.receiveAmount)} ${invoice.toAsset}`;
   const descriptionHeight = wrapped(description, bold, 9.5, 201).length * 15;
   const sendHeight = wrapped(sent, bold, 9, 117).length * 14 +
     (invoice.sendNetwork ? wrapped(`Network: ${invoice.sendNetwork}`, regular, 7.8, 117).length * 11 + 7 : 0);
@@ -182,7 +183,7 @@ export async function buildInvoicePdf(invoice: InvoiceSnapshot, supportTelegramU
 
   const summary = [
     ...(invoice.rate ? [['Exchange Rate', `1 ${invoice.fromAsset} = ${invoice.rate} ${invoice.toAsset}`]] : []),
-    ...(invoice.fee ? [['Fee', `${invoice.fee.amount} ${invoice.fee.asset}`]] : []),
+    ...(invoice.fee ? [['Fee', `${formatDisplayAmount(invoice.fee.amount)} ${invoice.fee.asset}`]] : []),
   ];
   for (const [label, value] of summary) {
     const rowHeight = Math.max(24, wrapped(value, regular, 8.7, 238).length * 13 + 8);
@@ -196,7 +197,7 @@ export async function buildInvoicePdf(invoice: InvoiceSnapshot, supportTelegramU
   ensure(55);
   page.drawRectangle({ x: MARGIN, y: y - 48, width: CONTENT_WIDTH, height: 48, color: NAVY });
   page.drawText('FINAL RECEIVE / TOTAL', { x: MARGIN + 15, y: y - 29, font: bold, size: 9, color: WHITE });
-  const totalText = `${invoice.receiveAmount} ${invoice.toAsset}`;
+  const totalText = `${formatDisplayAmount(invoice.receiveAmount)} ${invoice.toAsset}`;
   const totalSize = bold.widthOfTextAtSize(totalText, 12) <= 226 ? 12 : 9;
   lines(page, totalText, MARGIN + 278, y - 12, 215, bold, totalSize, WHITE, 15);
   y -= 63;

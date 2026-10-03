@@ -1,3 +1,4 @@
+import { formatAmountInputValue, formatDisplayAmount } from '@workspace/amount-format';
 import { PaymentMethodLogo } from '@/components/payment-method-logo';
 import './swap-followup.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -76,10 +77,7 @@ export const sameSettlementOptionId = (left?: string | null, right?: string | nu
   Boolean(left && right && left.toUpperCase() === right.toUpperCase());
 
 const formatSwapRate = (value: number | string) =>
-  new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 3,
-    maximumFractionDigits: 3,
-  }).format(Number(value));
+  formatDisplayAmount(value, { useGrouping: true }, 'en-US');
 
 function settlementAssetName(option: SettlementOption) {
   if (option.kind === 'crypto-network') return option.title || option.assetCode;
@@ -1554,7 +1552,7 @@ export function ManualSwapWidget({
                     <span className="reference-amount-label">{t('swap.youSend')}</span>
                   </div>
                   <div className="reference-amount-body exchange-amount-row">
-                    <input id="amount" className="reference-amount-input" inputMode="decimal" value={sendAmountDisplay} onFocus={activateSendAmount} onBlur={() => setFocusedAmountSide(null)} onChange={(event) => changeAmount('send', event.target.value)} placeholder="0" disabled={manualRouteUnavailable} data-testid="input-amount" />
+                    <input id="amount" className="reference-amount-input" inputMode="decimal" value={formatAmountInputValue(sendAmountDisplay, focusedAmountSide === 'send')} onFocus={activateSendAmount} onBlur={() => setFocusedAmountSide(null)} onChange={(event) => changeAmount('send', event.target.value)} placeholder="0" disabled={manualRouteUnavailable} data-testid="input-amount" />
                     <SettlementOptionCombobox value={fromOption?.id || ''} options={fromOptions} onChange={changeFromAsset} onOpenChange={setFromSelectorOpen} label={t('swap.sendMethod')} selectorTitle={t('swap.youSend')} testId="select-from-asset" variant="swap" officialCryptoBySymbol={officialCryptoBySymbol} />
                   </div>
                   <div className="reference-amount-footer">
@@ -1595,7 +1593,7 @@ export function ManualSwapWidget({
                     <span className="reference-amount-label">{t('swap.youReceive')}</span>
                   </div>
                   <div className="reference-amount-body exchange-amount-row">
-                    <input id="receive" className={`reference-amount-input ${showRateRefresh ? 'quoting' : !displayQuote ? 'empty' : ''}`} inputMode="decimal" value={receiveAmountDisplay} onFocus={activateReceiveAmount} onBlur={() => setFocusedAmountSide(null)} onChange={(event) => changeAmount('receive', event.target.value)} placeholder="0" disabled={manualRouteUnavailable} data-testid="input-receive-amount" />
+                    <input id="receive" className={`reference-amount-input ${showRateRefresh ? 'quoting' : !displayQuote ? 'empty' : ''}`} inputMode="decimal" value={formatAmountInputValue(receiveAmountDisplay, focusedAmountSide === 'receive')} onFocus={activateReceiveAmount} onBlur={() => setFocusedAmountSide(null)} onChange={(event) => changeAmount('receive', event.target.value)} placeholder="0" disabled={manualRouteUnavailable} data-testid="input-receive-amount" />
                     <SettlementOptionCombobox value={toOption?.id || ''} options={toOptions} onChange={changeToAsset} onOpenChange={setToSelectorOpen} label={t('swap.receiveMethod')} selectorTitle={t('swap.youReceive')} testId="select-to-asset" variant="swap" officialCryptoBySymbol={officialCryptoBySymbol} />
                   </div>
                   <div className="reference-amount-footer">

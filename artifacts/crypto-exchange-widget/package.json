@@ -48,7 +48,6 @@
     "@replit/vite-plugin-runtime-error-modal": "catalog:",
     "@tailwindcss/typography": "^0.5.15",
     "@tailwindcss/vite": "catalog:",
-    "@workspace/payment-logo": "workspace:*",
     "@tanstack/react-query": "catalog:",
     "@types/dompurify": "^3.2.0",
     "@types/node": "catalog:",
@@ -56,6 +55,7 @@
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "@workspace/api-client-react": "workspace:*",
+    "@workspace/payment-logo": "workspace:*",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
     "cmdk": "^1.1.1",
@@ -82,6 +82,7 @@
   "dependencies": {
     "@clerk/react": "^6.14.5",
     "@clerk/themes": "^2.4.57",
+    "@workspace/amount-format": "workspace:*",
     "@workspace/api-zod": "workspace:*",
     "dompurify": "^3.4.15",
     "qrcode.react": "^4.2.0",

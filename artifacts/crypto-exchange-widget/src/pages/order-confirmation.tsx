@@ -1,3 +1,4 @@
+import { formatDisplayAmount } from '@workspace/amount-format';
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams, useSearch, Link } from "wouter";
@@ -347,7 +348,7 @@ export function OrderConfirmationPage() {
                    </div>
                    <div className="flex flex-col justify-center min-w-0 flex-1">
                        <div className="order-exchange-summary-label text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">You Send</div>
-                      <div className="font-bold text-xl sm:text-2xl leading-none text-foreground truncate">{order.amount} {order.fromAsset}</div>
+                      <div className="font-bold text-xl sm:text-2xl leading-none text-foreground truncate">{formatDisplayAmount(order.amount)} {order.fromAsset}</div>
                       {sourceIdentity !== order.fromAsset && (
                          <span className="order-exchange-summary-network text-[11px] text-muted-foreground font-semibold mt-1.5 truncate">{sourceIdentity}</span>
                       )}
@@ -366,7 +367,7 @@ export function OrderConfirmationPage() {
                    </div>
                    <div className="flex flex-col justify-center min-w-0 flex-1">
                        <div className="order-exchange-summary-label text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">You Receive</div>
-                      <div className="font-bold text-xl sm:text-2xl leading-none text-primary truncate">{isManual ? '≈ ' : ''}{order.receiveAmount} {order.toAsset}</div>
+                      <div className="font-bold text-xl sm:text-2xl leading-none text-primary truncate">{isManual ? '≈ ' : ''}{formatDisplayAmount(order.receiveAmount)} {order.toAsset}</div>
                       {targetIdentity !== order.toAsset && (
                          <span className="order-exchange-summary-network text-[11px] text-primary/70 font-semibold mt-1.5 truncate">{targetIdentity}</span>
                       )}
@@ -383,7 +384,7 @@ export function OrderConfirmationPage() {
              {exchangeRate !== null && !isQuickex && (
                <div className="flex items-center justify-between gap-3 py-3 text-xs">
                  <span className="text-muted-foreground font-medium">Exchange Rate</span>
-                 <span className="font-mono font-semibold text-right">1 {order.fromAsset} = {exchangeRate.toLocaleString(undefined, { maximumFractionDigits: 8 })} {order.toAsset}</span>
+                 <span className="font-mono font-semibold text-right">1 {order.fromAsset} = {formatDisplayAmount(exchangeRate)} {order.toAsset}</span>
                </div>
              )}
              <div className="flex items-center justify-between gap-3 py-3 text-xs">
@@ -432,7 +433,7 @@ export function OrderConfirmationPage() {
                    <div className="relative z-10">
                       <h3 className="font-bold text-lg tracking-tight text-foreground">{isCryptoDeposit ? 'Crypto Deposit Details' : 'Payment Details'}</h3>
                       <p className="text-sm text-muted-foreground leading-tight mt-0.5">
-                         {isCryptoDeposit ? `Send exactly ${order.amount} ${order.fromAsset}` : order.sourcePaymentMethod?.name || 'Use the assigned order instructions'}
+                         {isCryptoDeposit ? `Amount to send: ${formatDisplayAmount(order.amount)} ${order.fromAsset}` : order.sourcePaymentMethod?.name || 'Use the assigned order instructions'}
                       </p>
                    </div>
                 </div>
@@ -491,8 +492,8 @@ export function OrderConfirmationPage() {
                           <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
                             <div className="flex items-center justify-between rounded-2xl bg-secondary/5 border border-secondary/15 p-4" data-testid="text-deposit-amount">
                               <div>
-                                <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Send Exactly</p>
-                                <p className="font-mono text-xl font-bold">{order.amount} {order.fromAsset}</p>
+                                <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Amount to Send</p>
+                                <p className="font-mono text-xl font-bold">{formatDisplayAmount(order.amount)} {order.fromAsset}</p>
                               </div>
                               <span className="order-deposit-network text-xs font-bold rounded-full bg-secondary/10 text-secondary border border-secondary/20 px-3 py-1">
                                 {order.fromNetwork || 'Crypto'}

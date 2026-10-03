@@ -1,3 +1,4 @@
+import { formatDisplayAmount } from '@workspace/amount-format';
 import { ArrowLeftRight, ArrowRight } from 'lucide-react';
 
 export interface ExchangeRateSummaryProps {
@@ -18,7 +19,7 @@ export function getExchangeRateSummaryText(p: ExchangeRateSummaryProps): string 
   if (p.error || p.unavailable) return 'Rate unavailable';
   if (!p.sourceAsset || !p.targetAsset) return 'Select a route';
   if (!hasRate) return 'Enter an amount to see your rate';
-  return `1 ${p.sourceAsset} = ${p.rate} ${p.targetAsset}`;
+  return `1 ${p.sourceAsset} = ${formatDisplayAmount(p.rate)} ${p.targetAsset}`;
 }
 
 export function ExchangeRateSummary(props: ExchangeRateSummaryProps) {

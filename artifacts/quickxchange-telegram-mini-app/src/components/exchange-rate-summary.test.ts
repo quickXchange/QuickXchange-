@@ -1,3 +1,9 @@
+import { test } from 'node:test';
+test('rate presentation rounds decimal strings without changing the authoritative rate', () => {
+  const props = { mode: 'swap' as const, sourceAsset: 'BTC', targetAsset: 'ETH', rate: '123.456789' };
+  assert.equal(t(props), '1 BTC = 123.457 ETH');
+  assert.equal(props.rate, '123.456789');
+});
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { getExchangeRateSummaryText as t } from './exchange-rate-summary';

@@ -1,3 +1,4 @@
+import { formatDisplayAmount } from "@workspace/amount-format";
 import { Router, type IRouter, type Request } from "express";
 import { and, eq, gt, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { db, ordersTable, quickexOrdersTable, telegramChatsTable, telegramNotificationOutboxTable, telegramOrderLinksTable, telegramProcessedUpdatesTable, telegramWizardSessionsTable } from "@workspace/db";
@@ -493,9 +494,8 @@ function validFieldValue(field: Record<string, unknown>, value: string) {
   return value.length > 0;
 }
 function displayNumber(value: unknown) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return "Not configured";
-  return new Intl.NumberFormat("en-US", { maximumSignificantDigits: 10 }).format(numeric);
+  const formatted = formatDisplayAmount(value == null ? undefined : String(value));
+  return formatted === "—" ? "Not configured" : formatted;
 }
 
 function manualSwapAddonKeyboard(data: Record<string, unknown>): TelegramButton[][] {
@@ -505,10 +505,10 @@ function manualSwapAddonKeyboard(data: Record<string, unknown>): TelegramButton[
     const price = addon.feeType === "percentage"
       ? addon.percentage === null || addon.percentage === undefined
         ? "Fee unavailable"
-        : `${addon.percentage}%`
+        : `${displayNumber(addon.percentage)}%`
       : addon.fixedAmount === undefined || !addon.feeCurrency
         ? "Fee unavailable"
-        : `${addon.fixedAmount} ${addon.feeCurrency}`;
+        : `${displayNumber(addon.fixedAmount)} ${addon.feeCurrency}`;
     return [{
       text: `${selected.has(addon.key) ? "✅" : "▫️"} ${addon.name} · ${price}`,
       callback_data: `addon:${index}`,
@@ -955,8 +955,8 @@ export function telegramTrackingCard(tracked: {
     `${t(locale, "order")} <code>${html(tracked.orderId)}</code>`,
     `${t(locale, "type")}: <b>${html(t(locale, tracked.orderKind === "convert" ? "convert" : "swap"))}</b>`,
     `${t(locale, "status")}: <b>${html(status)}</b>`,
-    `${t(locale, "source")}: <b>${html(result.amount)} ${html(source)}</b>`,
-    `${t(locale, "trackingReceive")}: <b>${html(result.receiveAmount)} ${html(target)}</b>`,
+    `${t(locale, "source")}: <b>${html(displayNumber(result.amount))} ${html(source)}</b>`,
+    `${t(locale, "trackingReceive")}: <b>${html(displayNumber(result.receiveAmount))} ${html(target)}</b>`,
   ];
   const buttons: TelegramButton[][] = [];
   const refresh = telegramOrderCallbackData(tracked.orderId);
@@ -1158,10 +1158,10 @@ function telegramReviewMessage(data: Record<string, unknown>, locale: TelegramLo
   });
   const lines = [
     t(locale, "review"),
-    `${html(data.amount)} ${html(source.assetCode)} (${html(source.routeNetwork)}) → ${html(target.assetCode)} (${html(target.routeNetwork)})`,
-    ...(quote?.receiveAmount !== undefined ? [`You Receive: <b>${html(quote.receiveAmount)} ${html(target.assetCode)}</b>`] : []),
-    ...(quote?.rate !== undefined ? [`Exchange Rate: <b>1 ${html(source.assetCode)} = ${html(quote.rate)} ${html(target.assetCode)}</b>`] : []),
-    ...(quote?.fee !== undefined && Number(quote.fee) > 0 ? [`Fee: <b>${html(quote.fee)}</b>`] : []),
+    `${html(displayNumber(data.amount))} ${html(source.assetCode)} (${html(source.routeNetwork)}) → ${html(target.assetCode)} (${html(target.routeNetwork)})`,
+    ...(quote?.receiveAmount !== undefined ? [`You Receive: <b>${html(displayNumber(quote.receiveAmount))} ${html(target.assetCode)}</b>`] : []),
+    ...(quote?.rate !== undefined ? [`Exchange Rate: <b>1 ${html(source.assetCode)} = ${html(displayNumber(quote.rate))} ${html(target.assetCode)}</b>`] : []),
+    ...(quote?.fee !== undefined && Number(quote.fee) > 0 ? [`Fee: <b>${html(displayNumber(quote.fee))}</b>`] : []),
     ...(settlementDetails.length ? ["Payment details:", ...settlementDetails] : []),
     ...(data.destinationAddress ? [`${t(locale, "destination")} ${html(data.destinationAddress)}`] : []),
     ...(data.destinationMemo ? [`${t(locale, "memo")} ${html(data.destinationMemo)}`] : []),

@@ -1,3 +1,4 @@
+import { formatDisplayAmount } from '@workspace/amount-format';
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 import * as RechartsPrimitive from 'recharts';
@@ -239,7 +240,9 @@ const ChartTooltipContent = React.forwardRef<
                         </div>
                         {item.value && (
                           <span className="font-mono font-medium tabular-nums text-foreground">
-                            {item.value.toLocaleString()}
+                            {Array.isArray(item.value)
+                              ? item.value.map(value => formatDisplayAmount(value, { useGrouping: true })).join(' – ')
+                              : formatDisplayAmount(item.value) === '—' ? String(item.value) : formatDisplayAmount(item.value, { useGrouping: true })}
                           </span>
                         )}
                       </div>

@@ -1,3 +1,4 @@
+import { formatDisplayAmount } from '@workspace/amount-format';
 import { useQuery } from '@tanstack/react-query';
 
 export type CoinGeckoMarket = {
@@ -29,12 +30,7 @@ export type CoinGeckoMarket = {
 
 export const formatMoney = (value?: number, currency = 'USD') => {
   if (value === undefined || Number.isNaN(value)) return '—';
-  return new Intl.NumberFormat('en-US', { 
-    style: 'currency', 
-    currency, 
-    minimumFractionDigits: value < 1 ? 4 : 2,
-    maximumFractionDigits: value < 1 ? 6 : 2 
-  }).format(value);
+  return formatDisplayAmount(value, { style: 'currency', currency }, 'en-US');
 };
 
 export function useCryptoMarket(limit = 100) {
