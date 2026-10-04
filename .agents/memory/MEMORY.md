@@ -153,3 +153,4 @@
 - [Website Telegram support scope](website-telegram-support-scope.md) — one published support destination; preserve other Telegram purposes and never activate stale defaults while loading.
 - [BestChange publication boundaries](bestchange-publication-boundaries.md) — live Swap, read-only financial scope, conservative classic rates and explicit operator reserves/mappings.
 - [Amount display precision](amount-display-precision.md) — three decimals for human-facing amounts; exact input, copy and machine-data boundaries stay intact.
+- [Performance measurement safety](performance-measurement-safety.md) — enlarge resource timing buffers, discard probe-induced failures, and distinguish process CPU from main-thread profiles.
