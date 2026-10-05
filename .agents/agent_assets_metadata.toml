@@ -140,3 +140,17 @@ mtime_ms = 1790807680096
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/c46ee5fd-01f4-432d-bbb8-663071132505/e42cb8dd-3000-4c8c-84b7-faf2ef19ebd2"
 storage_version_token = "1790807710438638"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "y61dwP7iaEhhZ5hHqpdaG"
+uri = "file://ADMIN-STRUCTURE.md"
+type = "text"
+title = "Admin Structure & Workflows"
+description = "Current Admin navigation, page organization, editing and bulk workflows, confirmation inventory, permissions, and mobile behavior. No visual design, credentials, or live records included."
+logical_id = "70675ac5-87c9-48b5-a6b8-38aab87ebb14"
+content_hash = "sha256:d31427267a612c91fefc44e62e358381dc4aa92bb6c697155b97a4ec8cc90f66"
+size = 49329
+mtime_ms = 1791229414471
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/70675ac5-87c9-48b5-a6b8-38aab87ebb14/58c2d6b3-ba2f-4f61-bfb3-58ecc679b270"
+storage_version_token = "1791229427028407"
+content_type = "text/markdown"
