@@ -159,14 +159,14 @@ content_type = "text/markdown"
 id = "ZfHxW2nFvSh4YEsuiJEvL"
 uri = "file://exports/qxlayer-assets.zip"
 type = "unspecified"
-title = "qxlayer-assets.zip"
-description = "Complete visual-asset export: 264 original-format logo/flag files plus catalog.json. SVGs remain vector; no private or operational data included."
+title = "Assets + catalog.json — ZIP"
+description = "Includes qxlayer-assets/catalog.json and all crypto, network, payment-method, and flag folders in one ZIP."
 logical_id = "884721c6-84cd-4257-acce-9a88fd44f9c0"
 content_hash = "sha256:26de8bbaea4c5480938eab19a183d3aff11d4eaecd9848751e2d45c24c95d9c0"
 size = 1587251
 mtime_ms = 1791241634074
-storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/884721c6-84cd-4257-acce-9a88fd44f9c0/237041fb-1d0b-4c75-a683-bca26a53c308"
-storage_version_token = "1791241643720531"
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/884721c6-84cd-4257-acce-9a88fd44f9c0/ff204d20-234b-44cc-8033-74144f3ebd5a"
+storage_version_token = "1791241889366121"
 content_type = "application/octet-stream"
 
 [[outputs]]
