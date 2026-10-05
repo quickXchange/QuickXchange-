@@ -154,3 +154,31 @@ mtime_ms = 1791229414471
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/70675ac5-87c9-48b5-a6b8-38aab87ebb14/f382b4fd-651f-45ca-b04f-382102c09f5f"
 storage_version_token = "1791241032655176"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "ZfHxW2nFvSh4YEsuiJEvL"
+uri = "file://exports/qxlayer-assets.zip"
+type = "unspecified"
+title = "qxlayer-assets.zip"
+description = "Complete visual-asset export: 264 original-format logo/flag files plus catalog.json. SVGs remain vector; no private or operational data included."
+logical_id = "884721c6-84cd-4257-acce-9a88fd44f9c0"
+content_hash = "sha256:26de8bbaea4c5480938eab19a183d3aff11d4eaecd9848751e2d45c24c95d9c0"
+size = 1587251
+mtime_ms = 1791241634074
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/884721c6-84cd-4257-acce-9a88fd44f9c0/237041fb-1d0b-4c75-a683-bca26a53c308"
+storage_version_token = "1791241643720531"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "p2FP_NhIBn6SQz1vNvjtE"
+uri = "file://exports/qxlayer-assets/catalog.json"
+type = "unspecified"
+title = "catalog.json"
+description = "Import metadata mapping each exported logo or flag to its type, name, code, network/country/currency, relative file path, and original format."
+logical_id = "d1ebaf8e-a710-4faf-8e8b-6703928aa2fe"
+content_hash = "sha256:6cec8ce69b964f0f05860613864ee2a069b3e239bf0164c3b88146744c79001f"
+size = 133443
+mtime_ms = 1791241580880
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/d1ebaf8e-a710-4faf-8e8b-6703928aa2fe/3c54f53e-b49d-4811-ad61-0355ceb5db0e"
+storage_version_token = "1791241644306527"
+content_type = "application/octet-stream"
