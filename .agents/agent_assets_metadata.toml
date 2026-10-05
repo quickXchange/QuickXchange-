@@ -182,3 +182,17 @@ mtime_ms = 1791241580880
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/d1ebaf8e-a710-4faf-8e8b-6703928aa2fe/3c54f53e-b49d-4811-ad61-0355ceb5db0e"
 storage_version_token = "1791241644306527"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "7_fy2m-Bcg5QD-2soJ7xd"
+uri = "file://exports/admin-structure-workflows.zip"
+type = "unspecified"
+title = "Admin Structure & Workflows — ZIP"
+description = "Contains the complete ADMIN-STRUCTURE.md document. The original file is unchanged."
+logical_id = "2030617c-c100-46c9-bbca-89cc59523231"
+content_hash = "sha256:846fa5893b39929b27d1cf9fb37ed38d8a2fac35b8ace57233eedc644d258d8c"
+size = 15816
+mtime_ms = 1791241958011
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/2030617c-c100-46c9-bbca-89cc59523231/fa9d6114-f5e6-4580-b446-fac78dfa0b70"
+storage_version_token = "1791241962645837"
+content_type = "application/octet-stream"
