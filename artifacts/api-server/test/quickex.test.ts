@@ -8307,6 +8307,10 @@ test("manual pricing rules match deterministically, protect writes, and snapshot
       totalFee: 1.01,
       pricingSnapshot: {
         ...signedPayload.pricingSnapshot,
+        // This fixture emulates a legacy ticket. The modern add-on/exchange
+        // fee snapshot freezes the original quote's base amounts and cannot
+        // be retained after replacing those amounts with legacy tier fees.
+        manualSwapFees: undefined,
         rule: {
           ...signedPayload.pricingSnapshot.rule,
           amountBasedPricingTiers: [legacySelectedTier],

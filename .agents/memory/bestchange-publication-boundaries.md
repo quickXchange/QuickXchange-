@@ -32,3 +32,9 @@ Manual Pricing directions should appear automatically in BestChange, including f
 **Why:** The user requested automatic inclusion of any Manual Pricing direction and chose “Publish ready routes; keep incomplete ones pending.”
 
 **How to apply:** Expand wildcard pricing into concrete Manual Swap directions. Reuse only unambiguous operator declarations for the same immutable settlement option; do not guess official codes, payout reserves, limits or cash cities. Keep unavailable exact paths visible without treating their metadata as execution permission.
+
+Adding directions to BestChange must be checked against the actual production XML, not just the Admin direction list.
+
+**Why:** The user reiterated that directions must appear at the live XML link and said the work was not done when the feed remained empty.
+
+**How to apply:** Distinguish code deployment from production configuration. Check the live XML items and production mapping/reserve readiness, and state any remaining blockers explicitly instead of claiming the public directions are available.

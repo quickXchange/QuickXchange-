@@ -1065,14 +1065,18 @@ export async function bulkUpdateManualPricingRules(
           const targetSelectorChanged = action === "edit" && [
             "targetSettlementOptionId", "targetCryptoAssetId", "targetAsset", "targetNetwork",
           ].some((key) => Object.prototype.hasOwnProperty.call(canonicalPatch, key));
-          if (sourceSelectorChanged && !resultingSourceOptionId) {
+          // A route edit must canonicalize both authoritative Any sides.
+          // Untouched legacy display selectors must not survive the transition
+          // or make the normalized route fail validation. Field-only edits keep
+          // their historical selectors unchanged.
+          if ((sourceSelectorChanged || targetSelectorChanged) && !resultingSourceOptionId) {
             const sourceNetwork = normalized(canonicalPatch.sourceNetwork ?? row.sourceNetwork);
             const sourceAsset = normalized(canonicalPatch.sourceAsset ?? row.sourceAsset);
             if (sourceNetwork !== ALL_NETWORKS_PRICING_SELECTOR || sourceAsset === null) {
               for (const key of SOURCE_PRICING_SELECTOR_KEYS) canonicalPatch[key] = null;
             }
           }
-          if (targetSelectorChanged && !resultingTargetOptionId) {
+          if ((sourceSelectorChanged || targetSelectorChanged) && !resultingTargetOptionId) {
             const targetNetwork = normalized(canonicalPatch.targetNetwork ?? row.targetNetwork);
             const targetAsset = normalized(canonicalPatch.targetAsset ?? row.targetAsset);
             if (targetNetwork !== ALL_NETWORKS_PRICING_SELECTOR || targetAsset === null) {
