@@ -4,8 +4,12 @@ import { Copy, Download, ExternalLink, Plus, Trash2, RefreshCw, AlertTriangle } 
 import {
   getGetAdminBestchangeQueryKey, getGetBestchangeXmlUrl, useGetAdminBestchange,
   useGetAdminBestchangePreview, useUpdateAdminBestchange,
+  getAdminBestchangeReservesExport, previewAdminBestchangeReserves, applyAdminBestchangeReserves,
 } from '@workspace/api-client-react';
-import type { BestchangeCode, BestchangeDirection, BestchangeOption, BestchangeSettings } from '@workspace/api-client-react';
+import type {
+  BestchangeCode, BestchangeDirection, BestchangeOption, BestchangeSettings,
+  BestchangeReserveTransfer, BestchangeReserveReview,
+} from '@workspace/api-client-react';
 import { AdminShell } from '../App';
 import { notifyAdminAction } from '@/components/admin-action-toast';
 import { useAdminPermissions } from '@/lib/admin-permissions';
@@ -188,6 +192,9 @@ export function AdminBestchangePage() {
   const preview = useGetAdminBestchangePreview({ query: { enabled: canManage, refetchOnWindowFocus: false, queryKey: ['bestchange-preview'] } });
   const save = useUpdateAdminBestchange();
   const [draft, setDraft] = useState<BestchangeSettings | null>(null);
+  const [reserveTransfer, setReserveTransfer] = useState<BestchangeReserveTransfer | null>(null);
+  const [reserveReview, setReserveReview] = useState<BestchangeReserveReview | null>(null);
+  const [reserveBusy, setReserveBusy] = useState(false);
   const [directionSearch, setDirectionSearch] = useState('');
   const [directionPage, setDirectionPage] = useState(0);
   const data = q.data;
@@ -239,6 +246,46 @@ export function AdminBestchangePage() {
     const url = URL.createObjectURL(new Blob([preview.data.xml], { type: 'application/xml;charset=utf-8' }));
     const a = document.createElement('a'); a.href = url; a.download = 'bestchange.xml'; a.click(); URL.revokeObjectURL(url);
   };
+  const downloadReserves = async () => {
+    setReserveBusy(true);
+    try {
+      const transfer = await getAdminBestchangeReservesExport();
+      const url = URL.createObjectURL(new Blob([JSON.stringify(transfer, null, 2)], { type: 'application/json' }));
+      const a = document.createElement('a');
+      a.href = url; a.download = 'qx-bestchange-reserves.json'; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1_000);
+      notifyAdminAction('success', `Downloaded ${transfer.reserves.length} positive enabled payout reserves.`);
+    } catch (error) {
+      notifyAdminAction('error', error instanceof Error ? error.message : 'Reserve export failed.');
+    } finally { setReserveBusy(false); }
+  };
+  const reviewReserves = async (file: File) => {
+    setReserveTransfer(null); setReserveReview(null); setReserveBusy(true);
+    try {
+      if (file.size > 100_000) throw new Error('Reserve file exceeds the 100 KB limit.');
+      const transfer: unknown = JSON.parse(await file.text());
+      // The Owner-only server validates the complete file and target identities.
+      const review = await previewAdminBestchangeReserves(transfer as BestchangeReserveTransfer);
+      setReserveTransfer(transfer as BestchangeReserveTransfer);
+      setReserveReview(review);
+    } catch (error) {
+      notifyAdminAction('error', error instanceof Error ? error.message : 'Could not review the reserve file.');
+    } finally { setReserveBusy(false); }
+  };
+  const confirmReserves = async () => {
+    if (!reserveTransfer || !reserveReview) return;
+    setReserveBusy(true);
+    try {
+      const result = await applyAdminBestchangeReserves({ transfer: reserveTransfer, reviewHash: reserveReview.reviewHash });
+      setReserveReview(null); setReserveTransfer(null);
+      await Promise.all([q.refetch(), preview.refetch()]);
+      notifyAdminAction('success', `Updated ${result.updatedCount} payout reserves. Feed refreshed.`);
+    } catch (error) {
+      // A concurrent change requires a fresh review; never retry an old hash.
+      setReserveReview(null); setReserveTransfer(null);
+      notifyAdminAction('error', error instanceof Error ? error.message : 'Reserves changed. Upload the file to review it again.');
+    } finally { setReserveBusy(false); }
+  };
 
   return (
     <AdminShell eyebrow="INTEGRATIONS / BESTCHANGE" title="BestChange XML Export" subtitle="Publish truthful settlement availability">
@@ -270,6 +317,51 @@ export function AdminBestchangePage() {
               </div>
             </section>
 
+            <section className={card} data-testid="bestchange-reserve-transfer">
+              <h2 className="text-base font-semibold">Transfer declared payout reserves</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                In the Workspace, download the reserve file. After publishing, open this page in Production,
+                upload that file, review each currency and payment method, then apply. Only enabled,
+                matching fiat payout reserves are changed. Wallets, orders and provider settings are never transferred.
+                Zero-reserve and unsupported routes remain pending.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button className={btn} type="button" disabled={reserveBusy} onClick={() => void downloadReserves()}
+                  data-testid="bestchange-export-reserves"><Download size={16} />Download workspace reserves</button>
+                <label className={`${btn} cursor-pointer ${reserveBusy ? 'opacity-50' : ''}`}>
+                  Review reserve file
+                  <input className="sr-only" type="file" accept=".json,application/json" disabled={reserveBusy}
+                    data-testid="bestchange-import-reserves"
+                    onChange={event => {
+                      const file = event.target.files?.[0];
+                      event.target.value = '';
+                      if (file) void reviewReserves(file);
+                    }} />
+                </label>
+              </div>
+              {reserveReview && reserveTransfer && <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3"
+                data-testid="bestchange-reserve-review">
+                <p className="text-sm font-semibold">Review {reserveReview.changes.length} selected reserves in this environment</p>
+                <p className="mt-1 text-xs text-muted-foreground">Each amount below will be advertised as available payout liquidity. The current production value is shown for comparison. Changes require Owner approval.</p>
+                <div className="mt-3 max-h-60 overflow-y-auto text-xs">
+                  {reserveReview.changes.map(change => <div key={`${change.currencyCode}:${change.paymentMethodId}`}
+                    className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 border-b border-border py-1.5">
+                    <span className="truncate">{change.paymentMethodId} · {change.currencyCode}</span>
+                    <span className="font-mono tabular-nums">{change.currentReserve} → {change.proposedReserve}</span>
+                  </div>)}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button className={btnPrimary} type="button" disabled={reserveBusy ||
+                    reserveReview.changes.every(change => change.currentReserve === change.proposedReserve)}
+                    onClick={() => void confirmReserves()} data-testid="bestchange-apply-reserves">
+                    {reserveBusy ? 'Applying…' : `Apply ${reserveReview.changes.filter(change => change.currentReserve !== change.proposedReserve).length} reserves`}
+                  </button>
+                  <button className={btn} type="button" disabled={reserveBusy}
+                    onClick={() => { setReserveReview(null); setReserveTransfer(null); }}>Cancel</button>
+                </div>
+              </div>}
+            </section>
+
             <section className="space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-semibold">Directions ({settings.directions.length})</h2>
@@ -278,7 +370,7 @@ export function AdminBestchangePage() {
                   <button className={btnPrimary} onClick={add} disabled={save.isPending} data-testid="bestchange-add-direction"><Plus size={16} />Add direction</button>
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground">Manual Pricing routes sync automatically, including Any and all-network rules. New routes reuse only unambiguous codes and crypto reserves already declared for the same settlement option. Missing settings remain pending; ready routes use live Swap pricing. Existing disabled directions stay disabled.</p>
+              <p className="text-sm text-muted-foreground">Manual Pricing routes sync automatically, including Any and all-network rules. New routes use reviewed official codes for exact network or payment-method identities; ambiguous bank methods remain pending. Operator-entered codes and crypto reserves remain authoritative. Missing settings stay pending; ready routes use live Swap pricing. Existing disabled directions stay disabled.</p>
               <input className={field} value={directionSearch} placeholder="Search directions, payment methods, assets or pricing rules…" onChange={event => { setDirectionSearch(event.target.value); setDirectionPage(0); }} data-testid="bestchange-direction-search" />
               {settings.directions.length === 0 && <div className={card}>No available Manual Pricing routes yet. New priced routes will appear automatically.</div>}
               {filteredDirections.length === 0 && settings.directions.length > 0 && <div className={card}>No matching directions.</div>}

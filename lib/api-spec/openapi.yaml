@@ -4683,6 +4683,48 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/BestchangePreview" }
+  /admin/bestchange/reserves/export:
+    get:
+      operationId: getAdminBestchangeReservesExport
+      tags: [admin]
+      responses:
+        "200":
+          description: Owner-only enabled, declared workspace fiat payout reserves
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BestchangeReserveTransfer" }
+  /admin/bestchange/reserves/preview:
+    post:
+      operationId: previewAdminBestchangeReserves
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BestchangeReserveTransfer" }
+      responses:
+        "200":
+          description: Owner-only review of the exact production reserves that would change
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BestchangeReserveReview" }
+  /admin/bestchange/reserves/apply:
+    post:
+      operationId: applyAdminBestchangeReserves
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BestchangeReserveApproval" }
+      responses:
+        "200":
+          description: Owner-approved, fenced transfer of selected fiat reserves only
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BestchangeReserveApplied" }
+        "409":
+          description: Production reserve or payment method availability changed since review
 components:
   parameters:
     Page:
@@ -4754,6 +4796,50 @@ components:
       name: __session
       description: Clerk owner session. The authenticated user must match the single active owner account in the server-side operator registry.
   schemas:
+    BestchangeReserveLine:
+      type: object
+      required: [currencyCode, paymentMethodId, reserve]
+      properties:
+        currencyCode: { type: string, minLength: 2, maxLength: 12 }
+        paymentMethodId: { type: string, minLength: 1, maxLength: 120 }
+        reserve: { type: string, pattern: '^[0-9]{1,20}(\.[0-9]{1,18})?$' }
+    BestchangeReserveTransfer:
+      type: object
+      required: [format, reserves]
+      properties:
+        format: { type: string, enum: [qx-bestchange-reserves-v1] }
+        reserves:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items: { $ref: "#/components/schemas/BestchangeReserveLine" }
+    BestchangeReserveChange:
+      type: object
+      required: [currencyCode, paymentMethodId, currentReserve, proposedReserve]
+      properties:
+        currencyCode: { type: string }
+        paymentMethodId: { type: string }
+        currentReserve: { type: string }
+        proposedReserve: { type: string }
+    BestchangeReserveReview:
+      type: object
+      required: [reviewHash, changes]
+      properties:
+        reviewHash: { type: string }
+        changes:
+          type: array
+          items: { $ref: "#/components/schemas/BestchangeReserveChange" }
+    BestchangeReserveApproval:
+      type: object
+      required: [transfer, reviewHash]
+      properties:
+        transfer: { $ref: "#/components/schemas/BestchangeReserveTransfer" }
+        reviewHash: { type: string, minLength: 64, maxLength: 64 }
+    BestchangeReserveApplied:
+      type: object
+      required: [updatedCount]
+      properties:
+        updatedCount: { type: integer, minimum: 0 }
     BestchangeDirection:
       type: object
       additionalProperties: false

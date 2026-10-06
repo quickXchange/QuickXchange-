@@ -38,3 +38,9 @@ Adding directions to BestChange must be checked against the actual production XM
 **Why:** The user reiterated that directions must appear at the live XML link and said the work was not done when the feed remained empty.
 
 **How to apply:** Distinguish code deployment from production configuration. Check the live XML items and production mapping/reserve readiness, and state any remaining blockers explicitly instead of claiming the public directions are available.
+
+Fiat payout reserves approved in Workspace do not become live through a code deployment. Move only the declared, positive, matching reserves through an Owner-reviewed production transfer; never use a broad configuration sync as a shortcut. The user confirmed that the eligible Workspace payment-method reserves of 400,000 each were accurate to advertise on 2026-10-06. This approval is not a standing claim about future balances.
+
+**Why:** Production still held zero reserves while Workspace had positive ones. A broad sync would also change unrelated financial and operational settings; public reserve claims must reflect the reviewed values.
+
+**How to apply:** Export only currency/payment-method identities and reserve decimals, preview differences against currently enabled production methods, and fence approval against intervening balance changes. Check actual public XML after the Owner applies it; keep crypto payouts and ambiguous mappings pending.

@@ -20522,3 +20522,87 @@ export const GetAdminBestchangePreviewResponse = zod.object({
   "enabled": zod.boolean(),
   "version": zod.number().int()
 })
+
+
+export const getAdminBestchangeReservesExportResponseReservesItemCurrencyCodeMin = 2;
+export const getAdminBestchangeReservesExportResponseReservesItemCurrencyCodeMax = 12;
+
+export const getAdminBestchangeReservesExportResponseReservesItemPaymentMethodIdMax = 120;
+
+export const getAdminBestchangeReservesExportResponseReservesItemReserveRegExp = new RegExp('^[0-9]{1,20}(\\.[0-9]{1,18})?$');
+export const getAdminBestchangeReservesExportResponseReservesMax = 500;
+
+
+
+export const GetAdminBestchangeReservesExportResponse = zod.object({
+  "format": zod.enum(['qx-bestchange-reserves-v1']),
+  "reserves": zod.array(zod.object({
+  "currencyCode": zod.string().min(getAdminBestchangeReservesExportResponseReservesItemCurrencyCodeMin).max(getAdminBestchangeReservesExportResponseReservesItemCurrencyCodeMax),
+  "paymentMethodId": zod.string().min(1).max(getAdminBestchangeReservesExportResponseReservesItemPaymentMethodIdMax),
+  "reserve": zod.string().regex(getAdminBestchangeReservesExportResponseReservesItemReserveRegExp)
+})).min(1).max(getAdminBestchangeReservesExportResponseReservesMax)
+})
+
+
+export const previewAdminBestchangeReservesBodyReservesItemCurrencyCodeMin = 2;
+export const previewAdminBestchangeReservesBodyReservesItemCurrencyCodeMax = 12;
+
+export const previewAdminBestchangeReservesBodyReservesItemPaymentMethodIdMax = 120;
+
+export const previewAdminBestchangeReservesBodyReservesItemReserveRegExp = new RegExp('^[0-9]{1,20}(\\.[0-9]{1,18})?$');
+export const previewAdminBestchangeReservesBodyReservesMax = 500;
+
+
+
+export const PreviewAdminBestchangeReservesBody = zod.object({
+  "format": zod.enum(['qx-bestchange-reserves-v1']),
+  "reserves": zod.array(zod.object({
+  "currencyCode": zod.string().min(previewAdminBestchangeReservesBodyReservesItemCurrencyCodeMin).max(previewAdminBestchangeReservesBodyReservesItemCurrencyCodeMax),
+  "paymentMethodId": zod.string().min(1).max(previewAdminBestchangeReservesBodyReservesItemPaymentMethodIdMax),
+  "reserve": zod.string().regex(previewAdminBestchangeReservesBodyReservesItemReserveRegExp)
+})).min(1).max(previewAdminBestchangeReservesBodyReservesMax)
+})
+
+export const PreviewAdminBestchangeReservesResponse = zod.object({
+  "reviewHash": zod.string(),
+  "changes": zod.array(zod.object({
+  "currencyCode": zod.string(),
+  "paymentMethodId": zod.string(),
+  "currentReserve": zod.string(),
+  "proposedReserve": zod.string()
+}))
+})
+
+
+export const applyAdminBestchangeReservesBodyTransferReservesItemCurrencyCodeMin = 2;
+export const applyAdminBestchangeReservesBodyTransferReservesItemCurrencyCodeMax = 12;
+
+export const applyAdminBestchangeReservesBodyTransferReservesItemPaymentMethodIdMax = 120;
+
+export const applyAdminBestchangeReservesBodyTransferReservesItemReserveRegExp = new RegExp('^[0-9]{1,20}(\\.[0-9]{1,18})?$');
+export const applyAdminBestchangeReservesBodyTransferReservesMax = 500;
+
+export const applyAdminBestchangeReservesBodyReviewHashMin = 64;
+export const applyAdminBestchangeReservesBodyReviewHashMax = 64;
+
+
+
+export const ApplyAdminBestchangeReservesBody = zod.object({
+  "transfer": zod.object({
+  "format": zod.enum(['qx-bestchange-reserves-v1']),
+  "reserves": zod.array(zod.object({
+  "currencyCode": zod.string().min(applyAdminBestchangeReservesBodyTransferReservesItemCurrencyCodeMin).max(applyAdminBestchangeReservesBodyTransferReservesItemCurrencyCodeMax),
+  "paymentMethodId": zod.string().min(1).max(applyAdminBestchangeReservesBodyTransferReservesItemPaymentMethodIdMax),
+  "reserve": zod.string().regex(applyAdminBestchangeReservesBodyTransferReservesItemReserveRegExp)
+})).min(1).max(applyAdminBestchangeReservesBodyTransferReservesMax)
+}),
+  "reviewHash": zod.string().min(applyAdminBestchangeReservesBodyReviewHashMin).max(applyAdminBestchangeReservesBodyReviewHashMax)
+})
+
+export const applyAdminBestchangeReservesResponseUpdatedCountMin = 0;
+
+
+
+export const ApplyAdminBestchangeReservesResponse = zod.object({
+  "updatedCount": zod.number().int().min(applyAdminBestchangeReservesResponseUpdatedCountMin)
+})

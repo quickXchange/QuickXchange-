@@ -50,6 +50,10 @@ import type {
   ApiError,
   BestchangeAdmin,
   BestchangePreview,
+  BestchangeReserveApplied,
+  BestchangeReserveApproval,
+  BestchangeReserveReview,
+  BestchangeReserveTransfer,
   BestchangeSettings,
   BindAffiliateReferrerBody,
   BlockchainMonitoringAsset,
@@ -21479,3 +21483,210 @@ export function useGetAdminBestchangePreview<TData = Awaited<ReturnType<typeof g
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+
+
+
+
+
+
+export const getGetAdminBestchangeReservesExportUrl = () => {
+
+
+
+
+  return `/api/admin/bestchange/reserves/export`
+}
+
+export const getAdminBestchangeReservesExport = async ( options?: Parameters<typeof customFetch>[1]): Promise<BestchangeReserveTransfer> => {
+
+  return customFetch<BestchangeReserveTransfer>(getGetAdminBestchangeReservesExportUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminBestchangeReservesExportQueryKey = () => {
+    return [
+    `/api/admin/bestchange/reserves/export`
+    ] as const;
+    }
+
+
+export const getGetAdminBestchangeReservesExportQueryOptions = <TData = Awaited<ReturnType<typeof getAdminBestchangeReservesExport>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminBestchangeReservesExport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminBestchangeReservesExportQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminBestchangeReservesExport>>> = ({ signal }) => getAdminBestchangeReservesExport({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminBestchangeReservesExport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminBestchangeReservesExportQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminBestchangeReservesExport>>>
+export type GetAdminBestchangeReservesExportQueryError = ErrorType<unknown>
+
+
+
+export function useGetAdminBestchangeReservesExport<TData = Awaited<ReturnType<typeof getAdminBestchangeReservesExport>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminBestchangeReservesExport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminBestchangeReservesExportQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPreviewAdminBestchangeReservesUrl = () => {
+
+
+
+
+  return `/api/admin/bestchange/reserves/preview`
+}
+
+export const previewAdminBestchangeReserves = async (bestchangeReserveTransfer: BestchangeReserveTransfer, options?: Parameters<typeof customFetch>[1]): Promise<BestchangeReserveReview> => {
+
+  return customFetch<BestchangeReserveReview>(getPreviewAdminBestchangeReservesUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(bestchangeReserveTransfer)
+  }
+);}
+
+
+
+
+
+export const getPreviewAdminBestchangeReservesMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewAdminBestchangeReserves>>, TError,{data: BodyType<BestchangeReserveTransfer>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewAdminBestchangeReserves>>, TError,{data: BodyType<BestchangeReserveTransfer>}, TContext> => {
+
+const mutationKey = ['previewAdminBestchangeReserves'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewAdminBestchangeReserves>>, {data: BodyType<BestchangeReserveTransfer>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  previewAdminBestchangeReserves(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PreviewAdminBestchangeReservesMutationResult = NonNullable<Awaited<ReturnType<typeof previewAdminBestchangeReserves>>>
+    export type PreviewAdminBestchangeReservesMutationBody = BodyType<BestchangeReserveTransfer>
+    export type PreviewAdminBestchangeReservesMutationError = ErrorType<unknown>
+
+    export const usePreviewAdminBestchangeReserves = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewAdminBestchangeReserves>>, TError,{data: BodyType<BestchangeReserveTransfer>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof previewAdminBestchangeReserves>>,
+        TError,
+        {data: BodyType<BestchangeReserveTransfer>},
+        TContext
+      > => {
+      return useMutation(getPreviewAdminBestchangeReservesMutationOptions(options));
+    }
+
+export const getApplyAdminBestchangeReservesUrl = () => {
+
+
+
+
+  return `/api/admin/bestchange/reserves/apply`
+}
+
+export const applyAdminBestchangeReserves = async (bestchangeReserveApproval: BestchangeReserveApproval, options?: Parameters<typeof customFetch>[1]): Promise<BestchangeReserveApplied> => {
+
+  return customFetch<BestchangeReserveApplied>(getApplyAdminBestchangeReservesUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(bestchangeReserveApproval)
+  }
+);}
+
+
+
+
+
+export const getApplyAdminBestchangeReservesMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof applyAdminBestchangeReserves>>, TError,{data: BodyType<BestchangeReserveApproval>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof applyAdminBestchangeReserves>>, TError,{data: BodyType<BestchangeReserveApproval>}, TContext> => {
+
+const mutationKey = ['applyAdminBestchangeReserves'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof applyAdminBestchangeReserves>>, {data: BodyType<BestchangeReserveApproval>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  applyAdminBestchangeReserves(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApplyAdminBestchangeReservesMutationResult = NonNullable<Awaited<ReturnType<typeof applyAdminBestchangeReserves>>>
+    export type ApplyAdminBestchangeReservesMutationBody = BodyType<BestchangeReserveApproval>
+    export type ApplyAdminBestchangeReservesMutationError = ErrorType<void>
+
+    export const useApplyAdminBestchangeReserves = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof applyAdminBestchangeReserves>>, TError,{data: BodyType<BestchangeReserveApproval>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof applyAdminBestchangeReserves>>,
+        TError,
+        {data: BodyType<BestchangeReserveApproval>},
+        TContext
+      > => {
+      return useMutation(getApplyAdminBestchangeReservesMutationOptions(options));
+    }

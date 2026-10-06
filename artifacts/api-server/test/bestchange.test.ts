@@ -131,6 +131,9 @@ test("all BestChange Admin operations remain Owner-only even with staff permissi
     ["GET", "/admin/bestchange", "site_settings.view"],
     ["GET", "/admin/bestchange/preview", "site_settings.view"],
     ["PUT", "/admin/bestchange", "site_settings.manage"],
+    ["GET", "/admin/bestchange/reserves/export", "site_settings.view"],
+    ["POST", "/admin/bestchange/reserves/preview", "site_settings.manage"],
+    ["POST", "/admin/bestchange/reserves/apply", "site_settings.manage"],
   ] as const) {
     assert.deepEqual(classifyAdminRoute(method, path), { permission, ownerOnly: true });
     const error = await new Promise<unknown>(resolve => {

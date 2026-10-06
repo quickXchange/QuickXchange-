@@ -5,14 +5,17 @@ import { onBestchangeConfigurationChange } from "../lib/bestchange-cache-invalid
 import { and, eq } from "drizzle-orm";
 import {
   GetAdminBestchangeResponse, UpdateAdminBestchangeBody, UpdateAdminBestchangeResponse,
-  GetAdminBestchangePreviewResponse,
+  GetAdminBestchangePreviewResponse, PreviewAdminBestchangeReservesBody, ApplyAdminBestchangeReservesBody,
 } from "@workspace/api-zod";
 import { bestchangeSettingsTable, manualDeskPricingRulesTable, db } from "@workspace/db";
 import {
   syncBestchangeDirections, isAutomaticBestchangeDirection,
 } from "../lib/bestchange-direction-sync";
 import reference from "../data/bestchange-reference.json";
-import { requireOwner } from "../lib/operator-auth";
+import { requireOwner, getOperatorActorUserId, type OperatorAuthorization } from "../lib/operator-auth";
+import {
+  exportBestchangeReserves, previewBestchangeReserves, applyBestchangeReserves,
+} from "../lib/bestchange-reserve-transfer";
 import { ApiError } from "../lib/api-error";
 import { listPublicFiatSettlementOptions } from "../lib/payment-methods";
 import { listPublicManualCryptoSettlementOptions } from "../lib/manual-crypto";
@@ -254,6 +257,27 @@ router.put("/admin/bestchange", requireOwner, async (req, res, next) => {
 router.get("/admin/bestchange/preview", requireOwner, async (_req, res, next) => {
   try {
     res.set("Cache-Control", "no-store").json(GetAdminBestchangePreviewResponse.parse(await generate(await settings())));
+  } catch (error) { next(error); }
+});
+router.get("/admin/bestchange/reserves/export", requireOwner, async (_req, res, next) => {
+  try { res.set("Cache-Control", "no-store").json(await exportBestchangeReserves()); }
+  catch (error) { next(error); }
+});
+router.post("/admin/bestchange/reserves/preview", requireOwner, async (req, res, next) => {
+  try {
+    res.set("Cache-Control", "no-store").json(
+      await previewBestchangeReserves(PreviewAdminBestchangeReservesBody.strict().parse(req.body)));
+  } catch (error) { next(error); }
+});
+router.post("/admin/bestchange/reserves/apply", requireOwner, async (req, res, next) => {
+  try {
+    const approval = ApplyAdminBestchangeReservesBody.strict().parse(req.body);
+    res.set("Cache-Control", "no-store").json(await applyBestchangeReserves(
+      approval.transfer, approval.reviewHash, {
+        actorClerkUserId: getOperatorActorUserId(req),
+        operator: res.locals.operator as OperatorAuthorization, requestId: String(req.id),
+      },
+    ));
   } catch (error) { next(error); }
 });
 export default router;

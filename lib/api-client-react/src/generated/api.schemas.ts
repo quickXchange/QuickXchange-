@@ -5,6 +5,63 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface BestchangeReserveLine {
+  /**
+     * @minLength 2
+     * @maxLength 12
+     */
+  currencyCode: string;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  paymentMethodId: string;
+  /** @pattern ^[0-9]{1,20}(\.[0-9]{1,18})?$ */
+  reserve: string;
+}
+
+export type BestchangeReserveTransferFormat = typeof BestchangeReserveTransferFormat[keyof typeof BestchangeReserveTransferFormat];
+
+
+export const BestchangeReserveTransferFormat = {
+  'qx-bestchange-reserves-v1': 'qx-bestchange-reserves-v1',
+} as const;
+
+export interface BestchangeReserveTransfer {
+  format: BestchangeReserveTransferFormat;
+  /**
+     * @minItems 1
+     * @maxItems 500
+     */
+  reserves: BestchangeReserveLine[];
+}
+
+export interface BestchangeReserveChange {
+  currencyCode: string;
+  paymentMethodId: string;
+  currentReserve: string;
+  proposedReserve: string;
+}
+
+export interface BestchangeReserveReview {
+  reviewHash: string;
+  changes: BestchangeReserveChange[];
+}
+
+export interface BestchangeReserveApproval {
+  transfer: BestchangeReserveTransfer;
+  /**
+     * @minLength 64
+     * @maxLength 64
+     */
+  reviewHash: string;
+}
+
+export interface BestchangeReserveApplied {
+  /** @minimum 0 */
+  updatedCount: number;
+}
+
 export type BestchangeDirectionParamsItem = typeof BestchangeDirectionParamsItem[keyof typeof BestchangeDirectionParamsItem];
 
 
