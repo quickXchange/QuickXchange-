@@ -15,7 +15,7 @@
     "test:pricing-coverage": "node ./test/run.mjs manual-pricing-coverage.test.ts",
     "test:manual-path": "NODE_ENV=test node ./test/run.mjs manual-path-pricing.test.ts",
     "test:operators": "NODE_ENV=test node ./test/run.mjs operator-access.test.ts",
-    "test:telegram": "NODE_ENV=test node ./test/run.mjs telegram.test.ts",
+    "test:telegram": "NODE_ENV=test node ./test/run.mjs telegram.test.ts && NODE_ENV=test node ./test/run.mjs telegram-convert-catalog.test.ts",
     "test:telegram-support-bot": "node ./test/run-telegram-support-bot-isolated.mjs",
     "test:affiliate": "NODE_ENV=test node ./test/run.mjs affiliate.test.ts",
     "test:landing-background": "NODE_ENV=test node ./test/run.mjs landing-background.test.ts",

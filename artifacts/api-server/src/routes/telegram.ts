@@ -7,7 +7,8 @@ import { languageButtons, localeOf, t, type TelegramLocale } from "../lib/telegr
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { signOrderTrackingToken, verifyOrderTrackingToken } from "../lib/order-access";
-import { buildCreatePayload, buildQuoteByReceivePayload, buildQuotePayload, buildTelegramConvertOptions, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, requiredFieldActive, shouldAskDestination, telegramCallbackIndexes, telegramFieldSkipIndex, telegramStatusLabel, toggleTelegramManualSwapAddonSelection, withoutTelegramRefundFields, type TelegramConvertInstrument, type TelegramManualSwapAddon, type TelegramRouteOption } from "../lib/telegram-wizard";
+import { buildCreatePayload, buildQuoteByReceivePayload, buildQuotePayload, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, requiredFieldActive, shouldAskDestination, telegramCallbackIndexes, telegramFieldSkipIndex, telegramStatusLabel, toggleTelegramManualSwapAddonSelection, withoutTelegramRefundFields, type TelegramManualSwapAddon, type TelegramRouteOption } from "../lib/telegram-wizard";
+import { loadTelegramConvertCatalog } from "../lib/telegram-convert-catalog";
 import { createTelegramLinkChallenge } from "../lib/telegram-link";
 import { AdminTelegramLinkChallengeError, consumeAdminTelegramLinkChallenge } from "../lib/admin-telegram-link";
 import { getCustomerVerifiedEmail, requireActiveCustomerIdentity } from "../lib/customer-auth";
@@ -394,12 +395,24 @@ async function showTargetOptions(
 }
 
 async function exchangeOptions(chatId: string, locale: TelegramLocale, mode: "swap" | "convert") {
+  if (mode === "convert") {
+    const catalog = await loadTelegramConvertCatalog(baseUrl());
+    if (!catalog?.options.length) {
+      await sendTelegramMessage(chatId, t(locale, "unavailable"));
+      return;
+    }
+    const data = {
+      mode, ...catalog, manualRoutes: [], sourceQuery: "", clientRequestId: randomUUID(),
+    };
+    await saveSession(chatId, "source", data);
+    await showSourceOptions(chatId, data);
+    return;
+  }
   const response = await fetch(`${baseUrl()}/api/exchange/config`);
   if (!response.ok) { await sendTelegramMessage(chatId, t(locale, "unavailable")); return; }
   const config = await response.json() as {
     assets?: Array<{ id: string; name: string }>;
     settlementOptions?: SettlementOption[];
-    instantSettlementOptions?: SettlementOption[];
     manualRouteAvailability?: { routes?: Array<{ sourceSettlementOptionId: string; targetSettlementOptionId: string }> };
   };
   const assetNames = new Map((config.assets ?? []).map(asset => [asset.id, asset.name]));
@@ -411,33 +424,14 @@ async function exchangeOptions(chatId: string, locale: TelegramLocale, mode: "sw
       : option.assetId ? assetNames.get(option.assetId) : undefined,
   }));
   const manualRoutes = config.manualRouteAvailability?.routes ?? [];
-  let convertPairs: ConvertPair[] = [];
-  let convertOptions: SettlementOption[] = [];
-  if (mode === "convert") {
-    const quickexResponse = await fetch(`${baseUrl()}/api/quickex/config`);
-    if (quickexResponse.ok) {
-      const quickex = await quickexResponse.json() as {
-        instruments?: TelegramConvertInstrument[];
-        pairs?: ConvertPair[];
-      };
-      convertPairs = quickex.pairs ?? [];
-      convertOptions = buildTelegramConvertOptions(
-        quickex.instruments ?? [],
-        convertPairs,
-        (config.instantSettlementOptions ?? []) as SettlementOption[],
-      ) as SettlementOption[];
-    }
-  }
-  const options = mode === "convert"
-    ? convertOptions
-    : filterManualSourceOptions(allOptions, manualRoutes);
+  const options = filterManualSourceOptions(allOptions, manualRoutes);
   if (!options.length) { await sendTelegramMessage(chatId, t(locale, "unavailable")); return; }
   const data = {
     mode,
     options,
-    allOptions: mode === "convert" ? convertOptions : allOptions,
+    allOptions,
     manualRoutes,
-    convertPairs,
+    convertPairs: [],
     sourceQuery: "",
     clientRequestId: randomUUID(),
   };
