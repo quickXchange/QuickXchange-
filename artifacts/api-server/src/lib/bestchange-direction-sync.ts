@@ -7,6 +7,7 @@ import {
 } from "./manual-desk-pricing";
 import reference from "../data/bestchange-reference.json";
 import { plainDecimal } from "./bestchange-xml";
+import { reviewedBestchangeCode } from "./bestchange-reviewed-codes";
 
 export type SyncedBestchangeDirection =
   ReturnType<typeof UpdateAdminBestchangeBody.parse>["directions"][number];
@@ -159,8 +160,12 @@ export function syncBestchangeDirections(
       };
       direction.automatic = true;
       direction.pricingRuleName = rule.name;
-      direction.fromCode ||= unique(codeDeclarations.get(source.id) ?? []);
-      direction.toCode ||= unique(codeDeclarations.get(target.id) ?? []);
+      // An ambiguous operator declaration must stay pending rather than being
+      // hidden by a suggested code, even if this route has a known identity.
+      direction.fromCode ||= codeDeclarations.has(source.id)
+        ? unique(codeDeclarations.get(source.id)!) : reviewedBestchangeCode(source);
+      direction.toCode ||= codeDeclarations.has(target.id)
+        ? unique(codeDeclarations.get(target.id)!) : reviewedBestchangeCode(target);
       if (direction.minAmount === "0") direction.minAmount = limit([
         source.kind === "fiat-payment-method" ? source.minAmount : undefined,
         rule.rangeOnlyPricing ? undefined : rule.minAmount,

@@ -19,7 +19,7 @@ const rule = (patch: Partial<ManualDeskPricingRule> = {}): ManualDeskPricingRule
 });
 const fiat = { id: "fiat:eur:paypal", assetCode: "EUR", routeNetwork: "fiat", kind: "fiat-payment-method" as const,
   direction: "send" as const, minAmount: "20", maxAmount: "90", reserve: "500" };
-const btc = { id: "crypto:btc", assetId: "bitcoin", assetCode: "BTC", routeNetwork: "BITCOIN",
+const btc = { id: "crypto:btc", assetId: "bitcoin", assetCode: "BTC", routeNetwork: "Bitcoin",
   kind: "crypto-network" as const, direction: "receive" as const };
 const eth = { ...btc, id: "crypto:eth", assetId: "ethereum", assetCode: "ETH", routeNetwork: "ERC20" };
 function direction(patch: Partial<SyncedBestchangeDirection> = {}): SyncedBestchangeDirection {
@@ -34,17 +34,32 @@ test("all current and future covered manual routes appear without inventing code
   const before = syncBestchangeDirections([], [fiat, btc], [rule()]);
   assert.equal(before.length, 1);
   assert.equal(before[0].automatic, true);
-  assert.equal(before[0].fromCode, "");
-  assert.equal(before[0].toCode, "");
+  assert.equal(before[0].fromCode, "PPEUR");
+  assert.equal(before[0].toCode, "BTC");
   assert.equal(before[0].reserve, "0");
   assert.equal(before[0].minAmount, "20");
   assert.equal(before[0].maxAmount, "90");
-  assert.equal(before[0].pendingReasons?.length, 3);
+  assert.equal(before[0].pendingReasons?.length, 1);
   const after = syncBestchangeDirections([], [fiat, btc, eth], [rule({ id: "replacement", name: "Renamed" })]);
   assert.equal(after.length, 2);
   assert.equal(after.find(d => d.targetOptionId === btc.id)?.id, before[0].id);
   assert.ok(isAutomaticBestchangeDirection(before[0]));
   assert.notEqual(automaticBestchangeDirectionId(fiat.id, btc.id), automaticBestchangeDirectionId(btc.id, fiat.id));
+});
+test("reviewed codes follow exact fiat and network identities without mapping unknown banks or tokens", () => {
+  const send = { ...btc, direction: "both" as const, routeNetwork: "Bitcoin" };
+  const receive = { ...fiat, direction: "both" as const };
+  const bank = { ...receive, id: "fiat:eur:n26" };
+  const stable = { ...send, id: "crypto:usdt-trc20", assetCode: "USDT", routeNetwork: "TRC20" };
+  const wrapped = { ...stable, id: "crypto:usdt-unknown", routeNetwork: "Unknown" };
+  const result = syncBestchangeDirections([], [send, receive, bank, stable, wrapped], [rule()]);
+  const bitcoin = result.find(d => d.sourceOptionId === send.id && d.targetOptionId === receive.id)!;
+  assert.equal(bitcoin.fromCode, "BTC");
+  assert.equal(bitcoin.toCode, "PPEUR");
+  assert.deepEqual(bitcoin.pendingReasons, []);
+  assert.equal(result.find(d => d.sourceOptionId === stable.id && d.targetOptionId === receive.id)?.fromCode, "USDTTRC20");
+  assert.equal(result.find(d => d.targetOptionId === bank.id)?.toCode, "");
+  assert.equal(result.find(d => d.sourceOptionId === wrapped.id)?.fromCode, "");
 });
 test("disabled and configured operator routes survive; ready new routes inherit only exact-option declarations", () => {
   const saved = [
