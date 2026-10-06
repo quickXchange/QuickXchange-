@@ -7,7 +7,10 @@ import {
   GetAdminBestchangeResponse, UpdateAdminBestchangeBody, UpdateAdminBestchangeResponse,
   GetAdminBestchangePreviewResponse,
 } from "@workspace/api-zod";
-import { bestchangeSettingsTable, db } from "@workspace/db";
+import { bestchangeSettingsTable, manualDeskPricingRulesTable, db } from "@workspace/db";
+import {
+  syncBestchangeDirections, isAutomaticBestchangeDirection,
+} from "../lib/bestchange-direction-sync";
 import reference from "../data/bestchange-reference.json";
 import { requireOwner } from "../lib/operator-auth";
 import { ApiError } from "../lib/api-error";
@@ -38,11 +41,16 @@ function invalidate() {
 }
 async function settings(): Promise<BestchangeSettings> {
   const [row] = await db.select().from(bestchangeSettingsTable).where(eq(bestchangeSettingsTable.id, 1));
+  const directions = syncBestchangeDirections(
+    row ? UpdateAdminBestchangeBody.shape.directions.parse(row.directions) : [],
+    await options(),
+    await db.select().from(manualDeskPricingRulesTable),
+  );
   return row ? {
     enabled: row.enabled, version: row.version,
-    directions: UpdateAdminBestchangeBody.shape.directions.parse(row.directions),
+    directions,
     updatedAt: row.updatedAt.toISOString(),
-  } : { enabled: false, version: 0, directions: [] };
+  } : { enabled: true, version: 0, directions };
 }
 onBestchangeConfigurationChange(invalidate);
 async function options() {
@@ -56,15 +64,17 @@ function validateDirections(directions: BestchangeDirection[]) {
   for (const direction of directions) {
     if (ids.has(direction.id)) throw new ApiError("BESTCHANGE_INVALID", "Direction IDs must be unique.", 400);
     ids.add(direction.id);
-    if (!currencyCodes.has(direction.fromCode) || !currencyCodes.has(direction.toCode)) {
+    const automatic = isAutomaticBestchangeDirection(direction);
+    if ((!currencyCodes.has(direction.fromCode) && !(automatic && !direction.fromCode)) ||
+      (!currencyCodes.has(direction.toCode) && !(automatic && !direction.toCode))) {
       throw new ApiError("BESTCHANGE_INVALID", "Use official BestChange currency codes.", 400);
     }
-    if (direction.fromCode === direction.toCode) throw new ApiError("BESTCHANGE_INVALID", "Choose two different BestChange currency codes.", 400);
+    if (direction.fromCode && direction.fromCode === direction.toCode) throw new ApiError("BESTCHANGE_INVALID", "Choose two different BestChange currency codes.", 400);
     if (direction.cities.some(code => !cityCodes.has(code))) throw new ApiError("BESTCHANGE_INVALID", "Use official BestChange city codes.", 400);
     if (direction.cities.length && ![direction.fromCode, direction.toCode].some(code => code.startsWith("CASH"))) {
       throw new ApiError("BESTCHANGE_INVALID", "City tags are only valid for cash directions.", 400);
     }
-    if (compareDecimal(direction.minAmount, "0") <= 0 || compareDecimal(direction.maxAmount, direction.minAmount) < 0) {
+    if (!automatic && (compareDecimal(direction.minAmount, "0") <= 0 || compareDecimal(direction.maxAmount, direction.minAmount) < 0)) {
       throw new ApiError("BESTCHANGE_INVALID", "A positive minimum and maximum at least equal to minimum are required.", 400);
     }
     // The Swap contract supports up to twelve significant digits.
@@ -74,7 +84,8 @@ function validateDirections(directions: BestchangeDirection[]) {
         throw new ApiError("BESTCHANGE_INVALID", "Source limits must fit Swap's twelve-significant-digit amount contract.", 400);
       }
     }
-    if (direction.enabled && directions.some(other => other.id !== direction.id && other.enabled &&
+    if (!automatic && direction.enabled && directions.some(other => !isAutomaticBestchangeDirection(other) &&
+      other.id !== direction.id && other.enabled &&
       other.fromCode === direction.fromCode && other.toCode === direction.toCode &&
       (!other.cities.length || !direction.cities.length || other.cities.some(city => direction.cities.includes(city))))) {
       throw new ApiError("BESTCHANGE_INVALID", "Only one enabled direction may publish the same BestChange pair in an overlapping city.", 400);
@@ -120,6 +131,10 @@ export async function generate(
       const index = cursor++, direction = config.directions[index];
       if (!direction.enabled) {
         diagnostics[index] = { id: direction.id, exported: false, message: "Direction disabled." };
+        continue;
+      }
+      if (direction.pendingReasons?.length) {
+        diagnostics[index] = { id: direction.id, exported: false, message: `Pending setup: ${direction.pendingReasons.join(" ")}` };
         continue;
       }
       try {
@@ -214,7 +229,7 @@ router.put("/admin/bestchange", requireOwner, async (req, res, next) => {
     const input = UpdateAdminBestchangeBody.parse(req.body);
     validateDirections(input.directions);
     const catalog = await options();
-    for (const direction of input.directions.filter(row => row.enabled)) {
+    for (const direction of input.directions.filter(row => row.enabled && !isAutomaticBestchangeDirection(row))) {
       const source = catalog.find(option => option.id === direction.sourceOptionId);
       const target = catalog.find(option => option.id === direction.targetOptionId);
       if (!source || !target || source.id === target.id ||
@@ -225,7 +240,7 @@ router.put("/admin/bestchange", requireOwner, async (req, res, next) => {
     }
     const row = {
       id: 1, enabled: input.enabled, version: input.version + 1,
-      directions: input.directions.map(direction => ({ ...direction })), updatedAt: new Date(),
+      directions: input.directions.map(({ automatic, pricingRuleName, pendingReasons, ...direction }) => direction), updatedAt: new Date(),
     };
     const saved = input.version === 0
       ? await db.insert(bestchangeSettingsTable).values(row).onConflictDoNothing().returning()
@@ -233,7 +248,7 @@ router.put("/admin/bestchange", requireOwner, async (req, res, next) => {
         .where(and(eq(bestchangeSettingsTable.id, 1), eq(bestchangeSettingsTable.version, input.version))).returning();
     if (!saved.length) throw new ApiError("BESTCHANGE_CONFLICT", "Settings changed in another session. Reload before saving.", 409);
     invalidate();
-    res.json(UpdateAdminBestchangeResponse.parse({ ...row, updatedAt: row.updatedAt.toISOString() }));
+    res.json(UpdateAdminBestchangeResponse.parse(await settings()));
   } catch (error) { next(error); }
 });
 router.get("/admin/bestchange/preview", requireOwner, async (_req, res, next) => {

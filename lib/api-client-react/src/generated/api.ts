@@ -313,6 +313,33 @@ import type {
 import { customFetch } from '../custom-fetch';
 import type { ErrorType , BodyType } from '../custom-fetch';
 
+// https://stackoverflow.com/questions/49579094/typescript-conditional-types-filter-out-readonly-properties-pick-only-requir/49579497#49579497
+type IfEquals<X, Y, A = X, B = never> = (<T>() => T extends X ? 1 : 2) extends <
+T,
+>() => T extends Y ? 1 : 2
+? A
+: B;
+
+type WritableKeys<T> = {
+[P in keyof T]-?: IfEquals<
+  { [Q in P]: T[P] },
+  { -readonly [Q in P]: T[P] },
+  P
+>;
+}[keyof T];
+
+type UnionToIntersection<U> =
+  (U extends any ? (k: U)=>void : never) extends ((k: infer I)=>void) ? I : never;
+type DistributeReadOnlyOverUnions<T> = T extends any ? NonReadonly<T> : never;
+
+type Writable<T> = Pick<T, WritableKeys<T>>;
+type NonReadonly<T> = [T] extends [UnionToIntersection<T>] ? {
+  [P in keyof Writable<T>]: T[P] extends object
+    ? NonReadonly<NonNullable<T[P]>>
+    : T[P];
+} : DistributeReadOnlyOverUnions<T>;
+
+
 type AwaitedInput<T> = PromiseLike<T> | T;
 
       type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
@@ -21331,7 +21358,7 @@ export const getUpdateAdminBestchangeUrl = () => {
   return `/api/admin/bestchange`
 }
 
-export const updateAdminBestchange = async (bestchangeSettings: BestchangeSettings, options?: Parameters<typeof customFetch>[1]): Promise<BestchangeSettings> => {
+export const updateAdminBestchange = async (bestchangeSettings: NonReadonly<BestchangeSettings>, options?: Parameters<typeof customFetch>[1]): Promise<BestchangeSettings> => {
 
   return customFetch<BestchangeSettings>(getUpdateAdminBestchangeUrl(),
   {
@@ -21347,8 +21374,8 @@ export const updateAdminBestchange = async (bestchangeSettings: BestchangeSettin
 
 
 export const getUpdateAdminBestchangeMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminBestchange>>, TError,{data: BodyType<BestchangeSettings>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateAdminBestchange>>, TError,{data: BodyType<BestchangeSettings>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminBestchange>>, TError,{data: BodyType<NonReadonly<BestchangeSettings>>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAdminBestchange>>, TError,{data: BodyType<NonReadonly<BestchangeSettings>>}, TContext> => {
 
 const mutationKey = ['updateAdminBestchange'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -21360,7 +21387,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAdminBestchange>>, {data: BodyType<BestchangeSettings>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAdminBestchange>>, {data: BodyType<NonReadonly<BestchangeSettings>>}> = (props) => {
           const {data} = props ?? {};
 
           return  updateAdminBestchange(data,requestOptions)
@@ -21374,15 +21401,15 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type UpdateAdminBestchangeMutationResult = NonNullable<Awaited<ReturnType<typeof updateAdminBestchange>>>
-    export type UpdateAdminBestchangeMutationBody = BodyType<BestchangeSettings>
+    export type UpdateAdminBestchangeMutationBody = BodyType<NonReadonly<BestchangeSettings>>
     export type UpdateAdminBestchangeMutationError = ErrorType<void>
 
     export const useUpdateAdminBestchange = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminBestchange>>, TError,{data: BodyType<BestchangeSettings>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminBestchange>>, TError,{data: BodyType<NonReadonly<BestchangeSettings>>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateAdminBestchange>>,
         TError,
-        {data: BodyType<BestchangeSettings>},
+        {data: BodyType<NonReadonly<BestchangeSettings>>},
         TContext
       > => {
       return useMutation(getUpdateAdminBestchangeMutationOptions(options));

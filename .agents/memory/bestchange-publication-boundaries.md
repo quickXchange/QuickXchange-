@@ -26,3 +26,9 @@ Bulk Reserve applies the full entered amount separately to each selected Payment
 **Why:** The user explicitly required individual amounts with currencies preserved, including setting zero, and no changes to other Payment Method fields.
 
 **How to apply:** Preserve this meaning in bulk previews and mutations; never introduce currency conversion, allocation, or changes to unrelated settings.
+
+Manual Pricing directions should appear automatically in BestChange, including future routes. Publish ready routes and keep incomplete routes visible as pending setup; preserve explicit operator disable switches.
+
+**Why:** The user requested automatic inclusion of any Manual Pricing direction and chose “Publish ready routes; keep incomplete ones pending.”
+
+**How to apply:** Expand wildcard pricing into concrete Manual Swap directions. Reuse only unambiguous operator declarations for the same immutable settlement option; do not guess official codes, payout reserves, limits or cash cities. Keep unavailable exact paths visible without treating their metadata as execution permission.

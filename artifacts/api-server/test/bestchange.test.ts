@@ -10,13 +10,41 @@ import {
 import { getManualDeskEstimate } from "../src/lib/manual-desk-rates";
 import { resolveManualPricingTerms, type ManualPricingTier } from "../src/lib/manual-desk-pricing";
 import { classifyAdminRoute, adminPolicy } from "../src/lib/admin-policy";
-import router from "../src/routes/bestchange";
+import router, { generate } from "../src/routes/bestchange";
+import { automaticBestchangeDirectionId } from "../src/lib/bestchange-direction-sync";
 import reference from "../src/data/bestchange-reference.json";
 
 if (process.env.API_TEST_DISPOSABLE_DATABASE !== "1") {
   throw new Error("BestChange tests require the disposable API database.");
 }
 after(async () => { await pool.end(); });
+
+test("automatic pending directions never invoke quotes; ready directions retain conservative XML pricing", async () => {
+  let calls = 0;
+  const base = {
+    id: automaticBestchangeDirectionId("fiat:test:method", "crypto:test"),
+    automatic: true, enabled: true, sourceOptionId: "fiat:test:method",
+    targetOptionId: "crypto:test", fromCode: "PPEUR", toCode: "BTC",
+    reserve: "10", minAmount: "20", maxAmount: "90",
+    params: [], cities: [], selectedAddOnKeys: [], includeFeeTags: false,
+  };
+  const preview = await generate({ enabled: true, version: 1, directions: [
+    { ...base, pendingReasons: [] },
+    { ...base, id: automaticBestchangeDirectionId("fiat:unmapped:method", "crypto:test"),
+      sourceOptionId: "fiat:unmapped:method", fromCode: "", pendingReasons: ["Choose an official BestChange From code."] },
+  ] }, async () => {
+    calls++;
+    return { effectiveMinAmount: 20, effectiveMaxAmount: 90, targetPrecision: 2,
+      tiers: [], rangeOnlyPricing: false, quote: async amount => (amount * 2).toFixed(2) };
+  });
+  assert.equal(calls, 1);
+  assert.equal(preview.exportedCount, 1);
+  assert.equal(preview.diagnostics[0].exported, true);
+  assert.match(preview.diagnostics[1].message, /Pending setup/);
+  assert.equal((preview.xml.match(/<item>/g) ?? []).length, 1);
+  assert.match(preview.xml, /<from>PPEUR<\/from>/);
+  assert.ok(!preview.xml.includes("<from></from>"));
+});
 
 test("official reference includes the complete currency/city catalogs and four original example items", () => {
   assert.equal(reference.currencyCodes.length, 330);

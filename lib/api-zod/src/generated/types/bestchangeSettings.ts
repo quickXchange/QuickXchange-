@@ -11,7 +11,6 @@ export interface BestchangeSettings {
   enabled: boolean;
   /** @minimum 0 */
   version: number;
-  /** @maxItems 50 */
   directions: BestchangeDirection[];
   updatedAt?: Date;
 }

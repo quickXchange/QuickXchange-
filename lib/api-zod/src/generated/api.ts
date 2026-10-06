@@ -20340,8 +20340,6 @@ export const getAdminBestchangeResponseSettingsDirectionsItemSelectedAddOnKeysIt
 
 export const getAdminBestchangeResponseSettingsDirectionsItemSelectedAddOnKeysMax = 32;
 
-export const getAdminBestchangeResponseSettingsDirectionsMax = 50;
-
 
 
 export const GetAdminBestchangeResponse = zod.object({
@@ -20353,8 +20351,11 @@ export const GetAdminBestchangeResponse = zod.object({
   "enabled": zod.boolean(),
   "sourceOptionId": zod.string().min(1).max(getAdminBestchangeResponseSettingsDirectionsItemSourceOptionIdMax),
   "targetOptionId": zod.string().min(1).max(getAdminBestchangeResponseSettingsDirectionsItemTargetOptionIdMax),
-  "fromCode": zod.string().min(1).max(getAdminBestchangeResponseSettingsDirectionsItemFromCodeMax),
-  "toCode": zod.string().min(1).max(getAdminBestchangeResponseSettingsDirectionsItemToCodeMax),
+  "fromCode": zod.string().max(getAdminBestchangeResponseSettingsDirectionsItemFromCodeMax),
+  "toCode": zod.string().max(getAdminBestchangeResponseSettingsDirectionsItemToCodeMax),
+  "automatic": zod.boolean().optional(),
+  "pricingRuleName": zod.string().optional(),
+  "pendingReasons": zod.array(zod.string()).optional(),
   "reserve": zod.string().regex(getAdminBestchangeResponseSettingsDirectionsItemReserveRegExp).optional(),
   "minAmount": zod.string().regex(getAdminBestchangeResponseSettingsDirectionsItemMinAmountRegExp),
   "maxAmount": zod.string().regex(getAdminBestchangeResponseSettingsDirectionsItemMaxAmountRegExp),
@@ -20364,7 +20365,7 @@ export const GetAdminBestchangeResponse = zod.object({
   "cities": zod.array(zod.string().min(1).max(getAdminBestchangeResponseSettingsDirectionsItemCitiesItemMax)).max(getAdminBestchangeResponseSettingsDirectionsItemCitiesMax),
   "selectedAddOnKeys": zod.array(zod.string().min(1).max(getAdminBestchangeResponseSettingsDirectionsItemSelectedAddOnKeysItemMax)).max(getAdminBestchangeResponseSettingsDirectionsItemSelectedAddOnKeysMax),
   "includeFeeTags": zod.boolean()
-})).max(getAdminBestchangeResponseSettingsDirectionsMax),
+})),
   "updatedAt": zod.coerce.date().optional()
 }),
   "options": zod.array(zod.object({
@@ -20421,8 +20422,6 @@ export const updateAdminBestchangeBodyDirectionsItemSelectedAddOnKeysItemMax = 1
 
 export const updateAdminBestchangeBodyDirectionsItemSelectedAddOnKeysMax = 32;
 
-export const updateAdminBestchangeBodyDirectionsMax = 50;
-
 
 
 export const UpdateAdminBestchangeBody = zod.object({
@@ -20433,8 +20432,11 @@ export const UpdateAdminBestchangeBody = zod.object({
   "enabled": zod.boolean(),
   "sourceOptionId": zod.string().min(1).max(updateAdminBestchangeBodyDirectionsItemSourceOptionIdMax),
   "targetOptionId": zod.string().min(1).max(updateAdminBestchangeBodyDirectionsItemTargetOptionIdMax),
-  "fromCode": zod.string().min(1).max(updateAdminBestchangeBodyDirectionsItemFromCodeMax),
-  "toCode": zod.string().min(1).max(updateAdminBestchangeBodyDirectionsItemToCodeMax),
+  "fromCode": zod.string().max(updateAdminBestchangeBodyDirectionsItemFromCodeMax),
+  "toCode": zod.string().max(updateAdminBestchangeBodyDirectionsItemToCodeMax),
+  "automatic": zod.boolean().optional(),
+  "pricingRuleName": zod.string().optional(),
+  "pendingReasons": zod.array(zod.string()).optional(),
   "reserve": zod.string().regex(updateAdminBestchangeBodyDirectionsItemReserveRegExp).optional(),
   "minAmount": zod.string().regex(updateAdminBestchangeBodyDirectionsItemMinAmountRegExp),
   "maxAmount": zod.string().regex(updateAdminBestchangeBodyDirectionsItemMaxAmountRegExp),
@@ -20444,7 +20446,7 @@ export const UpdateAdminBestchangeBody = zod.object({
   "cities": zod.array(zod.string().min(1).max(updateAdminBestchangeBodyDirectionsItemCitiesItemMax)).max(updateAdminBestchangeBodyDirectionsItemCitiesMax),
   "selectedAddOnKeys": zod.array(zod.string().min(1).max(updateAdminBestchangeBodyDirectionsItemSelectedAddOnKeysItemMax)).max(updateAdminBestchangeBodyDirectionsItemSelectedAddOnKeysMax),
   "includeFeeTags": zod.boolean()
-})).max(updateAdminBestchangeBodyDirectionsMax),
+})),
   "updatedAt": zod.coerce.date().optional()
 })
 
@@ -20479,8 +20481,6 @@ export const updateAdminBestchangeResponseDirectionsItemSelectedAddOnKeysItemMax
 
 export const updateAdminBestchangeResponseDirectionsItemSelectedAddOnKeysMax = 32;
 
-export const updateAdminBestchangeResponseDirectionsMax = 50;
-
 
 
 export const UpdateAdminBestchangeResponse = zod.object({
@@ -20491,8 +20491,11 @@ export const UpdateAdminBestchangeResponse = zod.object({
   "enabled": zod.boolean(),
   "sourceOptionId": zod.string().min(1).max(updateAdminBestchangeResponseDirectionsItemSourceOptionIdMax),
   "targetOptionId": zod.string().min(1).max(updateAdminBestchangeResponseDirectionsItemTargetOptionIdMax),
-  "fromCode": zod.string().min(1).max(updateAdminBestchangeResponseDirectionsItemFromCodeMax),
-  "toCode": zod.string().min(1).max(updateAdminBestchangeResponseDirectionsItemToCodeMax),
+  "fromCode": zod.string().max(updateAdminBestchangeResponseDirectionsItemFromCodeMax),
+  "toCode": zod.string().max(updateAdminBestchangeResponseDirectionsItemToCodeMax),
+  "automatic": zod.boolean().optional(),
+  "pricingRuleName": zod.string().optional(),
+  "pendingReasons": zod.array(zod.string()).optional(),
   "reserve": zod.string().regex(updateAdminBestchangeResponseDirectionsItemReserveRegExp).optional(),
   "minAmount": zod.string().regex(updateAdminBestchangeResponseDirectionsItemMinAmountRegExp),
   "maxAmount": zod.string().regex(updateAdminBestchangeResponseDirectionsItemMaxAmountRegExp),
@@ -20502,7 +20505,7 @@ export const UpdateAdminBestchangeResponse = zod.object({
   "cities": zod.array(zod.string().min(1).max(updateAdminBestchangeResponseDirectionsItemCitiesItemMax)).max(updateAdminBestchangeResponseDirectionsItemCitiesMax),
   "selectedAddOnKeys": zod.array(zod.string().min(1).max(updateAdminBestchangeResponseDirectionsItemSelectedAddOnKeysItemMax)).max(updateAdminBestchangeResponseDirectionsItemSelectedAddOnKeysMax),
   "includeFeeTags": zod.boolean()
-})).max(updateAdminBestchangeResponseDirectionsMax),
+})),
   "updatedAt": zod.coerce.date().optional()
 })
 

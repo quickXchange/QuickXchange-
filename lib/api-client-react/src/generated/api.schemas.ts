@@ -34,16 +34,13 @@ export interface BestchangeDirection {
      * @maxLength 160
      */
   targetOptionId: string;
-  /**
-     * @minLength 1
-     * @maxLength 32
-     */
+  /** @maxLength 32 */
   fromCode: string;
-  /**
-     * @minLength 1
-     * @maxLength 32
-     */
+  /** @maxLength 32 */
   toCode: string;
+  readonly automatic?: boolean;
+  readonly pricingRuleName?: string;
+  readonly pendingReasons?: readonly string[];
   /** @pattern ^[0-9]{1,12}(\.[0-9]{1,12})?$ */
   reserve?: string;
   /** @pattern ^[0-9]{1,12}(\.[0-9]{1,12})?$ */
@@ -81,7 +78,6 @@ export interface BestchangeSettings {
   enabled: boolean;
   /** @minimum 0 */
   version: number;
-  /** @maxItems 50 */
   directions: BestchangeDirection[];
   updatedAt?: string;
 }

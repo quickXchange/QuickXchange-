@@ -4763,8 +4763,14 @@ components:
         enabled: { type: boolean }
         sourceOptionId: { type: string, minLength: 1, maxLength: 160 }
         targetOptionId: { type: string, minLength: 1, maxLength: 160 }
-        fromCode: { type: string, minLength: 1, maxLength: 32 }
-        toCode: { type: string, minLength: 1, maxLength: 32 }
+        fromCode: { type: string, maxLength: 32 }
+        toCode: { type: string, maxLength: 32 }
+        automatic: { type: boolean, readOnly: true }
+        pricingRuleName: { type: string, readOnly: true }
+        pendingReasons:
+          type: array
+          readOnly: true
+          items: { type: string }
         reserve: { type: string, pattern: '^[0-9]{1,12}(\.[0-9]{1,12})?$' }
         minAmount: { type: string, pattern: '^[0-9]{1,12}(\.[0-9]{1,12})?$' }
         maxAmount: { type: string, pattern: '^[0-9]{1,12}(\.[0-9]{1,12})?$' }
@@ -4795,7 +4801,6 @@ components:
         version: { type: integer, minimum: 0 }
         directions:
           type: array
-          maxItems: 50
           items: { $ref: "#/components/schemas/BestchangeDirection" }
         updatedAt: { type: string, format: date-time }
     BestchangeCode:

@@ -41,16 +41,16 @@ function validate(d: BestchangeDirection, options: BestchangeOption[]): string[]
   const t = options.find(o => o.id === d.targetOptionId);
   if (!d.sourceOptionId || !d.targetOptionId) e.push('Choose both source and target options.');
   else if (d.sourceOptionId === d.targetOptionId) e.push('Source and target must differ.');
-  if (s && !['send', 'both'].includes(s.direction)) e.push('Source option must allow sending.');
-  if (t && !['receive', 'both'].includes(t.direction)) e.push('Target option must allow receiving.');
+  if (!d.automatic && s && !['send', 'both'].includes(s.direction)) e.push('Source option must allow sending.');
+  if (!d.automatic && t && !['receive', 'both'].includes(t.direction)) e.push('Target option must allow receiving.');
   if (s && t && s.kind !== 'fiat-payment-method' && t.kind !== 'fiat-payment-method') e.push('At least one side must be fiat.');
-  if (d.enabled && (!s || !t)) e.push('Enabled directions must use currently available Swap options.');
-  if (!d.fromCode || !d.toCode) e.push('Choose official from/to currency codes.');
+  if (!d.automatic && d.enabled && (!s || !t)) e.push('Enabled directions must use currently available Swap options.');
+  if (!d.automatic && (!d.fromCode || !d.toCode)) e.push('Choose official from/to currency codes.');
   if (t?.kind !== 'fiat-payment-method' && !dec.test(d.reserve ?? '0')) e.push('Reserve must be a decimal number (0 disables export).');
   for (const k of ['minAmount', 'maxAmount'] as const) {
-    if (!dec.test(d[k]) || Number(d[k]) <= 0) e.push(`${k === 'minAmount' ? 'Min' : 'Max'} amount must be a positive decimal.`);
+    if (!dec.test(d[k]) || (Number(d[k]) <= 0 && !(d.automatic && d[k] === '0'))) e.push(`${k === 'minAmount' ? 'Min' : 'Max'} amount must be a positive decimal.`);
   }
-  if (dec.test(d.minAmount) && dec.test(d.maxAmount) && Number(d.minAmount) > Number(d.maxAmount)) e.push('Min amount exceeds max amount.');
+  if (dec.test(d.minAmount) && dec.test(d.maxAmount) && Number(d.maxAmount) > 0 && Number(d.minAmount) > Number(d.maxAmount)) e.push('Min amount exceeds max amount.');
   if (d.floating && !/^[0-9]{1,6}(\.[0-9]{1,6})?%?$/.test(d.floating)) e.push('Floating must be minutes or a percent, e.g. 5 or 0.5%.');
   if (d.delay && !/^[0-9]{1,6}(\.[0-9]{1,6})?$/.test(d.delay)) e.push('Delay must be minutes.');
   return e;
@@ -87,7 +87,7 @@ function DirectionEditor({ d, i, options, currencyCodes, cityCodes, canManage, o
   const targets = options.filter(o => ['receive', 'both'].includes(o.direction));
   const missing = (id: string) => !!id && !options.some(o => o.id === id);
   const optSelect = (list: BestchangeOption[], val: string, key: 'sourceOptionId' | 'targetOptionId', tid: string) => (
-    <select className={field} value={val} disabled={!canManage} data-testid={tid} onChange={e => onChange({ [key]: e.target.value })}>
+    <select className={field} value={val} disabled={!canManage || d.automatic} data-testid={tid} onChange={e => onChange({ [key]: e.target.value })}>
       <option value="">Select…</option>
       {missing(val) && <option value={val}>{val} (missing option)</option>}
       {list.map(o => <option key={o.id} value={o.id}>{o.label} · {o.assetCode} {o.network}</option>)}
@@ -101,8 +101,15 @@ function DirectionEditor({ d, i, options, currencyCodes, cityCodes, canManage, o
           <input type="checkbox" checked={d.enabled} disabled={!canManage} onChange={e => onChange({ enabled: e.target.checked })} data-testid={`bestchange-direction-toggle-${i}`} />
           {d.enabled ? 'Enabled' : 'Disabled'} · {d.fromCode || '?'} → {d.toCode || '?'}
         </label>
-        <button type="button" className={btn} disabled={!canManage} onClick={onRemove} data-testid={`bestchange-direction-delete-${i}`}><Trash2 size={16} />Delete</button>
+        {!d.automatic && <button type="button" className={btn} disabled={!canManage} onClick={onRemove} data-testid={`bestchange-direction-delete-${i}`}><Trash2 size={16} />Delete</button>}
       </div>
+      {d.automatic && <div className="space-y-1 text-xs text-muted-foreground">
+        <p>Automatically synced from Manual Pricing{d.pricingRuleName ? ` · ${d.pricingRuleName}` : ''}. Turn off this direction to exclude it from XML.</p>
+        {!!d.pendingReasons?.length && <div className="rounded-lg bg-muted p-3" data-testid={`bestchange-pending-${i}`}>
+          <p className="font-semibold">Pending setup — not included in XML</p>
+          <ul className="mt-1 list-disc pl-4">{d.pendingReasons.map(reason => <li key={reason}>{reason}</li>)}</ul>
+        </div>}
+      </div>}
       {(missing(d.sourceOptionId) || missing(d.targetOptionId)) && (
         <p className="flex items-center gap-2 text-xs text-amber-600"><AlertTriangle size={14} />A saved option no longer exists. It stays editable but will be omitted from the feed.</p>
       )}
@@ -113,7 +120,7 @@ function DirectionEditor({ d, i, options, currencyCodes, cityCodes, canManage, o
         <div className={lbl}>To code<CodePicker value={d.toCode} codes={currencyCodes} disabled={!canManage} onChange={v => onChange({ toCode: v })} testId={`bestchange-to-${i}`} /></div>
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        {options.find(option => option.id === d.targetOptionId)?.kind === 'fiat-payment-method'
+        {options.find(option => option.id === d.targetOptionId)?.kind === 'fiat-payment-method' || d.targetOptionId.startsWith('fiat:')
           ? <label className={lbl}>Reserve from Payment Methods
               <input className={field} readOnly value={`${options.find(option => option.id === d.targetOptionId)?.reserve ?? '0'} ${options.find(option => option.id === d.targetOptionId)?.assetCode ?? ''}`} data-testid={`bestchange-reserve-${i}`} />
               <span className="text-xs text-muted-foreground">Edit the destination method’s reserve in Payment Methods. Zero omits this direction.</span>
@@ -177,13 +184,22 @@ export function AdminBestchangePage() {
   const qc = useQueryClient();
   const { isOwner } = useAdminPermissions();
   const canManage = isOwner;
-  const q = useGetAdminBestchange({ query: { queryKey: getGetAdminBestchangeQueryKey(), enabled: canManage, refetchOnWindowFocus: false } });
+  const q = useGetAdminBestchange({ query: { queryKey: getGetAdminBestchangeQueryKey(), enabled: canManage, refetchOnWindowFocus: true } });
   const preview = useGetAdminBestchangePreview({ query: { enabled: canManage, refetchOnWindowFocus: false, queryKey: ['bestchange-preview'] } });
   const save = useUpdateAdminBestchange();
   const [draft, setDraft] = useState<BestchangeSettings | null>(null);
+  const [directionSearch, setDirectionSearch] = useState('');
+  const [directionPage, setDirectionPage] = useState(0);
   const data = q.data;
   const settings = draft ?? data?.settings;
   const dirty = draft !== null;
+  const optionLabels = new Map((data?.options ?? []).map(option => [option.id, option.label]));
+  const filteredDirections = (settings?.directions ?? []).map((d, i) => ({ d, i })).filter(({ d }) =>
+    [d.fromCode, d.toCode, d.pricingRuleName, optionLabels.get(d.sourceOptionId), optionLabels.get(d.targetOptionId)]
+      .filter(Boolean).join(' ').toLowerCase().includes(directionSearch.trim().toLowerCase()));
+  const pageCount = Math.max(1, Math.ceil(filteredDirections.length / 25));
+  const currentPage = Math.min(directionPage, pageCount - 1);
+  const visibleDirections = filteredDirections.slice(currentPage * 25, (currentPage + 1) * 25);
 
   const edit = (fn: (s: BestchangeSettings) => BestchangeSettings) => {
     if (settings && !save.isPending) setDraft(fn(settings));
@@ -206,7 +222,7 @@ export function AdminBestchangePage() {
     });
   };
   const add = () => {
-    if (!settings || settings.directions.length >= 50) return;
+    if (!settings) return;
     edit(s => ({
       ...s, directions: [...s.directions, {
         id: crypto.randomUUID(), enabled: false, sourceOptionId: '', targetOptionId: '', fromCode: '', toCode: '',
@@ -256,14 +272,25 @@ export function AdminBestchangePage() {
 
             <section className="space-y-3">
               <div className="flex items-center justify-between">
-                <h2 className="text-base font-semibold">Directions ({settings.directions.length}/50)</h2>
-                <button className={btnPrimary} onClick={add} disabled={save.isPending || settings.directions.length >= 50} data-testid="bestchange-add-direction"><Plus size={16} />Add direction</button>
+                <h2 className="text-base font-semibold">Directions ({settings.directions.length})</h2>
+                <div className="flex flex-wrap gap-2">
+                  <button className={btn} disabled={dirty || q.isFetching || save.isPending} onClick={() => { void q.refetch(); void preview.refetch(); }} data-testid="bestchange-sync-directions"><RefreshCw size={16} />Refresh routes</button>
+                  <button className={btnPrimary} onClick={add} disabled={save.isPending} data-testid="bestchange-add-direction"><Plus size={16} />Add direction</button>
+                </div>
               </div>
-              {settings.directions.length === 0 && <div className={card}>No directions yet. New directions start disabled.</div>}
-              {settings.directions.map((d, i) => (
+              <p className="text-sm text-muted-foreground">Manual Pricing routes sync automatically, including Any and all-network rules. New routes reuse only unambiguous codes and crypto reserves already declared for the same settlement option. Missing settings remain pending; ready routes use live Swap pricing. Existing disabled directions stay disabled.</p>
+              <input className={field} value={directionSearch} placeholder="Search directions, payment methods, assets or pricing rules…" onChange={event => { setDirectionSearch(event.target.value); setDirectionPage(0); }} data-testid="bestchange-direction-search" />
+              {settings.directions.length === 0 && <div className={card}>No available Manual Pricing routes yet. New priced routes will appear automatically.</div>}
+              {filteredDirections.length === 0 && settings.directions.length > 0 && <div className={card}>No matching directions.</div>}
+              {visibleDirections.map(({ d, i }) => (
                 <DirectionEditor key={d.id} d={d} i={i} options={data.options} currencyCodes={data.currencyCodes} cityCodes={data.cityCodes} canManage={canManage && !save.isPending}
                   onChange={p => patchDir(d.id, p)} onRemove={() => edit(s => ({ ...s, directions: s.directions.filter(x => x.id !== d.id) }))} />
               ))}
+              {pageCount > 1 && <div className="flex items-center justify-between gap-3">
+                <button className={btn} disabled={currentPage === 0} onClick={() => setDirectionPage(currentPage - 1)}>Previous</button>
+                <span className="text-xs text-muted-foreground">Page {currentPage + 1} of {pageCount} · {filteredDirections.length} matching directions</span>
+                <button className={btn} disabled={currentPage + 1 >= pageCount} onClick={() => setDirectionPage(currentPage + 1)}>Next</button>
+              </div>}
             </section>
 
             <section className={card} data-testid="bestchange-preview">
