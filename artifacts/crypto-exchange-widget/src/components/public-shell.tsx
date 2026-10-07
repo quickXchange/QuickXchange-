@@ -29,6 +29,7 @@ import {
   resolveFooterTelegramSupportItems,
 } from '@/lib/telegram-support-value';
 import './social-trust-footer.css';
+import { FooterSocialImage } from './footer-social-image';
 
 const COMPANY_FOOTER_LINKS = [
   ['About Us', '/about'],
@@ -151,7 +152,7 @@ function footerSocialPlatformIcon(item: RenderableSocialItem) {
   </span>;
 }
 
-export function FooterSocialIcon({ item, preview, isDark, preferUploadedTrustpilot = false }: { item: RenderableSocialItem; preview: ReturnType<typeof useSitePreview>; isDark: boolean; preferUploadedTrustpilot?: boolean }) {
+export function FooterSocialIcon({ item, preview, isDark, preferUploadedTrustpilot = false, fillCircle = false }: { item: RenderableSocialItem; preview: ReturnType<typeof useSitePreview>; isDark: boolean; preferUploadedTrustpilot?: boolean; fillCircle?: boolean }) {
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   if (isTrustpilotItem(item) && !preferUploadedTrustpilot && !item.objectPath && !item.defaultAssetPath) return footerSocialPlatformIcon(item);
   const selectedPath = item.appearance === 'separate'
@@ -164,7 +165,9 @@ export function FooterSocialIcon({ item, preview, isDark, preferUploadedTrustpil
         ? `${basePath}/api/admin/social-trust/items/${item.id}/preview?objectPath=${encodeURIComponent(objectPath)}`
         : `${basePath}/api/storage/objects/social-trust-icons/${objectPath.split('/').pop()}`)
     : item.defaultAssetPath || null;
-  if (src && failedSrc !== src) return <img src={src} alt="" className="qx-footer-social-image" style={{ width: '100%', height: '100%', objectFit: 'contain' }} loading="lazy" onError={() => setFailedSrc(src)} />;
+  if (src && failedSrc !== src) return fillCircle
+    ? <FooterSocialImage src={src} onError={() => setFailedSrc(src)} />
+    : <img src={src} alt="" className="qx-footer-social-image" style={{ width: '100%', height: '100%', objectFit: 'contain' }} loading="lazy" onError={() => setFailedSrc(src)} />;
   return footerSocialPlatformIcon(item);
 }
 
@@ -256,7 +259,7 @@ function FooterSocialLinksDataDriven({ socialTrust, socialItems, trustItems, pre
       <div className="qx-footer-social-links" style={socialRowStyle}>
         {allSocialItems.map((item) => (
             <a key={item.id} href={item.href || undefined} aria-disabled={!item.href} tabIndex={item.href ? undefined : -1} target="_blank" rel="noreferrer noopener" aria-label={isTrustpilotItem(item) ? 'Trustpilot' : item.name} title={item.name} data-testid={`link-published-social-${item.id}`} className={`qx-footer-social-link qx-social-hover-${style.hoverAnimation ?? 'lift'}${isTrustpilotItem(item) ? ' qx-footer-trustpilot-social' : ''}`} style={{ ...appearanceStyle, borderRadius: radius, borderColor: style.borderColor === '#dce3ed' ? undefined : style.borderColor, backgroundColor: style.backgroundColor === '#ffffff' ? undefined : style.backgroundColor }}>
-             <span className="qx-footer-social-mark"><FooterSocialIcon item={item} preview={preview} isDark={isDark} preferUploadedTrustpilot /></span>
+             <span className="qx-footer-social-mark"><FooterSocialIcon item={item} preview={preview} isDark={isDark} preferUploadedTrustpilot fillCircle /></span>
           </a>
         ))}
       </div>
