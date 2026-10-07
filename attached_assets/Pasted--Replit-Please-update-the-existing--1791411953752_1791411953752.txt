@@ -1,0 +1,77 @@
+قصدي **البرومبت كامل الجاهز للإرسال** 😄. هذا هو، انسخه كله لـReplit:
+
+> Please update the existing XML conversion logic using the current architecture. Check the existing code first and do not create duplicate conversion or pricing logic.
+>
+> ### Dynamic XML Percentage Adjustment
+>
+> Add a new configurable feature for the XML conversion output.
+>
+> When an order is active, the XML conversion function should apply the admin-configured **Active Order %**.
+>
+> When there are no active orders, the XML conversion function should apply the admin-configured **No Active Order %**.
+>
+> The percentage values must NOT be hardcoded.
+>
+> Add these settings to the Admin Panel:
+>
+> - **Dynamic XML Percentage Adjustment:** ON / OFF
+> - **Active Order %**
+> - **No Active Order %**
+>
+> ### ON/OFF behavior
+>
+> **When ON:**
+>
+> - Active order → apply `Active Order %`
+> - No active order → apply `No Active Order %`
+>
+> **When OFF:**
+>
+> - Do not apply either percentage.
+> - Return the normal/base XML conversion value using the existing XML logic.
+> - Do NOT disable the XML feed itself.
+>
+> Keep the saved percentage values when the feature is OFF so they can be reused when it is turned ON again.
+>
+> ### Example
+>
+> Active Order % = 5%  
+> No Active Order % = 2%  
+> Base value = 100
+>
+> Feature ON + Active order → XML value = 105  
+> Feature ON + No active order → XML value = 102  
+> Feature OFF → XML value = 100
+>
+> ### Very important
+>
+> This percentage adjustment applies **ONLY to the XML output/feed**.
+>
+> The XML may be used by multiple external platforms, so do NOT make this feature specific to BestChange or any single external platform.
+>
+> When a customer actually enters the Convert flow and creates an order, the system must use the **real current Convert rate/quote from the existing Convert pricing/provider logic**.
+>
+> Do NOT use or lock the percentage-adjusted XML value as the customer's real Convert order rate.
+>
+> The XML percentage adjustment must NOT modify:
+>
+> - Quickex/provider rate or quote
+> - real Convert pricing
+> - customer order amount
+> - settlement amount
+> - existing Swap pricing
+> - existing order calculation logic
+>
+> Use the existing order/status architecture to determine whether an order is currently active. Do not create a duplicate order-status system.
+>
+> Persist the ON/OFF state and both percentage values using the existing settings/configuration architecture.
+>
+> Add sensible defaults/migration behavior so the existing system continues working safely after the update.
+>
+> Make sure the existing XML and order flows are not broken.
+>
+> Before changing anything, inspect the current XML conversion implementation, settings architecture, and Convert order lifecycle, then implement this cleanly within the existing system.
+>
+> **Do not publish or deploy yet.**
+
+هذا هو اللي أنصح تبعته الآن.
