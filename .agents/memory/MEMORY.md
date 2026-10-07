@@ -44,7 +44,7 @@
 - [Clerk email verification proof](clerk-email-verification-proof.md) — never replace mailbox proof with an administrative verified flag when backend initiation is unavailable.
 - [Catalog redesign parity](catalog-redesign-parity.md) — visual-only catalog redesigns must inventory existing per-tab utilities and e2e contracts before unifying their presentation.
 - [Crypto logo identity](crypto-identity-fallback.md) — known symbols recover official art; [theme-safe logos](theme-safe-brand-logos.md) keep official colors.
-- [Social footer logo fitting](social-footer-logo-fitting.md) — uploaded social artwork fills clipped circles; compensate transparent padding without stretching or changing other logos.
+- [Social footer logo fitting](social-footer-logo-fitting.md) — bare social artwork without plates or clipping; preserve transparency and compensate padding without stretching.
 - [Workspace cache triage](workspace-cache-triage.md) — purge only inactive rebuildable caches; [restart Vite after purges](vite-cache-cleanup.md).
 - [Customer dashboard summaries](customer-dashboard-summaries.md) — scope paginated counts honestly and group exact amounts by asset; never coerce or combine currencies.
 - [Stranded browser-test processes](stranded-browser-tests.md) — after browser-heavy validation, check for orphaned Playwright Chromium trees before diagnosing app slowness.

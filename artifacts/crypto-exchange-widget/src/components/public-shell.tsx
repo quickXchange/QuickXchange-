@@ -152,7 +152,7 @@ function footerSocialPlatformIcon(item: RenderableSocialItem) {
   </span>;
 }
 
-export function FooterSocialIcon({ item, preview, isDark, preferUploadedTrustpilot = false, fillCircle = false }: { item: RenderableSocialItem; preview: ReturnType<typeof useSitePreview>; isDark: boolean; preferUploadedTrustpilot?: boolean; fillCircle?: boolean }) {
+export function FooterSocialIcon({ item, preview, isDark, preferUploadedTrustpilot = false, fitArtwork = false }: { item: RenderableSocialItem; preview: ReturnType<typeof useSitePreview>; isDark: boolean; preferUploadedTrustpilot?: boolean; fitArtwork?: boolean }) {
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   if (isTrustpilotItem(item) && !preferUploadedTrustpilot && !item.objectPath && !item.defaultAssetPath) return footerSocialPlatformIcon(item);
   const selectedPath = item.appearance === 'separate'
@@ -165,7 +165,7 @@ export function FooterSocialIcon({ item, preview, isDark, preferUploadedTrustpil
         ? `${basePath}/api/admin/social-trust/items/${item.id}/preview?objectPath=${encodeURIComponent(objectPath)}`
         : `${basePath}/api/storage/objects/social-trust-icons/${objectPath.split('/').pop()}`)
     : item.defaultAssetPath || null;
-  if (src && failedSrc !== src) return fillCircle
+  if (src && failedSrc !== src) return fitArtwork
     ? <FooterSocialImage src={src} onError={() => setFailedSrc(src)} />
     : <img src={src} alt="" className="qx-footer-social-image" style={{ width: '100%', height: '100%', objectFit: 'contain' }} loading="lazy" onError={() => setFailedSrc(src)} />;
   return footerSocialPlatformIcon(item);
@@ -209,7 +209,6 @@ function FooterSocialLinksDataDriven({ socialTrust, socialItems, trustItems, pre
     '--qx-footer-cell-share': `calc(${100 / count}% - ${desktopGap * (count - 1) / count}px)`,
     justifyContent: socialJustify,
   } as CSSProperties;
-  const radius = style.radiusMode === 'square' ? '0px' : style.radiusMode === 'rounded' ? '12px' : '999px';
   const trustLayout = trustStyle.layout ?? 'horizontal';
   const trustJustify = trustLayout === 'centered' || trustStyle.alignment === 'center' ? 'center'
     : trustStyle.alignment === 'right' ? 'flex-end' : 'flex-start';
@@ -258,8 +257,8 @@ function FooterSocialLinksDataDriven({ socialTrust, socialItems, trustItems, pre
       {showSocialTitle && <h3 className="font-semibold text-foreground" style={{ fontSize: `${style.titleFontSize ?? 18}px`, textAlign: (style.titleAlignment ?? style.alignment ?? 'left') as CSSProperties['textAlign'] }}>{socialTrust?.socialTitle ?? 'Stay connected with us'}</h3>}
       <div className="qx-footer-social-links" style={socialRowStyle}>
         {allSocialItems.map((item) => (
-            <a key={item.id} href={item.href || undefined} aria-disabled={!item.href} tabIndex={item.href ? undefined : -1} target="_blank" rel="noreferrer noopener" aria-label={isTrustpilotItem(item) ? 'Trustpilot' : item.name} title={item.name} data-testid={`link-published-social-${item.id}`} className={`qx-footer-social-link qx-social-hover-${style.hoverAnimation ?? 'lift'}${isTrustpilotItem(item) ? ' qx-footer-trustpilot-social' : ''}`} style={{ ...appearanceStyle, borderRadius: radius, borderColor: style.borderColor === '#dce3ed' ? undefined : style.borderColor, backgroundColor: style.backgroundColor === '#ffffff' ? undefined : style.backgroundColor }}>
-             <span className="qx-footer-social-mark"><FooterSocialIcon item={item} preview={preview} isDark={isDark} preferUploadedTrustpilot fillCircle /></span>
+            <a key={item.id} href={item.href || undefined} aria-disabled={!item.href} tabIndex={item.href ? undefined : -1} target="_blank" rel="noreferrer noopener" aria-label={isTrustpilotItem(item) ? 'Trustpilot' : item.name} title={item.name} data-testid={`link-published-social-${item.id}`} className={`qx-footer-social-link qx-social-hover-${style.hoverAnimation ?? 'lift'}${isTrustpilotItem(item) ? ' qx-footer-trustpilot-social' : ''}`} style={appearanceStyle}>
+             <span className="qx-footer-social-mark"><FooterSocialIcon item={item} preview={preview} isDark={isDark} preferUploadedTrustpilot fitArtwork /></span>
           </a>
         ))}
       </div>
