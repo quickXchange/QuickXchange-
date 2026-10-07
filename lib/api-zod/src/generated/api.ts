@@ -2217,6 +2217,7 @@ export const createExchangeOrderResponsePricingSnapshotOneAmountsFinalRateRegExp
 
 export const CreateExchangeOrderResponse = zod.object({
   "id": zod.string(),
+  "orderSource": zod.enum(['website', 'telegram_mini_app', 'telegram_bot', 'unknown']).optional().describe('Frozen creation surface; unknown for historical orders without reliable origin evidence.'),
   "type": zod.string(),
   "status": zod.string(),
   "recordVersion": zod.number().min(createExchangeOrderResponseRecordVersionMin).multipleOf(createExchangeOrderResponseRecordVersionMultipleOf),
@@ -2615,6 +2616,7 @@ export const getOrdersResponsePageSizeMultipleOf = 1;
 export const GetOrdersResponse = zod.object({
   "items": zod.array(zod.object({
   "id": zod.string(),
+  "orderSource": zod.enum(['website', 'telegram_mini_app', 'telegram_bot', 'unknown']).optional().describe('Frozen creation surface; unknown for historical orders without reliable origin evidence.'),
   "type": zod.string(),
   "status": zod.string(),
   "recordVersion": zod.number().min(getOrdersResponseItemsItemRecordVersionMin).multipleOf(getOrdersResponseItemsItemRecordVersionMultipleOf),
@@ -3005,6 +3007,7 @@ export const createOrderResponsePricingSnapshotOneAmountsFinalRateRegExp = new R
 
 export const CreateOrderResponse = zod.object({
   "id": zod.string(),
+  "orderSource": zod.enum(['website', 'telegram_mini_app', 'telegram_bot', 'unknown']).optional().describe('Frozen creation surface; unknown for historical orders without reliable origin evidence.'),
   "type": zod.string(),
   "status": zod.string(),
   "recordVersion": zod.number().min(createOrderResponseRecordVersionMin).multipleOf(createOrderResponseRecordVersionMultipleOf),
@@ -3363,6 +3366,7 @@ export const BulkUpdateOrderStatusResponse = zod.object({
   "success": zod.boolean(),
   "order": zod.object({
   "id": zod.string(),
+  "orderSource": zod.enum(['website', 'telegram_mini_app', 'telegram_bot', 'unknown']).optional().describe('Frozen creation surface; unknown for historical orders without reliable origin evidence.'),
   "type": zod.string(),
   "status": zod.string(),
   "recordVersion": zod.number().min(bulkUpdateOrderStatusResponseResultsItemOrderRecordVersionMin).multipleOf(bulkUpdateOrderStatusResponseResultsItemOrderRecordVersionMultipleOf),
@@ -3727,6 +3731,7 @@ export const BulkArchiveOrdersResponse = zod.object({
   "success": zod.boolean(),
   "order": zod.object({
   "id": zod.string(),
+  "orderSource": zod.enum(['website', 'telegram_mini_app', 'telegram_bot', 'unknown']).optional().describe('Frozen creation surface; unknown for historical orders without reliable origin evidence.'),
   "type": zod.string(),
   "status": zod.string(),
   "recordVersion": zod.number().min(bulkArchiveOrdersResponseResultsItemOrderRecordVersionMin).multipleOf(bulkArchiveOrdersResponseResultsItemOrderRecordVersionMultipleOf),
@@ -4090,6 +4095,7 @@ export const PermanentlyDeleteOrdersResponse = zod.object({
   "success": zod.boolean(),
   "order": zod.object({
   "id": zod.string(),
+  "orderSource": zod.enum(['website', 'telegram_mini_app', 'telegram_bot', 'unknown']).optional().describe('Frozen creation surface; unknown for historical orders without reliable origin evidence.'),
   "type": zod.string(),
   "status": zod.string(),
   "recordVersion": zod.number().min(permanentlyDeleteOrdersResponseResultsItemOrderRecordVersionMin).multipleOf(permanentlyDeleteOrdersResponseResultsItemOrderRecordVersionMultipleOf),
@@ -4608,6 +4614,7 @@ export const getOrderResponsePricingSnapshotOneAmountsFinalRateRegExp = new RegE
 
 export const GetOrderResponse = zod.object({
   "id": zod.string(),
+  "orderSource": zod.enum(['website', 'telegram_mini_app', 'telegram_bot', 'unknown']).optional().describe('Frozen creation surface; unknown for historical orders without reliable origin evidence.'),
   "type": zod.string(),
   "status": zod.string(),
   "recordVersion": zod.number().min(getOrderResponseRecordVersionMin).multipleOf(getOrderResponseRecordVersionMultipleOf),
@@ -5000,6 +5007,7 @@ export const updateOrderResponsePricingSnapshotOneAmountsFinalRateRegExp = new R
 
 export const UpdateOrderResponse = zod.object({
   "id": zod.string(),
+  "orderSource": zod.enum(['website', 'telegram_mini_app', 'telegram_bot', 'unknown']).optional().describe('Frozen creation surface; unknown for historical orders without reliable origin evidence.'),
   "type": zod.string(),
   "status": zod.string(),
   "recordVersion": zod.number().min(updateOrderResponseRecordVersionMin).multipleOf(updateOrderResponseRecordVersionMultipleOf),
@@ -5668,6 +5676,7 @@ export const assignOrderResponsePricingSnapshotOneAmountsFinalRateRegExp = new R
 
 export const AssignOrderResponse = zod.object({
   "id": zod.string(),
+  "orderSource": zod.enum(['website', 'telegram_mini_app', 'telegram_bot', 'unknown']).optional().describe('Frozen creation surface; unknown for historical orders without reliable origin evidence.'),
   "type": zod.string(),
   "status": zod.string(),
   "recordVersion": zod.number().min(assignOrderResponseRecordVersionMin).multipleOf(assignOrderResponseRecordVersionMultipleOf),
@@ -6039,6 +6048,7 @@ export const updateOrderSupportToolsResponsePricingSnapshotOneAmountsFinalRateRe
 
 export const UpdateOrderSupportToolsResponse = zod.object({
   "id": zod.string(),
+  "orderSource": zod.enum(['website', 'telegram_mini_app', 'telegram_bot', 'unknown']).optional().describe('Frozen creation surface; unknown for historical orders without reliable origin evidence.'),
   "type": zod.string(),
   "status": zod.string(),
   "recordVersion": zod.number().min(updateOrderSupportToolsResponseRecordVersionMin).multipleOf(updateOrderSupportToolsResponseRecordVersionMultipleOf),
@@ -6389,6 +6399,7 @@ export const archiveOrderResponsePricingSnapshotOneAmountsFinalRateRegExp = new 
 
 export const ArchiveOrderResponse = zod.object({
   "id": zod.string(),
+  "orderSource": zod.enum(['website', 'telegram_mini_app', 'telegram_bot', 'unknown']).optional().describe('Frozen creation surface; unknown for historical orders without reliable origin evidence.'),
   "type": zod.string(),
   "status": zod.string(),
   "recordVersion": zod.number().min(archiveOrderResponseRecordVersionMin).multipleOf(archiveOrderResponseRecordVersionMultipleOf),
@@ -6739,6 +6750,7 @@ export const restoreOrderResponsePricingSnapshotOneAmountsFinalRateRegExp = new 
 
 export const RestoreOrderResponse = zod.object({
   "id": zod.string(),
+  "orderSource": zod.enum(['website', 'telegram_mini_app', 'telegram_bot', 'unknown']).optional().describe('Frozen creation surface; unknown for historical orders without reliable origin evidence.'),
   "type": zod.string(),
   "status": zod.string(),
   "recordVersion": zod.number().min(restoreOrderResponseRecordVersionMin).multipleOf(restoreOrderResponseRecordVersionMultipleOf),
@@ -12925,6 +12937,7 @@ export const ReconcileOrderResponse = zod.object({
   "message": zod.string(),
   "order": zod.object({
   "id": zod.string(),
+  "orderSource": zod.enum(['website', 'telegram_mini_app', 'telegram_bot', 'unknown']).optional().describe('Frozen creation surface; unknown for historical orders without reliable origin evidence.'),
   "type": zod.string(),
   "status": zod.string(),
   "recordVersion": zod.number().min(reconcileOrderResponseOrderRecordVersionMin).multipleOf(reconcileOrderResponseOrderRecordVersionMultipleOf),
@@ -14142,6 +14155,7 @@ export const createQuickexOrderResponsePricingSnapshotOneAmountsFinalRateRegExp 
 
 export const CreateQuickexOrderResponse = zod.object({
   "id": zod.string(),
+  "orderSource": zod.enum(['website', 'telegram_mini_app', 'telegram_bot', 'unknown']).optional().describe('Frozen creation surface; unknown for historical orders without reliable origin evidence.'),
   "type": zod.string(),
   "status": zod.string(),
   "recordVersion": zod.number().min(createQuickexOrderResponseRecordVersionMin).multipleOf(createQuickexOrderResponseRecordVersionMultipleOf),

@@ -9,6 +9,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { signOrderTrackingToken, verifyOrderTrackingToken } from "../lib/order-access";
 import { buildCreatePayload, buildQuoteByReceivePayload, buildQuotePayload, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, requiredFieldActive, shouldAskDestination, telegramCallbackIndexes, telegramFieldSkipIndex, telegramStatusLabel, toggleTelegramManualSwapAddonSelection, withoutTelegramRefundFields, type TelegramManualSwapAddon, type TelegramRouteOption } from "../lib/telegram-wizard";
 import { loadTelegramConvertCatalog } from "../lib/telegram-convert-catalog";
+import { telegramBotOrderSourceHeaders } from "../lib/order-source";
 import { deliverTelegramConvertCreation, type ConvertCreationProgress, type ConvertDepositSnapshot } from "../lib/telegram-convert-creation";
 import { createTelegramLinkChallenge } from "../lib/telegram-link";
 import { AdminTelegramLinkChallengeError, consumeAdminTelegramLinkChallenge } from "../lib/admin-telegram-link";
@@ -1636,7 +1637,7 @@ async function callback(chatId: string, locale: TelegramLocale, data: string, me
       linkedCustomerClerkUserId,
     });
     await replaceOrSendTelegramMessage(chatId, messageId, telegramCreatingOrderMessage());
-    const response = await fetch(`${baseUrl()}${body.type === "instant" ? "/api/quickex/create-order" : "/api/exchange/orders"}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    const response = await fetch(`${baseUrl()}${body.type === "instant" ? "/api/quickex/create-order" : "/api/exchange/orders"}`, { method: "POST", headers: { "content-type": "application/json", ...telegramBotOrderSourceHeaders(body) }, body: JSON.stringify(body) });
     const result = await response.json() as Record<string, unknown>;
     if (!response.ok) {
       if (response.status >= 400 && response.status < 500 && response.status !== 408 && response.status !== 429) {
@@ -1846,7 +1847,7 @@ export function startTelegramNotificationWorker(): () => void {
         const frozen = session.data.frozenCreateBody as Record<string, unknown> | undefined;
         if (frozen && session.expiresAt > new Date()) {
           const endpoint = frozen.type === "instant" ? "/api/quickex/create-order" : "/api/exchange/orders";
-          const response = await fetch(`${baseUrl()}${endpoint}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(frozen) });
+          const response = await fetch(`${baseUrl()}${endpoint}`, { method: "POST", headers: { "content-type": "application/json", ...telegramBotOrderSourceHeaders(frozen) }, body: JSON.stringify(frozen) });
           const result = await response.json() as Record<string, unknown>;
           if (response.ok) {
             const orderId = String(result.id), orderKind = frozen.type === "instant" ? "convert" : "swap";

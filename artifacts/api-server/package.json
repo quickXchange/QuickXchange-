@@ -17,6 +17,7 @@
     "test:operators": "NODE_ENV=test node ./test/run.mjs operator-access.test.ts",
     "test:telegram": "NODE_ENV=test node ./test/run.mjs telegram.test.ts && NODE_ENV=test node ./test/run.mjs telegram-convert-catalog.test.ts && NODE_ENV=test node ./test/run.mjs telegram-convert-creation.test.ts",
     "test:telegram-support-bot": "node ./test/run-telegram-support-bot-isolated.mjs",
+    "test:order-source": "NODE_ENV=test node ./test/run.mjs order-source.test.ts",
     "test:affiliate": "NODE_ENV=test node ./test/run.mjs affiliate.test.ts",
     "test:landing-background": "NODE_ENV=test node ./test/run.mjs landing-background.test.ts",
     "test:object-storage": "NODE_ENV=test node ./test/run.mjs object-storage.test.ts",

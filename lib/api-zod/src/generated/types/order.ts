@@ -9,6 +9,7 @@ import type { ExactDecimal } from './exactDecimal';
 import type { OrderFundingAddressSource } from './orderFundingAddressSource';
 import type { OrderFundingDetails } from './orderFundingDetails';
 import type { OrderFundingStatus } from './orderFundingStatus';
+import type { OrderOrderSource } from './orderOrderSource';
 import type { OrderPaymentDetails } from './orderPaymentDetails';
 import type { OrderPricingSnapshot } from './orderPricingSnapshot';
 import type { OrderReceivingStatus } from './orderReceivingStatus';
@@ -23,6 +24,8 @@ import type { VerifiedFundingTransaction } from './verifiedFundingTransaction';
 
 export interface Order {
   id: string;
+  /** Frozen creation surface; unknown for historical orders without reliable origin evidence. */
+  orderSource?: OrderOrderSource;
   type: string;
   status: string;
   /** @minimum 0 */

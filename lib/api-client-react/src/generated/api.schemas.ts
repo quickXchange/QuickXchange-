@@ -1983,6 +1983,19 @@ export interface OrderBulkDeleteInput {
   items: OrderBulkMutationItem[];
 }
 
+/**
+ * Frozen creation surface; unknown for historical orders without reliable origin evidence.
+ */
+export type OrderOrderSource = typeof OrderOrderSource[keyof typeof OrderOrderSource];
+
+
+export const OrderOrderSource = {
+  website: 'website',
+  telegram_mini_app: 'telegram_mini_app',
+  telegram_bot: 'telegram_bot',
+  unknown: 'unknown',
+} as const;
+
 export type OrderSupportStatus = typeof OrderSupportStatus[keyof typeof OrderSupportStatus];
 
 
@@ -2264,6 +2277,8 @@ export type OrderSettlementDetails = { [key: string]: unknown } | null;
 
 export interface Order {
   id: string;
+  /** Frozen creation surface; unknown for historical orders without reliable origin evidence. */
+  orderSource?: OrderOrderSource;
   type: string;
   status: string;
   /** @minimum 0 */

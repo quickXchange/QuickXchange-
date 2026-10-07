@@ -6070,6 +6070,10 @@ components:
       required: [id, type, status, recordVersion, assignedOperatorId, supportStatus, sendingStatus, receivingStatus, sentAmountOverride, receiveAmountOverride, exchangeRateOverride, networkFeeAmount, transactionHash, paymentReference, fromAsset, toAsset, amount, receiveAmount, customerEmail, customerRegistered, createdAt, updatedAt, provider, outcomeUnknown, providerClaimedDepositAmount, providerExpectedReceiveAmount, providerPaidAmount, providerCreatedAt, providerUpdatedAt, providerCompleted, trackingToken]
       properties:
         id: { type: string }
+        orderSource:
+          type: string
+          enum: [website, telegram_mini_app, telegram_bot, unknown]
+          description: Frozen creation surface; unknown for historical orders without reliable origin evidence.
         type: { type: string }
         status: { type: string }
         recordVersion: { type: number, minimum: 0, multipleOf: 1 }

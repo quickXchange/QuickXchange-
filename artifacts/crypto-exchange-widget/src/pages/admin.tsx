@@ -25,7 +25,7 @@ import {
   Send, BellRing, Link as LinkIcon, Unplug, MessageSquare, CheckCircle2, XCircle, Bell, Settings2, Star, Code
 } from 'lucide-react';
 import { VerifiedTransaction } from '@/components/verified-transaction';
-import { viewOrderInformationRows, viewOrderStep2Rows } from '@/components/view-order-fields';
+import { adminOrderInformationLabels, viewOrderInformationRows, viewOrderStep2Rows } from '@/components/view-order-fields';
 import {
   SiAlipay, SiCashapp, SiMastercard, SiPaypal, SiPix, SiRevolut,
   SiVenmo, SiVisa, SiWise, SiZelle, SiTelegram
@@ -5524,8 +5524,8 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
     ['Order ID', order.id],
     ['Sending Address', order.depositAddress || (typeof fundingAddress === 'string' ? fundingAddress : '') || '—'],
     ['Created At', exactDateTime(order.createdAt)],
-    ['Rate', order.finalRate ? `1 ${order.fromAsset} = ${number(order.finalRate)} ${order.toAsset}` : 'Not available'],
-  ]);
+    ['Order Source', ({ website: 'Website', telegram_mini_app: 'Telegram Mini App', telegram_bot: 'Telegram Bot', unknown: 'Unknown' })[order.orderSource ?? 'unknown'] ?? 'Unknown', 'admin-order-source'],
+  ], adminOrderInformationLabels);
 
   const copyPaymentDetails = () => {
     const text = step2Rows.map(({ label, value }) => `${label}: ${value}`).join('\n');

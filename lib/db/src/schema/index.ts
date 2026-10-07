@@ -60,6 +60,7 @@ export * from "./convert-default-pair";
 export const ordersTable = pgTable("exchange_orders", {
     id: text("id").primaryKey(),
     type: text("type").notNull(),
+    orderSource: text("order_source"),
     status: text("status").notNull(),
     statusVersion: integer("status_version").notNull().default(0),
     recordVersion: integer("record_version").notNull().default(0),

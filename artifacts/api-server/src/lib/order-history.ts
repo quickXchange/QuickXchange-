@@ -54,6 +54,7 @@ export function operatorRecord(row: typeof quickexOrdersTable.$inferSelect) {
   return {
     id: row.legacyOrderId,
     type: "instant",
+    orderSource: row.orderSource ?? "unknown",
     status: row.status,
     recordVersion: row.recordVersion,
     assignedOperatorId: null,

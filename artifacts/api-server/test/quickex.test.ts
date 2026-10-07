@@ -3302,6 +3302,55 @@ test("receive-target Convert quotes sign the provider send amount and create the
   }
 });
 
+async function orderOriginHeaders(source: "website" | "telegram_mini_app" | "telegram_bot", body: { clientRequestId: string }) {
+  if (source === "website") return {};
+  if (source === "telegram_bot") {
+    const { telegramBotOrderSourceHeaders } = await import("../src/lib/order-source");
+    return telegramBotOrderSourceHeaders(body);
+  }
+  const encoded = Buffer.from(JSON.stringify({
+    v: 1, userId: "987654321", chatId: "987654321", exp: Date.now() + 60_000,
+  })).toString("base64url");
+  const signature = createHmac("sha256", process.env.SESSION_SECRET!)
+    .update(`telegram-mini:${encoded}`).digest("base64url");
+  return { Authorization: `Bearer ${encoded}.${signature}` };
+}
+
+test("Convert orders freeze Website, Mini App and Bot origins for Fixed and Floating creation", async () => {
+  reset();
+  const { db, quickexOrdersTable } = await import("@workspace/db");
+  const { findProviderManagedOperatorOrder } = await import("../src/lib/order-history");
+  const api = await startApi();
+  const ids: string[] = [];
+  try {
+    for (const rateMode of ["FIXED", "FLOATING"] as const) {
+      for (const source of ["website", "telegram_mini_app", "telegram_bot"] as const) {
+        const quoted = await instantQuote(api.url, rateMode);
+        assert.equal(quoted.status, 200);
+        const body = {
+          type: "instant", fromAsset: "BTC", fromNetwork: "Bitcoin", toAsset: "USDT", toNetwork: "TRC20",
+          amount: 1, rateMode, destinationAddress: "synthetic-destination",
+          customerEmail: `origin-${randomUUID()}@example.test`, clientRequestId: randomUUID(), quoteId: quoted.body.quoteId,
+        };
+        const response = await apiJson(api.url, "/quickex/create-order", body, "POST", await orderOriginHeaders(source, body));
+        assert.equal(response.status, 201, JSON.stringify(response.body));
+        const id = String(response.body.id);
+        ids.push(id);
+        const [stored] = await db.select().from(quickexOrdersTable).where(eq(quickexOrdersTable.legacyOrderId, id));
+        assert.equal(stored.orderSource, source);
+        assert.equal(response.body.orderSource, source);
+        assert.equal((await findProviderManagedOperatorOrder(id))?.orderSource, source);
+        const replay = await apiJson(api.url, "/quickex/create-order", body);
+        assert.equal(replay.status, 200);
+        assert.equal(replay.body.orderSource, source, "a replay must not rewrite the creation origin");
+      }
+    }
+  } finally {
+    if (ids.length) await db.delete(quickexOrdersTable).where(inArray(quickexOrdersTable.legacyOrderId, ids));
+    await api.close();
+  }
+});
+
 test("Quickex namespace owns signed quotes, orders, tracking, and idempotency", async () => {
   reset();
   const api = await startApi();
@@ -4398,6 +4447,18 @@ test("manual crypto-to-fiat source accepts no refund and validates a supplied wa
     assert.equal(withoutRefund.status, 201, JSON.stringify(withoutRefund.body));
     createdOrderIds.push(String(withoutRefund.body.id));
     assert.equal(withoutRefund.body.refundAddress, "");
+    assert.equal(withoutRefund.body.orderSource, "website");
+    for (const source of ["telegram_mini_app", "telegram_bot"] as const) {
+      const originInput = { ...order, clientRequestId: randomUUID() };
+      const response = await apiJson(api.url, "/exchange/orders", originInput, "POST", await orderOriginHeaders(source, originInput));
+      assert.equal(response.status, 201, JSON.stringify(response.body));
+      createdOrderIds.push(String(response.body.id));
+      assert.equal(response.body.orderSource, source);
+      const [stored] = await db.select().from(ordersTable).where(eq(ordersTable.id, String(response.body.id)));
+      assert.equal(stored.orderSource, source);
+      const replay = await apiJson(api.url, "/orders", originInput);
+      assert.equal(replay.body.orderSource, source);
+    }
     const missingMemo = await apiJson(api.url, "/orders", {
       ...order,
       refundAddress: "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh",

@@ -22,6 +22,7 @@ type CreateInput = {
   sourceSettlementOptionId?: string; targetSettlementOptionId?: string;
   settlementDetails?: Record<string, string | number | null>;
   customerClerkUserId?: string;
+  orderSource?: "website" | "telegram_mini_app" | "telegram_bot" | "unknown";
 };
 type Route = { fromAsset: string; fromNetwork: string; toAsset: string; toNetwork: string; rateMode: QuickexRateMode };
 type Amounts = { amount: string; receiveAmount: string; claimedDepositAmount?: string | null; expectedReceiveAmount?: string | null; paidAmount?: string | null; providerPaidAmount?: string | null };
@@ -194,6 +195,7 @@ function output(row: typeof quickexOrdersTable.$inferSelect, includeInstructions
   const route = row.route as Route, amounts = row.amounts as Amounts, addresses = row.addresses as Addresses;
   return {
     id: row.legacyOrderId, type: "instant", status: row.status, recordVersion: row.recordVersion,
+    orderSource: row.orderSource ?? "unknown",
     assignedOperatorId: null, archivedAt: null, archivedBy: null,
     supportStatus: "open", sendingStatus: "pending", receivingStatus: "pending",
     sentAmountOverride: null, receiveAmountOverride: null, exchangeRateOverride: null,
@@ -310,6 +312,7 @@ export async function createQuickexConvertOrder(input: CreateInput) {
     legacyOrderId: id, clientRequestId: input.clientRequestId, quoteId: input.quoteId,
     customerEmail: input.customerEmail, customerName: input.customerName ?? "Guest",
     customerClerkUserId: input.customerClerkUserId,
+    orderSource: input.orderSource ?? "unknown",
     route: { fromAsset: input.fromAsset, fromNetwork: input.fromNetwork, toAsset: input.toAsset, toNetwork: input.toNetwork, rateMode },
     addresses: {
       destinationAddress: input.destinationAddress, destinationMemo: input.destinationMemo ?? "",

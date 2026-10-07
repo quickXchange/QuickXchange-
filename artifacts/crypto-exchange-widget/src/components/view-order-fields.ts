@@ -2,8 +2,14 @@ export const viewOrderInformationLabels = [
   'User', 'Order ID', 'Sending Address', 'Created At', 'Rate',
 ] as const;
 
-export function viewOrderInformationRows<T extends readonly [string, string, ...unknown[]]>(rows: T[]): T[] {
-  return viewOrderInformationLabels.flatMap(label => rows.filter(row => row[0] === label));
+export const adminOrderInformationLabels = [
+  'User', 'Order ID', 'Sending Address', 'Created At', 'Order Source',
+] as const;
+
+export function viewOrderInformationRows<T extends readonly [string, string, ...unknown[]]>(
+  rows: T[], labels: readonly string[] = viewOrderInformationLabels,
+): T[] {
+  return labels.flatMap(label => rows.filter(row => row[0] === label));
 }
 
 function normalizeLabel(label: string): string {

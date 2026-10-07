@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { requestOrderSource } from "../lib/order-source";
 import {
   CreateQuickexOrderBody, CreateQuickexOrderResponse, CreateQuickexQuoteBody,
   CreateQuickexQuoteByReceiveBody, CreateQuickexQuoteByReceiveResponse,
@@ -114,6 +115,7 @@ router.post("/create-order", async (req, res): Promise<void> => {
     quoteId,
     customerEmail,
     customerClerkUserId: customerClerkUserId ?? undefined,
+    orderSource: requestOrderSource(req),
   });
   res.status(result.created ? (result.uncertain ? 202 : 201) : 200)
     .json(CreateQuickexOrderResponse.parse(outputQuickexOrder(result.row)));

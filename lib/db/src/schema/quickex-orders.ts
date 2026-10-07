@@ -12,6 +12,7 @@ export const quickexOrdersTable = pgTable("quickex_orders", {
   providerReference: text("provider_reference").notNull().default(""),
   clientRequestId: text("client_request_id"),
   quoteId: text("quote_id").notNull().default(""),
+  orderSource: text("order_source"),
   customerEmail: text("customer_email").notNull().default(""),
   customerName: text("customer_name").notNull().default("Guest"),
   customerClerkUserId: text("customer_clerk_user_id"),

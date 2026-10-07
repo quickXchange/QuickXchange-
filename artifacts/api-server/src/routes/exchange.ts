@@ -156,6 +156,7 @@ import {
   PreviewManualSwapFeesResponse,
 } from "@workspace/api-zod";
 import { databasePoolTelemetry } from "@workspace/db";
+import { requestOrderSource, type OrderSource } from "../lib/order-source";
 import {
   customerStatusNotificationEventsTable,
   notificationSettingsTable,
@@ -508,6 +509,7 @@ function outputOrder(row: typeof ordersTable.$inferSelect) {
   } = row;
   const result = {
      ...operatorVisibleRow,
+     orderSource: row.orderSource ?? "unknown",
      transactionHash: row.type === "manual" ? null : row.transactionHash,
     customerRegistered: Boolean(row.customerClerkUserId),
     clientRequestId: row.clientRequestId ?? undefined,
@@ -3350,6 +3352,7 @@ async function createOrderFromInput(
   input: ParsedOrderInput,
   matchQuoteId = true,
   customerClerkUserId: string | null = null,
+  orderSource: OrderSource = "unknown",
 ): Promise<OrderResult> {
   if (input.type !== "manual") throw new ApiError("MANUAL_SWAP_REQUIRED", "Only Manual desk swaps are available.", 422);
   await ensureSeed();
@@ -3428,6 +3431,7 @@ async function createOrderFromInput(
     id, type: "manual", status: "awaiting funds",
     statusNotificationsEnabled: true,
     manualSettlementState: "awaiting_funds",
+    orderSource,
     manualSettlementStateUpdatedAt: createdAt,
     manualSettlementStartedAt: createdAt,
     fromAsset: quote.fromAsset, fromNetwork: quote.fromNetwork,
@@ -3942,6 +3946,7 @@ router.post("/exchange/orders", async (req, res, next) => {
       orderInput,
       true,
       resolvedIdentity.customerClerkUserId,
+      requestOrderSource(req),
     );
     res.status(result.status).json(result.body);
   } catch (error) {
@@ -3973,6 +3978,7 @@ router.post("/orders", async (req, res, next) => {
       resolvedIdentity.input,
       true,
       resolvedIdentity.customerClerkUserId,
+      requestOrderSource(req),
     );
     res.status(result.status).json(result.body);
   } catch (error) {

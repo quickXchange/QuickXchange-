@@ -17,6 +17,7 @@
 - [Browser interaction checks](drawer-browser-verification.md) — wait for drawer animations; verify [touch](touch-carousel-verification.md) with genuine touch events.
 - [Browser input event verification](browser-input-event-verification.md) — test-runner fill helpers may clear and slowly retype; inspect events before diagnosing extra quote calls.
 - [Order detail round-trips](order-detail-roundtrips.md) — editable operational fields must survive detail response validation or unrelated saves can silently clear them.
+- [Order creation provenance](order-creation-provenance.md) — freeze creation channel; later Telegram links cannot identify historical origin reliably.
 - [Provider-create idempotency](provider-create-idempotency.md) — claim before create; [replay before capability gates](provider-idempotency-ordering.md).
 - [Quickex address preflight](quickex-address-preflight.md) — documented validation routes may return isolated 403s; signed order creation remains the authoritative address gate.
 - [Convert compatibility](convert-tracking-capabilities.md) — UUIDs support paste-only tracking; [legacy directory fields](convert-directory-compatibility.md) need normalization.

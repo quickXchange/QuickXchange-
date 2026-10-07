@@ -397,6 +397,7 @@ export * from './orderFundingDetails';
 export * from './orderFundingStatus';
 export * from './orderInput';
 export * from './orderInputType';
+export * from './orderOrderSource';
 export * from './orderPage';
 export * from './orderPaymentDetails';
 export * from './orderPricingSnapshot';
