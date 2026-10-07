@@ -4708,6 +4708,20 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/PublicNotificationSettings" }
 
+  /rates.xml:
+    get:
+      operationId: getRatesXml
+      tags: [exchange]
+      summary: Public reference-format live rates XML
+      description: Uses the existing live rate engine and Admin XML settings. One-unit rates, source-currency limits, and optional included-fee range metadata; never customer pricing.
+      responses:
+        "200":
+          description: XML rates; empty when publication is disabled
+          content:
+            application/xml:
+              schema: { type: string }
+        "503":
+          description: A fresh feed cannot currently be generated
   /bestchange.xml:
     get:
       operationId: getBestchangeXml

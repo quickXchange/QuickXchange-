@@ -4,6 +4,9 @@ export type BestchangeItem = {
   from: string; to: string; in: string; out: string; amount: string;
   minamount: string; maxamount: string; fromfee?: string; tofee?: string;
   floating?: string; delay?: string; param: string; city?: string;
+  /** Publication metadata only; never added to a customer quote. */
+  sourceAssetCode?: string;
+  pricingRanges?: Array<{ frommin: string; frommax: string }>;
 };
 export class BestchangeExportError extends Error {}
 
@@ -97,13 +100,46 @@ function compareRatios(a: { input: string; output: string }, b: { input: string;
 }
 const escapeXml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;")
   .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
-export function serializeBestchangeXml(items: BestchangeItem[]) {
-  const lines = ['<?xml version="1.0" encoding="UTF-8"?>', "<rates>"];
+export function serializeBestchangeXml(items: BestchangeItem[], format: "classic" | "reference" = "classic") {
+  const lines = [format === "reference" ? '<?xml version="1.0"?>' : '<?xml version="1.0" encoding="UTF-8"?>', "<rates>"];
   const tags = ["from", "to", "in", "out", "amount", "minamount", "maxamount",
     "fromfee", "tofee", "floating", "delay", "param", "city"] as const;
   for (const item of items) {
     lines.push("  <item>");
-    for (const tag of tags) if (item[tag] !== undefined) lines.push(`    <${tag}>${escapeXml(item[tag]!)}</${tag}>`);
+    if (format === "classic") {
+      for (const tag of tags) if (item[tag] !== undefined) lines.push(`    <${tag}>${escapeXml(item[tag]!)}</${tag}>`);
+    } else {
+      if (!item.sourceAssetCode) throw new BestchangeExportError("The source currency symbol is required for rates XML limits.");
+      // Format the already-computed ratio, never ask a provider for a new rate.
+      // Downward decimal division cannot advertise more than the cached ratio.
+      const source = decimalParts(item.in), target = decimalParts(item.out);
+      if (source.units === 0n) throw new BestchangeExportError("The XML rate input must be positive.");
+      const units = target.units * 10n ** BigInt(source.scale + 24) /
+        (source.units * 10n ** BigInt(target.scale));
+      if (units === 0n) throw new BestchangeExportError("The unit XML rate is too small to represent safely.");
+      const values = {
+        ...item, in: "1", out: decimalText(units, 24),
+        minamount: `${item.minamount} ${item.sourceAssetCode}`,
+        maxamount: `${item.maxamount} ${item.sourceAssetCode}`,
+      };
+      for (const tag of ["from", "to", "in", "out", "amount", "minamount", "maxamount", "param"] as const) {
+        lines.push(`    <${tag}>${escapeXml(values[tag])}</${tag}>`);
+      }
+      // The base rate is full-fee and conservative across the whole interval.
+      // These existing Admin ranges describe boundaries, not additional charges.
+      if (item.pricingRanges?.length) {
+        for (const range of item.pricingRanges) {
+          lines.push(`    <step frommin="${escapeXml(range.frommin)}" frommax="${escapeXml(range.frommax)}">`,
+            '      <fromfee type="%">0</fromfee>', "      <fromfee>0</fromfee>", "    </step>");
+        }
+        lines.push(`    <frommin>${escapeXml(item.minamount)}</frommin>`,
+          `    <frommax>${escapeXml(item.maxamount)}</frommax>`);
+      }
+      // Retain explicitly configured standard extensions for cash/other routes.
+      for (const tag of ["floating", "delay", "city"] as const) {
+        if (item[tag] !== undefined) lines.push(`    <${tag}>${escapeXml(item[tag]!)}</${tag}>`);
+      }
+    }
     lines.push("  </item>");
   }
   lines.push("</rates>", "");

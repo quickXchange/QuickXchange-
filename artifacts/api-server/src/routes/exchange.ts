@@ -1043,6 +1043,7 @@ export async function prepareBestchangeSwapQuotes(
   });
   const context = { sourceOption, targetOption, rule, selectedAddons, referenceBasis };
   return {
+    sourceAssetCode: sourceOption.assetCode,
     ...effectiveManualSourceLimits(rule, sourceOption),
     targetPrecision: route.targetPrecision,
     tiers: rule.amountBasedPricingEnabled ? rule.amountBasedPricingTiers : [],

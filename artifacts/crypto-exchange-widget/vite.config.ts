@@ -159,6 +159,15 @@ export default defineConfig(async ({ mode }) => {
     strictPort: true,
     host: '0.0.0.0',
     allowedHosts: true,
+    // Preview routing is case-sensitive, while production Express accepts both.
+    // Keep the reference's uppercase /API URL usable without another API server.
+    proxy: {
+      '/API/rates.xml': {
+        target: 'http://127.0.0.1:80',
+        changeOrigin: true,
+        rewrite: value => value.replace(/^\/API\//, '/api/'),
+      },
+    },
     fs: {
       strict: true,
     },

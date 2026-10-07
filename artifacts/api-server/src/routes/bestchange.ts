@@ -37,6 +37,7 @@ type BestchangePreview = Omit<ReturnType<typeof GetAdminBestchangePreviewRespons
   // Internal cache metadata; public preview validation strips these fields.
   xmlAdjustmentEnabled?: boolean;
   activeConvertOrdersForAdjustment?: boolean;
+  items?: BestchangeItem[];
 };
 const currencyCodes = new Set(reference.currencyCodes.map(row => row.code));
 const cityCodes = new Set(reference.cityCodes.map(row => row.code));
@@ -120,6 +121,14 @@ async function exportDirection(
   const maxReceive = quotes.find(quote => quote.amount === max)!.receive;
   return {
     from: direction.fromCode, to: direction.toCode, in: price.input, out: price.output,
+    sourceAssetCode: live.sourceAssetCode,
+    ...(direction.includeFeeTags && live.tiers?.length ? {
+      pricingRanges: live.tiers.map(tier => ({
+        frommin: Math.max(min, tier.minAmount === null ? min : Number(tier.minAmount)),
+        frommax: Math.min(max, tier.maxAmount === null ? max : Number(tier.maxAmount)),
+      })).filter(range => range.frommax >= range.frommin)
+        .map(range => ({ frommin: plainDecimal(range.frommin), frommax: plainDecimal(range.frommax) })),
+    } : {}),
     amount: direction.targetOptionId.startsWith("fiat:")
       ? plainDecimal(reserve) : smallerDecimal(plainDecimal(reserve), maxReceive),
     minamount: plainDecimal(min), maxamount: plainDecimal(max),
@@ -186,13 +195,15 @@ export async function generate(
     }
   }));
   const valid = items.filter((item): item is BestchangeItem => Boolean(item));
+  const adjustedItems = valid.map(item => ({
+    ...item, out: adjustXmlOutput(item.out, adjustment, hasActiveConvertOrders),
+  }));
   return {
-    xml: serializeBestchangeXml(valid.map(item => ({
-      ...item, out: adjustXmlOutput(item.out, adjustment, hasActiveConvertOrders),
-    }))), generatedAt: new Date().toISOString(),
+    xml: serializeBestchangeXml(adjustedItems), generatedAt: new Date().toISOString(),
     exportedCount: valid.length, diagnostics, enabled: config.enabled, version: config.version,
     xmlAdjustmentEnabled: adjustment.enabled,
     activeConvertOrdersForAdjustment: hasActiveConvertOrders,
+    items: adjustedItems,
   };
 }
 export async function snapshot(
@@ -241,14 +252,15 @@ export async function snapshot(
   return epoch === generation ? result : snapshot(readSettings, prepareQuotes, readActiveConvertOrder);
 }
 
-router.get("/bestchange.xml", async (_req, res, next) => {
+router.get(["/bestchange.xml", "/rates.xml"], async (req, res, next) => {
   try {
     const feed = await snapshot();
     // BestChange robots need a full fresh response, never CDN/browser caching.
     res.set({
       "Cache-Control": "no-store, max-age=0", "X-Content-Type-Options": "nosniff",
       "Content-Type": "application/xml; charset=utf-8",
-    }).end(feed.xml);
+    }).end(req.path.toLowerCase() === "/rates.xml"
+      ? serializeBestchangeXml(feed.items ?? [], "reference") : feed.xml);
   } catch (error) { next(error); }
 });
 router.get("/admin/bestchange", requireOwner, async (_req, res, next) => {
@@ -261,7 +273,7 @@ router.get("/admin/bestchange", requireOwner, async (_req, res, next) => {
         assetCode: option.assetCode, network: option.routeNetwork, direction: option.direction, kind: option.kind,
         reserve: option.reserve,
       })),
-      ...reference, feedPath: "/api/bestchange.xml",
+      ...reference, feedPath: "/api/rates.xml",
     }));
   } catch (error) { next(error); }
 });
@@ -296,7 +308,10 @@ router.put("/admin/bestchange", requireOwner, async (req, res, next) => {
 });
 router.get("/admin/bestchange/preview", requireOwner, async (_req, res, next) => {
   try {
-    res.set("Cache-Control", "no-store").json(GetAdminBestchangePreviewResponse.parse(await generate(await settings())));
+    const feed = await generate(await settings());
+    res.set("Cache-Control", "no-store").json(GetAdminBestchangePreviewResponse.parse({
+      ...feed, xml: serializeBestchangeXml(feed.items ?? [], "reference"),
+    }));
   } catch (error) { next(error); }
 });
 router.get("/admin/bestchange/reserves/export", requireOwner, async (_req, res, next) => {

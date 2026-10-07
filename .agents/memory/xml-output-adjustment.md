@@ -14,3 +14,9 @@ Only active Convert orders count, globally across the whole XML feed. Swap order
 **Why:** The user selected “Active Convert orders only” and specified one percentage when an order is active and another when none are active.
 
 **How to apply:** Consult the provider-owned Convert aggregate and its existing terminal-status definition. Never call a provider API or change an order just to select the XML percentage.
+
+External rates XML references define presentation structure only, not financial inputs.
+
+**Why:** The user asked for the format of Quickxchange.net/API/rates.xml “only,” dynamically suited to this platform's rates and controlled through its Admin panel.
+
+**How to apply:** Reuse this platform's existing pricing, catalog, reserves, limits and XML settings. Never import the reference site's rates, reserves, directions or fee schedules, and never add already-included fees again through step metadata.

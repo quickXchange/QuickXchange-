@@ -181,6 +181,13 @@ test("public feed is anonymous, no-store, always full XML on repeat polling, and
   assert.ok(address && typeof address !== "string");
   const url = `http://127.0.0.1:${address.port}/api/bestchange.xml`;
   try {
+    for (const path of ["/api/rates.xml", "/API/rates.xml"]) {
+      const response = await fetch(`http://127.0.0.1:${address.port}${path}`);
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get("cache-control"), "no-store, max-age=0");
+      assert.equal(await response.text(), serializeBestchangeXml([], "reference"));
+      assert.equal(response.headers.get("etag"), null);
+    }
     const responses = await Promise.all(Array.from({ length: 25 }, () => fetch(url, { headers: { "If-None-Match": "*" } })));
     for (const response of responses) {
       assert.equal(response.status, 200);

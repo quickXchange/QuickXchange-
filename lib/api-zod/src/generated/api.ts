@@ -20401,6 +20401,13 @@ export const GetPublicNotificationSettingsResponse = zod.object({
 
 
 /**
+ * Uses the existing live rate engine and Admin XML settings. One-unit rates, source-currency limits, and optional included-fee range metadata; never customer pricing.
+ * @summary Public reference-format live rates XML
+ */
+export const GetRatesXmlResponse = zod.unknown()
+
+
+/**
  * @summary Public BestChange standard-format live Manual Swap rates
  */
 export const GetBestchangeXmlResponse = zod.unknown()

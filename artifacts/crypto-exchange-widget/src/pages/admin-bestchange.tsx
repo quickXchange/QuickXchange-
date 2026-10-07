@@ -176,7 +176,7 @@ function DirectionEditor({ d, i, options, currencyCodes, cityCodes, canManage, o
         </label>
         <label className="flex items-center gap-2 pt-6 text-sm">
           <input type="checkbox" disabled={!canManage} checked={d.includeFeeTags} onChange={e => onChange({ includeFeeTags: e.target.checked })} />
-          Emit fromfee/tofee tags (always zero; fees already in out)
+          Show included-fee range steps (zero extra fees; legacy feed uses zero fee tags)
         </label>
       </div>
       {errors.length > 0 && <ul className="list-disc pl-5 text-xs text-destructive" data-testid={`bestchange-direction-errors-${i}`}>{errors.map(x => <li key={x}>{x}</li>)}</ul>}
@@ -247,7 +247,7 @@ export function AdminBestchangePage() {
   const download = () => {
     if (!preview.data) return;
     const url = URL.createObjectURL(new Blob([preview.data.xml], { type: 'application/xml;charset=utf-8' }));
-    const a = document.createElement('a'); a.href = url; a.download = 'bestchange.xml'; a.click(); URL.revokeObjectURL(url);
+    const a = document.createElement('a'); a.href = url; a.download = 'rates.xml'; a.click(); URL.revokeObjectURL(url);
   };
   const downloadReserves = async () => {
     setReserveBusy(true);
@@ -354,7 +354,15 @@ export function AdminBestchangePage() {
             </section>
 
             <section className={card}>
-              <p className={lbl}>Public feed link — current environment URL</p>
+              <p className={lbl}>Rates XML — current environment URL</p>
+              <p className="mb-3 text-xs text-muted-foreground">
+                Reference-compatible rates/item format: one-unit rates and source-currency limits.
+                Direction codes, limits, reserves and XML percentages use the controls on this page.
+                Existing Manual Pricing controls the live base rates and range boundaries.
+                Enable included-fee tags on a direction to show its pricing ranges as steps;
+                additional step fees stay zero because fees are already included in the advertised rate.
+                The legacy /api/bestchange.xml endpoint remains available.
+              </p>
               <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
                 <input readOnly className={field + ' !mt-0 font-mono'} value={feedUrl} />
                 <button className={btn} onClick={() => void copy(feedUrl, 'Feed link')} data-testid="bestchange-copy-link"><Copy size={16} />Copy</button>

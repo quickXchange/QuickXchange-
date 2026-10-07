@@ -21625,6 +21625,84 @@ export function useGetPublicNotificationSettings<TData = Awaited<ReturnType<type
 
 
 
+export const getGetRatesXmlUrl = () => {
+
+
+
+
+  return `/api/rates.xml`
+}
+
+/**
+ * Uses the existing live rate engine and Admin XML settings. One-unit rates, source-currency limits, and optional included-fee range metadata; never customer pricing.
+ * @summary Public reference-format live rates XML
+ */
+export const getRatesXml = async ( options?: Parameters<typeof customFetch>[1]): Promise<string> => {
+
+  return customFetch<string>(getGetRatesXmlUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRatesXmlQueryKey = () => {
+    return [
+    `/api/rates.xml`
+    ] as const;
+    }
+
+
+export const getGetRatesXmlQueryOptions = <TData = Awaited<ReturnType<typeof getRatesXml>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRatesXml>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRatesXmlQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRatesXml>>> = ({ signal }) => getRatesXml({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRatesXml>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRatesXmlQueryResult = NonNullable<Awaited<ReturnType<typeof getRatesXml>>>
+export type GetRatesXmlQueryError = ErrorType<void>
+
+
+/**
+ * @summary Public reference-format live rates XML
+ */
+
+export function useGetRatesXml<TData = Awaited<ReturnType<typeof getRatesXml>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRatesXml>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRatesXmlQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getGetBestchangeXmlUrl = () => {
 
 
