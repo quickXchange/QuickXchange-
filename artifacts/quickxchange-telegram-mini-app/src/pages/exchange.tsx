@@ -1543,16 +1543,18 @@ export default function Exchange() {
 
           </div>
 
-          <ExchangeRateSummary
-            mode={mode}
-            sourceAsset={sourceOpt?.assetCode}
-            targetAsset={targetOpt?.assetCode}
-            rate={quoteExpired && parsedAmount > 0 ? null : authoritativeExchangeRate}
-            loading={!errorMsg && (isQuoteProcessing ||
-              (mode === 'swap' && isPricingLoading && !quoteMatchesCurrentSelection))}
-            error={Boolean(errorMsg)}
-            unavailable={quoteExpired && parsedAmount > 0}
-          />
+          {mode === 'swap' && (
+            <ExchangeRateSummary
+              mode={mode}
+              sourceAsset={sourceOpt?.assetCode}
+              targetAsset={targetOpt?.assetCode}
+              rate={quoteExpired && parsedAmount > 0 ? null : authoritativeExchangeRate}
+              loading={!errorMsg && (isQuoteProcessing ||
+                (mode === 'swap' && isPricingLoading && !quoteMatchesCurrentSelection))}
+              error={Boolean(errorMsg)}
+              unavailable={quoteExpired && parsedAmount > 0}
+            />
+          )}
 
           {uiText(mode === 'swap' && (
             <div className="premium-card space-y-3 p-4">

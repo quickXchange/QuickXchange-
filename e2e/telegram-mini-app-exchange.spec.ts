@@ -407,10 +407,12 @@ test('Convert receive-target quoting honors fixed rate mode, requires policy acc
 
   await page.goto(`${miniApp}/exchange?mode=convert`);
   await expect(page.getByTestId('convert-rate-floating')).toBeVisible();
+  await expect(page.getByTestId('exchange-rate-summary')).toHaveCount(0);
   await expect(page.getByTestId('source-selector-trigger')).toContainText('BTC');
   await expect(page.getByTestId('target-selector-trigger')).toContainText('ETH');
   await expect(page.getByTestId('input-receive-amount')).toBeEnabled();
   await page.getByTestId('convert-rate-fixed').click();
+  await expect(page.getByTestId('exchange-rate-summary')).toHaveCount(0);
   await page.getByTestId('input-receive-amount').fill('20');
   await page.clock.runFor(600);
   await expect.poll(() => reverseQuotes.length).toBeGreaterThan(0);
