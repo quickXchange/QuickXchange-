@@ -3,6 +3,7 @@
   "compileOnSave": false,
   "files": [],
   "references": [
+    { "path": "./lib/i18n" },
     {
       "path": "./lib/amount-format"
     },

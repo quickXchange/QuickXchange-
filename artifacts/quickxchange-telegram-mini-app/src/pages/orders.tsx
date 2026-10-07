@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { formatDisplayAmount } from '@workspace/amount-format';
 import { useState } from 'react';
 import { useAuthHeaders } from '@/lib/auth';
@@ -22,6 +23,8 @@ import {
 import { convertOrderStatusLabel, isConvertTerminalStatus } from '@/lib/convert-order-status';
 
 export default function Orders() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const headers = useAuthHeaders();
   const haptic = useHapticFeedback();
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,14 +64,13 @@ export default function Orders() {
   return (
     <div className="flex flex-col p-4 space-y-4 pt-6 max-w-md mx-auto w-full pb-24 animate-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between mb-2">
-        <h1 className="text-[22px] font-bold tracking-tight">My Orders</h1>
+        <h1 className="text-[22px] font-bold tracking-tight">{uiT("customer.m00db793f2b8c")}</h1>
         <Link
           href="/track"
           onClick={() => haptic.selection()}
           className="text-[13px] font-semibold text-primary hover:text-primary/80 transition-colors px-3 py-1.5 bg-primary/10 rounded-full"
         >
-          Track ID
-        </Link>
+          {uiT("customer.m28413c4ca3e6")}{' '}</Link>
       </div>
 
       <div className="relative mb-2">
@@ -77,7 +79,7 @@ export default function Orders() {
         </div>
         <Input
           type="text"
-          placeholder="Search orders..."
+          placeholder={uiT("customer.mac630637eca4")}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-9 bg-background/50 h-12 rounded-2xl border-white/5 focus-visible:ring-primary/50 text-[14px] shadow-sm placeholder:text-muted-foreground/50"
@@ -85,7 +87,7 @@ export default function Orders() {
         {searchQuery && (
           <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
             <span className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-md">
-              {filteredOrders.length}
+              {uiText(filteredOrders.length)}
             </span>
           </div>
         )}
@@ -93,7 +95,7 @@ export default function Orders() {
 
       {isLoading ? (
         <div className="space-y-3">
-          {Array(4).fill(0).map((_, i) => (
+          {uiText(Array(4).fill(0).map((_, i) => (
             <div key={i} className="premium-card p-4 flex justify-between items-center opacity-70">
               <div className="flex items-center space-x-3">
                 <div className="w-11 h-11 rounded-full bg-muted animate-pulse" />
@@ -103,7 +105,7 @@ export default function Orders() {
                 </div>
               </div>
             </div>
-          ))}
+          )))}
         </div>
       ) : filteredOrders.length > 0 ? (
         <div className="space-y-3 pb-6">
@@ -127,19 +129,19 @@ export default function Orders() {
                 <div className="flex items-center space-x-3.5 min-w-0">
                   <MiniAppLogoPair source={sourceVisual} target={targetVisual} sourceAlt={order.fromAsset} targetAlt={order.toAsset} />
                   <div className="flex flex-col min-w-0">
-                    <div className="text-[10px] text-muted-foreground font-mono mb-0.5">#{order.id.slice(0, 8)}</div>
+                    <div className="text-[10px] text-muted-foreground font-mono mb-0.5">#{uiText(order.id.slice(0, 8))}</div>
                     <div className="font-bold text-[15px] flex items-center truncate">
-                      <span className="text-[12px] text-muted-foreground mr-1">Send</span>
+                      <span className="text-[12px] text-muted-foreground mr-1">{uiT("customer.mf6f4688ff23d")}</span>
                       <span className="truncate">{formatDisplayAmount(order.amount)} {order.fromAsset}</span>
                     </div>
                     <div className="font-bold text-[15px] flex items-center truncate text-primary mt-0.5">
-                      <span className="text-[12px] text-muted-foreground mr-1">Receive</span>
+                      <span className="text-[12px] text-muted-foreground mr-1">{uiT("customer.mbac9d15ad9f1")}</span>
                       <span className="truncate">{order.toAsset}</span>
                     </div>
                     <div className="text-[11px] font-mono text-muted-foreground mt-1 flex items-center gap-1.5">
-                      <span>{format(new Date(order.createdAt), 'MMM d, yyyy')}</span>
+                      <span>{uiText(format(new Date(order.createdAt), 'MMM d, yyyy'))}</span>
                       <span className="w-1 h-1 rounded-full bg-border" />
-                      <span>{format(new Date(order.createdAt), 'HH:mm')}</span>
+                      <span>{uiText(format(new Date(order.createdAt), 'HH:mm'))}</span>
                     </div>
                   </div>
                 </div>
@@ -149,7 +151,7 @@ export default function Orders() {
                   isFailed ? "bg-destructive/10 text-destructive border border-destructive/20" :
                   "bg-secondary/10 text-secondary border border-secondary/20"
                 )}>
-                   {statusLabel}
+                   {uiText(statusLabel)}
                 </div>
               </div>
             </Link>
@@ -166,17 +168,16 @@ export default function Orders() {
           </div>
           <div className="space-y-1">
             <h3 className="font-bold text-[16px]">
-              {searchQuery ? 'No matching orders' : 'No orders yet'}
+              {searchQuery ? uiT("customer.maeda72e81aff") : uiT("customer.m104b6eb41be3")}
             </h3>
             <p className="text-muted-foreground text-[13px] max-w-[200px] leading-relaxed">
-              {searchQuery ? `We couldn't find any orders matching "${searchQuery}".` : "You haven't made any exchanges yet. Start one now!"}
+              {searchQuery ? uiT("customer.m605331a76c64", { v0: searchQuery }) : uiT("customer.m1f5d36979302")}
             </p>
           </div>
           {!searchQuery && (
             <Link href="/exchange" onClick={() => haptic.selection()} className="mt-2">
               <div className="bg-primary text-primary-foreground text-[13px] font-bold px-4 py-2 rounded-xl shadow-md">
-                Start an Exchange
-              </div>
+                {uiT("customer.mc2539ce9289f")}{' '}</div>
             </Link>
           )}
         </div>

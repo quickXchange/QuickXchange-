@@ -79,6 +79,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
-    "@workspace/amount-format": "workspace:*"
+    "@workspace/amount-format": "workspace:*",
+    "@workspace/i18n": "workspace:*"
   }
 }

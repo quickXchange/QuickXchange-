@@ -1,3 +1,5 @@
+import { sourceText } from "@workspace/i18n/runtime";
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import { cn } from '@/components/shared-app-ui';
@@ -25,40 +27,42 @@ export type NavGroup = {
 
 export const NAVIGATION_DATA: NavGroup[] = [
   {
-    title: 'Explore',
+    title: sourceText("customer.m8d6cc7850782"),
     items: [
-      { label: 'Coins', href: '/market-rates', icon: Coins, description: 'Explore live crypto markets' },
-      { label: 'Crypto Pairs', href: '/crypto-pairs', icon: ArrowRightLeft, description: 'Browse supported Convert routes' },
-      { label: 'About Us', href: '/about', icon: Info, description: 'Our mission and team' },
-      { label: 'How It Works', href: '/how-it-works', icon: HelpCircle, description: 'Platform mechanics' },
+      { label: sourceText("customer.mba48de1cf13f"), href: '/market-rates', icon: Coins, description: sourceText("customer.m85421b60df52") },
+      { label: sourceText("customer.mc432569d80a9"), href: '/crypto-pairs', icon: ArrowRightLeft, description: sourceText("customer.mf4450e6f7cdc") },
+      { label: sourceText("customer.m7c961a3c5ebe"), href: '/about', icon: Info, description: sourceText("customer.m0b33a086ce51") },
+      { label: sourceText("customer.m631378ac5941"), href: '/how-it-works', icon: HelpCircle, description: sourceText("customer.m32b05dec9b98") },
     ]
   },
   {
-    title: 'Support',
+    title: sourceText("customer.m62421bff7b47"),
     items: [
-      { label: 'FAQ', href: '/faq', icon: MessageCircle, description: 'Common questions answered' },
-      { label: 'Track an Order', href: '/status', icon: Clock, description: 'Track your exchange' },
-      { label: 'AML / KYC', href: '/aml-kyc', icon: ShieldCheck, description: 'Compliance and verification policy' },
-      { label: 'Contact Support', href: '/contact', icon: HelpCircle, description: '24/7 customer service' },
+      { label: 'FAQ', href: '/faq', icon: MessageCircle, description: sourceText("customer.m0cfe27ae1c80") },
+      { label: sourceText("customer.me8a37f362786"), href: '/status', icon: Clock, description: sourceText("customer.m9b4a707c4099") },
+      { label: sourceText("customer.mb0d75ac23304"), href: '/aml-kyc', icon: ShieldCheck, description: sourceText("customer.mbc712005e8e9") },
+      { label: sourceText("customer.mfe340c99f287"), href: '/contact', icon: HelpCircle, description: sourceText("customer.mb53f17bf4e3c") },
     ]
   },
   {
-    title: 'User Manual',
+    title: sourceText("customer.m468c2c5657c2"),
     items: [
-      { label: 'User Manual', href: '/user-manual', icon: BookOpen, description: 'Step-by-step exchange guide' },
+      { label: sourceText("customer.m468c2c5657c2"), href: '/user-manual', icon: BookOpen, description: sourceText("customer.md3519daa6a35") },
     ],
     direct: true,
   },
   {
-    title: 'Blog',
+    title: sourceText("customer.m0bd7a95c35c4"),
     items: [
-      { label: 'Blog', href: '/blog', icon: Newspaper, description: 'News, guides, and insights' },
+      { label: sourceText("customer.m0bd7a95c35c4"), href: '/blog', icon: Newspaper, description: sourceText("customer.m7eb5fc4c30cc") },
     ],
     direct: true,
   }
 ];
 
 export function DesktopMegaMenu({ groups = NAVIGATION_DATA }: { groups?: NavGroup[] }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [location] = useLocation();
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const navRef = useRef<HTMLElement>(null);
@@ -99,7 +103,7 @@ export function DesktopMegaMenu({ groups = NAVIGATION_DATA }: { groups?: NavGrou
   const isCurrentRoute = (href: string) => location === href || (href !== '/' && location.startsWith(`${href}/`));
 
   return (
-    <nav ref={navRef} className="qx-mega-nav hidden xl:flex" aria-label="Main Navigation">
+    <nav ref={navRef} className="qx-mega-nav hidden xl:flex" aria-label={uiT("customer.m56ea852a517b")}>
       {groups.map((group) => {
         if (group.direct) {
           const item = group.items[0];
@@ -112,7 +116,7 @@ export function DesktopMegaMenu({ groups = NAVIGATION_DATA }: { groups?: NavGrou
                 className="qx-mega-direct is-disabled"
                 aria-disabled="true"
               >
-                {group.title}
+                {uiText(group.title)}
               </span>
             );
           }
@@ -124,7 +128,7 @@ export function DesktopMegaMenu({ groups = NAVIGATION_DATA }: { groups?: NavGrou
               aria-current={active ? 'page' : undefined}
               data-testid={`link-mega-${group.title.toLowerCase()}`}
             >
-              {group.title}
+              {uiText(group.title)}
             </Link>
           );
         }
@@ -146,7 +150,7 @@ export function DesktopMegaMenu({ groups = NAVIGATION_DATA }: { groups?: NavGrou
             onClick={() => setOpenGroup(openGroup === group.title ? null : group.title)}
             data-testid={`button-mega-${group.title.toLowerCase()}`}
           >
-            {group.title}
+            {uiText(group.title)}
             <ChevronDown size={14} className={cn("transition-transform duration-200", openGroup === group.title && "rotate-180")} />
           </button>
           
@@ -154,7 +158,7 @@ export function DesktopMegaMenu({ groups = NAVIGATION_DATA }: { groups?: NavGrou
             id={`mega-panel-${group.title.toLowerCase()}`}
             className="qx-mega-panel"
             role="region"
-            aria-label={`${group.title} submenu`}
+            aria-label={uiT("customer.m8adf99d3ff39", { v0: group.title })}
             aria-hidden={!groupIsOpen}
             inert={!groupIsOpen}
           >
@@ -167,10 +171,10 @@ export function DesktopMegaMenu({ groups = NAVIGATION_DATA }: { groups?: NavGrou
                   </div>
                   <div className="qx-mega-item-content">
                     <span className="qx-mega-item-title">
-                      {item.label}
-                      {item.disabled && <span className="qx-badge-soon">Soon</span>}
+                      {uiText(item.label)}
+                      {item.disabled && <span className="qx-badge-soon">{uiT("customer.mcf0ee3547a4e")}</span>}
                     </span>
-                    <span className="qx-mega-item-desc">{item.description}</span>
+                    <span className="qx-mega-item-desc">{uiText(item.description)}</span>
                   </div>
                   <ArrowRight size={18} className="qx-mega-item-arrow" />
                 </>
@@ -182,7 +186,7 @@ export function DesktopMegaMenu({ groups = NAVIGATION_DATA }: { groups?: NavGrou
               if (item.disabled) {
                 return (
                   <div key={item.label} className={className} aria-disabled="true">
-                    {content}
+                    {uiText(content)}
                   </div>
                 );
               }
@@ -195,7 +199,7 @@ export function DesktopMegaMenu({ groups = NAVIGATION_DATA }: { groups?: NavGrou
                   aria-current={itemIsActive ? 'page' : undefined}
                   onClick={() => setOpenGroup(null)}
                 >
-                  {content}
+                  {uiText(content)}
                 </Link>
               );
             })}

@@ -1,7 +1,10 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { useEffect, useState } from 'react';
 import { SiTelegram } from 'react-icons/si';
 
 export function TelegramSupportButton({ supportUrl }: { supportUrl: string | undefined }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [footerVisible, setFooterVisible] = useState(false);
 
   useEffect(() => {
@@ -23,8 +26,8 @@ export function TelegramSupportButton({ supportUrl }: { supportUrl: string | und
       tabIndex={supportUrl ? undefined : -1}
       target="_blank"
       rel="noreferrer noopener"
-      aria-label="Telegram Support"
-      title="Telegram Support"
+      aria-label={uiT("customer.m55c7eb36ed47")}
+      title={uiT("customer.m55c7eb36ed47")}
       data-testid="telegram-support-button"
       className={[
         'group fixed right-[max(1rem,env(safe-area-inset-right))] z-40',
@@ -46,8 +49,7 @@ export function TelegramSupportButton({ supportUrl }: { supportUrl: string | und
         role="tooltip"
         className="pointer-events-none absolute right-[calc(100%+0.625rem)] top-1/2 hidden -translate-y-1/2 whitespace-nowrap rounded-lg border border-border bg-popover px-2.5 py-1.5 text-xs font-semibold text-popover-foreground opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 md:block"
       >
-        Telegram Support
-      </span>
+        {uiT("customer.m55c7eb36ed47")}{' '}</span>
     </a>
   );
 }

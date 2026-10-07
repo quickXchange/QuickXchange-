@@ -1,3 +1,5 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
+import { buildClerkLocalization } from '@workspace/i18n';
 import { formatDisplayAmount } from '@workspace/amount-format';
 import { lazy, memo, Suspense, useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback } from 'react';
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
@@ -135,6 +137,7 @@ const AdminRevenue = lazy(() => import('./pages/admin').then(module => ({ defaul
 const AdminCustomers = lazy(() => import('./pages/admin').then(module => ({ default: module.AdminCustomers })));
 const AdminCustomerProfile = lazy(() => import('./pages/admin-customer-profile').then(module => ({ default: module.AdminCustomerProfile })));
 const AdminAppearancePage = lazy(() => import('./pages/admin-appearance').then(module => ({ default: module.AdminAppearancePage })));
+const AdminLanguagesPage = lazy(() => import('./pages/admin-languages').then(module => ({ default: module.AdminLanguagesPage })));
 const AdminLandingBackgroundStudio = lazy(() => import('./pages/admin-landing-background').then(module => ({ default: module.AdminLandingBackgroundStudio })));
 const AdminSiteContentPage = lazy(() => import('./pages/site-content').then(module => ({ default: module.AdminSiteContentPage })));
 const PublicSitePage = lazy(() => import('./pages/site-content').then(module => ({ default: module.PublicSitePage })));
@@ -355,6 +358,8 @@ function settlementFieldDisplayLabel(field: any, t: (key: any) => string) {
 }
 
 function DynamicField({ field, value, onChange }: { field: any; value: string; onChange: (val: string) => void }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   const normalizedKey = String(field.key || '').replace(/^(source|target)_/, '');
   const displayLabel = settlementFieldDisplayLabel(field, t);
@@ -375,7 +380,7 @@ function DynamicField({ field, value, onChange }: { field: any; value: string; o
     case 'select':
       input = <select className="w-full" {...commonProps}>
         <option value="" disabled>{t('selectors.select')}...</option>
-        {field.options?.map((o: any) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        {uiText(field.options?.map((o: any) => <option key={o.value} value={o.value}>{uiText(o.label)}</option>))}
       </select>;
       break;
     case 'textarea':
@@ -412,18 +417,20 @@ function DynamicField({ field, value, onChange }: { field: any; value: string; o
 
   return <label className="block swap-customer-field">
     <span className="field-label">
-      {field.emphasizedLabel ? <strong>{displayLabel}</strong> : displayLabel}
+      {field.emphasizedLabel ? <strong>{uiText(displayLabel)}</strong> : displayLabel}
       {field.required || field.requiredWhen
         ? <span className="required-field-mark" aria-hidden="true"> *</span>
         : <small>({t('swap.optional')})</small>}
     </span>
-    {input}
+    {uiText(input)}
     {field.type === 'private-image' && <p className="field-hint text-[10px] text-muted-foreground mt-1">{t('selectors.secureUploadUnavailable')}</p>}
-    {field.help && field.type !== 'private-image' && <p className="field-hint">{field.help}</p>}
+    {field.help && field.type !== 'private-image' && <p className="field-hint">{uiText(field.help)}</p>}
   </label>;
 }
 
 function CopyBox({ label, text, testId, actionable = true, large = false }: { label?: string, text: string, testId?: string, actionable?: boolean, large?: boolean }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [copied, setCopied] = useState(false);
   const copy = () => {
     if (!actionable) return;
@@ -433,10 +440,10 @@ function CopyBox({ label, text, testId, actionable = true, large = false }: { la
   };
   return (
     <div className="flex flex-col gap-1.5 w-full min-w-0">
-      {label && <span className="text-sm font-medium text-foreground">{label}</span>}
+      {label && <span className="text-sm font-medium text-foreground">{uiText(label)}</span>}
       <div className={cn("copy-field", large && "copy-field-large")}>
-        <code>{text}</code>
-        <button type="button" onClick={copy} disabled={!actionable} aria-label={label ? `Copy ${label}` : 'Copy'} data-testid={testId || 'button-copy'}>
+        <code>{uiText(text)}</code>
+        <button type="button" onClick={copy} disabled={!actionable} aria-label={label ? uiT("customer.m3f3ebff426db", { v0: label }) : uiT("customer.me21f935f11d7")} data-testid={testId || 'button-copy'}>
           {copied ? <Check size={large ? 16 : 14} className="text-success" /> : <Copy size={large ? 16 : 14} />}
         </button>
       </div>
@@ -445,6 +452,8 @@ function CopyBox({ label, text, testId, actionable = true, large = false }: { la
 }
 
 function SummaryDetailRow({ label, value, testId }: { label: string; value: string; testId: string }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [copied, setCopied] = useState(false);
   const copyValue = () => {
     void navigator.clipboard.writeText(value).then(() => {
@@ -455,10 +464,10 @@ function SummaryDetailRow({ label, value, testId }: { label: string; value: stri
 
   return (
     <div className="swap-summary-detail-row">
-      <span className="swap-summary-detail-label">{label}</span>
+      <span className="swap-summary-detail-label">{uiText(label)}</span>
       <span className="swap-summary-detail-value">
-        <span>{value}</span>
-        <button type="button" onClick={copyValue} aria-label={`Copy ${label}`} data-testid={testId}>
+        <span>{uiText(value)}</span>
+        <button type="button" onClick={copyValue} aria-label={uiT("customer.m3f3ebff426db", { v0: label })} data-testid={testId}>
           {copied ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
         </button>
       </span>
@@ -516,6 +525,8 @@ const PaymentTickerSequence = memo(function PaymentTickerSequence({
   methods: PaymentTickerMethod[];
   duplicate?: boolean;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   return (
     <div className="payment-ticker-sequence" aria-hidden={duplicate || undefined}>
       {methods.map((method) => (
@@ -531,7 +542,7 @@ const PaymentTickerSequence = memo(function PaymentTickerSequence({
             priority={false}
             preferOfficialArtwork={/^(sepa|visa|mastercard)$/i.test(method.name)}
           />
-          <span className="font-bold">{method.name}</span>
+          <span className="font-bold">{uiText(method.name)}</span>
         </div>
       ))}
     </div>
@@ -539,6 +550,8 @@ const PaymentTickerSequence = memo(function PaymentTickerSequence({
 });
 
 function LandingSections({ getMode, socialTrust, showCommunity }: { getMode: () => 'swap' | 'convert'; socialTrust?: Pick<SocialTrustConfig, 'items'> | null; showCommunity: boolean }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   const marketAssets = useMemo(() => [
     'BTC', 'ETH', 'USDT', 'SOL', 'BNB', 'XRP', 'ADA',
@@ -815,9 +828,9 @@ function LandingSections({ getMode, socialTrust, showCommunity }: { getMode: () 
             <strong>{symbol}</strong>
             {quote ? (
               <>
-                <span className="ticker-price">{formatMarketPrice(quote.price)}</span>
+                <span className="ticker-price">{uiText(formatMarketPrice(quote.price))}</span>
                 <span className={changeTone}>
-                  {quote.change24h > 0 ? '+' : ''}{quote.change24h.toFixed(2)}%
+                  {quote.change24h > 0 ? '+' : ''}{uiText(quote.change24h.toFixed(2))}%
                 </span>
               </>
             ) : marketLoading ? (
@@ -853,8 +866,8 @@ function LandingSections({ getMode, socialTrust, showCommunity }: { getMode: () 
           onPointerCancel={handleTickerPointerEnd}
         >
           <div className="ticker-track" ref={tickerTrackRef}>
-            {renderMarketSequence()}
-            {renderMarketSequence(true)}
+            {uiText(renderMarketSequence())}
+            {uiText(renderMarketSequence(true))}
           </div>
         </div>
         <Link href="/" className="ticker-link relative z-10">{t('home.viewRates')} <ArrowRight size={14} /></Link>
@@ -1025,6 +1038,8 @@ function ExchangePage() {
 }
 
 function ConfiguredExchangePage({ pageKey }: { pageKey: SitePageKey }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   const preview = useSitePreview();
   const published = useGetPublishedSiteContent({
@@ -1130,7 +1145,7 @@ function ConfiguredExchangePage({ pageKey }: { pageKey: SitePageKey }) {
           <main className="exchange-main public-hero-container">
             <section className="hero-copy exchange-hero-copy">
               <div className="hero-eyebrow"><Zap size={14} className="text-[#007bff] fill-[#007bff]" /> {t('home.heroEyebrow')}</div>
-              <h1>{heroTitleLead}<span className="text-gradient">{heroTitleAccent}</span></h1>
+              <h1>{uiText(heroTitleLead)}<span className="text-gradient">{uiText(heroTitleAccent)}</span></h1>
               <p className="hero-supporting-line">{contentDescription || t('home.heroDescription')}</p>
               {heroImageUrl && <img src={heroImageUrl} alt={typeof heroImage.altText === 'string' ? heroImage.altText : heroTitle} className="mt-6 max-h-64 w-full rounded-2xl border border-border object-cover shadow-sm" />}
 
@@ -1158,11 +1173,10 @@ function ConfiguredExchangePage({ pageKey }: { pageKey: SitePageKey }) {
               <div className="pointer-events-none absolute -right-16 bottom-0 h-56 w-56 rounded-full bg-purple-500/15 blur-3xl" />
 
               <div className="relative text-center">
-                <span className="section-kicker">HOW IT WORKS</span>
-                <h2 className="mt-2 text-3xl font-bold tracking-tight text-foreground md:text-4xl">How It Works</h2>
+                <span className="section-kicker">{uiT("customer.m6a4cc4c27d2f")}</span>
+                <h2 className="mt-2 text-3xl font-bold tracking-tight text-foreground md:text-4xl">{uiT("customer.mc1879525c75c")}</h2>
                 <p className="mx-auto mt-3 max-w-xl text-base text-muted-foreground sm:text-lg">
-                  See how Swap and Convert work in less than a minute.
-                </p>
+                  {uiT("customer.mefd358a4ff36")}{' '}</p>
               </div>
 
               <Link
@@ -1170,23 +1184,22 @@ function ConfiguredExchangePage({ pageKey }: { pageKey: SitePageKey }) {
                 onClick={() => trackEvent('landing_action_clicked', { action: 'view_how_it_works' })}
                 className="group relative mx-auto mt-7 flex h-13 w-full max-w-3xl items-center justify-center gap-2 rounded-full border border-blue-400/30 bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 px-6 text-sm font-extrabold tracking-wide text-white shadow-[0_10px_30px_rgba(37,99,235,0.25)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_36px_rgba(37,99,235,0.35)] motion-reduce:transform-none"
               >
-                LEARN HOW IT WORKS
-                <ArrowRight size={17} className="transition-transform duration-300 group-hover:translate-x-1 motion-reduce:transform-none" />
+                {uiT("customer.md60a691beef9")}{' '}<ArrowRight size={17} className="transition-transform duration-300 group-hover:translate-x-1 motion-reduce:transform-none" />
               </Link>
 
               <div className="mx-auto mt-6 grid max-w-3xl grid-cols-1 divide-y divide-blue-300/30 sm:grid-cols-3 sm:divide-x sm:divide-y-0 dark:divide-blue-400/15">
                 {[
-                  { icon: Zap, title: 'Simple Steps', detail: 'Easy to follow' },
-                  { icon: ShieldCheck, title: 'Safe & Secure', detail: 'Clear order flow' },
-                  { icon: Activity, title: 'Less than 1 minute', detail: 'Get started quickly' },
+                  { icon: Zap, title: uiT("customer.m97afc134fbb7"), detail: 'Easy to follow' },
+                  { icon: ShieldCheck, title: uiT("customer.m7a56bac7fc2e"), detail: 'Clear order flow' },
+                  { icon: Activity, title: uiT("customer.m85fe3c61aae6"), detail: 'Get started quickly' },
                 ].map(({ icon: Icon, title, detail }) => (
-                  <div key={title} className="flex min-w-0 items-center justify-center gap-3 px-3 py-4 text-left sm:justify-start sm:px-5">
+                  <div key={uiText(title)} className="flex min-w-0 items-center justify-center gap-3 px-3 py-4 text-left sm:justify-start sm:px-5">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400/20 via-blue-500/20 to-purple-500/25 text-blue-600 ring-1 ring-blue-400/20 dark:text-cyan-300">
                       <Icon size={17} aria-hidden="true" />
                     </span>
                     <span className="min-w-0">
-                      <strong className="block text-sm font-bold leading-tight text-foreground">{title}</strong>
-                      <span className="mt-1 block text-xs leading-tight text-muted-foreground">{detail}</span>
+                      <strong className="block text-sm font-bold leading-tight text-foreground">{uiText(title)}</strong>
+                      <span className="mt-1 block text-xs leading-tight text-muted-foreground">{uiText(detail)}</span>
                     </span>
                   </div>
                 ))}
@@ -1195,8 +1208,8 @@ function ConfiguredExchangePage({ pageKey }: { pageKey: SitePageKey }) {
           </section>
           {(managedBody || managedSections.length > 0) && (
             <section className="mx-auto mb-16 grid w-[calc(100%-2rem)] max-w-[1440px] gap-6 md:grid-cols-2">
-              {managedBody && <article className="rounded-3xl border border-border bg-card p-8 shadow-sm md:col-span-2"><p className="whitespace-pre-wrap leading-relaxed text-muted-foreground">{managedBody}</p></article>}
-              {managedSections.map((section, index) => <article className="rounded-3xl border border-border bg-card p-8 shadow-sm" key={`${section.heading}-${index}`}><h2 className="mb-4 text-2xl font-bold">{section.heading}</h2><p className="whitespace-pre-wrap leading-relaxed text-muted-foreground">{section.body}</p></article>)}
+              {managedBody && <article className="rounded-3xl border border-border bg-card p-8 shadow-sm md:col-span-2"><p className="whitespace-pre-wrap leading-relaxed text-muted-foreground">{uiText(managedBody)}</p></article>}
+              {uiText(managedSections.map((section, index) => <article className="rounded-3xl border border-border bg-card p-8 shadow-sm" key={`${section.heading}-${index}`}><h2 className="mb-4 text-2xl font-bold">{uiText(section.heading)}</h2><p className="whitespace-pre-wrap leading-relaxed text-muted-foreground">{uiText(section.body)}</p></article>))}
             </section>
           )}
         </div>
@@ -1219,6 +1232,8 @@ function ConfiguredExchangePage({ pageKey }: { pageKey: SitePageKey }) {
 
 
 function StatusPage() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   const [, setLocation] = useLocation();
   const query = new URLSearchParams(window.location.search);
@@ -1294,15 +1309,15 @@ function StatusPage() {
           <div className="ambient-glow" />
 
           <section className="status-hero">
-            <div className="eyebrow">ORDER LOOKUP</div>
-            <h1>Know where your money is.</h1>
-            <p>Enter your QuickXchange Order ID to see the latest status and transaction details.</p>
+            <div className="eyebrow">{uiT("customer.m3ffd394ebc77")}</div>
+            <h1>{uiT("customer.m86ac0b95a4e0")}</h1>
+            <p>{uiT("customer.m76b270bac51b")}</p>
           </section>
 
           <div className="lookup-card track-order-lookup-card">
             <div className="lookup-card-inner">
-              <h2>Track your order</h2>
-              <p>Enter your Order ID below.</p>
+              <h2>{uiT("customer.mcb88fb33b319")}</h2>
+              <p>{uiT("customer.m0e7004b091c2")}</p>
               <form className="lookup-form" onSubmit={(event) => {
                 event.preventDefault();
                 const nextOrderId = search.trim();
@@ -1317,8 +1332,8 @@ function StatusPage() {
                   <input
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Enter Order ID, e.g. QX-..."
-                    aria-label="QuickXchange Order ID"
+                    placeholder={uiT("customer.me352f6bd8ebc")}
+                    aria-label={uiT("customer.m1f11c49b46c1")}
                     autoCapitalize="characters"
                     autoComplete="off"
                     spellCheck={false}
@@ -1326,7 +1341,7 @@ function StatusPage() {
                   />
                 </div>
                 <button className="button-gradient" type="submit" disabled={!search.trim()} data-testid="button-search-order">
-                  TRACK ORDER <ArrowRight size={18} />
+                  {uiT("customer.mb6741150206a")}{' '}<ArrowRight size={18} />
                 </button>
               </form>
             </div>
@@ -1335,14 +1350,14 @@ function StatusPage() {
           {submitted && !validCapabilityId && (
             <div className="lookup-card track-order-state-card result-empty" data-testid="invalid-order-result">
               <CircleAlert size={24} />
-              <strong>Order not found</strong>
-              <p>Check your Order ID and try again.</p>
+              <strong>{uiT("customer.m30658cae73f2")}</strong>
+              <p>{uiT("customer.m76a51e607aeb")}</p>
             </div>
           )}
 
           {activeStatusQuery.isError && validCapabilityId && !visibleOrder && (notFound
-            ? <div className="lookup-card track-order-state-card result-empty" data-testid="empty-order-result"><Search size={24} /><strong>Order not found</strong><p>Check your Order ID and try again.</p></div>
-            : <div className="lookup-card track-order-state-card"><div className="lookup-card-inner"><ErrorState message={lookupErrorMessage} retry={() => activeStatusQuery.refetch()} /></div></div>)}
+            ? <div className="lookup-card track-order-state-card result-empty" data-testid="empty-order-result"><Search size={24} /><strong>{uiT("customer.m30658cae73f2")}</strong><p>{uiT("customer.m76a51e607aeb")}</p></div>
+            : <div className="lookup-card track-order-state-card"><div className="lookup-card-inner"><ErrorState message={uiText(lookupErrorMessage)} retry={() => activeStatusQuery.refetch()} /></div></div>)}
 
           {!visibleOrder && activeStatusQuery.isFetching && validCapabilityId && (
             <div className="lookup-card track-order-state-card"><div className="lookup-card-inner flex justify-center py-12"><Loader2 size={32} className="animate-spin text-primary" /></div></div>
@@ -1361,10 +1376,10 @@ function StatusPage() {
             <div className="help-card">
               <div className="help-icon"><FileText size={20} /></div>
               <div className="help-content flex-1">
-                <h2>Where can I find my Order ID?</h2>
-                <p>You can find it in your QuickXchange order confirmation or inside My Orders when signed in.</p>
+                <h2>{uiT("customer.maf6feac4d7be")}</h2>
+                <p>{uiT("customer.mc9aa11fd27eb")}</p>
                 <Show when="signed-in">
-                  <Link href="/account/orders" className="view-orders-link">View My Orders <ArrowRight size={14} /></Link>
+                  <Link href="/account/orders" className="view-orders-link">{uiT("customer.me397b33e872f")}{' '}<ArrowRight size={14} /></Link>
                 </Show>
               </div>
             </div>
@@ -1386,6 +1401,8 @@ function OrderStatusCard({
   onMarkPaid?: () => void;
   markPaidPending?: boolean;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   const telegramSupportUrl = usePublishedTelegramSupportUrl();
   const publicNotificationSettings = useGetPublicNotificationSettings({
@@ -1419,7 +1436,7 @@ function OrderStatusCard({
       <div className="p-5 sm:p-6 border-b border-border/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="min-w-0">
           <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground block mb-1">{t('tracking.orderDetails')}</span>
-          <h2 className="font-mono text-lg sm:text-xl font-bold tracking-tight text-foreground break-all">{order.id}</h2>
+          <h2 className="font-mono text-lg sm:text-xl font-bold tracking-tight text-foreground break-all">{uiText(order.id)}</h2>
         </div>
         <div className="flex-shrink-0">
           <StatusPill status={order.status} customerFacing />
@@ -1466,7 +1483,7 @@ function OrderStatusCard({
             <CircleAlert size={18} className="mt-0.5 shrink-0" />
             <div>
               <strong>{t('tracking.orderStopped')}</strong>
-              <p className="mt-1">{haltedMessage}</p>
+              <p className="mt-1">{uiText(haltedMessage)}</p>
             </div>
           </div>
         ) : uncertain ? (
@@ -1484,7 +1501,7 @@ function OrderStatusCard({
               <div className="absolute top-4 left-[10%] h-[2px] bg-primary transition-all duration-500 hidden md:block" style={{ width: `${(current / (timeline.length - 1)) * 80}%` }} />
 
               <div className="flex flex-col md:flex-row justify-between gap-5 md:gap-2 relative z-10">
-                {timeline.map((item, index) => {
+                {uiText(timeline.map((item, index) => {
                   const isDone = index <= current;
                   const isCurrent = index === current;
                   return (
@@ -1499,10 +1516,10 @@ function OrderStatusCard({
                       )}>
                         {isDone && !isCurrent ? <Check size={14} strokeWidth={3} /> : index + 1}
                       </div>
-                      <span className={cn("block text-sm md:text-xs font-semibold tracking-tight", isCurrent && "text-primary")}>{item}</span>
+                      <span className={cn("block text-sm md:text-xs font-semibold tracking-tight", isCurrent && "text-primary")}>{uiText(item)}</span>
                     </div>
                   );
-                })}
+                }))}
               </div>
             </div>
           </div>
@@ -1544,17 +1561,17 @@ function OrderStatusCard({
                     <span className="block text-xs font-medium text-muted-foreground mb-1.5">
                       {depositActionable ? t('tracking.depositMemo') : t('tracking.depositMemoRecorded')}
                     </span>
-                    <CopyBox text={order.depositMemo} testId="button-copy-deposit-memo" actionable={depositActionable} large />
+                    <CopyBox text={uiText(order.depositMemo)} testId="button-copy-deposit-memo" actionable={depositActionable} large />
                   </div>
                 )}
 
                 {depositActionable && (Boolean((order.fundingDetails as any)?.warning) || Boolean((order.fundingDetails as any)?.instructions) || Boolean((order.fundingDetails as any)?.requiredConfirmations)) && (
                   <div className="mt-5 space-y-3 p-4 bg-background/80 rounded-lg border border-border/50 text-sm">
                     {Boolean((order.fundingDetails as any)?.warning) && (
-                      <div className="flex gap-2 text-warning font-medium"><CircleAlert size={16} className="shrink-0 mt-0.5" /> <p>{(order.fundingDetails as any).warning}</p></div>
+                      <div className="flex gap-2 text-warning font-medium"><CircleAlert size={16} className="shrink-0 mt-0.5" /> <p>{uiText((order.fundingDetails as any).warning)}</p></div>
                     )}
                     {Boolean((order.fundingDetails as any)?.instructions) && (
-                      <p className="text-muted-foreground">{(order.fundingDetails as any).instructions}</p>
+                      <p className="text-muted-foreground">{uiText((order.fundingDetails as any).instructions)}</p>
                     )}
                     {Boolean((order.fundingDetails as any)?.requiredConfirmations) && (
                       <div className="flex gap-2 text-muted-foreground">
@@ -1562,7 +1579,7 @@ function OrderStatusCard({
                         <div>
                           <p className="font-medium text-foreground">{t('tracking.confirmations', { count: (order.fundingDetails as any).requiredConfirmations })}</p>
                           {Boolean((order.fundingDetails as any)?.confirmationGuidance) && (
-                            <p className="mt-0.5 opacity-80">{(order.fundingDetails as any).confirmationGuidance}</p>
+                            <p className="mt-0.5 opacity-80">{uiText((order.fundingDetails as any).confirmationGuidance)}</p>
                           )}
                         </div>
                       </div>
@@ -1601,7 +1618,7 @@ function OrderStatusCard({
         <div className="grid grid-cols-2 sm:flex sm:flex-row gap-5">
           <div>
             <span className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">{t('tracking.orderType')}</span>
-            <strong className="text-foreground">{order.type}</strong>
+            <strong className="text-foreground">{uiText(order.type)}</strong>
           </div>
           {order.rateMode && (
             <div>
@@ -1611,14 +1628,14 @@ function OrderStatusCard({
           )}
           <div>
             <span className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">{t('tracking.created')}</span>
-            <strong className="text-foreground">{ago(order.createdAt)}</strong>
+            <strong className="text-foreground">{uiText(ago(order.createdAt))}</strong>
           </div>
         </div>
 
         <div className="flex flex-col min-[420px]:flex-row gap-3">
           <Show when="signed-in">
              <Link href={`/account/orders/${order.id}`} className="button button-secondary h-10 px-4 whitespace-nowrap" data-testid="link-view-full-details">
-               View Full Order Details <ArrowRight size={14} />
+               {uiT("customer.m5cd2e5526043")}{' '}<ArrowRight size={14} />
              </Link>
           </Show>
           <Link href="/" className="button button-primary h-10 px-4 whitespace-nowrap" data-testid="link-start-another">
@@ -1747,6 +1764,7 @@ export function AdminShell({ children, title, eyebrow, action, subtitle, titleIc
       title: t('adminShell.configuration'),
       items: [
         { href: '/admin/appearance', label: 'Appearance', testId: 'appearance', icon: ImageIcon, requiredPermission: 'site_settings.view' },
+        { href: '/admin/languages', label: 'Languages', testId: 'languages', icon: Globe2, requiredPermission: 'languages.view' },
         { href: '/admin/providers', label: `${t('adminShell.providers')} & ${t('adminShell.apiIntegrations')}`, testId: 'providers', icon: Settings, requiredPermission: 'integrations.view' },
         { href: '/admin/landing-background', label: t('adminShell.backgroundStudio'), testId: 'landing-background', icon: ImageIcon, requiredPermission: 'site_settings.view' },
         { href: '/admin/notification-settings', label: 'Notification Settings', testId: 'notification-settings', icon: Bell, requiredPermission: 'site_settings.manage', ownerOnly: true },
@@ -2403,6 +2421,7 @@ const AdminManualPricingRoute = authorizedAdminRoute(AdminManualPricing);
 const AdminSwapAddonsRoute = authorizedAdminRoute(AdminSwapAddonsPage);
 const AdminLandingBackgroundStudioRoute = authorizedAdminRoute(AdminLandingBackgroundStudio);
 const AdminAppearanceRoute = authorizedAdminRoute(AdminAppearancePage);
+const AdminLanguagesRoute = authorizedAdminRoute(AdminLanguagesPage);
 const AdminTeamRoute = authorizedAdminRoute(AdminTeamPage);
 const AdminSiteContentRoute = authorizedAdminRoute(AdminSiteContentPage);
 const AdminBlogRoute = authorizedAdminRoute(AdminBlogPage);
@@ -2435,6 +2454,8 @@ function ClerkQueryClientCacheInvalidator() {
 }
 
 function AffiliateReferralTracker() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const code = new URLSearchParams(window.location.search).get('ref');
   const { isLoaded, isSignedIn, user } = useUser();
   const currentQueryClient = useQueryClient();
@@ -2611,7 +2632,7 @@ function AffiliateReferralTracker() {
         : isError || isUnavailable
           ? <CircleAlert size={17} className="shrink-0" aria-hidden="true" />
           : <Check size={17} className="shrink-0 text-emerald-500" aria-hidden="true" />}
-      <span className="min-w-0 flex-1 leading-relaxed">{message}</span>
+      <span className="min-w-0 flex-1 leading-relaxed">{uiText(message)}</span>
       {attributionError || capture.error ? (
         <button
           type="button"
@@ -2621,13 +2642,12 @@ function AffiliateReferralTracker() {
             else void consumeCapturedAttribution();
           }}
         >
-          Retry
-        </button>
+          {uiT("customer.m942087cc2d41")}{' '}</button>
       ) : null}
       <button
         type="button"
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg hover:bg-muted"
-        aria-label="Dismiss referral status"
+        aria-label={uiT("customer.m041184f7cac5")}
         onClick={() => setDismissed(true)}
       >
         <X size={16} aria-hidden="true" />
@@ -2637,6 +2657,8 @@ function AffiliateReferralTracker() {
 }
 
 function CryptoIdentityCatalog({ children }: { children: React.ReactNode }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const config = useGetExchangeConfig({
     query: {
       queryKey: getGetExchangeConfigQueryKey(),
@@ -2648,13 +2670,16 @@ function CryptoIdentityCatalog({ children }: { children: React.ReactNode }) {
     ...(config.data?.manualSettlementOptions || []),
     ...(config.data?.instantSettlementOptions || []),
   ];
-  return <CryptoIdentityProvider options={options}>{children}</CryptoIdentityProvider>;
+  return <CryptoIdentityProvider options={options}>{uiText(children)}</CryptoIdentityProvider>;
 }
 
 function ClerkProviderWithRoutes() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [location, setLocation] = useLocation();
   const isDark = useAppTheme();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const clerkLocalization = useMemo(() => buildClerkLocalization(t, locale), [t, locale]);
   const preview = useSitePreview();
   const published = useGetPublishedSiteContent({
     query: { queryKey: getGetPublishedSiteContentQueryKey(), staleTime: 60_000 }
@@ -2670,8 +2695,9 @@ function ClerkProviderWithRoutes() {
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
       localization={{
-        signIn: { start: { title: t('auth.welcomeBack'), subtitle: t('auth.signInSubtitle') } },
-        signUp: { start: { title: t('auth.createAccount'), subtitle: t('auth.signUpSubtitle') } },
+        ...clerkLocalization,
+        signIn: { ...clerkLocalization.signIn, start: { ...clerkLocalization.signIn?.start, title: t('auth.welcomeBack'), subtitle: t('auth.signInSubtitle') } },
+        signUp: { ...clerkLocalization.signUp, start: { ...clerkLocalization.signUp?.start, title: t('auth.createAccount'), subtitle: t('auth.signUpSubtitle') } },
       }}
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
@@ -2686,14 +2712,14 @@ function ClerkProviderWithRoutes() {
             <Route path="/convert" component={() => <ConfiguredExchangePage pageKey="convert" />} />
             <Route path="/swap" component={() => <ConfiguredExchangePage pageKey="swap" />} />
             <Route path="/user-manual" component={UserManualPage} />
-            {PUBLIC_PAGE_REGISTRY.filter(({ key }) => !['home', 'convert', 'swap'].includes(key)).map((page) => {
+            {uiText(PUBLIC_PAGE_REGISTRY.filter(({ key }) => !['home', 'convert', 'swap'].includes(key)).map((page) => {
               const Component = customPublicContentPages[page.key];
               return <Route
                 key={page.key}
                 path={page.path}
                 component={Component ?? (() => <PublicSitePage pageKey={page.key} />)}
               />;
-            })}
+            }))}
             <Route path="/about-us" component={() => <Redirect to="/about" />} />
             <Route path="/affiliate-program" component={() => <Redirect to="/affiliates" />} />
             <Route path="/contact-us" component={() => <Redirect to="/contact" />} />
@@ -2726,6 +2752,7 @@ function ClerkProviderWithRoutes() {
             <Route path="/admin/pricing" component={AdminManualPricingRoute} />
             <Route path="/admin/swap-addons" component={AdminSwapAddonsRoute} />
             <Route path="/admin/appearance" component={AdminAppearanceRoute} />
+            <Route path="/admin/languages" component={AdminLanguagesRoute} />
             <Route path="/admin/landing-background" component={AdminLandingBackgroundStudioRoute} />
             <Route path="/admin/bestchange" component={AdminBestchangeRoute} />
             <Route path="/admin/team" component={AdminTeamRoute} />

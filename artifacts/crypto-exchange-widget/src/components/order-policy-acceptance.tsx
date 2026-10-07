@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { useI18n } from '@/i18n';
 import { publicPageDefinition } from '@/lib/public-page-registry';
 import { basePath } from '@/components/shared-app-ui';
@@ -21,6 +22,8 @@ export function OrderPolicyAcceptance({
   checked: boolean;
   onChange: (checked: boolean) => void;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   const template = t('policyAcceptance.text');
   const terms = t('policyAcceptance.terms');
@@ -35,21 +38,21 @@ export function OrderPolicyAcceptance({
         required
         checked={checked}
         onChange={event => onChange(event.target.checked)}
-        aria-label={template.replace('{terms}', terms).replace('{aml}', aml)}
+        aria-label={uiText(template.replace('{terms}', terms).replace('{aml}', aml))}
         data-testid={`${id}-checkbox`}
         className="mt-1 w-[18px] h-[18px] rounded border-border text-primary focus:ring-primary/20 shrink-0"
       />
       <span className="policy-acceptance__copy text-[14px] font-medium text-foreground leading-relaxed">
         {parts.map((part, index) => part === '{terms}' ? (
           <a key={index} href={termsHref} target="_blank" rel="noopener noreferrer" data-testid={`${id}-terms-link`}>
-            {terms}
+            {uiText(terms)}
           </a>
         ) : part === '{aml}' ? (
           <a key={index} href={amlHref} target="_blank" rel="noopener noreferrer" data-testid={`${id}-aml-link`}>
-            {aml}
+            {uiText(aml)}
           </a>
         ) : (
-          <label key={index} htmlFor={id} className="cursor-pointer select-none">{part}</label>
+          <label key={index} htmlFor={id} className="cursor-pointer select-none">{uiText(part)}</label>
         ))}
       </span>
     </div>

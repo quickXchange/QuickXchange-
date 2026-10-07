@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { formatDisplayAmount } from '@workspace/amount-format';
 import { useEffect, useRef, useState } from 'react';
 import { useRoute, useLocation } from 'wouter';
@@ -46,6 +47,8 @@ function hasNonZeroFeeAmount(value: unknown): boolean {
 }
 
 export default function OrderDetail() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [, params] = useRoute('/orders/:id');
   const [, setLocation] = useLocation();
   const { supportUrl } = useAuth();
@@ -187,11 +190,10 @@ export default function OrderDetail() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-background p-6 text-center">
         <AlertCircle className="w-12 h-12 text-muted-foreground/50 mb-4" />
-        <h2 className="text-xl font-bold mb-2">Order Not Found</h2>
+        <h2 className="text-xl font-bold mb-2">{uiT("customer.m08b62bea422a")}</h2>
         <p className="text-muted-foreground text-sm max-w-[240px] mx-auto mb-6">
-          The order you're looking for doesn't exist or you don't have access.
-        </p>
-        <Button onClick={() => setLocation('/orders')} variant="secondary" className="rounded-xl font-bold">Go Back</Button>
+          {uiT("customer.m87c93d5fc1e4")}{' '}</p>
+        <Button onClick={() => setLocation('/orders')} variant="secondary" className="rounded-xl font-bold">{uiT("customer.mb8d99df1066e")}</Button>
       </div>
     );
   }
@@ -250,22 +252,22 @@ export default function OrderDetail() {
 
   const statusPresentation = isManualSwap
     ? isCompleted
-      ? { label: swapTimeline.label, description: 'Your exchange has been completed successfully.', icon: CheckCircle2, tone: 'text-primary', surface: 'bg-primary/10' }
+      ? { label: swapTimeline.label, description: uiT("customer.m90ef68184306"), icon: CheckCircle2, tone: 'text-primary', surface: 'bg-primary/10' }
       : isFailed
-        ? { label: swapTimeline.label, description: 'This order is no longer active.', icon: XCircle, tone: 'text-destructive', surface: 'bg-destructive/10' }
+        ? { label: swapTimeline.label, description: uiT("customer.me74c198233ea"), icon: XCircle, tone: 'text-destructive', surface: 'bg-destructive/10' }
         : isProcessing
-          ? { label: swapTimeline.label, description: 'Your payment was received and your order is being processed.', icon: RefreshCcw, tone: 'text-accent', surface: 'bg-accent/10' }
+          ? { label: swapTimeline.label, description: uiT("customer.m8b7beb034c57"), icon: RefreshCcw, tone: 'text-accent', surface: 'bg-accent/10' }
           : isConfirming
-            ? { label: swapTimeline.label, description: 'Your payment has been detected and is confirming.', icon: Clock3, tone: 'text-amber-500', surface: 'bg-amber-500/10' }
-            : { label: swapTimeline.label, description: 'Complete the payment using the order-specific details below.', icon: Clock3, tone: 'text-secondary', surface: 'bg-secondary/10' }
+            ? { label: swapTimeline.label, description: uiT("customer.mb1283925c111"), icon: Clock3, tone: 'text-amber-500', surface: 'bg-amber-500/10' }
+            : { label: swapTimeline.label, description: uiT("customer.m3c235a861083"), icon: Clock3, tone: 'text-secondary', surface: 'bg-secondary/10' }
     : isCompleted
-     ? { label: convertDisplayLabel, description: 'Your exchange has been completed successfully.', icon: CheckCircle2, tone: 'text-primary', surface: 'bg-primary/10' }
+     ? { label: convertDisplayLabel, description: uiT("customer.m90ef68184306"), icon: CheckCircle2, tone: 'text-primary', surface: 'bg-primary/10' }
      : isFailed
-        ? { label: convertDisplayLabel, description: 'This order is no longer active.', icon: XCircle, tone: 'text-destructive', surface: 'bg-destructive/10' }
+        ? { label: convertDisplayLabel, description: uiT("customer.me74c198233ea"), icon: XCircle, tone: 'text-destructive', surface: 'bg-destructive/10' }
        : isProcessing
-        ? { label: convertDisplayLabel, description: 'Your payment is being processed for delivery.', icon: RefreshCcw, tone: 'text-accent', surface: 'bg-accent/10' }
+        ? { label: convertDisplayLabel, description: uiT("customer.m1448e831040d"), icon: RefreshCcw, tone: 'text-accent', surface: 'bg-accent/10' }
         : isConfirming
-           ? { label: convertDisplayLabel, description: 'Your payment has been detected and is confirming.', icon: Clock3, tone: 'text-amber-500', surface: 'bg-amber-500/10' }
+           ? { label: convertDisplayLabel, description: uiT("customer.mb1283925c111"), icon: Clock3, tone: 'text-amber-500', surface: 'bg-amber-500/10' }
            : { label: convertDisplayLabel, description: isConvertCompletionAlias ? 'Waiting for the canonical completion status update.' : 'Complete the payment using the order-specific details below.', icon: Clock3, tone: 'text-secondary', surface: 'bg-secondary/10' };
   const StatusIcon = statusPresentation.icon;
   const paymentFieldLabels: Record<string, string> = {
@@ -284,10 +286,10 @@ export default function OrderDetail() {
   if (!targetStatus.depositAddress && targetStatus.depositMemo) {
     paymentElements.push(
       <div key="depositMemo" className="group relative bg-black/20 dark:bg-white/5 rounded-xl p-3 border border-border/50 shadow-inner">
-        <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Memo / Tag</div>
-        <div className="font-mono text-[13px] font-bold break-all pr-10 text-yellow-600 dark:text-yellow-400">{targetStatus.depositMemo}</div>
+        <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">{uiT("customer.mb215f476a86d")}</div>
+        <div className="font-mono text-[13px] font-bold break-all pr-10 text-yellow-600 dark:text-yellow-400">{uiText(targetStatus.depositMemo)}</div>
         <button onClick={() => handleCopy(targetStatus.depositMemo!)} className="absolute top-1/2 -translate-y-1/2 right-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 active:scale-95 transition-all text-muted-foreground">
-          {copied === targetStatus.depositMemo ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+          {uiText(copied === targetStatus.depositMemo ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />)}
         </button>
       </div>
     );
@@ -299,11 +301,11 @@ export default function OrderDetail() {
         paymentElements.push(
           <div key={key} className="group relative bg-black/20 dark:bg-white/5 rounded-xl p-3 border border-border/50 shadow-inner mt-2">
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-              {paymentFieldLabels[key] || key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ')}
+              {uiText(paymentFieldLabels[key] || key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' '))}
             </div>
-            <div className="font-mono text-[13px] font-medium break-all pr-10">{strValue}</div>
+            <div className="font-mono text-[13px] font-medium break-all pr-10">{uiText(strValue)}</div>
             <button onClick={() => handleCopy(strValue)} className="absolute top-1/2 -translate-y-1/2 right-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 active:scale-95 transition-all text-muted-foreground">
-              {copied === strValue ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+              {uiText(copied === strValue ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />)}
             </button>
           </div>
         );
@@ -318,41 +320,41 @@ export default function OrderDetail() {
     )}>
       <div className="flex items-start gap-3">
         <div className={cn("relative w-11 h-11 shrink-0 rounded-2xl flex items-center justify-center", statusPresentation.surface)}>
-          {!isFailed && <div className="absolute inset-1 rounded-xl bg-gradient-to-br from-secondary/30 via-primary/20 to-accent/30 blur-md" />}
+          {uiText(!isFailed && <div className="absolute inset-1 rounded-xl bg-gradient-to-br from-secondary/30 via-primary/20 to-accent/30 blur-md" />)}
           <StatusIcon className={cn("relative z-10 w-5 h-5", statusPresentation.tone, isProcessing && "animate-spin")} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-muted-foreground">Current Status</p>
-          <h2 className={cn("text-[18px] font-bold tracking-tight", statusPresentation.tone)}>{statusPresentation.label}</h2>
-          <p className="text-[12px] text-muted-foreground leading-relaxed mt-0.5">{statusPresentation.description}</p>
+          <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-muted-foreground">{uiT("customer.m888d6c70f95b")}</p>
+          <h2 className={cn("text-[18px] font-bold tracking-tight", statusPresentation.tone)}>{uiText(statusPresentation.label)}</h2>
+          <p className="text-[12px] text-muted-foreground leading-relaxed mt-0.5">{uiText(statusPresentation.description)}</p>
         </div>
       </div>
       <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-primary/[0.04] dark:bg-white/[0.03] border border-border/60 px-3 py-2">
         <div className="min-w-0">
-          <p className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground">Order ID</p>
-          <p className="font-mono text-[12px] font-semibold truncate">{orderId}</p>
+          <p className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground">{uiT("customer.md89d8487ce82")}</p>
+          <p className="font-mono text-[12px] font-semibold truncate">{uiText(orderId)}</p>
         </div>
         <button
           onClick={() => handleCopy(orderId)}
           className="shrink-0 p-2 rounded-lg bg-primary/10 text-primary active:scale-95 transition-transform"
-          aria-label="Copy order ID"
+          aria-label={uiT("customer.m6b5b9d05580b")}
         >
-          {copied === orderId ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+          {uiText(copied === orderId ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />)}
         </button>
       </div>
 
-      {!isFailed && <div className="mt-4 border-t border-border/50 pt-4">
+      {uiText(!isFailed && <div className="mt-4 border-t border-border/50 pt-4">
       <div className="relative pt-2 pb-1">
         <div className="absolute top-[15px] left-[10%] right-[10%] h-[2px] bg-border z-0" />
         <div className="absolute top-[15px] left-[10%] h-[2px] bg-gradient-to-r from-secondary via-primary to-accent z-0 transition-all duration-500" style={{ width: `${orderTimelineLineWidthPercent(currentStep)}%` }} />
 
         <div className="flex justify-between relative z-10">
-          {(isManualSwap ? ['Created', 'Detected', 'Processing', 'Done'] : ['Created', 'Confirming', 'Processing', 'Done']).map((label, idx) => {
+          {uiText((isManualSwap ? ['Created', 'Detected', 'Processing', 'Done'] : ['Created', 'Confirming', 'Processing', 'Done']).map((label, idx) => {
             const step = idx + 1;
             const isPast = currentStep > step;
             const isCurrent = currentStep === step;
             return (
-              <div key={label} className="flex flex-col items-center gap-1.5 w-[70px]">
+              <div key={uiText(label)} className="flex flex-col items-center gap-1.5 w-[70px]">
                 <div className={cn(
                   "w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold transition-all duration-300 border-2",
                   isPast ? "bg-primary border-primary text-primary-foreground shadow-[0_0_12px_hsl(var(--primary)/0.6)]" :
@@ -364,13 +366,13 @@ export default function OrderDetail() {
                 <span className={cn(
                   "text-[9px] leading-tight font-semibold transition-colors text-center",
                   isPast || isCurrent ? "text-foreground" : "text-muted-foreground/50"
-                )}>{label}</span>
+                )}>{uiText(label)}</span>
               </div>
             );
-          })}
+          }))}
         </div>
       </div>
-      </div>}
+      </div>)}
     </div>
   );
 
@@ -381,8 +383,8 @@ export default function OrderDetail() {
           <ChevronLeft className="w-[22px] h-[22px]" />
         </button>
         <div className="flex flex-col items-center">
-          <span className="font-bold text-[15px] tracking-tight">Order Details</span>
-          <span className="text-[10px] font-mono text-muted-foreground">#{orderId.slice(0, 8)}</span>
+          <span className="font-bold text-[15px] tracking-tight">{uiT("customer.mfe3ac0d43c54")}</span>
+          <span className="text-[10px] font-mono text-muted-foreground">#{uiText(orderId.slice(0, 8))}</span>
         </div>
         <div className="w-9">
           {!isFailed && !isCompleted && (
@@ -395,10 +397,10 @@ export default function OrderDetail() {
 
       <div className="flex-1 p-4 space-y-4 overflow-y-auto pb-8 animate-in slide-in-from-bottom-4 duration-500">
 
-        {statusPanel}
+        {uiText(statusPanel)}
 
         <div className="premium-card p-4 space-y-4">
-          <h3 className="font-bold text-[14px] uppercase tracking-wider text-muted-foreground/80">Exchange Summary</h3>
+          <h3 className="font-bold text-[14px] uppercase tracking-wider text-muted-foreground/80">{uiT("customer.m37bb4881b820")}</h3>
 
           <div className="relative">
             <div className="flex items-center justify-between bg-secondary/[0.06] rounded-t-xl p-3.5 border border-border/50 border-b-0">
@@ -409,11 +411,11 @@ export default function OrderDetail() {
                   size="medium"
                 />
                 <div className="flex flex-col justify-center min-w-0">
-                  <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.16em] leading-none mb-1.5">You Send</div>
+                  <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.16em] leading-none mb-1.5">{uiT("customer.md9329f18a2ae")}</div>
                   <div className="font-bold text-[17px] leading-none truncate">{formatDisplayAmount(targetStatus.amount)} {targetStatus.fromAsset}</div>
-                  {sourceIdentity && sourceIdentity !== targetStatus.fromAsset && (
-                    <span className="text-[10px] text-muted-foreground font-semibold mt-1 truncate">{sourceIdentity}</span>
-                  )}
+                  {uiText(sourceIdentity && sourceIdentity !== targetStatus.fromAsset && (
+                    <span className="text-[10px] text-muted-foreground font-semibold mt-1 truncate">{uiText(sourceIdentity)}</span>
+                  ))}
                 </div>
               </div>
             </div>
@@ -426,11 +428,11 @@ export default function OrderDetail() {
                   size="medium"
                 />
                 <div className="flex flex-col justify-center min-w-0">
-                  <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.16em] leading-none mb-1.5">You Receive</div>
+                  <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.16em] leading-none mb-1.5">{uiT("customer.m8f3cfce06ac5")}</div>
                   <div className="font-bold text-[17px] leading-none text-primary truncate">{formatDisplayAmount(targetStatus.receiveAmount)} {targetStatus.toAsset}</div>
-                  {targetStatus.toNetwork && targetStatus.toNetwork !== targetStatus.toAsset && (
+                  {uiText(targetStatus.toNetwork && targetStatus.toNetwork !== targetStatus.toAsset && (
                     <span className="text-[10px] text-primary/70 font-semibold mt-1 truncate">{targetStatus.toNetwork}</span>
-                  )}
+                  ))}
                 </div>
               </div>
             </div>
@@ -443,71 +445,69 @@ export default function OrderDetail() {
           <div className="divide-y divide-border/50 rounded-xl border border-border/60 bg-background/40 px-3">
             {exchangeRate !== null && (
               <div className="flex items-center justify-between gap-3 py-2.5 text-[11px]">
-                <span className="text-muted-foreground">Exchange Rate</span>
+                <span className="text-muted-foreground">{uiT("customer.m5b21b52b58cb")}</span>
                 <span className="font-mono font-semibold text-right">1 {targetStatus.fromAsset} = {formatDisplayAmount(exchangeRate)} {targetStatus.toAsset}</span>
               </div>
             )}
             {isManualSwap && manualSwapFees && (
               <div className="space-y-2 py-3" data-testid="manual-swap-fee-breakdown">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Selected add-ons are deducted from receive</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{uiT("customer.m6a2adef6fa1b")}</p>
                 {hasNonZeroFeeAmount(manualSwapFees.existingPricingFee) && (
                   <div className="flex items-center justify-between gap-3 text-[11px]">
-                    <span className="text-muted-foreground">Existing pricing fee</span>
+                    <span className="text-muted-foreground">{uiT("customer.ma94d19a8649e")}</span>
                     <span className="font-semibold">{formatFeeAmount(manualSwapFees.existingPricingFee)} {targetStatus.toAsset}</span>
                   </div>
                 )}
                 {hasNonZeroFeeAmount(manualSwapFees.exchangeFee?.totalAmount) && <div className="flex items-start justify-between gap-3 text-[11px]">
-                  <span className="text-muted-foreground">Exchange fee</span>
+                  <span className="text-muted-foreground">{uiT("customer.mc84b4c4666c3")}</span>
                   <span className="text-right font-semibold">
                     {formatFeeAmount(manualSwapFees.exchangeFee?.totalAmount)} {targetStatus.toAsset}
                     {manualSwapFees.exchangeFee?.fixedAmount !== null &&
                       manualSwapFees.exchangeFee?.fixedAmount !== undefined && (
                       <span className="block text-[10px] font-medium text-muted-foreground">
-                        Fixed component: {formatFeeAmount(manualSwapFees.exchangeFee.fixedAmount)} {manualSwapFees.exchangeFee.fixedCurrency}
+                        {uiT("customer.m2eeaba703e0e")}{' '}{formatFeeAmount(manualSwapFees.exchangeFee.fixedAmount)} {manualSwapFees.exchangeFee.fixedCurrency}
                       </span>
                     )}
                   </span>
                 </div>}
                 {(manualSwapFees.selectedAddons || []).map((addon: any) => (
                   <div key={addon.id || addon.key} className="flex items-start justify-between gap-3 text-[11px]">
-                    <span className="text-muted-foreground">{addon.name}</span>
+                    <span className="text-muted-foreground">{uiText(addon.name)}</span>
                     <span className="text-right font-semibold">
                       {formatFeeAmount(addon.amount)} {addon.currency}
                       <span className="block text-[10px] font-medium text-muted-foreground">
-                        {formatFeeAmount(addon.targetAmount)} {targetStatus.toAsset} deducted
-                      </span>
+                        {formatFeeAmount(addon.targetAmount)} {targetStatus.toAsset} {' '}{uiT("customer.m4268172c8992")}{' '}</span>
                     </span>
                   </div>
                 ))}
                 <div className="flex items-center justify-between gap-3 border-t border-border/50 pt-2 text-[11px] font-bold">
-                  <span>Total fees</span>
+                  <span>{uiT("customer.m47e44854816e")}</span>
                   <span>{formatFeeAmount(manualSwapFees.totalFees)} {targetStatus.toAsset}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3 border-t border-border/50 pt-2 text-[11px] font-bold text-primary">
-                  <span>Final receive</span>
+                  <span>{uiT("customer.m9bbf721e900b")}</span>
                   <span>{formatFeeAmount(targetStatus.receiveAmount)} {targetStatus.toAsset}</span>
                 </div>
               </div>
             )}
-            {isManualSwap && !manualSwapFees && (
+            {uiText(isManualSwap && !manualSwapFees && (
               <div className="py-2.5 text-[11px] text-muted-foreground" data-testid="manual-swap-fee-breakdown-unavailable">
-                Fee breakdown is not available in the saved order details.
-              </div>
-            )}
+                {uiT("customer.me9bd5655b974")}{' '}</div>
+            ))}
             <div className="flex items-center justify-between gap-3 py-2.5 text-[11px]">
-              <span className="text-muted-foreground">Created Date</span>
-              <span className="font-semibold text-right">{format(new Date(orderData.createdAt), 'MMM d, yyyy · HH:mm')}</span>
+              <span className="text-muted-foreground">{uiT("customer.m95061d3a51cd")}</span>
+              <span className="font-semibold text-right">{uiText(format(new Date(orderData.createdAt), 'MMM d, yyyy · HH:mm'))}</span>
             </div>
             <div className="flex items-center justify-between gap-3 py-2.5 text-[11px]">
-              <span className="text-muted-foreground">Order ID</span>
+              <span className="text-muted-foreground">{uiT("customer.md89d8487ce82")}</span>
               <button onClick={() => handleCopy(orderId)} className="inline-flex items-center gap-1.5 font-mono font-semibold text-primary min-w-0">
-                <span className="truncate max-w-[180px]">{orderId}</span>
-                {copied === orderId ? <Check className="w-3.5 h-3.5 shrink-0" /> : <Copy className="w-3.5 h-3.5 shrink-0" />}
+                <span className="truncate max-w-[180px]">{uiText(orderId)}</span>
+                {uiText(copied === orderId ? <Check className="w-3.5 h-3.5 shrink-0" /> : <Copy className="w-3.5 h-3.5 shrink-0" />)}
               </button>
             </div>
             {isManualSwap && verifiedFundingTransaction?.transactionHash && (
               <div className="py-3" data-testid="verified-transaction">
-                <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Transaction ID</div>
+                <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{uiT("customer.mbe8c62270423")}</div>
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <code className="min-w-0 flex-1 truncate font-mono text-xs font-semibold" title={verifiedFundingTransaction.transactionHash}>
                     <span className="sm:hidden">
@@ -521,26 +521,25 @@ export default function OrderDetail() {
                     type="button"
                     onClick={() => handleCopy(verifiedFundingTransaction.transactionHash)}
                     className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border/60 px-2 py-1.5 text-[10px] font-semibold"
-                    aria-label="Copy transaction ID"
+                    aria-label={uiT("customer.m5d9172fe6bc6")}
                   >
                     {copied === verifiedFundingTransaction.transactionHash ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                    {copied === verifiedFundingTransaction.transactionHash ? 'Copied' : 'Copy'}
+                    {copied === verifiedFundingTransaction.transactionHash ? uiT("customer.m8d525e5f158b") : uiT("customer.me21f935f11d7")}
                   </button>
-                  {verifiedFundingTransaction.explorerUrl && (
+                  {uiText(verifiedFundingTransaction.explorerUrl && (
                     <a
                       href={verifiedFundingTransaction.explorerUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border/60 px-2 py-1.5 text-[10px] font-semibold text-primary"
                     >
-                      <ExternalLink className="h-3.5 w-3.5" /> View on Explorer
-                    </a>
-                  )}
+                      <ExternalLink className="h-3.5 w-3.5" /> {' '}{uiT("customer.me3e2d15aa3c2")}{' '}</a>
+                  ))}
                 </div>
                 <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
-                  <span>Network: <strong className="text-foreground">{verifiedFundingTransaction.networkName || verifiedFundingTransaction.networkCode || '—'}</strong></span>
-                  <span>Confirmations: <strong className="text-foreground">{verifiedFundingTransaction.confirmations}</strong></span>
-                  {verifiedFundingTransaction.detectedAt && <span>Detected: <strong className="text-foreground">{format(new Date(verifiedFundingTransaction.detectedAt), 'MMM d, yyyy · HH:mm')}</strong></span>}
+                  <span>{uiT("customer.m76011314cc1f")}{' '}<strong className="text-foreground">{uiText(verifiedFundingTransaction.networkName || verifiedFundingTransaction.networkCode || '—')}</strong></span>
+                  <span>{uiT("customer.md92c9673d1e6")}{' '}<strong className="text-foreground">{uiText(verifiedFundingTransaction.confirmations)}</strong></span>
+                  {uiText(verifiedFundingTransaction.detectedAt && <span>{uiT("customer.me7987cf0fa3c")}{' '}<strong className="text-foreground">{uiText(format(new Date(verifiedFundingTransaction.detectedAt), 'MMM d, yyyy · HH:mm'))}</strong></span>)}
                 </div>
               </div>
             )}
@@ -555,15 +554,15 @@ export default function OrderDetail() {
               <div className="flex items-center gap-3 border-b border-white/5 pb-3">
                 <MiniAppLogo {...sourceVisual} alt={targetStatus.fromAsset} size="normal" />
                 <div>
-                  <h3 className="font-bold text-[15px] tracking-tight">{isCryptoDeposit ? 'Crypto Deposit Details' : 'Payment Details'}</h3>
+                  <h3 className="font-bold text-[15px] tracking-tight">{uiText(isCryptoDeposit ? uiT("customer.m1825e5b40ef1") : uiT("customer.me9143587ebf6"))}</h3>
                   <p className="text-[11px] text-muted-foreground leading-tight">
                     {isCryptoDeposit
                       ? depositDetailsReady
                         ? depositDetailsActionable
-                          ? `Amount to send: ${formatDisplayAmount(depositAmountLabel)} ${depositAssetLabel} on ${depositNetworkLabel}`
-                          : 'This order is not awaiting funds. No additional deposits should be sent.'
-                        : 'Deposit instructions are incomplete. Do not send funds yet.'
-                      : sourcePaymentMethod?.name || 'Use the assigned order instructions'}
+                          ? uiT("customer.m3d2841c681bc", { v0: formatDisplayAmount(depositAmountLabel), v1: depositAssetLabel, v2: depositNetworkLabel })
+                          : uiT("customer.m5f1e8a5a82d1")
+                        : uiT("customer.m281e8c72804e")
+                      : sourcePaymentMethod?.name || uiT("customer.m3940182c99a2")}
                   </p>
                 </div>
               </div>
@@ -573,7 +572,7 @@ export default function OrderDetail() {
                   <div className="flex items-center justify-between rounded-xl bg-secondary/[0.07] border border-secondary/15 p-3">
                     <div>
                       <p className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground">
-                        {depositDetailsActionable ? 'Amount to Send' : 'Order Deposit Amount'}
+                        {uiText(depositDetailsActionable ? uiT("customer.m6d4c91ccc457") : uiT("customer.m79c34738c29a"))}
                       </p>
                       <p className="font-mono text-[17px] font-bold">{formatDisplayAmount(depositAmountLabel)} {depositAssetLabel}</p>
                     </div>
@@ -582,55 +581,52 @@ export default function OrderDetail() {
                     </span>
                   </div>
                 )}
-                {isCryptoDeposit && depositDetailsReady ? (
+                {uiText(isCryptoDeposit && depositDetailsReady ? (
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => setDepositModalOpen(true)}
                     className="w-full h-11 rounded-xl border-primary/25 bg-primary/[0.05] text-primary font-bold text-xs"
                   >
-                    View Deposit Details
-                  </Button>
+                    {uiT("customer.m8e36738774fa")}{' '}</Button>
                 ) : isCryptoDeposit ? (
                   <div role="alert" className="rounded-xl border border-amber-500/25 bg-amber-500/[0.08] p-3 text-[11px] leading-relaxed text-amber-800 dark:text-amber-200">
-                    Deposit amount, asset, or network details are unavailable. Do not send funds; contact support for confirmation.
-                    {supportUrl && (
-                      <button type="button" onClick={openSupport} className="ml-1 font-bold underline">Contact support</button>
+                    {uiT("customer.maf60fab5da0c")}{' '}{supportUrl && (
+                      <button type="button" onClick={openSupport} className="ml-1 font-bold underline">{uiT("customer.m814f4ed2d5bd")}</button>
                     )}
                   </div>
                 ) : paymentElements.length > 0 ? (
                   paymentElements
                 ) : (
                   <div className="bg-black/20 rounded-xl p-4 text-center border border-white/5">
-                    <span className="text-[13px] text-muted-foreground block mb-3">Payment details are not available yet.</span>
+                    <span className="text-[13px] text-muted-foreground block mb-3">{uiT("customer.m394bebac4a81")}</span>
                     {supportUrl && (
                       <button
                         onClick={openSupport}
                         className="inline-flex items-center justify-center rounded-lg font-bold bg-white text-black h-8 px-4 text-xs hover:bg-white/90 active:scale-95 transition-all"
                       >
-                        Contact Support
-                      </button>
+                        {uiT("customer.mf8d47b82e285")}{' '}</button>
                     )}
                   </div>
-                )}
+                ))}
 
-                {showPaymentActions && (
+                {uiText(showPaymentActions && (
                   <div className="pt-3">
                     <Button
                       onClick={handleMarkPaid}
                       disabled={markPaid.isPending || (isCryptoDeposit ? !depositDetailsReady : paymentElements.length === 0)}
                       className="w-full h-11 rounded-xl bg-gradient-to-r from-primary to-accent hover:opacity-90 text-white font-bold border-0 shadow-[0_4px_14px_-4px_hsl(var(--primary)/0.5)] active:scale-95 transition-all disabled:opacity-50"
                     >
-                      {markPaid.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : (isCryptoDeposit ? 'I Have Sent Crypto' : 'Mark as Paid')}
+                      {markPaid.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : (isCryptoDeposit ? uiT("customer.mdca7828d2ac1") : uiT("customer.m66d74d8b9bcf"))}
                     </Button>
                   </div>
-                )}
+                ))}
               </div>
             </div>
           </div>
         )}
 
-        {(isCompleted || isFailed) && isCryptoDeposit && (
+        {uiText((isCompleted || isFailed) && isCryptoDeposit && (
           <div className="premium-card p-4">
             {depositDetailsReady ? (
               <Button
@@ -639,26 +635,22 @@ export default function OrderDetail() {
                 onClick={() => setDepositModalOpen(true)}
                 className="w-full h-11 rounded-xl border-border/60 bg-background/50 font-bold text-xs"
               >
-                View Recorded Deposit Details
-              </Button>
+                {uiT("customer.me0623b5ffafa")}{' '}</Button>
             ) : (
               <p role="alert" className="text-center text-xs text-muted-foreground">
-                Recorded deposit details are incomplete. Contact support before relying on these instructions.
-              </p>
+                {uiT("customer.mcffeb71b6014")}{' '}</p>
             )}
           </div>
-        )}
+        ))}
 
-        {isCompleted && (
+        {uiText(isCompleted && (
           <div className="premium-card border-primary/20 bg-primary/[0.06] p-4 flex items-center justify-center gap-2 text-primary font-bold text-[13px] uppercase tracking-[0.16em]">
-            <CheckCircle2 className="w-5 h-5" /> Completed
-          </div>
-        )}
-        {isCancelled && (
+            <CheckCircle2 className="w-5 h-5" /> {' '}{uiT("customer.m22a970d2e5b1")}{' '}</div>
+        ))}
+        {uiText(isCancelled && (
           <div className="premium-card border-destructive/20 bg-destructive/[0.06] p-4 flex items-center justify-center gap-2 text-destructive font-bold text-[13px] uppercase tracking-[0.16em]">
-            <XCircle className="w-5 h-5" /> Cancelled
-          </div>
-        )}
+            <XCircle className="w-5 h-5" /> {' '}{uiT("customer.md353a99eb455")}{' '}</div>
+        ))}
 
         <div className="grid grid-cols-2 gap-2 pt-1 pb-[calc(24px+env(safe-area-inset-bottom))]">
           <Button
@@ -673,8 +665,7 @@ export default function OrderDetail() {
             className="h-11 rounded-xl border-primary/20 bg-primary/[0.05] text-primary font-bold text-[11px]"
           >
             <RefreshCcw className={cn("w-4 h-4 mr-2", isRefreshingStatus && "animate-spin")} />
-            Track / Refresh
-          </Button>
+            {uiT("customer.m2bb713ffd7af")}{' '}</Button>
           <Button
             variant="outline"
             onClick={openSupport}
@@ -682,8 +673,7 @@ export default function OrderDetail() {
             className="h-11 rounded-xl border-border/60 bg-background/50 font-bold text-[11px]"
           >
             <ExternalLink className="w-4 h-4 mr-2" />
-            Contact Support
-          </Button>
+            {uiT("customer.mf8d47b82e285")}{' '}</Button>
         </div>
       </div>
       {depositDetailsReady && targetStatus.depositAddress && (

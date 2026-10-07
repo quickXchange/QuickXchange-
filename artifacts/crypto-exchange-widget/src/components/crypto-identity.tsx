@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { createContext, useContext, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { SettlementOption } from '@workspace/api-client-react';
@@ -147,6 +148,8 @@ export function CryptoIdentityProvider({
   options: SettlementOption[];
   children: ReactNode;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const entries = useMemo(() => options
     .filter(option => option.kind === 'crypto-network')
     .map(option => ({
@@ -158,7 +161,7 @@ export function CryptoIdentityProvider({
       logoUrl: option.logoUrl,
     })), [options]);
 
-  return <CryptoCatalogContext.Provider value={entries}>{children}</CryptoCatalogContext.Provider>;
+  return <CryptoCatalogContext.Provider value={entries}>{uiText(children)}</CryptoCatalogContext.Provider>;
 }
 
 export function CryptoLogo({
@@ -203,14 +206,16 @@ export function CryptoNetworkBadge({
   logoUrl?: string | null;
   networkLogoUrl?: string | null;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const code = clean(network);
   const isEquivalent = normalized(code) === normalized(assetSymbol);
   const image = networkLogoUrl || logoUrl;
   if (!code || isEquivalent) return null;
   return (
-    <span className={`crypto-network-badge ${className}`.trim()} title={code}>
+    <span className={`crypto-network-badge ${className}`.trim()} title={uiText(code)}>
       <NetworkBadge network={code} src={image} size={14} className="network-logo-badge" />
-      <span>{code}</span>
+      <span>{uiText(code)}</span>
     </span>
   );
 }
@@ -229,6 +234,8 @@ export function CryptoIdentity({
   className = '',
   testId,
 }: CryptoIdentityProps) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const catalog = useContext(CryptoCatalogContext);
   const { symbol: normalizedSymbol, entry: matched } = resolveCryptoAsset(symbol, catalog);
   const displayName = clean(name) || (preferSymbolLogo ? '' : clean(matched?.name));
@@ -241,7 +248,7 @@ export function CryptoIdentity({
   ].filter(Boolean).join(', ');
 
   return (
-    <span className={`crypto-identity ${compact ? 'crypto-identity-compact' : ''} ${className}`.trim()} aria-label={accessibleName} data-testid={testId}>
+    <span className={`crypto-identity ${compact ? 'crypto-identity-compact' : ''} ${className}`.trim()} aria-label={uiText(accessibleName)} data-testid={testId}>
       <CryptoLogo symbol={normalizedSymbol} logoUrl={displayLogoUrl} logoFallbackUrls={logoFallbackUrls} size={size} fit={logoFit} preferSymbolLogo={preferSymbolLogo} />
       <span className="crypto-identity-copy">
         <span className="crypto-identity-primary">

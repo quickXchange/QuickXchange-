@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'wouter';
@@ -52,6 +53,8 @@ export function ThemeToggle({ testIdPrefix = 'customer' }: { testIdPrefix?: stri
 }
 
 function CustomerThemeButton() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { isDark, setTheme } = useCustomerTheme();
   const { t } = useI18n();
   const label = isDark ? t('adminShell.light') : t('adminShell.dark');
@@ -61,8 +64,8 @@ function CustomerThemeButton() {
       type="button"
       className="grid size-10 shrink-0 place-items-center rounded-full border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-muted/60 hover:text-foreground"
       onClick={() => setTheme(!isDark)}
-      aria-label={label}
-      title={label}
+      aria-label={uiText(label)}
+      title={uiText(label)}
       data-testid="button-customer-theme"
     >
       {isDark ? <Sun size={17} aria-hidden="true" /> : <Moon size={17} aria-hidden="true" />}
@@ -89,6 +92,8 @@ function CustomerBrandLogo({
 }
 
 function ProfileDropdown({ hideAppearance = false }: { hideAppearance?: boolean }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { user } = useUser();
   const { signOut } = useClerk();
   const { t } = useI18n();
@@ -137,7 +142,7 @@ function ProfileDropdown({ hideAppearance = false }: { hideAppearance?: boolean 
           <img className="size-8 shrink-0 rounded-full border border-primary/20 object-cover" src={user.imageUrl} alt="" />
         ) : (
           <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-sm font-bold text-primary">
-            {initials}
+            {uiText(initials)}
           </span>
         )}
         <ChevronDown size={14} className="mr-1 text-muted-foreground" aria-hidden="true" />
@@ -193,6 +198,8 @@ function CustomerSidebar({
   mobileOpen: boolean;
   setMobileOpen: (v: boolean) => void;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [location] = useLocation();
   const { t } = useI18n();
   const ownerAccess = useGetOperators({
@@ -221,7 +228,7 @@ function CustomerSidebar({
     { href: '/account/affiliate', icon: Network, label: t('customerPortal.affiliates'), exact: false },
     { href: '/account/settings', icon: Settings, label: t('customerPortal.account'), exact: true },
     ...(canOpenAdmin
-      ? [{ href: '/admin', icon: ShieldCheck, label: 'Admin Panel', exact: false, ownerAdmin: true }]
+      ? [{ href: '/admin', icon: ShieldCheck, label: uiT("customer.m8c2dedc00103"), exact: false, ownerAdmin: true }]
       : []),
   ];
 
@@ -263,7 +270,7 @@ function CustomerSidebar({
                   data-testid={item.ownerAdmin ? 'nav-owner-admin' : `nav-${item.href.replace(/\//g, '-')}`}
                 >
                   <item.icon size={18} className={cn(active ? "text-primary" : "text-muted-foreground")} />
-                  {item.label}
+                  {uiText(item.label)}
                 </Link>
               );
             })}
@@ -288,7 +295,7 @@ function CustomerSidebar({
   return (
     <>
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[260px] md:block" aria-label={t('customerPortal.customerNav')}>
-        {content}
+        {uiText(content)}
       </aside>
 
       {mobileOpen && createPortal(
@@ -300,7 +307,7 @@ function CustomerSidebar({
           />
            <div className="relative h-full w-[280px] max-w-[86vw] shadow-lg" role="dialog" aria-modal="true" aria-label={t('customerPortal.customerNav')} data-customer-drawer>
             <div className="h-full" role="navigation" aria-label={t('customerPortal.mobileNav')}>
-              {content}
+              {uiText(content)}
             </div>
           </div>
         </div>,
@@ -317,6 +324,8 @@ export function CustomerShell({
   children: React.ReactNode;
   contentClassName?: string;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [mobileOpen, setMobileOpen] = useState(false);
   const [location] = useLocation();
   const { t } = useI18n();
@@ -402,7 +411,7 @@ export function CustomerShell({
 
         <main className="flex-1 min-w-0 px-3 py-4 sm:p-6 lg:p-8 overflow-x-hidden rise-in">
           <div className={`${contentClassName ?? 'max-w-6xl'} mx-auto w-full`}>
-            {children}
+            {uiText(children)}
           </div>
         </main>
       </div>
@@ -411,13 +420,15 @@ export function CustomerShell({
 }
 
 export function CustomerPageHeader({ title, description, actions }: { title: React.ReactNode, description?: React.ReactNode, actions?: React.ReactNode }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   return (
     <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
       <div className="min-w-0">
-        <h1 className="customer-page-title mb-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">{title}</h1>
-        {description && <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">{description}</p>}
+        <h1 className="customer-page-title mb-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">{uiText(title)}</h1>
+        {description && <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">{uiText(description)}</p>}
       </div>
-      {actions && <div className="flex items-center gap-3 shrink-0">{actions}</div>}
+      {actions && <div className="flex items-center gap-3 shrink-0">{uiText(actions)}</div>}
     </div>
   );
 }

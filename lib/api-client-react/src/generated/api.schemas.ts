@@ -5,6 +5,52 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type LanguageCode = typeof LanguageCode[keyof typeof LanguageCode];
+
+
+export const LanguageCode = {
+  en: 'en',
+  fr: 'fr',
+  de: 'de',
+  ru: 'ru',
+  es: 'es',
+  ko: 'ko',
+  uk: 'uk',
+} as const;
+
+export interface LanguageSettings {
+  /** @minItems 1 */
+  enabledLanguages: LanguageCode[];
+  fallbackLanguage: LanguageCode;
+  revision: string;
+}
+
+export interface LanguageSettingsInput {
+  /** @minItems 1 */
+  enabledLanguages: LanguageCode[];
+  fallbackLanguage: LanguageCode;
+  expectedRevision: string;
+}
+
+export type LanguageDictionaryTranslations = {[key: string]: string};
+
+export type LanguageDictionarySourceTranslations = {[key: string]: string};
+
+export interface LanguageDictionary {
+  locale: LanguageCode;
+  revision: string;
+  translations: LanguageDictionaryTranslations;
+  sourceTranslations: LanguageDictionarySourceTranslations;
+  missingKeys: string[];
+}
+
+export type LanguageDictionaryInputTranslations = {[key: string]: string};
+
+export interface LanguageDictionaryInput {
+  expectedRevision: string;
+  translations: LanguageDictionaryInputTranslations;
+}
+
 export interface BestchangeReserveLine {
   /**
      * @minLength 2

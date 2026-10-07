@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
@@ -74,6 +75,8 @@ export function GlobalAssetSelector<TOption extends GlobalAssetSelectorOption>({
   triggerClassName,
   preserveOpenGeometry = false,
 }: GlobalAssetSelectorProps<TOption>) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -217,7 +220,7 @@ export function GlobalAssetSelector<TOption extends GlobalAssetSelectorOption>({
             type="button"
             ref={triggerRef}
             className={triggerClassName || 'asset-combobox-trigger convert-asset-combobox-trigger bg-transparent hover:bg-muted/40 outline-none focus-visible:bg-muted/60 transition-colors flex items-center justify-between px-2 py-1.5 rounded-lg w-full min-h-[44px]'}
-            aria-label={label}
+            aria-label={uiText(label)}
             aria-expanded={open}
             aria-controls={listboxId}
             aria-haspopup="dialog"
@@ -245,11 +248,11 @@ export function GlobalAssetSelector<TOption extends GlobalAssetSelectorOption>({
       <UniversalSearchSheet
         open={open}
         onOpenChange={setOpen}
-        title={title}
+        title={uiText(title)}
         subtitle={t('selectors.optionsAvailable', { count: options.length })}
-        closeLabel={closeLabel}
+        closeLabel={uiText(closeLabel)}
         searchPlaceholder={searchPlaceholder}
-        closeSearchLabel={closeSearchLabel}
+        closeSearchLabel={uiText(closeSearchLabel)}
         query={query}
         onQueryChange={setQuery}
         categories={availableCategories}
@@ -271,7 +274,7 @@ export function GlobalAssetSelector<TOption extends GlobalAssetSelectorOption>({
         anchoredInsideWidget={anchoredInsideWidget}
         preserveOpenGeometry={preserveOpenGeometry}
         listboxId={listboxId}
-        label={label}
+        label={uiText(label)}
         getOptionId={(option) => option.id}
       />
     </DialogPrimitive.Root>

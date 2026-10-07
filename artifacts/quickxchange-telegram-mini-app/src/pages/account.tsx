@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { useState } from 'react';
 import { useAuth, useAuthHeaders } from '@/lib/auth';
 import { Link } from 'wouter';
@@ -7,6 +8,8 @@ import { useCreateTelegramMiniAppAccountLink } from '@workspace/api-client-react
 import { useHapticFeedback } from '@/lib/hooks';
 
 export default function Account() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { user, linkedAccount } = useAuth();
   const headers = useAuthHeaders();
   const haptic = useHapticFeedback();
@@ -39,14 +42,14 @@ export default function Account() {
   return (
     <div className="flex flex-col p-4 space-y-6 pt-12 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-md mx-auto w-full pb-24">
       <div className="flex items-center justify-between mb-2">
-        <h1 className="text-[26px] font-bold tracking-tight">Account</h1>
+        <h1 className="text-[26px] font-bold tracking-tight">{uiT("customer.m7e1b0d5641f2")}</h1>
       </div>
 
       <div className="premium-card p-6 flex flex-col items-center justify-center space-y-4 surface-animated">
         <div className="w-[80px] h-[80px] rounded-full bg-primary/10 flex items-center justify-center relative">
           <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
           {user?.photoUrl ? (
-            <img src={user.photoUrl} alt="Profile" className="w-[72px] h-[72px] rounded-full object-cover relative z-10 border-2 border-background" />
+            <img src={user.photoUrl} alt={uiT("customer.md696a35bdd18")} className="w-[72px] h-[72px] rounded-full object-cover relative z-10 border-2 border-background" />
           ) : (
             <User className="w-[32px] h-[32px] text-primary relative z-10 stroke-[1.5px]" />
           )}
@@ -59,8 +62,7 @@ export default function Account() {
 
       <div className="space-y-4">
         <h3 className="text-[13px] font-bold uppercase tracking-wider text-muted-foreground/80 px-1">
-          QuickXchange Account
-        </h3>
+          {uiT("customer.mdb06eca873d9")}{' '}</h3>
 
         {linkedAccount ? (
           <div className="premium-card p-5 space-y-4 border border-primary/20 bg-primary/5">
@@ -69,10 +71,9 @@ export default function Account() {
                 <CheckCircle2 className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <p className="font-bold text-[16px] tracking-tight">Connected ✓</p>
+                <p className="font-bold text-[16px] tracking-tight">{uiT("customer.m1e60046f4ce4")}</p>
                 <p className="text-[13px] font-medium text-muted-foreground">
-                  Verified account
-                </p>
+                  {uiT("customer.m7ca9d36a6c25")}{' '}</p>
               </div>
             </div>
           </div>
@@ -83,17 +84,15 @@ export default function Account() {
                 <Shield className="w-[22px] h-[22px]" />
               </div>
               <div>
-                <p className="font-bold text-[16px] tracking-tight">Link QuickXchange Account</p>
+                <p className="font-bold text-[16px] tracking-tight">{uiT("customer.m182ec9903c1f")}</p>
                 <p className="text-[13px] font-medium text-muted-foreground">
-                  Anonymous session
-                </p>
+                  {uiT("customer.m3e19e09e5517")}{' '}</p>
               </div>
             </div>
 
             <div className="space-y-3 pt-2">
               <p className="text-[13px] text-muted-foreground leading-relaxed">
-                Link your QuickXchange account to manage your orders securely across platforms.
-              </p>
+                {uiT("customer.m9564f9c49560")}{' '}</p>
 
               <div className="flex gap-3">
                 <Button
@@ -101,7 +100,7 @@ export default function Account() {
                   disabled={isLinking}
                   className="flex-1 h-[48px] rounded-xl bg-primary text-primary-foreground font-bold shadow-[0_4px_14px_-6px_hsl(var(--primary))] active:scale-95 transition-transform"
                 >
-                  {isLinking ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Log In'}
+                  {isLinking ? <Loader2 className="w-4 h-4 animate-spin" /> : uiT("customer.m2ded4a3ee653")}
                 </Button>
                 <Button
                   onClick={() => handleLinkAccount('signup')}
@@ -109,8 +108,7 @@ export default function Account() {
                   variant="secondary"
                   className="flex-1 h-[48px] rounded-xl font-bold bg-white/5 border border-white/10 hover:bg-white/10 active:scale-95 transition-all text-foreground"
                 >
-                  Create Account
-                </Button>
+                  {uiT("customer.m0dffe234b447")}{' '}</Button>
               </div>
             </div>
           </div>
@@ -123,7 +121,7 @@ export default function Account() {
                 <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-muted-foreground">
                   <ListOrdered className="w-5 h-5" />
                 </div>
-                <span className="font-bold text-[15px]">My Orders</span>
+                <span className="font-bold text-[15px]">{uiT("customer.m00db793f2b8c")}</span>
               </div>
               <ChevronRight className="w-4 h-4 text-muted-foreground/50" />
             </div>
@@ -134,7 +132,7 @@ export default function Account() {
                 <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-muted-foreground">
                   <LifeBuoy className="w-5 h-5" />
                 </div>
-                <span className="font-bold text-[15px]">Support</span>
+                <span className="font-bold text-[15px]">{uiT("customer.mbe91940b79f4")}</span>
               </div>
               <ChevronRight className="w-4 h-4 text-muted-foreground/50" />
             </div>

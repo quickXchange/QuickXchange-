@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { useListBlogArticles, useListBlogCategories, getListBlogCategoriesQueryKey, getListBlogArticlesQueryKey } from '@workspace/api-client-react';
@@ -7,6 +8,8 @@ import { ChevronLeft, ChevronRight, Newspaper, ArrowRight, Search, X, ArrowUpRig
 import { BlogImageFrame, BlogMeta } from '@/components/blog-ui';
 
 export function BlogPage() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [, setLocation] = useLocation();
   const searchString = useSearch();
   const searchParams = useMemo(() => new URLSearchParams(searchString), [searchString]);
@@ -202,11 +205,10 @@ export function BlogPage() {
         {/* Header */}
         <header className="pt-12 md:pt-16 pb-10 border-b border-border text-left">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-marketing font-extrabold tracking-tight text-foreground uppercase mb-4">
-            Market <span className="text-primary">Intelligence</span>
+            {uiT("customer.m5238d9bd03d5")}{' '}<span className="text-primary">{uiT("customer.m78ea5ef30f1e")}</span>
           </h1>
           <p className="text-base md:text-lg text-muted-foreground max-w-2xl font-medium">
-            Authoritative context, institutional updates, and deep dives into the digital asset ecosystem.
-          </p>
+            {uiT("customer.m29a0baa5e681")}{' '}</p>
         </header>
 
         {/* Toolbar: Categories & Search */}
@@ -222,9 +224,8 @@ export function BlogPage() {
               onClick={() => handleCategoryChange()}
               data-testid="button-blog-category-all"
             >
-              Latest
-            </button>
-            {categories.data?.map(cat => (
+              {uiT("customer.m8730d3c2022a")}{' '}</button>
+            {uiText(categories.data?.map(cat => (
               <button
                 key={cat.id}
                 className={cn(
@@ -236,9 +237,9 @@ export function BlogPage() {
                 onClick={() => handleCategoryChange(cat.slug)}
                 data-testid={`button-blog-category-${cat.slug}`}
               >
-                {cat.name}
+                {uiText(cat.name)}
               </button>
-            ))}
+            )))}
           </div>
 
           <form onSubmit={handleSearchSubmit} className="relative w-full md:w-64">
@@ -246,37 +247,37 @@ export function BlogPage() {
             <input
               ref={searchInputRef}
               type="text"
-              placeholder="Search intelligence..."
+              placeholder={uiT("customer.macf1cb488924")}
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
               className="w-full h-9 pl-9 pr-8 bg-muted/20 border border-border focus:border-primary focus:bg-card focus:ring-1 focus:ring-primary/50 transition-all text-sm font-medium outline-none placeholder:text-muted-foreground/70 rounded-sm"
             />
-            {searchValue && (
+            {uiText(searchValue && (
               <button
                 type="button"
                 onClick={clearSearch}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="Clear search"
+                aria-label={uiT("customer.m3b7ea51793e9")}
               >
                 <X size={14} />
               </button>
-            )}
+            ))}
           </form>
         </div>
 
         {/* Content */}
-        {articles.isLoading ? (
+        {uiText(articles.isLoading ? (
           <LoadingBlock rows={8} />
         ) : articles.isError ? (
-          <ErrorState message="Failed to load articles. Please refresh the page." />
+          <ErrorState message={uiT("customer.mbce6585eb2d2")} />
         ) : !articles.data?.items.length ? (
           <div className="flex flex-col items-center justify-center py-32 bg-muted/10 border border-border text-center px-4 mb-16">
             <Newspaper size={48} className="text-muted-foreground/30 mb-6" />
-            <h3 className="text-2xl font-marketing font-bold mb-3 text-foreground">No intelligence found</h3>
+            <h3 className="text-2xl font-marketing font-bold mb-3 text-foreground">{uiT("customer.me837213e35d5")}</h3>
             <p className="text-muted-foreground max-w-md mb-8">
               {searchParam
-                ? `We couldn't find anything matching "${searchParam}". Try different keywords.`
-                : "Check back later for new editorial content."}
+                ? uiT("customer.m1a0df836853f", { v0: searchParam })
+                : uiT("customer.mccef86f7e112")}
             </p>
             {(searchParam || categoryParam || tagParam) && (
               <button
@@ -286,8 +287,7 @@ export function BlogPage() {
                 }}
                 className="px-6 py-2 bg-foreground text-background font-bold text-xs tracking-widest uppercase hover:bg-primary transition-colors"
               >
-                Clear all filters
-              </button>
+                {uiT("customer.mde22447d91bb")}{' '}</button>
             )}
           </div>
         ) : (
@@ -295,7 +295,7 @@ export function BlogPage() {
 
             {/* Featured Hero & Briefs */}
             {featuredArticle && (
-              <section aria-label="Featured Story" className="mb-16">
+              <section aria-label={uiT("customer.m5b6cdc2f5316")} className="mb-16">
                 <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-start">
 
                   {/* Left: Featured */}
@@ -314,10 +314,10 @@ export function BlogPage() {
                         className="mb-4"
                       />
                       <h2 className="text-3xl md:text-4xl lg:text-5xl font-marketing font-extrabold text-foreground mb-4 leading-[1.1] group-hover:text-primary transition-colors">
-                        {featuredArticle.title}
+                        {uiText(featuredArticle.title)}
                       </h2>
                       <p className="text-lg text-muted-foreground line-clamp-3">
-                        {featuredArticle.excerpt}
+                        {uiText(featuredArticle.excerpt)}
                       </p>
                     </Link>
                   </div>
@@ -326,10 +326,9 @@ export function BlogPage() {
                   {rightColArticles.length > 0 && (
                     <div className="lg:col-span-4 flex flex-col border-t lg:border-t-0 lg:border-l border-border pt-8 lg:pt-0 lg:pl-8">
                       <h3 className="text-xs font-bold uppercase tracking-widest text-foreground mb-6 flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 bg-primary rounded-full" /> Latest Briefs
-                      </h3>
+                        <div className="w-1.5 h-1.5 bg-primary rounded-full" /> {' '}{uiT("customer.made335c53986")}{' '}</h3>
                       <div className="flex flex-col divide-y divide-border/50">
-                        {rightColArticles.map(article => (
+                        {uiText(rightColArticles.map(article => (
                           <Link key={article.id} href={`/blog/${article.slug}`} className="group py-5 first:pt-0 last:pb-0">
                             <BlogMeta
                               article={article}
@@ -337,10 +336,10 @@ export function BlogPage() {
                               className="mb-2 text-[9px]"
                             />
                             <h4 className="text-lg font-marketing font-bold text-foreground group-hover:text-primary transition-colors leading-snug line-clamp-3">
-                              {article.title}
+                              {uiText(article.title)}
                             </h4>
                           </Link>
-                        ))}
+                        )))}
                       </div>
                     </div>
                   )}
@@ -351,16 +350,16 @@ export function BlogPage() {
 
             {/* Grid for remaining articles */}
             {remainingArticles.length > 0 && (
-              <section aria-label="More Intelligence" className="mb-16">
+              <section aria-label={uiT("customer.m5ee4ddd4701f")} className="mb-16">
                 {featuredArticle && (
                   <div className="flex items-center gap-4 mb-8">
-                    <h3 className="text-sm font-bold uppercase tracking-widest text-foreground">More Intelligence</h3>
+                    <h3 className="text-sm font-bold uppercase tracking-widest text-foreground">{uiT("customer.m5ee4ddd4701f")}</h3>
                     <div className="flex-1 h-px bg-border/50" />
                   </div>
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
-                  {remainingArticles.map((article) => (
+                  {uiText(remainingArticles.map((article) => (
                     <Link key={article.id} href={`/blog/${article.slug}`} className="group flex flex-col">
                       <div className="aspect-[16/10] w-full mb-4 overflow-hidden border border-border/50 bg-muted">
                         <BlogImageFrame
@@ -375,13 +374,13 @@ export function BlogPage() {
                         className="mb-3"
                       />
                       <h4 className="text-xl font-marketing font-bold text-foreground group-hover:text-primary transition-colors leading-snug mb-2 line-clamp-3">
-                        {article.title}
+                        {uiText(article.title)}
                       </h4>
                       <p className="text-sm text-muted-foreground line-clamp-2">
                         {article.excerpt}
                       </p>
                     </Link>
-                  ))}
+                  )))}
                 </div>
               </section>
             )}
@@ -389,40 +388,38 @@ export function BlogPage() {
             {/* Bottom CTA */}
             <div className="mt-8 pt-16 border-t border-border">
               <div className="bg-card border border-border p-8 md:p-12 text-center max-w-4xl mx-auto flex flex-col items-center">
-                <h3 className="text-2xl md:text-3xl font-marketing font-extrabold text-foreground mb-4 uppercase tracking-tight">Institutional-Grade Execution</h3>
+                <h3 className="text-2xl md:text-3xl font-marketing font-extrabold text-foreground mb-4 uppercase tracking-tight">{uiT("customer.mdd5e49b531ca")}</h3>
                 <p className="text-muted-foreground mb-8 max-w-xl">
-                  Experience seamless crypto conversion with real-time market rates, deep liquidity, and instant settlement.
-                </p>
+                  {uiT("customer.mcbf9b9be35b3")}{' '}</p>
                 <Link href="/convert" className="inline-flex items-center justify-center px-8 py-3 bg-foreground text-background font-bold text-xs tracking-widest uppercase hover:bg-primary transition-colors">
-                  Open Convert Desk
-                </Link>
+                  {uiT("customer.m3050d71a8e21")}{' '}</Link>
               </div>
 
               <div className="grid md:grid-cols-3 gap-6 mt-8 max-w-5xl mx-auto mb-12">
                 <Link href="/swap" className="p-6 bg-muted/20 border border-border hover:border-primary transition-colors text-left group">
                   <h4 className="font-bold text-sm uppercase tracking-wider text-foreground mb-2 group-hover:text-primary transition-colors flex justify-between items-center">
-                    Manual Swap <ArrowUpRight size={14} className="opacity-50" />
+                    {uiT("customer.m71fcf01f2da8")}{' '}<ArrowUpRight size={14} className="opacity-50" />
                   </h4>
-                  <p className="text-xs text-muted-foreground leading-relaxed">Exchange large volumes safely through our OTC desk.</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{uiT("customer.mb90e8dc20228")}</p>
                 </Link>
                 <Link href="/crypto-pairs" className="p-6 bg-muted/20 border border-border hover:border-primary transition-colors text-left group">
                   <h4 className="font-bold text-sm uppercase tracking-wider text-foreground mb-2 group-hover:text-primary transition-colors flex justify-between items-center">
-                    Supported Markets <ArrowUpRight size={14} className="opacity-50" />
+                    {uiT("customer.md7d998ea51f4")}{' '}<ArrowUpRight size={14} className="opacity-50" />
                   </h4>
-                  <p className="text-xs text-muted-foreground leading-relaxed">View our supported assets and settlement options.</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{uiT("customer.ma2bc74a65ba2")}</p>
                 </Link>
                 <Link href="/faq" className="p-6 bg-muted/20 border border-border hover:border-primary transition-colors text-left group">
                   <h4 className="font-bold text-sm uppercase tracking-wider text-foreground mb-2 group-hover:text-primary transition-colors flex justify-between items-center">
-                    Platform FAQ <ArrowUpRight size={14} className="opacity-50" />
+                    {uiT("customer.ma41ee1d76a20")}{' '}<ArrowUpRight size={14} className="opacity-50" />
                   </h4>
-                  <p className="text-xs text-muted-foreground leading-relaxed">Answers to common operational questions.</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{uiT("customer.m42b9fb3459ed")}</p>
                 </Link>
               </div>
             </div>
 
             {/* Pagination */}
             {articles.data && articles.data.total > articles.data.pageSize && (
-              <nav className="flex items-center justify-between py-10 border-t border-border" aria-label="Pagination">
+              <nav className="flex items-center justify-between py-10 border-t border-border" aria-label={uiT("customer.m7b3f674b625e")}>
                 <button
                   type="button"
                   className={cn(
@@ -434,11 +431,10 @@ export function BlogPage() {
                   disabled={page === 1}
                   onClick={() => handlePageChange(page - 1)}
                 >
-                  <ChevronLeft size={14} /> Newer
-                </button>
+                  <ChevronLeft size={14} /> {' '}{uiT("customer.m718c45696575")}{' '}</button>
 
                 <span className="hidden md:block text-xs font-bold tracking-widest uppercase text-muted-foreground">
-                  Page {page} / {Math.ceil(articles.data.total / articles.data.pageSize)}
+                  {uiT("customer.m0a30a815d67d")}{' '}{uiText(page)} / {uiText(Math.ceil(articles.data.total / articles.data.pageSize))}
                 </span>
 
                 <button
@@ -452,12 +448,12 @@ export function BlogPage() {
                   disabled={page * articles.data.pageSize >= articles.data.total}
                   onClick={() => handlePageChange(page + 1)}
                 >
-                  Older <ChevronRight size={14} />
+                  {uiT("customer.m03281c889c28")}{' '}<ChevronRight size={14} />
                 </button>
               </nav>
             )}
           </div>
-        )}
+        ))}
       </div>
     </PublicShell>
   );

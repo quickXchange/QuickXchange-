@@ -1,7 +1,10 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { ArrowRight, Send, Zap, Package, FileText, User, PenTool, Globe, MessageSquare, Paperclip, Smile, Mic, Bell, RefreshCw, Rocket, Headphones } from 'lucide-react';
 import { basePath, TELEGRAM_BOT_URL } from '@/components/shared-app-ui';
 
 export function TelegramBotPromo() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   return (
     <section className="qx-telegram-promo relative mx-auto mb-16 mt-8 w-[calc(100%-2rem)] max-w-[1440px] overflow-hidden rounded-[2.5rem] border border-blue-200/50 bg-gradient-to-br from-blue-50/80 via-white to-purple-50/80 p-8 shadow-2xl dark:border-blue-500/20 dark:from-[#080d19] dark:via-[#0a1128] dark:to-[#110e26] md:p-16 lg:p-20">
       {/* Decorative luminous background depth */}
@@ -21,31 +24,29 @@ export function TelegramBotPromo() {
         <div className="flex flex-col text-left">
           <div className="mb-6 inline-flex w-fit items-center gap-2 rounded-full bg-blue-100/80 px-4 py-1.5 text-sm font-bold tracking-wide text-blue-700 shadow-sm ring-1 ring-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/20">
             <Send size={14} className="-ml-0.5" />
-            TELEGRAM BOT
-          </div>
+            {uiT("customer.mc8f56112c7c1")}{' '}</div>
           
           <h2 className="mb-6 text-4xl font-extrabold tracking-tight text-foreground md:text-5xl lg:text-6xl lg:leading-[1.1]">
-            Exchange right in <span className="bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">Telegram</span>
+            {uiT("customer.mb7bec83e467a")}{' '}<span className="bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">Telegram</span>
           </h2>
           
           <p className="mb-10 text-lg leading-relaxed text-muted-foreground md:text-xl">
-            Exchange crypto, create and track orders, and get support directly from Telegram — fast, simple and always connected to QuickXchange.
-          </p>
+            {uiT("customer.m22197efa1119")}{' '}</p>
 
           <div className="mb-12 grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
             {[
-              { icon: Zap, text: 'Instant rates' },
-              { icon: Package, text: 'Create & track orders' },
-              { icon: Bell, text: 'Order notifications' },
-              { icon: RefreshCw, text: 'Same rates as the website' },
-              { icon: Headphones, text: '24/7 support' },
-              { icon: Rocket, text: 'Fast and easy' },
+              { icon: Zap, text: uiT("customer.meee62a0a9ea8") },
+              { icon: Package, text: uiT("customer.mc9d61c328d4e") },
+              { icon: Bell, text: uiT("customer.m46d5ab3388ff") },
+              { icon: RefreshCw, text: uiT("customer.mc23eda7b2b66") },
+              { icon: Headphones, text: uiT("customer.m568e5bf6b874") },
+              { icon: Rocket, text: uiT("customer.m043276f3eb55") },
             ].map((benefit, i) => (
               <div key={i} className="flex items-center gap-3">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-md">
                   <benefit.icon size={16} />
                 </div>
-                <span className="font-semibold text-foreground">{benefit.text}</span>
+                <span className="font-semibold text-foreground">{uiText(benefit.text)}</span>
               </div>
             ))}
           </div>
@@ -56,7 +57,7 @@ export function TelegramBotPromo() {
             rel="noopener noreferrer"
             className="group relative inline-flex h-14 w-fit items-center justify-center gap-3 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 px-8 font-bold text-white shadow-[0_10px_30px_rgba(59,130,246,0.3)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_15px_40px_rgba(59,130,246,0.4)]"
           >
-            <span className="text-lg">✈️ Open the Bot</span>
+            <span className="text-lg">{uiT("customer.mda99bdc017fe")}</span>
           </a>
         </div>
 
@@ -82,8 +83,8 @@ export function TelegramBotPromo() {
                   />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-[15px] font-bold leading-tight text-white">QuickXchangeBot</span>
-                  <span className="text-[13px] leading-tight text-blue-100 dark:text-blue-300/80">bot</span>
+                  <span className="text-[15px] font-bold leading-tight text-white">{uiT("customer.mc1fd85abb778")}</span>
+                  <span className="text-[13px] leading-tight text-blue-100 dark:text-blue-300/80">{uiT("customer.m9d74932bdb6f")}</span>
                 </div>
               </div>
               <div className="flex h-8 w-8 items-center justify-center rounded-full text-white">
@@ -113,26 +114,26 @@ export function TelegramBotPromo() {
               
               {/* Bot Message Bubble */}
               <div className="relative z-10 mb-4 mr-8 rounded-2xl rounded-tl-sm bg-white p-3.5 text-[15px] text-slate-800 shadow-sm dark:bg-[#1e293b] dark:text-white dark:ring-1 dark:ring-white/5">
-                <p className="mb-2">👋 Welcome to QuickXchange!</p>
-                <p>Exchange crypto, track orders and get support — all in Telegram.</p>
+                <p className="mb-2">{uiT("customer.maa1e06cbd306")}</p>
+                <p>{uiT("customer.me50eb3066234")}</p>
                 <span className="mt-1 block text-right text-[11px] text-slate-400">19:41</span>
               </div>
 
               {/* Bot Menu Grid */}
               <div className="relative z-10 mt-2 grid grid-cols-2 gap-2">
                 {[
-                  { icon: Zap, label: 'Exchange', emoji: '⚡' },
-                  { icon: Package, label: 'Track Order', emoji: '📦' },
-                  { icon: FileText, label: 'My Orders', emoji: '📋' },
-                  { icon: User, label: 'Sign In', emoji: '👤' },
-                  { icon: PenTool, label: 'Sign Up', emoji: '📝' },
-                  { icon: Globe, label: 'Language', emoji: '🌐' },
-                  { icon: MessageSquare, label: 'Support', emoji: '💬' },
-                  { icon: Globe, label: 'Website', emoji: '🌍' },
+                  { icon: Zap, label: uiT("customer.md60a318dd8a0"), emoji: '⚡' },
+                  { icon: Package, label: uiT("customer.m73a75653065c"), emoji: '📦' },
+                  { icon: FileText, label: uiT("customer.m00db793f2b8c"), emoji: '📋' },
+                  { icon: User, label: uiT("customer.mbcc0bcc9140b"), emoji: '👤' },
+                  { icon: PenTool, label: uiT("customer.m47de23586e49"), emoji: '📝' },
+                  { icon: Globe, label: uiT("customer.ma4fe65264ef7"), emoji: '🌐' },
+                  { icon: MessageSquare, label: uiT("customer.mbe91940b79f4"), emoji: '💬' },
+                  { icon: Globe, label: uiT("customer.mb5a229ac8bec"), emoji: '🌍' },
                 ].map((btn, i) => (
                   <button key={i} className="flex h-11 w-full items-center gap-2.5 rounded-xl bg-[#c5d0db] px-3 font-semibold text-slate-800 transition-colors hover:bg-[#b0bdc9] dark:bg-[#1e293b] dark:text-white dark:shadow-sm dark:ring-1 dark:ring-white/5 dark:hover:bg-[#334155]">
-                    <span className="text-base leading-none">{btn.emoji}</span>
-                    <span className="text-[14px]">{btn.label}</span>
+                    <span className="text-base leading-none">{uiText(btn.emoji)}</span>
+                    <span className="text-[14px]">{uiText(btn.label)}</span>
                   </button>
                 ))}
               </div>
@@ -141,7 +142,7 @@ export function TelegramBotPromo() {
             {/* Message Input */}
             <div className="flex items-center gap-3 border-t border-black/5 bg-[#f1f5f9] px-4 py-3 dark:border-white/5 dark:bg-[#1e293b]">
               <Paperclip size={24} className="text-slate-500 dark:text-slate-400" />
-              <div className="flex-1 text-[16px] text-slate-500 dark:text-slate-400">Message</div>
+              <div className="flex-1 text-[16px] text-slate-500 dark:text-slate-400">{uiT("customer.m2f77668a9dfb")}</div>
               <Smile size={24} className="text-slate-500 dark:text-slate-400" />
               <Mic size={24} className="text-slate-500 dark:text-slate-400" />
             </div>

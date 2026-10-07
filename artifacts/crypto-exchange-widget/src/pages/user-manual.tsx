@@ -1,3 +1,5 @@
+import { sourceText } from "@workspace/i18n/runtime";
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { PublicShell } from '../components/public-shell';
@@ -147,15 +149,17 @@ function useUserManualSEO() {
 }
 
 function Callout({ type, title, children }: { type: 'info' | 'warning' | 'safety', title: string, children: ReactNode }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const Icon = type === 'warning' ? AlertTriangle : type === 'safety' ? ShieldAlert : Info;
   return (
     <div className={cn("user-manual-callout", type)} data-testid={`callout-${type}`}>
       <div className="user-manual-callout-title">
         <Icon size={20} aria-hidden="true" />
-        <span>{title}</span>
+        <span>{uiText(title)}</span>
       </div>
       <div className="user-manual-callout-content">
-        {children}
+        {uiText(children)}
       </div>
     </div>
   );
@@ -174,6 +178,8 @@ function ManualFigure({
   caption: string;
   hotspots?: Array<{ number: number; label: string; x: string; y: string }>;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const lightboxRef = useRef<HTMLDivElement>(null);
 
@@ -202,16 +208,16 @@ function ManualFigure({
           type="button"
           className="user-manual-figure-frame"
           onClick={() => setLightboxOpen(true)}
-          aria-label={`Open a larger view of ${title}`}
+          aria-label={uiT("customer.m6f53bb6d75f1", { v0: title })}
         >
           <img
             src={`${basePath}${src}`}
-            alt={alt}
+            alt={uiText(alt)}
             loading="lazy"
             decoding="async"
             className="user-manual-figure-image"
           />
-          {hotspots.map((hotspot) => (
+          {uiText(hotspots.map((hotspot) => (
             <span
               key={hotspot.number}
               className="user-manual-hotspot"
@@ -220,18 +226,17 @@ function ManualFigure({
             >
               {hotspot.number}
             </span>
-          ))}
+          )))}
           <span className="user-manual-image-action" aria-hidden="true">
             <ZoomIn size={16} />
-            Zoom
-          </span>
+            {uiT("customer.m509c517ede79")}{' '}</span>
         </button>
         <figcaption>
-          <strong>{title}</strong>
-          <span>{caption}</span>
+          <strong>{uiText(title)}</strong>
+          <span>{uiText(caption)}</span>
           {hotspots.length > 0 && (
             <ol className="user-manual-hotspot-key">
-              {hotspots.map((hotspot) => <li key={hotspot.number}><b>{hotspot.number}</b>{hotspot.label}</li>)}
+              {uiText(hotspots.map((hotspot) => <li key={hotspot.number}><b>{hotspot.number}</b>{uiText(hotspot.label)}</li>))}
             </ol>
           )}
         </figcaption>
@@ -242,7 +247,7 @@ function ManualFigure({
           className="user-manual-lightbox"
           role="dialog"
           aria-modal="true"
-          aria-label={`${title} enlarged image`}
+          aria-label={uiT("customer.md0bf374b1a21", { v0: title })}
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) setLightboxOpen(false);
           }}
@@ -250,22 +255,22 @@ function ManualFigure({
           <div className="user-manual-lightbox-panel" ref={lightboxRef}>
             <div className="user-manual-lightbox-toolbar">
               <div>
-                <strong>{title}</strong>
-                <span>Detailed product view</span>
+                <strong>{uiText(title)}</strong>
+                <span>{uiT("customer.m834ea0165e6a")}</span>
               </div>
               <div className="user-manual-lightbox-actions">
-                <button type="button" onClick={() => void enterFullscreen()} aria-label="View image fullscreen">
+                <button type="button" onClick={() => void enterFullscreen()} aria-label={uiT("customer.mc2a1aa73e36a")}>
                   <Maximize2 size={18} />
-                  <span>Fullscreen</span>
+                  <span>{uiT("customer.mc461dbb2bab7")}</span>
                 </button>
-                <button type="button" onClick={() => setLightboxOpen(false)} aria-label="Close enlarged image">
+                <button type="button" onClick={() => setLightboxOpen(false)} aria-label={uiT("customer.md476f46167b7")}>
                   <X size={20} />
                 </button>
               </div>
             </div>
             <div className="user-manual-lightbox-image-wrap">
-              <img src={`${basePath}${src}`} alt={alt} className="user-manual-lightbox-image" />
-              {hotspots.map((hotspot) => (
+              <img src={`${basePath}${src}`} alt={uiText(alt)} className="user-manual-lightbox-image" />
+              {uiText(hotspots.map((hotspot) => (
                 <span
                   key={hotspot.number}
                   className="user-manual-hotspot"
@@ -274,9 +279,9 @@ function ManualFigure({
                 >
                   {hotspot.number}
                 </span>
-              ))}
+              )))}
             </div>
-            <p>{caption}</p>
+            <p>{uiText(caption)}</p>
           </div>
         </div>
       )}
@@ -285,17 +290,19 @@ function ManualFigure({
 }
 
 function VideoPlaceholder() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   return (
     <div
       className="user-manual-video-placeholder"
-      aria-label="Instructional video placeholder"
+      aria-label={uiT("customer.mf68a460c80e6")}
       style={{ '--manual-video-image': `url("${basePath}/manual/convert-guide.jpg")` } as CSSProperties}
     >
       <div className="user-manual-video-screen">
         <span className="user-manual-video-icon"><PlayCircle size={34} aria-hidden="true" /></span>
-        <span className="user-manual-video-eyebrow">Video walkthrough</span>
-        <strong>Funding an exchange order</strong>
-        <p>A guided video will appear here when approved instructional footage is available.</p>
+        <span className="user-manual-video-eyebrow">{uiT("customer.m561d26973ca3")}</span>
+        <strong>{uiT("customer.m23ef60102251")}</strong>
+        <p>{uiT("customer.m76826b42f0ea")}</p>
       </div>
       <div className="user-manual-video-controls" aria-hidden="true">
         <PlayCircle size={18} />
@@ -309,24 +316,26 @@ function VideoPlaceholder() {
 }
 
 const TOC = [
-  { id: 'introduction', label: 'Introduction' },
-  { id: 'swap-vs-convert', label: 'Swap vs. Convert' },
-  { id: 'starting-exchange', label: 'Starting an Exchange' },
-  { id: 'selecting-assets', label: 'Selecting Assets & Networks' },
-  { id: 'reviewing-quote', label: 'Reviewing Your Quote' },
-  { id: 'entering-details', label: 'Entering Details' },
-  { id: 'terms-submission', label: 'Terms & Submission' },
-  { id: 'funding-order', label: 'Funding Your Order' },
-  { id: 'tracking-order', label: 'Tracking Your Order' },
-  { id: 'account-features', label: 'Account Features' },
-  { id: 'history-notifications', label: 'History & Notifications' },
-  { id: 'affiliate-program', label: 'Affiliate Program' },
-  { id: 'safety-troubleshooting', label: 'Safety & Troubleshooting' },
-  { id: 'common-questions', label: 'Common Questions' },
-  { id: 'support', label: 'Support' },
+  { id: 'introduction', label: sourceText("customer.m904ebfad7157") },
+  { id: 'swap-vs-convert', label: sourceText("customer.m150c8ff01b96") },
+  { id: 'starting-exchange', label: sourceText("customer.m188ad536c00d") },
+  { id: 'selecting-assets', label: sourceText("customer.m1d674ffeac81") },
+  { id: 'reviewing-quote', label: sourceText("customer.m09cff847bac0") },
+  { id: 'entering-details', label: sourceText("customer.mf80f0e5e70a5") },
+  { id: 'terms-submission', label: sourceText("customer.mb33f7c08d8ad") },
+  { id: 'funding-order', label: sourceText("customer.m30e9cd90268d") },
+  { id: 'tracking-order', label: sourceText("customer.m0f74fa441e2f") },
+  { id: 'account-features', label: sourceText("customer.m78d08e0efdae") },
+  { id: 'history-notifications', label: sourceText("customer.m8d442d7a4f57") },
+  { id: 'affiliate-program', label: sourceText("customer.m205c73c8beac") },
+  { id: 'safety-troubleshooting', label: sourceText("customer.m6f141330ff0b") },
+  { id: 'common-questions', label: sourceText("customer.m76c28ab6335d") },
+  { id: 'support', label: sourceText("customer.m62421bff7b47") },
 ];
 
 export function UserManualPage() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const telegramSupportUrl = usePublishedTelegramSupportUrl();
   useUserManualSEO();
 
@@ -336,258 +345,255 @@ export function UserManualPage() {
         <div className="user-manual-hero">
           <div className="user-manual-hero-inner">
             <div className="user-manual-badge">
-              <BookOpen size={16} /> Official Documentation
-            </div>
+              <BookOpen size={16} /> {' '}{uiT("customer.m628e39a94703")}{' '}</div>
             <h1 className="user-manual-title">
-              User Manual
-            </h1>
+              {uiT("customer.m943f7e1248b9")}{' '}</h1>
             <p className="user-manual-subtitle">
-              Follow clear, step-by-step guidance for choosing an exchange mode, creating and funding an order, tracking progress, using your account, and staying safe.
-            </p>
+              {uiT("customer.md1d70e87f319")}{' '}</p>
           </div>
         </div>
 
         <div className="user-manual-container">
-          <aside className="user-manual-toc" aria-label="Table of Contents">
-            <h2 className="user-manual-toc-title">Contents</h2>
+          <aside className="user-manual-toc" aria-label={uiT("customer.ma9360e0212a4")}>
+            <h2 className="user-manual-toc-title">{uiT("customer.m437aea62a5bd")}</h2>
             <ul className="user-manual-toc-list">
-              {TOC.map(item => (
+              {uiText(TOC.map(item => (
                 <li key={item.id}>
                   <a href={`#${item.id}`} className="user-manual-toc-link" data-testid={`link-toc-${item.id}`}>
-                    {item.label}
+                    {uiText(item.label)}
                   </a>
                 </li>
-              ))}
+              )))}
             </ul>
           </aside>
 
           <article className="user-manual-content">
             <section id="introduction">
-              <h2>Introduction</h2>
-              <p>Welcome to the QuickXchange User Manual. This guide provides step-by-step instructions for navigating the exchange platform. Whether you are using a supported manual Swap route or an automated crypto-to-crypto Convert route, use this document to understand each stage before submitting funds.</p>
+              <h2>{uiT("customer.mb605350bc002")}</h2>
+              <p>{uiT("customer.mc330f4bbe0bb")}</p>
             </section>
 
             <section id="swap-vs-convert">
-              <h2>Choosing Between Swap and Convert</h2>
-              <p>QuickXchange offers two distinct exchange journeys tailored to your needs. Selecting the right one ensures a smooth transaction.</p>
+              <h2>{uiT("customer.ma701d383dbeb")}</h2>
+              <p>{uiT("customer.m44ee86e3146a")}</p>
               
               <div className="user-manual-step-grid">
                 <div className="user-manual-step-card">
                   <div className="user-manual-step-number">S</div>
                   <div className="user-manual-step-content">
-                    <h3>Swap (Manual Orders)</h3>
-                    <p>Use Swap for supported routes involving cryptocurrency, fiat currencies, and available payment methods. The instructions and confirmation process depend on the source you select, so follow the exact details displayed on your order.</p>
+                    <h3>{uiT("customer.m9d3975b65685")}</h3>
+                    <p>{uiT("customer.m2243507df9ed")}</p>
                   </div>
                 </div>
                 <div className="user-manual-step-card">
                   <div className="user-manual-step-number">C</div>
                   <div className="user-manual-step-content">
-                    <h3>Convert (Automated)</h3>
-                    <p>Built exclusively for crypto-to-crypto exchanges. Convert generates an automated deposit address and QR code, monitoring the blockchain to process your transaction as soon as the funds arrive.</p>
+                    <h3>{uiT("customer.mc0d8d4b00d96")}</h3>
+                    <p>{uiT("customer.m675b66b1464b")}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="user-manual-media-grid" aria-label="Swap and Convert interface examples">
+              <div className="user-manual-media-grid" aria-label={uiT("customer.m54a8129ce0a7")}>
                 <ManualFigure
                   src="/manual/swap-guide.jpg"
-                  alt="QuickXchange Swap screen showing the You Send and You Receive selectors"
-                  title="Swap interface"
+                  alt={uiT("customer.ma3f7b5b09b53")}
+                  title={uiT("customer.m02c6fd5e49c9")}
                   caption="Select Swap, then choose the source and destination shown in the exchange card."
                   hotspots={[
-                    { number: 1, label: 'Choose the Swap tab.', x: '18%', y: '27%' },
-                    { number: 2, label: 'Review the You Send and You Receive selectors.', x: '27%', y: '56%' },
+                    { number: 1, label: uiT("customer.ma470a204bd2c"), x: '18%', y: '27%' },
+                    { number: 2, label: uiT("customer.m0a16d3526042"), x: '27%', y: '56%' },
                   ]}
                 />
                 <ManualFigure
                   src="/manual/convert-guide.jpg"
-                  alt="QuickXchange Convert screen showing crypto selectors and floating-rate choice"
-                  title="Convert interface"
+                  alt={uiT("customer.m0ff5fe7af8aa")}
+                  title={uiT("customer.mafc7207ab16b")}
                   caption="Select Convert for crypto-to-crypto orders, then choose both assets and the available rate type."
                   hotspots={[
-                    { number: 1, label: 'Choose the Convert tab.', x: '37%', y: '27%' },
-                    { number: 2, label: 'Review the available rate type.', x: '37%', y: '39%' },
+                    { number: 1, label: uiT("customer.mc90d2eb26853"), x: '37%', y: '27%' },
+                    { number: 2, label: uiT("customer.mde68d61ea23c"), x: '37%', y: '39%' },
                   ]}
                 />
               </div>
             </section>
 
             <section id="starting-exchange">
-              <h2>Starting an Exchange</h2>
-              <p>To begin, navigate to the main exchange widget on the <Link href="/" className="user-manual-link" data-testid="link-home">Home page</Link> or open the dedicated <Link href="/swap" className="user-manual-link" data-testid="link-swap">Swap</Link> or <Link href="/convert" className="user-manual-link" data-testid="link-convert">Convert</Link> page.</p>
+              <h2>{uiT("customer.m75c8355455d7")}</h2>
+              <p>{uiT("customer.mfc11ffaf1c3f")}{' '}<Link href="/" className="user-manual-link" data-testid="link-home">{uiT("customer.m11d58b08de98")}</Link> {' '}{uiT("customer.m1b6d37e3799f")}{' '}<Link href="/swap" className="user-manual-link" data-testid="link-swap">{uiT("customer.m6ec282d40a8a")}</Link> {' '}{uiT("customer.m7175517a370b")}{' '}<Link href="/convert" className="user-manual-link" data-testid="link-convert">{uiT("customer.m5cd425f518c2")}</Link> {' '}{uiT("customer.m2c0560d6168d")}</p>
               <ol className="user-manual-procedure">
-                <li>Select the appropriate tab: <strong>Swap</strong> or <strong>Convert</strong>.</li>
-                <li>Choose whether you are sending ("You Send") or receiving ("You Receive") a specific amount by interacting with the input fields.</li>
-                <li>Click on the asset dropdowns to open the selection menu.</li>
+                <li>{uiT("customer.md711512805d0")}{' '}<strong>{uiT("customer.m6ec282d40a8a")}</strong> {' '}{uiT("customer.m7175517a370b")}{' '}<strong>{uiT("customer.m5cd425f518c2")}</strong>.</li>
+                <li>{uiT("customer.m3150db5e5126")}</li>
+                <li>{uiT("customer.m2abb6944a14f")}</li>
               </ol>
             </section>
 
             <section id="selecting-assets">
-              <h2>Selecting Assets, Networks, and Payment Methods</h2>
-              <p>Accurate selection of your assets and their corresponding networks is a critical step in the exchange process.</p>
+              <h2>{uiT("customer.md69f3d97ec59")}</h2>
+              <p>{uiT("customer.m48d9a8c6bfa9")}</p>
               <ul>
-                <li><strong>Cryptocurrencies:</strong> Search for the token you wish to exchange. Pay close attention to the network badge displayed next to the token name.</li>
-                <li><strong>Fiat / Payment Methods:</strong> If you are using the Swap flow, select the relevant payment method (e.g., bank transfer, specific e-wallet) available for your region.</li>
+                <li><strong>{uiT("customer.md658d8e2329c")}</strong> {' '}{uiT("customer.md21defa6ec3b")}</li>
+                <li><strong>{uiT("customer.m213ebafac4dc")}</strong> {' '}{uiT("customer.mb1aa08d19ca8")}</li>
               </ul>
               
-              <Callout type="warning" title="Network Verification">
-                <p>Always verify that the selected network matches the network you intend to use in your wallet. A mismatched network can make funds difficult or impossible to recover.</p>
+              <Callout type="warning" title={uiT("customer.m8bdc18ca4ebb")}>
+                <p>{uiT("customer.m283f1de904b1")}</p>
               </Callout>
             </section>
 
             <section id="reviewing-quote">
-              <h2>Reviewing Your Quote</h2>
-              <p>Once you enter an amount, the system automatically calculates the exchange rate and available quote.</p>
+              <h2>{uiT("customer.md76c8d752c39")}</h2>
+              <p>{uiT("customer.m7c612595c299")}</p>
               <ul>
-                <li><strong>Exchange Rate:</strong> The current market rate applied to your transaction.</li>
-                <li><strong>Minimum and Maximum Limits:</strong> The platform will indicate if your requested amount falls below the minimum requirement or exceeds the maximum limit for the chosen route.</li>
-                <li><strong>Displayed fees and totals:</strong> Review every amount and fee shown for the selected route before continuing.</li>
+                <li><strong>{uiT("customer.m27a9d73ba9ed")}</strong> {' '}{uiT("customer.mb55e7ec0bd9a")}</li>
+                <li><strong>{uiT("customer.m9c69029091da")}</strong> {' '}{uiT("customer.m405f40c26086")}</li>
+                <li><strong>{uiT("customer.mb90faacfd011")}</strong> {' '}{uiT("customer.mfdcf50188181")}</li>
               </ul>
-              <p>Review these details carefully. Submit only while the displayed quote is valid; if it expires or the route changes, request and review a refreshed quote.</p>
+              <p>{uiT("customer.m2f94d6fa81eb")}</p>
             </section>
 
             <section id="entering-details">
-              <h2>Entering Details (Receiving, Refund, Contact)</h2>
-              <p>Before proceeding to the order confirmation, you must provide accurate destination and fallback information.</p>
+              <h2>{uiT("customer.m982eb43dc336")}</h2>
+              <p>{uiT("customer.mb7cc3cb9370e")}</p>
               
-              <h3>Destination Address</h3>
-              <p>Enter the exact address where you wish to receive your funds. If the blockchain network requires a Memo, Tag, or Payment ID (common with XRP, XLM, and others), ensure it is included in the designated field.</p>
+              <h3>{uiT("customer.mfff9f1124e1c")}</h3>
+              <p>{uiT("customer.mc6daedfa178c")}</p>
               
-              <h3>Refund Address</h3>
-              <p>If the form offers a refund-address field, you may provide an address on the source network. Verify its network and any required memo or tag before continuing.</p>
+              <h3>{uiT("customer.m3a53c683989b")}</h3>
+              <p>{uiT("customer.m2b2416fafeaf")}</p>
               
-              <h3>Contact Information</h3>
-              <p>Guests must provide a valid email address. Signed-in customers should verify that their account email is current so available order notifications and support communications can reach them.</p>
+              <h3>{uiT("customer.m7c01aec3b1d2")}</h3>
+              <p>{uiT("customer.m1660a7ffac24")}</p>
 
-              <Callout type="safety" title="Address Accuracy Check">
-                <p>Take an extra moment to double-check the destination and refund addresses. Blockchain transactions are irreversible. QuickXchange cannot recover funds sent to incorrect addresses.</p>
+              <Callout type="safety" title={uiT("customer.md836f55a8b39")}>
+                <p>{uiT("customer.mcd00d7687163")}</p>
               </Callout>
             </section>
 
             <section id="terms-submission">
-              <h2>Terms and Order Submission</h2>
-              <p>To finalize the creation of your order, you must review and agree to the platform's terms of service and privacy policy.</p>
+              <h2>{uiT("customer.me65e004467f1")}</h2>
+              <p>{uiT("customer.md162f0347cdf")}</p>
               <ol className="user-manual-procedure">
-                <li>Check the agreement box to confirm your acceptance.</li>
-                <li>Use the final submit button shown for the selected flow.</li>
-                <li>You will be securely routed to your unique Order Details page. Bookmark this page or save your Order ID.</li>
+                <li>{uiT("customer.md430ae64d187")}</li>
+                <li>{uiT("customer.mf45281a09c9d")}</li>
+                <li>{uiT("customer.mdfdebefa5089")}</li>
               </ol>
             </section>
 
             <section id="funding-order">
-              <h2>Funding Your Order</h2>
-              <p>The method for funding your order depends on whether you chose Swap or Convert.</p>
+              <h2>{uiT("customer.m1e5c111cf858")}</h2>
+              <p>{uiT("customer.mac6e3a8eee3b")}</p>
               
-              <h3>For Swap Orders</h3>
-              <p>Your order page displays instructions for the source asset or payment method you selected.</p>
+              <h3>{uiT("customer.mc321a072d31a")}</h3>
+              <p>{uiT("customer.m3693bb050369")}</p>
               <ol className="user-manual-procedure">
-                <li>Open and read all payment or deposit instructions.</li>
-                <li>Confirm the asset, network, recipient details, exact amount, and any payment reference.</li>
-                <li>Send funds through the instructed wallet, bank, or payment provider.</li>
-                <li>If the order page offers an <strong>I've Paid</strong> action for that payment route, use it only after sending the payment. This reports your payment; it does not confirm settlement.</li>
+                <li>{uiT("customer.m19f732120ab0")}</li>
+                <li>{uiT("customer.m5e4359e92dd1")}</li>
+                <li>{uiT("customer.m2d9b430ed1d3")}</li>
+                <li>{uiT("customer.mba8a4a16c05e")}{' '}<strong>{uiT("customer.m02ef7eb94bf0")}</strong> {' '}{uiT("customer.m74aa32616d17")}</li>
               </ol>
 
-              <h3>For Convert Orders</h3>
-              <p>You will be provided with a deposit address and a QR code.</p>
+              <h3>{uiT("customer.m2b7385493526")}</h3>
+              <p>{uiT("customer.mf416da3a15dc")}</p>
               <ol className="user-manual-procedure">
-                <li>Open your cryptocurrency wallet.</li>
-                <li>Scan the QR code or copy the deposit address carefully.</li>
-                <li>Send the exact specified amount of crypto on the correct network.</li>
-                <li>The system will automatically detect the incoming deposit once it is confirmed on the blockchain.</li>
+                <li>{uiT("customer.m922c9d55861c")}</li>
+                <li>{uiT("customer.me691a53fe84a")}</li>
+                <li>{uiT("customer.mf7e9591f7a90")}</li>
+                <li>{uiT("customer.macfd58a3ab8d")}</li>
               </ol>
 
               <VideoPlaceholder />
 
-              <Callout type="warning" title="Exact Amount Requirement">
-                <p>Always send the exact amount requested. Sending a different amount may delay processing or require manual intervention by our support team.</p>
+              <Callout type="warning" title={uiT("customer.m78ffaa0ea233")}>
+                <p>{uiT("customer.madfc37ef40d0")}</p>
               </Callout>
             </section>
 
             <section id="tracking-order">
-              <h2>Tracking Your Order</h2>
+              <h2>{uiT("customer.m2af255e37764")}</h2>
               <ManualFigure
                 src="/manual/tracking-guide.jpg"
-                alt="QuickXchange Track your order page with an Order ID field and Track Order button"
-                title="Track an Order"
+                alt={uiT("customer.maac9800a2867")}
+                title={uiT("customer.m7df8946d4732")}
                 caption="Open Track an Order, enter the requested Order ID and tracking information, then select Track Order."
                 hotspots={[
-                  { number: 1, label: 'Enter the requested Order ID and tracking information.', x: '43%', y: '70%' },
-                  { number: 2, label: 'Select Track Order.', x: '68%', y: '70%' },
+                  { number: 1, label: uiT("customer.m1e949113bd93"), x: '43%', y: '70%' },
+                  { number: 2, label: uiT("customer.mb3ea14af2d83"), x: '68%', y: '70%' },
                 ]}
               />
-              <p>Every exchange generates a unique Order ID and an order or tracking page. Status availability depends on the order type and tracking information supplied when the order was created.</p>
+              <p>{uiT("customer.m6024970ec5db")}</p>
               <ul>
-                <li><strong>Pending:</strong> The order is created and awaiting your deposit.</li>
-                <li><strong>Deposit Received:</strong> Your funds have arrived and are being verified.</li>
-                <li><strong>Processing:</strong> The exchange is being executed.</li>
-                <li><strong>Completed:</strong> The funds have been sent to your destination address.</li>
+                <li><strong>{uiT("customer.m82ada4262698")}</strong> {' '}{uiT("customer.m8470a541cb48")}</li>
+                <li><strong>{uiT("customer.m31a73bc7215c")}</strong> {' '}{uiT("customer.md144e8587a69")}</li>
+                <li><strong>{uiT("customer.m101c90be5c32")}</strong> {' '}{uiT("customer.mf8551a1010f3")}</li>
+                <li><strong>{uiT("customer.m7e10a6053e54")}</strong> {' '}{uiT("customer.m3219cc0448d0")}</li>
               </ul>
-              <p>Keep the complete tracking link shown after submission. To look up an order later, open <Link href="/status" className="user-manual-link" data-testid="link-track">Track an Order</Link> and provide the requested Order ID and tracking information. Signed-in customers can also open eligible attached orders from their account.</p>
+              <p>{uiT("customer.me5973998d60d")}{' '}<Link href="/status" className="user-manual-link" data-testid="link-track">{uiT("customer.m7df8946d4732")}</Link> {' '}{uiT("customer.md1a3966583f3")}</p>
             </section>
 
             <section id="account-features">
-              <h2>Account Features</h2>
-              <p>You can begin an exchange as a guest. A customer account provides access to account-specific tools for eligible orders.</p>
+              <h2>{uiT("customer.mf903ae50df21")}</h2>
+              <p>{uiT("customer.mb1fd3e726d96")}</p>
               <ul>
-                <li><strong>Order directory:</strong> View orders attached to your signed-in customer account.</li>
-                <li><strong>Order details:</strong> Open an attached order to review customer-safe details and available actions.</li>
-                <li><strong>Notification settings:</strong> Manage available order-notification preferences.</li>
-                <li><strong>Affiliate dashboard:</strong> Access referral and commission tools when your account is eligible.</li>
+                <li><strong>{uiT("customer.m92c906d6b2c6")}</strong> {' '}{uiT("customer.m4881d189972d")}</li>
+                <li><strong>{uiT("customer.m3d30ad53ed09")}</strong> {' '}{uiT("customer.ma4dd4485ddff")}</li>
+                <li><strong>{uiT("customer.m3cedb4760825")}</strong> {' '}{uiT("customer.m0c545cd7675c")}</li>
+                <li><strong>{uiT("customer.m368488451ec8")}</strong> {' '}{uiT("customer.m0e56e22947d2")}</li>
               </ul>
-              <p>To register or sign in, open <Link href="/account" className="user-manual-link" data-testid="link-manual-account">Account</Link> from the main navigation.</p>
+              <p>{uiT("customer.me2645c698712")}{' '}<Link href="/account" className="user-manual-link" data-testid="link-manual-account">{uiT("customer.m7e1b0d5641f2")}</Link> {' '}{uiT("customer.mbe22ea5f398c")}</p>
             </section>
 
             <section id="history-notifications">
-              <h2>Order History and Notifications</h2>
-              <p>If you are signed in, you can view orders attached to your account under <Link href="/account/orders" className="user-manual-link" data-testid="link-orders">My Orders</Link>. Guest orders are not automatically a complete account history; follow the claim or attachment options shown for an eligible order.</p>
-              <p>When notifications are enabled and available for the order, email updates may be sent for milestones such as:</p>
+              <h2>{uiT("customer.m7501c49759d1")}</h2>
+              <p>{uiT("customer.m8efa7749064b")}{' '}<Link href="/account/orders" className="user-manual-link" data-testid="link-orders">{uiT("customer.m00db793f2b8c")}</Link>{uiT("customer.m7bc03ea76f87")}</p>
+              <p>{uiT("customer.m1a9810d4d843")}</p>
               <ul>
-                <li>Order Creation (includes your Order ID and tracking link)</li>
-                <li>Deposit Confirmation</li>
-                <li>Successful Completion</li>
+                <li>{uiT("customer.m9da2d7f35b51")}</li>
+                <li>{uiT("customer.mf86a7d118c8e")}</li>
+                <li>{uiT("customer.m0e478fdff38f")}</li>
               </ul>
             </section>
 
             <section id="affiliate-program">
-              <h2>Affiliate Program</h2>
-              <p>QuickXchange provides an affiliate program for users who wish to invite others to the platform.</p>
+              <h2>{uiT("customer.m53602f507355")}</h2>
+              <p>{uiT("customer.m73b384d78493")}</p>
               <ol>
-                <li>Sign in to your account.</li>
-                <li>Navigate to the Affiliate section to generate your unique referral link.</li>
-                <li>Share this link with your network.</li>
-                <li>Track your referrals, volume, and accumulated balances within your dashboard.</li>
+                <li>{uiT("customer.mfcf138aa8809")}</li>
+                <li>{uiT("customer.md9f482a2ab9c")}</li>
+                <li>{uiT("customer.m80ca1b6fd545")}</li>
+                <li>{uiT("customer.mc0957e5d2a96")}</li>
               </ol>
-              <p>Check the program guidelines in your dashboard for details on payout structures and terms.</p>
+              <p>{uiT("customer.me1c1af9e7048")}</p>
             </section>
 
             <section id="safety-troubleshooting">
-              <h2>Safety and Troubleshooting</h2>
-              <p>Security is a shared responsibility. Please adhere to these best practices when using the platform.</p>
+              <h2>{uiT("customer.m6e8c968518d8")}</h2>
+              <p>{uiT("customer.m610e5d4ae726")}</p>
               
               <div className="user-manual-table-container">
                 <table className="user-manual-table">
                   <thead>
                     <tr>
-                      <th>Scenario</th>
-                      <th>Recommended Action</th>
+                      <th>{uiT("customer.m2fcb5d374697")}</th>
+                      <th>{uiT("customer.m376e8588b98f")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td>Address Validation</td>
-                      <td>Always copy and paste addresses. Do not type them manually. Check the first and last four characters before confirming.</td>
+                      <td>{uiT("customer.m626942a90e91")}</td>
+                      <td>{uiT("customer.m25242d1cd0d5")}</td>
                     </tr>
                     <tr>
-                      <td>Missing Memos/Tags</td>
-                      <td>If you forgot to include a required Memo/Tag, the funds may be unrecoverable. Contact support immediately with your transaction hash.</td>
+                      <td>{uiT("customer.ma10141dacd87")}</td>
+                      <td>{uiT("customer.maebfbe1b322f")}</td>
                     </tr>
                     <tr>
-                      <td>Order Expired</td>
-                      <td>If you did not send funds in time, the order will expire. Create a new order to receive a current exchange rate. Do not send funds to an expired order address.</td>
+                      <td>{uiT("customer.m55afb6b2b5cb")}</td>
+                      <td>{uiT("customer.m4bcbf41c67fa")}</td>
                     </tr>
                     <tr>
-                      <td>Delayed Status</td>
-                      <td>Blockchain congestion can delay deposits. Wait for standard network confirmations before assuming an issue has occurred.</td>
+                      <td>{uiT("customer.m18f9d2370731")}</td>
+                      <td>{uiT("customer.mfb62a4a8aa70")}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -595,25 +601,25 @@ export function UserManualPage() {
             </section>
 
             <section id="common-questions">
-              <h2>Common Questions</h2>
-              <h3>What is the difference between Swap and Convert?</h3>
-              <p>Swap supports configured manual routes involving cryptocurrency, fiat currencies, and available payment methods. Convert is the automated crypto-to-crypto flow.</p>
-              <h3>How do I track my order?</h3>
-              <p>Keep the complete tracking link supplied after submission. You can also open the Track an Order page and enter the requested Order ID and tracking information, or use My Orders for eligible orders attached to your account.</p>
-              <h3>How do I fund a Convert order?</h3>
-              <p>Use the displayed deposit address or QR code and send the exact requested asset and amount on the exact selected network. Include a memo or tag whenever the instructions require one.</p>
-              <h3>How do I fund a Swap order?</h3>
-              <p>Follow the payment or deposit instructions displayed on that order. The required steps vary with the source asset and payment method you selected.</p>
+              <h2>{uiT("customer.mdfbe4d437b59")}</h2>
+              <h3>{uiT("customer.m6dc32da5f42b")}</h3>
+              <p>{uiT("customer.m4ebcc5ab4a0f")}</p>
+              <h3>{uiT("customer.m13403393421c")}</h3>
+              <p>{uiT("customer.m2576660a997a")}</p>
+              <h3>{uiT("customer.m56dd57193fc7")}</h3>
+              <p>{uiT("customer.m9bbc182a8c1b")}</p>
+              <h3>{uiT("customer.mc96ac49dc4ad")}</h3>
+              <p>{uiT("customer.mb0308bb998af")}</p>
             </section>
 
             <section id="support">
-              <h2>Support</h2>
-              <p>If you encounter an issue not covered in this manual, our support team is available to assist you. Please have your Order ID and relevant transaction hashes ready before reaching out.</p>
+              <h2>{uiT("customer.mbe91940b79f4")}</h2>
+              <p>{uiT("customer.m58d6abfe3480")}</p>
               <ul>
-                <li><strong>Telegram Support:</strong> <a href={telegramSupportUrl} aria-disabled={!telegramSupportUrl} tabIndex={telegramSupportUrl ? undefined : -1} target="_blank" rel="noopener noreferrer" className="user-manual-link" data-testid="link-manual-telegram">Open Telegram Chat</a></li>
-                <li><strong>Email Support:</strong> <a href={`mailto:${SUPPORT_EMAIL}`} className="user-manual-link" data-testid="link-manual-email">{SUPPORT_EMAIL}</a></li>
+                <li><strong>{uiT("customer.mbeee701cf8a9")}</strong> <a href={telegramSupportUrl} aria-disabled={!telegramSupportUrl} tabIndex={telegramSupportUrl ? undefined : -1} target="_blank" rel="noopener noreferrer" className="user-manual-link" data-testid="link-manual-telegram">{uiT("customer.ma30e1e636895")}</a></li>
+                <li><strong>{uiT("customer.m66d3afadbe3b")}</strong> <a href={`mailto:${SUPPORT_EMAIL}`} className="user-manual-link" data-testid="link-manual-email">{SUPPORT_EMAIL}</a></li>
               </ul>
-              <p>Our representatives will never ask for your private keys, seed phrases, or passwords. Stay vigilant and ensure you are only communicating through our official channels.</p>
+              <p>{uiT("customer.m45df89881ccc")}</p>
             </section>
           </article>
         </div>

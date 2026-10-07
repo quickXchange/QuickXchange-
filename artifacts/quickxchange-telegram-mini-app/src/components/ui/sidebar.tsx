@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 'use client';
 
 import * as React from 'react';
@@ -65,6 +66,8 @@ function SidebarProvider({
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const isMobile = useIsMobile();
   const [openMobile, setOpenMobile] = React.useState(false);
 
@@ -143,7 +146,7 @@ function SidebarProvider({
           )}
           {...props}
         >
-          {children}
+          {uiText(children)}
         </div>
       </TooltipProvider>
     </SidebarContext.Provider>
@@ -162,6 +165,8 @@ function Sidebar({
   variant?: 'sidebar' | 'floating' | 'inset';
   collapsible?: 'offcanvas' | 'icon' | 'none';
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
 
   if (collapsible === 'none') {
@@ -174,7 +179,7 @@ function Sidebar({
         )}
         {...props}
       >
-        {children}
+        {uiText(children)}
       </div>
     );
   }
@@ -195,10 +200,10 @@ function Sidebar({
           side={side}
         >
           <SheetHeader className="sr-only">
-            <SheetTitle>Sidebar</SheetTitle>
-            <SheetDescription>Displays the mobile sidebar.</SheetDescription>
+            <SheetTitle>{uiT("customer.mf7efa7bc1fc5")}</SheetTitle>
+            <SheetDescription>{uiT("customer.m2a174a65adee")}</SheetDescription>
           </SheetHeader>
-          <div className="flex h-full w-full flex-col">{children}</div>
+          <div className="flex h-full w-full flex-col">{uiText(children)}</div>
         </SheetContent>
       </Sheet>
     );
@@ -245,7 +250,7 @@ function Sidebar({
           data-slot="sidebar-inner"
           className="bg-sidebar group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow-sm"
         >
-          {children}
+          {uiText(children)}
         </div>
       </div>
     </div>
@@ -257,6 +262,8 @@ function SidebarTrigger({
   onClick,
   ...props
 }: React.ComponentProps<typeof Button>) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { toggleSidebar } = useSidebar();
 
   return (
@@ -273,12 +280,14 @@ function SidebarTrigger({
       {...props}
     >
       <PanelLeftIcon />
-      <span className="sr-only">Toggle Sidebar</span>
+      <span className="sr-only">{uiT("customer.m1d4c17db52f7")}</span>
     </Button>
   );
 }
 
 function SidebarRail({ className, ...props }: React.ComponentProps<'button'>) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { toggleSidebar } = useSidebar();
 
   // Note: Tailwind v3.4 doesn't support "in-" selectors. So the rail won't work perfectly.
@@ -286,10 +295,10 @@ function SidebarRail({ className, ...props }: React.ComponentProps<'button'>) {
     <button
       data-sidebar="rail"
       data-slot="sidebar-rail"
-      aria-label="Toggle Sidebar"
+      aria-label={uiT("customer.m1d4c17db52f7")}
       tabIndex={-1}
       onClick={toggleSidebar}
-      title="Toggle Sidebar"
+      title={uiT("customer.m1d4c17db52f7")}
       className={cn(
         'hover:after:bg-sidebar-border absolute inset-y-0 z-20 hidden w-4 -translate-x-1/2 transition-all ease-linear group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:left-1/2 after:w-[2px] sm:flex',
         'in-data-[side=left]:cursor-w-resize in-data-[side=right]:cursor-e-resize',
@@ -508,6 +517,8 @@ function SidebarMenuButton({
   isActive?: boolean;
   tooltip?: string | React.ComponentProps<typeof TooltipContent>;
 } & VariantProps<typeof sidebarMenuButtonVariants>) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const Comp = asChild ? Slot : 'button';
   const { isMobile, state } = useSidebar();
 
@@ -534,7 +545,7 @@ function SidebarMenuButton({
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>{button}</TooltipTrigger>
+      <TooltipTrigger asChild>{uiText(button)}</TooltipTrigger>
       <TooltipContent
         side="right"
         align="center"

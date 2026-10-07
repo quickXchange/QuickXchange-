@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import React, { useMemo, useState, useEffect } from 'react';
 import { UniversalSearchSheet } from '@/components/universal-search-sheet';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
@@ -46,6 +47,8 @@ function AffiliateHistoryPagination({
   onPageChange: (page: number) => void;
   testId: string;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   const hasNextPage = itemCount === pageSize;
 
@@ -62,7 +65,7 @@ function AffiliateHistoryPagination({
       >
         {t('genericUi.previous')}
       </button>
-      <span className="text-xs font-mono text-muted-foreground">Page {page}</span>
+      <span className="text-xs font-mono text-muted-foreground">{uiT("customer.m0a30a815d67d")}{' '}{uiText(page)}</span>
       <button
         type="button"
         className="button button-secondary h-9 px-3 text-xs"
@@ -77,6 +80,8 @@ function AffiliateHistoryPagination({
 }
 
 export function AffiliateDashboardPage() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   const { isLoaded, isSignedIn, user } = useUser();
   const [, setLocation] = useLocation();
@@ -110,7 +115,7 @@ export function AffiliateDashboardPage() {
   }
 
   if (dashboard.isError) {
-    return <CustomerShell><ErrorState message={apiErrorText(dashboard.error, t('affiliate.loadDashboardError'))} retry={() => dashboard.refetch()} /></CustomerShell>;
+    return <CustomerShell><ErrorState message={uiText(apiErrorText(dashboard.error, t('affiliate.loadDashboardError')))} retry={() => dashboard.refetch()} /></CustomerShell>;
   }
 
   const data = dashboard.data;
@@ -126,13 +131,13 @@ export function AffiliateDashboardPage() {
 
       <div className="grid min-w-0 grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-8">
         <div className="min-w-0 space-y-6 sm:space-y-8">
-          {data.programEnabled ? (
+          {uiText(data.programEnabled ? (
             <div className="customer-card p-6 sm:p-8">
               <div>
                 <h2 className="text-lg font-semibold mb-1 tracking-tight">{t('affiliate.yourReferralLink')}</h2>
                 <p className="text-muted-foreground text-[13px] mb-5">{t('affiliate.referralDescription')}</p>
                 <div className="customer-subtle-surface flex min-w-0 items-center gap-2 p-1">
-                  <code className="flex-1 min-w-0 px-3 font-mono text-sm truncate" data-testid="text-referral-link">{window.location.origin}{basePath}/?ref={data.referralLinkCode}</code>
+                  <code className="flex-1 min-w-0 px-3 font-mono text-sm truncate" data-testid="text-referral-link">{uiText(window.location.origin)}{uiText(basePath)}/?ref={uiText(data.referralLinkCode)}</code>
                   <button className="button button-primary shrink-0 h-11 sm:h-9 px-4 rounded-lg" type="button" aria-label={t('affiliate.copyReferralLink')} onClick={() => navigator.clipboard.writeText(`${window.location.origin}${basePath}/?ref=${data.referralLinkCode}`)}>
                     <Copy size={16} className="mr-1.5" /> {t('actions.copy')}
                   </button>
@@ -144,14 +149,13 @@ export function AffiliateDashboardPage() {
               <div className="flex items-start gap-3">
                 <ShieldCheck size={22} className="mt-0.5 shrink-0 text-amber-500" aria-hidden="true" />
                 <div>
-                  <h2 className="text-lg font-semibold tracking-tight">Affiliate program paused</h2>
+                  <h2 className="text-lg font-semibold tracking-tight">{uiT("customer.m7b8ac78a7170")}</h2>
                   <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                    New referral codes and commission earnings are currently disabled. Referral links are hidden until an owner enables and configures the program.
-                  </p>
+                    {uiT("customer.m6dd79f653cea")}{' '}</p>
                 </div>
               </div>
             </div>
-          )}
+          ))}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <CustomerStatCard
@@ -184,15 +188,15 @@ export function AffiliateDashboardPage() {
         <div className="min-w-0 space-y-6">
           <div className="customer-card p-4 sm:p-6">
             <h2 className="customer-section-title mb-4 border-b border-border/40 pb-3">{t('affiliate.availableForPayout')}</h2>
-            <strong className="mb-4 block break-words font-mono text-3xl text-primary sm:text-4xl" data-testid="text-available-payout">{formatExactUsd(data.availableUsd)}</strong>
+            <strong className="mb-4 block break-words font-mono text-3xl text-primary sm:text-4xl" data-testid="text-available-payout">{uiText(formatExactUsd(data.availableUsd))}</strong>
 
             <div className="customer-subtle-surface mb-6 flex flex-col gap-2 p-3 text-[12px] text-muted-foreground">
-              <div className="flex min-w-0 justify-between gap-3"><span>{t('affiliate.reserved')}</span><span className="break-all text-right font-mono text-foreground font-semibold">{formatExactUsd(data.reservedUsd)}</span></div>
-              <div className="flex min-w-0 justify-between gap-3"><span>{t('affiliate.paidOut')}</span><span className="break-all text-right font-mono text-foreground font-semibold">{formatExactUsd(data.paidUsd)}</span></div>
-              <div className="flex min-w-0 justify-between gap-3"><span>{t('affiliate.minimumPayout')}</span><span className="break-all text-right font-mono text-foreground font-semibold">{formatExactUsd(data.minimumPayoutUsd)}</span></div>
+              <div className="flex min-w-0 justify-between gap-3"><span>{t('affiliate.reserved')}</span><span className="break-all text-right font-mono text-foreground font-semibold">{uiText(formatExactUsd(data.reservedUsd))}</span></div>
+              <div className="flex min-w-0 justify-between gap-3"><span>{t('affiliate.paidOut')}</span><span className="break-all text-right font-mono text-foreground font-semibold">{uiText(formatExactUsd(data.paidUsd))}</span></div>
+              <div className="flex min-w-0 justify-between gap-3"><span>{t('affiliate.minimumPayout')}</span><span className="break-all text-right font-mono text-foreground font-semibold">{uiText(formatExactUsd(data.minimumPayoutUsd))}</span></div>
             </div>
 
-            {data.programEnabled ? (
+            {uiText(data.programEnabled ? (
               <PayoutRequestForm availableUsd={data.availableUsd} eligible={data.payoutEligible} />
             ) : (
               <div
@@ -200,23 +204,22 @@ export function AffiliateDashboardPage() {
                 role="status"
                 data-testid="affiliate-payouts-paused"
               >
-                <p className="text-sm font-semibold text-foreground">Payout requests are paused</p>
+                <p className="text-sm font-semibold text-foreground">{uiT("customer.m39fd07b9aed0")}</p>
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  Your balance and payout history remain visible. New payout requests will be available when an owner re-enables the affiliate program.
-                </p>
+                  {uiT("customer.m9a9d301ac748")}{' '}</p>
               </div>
-            )}
+            ))}
           </div>
 
           <div className="customer-card p-4 sm:p-6">
             <h2 className="customer-section-title mb-4 border-b border-border/40 pb-3">{t('affiliate.referralActivity')}</h2>
             <div className="grid grid-cols-2 gap-4 text-center mb-6">
               <div className="customer-subtle-surface p-3">
-                <span className="text-2xl font-mono font-bold text-foreground block mb-1" data-testid="text-active-referrals">{data.activeReferrals}</span>
+                <span className="text-2xl font-mono font-bold text-foreground block mb-1" data-testid="text-active-referrals">{uiText(data.activeReferrals)}</span>
                 <span className="text-[11px] text-muted-foreground font-bold uppercase tracking-wider">{t('affiliate.active')}</span>
               </div>
               <div className="customer-subtle-surface p-3">
-                <span className="text-2xl font-mono font-bold text-foreground block mb-1" data-testid="text-total-referrals">{data.totalReferrals}</span>
+                <span className="text-2xl font-mono font-bold text-foreground block mb-1" data-testid="text-total-referrals">{uiText(data.totalReferrals)}</span>
                 <span className="text-[11px] text-muted-foreground font-bold uppercase tracking-wider">{t('affiliate.total')}</span>
               </div>
             </div>
@@ -229,6 +232,8 @@ export function AffiliateDashboardPage() {
 }
 
 function PayoutRequestForm({ availableUsd, eligible }: { availableUsd: string; eligible: boolean; }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const networksQuery = useGetAffiliatePayoutNetworks({ query: { queryKey: getGetAffiliatePayoutNetworksQueryKey() } });
@@ -288,12 +293,11 @@ function PayoutRequestForm({ availableUsd, eligible }: { availableUsd: string; e
 
   return (
     <form onSubmit={handleSubmit} className="flex min-w-0 flex-col gap-5 p-1">
-      {error && <div className="notice notice-error bg-destructive/10 border-destructive/20 text-destructive p-4 rounded-xl flex items-center gap-3"><X size={18} className="shrink-0" /><p className="font-semibold text-sm">{error}</p></div>}
+      {uiText(error && <div className="notice notice-error bg-destructive/10 border-destructive/20 text-destructive p-4 rounded-xl flex items-center gap-3"><X size={18} className="shrink-0" /><p className="font-semibold text-sm">{uiText(error)}</p></div>)}
 
       <label className="block space-y-2">
         <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex justify-between">
-           {t('affiliate.amount')} (USDT)
-           <button type="button" className="text-primary hover:underline" onClick={() => setForm({...form, amountUsd: availableUsd})}>{t('affiliate.max')}</button>
+           {t('affiliate.amount')} {' '}{uiT("customer.m52c899970408")}{' '}<button type="button" className="text-primary hover:underline" onClick={() => setForm({...form, amountUsd: availableUsd})}>{t('affiliate.max')}</button>
         </span>
         <div className="relative">
           <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
@@ -325,7 +329,7 @@ function PayoutRequestForm({ availableUsd, eligible }: { availableUsd: string; e
               aria-haspopup="dialog"
               data-testid="button-payout-network"
             >
-              {selectedNetwork ? (
+              {uiText(selectedNetwork ? (
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center border border-primary/20 shrink-0">
                     <Network size={13} aria-hidden="true" />
@@ -335,7 +339,7 @@ function PayoutRequestForm({ availableUsd, eligible }: { availableUsd: string; e
                 </div>
               ) : (
                 <span className="text-muted-foreground text-sm font-medium">{t('affiliate.selectNetwork')}</span>
-              )}
+              ))}
               <ChevronDown size={16} className="text-muted-foreground shrink-0" />
             </button>
           </DialogPrimitive.Trigger>
@@ -359,9 +363,9 @@ function PayoutRequestForm({ availableUsd, eligible }: { availableUsd: string; e
                   </div>
                   <span className="crypto-identity-copy block overflow-hidden pl-1">
                     <span className="crypto-identity-primary block">
-                      <strong>{n.code}</strong>
+                      <strong>{uiText(n.code)}</strong>
                     </span>
-                    <span className="crypto-identity-name block">{n.name}</span>
+                    <span className="crypto-identity-name block">{uiText(n.name)}</span>
                   </span>
                 </span>
               )}
@@ -400,14 +404,16 @@ function PayoutRequestForm({ availableUsd, eligible }: { availableUsd: string; e
         disabled={!eligible || requestPayout.isPending}
         data-testid="button-request-payout"
       >
-        {requestPayout.isPending ? t('affiliate.requesting') : t('affiliate.submitPayoutRequest')}
+        {uiText(requestPayout.isPending ? t('affiliate.requesting') : t('affiliate.submitPayoutRequest'))}
       </button>
-      {!eligible && <p className="text-center text-[11px] text-warning bg-warning/10 p-2 rounded-lg mt-1 font-semibold">{t('affiliate.belowMinimum')}</p>}
+      {uiText(!eligible && <p className="text-center text-[11px] text-warning bg-warning/10 p-2 rounded-lg mt-1 font-semibold">{t('affiliate.belowMinimum')}</p>)}
     </form>
   );
 }
 
 function AffiliateCommissionHistory() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   const [page, setPage] = useState(1);
   const params = useMemo(() => ({ page, pageSize: AFFILIATE_HISTORY_PAGE_SIZE }), [page]);
@@ -448,9 +454,9 @@ function AffiliateCommissionHistory() {
         <tbody>
           {data.map(c => (
             <tr key={c.id} data-testid={`row-commission-${c.id}`}>
-              <td className="whitespace-nowrap"><span className="text-[12px] text-muted-foreground">{exactDateTime(c.createdAt)}</span></td>
-               <td><span className="text-[13px] font-medium">{c.kind === 'commission' ? t('affiliate.exchange') : t('affiliate.reversal')}</span></td>
-              <td><span className="font-mono text-[13px]">{formatExactUsd(c.volumeUsd)}</span></td>
+              <td className="whitespace-nowrap"><span className="text-[12px] text-muted-foreground">{uiText(exactDateTime(c.createdAt))}</span></td>
+               <td><span className="text-[13px] font-medium">{uiText(c.kind === 'commission' ? t('affiliate.exchange') : t('affiliate.reversal'))}</span></td>
+              <td><span className="font-mono text-[13px]">{uiText(formatExactUsd(c.volumeUsd))}</span></td>
               <td className="text-right"><strong className={cn("font-mono text-[14px]", c.kind === 'commission' ? 'text-success' : 'text-destructive')}>{formatExactUsd((c.kind === 'reversal' && !c.amountUsd.startsWith('-')) ? `-${c.amountUsd}` : c.amountUsd)}</strong></td>
             </tr>
           ))}
@@ -463,6 +469,8 @@ function AffiliateCommissionHistory() {
 }
 
 function AffiliatePayoutHistory() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   const [page, setPage] = useState(1);
   const params = useMemo(() => ({ page, pageSize: AFFILIATE_HISTORY_PAGE_SIZE }), [page]);
@@ -491,7 +499,7 @@ function AffiliatePayoutHistory() {
             <div className="flex justify-between items-start mb-3">
               <div>
                  <strong className="font-mono text-lg text-foreground block leading-none">{formatUsdt(p.amountUsd)}</strong>
-                <span className="text-[11px] text-muted-foreground mt-1.5 block">{exactDateTime(p.requestedAt)}</span>
+                <span className="text-[11px] text-muted-foreground mt-1.5 block">{uiText(exactDateTime(p.requestedAt))}</span>
               </div>
               <span className={cn(
                 "px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider",
@@ -507,7 +515,7 @@ function AffiliatePayoutHistory() {
                 <>
                   <div className="flex justify-between items-center gap-4">
                     <span className="text-[11px] font-bold uppercase text-muted-foreground tracking-wider w-20 shrink-0">{t('affiliate.network')}</span>
-                    <span className="text-sm font-semibold truncate">{p.destination.networkCode || p.destination.networkName}</span>
+                    <span className="text-sm font-semibold truncate">{uiText(p.destination.networkCode || p.destination.networkName)}</span>
                   </div>
                   <div className="flex justify-between items-center gap-4">
                     <span className="text-[11px] font-bold uppercase text-muted-foreground tracking-wider w-20 shrink-0">{t('affiliate.wallet')}</span>
@@ -521,27 +529,27 @@ function AffiliatePayoutHistory() {
                 <div className="flex justify-between items-start gap-4">
                   <span className="text-[11px] font-bold uppercase text-muted-foreground tracking-wider w-20 shrink-0 mt-0.5">{t('affiliate.details')}</span>
                   <span className="text-xs text-right break-words flex-1">
-                    {'instructions' in p.destination ? String(p.destination.instructions) : t('affiliate.legacyPayout')}
+                    {uiText('instructions' in p.destination ? String(p.destination.instructions) : t('affiliate.legacyPayout'))}
                   </span>
                 </div>
               )}
 
               <div className="flex justify-between items-center gap-4 pt-2 mt-2 border-t border-border/50">
                  <span className="text-[11px] font-bold uppercase text-muted-foreground tracking-wider w-20 shrink-0">{t('affiliate.requested')}</span>
-                 <span className="text-xs text-foreground font-medium">{exactDateTime(p.requestedAt)}</span>
+                 <span className="text-xs text-foreground font-medium">{uiText(exactDateTime(p.requestedAt))}</span>
               </div>
-              {p.decidedAt && (
+              {uiText(p.decidedAt && (
                 <div className="flex justify-between items-center gap-4">
                     <span className="text-[11px] font-bold uppercase text-muted-foreground tracking-wider w-20 shrink-0">{p.status === 'rejected' ? t('affiliate.statusRejected') : t('affiliate.statusApproved')}</span>
-                   <span className="text-xs text-foreground font-medium">{exactDateTime(p.decidedAt)}</span>
+                   <span className="text-xs text-foreground font-medium">{uiText(exactDateTime(p.decidedAt))}</span>
                 </div>
-              )}
-              {p.paidAt && (
+              ))}
+              {uiText(p.paidAt && (
                 <div className="flex justify-between items-center gap-4">
                    <span className="text-[11px] font-bold uppercase text-muted-foreground tracking-wider w-20 shrink-0">{t('affiliate.statusPaid')}</span>
-                   <span className="text-xs text-foreground font-medium">{exactDateTime(p.paidAt)}</span>
+                   <span className="text-xs text-foreground font-medium">{uiText(exactDateTime(p.paidAt))}</span>
               </div>
-              )}
+              ))}
 
               {p.txid && (
                 <div className="flex justify-between items-center gap-4 pt-2 mt-2 border-t border-border/50">
@@ -563,6 +571,8 @@ function AffiliatePayoutHistory() {
 }
 
 function AffiliateReferrals() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   const [page, setPage] = useState(1);
   const params = useMemo(() => ({ page, pageSize: AFFILIATE_HISTORY_PAGE_SIZE }), [page]);
@@ -581,12 +591,12 @@ function AffiliateReferrals() {
   return (
     <>
       <div className="max-h-[300px] divide-y divide-border/40 overflow-y-auto">
-        {data.map((r, i) => (
+        {uiText(data.map((r, i) => (
           <div key={`${r.joinedAt}-${i}`} className="flex min-w-0 flex-col items-start justify-between gap-2 py-3 min-[380px]:flex-row min-[380px]:items-center">
             <span className="text-[12px] text-muted-foreground">{exactDateTime(r.joinedAt)}</span>
-            <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-bold uppercase", r.status === 'active' ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground')}>{r.status === 'active' ? t('affiliate.active') : t('affiliate.inactive')}</span>
+            <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-bold uppercase", r.status === 'active' ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground')}>{uiText(r.status === 'active' ? t('affiliate.active') : t('affiliate.inactive'))}</span>
           </div>
-        ))}
+        )))}
       </div>
       <AffiliateHistoryPagination page={page} pageSize={AFFILIATE_HISTORY_PAGE_SIZE} itemCount={data.length} onPageChange={setPage} testId="referrals-page" />
     </>
@@ -1232,13 +1242,15 @@ export function AdminAffiliatePayoutsPage() {
 }
 
 function CopyDetail({ label, value, copyable }: { label: string; value: string; copyable: boolean }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   return (
     <div className="border-b border-border/60 py-3 first:pt-0 last:border-0 last:pb-0">
-      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-xs text-muted-foreground">{uiText(label)}</span>
       <div className="mt-1 flex items-start gap-2">
-        <code className="min-w-0 flex-1 break-all text-xs text-foreground">{value}</code>
-        {copyable && <button type="button" className="affiliate-icon-action shrink-0" aria-label={t('affiliate.copyValue', { label })} onClick={() => navigator.clipboard.writeText(value)}><Copy size={14} /></button>}
+        <code className="min-w-0 flex-1 break-all text-xs text-foreground">{uiText(value)}</code>
+        {uiText(copyable && <button type="button" className="affiliate-icon-action shrink-0" aria-label={t('affiliate.copyValue', { label })} onClick={() => navigator.clipboard.writeText(value)}><Copy size={14} /></button>)}
       </div>
     </div>
   );
@@ -1270,6 +1282,8 @@ const normalizeDec = (v?: string | null) => {
 };
 
 function AffiliateProgramSettingsCard() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const settingsQuery = useGetAffiliateSettings({ query: { queryKey: getGetAffiliateSettingsQueryKey() } });
@@ -1352,29 +1366,29 @@ function AffiliateProgramSettingsCard() {
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1 min-w-0">
             <h2 className="font-bold text-lg leading-snug text-foreground min-w-0 break-words">{t('affiliate.programSettings')}</h2>
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider bg-primary/10 text-primary border border-primary/20">
-              v{settingsQuery.data?.version || 0}
+              {uiT("customer.m4c94485e0c21")}{uiText(settingsQuery.data?.version || 0)}
             </span>
-            {form.enabled ? (
+            {uiText(form.enabled ? (
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider bg-success/10 text-success border border-success/20">{t('affiliate.active')}</span>
             ) : (
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider bg-muted text-muted-foreground border border-border">{t('affiliate.disabled')}</span>
-            )}
+            ))}
           </div>
            <p className="text-[13px] text-muted-foreground">{t('affiliate.settingsDescription')}</p>
         </div>
         <div className="affiliate-settings-actions flex flex-wrap items-center gap-2 min-w-0">
-           {success && <span className="text-success text-[12px] font-bold flex items-center gap-1.5"><Check size={14} /> {t('affiliate.saved')}</span>}
+           {uiText(success && <span className="text-success text-[12px] font-bold flex items-center gap-1.5"><Check size={14} /> {t('affiliate.saved')}</span>)}
            <a href="#valuation-guide" data-testid="link-affiliate-documentation" className="button button-ghost h-10 px-4 rounded-xl text-[12px] uppercase tracking-wider font-bold text-primary hover:bg-primary/10">
              <FileText size={14} /> {t('affiliate.viewDocumentation')}
            </a>
            <button type="button" onClick={handleReset} data-testid="btn-reset-settings" disabled={!isModified || createSettings.isPending} className="button button-ghost h-10 px-4 rounded-xl text-[12px] font-bold uppercase tracking-wider">{t('affiliate.reset')}</button>
           <button type="button" onClick={handleSave} data-testid="btn-save-settings" disabled={!isModified || createSettings.isPending} className="button button-primary h-10 px-6 rounded-xl text-[12px] font-bold uppercase tracking-wider shadow-lg shadow-primary/20 hover:-translate-y-0.5 transition-transform disabled:opacity-50 disabled:hover:translate-y-0">
-            {createSettings.isPending ? t('affiliate.saving') : t('affiliate.saveChanges')}
+            {uiText(createSettings.isPending ? t('affiliate.saving') : t('affiliate.saveChanges'))}
           </button>
         </div>
       </div>
 
-      {error && <div className="m-5 sm:m-6 notice notice-error"><X size={16} />{error}</div>}
+      {uiText(error && <div className="m-5 sm:m-6 notice notice-error"><X size={16} />{uiText(error)}</div>)}
 
       <div className="affiliate-settings-fields p-4 sm:p-5 bg-background">
         <section className="affiliate-settings-section" aria-labelledby="affiliate-referral-heading">
@@ -1462,7 +1476,7 @@ function AffiliateProgramSettingsCard() {
                   <p className="text-[11px] text-muted-foreground leading-relaxed">{t('affiliate.quickexIntegrationState', { state: form.quickexEnabled ? t('affiliate.enabledLower') : t('affiliate.disabledLower') })}</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className={cn('text-[10px] font-bold', form.quickexEnabled ? 'affiliate-setting-card__value' : 'text-muted-foreground')}>{form.quickexEnabled ? t('affiliate.on') : t('affiliate.off')}</span>
+                  <span className={cn('text-[10px] font-bold', form.quickexEnabled ? 'affiliate-setting-card__value' : 'text-muted-foreground')}>{uiText(form.quickexEnabled ? t('affiliate.on') : t('affiliate.off'))}</span>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" className="sr-only peer" checked={form.quickexEnabled || false} onChange={e => handleChange({ quickexEnabled: e.target.checked })} data-testid="toggle-quickex-integration" />
                     <div className="affiliate-setting-card__toggle w-10 h-5.5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all"></div>
@@ -1480,7 +1494,7 @@ function AffiliateProgramSettingsCard() {
                   <p className="text-[11px] text-muted-foreground leading-relaxed">{t('affiliate.manualAdjustmentsDescription')}</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className={cn('text-[10px] font-bold', form.manualEnabled ? 'affiliate-setting-card__value' : 'text-muted-foreground')}>{form.manualEnabled ? t('affiliate.on') : t('affiliate.off')}</span>
+                  <span className={cn('text-[10px] font-bold', form.manualEnabled ? 'affiliate-setting-card__value' : 'text-muted-foreground')}>{uiText(form.manualEnabled ? t('affiliate.on') : t('affiliate.off'))}</span>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" className="sr-only peer" checked={form.manualEnabled || false} onChange={e => handleChange({ manualEnabled: e.target.checked })} data-testid="toggle-manual-adjustments" />
                     <div className="affiliate-setting-card__toggle w-10 h-5.5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all"></div>
@@ -1526,6 +1540,8 @@ function AffiliateProgramSettingsCard() {
 }
 
 function AffiliateValuationQueue() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   const queryClient = useQueryClient();
 
@@ -1610,11 +1626,11 @@ function AffiliateValuationQueue() {
           <div>
             <div className="flex items-center gap-3 mb-1">
               <h3 className="font-bold text-lg text-foreground">{t('affiliate.valuationReviewQueue')}</h3>
-              {pendingCount > 0 && (
+              {uiText(pendingCount > 0 && (
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider bg-warning/10 text-warning border border-warning/20">
                   {t('affiliate.pendingCount', { count: pendingCount })}
                 </span>
-              )}
+              ))}
             </div>
             <p className="text-[13px] text-muted-foreground">{t('affiliate.valuationQueueDescription')}</p>
           </div>
@@ -1671,18 +1687,18 @@ function AffiliateValuationQueue() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
-                {paginated.length === 0 ? (
+                {uiText(paginated.length === 0 ? (
                   <tr><td colSpan={7} className="p-8 text-center text-[13px] text-muted-foreground">{t('affiliate.noValuationReviews')}</td></tr>
                 ) : paginated.map(r => (
                   <tr key={r.id} className="hover:bg-muted/10 transition-colors">
                     <td className="p-4 pl-6"><input type="checkbox" className="rounded border-border w-4 h-4 cursor-pointer" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} /></td>
-                    <td className="p-4 font-mono text-[12px] font-semibold text-foreground">{shortId(r.completionEventId)}</td>
+                    <td className="p-4 font-mono text-[12px] font-semibold text-foreground">{uiText(shortId(r.completionEventId))}</td>
                     <td className="p-4 whitespace-nowrap text-[12px] text-muted-foreground">
-                      {exactDateTime(r.createdAt)}
-                      <span className="block text-[10px] mt-0.5 opacity-80">{ago(r.createdAt)}</span>
+                      {uiText(exactDateTime(r.createdAt))}
+                      <span className="block text-[10px] mt-0.5 opacity-80">{uiText(ago(r.createdAt))}</span>
                     </td>
                     <td className="p-4">
-                      <div className="text-[12px] text-muted-foreground max-w-[200px] truncate" title={r.reason}>{r.reason}</div>
+                      <div className="text-[12px] text-muted-foreground max-w-[200px] truncate" title={uiText(r.reason)}>{uiText(r.reason)}</div>
                     </td>
                     <td className="p-4 text-[12px] text-muted-foreground">—</td>
                     <td className="p-4 text-[12px] text-muted-foreground">{t('common.unavailable')}</td>
@@ -1701,7 +1717,7 @@ function AffiliateValuationQueue() {
                       )}
                     </td>
                   </tr>
-                ))}
+                )))}
               </tbody>
             </table>
           </div>
@@ -1710,7 +1726,7 @@ function AffiliateValuationQueue() {
           {/* Pagination */}
           <div className="p-4 sm:p-5 border-t border-border/50 flex flex-col sm:flex-row items-center justify-between gap-4 bg-muted/5">
             <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 w-full sm:w-auto">
-              <span className="text-[12px] text-muted-foreground order-2 sm:order-1">{startIdx ? `${startIdx}–${endIdx}` : '0'}</span>
+              <span className="text-[12px] text-muted-foreground order-2 sm:order-1">{uiText(startIdx ? `${startIdx}–${endIdx}` : '0')}</span>
               <div className="flex items-center gap-2 order-1 sm:order-2">
                 <select className="h-8 bg-input/40 border border-border rounded-lg text-[12px] px-2 pr-7 font-mono focus:outline-none cursor-pointer" value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}>
                   <option value={10}>10</option>
@@ -1725,9 +1741,9 @@ function AffiliateValuationQueue() {
               <button type="button" className="h-8 px-3 flex items-center justify-center rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-50 text-[12px] font-semibold" disabled={page === 1} onClick={() => setPage(p => p - 1)}>{t('affiliate.previous')}</button>
 
               <div className="hidden sm:flex items-center gap-1">
-                <span className="w-8 h-8 rounded-lg text-[12px] font-mono bg-primary text-primary-foreground font-bold flex items-center justify-center">{page}</span>
+                <span className="w-8 h-8 rounded-lg text-[12px] font-mono bg-primary text-primary-foreground font-bold flex items-center justify-center">{uiText(page)}</span>
               </div>
-              <span className="sm:hidden text-[12px] px-2">{page}</span>
+              <span className="sm:hidden text-[12px] px-2">{uiText(page)}</span>
 
               <button type="button" className="h-8 px-3 flex items-center justify-center rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-50 text-[12px] font-semibold" disabled={!hasNextPage} onClick={() => setPage(p => p + 1)}>{t('common.next')}</button>
             </div>
@@ -1735,13 +1751,13 @@ function AffiliateValuationQueue() {
         </>
       )}
 
-      {confirmAction && (
+      {uiText(confirmAction && (
         <ValuationConfirmDialog
           review={reviews.find(r => r.id === confirmAction.id)!}
           actionType={confirmAction.type}
           onClose={() => setConfirmAction(null)}
         />
-      )}
+      ))}
     </div>
   );
 }
@@ -1754,6 +1770,8 @@ function ReviewBadge({ state }: { state: string }) {
 }
 
 function ValuationConfirmDialog({ review, actionType, onClose }: { review: AffiliateValuationReview; actionType: 'approve' | 'reject'; onClose: () => void }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const reviewValuation = useReviewAffiliateValuation();
@@ -1794,14 +1812,14 @@ function ValuationConfirmDialog({ review, actionType, onClose }: { review: Affil
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-card border border-border shadow-xl rounded-2xl w-full max-w-md overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
         <div className="p-5 border-b border-border/50">
-          <h3 className="text-lg font-bold">{actionType === 'approve' ? t('affiliate.approveValuation') : t('affiliate.rejectValuation')}</h3>
+          <h3 className="text-lg font-bold">{uiText(actionType === 'approve' ? t('affiliate.approveValuation') : t('affiliate.rejectValuation'))}</h3>
           <p className="text-[13px] text-muted-foreground mt-1">{t('affiliate.reviewingEvent', { id: shortId(review.completionEventId) })}</p>
         </div>
         <form onSubmit={submit} className="p-5 space-y-4">
-          {error && <div className="notice notice-error"><X size={14} />{error}</div>}
+          {uiText(error && <div className="notice notice-error"><X size={14} />{uiText(error)}</div>)}
 
           <div className="bg-muted/20 p-3 rounded-lg border border-border/50 text-[12px] text-muted-foreground mb-4">
-            {review.reason}
+            {uiText(review.reason)}
           </div>
 
           {actionType === 'approve' ? (
@@ -1822,7 +1840,7 @@ function ValuationConfirmDialog({ review, actionType, onClose }: { review: Affil
           <div className="pt-2 flex gap-3">
             <button type="button" onClick={onClose} className="flex-1 button button-ghost h-11 rounded-xl text-[13px] font-bold" disabled={reviewValuation.isPending}>{t('actions.cancel')}</button>
             <button type="submit" data-testid="btn-confirm-submit" className={cn("flex-1 button h-11 rounded-xl text-[13px] font-bold shadow-lg", actionType === 'approve' ? "button-primary shadow-primary/20" : "button-danger shadow-destructive/20")} disabled={reviewValuation.isPending}>
-              {reviewValuation.isPending ? t('affiliate.submitting') : actionType === 'approve' ? t('affiliate.confirmApproval') : t('affiliate.confirmRejection')}
+              {uiText(reviewValuation.isPending ? t('affiliate.submitting') : actionType === 'approve' ? t('affiliate.confirmApproval') : t('affiliate.confirmRejection'))}
             </button>
           </div>
         </form>

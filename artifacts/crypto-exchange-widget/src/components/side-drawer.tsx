@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { useEffect, useRef } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import { createPortal } from 'react-dom';
@@ -33,6 +34,8 @@ export function SideDrawer({
   closeTestId,
   children,
 }: SideDrawerProps) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const panelRef = useRef<HTMLElement>(null);
   const wasOpenRef = useRef(false);
   const onCloseRef = useRef(onClose);
@@ -101,7 +104,7 @@ export function SideDrawer({
       <button
         type="button"
         className="frontend-menu-drawer-backdrop"
-        aria-label={closeLabel}
+        aria-label={uiText(closeLabel)}
         onClick={onClose}
         data-testid={backdropTestId}
       />
@@ -111,7 +114,7 @@ export function SideDrawer({
         className="frontend-menu-drawer"
         role="dialog"
         aria-modal="true"
-        aria-label={ariaLabel}
+        aria-label={uiText(ariaLabel)}
         data-testid={drawerTestId}
       >
         <div className="side-drawer-screen">
@@ -125,13 +128,13 @@ export function SideDrawer({
               type="button"
               className="frontend-drawer-close"
               onClick={onClose}
-              aria-label={closeLabel}
+              aria-label={uiText(closeLabel)}
               data-testid={closeTestId}
             >
               <X size={24} />
             </button>
           </div>
-          {children}
+          {uiText(children)}
         </div>
       </aside>
     </div>,

@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 'use client';
 
 import { useMemo } from 'react';
@@ -159,6 +160,8 @@ function FieldSeparator({
 }: React.ComponentProps<'div'> & {
   children?: React.ReactNode;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   return (
     <div
       data-slot="field-separator"
@@ -175,7 +178,7 @@ function FieldSeparator({
           className="bg-background text-muted-foreground relative mx-auto block w-fit px-2"
           data-slot="field-separator-content"
         >
-          {children}
+          {uiText(children)}
         </span>
       )}
     </div>
@@ -190,6 +193,8 @@ function FieldError({
 }: React.ComponentProps<'div'> & {
   errors?: Array<{ message?: string } | undefined>;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const content = useMemo(() => {
     if (children) {
       return children;
@@ -205,10 +210,10 @@ function FieldError({
 
     return (
       <ul className="ml-4 flex list-disc flex-col gap-1">
-        {errors.map(
+        {uiText(errors.map(
           (error, index) =>
-            error?.message && <li key={index}>{error.message}</li>,
-        )}
+            error?.message && <li key={index}>{uiText(error.message)}</li>,
+        ))}
       </ul>
     );
   }, [children, errors]);
@@ -224,7 +229,7 @@ function FieldError({
       className={cn('text-destructive text-sm font-normal', className)}
       {...props}
     >
-      {content}
+      {uiText(content)}
     </div>
   );
 }

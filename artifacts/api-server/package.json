@@ -39,6 +39,7 @@
     "@workspace/amount-format": "workspace:*",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
+    "@workspace/i18n": "workspace:*",
     "cookie-parser": "^1.4.7",
     "drizzle-orm": "catalog:",
     "express": "^5.2.1",
@@ -51,7 +52,8 @@
     "qrcode": "^1.5.4",
     "sanitize-html": "^2.17.0",
     "sharp": "^0.35.4",
-    "undici": "^7.16.0"
+    "undici": "^7.16.0",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",

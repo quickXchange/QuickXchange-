@@ -156,6 +156,10 @@ import type {
   LandingBackgroundPublishInput,
   LandingBackgroundUpload,
   LandingBackgroundUploadInput,
+  LanguageDictionary,
+  LanguageDictionaryInput,
+  LanguageSettings,
+  LanguageSettingsInput,
   ListAdminActivityParams,
   ListAdminBlogArticlesParams,
   ListBlockchainMonitoringMatchesParams,
@@ -367,6 +371,421 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetLanguageSettingsUrl = () => {
+
+
+
+
+  return `/api/languages`
+}
+
+export const getLanguageSettings = async ( options?: Parameters<typeof customFetch>[1]): Promise<LanguageSettings> => {
+
+  return customFetch<LanguageSettings>(getGetLanguageSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLanguageSettingsQueryKey = () => {
+    return [
+    `/api/languages`
+    ] as const;
+    }
+
+
+export const getGetLanguageSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getLanguageSettings>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLanguageSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLanguageSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLanguageSettings>>> = ({ signal }) => getLanguageSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLanguageSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetLanguageSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getLanguageSettings>>>
+export type GetLanguageSettingsQueryError = ErrorType<unknown>
+
+
+
+export function useGetLanguageSettings<TData = Awaited<ReturnType<typeof getLanguageSettings>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLanguageSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetLanguageSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetLanguageDictionaryUrl = (locale: string,) => {
+
+
+
+
+  return `/api/languages/dictionaries/${locale}`
+}
+
+export const getLanguageDictionary = async (locale: string, options?: Parameters<typeof customFetch>[1]): Promise<LanguageDictionary> => {
+
+  return customFetch<LanguageDictionary>(getGetLanguageDictionaryUrl(locale),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLanguageDictionaryQueryKey = (locale: string,) => {
+    return [
+    `/api/languages/dictionaries/${locale}`
+    ] as const;
+    }
+
+
+export const getGetLanguageDictionaryQueryOptions = <TData = Awaited<ReturnType<typeof getLanguageDictionary>>, TError = ErrorType<unknown>>(locale: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLanguageDictionary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLanguageDictionaryQueryKey(locale);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLanguageDictionary>>> = ({ signal }) => getLanguageDictionary(locale, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: locale !== null && locale !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLanguageDictionary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetLanguageDictionaryQueryResult = NonNullable<Awaited<ReturnType<typeof getLanguageDictionary>>>
+export type GetLanguageDictionaryQueryError = ErrorType<unknown>
+
+
+
+export function useGetLanguageDictionary<TData = Awaited<ReturnType<typeof getLanguageDictionary>>, TError = ErrorType<unknown>>(
+ locale: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLanguageDictionary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetLanguageDictionaryQueryOptions(locale,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAdminLanguageSettingsUrl = () => {
+
+
+
+
+  return `/api/admin/languages`
+}
+
+export const getAdminLanguageSettings = async ( options?: Parameters<typeof customFetch>[1]): Promise<LanguageSettings> => {
+
+  return customFetch<LanguageSettings>(getGetAdminLanguageSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminLanguageSettingsQueryKey = () => {
+    return [
+    `/api/admin/languages`
+    ] as const;
+    }
+
+
+export const getGetAdminLanguageSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getAdminLanguageSettings>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminLanguageSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminLanguageSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminLanguageSettings>>> = ({ signal }) => getAdminLanguageSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminLanguageSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminLanguageSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminLanguageSettings>>>
+export type GetAdminLanguageSettingsQueryError = ErrorType<unknown>
+
+
+
+export function useGetAdminLanguageSettings<TData = Awaited<ReturnType<typeof getAdminLanguageSettings>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminLanguageSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminLanguageSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateAdminLanguageSettingsUrl = () => {
+
+
+
+
+  return `/api/admin/languages`
+}
+
+export const updateAdminLanguageSettings = async (languageSettingsInput: LanguageSettingsInput, options?: Parameters<typeof customFetch>[1]): Promise<LanguageSettings> => {
+
+  return customFetch<LanguageSettings>(getUpdateAdminLanguageSettingsUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(languageSettingsInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateAdminLanguageSettingsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminLanguageSettings>>, TError,{data: BodyType<LanguageSettingsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAdminLanguageSettings>>, TError,{data: BodyType<LanguageSettingsInput>}, TContext> => {
+
+const mutationKey = ['updateAdminLanguageSettings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAdminLanguageSettings>>, {data: BodyType<LanguageSettingsInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateAdminLanguageSettings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAdminLanguageSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateAdminLanguageSettings>>>
+    export type UpdateAdminLanguageSettingsMutationBody = BodyType<LanguageSettingsInput>
+    export type UpdateAdminLanguageSettingsMutationError = ErrorType<unknown>
+
+    export const useUpdateAdminLanguageSettings = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminLanguageSettings>>, TError,{data: BodyType<LanguageSettingsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAdminLanguageSettings>>,
+        TError,
+        {data: BodyType<LanguageSettingsInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateAdminLanguageSettingsMutationOptions(options));
+    }
+
+export const getGetAdminLanguageDictionaryUrl = (locale: string,) => {
+
+
+
+
+  return `/api/admin/languages/dictionaries/${locale}`
+}
+
+export const getAdminLanguageDictionary = async (locale: string, options?: Parameters<typeof customFetch>[1]): Promise<LanguageDictionary> => {
+
+  return customFetch<LanguageDictionary>(getGetAdminLanguageDictionaryUrl(locale),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminLanguageDictionaryQueryKey = (locale: string,) => {
+    return [
+    `/api/admin/languages/dictionaries/${locale}`
+    ] as const;
+    }
+
+
+export const getGetAdminLanguageDictionaryQueryOptions = <TData = Awaited<ReturnType<typeof getAdminLanguageDictionary>>, TError = ErrorType<unknown>>(locale: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminLanguageDictionary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminLanguageDictionaryQueryKey(locale);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminLanguageDictionary>>> = ({ signal }) => getAdminLanguageDictionary(locale, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: locale !== null && locale !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminLanguageDictionary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminLanguageDictionaryQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminLanguageDictionary>>>
+export type GetAdminLanguageDictionaryQueryError = ErrorType<unknown>
+
+
+
+export function useGetAdminLanguageDictionary<TData = Awaited<ReturnType<typeof getAdminLanguageDictionary>>, TError = ErrorType<unknown>>(
+ locale: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminLanguageDictionary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminLanguageDictionaryQueryOptions(locale,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateAdminLanguageDictionaryUrl = (locale: string,) => {
+
+
+
+
+  return `/api/admin/languages/dictionaries/${locale}`
+}
+
+export const updateAdminLanguageDictionary = async (locale: string,
+    languageDictionaryInput: LanguageDictionaryInput, options?: Parameters<typeof customFetch>[1]): Promise<LanguageDictionary> => {
+
+  return customFetch<LanguageDictionary>(getUpdateAdminLanguageDictionaryUrl(locale),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(languageDictionaryInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateAdminLanguageDictionaryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminLanguageDictionary>>, TError,{locale: string;data: BodyType<LanguageDictionaryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAdminLanguageDictionary>>, TError,{locale: string;data: BodyType<LanguageDictionaryInput>}, TContext> => {
+
+const mutationKey = ['updateAdminLanguageDictionary'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAdminLanguageDictionary>>, {locale: string;data: BodyType<LanguageDictionaryInput>}> = (props) => {
+          const {locale,data} = props ?? {};
+
+          return  updateAdminLanguageDictionary(locale,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAdminLanguageDictionaryMutationResult = NonNullable<Awaited<ReturnType<typeof updateAdminLanguageDictionary>>>
+    export type UpdateAdminLanguageDictionaryMutationBody = BodyType<LanguageDictionaryInput>
+    export type UpdateAdminLanguageDictionaryMutationError = ErrorType<unknown>
+
+    export const useUpdateAdminLanguageDictionary = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminLanguageDictionary>>, TError,{locale: string;data: BodyType<LanguageDictionaryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAdminLanguageDictionary>>,
+        TError,
+        {locale: string;data: BodyType<LanguageDictionaryInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateAdminLanguageDictionaryMutationOptions(options));
+    }
 
 export const getHealthCheckUrl = () => {
 

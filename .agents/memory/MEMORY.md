@@ -156,3 +156,4 @@
 - [BestChange publication boundaries](bestchange-publication-boundaries.md) — live Swap, read-only financial scope, conservative classic rates and explicit operator reserves/mappings.
 - [Amount display precision](amount-display-precision.md) — three decimals for human-facing amounts; exact input, copy and machine-data boundaries stay intact.
 - [Performance measurement safety](performance-measurement-safety.md) — enlarge resource timing buffers, discard probe-induced failures, and distinguish process CPU from main-thread profiles.
+- [Customer language scope](customer-language-scope.md) — seven shared Website/Mini App languages, no Arabic/RTL; validate authentication locale template compatibility.

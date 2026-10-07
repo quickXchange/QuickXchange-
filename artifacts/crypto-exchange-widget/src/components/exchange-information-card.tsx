@@ -1,3 +1,5 @@
+import { sourceText } from "@workspace/i18n/runtime";
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { ShieldCheck } from 'lucide-react';
 import { cn } from '@/components/shared-app-ui';
 
@@ -13,8 +15,8 @@ type ExchangeInformationContent = {
 
 export const DEFAULT_EXCHANGE_INFORMATION_CONTENT: ExchangeInformationContent = {
   glow: true,
-  text: 'Exchanges are processed automatically with AML verification. The exchange rate is based on real-time spot market data and is floating, meaning it is calculated at the moment of processing according to current market conditions. The transaction requires network confirmations depending on the cryptocurrency and network. After the required confirmations are received, processing begins and may take up to 10 additional minutes. The final amount may vary depending on market fluctuations.',
-  title: 'Exchange Information',
+  text: sourceText("customer.m174c73346cf0"),
+  title: sourceText("customer.m86884e263e1f"),
   visible: true,
   showIcon: true,
   textSize: 'small',
@@ -39,6 +41,8 @@ function parseContent(value: Record<string, unknown> | undefined): ExchangeInfor
 }
 
 export function ExchangeInformationCard({ content }: { content?: Record<string, unknown> }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const config = parseContent(content);
   if (config.visible === false || !config.text) return null;
 
@@ -52,7 +56,7 @@ export function ExchangeInformationCard({ content }: { content?: Record<string, 
         'exchange-information-card relative mx-auto mt-5 h-auto w-full max-w-none px-1 py-4 sm:px-2 sm:py-5',
         glow && 'drop-shadow-[0_8px_22px_rgba(37,140,255,0.12)]',
       )}
-      aria-label={config.title || 'Exchange information'}
+      aria-label={config.title || uiT("customer.m394f1f069cf1")}
       data-testid="exchange-information-card"
     >
       <div className="relative h-auto text-foreground">
@@ -68,7 +72,7 @@ export function ExchangeInformationCard({ content }: { content?: Record<string, 
           )}
           {config.title && (
             <h2 className="min-w-0 text-balance text-base font-bold tracking-tight text-foreground sm:text-lg">
-              {config.title}
+              {uiText(config.title)}
             </h2>
           )}
         </div>
@@ -78,7 +82,7 @@ export function ExchangeInformationCard({ content }: { content?: Record<string, 
           textAlign === 'right' && 'text-right',
           config.textSize === 'medium' ? 'text-[15px] sm:text-base' : config.textSize === 'large' ? 'text-base sm:text-[17px]' : 'text-sm sm:text-[15px]',
         )}>
-          {config.text}
+          {uiText(config.text)}
         </p>
       </div>
     </aside>

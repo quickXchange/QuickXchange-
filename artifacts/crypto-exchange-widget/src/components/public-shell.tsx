@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { useEffect, useRef, useState, useMemo } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { useUser } from '@clerk/react';
@@ -95,17 +96,21 @@ function publishedPartnerLogoUrl(objectPath: string) {
 }
 
 function ConfiguredLink({ link, placement }: { link: SiteNavLink; placement: 'header' | 'footer' }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const className = cn("hover:text-primary transition-colors", placement === 'footer' && "public-footer-link");
   const testId = `link-published-${placement}-${link.id}`;
   return /^https?:\/\//i.test(link.href)
-    ? <a href={link.href} target="_blank" rel="noreferrer" className={className} data-testid={testId}>{link.label}</a>
-    : <Link href={link.href} className={className} data-testid={testId}>{link.label}</Link>;
+    ? <a href={link.href} target="_blank" rel="noreferrer" className={className} data-testid={testId}>{uiText(link.label)}</a>
+    : <Link href={link.href} className={className} data-testid={testId}>{uiText(link.label)}</Link>;
 }
 
 function ConfiguredLinks({ links, placement }: { links: SiteNavLink[]; placement: 'header' | 'footer' }) {
-  return <>{links.filter((link) => (placement === 'header' ? link.header : link.footer)).map((link) => (
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
+  return <>{uiText(links.filter((link) => (placement === 'header' ? link.header : link.footer)).map((link) => (
     <ConfiguredLink key={link.id} link={link} placement={placement} />
-  ))}</>;
+  )))}</>;
 }
 
 type RenderableSocialItem = Pick<SocialTrustItem, 'id' | 'name' | 'href'> & {
@@ -181,6 +186,8 @@ function FooterSocialLinksDataDriven({ socialTrust, socialItems, trustItems, pre
   trustpilotPartner?: PartnerLogoExtended;
   supportUrl?: string;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const isDark = useAppTheme();
   const supportSocialItems = resolveFooterTelegramSupportItems(socialItems, supportUrl);
   const legacyItems: RenderableSocialItem[] = LEGACY_SOCIAL_FIELDS.flatMap(([field, name]) => {
@@ -252,20 +259,20 @@ function FooterSocialLinksDataDriven({ socialTrust, socialItems, trustItems, pre
   const showSocialTitle = (socialTrust?.socialTitleVisible ?? true)
     && !(renderedTrustItems.length > 0 && socialTrust?.socialTitle?.trim() === socialTrust?.trustTitle?.trim());
   return (
-    <div className="flex flex-col gap-3" aria-label="Social connections">
-      {allSocialItems.length > 0 && <>
-      {showSocialTitle && <h3 className="font-semibold text-foreground" style={{ fontSize: `${style.titleFontSize ?? 18}px`, textAlign: (style.titleAlignment ?? style.alignment ?? 'left') as CSSProperties['textAlign'] }}>{socialTrust?.socialTitle ?? 'Stay connected with us'}</h3>}
+    <div className="flex flex-col gap-3" aria-label={uiT("customer.mdbda6e97126d")}>
+      {uiText(allSocialItems.length > 0 && <>
+       {showSocialTitle && <h3 className="font-semibold text-foreground" style={{ fontSize: `${style.titleFontSize ?? 18}px`, textAlign: (style.titleAlignment ?? style.alignment ?? 'left') as CSSProperties['textAlign'] }}>{uiText(socialTrust?.socialTitle ?? uiT("customer.m52035412c3fb"))}</h3>}
       <div className="qx-footer-social-links" style={socialRowStyle}>
-        {allSocialItems.map((item) => (
+        {uiText(allSocialItems.map((item) => (
             <a key={item.id} href={item.href || undefined} aria-disabled={!item.href} tabIndex={item.href ? undefined : -1} target="_blank" rel="noreferrer noopener" aria-label={isTrustpilotItem(item) ? 'Trustpilot' : item.name} title={item.name} data-testid={`link-published-social-${item.id}`} className={`qx-footer-social-link qx-social-hover-${style.hoverAnimation ?? 'lift'}${isTrustpilotItem(item) ? ' qx-footer-trustpilot-social' : ''}`} style={appearanceStyle}>
              <span className="qx-footer-social-mark"><FooterSocialIcon item={item} preview={preview} isDark={isDark} preferUploadedTrustpilot fitArtwork /></span>
           </a>
-        ))}
+        )))}
       </div>
-      </>}
-      {renderedTrustItems.length > 0 && (
-        <section className="qx-feedback-trust flex flex-col gap-2" aria-label="Feedback and reviews">
-        {(trustStyle.trustTitleVisible ?? socialTrust?.trustTitleVisible ?? true) && <h3 className="font-semibold text-foreground" style={{ fontSize: `${trustStyle.titleFontSize ?? socialTrust?.trustTitleFontSize ?? 18}px`, textAlign: (hasTrustpilotRendered ? 'left' : (trustStyle.titleAlignment ?? socialTrust?.trustTitleAlignment ?? 'left')) as CSSProperties['textAlign'] }}>{socialTrust?.trustTitle ?? 'Share your feedback with us'}</h3>}
+      </>)}
+      {uiText(renderedTrustItems.length > 0 && (
+        <section className="qx-feedback-trust flex flex-col gap-2" aria-label={uiT("customer.mc17e491a52ca")}>
+        {(trustStyle.trustTitleVisible ?? socialTrust?.trustTitleVisible ?? true) && <h3 className="font-semibold text-foreground" style={{ fontSize: `${trustStyle.titleFontSize ?? socialTrust?.trustTitleFontSize ?? 18}px`, textAlign: (hasTrustpilotRendered ? 'left' : (trustStyle.titleAlignment ?? socialTrust?.trustTitleAlignment ?? 'left')) as CSSProperties['textAlign'] }}>{uiText(socialTrust?.trustTitle ?? uiT("customer.mb9c87e171431"))}</h3>}
         <div className={cn(hasTrustpilotRendered && "qx-feedback-trust-row")} style={trustRowStyle}>
           {renderedTrustItems.map((item) => (
              <a key={item.id} href={item.href} target="_blank" rel="noreferrer noopener" aria-label={isTrustpilotItem(item) ? 'Trustpilot' : item.name} data-testid={`link-published-trust-${item.id}`} className={cn('group flex items-center gap-2 text-foreground transition-colors', isTrustpilotItem(item) && 'qx-footer-trustpilot-link')}>
@@ -274,12 +281,12 @@ function FooterSocialLinksDataDriven({ socialTrust, socialItems, trustItems, pre
                    ? <span className="qx-trustpilot-brand" aria-hidden="true"><SiTrustpilot /><span>Trustpilot</span></span>
                    : <span className="flex h-full w-full items-center justify-center"><FooterSocialIcon item={item} preview={preview} isDark={isDark} /></span>}
               </span>
-               {item.displayMode === 'icon-name' && !isTrustpilotItem(item) && <span className="text-xs font-medium">{item.name}</span>}
+               {item.displayMode === 'icon-name' && !isTrustpilotItem(item) && <span className="text-xs font-medium">{uiText(item.name)}</span>}
             </a>
           ))}
         </div>
         </section>
-      )}
+      ))}
     </div>
   );
 }
@@ -344,11 +351,13 @@ function hiddenManagedPageHrefs(pages: Array<{ pageKey: string; content: Record<
 }
 
 function ConfiguredMobileLink({ link, active, onClick }: { link: SiteNavLink; active: boolean; onClick: () => void }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const className = cn('qx-menu-row', active && 'active');
-  const content = <><div className="qx-menu-icon"><Link2 size={20} /></div><span className="qx-menu-row-label">{link.label}</span></>;
+  const content = <><div className="qx-menu-icon"><Link2 size={20} /></div><span className="qx-menu-row-label">{uiText(link.label)}</span></>;
   return /^https?:\/\//i.test(link.href)
-    ? <a href={link.href} target="_blank" rel="noreferrer" className={className} onClick={onClick} data-testid={`link-published-mobile-${link.id}`}>{content}</a>
-    : <Link href={link.href} className={className} onClick={onClick} data-testid={`link-published-mobile-${link.id}`}>{content}</Link>;
+    ? <a href={link.href} target="_blank" rel="noreferrer" className={className} onClick={onClick} data-testid={`link-published-mobile-${link.id}`}>{uiText(content)}</a>
+    : <Link href={link.href} className={className} onClick={onClick} data-testid={`link-published-mobile-${link.id}`}>{uiText(content)}</Link>;
 }
 
 type PublicMenuItem = {
@@ -360,6 +369,8 @@ type PublicMenuItem = {
 };
 
 function PublicMenuLink({ item, active, onClick }: { item: PublicMenuItem; active: boolean; onClick: () => void }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const Icon = item.icon;
   return (
     <Link
@@ -369,12 +380,14 @@ function PublicMenuLink({ item, active, onClick }: { item: PublicMenuItem; activ
       data-testid={item.testId}
     >
       <div className="qx-menu-icon"><Icon size={20} /></div>
-      <span className="qx-menu-row-label">{item.label}</span>
+      <span className="qx-menu-row-label">{uiText(item.label)}</span>
     </Link>
   );
 }
 
 function MobileNavGroup({ group, location, closeMobileMenu }: { group: NavGroup, location: string, closeMobileMenu: () => void }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [open, setOpen] = useState(false);
   const panelId = `mobile-nav-group-${group.title.toLocaleLowerCase().replace(/\s+/g, '-')}`;
   return (
@@ -386,14 +399,14 @@ function MobileNavGroup({ group, location, closeMobileMenu }: { group: NavGroup,
         aria-controls={panelId}
         onClick={() => setOpen(!open)}
       >
-        {group.title}
+        {uiText(group.title)}
         <ChevronDown size={16} className="qx-mobile-trigger-icon" />
       </button>
       <div
         id={panelId}
         className="qx-mobile-content"
         role="region"
-        aria-label={`${group.title} navigation`}
+        aria-label={uiT("customer.mb2e92af10844", { v0: group.title })}
         aria-hidden={!open}
         inert={!open}
       >
@@ -404,19 +417,19 @@ function MobileNavGroup({ group, location, closeMobileMenu }: { group: NavGroup,
               <Icon size={18} className="qx-mobile-item-icon" />
               <span className="qx-mobile-item-copy">
                 <span className="qx-mobile-item-title">
-                  {item.label}
-                  {item.disabled && <span className="qx-badge-soon ml-2">Soon</span>}
+                  {uiText(item.label)}
+                  {uiText(item.disabled && <span className="qx-badge-soon ml-2">{uiT("customer.mcf0ee3547a4e")}</span>)}
                 </span>
-                <span className="qx-mobile-item-description">{item.description}</span>
+                <span className="qx-mobile-item-description">{uiText(item.description)}</span>
               </span>
-              {!item.disabled && <ArrowRight size={15} className="qx-mobile-item-arrow" aria-hidden="true" />}
+              {uiText(!item.disabled && <ArrowRight size={15} className="qx-mobile-item-arrow" aria-hidden="true" />)}
             </>
           );
 
           if (item.disabled) {
             return (
               <div key={item.label} className="qx-mobile-item is-disabled">
-                {content}
+                {uiText(content)}
               </div>
             );
           }
@@ -428,7 +441,7 @@ function MobileNavGroup({ group, location, closeMobileMenu }: { group: NavGroup,
               className={cn("qx-mobile-item", (location === item.href || (item.href !== '/' && location.startsWith(`${item.href}/`))) && "active")}
               onClick={closeMobileMenu}
             >
-              {content}
+              {uiText(content)}
             </Link>
           );
         })}
@@ -438,6 +451,8 @@ function MobileNavGroup({ group, location, closeMobileMenu }: { group: NavGroup,
 }
 
 function PublicHeader() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [location] = useLocation();
   const { isLoaded, isSignedIn } = useUser();
   const { t } = useI18n();
@@ -479,14 +494,14 @@ function PublicHeader() {
     },
   });
   const menuItems: PublicMenuItem[] = [
-    { href: '/', label: 'Home', icon: House, testId: 'link-mobile-home' },
-    { href: '/status', label: 'Track an Order', icon: Search, testId: 'link-mobile-track-order' },
+    { href: '/', label: uiT("customer.m3a78695388b3"), icon: House, testId: 'link-mobile-home' },
+    { href: '/status', label: uiT("customer.m7df8946d4732"), icon: Search, testId: 'link-mobile-track-order' },
     ...(!hiddenPageHrefs.has('/affiliates')
-      ? [{ href: '/affiliates', label: 'Affiliate Program', icon: Handshake, testId: 'link-mobile-affiliate-program' }]
+      ? [{ href: '/affiliates', label: uiT("customer.m53602f507355"), icon: Handshake, testId: 'link-mobile-affiliate-program' }]
       : []),
-    { href: '/account', label: 'Account', icon: CircleUserRound, testId: 'link-mobile-account' },
+    { href: '/account', label: uiT("customer.m7e1b0d5641f2"), icon: CircleUserRound, testId: 'link-mobile-account' },
     ...(ownerAccess.isSuccess
-      ? [{ href: '/admin', label: 'Admin Panel', icon: ShieldCheck, testId: 'link-mobile-admin-panel', special: true }]
+      ? [{ href: '/admin', label: uiT("customer.m8c2dedc00103"), icon: ShieldCheck, testId: 'link-mobile-admin-panel', special: true }]
       : []),
   ];
 
@@ -552,13 +567,13 @@ function PublicHeader() {
     )}>
     <BrandLogo />
     <DesktopMegaMenu groups={publicNavigationGroups} />
-    <nav className="public-nav hidden" aria-label="Published primary navigation">
+    <nav className="public-nav hidden" aria-label={uiT("customer.m42c82ebea81b")}>
       <ConfiguredLinks links={headerLinks} placement="header" />
     </nav>
     <div className="header-trust hidden lg:flex">
       <ThemeToggle />
       <LanguageSelector />
-      <Link href="/account" className="button button-primary rounded-full px-5 py-2 h-9 text-sm" data-testid="link-header-account">Account</Link>
+      <Link href="/account" className="button button-primary rounded-full px-5 py-2 h-9 text-sm" data-testid="link-header-account">{uiT("customer.m7e1b0d5641f2")}</Link>
     </div>
     <div className="mobile-nav-wrap">
       <LanguageSelector />
@@ -572,7 +587,7 @@ function PublicHeader() {
         aria-controls="mobile-navigation"
         onClick={() => setMobileMenuOpen((open) => !open)}
       >
-        {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+        {uiText(mobileMenuOpen ? <X size={18} /> : <Menu size={18} />)}
       </button>
     </div>
     <SideDrawer
@@ -592,9 +607,9 @@ function PublicHeader() {
              <span className="qx-mobile-theme-label">{t('header.appearance')}</span>
              <ThemeToggle testIdPrefix="mobile" />
            </div>
-          {publicNavigationGroups.map((group) => (
+          {uiText(publicNavigationGroups.map((group) => (
             <div key={group.title} className="qx-mobile-group">
-              {group.direct ? (
+              {uiText(group.direct ? (
                 <Link
                   href={group.items[0]?.href ?? '/'}
                   className={cn(
@@ -605,18 +620,18 @@ function PublicHeader() {
                   data-testid={`link-mobile-${group.title.toLowerCase()}`}
                 >
                   <span className="qx-mobile-item-copy">
-                    <span className="qx-mobile-item-title">{group.title}</span>
-                    <span className="qx-mobile-item-description">{group.items[0]?.description}</span>
+                    <span className="qx-mobile-item-title">{uiText(group.title)}</span>
+                    <span className="qx-mobile-item-description">{uiText(group.items[0]?.description)}</span>
                   </span>
                 </Link>
               ) : (
                 <MobileNavGroup group={group} location={location} closeMobileMenu={closeMobileMenu} />
-              )}
+              ))}
             </div>
-          ))}
+          )))}
 
           <div className="qx-mobile-base-links">
-            {menuItems.filter(i => i.label === 'Account' || i.label === 'Admin Panel').map((item) => {
+            {uiText(menuItems.filter(i => i.href === '/account' || i.href === '/admin').map((item) => {
               const Icon = item.icon;
               return (
                 <Link
@@ -627,10 +642,10 @@ function PublicHeader() {
                   data-testid={item.testId}
                 >
                   <Icon size={20} className="qx-mobile-item-icon" />
-                  <span className="qx-mobile-item-title">{item.label}</span>
+                  <span className="qx-mobile-item-title">{uiText(item.label)}</span>
                 </Link>
               );
-            })}
+            }))}
           </div>
       </nav>
       </SideDrawer>
@@ -640,23 +655,25 @@ function PublicHeader() {
 
 
 function PublicPartnerLogosWrapper({ logos, settings, preview }: { logos: PartnerLogoExtended[], settings: PartnerLogoSettings, preview: any }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [manualPaused, setManualPaused] = useState(false);
   const paused = manualPaused;
   
   return (
     <section className="partner-slider mx-auto w-full max-w-7xl px-3 sm:px-6 py-12 md:px-8" aria-labelledby="public-partner-slider-title">
       <div className="mb-6 flex items-center justify-center gap-3">
-        <h2 id="public-partner-slider-title" className="text-center text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Trusted partners</h2>
+        <h2 id="public-partner-slider-title" className="text-center text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">{uiT("customer.m47fce14a4014")}</h2>
         <button
           type="button"
           className="button button-secondary h-8 px-2 text-xs"
           onClick={() => setManualPaused((value) => !value)}
-          aria-label={paused ? 'Play partner logo slider' : 'Pause partner logo slider'}
+          aria-label={paused ? uiT("customer.m0b5230832017") : uiT("customer.m1a3e7ec49b50")}
           aria-pressed={paused}
           data-testid="button-partner-slider-toggle"
         >
-          {paused ? <Play size={13} aria-hidden="true" /> : <Pause size={13} aria-hidden="true" />}
-          <span className="sr-only">{paused ? 'Play' : 'Pause'} partner logo slider</span>
+          {uiText(paused ? <Play size={13} aria-hidden="true" /> : <Pause size={13} aria-hidden="true" />)}
+          <span className="sr-only">{uiText(paused ? uiT("customer.m436e61016e26") : uiT("customer.m858e4ba7a29f"))} {' '}{uiT("customer.m49813ec579fc")}</span>
         </button>
       </div>
       <PartnerLogos 
@@ -672,6 +689,8 @@ function PublicPartnerLogosWrapper({ logos, settings, preview }: { logos: Partne
 }
 
 export function PublicShell({ children }: { children: ReactNode }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   const preview = useSitePreview();
   const published = useGetPublishedSiteContent({ query: { queryKey: getGetPublishedSiteContentQueryKey(), staleTime: 60_000 } });
@@ -751,23 +770,21 @@ export function PublicShell({ children }: { children: ReactNode }) {
   const hasSocial = Boolean(socialItems.length || socialTrust?.instagramUrl || socialTrust?.xUrl || socialTrust?.facebookUrl || socialTrust?.telegramUrl || trustItems.length || (trustpilotUrl && !hasConfiguredTrustpilot));
 
   const footerNavigationGroups = [
-    { title: 'Company', links: companyFooterLinks, type: 'links' },
-    { title: 'Exchange', links: exchangeFooterLinks, type: 'links' },
-    { title: 'Information', links: informationFooterLinks, type: 'links' },
-    { title: 'Contacts', type: 'custom', content: (
+    { title: uiT("customer.mde4743c87973"), links: companyFooterLinks, type: 'links' },
+    { title: uiT("customer.md60a318dd8a0"), links: exchangeFooterLinks, type: 'links' },
+    { title: uiT("customer.m1cb0ba125f84"), links: informationFooterLinks, type: 'links' },
+    { title: uiT("customer.mb450645debe2"), type: 'custom', content: (
       <>
         <span className="public-footer-link flex items-center gap-2 cursor-default select-none" data-testid="text-footer-working-hours">
           <Clock3 size={15} />
-          {SUPPORT_HOURS}
+          {uiText(SUPPORT_HOURS)}
         </span>
         <a href={telegramSupportUrl} target="_blank" rel="noreferrer noopener" aria-disabled={!telegramSupportUrl} tabIndex={telegramSupportUrl ? undefined : -1} className="public-footer-link hover:text-primary transition-colors flex items-center gap-2" data-testid="link-published-footer-support-telegram">
           <SiTelegram size={14} className="opacity-80" />
-          Telegram Support
-        </a>
+          {uiT("customer.m55c7eb36ed47")}{' '}</a>
         <a href={`mailto:${SUPPORT_EMAIL}`} className="public-footer-link hover:text-primary transition-colors flex items-center gap-2" data-testid="link-published-footer-support-email">
           <Mail size={15} />
-          Support Email
-        </a>
+          {uiT("customer.m929a87b31751")}{' '}</a>
       </>
     ) }
   ];
@@ -775,7 +792,7 @@ export function PublicShell({ children }: { children: ReactNode }) {
   return <div className="min-h-[100dvh] noise public-shell flex flex-col">
     <PublicHeader />
     <main className="flex-1">
-      {children}
+      {uiText(children)}
     </main>
     <div className="w-full max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-8 pb-4 sm:pb-6 mt-16 sm:mt-24">
       <footer className="qx-premium-footer" data-public-footer>
@@ -797,11 +814,10 @@ export function PublicShell({ children }: { children: ReactNode }) {
           <div className="grid grid-cols-2 gap-x-5 gap-y-7 mb-8 sm:gap-x-8 sm:gap-y-10 sm:mb-12 lg:grid-cols-12">
             <div className="flex flex-col items-start gap-5 col-span-2 lg:col-span-4 lg:gap-6">
               <BrandLogo />
-              <p className="qx-footer-tagline">Your Crypto Exchange Partner</p>
+              <p className="qx-footer-tagline">{uiT("customer.m45ae5232931b")}</p>
               <p className="text-sm text-muted-foreground leading-relaxed max-w-sm">
-                Fast. Secure. Global. Exchange, convert and move your crypto with confidence.
-              </p>
-              {hasSocial && (
+                {uiT("customer.m5886fc76bdfd")}{' '}</p>
+              {uiText(hasSocial && (
                 <div className="mt-2 qx-footer-social-panel">
                   <FooterSocialLinksDataDriven
                     socialTrust={socialTrust as SocialTrustConfig | undefined}
@@ -814,16 +830,16 @@ export function PublicShell({ children }: { children: ReactNode }) {
                     supportUrl={telegramSupportUrl}
                   />
                 </div>
-              )}
+              ))}
             </div>
 
             {footerNavigationGroups.map((group) => (
               <section key={group.title} className="qx-footer-nav-section flex min-w-0 flex-col gap-2.5 sm:gap-4 lg:col-span-2">
-                <h2 className="text-foreground text-[11px] sm:text-xs font-bold tracking-widest uppercase">{group.title}</h2>
-                <div className="qx-footer-nav-list flex min-w-0 flex-col gap-2 text-[13px] sm:gap-2.5 sm:text-sm text-muted-foreground" aria-label={`${group.title} footer links`}>
-                  {group.type === 'links'
-                    ? <nav className="contents" aria-label={`${group.title} navigation`}><ConfiguredLinks links={group.links!} placement="footer" /></nav>
-                    : group.content}
+                <h2 className="text-foreground text-[11px] sm:text-xs font-bold tracking-widest uppercase">{uiText(group.title)}</h2>
+                <div className="qx-footer-nav-list flex min-w-0 flex-col gap-2 text-[13px] sm:gap-2.5 sm:text-sm text-muted-foreground" aria-label={uiT("customer.m81f2f1e9e931", { v0: group.title })}>
+                  {uiText(group.type === 'links'
+                    ? <nav className="contents" aria-label={uiT("customer.mb2e92af10844", { v0: group.title })}><ConfiguredLinks links={group.links!} placement="footer" /></nav>
+                    : group.content)}
                 </div>
               </section>
             ))}
@@ -831,18 +847,18 @@ export function PublicShell({ children }: { children: ReactNode }) {
 
           <div className="qx-premium-footer-divider"></div>
 
-          {partnerLogos.length > 0 && (
+          {uiText(partnerLogos.length > 0 && (
              <div className="qx-premium-footer-partner-wrapper">
 <PublicPartnerLogosWrapper logos={partnerLogos as PartnerLogoExtended[]} settings={partnerLogoSettings} preview={preview} />
              </div>
-          )}
+          ))}
 
           <div className="qx-footer-bottom">
-            <p>&copy; {new Date().getFullYear()} QuickXchange &mdash; All rights reserved.</p>
+            <p>{uiT("customer.m933d10d7a714")}{' '}{uiText(new Date().getFullYear())} {' '}{uiT("customer.m1dace42df002")}</p>
             <div className="qx-footer-bottom-actions">
               <div className="qx-footer-security">
                 <ShieldCheck size={15} className="text-primary" aria-hidden="true" />
-                <span>Secure <span aria-hidden="true">&bull;</span> Global</span>
+                <span>{uiT("customer.m1bced1d0ce55")}{' '}<span aria-hidden="true">{uiT("customer.m3b9453dad42b")}</span> {' '}{uiT("customer.ma258b30f88c3")}</span>
               </div>
             </div>
           </div>

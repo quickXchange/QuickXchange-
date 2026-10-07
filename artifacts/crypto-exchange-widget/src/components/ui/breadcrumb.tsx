@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
 import { cn } from '@/lib/utils';
@@ -10,12 +11,14 @@ const Breadcrumb = React.forwardRef<
     separator?: React.ReactNode;
   }
 >(({ ...props }, ref) => {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const i18n = useOptionalI18n();
 
   return (
     <nav
       ref={ref}
-      aria-label={i18n?.t('genericUi.breadcrumbLabel') ?? 'breadcrumb'}
+      aria-label={i18n?.t('genericUi.breadcrumbLabel') ?? uiT("customer.md6dc6b5ebe19")}
       {...props}
     />
   );
@@ -102,6 +105,8 @@ const BreadcrumbEllipsis = ({
   className,
   ...props
 }: React.ComponentProps<'span'>) => {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const i18n = useOptionalI18n();
 
   return (
@@ -112,7 +117,7 @@ const BreadcrumbEllipsis = ({
       {...props}
     >
       <MoreHorizontal className="h-4 w-4" />
-      <span className="sr-only">{i18n?.t('genericUi.more') ?? 'More'}</span>
+      <span className="sr-only">{i18n?.t('genericUi.more') ?? uiT("customer.md47d7cb0e4f8")}</span>
     </span>
   );
 };

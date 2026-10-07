@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { formatDisplayAmount } from '@workspace/amount-format';
 import { ArrowLeftRight, ArrowRight } from 'lucide-react';
 
@@ -23,13 +24,15 @@ export function getExchangeRateSummaryText(p: ExchangeRateSummaryProps): string 
 }
 
 export function ExchangeRateSummary(props: ExchangeRateSummaryProps) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const Icon = props.mode === 'convert' ? ArrowRight : ArrowLeftRight;
   return (
     <div className="qx-exchange-rate" data-testid="exchange-rate-summary" aria-live="polite">
       <Icon className="qx-exchange-rate-icon" aria-hidden="true" />
       <div className="qx-exchange-rate-body">
-        <span className="qx-exchange-rate-label">Exchange Rate</span>
-        <strong className="qx-exchange-rate-value" data-testid="text-exchange-rate">{getExchangeRateSummaryText(props)}</strong>
+        <span className="qx-exchange-rate-label">{uiT("customer.m5b21b52b58cb")}</span>
+        <strong className="qx-exchange-rate-value" data-testid="text-exchange-rate">{uiText(getExchangeRateSummaryText(props))}</strong>
       </div>
     </div>
   );

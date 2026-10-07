@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import type { ReactNode } from 'react';
 
 type QuickXchangeOverlayHeaderProps = {
@@ -11,13 +12,15 @@ export function QuickXchangeOverlayHeader({
   subtitle,
   closeControl,
 }: QuickXchangeOverlayHeaderProps) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   return (
     <div className="qx-overlay-header">
       <div className="qx-overlay-title-group">
-        <div className="qx-overlay-title">{title}</div>
-        {subtitle ? <div className="qx-overlay-subtitle">{subtitle}</div> : null}
+        <div className="qx-overlay-title">{uiText(title)}</div>
+        {subtitle ? <div className="qx-overlay-subtitle">{uiText(subtitle)}</div> : null}
       </div>
-      {closeControl}
+      {uiText(closeControl)}
     </div>
   );
 }

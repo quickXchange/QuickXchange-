@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import type { CSSProperties } from 'react';
 import type { SocialIconAppearance, SocialTrustConfig, SocialTrustItem } from '@workspace/api-client-react';
 import { useAppTheme } from '@/theme';
@@ -24,6 +25,8 @@ function markClass(item: Pick<SocialTrustItem, 'name' | 'href'>, uploaded: boole
 }
 
 export function CommunitySection({ socialTrust }: { socialTrust?: CommunityConfig | null }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const preview = useSitePreview();
   const isDark = useAppTheme();
   const items = orderedPublishedSocialItems(socialTrust);
@@ -49,11 +52,11 @@ export function CommunitySection({ socialTrust }: { socialTrust?: CommunityConfi
     <section className="qx-community" aria-labelledby="qx-community-title" data-testid="section-home-community" style={style}>
       <div className="qx-community-inner">
         <div className="qx-community-copy">
-          <span className="qx-community-eyebrow">Official channels</span>
-          <h2 id="qx-community-title" className="qx-community-title">Follow QuickXChange</h2>
-          <p className="qx-community-description">Join our community. Find us where you already are.</p>
+          <span className="qx-community-eyebrow">{uiT("customer.mfbab658c961a")}</span>
+          <h2 id="qx-community-title" className="qx-community-title">{uiT("customer.m819b35bda22e")}</h2>
+          <p className="qx-community-description">{uiT("customer.m16d53d3dadd5")}</p>
         </div>
-        <nav className="qx-community-links" aria-label="QuickXChange official community channels">
+        <nav className="qx-community-links" aria-label={uiT("customer.m0d155271f400")}>
           {items.map(item => {
             const uploaded = Boolean(item.appearance === 'separate'
               ? (isDark ? item.darkObjectPath || item.objectPath : item.lightObjectPath || item.objectPath)
@@ -63,8 +66,8 @@ export function CommunitySection({ socialTrust }: { socialTrust?: CommunityConfi
               href={item.href}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label={`Follow QuickXChange on ${item.name}`}
-              title={item.name}
+              aria-label={uiT("customer.ma8f088b8584d", { v0: item.name })}
+              title={uiText(item.name)}
               className="qx-community-link"
               data-hover={hover}
               data-testid={`link-home-community-${item.id}`}

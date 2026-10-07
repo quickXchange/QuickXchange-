@@ -8,6 +8,89 @@
 import * as zod from 'zod';
 
 
+
+
+
+export const GetLanguageSettingsResponse = zod.object({
+  "enabledLanguages": zod.array(zod.enum(['en', 'fr', 'de', 'ru', 'es', 'ko', 'uk'])).min(1),
+  "fallbackLanguage": zod.enum(['en', 'fr', 'de', 'ru', 'es', 'ko', 'uk']),
+  "revision": zod.string()
+})
+
+
+export const GetLanguageDictionaryParams = zod.object({
+  "locale": zod.coerce.string()
+})
+
+export const GetLanguageDictionaryResponse = zod.object({
+  "locale": zod.enum(['en', 'fr', 'de', 'ru', 'es', 'ko', 'uk']),
+  "revision": zod.string(),
+  "translations": zod.record(zod.string(), zod.string()),
+  "sourceTranslations": zod.record(zod.string(), zod.string()),
+  "missingKeys": zod.array(zod.string())
+})
+
+
+
+
+
+export const GetAdminLanguageSettingsResponse = zod.object({
+  "enabledLanguages": zod.array(zod.enum(['en', 'fr', 'de', 'ru', 'es', 'ko', 'uk'])).min(1),
+  "fallbackLanguage": zod.enum(['en', 'fr', 'de', 'ru', 'es', 'ko', 'uk']),
+  "revision": zod.string()
+})
+
+
+
+
+
+export const UpdateAdminLanguageSettingsBody = zod.object({
+  "enabledLanguages": zod.array(zod.enum(['en', 'fr', 'de', 'ru', 'es', 'ko', 'uk'])).min(1),
+  "fallbackLanguage": zod.enum(['en', 'fr', 'de', 'ru', 'es', 'ko', 'uk']),
+  "expectedRevision": zod.string()
+})
+
+
+
+
+export const UpdateAdminLanguageSettingsResponse = zod.object({
+  "enabledLanguages": zod.array(zod.enum(['en', 'fr', 'de', 'ru', 'es', 'ko', 'uk'])).min(1),
+  "fallbackLanguage": zod.enum(['en', 'fr', 'de', 'ru', 'es', 'ko', 'uk']),
+  "revision": zod.string()
+})
+
+
+export const GetAdminLanguageDictionaryParams = zod.object({
+  "locale": zod.coerce.string()
+})
+
+export const GetAdminLanguageDictionaryResponse = zod.object({
+  "locale": zod.enum(['en', 'fr', 'de', 'ru', 'es', 'ko', 'uk']),
+  "revision": zod.string(),
+  "translations": zod.record(zod.string(), zod.string()),
+  "sourceTranslations": zod.record(zod.string(), zod.string()),
+  "missingKeys": zod.array(zod.string())
+})
+
+
+export const UpdateAdminLanguageDictionaryParams = zod.object({
+  "locale": zod.coerce.string()
+})
+
+export const UpdateAdminLanguageDictionaryBody = zod.object({
+  "expectedRevision": zod.string(),
+  "translations": zod.record(zod.string(), zod.string())
+})
+
+export const UpdateAdminLanguageDictionaryResponse = zod.object({
+  "locale": zod.enum(['en', 'fr', 'de', 'ru', 'es', 'ko', 'uk']),
+  "revision": zod.string(),
+  "translations": zod.record(zod.string(), zod.string()),
+  "sourceTranslations": zod.record(zod.string(), zod.string()),
+  "missingKeys": zod.array(zod.string())
+})
+
+
 /**
  * Returns server health status
  * @summary Health check

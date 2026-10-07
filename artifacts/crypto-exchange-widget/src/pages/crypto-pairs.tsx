@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { formatDisplayAmount } from '@workspace/amount-format';
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useLocation } from 'wouter';
@@ -40,6 +41,8 @@ const formatRate = (value: number | null) => {
 };
 
 function PairCardRow({ pair, marketData, onConvert }: { pair: DeduplicatedPair; marketData: PairMarketData; onConvert: () => void }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const isPositive = marketData.change24h !== null && marketData.change24h >= 0;
   
   return (
@@ -57,11 +60,11 @@ function PairCardRow({ pair, marketData, onConvert }: { pair: DeduplicatedPair; 
           <span className="max-w-[150px] truncate text-[11px] font-semibold text-muted-foreground">
             {marketData.rate !== null
               ? `1 ${pair.sourceSymbol} ≈ ${formatRate(marketData.rate)} ${pair.destSymbol}`
-              : 'Live data unavailable'}
+              : uiT("customer.m6b5d1833f820")}
           </span>
           {marketData.change24h !== null && (
             <span className={cn("text-[11px] font-semibold", isPositive ? "text-success" : "text-destructive")}>
-              {isPositive ? '+' : ''}{(marketData.change24h * 100).toFixed(2)}%
+              {isPositive ? '+' : ''}{uiText((marketData.change24h * 100).toFixed(2))}%
             </span>
           )}
         </div>
@@ -71,12 +74,11 @@ function PairCardRow({ pair, marketData, onConvert }: { pair: DeduplicatedPair; 
         type="button"
         onClick={onConvert}
         className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 text-xs font-bold text-primary transition-all hover:border-primary/40 hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-        aria-label={`Convert ${pair.sourceSymbol} to ${pair.destSymbol}`}
+        aria-label={uiT("customer.m0809a7a7177d", { v0: pair.sourceSymbol, v1: pair.destSymbol })}
         data-testid={`btn-quick-convert-${pair.sourceSymbol}-${pair.destSymbol}`}
       >
         <Zap size={13} />
-        Convert
-      </button>
+        {uiT("customer.m5cd425f518c2")}{' '}</button>
     </div>
   );
 }
@@ -94,6 +96,8 @@ function CategoryCard({
   marketDataMap: Map<string, PairMarketData>;
   onConvert: (pair: DeduplicatedPair) => void;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [page, setPage] = useState(0);
   const pageSize = 3;
   const totalPages = Math.ceil(pairs.length / pageSize);
@@ -113,7 +117,7 @@ function CategoryCard({
           <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
             <Icon size={18} />
           </div>
-          <h3 className="font-bold tracking-tight">{title}</h3>
+          <h3 className="font-bold tracking-tight">{uiText(title)}</h3>
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -121,18 +125,18 @@ function CategoryCard({
             onClick={prev}
             disabled={page === 0}
             className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 disabled:pointer-events-none transition-all"
-            aria-label="Previous pairs"
+            aria-label={uiT("customer.ma28b918891c3")}
             data-testid={`category-${title.toLowerCase().replaceAll(' ', '-')}-previous`}
           >
             <ChevronLeft size={16} />
           </button>
-          <span className="text-xs font-medium text-muted-foreground w-8 text-center">{page + 1} / {Math.max(1, totalPages)}</span>
+          <span className="text-xs font-medium text-muted-foreground w-8 text-center">{page + 1} / {uiText(Math.max(1, totalPages))}</span>
           <button
             type="button"
             onClick={next}
             disabled={page >= totalPages - 1}
             className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 disabled:pointer-events-none transition-all"
-            aria-label="Next pairs"
+            aria-label={uiT("customer.me4decb06b8ed")}
             data-testid={`category-${title.toLowerCase().replaceAll(' ', '-')}-next`}
           >
             <ChevronRight size={16} />
@@ -142,7 +146,7 @@ function CategoryCard({
       <div className="p-3 flex-1 flex flex-col gap-1 overflow-y-auto">
         {pairs.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center px-4">
-            <span className="text-muted-foreground text-sm">No pairs available for this category right now.</span>
+            <span className="text-muted-foreground text-sm">{uiT("customer.mb81e29bb980b")}</span>
           </div>
         ) : (
           visiblePairs.map(pair => (
@@ -160,6 +164,8 @@ function CategoryCard({
 }
 
 export function CryptoPairsPage() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [, setLocation] = useLocation();
   const config = useGetQuickexConfig();
   const routes = useGetQuickexPairs(undefined, {
@@ -179,8 +185,8 @@ export function CryptoPairsPage() {
   const [tablePage, setTablePage] = useState(0);
 
   useLayoutEffect(() => {
-    const title = 'Crypto Pairs | QuickXchange';
-    const description = 'Browse available QuickXchange Convert routes, filter crypto pairs, and continue with the selected pair in the Convert widget.';
+    const title = uiT("customer.mc447605b0022");
+    const description = uiT("customer.m735a863953ad");
     document.title = title;
     const setMeta = (selector: string, attribute: 'name' | 'property', key: string, content: string) => {
       let meta = document.querySelector<HTMLMetaElement>(selector);
@@ -368,14 +374,12 @@ export function CryptoPairsPage() {
         {/* Hero */}
         <div className="flex flex-col items-center text-center mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary font-bold text-sm mb-6 border border-primary/20">
-            <Zap size={16} /> Available Convert Routes
-          </div>
+            <Zap size={16} /> {' '}{uiT("customer.m66e35f5b7bce")}{' '}</div>
           <h1 className="text-4xl md:text-5xl font-marketing font-extrabold tracking-tight mb-4">
-            Crypto <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#13ddf4] to-[#7a2cff]">Pairs</span>
+            {uiT("customer.mdf12b8f89b61")}{' '}<span className="text-transparent bg-clip-text bg-gradient-to-r from-[#13ddf4] to-[#7a2cff]">{uiT("customer.m09406fef3fed")}</span>
           </h1>
           <p className="text-muted-foreground text-lg max-w-2xl leading-relaxed">
-            Browse enabled crypto conversion routes and continue with your selected pair in the QuickXchange Convert flow.
-          </p>
+            {uiT("customer.m4f46880ff048")}{' '}</p>
         </div>
 
         {config.isLoading || routes.isLoading ? (
@@ -386,32 +390,32 @@ export function CryptoPairsPage() {
           </div>
         ) : config.isError || routes.isError ? (
           <div className="mb-12">
-            <ErrorState message="Unable to load pairs. Please try again later." />
+            <ErrorState message={uiT("customer.md35cf019e266")} />
           </div>
         ) : allPairs.length === 0 ? (
           <div className="mb-12 text-center p-12 bg-card rounded-3xl border border-border">
-            <span className="text-muted-foreground font-medium">No conversion routes currently available.</span>
+            <span className="text-muted-foreground font-medium">{uiT("customer.m07ab52508cf3")}</span>
           </div>
         ) : (
           <>
             {/* Top Cards */}
             <div className="mb-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100 fill-mode-both">
               <CategoryCard 
-                title="Popular Crypto Pairs" 
+                title={uiT("customer.md908cd71adae")} 
                 icon={TrendingUp} 
                 pairs={topCategories.popular} 
                 marketDataMap={marketDataMap}
                 onConvert={handleConvert}
               />
               <CategoryCard 
-                title="Popular Stablecoin Pairs" 
+                title={uiT("customer.m8222fc1ac629")} 
                 icon={RefreshCw} 
                 pairs={topCategories.stable} 
                 marketDataMap={marketDataMap}
                 onConvert={handleConvert}
               />
               <CategoryCard 
-                title="Trending Crypto Pairs" 
+                title={uiT("customer.mcfd173ede969")} 
                 icon={Zap} 
                 pairs={topCategories.trending} 
                 marketDataMap={marketDataMap}
@@ -422,23 +426,23 @@ export function CryptoPairsPage() {
             {/* Table Section */}
             <div className="flex flex-col relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200 fill-mode-both" id="all-pairs">
               <div className="mb-6">
-                <h2 className="text-2xl font-marketing font-extrabold tracking-tight text-foreground md:text-3xl">All Available Crypto Pairs</h2>
-                <p className="mt-2 text-sm text-muted-foreground md:text-base">Filter the enabled Convert routes published by QuickXchange.</p>
+                <h2 className="text-2xl font-marketing font-extrabold tracking-tight text-foreground md:text-3xl">{uiT("customer.mdee0bf54cebe")}</h2>
+                <p className="mt-2 text-sm text-muted-foreground md:text-base">{uiT("customer.me66cfdd12125")}</p>
               </div>
               
               {/* Filters */}
               <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6 p-4 rounded-2xl bg-card border border-border/60 shadow-sm">
                 <div className="flex flex-col sm:flex-row gap-4 flex-1">
                   <label className="flex flex-col gap-1.5 flex-1 max-w-[200px]">
-                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Send</span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">{uiT("customer.mf6f4688ff23d")}</span>
                     <select 
                       value={sourceFilter}
                       onChange={e => setSourceFilter(e.target.value)}
                       className="w-full bg-background border border-border rounded-xl h-11 px-3 text-sm font-medium focus:ring-2 focus:ring-primary/20 outline-none"
                       data-testid="filter-send-asset"
                     >
-                      <option value="ALL">All Assets</option>
-                      {sourceOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      <option value="ALL">{uiT("customer.m47643dad4057")}</option>
+                      {uiText(sourceOptions.map(opt => <option key={opt} value={opt}>{opt}</option>))}
                     </select>
                   </label>
                   
@@ -447,15 +451,15 @@ export function CryptoPairsPage() {
                   </div>
 
                   <label className="flex flex-col gap-1.5 flex-1 max-w-[200px]">
-                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Receive</span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">{uiT("customer.mbac9d15ad9f1")}</span>
                     <select 
                       value={destFilter}
                       onChange={e => setDestFilter(e.target.value)}
                       className="w-full bg-background border border-border rounded-xl h-11 px-3 text-sm font-medium focus:ring-2 focus:ring-primary/20 outline-none"
                       data-testid="filter-receive-asset"
                     >
-                      <option value="ALL">All Assets</option>
-                      {destOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      <option value="ALL">{uiT("customer.m47643dad4057")}</option>
+                      {uiText(destOptions.map(opt => <option key={opt} value={opt}>{opt}</option>))}
                     </select>
                   </label>
                 </div>
@@ -464,8 +468,8 @@ export function CryptoPairsPage() {
                   <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <input
                     type="text"
-                    aria-label="Search pairs"
-                    placeholder="Search pairs, e.g. BTC/ETH..."
+                    aria-label={uiT("customer.m0be78db2b3f6")}
+                    placeholder={uiT("customer.m13c6e531a239")}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="w-full bg-background border border-border rounded-xl h-11 pl-10 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
@@ -480,11 +484,11 @@ export function CryptoPairsPage() {
                   <table className="w-full text-sm text-left whitespace-nowrap min-w-[700px]">
                     <thead className="bg-muted/30 border-b border-border/60">
                       <tr>
-                        <th className="px-6 py-4 font-bold text-muted-foreground tracking-wider uppercase text-xs w-[30%]">Pair</th>
-                        <th className="px-6 py-4 font-bold text-muted-foreground tracking-wider uppercase text-xs text-right w-[20%]">Rate / Price</th>
-                        <th className="px-6 py-4 font-bold text-muted-foreground tracking-wider uppercase text-xs text-right w-[20%]">24h Change</th>
-                        <th className="px-6 py-4 font-bold text-muted-foreground tracking-wider uppercase text-xs text-center w-[15%]">Status</th>
-                        <th className="px-6 py-4 font-bold text-muted-foreground tracking-wider uppercase text-xs text-right w-[15%]">Convert</th>
+                        <th className="px-6 py-4 font-bold text-muted-foreground tracking-wider uppercase text-xs w-[30%]">{uiT("customer.m989da04b0aaa")}</th>
+                        <th className="px-6 py-4 font-bold text-muted-foreground tracking-wider uppercase text-xs text-right w-[20%]">{uiT("customer.me7ca8beb1112")}</th>
+                        <th className="px-6 py-4 font-bold text-muted-foreground tracking-wider uppercase text-xs text-right w-[20%]">{uiT("customer.m66f9b755298c")}</th>
+                        <th className="px-6 py-4 font-bold text-muted-foreground tracking-wider uppercase text-xs text-center w-[15%]">{uiT("customer.m920e413c7d41")}</th>
+                        <th className="px-6 py-4 font-bold text-muted-foreground tracking-wider uppercase text-xs text-right w-[15%]">{uiT("customer.m5cd425f518c2")}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/40">
@@ -492,8 +496,7 @@ export function CryptoPairsPage() {
                         <tr>
                           <td colSpan={5} className="px-6 py-16 text-center text-muted-foreground">
                             <Filter className="mx-auto mb-3 opacity-20" size={32} />
-                            No conversion routes match your filters.
-                          </td>
+                            {uiT("customer.m8a6e424e8061")}{' '}</td>
                         </tr>
                       ) : (
                         visiblePairs.map((pair) => {
@@ -518,7 +521,7 @@ export function CryptoPairsPage() {
                                   <div className="flex flex-col">
                                     <span className="font-bold text-foreground text-[15px]">{pair.sourceSymbol} / {pair.destSymbol}</span>
                                     <span className="text-xs font-semibold text-muted-foreground">
-                                      {pair.sourceInstrument.currencyFriendlyTitle || pair.sourceInstrument.fullName} to {pair.destInstrument.currencyFriendlyTitle || pair.destInstrument.fullName}
+                                      {pair.sourceInstrument.currencyFriendlyTitle || pair.sourceInstrument.fullName} {' '}{uiT("customer.m663ea1bfffe5")}{' '}{pair.destInstrument.currencyFriendlyTitle || pair.destInstrument.fullName}
                                     </span>
                                   </div>
                                 </div>
@@ -527,9 +530,9 @@ export function CryptoPairsPage() {
                                 {rate !== null ? (
                                   <div className="flex flex-col items-end">
                                     <span className="font-bold font-mono tracking-tight text-foreground">
-                                      1 {pair.sourceSymbol} = {formatRate(rate)} {pair.destSymbol}
+                                      1 {pair.sourceSymbol} = {uiText(formatRate(rate))} {pair.destSymbol}
                                     </span>
-                                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mt-0.5">Live Ref Rate</span>
+                                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mt-0.5">{uiT("customer.m8c3fcf9b9b78")}</span>
                                   </div>
                                 ) : (
                                   <span className="text-muted-foreground font-medium">—</span>
@@ -541,7 +544,7 @@ export function CryptoPairsPage() {
                                     "inline-flex items-center justify-end font-bold px-2 py-1 rounded-md",
                                     isPositive ? "text-success bg-success/10" : "text-destructive bg-destructive/10"
                                   )}>
-                                    {isPositive ? '+' : ''}{(change * 100).toFixed(2)}%
+                                    {isPositive ? '+' : ''}{uiText((change * 100).toFixed(2))}%
                                   </span>
                                 ) : (
                                   <span className="text-muted-foreground font-medium">—</span>
@@ -559,8 +562,7 @@ export function CryptoPairsPage() {
                                   className="inline-flex items-center justify-center gap-2 bg-foreground text-background font-bold text-xs uppercase tracking-wider px-4 py-2.5 rounded-full hover:bg-primary hover:text-primary-foreground hover:shadow-[0_4px_12px_rgba(37,140,255,0.25)] transition-all transform active:scale-95"
                                   data-testid={`btn-convert-${pair.id}`}
                                 >
-                                  Convert
-                                </button>
+                                  {uiT("customer.m5cd425f518c2")}{' '}</button>
                               </td>
                             </tr>
                           );
@@ -572,8 +574,7 @@ export function CryptoPairsPage() {
                 {filteredPairs.length > 0 && (
                   <div className="flex flex-col gap-3 border-t border-border/60 bg-muted/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                     <p className="text-xs font-semibold text-muted-foreground sm:text-sm" aria-live="polite">
-                      Showing {firstVisiblePair.toLocaleString()}–{lastVisiblePair.toLocaleString()} of {filteredPairs.length.toLocaleString()} pairs
-                    </p>
+                      {uiT("customer.md604310a789a")}{' '}{uiText(firstVisiblePair.toLocaleString())}–{uiText(lastVisiblePair.toLocaleString())} {' '}{uiT("customer.m28391d3bc64e")}{' '}{uiText(filteredPairs.length.toLocaleString())} {' '}{uiT("customer.mfb0956241032")}{' '}</p>
                     <div className="flex items-center justify-between gap-3 sm:justify-end">
                       <button
                         type="button"
@@ -583,10 +584,9 @@ export function CryptoPairsPage() {
                         data-testid="pairs-table-previous"
                       >
                         <ChevronLeft size={15} />
-                        Previous
-                      </button>
+                        {uiT("customer.ma57b08a480b8")}{' '}</button>
                       <span className="min-w-14 text-center text-xs font-bold text-muted-foreground" data-testid="pairs-table-page">
-                        {tablePage + 1} / {tablePageCount}
+                        {tablePage + 1} / {uiText(tablePageCount)}
                       </span>
                       <button
                         type="button"
@@ -595,8 +595,7 @@ export function CryptoPairsPage() {
                         className="inline-flex h-9 items-center justify-center gap-1 rounded-full border border-border bg-background px-3 text-xs font-bold text-foreground transition-colors hover:border-primary/40 hover:text-primary disabled:pointer-events-none disabled:opacity-40"
                         data-testid="pairs-table-next"
                       >
-                        Next
-                        <ChevronRight size={15} />
+                        {uiT("customer.m1ff57a29d7c9")}{' '}<ChevronRight size={15} />
                       </button>
                     </div>
                   </div>

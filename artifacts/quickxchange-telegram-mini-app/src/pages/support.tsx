@@ -1,9 +1,12 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { MessageCircle, ExternalLink, LifeBuoy } from 'lucide-react';
 import { useHapticFeedback } from '@/lib/hooks';
 
 export default function Support() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { supportUrl } = useAuth();
   const haptic = useHapticFeedback();
 
@@ -27,26 +30,23 @@ export default function Support() {
           <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
           <LifeBuoy className="w-10 h-10 text-primary relative z-10 stroke-[1.5px]" />
         </div>
-        <h1 className="text-[26px] font-bold tracking-tight">24/7 Support</h1>
+        <h1 className="text-[26px] font-bold tracking-tight">{uiT("customer.m2bff98865447")}</h1>
         <p className="text-[14px] text-muted-foreground max-w-[280px] mx-auto leading-relaxed">
-          Need help with an order or have questions about QuickXchange? Our team is here to help.
-        </p>
+          {uiT("customer.macd94fcd2325")}{' '}</p>
       </div>
 
       <div className="premium-card p-6 flex flex-col items-center justify-center space-y-5 surface-animated">
         <p className="text-[13px] font-semibold text-center text-muted-foreground/90 leading-relaxed">
-          Tap below to open a direct chat with our support team in Telegram.
-        </p>
+          {uiT("customer.mb70cc089d588")}{' '}</p>
         <Button
           onClick={handleOpenSupport}
           disabled={!supportUrl}
           className="w-full h-[54px] rounded-2xl bg-primary text-primary-foreground font-bold shadow-[0_8px_20px_-8px_hsl(var(--primary))] transition-transform active:scale-95"
         >
           <MessageCircle className="w-[18px] h-[18px] mr-2" />
-          Chat with Support
-        </Button>
+          {uiT("customer.m87251e43a826")}{' '}</Button>
         {!supportUrl && (
-          <p className="text-[12px] text-destructive font-medium">Support URL not configured.</p>
+          <p className="text-[12px] text-destructive font-medium">{uiT("customer.mb08205ac2ea3")}</p>
         )}
       </div>
     </div>

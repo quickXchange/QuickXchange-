@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import {
   getGetExchangeConfigQueryKey,
   useGetExchangeConfig,
@@ -58,6 +59,8 @@ export function OrderSettlementIdentity({
   compact = false,
   className,
 }: OrderSettlementIdentityProps) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const config = useGetExchangeConfig({
     query: {
       queryKey: getGetExchangeConfigQueryKey(),
@@ -93,8 +96,8 @@ export function OrderSettlementIdentity({
           className="order-settlement-payment-logo"
         />
         <span className="order-settlement-copy">
-          <strong>{methodName}</strong>
-          <span>{assetCode.toUpperCase()} • Payment Method</span>
+          <strong>{uiText(methodName)}</strong>
+          <span>{assetCode.toUpperCase()} {' '}{uiT("customer.mcc4c2204c48c")}</span>
         </span>
       </span>
     );
@@ -129,7 +132,7 @@ export function OrderSettlementIdentity({
         <FiatCurrencyFlag code={assetCode} flagUrl={paymentOption ? (paymentOption as SettlementOption & { flagUrl?: string | null }).flagUrl : undefined} size={size === 'lg' ? 'lg' : size === 'sm' ? 'sm' : 'md'} />
         <span className="order-settlement-copy">
           <strong>{assetCode.toUpperCase()}</strong>
-          {!compact && <span>Fiat currency</span>}
+          {!compact && <span>{uiT("customer.md6b6b6e185c3")}</span>}
         </span>
       </span>
     );

@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { formatAmountInputValue } from '@workspace/amount-format';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -57,6 +58,8 @@ function ConvertAssetCombobox({
   label: string;
   testId: string;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
 
   const mappedOptions = useMemo(() => {
@@ -91,7 +94,7 @@ function ConvertAssetCombobox({
       options={mappedOptions}
       onChange={onChange}
       onOpenChange={onOpenChange}
-      label={label}
+      label={uiText(label)}
       title={label === t('convert.sendCurrency') ? t('convert.youSend') : t('convert.youReceive')}
       searchPlaceholder={t('convert.searchPlaceholder', { label })}
       closeLabel={t('convert.closeSelector', { label })}
@@ -114,6 +117,8 @@ export function QuickexConvertWidget({
   onSwap: () => void;
   onOpenMenu: () => void;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t, formatNumber } = useI18n();
   const [, setLocation] = useLocation();
   const searchString = useSearch();
@@ -552,7 +557,7 @@ export function QuickexConvertWidget({
               <button type="button" onClick={onSwap} aria-pressed="false" data-mode-target="swap">{t('convert.swap')}</button>
               <button type="button" className="active" aria-pressed="true" data-mode-target="convert">{t('convert.convert')}</button>
             </div>
-            <button type="button" className="reference-menu-btn" aria-label="Open navigation" data-testid="widget-menu-button" onClick={onOpenMenu}>
+            <button type="button" className="reference-menu-btn" aria-label={uiT("customer.m0ed77fd2619b")} data-testid="widget-menu-button" onClick={onOpenMenu}>
               <Menu size={20} />
             </button>
           </div>
@@ -596,7 +601,7 @@ export function QuickexConvertWidget({
           <button
             type="button"
             className="reference-menu-btn"
-            aria-label="Open navigation"
+            aria-label={uiT("customer.m0ed77fd2619b")}
             data-testid="widget-menu-button"
             onClick={onOpenMenu}
           >
@@ -605,10 +610,9 @@ export function QuickexConvertWidget({
         </div>
 
         <div className="reference-title-row">
-          <h2>Convert <span>Crypto</span></h2>
+          <h2>{uiT("customer.m5cd425f518c2")}{' '}<span>{uiT("customer.mdf12b8f89b61")}</span></h2>
           <div className="reference-realtime-badge">
-            <TrendingUp size={15} /> Real-time rate
-          </div>
+            <TrendingUp size={15} /> {' '}{uiT("customer.mc93cf2153f4e")}{' '}</div>
         </div>
       </div>
 
@@ -617,7 +621,7 @@ export function QuickexConvertWidget({
             <div className="convert-step-panel animate-in fade-in slide-in-from-bottom-4 duration-300" data-testid="convert-step-quote">
               <fieldset className="convert-rate-tabs">
                 <legend className="sr-only">{t('convert.rateType')}</legend>
-                {(['FLOATING', 'FIXED'] as QuickexRateMode[]).map(mode => (
+                {uiText((['FLOATING', 'FIXED'] as QuickexRateMode[]).map(mode => (
                   <button
                     type="button"
                     key={mode}
@@ -628,7 +632,7 @@ export function QuickexConvertWidget({
                   >
                     {mode === 'FIXED' ? t('convert.fixedRate') : t('convert.floatingRate')}
                   </button>
-                ))}
+                )))}
               </fieldset>
 
               <div className="convert-quote-flow exchange-flow-stack">
@@ -650,11 +654,11 @@ export function QuickexConvertWidget({
                     )}
                   </div>
                   <div className="reference-amount-footer">
-                    <span>Min: {quote?.minAmount != null ? formatNum(quote.minAmount) : 0} {from?.currencyTitle || ''}</span>
+                    <span>{uiT("customer.m67f709142079")}{' '}{quote?.minAmount != null ? formatNum(quote.minAmount) : 0} {from?.currencyTitle || ''}</span>
                     <span>
-                      Max: {quote?.maxAmount != null
+                      {uiT("customer.mef2840cc402e")}{' '}{quote?.maxAmount != null
                         ? `${formatNum(quote.maxAmount)} ${from?.currencyTitle || ''}`
-                        : 'No limit'}
+                        : uiT("customer.mf7fcff0d8fea")}
                     </span>
                   </div>
                 </div>
@@ -720,7 +724,7 @@ export function QuickexConvertWidget({
               {quoteError && (
                 <div className="convert-quote-error mt-6 p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm font-medium flex items-start gap-3">
                   <AlertCircle size={16} className="shrink-0 mt-0.5" />
-                  <span>{quoteError}</span>
+                  <span>{uiText(quoteError)}</span>
                 </div>
               )}
 
@@ -816,7 +820,7 @@ export function QuickexConvertWidget({
                 </div>
               )}
 
-              <div className="order-details-content convert-order-details-content flex flex-col gap-4" aria-label="Convert wallet and contact details">
+              <div className="order-details-content convert-order-details-content flex flex-col gap-4" aria-label={uiT("customer.mcb5aa2124dd4")}>
                 {/* Destination */}
                 <div className="order-detail-field order-detail-field--destination flex flex-col gap-1.5">
                   <label htmlFor="convert-destination" className="text-[13px] font-semibold text-muted-foreground">
@@ -917,7 +921,7 @@ export function QuickexConvertWidget({
                 {notice && (
                   <div className={`p-4 rounded-xl text-sm font-medium flex items-start gap-3 border ${notice.kind === 'error' ? 'bg-destructive/10 text-destructive border-destructive/20' : 'bg-success/10 text-success border-success/20'}`} data-testid="convert-notice">
                     <AlertCircle size={16} className="shrink-0 mt-0.5" />
-                    <span>{notice.text}</span>
+                    <span>{uiText(notice.text)}</span>
                   </div>
                 )}
                 <OrderPolicyAcceptance id="convert-terms" checked={termsAccepted} onChange={setTermsAccepted} />

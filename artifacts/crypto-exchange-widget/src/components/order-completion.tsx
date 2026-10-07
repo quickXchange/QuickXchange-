@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { useEffect, useState } from 'react';
 import { CheckCircle2, Download, ExternalLink, Printer } from 'lucide-react';
 import { SiTrustpilot } from 'react-icons/si';
@@ -24,6 +25,8 @@ function trustpilotDestination(value?: string | null): string | null {
 }
 
 function CompletionReview({ configuredUrl }: { configuredUrl?: string | null }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const published = useGetPublishedSiteContent({
     query: { queryKey: getGetPublishedSiteContentQueryKey(), staleTime: 60_000 },
   });
@@ -44,11 +47,11 @@ function CompletionReview({ configuredUrl }: { configuredUrl?: string | null }) 
   if (!reviewUrl) return null;
 
   return (
-    <a className="order-completion-review" href={reviewUrl} target="_blank" rel="noopener noreferrer" aria-label="Review us on Trustpilot" data-testid="link-trustpilot-review">
+    <a className="order-completion-review" href={reviewUrl} target="_blank" rel="noopener noreferrer" aria-label={uiT("customer.mffa99e99b108")} data-testid="link-trustpilot-review">
       <span className="order-completion-review-icon"><SiTrustpilot aria-hidden="true" /></span>
       <span className="order-completion-review-copy">
-        <span>Review us on <strong><SiTrustpilot aria-hidden="true" /> Trustpilot</strong></span>
-        <small>Share your experience with QuickXchange</small>
+        <span>{uiT("customer.m772de4944ac9")}{' '}<strong><SiTrustpilot aria-hidden="true" /> Trustpilot</strong></span>
+        <small>{uiT("customer.m121b468e819e")}</small>
       </span>
       <ExternalLink size={16} aria-hidden="true" />
     </a>
@@ -64,6 +67,8 @@ export function OrderCompletionSection({
   trustpilotUrl?: string | null;
   refreshWarning?: boolean;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const telegramSupportUrl = usePublishedTelegramSupportUrl();
@@ -140,20 +145,20 @@ export function OrderCompletionSection({
       <div className="order-completion-heading">
         <span className="order-completion-icon"><CheckCircle2 size={22} /></span>
         <div>
-          <span className="order-completion-kicker">TRANSACTION COMPLETE</span>
-          <h3>{isConvert ? 'Your Convert is complete' : 'Your Swap is complete'}</h3>
-          <p>Your invoice is ready. Keep it for your records.</p>
+          <span className="order-completion-kicker">{uiT("customer.mfefb61f1f162")}</span>
+          <h3>{isConvert ? uiT("customer.m6cf24c671946") : uiT("customer.m05e92b7be6e2")}</h3>
+          <p>{uiT("customer.m95271b680fd1")}</p>
         </div>
       </div>
       <div className="order-completion-actions">
         <button type="button" className="order-completion-button" onClick={downloadPdf} disabled={exporting || !telegramSupportUrl} data-testid="button-download-invoice">
-          <Download size={16} /> {!telegramSupportUrl ? 'Loading support details…' : exporting ? 'Preparing PDF…' : 'Download PDF'}
+          <Download size={16} /> {!telegramSupportUrl ? uiT("customer.maf6cade28fed") : exporting ? uiT("customer.mada4d2485dce") : uiT("customer.m6183be0883d2")}
         </button>
         <button type="button" className="order-completion-button secondary" onClick={printPdf} disabled={exporting || !telegramSupportUrl} data-testid="button-print-invoice">
-          <Printer size={16} /> {!telegramSupportUrl ? 'Loading support…' : 'Print'}
+          <Printer size={16} /> {!telegramSupportUrl ? uiT("customer.m44bf1f9a57cf") : uiT("customer.mdf0fe79898ef")}
         </button>
       </div>
-      {exportError && <p className="px-5 pb-4 text-sm text-destructive" role="alert">{exportError}</p>}
+      {exportError && <p className="px-5 pb-4 text-sm text-destructive" role="alert">{uiText(exportError)}</p>}
       <CompletionReview configuredUrl={trustpilotUrl} />
     </section>
   );

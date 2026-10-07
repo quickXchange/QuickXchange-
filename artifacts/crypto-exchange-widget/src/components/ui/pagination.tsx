@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import * as React from 'react';
 import { ButtonProps, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -5,12 +6,14 @@ import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
 import { useOptionalI18n } from '@/i18n/provider';
 
 const Pagination = ({ className, ...props }: React.ComponentProps<'nav'>) => {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const i18n = useOptionalI18n();
 
   return (
     <nav
       role="navigation"
-      aria-label={i18n?.t('genericUi.paginationLabel') ?? 'pagination'}
+      aria-label={i18n?.t('genericUi.paginationLabel') ?? uiT("customer.mc30ad110383e")}
       className={cn('mx-auto flex w-full justify-center', className)}
       {...props}
     />
@@ -67,17 +70,19 @@ const PaginationPrevious = ({
   className,
   ...props
 }: React.ComponentProps<typeof PaginationLink>) => {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const i18n = useOptionalI18n();
 
   return (
     <PaginationLink
-      aria-label={i18n?.t('genericUi.goToPreviousPage') ?? 'Go to previous page'}
+      aria-label={i18n?.t('genericUi.goToPreviousPage') ?? uiT("customer.m2865e0f438b4")}
       size="default"
       className={cn('gap-1 pl-2.5', className)}
       {...props}
     >
       <ChevronLeft className="h-4 w-4" />
-      <span>{i18n?.t('genericUi.previous') ?? 'Previous'}</span>
+      <span>{i18n?.t('genericUi.previous') ?? uiT("customer.ma57b08a480b8")}</span>
     </PaginationLink>
   );
 };
@@ -87,16 +92,18 @@ const PaginationNext = ({
   className,
   ...props
 }: React.ComponentProps<typeof PaginationLink>) => {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const i18n = useOptionalI18n();
 
   return (
     <PaginationLink
-      aria-label={i18n?.t('genericUi.goToNextPage') ?? 'Go to next page'}
+      aria-label={i18n?.t('genericUi.goToNextPage') ?? uiT("customer.m7e021afbf6ac")}
       size="default"
       className={cn('gap-1 pr-2.5', className)}
       {...props}
     >
-      <span>{i18n?.t('genericUi.next') ?? 'Next'}</span>
+      <span>{i18n?.t('genericUi.next') ?? uiT("customer.m1ff57a29d7c9")}</span>
       <ChevronRight className="h-4 w-4" />
     </PaginationLink>
   );
@@ -107,6 +114,8 @@ const PaginationEllipsis = ({
   className,
   ...props
 }: React.ComponentProps<'span'>) => {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const i18n = useOptionalI18n();
 
   return (
@@ -117,7 +126,7 @@ const PaginationEllipsis = ({
     >
       <MoreHorizontal className="h-4 w-4" />
       <span className="sr-only">
-        {i18n?.t('genericUi.morePages') ?? 'More pages'}
+        {i18n?.t('genericUi.morePages') ?? uiT("customer.m0418cd51e53f")}
       </span>
     </span>
   );

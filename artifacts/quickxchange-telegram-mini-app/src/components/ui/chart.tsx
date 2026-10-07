@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 import * as RechartsPrimitive from 'recharts';
@@ -40,6 +41,8 @@ const ChartContainer = React.forwardRef<
     >['children'];
   }
 >(({ id, className, children, config, ...props }, ref) => {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const uniqueId = React.useId();
   const chartId = `chart-${id || uniqueId.replace(/:/g, '')}`;
 
@@ -56,7 +59,7 @@ const ChartContainer = React.forwardRef<
       >
         <ChartStyle id={chartId} config={config} />
         <RechartsPrimitive.ResponsiveContainer>
-          {children}
+          {uiText(children)}
         </RechartsPrimitive.ResponsiveContainer>
       </div>
     </ChartContext.Provider>
@@ -128,6 +131,8 @@ const ChartTooltipContent = React.forwardRef<
     },
     ref,
   ) => {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
     const { config } = useChart();
 
     const tooltipLabel = React.useMemo(() => {
@@ -146,7 +151,7 @@ const ChartTooltipContent = React.forwardRef<
       if (labelFormatter) {
         return (
           <div className={cn('font-medium', labelClassName)}>
-            {labelFormatter(value, payload)}
+            {uiText(labelFormatter(value, payload))}
           </div>
         );
       }
@@ -155,7 +160,7 @@ const ChartTooltipContent = React.forwardRef<
         return null;
       }
 
-      return <div className={cn('font-medium', labelClassName)}>{value}</div>;
+      return <div className={cn('font-medium', labelClassName)}>{uiText(value)}</div>;
     }, [
       label,
       labelFormatter,
@@ -182,7 +187,7 @@ const ChartTooltipContent = React.forwardRef<
       >
         {!nestLabel ? tooltipLabel : null}
         <div className="grid gap-1.5">
-          {payload
+          {uiText(payload
             .filter((item) => item.type !== 'none')
             .map((item, index) => {
               const key = `${nameKey || item.name || item.dataKey || 'value'}`;
@@ -247,7 +252,7 @@ const ChartTooltipContent = React.forwardRef<
                   )}
                 </div>
               );
-            })}
+            }))}
         </div>
       </div>
     );
@@ -269,6 +274,8 @@ const ChartLegendContent = React.forwardRef<
     { className, hideIcon = false, payload, verticalAlign = 'bottom', nameKey },
     ref,
   ) => {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
     const { config } = useChart();
 
     if (!payload?.length) {
@@ -284,7 +291,7 @@ const ChartLegendContent = React.forwardRef<
           className,
         )}
       >
-        {payload
+        {uiText(payload
           .filter((item) => item.type !== 'none')
           .map((item) => {
             const key = `${nameKey || item.dataKey || 'value'}`;
@@ -310,7 +317,7 @@ const ChartLegendContent = React.forwardRef<
                 {itemConfig?.label}
               </div>
             );
-          })}
+          }))}
       </div>
     );
   },

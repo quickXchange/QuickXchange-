@@ -87,6 +87,7 @@
     "@workspace/api-zod": "workspace:*",
     "dompurify": "^3.4.15",
     "qrcode.react": "^4.2.0",
-    "sanitize-html": "^2.17.0"
+    "sanitize-html": "^2.17.0",
+    "@workspace/i18n": "workspace:*"
   }
 }

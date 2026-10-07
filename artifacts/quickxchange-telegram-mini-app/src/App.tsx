@@ -1,4 +1,6 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { type ReactNode } from 'react';
+import { I18nProvider } from '@workspace/i18n';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
@@ -29,6 +31,8 @@ const queryClient = createSessionAwareQueryClient({
 });
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { isLoading, sessionToken } = useAuth();
   
   if (isLoading) {
@@ -38,7 +42,7 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
           <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
           <div className="w-10 h-10 rounded-full border-[3px] border-primary/30 border-t-primary animate-spin relative z-10" />
         </div>
-        <p className="text-sm font-semibold text-muted-foreground">Connecting to Telegram…</p>
+        <p className="text-sm font-semibold text-muted-foreground">{uiT("customer.m06a2ff1f5914")}</p>
       </div>
     );
   }
@@ -50,10 +54,9 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
           <div className="absolute inset-0 bg-destructive/20 blur-xl rounded-3xl" />
           <ShieldAlert className="w-8 h-8 relative z-10" />
         </div>
-        <h2 className="text-2xl font-bold text-foreground mb-3 tracking-tight">Open in Telegram</h2>
+        <h2 className="text-2xl font-bold text-foreground mb-3 tracking-tight">{uiT("customer.m23ab8c3a0b8e")}</h2>
         <p className="text-muted-foreground text-sm max-w-[260px] leading-relaxed">
-          QuickXchange is designed to be used securely inside Telegram. Please open the bot to access your account.
-        </p>
+          {uiT("customer.mff80756887df")}{' '}</p>
       </div>
     );
   }
@@ -81,13 +84,16 @@ function Router() {
 }
 
 function RoutedErrorBoundary({ children }: { children: ReactNode }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [location] = useLocation();
-  return <ErrorBoundary resetKey={location}>{children}</ErrorBoundary>;
+  return <ErrorBoundary resetKey={location}>{uiText(children)}</ErrorBoundary>;
 }
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <I18nProvider>
       <TooltipProvider>
         <AuthProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
@@ -96,6 +102,7 @@ function App() {
           <Toaster />
         </AuthProvider>
       </TooltipProvider>
+      </I18nProvider>
     </QueryClientProvider>
   );
 }

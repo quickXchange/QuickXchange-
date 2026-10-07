@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import React from 'react';
 import {
   DEFAULT_LANDING_BACKGROUND_URL,
@@ -76,10 +77,12 @@ export function LandingBackgroundView({
 }
 
 export function LiveLandingBackground({ children }: { children: React.ReactNode }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   return (
     <div className="live-landing-background-root relative isolate min-h-[100dvh] w-full" data-testid="live-landing-background-root">
       <div className="relative z-10 w-full">
-        {children}
+        {uiText(children)}
       </div>
     </div>
   );

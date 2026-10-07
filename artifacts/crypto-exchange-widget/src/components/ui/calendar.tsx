@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 'use client';
 
 import * as React from 'react';
@@ -22,6 +23,8 @@ function Calendar({
 }: React.ComponentProps<typeof DayPicker> & {
   buttonVariant?: React.ComponentProps<typeof Button>['variant'];
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const defaultClassNames = getDefaultClassNames();
 
   return (
@@ -159,7 +162,7 @@ function Calendar({
           return (
             <td {...props}>
               <div className="flex size-[--cell-size] items-center justify-center text-center">
-                {children}
+                {uiText(children)}
               </div>
             </td>
           );

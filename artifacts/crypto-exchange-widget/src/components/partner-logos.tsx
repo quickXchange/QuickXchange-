@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
 import { cn } from './shared-app-ui';
 import { useAppTheme } from '../theme';
@@ -84,6 +85,8 @@ interface PartnerLogosProps {
 }
 
 export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewState, className, forcePaused, brandTrustpilotGreen = false }: PartnerLogosProps) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const isDarkApp = useAppTheme();
   const isDark = previewState?.theme ? previewState.theme === 'dark' : isDarkApp;
   
@@ -219,13 +222,13 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
       // intrinsic dimensions. object-fit preserves the original proportions.
       const content = brandTrustpilotGreen && !hasThemeVariant && /trustpilot/i.test(logo.name)
         ? <span className="partner-logo-trustpilot" style={{ width: maxW, height: maxW * 0.6, maxWidth: '100%', overflow: 'hidden', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.25em', fontSize: `${maxW / 6.5}px` }} role={logo.link ? undefined : 'img'} aria-label={logo.link ? undefined : logo.name} aria-hidden={logo.link ? true : undefined}><SiTrustpilot />Trustpilot</span>
-        : <img src={src} alt={logo.name} className={imgClass} style={{ width: maxW, height: maxW * 0.6, objectFit: 'contain' }} loading={shouldAnimate ? 'eager' : 'lazy'} draggable={false} />;
+        : <img src={src} alt={uiText(logo.name)} className={imgClass} style={{ width: maxW, height: maxW * 0.6, objectFit: 'contain' }} loading={shouldAnimate ? 'eager' : 'lazy'} draggable={false} />;
 
       return (
         <div key={logo.id} className={cardClass} style={{ width: motionSlotWidth, height: motionHeight, boxSizing: 'border-box' }}>
           {logo.link ? (
-            <a href={logo.link} target="_blank" rel="noreferrer" aria-label={logo.name} className="flex w-full h-full items-center justify-center focus-visible:outline-primary">
-              {content}
+            <a href={logo.link} target="_blank" rel="noreferrer" aria-label={uiText(logo.name)} className="flex w-full h-full items-center justify-center focus-visible:outline-primary">
+              {uiText(content)}
             </a>
           ) : content}
         </div>
@@ -391,10 +394,10 @@ export function PartnerLogos({ logos, settings, assetUrls, getLogoUrl, previewSt
       >
         {motionEnabled ? motionItems.map(({ item, index, copy }) => (
           <div key={`motion-${copy}-${item.key ?? index}`} aria-hidden={copy > 0 ? true : undefined} className="absolute top-0 left-0 flex h-full items-center justify-center will-change-transform" style={{ width: motionSlotWidth }}>
-            {item}
+            {uiText(item)}
           </div>
         )) : settings.layout === 'carousel' ? items.map((item, i) => (
-          <div key={i} className="snap-center">{item}</div>
+          <div key={i} className="snap-center">{uiText(item)}</div>
         )) : items}
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import {
   memo,
   useEffect,
@@ -61,6 +62,8 @@ function PopularPairCard({ pair, duplicate }: {
   pair: PopularExchangePair;
   duplicate?: boolean;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const sourceLabel = pair.source.label || pair.source.asset;
   const targetLabel = pair.target.label || pair.target.asset;
   const handleClick = () => {
@@ -85,7 +88,7 @@ function PopularPairCard({ pair, duplicate }: {
       onClick={handleClick}
       tabIndex={duplicate ? -1 : undefined}
       aria-hidden={duplicate || undefined}
-      aria-label={`${pair.mode === 'convert' ? 'Convert' : 'Swap'} ${sourceLabel} to ${targetLabel}`}
+      aria-label={uiT("customer.m6dfd5eb920c7", { v0: pair.mode === 'convert' ? 'Convert' : 'Swap', v1: sourceLabel, v2: targetLabel })}
       className="popular-pair-marquee-card group relative shrink-0 overflow-hidden rounded-[20px] border border-[#258cff]/30 bg-card p-5 text-left shadow-[inset_0_0_24px_rgba(19,221,244,0.10),inset_0_0_42px_rgba(122,44,255,0.06),0_0_0_1px_rgba(37,140,255,0.04)] transition-[border-color,box-shadow] duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background hover:border-[#13ddf4]/55 hover:shadow-[inset_0_0_34px_rgba(19,221,244,0.18),inset_0_0_56px_rgba(122,44,255,0.12),0_8px_28px_rgba(37,140,255,0.14)] active:border-[#13ddf4]/60 dark:border-[#438cff]/35 dark:bg-[#0b1424] dark:shadow-[inset_0_0_30px_rgba(19,221,244,0.12),inset_0_0_52px_rgba(122,44,255,0.12),0_0_0_1px_rgba(67,140,255,0.06)] dark:hover:border-[#13ddf4]/60 dark:hover:shadow-[inset_0_0_40px_rgba(19,221,244,0.22),inset_0_0_68px_rgba(122,44,255,0.20),0_10px_30px_rgba(20,90,210,0.18)] md:p-6"
       data-testid={duplicate ? undefined : `popular-${pair.mode}-pair-${pair.source.settlementOptionId}-${pair.target.settlementOptionId}`}
     >
@@ -98,7 +101,7 @@ function PopularPairCard({ pair, duplicate }: {
           </span>
           <span className="flex min-w-0 flex-col">
             <strong className="truncate text-lg font-bold leading-tight tracking-tight text-foreground">
-              {sourceLabel}/{targetLabel}
+              {uiText(sourceLabel)}/{uiText(targetLabel)}
             </strong>
             <span className="mt-1 truncate text-xs font-medium text-muted-foreground">
               {pair.source.network}{pair.target.kind === 'crypto-network' ? ` → ${pair.target.network}` : ''}
@@ -109,7 +112,7 @@ function PopularPairCard({ pair, duplicate }: {
       <span className="relative z-10 flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl border border-[#258cff]/25 bg-[#158cff]/10 py-2.5 font-bold text-primary shadow-[inset_0_0_18px_rgba(19,221,244,0.14),inset_0_0_28px_rgba(122,44,255,0.08)] transition-all duration-300 group-hover:border-[#13ddf4]/45 group-hover:bg-[#158cff]/15 group-hover:shadow-[inset_0_0_24px_rgba(19,221,244,0.22),inset_0_0_38px_rgba(122,44,255,0.16)] dark:bg-[#087bff]/12">
         <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#13ddf4]/10 via-[#258cff]/8 to-[#7a2cff]/10 opacity-80 transition-opacity group-hover:opacity-100" />
         <Zap size={16} className="relative z-10" />
-        <span className="relative z-10">{pair.mode === 'convert' ? 'Convert' : 'Swap'}</span>
+        <span className="relative z-10">{pair.mode === 'convert' ? uiT("customer.m5cd425f518c2") : uiT("customer.m6ec282d40a8a")}</span>
       </span>
     </button>
   );
@@ -126,6 +129,8 @@ function PairRow({
   direction: 'left' | 'right';
   loading: boolean;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const marqueeRef = useRef<HTMLDivElement>(null);
   const resumeTimerRef = useRef<number | null>(null);
   const clearClickSuppressionTimerRef = useRef<number | null>(null);
@@ -287,7 +292,7 @@ function PairRow({
 
   return (
     <div className="popular-pairs-row">
-      <h3 className="mb-4 px-3 sm:px-4 text-xl font-extrabold tracking-tight text-foreground md:px-8 md:text-2xl">{title}</h3>
+      <h3 className="mb-4 px-3 sm:px-4 text-xl font-extrabold tracking-tight text-foreground md:px-8 md:text-2xl">{uiText(title)}</h3>
       <div
         ref={marqueeRef}
         className="popular-pairs-marquee"
@@ -306,8 +311,8 @@ function PairRow({
         onDragStart={event => event.preventDefault()}
       >
         <div className="popular-pairs-track">
-          {renderSequence()}
-          {renderSequence(true)}
+          {uiText(renderSequence())}
+          {uiText(renderSequence(true))}
         </div>
       </div>
     </div>
@@ -315,6 +320,8 @@ function PairRow({
 }
 
 export const PopularExchangePairs = memo(function PopularExchangePairs() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const popularPairs = useGetPopularExchangePairs({
     query: {
       queryKey: getGetPopularExchangePairsQueryKey(),
@@ -332,16 +339,14 @@ export const PopularExchangePairs = memo(function PopularExchangePairs() {
     <section id="popular-pairs" className="relative z-10 w-full py-12" data-testid="popular-pairs-section">
       <div className="mx-auto mb-10 flex max-w-[1440px] flex-col items-center px-3 sm:px-4 text-center md:px-8">
         <h2 className="mb-2 text-3xl font-extrabold tracking-tight text-foreground md:text-4xl">
-          Popular Exchange Pairs
-        </h2>
+          {uiT("customer.mc28374963234")}{' '}</h2>
         <p className="max-w-2xl text-lg font-medium text-muted-foreground">
-          Choose a popular active route and continue directly in the QuickXchange widget.
-        </p>
+          {uiT("customer.maac921faa693")}{' '}</p>
       </div>
 
       <div className="space-y-8">
-        <PairRow title="Popular Convert Pairs" pairs={convert} direction="left" loading={loading} />
-        <PairRow title="Popular Swap Pairs" pairs={swap} direction="right" loading={loading} />
+        <PairRow title={uiT("customer.m4e64dc8a45cf")} pairs={convert} direction="left" loading={loading} />
+        <PairRow title={uiT("customer.m178c91569722")} pairs={swap} direction="right" loading={loading} />
       </div>
 
       <div className="relative z-10 mt-8 text-center">
@@ -351,8 +356,7 @@ export const PopularExchangePairs = memo(function PopularExchangePairs() {
           className="group inline-flex items-center justify-center gap-2 text-sm font-bold text-muted-foreground transition-colors duration-200 hover:text-primary"
           data-testid="btn-view-all-pairs"
         >
-          View all pairs
-          <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+          {uiT("customer.mb7141b0babed")}{' '}<ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
         </button>
       </div>
     </section>

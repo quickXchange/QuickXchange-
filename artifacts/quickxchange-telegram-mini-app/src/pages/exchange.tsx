@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n, type Locale } from "@workspace/i18n";
 import { formatAmountInputValue, formatDisplayAmount } from '@workspace/amount-format';
 import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
@@ -69,45 +70,10 @@ function hasNonZeroFeeAmount(value: unknown): boolean {
   return value !== null && value !== undefined && !/^0*(?:\.0*)?$/.test(String(value));
 }
 
-type AddonLocale = 'en' | 'ru' | 'ar' | 'uk';
+type AddonLocale = Locale;
 
-function getAddonLocale(): AddonLocale {
-  const supportedLocales: AddonLocale[] = ['en', 'ru', 'ar', 'uk'];
-  const normalizeLocale = (value?: string | null): AddonLocale | undefined => {
-    const locale = value?.trim().toLowerCase().split(/[-_]/)[0];
-    return supportedLocales.find((supported) => supported === locale);
-  };
-
-  // A non-English document language is an explicit app-level override; "en"
-  // is the static HTML default, so don't let it mask the user's device locale.
-  const appLocale = typeof document !== 'undefined'
-    ? normalizeLocale(document.documentElement.dataset.locale || document.documentElement.dataset.language)
-      ?? (normalizeLocale(document.documentElement.lang) !== 'en'
-        ? normalizeLocale(document.documentElement.lang)
-        : undefined)
-    : undefined;
-  if (appLocale) return appLocale;
-
-  if (typeof window !== 'undefined') {
-    const telegramLocale = normalizeLocale(window.Telegram?.WebApp?.initDataUnsafe?.user?.language_code);
-    if (telegramLocale) return telegramLocale;
-  }
-
-  if (typeof navigator !== 'undefined') {
-    for (const language of navigator.languages ?? [navigator.language]) {
-      const locale = normalizeLocale(language);
-      if (locale) return locale;
-    }
-  }
-  return 'en';
-}
-
-function getLocalizedAddonText(addon: any, locale: AddonLocale) {
-  const translation = addon?.translations?.[locale];
-  return {
-    title: translation?.title || addon?.name || '',
-    description: translation?.description || addon?.description || '',
-  };
+function getLocalizedAddonText(addon: any, _locale: AddonLocale) {
+  return { title: addon?.name || "", description: addon?.description || "" };
 }
 
 function getAddonFeeLabel(addon: any): string {
@@ -135,25 +101,27 @@ function ManualSwapFeeSummary({
   addons?: any[];
   locale: AddonLocale;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   if (!fees) return null;
   const exchangeFee = fees.exchangeFee;
   return (
     <div className="space-y-2 rounded-2xl border border-primary/15 bg-primary/[0.04] p-4">
-      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Selected add-ons are deducted from receive</p>
+      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">{uiT("customer.m6a2adef6fa1b")}</p>
       {hasNonZeroFeeAmount(fees.existingPricingFee) && (
         <div className="flex items-center justify-between gap-3 text-[12px]">
-          <span className="text-muted-foreground">Existing pricing fee</span>
+          <span className="text-muted-foreground">{uiT("customer.ma94d19a8649e")}</span>
           <span className="font-semibold">{formatFeeAmount(fees.existingPricingFee)} {targetAsset}</span>
         </div>
       )}
       {hasNonZeroFeeAmount(exchangeFee?.totalAmount) && (
         <div className="flex items-start justify-between gap-3 text-[12px]">
-          <span className="text-muted-foreground">Exchange fee</span>
+          <span className="text-muted-foreground">{uiT("customer.mc84b4c4666c3")}</span>
           <span className="text-right font-semibold">
             {formatFeeAmount(exchangeFee.totalAmount)} {targetAsset}
             {exchangeFee.fixedAmount !== null && exchangeFee.fixedAmount !== undefined && (
               <span className="block text-[10px] font-medium text-muted-foreground">
-                Fixed component: {formatFeeAmount(exchangeFee.fixedAmount)} {exchangeFee.fixedCurrency}
+                {uiT("customer.m2eeaba703e0e")}{' '}{formatFeeAmount(exchangeFee.fixedAmount)} {exchangeFee.fixedCurrency}
               </span>
             )}
           </span>
@@ -162,32 +130,31 @@ function ManualSwapFeeSummary({
       {(fees.selectedAddons ?? []).map((addon: any) => (
         <div key={addon.id || addon.key} className="flex items-start justify-between gap-3 text-[12px]">
           <span className="text-muted-foreground">
-            {getLocalizedAddonText(
+            {uiText(getLocalizedAddonText(
               addons?.find((item) => item.id === addon.id || item.key === addon.key) ?? addon,
               locale,
-            ).title}
+            ).title)}
           </span>
           <span className="text-right font-semibold">
             {addon.feeType === 'percentage'
               ? addon.percentage === null || addon.percentage === undefined
-                ? 'Percentage fee'
+                ? uiT("customer.mf550b356a519")
                 : `${formatFeeAmount(addon.percentage)}%`
               : `${formatFeeAmount(addon.amount)} ${addon.currency}`}
             {targetAsset && (
               <span className="block text-[10px] font-medium text-muted-foreground">
-                {formatFeeAmount(addon.targetAmount)} {targetAsset} deducted
-              </span>
+                {formatFeeAmount(addon.targetAmount)} {targetAsset} {' '}{uiT("customer.m4268172c8992")}{' '}</span>
             )}
           </span>
         </div>
       ))}
       <div className="flex items-center justify-between gap-3 border-t border-border/50 pt-2 text-[12px] font-bold">
-        <span>Total fees</span>
+        <span>{uiT("customer.m47e44854816e")}</span>
         <span>{formatFeeAmount(fees.totalFees)} {targetAsset}</span>
       </div>
       {receiveAmount !== undefined && (
         <div className="flex items-center justify-between gap-3 border-t border-border/50 pt-2 text-[12px] font-bold text-primary">
-          <span>Final receive</span>
+          <span>{uiT("customer.m9bbf721e900b")}</span>
           <span>{formatFeeAmount(receiveAmount)} {targetAsset}</span>
         </div>
       )}
@@ -196,6 +163,8 @@ function ManualSwapFeeSummary({
 }
 
 export default function Exchange() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [, setLocation] = useLocation();
   const { user: authenticatedUser, isLoading: isAuthLoading } = useAuth();
   const headers = useAuthHeaders();
@@ -367,7 +336,7 @@ export default function Exchange() {
     },
   });
   const manualSwapAddons = manualSwapAddonsQuery.data?.items ?? EMPTY_MANUAL_SWAP_ADDONS;
-  const addonLocale = getAddonLocale();
+  const { locale: addonLocale } = useCustomerI18n();
   const selectedAddonKeySet = useMemo(() => new Set(selectedAddonKeys), [selectedAddonKeys]);
   const addonSelectionMode = manualSwapAddons.some((addon) => addon.selectionRule === 'multiple')
     ? 'multiple'
@@ -1295,7 +1264,7 @@ export default function Exchange() {
     return (
       <div className="mx-auto max-w-md p-4 pt-8">
         <p role="alert" className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-          {recoveryLoadError}
+          {uiText(recoveryLoadError)}
         </p>
       </div>
     );
@@ -1323,7 +1292,7 @@ export default function Exchange() {
       )}>
 
 
-      {step === 1 && (
+      {uiText(step === 1 && (
         <div className="qx-exchange-tabs flex bg-muted/50 p-1 rounded-2xl mb-2 backdrop-blur-md border border-white/5 relative z-10">
           <button
             className={cn(
@@ -1333,8 +1302,7 @@ export default function Exchange() {
             onClick={() => setMode('swap')}
             disabled={createOutcomeUncertain}
           >
-            Swap
-          </button>
+            {uiT("customer.m6ec282d40a8a")}{' '}</button>
           <button
             className={cn(
               "flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-300",
@@ -1343,16 +1311,15 @@ export default function Exchange() {
             onClick={() => setMode('convert')}
             disabled={createOutcomeUncertain}
           >
-            Convert
-          </button>
+            {uiT("customer.m5cd425f518c2")}{' '}</button>
         </div>
-      )}
+      ))}
 
       <div className="flex items-center justify-between mb-2 mt-2">
         <h1 className="qx-exchange-heading text-[22px] font-bold tracking-tight">
-          {step === 1 ? (mode === 'convert' ? 'Convert' : 'Swap') : step === 2 ? 'Details' : 'Review'}
+          {uiText(step === 1 ? (mode === 'convert' ? uiT("customer.m5cd425f518c2") : uiT("customer.m6ec282d40a8a")) : step === 2 ? uiT("customer.m45989de49fb7") : uiT("customer.maff0766a5290"))}
         </h1>
-        {step > 1 && (
+        {uiText(step > 1 && (
           <button
             onClick={() => {
               if (createOutcomeUncertain) return;
@@ -1365,16 +1332,15 @@ export default function Exchange() {
             className="text-[13px] font-semibold text-muted-foreground hover:text-foreground transition-colors px-3 py-1 bg-white/5 rounded-full"
             disabled={createOutcomeUncertain}
           >
-            Back
-          </button>
-        )}
+            {uiT("customer.m76900f1bfd16")}{' '}</button>
+        ))}
       </div>
 
       {errorMsg && (
         <div role="alert" className="bg-destructive/10 border border-destructive/20 text-destructive p-3.5 rounded-2xl flex items-start text-sm animate-in fade-in slide-in-from-top-2">
           <AlertCircle className="w-[18px] h-[18px] mt-[1px] mr-2 shrink-0 opacity-80" />
           <div className="min-w-0 flex-1 space-y-2">
-            <p className="font-medium leading-tight">{errorMsg}</p>
+            <p className="font-medium leading-tight">{uiText(errorMsg)}</p>
             {step === 1 && mode === 'convert' && exchangeRouteReady &&
               parsedAmount > 0 && !isQuoteProcessing && !createOutcomeUncertain && (
                 <Button
@@ -1386,19 +1352,18 @@ export default function Exchange() {
                     setQuoteRefreshNonce((nonce) => nonce + 1);
                   }}
                 >
-                  Retry quote
-                </Button>
+                  {uiT("customer.m9dfe841c4110")}{' '}</Button>
               )}
           </div>
         </div>
       )}
-      {quoteExpired && !createOutcomeUncertain && (
+      {uiText(quoteExpired && !createOutcomeUncertain && (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-700 dark:text-amber-300">
           <div className="flex items-start gap-2">
             <AlertCircle className="mt-0.5 h-[18px] w-[18px] shrink-0" />
             <div className="space-y-2">
-              <p className="text-sm font-semibold">Quote expired</p>
-              <p className="text-xs leading-relaxed">Refresh the quote to continue. Your selected route and amount will stay unchanged.</p>
+              <p className="text-sm font-semibold">{uiT("customer.m0d17dd31932f")}</p>
+              <p className="text-xs leading-relaxed">{uiT("customer.m294e87ea30a1")}</p>
               <Button
                 type="button"
                 variant="outline"
@@ -1407,36 +1372,34 @@ export default function Exchange() {
                   returnToExchangeStep();
                 }}
               >
-                Refresh quote
-              </Button>
+                {uiT("customer.m0acd5b8550cc")}{' '}</Button>
             </div>
           </div>
         </div>
-      )}
-      {step > 1 && quoteData && !recoveryRecordRef.current && !quoteMatchesCurrentSelectionForMode && (
+      ))}
+      {uiText(step > 1 && quoteData && !recoveryRecordRef.current && !quoteMatchesCurrentSelectionForMode && (
         <div role="alert" className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-700 dark:text-amber-300">
           <div className="flex items-start gap-2">
             <AlertCircle className="mt-0.5 h-[18px] w-[18px] shrink-0" />
             <div className="space-y-2">
-              <p className="text-sm font-semibold">This quote is no longer current</p>
-              <p className="text-xs leading-relaxed">The live route, pricing, or selected add-on terms changed. Your entered details and quoted summary are preserved. Return to the exchange step to review the current route and get a fresh quote.</p>
+              <p className="text-sm font-semibold">{uiT("customer.mda268e02eeae")}</p>
+              <p className="text-xs leading-relaxed">{uiT("customer.m05ca6fe9b997")}</p>
               <Button
                 type="button"
                 variant="outline"
                 className="h-9 rounded-xl border-amber-500/40 text-xs font-bold"
                 onClick={returnToExchangeStep}
               >
-                Back to route &amp; requote
-              </Button>
+                {uiT("customer.m3a34aab083d2")}{' '}</Button>
             </div>
           </div>
         </div>
-      )}
+      ))}
 
       {step === 1 && (
         <div className={cn("space-y-2 relative", mode === 'swap' && 'qx-swap-amounts')}>
-          {mode === 'convert' && (
-            <div className="flex rounded-xl border border-border/60 bg-muted/40 p-1" role="group" aria-label="Convert rate type">
+          {uiText(mode === 'convert' && (
+            <div className="flex rounded-xl border border-border/60 bg-muted/40 p-1" role="group" aria-label={uiT("customer.mbd71870a83b6")}>
               {(['FLOATING', 'FIXED'] as const).map((option) => (
                 <button
                   key={option}
@@ -1450,19 +1413,19 @@ export default function Exchange() {
                   )}
                   data-testid={`convert-rate-${option.toLowerCase()}`}
                 >
-                  {option === 'FIXED' ? 'Fixed rate' : 'Floating rate'}
+                  {option === 'FIXED' ? uiT("customer.m143b16eb2984") : uiT("customer.m430be4ed7cb4")}
                 </button>
               ))}
             </div>
-          )}
+          ))}
           <div className="premium-card qx-swap-amount-card p-5 space-y-4">
             <div className="flex justify-between text-[13px] text-muted-foreground font-semibold uppercase tracking-wider">
-              <span>You Send</span>
+              <span>{uiT("customer.md9329f18a2ae")}</span>
             </div>
             <div className="qx-swap-amount-row flex items-center justify-between gap-4">
               <input
                 data-testid="input-send-amount"
-                aria-label="You Send amount"
+                aria-label={uiT("customer.m59ce39c2257b")}
                 type="text"
                 inputMode="decimal"
                 value={formatAmountInputValue(amount, editingAmountSide === 'send')}
@@ -1475,7 +1438,7 @@ export default function Exchange() {
               />
               <button
                 data-testid="source-selector-trigger"
-                aria-label="Choose asset to send"
+                aria-label={uiT("customer.m1d7cbda7ea24")}
                 disabled={createOutcomeUncertain}
                 onClick={() => setShowSourceSelector(true)}
                 className="qx-asset-trigger flex min-w-0 max-w-[48%] items-center gap-2 bg-secondary/10 hover:bg-secondary/20 border border-secondary/20 transition-all px-2.5 py-2 rounded-2xl shrink-0 active:scale-95"
@@ -1488,22 +1451,22 @@ export default function Exchange() {
                   network={sourceOpt?.routeNetwork}
                   variant={sourceOpt?.kind === 'payment-method' || sourceOpt?.kind === 'fiat-payment-method' ? 'payment' : 'asset'}
                   fallback={getLogoFallbackText(sourceOpt?.kind, sourceOpt?.title, sourceOpt?.assetCode)}
-                  alt={sourceOpt?.title}
+                  alt={uiText(sourceOpt?.title)}
                   size="normal"
                   className="shrink-0"
                 />
                 <span className="qx-asset-copy flex min-w-0 flex-1 flex-col items-start leading-tight">
                   <span className="qx-asset-primary max-w-full truncate text-left text-[13px] font-bold">
-                    {sourceOpt?.kind === 'payment-method' || sourceOpt?.kind === 'fiat-payment-method'
+                    {uiText(sourceOpt?.kind === 'payment-method' || sourceOpt?.kind === 'fiat-payment-method'
                       ? sourceOpt.title
-                      : sourceOpt?.assetCode || 'Select'}
+                      : sourceOpt?.assetCode || uiT("customer.m2a78025de6aa"))}
                   </span>
                   <span className="qx-asset-secondary max-w-full truncate text-left text-[10px] font-medium text-muted-foreground">
-                    {sourceOpt?.kind === 'crypto-network'
+                    {uiText(sourceOpt?.kind === 'crypto-network'
                       ? sourceOpt.routeNetwork
                       : sourceOpt?.kind === 'payment-method' || sourceOpt?.kind === 'fiat-payment-method'
                         ? sourceOpt.assetCode
-                        : sourceOpt?.title}
+                        : sourceOpt?.title)}
                   </span>
                 </span>
                 <ChevronDown className="w-4 h-4 text-secondary/70 stroke-[3px]" />
@@ -1524,13 +1487,13 @@ export default function Exchange() {
 
           <div className="premium-card qx-swap-amount-card p-5 space-y-4">
             <div className="flex justify-between text-[13px] text-muted-foreground font-semibold uppercase tracking-wider">
-              <span>You Receive</span>
-              {isPricingLoading && <span className="animate-pulse text-primary">Fetching rate...</span>}
+              <span>{uiT("customer.m8f3cfce06ac5")}</span>
+              {uiText(isPricingLoading && <span className="animate-pulse text-primary">{uiT("customer.mef71e1114ca3")}</span>)}
             </div>
             <div className="qx-swap-amount-row flex items-center justify-between gap-4">
               <input
                 data-testid="input-receive-amount"
-                aria-label="You Receive amount"
+                aria-label={uiT("customer.m5fc013f5c6f4")}
                 type="text"
                 inputMode="decimal"
                 value={formatAmountInputValue(desiredReceiveAmount, editingAmountSide === 'receive')}
@@ -1543,7 +1506,7 @@ export default function Exchange() {
               />
               <button
                 data-testid="target-selector-trigger"
-                aria-label="Choose asset to receive"
+                aria-label={uiT("customer.m8c76c14c88c3")}
                 disabled={createOutcomeUncertain}
                 onClick={() => setShowTargetSelector(true)}
                 className="qx-asset-trigger flex min-w-0 max-w-[48%] items-center gap-2 bg-primary/10 hover:bg-primary/20 border border-primary/20 transition-all px-2.5 py-2 rounded-2xl shrink-0 active:scale-95"
@@ -1556,22 +1519,22 @@ export default function Exchange() {
                   network={targetOpt?.routeNetwork}
                   variant={targetOpt?.kind === 'payment-method' || targetOpt?.kind === 'fiat-payment-method' ? 'payment' : 'asset'}
                   fallback={getLogoFallbackText(targetOpt?.kind, targetOpt?.title, targetOpt?.assetCode)}
-                  alt={targetOpt?.title}
+                  alt={uiText(targetOpt?.title)}
                   size="normal"
                   className="shrink-0"
                 />
                 <span className="qx-asset-copy flex min-w-0 flex-1 flex-col items-start leading-tight">
                   <span className="qx-asset-primary max-w-full truncate text-left text-[13px] font-bold">
-                    {targetOpt?.kind === 'payment-method' || targetOpt?.kind === 'fiat-payment-method'
+                    {uiText(targetOpt?.kind === 'payment-method' || targetOpt?.kind === 'fiat-payment-method'
                       ? targetOpt.title
-                      : targetOpt?.assetCode || 'Select'}
+                      : targetOpt?.assetCode || uiT("customer.m2a78025de6aa"))}
                   </span>
                   <span className="qx-asset-secondary max-w-full truncate text-left text-[10px] font-medium text-muted-foreground">
-                    {targetOpt?.kind === 'crypto-network'
+                    {uiText(targetOpt?.kind === 'crypto-network'
                       ? targetOpt.routeNetwork
                       : targetOpt?.kind === 'payment-method' || targetOpt?.kind === 'fiat-payment-method'
                         ? targetOpt.assetCode
-                        : targetOpt?.title}
+                        : targetOpt?.title)}
                   </span>
                 </span>
                 <ChevronDown className="w-4 h-4 text-primary/70 stroke-[3px]" />
@@ -1591,37 +1554,34 @@ export default function Exchange() {
             unavailable={quoteExpired && parsedAmount > 0}
           />
 
-          {mode === 'swap' && (
+          {uiText(mode === 'swap' && (
             <div className="premium-card space-y-3 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-[13px] font-bold">Optional add-ons</h3>
+                  <h3 className="text-[13px] font-bold">{uiT("customer.mfbab18e6e913")}</h3>
                   <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
                     {addonSelectionMode === 'none'
-                      ? 'No optional add-ons are currently available for selection.'
-                      : 'Choose optional add-ons according to the selection rules for each group.'}
+                      ? uiT("customer.m12cd0a875132")
+                      : uiT("customer.me22ae8f538cd")}
                   </p>
                 </div>
                 {selectedAddonKeys.length > 0 && (
                   <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-bold text-primary">
-                    {selectedAddonKeys.length} selected
-                  </span>
+                    {uiText(selectedAddonKeys.length)} {' '}{uiT("customer.md7cbbb688b2e")}{' '}</span>
                 )}
               </div>
               {manualSwapAddonsQuery.isLoading ? (
                 <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Loading optional add-ons...
-                </div>
+                  <Loader2 className="h-4 w-4 animate-spin" /> {' '}{uiT("customer.m3264de099fe0")}{' '}</div>
               ) : manualSwapAddonsQuery.isError ? (
                 <div className="flex items-center justify-between gap-3 rounded-xl border border-destructive/20 bg-destructive/5 p-3">
-                  <span className="text-xs text-destructive">Could not load add-on availability.</span>
+                  <span className="text-xs text-destructive">{uiT("customer.m6ad5957f30fd")}</span>
                   <Button type="button" variant="outline" size="sm" onClick={() => manualSwapAddonsQuery.refetch()}>
-                    Retry
-                  </Button>
+                    {uiT("customer.m942087cc2d41")}{' '}</Button>
                 </div>
               ) : manualSwapAddons.length > 0 ? (
                 <div className="space-y-2">
-                  {manualSwapAddons.map((addon) => {
+                  {uiText(manualSwapAddons.map((addon) => {
                     const checked = selectedAddonKeySet.has(addon.key);
                     const groupSelectionRule = getAddonGroupSelectionRule(addon.presentation.group);
                     const disabled = addon.selectionRule === 'none' || groupSelectionRule === 'none';
@@ -1645,11 +1605,11 @@ export default function Exchange() {
                         />
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center justify-between gap-2 text-[13px] font-bold">
-                            <span>{localizedAddon.title}</span>
-                            <span className="shrink-0 text-primary">{getAddonFeeLabel(addon)}</span>
+                            <span>{uiText(localizedAddon.title)}</span>
+                            <span className="shrink-0 text-primary">{uiText(getAddonFeeLabel(addon))}</span>
                           </span>
                           {localizedAddon.description && (
-                            <span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">{localizedAddon.description}</span>
+                            <span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">{uiText(localizedAddon.description)}</span>
                           )}
                           {addon.presentation.group && (
                             <span className="mt-1.5 block text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
@@ -1659,15 +1619,14 @@ export default function Exchange() {
                         </span>
                       </label>
                     );
-                  })}
+                  }))}
                 </div>
               ) : (
                 <p className="rounded-xl border border-border/50 bg-background/40 p-3 text-xs text-muted-foreground">
-                  No optional add-ons are currently available.
-                </p>
+                  {uiT("customer.md41b8d1a356e")}{' '}</p>
               )}
             </div>
-          )}
+          ))}
 
         </div>
       )}
@@ -1687,38 +1646,36 @@ export default function Exchange() {
                 network={targetOpt?.routeNetwork}
                 variant={targetOpt?.kind === 'payment-method' || targetOpt?.kind === 'fiat-payment-method' ? 'payment' : 'asset'}
                 fallback={getLogoFallbackText(targetOpt?.kind, targetOpt?.title, targetOpt?.assetCode)}
-                alt={targetOpt?.title}
+                alt={uiText(targetOpt?.title)}
                 size="small"
                 className="mr-2"
               />
-              Receiving Details
-            </h3>
+              {uiT("customer.mef0d77693265")}{' '}</h3>
 
             {mode === 'convert' ? (
               <>
                 <div className="space-y-2">
                   <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">
-                    Destination {targetOpt?.assetCode} Address
-                  </label>
+                    {uiT("customer.m293d404a500f")}{' '}{targetOpt?.assetCode} {' '}{uiT("customer.m56ef8f20955f")}{' '}</label>
                   <Input
                     value={destinationAddress}
                     onChange={(e) => setDestinationAddress(e.target.value)}
                     disabled={createOutcomeUncertain}
-                    placeholder="Enter wallet address"
+                    placeholder={uiT("customer.m9fcfe079b4aa")}
                     className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner font-mono text-white placeholder:text-white/50"
                   />
                 </div>
                 {(targetOpt?.original?.requiresMemo || convertDestinationMemoField) && (
                   <div className="space-y-2 mt-4">
                     <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">
-                      {convertDestinationMemoField?.label || 'Destination Memo / Tag'}
-                      {convertDestinationMemoField && isExchangeFieldRequired(convertDestinationMemoField) && ' *'}
+                      {uiText(convertDestinationMemoField?.label || uiT("customer.m35f86978cc18"))}
+                      {uiText(convertDestinationMemoField && isExchangeFieldRequired(convertDestinationMemoField) && ' *')}
                     </label>
                     <Input
                       value={destinationMemo}
                       onChange={(e) => setDestinationMemo(e.target.value)}
                       disabled={createOutcomeUncertain}
-                      placeholder="Enter memo"
+                      placeholder={uiT("customer.m8b457d08fa69")}
                       className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner font-mono text-white placeholder:text-white/50"
                     />
                   </div>
@@ -1732,7 +1689,7 @@ export default function Exchange() {
                     return (
                       <div key={field.key} className="space-y-2 mt-4">
                         <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">
-                          {field.label} {isExchangeFieldRequired(field) && <span className="text-white">*</span>}
+                          {uiText(field.label)} {uiText(isExchangeFieldRequired(field) && <span className="text-white">*</span>)}
                         </label>
                         {field.type === 'select' && field.options?.length ? (
                           <select
@@ -1742,10 +1699,10 @@ export default function Exchange() {
                             onChange={(e) => setSettlementFields(prev => ({ ...prev, [field.key]: e.target.value }))}
                             className="w-full bg-black/20 h-14 rounded-2xl border border-white/20 px-3 text-[15px] text-white"
                           >
-                            <option value="">Select {field.label.toLowerCase()}</option>
-                            {field.options.map((option: any) => (
-                              <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
+                            <option value="">{uiT("customer.m2a78025de6aa")}{' '}{uiText(field.label.toLowerCase())}</option>
+                            {uiText(field.options.map((option: any) => (
+                              <option key={option.value} value={option.value}>{uiText(option.label)}</option>
+                            )))}
                           </select>
                         ) : (
                           <Input
@@ -1753,7 +1710,7 @@ export default function Exchange() {
                             required={isExchangeFieldRequired(field)}
                             disabled={createOutcomeUncertain}
                             onChange={(e) => setSettlementFields(prev => ({ ...prev, [field.key]: e.target.value }))}
-                            placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+                            placeholder={field.placeholder || uiT("customer.m43e95aa600c4", { v0: field.label.toLowerCase() })}
                             type={field.type === 'email' ? 'email' : field.type === 'number' || field.type === 'integer' || field.type === 'numeric' || field.type === 'decimal' ? 'number' : 'text'}
                             className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner text-white placeholder:text-white/50"
                           />
@@ -1768,24 +1725,23 @@ export default function Exchange() {
                   <>
                     <div className="space-y-2">
                       <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">
-                        Destination {targetOpt?.assetCode} Address
-                      </label>
+                        {uiT("customer.m293d404a500f")}{' '}{targetOpt?.assetCode} {' '}{uiT("customer.m56ef8f20955f")}{' '}</label>
                       <Input
                         value={destinationAddress}
                         onChange={(e) => setDestinationAddress(e.target.value)}
                         disabled={createOutcomeUncertain}
-                        placeholder="Enter wallet address"
+                        placeholder={uiT("customer.m9fcfe079b4aa")}
                         className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner font-mono text-white placeholder:text-white/50"
                       />
                     </div>
                     {targetOpt.original.requiresMemo && (
                       <div className="space-y-2 mt-4">
-                        <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">Destination Memo / Tag</label>
+                        <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">{uiT("customer.m35f86978cc18")}</label>
                         <Input
                           value={destinationMemo}
                           onChange={(e) => setDestinationMemo(e.target.value)}
                           disabled={createOutcomeUncertain}
-                          placeholder="Enter memo"
+                          placeholder={uiT("customer.m8b457d08fa69")}
                           className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner font-mono text-white placeholder:text-white/50"
                         />
                       </div>
@@ -1799,7 +1755,7 @@ export default function Exchange() {
                   return (
                     <div key={field.key} className="space-y-2 mt-4">
                       <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">
-                        {field.label} {isExchangeFieldRequired(field) && <span className="text-white">*</span>}
+                        {uiText(field.label)} {uiText(isExchangeFieldRequired(field) && <span className="text-white">*</span>)}
                       </label>
                       {field.type === 'select' && field.options?.length ? (
                         <select
@@ -1808,15 +1764,15 @@ export default function Exchange() {
                           onChange={(e) => setSettlementFields(prev => ({...prev, [field.key]: e.target.value}))}
                           className="w-full bg-black/20 h-14 rounded-2xl border border-white/20 px-3 text-[15px] text-white"
                         >
-                          <option value="">Select {field.label.toLowerCase()}</option>
-                          {field.options.map((option: any) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                          <option value="">{uiT("customer.m2a78025de6aa")}{' '}{uiText(field.label.toLowerCase())}</option>
+                          {uiText(field.options.map((option: any) => <option key={option.value} value={option.value}>{uiText(option.label)}</option>))}
                         </select>
                       ) : (
                         <Input
                           value={settlementFields[field.key] || ''}
                           disabled={createOutcomeUncertain}
                           onChange={(e) => setSettlementFields(prev => ({...prev, [field.key]: e.target.value}))}
-                          placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+                          placeholder={field.placeholder || uiT("customer.m43e95aa600c4", { v0: field.label.toLowerCase() })}
                           type={field.type === 'email' ? 'email' : field.type === 'number' || field.type === 'integer' || field.type === 'numeric' || field.type === 'decimal' ? 'number' : 'text'}
                           className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner text-white placeholder:text-white/50"
                         />
@@ -1829,7 +1785,7 @@ export default function Exchange() {
             )}
 
             <div className="space-y-2 pt-4 border-t border-white/20">
-              <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">Customer Email</label>
+              <label className="text-[13px] font-bold text-white/90 uppercase tracking-wider">{uiT("customer.m953b9c40804e")}</label>
               <Input
                 type="email"
                 inputMode="email"
@@ -1837,16 +1793,16 @@ export default function Exchange() {
                 value={customerEmail}
                 onChange={(e) => setCustomerEmail(e.target.value)}
                 disabled={createOutcomeUncertain}
-                placeholder="you@example.com"
+                placeholder={uiT("customer.m53e6cdc30765")}
                 className="bg-black/20 h-14 rounded-2xl border-white/20 focus-visible:ring-white/50 text-[15px] shadow-inner text-white placeholder:text-white/50"
               />
             </div>
 
-            {mode === 'swap' && (!quoteData?.requiredSettlementFields || quoteData.requiredSettlementFields.length === 0) && targetOpt?.kind !== 'crypto-network' && (
+            {uiText(mode === 'swap' && (!quoteData?.requiredSettlementFields || quoteData.requiredSettlementFields.length === 0) && targetOpt?.kind !== 'crypto-network' && (
               <div className="bg-black/10 border border-white/10 rounded-2xl p-4 text-center">
-                <p className="text-[14px] font-medium text-white/80">No additional details required.</p>
+                <p className="text-[14px] font-medium text-white/80">{uiT("customer.m12d50c3b0cee")}</p>
               </div>
-            )}
+            ))}
           </div>
         </div>
       )}
@@ -1855,14 +1811,14 @@ export default function Exchange() {
         <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
           <div className="premium-card p-5 space-y-4">
             <div className="flex justify-between items-center py-3 border-b border-border/50">
-              <span className="text-[14px] font-semibold text-muted-foreground">You Send</span>
+              <span className="text-[14px] font-semibold text-muted-foreground">{uiT("customer.md9329f18a2ae")}</span>
               <span className="flex items-center gap-2 font-bold text-[16px]">
                 <MiniAppLogo src={sourceOpt?.logoUrl} fallbackSrcs={sourceOpt?.kind === 'payment-method' || sourceOpt?.kind === 'fiat-payment-method' ? getFallbackPaymentLogos(sourceOpt?.title, sourceOpt?.paymentMethodId || sourceOpt?.id) : getFallbackCryptoLogos(sourceOpt?.assetCode)} badgeSrc={sourceOpt?.kind === 'crypto-network' ? sourceOpt?.networkLogoUrl : sourceOpt?.flagUrl} badgeVariant={sourceOpt?.kind === 'crypto-network' ? 'network' : 'flag'} network={sourceOpt?.routeNetwork} variant={sourceOpt?.kind === 'payment-method' || sourceOpt?.kind === 'fiat-payment-method' ? 'payment' : 'asset'} fallback={getLogoFallbackText(sourceOpt?.kind, sourceOpt?.title, sourceOpt?.assetCode)} size="small" />
                 {formatDisplayAmount(quoteData?.amount ?? amount)} {sourceOpt?.assetCode}
               </span>
             </div>
             <div className="flex justify-between items-center py-3 border-b border-border/50">
-              <span className="text-[14px] font-semibold text-muted-foreground">You Receive</span>
+              <span className="text-[14px] font-semibold text-muted-foreground">{uiT("customer.m8f3cfce06ac5")}</span>
               <span className="flex items-center gap-2 font-bold text-[16px] text-primary">
                 <MiniAppLogo src={targetOpt?.logoUrl} fallbackSrcs={targetOpt?.kind === 'payment-method' || targetOpt?.kind === 'fiat-payment-method' ? getFallbackPaymentLogos(targetOpt?.title, targetOpt?.paymentMethodId || targetOpt?.id) : getFallbackCryptoLogos(targetOpt?.assetCode)} badgeSrc={targetOpt?.kind === 'crypto-network' ? targetOpt?.networkLogoUrl : targetOpt?.flagUrl} badgeVariant={targetOpt?.kind === 'crypto-network' ? 'network' : 'flag'} network={targetOpt?.routeNetwork} variant={targetOpt?.kind === 'payment-method' || targetOpt?.kind === 'fiat-payment-method' ? 'payment' : 'asset'} fallback={getLogoFallbackText(targetOpt?.kind, targetOpt?.title, targetOpt?.assetCode)} size="small" />
                 {formatDisplayAmount(quoteData?.receiveAmount)} {targetOpt?.assetCode}
@@ -1870,23 +1826,23 @@ export default function Exchange() {
             </div>
             {targetOpt?.kind === 'crypto-network' && (
               <div className="flex justify-between items-center py-3 border-b border-border/50">
-                <span className="text-[14px] font-semibold text-muted-foreground">Destination</span>
+                <span className="text-[14px] font-semibold text-muted-foreground">{uiT("customer.m293d404a500f")}</span>
                 <span className="text-[13px] font-mono max-w-[150px] truncate text-foreground/80 bg-white/5 px-2 py-1 rounded-lg border border-white/5">
-                  {destinationAddress || Object.values(settlementFields)[0] || 'Pending'}
+                  {destinationAddress || Object.values(settlementFields)[0] || uiT("customer.m331551b0de41")}
                 </span>
               </div>
             )}
             {customerEmail && (
               <div className="flex justify-between items-center gap-4 py-3 border-b border-border/50">
-                <span className="text-[14px] font-semibold text-muted-foreground">Email</span>
+                <span className="text-[14px] font-semibold text-muted-foreground">{uiT("customer.m969ccbd3cf63")}</span>
                 <span className="text-[13px] text-right break-all text-foreground/80">
                   {customerEmail}
                 </span>
               </div>
             )}
             <div className="flex justify-between items-center py-3 border-b border-border/50">
-              <span className="text-[14px] font-semibold text-muted-foreground">Network Fee</span>
-              <span className="text-[14px] font-bold">{quoteData?.fee ? formatDisplayAmount(quoteData.fee) : 'Included'}</span>
+              <span className="text-[14px] font-semibold text-muted-foreground">{uiT("customer.m90297f42dfd2")}</span>
+              <span className="text-[14px] font-bold">{quoteData?.fee ? formatDisplayAmount(quoteData.fee) : uiT("customer.mba829a98b799")}</span>
             </div>
             {mode === 'swap' && (
               <div className="border-b border-border/50 py-3">
@@ -1900,7 +1856,7 @@ export default function Exchange() {
               </div>
             )}
             <div className="flex justify-between items-center py-3">
-              <span className="text-[14px] font-semibold text-muted-foreground">Exchange Rate</span>
+              <span className="text-[14px] font-semibold text-muted-foreground">{uiT("customer.m5b21b52b58cb")}</span>
               <span className="text-[14px] font-bold bg-secondary/10 text-secondary px-2 py-1 rounded-lg">1 {sourceOpt?.assetCode} = {formatDisplayAmount(quoteData?.rate)} {targetOpt?.assetCode}</span>
             </div>
           </div>
@@ -1917,20 +1873,19 @@ export default function Exchange() {
                 className="mr-2 accent-primary"
                 data-testid="telegram-exchange-policy-checkbox"
               />
-              I agree to the{' '}
-              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary underline">Terms &amp; Conditions</a>
-              {' '}and acknowledge the{' '}
-              <a href="/aml-kyc" target="_blank" rel="noopener noreferrer" className="text-primary underline">AML / KYC policy</a>.
-              {' '}I confirm the destination details are correct.
-            </label>
+              {uiT("customer.m26a58d002b08")}{' '}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary underline">{uiT("customer.m2af9bc0ac247")}</a>
+              {' '}{uiT("customer.mfd6cc4b3d6ca")}{' '}
+              <a href="/aml-kyc" target="_blank" rel="noopener noreferrer" className="text-primary underline">{uiT("customer.mc919b05df73d")}</a>.
+              {' '}{uiT("customer.me72d5d60442c")}{' '}</label>
           </div>
-          {createOutcomeUncertain && (
+          {uiText(createOutcomeUncertain && (
             <p role="status" className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-700 dark:text-amber-300">
               {recoveryRecord?.phase === 'link-pending'
-                ? 'The order was created. Retry only its Telegram linking step; do not submit another order.'
-                : 'Order submission may have been accepted. Retry only with this unchanged order request; editing, switching modes, or starting another order is disabled until its result is confirmed.'}
+                ? uiT("customer.m662dfcfba40c")
+                : uiT("customer.ma7b877724ae1")}
             </p>
-          )}
+          ))}
         </div>
       )}
 
@@ -1943,11 +1898,11 @@ export default function Exchange() {
           : "pt-6",
       )}>
         <div className={cn(step === 2 && "mx-auto max-w-md")}>
-          {step > 1 && errorMsg && (
+          {uiText(step > 1 && errorMsg && (
             <p role="alert" className="mb-2 text-sm font-medium text-destructive">
-              {errorMsg}
+              {uiText(errorMsg)}
             </p>
-          )}
+          ))}
           <Button
             className="w-full h-[56px] rounded-2xl text-[17px] font-bold shadow-[0_8px_20px_-8px_hsl(var(--primary))] transition-transform active:scale-95 disabled:opacity-50 disabled:active:scale-100 illuminated-border"
             onClick={handleContinue}
@@ -1961,11 +1916,10 @@ export default function Exchange() {
               (mode === 'convert' && (!convertQuoteMatchesCurrentSelection || isQuoteProcessing) && step === 1)
             }
           >
-            {isProcessing || (step === 1 && isQuoteProcessing) ? (
+            {uiText(isProcessing || (step === 1 && isQuoteProcessing) ? (
               <span className="flex items-center">
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" /> Processing...
-              </span>
-            ) : step === 1 ? 'Continue' : step === 2 ? 'Review Order' : recoveryRecord?.phase === 'link-pending' ? 'Retry order linking' : recoveryRecord ? 'Retry same order request' : 'Place Order'}
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" /> {' '}{uiT("customer.mf40a853e58a1")}{' '}</span>
+            ) : step === 1 ? uiT("customer.m31fbef162594") : step === 2 ? uiT("customer.m1f1edc737710") : recoveryRecord?.phase === 'link-pending' ? uiT("customer.m66a5026deb5e") : recoveryRecord ? uiT("customer.ma612d624a1bb") : uiT("customer.m6276fa0157d0"))}
           </Button>
         </div>
       </div>
@@ -1973,7 +1927,7 @@ export default function Exchange() {
       {(showSourceSelector || showTargetSelector) && (
         <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-xl flex flex-col animate-in fade-in slide-in-from-bottom-8 duration-300">
           <div className="flex items-center justify-between p-4 border-b border-white/10 glass-nav pt-[env(safe-area-inset-top,1rem)]">
-            <h2 className="font-bold text-lg">Select {showSourceSelector ? 'Asset to Send' : 'Asset to Receive'}</h2>
+            <h2 className="font-bold text-lg">{uiT("customer.m2a78025de6aa")}{' '}{uiText(showSourceSelector ? uiT("customer.m7e291a73f0e8") : uiT("customer.mbe488512faf8"))}</h2>
             <button
               onClick={() => { setShowSourceSelector(false); setShowTargetSelector(false); haptic.selection(); }}
               className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
@@ -1987,7 +1941,7 @@ export default function Exchange() {
               <Input
                 value={showSourceSelector ? sourceSearch : targetSearch}
                 onChange={(e) => showSourceSelector ? setSourceSearch(e.target.value) : setTargetSearch(e.target.value)}
-                placeholder="Search by name, symbol, or network..."
+                placeholder={uiT("customer.mab51ea7cf425")}
                 className="bg-white/5 h-12 rounded-2xl pl-10 border-white/10 focus-visible:ring-primary/50 text-[15px] shadow-sm"
               />
             </div>
@@ -2007,21 +1961,21 @@ export default function Exchange() {
                       isActive ? "bg-primary text-primary-foreground shadow-[0_0_12px_rgba(var(--primary),0.3)]" : "bg-white/5 text-muted-foreground hover:bg-white/10"
                     )}
                   >
-                    {f === 'fiat' ? 'Payment Methods' : f}
+                    {uiText(f === 'fiat' ? uiT("customer.m9f4e2cbe3be2") : f)}
                   </button>
                 );
               })}
             </div>
 
             <div className="flex-1 space-y-2">
-              {(showSourceSelector ? filteredSourceOpts : filteredTargetOpts).length === 0 && (
+              {uiText((showSourceSelector ? filteredSourceOpts : filteredTargetOpts).length === 0 && (
                 <div className="p-8 text-center text-[13px] text-muted-foreground flex flex-col items-center">
                   <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mb-3">
                     <Search className="w-5 h-5 text-muted-foreground/50" />
                   </div>
-                  {exchangeSelectorEmptyMessage(showSourceSelector ? sourceFilter : targetFilter)}
+                  {uiText(exchangeSelectorEmptyMessage(showSourceSelector ? sourceFilter : targetFilter))}
                 </div>
-              )}
+              ))}
               {(showSourceSelector ? filteredSourceOpts : filteredTargetOpts).map(o => (
                 <button
                   key={o.id}
@@ -2050,13 +2004,13 @@ export default function Exchange() {
                       network={o.routeNetwork}
                       variant={o.kind === 'payment-method' || o.kind === 'fiat-payment-method' ? 'payment' : 'asset'}
                       fallback={getLogoFallbackText(o.kind, o.title, o.assetCode)}
-                      alt={o.title}
+                      alt={uiText(o.title)}
                       size="medium"
                     />
                     <div className="flex flex-col items-start text-left">
-                      <span className="font-bold text-[16px] group-hover:text-primary transition-colors">{o.title}</span>
+                      <span className="font-bold text-[16px] group-hover:text-primary transition-colors">{uiText(o.title)}</span>
                       <span className="text-[12px] font-medium text-muted-foreground/80 mt-0.5">
-                        {o.kind === 'crypto-network' ? `${o.assetCode} · ${o.routeNetwork}` : `${o.assetCode} · Payment Method`}
+                        {uiText(o.kind === 'crypto-network' ? `${o.assetCode} · ${o.routeNetwork}` : uiT("customer.ma797c5cc495a", { v0: o.assetCode }))}
                       </span>
                     </div>
                   </div>

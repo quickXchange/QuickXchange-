@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -55,6 +56,8 @@ const Carousel = React.forwardRef<
     },
     ref,
   ) => {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
     const [carouselRef, api] = useEmblaCarousel(
       {
         ...opts,
@@ -139,7 +142,7 @@ const Carousel = React.forwardRef<
           aria-roledescription="carousel"
           {...props}
         >
-          {children}
+          {uiText(children)}
         </div>
       </CarouselContext.Provider>
     );
@@ -195,6 +198,8 @@ const CarouselPrevious = React.forwardRef<
   HTMLButtonElement,
   React.ComponentProps<typeof Button>
 >(({ className, variant = 'outline', size = 'icon', ...props }, ref) => {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { orientation, scrollPrev, canScrollPrev } = useCarousel();
 
   return (
@@ -214,7 +219,7 @@ const CarouselPrevious = React.forwardRef<
       {...props}
     >
       <ArrowLeft className="h-4 w-4" />
-      <span className="sr-only">Previous slide</span>
+      <span className="sr-only">{uiT("customer.mbfb549220c60")}</span>
     </Button>
   );
 });
@@ -224,6 +229,8 @@ const CarouselNext = React.forwardRef<
   HTMLButtonElement,
   React.ComponentProps<typeof Button>
 >(({ className, variant = 'outline', size = 'icon', ...props }, ref) => {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { orientation, scrollNext, canScrollNext } = useCarousel();
 
   return (
@@ -243,7 +250,7 @@ const CarouselNext = React.forwardRef<
       {...props}
     >
       <ArrowRight className="h-4 w-4" />
-      <span className="sr-only">Next slide</span>
+      <span className="sr-only">{uiT("customer.mcdc93d1c8fe9")}</span>
     </Button>
   );
 });

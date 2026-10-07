@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { cn } from '@/lib/utils';
@@ -31,6 +32,8 @@ const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(({ className, children, onInteractOutside, ...props }, ref) => {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const i18n = useOptionalI18n();
 
   return (
@@ -50,10 +53,10 @@ const DialogContent = React.forwardRef<
         )}
         {...props}
       >
-        {children}
+        {uiText(children)}
         <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
           <X className="h-4 w-4" />
-          <span className="sr-only">{i18n?.t('genericUi.close') ?? 'Close'}</span>
+          <span className="sr-only">{i18n?.t('genericUi.close') ?? uiT("customer.m7d9eb7acb13e")}</span>
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>
     </DialogPortal>

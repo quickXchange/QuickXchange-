@@ -1,3 +1,4 @@
+export * from './languages';
 // Export your models here. Add one export per file
 export * from "./bestchange";
 // export * from "./posts";

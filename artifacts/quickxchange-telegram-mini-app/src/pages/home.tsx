@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { formatDisplayAmount } from '@workspace/amount-format';
 import { Link } from 'wouter';
 import { useAuth, useAuthHeaders } from '@/lib/auth';
@@ -21,6 +22,8 @@ import {
 import { convertOrderStatusLabel, isConvertTerminalStatus } from '@/lib/convert-order-status';
 
 export default function Home() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { user } = useAuth();
   const headers = useAuthHeaders();
   const haptic = useHapticFeedback();
@@ -54,11 +57,10 @@ export default function Home() {
             <MiniAppBrandLogo />
           </div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
-            Hi, {user?.firstName || user?.displayName || 'User'}
+            {uiT("customer.mbc50944723f0")}{' '}{user?.firstName || user?.displayName || uiT("customer.mb512d97e7cbf")}
           </h1>
           <p className="text-sm font-medium text-muted-foreground">
-            Welcome to QuickXchange
-          </p>
+            {uiT("customer.mf5685d028d14")}{' '}</p>
         </div>
       </header>
 
@@ -69,7 +71,7 @@ export default function Home() {
               <div className="absolute inset-0 bg-primary/20 blur-md rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <ArrowLeftRight className="w-6 h-6 relative z-10" />
             </div>
-            <span className="font-bold tracking-wide text-sm">Swap</span>
+            <span className="font-bold tracking-wide text-sm">{uiT("customer.m6ec282d40a8a")}</span>
           </div>
         </Link>
         <Link href="/exchange?mode=convert" onClick={() => haptic.selection()}>
@@ -78,16 +80,16 @@ export default function Home() {
               <div className="absolute inset-0 bg-secondary/20 blur-md rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <CreditCard className="w-6 h-6 relative z-10" />
             </div>
-            <span className="font-bold tracking-wide text-sm">Convert</span>
+            <span className="font-bold tracking-wide text-sm">{uiT("customer.m5cd425f518c2")}</span>
           </div>
         </Link>
       </div>
 
       <div className="flex flex-col space-y-4">
         <div className="flex items-center justify-between px-1">
-          <h2 className="text-[17px] font-bold tracking-tight">Recent Orders</h2>
+          <h2 className="text-[17px] font-bold tracking-tight">{uiT("customer.m764883b3f5b8")}</h2>
           <Link href="/orders" onClick={() => haptic.selection()} className="text-[13px] font-semibold text-primary active:opacity-70 flex items-center gap-1">
-            View All <ArrowRight className="w-3.5 h-3.5" />
+            {uiT("customer.mff5573a6f287")}{' '}<ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
@@ -124,17 +126,17 @@ export default function Home() {
                   <div className="flex items-center space-x-3 min-w-0">
                     <MiniAppLogoPair source={sourceVisual} target={targetVisual} sourceAlt={order.fromAsset} targetAlt={order.toAsset} />
                     <div className="flex flex-col min-w-0">
-                      <div className="text-[10px] text-muted-foreground font-mono mb-0.5">#{order.id.slice(0, 8)}</div>
+                      <div className="text-[10px] text-muted-foreground font-mono mb-0.5">#{uiText(order.id.slice(0, 8))}</div>
                       <div className="font-bold text-[15px] flex items-center truncate">
-                        <span className="text-[12px] text-muted-foreground mr-1">Send</span>
+                        <span className="text-[12px] text-muted-foreground mr-1">{uiT("customer.mf6f4688ff23d")}</span>
                         <span className="truncate">{formatDisplayAmount(order.amount)} {order.fromAsset}</span>
                       </div>
                       <div className="font-bold text-[15px] flex items-center truncate text-primary mt-0.5">
-                        <span className="text-[12px] text-muted-foreground mr-1">Receive</span>
+                        <span className="text-[12px] text-muted-foreground mr-1">{uiT("customer.mbac9d15ad9f1")}</span>
                         <span className="truncate">{order.toAsset}</span>
                       </div>
                       <div className="text-[11px] font-mono text-muted-foreground mt-1 flex items-center gap-1.5">
-                        <span>{format(new Date(order.createdAt), 'MMM d, yyyy')}</span>
+                        <span>{uiText(format(new Date(order.createdAt), 'MMM d, yyyy'))}</span>
                       </div>
                     </div>
                   </div>
@@ -144,7 +146,7 @@ export default function Home() {
                     isFailed ? "bg-destructive/10 text-destructive border border-destructive/20" :
                     "bg-secondary/10 text-secondary border border-secondary/20"
                   )}>
-                     {statusLabel}
+                     {uiText(statusLabel)}
                   </div>
                 </div>
               </Link>;
@@ -154,11 +156,10 @@ export default function Home() {
               <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center text-muted-foreground/50 mb-1">
                 <Search className="w-5 h-5" />
               </div>
-              <p className="text-[14px] font-medium text-muted-foreground">No recent orders yet</p>
+              <p className="text-[14px] font-medium text-muted-foreground">{uiT("customer.mcaf76c51cc8b")}</p>
               <Link href="/exchange" onClick={() => haptic.selection()}>
                 <Button className="rounded-xl mt-2 font-bold px-6 bg-primary text-primary-foreground">
-                  Start an Exchange
-                </Button>
+                  {uiT("customer.mc2539ce9289f")}{' '}</Button>
               </Link>
             </div>
           )}

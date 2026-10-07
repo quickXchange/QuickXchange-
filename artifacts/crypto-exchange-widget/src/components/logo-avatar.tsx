@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode, SyntheticEvent } from 'react';
 import { cn } from '@/components/shared-app-ui';
@@ -38,6 +39,8 @@ export function LogoAvatar({
   onFailAll,
   priority = false,
 }: LogoAvatarProps) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const validSources = useMemo(() => Array.from(new Set(sources.filter((s): s is string => Boolean(s)))), [sources]);
   const sourceKey = validSources.join('\0');
   const [sourceIndex, setSourceIndex] = useState(0);
@@ -100,7 +103,7 @@ export function LogoAvatar({
       {isImage ? (
         <img
           src={currentSource!}
-          alt={alt}
+          alt={uiText(alt)}
           loading={priority ? 'eager' : 'lazy'}
           fetchPriority={priority ? 'high' : 'auto'}
           decoding="async"
@@ -113,7 +116,7 @@ export function LogoAvatar({
           className={cn('logo-avatar-img', imageClassName)}
         />
       ) : fallback ? (
-        <span className="logo-avatar-fallback">{fallback}</span>
+        <span className="logo-avatar-fallback">{uiText(fallback)}</span>
       ) : null}
     </span>
   );

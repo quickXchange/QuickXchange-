@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import * as React from 'react';
 import * as LabelPrimitive from '@radix-ui/react-label';
 import { Slot } from '@radix-ui/react-slot';
@@ -146,6 +147,8 @@ const FormMessage = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, children, ...props }, ref) => {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { error, formMessageId } = useFormField();
   const body = error ? String(error?.message ?? '') : children;
 
@@ -160,7 +163,7 @@ const FormMessage = React.forwardRef<
       className={cn('text-[0.8rem] font-medium text-destructive', className)}
       {...props}
     >
-      {body}
+      {uiText(body)}
     </p>
   );
 });

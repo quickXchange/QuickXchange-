@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Globe2, X } from 'lucide-react';
@@ -25,7 +26,9 @@ export function LanguageSelector({
   className = '',
   compact = true,
 }: LanguageSelectorProps) {
-  const { locale, setLocale, t, isLoading } = useI18n();
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
+  const { locale, setLocale, t, isLoading, availableLocales } = useI18n();
   const [open, setOpen] = useState(false);
   const [panelPosition, setPanelPosition] = useState({ top: 0, right: 12 });
   const rootRef = useRef<HTMLDivElement>(null);
@@ -160,7 +163,7 @@ export function LanguageSelector({
               </button>
             </header>
             <div className="qx-language-list" role="radiogroup" aria-label={t('language.title')}>
-              {localeDefinitions.map((item) => {
+              {uiText(availableLocales.map((item) => {
                 const selected = item.code === locale;
                 return (
                   <button
@@ -178,8 +181,8 @@ export function LanguageSelector({
                       size="sm"
                       className="qx-language-option__flag"
                     />
-                    <span className="qx-language-option__label">{item.nativeName}</span>
-                    <span className="qx-language-option__code">{item.code.toUpperCase()}</span>
+                    <span className="qx-language-option__label">{uiText(item.nativeName)}</span>
+                    <span className="qx-language-option__code">{uiText(item.code.toUpperCase())}</span>
                     <Check
                       size={15}
                       className="qx-language-option__check"
@@ -187,7 +190,7 @@ export function LanguageSelector({
                     />
                   </button>
                 );
-              })}
+              }))}
             </div>
           </section>
         </>,

@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { formatAmountInputValue, formatDisplayAmount } from '@workspace/amount-format';
 import { PaymentMethodLogo } from '@/components/payment-method-logo';
 import './swap-followup.css';
@@ -132,6 +133,8 @@ export function SettlementOptionCombobox({
   searchAppearance?: 'default' | 'admin';
   mobileContainedMenu?: boolean;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   useEffect(() => {
@@ -286,7 +289,7 @@ export function SettlementOptionCombobox({
         options={mappedOptions.filter(o => o.id !== '')}
         onChange={onChange}
         onOpenChange={onOpenChange}
-        label={label}
+        label={uiText(label)}
         title={selectorTitle || label}
         searchPlaceholder={t('selectors.search', { label })}
         closeLabel={t('selectors.close')}
@@ -307,7 +310,7 @@ export function SettlementOptionCombobox({
             type="button"
             ref={triggerRef}
             className="asset-combobox-trigger"
-            aria-label={label}
+            aria-label={uiText(label)}
             aria-expanded={open}
             aria-controls={listboxId}
             aria-haspopup="dialog"
@@ -358,7 +361,7 @@ export function SettlementOptionCombobox({
           portalContainer={portalContainer}
           anchoredInsideWidget={mobileContainedMenu && portalContainer !== document.body}
           listboxId={listboxId}
-          label={label}
+          label={uiText(label)}
           getOptionId={(option) => option.id || 'any'}
         />
       )}
@@ -392,15 +395,17 @@ export function PaymentMethodCopy({
   showTypeLabel?: boolean;
   className?: string;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   return (
     <span className={cn('payment-method-copy', className)}>
-      <strong className="payment-method-copy-name">{methodName}</strong>
+      <strong className="payment-method-copy-name">{uiText(methodName)}</strong>
       <span className="payment-method-copy-meta">
         <span className="payment-method-copy-currency">{currencyCode}</span>
         {showTypeLabel && (
           <>
             <span className="payment-method-copy-separator" aria-hidden="true">·</span>
-            <span className="payment-method-copy-type">{typeLabel}</span>
+            <span className="payment-method-copy-type">{uiText(typeLabel)}</span>
           </>
         )}
       </span>
@@ -415,6 +420,8 @@ function TerminalSettlementOptionIdentity({
   option: SettlementOption;
   officialCryptoBySymbol?: OfficialCryptoBySymbol;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   if (option.kind === 'crypto-network') {
     const symbol = option.assetCode.trim().toUpperCase();
@@ -435,7 +442,7 @@ function TerminalSettlementOptionIdentity({
         </span>
         <span className="terminal-option-copy">
           <strong>{symbol}</strong>
-          <span>{name}</span>
+          <span>{uiText(name)}</span>
           {showRoute && (
             <small>· <CryptoNetworkBadge network={routeName} assetSymbol={symbol} networkLogoUrl={(option as SettlementOption & { networkLogoUrl?: string | null }).networkLogoUrl} /></small>
           )}
@@ -463,7 +470,7 @@ function TerminalSettlementOptionIdentity({
         />
       ) : (
         <span className="terminal-option-copy">
-          <><strong>{option.assetCode}</strong><span>{fiatName}</span><small>· {t('selectors.fiat')}</small></>
+          <><strong>{option.assetCode}</strong><span>{uiText(fiatName)}</span><small>· {t('selectors.fiat')}</small></>
         </span>
       )}
     </span>
@@ -483,6 +490,8 @@ function settlementFieldDisplayLabel(field: any, t: (key: any) => string) {
 }
 
 function DynamicField({ field, value, onChange }: { field: any; value: string; onChange: (val: string) => void }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   const normalizedKey = String(field.key || '').replace(/^(source|target)_/, '');
   const displayLabel = settlementFieldDisplayLabel(field, t);
@@ -529,7 +538,7 @@ function DynamicField({ field, value, onChange }: { field: any; value: string; o
     case 'select':
       input = <select {...commonProps}>
         <option value="" disabled>{t('selectors.select')}...</option>
-        {field.options?.map((o: any) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        {uiText(field.options?.map((o: any) => <option key={o.value} value={o.value}>{uiText(o.label)}</option>))}
       </select>;
       break;
     case 'textarea':
@@ -558,7 +567,7 @@ function DynamicField({ field, value, onChange }: { field: any; value: string; o
           id={`swap-detail-${field.key}`}
           type="file"
           disabled
-          aria-label={displayLabel}
+          aria-label={uiText(displayLabel)}
           data-testid={`input-detail-${field.key}`}
           className={`${commonProps.className} !py-2`}
         />
@@ -576,22 +585,24 @@ function DynamicField({ field, value, onChange }: { field: any; value: string; o
   return (
     <div className="order-detail-field swap-direct-field-card flex flex-col gap-1.5" data-testid={`swap-detail-card-${field.key}`}>
       <label htmlFor={`swap-detail-${field.key}`} className="swap-step2-field-label">
-        {field.emphasizedLabel ? <strong className="text-foreground">{displayLabel}</strong> : displayLabel}
+        {field.emphasizedLabel ? <strong className="text-foreground">{uiText(displayLabel)}</strong> : displayLabel}
         {isRequired
           ? <span className="required-field-mark" aria-hidden="true">*</span>
           : <small className="swap-step2-optional-badge">({t('swap.optional')})</small>}
       </label>
       <div className="swap-step2-input-shell">
         <FieldIcon size={18} className="swap-step2-input-icon" aria-hidden="true" />
-        {input}
+        {uiText(input)}
       </div>
       {field.type === 'private-image' && <p className="text-[11px] text-muted-foreground mt-1">{t('selectors.secureUploadUnavailable')}</p>}
-      {field.help && field.type !== 'private-image' && <p className="text-[11px] text-muted-foreground">{field.help}</p>}
+      {field.help && field.type !== 'private-image' && <p className="text-[11px] text-muted-foreground">{uiText(field.help)}</p>}
     </div>
   );
 }
 
 function CopyBox({ label, text, testId, actionable = true, large = false }: { label?: string, text: string, testId?: string, actionable?: boolean, large?: boolean }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [copied, setCopied] = useState(false);
   const copy = () => {
     if (!actionable) return;
@@ -601,10 +612,10 @@ function CopyBox({ label, text, testId, actionable = true, large = false }: { la
   };
   return (
     <div className="flex flex-col gap-1.5 w-full min-w-0">
-      {label && <span className="text-sm font-medium text-foreground">{label}</span>}
+      {label && <span className="text-sm font-medium text-foreground">{uiText(label)}</span>}
       <div className={cn("copy-field", large && "copy-field-large")}>
-        <code>{text}</code>
-        <button type="button" onClick={copy} disabled={!actionable} aria-label={label ? `Copy ${label}` : 'Copy'} data-testid={testId || 'button-copy'}>
+        <code>{uiText(text)}</code>
+        <button type="button" onClick={copy} disabled={!actionable} aria-label={label ? uiT("customer.m3f3ebff426db", { v0: label }) : uiT("customer.me21f935f11d7")} data-testid={testId || 'button-copy'}>
           {copied ? <Check size={large ? 16 : 14} className="text-success" /> : <Copy size={large ? 16 : 14} />}
         </button>
       </div>
@@ -707,19 +718,23 @@ function SwapRouteRecapIcon({
 }
 
 function SwapPopupDetail({ label, value, testId }: { label: string; value: string; testId: string }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [copied, setCopied] = useState(false);
   return <div className="swap-detail-popup-row">
-    <span>{label}</span><span>{value}</span>
-    <button type="button" aria-label={copied ? `Copied ${label}` : `Copy ${label}`} data-testid={testId} onClick={() => {
+    <span>{uiText(label)}</span><span>{uiText(value)}</span>
+    <button type="button" aria-label={copied ? uiT("customer.m76649648d133", { v0: label }) : uiT("customer.m3f3ebff426db", { v0: label })} data-testid={testId} onClick={() => {
       void navigator.clipboard?.writeText(value).then(() => {
         setCopied(true);
         window.setTimeout(() => setCopied(false), 1600);
       }).catch(() => setCopied(false));
-    }}>{copied ? <Check size={17} /> : <Copy size={17} />}<span className="sr-only" role="status">{copied ? `${label} copied` : ''}</span></button>
+    }}>{copied ? <Check size={17} /> : <Copy size={17} />}<span className="sr-only" role="status">{copied ? uiT("customer.m42116c7be636", { v0: label }) : ''}</span></button>
   </div>;
 }
 
 function QuoteExpiryIndicator({ expiresAt, onExpire }: { expiresAt: string; onExpire: () => void }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [timeLeft, setTimeLeft] = useState(() => Math.max(0, new Date(expiresAt).getTime() - Date.now()));
 
   useEffect(() => {
@@ -745,7 +760,7 @@ function QuoteExpiryIndicator({ expiresAt, onExpire }: { expiresAt: string; onEx
 
   return (
     <span className="inline-flex items-center gap-1 font-mono text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold" aria-live="polite">
-      <Clock3 size={10} /> {m}:{s.toString().padStart(2, '0')}
+      <Clock3 size={10} /> {uiText(m)}:{uiText(s.toString().padStart(2, '0'))}
     </span>
   );
 }
@@ -757,6 +772,8 @@ export function ManualSwapWidget({
   onConvert: () => void;
   onOpenMenu: () => void;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const queryClient = useQueryClient();
   const { t } = useI18n();
   const { isLoaded: isCustomerLoaded, isSignedIn, user } = useUser();
@@ -1315,7 +1332,7 @@ export function ManualSwapWidget({
     if (!currentQuote.manualSwapFees) {
       setNotice({
         kind: 'error',
-        text: 'The server did not provide an itemized fee breakdown for this quote. Refresh the quote before placing an order.',
+        text: uiT("customer.mfbecf6772ef1"),
       }); return;
     }
     if (currentQuote.expiresAt && new Date(currentQuote.expiresAt).getTime() <= Date.now()) {
@@ -1439,14 +1456,14 @@ export function ManualSwapWidget({
           setQuoteError('');
           setNotice({
             kind: 'info',
-            text: 'Swap options or fees changed before your order was submitted. We are refreshing the available add-ons and quote; please review the updated fees before continuing.',
+            text: uiT("customer.m27dc1994ecc5"),
           });
           try {
             const refreshedAddons = await addons.refetch();
             if (refreshedAddons.isError) {
               setNotice({
                 kind: 'error',
-                text: 'Swap terms changed, but current add-ons could not be loaded. Retry add-ons to review the current charges before continuing.',
+                text: uiT("customer.m0eee6e71575b"),
               });
               return;
             }
@@ -1457,12 +1474,12 @@ export function ManualSwapWidget({
             setQuoteRefreshCounter(counter => counter + 1);
             setNotice({
               kind: 'info',
-              text: 'Swap options or fees changed before your order was submitted. The available add-ons and quote have been refreshed; review the updated fees before continuing.',
+              text: uiT("customer.m267f638e0ea6"),
             });
           } catch {
             setNotice({
               kind: 'error',
-              text: 'Swap terms changed, but current add-ons could not be loaded. Retry add-ons to review the current charges before continuing.',
+              text: uiT("customer.m0eee6e71575b"),
             });
           }
         } else if (parsedError?.outcomeUnknown || parsedError?.code === 'verification-required') {
@@ -1519,18 +1536,18 @@ export function ManualSwapWidget({
               {t('swap.convert')}
             </button>
           </div>
-          <button type="button" className="reference-menu-btn" aria-label="Open navigation" data-testid="widget-menu-button" onClick={onOpenMenu}>
+          <button type="button" className="reference-menu-btn" aria-label={uiT("customer.m0ed77fd2619b")} data-testid="widget-menu-button" onClick={onOpenMenu}>
             <Menu size={20} />
           </button>
         </div>
 
         <div className="reference-title-row">
-          <h2>{step === 1 ? <>Swap <span>Currencies</span></> : step === 2 ? <>Receiving <span>Details</span></> : <span>Summary</span>}</h2>
+          <h2>{step === 1 ? <>{uiT("customer.m6ec282d40a8a")}{' '}<span>{uiT("customer.md079ee92c1cb")}</span></> : step === 2 ? <>{uiT("customer.mfa8162869da5")}{' '}<span>{uiT("customer.m45989de49fb7")}</span></> : <span>{uiT("customer.m8e76a94ac832")}</span>}</h2>
           {step === 1 ? (
-            <div className="reference-realtime-badge"><TrendingUp size={15} /> Real-time rate</div>
+            <div className="reference-realtime-badge"><TrendingUp size={15} /> {' '}{uiT("customer.mc93cf2153f4e")}</div>
           ) : (
-            <div className="swap-step2-progress" aria-label={`Step ${step} of 3`}>
-              <span>Step {step} of 3</span>
+            <div className="swap-step2-progress" aria-label={uiT("customer.m48747108b8ee", { v0: step })}>
+              <span>{uiT("customer.m8e6a6cca7aae")}{' '}{uiText(step)} {' '}{uiT("customer.md08d62282644")}</span>
               <span className="swap-step2-progress-track" aria-hidden="true">
                 <i className="is-active" /><i className="is-active" /><i className={step === 3 ? 'is-active' : ''} />
               </span>
@@ -1540,7 +1557,7 @@ export function ManualSwapWidget({
       </div>
 
       {manualRouteUnavailable && (
-        <InlineNotice kind="error">{manualRouteUnavailableMessage}</InlineNotice>
+        <InlineNotice kind="error">{uiText(manualRouteUnavailableMessage)}</InlineNotice>
       )}
 
           {step === 1 ? (
@@ -1556,11 +1573,11 @@ export function ManualSwapWidget({
                     <SettlementOptionCombobox value={fromOption?.id || ''} options={fromOptions} onChange={changeFromAsset} onOpenChange={setFromSelectorOpen} label={t('swap.sendMethod')} selectorTitle={t('swap.youSend')} testId="select-from-asset" variant="swap" officialCryptoBySymbol={officialCryptoBySymbol} />
                   </div>
                   <div className="reference-amount-footer">
-                    <span>Min: {routePricing.data?.minAmount != null ? number(routePricing.data.minAmount) : 0} {fromOption?.assetCode || ''}</span>
+                    <span>{uiT("customer.m67f709142079")}{' '}{routePricing.data?.minAmount != null ? number(routePricing.data.minAmount) : 0} {fromOption?.assetCode || ''}</span>
                     <span>
-                      Max: {routePricing.data?.maxAmount != null
+                      {uiT("customer.mef2840cc402e")}{' '}{routePricing.data?.maxAmount != null
                         ? `${number(routePricing.data.maxAmount)} ${fromOption?.assetCode || ''}`
-                        : 'No limit'}
+                        : uiT("customer.mf7fcff0d8fea")}
                     </span>
                   </div>
                   {((fromOption?.sendInstructions || fromOption?.instructions) || (currentQuote?.customerInstructions)) && (
@@ -1568,7 +1585,7 @@ export function ManualSwapWidget({
                       <strong>{t('swap.note')}</strong>
                       {fromOption?.sendInstructions || fromOption?.instructions || ''}
                       {currentQuote?.customerInstructions ? ` ${currentQuote.customerInstructions}` : ''}
-                      {currentQuote?.expectedSettlementMinutes ? ` (Expected time: ~${currentQuote.expectedSettlementMinutes}m)` : ''}
+                      {currentQuote?.expectedSettlementMinutes ? uiT("customer.m768814858e47", { v0: currentQuote.expectedSettlementMinutes }) : ''}
                     </div>
                   )}
                 </div>
@@ -1604,7 +1621,7 @@ export function ManualSwapWidget({
                     <p className="field-hint text-primary mt-2"><strong>{t('swap.note')}</strong> {toOption.receiveInstructions || toOption.instructions}</p>
                   )}
                   {quoteStatus === 'error' && quoteError && (
-                    <p className="field-hint quote-error">{quoteError}</p>
+                    <p className="field-hint quote-error">{uiText(quoteError)}</p>
                   )}
                 </div>
                 </div>
@@ -1614,16 +1631,16 @@ export function ManualSwapWidget({
                     <ArrowLeftRight size={18} className="reference-rate-icon" />
                     <div className="reference-rate-content">
                       <div className="reference-rate-text">
-                        <span className="reference-rate-label">{currentQuote || !Number(quoteAmountInput) ? 'Exchange Rate' : displayQuote ? 'Recent quote · confirming' : 'Indicative rate'}</span>
+                        <span className="reference-rate-label">{currentQuote || !Number(quoteAmountInput) ? uiT("customer.m5b21b52b58cb") : displayQuote ? uiT("customer.m027ca2e62bc6") : uiT("customer.m82d5bf337782")}</span>
                         <strong className="reference-rate-value">
                           {displayQuote
-                            ? <>1 {fromOption.assetCode} = <span>{formatSwapRate(displayQuote.rate)} {toOption.assetCode}</span></>
+                            ? <>1 {fromOption.assetCode} = <span>{uiText(formatSwapRate(displayQuote.rate))} {toOption.assetCode}</span></>
                             : quoteStatus === 'error'
-                              ? <span>Rate unavailable</span>
+                              ? <span>{uiT("customer.md74120ff327f")}</span>
                             : routePricing.data
-                              ? <>1 {fromOption.assetCode} = <span>{formatSwapRate(routePricing.data.rate)} {toOption.assetCode}</span></>
+                              ? <>1 {fromOption.assetCode} = <span>{uiText(formatSwapRate(routePricing.data.rate))} {toOption.assetCode}</span></>
                               : showRateRefresh
-                                ? <span>Checking rate...</span>
+                                ? <span>{uiT("customer.m7beb2406d314")}</span>
                                 : <>1 {fromOption.assetCode} = <span>-- {toOption.assetCode}</span></>}
                         </strong>
                       </div>
@@ -1638,18 +1655,18 @@ export function ManualSwapWidget({
 
                 {(availableAddons.some(item => item.enabled) || addons.isLoading || addons.isError) && <details className="swap-addons-dropdown mt-4" data-testid="swap-addons-inline">
                   <summary data-testid="button-swap-addons-dropdown">
-                    <span>Optional add-ons</span>
-                    <span className="swap-addons-dropdown-count">{addons.isLoading ? 'Loading…' : addons.isError ? 'Unavailable' : selectedKeys.length ? `${selectedKeys.length} selected` : 'Choose options'}</span>
+                    <span>{uiT("customer.mfbab18e6e913")}</span>
+                    <span className="swap-addons-dropdown-count">{addons.isLoading ? uiT("customer.mba3bbbe10d8b") : addons.isError ? uiT("customer.mca1844969742") : selectedKeys.length ? uiT("customer.mb3edc3b37ecf", { v0: selectedKeys.length }) : uiT("customer.mcf2a66cc0c53")}</span>
                     <ChevronDown size={17} aria-hidden="true" />
                   </summary>
                   <SwapAddonOptions options={availableAddons.filter(item => item.enabled)} selectedKeys={selectedKeys} onToggle={toggleAddon} isLoading={addons.isLoading} isError={addons.isError} onRetry={() => addons.refetch()} compact />
                 </details>}
-                {currentQuote && !currentQuote.manualSwapFees && <p role="alert" className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" data-testid="swap-fee-breakdown-unavailable">The server did not provide an itemized fee breakdown. Refresh the quote before continuing.</p>}
+                {currentQuote && !currentQuote.manualSwapFees && <p role="alert" className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" data-testid="swap-fee-breakdown-unavailable">{uiT("customer.maf3970ae9728")}</p>}
                 {currentQuote?.manualSwapFees && toOption && <div className="mt-4" data-testid="swap-signed-fee-breakdown">
                   <SwapFeeBreakdown fees={currentQuote.manualSwapFees} currency={toOption.assetCode} receiveAmount={currentQuote.receiveAmount}/>
                 </div>}
                 {!currentQuote && Number(quoteAmountInput) > 0 && toOption && !addons.isError && !addons.isLoading && (showRateRefresh || cachedQuoteDisplay || quoteStatus === 'error') && <div className="mt-4 rounded-xl border border-border bg-card/70 p-3 text-sm text-muted-foreground" role="status" data-testid="swap-addons-quote-status">
-                  {quoteStatus === 'error' ? quoteError : cachedQuoteDisplay ? 'Recent exact quote shown while confirming current fees and amounts…' : 'Confirming fees and final amounts…'}
+                  {quoteStatus === 'error' ? quoteError : cachedQuoteDisplay ? uiT("customer.m7c11ec096641") : uiT("customer.ma559a05a1677")}
                 </div>}
               </div>
 
@@ -1662,10 +1679,10 @@ export function ManualSwapWidget({
             </div>
           ) : step === 2 && quoteReady && currentQuote ? (
             <div ref={stepPanelRef} className="swap-step-panel swap-fulfillment-step animate-in fade-in slide-in-from-right-4 duration-300" data-testid="swap-step-wallets" tabIndex={-1}>
-              <div className="order-details-content swap-step2-fields" aria-label="Swap settlement details">
+              <div className="order-details-content swap-step2-fields" aria-label={uiT("customer.m6240bff245d6")}>
                 <div className="order-detail-field order-detail-field--email flex flex-col gap-1.5">
                   <label htmlFor="swap-email" className="text-[13px] font-semibold text-muted-foreground">
-                    Your Contact Email <span className="required-field-mark" aria-hidden="true">*</span> <span className="text-xs font-normal">(Required)</span>
+                    {uiT("customer.m167c53267a45")}{' '}<span className="required-field-mark" aria-hidden="true">*</span> <span className="text-xs font-normal">{uiT("customer.mce145be2318a")}</span>
                   </label>
                   <div className="relative">
                     <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -1687,7 +1704,7 @@ export function ManualSwapWidget({
                     <div className="order-detail-field order-detail-field--destination">
                       <label htmlFor="swap-destination" className="swap-step2-field-label">
                         {isFiatToCryptoSwap
-                          ? <>Receiving Wallet Address <span className="required-field-mark" aria-hidden="true">*</span></>
+                          ? <>{uiT("customer.mca29c945ca48")}{' '}<span className="required-field-mark" aria-hidden="true">*</span></>
                           : <>{t('swap.destinationAddress')} · {toOption.assetCode} {toOption.networkTitle ? `(${toOption.networkTitle})` : ''}<span className="required-field-mark" aria-hidden="true">*</span></>}
                       </label>
                       <div className="swap-step2-input-shell">
@@ -1698,7 +1715,7 @@ export function ManualSwapWidget({
                           value={destinationAddress}
                           onChange={(e) => setDestinationAddress(e.target.value)}
                           placeholder={isFiatToCryptoSwap
-                            ? `Enter your ${toOption.assetCode}${settlementRouteName(toOption) ? ` (${settlementRouteName(toOption)})` : ''} address`
+                            ? uiT("customer.m781c9d9fb10e", { v0: toOption.assetCode, v1: settlementRouteName(toOption) ? ` (${settlementRouteName(toOption)})` : '' })
                             : t('convert.destinationAddressPlaceholder', { asset: toOption.assetCode })}
                           spellCheck={false}
                           autoCapitalize="none"
@@ -1731,7 +1748,7 @@ export function ManualSwapWidget({
                   </>
                 )}
 
-                {currentQuote?.requiredSettlementFields?.filter((field: any) => {
+                {uiText(currentQuote?.requiredSettlementFields?.filter((field: any) => {
                   if (field.requiredWhen) {
                     const targetValue = settlementDetails[field.requiredWhen.fieldKey];
                     const matches = Array.isArray(field.requiredWhen.equals)
@@ -1750,7 +1767,7 @@ export function ManualSwapWidget({
                       onChange={(val) => handleSettlementDetailChange(field.key, val)}
                     />
                   );
-                })}
+                }))}
 
                 {!isFiatToCryptoSwap && <div className="order-detail-field order-detail-field--refund flex flex-col gap-1.5">
                   <label htmlFor="swap-refund" className="text-[13px] font-semibold text-muted-foreground">
@@ -1799,8 +1816,8 @@ export function ManualSwapWidget({
 
               </div>
               <div className="swap-stage-actions">
-                <button type="button" className="swap-back-button" onClick={() => moveToStep(1)} data-testid="swap-button-back"><ChevronLeft size={18} /> Back</button>
-                <button type="button" className="swap-next-button" onClick={continueToSummary} data-testid="button-swap-next">Next <ArrowRight size={18} /></button>
+                <button type="button" className="swap-back-button" onClick={() => moveToStep(1)} data-testid="swap-button-back"><ChevronLeft size={18} /> {' '}{uiT("customer.m76900f1bfd16")}</button>
+                <button type="button" className="swap-next-button" onClick={continueToSummary} data-testid="button-swap-next">{uiT("customer.m1ff57a29d7c9")}{' '}<ArrowRight size={18} /></button>
               </div>
             </div>
           ) : step === 3 && quoteReady && currentQuote && fromOption && toOption ? (
@@ -1809,26 +1826,26 @@ export function ManualSwapWidget({
                 <div className="swap-summary-card">
                   <div className="swap-summary-leg" data-testid="swap-summary-from-logo">
                     <SwapRouteRecapIcon option={fromOption} officialCryptoBySymbol={officialCryptoBySymbol} />
-                    <span><strong data-testid="swap-summary-send-amount">{number(currentQuote.amount)} {fromOption.assetCode}</strong><small>{settlementAssetName(fromOption)} · {settlementRouteName(fromOption)}</small></span>
+                    <span><strong data-testid="swap-summary-send-amount">{number(currentQuote.amount)} {fromOption.assetCode}</strong><small>{settlementAssetName(fromOption)} · {uiText(settlementRouteName(fromOption))}</small></span>
                   </div>
                   <ArrowRight className="swap-summary-arrow" size={19} aria-hidden="true" />
                   <div className="swap-summary-leg" data-testid="swap-summary-to-logo">
                     <SwapRouteRecapIcon option={toOption} officialCryptoBySymbol={officialCryptoBySymbol} />
-                    <span><strong data-testid="swap-summary-receive-amount">{number(currentQuote.receiveAmount)} {toOption.assetCode}</strong><small>{settlementAssetName(toOption)} · {settlementRouteName(toOption)}</small></span>
+                    <span><strong data-testid="swap-summary-receive-amount">{number(currentQuote.receiveAmount)} {toOption.assetCode}</strong><small>{settlementAssetName(toOption)} · {uiText(settlementRouteName(toOption))}</small></span>
                   </div>
                   <button type="button" className="swap-summary-show" data-testid="button-swap-show-details" onClick={() => setDetailsOpen(true)}>
-                    Receiving Method Details <span className="inline-flex items-center gap-2"><Eye size={17} /> Show</span>
+                    {uiT("customer.m092eb67817b2")}{' '}<span className="inline-flex items-center gap-2"><Eye size={17} /> {' '}{uiT("customer.m0df6f1cad36c")}</span>
                   </button>
                 </div>
                 <div className="swap-summary-rate" data-testid="swap-summary-rate">
-                  <span className="swap-summary-rate-label"><ArrowLeftRight size={15} aria-hidden="true" /> Exchange Rate</span>
-                  <strong className="swap-summary-rate-value">1 {fromOption.assetCode} = {formatSwapRate(currentQuote.rate)} {toOption.assetCode}</strong>
+                  <span className="swap-summary-rate-label"><ArrowLeftRight size={15} aria-hidden="true" /> {' '}{uiT("customer.m5b21b52b58cb")}</span>
+                  <strong className="swap-summary-rate-value">1 {fromOption.assetCode} = {uiText(formatSwapRate(currentQuote.rate))} {toOption.assetCode}</strong>
                 </div>
               </div>
               <div className="swap-summary-footer">
                 <div className="swap-summary-terms"><OrderPolicyAcceptance id="swap-terms" checked={termsAccepted} onChange={setTermsAccepted} /></div>
                 <div className="swap-stage-actions">
-                  <button type="button" className="swap-back-button" onClick={() => moveToStep(2)} data-testid="button-swap-back"><ChevronLeft size={18} /> Back</button>
+                  <button type="button" className="swap-back-button" onClick={() => moveToStep(2)} data-testid="button-swap-back"><ChevronLeft size={18} /> {' '}{uiT("customer.m76900f1bfd16")}</button>
                   <button type="submit" disabled={orderMutation.isPending || !quoteReady || !currentQuote.manualSwapFees || !termsAccepted || (!signedInCustomer && !email.trim())} className="widget-primary-submit" data-testid="swap-button-submit">
                     {orderMutation.isPending ? <Loader2 size={17} className="animate-spin" /> : <Check size={17} />}
                     {orderMutation.isPending ? t('swap.submitting') : t('swap.placeOrder')}
@@ -1846,8 +1863,8 @@ export function ManualSwapWidget({
           )}
 
           {detailsOpen && currentQuote && toOption && (
-            <div className="swap-overlay" role="dialog" aria-modal="true" aria-label="Receiving method details" data-testid="swap-receiving-details-popup">
-              <div className="swap-overlay-head">You Get <button type="button" onClick={() => setDetailsOpen(false)} aria-label="Close receiving details" data-testid="button-close-receiving-details"><X size={23} /></button></div>
+            <div className="swap-overlay" role="dialog" aria-modal="true" aria-label={uiT("customer.m994b0ed44f5a")} data-testid="swap-receiving-details-popup">
+              <div className="swap-overlay-head">{uiT("customer.m94c101093c94")}{' '}<button type="button" onClick={() => setDetailsOpen(false)} aria-label={uiT("customer.m25bce19e7705")} data-testid="button-close-receiving-details"><X size={23} /></button></div>
               <div className="swap-overlay-body">
                 <div className="swap-detail-popup-receive" data-testid="swap-receiving-method-summary">
                   <SwapRouteRecapIcon option={toOption} officialCryptoBySymbol={officialCryptoBySymbol} />
@@ -1857,18 +1874,18 @@ export function ManualSwapWidget({
                   </span>
                 </div>
                 <div className="swap-detail-popup-rows">
-                  {toOption.kind === 'crypto-network' && <SwapPopupDetail label="Receiving Wallet Address" value={destinationAddress} testId="button-copy-destination-address" />}
-                  {toOption.kind === 'crypto-network' && Boolean(destinationMemo) && <SwapPopupDetail label="Destination memo" value={destinationMemo} testId="button-copy-destination-memo" />}
-                  {currentQuote.requiredSettlementFields?.filter(field => !field.requiredWhen || (Array.isArray(field.requiredWhen.equals) ? field.requiredWhen.equals.includes(settlementDetails[field.requiredWhen.fieldKey]) : field.requiredWhen.equals === settlementDetails[field.requiredWhen.fieldKey])).map(field => settlementDetails[field.key] && <SwapPopupDetail key={field.key} label={settlementFieldDisplayLabel(field, t)} value={settlementDetails[field.key]} testId={`button-copy-detail-${field.key}`} />)}
-                  {refundAddress && <SwapPopupDetail label="Refund address" value={refundAddress} testId="button-copy-refund-address" />}
-                  {refundMemo && <SwapPopupDetail label="Refund memo" value={refundMemo} testId="button-copy-refund-memo" />}
+                  {toOption.kind === 'crypto-network' && <SwapPopupDetail label={uiT("customer.mca29c945ca48")} value={destinationAddress} testId="button-copy-destination-address" />}
+                  {toOption.kind === 'crypto-network' && Boolean(destinationMemo) && <SwapPopupDetail label={uiT("customer.m156f5e6b9a2a")} value={destinationMemo} testId="button-copy-destination-memo" />}
+                  {uiText(currentQuote.requiredSettlementFields?.filter(field => !field.requiredWhen || (Array.isArray(field.requiredWhen.equals) ? field.requiredWhen.equals.includes(settlementDetails[field.requiredWhen.fieldKey]) : field.requiredWhen.equals === settlementDetails[field.requiredWhen.fieldKey])).map(field => settlementDetails[field.key] && <SwapPopupDetail key={field.key} label={settlementFieldDisplayLabel(field, t)} value={settlementDetails[field.key]} testId={`button-copy-detail-${field.key}`} />))}
+                  {refundAddress && <SwapPopupDetail label={uiT("customer.m5a57f93c4463")} value={refundAddress} testId="button-copy-refund-address" />}
+                  {refundMemo && <SwapPopupDetail label={uiT("customer.mb0bc4282d9aa")} value={refundMemo} testId="button-copy-refund-memo" />}
                 </div>
               </div>
             </div>
           )}
           {notice && (
             <InlineNotice kind={notice.kind} onDismiss={() => setNotice(null)}>
-              <div>{notice.text}</div>
+              <div>{uiText(notice.text)}</div>
               {notice.orderId && (
                 <div className="mt-2">
                   <Link href={`/status?order=${notice.orderId}`} className="text-link">
@@ -1891,13 +1908,15 @@ function WidgetNavigationScreen({
   onClose: () => void;
   links: SiteNavLink[];
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [location] = useLocation();
   const { t } = useI18n();
 
   return (
     <div className="exchange-card redesigned-widget widget-navigation-screen" data-testid="widget-navigation-screen">
       <QuickXchangeOverlayHeader
-        title="Menu"
+        title={uiT("customer.m99af6606ff9d")}
         closeControl={(
           <button
             ref={closeButtonRef}
@@ -1912,14 +1931,14 @@ function WidgetNavigationScreen({
         )}
       />
       <nav className="qx-overlay-list" aria-label={t('public.mobileNav')}>
-        {links.map((link) => {
+        {uiText(links.map((link) => {
           const Icon = link.href === '/' ? Home : link.href.startsWith('/status') ? Package : link.href.includes('aml') ? ShieldCheck : FileText;
-          const content = <><div className="qx-menu-icon"><Icon size={20} /></div><span className="qx-menu-row-label">{link.label}</span><ChevronRight size={20} className="qx-menu-row-arrow" /></>;
+          const content = <><div className="qx-menu-icon"><Icon size={20} /></div><span className="qx-menu-row-label">{uiText(link.label)}</span><ChevronRight size={20} className="qx-menu-row-arrow" /></>;
           const className = cn('qx-menu-row', (location === link.href || (link.href !== '/' && location.startsWith(link.href))) && 'active');
           return /^https?:\/\//i.test(link.href)
             ? <a key={link.id} href={link.href} target="_blank" rel="noreferrer" className={className} onClick={onClose}>{content}</a>
             : <Link key={link.id} href={link.href} className={className} onClick={onClose}>{content}</Link>;
-        })}
+        }))}
       </nav>
     </div>
   );
@@ -1927,6 +1946,8 @@ function WidgetNavigationScreen({
 
 
 export function ExchangeModeSwitcher({ onModeChange, initialMode = 'swap' }: { onModeChange?: (mode: 'swap' | 'convert') => void; initialMode?: 'swap' | 'convert' }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   const viewportRef = useRef<HTMLDivElement>(null);
   const convertLayerRef = useRef<HTMLDivElement>(null);
@@ -1944,9 +1965,9 @@ export function ExchangeModeSwitcher({ onModeChange, initialMode = 'swap' }: { o
   const widgetLinks: SiteNavLink[] = configuredWidgetLinks.length ? configuredWidgetLinks : [
     { id: 'widget-home', label: t('navigation.home'), href: '/', enabled: true, header: false, footer: false, widget: true },
     { id: 'widget-track', label: t('header.trackOrder'), href: '/status', enabled: true, header: false, footer: false, widget: true },
-    { id: 'widget-aml', label: 'AML / KYC', href: '/aml-kyc', enabled: true, header: false, footer: false, widget: true },
-    { id: 'widget-terms', label: 'Terms and Conditions', href: '/terms-conditions', enabled: true, header: false, footer: false, widget: true },
-    { id: 'widget-privacy', label: 'Privacy Policy', href: '/privacy-policy', enabled: true, header: false, footer: false, widget: true },
+    { id: 'widget-aml', label: uiT("customer.mfd00c50f1d3d"), href: '/aml-kyc', enabled: true, header: false, footer: false, widget: true },
+    { id: 'widget-terms', label: uiT("customer.m34e6faf15abd"), href: '/terms-conditions', enabled: true, header: false, footer: false, widget: true },
+    { id: 'widget-privacy', label: uiT("customer.m506ff3946215"), href: '/privacy-policy', enabled: true, header: false, footer: false, widget: true },
   ];
 
   const syncModeTestIds = useCallback((activeMode: 'swap' | 'convert') => {

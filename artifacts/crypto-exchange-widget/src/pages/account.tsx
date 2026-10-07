@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { useQueryClient } from '@tanstack/react-query';
@@ -138,6 +139,8 @@ export function CustomerSignUpPage() {
 }
 
 function AuthAffiliateCodeForm() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [code, setCode] = useState('');
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [message, setMessage] = useState('');
@@ -153,7 +156,7 @@ function AuthAffiliateCodeForm() {
       await captureAffiliateReferral(normalized);
       setCode(normalized);
       setStatus('saved');
-      setMessage('Affiliate code saved. It will be connected to your account after you sign in.');
+      setMessage("customer.m2846516a5c3c");
     } catch (error) {
       setStatus('error');
       setMessage(publicApiErrorText(error, 'This affiliate code is invalid or unavailable.'));
@@ -172,11 +175,9 @@ function AuthAffiliateCodeForm() {
         </span>
         <div className="min-w-0">
           <label htmlFor="auth-affiliate-code" className="block text-sm font-semibold">
-            Have an affiliate code?
-          </label>
+            {uiT("customer.m16d02c5fbe3d")}{' '}</label>
           <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-            Enter it here—no referral link is required.
-          </p>
+            {uiT("customer.m87667e0fc731")}{' '}</p>
         </div>
       </div>
       <div className="flex flex-col gap-2 sm:flex-row">
@@ -190,7 +191,7 @@ function AuthAffiliateCodeForm() {
               setMessage('');
             }
           }}
-          placeholder="Enter affiliate code"
+          placeholder={uiT("customer.m24ede463b463")}
           autoCapitalize="characters"
           autoComplete="off"
           maxLength={12}
@@ -203,24 +204,26 @@ function AuthAffiliateCodeForm() {
           className="button button-primary h-11 shrink-0 rounded-xl px-5 disabled:cursor-not-allowed disabled:opacity-60"
           data-testid="button-save-auth-affiliate-code"
         >
-          {status === 'saving' ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : status === 'saved' ? <Check size={16} aria-hidden="true" /> : null}
-          <span>{status === 'saving' ? 'Checking…' : status === 'saved' ? 'Saved' : 'Apply code'}</span>
+          {uiText(status === 'saving' ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : status === 'saved' ? <Check size={16} aria-hidden="true" /> : null)}
+          <span>{uiText(status === 'saving' ? uiT("customer.mec963ffc911b") : status === 'saved' ? uiT("customer.mb5c120b316c2") : uiT("customer.m2ab913027278"))}</span>
         </button>
       </div>
-      {message ? (
+      {uiText(message ? (
         <p
           className={cn('mt-3 text-xs leading-relaxed', status === 'saved' ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive')}
           role={status === 'error' ? 'alert' : 'status'}
           data-testid="auth-affiliate-code-status"
         >
-          {message}
+          {uiText(message)}
         </p>
-      ) : null}
+      ) : null)}
     </form>
   );
 }
 
 function ClaimOrderForm() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const [orderId, setOrderId] = useState('');
@@ -262,15 +265,17 @@ function ClaimOrderForm() {
           className="button button-primary h-10 px-6 rounded-xl sm:w-auto w-full whitespace-nowrap"
           data-testid="button-claim-order"
         >
-          {claimMutation.isPending ? t('account.adding') : t('account.addToAccount')}
+          {uiText(claimMutation.isPending ? t('account.adding') : t('account.addToAccount'))}
         </button>
       </div>
-      {notice && <div className="mt-4"><InlineNotice kind={notice.kind} onDismiss={() => setNotice(null)}>{notice.text}</InlineNotice></div>}
+      {uiText(notice && <div className="mt-4"><InlineNotice kind={notice.kind} onDismiss={() => setNotice(null)}>{uiText(notice.text)}</InlineNotice></div>)}
     </form>
   );
 }
 
 function ReferralCodePrompt() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const queryClient = useQueryClient();
   const [code, setCode] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
@@ -288,8 +293,8 @@ function ReferralCodePrompt() {
           <Check size={16} />
         </span>
         <div className="min-w-0">
-          <strong className="block font-semibold">Referral connected</strong>
-          <span className="text-xs text-muted-foreground">Your affiliate attribution is secured to this account.</span>
+          <strong className="block font-semibold">{uiT("customer.m9f79eaa95167")}</strong>
+          <span className="text-xs text-muted-foreground">{uiT("customer.m0a0765aee9db")}</span>
         </div>
       </div>
     );
@@ -316,8 +321,8 @@ function ReferralCodePrompt() {
           <Link2 size={17} />
         </span>
         <div>
-          <strong className="block text-sm font-semibold">Have an affiliate code?</strong>
-          <span className="text-xs leading-relaxed text-muted-foreground">Enter it once to credit the person who referred you.</span>
+          <strong className="block text-sm font-semibold">{uiT("customer.m16d02c5fbe3d")}</strong>
+          <span className="text-xs leading-relaxed text-muted-foreground">{uiT("customer.m7359646563e1")}</span>
         </div>
       </div>
       <div className="flex gap-2">
@@ -325,8 +330,8 @@ function ReferralCodePrompt() {
           value={code}
           onChange={event => setCode(event.target.value.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 12))}
           className="h-10 min-w-0 flex-1 rounded-xl border border-border bg-background px-3 font-mono text-sm uppercase tracking-wider focus:border-primary focus:ring-1 focus:ring-primary"
-          placeholder="8-character code"
-          aria-label="Affiliate code"
+          placeholder={uiT("customer.mac478e6b8c6b")}
+          aria-label={uiT("customer.m9e39eeae104e")}
           autoCapitalize="characters"
           autoComplete="off"
           maxLength={12}
@@ -338,19 +343,21 @@ function ReferralCodePrompt() {
           disabled={bindReferral.isPending || !code.trim()}
           data-testid="button-apply-referral-code"
         >
-          {bindReferral.isPending ? <Loader2 size={16} className="animate-spin" aria-label="Applying" /> : 'Apply'}
+          {uiText(bindReferral.isPending ? <Loader2 size={16} className="animate-spin" aria-label={uiT("customer.m8a9bd1bef40d")} /> : uiT("customer.m31e392d1c037"))}
         </button>
       </div>
-      {notice && (
+      {uiText(notice && (
         <div className="mt-3">
-          <InlineNotice kind="error" onDismiss={() => setNotice(null)}>{notice}</InlineNotice>
+          <InlineNotice kind="error" onDismiss={() => setNotice(null)}>{uiText(notice)}</InlineNotice>
         </div>
-      )}
+      ))}
     </form>
   );
 }
 
 export function AccountPage() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t, formatDate } = useI18n();
   const { isLoaded, isSignedIn, user } = useUser();
 
@@ -392,11 +399,11 @@ export function AccountPage() {
         {entries.slice(0, 2).map(([symbol, amount]) => (
           <span key={symbol} className="block truncate">{number(amount)} {symbol}</span>
         ))}
-        {entries.length > 2 && (
+        {uiText(entries.length > 2 && (
           <span className="text-xs font-semibold text-muted-foreground opacity-80">
             +{entries.length - 2} {t('customerPortal.multipleAssets').toLowerCase()}
           </span>
-        )}
+        ))}
       </span>
     );
   };
@@ -440,21 +447,21 @@ export function AccountPage() {
               <CustomerStatCard
                 title={t('customerPortal.completedOrders')}
                 value={orders.isLoading ? "-" : completedOrders}
-                description={scopeLabel}
+                description={uiText(scopeLabel)}
                 icon={<CheckCircle2 size={16} />}
                 className="dashboard-stat-completed"
               />
               <CustomerStatCard
                 title={t('customerPortal.totalSent')}
                 value={orders.isLoading ? "-" : getCompactAssetSummary(sentByAsset)}
-                description={completedTotalsLabel}
+                description={uiText(completedTotalsLabel)}
                 icon={<ArrowUpRight size={16} />}
                 className="dashboard-stat-sent"
               />
               <CustomerStatCard
                 title={t('customerPortal.totalReceived')}
                 value={orders.isLoading ? "-" : getCompactAssetSummary(receivedByAsset)}
-                description={completedTotalsLabel}
+                description={uiText(completedTotalsLabel)}
                 icon={<ArrowDownLeft size={16} />}
                 className="dashboard-stat-received"
               />
@@ -776,6 +783,8 @@ export function AccountOrdersPage() {
 }
 
 export function AccountSettingsPage() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t, formatDate } = useI18n();
   const { isLoaded, isSignedIn, user } = useUser();
   const [, setLocation] = useLocation();
@@ -826,7 +835,7 @@ export function AccountSettingsPage() {
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">{t('customerPortal.accountCreated')}</label>
-              <div className="text-sm font-medium">{createdAt}</div>
+              <div className="text-sm font-medium">{uiText(createdAt)}</div>
             </div>
           </div>
         </div>
@@ -875,6 +884,8 @@ function InlineCopy({
   label?: string;
   showLabel?: boolean;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const copy = async (e: React.MouseEvent) => {
@@ -898,11 +909,11 @@ function InlineCopy({
         "inline-flex items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-1 focus:ring-primary",
         showLabel ? "order-detail-action min-h-10 gap-2 px-3 text-xs font-bold uppercase tracking-wider" : "size-6",
       )}
-      aria-label={accessibleLabel}
-      title={accessibleLabel}
+      aria-label={uiText(accessibleLabel)}
+      title={uiText(accessibleLabel)}
     >
-      {copied ? <Check size={13} className="shrink-0 text-success" /> : <Copy size={13} className="shrink-0" />}
-      {showLabel && (copied ? t('actions.copied') : accessibleLabel)}
+      {uiText(copied ? <Check size={13} className="shrink-0 text-success" /> : <Copy size={13} className="shrink-0" />)}
+      {uiText(showLabel && (copied ? t('actions.copied') : accessibleLabel))}
     </button>
   );
 }
@@ -915,13 +926,15 @@ function shortenDetailValue(value: string): string {
 function CustomerStep2Details({ entries }: {
   entries: { key: string; label: string; value: string }[];
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   return (
     <div className="customer-card order-transaction-card mb-6" data-testid="customer-step2-details">
       <div className="grid grid-cols-1 gap-y-5 gap-x-6 sm:grid-cols-2 lg:grid-cols-3">
-        {entries.map((entry) => (
+        {uiText(entries.map((entry) => (
           <div key={entry.key} className="flex min-w-0 flex-col gap-1.5">
               <span className="truncate text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                {entry.label}
+                {uiText(entry.label)}
               </span>
             <div className="order-transaction-value">
               <strong className="min-w-0 flex-1 truncate font-mono text-xs" title={entry.value}>
@@ -930,46 +943,50 @@ function CustomerStep2Details({ entries }: {
                 <InlineCopy text={entry.value} label={entry.label} />
             </div>
           </div>
-        ))}
+        )))}
       </div>
     </div>
   );
 }
 
 function OrderProgress({ stages }: { stages: { id: string; label: string; completed: boolean; active: boolean; failed: boolean }[] }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   return (
     <section className="customer-card order-progress-card" data-testid="order-status-timeline">
       <div className="flex w-full flex-col gap-0 md:flex-row">
-        {stages.map((stage, idx) => (
+        {uiText(stages.map((stage, idx) => (
           <div
             key={stage.id}
             className={cn("order-progress-stage group relative flex flex-1 flex-row items-start gap-3 md:flex-col md:items-center", idx < stages.length - 1 ? "pb-7 md:pb-0" : "")}
             data-state={stage.failed ? 'failed' : stage.active ? 'active' : stage.completed ? 'completed' : 'pending'}
           >
-            {idx < stages.length - 1 && (
+            {uiText(idx < stages.length - 1 && (
               <div className={cn(
                 "order-progress-line absolute left-2 top-4 -ml-px h-full w-px md:left-[50%] md:top-2 md:ml-0 md:-mt-px md:h-px md:w-full",
                 stage.completed && !stage.failed ? "is-completed" : "",
               )} />
-            )}
+            ))}
 
             <div className={cn(
               "order-progress-node relative z-10 flex size-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
             )}>
-              {(stage.completed || stage.failed) && <div className="size-1.5 rounded-full bg-current" />}
+              {uiText((stage.completed || stage.failed) && <div className="size-1.5 rounded-full bg-current" />)}
             </div>
 
             <div className="flex min-w-0 flex-col pb-1 md:px-2 md:pb-0 md:text-center">
-              <span className="order-progress-label text-xs font-semibold tracking-wide">{stage.label}</span>
+              <span className="order-progress-label text-xs font-semibold tracking-wide">{uiText(stage.label)}</span>
             </div>
           </div>
-        ))}
+        )))}
       </div>
     </section>
   );
 }
 
 function CustomerOrderNotificationControl({ order }: { order: CustomerOrder }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const mutation = useUpdateCustomerOrderNotifications();
@@ -1018,17 +1035,17 @@ function CustomerOrderNotificationControl({ order }: { order: CustomerOrder }) {
         </div>
 
         <div className="ml-14 flex items-center gap-4 self-start sm:ml-0 sm:self-auto sm:justify-end">
-          {mutation.isPending && (
+          {uiText(mutation.isPending && (
             <span className="flex items-center gap-2 text-xs text-muted-foreground" role="status">
               <Loader2 size={13} className="animate-spin" /> {t('account.savingPreference')}
             </span>
-          )}
+          ))}
           <label
             className="inline-flex min-h-8 shrink-0 cursor-pointer items-center gap-3"
             data-testid="control-order-notifications"
           >
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              {order.statusNotificationsEnabled ? t('account.on') : t('account.off')}
+              {uiText(order.statusNotificationsEnabled ? t('account.on') : t('account.off'))}
             </span>
             <input
               type="checkbox"
@@ -1044,18 +1061,20 @@ function CustomerOrderNotificationControl({ order }: { order: CustomerOrder }) {
           </label>
         </div>
       </div>
-      {notice && (
+      {uiText(notice && (
         <div className="ml-14 mt-5 sm:ml-0">
           <InlineNotice kind={notice.kind} onDismiss={() => setNotice(null)}>
-            {notice.text}
+            {uiText(notice.text)}
           </InlineNotice>
         </div>
-      )}
+      ))}
     </section>
   );
 }
 
 function CustomerOrderView({ order, drawer = false }: { order: CustomerOrder; drawer?: boolean }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const persistedFees = (order as CustomerOrder & { manualSwapFees?: ManualSwapFeeQuoteSnapshot }).manualSwapFees;
   const { t, formatDate } = useI18n();
   const { user } = useUser();
@@ -1105,7 +1124,7 @@ function CustomerOrderView({ order, drawer = false }: { order: CustomerOrder; dr
 
   return (
     <div className="customer-order-detail-page w-full" data-testid="customer-order-detail">
-      {drawer && <h3 className="customer-order-drawer-section-title">{t('customerPortal.status')}</h3>}
+      {uiText(drawer && <h3 className="customer-order-drawer-section-title">{t('customerPortal.status')}</h3>)}
       <div className="mb-4">
         <StatusPill status={order.status} customerFacing />
       </div>
@@ -1113,22 +1132,22 @@ function CustomerOrderView({ order, drawer = false }: { order: CustomerOrder; dr
         <OrderProgress stages={stages} />
       </div>
 
-      <h3 className="customer-order-drawer-section-title">Order Information</h3>
+      <h3 className="customer-order-drawer-section-title">{uiT("customer.m5cf9e7527fad")}</h3>
       <section className="customer-card order-detail-grid mb-8 grid min-w-0 grid-cols-1 gap-0 min-[480px]:grid-cols-2" data-testid="customer-order-information">
         {orderInfoRows.map(([label, value]) => (
-          <div className="order-detail-meta" key={label}>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
+          <div className="order-detail-meta" key={uiText(label)}>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{uiText(label)}</span>
             <div className="flex min-w-0 items-center gap-2">
-              <strong className="min-w-0 flex-1 truncate text-sm font-semibold" title={value}>{value}</strong>
+              <strong className="min-w-0 flex-1 truncate text-sm font-semibold" title={uiText(value)}>{uiText(value)}</strong>
               {(label === 'Order ID' || (label === 'Sending Address' && sendingAddress)) && (
-                <InlineCopy text={value} label={label} />
+                <InlineCopy text={uiText(value)} label={uiText(label)} />
               )}
             </div>
           </div>
         ))}
       </section>
 
-      <h3 className="customer-order-drawer-section-title">Exchange Details</h3>
+      <h3 className="customer-order-drawer-section-title">{uiT("customer.mc4ec420d9c2b")}</h3>
       <section className="customer-card order-exchange-frame mb-8" data-testid="order-exchange-details">
         <div className="order-exchange-card">
           <div className="order-exchange-side" data-testid="order-exchange-sent">
@@ -1179,28 +1198,28 @@ function CustomerOrderView({ order, drawer = false }: { order: CustomerOrder; dr
 
       {order.type === 'manual' && persistedFees && <div className="mb-8"><SwapFeeBreakdown fees={persistedFees} currency={order.toAsset} receiveAmount={order.receiveAmount}/></div>}
       <section className="mb-8" data-testid="customer-additional-payment-details">
-        <h3 className="customer-order-drawer-section-title">Additional Payment Details</h3>
-        {step2Rows.length > 0
+        <h3 className="customer-order-drawer-section-title">{uiT("customer.mfc1fce0ccfe6")}</h3>
+        {uiText(step2Rows.length > 0
           ? <CustomerStep2Details entries={step2Rows} />
-          : <p className="customer-card mb-6 text-sm text-muted-foreground">No Step 2 details saved for this order.</p>}
+          : <p className="customer-card mb-6 text-sm text-muted-foreground">{uiT("customer.mfa7a6ca8b57d")}</p>)}
       </section>
 
       {(order.verifiedFundingTransaction || (order.type !== 'manual' && order.transactionHash)) && (
         <section className="mb-8" data-testid="customer-transaction-details">
-          <h3 className="customer-order-drawer-section-title">Transaction Details</h3>
+          <h3 className="customer-order-drawer-section-title">{uiT("customer.m04cfcd26b996")}</h3>
           {order.verifiedFundingTransaction
             ? <VerifiedTransaction transaction={order.verifiedFundingTransaction} />
             : <div className="customer-card flex min-w-0 items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Transaction ID</span>
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{uiT("customer.mbe8c62270423")}</span>
                   <strong className="block truncate font-mono text-xs" title={order.transactionHash}>{order.transactionHash}</strong>
                 </div>
-                <InlineCopy text={order.transactionHash!} label="Transaction ID" />
+                <InlineCopy text={order.transactionHash!} label={uiT("customer.mbe8c62270423")} />
               </div>}
         </section>
       )}
 
-      {order.paymentDetailsApplicable && (
+      {uiText(order.paymentDetailsApplicable && (
           <PaymentDetailsCard
             paymentDetails={order.paymentDetails}
             paymentDetailsApplicable={order.paymentDetailsApplicable}
@@ -1216,9 +1235,9 @@ function CustomerOrderView({ order, drawer = false }: { order: CustomerOrder; dr
             markPaidPending={markPaidMutation.isPending}
             supportHref={telegramSupportUrl}
           />
-      )}
+      ))}
 
-      {order.customerSafeNote && (
+      {uiText(order.customerSafeNote && (
         <div className="mb-6 flex items-start gap-4 rounded-xl border border-info/20 bg-info/10 p-5 text-sm text-info" data-testid="notice-customer-safe">
           <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-info/20">
             <FileText size={16} />
@@ -1228,23 +1247,23 @@ function CustomerOrderView({ order, drawer = false }: { order: CustomerOrder; dr
             <span className="leading-relaxed">{order.customerSafeNote}</span>
           </div>
         </div>
-      )}
+      ))}
 
-      {order.outcomeUnknown && (
+      {uiText(order.outcomeUnknown && (
         <div className="mb-6 rounded-xl border border-warning/20 bg-warning/10 p-5 text-sm text-warning">
           <strong className="mb-1 block font-mono">{t('account.actionRequired')}</strong> {t('account.outcomeUnknown')}
         </div>
-      )}
-      {order.refreshUnavailable && (
+      ))}
+      {uiText(order.refreshUnavailable && (
         <div className="mb-6 rounded-xl border border-warning/20 bg-warning/10 p-5 text-sm text-warning">
           <strong className="mb-1 block font-mono">{t('account.providerSyncDelayed')}</strong> {t('account.detailSyncDescription')}
         </div>
-      )}
-      {isFailed && (
+      ))}
+      {uiText(isFailed && (
         <div className="mb-6 rounded-xl border border-destructive/20 bg-destructive/10 p-5 text-sm text-destructive">
           <strong className="mb-1 block font-mono">{t('account.exchangeStopped')}</strong> {t('account.exchangeStoppedDescription')}
         </div>
-      )}
+      ))}
 
       <OrderCompletionSection
         order={order}
@@ -1267,6 +1286,8 @@ function CustomerOrderDrawer({
   onOpenChange: (open: boolean) => void;
   onCloseAutoFocus: (event: Event) => void;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { t, formatDate } = useI18n();
   const [copied, setCopied] = useState(false);
   const order = useGetCustomerOrder(id || '', {
@@ -1331,17 +1352,17 @@ function CustomerOrderDrawer({
         >
           <header className="customer-order-drawer-header">
             <div className="min-w-0">
-              <DialogPrimitive.Title className="text-lg font-bold tracking-tight">View order</DialogPrimitive.Title>
+              <DialogPrimitive.Title className="text-lg font-bold tracking-tight">{uiT("customer.m2cee5f8a9557")}</DialogPrimitive.Title>
               <DialogPrimitive.Description className="mt-1 truncate text-xs text-muted-foreground">
-                {id || t('account.orderHistory')}
+                {uiText(id || t('account.orderHistory'))}
               </DialogPrimitive.Description>
             </div>
-            <DialogPrimitive.Close className="customer-order-drawer-close" aria-label="Close order details" data-testid="button-close-customer-order-drawer">
+            <DialogPrimitive.Close className="customer-order-drawer-close" aria-label={uiT("customer.ma3bd1ae8f36f")} data-testid="button-close-customer-order-drawer">
               <X size={18} aria-hidden="true" />
             </DialogPrimitive.Close>
           </header>
           <div className="customer-order-drawer-scroll" data-testid="customer-order-drawer-scroll">
-            {order.isLoading ? (
+            {uiText(order.isLoading ? (
               <LoadingBlock rows={6} />
             ) : order.isError ? (
               <ErrorState message={t('account.loadOrderError')} retry={() => order.refetch()} />
@@ -1349,16 +1370,15 @@ function CustomerOrderDrawer({
               <ErrorState message={t('account.orderNotFound')} />
             ) : (
               <CustomerOrderView order={order.data} drawer />
-            )}
+            ))}
           </div>
           <footer className="customer-order-drawer-footer">
             <button type="button" onClick={copyInfo} disabled={!order.data} className="button button-secondary" data-testid="button-copy-customer-order-info">
-              {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
-              {copied ? t('actions.copied') : 'Copy Info'}
+              {uiText(copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />)}
+              {uiText(copied ? t('actions.copied') : uiT("customer.m107d410fce1f"))}
             </button>
             <DialogPrimitive.Close className="button button-primary" data-testid="button-close-customer-order-footer">
-              Close
-            </DialogPrimitive.Close>
+              {uiT("customer.m7d9eb7acb13e")}{' '}</DialogPrimitive.Close>
           </footer>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>

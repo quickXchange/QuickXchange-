@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useUser } from '@clerk/react';
 import { CheckCircle2, CircleAlert, Link2, Loader2, ShieldCheck } from 'lucide-react';
@@ -28,6 +29,8 @@ function connectError(responseStatus: number, payload: ApiFailure | null): strin
 }
 
 function ConnectCard({ children }: { children: React.ReactNode }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   return (
     <PublicShell>
       <main className="public-main flex min-h-[60vh] min-w-0 items-center justify-center overflow-x-hidden px-4 py-12 sm:px-6 sm:py-20 rise-in">
@@ -38,10 +41,10 @@ function ConnectCard({ children }: { children: React.ReactNode }) {
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">QuickXchange</p>
-              <h1 className="text-xl font-bold text-foreground">Connect Telegram</h1>
+              <h1 className="text-xl font-bold text-foreground">{uiT("customer.m00c7991f0490")}</h1>
             </div>
           </div>
-          {children}
+          {uiText(children)}
         </section>
       </main>
     </PublicShell>
@@ -49,6 +52,8 @@ function ConnectCard({ children }: { children: React.ReactNode }) {
 }
 
 export function TelegramConnectPage() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const { isLoaded, isSignedIn } = useUser();
   const [, setLocation] = useLocation();
   const [state, setState] = useState<LinkState>('loading');
@@ -112,7 +117,7 @@ export function TelegramConnectPage() {
   }
 
   if (!token) {
-    return <ConnectCard><ErrorState title="Connection link unavailable" message="This Telegram connection link is missing its token. Please request a new link from Telegram." /></ConnectCard>;
+    return <ConnectCard><ErrorState title={uiT("customer.mf99a104caeaf")} message={uiT("customer.mef9e0e6f2ffa")} /></ConnectCard>;
   }
   if (!isSignedIn) {
     return (
@@ -121,15 +126,19 @@ export function TelegramConnectPage() {
   }
   if (state === 'loading') return <ConnectCard><LoadingState /></ConnectCard>;
   if (state === 'error') {
-    return <ConnectCard><div className="space-y-5"><CircleAlert className="text-destructive" size={38} /><h2 className="text-2xl font-bold">Telegram was not connected</h2><p className="text-muted-foreground">{error}</p><p className="text-sm text-muted-foreground">For your security, the connection token was not displayed.</p></div></ConnectCard>;
+    return <ConnectCard><div className="space-y-5"><CircleAlert className="text-destructive" size={38} /><h2 className="text-2xl font-bold">{uiT("customer.m222eba4f9d7e")}</h2><p className="text-muted-foreground">{uiText(error)}</p><p className="text-sm text-muted-foreground">{uiT("customer.m1aba452a0286")}</p></div></ConnectCard>;
   }
-  return <ConnectCard><div className="space-y-5"><CheckCircle2 className="text-emerald-500" size={42} /><h2 className="text-2xl font-bold">Telegram connected</h2><p className="text-muted-foreground">Your QuickXchange account is now connected to Telegram. You may return to Telegram to continue.</p><div className="flex items-center gap-2 text-sm text-muted-foreground"><ShieldCheck size={16} />Your connection is secured by your signed-in session.</div></div></ConnectCard>;
+  return <ConnectCard><div className="space-y-5"><CheckCircle2 className="text-emerald-500" size={42} /><h2 className="text-2xl font-bold">{uiT("customer.m815464994ec4")}</h2><p className="text-muted-foreground">{uiT("customer.maacf2bdf4b90")}</p><div className="flex items-center gap-2 text-sm text-muted-foreground"><ShieldCheck size={16} />{uiT("customer.m5a44a30f011b")}</div></div></ConnectCard>;
 }
 
 function LoadingState() {
-  return <div className="flex flex-col items-center gap-4 py-8 text-center"><Loader2 className="animate-spin text-primary" size={38} aria-hidden="true" /><h2 className="text-xl font-semibold">Connecting Telegram…</h2><p className="text-muted-foreground">We’re securely linking your account. This will only take a moment.</p></div>;
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
+  return <div className="flex flex-col items-center gap-4 py-8 text-center"><Loader2 className="animate-spin text-primary" size={38} aria-hidden="true" /><h2 className="text-xl font-semibold">{uiT("customer.m38fb881cd93e")}</h2><p className="text-muted-foreground">{uiT("customer.mc9b114a1ed1a")}</p></div>;
 }
 
 function ErrorState({ title, message }: { title: string; message: string }) {
-  return <div className="space-y-4"><CircleAlert className="text-destructive" size={38} /><h2 className="text-2xl font-bold">{title}</h2><p className="text-muted-foreground">{message}</p></div>;
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
+  return <div className="space-y-4"><CircleAlert className="text-destructive" size={38} /><h2 className="text-2xl font-bold">{uiText(title)}</h2><p className="text-muted-foreground">{uiText(message)}</p></div>;
 }

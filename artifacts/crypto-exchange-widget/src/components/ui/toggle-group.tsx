@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 'use client';
 
 import * as React from 'react';
@@ -36,6 +37,8 @@ const ToggleGroupItem = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Item> &
     VariantProps<typeof toggleVariants>
 >(({ className, children, variant, size, ...props }, ref) => {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const context = React.useContext(ToggleGroupContext);
 
   return (
@@ -50,7 +53,7 @@ const ToggleGroupItem = React.forwardRef<
       )}
       {...props}
     >
-      {children}
+      {uiText(children)}
     </ToggleGroupPrimitive.Item>
   );
 });

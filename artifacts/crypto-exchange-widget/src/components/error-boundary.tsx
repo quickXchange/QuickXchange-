@@ -1,3 +1,5 @@
+import { sourceText } from "@workspace/i18n/runtime";
+import { useFallbackI18n as useCustomerI18n } from "@workspace/i18n";
 import {
   Component,
   type ComponentType,
@@ -37,23 +39,23 @@ function toError(value: unknown): Error {
 
 const fallbackCopy = {
   en: {
-    title: 'Something went wrong',
-    description: 'This part of the app hit an error. The rest of the app is still running.',
+    title: sourceText("customer.m6da25a6ada70"),
+    description: sourceText("customer.mdd583bd52f17"),
     retry: 'Try again',
   },
   de: {
-    title: 'Etwas ist schiefgelaufen',
-    description: 'In diesem Teil der App ist ein Fehler aufgetreten. Der Rest der App läuft weiter.',
+    title: sourceText("customer.m10cc8162daab"),
+    description: sourceText("customer.m4be64f22fa01"),
     retry: 'Erneut versuchen',
   },
   es: {
-    title: 'Algo salió mal',
-    description: 'Se produjo un error en esta parte de la aplicación. El resto de la aplicación sigue funcionando.',
+    title: sourceText("customer.md46a0dd97b12"),
+    description: sourceText("customer.m344314e8d95d"),
     retry: 'Intentar de nuevo',
   },
   fr: {
-    title: 'Un problème est survenu',
-    description: 'Une erreur s’est produite dans cette partie de l’application. Le reste de l’application continue de fonctionner.',
+    title: sourceText("customer.mf86ad7123062"),
+    description: sourceText("customer.mcf64ed6679fe"),
     retry: 'Réessayer',
   },
   ko: {
@@ -79,6 +81,8 @@ function getFallbackCopy() {
 }
 
 function DefaultFallback({ error, resetError }: ErrorFallbackProps) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const copy = getFallbackCopy();
   return (
     <div className="min-h-[100dvh] w-full flex items-center justify-center bg-background noise p-6">
@@ -88,10 +92,10 @@ function DefaultFallback({ error, resetError }: ErrorFallbackProps) {
             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-destructive"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
           </div>
           <h1 className="text-3xl font-bold tracking-tight mb-3">
-            {copy.title}
+            {uiText(copy.title)}
           </h1>
           <p className="text-[15px] text-muted-foreground mb-8">
-            {copy.description}
+            {uiText(copy.description)}
           </p>
           {import.meta.env.DEV ? (
             <pre className="w-full overflow-x-auto rounded-xl border border-border bg-muted p-4 text-left text-[11px] font-mono text-muted-foreground mb-8 scrollbar-thin">
@@ -103,7 +107,7 @@ function DefaultFallback({ error, resetError }: ErrorFallbackProps) {
             onClick={resetError}
             className="button button-primary w-full shadow-lg shadow-primary/20"
           >
-            {copy.retry}
+            {uiText(copy.retry)}
           </button>
         </div>
       </div>

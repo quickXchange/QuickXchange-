@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { useLayoutEffect, useState, useMemo } from 'react';
 import { useRoute, Link } from 'wouter';
 import { useGetBlogArticle, getGetBlogArticleQueryKey, useListBlogCategories, getListBlogCategoriesQueryKey } from '@workspace/api-client-react';
@@ -10,6 +11,8 @@ import { BlogImageFrame } from '@/components/blog-ui';
 const textField = (value: unknown) => typeof value === 'string' ? value : '';
 
 function ShareControls({ title, url }: { title: string, url: string }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [copied, setCopied] = useState(false);
 
   const handleNativeShare = async () => {
@@ -32,29 +35,28 @@ function ShareControls({ title, url }: { title: string, url: string }) {
   };
 
   const shareLinks = [
-    { icon: Twitter, href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(url)}`, label: 'Twitter' },
+    { icon: Twitter, href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(url)}`, label: uiT("customer.mbcd18ead5fa8") },
     { icon: Linkedin, href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`, label: 'LinkedIn' },
     { icon: Facebook, href: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, label: 'Facebook' },
   ];
 
   return (
     <div className="flex flex-wrap items-center gap-2 pt-6 mt-6 border-t border-border lg:border-t-0 lg:mt-0 lg:pt-0">
-      <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground mr-2">Share</span>
-      {typeof navigator !== 'undefined' && 'share' in navigator && (
-        <button onClick={handleNativeShare} className="w-8 h-8 flex items-center justify-center bg-card border border-border hover:border-primary text-muted-foreground hover:text-primary transition-colors" aria-label="Share">
+      <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground mr-2">{uiT("customer.m29887a5ff984")}</span>
+      {uiText(typeof navigator !== 'undefined' && uiT("customer.mc3bc45ac352f") in navigator && (
+        <button onClick={handleNativeShare} className="w-8 h-8 flex items-center justify-center bg-card border border-border hover:border-primary text-muted-foreground hover:text-primary transition-colors" aria-label={uiT("customer.m29887a5ff984")}>
           <Share2 size={14} />
         </button>
-      )}
-      <button onClick={handleCopy} className="w-8 h-8 flex items-center justify-center bg-card border border-border hover:border-primary text-muted-foreground hover:text-primary transition-colors relative" aria-label="Copy link">
-        {copied ? <Check size={14} className="text-primary" /> : <LinkIcon size={14} />}
-        {copied && (
+      ))}
+      <button onClick={handleCopy} className="w-8 h-8 flex items-center justify-center bg-card border border-border hover:border-primary text-muted-foreground hover:text-primary transition-colors relative" aria-label={uiT("customer.mdbf362d4f210")}>
+        {uiText(copied ? <Check size={14} className="text-primary" /> : <LinkIcon size={14} />)}
+        {uiText(copied && (
           <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-foreground text-background text-[10px] font-bold px-2 py-1 shadow-xl whitespace-nowrap">
-            Copied
-          </span>
-        )}
+            {uiT("customer.m8d525e5f158b")}{' '}</span>
+        ))}
       </button>
       {shareLinks.map((link) => (
-        <a key={link.label} href={link.href} target="_blank" rel="noopener noreferrer" className="w-8 h-8 flex items-center justify-center bg-card border border-border hover:border-primary text-muted-foreground hover:text-primary transition-colors" aria-label={`Share on ${link.label}`}>
+        <a key={link.label} href={link.href} target="_blank" rel="noopener noreferrer" className="w-8 h-8 flex items-center justify-center bg-card border border-border hover:border-primary text-muted-foreground hover:text-primary transition-colors" aria-label={uiT("customer.m30f39b6b3a1a", { v0: link.label })}>
           <link.icon size={14} />
         </a>
       ))}
@@ -63,6 +65,8 @@ function ShareControls({ title, url }: { title: string, url: string }) {
 }
 
 export function BlogDetailPage() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [, params] = useRoute('/blog/:slug');
   const slug = params?.slug;
 
@@ -190,7 +194,7 @@ export function BlogDetailPage() {
       const sanitizedHTML = DOMPurify.sanitize(data.body);
       return <div className="prose dark:prose-invert prose-lg max-w-none md:prose-xl prose-headings:font-marketing prose-headings:font-extrabold prose-h2:border-b prose-h2:border-border/50 prose-h2:pb-2 prose-a:text-primary hover:prose-a:text-primary/80 prose-img:border prose-img:border-border/50 prose-hr:border-border/50" dangerouslySetInnerHTML={{ __html: sanitizedHTML }} />;
     }
-    return <div className="prose dark:prose-invert prose-lg max-w-none md:prose-xl whitespace-pre-wrap">{typeof data.body === 'string' ? data.body : JSON.stringify(data.body)}</div>;
+    return <div className="prose dark:prose-invert prose-lg max-w-none md:prose-xl whitespace-pre-wrap">{uiText(typeof data.body === 'string' ? data.body : JSON.stringify(data.body))}</div>;
   };
 
   const prevArticle = data?.previousArticle || null;
@@ -199,72 +203,70 @@ export function BlogDetailPage() {
   return (
     <PublicShell>
       <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 py-12 md:px-8 lg:py-16">
-        {article.isLoading ? (
+        {uiText(article.isLoading ? (
           <LoadingBlock rows={12} />
         ) : article.isError || !data ? (
           <div className="py-20">
-            <ErrorState message="Intelligence briefing not found or has been removed." />
+            <ErrorState message={uiT("customer.m00259236dedc")} />
             <div className="mt-8 flex justify-center">
               <Link href="/blog" className="px-8 py-3 bg-foreground text-background font-bold text-xs tracking-widest uppercase hover:bg-primary transition-colors">
-                Return to Intelligence
-              </Link>
+                {uiT("customer.maf4efe72156d")}{' '}</Link>
             </div>
           </div>
         ) : (
           <article className="pb-16 max-w-4xl mx-auto">
             {/* Breadcrumbs */}
-            <nav aria-label="Breadcrumb" className="mb-8 flex items-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground whitespace-nowrap overflow-x-auto scrollbar-hide">
-              <Link href="/blog" className="hover:text-foreground transition-colors">Intelligence</Link>
+            <nav aria-label={uiT("customer.m2bd873d6c734")} className="mb-8 flex items-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground whitespace-nowrap overflow-x-auto scrollbar-hide">
+              <Link href="/blog" className="hover:text-foreground transition-colors">{uiT("customer.m78ea5ef30f1e")}</Link>
               <ChevronRight size={12} className="mx-2 opacity-50" />
               {data.category && (
                 <>
-                  <Link href={`/blog?category=${encodeURIComponent(data.category.slug)}`} className="hover:text-foreground transition-colors">{data.category.name}</Link>
+                  <Link href={`/blog?category=${encodeURIComponent(data.category.slug)}`} className="hover:text-foreground transition-colors">{uiText(data.category.name)}</Link>
                   <ChevronRight size={12} className="mx-2 opacity-50" />
                 </>
               )}
-              <span className="text-foreground max-w-[200px] truncate">{data.title}</span>
+              <span className="text-foreground max-w-[200px] truncate">{uiText(data.title)}</span>
             </nav>
 
             <header className="mb-10">
               {data.category && (
                 <span className="inline-block mb-4 text-primary text-[11px] font-bold tracking-widest uppercase">
-                  {data.category.name}
+                  {uiText(data.category.name)}
                 </span>
               )}
 
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-marketing font-extrabold tracking-tight text-foreground leading-[1.05] mb-6">
-                {data.title}
+                {uiText(data.title)}
               </h1>
 
               <p className="text-xl md:text-2xl text-muted-foreground leading-snug font-medium mb-8 border-l-2 border-primary pl-4">
-                {data.excerpt}
+                {uiText(data.excerpt)}
               </p>
 
               <div className="flex flex-wrap items-center justify-between gap-6 py-4 border-y border-border">
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
                   <div className="flex items-center gap-1.5 text-foreground">
-                    <User size={14} className="opacity-50" /> {data.authorName || 'Editorial'}
+                    <User size={14} className="opacity-50" /> {data.authorName || uiT("customer.m5ad6a405f686")}
                   </div>
                   {data.publishedAt && (
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                       <time className="flex items-center gap-1.5" dateTime={String(data.publishedAt)}>
                         <Calendar size={14} className="opacity-50" />
-                        {new Date(data.publishedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                        {uiText(new Date(data.publishedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }))}
                       </time>
                       {data.updatedAt && data.updatedAt !== data.publishedAt && (
                         <span className="text-[9px] opacity-70 italic">
-                          (Updated {new Date(data.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })})
+                          {uiT("customer.m4d8f910c3a6b")}{' '}{uiText(new Date(data.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }))})
                         </span>
                       )}
                     </div>
                   )}
                   <div className="flex items-center gap-1.5">
-                    <Clock size={14} className="opacity-50" /> {data.readingTimeMinutes} min read
-                  </div>
+                    <Clock size={14} className="opacity-50" /> {uiText(data.readingTimeMinutes)} {' '}{uiT("customer.mb337c94500c5")}{' '}</div>
                 </div>
 
                 <div className="hidden lg:block">
-                  <ShareControls title={data.title} url={typeof window !== 'undefined' ? window.location.href : ''} />
+                  <ShareControls title={uiText(data.title)} url={typeof window !== 'undefined' ? window.location.href : ''} />
                 </div>
               </div>
             </header>
@@ -285,7 +287,7 @@ export function BlogDetailPage() {
                 <div className="h-4 w-px bg-border mx-auto mb-2" />
                 <button onClick={() => {
                   navigator.clipboard.writeText(window.location.href);
-                }} className="w-8 h-8 flex items-center justify-center bg-card border border-border hover:border-primary text-muted-foreground hover:text-primary transition-colors mx-auto" aria-label="Copy link">
+                }} className="w-8 h-8 flex items-center justify-center bg-card border border-border hover:border-primary text-muted-foreground hover:text-primary transition-colors mx-auto" aria-label={uiT("customer.mdbf362d4f210")}>
                   <LinkIcon size={14} />
                 </button>
                 <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(data.title)}&url=${encodeURIComponent(window.location.href)}`} target="_blank" rel="noopener noreferrer" className="w-8 h-8 flex items-center justify-center bg-card border border-border hover:border-primary text-muted-foreground hover:text-primary transition-colors mx-auto">
@@ -297,12 +299,12 @@ export function BlogDetailPage() {
               </aside>
 
               <div className="flex-1 min-w-0">
-                {renderBody()}
+                {uiText(renderBody())}
 
                 {/* Tags */}
                 {data.tags.length > 0 && (
                   <div className="mt-12 pt-8 border-t border-border flex flex-wrap gap-2">
-                    {data.tags.map((tag, index) => {
+                    {uiText(data.tags.map((tag, index) => {
                       const name = textField(tag.name);
                       const tagSlug = textField(tag.slug);
                       return name ? (
@@ -311,16 +313,16 @@ export function BlogDetailPage() {
                           href={`/blog?tag=${encodeURIComponent(tagSlug || name)}`}
                           className="px-3 py-1.5 bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground text-[10px] font-bold uppercase tracking-widest transition-colors border border-border"
                         >
-                          {name}
+                          {uiText(name)}
                         </Link>
                       ) : null;
-                    })}
+                    }))}
                   </div>
                 )}
 
                 {/* Mobile share block */}
                 <div className="mt-8 lg:hidden">
-                  <ShareControls title={data.title} url={typeof window !== 'undefined' ? window.location.href : ''} />
+                  <ShareControls title={uiText(data.title)} url={typeof window !== 'undefined' ? window.location.href : ''} />
                 </div>
 
                 {/* Sources */}
@@ -328,8 +330,7 @@ export function BlogDetailPage() {
                   <section className="mt-16 border-t border-border pt-10" aria-labelledby="sources-heading">
                     <div className="bg-muted/30 border border-border p-6 md:p-8">
                       <h2 id="sources-heading" className="text-sm font-bold tracking-widest uppercase text-foreground mb-6 flex items-center gap-2">
-                        <ShieldCheck size={16} className="text-primary" /> Source Transparency
-                      </h2>
+                        <ShieldCheck size={16} className="text-primary" /> {' '}{uiT("customer.m00ab916177c9")}{' '}</h2>
                       <ol className="space-y-4 text-sm">
                         {data.citations.map((citation, index) => {
                           const url = textField(citation.sourceUrl);
@@ -339,10 +340,10 @@ export function BlogDetailPage() {
                           return url ? (
                             <li key={`${url}-${index}`} className="pl-4 border-l-2 border-border/50 hover:border-primary transition-colors">
                               <a href={url} target="_blank" rel="noopener noreferrer nofollow" className="font-bold text-foreground hover:text-primary transition-colors flex items-center gap-1.5 w-fit">
-                                {sourceTitle} <ExternalLink size={12} className="opacity-50" />
+                                {uiText(sourceTitle)} <ExternalLink size={12} className="opacity-50" />
                               </a>
-                              {publisher && publisher !== sourceTitle ? <span className="block mt-1 text-xs text-muted-foreground uppercase tracking-wider">{publisher}</span> : null}
-                              {claim ? <p className="mt-2 text-muted-foreground italic">&ldquo;{claim}&rdquo;</p> : null}
+                              {publisher && publisher !== sourceTitle ? <span className="block mt-1 text-xs text-muted-foreground uppercase tracking-wider">{uiText(publisher)}</span> : null}
+                              {claim ? <p className="mt-2 text-muted-foreground italic">{uiT("customer.mc2dcdc8db2cd")}{uiText(claim)}{uiT("customer.md1fc8381e22d")}</p> : null}
                             </li>
                           ) : null;
                         })}
@@ -356,15 +357,15 @@ export function BlogDetailPage() {
                   <nav className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-border pt-10">
                     {prevArticle ? (
                       <Link href={`/blog/${prevArticle.slug}`} className="group flex flex-col items-start p-6 border border-border bg-card hover:border-primary transition-colors text-left">
-                        <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground mb-3 flex items-center gap-1 group-hover:text-primary transition-colors"><ChevronLeft size={12}/> Previous Brief</span>
-                        <span className="font-marketing font-bold text-foreground line-clamp-2 text-lg group-hover:text-primary transition-colors">{prevArticle.title}</span>
+                        <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground mb-3 flex items-center gap-1 group-hover:text-primary transition-colors"><ChevronLeft size={12}/> {' '}{uiT("customer.m77ce15225d4c")}</span>
+                        <span className="font-marketing font-bold text-foreground line-clamp-2 text-lg group-hover:text-primary transition-colors">{uiText(prevArticle.title)}</span>
                       </Link>
                     ) : <div></div>}
 
                     {nextArticle && (
                       <Link href={`/blog/${nextArticle.slug}`} className="group flex flex-col items-end p-6 border border-border bg-card hover:border-primary transition-colors text-right">
-                        <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground mb-3 flex items-center gap-1 group-hover:text-primary transition-colors">Next Brief <ChevronRight size={12}/></span>
-                        <span className="font-marketing font-bold text-foreground line-clamp-2 text-lg group-hover:text-primary transition-colors">{nextArticle.title}</span>
+                        <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground mb-3 flex items-center gap-1 group-hover:text-primary transition-colors">{uiT("customer.me3a927d6fecc")}{' '}<ChevronRight size={12}/></span>
+                        <span className="font-marketing font-bold text-foreground line-clamp-2 text-lg group-hover:text-primary transition-colors">{uiText(nextArticle.title)}</span>
                       </Link>
                     )}
                   </nav>
@@ -375,39 +376,37 @@ export function BlogDetailPage() {
             {/* CTA */}
             <div className="mt-16 pt-16 border-t border-border">
               <div className="bg-card border border-border p-8 md:p-12 text-center max-w-4xl mx-auto flex flex-col items-center">
-                <h3 className="text-2xl md:text-3xl font-marketing font-extrabold text-foreground mb-4 uppercase tracking-tight">Execute with Confidence</h3>
+                <h3 className="text-2xl md:text-3xl font-marketing font-extrabold text-foreground mb-4 uppercase tracking-tight">{uiT("customer.m29659cdb4236")}</h3>
                 <p className="text-muted-foreground mb-8 max-w-xl">
-                  Leverage our deep liquidity pools and real-time market rates for your institutional trading needs.
-                </p>
+                  {uiT("customer.m02adb1dde4af")}{' '}</p>
                 <Link href="/convert" className="inline-flex items-center justify-center px-8 py-3 bg-foreground text-background font-bold text-xs tracking-widest uppercase hover:bg-primary transition-colors">
-                  Open Convert Desk
-                </Link>
+                  {uiT("customer.m3050d71a8e21")}{' '}</Link>
               </div>
 
               <div className="grid md:grid-cols-3 gap-6 mt-8 max-w-5xl mx-auto mb-12">
                 <Link href="/swap" className="p-6 bg-muted/20 border border-border hover:border-primary transition-colors text-left group">
                   <h4 className="font-bold text-sm uppercase tracking-wider text-foreground mb-2 group-hover:text-primary transition-colors flex justify-between items-center">
-                    Manual Swap <ArrowUpRight size={14} className="opacity-50" />
+                    {uiT("customer.m71fcf01f2da8")}{' '}<ArrowUpRight size={14} className="opacity-50" />
                   </h4>
-                  <p className="text-xs text-muted-foreground leading-relaxed">Exchange large volumes safely through our OTC desk.</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{uiT("customer.mb90e8dc20228")}</p>
                 </Link>
                 <Link href="/crypto-pairs" className="p-6 bg-muted/20 border border-border hover:border-primary transition-colors text-left group">
                   <h4 className="font-bold text-sm uppercase tracking-wider text-foreground mb-2 group-hover:text-primary transition-colors flex justify-between items-center">
-                    Supported Markets <ArrowUpRight size={14} className="opacity-50" />
+                    {uiT("customer.md7d998ea51f4")}{' '}<ArrowUpRight size={14} className="opacity-50" />
                   </h4>
-                  <p className="text-xs text-muted-foreground leading-relaxed">View our supported assets and settlement options.</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{uiT("customer.ma2bc74a65ba2")}</p>
                 </Link>
                 <Link href="/faq" className="p-6 bg-muted/20 border border-border hover:border-primary transition-colors text-left group">
                   <h4 className="font-bold text-sm uppercase tracking-wider text-foreground mb-2 group-hover:text-primary transition-colors flex justify-between items-center">
-                    Platform FAQ <ArrowUpRight size={14} className="opacity-50" />
+                    {uiT("customer.ma41ee1d76a20")}{' '}<ArrowUpRight size={14} className="opacity-50" />
                   </h4>
-                  <p className="text-xs text-muted-foreground leading-relaxed">Answers to common operational questions.</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{uiT("customer.m42b9fb3459ed")}</p>
                 </Link>
               </div>
             </div>
 
           </article>
-        )}
+        ))}
       </div>
     </PublicShell>
   );

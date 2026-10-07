@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { type CSSProperties, type KeyboardEvent, type ReactNode, useRef } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { Check, ChevronRight, Search, X } from 'lucide-react';
@@ -70,6 +71,8 @@ export function UniversalSearchSheet<TOption>({
   label,
   getOptionId,
 }: UniversalSearchSheetProps<TOption>) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const rootRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -115,10 +118,10 @@ export function UniversalSearchSheet<TOption>({
         className={`qx-overlay-card ${anchoredInsideWidget ? 'qx-widget-anchored swap-contained-selector convert-contained-selector' : 'qx-standalone'} ${preserveOpenGeometry ? 'qx-preserve-open-geometry' : ''}`}
       >
         <QuickXchangeOverlayHeader
-          title={<DialogPrimitive.Title>{title}</DialogPrimitive.Title>}
-          subtitle={subtitle}
+          title={<DialogPrimitive.Title>{uiText(title)}</DialogPrimitive.Title>}
+          subtitle={uiText(subtitle)}
           closeControl={(
-            <DialogPrimitive.Close className="qx-overlay-close" aria-label={closeLabel}>
+            <DialogPrimitive.Close className="qx-overlay-close" aria-label={uiText(closeLabel)}>
               <X size={24} strokeWidth={2.5} aria-hidden="true" />
             </DialogPrimitive.Close>
           )}
@@ -147,7 +150,7 @@ export function UniversalSearchSheet<TOption>({
                   onQueryChange('');
                   searchInputRef.current?.focus();
                 }}
-                aria-label={closeSearchLabel}
+                aria-label={uiText(closeSearchLabel)}
                 data-testid={clearSearchTestId || `cancel-${testIdBase}-search`}
               >
                 <X size={16} aria-hidden="true" />
@@ -157,7 +160,7 @@ export function UniversalSearchSheet<TOption>({
         </div>
 
         {categories && categories.length > 1 && (
-          <div className="qx-overlay-chips" role="group" aria-label={label || 'Filter categories'}>
+          <div className="qx-overlay-chips" role="group" aria-label={label || uiT("customer.m610200a390f7")}>
             {categories.map(category => (
               <button
                 key={category.id}
@@ -167,12 +170,12 @@ export function UniversalSearchSheet<TOption>({
                 onClick={() => onCategoryChange?.(category.id)}
                 data-testid={category.testSuffix ? `filter-${testIdBase}-${category.testSuffix}` : undefined}
               >
-                {category.label}
+                {uiText(category.label)}
               </button>
             ))}
           </div>
         )}
-        <div className="qx-overlay-list" id={listboxId} role="listbox" aria-label={label}>
+        <div className="qx-overlay-list" id={listboxId} role="listbox" aria-label={uiText(label)}>
           {options.map(option => {
             const isSelectedOption = isSelected(option);
             return (
@@ -193,7 +196,7 @@ export function UniversalSearchSheet<TOption>({
                   if (event.key === 'ArrowUp') moveOptionFocus(event, -1);
                 }}
               >
-                {renderOption(option)}
+                {uiText(renderOption(option))}
                 <div className={`qx-asset-option-check ${!isSelectedOption ? 'qx-asset-option-chevron' : ''}`}>
                   {isSelectedOption ? <Check size={20} aria-hidden="true" /> : <ChevronRight size={20} aria-hidden="true" />}
                 </div>
@@ -202,7 +205,7 @@ export function UniversalSearchSheet<TOption>({
           })}
           {!options.length && (
             <div className="qx-overlay-empty">
-              {noOptionsText}
+              {uiText(noOptionsText)}
             </div>
           )}
         </div>

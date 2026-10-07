@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { useLayoutEffect, useState } from 'react';
 import { PublicShell } from '../components/public-shell';
 import { cn } from '../components/shared-app-ui';
@@ -24,6 +25,12 @@ function SEO({ title, description }: { title: string; description: string }) {
   return null;
 }
 
+function FaqLinkedAnswer({ templateKey, labelKey, href }: { templateKey: string; labelKey: string; href: string }) {
+  const { t } = useCustomerI18n();
+  const [before, after] = t(templateKey).split('{{link}}');
+  return <>{before}<Link href={href} className="text-primary hover:underline font-medium">{t(labelKey)}</Link>{after}</>;
+}
+
 const FAQ_DATA = [
   {
     question: "What is QuickXchange?",
@@ -40,9 +47,7 @@ const FAQ_DATA = [
   {
     question: "How can I track my order?",
     answer: (
-      <>
-        Use the identifier provided after order creation on the <Link href="/status" className="text-primary hover:underline font-medium">Track an Order</Link> page. Signed-in customers can also review orders from their account.
-      </>
+      <FaqLinkedAnswer templateKey="customer.faqTrackHelp" labelKey="customer.faqTrackAction" href="/status" />
     )
   },
   {
@@ -96,14 +101,14 @@ const FAQ_DATA = [
   {
     question: "How do I contact QuickXchange support?",
     answer: (
-      <>
-        You can reach the support team through the <Link href="/contact" className="text-primary hover:underline font-medium">Contact Us</Link> page.
-      </>
+      <FaqLinkedAnswer templateKey="customer.faqContactHelp" labelKey="customer.faqContactAction" href="/contact" />
     )
   }
 ];
 
 function AccordionItem({ item, index, isOpen, onClick }: { item: typeof FAQ_DATA[0], index: number, isOpen: boolean, onClick: () => void }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const contentId = `faq-answer-${index}`;
   return (
     <div className={cn("faq-accordion-item", isOpen && "is-open")}>
@@ -114,7 +119,7 @@ function AccordionItem({ item, index, isOpen, onClick }: { item: typeof FAQ_DATA
         aria-expanded={isOpen}
         aria-controls={contentId}
       >
-        <span className="faq-accordion-title">{item.question}</span>
+        <span className="faq-accordion-title">{uiText(item.question)}</span>
         <span className="faq-accordion-icon" aria-hidden="true">
           <span className="relative w-5 h-5 flex items-center justify-center">
             <Plus
@@ -132,13 +137,13 @@ function AccordionItem({ item, index, isOpen, onClick }: { item: typeof FAQ_DATA
         id={contentId}
         className="faq-accordion-content-wrapper"
         role="region"
-        aria-label={item.question}
+        aria-label={uiText(item.question)}
         aria-hidden={!isOpen}
         inert={!isOpen}
       >
         <div className="faq-accordion-content">
           <div className="faq-accordion-content-inner">
-            {item.answer}
+            {uiText(item.answer)}
           </div>
         </div>
       </div>
@@ -147,11 +152,13 @@ function AccordionItem({ item, index, isOpen, onClick }: { item: typeof FAQ_DATA
 }
 
 export function FaqPage() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
     <PublicShell>
-      <SEO title="FAQ - Frequently Asked Questions" description="Find quick answers about Swap, Convert, payments, crypto transfers, orders, and security." />
+      <SEO title={uiT("customer.mac51ffaba263")} description={uiT("customer.m05408502dcc1")} />
 
       <div className="relative py-24 lg:py-32 overflow-hidden flex flex-col items-center justify-center text-center px-3 sm:px-6">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-[var(--qx-gradient)] opacity-[0.08] dark:opacity-[0.15] blur-[120px] rounded-full pointer-events-none" />
@@ -159,17 +166,15 @@ export function FaqPage() {
         <div className="flex flex-col items-center faq-hero-glow">
           <span className="text-primary font-bold tracking-[0.2em] uppercase text-xs mb-6 inline-block faq-brand-glow">FAQ</span>
           <h1 className="text-4xl md:text-6xl font-marketing font-extrabold tracking-tight text-foreground max-w-4xl leading-[1.1] mb-6 faq-title-glow">
-            Frequently Asked Questions
-          </h1>
+            {uiT("customer.ma3d458e1bd1e")}{' '}</h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl leading-relaxed">
-            Find quick answers about Swap, Convert, payments, crypto transfers, orders, and security.
-          </p>
+            {uiT("customer.m05408502dcc1")}{' '}</p>
         </div>
       </div>
 
       <div className="max-w-3xl mx-auto px-3 sm:px-6 lg:px-8 pb-32 faq-content-glow w-full">
         <div className="faq-accordion-root">
-          {FAQ_DATA.map((item, i) => (
+          {uiText(FAQ_DATA.map((item, i) => (
             <AccordionItem
               key={item.question}
               item={item}
@@ -177,7 +182,7 @@ export function FaqPage() {
               isOpen={openIndex === i}
               onClick={() => setOpenIndex(openIndex === i ? null : i)}
             />
-          ))}
+          )))}
         </div>
       </div>
     </PublicShell>

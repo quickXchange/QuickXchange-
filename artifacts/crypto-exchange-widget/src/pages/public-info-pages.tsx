@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { useLayoutEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { PublicShell } from '../components/public-shell';
@@ -32,6 +33,8 @@ function SEO({ title, description }: { title: string; description: string }) {
 }
 
 function HeroSection({ title, subtitle, imagePath, imageAlt, aboutGlow = false, contactGlow = false, affiliateGlow = false, privacyGlow = false, termsGlow = false, amlGlow = false }: { title: string; subtitle: string; imagePath?: string; imageAlt?: string; aboutGlow?: boolean; contactGlow?: boolean; affiliateGlow?: boolean; privacyGlow?: boolean; termsGlow?: boolean; amlGlow?: boolean }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const preview = useSitePreview();
   const imageUrl = imagePath
     ? preview.assetUrls?.[imagePath]
@@ -41,43 +44,47 @@ function HeroSection({ title, subtitle, imagePath, imageAlt, aboutGlow = false, 
     : '';
   return (
     <div className={cn("relative py-24 lg:py-32 overflow-hidden flex flex-col items-center justify-center text-center px-3 sm:px-6", imagePath ? "lg:flex-row lg:text-left lg:justify-between max-w-6xl mx-auto gap-12" : "", aboutGlow && "about-hero-glow", contactGlow && "contact-hero-glow", affiliateGlow && "affiliate-hero-glow", privacyGlow && "privacy-hero-glow", termsGlow && "terms-hero-glow", amlGlow && "aml-hero-glow")}>
-      {!imagePath && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-[var(--qx-gradient)] opacity-[0.08] dark:opacity-[0.15] blur-[120px] rounded-full pointer-events-none" />}
+      {uiText(!imagePath && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-[var(--qx-gradient)] opacity-[0.08] dark:opacity-[0.15] blur-[120px] rounded-full pointer-events-none" />)}
       <div className={cn("flex flex-col items-center", imagePath ? "lg:items-start lg:w-1/2" : "")}>
         <span className={cn("text-primary font-bold tracking-[0.2em] uppercase text-xs mb-6 inline-block", aboutGlow && "about-brand-glow", contactGlow && "contact-brand-glow", affiliateGlow && "affiliate-brand-glow", privacyGlow && "privacy-brand-glow", termsGlow && "terms-brand-glow", amlGlow && "aml-brand-glow")}>QuickXchange</span>
         <h1 className={cn("text-4xl md:text-6xl lg:text-7xl font-marketing font-extrabold tracking-tight text-foreground max-w-4xl leading-[1.1] mb-6", aboutGlow && "about-title-glow", contactGlow && "contact-title-glow", affiliateGlow && "affiliate-title-glow", privacyGlow && "privacy-title-glow", termsGlow && "terms-title-glow", amlGlow && "aml-title-glow")}>
-          {title}
+          {uiText(title)}
         </h1>
         <p className="text-lg md:text-xl text-muted-foreground max-w-2xl leading-relaxed">
-          {subtitle}
+          {uiText(subtitle)}
         </p>
       </div>
-      {imagePath && (
+      {uiText(imagePath && (
         <div className="w-full lg:w-1/2 mt-12 lg:mt-0">
           <div className="relative aspect-square md:aspect-[4/3] w-full overflow-hidden rounded-3xl border border-border bg-card/50 shadow-sm">
              <img src={imageUrl} alt={imageAlt || title} className="absolute inset-0 h-full w-full object-cover" />
           </div>
         </div>
-      )}
+      ))}
     </div>
   );
 }
 
 function ContentCard({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   return (
     <div className={cn("bg-card/50 backdrop-blur-sm border border-border rounded-3xl p-8 md:p-12 shadow-sm relative overflow-hidden", className)}>
       <div className="absolute top-0 left-0 w-full h-1 bg-[var(--qx-gradient)] opacity-70" />
-      <h2 className="text-2xl font-marketing font-bold text-foreground mb-6">{title}</h2>
+      <h2 className="text-2xl font-marketing font-bold text-foreground mb-6">{uiText(title)}</h2>
       <div className="space-y-6 text-muted-foreground leading-relaxed">
-        {children}
+        {uiText(children)}
       </div>
     </div>
   );
 }
 
 function PageContainer({ children, className }: { children: React.ReactNode; className?: string }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   return (
     <div className={cn("max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 pb-32 space-y-12", className)}>
-      {children}
+      {uiText(children)}
     </div>
   );
 }
@@ -91,6 +98,8 @@ function ManagedContent({
   children: React.ReactNode;
   preserveChildren?: boolean;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const sections = Array.isArray(content?.sections)
     ? content.sections.flatMap((value) => {
       if (!value || typeof value !== 'object') return [];
@@ -108,24 +117,26 @@ function ManagedContent({
     : {};
   const hasManagedCopy = sections.length > 0 || Boolean(body);
   return <>
-    {hasManagedCopy ? (
+    {uiText(hasManagedCopy ? (
       <>
-        {body && <ContentCard title={contentValue(content, ['bodyHeading'], 'Overview')}><p className="whitespace-pre-wrap">{body}</p></ContentCard>}
-        {sections.map((section, index) => <ContentCard key={`${section.heading}-${index}`} title={section.heading}><p className="whitespace-pre-wrap">{section.body}</p></ContentCard>)}
+        {body && <ContentCard title={uiText(contentValue(content, ['bodyHeading'], 'Overview'))}><p className="whitespace-pre-wrap">{uiText(body)}</p></ContentCard>}
+        {uiText(sections.map((section, index) => <ContentCard key={`${section.heading}-${index}`} title={section.heading}><p className="whitespace-pre-wrap">{uiText(section.body)}</p></ContentCard>))}
       </>
-    ) : children}
-    {preserveChildren && hasManagedCopy ? children : null}
-    {(typeof primary.label === 'string' && typeof primary.href === 'string') || (typeof secondary.label === 'string' && typeof secondary.href === 'string') ? (
+    ) : children)}
+    {uiText(preserveChildren && hasManagedCopy ? children : null)}
+    {uiText((typeof primary.label === 'string' && typeof primary.href === 'string') || (typeof secondary.label === 'string' && typeof secondary.href === 'string') ? (
       <div className="flex flex-wrap gap-3">
-        {typeof primary.label === 'string' && typeof primary.href === 'string' && <a className="button button-primary" href={primary.href} data-testid="link-page-primary-action">{primary.label}</a>}
-        {typeof secondary.label === 'string' && typeof secondary.href === 'string' && <a className="button button-secondary" href={secondary.href} data-testid="link-page-secondary-action">{secondary.label}</a>}
+        {typeof primary.label === 'string' && typeof primary.href === 'string' && <a className="button button-primary" href={primary.href} data-testid="link-page-primary-action">{uiText(primary.label)}</a>}
+        {typeof secondary.label === 'string' && typeof secondary.href === 'string' && <a className="button button-secondary" href={secondary.href} data-testid="link-page-secondary-action">{uiText(secondary.label)}</a>}
       </div>
-    ) : null}
+    ) : null)}
   </>;
 }
 
 // 1. About
 export function AboutPage() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const preview = useSitePreview();
   const published = useGetPublishedSiteContent({ query: { queryKey: getGetPublishedSiteContentQueryKey(), staleTime: 60_000 } });
 
@@ -145,20 +156,20 @@ export function AboutPage() {
   const configuredPoints = Array.isArray(content?.differencePoints) ? content.differencePoints : [];
   const defaultPoints = [
     {
-      title: "Transfer with confidence",
-      description: "We understand the importance of executing transactions safely and efficiently. That's why we operate around-the-clock, utilizing a global network of banks and e-wallets to ensure our customers receive the best service possible. Trust us to handle your transactions with speed and security.",
+      title: uiT("customer.m7d708f78fa7c"),
+      description: uiT("customer.m6391e6d6580c"),
     },
     {
-      title: "Effortless Money Transfers",
-      description: "With our platform, sending and receiving money has never been easier. Our user-friendly interface enables you to complete transactions with just a few clicks. Plus, our dedicated support team is available round-the-clock to provide prompt assistance with any inquiries or concerns you may have. Choose us for hassle-free money transfers!",
+      title: uiT("customer.md69119b6f220"),
+      description: uiT("customer.mf251c9722e52"),
     },
     {
-      title: "Experience the Difference",
-      description: "At our company, we strive to offer a wide range of services to our customers while providing exceptional customer service. Our top priorities are security and performance, while also ensuring that our platform is user-friendly and convenient. With our team's creative ideas and dedication, we aim to make a significant impact in the global market.",
+      title: uiT("customer.m9d41e9b02514"),
+      description: uiT("customer.mdc2c6809002c"),
     },
     {
-      title: "Time is Money",
-      description: "We know that in today's fast-paced world, time is of the essence. That's why we promise to provide our customers with swift, secure, and straightforward financial services, ensuring that their needs always come first. Our team is dedicated to delivering the best possible experience, and we're always working to improve our services so that you can enjoy even greater convenience.",
+      title: uiT("customer.md3035c327fde"),
+      description: uiT("customer.m9a53c567ff32"),
     },
   ];
   const differencePoints = defaultPoints.map((fallback, index) => {
@@ -172,19 +183,19 @@ export function AboutPage() {
   });
 return (
     <PublicShell>
-      <SEO title={seoTitle} description={seoDesc} />
-      <HeroSection title={title} subtitle={subtitle} imagePath={heroImagePath} imageAlt={heroImageAlt} aboutGlow />
+      <SEO title={uiText(seoTitle)} description={uiText(seoDesc)} />
+      <HeroSection title={uiText(title)} subtitle={uiText(subtitle)} imagePath={heroImagePath} imageAlt={heroImageAlt} aboutGlow />
       <PageContainer className="about-content-glow">
          <section aria-labelledby="about-difference-title">
-           <h2 id="about-difference-title" className="mb-8 text-center text-3xl font-marketing font-extrabold text-foreground md:text-4xl" data-testid="text-about-difference-title">{differenceTitle}</h2>
+           <h2 id="about-difference-title" className="mb-8 text-center text-3xl font-marketing font-extrabold text-foreground md:text-4xl" data-testid="text-about-difference-title">{uiText(differenceTitle)}</h2>
            <ol className="grid gap-6 md:grid-cols-2">
-             {differencePoints.map((point, index) => (
+             {uiText(differencePoints.map((point, index) => (
                <li className="about-value-card bg-card border border-border rounded-3xl p-8 shadow-sm" key={index} data-testid={`card-about-point-${index + 1}`}>
                  <span className="about-heading-glow block text-4xl font-marketing font-extrabold text-primary mb-5" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
-                 <h3 className="about-heading-glow text-xl font-bold text-foreground mb-3">{point.title}</h3>
-                 <p className="text-sm leading-relaxed text-muted-foreground">{point.description}</p>
+                 <h3 className="about-heading-glow text-xl font-bold text-foreground mb-3">{uiText(point.title)}</h3>
+                 <p className="text-sm leading-relaxed text-muted-foreground">{uiText(point.description)}</p>
                </li>
-             ))}
+             )))}
            </ol>
          </section>
       </PageContainer>
@@ -194,6 +205,8 @@ return (
 
 // 2. Affiliates
 export function AffiliatesPage() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const preview = useSitePreview();
   const published = useGetPublishedSiteContent({ query: { queryKey: getGetPublishedSiteContentQueryKey(), staleTime: 60_000 } });
 
@@ -213,16 +226,16 @@ export function AffiliatesPage() {
   const configuredSteps = Array.isArray(content?.howItWorksSteps) ? content.howItWorksSteps : [];
   const defaultSteps = [
     {
-      title: "Ask people to Join",
-      description: "Promote your affiliate link or code through social media, friends, communities, and groups. You can find your unique link or code in your affiliate dashboard.",
+      title: uiT("customer.mac782861abef"),
+      description: uiT("customer.md05d5d1d05e2"),
     },
     {
-      title: "Engage to Exchange",
-      description: "Promote QuickXchange among your affiliates and teach them how to exchange between payment methods. Earn 30% of fees from their orders.",
+      title: uiT("customer.m5b84227b0f60"),
+      description: uiT("customer.me8e52e1202c2"),
     },
     {
-      title: "Earn revenue",
-      description: "Monitor your affiliates’ activity through your affiliate dashboard and watch your profits increase automatically. You can withdraw profits to your wallet once your profits reach 30$ or more.",
+      title: uiT("customer.m2cbc540de686"),
+      description: uiT("customer.mac179a443a7d"),
     },
   ];
   const howItWorksSteps = defaultSteps.map((fallback, index) => {
@@ -237,19 +250,19 @@ export function AffiliatesPage() {
 
   return (
     <PublicShell>
-      <SEO title={seoTitle} description={seoDesc} />
-      <HeroSection title={title} subtitle={subtitle} imagePath={heroImagePath} imageAlt={heroImageAlt} affiliateGlow />
+      <SEO title={uiText(seoTitle)} description={uiText(seoDesc)} />
+      <HeroSection title={uiText(title)} subtitle={uiText(subtitle)} imagePath={heroImagePath} imageAlt={heroImageAlt} affiliateGlow />
       <PageContainer className="affiliate-content-glow">
          <section aria-labelledby="affiliate-how-it-works-title">
-           <h2 id="affiliate-how-it-works-title" className="mb-8 text-center text-3xl font-marketing font-extrabold text-foreground md:text-4xl" data-testid="text-affiliate-how-it-works-title">{howItWorksTitle}</h2>
+           <h2 id="affiliate-how-it-works-title" className="mb-8 text-center text-3xl font-marketing font-extrabold text-foreground md:text-4xl" data-testid="text-affiliate-how-it-works-title">{uiText(howItWorksTitle)}</h2>
            <ol className="grid gap-6 md:grid-cols-3">
-             {howItWorksSteps.map((step, index) => (
+             {uiText(howItWorksSteps.map((step, index) => (
                <li className="affiliate-feature-card bg-card border border-border rounded-3xl p-8 shadow-sm" key={index} data-testid={`card-affiliate-step-${index + 1}`}>
                  <span className="affiliate-feature-word block text-4xl font-marketing font-extrabold text-primary mb-5" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
-                 <h3 className="affiliate-heading-glow text-lg font-bold text-foreground mb-3">{step.title}</h3>
-                 <p className="text-sm leading-relaxed text-muted-foreground">{step.description}</p>
+                 <h3 className="affiliate-heading-glow text-lg font-bold text-foreground mb-3">{uiText(step.title)}</h3>
+                 <p className="text-sm leading-relaxed text-muted-foreground">{uiText(step.description)}</p>
                </li>
-             ))}
+             )))}
            </ol>
          </section>
       </PageContainer>
@@ -259,6 +272,8 @@ export function AffiliatesPage() {
 
 // 3. Contact Us
 export function ContactUsPage() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const telegramSupportUrl = usePublishedTelegramSupportUrl();
   const preview = useSitePreview();
   const published = useGetPublishedSiteContent({ query: { queryKey: getGetPublishedSiteContentQueryKey(), staleTime: 60_000 } });
@@ -287,10 +302,10 @@ export function ContactUsPage() {
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setNotice(null);
-    if (!valid) { setNotice({ kind: 'error', text: 'Please enter a valid name, email address, and message.' }); return; }
+    if (!valid) { setNotice({ kind: 'error', text: uiT("customer.m4f5f79a1d88d") }); return; }
     submit.mutate({ data: { name: form.name.trim(), email: form.email.trim(), message: form.message.trim() } }, {
-      onSuccess: () => { setForm({ name: '', email: '', message: '' }); setNotice({ kind: 'success', text: 'Message sent successfully. Our support team will get back to you soon.' }); },
-      onError: () => setNotice({ kind: 'error', text: 'Your message could not be sent. Please try again later.' }),
+      onSuccess: () => { setForm({ name: '', email: '', message: '' }); setNotice({ kind: 'success', text: uiT("customer.m7936920d6046") }); },
+      onError: () => setNotice({ kind: 'error', text: uiT("customer.mc870784c93c7") }),
     });
   };
 
@@ -298,31 +313,30 @@ export function ContactUsPage() {
     event.preventDefault();
     setNewsletterNotice(null);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newsletterEmail)) {
-      setNewsletterNotice({ kind: 'error', text: 'Please enter a valid email address.' });
+      setNewsletterNotice({ kind: 'error', text: uiT("customer.m958e4ccf2953") });
       return;
     }
     newsletterSubmit.mutate({ data: { email: newsletterEmail.trim().toLowerCase() } }, {
       onSuccess: () => {
         setNewsletterEmail('');
-        setNewsletterNotice({ kind: 'success', text: 'Thanks — you’re subscribed to QuickXchange updates.' });
+        setNewsletterNotice({ kind: 'success', text: uiT("customer.me1d12dde1f2f") });
       },
-      onError: () => setNewsletterNotice({ kind: 'error', text: 'We could not subscribe you right now. Please try again later.' }),
+      onError: () => setNewsletterNotice({ kind: 'error', text: uiT("customer.m9c56f184cd9c") }),
     });
   };
 
   return (
     <PublicShell>
-      <SEO title={seoTitle} description={seoDesc} />
+      <SEO title={uiText(seoTitle)} description={uiText(seoDesc)} />
       <ManagedContent content={content} preserveChildren>
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-16 lg:py-24 space-y-24">
           <div className="grid lg:grid-cols-2 gap-16 lg:gap-24 items-start">
             {/* Left Column: Heading, Cards, Social */}
             <div className="flex flex-col gap-12">
               <div>
-                <h1 className="text-4xl md:text-5xl font-marketing font-extrabold tracking-tight text-foreground mb-4">Contact Us</h1>
+                <h1 className="text-4xl md:text-5xl font-marketing font-extrabold tracking-tight text-foreground mb-4">{uiT("customer.m98b67063cf8e")}</h1>
                 <p className="text-lg text-muted-foreground leading-relaxed">
-                  For feedback, questions, or in case of issues, use the form or contact our support team.
-                </p>
+                  {uiT("customer.m2828293d6bca")}{' '}</p>
               </div>
 
               <div className="flex flex-col gap-4">
@@ -331,8 +345,8 @@ export function ContactUsPage() {
                     <Search size={22} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-base font-bold text-foreground mb-1">Check your swap status</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">Track your order in real-time.</p>
+                    <h3 className="text-base font-bold text-foreground mb-1">{uiT("customer.m497bbabff670")}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{uiT("customer.m7a56926ffa95")}</p>
                   </div>
                   <ArrowRight size={18} className="contact-resource-arrow" />
                 </Link>
@@ -342,8 +356,8 @@ export function ContactUsPage() {
                     <BookOpen size={22} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-base font-bold text-foreground mb-1">How to use our service</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">Simple step-by-step guides.</p>
+                    <h3 className="text-base font-bold text-foreground mb-1">{uiT("customer.m00cfc9a3c262")}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{uiT("customer.mdbde01f0a7e0")}</p>
                   </div>
                   <ArrowRight size={18} className="contact-resource-arrow" />
                 </Link>
@@ -353,8 +367,8 @@ export function ContactUsPage() {
                     <HelpCircle size={22} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-base font-bold text-foreground mb-1">Frequently asked questions</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">Find answers to common questions.</p>
+                    <h3 className="text-base font-bold text-foreground mb-1">{uiT("customer.me956a9404b46")}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{uiT("customer.m4965bd24268f")}</p>
                   </div>
                 </div>
               </div>
@@ -367,19 +381,19 @@ export function ContactUsPage() {
                   target="_blank"
                   rel="noreferrer"
                   className="group inline-flex min-h-11 items-center gap-3 text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-4 focus-visible:ring-offset-background"
-                  aria-label="Contact QuickXchange support on Telegram"
+                  aria-label={uiT("customer.mf2e12e4979db")}
                   data-testid="link-contact-telegram"
                 >
                   <SiTelegram
                     aria-hidden="true"
                     className="h-6 w-6 shrink-0 text-[#229ED9] transition duration-200 group-hover:drop-shadow-[0_0_8px_rgba(34,158,217,0.75)] group-active:drop-shadow-[0_0_10px_rgba(124,58,237,0.75)]"
                   />
-                  <span className="font-semibold">{telegramSupportHandle(telegramSupportUrl)}</span>
+                  <span className="font-semibold">{uiText(telegramSupportHandle(telegramSupportUrl))}</span>
                 </a>
                 <a
                   href={`mailto:${SUPPORT_EMAIL}`}
                   className="group inline-flex min-h-11 items-center gap-3 text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-4 focus-visible:ring-offset-background"
-                  aria-label="Email QuickXchange support"
+                  aria-label={uiT("customer.mbbbe39235291")}
                   data-testid="link-contact-email"
                 >
                   <Mail
@@ -393,52 +407,51 @@ export function ContactUsPage() {
 
             {/* Right Column: Form */}
             <div className="contact-redesign-panel p-8 md:p-10">
-              <h2 className="text-2xl font-marketing font-bold text-foreground mb-8">Contact Form</h2>
+              <h2 className="text-2xl font-marketing font-bold text-foreground mb-8">{uiT("customer.m5641d7b645e1")}</h2>
               <form className="space-y-6" onSubmit={onSubmit} noValidate>
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-3">
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider" htmlFor="contact-name">Name</label>
-                    <input id="contact-name" className="w-full h-14 bg-input border border-border rounded-xl px-4 text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" required maxLength={120} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Jane Doe" />
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider" htmlFor="contact-name">{uiT("customer.mdcd1d5223f73")}</label>
+                    <input id="contact-name" className="w-full h-14 bg-input border border-border rounded-xl px-4 text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" required maxLength={120} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={uiT("customer.m01332c876518")} />
                   </div>
                   <div className="space-y-3">
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider" htmlFor="contact-email">Email</label>
-                    <input id="contact-email" className="w-full h-14 bg-input border border-border rounded-xl px-4 text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" type="email" required maxLength={320} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="jane@example.com" />
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider" htmlFor="contact-email">{uiT("customer.m969ccbd3cf63")}</label>
+                    <input id="contact-email" className="w-full h-14 bg-input border border-border rounded-xl px-4 text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" type="email" required maxLength={320} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder={uiT("customer.m8c87b489ce35")} />
                   </div>
                 </div>
                 <div className="space-y-3">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider" htmlFor="contact-message">Message</label>
-                  <textarea id="contact-message" className="w-full min-h-[160px] bg-input border border-border rounded-xl p-4 text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all resize-y" required maxLength={5000} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} placeholder="How can we help you today?" />
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider" htmlFor="contact-message">{uiT("customer.m2f77668a9dfb")}</label>
+                  <textarea id="contact-message" className="w-full min-h-[160px] bg-input border border-border rounded-xl p-4 text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all resize-y" required maxLength={5000} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} placeholder={uiT("customer.m597e4efe88fe")} />
                 </div>
-                {notice && <InlineNotice kind={notice.kind}>{notice.text}</InlineNotice>}
+                {uiText(notice && <InlineNotice kind={notice.kind}>{uiText(notice.text)}</InlineNotice>)}
                 <button className="contact-btn-gradient w-full h-14 font-bold rounded-xl flex items-center justify-center gap-2" type="submit" disabled={submit.isPending}>
-                  {submit.isPending ? <Loader2 size={18} className="animate-spin" /> : null} 
-                  Send
-                </button>
+                  {uiText(submit.isPending ? <Loader2 size={18} className="animate-spin" /> : null)} 
+                  {' '}{uiT("customer.mf6f4688ff23d")}{' '}</button>
               </form>
             </div>
           </div>
 
           <div className="contact-redesign-panel max-w-2xl mx-auto text-center p-8 md:p-10">
-            <h2 className="text-3xl font-marketing font-bold text-foreground mb-4">Stay in touch</h2>
-            <p className="text-muted-foreground mb-8">Subscribe to our newsletter so you don’t miss any updates.</p>
+            <h2 className="text-3xl font-marketing font-bold text-foreground mb-4">{uiT("customer.mffbc51641485")}</h2>
+            <p className="text-muted-foreground mb-8">{uiT("customer.mb614b311dd41")}</p>
             <form className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto" onSubmit={onNewsletterSubmit} noValidate>
               <input
                 type="email"
                 className="flex-1 h-12 bg-input border border-border rounded-xl px-4 text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
-                placeholder="Email address"
+                placeholder={uiT("customer.mf2488fd4ef4a")}
                 required
                 value={newsletterEmail}
                 onChange={(e) => setNewsletterEmail(e.target.value)}
               />
               <button type="submit" disabled={newsletterSubmit.isPending} className="h-12 px-8 bg-foreground text-background font-bold rounded-xl hover:opacity-90 transition-opacity disabled:cursor-not-allowed disabled:opacity-60" data-testid="button-newsletter-subscribe">
-                {newsletterSubmit.isPending ? <Loader2 size={16} className="mx-auto animate-spin" /> : 'Subscribe'}
+                {uiText(newsletterSubmit.isPending ? <Loader2 size={16} className="mx-auto animate-spin" /> : uiT("customer.mcc0e38da9c41"))}
               </button>
             </form>
-            {newsletterNotice && (
+            {uiText(newsletterNotice && (
               <div className="mt-4 max-w-md mx-auto text-left">
-                <InlineNotice kind={newsletterNotice.kind}>{newsletterNotice.text}</InlineNotice>
+                <InlineNotice kind={newsletterNotice.kind}>{uiText(newsletterNotice.text)}</InlineNotice>
               </div>
-            )}
+            ))}
           </div>
         </div>
       </ManagedContent>
@@ -448,6 +461,8 @@ export function ContactUsPage() {
 
 // 4. Privacy Policy
 export function PrivacyPolicyPage() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const preview = useSitePreview();
   const published = useGetPublishedSiteContent({ query: { queryKey: getGetPublishedSiteContentQueryKey(), staleTime: 60_000 } });
 
@@ -476,14 +491,14 @@ export function PrivacyPolicyPage() {
 
   return (
     <PublicShell>
-      <SEO title={seoTitle} description={seoDesc} />
-      <HeroSection title={title} subtitle={subtitle} imagePath={heroImagePath} imageAlt={heroImageAlt} privacyGlow />
+      <SEO title={uiText(seoTitle)} description={uiText(seoDesc)} />
+      <HeroSection title={uiText(title)} subtitle={uiText(subtitle)} imagePath={heroImagePath} imageAlt={heroImageAlt} privacyGlow />
       <PageContainer className="privacy-content-glow">
-         {sections.map((section, index) => (
+         {uiText(sections.map((section, index) => (
            <ContentCard title={section.heading} className="privacy-policy-card" key={index}>
-             <p className="whitespace-pre-wrap">{section.body}</p>
+             <p className="whitespace-pre-wrap">{uiText(section.body)}</p>
            </ContentCard>
-         ))}
+         )))}
       </PageContainer>
     </PublicShell>
   );
@@ -491,6 +506,8 @@ export function PrivacyPolicyPage() {
 
 // 5. Terms & Conditions
 export function TermsConditionsPage() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const preview = useSitePreview();
   const published = useGetPublishedSiteContent({ query: { queryKey: getGetPublishedSiteContentQueryKey(), staleTime: 60_000 } });
 
@@ -519,14 +536,14 @@ export function TermsConditionsPage() {
 
   return (
     <PublicShell>
-      <SEO title={seoTitle} description={seoDesc} />
-      <HeroSection title={title} subtitle={subtitle} imagePath={heroImagePath} imageAlt={heroImageAlt} termsGlow />
+      <SEO title={uiText(seoTitle)} description={uiText(seoDesc)} />
+      <HeroSection title={uiText(title)} subtitle={uiText(subtitle)} imagePath={heroImagePath} imageAlt={heroImageAlt} termsGlow />
       <PageContainer className="terms-content-glow">
-         {sections.map((section, index) => (
+         {uiText(sections.map((section, index) => (
            <ContentCard title={section.heading} className="terms-policy-card" key={index}>
-             <p className="whitespace-pre-wrap">{section.body}</p>
+             <p className="whitespace-pre-wrap">{uiText(section.body)}</p>
            </ContentCard>
-         ))}
+         )))}
       </PageContainer>
     </PublicShell>
   );
@@ -534,6 +551,8 @@ export function TermsConditionsPage() {
 
 // 6. AML/KYC
 export function AmlKycPage() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const preview = useSitePreview();
   const published = useGetPublishedSiteContent({ query: { queryKey: getGetPublishedSiteContentQueryKey(), staleTime: 60_000 } });
 
@@ -552,30 +571,27 @@ export function AmlKycPage() {
 
   return (
     <PublicShell>
-      <SEO title={seoTitle} description={seoDesc} />
-      <HeroSection title={title} subtitle={subtitle} imagePath={heroImagePath} imageAlt={heroImageAlt} amlGlow />
+      <SEO title={uiText(seoTitle)} description={uiText(seoDesc)} />
+      <HeroSection title={uiText(title)} subtitle={uiText(subtitle)} imagePath={heroImagePath} imageAlt={heroImageAlt} amlGlow />
       <PageContainer className="aml-content-glow">
         <ManagedContent content={content}>
-        <ContentCard title="Anti-Money Laundering (AML) Framework" className="aml-policy-card">
+        <ContentCard title={uiT("customer.m9906cbe6d54b")} className="aml-policy-card">
           <p>
-             QuickXchange takes measures intended to reduce the risk that its services are used for money laundering, terrorist financing, fraud, sanctions evasion, or other prohibited activity.
-          </p>
+             {uiT("customer.mb31619985335")}{' '}</p>
           <p>
-             Orders may be reviewed, delayed, rejected, or cancelled when information is incomplete, a route requires additional checks, or activity presents legal, sanctions, fraud, or security concerns. Information may be requested or disclosed where required by applicable law.
-          </p>
+             {uiT("customer.mda96507d113f")}{' '}</p>
         </ContentCard>
 
-        <ContentCard title="Know Your Customer (KYC) Requirements" className="aml-policy-card">
+        <ContentCard title={uiT("customer.ma9a9c4856f5d")} className="aml-policy-card">
           <p>
-             Identity or source-of-funds information may be required depending on the selected route, amount, risk indicators, service provider requirements, and applicable law.
-          </p>
+             {uiT("customer.m45ce81390a19")}{' '}</p>
           <div className="aml-verification-card bg-muted/30 rounded-2xl p-6 mt-6 border border-border">
-            <h3 className="font-bold text-foreground mb-4">Verification levels typically require:</h3>
+            <h3 className="font-bold text-foreground mb-4">{uiT("customer.mc4a624ce5f8c")}</h3>
             <ul className="list-disc pl-5 space-y-2 text-muted-foreground">
-              <li>A valid government-issued identity document (Passport, National ID, or Driver's License).</li>
-              <li>Proof of residential address (Utility bill or bank statement dated within the last 3 months).</li>
-              <li>Liveness verification (A facial scan or selfie).</li>
-              <li>In certain cases, source of funds documentation for high-volume transactions.</li>
+              <li>{uiT("customer.m086cd0ad2c00")}</li>
+              <li>{uiT("customer.ma21a572927fa")}</li>
+              <li>{uiT("customer.m1406d563bf97")}</li>
+              <li>{uiT("customer.mb3f670788182")}</li>
             </ul>
           </div>
         </ContentCard>

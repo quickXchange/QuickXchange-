@@ -196,3 +196,17 @@ mtime_ms = 1791241958011
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/2030617c-c100-46c9-bbca-89cc59523231/fa9d6114-f5e6-4580-b446-fac78dfa0b70"
 storage_version_token = "1791241962645837"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "gxjcf35_ff3ztEAnTSmCY"
+uri = "file://reports/multilingual-audit.html"
+type = "html"
+title = "Multilingual Audit — Seven Languages"
+description = "Detailed six-part report, passing checks, confirmed fixes and remaining browser coverage limits."
+logical_id = "ae730a74-12d8-4e71-b919-72663ca114f7"
+content_hash = "sha256:5e4a76a890203b51a4c63c7c8e6342d3fa2c8157f004d176900b7d4124cb0a6d"
+size = 9227
+mtime_ms = 1791409668530
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/ae730a74-12d8-4e71-b919-72663ca114f7/d7216838-1971-4f2b-88f2-4592afb12530"
+storage_version_token = "1791409669051074"
+content_type = "text/html"

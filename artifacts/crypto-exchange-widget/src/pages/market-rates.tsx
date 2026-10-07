@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { useState, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import { Search, ArrowUpRight, ArrowDownRight, Clock, AlertCircle } from 'lucide-react';
@@ -8,6 +9,8 @@ import { CryptoLogo } from '@/components/crypto-identity';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export function MarketRatesPage() {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [, setLocation] = useLocation();
   const { data: markets, isLoading, isError, isRefetchError, dataUpdatedAt } = useCryptoMarket(250);
   const [search, setSearch] = useState('');
@@ -30,19 +33,17 @@ export function MarketRatesPage() {
       <div className="w-full max-w-[1440px] mx-auto px-3 sm:px-4 md:px-8 py-12 md:py-16">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
           <div className="flex flex-col gap-3">
-            <h1 className="text-4xl md:text-5xl font-marketing font-extrabold tracking-tight">Market Rates</h1>
+            <h1 className="text-4xl md:text-5xl font-marketing font-extrabold tracking-tight">{uiT("customer.me643cb2f90f0")}</h1>
             <p className="text-muted-foreground text-lg max-w-xl leading-relaxed">
-              Live prices, market capitalization, and 24-hour volume for the top cryptocurrencies.
-            </p>
+              {uiT("customer.m7bb5c1601aa7")}{' '}</p>
             <div className="flex items-center gap-3 mt-1">
               <span className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
                 <Clock size={14} /> 
-                Updated {dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString() : '...'}
+                {' '}{uiT("customer.m3a5ecca188c0")}{' '}{dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString() : '...'}
               </span>
               {isStale && (
                 <span className="text-xs font-semibold text-warning bg-warning/10 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <AlertCircle size={10} /> Data may be delayed
-                </span>
+                  <AlertCircle size={10} /> {' '}{uiT("customer.m0a909aed3ead")}{' '}</span>
               )}
             </div>
           </div>
@@ -51,8 +52,8 @@ export function MarketRatesPage() {
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
-              aria-label="Search cryptocurrencies"
-              placeholder="Search coins..."
+              aria-label={uiT("customer.ma22df90c5655")}
+              placeholder={uiT("customer.mf64139258a09")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-card border border-border/60 rounded-full h-12 pl-11 pr-4 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
@@ -63,8 +64,8 @@ export function MarketRatesPage() {
         {isError && !markets ? (
           <div className="bg-destructive/5 border border-destructive/20 rounded-3xl p-12 text-center flex flex-col items-center gap-4">
             <AlertCircle className="text-destructive" size={48} />
-            <h3 className="font-bold text-xl">Market data temporarily unavailable</h3>
-            <p className="text-muted-foreground max-w-md">We're having trouble reaching our market data provider. Please check back shortly.</p>
+            <h3 className="font-bold text-xl">{uiT("customer.m484af7d6efa5")}</h3>
+            <p className="text-muted-foreground max-w-md">{uiT("customer.m81c5fca6f708")}</p>
           </div>
         ) : (
           <div className="bg-card border border-border/60 rounded-3xl shadow-sm overflow-hidden flex flex-col relative z-10">
@@ -73,11 +74,11 @@ export function MarketRatesPage() {
                 <thead className="bg-muted/30 border-b border-border/60">
                   <tr>
                     <th className="px-6 py-4 font-bold text-muted-foreground tracking-wider uppercase text-xs w-16">#</th>
-                    <th className="px-6 py-4 font-bold text-muted-foreground tracking-wider uppercase text-xs min-w-[200px]">Asset</th>
-                    <th className="px-6 py-4 font-bold text-muted-foreground tracking-wider uppercase text-xs text-right">Price</th>
-                    <th className="px-6 py-4 font-bold text-muted-foreground tracking-wider uppercase text-xs text-right">24h Change</th>
-                    <th className="px-6 py-4 font-bold text-muted-foreground tracking-wider uppercase text-xs text-right hidden sm:table-cell">Market Cap</th>
-                    <th className="px-6 py-4 font-bold text-muted-foreground tracking-wider uppercase text-xs text-right hidden md:table-cell">Volume (24h)</th>
+                    <th className="px-6 py-4 font-bold text-muted-foreground tracking-wider uppercase text-xs min-w-[200px]">{uiT("customer.m80d298c9f240")}</th>
+                    <th className="px-6 py-4 font-bold text-muted-foreground tracking-wider uppercase text-xs text-right">{uiT("customer.m93c91c851e7a")}</th>
+                    <th className="px-6 py-4 font-bold text-muted-foreground tracking-wider uppercase text-xs text-right">{uiT("customer.m66f9b755298c")}</th>
+                    <th className="px-6 py-4 font-bold text-muted-foreground tracking-wider uppercase text-xs text-right hidden sm:table-cell">{uiT("customer.mfb25999766b1")}</th>
+                    <th className="px-6 py-4 font-bold text-muted-foreground tracking-wider uppercase text-xs text-right hidden md:table-cell">{uiT("customer.m03fba4e9f0e2")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/40">
@@ -103,7 +104,7 @@ export function MarketRatesPage() {
                   ) : displayData.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
-                        No cryptocurrencies found matching "{search}"
+                        {uiT("customer.m7cb13c97df06")}{uiText(search)}"
                       </td>
                     </tr>
                   ) : (
@@ -115,7 +116,7 @@ export function MarketRatesPage() {
                           key={coin.id}
                           role="link"
                           tabIndex={0}
-                          aria-label={`Convert ${coin.name}`}
+                          aria-label={uiT("customer.mb5e041dac867", { v0: coin.name })}
                           onClick={openConvert}
                           onKeyDown={(event) => {
                             if (event.key === 'Enter' || event.key === ' ') {
@@ -130,7 +131,7 @@ export function MarketRatesPage() {
                             <div className="flex items-center gap-3">
                               <CryptoLogo symbol={coin.symbol} logoUrl={coin.image} size="sm" className="shadow-sm bg-background border border-border/50" />
                               <div className="flex flex-col">
-                                <span className="font-bold text-foreground">{coin.name}</span>
+                                <span className="font-bold text-foreground">{uiText(coin.name)}</span>
                                 <span className="text-[11px] font-semibold text-muted-foreground uppercase">{coin.symbol}</span>
                               </div>
                             </div>

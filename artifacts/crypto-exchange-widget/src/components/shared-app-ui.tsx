@@ -1,3 +1,4 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { formatDisplayAmount } from '@workspace/amount-format';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { PaymentMethodLogo } from '@/components/payment-method-logo';
@@ -42,6 +43,8 @@ export function PaymentDetailsCard({
   showPayNow?: boolean;
   supportHref?: string;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -65,17 +68,17 @@ export function PaymentDetailsCard({
     <section className="customer-card mb-6 p-5" data-testid="payment-details-card">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-bold">Payment Details / Payment Instructions</h2>
-          {customerMarkedPaidAt && <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400" data-testid="text-customer-marked-paid">Marked as paid</p>}
+          <h2 className="text-base font-bold">{uiT("customer.m9ce801a08957")}</h2>
+          {customerMarkedPaidAt && <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400" data-testid="text-customer-marked-paid">{uiT("customer.m019e3fa14f79")}</p>}
         </div>
 
         {showPayNow && (
           <DialogPrimitive.Root open={isModalOpen} onOpenChange={setIsModalOpen}>
             <DialogPrimitive.Trigger asChild>
               {customerMarkedPaidAt || actionsDisabled ? (
-                <button type="button" className="button button-secondary" data-testid="button-view-payment-details">View Details</button>
+                <button type="button" className="button button-secondary" data-testid="button-view-payment-details">{uiT("customer.m90789c12d073")}</button>
               ) : (
-                <button type="button" className="button button-primary" disabled={actionsDisabled} data-testid="button-pay-now">Pay Now</button>
+                <button type="button" className="button button-primary" disabled={actionsDisabled} data-testid="button-pay-now">{uiT("customer.m42a327fadf7f")}</button>
               )}
             </DialogPrimitive.Trigger>
             <DialogPrimitive.Portal>
@@ -106,11 +109,10 @@ export function PaymentDetailsCard({
                         </div>
                       </div>
                       <DialogPrimitive.Title className="text-xl font-bold tracking-tight text-center text-foreground">
-                        {sourcePaymentMethod?.name || 'Payment Details'}
+                        {sourcePaymentMethod?.name || uiT("customer.me9143587ebf6")}
                       </DialogPrimitive.Title>
                       <DialogPrimitive.Description className="text-muted-foreground text-sm mt-1 text-center font-medium">
-                        Send money to this account
-                      </DialogPrimitive.Description>
+                        {uiT("customer.m29477072f3e6")}{' '}</DialogPrimitive.Description>
                     </div>
 
                     <div className="relative z-10 max-h-[50vh] overflow-y-auto px-1 -mx-1">
@@ -120,10 +122,10 @@ export function PaymentDetailsCard({
                             const value = String(paymentDetails[key]);
                             return (
                               <div key={key} className="group rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/30 p-3 sm:px-4 sm:py-3.5 transition-all duration-300 hover:border-cyan-400/50 dark:hover:border-cyan-500/40 hover:bg-cyan-50/30 dark:hover:bg-cyan-900/10 hover:shadow-[0_4px_16px_-6px_rgba(6,182,212,0.15)]">
-                                <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 transition-colors group-hover:text-cyan-600 dark:group-hover:text-cyan-400">{label}</span>
+                                <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 transition-colors group-hover:text-cyan-600 dark:group-hover:text-cyan-400">{uiText(label)}</span>
                                 <div className="mt-1.5 flex items-start justify-between gap-3">
-                                  <span className={cn('whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-900 dark:text-slate-100', key !== 'customInstructions' && 'font-mono font-medium tracking-tight')}>{value}</span>
-                                  <button type="button" className="shrink-0 rounded-md p-1 text-slate-400 transition-colors hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/70 dark:text-slate-500 dark:hover:text-cyan-400" onClick={() => copyValue(String(key), value)} aria-label={`Copy ${label}`} data-testid={`button-copy-payment-${key}`}>
+                                  <span className={cn('whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-900 dark:text-slate-100', key !== 'customInstructions' && 'font-mono font-medium tracking-tight')}>{uiText(value)}</span>
+                                  <button type="button" className="shrink-0 rounded-md p-1 text-slate-400 transition-colors hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/70 dark:text-slate-500 dark:hover:text-cyan-400" onClick={() => copyValue(String(key), value)} aria-label={uiT("customer.m3f3ebff426db", { v0: label })} data-testid={`button-copy-payment-${key}`}>
                                     {copied === key ? <Check size={16} className="text-cyan-500" /> : <Copy size={16} />}
                                   </button>
                                 </div>
@@ -133,8 +135,8 @@ export function PaymentDetailsCard({
                         </div>
                       ) : (
                         <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-5 text-center transition-colors hover:border-cyan-500/30 hover:bg-cyan-500/10" data-testid="payment-details-support-prompt">
-                          <p className="text-sm font-medium text-cyan-800 dark:text-cyan-200 mb-4">Contact support to get details</p>
-                          <a className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-cyan-200 bg-white px-4 text-sm font-semibold text-cyan-700 shadow-sm transition-colors hover:bg-cyan-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-card dark:border-cyan-800/60 dark:bg-slate-900 dark:text-cyan-300 dark:hover:bg-cyan-950" href={supportHref} aria-disabled={!supportHref} tabIndex={supportHref ? undefined : -1} target="_blank" rel="noreferrer" data-testid="button-contact-support">Contact Support</a>
+                          <p className="text-sm font-medium text-cyan-800 dark:text-cyan-200 mb-4">{uiT("customer.m9a30ddd7d883")}</p>
+                          <a className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-cyan-200 bg-white px-4 text-sm font-semibold text-cyan-700 shadow-sm transition-colors hover:bg-cyan-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-card dark:border-cyan-800/60 dark:bg-slate-900 dark:text-cyan-300 dark:hover:bg-cyan-950" href={supportHref} aria-disabled={!supportHref} tabIndex={supportHref ? undefined : -1} target="_blank" rel="noreferrer" data-testid="button-contact-support">{uiT("customer.mf8d47b82e285")}</a>
                         </div>
                       )}
                     </div>
@@ -146,7 +148,7 @@ export function PaymentDetailsCard({
                           className="group relative flex h-12 flex-1 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(59,130,246,0.4)] transition-all hover:from-cyan-400 hover:via-blue-400 hover:to-purple-400 hover:shadow-[0_6px_24px_-6px_rgba(59,130,246,0.6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80 focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:cursor-not-allowed disabled:opacity-50"
                           onClick={onMarkPaid}
                           disabled={actionsDisabled || markPaidPending || available.length === 0}
-                          title={available.length === 0 ? 'Payment details are not available yet.' : undefined}
+                          title={available.length === 0 ? uiT("customer.m394bebac4a81") : undefined}
                           data-testid="button-mark-paid"
                         >
                           <div className="absolute inset-0 bg-white/20 translate-y-[100%] group-hover:translate-y-0 transition-transform duration-300 ease-out" />
@@ -156,14 +158,13 @@ export function PaymentDetailsCard({
                             ) : (
                               <Check size={18} className="mr-2" strokeWidth={3} />
                             )}
-                            {markPaidPending ? 'Marking as Paid…' : 'Mark as Paid'}
+                            {markPaidPending ? uiT("customer.md4b49b208a0d") : uiT("customer.m66d74d8b9bcf")}
                           </span>
                         </button>
                       ) : customerMarkedPaidAt ? (
                         <div className="flex-1 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-700 dark:text-cyan-400 flex items-center justify-center font-bold text-sm transition-all">
                           <Check size={18} className="mr-2" strokeWidth={3} />
-                          Marked as Paid
-                        </div>
+                          {uiT("customer.m3d77f9b042c3")}{' '}</div>
                       ) : null}
 
                       <DialogPrimitive.Close asChild>
@@ -173,8 +174,7 @@ export function PaymentDetailsCard({
                           disabled={markPaidPending}
                           data-testid="button-cancel-payment-modal"
                         >
-                          Cancel
-                        </button>
+                          {uiT("customer.m19766ed6ccb2")}{' '}</button>
                       </DialogPrimitive.Close>
                     </div>
                   </div>
@@ -239,6 +239,8 @@ export const publicApiErrorText = (
 };
 
 export function StatusPill({ status, customerFacing = false }: { status?: string; customerFacing?: boolean }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const normalized = (status || 'pending').toLowerCase();
 
   const customerLabel = normalized.includes('cancel') ? 'Cancelled'
@@ -268,19 +270,23 @@ export function StatusPill({ status, customerFacing = false }: { status?: string
         : 'info';
 
   const tone = customerFacing ? customerTone : rawTone;
-  return <span data-testid={`status-${normalized}`} className={`badge badge-${tone}`}>{customerFacing ? customerLabel : (status || 'Pending')}</span>;
+  return <span data-testid={`status-${normalized}`} className={`badge badge-${tone}`}>{customerFacing ? customerLabel : (status || uiT("customer.m331551b0de41"))}</span>;
 }
 
 export function InlineNotice({ kind, children, onDismiss }: { kind: 'error' | 'success' | 'info' | 'warning'; children: ReactNode; onDismiss?: () => void }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   return <div className={`notice notice-${kind}`} data-testid={`notice-${kind}`}>
     <div className="mt-1">{kind === 'error' ? <CircleAlert size={16} /> : kind === 'success' ? <Check size={16} /> : kind === 'warning' ? <CircleAlert size={16} /> : <ShieldCheck size={16} />}</div>
-    <div className="flex-1">{children}</div>
+    <div className="flex-1">{uiText(children)}</div>
     {onDismiss && <button type="button" onClick={onDismiss} data-testid="button-dismiss-notice" className="icon-button ml-auto"><X size={15} /></button>}
   </div>;
 }
 
 export function LoadingBlock({ rows = 4 }: { rows?: number }) {
-  return <div className="space-y-3" data-testid="loading-state">{Array.from({ length: rows }).map((_, index) => <div className="skeleton h-14 rounded-xl" key={index} />)}</div>;
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
+  return <div className="space-y-3" data-testid="loading-state">{uiText(Array.from({ length: rows }).map((_, index) => <div className="skeleton h-14 rounded-xl" key={index} />))}</div>;
 }
 
 export function ErrorState({ message, retry }: { message?: string; retry?: () => void }) {

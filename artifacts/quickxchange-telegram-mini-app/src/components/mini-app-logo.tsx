@@ -1,3 +1,5 @@
+import { sourceText } from "@workspace/i18n/runtime";
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import React, { useEffect, useState } from 'react';
 import { useGetWebsiteBranding, getGetWebsiteBrandingQueryKey } from '@workspace/api-client-react';
 import { NetworkBadge, PaymentLogo } from '@workspace/payment-logo';
@@ -15,9 +17,9 @@ if (typeof document !== 'undefined') void import('@workspace/payment-logo/styles
 export type MiniAppLogoSize = 'small' | 'normal' | 'medium' | 'large';
 
 const sizeClasses: Record<MiniAppLogoSize, { container: string; text: string; badge: number }> = {
-  small: { container: 'size-6', text: 'text-[8px]', badge: 10 },
-  normal: { container: 'size-8', text: 'text-[9px]', badge: 12 },
-  medium: { container: 'size-10', text: 'text-[10px]', badge: 14 },
+  small: { container: 'size-6', text: sourceText("customer.m6acc6ebd3f58"), badge: 10 },
+  normal: { container: 'size-8', text: sourceText("customer.mc93a0125ded0"), badge: 12 },
+  medium: { container: 'size-10', text: sourceText("customer.mb72aa61c792e"), badge: 14 },
   large: { container: 'size-14', text: 'text-xs', badge: 18 },
 };
 
@@ -53,6 +55,8 @@ export function MiniAppLogo({
   variant?: 'asset' | 'payment';
   className?: string;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const isBbva = (src || logoUrl) === bbvaTransparentLogoUrl;
   const [isDark, setIsDark] = useState(() => typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
   useEffect(() => {
@@ -95,19 +99,19 @@ export function MiniAppLogo({
           <PaymentLogo
             sources={sources}
             size="100%"
-            alt={alt}
+            alt={uiText(alt)}
             className="!border-0 !bg-transparent"
             imageClassName="!bg-transparent"
             fallback={(
               <span className={cn('font-bold uppercase tracking-tight text-primary', classes.text)}>
-                {(fallback || '?').slice(0, 4)}
+                {uiText((fallback || '?').slice(0, 4))}
               </span>
             )}
           />
         ) : currentSrc ? (
           <img
             src={currentSrc}
-            alt={alt}
+            alt={uiText(alt)}
             className={cn(
               'block h-full w-full max-h-full max-w-full bg-transparent object-contain object-center',
             )}
@@ -122,7 +126,7 @@ export function MiniAppLogo({
           />
         ) : (
           <span className={cn('font-bold uppercase tracking-tight text-primary', classes.text)}>
-            {(fallback || '?').slice(0, 4)}
+            {uiText((fallback || '?').slice(0, 4))}
           </span>
         )}
       </span>
@@ -150,11 +154,13 @@ export function MiniAppLogoPair({
   sourceAlt: string;
   targetAlt: string;
 }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   const cryptoInFront = source.variant === 'payment' && target.variant !== 'payment';
   return (
     <span className="flex -space-x-2 shrink-0">
-      <MiniAppLogo {...source} alt={sourceAlt} size="medium" className={cryptoInFront ? undefined : 'z-10'} />
-      <MiniAppLogo {...target} alt={targetAlt} size="medium" className={cryptoInFront ? 'z-10' : undefined} />
+      <MiniAppLogo {...source} alt={uiText(sourceAlt)} size="medium" className={cryptoInFront ? undefined : 'z-10'} />
+      <MiniAppLogo {...target} alt={uiText(targetAlt)} size="medium" className={cryptoInFront ? 'z-10' : undefined} />
     </span>
   );
 }

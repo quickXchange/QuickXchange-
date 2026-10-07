@@ -1,8 +1,11 @@
+import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { cn } from '@/components/shared-app-ui';
 import { Calendar, Clock, Newspaper, UserRound } from 'lucide-react';
 import type { BlogArticle, BlogCategory } from '@workspace/api-client-react';
 
 export function BlogImageFrame({ src, alt, className }: { src?: string | null, alt?: string | null, className?: string }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   return (
     <div className={cn("relative overflow-hidden bg-muted flex items-center justify-center", className)}>
       {src ? (
@@ -14,7 +17,7 @@ export function BlogImageFrame({ src, alt, className }: { src?: string | null, a
       ) : (
         <div className="w-full h-full flex flex-col items-center justify-center bg-card border border-border/20">
           <Newspaper size={32} className="opacity-20 text-foreground mb-2" />
-          <span className="font-mono text-[10px] tracking-widest text-muted-foreground opacity-40 uppercase">No Image</span>
+          <span className="font-mono text-[10px] tracking-widest text-muted-foreground opacity-40 uppercase">{uiT("customer.mffd6177d6c5b")}</span>
         </div>
       )}
     </div>
@@ -22,27 +25,28 @@ export function BlogImageFrame({ src, alt, className }: { src?: string | null, a
 }
 
 export function BlogMeta({ article, category, className }: { article: BlogArticle, category?: BlogCategory, className?: string }) {
+  const { t: uiT, tx: uiText } = useCustomerI18n();
+
   return (
     <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-muted-foreground", className)}>
       {category && (
-        <span className="text-primary">{category.name}</span>
+        <span className="text-primary">{uiText(category.name)}</span>
       )}
       {article.publishedAt && (
         <span className="flex items-center gap-1">
           <Calendar size={12} className="opacity-70" />
           <time dateTime={String(article.publishedAt)}>
-            {new Date(article.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            {uiText(new Date(article.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }))}
           </time>
         </span>
       )}
       <span className="flex items-center gap-1">
         <UserRound size={12} className="opacity-70" />
-        {article.authorName || 'Editorial'}
+        {article.authorName || uiT("customer.m5ad6a405f686")}
       </span>
       <span className="flex items-center gap-1">
         <Clock size={12} className="opacity-70" />
-        {article.readingTimeMinutes}m
-      </span>
+        {uiText(article.readingTimeMinutes)}{uiT("customer.m62c66a7a5dd7")}{' '}</span>
     </div>
   );
 }

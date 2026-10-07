@@ -27,6 +27,80 @@ tags:
   - name: telegram
     description: Shared Telegram customer account linking
 paths:
+  /languages:
+    get:
+      operationId: getLanguageSettings
+      tags: [languages]
+      responses:
+        "200":
+          description: Shared public language availability
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LanguageSettings" }
+  /languages/dictionaries/{locale}:
+    get:
+      operationId: getLanguageDictionary
+      tags: [languages]
+      parameters:
+        - { name: locale, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Effective shared translation dictionary
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LanguageDictionary" }
+  /admin/languages:
+    get:
+      operationId: getAdminLanguageSettings
+      tags: [languages]
+      responses:
+        "200":
+          description: Language settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LanguageSettings" }
+    put:
+      operationId: updateAdminLanguageSettings
+      tags: [languages]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LanguageSettingsInput" }
+      responses:
+        "200":
+          description: Updated language settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LanguageSettings" }
+  /admin/languages/dictionaries/{locale}:
+    get:
+      operationId: getAdminLanguageDictionary
+      tags: [languages]
+      parameters:
+        - { name: locale, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Translation source and effective values
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LanguageDictionary" }
+    put:
+      operationId: updateAdminLanguageDictionary
+      tags: [languages]
+      parameters:
+        - { name: locale, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LanguageDictionaryInput" }
+      responses:
+        "200":
+          description: Updated effective dictionary
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LanguageDictionary" }
   /healthz:
     get:
       operationId: healthCheck
@@ -4796,6 +4870,46 @@ components:
       name: __session
       description: Clerk owner session. The authenticated user must match the single active owner account in the server-side operator registry.
   schemas:
+    LanguageCode:
+      type: string
+      enum: [en, fr, de, ru, es, ko, uk]
+    LanguageSettings:
+      type: object
+      required: [enabledLanguages, fallbackLanguage, revision]
+      properties:
+        enabledLanguages:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { $ref: "#/components/schemas/LanguageCode" }
+        fallbackLanguage: { $ref: "#/components/schemas/LanguageCode" }
+        revision: { type: string }
+    LanguageSettingsInput:
+      type: object
+      required: [enabledLanguages, fallbackLanguage, expectedRevision]
+      properties:
+        enabledLanguages:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { $ref: "#/components/schemas/LanguageCode" }
+        fallbackLanguage: { $ref: "#/components/schemas/LanguageCode" }
+        expectedRevision: { type: string }
+    LanguageDictionary:
+      type: object
+      required: [locale, revision, translations, sourceTranslations, missingKeys]
+      properties:
+        locale: { $ref: "#/components/schemas/LanguageCode" }
+        revision: { type: string }
+        translations: { type: object, additionalProperties: { type: string } }
+        sourceTranslations: { type: object, additionalProperties: { type: string } }
+        missingKeys: { type: array, items: { type: string } }
+    LanguageDictionaryInput:
+      type: object
+      required: [translations, expectedRevision]
+      properties:
+        expectedRevision: { type: string }
+        translations: { type: object, additionalProperties: { type: string } }
     BestchangeReserveLine:
       type: object
       required: [currencyCode, paymentMethodId, reserve]
