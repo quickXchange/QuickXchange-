@@ -99,10 +99,8 @@
 - [Unified Convert route resolution](convert-route-resolution.md) — every Convert surface derives exact directed routes from executable asset-network capabilities; live quotes remain authoritative.
 - [Published Site Content freshness](published-site-content-freshness.md) — public revision endpoints must revalidate on every load so Admin publishing is immediately visible.
 - [Asset all-networks pricing](asset-all-networks-pricing.md) — persist immutable crypto asset IDs; concrete network routes outrank asset rules, which outrank broad Any.
-- [Telegram financial order delivery](telegram-financial-order-delivery.md) — fence chat updates and keep order creation, reconciliation, and deposit delivery durable.
-- [Support delivery safety](telegram-support-delivery-safety.md) — expired callback acknowledgements cannot block replies; matching webhook URLs do not attest secrets.
+- [Telegram boundaries](telegram-boundaries-index.md) — Bot/Mini App identity, signatures, durable delivery, wizard parity, refund omission and production data separation.
 - [Optional refund destinations](optional-refund-destinations.md) — omission must never block an order; validate supplied crypto refunds against the sending network.
-- [Telegram shared identity](telegram-shared-identity.md) — link through website Clerk only; freeze ownership before create and atomically claim before storing Telegram capabilities.
 - [Official RSS CDN resolution](official-rss-cdn-resolution.md) — hardcoded publisher feeds may require runtime CDN resolution; direct validated-IP pinning can fail on managed egress.
 - [Fiat-to-crypto payment instructions](fiat-to-crypto-payment-instructions.md) — keep order-owned bank instructions token-gated; customer “paid” is a report, never operator settlement confirmation.
 - [Payment method identity snapshots](payment-method-identity-snapshots.md) — preserve the selected rail’s identity on the order, but exclude presentation metadata from executable quote-term equality.
@@ -110,14 +108,8 @@
 - [Tracking URL token compatibility](tracking-url-token-compatibility.md) — emit `trackingToken` canonically, accept legacy `token`, and persist searched order IDs in the URL for refresh-safe tracking.
 - [Simplified settlement field editors](simplified-settlement-field-editors.md) — preserve saved keys and hidden metadata; generate keys only for genuinely new directional rows.
 - [Bulk field review snapshots](bulk-field-review-snapshots.md) — signed previews must fence stored field changes, not just millisecond timestamps.
-- [Telegram wizard and callback parity](telegram-wizard-parity.md) — match Swap eligibility; [preserve canonical callback indexes](telegram-search-callback-stability.md).
-- [Telegram production data boundary](telegram-production-data-boundary.md) — live bot orders belong to production; Replit preview Admin reads a separate development database.
-- [Telegram refund omission](telegram-refund-omission.md) — Telegram never collects, displays, or submits refund destinations, including from legacy saved sessions.
 - [Live Admin order directories](live-admin-order-directories.md) — operator financial queues must bypass HTTP caches and refetch across mounts and reconnects.
 - [Workspace-to-production configuration sync](workspace-production-config-sync.md) — Workspace is authoritative, but production changes require explicit Owner preview/apply with operational data fenced off.
-- [Telegram Mini App identity boundary](telegram-mini-app-identity.md) — validate initData server-side, use short-lived sessions, and attach canonical orders through tracking capabilities.
-- [Mini App auth verification](telegram-mini-app-auth-testing.md) — real session bootstrap writes chat mappings; use synthetic identities and a schema-only disposable database.
-- [Telegram initData signature field](telegram-initdata-signature.md) — bot-token HMAC validation excludes only `hash`; modern `signature` remains in the sorted data-check-string.
 - [Workspace configuration media transfer](workspace-config-media-transfer.md) — cross-environment configuration snapshots bundle verified active media; removed optional media never blocks import.
 - [Asset and network state boundaries](asset-network-state-boundaries.md) — asset catalog edits must preserve independently verified per-network deposit settings.
 - [Swap payment-field authority](swap-payment-field-authority.md) — new Swap quotes use only active Admin fields in persisted order for either fiat direction; existing orders retain snapshots.
@@ -154,6 +146,7 @@
 - [Admin add-on key validation](admin-addon-key-validation.md) — HTML pattern rules can differ from server regex; generate readable keys and check the exact server contract before saves.
 - [Website Telegram support scope](website-telegram-support-scope.md) — one published support destination; preserve other Telegram purposes and never activate stale defaults while loading.
 - [BestChange publication boundaries](bestchange-publication-boundaries.md) — live Swap, read-only financial scope, conservative classic rates and explicit operator reserves/mappings.
+- [XML output adjustment](xml-output-adjustment.md) — platform-neutral publication percentages use global Convert-only activity; never affect customer quotes or settlements.
 - [Amount display precision](amount-display-precision.md) — three decimals for human-facing amounts; exact input, copy and machine-data boundaries stay intact.
 - [Performance measurement safety](performance-measurement-safety.md) — enlarge resource timing buffers, discard probe-induced failures, and distinguish process CPU from main-thread profiles.
 - [Customer language scope](customer-language-scope.md) — seven shared Website/Mini App languages, no Arabic/RTL; validate authentication locale template compatibility.

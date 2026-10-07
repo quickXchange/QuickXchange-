@@ -199,6 +199,9 @@ export function AdminBestchangePage() {
   const [directionPage, setDirectionPage] = useState(0);
   const data = q.data;
   const settings = draft ?? data?.settings;
+  const xmlAdjustment = settings?.xmlPercentageAdjustment ?? {
+    enabled: false, activeOrderPercent: "0", noActiveOrderPercent: "0",
+  };
   const dirty = draft !== null;
   const optionLabels = new Map((data?.options ?? []).map(option => [option.id, option.label]));
   const filteredDirections = (settings?.directions ?? []).map((d, i) => ({ d, i })).filter(({ d }) =>
@@ -306,6 +309,48 @@ export function AdminBestchangePage() {
               </div>
               {dirty && <p className="mt-2 text-xs text-amber-600">Unsaved changes. Preview and the public feed use the saved configuration only.</p>}
               <p className="mt-3 text-sm text-muted-foreground">Fiat payout reserves come automatically from the destination Payment Method and currency. Maintain them in Payment Methods; orders do not change reserves. Crypto payout reserves remain operator-declared. The feed uses the live Swap engine with a conservative, fee-inclusive effective rate across your source range; classic BestChange XML has no stepped rates, so the worst rate in range is shown. Routes with tier gaps, unhealthy or unavailable status are omitted and explained below. To change fees, use Swap Pricing.</p>
+            </section>
+
+            <section className={card} data-testid="xml-percentage-adjustment">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="font-semibold">Dynamic XML Percentage Adjustment</h2>
+                <label className="flex items-center gap-2 text-sm font-semibold">
+                  <input type="checkbox" checked={xmlAdjustment.enabled} disabled={!canManage || save.isPending}
+                    data-testid="xml-adjustment-enabled"
+                    onChange={e => edit(s => ({ ...s, xmlPercentageAdjustment: {
+                      ...(s.xmlPercentageAdjustment ?? xmlAdjustment), enabled: e.target.checked,
+                    } }))} />
+                  {xmlAdjustment.enabled ? "ON" : "OFF"}
+                </label>
+              </div>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <label className={lbl}>Active Order %
+                  <input className={field} type="text" inputMode="decimal" maxLength={10}
+                    value={xmlAdjustment.activeOrderPercent} disabled={!canManage || save.isPending}
+                    data-testid="xml-active-order-percent"
+                    onChange={e => edit(s => ({ ...s, xmlPercentageAdjustment: {
+                      ...(s.xmlPercentageAdjustment ?? xmlAdjustment), activeOrderPercent: e.target.value,
+                    } }))} />
+                </label>
+                <label className={lbl}>No Active Order %
+                  <input className={field} type="text" inputMode="decimal" maxLength={10}
+                    value={xmlAdjustment.noActiveOrderPercent} disabled={!canManage || save.isPending}
+                    data-testid="xml-no-active-order-percent"
+                    onChange={e => edit(s => ({ ...s, xmlPercentageAdjustment: {
+                      ...(s.xmlPercentageAdjustment ?? xmlAdjustment), noActiveOrderPercent: e.target.value,
+                    } }))} />
+                </label>
+              </div>
+              <p className="mt-3 text-sm text-muted-foreground">
+                Applies to XML output for every external platform, not to customer pricing.
+                Any active Convert order selects Active Order % for the whole feed; completed,
+                failed, cancelled, refunded and expired Convert orders do not count. Swap orders are ignored.
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Enter percentages from 0 to 100, with up to six decimal places. OFF returns the normal
+                XML values without disabling the feed or clearing either percentage. Use Save changes above.
+                Customer Convert orders always use fresh provider quotes.
+              </p>
             </section>
 
             <section className={card}>

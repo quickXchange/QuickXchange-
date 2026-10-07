@@ -1,0 +1,1 @@
+ALTER TABLE "bestchange_settings" ADD COLUMN "xml_percentage_adjustment" jsonb DEFAULT '{"enabled":false,"activeOrderPercent":"0","noActiveOrderPercent":"0"}'::jsonb NOT NULL;

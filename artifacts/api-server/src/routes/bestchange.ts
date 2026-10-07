@@ -20,6 +20,10 @@ import { ApiError } from "../lib/api-error";
 import { listPublicFiatSettlementOptions } from "../lib/payment-methods";
 import { listPublicManualCryptoSettlementOptions } from "../lib/manual-crypto";
 import { prepareBestchangeSwapQuotes } from "./exchange";
+import { hasActiveConvertOrderForXml } from "../lib/xml-convert-order-activity";
+import {
+  adjustXmlOutput, DEFAULT_XML_PERCENTAGE_ADJUSTMENT, selectedXmlPercentage,
+} from "../lib/xml-percentage-adjustment";
 import {
   BestchangeExportError, conservativePrice, pricingSamples, plainDecimal,
   smallerDecimal, serializeBestchangeXml, compareDecimal, type BestchangeItem,
@@ -28,7 +32,12 @@ import {
 const router: IRouter = Router();
 type BestchangeSettings = Omit<ReturnType<typeof UpdateAdminBestchangeBody.parse>, "updatedAt"> & { updatedAt?: string | Date };
 type BestchangeDirection = BestchangeSettings["directions"][number];
-type BestchangePreview = Omit<ReturnType<typeof GetAdminBestchangePreviewResponse.parse>, "generatedAt"> & { generatedAt: string };
+type BestchangePreview = Omit<ReturnType<typeof GetAdminBestchangePreviewResponse.parse>, "generatedAt"> & {
+  generatedAt: string;
+  // Internal cache metadata; public preview validation strips these fields.
+  xmlAdjustmentEnabled?: boolean;
+  activeConvertOrdersForAdjustment?: boolean;
+};
 const currencyCodes = new Set(reference.currencyCodes.map(row => row.code));
 const cityCodes = new Set(reference.cityCodes.map(row => row.code));
 const CACHE_MS = 1_000;
@@ -51,9 +60,10 @@ async function settings(): Promise<BestchangeSettings> {
   );
   return row ? {
     enabled: row.enabled, version: row.version,
+    xmlPercentageAdjustment: row.xmlPercentageAdjustment,
     directions,
     updatedAt: row.updatedAt.toISOString(),
-  } : { enabled: true, version: 0, directions };
+  } : { enabled: true, version: 0, directions, xmlPercentageAdjustment: { ...DEFAULT_XML_PERCENTAGE_ADJUSTMENT } };
 }
 onBestchangeConfigurationChange(invalidate);
 async function options() {
@@ -122,7 +132,12 @@ async function exportDirection(
 }
 export async function generate(
   config: BestchangeSettings, prepareQuotes = prepareBestchangeSwapQuotes,
+  readActiveConvertOrder = hasActiveConvertOrderForXml,
 ): Promise<BestchangePreview> {
+  const adjustment = config.xmlPercentageAdjustment ?? DEFAULT_XML_PERCENTAGE_ADJUSTMENT;
+  // One current activity snapshot for the entire document, never one per pair.
+  // OFF skips the order read altogether and preserves the original feed.
+  const hasActiveConvertOrders = adjustment.enabled ? await readActiveConvertOrder() : false;
   const items: Array<BestchangeItem | undefined> = Array(config.directions.length);
   const diagnostics: BestchangePreview["diagnostics"] = Array(config.directions.length);
   // Read each destination once so every direction in this XML shares the same
@@ -156,7 +171,11 @@ export async function generate(
           continue;
         }
         items[index] = await exportDirection(direction, reserve, prepareQuotes);
-        diagnostics[index] = { id: direction.id, exported: true, message: "Live fee-inclusive Swap rate; conservative standard-format range pricing." };
+        diagnostics[index] = { id: direction.id, exported: true, message:
+          "Live fee-inclusive Swap rate; conservative standard-format range pricing." +
+          (adjustment.enabled
+            ? ` XML-only adjustment: +${selectedXmlPercentage(adjustment, hasActiveConvertOrders)}% (${hasActiveConvertOrders ? "active Convert orders" : "no active Convert orders"}). Customer quotes are not adjusted.`
+            : "") };
       } catch (error) {
         diagnostics[index] = {
           id: direction.id, exported: false,
@@ -168,19 +187,38 @@ export async function generate(
   }));
   const valid = items.filter((item): item is BestchangeItem => Boolean(item));
   return {
-    xml: serializeBestchangeXml(valid), generatedAt: new Date().toISOString(),
+    xml: serializeBestchangeXml(valid.map(item => ({
+      ...item, out: adjustXmlOutput(item.out, adjustment, hasActiveConvertOrders),
+    }))), generatedAt: new Date().toISOString(),
     exportedCount: valid.length, diagnostics, enabled: config.enabled, version: config.version,
+    xmlAdjustmentEnabled: adjustment.enabled,
+    activeConvertOrdersForAdjustment: hasActiveConvertOrders,
   };
 }
-async function snapshot(): Promise<BestchangePreview> {
-  if (cached && cached.expires > Date.now()) return cached.result;
+export async function snapshot(
+  readSettings = settings,
+  prepareQuotes = prepareBestchangeSwapQuotes,
+  readActiveConvertOrder = hasActiveConvertOrderForXml,
+): Promise<BestchangePreview> {
+  let currentActivity: boolean | undefined;
+  const existing = cached;
+  if (existing && existing.expires > Date.now()) {
+    const epoch = generation;
+    currentActivity = existing.result.xmlAdjustmentEnabled ? await readActiveConvertOrder() : undefined;
+    if (epoch !== generation || existing !== cached) return snapshot(readSettings, prepareQuotes, readActiveConvertOrder);
+    if (currentActivity === undefined || currentActivity === existing.result.activeConvertOrdersForAdjustment) return existing.result;
+    // Order activity must not wait for a rate cache TTL to choose the right %.
+    // Reuse the same generation fence as operator configuration changes.
+    invalidate();
+  }
   if (!pending) {
     if (refreshBlockedUntil > Date.now()) throw new ApiError("BESTCHANGE_UNAVAILABLE", "Feed refresh is temporarily unavailable.", 503);
     const epoch = generation;
     const current = (async () => {
       try {
-        const config = await settings();
-        const result = config.enabled ? await generate(config) : {
+        const config = await readSettings();
+        const result = config.enabled ? await generate(config, prepareQuotes,
+          currentActivity === undefined ? readActiveConvertOrder : async () => currentActivity!) : {
           xml: serializeBestchangeXml([]), generatedAt: new Date().toISOString(),
           exportedCount: 0, diagnostics: [], enabled: false, version: config.version,
         };
@@ -200,7 +238,7 @@ async function snapshot(): Promise<BestchangePreview> {
   if (!active) throw new ApiError("BESTCHANGE_UNAVAILABLE", "Feed refresh is temporarily unavailable.", 503);
   const result = await active;
   // A disabling save must win even when an older refresh just finished.
-  return epoch === generation ? result : snapshot();
+  return epoch === generation ? result : snapshot(readSettings, prepareQuotes, readActiveConvertOrder);
 }
 
 router.get("/bestchange.xml", async (_req, res, next) => {
@@ -243,6 +281,8 @@ router.put("/admin/bestchange", requireOwner, async (req, res, next) => {
     }
     const row = {
       id: 1, enabled: input.enabled, version: input.version + 1,
+      // Older clients may omit the new field: do not reset saved percentages.
+      ...(input.xmlPercentageAdjustment ? { xmlPercentageAdjustment: input.xmlPercentageAdjustment } : {}),
       directions: input.directions.map(({ automatic, pricingRuleName, pendingReasons, ...direction }) => direction), updatedAt: new Date(),
     };
     const saved = input.version === 0

@@ -4992,6 +4992,21 @@ components:
           uniqueItems: true
           items: { type: string, minLength: 1, maxLength: 100 }
         includeFeeTags: { type: boolean }
+    XmlPercentageAdjustment:
+      type: object
+      additionalProperties: false
+      required: [enabled, activeOrderPercent, noActiveOrderPercent]
+      description: Platform-neutral XML output adjustment only. Activity means any non-terminal canonical Convert order.
+      properties:
+        enabled: { type: boolean }
+        activeOrderPercent:
+          type: string
+          pattern: '^(?:100(?:\.0{1,6})?|(?:0|[1-9]\d?)(?:\.\d{1,6})?)$'
+          description: Percentage from 0 through 100, with up to six decimal places.
+        noActiveOrderPercent:
+          type: string
+          pattern: '^(?:100(?:\.0{1,6})?|(?:0|[1-9]\d?)(?:\.\d{1,6})?)$'
+          description: Percentage from 0 through 100, with up to six decimal places.
     BestchangeSettings:
       type: object
       additionalProperties: false
@@ -4999,6 +5014,7 @@ components:
       properties:
         enabled: { type: boolean }
         version: { type: integer, minimum: 0 }
+        xmlPercentageAdjustment: { $ref: "#/components/schemas/XmlPercentageAdjustment" }
         directions:
           type: array
           items: { $ref: "#/components/schemas/BestchangeDirection" }

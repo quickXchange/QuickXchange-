@@ -19,6 +19,33 @@ if (process.env.API_TEST_DISPOSABLE_DATABASE !== "1") {
 }
 after(async () => { await pool.end(); });
 
+test("XML adjustment migration defaults and persisted OFF values preserve an enabled feed", async () => {
+  const [original] = await db.select().from(bestchangeSettingsTable).where(eq(bestchangeSettingsTable.id, 1));
+  try {
+    await db.delete(bestchangeSettingsTable).where(eq(bestchangeSettingsTable.id, 1));
+    const [fresh] = await db.insert(bestchangeSettingsTable).values({ id: 1, enabled: true, directions: [] }).returning();
+    assert.deepEqual(fresh.xmlPercentageAdjustment, {
+      enabled: false, activeOrderPercent: "0", noActiveOrderPercent: "0",
+    });
+    const configured = { enabled: true, activeOrderPercent: "5", noActiveOrderPercent: "2" };
+    await db.update(bestchangeSettingsTable).set({ xmlPercentageAdjustment: configured }).where(eq(bestchangeSettingsTable.id, 1));
+    const [saved] = await db.select().from(bestchangeSettingsTable).where(eq(bestchangeSettingsTable.id, 1));
+    assert.deepEqual(saved.xmlPercentageAdjustment, configured);
+    await db.update(bestchangeSettingsTable).set({ xmlPercentageAdjustment: { ...saved.xmlPercentageAdjustment, enabled: false } })
+      .where(eq(bestchangeSettingsTable.id, 1));
+    const [off] = await db.select().from(bestchangeSettingsTable).where(eq(bestchangeSettingsTable.id, 1));
+    assert.equal(off.enabled, true);
+    assert.deepEqual(off.xmlPercentageAdjustment, { ...configured, enabled: false });
+    // Legacy callers updating other settings cannot clear the new object.
+    await db.update(bestchangeSettingsTable).set({ version: off.version + 1 }).where(eq(bestchangeSettingsTable.id, 1));
+    const [legacy] = await db.select().from(bestchangeSettingsTable).where(eq(bestchangeSettingsTable.id, 1));
+    assert.deepEqual(legacy.xmlPercentageAdjustment, off.xmlPercentageAdjustment);
+  } finally {
+    await db.delete(bestchangeSettingsTable).where(eq(bestchangeSettingsTable.id, 1));
+    if (original) await db.insert(bestchangeSettingsTable).values(original);
+  }
+});
+
 test("automatic pending directions never invoke quotes; ready directions retain conservative XML pricing", async () => {
   let calls = 0;
   const base = {

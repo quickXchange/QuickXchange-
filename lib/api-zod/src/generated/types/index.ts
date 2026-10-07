@@ -681,3 +681,4 @@ export * from './whitebitRouteMappingSelection';
 export * from './whitebitVerificationRoute';
 export * from './whitebitWebhookEnvelope';
 export * from './whitebitWebhookEnvelopeParams';
+export * from './xmlPercentageAdjustment';

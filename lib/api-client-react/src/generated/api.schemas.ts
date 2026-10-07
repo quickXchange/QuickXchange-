@@ -177,10 +177,28 @@ export interface BestchangeDirection {
   includeFeeTags: boolean;
 }
 
+/**
+ * Platform-neutral XML output adjustment only. Activity means any non-terminal canonical Convert order.
+ */
+export interface XmlPercentageAdjustment {
+  enabled: boolean;
+  /**
+     * Percentage from 0 through 100, with up to six decimal places.
+     * @pattern ^(?:100(?:\.0{1,6})?|(?:0|[1-9]\d?)(?:\.\d{1,6})?)$
+     */
+  activeOrderPercent: string;
+  /**
+     * Percentage from 0 through 100, with up to six decimal places.
+     * @pattern ^(?:100(?:\.0{1,6})?|(?:0|[1-9]\d?)(?:\.\d{1,6})?)$
+     */
+  noActiveOrderPercent: string;
+}
+
 export interface BestchangeSettings {
   enabled: boolean;
   /** @minimum 0 */
   version: number;
+  xmlPercentageAdjustment?: XmlPercentageAdjustment;
   directions: BestchangeDirection[];
   updatedAt?: string;
 }

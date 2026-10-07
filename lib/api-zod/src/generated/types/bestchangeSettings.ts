@@ -6,11 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { BestchangeDirection } from './bestchangeDirection';
+import type { XmlPercentageAdjustment } from './xmlPercentageAdjustment';
 
 export interface BestchangeSettings {
   enabled: boolean;
   /** @minimum 0 */
   version: number;
+  xmlPercentageAdjustment?: XmlPercentageAdjustment;
   directions: BestchangeDirection[];
   updatedAt?: Date;
 }

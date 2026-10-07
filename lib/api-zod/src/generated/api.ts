@@ -20408,6 +20408,8 @@ export const GetBestchangeXmlResponse = zod.unknown()
 
 export const getAdminBestchangeResponseSettingsVersionMin = 0;
 
+export const getAdminBestchangeResponseSettingsXmlPercentageAdjustmentActiveOrderPercentRegExp = new RegExp('^(?:100(?:\\.0{1,6})?|(?:0|[1-9]\\d?)(?:\\.\\d{1,6})?)$');
+export const getAdminBestchangeResponseSettingsXmlPercentageAdjustmentNoActiveOrderPercentRegExp = new RegExp('^(?:100(?:\\.0{1,6})?|(?:0|[1-9]\\d?)(?:\\.\\d{1,6})?)$');
 export const getAdminBestchangeResponseSettingsDirectionsItemSourceOptionIdMax = 160;
 
 export const getAdminBestchangeResponseSettingsDirectionsItemTargetOptionIdMax = 160;
@@ -20443,6 +20445,11 @@ export const GetAdminBestchangeResponse = zod.object({
   "settings": zod.object({
   "enabled": zod.boolean(),
   "version": zod.number().int().min(getAdminBestchangeResponseSettingsVersionMin),
+  "xmlPercentageAdjustment": zod.object({
+  "enabled": zod.boolean(),
+  "activeOrderPercent": zod.string().regex(getAdminBestchangeResponseSettingsXmlPercentageAdjustmentActiveOrderPercentRegExp).describe('Percentage from 0 through 100, with up to six decimal places.'),
+  "noActiveOrderPercent": zod.string().regex(getAdminBestchangeResponseSettingsXmlPercentageAdjustmentNoActiveOrderPercentRegExp).describe('Percentage from 0 through 100, with up to six decimal places.')
+}).optional().describe('Platform-neutral XML output adjustment only. Activity means any non-terminal canonical Convert order.'),
   "directions": zod.array(zod.object({
   "id": zod.string().uuid(),
   "enabled": zod.boolean(),
@@ -20490,6 +20497,8 @@ export const GetAdminBestchangeResponse = zod.object({
 
 export const updateAdminBestchangeBodyVersionMin = 0;
 
+export const updateAdminBestchangeBodyXmlPercentageAdjustmentActiveOrderPercentRegExp = new RegExp('^(?:100(?:\\.0{1,6})?|(?:0|[1-9]\\d?)(?:\\.\\d{1,6})?)$');
+export const updateAdminBestchangeBodyXmlPercentageAdjustmentNoActiveOrderPercentRegExp = new RegExp('^(?:100(?:\\.0{1,6})?|(?:0|[1-9]\\d?)(?:\\.\\d{1,6})?)$');
 export const updateAdminBestchangeBodyDirectionsItemSourceOptionIdMax = 160;
 
 export const updateAdminBestchangeBodyDirectionsItemTargetOptionIdMax = 160;
@@ -20524,6 +20533,11 @@ export const updateAdminBestchangeBodyDirectionsItemSelectedAddOnKeysMax = 32;
 export const UpdateAdminBestchangeBody = zod.object({
   "enabled": zod.boolean(),
   "version": zod.number().int().min(updateAdminBestchangeBodyVersionMin),
+  "xmlPercentageAdjustment": zod.object({
+  "enabled": zod.boolean(),
+  "activeOrderPercent": zod.string().regex(updateAdminBestchangeBodyXmlPercentageAdjustmentActiveOrderPercentRegExp).describe('Percentage from 0 through 100, with up to six decimal places.'),
+  "noActiveOrderPercent": zod.string().regex(updateAdminBestchangeBodyXmlPercentageAdjustmentNoActiveOrderPercentRegExp).describe('Percentage from 0 through 100, with up to six decimal places.')
+}).optional().describe('Platform-neutral XML output adjustment only. Activity means any non-terminal canonical Convert order.'),
   "directions": zod.array(zod.object({
   "id": zod.string().uuid(),
   "enabled": zod.boolean(),
@@ -20549,6 +20563,8 @@ export const UpdateAdminBestchangeBody = zod.object({
 
 export const updateAdminBestchangeResponseVersionMin = 0;
 
+export const updateAdminBestchangeResponseXmlPercentageAdjustmentActiveOrderPercentRegExp = new RegExp('^(?:100(?:\\.0{1,6})?|(?:0|[1-9]\\d?)(?:\\.\\d{1,6})?)$');
+export const updateAdminBestchangeResponseXmlPercentageAdjustmentNoActiveOrderPercentRegExp = new RegExp('^(?:100(?:\\.0{1,6})?|(?:0|[1-9]\\d?)(?:\\.\\d{1,6})?)$');
 export const updateAdminBestchangeResponseDirectionsItemSourceOptionIdMax = 160;
 
 export const updateAdminBestchangeResponseDirectionsItemTargetOptionIdMax = 160;
@@ -20583,6 +20599,11 @@ export const updateAdminBestchangeResponseDirectionsItemSelectedAddOnKeysMax = 3
 export const UpdateAdminBestchangeResponse = zod.object({
   "enabled": zod.boolean(),
   "version": zod.number().int().min(updateAdminBestchangeResponseVersionMin),
+  "xmlPercentageAdjustment": zod.object({
+  "enabled": zod.boolean(),
+  "activeOrderPercent": zod.string().regex(updateAdminBestchangeResponseXmlPercentageAdjustmentActiveOrderPercentRegExp).describe('Percentage from 0 through 100, with up to six decimal places.'),
+  "noActiveOrderPercent": zod.string().regex(updateAdminBestchangeResponseXmlPercentageAdjustmentNoActiveOrderPercentRegExp).describe('Percentage from 0 through 100, with up to six decimal places.')
+}).optional().describe('Platform-neutral XML output adjustment only. Activity means any non-terminal canonical Convert order.'),
   "directions": zod.array(zod.object({
   "id": zod.string().uuid(),
   "enabled": zod.boolean(),

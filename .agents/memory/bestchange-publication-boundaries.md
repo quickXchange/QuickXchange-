@@ -9,11 +9,11 @@ BestChange uses live Manual Swap pricing, not an independently entered rate book
 
 **How to apply:** Reuse the executable Swap quote boundary without availability bypasses. Test without real orders or shared provider-state mutations.
 
-Classic BestChange XML cannot describe a stepped price table. Its single advertised ratio must not promise more than an executable Swap payout anywhere in the advertised source interval, including fixed fees and rounding. Commissions already included in the ratio must not be charged again through optional fee tags.
+Classic BestChange XML cannot describe a stepped price table. Its base ratio must not promise more than an executable Swap payout anywhere in the advertised source interval, including fixed fees and rounding. The user separately authorized an optional platform-neutral XML-only percentage adjustment after that base calculation; see [XML output adjustment](xml-output-adjustment.md). Commissions already included in the base ratio must not be charged again through optional fee tags.
 
 **Why:** Publishing an attractive sample-amount rate can overstate payouts elsewhere in a tiered or fixed-fee interval.
 
-**How to apply:** Preserve conservative full-fee range pricing unless the user explicitly requests a richer BestChange format. Payment/network codes and payout reserves are explicit operator declarations; never infer them from names or invent wallet/bank balances.
+**How to apply:** Preserve conservative full-fee base pricing. Only the explicitly enabled publication adjustment may change the final XML output, never executable quotes or customer amounts. Payment/network codes and payout reserves are explicit operator declarations; never infer them from names or invent wallet/bank balances.
 
 For fiat destinations, the current Payment Method reserve in the receiving currency is authoritative for XML amount and shared across all directions using that destination. It is not capped by a direction's per-transaction maximum. Reserves remain informational/configurational: orders never decrement or otherwise modify them. Existing crypto-destination reserve settings are separate.
 
