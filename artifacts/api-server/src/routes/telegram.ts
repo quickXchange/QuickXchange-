@@ -9,6 +9,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { signOrderTrackingToken, verifyOrderTrackingToken } from "../lib/order-access";
 import { buildCreatePayload, buildQuoteByReceivePayload, buildQuotePayload, filterConvertTargets, filterManualSourceOptions, filterManualTargets, filterTelegramRouteOptions, nextRequiredField, requiredFieldActive, shouldAskDestination, telegramCallbackIndexes, telegramFieldSkipIndex, telegramStatusLabel, toggleTelegramManualSwapAddonSelection, withoutTelegramRefundFields, type TelegramManualSwapAddon, type TelegramRouteOption } from "../lib/telegram-wizard";
 import { loadTelegramConvertCatalog } from "../lib/telegram-convert-catalog";
+import { deliverTelegramConvertCreation, type ConvertCreationProgress, type ConvertDepositSnapshot } from "../lib/telegram-convert-creation";
 import { createTelegramLinkChallenge } from "../lib/telegram-link";
 import { AdminTelegramLinkChallengeError, consumeAdminTelegramLinkChallenge } from "../lib/admin-telegram-link";
 import { getCustomerVerifiedEmail, requireActiveCustomerIdentity } from "../lib/customer-auth";
@@ -1087,6 +1088,13 @@ async function deliverCreatedOrderImmediately(
   if (!claimed) return;
 
   try {
+    if ((claimed.payload as { orderKind?: string }).orderKind === "convert") {
+      await deliverClaimedConvertCreation(claimed, claimToken, messageId);
+      await db.update(telegramNotificationOutboxTable).set({
+        deliveryStatus: "delivered", deliveredAt: new Date(), claimToken: null, claimExpiresAt: null,
+      }).where(and(eq(telegramNotificationOutboxTable.id, claimed.id), eq(telegramNotificationOutboxTable.claimToken, claimToken)));
+      return;
+    }
     const payload = claimed.payload as {
       status?: string;
       requiresDeposit?: boolean;
@@ -1137,6 +1145,45 @@ async function deliverCreatedOrderImmediately(
       "Immediate Telegram order delivery failed; queued retry remains pending",
     );
   }
+}
+async function deliverClaimedConvertCreation(
+  claimed: typeof telegramNotificationOutboxTable.$inferSelect,
+  claimToken: string,
+  messageId?: number,
+) {
+  const payload = claimed.payload as Record<string, unknown> & ConvertCreationProgress;
+  await deliverTelegramConvertCreation(claimed.orderId, String(payload.status ?? "awaiting funds"), payload, {
+    loadDeposit: async () => {
+      // Read the existing canonical order only. No quote, create, or provider call.
+      const [order] = await db.select({
+        route: quickexOrdersTable.route, amounts: quickexOrdersTable.amounts, addresses: quickexOrdersTable.addresses,
+      }).from(quickexOrdersTable).where(eq(quickexOrdersTable.legacyOrderId, claimed.orderId)).limit(1);
+      if (!order) throw new DepositInstructionsPending("Created Convert order is unavailable");
+      const route = order.route as { fromAsset?: string; fromNetwork?: string };
+      const amounts = order.amounts as { amount?: string };
+      const addresses = order.addresses as { depositAddress?: string; depositMemo?: string; depositQrData?: string };
+      if (!addresses.depositAddress || !amounts.amount || !route.fromAsset || !route.fromNetwork) {
+        throw new DepositInstructionsPending("Convert deposit instructions are being prepared");
+      }
+      return {
+        amount: amounts.amount, asset: route.fromAsset, network: route.fromNetwork,
+        address: addresses.depositAddress, memo: addresses.depositMemo, qrData: addresses.depositQrData,
+      } satisfies ConvertDepositSnapshot;
+    },
+    text: (text) => replaceOrSendTelegramMessage(claimed.chatId, messageId, text),
+    // The QR has no order-details caption: the preceding text owns those details.
+    qr: (data) => sendTelegramPhoto(claimed.chatId, data, ""),
+    checkpoint: async (progress) => {
+      const [updated] = await db.update(telegramNotificationOutboxTable).set({
+        payload: { ...payload, ...progress },
+      }).where(and(
+        eq(telegramNotificationOutboxTable.id, claimed.id),
+        eq(telegramNotificationOutboxTable.claimToken, claimToken),
+        gt(telegramNotificationOutboxTable.claimExpiresAt, new Date()),
+      )).returning({ id: telegramNotificationOutboxTable.id });
+      if (!updated) throw new Error("Convert delivery claim expired");
+    },
+  });
 }
 function telegramReviewMessage(data: Record<string, unknown>, locale: TelegramLocale) {
   const source = data.source as SettlementOption;
@@ -1972,6 +2019,13 @@ export function startTelegramNotificationWorker(): () => void {
               orderUrl ? [[{ text: "Open Order", url: orderUrl }]] : undefined,
             );
             await db.update(telegramNotificationOutboxTable).set({ deliveryStatus: "delivered", deliveredAt: new Date(), claimToken: null, claimExpiresAt: null }).where(and(eq(telegramNotificationOutboxTable.id, claimed.id), eq(telegramNotificationOutboxTable.claimToken, claimToken)));
+            continue;
+          }
+          if (payload.orderKind === "convert") {
+            await deliverClaimedConvertCreation(claimed, claimToken);
+            await db.update(telegramNotificationOutboxTable).set({
+              deliveryStatus: "delivered", deliveredAt: new Date(), claimToken: null, claimExpiresAt: null,
+            }).where(and(eq(telegramNotificationOutboxTable.id, claimed.id), eq(telegramNotificationOutboxTable.claimToken, claimToken)));
             continue;
           }
           let deposit = telegramDepositInstruction(payload as Record<string, unknown>);

@@ -11,4 +11,10 @@ Answer callback queries immediately, before inbox claiming or per-chat lock wait
 
 **Why:** A financial bot can otherwise expose order data in groups, apply one message to two wizard steps after a crash, lose an accepted create response, acknowledge a financial action that no worker can replay after restart, duplicate recovery notices across workers, or finalize an order without ever delivering its funding address.
 
+Telegram Convert creation has one text confirmation followed by one QR without repeated order details. Its “Send exactly” instruction is an exact payment boundary: preserve the frozen order amount when three-decimal presentation would change what the customer pays.
+
+**Why:** The user explicitly requires a single confirmation, frozen source amount, and no recalculation or duplicate order creation during QR generation. A rounded “Send exactly” amount can cause underpayment.
+
+**How to apply:** Apply the same delivery policy to immediate and queued creation notices for both Fixed and Floating Convert. Preserve completed text delivery when QR delivery is retried. Keep these presentation changes isolated from Swap, the website, and the Mini App.
+
 **How to apply:** Use these boundaries for every Telegram action that advances an exchange, links an order, or sends funding instructions. A confirmed provider deposit may advance only its exact unambiguous Manual Swap from awaiting funds to funds confirmed. Completion notices come only from the canonical completed-status CAS path. Informational retries may duplicate harmless text, but financial state notices and funding delivery must remain recoverable and winner-fenced across process crashes and multiple server instances.
