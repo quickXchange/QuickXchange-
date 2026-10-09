@@ -1,4 +1,5 @@
 - [OpenAPI validator edges](openapi-zod-runtime.md) — check [query timestamps](openapi-query-timestamps.md) and [record constraints](orval-record-constraints.md) after codegen.
+- [GitHub source sync](github-source-sync.md) — audit reusable snapshots beyond .env files; use the connected App for writes when local Git push credentials fail.
 - [Quickex signed calls](quickex-signing.md) — omit signed params; mind [egress](quickex-egress-restrictions.md) and [429s](quickex-pair-rate-limit-fallback.md).
 - [Quickex catalog/order quirks](quickex-instrument-mapping.md) — rates omit titles; [order payloads](quickex-order-payload.md) need markup and IDs.
 - [Drizzle migrations](drizzle-migration-paths.md) — preserve snapshot paths and [post-merge idempotency](drizzle-post-merge-idempotency.md).
