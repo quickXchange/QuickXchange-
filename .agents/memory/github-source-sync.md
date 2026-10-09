@@ -14,3 +14,9 @@ Reusable source snapshots need a fresh-build check and an audit beyond environme
 **Why:** Excluding private attachments exposed runtime dependencies on reviewed public bank artwork, while historical recovery inputs required removal from the reusable copy.
 
 **How to apply:** Prepare and validate a separate source copy without changing the running app or database. Keep required reviewed public artwork and general provider/monitoring logic. Omit customer-specific recovery data, retain migration ordering, and explain that preserving existing Git history does not purge earlier commits.
+
+The reusable integrations are intended for QXLayer white-label customers, each with independent credentials, branding and permissions.
+
+**Why:** The user specified this reuse context for the QuickXchange source synchronization.
+
+**How to apply:** Preserve existing working integration code and configuration boundaries. Do not describe a source export as implementing tenant isolation; customer credentials, configuration and permissions must remain independent in the consuming platform.
