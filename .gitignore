@@ -49,3 +49,28 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Source-only repository: no credentials, operational data or private workspace files.
+.env
+.env.*
+**/.env
+**/.env.*
+.agents/
+.conversation/
+.config/
+attached_assets/
+exports/
+reports/
+screenshots/
+tmp_comparison/
+*.dump
+*.backup
+*.sql.gz
+*.pem
+*.key
+
+# Only these reviewed public bank logos are runtime source dependencies.
+!attached_assets/
+attached_assets/*
+!attached_assets/bbva-logo-transparent.png
+!attached_assets/bbva-logo-white-transparent.png

@@ -445,7 +445,7 @@ test("a monitoring-enabled network does not create watches or take over a frozen
 });
 
 test("the recovered BNB order is excluded once its funds are confirmed", async () => {
-  const mock = fixture({ candidate: { order: order("O696531129", "processing"), claim: claim("O696531129") } });
+  const mock = fixture({ candidate: { order: order("SOURCE_EXPORT_OMITTED_ORDER_15", "processing"), claim: claim("SOURCE_EXPORT_OMITTED_ORDER_15") } });
   assert.equal(await runWhitebitHistoryCycle(mock.ports), "success");
   assert.equal(mock.calls.histories, 0);
   assert.equal(mock.calls.applyCalls, 0);

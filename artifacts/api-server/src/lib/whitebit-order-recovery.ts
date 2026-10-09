@@ -20,7 +20,7 @@ import {
 } from "../routes/whitebit";
 
 // This recovery is deliberately scoped to one reviewed Development order.
-const ORDER_ID = "O696531129";
+const ORDER_ID = "SOURCE_EXPORT_OMITTED_ORDER_15";
 const HISTORY_PATH = "/api/v4/main-account/history";
 type HistoryRow = Record<string, unknown>;
 
@@ -246,7 +246,7 @@ async function inspectSingleOrder(requestedSource?: "stored" | "environment"): P
       "exchange_order_audit_logs: one order.deposit_confirmed event",
     ],
     rowsToUpdate: alreadyApplied ? [] : [
-      "exchange_orders: only O696531129, awaiting funds → processing / funds_confirmed",
+      "exchange_orders: only SOURCE_EXPORT_OMITTED_ORDER_15, awaiting funds → processing / funds_confirmed",
     ],
     conditionalNotifications: alreadyApplied
       ? "none"

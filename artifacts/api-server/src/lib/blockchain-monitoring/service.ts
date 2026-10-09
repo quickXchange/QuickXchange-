@@ -53,25 +53,27 @@ const MAX_MATCH_APPLICATIONS_PER_CYCLE = 100;
 const CATCH_UP_DEADLINE_GUARD_MS = 5_000;
 const VERIFIED_RECEIPT_RECOVERY_REASON =
   "Verified receipt recovery; inactive to prevent unbounded rescanning.";
+// Customer-specific recovery inputs intentionally excluded from this source snapshot.
 const VERIFIED_ERC20_WATCH_RECOVERY = {
-  orderId: "O241097549",
+  orderId: "SOURCE_EXPORT_NO_CUSTOMER_ERC20_RECOVERY",
   routeId: "usdc-erc20",
   networkId: "monitor-ethereum-mainnet",
-  amount: "10",
-  receivingAddress: "0x961fFd69412BdD402B8a63FC67D5d7f1A105abDb",
-  orderCreatedAt: new Date("2026-09-22T21:39:42.698Z"),
-  startCursor: "26035766",
-  transactionHash: "0x1dd0bb8b9c28a80ad0df295a1de737c12c386f3d51b74abf13403d4e987c9b4b",
-  transactionBlock: "26035851",
+  amount: "0",
+  receivingAddress: "0x0000000000000000000000000000000000000000",
+  orderCreatedAt: new Date(0),
+  startCursor: "0",
+  transactionHash: "0x0000000000000000000000000000000000000000000000000000000000000000",
+  transactionBlock: "0",
 } as const;
+// Customer-specific recovery inputs intentionally excluded from this source snapshot.
 const VERIFIED_BEP20_GAP_RECOVERY = {
-  orderId: "O243008796",
+  orderId: "SOURCE_EXPORT_NO_CUSTOMER_BEP20_RECOVERY",
   routeId: "usdt-bep20",
   networkId: "monitor-bep20",
-  amount: "12",
-  receivingAddress: "0x961fFd69412BdD402B8a63FC67D5d7f1A105abDb",
-  orderCreatedAt: new Date("2026-09-22T22:46:24.066Z"),
-  startCursor: "123455507",
+  amount: "0",
+  receivingAddress: "0x0000000000000000000000000000000000000000",
+  orderCreatedAt: new Date(0),
+  startCursor: "0",
 } as const;
 const legacyNetworkConfigDigest = (
   network: typeof blockchainMonitorNetworksTable.$inferSelect,
