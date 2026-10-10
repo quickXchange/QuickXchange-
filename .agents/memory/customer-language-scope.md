@@ -25,3 +25,9 @@ Structural providers that mount the localization context must not depend on that
 **Why:** Broad copy migrations injected a mandatory localization hook above its own provider and caused blank root screens, obscuring the original error.
 
 **How to apply:** Exclude bootstrap/provider owners from automatic hook injection; localize their visible leaf components without changing provider order.
+
+Browser locale checks must confirm the applied language, not just a seeded storage preference.
+
+**Why:** A seeded locale was reset during browser startup while switching through the shared language picker correctly rendered all supported languages.
+
+**How to apply:** Drive the existing language picker and assert both the document language and translated customer text; investigate startup separately before treating seed failures as missing translations.

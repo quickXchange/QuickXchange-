@@ -1,18 +1,21 @@
 import { sourceText } from "@workspace/i18n/runtime";
 import { useI18n as useCustomerI18n } from "@workspace/i18n";
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { CSSProperties, ReactNode } from 'react';
+import { useLayoutEffect } from 'react';
+import type { ReactNode } from 'react';
 import { PublicShell } from '../components/public-shell';
-import { basePath, cn, SUPPORT_EMAIL } from '../components/shared-app-ui';
+import { cn, SUPPORT_EMAIL } from '../components/shared-app-ui';
 import { Link } from 'wouter';
-import { ShieldAlert, Info, AlertTriangle, BookOpen, Maximize2, PlayCircle, RotateCcw, X, ZoomIn } from 'lucide-react';
+import { ShieldAlert, Info, AlertTriangle, BookOpen } from 'lucide-react';
 import './user-manual.css';
+import { ManualGuideFigure, FundingGuide } from '../components/manual/manual-guides';
+import { ManualToc } from '../components/manual/manual-toc';
 import { usePublishedTelegramSupportUrl } from '../lib/telegram-support';
 
 function useUserManualSEO() {
+  const { t, locale } = useCustomerI18n();
   useLayoutEffect(() => {
-    const title = "User Manual | QuickXchange";
-    const description = "Follow the QuickXchange user manual for step-by-step guidance on crypto swaps, conversions, order funding, tracking, account tools, and exchange safety.";
+    const title = `${t("customer.m943f7e1248b9")} | QuickXchange`;
+    const description = t("customer.md1d70e87f319");
     const canonical = "https://quickchange.exchange/user-manual";
     const previousTitle = document.title;
     document.title = title;
@@ -67,15 +70,10 @@ function useUserManualSEO() {
         {
           "@type": "TechArticle",
           "@id": `${canonical}#article`,
-          "headline": "QuickXchange User Manual",
+          "headline": title,
           "description": description,
           "url": canonical,
-          "inLanguage": "en",
-          "image": [
-            "https://quickchange.exchange/manual/swap-guide.jpg",
-            "https://quickchange.exchange/manual/convert-guide.jpg",
-            "https://quickchange.exchange/manual/tracking-guide.jpg"
-          ],
+          "inLanguage": locale,
           "publisher": {
             "@type": "Organization",
             "name": "QuickXchange",
@@ -145,7 +143,7 @@ function useUserManualSEO() {
       document.title = previousTitle;
       restore.reverse().forEach(fn => fn());
     };
-  }, []);
+  }, [locale, t]);
 }
 
 function Callout({ type, title, children }: { type: 'info' | 'warning' | 'safety', title: string, children: ReactNode }) {
@@ -160,156 +158,6 @@ function Callout({ type, title, children }: { type: 'info' | 'warning' | 'safety
       </div>
       <div className="user-manual-callout-content">
         {uiText(children)}
-      </div>
-    </div>
-  );
-}
-
-function ManualFigure({
-  src,
-  alt,
-  title,
-  caption,
-  hotspots = [],
-}: {
-  src: string;
-  alt: string;
-  title: string;
-  caption: string;
-  hotspots?: Array<{ number: number; label: string; x: string; y: string }>;
-}) {
-  const { t: uiT, tx: uiText } = useCustomerI18n();
-
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const lightboxRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!lightboxOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setLightboxOpen(false);
-    };
-    document.body.classList.add('user-manual-lightbox-open');
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.body.classList.remove('user-manual-lightbox-open');
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [lightboxOpen]);
-
-  const enterFullscreen = async () => {
-    if (!lightboxRef.current?.requestFullscreen) return;
-    await lightboxRef.current.requestFullscreen();
-  };
-
-  return (
-    <>
-      <figure className="user-manual-figure">
-        <button
-          type="button"
-          className="user-manual-figure-frame"
-          onClick={() => setLightboxOpen(true)}
-          aria-label={uiT("customer.m6f53bb6d75f1", { v0: title })}
-        >
-          <img
-            src={`${basePath}${src}`}
-            alt={uiText(alt)}
-            loading="lazy"
-            decoding="async"
-            className="user-manual-figure-image"
-          />
-          {uiText(hotspots.map((hotspot) => (
-            <span
-              key={hotspot.number}
-              className="user-manual-hotspot"
-              style={{ left: hotspot.x, top: hotspot.y }}
-              aria-label={`${hotspot.number}. ${hotspot.label}`}
-            >
-              {hotspot.number}
-            </span>
-          )))}
-          <span className="user-manual-image-action" aria-hidden="true">
-            <ZoomIn size={16} />
-            {uiT("customer.m509c517ede79")}{' '}</span>
-        </button>
-        <figcaption>
-          <strong>{uiText(title)}</strong>
-          <span>{uiText(caption)}</span>
-          {hotspots.length > 0 && (
-            <ol className="user-manual-hotspot-key">
-              {uiText(hotspots.map((hotspot) => <li key={hotspot.number}><b>{hotspot.number}</b>{uiText(hotspot.label)}</li>))}
-            </ol>
-          )}
-        </figcaption>
-      </figure>
-
-      {lightboxOpen && (
-        <div
-          className="user-manual-lightbox"
-          role="dialog"
-          aria-modal="true"
-          aria-label={uiT("customer.md0bf374b1a21", { v0: title })}
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setLightboxOpen(false);
-          }}
-        >
-          <div className="user-manual-lightbox-panel" ref={lightboxRef}>
-            <div className="user-manual-lightbox-toolbar">
-              <div>
-                <strong>{uiText(title)}</strong>
-                <span>{uiT("customer.m834ea0165e6a")}</span>
-              </div>
-              <div className="user-manual-lightbox-actions">
-                <button type="button" onClick={() => void enterFullscreen()} aria-label={uiT("customer.mc2a1aa73e36a")}>
-                  <Maximize2 size={18} />
-                  <span>{uiT("customer.mc461dbb2bab7")}</span>
-                </button>
-                <button type="button" onClick={() => setLightboxOpen(false)} aria-label={uiT("customer.md476f46167b7")}>
-                  <X size={20} />
-                </button>
-              </div>
-            </div>
-            <div className="user-manual-lightbox-image-wrap">
-              <img src={`${basePath}${src}`} alt={uiText(alt)} className="user-manual-lightbox-image" />
-              {uiText(hotspots.map((hotspot) => (
-                <span
-                  key={hotspot.number}
-                  className="user-manual-hotspot"
-                  style={{ left: hotspot.x, top: hotspot.y }}
-                  aria-label={`${hotspot.number}. ${hotspot.label}`}
-                >
-                  {hotspot.number}
-                </span>
-              )))}
-            </div>
-            <p>{uiText(caption)}</p>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-
-function VideoPlaceholder() {
-  const { t: uiT, tx: uiText } = useCustomerI18n();
-
-  return (
-    <div
-      className="user-manual-video-placeholder"
-      aria-label={uiT("customer.mf68a460c80e6")}
-      style={{ '--manual-video-image': `url("${basePath}/manual/convert-guide.jpg")` } as CSSProperties}
-    >
-      <div className="user-manual-video-screen">
-        <span className="user-manual-video-icon"><PlayCircle size={34} aria-hidden="true" /></span>
-        <span className="user-manual-video-eyebrow">{uiT("customer.m561d26973ca3")}</span>
-        <strong>{uiT("customer.m23ef60102251")}</strong>
-        <p>{uiT("customer.m76826b42f0ea")}</p>
-      </div>
-      <div className="user-manual-video-controls" aria-hidden="true">
-        <PlayCircle size={18} />
-        <div className="user-manual-video-track"><span /></div>
-        <span>00:00</span>
-        <RotateCcw size={17} />
-        <Maximize2 size={17} />
       </div>
     </div>
   );
@@ -350,22 +198,15 @@ export function UserManualPage() {
               {uiT("customer.m943f7e1248b9")}{' '}</h1>
             <p className="user-manual-subtitle">
               {uiT("customer.md1d70e87f319")}{' '}</p>
+            <p className="mm-path-title">{uiT("customer.manualPathTitle")}</p>
+            <ol className="mm-path" data-testid="list-beginner-path">
+              {['manualP1','manualP2','manualP3','manualP4','manualP5','manualP6'].map(k => <li key={k}>{uiT(`customer.${k}`)}</li>)}
+            </ol>
           </div>
         </div>
 
         <div className="user-manual-container">
-          <aside className="user-manual-toc" aria-label={uiT("customer.ma9360e0212a4")}>
-            <h2 className="user-manual-toc-title">{uiT("customer.m437aea62a5bd")}</h2>
-            <ul className="user-manual-toc-list">
-              {uiText(TOC.map(item => (
-                <li key={item.id}>
-                  <a href={`#${item.id}`} className="user-manual-toc-link" data-testid={`link-toc-${item.id}`}>
-                    {uiText(item.label)}
-                  </a>
-                </li>
-              )))}
-            </ul>
-          </aside>
+          <ManualToc items={TOC} />
 
           <article className="user-manual-content">
             <section id="introduction">
@@ -383,39 +224,26 @@ export function UserManualPage() {
                   <div className="user-manual-step-content">
                     <h3>{uiT("customer.m9d3975b65685")}</h3>
                     <p>{uiT("customer.m2243507df9ed")}</p>
+                    <span className="mm-when"><strong>{uiT("customer.manualCompareSwap")}</strong> {uiT("customer.manualSwapWhen")}</span>
                   </div>
                 </div>
                 <div className="user-manual-step-card">
                   <div className="user-manual-step-number">C</div>
                   <div className="user-manual-step-content">
                     <h3>{uiT("customer.mc0d8d4b00d96")}</h3>
-                    <p>{uiT("customer.m675b66b1464b")}</p>
+                    <p>{uiT("customer.manualConvDesc")}</p>
+                    <span className="mm-when"><strong>{uiT("customer.manualCompareSwap")}</strong> {uiT("customer.manualConvWhen")}</span>
                   </div>
                 </div>
               </div>
 
               <div className="user-manual-media-grid" aria-label={uiT("customer.m54a8129ce0a7")}>
-                <ManualFigure
-                  src="/manual/swap-guide.jpg"
-                  alt={uiT("customer.ma3f7b5b09b53")}
-                  title={uiT("customer.m02c6fd5e49c9")}
-                  caption="Select Swap, then choose the source and destination shown in the exchange card."
-                  hotspots={[
-                    { number: 1, label: uiT("customer.ma470a204bd2c"), x: '18%', y: '27%' },
-                    { number: 2, label: uiT("customer.m0a16d3526042"), x: '27%', y: '56%' },
-                  ]}
-                />
-                <ManualFigure
-                  src="/manual/convert-guide.jpg"
-                  alt={uiT("customer.m0ff5fe7af8aa")}
-                  title={uiT("customer.mafc7207ab16b")}
-                  caption="Select Convert for crypto-to-crypto orders, then choose both assets and the available rate type."
-                  hotspots={[
-                    { number: 1, label: uiT("customer.mc90d2eb26853"), x: '37%', y: '27%' },
-                    { number: 2, label: uiT("customer.mde68d61ea23c"), x: '37%', y: '39%' },
-                  ]}
-                />
+                <ManualGuideFigure kind="swap" />
+                <ManualGuideFigure kind="convert" />
               </div>
+              <Callout type="info" title={uiT("customer.manualNetTitle")}>
+                <p>{uiT("customer.manualNetBody")}</p>
+              </Callout>
             </section>
 
             <section id="starting-exchange">
@@ -450,6 +278,9 @@ export function UserManualPage() {
                 <li><strong>{uiT("customer.mb90faacfd011")}</strong> {' '}{uiT("customer.mfdcf50188181")}</li>
               </ul>
               <p>{uiT("customer.m2f94d6fa81eb")}</p>
+              <Callout type="info" title={uiT("customer.manualRateTitle")}>
+                <p>{uiT("customer.manualRate2Body")}</p>
+              </Callout>
             </section>
 
             <section id="entering-details">
@@ -464,6 +295,10 @@ export function UserManualPage() {
               
               <h3>{uiT("customer.m7c01aec3b1d2")}</h3>
               <p>{uiT("customer.m1660a7ffac24")}</p>
+
+              <Callout type="info" title={uiT("customer.manualRefundTitle")}>
+                <p>{uiT("customer.manualRefundBody")}</p>
+              </Callout>
 
               <Callout type="safety" title={uiT("customer.md836f55a8b39")}>
                 <p>{uiT("customer.mcd00d7687163")}</p>
@@ -502,7 +337,19 @@ export function UserManualPage() {
                 <li>{uiT("customer.macfd58a3ab8d")}</li>
               </ol>
 
-              <VideoPlaceholder />
+              <FundingGuide />
+
+              <Callout type="warning" title={uiT("customer.manualExactTitle")}>
+                <p>{uiT("customer.manualExact2Body")}</p>
+              </Callout>
+
+              <Callout type="info" title={uiT("customer.manualFiatTitle")}>
+                <p>{uiT("customer.manualFiatBody")}</p>
+              </Callout>
+
+              <Callout type="warning" title={uiT("customer.manualPaidTitle")}>
+                <p>{uiT("customer.manualPaidBody")}</p>
+              </Callout>
 
               <Callout type="warning" title={uiT("customer.m78ffaa0ea233")}>
                 <p>{uiT("customer.madfc37ef40d0")}</p>
@@ -511,16 +358,7 @@ export function UserManualPage() {
 
             <section id="tracking-order">
               <h2>{uiT("customer.m2af255e37764")}</h2>
-              <ManualFigure
-                src="/manual/tracking-guide.jpg"
-                alt={uiT("customer.maac9800a2867")}
-                title={uiT("customer.m7df8946d4732")}
-                caption="Open Track an Order, enter the requested Order ID and tracking information, then select Track Order."
-                hotspots={[
-                  { number: 1, label: uiT("customer.m1e949113bd93"), x: '43%', y: '70%' },
-                  { number: 2, label: uiT("customer.mb3ea14af2d83"), x: '68%', y: '70%' },
-                ]}
-              />
+              <ManualGuideFigure kind="track" />
               <p>{uiT("customer.m6024970ec5db")}</p>
               <ul>
                 <li><strong>{uiT("customer.m82ada4262698")}</strong> {' '}{uiT("customer.m8470a541cb48")}</li>
@@ -528,6 +366,20 @@ export function UserManualPage() {
                 <li><strong>{uiT("customer.m101c90be5c32")}</strong> {' '}{uiT("customer.mf8551a1010f3")}</li>
                 <li><strong>{uiT("customer.m7e10a6053e54")}</strong> {' '}{uiT("customer.m3219cc0448d0")}</li>
               </ul>
+              <Callout type="info" title={uiT("customer.manualGuestTitle")}>
+                <p>{uiT("customer.manualGuestBody")}</p>
+              </Callout>
+              <h3>{uiT("customer.manualStatusTitle")}</h3>
+              <div className="user-manual-table-container" data-testid="table-statuses">
+                <table className="user-manual-table">
+                  <thead><tr><th>{uiT("customer.manualStatus")}</th><th>{uiT("customer.manualMeaning")}</th></tr></thead>
+                  <tbody>
+                    {[['manualStAwait','manualStAwaitD'],['manualStDep','manualStDepD'],['manualStProc','manualStProcD'],['manualStRev','manualStRevD'],['manualStDone','manualStDoneD'],['manualStClosed','manualStClosedD']].map(([n,d]) => (
+                      <tr key={n}><td><strong>{uiT(`customer.${n}`)}</strong></td><td>{uiT(`customer.${d}`)}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
               <p>{uiT("customer.me5973998d60d")}{' '}<Link href="/status" className="user-manual-link" data-testid="link-track">{uiT("customer.m7df8946d4732")}</Link> {' '}{uiT("customer.md1a3966583f3")}</p>
             </section>
 
