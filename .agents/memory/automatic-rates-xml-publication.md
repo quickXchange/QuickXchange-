@@ -15,6 +15,12 @@ Publication follows existing Swap and Convert quote services. Customer pricing, 
 
 **How to apply:** Treat XML settings as publication metadata only. Preserve shared payment-method reserves, and require operator selection of appropriate method codes. Range-specific fees use the user's chosen one-item fee-step representation.
 
+The user requires the entire supplied currency-code catalogue to be available in the Admin XML method selectors, not a partial import or silently limited list.
+
+**Why:** The user explicitly repeated that the full file must be present in the payment-method XML controls after entries were hidden.
+
+**How to apply:** Verify the displayed option set against the complete applicable CSV entries, including entries at the end of the file. Retain fiat/crypto type validation; search must not silently truncate matching results.
+
 Perfect Money USD/EUR is staging-only until explicit future production confirmation. Do not publish or change Production just because the rebuild is complete.
 
 **Why:** The supplied specification requires a staged rollout and the user has not approved publishing.

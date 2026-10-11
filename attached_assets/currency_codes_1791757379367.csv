@@ -1,0 +1,333 @@
+code,description,type
+BTC,Bitcoin (BTC),crypto
+BTCLN,Bitcoin LN (BTC),crypto
+BTCBEP20,Bitcoin BEP20 (BTCB),crypto
+WBTC,Wrapped BTC (WBTC),crypto
+BCH,Bitcoin Cash (BCH),crypto
+BSV,Bitcoin SV (BSV),crypto
+ETH,Ethereum (ETH),crypto
+ETHBEP20,Ethereum BEP20 (ETH),crypto
+ETHARBTM,Ethereum ARBITRUM (ETH),crypto
+ETHOPTM,Ethereum OPTIMISM (ETH),crypto
+WETH,Wrapped ETH (WETH),crypto
+ETC,Ethereum Classic (ETC),crypto
+LTC,Litecoin (LTC),crypto
+XRP,XRP (XRP),crypto
+XMR,Monero (XMR),crypto
+DOGE,Dogecoin (DOGE),crypto
+POL,Polygon (POL),crypto
+DASH,Dash (DASH),crypto
+ZEC,Zcash (ZEC),crypto
+USDTERC20,Tether ERC20 (USDT),crypto
+USDTTRC20,Tether TRC20 (USDT),crypto
+USDTBEP20,Tether BEP20 (USDT),crypto
+USDTSOL,Tether SOL (USDT),crypto
+USDTPOLYGON,Tether POLYGON (USDT),crypto
+USDTTON,Tether TON (USDT),crypto
+USDTOPTM,Tether OPTIMISM (USDT),crypto
+USDTARBTM,Tether ARBITRUM (USDT),crypto
+USDTAVAXC,Tether AVAXC (USDT),crypto
+USDTOMNI,Tether OMNI (USDT),crypto
+USDTNEAR,Tether NEAR (USDT),crypto
+XAUTERC20,Tether Gold ERC20 (XAUT),crypto
+USDCERC20,USDC ERC20 (USDC),crypto
+USDCTRC20,USDC TRC20 (USDC),crypto
+USDCBEP20,USDC BEP20 (USDC),crypto
+USDCSOL,USDC SOL (USDC),crypto
+USDCPOLYGON,USDC POLYGON (USDC),crypto
+USDCARBTM,USDC ARBITRUM (USDC),crypto
+USDCOPTM,USDC OPTIMISM (USDC),crypto
+USDCAVAXC,USDC AVAXC (USDC),crypto
+USDCBASE,USDC BASE (USDC),crypto
+USDCNEAR,USDC NEAR (USDC),crypto
+TUSDERC20,TrueUSD ERC20 (TUSD),crypto
+TUSDTRC20,TrueUSD TRC20 (TUSD),crypto
+USDP,Pax Dollar (USDP),crypto
+USDS,USDS (Dai) (USDS),crypto
+BUSD,Binance USD (BUSD),crypto
+PYUSD,PayPal USD (PYUSD),crypto
+UUSD,Utopia USD (UUSD),crypto
+USDQERC20,Quantoz ERC20 (USDQ),crypto
+USDRERC20,StablR USD ERC20 (USDR),crypto
+XEM,NEM (XEM),crypto
+NEO,NEO (NEO),crypto
+EOS,EOS (EOS),crypto
+IOTA,IOTA (IOTA),crypto
+ADA,Cardano (ADA),crypto
+XLM,Stellar (XLM),crypto
+TRX,TRON (TRX),crypto
+WAVES,Waves (WAVES),crypto
+OMG,OMG Network (OMG),crypto
+XVG,Verge (XVG),crypto
+ZRX,0x (ZRX),crypto
+BNBBEP2,BNB BEP2 (BNB),crypto
+BNBBEP20,BNB BEP20 (BNB),crypto
+ICX,ICON (ICX),crypto
+PEPE,Pepe (PEPE),crypto
+BTT,BitTorrent (BTT),crypto
+BAT,BAT (BAT),crypto
+ONT,Ontology (ONT),crypto
+QTUM,Qtum (QTUM),crypto
+LINK,Chainlink (LINK),crypto
+ATOM,Cosmos (ATOM),crypto
+XTZ,Tezos (XTZ),crypto
+DOT,Polkadot (DOT),crypto
+UNI,Uniswap (UNI),crypto
+RVN,Ravencoin (RVN),crypto
+SOL,Solana (SOL),crypto
+VET,VeChain (VET),crypto
+SHIBERC20,Shiba ERC20 (SHIB),crypto
+SHIBBEP20,Shiba BEP20 (SHIB),crypto
+ALGO,Algorand (ALGO),crypto
+AVAX,Avalanche (AVAX),crypto
+YFI,Yearn Finance (YFI),crypto
+MANA,Decentraland (MANA),crypto
+LUNA,Terra (LUNA),crypto
+NEAR,NEAR Protocol (NEAR),crypto
+CRO,Cronos (CRO),crypto
+GRAM,Gram (Toncoin) (GRAM),crypto
+NOT,Notcoin (NOT),crypto
+CAKE,PancakeSwap (CAKE),crypto
+APT,Aptos (APT),crypto
+ARB,Arbitrum (ARB),crypto
+OP,Optimism (OP),crypto
+TRUMP,Official Trump (TRUMP),crypto
+SUI,Sui (SUI),crypto
+KAS,Kaspa (KAS),crypto
+FIL,Filecoin (FIL),crypto
+AAVE,Aave (AAVE),crypto
+ICP,Internet Computer (ICP),crypto
+PPUSD,PayPal USD,fiat
+PPEUR,PayPal EUR,fiat
+PPGBP,PayPal GBP,fiat
+PPCAD,PayPal CAD,fiat
+PPAUD,PayPal AUD,fiat
+PMUSD,Perfect Money USD,fiat
+PMEUR,Perfect Money EUR,fiat
+ADVCUSD,Volet USD,fiat
+ADVCEUR,Volet EUR,fiat
+SKLUSD,Skrill USD,fiat
+SKLEUR,Skrill EUR,fiat
+BKASHBDT,bKash BDT,fiat
+NGDBDT,Nagad BDT,fiat
+NTLRUSD,Neteller USD,fiat
+NTLREUR,Neteller EUR,fiat
+PSRUSD,PaySera USD,fiat
+PSREUR,PaySera EUR,fiat
+MNGUSD,MoneyGo USD,fiat
+BPAYUSD,BPay USD,fiat
+EPAYUSD,Epay USD,fiat
+FPUSD,FasaPay USD,fiat
+ZELLEUSD,Zelle USD,fiat
+M10AZN,M10 AZN,fiat
+BLIKPLN,BLIK PLN,fiat
+ALPCNY,Alipay CNY,fiat
+WCTCNY,WeChat CNY,fiat
+EPPKR,EasyPaisa PKR,fiat
+JCPKR,JazzCash PKR,fiat
+PAYTMINR,Paytm INR,fiat
+MPARS,Mercado Pago ARS,fiat
+PIXBRBRL,Pix BRL,fiat
+CPTSUSD,Capitalist USD,fiat
+CPTSEUR,Capitalist EUR,fiat
+CPTSRUB,Capitalist RUB,fiat
+WMZ,WebMoney WMZ,fiat
+WME,WebMoney WME,fiat
+GMUAH,Global24 UAH,fiat
+YAMRUB,YooMoney RUB,fiat
+QWKZT,QIWI KZT,fiat
+PNRUSD,Payoneer USD,fiat
+PNREUR,Payoneer EUR,fiat
+ZENEUR,ZEN EUR,fiat
+IDAMD,Idram AMD,fiat
+MWRUB,Mobile Wallet RUB,fiat
+MWUAH,Mobile Wallet UAH,fiat
+MWBYN,Mobile Wallet BYN,fiat
+TRDUSD,Cryptoexchange USD,fiat
+TRDEUR,Cryptoexchange EUR,fiat
+CARDUSD,Bank card USD,fiat
+CARDEUR,Bank card EUR,fiat
+CARDGBP,Bank card GBP,fiat
+CARDCNY,Bank card CNY,fiat
+CARDSEK,Bank card SEK,fiat
+CARDPLN,Bank card PLN,fiat
+CARDMDL,Bank card MDL,fiat
+CARDTRY,Bank card TRY,fiat
+CARDRUB,Bank card RUB,fiat
+CARDUAH,Bank card UAH,fiat
+CARDBYN,Bank card BYN,fiat
+CARDKZT,Bank card KZT,fiat
+CARDAMD,Bank card AMD,fiat
+CARDKGS,Bank card KGS,fiat
+CARDCAD,Bank card CAD,fiat
+CARDBGN,Bank card BGN,fiat
+CARDHUF,Bank card HUF,fiat
+CARDCZK,Bank card CZK,fiat
+CARDNOK,Bank card NOK,fiat
+CARDAZN,Bank card AZN,fiat
+CARDGEL,Bank card GEL,fiat
+CARDUZS,Bank card UZS,fiat
+CARDTJS,Bank card TJS,fiat
+CARDNGN,Bank card NGN,fiat
+CARDINR,Bank card INR,fiat
+CARDAED,Bank card AED,fiat
+CARDRON,Bank card RON,fiat
+CARDTHB,Bank card THB,fiat
+CARDIDR,Bank card IDR,fiat
+CARDBRL,Bank card BRL,fiat
+CARDARS,Bank card ARS,fiat
+CARDVND,Bank card VND,fiat
+UPCNY,UnionPay card CNY,fiat
+MIRCRUB,Mir card RUB,fiat
+UZCUZS,UZCARD card UZS,fiat
+HUMOUZS,HUMO card UZS,fiat
+ELKGS,Elcart card KGS,fiat
+WIREUSD,Bank transfer USD,fiat
+WIREEUR,Bank transfer EUR,fiat
+WIREGBP,Bank transfer GBP,fiat
+WIRERUB,Bank transfer RUB,fiat
+WIREUAH,Bank transfer UAH,fiat
+WIREBYN,Bank transfer BYN,fiat
+WIREKZT,Bank transfer KZT,fiat
+WIREGEL,Bank transfer GEL,fiat
+WIRECNY,Bank transfer CNY,fiat
+WIRETRY,Bank transfer TRY,fiat
+WIREPLN,Bank transfer PLN,fiat
+WIRETHB,Bank transfer THB,fiat
+WIREINR,Bank transfer INR,fiat
+WIRENGN,Bank transfer NGN,fiat
+WIREIDR,Bank transfer IDR,fiat
+WIREBGN,Bank transfer BGN,fiat
+WIREAED,Bank transfer AED,fiat
+WIREJPY,Bank transfer JPY,fiat
+WIREAUD,Bank transfer AUD,fiat
+WIRECAD,Bank transfer CAD,fiat
+WIREHKD,Bank transfer HKD,fiat
+WIREVND,Bank transfer VND,fiat
+WIREMYR,Bank transfer MYR,fiat
+WIRENZD,Bank transfer NZD,fiat
+WIREPKR,Bank transfer PKR,fiat
+WIRERON,Bank transfer RON,fiat
+WIREILS,Bank transfer ILS,fiat
+WIREKRW,Bank transfer KRW,fiat
+WIRESEK,Bank transfer SEK,fiat
+WIREPHP,Bank transfer PHP,fiat
+WIREBDT,Bank transfer BDT,fiat
+WIREARS,Bank transfer ARS,fiat
+WIRECZK,Bank transfer CZK,fiat
+WIREMXN,Bank transfer MXN,fiat
+WIREUYU,Bank transfer UYU,fiat
+WIRECLP,Bank transfer CLP,fiat
+SEPAEUR,SEPA EUR,fiat
+ERIPBYN,ERIP Raschet BYN,fiat
+SBPRUB,SBP RUB,fiat
+UPIINR,UPI INR,fiat
+CORPUSD,Company details USD,fiat
+CORPEUR,Company details EUR,fiat
+CORPCNY,Company details CNY,fiat
+CORPRUB,Company details RUB,fiat
+CORPUAH,Company details UAH,fiat
+ATMQRTHB,ATM QR code THB,fiat
+ATMQRBRL,ATM QR code BRL,fiat
+ATMQRVND,ATM QR code VND,fiat
+NFCRUB,ATM NFC RUB,fiat
+REVBUSD,Revolut USD,fiat
+REVBEUR,Revolut EUR,fiat
+REVBGBP,Revolut GBP,fiat
+WISEUSD,Wise USD,fiat
+WISEEUR,Wise EUR,fiat
+WISEGBP,Wise GBP,fiat
+SBERRUB,Sberbank RUB,fiat
+SBERQRUB,Sberbank QR RUB,fiat
+TBRUB,VTB RUB,fiat
+ACRUB,Alfa-Bank RUB,fiat
+ACCRUB,Alfa cash-in RUB,fiat
+RUSSTRUB,Russian Standard RUB,fiat
+AVBRUB,Avangard RUB,fiat
+TCSBRUB,T-Bank RUB,fiat
+TCSBCRUB,T-Bank cash-in RUB,fiat
+TCSBQRUB,T-Bank QR RUB,fiat
+PSBRUB,PSB RUB,fiat
+GPBRUB,Gazprombank RUB,fiat
+RFBRUB,Raiffeisen RUB,fiat
+RNKBRUB,RNCB RUB,fiat
+OPNBRUB,Openbank RUB,fiat
+POSTBRUB,Post Bank RUB,fiat
+RSHBRUB,RSHB RUB,fiat
+ROSBRUB,Rosbank RUB,fiat
+MTSBRUB,MTS Bank RUB,fiat
+HCBRUB,Home Credit RUB,fiat
+OZONBRUB,Ozon Bank RUB,fiat
+P24USD,Privat 24 USD,fiat
+P24UAH,Privat 24 UAH,fiat
+P24EUR,Privat 24 EUR,fiat
+RFBUAH,Raiffeisen UAH,fiat
+OSDBUAH,Oschadbank UAH,fiat
+USBUAH,UkrSibbank UAH,fiat
+PMBBUAH,PUMB UAH,fiat
+MONOBUSD,Monobank USD,fiat
+MONOBUAH,Monobank UAH,fiat
+MONOBEUR,Monobank EUR,fiat
+SNBUAH,Sense Bank UAH,fiat
+OTPBUAH,OTP Bank UAH,fiat
+ABUAH,A-Bank UAH,fiat
+IZIBUAH,Izibank UAH,fiat
+BLRBBYN,Belarusbank BYN,fiat
+HLKBKZT,HalykBank KZT,fiat
+BRBKZT,Bereke Bank KZT,fiat
+FRTBKZT,ForteBank KZT,fiat
+KSPBKZT,Kaspi Bank KZT,fiat
+JSNBKZT,Alatau City Bank KZT,fiat
+CCBKZT,CenterCredit KZT,fiat
+ERSNBKZT,Eurasian Bank KZT,fiat
+FFBKZT,Freedom Bank KZT,fiat
+PREXARS,Prex ARS,fiat
+PREXUYU,Prex UYU,fiat
+PREXCLP,Prex CLP,fiat
+WUUSD,WU USD,fiat
+WUEUR,WU EUR,fiat
+MGUSD,MoneyGram USD,fiat
+MGEUR,MoneyGram EUR,fiat
+RMTFUSD,Ria USD,fiat
+RMTFEUR,Ria EUR,fiat
+USTMUSD,UNI USD,fiat
+USTMRUB,UNI RUB,fiat
+GCMTUSD,GC USD,fiat
+GCMTRUB,GC RUB,fiat
+CASHUSD,Cash USD,fiat
+CASHEUR,Cash EUR,fiat
+CASHGBP,Cash GBP,fiat
+CASHAED,Cash AED,fiat
+CASHRUB,Cash RUB,fiat
+CASHTRY,Cash TRY,fiat
+CASHUAH,Cash UAH,fiat
+CASHBYN,Cash BYN,fiat
+CASHKZT,Cash KZT,fiat
+CASHCOP,Cash COP,fiat
+CASHPLN,Cash PLN,fiat
+CASHILS,Cash ILS,fiat
+CASHCZK,Cash CZK,fiat
+CASHGEL,Cash GEL,fiat
+CASHAMD,Cash AMD,fiat
+CASHCAD,Cash CAD,fiat
+CASHTHB,Cash THB,fiat
+CASHAUD,Cash AUD,fiat
+CASHNGN,Cash NGN,fiat
+CASHBGN,Cash BGN,fiat
+CASHAZN,Cash AZN,fiat
+CASHMDL,Cash MDL,fiat
+CASHCHF,Cash CHF,fiat
+CASHRON,Cash RON,fiat
+CASHIDR,Cash IDR,fiat
+CASHCNY,Cash CNY,fiat
+CASHMXN,Cash MXN,fiat
+CASHSGD,Cash SGD,fiat
+CASHKRW,Cash KRW,fiat
+CASHBRL,Cash BRL,fiat
+CASHINR,Cash INR,fiat
+CASHJPY,Cash JPY,fiat
+CASHARS,Cash ARS,fiat
+CASHKGS,Cash KGS,fiat
+CASHEGP,Cash EGP,fiat
+CASHVND,Cash VND,fiat
+CASHSAR,Cash SAR,fiat

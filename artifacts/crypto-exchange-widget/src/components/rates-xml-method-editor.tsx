@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { getGetAdminRatesXmlQueryKey, useGetAdminRatesXml, useUpdateAdminRatesXmlMethod } from '@workspace/api-client-react';
 import { notifyAdminAction } from './admin-action-toast';
 import { useAdminPermissions } from '../lib/admin-permissions';
+import { getRatesXmlCodeOptions } from '../lib/rates-xml-code-options';
 
 const dec = /^[0-9]{1,20}(\.[0-9]{1,12})?$/;
 const STAGING_ONLY = new Set(['PMUSD', 'PMEUR']);
@@ -27,12 +28,11 @@ export function RatesXmlMethodEditor({ optionId, mode, compact }: { optionId: st
   const setReserve = (v: string) => { setReserveDraft(v); setConflict(false); };
   const allowed = useMemo(() => {
     const type = method?.kind === 'fiat' ? 'fiat' : 'crypto';
-    return (q.data?.currencyCodes ?? []).filter(c => c.type === type);
+    return getRatesXmlCodeOptions(q.data?.currencyCodes ?? [], type);
   }, [q.data?.currencyCodes, method?.kind]);
   const list = useMemo(() => {
-    const n = search.trim().toLowerCase();
-    return (n ? allowed.filter(c => c.code.toLowerCase().includes(n) || c.description.toLowerCase().includes(n)) : allowed).slice(0, 80);
-  }, [search, allowed]);
+    return getRatesXmlCodeOptions(q.data?.currencyCodes ?? [], method?.kind === 'fiat' ? 'fiat' : 'crypto', search);
+  }, [search, q.data?.currencyCodes, method?.kind]);
   if (!isOwner) return null;
   if (q.isLoading) return <div className="h-10 animate-pulse rounded-lg bg-muted" />;
   if (q.isError || !q.data || !method) {
@@ -73,6 +73,9 @@ export function RatesXmlMethodEditor({ optionId, mode, compact }: { optionId: st
           {code && known && !list.some(c => c.code === code) && <option value={code}>{code}</option>}
           {list.map(c => <option key={c.code} value={c.code}>{c.code} - {c.description}{STAGING_ONLY.has(c.code) ? ' (staging only)' : ''}</option>)}
         </select>
+         <span className="mt-1 block text-xs font-normal text-muted-foreground" role="status" aria-live="polite">
+           {list.length} of {allowed.length} {method.kind === 'fiat' ? 'fiat/payment-method' : 'crypto'} XML codes
+         </span>
       </label>
       {STAGING_ONLY.has(code) && <p className="text-xs font-semibold text-amber-600">Staging only: {code} is not advertised in production.</p>}
       {withReserve && (
