@@ -7,6 +7,7 @@ import {
 import { GetAdminRatesXmlResponse } from "@workspace/api-zod";
 import codes from "../data/rates-currency-codes.json";
 import { listExecutableProviderCapabilities } from "./provider-capabilities";
+import { resolveXmlCryptoCode } from "./rates-xml-crypto-codes";
 
 export const DEFAULT_XML_RESERVE = "1000000";
 export const XML_CODES = codes as Array<{ code: string; description: string; type: "crypto" | "fiat" }>;
@@ -42,7 +43,7 @@ export async function readXmlMethods(row: XmlSettingsRow | undefined) {
     listExecutableProviderCapabilities(),
   ]);
   const configured = new Map(row?.methods.map(m => [m.optionId, m]) ?? []);
-  // A clean configuration: no legacy mappings, aliases or inferred currency codes.
+  // Fiat codes require operator intent; crypto defaults use exact approved chain identities.
   const metadata = (id: string) => configured.get(id) ?? { code: null, reserve: DEFAULT_XML_RESERVE };
   const methods: XmlMethod[] = fiat.map(f => {
     const optionId = `fiat:${f.currencyId}:${f.methodId}`;
@@ -57,7 +58,7 @@ export async function readXmlMethods(row: XmlSettingsRow | undefined) {
     return {
       optionId, name: `${c.name} · ${c.network}`, assetCode: c.assetCode, network: c.network, kind: "crypto" as const,
       enabled: c.enabled && c.assetEnabled && c.lifecycle !== "deprecated" && c.assetLifecycle !== "deprecated",
-      code: m.code, reserve: m.reserve ?? DEFAULT_XML_RESERVE,
+      code: resolveXmlCryptoCode(m.code, c.assetCode, c.network), reserve: m.reserve ?? DEFAULT_XML_RESERVE,
     };
   }));
   const cryptoIds = new Set(crypto.map(c => c.id));
@@ -66,7 +67,8 @@ export async function readXmlMethods(row: XmlSettingsRow | undefined) {
     const optionId = `api:${c.providerId}:${c.networkId}`, m = metadata(optionId);
     methods.push({
       optionId, name: `${c.assetCode} · ${c.networkCode}`, assetCode: c.assetCode, network: c.networkCode,
-      kind: "provider", enabled: true, code: m.code, reserve: m.reserve ?? DEFAULT_XML_RESERVE,
+      kind: "provider", enabled: true,
+      code: resolveXmlCryptoCode(m.code, c.assetCode, c.networkCode), reserve: m.reserve ?? DEFAULT_XML_RESERVE,
     });
   }
   methods.sort((a, b) => a.name.localeCompare(b.name) || a.optionId.localeCompare(b.optionId));

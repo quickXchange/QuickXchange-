@@ -16,9 +16,11 @@ import {
   xmlStaging, xmlReviewHash, type XmlMethod,
 } from "./rates-xml-methods";
 import { onRatesXmlChange } from "./rates-xml-cache";
+import { XmlQuoteRefresh, type XmlCachedQuote } from "./rates-xml-refresh";
 
 type Diagnostic = typeof GetAdminRatesXmlPreviewResponse._output.diagnostics[number];
-const quoteCache = new Map<string, { until: number; item?: RatesXmlItem; reason?: string }>();
+const quoteCache = new Map<string, XmlCachedQuote<RatesXmlItem>>();
+const quoteRefresh = new XmlQuoteRefresh<RatesXmlItem>();
 let cacheGeneration = 0;
 export function invalidateRatesXml() { cacheGeneration++; quoteCache.clear(); }
 onRatesXmlChange(invalidateRatesXml);
@@ -159,27 +161,17 @@ export async function buildRatesXmlPreview(staging = xmlStaging()) {
     else for (const candidate of group)
       candidate.d.message = "Multiple methods map to the same XML currency pair. Assign distinct appropriate codes.";
   }
-  let next = 0;
-  const run = async () => {
-    while (next < readyCandidates.length) {
-      const candidate = readyCandidates[next++], key = `${reviewHash}:${candidate.d.routeId}`;
-      const cached = quoteCache.get(key);
-      let entry = cached && cached.until > Date.now() ? cached : undefined;
-      if (!entry) {
-        try {
-          entry = { until: Date.now() + 30_000, item: await candidate.run() };
-        } catch (error) {
-          entry = { until: Date.now() + 5_000, reason: problem(error) };
-        }
-        if (generation === cacheGeneration) quoteCache.set(key, entry);
-      }
-      if (entry.item) {
-        candidate.d.state = "ready"; candidate.d.message = "Current executable pricing.";
-        items.push({ item: entry.item, d: candidate.d });
-      } else candidate.d.message = entry.reason ?? "Current pricing is unavailable.";
-    }
-  };
-  await Promise.all([run(), run(), run()]);
+  await quoteRefresh.refresh(`${generation}:${reviewHash}`, readyCandidates.map(candidate => ({
+    key: `${reviewHash}:${candidate.d.routeId}`, run: candidate.run,
+  })), quoteCache, () => generation === cacheGeneration);
+  for (const candidate of readyCandidates) {
+    const cached = quoteCache.get(`${reviewHash}:${candidate.d.routeId}`);
+    const entry = cached && cached.until > Date.now() ? cached : undefined;
+    if (entry?.item) {
+      candidate.d.state = "ready"; candidate.d.message = "Current executable pricing.";
+      items.push({ item: entry.item, d: candidate.d });
+    } else candidate.d.message = entry?.reason ?? "Current quote refresh is pending. Retry shortly.";
+  }
   // Never silently choose an arbitrary method when two routes share XML codes.
   const grouped = new Map<string, typeof items>();
   for (const result of items) {

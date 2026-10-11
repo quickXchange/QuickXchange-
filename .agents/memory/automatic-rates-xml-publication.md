@@ -15,6 +15,18 @@ Publication follows existing Swap and Convert quote services. Customer pricing, 
 
 **How to apply:** Treat XML settings as publication metadata only. Preserve shared payment-method reserves, and require operator selection of appropriate method codes. Range-specific fees use the user's chosen one-item fee-step representation.
 
+Crypto XML codes default automatically from the supplied catalogue using the exact asset and network identity, without requiring Admin assignments. Existing explicit mappings remain authoritative; fiat/payment-method codes still require operator selection.
+
+**Why:** The user explicitly requested embedded automatic crypto/network codes, including USDT TRC20, so configured fiat-to-crypto directions can publish without manual crypto configuration.
+
+**How to apply:** Use approved CSV codes only and preserve chain distinctions. Unknown or ambiguous combinations stay unmapped; do not infer executable routes, invent pricing, or replace fiat mappings. Automatic identity applies equally to manual-network and provider-only publication methods.
+
+Quote refresh must not make an HTTP XML request wait for the entire provider route matrix. Share a bounded-concurrency refresh, return only fresh verified entries, and keep remaining routes explicitly pending while work continues.
+
+**Why:** Automatic crypto mappings expose many executable provider candidates; waiting for every quote caused the feed request to exceed two minutes.
+
+**How to apply:** Preserve canonical quote calls and configuration fencing. Bound response wait, not the set of directions eventually checked; never serve stale prices or manufacture rates for pending routes.
+
 The user requires the entire supplied currency-code catalogue to be available in the Admin XML method selectors, not a partial import or silently limited list.
 
 **Why:** The user explicitly repeated that the full file must be present in the payment-method XML controls after entries were hidden.

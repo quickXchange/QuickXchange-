@@ -7,8 +7,54 @@ import { priceXmlSwap, priceXmlConvert, xmlMethodProblem } from "../src/lib/rate
 import { XML_CODES, DEFAULT_XML_RESERVE } from "../src/lib/rates-xml-methods";
 import { QuickexApiError } from "../src/lib/quickex";
 import { discoverXmlSwapRoutes } from "../src/lib/rates-xml-routes";
+import { automaticXmlCryptoCode, resolveXmlCryptoCode, XML_CRYPTO_IDENTITIES } from "../src/lib/rates-xml-crypto-codes";
 
 after(() => pool.end());
+test("all approved crypto codes have unique exact asset/network identities", () => {
+  assert.equal(XML_CRYPTO_IDENTITIES.length, 98);
+  for (const entry of XML_CRYPTO_IDENTITIES)
+    assert.equal(automaticXmlCryptoCode(entry.asset, entry.network), entry.code);
+});
+test("crypto publication codes are automatic and chain-specific, including provider aliases", () => {
+  for (const [asset, chain, code] of [
+    ["USDT", "TRC20", "USDTTRC20"], ["usdt", "tron", "USDTTRC20"],
+    ["USDT", "ERC20", "USDTERC20"], ["USDT", "BSC", "USDTBEP20"],
+    ["USDT", "SPL", "USDTSOL"], ["USDC", "BASE", "USDCBASE"],
+    ["ETH", "ERC20", "ETH"], ["BTC", "BTC", "BTC"],
+    ["BNB", "BEP20", "BNBBEP20"], ["POL", "POLYGON", "POL"],
+    ["USDT", "ARBITRUM", "USDTARBTM"], ["TON", "TON", "GRAM"],
+  ]) assert.equal(automaticXmlCryptoCode(asset, chain), code);
+  for (const [asset, chain] of [
+    ["USDT", "BASE"], ["BTC", "ERC20"], ["USDT", ""], ["DAI", "ERC20"],
+    ["UNKNOWN", "TRC20"], ["BNB", "BNB"], ["EUR", "TRC20"],
+  ]) assert.equal(automaticXmlCryptoCode(asset, chain), null);
+  assert.equal(resolveXmlCryptoCode(null, "USDT", "TRC20"), "USDTTRC20");
+  assert.equal(resolveXmlCryptoCode("USDTERC20", "USDT", "TRC20"), "USDTERC20");
+});
+test("configured Revolut USD to automatically mapped USDT TRC20 emits the existing route", async () => {
+  const source = { id: "fiat:usd:revolut", kind: "fiat-payment-method", assetCode: "USD",
+    routeNetwork: "fiat", direction: "send" };
+  const target = { id: "crypto:usdt-tron", kind: "crypto-network", assetId: "usdt", assetCode: "USDT",
+    routeNetwork: "TRC20", direction: "receive" };
+  const rule = { id: "route", enabled: true, sourceAsset: "USD", targetAsset: "USDT",
+    sourceNetwork: "fiat", targetNetwork: "TRC20", sourceCryptoAssetId: null, targetCryptoAssetId: null,
+    sourceSettlementOptionId: source.id, targetSettlementOptionId: target.id,
+    exactRate: "1", createdAt: new Date(0), updatedAt: new Date(0) } as any;
+  assert.equal(discoverXmlSwapRoutes([source, target], [rule]).length, 1);
+  const item = await priceXmlSwap(source.id, target.id, {
+    code: "REVBUSD", assetCode: "USD",
+  } as any, {
+    code: resolveXmlCryptoCode(null, target.assetCode, target.routeNetwork), reserve: "500",
+  } as any, async () => ({
+    effectiveMinAmount: 10, effectiveMaxAmount: 100, rangeOnlyPricing: false, tiers: [],
+    quote: async () => "1",
+    publicationQuote: async (amount: number) => ({ receiveAmount: String(amount), fixedFees: ["0"] }),
+  }) as any);
+  const xml = serializeRatesXml([item]);
+  assert.match(xml, /<from>REVBUSD<\/from>/);
+  assert.match(xml, /<to>USDTTRC20<\/to>/);
+  assert.equal((xml.match(/<item>/g) ?? []).length, 1);
+});
 test("current canonical routes appear automatically and disappear when disabled or deleted", () => {
   const source = { id: "crypto:usdt", kind: "crypto-network", assetId: "usdt", assetCode: "USDT",
     routeNetwork: "TRC20", direction: "send" };
