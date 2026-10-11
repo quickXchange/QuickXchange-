@@ -20413,6 +20413,124 @@ export const GetRatesXmlResponse = zod.unknown()
 export const GetBestchangeXmlResponse = zod.unknown()
 
 
+/**
+ * @summary Owner-only automatic rates XML method configuration
+ */
+export const GetAdminRatesXmlResponse = zod.object({
+  "version": zod.number().int(),
+  "published": zod.boolean(),
+  "staging": zod.boolean(),
+  "methods": zod.array(zod.object({
+  "optionId": zod.string(),
+  "name": zod.string(),
+  "assetCode": zod.string(),
+  "network": zod.string().optional(),
+  "kind": zod.enum(['fiat', 'crypto', 'provider']),
+  "enabled": zod.boolean(),
+  "code": zod.string().nullable(),
+  "reserve": zod.string()
+})),
+  "currencyCodes": zod.array(zod.object({
+  "code": zod.string(),
+  "description": zod.string(),
+  "type": zod.enum(['crypto', 'fiat'])
+})),
+  "feedPath": zod.string()
+})
+
+
+/**
+ * @summary Update one immutable settlement method's XML metadata
+ */
+export const updateAdminRatesXmlMethodBodyVersionMin = 0;
+
+export const updateAdminRatesXmlMethodBodyReserveRegExp = new RegExp('^\\d+(\\.\\d+)?$');
+
+
+export const UpdateAdminRatesXmlMethodBody = zod.object({
+  "version": zod.number().int().min(updateAdminRatesXmlMethodBodyVersionMin),
+  "optionId": zod.string(),
+  "code": zod.string().nullish(),
+  "reserve": zod.string().regex(updateAdminRatesXmlMethodBodyReserveRegExp).optional(),
+  "expectedReserve": zod.string().optional()
+})
+
+export const UpdateAdminRatesXmlMethodResponse = zod.object({
+  "version": zod.number().int(),
+  "published": zod.boolean(),
+  "staging": zod.boolean(),
+  "methods": zod.array(zod.object({
+  "optionId": zod.string(),
+  "name": zod.string(),
+  "assetCode": zod.string(),
+  "network": zod.string().optional(),
+  "kind": zod.enum(['fiat', 'crypto', 'provider']),
+  "enabled": zod.boolean(),
+  "code": zod.string().nullable(),
+  "reserve": zod.string()
+})),
+  "currencyCodes": zod.array(zod.object({
+  "code": zod.string(),
+  "description": zod.string(),
+  "type": zod.enum(['crypto', 'fiat'])
+})),
+  "feedPath": zod.string()
+})
+
+
+/**
+ * @summary Read-only Swap and Convert XML preview and omission reasons
+ */
+export const GetAdminRatesXmlPreviewResponse = zod.object({
+  "xml": zod.string(),
+  "generatedAt": zod.string(),
+  "exportedCount": zod.number().int(),
+  "reviewHash": zod.string(),
+  "diagnostics": zod.array(zod.object({
+  "routeId": zod.string(),
+  "functionType": zod.enum(['swap', 'convert']),
+  "sourceOptionId": zod.string(),
+  "targetOptionId": zod.string(),
+  "fromName": zod.string(),
+  "toName": zod.string(),
+  "state": zod.enum(['ready', 'omitted']),
+  "message": zod.string()
+}))
+})
+
+
+/**
+ * @summary Owner-confirmed activation after staging review
+ */
+export const ActivateAdminRatesXmlBody = zod.object({
+  "version": zod.number().int(),
+  "reviewHash": zod.string(),
+  "confirm": zod.boolean()
+})
+
+export const ActivateAdminRatesXmlResponse = zod.object({
+  "version": zod.number().int(),
+  "published": zod.boolean(),
+  "staging": zod.boolean(),
+  "methods": zod.array(zod.object({
+  "optionId": zod.string(),
+  "name": zod.string(),
+  "assetCode": zod.string(),
+  "network": zod.string().optional(),
+  "kind": zod.enum(['fiat', 'crypto', 'provider']),
+  "enabled": zod.boolean(),
+  "code": zod.string().nullable(),
+  "reserve": zod.string()
+})),
+  "currencyCodes": zod.array(zod.object({
+  "code": zod.string(),
+  "description": zod.string(),
+  "type": zod.enum(['crypto', 'fiat'])
+})),
+  "feedPath": zod.string()
+})
+
+
 export const getAdminBestchangeResponseSettingsVersionMin = 0;
 
 export const getAdminBestchangeResponseSettingsXmlPercentageAdjustmentActiveOrderPercentRegExp = new RegExp('^(?:100(?:\\.0{1,6})?|(?:0|[1-9]\\d?)(?:\\.\\d{1,6})?)$');

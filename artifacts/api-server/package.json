@@ -28,7 +28,8 @@
     "test:api": "node ./test/run-api-isolated.mjs",
     "test:notification-settings": "node ./test/run-api-isolated.mjs notification-settings.test.ts",
     "test:api:raw": "NODE_ENV=test node ./test/run.mjs notification-settings.test.ts && NODE_ENV=test node ./test/run.mjs blockchain-monitoring-service.test.ts && NODE_ENV=test node ./test/run.mjs blockchain-monitoring-adapters.test.ts && NODE_ENV=test node ./test/run.mjs bitcoin-monitoring-adapters.test.ts && NODE_ENV=test node ./test/run.mjs manual-monitoring-readiness.test.ts && NODE_ENV=test node ./test/run.mjs monero-address.test.ts && NODE_ENV=test node ./test/run.mjs watch-registration-integration.test.ts && NODE_ENV=test node ./test/run.mjs verified-funding-projection.test.ts && pnpm run test:revenue && pnpm run test:pricing-coverage && pnpm run test:manual-path && pnpm run test:quickex && pnpm run test:operators && pnpm run test:telegram && pnpm run test:affiliate && pnpm run test:landing-background && pnpm run test:object-storage && pnpm run test:site-content && pnpm run test:newsletter && pnpm run test:whitebit && pnpm -w run test:quote-browser",
-    "test:whitebit": "NODE_ENV=test node ./test/run-whitebit-isolated.mjs"
+    "test:whitebit": "NODE_ENV=test node ./test/run-whitebit-isolated.mjs",
+    "test:rates-xml": "NODE_ENV=test node ./test/run.mjs automatic-rates-xml.test.ts && NODE_ENV=test node ./test/run.mjs rates-xml-format.test.ts && NODE_ENV=test node ./test/run.mjs bestchange-direction-sync.test.ts && NODE_ENV=test node ./test/run-api-isolated.mjs automatic-rates-xml-api.test.ts"
   },
   "dependencies": {
     "@clerk/express": "^2.1.61",

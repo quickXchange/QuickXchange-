@@ -153,7 +153,7 @@ const AdminBlogAutomationPage = lazy(() => import('./pages/admin-blog-automation
 const AdminNewsletterPage = lazy(() => import('./pages/admin-newsletter').then(module => ({ default: module.AdminNewsletterPage })));
 const AdminTelegramSupportBotPage = lazy(() => import('./pages/admin-telegram-support-bot').then(module => ({ default: module.AdminTelegramSupportBotPage })));
 const OrderConfirmationPage = lazy(() => import('./pages/order-confirmation').then(module => ({ default: module.OrderConfirmationPage })));
-const AdminBestchangePage = lazy(() => import('./pages/admin-bestchange').then(module => ({ default: module.AdminBestchangePage })));
+const AdminBestchangePage = lazy(() => import('./pages/admin-rates-xml').then(module => ({ default: module.AdminBestchangePage })));
 const AdminTeamPage = lazy(() => import('./pages/admin-team').then(module => ({ default: module.AdminTeamPage })));
 
 const BlogPage = lazy(() => import('./pages/blog').then(module => ({ default: module.BlogPage })));

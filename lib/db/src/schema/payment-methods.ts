@@ -103,7 +103,7 @@ export const fiatCurrencyPaymentMethodsTable = pgTable(
     receiveInstructions: text("receive_instructions"),
     minAmount: numeric("min_amount", { precision: 38, scale: 18 }),
     maxAmount: numeric("max_amount", { precision: 38, scale: 18 }),
-    reserve: numeric("reserve", { precision: 38, scale: 18 }).notNull().default("0"),
+    reserve: numeric("reserve", { precision: 38, scale: 18 }).notNull().default("1000000"),
     countries: jsonb("countries").$type<string[]>().notNull().default([]),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })

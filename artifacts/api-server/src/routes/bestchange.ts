@@ -252,7 +252,10 @@ export async function snapshot(
   return epoch === generation ? result : snapshot(readSettings, prepareQuotes, readActiveConvertOrder);
 }
 
-router.get(["/bestchange.xml", "/rates.xml"], async (req, res, next) => {
+export async function legacyRatesXml() {
+  return serializeBestchangeXml((await snapshot()).items ?? [], "reference");
+}
+router.get("/bestchange.xml", async (req, res, next) => {
   try {
     const feed = await snapshot();
     // BestChange robots need a full fresh response, never CDN/browser caching.

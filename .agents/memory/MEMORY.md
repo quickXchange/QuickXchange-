@@ -146,8 +146,9 @@
 - [Quickex receive-target quoting](quickex-receive-target-quoting.md) — target-currency input yields source `amountToGive`; preserve exactness and use validated provider limit details.
 - [Admin add-on key validation](admin-addon-key-validation.md) — HTML pattern rules can differ from server regex; generate readable keys and check the exact server contract before saves.
 - [Website Telegram support scope](website-telegram-support-scope.md) — one published support destination; preserve other Telegram purposes and never activate stale defaults while loading.
-- [BestChange publication boundaries](bestchange-publication-boundaries.md) — live Swap, read-only financial scope, conservative classic rates and explicit operator reserves/mappings.
-- [XML output adjustment](xml-output-adjustment.md) — platform-neutral publication percentages use global Convert-only activity; never affect customer quotes or settlements.
+- [Legacy BestChange publication](bestchange-publication-boundaries.md) — retained classic Swap exporter; use Automatic rates XML rules for the replacement.
+- [Automatic rates XML](automatic-rates-xml-publication.md) — replacement includes Swap/Convert, method-owned codes/reserves, range fee steps and Owner-confirmed staging rollout.
+- [Legacy XML output adjustment](xml-output-adjustment.md) — retained percentage controls use Convert-only activity; replacement rates XML follows actual quotes.
 - [Amount display precision](amount-display-precision.md) — three decimals for human-facing amounts; exact input, copy and machine-data boundaries stay intact.
 - [Performance measurement safety](performance-measurement-safety.md) — enlarge resource timing buffers, discard probe-induced failures, and distinguish process CPU from main-thread profiles.
 - [Customer language scope](customer-language-scope.md) — seven shared Website/Mini App languages, no Arabic/RTL; validate authentication locale template compatibility.

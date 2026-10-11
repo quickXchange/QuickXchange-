@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ActivateAdminRatesXmlBody,
   AdminActivityPage,
   AdminAuthorization,
   AdminConvertDefaultPairResponse,
@@ -259,6 +260,8 @@ import type {
   QuickexReceiveQuoteInput,
   Quote,
   QuoteInput,
+  RatesXmlAdmin,
+  RatesXmlPreview,
   ReviewAffiliateValuationBody,
   RunBlogAutomationBody,
   SavedAdminSwapDefaultPairResponse,
@@ -296,6 +299,7 @@ import type {
   TelegramSupportBotResponse,
   TelegramSupportBotStatus,
   UnsubscribeNewsletterParams,
+  UpdateAdminRatesXmlMethodBody,
   WebsiteBranding,
   WebsiteBrandingSaveInput,
   WebsiteBrandingUpload,
@@ -21779,6 +21783,302 @@ export function useGetBestchangeXml<TData = Awaited<ReturnType<typeof getBestcha
 
 
 
+
+export const getGetAdminRatesXmlUrl = () => {
+
+
+
+
+  return `/api/admin/rates-xml`
+}
+
+/**
+ * @summary Owner-only automatic rates XML method configuration
+ */
+export const getAdminRatesXml = async ( options?: Parameters<typeof customFetch>[1]): Promise<RatesXmlAdmin> => {
+
+  return customFetch<RatesXmlAdmin>(getGetAdminRatesXmlUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminRatesXmlQueryKey = () => {
+    return [
+    `/api/admin/rates-xml`
+    ] as const;
+    }
+
+
+export const getGetAdminRatesXmlQueryOptions = <TData = Awaited<ReturnType<typeof getAdminRatesXml>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminRatesXml>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminRatesXmlQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminRatesXml>>> = ({ signal }) => getAdminRatesXml({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminRatesXml>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminRatesXmlQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminRatesXml>>>
+export type GetAdminRatesXmlQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Owner-only automatic rates XML method configuration
+ */
+
+export function useGetAdminRatesXml<TData = Awaited<ReturnType<typeof getAdminRatesXml>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminRatesXml>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminRatesXmlQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateAdminRatesXmlMethodUrl = () => {
+
+
+
+
+  return `/api/admin/rates-xml/method`
+}
+
+/**
+ * @summary Update one immutable settlement method's XML metadata
+ */
+export const updateAdminRatesXmlMethod = async (updateAdminRatesXmlMethodBody: UpdateAdminRatesXmlMethodBody, options?: Parameters<typeof customFetch>[1]): Promise<RatesXmlAdmin> => {
+
+  return customFetch<RatesXmlAdmin>(getUpdateAdminRatesXmlMethodUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateAdminRatesXmlMethodBody)
+  }
+);}
+
+
+
+
+
+export const getUpdateAdminRatesXmlMethodMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminRatesXmlMethod>>, TError,{data: BodyType<UpdateAdminRatesXmlMethodBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAdminRatesXmlMethod>>, TError,{data: BodyType<UpdateAdminRatesXmlMethodBody>}, TContext> => {
+
+const mutationKey = ['updateAdminRatesXmlMethod'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAdminRatesXmlMethod>>, {data: BodyType<UpdateAdminRatesXmlMethodBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateAdminRatesXmlMethod(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAdminRatesXmlMethodMutationResult = NonNullable<Awaited<ReturnType<typeof updateAdminRatesXmlMethod>>>
+    export type UpdateAdminRatesXmlMethodMutationBody = BodyType<UpdateAdminRatesXmlMethodBody>
+    export type UpdateAdminRatesXmlMethodMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update one immutable settlement method's XML metadata
+ */
+export const useUpdateAdminRatesXmlMethod = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminRatesXmlMethod>>, TError,{data: BodyType<UpdateAdminRatesXmlMethodBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAdminRatesXmlMethod>>,
+        TError,
+        {data: BodyType<UpdateAdminRatesXmlMethodBody>},
+        TContext
+      > => {
+      return useMutation(getUpdateAdminRatesXmlMethodMutationOptions(options));
+    }
+
+export const getGetAdminRatesXmlPreviewUrl = () => {
+
+
+
+
+  return `/api/admin/rates-xml/preview`
+}
+
+/**
+ * @summary Read-only Swap and Convert XML preview and omission reasons
+ */
+export const getAdminRatesXmlPreview = async ( options?: Parameters<typeof customFetch>[1]): Promise<RatesXmlPreview> => {
+
+  return customFetch<RatesXmlPreview>(getGetAdminRatesXmlPreviewUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminRatesXmlPreviewQueryKey = () => {
+    return [
+    `/api/admin/rates-xml/preview`
+    ] as const;
+    }
+
+
+export const getGetAdminRatesXmlPreviewQueryOptions = <TData = Awaited<ReturnType<typeof getAdminRatesXmlPreview>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminRatesXmlPreview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminRatesXmlPreviewQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminRatesXmlPreview>>> = ({ signal }) => getAdminRatesXmlPreview({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminRatesXmlPreview>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminRatesXmlPreviewQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminRatesXmlPreview>>>
+export type GetAdminRatesXmlPreviewQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Read-only Swap and Convert XML preview and omission reasons
+ */
+
+export function useGetAdminRatesXmlPreview<TData = Awaited<ReturnType<typeof getAdminRatesXmlPreview>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminRatesXmlPreview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminRatesXmlPreviewQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getActivateAdminRatesXmlUrl = () => {
+
+
+
+
+  return `/api/admin/rates-xml/activate`
+}
+
+/**
+ * @summary Owner-confirmed activation after staging review
+ */
+export const activateAdminRatesXml = async (activateAdminRatesXmlBody: ActivateAdminRatesXmlBody, options?: Parameters<typeof customFetch>[1]): Promise<RatesXmlAdmin> => {
+
+  return customFetch<RatesXmlAdmin>(getActivateAdminRatesXmlUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(activateAdminRatesXmlBody)
+  }
+);}
+
+
+
+
+
+export const getActivateAdminRatesXmlMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof activateAdminRatesXml>>, TError,{data: BodyType<ActivateAdminRatesXmlBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof activateAdminRatesXml>>, TError,{data: BodyType<ActivateAdminRatesXmlBody>}, TContext> => {
+
+const mutationKey = ['activateAdminRatesXml'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof activateAdminRatesXml>>, {data: BodyType<ActivateAdminRatesXmlBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  activateAdminRatesXml(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ActivateAdminRatesXmlMutationResult = NonNullable<Awaited<ReturnType<typeof activateAdminRatesXml>>>
+    export type ActivateAdminRatesXmlMutationBody = BodyType<ActivateAdminRatesXmlBody>
+    export type ActivateAdminRatesXmlMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Owner-confirmed activation after staging review
+ */
+export const useActivateAdminRatesXml = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof activateAdminRatesXml>>, TError,{data: BodyType<ActivateAdminRatesXmlBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof activateAdminRatesXml>>,
+        TError,
+        {data: BodyType<ActivateAdminRatesXmlBody>},
+        TContext
+      > => {
+      return useMutation(getActivateAdminRatesXmlMutationOptions(options));
+    }
 
 export const getGetAdminBestchangeUrl = () => {
 

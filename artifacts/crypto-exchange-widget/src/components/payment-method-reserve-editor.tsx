@@ -1,4 +1,6 @@
 import { useGetFiatCurrencies, useGetFiatCurrencyPaymentMethods } from "@workspace/api-client-react";
+import { RatesXmlMethodEditor } from "./rates-xml-method-editor";
+import { useAdminPermissions } from "../lib/admin-permissions";
 import type { PaymentMethodReserveInput } from "@workspace/api-client-react";
 
 export function PaymentMethodReserveEditor({
@@ -9,6 +11,7 @@ export function PaymentMethodReserveEditor({
   onChange: (value: PaymentMethodReserveInput[]) => void;
   disabled: boolean;
 }) {
+  const { isOwner } = useAdminPermissions();
   const currencies = useGetFiatCurrencies();
   const attachments = useGetFiatCurrencyPaymentMethods();
   const attached = (attachments.data ?? []).filter(row => row.paymentMethodId === methodId);
@@ -38,12 +41,15 @@ export function PaymentMethodReserveEditor({
             value={reserve} onChange={event => setReserve(id, event.target.value)}
             disabled={disabled} data-testid={`input-pm-reserve-${currency.code}`} />
           <span className="field-hint">{currency.name} · {currency.code}. Zero prevents BestChange advertising this receiving route.</span>
+          {isOwner && methodId && attached.some(row => row.fiatCurrencyId === id) && (
+            <RatesXmlMethodEditor optionId={`fiat:${id}:${methodId}`} mode="code-only" compact />
+          )}
         </label>;
       })}
       {available.length > 0 && <label>
         <span className="field-label">Add currency reserve</span>
         <select value="" disabled={disabled || attachments.isLoading} data-testid="select-pm-reserve-currency"
-          onChange={event => { if (event.target.value) setReserve(event.target.value, "0"); }}>
+          onChange={event => { if (event.target.value) setReserve(event.target.value, "1000000"); }}>
           <option value="">Select currency…</option>
           {available.map(currency => <option key={currency.id} value={currency.id}>{currency.code} — {currency.name}</option>)}
         </select>

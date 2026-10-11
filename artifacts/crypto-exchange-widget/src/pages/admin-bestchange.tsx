@@ -184,7 +184,11 @@ function DirectionEditor({ d, i, options, currencyCodes, cityCodes, canManage, o
   );
 }
 
-export function AdminBestchangePage() {
+function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
+  return embedded ? <>{children}</> : <AdminShell eyebrow="INTEGRATIONS / BESTCHANGE" title="BestChange XML Export" subtitle="Publish truthful settlement availability">{children}</AdminShell>;
+}
+
+export function AdminBestchangeLegacyPage({ embedded = false }: { embedded?: boolean }) {
   const qc = useQueryClient();
   const { isOwner } = useAdminPermissions();
   const canManage = isOwner;
@@ -291,7 +295,7 @@ export function AdminBestchangePage() {
   };
 
   return (
-    <AdminShell eyebrow="INTEGRATIONS / BESTCHANGE" title="BestChange XML Export" subtitle="Publish truthful settlement availability">
+    <Wrap embedded={embedded}>
       <div className="mx-auto max-w-5xl space-y-5 pb-24" data-testid="bestchange-page">
         {!canManage ? <div className={card}>Owner access is required.</div>
           : q.isLoading ? <div className="space-y-3">{[0, 1, 2].map(i => <div key={i} className="h-28 animate-pulse rounded-xl bg-muted" />)}</div>
@@ -473,6 +477,6 @@ export function AdminBestchangePage() {
             </section>
           </>)}
       </div>
-    </AdminShell>
+    </Wrap>
   );
 }

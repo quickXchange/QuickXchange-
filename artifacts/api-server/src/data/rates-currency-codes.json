@@ -1,0 +1,1662 @@
+[
+  {
+    "code": "BTC",
+    "description": "Bitcoin (BTC)",
+    "type": "crypto"
+  },
+  {
+    "code": "BTCLN",
+    "description": "Bitcoin LN (BTC)",
+    "type": "crypto"
+  },
+  {
+    "code": "BTCBEP20",
+    "description": "Bitcoin BEP20 (BTCB)",
+    "type": "crypto"
+  },
+  {
+    "code": "WBTC",
+    "description": "Wrapped BTC (WBTC)",
+    "type": "crypto"
+  },
+  {
+    "code": "BCH",
+    "description": "Bitcoin Cash (BCH)",
+    "type": "crypto"
+  },
+  {
+    "code": "BSV",
+    "description": "Bitcoin SV (BSV)",
+    "type": "crypto"
+  },
+  {
+    "code": "ETH",
+    "description": "Ethereum (ETH)",
+    "type": "crypto"
+  },
+  {
+    "code": "ETHBEP20",
+    "description": "Ethereum BEP20 (ETH)",
+    "type": "crypto"
+  },
+  {
+    "code": "ETHARBTM",
+    "description": "Ethereum ARBITRUM (ETH)",
+    "type": "crypto"
+  },
+  {
+    "code": "ETHOPTM",
+    "description": "Ethereum OPTIMISM (ETH)",
+    "type": "crypto"
+  },
+  {
+    "code": "WETH",
+    "description": "Wrapped ETH (WETH)",
+    "type": "crypto"
+  },
+  {
+    "code": "ETC",
+    "description": "Ethereum Classic (ETC)",
+    "type": "crypto"
+  },
+  {
+    "code": "LTC",
+    "description": "Litecoin (LTC)",
+    "type": "crypto"
+  },
+  {
+    "code": "XRP",
+    "description": "XRP (XRP)",
+    "type": "crypto"
+  },
+  {
+    "code": "XMR",
+    "description": "Monero (XMR)",
+    "type": "crypto"
+  },
+  {
+    "code": "DOGE",
+    "description": "Dogecoin (DOGE)",
+    "type": "crypto"
+  },
+  {
+    "code": "POL",
+    "description": "Polygon (POL)",
+    "type": "crypto"
+  },
+  {
+    "code": "DASH",
+    "description": "Dash (DASH)",
+    "type": "crypto"
+  },
+  {
+    "code": "ZEC",
+    "description": "Zcash (ZEC)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDTERC20",
+    "description": "Tether ERC20 (USDT)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDTTRC20",
+    "description": "Tether TRC20 (USDT)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDTBEP20",
+    "description": "Tether BEP20 (USDT)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDTSOL",
+    "description": "Tether SOL (USDT)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDTPOLYGON",
+    "description": "Tether POLYGON (USDT)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDTTON",
+    "description": "Tether TON (USDT)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDTOPTM",
+    "description": "Tether OPTIMISM (USDT)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDTARBTM",
+    "description": "Tether ARBITRUM (USDT)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDTAVAXC",
+    "description": "Tether AVAXC (USDT)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDTOMNI",
+    "description": "Tether OMNI (USDT)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDTNEAR",
+    "description": "Tether NEAR (USDT)",
+    "type": "crypto"
+  },
+  {
+    "code": "XAUTERC20",
+    "description": "Tether Gold ERC20 (XAUT)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDCERC20",
+    "description": "USDC ERC20 (USDC)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDCTRC20",
+    "description": "USDC TRC20 (USDC)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDCBEP20",
+    "description": "USDC BEP20 (USDC)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDCSOL",
+    "description": "USDC SOL (USDC)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDCPOLYGON",
+    "description": "USDC POLYGON (USDC)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDCARBTM",
+    "description": "USDC ARBITRUM (USDC)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDCOPTM",
+    "description": "USDC OPTIMISM (USDC)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDCAVAXC",
+    "description": "USDC AVAXC (USDC)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDCBASE",
+    "description": "USDC BASE (USDC)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDCNEAR",
+    "description": "USDC NEAR (USDC)",
+    "type": "crypto"
+  },
+  {
+    "code": "TUSDERC20",
+    "description": "TrueUSD ERC20 (TUSD)",
+    "type": "crypto"
+  },
+  {
+    "code": "TUSDTRC20",
+    "description": "TrueUSD TRC20 (TUSD)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDP",
+    "description": "Pax Dollar (USDP)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDS",
+    "description": "USDS (Dai) (USDS)",
+    "type": "crypto"
+  },
+  {
+    "code": "BUSD",
+    "description": "Binance USD (BUSD)",
+    "type": "crypto"
+  },
+  {
+    "code": "PYUSD",
+    "description": "PayPal USD (PYUSD)",
+    "type": "crypto"
+  },
+  {
+    "code": "UUSD",
+    "description": "Utopia USD (UUSD)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDQERC20",
+    "description": "Quantoz ERC20 (USDQ)",
+    "type": "crypto"
+  },
+  {
+    "code": "USDRERC20",
+    "description": "StablR USD ERC20 (USDR)",
+    "type": "crypto"
+  },
+  {
+    "code": "XEM",
+    "description": "NEM (XEM)",
+    "type": "crypto"
+  },
+  {
+    "code": "NEO",
+    "description": "NEO (NEO)",
+    "type": "crypto"
+  },
+  {
+    "code": "EOS",
+    "description": "EOS (EOS)",
+    "type": "crypto"
+  },
+  {
+    "code": "IOTA",
+    "description": "IOTA (IOTA)",
+    "type": "crypto"
+  },
+  {
+    "code": "ADA",
+    "description": "Cardano (ADA)",
+    "type": "crypto"
+  },
+  {
+    "code": "XLM",
+    "description": "Stellar (XLM)",
+    "type": "crypto"
+  },
+  {
+    "code": "TRX",
+    "description": "TRON (TRX)",
+    "type": "crypto"
+  },
+  {
+    "code": "WAVES",
+    "description": "Waves (WAVES)",
+    "type": "crypto"
+  },
+  {
+    "code": "OMG",
+    "description": "OMG Network (OMG)",
+    "type": "crypto"
+  },
+  {
+    "code": "XVG",
+    "description": "Verge (XVG)",
+    "type": "crypto"
+  },
+  {
+    "code": "ZRX",
+    "description": "0x (ZRX)",
+    "type": "crypto"
+  },
+  {
+    "code": "BNBBEP2",
+    "description": "BNB BEP2 (BNB)",
+    "type": "crypto"
+  },
+  {
+    "code": "BNBBEP20",
+    "description": "BNB BEP20 (BNB)",
+    "type": "crypto"
+  },
+  {
+    "code": "ICX",
+    "description": "ICON (ICX)",
+    "type": "crypto"
+  },
+  {
+    "code": "PEPE",
+    "description": "Pepe (PEPE)",
+    "type": "crypto"
+  },
+  {
+    "code": "BTT",
+    "description": "BitTorrent (BTT)",
+    "type": "crypto"
+  },
+  {
+    "code": "BAT",
+    "description": "BAT (BAT)",
+    "type": "crypto"
+  },
+  {
+    "code": "ONT",
+    "description": "Ontology (ONT)",
+    "type": "crypto"
+  },
+  {
+    "code": "QTUM",
+    "description": "Qtum (QTUM)",
+    "type": "crypto"
+  },
+  {
+    "code": "LINK",
+    "description": "Chainlink (LINK)",
+    "type": "crypto"
+  },
+  {
+    "code": "ATOM",
+    "description": "Cosmos (ATOM)",
+    "type": "crypto"
+  },
+  {
+    "code": "XTZ",
+    "description": "Tezos (XTZ)",
+    "type": "crypto"
+  },
+  {
+    "code": "DOT",
+    "description": "Polkadot (DOT)",
+    "type": "crypto"
+  },
+  {
+    "code": "UNI",
+    "description": "Uniswap (UNI)",
+    "type": "crypto"
+  },
+  {
+    "code": "RVN",
+    "description": "Ravencoin (RVN)",
+    "type": "crypto"
+  },
+  {
+    "code": "SOL",
+    "description": "Solana (SOL)",
+    "type": "crypto"
+  },
+  {
+    "code": "VET",
+    "description": "VeChain (VET)",
+    "type": "crypto"
+  },
+  {
+    "code": "SHIBERC20",
+    "description": "Shiba ERC20 (SHIB)",
+    "type": "crypto"
+  },
+  {
+    "code": "SHIBBEP20",
+    "description": "Shiba BEP20 (SHIB)",
+    "type": "crypto"
+  },
+  {
+    "code": "ALGO",
+    "description": "Algorand (ALGO)",
+    "type": "crypto"
+  },
+  {
+    "code": "AVAX",
+    "description": "Avalanche (AVAX)",
+    "type": "crypto"
+  },
+  {
+    "code": "YFI",
+    "description": "Yearn Finance (YFI)",
+    "type": "crypto"
+  },
+  {
+    "code": "MANA",
+    "description": "Decentraland (MANA)",
+    "type": "crypto"
+  },
+  {
+    "code": "LUNA",
+    "description": "Terra (LUNA)",
+    "type": "crypto"
+  },
+  {
+    "code": "NEAR",
+    "description": "NEAR Protocol (NEAR)",
+    "type": "crypto"
+  },
+  {
+    "code": "CRO",
+    "description": "Cronos (CRO)",
+    "type": "crypto"
+  },
+  {
+    "code": "GRAM",
+    "description": "Gram (Toncoin) (GRAM)",
+    "type": "crypto"
+  },
+  {
+    "code": "NOT",
+    "description": "Notcoin (NOT)",
+    "type": "crypto"
+  },
+  {
+    "code": "CAKE",
+    "description": "PancakeSwap (CAKE)",
+    "type": "crypto"
+  },
+  {
+    "code": "APT",
+    "description": "Aptos (APT)",
+    "type": "crypto"
+  },
+  {
+    "code": "ARB",
+    "description": "Arbitrum (ARB)",
+    "type": "crypto"
+  },
+  {
+    "code": "OP",
+    "description": "Optimism (OP)",
+    "type": "crypto"
+  },
+  {
+    "code": "TRUMP",
+    "description": "Official Trump (TRUMP)",
+    "type": "crypto"
+  },
+  {
+    "code": "SUI",
+    "description": "Sui (SUI)",
+    "type": "crypto"
+  },
+  {
+    "code": "KAS",
+    "description": "Kaspa (KAS)",
+    "type": "crypto"
+  },
+  {
+    "code": "FIL",
+    "description": "Filecoin (FIL)",
+    "type": "crypto"
+  },
+  {
+    "code": "AAVE",
+    "description": "Aave (AAVE)",
+    "type": "crypto"
+  },
+  {
+    "code": "ICP",
+    "description": "Internet Computer (ICP)",
+    "type": "crypto"
+  },
+  {
+    "code": "PPUSD",
+    "description": "PayPal USD",
+    "type": "fiat"
+  },
+  {
+    "code": "PPEUR",
+    "description": "PayPal EUR",
+    "type": "fiat"
+  },
+  {
+    "code": "PPGBP",
+    "description": "PayPal GBP",
+    "type": "fiat"
+  },
+  {
+    "code": "PPCAD",
+    "description": "PayPal CAD",
+    "type": "fiat"
+  },
+  {
+    "code": "PPAUD",
+    "description": "PayPal AUD",
+    "type": "fiat"
+  },
+  {
+    "code": "PMUSD",
+    "description": "Perfect Money USD",
+    "type": "fiat"
+  },
+  {
+    "code": "PMEUR",
+    "description": "Perfect Money EUR",
+    "type": "fiat"
+  },
+  {
+    "code": "ADVCUSD",
+    "description": "Volet USD",
+    "type": "fiat"
+  },
+  {
+    "code": "ADVCEUR",
+    "description": "Volet EUR",
+    "type": "fiat"
+  },
+  {
+    "code": "SKLUSD",
+    "description": "Skrill USD",
+    "type": "fiat"
+  },
+  {
+    "code": "SKLEUR",
+    "description": "Skrill EUR",
+    "type": "fiat"
+  },
+  {
+    "code": "BKASHBDT",
+    "description": "bKash BDT",
+    "type": "fiat"
+  },
+  {
+    "code": "NGDBDT",
+    "description": "Nagad BDT",
+    "type": "fiat"
+  },
+  {
+    "code": "NTLRUSD",
+    "description": "Neteller USD",
+    "type": "fiat"
+  },
+  {
+    "code": "NTLREUR",
+    "description": "Neteller EUR",
+    "type": "fiat"
+  },
+  {
+    "code": "PSRUSD",
+    "description": "PaySera USD",
+    "type": "fiat"
+  },
+  {
+    "code": "PSREUR",
+    "description": "PaySera EUR",
+    "type": "fiat"
+  },
+  {
+    "code": "MNGUSD",
+    "description": "MoneyGo USD",
+    "type": "fiat"
+  },
+  {
+    "code": "BPAYUSD",
+    "description": "BPay USD",
+    "type": "fiat"
+  },
+  {
+    "code": "EPAYUSD",
+    "description": "Epay USD",
+    "type": "fiat"
+  },
+  {
+    "code": "FPUSD",
+    "description": "FasaPay USD",
+    "type": "fiat"
+  },
+  {
+    "code": "ZELLEUSD",
+    "description": "Zelle USD",
+    "type": "fiat"
+  },
+  {
+    "code": "M10AZN",
+    "description": "M10 AZN",
+    "type": "fiat"
+  },
+  {
+    "code": "BLIKPLN",
+    "description": "BLIK PLN",
+    "type": "fiat"
+  },
+  {
+    "code": "ALPCNY",
+    "description": "Alipay CNY",
+    "type": "fiat"
+  },
+  {
+    "code": "WCTCNY",
+    "description": "WeChat CNY",
+    "type": "fiat"
+  },
+  {
+    "code": "EPPKR",
+    "description": "EasyPaisa PKR",
+    "type": "fiat"
+  },
+  {
+    "code": "JCPKR",
+    "description": "JazzCash PKR",
+    "type": "fiat"
+  },
+  {
+    "code": "PAYTMINR",
+    "description": "Paytm INR",
+    "type": "fiat"
+  },
+  {
+    "code": "MPARS",
+    "description": "Mercado Pago ARS",
+    "type": "fiat"
+  },
+  {
+    "code": "PIXBRBRL",
+    "description": "Pix BRL",
+    "type": "fiat"
+  },
+  {
+    "code": "CPTSUSD",
+    "description": "Capitalist USD",
+    "type": "fiat"
+  },
+  {
+    "code": "CPTSEUR",
+    "description": "Capitalist EUR",
+    "type": "fiat"
+  },
+  {
+    "code": "CPTSRUB",
+    "description": "Capitalist RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "WMZ",
+    "description": "WebMoney WMZ",
+    "type": "fiat"
+  },
+  {
+    "code": "WME",
+    "description": "WebMoney WME",
+    "type": "fiat"
+  },
+  {
+    "code": "GMUAH",
+    "description": "Global24 UAH",
+    "type": "fiat"
+  },
+  {
+    "code": "YAMRUB",
+    "description": "YooMoney RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "QWKZT",
+    "description": "QIWI KZT",
+    "type": "fiat"
+  },
+  {
+    "code": "PNRUSD",
+    "description": "Payoneer USD",
+    "type": "fiat"
+  },
+  {
+    "code": "PNREUR",
+    "description": "Payoneer EUR",
+    "type": "fiat"
+  },
+  {
+    "code": "ZENEUR",
+    "description": "ZEN EUR",
+    "type": "fiat"
+  },
+  {
+    "code": "IDAMD",
+    "description": "Idram AMD",
+    "type": "fiat"
+  },
+  {
+    "code": "MWRUB",
+    "description": "Mobile Wallet RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "MWUAH",
+    "description": "Mobile Wallet UAH",
+    "type": "fiat"
+  },
+  {
+    "code": "MWBYN",
+    "description": "Mobile Wallet BYN",
+    "type": "fiat"
+  },
+  {
+    "code": "TRDUSD",
+    "description": "Cryptoexchange USD",
+    "type": "fiat"
+  },
+  {
+    "code": "TRDEUR",
+    "description": "Cryptoexchange EUR",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDUSD",
+    "description": "Bank card USD",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDEUR",
+    "description": "Bank card EUR",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDGBP",
+    "description": "Bank card GBP",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDCNY",
+    "description": "Bank card CNY",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDSEK",
+    "description": "Bank card SEK",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDPLN",
+    "description": "Bank card PLN",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDMDL",
+    "description": "Bank card MDL",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDTRY",
+    "description": "Bank card TRY",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDRUB",
+    "description": "Bank card RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDUAH",
+    "description": "Bank card UAH",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDBYN",
+    "description": "Bank card BYN",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDKZT",
+    "description": "Bank card KZT",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDAMD",
+    "description": "Bank card AMD",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDKGS",
+    "description": "Bank card KGS",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDCAD",
+    "description": "Bank card CAD",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDBGN",
+    "description": "Bank card BGN",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDHUF",
+    "description": "Bank card HUF",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDCZK",
+    "description": "Bank card CZK",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDNOK",
+    "description": "Bank card NOK",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDAZN",
+    "description": "Bank card AZN",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDGEL",
+    "description": "Bank card GEL",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDUZS",
+    "description": "Bank card UZS",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDTJS",
+    "description": "Bank card TJS",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDNGN",
+    "description": "Bank card NGN",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDINR",
+    "description": "Bank card INR",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDAED",
+    "description": "Bank card AED",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDRON",
+    "description": "Bank card RON",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDTHB",
+    "description": "Bank card THB",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDIDR",
+    "description": "Bank card IDR",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDBRL",
+    "description": "Bank card BRL",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDARS",
+    "description": "Bank card ARS",
+    "type": "fiat"
+  },
+  {
+    "code": "CARDVND",
+    "description": "Bank card VND",
+    "type": "fiat"
+  },
+  {
+    "code": "UPCNY",
+    "description": "UnionPay card CNY",
+    "type": "fiat"
+  },
+  {
+    "code": "MIRCRUB",
+    "description": "Mir card RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "UZCUZS",
+    "description": "UZCARD card UZS",
+    "type": "fiat"
+  },
+  {
+    "code": "HUMOUZS",
+    "description": "HUMO card UZS",
+    "type": "fiat"
+  },
+  {
+    "code": "ELKGS",
+    "description": "Elcart card KGS",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREUSD",
+    "description": "Bank transfer USD",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREEUR",
+    "description": "Bank transfer EUR",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREGBP",
+    "description": "Bank transfer GBP",
+    "type": "fiat"
+  },
+  {
+    "code": "WIRERUB",
+    "description": "Bank transfer RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREUAH",
+    "description": "Bank transfer UAH",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREBYN",
+    "description": "Bank transfer BYN",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREKZT",
+    "description": "Bank transfer KZT",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREGEL",
+    "description": "Bank transfer GEL",
+    "type": "fiat"
+  },
+  {
+    "code": "WIRECNY",
+    "description": "Bank transfer CNY",
+    "type": "fiat"
+  },
+  {
+    "code": "WIRETRY",
+    "description": "Bank transfer TRY",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREPLN",
+    "description": "Bank transfer PLN",
+    "type": "fiat"
+  },
+  {
+    "code": "WIRETHB",
+    "description": "Bank transfer THB",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREINR",
+    "description": "Bank transfer INR",
+    "type": "fiat"
+  },
+  {
+    "code": "WIRENGN",
+    "description": "Bank transfer NGN",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREIDR",
+    "description": "Bank transfer IDR",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREBGN",
+    "description": "Bank transfer BGN",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREAED",
+    "description": "Bank transfer AED",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREJPY",
+    "description": "Bank transfer JPY",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREAUD",
+    "description": "Bank transfer AUD",
+    "type": "fiat"
+  },
+  {
+    "code": "WIRECAD",
+    "description": "Bank transfer CAD",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREHKD",
+    "description": "Bank transfer HKD",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREVND",
+    "description": "Bank transfer VND",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREMYR",
+    "description": "Bank transfer MYR",
+    "type": "fiat"
+  },
+  {
+    "code": "WIRENZD",
+    "description": "Bank transfer NZD",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREPKR",
+    "description": "Bank transfer PKR",
+    "type": "fiat"
+  },
+  {
+    "code": "WIRERON",
+    "description": "Bank transfer RON",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREILS",
+    "description": "Bank transfer ILS",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREKRW",
+    "description": "Bank transfer KRW",
+    "type": "fiat"
+  },
+  {
+    "code": "WIRESEK",
+    "description": "Bank transfer SEK",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREPHP",
+    "description": "Bank transfer PHP",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREBDT",
+    "description": "Bank transfer BDT",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREARS",
+    "description": "Bank transfer ARS",
+    "type": "fiat"
+  },
+  {
+    "code": "WIRECZK",
+    "description": "Bank transfer CZK",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREMXN",
+    "description": "Bank transfer MXN",
+    "type": "fiat"
+  },
+  {
+    "code": "WIREUYU",
+    "description": "Bank transfer UYU",
+    "type": "fiat"
+  },
+  {
+    "code": "WIRECLP",
+    "description": "Bank transfer CLP",
+    "type": "fiat"
+  },
+  {
+    "code": "SEPAEUR",
+    "description": "SEPA EUR",
+    "type": "fiat"
+  },
+  {
+    "code": "ERIPBYN",
+    "description": "ERIP Raschet BYN",
+    "type": "fiat"
+  },
+  {
+    "code": "SBPRUB",
+    "description": "SBP RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "UPIINR",
+    "description": "UPI INR",
+    "type": "fiat"
+  },
+  {
+    "code": "CORPUSD",
+    "description": "Company details USD",
+    "type": "fiat"
+  },
+  {
+    "code": "CORPEUR",
+    "description": "Company details EUR",
+    "type": "fiat"
+  },
+  {
+    "code": "CORPCNY",
+    "description": "Company details CNY",
+    "type": "fiat"
+  },
+  {
+    "code": "CORPRUB",
+    "description": "Company details RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "CORPUAH",
+    "description": "Company details UAH",
+    "type": "fiat"
+  },
+  {
+    "code": "ATMQRTHB",
+    "description": "ATM QR code THB",
+    "type": "fiat"
+  },
+  {
+    "code": "ATMQRBRL",
+    "description": "ATM QR code BRL",
+    "type": "fiat"
+  },
+  {
+    "code": "ATMQRVND",
+    "description": "ATM QR code VND",
+    "type": "fiat"
+  },
+  {
+    "code": "NFCRUB",
+    "description": "ATM NFC RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "REVBUSD",
+    "description": "Revolut USD",
+    "type": "fiat"
+  },
+  {
+    "code": "REVBEUR",
+    "description": "Revolut EUR",
+    "type": "fiat"
+  },
+  {
+    "code": "REVBGBP",
+    "description": "Revolut GBP",
+    "type": "fiat"
+  },
+  {
+    "code": "WISEUSD",
+    "description": "Wise USD",
+    "type": "fiat"
+  },
+  {
+    "code": "WISEEUR",
+    "description": "Wise EUR",
+    "type": "fiat"
+  },
+  {
+    "code": "WISEGBP",
+    "description": "Wise GBP",
+    "type": "fiat"
+  },
+  {
+    "code": "SBERRUB",
+    "description": "Sberbank RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "SBERQRUB",
+    "description": "Sberbank QR RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "TBRUB",
+    "description": "VTB RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "ACRUB",
+    "description": "Alfa-Bank RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "ACCRUB",
+    "description": "Alfa cash-in RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "RUSSTRUB",
+    "description": "Russian Standard RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "AVBRUB",
+    "description": "Avangard RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "TCSBRUB",
+    "description": "T-Bank RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "TCSBCRUB",
+    "description": "T-Bank cash-in RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "TCSBQRUB",
+    "description": "T-Bank QR RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "PSBRUB",
+    "description": "PSB RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "GPBRUB",
+    "description": "Gazprombank RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "RFBRUB",
+    "description": "Raiffeisen RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "RNKBRUB",
+    "description": "RNCB RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "OPNBRUB",
+    "description": "Openbank RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "POSTBRUB",
+    "description": "Post Bank RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "RSHBRUB",
+    "description": "RSHB RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "ROSBRUB",
+    "description": "Rosbank RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "MTSBRUB",
+    "description": "MTS Bank RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "HCBRUB",
+    "description": "Home Credit RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "OZONBRUB",
+    "description": "Ozon Bank RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "P24USD",
+    "description": "Privat 24 USD",
+    "type": "fiat"
+  },
+  {
+    "code": "P24UAH",
+    "description": "Privat 24 UAH",
+    "type": "fiat"
+  },
+  {
+    "code": "P24EUR",
+    "description": "Privat 24 EUR",
+    "type": "fiat"
+  },
+  {
+    "code": "RFBUAH",
+    "description": "Raiffeisen UAH",
+    "type": "fiat"
+  },
+  {
+    "code": "OSDBUAH",
+    "description": "Oschadbank UAH",
+    "type": "fiat"
+  },
+  {
+    "code": "USBUAH",
+    "description": "UkrSibbank UAH",
+    "type": "fiat"
+  },
+  {
+    "code": "PMBBUAH",
+    "description": "PUMB UAH",
+    "type": "fiat"
+  },
+  {
+    "code": "MONOBUSD",
+    "description": "Monobank USD",
+    "type": "fiat"
+  },
+  {
+    "code": "MONOBUAH",
+    "description": "Monobank UAH",
+    "type": "fiat"
+  },
+  {
+    "code": "MONOBEUR",
+    "description": "Monobank EUR",
+    "type": "fiat"
+  },
+  {
+    "code": "SNBUAH",
+    "description": "Sense Bank UAH",
+    "type": "fiat"
+  },
+  {
+    "code": "OTPBUAH",
+    "description": "OTP Bank UAH",
+    "type": "fiat"
+  },
+  {
+    "code": "ABUAH",
+    "description": "A-Bank UAH",
+    "type": "fiat"
+  },
+  {
+    "code": "IZIBUAH",
+    "description": "Izibank UAH",
+    "type": "fiat"
+  },
+  {
+    "code": "BLRBBYN",
+    "description": "Belarusbank BYN",
+    "type": "fiat"
+  },
+  {
+    "code": "HLKBKZT",
+    "description": "HalykBank KZT",
+    "type": "fiat"
+  },
+  {
+    "code": "BRBKZT",
+    "description": "Bereke Bank KZT",
+    "type": "fiat"
+  },
+  {
+    "code": "FRTBKZT",
+    "description": "ForteBank KZT",
+    "type": "fiat"
+  },
+  {
+    "code": "KSPBKZT",
+    "description": "Kaspi Bank KZT",
+    "type": "fiat"
+  },
+  {
+    "code": "JSNBKZT",
+    "description": "Alatau City Bank KZT",
+    "type": "fiat"
+  },
+  {
+    "code": "CCBKZT",
+    "description": "CenterCredit KZT",
+    "type": "fiat"
+  },
+  {
+    "code": "ERSNBKZT",
+    "description": "Eurasian Bank KZT",
+    "type": "fiat"
+  },
+  {
+    "code": "FFBKZT",
+    "description": "Freedom Bank KZT",
+    "type": "fiat"
+  },
+  {
+    "code": "PREXARS",
+    "description": "Prex ARS",
+    "type": "fiat"
+  },
+  {
+    "code": "PREXUYU",
+    "description": "Prex UYU",
+    "type": "fiat"
+  },
+  {
+    "code": "PREXCLP",
+    "description": "Prex CLP",
+    "type": "fiat"
+  },
+  {
+    "code": "WUUSD",
+    "description": "WU USD",
+    "type": "fiat"
+  },
+  {
+    "code": "WUEUR",
+    "description": "WU EUR",
+    "type": "fiat"
+  },
+  {
+    "code": "MGUSD",
+    "description": "MoneyGram USD",
+    "type": "fiat"
+  },
+  {
+    "code": "MGEUR",
+    "description": "MoneyGram EUR",
+    "type": "fiat"
+  },
+  {
+    "code": "RMTFUSD",
+    "description": "Ria USD",
+    "type": "fiat"
+  },
+  {
+    "code": "RMTFEUR",
+    "description": "Ria EUR",
+    "type": "fiat"
+  },
+  {
+    "code": "USTMUSD",
+    "description": "UNI USD",
+    "type": "fiat"
+  },
+  {
+    "code": "USTMRUB",
+    "description": "UNI RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "GCMTUSD",
+    "description": "GC USD",
+    "type": "fiat"
+  },
+  {
+    "code": "GCMTRUB",
+    "description": "GC RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHUSD",
+    "description": "Cash USD",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHEUR",
+    "description": "Cash EUR",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHGBP",
+    "description": "Cash GBP",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHAED",
+    "description": "Cash AED",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHRUB",
+    "description": "Cash RUB",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHTRY",
+    "description": "Cash TRY",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHUAH",
+    "description": "Cash UAH",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHBYN",
+    "description": "Cash BYN",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHKZT",
+    "description": "Cash KZT",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHCOP",
+    "description": "Cash COP",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHPLN",
+    "description": "Cash PLN",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHILS",
+    "description": "Cash ILS",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHCZK",
+    "description": "Cash CZK",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHGEL",
+    "description": "Cash GEL",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHAMD",
+    "description": "Cash AMD",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHCAD",
+    "description": "Cash CAD",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHTHB",
+    "description": "Cash THB",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHAUD",
+    "description": "Cash AUD",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHNGN",
+    "description": "Cash NGN",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHBGN",
+    "description": "Cash BGN",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHAZN",
+    "description": "Cash AZN",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHMDL",
+    "description": "Cash MDL",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHCHF",
+    "description": "Cash CHF",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHRON",
+    "description": "Cash RON",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHIDR",
+    "description": "Cash IDR",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHCNY",
+    "description": "Cash CNY",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHMXN",
+    "description": "Cash MXN",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHSGD",
+    "description": "Cash SGD",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHKRW",
+    "description": "Cash KRW",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHBRL",
+    "description": "Cash BRL",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHINR",
+    "description": "Cash INR",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHJPY",
+    "description": "Cash JPY",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHARS",
+    "description": "Cash ARS",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHKGS",
+    "description": "Cash KGS",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHEGP",
+    "description": "Cash EGP",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHVND",
+    "description": "Cash VND",
+    "type": "fiat"
+  },
+  {
+    "code": "CASHSAR",
+    "description": "Cash SAR",
+    "type": "fiat"
+  }
+]

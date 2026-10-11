@@ -1,4 +1,5 @@
 import { formatDisplayAmount } from '@workspace/amount-format';
+import { RatesXmlMethodEditor } from '../components/rates-xml-method-editor';
 import { PaymentMethodReserveEditor } from '../components/payment-method-reserve-editor';
 import { getGetAdminBestchangeQueryKey, type PaymentMethodReserveInput } from '@workspace/api-client-react';
 
@@ -10597,6 +10598,13 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                ) : (
                  <p className="field-hint">Manual Wallet monitoring is available when a Manual Wallet or fallback is configured.</p>
                )}
+             </section>
+           )}
+
+           {!isNew && isOwner && network && (
+             <section className="admin-form-card" data-testid="network-rates-xml">
+               <span className="field-label">Automatic rates.xml</span>
+               <RatesXmlMethodEditor optionId={`crypto:${network.id}`} mode="code-and-reserve" />
              </section>
            )}
 

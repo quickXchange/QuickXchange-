@@ -4526,6 +4526,84 @@ export interface PaymentMethodInput {
   fieldDefinitions: PaymentMethodFieldDefinition[];
 }
 
+export type RatesXmlMethodKind = typeof RatesXmlMethodKind[keyof typeof RatesXmlMethodKind];
+
+
+export const RatesXmlMethodKind = {
+  fiat: 'fiat',
+  crypto: 'crypto',
+  provider: 'provider',
+} as const;
+
+export interface RatesXmlMethod {
+  optionId: string;
+  name: string;
+  assetCode: string;
+  network?: string;
+  kind: RatesXmlMethodKind;
+  enabled: boolean;
+  code: string | null;
+  reserve: string;
+}
+
+export type RatesXmlAdminCurrencyCodesItemType = typeof RatesXmlAdminCurrencyCodesItemType[keyof typeof RatesXmlAdminCurrencyCodesItemType];
+
+
+export const RatesXmlAdminCurrencyCodesItemType = {
+  crypto: 'crypto',
+  fiat: 'fiat',
+} as const;
+
+export type RatesXmlAdminCurrencyCodesItem = {
+  code: string;
+  description: string;
+  type: RatesXmlAdminCurrencyCodesItemType;
+};
+
+export interface RatesXmlAdmin {
+  version: number;
+  published: boolean;
+  staging: boolean;
+  methods: RatesXmlMethod[];
+  currencyCodes: RatesXmlAdminCurrencyCodesItem[];
+  feedPath: string;
+}
+
+export type RatesXmlPreviewDiagnosticsItemFunctionType = typeof RatesXmlPreviewDiagnosticsItemFunctionType[keyof typeof RatesXmlPreviewDiagnosticsItemFunctionType];
+
+
+export const RatesXmlPreviewDiagnosticsItemFunctionType = {
+  swap: 'swap',
+  convert: 'convert',
+} as const;
+
+export type RatesXmlPreviewDiagnosticsItemState = typeof RatesXmlPreviewDiagnosticsItemState[keyof typeof RatesXmlPreviewDiagnosticsItemState];
+
+
+export const RatesXmlPreviewDiagnosticsItemState = {
+  ready: 'ready',
+  omitted: 'omitted',
+} as const;
+
+export type RatesXmlPreviewDiagnosticsItem = {
+  routeId: string;
+  functionType: RatesXmlPreviewDiagnosticsItemFunctionType;
+  sourceOptionId: string;
+  targetOptionId: string;
+  fromName: string;
+  toName: string;
+  state: RatesXmlPreviewDiagnosticsItemState;
+  message: string;
+};
+
+export interface RatesXmlPreview {
+  xml: string;
+  generatedAt: string;
+  exportedCount: number;
+  reviewHash: string;
+  diagnostics: RatesXmlPreviewDiagnosticsItem[];
+}
+
 export type PaymentMethodUpdateFamily = typeof PaymentMethodUpdateFamily[keyof typeof PaymentMethodUpdateFamily];
 
 
@@ -8251,4 +8329,20 @@ export type GetTelegramLinkStatusParams = {
  * @maxLength 256
  */
 token: string;
+};
+
+export type UpdateAdminRatesXmlMethodBody = {
+  /** @minimum 0 */
+  version: number;
+  optionId: string;
+  code?: string | null;
+  /** @pattern ^\d+(\.\d+)?$ */
+  reserve?: string;
+  expectedReserve?: string;
+};
+
+export type ActivateAdminRatesXmlBody = {
+  version: number;
+  reviewHash: string;
+  confirm: boolean;
 };

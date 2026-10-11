@@ -4735,6 +4735,74 @@ paths:
               schema: { type: string }
         "503":
           description: A fresh feed cannot currently be generated
+  /admin/rates-xml:
+    get:
+      operationId: getAdminRatesXml
+      tags: [Admin]
+      summary: Owner-only automatic rates XML method configuration
+      responses:
+        "200":
+          description: Method codes, reserves and staged rollout state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RatesXmlAdmin" }
+  /admin/rates-xml/method:
+    patch:
+      operationId: updateAdminRatesXmlMethod
+      tags: [Admin]
+      summary: Update one immutable settlement method's XML metadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, optionId]
+              properties:
+                version: { type: integer, minimum: 0 }
+                optionId: { type: string }
+                code: { type: string, nullable: true }
+                reserve: { type: string, pattern: '^\d+(\.\d+)?$' }
+                expectedReserve: { type: string }
+      responses:
+        "200":
+          description: Saved method configuration
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RatesXmlAdmin" }
+  /admin/rates-xml/preview:
+    get:
+      operationId: getAdminRatesXmlPreview
+      tags: [Admin]
+      summary: Read-only Swap and Convert XML preview and omission reasons
+      responses:
+        "200":
+          description: Current replacement feed preview
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RatesXmlPreview" }
+  /admin/rates-xml/activate:
+    post:
+      operationId: activateAdminRatesXml
+      tags: [Admin]
+      summary: Owner-confirmed activation after staging review
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, reviewHash, confirm]
+              properties:
+                version: { type: integer }
+                reviewHash: { type: string }
+                confirm: { type: boolean }
+      responses:
+        "200":
+          description: Activated replacement feed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RatesXmlAdmin" }
   /admin/bestchange:
     get:
       operationId: getAdminBestchange
@@ -7789,6 +7857,60 @@ components:
           type: array
           maxItems: 50
           items: { $ref: "#/components/schemas/PaymentMethodFieldDefinition" }
+    RatesXmlMethod:
+      type: object
+      required: [optionId, name, assetCode, kind, enabled, code, reserve]
+      properties:
+        optionId: { type: string }
+        name: { type: string }
+        assetCode: { type: string }
+        network: { type: string }
+        kind: { type: string, enum: [fiat, crypto, provider] }
+        enabled: { type: boolean }
+        code: { type: string, nullable: true }
+        reserve: { type: string }
+    RatesXmlAdmin:
+      type: object
+      required: [version, published, staging, methods, currencyCodes, feedPath]
+      properties:
+        version: { type: integer }
+        published: { type: boolean }
+        staging: { type: boolean }
+        methods:
+          type: array
+          items: { $ref: "#/components/schemas/RatesXmlMethod" }
+        currencyCodes:
+          type: array
+          items:
+            type: object
+            required: [code, description, type]
+            properties:
+              code: { type: string }
+              description: { type: string }
+              type: { type: string, enum: [crypto, fiat] }
+        feedPath: { type: string }
+    RatesXmlPreview:
+      type: object
+      required: [xml, generatedAt, exportedCount, diagnostics, reviewHash]
+      properties:
+        xml: { type: string }
+        generatedAt: { type: string }
+        exportedCount: { type: integer }
+        reviewHash: { type: string }
+        diagnostics:
+          type: array
+          items:
+            type: object
+            required: [routeId, functionType, sourceOptionId, targetOptionId, fromName, toName, state, message]
+            properties:
+              routeId: { type: string }
+              functionType: { type: string, enum: [swap, convert] }
+              sourceOptionId: { type: string }
+              targetOptionId: { type: string }
+              fromName: { type: string }
+              toName: { type: string }
+              state: { type: string, enum: [ready, omitted] }
+              message: { type: string }
     PaymentMethodUpdate:
       type: object
       minProperties: 1

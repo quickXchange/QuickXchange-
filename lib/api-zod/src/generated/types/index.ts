@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './activateAdminRatesXmlBody';
 export * from './adminActivityEvent';
 export * from './adminActivityPage';
 export * from './adminAuthorization';
@@ -545,6 +546,15 @@ export * from './quote';
 export * from './quoteInput';
 export * from './quoteInputType';
 export * from './quoteType';
+export * from './ratesXmlAdmin';
+export * from './ratesXmlAdminCurrencyCodesItem';
+export * from './ratesXmlAdminCurrencyCodesItemType';
+export * from './ratesXmlMethod';
+export * from './ratesXmlMethodKind';
+export * from './ratesXmlPreview';
+export * from './ratesXmlPreviewDiagnosticsItem';
+export * from './ratesXmlPreviewDiagnosticsItemFunctionType';
+export * from './ratesXmlPreviewDiagnosticsItemState';
 export * from './receiptFee';
 export * from './revenueFromParameter';
 export * from './revenueGroupByParameter';
@@ -642,6 +652,7 @@ export * from './telegramSupportBotResponse';
 export * from './telegramSupportBotStatus';
 export * from './topAffiliate';
 export * from './unsubscribeNewsletterParams';
+export * from './updateAdminRatesXmlMethodBody';
 export * from './verifiedFundingTransaction';
 export * from './websiteBranding';
 export * from './websiteBrandingAlignment';

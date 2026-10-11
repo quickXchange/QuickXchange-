@@ -1059,6 +1059,24 @@ export async function prepareBestchangeSwapQuotes(
       }
       return exact.receiveAmount;
     },
+    // XML-only projection of the SAME quote and its already-calculated fees.
+    // No alternate pricing formula, provider request or order creation.
+    publicationQuote: async (amount: number) => {
+      const ticket = await buildQuoteTicket({ ...base, amount }, route, false, false, context) as
+        QuoteTicket & { exact?: { receiveAmount: string; fixedCommission: string } };
+      if (ticket.manualOrderCreationDisabled || !ticket.exact || !ticket.manualSwapFees) {
+        throw new ApiError("BESTCHANGE_ROUTE_UNAVAILABLE", "Manual Swap pricing is unavailable.", 422);
+      }
+      return {
+        receiveAmount: ticket.exact.receiveAmount,
+        fixedFees: [
+          ticket.exact.fixedCommission,
+          ticket.manualSwapFees.exchangeFee.fixedTargetAmount,
+          ...ticket.manualSwapFees.selectedAddons
+            .filter(addon => addon.feeType !== "percentage").map(addon => addon.targetAmount),
+        ],
+      };
+    },
   };
 }
 
